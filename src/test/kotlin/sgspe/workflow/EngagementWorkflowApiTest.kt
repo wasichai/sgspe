@@ -8,7 +8,8 @@ import sgspe.F2ApiTest
 // WF-C (workflows.md): el ciclo con acta y el de postergar y cancelar, por los roles del equipo de relacionamiento; el
 // acta la devuelve y la aprueba solo SOCIAL_MANAGER. las guardas de EngagementWriteGuard (asistente, tipos formales,
 // preguntas pendientes, motivo de cancelación, close_light de una REUNION), EditAnyGuard sobre interacciones y
-// participantes ajenos y los conteos de asistentes los agrega el plan 2.2 a esta clase. cada interacción ya trae lo que esas guardas piden
+// participantes ajenos y los conteos de asistentes los prueba el plan 2.2 en EngagementWorkflowGuardsApiTest y
+// EditAnyApiTest, no aquí. cada interacción de esta clase ya trae lo que esas guardas piden
 class EngagementWorkflowApiTest : F2ApiTest() {
     private fun engagement(
         account: Account,

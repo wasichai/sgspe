@@ -8,7 +8,7 @@ import sgspe.F2ApiTest
 // WF-O (workflows.md): una versión nace en draft y sus dos transiciones son de SOCIAL_MANAGER y PROJECT_MANAGER. que
 // solo el endpoint de aprobación las aplique (CommandTransitionGuard), que reemplace la versión anterior en la misma
 // transacción, que approve exija al menos un miembro y que congele los miembros (TerritoryWriteGuard) lo agrega el
-// plan 2.2 a esta clase
+// plan 2.2 en AreaOfInfluenceWorkflowGuardsApiTest, no aquí
 class AreaOfInfluenceWorkflowApiTest : F2ApiTest() {
     @Test
     fun `una version nace en draft y el listado ofrece approve solo a sus roles`() {

@@ -240,6 +240,27 @@ Las pruebas viven en `src/test/kotlin/sgspe/<paquete>/` con el nombre que cada t
 Si al ejecutar este plan un nombre de 2.1 difiere de lo de arriba, manda `docs/database-model.md` y `docs/workflows.md`:
 se corrige el que se apartó de ellos.
 
+### Lo que 2.2 hereda de las pruebas de 2.1
+
+- `WorkflowMatrixApiTest` y `PermissionMatrixApiTest` (2.1) recorren todos los workflows y todos los roles por la API
+  genérica y deben seguir en verde con cada guarda que agrega este plan. Sus registros y cuentas ya cumplen lo que las
+  guardas piden, así que una matriz en rojo apunta a la guarda.
+- `WorkflowMatrixApiTest` excluye `DEFERRED_TO_2_2`: `stakeholder.assess`, `stakeholder.retire_assessed`,
+  `area_of_influence.approve` y `area_of_influence.supersede`, porque solo se alcanzan por el endpoint de comando. Esos
+  casos son de este plan: `StakeholderAssessmentApiTest`, `StakeholderWorkflowGuardsApiTest` y
+  `AreaOfInfluenceWorkflowGuardsApiTest`. La matriz también evita los atajos `engagement.register_held_unplanned` y
+  `engagement.close_light` (`WALK_AVOIDS`) al llevar un registro a un estado, y los prueba `EngagementWorkflowGuardsApiTest`.
+- Este plan debe escribir el caso de `retire_assessed` desde `assessed` (Tarea 11, `StakeholderWorkflowGuardsApiTest`):
+  ninguna clase de 2.1 lo cubre, porque el estado `assessed` solo se alcanza por `assess`.
+- Los tipos formales de interacción (RN-ENG-004) están copiados en `WorkflowMatrixApiTest` (`engagementTypeFor` y la prueba
+  de `FORMAL_TYPES`). Cuando aterrice `EngagementWriteGuard` (Tarea 7), esa copia debe mantenerse igual a la de la guarda, o
+  la prueba debe leerla de la fuente de la guarda.
+- Al agregar `CommandTransitionGuard` (Tarea 3), volver a revisar `available()` y el 409 de `supersede` desde `draft` en
+  `AreaOfInfluenceWorkflowApiTest`: el listado debe seguir ofreciendo `approve` a sus roles y `supersede` desde `draft` debe
+  seguir respondiendo 409, no el rechazo del comando.
+- Los nombres de persona que se alcanzan por una relación (`stakeholder → person`) para `ANALYST` y `READ_ONLY` no los
+  prueba 2.1: son casos de este plan, en `DashboardsApiTest` y `StakeholderRegisterApiTest`.
+
 ### Lo que este plan entrega a la Fase 2.3 (portal)
 
 Los contratos de `docs/api.md` §4.1 a §4.4, §4.11 y §4.13, con estas precisiones que la UI necesita:

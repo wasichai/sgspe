@@ -6,7 +6,8 @@ import org.springframework.http.HttpStatus
 import sgspe.F2ApiTest
 
 // WF-L (workflows.md): iniciar, concluir del todo o en parte y cancelar, por COMMUNITY_RELATIONS_OFFICER, FIELD_AGENT y
-// SOCIAL_MANAGER. EditAnyGuard sobre visitas ajenas y el motivo obligatorio de `cancel` los agrega el plan 2.2
+// SOCIAL_MANAGER. EditAnyGuard sobre visitas ajenas y el motivo obligatorio de `cancel` los prueba el plan 2.2 en
+// EditAnyApiTest y FieldVisitWorkflowGuardsApiTest, no aquí
 class FieldVisitWorkflowApiTest : F2ApiTest() {
     @Test
     fun `FIELD_AGENT inicia y concluye en parte su propia visita`() {

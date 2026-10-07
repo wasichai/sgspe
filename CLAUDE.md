@@ -23,8 +23,9 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
   Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` → `load_ubigeo.py`. Por el
-  túnel, los tres primeros pasos con el modelo de F2 tardan entre 6 y 8 minutos, y la suite de integración completa, al
-  menos una hora (la matriz de permisos, unos 58 minutos en una sola corrida, aprovisionamiento incluido).
+  túnel, los tres primeros pasos con el modelo de F2 tardan entre 6 y 8 minutos, y la suite de integración completa, de
+  30 minutos a más de una hora (la matriz de permisos, entre 11 y 58 minutos según la carga del túnel,
+  aprovisionamiento incluido).
 - Gradle: `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …`. El token nunca va a un archivo.
 - Docker es remoto: las pruebas de integración corren en la CI o con `WASICHAI_TEST_DB_*` contra `sgspe_test` por el túnel
   del puerto 5435 (`docs/develop/README.md` §6).

@@ -116,9 +116,9 @@ necesitan `python3` en el `PATH`.
 Con el modelo de F2, el primer `@BeforeEach` de la corrida aprovisiona la organización sembrada con los scripts de
 `model/`: por el túnel, entre 6 y 8 minutos (medido el 2026-10-07). Ese aprovisionamiento corre `apply.py`,
 `apply_roles.py` y `apply.py --workflows`, pero no `load_ubigeo.py`: la prueba que lo necesita lo carga ella misma.
-`SgspeApiTest.SCRIPT_TIMEOUT_SECONDS` da 20 minutos a cada script. La suite completa por el túnel tarda al menos una hora; por clase, medido: `TenantProvisioningApiTest`, unos
-13 minutos; `WorkflowMatrixApiTest` (sale de `model/workflows/*.json`), de 8 a 11; `PermissionMatrixApiTest`, la más
-larga (ver abajo).
+`SgspeApiTest.SCRIPT_TIMEOUT_SECONDS` da 20 minutos a cada script. La suite completa por el túnel tarda de 30 minutos a más de una hora, según la carga del túnel; por clase, medido:
+`TenantProvisioningApiTest`, entre 5,5 y 13 minutos; `WorkflowMatrixApiTest` (sale de `model/workflows/*.json`), de 8 a
+11; `PermissionMatrixApiTest`, la más larga (ver abajo).
 
 **Por qué no corren con Testcontainers en esta máquina.** Testcontainers crea el contenedor en el demonio remoto, pero lo
 busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
@@ -136,7 +136,8 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
    `wasichai/docs/development/getting-started.md#integration-tests`.
 
    La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 48 objetos y por el túnel tarda
-   unos 58 minutos (una corrida de Gradle midió 57 min 40 s), con el aprovisionamiento del tenant incluido. Para depurar
+   entre 11 y 58 minutos según la carga del túnel (una corrida de Gradle midió 57 min 40 s), con el aprovisionamiento del
+   tenant incluido. Para depurar
    un cambio de `model/roles.json`, recórtala a unos roles con `-Dmatrix.roles=FIELD_AGENT,GIS_ANALYST` (separados por
    comas; sin ella corren todos): con 3 roles y la prueba del `apiOnly` del administrador tardó unos 9,5 minutos, con el
    aprovisionamiento incluido. La corrida completa queda para la CI.
