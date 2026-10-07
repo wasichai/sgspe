@@ -22,6 +22,12 @@ GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew bu
 
 Si falta el alcance: `gh auth refresh -s read:packages`.
 
+**Secreto de Dependabot (T0.4).** En la CI de `sgspe`, el job lee GitHub Packages con `GITHUB_TOKEN` (`packages: read`) y no
+necesita secreto. Dependabot no recibe `GITHUB_TOKEN`: para que sus actualizaciones de Gradle puedan leer
+`wasichai/wasichai`, el repositorio `wasichai/sgspe` necesita `PACKAGES_TOKEN` (un PAT con `read:packages`) como secreto de
+**Dependabot** (Settings > Secrets and variables > Dependabot, no Actions), el que lee `.github/dependabot.yml`. Sin él, esas
+actualizaciones fallan. Lo carga el usuario, igual que el de `sgspe-ui`.
+
 ## 2. Variables de entorno
 
 ```bash
@@ -35,7 +41,7 @@ set -a; source develop/.env; set +a
 | `WASICHAI_DB_USERNAME` / `_PASSWORD` | `sgspe` / `sgspe` | credenciales de esa base |
 | `SGSPE_PG_PORT` | `5435` | puerto que publica `compose.yml` en `127.0.0.1` |
 | `WASICHAI_JWT_SECRET` | valor de desarrollo | firma de los tokens; 32 bytes o más; en producción, obligatorio y sin valor por defecto |
-| `WASICHAI_SEED_DEV` | `true` | crea `admin@wasichai.local` / `admin`; producción lo apaga |
+| `WASICHAI_SEED_DEV` | `true` | crea `admin@wasichai.local` / `admin`; producción lo apaga, y con el perfil `prod` `true` impide el arranque (`ProdGuard`) |
 | `WASICHAI_CORE` | `http://localhost:8094` | URL de los scripts de `model/` |
 | `WASICHAI_EMAIL` / `WASICHAI_PASSWORD` | el administrador de desarrollo | login de esos scripts |
 | `WASICHAI_TEST_DB_*` | comentadas | pruebas de integración contra la base externa (sección 6) |

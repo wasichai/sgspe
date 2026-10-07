@@ -47,7 +47,7 @@ Convenciones:
 | Estado | Significado |
 |---|---|
 | Diseñado | Los documentos de la Fase 0 lo cubren: objeto, mecanismo, API, pantalla y prueba están decididos, o la fila dice con «—» que no los tiene por su naturaleza (§7.1, tipo «No aplica») |
-| Implementado | El código y su prueba existen y pasan en la CI de su fase (desde F1). Si la fila lleva además Upstream, la brecha sigue abierta y su mitigación está implementada |
+| Implementado | El código y las pruebas que la fila cita existen y pasan en local (desde F1); la CI de la fase lo confirmará con el primer push, y entonces esta definición vuelve a «pasan en la CI de su fase». Si la fila lleva además Upstream, la brecha sigue abierta y su mitigación está implementada |
 | Decisión pendiente | Depende de una decisión que el análisis lleva al checkpoint: CON-041, GAP-025, CON-050, GAP-001, GAP-002, GAP-003, GAP-004, GAP-005, GAP-009 (`requirements-analysis.md` §1). Está diseñado con el valor por defecto de su gap o con la recomendación de su contradicción. La fila lo lleva cuando la columna «Afecta a» del gap la nombra, cuando su fila del análisis cita el ID, o cuando otra fila que cita el ID remite a ella: RNF-MNT-004 cita CON-050 y remite a RF-CAT-001, que define los valores ENUM. Los requisitos que dependen de otros gaps se diseñan con su valor por defecto y quedan como Diseñado |
 | Upstream | Su cumplimiento completo depende de una brecha de wasichai (UPS, `requirements-analysis.md` §18.2); la fila cita la brecha, y la mitigación de esa tabla ya está diseñada, salvo que la fila lleve además «Hueco» |
 | Hueco | Le falta algo que ningún documento define: una prueba o el lugar de un dato. §7.1 dice qué necesita (tipo «Hueco») |
@@ -251,7 +251,7 @@ Las 114 RF de `requirements-analysis.md` §6, en su orden. §6.18 (AUD) no tiene
 | Requirement | Source | Module | Entity | API | UI | Test | Fase | Estado |
 |---|---|---|---|---|---|---|---|---|
 | RF-IAM-001 | [USR-03] [PRM-01 §14] | BC-16 · `model/roles.json`; `sgspe-ui` (`/admin` con `WasichaiApp`) | usuarios y roles de wasichai; `project_assignment` (desde F2) | `POST /api/auth/login`; `/api/users`; `/api/roles`; `/api/metadata/objects/**` | `/admin` (usuarios, roles, permisos y metadata) | `RolesApiTest`; `SecurityApiTest` | F1 | Implementado |
-| RF-IAM-002 | [PRM-01 §14] [WAS-ADR-0020] | BC-16 · `sgspe-ui` (navegación del portal) | permisos de wasichai | `GET /api/auth/me/permissions`; `GET /api/sgspe/dashboards/indicators` (desde F2) | Portal › navegación principal | `Navigation.test.tsx`; `security.md` §14 «Acciones declaradas» | F1 | Implementado; Upstream (UPS-06) |
+| RF-IAM-002 | [PRM-01 §14] [WAS-ADR-0020] | BC-16 · `sgspe-ui` (navegación del portal) | permisos de wasichai | `GET /api/auth/me/permissions`; `GET /api/sgspe/dashboards/indicators` (desde F2) | Portal › navegación principal | `Navigation.test.tsx` | F1 | Implementado; Upstream (UPS-06) |
 
 ### 2.18 IA y conocimiento (AIK)
 
@@ -397,8 +397,8 @@ Fuente de las filas: `requirements-analysis.md` §14.
 | RQ-SEC-001 | [USR-06] [WAS-ADR-0010] | BC-16 · wasichai core (JWT); proxy inverso (CSP); `sgspe-ui` (token `sgspe.token`) | usuarios de wasichai | `POST /api/auth/login`; `GET /api/auth/me` | login compartido del portal y `/admin` | `SecurityApiTest` | F1 | Implementado |
 | RQ-SEC-002 | [WAS-ADR-0004] [WAS-ADR-0010] | BC-16 · wasichai core (tenant del token) | todas las tablas por organización | `GET /api/organizations/current`; `POST /api/organizations` | — | `TenantIsolationApiTest` | F1 | Implementado |
 | RQ-SEC-003 | [PRM-01 §7] [USR-09] | BC-16 · `model/roles.json`; `apply_roles.py` | roles de wasichai | `/api/roles` | `/admin` (roles) | `test_apply_roles.py`; `RolesApiTest` | F1 | Implementado; Upstream (UPS-10) |
-| RQ-SEC-004 | [PRM-01 §7] [WAS-ADR-0020] [WAS-ADR-0042] | BC-16 · `model/roles.json`; `model/model.json` (acciones declaradas) | objetos de `domain-model.md` §8.1.1 | `GET /api/auth/me/permissions`; `/api/objects/{object}/records` | `/admin` (permisos) | `test_apply_roles.py`; `security.md` §14 «Matriz de permisos»; `security.md` §14 «Acciones declaradas» | F1 | Implementado |
-| RQ-SEC-005 | [PRM-01 §7] | BC-16 · `sgspe.*` y `sgspe-ui` (sin nombres de rol); `sgspe.notification` (destinatarios) (desde F3) | `project_assignment` (desde F2) | — | — | `ArchitectureTest`; `boundaries.test`; `security.md` §14 «Destinatarios por rol» | F1 | Implementado |
+| RQ-SEC-004 | [PRM-01 §7] [WAS-ADR-0020] [WAS-ADR-0042] | BC-16 · `model/roles.json`; `model/model.json` (acciones declaradas) | objetos de `domain-model.md` §8.1.1 | `GET /api/auth/me/permissions`; `/api/objects/{object}/records` | `/admin` (permisos) | `test_apply_roles.py`; `RolesApiTest` | F1 | Implementado (F1: roles y permisos de `ADMIN` y `AUDITOR`); Diseñado (matriz completa y acciones declaradas, F2–F8) |
+| RQ-SEC-005 | [PRM-01 §7] | BC-16 · `sgspe.*` y `sgspe-ui` (sin nombres de rol); `sgspe.notification` (destinatarios) (desde F3) | `project_assignment` (desde F2) | — | — | `ArchitectureTest`; `boundaries.test` | F1 | Implementado |
 | RQ-SEC-006 | [PRM-01 §7] | BC-16 · `sgspe.scope` (`ProjectScopeGuard`) | `project_assignment` | `/api/objects/{object}/records`; `/api/sgspe/**` | — | `security.md` §14 «Alcance, opción A»; `security.md` §14 «Alcance, opción B» | F2 | Decisión pendiente (CON-041, GAP-025); Upstream (UPS-01) |
 | RQ-SEC-007 | [PRM-01 §7] [WAS-DOC api/rest.md] | BC-16 · `model/roles.json` | roles `AUDITOR`, `ANALYST`, `READ_ONLY` | `GET /api/audit` | `/admin` (auditoría) | `RolesApiTest` | F1 | Implementado; Upstream (UPS-06) |
 | RQ-SEC-008 | [PRM-01 §7] | BC-16 · `sgspe.scope` (`EditAnyGuard`); `model/roles.json` (`EDIT_ANY`) | `engagement`, `engagement_participant`, `field_visit`, `field_observation`, `evidence` (desde F3) | `/api/objects/engagement/records`; `/api/objects/engagement_participant/records` | Portal › Relacionamiento | `security.md` §14 «Edición de lo propio»; `EngagementWorkflowApiTest` | F2 | Diseñado |
@@ -406,8 +406,8 @@ Fuente de las filas: `requirements-analysis.md` §14.
 | RQ-SEC-011 | [WAS-ADR-0006] | BC-02 · `sgspe.territory` (proxy WMS); `model/publish_layers.py` | capas públicas de `gis.md` §2.1 | `GET /api/sgspe/territory/wms`; `/api/gis/layers/**` | Portal › Territorio: mapa territorial | `security.md` §14 «Proxy WMS» | F6 | Diseñado; Fuera del MVP |
 | RQ-SEC-014 | [WAS-ADR-0043] [DOC-01 §9.4.2] | BC-16 · cuentas de servicio de wasichai; `sgspe.warning` (`WarningWriteGuard`) | `early_warning` | `POST /api/auth/token`; `/api/service-accounts` | — | `security.md` §14 «Cuentas de servicio» | F4 | Diseñado |
 | RQ-SEC-015 | [WAS-ADR-0010] | BC-16 · proxy inverso (límite de tasa) | — | `POST /api/auth/login`; `POST /api/auth/token` | — | `LoginRateLimitTest` (propuesto), prueba de despliegue (`security.md` §14) | F1 | Upstream (UPS-09) |
-| RQ-SEC-016 | [WAS-ADR-0010] | BC-16 · `application-prod.yml` | — | — | — | `ProdProfileTest` | F1 | Implementado |
-| RQ-SEC-017 | [PRM-01 §21] | BC-16 · pruebas de seguridad (`security.md` §14) | — | `/api/**` | — | `TenantIsolationApiTest`; `SecurityApiTest`; `security.md` §14 «Permisos de campo» | F1 | Implementado |
+| RQ-SEC-016 | [WAS-ADR-0010] | BC-16 · `application-prod.yml` | — | — | — | `ProdProfileTest`; `ProdStartupTest`; `ProdGuardTest` | F1 | Implementado |
+| RQ-SEC-017 | [PRM-01 §21] | BC-16 · pruebas de seguridad (`security.md` §14) | — | `/api/**` | — | `TenantIsolationApiTest`; `SecurityApiTest` | F1 | Implementado (F1: aislamiento y autenticación); Diseñado (permisos de campo, F2) |
 | RQ-SEC-018 | [USR-07] | Transversal · documentos, seeds, fixtures y tests versionados | — | — | — | `security.md` §14 «Nombres reales» | F0–F8 | Diseñado |
 | RQ-SEC-019 | [USR-01] | BC-15 · `sgspe.deliverable` (validación de plantillas) | `deliverable` | `POST /api/sgspe/deliverable-templates` | Portal › Reportes | `security.md` §14 «Plantillas Word»; `deliverables.md` §13.2, criterio 18 | F8 | Diseñado; Fuera del MVP |
 | RQ-SEC-020 | [DOC-03] [DOC-01 Tabla 9.5] | BC-02 · `sgspe.territory` (carpeta temporal y límites) | — | `POST /api/sgspe/territory/imports` | — | `security.md` §14 «Importaciones» | F2 | Diseñado |
@@ -460,14 +460,14 @@ Las 20 RNF de `requirements-analysis.md` §7. Varias son de proceso o de reposit
 | Requirement | Source | Module | Entity | API | UI | Test | Fase | Estado |
 |---|---|---|---|---|---|---|---|---|
 | RNF-MNT-001 | [USR-03] [WAS-ADR-0024] | Transversal · app Spring Boot con `@WasichaiApplication` y los starters de `architecture.md` §5.1 | — | API genérica de wasichai (`api.md` §2) | `/admin` (`WasichaiApp`); portal con `@wasichai/ui` | `architecture.md` §13 «Contrato con la plataforma»; `ErrorContractApiTest` | F1 | Implementado |
-| RNF-MNT-002 | [USR-03] [WAS-ADR-0003] | Transversal · `model/model.json`, `model/roles.json`, `model/workflows/*.json`, `apply.py`, `apply_roles.py` | los 89 objetos de `domain-model.md` §6 | `/api/objects`; `/api/metadata/objects/**`; `/api/roles` | `/admin` (solo lectura del modelo en producción) | `test_apply.py`; `test_model.py` | F1 | Implementado |
+| RNF-MNT-002 | [USR-03] [WAS-ADR-0003] | Transversal · `model/model.json`, `model/roles.json`, `model/workflows/*.json`, `apply.py`, `apply_roles.py` | los 89 objetos de `domain-model.md` §6 | `/api/objects`; `/api/metadata/objects/**`; `/api/roles` | `/admin` (solo lectura del modelo en producción) | `test_apply.py` | F1 | Implementado (F1: `apply.py` y `apply_roles.py`); Diseñado (`test_model.py`, con los objetos de F2, ADR-0007) |
 | RNF-MNT-003 | [PRM-01 §24, §25] | Transversal · todos los paquetes y `model/` | — | — | — | Todas las suites de `architecture.md` §13 | F1–F8 | Diseñado |
 | RNF-MNT-004 | [USR-09] | Transversal · `model/model.json`, `model/roles.json`, paquetes `sgspe.*`, rutas `/api/sgspe/**` | los 89 objetos de `domain-model.md` §6 | `/api/sgspe/**` | etiquetas en español en el portal y en `/admin` | `test_model.py`; `test_apply_roles.py` | F0 | Decisión pendiente (CON-050) |
 | RNF-MNT-005 | [USR-03] [WAS-ADR-0003] [WAS-ADR-0024] [WAS-ADR-0025] [PRM-01 §19, §21] | Transversal · paquetes `sgspe.*` (`architecture.md` §5.2 y §5.3) | — | `/api/sgspe/**` | — | `ArchitectureTest`; `boundaries.test` | F1 | Implementado |
 | RNF-MNT-006 | [USR-08] | Transversal · repositorios `wasichai/sgspe` y `wasichai/sgspe-ui` | — | — | — | — | F0 | Diseñado |
 | RNF-MNT-007 | [USR-04] [USR-05] [PRM-01 §24] | Transversal · proceso por fases (`roadmap.md`) | — | — | — | — | F0 | Diseñado |
 | RNF-MNT-008 | [PRM-01 §22, §26] | Transversal · `docs/adr/` | — | — | — | — | F0 | Diseñado |
-| RNF-MNT-009 | [PRM-01 §0, §23, §27] | Transversal · `docs/requirements-traceability.md` | — | — | — | `check_traceability.py` (propuesto) en la CI (`roadmap.md`, definición de terminado de F1) | F0–F8 | Diseñado |
+| RNF-MNT-009 | [PRM-01 §0, §23, §27] | Transversal · `docs/requirements-traceability.md` | — | — | — | `tools/check_traceability.py` en la CI (`roadmap.md`, definición de terminado de F1) | F0–F8 | Diseñado |
 | RNF-PRIV-004 | [USR-07] [DOC-01 §9.3.1.2, Tabla 9.5] [DOC-02 p.4] | Transversal · `model/model.json` (consentimientos); `sgspe.privacy` (salidas EXTERNO) | `contact_method`, `evidence` | `/api/objects/contact_method/records`; `PATCH /api/sgspe/evidence/{id}` | Portal › Documentos; Grupos de interés | `security.md` §14 «Salidas»; `deliverables.md` §13.2, criterio 11 | F3 | Diseñado |
 | RNF-INT-001 | [PRM-01 §11] [WAS-DOC api/rest.md] | Transversal · wasichai core; `sgspe.common` | — | `/api/**` | — | `ErrorContractApiTest` | F1 | Implementado |
 | RNF-INT-002 | [PRM-01 §11] | Transversal · `sgspe.common` (`Idempotency-Key`) | tabla fija `idempotency_key` | `/api/sgspe/**` con el encabezado `Idempotency-Key` (`api.md` §3.5; marca `IK` en las tablas de `api.md` §4) | — | `IdempotencyApiTest` (propuesto) | F3 | Upstream (UPS-18) |
@@ -661,7 +661,7 @@ documento define; «Upstream» cuando lo que falta llega con una brecha de wasic
 | RNF-MNT-006 | entidad, API, test | No aplica | Decisión de repositorios; se verifica al crearlos en F1. No necesita objeto, ruta ni prueba |
 | RNF-MNT-007 | entidad, API, test | No aplica | Regla de proceso; se cumple con la pausa de revisión al cerrar F0 |
 | RNF-MNT-008 | entidad, API, test | No aplica | Regla de documentación; se verifica en la revisión de `docs/adr/` |
-| RNF-MNT-009 | entidad, API | No aplica | Es una regla de documentación; no tiene objeto ni ruta. La prueba es `check_traceability.py` (propuesto), que en la CI verifica que toda RF, RNF, RN y RQ tiene su fila |
+| RNF-MNT-009 | entidad, API | No aplica | Es una regla de documentación; no tiene objeto ni ruta. La prueba es `tools/check_traceability.py`, que en la CI verifica que toda RF, RNF, RN y RQ tiene su fila |
 | RNF-INT-001 | entidad | No aplica | Aplica a toda respuesta de error; no tiene objeto propio |
 | RNF-INT-003 | entidad | No aplica | Aplica a todo objeto que escribe el portal; no tiene objeto propio |
 | RNF-INT-004 | entidad | No aplica | Convención de toda la API propia; no tiene objeto propio |
@@ -765,7 +765,7 @@ Tarea 7).
 
 | Estado | Filas que lo llevan |
 |---|---|
-| Diseñado | 242 |
+| Diseñado | 245 |
 | Implementado | 22 |
 | Decisión pendiente | 14 |
 | Upstream | 28 |

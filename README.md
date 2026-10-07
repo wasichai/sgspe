@@ -14,7 +14,7 @@ GIS, tableros y entregables DOCX y PDF.
 
 ## Estado
 
-**Fase 1, fundación:** terminada (ver [`docs/HISTORY.md`](docs/HISTORY.md)). La Fase 2 trae los primeros objetos de
+**Fase 1, fundación:** en verde en local, a la espera del primer push y de la CI (ver [`docs/HISTORY.md`](docs/HISTORY.md)). La Fase 2 trae los primeros objetos de
 negocio: proyectos, territorio, grupos de interés y relacionamiento ([`docs/roadmap.md`](docs/roadmap.md)).
 
 - La app `sgspe` corre sobre wasichai 0.3.2 con los starters core, views, forms y pages, todavía sin objetos de negocio.

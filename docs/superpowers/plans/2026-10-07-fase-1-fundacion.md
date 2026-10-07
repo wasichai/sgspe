@@ -10,10 +10,10 @@
 el perfil de producción, las pruebas de arquitectura, la CI de los dos repositorios y `sgspe-ui` con portal, `/admin` y
 login compartido.
 
-**Architecture:** El backend vive en la raíz de `/Users/jorge/IdeaProjects/sgspe`, copiado de caja-backend@dc9e391: una
+**Architecture:** El backend vive en la raíz de `~/IdeaProjects/sgspe`, copiado de caja-backend@dc9e391: una
 app Spring Boot WebFlux armada solo con starters de wasichai (core, `-views`, `-forms`, `-pages`), más dos paquetes propios
 (`sgspe.observability` y la base de `sgspe.common`) y `model/` con los scripts de Python que aprovisionan un tenant en el
-orden `apply.py` → `apply_roles.py` → `apply.py --workflows`. La interfaz vive en `/Users/jorge/IdeaProjects/sgspe-ui`,
+orden `apply.py` → `apply_roles.py` → `apply.py --workflows`. La interfaz vive en `~/IdeaProjects/sgspe-ui`,
 copiada de caja-ui@a45b224: una sola app Vite cuyo `src/main.tsx` elige entre el portal (`/`) y `WasichaiApp` (`/admin`),
 con el mismo cliente, el mismo `storagePrefix` `sgspe` y por tanto el mismo token `sgspe.token`. Sin endpoints propios en
 F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
@@ -33,7 +33,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 
 ## Global Constraints
 
-- **Repositorios.** Backend y documentos en `/Users/jorge/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion` creada desde `fase-0/descubrimiento`. Interfaz en `/Users/jorge/IdeaProjects/sgspe-ui`: primero `chore: commit inicial` (vacío) en `main`, después todo el trabajo en `feat/fase-1-fundacion` creada desde ese `main`.
+- **Repositorios.** Backend y documentos en `~/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion` creada desde `fase-0/descubrimiento`. Interfaz en `~/IdeaProjects/sgspe-ui`: primero `chore: commit inicial` (vacío) en `main`, después todo el trabajo en `feat/fase-1-fundacion` creada desde ese `main`.
 - **Plantillas.** caja-backend en el commit `dc9e391` y caja-ui en el commit `a45b224`. «Copiar de caja» significa `cp` desde esas rutas y luego exactamente las ediciones que lista el paso.
 - **Versiones del backend.** `wasichai-bom` 0.3.2; starters `wasichai-spring-boot-starter`, `-views`, `-forms` y `-pages`; `wasichai-test` en pruebas; Kotlin 2.4.20; Spring Boot 4.1.1; plugin `org.jlleitschuh.gradle.ktlint` 14.2.0 con ktlint 1.7.1; JDK 25 (toolchain); Gradle 9.8.0 (wrapper de caja).
 - **Versiones de la interfaz.** `@wasichai/core`, `ui`, `views`, `forms`, `pages` y `testing` en 0.5.0; React y React DOM 19.3.0; React Router 8.4.0; TanStack Query 5.104.0; i18next 26.4.2; react-i18next 17.0.15; Vite 8.3.1; Vitest 5.0.2; TypeScript 7.0.2; Tailwind CSS 4.3.3; Node 26 o superior; Yarn 1 (`yarn.lock` v1).
@@ -44,7 +44,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 - **Alias del VPS.** `$SGSPE_VPS` es el alias SSH del VPS (el mismo host del reenvío de `/tmp/docker.sock`); lo exporta el usuario en su shell. Los pasos que abren túneles los ejecuta el usuario.
 - **Pruebas de integración.** Corren en la CI (Testcontainers) y, en local, contra la base externa `sgspe_test` por el túnel, con las cinco variables `WASICHAI_TEST_DB_HOST=localhost`, `WASICHAI_TEST_DB_PORT=5435`, `WASICHAI_TEST_DB_NAME=sgspe_test`, `WASICHAI_TEST_DB_USERNAME=sgspe` y `WASICHAI_TEST_DB_PASSWORD=sgspe` (el nombre termina en `_test`; la suite la vacía una vez por JVM) y `--rerun`.
 - **Sin túnel.** Si el túnel al 5435 no está disponible, las pruebas de integración pueden correr contra un clúster desechable de PostgreSQL 18 local (Homebrew `postgresql@18`, como la opción 3 de §6 en `docs/develop/README.md` de caja-backend): F1 no usa PostGIS. La CI sigue siendo la referencia.
-- **Gradle.** Siempre `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …` desde `/Users/jorge/IdeaProjects/sgspe`. El token nunca se escribe en un archivo, ni en `develop/.env`.
+- **Gradle.** Siempre `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …` desde `~/IdeaProjects/sgspe`. El token nunca se escribe en un archivo, ni en `develop/.env`.
 - **npm.** El `.npmrc` del proyecto es solo la línea `@wasichai:registry=https://npm.pkg.github.com`, copiada de caja-ui. La autenticación vive en `~/.npmrc` (ya tiene la línea de `npm.pkg.github.com`); los comandos de instalación se corren como `NODE_AUTH_TOKEN=$(gh auth token) yarn install`.
 - **CI de la interfaz.** El secreto `PACKAGES_TOKEN` (PAT con `read:packages`) lo carga el usuario en Actions y en Dependabot de `wasichai/sgspe-ui`.
 - **Commits.** Conventional Commits con asunto en español, líneas del cuerpo de 100 columnas como máximo (commitlint), y al final, tras una línea en blanco, estas dos líneas exactas: `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>` y `Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U`.
@@ -88,7 +88,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 
 ## Mapa de archivos
 
-### `/Users/jorge/IdeaProjects/sgspe` (backend en la raíz)
+### `~/IdeaProjects/sgspe` (backend en la raíz)
 
 | Ruta | Responsabilidad | Tarea |
 |---|---|---|
@@ -115,7 +115,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 | `docs/adr/0013-entregables-docx-primero.md`, `docs/adr/0015-mapas-de-informe-con-geoserver.md` | Resultado del spike en «Seguimiento» | 2 |
 | `README.md`, `CLAUDE.md`, `docs/README.md`, `docs/HISTORY.md`, `docs/requirements-traceability.md`, `docs/roadmap.md` | Cierre documental de F1 | 21 |
 
-### `/Users/jorge/IdeaProjects/sgspe-ui`
+### `~/IdeaProjects/sgspe-ui`
 
 | Ruta | Responsabilidad | Tarea |
 |---|---|---|
@@ -138,7 +138,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 
 | Ruta | Responsabilidad | Tarea |
 |---|---|---|
-| `/Users/jorge/IdeaProjects/sgspe-spike/` | Spike desechable de POI, Gotenberg y GetMap; nunca es un repositorio y se borra al terminar | 2 |
+| `~/IdeaProjects/sgspe-spike/` | Spike desechable de POI, Gotenberg y GetMap; nunca es un repositorio y se borra al terminar | 2 |
 
 ## Orden y paralelismo
 
@@ -152,9 +152,9 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 | Cierre | 21 | Coordinador | Tarea 20; Tarea 2 para los ADR |
 
 Las pistas A y B corren en paralelo, un implementador por repositorio: cada repositorio es ya un árbol de trabajo
-aislado, así que cada implementador trabaja directamente en `/Users/jorge/IdeaProjects/sgspe` o en
-`/Users/jorge/IdeaProjects/sgspe-ui` (las rutas absolutas del plan), y el coordinador no toca esos directorios mientras
-corre su pista. La Tarea 2 toca solo `/Users/jorge/IdeaProjects/sgspe-spike` y, al final, dos ADR de `sgspe`, que se
+aislado, así que cada implementador trabaja directamente en `~/IdeaProjects/sgspe` o en
+`~/IdeaProjects/sgspe-ui` (las rutas absolutas del plan), y el coordinador no toca esos directorios mientras
+corre su pista. La Tarea 2 toca solo `~/IdeaProjects/sgspe-spike` y, al final, dos ADR de `sgspe`, que se
 commitean entre dos tareas de la pista A, nunca con una tarea a medias.
 
 ---
@@ -164,8 +164,8 @@ commitean entre dos tareas de la pista A, nunca con una tarea a medias.
 **Pista:** 0. **Responsable:** coordinador; los pasos marcados **[USUARIO]** los hace o los aprueba el usuario.
 
 **Files:**
-- Create (sin commit todavía; se versiona en la Tarea 4): `/Users/jorge/IdeaProjects/sgspe/compose.yml`
-- Modify (local, no versionado): `/Users/jorge/IdeaProjects/sgspe/.git/info/exclude` (solo comprobar)
+- Create (sin commit todavía; se versiona en la Tarea 4): `~/IdeaProjects/sgspe/compose.yml`
+- Modify (local, no versionado): `~/IdeaProjects/sgspe/.git/info/exclude` (solo comprobar)
 
 **Interfaces:**
 - Consumes: el checkpoint aprobado (`docs/roadmap.md`, «Respuestas del checkpoint»).
@@ -175,7 +175,7 @@ commitean entre dos tareas de la pista A, nunca con una tarea a medias.
 - [ ] **Paso 1 (T0.1): exclusiones y rama en `sgspe`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 grep -cE '^/(initial-promp\.md|arch-concept\.md|arch-flow\.md|arch-init\.md|tech-landing\.txt)$' .git/info/exclude
 git status --short
 git switch fase-0/descubrimiento
@@ -187,7 +187,7 @@ Esperado: `5`; `git status --short` vacío; `Switched to a new branch 'feat/fase
 - [ ] **Paso 2 (T0.1): commit inicial y rama en `sgspe-ui`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git status --short
 git commit --allow-empty -F - <<'EOF'
 chore: commit inicial
@@ -206,7 +206,7 @@ Esperado: `git status --short` vacío (el repositorio no tiene archivos); el log
 El PR de la Tarea 21 necesita que `main` exista en el remoto. Con la aprobación del usuario:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git push -u origin main
 git switch -c feat/fase-1-fundacion
 ```
@@ -236,7 +236,7 @@ Esperado: una versión del servidor y `puertos-libres`. Si `docker info` falla c
 
 - [ ] **Paso 6 (T0.3): escribir `compose.yml`**
 
-Crear `/Users/jorge/IdeaProjects/sgspe/compose.yml` (adaptado de caja-backend@dc9e391 `compose.yml`: imagen PostGIS,
+Crear `~/IdeaProjects/sgspe/compose.yml` (adaptado de caja-backend@dc9e391 `compose.yml`: imagen PostGIS,
 nombre `sgspe`, puerto 5435):
 
 ```yaml
@@ -273,7 +273,7 @@ volumes:
 - [ ] **Paso 7 (T0.3): levantar PostGIS en el VPS**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 docker compose config -q && echo compose-ok
 docker compose up -d
 docker compose ps --format '{{.Name}} {{.Status}}'
@@ -294,7 +294,7 @@ Esperado: `tunel-ok`.
 - [ ] **Paso 9 (T0.3): base de pruebas `sgspe_test`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 docker compose exec postgis createdb -U sgspe sgspe_test
 docker compose exec postgis psql -U sgspe -d sgspe_test -tAc 'select 1'
 ```
@@ -319,7 +319,7 @@ Esperado: las dos listas muestran `PACKAGES_TOKEN`.
 `compose.yml` queda sin versionar hasta la Tarea 4. Comprobar que no se agregó nada:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe && git status --short
+cd ~/IdeaProjects/sgspe && git status --short
 ```
 
 Esperado: `?? compose.yml` y nada más.
@@ -328,15 +328,15 @@ Esperado: `?? compose.yml` y nada más.
 
 ### Tarea 2: Spike de entregables (POI y Gotenberg) y de GetMap
 
-**Pista:** spike, en paralelo con A y B. **Lugar:** `/Users/jorge/IdeaProjects/sgspe-spike`, fuera de los dos
+**Pista:** spike, en paralelo con A y B. **Lugar:** `~/IdeaProjects/sgspe-spike`, fuera de los dos
 repositorios; nunca se hace `git init` ahí y se borra al terminar. Lo único que se versiona es la nota de hallazgos en
 ADR-0013 y ADR-0015.
 
 **Files:**
-- Create (desechables): `/Users/jorge/IdeaProjects/sgspe-spike/settings.gradle.kts`, `build.gradle.kts`, `gradlew`,
+- Create (desechables): `~/IdeaProjects/sgspe-spike/settings.gradle.kts`, `build.gradle.kts`, `gradlew`,
   `gradlew.bat`, `gradle/wrapper/*`, `compose.yml`, `layouts/sgspe.xml`, `src/main/kotlin/Spike.kt`
-- Modify: `/Users/jorge/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md` (sección «### Seguimiento»)
-- Modify: `/Users/jorge/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md` (sección «### Seguimiento»)
+- Modify: `~/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md` (sección «### Seguimiento»)
+- Modify: `~/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md` (sección «### Seguimiento»)
 
 **Interfaces:**
 - Consumes: Docker remoto y túneles de la Tarea 1.
@@ -371,17 +371,17 @@ Regla de decisión, que se escribe en los ADR:
 - [ ] **Paso 1: crear el proyecto desechable**
 
 ```bash
-mkdir -p /Users/jorge/IdeaProjects/sgspe-spike/gradle /Users/jorge/IdeaProjects/sgspe-spike/layouts \
-  /Users/jorge/IdeaProjects/sgspe-spike/src/main/kotlin
-cp -R /Users/jorge/IdeaProjects/caja-backend/gradle/wrapper /Users/jorge/IdeaProjects/sgspe-spike/gradle/
-cp /Users/jorge/IdeaProjects/caja-backend/gradlew /Users/jorge/IdeaProjects/caja-backend/gradlew.bat \
-  /Users/jorge/IdeaProjects/sgspe-spike/
-grep distributionUrl /Users/jorge/IdeaProjects/sgspe-spike/gradle/wrapper/gradle-wrapper.properties
+mkdir -p ~/IdeaProjects/sgspe-spike/gradle ~/IdeaProjects/sgspe-spike/layouts \
+  ~/IdeaProjects/sgspe-spike/src/main/kotlin
+cp -R ~/IdeaProjects/caja-backend/gradle/wrapper ~/IdeaProjects/sgspe-spike/gradle/
+cp ~/IdeaProjects/caja-backend/gradlew ~/IdeaProjects/caja-backend/gradlew.bat \
+  ~/IdeaProjects/sgspe-spike/
+grep distributionUrl ~/IdeaProjects/sgspe-spike/gradle/wrapper/gradle-wrapper.properties
 ```
 
 Esperado: `distributionUrl=https\://services.gradle.org/distributions/gradle-9.8.0-bin.zip`.
 
-`/Users/jorge/IdeaProjects/sgspe-spike/settings.gradle.kts`:
+`~/IdeaProjects/sgspe-spike/settings.gradle.kts`:
 
 ```kotlin
 rootProject.name = "sgspe-spike"
@@ -393,7 +393,7 @@ dependencyResolutionManagement {
 }
 ```
 
-`/Users/jorge/IdeaProjects/sgspe-spike/build.gradle.kts`:
+`~/IdeaProjects/sgspe-spike/build.gradle.kts`:
 
 ```kotlin
 plugins {
@@ -421,7 +421,7 @@ application {
 }
 ```
 
-`/Users/jorge/IdeaProjects/sgspe-spike/compose.yml`:
+`~/IdeaProjects/sgspe-spike/compose.yml`:
 
 ```yaml
 name: sgspe-spike
@@ -447,7 +447,7 @@ volumes:
   geoserver-data:
 ```
 
-`/Users/jorge/IdeaProjects/sgspe-spike/layouts/sgspe.xml`:
+`~/IdeaProjects/sgspe-spike/layouts/sgspe.xml`:
 
 ```xml
 <layout>
@@ -1081,7 +1081,7 @@ fun maps() {
 - [ ] **Paso 3: compilar y generar la flecha de norte**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 ./gradlew -q run --args=north
 ls out/norte.png
 ```
@@ -1091,7 +1091,7 @@ Esperado: `out/norte.png listo` y el archivo listado. El spike usa solo Maven Ce
 - [ ] **Paso 4: levantar Gotenberg y GeoServer en el VPS y cargar el diseño de decoración**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 docker compose up -d
 docker compose exec geoserver mkdir -p /opt/geoserver_data/layouts
 docker compose cp layouts/sgspe.xml geoserver:/opt/geoserver_data/layouts/sgspe.xml
@@ -1114,7 +1114,7 @@ Esperado: `200` y `200`.
 - [ ] **Paso 6: correr el spike**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 rm -f out/resultados.txt
 ./gradlew -q run --args=all; echo "salida: $?"
 cat out/resultados.txt
@@ -1127,7 +1127,7 @@ concluir. El hallazgo cita lo que se vio.
 
 - [ ] **Paso 7: escribir los hallazgos en los ADR**
 
-En `/Users/jorge/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md`, al final de la lista de «### Seguimiento»
+En `~/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md`, al final de la lista de «### Seguimiento»
 (después de la viñeta «Pruebas: …»), agregar una viñeta con esta forma, con la fecha del día (`date +%F`), cada resultado
 copiado de `out/resultados.txt` y la regla de decisión que aplica:
 
@@ -1137,7 +1137,7 @@ copiado de `out/resultados.txt` y la regla de decisión que aplica:
   E5 fuentes …; E6 PDF/A-2b …; E7 N páginas en S s. Consecuencia: … (según la regla de decisión del plan de F1).
 ```
 
-En `/Users/jorge/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md`, igual al final de «### Seguimiento»:
+En `~/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md`, igual al final de «### Seguimiento»:
 
 ```markdown
 - **Resultado del spike de F1 (AAAA-MM-DD).** GeoServer 3.0.1 con capas en línea por `SLD_BODY`: M1 EPSG:32717 …,
@@ -1151,7 +1151,7 @@ con lo que se vio). No se cambia el estado de ningún ADR.
 - [ ] **Paso 8: verificar el formato de los ADR**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git diff --stat docs/adr/0013-entregables-docx-primero.md docs/adr/0015-mapas-de-informe-con-geoserver.md
 grep -c 'Resultado del spike de F1' docs/adr/0013-entregables-docx-primero.md docs/adr/0015-mapas-de-informe-con-geoserver.md
 ```
@@ -1161,7 +1161,7 @@ Esperado: dos archivos con líneas agregadas; `1` en cada uno.
 - [ ] **Paso 9: commit en `sgspe`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add docs/adr/0013-entregables-docx-primero.md docs/adr/0015-mapas-de-informe-con-geoserver.md
 git commit -F - <<'EOF'
 docs(adr): resultado del spike de entregables y GetMap
@@ -1177,11 +1177,11 @@ EOF
 - [ ] **Paso 10: desmontar el spike**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 docker compose down -v
 pkill -f 'ssh -fN -o ExitOnForwardFailure=yes -L 3094:localhost:3094' || true
-cd /Users/jorge/IdeaProjects && rm -rf sgspe-spike
-ls /Users/jorge/IdeaProjects | grep -c sgspe-spike
+cd ~/IdeaProjects && rm -rf sgspe-spike
+ls ~/IdeaProjects | grep -c sgspe-spike
 ```
 
 Esperado: `0`. El túnel del 5435 de la Tarea 1 sigue abierto.
@@ -1190,7 +1190,7 @@ Esperado: `0`. El túnel del 5435 de la Tarea 1 sigue abierto.
 
 ### Tarea 3: A1 · Build de Gradle, app `sgspe` y `SgspeSmokeTest`
 
-**Pista:** A (`/Users/jorge/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion`).
+**Pista:** A (`~/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion`).
 
 **Files:**
 - Create (copia exacta de caja-backend@dc9e391): `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`,
@@ -1208,11 +1208,11 @@ Esperado: `0`. El túnel del 5435 de la Tarea 1 sigue abierto.
 - [ ] **Paso 1: copiar el wrapper y los archivos de editor de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p gradle
-cp -R /Users/jorge/IdeaProjects/caja-backend/gradle/wrapper gradle/
-cp /Users/jorge/IdeaProjects/caja-backend/gradlew /Users/jorge/IdeaProjects/caja-backend/gradlew.bat .
-cp /Users/jorge/IdeaProjects/caja-backend/.editorconfig /Users/jorge/IdeaProjects/caja-backend/.gitignore .
+cp -R ~/IdeaProjects/caja-backend/gradle/wrapper gradle/
+cp ~/IdeaProjects/caja-backend/gradlew ~/IdeaProjects/caja-backend/gradlew.bat .
+cp ~/IdeaProjects/caja-backend/.editorconfig ~/IdeaProjects/caja-backend/.gitignore .
 grep distributionUrl gradle/wrapper/gradle-wrapper.properties
 ```
 
@@ -1418,7 +1418,7 @@ class SgspeSmokeTest : WasichaiIntegrationTest() {
 - [ ] **Paso 5: correr la prueba y ver que falla**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
@@ -1487,7 +1487,7 @@ management:
 - [ ] **Paso 8: correr la prueba y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
@@ -1499,7 +1499,7 @@ Esperado: `BUILD SUCCESSFUL`, 3 pruebas en verde.
 - [ ] **Paso 9: formato y build**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 ```
@@ -1509,7 +1509,7 @@ Esperado: `BUILD SUCCESSFUL` (ktlint limpio; ninguna prueba unitaria todavía).
 - [ ] **Paso 10: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add gradlew gradlew.bat gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.properties \
   .editorconfig .gitignore settings.gradle.kts build.gradle.kts \
   src/main/kotlin/sgspe/SgspeApplication.kt src/main/resources/application.yml src/test/kotlin/sgspe/SgspeSmokeTest.kt
@@ -1735,7 +1735,7 @@ Entrar con `admin@wasichai.local` / `admin`.
 - [ ] **Paso 3: comprobar el compose**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 docker compose config -q && echo compose-ok
 ```
 
@@ -1746,7 +1746,7 @@ Esperado: `compose-ok`.
 En segundo plano (herramienta Bash con `run_in_background`):
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 cp develop/example.env develop/.env
 set -a; source develop/.env; set +a
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew bootRun
@@ -1764,7 +1764,7 @@ Esperado: `{"status":"UP"}` dos veces. Detener `bootRun` después.
 - [ ] **Paso 5: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git status --short develop/
 git add compose.yml develop/example.env docs/develop/README.md
 git commit -F - <<'EOF'
@@ -1798,7 +1798,7 @@ Esperado antes del commit: `git status --short develop/` muestra `?? develop/exa
 - [ ] **Paso 1: comprobar que todavía no hay herramientas**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn -s format:check; echo "salida: $?"
 ```
 
@@ -1807,11 +1807,11 @@ Esperado: error «Couldn't find a package.json file» y `salida: 1`.
 - [ ] **Paso 2: copiar de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p .husky
-cp /Users/jorge/IdeaProjects/caja-backend/commitlint.config.mjs /Users/jorge/IdeaProjects/caja-backend/.prettierrc.json \
-  /Users/jorge/IdeaProjects/caja-backend/.prettierignore /Users/jorge/IdeaProjects/caja-backend/SECURITY.md .
-cp /Users/jorge/IdeaProjects/caja-backend/.husky/commit-msg .husky/commit-msg
+cp ~/IdeaProjects/caja-backend/commitlint.config.mjs ~/IdeaProjects/caja-backend/.prettierrc.json \
+  ~/IdeaProjects/caja-backend/.prettierignore ~/IdeaProjects/caja-backend/SECURITY.md .
+cp ~/IdeaProjects/caja-backend/.husky/commit-msg .husky/commit-msg
 sed -i '' 's#wasichai/caja-backend/security#wasichai/sgspe/security#' SECURITY.md
 grep -c 'wasichai/sgspe/security/advisories/new' SECURITY.md
 ```
@@ -1846,7 +1846,7 @@ Esperado: `1`. Ninguna otra edición: `.prettierignore` de caja ya deja fuera `*
 - [ ] **Paso 4: instalar y formatear**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn install
 yarn -s format
 yarn -s format:check; echo "salida: $?"
@@ -1858,7 +1858,7 @@ Esperado: `yarn.lock` creado (v1); `All matched files use Prettier code style!` 
 - [ ] **Paso 5: commitlint rechaza un mensaje inválido y acepta uno válido**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 printf 'cambios varios\n' | yarn -s commitlint; echo "salida: $?"
 printf 'chore: prueba de commitlint\n' | yarn -s commitlint; echo "salida: $?"
 ```
@@ -1868,7 +1868,7 @@ Esperado: el primero lista `subject may not be empty` y `type may not be empty` 
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add package.json yarn.lock commitlint.config.mjs .husky/commit-msg .prettierrc.json .prettierignore SECURITY.md \
   compose.yml src/main/resources/application.yml
 git commit -F - <<'EOF'
@@ -1914,10 +1914,10 @@ muestra, se quitan de la lista de `git add`.
 - [ ] **Paso 1: copiar los scripts de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p model
-cp /Users/jorge/IdeaProjects/caja-backend/model/core_client.py /Users/jorge/IdeaProjects/caja-backend/model/fake_core.py \
-  /Users/jorge/IdeaProjects/caja-backend/model/apply.py model/
+cp ~/IdeaProjects/caja-backend/model/core_client.py ~/IdeaProjects/caja-backend/model/fake_core.py \
+  ~/IdeaProjects/caja-backend/model/apply.py model/
 sed -i '' 's/shared by apply.py and the importers\./shared by apply.py and apply_roles.py (copied from caja-backend@dc9e391)./' model/core_client.py
 head -1 model/core_client.py
 ```
@@ -2543,7 +2543,7 @@ if __name__ == "__main__":
 - [ ] **Paso 7: correr las pruebas y verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 -m unittest -v 2>&1 | tail -5
 ```
 
@@ -2995,7 +2995,7 @@ ROLE_FIELD_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/field-permissions
 - [ ] **Paso 11: correr las pruebas y verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 -m unittest -v 2>&1 | tail -4
 python3 apply.py --validate-only; echo "salida: $?"
 python3 apply_roles.py --dry-run | grep -c '# POST /api/roles'
@@ -3008,7 +3008,7 @@ Esperado: `Ran 41 tests` y `OK`; `salida: 0`; `15`.
 Con `bootRun` en segundo plano como en la Tarea 4, Paso 4:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 apply.py | tail -1
 python3 apply_roles.py | tail -1
 python3 apply_roles.py | tail -1
@@ -3024,7 +3024,7 @@ plataforma que cambia esta tarea.
 - [ ] **Paso 13: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add model/model.json model/roles.json model/apply.py model/apply_roles.py model/core_client.py model/fake_core.py \
   model/fixture_model.py model/test_apply.py model/test_apply_roles.py
 git commit -F - <<'EOF'
@@ -3476,7 +3476,7 @@ class ErrorContractApiTest : SgspeApiTest() {
 - [ ] **Paso 2: compilarlas y verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
 ```
 
@@ -3682,7 +3682,7 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
 - [ ] **Paso 4: formato, build y compilación de las pruebas**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build compileTestKotlin
 ```
@@ -3692,7 +3692,7 @@ Esperado: `BUILD SUCCESSFUL`.
 - [ ] **Paso 5: correr las pruebas de contrato contra la base externa**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
@@ -3706,7 +3706,7 @@ y cuerpo del mensaje de la aserción) y se reporta al coordinador antes de tocar
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/test/kotlin/sgspe/SgspeApiTest.kt src/test/kotlin/sgspe/contract/TenantIsolationApiTest.kt \
   src/test/kotlin/sgspe/contract/TenantProvisioningApiTest.kt src/test/kotlin/sgspe/contract/SecurityApiTest.kt \
   src/test/kotlin/sgspe/contract/RolesApiTest.kt src/test/kotlin/sgspe/contract/AuditApiTest.kt \
@@ -3925,7 +3925,7 @@ class ProdProfileTest {
 - [ ] **Paso 2: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.ProdProfileTest'
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
 ```
@@ -4049,7 +4049,7 @@ logging:
 - [ ] **Paso 6: correr las pruebas unitarias y verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 ```
@@ -4059,7 +4059,7 @@ Esperado: `BUILD SUCCESSFUL`; en el reporte, `CorrelationIdFilterTest` (4) y `Pr
 - [ ] **Paso 7: correr la prueba de integración y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn -s format
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
@@ -4072,7 +4072,7 @@ Esperado: `BUILD SUCCESSFUL`, 5 pruebas en verde.
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/main/kotlin/sgspe/observability/CorrelationId.kt src/main/kotlin/sgspe/observability/CorrelationIdFilter.kt \
   src/main/resources/application-prod.yml src/test/kotlin/sgspe/observability/CorrelationIdFilterTest.kt \
   src/test/kotlin/sgspe/observability/ObservabilityApiTest.kt src/test/kotlin/sgspe/ProdProfileTest.kt
@@ -4269,7 +4269,7 @@ class RecordsApiTest : SgspeApiTest() {
 - [ ] **Paso 2: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
 ```
 
@@ -4389,7 +4389,7 @@ object StrictQuery {
 - [ ] **Paso 7: correr las pruebas y verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
@@ -4404,7 +4404,7 @@ Esperado: `BUILD SUCCESSFUL` dos veces; `SgspeWriteTest` (1), `LimaTest` (2) y `
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/main/kotlin/sgspe/common/SgspeWrite.kt src/main/kotlin/sgspe/common/Records.kt \
   src/main/kotlin/sgspe/common/Lima.kt src/main/kotlin/sgspe/common/StrictQuery.kt \
   src/test/kotlin/sgspe/common/SgspeWriteTest.kt src/test/kotlin/sgspe/common/LimaTest.kt \
@@ -4546,7 +4546,7 @@ class ArchitectureTest {
 - [ ] **Paso 2: plantar una violación y ver que la prueba falla**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 printf 'package sgspe\n\nval VIOLACION_DE_PRUEBA = listOf("AUDITOR")\n' > src/main/kotlin/sgspe/ViolacionDePrueba.kt
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.ArchitectureTest'
 ```
@@ -4557,7 +4557,7 @@ Esperado: FAIL en `ningun nombre de rol aparece en el codigo principal`, con
 - [ ] **Paso 3: quitar la violación y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 rm src/main/kotlin/sgspe/ViolacionDePrueba.kt
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
@@ -4569,7 +4569,7 @@ Esperado: `BUILD SUCCESSFUL`, `ArchitectureTest` (7) en verde; `git status --sho
 - [ ] **Paso 4: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/test/kotlin/sgspe/ArchitectureTest.kt
 git commit -F - <<'EOF'
 test(arch): reglas de arquitectura por escaneo de fuentes
@@ -4671,7 +4671,7 @@ if __name__ == "__main__":
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 python3 -m unittest discover -s tools -v 2>&1 | tail -3
 ```
 
@@ -4741,7 +4741,7 @@ if __name__ == "__main__":
 - [ ] **Paso 4: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 python3 -m unittest discover -s tools -v 2>&1 | tail -3
 python3 tools/check_traceability.py
 ```
@@ -4751,10 +4751,10 @@ Esperado: `Ran 6 tests` y `OK`; `ok: 298 requisitos, todos con su fila`.
 - [ ] **Paso 5: copiar `commits.yml` y `dependabot.yml` de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p .github/workflows
-cp /Users/jorge/IdeaProjects/caja-backend/.github/workflows/commits.yml .github/workflows/commits.yml
-cp /Users/jorge/IdeaProjects/caja-backend/.github/dependabot.yml .github/dependabot.yml
+cp ~/IdeaProjects/caja-backend/.github/workflows/commits.yml .github/workflows/commits.yml
+cp ~/IdeaProjects/caja-backend/.github/dependabot.yml .github/dependabot.yml
 grep -c '@[0-9a-f]\{40\}' .github/workflows/commits.yml
 ```
 
@@ -4874,7 +4874,7 @@ jobs:
 - [ ] **Paso 7: comprobar el formato y la sintaxis de los flujos**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn -s format
 yarn -s format:check; echo "salida: $?"
 grep -c 'postgis/postgis:18-3.6' .github/workflows/ci.yml
@@ -4885,7 +4885,7 @@ Esperado: `salida: 0` (prettier también valida que los tres YAML se parsean); `
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add .github/workflows/ci.yml .github/workflows/commits.yml .github/dependabot.yml \
   tools/check_traceability.py tools/test_check_traceability.py
 git commit -F - <<'EOF'
@@ -4906,7 +4906,7 @@ usuario da acceso de lectura al repositorio `wasichai/sgspe` en la configuració
 
 ### Tarea 12: B1 · Andamiaje de `sgspe-ui`
 
-**Pista:** B (`/Users/jorge/IdeaProjects/sgspe-ui`, rama `feat/fase-1-fundacion`).
+**Pista:** B (`~/IdeaProjects/sgspe-ui`, rama `feat/fase-1-fundacion`).
 
 **Files:**
 - Create (copia exacta de caja-ui@a45b224): `.npmrc`, `.editorconfig`, `.gitignore`, `.prettierrc.json`, `.husky/commit-msg`,
@@ -4924,12 +4924,12 @@ usuario da acceso de lectura al repositorio `wasichai/sgspe` en la configuració
 - [ ] **Paso 1: copiar la configuración de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 mkdir -p .husky src/test
 for f in .npmrc .editorconfig .gitignore .prettierrc.json tsconfig.json tsconfig.build.json SECURITY.md src/test/setup.ts .husky/commit-msg; do
-  cp "/Users/jorge/IdeaProjects/caja-ui/$f" "$f"
+  cp "$HOME/IdeaProjects/caja-ui/$f" "$f"
 done
-cp /Users/jorge/IdeaProjects/caja-backend/commitlint.config.mjs commitlint.config.mjs
+cp ~/IdeaProjects/caja-backend/commitlint.config.mjs commitlint.config.mjs
 cat .npmrc
 sed -i '' 's#wasichai/caja-ui/security#wasichai/sgspe-ui/security#' SECURITY.md
 grep -c 'wasichai/sgspe-ui/security/advisories/new' SECURITY.md
@@ -5017,7 +5017,7 @@ Contenido completo:
 - [ ] **Paso 4: instalar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 NODE_AUTH_TOKEN=$(gh auth token) yarn install
 head -2 yarn.lock
 git config --get core.hooksPath
@@ -5047,7 +5047,7 @@ describe('vite.config', () => {
 - [ ] **Paso 6: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test 2>&1 | tail -5
 ```
 
@@ -5123,7 +5123,7 @@ createRoot(document.getElementById('root')!).render(
 - [ ] **Paso 8: verla pasar y comprobar el resto**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format
 yarn test 2>&1 | tail -4
 yarn lint && yarn typecheck && yarn build
@@ -5134,7 +5134,7 @@ Esperado: `Test Files  1 passed (1)`; `lint`, `typecheck` y `build` sin errores;
 - [ ] **Paso 9: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add .npmrc .editorconfig .gitignore .prettierrc.json commitlint.config.mjs .husky/commit-msg tsconfig.json \
   tsconfig.build.json SECURITY.md package.json yarn.lock vite.config.ts index.html src/main.tsx src/index.css \
   src/test/setup.ts src/viteConfig.test.ts
@@ -5240,7 +5240,7 @@ describe('admin', () => {
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/admin 2>&1 | tail -5
 ```
 
@@ -5292,7 +5292,7 @@ createRoot(document.getElementById('root')!).render(<StrictMode>{admin ? <AdminA
 - [ ] **Paso 5: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
@@ -5301,7 +5301,7 @@ Esperado: `Test Files  2 passed (2)`, 4 pruebas; `lint` y `typecheck` limpios.
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/admin/AdminApp.tsx src/admin/AdminApp.test.tsx src/main.tsx
 git commit -F - <<'EOF'
 feat(admin): /admin con WasichaiApp y los módulos de los starters de F1
@@ -5567,7 +5567,7 @@ describe('login', () => {
 - [ ] **Paso 3: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal 2>&1 | tail -5
 ```
 
@@ -5858,7 +5858,7 @@ createRoot(document.getElementById('root')!).render(<StrictMode>{admin ? <AdminA
 - [ ] **Paso 6: verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
@@ -5868,7 +5868,7 @@ de `login.test.tsx`); `lint` y `typecheck` limpios.
 - [ ] **Paso 7: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/portal/api.ts src/portal/i18n.ts src/portal/textos/es.ts src/portal/PortalApp.tsx \
   src/portal/auth/LoginPage.tsx src/portal/auth/RequireSession.tsx src/portal/shell/AppShell.tsx \
   src/portal/pages/InicioPage.tsx src/test/portal.ts src/main.tsx src/portal/auth/RequireSession.test.tsx \
@@ -5892,7 +5892,7 @@ EOF
 
 **Files:**
 - Create: `csp.ts` (raíz del repositorio), `src/portal/shell/ThemeMenu.tsx` (copia de caja-ui con tres ediciones),
-  `src/theme/tokens.css` (copia exacta de `/Users/jorge/IdeaProjects/sgspe/docs/ux/tokens.css`), `src/theme/wasichai.css`,
+  `src/theme/tokens.css` (copia exacta de `~/IdeaProjects/sgspe/docs/ux/tokens.css`), `src/theme/wasichai.css`,
   `.prettierignore`
 - Modify: `index.html`, `vite.config.ts`, `tsconfig.json`, `package.json` (scripts y las dos fuentes), `yarn.lock`,
   `src/index.css` (contenido completo), `src/portal/shell/AppShell.tsx`
@@ -6087,7 +6087,7 @@ describe('menú de tema', () => {
 - [ ] **Paso 2: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/themes.test.ts src/csp.test.ts src/portal/shell 2>&1 | tail -6
 ```
 
@@ -6215,12 +6215,12 @@ Las fuentes salen de npm (licencia OFL-1.1) y Vite copia sus `woff2` a `dist/ass
 ```
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 npm view @fontsource/ibm-plex-sans@5.3.0 version license
 npm view @fontsource/ibm-plex-mono@5.3.0 version license
 NODE_AUTH_TOKEN=$(gh auth token) yarn install
 mkdir -p src/theme
-cp /Users/jorge/IdeaProjects/sgspe/docs/ux/tokens.css src/theme/tokens.css
+cp ~/IdeaProjects/sgspe/docs/ux/tokens.css src/theme/tokens.css
 shasum -a 256 src/theme/tokens.css
 ```
 
@@ -6311,8 +6311,8 @@ src/theme/tokens.css
 - [ ] **Paso 8: el menú de tema**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
-cp /Users/jorge/IdeaProjects/caja-ui/src/portal/shell/ThemeMenu.tsx src/portal/shell/ThemeMenu.tsx
+cd ~/IdeaProjects/sgspe-ui
+cp ~/IdeaProjects/caja-ui/src/portal/shell/ThemeMenu.tsx src/portal/shell/ThemeMenu.tsx
 ```
 
 Tres ediciones exactas en `src/portal/shell/ThemeMenu.tsx`:
@@ -6332,10 +6332,10 @@ En `src/portal/shell/AppShell.tsx`, agregar `import { ThemeMenu } from './ThemeM
 - [ ] **Paso 9: verlas pasar y comprobar la política, el tema y las fuentes**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck && yarn build
 yarn -s csp
-cmp src/theme/tokens.css /Users/jorge/IdeaProjects/sgspe/docs/ux/tokens.css && echo tokens-identicos
+cmp src/theme/tokens.css ~/IdeaProjects/sgspe/docs/ux/tokens.css && echo tokens-identicos
 ls dist/assets | grep -c '^ibm-plex-.*\.woff2$'
 grep -c 'IBM Plex Sans' dist/assets/index-*.css
 ```
@@ -6348,7 +6348,7 @@ avisa que `./csp` se importa sin extensión en `vite.config.ts` y que el bundle 
 - [ ] **Paso 10: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add index.html csp.ts vite.config.ts tsconfig.json package.json yarn.lock .prettierignore src/index.css \
   src/theme/tokens.css src/theme/wasichai.css src/portal/shell/ThemeMenu.tsx src/portal/shell/AppShell.tsx \
   src/themes.test.ts src/csp.test.ts src/portal/shell/ThemeMenu.test.tsx
@@ -6607,7 +6607,7 @@ describe('contexto en la URL', () => {
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal/shell/Navigation 2>&1 | tail -5
 ```
 
@@ -7068,7 +7068,7 @@ export function PortalApp() {
 - [ ] **Paso 8: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
@@ -7078,7 +7078,7 @@ contexto en la URL); `lint` y `typecheck` limpios.
 - [ ] **Paso 9: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/portal/shell/navTree.ts src/portal/pantallas.ts src/portal/shell/GuardaDeSeccion.tsx \
   src/portal/shell/context.ts src/portal/shell/AppShell.tsx src/portal/PortalApp.tsx src/portal/textos/es.ts \
   src/portal/shell/Navigation.test.tsx
@@ -7195,7 +7195,7 @@ describe('i18n del portal', () => {
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal/I18n 2>&1 | tail -5
 ```
 
@@ -7326,7 +7326,7 @@ En `src/portal/shell/AppShell.tsx`, agregar `import { LanguageMenu } from './Lan
 - [ ] **Paso 7: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
@@ -7335,7 +7335,7 @@ Esperado: `Test Files  9 passed (9)`; `I18n.test.tsx` con 5 pruebas en verde; `l
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/portal/textos/en.ts src/portal/textos/es.ts src/portal/i18n.ts src/portal/shell/LanguageMenu.tsx \
   src/portal/shell/AppShell.tsx src/portal/I18n.test.tsx
 git commit -F - <<'EOF'
@@ -7498,7 +7498,7 @@ describe('inicio por rol', () => {
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal/pages 2>&1 | tail -5
 ```
 
@@ -7740,7 +7740,7 @@ function Bienvenida() {
 - [ ] **Paso 6: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck && yarn build
 ```
 
@@ -7749,7 +7749,7 @@ Esperado: `Test Files  10 passed (10)`; `Inicio.test.tsx` con 6 pruebas en verde
 - [ ] **Paso 7: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/portal/queries.ts src/portal/inicios.ts src/portal/pages/InicioPage.tsx src/portal/textos/es.ts \
   src/portal/textos/en.ts src/portal/pages/Inicio.test.tsx
 git commit -F - <<'EOF'
@@ -7863,7 +7863,7 @@ describe('fronteras de la interfaz', () => {
 - [ ] **Paso 2: plantar una violación y verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 printf "export const VIOLACION_DE_PRUEBA = ['AUDITOR']\n" > src/violacionDePrueba.ts
 yarn test src/boundaries 2>&1 | tail -6
 ```
@@ -7873,7 +7873,7 @@ Esperado: FAIL en `ningún fuente nombra un rol`, con `violacionDePrueba.ts:1: e
 - [ ] **Paso 3: quitarla y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 rm src/violacionDePrueba.ts
 yarn test src/boundaries 2>&1 | tail -4
 ```
@@ -7883,10 +7883,10 @@ Esperado: 4 pruebas en verde.
 - [ ] **Paso 4: la CI y Dependabot**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 mkdir -p .github/workflows
-cp /Users/jorge/IdeaProjects/caja-ui/.github/workflows/ci.yml .github/workflows/ci.yml
-cp /Users/jorge/IdeaProjects/caja-ui/.github/workflows/commits.yml .github/workflows/commits.yml
+cp ~/IdeaProjects/caja-ui/.github/workflows/ci.yml .github/workflows/ci.yml
+cp ~/IdeaProjects/caja-ui/.github/workflows/commits.yml .github/workflows/commits.yml
 grep -c 'PACKAGES_TOKEN' .github/workflows/ci.yml .github/workflows/commits.yml
 ```
 
@@ -7945,7 +7945,7 @@ En `package.json`, reemplazar las líneas de `lint` y `format` por:
 - [ ] **Paso 5: la verificación completa de la pista B**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn lint && yarn typecheck && yarn test 2>&1 | tail -4 && yarn build
 ```
 
@@ -7954,7 +7954,7 @@ Esperado: `Test Files  11 passed (11)`; todo limpio.
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add .github/workflows/ci.yml .github/workflows/commits.yml .github/dependabot.yml package.json src/boundaries.test.ts
 git commit -F - <<'EOF'
 ci: lint, typecheck, pruebas y build con PACKAGES_TOKEN; fronteras de la interfaz
@@ -7984,7 +7984,7 @@ EOF
 - [ ] **Paso 1: la base y el túnel**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 nc -z localhost 5435 && echo tunel-ok
 docker compose ps --format '{{.Name}} {{.Status}}'
 ```
@@ -7994,7 +7994,7 @@ Esperado: `tunel-ok` y `sgspe-postgis Up … (healthy)`. Si falta el túnel, **[
 - [ ] **Paso 2: arrancar el backend** (herramienta Bash con `run_in_background`)
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 set -a; source develop/.env; set +a
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew bootRun
 ```
@@ -8004,7 +8004,7 @@ Esperado en el log: `Started SgspeApplication`.
 - [ ] **Paso 3: aprovisionar en el orden de `security.md` §4.1**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 apply.py | tail -1
 python3 apply_roles.py | tail -1
 python3 apply.py --workflows
@@ -8029,7 +8029,7 @@ Esperado: `201` (o `409` si el usuario quedó de una corrida anterior; vale igua
 - [ ] **Paso 5: arrancar la interfaz** (herramienta Bash con `run_in_background`)
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn dev
 ```
 
@@ -8092,7 +8092,7 @@ Esperado: `audit 200`, `users 403`, `roles 403`.
 - [ ] **Paso 9: todas las suites**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
@@ -8101,7 +8101,7 @@ GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew in
 python3 -m unittest discover -s tools 2>&1 | tail -2
 python3 tools/check_traceability.py
 yarn -s format:check
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn lint && yarn typecheck && yarn test 2>&1 | tail -3 && yarn build
 ```
 
@@ -8341,7 +8341,7 @@ la raíz del repositorio; su guía de desarrollo está en [`develop/README.md`](
 - [ ] **Paso 6: estado de las filas de F1 en `docs/requirements-traceability.md`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 python3 - <<'EOF'
 import re
 
@@ -8412,7 +8412,7 @@ y `ok: 298 requisitos, todos con su fila`. Si las cifras difieren, revisar que n
 
 - [ ] **Paso 7: `README.md`, `CLAUDE.md` y `HISTORY.md` de `sgspe-ui`**
 
-`/Users/jorge/IdeaProjects/sgspe-ui/README.md`:
+`~/IdeaProjects/sgspe-ui/README.md`:
 
 ````markdown
 # sgspe-ui
@@ -8479,7 +8479,7 @@ yarn -s csp          # la Content-Security-Policy para el proxy
 - La CI instala `@wasichai/*` con el secreto `PACKAGES_TOKEN` (un PAT con `read:packages`), en Actions y en Dependabot.
 ````
 
-`/Users/jorge/IdeaProjects/sgspe-ui/CLAUDE.md`:
+`~/IdeaProjects/sgspe-ui/CLAUDE.md`:
 
 ````markdown
 # CLAUDE.md
@@ -8505,7 +8505,7 @@ ADR-0024; la seguridad, `docs/security.md` §3.2 y §5.10.
 - Instalar con `NODE_AUTH_TOKEN=$(gh auth token) yarn install`; ningún token en archivos del repositorio.
 ````
 
-`/Users/jorge/IdeaProjects/sgspe-ui/HISTORY.md`:
+`~/IdeaProjects/sgspe-ui/HISTORY.md`:
 
 ```markdown
 # Historia de cambios
@@ -8530,8 +8530,8 @@ La entrada más reciente va primero. El diseño y los ADR están en el repositor
 - [ ] **Paso 8: formato y nombres reales**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe && yarn -s format:check && python3 tools/check_traceability.py
-cd /Users/jorge/IdeaProjects/sgspe-ui && yarn lint
+cd ~/IdeaProjects/sgspe && yarn -s format:check && python3 tools/check_traceability.py
+cd ~/IdeaProjects/sgspe-ui && yarn lint
 ```
 
 Esperado: limpio y `ok: 298 requisitos, todos con su fila`. Además, el coordinador corre su verificación de nombres reales
@@ -8540,7 +8540,7 @@ Esperado: limpio y `ok: 298 requisitos, todos con su fila`. Además, el coordina
 - [ ] **Paso 9: commits**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add README.md CLAUDE.md docs/README.md docs/HISTORY.md docs/requirements-traceability.md docs/roadmap.md \
   docs/superpowers/plans/2026-10-07-fase-1-fundacion.md
 git commit -F - <<'EOF'
@@ -8553,7 +8553,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
 EOF
 
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add README.md CLAUDE.md HISTORY.md
 git commit -F - <<'EOF'
 docs: README, CLAUDE.md e historia de la Fase 1
@@ -8570,14 +8570,14 @@ Si el plan ejecutable ya se versionó antes, quitarlo de la lista de `git add`.
 Con la aprobación del usuario. La base del PR de `sgspe` depende de si el PR de la Fase 0 ya se fusionó:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 gh pr view fase-0/descubrimiento --json state -q .state
 ```
 
 `MERGED` → base `main`; `OPEN` → base `fase-0/descubrimiento`. Después, en cada repositorio:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git push -u origin feat/fase-1-fundacion
 gh pr create --base main --title "feat: Fase 1, fundación de SGSPE sobre wasichai" --body-file - <<'EOF'
 Fase 1 (fundación) según `docs/roadmap.md` y el plan `docs/superpowers/plans/2026-10-07-fase-1-fundacion.md`.
@@ -8593,7 +8593,7 @@ Fase 1 (fundación) según `docs/roadmap.md` y el plan `docs/superpowers/plans/2
 https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
 EOF
 
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git push -u origin feat/fase-1-fundacion
 gh pr create --base main --title "feat: Fase 1, portal y administración de SGSPE" --body-file - <<'EOF'
 Fase 1 (fundación) de la interfaz, según `docs/roadmap.md` de `sgspe` (pista B).
@@ -8614,8 +8614,8 @@ En el PR de `sgspe`, `--base main` se cambia por `--base fase-0/descubrimiento` 
 - [ ] **Paso 11: CI en verde y cierre de la rama**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe && gh pr checks --watch
-cd /Users/jorge/IdeaProjects/sgspe-ui && gh pr checks --watch
+cd ~/IdeaProjects/sgspe && gh pr checks --watch
+cd ~/IdeaProjects/sgspe-ui && gh pr checks --watch
 ```
 
 Esperado: todos los trabajos en verde (`build`, `integration`, `model`, `traceability`, `format`, `commitlint` y

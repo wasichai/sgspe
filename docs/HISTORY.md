@@ -10,6 +10,11 @@ el arranque de la app, los roles como datos, el contrato con la plataforma, la o
 repositorios. El plan ejecutable está en
 [`superpowers/plans/2026-10-07-fase-1-fundacion.md`](superpowers/plans/2026-10-07-fase-1-fundacion.md).
 
+Estado: las pistas 0, A, B y C están en verde en local. La CI de los dos repositorios sigue pendiente del primer push y de
+los secretos `PACKAGES_TOKEN` (T0.4), así que «Implementado» en la matriz de trazabilidad significa, por ahora, verificado
+en local. Dependabot de `sgspe` también necesita `PACKAGES_TOKEN`, como secreto de Dependabot del repositorio
+(`docs/develop/README.md`, sección 1); sin él, sus actualizaciones de Gradle no leen GitHub Packages.
+
 ### Backend (`sgspe`)
 
 - **App.** `sgspe.SgspeApplication` con `@WasichaiApplication` y los starters core, views, forms y pages; puerto 8094;
@@ -20,7 +25,9 @@ repositorios. El plan ejecutable está en
 - **Contrato con la plataforma.** `TenantIsolationApiTest`, `TenantProvisioningApiTest`, `SecurityApiTest`,
   `RolesApiTest`, `AuditApiTest` y `ErrorContractApiTest`, sobre `SgspeApiTest`, que aprovisiona con los scripts reales.
 - **Observabilidad y producción.** `X-Correlation-Id` antes de la seguridad, también en un 401, y una línea de acceso sin
-  la cadena de consulta; `application-prod.yml` sin semilla, con secreto obligatorio, token de 4 horas y logs ECS.
+  la cadena de consulta; `application-prod.yml` sin semilla, con secreto obligatorio, token de 4 horas y logs ECS, y
+  `ProdGuard`, que con el perfil `prod` impide el arranque, antes de Flyway, si la semilla está encendida, si el secreto es el
+  de desarrollo o si el token dura 8 horas o más.
 - **`sgspe.common`.** La marca `SgspeWrite`, `Records` sobre `RecordService`, la hora de Lima y el 422 de parámetros
   desconocidos.
 - **Arquitectura y CI.** `ArchitectureTest`; CI con build, integración, modelo, trazabilidad (`tools/check_traceability.py`)
@@ -63,7 +70,7 @@ repositorios. El plan ejecutable está en
 - CSP en solo informe en desarrollo, con el hash del script; sin violaciones en la consola con la compilación de
   producción (`vite preview`).
 - Suites: `build` en verde; `integrationTest` con 34 pruebas y 0 fallas; modelo y herramientas de Python en verde;
-  trazabilidad con 298 requisitos; prettier en verde; interfaz con lint y typecheck en verde, 11 archivos con 107 pruebas y
+  trazabilidad con 298 requisitos; prettier en verde; interfaz con lint y typecheck en verde, 11 archivos con 109 pruebas tras el cierre (107 en la prueba de humo) y
   `build` en verde.
 
 ## 2026-10-07 — Diseño UX/UI, etapa 2: Project 360, territorio, grupos de interés, relacionamiento y compromisos

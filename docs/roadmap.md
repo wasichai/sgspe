@@ -153,7 +153,7 @@ paralelo, cada una en su propio worktree.
 | Entregables | Spike técnico de ADR-0013 (Apache POI, Gotenberg, fuentes e índice) y de ADR-0015 (GetMap), recomendado al inicio de F1 si el checkpoint lo aprueba ([Entregables §14](deliverables.md#14-fases), [SIG §10](gis.md#10-fases)) |
 | Roles con permisos | `SUPER_ADMIN` y `ORGANIZATION_ADMIN` (como `ADMIN`) y `AUDITOR` (`"*": ["READ"]`); los otros 14 existen con su etiqueta y sin permisos ([Seguridad §6](security.md#6-roles)) |
 | Requisitos de la fase | RF-IAM-001, RF-IAM-002, RNF-MNT-001, RNF-MNT-002, RNF-MNT-005, RNF-INT-001, RNF-I18N-001, RNF-OBS-001, RNF-USA-001, RQ-SEC-001, RQ-SEC-002, RQ-SEC-003, RQ-SEC-004, RQ-SEC-005, RQ-SEC-007, RQ-SEC-015, RQ-SEC-016, RQ-SEC-017, RQ-AUD-001, RQ-AUD-006, RQ-AUD-008, RQ-AUD-009, RQ-AUD-010, RQ-AUD-014; además RQ-AUD-005 en `/admin`, y RNF-MNT-003 y RNF-TST-001, que rigen de F1 a F8 |
-| Estado | Terminada el 2026-10-07: pistas 0, A, B y C en verde y spike hecho; plan ejecutable en `docs/superpowers/plans/2026-10-07-fase-1-fundacion.md` |
+| Estado | Pistas 0, A, B y C en verde en local el 2026-10-07 y spike hecho; la CI está pendiente del primer push y de los secretos `PACKAGES_TOKEN` (T0.4), así que la fase no se da por terminada hasta que ambos PR la pasen; plan ejecutable en `docs/superpowers/plans/2026-10-07-fase-1-fundacion.md` |
 
 ### Pista 0 · Precondiciones
 
@@ -162,7 +162,7 @@ paralelo, cada una en su propio worktree.
 | T0.1 | `.git/info/exclude` con los insumos transitorios y rama `feat/fase-1-fundacion` en `sgspe` y `sgspe-ui` | No |
 | T0.2 | Comprobar `gh auth status` con el alcance `read:packages` | No |
 | T0.3 | BD de desarrollo en el VPS: `docker compose up -d`, túnel `ssh -fN -L 5435:…` y base `sgspe_test` (su nombre termina en `_test`, como exige el modo externo `WASICHAI_TEST_DB_*`) | Sí: infraestructura compartida |
-| T0.4 | Secreto `PACKAGES_TOKEN` (PAT con `read:packages`) en Actions y en Dependabot de `sgspe-ui`, porque los paquetes npm `@wasichai/*` son internos | Sí: lo carga el usuario |
+| T0.4 | Secreto `PACKAGES_TOKEN` (PAT con `read:packages`) en Actions y en Dependabot de `sgspe-ui`, porque los paquetes npm `@wasichai/*` son internos, y en Dependabot de `sgspe`, para leer `wasichai/wasichai` ([desarrollo local](develop/README.md#1-requisitos)) | Sí: lo carga el usuario |
 | T0.5 | Spike de entregables (POI y Gotenberg) y de GetMap, con Gotenberg y GeoServer levantados solo para él ([Arquitectura §11](architecture.md#11-entornos)) | Sí: decisión del checkpoint |
 
 Gradle se invoca con las credenciales de GitHub Packages en variables de entorno, nunca en archivos del repositorio:
@@ -197,8 +197,7 @@ Gradle se invoca con las credenciales de GitHub Packages en variables de entorno
 | B9 | README y CLAUDE.md |
 
 Cada paso de la interfaz escribe primero su test con Vitest, Testing Library y `mockFetch` de `@wasichai/testing`, con
-usuarios ficticios `@sgspe.test` (RQ-SEC-018), por ejemplo `RequireSession.test.tsx` (propuesto) y `Navigation.test.tsx`
-(propuesto).
+usuarios ficticios `@sgspe.test` (RQ-SEC-018), por ejemplo `RequireSession.test.tsx` y `Navigation.test.tsx`.
 
 ### Pista C · Verificación final de F1
 
