@@ -176,9 +176,9 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
             // sin búfer, la salida de un script colgado llega completa al archivo y al mensaje del plazo vencido
             builder.environment()["PYTHONUNBUFFERED"] = "1"
             val process = builder.start()
-            if (!process.waitFor(120, TimeUnit.SECONDS)) {
+            if (!process.waitFor(SCRIPT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 process.destroyForcibly().waitFor()
-                fail<Unit>("${args.first()} no terminó en 120 s; salida hasta ahí:\n${Files.readString(log)}")
+                fail<Unit>("${args.first()} no terminó en $SCRIPT_TIMEOUT_SECONDS s; salida hasta ahí:\n${Files.readString(log)}")
             }
             return ScriptRun(process.exitValue(), Files.readString(log))
         } finally {
@@ -189,6 +189,10 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
     companion object {
         // wasichai pide al menos 8 caracteres
         const val PASSWORD = "clave-de-prueba-sgspe"
+
+        // el modelo de F2 son 48 objetos y 113 relaciones: contra la base del VPS por el túnel, apply.py tarda minutos
+        // (cada objeto es DDL en una base remota); en la CI, con Testcontainers local, segundos
+        const val SCRIPT_TIMEOUT_SECONDS = 1200L
         const val REASON = "X-Change-Reason"
         val JSON: JsonMapper = JsonMapper.builder().build()
 
