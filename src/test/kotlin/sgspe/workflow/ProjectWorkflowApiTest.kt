@@ -6,9 +6,11 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F2ApiTest
 
-// WF-A (workflows.md): cada transición permitida a sus roles y denegada a los demás, desde su estado y con su listado.
-// los casos que dependen de ProjectWriteGuard y TransitionReasonGuard (precondiciones de activación, motivo obligatorio,
-// doble llave, cambio de etapa) los agrega el plan 2.2 a esta clase
+// WF-A (workflows.md): el ciclo completo, los 403 y 409 más representativos y el listado de cada rol. la matriz de las
+// nueve transiciones (cada rol permitido, un rol denegado con su razón y un estado equivocado) está en WorkflowMatrixApiTest,
+// incluidas `return_to_draft` y `close_suspended`, que solo ella recorre. los casos que dependen de ProjectWriteGuard y
+// TransitionReasonGuard (`approve` sin working_crs o sin parte CLIENTE, `resume` verifica, doble llave, `stage` sin motivo y
+// motivo obligatorio de `return_to_draft`, `suspend` y `cancel_*`) los agrega el plan 2.2 en ProjectWorkflowGuardsApiTest
 class ProjectWorkflowApiTest : F2ApiTest() {
     // un proyecto que cumple las precondiciones de `active` (ASM-062), para que approve y resume pasen también con
     // ProjectWriteGuard
@@ -44,13 +46,14 @@ class ProjectWorkflowApiTest : F2ApiTest() {
         val manager = member("PROJECT_MANAGER", project)
         val gis = member("GIS_ANALYST", project)
         val stakeholders = member("STAKEHOLDER_MANAGER", project)
+        val admin = member("PROJECT_ADMIN", project)
 
         // GIS_ANALYST tiene `u` sobre project, pero ningún rol de WF-A
         assertEquals(HttpStatus.FORBIDDEN, transition("project", project, "submit_for_review", gis.token).status)
         // STAKEHOLDER_MANAGER solo lee el proyecto
         assertEquals(HttpStatus.FORBIDDEN, transition("project", project, "submit_for_review", stakeholders.token).status)
         // approve sale de in_review
-        assertEquals(HttpStatus.CONFLICT, transition("project", project, "approve", member("PROJECT_ADMIN", project).token).status)
+        assertEquals(HttpStatus.CONFLICT, transition("project", project, "approve", admin.token).status)
         // cancelar es solo de PROJECT_ADMIN
         assertEquals(HttpStatus.FORBIDDEN, transition("project", project, "cancel_draft", manager.token, "duplicado").status)
         assertEquals(HttpStatus.NOT_FOUND, transition("project", project, "activate", manager.token).status)
@@ -68,6 +71,7 @@ class ProjectWorkflowApiTest : F2ApiTest() {
         assertEquals(true to null, forManager["submit_for_review"])
         assertEquals(false to "requires role PROJECT_ADMIN", forManager["cancel_draft"])
         val forAnalyst = available("project", project, analyst.token)
+        assertTrue(forAnalyst.isNotEmpty(), "el listado de ANALYST no puede venir vacío")
         assertTrue(forAnalyst.values.all { it == (false to "requires permission UPDATE") }, forAnalyst.toString())
     }
 

@@ -6,9 +6,14 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F2ApiTest
 
-// WF-B (workflows.md): sin estado final, retirar y reincorporar, y `assess` solo para quien evalúa. el endpoint de
-// evaluaciones, `assess` rechazada por la API genérica (CommandTransitionGuard), el motivo obligatorio de retirar y
-// reincorporar y la guarda de `profile` los agrega el plan 2.2 a esta clase
+// WF-B (workflows.md): sin estado final, retirar y reincorporar, y `assess` solo para quien evalúa. la matriz de las
+// transiciones que la API genérica aplica (`profile`, `retire_identified`, `retire_profiled` y `reinstate`, con cada rol
+// permitido, un rol denegado y un estado equivocado) está en WorkflowMatrixApiTest. `assess` y `retire_assessed` no tienen
+// aquí su caso feliz: `assess` solo la aplica el endpoint de evaluaciones (CommandTransitionGuard rechaza la genérica) y
+// `retire_assessed` sale de `assessed`, que solo se alcanza por él. el plan 2.2 los agrega: `assess` por el endpoint en
+// StakeholderAssessmentApiTest y `assess` genérica rechazada, el motivo obligatorio de `retire_*` y `reinstate` y la guarda
+// de `profile` en StakeholderWorkflowGuardsApiTest; `retire_assessed` desde `assessed` no está en la tabla de «Interfaces»
+// de 2.2 y hay que escribirla allí (en el WorkflowMatrixApiTest, `DEFERRED_TO_2_2` la excluye)
 class StakeholderWorkflowApiTest : F2ApiTest() {
     // un grupo de interés con lo que `profile` exige (RF-STK-003): tipo, ámbito, motivo de inclusión y responsable
     private fun profileable(owner: Account): String =
