@@ -114,8 +114,9 @@ Las pruebas de integración llevan `@Tag("integration")` (lo heredan de `Wasicha
 necesitan `python3` en el `PATH`.
 
 Con el modelo de F2, el primer `@BeforeEach` de la corrida aprovisiona la organización sembrada con los scripts de
-`model/`: por el túnel, entre 6 y 8 minutos (medido el 2026-10-07). `SgspeApiTest.SCRIPT_TIMEOUT_SECONDS` da 20 minutos a
-cada script. La suite completa por el túnel tarda más de una hora; por clase, medido: `TenantProvisioningApiTest`, unos
+`model/`: por el túnel, entre 6 y 8 minutos (medido el 2026-10-07). Ese aprovisionamiento corre `apply.py`,
+`apply_roles.py` y `apply.py --workflows`, pero no `load_ubigeo.py`: la prueba que lo necesita lo carga ella misma.
+`SgspeApiTest.SCRIPT_TIMEOUT_SECONDS` da 20 minutos a cada script. La suite completa por el túnel tarda al menos una hora; por clase, medido: `TenantProvisioningApiTest`, unos
 13 minutos; `WorkflowMatrixApiTest` (sale de `model/workflows/*.json`), de 8 a 11; `PermissionMatrixApiTest`, la más
 larga (ver abajo).
 
