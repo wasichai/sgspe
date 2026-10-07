@@ -84,16 +84,22 @@ El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre
 
 ```bash
 cd model
-python3 apply.py --validate-only        # el modelo cumple las reglas de wasichai (no necesita servidor)
-python3 apply.py                        # objetos, acciones, relaciones e índices. En F1: "done: 0 created, 0 updated, 0 skipped"
-python3 apply_roles.py                  # los 15 roles declarados. La segunda vez: "done: 0 created, 0 updated, 15 skipped"
-python3 apply.py --workflows            # workflows, tipos de documento, automatizaciones, vistas, formularios y páginas (desde F2)
-python3 -m unittest -v                  # las pruebas de los scripts, contra un core falso
+python3 apply.py --validate-only        # el modelo y los workflows cumplen las reglas de wasichai (no necesita servidor)
+python3 apply.py                        # objetos, acciones, relaciones e índices. En F2: "done: 168 created, 11 updated, 0 skipped"
+python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
+python3 apply.py --workflows            # los 5 workflows de F2: "done: 5 workflows (5 created, 0 updated, 0 skipped)"
+python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
+python3 -m unittest -v                  # las pruebas de los scripts, contra un core falso, y del modelo contra docs/
 ```
 
 - `roles.json` es la fuente de verdad: volver a correr `apply_roles.py` deshace lo editado a mano en `/admin`.
 - `SUPER_ADMIN` y `ORGANIZATION_ADMIN` no se declaran: son el `ADMIN` de wasichai (`mappedToAdmin`).
-- Un tenant nuevo se prepara con `POST /api/organizations` y después estos tres pasos, con el administrador del tenant.
+- Un tenant nuevo se prepara con `POST /api/organizations` y después estos cuatro pasos, con el administrador del tenant.
+  Los cuatro son idempotentes: una subida de fase los repite.
+- `model.json` y `roles.json` se editan a mano y `test_model.py` y `test_apply_roles.py` los comparan con
+  `database-model.md` y `security.md`: si un documento cambia, la prueba dice qué falta.
+- El CSV del INEI trae una fila sin código (`NA`, distrito San Antonio, provincia Mariscal Nieto, Moquegua): `load_ubigeo.py`
+  la informa y la salta.
 
 ## 6. Pruebas
 
@@ -106,6 +112,12 @@ GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew co
 Las pruebas de integración llevan `@Tag("integration")` (lo heredan de `WasichaiIntegrationTest`): `build` las excluye e
 `integrationTest` las corre. Levantan la app entera y aprovisionan el modelo con los scripts reales de `model/`, así que
 necesitan `python3` en el `PATH`.
+
+Con el modelo de F2, el primer `@BeforeEach` de la corrida aprovisiona la organización sembrada con los scripts de
+`model/`: por el túnel, entre 6 y 8 minutos (medido el 2026-10-07). `SgspeApiTest.SCRIPT_TIMEOUT_SECONDS` da 20 minutos a
+cada script. La suite completa por el túnel tarda más de una hora; por clase, medido: `TenantProvisioningApiTest`, unos
+13 minutos; `WorkflowMatrixApiTest` (sale de `model/workflows/*.json`), de 8 a 11; `PermissionMatrixApiTest`, la más
+larga (ver abajo).
 
 **Por qué no corren con Testcontainers en esta máquina.** Testcontainers crea el contenedor en el demonio remoto, pero lo
 busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
@@ -123,12 +135,13 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
    `wasichai/docs/development/getting-started.md#integration-tests`.
 
    La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 48 objetos y por el túnel tarda
-   57 min 40 s (medido), aprovisionamiento incluido. Para depurar un cambio de `model/roles.json`, recórtala a unos
-   roles con `-Dmatrix.roles=FIELD_AGENT,GIS_ANALYST` (separados por comas; sin ella corren todos): cada rol son unos 3
-   a 4 minutos. La corrida completa queda para la CI.
+   unos 58 minutos (una corrida de Gradle midió 57 min 40 s), con el aprovisionamiento del tenant incluido. Para depurar
+   un cambio de `model/roles.json`, recórtala a unos roles con `-Dmatrix.roles=FIELD_AGENT,GIS_ANALYST` (separados por
+   comas; sin ella corren todos): con 3 roles y la prueba del `apiOnly` del administrador tardó unos 9,5 minutos, con el
+   aprovisionamiento incluido. La corrida completa queda para la CI.
 
    ```bash
-   ./gradlew integrationTest --rerun --tests 'sgspe.security.PermissionMatrixApiTest' -Dmatrix.roles=FIELD_AGENT
+   GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew integrationTest --rerun --tests 'sgspe.security.PermissionMatrixApiTest' -Dmatrix.roles=FIELD_AGENT
    ```
 
 ## 7. Observabilidad

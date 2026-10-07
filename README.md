@@ -35,7 +35,7 @@ cp develop/example.env develop/.env
 set -a; source develop/.env; set +a
 docker compose up -d
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew bootRun
-cd model && python3 apply.py && python3 apply_roles.py && python3 apply.py --workflows
+cd model && python3 apply.py && python3 apply_roles.py && python3 apply.py --workflows && python3 load_ubigeo.py
 ```
 
 El Docker de desarrollo es remoto: la base llega por un túnel SSH. La guía completa (túnel, variables, pruebas de
