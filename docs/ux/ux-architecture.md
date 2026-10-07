@@ -1,6 +1,6 @@
 # Arquitectura de UX de SGSPE
 
-Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapa 1 de 3 · versión 0.1 · 2026-10-07
+Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.2 · 2026-10-07
 
 Este documento fija la visión de experiencia, la arquitectura de información, la navegación y el principio que ordena todo el
 portal: **la navegación contextual y la trazabilidad**. Deriva del [análisis de requisitos](../requirements-analysis.md), del
@@ -9,8 +9,9 @@ verdad: los IDs (RF, RNF, RN, RQ, CON, GAP, ASM, UPS) se definen solo en el aná
 UX/UI es la fuente PRM-02 y la decisión del usuario sobre el orden de diseño y la navegación contextual es USR-10. Ningún ejemplo
 usa nombres de personas reales [USR-07]: las personas del lienzo son ficticias y aquí se nombran por su cargo.
 
-La parte visual vive en el lienzo de diseño (ver [README](README.md)). El sistema de diseño está en
-[`design-system.md`](design-system.md) y los tokens en [`tokens.css`](tokens.css).
+La parte visual vive en los lienzos de diseño de cada etapa (ver [README](README.md)). El sistema de diseño está en
+[`design-system.md`](design-system.md), los tokens en [`tokens.css`](tokens.css), las fichas de handoff por pantalla en
+[`screens.md`](screens.md) y los flujos en [`flows.md`](flows.md).
 
 ## 1. Alcance y fuentes
 
@@ -146,8 +147,8 @@ Rutas técnicas en inglés y kebab-case (ADR-0009, ASM-075). La columna "En el p
 | Proyectos | `/projects`, `/projects/new` | `/overview`, `/map`, `/areas/:areaId`, `/settings`, `/activity` | F2 |
 | Territorio | `/territory`, `/territory/communities/:id`, `/territory/localities/:id`, `/territory/admin-units/:id`, `/territory/imports/:id` | `/map` | F2; F6 mapa territorial y ficha |
 | Grupos de interés | `/stakeholders`, `/actors/:actorId` | `/stakeholders`, `/stakeholders/matrix`, `/stakeholders/:stakeholderId` | F2 |
-| Relacionamiento | `/engagements`, `/engagements/calendar`, `/field-visits` | `/engagements/:engagementId`, `/engagements/new`, `/engagements/:engagementId/minutes`, `/field-visits/:visitId` | F2 |
-| Compromisos | `/commitments`, `/commitments/dashboard`, `/agreements` | `/commitments/:commitmentId`, `/commitments/new`, `/agreements/:agreementId` | F3 |
+| Relacionamiento | `/engagements`, `/engagements/calendar`, `/field-visits` | `/engagements`, `/engagements/calendar`, `/engagements/:engagementId`, `/engagements/new`, `/engagements/:engagementId/minutes`, `/field-visits/:visitId` | F2 |
+| Compromisos | `/commitments`, `/commitments/dashboard`, `/agreements` | `/commitments` (con la vista `?view=candidates`), `/commitments/:commitmentId`, `/commitments/new`, `/agreements`, `/agreements/:agreementId` | F3 |
 | Quejas, consultas y solicitudes | `/attention`, `/attention/dashboard` | `/attention/new`, `/grievances/:id`, `/inquiries/:id`, `/requests/:id` | F4 |
 | Riesgos | `/risks`, `/risks/register`, `/risks/warnings` | `/risks/:riskId`, `/warnings/:warningId`, `/incidents/:incidentId` | F4 |
 | Programas sociales | `/programs`, `/contributions` | `/programs/:programId`, `/contributions/:contributionId` | F5 (tope y lineamientos desde F3) |
@@ -304,7 +305,7 @@ El lienzo trae un prototipo navegable de este recorrido ("Hilo de contexto"):
 
 Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 55 pantallas. "Etapa" es la etapa de diseño en que se dibujan; "Fase",
 cuándo llega el módulo. La ficha de handoff de cada pantalla (ruta, roles, datos, API, estados, permisos, árbol de componentes)
-estará en `screens.md` (E2 y E3).
+está en [`screens.md`](screens.md): las de E2 ya están; E3 agrega el resto.
 
 | ID | Pantalla | Ruta | Fase | Etapa |
 |---|---|---|---|---|
@@ -334,7 +335,7 @@ estará en `screens.md` (E2 y E3).
 | S24 | Registrar interacción | `/projects/:projectId/engagements/new` | F2 | E2 |
 | S25 | Editor de acta | `/projects/:projectId/engagements/:engagementId/minutes` | F2, F7 | E2 |
 | S26 | Visita de campo | `/projects/:projectId/field-visits/:visitId` | F2 | E2 |
-| S27 | Tablero de compromisos | `/commitments/dashboard` | F3, F8 | E2 |
+| S27 | Tablero de compromisos | `/commitments/dashboard` | F3, F8 | E3 |
 | S28 | Lista de compromisos | `/commitments` | F3 | E2 |
 | S29 | Ficha de compromiso | `/projects/:projectId/commitments/:commitmentId` | F3 | E2 |
 | S30 | Crear compromiso | `/projects/:projectId/commitments/new` | F3 | E2 |
@@ -373,7 +374,8 @@ importación geoespacial, bandeja de revisión de IA y entregables.
 
 Supuestos de esta etapa (definidos en el análisis §19): ASM-073 (asistente como panel), ASM-074 (ejecutivo sin rol propio),
 ASM-075 (rutas y contexto en la URL), ASM-076 (misma página con otro alcance), ASM-077 (dirección visual y tokens), ASM-078
-(inicio por rol) y ASM-079 (vistas guardadas).
+(inicio por rol) y ASM-079 (vistas guardadas). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
+con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10].
 
 | # | Pregunta | Valor con el que se diseña | Relacionado |
 |---|---|---|---|

@@ -74,4 +74,4 @@ después de la revisión del checkpoint de la Fase 0 (ver [roadmap](roadmap.md))
 | Trazabilidad y roadmap | Escritos |
 | Validación de consistencia | Ver "Validación de la Fase 0" en el [roadmap](roadmap.md) |
 | Checkpoint con el usuario | Pendiente |
-| Diseño UX/UI ([`ux/`](ux/README.md)) | Etapa 1 de 3 entregada (arquitectura de UX, navegación y design system); etapas 2 y 3 pendientes |
+| Diseño UX/UI ([`ux/`](ux/README.md)) | Etapas 1 y 2 de 3 entregadas (arquitectura de UX, navegación, design system; Project 360, territorio, grupos de interés, relacionamiento y compromisos, con fichas de pantalla y flujos); etapa 3 pendiente |

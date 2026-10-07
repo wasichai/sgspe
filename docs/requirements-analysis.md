@@ -1383,6 +1383,7 @@ implementan. Las contradicciones, gaps y pedidos upstream que originan un supues
 | ASM-077 | Dirección visual "Pino y piedra": IBM Plex Sans y Plex Mono, neutros de piedra, un acento pino, tonos semánticos apagados, violeta solo para la IA y arena para el territorio. Los tokens se aplican como una capa sobre `@wasichai/ui/theme.css` y su correspondencia exacta de nombres se confirma en F1 | Ni las fuentes ni el usuario definen una marca o un design system para el portal, y `@wasichai/ui` trae temas por tokens [WAS-ADR-0035] | Adoptar la marca del cliente o los valores por defecto de `@wasichai/ui` cambiando solo `docs/ux/tokens.css` | RNF-MNT-001, RQ-DSH-035, `docs/ux/design-system.md` §2 y §3 |
 | ASM-078 | Cada rol tiene un inicio por defecto (por ejemplo, "Mis tareas" para el relacionista y "Atención requerida" para la gerencia social) que la persona puede cambiar; el orden de las secciones no cambia por rol | PRM-02 pide adaptar la navegación, los tableros y las acciones por rol [PRM-02 §3] y RNF-USA-001 fija el orden | Un inicio único para todos | RNF-USA-001, RF-IAM-002, `docs/ux/ux-architecture.md` §5 y §7.2 |
 | ASM-079 | Las vistas guardadas de las listas son de dos clases: las del sistema, definidas en el código del portal por rol, y las personales, guardadas en el navegador en el MVP; compartirlas entre personas o dispositivos espera una decisión | PRM-02 pide vistas guardadas [PRM-02 §13, §15, §25] y el modelo de dominio no tiene un objeto para ellas | Agregar un objeto o una tabla fija para vistas guardadas compartidas | RF-WFL-001, `docs/ux/design-system.md` §6.4 |
+| ASM-080 | La jefatura de un proyecto ("Project owner" de PRM-02) son sus asignaciones activas (`project_assignment`) con el rol `PROJECT_MANAGER`: si hay varias se muestran todas, y si no hay ninguna el portal lo marca como "sin jefatura asignada" | `project` no tiene un responsable propio y las asignaciones ya definen el alcance y los destinatarios por rol (ASM-070) [PRM-02 §10] | Agregar un campo de responsable a `project` | RF-PRJ-005, ASM-070, `docs/ux/screens.md` S06, S08 y S11 |
 
 ## 20. Matriz de trazabilidad (resumen; la matriz completa está en `requirements-traceability.md`)
 
@@ -1440,8 +1441,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 32 |
 | `UPS` | 18 |
-| `ASM` | 79 |
-| Total | 487 |
+| `ASM` | 80 |
+| Total | 488 |
 
 ### 20.2 Requisitos por bounded context
 

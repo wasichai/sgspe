@@ -1,6 +1,6 @@
 # Design system de SGSPE
 
-Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapa 1 de 3 · versión 0.1 · 2026-10-07
+Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.2 · 2026-10-07
 
 Este documento define los fundamentos visuales, los tokens, el sistema de estados, el catálogo de componentes y los patrones
 núcleo del portal. Se apoya en la [arquitectura de UX](ux-architecture.md) y en los diseños de la Fase 0; los IDs se definen
@@ -319,7 +319,8 @@ EntityDetailPage
 - **Filtros** como chips con su valor, en la URL; "+ Filtro" y "Limpiar".
 - **Agrupación por atención** cuando la vista lo pide: Vencidos, Por vencer, Bloqueados, en ese orden [PRM-02 §15].
 - **Selección** con casillas; la barra de acciones masivas ofrece solo lo válido para todos los seleccionados (reasignar,
-  cambiar prioridad, exportar). No hay cambio masivo de fecha de vencimiento (RF-COM-003).
+  asignar verificador, cambiar prioridad, exportar). No hay cambio masivo de fecha de vencimiento (RF-COM-003), y el
+  verificador asignado nunca es el responsable del compromiso (RN-COM-005).
 - Antes de una operación masiva, un diálogo dice cuántos registros cambiarán y cuáles no se pueden cambiar y por qué; después,
   el resultado por registro, con los fallidos seleccionados para reintentar. Cada registro lleva su clave de idempotencia
   (ADR-0025).

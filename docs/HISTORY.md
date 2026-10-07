@@ -3,6 +3,23 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-07 — Diseño UX/UI, etapa 2: Project 360, territorio, grupos de interés, relacionamiento y compromisos
+
+Segunda de las tres etapas, en el orden que fijó el usuario (USR-10): los objetos que definen la navegación posterior.
+
+- **Lienzo de la etapa 2** con 28 hojas en seis páginas: Project 360 (crear proyecto, Resumen, mapa, equipo y parámetros),
+  territorio (mapa territorial interactivo, fichas de comunidad y de localidad con línea base, área de influencia con
+  versiones y aprobación, importación geoespacial con CRS de origen y decisiones), grupos de interés (lista, matriz interés ×
+  poder interactiva, ficha, evaluación con vista previa, ficha de actor), relacionamiento (calendario, ficha de interacción,
+  registro con modo rápido de campo, editor de acta, visita de campo), compromisos (pestañas de la ficha, creación, aprobación,
+  entrega → cumplimiento → verificación interactiva, candidatos, acuerdos) y dos hojas de flujos.
+- **[`ux/screens.md`](ux/screens.md):** ficha de handoff de S06 a S26 y de S28 a S33: ruta, propósito, roles según la matriz de
+  seguridad, acciones, disposición, datos y API, estados, permisos, responsive, navegación y árbol de componentes React.
+- **[`ux/flows.md`](ux/flows.md):** flujos 1 a 11, 16 y 17, paso a paso, con pantalla, transición o endpoint y regla.
+- **Ajustes:** rutas de lista bajo el proyecto para relacionamiento y compromisos, el tablero de compromisos (S27) pasa a la
+  etapa 3 con los demás tableros, la acción masiva "Asignar verificador" en el patrón de lista y el supuesto ASM-080 (la
+  jefatura del proyecto es la asignación activa con `PROJECT_MANAGER`) en el análisis (488 IDs).
+
 ## 2026-10-07 — Diseño UX/UI, etapa 1: arquitectura de UX, navegación y design system
 
 El usuario pidió la UX/UI completa del portal con un prompt maestro de UX/UI (PRM-02) y fijó el orden de trabajo y el principio
