@@ -18,7 +18,9 @@ El usuario respondió las preguntas abiertas Q1, Q3, Q6 y Q7 de `ux/ux-architect
   estilo configurable en producción, sin volver a OpenStreetMap.
 - **Temas (ASM-086).** Página 25 y `ux/themes.css`: Pino y piedra (el actual, predeterminado), Cielo (blanco y azul) y Pino
   de noche (oscuro, distinto del de wasichai), cada uno con los 28 tokens de `@wasichai/ui` (WAS-ADR-034, WAS-ADR-035) y
-  contraste AA medido en `ux/design-system.md` §3.9. UPS-19 pide elegir qué temas usa «Según el sistema».
+  contraste AA medido en `ux/design-system.md` §3.9. UPS-19 pide elegir qué temas usa «Según el sistema»; se pidió en
+  wasichai/wasichai-ui#39. Corrección posterior: guardar `sgspe-pino` como preferencia inicial no sirve, porque la
+  preferencia del servidor manda; hasta UPS-19 el tema inicial es el de wasichai y cada persona elige el de SGSPE.
 - El análisis pasa a 495 IDs.
 
 ## 2026-10-07 — Diseño UX/UI: pendientes de la etapa 3
