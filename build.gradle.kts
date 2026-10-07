@@ -23,6 +23,10 @@ dependencies {
     implementation("wasichai:wasichai-spring-boot-starter-gis")
     implementation("wasichai:wasichai-spring-boot-starter-workflow")
 
+    // sgspe.territory lee hojas XLSX y sgspe.privacy las escribe (RQ-REP-022); 5.4 o superior por CVE-2025-31672
+    // (platform-fit.md §6)
+    implementation("org.apache.poi:poi-ooxml:5.5.1")
+
     // WasichaiIntegrationTest; brings spring-boot-starter-test, webflux-test and testcontainers
     testImplementation("wasichai:wasichai-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -38,6 +42,15 @@ kotlin {
 // ktlint lee .editorconfig; la misma versión que wasichai y caja
 ktlint {
     version.set("1.7.1")
+}
+
+// el modelo, los roles y los workflows viajan dentro del jar como configuración (ModelCatalog): las guardas leen de ahí
+// los campos derivados, los roles declarados y los roles de cada transición, nunca de literales en el código (ASM-070)
+tasks.named<ProcessResources>("processResources") {
+    from("model") {
+        include("model.json", "roles.json", "workflows/*.json")
+        into("model")
+    }
 }
 
 // las pruebas unitarias corren siempre; las que necesitan base van por integrationTest
