@@ -186,8 +186,11 @@ tokens de `@wasichai/ui` (18 base y 10 de extensión), IBM Plex Sans y los radio
   `sgspe-noche`.
 - **Impresión:** los documentos impresos siguen en claro (`PrintableDocumentPage` fija `data-theme="light"`).
 - **Brecha:** «Según el sistema» resuelve hoy a `light` o `dark` de wasichai, y la preferencia por defecto es `system`. Para
-  que el portal abra en Pino y piedra y siga al sistema con Pino de noche hace falta UPS-19; mientras tanto, el portal
-  guarda `sgspe-pino` como preferencia inicial de una cuenta que no tiene ninguna.
+  que el portal abra en Pino y piedra y siga al sistema con Pino de noche hace falta UPS-19, pedida en
+  [wasichai/wasichai-ui#39](https://github.com/wasichai/wasichai-ui/issues/39). Mientras tanto el portal no fuerza un
+  tema: la preferencia del servidor manda (sin fila responde `system`) y pisa la copia local, así que un usuario sin
+  preferencia ve Claro u Oscuro de wasichai y elige el de SGSPE en Perfil › Tema. No se escribe la preferencia en el primer
+  ingreso, porque no distingue a quien nunca eligió de quien eligió «Según el sistema».
 - **Pruebas:** como `tokens.test.tsx` de srtm-ui, un test comprueba que cada tema fija los 28 tokens y mide los pares de
   la tabla.
 
