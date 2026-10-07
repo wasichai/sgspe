@@ -48,6 +48,12 @@ class ModelOfF2Tests(unittest.TestCase):
         self.assertEqual(len(model["objects"]), 48)
         self.assertEqual(apply.validate(model), [])
 
+    def test_the_f2_workflows_are_valid(self):
+        workflows, errors = apply.load_workflows(HERE, load(MODEL_PATH))
+        self.assertEqual(errors, [])
+        self.assertEqual(sorted(name for name, _ in workflows),
+                         ["area_of_influence", "engagement", "field_visit", "project", "stakeholder"])
+
 
 class ValidationTests(unittest.TestCase):
     def mutate(self, fn):
@@ -572,7 +578,9 @@ class NewTenantTests(unittest.TestCase):
         ]
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
         self.assertIn("done: 15 created, 0 updated, 0 skipped", runs[1][1])
+        self.assertIn("done: 5 workflows (5 created, 0 updated, 0 skipped)", runs[2][1])
         self.assertEqual(sorted(core.roles), sorted(r["name"] for r in load(ROLES_PATH)["roles"]))
+        self.assertEqual(sorted(core.workflows), ["area_of_influence", "engagement", "field_visit", "project", "stakeholder"])
         again = quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login])
         self.assertEqual(again[0], 0, again)
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
@@ -580,6 +588,16 @@ class NewTenantTests(unittest.TestCase):
 
 class ProvisioningOrderTests(unittest.TestCase):
     """Con objetos de verdad: wasichai rechaza un rol que nombra un objeto que no existe, así que el modelo va primero."""
+
+    def test_the_workflows_before_the_roles_fail_and_after_them_pass(self):
+        core = FakeCore()
+        self.addCleanup(core.stop)
+        login = ["--core", core.base_url, "--email", "admin-tenant@sgspe.test", "--password", "clave-del-tenant"]
+        model = quiet(apply.main, ["--model", MODEL_PATH, *login])
+        early = quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])
+        roles = quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login])
+        late = quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])
+        self.assertEqual([model[0], early[0], roles[0], late[0]], [0, 1, 0, 0], [model, early, roles, late])
 
     def test_the_first_object_is_created_before_the_first_role(self):
         core = FakeCore()

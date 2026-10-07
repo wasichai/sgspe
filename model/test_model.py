@@ -135,6 +135,101 @@ class ModelAgainstCardsTests(unittest.TestCase):
                 self.assertEqual(option, option.upper(), key)
                 self.assertTrue(apply.enum_option_valid(option), (key, option))
 
+    def test_los_objetos_con_workflow_son_los_de_las_fichas_y_ninguno_es_append_only(self):
+        files = sorted(f[:-len(".json")] for f in os.listdir(os.path.join(HERE, "workflows")))
+        self.assertEqual(files, sorted(n for n in self.objects if self.cards[n].workflow))
+        for name in files:
+            self.assertFalse(self.objects[name].get("appendOnly", False), name)
+
+    def test_descripciones_de_objetos_y_campos_son_el_texto_de_las_fichas_sin_comillas_invertidas(self):
+        for name, obj in self.objects.items():
+            card = self.cards[name]
+            self.assertEqual(obj["description"], card.description.replace("`", ""), name)
+            docs = {f["name"]: f["description"] for f in card.fields}
+            for field in obj["fields"]:
+                self.assertEqual(field["description"], docs[field["name"]].replace("`", ""), f"{name}.{field['name']}")
+
+
+class WorkflowTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.roles = {r["name"] for r in load("roles.json")["roles"]}
+        cls.states = design_docs.workflow_states()
+        cls.cards = design_docs.cards()
+        folder = os.path.join(HERE, "workflows")
+        cls.workflows = {f[:-len(".json")]: load(os.path.join("workflows", f)) for f in sorted(os.listdir(folder))}
+
+    def test_nombre_y_etiqueta_del_workflow(self):
+        for obj, wf in self.workflows.items():
+            letter = self.cards[obj].workflow.split("-")[1].lower()
+            self.assertEqual(wf["name"], f"wf-{letter}-{obj}")
+            self.assertEqual(wf["label"], self.cards[obj].label)
+            self.assertIs(wf["enabled"], True)
+
+    def test_los_estados_son_los_de_domain_model_7_3_con_su_tipo_y_etiqueta(self):
+        for obj, wf in self.workflows.items():
+            doc = self.states[obj]
+            wanted = [(n, label, kind) for kind in ("INITIAL", "INTERMEDIATE", "FINAL") for n, label in doc[kind]]
+            got = [(s["name"], s["label"], s["type"]) for s in wf["definition"]["states"]]
+            self.assertEqual(sorted(got), sorted(wanted), obj)
+
+    def test_ningun_estado_representa_un_plazo(self):
+        for obj, wf in self.workflows.items():
+            for state in wf["definition"]["states"]:
+                self.assertFalse(any(w in state["name"] for w in DEADLINE_WORDS), (obj, state["name"]))
+
+    def test_roles_existentes_no_vacios_y_nunca_los_de_solo_lectura_ni_admin(self):
+        for obj, wf in self.workflows.items():
+            for t in wf["definition"]["transitions"]:
+                self.assertTrue(t["roles"], (obj, t["name"]))
+                self.assertTrue(set(t["roles"]) <= self.roles, (obj, t["name"]))
+                self.assertFalse(set(t["roles"]) & NEVER_IN_TRANSITIONS, (obj, t["name"]))
+
+    def test_todo_estado_es_alcanzable_y_todo_estado_no_final_tiene_salida(self):
+        for obj, wf in self.workflows.items():
+            states = wf["definition"]["states"]
+            transitions = wf["definition"]["transitions"]
+            initial = next(s["name"] for s in states if s["type"] == "INITIAL")
+            reached, frontier = {initial}, [initial]
+            while frontier:
+                current = frontier.pop()
+                for t in transitions:
+                    if t["from"] == current and t["to"] not in reached:
+                        reached.add(t["to"])
+                        frontier.append(t["to"])
+            self.assertEqual(reached, {s["name"] for s in states}, obj)
+            for state in states:
+                if state["type"] != "FINAL":
+                    self.assertTrue(any(t["from"] == state["name"] for t in transitions), (obj, state["name"]))
+
+    def test_las_transiciones_que_nombran_las_guardas_y_los_endpoints_existen(self):
+        # workflows.md: «Transiciones de comando» y «Transiciones con motivo obligatorio», filas de F2
+        named = {
+            "project": {"approve", "resume", "return_to_draft", "suspend", "cancel_draft", "cancel_in_review"},
+            "stakeholder": {"profile", "assess", "retire_identified", "retire_profiled", "retire_assessed", "reinstate"},
+            "engagement": {"register_held", "register_held_unplanned", "close", "close_light", "postpone",
+                           "return_minutes", "cancel_planned", "cancel_scheduled", "cancel_postponed"},
+            "field_visit": {"cancel"},
+            "area_of_influence": {"approve", "supersede"},
+        }
+        for obj, names in named.items():
+            have = {t["name"] for t in self.workflows[obj]["definition"]["transitions"]}
+            self.assertTrue(names <= have, (obj, names - have))
+
+    def test_wf_b_es_el_unico_sin_estado_final(self):
+        without = [obj for obj, wf in self.workflows.items()
+                   if not any(s["type"] == "FINAL" for s in wf["definition"]["states"])]
+        self.assertEqual(without, ["stakeholder"])
+
+    def test_transiciones_nombre_etiqueta_origen_destino_y_roles_son_los_de_workflows_md(self):
+        for obj, wf in self.workflows.items():
+            letter = self.cards[obj].workflow.split("-")[1]
+            doc = design_docs.workflow_transitions(letter)
+            self.assertTrue(doc, obj)
+            got = [(t["name"], t["label"], t["from"], t["to"], sorted(t["roles"])) for t in wf["definition"]["transitions"]]
+            wanted = [(t["name"], t["label"], t["from"], t["to"], sorted(t["roles"])) for t in doc]
+            self.assertEqual(sorted(got), sorted(wanted), obj)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -143,6 +143,17 @@ class TotalsTests(unittest.TestCase):
                 self.assertIn(card.name, states)
 
 
+class WorkflowTransitionsTests(unittest.TestCase):
+    def test_transiciones_de_workflows_md(self):
+        self.assertEqual([len(design_docs.workflow_transitions(letter)) for letter in "ABCLO"], [9, 6, 14, 4, 2])
+        assess = next(t for t in design_docs.workflow_transitions("B") if t["name"] == "assess")
+        self.assertEqual((assess["label"], assess["from"], assess["to"]), ("Evaluar", "profiled", "assessed"))
+        self.assertEqual(assess["roles"], ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"])
+        cancel = {t["name"]: t["roles"] for t in design_docs.workflow_transitions("C")}
+        self.assertEqual(cancel["cancel_postponed"], cancel["cancel_planned"])
+        self.assertEqual(len(cancel["cancel_postponed"]), 4)
+
+
 class BrokenDocsTests(unittest.TestCase):
     """El lector falla, no devuelve de menos, cuando una tabla de un documento cambia de forma."""
 
@@ -203,6 +214,35 @@ class BrokenDocsTests(unittest.TestCase):
         self.edit("domain-model.md", bad_state)
         with self.assertRaises(ValueError):
             design_docs.workflow_states()
+
+    def test_las_tablas_de_transiciones_rotas_hacen_fallar_al_lector(self):
+        design_docs.workflow_transitions("A")  # la copia sin tocar se lee
+
+        def rename_header(lines):
+            lines[self.index(lines, "| Transición | De | A | Roles |", self.index(lines, "## WF-A ·"))] = "| Transición | De |"
+
+        def drop_row_cell(lines):
+            i = self.index(lines, "| `approve` (Aprobar) |")
+            lines[i] = lines[i].replace("| `PROJECT_ADMIN` |", "|", 1)
+
+        def empty_roles(lines):
+            i = self.index(lines, "| `close` (Cerrar) |", self.index(lines, "## WF-A ·"))
+            lines[i] = lines[i].replace("`PROJECT_ADMIN`", "Los administradores", 1)
+
+        def bad_name(lines):
+            i = self.index(lines, "| `close` (Cerrar) |", self.index(lines, "## WF-A ·"))
+            lines[i] = lines[i].replace("`close` (Cerrar)", "close (Cerrar)", 1)
+
+        def rename_section(lines):
+            lines[self.index(lines, "## WF-A ·")] = "## WF-A - Proyecto"
+
+        for name, change in (("renamed header", rename_header), ("short row", drop_row_cell), ("no roles", empty_roles),
+                             ("bad name", bad_name), ("renamed section", rename_section)):
+            with self.subTest(name):
+                self.edit("workflows.md", change)
+                with self.assertRaises(ValueError):
+                    design_docs.workflow_transitions("A")
+                shutil.copy(os.path.join(self.original, "workflows.md"), self.tmp)
 
     def test_una_letra_de_permiso_desconocida_falla(self):
         with self.assertRaises(ValueError):

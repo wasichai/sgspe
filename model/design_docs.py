@@ -331,3 +331,54 @@ def workflow_states():
         for obj in ticks(objects):
             result[obj] = {"INITIAL": states(initial), "INTERMEDIATE": states(middle), "FINAL": states(final)}
     return result
+
+
+# ---------------------------------------------------------------------------
+# workflows.md: the transitions of a workflow
+# ---------------------------------------------------------------------------
+
+TRANSITION_NAME = re.compile(r"^`([a-z_]+)` \(([^()]+)\)$")
+ROLE = re.compile(r"`([A-Z][A-Z0-9_]*)`")
+SAME_ROLES = re.compile(r"^Los mismos de `([a-z_]+)`$")
+
+
+def workflow_transitions(letter):
+    """The transitions of the WF-<letter> section of workflows.md: [{name, label, from, to, roles}] in table order.
+
+    Fails (ValueError) when the section, its table or a cell does not have the expected shape, so a changed document
+    cannot make a test compare against less than the document says. The cell "Los mismos de `x`" takes the roles of x.
+    """
+    lines = read("workflows.md").splitlines()
+    heading = f"## WF-{letter} ·"
+    starts = [i for i, line in enumerate(lines) if line.startswith(heading)]
+    if len(starts) != 1:
+        raise ValueError(f"workflows.md has {len(starts)} sections that start with {heading!r}, expected 1")
+    end = next((i for i in range(starts[0] + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    tables = [i for i in range(starts[0], end) if lines[i].startswith("| Transición | De | A | Roles |")]
+    if len(tables) != 1:
+        raise ValueError(f"section WF-{letter} has {len(tables)} transition tables, expected 1")
+    rows = table_rows(lines, tables[0])
+    if not rows:
+        raise ValueError(f"the transition table of WF-{letter} has no rows")
+    result = []
+    for row in rows:
+        if len(row) != 8:
+            raise ValueError(f"WF-{letter}: a transition row has {len(row)} cells, expected 8: {row[0]!r}")
+        name = TRANSITION_NAME.match(row[0])
+        if not name:
+            raise ValueError(f"WF-{letter}: {row[0]!r} is not '`name` (Label)'")
+        source, target = ticks(row[1]), ticks(row[2])
+        if len(source) != 1 or len(target) != 1 or row[1] != f"`{source[0]}`" or row[2] != f"`{target[0]}`":
+            raise ValueError(f"WF-{letter}: {name.group(1)} has From {row[1]!r} / To {row[2]!r}, expected one `state` each")
+        same = SAME_ROLES.match(row[3])
+        if same:
+            donor = next((t for t in result if t["name"] == same.group(1)), None)
+            if donor is None:
+                raise ValueError(f"WF-{letter}: {name.group(1)} takes its roles from {same.group(1)}, which is not above it")
+            roles = list(donor["roles"])
+        else:
+            roles = ROLE.findall(row[3])
+        if not roles:
+            raise ValueError(f"WF-{letter}: {name.group(1)} has no roles in {row[3]!r}")
+        result.append({"name": name.group(1), "label": name.group(2), "from": source[0], "to": target[0], "roles": roles})
+    return result

@@ -1,0 +1,24 @@
+{
+  "name": "wf-l-field_visit",
+  "label": "Visita de campo",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "planned", "label": "Planificada", "type": "INITIAL" },
+      { "name": "in_progress", "label": "En curso", "type": "INTERMEDIATE" },
+      { "name": "completed", "label": "Concluida", "type": "FINAL" },
+      { "name": "partial", "label": "Parcial", "type": "FINAL" },
+      { "name": "cancelled", "label": "Cancelada", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "start", "label": "Iniciar", "from": "planned", "to": "in_progress",
+        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] },
+      { "name": "complete", "label": "Concluir", "from": "in_progress", "to": "completed",
+        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] },
+      { "name": "complete_partial", "label": "Concluir parcialmente", "from": "in_progress", "to": "partial",
+        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] },
+      { "name": "cancel", "label": "Cancelar", "from": "planned", "to": "cancelled",
+        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] }
+    ]
+  }
+}
