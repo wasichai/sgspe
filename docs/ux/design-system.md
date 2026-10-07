@@ -119,8 +119,8 @@ MAYÚSCULAS españolas (ADR-0009).
 | ≥ 1440 | Navegación 240 px, sub-navegación de proyecto 224 px, drawer al lado del contenido |
 | 1280 | El drawer se superpone al contenido; tablas densas por defecto |
 | 1024 | Navegación contraída a 52 px; la sub-navegación de proyecto pasa a un menú desplegable |
-| 768 (tableta) | Navegación en panel; fichas en una columna; el mapa ocupa la pantalla y la ficha contextual es una hoja inferior |
-| < 640 (móvil) | Solo tareas de campo, aprobaciones, avisos y consulta rápida; barra inferior de cuatro destinos [PRM-02 §31] |
+| 768 (tableta) | Navegación en un panel superpuesto que se abre con el botón de menú y atrapa el foco; fichas en una columna con la acción primaria fija al pie; el mapa ocupa la pantalla y la ficha contextual es una hoja inferior |
+| < 640 (móvil) | Solo tareas de campo, aprobaciones, avisos y consulta rápida; barra inferior de cuatro destinos por rol (`ux-architecture.md` §7.1) [PRM-02 §31] |
 
 Barra superior de 56 px; contenido de hasta 1440 px con márgenes de 32, 24 y 16 px; drawer de 400 px (vista previa) o 560 px
 (formulario); filas de tabla de 32 px (densa) o 44 px (cómoda); objetivo táctil de 44 px; objetivo mínimo de escritorio de 32
@@ -171,9 +171,14 @@ Al pasar el cursor o al enfocar, un chip de estado dice desde cuándo, quién lo
 | Tarea (WF-N) | Abierta → neutral; En curso → progress; Bloqueada → warning; Hecha → final · check; Cancelada → final · aspa |
 | Área de influencia (WF-O) | Borrador → neutral; Aprobada → success (versión vigente); Reemplazada → final · candado |
 | Propuesta de IA (WF-K) | Propuesta → ai · chispa; Aceptada → success; Rechazada y Duplicada → final · aspa |
+| Acuerdo (WF-I) | Borrador → neutral; En negociación → info · flechas; Vigente → success · círculo con check; Suspendido → warning · pausa; Concluido → final · check; Resuelto y Anulado → final · aspa |
+| Entregable (WF-H) | Borrador → neutral; En revisión → info · reloj; Observado → warning · globo; Aprobado → success · círculo con check; Emitido → final · candado (versión congelada); Anulado → final · aspa |
+| Visita de campo (WF-L) | Planificada → neutral; En curso → progress · play; Concluida → final · check; Parcial → final · media luna; Cancelada → final · aspa |
+| Incidente (WF-M) | Reportado → warning · triángulo; En revisión → info · lupa; En respuesta → progress · play; Cerrado → final · candado |
+| Aporte social (WF-P) | Solicitado → neutral; Aprobado → info · círculo con check; Adquirido → info · caja; Entregado → success · check (cuenta como ejecutado, ASM-063); Cerrado → final · candado; Rechazado y Anulado → final · aspa |
 
-"Final" es contorno gris con candado o aspa: el registro deja de pedir atención. Los workflows de acuerdo, entregable, visita,
-incidente y aporte (WF-I, WF-H, WF-L, WF-M, WF-P) siguen la misma regla de tonos y se detallan con sus módulos (E2 y E3).
+"Final" es contorno gris con candado o aspa: el registro deja de pedir atención. Con estas filas, los 18 workflows de
+`workflows.md` tienen su tono y su ícono.
 
 ### 4.2 Situación derivada
 
@@ -380,6 +385,9 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
 - **Móvil (< 640):** no se mete el sistema de escritorio en el teléfono [PRM-02 §31]. Solo: mis tareas, visitas de campo,
   registrar interacción y observación con foto y ubicación, aprobaciones, avisos y consulta rápida. En el MVP, en línea
   (ASM-021); la captura sin conexión está diseñada para después (ASM-081, `screens.md` §15). Objetivos táctiles de 48 px.
+- **Pantallas de escritorio en el teléfono:** una pantalla que no está pensada para el teléfono (editor de acta, importación
+  geoespacial, formulario por pasos, tableros con mapa) no se encoge: muestra «Esta pantalla es para una pantalla más grande»
+  con la lectura que sí cabe y el enlace para copiar. Lo dibuja la hoja `Shell-Telefono` del lienzo de la etapa 3.
 
 ## 9. Guía de implementación
 
