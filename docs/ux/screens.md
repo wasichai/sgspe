@@ -1,9 +1,11 @@
 # Pantallas de SGSPE · fichas de handoff
 
-Fichas de implementación de las pantallas del portal (`sgspe-ui`). Esta versión cubre la **etapa 2** del diseño (proyectos y
-Project 360, territorio, grupos de interés, relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33) y la **parte 3a**
-(quejas, consultas y solicitudes; riesgos y alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a
-S48 y la ficha de incidente). La parte 3b agrega el resto del inventario de [`ux-architecture.md`](ux-architecture.md) §9.
+Fichas de implementación de las pantallas del portal (`sgspe-ui`). Cubren el inventario completo de
+[`ux-architecture.md`](ux-architecture.md) §9: la **etapa 2** (proyectos y Project 360, territorio, grupos de interés,
+relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33), la **parte 3a** (quejas, consultas y solicitudes; riesgos y
+alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a S48 y la ficha de incidente) y la **parte 3b**
+(tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27, S34, S38, S49 a S55). La búsqueda
+global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
 
 - **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>; **lienzo de la etapa 3:**
   <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>. Los dos son privados y se comparten desde su menú. Cada ficha nombra
@@ -1231,16 +1233,505 @@ ApprovalsPage
 └── EscalationCards (EscalationLevels)
 ```
 
-## 12. Trazabilidad
+## 12. Tableros
+
+Lienzo de la etapa 3, página 16. Los tableros siguen `dashboards.md` §5: la fila de filtros gobierna todos los gráficos,
+cada gráfico tiene su tabla "Ver datos" (que se copia, no se descarga) y un KPI que la persona no puede calcular dice "no
+disponible", nunca cero (RQ-DSH-032). Las cifras salen de `GET /api/sgspe/dashboards/{dashboard}` y
+`GET /api/sgspe/dashboards/indicators/{code}`, las mismas que usan las fichas (RQ-DSH-034).
+
+### S51 · Revisión ejecutiva de 5 minutos
+
+- **Ruta y lienzo:** `/` como inicio del ejecutivo (ASM-074) · hoja `Tab-Ejecutivo` · F8.
+- **Propósito:** ¿qué cambió, qué es crítico, dónde y quién lo atiende? Leerlo en cinco minutos.
+- **Roles:** el ejecutivo (`READ_ONLY` o `ANALYST`); también SMG y PMG como vista. Lectura.
+- **Acciones:** primaria abrir lo que necesita atención; secundarias filtros de periodo y proyectos, "Monitoreo de la Tabla
+  9.5" y el asistente (solo `ANALYST`, ASM-073).
+- **Disposición y componentes:** "Lo que necesita atención hoy" (lista ordenada por regla fija, no por IA); tiles de
+  KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-EXE-02 y KPI-ENG-01; un tile de postura "no disponible";
+  medidor de KPI-INV-03 por moneda; tres líneas de KPI-EXE-03; tabla por proyecto.
+- **Datos y API:** tablero `executive` (`dashboards.md` §5.1).
+- **Estados:** sin proyectos asignados, vacío con enlace a Proyectos; un KPI sin permiso, "no disponible".
+- **Permisos:** la postura (`stance`) no llega a los roles que no la leen (`dashboards.md` §8).
+- **Responsive:** "Lo que necesita atención" primero; tiles en dos columnas; la tabla pasa a tarjetas por proyecto.
+- **Relacionadas y navegación:** cada cifra abre su lista filtrada; S27, S34, S38, monitoreo.
+
+```text
+ExecutiveReviewPage
+├── AttentionList (AttentionItem)
+├── KpiRow (KpiCard · NotAvailable)
+├── CurrencyGauge × moneda · TrendSparklines (× 3)
+└── ProjectTable
+```
+
+### Monitoreo de la Tabla 9.5
+
+- **Ruta y lienzo:** `/dashboards/monitoring` (sección Dashboard) · hoja `Tab-Monitoreo` (interactiva: periodo y rol) · F8.
+- **Propósito:** ¿cómo van los 13 indicadores del plan de relaciones comunitarias en el periodo?
+- **Roles:** lectura para quien lee al menos uno de sus KPI.
+- **Acciones:** elegir periodo; abrir el detalle de un indicador.
+- **Disposición y componentes:** aviso de periodo (cerrado: cifra oficial; en curso: cifra viva); tabla con número, indicador,
+  valor, meta, desglose, medio de verificación y tipo de entregable (`dashboards.md` §4.9 y §5.5).
+- **Datos y API:** tablero `monitoring`; un periodo cerrado lee `indicator_measurement` (`dashboards.md` §10).
+- **Estados:** #2 y #3 leen la postura: "no disponible" a quien no la lee, también con el periodo cerrado.
+- **Permisos:** como S51.
+- **Responsive:** la tabla pasa a tarjetas por indicador.
+- **Relacionadas y navegación:** S51; entregables (S50) que usan la tabla.
+
+```text
+MonitoringPage
+├── PeriodTabs · PeriodBanner
+└── MonitoringTable (IndicatorRow · NotAvailable)
+```
+
+### S27 · Tablero de compromisos
+
+- **Ruta y lienzo:** `/commitments/dashboard` · hoja `Tab-Compromisos` · F3, F8.
+- **Propósito:** ¿qué debemos, a quién y desde cuándo?
+- **Roles:** lectura para quien lee `commitment`.
+- **Acciones:** filtros de periodo, campaña y responsable; abrir pendientes.
+- **Disposición y componentes:** tiles KPI-COM-01 a KPI-COM-06 (vencidos con desglose por días); barras KPI-COM-07; tile
+  KPI-COM-09 frente al plazo vigente y al original; barras por moneda KPI-COM-10; barras KPI-COM-08; línea KPI-COM-11; tabla de
+  pendientes.
+- **Datos y API:** tablero `commitments` (`dashboards.md` §5.6).
+- **Estados:** la historia anterior a la puesta en marcha se marca como aproximada.
+- **Permisos:** como S51.
+- **Responsive:** tiles en dos columnas; gráficos uno debajo de otro.
+- **Relacionadas y navegación:** S28, S29.
+
+```text
+CommitmentsDashboard
+├── FilterBar · KpiRow
+├── BreakdownBars · OnTimeTile · AmountByCurrencyBars · FormalByTopicBars · OverdueHistoryLine
+└── PendingTable
+```
+
+### S34 · Tablero de QCS
+
+- **Ruta y lienzo:** `/attention/dashboard` · hoja `Tab-QCS` · F4, F8.
+- **Propósito:** ¿qué nos piden y reclaman, y cómo respondemos?
+- **Roles:** lectura para quien lee los tres objetos de BC-07.
+- **Acciones:** filtros; "Ir a la lista" (S35); abrir el tablero territorial.
+- **Disposición y componentes:** tabla de flujo por tipo (KPI-GRV-01 a KPI-GRV-06); tile KPI-GRV-07; tiempos KPI-GRV-10;
+  barras KPI-GRV-08; dos líneas en un eje KPI-GRV-09; mapa de calor de concentración (LYR-20).
+- **Datos y API:** tablero `attention` (`dashboards.md` §5.7).
+- **Estados:** cada planteamiento cuenta una vez, aunque se haya reclasificado.
+- **Permisos:** como S51; la persona que plantea nunca aparece.
+- **Responsive:** la tabla de flujo pasa a una tarjeta por tipo.
+- **Relacionadas y navegación:** S35, tablero territorial.
+
+```text
+AttentionDashboard
+├── FilterBar · FlowByTypeTable
+├── ResolvedTile · TimesTile · CategoryBars
+└── TrendLines · ConcentrationMiniMap
+```
+
+### S38 · Tablero de riesgos
+
+- **Ruta y lienzo:** `/risks` · hoja `Tab-Riesgos` · F4, F8.
+- **Propósito:** ¿qué puede impedir el proyecto y qué hacemos?
+- **Roles:** lectura para quien lee `social_risk`.
+- **Acciones:** "Ir al registro" (S39); abrir medidas atrasadas.
+- **Disposición y componentes:** mapa de calor 5 × 5 con conteo y nivel (KPI-RSK-02); tiles KPI-RSK-01, KPI-RSK-05 y revisiones
+  vencidas; barras apiladas por semana KPI-RSK-04; distribución por territorio KPI-RSK-03; medidas atrasadas.
+- **Datos y API:** tablero `risks` (`dashboards.md` §5.8).
+- **Estados:** un riesgo sin revisión no entra al mapa y se dice cuántos hay.
+- **Permisos:** como S51.
+- **Responsive:** el mapa de calor arriba a ancho completo.
+- **Relacionadas y navegación:** S39, S40.
+
+```text
+RisksDashboard
+├── RiskHeatmap · KpiRow
+├── WeeklyLevelBars · TerritoryDistribution
+└── OverdueMeasuresList
+```
+
+### Tablero territorial
+
+- **Ruta y lienzo:** `/territory` con el panel de estadísticas (S12 en modo tablero) · hoja `Tab-Territorial` · F6, F8.
+- **Propósito:** ¿qué ocurre en cada lugar?
+- **Roles:** lectura para quien lee el territorio del proyecto.
+- **Acciones:** elegir una localidad o comunidad; capas; "Capturar PNG".
+- **Disposición y componentes:** mapa con capas y paleta compartida (RQ-GIS-014); ficha contextual con KPI-TER-01; tiles
+  KPI-TER-02, KPI-TER-03 y KPI-TER-04.
+- **Datos y API:** tablero `territory` (`dashboards.md` §5.9); las cifras de la ficha salen de `sgspe.dashboard`, no del mapa.
+- **Estados:** la línea de posturas de la ficha dice "no disponible" a quien no lee `stance`.
+- **Permisos:** sin puntos de personas: los grupos de interés se agregan por lugar (RQ-GIS-015).
+- **Responsive:** mapa a pantalla completa con la ficha como hoja inferior.
+- **Relacionadas y navegación:** S13, S14; las cifras abren listas filtradas por el lugar.
+
+```text
+TerritoryDashboard
+├── MapLibreLazy (LayerPanel · Legend · PngCapture)
+├── ContextualCard (KpiTile × 6)
+└── TerritoryStats
+```
+
+### Tablero de inversión social
+
+- **Ruta y lienzo:** `/programs/dashboard` · hoja `Tab-Inversion` · F5, F8.
+- **Propósito:** ¿cuánto invertimos frente a lo previsto y a quién llega?
+- **Roles:** lectura para quien lee BC-10.
+- **Acciones:** "Ir a programas y aportes" (S42).
+- **Disposición y componentes:** un medidor por campaña frente a su tope (KPI-INV-01), con la marca de lo aprobado y la
+  advertencia de otra moneda; barras por programa y año (KPI-INV-02); consolidado por moneda y fuente (KPI-INV-03);
+  beneficiarios por fuente (KPI-INV-04).
+- **Datos y API:** tablero `investment` (`dashboards.md` §5.10); montos según ASM-063.
+- **Estados:** un programa por aprobar no muestra ejecución.
+- **Permisos:** como S51.
+- **Responsive:** medidores apilados.
+- **Relacionadas y navegación:** S42, S43, S44.
+
+```text
+InvestmentDashboard
+├── CampaignGauges (CampaignGauge × campaña)
+├── ProgramBudgetBars · ConsolidatedByCurrency
+└── BeneficiariesTable
+```
+
+## 13. Capa de IA
+
+Lienzo de la etapa 3, página 17. La IA propone y una persona decide (RQ-AI-001, RQ-AI-003); toda salida de IA lleva la marca de
+procedencia de `design-system.md` §4.4 y se muestra como texto, nunca como HTML (RQ-AI-011).
+
+### S05 · Panel del asistente
+
+- **Ruta y lienzo:** panel lateral global (barra superior) y contextual (desde una ficha) · hoja `IA-Panel` (interactiva:
+  rol y estado de la organización) · F7.
+- **Propósito:** preguntar a los datos o a los documentos sin salir de lo que se está haciendo.
+- **Roles:** "Preguntar a los datos" (AI-05) solo `ANALYST` hasta UPS-14 (`ai-architecture.md` §8); "Preguntar a los
+  documentos" (AI-06) a los roles que pueden registrar `ai_interaction`.
+- **Acciones:** "Preguntar"; cambiar de modo; abrir un registro o una fuente citada; cerrar.
+- **Disposición y componentes:** encabezado con el chip de contexto (proyecto y territorio, ASM-075); pestañas de modo;
+  conversación con la pregunta y la respuesta (`AiAnswer`) con enlaces y "Cómo lo obtuvo"; campo de pregunta con la nota de
+  solo lectura.
+- **Datos y API:** `GET /api/sgspe/ai/status`; `POST /api/sgspe/ai/assistant/questions` (AI-05);
+  `POST /api/sgspe/ai/knowledge/questions` (AI-06). Cada pregunta queda en `ai_interaction`.
+- **Estados:** organización sin IA (lo dice, y la bandeja sigue funcionando); "no disponible para tu rol" con la razón y la
+  alternativa; proveedor caído (`503`) con reintento.
+- **Permisos:** el asistente lee como la persona; nunca escribe.
+- **Responsive:** en teléfono, a pantalla completa.
+- **Relacionadas y navegación:** S52; los enlaces de la respuesta abren la ficha con el contexto. Flujo 18.
+
+```text
+AssistantPanel
+├── PanelHeader (ContextChip · Close)
+├── ModeTabs (Datos · Documentos)
+├── Conversation (UserBubble · AiAnswer (RecordLinks · ToolSteps) | UnavailableNotice)
+└── AskForm
+```
+
+### Respuesta con citas (AI-06)
+
+- **Ruta y lienzo:** dentro del panel S05, modo documentos · hoja `IA-Citas` · F7.
+- **Propósito:** responder desde actas, convenios, informes y evidencias con la fuente de cada afirmación.
+- **Roles:** como S05, modo documentos.
+- **Acciones:** abrir cada fuente; reintentar si el proveedor no responde.
+- **Disposición y componentes:** respuesta con llamadas numeradas; lista de fuentes con título, tipo, clasificación, cita
+  literal y "Abrir el documento".
+- **Datos y API:** recuperación filtrada por tenant, proyecto y clasificación descargable (`ai-architecture.md` §13.3).
+- **Estados:** sin fuentes, "No encontré documentos que respondan esto" (nunca responde sin fuente); proveedor no disponible.
+- **Permisos:** solo documentos que la persona puede descargar (RF-DOC-003); nombres re-identificados solo para quien los lee.
+- **Responsive:** fuentes en acordeón.
+- **Relacionadas y navegación:** S46.
+
+```text
+AiAnswer (variant="cited")
+├── AnswerText (CitationRef)
+└── SourceList (SourceCard · QuoteBlock)
+```
+
+### S52 · Bandeja de revisión de IA
+
+- **Ruta y lienzo:** `/projects/:projectId/ai-review` · hoja `IA-Bandeja` · F7 (candidatos humanos desde F3).
+- **Propósito:** decidir sobre lo que la IA propuso en el proyecto: aceptar, corregir, rechazar o marcar duplicado.
+- **Roles:** los de la transición hacia `accepted` de WF-K más los permisos del comando destino (`ai-architecture.md` §4.2).
+- **Acciones:** por tarjeta, "Aceptar…" (con corrección y motivo donde el destino lo pide), "Rechazar…", "marcar duplicado…",
+  "Comparar lado a lado".
+- **Disposición y componentes:** filtros por tipo y origen; tarjetas `AiSuggestionCard` ordenadas por confianza con tipo,
+  confianza, fuente, cita, modelo y versión de la instrucción; reglas de la bandeja.
+- **Datos y API:** `commitment_candidate` y `ai_suggestion` en `proposed`; `POST /api/sgspe/commitment-candidates/{id}/accept`,
+  `POST /api/sgspe/commitment-candidates/{id}/duplicate`, `POST /api/sgspe/ai-suggestions/{id}/accept`, transición de WF-K a
+  `rejected` (CR).
+- **Estados:** sin propuestas, vacío; una propuesta cuyo destino la persona no lee no aparece.
+- **Permisos:** la cita y el enlace a la fuente solo si la persona puede abrirla; si no, "fuente restringida".
+- **Responsive:** tarjetas a ancho completo.
+- **Relacionadas y navegación:** el candidato aceptado abre S30; el duplicado, la comparación.
+
+```text
+AiReviewPage
+├── FilterBar
+├── SuggestionList (AiSuggestionCard · CandidateCard)
+└── ReviewRules
+```
+
+### Posible duplicado (AI-07)
+
+- **Ruta y lienzo:** `/projects/:projectId/ai-review/:suggestionId` · hoja `IA-Duplicados` · F7.
+- **Propósito:** decidir si dos registros son el mismo planteamiento, con los campos lado a lado.
+- **Roles:** GVM para QCS (UPDATE con motivo); los roles de cada objeto para los demás pares.
+- **Acciones:** "Es duplicado" o "No es duplicado", con respuesta (en QCS) y motivo; "Confirmar".
+- **Disposición y componentes:** tabla comparativa con las coincidencias marcadas; decisión; "Qué pasa al confirmar".
+- **Datos y API:** `POST /api/sgspe/ai-suggestions/{id}/accept`; en una queja escribe `duplicate_of` y la rechaza con respuesta
+  en la misma transacción; en `person`, `stakeholder`, `commitment`, `inquiry` y `stakeholder_request` solo registra la
+  decisión (`ai-architecture.md` §4.2).
+- **Estados:** si algo falla, nada cambia.
+- **Permisos:** la persona que plantea sigue restringida.
+- **Responsive:** la tabla pasa a dos tarjetas apiladas.
+- **Relacionadas y navegación:** S36, S52.
+
+```text
+DuplicateReviewPage
+├── ComparisonTable (MatchBadge)
+└── DecisionForm (DecisionRadio · ResponseField · ReasonField) · OutcomeNote
+```
+
+### Resumen ejecutivo y borrador de sección (AI-04)
+
+- **Ruta y lienzo:** tarjeta en S08 (Resumen del proyecto) y en el editor de secciones de S50 · hoja `IA-Resumen` · F7 (resumen),
+  F8 (sección).
+- **Propósito:** partir de un borrador redactado con las cifras del periodo.
+- **Roles:** quien lee el proyecto para el resumen; quien tiene UPDATE sobre `deliverable_section` para usar el borrador.
+- **Acciones:** resumen: "Copiar", "Usar en un entregable…", "Generar de nuevo". Sección: "Usar y editar…" (motivo),
+  "Descartar…".
+- **Disposición y componentes:** `AiSummary` con fecha de los datos y lista de fuentes de cifras; en la sección, contenido
+  actual y la propuesta con el motivo.
+- **Datos y API:** `POST /api/sgspe/ai/runs` (AI-04); RESUMEN EJECUTIVO no se acepta mientras solo informa; BORRADOR DE SECCION
+  escribe `content` con `content_origin` ASISTIDO POR IA (RQ-AI-012).
+- **Estados:** sin IA, la tarjeta no aparece; generación en curso con su estado.
+- **Permisos:** el resumen solo cuenta lo que la persona lee; no menciona posturas.
+- **Responsive:** la tarjeta va primero en el Resumen.
+- **Relacionadas y navegación:** S08, S50.
+
+```text
+AiSummary (variant="executive") · SectionDraftCard (ReasonField)
+```
+
+## 14. Inicio y transversales
+
+Lienzo de la etapa 3, página 18.
+
+### S01 · Login
+
+- **Ruta y lienzo:** `/login` · hoja `Ini-Login` · F1.
+- **Propósito:** ingresar con correo y contraseña al portal y a `/admin` con un mismo ingreso.
+- **Roles:** todos.
+- **Acciones:** "Ingresar"; cambiar idioma.
+- **Disposición y componentes:** columna de presentación y formulario; estados de error.
+- **Datos y API:** `POST /api/auth/login` → token en `sgspe.token` (`architecture.md` §9.1); `GET /api/auth/me` y
+  `/api/auth/me/permissions` para la navegación.
+- **Estados:** credenciales incorrectas (sin decir cuál falló); demasiados intentos (`429` del proxy, RQ-SEC-015); sesión
+  vencida (un `401` vuelve aquí y, al ingresar, a la ruta donde estaba).
+- **Permisos:** sin recuperación de contraseña propia: la restablece la administración en `/admin`.
+- **Responsive:** en teléfono, solo el formulario.
+- **Relacionadas y navegación:** S02.
+
+```text
+LoginPage
+├── BrandPanel
+└── LoginForm (EmailField · PasswordField · ErrorAlert · LanguageSwitch)
+```
+
+### S02 · Inicio por rol
+
+- **Ruta y lienzo:** `/` · hoja `Ini-Inicio` (interactiva: relacionista, gerencia social, aprobación) · F1 bienvenida; F8
+  completo.
+- **Propósito:** contestar la pregunta del rol (`ux-architecture.md` §5) apenas se ingresa.
+- **Roles:** todos; el contenido depende del rol (ASM-078). El ejecutivo usa S51.
+- **Acciones:** abrir cada elemento; atajos de creación del rol; cambiar el inicio en preferencias.
+- **Disposición y componentes:** saludo y contexto; tiles del rol; dos o tres listas (agenda, tareas, pendientes, atención
+  requerida, aprobaciones); atajos.
+- **Datos y API:** `task`, `notification` e indicadores del rol; preferencias en `PUT /api/auth/me/preferences`.
+- **Estados:** sin asignaciones de proyecto, bienvenida con el mapa de módulos (F1).
+- **Permisos:** solo lo que el rol lee.
+- **Responsive:** en teléfono, las listas en una columna; el agente de campo entra a S54.
+- **Relacionadas y navegación:** S47, S48, S51, S38, S52.
+
+```text
+HomePage
+├── Greeting · RoleKpis
+├── HomeWidgets (AgendaWidget · TasksWidget · AttentionWidget · ApprovalsWidget)
+└── RoleShortcuts
+```
+
+### S04 · Avisos
+
+- **Ruta y lienzo:** `/notifications` y el menú de la campana · hoja `Ini-Avisos` · F3.
+- **Propósito:** ver qué pasó que me toca y llegar al registro.
+- **Roles:** cada persona ve solo sus avisos.
+- **Acciones:** abrir (marca como leído); "Solo sin leer"; "Marcar todos como leídos".
+- **Disposición y componentes:** lista con tipo por color e ícono, título, detalle y hora; punto de no leído; nota de origen.
+- **Datos y API:** `GET /api/sgspe/notifications`, `GET …/unread-count`, `POST …/{id}/read`, `POST …/read-all`; tipos de
+  `workflows.md` "Avisos".
+- **Estados:** sin avisos, vacío; la campana muestra los últimos cinco.
+- **Permisos:** un aviso de otra persona es `404`.
+- **Responsive:** igual en teléfono.
+- **Relacionadas y navegación:** el registro de cada aviso.
+
+```text
+NotificationsPage
+├── NotificationFilters
+└── NotificationList (NotificationItem)
+NotificationBell (NotificationMenu)
+```
+
+### S49 · Reportes y exportaciones
+
+- **Ruta y lienzo:** `/reports` y `/projects/:projectId/reports` · hoja `Rep-Reportes` · F2–F4 exportaciones; F8 entregables.
+- **Propósito:** generar un entregable o exportar datos al nivel de divulgación correcto.
+- **Roles:** entregables: SMG y SHM (`GENERATE`, `APPROVE`, `ISSUE`); exportaciones: los roles con `EXPORT` sobre cada objeto.
+- **Acciones:** "Nuevo entregable"; elegir exportación, nivel y confirmar la lista de verificación; "Exportar".
+- **Disposición y componentes:** tabla de entregables (tipo, corte, estado, borrador, revisión, niveles); exportación con
+  opciones, nivel de divulgación y lista de verificación EXTERNO; explicación de los niveles.
+- **Datos y API:** `deliverable`; exportaciones XLSX de `deliverables.md` §10, con fila en `export_log`.
+- **Estados:** "Exportar" queda deshabilitado con la razón hasta confirmar la lista EXTERNO.
+- **Permisos:** la exportación lee como la persona: lo que no lee sale "no disponible"; el documento de identidad nunca se
+  exporta.
+- **Responsive:** la tabla pasa a tarjetas.
+- **Relacionadas y navegación:** S50.
+
+```text
+ReportsPage
+├── DeliverableTable
+└── ExportPanel (ExportPicker · DisclosureLevelRadio · ExternalChecklist)
+```
+
+### S50 · Entregable por secciones
+
+- **Ruta y lienzo:** `/reports/deliverables/:deliverableId` · hoja `Rep-Entregable` · F8.
+- **Propósito:** revisar, aprobar y emitir un entregable sabiendo que se emite exactamente lo revisado.
+- **Roles:** SMG y SHM en las transiciones de WF-H; `DOWNLOAD_RESTRICTED` para ver borradores.
+- **Acciones:** según el estado: "Enviar a revisión", "Observar…", "Aprobar…", "Emitir…", "Generar otro borrador", "Nueva
+  revisión…".
+- **Disposición y componentes:** encabezado con estado y niveles; camino de WF-H; secciones con su origen (humana, calculada,
+  asistida por IA); borrador con estado de generación, vistas por nivel y SHA-256 de la candidata; "Al emitir".
+- **Datos y API:** `POST /api/sgspe/deliverables/{id}/drafts`; `GET …/draft/content`; `POST …/issue` (motivo y lista
+  EXTERNO).
+- **Estados:** EN COLA, EN PROCESO, LISTO, FALLIDO; una sección editada después del borrador bloquea la aprobación y la
+  emisión (`409` con las secciones).
+- **Permisos:** la versión candidata no se descarga; los borradores llevan marca BORRADOR.
+- **Responsive:** el panel del borrador baja.
+- **Relacionadas y navegación:** el editor de una sección (con AI-04), S49.
+
+```text
+DeliverablePage
+├── RecordHeader · StatePath
+├── SectionList (SectionRow · OriginBadge)
+└── DraftPanel (GenerationStatus · DraftLinks · CandidateHash) · IssueNotes
+```
+
+### S53 · Administración
+
+- **Ruta y lienzo:** sección Administración del portal, con enlace a `/admin` · hoja `Adm-Admin` · F1.
+- **Propósito:** saber qué se administra en el portal (con motivo y reglas) y qué en la consola de la plataforma.
+- **Roles:** PAD y la administración de la organización.
+- **Acciones:** enlaces a Proyectos, Equipo y parámetros (S11), reglas de alerta; "Abrir la consola" (`/admin`, otra pestaña).
+- **Disposición y componentes:** dos columnas (portal y consola) y "Cuidados".
+- **Datos y API:** ninguna propia; `/admin` es `WasichaiApp` (`architecture.md` §9.1).
+- **Estados:** la sección no aparece para quien no administra.
+- **Permisos:** `/admin` no pide motivo todavía (UPS-08): las escrituras críticas se hacen en el portal; lo editado a mano en el
+  modelo se pierde al reaplicar (GAP-030).
+- **Responsive:** columnas apiladas.
+- **Relacionadas y navegación:** S06, S11.
+
+```text
+AdminLandingPage
+├── PortalAdminLinks · ConsoleAdminLinks
+└── AdminCautions
+```
+
+## 15. Campo sin conexión
+
+Lienzo de la etapa 3, página 19. Decisión del usuario: la captura de campo sin conexión entra al diseño (ASM-081). El teléfono
+guarda una cola local de interacciones, participantes, observaciones y fotos y la envía al volver la señal; el servidor aplica
+las mismas reglas que en línea. La arquitectura de la sincronización se fija en un ADR antes de implementarla.
+
+### S54 · Campo: mis tareas y visita
+
+- **Ruta y lienzo:** `/tasks` y `/projects/:projectId/field-visits/:visitId` en el diseño móvil (`FieldLayout`) · hoja
+  `Cam-Tareas` · F2, F3; sin conexión según ASM-081.
+- **Propósito:** saber qué levantar hoy y dónde, con o sin señal.
+- **Roles:** FAG y CRO.
+- **Acciones:** abrir una tarea; "Registrar en esta parada"; "Actualizar descarga".
+- **Disposición y componentes:** barra con indicador de conexión; aviso "Trabajas sin señal"; lista de tareas con su
+  situación; visita con paradas sobre el mapa base descargado; descarga para campo.
+- **Datos y API:** `task`, `field_visit`; el paquete de descarga trae tareas y visitas de 7 días, lugares, grupos de interés y
+  actores (nombre y cargo) y catálogos, sin campos restringidos aunque el rol los lea.
+- **Estados:** en línea, sin señal, enviando, conflicto, sesión vencida.
+- **Permisos:** solo lo que el rol lee; nada restringido sale al teléfono.
+- **Responsive:** diseño solo para teléfono (< 640), con objetivos de 48 px.
+- **Relacionadas y navegación:** S55, cola.
+
+```text
+FieldLayout (ConnectionIndicator · OfflineBanner · FieldNav)
+├── FieldTasksPage (FieldTaskItem)
+├── FieldVisitPage (OfflineMap · StopList)
+└── FieldDownloadPage
+```
+
+### S55 · Campo: interacción, observación y foto
+
+- **Ruta y lienzo:** `/projects/:projectId/engagements/new` y la captura de observación en el diseño móvil · hoja
+  `Cam-Captura` · F2; sin conexión según ASM-081.
+- **Propósito:** capturar en una pantalla y seguir.
+- **Roles:** FAG y CRO; FAG solo cambia lo que capturó (ASM-069).
+- **Acciones:** "Guardar en el teléfono"; agregar participantes y preguntas; tomar foto.
+- **Disposición y componentes:** formulario corto (tipo, lugar por GPS, participantes, lo que se habló, preguntas); observación
+  con foto, personas en la foto y consentimiento, clasificación; confirmación con lo que queda en la cola.
+- **Datos y API:** al enviar, los mismos endpoints que en línea: `POST` genérico de `engagement`, `engagement_participant`,
+  `field_observation`; `POST /api/sgspe/evidence` para las fotos, cada uno con su `Idempotency-Key` creado en el teléfono.
+- **Estados:** guardado en el teléfono; cerrar sesión con elementos por enviar pide confirmación.
+- **Permisos:** sin `DOWNLOAD_RESTRICTED`, FAG no vuelve a abrir desde la oficina una foto DATOS PERSONALES.
+- **Responsive:** solo teléfono.
+- **Relacionadas y navegación:** cola; S23 en la oficina.
+
+```text
+FieldCapturePage
+├── QuickEngagementForm (PlaceFromGps · ParticipantPicker · QuestionList)
+├── ObservationForm (PhotoCapture · PeopleConsentFieldset · ClassificationSelect)
+└── SavedConfirmation
+```
+
+### Estado de conexión, cola y sincronización
+
+- **Ruta y lienzo:** `/field/queue` en el diseño móvil · hojas `Cam-Cola` y `Cam-Sync` · según ASM-081.
+- **Propósito:** saber qué espera envío y decidir sobre lo que el servidor no aceptó, sin perder nada.
+- **Roles:** quien capturó.
+- **Acciones:** reintentar; "Enviarlo como nota…", "Guardar como observación nueva…", "Descartar mi cambio"; "Subir fotos solo
+  con wifi".
+- **Disposición y componentes:** indicador de conexión con cinco estados (texto, no solo color, anunciado con `role="status"`);
+  cola en orden de envío (interacción, lo que cuelga de ella, fotos al final); conflicto con lo de la oficina y lo del teléfono
+  lado a lado; fotos con progreso reanudable.
+- **Datos y API:** un reintento con el mismo `Idempotency-Key` no duplica; `412` (cambió en la oficina), `409` (el estado no lo
+  admite) y `403` (registro ajeno, `EditAnyGuard`) dejan el elemento en conflicto con su razón.
+- **Estados:** sesión vencida sin señal: la cola se conserva y se envía al volver a ingresar con la misma cuenta.
+- **Permisos:** los permisos se comprueban al enviar, no al capturar.
+- **Responsive:** solo teléfono.
+- **Relacionadas y navegación:** S54, S55. Flujo de campo.
+
+```text
+FieldQueuePage
+├── QueueList (QueueItem · SyncStatusBadge)
+├── ConflictResolver (ServerVersion · LocalChange · ResolutionActions)
+└── PendingUploads (UploadProgress · WifiOnlySwitch)
+```
+
+## 16. Trazabilidad
 
 - **Requisitos:** RF-PRJ-001 a RF-PRJ-006, RF-TER-001 a RF-TER-008, RF-LBS-001 a RF-LBS-009, RF-STK-001 a RF-STK-014,
   RF-ENG-001 a RF-ENG-012, RF-FLD-001, RF-COM-001 a RF-COM-010, RF-AGR-001 a RF-AGR-003, RQ-GIS-002 a RQ-GIS-011,
   RQ-DSH-032, RQ-SEC-010, RN-ENG-001, RN-ENG-004, RN-ENG-005, RN-COM-001, RN-COM-005, RN-INV-003. Parte 3a: RF-GRV-001,
   RF-GRV-002, RN-GRV-002, RF-RSK-001 a RF-RSK-003, RN-RSK-001 a RN-RSK-003, RN-EWS-001, RF-EWS-004, RF-INV-001, RF-INV-004,
-  RN-INV-001 a RN-INV-004, RN-INV-006, RF-DOC-001, RF-DOC-003, RNF-PRIV-004, RF-WFL-001, RF-WFL-002, RF-WFL-004, RN-WFL-001.
+  RN-INV-001 a RN-INV-004, RN-INV-006, RF-DOC-001, RF-DOC-003, RNF-PRIV-004, RF-WFL-001, RF-WFL-002, RF-WFL-004, RN-WFL-001. Parte 3b: RF-DSH-001
+  a RF-DSH-010, RQ-DSH-032, RQ-DSH-034, RQ-GIS-014, RQ-GIS-015, RF-AIK-005, RF-AIK-006, RQ-AI-001, RQ-AI-003, RQ-AI-011,
+  RQ-AI-012, RF-NTF-001, RF-IAM-001, RF-IAM-002, RQ-SEC-015, RQ-REP-014, RQ-REP-022, RQ-REP-033, RF-FLD-001, RNF-PRIV-004.
 - **Supuestos:** ASM-003, ASM-008, ASM-009, ASM-019, ASM-062, ASM-063, ASM-067, ASM-069, ASM-075, ASM-076, ASM-079, ASM-080.
-  Parte 3a: ASM-004, ASM-005, ASM-011, ASM-030, ASM-036, ASM-068, ASM-070, ASM-071, ASM-072.
+  Parte 3a: ASM-004, ASM-005, ASM-011, ASM-030, ASM-036, ASM-068, ASM-070, ASM-071, ASM-072. Parte 3b: ASM-063, ASM-069,
+  ASM-073, ASM-074, ASM-078, ASM-081.
 - **Documentos:** [workflows.md](../workflows.md) (WF-A, WF-B, WF-C, WF-D, WF-I, WF-K, WF-L, WF-O; en la parte 3a, WF-E1,
   WF-E2, WF-E3, WF-F, WF-G, WF-J, WF-M, WF-N y WF-P), [api.md](../api.md) §2–§4, [security.md](../security.md) §7,
   [dashboards.md](../dashboards.md) §3 y §5, [gis.md](../gis.md), [domain-model.md](../domain-model.md) §6,
-  [ai-architecture.md](../ai-architecture.md) §4 (AI-07, AI-08).
+  [ai-architecture.md](../ai-architecture.md) §4, §8, §9.3 y §13, [deliverables.md](../deliverables.md) §8 a §10,
+  [architecture.md](../architecture.md) §9.1.

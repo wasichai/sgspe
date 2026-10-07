@@ -92,7 +92,7 @@ Donde choca con la Fase 0, la interfaz sigue a la Fase 0:
 | Cambio masivo de fecha | Acción masiva | La fecha de un compromiso aprobado solo cambia con una reprogramación (RF-COM-003) | No hay cambio masivo de fecha; se reprograma por compromiso |
 | Evidencia al crear un compromiso | Paso 5 del formulario | La evidencia se exige al registrar el cumplimiento (RN-COM-001) | El formulario de alta no pide evidencia (design-system §6.3) |
 | Asistente para todos | Global y contextual | AI-05 solo para `ANALYST` hasta UPS-14 (checkpoint) | Estado "no disponible para tu rol" diseñado; resúmenes y propuestas revisables sí disponibles |
-| Sincronización móvil | "Sync" | Captura sin conexión fuera del MVP (ASM-021, GAP-008) | Web responsive en línea; el modo sin conexión queda marcado como futuro |
+| Sincronización móvil | "Sync" | Captura sin conexión fuera del MVP (ASM-021, GAP-008) | El usuario decidió diseñarla (ASM-081): cola local, sincronización y conflictos visibles; se implementa después del MVP |
 | Idioma | Etiquetas en inglés | Interfaz en español es-PE con inglés; ENUM en MAYÚSCULAS españolas (RNF-I18N-001, ADR-0009) | Etiquetas y valores en español; rutas técnicas en inglés (ASM-075) |
 | Montos | "Social investment" | Por moneda, nunca sumadas; PEN por defecto (ASM-063) | Cada total con su moneda; lo de otra moneda, como advertencia |
 
@@ -143,7 +143,7 @@ Rutas técnicas en inglés y kebab-case (ADR-0009, ASM-075). La columna "En el p
 
 | Sección (RNF-USA-001) | Global | En el proyecto | Fase de llegada |
 |---|---|---|---|
-| Dashboard | `/` (inicio por rol) | `/overview` (Resumen) | F1 bienvenida; F8 consolidado |
+| Dashboard | `/` (inicio por rol), `/dashboards/monitoring` | `/overview` (Resumen) | F1 bienvenida; F8 consolidado |
 | Proyectos | `/projects`, `/projects/new` | `/overview`, `/map`, `/areas/:areaId`, `/settings`, `/activity` | F2 |
 | Territorio | `/territory`, `/territory/communities/:id`, `/territory/localities/:id`, `/territory/admin-units/:id`, `/territory/imports/:id` | `/map` | F2; F6 mapa territorial y ficha |
 | Grupos de interés | `/stakeholders`, `/actors/:actorId` | `/stakeholders`, `/stakeholders/matrix`, `/stakeholders/:stakeholderId` | F2 |
@@ -151,12 +151,12 @@ Rutas técnicas en inglés y kebab-case (ADR-0009, ASM-075). La columna "En el p
 | Compromisos | `/commitments`, `/commitments/dashboard`, `/agreements` | `/commitments` (con la vista `?view=candidates`), `/commitments/:commitmentId`, `/commitments/new`, `/agreements`, `/agreements/:agreementId` | F3 |
 | Quejas, consultas y solicitudes | `/attention`, `/attention/dashboard` | `/attention/new`, `/grievances/:id`, `/inquiries/:id`, `/requests/:id` | F4 |
 | Riesgos | `/risks`, `/risks/register`, `/risks/warnings` | `/risks/:riskId`, `/warnings/:warningId`, `/incidents/:incidentId` | F4 |
-| Programas sociales | `/programs`, `/contributions` | `/programs/:programId`, `/contributions/:contributionId` | F5 (tope y lineamientos desde F3) |
+| Programas sociales | `/programs`, `/programs/dashboard`, `/contributions` | `/programs/:programId`, `/contributions/:contributionId` | F5 (tope y lineamientos desde F3) |
 | Documentos | `/documents` | `/documents/:documentId` | F3 |
 | Tareas | `/tasks`, `/tasks/approvals` | `/tasks` (del proyecto) | F3 |
 | Reportes | `/reports`, `/reports/deliverables/:deliverableId` | `/reports` (del proyecto) | F2–F4 exportaciones; F8 entregables |
 | Administración | `/admin` (consola de wasichai) | `/settings` (equipo y parámetros del proyecto) | F1 |
-| Transversal | `/notifications`, panel del asistente, búsqueda ⌘K | `/ai-review` (bandeja de revisión de IA) | F3 avisos; F7 IA |
+| Transversal | `/notifications`, panel del asistente, búsqueda ⌘K, `/field/queue` (cola de campo, móvil) | `/ai-review` (bandeja de revisión de IA) | F3 avisos; F7 IA; campo sin conexión después del MVP (ASM-081) |
 
 ### 6.3 Fichas con una sola URL
 
@@ -214,14 +214,16 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 ### 7.4 Avisos
 
 Bandeja en la barra superior y página `/notifications` (RF-NTF-001): por vencer, vencido, aprobación pendiente, riesgo escalado,
-alerta nueva. Cada aviso lleva a la ficha con el contexto puesto y se marca como leído al abrirlo. Su diseño detallado es de E3.
+alerta nueva. Cada aviso lleva a la ficha con el contexto puesto y se marca como leído al abrirlo. La campana muestra los cinco
+últimos; el diseño está en [`screens.md`](screens.md) S04.
 
 ### 7.5 El asistente de IA en la navegación
 
 No es una sección (ASM-073). El botón "Preguntar" de la barra superior abre el asistente global; dentro de una ficha, el botón
 "Explicar" o "Preguntar sobre…" abre el mismo panel con el registro como contexto. Hasta UPS-14, las preguntas libres solo están
 disponibles para `ANALYST` (RF-AIK-005); el resto ve el estado "no disponible para tu rol" con la razón, y sigue viendo los
-resúmenes y las propuestas revisables. El diseño completo del panel es de E3.
+resúmenes y las propuestas revisables. El panel tiene dos modos: "Preguntar a los datos" (AI-05) y "Preguntar a los documentos"
+(AI-06, con citas y nunca sin fuente); su diseño está en [`screens.md`](screens.md) S05 y el recorrido, en el flujo 18.
 
 ## 8. Hilo de contexto y trazabilidad
 
@@ -305,7 +307,7 @@ El lienzo trae un prototipo navegable de este recorrido ("Hilo de contexto"):
 
 Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 55 pantallas. "Etapa" es la etapa de diseño en que se dibujan; "Fase",
 cuándo llega el módulo. La ficha de handoff de cada pantalla (ruta, roles, datos, API, estados, permisos, árbol de componentes)
-está en [`screens.md`](screens.md): las de E2 ya están; E3 agrega el resto.
+está en [`screens.md`](screens.md), completa desde la etapa 3.
 
 | ID | Pantalla | Ruta | Fase | Etapa |
 |---|---|---|---|---|
@@ -375,7 +377,8 @@ importación geoespacial, bandeja de revisión de IA y entregables.
 Supuestos de esta etapa (definidos en el análisis §19): ASM-073 (asistente como panel), ASM-074 (ejecutivo sin rol propio),
 ASM-075 (rutas y contexto en la URL), ASM-076 (misma página con otro alcance), ASM-077 (dirección visual y tokens), ASM-078
 (inicio por rol) y ASM-079 (vistas guardadas). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
-con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10].
+con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10]. La etapa 3
+agrega ASM-081 (la captura de campo sin conexión se diseña; se implementa después del MVP).
 
 | # | Pregunta | Valor con el que se diseña | Relacionado |
 |---|---|---|---|
@@ -383,7 +386,7 @@ con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 jun
 | Q2 | ¿Qué nombres de tokens y qué primitivas (tabla, drawer, combobox, calendario) trae `@wasichai/ui` 0.5.0? | Los tokens se aplican como capa; se confirma en F1 al copiar caja-ui | ASM-077, RNF-MNT-001 |
 | Q3 | ¿Las vistas guardadas deben compartirse entre personas o dispositivos? | Personales en el navegador; las del sistema, por rol en el código | ASM-079 |
 | Q4 | ¿El ejecutivo necesita un rol propio? | Lectura con `READ_ONLY` o `ANALYST` | ASM-074 |
-| Q5 | ¿El trabajo de campo debe operar sin conexión? | No en el MVP | GAP-008, ASM-021 |
+| Q5 | ¿El trabajo de campo debe operar sin conexión? | Respondida por el usuario: sí, se diseña; se implementa después del MVP, con un ADR de sincronización | GAP-008, ASM-021, ASM-081 |
 | Q6 | ¿Se requieren contenidos en quechua en la interfaz de campo? | Solo español | GAP-013 |
 | Q7 | ¿Qué mapa base usa el portal? | Mapa base apagado; depende de UPS-13 | UPS-13, `gis.md` §6.4 |
 

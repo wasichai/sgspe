@@ -1,12 +1,13 @@
 # Flujos de usuario de SGSPE
 
 Los flujos núcleo de PRM-02 §38, recorridos sobre las pantallas de [`screens.md`](screens.md) y las reglas de la Fase 0. Esta
-versión cubre la **etapa 2** (flujos 1 a 11, 16 y 17) y la **parte 3a** (flujos 12 a 15: quejas y riesgos). El flujo 18
-(preguntar a la IA) y el de sincronización de campo llegan en la parte 3b.
+versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **parte 3a** (flujos 12 a 15: quejas y riesgos) y la
+**parte 3b** (flujo 18, preguntar a la IA, y el flujo de campo sin conexión, que agrega la decisión ASM-081).
 
 - Los diagramas de la etapa 2 están en la página 10 de su lienzo (hojas `Flujos-Territorio` y `Flujos-Compromiso`):
   <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>. Los de la parte 3a, en la página 15 del lienzo de la etapa 3 (hojas
-  `Flujos-QCS` y `Flujos-Riesgo`): <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>.
+  `Flujos-QCS` y `Flujos-Riesgo`) y los de la parte 3b, en la página 20 (hojas `Flujos-IA` y `Flujos-Campo`):
+  <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>.
 - Cada paso nombra la pantalla (`SNN`), la transición de workflow o el endpoint, y la regla que lo condiciona. Las transiciones
   van por la API genérica salvo que se indique un comando de `/api/sgspe/**` ([api.md](../api.md) §2 y §4).
 - Principio común [USR-10]: ningún flujo saca a la persona del proyecto ni del territorio en contexto; el chip de territorio y
@@ -277,13 +278,55 @@ versión cubre la **etapa 2** (flujos 1 a 11, 16 y 17) y la **parte 3a** (flujos
 - **Resultado:** del lugar a la evidencia en cinco pasos, sin perder el proyecto ni el territorio, y con vuelta atrás por el
   rastro.
 
+## Flujo 18 · Preguntar a la IA
+
+- **Actor:** quien tenga la IA activada en su organización; "preguntar a los datos" (AI-05) solo `ANALYST` hasta UPS-14.
+- **Disparador:** una duda sobre los datos o los documentos del proyecto, desde la barra superior o desde una ficha.
+- **Diagrama:** hoja `Flujos-IA` del lienzo de la etapa 3, página 20.
+
+| # | Pantalla | Acción | Regla o resultado |
+|---|---|---|---|
+| 1 | S05 | Abrir el asistente | Contextual: lleva el registro abierto y el contexto de proyecto y territorio (ASM-073, ASM-075) |
+| 2 | S05 | `GET /api/sgspe/ai/status` | Sin IA activada, proveedor caído o rol sin AI-05: se muestra la razón y la alternativa (preguntar a los documentos) |
+| 3 | S05 | Elegir modo y preguntar | AI-05: `POST /api/sgspe/ai/assistant/questions`; AI-06: `POST /api/sgspe/ai/knowledge/questions` |
+| 4 | — | El servicio lee como la persona | Permisos, alcance y, en AI-06, solo clasificaciones descargables (RF-DOC-003) |
+| 5 | — | Seudonimiza y llama al modelo | AI-06 y los agentes propios reemplazan nombres por marcadores (RQ-AI-009); una cita que no aparece literal se descarta |
+| 6 | — | Registra la consulta | `ai_interaction` (RF-AIK-009) |
+| 7 | S05 | Lee la respuesta con sus fuentes o "no encontré" | AI-06 nunca responde sin fuente; los marcadores vuelven a nombres solo para quien puede leerlos |
+| 8 | Ficha citada | Abre el registro o la evidencia | El hilo de contexto se conserva (`ux-architecture.md` §8) |
+
+- **Resultado:** la persona sabe más y no cambió ningún dato. Lo que cambia datos (propuestas de AI-01, AI-03, AI-07, AI-08) va
+  a la bandeja de revisión (S52).
+
+## Flujo de campo · Capturar sin señal y sincronizar
+
+- **Actor:** agente de campo (`FIELD_AGENT`) o relacionista comunitario.
+- **Disparador:** trabajo en lugares sin cobertura (decisión del usuario, ASM-081).
+- **Diagrama:** hoja `Flujos-Campo` del lienzo de la etapa 3, página 20.
+
+| # | Pantalla | Acción | Regla o resultado |
+|---|---|---|---|
+| 1 | S54 | Descargar antes de salir | Tareas y visitas de 7 días, lugares, grupos de interés y actores (nombre y cargo) y catálogos; ningún campo restringido |
+| 2 | S55 | Capturar interacción, participantes, observación y fotos | Todo se guarda primero en la cola local cifrada, con un `Idempotency-Key` por elemento creado en el teléfono |
+| 3 | Cola | Al volver la señal, enviar en orden | Interacción, lo que cuelga de ella y al final las fotos (reanudables; opción solo con wifi) |
+| 4 | — | El servidor valida como en línea | Mismos permisos y guardas; un reintento con la misma clave no duplica (RNF-INT-002) |
+| 5a | Cola | Enviado | El registro aparece en la oficina con su autoría y su hora de captura |
+| 5b | Cola | Conflicto: `412`, `409` o `403` | El elemento queda en la cola con su razón; nada se pisa |
+| 6 | Cola | Decidir: enviar como nota, guardar como captura nueva vinculada o descartar | Un registro ajeno nunca se cambia (`EditAnyGuard`, ASM-069) |
+| 7 | S23, S26 | La oficina completa y revisa | Acta, clasificación y vínculos siguen sus flujos (4 y 5) |
+
+- **Resultado:** lo capturado sin señal llega al sistema sin duplicados ni sobrescrituras, o queda a la vista con su razón.
+- **Sesión:** si el token vence sin señal, la cola se conserva y se envía al volver a ingresar con la misma cuenta.
+
 ## Trazabilidad
 
 - **Requisitos:** RF-PRJ-003, RF-TER-003 a RF-TER-005, RF-STK-003, RF-STK-005, RF-ENG-001 a RF-ENG-006, RF-COM-001 a
   RF-COM-010, RF-AIK-002, RF-AIK-003, RQ-AI-001, RQ-AI-003, RQ-AI-015, RQ-GIS-003, RQ-GIS-014, RN-ENG-001, RN-ENG-005,
   RN-COM-001, RN-COM-004, RN-COM-005, RN-GRV-001. Parte 3a: RF-GRV-001, RN-GRV-002, RF-RSK-001 a RF-RSK-003, RN-RSK-001,
-  RN-RSK-003, RN-EWS-001, RF-EWS-004, RF-WFL-001.
+  RN-RSK-003, RN-EWS-001, RF-EWS-004, RF-WFL-001. Parte 3b: RF-AIK-005, RF-AIK-006, RF-AIK-009, RQ-AI-009, RF-DOC-003,
+  RF-FLD-001, RNF-INT-002.
 - **Documentos:** [workflows.md](../workflows.md) (WF-A, WF-B, WF-C, WF-D, WF-K, WF-O; WF-E1, WF-F y WF-J en la parte 3a),
   [api.md](../api.md) §4,
-  [security.md](../security.md) §7, [ai-architecture.md](../ai-architecture.md) §5.
+  [security.md](../security.md) §7, [ai-architecture.md](../ai-architecture.md) §5, §8 y §13. Supuestos de la parte 3b:
+  ASM-069, ASM-073, ASM-075, ASM-081.
 - **Fuentes:** [PRM-02 §38, §39], [USR-10].
