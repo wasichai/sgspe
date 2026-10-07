@@ -6,7 +6,8 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 
 - **Lienzos de diseño** (privados: se comparten desde el menú de cada lienzo):
   - etapa 1: <https://claude.ai/artifact/LMLBimwromQ5dsRQDDeD61>;
-  - etapa 2: <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>.
+  - etapa 2: <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>;
+  - etapa 3: <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>.
 - **Orden de trabajo y principio rector** [USR-10]: dominio → arquitectura de información → navegación → design system →
   patrones núcleo → Project 360 y territorio → grupos de interés, relacionamiento y compromisos → QCS, riesgos y programas →
   tableros → capa de IA. Ningún módulo es una aplicación aparte: la navegación conserva el contexto de proyecto y territorio y
@@ -18,7 +19,8 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 |---|---|---|---|---|
 | E1 | Visión, dominio, roles, arquitectura de información, navegación, hilo de contexto, design system y patrones núcleo | Páginas 00 a 04 (17 hojas) | [`ux-architecture.md`](ux-architecture.md), [`design-system.md`](design-system.md), [`tokens.css`](tokens.css) | Entregada, en revisión |
 | E2 | Project 360 y territorio (GIS), grupos de interés, relacionamiento, compromisos y acuerdos | Lienzo de la etapa 2, páginas 05 a 10 (28 hojas) | [`screens.md`](screens.md) (S06–S26, S28–S33), [`flows.md`](flows.md) (flujos 1–11, 16 y 17) | Entregada, en revisión |
-| E3 | QCS, riesgos y alerta temprana, programas, documentos, tareas y aprobaciones, tableros (con S27), capa de IA, experiencia móvil de campo y handoff | Lienzo de la etapa 3 | `screens.md` y `flows.md` completos | Pendiente |
+| E3 · parte 3a | QCS, riesgos y alerta temprana, programas e inversión, documentos, tareas y aprobaciones | Lienzo de la etapa 3, páginas 11 a 15 (18 hojas) | [`screens.md`](screens.md) (S35–S48 y la ficha de incidente), [`flows.md`](flows.md) (flujos 12–15) | Entregada, en revisión |
+| E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 | `screens.md` y `flows.md` completos | Pendiente |
 
 ## Cómo leer
 
@@ -54,6 +56,18 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 
 La lista de compromisos (S28) y la pestaña Resumen de su ficha (S29) usan las hojas "Lista" y "Ficha" de los patrones de la
 etapa 1.
+
+## Lienzo de la etapa 3
+
+| Página | Hojas |
+|---|---|
+| 11 Quejas, consultas y solicitudes | Índice de la etapa · Lista unificada (S35) · Registrar QCS (S37) · Ficha de queja, interactiva (S36) · Fichas de consulta y de solicitud (S36) |
+| 12 Riesgos y alerta temprana | Registro y matriz, interactiva (S38–S39) · Ficha de riesgo (S40) · Centro de alerta temprana, interactiva (S41) · Ficha de incidente |
+| 13 Programas e inversión | Programas y aportes (S42) · Ficha de programa (S43) · Aporte social con sus políticas (S44) |
+| 14 Documentos, tareas y aprobaciones | Biblioteca (S45) · Ficha de evidencia (S46) · Mis tareas en lista, tablero y calendario, interactiva (S47) · Aprobaciones y escalamientos (S48) |
+| 15 Flujos | Flujos 12 y 13 (queja) · Flujos 14 y 15 (riesgo y mitigación), en carriles por rol |
+
+Las páginas 16 a 20 (parte 3b) llegan después de la revisión de la parte 3a.
 
 ## Convenciones
 

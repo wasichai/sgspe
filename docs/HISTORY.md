@@ -3,6 +3,22 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-07 — Diseño UX/UI, etapa 3, parte 3a: QCS, riesgos, programas, documentos y tareas
+
+Primera de las dos partes de la última etapa, en el orden de USR-10: QCS ← riesgos → programas, más las piezas transversales
+de documentos, tareas y aprobaciones.
+
+- **Lienzo de la etapa 3** con 18 hojas en cinco páginas: QCS (lista unificada por plazo, registro por tipo, ficha de queja
+  interactiva con la segregación de la resolución ALTA y CRITICA, consulta y solicitud con aceptación como compromiso o
+  aporte), riesgos (registro con mapa de calor interactivo, ficha con revisiones inmutables y mitigación, centro de alerta
+  temprana interactivo con la confirmación solo por una persona, incidente), programas e inversión (lista con el tope de la
+  campaña, ficha de programa, aporte con las políticas P1 a P8), documentos (biblioteca y ficha de evidencia con descarga
+  restringida), tareas (lista, tablero y calendario interactivos; aprobaciones y escalamientos) y dos hojas de flujos.
+- **[`ux/screens.md`](ux/screens.md):** fichas de S35 a S48 y de la ficha de incidente, con el mismo formato que la etapa 2.
+- **[`ux/flows.md`](ux/flows.md):** flujos 12 a 15 (crear y resolver una queja, identificar un riesgo y mitigarlo).
+- **Decisión del usuario para la parte 3b:** la captura de campo sin conexión entra al diseño; el supuesto que la registra y
+  sus cambios en el análisis se agregan con esa parte.
+
 ## 2026-10-07 — Diseño UX/UI, etapa 2: Project 360, territorio, grupos de interés, relacionamiento y compromisos
 
 Segunda de las tres etapas, en el orden que fijó el usuario (USR-10): los objetos que definen la navegación posterior.

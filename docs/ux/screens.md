@@ -1,11 +1,13 @@
 # Pantallas de SGSPE · fichas de handoff
 
-Fichas de implementación de las pantallas del portal (`sgspe-ui`). Esta versión cubre la **etapa 2** del diseño: proyectos y
-Project 360, territorio, grupos de interés, relacionamiento, compromisos y acuerdos (S06 a S26 y S28 a S33). La etapa 3 agrega
-el resto del inventario de [`ux-architecture.md`](ux-architecture.md) §9.
+Fichas de implementación de las pantallas del portal (`sgspe-ui`). Esta versión cubre la **etapa 2** del diseño (proyectos y
+Project 360, territorio, grupos de interés, relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33) y la **parte 3a**
+(quejas, consultas y solicitudes; riesgos y alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a
+S48 y la ficha de incidente). La parte 3b agrega el resto del inventario de [`ux-architecture.md`](ux-architecture.md) §9.
 
-- **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe> (privado: se comparte desde su menú). Cada
-  ficha nombra su hoja.
+- **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>; **lienzo de la etapa 3:**
+  <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>. Los dos son privados y se comparten desde su menú. Cada ficha nombra
+  su hoja.
 - Se lee con [`ux-architecture.md`](ux-architecture.md) (rutas, navegación, hilo de contexto) y
   [`design-system.md`](design-system.md) (componentes, patrones y estados comunes). Los recorridos completos están en
   [`flows.md`](flows.md).
@@ -18,7 +20,7 @@ el resto del inventario de [`ux-architecture.md`](ux-architecture.md) §9.
 |---|---|
 | Ruta y lienzo | Ruta del portal (ASM-075), hoja del lienzo que la dibuja y fase en que llega cada parte |
 | Propósito | La pregunta que la pantalla responde y el trabajo que permite hacer |
-| Roles | Quién la lee y quién actúa, según la matriz de `security.md` §7 (abreviaturas de §7.1: PAD, PMG, SMG, CRO, SHM, CMM, GAN, FAG, APR, ANL, RDO). "Todos" son los roles operativos con READ sobre el objeto; `AUDITOR` lee todo y no escribe |
+| Roles | Quién la lee y quién actúa, según la matriz de `security.md` §7 (abreviaturas de §7.1: PAD, PMG, SMG, CRO, SHM, CMM, GVM, SRM, SIM, GAN, FAG, APR, ANL, RDO). "Todos" son los roles operativos con READ sobre el objeto; `AUDITOR` lee todo y no escribe |
 | Acciones | Primaria (la más probable para el rol) y secundarias; cada transición abre el diálogo de `design-system.md` §6.2 |
 | Disposición y componentes | Zonas de la pantalla y piezas del catálogo de `design-system.md` §5 |
 | Datos y API | Objetos, campos y llamadas. "Genérica" es la API de wasichai (`api.md` §2); los comandos propios van por `/api/sgspe/**` |
@@ -816,12 +818,429 @@ AgreementDetailPage
 └── SidePanel (PartiesCard · AssemblyCard · ParcelsMap · EvidenceList)
 ```
 
-## 8. Trazabilidad
+## 8. Quejas, consultas y solicitudes
+
+Lienzo de la etapa 3, página 11. Tres objetos con ciclos distintos (WF-E1, WF-E2, WF-E3; ASM-011) que la lista une para
+atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
+
+### S35 · Lista unificada de QCS
+
+- **Ruta y lienzo:** `/projects/:projectId/attention` (y `/attention` entre proyectos) · hoja `QCS-Lista` · F4.
+- **Propósito:** ¿qué QCS vence primero y quién la tiene? Atender por plazo sin mezclar los ciclos de los tres tipos.
+- **Roles:** lectura para todos los roles con READ sobre `grievance`, `inquiry` y `stakeholder_request`; registran CRO y GVM;
+  exportan SMG, GVM y ANL (`EXPORT`).
+- **Acciones:** primaria "Registrar QCS" (S37); secundarias "Reporte unificado" y abrir una QCS.
+- **Disposición y componentes:** cuatro indicadores (abiertas por tipo, vencidas, por vencer en 7 días, absueltas en 90 días);
+  vistas guardadas (Atención, Quejas, Consultas, Solicitudes, Mis QCS, Todas); filtros de canal, categoría, severidad y
+  responsable; tabla agrupada por situación de plazo (VENCIDAS, POR VENCER, AL DÍA O SIN PLAZO) con tipo, canal, categoría,
+  severidad, lugar, estado, plazo que corre y responsable.
+- **Datos y API:** genérica sobre los tres objetos con el filtro de territorio; `GET /api/sgspe/attention/report` para el
+  reporte (totales por tipo, estado, canal y categoría). Indicadores KPI-GRV-02, KPI-GRV-06 y KPI-GRV-07.
+- **Estados:** el plazo mostrado es el que corre en el estado: acuse o resolución en la queja, respuesta en la consulta; las
+  solicitudes no tienen plazo por defecto (ASM-005). Una QCS anónima muestra "anónima" en lugar de la persona.
+- **Permisos:** la persona que plantea una QCS es un campo restringido (`security.md` §7.9): solo SMG, CRO y GVM la ven.
+- **Responsive:** por debajo de `lg` la tabla pasa a tarjetas con tipo, título, plazo y estado; los indicadores, a una fila
+  desplazable.
+- **Relacionadas y navegación:** S36 por fila; S37; el tablero de QCS (S34, etapa 3b); la capa LYR-20 en el mapa.
+
+```text
+AttentionListPage
+├── AttentionKpis (KpiCard × 4)
+├── SavedViewTabs · FilterBar
+└── AttentionTable (DeadlineGroup × 3 · AttentionRow · DeadlineChip · TypeBadge)
+```
+
+### S37 · Registrar QCS
+
+- **Ruta y lienzo:** `/projects/:projectId/attention/new?type=grievance|inquiry|request` · hoja `QCS-Registrar` · F4.
+- **Propósito:** registrar en un solo paso lo que se planteó, por el canal que llegó, sin decidir todavía su tratamiento.
+- **Roles:** CRO y GVM crean los tres objetos.
+- **Acciones:** primaria "Registrar queja" (o consulta, o solicitud); secundaria "Cancelar".
+- **Disposición y componentes:** elección del tipo con su definición y sus plazos; "Cómo llegó y quién la plantea" (canal,
+  fecha de recepción, interacción o pregunta de origen, anonimato, confidencialidad, grupo de interés, persona, lugar); "Qué
+  plantea" (descripción, categoría, severidad en la queja, prioridad, responsable); adjuntos con tipo y clasificación de
+  evidencia; a la derecha, "Qué pasará al registrar" con el código, el estado y los plazos calculados.
+- **Datos y API:** `POST` genérico del objeto; plazos derivados desde `received_at` con los parámetros del proyecto (ASM-005);
+  adjuntos con `POST /api/sgspe/evidence` (IK, CR por ser destinos `requiresReason`). AUT-02 crea la tarea de acusar recibo.
+- **Estados:** anónima oculta persona y grupo de interés; severidad ALTA o CRITICA advierte que la resolución la aprueba otra
+  persona (ASM-036). La IA no actúa en el formulario: sus sugerencias (AI-07, AI-08) llegan después, en S36 (F7).
+- **Permisos:** la persona que plantea es campo restringido; los adjuntos siguen RF-DOC-003.
+- **Responsive:** en teléfono, una sola pantalla para el relacionista: tipo, canal, lugar del dispositivo, descripción y foto;
+  el resto lo completa quien gestiona QCS. Sin conexión entra en la cola de campo de la etapa 3b.
+- **Relacionadas y navegación:** se llega desde S35, desde una interacción (S23) o desde una pregunta pendiente de reunión;
+  al registrar se abre S36.
+
+```text
+AttentionCreatePage
+├── TypePicker
+├── IntakeSection (ChannelField · OriginPicker · AnonymityToggle · StakeholderPicker · PlacePicker)
+├── ContentSection (DescriptionField · CategoryField · SeverityField · PriorityField · OwnerField)
+├── EvidenceDropzone
+└── WhatHappensPanel
+```
+
+### S36 · Ficha de queja
+
+- **Ruta y lienzo:** `/projects/:projectId/grievances/:id` · hoja `QCS-Queja` (interactiva) · F4; sugerencias de IA F7.
+- **Propósito:** llevar la queja de la recepción al cierre con sus plazos, su evidencia y su decisión a la vista.
+- **Roles:** GVM acusa, evalúa, investiga, atiende, resuelve y cierra; CRO acusa y registra desistimiento; APR resuelve las
+  ALTA y CRITICA (`resolve_high_severity`, `APPROVE`); GVM y SMG verifican.
+- **Acciones:** la primaria es la transición siguiente del estado; secundarias "Rechazar…", "Registrar desistimiento…",
+  "Reclasificar…", "Reabrir…" y "Crear compromiso desde esta queja".
+- **Disposición y componentes:** encabezado con estado, severidad, situación de plazo, categoría, canal y responsable;
+  camino de estados (investigación y verificación aparecen solo si se usan); panel de la acción con motivo obligatorio;
+  el caso, la persona (restringida), acuse y plazo con su escalamiento, resolución y respuesta; a la derecha "De dónde viene",
+  "Qué alimenta" (riesgo vinculado), la tarjeta de IA y "Plazos y escalamiento".
+- **Datos y API:** genérica con `transitions`; `POST /api/sgspe/transition-checks`; `POST
+  /api/sgspe/grievances/{id}/reclassify` (ASM-072); M2O `social_risk` e `incident`; `ai_suggestion` DUPLICADO (AI-07) y de
+  clasificación (AI-08). AUT-06 emite el cargo de queja al acusar recibo.
+- **Estados:** con `policy_high_severity_requires_approver` activo, GVM no ve "Resolver" en una ALTA o CRITICA y se explica
+  que la tiene aprobación; sin conformidad del reclamante se puede reabrir; aceptar un duplicado rechaza la más nueva con
+  `duplicate_of` y respuesta.
+- **Permisos:** la persona que plantea es restringida; la hoja alterna "Gestión de QCS" y "Aprobación" para mostrar la
+  segregación.
+- **Responsive:** el panel lateral baja debajo del caso; la acción queda fija al pie.
+- **Relacionadas y navegación:** el riesgo (S40), la interacción de origen (S23), el compromiso creado (S29), la evidencia
+  (S46). Flujos 12 y 13.
+
+```text
+GrievancePage
+├── RecordHeader (StateBadge · SeverityBadge · DeadlineChip)
+├── StatePath
+├── TransitionPanel (TransitionChecks · ReasonField)
+├── CaseSection · ComplainantField (restricted) · DeadlineSection · ResolutionSection
+└── SidePanel (OriginTrail · FeedsRiskCard · AiSuggestionCard · EscalationNote)
+```
+
+### S36 · Ficha de consulta y ficha de solicitud
+
+- **Ruta y lienzo:** `/projects/:projectId/inquiries/:id` y `/projects/:projectId/requests/:id` · hoja
+  `QCS-Consulta-Solicitud` · F4; aceptar como aporte desde F5.
+- **Propósito:** la misma anatomía que la queja con su propio ciclo: responder o derivar una consulta; evaluar y aceptar o
+  declinar una solicitud.
+- **Roles:** CRO y GVM responden y derivan consultas; las solicitudes las evalúan y aceptan los roles de WF-E3; aceptar como
+  compromiso lo hacen SMG y CMM desde F4 (`security.md` §7.5).
+- **Acciones:** consulta: "Responder", "Derivar a otra entidad…", "Reclasificar…". Solicitud: "Aceptar y crear el
+  compromiso" (o el aporte), "Declinar con respuesta…", "Reclasificar…".
+- **Disposición y componentes:** encabezado y camino de estados; origen (pregunta de reunión o carta); respuesta con
+  "Usar respuesta alineada" (mensajes del proyecto); en la solicitud, "Aceptar: ¿qué se crea?" con las dos opciones.
+- **Datos y API:** transiciones de WF-E2 y WF-E3; `POST /api/sgspe/stakeholder-requests/{id}/accept` (crea `commitment` en
+  `draft` o `social_contribution` en `requested`); reclasificación por su endpoint. AUT-07 y AUT-08 emiten las cartas.
+- **Estados:** una consulta con fecha de comunicación cuenta como absuelta (KPI-GRV-07); la solicitud aceptada se cierra sola
+  al cerrarse su compromiso o su aporte (ASM-068) y se cierra a mano "sin ejecución" si aquel se cancela.
+- **Permisos:** como S36 queja.
+- **Responsive:** como S36 queja.
+- **Relacionadas y navegación:** al aceptar se abre el compromiso (S29, S30) o el aporte (S44); la pregunta de reunión
+  derivada deja cerrar la reunión (S23).
+
+```text
+InquiryPage | RequestPage
+├── RecordHeader · StatePath
+├── OriginTrail
+├── AnswerSection (AlignedMessagePicker · ReasonField)   // consulta
+└── AcceptSection (AcceptTargetRadio · AnswerField · ReasonField)   // solicitud
+```
+
+## 9. Riesgos y alerta temprana
+
+Lienzo de la etapa 3, página 12. El riesgo se mide con revisiones inmutables (P × I, ASM-004); solo una persona confirma una
+alerta (RN-EWS-001).
+
+### S38 y S39 · Registro y matriz de riesgos
+
+- **Ruta y lienzo:** `/projects/:projectId/risks/register` · hoja `Rsk-Registro` (interactiva) · F4. El tablero de riesgos
+  (S38 completo, con tendencia) llega en la etapa 3b.
+- **Propósito:** ¿qué riesgos hay, de qué nivel y cuáles necesitan revisión? Elegir una celda del mapa de calor filtra la
+  tabla.
+- **Roles:** lectura para todos con READ sobre `social_risk`; SRM crea y evalúa; SMG decide el tratamiento y exporta.
+- **Acciones:** primaria "Identificar riesgo"; secundarias filtrar por celda, vistas (Registro y matriz, Revisión vencida,
+  Mis riesgos, Incidentes, Cerrados) y "Alerta temprana" con su conteo.
+- **Disposición y componentes:** mapa de calor 5 × 5 con conteo por celda y color por nivel; tabla con riesgo, categoría,
+  P × I, nivel, tendencia, estado y situación de revisión.
+- **Datos y API:** genérica sobre `social_risk` con sus valores vigentes derivados; KPI-RSK-01 y KPI-RSK-02.
+- **Estados:** un riesgo sin revisión no entra al mapa y se cuenta aparte; una celda elegida muestra "Quitar filtro de celda".
+- **Permisos:** sin campos restringidos propios.
+- **Responsive:** por debajo de `lg` el mapa pasa arriba a ancho completo y la tabla a tarjetas.
+- **Relacionadas y navegación:** S40 por fila; S41; capa LYR-21.
+
+```text
+RiskRegisterPage
+├── RiskViewTabs
+├── RiskHeatmap (HeatCell × 25 · LevelLegend)
+└── RiskTable (RiskRow · LevelBadge · TrendIcon · ReviewChip)
+```
+
+### S40 · Ficha de riesgo
+
+- **Ruta y lienzo:** `/projects/:projectId/risks/:riskId` · hoja `Rsk-Ficha` · F4.
+- **Propósito:** ver el nivel vigente, cómo llegó ahí y qué se hace para bajarlo.
+- **Roles:** SRM evalúa, decide, agrega medidas y cierra; SMG decide el tratamiento y cierra; el resto lee.
+- **Acciones:** primaria "Nueva revisión"; secundarias "Pasar a monitoreo", "Volver a mitigar", "Cerrar…", "+ Medida".
+- **Disposición y componentes:** encabezado con estado, nivel, P × I y tendencia, lugar, responsable y próxima revisión;
+  camino de estados; gráfico de revisiones con su comentario; medidas de mitigación con responsable, fecha y avance;
+  controles actuales, su suficiencia y fuentes de monitoreo; fuente del riesgo; a la derecha "Lo alimentan" (QCS y alertas),
+  contexto (conflicto local, tema clave, grupos de interés, lugar) y el diálogo de revisión.
+- **Datos y API:** `POST /api/sgspe/social-risks/{id}/assessments` (crea `risk_assessment`, aplica `assess` en la primera);
+  `mitigation_measure` por la API genérica; transiciones de WF-F con motivo. AUT-11 si el nivel pasa a CRITICO.
+- **Estados:** sin revisión residual, "Pasar a monitoreo" se explica bloqueado (RN-RSK-003); una revisión no se edita: se
+  corrige con otra.
+- **Permisos:** `mitigation_measure` la escribe solo SRM.
+- **Responsive:** el gráfico pasa a una lista de revisiones; el panel lateral baja.
+- **Relacionadas y navegación:** QCS de origen (S36), alerta (S41), incidente de origen, tareas de revisión (S47). Flujos 14 y
+  15.
+
+```text
+RiskPage
+├── RecordHeader (StateBadge · LevelBadge · TrendIcon · ReviewChip)
+├── StatePath · TransitionBar
+├── AssessmentHistoryChart · MitigationList (MeasureRow)
+├── ControlsSection · SourceSection
+└── SidePanel (FedByList · RiskContext · AssessmentDialog)
+```
+
+### S41 · Centro de alerta temprana
+
+- **Ruta y lienzo:** `/projects/:projectId/risks/warnings` · hoja `Rsk-Alertas` (interactiva) · F4.
+- **Propósito:** decidir en el triaje si la alerta es real, con las señales que la dispararon a la vista.
+- **Roles:** SRM y SMG confirman y descartan (`CONFIRM_ALERT`); CRO lee, inicia el triaje y la respuesta; nunca la
+  plataforma, una regla, la IA ni una cuenta de servicio (RN-EWS-001).
+- **Acciones:** en triaje, "Confirmar" (con vínculo opcional al riesgo) y "Descartar…" (motivo obligatorio); luego "Iniciar
+  respuesta", "Resolver", "Cerrar".
+- **Disposición y componentes:** encabezado con la regla que la creó; camino de estados; señales con fuente, fecha y texto;
+  panel de decisión; regla y su umbral; nota de IA; capa del mapa.
+- **Datos y API:** transiciones de WF-J; `early_warning_signal` y `early_warning_rule` (JOB-04 crea las alertas en
+  `detected`); AUT-09 crea la tarea de triaje.
+- **Estados:** sin `CONFIRM_ALERT` se muestra la razón en lugar de los botones (la hoja alterna "Gestión de riesgos" y
+  "Relacionista").
+- **Permisos:** la acción declarada `CONFIRM_ALERT` sobre `early_warning`.
+- **Responsive:** las señales pasan a acordeón; la decisión queda fija al pie.
+- **Relacionadas y navegación:** el riesgo vinculado (S40); capa LYR-22. Flujo 14.
+
+```text
+WarningCenterPage
+├── WarningHeader · StatePath
+├── SignalList (SignalCard)
+├── TriageDecisionPanel (RiskLinkPicker · ReasonField)
+└── RuleCard · AiNote
+```
+
+### Ficha de incidente
+
+- **Ruta y lienzo:** `/projects/:projectId/incidents/:incidentId` · hoja `Rsk-Incidente` · F4.
+- **Propósito:** registrar qué pasó, la respuesta inmediata y sus consecuencias, y llevarlo a una alerta o a un riesgo.
+- **Roles:** CRO y SRM crean y transicionan; SMG actualiza; el resto lee.
+- **Acciones:** primaria según el estado ("Cerrar incidente" en respuesta); secundarias "Identificar un riesgo desde este
+  incidente" y "Guardar".
+- **Disposición y componentes:** encabezado con tipo, fecha, lugar y quién reportó; camino de estados; qué pasó e
+  involucrados; respuesta inmediata y consecuencias; a la derecha "Qué generó", "Abierto en el mismo lugar" (registros abiertos
+  del mismo lugar, sin vínculo modelado) y evidencias.
+- **Datos y API:** transiciones de WF-M; el riesgo nuevo guarda `origin_incident`; una queja puede apuntar al incidente (M2O
+  `incident`).
+- **Estados:** cerrar exige respuesta inmediata y consecuencias.
+- **Permisos:** las fotos con personas son DATOS PERSONALES o CONFIDENCIAL (RF-DOC-003, RNF-PRIV-004).
+- **Responsive:** como S40.
+- **Relacionadas y navegación:** riesgo (S40), alerta (S41), compromisos del lugar (S29).
+
+```text
+IncidentPage
+├── RecordHeader · StatePath
+├── WhatHappenedSection · ResponseSection
+└── SidePanel (GeneratedLinks · SamePlaceOpenRecords · EvidenceList)
+```
+
+## 10. Programas e inversión
+
+Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se suman entre monedas (ASM-063).
+
+### S42 · Programas e inversión
+
+- **Ruta y lienzo:** `/projects/:projectId/programs` (programas y aportes en una vista) · hoja `Inv-Lista` · F5; tope desde F3.
+- **Propósito:** ¿cuánto del tope de la campaña queda, cómo avanzan los programas y qué aportes están en curso?
+- **Roles:** SIM y SMG crean y llevan; CRO registra aportes; APR lee y aprueba; el resto lee.
+- **Acciones:** primaria "Nuevo aporte"; secundaria "Nuevo programa".
+- **Disposición y componentes:** tres indicadores: tope de la campaña (aprobados frente al tope y ejecutado, con advertencia
+  de otra moneda), presupuesto de programas ejecutado, beneficiarios; tabla de programas (socio, estado, presupuesto del año,
+  ejecutado, beneficiarios, indicadores con medición); tabla de aportes de la campaña (tipo, quién recibe, estado, monto,
+  origen).
+- **Datos y API:** genérica sobre `social_program`, `program_budget`, `beneficiary_group` y `social_contribution`;
+  KPI-INV-01, KPI-INV-02 y KPI-INV-04; `exploration_campaign.executed_social_amount` y `other_currency_items_count`.
+- **Estados:** el tope se verifica al aprobar contra los montos aprobados de compromisos y aportes de la campaña; lo ejecutado
+  es otra cifra (ASM-063). Los programas no pertenecen a una campaña y no cuentan para el tope.
+- **Permisos:** sin campos restringidos propios.
+- **Responsive:** los indicadores se apilan; las tablas pasan a tarjetas.
+- **Relacionadas y navegación:** S43, S44; solicitud de origen (S36); tablero de inversión (etapa 3b).
+
+```text
+InvestmentPage
+├── InvestmentKpis (CampaignCapCard · ProgramBudgetCard · BeneficiariesCard)
+├── ProgramTable
+└── ContributionTable
+```
+
+### S43 · Ficha de programa
+
+- **Ruta y lienzo:** `/projects/:projectId/programs/:programId` · hoja `Inv-Programa` · F5.
+- **Propósito:** seguir presupuesto, indicadores, hitos y beneficiarios de un programa con su socio y su convenio.
+- **Roles:** SIM crea, envía y registra mediciones; APR aprueba (SoD); SMG actualiza.
+- **Acciones:** primaria "Registrar medición"; secundarias "Pasar a monitoreo", "Suspender…" y las transiciones de WF-G del
+  estado.
+- **Disposición y componentes:** encabezado con estado, socio, convenio de sinergia y aprobación; camino de estados;
+  presupuesto por año y moneda; indicadores con línea base, meta y última medición con su evidencia; iniciativas e hitos; a la
+  derecha grupos beneficiarios (meta y alcanzados), territorio y trazabilidad.
+- **Datos y API:** genérica sobre `social_program`, `program_budget`, `program_indicator`, `program_measurement`
+  (`appendOnly`), `program_milestone`, `social_initiative` y `beneficiary_group`.
+- **Estados:** un indicador sin mediciones se marca; el total del programa se deriva de sus presupuestos, por moneda.
+- **Permisos:** las mediciones no se editan ni se borran.
+- **Responsive:** el panel lateral baja; las tablas pasan a tarjetas.
+- **Relacionadas y navegación:** convenio (S33), evidencias (S45, S46), tareas (S47).
+
+```text
+ProgramPage
+├── RecordHeader · StatePath
+├── BudgetTable · IndicatorTable (MeasurementDialog) · InitiativeMilestoneList
+└── SidePanel (BeneficiaryGroups · TerritoryMiniMap · TraceList)
+```
+
+### S44 · Aporte social
+
+- **Ruta y lienzo:** `/projects/:projectId/contributions/:contributionId` · hoja `Inv-Aporte` · F5.
+- **Propósito:** aprobar, adquirir y entregar un aporte puntual con las políticas a la vista.
+- **Roles:** SMG, CRO y SIM registran; APR y SMG aprueban (`approve`); SIM aprueba sin revisión interna si la política lo
+  permite (`approve_direct`); SIM registra la adquisición; SIM y CRO registran la entrega.
+- **Acciones:** en `requested`, "Aprobar…" y "Rechazar…"; luego "Registrar adquisición", "Registrar entrega", "Cerrar",
+  "Anular…"; todas con motivo.
+- **Disposición y componentes:** encabezado con estado, tipo, campaña y quién registró; camino de estados; "Para qué y para
+  quién" (propósito, ocasión o festividad, quién recibe, localidad, condiciones, beneficiarios); ítems con total derivado;
+  entrega con sus cuatro requisitos; a la derecha "Antes de aprobar" con P1 a P6 y trazabilidad.
+- **Datos y API:** genérica sobre `social_contribution`, `contribution_item` y `receipt`; `POST
+  /api/sgspe/social-contributions/{id}/deliveries` captura la entrega (AUT-04 emite el acta de recepción) y luego
+  `register_delivery` (P8).
+- **Estados:** si supera el tope que bloquea, "Aprobar" solo aparece para SMG (`APPROVE_OVER_CAP`); quien registró no aprueba
+  (P5); con sinergia, falta de acuerdo vigente bloquea (P6); apartarse de los lineamientos exige justificación (P3).
+- **Permisos:** las fotos de la entrega con personas son DATOS PERSONALES.
+- **Responsive:** "Antes de aprobar" sube antes de los ítems en teléfono.
+- **Relacionadas y navegación:** solicitud de origen (S36), bandeja de aprobaciones (S48); al cerrar, la solicitud se cierra
+  sola (ASM-068).
+
+```text
+ContributionPage
+├── RecordHeader · StatePath
+├── PurposeSection · ItemTable · DeliveryRequirements
+└── SidePanel (PolicyChecklist P1–P6 · TraceList)
+```
+
+## 11. Documentos, tareas y aprobaciones
+
+Lienzo de la etapa 3, página 14. Las secciones globales Documentos y Tareas usan la navegación de todos los proyectos;
+el proyecto viaja como filtro.
+
+### S45 · Biblioteca de documentos
+
+- **Ruta y lienzo:** `/documents` y `/projects/:projectId/documents` · hoja `Doc-Biblioteca` · F3.
+- **Propósito:** encontrar una evidencia por lo que sustenta, su tipo o su clasificación.
+- **Roles:** todos los que leen `evidence`; suben los que tienen CRU.
+- **Acciones:** primaria "Subir evidencia"; secundarias buscar y filtrar (tipo, clasificación, registro que sustenta, fecha,
+  fotos con personas sin consentimiento).
+- **Disposición y componentes:** buscador, filtros, tabla con evidencia (archivo, tamaño, versión), tipo, clasificación,
+  registros que sustenta como etiquetas, fecha y quién subió.
+- **Datos y API:** genérica sobre `evidence` con sus M2M `evidence_<objeto>`; `POST /api/sgspe/evidence` para subir (IK).
+- **Estados:** un archivo no se edita ni se borra: se reemplaza con una versión nueva (`replaces`).
+- **Permisos:** CONFIDENCIAL y DATOS PERSONALES se descargan solo con `DOWNLOAD_RESTRICTED` (RF-DOC-003).
+- **Responsive:** la tabla pasa a tarjetas; los filtros, a un panel.
+- **Relacionadas y navegación:** S46 por fila; cada etiqueta abre el registro sustentado.
+
+```text
+DocumentsPage
+├── SearchField · FilterBar
+└── EvidenceTable (EvidenceRow · ClassificationBadge · LinkTags)
+```
+
+### S46 · Ficha de evidencia
+
+- **Ruta y lienzo:** `/projects/:projectId/documents/:documentId` · hoja `Doc-Evidencia` · F3.
+- **Propósito:** ver qué sustenta una evidencia, quién puede descargarla y si puede salir en un reporte externo.
+- **Roles:** como S45; `EDIT_ANY` para cambiar o vincular la de otra persona.
+- **Acciones:** primaria "Descargar"; secundarias "Subir versión nueva", "Vincular a un registro…", "Desvincular…",
+  "cambiar clasificación…", "Registrar consentimiento".
+- **Disposición y componentes:** vista previa (rostros difuminados si hay personas), datos EXIF, huella SHA-256; "Sustenta";
+  versiones; a la derecha clasificación y privacidad, "Así la ve el equipo de análisis" (sin `DOWNLOAD_RESTRICTED`) y datos
+  descriptivos.
+- **Datos y API:** `GET /api/sgspe/evidence/{id}/content` (`ETag` = SHA-256), `PATCH /api/sgspe/evidence/{id}` (IM; CR si
+  cambia la clasificación), `POST` y `DELETE` de vínculos (CR si el destino es `requiresReason`).
+- **Estados:** bajar la clasificación de una restringida exige `DOWNLOAD_RESTRICTED` (ASM-071); una foto con personas sin
+  consentimiento no sale en una salida EXTERNO (RNF-PRIV-004).
+- **Permisos:** sin `DOWNLOAD_RESTRICTED`, la persona ve título, tipo, fecha y vínculos, sin vista previa ni descarga.
+- **Responsive:** el panel lateral baja debajo de la vista previa.
+- **Relacionadas y navegación:** los registros que sustenta; S45.
+
+```text
+EvidencePage
+├── RecordHeader (ClassificationBadge)
+├── EvidencePreview (RestrictedPreview) · LinkList · VersionList
+└── SidePanel (PrivacySection · RoleViewNote · DescriptiveFields)
+```
+
+### S47 · Mis tareas
+
+- **Ruta y lienzo:** `/tasks` · hoja `Tar-Mis` (interactiva: lista, tablero y calendario) · F3.
+- **Propósito:** ¿qué tengo que hacer hoy y qué se me venció?
+- **Roles:** todos los roles operativos (WF-N); APR actualiza; ANL y RDO leen.
+- **Acciones:** por fila, las transiciones de WF-N ("Empezar", "Hecha", "Bloquear", "Desbloquear"); "Tomar la tarea" en
+  "Para tomar".
+- **Disposición y componentes:** cambio de vista; conteos de vencidas, por vencer y abiertas; lista con origen, prioridad,
+  vencimiento con su situación, estado y acción; tablero por estado; calendario del mes por vencimiento; "Para tomar" con las
+  tareas de escalamiento sin asignado de los roles de la persona.
+- **Datos y API:** genérica sobre `task` filtrada por `assignee_user_id`; transiciones de WF-N; tomar una tarea es UPDATE de
+  `assignee_user_id` (IM).
+- **Estados:** una tarea vencida sigue en su estado; en el tablero, arrastrar a una columna sin transición devuelve la
+  tarjeta; con teclado, el menú de la tarjeta ofrece las mismas transiciones.
+- **Permisos:** solo la persona asignada y los roles con UPDATE cambian la tarea.
+- **Responsive:** en teléfono solo la lista; es la entrada del móvil de campo (S54, etapa 3b).
+- **Relacionadas y navegación:** cada tarea abre su origen; S48.
+
+```text
+MyTasksPage
+├── ViewTabs (Lista · Tablero · Calendario)
+├── DeadlineCounters
+├── TaskTable | TaskBoard (TaskColumn × 4) | TaskCalendar (DayCell)
+└── ClaimableTasks
+```
+
+### S48 · Aprobaciones y escalamientos
+
+- **Ruta y lienzo:** `/tasks/approvals` · hoja `Tar-Aprobaciones` · F3; QCS F4; programas y aportes F5.
+- **Propósito:** ver juntas las decisiones que esperan a mi rol, de cualquier objeto, y lo que está escalando.
+- **Roles:** APR, SMG y PMG según el objeto; el resto ve los escalamientos de sus registros.
+- **Acciones:** "Revisar" abre la decisión en su pantalla (S31 para compromisos, S36, S43, S44); "Ver" para las que el rol no
+  puede decidir.
+- **Disposición y componentes:** bandejas "Por aprobar", "Escalamientos del proyecto" y "Decididas por mí"; tabla por
+  antigüedad con registro, qué se decide, monto en su moneda, espera y "¿Puedes decidir?" con la razón; tarjetas de
+  escalamiento con niveles 0, 1 y 2.
+- **Datos y API:** las aprobaciones son transiciones, no objetos (`domain-model.md` §6.13): la bandeja consulta los registros
+  en estados de aprobación cuyas transiciones el rol tiene, más los avisos `approval_pending`; los escalamientos vienen de
+  JOB-01 (avisos y tareas por nivel, ASM-030, ASM-070).
+- **Estados:** la razón por la que no se puede decidir (tope, nivel superior, segregación) se muestra siempre.
+- **Permisos:** se comprueban otra vez al confirmar (`transition-checks`).
+- **Responsive:** la tabla pasa a tarjetas; es parte del móvil (aprobaciones en teléfono).
+- **Relacionadas y navegación:** S31, S36, S43, S44, S47.
+
+```text
+ApprovalsPage
+├── InboxTabs
+├── ApprovalTable (ApprovalRow · CanDecideCell)
+└── EscalationCards (EscalationLevels)
+```
+
+## 12. Trazabilidad
 
 - **Requisitos:** RF-PRJ-001 a RF-PRJ-006, RF-TER-001 a RF-TER-008, RF-LBS-001 a RF-LBS-009, RF-STK-001 a RF-STK-014,
   RF-ENG-001 a RF-ENG-012, RF-FLD-001, RF-COM-001 a RF-COM-010, RF-AGR-001 a RF-AGR-003, RQ-GIS-002 a RQ-GIS-011,
-  RQ-DSH-032, RQ-SEC-010, RN-ENG-001, RN-ENG-004, RN-ENG-005, RN-COM-001, RN-COM-005, RN-INV-003.
+  RQ-DSH-032, RQ-SEC-010, RN-ENG-001, RN-ENG-004, RN-ENG-005, RN-COM-001, RN-COM-005, RN-INV-003. Parte 3a: RF-GRV-001,
+  RF-GRV-002, RN-GRV-002, RF-RSK-001 a RF-RSK-003, RN-RSK-001 a RN-RSK-003, RN-EWS-001, RF-EWS-004, RF-INV-001, RF-INV-004,
+  RN-INV-001 a RN-INV-004, RN-INV-006, RF-DOC-001, RF-DOC-003, RNF-PRIV-004, RF-WFL-001, RF-WFL-002, RF-WFL-004, RN-WFL-001.
 - **Supuestos:** ASM-003, ASM-008, ASM-009, ASM-019, ASM-062, ASM-063, ASM-067, ASM-069, ASM-075, ASM-076, ASM-079, ASM-080.
-- **Documentos:** [workflows.md](../workflows.md) (WF-A, WF-B, WF-C, WF-D, WF-I, WF-K, WF-L, WF-O),
-  [api.md](../api.md) §2–§4, [security.md](../security.md) §7, [dashboards.md](../dashboards.md) §3 y §5,
-  [gis.md](../gis.md), [domain-model.md](../domain-model.md) §6.
+  Parte 3a: ASM-004, ASM-005, ASM-011, ASM-030, ASM-036, ASM-068, ASM-070, ASM-071, ASM-072.
+- **Documentos:** [workflows.md](../workflows.md) (WF-A, WF-B, WF-C, WF-D, WF-I, WF-K, WF-L, WF-O; en la parte 3a, WF-E1,
+  WF-E2, WF-E3, WF-F, WF-G, WF-J, WF-M, WF-N y WF-P), [api.md](../api.md) §2–§4, [security.md](../security.md) §7,
+  [dashboards.md](../dashboards.md) §3 y §5, [gis.md](../gis.md), [domain-model.md](../domain-model.md) §6,
+  [ai-architecture.md](../ai-architecture.md) §4 (AI-07, AI-08).

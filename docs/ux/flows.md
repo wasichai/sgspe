@@ -1,11 +1,12 @@
 # Flujos de usuario de SGSPE
 
 Los flujos núcleo de PRM-02 §38, recorridos sobre las pantallas de [`screens.md`](screens.md) y las reglas de la Fase 0. Esta
-versión cubre la **etapa 2**: flujos 1 a 11, 16 y 17. Los flujos 12 a 15 (quejas y riesgos) y 18 (preguntar a la IA) llegan en
-la etapa 3.
+versión cubre la **etapa 2** (flujos 1 a 11, 16 y 17) y la **parte 3a** (flujos 12 a 15: quejas y riesgos). El flujo 18
+(preguntar a la IA) y el de sincronización de campo llegan en la parte 3b.
 
-- Los diagramas están en la página 10 del lienzo de la etapa 2 (hojas `Flujos-Territorio` y `Flujos-Compromiso`):
-  <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>.
+- Los diagramas de la etapa 2 están en la página 10 de su lienzo (hojas `Flujos-Territorio` y `Flujos-Compromiso`):
+  <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>. Los de la parte 3a, en la página 15 del lienzo de la etapa 3 (hojas
+  `Flujos-QCS` y `Flujos-Riesgo`): <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>.
 - Cada paso nombra la pantalla (`SNN`), la transición de workflow o el endpoint, y la regla que lo condiciona. Las transiciones
   van por la API genérica salvo que se indique un comando de `/api/sgspe/**` ([api.md](../api.md) §2 y §4).
 - Principio común [USR-10]: ningún flujo saca a la persona del proyecto ni del territorio en contexto; el chip de territorio y
@@ -170,6 +171,81 @@ la etapa 3.
 
 - **Resultado:** compromiso `closed`, con la cadena acta → compromiso → entrega → evidencia navegable.
 
+## Flujo 12 · Crear una queja
+
+- **Actor:** relacionista comunitario (`COMMUNITY_RELATIONS_OFFICER`) o gestión de QCS (`GRIEVANCE_MANAGER`).
+- **Disparador:** una persona o un grupo plantea un daño o malestar atribuido al proyecto, en una reunión, en campo, por carta,
+  por teléfono o a través de una contratista.
+- **Diagrama:** hoja `Flujos-QCS` del lienzo de la etapa 3, página 15.
+
+| # | Pantalla | Acción | Regla o resultado |
+|---|---|---|---|
+| 1 | S35, S23 o pregunta de reunión | "Registrar QCS" con el origen ya puesto | El proyecto y el territorio vienen del contexto |
+| 2 | S37 | Tipo queja; canal, fecha de recepción, anonimato, persona, lugar, descripción, categoría, severidad | Una anónima no lleva persona ni grupo de interés; la persona es campo restringido (`security.md` §7.9) |
+| 3 | S37 | "Registrar queja" → `grievance` en `received` | Plazos de acuse y resolución desde `received_at` (ASM-005); AUT-02 crea la tarea de acusar recibo |
+| 4 | S36 | La IA sugiere categoría, prioridad y posibles duplicados (F7) | `ai_suggestion` de AI-08 y AI-07; nunca cambia la queja ni une registros |
+| 5 | S36 | Aceptar o rechazar cada sugerencia; aceptar un duplicado lleva la más nueva a `rejected` con `duplicate_of` | El rechazo exige respuesta y `responded_at` |
+| 6 | S36 | `acknowledge` (motivo) | AUT-06 emite el cargo de queja; `deadline_status` pasa a medir la resolución |
+| 7 | S36 | `assess` (motivo): categoría, severidad y riesgo que alimenta | M2O `social_risk`; si se repite un patrón, se abre un riesgo (flujo 14) |
+
+- **Resultado:** queja `in_assessment`, con su cargo emitido, su riesgo vinculado y su plazo de resolución corriendo.
+- **Variantes:** si resulta ser una consulta o una solicitud, `POST /api/sgspe/grievances/{id}/reclassify` crea el registro
+  nuevo con la misma fecha de recepción (ASM-072); el desistimiento y el rechazo cierran con motivo.
+
+## Flujo 13 · Resolver una queja
+
+- **Actor:** gestión de QCS; aprobación (`APPROVER`) cuando la severidad es ALTA o CRITICA; gestión de QCS o gerencia social
+  para verificar.
+- **Disparador:** la queja está evaluada y requiere acción.
+
+| # | Pantalla | Acción | Regla o resultado |
+|---|---|---|---|
+| 1 | S36 | `investigate` (opcional) o `start_action` (motivo) | Exigen categoría y severidad |
+| 2 | S36, S47 | Acciones con tareas y evidencia | Las tareas nacen con la queja como origen (RF-WFL-001) |
+| 3a | S36 | `resolve` (motivo) con resolución y respuesta | Con la política activa, no se permite en ALTA o CRITICA (RN-GRV-002, ASM-036) |
+| 3b | S48 → S36 | `resolve_high_severity` (motivo) | Solo `APPROVER`, con `APPROVE` sobre `grievance` |
+| 4 | S36 | Comunicar la respuesta: `responded_at` y conformidad del reclamante | Sin conformidad, `reopen` vuelve a `in_assessment` y el plazo vuelve a medir |
+| 5 | S36 | `verify` (opcional, motivo) | Gestión de QCS o gerencia social |
+| 6 | S36 | `close_resolved` o `close` (motivo) | Exige `responded_at`; escribe `closed_date` |
+
+- **Resultado:** queja `closed`, absuelta (KPI-GRV-07), con su respuesta comunicada.
+- **Plazos:** POR VENCER y VENCIDO avisan al responsable; a los 7 y 15 días de atraso, JOB-01 escala con aviso y una tarea sin
+  asignado a los roles de verificación y luego a los de nivel superior (ASM-030, ASM-070).
+
+## Flujo 14 · Identificar un riesgo social
+
+- **Actor:** gestión de riesgos (`SOCIAL_RISK_MANAGER`); la gerencia social también confirma alertas.
+- **Disparador:** un patrón de quejas en un lugar y un tema, o una alerta temprana creada por una regla.
+- **Diagrama:** hoja `Flujos-Riesgo` del lienzo de la etapa 3, página 15.
+
+| # | Pantalla | Acción | Regla o resultado |
+|---|---|---|---|
+| 1 | S41 | La regla crea la alerta en `detected` (JOB-04); AUT-09 crea la tarea de triaje | Las reglas y la IA nunca deciden (RF-EWS-004) |
+| 2a | S41 | `confirm` y vincular el riesgo que alimenta | `CONFIRM_ALERT`; solo una persona (RN-EWS-001) |
+| 2b | S41 | `dismiss` (motivo obligatorio) | Las señales quedan registradas |
+| 3 | S39 o S36 | "Identificar riesgo": fuente, categoría, tipo e impacto, lugar, grupos de interés, conflicto y tema | `social_risk` en `identified`; las QCS y alertas que lo alimentan apuntan a él |
+| 4 | S40 | Primera revisión: probabilidad e impacto de 1 a 5 | `POST /api/sgspe/social-risks/{id}/assessments` calcula puntaje y nivel (ASM-004) y aplica `assess` |
+| 5 | S40 | — | Si el nivel es ALTO o CRITICO, aviso de riesgo escalado; si es CRITICO, AUT-11 |
+
+- **Resultado:** riesgo `assessed`, en el mapa de calor y en la capa LYR-21.
+
+## Flujo 15 · Crear y seguir una mitigación
+
+- **Actor:** gestión de riesgos o gerencia social; las personas responsables de cada medida.
+- **Disparador:** el riesgo está evaluado y se decide tratarlo.
+
+| # | Pantalla | Acción | Regla o resultado |
+|---|---|---|---|
+| 1 | S40 | "+ Medida" con descripción, responsable y fecha planificada | Solo SRM escribe `mitigation_measure` |
+| 2 | S40 | Decisión de tratamiento MITIGAR y `decide_mitigation` (motivo) | Exige al menos una medida con responsable (RN-RSK-003) |
+| 3 | S47 | Las responsables ejecutan con tareas y evidencia; marcan la medida hecha | Avance en KPI-RSK-05 |
+| 4 | S40 | Nueva revisión residual | Cada revisión es inmutable; da la tendencia |
+| 5 | S40 | `start_monitoring` (motivo) | Exige una revisión residual (RN-RSK-003) |
+| 6 | S47 | Revisión periódica | JOB-01 mantiene `review_status` y crea la tarea de revisión (RN-RSK-001) |
+| 7 | S40 | `resume_mitigation` si empeora, o `close_monitoring` con `close_reason` | Todo con motivo |
+
+- **Resultado:** riesgo `monitoring` o `closed`, con su historia de revisiones y medidas.
+
 ## Flujo 16 · Ver el proyecto en el mapa
 
 - **Actor:** cualquier rol con lectura del proyecto.
@@ -205,7 +281,9 @@ la etapa 3.
 
 - **Requisitos:** RF-PRJ-003, RF-TER-003 a RF-TER-005, RF-STK-003, RF-STK-005, RF-ENG-001 a RF-ENG-006, RF-COM-001 a
   RF-COM-010, RF-AIK-002, RF-AIK-003, RQ-AI-001, RQ-AI-003, RQ-AI-015, RQ-GIS-003, RQ-GIS-014, RN-ENG-001, RN-ENG-005,
-  RN-COM-001, RN-COM-004, RN-COM-005, RN-GRV-001.
-- **Documentos:** [workflows.md](../workflows.md) (WF-A, WF-B, WF-C, WF-D, WF-K, WF-O), [api.md](../api.md) §4,
+  RN-COM-001, RN-COM-004, RN-COM-005, RN-GRV-001. Parte 3a: RF-GRV-001, RN-GRV-002, RF-RSK-001 a RF-RSK-003, RN-RSK-001,
+  RN-RSK-003, RN-EWS-001, RF-EWS-004, RF-WFL-001.
+- **Documentos:** [workflows.md](../workflows.md) (WF-A, WF-B, WF-C, WF-D, WF-K, WF-O; WF-E1, WF-F y WF-J en la parte 3a),
+  [api.md](../api.md) §4,
   [security.md](../security.md) §7, [ai-architecture.md](../ai-architecture.md) §5.
 - **Fuentes:** [PRM-02 §38, §39], [USR-10].
