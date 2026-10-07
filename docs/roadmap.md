@@ -467,6 +467,29 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | Operación multicliente | UPS-10 |
 | Endurecimiento | UPS-12 |
 
+Los issues se abrieron el 2026-10-07, tras el checkpoint:
+
+| Brecha | Issue |
+|---|---|
+| UPS-01 | [wasichai#48](https://github.com/wasichai/wasichai/issues/48) |
+| UPS-02 | [wasichai#49](https://github.com/wasichai/wasichai/issues/49) |
+| UPS-03 | [wasichai#50](https://github.com/wasichai/wasichai/issues/50) |
+| UPS-04 | [wasichai#51](https://github.com/wasichai/wasichai/issues/51) |
+| UPS-05 | [wasichai#52](https://github.com/wasichai/wasichai/issues/52) |
+| UPS-06 | [wasichai#53](https://github.com/wasichai/wasichai/issues/53) |
+| UPS-07 | [wasichai#54](https://github.com/wasichai/wasichai/issues/54) |
+| UPS-08 | Comentario en [wasichai-ui#24](https://github.com/wasichai/wasichai-ui/issues/24), que ya lo cubría |
+| UPS-09 | [wasichai#55](https://github.com/wasichai/wasichai/issues/55) |
+| UPS-10 | [wasichai#56](https://github.com/wasichai/wasichai/issues/56) |
+| UPS-11 | [wasichai#57](https://github.com/wasichai/wasichai/issues/57) |
+| UPS-12 | [wasichai#58](https://github.com/wasichai/wasichai/issues/58) |
+| UPS-13 | [wasichai-ui#38](https://github.com/wasichai/wasichai-ui/issues/38) |
+| UPS-14 | [wasichai#59](https://github.com/wasichai/wasichai/issues/59) |
+| UPS-15 | [wasichai#60](https://github.com/wasichai/wasichai/issues/60) |
+| UPS-16 | [wasichai#61](https://github.com/wasichai/wasichai/issues/61) |
+| UPS-17 | [wasichai#62](https://github.com/wasichai/wasichai/issues/62) |
+| UPS-18 | [wasichai#63](https://github.com/wasichai/wasichai/issues/63) |
+
 ## Decisiones pendientes para el checkpoint
 
 Cada decisión tiene una recomendación con la que se diseñó la Fase 0; la respuesta del usuario se registra antes de abrir F1.
