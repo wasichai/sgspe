@@ -227,7 +227,7 @@ class FieldPermissionsApiTest : F2ApiTest() {
         // no lo escribe) y la entrada que no tiene un no lector con READ
         val failures = mutableListOf<String>()
         val covered = mutableListOf<String>()
-        val skipped = mutableListOf<String>()
+        val skipped = linkedMapOf<String, String>()
         for (entry in Model.restrictedFields) {
             val objectName = entry["object"] as String
             val fields = entry["fields"] as List<String>
@@ -241,9 +241,9 @@ class FieldPermissionsApiTest : F2ApiTest() {
             val nonReader = nonReaders.singleOrNull { it == "READ_ONLY" } ?: nonReaders.firstOrNull()
             val reader = readers.firstOrNull(::reads)
             when {
-                obj["apiOnly"] == true -> skipped += "$label: el objeto es apiOnly"
-                fields.any { modelFields[it]?.get("derived") == true } -> skipped += "$label: el campo es derivado"
-                nonReader == null -> skipped += "$label: ningún rol sin permiso del campo lee el objeto"
+                obj["apiOnly"] == true -> skipped[label] = "el objeto es apiOnly"
+                fields.any { modelFields[it]?.get("derived") == true } -> skipped[label] = "el campo es derivado"
+                nonReader == null -> skipped[label] = "ningún rol sin permiso del campo lee el objeto"
                 reader == null -> failures += "$label: ningún lector del campo lee el objeto"
                 else ->
                     try {
@@ -293,15 +293,23 @@ class FieldPermissionsApiTest : F2ApiTest() {
                             if (!forReader.has(field) || forReader[field].isNull) failures += "$label: $reader no recibe $field"
                         }
                         covered += "$label (no lector $nonReader, lector $reader, filtro ${filter.first})"
-                    } catch (e: Throwable) {
+                    } catch (e: Exception) {
+                        failures += "$label: ${e.message?.take(300)}"
+                    } catch (e: AssertionError) {
                         failures += "$label: ${e.message?.take(300)}"
                     }
             }
         }
-        println("restrictedFields cubiertas: $covered")
-        println("restrictedFields saltadas: $skipped")
         assertTrue(failures.isEmpty(), failures.joinToString("\n"))
-        assertTrue(covered.isNotEmpty(), "ninguna entrada de restrictedFields se pudo probar: $skipped")
+        // la partición queda fija: solo se salta `stakeholder.stance` (derivado) y `stakeholder_assessment` (apiOnly), cuyos
+        // valores prueba el plan 2.2; las otras 7 entradas de roles.json se cubren. una entrada nueva que se salte, o una
+        // que deje de cubrirse, rompe esta prueba en vez de pasar en silencio
+        assertEquals(
+            setOf("stakeholder.stance", "stakeholder_assessment.stance,stance_reasons,concerns,expectations"),
+            skipped.keys,
+            "entradas saltadas: $skipped"
+        )
+        assertEquals(7, covered.size, "entradas cubiertas: $covered")
     }
 
     @Test
