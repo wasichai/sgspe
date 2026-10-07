@@ -43,7 +43,7 @@ tasks.named<Test>("test") {
     }
     // ArchitectureTest lee las fuentes y model/roles.json: un cambio en ellos vuelve a correr las pruebas
     inputs.dir("src/main/kotlin")
-    // files y no file: roles.json llega en la Tarea 6 y files tolera su ausencia; file fallaría en Gradle 9.8
+    // files, no file: tolera que roles.json no exista; file falla en Gradle 9.8 si el archivo falta
     inputs.files("model/roles.json")
 }
 
