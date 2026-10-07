@@ -13,8 +13,9 @@ extractivo (minería, hidrocarburos o energía) con su entorno social, en una so
 Se construye sobre la plataforma [wasichai](https://github.com/wasichai/wasichai), con interfaz en
 [`sgspe-ui`](https://github.com/wasichai/sgspe-ui).
 
-Esta carpeta es el resultado de la **Fase 0 (descubrimiento y diseño)**, que no tiene código. La Fase 1 empieza solo
-después de la revisión del checkpoint de la Fase 0 (ver [roadmap](roadmap.md)).
+Esta carpeta nació en la **Fase 0 (descubrimiento y diseño)**, sin código. La **Fase 1 (fundación)** agregó el código en
+la raíz del repositorio; su guía de desarrollo está en [`develop/README.md`](develop/README.md) y su historia en
+[`HISTORY.md`](HISTORY.md).
 
 ## Cómo leer
 
@@ -41,9 +42,10 @@ después de la revisión del checkpoint de la Fase 0 (ver [roadmap](roadmap.md))
 | [`ux/`](ux/README.md) | Diseño UX/UI del portal: arquitectura de UX, navegación contextual, design system, tokens y, por etapas, pantallas y flujos |
 | [`requirements-traceability.md`](requirements-traceability.md) | Matriz requisito–fuente–módulo–entidad–API–UI–prueba |
 | [`roadmap.md`](roadmap.md) | Fases F0–F8, plan de la Fase 1 y decisiones pendientes del checkpoint |
+| [`develop/README.md`](develop/README.md) | Desarrollo local: base en el VPS, túnel, arranque, modelo y pruebas |
 | [`adr/`](adr/README.md) | Decisiones de arquitectura (ADR-0001 a ADR-0026) |
 | [`HISTORY.md`](HISTORY.md) | Historia de cambios |
-| [`superpowers/plans/`](superpowers/plans/2026-10-06-sgspe-fase-0-y-1.md) | Plan aprobado de las fases 0 y 1, y plan ejecutable de la Fase 0 |
+| [`superpowers/plans/`](superpowers/plans/2026-10-06-sgspe-fase-0-y-1.md) | Plan aprobado de las fases 0 y 1, y planes ejecutables de las fases 0 y 1 |
 
 ## Convenciones
 

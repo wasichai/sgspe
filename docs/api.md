@@ -106,7 +106,8 @@ Además:
   Las constantes propias de la API (códigos de advertencia, resultados de una conciliación) van en inglés UPPER_SNAKE, como las
   acciones declaradas: `NEW_VERSION`, `STANCE_DIVERGENCE`.
 - Una propiedad desconocida en el cuerpo de un comando es un `400` que la nombra. Es una regla de SGSPE más estricta que la
-  de la API genérica, que rechaza los nombres de atributo desconocidos [WAS-DOC api/rest.md] pero trata el cuerpo como un
+  de la API genérica, que según su documentación rechaza los nombres de atributo desconocidos [WAS-DOC api/rest.md] pero en
+  wasichai 0.3.2 los ignora con un `201` (§3.3, «Comportamiento fijado de wasichai 0.3.2»), y que trata el cuerpo como un
   mapa de secciones e ignora lo que no es una sección [WAS-ADR-0041].
 - Un campo que el usuario no puede leer no aparece en la respuesta, igual que en `RecordService`; un indicador que lo
   necesita sale como no disponible (RQ-DSH-032) [WAS-ADR-0020].
@@ -127,12 +128,12 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 | `202` | Pedido aceptado para trabajo en segundo plano (borradores de entregable) |
 | `204` | Sin cuerpo: marcar un aviso como leído, vincular o desvincular |
 | `400` | Cuerpo inválido: valor, campo desconocido, motivo faltante o una guarda que rechaza los datos enviados |
-| `401` | Sin token o con un token inválido o vencido |
+| `401` | Sin token o con un token inválido o vencido; sin token, el cuerpo va vacío (§3.3, «Comportamiento fijado de wasichai 0.3.2») |
 | `403` | Falta un permiso o una acción declarada; escritura fuera de las asignaciones; edición de un registro ajeno sin `EDIT_ANY`; escritura genérica sobre un objeto `apiOnly` |
 | `404` | El registro no existe o es de otra organización; ruta de un módulo no instalado |
 | `409` | Estado incompatible (transición desde otro estado, objeto `appendOnly`, regla que depende de otros registros), valor único repetido o `Idempotency-Key` reutilizada con otra petición |
 | `412` | `If-Match` no coincide con el `updatedAt` actual (§3.6) |
-| `422` | Parámetro de consulta desconocido o mal formado (ASM-054) |
+| `422` | Parámetro de consulta desconocido (ASM-054) |
 | `428` | Falta `If-Match` en un comando que lo exige (§3.6) |
 | `503` | Solo en los endpoints de IA que llaman a un modelo (§4.14): la IA no está activada para la organización o su proveedor no responde, como el asistente de wasichai sin clave [WAS-DOC api/rest.md] |
 
@@ -152,6 +153,17 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 }
 ```
 
+**Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
+contrato las fijan para que un cambio de wasichai avise:
+
+- Un `401` sin token lo emite el punto de entrada de Spring Security: lleva `WWW-Authenticate: Bearer` y el cuerpo va
+  vacío, no es Problem Details. El `401` del login sí es `application/problem+json`. Prueba: `ErrorContractApiTest`
+  (`401 sin token lo emite spring security con WWW-Authenticate y sin cuerpo` y `401 del login es Problem Details`).
+- Un atributo que el objeto no tiene se ignora al crear un registro: la respuesta es `201` y el atributo no se guarda, no
+  un `400`. El `400` llega con un valor inválido de un campo que sí existe. Prueba: `ErrorContractApiTest`
+  (`un atributo que el objeto no tiene se ignora sin error` y `400 nombra el campo con un valor invalido`). El código de
+  SGSPE manda solo campos del modelo.
+
 ### 3.4 Paginación, orden y filtros
 
 - Las listas usan los parámetros y la forma de página de wasichai: `page` (desde 0), `size` (de 1 a 200; 25 por defecto),
@@ -162,7 +174,7 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 - Los filtros de cada endpoint se listan en su fila: los que comparan un campo del modelo usan su nombre (`deadline_status`),
   los propios de la consulta van en camelCase (`periodStart`, `periodEnd`). Un filtro que admite varios valores se repite
   (`project=…&project=…`).
-- **Un parámetro desconocido o mal formado es un `422` que lo nombra en `errors[]`, nunca un filtro ignorado** (ASM-054). La API
+- **Un parámetro desconocido es un `422` que lo nombra en `errors[]`, nunca un filtro ignorado** (ASM-054). La API
   genérica, en cambio, responde `400` a un filtro por un campo que no existe [WAS-DOC api/rest.md].
 
 ### 3.5 Idempotencia (`Idempotency-Key`)

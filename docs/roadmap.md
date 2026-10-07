@@ -153,6 +153,7 @@ paralelo, cada una en su propio worktree.
 | Entregables | Spike técnico de ADR-0013 (Apache POI, Gotenberg, fuentes e índice) y de ADR-0015 (GetMap), recomendado al inicio de F1 si el checkpoint lo aprueba ([Entregables §14](deliverables.md#14-fases), [SIG §10](gis.md#10-fases)) |
 | Roles con permisos | `SUPER_ADMIN` y `ORGANIZATION_ADMIN` (como `ADMIN`) y `AUDITOR` (`"*": ["READ"]`); los otros 14 existen con su etiqueta y sin permisos ([Seguridad §6](security.md#6-roles)) |
 | Requisitos de la fase | RF-IAM-001, RF-IAM-002, RNF-MNT-001, RNF-MNT-002, RNF-MNT-005, RNF-INT-001, RNF-I18N-001, RNF-OBS-001, RNF-USA-001, RQ-SEC-001, RQ-SEC-002, RQ-SEC-003, RQ-SEC-004, RQ-SEC-005, RQ-SEC-007, RQ-SEC-015, RQ-SEC-016, RQ-SEC-017, RQ-AUD-001, RQ-AUD-006, RQ-AUD-008, RQ-AUD-009, RQ-AUD-010, RQ-AUD-014; además RQ-AUD-005 en `/admin`, y RNF-MNT-003 y RNF-TST-001, que rigen de F1 a F8 |
+| Estado | Terminada el 2026-10-07: pistas 0, A, B y C en verde y spike hecho; plan ejecutable en `docs/superpowers/plans/2026-10-07-fase-1-fundacion.md` |
 
 ### Pista 0 · Precondiciones
 
@@ -222,7 +223,7 @@ usuarios ficticios `@sgspe.test` (RQ-SEC-018), por ejemplo `RequireSession.test.
   ([Seguridad §14](security.md#14-pruebas-de-seguridad)).
 - Las filas de F1 de `requirements-traceability.md` con su estado actualizado (RNF-MNT-009) y cero coincidencias de nombres
   reales (RQ-SEC-018).
-- `check_traceability.py` (propuesto) en la CI verifica que toda RF, RNF, RN y RQ del análisis tiene su fila en la matriz
+- `tools/check_traceability.py` en la CI verifica que toda RF, RNF, RN y RQ del análisis tiene su fila en la matriz
   (RNF-MNT-009).
 
 ### Riesgos de F1
@@ -233,6 +234,7 @@ usuarios ficticios `@sgspe.test` (RQ-SEC-018), por ejemplo `RequireSession.test.
 | Credenciales de GitHub Packages | Variables de entorno y `PACKAGES_TOKEN` en la CI; nunca en archivos |
 | Desfase entre wasichai 0.3.2 y `@wasichai/*` 0.5.0 | Versiones exactas, actualizadas juntas; las pruebas de contrato detectan la deriva |
 | La administración de usuarios y roles no se audita (UPS-02) | Roles solo desde `model/roles.json`; pocos usuarios `ADMIN` |
+| wasichai 0.3.2 no borra permisos de campo: un PUT con lista vacía no hace nada y no hay DELETE (candidato a issue upstream) | `apply_roles.py` neutraliza la entrada con lectura y escritura en verdadero; `test_apply_roles.py` lo fija |
 | La CSP rompe el portal o el mapa base | Primero en modo `Content-Security-Policy-Report-Only`, ajustada con sus informes ([Seguridad §3.2](security.md#32-endurecimiento-de-sgspe)) |
 
 ### IDs abiertos que condicionan F1
