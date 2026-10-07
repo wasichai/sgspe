@@ -15,6 +15,7 @@ OBJECT = re.compile(r"^/api/objects/([a-z0-9_]+)$")
 RECORDS = re.compile(r"^/api/objects/([a-z0-9_]+)/records$")
 RECORD = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)$")
 ACTIONS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/actions$")
+FIELD = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields/([a-z0-9_]+)$")
 FIELDS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields$")
 ROLE = re.compile(r"^/api/roles/([A-Z0-9_]+)$")
 ROLE_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/permissions$")
@@ -23,6 +24,15 @@ WORKFLOW = re.compile(r"^/api/objects/([a-z0-9_]+)/workflow$")
 
 # the keys of an object GET /api/objects tells besides its name, when they are set
 OBJECT_KEYS = ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints", "indexes")
+
+
+def _stored_field(field):
+    """What GET .../fields tells of a field once Core has it: the keys the scripts compare, a description trimmed."""
+    stored = {k: v for k, v in field.items() if k in ("name", "label", "type", "required", "unique", "indexed",
+                                                         "description", "enumOptions")}
+    if isinstance(stored.get("description"), str):
+        stored["description"] = stored["description"].strip()
+    return stored
 
 
 class FakeCoreHandler(BaseHTTPRequestHandler):
@@ -97,8 +107,10 @@ class FakeCore:
         self.server.shutdown()
         self.server.server_close()
 
-    def add_record(self, object_name, attributes, geometries=None):
+    def add_record(self, object_name, attributes, geometries=None, state=None):
         record = {"id": str(uuid.uuid4()), "attributes": dict(attributes)}
+        if state is not None:
+            record["state"] = state  # the workflow state, a key of the record itself as wasichai tells it
         if geometries is not None:
             record["geometries"] = dict(geometries)
         self.records.setdefault(object_name, []).append(record)
@@ -202,6 +214,8 @@ class FakeCore:
             # what GET /api/objects tells of it from now on: its write rules and, when it has any, its constraints
             self.existing_objects.add(name)
             self.object_flags[name] = {k: body[k] for k in OBJECT_KEYS if body.get(k)}
+            # and its fields, as GET .../fields tells them from now on (a description is trimmed, like wasichai)
+            self.existing_fields.setdefault(name, [_stored_field(f) for f in body.get("fields", [])])
             return 201, {"name": name}
         if OBJECT.match(path) and method == "PUT":
             name = OBJECT.match(path).group(1)
@@ -230,6 +244,11 @@ class FakeCore:
             name = body["name"]
             if name in self.existing_relationships:
                 return 409, {"message": "exists"}
+            self.existing_relationships.add(name)
+            if body.get("fieldName"):
+                # a MANY_TO_ONE puts a RELATION field on its source; a MANY_TO_MANY puts none
+                self.existing_fields.setdefault(body["source"], []).append(
+                    _stored_field({"name": body["fieldName"], "label": body["label"], "type": "RELATION"}))
             return 201, {"name": name}
         actions = ACTIONS.match(path)
         if actions and method == "POST":
@@ -244,10 +263,16 @@ class FakeCore:
         if fields and method == "GET":
             return 200, self.existing_fields.get(fields.group(1), [])
         if fields and method == "POST":
+            self.existing_fields.setdefault(fields.group(1), []).append(_stored_field(body))
             return 201, {"name": body["name"]}
         if path.startswith("/api/metadata/objects/") and method == "PUT":
             if self.fail_put:
                 return self.fail_put_status, {"message": "boom-put"}
+            field = FIELD.match(path)
+            if field:
+                stored = next((f for f in self.existing_fields.get(field.group(1), []) if f["name"] == field.group(2)), None)
+                if stored is not None:
+                    stored.update(_stored_field({**stored, **body}))
             return 200, {"required": True}
         if path.startswith("/api/metadata/objects/") and "/fields/" in path and method == "DELETE":
             return 204, None

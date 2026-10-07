@@ -27,7 +27,10 @@ skips non-editable fields on every write, the platform's too (security.md §6.3)
 --workflows is the second pass of a tenant's provisioning, after apply_roles.py, because wasichai refuses a workflow
 naming a role the tenant lacks: workflows, document types, automations, views, forms and pages, each from its phase.
 F2 brings the workflows (model/workflows/<object>.json, PUT /api/objects/{object}/workflow): one that Core lacks is
-created, one that differs is replaced, an equal one is skipped. The other kinds still refuse to run until their phase.
+created, one that differs is replaced, an equal one is skipped. The other kinds still refuse to run until their phase. wasichai checks no record on that PUT, so nothing is written
+until every workflow is checked: one that drops a state records sit in stops the pass with 1 (naming the states and
+counts), and so does one created on an object that already has records, which wasichai leaves with a null state, unless
+--allow-stateless-records is given (then it only warns).
 """
 import argparse
 import json
@@ -299,10 +302,15 @@ def validate(model):
             if not isinstance(sets, list):
                 errors.append(f"{label}: {key} must be a list of field lists")
                 continue
+            seen_sets = []
             for fields in sets:
                 if not isinstance(fields, list) or not all(isinstance(n, str) for n in fields):
                     errors.append(f"{label}: a {key} entry must be a list of field names")
                     continue
+                # wasichai keeps each set once: a repeat would never match what it stores and be put on every run
+                if fields in seen_sets:
+                    errors.append(f"{label}: {key} {fields} is declared twice")
+                seen_sets.append(fields)
                 if len(fields) < 2:
                     errors.append(f"{label}: {key} {fields} needs at least 2 fields (one field is {single})")
                 if len(set(fields)) != len(fields):
@@ -311,7 +319,7 @@ def validate(model):
                     ftype = types_by_object.get(oname, {}).get(fname)
                     if fname not in fields_by_object.get(oname, set()) and (oname, fname) not in relation_fields:
                         errors.append(f"{label}: {key} {fields} names '{fname}', which is not a field of {oname}")
-                    elif ftype == "LONG_TEXT" or (key == "indexes" and ftype in NOT_INDEXABLE):
+                    elif ftype in NOT_INDEXABLE:
                         errors.append(f"{label}: {key} {fields} names '{fname}', a {ftype} field cannot be in it")
 
     return errors
@@ -500,6 +508,18 @@ def _fields_by_name(data):
     return {f["name"]: f for f in (data or [])}
 
 
+def _put_field(client, path, body, what, detail):
+    """PUT one field's metadata and report it as `update field <what> (<detail>)`. False when Core refused (already
+    reported)."""
+    try:
+        client.put(path, body)
+    except CoreError as e:
+        _fatal("PUT", path, e)
+        return False
+    print(f"update field {what} ({detail})")
+    return True
+
+
 def sync_object(client, model, obj, current_object=None):
     """An object that already exists: put its write rules (apiOnly, appendOnly, requiresReason) when they differ from model.json's, add the fields model.json has and Core lacks, and the ENUM options
     it lacks, drop the ENUM options model.json no longer lists and no record uses, make optional what model.json no
@@ -552,53 +572,36 @@ def sync_object(client, model, obj, current_object=None):
             # model.json's order (page 5 sorts the tipos de unidad urbana), then what it no longer lists and a record uses
             kept = [o for o in dropped_options(model, field, current) if o not in dropped]
             options = model["enums"][field["enum"]] + kept
-            field_path = f"{path}/{field['name']}"
-            try:
-                client.put(field_path, {"enumOptions": options})
-            except CoreError as e:
-                _fatal("PUT", field_path, e)
-                return None
             changes = ([f"+{', '.join(extra)}"] if extra else []) + ([f"-{', '.join(dropped)}"] if dropped else [])
-            print(f"update field {name}.{field['name']} ({'; '.join(changes)})")
+            if not _put_field(client, f"{path}/{field['name']}", {"enumOptions": options}, f"{name}.{field['name']}",
+                              "; ".join(changes)):
+                return None
             updated += 1
         # a field model.json stopped requiring is relaxed (always safe); one it started requiring is left alone
         if current.get("required") and not field.get("required"):
-            field_path = f"{path}/{field['name']}"
-            try:
-                client.put(field_path, {"required": False})
-            except CoreError as e:
-                _fatal("PUT", field_path, e)
+            if not _put_field(client, f"{path}/{field['name']}", {"required": False}, f"{name}.{field['name']}",
+                              "optional"):
                 return None
-            print(f"update field {name}.{field['name']} (optional)")
             updated += 1
-        # indexed and the description are only metadata and an index: model.json's win
-        if bool(current.get("indexed", False)) != bool(field.get("indexed", False)):
-            field_path = f"{path}/{field['name']}"
-            try:
-                client.put(field_path, {"indexed": bool(field.get("indexed", False))})
-            except CoreError as e:
-                _fatal("PUT", field_path, e)
+        # indexed and the description are only metadata and an index: model.json's win. wasichai trims a description
+        # (and keeps none as null), so that is what is compared
+        indexed = bool(field.get("indexed", False))
+        if bool(current.get("indexed", False)) != indexed:
+            if not _put_field(client, f"{path}/{field['name']}", {"indexed": indexed}, f"{name}.{field['name']}",
+                              f"indexed={str(indexed).lower()}"):
                 return None
-            print(f"update field {name}.{field['name']} (indexed={str(bool(field.get('indexed', False))).lower()})")
             updated += 1
-        if "description" in field and current.get("description") != field["description"]:
-            field_path = f"{path}/{field['name']}"
-            try:
-                client.put(field_path, {"description": field["description"]})
-            except CoreError as e:
-                _fatal("PUT", field_path, e)
+        description = field.get("description", "").strip() if "description" in field else None
+        if description is not None and (current.get("description") or "") != description:
+            if not _put_field(client, f"{path}/{field['name']}", {"description": description}, f"{name}.{field['name']}",
+                              "description"):
                 return None
-            print(f"update field {name}.{field['name']} (description)")
             updated += 1
         # a label is only what the admin shows: model.json's wins
         if current.get("label") != field["label"]:
-            field_path = f"{path}/{field['name']}"
-            try:
-                client.put(field_path, {"label": field["label"]})
-            except CoreError as e:
-                _fatal("PUT", field_path, e)
+            if not _put_field(client, f"{path}/{field['name']}", {"label": field["label"]}, f"{name}.{field['name']}",
+                              "label"):
                 return None
-            print(f"update field {name}.{field['name']} (label)")
             updated += 1
     # a field model.json no longer has is reported, never removed (it may hold data); one that is required is relaxed, so
     # a record written without it is still valid. a relationship's field is not model.json's field list: it is not extra
@@ -609,13 +612,8 @@ def sync_object(client, model, obj, current_object=None):
             continue
         print(f"extra  field {name}.{field_name} (model.json no longer has it)")
         if current.get("required"):
-            field_path = f"{path}/{field_name}"
-            try:
-                client.put(field_path, {"required": False})
-            except CoreError as e:
-                _fatal("PUT", field_path, e)
+            if not _put_field(client, f"{path}/{field_name}", {"required": False}, f"{name}.{field_name}", "optional"):
                 return None
-            print(f"update field {name}.{field_name} (optional)")
             updated += 1
     return added, updated
 
@@ -848,19 +846,54 @@ def definition_files(model_dir):
     return found
 
 
+ROLE_NAME = re.compile(r"^[A-Z0-9_]+$")
+
+
+def _structure_errors(label, workflow):
+    """What would make validate_workflow trip over a shape that is not a workflow: it, its definition, each state and
+    each transition must be a JSON object, and states, transitions and roles lists."""
+    if not isinstance(workflow, dict):
+        return [f"{label}: the file must be a JSON object"]
+    definition = workflow.get("definition", {})
+    if not isinstance(definition, dict):
+        return [f"{label}: definition must be a JSON object"]
+    errors = []
+    for key, kind in (("states", "state"), ("transitions", "transition")):
+        items = definition.get(key, [])
+        if not isinstance(items, list):
+            errors.append(f"{label}: {key} must be a list")
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                errors.append(f"{label}: a {kind} must be a JSON object")
+            elif key == "transitions" and not isinstance(item.get("roles", []), list):
+                errors.append(f"{label}: transition {item.get('name')} roles must be a list")
+    return errors
+
+
+def _edge_spaces(text):
+    return isinstance(text, str) and text != text.strip()
+
+
 def validate_workflow(model, object_name, workflow):
     """The errors of model/workflows/<object>.json against model.json and the engine's rules; [] when it is valid."""
     label = f"workflow {object_name}"
     objects = {o["name"]: o for o in model["objects"]}
     if object_name not in objects:
         return [f"{label}: object '{object_name}' is not in model.json"]
+    structure = _structure_errors(label, workflow)
+    if structure:
+        return structure
     errors = []
     if objects[object_name].get("appendOnly"):
         errors.append(f"{label}: an appendOnly object cannot have a workflow")
     if not WORKFLOW_NAME.fullmatch(str(workflow.get("name", ""))) or not workflow["name"].endswith("-" + object_name):
         errors.append(f"{label}: name must be wf-<letter>-{object_name}")
-    if not workflow.get("label"):
+    # wasichai trims a label and keeps a role as given: one with edge spaces or lower case would differ on every run
+    if not workflow.get("label") or not isinstance(workflow["label"], str):
         errors.append(f"{label}: label is missing")
+    elif _edge_spaces(workflow["label"]):
+        errors.append(f"{label}: label must have no leading or trailing spaces")
     if workflow.get("enabled") is not True:
         errors.append(f"{label}: enabled must be true (ASM-010 is a variant of the definition, not a switch)")
     definition = workflow.get("definition") or {}
@@ -870,6 +903,8 @@ def validate_workflow(model, object_name, workflow):
     for state in states:
         if not STATE_NAME.fullmatch(str(state.get("name", ""))) or not state.get("label"):
             errors.append(f"{label}: state {state.get('name')!r} needs a valid name and a label")
+        elif _edge_spaces(state["label"]):
+            errors.append(f"{label}: state {state.get('name')!r} label must have no leading or trailing spaces")
         if state.get("type") not in STATE_TYPES:
             errors.append(f"{label}: state {state.get('name')} type must be one of {', '.join(STATE_TYPES)}")
         if "x" in state or "y" in state:
@@ -884,6 +919,8 @@ def validate_workflow(model, object_name, workflow):
         tname = t.get("name")
         if not STATE_NAME.fullmatch(str(tname or "")) or not t.get("label"):
             errors.append(f"{label}: transition {tname!r} needs a valid name and a label")
+        elif _edge_spaces(t["label"]):
+            errors.append(f"{label}: transition {tname} label must have no leading or trailing spaces")
         if tname in seen:
             errors.append(f"{label}: transition {tname} repeats")
         seen.add(tname)
@@ -893,6 +930,9 @@ def validate_workflow(model, object_name, workflow):
             errors.append(f"{label}: transition {tname} leaves the final state {t.get('from')}")
         if not t.get("roles"):
             errors.append(f"{label}: transition {tname} has no roles (SGSPE never leaves them empty)")
+        for role in t.get("roles") or []:
+            if not isinstance(role, str) or not ROLE_NAME.fullmatch(role):
+                errors.append(f"{label}: transition {tname} role {role!r} must match [A-Z0-9_]+")
     return errors
 
 
@@ -934,14 +974,64 @@ def load_workflows(model_dir, model):
     return loaded, errors
 
 
-def do_workflows(model_dir, model, client_factory, dry_run=False):
-    """The workflows of model/workflows/: a missing one is created, one that differs is replaced (PUT is the whole
-    api), an equal one is skipped. A definition of a kind that has not arrived yet is an error, never a silent skip."""
+def _kinds_before_their_phase(model_dir):
+    """The definition files of a kind apply.py does not apply yet, reported on stderr; True when there are any."""
     early = [path for path in definition_files(model_dir) if path.split("/")[0] not in APPLIED_KINDS]
-    if early:
-        for path in early:
-            print(f"error: model/{path}: apply.py --workflows does not apply this kind yet; it arrives with its phase",
-                  file=sys.stderr)
+    for path in early:
+        print(f"error: model/{path}: apply.py --workflows does not apply this kind yet; it arrives with its phase",
+              file=sys.stderr)
+    return bool(early)
+
+
+def _record_count(client, object_name):
+    """How many records an object has; 0 when Core does not know it."""
+    data = client.get(f"/api/objects/{object_name}/records?page=0&size=1")
+    return int((data or {}).get("totalElements", 0))
+
+
+def _records_by_state(client, object_name):
+    """{state: records} of every record of an object (a record with no state counts under None)."""
+    counts = {}
+    for record in client.list_all(object_name):
+        counts[record.get("state")] = counts.get(record.get("state"), 0) + 1
+    return counts
+
+
+def _plural(count, noun):
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def _workflow_hazards(client, object_name, wanted, current, allow_stateless):
+    """wasichai's PUT .../workflow checks no record. A workflow created over records leaves them with a null state (no
+    transition leaves it); one that drops a state records sit in strands them. Returns (refusals, warnings)."""
+    refusals, warnings = [], []
+    if current is None:
+        total = _record_count(client, object_name)
+        if total:
+            text = (f"{object_name} has {_plural(total, 'record')} and wasichai leaves them with a null state when the "
+                    f"workflow is created, so no transition is allowed on them")
+            if allow_stateless:
+                warnings.append(f"warning: {text}")
+            else:
+                refusals.append(f"{text}; pass --allow-stateless-records to create it anyway")
+        return refusals, warnings
+    kept = {s["name"] for s in wanted["definition"]["states"]}
+    dropped = [s["name"] for s in current.get("definition", {}).get("states", []) if s["name"] not in kept]
+    if dropped:
+        counts = _records_by_state(client, object_name)
+        stranded = [f"{name} ({_plural(counts[name], 'record')})" for name in dropped if counts.get(name)]
+        if stranded:
+            refusals.append(f"workflow {wanted['name']} drops the states {', '.join(stranded)} of {object_name}: "
+                            f"move those records out of them before replacing it")
+    return refusals, warnings
+
+
+def do_workflows(model_dir, model, client_factory, dry_run=False, allow_stateless_records=False):
+    """The workflows of model/workflows/: a missing one is created, one that differs is replaced (PUT is the whole
+    api), an equal one is skipped. A definition of a kind that has not arrived yet is an error, never a silent skip.
+    Nothing is written until every workflow is checked against the records: one that would strand records (it drops a
+    state they sit in) stops the pass with 1, and so does one created over records unless allow_stateless_records."""
+    if _kinds_before_their_phase(model_dir):
         return 2
     workflows, errors = load_workflows(model_dir, model)
     if errors:
@@ -953,17 +1043,32 @@ def do_workflows(model_dir, model, client_factory, dry_run=False):
             print(f"# PUT /api/objects/{object_name}/workflow")
             print(json.dumps(_workflow_body(workflow), indent=2, ensure_ascii=False))
         return 0
-    created = updated = skipped = 0
     client = client_factory() if workflows else None
+    plan = []
+    refusals = []
     for object_name, workflow in workflows:
         path = f"/api/objects/{object_name}/workflow"
         wanted = _workflow_body(workflow)
         try:
             current = client.get(path)
+            if current is not None and _workflow_body(current) == wanted:
+                plan.append((path, wanted, current, True))
+                continue
+            found, warnings = _workflow_hazards(client, object_name, wanted, current, allow_stateless_records)
         except CoreError as e:
             _fatal("GET", path, e)
             return 1
-        if current is not None and _workflow_body(current) == wanted:
+        for warning in warnings:
+            print(warning, file=sys.stderr)
+        refusals.extend(found)
+        plan.append((path, wanted, current, False))
+    if refusals:
+        for refusal in refusals:
+            print(f"error: {refusal}", file=sys.stderr)
+        return 1
+    created = updated = skipped = 0
+    for path, wanted, current, same in plan:
+        if same:
             print(f"skip   workflow {wanted['name']} (up to date)")
             skipped += 1
             continue
@@ -997,6 +1102,9 @@ def _parse_args(argv):
     p.add_argument("--drop", action="store_true")
     p.add_argument("--validate-only", action="store_true")
     p.add_argument("--workflows", action="store_true", help="the second pass, after apply_roles.py")
+    p.add_argument("--allow-stateless-records", action="store_true",
+                   help="with --workflows: create a workflow on an object that already has records, which wasichai "
+                        "leaves with a null state (no transition is allowed on them); without it that stops with 1")
     return p.parse_args(argv)
 
 
@@ -1013,7 +1121,10 @@ def main(argv=None):
             print(f"model: {args.model}: {e}")
         return 2
     if args.validate_only:
-        _, workflow_errors = load_workflows(os.path.dirname(os.path.abspath(args.model)), model)
+        model_dir = os.path.dirname(os.path.abspath(args.model))
+        if _kinds_before_their_phase(model_dir):
+            return 2
+        _, workflow_errors = load_workflows(model_dir, model)
         for e in workflow_errors:
             print(f"model: {e}")
         return 2 if workflow_errors else 0
@@ -1023,7 +1134,8 @@ def main(argv=None):
             client.login(args.email, args.password)
             return client
         try:
-            return do_workflows(os.path.dirname(os.path.abspath(args.model)), model, connect, args.dry_run)
+            return do_workflows(os.path.dirname(os.path.abspath(args.model)), model, connect, args.dry_run,
+                                args.allow_stateless_records)
         except CoreError as e:
             _fatal("POST", "/api/auth/login", e)
             return 1
