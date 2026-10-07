@@ -27,4 +27,17 @@ class StrictQueryTest {
         val error = assertThrows<UnprocessableContentException> { StrictQuery.requireOnly(mapOf("zeta" to listOf(), "alfa" to listOf()), allowed) }
         assertEquals(listOf("alfa", "zeta"), error.violations.map { it.field })
     }
+
+    @Test
+    fun `si la consulta no admite parametros, el mensaje lo dice y no termina en se admiten`() {
+        val error = assertThrows<UnprocessableContentException> { StrictQuery.requireOnly(mapOf("project" to listOf("p1")), emptySet()) }
+        assertEquals("project", error.violations.single().field)
+        assertEquals("no es un parámetro de esta consulta; esta consulta no admite parámetros", error.violations.single().message)
+    }
+
+    @Test
+    fun `el titulo del 422 no promete detectar parametros mal formados`() {
+        val error = assertThrows<UnprocessableContentException> { StrictQuery.requireOnly(mapOf("zeta" to listOf()), allowed) }
+        assertEquals("Parámetro de consulta desconocido", error.message)
+    }
 }
