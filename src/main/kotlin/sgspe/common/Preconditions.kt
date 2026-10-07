@@ -54,23 +54,30 @@ object IfMatch {
     // un comando con la marca IM de api.md §4: sin If-Match, 428
     fun required(raw: String?): Instant = parse(raw) ?: throw PreconditionRequiredException("Este comando exige If-Match con el updatedAt que leíste")
 
-    // si después de la versión que leyó el cliente solo hubo escrituras de derivados. la primera escritura en o después de
-    // `expected` es la que produjo esa versión y no cuenta: wasichai anota en audit_log un instante igual o apenas posterior
-    // al updatedAt que escribió, así que tiene que caer dentro de VERSION_WINDOW (un If-Match que no es la versión de
-    // ninguna escritura, como uno anterior al alta, no pasa). de las siguientes, un vínculo (rel:…) no cambia la versión y
-    // un campo que quien llama no puede leer no le llega en el historial, así que tampoco cuenta. así un listener que
-    // actualiza un derivado (los conteos de asistentes, el área) no invalida el If-Match de quien sigue trabajando
+    // si después de la versión que leyó el cliente solo hubo escrituras de derivados o vínculos. la versión es la que
+    // produjo el updatedAt: todas las entradas con el instante de la primera en o después de `expected` (una transacción
+    // puede dejar varias con el mismo now(), y el orden entre ellas no importa). si ninguna cae dentro de VERSION_WINDOW
+    // (un If-Match que no es la versión de ninguna escritura, como uno anterior al alta) no pasa. de las posteriores, un
+    // vínculo (rel:…) no cambia la versión y cuenta como inofensivo; un derivado también. una entrada sin ningún campo
+    // visible no se tolera: puede ser un cambio que el diff de atributos no ve (una geometría) y, aunque sea un campo
+    // que quien llama no puede leer, el PUT de wasichai lo conserva, así que el 412 solo cuesta volver a cargar. así un
+    // listener que actualiza un derivado (los conteos de asistentes, el área) no invalida el If-Match de quien sigue
+    // trabajando
     fun onlyDerivedSince(
         expected: Instant,
         writes: List<LaterWrite>,
         derived: Set<String>
     ): Boolean {
-        val after = writes.filter { !it.occurredAt.isBefore(expected) }.sortedBy { it.occurredAt }
-        val version = after.firstOrNull() ?: return false
-        if (version.occurredAt.isAfter(expected.plus(VERSION_WINDOW))) return false
-        return after.drop(1).all { write -> write.fields.filterNot { it.startsWith("rel:") }.all { it in derived } }
+        val after = writes.filter { !it.occurredAt.isBefore(expected) }
+        val versionAt = after.minOfOrNull { it.occurredAt } ?: return false
+        if (versionAt.isAfter(expected.plus(VERSION_WINDOW))) return false
+        return after.filter { it.occurredAt != versionAt }.all { write ->
+            write.fields.isNotEmpty() && write.fields.all { it.startsWith("rel:") || it in derived }
+        }
     }
 
+    // la mayor distancia entre el updated_at de un registro y el occurred_at de su entrada de audit_log, escritos en una
+    // misma transacción
     private val VERSION_WINDOW: Duration = Duration.ofSeconds(2)
 }
 
@@ -162,12 +169,13 @@ class IfMatchGuard(
     override suspend fun beforeWrite(change: RecordWrite) {
         // las escrituras del propio sgspe dentro de la petición (un listener que actualiza un derivado del mismo registro)
         // no son la escritura que el cliente condicionó
-        if (change.kind == RecordChangeKind.CREATED || change.recordId == null || WriteMark.present()) return
+        val recordId = change.recordId
+        if (change.kind == RecordChangeKind.CREATED || recordId == null || WriteMark.present()) return
         val expectation =
             currentCoroutineContext()[ReactorContext]?.context?.getOrDefault<IfMatchExpectation>(IfMatchFilter.KEY, null) ?: return
-        if (expectation.objectName != change.objectName || expectation.recordId != change.recordId) return
+        if (expectation.objectName != change.objectName || expectation.recordId != recordId) return
         val expected = IfMatch.parse(expectation.raw) ?: return
-        val current = records.find(change.objectName, change.recordId!!)?.updatedAt
-        versions.check(change.objectName, change.recordId!!, expected, current, "El registro")
+        val current = records.find(change.objectName, recordId)?.updatedAt
+        versions.check(change.objectName, recordId, expected, current, "El registro")
     }
 }

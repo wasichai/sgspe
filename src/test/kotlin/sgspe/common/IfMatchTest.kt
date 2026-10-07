@@ -1,7 +1,9 @@
 package sgspe.common
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import wasichai.core.common.ValidationException
@@ -53,11 +55,52 @@ class IfMatchTest {
                 LaterWrite(created.plusSeconds(1), setOf("rel:engagement_topic")),
                 LaterWrite(created.plusSeconds(2), setOf("attendees_total_count"))
             )
-        assertEquals(true, IfMatch.onlyDerivedSince(created, writes, derived))
+        assertTrue(IfMatch.onlyDerivedSince(created, writes, derived))
         val edited = writes + LaterWrite(created.plusSeconds(3), setOf("title"))
-        assertEquals(false, IfMatch.onlyDerivedSince(created, edited, derived))
-        assertEquals(false, IfMatch.onlyDerivedSince(created.plusSeconds(9), writes, derived))
+        assertFalse(IfMatch.onlyDerivedSince(created, edited, derived))
+        assertFalse(IfMatch.onlyDerivedSince(created.plusSeconds(9), writes, derived))
         // un If-Match que no es la versión de ninguna escritura (anterior al alta) no pasa
-        assertEquals(false, IfMatch.onlyDerivedSince(Instant.parse("2020-01-01T00:00:00Z"), writes, derived))
+        assertFalse(IfMatch.onlyDerivedSince(Instant.parse("2020-01-01T00:00:00Z"), writes, derived))
+    }
+
+    @Test
+    fun `dos escrituras del mismo instante son la version en cualquier orden`() {
+        val created = Instant.parse("2026-10-07T14:00:00Z")
+        val derived = setOf("attendees_total_count")
+        val own = LaterWrite(created, setOf("title"))
+        val listener = LaterWrite(created, setOf("attendees_total_count"))
+        assertTrue(IfMatch.onlyDerivedSince(created, listOf(own, listener), derived))
+        assertTrue(IfMatch.onlyDerivedSince(created, listOf(listener, own), derived))
+        val other = LaterWrite(created.plusSeconds(1), setOf("title"))
+        assertFalse(IfMatch.onlyDerivedSince(created, listOf(own, listener, other), derived))
+        assertFalse(IfMatch.onlyDerivedSince(created, listOf(listener, own, other), derived))
+    }
+
+    @Test
+    fun `la version debe caer a lo sumo 2 segundos despues de lo leido`() {
+        val read = Instant.parse("2026-10-07T14:00:00Z")
+        val derived = setOf("attendees_total_count")
+        val later = LaterWrite(read.plusSeconds(5), setOf("attendees_total_count"))
+        assertTrue(IfMatch.onlyDerivedSince(read, listOf(LaterWrite(read.plusSeconds(2), setOf("title")), later), derived))
+        assertFalse(IfMatch.onlyDerivedSince(read, listOf(LaterWrite(read.plusSeconds(2).plusNanos(1), setOf("title")), later), derived))
+        assertFalse(IfMatch.onlyDerivedSince(read, listOf(later), derived))
+        assertFalse(IfMatch.onlyDerivedSince(read, emptyList(), derived))
+    }
+
+    @Test
+    fun `una escritura sin campos visibles no se tolera`() {
+        val created = Instant.parse("2026-10-07T14:00:00Z")
+        val derived = setOf("attendees_total_count")
+        val version = LaterWrite(created, setOf("title"))
+        assertFalse(IfMatch.onlyDerivedSince(created, listOf(version, LaterWrite(created.plusSeconds(1), emptySet())), derived))
+        assertFalse(
+            IfMatch.onlyDerivedSince(
+                created,
+                listOf(version, LaterWrite(created.plusSeconds(1), setOf("attendees_total_count")), LaterWrite(created.plusSeconds(2), emptySet())),
+                derived
+            )
+        )
+        // una entrada de solo vínculos sí tiene campos: no es un conflicto
+        assertTrue(IfMatch.onlyDerivedSince(created, listOf(version, LaterWrite(created.plusSeconds(1), setOf("rel:engagement_topic"))), derived))
     }
 }

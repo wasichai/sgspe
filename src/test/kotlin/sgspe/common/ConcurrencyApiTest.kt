@@ -46,4 +46,45 @@ class ConcurrencyApiTest : DomainApiTest() {
             ).status
         )
     }
+
+    @Test
+    fun `una transicion con el updatedAt vigente pasa`() {
+        val project = projectWithCrs()
+        val visit = createRecord("field_visit", mapOf("project" to project, "title" to "Visita de prueba"))
+        val current = record("field_visit", visit)["updatedAt"].asString()
+        val moved = transitionWith("field_visit", visit, "start", headers = mapOf(IfMatch.HEADER to "\"$current\""))
+        assertEquals(HttpStatus.OK, moved.status, moved.body)
+    }
+
+    // la versión que leyó A salió de un UPDATE, no del alta: la escritura de B, dentro de la ventana, sigue siendo un conflicto
+    @Test
+    fun `si la version leida salio de un update, la edicion de otro dentro de 2 segundos es 412`() {
+        val locality = createRecord("locality", mapOf("name" to "Caserío Ejemplo", "locality_type" to "CASERIO"))
+        assertEquals(HttpStatus.OK, edit("locality", locality, mapOf("alternative_names" to "Ejemplo Alto")).status)
+        val read = record("locality", locality)["updatedAt"].asString()
+        assertEquals(HttpStatus.OK, edit("locality", locality, mapOf("alternative_names" to "Ejemplo de B")).status)
+        val stale = edit("locality", locality, mapOf("alternative_names" to "Ejemplo de A"), headers = mapOf(IfMatch.HEADER to "\"$read\""))
+        assertEquals(HttpStatus.PRECONDITION_FAILED, stale.status, stale.body)
+        assertEquals("Ejemplo de B", record("locality", locality)["attributes"]["alternative_names"].asString())
+    }
+
+    // el historial de atributos no ve una geometría: si el cambio de B no deja campos visibles, no puede pasar por inofensivo
+    @Test
+    fun `un cambio de solo la geometria de otro es 412`() {
+        val concession = createWith("mining_concession", sample("mining_concession"), mapOf("boundary" to square(-78.6, -7.9, 0.01, "MultiPolygon")))
+        val read = record("mining_concession", concession)["updatedAt"].asString()
+        val moved = square(-78.5, -7.8, 0.01, "MultiPolygon")
+        assertEquals(HttpStatus.OK, edit("mining_concession", concession, emptyMap(), geometries = mapOf("boundary" to moved)).status)
+        val stale =
+            edit(
+                "mining_concession",
+                concession,
+                mapOf("name" to "Concesión de A"),
+                headers = mapOf(IfMatch.HEADER to "\"$read\""),
+                geometries =
+                    mapOf("boundary" to square(-78.6, -7.9, 0.01, "MultiPolygon"))
+            )
+        assertEquals(HttpStatus.PRECONDITION_FAILED, stale.status, stale.body)
+        assertEquals(-78.5, record("mining_concession", concession)["geometries"]["boundary"]["coordinates"][0][0][0][0].asDouble(), 1e-9)
+    }
 }
