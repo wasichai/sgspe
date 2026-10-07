@@ -1,0 +1,97 @@
+{
+  "mappedToAdmin": ["SUPER_ADMIN", "ORGANIZATION_ADMIN"],
+  "roles": [
+    {
+      "name": "PROJECT_ADMIN",
+      "label": "Administrador de proyectos",
+      "description": "Da de alta y aprueba proyectos y su equipo. Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "PROJECT_MANAGER",
+      "label": "Jefe de proyecto",
+      "description": "Aprueba la lista de entrevistados y las decisiones de nivel superior del proyecto. Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "SOCIAL_MANAGER",
+      "label": "Gerente social",
+      "description": "Supervisa el plan de trabajo social. Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "COMMUNITY_RELATIONS_OFFICER",
+      "label": "Relacionista comunitario",
+      "description": "El equipo social en el territorio. Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "STAKEHOLDER_MANAGER",
+      "label": "Gestor de grupos de interés",
+      "description": "Mapea y evalúa los grupos de interés. Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "COMMITMENT_MANAGER",
+      "label": "Gestor de compromisos",
+      "description": "Lleva la matriz de compromisos. Recibe permisos desde F3.",
+      "permisos": {}
+    },
+    {
+      "name": "GRIEVANCE_MANAGER",
+      "label": "Gestor de quejas, consultas y solicitudes",
+      "description": "Atiende las quejas, consultas y solicitudes. Recibe permisos desde F4.",
+      "permisos": {}
+    },
+    {
+      "name": "SOCIAL_RISK_MANAGER",
+      "label": "Gestor de riesgos sociales",
+      "description": "Lleva la matriz de riesgos sociales. Recibe permisos desde F4.",
+      "permisos": {}
+    },
+    {
+      "name": "SOCIAL_INVESTMENT_MANAGER",
+      "label": "Gestor de inversión social",
+      "description": "Gestiona los aportes y los programas sociales. Recibe permisos desde F5.",
+      "permisos": {}
+    },
+    {
+      "name": "GIS_ANALYST",
+      "label": "Analista SIG",
+      "description": "Prepara mapas e importa coordenadas. Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "FIELD_AGENT",
+      "label": "Agente de campo",
+      "description": "Registra en terreno lo que levanta; sin EDIT_ANY, solo cambia lo que creó (ASM-069). Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "APPROVER",
+      "label": "Aprobador",
+      "description": "Aprueba mediante acciones declaradas como APPROVE. Recibe permisos desde F3.",
+      "permisos": {}
+    },
+    {
+      "name": "AUDITOR",
+      "label": "Auditor",
+      "description": "Lee todo el tenant y la auditoría; no escribe nada.",
+      "permisos": {
+        "*": ["READ"]
+      }
+    },
+    {
+      "name": "ANALYST",
+      "label": "Analista",
+      "description": "Lee y reporta por objeto. Recibe permisos desde F2.",
+      "permisos": {}
+    },
+    {
+      "name": "READ_ONLY",
+      "label": "Solo lectura",
+      "description": "Consulta. Recibe permisos desde F2.",
+      "permisos": {}
+    }
+  ]
+}

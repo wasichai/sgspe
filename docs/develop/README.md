@@ -42,7 +42,7 @@ set -a; source develop/.env; set +a
 
 `WASICHAI_DB_*`, `WASICHAI_JWT_SECRET` y `WASICHAI_SEED_DEV` tienen el mismo valor por defecto en
 `src/main/resources/application.yml`: con la base del compose y el túnel, el servidor arranca sin cargar nada. Las demás
-variables las leen `compose.yml` o los scripts de `model/`.
+variables las leen `compose.yml`, los scripts de `model/` o, las `WASICHAI_TEST_DB_*`, las pruebas de integración.
 
 ## 3. Base de datos
 
