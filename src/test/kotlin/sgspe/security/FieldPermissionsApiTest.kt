@@ -44,6 +44,18 @@ class FieldPermissionsApiTest : F2ApiTest() {
         send("PUT", "/api/objects/$objectName/records/${fixture.id}", mapOf("attributes" to fixture.attributes + changes), HttpStatus.OK)
     }
 
+    // un usuario con varios roles a la vez (security.md §5.4)
+    private fun userWithRoles(roles: List<String>): Account {
+        val email = "${uniqueName("dos-roles")}@sgspe.test"
+        send(
+            "POST",
+            "/api/users",
+            mapOf("email" to email, "displayName" to "Usuario de prueba", "password" to PASSWORD, "roles" to roles),
+            HttpStatus.CREATED
+        )
+        return Account(bearer(email, PASSWORD), email)
+    }
+
     @Test
     fun `los nombres y el documento de una persona no llegan a quien no los lee`() {
         val kind = uniqueName("DOC-")
@@ -121,12 +133,15 @@ class FieldPermissionsApiTest : F2ApiTest() {
     }
 
     @Test
-    fun `la religion y el proceso electoral del perfil solo los ven y escriben SOCIAL_MANAGER y STAKEHOLDER_MANAGER`() {
+    fun `la religion y el proceso electoral no llegan a quien no los lee y escribir la religion se rechaza nombrando el campo`() {
         val profile = fixture("locality_profile", mapOf("religion" to "Texto de prueba", "electoral_process" to "Texto de prueba"))
         val officer = userWithRole("COMMUNITY_RELATIONS_OFFICER")
         val social = userWithRole("SOCIAL_MANAGER")
-        assertFalse(record("locality_profile", profile.id, officer).has("religion"))
-        assertTrue(record("locality_profile", profile.id, social).has("religion"))
+        val forOfficer = record("locality_profile", profile.id, officer)
+        assertFalse(forOfficer.has("religion") || forOfficer.has("electoral_process"), forOfficer.toString())
+        val forSocial = record("locality_profile", profile.id, social)
+        assertEquals("Texto de prueba", forSocial["religion"].asString())
+        assertEquals("Texto de prueba", forSocial["electoral_process"].asString())
         // COMMUNITY_RELATIONS_OFFICER crea perfiles (CRU) pero no escribe la religión: 400 que nombra el campo
         val problem =
             tree(
@@ -152,56 +167,162 @@ class FieldPermissionsApiTest : F2ApiTest() {
 
     @Test
     fun `con dos roles gana el mas permisivo`() {
-        // security.md §5.4: un usuario con FIELD_AGENT y STAKEHOLDER_MANAGER lee la postura que FIELD_AGENT solo no lee
+        // security.md §5.4: un usuario con FIELD_AGENT y STAKEHOLDER_MANAGER lee la postura que FIELD_AGENT solo no lee,
+        // con el lector primero y con el lector al final: no gana ni el primer rol ni el último
         val stakeholder = adminFixture("stakeholder")
-        val email = "${uniqueName("dos-roles")}@sgspe.test"
-        send(
-            "POST",
-            "/api/users",
-            mapOf("email" to email, "displayName" to "Usuario de prueba", "password" to PASSWORD, "roles" to listOf("FIELD_AGENT", "STAKEHOLDER_MANAGER")),
-            HttpStatus.CREATED
-        )
-        val both = Account(bearer(email, PASSWORD), email)
-        assertTrue(record("stakeholder", stakeholder.id, both).has("stance"))
+        for (roles in listOf(listOf("FIELD_AGENT", "STAKEHOLDER_MANAGER"), listOf("STAKEHOLDER_MANAGER", "FIELD_AGENT"))) {
+            assertTrue(record("stakeholder", stakeholder.id, userWithRoles(roles)).has("stance"), roles.toString())
+        }
+    }
+
+    @Test
+    fun `dos roles que no leen un campo no lo suman`() {
+        // FIELD_AGENT y PROJECT_MANAGER no leen la postura ni el documento; los nombres sí los lee cada uno
+        val stakeholder = adminFixture("stakeholder")
+        val person = fixture("person", mapOf("given_names" to "Persona", "surnames" to "Ejemplo Cinco", "id_document_number" to "00000005"))
+        for (roles in listOf(listOf("FIELD_AGENT", "PROJECT_MANAGER"), listOf("PROJECT_MANAGER", "FIELD_AGENT"))) {
+            val account = userWithRoles(roles)
+            assertFalse(record("stakeholder", stakeholder.id, account).has("stance"), roles.toString())
+            val forPerson = record("person", person.id, account)
+            assertFalse(forPerson.has("id_document_number"), "$roles $forPerson")
+            assertEquals("Persona", forPerson["given_names"].asString(), roles.toString())
+        }
     }
 
     @Test
     fun `u deja cambiar el registro sin escribir sus campos de negocio`() {
         // FIELD_AGENT tiene `u` sobre stakeholder: puede aplicar transiciones y vincular, no editar (security.md §7.1)
         val stakeholder = adminFixture("stakeholder")
+        change("stakeholder", stakeholder, mapOf("profile_summary" to "resumen original", "inclusion_reason" to "motivo original"))
         val fieldAgent = member("FIELD_AGENT")
-        assertEquals(
-            HttpStatus.OK,
-            exchange("PUT", "/api/objects/stakeholder/records/${stakeholder.id}", mapOf("attributes" to emptyMap<String, Any>()), fieldAgent.token).status
-        )
+        val path = "/api/objects/stakeholder/records/${stakeholder.id}"
+        val before = attributesOf(tree(send("GET", path, null, HttpStatus.OK)))
+        assertEquals("resumen original", before["profile_summary"])
+        assertEquals("motivo original", before["inclusion_reason"])
+
+        // un PUT sin campos de negocio responde 200 y no anula lo que no manda
+        assertEquals(HttpStatus.OK, exchange("PUT", path, mapOf("attributes" to emptyMap<String, Any>()), fieldAgent.token).status)
+        assertEquals(before, attributesOf(tree(send("GET", path, null, HttpStatus.OK))))
+
+        // un PUT con un campo de negocio responde 400 que lo nombra y no cambia nada
         val problem =
             tree(
                 send(
                     "PUT",
-                    "/api/objects/stakeholder/records/${stakeholder.id}",
+                    path,
                     mapOf("attributes" to mapOf("profile_summary" to "editado")),
                     HttpStatus.BAD_REQUEST,
                     fieldAgent.token
                 )
             )
         assertEquals("profile_summary", problem["errors"][0]["field"].asString())
+        assertEquals(before, attributesOf(tree(send("GET", path, null, HttpStatus.OK))))
     }
 
     @Test
+    @Suppress("UNCHECKED_CAST")
+    fun `cada campo restringido de roles json falta en el registro y en la lista de quien no lo lee`() {
+        // dirigida por restrictedFields: un no lector con READ sobre el objeto no recibe la clave ni por id ni en la lista,
+        // y un lector sí. se salta, con aviso, lo apiOnly (el plan 2.2 prueba sus valores), lo derivado (la API genérica
+        // no lo escribe) y la entrada que no tiene un no lector con READ
+        val failures = mutableListOf<String>()
+        val covered = mutableListOf<String>()
+        val skipped = mutableListOf<String>()
+        for (entry in Model.restrictedFields) {
+            val objectName = entry["object"] as String
+            val fields = entry["fields"] as List<String>
+            val label = "$objectName.${fields.joinToString(",")}"
+            val obj = Model.objects.getValue(objectName)
+            val modelFields = (obj["fields"] as List<Map<String, Any?>>).associateBy { it["name"] as String }
+            val readers = entry["readers"] as List<String>
+
+            fun reads(role: String) = "READ" in Model.roles.getValue(role)[objectName].orEmpty() || "READ" in Model.roles.getValue(role)["*"].orEmpty()
+            val nonReaders = (Model.roles.keys - readers.toSet()).filter(::reads)
+            val nonReader = nonReaders.singleOrNull { it == "READ_ONLY" } ?: nonReaders.firstOrNull()
+            val reader = readers.firstOrNull(::reads)
+            when {
+                obj["apiOnly"] == true -> skipped += "$label: el objeto es apiOnly"
+                fields.any { modelFields[it]?.get("derived") == true } -> skipped += "$label: el campo es derivado"
+                nonReader == null -> skipped += "$label: ningún rol sin permiso del campo lee el objeto"
+                reader == null -> failures += "$label: ningún lector del campo lee el objeto"
+                else ->
+                    try {
+                        val relations =
+                            Model.relationships
+                                .filter {
+                                    it["source"] == objectName && it["fieldName"] != null
+                                }.associateBy { it["fieldName"] as String }
+                        val restricted =
+                            Model.restrictedFields
+                                .filter { it["object"] == objectName }
+                                .flatMap { it["fields"] as List<String> }
+                                .toSet()
+                        val values = linkedMapOf<String, Any?>()
+                        for (field in fields) {
+                            val type = modelFields[field]?.get("type")
+                            values[field] =
+                                when {
+                                    field in relations -> fixture(relations.getValue(field)["target"] as String).id
+                                    type == "TEXT" || type == "LONG_TEXT" -> "Valor restringido de $field"
+                                    type == "EMAIL" -> "restringido@sgspe.test"
+                                    else -> error("sin valor de prueba para $label ($type)")
+                                }
+                        }
+                        // quien escribe una relación restringida deja en null las otras de "exactamente uno de"
+                        if (fields.any { it in relations }) EXACTLY_ONE[objectName].orEmpty().filter { it !in fields }.forEach { values[it] = null }
+                        // un valor único en un texto legible para filtrar la lista; si no hay, una relación del registro
+                        val textField =
+                            modelFields.values.firstOrNull { it["type"] == "TEXT" && it["derived"] != true && it["name"] !in restricted }?.get(
+                                "name"
+                            ) as String?
+                        if (textField != null) values[textField] = uniqueName("lista-")
+                        val created = fixture(objectName, values)
+                        val filter =
+                            if (textField != null) {
+                                textField to values.getValue(textField) as String
+                            } else {
+                                val relation = relations.keys.first { it !in restricted && created.attributes[it] != null }
+                                relation to created.attributes.getValue(relation) as String
+                            }
+                        val byId = record(objectName, created.id, userWithRole(nonReader))
+                        val inList = listed(objectName, filter, userWithRole(nonReader))
+                        val forReader = record(objectName, created.id, userWithRole(reader))
+                        for (field in fields) {
+                            if (byId.has(field)) failures += "$label: $nonReader recibe $field por id"
+                            if (inList.has(field)) failures += "$label: $nonReader recibe $field en la lista"
+                            if (!forReader.has(field) || forReader[field].isNull) failures += "$label: $reader no recibe $field"
+                        }
+                        covered += "$label (no lector $nonReader, lector $reader, filtro ${filter.first})"
+                    } catch (e: Throwable) {
+                        failures += "$label: ${e.message?.take(300)}"
+                    }
+            }
+        }
+        println("restrictedFields cubiertas: $covered")
+        println("restrictedFields saltadas: $skipped")
+        assertTrue(failures.isEmpty(), failures.joinToString("\n"))
+        assertTrue(covered.isNotEmpty(), "ninguna entrada de restrictedFields se pudo probar: $skipped")
+    }
+
+    @Test
+    @Suppress("UNCHECKED_CAST")
     fun `roles json restringe en wasichai los campos de seccion 7_9 para cada rol que no los lee`() {
         val roles = tree(send("GET", "/api/roles", null, HttpStatus.OK)).values().associateBy { it["name"].asString() }
         for (entry in Model.restrictedFields) {
-            @Suppress("UNCHECKED_CAST")
-            val readers = entry["readers"] as List<String>
-            @Suppress("UNCHECKED_CAST")
+            val readers = (entry["readers"] as List<String>).toSet()
             for (field in entry["fields"] as List<String>) {
-                for (role in Model.roles.keys - readers.toSet()) {
+                for (role in Model.roles.keys) {
                     val rule =
                         roles.getValue(role)["fieldPermissions"].values().singleOrNull {
                             it["objectName"].asString() == entry["object"] &&
                                 it["fieldName"].asString() == field
                         }
-                    assertTrue(rule != null && !rule["read"].asBoolean() && !rule["write"].asBoolean(), "$role ${entry["object"]}.$field: $rule")
+                    if (role in readers) {
+                        // un lector no tiene regla o la tiene neutralizada: ninguna que le bloquee la lectura
+                        assertTrue(rule == null || rule["read"].asBoolean(), "$role ${entry["object"]}.$field lee y wasichai se lo bloquea: $rule")
+                    } else {
+                        assertTrue(rule != null && !rule["read"].asBoolean() && !rule["write"].asBoolean(), "$role ${entry["object"]}.$field: $rule")
+                    }
                 }
             }
         }
