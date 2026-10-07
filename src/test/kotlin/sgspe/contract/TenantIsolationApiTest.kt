@@ -18,9 +18,31 @@ class TenantIsolationApiTest : SgspeApiTest() {
 
         assertEquals(HttpStatus.NOT_FOUND, exchange("GET", "/api/objects/$name/records/$id", token = other.token).status)
         assertEquals(HttpStatus.NOT_FOUND, exchange("GET", "/api/objects/$name", token = other.token).status)
-        val audit = tree(send("GET", "/api/audit?limit=500", null, HttpStatus.OK, other.token))
+        val query = "/api/audit?recordId=$id&limit=500"
+        val audit = tree(send("GET", query, null, HttpStatus.OK, other.token))
         assertTrue(audit.values().none { it["recordId"]?.asString() == id }, audit.toString())
+        // control de la consulta: la misma, como la primera organización, sí devuelve el registro
+        val own = tree(send("GET", query, null, HttpStatus.OK))
+        assertTrue(own.values().any { it["recordId"]?.asString() == id }, own.toString())
         assertNotEquals(me()["organizationId"].asString(), me(other.token)["organizationId"].asString())
+    }
+
+    @Test
+    fun `el administrador de otra organizacion no puede cambiar, borrar ni listar lo de la primera`() {
+        val name = uniqueName("protegido")
+        createObject(name, listOf(field("code", "TEXT")))
+        val id = createRecord(name, mapOf("code" to "P-1"))
+        val other = provisionTenant()
+        val path = "/api/objects/$name/records/$id"
+
+        assertEquals(HttpStatus.NOT_FOUND, exchange("PUT", path, mapOf("attributes" to mapOf("code" to "P-2")), other.token).status)
+        assertEquals(HttpStatus.NOT_FOUND, exchange("DELETE", path, token = other.token).status)
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", "/api/objects/$name/records", token = other.token).status)
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", "$path/history", token = other.token).status)
+        // la primera organización sigue viendo su registro intacto, con una sola entrada de historia
+        assertEquals("P-1", tree(send("GET", path, null, HttpStatus.OK))["attributes"]["code"].asString())
+        val history = tree(send("GET", "$path/history", null, HttpStatus.OK))
+        assertEquals(listOf("CREATE"), history.values().map { it["operation"].asString() })
     }
 
     @Test

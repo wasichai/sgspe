@@ -61,5 +61,7 @@ class AuditApiTest : SgspeApiTest() {
         send("DELETE", "/api/objects/$name/records/$id", null, HttpStatus.CONFLICT)
         val history = tree(send("GET", "/api/objects/$name/records/$id/history", null, HttpStatus.OK))
         assertEquals(listOf("CREATE"), history.values().map { it["operation"].asString() })
+        // el registro sigue ahí y sin cambios
+        assertEquals("H-1", tree(send("GET", "/api/objects/$name/records/$id", null, HttpStatus.OK))["attributes"]["code"].asString())
     }
 }

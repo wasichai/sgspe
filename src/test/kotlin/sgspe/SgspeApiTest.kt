@@ -1,6 +1,7 @@
 package sgspe
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
@@ -10,6 +11,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import wasichai.test.WasichaiIntegrationTest
 import java.net.URLEncoder
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 // la base de las pruebas de contrato con la plataforma (security.md §14). antes de la primera prueba de la JVM aprovisiona
@@ -167,10 +169,18 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
         val password = if (account == null) WasichaiIntegrationTest.ADMIN_PASSWORD else PASSWORD
         val port = environment.getRequiredProperty("local.server.port")
         val command = listOf("python3") + args + listOf("--core", "http://127.0.0.1:$port", "--email", email, "--password", password)
-        val process = ProcessBuilder(command).redirectErrorStream(true).start()
-        val output = process.inputStream.bufferedReader().readText()
-        check(process.waitFor(120, TimeUnit.SECONDS)) { "${args.first()} no terminó en 120 s" }
-        return ScriptRun(process.exitValue(), output)
+        // la salida va a un archivo: leer el flujo bloquearía hasta que el script cierre y el plazo nunca vencería
+        val log = Files.createTempFile("sgspe-script-", ".log")
+        try {
+            val process = ProcessBuilder(command).redirectErrorStream(true).redirectOutput(log.toFile()).start()
+            if (!process.waitFor(120, TimeUnit.SECONDS)) {
+                process.destroyForcibly().waitFor()
+                fail<Unit>("${args.first()} no terminó en 120 s; salida hasta ahí:\n${Files.readString(log)}")
+            }
+            return ScriptRun(process.exitValue(), Files.readString(log))
+        } finally {
+            Files.deleteIfExists(log)
+        }
     }
 
     companion object {

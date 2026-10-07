@@ -31,6 +31,19 @@ class SecurityApiTest : SgspeApiTest() {
     }
 
     @Test
+    fun `un token emitido antes de deshabilitar al usuario sigue entrando hasta que vence`() {
+        // PIN DEL COMPORTAMIENTO ACTUAL de wasichai 0.3.2, no un requisito: el JWT es sin estado y no hay revocación
+        // (UPS-09, wasichai#55; architecture.md, riesgo 9). deshabilitar a alguien le cierra el login, no su sesión viva.
+        // SGSPE lo mitiga con TTL corto y límite de tasa en el proxy. cuando wasichai revoque, esta prueba falla: pasar a
+        // esperar 401 (RQ-SEC-001) y quitar la mitigación que ya no haga falta
+        val user = userWithRole("READ_ONLY")
+        assertEquals(HttpStatus.OK, exchange("GET", "/api/auth/me", token = user.token).status)
+        send("PUT", "/api/users/${user.id}", mapOf("enabled" to false), HttpStatus.OK)
+        assertEquals(HttpStatus.UNAUTHORIZED, login(user.email, PASSWORD).status)
+        assertEquals(HttpStatus.OK, exchange("GET", "/api/auth/me", token = user.token).status)
+    }
+
+    @Test
     fun `un token valido devuelve a quien llama`() {
         val yo = me()
         assertEquals(WasichaiIntegrationTest.ADMIN_EMAIL, yo["email"].asString())

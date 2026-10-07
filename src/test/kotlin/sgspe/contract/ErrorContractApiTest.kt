@@ -1,6 +1,7 @@
 package sgspe.contract
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpHeaders
@@ -42,7 +43,11 @@ class ErrorContractApiTest : SgspeApiTest() {
         createObject(name, listOf(field("code", "TEXT")))
         val created = tree(send("POST", "/api/objects/$name/records", mapOf("attributes" to mapOf("code" to "I-1", "no_existe" to "x")), HttpStatus.CREATED))
         assertEquals("I-1", created["attributes"]["code"].asString())
-        assertTrue(created["attributes"]["no_existe"] == null)
+        assertNull(created["attributes"]["no_existe"])
+        // tampoco quedó guardado
+        val stored = tree(send("GET", "/api/objects/$name/records/${created["id"].asString()}", null, HttpStatus.OK))
+        assertEquals("I-1", stored["attributes"]["code"].asString())
+        assertNull(stored["attributes"]["no_existe"])
     }
 
     @Test
