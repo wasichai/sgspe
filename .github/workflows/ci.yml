@@ -85,6 +85,7 @@ jobs:
       - run: python3 --version
       - run: python3 apply.py --validate-only
       - run: python3 apply_roles.py --dry-run > /dev/null
+      - run: python3 load_ubigeo.py --dry-run
       - run: python3 -m unittest -v
 
   traceability:

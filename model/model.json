@@ -1,5 +1,964 @@
 {
-  "enums": {},
-  "objects": [],
-  "relationships": []
+  "enums": {
+    "actor_relationship_type": ["AFILIADO A", "COORDINA CON", "APOYA", "SE OPONE", "ASESORA"],
+    "administrative_level": ["DEPARTAMENTO", "PROVINCIA", "DISTRITO"],
+    "affiliation": ["AFILIADA", "LIBRE", "NO RECONOCIDA", "ESCINDIDA", "EMERGENTE"],
+    "area_of_influence_type": ["AIDS", "AIIS", "AID AMBIENTAL", "AII AMBIENTAL"],
+    "assessment_basis": ["ENTREVISTA", "INFORMACION SECUNDARIA", "INFERIDA", "ENCUESTA"],
+    "campaign_activity_type": ["CATEO", "PERFORACION"],
+    "campaign_status": ["PREVISTA", "EN EJECUCION", "SUSPENDIDA", "CONCLUIDA", "CANCELADA"],
+    "community_type": ["COMUNIDAD CAMPESINA", "COMUNIDAD NATIVA"],
+    "component_status": ["PROGRAMADO", "EN EJECUCION", "EJECUTADO", "CANCELADO", "CERRADO"],
+    "component_type": ["SONDAJE", "PLATAFORMA", "ACCESO", "CAMPAMENTO", "CAPTACION"],
+    "contact_channel": ["TELEFONO", "CORREO ELECTRONICO", "MENSAJERIA", "DIRECCION", "OTRO"],
+    "currency": ["PEN", "USD"],
+    "data_reliability": ["REFERENCIAL", "VERIFICADO"],
+    "disclosure_level": ["INTERNO", "EXTERNO", "PUBLICO"],
+    "engagement_type": ["CONTACTO CARA A CARA", "REUNION", "REUNION INFORMATIVA", "TALLER", "ASAMBLEA", "MESA DE DIALOGO", "VISITA GUIADA", "LLAMADA", "COMUNICACION FORMAL", "ENTREVISTA", "FICHA DE OBSERVACION", "MONITOREO PARTICIPATIVO", "FAENA COMUNITARIA", "AUDIENCIA"],
+    "environmental_feature_type": ["ZONA DE PROTECCION", "FUENTE DE AGUA", "MICROCUENCA", "CERRO", "SITIO SAGRADO", "RESTO ARQUEOLOGICO"],
+    "exploration_phase": ["CATEO", "EXPLORACION INICIAL", "PERFORACION", "EXPLORACION AVANZADA"],
+    "influence_group": ["ESTRATEGICO", "POLITICO", "PARA MONITOREO", "VULNERABLE"],
+    "information_priority": ["MUY ALTA", "ALTA", "MEDIA"],
+    "instrument_type": ["ENTREVISTA SEMIESTRUCTURADA", "FICHA DE OBSERVACION LOCAL", "ENCUESTA"],
+    "interview_status": ["ENTREVISTADO", "SE NEGO", "NO UBICADO", "NO PROGRAMADO"],
+    "local_conflict_status": ["ACTIVO", "RESUELTO"],
+    "local_conflict_type": ["AGUA", "LIMITES", "TERRENOS", "SEPARACION", "OTRO"],
+    "locality_type": ["CASERIO", "SECTOR", "CENTRO POBLADO", "ANEXO", "CIUDAD"],
+    "member_condition": ["INCLUIDO", "PROVISIONAL"],
+    "network_contact_status": ["SIN CONTACTO", "CONTACTO ESTABLECIDO", "PENETRADA"],
+    "node_role": ["LIDER", "SECRETARIO", "MIEMBRO"],
+    "organic_status": ["ACTIVA", "SIN JUNTA ACTIVA", "INACTIVA"],
+    "organization_type": ["RONDA CAMPESINA", "JASS", "COMITE DE REGANTES", "COMITE DE AUTODEFENSA", "APAFA", "VASO DE LECHE", "CLUB DE MADRES", "ASOCIACION DE AGRICULTORES", "COMUNIDAD CAMPESINA", "FEDERACION", "MUNICIPALIDAD", "ENTIDAD DEL ESTADO", "IGLESIA", "ONG", "EMPRESA", "PARTIDO POLITICO", "MEDIO DE COMUNICACION", "OTRA"],
+    "party_role": ["CLIENTE", "OPERADOR", "TITULAR DE CONCESION", "CONSULTORA", "CONTRATISTA"],
+    "perception_polarity": ["POSITIVA", "NEGATIVA"],
+    "perception_subject": ["MINERIA", "PROYECTO", "EMPRESA"],
+    "position_status": ["VIGENTE", "CONCLUIDO", "PREVISTO", "VACANTE", "EN LICENCIA"],
+    "project_stage": ["EXPLORACION", "FACTIBILIDAD", "CONSTRUCCION", "OPERACION", "CIERRE", "POST CIERRE"],
+    "project_type": ["MINERIA", "HIDROCARBUROS", "ENERGIA", "OTRO"],
+    "recognition_status": ["RECONOCIDO", "EN TRAMITE", "NO RECONOCIDO", "EN SEPARACION"],
+    "relationship_status": ["SIN CONTACTO", "CONTACTO ESTABLECIDO", "RELACION ACTIVA", "RELACION DETERIORADA", "INACTIVA"],
+    "sex": ["FEMENINO", "MASCULINO"],
+    "source_crs": ["EPSG 32717", "EPSG 32718", "EPSG 32719", "EPSG 24877", "EPSG 24878", "EPSG 24879", "EPSG 4326"],
+    "stakeholder_scope": ["AIDS", "AIIS", "REGIONAL", "NACIONAL"],
+    "stakeholder_type": ["AUTORIDAD LOCAL", "ORGANIZACION SOCIAL LOCAL", "ORGANIZACION COMUNAL", "LIDER LOCAL", "ORGANIZACION SOCIAL DISTRITAL", "AUTORIDAD PROVINCIAL", "ORGANIZACION SOCIAL PROVINCIAL", "LIDER POLITICO", "PROGRAMA SOCIAL", "AUTORIDAD REGIONAL", "ORGANIZACION SOCIAL REGIONAL", "IGLESIA", "OTRO"],
+    "stance": ["A FAVOR", "NEUTRAL", "EN CONTRA PERO ABIERTO A ESCUCHAR", "EN CONTRA"],
+    "tenure_type": ["PROPIEDAD", "POSESION", "COMUNAL", "PROPIEDAD DE LA EMPRESA"],
+    "territorial_level": ["LOCAL", "DISTRITAL", "PROVINCIAL", "REGIONAL", "NACIONAL", "INTERNACIONAL"],
+    "working_crs": ["EPSG 32717", "EPSG 32718", "EPSG 32719"]
+  },
+  "objects": [
+    {
+      "name": "project",
+      "label": "Proyecto",
+      "pluralLabel": "Proyectos",
+      "description": "Proyecto extractivo (o prospecto) con su etapa, su fase de exploración, su CRS de trabajo y los parámetros y políticas que configuran las reglas de DOC-01 (ASM-019).",
+      "actions": [{"name": "APPROVE", "label": "Aprobar"}],
+      "fields": [
+        {"name": "code", "label": "Código del proyecto", "type": "TEXT", "required": true, "unique": true, "description": "Código del proyecto."},
+        {"name": "name", "label": "Nombre del proyecto o prospecto", "type": "TEXT", "required": true, "description": "Nombre del proyecto o prospecto."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "project_type", "label": "Tipo de proyecto", "type": "ENUM", "enum": "project_type", "description": "Tipo de proyecto."},
+        {"name": "stage", "label": "Etapa del ciclo de vida", "type": "ENUM", "enum": "project_stage", "description": "Etapa del ciclo de vida; cambia con motivo y nunca es un estado de WF-A."},
+        {"name": "exploration_phase", "label": "Fase de exploración", "type": "ENUM", "enum": "exploration_phase", "description": "Fase de exploración; cambia con motivo."},
+        {"name": "start_date", "label": "Fecha de inicio", "type": "DATE", "description": "Fecha de inicio."},
+        {"name": "end_date", "label": "Fecha de fin", "type": "DATE", "description": "Fecha de fin."},
+        {"name": "working_crs", "label": "CRS de trabajo", "type": "ENUM", "enum": "working_crs", "description": "CRS UTM de trabajo para áreas, distancias, buffers y coordenadas este y norte; lo exige el paso a active."},
+        {"name": "interest_threshold", "label": "Índice desde el que el interés es alto", "type": "DECIMAL", "defaultValue": "3", "description": "Índice desde el que el interés es \"alto\" (ASM-003). Por defecto: 3."},
+        {"name": "power_threshold", "label": "Índice desde el que el poder es alto", "type": "DECIMAL", "defaultValue": "3", "description": "Índice desde el que el poder es \"alto\" (ASM-003). Por defecto: 3."},
+        {"name": "stakeholder_review_days", "label": "Días entre evaluaciones de grupos de interés", "type": "INTEGER", "defaultValue": "30", "description": "Días entre evaluaciones periódicas de grupos de interés. Por defecto: 30."},
+        {"name": "inactivity_days", "label": "Días sin contacto tras los que se sugiere una tarea", "type": "INTEGER", "defaultValue": "90", "description": "Días sin contacto tras los que se sugiere una tarea (ASM-022). Por defecto: 90."},
+        {"name": "meetings_per_month_target", "label": "Meta de reuniones al mes del proyecto", "type": "INTEGER", "defaultValue": "2", "description": "Meta de reuniones al mes del proyecto. Por defecto: 2."},
+        {"name": "policy_minutes_only_formal_types", "label": "Acta solo en tipos formales", "type": "BOOLEAN", "defaultValue": "true", "description": "Solo los tipos formales de interacción necesitan acta aprobada (ASM-033). Por defecto: true."},
+        {"name": "policy_activation_preconditions", "label": "Precondiciones de activación", "type": "BOOLEAN", "defaultValue": "true", "description": "Exigir working_crs y una parte CLIENTE u OPERADOR para llegar a active. Por defecto: true."},
+        {"name": "location", "label": "Ubicación de referencia del proyecto", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación de referencia del proyecto."},
+        {"name": "interest_area", "label": "Área de interés del proyecto", "type": "GEOMETRY", "geometryType": "MULTIPOLYGON", "srid": 4326, "dimension": 2, "description": "Área de interés del proyecto, como la del Anexo 1 de DOC-01."}
+      ]
+    },
+    {
+      "name": "project_party",
+      "label": "Parte del proyecto",
+      "pluralLabel": "Partes del proyecto",
+      "description": "Organización con un rol en el proyecto: cliente, operador, titular de concesiones, consultora o contratista.",
+      "uniqueConstraints": [["project", "organization", "party_role"]],
+      "fields": [
+        {"name": "party_role", "label": "Rol de la organización en el proyecto", "type": "ENUM", "enum": "party_role", "required": true, "description": "Rol de la organización en el proyecto."},
+        {"name": "start_date", "label": "Inicio del rol", "type": "DATE", "description": "Inicio del rol."},
+        {"name": "end_date", "label": "Fin del rol", "type": "DATE", "description": "Fin del rol."}
+      ]
+    },
+    {
+      "name": "exploration_campaign",
+      "label": "Campaña de exploración",
+      "pluralLabel": "Campañas de exploración",
+      "description": "Periodo de actividad del proyecto (cateo o perforación) con su tope de apoyo social y la ejecución que se le imputa.",
+      "fields": [
+        {"name": "name", "label": "Nombre de la campaña", "type": "TEXT", "required": true, "description": "Nombre de la campaña."},
+        {"name": "activity_type", "label": "Tipo de actividad", "type": "ENUM", "enum": "campaign_activity_type", "description": "Tipo de actividad."},
+        {"name": "exploration_phase", "label": "Fase de exploración de la campaña", "type": "ENUM", "enum": "exploration_phase", "description": "Fase de exploración de la campaña."},
+        {"name": "planned_start_date", "label": "Inicio planificado", "type": "DATE", "description": "Inicio planificado."},
+        {"name": "planned_end_date", "label": "Fin planificado", "type": "DATE", "description": "Fin planificado."},
+        {"name": "actual_start_date", "label": "Inicio real", "type": "DATE", "description": "Inicio real."},
+        {"name": "actual_end_date", "label": "Fin real", "type": "DATE", "description": "Fin real."},
+        {"name": "campaign_status", "label": "Estado de la campaña", "type": "ENUM", "enum": "campaign_status", "description": "Estado de la campaña; es un dato, no un workflow."},
+        {"name": "social_support_cap", "label": "Tope de apoyo social", "type": "DECIMAL", "description": "Tope de apoyo social definido por adelantado."},
+        {"name": "currency", "label": "Moneda del tope", "type": "ENUM", "enum": "currency", "defaultValue": "PEN", "description": "Moneda del tope. Por defecto: PEN."},
+        {"name": "executed_social_amount", "label": "Ejecutado de la campaña en su moneda", "type": "DECIMAL", "derived": true, "description": "(derivado) Ejecutado de la campaña (compromisos y aportes) en su moneda, según ASM-063."},
+        {"name": "other_currency_items_count", "label": "Compromisos y aportes de la campaña en otra moneda", "type": "INTEGER", "derived": true, "description": "(derivado) Compromisos y aportes de la campaña en otra moneda, que no se suman y se muestran como advertencia."}
+      ]
+    },
+    {
+      "name": "project_assignment",
+      "label": "Asignación a proyecto",
+      "pluralLabel": "Asignaciones a proyecto",
+      "description": "Usuario de wasichai asignado a un proyecto con un rol y una vigencia: directorio del equipo y fuente del alcance por proyecto.",
+      "uniqueConstraints": [["project", "member_user_id"]],
+      "fields": [
+        {"name": "member_user_id", "label": "Usuario asignado", "type": "UUID", "required": true, "indexed": true, "description": "Id del usuario de wasichai asignado."},
+        {"name": "member_user_email", "label": "Correo del usuario asignado", "type": "EMAIL", "required": true, "description": "Correo del usuario; UserReferenceGuard valida el par id y correo."},
+        {"name": "role_name", "label": "Rol en el proyecto", "type": "TEXT", "required": true, "description": "Nombre de un rol declarado de wasichai: el rol del usuario en el proyecto."},
+        {"name": "start_date", "label": "Inicio de la asignación", "type": "DATE", "description": "Inicio de la asignación."},
+        {"name": "end_date", "label": "Fin de la asignación", "type": "DATE", "description": "Fin de la asignación."},
+        {"name": "active", "label": "Asignación vigente", "type": "BOOLEAN", "required": true, "defaultValue": "true", "description": "Asignación vigente; solo una asignación vigente da alcance. Por defecto: true."}
+      ]
+    },
+    {
+      "name": "mining_concession",
+      "label": "Concesión minera",
+      "pluralLabel": "Concesiones mineras",
+      "description": "Derecho minero con código, titular, CRS de origen y polígono, vinculado a uno o más proyectos.",
+      "fields": [
+        {"name": "code", "label": "Código del derecho minero", "type": "TEXT", "required": true, "unique": true, "description": "Código del derecho minero."},
+        {"name": "name", "label": "Nombre de la concesión", "type": "TEXT", "description": "Nombre de la concesión."},
+        {"name": "source_crs", "label": "CRS en que vino la geometría importada", "type": "ENUM", "enum": "source_crs", "description": "CRS en que vino la geometría importada."},
+        {"name": "source_reference", "label": "Fuente de origen", "type": "TEXT", "description": "Fuente de origen (archivo, capa o registro público)."},
+        {"name": "import_batch_id", "label": "Importación que lo creó o cambió", "type": "UUID", "indexed": true, "description": "Importación que lo creó o cambió (ASM-060)."},
+        {"name": "registered_area_ha", "label": "Área declarada en ha", "type": "DECIMAL", "description": "Área declarada, en ha."},
+        {"name": "calculated_area_ha", "label": "Área calculada en ha", "type": "DECIMAL", "derived": true, "description": "(derivado) Área plana en ha en la zona UTM del centroide (ASM-064)."},
+        {"name": "boundary", "label": "Polígono de la concesión", "type": "GEOMETRY", "geometryType": "MULTIPOLYGON", "srid": 4326, "dimension": 2, "description": "Polígono de la concesión."}
+      ]
+    },
+    {
+      "name": "administrative_unit",
+      "label": "Unidad administrativa",
+      "pluralLabel": "Unidades administrativas",
+      "description": "Departamento, provincia o distrito del ubigeo del INEI; objeto catálogo (BC-20) que carga un script idempotente.",
+      "fields": [
+        {"name": "ubigeo_code", "label": "Código ubigeo del INEI", "type": "TEXT", "required": true, "unique": true, "description": "Código ubigeo del INEI."},
+        {"name": "name", "label": "Nombre oficial", "type": "TEXT", "required": true, "description": "Nombre oficial."},
+        {"name": "level", "label": "Nivel en la jerarquía del ubigeo", "type": "ENUM", "enum": "administrative_level", "required": true, "description": "Nivel en la jerarquía del ubigeo."},
+        {"name": "boundary", "label": "Límite oficial", "type": "GEOMETRY", "geometryType": "MULTIPOLYGON", "srid": 4326, "dimension": 2, "description": "Límite oficial, opcional (ASM-016)."}
+      ]
+    },
+    {
+      "name": "locality",
+      "label": "Localidad",
+      "pluralLabel": "Localidades",
+      "description": "Asentamiento humano (caserío, sector, centro poblado, anexo o ciudad) con localidad padre y estado de reconocimiento.",
+      "fields": [
+        {"name": "name", "label": "Nombre de la localidad", "type": "TEXT", "required": true, "description": "Nombre de la localidad."},
+        {"name": "alternative_names", "label": "Grafías y nombres alternativos", "type": "TEXT", "description": "Grafías y nombres alternativos."},
+        {"name": "locality_type", "label": "Tipo de localidad", "type": "ENUM", "enum": "locality_type", "required": true, "description": "Tipo de localidad; un sector de caserío es de tipo SECTOR y tiene localidad padre."},
+        {"name": "populated_center_code", "label": "Código de centro poblado del INEI", "type": "TEXT", "unique": true, "description": "Código de centro poblado del INEI."},
+        {"name": "recognition_status", "label": "Estado de reconocimiento", "type": "ENUM", "enum": "recognition_status", "description": "Estado de reconocimiento, incluida una separación en curso."},
+        {"name": "history", "label": "Historia de la localidad", "type": "LONG_TEXT", "description": "Historia de la localidad (narrativa en Markdown)."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación."},
+        {"name": "boundary", "label": "Límite", "type": "GEOMETRY", "geometryType": "POLYGON", "srid": 4326, "dimension": 2, "description": "Límite, opcional."}
+      ]
+    },
+    {
+      "name": "community",
+      "label": "Comunidad campesina o nativa",
+      "pluralLabel": "Comunidades campesinas o nativas",
+      "description": "Colectivo con personería, territorio comunal inscrito, junta directiva y sectores; como actor participa mediante la organization que lo representa (RN-STK-008).",
+      "fields": [
+        {"name": "name", "label": "Nombre de la comunidad", "type": "TEXT", "required": true, "description": "Nombre de la comunidad."},
+        {"name": "alternative_names", "label": "Nombres alternativos", "type": "TEXT", "description": "Nombres alternativos."},
+        {"name": "community_type", "label": "Tipo de comunidad", "type": "ENUM", "enum": "community_type", "description": "Comunidad campesina o nativa."},
+        {"name": "legal_entity_record", "label": "Partida de la personería jurídica", "type": "TEXT", "description": "Partida de la personería jurídica (los números nunca van a artefactos versionados)."},
+        {"name": "property_record", "label": "Partida de propiedad del territorio comunal", "type": "TEXT", "description": "Partida de propiedad del territorio comunal."},
+        {"name": "parent_record", "label": "Partida matriz de la que aún no se independiza", "type": "TEXT", "description": "Partida matriz de la que aún no se independiza."},
+        {"name": "independized", "label": "Independizado", "type": "BOOLEAN", "description": "El territorio ya está independizado de la partida matriz."},
+        {"name": "title_reference", "label": "Referencia del título de propiedad", "type": "TEXT", "description": "Referencia del título de propiedad."},
+        {"name": "title_issuer_as_written", "label": "Emisor del título tal como figura", "type": "TEXT", "description": "Emisor del título tal como figura."},
+        {"name": "title_issuer_normalized", "label": "Emisor del título normalizado", "type": "TEXT", "description": "Emisor del título normalizado."},
+        {"name": "registered_area_ha", "label": "Área inscrita en ha", "type": "DECIMAL", "description": "Área inscrita, en ha."},
+        {"name": "calculated_area_ha", "label": "Área calculada en ha", "type": "DECIMAL", "derived": true, "description": "(derivado) Área plana en ha en la zona UTM del centroide (ASM-064)."},
+        {"name": "registry_records_unverified", "label": "Datos registrales sin verificar", "type": "BOOLEAN", "description": "Los datos registrales están pendientes de verificar."},
+        {"name": "recognized_as_indigenous", "label": "Reconocida como pueblo indígena", "type": "BOOLEAN", "description": "Reconocida como pueblo indígena u originario."},
+        {"name": "indigenous_people", "label": "Pueblo indígena u originario", "type": "TEXT", "description": "Pueblo indígena u originario."},
+        {"name": "organic_status", "label": "Estado orgánico", "type": "ENUM", "enum": "organic_status", "description": "Estado orgánico; dato aparte de la inscripción de la junta."},
+        {"name": "board_registered", "label": "Junta directiva inscrita", "type": "BOOLEAN", "description": "La junta directiva está inscrita."},
+        {"name": "registered_members_count", "label": "Comuneros inscritos", "type": "INTEGER", "description": "Comuneros inscritos (conteo, sin padrón nominal)."},
+        {"name": "has_member_roll", "label": "Padrón de comuneros", "type": "BOOLEAN", "description": "Existe padrón de comuneros (sin nombres)."},
+        {"name": "territory", "label": "Territorio comunal", "type": "GEOMETRY", "geometryType": "MULTIPOLYGON", "srid": 4326, "dimension": 2, "description": "Territorio comunal."}
+      ]
+    },
+    {
+      "name": "community_sector",
+      "label": "Sector comunal",
+      "pluralLabel": "Sectores comunales",
+      "description": "División de una comunidad con delegados ante la asamblea; coincide solo en parte con caseríos.",
+      "uniqueConstraints": [["community", "name"]],
+      "fields": [
+        {"name": "name", "label": "Nombre del sector", "type": "TEXT", "required": true, "description": "Nombre del sector."},
+        {"name": "delegates_count", "label": "Delegados ante la asamblea comunal", "type": "INTEGER", "description": "Delegados ante la asamblea comunal."},
+        {"name": "boundary", "label": "Límite", "type": "GEOMETRY", "geometryType": "POLYGON", "srid": 4326, "dimension": 2, "description": "Límite, opcional."}
+      ]
+    },
+    {
+      "name": "area_of_influence",
+      "label": "Área de influencia",
+      "pluralLabel": "Áreas de influencia",
+      "description": "Construcción analítica y versionada de un proyecto: tipo, criterios, miembros curados y geometría opcional.",
+      "uniqueConstraints": [["project", "area_type", "version_number"]],
+      "actions": [{"name": "APPROVE", "label": "Aprobar"}],
+      "fields": [
+        {"name": "area_type", "label": "Tipo de área", "type": "ENUM", "enum": "area_of_influence_type", "required": true, "description": "Tipo de área (ASM-039)."},
+        {"name": "version_number", "label": "Versión del área para el proyecto y el tipo", "type": "INTEGER", "required": true, "description": "Versión del área para el proyecto y el tipo."},
+        {"name": "criteria", "label": "Criterios aplicados", "type": "LONG_TEXT", "description": "Criterios aplicados."},
+        {"name": "defined_date", "label": "Fecha de definición", "type": "DATE", "description": "Fecha de definición."},
+        {"name": "calculated_area_ha", "label": "Área calculada en ha", "type": "DECIMAL", "derived": true, "description": "(derivado) Área plana en ha en el working_crs del proyecto."},
+        {"name": "boundary", "label": "Límite", "type": "GEOMETRY", "geometryType": "MULTIPOLYGON", "srid": 4326, "dimension": 2, "description": "Geometría opcional; solo sugiere miembros (RN-TER-004)."}
+      ]
+    },
+    {
+      "name": "area_of_influence_member",
+      "label": "Miembro del área de influencia",
+      "pluralLabel": "Miembros del área de influencia",
+      "description": "Localidad, comunidad o unidad administrativa incluida en un área de influencia, con su condición y su justificación.",
+      "uniqueConstraints": [["area_of_influence", "locality"], ["area_of_influence", "community"], ["area_of_influence", "administrative_unit"]],
+      "fields": [
+        {"name": "member_condition", "label": "Condición del miembro", "type": "ENUM", "enum": "member_condition", "required": true, "description": "Condición del miembro."},
+        {"name": "applied_criteria", "label": "Criterios que lo incluyen", "type": "TEXT", "description": "Criterios que lo incluyen."},
+        {"name": "rationale", "label": "Justificación", "type": "LONG_TEXT", "description": "Justificación."},
+        {"name": "studied_in_diagnosis", "label": "Estudiado en el diagnóstico", "type": "BOOLEAN", "description": "Fue estudiado en el diagnóstico."},
+        {"name": "spatially_suggested", "label": "Sugerido por el cálculo espacial", "type": "BOOLEAN", "description": "Se aceptó desde una sugerencia espacial."}
+      ]
+    },
+    {
+      "name": "project_component",
+      "label": "Componente del proyecto",
+      "pluralLabel": "Componentes del proyecto",
+      "description": "Elemento físico del proyecto (sondaje, plataforma, acceso, campamento, captación) con sus coordenadas de origen y sus versiones.",
+      "apiOnly": true,
+      "uniqueConstraints": [["project", "code", "version_number"]],
+      "fields": [
+        {"name": "code", "label": "Código del componente", "type": "TEXT", "required": true, "description": "Código del componente (por ejemplo, el código de un sondaje)."},
+        {"name": "component_type", "label": "Tipo de componente", "type": "ENUM", "enum": "component_type", "required": true, "description": "Tipo de componente."},
+        {"name": "drill_type", "label": "Tipo de perforación", "type": "TEXT", "description": "Tipo de perforación."},
+        {"name": "component_status", "label": "Estado del componente", "type": "ENUM", "enum": "component_status", "description": "Estado del componente."},
+        {"name": "version_number", "label": "Versión del componente para su código", "type": "INTEGER", "required": true, "description": "Versión del componente para su código."},
+        {"name": "superseded", "label": "Reemplazado", "type": "BOOLEAN", "derived": true, "description": "(derivado) Existe una versión posterior del mismo código."},
+        {"name": "source_crs", "label": "CRS de origen", "type": "ENUM", "enum": "source_crs", "description": "CRS de origen; el endpoint de importación lo exige (CON-024)."},
+        {"name": "source_easting", "label": "Coordenada este tal como vino", "type": "DECIMAL", "description": "Coordenada este tal como vino."},
+        {"name": "source_northing", "label": "Coordenada norte tal como vino", "type": "DECIMAL", "description": "Coordenada norte tal como vino."},
+        {"name": "source_elevation", "label": "Cota tal como vino", "type": "DECIMAL", "description": "Cota tal como vino; la geometría es 2D."},
+        {"name": "azimuth", "label": "Azimut", "type": "DECIMAL", "description": "Azimut."},
+        {"name": "dip", "label": "Inclinación", "type": "DECIMAL", "description": "Inclinación."},
+        {"name": "depth_m", "label": "Profundidad en metros", "type": "DECIMAL", "description": "Profundidad en metros."},
+        {"name": "source_reference", "label": "Fuente de origen", "type": "TEXT", "description": "Fuente de origen."},
+        {"name": "import_batch_id", "label": "Importación que lo creó", "type": "UUID", "indexed": true, "description": "Importación que lo creó (ASM-060)."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación (collar de un sondaje)."},
+        {"name": "trace", "label": "Trazo", "type": "GEOMETRY", "geometryType": "LINESTRING", "srid": 4326, "dimension": 2, "description": "Trazo (accesos)."},
+        {"name": "footprint", "label": "Huella", "type": "GEOMETRY", "geometryType": "POLYGON", "srid": 4326, "dimension": 2, "description": "Huella (plataformas, campamento)."}
+      ]
+    },
+    {
+      "name": "land_parcel",
+      "label": "Predio",
+      "pluralLabel": "Predios",
+      "description": "Unidad de tierra con su tenencia, su partida (restringida) y su polígono.",
+      "fields": [
+        {"name": "code", "label": "Código del predio", "type": "TEXT", "required": true, "unique": true, "description": "Código del predio."},
+        {"name": "tenure_type", "label": "Tenencia del predio", "type": "ENUM", "enum": "tenure_type", "description": "Tenencia del predio."},
+        {"name": "registry_record", "label": "Partida registral del predio", "type": "TEXT", "description": "(restringido) Partida registral del predio."},
+        {"name": "registered_area_ha", "label": "Área registral en ha", "type": "DECIMAL", "description": "Área registral declarada, en ha."},
+        {"name": "calculated_area_ha", "label": "Área calculada en ha", "type": "DECIMAL", "derived": true, "description": "(derivado) Área plana en ha en la zona UTM del centroide (ASM-064)."},
+        {"name": "source_crs", "label": "CRS en que vino la geometría importada", "type": "ENUM", "enum": "source_crs", "description": "CRS en que vino la geometría importada."},
+        {"name": "source_reference", "label": "Fuente de origen", "type": "TEXT", "description": "Fuente de origen (por ejemplo, COFOPRI)."},
+        {"name": "import_batch_id", "label": "Importación que lo creó o cambió", "type": "UUID", "indexed": true, "description": "Importación que lo creó o cambió (ASM-060)."},
+        {"name": "boundary", "label": "Polígono del predio", "type": "GEOMETRY", "geometryType": "POLYGON", "srid": 4326, "dimension": 2, "description": "Polígono del predio."}
+      ]
+    },
+    {
+      "name": "land_right",
+      "label": "Titularidad del predio",
+      "pluralLabel": "Titularidades de predios",
+      "description": "Vínculo de una persona u organización con un predio como propietario o posesionario, con vigencia.",
+      "fields": [
+        {"name": "tenure_type", "label": "Tenencia", "type": "ENUM", "enum": "tenure_type", "description": "Propiedad o posesión."},
+        {"name": "start_date", "label": "Inicio de la titularidad", "type": "DATE", "description": "Inicio de la titularidad."},
+        {"name": "end_date", "label": "Fin de la titularidad", "type": "DATE", "description": "Fin de la titularidad."},
+        {"name": "source_reference", "label": "Fuente de la titularidad", "type": "TEXT", "description": "Fuente de la titularidad."}
+      ]
+    },
+    {
+      "name": "environmental_feature",
+      "label": "Elemento ambiental",
+      "pluralLabel": "Elementos ambientales",
+      "description": "Lugar ambiental o culturalmente sensible (zona de protección, fuente de agua, microcuenca, cerro, sitio sagrado, resto arqueológico) con su base legal.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "feature_type", "label": "Tipo de elemento ambiental", "type": "ENUM", "enum": "environmental_feature_type", "description": "Tipo de elemento ambiental."},
+        {"name": "legal_basis", "label": "Base legal de la declaración", "type": "TEXT", "description": "Base legal de la declaración."},
+        {"name": "declaring_authority", "label": "Autoridad que lo declaró", "type": "TEXT", "description": "Autoridad que lo declaró."},
+        {"name": "declaration_date", "label": "Fecha de la declaración", "type": "DATE", "description": "Fecha de la declaración."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación."},
+        {"name": "trace", "label": "Trazo", "type": "GEOMETRY", "geometryType": "LINESTRING", "srid": 4326, "dimension": 2, "description": "Trazo."},
+        {"name": "boundary", "label": "Polígono", "type": "GEOMETRY", "geometryType": "MULTIPOLYGON", "srid": 4326, "dimension": 2, "description": "Polígono."}
+      ]
+    },
+    {
+      "name": "person",
+      "label": "Persona",
+      "pluralLabel": "Personas",
+      "description": "Persona natural del territorio, registrada una sola vez con independencia de los proyectos; sus datos están restringidos.",
+      "fields": [
+        {"name": "given_names", "label": "Nombres", "type": "TEXT", "required": true, "description": "(restringido) Nombres."},
+        {"name": "surnames", "label": "Apellidos", "type": "TEXT", "description": "(restringido) Apellidos."},
+        {"name": "sex", "label": "Sexo", "type": "ENUM", "enum": "sex", "description": "Sexo."},
+        {"name": "id_document_type", "label": "Tipo de documento de identidad", "type": "TEXT", "description": "Tipo de documento de identidad."},
+        {"name": "id_document_number", "label": "Número del documento de identidad", "type": "TEXT", "description": "(restringido) Número del documento de identidad."},
+        {"name": "preferred_language", "label": "Idioma preferido", "type": "TEXT", "description": "Idioma preferido."}
+      ]
+    },
+    {
+      "name": "organization",
+      "label": "Organización",
+      "pluralLabel": "Organizaciones",
+      "description": "Organización del territorio o de su entorno (ronda, JASS, municipalidad, federación, ONG, empresa…); no es el tenant.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "alternative_names", "label": "Nombres alternativos de la misma organización", "type": "TEXT", "description": "Nombres alternativos de la misma organización."},
+        {"name": "address", "label": "Dirección", "type": "TEXT", "description": "Dirección (portada de los entregables)."},
+        {"name": "organization_type", "label": "Tipo de organización", "type": "ENUM", "enum": "organization_type", "description": "Tipo de organización."},
+        {"name": "territorial_level", "label": "Nivel territorial", "type": "ENUM", "enum": "territorial_level", "description": "Nivel territorial."},
+        {"name": "affiliation", "label": "Relación con su federación", "type": "ENUM", "enum": "affiliation", "description": "Relación con su federación."},
+        {"name": "recognized", "label": "Reconocida", "type": "BOOLEAN", "description": "Reconocida; dato distinto de la afiliación."},
+        {"name": "members_count", "label": "Número de miembros", "type": "INTEGER", "description": "Número de miembros."},
+        {"name": "election_mechanism", "label": "Cómo elige a sus directivos", "type": "TEXT", "description": "Cómo elige a sus directivos."},
+        {"name": "term_years", "label": "Duración del periodo en años", "type": "INTEGER", "description": "Duración del periodo de sus cargos, en años."},
+        {"name": "achievements", "label": "Logros", "type": "LONG_TEXT", "description": "Logros."}
+      ]
+    },
+    {
+      "name": "contact_method",
+      "label": "Medio de contacto",
+      "pluralLabel": "Medios de contacto",
+      "description": "Canal de contacto de una persona u organización, con consentimiento; no hay tabla genérica de contactos.",
+      "fields": [
+        {"name": "channel", "label": "Tipo de medio", "type": "ENUM", "enum": "contact_channel", "required": true, "description": "Tipo de medio."},
+        {"name": "contact_value", "label": "Valor de contacto", "type": "TEXT", "required": true, "description": "(restringido) Número, correo, dirección o usuario."},
+        {"name": "preferred", "label": "Medio preferido", "type": "BOOLEAN", "description": "Medio preferido."},
+        {"name": "consent_given", "label": "Consentimiento para usar este medio", "type": "BOOLEAN", "description": "Consentimiento para usar este medio."},
+        {"name": "consent_date", "label": "Fecha del consentimiento", "type": "DATE", "description": "Fecha del consentimiento."}
+      ]
+    },
+    {
+      "name": "position",
+      "label": "Cargo",
+      "pluralLabel": "Cargos",
+      "description": "Puesto en una organización con periodo y estado; puede estar vacante o previsto. No es la postura.",
+      "fields": [
+        {"name": "position_title", "label": "Nombre del cargo", "type": "TEXT", "required": true, "description": "Nombre del cargo (por ejemplo, Teniente Gobernador)."},
+        {"name": "election_mechanism", "label": "Mecanismo de elección", "type": "TEXT", "description": "Mecanismo de elección."},
+        {"name": "term_start_date", "label": "Inicio del periodo", "type": "DATE", "description": "Inicio del periodo."},
+        {"name": "term_end_date", "label": "Fin del periodo", "type": "DATE", "description": "Fin del periodo."},
+        {"name": "start_date", "label": "Inicio del ejercicio efectivo", "type": "DATE", "description": "Inicio del ejercicio efectivo."},
+        {"name": "end_date", "label": "Fin del ejercicio efectivo", "type": "DATE", "description": "Fin del ejercicio efectivo."},
+        {"name": "position_status", "label": "Estado del cargo", "type": "ENUM", "enum": "position_status", "required": true, "description": "Estado del cargo; sin persona solo puede ser VACANTE o PREVISTO."},
+        {"name": "career_notes", "label": "Trayectoria", "type": "LONG_TEXT", "description": "Trayectoria."}
+      ]
+    },
+    {
+      "name": "stakeholder",
+      "label": "Grupo de interés",
+      "pluralLabel": "Grupos de interés",
+      "description": "Persona u organización en relación con un proyecto, con los valores vigentes de su última evaluación y su último contacto.",
+      "uniqueConstraints": [["project", "person"], ["project", "organization"]],
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
+      "fields": [
+        {"name": "stakeholder_type", "label": "Tipo de grupo de interés", "type": "ENUM", "enum": "stakeholder_type", "description": "Tipo de grupo de interés."},
+        {"name": "stakeholder_scope", "label": "Ámbito respecto del proyecto", "type": "ENUM", "enum": "stakeholder_scope", "description": "Ámbito respecto del proyecto (ASM-040)."},
+        {"name": "inclusion_reason", "label": "Motivo de inclusión", "type": "LONG_TEXT", "description": "Motivo de inclusión."},
+        {"name": "interview_status", "label": "Resultado del intento de entrevista", "type": "ENUM", "enum": "interview_status", "description": "Resultado del intento de entrevista."},
+        {"name": "relationship_status", "label": "Estado de la relación", "type": "ENUM", "enum": "relationship_status", "description": "Estado de la relación, separado del workflow; regla de primer contacto de ASM-032."},
+        {"name": "owner_user_id", "label": "Responsable", "type": "UUID", "description": "Responsable (ASM-023)."},
+        {"name": "owner_user_email", "label": "Correo del responsable", "type": "EMAIL", "description": "Correo del responsable."},
+        {"name": "profile_summary", "label": "Perfil del grupo de interés", "type": "LONG_TEXT", "description": "Perfil del grupo de interés."},
+        {"name": "stance", "label": "Postura de la última evaluación", "type": "ENUM", "enum": "stance", "derived": true, "description": "(derivado) (restringido) Postura de la última evaluación."},
+        {"name": "influence_group", "label": "Grupo de influencia de la última evaluación", "type": "ENUM", "enum": "influence_group", "derived": true, "description": "(derivado) Grupo de influencia de la última evaluación."},
+        {"name": "information_priority", "label": "Prioridad informativa", "type": "ENUM", "enum": "information_priority", "derived": true, "description": "(derivado) Prioridad que resulta de la matriz de priorización."},
+        {"name": "interest_index", "label": "Índice de interés de la última evaluación", "type": "DECIMAL", "derived": true, "description": "(derivado) Índice de interés de la última evaluación."},
+        {"name": "power_index", "label": "Índice de poder de la última evaluación", "type": "DECIMAL", "derived": true, "description": "(derivado) Índice de poder de la última evaluación."},
+        {"name": "trust_score", "label": "Confianza de la última evaluación", "type": "INTEGER", "derived": true, "description": "(derivado) Confianza de la última evaluación."},
+        {"name": "last_assessment_date", "label": "Fecha de la última evaluación", "type": "DATE", "derived": true, "description": "(derivado) Fecha de la última evaluación."},
+        {"name": "last_contact_date", "label": "Fecha del último contacto", "type": "DATE", "derived": true, "description": "(derivado) Fecha (America/Lima) de la última interacción realizada con él."}
+      ]
+    },
+    {
+      "name": "stakeholder_assessment",
+      "label": "Evaluación del grupo de interés",
+      "pluralLabel": "Evaluaciones del grupo de interés",
+      "description": "Registro fechado e inmutable de interés, poder, grupo de influencia, postura y confianza; una corrección es una evaluación nueva.",
+      "appendOnly": true,
+      "apiOnly": true,
+      "requiresReason": true,
+      "indexes": [["stakeholder", "assessment_date"]],
+      "fields": [
+        {"name": "assessment_date", "label": "Fecha de la evaluación", "type": "DATE", "required": true, "description": "Fecha de la evaluación."},
+        {"name": "basis", "label": "Base de la evaluación", "type": "ENUM", "enum": "assessment_basis", "required": true, "description": "Base de la evaluación (CON-006)."},
+        {"name": "assessor_user_id", "label": "Usuario que evalúa", "type": "UUID", "required": true, "description": "Usuario que evalúa (ASM-023)."},
+        {"name": "assessor_user_email", "label": "Correo de quien evalúa", "type": "EMAIL", "required": true, "description": "Correo de quien evalúa."},
+        {"name": "affect_environment", "label": "Afectación del medio ambiente", "type": "INTEGER", "description": "Percepción de afectación del medio ambiente y ecosistema. Indicador de interés de 1 a 5."},
+        {"name": "affect_livelihood", "label": "Afecta económicamente mi vida", "type": "INTEGER", "description": "\"Afecta económicamente mi vida\". Indicador de interés de 1 a 5."},
+        {"name": "affect_property_status", "label": "Afectación de la propiedad o la posición", "type": "INTEGER", "description": "Afectación de la propiedad o de la posición social o económica. Indicador de interés de 1 a 5."},
+        {"name": "opportunity_work", "label": "Oportunidad de trabajo u oportunidad personal", "type": "INTEGER", "description": "Oportunidad de trabajo u oportunidad personal. Indicador de interés de 1 a 5."},
+        {"name": "opportunity_development", "label": "Oportunidad de desarrollo u oportunidad colectiva", "type": "INTEGER", "description": "Oportunidad de desarrollo u oportunidad colectiva. Indicador de interés de 1 a 5."},
+        {"name": "opportunity_benefits", "label": "Oportunidad de beneficios económicos o políticos", "type": "INTEGER", "description": "Oportunidad de beneficios económicos o políticos. Indicador de interés de 1 a 5."},
+        {"name": "power_legal_action", "label": "Habilidad de acción legal", "type": "INTEGER", "description": "Habilidad de acción legal. Indicador de poder de 1 a 5."},
+        {"name": "power_credibility", "label": "Credibilidad", "type": "INTEGER", "description": "Credibilidad. Indicador de poder de 1 a 5."},
+        {"name": "power_permit_control", "label": "Control de permisos", "type": "INTEGER", "description": "Control de permisos. Indicador de poder de 1 a 5."},
+        {"name": "power_action_scope", "label": "Ámbito de acción", "type": "INTEGER", "description": "Ámbito de acción (local, regional o nacional). Indicador de poder de 1 a 5."},
+        {"name": "power_organization_level", "label": "Nivel de organización", "type": "INTEGER", "description": "Nivel de organización. Indicador de poder de 1 a 5."},
+        {"name": "power_convening_capacity", "label": "Capacidad de convocatoria", "type": "INTEGER", "description": "Capacidad de convocatoria. Indicador de poder de 1 a 5."},
+        {"name": "power_network_membership", "label": "Pertenencia a redes", "type": "INTEGER", "description": "Pertenencia a redes. Indicador de poder de 1 a 5."},
+        {"name": "power_group_mobilization", "label": "Participación en acciones grupales de movilización", "type": "INTEGER", "description": "Participación en acciones grupales de movilización. Indicador de poder de 1 a 5."},
+        {"name": "power_other_pressure", "label": "Participación en otros mecanismos de presión", "type": "INTEGER", "description": "Participación en otros mecanismos de presión. Indicador de poder de 1 a 5."},
+        {"name": "interest_affectation", "label": "Componente de percepción de afectación", "type": "DECIMAL", "description": "Componente de percepción de afectación."},
+        {"name": "interest_opportunity", "label": "Componente de percepción de oportunidad", "type": "DECIMAL", "description": "Componente de percepción de oportunidad."},
+        {"name": "interest_index", "label": "Índice de interés de 1 a 5", "type": "DECIMAL", "required": true, "description": "Índice de interés de 1 a 5 (ASM-031)."},
+        {"name": "power_resource_control", "label": "Componente de control de recursos", "type": "DECIMAL", "description": "Componente de control de recursos."},
+        {"name": "power_action_capacity", "label": "Componente de capacidad de acción", "type": "DECIMAL", "description": "Componente de capacidad de acción."},
+        {"name": "power_network_mobilization", "label": "Componente de movilización de redes", "type": "DECIMAL", "description": "Componente de movilización de redes."},
+        {"name": "power_index", "label": "Índice de poder de 1 a 5", "type": "DECIMAL", "required": true, "description": "Índice de poder de 1 a 5 (ASM-031)."},
+        {"name": "influence_score", "label": "Puntaje de influencia", "type": "DECIMAL", "required": true, "description": "Influencia = interés + poder."},
+        {"name": "influence_group", "label": "Grupo de influencia", "type": "ENUM", "enum": "influence_group", "required": true, "description": "Grupo por los umbrales del proyecto (ASM-003)."},
+        {"name": "group_overridden", "label": "Grupo ajustado a mano", "type": "BOOLEAN", "required": true, "description": "El grupo se ajustó a mano."},
+        {"name": "override_reason", "label": "Justificación del ajuste manual", "type": "LONG_TEXT", "description": "Justificación del ajuste manual."},
+        {"name": "stance", "label": "Postura", "type": "ENUM", "enum": "stance", "description": "(restringido) Postura; puede faltar cuando la fuente no la da (CON-006)."},
+        {"name": "stance_changed", "label": "Cambio de postura", "type": "BOOLEAN", "derived": true, "description": "(derivado) La postura difiere de la de la línea base."},
+        {"name": "stance_reasons", "label": "Razones de la postura", "type": "LONG_TEXT", "description": "(restringido) Razones de la postura."},
+        {"name": "concerns", "label": "Preocupaciones", "type": "LONG_TEXT", "description": "(restringido) Preocupaciones."},
+        {"name": "expectations", "label": "Expectativas", "type": "LONG_TEXT", "description": "(restringido) Expectativas."},
+        {"name": "open_to_dialogue", "label": "Apertura al diálogo", "type": "BOOLEAN", "description": "Apertura al diálogo."},
+        {"name": "project_knowledge", "label": "Conocimiento del proyecto", "type": "LONG_TEXT", "description": "Conocimiento del proyecto."},
+        {"name": "company_knowledge", "label": "Conocimiento de la empresa", "type": "LONG_TEXT", "description": "Conocimiento de la empresa."},
+        {"name": "team_closeness", "label": "Cercanía con el equipo", "type": "TEXT", "description": "Cercanía con el equipo."},
+        {"name": "communication_sufficient", "label": "Comunicación suficiente", "type": "BOOLEAN", "description": "Las formas de comunicación son suficientes."},
+        {"name": "information_adequate", "label": "Información adecuada", "type": "BOOLEAN", "description": "La información es adecuada."},
+        {"name": "trust_score", "label": "Confianza de 1 a 5", "type": "INTEGER", "description": "Confianza de 1 a 5."}
+      ]
+    },
+    {
+      "name": "prioritization_rule",
+      "label": "Regla de priorización",
+      "pluralLabel": "Reglas de priorización",
+      "description": "Fila de la matriz de priorización: grupo de influencia × postura × ámbito (y, si aplica, tipo de actor) → prioridad informativa.",
+      "uniqueConstraints": [["project", "influence_group", "stance", "stakeholder_scope", "stakeholder_type"]],
+      "fields": [
+        {"name": "influence_group", "label": "Grupo de influencia", "type": "ENUM", "enum": "influence_group", "required": true, "description": "Grupo de influencia."},
+        {"name": "stance", "label": "Postura", "type": "ENUM", "enum": "stance", "required": true, "description": "Postura."},
+        {"name": "stakeholder_scope", "label": "Ámbito", "type": "ENUM", "enum": "stakeholder_scope", "required": true, "description": "Ámbito."},
+        {"name": "stakeholder_type", "label": "Tipo de actor", "type": "ENUM", "enum": "stakeholder_type", "description": "Tipo de actor; vacío = cualquier tipo."},
+        {"name": "information_priority", "label": "Prioridad informativa resultante", "type": "ENUM", "enum": "information_priority", "required": true, "description": "Prioridad informativa resultante."},
+        {"name": "rationale", "label": "Justificación", "type": "LONG_TEXT", "description": "Justificación."}
+      ]
+    },
+    {
+      "name": "actor_relationship",
+      "label": "Relación entre actores",
+      "pluralLabel": "Relaciones entre actores",
+      "description": "Vínculo dirigido entre dos actores (afiliado a, coordina con, apoya, se opone, asesora).",
+      "fields": [
+        {"name": "relationship_type", "label": "Tipo de relación", "type": "ENUM", "enum": "actor_relationship_type", "required": true, "description": "Tipo de relación."},
+        {"name": "start_date", "label": "Inicio de la relación", "type": "DATE", "description": "Inicio de la relación."},
+        {"name": "end_date", "label": "Fin de la relación", "type": "DATE", "description": "Fin de la relación."},
+        {"name": "source_reference", "label": "Fuente de la relación", "type": "TEXT", "description": "Fuente de la relación."}
+      ]
+    },
+    {
+      "name": "community_network",
+      "label": "Red comunitaria",
+      "pluralLabel": "Redes comunitarias",
+      "description": "Conjunto de personas y organizaciones conectadas en torno a un caserío, una institución o un apoyo externo.",
+      "fields": [
+        {"name": "name", "label": "Nombre de la red", "type": "TEXT", "required": true, "description": "Nombre de la red."},
+        {"name": "network_type", "label": "Tipo de red", "type": "TEXT", "description": "Tipo de red (texto)."},
+        {"name": "contact_status", "label": "Estado de contacto de la red", "type": "ENUM", "enum": "network_contact_status", "description": "Estado de contacto de la red."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."}
+      ]
+    },
+    {
+      "name": "network_node",
+      "label": "Nodo de red",
+      "pluralLabel": "Nodos de red",
+      "description": "Integrante de una red comunitaria con su rol.",
+      "uniqueConstraints": [["community_network", "person"], ["community_network", "organization"]],
+      "fields": [
+        {"name": "node_role", "label": "Rol en la red", "type": "ENUM", "enum": "node_role", "description": "Rol en la red."},
+        {"name": "notes", "label": "Notas", "type": "LONG_TEXT", "description": "Notas."}
+      ]
+    },
+    {
+      "name": "engagement",
+      "label": "Interacción",
+      "pluralLabel": "Interacciones",
+      "description": "Contacto o evento con grupos de interés (desde el contacto cara a cara hasta la mesa de diálogo), con su minuta y sus conteos de asistentes.",
+      "actions": [{"name": "EDIT_ANY", "label": "Editar lo ajeno"}],
+      "fields": [
+        {"name": "engagement_type", "label": "Tipo de interacción", "type": "ENUM", "enum": "engagement_type", "required": true, "description": "Tipo de interacción; decide si el cierre exige acta (RN-ENG-004)."},
+        {"name": "title", "label": "Título", "type": "TEXT", "required": true, "description": "Título."},
+        {"name": "objective", "label": "Objetivo", "type": "LONG_TEXT", "description": "Objetivo."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "results", "label": "Resultados", "type": "LONG_TEXT", "description": "Resultados."},
+        {"name": "scheduled_at", "label": "Fecha y hora programadas", "type": "DATETIME", "indexed": true, "description": "Fecha y hora programadas."},
+        {"name": "held_at", "label": "Fecha y hora en que se realizó", "type": "DATETIME", "indexed": true, "description": "Fecha y hora en que se realizó; la exige held."},
+        {"name": "place", "label": "Lugar", "type": "TEXT", "description": "Lugar."},
+        {"name": "minutes", "label": "Minuta o acta interna", "type": "LONG_TEXT", "description": "Minuta o acta interna, en Markdown."},
+        {"name": "cancel_reason", "label": "Motivo de la cancelación", "type": "TEXT", "description": "Motivo de la cancelación."},
+        {"name": "attendees_total_count", "label": "Asistentes en total", "type": "INTEGER", "derived": true, "description": "(derivado) Asistentes en total."},
+        {"name": "attendees_female_count", "label": "Asistentes de sexo femenino", "type": "INTEGER", "derived": true, "description": "(derivado) Asistentes de sexo femenino."},
+        {"name": "attendees_male_count", "label": "Asistentes de sexo masculino", "type": "INTEGER", "derived": true, "description": "(derivado) Asistentes de sexo masculino."},
+        {"name": "attendees_direct_area_count", "label": "Asistentes del AIDS", "type": "INTEGER", "derived": true, "description": "(derivado) Asistentes del AIDS."},
+        {"name": "attendees_indirect_area_count", "label": "Asistentes del AIIS", "type": "INTEGER", "derived": true, "description": "(derivado) Asistentes del AIIS."},
+        {"name": "attendees_regional_count", "label": "Asistentes de ámbito regional", "type": "INTEGER", "derived": true, "description": "(derivado) Asistentes de ámbito regional."},
+        {"name": "attendees_national_count", "label": "Asistentes de ámbito nacional", "type": "INTEGER", "derived": true, "description": "(derivado) Asistentes de ámbito nacional."},
+        {"name": "participant_rating_summary", "label": "Evaluación de los participantes", "type": "LONG_TEXT", "description": "Resultado agregado de las evaluaciones de los participantes."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación."}
+      ]
+    },
+    {
+      "name": "engagement_participant",
+      "label": "Participante",
+      "pluralLabel": "Participantes",
+      "description": "Fila de la lista de asistentes de una interacción; una fila con represented_people_count mayor que 1 es un grupo sin nombres.",
+      "actions": [{"name": "EDIT_ANY", "label": "Editar lo ajeno"}],
+      "fields": [
+        {"name": "participant_name", "label": "Nombre del asistente", "type": "TEXT", "description": "(restringido) Nombre del asistente; vacío en un grupo sin nombres."},
+        {"name": "represented_group", "label": "Organización o grupo que representa", "type": "TEXT", "description": "Organización o grupo que representa (texto)."},
+        {"name": "phone", "label": "Teléfono", "type": "TEXT", "description": "(restringido) Teléfono."},
+        {"name": "email", "label": "Correo", "type": "EMAIL", "description": "(restringido) Correo."},
+        {"name": "sex", "label": "Sexo", "type": "ENUM", "enum": "sex", "description": "Sexo."},
+        {"name": "participant_scope", "label": "Ámbito", "type": "ENUM", "enum": "stakeholder_scope", "description": "Ámbito."},
+        {"name": "represented_people_count", "label": "Personas que representa la fila", "type": "INTEGER", "required": true, "defaultValue": "1", "description": "Personas que representa la fila; nunca menor que 1. Por defecto: 1."},
+        {"name": "attended", "label": "Asistió", "type": "BOOLEAN", "description": "Asistió; solo las filas con attended cuentan."}
+      ]
+    },
+    {
+      "name": "engagement_question",
+      "label": "Pregunta de la interacción",
+      "pluralLabel": "Preguntas de la interacción",
+      "description": "Pregunta o sugerencia planteada en una interacción, con su respuesta en el lugar o posterior.",
+      "fields": [
+        {"name": "question_text", "label": "Pregunta o sugerencia", "type": "LONG_TEXT", "required": true, "description": "Pregunta o sugerencia."},
+        {"name": "raised_as_suggestion", "label": "Planteada como sugerencia", "type": "BOOLEAN", "description": "Se planteó como sugerencia."},
+        {"name": "raised_by_role", "label": "Cargo de quien la planteó", "type": "TEXT", "description": "Cargo de quien la planteó, nunca el nombre."},
+        {"name": "answered_on_site", "label": "Respondida en el lugar", "type": "BOOLEAN", "description": "Se respondió en la interacción."},
+        {"name": "answer", "label": "Respuesta", "type": "LONG_TEXT", "description": "Respuesta."},
+        {"name": "answered_at", "label": "Momento de la respuesta posterior", "type": "DATETIME", "description": "Momento de la respuesta posterior."}
+      ]
+    },
+    {
+      "name": "field_visit",
+      "label": "Visita de campo",
+      "pluralLabel": "Visitas de campo",
+      "description": "Salida al territorio con itinerario y equipo, en la que se realizan interacciones y observaciones (BC-11 en el MVP).",
+      "actions": [{"name": "EDIT_ANY", "label": "Editar lo ajeno"}],
+      "fields": [
+        {"name": "title", "label": "Título", "type": "TEXT", "required": true, "description": "Título."},
+        {"name": "objective", "label": "Objetivo", "type": "LONG_TEXT", "description": "Objetivo."},
+        {"name": "itinerary", "label": "Itinerario", "type": "LONG_TEXT", "description": "Itinerario."},
+        {"name": "outcome_summary", "label": "Resumen de resultados", "type": "LONG_TEXT", "description": "Resumen de resultados."},
+        {"name": "leader_user_id", "label": "Responsable de la visita", "type": "UUID", "description": "Responsable de la visita (ASM-023)."},
+        {"name": "leader_user_email", "label": "Correo del responsable", "type": "EMAIL", "description": "Correo del responsable."},
+        {"name": "team_note", "label": "Equipo", "type": "TEXT", "description": "Equipo (texto)."},
+        {"name": "planned_start_date", "label": "Inicio planificado", "type": "DATE", "description": "Inicio planificado."},
+        {"name": "planned_end_date", "label": "Fin planificado", "type": "DATE", "description": "Fin planificado."},
+        {"name": "actual_start_date", "label": "Inicio real", "type": "DATE", "description": "Inicio real."},
+        {"name": "actual_end_date", "label": "Fin real", "type": "DATE", "description": "Fin real."},
+        {"name": "route", "label": "Recorrido", "type": "GEOMETRY", "geometryType": "LINESTRING", "srid": 4326, "dimension": 2, "description": "Recorrido."}
+      ]
+    },
+    {
+      "name": "field_observation",
+      "label": "Observación de campo",
+      "pluralLabel": "Observaciones de campo",
+      "description": "Observación geolocalizada registrada durante una visita.",
+      "actions": [{"name": "EDIT_ANY", "label": "Editar lo ajeno"}],
+      "fields": [
+        {"name": "observed_at", "label": "Momento de la observación", "type": "DATETIME", "description": "Momento de la observación."},
+        {"name": "observation", "label": "Observación", "type": "LONG_TEXT", "required": true, "description": "Observación."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación."}
+      ]
+    },
+    {
+      "name": "engagement_plan",
+      "label": "Plan de relacionamiento",
+      "pluralLabel": "Planes de relacionamiento",
+      "description": "Objetivo estratégico, objetivos tácticos, ejes y metas del relacionamiento de un proyecto.",
+      "fields": [
+        {"name": "name", "label": "Nombre del plan", "type": "TEXT", "required": true, "description": "Nombre del plan."},
+        {"name": "strategic_objective", "label": "Objetivo estratégico", "type": "LONG_TEXT", "description": "Objetivo estratégico."},
+        {"name": "tactical_objectives", "label": "Objetivos tácticos", "type": "LONG_TEXT", "description": "Objetivos tácticos."},
+        {"name": "action_axes", "label": "Ejes de acción", "type": "LONG_TEXT", "description": "Ejes de acción."},
+        {"name": "meetings_per_month_target", "label": "Meta de reuniones al mes del plan", "type": "INTEGER", "description": "Meta de reuniones al mes del plan."},
+        {"name": "start_date", "label": "Inicio", "type": "DATE", "description": "Inicio."},
+        {"name": "end_date", "label": "Fin", "type": "DATE", "description": "Fin."}
+      ]
+    },
+    {
+      "name": "key_message",
+      "label": "Mensaje clave",
+      "pluralLabel": "Mensajes clave",
+      "description": "Mensaje que el equipo debe instalar, con justificación, acciones de soporte y público objetivo.",
+      "fields": [
+        {"name": "justification", "label": "Justificación", "type": "LONG_TEXT", "description": "Justificación."},
+        {"name": "message", "label": "Mensaje", "type": "LONG_TEXT", "required": true, "description": "Mensaje."},
+        {"name": "support_actions", "label": "Acciones o materiales de soporte", "type": "LONG_TEXT", "description": "Acciones o materiales de soporte."},
+        {"name": "target_audience", "label": "Público objetivo", "type": "TEXT", "description": "Público objetivo."}
+      ]
+    },
+    {
+      "name": "aligned_answer",
+      "label": "Respuesta alineada",
+      "pluralLabel": "Respuestas alineadas",
+      "description": "Pregunta frecuente con la respuesta aprobada por el equipo.",
+      "fields": [
+        {"name": "question", "label": "Pregunta frecuente", "type": "LONG_TEXT", "required": true, "description": "Pregunta frecuente."},
+        {"name": "answer", "label": "Respuesta", "type": "LONG_TEXT", "description": "Respuesta."},
+        {"name": "approved", "label": "Aprobada por el equipo", "type": "BOOLEAN", "description": "Aprobada por el equipo."},
+        {"name": "approved_date", "label": "Fecha de aprobación", "type": "DATE", "description": "Fecha de aprobación."}
+      ]
+    },
+    {
+      "name": "strategic_alliance",
+      "label": "Alianza estratégica",
+      "pluralLabel": "Alianzas estratégicas",
+      "description": "Institución con la que conviene aliarse, con razones, acciones posibles y el acuerdo cuando se formaliza.",
+      "fields": [
+        {"name": "reasons", "label": "Razones", "type": "LONG_TEXT", "description": "Razones."},
+        {"name": "possible_actions", "label": "Acciones posibles", "type": "LONG_TEXT", "description": "Acciones posibles."},
+        {"name": "formalized", "label": "Formalizada", "type": "BOOLEAN", "derived": true, "description": "(derivado) Tiene acuerdo y ese acuerdo llegó a active."}
+      ]
+    },
+    {
+      "name": "planned_activity",
+      "label": "Actividad planificada",
+      "pluralLabel": "Actividades planificadas",
+      "description": "Actividad prevista en el plan de relacionamiento, con fecha y responsable.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "resources", "label": "Recursos", "type": "LONG_TEXT", "description": "Recursos."},
+        {"name": "planned_date", "label": "Fecha prevista", "type": "DATE", "description": "Fecha prevista."},
+        {"name": "owner_user_id", "label": "Responsable", "type": "UUID", "description": "Responsable (ASM-023)."},
+        {"name": "owner_user_email", "label": "Correo del responsable", "type": "EMAIL", "description": "Correo del responsable."},
+        {"name": "completed", "label": "Completada", "type": "BOOLEAN", "description": "Completada."}
+      ]
+    },
+    {
+      "name": "export_log",
+      "label": "Registro de exportación",
+      "pluralLabel": "Registros de exportación",
+      "description": "Registro inmutable de cada exportación, emisión y descarga de archivos de entregable (borradores y versiones, en todo nivel de divulgación): quién, qué, con qué nivel y cuándo.",
+      "appendOnly": true,
+      "apiOnly": true,
+      "fields": [
+        {"name": "exported_at", "label": "Momento de la salida", "type": "DATETIME", "required": true, "indexed": true, "description": "Momento de la salida."},
+        {"name": "exporter_user_id", "label": "Usuario que exporta", "type": "UUID", "required": true, "description": "Usuario que exporta, emite o descarga (ASM-023)."},
+        {"name": "exporter_user_email", "label": "Correo de quien exporta", "type": "EMAIL", "required": true, "description": "Correo de ese usuario."},
+        {"name": "export_kind", "label": "Tipo de salida", "type": "TEXT", "required": true, "description": "Tipo de salida: exportación, emisión o descarga."},
+        {"name": "object_name", "label": "Objeto exportado o descargado", "type": "TEXT", "description": "Objeto exportado o descargado."},
+        {"name": "file_format", "label": "Formato del archivo", "type": "TEXT", "required": true, "description": "Formato del archivo."},
+        {"name": "disclosure_level", "label": "Nivel de divulgación aplicado", "type": "ENUM", "enum": "disclosure_level", "required": true, "description": "Nivel de divulgación aplicado."},
+        {"name": "filters_description", "label": "Filtros aplicados", "type": "LONG_TEXT", "description": "Filtros aplicados."},
+        {"name": "row_count", "label": "Filas exportadas", "type": "INTEGER", "description": "Filas exportadas; vacío en una emisión o una descarga."}
+      ]
+    },
+    {
+      "name": "study",
+      "label": "Estudio o diagnóstico",
+      "pluralLabel": "Estudios o diagnósticos",
+      "description": "Estudio de línea base o diagnóstico social con objetivos, metodología, instrumentos y trabajo de campo.",
+      "fields": [
+        {"name": "title", "label": "Título", "type": "TEXT", "required": true, "description": "Título."},
+        {"name": "study_type", "label": "Tipo de estudio", "type": "TEXT", "description": "Tipo de estudio (texto)."},
+        {"name": "objectives", "label": "Objetivos", "type": "LONG_TEXT", "description": "Objetivos."},
+        {"name": "scope_description", "label": "Alcance", "type": "LONG_TEXT", "description": "Alcance."},
+        {"name": "methodology", "label": "Metodología", "type": "LONG_TEXT", "description": "Metodología."},
+        {"name": "fieldwork_start_date", "label": "Inicio del trabajo de campo", "type": "DATE", "description": "Inicio del trabajo de campo."},
+        {"name": "fieldwork_end_date", "label": "Fin del trabajo de campo", "type": "DATE", "description": "Fin del trabajo de campo."}
+      ]
+    },
+    {
+      "name": "study_instrument",
+      "label": "Instrumento de estudio",
+      "pluralLabel": "Instrumentos de estudio",
+      "description": "Instrumento aplicado a un tema y a un ámbito (tema → tipo de instrumento → ámbito de aplicación).",
+      "fields": [
+        {"name": "instrument_type", "label": "Tipo de instrumento", "type": "ENUM", "enum": "instrument_type", "required": true, "description": "Tipo de instrumento."},
+        {"name": "application_scope", "label": "Ámbito de aplicación", "type": "ENUM", "enum": "stakeholder_scope", "description": "Ámbito de aplicación."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."}
+      ]
+    },
+    {
+      "name": "locality_profile",
+      "label": "Perfil de localidad",
+      "pluralLabel": "Perfiles de localidad",
+      "description": "Datos socioeconómicos fechados de una localidad, cada uno con su fuente y su confiabilidad.",
+      "indexes": [["locality", "data_date"]],
+      "fields": [
+        {"name": "data_date", "label": "Fecha de los datos", "type": "DATE", "required": true, "description": "Fecha de los datos."},
+        {"name": "data_source", "label": "Fuente de los datos", "type": "TEXT", "required": true, "description": "Fuente de los datos."},
+        {"name": "reliability", "label": "Confiabilidad del dato", "type": "ENUM", "enum": "data_reliability", "required": true, "description": "Confiabilidad del dato."},
+        {"name": "families_count", "label": "Familias", "type": "INTEGER", "description": "Familias."},
+        {"name": "population_count", "label": "Población", "type": "INTEGER", "description": "Población."},
+        {"name": "communal_labor_members_count", "label": "Republicanos", "type": "INTEGER", "description": "Republicanos."},
+        {"name": "members_per_family", "label": "Miembros por familia", "type": "DECIMAL", "description": "Miembros por familia."},
+        {"name": "migration", "label": "Migración", "type": "LONG_TEXT", "description": "Migración."},
+        {"name": "economic_activities", "label": "Actividades económicas", "type": "LONG_TEXT", "description": "Actividades económicas."},
+        {"name": "crops", "label": "Cultivos", "type": "LONG_TEXT", "description": "Cultivos."},
+        {"name": "livestock", "label": "Ganadería", "type": "LONG_TEXT", "description": "Ganadería."},
+        {"name": "water_source", "label": "Fuente del agua", "type": "TEXT", "description": "Fuente del agua."},
+        {"name": "water_treatment", "label": "Tratamiento del agua", "type": "TEXT", "description": "Tratamiento del agua."},
+        {"name": "water_frequency", "label": "Frecuencia del servicio de agua", "type": "TEXT", "description": "Frecuencia del servicio de agua."},
+        {"name": "water_fee", "label": "Pago por el agua", "type": "TEXT", "description": "Pago por el agua."},
+        {"name": "water_system_age_years", "label": "Antigüedad del sistema de agua en años", "type": "INTEGER", "description": "Antigüedad del sistema de agua, en años."},
+        {"name": "water_problems", "label": "Problemas del servicio de agua", "type": "LONG_TEXT", "description": "Problemas del servicio de agua."},
+        {"name": "electricity", "label": "Electricidad", "type": "TEXT", "description": "Electricidad."},
+        {"name": "sanitation", "label": "Saneamiento", "type": "TEXT", "description": "Saneamiento."},
+        {"name": "phone_coverage", "label": "Cobertura de telefonía", "type": "TEXT", "description": "Cobertura de telefonía."},
+        {"name": "religion", "label": "Religión", "type": "LONG_TEXT", "description": "(restringido) Religión."},
+        {"name": "electoral_process", "label": "Proceso electoral", "type": "LONG_TEXT", "description": "(restringido) Proceso electoral."}
+      ]
+    },
+    {
+      "name": "school",
+      "label": "Institución educativa",
+      "pluralLabel": "Instituciones educativas",
+      "description": "Institución de nivel inicial, primario o secundario de una localidad.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "education_level", "label": "Nivel educativo", "type": "TEXT", "description": "Nivel educativo."},
+        {"name": "school_status", "label": "Estado", "type": "TEXT", "description": "Estado."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación."}
+      ]
+    },
+    {
+      "name": "health_facility",
+      "label": "Establecimiento de salud",
+      "pluralLabel": "Establecimientos de salud",
+      "description": "Puesto o centro de salud de una localidad.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "facility_type", "label": "Tipo de establecimiento", "type": "TEXT", "description": "Tipo de establecimiento."},
+        {"name": "facility_status", "label": "Estado", "type": "TEXT", "description": "Estado."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación."}
+      ]
+    },
+    {
+      "name": "road_access",
+      "label": "Vía de acceso",
+      "pluralLabel": "Vías de acceso",
+      "description": "Trocha carrozable o camino de herradura que conecta localidades, con su estado y sus medios de transporte.",
+      "fields": [
+        {"name": "road_type", "label": "Tipo de vía", "type": "TEXT", "description": "Tipo de vía."},
+        {"name": "road_condition", "label": "Estado de la vía", "type": "TEXT", "description": "Estado de la vía."},
+        {"name": "transport_means", "label": "Medios de transporte", "type": "TEXT", "description": "Medios de transporte."},
+        {"name": "travel_time", "label": "Tiempo de viaje", "type": "TEXT", "description": "Tiempo de viaje."},
+        {"name": "trace", "label": "Trazo", "type": "GEOMETRY", "geometryType": "LINESTRING", "srid": 4326, "dimension": 2, "description": "Trazo."}
+      ]
+    },
+    {
+      "name": "festivity",
+      "label": "Festividad",
+      "pluralLabel": "Festividades",
+      "description": "Celebración local o distrital con fechas y turnos de coorganización.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "date_text", "label": "Fecha tal como se celebra", "type": "TEXT", "description": "Fecha tal como se celebra (texto)."},
+        {"name": "month", "label": "Mes", "type": "INTEGER", "description": "Mes."},
+        {"name": "start_day", "label": "Día de inicio", "type": "INTEGER", "description": "Día de inicio."},
+        {"name": "end_day", "label": "Día de fin", "type": "INTEGER", "description": "Día de fin."},
+        {"name": "co_organization_turns", "label": "Turnos de coorganización", "type": "LONG_TEXT", "description": "Turnos de coorganización."}
+      ]
+    },
+    {
+      "name": "state_program",
+      "label": "Programa estatal",
+      "pluralLabel": "Programas estatales",
+      "description": "Programa social del Estado presente en una o más localidades; es contexto, no inversión del proyecto.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."}
+      ]
+    },
+    {
+      "name": "local_conflict",
+      "label": "Conflicto local",
+      "pluralLabel": "Conflictos locales",
+      "description": "Disputa entre localidades por agua, límites, terrenos o separación, con su estado.",
+      "fields": [
+        {"name": "title", "label": "Título", "type": "TEXT", "required": true, "description": "Título."},
+        {"name": "conflict_type", "label": "Tipo de conflicto", "type": "ENUM", "enum": "local_conflict_type", "description": "Tipo de conflicto."},
+        {"name": "conflict_status", "label": "Estado del conflicto", "type": "ENUM", "enum": "local_conflict_status", "description": "Estado del conflicto."},
+        {"name": "disputed_resource", "label": "Recurso en disputa", "type": "TEXT", "description": "Recurso en disputa."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."}
+      ]
+    },
+    {
+      "name": "perception",
+      "label": "Percepción",
+      "pluralLabel": "Percepciones",
+      "description": "Opinión frecuente sobre la minería, el proyecto o la empresa, con su ámbito, su polaridad y citas atribuidas por cargo.",
+      "fields": [
+        {"name": "subject", "label": "Sujeto de la percepción", "type": "ENUM", "enum": "perception_subject", "required": true, "description": "Sujeto de la percepción."},
+        {"name": "polarity", "label": "Polaridad", "type": "ENUM", "enum": "perception_polarity", "required": true, "description": "Polaridad."},
+        {"name": "perception_scope", "label": "Ámbito", "type": "ENUM", "enum": "stakeholder_scope", "description": "Ámbito."},
+        {"name": "statement", "label": "Enunciado de la percepción", "type": "LONG_TEXT", "required": true, "description": "Enunciado de la percepción."},
+        {"name": "quote", "label": "Cita textual", "type": "LONG_TEXT", "description": "Cita textual."},
+        {"name": "attributed_role", "label": "Cargo de quien la dijo", "type": "TEXT", "description": "Cargo de quien la dijo, nunca el nombre."}
+      ]
+    },
+    {
+      "name": "key_theme",
+      "label": "Tema clave",
+      "pluralLabel": "Temas clave",
+      "description": "Asunto frecuente en el discurso de los actores, con riesgos y oportunidades para el proyecto.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "risks", "label": "Riesgos", "type": "LONG_TEXT", "description": "Riesgos."},
+        {"name": "opportunities", "label": "Oportunidades", "type": "LONG_TEXT", "description": "Oportunidades."}
+      ]
+    },
+    {
+      "name": "topic",
+      "label": "Tema",
+      "pluralLabel": "Temas",
+      "description": "Catálogo jerárquico de temas (agua, empleo, medio ambiente…); objeto catálogo (BC-20).",
+      "fields": [
+        {"name": "code", "label": "Código del tema", "type": "TEXT", "required": true, "unique": true, "description": "Código del tema."},
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "active", "label": "Tema vigente", "type": "BOOLEAN", "required": true, "defaultValue": "true", "description": "Tema vigente; un tema inactivo no se ofrece en la captura. Por defecto: true."}
+      ]
+    }
+  ],
+  "relationships": [
+    {"name": "project_concession", "type": "MANY_TO_MANY", "label": "Concesiones", "inverseLabel": "Proyectos", "source": "project", "target": "mining_concession"},
+    {"name": "project_party_project", "label": "Proyecto", "inverseLabel": "Partes del proyecto", "source": "project_party", "target": "project", "fieldName": "project", "required": true},
+    {"name": "project_party_organization", "label": "Organización", "inverseLabel": "Partes del proyecto", "source": "project_party", "target": "organization", "fieldName": "organization", "required": true},
+    {"name": "exploration_campaign_project", "label": "Proyecto", "inverseLabel": "Campañas de exploración", "source": "exploration_campaign", "target": "project", "fieldName": "project", "required": true},
+    {"name": "project_assignment_project", "label": "Proyecto", "inverseLabel": "Asignaciones a proyecto", "source": "project_assignment", "target": "project", "fieldName": "project", "required": true},
+    {"name": "concession_holder_organization", "label": "Titular", "inverseLabel": "Concesiones mineras", "source": "mining_concession", "target": "organization", "fieldName": "holder_organization"},
+    {"name": "administrative_unit_parent_unit", "label": "Unidad superior", "inverseLabel": "Unidades administrativas", "source": "administrative_unit", "target": "administrative_unit", "fieldName": "parent_unit"},
+    {"name": "locality_parent_locality", "label": "Localidad padre", "inverseLabel": "Localidades", "source": "locality", "target": "locality", "fieldName": "parent_locality"},
+    {"name": "locality_administrative_unit", "label": "Distrito", "inverseLabel": "Localidades", "source": "locality", "target": "administrative_unit", "fieldName": "administrative_unit"},
+    {"name": "community_administrative_unit", "label": "Distrito", "inverseLabel": "Comunidades campesinas o nativas", "source": "community", "target": "administrative_unit", "fieldName": "administrative_unit"},
+    {"name": "community_sector_community", "label": "Comunidad campesina o nativa", "inverseLabel": "Sectores comunales", "source": "community_sector", "target": "community", "fieldName": "community", "required": true},
+    {"name": "community_sector_locality", "type": "MANY_TO_MANY", "label": "Localidades", "inverseLabel": "Sectores comunales", "source": "community_sector", "target": "locality"},
+    {"name": "area_of_influence_project", "label": "Proyecto", "inverseLabel": "Áreas de influencia", "source": "area_of_influence", "target": "project", "fieldName": "project", "required": true},
+    {"name": "area_of_influence_study", "label": "Estudio de origen", "inverseLabel": "Áreas de influencia", "source": "area_of_influence", "target": "study", "fieldName": "study"},
+    {"name": "aoi_member_area_of_influence", "label": "Área de influencia", "inverseLabel": "Miembros del área de influencia", "source": "area_of_influence_member", "target": "area_of_influence", "fieldName": "area_of_influence", "required": true},
+    {"name": "aoi_member_locality", "label": "Localidad", "inverseLabel": "Miembros del área de influencia", "source": "area_of_influence_member", "target": "locality", "fieldName": "locality"},
+    {"name": "aoi_member_community", "label": "Comunidad campesina o nativa", "inverseLabel": "Miembros del área de influencia", "source": "area_of_influence_member", "target": "community", "fieldName": "community"},
+    {"name": "aoi_member_administrative_unit", "label": "Unidad administrativa", "inverseLabel": "Miembros del área de influencia", "source": "area_of_influence_member", "target": "administrative_unit", "fieldName": "administrative_unit"},
+    {"name": "component_project", "label": "Proyecto", "inverseLabel": "Componentes del proyecto", "source": "project_component", "target": "project", "fieldName": "project", "required": true},
+    {"name": "component_exploration_campaign", "label": "Campaña de exploración", "inverseLabel": "Componentes del proyecto", "source": "project_component", "target": "exploration_campaign", "fieldName": "exploration_campaign"},
+    {"name": "component_previous_version", "label": "Versión anterior", "inverseLabel": "Componentes del proyecto", "source": "project_component", "target": "project_component", "fieldName": "previous_version"},
+    {"name": "land_parcel_community", "label": "Comunidad campesina o nativa", "inverseLabel": "Predios", "source": "land_parcel", "target": "community", "fieldName": "community"},
+    {"name": "land_parcel_locality", "label": "Localidad", "inverseLabel": "Predios", "source": "land_parcel", "target": "locality", "fieldName": "locality"},
+    {"name": "land_right_land_parcel", "label": "Predio", "inverseLabel": "Titularidades de predios", "source": "land_right", "target": "land_parcel", "fieldName": "land_parcel", "required": true},
+    {"name": "land_right_holder_person", "label": "Titular persona", "inverseLabel": "Titularidades de predios", "source": "land_right", "target": "person", "fieldName": "holder_person"},
+    {"name": "land_right_holder_organization", "label": "Titular organización", "inverseLabel": "Titularidades de predios", "source": "land_right", "target": "organization", "fieldName": "holder_organization"},
+    {"name": "env_feature_administrative_unit", "label": "Unidad administrativa", "inverseLabel": "Elementos ambientales", "source": "environmental_feature", "target": "administrative_unit", "fieldName": "administrative_unit"},
+    {"name": "person_residence_locality", "label": "Localidad de residencia", "inverseLabel": "Personas", "source": "person", "target": "locality", "fieldName": "residence_locality"},
+    {"name": "organization_locality", "label": "Localidad", "inverseLabel": "Organizaciones", "source": "organization", "target": "locality", "fieldName": "locality"},
+    {"name": "organization_administrative_unit", "label": "Unidad administrativa", "inverseLabel": "Organizaciones", "source": "organization", "target": "administrative_unit", "fieldName": "administrative_unit"},
+    {"name": "organization_community", "label": "Comunidad que representa", "inverseLabel": "Organizaciones", "source": "organization", "target": "community", "fieldName": "community"},
+    {"name": "organization_affiliated_to", "label": "Federación", "inverseLabel": "Organizaciones", "source": "organization", "target": "organization", "fieldName": "affiliated_to"},
+    {"name": "organization_split_from", "label": "Escindida de", "inverseLabel": "Organizaciones", "source": "organization", "target": "organization", "fieldName": "split_from"},
+    {"name": "contact_method_person", "label": "Persona", "inverseLabel": "Medios de contacto", "source": "contact_method", "target": "person", "fieldName": "person"},
+    {"name": "contact_method_organization", "label": "Organización", "inverseLabel": "Medios de contacto", "source": "contact_method", "target": "organization", "fieldName": "organization"},
+    {"name": "position_organization", "label": "Organización", "inverseLabel": "Cargos", "source": "position", "target": "organization", "fieldName": "organization", "required": true},
+    {"name": "position_person", "label": "Persona", "inverseLabel": "Cargos", "source": "position", "target": "person", "fieldName": "person"},
+    {"name": "position_community_sector", "label": "Sector comunal al que representa", "inverseLabel": "Cargos", "source": "position", "target": "community_sector", "fieldName": "community_sector"},
+    {"name": "stakeholder_project", "label": "Proyecto", "inverseLabel": "Grupos de interés", "source": "stakeholder", "target": "project", "fieldName": "project", "required": true},
+    {"name": "stakeholder_person", "label": "Persona", "inverseLabel": "Grupos de interés", "source": "stakeholder", "target": "person", "fieldName": "person"},
+    {"name": "stakeholder_organization", "label": "Organización", "inverseLabel": "Grupos de interés", "source": "stakeholder", "target": "organization", "fieldName": "organization"},
+    {"name": "stakeholder_area_of_influence", "label": "Área de influencia", "inverseLabel": "Grupos de interés", "source": "stakeholder", "target": "area_of_influence", "fieldName": "area_of_influence"},
+    {"name": "stakeholder_locality", "label": "Localidad", "inverseLabel": "Grupos de interés", "source": "stakeholder", "target": "locality", "fieldName": "locality"},
+    {"name": "stk_assessment_stakeholder", "label": "Grupo de interés", "inverseLabel": "Evaluaciones del grupo de interés", "source": "stakeholder_assessment", "target": "stakeholder", "fieldName": "stakeholder", "required": true},
+    {"name": "stk_assessment_position", "label": "Cargo evaluado", "inverseLabel": "Evaluaciones del grupo de interés", "source": "stakeholder_assessment", "target": "position", "fieldName": "position"},
+    {"name": "stk_assessment_baseline_assessment", "label": "Evaluación de línea base", "inverseLabel": "Evaluaciones del grupo de interés", "source": "stakeholder_assessment", "target": "stakeholder_assessment", "fieldName": "baseline_assessment"},
+    {"name": "prioritization_rule_project", "label": "Proyecto", "inverseLabel": "Reglas de priorización", "source": "prioritization_rule", "target": "project", "fieldName": "project", "required": true},
+    {"name": "actor_rel_from_person", "label": "Persona de origen", "inverseLabel": "Relaciones entre actores", "source": "actor_relationship", "target": "person", "fieldName": "from_person"},
+    {"name": "actor_rel_from_organization", "label": "Organización de origen", "inverseLabel": "Relaciones entre actores", "source": "actor_relationship", "target": "organization", "fieldName": "from_organization"},
+    {"name": "actor_rel_to_person", "label": "Persona de destino", "inverseLabel": "Relaciones entre actores", "source": "actor_relationship", "target": "person", "fieldName": "to_person"},
+    {"name": "actor_rel_to_organization", "label": "Organización de destino", "inverseLabel": "Relaciones entre actores", "source": "actor_relationship", "target": "organization", "fieldName": "to_organization"},
+    {"name": "network_project", "label": "Proyecto", "inverseLabel": "Redes comunitarias", "source": "community_network", "target": "project", "fieldName": "project", "required": true},
+    {"name": "network_study", "label": "Estudio o diagnóstico", "inverseLabel": "Redes comunitarias", "source": "community_network", "target": "study", "fieldName": "study"},
+    {"name": "network_locality", "label": "Localidad", "inverseLabel": "Redes comunitarias", "source": "community_network", "target": "locality", "fieldName": "locality"},
+    {"name": "network_community", "label": "Comunidad campesina o nativa", "inverseLabel": "Redes comunitarias", "source": "community_network", "target": "community", "fieldName": "community"},
+    {"name": "network_anchor_organization", "label": "Organización ancla", "inverseLabel": "Redes comunitarias", "source": "community_network", "target": "organization", "fieldName": "anchor_organization"},
+    {"name": "network_node_community_network", "label": "Red comunitaria", "inverseLabel": "Nodos de red", "source": "network_node", "target": "community_network", "fieldName": "community_network", "required": true},
+    {"name": "network_node_person", "label": "Persona", "inverseLabel": "Nodos de red", "source": "network_node", "target": "person", "fieldName": "person"},
+    {"name": "network_node_organization", "label": "Organización", "inverseLabel": "Nodos de red", "source": "network_node", "target": "organization", "fieldName": "organization"},
+    {"name": "engagement_project", "label": "Proyecto", "inverseLabel": "Interacciones", "source": "engagement", "target": "project", "fieldName": "project", "required": true},
+    {"name": "engagement_locality", "label": "Localidad", "inverseLabel": "Interacciones", "source": "engagement", "target": "locality", "fieldName": "locality"},
+    {"name": "engagement_community", "label": "Comunidad campesina o nativa", "inverseLabel": "Interacciones", "source": "engagement", "target": "community", "fieldName": "community"},
+    {"name": "engagement_convener", "label": "Convocante", "inverseLabel": "Interacciones", "source": "engagement", "target": "stakeholder", "fieldName": "convener"},
+    {"name": "engagement_field_visit", "label": "Visita de campo", "inverseLabel": "Interacciones", "source": "engagement", "target": "field_visit", "fieldName": "field_visit"},
+    {"name": "engagement_study", "label": "Estudio", "inverseLabel": "Interacciones", "source": "engagement", "target": "study", "fieldName": "study"},
+    {"name": "engagement_study_instrument", "label": "Instrumento aplicado", "inverseLabel": "Interacciones", "source": "engagement", "target": "study_instrument", "fieldName": "study_instrument"},
+    {"name": "engagement_planned_activity", "label": "Actividad planificada", "inverseLabel": "Interacciones", "source": "engagement", "target": "planned_activity", "fieldName": "planned_activity"},
+    {"name": "engagement_stakeholder", "type": "MANY_TO_MANY", "label": "Grupos de interés", "inverseLabel": "Interacciones", "source": "engagement", "target": "stakeholder"},
+    {"name": "engagement_topic", "type": "MANY_TO_MANY", "label": "Temas tratados", "inverseLabel": "Interacciones", "source": "engagement", "target": "topic"},
+    {"name": "engagement_participant_engagement", "label": "Interacción", "inverseLabel": "Participantes", "source": "engagement_participant", "target": "engagement", "fieldName": "engagement", "required": true},
+    {"name": "engagement_participant_person", "label": "Persona", "inverseLabel": "Participantes", "source": "engagement_participant", "target": "person", "fieldName": "person"},
+    {"name": "engagement_participant_organization", "label": "Organización representada", "inverseLabel": "Participantes", "source": "engagement_participant", "target": "organization", "fieldName": "organization"},
+    {"name": "engagement_participant_stakeholder", "label": "Grupo de interés", "inverseLabel": "Participantes", "source": "engagement_participant", "target": "stakeholder", "fieldName": "stakeholder"},
+    {"name": "engagement_question_engagement", "label": "Interacción", "inverseLabel": "Preguntas de la interacción", "source": "engagement_question", "target": "engagement", "fieldName": "engagement", "required": true},
+    {"name": "engagement_question_topic", "label": "Tema", "inverseLabel": "Preguntas de la interacción", "source": "engagement_question", "target": "topic", "fieldName": "topic"},
+    {"name": "engagement_question_aligned_answer", "label": "Respuesta alineada", "inverseLabel": "Preguntas de la interacción", "source": "engagement_question", "target": "aligned_answer", "fieldName": "aligned_answer"},
+    {"name": "field_visit_project", "label": "Proyecto", "inverseLabel": "Visitas de campo", "source": "field_visit", "target": "project", "fieldName": "project", "required": true},
+    {"name": "field_observation_field_visit", "label": "Visita de campo", "inverseLabel": "Observaciones de campo", "source": "field_observation", "target": "field_visit", "fieldName": "field_visit", "required": true},
+    {"name": "field_observation_locality", "label": "Localidad", "inverseLabel": "Observaciones de campo", "source": "field_observation", "target": "locality", "fieldName": "locality"},
+    {"name": "field_observation_topic", "label": "Tema", "inverseLabel": "Observaciones de campo", "source": "field_observation", "target": "topic", "fieldName": "topic"},
+    {"name": "engagement_plan_project", "label": "Proyecto", "inverseLabel": "Planes de relacionamiento", "source": "engagement_plan", "target": "project", "fieldName": "project", "required": true},
+    {"name": "key_message_project", "label": "Proyecto", "inverseLabel": "Mensajes clave", "source": "key_message", "target": "project", "fieldName": "project", "required": true},
+    {"name": "key_message_engagement_plan", "label": "Plan de relacionamiento", "inverseLabel": "Mensajes clave", "source": "key_message", "target": "engagement_plan", "fieldName": "engagement_plan"},
+    {"name": "key_message_topic", "label": "Tema", "inverseLabel": "Mensajes clave", "source": "key_message", "target": "topic", "fieldName": "topic"},
+    {"name": "aligned_answer_project", "label": "Proyecto", "inverseLabel": "Respuestas alineadas", "source": "aligned_answer", "target": "project", "fieldName": "project", "required": true},
+    {"name": "aligned_answer_topic", "label": "Tema", "inverseLabel": "Respuestas alineadas", "source": "aligned_answer", "target": "topic", "fieldName": "topic"},
+    {"name": "strategic_alliance_project", "label": "Proyecto", "inverseLabel": "Alianzas estratégicas", "source": "strategic_alliance", "target": "project", "fieldName": "project", "required": true},
+    {"name": "strategic_alliance_organization", "label": "Institución", "inverseLabel": "Alianzas estratégicas", "source": "strategic_alliance", "target": "organization", "fieldName": "organization", "required": true},
+    {"name": "planned_activity_engagement_plan", "label": "Plan de relacionamiento", "inverseLabel": "Actividades planificadas", "source": "planned_activity", "target": "engagement_plan", "fieldName": "engagement_plan", "required": true},
+    {"name": "export_log_project", "label": "Proyecto", "inverseLabel": "Registros de exportación", "source": "export_log", "target": "project", "fieldName": "project"},
+    {"name": "study_project", "label": "Proyecto", "inverseLabel": "Estudios o diagnósticos", "source": "study", "target": "project", "fieldName": "project", "required": true},
+    {"name": "study_author_organization", "label": "Autora", "inverseLabel": "Estudios o diagnósticos", "source": "study", "target": "organization", "fieldName": "author_organization"},
+    {"name": "study_client_organization", "label": "Cliente", "inverseLabel": "Estudios o diagnósticos", "source": "study", "target": "organization", "fieldName": "client_organization"},
+    {"name": "study_instrument_study", "label": "Estudio o diagnóstico", "inverseLabel": "Instrumentos de estudio", "source": "study_instrument", "target": "study", "fieldName": "study", "required": true},
+    {"name": "study_instrument_topic", "label": "Tema", "inverseLabel": "Instrumentos de estudio", "source": "study_instrument", "target": "topic", "fieldName": "topic"},
+    {"name": "locality_profile_locality", "label": "Localidad", "inverseLabel": "Perfiles de localidad", "source": "locality_profile", "target": "locality", "fieldName": "locality", "required": true},
+    {"name": "locality_profile_study", "label": "Estudio o diagnóstico", "inverseLabel": "Perfiles de localidad", "source": "locality_profile", "target": "study", "fieldName": "study"},
+    {"name": "school_locality", "label": "Localidad", "inverseLabel": "Instituciones educativas", "source": "school", "target": "locality", "fieldName": "locality", "required": true},
+    {"name": "health_facility_locality", "label": "Localidad", "inverseLabel": "Establecimientos de salud", "source": "health_facility", "target": "locality", "fieldName": "locality", "required": true},
+    {"name": "road_access_locality", "label": "Localidad de origen", "inverseLabel": "Vías de acceso", "source": "road_access", "target": "locality", "fieldName": "locality", "required": true},
+    {"name": "road_access_connects_to", "label": "Localidad de destino", "inverseLabel": "Vías de acceso", "source": "road_access", "target": "locality", "fieldName": "connects_to"},
+    {"name": "festivity_locality", "label": "Localidad", "inverseLabel": "Festividades", "source": "festivity", "target": "locality", "fieldName": "locality"},
+    {"name": "festivity_administrative_unit", "label": "Unidad administrativa", "inverseLabel": "Festividades", "source": "festivity", "target": "administrative_unit", "fieldName": "administrative_unit"},
+    {"name": "state_program_sponsor_organization", "label": "Entidad del Estado", "inverseLabel": "Programas estatales", "source": "state_program", "target": "organization", "fieldName": "sponsor_organization"},
+    {"name": "state_program_locality", "type": "MANY_TO_MANY", "label": "Localidades", "inverseLabel": "Programas estatales", "source": "state_program", "target": "locality"},
+    {"name": "conflict_environmental_feature", "label": "Lugar o recurso en disputa", "inverseLabel": "Conflictos locales", "source": "local_conflict", "target": "environmental_feature", "fieldName": "environmental_feature"},
+    {"name": "local_conflict_locality", "type": "MANY_TO_MANY", "label": "Localidades en conflicto", "inverseLabel": "Conflictos locales", "source": "local_conflict", "target": "locality"},
+    {"name": "perception_study", "label": "Estudio o diagnóstico", "inverseLabel": "Percepciones", "source": "perception", "target": "study", "fieldName": "study", "required": true},
+    {"name": "perception_topic", "label": "Tema", "inverseLabel": "Percepciones", "source": "perception", "target": "topic", "fieldName": "topic"},
+    {"name": "key_theme_project", "label": "Proyecto", "inverseLabel": "Temas clave", "source": "key_theme", "target": "project", "fieldName": "project", "required": true},
+    {"name": "key_theme_study", "label": "Estudio o diagnóstico", "inverseLabel": "Temas clave", "source": "key_theme", "target": "study", "fieldName": "study"},
+    {"name": "key_theme_topic", "label": "Tema", "inverseLabel": "Temas clave", "source": "key_theme", "target": "topic", "fieldName": "topic"},
+    {"name": "topic_parent_topic", "label": "Tema padre", "inverseLabel": "Temas", "source": "topic", "target": "topic", "fieldName": "parent_topic"}
+  ]
 }

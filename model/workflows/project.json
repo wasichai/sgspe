@@ -1,0 +1,29 @@
+{
+  "name": "wf-a-project",
+  "label": "Proyecto",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
+      { "name": "in_review", "label": "En revisión", "type": "INTERMEDIATE" },
+      { "name": "active", "label": "Activo", "type": "INTERMEDIATE" },
+      { "name": "suspended", "label": "Suspendido", "type": "INTERMEDIATE" },
+      { "name": "closed", "label": "Cerrado", "type": "FINAL" },
+      { "name": "cancelled", "label": "Anulado", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "submit_for_review", "label": "Enviar a revisión", "from": "draft", "to": "in_review",
+        "roles": ["PROJECT_MANAGER", "PROJECT_ADMIN"] },
+      { "name": "return_to_draft", "label": "Devolver", "from": "in_review", "to": "draft", "roles": ["PROJECT_ADMIN"] },
+      { "name": "approve", "label": "Aprobar", "from": "in_review", "to": "active", "roles": ["PROJECT_ADMIN"] },
+      { "name": "suspend", "label": "Suspender", "from": "active", "to": "suspended",
+        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER"] },
+      { "name": "resume", "label": "Reanudar", "from": "suspended", "to": "active",
+        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER"] },
+      { "name": "close", "label": "Cerrar", "from": "active", "to": "closed", "roles": ["PROJECT_ADMIN"] },
+      { "name": "close_suspended", "label": "Cerrar", "from": "suspended", "to": "closed", "roles": ["PROJECT_ADMIN"] },
+      { "name": "cancel_draft", "label": "Anular", "from": "draft", "to": "cancelled", "roles": ["PROJECT_ADMIN"] },
+      { "name": "cancel_in_review", "label": "Anular", "from": "in_review", "to": "cancelled", "roles": ["PROJECT_ADMIN"] }
+    ]
+  }
+}

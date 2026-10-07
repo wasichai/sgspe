@@ -1,4 +1,7 @@
-"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1).
+"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 y F2).
+
+Desde F2, roles.json se contrasta con la matriz de security.md §7.2 a §7.8 y con los campos restringidos de §7.9, que
+lee design_docs.py.
 
 Correr: cd model && python3 -m unittest -v
 """
@@ -11,8 +14,9 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
 import apply_roles
+import design_docs
 from fake_core import FakeCore
-from fixture_model import FIXTURE_MODEL
+from fixture_model import F2_FIXTURE_MODEL, FIXTURE_MODEL
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROLES_PATH = os.path.join(HERE, "roles.json")
@@ -67,10 +71,94 @@ class RolesJsonTests(unittest.TestCase):
         self.assertEqual(tenant, {"AUDITOR"})
         self.assertEqual(self.roles["AUDITOR"]["permisos"], {"*": ["READ"]})
 
-    def test_en_f1_los_demas_roles_existen_sin_permisos(self):
+    def test_los_permisos_son_los_de_la_matriz_de_security_para_los_objetos_del_modelo(self):
+        # security.md §7.1: un rol recibe un permiso desde la fase más tardía entre la suya y la del objeto
+        phases, _ = design_docs.role_phases()
+        cards = design_docs.cards()
+        matrix = design_docs.matrix()
+        phase = max(cards[o["name"]].phase for o in load(MODEL_PATH)["objects"])
         for name, role in self.roles.items():
-            if name != "AUDITOR":
+            if name == "AUDITOR":
+                continue
+            wanted = {obj: matrix[obj][name] for obj in (o["name"] for o in load(MODEL_PATH)["objects"])
+                      if max(phases[name], cards[obj].phase) <= phase and matrix[obj][name]}
+            self.assertEqual(role["permisos"], wanted, name)
+
+    def test_los_roles_de_f3_en_adelante_siguen_sin_permisos(self):
+        phases, _ = design_docs.role_phases()
+        for name, role in self.roles.items():
+            if name != "AUDITOR" and phases[name] > "F2":
                 self.assertEqual(role["permisos"], {}, name)
+
+    def test_los_campos_restringidos_son_los_de_security_7_9_para_los_objetos_del_modelo(self):
+        objects = {o["name"] for o in load(MODEL_PATH)["objects"]}
+        declared = set(self.roles)
+        wanted = {(obj, field, tuple(r for r in readers if r in declared))
+                  for obj, field, readers in design_docs.restricted_fields() if obj in objects}
+        got = {(e["object"], field, tuple(e["readers"])) for e in self.file["restrictedFields"] for field in e["fields"]}
+        self.assertEqual(got, wanted)
+
+    def test_todo_campo_restringido_de_las_fichas_esta_en_restricted_fields(self):
+        cards = design_docs.cards()
+        listed = {(e["object"], f) for e in self.file["restrictedFields"] for f in e["fields"]}
+        for obj in load(MODEL_PATH)["objects"]:
+            card = cards[obj["name"]]
+            marked = {f["name"] for f in card.fields if f["restricted"]}
+            marked |= {r["field"] for r in card.relationships if r["restricted"] and not r["inverse"]}
+            for field in marked:
+                self.assertIn((obj["name"], field), listed, f"{obj['name']}.{field}")
+
+    def test_quien_conserva_una_relacion_restringida_a_person_lee_sus_nombres(self):
+        # security.md §7.9: quien vincula a una persona la identifica por su nombre
+        model = load(MODEL_PATH)
+        targets = {(r["source"], r["fieldName"]): r["target"] for r in model["relationships"] if r.get("fieldName")}
+        names = next(e["readers"] for e in self.file["restrictedFields"]
+                     if e["object"] == "person" and "given_names" in e["fields"])
+        for entry in self.file["restrictedFields"]:
+            for field in entry["fields"]:
+                if targets.get((entry["object"], field)) == "person":
+                    self.assertTrue(set(entry["readers"]) <= set(names), (entry, names))
+
+    def test_los_roles_de_cada_transicion_tienen_update_y_leen_las_asignaciones(self):
+        # workflows.md, «Mecánica de wasichai» 4, y security.md §5.10: el aviso resuelve destinatarios con project_assignment
+        for path in sorted(os.listdir(os.path.join(HERE, "workflows"))):
+            obj = path[:-len(".json")]
+            workflow = load(os.path.join(HERE, "workflows", path))
+            for transition in workflow["definition"]["transitions"]:
+                for role in transition["roles"]:
+                    grants = self.roles[role]["permisos"]
+                    self.assertTrue({"UPDATE", "u"} & set(grants.get(obj, [])), (obj, transition["name"], role))
+                    self.assertIn("READ", grants.get("project_assignment", []), role)
+
+    def test_los_roles_de_cada_aprobacion_son_exactamente_los_que_tienen_approve(self):
+        # security.md §5.3, «Doble llave en las decisiones»
+        for obj, transition in (("project", "approve"), ("area_of_influence", "approve"),
+                                ("area_of_influence", "supersede")):
+            workflow = load(os.path.join(HERE, "workflows", f"{obj}.json"))
+            roles = next(t["roles"] for t in workflow["definition"]["transitions"] if t["name"] == transition)
+            holders = {name for name, role in self.roles.items() if "APPROVE" in role["permisos"].get(obj, [])}
+            self.assertEqual(set(roles), holders, (obj, transition))
+
+    def test_quien_crea_un_objeto_lee_los_destinos_de_sus_relaciones_requeridas(self):
+        # wasichai 0.3.2 responde 400 a un valor RELATION que quien escribe no puede leer (security.md §5.6)
+        model = load(MODEL_PATH)
+        required = [(r["source"], r["target"]) for r in model["relationships"] if r.get("required")]
+        for name, role in self.roles.items():
+            for source, target in required:
+                if "CREATE" in role["permisos"].get(source, []):
+                    self.assertIn("READ", role["permisos"].get(target, []), (name, source, target))
+
+    def test_quien_crea_un_objeto_puede_escribir_sus_campos_requeridos(self):
+        # wasichai 0.3.2 rechaza el alta si un campo requerido no es escribible para quien crea
+        model = load(MODEL_PATH)
+        required = {o["name"]: {f["name"] for f in o["fields"] if f.get("required")} for o in model["objects"]}
+        for name, role in self.roles.items():
+            denied = {(e["object"], f) for e in self.file["restrictedFields"] if name not in e["readers"]
+                      for f in e["fields"]}
+            for obj, grants in role["permisos"].items():
+                if "CREATE" in grants:
+                    for field in required.get(obj, ()):
+                        self.assertNotIn((obj, field), denied, (name, obj, field))
 
     def test_ningun_rol_lleva_own_records_only(self):
         for name, role in self.roles.items():
@@ -128,14 +216,26 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("MANAGE_METADATA" in e for e in errors), errors)
 
     def test_un_objeto_que_el_modelo_no_tiene_se_rechaza(self):
-        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"project": ["READ"]}))
-        self.assertTrue(any("object 'project' is not in model.json" in e for e in errors), errors)
+        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"commitment": ["READ"]}))
+        self.assertTrue(any("object 'commitment' is not in model.json" in e for e in errors), errors)
 
     def test_una_accion_declarada_solo_vale_sobre_su_objeto(self):
-        ok = self.mutate(lambda r: r["roles"][0]["permisos"].update({"visit": ["READ", "EDIT_ANY"]}), FIXTURE_MODEL)
-        self.assertEqual(ok, [])
-        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"zone": ["EDIT_ANY"]}), FIXTURE_MODEL)
+        def only(permisos):
+            return {"mappedToAdmin": MAPPED, "roles": [{"name": "PRUEBA", "label": "x", "permisos": permisos}]}
+        self.assertEqual(apply_roles.validate(only({"visit": ["READ", "EDIT_ANY"]}), FIXTURE_MODEL), [])
+        errors = apply_roles.validate(only({"zone": ["EDIT_ANY"]}), FIXTURE_MODEL)
         self.assertTrue(any("action 'EDIT_ANY' on zone" in e for e in errors), errors)
+
+    def test_restricted_fields_nombra_objetos_campos_y_lectores_que_existen(self):
+        errors = self.mutate(lambda r: r["restrictedFields"].extend([
+            {"object": "commitment", "fields": ["amount"], "readers": []},
+            {"object": "person", "fields": ["nickname"], "readers": ["SOCIAL_MANAGER"]},
+            {"object": "topic", "fields": ["code"], "readers": ["INTRUSO"]},
+            {"object": "stakeholder", "fields": ["stance"], "readers": ["SOCIAL_MANAGER"]}]))
+        self.assertTrue(any("object 'commitment' is not in model.json" in e for e in errors), errors)
+        self.assertTrue(any("'nickname' is not a field of person" in e for e in errors), errors)
+        self.assertTrue(any("reader 'INTRUSO' of topic is not a declared role" in e for e in errors), errors)
+        self.assertTrue(any("stakeholder.stance is listed twice" in e for e in errors), errors)
 
     def test_u_y_update_juntos_se_rechazan(self):
         errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"zone": ["READ", "u", "UPDATE"]}), FIXTURE_MODEL)
@@ -200,10 +300,57 @@ class ExpansionTests(unittest.TestCase):
             {"objectName": "zone", "fieldName": "code", "read": True, "write": False},
             {"objectName": "zone", "fieldName": "zone_type", "read": True, "write": False}]})
 
+    def test_una_relacion_many_to_many_no_tiene_campo_que_restringir(self):
+        # visit_zones es una tabla de unión: solo visit_date y el campo de visit_zone quedan de solo lectura
+        role = {"name": "PRUEBA", "label": "Rol de prueba", "permisos": {"visit": ["READ", "u"]}}
+        fields = apply_roles.field_permissions_payload(role, F2_FIXTURE_MODEL)["fields"]
+        self.assertEqual([f["fieldName"] for f in fields], ["visit_date", "zone"])
+
     def test_el_permiso_de_todo_el_tenant_va_sin_objeto(self):
         auditor = {"name": "AUDITOR", "label": "Auditor", "permisos": {"*": ["READ"]}}
         self.assertEqual(apply_roles.permissions_payload(auditor), {"permissions": [{"objectName": None, "action": "READ"}]})
         self.assertEqual(apply_roles.field_permissions_payload(auditor, FIXTURE_MODEL), {"fields": []})
+
+
+class RestrictedExpansionTests(unittest.TestCase):
+    """security.md §7.9: un campo restringido lleva, para todo rol que no lo lee, una entrada sin lectura ni escritura."""
+
+    def setUp(self):
+        self.file = load(ROLES_PATH)
+        self.model = load(MODEL_PATH)
+        self.roles = {r["name"]: r for r in self.file["roles"]}
+
+    def entries(self, name):
+        payload = apply_roles.field_permissions_payload(self.roles[name], self.model, self.file["restrictedFields"])
+        return {(f["objectName"], f["fieldName"]): (f["read"], f["write"]) for f in payload["fields"]}
+
+    def test_field_agent_no_ve_la_postura_y_lo_demas_de_stakeholder_es_de_solo_lectura(self):
+        entries = self.entries("FIELD_AGENT")
+        self.assertEqual(entries[("stakeholder", "stance")], (False, False))
+        self.assertEqual(entries[("stakeholder", "stakeholder_type")], (True, False))
+        self.assertEqual(entries[("stakeholder", "project")], (True, False))
+        self.assertNotIn(("stakeholder", "influence_group"), entries)
+        # captura a los asistentes: lee y escribe sus datos (security.md §7.9)
+        self.assertNotIn(("engagement_participant", "participant_name"), entries)
+        self.assertEqual(entries[("person", "id_document_number")], (False, False))
+
+    def test_auditor_no_ve_ningun_campo_restringido(self):
+        entries = self.entries("AUDITOR")
+        for entry in self.file["restrictedFields"]:
+            for field in entry["fields"]:
+                self.assertEqual(entries[(entry["object"], field)], (False, False), (entry["object"], field))
+
+    def test_un_lector_no_recibe_entrada_del_campo_que_lee(self):
+        entries = self.entries("STAKEHOLDER_MANAGER")
+        self.assertNotIn(("stakeholder", "stance"), entries)
+        self.assertNotIn(("person", "given_names"), entries)
+        self.assertEqual(entries[("land_parcel", "registry_record")], (False, False))
+
+    def test_cada_campo_va_una_sola_vez(self):
+        for name, role in self.roles.items():
+            payload = apply_roles.field_permissions_payload(role, self.model, self.file["restrictedFields"])
+            keys = [(f["objectName"], f["fieldName"]) for f in payload["fields"]]
+            self.assertEqual(len(keys), len(set(keys)), name)
 
 
 class ApplyRolesTestCase(unittest.TestCase):
@@ -236,8 +383,10 @@ class ApplyRolesTests(ApplyRolesTestCase):
         self.assertEqual([b["name"] for m, p, b in self.writes() if m == "POST"], list(LABELS))
         puts = {p: b for m, p, b in self.writes() if m == "PUT"}
         self.assertEqual(puts["/api/roles/AUDITOR/permissions"], {"permissions": [{"objectName": None, "action": "READ"}]})
-        self.assertEqual(puts["/api/roles/FIELD_AGENT/permissions"], {"permissions": []})
-        self.assertFalse(any(p.endswith("/field-permissions") for p in puts), puts)
+        field_agent = next(r for r in load(ROLES_PATH)["roles"] if r["name"] == "FIELD_AGENT")
+        self.assertEqual(puts["/api/roles/FIELD_AGENT/permissions"], apply_roles.permissions_payload(field_agent))
+        self.assertIn({"objectName": "stakeholder", "fieldName": "stance", "read": False, "write": False},
+                      puts["/api/roles/AUDITOR/field-permissions"]["fields"])
         for method, path, auth, body in self.core.requests:
             self.assertEqual(auth, None if path == "/api/auth/login" else "Bearer t")
         self.assertIn("done: 15 created, 0 updated, 0 skipped", out)
@@ -258,9 +407,10 @@ class ApplyRolesTests(ApplyRolesTestCase):
         self.core.requests.clear()
         code, out, err = self.run_cli()
         self.assertEqual(code, 0, err)
+        field_agent = next(r for r in load(ROLES_PATH)["roles"] if r["name"] == "FIELD_AGENT")
         self.assertEqual(self.writes(), [
             ("PUT", "/api/roles/FIELD_AGENT", {"label": "Agente de campo", "ownRecordsOnly": False}),
-            ("PUT", "/api/roles/FIELD_AGENT/permissions", {"permissions": []})])
+            ("PUT", "/api/roles/FIELD_AGENT/permissions", apply_roles.permissions_payload(field_agent))])
         self.assertIn("done: 0 created, 1 updated, 14 skipped", out)
         self.core.requests.clear()
         self.assertIn("done: 0 created, 0 updated, 15 skipped", self.run_cli()[1])
@@ -295,14 +445,14 @@ class ApplyRolesTests(ApplyRolesTestCase):
 
     def test_un_roles_json_invalido_no_llama_a_core(self):
         roles = load(ROLES_PATH)
-        roles["roles"][0]["permisos"]["project"] = ["READ"]
+        roles["roles"][0]["permisos"]["commitment"] = ["READ"]
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "roles.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(roles, f)
             code, out, err = self.run_cli(roles_path=path)
         self.assertEqual(code, 2)
-        self.assertIn("project", out)
+        self.assertIn("commitment", out)
         self.assertEqual(self.core.requests, [])
 
     def test_un_roles_json_mal_formado_sale_con_2_y_sin_traza(self):
@@ -349,16 +499,18 @@ class ApplyRolesTests(ApplyRolesTestCase):
     def test_un_permiso_de_campo_a_mano_se_neutraliza_y_la_corrida_siguiente_no_escribe(self):
         # wasichai 0.3.2: PUT [] no borra nada y no hay DELETE; se manda el campo con lectura y escritura (entrada neutra)
         self.run_cli()
-        self.core.roles["ANALYST"]["fieldPermissions"] = [
-            {"objectName": "zone", "fieldName": "code", "read": True, "write": False}]
+        self.core.roles["ANALYST"]["fieldPermissions"].append(
+            {"objectName": "topic", "fieldName": "code", "read": True, "write": False})
         self.core.requests.clear()
         code, out, err = self.run_cli()
         self.assertEqual(code, 0, err)
-        self.assertEqual(self.writes(), [("PUT", "/api/roles/ANALYST/field-permissions", {"fields": [
-            {"objectName": "zone", "fieldName": "code", "read": True, "write": True}]})])
+        roles = load(ROLES_PATH)
+        analyst = next(r for r in roles["roles"] if r["name"] == "ANALYST")
+        wanted = apply_roles.field_permissions_payload(analyst, load(MODEL_PATH), roles["restrictedFields"])["fields"]
+        neutral = {"objectName": "topic", "fieldName": "code", "read": True, "write": True}
+        self.assertEqual(self.writes(), [("PUT", "/api/roles/ANALYST/field-permissions", {"fields": wanted + [neutral]})])
         self.assertIn("done: 0 created, 1 updated, 14 skipped", out)
-        self.assertEqual(self.core.roles["ANALYST"]["fieldPermissions"], [
-            {"objectName": "zone", "fieldName": "code", "read": True, "write": True}])
+        self.assertIn(neutral, self.core.roles["ANALYST"]["fieldPermissions"])
         self.core.requests.clear()
         self.assertIn("done: 0 created, 0 updated, 15 skipped", self.run_cli()[1])
         self.assertEqual(self.writes(), [])

@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "sgspe"
-description = "sgspe: gestión social para proyectos extractivos sobre wasichai (core, views, forms, pages)"
+description = "sgspe: gestión social para proyectos extractivos sobre wasichai (core, views, forms, pages, gis, workflow)"
 
 val wasichaiVersion = "0.3.2"
 
@@ -18,6 +18,10 @@ dependencies {
     implementation("wasichai:wasichai-spring-boot-starter-views")
     implementation("wasichai:wasichai-spring-boot-starter-forms")
     implementation("wasichai:wasichai-spring-boot-starter-pages")
+    // F2: campos GEOMETRY en SRID 4326, filtro bbox, features y el componente MAP (gis.md §10); workflows por objeto
+    // (workflows.md)
+    implementation("wasichai:wasichai-spring-boot-starter-gis")
+    implementation("wasichai:wasichai-spring-boot-starter-workflow")
 
     // WasichaiIntegrationTest; brings spring-boot-starter-test, webflux-test and testcontainers
     testImplementation("wasichai:wasichai-test")
@@ -63,13 +67,15 @@ tasks.register<Test>("integrationTest") {
     }
     // la imagen del compose desde F1 (architecture.md §5.1); una base externa (WASICHAI_TEST_DB_*) ya la tiene
     systemProperty("wasichai.test.db.image", "postgis/postgis:18-3.6")
+    // -Dmatrix.roles=FIELD_AGENT,GIS_ANALYST recorta la matriz de permisos a esos roles (PermissionMatrixApiTest)
+    System.getProperty("matrix.roles")?.let { systemProperty("matrix.roles", it) }
     // la app registra en stdout; stderr lleva solo lo que una prueba reporta
     testLogging {
         events("standard_error")
     }
-    // SgspeApiTest aprovisiona con los scripts y los json de model/: un cambio en ellos vuelve a correr la suite, nunca un
-    // verde de caché
-    inputs.files(fileTree("model") { include("*.py", "*.json") })
+    // SgspeApiTest aprovisiona con los scripts y los json de model/, incluidos los de model/workflows/: un cambio en ellos
+    // vuelve a correr la suite, nunca un verde de caché
+    inputs.files(fileTree("model") { include("**/*.py", "**/*.json") })
     shouldRunAfter(tasks.named("test"))
 }
 

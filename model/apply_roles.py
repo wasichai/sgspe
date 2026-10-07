@@ -10,6 +10,10 @@ Copiado de caja-backend@dc9e391 (model/apply_roles.py) y extendido con las regla
 - `u` no es un permiso de wasichai: se expande en UPDATE más una entrada de campo de solo lectura (read sí, write no) para
   cada campo del objeto sin "derived": true y para el campo de cada relación que sale del objeto. Un permiso de campo es
   una restricción, así que un campo nuevo nunca queda escribible por defecto: se regenera en cada fase.
+- Los campos restringidos de security.md §7.9 van en la lista restrictedFields de roles.json: por objeto, sus campos
+  (o el campo de una relación) y los roles que conservan acceso (readers). Todo rol declarado que no está en readers
+  recibe, para cada uno de esos campos, una entrada sin lectura ni escritura; AUDITOR incluido (security.md §7.1). Si el
+  rol además tiene `u` sobre el objeto, gana la entrada más restrictiva.
 - Ningún rol lleva ownRecordsOnly (ASM-069): roles.json lo rechaza, y un rol de core que lo tenga se corrige.
 - Ningún rol recibe MANAGE_METADATA ni MANAGE_ORGANIZATION.
 
@@ -50,13 +54,23 @@ LINK_ONLY = "u"
 
 
 def _model_fields(model):
-    """Por objeto, sus campos sin "derived": true en el orden de model.json, y después el campo de cada relación que
-    sale de él."""
+    """Por objeto, sus campos sin "derived": true en el orden de model.json, y después el campo de cada relación
+    MANY_TO_ONE que sale de él (una MANY_TO_MANY es una tabla de unión, sin campo)."""
     fields = {}
     for obj in model.get("objects", []):
         fields[obj["name"]] = [f["name"] for f in obj.get("fields", []) if not f.get("derived", False)]
     for rel in model.get("relationships", []):
-        fields.setdefault(rel["source"], []).append(rel["fieldName"])
+        if rel.get("fieldName"):
+            fields.setdefault(rel["source"], []).append(rel["fieldName"])
+    return fields
+
+
+def _all_fields(model):
+    """Por objeto, todos sus campos (derivados incluidos) y el de cada relación MANY_TO_ONE que sale de él."""
+    fields = {o["name"]: {f["name"] for f in o.get("fields", [])} for o in model.get("objects", [])}
+    for rel in model.get("relationships", []):
+        if rel.get("fieldName"):
+            fields.setdefault(rel["source"], set()).add(rel["fieldName"])
     return fields
 
 
@@ -116,6 +130,34 @@ def validate(roles, model):
                 if action != LINK_ONLY and action not in objects[obj]:
                     errors.append(f"role {name}: action '{action}' on {obj} must be one of "
                                   f"{', '.join(objects[obj] + (LINK_ONLY,))}")
+    errors.extend(_validate_restricted(roles.get("restrictedFields", []), seen, model))
+    return errors
+
+
+def _validate_restricted(entries, declared, model):
+    """Los errores de restrictedFields: cada entrada nombra un objeto del modelo, campos suyos sin repetir y lectores
+    que son roles declarados."""
+    if not isinstance(entries, list):
+        return ["restrictedFields must be a list of {object, fields, readers}"]
+    errors, seen = [], set()
+    fields = _all_fields(model)
+    for entry in entries:
+        if not isinstance(entry, dict) or not {"object", "fields", "readers"} <= set(entry):
+            errors.append(f"restrictedFields: {entry!r} must have object, fields and readers")
+            continue
+        obj = entry["object"]
+        if obj not in fields:
+            errors.append(f"restrictedFields: object '{obj}' is not in model.json")
+            continue
+        for field in entry["fields"]:
+            if field not in fields[obj]:
+                errors.append(f"restrictedFields: '{field}' is not a field of {obj}")
+            if (obj, field) in seen:
+                errors.append(f"restrictedFields: {obj}.{field} is listed twice")
+            seen.add((obj, field))
+        for reader in entry["readers"]:
+            if reader not in declared:
+                errors.append(f"restrictedFields: reader '{reader}' of {obj} is not a declared role")
     return errors
 
 
@@ -126,13 +168,23 @@ def permissions_payload(role):
                             for obj, actions in role["permisos"].items() for action in actions]}
 
 
-def field_permissions_payload(role, model):
+def field_permissions_payload(role, model, restricted=()):
     """El cuerpo de PUT /api/roles/{name}/field-permissions: solo lectura para cada campo no derivado de cada objeto en el
-    que el rol tiene `u`."""
+    que el rol tiene `u`, y ni lectura ni escritura para cada campo restringido cuyo lector no es el rol. Una entrada por
+    campo: si el campo es las dos cosas, gana la restricción."""
     fields = _model_fields(model)
-    return {"fields": [{"objectName": obj, "fieldName": field, "read": True, "write": False}
-                       for obj, actions in role["permisos"].items() if LINK_ONLY in actions
-                       for field in fields.get(obj, [])]}
+    entries = {}
+    for obj, actions in role["permisos"].items():
+        if LINK_ONLY in actions:
+            for field in fields.get(obj, []):
+                entries[(obj, field)] = {"objectName": obj, "fieldName": field, "read": True, "write": False}
+    for entry in restricted:
+        if role["name"] in entry["readers"]:
+            continue
+        for field in entry["fields"]:
+            entries[(entry["object"], field)] = {"objectName": entry["object"], "fieldName": field, "read": False,
+                                                 "write": False}
+    return {"fields": list(entries.values())}
 
 
 def _granted(permissions):
@@ -182,7 +234,7 @@ def do_apply(client, roles, model):
     for role in roles["roles"]:
         name = role["name"]
         current = existing.get(name)
-        fields = field_permissions_payload(role, model)
+        fields = field_permissions_payload(role, model, roles.get("restrictedFields", []))
         writes = []
         if current is None:
             writes.append(("POST", "/api/roles", {"name": name, "label": role["label"]}, f"create role {name}"))
@@ -226,7 +278,7 @@ def _print_dry_run(roles, model):
         print(json.dumps({"name": role["name"], "label": role["label"]}, indent=2, ensure_ascii=False))
         print(f"# PUT /api/roles/{role['name']}/permissions")
         print(json.dumps(permissions_payload(role), indent=2, ensure_ascii=False))
-        fields = field_permissions_payload(role, model)
+        fields = field_permissions_payload(role, model, roles.get("restrictedFields", []))
         if fields["fields"]:
             print(f"# PUT /api/roles/{role['name']}/field-permissions")
             print(json.dumps(fields, indent=2, ensure_ascii=False))

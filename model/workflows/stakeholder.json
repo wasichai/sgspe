@@ -1,0 +1,27 @@
+{
+  "name": "wf-b-stakeholder",
+  "label": "Grupo de interés",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "identified", "label": "Identificado", "type": "INITIAL" },
+      { "name": "profiled", "label": "Caracterizado", "type": "INTERMEDIATE" },
+      { "name": "assessed", "label": "Evaluado", "type": "INTERMEDIATE" },
+      { "name": "retired", "label": "Retirado", "type": "INTERMEDIATE" }
+    ],
+    "transitions": [
+      { "name": "profile", "label": "Caracterizar", "from": "identified", "to": "profiled",
+        "roles": ["STAKEHOLDER_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
+      { "name": "assess", "label": "Evaluar", "from": "profiled", "to": "assessed",
+        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "retire_identified", "label": "Retirar", "from": "identified", "to": "retired",
+        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "retire_profiled", "label": "Retirar", "from": "profiled", "to": "retired",
+        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "retire_assessed", "label": "Retirar", "from": "assessed", "to": "retired",
+        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "reinstate", "label": "Reincorporar", "from": "retired", "to": "identified",
+        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] }
+    ]
+  }
+}

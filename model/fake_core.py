@@ -1,6 +1,8 @@
 """A scripted fake wasichai Core for the tests: metadata routes plus in-memory records.
 
-Copied from caja-backend@dc9e391 (model/fake_core.py); roles carry ownRecordsOnly and fieldPermissions. Test helper only.
+Copied from caja-backend@dc9e391 (model/fake_core.py); roles carry ownRecordsOnly and fieldPermissions.
+From F2 it keeps an object's indexes beside its uniqueConstraints and stores one workflow per object, refusing one that
+names a role it lacks, as wasichai does. Test helper only.
 """
 import json
 import re
@@ -13,10 +15,24 @@ OBJECT = re.compile(r"^/api/objects/([a-z0-9_]+)$")
 RECORDS = re.compile(r"^/api/objects/([a-z0-9_]+)/records$")
 RECORD = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)$")
 ACTIONS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/actions$")
+FIELD = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields/([a-z0-9_]+)$")
 FIELDS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields$")
 ROLE = re.compile(r"^/api/roles/([A-Z0-9_]+)$")
 ROLE_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/permissions$")
 ROLE_FIELD_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/field-permissions$")
+WORKFLOW = re.compile(r"^/api/objects/([a-z0-9_]+)/workflow$")
+
+# the keys of an object GET /api/objects tells besides its name, when they are set
+OBJECT_KEYS = ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints", "indexes")
+
+
+def _stored_field(field):
+    """What GET .../fields tells of a field once Core has it: the keys the scripts compare, a description trimmed."""
+    stored = {k: v for k, v in field.items() if k in ("name", "label", "type", "required", "unique", "indexed",
+                                                         "description", "enumOptions")}
+    if isinstance(stored.get("description"), str):
+        stored["description"] = stored["description"].strip()
+    return stored
 
 
 class FakeCoreHandler(BaseHTTPRequestHandler):
@@ -76,6 +92,7 @@ class FakeCore:
         self.fail_on_role = fail_on_role  # role name -> its POST /api/roles answers 500
         self.records = {}  # object name -> list of {"id", "attributes"}
         self.roles = {}  # role name -> {"name", "label", "permissions": [{"objectName", "action", "allowed"}]}
+        self.workflows = {}  # object name -> the body of its last PUT .../workflow
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -90,8 +107,10 @@ class FakeCore:
         self.server.shutdown()
         self.server.server_close()
 
-    def add_record(self, object_name, attributes, geometries=None):
+    def add_record(self, object_name, attributes, geometries=None, state=None):
         record = {"id": str(uuid.uuid4()), "attributes": dict(attributes)}
+        if state is not None:
+            record["state"] = state  # the workflow state, a key of the record itself as wasichai tells it
         if geometries is not None:
             record["geometries"] = dict(geometries)
         self.records.setdefault(object_name, []).append(record)
@@ -194,7 +213,9 @@ class FakeCore:
                 return 409, {"message": "exists"}
             # what GET /api/objects tells of it from now on: its write rules and, when it has any, its constraints
             self.existing_objects.add(name)
-            self.object_flags[name] = {k: body[k] for k in ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints") if body.get(k)}
+            self.object_flags[name] = {k: body[k] for k in OBJECT_KEYS if body.get(k)}
+            # and its fields, as GET .../fields tells them from now on (a description is trimmed, like wasichai)
+            self.existing_fields.setdefault(name, [_stored_field(f) for f in body.get("fields", [])])
             return 201, {"name": name}
         if OBJECT.match(path) and method == "PUT":
             name = OBJECT.match(path).group(1)
@@ -203,14 +224,31 @@ class FakeCore:
             if name == self.fail_put_object:
                 return 409, {"detail": "repeats"}
             # Core replaces the object: the flags it was not sent keep their value, as its null does. an empty
-            # uniqueConstraints is a key GET leaves out
-            flags = {**self.object_flags.get(name, {}), **{k: v for k, v in body.items() if k in ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints")}}
-            self.object_flags[name] = {k: v for k, v in flags.items() if v != [] or k != "uniqueConstraints"}
+            # uniqueConstraints and indexes are keys GET leaves out
+            flags = {**self.object_flags.get(name, {}), **{k: v for k, v in body.items() if k in OBJECT_KEYS}}
+            self.object_flags[name] = {k: v for k, v in flags.items() if v != [] or k not in ("uniqueConstraints", "indexes")}
             return 200, {"name": name, **self.object_flags[name]}
+        workflow = WORKFLOW.match(path)
+        if workflow and method == "GET":
+            stored = self.workflows.get(workflow.group(1))
+            return (200, stored) if stored is not None else (404, {"detail": "no workflow"})
+        if workflow and method == "PUT":
+            if workflow.group(1) not in self.existing_objects:
+                return 404, {"detail": "not found"}
+            unknown = [r for t in body["definition"]["transitions"] for r in t["roles"] if r not in self.roles]
+            if unknown:
+                return 400, {"detail": f"Unknown role '{unknown[0]}'"}
+            self.workflows[workflow.group(1)] = body
+            return 200, body
         if path == "/api/relationships" and method == "POST":
             name = body["name"]
             if name in self.existing_relationships:
                 return 409, {"message": "exists"}
+            self.existing_relationships.add(name)
+            if body.get("fieldName"):
+                # a MANY_TO_ONE puts a RELATION field on its source; a MANY_TO_MANY puts none
+                self.existing_fields.setdefault(body["source"], []).append(
+                    _stored_field({"name": body["fieldName"], "label": body["label"], "type": "RELATION"}))
             return 201, {"name": name}
         actions = ACTIONS.match(path)
         if actions and method == "POST":
@@ -225,10 +263,16 @@ class FakeCore:
         if fields and method == "GET":
             return 200, self.existing_fields.get(fields.group(1), [])
         if fields and method == "POST":
+            self.existing_fields.setdefault(fields.group(1), []).append(_stored_field(body))
             return 201, {"name": body["name"]}
         if path.startswith("/api/metadata/objects/") and method == "PUT":
             if self.fail_put:
                 return self.fail_put_status, {"message": "boom-put"}
+            field = FIELD.match(path)
+            if field:
+                stored = next((f for f in self.existing_fields.get(field.group(1), []) if f["name"] == field.group(2)), None)
+                if stored is not None:
+                    stored.update(_stored_field({**stored, **body}))
             return 200, {"required": True}
         if path.startswith("/api/metadata/objects/") and "/fields/" in path and method == "DELETE":
             return 204, None

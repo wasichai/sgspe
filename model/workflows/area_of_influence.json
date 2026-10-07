@@ -1,0 +1,18 @@
+{
+  "name": "wf-o-area_of_influence",
+  "label": "Área de influencia",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
+      { "name": "approved", "label": "Aprobada", "type": "INTERMEDIATE" },
+      { "name": "superseded", "label": "Reemplazada", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "approve", "label": "Aprobar", "from": "draft", "to": "approved",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
+      { "name": "supersede", "label": "Reemplazar", "from": "approved", "to": "superseded",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] }
+    ]
+  }
+}

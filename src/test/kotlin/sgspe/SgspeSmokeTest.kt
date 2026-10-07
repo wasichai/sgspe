@@ -3,7 +3,6 @@ package sgspe
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpHeaders
 import wasichai.test.WasichaiIntegrationTest
-import java.util.UUID
 
 // la app misma (SgspeApplication) sobre PostGIS: su salud responde, los módulos que instala responden, los que deja
 // fuera no, y lo propio de sgspe exige token (adaptado de caja-backend@dc9e391, src/test/kotlin/caja/CajaSmokeTest.kt)
@@ -39,8 +38,8 @@ class SgspeSmokeTest : WasichaiIntegrationTest() {
             ).exchange()
             .expectStatus()
             .isCreated
-        // views, forms y pages: los starters de F1
-        listOf("/api/objects/$name/views", "/api/objects/$name/forms", "/api/pages").forEach { path ->
+        // views, forms y pages: los starters de F1; gis desde F2
+        listOf("/api/objects/$name/views", "/api/objects/$name/forms", "/api/pages", "/api/gis/layers").forEach { path ->
             client
                 .get()
                 .uri(path)
@@ -49,11 +48,20 @@ class SgspeSmokeTest : WasichaiIntegrationTest() {
                 .expectStatus()
                 .isOk
         }
-        // documents, workflow, gis, automation y agent llegan en su fase: hoy sus rutas no existen
+        // workflow desde F2: un objeto sin workflow responde 404 con su problem+json, no la ruta inexistente
+        client
+            .get()
+            .uri("/api/objects/$name/workflow")
+            .header(HttpHeaders.AUTHORIZATION, token)
+            .exchange()
+            .expectStatus()
+            .isNotFound
+            .expectBody()
+            .jsonPath("$.detail")
+            .isEqualTo("Object '$name' has no workflow")
+        // documents, automation y agent llegan en su fase: hoy sus rutas no existen
         listOf(
             "/api/objects/$name/document-types",
-            "/api/objects/$name/records/${UUID.randomUUID()}/transitions",
-            "/api/gis/layers",
             "/api/automation-runs",
             "/api/agent/status"
         ).forEach { path ->

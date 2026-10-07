@@ -7,7 +7,9 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 
 - Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 0.3.2 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2); en F1, `sgspe.common` y `sgspe.observability`.
-- `model/`: `model.json`, `roles.json` y los scripts de Python (solo biblioteca estándar) que los aplican por REST.
+- `model/`: `model.json` (los 48 objetos de F2), `roles.json`, `workflows/` (WF-A, WF-B, WF-C, WF-L y WF-O) y los
+  scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
+  los documentos para las pruebas del modelo.
 - `docs/`: análisis, diseño, ADR, trazabilidad, roadmap y planes. La interfaz vive en `../sgspe-ui`.
 
 ## Reglas
@@ -20,7 +22,10 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Ningún código bajo el paquete `wasichai`; nunca `RecordStore`, `PhysicalTableRecordStore`, `AuditService` ni
   `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
-  Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows`.
+  Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` → `load_ubigeo.py`. Por el
+  túnel, los tres primeros pasos con el modelo de F2 tardan de 5 a 8 minutos, y la suite de integración completa, de
+  30 minutos a más de una hora (la matriz de permisos, entre 11 y 58 minutos según la carga del túnel,
+  aprovisionamiento incluido).
 - Gradle: `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …`. El token nunca va a un archivo.
 - Docker es remoto: las pruebas de integración corren en la CI o con `WASICHAI_TEST_DB_*` contra `sgspe_test` por el túnel
   del puerto 5435 (`docs/develop/README.md` §6).
@@ -33,7 +38,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 |---|---|
 | Build y pruebas unitarias | `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build` |
 | Integración (base externa) | `WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew integrationTest --rerun` |
-| Modelo | `cd model && python3 -m unittest -v && python3 apply.py --validate-only` |
+| Modelo | `cd model && python3 -m unittest -v && python3 apply.py --validate-only && python3 load_ubigeo.py --dry-run` |
 | Trazabilidad | `python3 tools/check_traceability.py` |
 | Formato | `yarn format:check` |
 
@@ -45,5 +50,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Correlación y línea de acceso | `src/main/kotlin/sgspe/observability/` |
 | Marca de escritura, `Records`, Lima, 422 | `src/main/kotlin/sgspe/common/` |
 | Base de las pruebas de contrato | `src/test/kotlin/sgspe/SgspeApiTest.kt` y `src/test/kotlin/sgspe/contract/` |
+| Base de las pruebas de F2 (registros mínimos, asignaciones, transiciones) | `src/test/kotlin/sgspe/F2ApiTest.kt` |
+| Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
+| Modelo frente a los documentos | `model/test_model.py`, `model/design_docs.py` |
 | Reglas de arquitectura | `src/test/kotlin/sgspe/ArchitectureTest.kt` |
 | Plan de la fase en curso | `docs/superpowers/plans/` |
