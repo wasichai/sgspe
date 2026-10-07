@@ -122,6 +122,15 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
    `--rerun` evita que la caché de Gradle devuelva un verde viejo. Detalles en
    `wasichai/docs/development/getting-started.md#integration-tests`.
 
+   La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 48 objetos y por el túnel tarda
+   57 min 40 s (medido), aprovisionamiento incluido. Para depurar un cambio de `model/roles.json`, recórtala a unos
+   roles con `-Dmatrix.roles=FIELD_AGENT,GIS_ANALYST` (separados por comas; sin ella corren todos): cada rol son unos 3
+   a 4 minutos. La corrida completa queda para la CI.
+
+   ```bash
+   ./gradlew integrationTest --rerun --tests 'sgspe.security.PermissionMatrixApiTest' -Dmatrix.roles=FIELD_AGENT
+   ```
+
 ## 7. Observabilidad
 
 - `X-Correlation-Id`: se acepta el del cliente si cumple `^[A-Za-z0-9._-]{1,64}$`; si no, se genera un UUID. Va en toda

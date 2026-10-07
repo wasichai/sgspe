@@ -67,6 +67,8 @@ tasks.register<Test>("integrationTest") {
     }
     // la imagen del compose desde F1 (architecture.md §5.1); una base externa (WASICHAI_TEST_DB_*) ya la tiene
     systemProperty("wasichai.test.db.image", "postgis/postgis:18-3.6")
+    // -Dmatrix.roles=FIELD_AGENT,GIS_ANALYST recorta la matriz de permisos a esos roles (PermissionMatrixApiTest)
+    System.getProperty("matrix.roles")?.let { systemProperty("matrix.roles", it) }
     // la app registra en stdout; stderr lleva solo lo que una prueba reporta
     testLogging {
         events("standard_error")
