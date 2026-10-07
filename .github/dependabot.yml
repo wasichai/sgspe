@@ -1,5 +1,17 @@
 # weekly bumps. prefixes keep dependabot's commits and pr titles conventional (commits.yml).
 version: 2
+
+# the gradle build reads the wasichai libraries from github packages (settings.gradle.kts), which needs credentials
+# even to read. PACKAGES_TOKEN is a Dependabot secret (Settings > Secrets and variables > Dependabot, not Actions)
+# holding a PAT with read:packages. GITHUB_TOKEN is not available to dependabot.
+# wasichai bumps stay manual: the version is a template val (wasichaiVersion), which dependabot does not see
+registries:
+  wasichai:
+    type: maven-repository
+    url: https://maven.pkg.github.com/wasichai/wasichai
+    username: x-access-token
+    password: ${{secrets.PACKAGES_TOKEN}}
+
 updates:
   # actions are pinned by sha; dependabot moves the sha and the version comment together
   - package-ecosystem: github-actions
@@ -16,6 +28,8 @@ updates:
   # build.gradle.kts
   - package-ecosystem: gradle
     directory: /
+    registries:
+      - wasichai
     schedule:
       interval: weekly
     commit-message:
