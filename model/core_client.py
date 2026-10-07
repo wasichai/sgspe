@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 
 PAGE_SIZE = 200  # Core's max page size
+TIMEOUT_SECONDS = 60  # per call: a dropped tunnel fails with a CoreError instead of hanging
 
 
 class CoreError(Exception):
@@ -31,7 +32,7 @@ class Client:
         data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(url, data=data, method=method, headers=headers)
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
                 status = resp.status
                 raw = resp.read()
         except urllib.error.HTTPError as e:
@@ -43,7 +44,9 @@ class Client:
             raise CoreError(status, text)
         except (urllib.error.URLError, ConnectionError, OSError) as e:
             reason = getattr(e, "reason", e)
-            raise CoreError(f"connection failed: {reason}", "")
+            if isinstance(e, TimeoutError) or isinstance(reason, TimeoutError):
+                raise CoreError(f"timed out after {TIMEOUT_SECONDS} s: {method} {url}", "") from e
+            raise CoreError(f"connection failed: {reason} ({method} {url})", "") from e
         text = raw.decode("utf-8") if raw else ""
         parsed = json.loads(text) if text else None
         return status, parsed

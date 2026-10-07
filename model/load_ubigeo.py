@@ -26,6 +26,8 @@ OBJECT = "administrative_unit"
 COLUMNS = ("codigo", "departamento", "provincia", "distrito")
 CODE = re.compile(r"^\d{6}$")
 LEVELS = ("DEPARTAMENTO", "PROVINCIA", "DISTRITO")
+PLURALS = {"DEPARTAMENTO": "departamentos", "PROVINCIA": "provincias", "DISTRITO": "distritos"}
+PROGRESS_EVERY = 200  # a progress line every this many units of a level, and one when the level ends
 
 
 class CsvError(Exception):
@@ -60,8 +62,10 @@ def read_units(path):
 
 
 def load(client, units):
-    """Crea, reemplaza o salta cada unidad en orden, para que la superior ya tenga id. Devuelve (creadas,
-    actualizadas, saltadas)."""
+    """Crea, reemplaza o salta cada unidad en orden, para que la superior ya tenga id, e informa el avance de cada nivel
+    ("distritos: 400/1892") cada PROGRESS_EVERY unidades y al terminarlo. Devuelve (creadas, actualizadas, saltadas)."""
+    totals = {level: sum(1 for u in units if u["level"] == level) for level in LEVELS}
+    seen = dict.fromkeys(LEVELS, 0)
     existing = {r["attributes"]["ubigeo_code"]: r for r in client.list_all(OBJECT)}
     ids = {code: record["id"] for code, record in existing.items()}
     created = updated = skipped = 0
@@ -79,6 +83,10 @@ def load(client, units):
             updated += 1
         else:
             skipped += 1
+        level = unit["level"]
+        seen[level] += 1
+        if seen[level] % PROGRESS_EVERY == 0 or seen[level] == totals[level]:
+            print(f"{PLURALS[level]}: {seen[level]}/{totals[level]}", flush=True)
     return created, updated, skipped
 
 

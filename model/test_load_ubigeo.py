@@ -43,9 +43,8 @@ class ReadUnitsTests(unittest.TestCase):
     def test_el_archivo_del_repositorio_tiene_los_niveles_del_ubigeo(self):
         units, skipped = load_ubigeo.read_units(os.path.join(HERE, "data", "ubigeo.csv"))
         counts = {level: sum(1 for u in units if u["level"] == level) for level in load_ubigeo.LEVELS}
-        self.assertEqual(counts["DEPARTAMENTO"], 25)
-        self.assertGreater(counts["PROVINCIA"], 190)
-        self.assertGreater(counts["DISTRITO"], 1800)
+        self.assertEqual(counts, {"DEPARTAMENTO": 25, "PROVINCIA": 196, "DISTRITO": 1892})
+        self.assertEqual(skipped, [(1894, "NA")])
         self.assertEqual(len({u["ubigeo_code"] for u in units}), len(units))
 
     def test_un_csv_sin_las_columnas_se_rechaza(self):
@@ -98,6 +97,56 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("done: 0 created, 1 updated, 5 skipped", out)
         self.assertEqual(self.units()["130602"]["attributes"]["name"], "AGALLPAMPA")
+
+    def test_un_padre_equivocado_o_vacio_se_corrige(self):
+        self.run_cli()
+        units = self.units()
+        units["130601"]["attributes"]["parent_unit"] = units["130100"]["id"]  # otra provincia
+        units["130602"]["attributes"]["parent_unit"] = None  # sin padre
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        self.assertIn("done: 0 created, 2 updated, 4 skipped", out)
+        units = self.units()
+        self.assertEqual(units["130601"]["attributes"]["parent_unit"], units["130600"]["id"])
+        self.assertEqual(units["130602"]["attributes"]["parent_unit"], units["130600"]["id"])
+
+    def test_retoma_cuando_solo_faltan_los_distritos(self):
+        self.run_cli()
+        self.core.records["administrative_unit"] = [
+            r for r in self.core.records["administrative_unit"] if r["attributes"]["level"] != "DISTRITO"]
+        parents = {code: r["id"] for code, r in self.units().items()}
+        self.core.requests.clear()
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        self.assertIn("done: 3 created, 0 updated, 3 skipped", out)
+        units = self.units()
+        self.assertEqual({c: units[c]["id"] for c in parents}, parents)  # los padres no se tocaron
+        self.assertEqual(units["130104"]["attributes"]["parent_unit"], parents["130100"])
+        self.assertEqual(units["130602"]["attributes"]["parent_unit"], parents["130600"])
+        writes = [(m, p) for m, p, _, _ in self.core.requests if m in ("POST", "PUT") and p != "/api/auth/login"]
+        self.assertEqual(writes, [("POST", "/api/objects/administrative_unit/records")] * 3)
+
+    def test_informa_el_avance_por_nivel(self):
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        lines = out.splitlines()
+        for line in ("departamentos: 1/1", "provincias: 2/2", "distritos: 3/3"):
+            self.assertIn(line, lines)
+        self.assertLess(lines.index("departamentos: 1/1"), lines.index("provincias: 2/2"))
+        self.assertLess(lines.index("provincias: 2/2"), lines.index("distritos: 3/3"))
+        self.assertTrue(lines[-1].startswith("done: "))
+
+    def test_informa_cada_200_registros_dentro_de_un_nivel(self):
+        text = "codigo,departamento,provincia,distrito\n" + "".join(
+            f"13{p:02d}{d:02d},LA LIBERTAD,PROVINCIA {p},DISTRITO {p}-{d}\n" for p in range(1, 6) for d in range(1, 91))
+        self.csv = write_csv(self.folder.name, text)  # 450 distritos en 5 provincias
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        lines = out.splitlines()
+        self.assertEqual([l for l in lines if l.startswith("distritos:")],
+                         ["distritos: 200/450", "distritos: 400/450", "distritos: 450/450"])
+        self.assertEqual([l for l in lines if l.startswith("provincias:")], ["provincias: 5/5"])
+        self.assertIn("done: 456 created, 0 updated, 0 skipped", out)
 
     def test_un_rechazo_de_core_sale_con_1(self):
         self.core.fail_on_record = "administrative_unit"
