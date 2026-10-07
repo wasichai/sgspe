@@ -10,9 +10,9 @@ el arranque de la app, los roles como datos, el contrato con la plataforma, la o
 repositorios. El plan ejecutable está en
 [`superpowers/plans/2026-10-07-fase-1-fundacion.md`](superpowers/plans/2026-10-07-fase-1-fundacion.md).
 
-Estado: las pistas 0, A, B y C están en verde en local. La CI de los dos repositorios sigue pendiente del primer push y de
-los secretos `PACKAGES_TOKEN` (T0.4), así que «Implementado» en la matriz de trazabilidad significa, por ahora, verificado
-en local. Dependabot de `sgspe` también necesita `PACKAGES_TOKEN`, como secreto de Dependabot del repositorio
+Estado: las pistas 0, A, B y C están en verde en local y en la CI de los dos PR (wasichai/sgspe#2: build, integración, modelo,
+trazabilidad, formato y commits; wasichai/sgspe-ui#1: web y commits), el 2026-10-07. «Implementado» en la matriz de
+trazabilidad significa que pasa en la CI de su fase. Dependabot de `sgspe` también necesita `PACKAGES_TOKEN`, como secreto de Dependabot del repositorio
 (`docs/develop/README.md`, sección 1); sin él, sus actualizaciones de Gradle no leen GitHub Packages.
 
 ### Backend (`sgspe`)

@@ -47,7 +47,7 @@ Convenciones:
 | Estado | Significado |
 |---|---|
 | Diseñado | Los documentos de la Fase 0 lo cubren: objeto, mecanismo, API, pantalla y prueba están decididos, o la fila dice con «—» que no los tiene por su naturaleza (§7.1, tipo «No aplica») |
-| Implementado | El código y las pruebas que la fila cita existen y pasan en local (desde F1); la CI de la fase lo confirmará con el primer push, y entonces esta definición vuelve a «pasan en la CI de su fase». Si la fila lleva además Upstream, la brecha sigue abierta y su mitigación está implementada |
+| Implementado | El código y las pruebas que la fila cita existen y pasan en la CI de su fase (desde F1). Si la fila lleva además Upstream, la brecha sigue abierta y su mitigación está implementada |
 | Decisión pendiente | Depende de una decisión que el análisis lleva al checkpoint: CON-041, GAP-025, CON-050, GAP-001, GAP-002, GAP-003, GAP-004, GAP-005, GAP-009 (`requirements-analysis.md` §1). Está diseñado con el valor por defecto de su gap o con la recomendación de su contradicción. La fila lo lleva cuando la columna «Afecta a» del gap la nombra, cuando su fila del análisis cita el ID, o cuando otra fila que cita el ID remite a ella: RNF-MNT-004 cita CON-050 y remite a RF-CAT-001, que define los valores ENUM. Los requisitos que dependen de otros gaps se diseñan con su valor por defecto y quedan como Diseñado |
 | Upstream | Su cumplimiento completo depende de una brecha de wasichai (UPS, `requirements-analysis.md` §18.2); la fila cita la brecha, y la mitigación de esa tabla ya está diseñada, salvo que la fila lleve además «Hueco» |
 | Hueco | Le falta algo que ningún documento define: una prueba o el lugar de un dato. §7.1 dice qué necesita (tipo «Hueco») |

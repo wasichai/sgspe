@@ -153,7 +153,7 @@ paralelo, cada una en su propio worktree.
 | Entregables | Spike técnico de ADR-0013 (Apache POI, Gotenberg, fuentes e índice) y de ADR-0015 (GetMap), recomendado al inicio de F1 si el checkpoint lo aprueba ([Entregables §14](deliverables.md#14-fases), [SIG §10](gis.md#10-fases)) |
 | Roles con permisos | `SUPER_ADMIN` y `ORGANIZATION_ADMIN` (como `ADMIN`) y `AUDITOR` (`"*": ["READ"]`); los otros 14 existen con su etiqueta y sin permisos ([Seguridad §6](security.md#6-roles)) |
 | Requisitos de la fase | RF-IAM-001, RF-IAM-002, RNF-MNT-001, RNF-MNT-002, RNF-MNT-005, RNF-INT-001, RNF-I18N-001, RNF-OBS-001, RNF-USA-001, RQ-SEC-001, RQ-SEC-002, RQ-SEC-003, RQ-SEC-004, RQ-SEC-005, RQ-SEC-007, RQ-SEC-015, RQ-SEC-016, RQ-SEC-017, RQ-AUD-001, RQ-AUD-006, RQ-AUD-008, RQ-AUD-009, RQ-AUD-010, RQ-AUD-014; además RQ-AUD-005 en `/admin`, y RNF-MNT-003 y RNF-TST-001, que rigen de F1 a F8 |
-| Estado | Pistas 0, A, B y C en verde en local el 2026-10-07 y spike hecho; la CI está pendiente del primer push y de los secretos `PACKAGES_TOKEN` (T0.4), así que la fase no se da por terminada hasta que ambos PR la pasen; plan ejecutable en `docs/superpowers/plans/2026-10-07-fase-1-fundacion.md` |
+| Estado | Pistas 0, A, B y C en verde en local y en la CI de wasichai/sgspe#2 y wasichai/sgspe-ui#1 el 2026-10-07, y spike hecho; falta cargar `PACKAGES_TOKEN` como secreto de Dependabot (T0.4); plan ejecutable en `docs/superpowers/plans/2026-10-07-fase-1-fundacion.md` |
 
 ### Pista 0 · Precondiciones
 
