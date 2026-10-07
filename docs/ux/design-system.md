@@ -164,6 +164,62 @@ animados ni brillos de carga. Con `prefers-reduced-motion`, todo cambia sin tran
 | Error | Borde y mensaje `danger` con ícono, debajo del campo, enlazado con `aria-describedby`; el mensaje dice cómo corregir |
 | Éxito | Confirmación breve (toast o marca en el campo); nunca bloquea el siguiente paso |
 
+### 3.9 Temas
+
+**ASSUMPTION (ASM-086):** SGSPE ofrece tres temas propios sobre el sistema de temas de wasichai [WAS-ADR-034,
+WAS-ADR-035], sin tocar sus paquetes: cada uno es un bloque `[data-theme='<id>']` de [`themes.css`](themes.css) con los 28
+tokens de `@wasichai/ui` (18 base y 10 de extensión), IBM Plex Sans y los radios de §3.5, y un `ThemeDefinition` en
+`config.themes` del portal y de `WasichaiApp`. Lienzo de la etapa 3, página 25.
+
+| Tema | `id` | `colorScheme` | Carácter |
+|---|---|---|---|
+| Pino y piedra | `sgspe-pino` | `light` | El actual y el predeterminado: barra superior blanca, acento pino, neutros de piedra |
+| Cielo | `sgspe-cielo` | `light` | Fondo blanco y azul (`brand` #1F5FA8), barra superior azul profundo (#0E3A66), como el portal tributario de srtm |
+| Pino de noche | `sgspe-noche` | `dark` | Grafito verdoso con acento jade (#6FC2B2): se distingue del oscuro de wasichai, que es gris azulado |
+
+- **Selector:** Perfil › Tema en el portal y en `/admin`, con una sola preferencia por cuenta
+  (`/api/auth/me/preferences`). Ofrece «Según el sistema», los tres de SGSPE y Claro y Oscuro de wasichai, que la plataforma
+  siempre incluye.
+- **Marca:** no cambia con el tema. El isotipo va a color sobre una barra clara e invertido sobre una oscura (§2.1).
+- **Colores propios de SGSPE:** cada bloque apunta los `--sg-*` de base y acción a los tokens de wasichai; los de IA,
+  territorio, nivel de riesgo y datos toman los valores claros de [`tokens.css`](tokens.css), o los oscuros en
+  `sgspe-noche`.
+- **Impresión:** los documentos impresos siguen en claro (`PrintableDocumentPage` fija `data-theme="light"`).
+- **Brecha:** «Según el sistema» resuelve hoy a `light` o `dark` de wasichai, y la preferencia por defecto es `system`. Para
+  que el portal abra en Pino y piedra y siga al sistema con Pino de noche hace falta UPS-19; mientras tanto, el portal
+  guarda `sgspe-pino` como preferencia inicial de una cuenta que no tiene ninguna.
+- **Pruebas:** como `tokens.test.tsx` de srtm-ui, un test comprueba que cada tema fija los 28 tokens y mide los pares de
+  la tabla.
+
+Contraste medido (WCAG 2.2 AA):
+
+| Par | Mínimo | Pino y piedra | Cielo | Pino de noche |
+|---|---|---|---|---|
+| `ink` / `surface` | 4.5:1 | 16.48 | 16.50 | 14.31 |
+| `ink-muted` / `surface` | 4.5:1 | 5.78 | 6.43 | 6.73 |
+| `brand-strong` / `surface` | 4.5:1 | 10.04 | 8.68 | 10.34 |
+| `danger` / `surface` | 4.5:1 | 6.57 | 6.36 | 7.58 |
+| `success` / `surface` | 4.5:1 | 6.39 | 6.64 | 8.43 |
+| `warning` / `surface` | 4.5:1 | 6.69 | 6.31 | 9.05 |
+| `link` / `surface` | 4.5:1 | 7.76 | 6.84 | 9.27 |
+| `brand` / `surface` | 4.5:1 | 7.76 | 6.44 | 8.18 |
+| `ink` / `surface-muted` | 4.5:1 | 15.19 | 15.22 | 15.29 |
+| `ink-muted` / `surface-muted` | 4.5:1 | 5.33 | 5.93 | 7.19 |
+| `on-brand` / `brand` | 4.5:1 | 7.76 | 6.44 | 9.04 |
+| `shell-ink` / `shell` | 4.5:1 | 16.48 | 11.57 | 16.14 |
+| `shell-muted` / `shell` | 4.5:1 | 5.78 | 7.11 | 7.59 |
+| `on-danger` / `danger` | 4.5:1 | 6.57 | 6.36 | 8.36 |
+| `success` / `success-soft` | 4.5:1 | 5.46 | 5.77 | 7.34 |
+| `warning` / `warning-soft` | 4.5:1 | 5.91 | 5.67 | 7.65 |
+| `danger` / `danger-soft` | 4.5:1 | 5.49 | 5.46 | 6.74 |
+| `notice` / `notice-soft` | 4.5:1 | 6.22 | 6.20 | 8.69 |
+| `brand-strong` / `brand-soft` | 4.5:1 | 8.52 | 7.55 | 8.50 |
+| `ink` / `table-stripe` | 4.5:1 | 15.74 | 15.77 | 14.76 |
+| `ink-muted` / `table-head` | 4.5:1 | 5.04 | 5.76 | 6.23 |
+| `focus` / `surface` | 3:1 | 5.22 | 4.48 | 7.54 |
+| `focus` / `surface-muted` | 3:1 | 4.81 | 4.13 | 8.06 |
+| `map-selected` / `surface` | 3:1 | 3.58 | 3.58 | 6.40 |
+
 ## 4. Sistema de estados
 
 Tres familias que nunca se confunden [PRM-02 §8]:
@@ -419,7 +475,8 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
 
 ## 9. Guía de implementación
 
-- **Tokens:** importar `docs/ux/tokens.css` (copiado al portal) después de `@wasichai/ui/theme.css`. Usar siempre los tokens,
+- **Tokens:** importar `docs/ux/tokens.css` y `docs/ux/themes.css` (copiados al portal) después de
+  `@wasichai/ui/theme.css`. Usar siempre los tokens,
   nunca colores sueltos; los colores de ECharts y MapLibre se leen de las mismas variables.
 - **Componentes de estado:** un solo `StatusBadge` que recibe el objeto, el estado y la situación, con un mapa de tono e ícono
   por workflow tomado de §4.1; las etiquetas de estados y valores salen del catálogo i18n del portal por clave (§9.1), con la
@@ -463,7 +520,7 @@ Un script compara cada par de texto y fondo de §3 y del lienzo. Resultado de es
 - **Requisitos:** RNF-USA-001, RNF-I18N-001, RNF-MNT-001, RQ-DSH-032, RQ-DSH-035, RQ-GIS-014, RQ-GIS-015, RQ-AUD-002,
   RQ-AUD-011, RQ-AI-003, RQ-AI-004, RQ-AI-012, RQ-SEC-005, RN-WFL-001, RN-COM-001, RN-ENG-001, RN-INV-003, RF-COM-003.
 - **Supuestos:** ASM-021, ASM-025, ASM-063, ASM-066, ASM-075, ASM-076, ASM-077, ASM-079, ASM-081, ASM-082, ASM-083, ASM-084,
-  ASM-085.
+  ASM-085, ASM-086.
 - **Documentos:** [workflows.md](../workflows.md), [dashboards.md §3 y §9](../dashboards.md), [gis.md §2 y §7.2](../gis.md),
   [security.md §5 y §9](../security.md), [api.md §3](../api.md), [ADR-0024](../adr/0024-interfaz-portal-y-admin.md),
   [ADR-0025](../adr/0025-concurrencia-e-idempotencia.md).

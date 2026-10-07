@@ -399,12 +399,13 @@ ASM-075 (rutas y contexto en la URL), ASM-076 (misma página con otro alcance), 
 con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10]. La etapa 3
 agrega ASM-081 (la captura de campo sin conexión se diseña; se implementa después del MVP). Las respuestas del usuario a Q1,
 Q3, Q6 y Q7 agregan ASM-082 (marca propia), ASM-083 (vistas compartidas), ASM-084 (español, inglés y quechua) y ASM-085
-(mapa base por entorno), con sus hojas en las páginas 22 a 24 del lienzo de la etapa 3.
+(mapa base por entorno), con sus hojas en las páginas 22 a 24 del lienzo de la etapa 3. ASM-086 suma tres temas propios
+(página 25).
 
 | # | Pregunta | Valor con el que se diseña | Relacionado |
 |---|---|---|---|
 | Q1 | ¿El cliente tiene marca o guía visual propia para el portal? | Respondida por el usuario: marca propia de SGSPE, dirección «Sendero» sobre la paleta «Pino y piedra» | ASM-077, ASM-082 |
-| Q2 | ¿Qué nombres de tokens y qué primitivas (tabla, drawer, combobox, calendario) trae `@wasichai/ui` 0.5.0? | Los tokens se aplican como capa; se confirma en F1 al copiar caja-ui | ASM-077, RNF-MNT-001 |
+| Q2 | ¿Qué nombres de tokens y qué primitivas (tabla, drawer, combobox, calendario) trae `@wasichai/ui` 0.5.0? | Tokens respondidos: los 28 de WAS-ADR-035, que fijan los tres temas de `themes.css` (ASM-086); las primitivas se confirman en F1 al copiar caja-ui | ASM-077, ASM-086, RNF-MNT-001 |
 | Q3 | ¿Las vistas guardadas deben compartirse entre personas o dispositivos? | Respondida por el usuario: sí; visibilidad solo yo, equipo del proyecto u organización; requiere `saved_view` | ASM-079, ASM-083 |
 | Q4 | ¿El ejecutivo necesita un rol propio? | Lectura con `READ_ONLY` o `ANALYST` | ASM-074 |
 | Q5 | ¿El trabajo de campo debe operar sin conexión? | Respondida por el usuario: sí, se diseña; se implementa después del MVP, con un ADR de sincronización | GAP-008, ASM-021, ASM-081 |

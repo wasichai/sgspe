@@ -3,7 +3,7 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
-## 2026-10-07 — Diseño UX/UI: marca, idiomas, vistas compartidas y mapa base
+## 2026-10-07 — Diseño UX/UI: marca, idiomas, vistas compartidas, mapa base y temas
 
 El usuario respondió las preguntas abiertas Q1, Q3, Q6 y Q7 de `ux/ux-architecture.md` §10.
 
@@ -16,7 +16,10 @@ El usuario respondió las preguntas abiertas Q1, Q3, Q6 y Q7 de `ux/ux-architect
   y la pantalla nueva S56 «Gestionar vistas». Reemplaza ASM-079 y pide un objeto `saved_view` a la sesión de implementación.
 - **Mapa base (ASM-085).** Página 24 y `gis.md` §6.4: las librerías de srtm-ui; OpenStreetMap ráster solo en desarrollo y
   estilo configurable en producción, sin volver a OpenStreetMap.
-- El análisis pasa a 493 IDs.
+- **Temas (ASM-086).** Página 25 y `ux/themes.css`: Pino y piedra (el actual, predeterminado), Cielo (blanco y azul) y Pino
+  de noche (oscuro, distinto del de wasichai), cada uno con los 28 tokens de `@wasichai/ui` (WAS-ADR-034, WAS-ADR-035) y
+  contraste AA medido en `ux/design-system.md` §3.9. UPS-19 pide elegir qué temas usa «Según el sistema».
+- El análisis pasa a 495 IDs.
 
 ## 2026-10-07 — Diseño UX/UI: pendientes de la etapa 3
 
