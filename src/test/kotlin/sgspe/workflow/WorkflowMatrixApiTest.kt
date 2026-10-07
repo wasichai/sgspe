@@ -17,9 +17,12 @@ import java.io.File
 // la matriz de los cinco workflows de F2 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
 // rol de su lista la aplica desde su estado de origen y el registro queda en el destino, (2) un rol fuera de la lista que
 // tiene UPDATE (o `u`) sobre el objeto recibe 403 y el listado le dice `requires role ...`, y (3) desde un estado que no es
-// el de origen responde 409 con el registro sin cambios. si un rol sale o entra de una transición, o una transición cambia
-// de estado, falla aquí. cada paso lleva motivo, para que TransitionReasonGuard (plan 2.2) no rompa esta clase, y cada
-// registro trae lo que piden las guardas de 2.2 (como `activatable()` y `profileable()` de WF-A y WF-B)
+// el de origen responde 409 con el registro sin cambios. las expectativas salen de esos mismos JSON, así que un cambio de
+// roles o de estados en ellos cambia los casos y no los hace fallar: lo que la matriz prueba es que wasichai aplica los
+// workflows tal como están escritos. que los JSON coincidan con docs/workflows.md lo prueba model/test_model.py, y los
+// conteos fijos de WORKFLOW_TRANSITIONS impiden que una carga vacía o truncada deje la matriz sin casos. cada paso lleva
+// motivo, para que TransitionReasonGuard (plan 2.2) no rompa esta clase, y cada registro trae lo que piden las guardas de
+// 2.2 (como `activatable()` y `profileable()` de WF-A y WF-B; `close_light` usa un tipo no formal, ver LIGHT_CLOSE_TYPE)
 class WorkflowMatrixApiTest : F2ApiTest() {
     private data class Transition(
         val name: String,
@@ -59,7 +62,8 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     // un registro nuevo en el estado inicial, con lo que piden las guardas de 2.2
     private fun create(
         workflow: Workflow,
-        creatorRole: String
+        creatorRole: String,
+        engagementType: String = FORMAL_TYPE
     ): String =
         when (workflow.objectName) {
             // un proyecto que cumple las precondiciones de `active` (ASM-062); lo crea el admin, como en WF-A
@@ -90,7 +94,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
                     fixture(
                         "engagement",
                         mapOf(
-                            "engagement_type" to "REUNION",
+                            "engagement_type" to engagementType,
                             "title" to "Reunión con la junta",
                             "scheduled_at" to "2026-10-08T15:00:00Z",
                             "held_at" to "2026-10-08T16:00:00Z",
@@ -114,9 +118,10 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     private fun recordAt(
         workflow: Workflow,
         state: String,
-        creatorRole: String
+        creatorRole: String,
+        engagementType: String = FORMAL_TYPE
     ): String {
-        val id = create(workflow, creatorRole)
+        val id = create(workflow, creatorRole, engagementType)
         for (step in checkNotNull(pathTo(workflow, state)) { "${workflow.objectName}: el estado $state no se alcanza" }) {
             val role = workflow.drivers.first { it in step.roles }
             move(workflow.objectName, id, step.name, actor(workflow, role, id).token, TEXT)
@@ -129,6 +134,13 @@ class WorkflowMatrixApiTest : F2ApiTest() {
         workflow: Workflow,
         role: String
     ): String = if ("CREATE" in Model.roles.getValue(role)[workflow.objectName].orEmpty()) role else workflow.drivers.first()
+
+    // `close_light` cierra sin acta solo un tipo no formal (RN-ENG-004, EngagementWriteGuard.lightClose de 2.2: con la política
+    // por defecto un tipo formal responde 409); las demás transiciones usan REUNION, un tipo formal
+    private fun engagementTypeFor(
+        workflow: Workflow,
+        rule: Transition
+    ): String = if (workflow.key(rule) == "engagement.close_light") LIGHT_CLOSE_TYPE else FORMAL_TYPE
 
     // un rol fuera de la lista de la transición que puede actualizar el objeto: primero uno con UPDATE y, si no hay, uno con `u`
     private fun outsider(
@@ -184,10 +196,11 @@ class WorkflowMatrixApiTest : F2ApiTest() {
         rule: Transition
     ): List<DynamicNode> {
         val objectName = workflow.objectName
+        val type = engagementTypeFor(workflow, rule)
         val allowed =
             rule.roles.map { role ->
                 dynamicTest("$role aplica ${rule.name}: ${rule.from} pasa a ${rule.to}") {
-                    val id = recordAt(workflow, rule.from, creatorFor(workflow, role))
+                    val id = recordAt(workflow, rule.from, creatorFor(workflow, role), type)
                     move(objectName, id, rule.name, actor(workflow, role, id).token, TEXT)
                     assertEquals(rule.to, state(objectName, id))
                 }
@@ -197,7 +210,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
             dynamicTest("un rol con UPDATE fuera de la lista recibe 403 y el listado dice requires role") {
                 // sin un rol así no hay caso: todos los que actualizan el objeto están en la lista de la transición
                 assumeTrue(outsider != null) { "${workflow.key(rule)}: todo rol con UPDATE sobre $objectName está en su lista" }
-                val id = recordAt(workflow, rule.from, workflow.drivers.first())
+                val id = recordAt(workflow, rule.from, workflow.drivers.first(), type)
                 val who = actor(workflow, outsider!!, id)
                 val response = transition(objectName, id, rule.name, who.token, TEXT)
                 assertEquals(HttpStatus.FORBIDDEN, response.status, "$outsider: ${response.body}")
@@ -208,7 +221,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
         val conflict =
             dynamicTest("desde $wrong responde 409 y el registro no cambia") {
                 val role = rule.roles.first()
-                val id = recordAt(workflow, wrong, creatorFor(workflow, role))
+                val id = recordAt(workflow, wrong, creatorFor(workflow, role), type)
                 val who = actor(workflow, role, id)
                 val response = transition(objectName, id, rule.name, who.token, TEXT)
                 assertEquals(HttpStatus.CONFLICT, response.status, "$role: ${response.body}")
@@ -224,6 +237,21 @@ class WorkflowMatrixApiTest : F2ApiTest() {
             val (objectName, name) = key.split(".")
             assertTrue(WORKFLOWS.getValue(objectName).transitions.any { it.name == name }, "$key no existe en model/workflows/$objectName.json")
         }
+    }
+
+    @Test
+    fun `cada workflow trae todas sus transiciones`() {
+        assertEquals(WORKFLOW_TRANSITIONS, WORKFLOWS.mapValues { it.value.transitions.size })
+    }
+
+    @Test
+    fun `los tipos de interaccion de la matriz existen y close_light usa uno no formal`() {
+        val types = Model.enums.getValue("engagement_type")
+        assertTrue(FORMAL_TYPE in types && LIGHT_CLOSE_TYPE in types, "tipos de la matriz fuera de enums.engagement_type: $types")
+        // los tipos formales de RN-ENG-004 (EngagementWriteGuard.FORMAL_TYPES de 2.2)
+        val formal = setOf("REUNION", "REUNION INFORMATIVA", "TALLER", "ASAMBLEA", "MESA DE DIALOGO")
+        assertTrue(FORMAL_TYPE in formal)
+        assertFalse(LIGHT_CLOSE_TYPE in formal)
     }
 
     @Test
@@ -256,6 +284,12 @@ class WorkflowMatrixApiTest : F2ApiTest() {
 
     companion object {
         private const val TEXT = "prueba de la matriz de workflows"
+        private const val FORMAL_TYPE = "REUNION"
+        private const val LIGHT_CLOSE_TYPE = "CONTACTO CARA A CARA"
+
+        // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2)
+        private val WORKFLOW_TRANSITIONS =
+            mapOf("project" to 9, "stakeholder" to 6, "engagement" to 14, "field_visit" to 4, "area_of_influence" to 2)
 
         // lo que el plan 2.2 convierte en comando y la API genérica rechaza (CommandTransitionGuard: `assess` de WF-B, `approve`
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
