@@ -7,8 +7,8 @@ import sgspe.F2ApiTest
 
 // WF-C (workflows.md): el ciclo con acta y el de postergar y cancelar, por los roles del equipo de relacionamiento; el
 // acta la devuelve y la aprueba solo SOCIAL_MANAGER. las guardas de EngagementWriteGuard (asistente, tipos formales,
-// preguntas pendientes, motivo de cancelación), EditAnyGuard sobre interacciones ajenas y los conteos de asistentes los
-// agrega el plan 2.2 a esta clase. cada interacción ya trae lo que esas guardas piden
+// preguntas pendientes, motivo de cancelación, close_light de una REUNION), EditAnyGuard sobre interacciones y
+// participantes ajenos y los conteos de asistentes los agrega el plan 2.2 a esta clase. cada interacción ya trae lo que esas guardas piden
 class EngagementWorkflowApiTest : F2ApiTest() {
     private fun engagement(
         account: Account,
@@ -44,7 +44,7 @@ class EngagementWorkflowApiTest : F2ApiTest() {
     }
 
     @Test
-    fun `una reunion se posterga, se reprograma y se cancela con motivo`() {
+    fun `una reunion se posterga, se reprograma y se cancela`() {
         val manager = member("STAKEHOLDER_MANAGER")
         val engagement = engagement(manager, mapOf("cancel_reason" to "Lluvias intensas"))
         move("engagement", engagement, "schedule", manager.token)
@@ -56,7 +56,7 @@ class EngagementWorkflowApiTest : F2ApiTest() {
     }
 
     @Test
-    fun `FIELD_AGENT mueve la interaccion que creo`() {
+    fun `FIELD_AGENT mueve su propia interaccion`() {
         val agent = member("FIELD_AGENT")
         val engagement = engagement(agent)
         move("engagement", engagement, "schedule", agent.token)
@@ -64,7 +64,7 @@ class EngagementWorkflowApiTest : F2ApiTest() {
     }
 
     @Test
-    fun `quien solo lee recibe 403 y close desde held responde 409`() {
+    fun `quien solo lee recibe 403 y close desde planned responde 409`() {
         val officer = member("COMMUNITY_RELATIONS_OFFICER")
         val engagement = engagement(officer)
         assertEquals(HttpStatus.FORBIDDEN, transition("engagement", engagement, "schedule", member("ANALYST").token).status)

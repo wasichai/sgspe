@@ -9,7 +9,7 @@ import sgspe.F2ApiTest
 // SOCIAL_MANAGER. EditAnyGuard sobre visitas ajenas y el motivo obligatorio de `cancel` los agrega el plan 2.2
 class FieldVisitWorkflowApiTest : F2ApiTest() {
     @Test
-    fun `FIELD_AGENT inicia y concluye en parte la visita que creo`() {
+    fun `FIELD_AGENT inicia y concluye en parte su propia visita`() {
         val agent = member("FIELD_AGENT")
         val visit = fixture("field_visit", mapOf("title" to "Visita a la quebrada"), agent).id
         assertEquals("planned", state("field_visit", visit))
@@ -20,7 +20,7 @@ class FieldVisitWorkflowApiTest : F2ApiTest() {
     }
 
     @Test
-    fun `COMMUNITY_RELATIONS_OFFICER concluye y SOCIAL_MANAGER cancela con motivo`() {
+    fun `COMMUNITY_RELATIONS_OFFICER concluye y SOCIAL_MANAGER cancela`() {
         val officer = member("COMMUNITY_RELATIONS_OFFICER")
         val visit = fixture("field_visit", account = officer).id
         move("field_visit", visit, "start", officer.token)
