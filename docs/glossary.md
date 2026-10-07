@@ -185,7 +185,7 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Canal | campo de QCS | Grievance.origin | Medio por el que llegó el planteamiento (catálogo "Canal de QCS" de §10) | [DOC-01 Tabla 9.5, §9.4.2] | vía de recepción | medio de solicitud de un compromiso |
 | Acuse | transición `acknowledge` de WF-E1 | ACKNOWLEDGED | Confirmación de la recepción de una queja dentro del plazo (ASM-005) | [PRM-01 §5, §8] | cargo de queja | resolución |
 | Severidad | campo de `grievance` | Grievance.severity | Gravedad de una queja (catálogo "Severidad de queja" de §10; ASM-036) | [PRM-01 §5] | gravedad | nivel de riesgo |
-| Absuelta | — | — | Consulta o queja respondida; base del indicador "porcentaje absuelto" | [DOC-01 Tabla 9.5] | respondida | cerrada |
+| Absuelta | — | — | Consulta o queja respondida, con su `responded_at`; base del indicador "porcentaje absuelto" | [DOC-01 Tabla 9.5] | respondida | cerrada |
 
 ## Riesgos y alertas
 
@@ -239,7 +239,7 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Acta de entrega o de recepción | `evidence` y documento emitido | — | Documento firmado que deja constancia de una entrega y de su recepción | [DOC-01 §9.3.1.2] [DOC-02 p.4] | acta | acta de reunión |
 | Nivel de divulgación | campo de `deliverable_version` y de `export_log` | — | Grado de anonimización de una salida: nominal, con las personas por cargo o código, o solo con agregados (catálogo "Nivel de divulgación" de §10; RQ-REP-014) | [USR-07] | modo de anonimización | clasificación de una evidencia |
 | Clasificación de evidencia | campo de `evidence` | DocumentClassification | Sensibilidad de una evidencia (catálogo "Clasificación de evidencia" de §10) | [PRM-01 §5] | — | nivel de divulgación |
-| Registro de exportación | `export_log` | — | Registro append-only de cada exportación o emisión con datos personales: quién, qué, nivel y cuándo | [PRM-01 §18] [USR-07] | — | `audit_log` |
+| Registro de exportación | `export_log` | — | Registro append-only de cada exportación, cada emisión y cada descarga de archivos de entregables, en todos los niveles, con su tipo (`export_kind`): quién, qué, nivel y cuándo (RQ-AUD-011) | [PRM-01 §18] [USR-07] | — | `audit_log` |
 | Indicador | `indicator` | — | Indicador de monitoreo o KPI con definición, fórmula, desagregación, meta y frecuencia | [DOC-01 Tabla 9.5] [PRM-01 §16] | KPI | indicador de programa |
 | Medición de indicador | `indicator_measurement` | — | Valor oficial de un indicador en un periodo cerrado (ASM-042) | [DOC-01 §9.3.1] | — | medición de programa |
 | Anonimización | — | — | Sustitución de datos personales por cargos, códigos o agregados en artefactos versionados y salidas externas | [USR-07] | — | seudonimización antes de un LLM (ver IA) |
@@ -262,7 +262,11 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Automatización | metadata de wasichai | domain event (parcial) | Acción que dispara un cambio de registro o una transición: crear un registro, actualizar un campo, generar un documento | [WAS-ADR-0016] | — | trabajo programado (por tiempo) |
 | Listener | — | domain event | Código que reacciona a cambios de registros para derivar valores o notificar | [PRM-01 §12] | — | automatización |
 | Notificación | tablas fijas `notification` y `notification_delivery` | Notification | Aviso en la aplicación o por correo de un evento: por vencer, vencido, aprobación pendiente, alerta | [PRM-01 §17] | aviso | alerta temprana |
-| Acción declarada | `APPROVE`, `VERIFY`, `ISSUE`, `EXPORT`, `GENERATE` | — | Permiso adicional que declara un objeto y se otorga a roles, como las operaciones CRUD | [WAS-ADR-0042] | — | acción de compromiso (`commitment_action`) |
+| Acción declarada | catálogo de RQ-SEC-004 | — | Permiso adicional que declara un objeto y se otorga a roles, como las operaciones CRUD | [WAS-ADR-0042] | — | acción de compromiso (`commitment_action`) |
+| Confirmar o descartar una alerta | `CONFIRM_ALERT` (acción declarada de `early_warning`) | — | Permiso para llevar una alerta temprana a confirmada o descartada; no lo tiene ninguna cuenta de servicio ni la IA (RN-EWS-001, RQ-SEC-004) | [PRM-01 §5] [WAS-ADR-0042] | — | triaje de la alerta |
+| Aprobar sobre el tope | `APPROVE_OVER_CAP` (acción declarada de `commitment` y `social_contribution`) | — | Permiso para aprobar un compromiso o un aporte que supera el tope de apoyo social de la campaña cuando la política del proyecto bloquea la aprobación (RN-INV-003, GAP-006, RQ-SEC-004) | [DOC-01 §9.3.1.2] [WAS-ADR-0042] | — | `APPROVE`, la aprobación ordinaria |
+| Descarga restringida | `DOWNLOAD_RESTRICTED` (acción declarada de `evidence` y `deliverable`) | — | Permiso para descargar evidencias clasificadas CONFIDENCIAL o DATOS PERSONALES y los borradores y versiones INTERNO de un entregable, y para bajar la clasificación de una evidencia restringida (RF-DOC-003, RQ-SEC-004, ASM-071); cada descarga queda en `export_log` | [USR-07] [WAS-ADR-0042] | — | `EXPORT`, que habilita las versiones EXTERNO y PUBLICO |
+| Editar registros ajenos | `EDIT_ANY` (acción declarada; sus objetos están en `security.md`) | — | Permiso para cambiar o borrar registros que creó otra persona; quien no lo tiene solo cambia o borra los que creó, aunque puede agregar participantes u observaciones a una interacción o visita ajena que pueda leer (ASM-069, RQ-SEC-008) | [PRM-01 §7] [WAS-ADR-0042] | — | `own_records_only`, que SGSPE no usa |
 
 ## IA
 
@@ -274,7 +278,7 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Versión de prompt | campo de `ai_interaction` | promptVersion | Identificador del prompt versionado en el repositorio | [PRM-01 §10] | — | — |
 | Asistente | wasichai-agent | — | Agente de solo lectura de wasichai que responde preguntas como el usuario que pregunta (AI-05) | [WAS-ADR-0014] [WAS-ADR-0015] | agente | agentes propios de SGSPE |
 | RAG | tabla fija `knowledge_chunk` (F7) | RAG | Recuperación de fragmentos de documentos, con citas, para responder preguntas (RQ-AI-008) | [PRM-01 §9] | búsqueda semántica | búsqueda por filtros |
-| Seudonimización | — | — | Reemplazo de los datos personales por códigos antes de enviar texto a un LLM | [PRM-01 §10] [USR-07] | — | anonimización de artefactos y salidas externas |
+| Seudonimización | — | — | Reemplazo de los datos personales por códigos antes de enviar texto a un LLM; las citas de evidencia de las sugerencias también se guardan seudonimizadas (RQ-AI-004) | [PRM-01 §10] [USR-07] | — | anonimización de artefactos y salidas externas |
 | Confianza de la IA | campo de `ai_suggestion` y `commitment_candidate` | confidence | Probabilidad que el modelo asigna a su sugerencia | [PRM-01 §9] | — | confianza de un grupo de interés (1–5) |
 | Modelo falso | — | FakeModel, StubModel, MockModel | Modelo guionado para probar la IA sin un LLM real | [PRM-01 §21] | — | — |
 
@@ -294,7 +298,7 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | `requiresReason` | flag de objeto | — | Toda escritura exige motivo de cambio | [WAS-ADR-0041] | — | — |
 | Registro de auditoría | `audit_log` | AuditEvent | Registro append-only de los cambios de registros con usuario, operación, valores antes y después y motivo | [WAS-ADR-0040] [WAS-ADR-0041] | auditoría | log técnico; `export_log` |
 | Rol | rol de wasichai | role | Conjunto de permisos por objeto, acción y campo; SGSPE usa los 17 roles del prompt | [PRM-01 §7] [WAS-ADR-0020] | — | rol en el proyecto (`project_assignment`); rol de una parte (`project_party`) |
-| Registros propios | `own_records_only` | — | Restricción de un rol a los registros que creó | [WAS-ADR-0020] | — | alcance por proyecto |
+| Registros propios | `own_records_only` | — | Restricción de un rol a los registros que creó; SGSPE no la usa: `FIELD_AGENT` edita lo propio con la guarda de `EDIT_ANY` (ASM-069) | [WAS-ADR-0020] | — | alcance por proyecto |
 | Alcance por proyecto | — | scope-based authorization | Limitar lo que un usuario lee y escribe a sus proyectos o territorios; requiere UPS-01 | [PRM-01 §7] | scope | tenant |
 | Cuenta de servicio | — | — | Usuario técnico de una integración, con credenciales de cliente | [WAS-ADR-0043] | — | persona |
 | Portal | `sgspe-ui` en `/` | — | Interfaz propia de SGSPE construida con `@wasichai/ui` | [USR-03] [USR-08] | — | `/admin` |
@@ -405,7 +409,7 @@ Entidades y roles del prompt maestro con su término en español y su destino en
 | `SOCIAL_RISK_MANAGER` | Gestor de riesgos sociales | rol declarado |
 | `SOCIAL_INVESTMENT_MANAGER` | Gestor de inversión social | rol declarado |
 | `GIS_ANALYST` | Analista SIG | rol declarado |
-| `FIELD_AGENT` | Agente de campo | rol declarado con `own_records_only` |
+| `FIELD_AGENT` | Agente de campo | rol declarado; sin `EDIT_ANY`, solo cambia o borra lo que creó (ASM-069) |
 | `APPROVER` | Aprobador | rol declarado |
 | `AUDITOR` | Auditor | rol declarado con lectura en todo el tenant |
 | `ANALYST` | Analista | rol declarado |
