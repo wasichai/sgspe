@@ -1,6 +1,8 @@
 package sgspe.common
 
+import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordCriterion
+import wasichai.core.metadata.ObjectDefinition
 import wasichai.core.platform.SqlIdentifier
 import java.time.Instant
 import java.time.LocalDate
@@ -16,7 +18,14 @@ object Criteria {
         RecordCriterion { _, bind -> "updated_at >= ${bind(OffsetDateTime.ofInstant(instant, ZoneOffset.UTC))}" }
 
     // workflow_state en un conjunto: la columna que agrega wasichai-workflow al asociar el workflow (WAS-ADR-0013)
-    fun inState(states: Collection<String>): RecordCriterion = RecordCriterion { _, bind -> "workflow_state = ANY(${bind(states.toTypedArray())})" }
+    // sobre un objeto sin workflow no hay columna: es un 400 que lo dice y no un error de SQL
+    fun inState(states: Collection<String>): RecordCriterion =
+        RecordCriterion { definition, bind ->
+            if (definition.obj.name !in WORKFLOW_OBJECTS) {
+                throw ValidationException("Estado inválido", "state", "${definition.obj.name} no tiene workflow")
+            }
+            "workflow_state = ANY(${bind(states.toTypedArray())})"
+        }
 
     fun anyOf(
         field: String,
@@ -50,8 +59,18 @@ object Criteria {
             "$column >= ${bind(from)} AND $column <= ${bind(to)}"
         }
 
+    // el campo debe existir y ser legible por quien llama: wasichai entrega a los criterios la definición ya filtrada, así que
+    // no se puede filtrar por una columna que no se lee (sería un oráculo sobre su valor)
     private fun column(
-        definition: wasichai.core.metadata.ObjectDefinition,
+        definition: ObjectDefinition,
         field: String
-    ): String = SqlIdentifier.quote(definition.fields.first { it.name == field }.columnName)
+    ): String {
+        val found =
+            definition.fields.firstOrNull { it.name == field }
+                ?: throw ValidationException("Filtro inválido", field, "no es un campo de ${definition.obj.name} o no puede leerlo")
+        return SqlIdentifier.quote(found.columnName)
+    }
+
+    // los objetos con workflow salen del modelo empaquetado, una sola vez
+    private val WORKFLOW_OBJECTS: Set<String> by lazy { ModelCatalog.fromClasspath().workflowObjects }
 }

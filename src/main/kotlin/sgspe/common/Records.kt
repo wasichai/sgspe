@@ -1,11 +1,14 @@
 package sgspe.common
 
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
+import wasichai.core.common.FieldViolation
 import wasichai.core.common.NotFoundException
 import wasichai.core.common.PageRequest
 import wasichai.core.common.PageResponse
+import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordRequest
@@ -18,6 +21,8 @@ import wasichai.core.metadata.MetadataService
 import wasichai.core.metadata.ObjectDefinition
 import wasichai.workflow.WorkflowService
 import java.util.UUID
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
 
 // el RecordService de wasichai para el código de sgspe (como Registros de caja-backend@dc9e391,
 // src/main/kotlin/caja/comun/Registros.kt). RecordService comprueba los permisos de objeto y de campo de quien llama y
@@ -134,10 +139,16 @@ class Records(
         reason: String?
     ): RecordResponse = withContext(SgspeWrite) { records.update(objectName, id, RecordRequest(attributes), reason) }
 
-    // cambia solo `changes` (y las geometrías nombradas): lee el registro y manda lo guardado más los cambios. una persona
-    // manda solo los campos que puede escribir, según el objeto como ella lo ve (MetadataService.definitionOf), porque
-    // wasichai rechaza la escritura entera que nombra uno bloqueado y deja como estaban los que no se mandan; la
-    // plataforma (un trabajo dentro de asPlatform) los escribe todos
+    // cambia solo `changes` (y las geometrías nombradas): lee el registro y manda lo guardado más los cambios. lo pedido que
+    // quien llama no puede escribir se rechaza, no se descarta (como RecordService.rejectUnwritable: callar haría creer que
+    // el cambio se guardó): un campo restringido, uno de solo lectura de `u` o un nombre que el objeto no tiene es un 400
+    // que lo nombra, antes de escribir nada. de lo guardado se manda solo lo que quien llama puede escribir, porque
+    // wasichai rechaza la escritura entera que nombra uno bloqueado y deja como estaban los que no se mandan; una persona
+    // escribe lo que MetadataService.definitionOf le marca editable, la plataforma (un trabajo dentro de asPlatform) todos
+    // los campos del objeto.
+    // no es atómico: entre el get y el update otra escritura puede caer y revertirse en los campos que patch no nombró
+    // (api.md §3.6 acepta la ventana hasta UPS-04). un trabajo de fondo que cambia un registro que una persona también
+    // edita corre dentro de Transactions.locked("<objeto>:<id>"), que al menos serializa el código de sgspe
     suspend fun patch(
         objectName: String,
         id: UUID,
@@ -145,22 +156,38 @@ class Records(
         reason: String?,
         geometries: Map<String, Any?> = emptyMap()
     ): RecordResponse {
+        val writable = writableFields(objectName)
+        val denied = (changes.keys - writable).sorted()
+        if (denied.isNotEmpty()) {
+            throw ValidationException(
+                "No puede cambiar ${denied.joinToString(", ")} de $objectName",
+                denied.map { FieldViolation(it, "no es un campo de $objectName que quien llama pueda escribir") }
+            )
+        }
         val stored = records.get(objectName, id).attributes
-        val merged = stored + changes
-        val body =
-            if (callers.userOrNull() == null) {
-                merged
-            } else {
-                val writable =
-                    metadata
-                        .definitionOf(objectName)
-                        .fields
-                        .filter { it.editable }
-                        .map { it.name }
-                        .toSet()
-                merged.filterKeys { it in writable }
-            }
+        val body = stored.filterKeys { it in writable } + changes
         return withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason) }
+    }
+
+    // los campos que quien llama puede escribir en el objeto: los editables para una persona; todos para la plataforma
+    private suspend fun writableFields(objectName: String): Set<String> {
+        val user = callers.userOrNull()
+        if (user != null) {
+            return metadata
+                .definitionOf(objectName)
+                .fields
+                .filter { it.editable }
+                .map { it.name }
+                .toSet()
+        }
+        val organization =
+            currentCoroutineContext()[PlatformOrganization]?.id
+                ?: error("Records.patch fuera de una petición exige Records.asPlatform")
+        return metadata
+            .loadDefinition(organization, objectName)
+            .fields
+            .map { it.name }
+            .toSet()
     }
 
     suspend fun delete(
@@ -226,7 +253,15 @@ class Records(
     suspend fun <T> asPlatform(
         organizationId: UUID,
         block: suspend () -> T
-    ): T = records.asPlatform(organizationId, block)
+    ): T = withContext(PlatformOrganization(organizationId)) { records.asPlatform(organizationId, block) }
+
+    // la organización del trabajo de fondo en curso: PlatformCaller es interno de wasichai y patch necesita la definición del
+    // objeto para saber qué campos existen
+    private class PlatformOrganization(
+        val id: UUID
+    ) : AbstractCoroutineContextElement(Key) {
+        companion object Key : CoroutineContext.Key<PlatformOrganization>
+    }
 
     private fun request(
         attributes: Map<String, Any?>,

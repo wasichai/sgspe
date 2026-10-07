@@ -29,7 +29,8 @@ object Values {
         when (value) {
             null -> null
             is BigDecimal -> value
-            is Number -> BigDecimal(value.toString())
+            // NaN e infinito no son números decimales: toBigDecimalOrNull los vuelve null y same devuelve false
+            is Number -> value.toString().toBigDecimalOrNull()
             is String -> value.trim().toBigDecimalOrNull()
             else -> null
         }

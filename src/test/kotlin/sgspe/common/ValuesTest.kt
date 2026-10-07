@@ -23,4 +23,12 @@ class ValuesTest {
         assertFalse(Values.same("A FAVOR", null))
         assertTrue(Values.same("2026-05-12", "2026-05-12"))
     }
+
+    @Test
+    fun `NaN e infinito no son iguales a nada y no revientan`() {
+        assertFalse(Values.same(Double.NaN, 1))
+        assertFalse(Values.same(Double.POSITIVE_INFINITY, "x"))
+        assertFalse(Values.same(Double.NaN, Double.NaN))
+        assertFalse(Values.same(Double.NaN, null))
+    }
 }

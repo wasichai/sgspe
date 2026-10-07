@@ -120,6 +120,9 @@ class ModelCatalog(
         return this
     }
 
+    // los objetos con workflow (model/workflows/<objeto>.json): solo ellos tienen la columna workflow_state
+    val workflowObjects: Set<String> get() = transitionsByObject.keys
+
     fun objectOrNull(name: String): ModelObject? = objects[name]
 
     fun derivedFields(objectName: String): Set<String> =
