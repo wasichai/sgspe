@@ -8,7 +8,8 @@ import java.util.UUID
 object CorrelationId {
     const val HEADER = "X-Correlation-Id"
 
-    // la clave en el contexto de Reactor y en el MDC de los logs de sgspe
+    // la clave en el contexto de Reactor y en el MDC de la línea de acceso (lo único que hoy escribe en el MDC). el puente del
+    // contexto de Reactor al MDC de los demás logs llega cuando el código de dominio escriba logs
     const val KEY = "correlationId"
 
     private val FORMAT = Regex("^[A-Za-z0-9._-]{1,64}$")

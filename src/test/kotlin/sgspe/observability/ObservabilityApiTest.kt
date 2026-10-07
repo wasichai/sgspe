@@ -55,8 +55,10 @@ class ObservabilityApiTest : SgspeApiTest() {
         // la línea se escribe cuando termina la respuesta: se espera hasta 5 s
         val deadline = System.nanoTime() + 5_000_000_000
         while (!output.out.contains("correlationId=acceso-1") && System.nanoTime() < deadline) Thread.sleep(50)
-        val line = output.out.lines().single { it.contains("correlationId=acceso-1") }
-        assertTrue(line.contains("GET /api/auth/me 401"), line)
+        // robusta a que la línea salga más de una vez (un appender de más no debe poner rojo la prueba de la consulta)
+        val format = Regex("""GET /api/auth/me 401 \d+ms correlationId=acceso-1$""")
+        val lines = output.out.lines().filter { it.contains("correlationId=acceso-1") }
+        assertTrue(lines.isNotEmpty() && lines.all { format.containsMatchIn(it) }, lines.toString())
         assertFalse(output.out.contains("secreto-de-prueba"))
     }
 }

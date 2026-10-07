@@ -25,6 +25,20 @@ class ProdProfileTest {
         assertEquals("\${WASICHAI_JWT_SECRET}", value("wasichai.security.jwt.secret"))
     }
 
+    // ningún dato de conexión tiene valor por defecto: sin la variable la app no arranca, y nunca cae en el sgspe/sgspe de
+    // desarrollo de application.yml. el puerto no es secreto: lleva el estándar de PostgreSQL, no el 5435 del túnel
+    @Test
+    fun `la base de datos no tiene valores por defecto`() {
+        assertEquals("\${WASICHAI_DB_HOST}", value("wasichai.database.host"))
+        assertEquals("\${WASICHAI_DB_NAME}", value("wasichai.database.name"))
+        assertEquals("\${WASICHAI_DB_USERNAME}", value("wasichai.database.username"))
+        assertEquals("\${WASICHAI_DB_PASSWORD}", value("wasichai.database.password"))
+        assertEquals("\${WASICHAI_DB_PORT:5432}", value("wasichai.database.port"))
+        for (name in listOf("host", "name", "username", "password")) {
+            assertFalse(value("wasichai.database.$name")!!.contains(":"), name)
+        }
+    }
+
     @Test
     fun `el token dura menos que las 8 horas por defecto`() {
         val ttl = Duration.parse(value("wasichai.security.jwt.ttl"))

@@ -1,5 +1,12 @@
 # perfil de producción (architecture.md §10.2, ADR-0020 y ADR-0026). ProdProfileTest lo fija
 wasichai:
+  database:
+    # sin valor por defecto, como el secreto: sin la variable la app no arranca y nunca cae en el sgspe/sgspe de desarrollo
+    host: ${WASICHAI_DB_HOST}
+    port: ${WASICHAI_DB_PORT:5432}
+    name: ${WASICHAI_DB_NAME}
+    username: ${WASICHAI_DB_USERNAME}
+    password: ${WASICHAI_DB_PASSWORD}
   seed:
     # nunca el admin@wasichai.local de desarrollo
     dev: false
