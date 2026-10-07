@@ -214,14 +214,15 @@ decisiones de nombres del usuario [USR-09]. `database-model.md` las detalla para
 
 - **Campo derivado:** su valor sale de otros registros o del tiempo. Solo lo escribe el código propio, con la marca de
   escritura; una guarda (`DerivedFieldsGuard`, `sgspe.common`) rechaza cualquier otro intento. En §6 se marcan con
-  "(derivado)".
+  "(derivado)", y en `model/model.json` con la clave `"derived": true`, nunca con `editable: false` (§7.4).
 - **Derivados de tiempo:** `deadline_status` (catálogo "Situación de plazo"), `validity_status` ("Situación de vigencia") y
   `review_status` ("Situación de revisión") los mantienen trabajos programados de `sgspe.deadline`, que corren como la
   plataforma con `RecordService.asPlatform` y `ClusterLock` y escriben con un motivo que nombra al trabajo (RN-WFL-001,
   ASM-051) [WAS-ADR-0039]. **Nunca son estados de workflow** (CON-028, CON-043).
 - **Parámetros y políticas por proyecto:** las prácticas de DOC-01 son políticas configurables con valores por defecto
   (ASM-019). Se guardan como campos de `project` con `defaultValue`; la lista completa, con tipo, valor por defecto y regla
-  que configura cada uno, está en §6.1. Lo que todavía no tiene campo también se dice allí.
+  que configura cada uno, está en §6.1. Lo que todavía no tiene campo también se dice allí. wasichai guarda `defaultValue`
+  pero no lo aplica, así que el código de SGSPE completa los valores por defecto al crear (UPS-15).
 
 ### 4.7 Alcance por proyecto
 
@@ -254,9 +255,17 @@ decisiones de nombres del usuario [USR-09]. `database-model.md` las detalla para
 
 ### 4.10 Tablas fijas
 
-- `notification` y `notification_delivery` (BC-14) y `knowledge_chunk` (BC-18, F7) **no son Custom Objects**: son tablas fijas
-  del esquema `sgspe`, con migración Flyway propia registrada como `ModuleMigration` (ASM-012, RQ-AI-008, CON-052)
-  [WAS-ADR-0026]. Las lee y escribe solo su paquete.
+- `notification` y `notification_delivery` (BC-14), `knowledge_chunk` (BC-18, F7) e `idempotency_key` (transversal,
+  ASM-065) **no son Custom Objects**: son tablas fijas del esquema `sgspe`, con migración Flyway propia registrada como
+  `ModuleMigration` (ASM-012, ASM-065, RQ-AI-008, CON-052) [WAS-ADR-0026]. Las lee y escribe solo su paquete. Sus columnas
+  van con tipo PostgreSQL: las de BC-14 y BC-18 en §6.14 y §6.18, y la transversal aquí.
+- `idempotency_key` (`sgspe.common`, desde F3) guarda la clave de cada creación de `/api/sgspe/**` que la trae, en la misma
+  transacción que el comando, y se purga después de un plazo configurable (RNF-INT-002, ASM-065). La API genérica de wasichai
+  no conoce `Idempotency-Key` (UPS-18).
+
+| Tabla fija | Columnas (tipo PostgreSQL) | Restricciones | Requisitos |
+|---|---|---|---|
+| `idempotency_key` | `id` uuid; `organization_id` uuid; `user_id` uuid; `request_key` text (1 a 64 caracteres); `request_path` text; `request_sha256` text (SHA-256 del cuerpo); `created_object` text; `created_record_ids` uuid[]; `created_at` timestamptz | único (`organization_id`, `user_id`, `request_key`) | RNF-INT-002, ASM-065, UPS-18 |
 
 ## 5. Bounded contexts
 
@@ -267,7 +276,7 @@ del prompt [PRM-01 §24] [USR-05]; los indicadores de cada módulo aparecen cuan
 | BC | Contexto (ES) | Prompt (EN) | Decisión frente al prompt | Release | Fase | Código propio |
 |---|---|---|---|---|---|---|
 | BC-01 | Proyectos | Project Management | Se mantiene y amplía con partes, campañas de exploración, concesiones y CRS de trabajo; las asignaciones son el directorio del equipo y la fuente del alcance (RF-PRJ-001, RF-PRJ-002, RF-PRJ-004, RF-PRJ-005, RF-PRJ-006) | Release 1 (MVP) | F2 | `sgspe.scope` (guarda de alcance), `sgspe.common` (correlativos, motivo al cambiar etapa) |
-| BC-02 | Territorio y SIG | Territory / GIS | Se mantiene y amplía con localidades, comunidades, sectores, componentes, predios, titularidades y elementos ambientales; datos, importación y mapa básico en F2, análisis espacial en F6 (CON-036) | Release 1 (datos y mapa básico); Release 2 (SIG avanzado) | F2, F6 | `sgspe.territory` (importación con CRS y reconciliación, área en ha, consultas espaciales, ficha territorial) |
+| BC-02 | Territorio y SIG | Territory / GIS | Se mantiene y amplía con localidades, comunidades, sectores, componentes, predios, titularidades y elementos ambientales; datos, importación y mapa básico en F2, análisis espacial en F6 (CON-036) | Release 1 (datos y mapa básico); Release 2 (SIG avanzado) | F2, F6 | `sgspe.territory` (importación con CRS y reconciliación, área en ha, consultas espaciales, geometría y filtros de la ficha territorial); las cifras de la ficha, `sgspe.dashboard` |
 | BC-03 | Grupos de interés | Stakeholder Management | Se mantiene y separa actor, cargo, grupo de interés por proyecto, evaluación fechada, priorización y redes (CON-031, CON-038) | Release 1 (MVP) | F2 | `sgspe.stakeholder` (clasificación interés × poder, priorización, evaluaciones, inactividad) |
 | BC-04 | Relacionamiento (absorbe Operaciones de campo) | Engagement Management | Se mantiene; agrega plan, mensajes clave, respuestas alineadas, alianzas y preguntas de reunión; absorbe las visitas de campo de BC-11 en el MVP (ASM-045) | Release 1 (MVP) | F2 | `sgspe.engagement` (cierre de interacciones, derivación de preguntas, conteos) |
 | BC-05 | Compromisos | Commitments Management | Núcleo del sistema; agrega entregas con conformidad, hitos, reprogramaciones y candidatos; el vencimiento es un campo derivado (CON-027, CON-028) | Release 1 (MVP) | F3 (candidatos de IA en F7) | `sgspe.commitment` (guardas, reprogramación, entrega, aceptación de candidatos); `sgspe.investment` (tope de apoyo social al aprobar) |
@@ -283,7 +292,7 @@ del prompt [PRM-01 §24] [USR-05]; los indicadores de cada módulo aparecen cuan
 | BC-15 | Reportes, tableros y entregables | Reporting / BI | Se amplía con entregables DOCX y PDF [USR-01] y con el catálogo de indicadores; tableros por módulo desde F2 y consolidados en F8 | Release 3 (consolidado); exportaciones e indicadores por módulo desde Release 1 | F8 (indicadores F2–F6; exportaciones F2–F4) | `sgspe.dashboard` (indicadores), `sgspe.deliverable` (DOCX primero, PDF, emisión), `sgspe.privacy` (divulgación, exportaciones) |
 | BC-16 | Identidad y acceso | Identity / Access Control | Lo provee wasichai (JWT, roles, permisos por objeto, campo y acción) [USR-06]; SGSPE agrega `project_assignment`; el alcance de lectura por proyecto depende de UPS-01 (CON-041) | Release 1 (MVP) | F1 (asignaciones en F2) | `sgspe.scope` |
 | BC-17 | Auditoría | Audit | Lo provee wasichai (`audit_log` con motivo) [WAS-ADR-0040] [WAS-ADR-0041]; SGSPE agrega `export_log` y el identificador de correlación; brechas UPS-02, UPS-03, UPS-05 y UPS-12 (CON-057) | Release 1 (MVP) | F1 (`export_log` en F2) | `sgspe.privacy` (registro de exportaciones), `sgspe.observability` (correlación, ASM-034) |
-| BC-18 | IA y conocimiento | AI / Knowledge | Asistente de solo lectura de wasichai-agent para AI-05 y agentes propios que solo producen sugerencias; RAG diferido (CON-035, CON-044) | Release 3 | F7 | `sgspe.ai` (agentes, seudonimización, registro de interacciones, RAG) |
+| BC-18 | IA y conocimiento | AI / Knowledge | Asistente de solo lectura de wasichai-agent para AI-05, que hasta UPS-14 solo se ofrece a roles sin acceso a campos restringidos (hoy `ANALYST`, decisión pendiente de `security.md` §15), y agentes propios que solo producen sugerencias; RAG diferido (CON-035, CON-044) | Release 3 | F7 | `sgspe.ai` (agentes, seudonimización, registro de interacciones, RAG) |
 | BC-19 | Línea base social | — (nuevo) | Nuevo: DOC-01 dedica sus capítulos 3, 5, 7.1 y 8 al estudio, el contexto socioeconómico, las percepciones y los temas clave (ASM-045) | Release 1 (MVP) | F2 | Ninguno (metadata) |
 | BC-20 | Catálogos | — (nuevo, de soporte) | Nuevo: ENUM compartidos y objetos catálogo (`topic`, `administrative_unit`, `indicator`) para un vocabulario único (RF-CAT-001) | Release 1 (MVP) | F2 | Ninguno; carga del ubigeo con script Python idempotente (RF-TER-001) |
 
@@ -312,6 +321,7 @@ los equivalentes del prompt están en §9.2 del análisis y en el glosario.
   M2M con los objetos listados en §6.12.
 - **Flags:** `appendOnly`, `apiOnly` y `requiresReason` (§4.5); "único" son restricciones `unique` o `uniqueConstraints`.
 - **WF:** letra del workflow en §11 del análisis; sus estados están en §7.3.
+- **Tablas fijas:** las de BC-14 y BC-18 tienen sus columnas en §6.14 y §6.18; la transversal `idempotency_key`, en §4.10.
 
 ### 6.1 BC-01 Proyectos
 
@@ -320,7 +330,7 @@ los equivalentes del prompt están en §9.2 del análisis y en el glosario.
 | `project` | `code` TEXT; `name` TEXT; `description` LONG_TEXT; `project_type` ENUM (Tipo de proyecto); `stage` ENUM (Etapa del proyecto); `exploration_phase` ENUM (Fase de exploración); `start_date`, `end_date` DATE; `working_crs` ENUM (CRS de trabajo); los parámetros y políticas de la tabla siguiente; `location` GEOMETRY (POINT); `interest_area` GEOMETRY (MULTIPOLYGON) | M2M `project_concession` → `mining_concession` | único `code`; motivo obligatorio al cambiar `stage` o `exploration_phase` (guarda) | WF-A | RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019, ASM-062 |
 | `project_party` | `party_role` ENUM (Rol de la parte); `start_date`, `end_date` DATE | M2O `project`; M2O `organization` | único (`project`, `organization`, `party_role`) | — | RF-PRJ-002, CON-022 |
 | `exploration_campaign` | `name` TEXT; `activity_type` ENUM (Tipo de actividad de campaña); `exploration_phase` ENUM (Fase de exploración); `planned_start_date`, `planned_end_date`, `actual_start_date`, `actual_end_date` DATE; `campaign_status` ENUM (Estado de la campaña); `social_support_cap` DECIMAL; `currency` ENUM (Moneda); `executed_social_amount` DECIMAL (derivado, ASM-063); `other_currency_items_count` INTEGER (derivado, ASM-063) | M2O `project` | — | — | RF-PRJ-004, RF-INV-004, RN-INV-003, ASM-063 |
-| `project_assignment` | `member_user_id` UUID; `member_user_email` EMAIL; `project_role` TEXT; `start_date`, `end_date` DATE; `active` BOOLEAN | M2O `project` | único (`project`, `member_user_id`) | — | RF-PRJ-005, RQ-SEC-006, ASM-023 |
+| `project_assignment` | `member_user_id` UUID; `member_user_email` EMAIL; `role_name` TEXT (requerido; nombre de un rol declarado de wasichai); `start_date`, `end_date` DATE; `active` BOOLEAN | M2O `project` | único (`project`, `member_user_id`) | — | RF-PRJ-005, RQ-SEC-006, ASM-023, ASM-070 |
 | `mining_concession` | `code` TEXT; `name` TEXT; `source_crs` ENUM (CRS de origen); `source_reference` TEXT; `import_batch_id` UUID; `registered_area_ha` DECIMAL; `calculated_area_ha` DECIMAL (derivado); `boundary` GEOMETRY (MULTIPOLYGON) | M2O `holder_organization` → `organization` (titular); M2M `project_concession` → `project` | único `code` | — | RF-PRJ-006, RQ-GIS-008, RQ-GIS-019, ASM-060, ASM-064 |
 
 Parámetros y políticas de `project`, todos con `defaultValue` (ASM-019):
@@ -340,14 +350,14 @@ Parámetros y políticas de `project`, todos con `defaultValue` (ASM-019):
 | `local_jobs_min`, `local_jobs_max` | INTEGER | 6 y 10 | Puestos ofrecidos y su máximo negociable (RN-COM-002) |
 | `policy_no_jobs_in_easements` | BOOLEAN | true | Sin puestos de trabajo en la negociación de servidumbres (RN-COM-003) |
 | `due_soon_days` | INTEGER | 7 | "Por vencer" de compromisos, QCS y tareas (ASM-006) |
-| `escalation_first_days`, `escalation_second_days` | INTEGER | 7 y 15 | Escalamiento a `SOCIAL_MANAGER` y luego a `PROJECT_MANAGER` (RF-WFL-004, ASM-030) |
+| `escalation_first_days`, `escalation_second_days` | INTEGER | 7 y 15 | Días de atraso de los dos niveles de escalamiento: el primero va a los roles de la transición de verificación o de revisión del objeto, y el segundo, a los de su aprobación de nivel superior (`approve_senior`). Los destinatarios son las asignaciones activas del proyecto con esos roles, sin nombres de rol fijos (RF-WFL-004, ASM-030, ASM-070) |
 | `grievance_ack_days` | INTEGER | 5 (días hábiles) | Plazo de acuse de quejas (RF-GRV-006, ASM-005) |
 | `inquiry_response_days` | INTEGER | 15 | Plazo de respuesta de consultas (RF-GRV-006, ASM-005) |
 | `grievance_resolution_days` | INTEGER | 30 | Plazo de resolución de quejas (RF-GRV-006, ASM-005) |
 | `policy_high_severity_requires_approver` | BOOLEAN | true | Resolver quejas ALTA o CRITICA exige `APPROVER` (RN-GRV-002, ASM-036) |
 | `risk_review_days` | INTEGER | 7 | Revisión periódica de riesgos (RN-RSK-001) |
 | `risk_medium_min_score`, `risk_high_min_score`, `risk_critical_min_score` | INTEGER | 5, 10 y 15 | Puntaje P × I desde el que el nivel es MEDIO, ALTO o CRITICO (RN-RSK-002, ASM-004) |
-| `policy_cap_blocks_approval` | BOOLEAN | true: bloquea, salvo la acción declarada de GAP-006 | Tope de apoyo social por campaña (RN-INV-003) |
+| `policy_cap_blocks_approval` | BOOLEAN | true: bloquea, salvo con `APPROVE_OVER_CAP` (GAP-006) | Tope de apoyo social por campaña (RN-INV-003) |
 | `policy_no_paid_labor` | BOOLEAN | true | No se financia mano de obra (RN-INV-001) |
 | `policy_non_monetary_donations` | BOOLEAN | true | Donaciones no monetarias (RN-INV-002) |
 | `policy_synergy_requires_agreement` | BOOLEAN | true | Sinergias formalizadas en un acuerdo antes de aprobar (RN-INV-004) |
@@ -433,13 +443,13 @@ Sin campo hasta que se respondan sus gaps:
 
 | Objeto | Campos clave (tipo) | Relaciones | Flags y únicos | WF | Requisitos |
 |---|---|---|---|---|---|
-| `commitment` | `code` TEXT; `title` TEXT; `description`, `objective` LONG_TEXT; `resource_type` ENUM (Tipo de recurso); `quantity` DECIMAL; `unit` TEXT; `execution_time` TEXT; `commitment_theme` ENUM (Tema del compromiso); `formality` ENUM (Formalidad del compromiso); `request_medium` ENUM (Medio de solicitud); `agreed_date`, `due_date` DATE; `amount` DECIMAL (requerido); `currency` ENUM (Moneda); `executed_amount` DECIMAL (derivado, ASM-063); `priority` ENUM (Prioridad); `owner_user_id` UUID; `owner_user_email` EMAIL; `verifier_user_id` UUID; `verifier_user_email` EMAIL; `delay_risk_reported` BOOLEAN; `delay_risk_note` LONG_TEXT; `deadline_status` ENUM (Situación de plazo; derivado); `beneficiaries_count`, `beneficiaries_female_count`, `beneficiaries_male_count` INTEGER; `beneficiaries_detail` LONG_TEXT (restringido); `origin_justification` LONG_TEXT; `requires_senior_approval` BOOLEAN (derivado); `fulfilled_date`, `closed_date` DATE (derivado); `location` GEOMETRY (POINT) | M2O `project`; M2O `exploration_campaign`; M2O `locality`; M2O `community`; M2O `topic`; M2O `origin_engagement` → `engagement`; M2O `agreement`; M2O `agreement_clause`; desde F4, M2O `origin_grievance` → `grievance` y M2O `social_risk`; M2M `commitment_stakeholder` → `stakeholder` (solicitantes) | `requiresReason`; único (`project`, `code`) | WF-D | RF-COM-001, RF-COM-002, RF-COM-005, RF-COM-007, RF-COM-009, RN-COM-004, RN-ENG-001, RN-ENG-002, RN-WFL-001, ASM-023, ASM-063 |
+| `commitment` | `code` TEXT; `title` TEXT; `description`, `objective` LONG_TEXT; `resource_type` ENUM (Tipo de recurso); `quantity` DECIMAL; `unit` TEXT; `execution_time` TEXT; `commitment_theme` ENUM (Tema del compromiso); `formality` ENUM (Formalidad del compromiso); `request_medium` ENUM (Medio de solicitud); `agreed_date`, `due_date` DATE; `amount` DECIMAL (requerido); `currency` ENUM (Moneda); `executed_amount` DECIMAL (derivado, ASM-063); `priority` ENUM (Prioridad); `owner_user_id` UUID; `owner_user_email` EMAIL; `verifier_user_id` UUID; `verifier_user_email` EMAIL; `delay_risk_reported` BOOLEAN; `delay_risk_note` LONG_TEXT; `deadline_status` ENUM (Situación de plazo; derivado); `beneficiaries_count`, `beneficiaries_female_count`, `beneficiaries_male_count` INTEGER; `beneficiaries_detail` LONG_TEXT (restringido); `origin_justification` LONG_TEXT; `requires_senior_approval` BOOLEAN (derivado); `fulfilled_date`, `closed_date`, `cancelled_date` DATE (derivado); `location` GEOMETRY (POINT) | M2O `project`; M2O `exploration_campaign`; M2O `locality`; M2O `community`; M2O `topic`; M2O `origin_engagement` → `engagement`; M2O `agreement`; M2O `agreement_clause`; desde F4, M2O `origin_grievance` → `grievance` y M2O `social_risk`; M2M `commitment_stakeholder` → `stakeholder` (solicitantes) | `requiresReason`; único (`project`, `code`) | WF-D | RF-COM-001, RF-COM-002, RF-COM-005, RF-COM-007, RF-COM-009, RN-COM-004, RN-ENG-001, RN-ENG-002, RN-WFL-001, RQ-DSH-003, ASM-023, ASM-063 |
 | `commitment_action` | `description` LONG_TEXT; `action_date` DATE; `owner_user_id` UUID; `owner_user_email` EMAIL; `completed` BOOLEAN | M2O `commitment` (requerido) | — | — | RF-COM-006 |
 | `commitment_milestone` | `description` TEXT; `due_date`, `reached_date` DATE | M2O `commitment` (requerido) | — | — | RF-COM-006 |
 | `commitment_reschedule` | `previous_due_date`, `new_due_date` DATE; `reschedule_reason` LONG_TEXT; `agreed_with_stakeholder` BOOLEAN | M2O `commitment` (requerido) | `appendOnly`; `apiOnly` | — | RF-COM-003 |
 | `commitment_dependency` | `blocking` BOOLEAN; `notes` TEXT | M2O `commitment` (el que depende); M2O `depends_on` → `commitment` | único (`commitment`, `depends_on`) | — | RF-COM-004 |
 | `delivery` | `delivery_date` DATE; `place` TEXT; `delivered_items` LONG_TEXT; `delivered_amount` DECIMAL (solo en entregas de compromisos, en la moneda del compromiso; vacío en las de aportes, cuyo ejecutado es su `total_amount`, ASM-063); `recipients` LONG_TEXT (restringido); `conformity_given` BOOLEAN; `conformity_by` LONG_TEXT (restringido); `location` GEOMETRY (POINT) | exactamente una de M2O `commitment`, M2O `social_contribution` (desde F5) | `apiOnly` | — | RF-COM-008, RN-COM-001, ASM-009, ASM-063 [DOC-02 p.4] |
-| `commitment_candidate` | `proposed_text`, `evidence_quote`, `beneficiaries_text` LONG_TEXT; `suggested_owner_user_email` EMAIL; `suggested_due_date` DATE; `confidence` DECIMAL; `ai_generated` BOOLEAN | M2O `project`; M2O `engagement`; M2O `source_evidence` → `evidence`; M2O `ai_interaction` (F7); M2O `created_commitment` → `commitment`; M2O `duplicate_of` → `commitment` | `apiOnly` | WF-K | RF-COM-010, RF-AIK-003, RQ-AI-001, RQ-AI-003, RQ-AI-004 |
+| `commitment_candidate` | `proposed_text`, `evidence_quote`, `beneficiaries_text` LONG_TEXT (seudonimizados, con marcadores, §6.18); `suggested_owner_user_email` EMAIL; `suggested_due_date` DATE; `confidence` DECIMAL; `ai_generated` BOOLEAN | M2O `project`; M2O `engagement`; M2O `source_evidence` → `evidence`; M2O `ai_interaction` (F7); M2O `created_commitment` → `commitment`; M2O `duplicate_of` → `commitment` | `apiOnly` | WF-K | RF-COM-010, RF-AIK-003, RQ-AI-001, RQ-AI-003, RQ-AI-004 |
 
 - La matriz de compromisos de DOC-01 §9.3.1.2 se reparte así (RF-COM-001):
 
@@ -476,14 +486,14 @@ Los tres objetos comparten un juego de campos y relaciones (ASM-011):
 - **Campos comunes:** `code` TEXT; `channel` ENUM (Canal de QCS); `received_at` DATETIME; `received_by_user_id` UUID;
   `received_by_user_email` EMAIL; `anonymous`, `confidential` BOOLEAN; `category` ENUM (Categoría de QCS); `description`
   LONG_TEXT; `priority` ENUM (Prioridad); `response_due_date` DATE (derivado); `deadline_status` ENUM (Situación de
-  plazo; derivado); `owner_user_id` UUID; `owner_user_email` EMAIL; `response` LONG_TEXT; `responded_at` DATETIME; `location`
+  plazo; derivado); `owner_user_id` UUID; `owner_user_email` EMAIL; `response` LONG_TEXT; `responded_at` DATETIME; `closed_date` DATE (derivado); `location`
   GEOMETRY (POINT).
 - **Relaciones comunes:** M2O `project`; M2O `stakeholder`; M2O `person` (restringido; vacío si es anónima); M2O `locality`;
   M2O `community`; M2O `topic`; M2O `origin_engagement` → `engagement`; M2O `origin_question` → `engagement_question`.
 
 | Objeto | Campos propios (tipo) | Relaciones propias | Flags y únicos | WF | Requisitos |
 |---|---|---|---|---|---|
-| `grievance` | `severity` ENUM (Severidad de queja); `ack_due_date`, `resolution_due_date` DATE (derivado); `resolution` LONG_TEXT; `complainant_conformity_given` BOOLEAN | M2O `social_risk`; M2O `incident`; M2O `duplicate_of` → `grievance`; M2O `reclassified_from_inquiry` → `inquiry`; M2O `reclassified_from_request` → `stakeholder_request` | `requiresReason`; único (`project`, `code`) | WF-E1 | RF-GRV-001, RF-GRV-002, RF-GRV-006, RF-GRV-007, RN-GRV-002, ASM-005, ASM-036 |
+| `grievance` | `severity` ENUM (Severidad de queja); `ack_due_date`, `resolution_due_date` DATE (derivado); `resolved_date` DATE (derivado); `resolution` LONG_TEXT; `complainant_conformity_given` BOOLEAN | M2O `social_risk`; M2O `incident`; M2O `duplicate_of` → `grievance`; M2O `reclassified_from_inquiry` → `inquiry`; M2O `reclassified_from_request` → `stakeholder_request` | `requiresReason`; único (`project`, `code`) | WF-E1 | RF-GRV-001, RF-GRV-002, RF-GRV-006, RF-GRV-007, RN-GRV-002, RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036 |
 | `inquiry` | — (solo comunes) | M2O `reclassified_from_grievance` → `grievance`; M2O `reclassified_from_request` → `stakeholder_request` | `requiresReason`; único (`project`, `code`) | WF-E2 | RF-GRV-001, RF-GRV-003, RF-GRV-007 |
 | `stakeholder_request` | `request_medium` ENUM (Medio de solicitud); `requested_resource` LONG_TEXT | M2O `created_commitment` → `commitment`; desde F5, M2O `created_contribution` → `social_contribution`; M2O `reclassified_from_grievance` → `grievance`; M2O `reclassified_from_inquiry` → `inquiry` | `requiresReason`; único (`project`, `code`) | WF-E3 | RF-GRV-001, RF-GRV-004, RF-GRV-007, RN-GRV-001 |
 
@@ -492,6 +502,9 @@ Los tres objetos comparten un juego de campos y relaciones (ASM-011):
 - Una QCS anónima no lleva `person` ni `stakeholder`; los plazos y la apelación siguen GAP-005 con los valores de ASM-005.
 - La derivación de una pregunta de reunión se registra en la QCS (`origin_question`), y desde allí la lee la interacción para
   cerrar (RN-ENG-005).
+- Reclasificar crea el registro del otro tipo con el vínculo `reclassified_from_*` y cierra el original. El registro nuevo
+  copia `received_at` del primer registro de la cadena, y sus plazos corren desde esa fecha, porque el grupo de interés
+  planteó el caso una sola vez (RF-GRV-007, ASM-072).
 
 ### 6.8 BC-08 Riesgos sociales
 
@@ -591,10 +604,13 @@ es requisito del MVP y depende de GAP-008 (ASM-021); si se aprueba, BC-11 se sep
 | `indicator` | `code` TEXT (el ID KPI que define `dashboards.md`); `name` TEXT; `definition`, `formula`, `verification_means` LONG_TEXT; `disaggregation` TEXT; `target_value` DECIMAL; `frequency` TEXT; `source_reference` TEXT | — | único `code`; objeto catálogo (BC-20) | — | RQ-DSH-037, GAP-018 |
 | `indicator_measurement` | `period_start_date`, `period_end_date` DATE; `measured_value`, `numerator`, `denominator` DECIMAL; `breakdown` LONG_TEXT (desagregación en Markdown); `closed_by_user_id` UUID; `closed_by_user_email` EMAIL | M2O `indicator` (requerido); M2O `project` | `appendOnly`; `apiOnly`; único (`indicator`, `project`, `period_start_date`), más una guarda para `project` vacío, porque los NULL son distintos | — | RQ-DSH-037, ASM-042 |
 | `deliverable` | `document_code` TEXT; `title` TEXT; `deliverable_type` ENUM (Tipo de entregable); `period_start_date`, `period_end_date`, `cutoff_date` DATE; `template_key` TEXT; `generation_requested_at` DATETIME (derivado); `draft_generation_status` ENUM (Estado de generación del borrador; derivado); `draft_generated_at` DATETIME (derivado: instante en que se congeló el modelo); `draft_model_sha256`, `draft_storage_key` TEXT (derivado); `current_revision` TEXT (derivado) | M2O `project`; alcance: M2O `area_of_influence`, M2O `community`, M2O `locality`; M2O `study`; M2O `prepared_for_organization` → `organization` (cliente); M2O `prepared_by_organization` → `organization` (autora); M2O `current_version` → `deliverable_version` (derivado) | `requiresReason`; único `document_code` | WF-H | RF-REP-001, RF-REP-002, RQ-REP-002, RQ-REP-003, RQ-REP-013, RQ-REP-015, RQ-REP-016, RQ-REP-021, ASM-027, ASM-061 |
-| `deliverable_section` | `section_key` TEXT; `title` TEXT; `sort_order` INTEGER; `section_kind` ENUM (Tipo de sección de entregable); `content` LONG_TEXT (Markdown); `content_origin` ENUM (Origen del contenido); `reviewed` BOOLEAN | M2O `deliverable` (requerido); M2O `ai_suggestion` (F7) | único (`deliverable`, `section_key`) | — | RQ-REP-011, RQ-REP-032, RQ-REP-033, RQ-AI-012 |
-| `deliverable_version` | `version_number` INTEGER; `revision` TEXT; `issued_at` DATETIME; `issued_by_user_id` UUID; `issued_by_user_email` EMAIL; `disclosure_level` ENUM (Nivel de divulgación); `docx_storage_key`, `pdf_storage_key`, `model_storage_key` TEXT; `docx_sha256`, `pdf_sha256`, `model_sha256`, `template_sha256` TEXT; `ai_assisted_sections` LONG_TEXT | M2O `deliverable` (requerido); M2O `derived_from` → `deliverable_version` | `appendOnly`; `apiOnly`; único (`deliverable`, `version_number`) | — | RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012 |
-| `export_log` | `exported_at` DATETIME; `exporter_user_id` UUID; `exporter_user_email` EMAIL; `export_kind` TEXT; `object_name` TEXT; `file_format` TEXT; `disclosure_level` ENUM (Nivel de divulgación); `filters_description` LONG_TEXT; `row_count` INTEGER | M2O `project`; M2O `deliverable_version` (cuando registra una emisión) | `appendOnly`; `apiOnly` | — | RQ-AUD-011, RQ-REP-014, RQ-REP-022 |
+| `deliverable_section` | `section_key` TEXT; `title` TEXT; `sort_order` INTEGER; `section_kind` ENUM (Tipo de sección de entregable); `content` LONG_TEXT (Markdown); `content_origin` ENUM (Origen del contenido); `reviewed` BOOLEAN | M2O `deliverable` (requerido); M2O `ai_suggestion` (F8) | único (`deliverable`, `section_key`) | — | RQ-REP-011, RQ-REP-032, RQ-REP-033, RQ-AI-012 |
+| `deliverable_version` | `version_number` INTEGER; `revision` TEXT; `issued_at` DATETIME; `issued_by_user_id` UUID; `issued_by_user_email` EMAIL; `disclosure_level` ENUM (Nivel de divulgación); `pdf_storage_key`, `model_storage_key` TEXT; `pdf_sha256`, `model_sha256`, `template_sha256` TEXT; `docx_storage_key`, `docx_sha256` TEXT (vacíos en una versión derivada solo PDF, EXTERNO o PUBLICO); `ai_assisted_sections` LONG_TEXT | M2O `deliverable` (requerido); M2O `derived_from` → `deliverable_version` | `appendOnly`; `apiOnly`; único (`deliverable`, `version_number`) | — | RQ-REP-001, RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012 |
+| `export_log` | `exported_at` DATETIME; `exporter_user_id` UUID; `exporter_user_email` EMAIL; `export_kind` TEXT (exportación, emisión o descarga); `object_name` TEXT; `file_format` TEXT; `disclosure_level` ENUM (Nivel de divulgación); `filters_description` LONG_TEXT; `row_count` INTEGER | M2O `project`; M2O `deliverable` (descarga de un borrador); M2O `deliverable_version` (emisión o descarga de una versión) | `appendOnly`; `apiOnly` | — | RQ-AUD-011, RQ-REP-014, RQ-REP-022 |
 
+- El modelo congelado de una versión (`model_storage_key`, `model_sha256`) es interno: en el MVP la API nunca lo sirve; solo
+  se usa para volver a generar y para verificar hashes. Los borradores y las versiones EXTERNO y PUBLICO se sirven solo en
+  PDF (RQ-REP-014, RQ-REP-026).
 - **ASSUMPTION (ASM-061):** los borradores no son registros. El último borrador de cada entregable se describe en los campos
   derivados `draft_*`, que solo escribe el trabajador de generación; el endpoint que pide un borrador solo escribe
   `generation_requested_at` (§8.3). Los archivos de los borradores se purgan según ASM-028. Lo emitido es una fila inmutable de
@@ -623,8 +639,8 @@ la auditoría no guarda geometrías (RQ-AUD-013).
 
 | Objeto | Campos clave (tipo) | Relaciones | Flags y únicos | WF | Requisitos |
 |---|---|---|---|---|---|
-| `ai_suggestion` | `suggestion_kind` ENUM (Tipo de sugerencia de IA); `target_object` TEXT; `target_record_id` UUID; `suggested_value`, `evidence_quote` LONG_TEXT; `confidence` DECIMAL; `model` TEXT | M2O `project`; M2O `ai_interaction` (requerido) | `apiOnly` | WF-K | RF-AIK-001, RF-AIK-002, RF-AIK-004, RF-AIK-007, RF-AIK-008, RQ-AI-001, RQ-AI-003, RQ-AI-004, RQ-AI-015 |
-| `ai_interaction` | `use_case` TEXT (AI-01 a AI-08); `provider`, `model`, `model_version`, `prompt_version` TEXT; `started_at` DATETIME; `input_reference` TEXT; `output_summary` LONG_TEXT; `input_tokens`, `output_tokens`, `latency_ms` INTEGER; `confidence` DECIMAL; `requested_by_user_id` UUID; `requested_by_user_email` EMAIL | M2O `project` | `appendOnly`; `apiOnly` | — | RF-AIK-009, RQ-AI-006, RQ-AUD-003, RQ-AUD-012 |
+| `ai_suggestion` | `suggestion_kind` ENUM (Tipo de sugerencia de IA); `target_object` TEXT; `target_record_id` UUID; `suggested_value`, `evidence_quote` LONG_TEXT (seudonimizados, con marcadores); `confidence` DECIMAL; `model` TEXT | M2O `project`; M2O `ai_interaction` (requerido) | `apiOnly` | WF-K | RF-AIK-001, RF-AIK-002, RF-AIK-004, RF-AIK-007, RF-AIK-008, RQ-AI-001, RQ-AI-003, RQ-AI-004, RQ-AI-015 |
+| `ai_interaction` | `use_case` TEXT (AI-01 a AI-08); `provider`, `model`, `model_version`, `prompt_version` TEXT; `started_at` DATETIME; `input_reference` TEXT; `output_summary` LONG_TEXT; `input_tokens`, `output_tokens`, `latency_ms` INTEGER; `confidence` DECIMAL; `requested_by_user_id` UUID y `requested_by_user_email` EMAIL (vacíos cuando la llamada la hace un trabajo como la plataforma, como JOB-07); `run_by_platform` BOOLEAN (derivado) | M2O `project` | `appendOnly`; `apiOnly` | — | RF-AIK-009, RQ-AI-006, RQ-AUD-003, RQ-AUD-012 |
 
 | Tabla fija | Columnas (tipo PostgreSQL) | Relación | Naturaleza | WF | Requisitos |
 |---|---|---|---|---|---|
@@ -635,6 +651,12 @@ la auditoría no guarda geometrías (RQ-AUD-013).
   de la decisión (RQ-AUD-012).
 - `target_object` y `target_record_id` nombran el registro al que se refiere la sugerencia; una guarda verifica que exista y
   que quien acepta pueda leerlo. Aceptar ejecuta el comando de dominio con la autorización de esa persona (RQ-AI-003).
+- Las salidas de la IA se guardan seudonimizadas: `suggested_value` y `evidence_quote` de `ai_suggestion`, y `proposed_text`,
+  `evidence_quote` y `beneficiaries_text` de `commitment_candidate`, llevan marcadores (`[PERSONA:<id>]` para una persona
+  registrada y marcadores sin valor para lo detectado por formato) en lugar de datos restringidos. La API genérica solo
+  devuelve los marcadores. La interfaz re-identifica al mostrar, con los permisos de quien mira, y la cita solo la ve quien
+  puede leer esos campos y descargar la evidencia fuente. La comprobación de que la cita es literal se hace sobre el
+  fragmento seudonimizado (RQ-AI-004, RQ-AI-009; `ai-architecture.md` §12.2, `security.md` §7.8).
 
 ### 6.19 BC-19 Línea base social
 
@@ -651,7 +673,7 @@ la auditoría no guarda geometrías (RQ-AUD-013).
 | `local_conflict` | `title` TEXT; `conflict_type` ENUM (Tipo de conflicto local); `conflict_status` ENUM (Estado del conflicto local); `disputed_resource` TEXT; `description` LONG_TEXT | M2O `environmental_feature` (lugar o recurso en disputa); M2M `local_conflict_locality` → `locality` | — | — | RF-LBS-006 [DOC-01 §5.1.1, §5.2.1] |
 | `perception` | `subject` ENUM (Percepción, sub-lista de sujeto); `polarity` ENUM (Percepción, sub-lista de polaridad); `perception_scope` ENUM (Ámbito del grupo de interés); `statement`, `quote` LONG_TEXT; `attributed_role` TEXT (cargo, nunca nombre) | M2O `study` (requerido); M2O `topic` | — | — | RF-LBS-007, RQ-REP-014 [DOC-01 §7.1] |
 | `key_theme` | `name` TEXT; `description`, `risks`, `opportunities` LONG_TEXT | M2O `project`; M2O `study`; M2O `topic` | — | — | RF-LBS-008 [DOC-01 §8, Tabla 8.1] |
-| `topic` | `code` TEXT; `name` TEXT; `description` LONG_TEXT; `active` BOOLEAN | M2O `parent_topic` → `topic` | único `code`; objeto catálogo (BC-20) | — | RF-LBS-009, RF-CAT-001 |
+| `topic` | `code` TEXT; `name` TEXT; `description` LONG_TEXT; `active` BOOLEAN (requerido; true por defecto) | M2O `parent_topic` → `topic` | único `code`; objeto catálogo (BC-20) | — | RF-LBS-009, RF-CAT-001 |
 
 - La línea base es metadata pura: no tiene workflow ni código propio. Cada dato del perfil queda con su fecha, su fuente y su
   confiabilidad (RF-LBS-002); los datos de las fuentes solo inspiran fixtures ficticios (RQ-SEC-018).
@@ -685,10 +707,12 @@ transiciones se nombran aquí por el estado al que llegan; sus nombres, roles y 
 
 Guardas transversales de `sgspe.common`: `DerivedFieldsGuard` (campos derivados solo con la marca, §4.6),
 `TransitionReasonGuard` (motivo en devolver, rechazar, suspender, cancelar, retirar y reabrir, RQ-AUD-002), `ExactlyOneGuard`
-("exactamente uno de", §4.4), `UserReferenceGuard` (pares `*_user_id` y `*_user_email` válidos, ASM-023),
+("exactamente uno de", §4.4), `UserReferenceGuard` (pares `*_user_id` y `*_user_email` válidos cuando vienen informados; un par vacío, como el de una
+interacción con IA que corre como la plataforma, no se valida; ASM-023),
 `FieldChangeReasonGuard` (motivo al cambiar ciertos campos) y `CommandTransitionGuard` (las transiciones de comando solo
-llegan desde su endpoint). `ProjectScopeGuard` (`sgspe.scope`) acota la escritura por asignación (RQ-SEC-006). Cada paquete de
-dominio agrega una guarda propia para sus objetos. `DerivedFieldsJob` (`sgspe.common`) recalcula los campos derivados que
+llegan desde su endpoint). `ProjectScopeGuard` (`sgspe.scope`) acota la escritura por asignación (RQ-SEC-006) y `EditAnyGuard`
+(`sgspe.scope`) rechaza a quien no tiene `EDIT_ANY` cambiar, transicionar, vincular o borrar registros ajenos (ASM-069). Cada
+paquete de dominio agrega una guarda propia para sus objetos. `DerivedFieldsJob` (`sgspe.common`) recalcula los campos derivados que
 mantienen listeners (§7.5).
 
 ### 7.2 Invariantes por agregado
@@ -697,9 +721,12 @@ mantienen listeners (§7.5).
 |---|---|---|---|
 | `project` (+ `project_party`, `exploration_campaign`, `project_assignment`) | El código del proyecto es único | RF-PRJ-001 | Metadata (`unique`) |
 | `project` | La etapa y la fase de exploración son campos que cambian con motivo, nunca estados de WF-A | RN-PRJ-001, CON-034 | Guarda `FieldChangeReasonGuard` sobre `stage` y `exploration_phase` |
-| `project` | Llegar a `active` exige el CRS de trabajo y al menos una parte CLIENTE u OPERADOR | RF-PRJ-003, ASM-062 | Guarda `ProjectWriteGuard` (`sgspe.scope`), que se desactiva con `policy_activation_preconditions`; WF-A también es desactivable (ASM-010) |
+| `project` | Llegar a `active` exige el CRS de trabajo y al menos una parte CLIENTE u OPERADOR | RF-PRJ-003, ASM-062 | Guarda `ProjectWriteGuard` (`sgspe.scope`), que se desactiva con `policy_activation_preconditions`. WF-A nunca se desactiva: una organización que no revisa proyectos aplica una variante de su definición, sin `submit_for_review` ni `return_to_draft`, en la que `approve` sale de `draft` (ASM-010) |
 | `project_assignment` | Una asignación por usuario y proyecto, con un usuario real del tenant | RF-PRJ-005, ASM-023 | Metadata (único compuesto) y `UserReferenceGuard` |
+| `project_assignment` | `role_name` es requerido y nombra un rol declarado en `model/roles.json`, porque los destinatarios por rol dependen de él | RF-PRJ-005, ASM-070 | Metadata (campo requerido) y guarda `AssignmentRoleGuard` (`sgspe.scope`), que compara con la lista de roles cargada como configuración |
+| `notification` | Los destinatarios de escalamientos, aprobaciones pendientes y alertas son las asignaciones activas del proyecto cuyo `role_name` está en la lista de roles de la transición que corresponde: la siguiente en aprobaciones y alertas; en un escalamiento, la de verificación o de revisión del objeto (nivel 1) y su `approve_senior` (nivel 2). Los nombres de rol salen de la definición del workflow, nunca de literales en el código | RF-NTF-001, RF-WFL-004, RQ-SEC-005, ASM-030, ASM-070 | `sgspe.notification` resuelve los destinatarios leyendo el workflow y `project_assignment`: como quien escribe cuando el aviso sale de `NotificationListener`, y como la plataforma en los escalamientos de `DeadlineJob` (JOB-01) |
 | Toda raíz de proyecto | Solo escribe quien está asignado al proyecto | RQ-SEC-006, CON-041 | `ProjectScopeGuard`; la lectura por proyecto espera UPS-01 |
+| `engagement`, `engagement_participant`, `field_visit`, `field_observation`, `evidence` | A quien no tiene `EDIT_ANY` sobre el objeto se le rechaza cambiar, transicionar, vincular o borrar registros ajenos; sí puede agregar participantes u observaciones a cualquier interacción o visita que pueda leer | RQ-SEC-008, ASM-069 | `EditAnyGuard` (`sgspe.scope`): compara `created_by` con quien escribe y decide con el permiso, nunca con el nombre del rol (RQ-SEC-005); no frena las escrituras de campos derivados que llevan la marca de SGSPE |
 | `exploration_campaign` | `executed_social_amount` suma lo ejecutado de la campaña: `executed_amount` de sus compromisos más `total_amount` de sus aportes en `delivered` o `closed`, solo en la moneda de la campaña; los demás se cuentan en `other_currency_items_count` y se muestran como advertencia | RF-INV-004, RQ-DSH-021, ASM-063 | `DerivedFieldsJob` con el recalculador de `sgspe.investment` (§7.4) |
 | `area_of_influence` (+ `area_of_influence_member`) | Cada miembro es exactamente uno de localidad, comunidad o unidad administrativa, sin repetirse | RN-TER-001 | `ExactlyOneGuard` y únicos compuestos |
 | `area_of_influence` | Hay una sola versión aprobada por proyecto y tipo; aprobar una nueva reemplaza a la anterior, que se conserva | RN-TER-003 | Endpoint `POST /api/sgspe/areas-of-influence/{id}/approve` (lleva la nueva a `approved` y la anterior a `superseded` en una transacción) y `CommandTransitionGuard` |
@@ -719,7 +746,7 @@ mantienen listeners (§7.5).
 | `stakeholder` | Los valores vigentes coinciden con la última evaluación, y llegar a `assessed` exige al menos una | RF-STK-003, RF-STK-005 | El mismo endpoint escribe la evaluación, el grupo de interés y la transición en una transacción; `DerivedFieldsGuard` y `CommandTransitionGuard` |
 | `stakeholder_assessment` | La evaluación anterior es la línea base y el cambio de postura queda marcado; dos evaluaciones cercanas con posturas distintas generan una advertencia | RF-STK-010, RQ-DSH-008, CON-006 | El mismo endpoint (`baseline_assessment`, `stance_changed`) |
 | `stakeholder` | La evaluación periódica y la inactividad prolongada solo sugieren tareas; el trabajo nunca cambia `relationship_status`, salvo la regla de primer contacto | RF-STK-010, RF-STK-014, ASM-022 | Trabajo `StakeholderFollowUpJob` (`sgspe.stakeholder`), que también mantiene `last_contact_date` |
-| `stakeholder` | El estado de la relación lo actualizan las interacciones o una persona, separado del ciclo de vida. Regla de primer contacto: cuando `last_contact_date` pasa de vacío a una fecha, porque una interacción vinculada llegó a `held` o a un estado posterior (`minutes_drafted`, `minutes_in_review`, `minutes_approved`, `closed`), con la misma regla de vínculo de §7.4 (un participante cuenta solo con `attended`), el estado pasa de SIN CONTACTO a CONTACTO ESTABLECIDO; si una persona ya lo cambió, no se toca. Los demás cambios son manuales | RF-STK-014, ASM-032 | `StakeholderFollowUpJob`, sin listener, para que un rol con `own_records_only` pueda cerrar interacciones; edición manual con permiso de campo |
+| `stakeholder` | El estado de la relación lo actualizan las interacciones o una persona, separado del ciclo de vida. Regla de primer contacto: cuando `last_contact_date` pasa de vacío a una fecha, porque una interacción vinculada llegó a `held` o a un estado posterior (`minutes_drafted`, `minutes_in_review`, `minutes_approved`, `closed`), con la misma regla de vínculo de §7.4 (un participante cuenta solo con `attended`), el estado pasa de SIN CONTACTO a CONTACTO ESTABLECIDO; si una persona ya lo cambió, no se toca. Los demás cambios son manuales | RF-STK-014, ASM-032 | `StakeholderFollowUpJob`, sin listener, para que quien cierra una interacción no necesite UPDATE sobre los grupos de interés; edición manual con permiso de campo |
 | `stakeholder` | Retirar un grupo de interés exige motivo | RF-STK-013, RQ-AUD-002 | `TransitionReasonGuard` |
 | `position` | Un cargo sin persona solo puede estar VACANTE o PREVISTO; una persona puede tener varios cargos | RF-STK-002, CON-005 | Guarda `StakeholderWriteGuard` |
 | `contact_method`, `actor_relationship`, `network_node` | Cada extremo es exactamente una persona u organización | RF-STK-001, RF-STK-012 | `ExactlyOneGuard` |
@@ -735,53 +762,56 @@ mantienen listeners (§7.5).
 | `commitment` (+ acciones, hitos, reprogramaciones, dependencias, entregas) | Todo compromiso tiene monto | RN-COM-004 | Metadata (`required`) |
 | `commitment` | Llegar a `pending_approval` exige los campos mínimos de la matriz de DOC-01 | RF-COM-001 | Guarda `CommitmentWriteGuard` (`sgspe.commitment`) |
 | `commitment` | Quien aprueba no es quien registró, y quien verifica no es el responsable | RN-COM-005, ASM-008 | `CommitmentWriteGuard` hacia `approved` y `verified` (`created_by`, `owner_user_id`) y roles por transición |
-| `commitment` | La aprobación verifica el tope de apoyo social de la campaña contra la suma de los montos aprobados (comprometidos) de sus compromisos y aportes, más el que se aprueba, solo en la moneda de la campaña (los demás montos no se suman y la guarda lo advierte); bloquea o advierte según `policy_cap_blocks_approval`, salvo con la acción declarada que permite superarlo | RN-INV-003, GAP-006, ASM-063 | Guarda `SupportPolicyGuard` (`sgspe.investment`, disponible desde F3 por RF-INV-002) hacia `approved` |
+| `commitment` | La aprobación verifica el tope de apoyo social de la campaña contra la suma de los montos aprobados (comprometidos) de sus compromisos y aportes, más el que se aprueba, solo en la moneda de la campaña (los demás montos no se suman y la guarda lo advierte); bloquea o advierte según `policy_cap_blocks_approval`, salvo con la acción declarada `APPROVE_OVER_CAP` | RN-INV-003, GAP-006, ASM-063 | Guarda `SupportPolicyGuard` (`sgspe.investment`, disponible desde F3 por RF-INV-002) hacia `approved` |
 | `commitment` | Los compromisos de mayor alcance (mesa de diálogo, reunión con grupos políticos) requieren aprobación de nivel superior | RN-ENG-002 | `CommitmentWriteGuard` hacia `approved`, si `policy_senior_approval_for_dialogue` está activo: evalúa la regla en el momento, sin leer `requires_senior_approval`, que solo informa (§7.4) |
 | `commitment` | Un compromiso que nace de un taller o de una reunión informativa exige justificación | RN-ENG-001, ASM-007 | `CommitmentWriteGuard` al crear (`origin_justification`) |
 | `commitment` | Las políticas de empleo y de servidumbres del proyecto se respetan o se justifican | RN-COM-002, RN-COM-003 | `CommitmentWriteGuard` hacia `approved`, según las políticas del proyecto |
 | `commitment` | La fecha de vencimiento solo cambia con una reprogramación | RF-COM-003 | Endpoint `POST /api/sgspe/commitments/{id}/reschedules` (crea `commitment_reschedule` y actualiza `due_date` en una transacción) y `DerivedFieldsGuard` sobre `due_date` después de `approved` |
-| `commitment` | Llegar a `fulfilled` exige una entrega con conformidad, acta de entrega y foto si el recurso es material, o constancia si no lo es | RN-COM-001, ASM-009 | Endpoint `POST /api/sgspe/commitments/{id}/deliveries` y `CommitmentWriteGuard` hacia `fulfilled`, que lee `delivery` y sus `evidence` |
+| `commitment` | Llegar a `fulfilled` exige una entrega con conformidad (`conformity_given` verdadero y `conformity_by` lleno), vinculada a evidencias según el tipo de recurso: ACTA DE ENTREGA y FOTO si es MATERIAL; si es NO MATERIAL, al menos una ACTA, CARTA u OTRO, sin un tipo de evidencia propio | RN-COM-001, ASM-009 | El endpoint `POST /api/sgspe/commitments/{id}/deliveries` solo captura datos: crea la `delivery` y sus vínculos de evidencia en una transacción. El cambio de estado es la transición humana `register_fulfillment` de WF-D, con `CommitmentWriteGuard`: exige una entrega con conformidad y su evidencia |
 | `commitment` | `executed_amount` es la suma de `delivered_amount` de sus entregas | ASM-063, RQ-DSH-021 | Endpoint `POST /api/sgspe/commitments/{id}/deliveries`, en la misma transacción que la entrega |
 | `commitment_dependency` | No se registra el cumplimiento con dependencias bloqueantes abiertas, y no hay ciclos | RF-COM-004 | `CommitmentWriteGuard` hacia `fulfilled` y al crear la dependencia |
 | `commitment` | Vencido y por vencer son `deadline_status`; el atraso escala por días | RN-WFL-001, RF-WFL-004, ASM-006, ASM-030 | Trabajo `DeadlineJob` (`sgspe.deadline`) |
 | `commitment_candidate` | Una persona registra un candidato o lo acepta; aceptar crea el compromiso en `draft` y lo vincula | RF-COM-010, RQ-AI-003 | Endpoints `POST /api/sgspe/commitment-candidates` (alta humana, F3) y `POST /api/sgspe/commitment-candidates/{id}/accept`, con `CommandTransitionGuard` hacia `accepted` |
-| `commitment` | Cerrar el compromiso cierra la solicitud aceptada que lo originó | RN-GRV-001 | `RequestClosureListener` (`sgspe.attention`), en la transacción de la transición (§7.5) |
+| `commitment` | Cerrar el compromiso cierra la solicitud aceptada que lo originó; desde F5, cerrar el aporte también | RN-GRV-001, ASM-068 | `RequestClosureListener` (`sgspe.attention`), en la transacción de la transición (§7.5) |
+| `stakeholder_request` | Una solicitud aceptada cuyo compromiso o aporte se cancela o se rechaza se cierra a mano, con motivo, con la transición `close_unfulfilled` de WF-E3 | ASM-068 | WF-E3 y `requiresReason` |
 | `agreement` (+ `agreement_party`, `agreement_clause`) | La vigencia vencida o por vencer es `validity_status`, nunca un estado | RF-AGR-001, RN-WFL-001 | `DeadlineJob` |
 | `agreement` | Un permiso de uso de terreno o una servidumbre se vincula con sus predios y con la comunidad titular antes de llegar a `active` | RF-AGR-002 | Guarda `AgreementWriteGuard` (`sgspe.agreement`) que exige al menos un vínculo `agreement_land_parcel` |
 | `agreement` | Una autorización de asamblea apunta a la interacción de tipo ASAMBLEA que la otorgó | RF-AGR-003 | `AgreementWriteGuard` (`assembly_engagement`) |
 | `agreement_party` | Cada parte es exactamente una persona u organización | RF-AGR-001 | `ExactlyOneGuard` |
-| `grievance`, `inquiry`, `stakeholder_request` | Los plazos de acuse, respuesta y resolución se calculan al recibir, con los parámetros del proyecto | RF-GRV-006, ASM-005 | `QcsDueDatesListener` (`sgspe.attention`) al crear, con la marca; recalcula desde `received_at`, así que es idempotente, y `DerivedFieldsJob` completa los que falten (§7.5) |
+| `grievance`, `inquiry`, `stakeholder_request` | Los plazos de acuse, respuesta y resolución se calculan al recibir, con los parámetros del proyecto, desde `received_at`; en un registro reclasificado, ese `received_at` es el del primer registro de la cadena | RF-GRV-006, ASM-005, ASM-072 | `QcsDueDatesListener` (`sgspe.attention`) al crear, con la marca; recalcula desde `received_at`, así que es idempotente, y `DerivedFieldsJob` completa los que falten (§7.5) |
 | QCS | La situación de plazo y el escalamiento son derivados | RF-GRV-006, RF-WFL-004, RN-WFL-001 | `DeadlineJob` |
 | `grievance` | Llegar a `resolved` con severidad ALTA o CRITICA requiere al rol `APPROVER` | RN-GRV-002, ASM-036 | Guarda `AttentionWriteGuard` (`sgspe.attention`) y roles por transición |
 | QCS | Una QCS anónima no identifica a la persona | RF-GRV-001, GAP-005 | `AttentionWriteGuard` (`anonymous` sin `person` ni `stakeholder`) |
-| QCS | Reclasificar conserva el vínculo con el registro original | RF-GRV-007 | Endpoint `POST /api/sgspe/grievances/{id}/reclassify` (y sus pares para `inquiry` y `stakeholder_request`) |
+| QCS | Reclasificar conserva el vínculo con el registro original y la fecha de recepción: el registro nuevo copia `received_at` del primer registro de la cadena, y sus plazos corren desde esa fecha | RF-GRV-007, ASM-072 | Endpoint `POST /api/sgspe/grievances/{id}/reclassify` (y sus pares para `inquiry` y `stakeholder_request`): crea el registro nuevo con `reclassified_from_*` y ese `received_at`, y cierra el original con `close_reclassified_*`; `QcsDueDatesListener` calcula los plazos del registro nuevo desde el `received_at` copiado |
 | `stakeholder_request` | Aceptar crea un compromiso en `draft` o un aporte y los vincula en un solo comando | RF-GRV-004 | Endpoint `POST /api/sgspe/stakeholder-requests/{id}/accept` y `CommandTransitionGuard` hacia `accepted` |
 | QCS | Toda escritura y transición lleva motivo | RQ-AUD-002, ASM-058 | Metadata (`requiresReason`) |
 | `social_risk` (+ `risk_assessment`, `mitigation_measure`) | Puntaje = probabilidad × impacto y nivel por umbrales configurables; cada revisión queda inmutable con su tendencia | RN-RSK-002, RF-RSK-002, ASM-004 | Endpoint `POST /api/sgspe/social-risks/{id}/assessments` (valida probabilidad e impacto de 1 a 5, crea la revisión y actualiza los valores vigentes) y `DerivedFieldsGuard` |
 | `social_risk` | Llegar a `assessed` exige probabilidad, impacto y responsable | RF-RSK-001 | Guarda `RiskWriteGuard` (`sgspe.risk`); el endpoint aplica la transición en la primera revisión |
 | `social_risk` | Llegar a `mitigating` exige al menos una medida con responsable; llegar a `monitoring` exige una evaluación residual; cerrar exige motivo | RN-RSK-003 | `RiskWriteGuard` y `requiresReason` |
 | `social_risk` | La revisión semanal se refleja en `review_status` y crea una tarea | RN-RSK-001 | `DeadlineJob` |
-| `early_warning` (+ `early_warning_signal`, `early_warning_rule`) | Solo una persona lleva una alerta a `confirmed` o `dismissed`; nunca una regla, una IA ni una cuenta de servicio | RN-EWS-001, RQ-SEC-014 | Roles de WF-J y guarda `WarningWriteGuard` (`sgspe.warning`), que rechaza esas transiciones sin usuario o con cuenta de servicio |
+| `early_warning` (+ `early_warning_signal`, `early_warning_rule`) | Solo una persona lleva una alerta a `confirmed` o `dismissed`; nunca una regla, una IA ni una cuenta de servicio | RN-EWS-001, RQ-SEC-014 | Roles de WF-J y guarda `WarningWriteGuard` (`sgspe.warning`), que exige `CONFIRM_ALERT` y rechaza esas transiciones sin usuario o con cuenta de servicio |
 | `early_warning` | Las reglas crean alertas en `detected` y nunca deciden | RF-EWS-004 | Trabajo `WarningRulesJob` (`sgspe.warning`), que solo crea registros |
 | `social_contribution` (+ `contribution_item`, `receipt`, `delivery`) | Propósito, condiciones y pagador declarados; si se aparta de los lineamientos, justificación | RN-INV-006, CON-021, CON-022 | Metadata (`required`) y `SupportPolicyGuard` (`sgspe.investment`) |
 | `social_contribution` | No se financia mano de obra, las donaciones no son monetarias y se advierte si no atiende las prioridades | RN-INV-001, RN-INV-002, RN-INV-005 | `SupportPolicyGuard`, según las políticas del proyecto |
 | `social_contribution` | Llegar a `approved` verifica el mismo tope, contra los montos aprobados de la campaña | RN-INV-003, ASM-063 | `SupportPolicyGuard` |
 | `social_contribution` | Un aporte con `has_institutional_synergy` exige un `agreement` vigente antes de llegar a `approved` | RN-INV-004 | `InvestmentWriteGuard`, según `policy_synergy_requires_agreement` |
-| `social_contribution` | Llegar a `delivered` exige acta de recepción, foto y comprobante | RF-INV-001 [DOC-02 p.4] | Endpoint `POST /api/sgspe/social-contributions/{id}/deliveries` y guarda `InvestmentWriteGuard` (`sgspe.investment`) hacia `delivered` |
+| `social_contribution` | Llegar a `delivered` exige acta de recepción, foto y comprobante | RF-INV-001 [DOC-02 p.4] | El endpoint `POST /api/sgspe/social-contributions/{id}/deliveries` solo captura datos (entrega y vínculos de evidencia, en una transacción); el cambio de estado es la transición humana de WF-P hacia `delivered`, con `InvestmentWriteGuard` (`sgspe.investment`): exige una entrega con su acta de recepción, foto y comprobante |
 | `social_contribution` | `total_amount` es la suma de `line_amount` de sus ítems, recalculada desde cero | RF-INV-001 | `ContributionTotalsListener` (`sgspe.investment`) y `DerivedFieldsJob` (§7.5) |
 | `social_program` (+ iniciativas, beneficiarios, presupuesto, indicadores, hitos) | Llegar a `planned` exige el acuerdo de sinergia con el socio | RN-INV-004 | `InvestmentWriteGuard` |
 | `program_budget`, `program_measurement` | Un presupuesto por año; mediciones inmutables | RF-INV-003, RQ-AUD-003 | Metadata (único compuesto, `appendOnly`) |
 | `evidence` | El archivo es inmutable: clave, hash, tamaño y tipo no cambian, no se borra y se reemplaza con una versión nueva | RF-DOC-001 | `apiOnly` y guarda `EvidenceWriteGuard` (`sgspe.evidence`) |
-| `evidence` | El hash SHA-256 se calcula al subir; la descarga depende de la clasificación | RF-DOC-001, RF-DOC-003, ASM-013 | Endpoints `POST /api/sgspe/evidence` y `GET /api/sgspe/evidence/{id}/content` |
+| `evidence` | El hash SHA-256 se calcula al subir; la descarga depende de la clasificación | RF-DOC-001, RF-DOC-003, ASM-013 | Endpoints `POST /api/sgspe/evidence` y `GET /api/sgspe/evidence/{id}/content`; la descarga de una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` |
+| `evidence` | Bajar la clasificación de una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` | RF-DOC-003, ASM-071 | `EvidenceWriteGuard` (`sgspe.evidence`) en el cambio de `classification`, que además lleva motivo |
 | `evidence` | Una foto de personas sin consentimiento no sale en una salida EXTERNO | RNF-PRIV-004, RQ-REP-014 | `sgspe.privacy` al ensamblar exportaciones y entregables |
 | `task` | Tiene un único origen y su vencimiento es derivado | RF-WFL-001, RN-WFL-001 | `ExactlyOneGuard` y `DeadlineJob` |
 | `task` | Las tareas que crea un trabajo no se duplican | RF-WFL-004 | Metadata (único `generator_key`) |
-| `deliverable` (+ `deliverable_section`, `deliverable_version`) | Solo se emite un entregable aprobado, desde el modelo congelado de su borrador aprobado | RQ-REP-026 | Endpoint `POST /api/sgspe/deliverables/{id}/issue` (lleva a `issued`, crea la `deliverable_version` y apunta a ella en una transacción) y `CommandTransitionGuard` |
+| `deliverable` (+ `deliverable_section`, `deliverable_version`) | Solo se emite un entregable aprobado, desde el modelo congelado de su borrador aprobado y sin secciones cambiadas después de congelarlo | RQ-REP-015, RQ-REP-026 | Endpoint `POST /api/sgspe/deliverables/{id}/issue` (lleva a `issued`, crea una `deliverable_version` por nivel y apunta el entregable a la base, en una transacción) y `CommandTransitionGuard`. El endpoint repite el control de la aprobación (`deliverables.md` §8.4): si alguna `deliverable_section` tiene `updated_at` posterior a `draft_generated_at`, responde 409 con las secciones cambiadas y no emite; luego una persona aplica `return_to_draft` de WF-H, con motivo, y pide un borrador nuevo |
 | `deliverable` | No se aprueba si el borrador no está LISTO o si una `deliverable_section` tiene `updated_at` posterior a `draft_generated_at`, el instante en que se congeló el modelo; los `draft_*` que lee solo los escribe el trabajador de generación | RQ-REP-015, RQ-REP-026, ASM-061 | Guarda `DeliverableWriteGuard` (`sgspe.deliverable`) hacia `approved` |
-| `deliverable_version` | Lo emitido es inmutable y lleva los hashes del DOCX, del PDF y del modelo | RQ-REP-017 | Metadata (`appendOnly`, `apiOnly`) |
+| `deliverable_version` | Una versión INTERNO emitida lleva DOCX y PDF; una versión derivada EXTERNO o PUBLICO puede ser solo PDF | RQ-REP-001, RQ-REP-014 | `DeliverableWriteGuard` al crear la versión: exige `docx_storage_key` y `docx_sha256` si `disclosure_level` es INTERNO |
+| `deliverable_version` | Lo emitido es inmutable y lleva los hashes del PDF y del modelo, y del DOCX cuando existe | RQ-REP-017 | Metadata (`appendOnly`, `apiOnly`) |
 | `deliverable_section` | El texto que sugiere la IA solo se usa si una persona lo copia o lo edita con motivo | RQ-AI-012 | `DeliverableWriteGuard` (exige `reason` cuando `content_origin` indica IA) |
-| `deliverable`, `export_log` | Los niveles de divulgación se aplican al modelo antes de generar, y cada exportación o emisión queda registrada | RQ-REP-014, RQ-AUD-011 | `sgspe.privacy` y los endpoints de exportación y emisión, que escriben `export_log` |
-| `indicator` (+ `indicator_measurement`) | Las cifras oficiales de un periodo son inmutables y solo nacen al cerrarlo | RQ-DSH-037, ASM-042 | `appendOnly`, `apiOnly` y endpoint `POST /api/sgspe/indicators/{id}/measurements` |
+| `deliverable`, `export_log` | Los niveles de divulgación se aplican al modelo antes de generar, y queda registrada cada exportación, cada emisión y cada descarga de archivos de entregables (borradores y versiones, en todos los niveles) | RQ-REP-014, RQ-AUD-011 | `sgspe.privacy` y los endpoints de exportación, emisión y descarga, que escriben `export_log` |
+| `indicator` (+ `indicator_measurement`) | Las cifras oficiales de un periodo son inmutables y solo nacen al cerrarlo; un indicador que nunca se congela no se cierra | RQ-DSH-037, ASM-042 | `appendOnly`, `apiOnly` y endpoint `POST /api/sgspe/indicators/{id}/measurements`, que responde 409 para los indicadores que nunca se congelan (`dashboards.md` §10): KPI-STK-02, KPI-STK-05 y KPI-STK-06, que leen posturas, y KPI-TER-01, que no tiene un valor propio |
 | `indicator_measurement` | Una medición por indicador, proyecto (o todo el tenant) y periodo | RQ-DSH-037 | Único compuesto más una guarda del endpoint de cierre para `project` vacío, porque los NULL son distintos [WAS-ADR-0037] |
 | `indicator` | Si falta permiso para leer un campo, el indicador dice "no disponible", nunca cero | RQ-DSH-032 | `sgspe.dashboard` |
 | `ai_suggestion`, `commitment_candidate` | Ningún agente escribe datos de dominio; una persona acepta y el comando corre con su autorización | RQ-AI-001, RQ-AI-003, RQ-AUD-012 | `apiOnly`, endpoint `POST /api/sgspe/ai-suggestions/{id}/accept` y `CommandTransitionGuard`; wasichai-agent es de solo lectura [WAS-ADR-0014] |
@@ -828,6 +858,13 @@ Todo campo marcado "(derivado)" en §6 tiene aquí su regla y quién lo escribe.
 paquete: calcula el valor desde cero a partir de sus fuentes, nunca por incremento, y escribe con la marca `SgspeWrite` y un
 motivo `derivado: <regla>`. `DerivedFieldsGuard` rechaza cualquier otra escritura (§4.6).
 
+En `model/model.json`, la definición de cada campo derivado lleva la clave `"derived": true`. Solo la leen las herramientas
+de SGSPE: `apply_roles.py`, que con ella expande `u` en UPDATE más una entrada de solo lectura para cada campo no derivado
+(`security.md` §6.3 y §7.1), y las pruebas. `apply.py` nunca la envía, porque publica un conjunto fijo de claves, como el
+`field_payload` de caja. Un campo derivado nunca se marca con `editable: false` de wasichai: `PhysicalTableRecordStore` omite
+los campos no editables en toda escritura, también en las de la plataforma, así que nadie podría escribirlo (wasichai-core,
+`PhysicalTableRecordStore.kt`).
+
 | Campo derivado | Regla | Lo escribe | Fuente |
 |---|---|---|---|
 | `exploration_campaign.executed_social_amount` | `executed_amount` de los compromisos de la campaña más `total_amount` de sus aportes en `delivered` o `closed`, solo los que están en la moneda de la campaña; los programas se consolidan por proyecto con `program_budget`, en PEN por defecto, y los montos en otra moneda se señalan igual | `DerivedFieldsJob` | RF-INV-004, RNF-I18N-002, ASM-063 |
@@ -841,10 +878,11 @@ motivo `derivado: <regla>`. `DerivedFieldsGuard` rechaza cualquier otra escritur
 | `strategic_alliance.formalized` | Tiene `agreement` y ese acuerdo llegó a `active`, aunque después haya pasado a `suspended`, `concluded` o `terminated` | `DerivedFieldsJob` | RF-ENG-010 |
 | `commitment.executed_amount` | Suma de `delivered_amount` de sus `delivery` | Endpoint de entregas, en su transacción | RQ-DSH-021, ASM-063 |
 | `commitment.requires_senior_approval` | Origen en una interacción de tipo MESA DE DIALOGO o con un grupo de interés del grupo POLITICO, si `policy_senior_approval_for_dialogue` está activo | `CommitmentDerivationsListener` al crear o cambiar el origen; `DerivedFieldsJob`. La guarda de aprobación evalúa la regla sin leer el campo | RN-ENG-002 |
-| `commitment.fulfilled_date`, `commitment.closed_date` | Fecha de la transición a `fulfilled` o a `closed` | `CommitmentDerivationsListener`, en la transacción de la transición | RQ-DSH-020 |
+| `commitment.fulfilled_date`, `commitment.closed_date`, `commitment.cancelled_date` | Fecha en America/Lima de la transición a `fulfilled`, `closed` o `cancelled`; la transición `reopen_execution` (de `fulfilled` a `in_progress`) vacía `fulfilled_date` | `CommitmentDerivationsListener`, en la transacción de la transición | RQ-DSH-003, RQ-DSH-020, RQ-DSH-031 |
+| `grievance.resolved_date`; `closed_date` de `grievance`, `inquiry` y `stakeholder_request` | Fecha en America/Lima de la transición a `resolved` (queja) o a `closed` (las tres); una reapertura de la queja vacía `resolved_date` | `QcsTransitionDatesListener` (`sgspe.attention`), en la transacción de la transición | RQ-DSH-003, RQ-DSH-022, RQ-DSH-025, RQ-DSH-031 |
 | `deadline_status` de `commitment`, QCS y `task` | El plazo frente a la fecha de hoy y `due_soon_days`, mientras el registro siga abierto | `DeadlineJob` | RN-WFL-001, ASM-006 |
 | `agreement.validity_status` | `expiry_date` frente a la fecha de hoy | `DeadlineJob` | RN-WFL-001 |
-| `ack_due_date`, `response_due_date` y `resolution_due_date` de QCS | `received_at` más `grievance_ack_days` (días hábiles), `inquiry_response_days` o `grievance_resolution_days` del proyecto | `QcsDueDatesListener`; `DerivedFieldsJob` | RF-GRV-006, ASM-005 |
+| `ack_due_date`, `response_due_date` y `resolution_due_date` de QCS | `received_at` (en un registro reclasificado, el del primer registro de la cadena, ASM-072) más `grievance_ack_days` (días hábiles), `inquiry_response_days` o `grievance_resolution_days` del proyecto | `QcsDueDatesListener`; `DerivedFieldsJob` | RF-GRV-006, ASM-005, ASM-072 |
 | `probability`, `impact`, `score`, `risk_level` y los `residual_*` de `social_risk` | Valores de la última revisión, residual o no; el nivel sale de los umbrales del proyecto | Endpoint de revisiones, en su transacción | RN-RSK-002, RN-RSK-003, ASM-004 |
 | `social_risk.next_review_date` | Fecha de la última revisión más `review_every_days` | Endpoint de revisiones; `DeadlineJob` si cambia `review_every_days` | RN-RSK-001 |
 | `social_risk.review_status` | `next_review_date` frente a la fecha de hoy | `DeadlineJob` | RN-WFL-001 |
@@ -852,6 +890,7 @@ motivo `derivado: <regla>`. `DerivedFieldsGuard` rechaza cualquier otra escritur
 | `social_program.total_budget` | Suma de `allocated_amount` de sus `program_budget` | `DerivedFieldsJob` | RF-INV-003 |
 | `deliverable.generation_requested_at` | Momento del último pedido de borrador | Endpoint `POST /api/sgspe/deliverables/{id}/drafts`, como el usuario | RQ-REP-021 |
 | `draft_generation_status`, `draft_generated_at`, `draft_model_sha256` y `draft_storage_key` de `deliverable` | Estado, instante de congelamiento, SHA-256 del modelo y clave del último borrador. `draft_generated_at` es el instante en que el trabajador congela el modelo del informe al empezar a generar, no el de término. Un pedido está pendiente si `generation_requested_at` es posterior a `draft_generated_at` o este está vacío. El estado pasa a EN COLA cuando el trabajador toma un pedido pendiente, a EN PROCESO al congelar el modelo y a LISTO o FALLIDO al terminar | El trabajador de generación de `sgspe.deliverable`, como la plataforma | RQ-REP-021, ASM-061 |
+| `ai_interaction.run_by_platform` | Verdadero cuando la llamada la hizo un trabajo como la plataforma, sin usuario que la pida (`requested_by_user_id` vacío) | El código de `sgspe.ai` al registrar la interacción, que es `appendOnly` | RF-AIK-009 |
 | `deliverable.current_version`, `deliverable.current_revision` | La última `deliverable_version` emitida y su revisión | Endpoint de emisión, en su transacción | RQ-REP-026 |
 
 `commitment.due_date` no es derivado, pero desde `approved` solo cambia con el endpoint de reprogramaciones;
@@ -862,26 +901,34 @@ motivo `derivado: <regla>`. `DerivedFieldsGuard` rechaza cualquier otra escritur
 Un listener corre como quien escribió y necesita sus permisos, y es atómico con la escritura solo si quien llama abrió una
 transacción (§7.1). Por eso los listeners de derivados recalculan desde cero, no hacen fallar la petición si no pueden
 escribir (registran el error) y dejan el valor pendiente a `DerivedFieldsJob`. Los que aplican una regla de negocio sobre una
-transición (`CommitmentDerivationsListener` en `fulfilled` y `closed`, y `RequestClosureListener`) sí fallan, y la
-transición se revierte; `NotificationListener` nunca hace fallar la escritura, tampoco en una transición.
+transición (`CommitmentDerivationsListener` en `fulfilled`, `closed`, `cancelled` y `reopen_execution`,
+`QcsTransitionDatesListener` y `RequestClosureListener`) sí fallan, y la transición se revierte. `NotificationListener` es
+atómico con la escritura solo dentro de una transición o de un endpoint transaccional, e inserta sus filas con un savepoint
+o con una conexión independiente, porque en PostgreSQL una sentencia fallida aborta toda la transacción de quien escribe: así
+un aviso fallido nunca hace fallar la escritura.
 `DerivedFieldsJob` (`sgspe.common`) corre cada hora con `ClusterLock` y `RecordService.asPlatform`, ejecuta los mismos
 recalculadores sobre los registros fuente cambiados desde su última corrida (por `updated_at`) y una vez al día sobre todos;
 como todo trabajo, solo escribe campos derivados (§8.3) [WAS-ADR-0039].
 
 | Listener (paquete) | Se dispara con | Escribe en | Permiso que exige a quien escribe | Si no puede escribir |
 |---|---|---|---|---|
-| `QcsDueDatesListener` (`sgspe.attention`) | Alta de `grievance`, `inquiry` o `stakeholder_request` | Los `*_due_date` del mismo registro | UPDATE sobre ese objeto, con motivo porque es `requiresReason` | No falla el alta; `DerivedFieldsJob` completa |
+| `QcsDueDatesListener` (`sgspe.attention`) | Alta de `grievance`, `inquiry` o `stakeholder_request`, también la que crea una reclasificación | Los `*_due_date` del mismo registro, desde su `received_at`, que en una reclasificación es el del primer registro de la cadena (ASM-072) | UPDATE sobre ese objeto, con motivo porque es `requiresReason` | No falla el alta; `DerivedFieldsJob` completa |
 | `AttendanceCountsListener` (`sgspe.engagement`) | Alta, cambio o baja de `engagement_participant` | Conteos de la `engagement` | UPDATE sobre `engagement` | No falla la escritura; `DerivedFieldsJob` recalcula |
 | `AreaListener` (`sgspe.territory`) | Cambio de `area_of_influence`, `community`, `land_parcel` o `mining_concession` por la API genérica | `calculated_area_ha` del mismo registro | UPDATE sobre ese objeto | No falla la escritura; `DerivedFieldsJob` recalcula |
 | `ContributionTotalsListener` (`sgspe.investment`) | Alta, cambio o baja de `contribution_item` | `total_amount` de la `social_contribution` | UPDATE sobre `social_contribution`, con motivo porque es `requiresReason` | No falla la escritura; `DerivedFieldsJob` recalcula |
-| `CommitmentDerivationsListener` (`sgspe.commitment`) | Alta o cambio del origen de un `commitment`; transiciones a `fulfilled` y `closed` | `requires_senior_approval`, `fulfilled_date` y `closed_date` del mismo compromiso | UPDATE sobre `commitment`, con motivo | En el alta o el cambio, no falla y `DerivedFieldsJob` recalcula; en una transición, la transición se revierte |
-| `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` | Transición a `closed` de la `stakeholder_request` que lo originó | El rol de esa transición de WF-E3 y motivo | La transición del compromiso se revierte |
-| `NotificationListener` (`sgspe.notification`) | Altas y transiciones que generan avisos | Tablas fijas `notification` y `notification_delivery`, con SQL propio | Ninguno: no escribe registros de wasichai | Registra el error y la escritura sigue |
+| `CommitmentDerivationsListener` (`sgspe.commitment`) | Alta o cambio del origen de un `commitment`; transiciones a `fulfilled`, `closed` y `cancelled`, y `reopen_execution` | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date` del mismo compromiso; en `reopen_execution` vacía `fulfilled_date` | UPDATE sobre `commitment`, con motivo | En el alta o el cambio, no falla y `DerivedFieldsJob` recalcula; en una transición, la transición se revierte |
+| `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o `closed`, y la reapertura de una queja | `resolved_date` y `closed_date` del mismo registro | UPDATE sobre ese objeto, con motivo porque es `requiresReason` | La transición se revierte |
+| `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | Transición a `closed` de la `stakeholder_request` que lo originó (`created_commitment` o `created_contribution`) | El rol de esa transición de WF-E3 y motivo | La transición del compromiso o del aporte se revierte |
+| `NotificationListener` (`sgspe.notification`) | Altas y transiciones que generan avisos | Tablas fijas `notification` y `notification_delivery`, con SQL propio, dentro de un savepoint o con una conexión independiente | READ sobre `project_assignment`, que lee como quien escribe para resolver los destinatarios (ASM-070); no escribe registros de wasichai. Los escalamientos de JOB-01 se resuelven como la plataforma | Registra el error; la escritura del usuario sigue |
 
-- Un rol con `own_records_only` (como `FIELD_AGENT`, RQ-SEC-008) no puede disparar un listener que escriba registros creados
-  por otros usuarios: su escritura derivada se omite y la corrige `DerivedFieldsJob`. Tampoco puede aplicar las transiciones
-  que disparan `CommitmentDerivationsListener` o `RequestClosureListener` sobre registros ajenos, así que `workflows.md` no le
-  da esas transiciones. `security.md` usa esta tabla para conceder UPDATE a los roles que escriben las fuentes.
+- Ningún rol de SGSPE usa `own_records_only`. `FIELD_AGENT` puede agregar participantes u observaciones a cualquier
+  interacción o visita que pueda leer, pero, como no tiene `EDIT_ANY`, se le rechaza cambiar, transicionar, vincular o borrar
+  registros ajenos; eso lo aplica `EditAnyGuard`, que decide con el permiso y nunca con el nombre del rol (RQ-SEC-005,
+  ASM-069). La guarda no frena la escritura derivada con la que `AttendanceCountsListener` actualiza los conteos de la
+  interacción ajena, porque lleva la marca de SGSPE. Si quien escribe no tiene UPDATE sobre el objeto que escribe un
+  listener, la escritura derivada se omite y la corrige `DerivedFieldsJob`; en un listener de transición, la transición se
+  revierte, así que `workflows.md` solo da esas transiciones a roles con UPDATE sobre lo que el listener escribe.
+  `security.md` usa esta tabla para conceder los permisos.
 - El estado de la relación de un grupo de interés no usa listener: su regla automática la aplica `StakeholderFollowUpJob`
   (§7.2).
 
@@ -904,32 +951,55 @@ Versionada en `model/*.json` y `model/roles.json`, aplicada de forma idempotente
 - vistas, formularios y páginas de ficha con FORM, RELATED_LIST, MAP, WORKFLOW y HISTORY [WAS-ADR-0011] [WAS-ADR-0012]
   [WAS-ADR-0021];
 - los tipos de documento administrativo de wasichai-documents (RQ-REP-029) [WAS-ADR-0023];
-- roles, permisos por objeto y por campo, `own_records_only` y acciones declaradas (`APPROVE`, `VERIFY`, `ISSUE`, `EXPORT`,
-  `GENERATE`) (RQ-SEC-003, RQ-SEC-004) [WAS-ADR-0020] [WAS-ADR-0042];
+- roles, permisos por objeto y por campo y acciones declaradas, con la tabla de §8.1.1 (RQ-SEC-003, RQ-SEC-004)
+  [WAS-ADR-0020] [WAS-ADR-0042];
 - la publicación en GeoServer de capas no sensibles (RQ-SEC-011) [WAS-ADR-0006].
 
 BC-19 (línea base social) y BC-20 (catálogos) son solo metadata, más un script Python que carga el ubigeo (RF-TER-001).
+
+#### 8.1.1 Acciones declaradas por objeto
+
+Réplica del catálogo de acciones declaradas de `security.md` (§5.3), que es la fuente: si difieren, manda `security.md`
+(RQ-SEC-004). `workflows.md` y `api.md` usan estos nombres tal cual [WAS-ADR-0042].
+
+| Objeto | Acciones declaradas | Qué habilitan |
+|---|---|---|
+| `project` | `APPROVE` | Llevar el proyecto a `active` (WF-A) |
+| `area_of_influence` | `APPROVE` | Aprobar una versión (WF-O) |
+| `stakeholder` | `EXPORT` | Exportar el registro de grupos de interés |
+| `engagement`, `engagement_participant`, `field_visit`, `field_observation` | `EDIT_ANY` | Cambiar, transicionar, vincular o borrar registros ajenos; sin ella, `EditAnyGuard` lo rechaza. Agregar participantes u observaciones a una interacción o visita ajena no la exige (ASM-069) |
+| `commitment` | `APPROVE`, `VERIFY`, `APPROVE_OVER_CAP`, `EXPORT` | Aprobar, verificar, aprobar aunque se supere el tope de la campaña y exportar la matriz |
+| `grievance` | `APPROVE`, `EXPORT` | Resolver una queja ALTA o CRITICA (RN-GRV-002) y exportar |
+| `inquiry`, `stakeholder_request`, `social_risk` | `EXPORT` | Exportar |
+| `early_warning` | `CONFIRM_ALERT` | Llevar una alerta a `confirmed` o `dismissed` (RN-EWS-001) |
+| `social_contribution` | `APPROVE`, `APPROVE_OVER_CAP` | Aprobar y aprobar aunque se supere el tope |
+| `social_program` | `APPROVE` | Llevar el programa a `planned` (WF-G) |
+| `evidence` | `DOWNLOAD_RESTRICTED`, `EDIT_ANY` | Descargar evidencias CONFIDENCIAL o DATOS PERSONALES (RF-DOC-003) y bajar su clasificación (ASM-071); con `EDIT_ANY`, cambiar, transicionar, vincular o borrar registros ajenos, aunque una evidencia nunca se borra (§7.2) |
+| `deliverable` | `APPROVE`, `GENERATE`, `ISSUE`, `EXPORT`, `DOWNLOAD_RESTRICTED` | Aprobar, pedir borradores y emitir; descargar las versiones EXTERNO y PUBLICO (`EXPORT`) y los borradores y las versiones INTERNO (`DOWNLOAD_RESTRICTED`); toda descarga queda en `export_log` |
+
+En F6, cada objeto de una capa `LYR-NN` (`gis.md` §2.2) que se exporte por `POST /api/sgspe/territory/exports` declara
+además `EXPORT` (RQ-GIS-018).
 
 ### 8.2 Código Kotlin propio por paquete
 
 | Paquete | Contenido | BC | Fase | Por qué no basta la metadata |
 |---|---|---|---|---|
-| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales de §7.1; envoltura de `RecordService` para el código propio; correlativos de `code`; `Idempotency-Key` (RNF-INT-002); precondición sobre `updated_at` (RNF-INT-003, ASM-035); filtros estrictos con 422 (ASM-054); fechas en America/Lima y feriados (RNF-I18N-002); contrato de los recalculadores de campos derivados y `DerivedFieldsJob` (§7.4, §7.5) | Transversal | F1 | Son reglas y convenciones de API que la plataforma no ofrece |
+| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales de §7.1; envoltura de `RecordService` para el código propio; correlativos de `code`; `Idempotency-Key` (RNF-INT-002); precondición sobre `updated_at` (RNF-INT-003, ASM-035); filtros estrictos con 422 (ASM-054); fechas en America/Lima y feriados (RNF-I18N-002); contrato de los recalculadores de campos derivados y `DerivedFieldsJob` (§7.4, §7.5); tabla fija `idempotency_key` con su migración (desde F3, ASM-065) | Transversal | F1 | Son reglas y convenciones de API que la plataforma no ofrece |
 | `sgspe.observability` | Filtro `X-Correlation-Id` ordenado antes de la cadena de seguridad, que acepta o genera el identificador y lo devuelve; una línea de acceso por petición; logs estructurados, como en el diseño de F1 | Transversal | F1 | wasichai no lleva identificador de correlación (RQ-AUD-006, RNF-OBS-001, ASM-034, UPS-03) |
-| `sgspe.scope` | `ProjectScopeGuard` y `ProjectWriteGuard`; lectura de `project_assignment`; adaptador de la extensión de alcance cuando exista | BC-01, BC-16 | F2 | wasichai no tiene alcance por proyecto (CON-041, UPS-01) |
+| `sgspe.scope` | `ProjectScopeGuard`, `ProjectWriteGuard`, `AssignmentRoleGuard` (`role_name` de `project_assignment` contra los roles configurados, ASM-070) y `EditAnyGuard` (a quien no tiene `EDIT_ANY` sobre el objeto le rechaza cambiar, transicionar, vincular o borrar registros ajenos, ASM-069); lectura de `project_assignment`; adaptador de la extensión de alcance cuando exista | BC-01, BC-16 | F2 | wasichai no tiene alcance por proyecto (CON-041, UPS-01) |
 | `sgspe.stakeholder` | `InfluenceClassifier` y `Prioritizer` (funciones puras); endpoint de evaluaciones; `StakeholderWriteGuard`; `StakeholderFollowUpJob` (evaluación periódica, inactividad, `last_contact_date` y regla de primer contacto de `relationship_status`) | BC-03 | F2 | Cálculo entre registros y escritura atómica de evaluación y grupo de interés (RF-STK-008, RF-STK-009, RF-STK-011) |
 | `sgspe.engagement` | `EngagementWriteGuard` (cierre según tipo y preguntas; `held` con al menos un participante con `attended`; `represented_people_count` de al menos 1); derivación de preguntas a QCS (F4); `AttendanceCountsListener` y su recalculador; recalculador de `strategic_alliance.formalized` | BC-04 | F2 | La regla de cierre lee otros registros (RN-ENG-004, RN-ENG-005) |
-| `sgspe.commitment` | `CommitmentWriteGuard` (matriz mínima, segregación de funciones, aprobación de nivel superior, políticas de empleo, evidencia de cumplimiento, dependencias); endpoints de reprogramación, entrega del compromiso, alta humana y aceptación de candidatos; `CommitmentDerivationsListener` | BC-05 | F3 | Comandos de varios registros y reglas que leen otros registros (RF-COM-003, RF-COM-004, RN-COM-001, RN-COM-005) |
+| `sgspe.commitment` | `CommitmentWriteGuard` (matriz mínima, segregación de funciones, aprobación de nivel superior, políticas de empleo, evidencia de cumplimiento, dependencias); endpoints de reprogramación, entrega del compromiso (solo captura datos; el cumplimiento es la transición `register_fulfillment`), alta humana y aceptación de candidatos; `CommitmentDerivationsListener` | BC-05 | F3 | Comandos de varios registros y reglas que leen otros registros (RF-COM-003, RF-COM-004, RN-COM-001, RN-COM-005) |
 | `sgspe.agreement` | `AgreementWriteGuard`: permisos de uso de terreno y servidumbres vinculados a sus predios y a la comunidad titular, autorizaciones de asamblea y cláusulas que originan compromisos | BC-06 | F3 | Las reglas leen vínculos y registros relacionados (RF-AGR-001, RF-AGR-002, RF-AGR-003) |
-| `sgspe.attention` | `QcsDueDatesListener` (plazos al recibir); reclasificación; aceptación de solicitudes; `RequestClosureListener` (cierre de la solicitud al cerrar su compromiso); reporte unificado de QCS | BC-07 | F4 | Comandos entre objetos y reporte de tres objetos (RF-GRV-004, RF-GRV-005, RF-GRV-007, RN-GRV-001) |
+| `sgspe.attention` | `QcsDueDatesListener` (plazos al recibir); `QcsTransitionDatesListener` (`resolved_date` y `closed_date`); reclasificación, que copia `received_at` del primer registro de la cadena (ASM-072); aceptación de solicitudes; `RequestClosureListener` (cierre de la solicitud al cerrar su compromiso o, desde F5, su aporte, ASM-068); reporte unificado de QCS | BC-07 | F4 | Comandos entre objetos y reporte de tres objetos (RF-GRV-004, RF-GRV-005, RF-GRV-007, RN-GRV-001) |
 | `sgspe.risk` | Endpoint de revisiones (puntaje, nivel, tendencia y residual); `RiskWriteGuard` | BC-08 | F4 | Cálculo al escribir y escritura de dos objetos (RN-RSK-002, RN-RSK-003) |
 | `sgspe.warning` | `WarningRulesJob` (evaluador de reglas); `WarningWriteGuard` (decisión humana) | BC-09 | F4 | Reglas sobre ventanas de tiempo y control de quién decide (RN-EWS-001) |
-| `sgspe.investment` | `SupportPolicyGuard` (tope de apoyo social por campaña sobre compromisos y aportes; lineamientos de aportes) e `InvestmentWriteGuard` (entrega de aportes con acta, foto y comprobante; sinergia antes de aprobar un programa); endpoint de entrega de aportes; `ContributionTotalsListener`; recalculadores de `total_amount`, `total_budget`, `executed_social_amount` y `other_currency_items_count` (ASM-063) | BC-10 | F5 (tope y lineamientos desde F3, RF-INV-002) | Políticas del proyecto y sumas entre objetos (RN-INV-003, RN-INV-004, RN-INV-006, RF-INV-004) |
-| `sgspe.deadline` | `DeadlineJob`: `deadline_status`, `validity_status`, `review_status`, escalamientos y tareas de revisión | BC-13 (para BC-05 a BC-08) | F3–F4 | Las automatizaciones no tienen disparadores temporales (CON-043, RN-WFL-001) |
-| `sgspe.notification` | Tablas fijas `notification` y `notification_delivery` con su migración; bandeja `/api/sgspe/notifications`; envío por SMTP con reintentos; `NotificationListener` | BC-14 | F3–F4 | wasichai no tiene módulo de notificaciones (UPS-11, ASM-012) |
+| `sgspe.investment` | `SupportPolicyGuard` (tope de apoyo social por campaña sobre compromisos y aportes; lineamientos de aportes) e `InvestmentWriteGuard` (entrega de aportes con acta, foto y comprobante; sinergia antes de aprobar un programa); endpoint de entrega de aportes (solo captura datos; la entrega es una transición de WF-P); `ContributionTotalsListener`; recalculadores de `total_amount`, `total_budget`, `executed_social_amount` y `other_currency_items_count` (ASM-063) | BC-10 | F5 (tope y lineamientos desde F3, RF-INV-002) | Políticas del proyecto y sumas entre objetos (RN-INV-003, RN-INV-004, RN-INV-006, RF-INV-004) |
+| `sgspe.deadline` | `DeadlineJob`: `deadline_status`, `validity_status`, `review_status`, escalamientos (sus destinatarios los resuelve `sgspe.notification`, ASM-070) y tareas de revisión | BC-13 (para BC-05 a BC-08) | F3–F4 | Las automatizaciones no tienen disparadores temporales (CON-043, RN-WFL-001) |
+| `sgspe.notification` | Tablas fijas `notification` y `notification_delivery` con su migración; bandeja `/api/sgspe/notifications`; envío por SMTP con reintentos (JOB-06); `NotificationListener`; resolución de destinatarios por `project_assignment.role_name` y la definición del workflow (ASM-070) | BC-14 | F3–F4 | wasichai no tiene módulo de notificaciones (UPS-11, ASM-012) |
 | `sgspe.evidence` | Subida y descarga en streaming, almacenamiento local o S3, SHA-256, EXIF, vínculos con `RelatedRecordService`; `EvidenceWriteGuard` | BC-12 | F3 | No hay campo FILE (CON-046, UPS-07, ASM-013) |
-| `sgspe.territory` | Importación con CRS y reconciliación; área en hectáreas en el `working_crs` del proyecto o, si el registro no pertenece a un solo proyecto, en la zona UTM del centroide (ASM-064); consultas espaciales con compuerta de permisos; sugerencias de miembros; ficha territorial; proxy WMS; `TerritoryWriteGuard`; `AreaListener` y su recalculador | BC-02 | F2 (análisis en F6) | `RecordService` solo filtra por `bbox` y las guardas no ven geometrías (RQ-GIS-011, RQ-GIS-017) |
-| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`; conteos con `RecordService` y agregación en Kotlin; cierre de periodo | BC-15 | F2–F8 | Agregaciones entre objetos sin vistas materializadas (RQ-DSH-031, RQ-DSH-034) |
+| `sgspe.territory` | Importación con CRS y reconciliación; área en hectáreas en el `working_crs` del proyecto o, si el registro no pertenece a un solo proyecto, en la zona UTM del centroide (ASM-064); consultas espaciales con compuerta de permisos; sugerencias de miembros; geometría y filtros espaciales de la ficha territorial, cuyas cifras calcula `sgspe.dashboard` (KPI-TER-01); proxy WMS; `TerritoryWriteGuard`; `AreaListener` y su recalculador | BC-02 | F2 (análisis en F6) | `RecordService` solo filtra por `bbox` y las guardas no ven geometrías (RQ-GIS-011, RQ-GIS-017) |
+| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`; las cifras de la ficha territorial (KPI-TER-01, RQ-GIS-005); conteos con `RecordService` y agregación en Kotlin; cierre de periodo | BC-15 | F2–F8 | Agregaciones entre objetos sin vistas materializadas (RQ-DSH-031, RQ-DSH-034) |
 | `sgspe.deliverable` | Una clase por tipo de entregable; ensamblado del modelo; DOCX con Apache POI; PDF con Gotenberg; mapas con GeoServer GetMap; endpoint que pide borradores; trabajador de generación, que escribe los `draft_*` como la plataforma (ASM-061); emisión; `DeliverableWriteGuard` | BC-15 | F8 | wasichai-documents no genera DOCX ni PDF en el servidor (CON-045, ASM-014) |
 | `sgspe.ai` | Agentes Embabel; seudonimización; registro de `ai_interaction`; creación de `ai_suggestion` y `commitment_candidate`; aceptación; RAG sobre `knowledge_chunk` | BC-18 | F7 | El asistente de wasichai es de solo lectura (CON-044, RQ-AI-001) |
 | `sgspe.privacy` | Niveles de divulgación como transformación del modelo; enmascaramiento; menciones de personas como referencias; exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 | Anonimización y registro de salidas (RQ-REP-014, RQ-REP-033, RQ-AUD-011) |
@@ -941,26 +1011,34 @@ Reglas para todo el código propio:
 - Escribe con `RecordService` y `RelatedRecordService` en proceso, dentro de la transacción del comando [WAS-ADR-0038], y como
   la plataforma solo en trabajos programados [WAS-ADR-0039].
 - Decide con permisos y acciones declaradas, nunca comparando nombres de rol (RQ-SEC-005).
-- Los paquetes de dominio no dependen de `sgspe.dashboard` ni de `sgspe.deliverable`; una prueba de arquitectura lo verifica
-  (RNF-TST-001).
+- Los paquetes de dominio no dependen de `sgspe.dashboard`, `sgspe.deliverable` ni `sgspe.ai`; solo `sgspe.ai` depende de los
+  paquetes de dominio, y lo hace a través de sus comandos (RQ-AI-001). Una prueba de arquitectura lo verifica (RNF-TST-001).
 
 ### 8.3 Trabajo en segundo plano: restricción de la plataforma
 
 Dentro de `RecordService.asPlatform` solo `RecordService` actúa como la plataforma: los demás servicios de wasichai
 (transiciones de workflow, registros relacionados, metadata) siguen pidiendo un usuario y fallan, y `asPlatform` falla dentro
-de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-0039]. De ahí tres reglas del modelo:
+de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-0039]. De ahí cuatro reglas del modelo:
 
 - **Los trabajos programados solo escriben campos derivados y crean registros nuevos.** Mantienen `deadline_status`,
   `validity_status`, `review_status` y los demás campos marcados "(derivado)" (§7.4), aplican la regla automática de primer
   contacto de `relationship_status`, que se deriva de las interacciones (ASM-032), y crean tareas, avisos y, en
   `sgspe.warning`, alertas en su estado inicial. Nunca aplican una transición ni vinculan o desvinculan registros
-  (RN-WFL-001, CON-043). Son `DeadlineJob`, `DerivedFieldsJob`, `StakeholderFollowUpJob`, `WarningRulesJob` y el trabajador
-  de generación de entregables.
+  (RN-WFL-001, CON-043). Son, con la numeración de `workflows.md`: `DeadlineJob` (JOB-01), `DerivedFieldsJob` (JOB-02),
+  `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), el trabajador de generación de entregables (JOB-05), el
+  envío de avisos por SMTP (JOB-06), que solo escribe tablas fijas, y la indexación para RAG (JOB-07, F7), que crea registros
+  de `ai_interaction` y escribe la tabla fija `knowledge_chunk`. Para recorrer las organizaciones necesitan una forma
+  soportada de listar los tenants, que wasichai todavía no ofrece (UPS-17). La excepción son las migraciones de datos de
+  `database-model.md` §24 sobre un objeto `apiOnly`: corren en proceso, dentro del paquete dueño del objeto, y escriben
+  campos no derivados como la plataforma, con un motivo que nombra la migración (ASM-051) y con las guardas activas
+  [WAS-ADR-0039] [WAS-ADR-0041]. Tampoco aplican transiciones.
 - **Todo cambio de estado automático ocurre en la petición de una persona**, como listener que corre con su identidad. Sobre
   una transición, el listener es atómico con ella porque `WorkflowService.apply` es transaccional [WAS-ADR-0038]; por la API
-  genérica no lo sería (§7.1, §7.5). El caso del MVP es RN-GRV-001: al cerrar un compromiso, `RequestClosureListener` cierra la
-  solicitud aceptada que lo originó como el usuario que cerró el compromiso; `workflows.md` da a esa transición de WF-E3 roles
-  compatibles con el cierre de WF-D y la protege con `CommandTransitionGuard`.
+  genérica no lo sería (§7.1, §7.5). El caso del MVP es RN-GRV-001: al cerrar un compromiso (y desde F5 un aporte, ASM-068),
+  `RequestClosureListener` cierra la solicitud aceptada que lo originó como el usuario que cerró el compromiso o el aporte;
+  `workflows.md` da a esa transición de WF-E3 roles compatibles con el cierre de WF-D y de WF-P y la protege con
+  `CommandTransitionGuard`. Si el compromiso o el aporte se cancela o se rechaza, la solicitud se cierra a mano con
+  `close_unfulfilled`.
 - **Borradores de entregable:** el endpoint `POST /api/sgspe/deliverables/{id}/drafts` escribe solo `generation_requested_at`,
   como el usuario y con la marca. El trabajador de `sgspe.deliverable` toma los pedidos pendientes con `ClusterLock` y escribe
   los `draft_*` como la plataforma: marca EN COLA al tomar el pedido; EN PROCESO al congelar el modelo, instante que guarda en
@@ -1514,6 +1592,7 @@ classDiagram
     indicator_measurement "*" --> "1" indicator : indicator
     deliverable_section "*" --> "1" deliverable : deliverable
     deliverable_version "*" --> "1" deliverable : deliverable
+    export_log "*" --> "0..1" deliverable : deliverable
     export_log "*" --> "0..1" deliverable_version : deliverable_version
     deliverable_section "*" --> "0..1" ai_suggestion : ai_suggestion
     ai_suggestion "*" --> "1" ai_interaction : ai_interaction
