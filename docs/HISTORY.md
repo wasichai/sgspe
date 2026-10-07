@@ -3,6 +3,23 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-07 — Diseño UX/UI, etapa 1: arquitectura de UX, navegación y design system
+
+El usuario pidió la UX/UI completa del portal con un prompt maestro de UX/UI (PRM-02) y fijó el orden de trabajo y el principio
+de navegación contextual (USR-10). El diseño se entrega en tres etapas con revisión; esta es la primera.
+
+- **Lienzo de diseño** con 17 hojas: visión UX, mapa del dominio, roles, tres contextos de navegación, inventario de 55
+  pantallas, shell, navegación por rol, prototipo navegable del hilo de contexto (comunidad → grupo de interés → interacción →
+  compromiso → evidencia), búsqueda global, fundamentos, sistema de estados, componentes y cuatro patrones núcleo.
+- **[`ux/ux-architecture.md`](ux/ux-architecture.md):** visión, principios, decisiones heredadas de la Fase 0 donde PRM-02 choca
+  con los documentos, roles y trabajos por hacer, arquitectura de información, rutas, navegación, hilo de contexto y
+  trazabilidad, inventario de pantallas y preguntas abiertas.
+- **[`ux/design-system.md`](ux/design-system.md) y [`ux/tokens.css`](ux/tokens.css):** dirección visual "Pino y piedra",
+  tokens en claro y oscuro con contraste verificado, sistema de estados por workflow, situación derivada, nivel y procedencia,
+  catálogo de componentes, patrones núcleo, accesibilidad WCAG 2.2 AA, responsive y guía de implementación.
+- **[`requirements-analysis.md`](requirements-analysis.md):** fuente PRM-02, decisión USR-10, regla de precedencia para el diseño
+  de la interfaz y supuestos ASM-073 a ASM-079 (487 IDs).
+
 ## 2026-10-07 — Fase 0: descubrimiento y diseño
 
 La Fase 0 entrega el diseño completo de SGSPE, sin código, sobre wasichai 0.3.2 (backend) y `@wasichai/*` 0.5.0 (UI).

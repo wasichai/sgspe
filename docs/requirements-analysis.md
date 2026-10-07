@@ -32,11 +32,12 @@ El prompt exige no dar a todas las fuentes la misma autoridad y clasificarlas po
 | DOC-02 | Informe de los trabajos de campo y avance en el prospecto "Blanca" (mayo de 2026; comunidad campesina indígena José Carlos Mariátegui, distrito de Inkahuasi, Lambayeque). PDF de 6 páginas con mapa, foto y comprobante | proceso de negocio; referencia (**entregable de ejemplo** T2); dato/catálogo | Alta para la práctica actual (incidente, mapeo de actores, redes comunitarias, apoyos con acta, foto y comprobante, datos legales de la comunidad) y para la plantilla T2 | Evidencia reciente de la operación social real |
 | DOC-03 | Captura de ArcMap con hoja Excel: sondajes (código, este, norte, cota, azimut, inclinación), "ÁREA AID 148.00 Ha", concesiones y predios con propietarios | dato/catálogo; requisito técnico implícito | Media para formatos de datos (Excel E/N, `Point ZM`, polígono en ha); baja para reglas de negocio | Imagen sin atribución ni sistema de coordenadas visible |
 | PRM-01 | Prompt maestro de arquitectura e implementación (`initial-promp.md`, transitorio, citado por §) | requisito técnico; requisito funcional genérico; proceso de desarrollo | Sus mandatos de proceso son vinculantes (Fase 0, trazabilidad, ASSUMPTION, ADR, DoD, IA con validación humana). Su lista tecnológica queda sustituida por wasichai (CON-039). Sus entidades y estados son hipótesis: el propio prompt pide validarlos contra los documentos [PRM-01 §5] | Es el mandato del proyecto y declara su propio alcance |
+| PRM-02 | Prompt maestro de UX/UI (2026-10-07, en la sesión; transitorio, citado por §): visión, principios, design system, pantallas, flujos y handoff del portal | requisito de interfaz; proceso de diseño | Sus principios, su orden de trabajo y sus entregables guían el diseño de la interfaz. Su navegación, sus estados, sus entidades y sus pantallas son hipótesis que ceden ante los requisitos y los diseños de la Fase 0: el propio prompt pide validarlos contra la documentación [PRM-02 §1, §5] | Es el mandato del diseño de la interfaz (`docs/ux/`) |
 | ARQ-01 | Boceto `arch-concept.md`: DATA / WORKFLOW / AI convergen en AUDIT | referencia (intención técnica) | Media; coincide con PRM-01 | Boceto del usuario |
 | ARQ-02 | Boceto `arch-flow.md`: acta → IA → candidato con evidencia y confianza → revisión humana → compromiso → workflow → tareas, SLA y notificaciones | referencia (intención técnica) | Media; coincide con PRM-01 §9 | Boceto del usuario |
 | ARQ-03 | Boceto `arch-init.md`: capas (React, REST, monolito modular, PostgreSQL + PostGIS + pgvector, Spring AI, Embabel) | referencia (intención técnica) | Media; su pgvector contradice PRM-01 §20 (CON-035) | Boceto del usuario |
 | ARQ-04 | Racional `tech-landing.txt`: monolito modular, compromisos como contexto central, separación DATA / WORKFLOW / AI | referencia (intención técnica) | Media | Boceto del usuario |
-| USR-01..09 | Decisiones del usuario en la sesión (ver §6.0) | requisito funcional; requisito técnico | **Máxima** (no hay normativa); la decisión más reciente prevalece | Las toma el usuario |
+| USR-01..10 | Decisiones del usuario en la sesión (ver §6.0) | requisito funcional; requisito técnico | **Máxima** (no hay normativa); la decisión más reciente prevalece | Las toma el usuario |
 | WAS | wasichai 0.3.2 (documentación y ADR 0001–0044) y `@wasichai/*` 0.5.0 | requisito técnico (plataforma) | Vinculante. Sus reglas de stack (sin JPA, DDL solo por metadata, agente de solo lectura) solo cambian mediante un ADR upstream | USR-03 |
 | REF | caja-backend y caja-ui (plantilla vigente, wasichai 0.3.2) y srtm-backend y srtm-ui (piezas de GIS e importadores) | referencia (patrón de implementación) | Convención preferida; no aporta dominio | USR-03 pide construir "tal como" esas apps |
 | Normativa | Ninguna ley ni reglamento fue proporcionado | normativa | — | Ausencia registrada como GAP-001 |
@@ -45,6 +46,7 @@ El prompt exige no dar a todas las fuentes la misma autoridad y clasificarlas po
 
 - **Asuntos técnicos:** USR > WAS > REF > PRM-01 > ARQ > ASM.
 - **Semántica del dominio:** USR > DOC explícito > DOC inferido > PRM-01 (hipótesis) > ASM.
+- **Diseño de la interfaz:** USR > requisitos y diseños de la Fase 0 > PRM-02 > ASM.
 - **Entre DOC-01 y DOC-02:** DOC-02 (2026) prevalece en la práctica operativa actual; DOC-01 aporta los métodos que DOC-02
   no trata (clasificación interés × poder, priorización, indicadores, matriz de compromisos, riesgos).
 - **Texto contra tabla dentro de un documento:** ninguna prevalece. Se registran evaluaciones fechadas con su fuente y se
@@ -98,7 +100,7 @@ Códigos de contexto `<CTX>` (en inglés):
 Otros identificadores que usan los demás documentos (no son IDs de requisito): objetivos `OBJ-NN` (§3), procesos `P-NN`
 (§5), bounded contexts `BC-NN` (§0.8), workflows `WF-A` a `WF-P` (§11), KPIs `KPI-EXE-NN`, `KPI-STK-NN`, `KPI-ENG-NN`,
 `KPI-COM-NN`, `KPI-GRV-NN`, `KPI-RSK-NN`, `KPI-INV-NN` y `KPI-TER-NN` (los define `dashboards.md`), capas `LYR-NN` (las
-define `gis.md`), casos de IA `AI-01` a `AI-08` [PRM-01 §9] y ADRs `ADR-0001` en adelante (`docs/adr/`).
+define `gis.md`), pantallas `SNN` (las define `ux/ux-architecture.md`), casos de IA `AI-01` a `AI-08` [PRM-01 §9] y ADRs `ADR-0001` en adelante (`docs/adr/`).
 
 ### 0.6 Marcadores de origen
 
@@ -106,8 +108,8 @@ define `gis.md`), casos de IA `AI-01` a `AI-08` [PRM-01 §9] y ADRs `ADR-0001` e
 |---|---|
 | `[EXP]` | Explícito en un documento fuente (DOC-01, DOC-02, DOC-03) |
 | `[INF]` | Inferido de un documento fuente; la fila explica la inferencia con una cláusula "porque …" |
-| `[PRM]` | Solo en el prompt maestro o en los bocetos (PRM-01, ARQ-01..04) |
-| `[USR]` | Decisión del usuario (USR-01..09) |
+| `[PRM]` | Solo en un prompt maestro o en los bocetos (PRM-01, PRM-02, ARQ-01..04) |
+| `[USR]` | Decisión del usuario (USR-01..10) |
 | `[PLT]` | Provisto o impuesto por wasichai |
 | `[ASM]` | Supuesto: necesario para la arquitectura, sin fuente; la fila cita su `ASM-NNN` de §19 |
 
@@ -115,6 +117,7 @@ define `gis.md`), casos de IA `AI-01` a `AI-08` [PRM-01 §9] y ADRs `ADR-0001` e
 
 `[DOC-01 §9.3.1.2]`, `[DOC-01 Tabla 7.1]`, `[DOC-01 nota 12]` (nota al pie del DOCX), `[DOC-01 Anexo 3]`,
 `[DOC-01 portada]`, `[DOC-01 índice]` (índice y listas de tablas y de gráficos), `[DOC-02 p.4]`, `[DOC-03]`, `[PRM-01 §5]`,
+`[PRM-02 §12]`,
 `[ARQ-02]`, `[USR-01]`, `[WAS-ADR-0040]` (ADR de
 wasichai) y `[WAS-DOC api/rest.md]` (documentación de wasichai, ruta relativa a `wasichai/docs`).
 
@@ -407,6 +410,7 @@ Cuando un requisito usa un objeto que llega en una fase posterior, la fila lo in
 | USR-07 | Datos personales anonimizados en todo artefacto versionado | RQ-SEC-018, RQ-SEC-010, RQ-REP-014 |
 | USR-08 | Repos `wasichai/sgspe` (backend, documentación y ADRs) y `wasichai/sgspe-ui` (web) | RNF-MNT-006 |
 | USR-09 | Nombres técnicos en inglés; etiquetas, documentos y README en español | RNF-MNT-004, RF-CAT-001 |
+| USR-10 | El diseño de la interfaz sigue el orden dominio → arquitectura de información → navegación → design system → patrones núcleo → Project 360 y territorio → grupos de interés, relacionamiento y compromisos → QCS, riesgos y programas → tableros → capa de IA, sin empezar por el tablero. Ningún módulo es una aplicación aparte: desde una comunidad en el mapa se pasa a sus grupos de interés, a una interacción, al compromiso que generó y a su evidencia sin perder el contexto del proyecto y del territorio | RNF-USA-001, RF-IAM-002, ASM-075, ASM-076 (`docs/ux/`) |
 
 ### 6.1 Proyectos (PRJ)
 
@@ -1372,6 +1376,13 @@ implementan. Las contradicciones, gaps y pedidos upstream que originan un supues
 | ASM-070 | `project_assignment.role_name` (TEXT) guarda el nombre de un rol declarado de wasichai, que una guarda valida contra `model/roles.json` cargado como configuración. Los destinatarios de escalamientos, aprobaciones y alertas son las asignaciones activas del proyecto cuyo `role_name` está en la lista de roles de la transición siguiente, tomada de la definición del workflow y nunca de literales en el código | wasichai no tiene roles por proyecto [WAS-ADR-0020], y el código no puede comparar nombres de rol (RQ-SEC-005) | Reemplazar `role_name` por un catálogo propio de roles de proyecto, o por una relación con los roles si la plataforma los expone como registros | RF-PRJ-005, RF-WFL-004, RF-NTF-001, RQ-SEC-005, `project_assignment` |
 | ASM-071 | Bajar la clasificación de una evidencia restringida (CONFIDENCIAL o DATOS PERSONALES) exige la acción declarada `DOWNLOAD_RESTRICTED` | Sin esa condición, quien no puede descargar una evidencia restringida podría bajar su clasificación y descargarla | Exigir en su lugar una aprobación de segunda persona | RF-DOC-003, RQ-SEC-004, `evidence` |
 | ASM-072 | Reclasificar una QCS conserva la fecha de recepción: el registro nuevo copia `received_at` del primer registro de la cadena, y sus plazos corren desde esa fecha | El grupo de interés planteó el caso una sola vez, y una decisión interna no debe reiniciar sus plazos | `QcsDueDatesListener` toma como inicio la fecha de reclasificación | RF-GRV-007, `QcsDueDatesListener`, KPI-GRV-05 |
+| ASM-073 | El asistente de IA no es una sección de la navegación principal: es un panel lateral que se abre desde la barra superior (global) o desde una ficha (contextual, con el registro y el contexto de proyecto y territorio), y las propuestas de IA se revisan en la bandeja de revisión del proyecto | RNF-USA-001 fija 13 secciones en orden y PRM-02 pide un asistente global y contextual además de una entrada propia [PRM-02 §5, §22] | Agregar una sección "Asistente" si cambia RNF-USA-001 | RNF-USA-001, RF-AIK-005, RQ-AI-004, `docs/ux/ux-architecture.md` §7.5 |
+| ASM-074 | El "ejecutivo" de PRM-02 no es un rol: es una persona con `READ_ONLY` o `ANALYST` cuyo inicio es la revisión ejecutiva de 5 minutos | Los 17 roles no incluyen un ejecutivo [PRM-01 §7] y PRM-02 lo nombra como usuario principal [PRM-02 §3, §41] | Declarar un rol `EXECUTIVE` de solo lectura en `model/roles.json` | RF-DSH-001, RF-IAM-002, `docs/ux/ux-architecture.md` §5 |
+| ASM-075 | Las rutas del portal van en inglés y kebab-case. La ficha de un registro con proyecto vive bajo `/projects/:projectId/…`; actores y territorio, que son del tenant, en `/actors/…` y `/territory/…`. El filtro de territorio, los filtros, la vista previa y la selección van en la consulta de la URL, y el rastro de navegación en el estado del historial | USR-09 fija nombres técnicos en inglés y USR-10 pide no perder el contexto de proyecto y territorio; un enlace compartido debe abrir la misma vista | Rutas planas por objeto con el proyecto como filtro | RNF-USA-001, RNF-MNT-004, `docs/ux/ux-architecture.md` §6 y §8 |
+| ASM-076 | Una misma página de lista y de ficha sirve a la sección global y a la pestaña del proyecto; solo cambia el alcance. La sección global muestra por defecto los proyectos con asignación activa de la persona, con la misma regla que los filtros de los tableros (`dashboards.md` §3.1) | USR-10: ningún módulo es una aplicación aparte | Páginas separadas por contexto | RNF-USA-001, RF-PRJ-005, `docs/ux/ux-architecture.md` §6.1 |
+| ASM-077 | Dirección visual "Pino y piedra": IBM Plex Sans y Plex Mono, neutros de piedra, un acento pino, tonos semánticos apagados, violeta solo para la IA y arena para el territorio. Los tokens se aplican como una capa sobre `@wasichai/ui/theme.css` y su correspondencia exacta de nombres se confirma en F1 | Ni las fuentes ni el usuario definen una marca o un design system para el portal, y `@wasichai/ui` trae temas por tokens [WAS-ADR-0035] | Adoptar la marca del cliente o los valores por defecto de `@wasichai/ui` cambiando solo `docs/ux/tokens.css` | RNF-MNT-001, RQ-DSH-035, `docs/ux/design-system.md` §2 y §3 |
+| ASM-078 | Cada rol tiene un inicio por defecto (por ejemplo, "Mis tareas" para el relacionista y "Atención requerida" para la gerencia social) que la persona puede cambiar; el orden de las secciones no cambia por rol | PRM-02 pide adaptar la navegación, los tableros y las acciones por rol [PRM-02 §3] y RNF-USA-001 fija el orden | Un inicio único para todos | RNF-USA-001, RF-IAM-002, `docs/ux/ux-architecture.md` §5 y §7.2 |
+| ASM-079 | Las vistas guardadas de las listas son de dos clases: las del sistema, definidas en el código del portal por rol, y las personales, guardadas en el navegador en el MVP; compartirlas entre personas o dispositivos espera una decisión | PRM-02 pide vistas guardadas [PRM-02 §13, §15, §25] y el modelo de dominio no tiene un objeto para ellas | Agregar un objeto o una tabla fija para vistas guardadas compartidas | RF-WFL-001, `docs/ux/design-system.md` §6.4 |
 
 ## 20. Matriz de trazabilidad (resumen; la matriz completa está en `requirements-traceability.md`)
 
@@ -1429,8 +1440,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 32 |
 | `UPS` | 18 |
-| `ASM` | 72 |
-| Total | 480 |
+| `ASM` | 79 |
+| Total | 487 |
 
 ### 20.2 Requisitos por bounded context
 

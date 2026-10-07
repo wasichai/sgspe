@@ -38,6 +38,7 @@ después de la revisión del checkpoint de la Fase 0 (ver [roadmap](roadmap.md))
 | [`deliverables.md`](deliverables.md) | Entregables DOCX/PDF, niveles de divulgación y emisión congelada |
 | [`dashboards.md`](dashboards.md) | Catálogo de KPIs y tableros |
 | [`ai-architecture.md`](ai-architecture.md) | IA con validación humana y seudonimización |
+| [`ux/`](ux/README.md) | Diseño UX/UI del portal: arquitectura de UX, navegación contextual, design system, tokens y, por etapas, pantallas y flujos |
 | [`requirements-traceability.md`](requirements-traceability.md) | Matriz requisito–fuente–módulo–entidad–API–UI–prueba |
 | [`roadmap.md`](roadmap.md) | Fases F0–F8, plan de la Fase 1 y decisiones pendientes del checkpoint |
 | [`adr/`](adr/README.md) | Decisiones de arquitectura (ADR-0001 a ADR-0026) |
@@ -73,3 +74,4 @@ después de la revisión del checkpoint de la Fase 0 (ver [roadmap](roadmap.md))
 | Trazabilidad y roadmap | Escritos |
 | Validación de consistencia | Ver "Validación de la Fase 0" en el [roadmap](roadmap.md) |
 | Checkpoint con el usuario | Pendiente |
+| Diseño UX/UI ([`ux/`](ux/README.md)) | Etapa 1 de 3 entregada (arquitectura de UX, navegación y design system); etapas 2 y 3 pendientes |

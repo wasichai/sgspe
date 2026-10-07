@@ -1,0 +1,280 @@
+/*
+ * SGSPE · tokens de diseño "Pino y piedra" (ASM-077) · etapa 1 de 3 · 2026-10-07
+ *
+ * Capa sobre @wasichai/ui/theme.css para Tailwind 4. Importar después del tema de wasichai:
+ *
+ *   @import "tailwindcss";
+ *   @import "@wasichai/ui/theme.css";
+ *   @import "./tokens.css";
+ *
+ * Las variables --sg-* son la fuente; el bloque @theme inline las expone como utilidades de Tailwind
+ * (bg-sg-surface, text-sg-muted, border-sg-strong…). La correspondencia con los nombres de token de
+ * @wasichai/ui 0.5.0 y el selector de tema oscuro que usa la plataforma se confirman en F1
+ * (pregunta Q2 de docs/ux/ux-architecture.md). Contraste verificado: docs/ux/design-system.md §10.
+ *
+ * Fuentes: IBM Plex Sans (400, 500, 600) e IBM Plex Mono (400, 500), con licencia OFL, servidas desde el
+ * mismo origen del portal (sin CDN externo, por la CSP de ADR-0026). Mientras cargan se usan las
+ * alternativas de --font-sg-sans y --font-sg-mono.
+ */
+
+:root {
+  /* Base */
+  --sg-bg: #f5f6f3;
+  --sg-surface: #ffffff;
+  --sg-surface-sunken: #eef0ec;
+  --sg-surface-hover: #f9faf8;
+  --sg-border: #d9ddd6;
+  --sg-border-subtle: #e4e7e1;
+  --sg-border-strong: #838b85;
+  --sg-text: #18211d;
+  --sg-text-secondary: #46514b;
+  --sg-text-muted: #5e6862;
+
+  /* Acción y foco */
+  --sg-primary: #1d5c52;
+  --sg-primary-hover: #164a42;
+  --sg-primary-soft: #e3efec;
+  --sg-primary-text: #1d5c52;
+  --sg-on-primary: #ffffff;
+  --sg-focus: #2f6fb0;
+
+  /* Tonos semánticos: tinta y fondo suave */
+  --sg-neutral: #4f5954;
+  --sg-neutral-soft: #eceeea;
+  --sg-info: #2b5f8f;
+  --sg-info-soft: #e6eef6;
+  --sg-progress: #1d5c52;
+  --sg-progress-soft: #e3efec;
+  --sg-success: #2e6b3e;
+  --sg-success-soft: #e5f0e7;
+  --sg-warning: #7f5300;
+  --sg-warning-soft: #fbf0d9;
+  --sg-danger: #a33a2a;
+  --sg-danger-soft: #f8e7e3;
+  --sg-critical: #7a1f1f;
+  --sg-critical-soft: #f3dcdc;
+  --sg-on-critical: #ffffff;
+  --sg-ai: #5a4a8c;
+  --sg-ai-soft: #eeeaf6;
+  --sg-ai-border: #8f80bd;
+  --sg-territory: #8a5a00;
+  --sg-territory-soft: #f3eee2;
+  --sg-territory-border: #d8cdb3;
+
+  /* Datos: categórica, postura y nivel de riesgo */
+  --sg-data-1: #2b5f8f;
+  --sg-data-2: #c9772b;
+  --sg-data-3: #1d5c52;
+  --sg-data-4: #8e5a9e;
+  --sg-data-5: #6b7f2a;
+  --sg-data-6: #838b85;
+  --sg-stance-favor: #2b5f8f;
+  --sg-stance-neutral: #b9bfb6;
+  --sg-stance-open: #d9a35b;
+  --sg-stance-against: #a33a2a;
+  --sg-risk-low: #e5f0e7;
+  --sg-risk-medium: #fbf0d9;
+  --sg-risk-high: #f3c9b8;
+  --sg-risk-critical: #a33a2a;
+  --sg-map-ground: #e8ebe3;
+
+  /* Sombras */
+  --sg-shadow-sm: 0 1px 2px rgb(16 24 20 / 0.06);
+  --sg-shadow-md: 0 4px 12px rgb(16 24 20 / 0.08);
+  --sg-shadow-lg: 0 12px 32px rgb(16 24 20 / 0.12);
+  --sg-shadow-overlay: 0 24px 64px rgb(16 24 20 / 0.28);
+
+  color-scheme: light;
+}
+
+/* Tema oscuro: explícito o según el sistema operativo */
+:root[data-theme="dark"] {
+  --sg-bg: #111614;
+  --sg-surface: #171d1a;
+  --sg-surface-sunken: #0d110f;
+  --sg-surface-hover: #1d2420;
+  --sg-border: #2a332e;
+  --sg-border-subtle: #222a26;
+  --sg-border-strong: #5e6a64;
+  --sg-text: #e7ece8;
+  --sg-text-secondary: #b5bfb9;
+  --sg-text-muted: #95a09a;
+  --sg-primary: #2a7468;
+  --sg-primary-hover: #2e8073;
+  --sg-primary-soft: #17302b;
+  --sg-primary-text: #6fc2b2;
+  --sg-focus: #7fb0e6;
+  --sg-neutral: #b5bfb9;
+  --sg-neutral-soft: #242c28;
+  --sg-info: #86b6e3;
+  --sg-info-soft: #1b2a38;
+  --sg-progress: #6fc2b2;
+  --sg-progress-soft: #17302b;
+  --sg-success: #86c496;
+  --sg-success-soft: #1a2b1f;
+  --sg-warning: #e3b65a;
+  --sg-warning-soft: #33280f;
+  --sg-danger: #ef9583;
+  --sg-danger-soft: #3a1e19;
+  --sg-critical: #f4a9a9;
+  --sg-critical-soft: #401a1a;
+  --sg-on-critical: #111614;
+  --sg-ai: #bbaeea;
+  --sg-ai-soft: #262138;
+  --sg-ai-border: #6e61a3;
+  --sg-territory: #e3b65a;
+  --sg-territory-soft: #2e2717;
+  --sg-territory-border: #5a4a2a;
+  --sg-map-ground: #1b211e;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sg-bg: #111614;
+    --sg-surface: #171d1a;
+    --sg-surface-sunken: #0d110f;
+    --sg-surface-hover: #1d2420;
+    --sg-border: #2a332e;
+    --sg-border-subtle: #222a26;
+    --sg-border-strong: #5e6a64;
+    --sg-text: #e7ece8;
+    --sg-text-secondary: #b5bfb9;
+    --sg-text-muted: #95a09a;
+    --sg-primary: #2a7468;
+    --sg-primary-hover: #2e8073;
+    --sg-primary-soft: #17302b;
+    --sg-primary-text: #6fc2b2;
+    --sg-focus: #7fb0e6;
+    --sg-neutral: #b5bfb9;
+    --sg-neutral-soft: #242c28;
+    --sg-info: #86b6e3;
+    --sg-info-soft: #1b2a38;
+    --sg-progress: #6fc2b2;
+    --sg-progress-soft: #17302b;
+    --sg-success: #86c496;
+    --sg-success-soft: #1a2b1f;
+    --sg-warning: #e3b65a;
+    --sg-warning-soft: #33280f;
+    --sg-danger: #ef9583;
+    --sg-danger-soft: #3a1e19;
+    --sg-critical: #f4a9a9;
+    --sg-critical-soft: #401a1a;
+    --sg-on-critical: #111614;
+    --sg-ai: #bbaeea;
+    --sg-ai-soft: #262138;
+    --sg-ai-border: #6e61a3;
+    --sg-territory: #e3b65a;
+    --sg-territory-soft: #2e2717;
+    --sg-territory-border: #5a4a2a;
+    --sg-map-ground: #1b211e;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  /* Colores como utilidades: bg-sg-surface, text-sg-text-muted, border-sg-border-strong… */
+  --color-sg-bg: var(--sg-bg);
+  --color-sg-surface: var(--sg-surface);
+  --color-sg-surface-sunken: var(--sg-surface-sunken);
+  --color-sg-surface-hover: var(--sg-surface-hover);
+  --color-sg-border: var(--sg-border);
+  --color-sg-border-subtle: var(--sg-border-subtle);
+  --color-sg-border-strong: var(--sg-border-strong);
+  --color-sg-text: var(--sg-text);
+  --color-sg-text-secondary: var(--sg-text-secondary);
+  --color-sg-text-muted: var(--sg-text-muted);
+  --color-sg-primary: var(--sg-primary);
+  --color-sg-primary-hover: var(--sg-primary-hover);
+  --color-sg-primary-soft: var(--sg-primary-soft);
+  --color-sg-primary-text: var(--sg-primary-text);
+  --color-sg-on-primary: var(--sg-on-primary);
+  --color-sg-focus: var(--sg-focus);
+  --color-sg-neutral: var(--sg-neutral);
+  --color-sg-neutral-soft: var(--sg-neutral-soft);
+  --color-sg-info: var(--sg-info);
+  --color-sg-info-soft: var(--sg-info-soft);
+  --color-sg-progress: var(--sg-progress);
+  --color-sg-progress-soft: var(--sg-progress-soft);
+  --color-sg-success: var(--sg-success);
+  --color-sg-success-soft: var(--sg-success-soft);
+  --color-sg-warning: var(--sg-warning);
+  --color-sg-warning-soft: var(--sg-warning-soft);
+  --color-sg-danger: var(--sg-danger);
+  --color-sg-danger-soft: var(--sg-danger-soft);
+  --color-sg-critical: var(--sg-critical);
+  --color-sg-critical-soft: var(--sg-critical-soft);
+  --color-sg-on-critical: var(--sg-on-critical);
+  --color-sg-ai: var(--sg-ai);
+  --color-sg-ai-soft: var(--sg-ai-soft);
+  --color-sg-ai-border: var(--sg-ai-border);
+  --color-sg-territory: var(--sg-territory);
+  --color-sg-territory-soft: var(--sg-territory-soft);
+  --color-sg-territory-border: var(--sg-territory-border);
+
+  /* Tipografía */
+  --font-sg-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-sg-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --text-sg-display: 2rem;
+  --text-sg-display--line-height: 2.5rem;
+  --text-sg-h1: 1.5rem;
+  --text-sg-h1--line-height: 2rem;
+  --text-sg-h2: 1.25rem;
+  --text-sg-h2--line-height: 1.75rem;
+  --text-sg-h3: 1rem;
+  --text-sg-h3--line-height: 1.5rem;
+  --text-sg-body: 0.875rem;
+  --text-sg-body--line-height: 1.25rem;
+  --text-sg-body-sm: 0.8125rem;
+  --text-sg-body-sm--line-height: 1.125rem;
+  --text-sg-table-dense: 0.75rem;
+  --text-sg-table-dense--line-height: 1rem;
+  --text-sg-caption: 0.75rem;
+  --text-sg-caption--line-height: 1rem;
+  --text-sg-overline: 0.6875rem;
+  --text-sg-overline--line-height: 1rem;
+  --text-sg-kpi: 1.75rem;
+  --text-sg-kpi--line-height: 2rem;
+  --text-sg-kpi-sm: 1.25rem;
+  --text-sg-kpi-sm--line-height: 1.75rem;
+
+  /* Radios */
+  --radius-sg-xs: 3px;
+  --radius-sg-sm: 4px;
+  --radius-sg-md: 6px;
+  --radius-sg-lg: 8px;
+  --radius-sg-xl: 12px;
+
+  /* Sombras */
+  --shadow-sg-sm: var(--sg-shadow-sm);
+  --shadow-sg-md: var(--sg-shadow-md);
+  --shadow-sg-lg: var(--sg-shadow-lg);
+  --shadow-sg-overlay: var(--sg-shadow-overlay);
+
+  /* Breakpoints: 640 · 768 · 1024 · 1280 · 1440 */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 90rem;
+
+  /* Movimiento */
+  --ease-sg-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Foco visible y movimiento reducido para todo el portal */
+@layer base {
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--sg-focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}

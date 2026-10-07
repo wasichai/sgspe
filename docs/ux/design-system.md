@@ -1,0 +1,408 @@
+# Design system de SGSPE
+
+Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapa 1 de 3 · versión 0.1 · 2026-10-07
+
+Este documento define los fundamentos visuales, los tokens, el sistema de estados, el catálogo de componentes y los patrones
+núcleo del portal. Se apoya en la [arquitectura de UX](ux-architecture.md) y en los diseños de la Fase 0; los IDs se definen
+solo en el [análisis](../requirements-analysis.md). Los tokens listos para usar están en [`tokens.css`](tokens.css) y la
+versión visual de todo lo que sigue está en el lienzo de diseño (páginas "03 Design system" y "04 Patrones núcleo").
+
+## 1. Base técnica
+
+- El portal se construye con las primitivas de `@wasichai/ui` 0.5.0, Tailwind 4 y `@wasichai/ui/theme.css`, que ya trae temas
+  por tokens [WAS-ADR-0035] (platform-fit §6). SGSPE no reemplaza esas primitivas: les da sus tokens y compone patrones con
+  ellas (RNF-MNT-001).
+- Los tokens de SGSPE son una capa sobre el tema de wasichai: `tokens.css` declara las variables con prefijo propio y las
+  conecta con las del tema. La correspondencia exacta de nombres se confirma en F1 al copiar caja-ui (ASM-077, pregunta Q2 de
+  la arquitectura de UX).
+- Gráficos con ECharts (RQ-DSH-035) y mapas con MapLibre 6.10.0 (RQ-GIS-014), ambos tomando sus colores de los mismos tokens.
+- React 19, TypeScript, React Router, TanStack Query, React Hook Form, Zod e i18next, en las versiones de caja-ui
+  (platform-fit §6). La interfaz no usa ninguna otra biblioteca de componentes.
+
+## 2. Dirección visual: "Pino y piedra"
+
+**ASSUMPTION (ASM-077):** neutros de piedra con un leve tono verde, un solo acento pino para la acción, estados apagados que se
+distinguen también por ícono y etiqueta, arena solo para el territorio y violeta solo para lo que propone la IA. Tipografía IBM
+Plex Sans para todo y IBM Plex Mono para códigos, coordenadas y huellas. Se revierte cambiando solo `tokens.css`.
+
+Por qué: la interfaz debe sentirse profesional, confiable, calmada y densa en datos [PRM-02 §7, §43]. Un acento único deja que
+el color hable solo cuando importa (estado, plazo, riesgo); la familia Plex tiene cifras tabulares, todos los signos del
+español y una lectura técnica sin frialdad. Se evitan las tipografías y los recursos más gastados (Inter, Roboto, degradados,
+tarjetas con borde lateral de color).
+
+## 3. Tokens
+
+### 3.1 Color base
+
+Todos los pares de texto superan 4.5:1 y los bordes de controles 3:1, en claro y en oscuro (§10).
+
+| Token | Claro | Oscuro | Uso |
+|---|---|---|---|
+| `bg` | `#F5F6F3` | `#111614` | Fondo de la aplicación |
+| `surface` | `#FFFFFF` | `#171D1A` | Tarjetas, tablas, paneles, diálogos |
+| `surface-sunken` | `#EEF0EC` | `#0D110F` | Encabezados de tabla, controles segmentados, bandas |
+| `surface-hover` | `#F9FAF8` | `#1D2420` | Fila o ítem bajo el cursor |
+| `border` | `#D9DDD6` | `#2A332E` | Separadores y contorno de tarjetas (decorativo) |
+| `border-subtle` | `#E4E7E1` | `#222A26` | Separadores dentro de una tarjeta |
+| `border-strong` | `#838B85` | `#5E6A64` | Contorno de controles (3:1) |
+| `text` | `#18211D` | `#E7ECE8` | Texto principal |
+| `text-secondary` | `#46514B` | `#B5BFB9` | Texto de apoyo |
+| `text-muted` | `#5E6862` | `#95A09A` | Metadatos y leyendas (nunca por debajo de 4.5:1) |
+| `primary` | `#1D5C52` | `#2A7468` | Acción primaria, selección, navegación activa |
+| `primary-hover` | `#164A42` | `#2E8073` | Hover de la acción primaria |
+| `primary-soft` | `#E3EFEC` | `#17302B` | Fondo de selección y de navegación activa |
+| `primary-text` | `#1D5C52` | `#6FC2B2` | Enlaces y texto de acento |
+| `on-primary` | `#FFFFFF` | `#FFFFFF` | Texto sobre `primary` |
+| `focus` | `#2F6FB0` | `#7FB0E6` | Anillo de foco (azul, distinto del acento) |
+
+### 3.2 Tonos semánticos
+
+Cada tono es una pareja tinta + fondo suave, usada en chips, insignias, alertas y celdas.
+
+| Tono | Tinta claro / fondo | Tinta oscuro / fondo | Cuándo |
+|---|---|---|---|
+| `neutral` | `#4F5954` / `#ECEEEA` | `#B5BFB9` / `#242C28` | Estado inicial, borrador, sin evaluar |
+| `info` | `#2B5F8F` / `#E6EEF6` | `#86B6E3` / `#1B2A38` | En revisión, esperando decisión, aprobado sin iniciar |
+| `progress` | `#1D5C52` / `#E3EFEC` | `#6FC2B2` / `#17302B` | En ejecución, en atención, en mitigación |
+| `success` | `#2E6B3E` / `#E5F0E7` | `#86C496` / `#1A2B1F` | Cumplido, verificado, resuelto, al día |
+| `warning` | `#7F5300` / `#FBF0D9` | `#E3B65A` / `#33280F` | Por vencer, bloqueado, suspendido, postergado |
+| `danger` | `#A33A2A` / `#F8E7E3` | `#EF9583` / `#3A1E19` | Vencido, alto, rechazo, error |
+| `critical` | `#FFFFFF` sobre `#7A1F1F` | `#F4A9A9` / `#401A1A` | Crítico: único relleno sólido de la escala |
+| `ai` | `#5A4A8C` / `#EEEAF6`, borde discontinuo `#8F80BD` | `#BBAEEA` / `#262138` | Solo propuestas y resúmenes de IA |
+| `territory` | `#8A5A00` / `#F3EEE2`, borde `#D8CDB3` | `#E3B65A` / `#2E2717` | Chip y fichas de territorio |
+
+### 3.3 Datos y mapas
+
+| Escala | Valores | Uso |
+|---|---|---|
+| Categórica | `#2B5F8F` · `#C9772B` · `#1D5C52` · `#8E5A9E` · `#6B7F2A` · `#838B85` | Series sin orden; azul y naranja primero, que se distinguen también en luminosidad |
+| Postura (divergente) | A FAVOR `#2B5F8F` · NEUTRAL `#B9BFB6` · EN CONTRA PERO ABIERTO A ESCUCHAR `#D9A35B` · EN CONTRA `#A33A2A` | KPI-STK-02 y la ficha territorial |
+| Nivel de riesgo | BAJO `#E5F0E7` · MEDIO `#FBF0D9` · ALTO `#F3C9B8` · CRITICO `#A33A2A` | Mapa de calor 5 × 5 (KPI-RSK-02) |
+| Mapa | Base apagada `#E8EBE3`; territorio comunal en arena; área del proyecto en pino discontinuo; selección con borde de 2.5 px | Mapa territorial y del proyecto; la paleta de capas se comparte con los mapas de informe (`gis.md` §7.2) |
+
+### 3.4 Tipografía
+
+| Token | Tamaño / interlineado | Peso | Uso |
+|---|---|---|---|
+| `display` | 32 / 40 | 600, −0.01em | Título de tablero o de portada |
+| `h1` | 24 / 32 | 600 | Título de página o de ficha |
+| `h2` | 20 / 28 | 600 | Sección de página |
+| `h3` | 16 / 24 | 600 | Tarjeta o bloque |
+| `body` | 14 / 20 | 400 | Texto general |
+| `body-sm` | 13 / 18 | 400 | Tablas, metadatos, formularios densos |
+| `table-dense` | 12 / 16 | 400 | Tabla en modo denso |
+| `label` | 13 / 16 | 500 | Etiquetas de campo |
+| `caption` | 12 / 16 | 400 | Ayudas y leyendas |
+| `overline` | 11 / 16 | 600, +0.04em | Rótulos de bloque escritos en mayúsculas ("DE DÓNDE VIENE") |
+| `kpi` | 28 / 32 | 600, cifras tabulares | Indicadores |
+| `kpi-sm` | 20 / 28 | 600, cifras tabulares | Indicadores secundarios |
+| `code` | 12 / 16 | Plex Mono 400 | Códigos (COM-2026-031), EPSG, huellas, rutas |
+
+Familias: `"IBM Plex Sans", "Segoe UI", system-ui, sans-serif` y `"IBM Plex Mono", ui-monospace, monospace`. Las cifras de
+tablas, montos y KPIs usan `font-variant-numeric: tabular-nums`. Los valores de ENUM se muestran tal como se guardan, en
+MAYÚSCULAS españolas (ADR-0009).
+
+### 3.5 Espaciado, radios, sombras y bordes
+
+| Grupo | Valores |
+|---|---|
+| Espaciado (base 4) | 2 · 4 · 6 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64. Ícono–texto 8; dentro de tarjetas densas 12; tarjetas 16–20; entre secciones 24–32 |
+| Radios | `xs` 3 (insignias) · `sm` 4 (chips) · `md` 6 (controles) · `lg` 8 (tarjetas) · `xl` 12 (drawers y diálogos) · `full` |
+| Sombras | `sm` 0 1px 2px rgba(16,24,20,.06) (pestaña activa) · `md` 0 4px 12px rgba(16,24,20,.08) (menús) · `lg` 0 12px 32px rgba(16,24,20,.12) (drawers) · `overlay` 0 24px 64px rgba(16,24,20,.28) (diálogos) |
+| Bordes | 1 px separador y tarjeta; 1 px `border-strong` en controles; 2 px énfasis |
+| Foco | Anillo de 2 px `focus` con separación de 2 px, en todo elemento interactivo, también sobre fondos de color |
+
+### 3.6 Breakpoints y layout
+
+| Ancho | Comportamiento |
+|---|---|
+| ≥ 1440 | Navegación 240 px, sub-navegación de proyecto 224 px, drawer al lado del contenido |
+| 1280 | El drawer se superpone al contenido; tablas densas por defecto |
+| 1024 | Navegación contraída a 52 px; la sub-navegación de proyecto pasa a un menú desplegable |
+| 768 (tableta) | Navegación en panel; fichas en una columna; el mapa ocupa la pantalla y la ficha contextual es una hoja inferior |
+| < 640 (móvil) | Solo tareas de campo, aprobaciones, avisos y consulta rápida; barra inferior de cuatro destinos [PRM-02 §31] |
+
+Barra superior de 56 px; contenido de hasta 1440 px con márgenes de 32, 24 y 16 px; drawer de 400 px (vista previa) o 560 px
+(formulario); filas de tabla de 32 px (densa) o 44 px (cómoda); objetivo táctil de 44 px; objetivo mínimo de escritorio de 32
+px, por encima del 24 × 24 de WCAG 2.2.
+
+### 3.7 Movimiento
+
+120 ms en hover y foco, 200 ms al abrir drawers y diálogos, siempre con `ease-out`. Sin animaciones decorativas, contadores
+animados ni brillos de carga. Con `prefers-reduced-motion`, todo cambia sin transición [PRM-02 §43].
+
+### 3.8 Estados de componente
+
+| Estado | Regla |
+|---|---|
+| Reposo | Colores de §3.1 |
+| Hover | Fondo `surface-hover` o el tono `-hover`; nunca solo cambio de cursor |
+| Presionado | Un paso más oscuro que hover |
+| Foco | Anillo `focus` visible con teclado (`:focus-visible`); nunca se elimina |
+| Deshabilitado | Contraste reducido y `cursor: not-allowed`; si la acción no está permitida, se explica en el tooltip por qué. Si el rol nunca la tendrá, la acción no se muestra |
+| Cargando | El control conserva su tamaño, muestra un indicador y un texto en gerundio ("Aprobando…") y queda inactivo; `aria-busy` |
+| Error | Borde y mensaje `danger` con ícono, debajo del campo, enlazado con `aria-describedby`; el mensaje dice cómo corregir |
+| Éxito | Confirmación breve (toast o marca en el campo); nunca bloquea el siguiente paso |
+
+## 4. Sistema de estados
+
+Tres familias que nunca se confunden [PRM-02 §8]:
+
+1. **Estado de workflow:** decisión humana registrada por una transición. Chip suave con ícono y etiqueta.
+2. **Situación derivada:** lo que calcula un trabajo programado con el paso del tiempo (`deadline_status`, `validity_status`,
+   `review_status`). Insignia redondeada con reloj; nunca reemplaza al estado (RN-WFL-001, CON-028).
+3. **Nivel:** riesgo, severidad, prioridad. Insignia con barras (1 a 4) además del color.
+
+Al pasar el cursor o al enfocar, un chip de estado dice desde cuándo, quién lo cambió y con qué motivo.
+
+### 4.1 Estados de workflow
+
+| Objeto (WF) | Estado → tono · ícono |
+|---|---|
+| Proyecto (WF-A) | Borrador → neutral · círculo punteado; En revisión → info · reloj; Activo → success · círculo con check; Suspendido → warning · pausa; Cerrado → final · candado; Anulado → final · aspa |
+| Grupo de interés (WF-B) | Identificado → neutral; Caracterizado → info · ficha; Evaluado → success · círculo con check; Retirado → final · aspa (reincorporable) |
+| Interacción (WF-C) | Planificada → neutral; Programada → info · reloj; Realizada → progress · check; Acta en borrador → progress · ficha; Acta en revisión → info · reloj; Acta aprobada → success · círculo con check; Postergada → warning · pausa; Cerrada → final · candado; Cancelada → final · aspa |
+| Compromiso (WF-D) | Borrador → neutral; Pendiente de aprobación → info · reloj; Aprobado → info · círculo con check; En ejecución → progress · play; Bloqueado → warning · pausa; Cumplido → success · check; Verificado → success · escudo; Cerrado → final · candado; Cancelado → final · aspa |
+| Queja (WF-E1) | Recibida → neutral; Acusada → info · check; En evaluación y En investigación → info · lupa; En atención → progress · play; Resuelta → success · check; Verificada → success · escudo; Cerrada → final · candado; Rechazada y Desistida → final · aspa |
+| Consulta y solicitud (WF-E2, WF-E3) | Recibida → neutral; En evaluación → info · lupa; Respondida y Aceptada → success; Derivada → info · flecha; Declinada → final · aspa; Cerrada → final · candado |
+| Riesgo social (WF-F) | Identificado → neutral; Evaluado → info · lupa; En mitigación → progress · play; En monitoreo → info · ojo; Cerrado → final · candado |
+| Alerta temprana (WF-J) | Detectada → warning · triángulo; En triaje → info · reloj; Confirmada → danger · triángulo (solo una persona); Descartada → final · aspa; En respuesta → progress · play; Resuelta → success · check; Cerrada → final · candado |
+| Programa social (WF-G) | Borrador → neutral; Pendiente de aprobación → info; Planificado → info; En ejecución → progress; En monitoreo → info · ojo; En evaluación → info · lupa; Suspendido → warning; Cerrado y Cancelado → final |
+| Tarea (WF-N) | Abierta → neutral; En curso → progress; Bloqueada → warning; Hecha → final · check; Cancelada → final · aspa |
+| Área de influencia (WF-O) | Borrador → neutral; Aprobada → success (versión vigente); Reemplazada → final · candado |
+| Propuesta de IA (WF-K) | Propuesta → ai · chispa; Aceptada → success; Rechazada y Duplicada → final · aspa |
+
+"Final" es contorno gris con candado o aspa: el registro deja de pedir atención. Los workflows de acuerdo, entregable, visita,
+incidente y aporte (WF-I, WF-H, WF-L, WF-M, WF-P) siguen la misma regla de tonos y se detallan con sus módulos (E2 y E3).
+
+### 4.2 Situación derivada
+
+| Situación | Valores (catálogo §10 del análisis) | Forma |
+|---|---|---|
+| Plazo (`deadline_status`) | AL DIA · POR VENCER · VENCIDO | Contorno verde; ámbar con fondo; relleno rojo. Con días: "VENCIDO · 7 días", "POR VENCER · 3 días" |
+| Vigencia (`validity_status`) | VIGENTE · POR VENCER · VENCIDO | Igual que plazo |
+| Revisión (`review_status`) | AL DIA · POR REVISAR · REVISION VENCIDA | Igual que plazo |
+
+En listas y fichas, la insignia de plazo va siempre al lado del chip de estado. Un compromiso en borrador o pendiente de
+aprobación no muestra plazo, porque no lo tiene (dashboards §3.2).
+
+### 4.3 Nivel, severidad y prioridad
+
+| Escala | Valores | Forma |
+|---|---|---|
+| Nivel de riesgo y severidad de alerta | BAJO · MEDIO · ALTO · CRITICO | Insignia con 1 a 4 barras; CRITICO con relleno sólido |
+| Severidad de queja | BAJA · MEDIA · ALTA · CRITICA | Igual |
+| Prioridad | BAJA · MEDIA · ALTA · MUY ALTA | Igual |
+
+### 4.4 Procedencia del dato
+
+| Marca | Significado | Forma |
+|---|---|---|
+| VERIFICADO | Comprobado por otra persona (verificación con segregación de funciones) | Contorno verde con escudo |
+| REGISTRADO | Ingresado por una persona, con autor y fecha | Contorno gris con persona |
+| CALCULADO | Lo deriva el sistema: plazos, áreas, indicadores, montos ejecutados | Contorno azul con signo de suma |
+| SUGERENCIA IA | Propuesta con evidencia y confianza; aceptarla es un comando humano (RQ-AI-003) | Fondo violeta, borde discontinuo, chispa |
+| RESUMEN IA | Texto generado; solo entra a un registro o entregable si una persona lo copia y lo edita (RQ-AI-012) | Fondo violeta, borde discontinuo, chispa con línea |
+
+Las marcas son discretas: aparecen donde la procedencia cambia la lectura (un monto ejecutado, un resumen, una propuesta), no
+en cada campo [PRM-02 §23]. Corresponden al catálogo "Origen del contenido" (HUMANO, CALCULADO, ASISTIDO POR IA) más la
+verificación de WF-D y WF-E1.
+
+## 5. Componentes
+
+Catálogo mínimo de PRM-02 §7, con lo que SGSPE agrega. "Base" indica si la pieza viene de `@wasichai/ui` (a confirmar en F1)
+o se compone en el portal.
+
+| Componente | Uso en SGSPE | Variantes y estados | Accesibilidad | Base |
+|---|---|---|---|---|
+| Button | Acciones de página y de diálogo | Primario, secundario, sutil, peligro, IA; 32 · 36 · 44 px; cargando | `<button>`; texto en verbo ("Aprobar") | wasichai |
+| IconButton | Más acciones, filtrar, cerrar | Con y sin borde | `aria-label` y tooltip obligatorios | wasichai |
+| Input, Textarea | Campos | Foco, error, solo lectura, deshabilitado; contador en motivos | `<label>` visible; error con `aria-describedby` | wasichai |
+| SearchInput | Búsqueda en listas | Con atajo visible | Etiqueta oculta accesible | wasichai |
+| Select, MultiSelect, Combobox | ENUM, relaciones, responsables | Chips quitables; opciones deshabilitadas con razón | Patrón combobox de ARIA | wasichai |
+| DatePicker, DateRangePicker | Fechas y periodos | Atajos (este mes, 90 días, campaña); feriados marcados | Tecla por tecla en la grilla; formato dd/mm/aaaa | wasichai |
+| Checkbox, Radio, Switch | Opciones | Fieldset con leyenda | Nativos o `role="switch"` | wasichai |
+| Badge | Conteos | Neutro, peligro, advertencia, IA | Texto que explica el conteo en `title` y en el nombre accesible del enlace | portal |
+| StatusBadge | Estado, situación, nivel, procedencia (§4) | Las cuatro familias | Ícono + etiqueta; nunca solo color | portal |
+| Avatar, AvatarGroup | Personas del equipo | Iniciales; "+n" | Nombre completo accesible | wasichai |
+| Tooltip, Popover | Explicar sin navegar | El tooltip no contiene acciones | Aparece con foco y con hover | wasichai |
+| Dropdown | Más acciones | Solo transiciones permitidas al rol; la destructiva al final, en rojo | `role="menu"` | wasichai |
+| Tabs | Secciones de una ficha | Con conteo | `role="tablist"`; flechas para moverse | wasichai |
+| Breadcrumbs y Rastro | Dónde vive el registro y por dónde se llegó | El rastro aparece con más de un salto | `nav` con `aria-label` distinto | portal |
+| Accordion | Bloques plegables de una ficha | — | `aria-expanded` | wasichai |
+| Card, MetricCard, KpiCard | Bloques e indicadores | KPI con delta y desglose; "n de N" con barra; "no disponible" | La cifra y su contexto se leen juntos | portal |
+| DataTable | Toda lista | Densa y cómoda; encabezado y primera columna fijos; orden; columnas; selección; grupos por prioridad | `<table>` real; `aria-sort`; encabezados de grupo | wasichai + portal |
+| FilterBar, FilterChip | Filtros en la URL | Chips con valor; "+ Filtro"; limpiar | Cada chip quitable con teclado | portal |
+| SavedViews | Vistas del sistema y personales (ASM-079) | Pestañas; guardar vista | `role="tablist"` | portal |
+| BulkActionBar | Acciones masivas | Solo acciones válidas para todos los seleccionados | Anuncia "n seleccionados" | portal |
+| Pagination | Listas largas | 25, 50, 100 por página | `nav` con página actual | wasichai |
+| EmptyState | Vacío inicial, por filtros y sin permiso | Con acción principal | Encabezado y texto reales | portal |
+| Skeleton | Carga | Con la forma de lo que carga; mensaje y reintento a los 10 s | `aria-busy` | portal |
+| Modal, ConfirmationDialog | Decisiones | Diálogo de transición (§6.2); confirmación destructiva con motivo | Foco atrapado; Esc cierra si no hay cambios | wasichai |
+| Drawer | Vista previa y formularios cortos | 400 y 560 px; reemplazable, no apilable | Foco al abrir; vuelve al origen al cerrar | wasichai |
+| Toast | Confirmaciones | Éxito con enlace; error persistente; conflicto de versión con "Recargar" | `role="status"` o `alert` | wasichai |
+| Alert, Callout | Reglas y avisos en contexto | Peligro, advertencia, información | Texto que dice qué hacer | portal |
+| Timeline, ActivityFeed | Historia de un registro | Hechos de negocio en lenguaje natural | Lista ordenada | portal |
+| CommentThread | Conversación sobre un registro | Menciones | Cada comentario con autor y hora | portal |
+| FileUploader, FilePreview | Evidencias | Tipo de evidencia y clasificación obligatorios; vista previa con metadatos | Zona de arrastre con botón alternativo | wasichai documents + portal |
+| ProgressBar, ProgressRing | Tope de campaña, mitigación, metas | Con valor y texto | `role="progressbar"` con valores | portal |
+| StepIndicator, WorkflowStepper | Formularios por pasos y ciclo de un registro | El stepper muestra el camino feliz; los desvíos son estados | Paso actual con `aria-current="step"` | portal |
+| Map, MapLayerControl | Mapa del proyecto y territorial | Capas en cuatro grupos (Referencia, Proyecto, Tenencia, Gestión); candado en capas sensibles | Alternativa en tabla sincronizada | `@wasichai/gis` + portal |
+| Chart | Gráficos | ECharts con "Ver datos" debajo | Tabla de datos y descripción | portal |
+| CommandPalette | Búsqueda global (⌘K) | Recientes, sugeridas, categorías, vista previa | Patrón combobox con listbox | portal |
+| ContextBar, TerritoryChip | Contexto de proyecto y territorio | Chip quitable | `nav` "Contexto" | portal |
+| TraceabilityPanel | Origen y consecuencias de un registro | Dos bloques navegables | Encabezados reales | portal |
+| AiSuggestionCard, AiSummary, AiAnswer | Propuestas, resúmenes y respuestas de IA | Con evidencia, confianza, modelo y fuentes; estado "no disponible" | Marca de procedencia en el nombre accesible | portal |
+
+## 6. Patrones núcleo
+
+### 6.1 Ficha de entidad
+
+La misma anatomía para todo objeto importante [PRM-02 §26]:
+
+1. **Contexto:** barra de contexto (proyecto y territorio) y breadcrumbs; el rastro si se llegó por un recorrido.
+2. **Encabezado:** tipo y código en `code`, título, chips de estado, plazo y prioridad, territorio; acciones a la derecha: la
+   primaria (la siguiente transición más probable para el rol), secundarias, "Más" y el botón de IA contextual.
+3. **WorkflowStepper** con el camino del objeto.
+4. **Panel de decisión:** cuatro tarjetas fijas que responden sin buscar: estado actual (desde cuándo y quién), siguiente
+   acción (con lo que falta para darla), responsable y vencimiento con escalamiento [PRM-02 §15].
+5. **Pestañas** del objeto (por ejemplo, en un compromiso: Resumen, Acciones, Entregas, Evidencias, Presupuesto, Riesgo,
+   Actividad, Auditoría).
+6. **Panel de trazabilidad** a la derecha: "De dónde viene" y "Qué generó" (ux-architecture §8).
+7. **Últimos movimientos** y enlace a la actividad completa y a la auditoría.
+
+Árbol de componentes de referencia (se detalla por pantalla en `screens.md`):
+
+```
+EntityDetailPage
+ ├── ContextBar
+ ├── Breadcrumbs · Trail
+ ├── EntityHeader
+ │    ├── StatusBadge (estado · plazo · prioridad)
+ │    └── EntityActions (primaria · secundarias · Más · IA)
+ ├── WorkflowStepper
+ ├── DecisionPanel (estado · siguiente acción · responsable · vencimiento)
+ ├── EntityTabs
+ │    └── <pestañas del objeto>
+ └── TraceabilityPanel · RecentActivity
+```
+
+### 6.2 Transición de workflow con motivo
+
+- Toda transición se abre en un diálogo con: estado de origen → estado de destino, **reglas** que se cumplen o no (las guardas
+  del servidor anticipadas en lenguaje del dominio), **qué pasará** (tareas, documentos emitidos, avisos) y el **motivo**,
+  obligatorio cuando el objeto es `requiresReason` o la transición lo exige; se envía en `X-Change-Reason` (RQ-AUD-002).
+- Si una regla no se cumple, el botón de confirmar no se habilita y el diálogo dice qué falta y a quién acudir. Si el servidor
+  rechaza igual (400 por los datos o 409 por el estado, `api.md` §3.3), su `detail` se muestra en lenguaje del dominio; nunca
+  solo el código de la regla.
+- Una transición con motivo opcional muestra el campo como opcional, no lo esconde.
+- Conflicto de versión (412, ADR-0025): "Otra persona cambió este registro" con "Recargar"; lo escrito en el diálogo se
+  conserva.
+- Las transiciones que el rol no tiene no aparecen; las que tiene pero hoy no puede dar aparecen deshabilitadas con la razón.
+
+### 6.3 Formulario por pasos
+
+- Formularios largos en pasos con un indicador lateral, guardado automático del borrador y "Guardar y salir" [PRM-02 §27].
+- Validación en línea con Zod; el paso no avanza con errores, pero se puede volver a cualquier paso ya visitado.
+- Los pasos siguen las reglas del dominio. Crear un compromiso: 1 Origen (interacción, solicitud aceptada, cláusula o carta;
+  justificación si nace de un taller o una reunión informativa, RN-ENG-001), 2 Qué se promete (descripción, objetivo, recurso,
+  cantidad y unidad), 3 Partes y beneficiarios, 4 Plazo e hitos, 5 Monto y campaña (con el tope a la vista, RN-INV-003),
+  6 Responsable, 7 Revisar y enviar (con los campos mínimos de la guarda D1). La evidencia no se pide al crear: se exige al
+  registrar el cumplimiento (RN-COM-001).
+- Cancelar un borrador pide confirmación; salir con cambios sin guardar avisa.
+
+### 6.4 Lista con vistas guardadas y acciones masivas
+
+- Encabezado con título, conteo y alcance ("17 en el proyecto"), acción de creación y exportación.
+- **Vistas guardadas** en pestañas: las del sistema por rol (por ejemplo, "Atención", "Mis compromisos", "Vencen este mes",
+  "Prioridad MUY ALTA", "Todos") y las personales (ASM-079). Una vista guarda filtros, columnas, orden y densidad.
+- **Filtros** como chips con su valor, en la URL; "+ Filtro" y "Limpiar".
+- **Agrupación por atención** cuando la vista lo pide: Vencidos, Por vencer, Bloqueados, en ese orden [PRM-02 §15].
+- **Selección** con casillas; la barra de acciones masivas ofrece solo lo válido para todos los seleccionados (reasignar,
+  cambiar prioridad, exportar). No hay cambio masivo de fecha de vencimiento (RF-COM-003).
+- Antes de una operación masiva, un diálogo dice cuántos registros cambiarán y cuáles no se pueden cambiar y por qué; después,
+  el resultado por registro, con los fallidos seleccionados para reintentar. Cada registro lleva su clave de idempotencia
+  (ADR-0025).
+- Montos con su moneda; nunca se suman monedas distintas (ASM-063).
+
+### 6.5 Vacío, carga, error y permisos
+
+| Situación | Qué se muestra |
+|---|---|
+| Vacío inicial | Qué es la sección, cómo nace el primer registro y la acción para crearlo [PRM-02 §29] |
+| Vacío por filtros | Los filtros activos, una pista ("sin el filtro de territorio hay 3") y "Limpiar filtros" |
+| Cargando | Skeleton con la forma real; el encabezado de una ficha aparece primero; reintento a los 10 s |
+| Error de carga | Qué falló, que los filtros se conservan, "Reintentar" y el identificador de correlación (`X-Correlation-Id`) |
+| Sin permiso (403) | Por qué no puede ver el registro y a quién pedir acceso, sin revelar datos |
+| Solo lectura | Aviso "no estás asignado a este proyecto"; las acciones de escritura no aparecen (alcance A, `security.md` §9) |
+| Campo o cifra restringidos | Candado y "no disponible", nunca vacío ni cero (RQ-DSH-032) |
+| Sesión vencida (401) | Volver a ingresar sin perder el borrador (WAS-ADR-0031) |
+| Módulo no instalado (404) | "Esta sección llega en una próxima fase", sin error técnico (ADR-0024) |
+| IA no disponible | Por rol (UPS-14), por organización o por falla del proveedor, con la razón |
+
+### 6.6 Auditoría legible
+
+Tabla y línea de tiempo con: **cuándo**, **quién** (persona, sistema o trabajo programado), **qué hizo** en lenguaje del
+dominio, **antes → después**, **por qué** (el motivo) y **desde dónde** (portal, API, automatización, trabajo programado o "IA
+aceptada por persona") [PRM-02 §42]. Filtros por actor, acción, campo y fecha; exportación. Las descargas de evidencias
+restringidas y las emisiones de entregables se consultan en el registro de exportaciones (`export_log`, RQ-AUD-011).
+
+## 7. Accesibilidad (WCAG 2.2 AA)
+
+- **Teclado:** todo se opera con teclado; orden de foco lógico; atajos documentados (⌘K, ↑ ↓, ↵, Esc); sin trampas salvo en
+  diálogos, que devuelven el foco al cerrarse.
+- **Foco visible:** anillo de 2 px que cumple 3:1 sobre cualquier fondo; nunca se quita.
+- **Contraste:** texto ≥ 4.5:1, texto grande y bordes de controles ≥ 3:1, verificado por script (§10).
+- **Sin depender del color:** estados con ícono y etiqueta; niveles con barras; series de gráficos con forma o patrón además
+  del color.
+- **Etiquetas y ARIA:** `<label>` visible en cada campo; nombres accesibles en botones de ícono; landmarks (`header`, `nav`,
+  `main`, `aside`); tablas con `<th scope>` y `aria-sort`.
+- **Gráficos y mapas:** tabla "Ver datos" bajo cada gráfico (RQ-DSH-035); el mapa siempre tiene la lista sincronizada como
+  alternativa; leyendas en texto.
+- **Objetivos:** mínimo 24 × 24 (2.5.8); 32 px en escritorio denso y 44 px en táctil.
+- **Arrastrar:** toda acción de arrastre tiene alternativa sin arrastre (2.5.7), como subir archivos o reordenar.
+- **Ayuda y autenticación:** la ayuda está en el mismo lugar en todas las páginas (3.2.6); el login permite pegar y usar
+  gestores de contraseñas (3.3.8).
+- **Movimiento:** se respeta `prefers-reduced-motion`.
+- **Idioma:** `lang="es-PE"` y cambio a inglés sin recargar (RNF-I18N-001).
+
+## 8. Responsive
+
+- **Escritorio (≥ 1280):** experiencia completa.
+- **Tableta (768–1279):** navegación en panel, fichas en una columna, mapa a pantalla completa con hoja inferior; tablas con
+  desplazamiento horizontal dentro de su caja y la primera columna fija.
+- **Móvil (< 640):** no se mete el sistema de escritorio en el teléfono [PRM-02 §31]. Solo: mis tareas, visitas de campo,
+  registrar interacción y observación con foto y ubicación, aprobaciones, avisos y consulta rápida. En línea, sin captura sin
+  conexión en el MVP (ASM-021, GAP-008). El diseño detallado es de E3.
+
+## 9. Guía de implementación
+
+- **Tokens:** importar `docs/ux/tokens.css` (copiado al portal) después de `@wasichai/ui/theme.css`. Usar siempre los tokens,
+  nunca colores sueltos; los colores de ECharts y MapLibre se leen de las mismas variables.
+- **Componentes de estado:** un solo `StatusBadge` que recibe el objeto, el estado y la situación, con un mapa de tono e ícono
+  por workflow tomado de §4.1; las etiquetas salen de la metadata (español) y no se duplican en i18n (CON-051).
+- **Alcance:** las páginas de lista y de ficha reciben `scope` (`{ kind: 'mine' }` o `{ kind: 'project', projectId }`) y leen
+  el territorio y los filtros de la URL (ASM-075, ASM-076).
+- **Sin literales de rol:** la visibilidad de acciones se decide con permisos y acciones declaradas, nunca comparando nombres
+  de rol; `boundaries.test` lo verifica (RQ-SEC-005).
+- **Motivo de cambio:** un hook único de transición abre el diálogo de §6.2, envía `X-Change-Reason`, `Idempotency-Key` y la
+  precondición de versión, y traduce los errores 400, 403, 409, 412 y 428 (`api.md` §3.3).
+- **Pruebas:** Vitest y Testing Library para componentes y estados; Playwright desde F2 (ASM-066) para los recorridos del
+  hilo de contexto.
+
+## 10. Verificación de contraste
+
+Un script compara cada par de texto y fondo de §3 y del lienzo. Resultado de esta etapa: todos los pares de texto entre 5.04:1 y
+16.48:1 en claro y entre 4.72:1 (blanco sobre `primary-hover` oscuro) y 14.31:1 en oscuro; foco 5.22:1 (claro) y 7.54:1
+(oscuro); bordes de controles entre 3.05:1 y 3.50:1 en claro (sobre `surface-sunken`, `bg` y `surface`) y entre 3.03:1 y
+3.24:1 en oscuro. Ningún par queda por debajo del mínimo.
+
+## 11. Trazabilidad
+
+- **Requisitos:** RNF-USA-001, RNF-I18N-001, RNF-MNT-001, RQ-DSH-032, RQ-DSH-035, RQ-GIS-014, RQ-GIS-015, RQ-AUD-002,
+  RQ-AUD-011, RQ-AI-003, RQ-AI-004, RQ-AI-012, RQ-SEC-005, RN-WFL-001, RN-COM-001, RN-ENG-001, RN-INV-003, RF-COM-003.
+- **Supuestos:** ASM-021, ASM-063, ASM-066, ASM-075, ASM-076, ASM-077, ASM-079.
+- **Documentos:** [workflows.md](../workflows.md), [dashboards.md §3 y §9](../dashboards.md), [gis.md §2 y §7.2](../gis.md),
+  [security.md §5 y §9](../security.md), [api.md §3](../api.md), [ADR-0024](../adr/0024-interfaz-portal-y-admin.md),
+  [ADR-0025](../adr/0025-concurrencia-e-idempotencia.md).
+- **Fuentes:** [PRM-02 §4, §7, §8, §23, §25–§31, §35, §42, §43], [WAS-ADR-0035].
