@@ -1,0 +1,29 @@
+server:
+  port: 8094
+
+spring:
+  application:
+    name: sgspe
+
+wasichai:
+  database:
+    host: ${WASICHAI_DB_HOST:localhost}
+    # compose.yml publica PostGIS en 127.0.0.1:5435 del VPS y llega por el túnel ssh. nunca 5432 ni 5434: son de otras apps
+    port: ${WASICHAI_DB_PORT:5435}
+    name: ${WASICHAI_DB_NAME:sgspe}
+    username: ${WASICHAI_DB_USERNAME:sgspe}
+    password: ${WASICHAI_DB_PASSWORD:sgspe}
+  seed:
+    # admin@wasichai.local / admin. solo para desarrollo: application-prod.yml lo apaga
+    dev: ${WASICHAI_SEED_DEV:true}
+  security:
+    jwt:
+      # solo para desarrollo. producción exige WASICHAI_JWT_SECRET (>= 32 bytes) sin valor por defecto (application-prod.yml)
+      secret: ${WASICHAI_JWT_SECRET:sgspe-dev-only-secret-change-me-0123456789}
+
+management:
+  endpoint:
+    health:
+      # /actuator/health/liveness y /actuator/health/readiness, públicos en la cadena de wasichai (ADR-0026)
+      probes:
+        enabled: true
