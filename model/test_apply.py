@@ -603,14 +603,13 @@ class ProvisioningOrderTests(unittest.TestCase):
         core = FakeCore()
         self.addCleanup(core.stop)
         login = ["--core", core.base_url, "--email", "admin-tenant@sgspe.test", "--password", "clave-del-tenant"]
-        with tempfile.TemporaryDirectory() as folder:
-            model_path = write_model(folder, FIXTURE_MODEL)
-            runs = [quiet(apply.main, ["--model", model_path, *login]),
-                    quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", model_path, *login]),
-                    quiet(apply.main, ["--model", model_path, "--workflows", *login])]
+        runs = [quiet(apply.main, ["--model", MODEL_PATH, *login]),
+                quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login]),
+                quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])]
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
-        posts = [p for m, p, _, _ in core.requests if m == "POST"]
-        self.assertLess(posts.index("/api/objects"), posts.index("/api/roles"))
+        writes = [(m, p) for m, p, _, _ in core.requests if m in ("POST", "PUT")]
+        self.assertLess(writes.index(("POST", "/api/objects")), writes.index(("POST", "/api/roles")))
+        self.assertLess(writes.index(("POST", "/api/roles")), writes.index(("PUT", "/api/objects/project/workflow")))
 
 
 if __name__ == "__main__":
