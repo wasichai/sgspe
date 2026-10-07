@@ -21,6 +21,8 @@ TICK = re.compile(r"`([^`]+)`")
 PARENS = re.compile(r"\s*\([^()]*\)")
 FROM_PHASE = re.compile(r"[Dd]esde (F\d)")
 DEFAULT = re.compile(r"Por defecto: ([^.]+)\.")
+SEPARATOR = re.compile(r"^\|\s*:?-{3,}")
+DATA_ROW = re.compile(r"^\| `[a-z_0-9]+` \|")
 
 
 def read(name):
@@ -30,6 +32,8 @@ def read(name):
 
 def table_rows(lines, start):
     """The rows of the markdown table that starts at lines[start] (its header), as lists of stripped cells."""
+    if start + 1 >= len(lines) or not SEPARATOR.match(lines[start + 1]):
+        raise ValueError(f"the table that starts with {lines[start]!r} has no |---| separator after its header")
     rows = []
     i = start + 2  # header and separator
     while i < len(lines) and lines[i].startswith("|"):
@@ -172,6 +176,14 @@ def cards():
                 card.exactly_one = _sets(bullets.get("Exactamente uno de", ""))
                 break
             j += 1
+        # Fail closed: a renamed header, a dropped separator or a blank line inside a table would leave rows out.
+        end = next((k for k in range(i + 1, len(lines)) if lines[k].startswith("#")), len(lines))
+        rows = sum(1 for k in range(i + 1, end) if DATA_ROW.match(lines[k]))
+        if not card.fields:
+            raise ValueError(f"card {card.name}: no field table (a renamed header?)")
+        if rows != len(card.fields) + len(card.relationships):
+            raise ValueError(f"card {card.name}: {rows} table rows in the document, but {len(card.fields)} fields and "
+                             f"{len(card.relationships)} relationships read")
         found[card.name] = card
         i = j
     return found
@@ -251,6 +263,9 @@ def _grants(cell):
         return []
     letters = cell.split("`")[0].strip()
     order = {"R": "READ", "C": "CREATE", "U": "UPDATE", "u": "u", "D": "DELETE"}
+    unknown = set(letters) - set(order) - {" "}
+    if unknown:
+        raise ValueError(f"unknown permission letters {sorted(unknown)} in {cell!r}")
     grants = [order[k] for k in ("R", "C", "U", "u", "D") if k in letters]
     return grants + ticks(cell)
 
@@ -265,6 +280,8 @@ def matrix():
             continue
         header = [c.strip() for c in line.strip().strip("|").split("|")]
         for cells in table_rows(lines, i):
+            if len(cells) != len(header):
+                raise ValueError(f"matrix row {cells[0]!r} has {len(cells) - 1} cells for {len(header) - 1} roles")
             obj = ticks(cells[0])[0]
             result[obj] = {roles[abbr]: _grants(cell) for abbr, cell in zip(header[1:], cells[1:])}
     return result
@@ -305,7 +322,10 @@ def workflow_states():
     result = {}
 
     def states(cell):
-        return [(m.group(1), m.group(2).split(";")[0].strip()) for m in re.finditer(r"`([a-z_]+)` \(([^)]*)\)", cell)]
+        found = [(m.group(1), m.group(2).split(";")[0].strip()) for m in re.finditer(r"`([a-z_]+)` \(([^)]*)\)", cell)]
+        if not found and cell != "—":
+            raise ValueError(f"state cell {cell!r} is not '—' and has no `name` (Label) state")
+        return found
 
     for _wf, objects, initial, middle, final in table_rows(lines, start):
         for obj in ticks(objects):

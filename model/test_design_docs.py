@@ -2,6 +2,9 @@
 
 Correr: cd model && python3 -m unittest -v test_design_docs
 """
+import os
+import shutil
+import tempfile
 import unittest
 
 import design_docs
@@ -101,6 +104,109 @@ class WorkflowStatesTests(unittest.TestCase):
         self.assertEqual(states["stakeholder"]["FINAL"], [])
         self.assertEqual(states["stakeholder"]["INTERMEDIATE"][-1], ("retired", "Retirado"))
         self.assertEqual(states["ai_suggestion"], states["commitment_candidate"])
+
+
+class TotalsTests(unittest.TestCase):
+    """Totales fijos sobre los documentos reales: si una tabla cambia de forma, el lector devuelve menos y esto falla."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cards = design_docs.cards()
+
+    def test_totales_de_las_fichas(self):
+        cards = self.cards
+        self.assertEqual(len(cards), 93)
+        f2 = [c for c in cards.values() if c.phase == "F2"]
+        fields = [f for c in f2 for f in c.fields if design_docs.field_phase(c, f) == "F2"]
+        rels = [r for c in f2 for r in c.relationships
+                if design_docs.relationship_phase(cards, c, r) == "F2" and not r["inverse"]]
+        self.assertEqual((len(fields), len(rels)), (390, 113))
+        # 78 claves en §4; las 45 de F2 son las de los campos ENUM que llegan en F2
+        self.assertEqual(len(design_docs.enum_keys()), 78)
+        self.assertEqual(len({f["enum"] for f in fields if f["type"] == "ENUM"}), 45)
+        self.assertTrue(all(c.phase for c in cards.values()))
+        self.assertTrue(all(c.fields for c in cards.values()))
+
+    def test_totales_de_seguridad(self):
+        phases, _ = design_docs.role_phases()
+        self.assertEqual(len(phases), 14)
+        self.assertEqual(len(design_docs.restricted_fields()), 24)
+        for obj, row in design_docs.matrix().items():
+            self.assertEqual(set(row), set(phases), obj)
+
+    def test_totales_de_workflows(self):
+        states = design_docs.workflow_states()
+        self.assertEqual(len(states), 19)
+        self.assertEqual(sum(len(v) for per in states.values() for v in per.values()), 113)
+        for card in self.cards.values():
+            if card.workflow:
+                self.assertIn(card.name, states)
+
+
+class BrokenDocsTests(unittest.TestCase):
+    """El lector falla, no devuelve de menos, cuando una tabla de un documento cambia de forma."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.original = design_docs.DOCS
+        self.addCleanup(setattr, design_docs, "DOCS", self.original)
+        for name in os.listdir(self.original):
+            if name.endswith(".md"):
+                shutil.copy(os.path.join(self.original, name), self.tmp)
+        design_docs.DOCS = self.tmp
+
+    def edit(self, name, change):
+        path = os.path.join(self.tmp, name)
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        change(lines)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+
+    def index(self, lines, prefix, after=0):
+        return next(i for i, line in enumerate(lines) if i >= after and line.startswith(prefix))
+
+    def test_las_tablas_rotas_hacen_fallar_al_lector(self):
+        design_docs.cards()  # la copia sin tocar se lee
+
+        def rename_header(lines):
+            lines[self.index(lines, "| Campo |")] = "| Campos |"
+
+        def blank_inside(lines):
+            start = self.index(lines, "| Campo |", self.index(lines, "### `engagement`"))
+            lines.insert(start + 4, "")
+
+        def drop_separator(lines):
+            del lines[self.index(lines, "| Campo |") + 1]
+
+        for name, change in (("renamed header", rename_header), ("blank line", blank_inside),
+                             ("dropped separator", drop_separator)):
+            with self.subTest(name):
+                self.edit("database-model.md", change)
+                with self.assertRaises(ValueError):
+                    design_docs.cards()
+                shutil.copy(os.path.join(self.original, "database-model.md"), self.tmp)
+
+        def short_row(lines):
+            i = self.index(lines, "| Objeto | PAD |")
+            lines[i + 2] = lines[i + 2].rsplit("|", 2)[0] + "|"
+
+        self.edit("security.md", short_row)
+        with self.assertRaises(ValueError):
+            design_docs.matrix()
+
+        def bad_state(lines):
+            i = self.index(lines, "| WF | Objeto | Inicial |")
+            lines[i + 2] = lines[i + 2].replace("`draft`", "draft")  # el estado inicial pierde sus comillas
+
+        self.edit("domain-model.md", bad_state)
+        with self.assertRaises(ValueError):
+            design_docs.workflow_states()
+
+    def test_una_letra_de_permiso_desconocida_falla(self):
+        with self.assertRaises(ValueError):
+            design_docs._grants("RX")
 
 
 if __name__ == "__main__":
