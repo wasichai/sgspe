@@ -80,7 +80,11 @@ def validate(roles, model):
             errors.append(f"role {role!r}: must be an object with name, label and permisos")
             continue
         name = role.get("name", "")
-        if not isinstance(name, str) or not ROLE_NAME.fullmatch(name):
+        if not isinstance(name, str):
+            # una lista o un objeto no son hashables: se descarta aquí, antes de `seen`
+            errors.append(f"role {name!r}: name must match {ROLE_NAME.pattern}")
+            continue
+        if not ROLE_NAME.fullmatch(name):
             errors.append(f"role '{name}': name must match {ROLE_NAME.pattern}")
         if name in ADMIN_ROLES:
             errors.append(f"role {name}: is wasichai's ADMIN, never declared (mappedToAdmin)")

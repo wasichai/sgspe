@@ -175,6 +175,11 @@ class StructureTests(unittest.TestCase):
         errors = self.check({"mappedToAdmin": MAPPED, "roles": ["PRUEBA"]})
         self.assertTrue(any("must be an object" in e for e in errors), errors)
 
+    def test_un_nombre_que_no_es_texto_se_rechaza_sin_traza(self):
+        for name in (["PRUEBA"], {"a": 1}, 7, None):
+            errors = self.check({"mappedToAdmin": MAPPED, "roles": [{"name": name, "label": "x", "permisos": {}}]})
+            self.assertTrue(any("name must match" in e for e in errors), (name, errors))
+
 
 MAPPED = ["SUPER_ADMIN", "ORGANIZATION_ADMIN"]
 
@@ -309,6 +314,19 @@ class ApplyRolesTests(ApplyRolesTestCase):
             code, out, err = self.run_cli(roles_path=path)
         self.assertEqual(code, 2)
         self.assertIn("permisos must be an object", out)
+        self.assertNotIn("Traceback", err)
+        self.assertEqual(self.core.requests, [])
+
+    def test_un_nombre_de_rol_que_es_una_lista_sale_con_2_y_sin_traza(self):
+        malformed = {"mappedToAdmin": MAPPED, "roles": [{"name": ["PRUEBA"], "label": "x", "permisos": {}},
+                                                       {"name": {"a": 1}, "label": "x", "permisos": {}}]}
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "roles.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(malformed, f)
+            code, out, err = self.run_cli(roles_path=path)
+        self.assertEqual(code, 2)
+        self.assertIn("name must match", out)
         self.assertNotIn("Traceback", err)
         self.assertEqual(self.core.requests, [])
 

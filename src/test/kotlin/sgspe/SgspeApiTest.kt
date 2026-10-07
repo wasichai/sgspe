@@ -172,7 +172,10 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
         // la salida va a un archivo: leer el flujo bloquearía hasta que el script cierre y el plazo nunca vencería
         val log = Files.createTempFile("sgspe-script-", ".log")
         try {
-            val process = ProcessBuilder(command).redirectErrorStream(true).redirectOutput(log.toFile()).start()
+            val builder = ProcessBuilder(command).redirectErrorStream(true).redirectOutput(log.toFile())
+            // sin búfer, la salida de un script colgado llega completa al archivo y al mensaje del plazo vencido
+            builder.environment()["PYTHONUNBUFFERED"] = "1"
+            val process = builder.start()
             if (!process.waitFor(120, TimeUnit.SECONDS)) {
                 process.destroyForcibly().waitFor()
                 fail<Unit>("${args.first()} no terminó en 120 s; salida hasta ahí:\n${Files.readString(log)}")
