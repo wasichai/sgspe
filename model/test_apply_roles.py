@@ -12,7 +12,7 @@ from contextlib import redirect_stderr, redirect_stdout
 
 import apply_roles
 from fake_core import FakeCore
-from fixture_model import FIXTURE_MODEL
+from fixture_model import F2_FIXTURE_MODEL, FIXTURE_MODEL
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROLES_PATH = os.path.join(HERE, "roles.json")
@@ -128,8 +128,8 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("MANAGE_METADATA" in e for e in errors), errors)
 
     def test_un_objeto_que_el_modelo_no_tiene_se_rechaza(self):
-        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"project": ["READ"]}))
-        self.assertTrue(any("object 'project' is not in model.json" in e for e in errors), errors)
+        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"zone": ["READ"]}))
+        self.assertTrue(any("object 'zone' is not in model.json" in e for e in errors), errors)
 
     def test_una_accion_declarada_solo_vale_sobre_su_objeto(self):
         ok = self.mutate(lambda r: r["roles"][0]["permisos"].update({"visit": ["READ", "EDIT_ANY"]}), FIXTURE_MODEL)
@@ -199,6 +199,12 @@ class ExpansionTests(unittest.TestCase):
             {"objectName": "visit", "fieldName": "zone", "read": True, "write": False},
             {"objectName": "zone", "fieldName": "code", "read": True, "write": False},
             {"objectName": "zone", "fieldName": "zone_type", "read": True, "write": False}]})
+
+    def test_una_relacion_many_to_many_no_tiene_campo_que_restringir(self):
+        # visit_zones es una tabla de unión: solo visit_date y el campo de visit_zone quedan de solo lectura
+        role = {"name": "PRUEBA", "label": "Rol de prueba", "permisos": {"visit": ["READ", "u"]}}
+        fields = apply_roles.field_permissions_payload(role, F2_FIXTURE_MODEL)["fields"]
+        self.assertEqual([f["fieldName"] for f in fields], ["visit_date", "zone"])
 
     def test_el_permiso_de_todo_el_tenant_va_sin_objeto(self):
         auditor = {"name": "AUDITOR", "label": "Auditor", "permisos": {"*": ["READ"]}}
@@ -295,14 +301,14 @@ class ApplyRolesTests(ApplyRolesTestCase):
 
     def test_un_roles_json_invalido_no_llama_a_core(self):
         roles = load(ROLES_PATH)
-        roles["roles"][0]["permisos"]["project"] = ["READ"]
+        roles["roles"][0]["permisos"]["zone"] = ["READ"]
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "roles.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(roles, f)
             code, out, err = self.run_cli(roles_path=path)
         self.assertEqual(code, 2)
-        self.assertIn("project", out)
+        self.assertIn("zone", out)
         self.assertEqual(self.core.requests, [])
 
     def test_un_roles_json_mal_formado_sale_con_2_y_sin_traza(self):

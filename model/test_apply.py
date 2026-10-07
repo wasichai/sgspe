@@ -42,10 +42,10 @@ def write_model(folder, model):
     return path
 
 
-class ModelOfF1Tests(unittest.TestCase):
-    def test_f1_has_no_objects_and_is_valid(self):
+class ModelOfF2Tests(unittest.TestCase):
+    def test_f2_has_its_48_objects_and_is_valid(self):
         model = load(MODEL_PATH)
-        self.assertEqual(model, {"enums": {}, "objects": [], "relationships": []})
+        self.assertEqual(len(model["objects"]), 48)
         self.assertEqual(apply.validate(model), [])
 
 
@@ -118,14 +118,16 @@ class ApplyTestCase(unittest.TestCase):
 
 
 class EmptyModelTests(ApplyTestCase):
-    def test_the_f1_model_writes_nothing(self):
-        code, out, err = self.run_apply(MODEL_PATH)
+    def test_an_empty_model_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            code, out, err = self.run_apply(write_model(folder, EMPTY_MODEL))
         self.assertEqual(code, 0, err)
         self.assertIn("done: 0 created, 0 updated, 0 skipped", out)
         self.assertEqual(self.writes(), [])
 
     def test_dry_run_has_nothing_to_send(self):
-        code, out, err = self.run_apply(MODEL_PATH, "--dry-run")
+        with tempfile.TemporaryDirectory() as folder:
+            code, out, err = self.run_apply(write_model(folder, EMPTY_MODEL), "--dry-run")
         self.assertEqual(code, 0, err)
         self.assertEqual(out, "")
         self.assertEqual(self.core.requests, [])

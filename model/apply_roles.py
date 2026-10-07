@@ -50,13 +50,14 @@ LINK_ONLY = "u"
 
 
 def _model_fields(model):
-    """Por objeto, sus campos sin "derived": true en el orden de model.json, y después el campo de cada relación que
-    sale de él."""
+    """Por objeto, sus campos sin "derived": true en el orden de model.json, y después el campo de cada relación
+    MANY_TO_ONE que sale de él (una MANY_TO_MANY es una tabla de unión, sin campo)."""
     fields = {}
     for obj in model.get("objects", []):
         fields[obj["name"]] = [f["name"] for f in obj.get("fields", []) if not f.get("derived", False)]
     for rel in model.get("relationships", []):
-        fields.setdefault(rel["source"], []).append(rel["fieldName"])
+        if rel.get("fieldName"):
+            fields.setdefault(rel["source"], []).append(rel["fieldName"])
     return fields
 
 
