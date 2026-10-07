@@ -93,7 +93,7 @@ Donde choca con la Fase 0, la interfaz sigue a la Fase 0:
 | Evidencia al crear un compromiso | Paso 5 del formulario | La evidencia se exige al registrar el cumplimiento (RN-COM-001) | El formulario de alta no pide evidencia (design-system §6.3) |
 | Asistente para todos | Global y contextual | AI-05 solo para `ANALYST` hasta UPS-14 (checkpoint) | Estado "no disponible para tu rol" diseñado; resúmenes y propuestas revisables sí disponibles |
 | Sincronización móvil | "Sync" | Captura sin conexión fuera del MVP (ASM-021, GAP-008) | El usuario decidió diseñarla (ASM-081): cola local, sincronización y conflictos visibles; se implementa después del MVP |
-| Idioma | Etiquetas en inglés | Interfaz en español es-PE con inglés; ENUM en MAYÚSCULAS españolas (RNF-I18N-001, ADR-0009) | Etiquetas y valores en español; rutas técnicas en inglés (ASM-075) |
+| Idioma | Etiquetas en inglés | Interfaz en español es-PE con inglés; ENUM en MAYÚSCULAS españolas (RNF-I18N-001, ADR-0009) | El usuario pidió español, inglés y quechua (ASM-084): español por defecto, valores de ENUM traducidos en el portal por clave; `/admin`, metadata y entregables en español; rutas técnicas en inglés (ASM-075) |
 | Montos | "Social investment" | Por moneda, nunca sumadas; PEN por defecto (ASM-063) | Cada total con su moneda; lo de otra moneda, como advertencia |
 
 ## 5. Usuarios y trabajos por hacer
@@ -180,7 +180,9 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 ### 7.1 Shell
 
 - **Barra superior (56 px):** marca, selector de proyecto ("Todos mis proyectos" o uno), búsqueda global con ⌘K, botón
-  "Preguntar" del asistente (§7.5), ayuda, avisos con conteo y perfil con rol.
+  "Preguntar" del asistente (§7.5), ayuda, avisos con conteo y perfil con rol. El menú del perfil incluye el idioma
+  (Español, English, Runasimi), cada uno nombrado en su propia lengua; antes de ingresar se elige en el login y en el teléfono
+  en «Más › Preferencias e idioma» (ASM-084, lienzo de la etapa 3, página 23).
 - **Navegación principal:** las 13 secciones en su orden, con ícono y etiqueta, insignias de lo que requiere acción y
   "Administración" con enlace a `/admin`, visible solo para quien administra (ADR-0024). Se contrae a 52 px; en tableta pasa a
   un panel y en el teléfono a una barra inferior de cuatro destinos.
@@ -321,7 +323,7 @@ El lienzo trae un prototipo navegable de este recorrido ("Hilo de contexto"):
 
 ## 9. Inventario de pantallas
 
-Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 55 pantallas. "Etapa" es la etapa de diseño en que se dibujan; "Fase",
+Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083). "Etapa" es la etapa de diseño en que se dibujan; "Fase",
 cuándo llega el módulo. La ficha de handoff de cada pantalla (ruta, roles, datos, API, estados, permisos, árbol de componentes)
 está en [`screens.md`](screens.md), completa desde la etapa 3.
 
@@ -382,6 +384,7 @@ está en [`screens.md`](screens.md), completa desde la etapa 3.
 | S53 | Administración | `/admin` | F1 | E3 |
 | S54 | Campo: mis tareas y visita | `/tasks`, `/field-visits` (móvil) | F2, F3 | E3 |
 | S55 | Campo: interacción, observación y foto | `/projects/:projectId/engagements/new` (móvil) | F2 | E3 |
+| S56 | Gestionar vistas (ASM-083) | `/views` y diálogo en cada lista | F2 | E3 |
 
 Absorbidas o movidas respecto de PRM-02: "Project Detail" y "Project Dashboard" son el Resumen de Project 360; "Early Warning
 Center" vive en Riesgos; "Grievance Dashboard" es el tablero de QCS; "Approval Center" es Tareas › Aprobaciones. Agregadas por
@@ -392,19 +395,21 @@ importación geoespacial, bandeja de revisión de IA y entregables.
 
 Supuestos de esta etapa (definidos en el análisis §19): ASM-073 (asistente como panel), ASM-074 (ejecutivo sin rol propio),
 ASM-075 (rutas y contexto en la URL), ASM-076 (misma página con otro alcance), ASM-077 (dirección visual y tokens), ASM-078
-(inicio por rol) y ASM-079 (vistas guardadas). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
+(inicio por rol) y ASM-079 (vistas guardadas, reemplazado por ASM-083). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
 con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10]. La etapa 3
-agrega ASM-081 (la captura de campo sin conexión se diseña; se implementa después del MVP).
+agrega ASM-081 (la captura de campo sin conexión se diseña; se implementa después del MVP). Las respuestas del usuario a Q1,
+Q3, Q6 y Q7 agregan ASM-082 (marca propia), ASM-083 (vistas compartidas), ASM-084 (español, inglés y quechua) y ASM-085
+(mapa base por entorno), con sus hojas en las páginas 22 a 24 del lienzo de la etapa 3.
 
 | # | Pregunta | Valor con el que se diseña | Relacionado |
 |---|---|---|---|
-| Q1 | ¿El cliente tiene marca o guía visual propia para el portal? | Dirección "Pino y piedra" | ASM-077 |
+| Q1 | ¿El cliente tiene marca o guía visual propia para el portal? | Respondida por el usuario: marca propia de SGSPE, dirección «Sendero» sobre la paleta «Pino y piedra» | ASM-077, ASM-082 |
 | Q2 | ¿Qué nombres de tokens y qué primitivas (tabla, drawer, combobox, calendario) trae `@wasichai/ui` 0.5.0? | Los tokens se aplican como capa; se confirma en F1 al copiar caja-ui | ASM-077, RNF-MNT-001 |
-| Q3 | ¿Las vistas guardadas deben compartirse entre personas o dispositivos? | Personales en el navegador; las del sistema, por rol en el código | ASM-079 |
+| Q3 | ¿Las vistas guardadas deben compartirse entre personas o dispositivos? | Respondida por el usuario: sí; visibilidad solo yo, equipo del proyecto u organización; requiere `saved_view` | ASM-079, ASM-083 |
 | Q4 | ¿El ejecutivo necesita un rol propio? | Lectura con `READ_ONLY` o `ANALYST` | ASM-074 |
 | Q5 | ¿El trabajo de campo debe operar sin conexión? | Respondida por el usuario: sí, se diseña; se implementa después del MVP, con un ADR de sincronización | GAP-008, ASM-021, ASM-081 |
-| Q6 | ¿Se requieren contenidos en quechua en la interfaz de campo? | Solo español | GAP-013 |
-| Q7 | ¿Qué mapa base usa el portal? | Mapa base apagado; depende de UPS-13 | UPS-13, `gis.md` §6.4 |
+| Q6 | ¿Se requieren contenidos en quechua en la interfaz de campo? | Respondida por el usuario: toda la interfaz del portal en español, inglés y quechua; la variante se confirma con el traductor | GAP-013, ASM-084 |
+| Q7 | ¿Qué mapa base usa el portal? | Respondida por el usuario: las librerías de srtm-ui; OpenStreetMap ráster solo en desarrollo, estilo configurable en producción | UPS-13, ASM-048, ASM-085, `gis.md` §6.4 |
 
 ## 11. Trazabilidad
 

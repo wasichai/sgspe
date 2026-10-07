@@ -493,6 +493,13 @@ Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El en
   (RQ-GIS-013, ASM-048). La cartografía base y sus licencias siguen abiertas en GAP-011.
 - Opciones: un proveedor licenciado por URL de estilo, o un extracto PMTiles del Perú autoalojado, con su licencia y atribución,
   que además funciona sin conexión externa.
+- Librerías como srtm-ui (ASM-085): MapLibre GL 6.10.0 y `@wasichai/gis` 0.5.0 para el mapa y terra-draw 1.33.0 con
+  `terra-draw-maplibre-gl-adapter` 1.4.1 para dibujar geometrías. En desarrollo, el mapa base son las teselas ráster de
+  OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`) con la atribución «© OpenStreetMap contributors» visible,
+  como el mapa de lotes de srtm-ui; en producción se usa solo el estilo configurado. Si no hay uno, el mapa muestra las capas
+  del proyecto sobre un fondo neutro con el aviso «Sin mapa base», sin volver a OpenStreetMap. El panel de capas ofrece los
+  fondos configurados y «Sin fondo»; la atribución del proveedor siempre se ve (`docs/ux/design-system.md` §5,
+  `MapAttribution`; lienzo de la etapa 3, página 24).
 - La configuración es de la aplicación (`application.yml` por despliegue): en F2, `sgspe.map.base-style-url`; en F6, además, un
   mapa `sgspe.map.base-style-url-by-organization`, que mantiene el operador como `sgspe.ai.enabled-organizations`, para el valor
   por organización que pide RQ-GIS-013; `MapView` sigue esperando UPS-13. En desarrollo puede usarse un estilo de prueba.
