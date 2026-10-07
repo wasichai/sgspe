@@ -19,6 +19,7 @@ class ArchitectureTest {
     // el código de una fuente: se exceptúan solo las líneas que son todo comentario (//, /*, /** y las de continuación de un
     // bloque, que empiezan con *), que pueden nombrar un rol o una api para explicar por qué no se usa. el resto de cada
     // línea se escanea entera: cortar en el primer // dejaría sin ver lo que sigue a una url en un literal ("https://x").
+    // las líneas que empiezan con * o /* se exceptúan enteras: el caso patológico es `/* x */ código` en una sola línea
     // un comentario al final de una línea de código que nombre algo prohibido es un hallazgo: se reescribe. lo mismo vale
     // para un nombre de rol en mayúsculas dentro de un KDoc que no empiece la línea con * (poco probable)
     private fun code(lines: List<String>): List<String> =
@@ -40,6 +41,9 @@ class ArchitectureTest {
         rule: Regex,
         text: String
     ): Boolean = code(text.lines()).any { rule.containsMatchIn(it) }
+
+    // esta misma fuente, por su ruta exacta: un ArchitectureTest.kt de otro paquete sí se escanea
+    private fun isSelf(file: File): Boolean = file.invariantSeparatorsPath.endsWith("src/test/kotlin/sgspe/ArchitectureTest.kt")
 
     private fun isCommon(file: File): Boolean = file.invariantSeparatorsPath.contains("/sgspe/common/")
 
@@ -68,9 +72,11 @@ class ArchitectureTest {
 
     @Test
     fun `no se importan las apis internas de wasichai, tampoco en las pruebas`() {
-        // esta clase queda fuera de este escaneo: sus vigías nombran las clases prohibidas en los textos de prueba
-        val scanned = sources(main) + sources(test).filterNot { it.name == "ArchitectureTest.kt" }
+        // esta clase queda fuera del escaneo por nombre, porque sus vigías nombran las clases prohibidas en textos de prueba;
+        // a ella solo se le vigilan los imports de wasichai, así que un import prohibido real sigue saltando
+        val scanned = sources(main) + sources(test).filterNot { isSelf(it) }
         assertEquals(emptyList<String>(), offenders(scanned, INTERNAL_API))
+        assertEquals(emptyList<String>(), offenders(sources(test).filter { isSelf(it) }, WASICHAI_IMPORT))
     }
 
     @Test
@@ -155,6 +161,11 @@ class ArchitectureTest {
         assertFalse(flags(roles, "    * el rol AUDITOR, en un KDoc"))
         assertFalse(flags(roles, "/** el rol AUDITOR */"))
         assertFalse(flags(roles, "/* el rol AUDITOR"))
+        assertTrue(isSelf(File("src/test/kotlin/sgspe/ArchitectureTest.kt")))
+        assertFalse(isSelf(File("src/test/kotlin/sgspe/otro/ArchitectureTest.kt")))
+        assertFalse(isSelf(File("src/main/kotlin/sgspe/ArchitectureTest.kt")))
+        assertTrue(WASICHAI_IMPORT.containsMatchIn("import wasichai.core.data.RecordStore"))
+        assertFalse(WASICHAI_IMPORT.containsMatchIn("assertTrue(flags(INTERNAL_API, \"import wasichai.*\"))"))
         assertTrue(isCommon(File("src/main/kotlin/sgspe/common/Records.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/risk/Risks.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/commonplace/Risks.kt")))
@@ -166,6 +177,7 @@ class ArchitectureTest {
         // el nombre de la clase en cualquier forma (import, alias, nombre completo, uso) y cualquier import con comodín de wasichai
         private val INTERNAL_API =
             Regex("""\b(RecordStore|PhysicalTableRecordStore|AuditService|ObjectSchemaManager)\b|^\s*import\s+wasichai\.\S*\*""")
+        private val WASICHAI_IMPORT = Regex("""^\s*import\s+wasichai\.""")
         private val REPORTING_IMPORT = Regex("""^\s*import\s+sgspe\.(dashboard|deliverable|ai)\.""")
         private val OTHER_SGSPE_IMPORT = Regex("""^\s*import\s+sgspe\.(?!observability\.)""")
 
