@@ -49,13 +49,13 @@ class ModelCatalog(
     )
 
     val objects: Map<String, ModelObject> =
-        model.path("objects").values().associate { node ->
+        model.path("objects").values().uniqueAssociate("objeto") { node ->
             val name = node.path("name").asString()
             name to
                 ModelObject(
                     name = name,
                     fields =
-                        node.path("fields").values().associate { field ->
+                        node.path("fields").values().uniqueAssociate("campo de $name") { field ->
                             field.path("name").asString() to
                                 Field(
                                     name = field.path("name").asString(),
@@ -110,6 +110,15 @@ class ModelCatalog(
                 )
             }
         }
+
+    // exige lo que fromClasspath() no puede dejar vacío: un JSON sin la clave o un patrón de processResources mal escrito se
+    // degradarían en silencio (path() de Jackson) y las guardas decidirían sobre un catálogo vacío
+    fun requireComplete(): ModelCatalog {
+        check(objects.isNotEmpty()) { "model.json no declara objetos: revise el archivo empaquetado" }
+        check(declaredRoles.isNotEmpty()) { "roles.json no declara roles: revise el archivo empaquetado" }
+        check(transitionsByObject.isNotEmpty()) { "no hay workflows en classpath:model/workflows/: revise processResources" }
+        return this
+    }
 
     fun objectOrNull(name: String): ModelObject? = objects[name]
 
@@ -168,7 +177,9 @@ class ModelCatalog(
             val resolver = PathMatchingResourcePatternResolver()
             val model = resolver.getResource("classpath:model/model.json")
             val roles = resolver.getResource("classpath:model/roles.json")
-            check(model.exists() && roles.exists()) { "faltan model/model.json o model/roles.json en el classpath: revise processResources" }
+            check(model.exists() && roles.exists()) {
+                "faltan model/model.json o model/roles.json en el classpath: revise processResources"
+            }
             val workflows =
                 resolver.getResources("classpath*:model/workflows/*.json").associate { resource ->
                     resource.filename!!.removeSuffix(".json") to resource.inputStream.use { JSON.readTree(it) }
@@ -177,7 +188,20 @@ class ModelCatalog(
                 model.inputStream.use { JSON.readTree(it) },
                 roles.inputStream.use { JSON.readTree(it) },
                 workflows
-            )
+            ).requireComplete()
+        }
+
+        // como associate, pero un nombre repetido es un error del modelo y no una sobrescritura silenciosa
+        private fun <V> Iterable<JsonNode>.uniqueAssociate(
+            what: String,
+            entry: (JsonNode) -> Pair<String, V>
+        ): Map<String, V> {
+            val result = LinkedHashMap<String, V>()
+            for (node in this) {
+                val (name, value) = entry(node)
+                check(result.put(name, value) == null) { "$what repetido en el modelo: $name" }
+            }
+            return result
         }
     }
 }

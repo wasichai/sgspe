@@ -103,7 +103,7 @@ class ArchitectureTest {
     // en sgspe/common/Organizations.kt
     @Test
     fun `solo Organizations enumera las organizaciones`() {
-        val outside = sources(main).filterNot { it.invariantSeparatorsPath.endsWith("sgspe/common/Organizations.kt") }
+        val outside = sources(main).filterNot { it.invariantSeparatorsPath.endsWith("/sgspe/common/Organizations.kt") }
         assertEquals(emptyList<String>(), offenders(outside, ORGANIZATIONS))
     }
 

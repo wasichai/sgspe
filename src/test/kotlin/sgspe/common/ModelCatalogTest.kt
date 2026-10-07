@@ -2,6 +2,7 @@ package sgspe.common
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -26,7 +27,10 @@ class ModelCatalogTest {
             workflows =
                 mapOf(
                     "stakeholder" to
-                        """{"definition": {"transitions": [{"name": "assess", "from": "profiled", "to": "assessed", "roles": ["STAKEHOLDER_MANAGER"]}]}}"""
+                        """
+                        {"definition": {"transitions": [
+                          {"name": "assess", "from": "profiled", "to": "assessed", "roles": ["STAKEHOLDER_MANAGER"]}]}}
+                        """.trimIndent()
                 )
         )
 
@@ -57,5 +61,39 @@ class ModelCatalogTest {
     fun `fromClasspath lee los archivos que empaqueta processResources`() {
         val packaged = ModelCatalog.fromClasspath()
         assertTrue("AUDITOR" in packaged.declaredRoles)
+        assertTrue("stance" in packaged.derivedFields("stakeholder"))
+        assertTrue("engagement" in packaged.objectsDeclaring("EDIT_ANY"))
+        assertTrue(packaged.transition("stakeholder", "assess") != null)
+    }
+
+    @Test
+    fun `un catalogo incompleto falla claro en lugar de quedar vacio`() {
+        val roles = """{"roles": [{"name": "FIELD_AGENT"}]}"""
+        val model = """{"objects": [{"name": "project", "fields": []}]}"""
+        val workflows = mapOf("project" to """{"definition": {"transitions": []}}""")
+        assertTrue(
+            ModelCatalog
+                .parse(model, roles, workflows)
+                .requireComplete()
+                .declaredRoles
+                .isNotEmpty()
+        )
+        for (incomplete in listOf(
+            ModelCatalog.parse("{}", roles, workflows),
+            ModelCatalog.parse(model, "{}", workflows),
+            ModelCatalog.parse(model, roles, emptyMap())
+        )) {
+            assertThrows(IllegalStateException::class.java) { incomplete.requireComplete() }
+        }
+    }
+
+    @Test
+    fun `un nombre repetido en el modelo falla en lugar de pisarse`() {
+        val roles = """{"roles": []}"""
+        val duplicatedObject = """{"objects": [{"name": "project", "fields": []}, {"name": "project", "fields": []}]}"""
+        val duplicatedField =
+            """{"objects": [{"name": "project", "fields": [{"name": "code", "type": "TEXT"}, {"name": "code", "type": "TEXT"}]}]}"""
+        assertThrows(IllegalStateException::class.java) { ModelCatalog.parse(duplicatedObject, roles) }
+        assertThrows(IllegalStateException::class.java) { ModelCatalog.parse(duplicatedField, roles) }
     }
 }
