@@ -71,6 +71,7 @@ etapa 1.
 | 18 Inicio y transversales | Login (S01) · Inicio por rol, interactiva (S02) · Avisos (S04) · Reportes y exportaciones (S49) · Entregable por secciones (S50) · Administración (S53) |
 | 19 Campo sin conexión | Mis tareas y visita (S54) · Interacción, observación y foto (S55) · Estado de conexión y cola · Sincronización y conflictos |
 | 20 Flujos y handoff | Flujo 18 (preguntar a la IA) · Flujo de campo (sincronización) · Mapa de rutas y árbol de módulos del frontend |
+| 21 Shell responsive | Shell en tableta (panel de navegación) · Shell en teléfono (barra inferior por rol, «Más» y pantallas de escritorio) |
 
 ## Convenciones
 

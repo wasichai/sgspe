@@ -184,6 +184,22 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 - **Navegación principal:** las 13 secciones en su orden, con ícono y etiqueta, insignias de lo que requiere acción y
   "Administración" con enlace a `/admin`, visible solo para quien administra (ADR-0024). Se contrae a 52 px; en tableta pasa a
   un panel y en el teléfono a una barra inferior de cuatro destinos.
+- **Tableta (768 a 1023 px):** el botón de menú de la barra superior abre un panel superpuesto con las 13 secciones y, si hay
+  un proyecto en contexto, sus pestañas arriba; se cierra con ×, Esc o tocando fuera y devuelve el foco al botón. La barra
+  conserva el proyecto, el chip de territorio, la búsqueda, los avisos, «Preguntar» y el perfil. Hoja `Shell-Tableta` del
+  lienzo de la etapa 3, página 21.
+- **Teléfono (< 640 px):** barra inferior de cuatro destinos según el rol, con insignias de lo que requiere acción:
+
+  | Rol | Destinos |
+  |---|---|
+  | Gerencia social, jefatura, gestores, analista SIG, auditoría | Inicio · Tareas · Avisos · Más |
+  | Relacionista comunitario | Inicio · Tareas · Avisos · Más («Modo campo» dentro de Más) |
+  | Aprobación | Inicio · Aprobaciones · Avisos · Más |
+  | Agente de campo | Tareas · Capturar · Cola · Más (modo campo, ASM-081) |
+  | Ejecutivo (ASM-074) | Resumen · Avisos · Asistente si es `ANALYST`, si no Tareas · Más |
+
+  "Más" reúne la búsqueda, los proyectos en consulta, el asistente, el modo campo, las preferencias y la salida. Hoja
+  `Shell-Telefono` del lienzo de la etapa 3, página 21.
 - **Sub-navegación de proyecto:** dentro de un proyecto, la navegación principal se contrae a íconos y aparece la
   sub-navegación con nombre, código, estado, chip de territorio y las pestañas de Project 360 con dos conteos: el total del
   alcance (gris) y lo que requiere acción (píldora de color: vencidos, fuera de plazo, alertas, propuestas de IA por revisar).

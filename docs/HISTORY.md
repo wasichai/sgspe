@@ -3,6 +3,14 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-07 — Diseño UX/UI: pendientes de la etapa 3
+
+- **Shell responsive.** Página 21 del lienzo de la etapa 3: el panel de navegación en tableta y la barra inferior del
+  teléfono con sus cuatro destinos por rol, el menú «Más» y el aviso de pantalla de escritorio en el teléfono, que la Fase 1
+  dejó como pendiente de diseño. Reglas en `ux/ux-architecture.md` §7.1 y `ux/design-system.md` §3.6 y §8.
+- **Estados.** `ux/design-system.md` §4.1 suma acuerdo, entregable, visita de campo, incidente y aporte: los 18 workflows
+  tienen tono e ícono. En el lienzo, el aporte cerrado pasa al tono «final».
+
 ## 2026-10-07 — Diseño UX/UI, etapa 3, parte 3b: tableros, capa de IA, transversales, campo sin conexión y handoff
 
 Segunda parte de la última etapa, después de la revisión de la 3a. Con ella el inventario de 55 pantallas queda diseñado.
