@@ -156,14 +156,22 @@ E (elevación de privilegios).
 
 | Medida | Detalle | Fuente |
 |---|---|---|
-| TTL corto en producción | `wasichai.security.jwt.ttl` por debajo de las 8 horas por defecto, fijado en `application-prod.yml` al desplegar; una sesión vencida vuelve al login | RQ-SEC-001 |
-| Perfil de producción | `wasichai.seed.dev=false` y `WASICHAI_JWT_SECRET` sin valor por defecto, para que el arranque falle si falta; una prueba lee el perfil (§14) | RQ-SEC-016 |
+| TTL corto en producción | `wasichai.security.jwt.ttl` fijado en `PT4H` por `application-prod.yml`; el despliegue puede cambiarlo (`WASICHAI_SECURITY_JWT_TTL`), nunca a 8 horas o más; una sesión vencida vuelve al login | RQ-SEC-001 |
+| Perfil de producción | `wasichai.seed.dev=false` y `WASICHAI_JWT_SECRET` sin valor por defecto en `application-prod.yml`, y la guarda `ProdGuard` (abajo); pruebas en §14 | RQ-SEC-016 |
+| Guarda de arranque | Con el perfil `prod`, el arranque falla, con un mensaje que nombra la propiedad y la variable, si `wasichai.seed.dev` es verdadero (`WASICHAI_SEED_DEV`), si `wasichai.security.jwt.secret` falta o es el secreto de desarrollo de `application.yml` (`WASICHAI_JWT_SECRET`) o si `wasichai.security.jwt.ttl` es de 8 horas o más (`WASICHAI_SECURITY_JWT_TTL`) | RQ-SEC-016, RQ-SEC-001 |
 | CSP en el proxy | La política del bloque siguiente, desplegada primero en modo `Content-Security-Policy-Report-Only` y ajustada con sus informes | RQ-SEC-001 |
 | Límite de intentos | En el proxy, por dirección IP y por cuenta, sobre `/api/auth/login` y `/api/auth/token`; wasichai no lo ofrece y pide ponerlo delante | RQ-SEC-015, ASM-049 [WAS-DOC security/authentication.md] |
 | Un solo origen | El proxy sirve el portal y `/admin` y reenvía `/api/**`; no hace falta CORS. La topología de despliegue la fija ADR-0026 | RF-IAM-001 |
 | Cabeceras | `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` y `Cache-Control: no-store` en las respuestas de `/api/**` | RQ-SEC-001, RQ-SEC-010 |
 | Sin contenido activo | Textos largos en Markdown sin HTML; evidencias servidas como adjunto, con su tipo MIME y `nosniff`; la redirección posterior al login solo acepta rutas internas | RF-DOC-001, RF-DOC-003 |
 | Secretos fuera del repositorio | Secreto JWT, claves de base de datos, GeoServer, almacenamiento, SMTP, proveedor de LLM y cuentas de servicio en variables de entorno o en el almacén de secretos del despliegue; nunca en el repositorio, en los logs ni en `ai_interaction` | RQ-AI-006, RQ-AI-009 |
+
+`ProdGuard` (`sgspe.prod`) es un `EnvironmentPostProcessor` con el último orden: corre con la configuración ya cargada y antes de
+crear el contexto, es decir, antes de Flyway. Importa porque en wasichai 0.3.2 la semilla es una migración de Flyway
+(`wasichai.seed.dev`): una variable de entorno `WASICHAI_SEED_DEV=true`, que `develop/example.env` trae, gana a
+`application-prod.yml` y crearía `admin@wasichai.local` en la base antes de que cualquier chequeo posterior pudiera impedirlo.
+La guarda solo actúa con el perfil `prod`: que el despliegue lo active (`SPRING_PROFILES_ACTIVE=prod`) es una condición
+operativa.
 
 Política de contenido inicial, que se ajusta en F1 con el modo de solo informe:
 
@@ -1149,9 +1157,10 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
 - **Verificación antes de cada commit:** un script compara, sin tildes ni mayúsculas, cada archivo versionado o no
   ignorado contra una lista local de nombres reales. La lista vive fuera del repositorio, porque ella misma contiene los
   nombres, y el resultado debe ser cero coincidencias (RQ-SEC-018).
-- **Propuesta para F1:** un hook previo al commit que corre esa verificación cuando la lista existe en la máquina, y una
-  comprobación en CI de patrones genéricos (secuencias de ocho dígitos como un DNI y de nueve dígitos que empiezan con 9
-  como un celular) en documentos y fixtures.
+- **Propuesta, diferida a F2:** un hook previo al commit que corra esa verificación cuando la lista existe en la máquina, y
+  una comprobación en CI de patrones genéricos (secuencias de ocho dígitos como un DNI y de nueve dígitos que empiezan con 9
+  como un celular) en documentos y fixtures. F1 no las implementó: usó la verificación manual de arriba, con 0 coincidencias
+  (RQ-SEC-018).
 - Las pruebas de IA usan modelos falsos con textos ficticios (RQ-AI-007), y las capturas o entregables de ejemplo que
   entren al repositorio salen solo de fixtures.
 
@@ -1215,6 +1224,7 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | `TenantIsolationApiTest` | El administrador de otra organización recibe 404 sobre los objetos y registros de la primera, y su auditoría no la ve | Integración | F1 | RQ-SEC-002, RQ-SEC-017 |
 | `SecurityApiTest` | Contraseña errada, usuario deshabilitado y token alterado o vencido responden 401; `/api/auth/me` con un token válido | Integración | F1 | RQ-SEC-001, RQ-SEC-017 |
 | `ProdProfileTest` | El perfil de producción no tiene semilla ni secreto por defecto | Unitaria | F1 | RQ-SEC-016 |
+| `ProdStartupTest` y `ProdGuardTest` | Con el perfil `prod`, la app no arranca sin secreto, con el secreto de desarrollo, con la semilla encendida ni con un token de 8 horas o más, y cada caso cae por su causa, antes de Flyway | Unitaria | F1 | RQ-SEC-016, RQ-SEC-001 |
 | `LoginRateLimitTest` (propuesto) | Contra el proxy inverso del despliegue: superar el límite de intentos en `POST /api/auth/login` y `POST /api/auth/token` responde 429; hasta UPS-09 el límite lo pone el proxy (ASM-049) | Despliegue | Con el proxy de producción (ADR-0026, GAP-022) | RQ-SEC-015 |
 | `RolesApiTest` | `/api/roles` muestra los 15 roles declarados y `ADMIN`, con sus etiquetas; `AUDITOR` lee `/api/audit` y los demás reciben 403; un rol declarado recibe 403 en usuarios y roles | Integración | F1 | RQ-SEC-003, RQ-SEC-007 |
 | `test_apply_roles.py` | 15 declarados y 2 mapeados, que suman los 17 del prompt; solo `AUDITOR` con permiso de todo el tenant; ningún rol con `ownRecordsOnly` y `FIELD_AGENT` sin `EDIT_ANY`; ningún permiso de administración; las acciones declaradas solo en los objetos del catálogo de §5.3; los roles de cada transición tienen UPDATE y los de cada decisión, su acción (`APPROVE`, `VERIFY`, `CONFIRM_ALERT`); `u` se expande en entradas de solo lectura para todos los campos sin `"derived": true`, y ningún derivado usa `editable: false`; todo rol que conserva una RELATION restringida a `person` lee sus nombres; ningún rol tiene CREATE sobre `ai_suggestion` sin leer los nombres de `person`; `evidence_quote` sin lectura para los roles sin `DOWNLOAD_RESTRICTED` sobre `evidence` | Modelo | F1–F8 | RQ-SEC-003, RQ-SEC-004, RQ-SEC-010, RQ-AI-009 |
@@ -1257,6 +1267,6 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Proveedor de IA | GAP-015 | Proveedor y residencia de datos | IA desactivada (§11.5) |
 | Asistente AI-05 | UPS-14, RF-AIK-005 | Hasta UPS-14, wasichai-agent no seudonimiza: ¿se acepta ofrecer AI-05 solo a roles sin acceso a campos restringidos, o se amplía aceptando que el proveedor reciba esos datos? | Solo `ANALYST` (§11.5) |
 | Autoridad sobre montos | GAP-006 | Quién aprueba según el monto y quién supera el tope de la campaña | Un nivel de aprobación más `APPROVE_OVER_CAP`: `PROJECT_MANAGER` en los compromisos y `SOCIAL_MANAGER` en los aportes (§5.3) |
-| TTL de producción | RQ-SEC-001 | Duración del token | Menor que 8 horas, fijada al desplegar (§3.2) |
+| TTL de producción | RQ-SEC-001 | Duración del token | `PT4H`, fijado por `application-prod.yml` como tope provisional de F1; el despliegue puede cambiarlo, siempre por debajo de 8 horas (§3.2) |
 | Transporte del token | CON-056 | Cookie HttpOnly u OIDC | Propuestas a futuro, fuera del MVP (§3.4) |
 | Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14 | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |

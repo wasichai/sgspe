@@ -183,7 +183,7 @@ class ArchitectureTest {
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
-        private val NON_DOMAIN_PACKAGES = listOf("common", "observability", "dashboard", "deliverable", "ai")
+        private val NON_DOMAIN_PACKAGES = listOf("common", "observability", "prod", "dashboard", "deliverable", "ai")
         private val DOMAIN_PACKAGES =
             listOf("stakeholder", "engagement", "commitment", "agreement", "attention", "risk", "warning", "investment", "evidence", "territory")
 
