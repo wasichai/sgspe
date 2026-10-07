@@ -45,6 +45,11 @@ tasks.named<Test>("test") {
     inputs.dir("src/main/kotlin")
     // files, no file: tolera que roles.json no exista; file falla en Gradle 9.8 si el archivo falta
     inputs.files("model/roles.json")
+    // un shell con develop/.env cargado trae estas variables: ProdStartupTest prueba el perfil prod con sus propios valores y
+    // una variable de entorno gana a lo que él fija, así que el JVM de las pruebas no las ve
+    for (name in listOf("WASICHAI_JWT_SECRET", "WASICHAI_SEED_DEV", "WASICHAI_SECURITY_JWT_TTL")) {
+        environment.remove(name)
+    }
 }
 
 // WASICHAI_TEST_DB_* (si están) apuntan la suite a una base externa en lugar de Testcontainers

@@ -2,7 +2,6 @@ package sgspe
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
@@ -57,7 +56,6 @@ class ProdStartupTest {
 
     @Test
     fun `sin WASICHAI_JWT_SECRET el perfil prod no arranca`() {
-        assumeTrue(System.getenv("WASICHAI_JWT_SECRET") == null, "la variable está definida en este entorno")
         val messages = start(secret = null)
         assertOnlyCause(messages, "WASICHAI_JWT_SECRET", listOf("WASICHAI_SEED_DEV", "wasichai.security.jwt.ttl"))
         assertTrue(messages.any { it.contains("wasichai.security.jwt.secret") }, messages.toString())
@@ -65,7 +63,6 @@ class ProdStartupTest {
 
     @Test
     fun `con la semilla de desarrollo encendida el perfil prod no arranca`() {
-        assumeTrue(System.getenv("WASICHAI_SEED_DEV") == null, "la variable está definida en este entorno")
         val messages = start("--wasichai.seed.dev=true")
         assertOnlyCause(messages, "WASICHAI_SEED_DEV", listOf("WASICHAI_JWT_SECRET", "wasichai.security.jwt.ttl"))
         assertTrue(messages.any { it.contains("wasichai.seed.dev") }, messages.toString())
@@ -73,7 +70,6 @@ class ProdStartupTest {
 
     @Test
     fun `con el secreto de desarrollo el perfil prod no arranca`() {
-        assumeTrue(System.getenv("WASICHAI_JWT_SECRET") == null, "la variable está definida en este entorno")
         val messages = start(secret = ProdGuard.DEV_SECRET)
         assertOnlyCause(messages, "secreto de desarrollo", listOf("WASICHAI_SEED_DEV", "wasichai.security.jwt.ttl"))
         assertTrue(messages.any { it.contains("wasichai.security.jwt.secret") && it.contains("WASICHAI_JWT_SECRET") }, messages.toString())
