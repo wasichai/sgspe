@@ -170,8 +170,8 @@ Otras transiciones las aplica normalmente un endpoint:
 ### Transiciones con motivo obligatorio
 
 En los objetos `requiresReason` toda transición lleva motivo: `commitment`, `agreement`, `grievance`, `inquiry`,
-`stakeholder_request`, `social_risk`, `social_contribution` y `deliverable` (ASM-058). En los demás, `TransitionReasonGuard`
-lo exige en estas transiciones (RQ-AUD-002):
+`stakeholder_request`, `social_risk`, `social_contribution` y `deliverable` (ASM-058). `stakeholder_assessment` también es
+`requiresReason`, pero no tiene workflow. En los demás, `TransitionReasonGuard` lo exige en estas transiciones (RQ-AUD-002):
 
 | Objeto | Transiciones con motivo obligatorio | Clase |
 |---|---|---|
@@ -592,18 +592,18 @@ Tres objetos con un workflow cada uno y un reporte unificado (ASM-011, CON-033):
 - Los tres son `requiresReason`: toda transición lleva motivo. Fase F4.
 - Los plazos de acuse, respuesta y resolución se calculan al recibir (`QcsDueDatesListener`, RF-GRV-006, ASM-005) y su
   situación es `deadline_status`, que mantiene JOB-01. Ningún estado representa un plazo vencido (RN-WFL-001).
-- Las fechas de las transiciones son derivadas: `QcsTransitionDatesListener` escribe `resolved_date` (queja) y `closed_date`
-  (las tres) en la transacción de cada transición a `resolved` o a `closed`, y la reapertura de una queja vacía
-  `resolved_date`. Si no puede escribir, la transición se revierte (modelo de dominio §7.4, §7.5).
+- Las fechas de las transiciones son derivadas: `QcsTransitionDatesListener` escribe `resolved_date` (queja) en cada
+  transición a `resolved` y `closed_date` (las tres) en cada transición a un estado final: `closed` y, en la queja, también
+  `rejected` (`reject_*`) y `withdrawn` (`withdraw_*`). La reapertura de una queja vacía `resolved_date`. Si no puede
+  escribir, la transición se revierte (modelo de dominio §7.4, §7.5).
 - Una QCS anónima no lleva `person` ni `stakeholder` (`AttentionWriteGuard`, RF-GRV-001, GAP-005).
 - **Reclasificación** (RF-GRV-007): `POST /api/sgspe/grievances/{id}/reclassify` y sus pares crean la QCS del otro tipo con
   el vínculo `reclassified_from_*` y llevan el original a `closed` con una transición de comando `close_reclassified_*`. El
   registro nuevo copia el `received_at` del primer registro de la cadena, así que `QcsDueDatesListener` calcula sus plazos
   desde esa fecha (ASM-072).
-- **ASSUMPTION (propuesta):** el original se cierra, porque el planteamiento sigue vivo en el registro nuevo; RF-GRV-007 no
-  dice en qué estado queda. `dashboards.md` (§3.3) cuenta el planteamiento una sola vez, como el registro nuevo: los
-  originales a los que apunta un vínculo `reclassified_from_*` no cuentan como recibidos, cerrados ni atendidos. Se revierte
-  dejando el original abierto hasta que una persona lo cierre.
+- El original se cierra, como fija el modelo de dominio (§6.7, §7.2): el planteamiento sigue vivo en el registro nuevo, y
+  RF-GRV-007 no fija su estado final. `dashboards.md` (§3.3) cuenta el planteamiento una sola vez, como el registro nuevo:
+  los originales a los que apunta un vínculo `reclassified_from_*` no cuentan como recibidos, cerrados ni atendidos.
 - **Absuelta** (glosario, RQ-DSH-023): una QCS con `responded_at`, en cualquier estado; cerrarla no la vuelve absuelta. Exigen
   `responded_at` las transiciones que comunican una respuesta: `close_resolved`, `close` y `reject_*` de WF-E1; `answer` y
   `close_referred` de WF-E2; `accept` y `close_declined` de WF-E3.
@@ -669,14 +669,14 @@ stateDiagram-v2
 | `verify` (Verificar) | `resolved` | `verified` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | [PRM-01 §8] Verification, opcional |
 | `close_resolved` (Cerrar) | `resolved` | `closed` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: respuesta comunicada (`responded_at` informado) | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 Tabla 9.5] |
 | `close` (Cerrar) | `verified` | `closed` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `responded_at` informado | Obligatorio (`requiresReason`) | `closed_date` | [PRM-01 §5, §8] CLOSED |
-| `reject_received` (Rechazar) | `received` | `rejected` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `response` y `responded_at` informados, porque el rechazo se comunica; un duplicado lleva `duplicate_of` | Obligatorio (`requiresReason`) | Con `responded_at`, cuenta como absuelta | [PRM-01 §5] REJECTED |
+| `reject_received` (Rechazar) | `received` | `rejected` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `response` y `responded_at` informados, porque el rechazo se comunica; un duplicado lleva `duplicate_of` | Obligatorio (`requiresReason`) | `closed_date`; con `responded_at`, cuenta como absuelta | [PRM-01 §5] REJECTED |
 | `reject_acknowledged` (Rechazar) | `acknowledged` | `rejected` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 | `reject_in_assessment` (Rechazar) | `in_assessment` | `rejected` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
-| `withdraw_received` (Registrar desistimiento) | `received` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | — | RF-GRV-002 |
-| `withdraw_acknowledged` (Registrar desistimiento) | `acknowledged` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | — | Ídem |
-| `withdraw_in_assessment` (Registrar desistimiento) | `in_assessment` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | — | Ídem |
-| `withdraw_in_investigation` (Registrar desistimiento) | `in_investigation` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | — | Ídem |
-| `withdraw_in_action` (Registrar desistimiento) | `in_action` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | — | Ídem |
+| `withdraw_received` (Registrar desistimiento) | `received` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | `closed_date` | RF-GRV-002 |
+| `withdraw_acknowledged` (Registrar desistimiento) | `acknowledged` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | `closed_date` | Ídem |
+| `withdraw_in_assessment` (Registrar desistimiento) | `in_assessment` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | `closed_date` | Ídem |
+| `withdraw_in_investigation` (Registrar desistimiento) | `in_investigation` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | `closed_date` | Ídem |
+| `withdraw_in_action` (Registrar desistimiento) | `in_action` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | `closed_date` | Ídem |
 | `close_reclassified_received` (Cerrar por reclasificación) | `received` | `closed` | `GRIEVANCE_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de reclasificación | Obligatorio (`requiresReason`) | Crea la consulta o la solicitud con `reclassified_from_grievance`; `closed_date` | RF-GRV-007 [DOC-01 Tabla 9.5] |
 | `close_reclassified_acknowledged` (Cerrar por reclasificación) | `acknowledged` | `closed` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 | `close_reclassified_in_assessment` (Cerrar por reclasificación) | `in_assessment` | `closed` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
@@ -1362,19 +1362,21 @@ Ejemplo: AUT-01 en el formato de wasichai (`POST /api/objects/commitment/automat
 Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 
 - **Una sola réplica:** `ClusterLock.tryLock` con una clave del paquete (`sgspe.deadline`), con `@Scheduled` o con un sondeo
-  continuo (JOB-05 y JOB-06).
-- **Registros de wasichai como la plataforma:** JOB-01 a JOB-05, JOB-07 y JOB-08 los leen o los escriben con
+  continuo (JOB-05 y JOB-06). JOB-05 toma además, al procesar cada pedido, un candado por entregable (`deliverable:<id>`),
+  para que dos réplicas nunca generen el mismo borrador (`deliverables.md` §8.2).
+- **Registros de wasichai como la plataforma:** JOB-01 a JOB-05, JOB-07 y el paso de borradores de JOB-08 los leen o los escriben con
   `RecordService.asPlatform(organizationId)`, una organización por vez. Para recorrer las organizaciones necesitan la forma
   soportada que pide UPS-17; mientras no exista, siguen el precedente de caja como excepción vigilada. JOB-07 solo recorre
   la lista de organizaciones con la IA activada (`ai-architecture.md` §12.1).
-- **Tablas fijas con SQL propio, sin `asPlatform`:** JOB-06 solo escribe `notification_delivery`, y JOB-07 escribe además
-  `knowledge_chunk`.
+- **Tablas fijas con SQL propio, sin `asPlatform`:** JOB-06 solo escribe `notification_delivery`, JOB-07 escribe además
+  `knowledge_chunk`, y JOB-08 borra las claves vencidas de `idempotency_key`.
 - **Motivo:** nombra al trabajo (`DeadlineJob: situación de plazo`). Una escritura de la plataforma no tiene usuario, y su
   motivo es lo que la distingue en la auditoría [WAS-ADR-0041] (ASM-051).
 - **Idempotencia:** recalculan desde cero, así que repetir una corrida no cambia el resultado; las tareas que crean llevan
   `generator_key`.
 - **Nunca aplican transiciones ni vinculan registros:** solo escriben campos derivados y crean registros nuevos (RN-WFL-001,
-  CON-043). JOB-08 no escribe registros: solo borra archivos que nada referencia.
+  CON-043). JOB-08 no escribe registros de wasichai: solo borra claves vencidas de `idempotency_key` y archivos que nada
+  referencia.
 
 | ID | Trabajo (paquete) | Frecuencia | Qué escribe | Qué nunca hace | Fuente | Fase |
 |---|---|---|---|---|---|---|
@@ -1385,12 +1387,11 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 | JOB-05 | `DeliverableGenerationJob` (`sgspe.deliverable`): el trabajador de generación de entregables | Continuo: toma los pedidos pendientes (`generation_requested_at` posterior a `draft_generated_at`, o este vacío) | `draft_generation_status` (EN COLA, EN PROCESO, LISTO o FALLIDO), `draft_generated_at` (al congelar el modelo), `draft_model_sha256`, `draft_storage_key` | Aplicar `approve` o `issue`; escribir secciones | RQ-REP-021, ASM-061 | F8 |
 | JOB-06 | `NotificationMailJob` (`sgspe.notification`, modelo de dominio §8.2): envío por SMTP con reintentos | Continuo | `notification_delivery` (`delivery_status`, `attempts`, `last_attempt_at`, `sent_at`, `error_detail`), con SQL propio sobre tablas fijas | Escribir registros de wasichai | RF-NTF-001, ASM-012, GAP-021 | F3 |
 | JOB-07 | `KnowledgeIndexJob` (`sgspe.ai`, `ai-architecture.md` §13.2): indexación documental para RAG | Periódica y configurable (ASM-006), solo en las organizaciones que activaron la IA (RQ-AI-009, ASM-015) | Fragmentos en la tabla fija `knowledge_chunk`, con SQL propio, de las `evidence` creadas o cambiadas desde la corrida anterior; copia su proyecto y su clasificación, borra los fragmentos de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo, como la plataforma | Aplicar transiciones; indexar documentos sin texto (sin OCR en F7) | RF-AIK-006, RQ-AI-008 | F7 |
-| JOB-08 | `DraftRetentionJob` (`sgspe.deliverable`): retención de borradores de entregable | Una vez al día, configurable | Ningún registro. En el almacenamiento de objetos borra, de cada entregable, las carpetas `drafts/<instante>/` salvo las N más recientes y la que apunta `draft_storage_key`, y los archivos que ningún registro referencia, como los de una emisión fallida (`deliverables.md` §8.4, §11) | Borrar lo que referencia una `deliverable_version` o `draft_storage_key`; escribir registros; aplicar transiciones | RQ-REP-027, ASM-028, ASM-061 | F8 |
+| JOB-08 | `RetentionJob` (`sgspe.common`): retención, con un paso por paquete | Una vez al día, configurable | Ningún registro de wasichai. Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065). Desde F8, el paso de `sgspe.deliverable` borra en el almacenamiento de objetos, de cada entregable, las carpetas `drafts/<instante>/` salvo las N más recientes y la que apunta `draft_storage_key`, y los archivos que ningún registro referencia, como los de una emisión fallida (`deliverables.md` §8.4, §11) | Borrar lo que referencia una `deliverable_version` o `draft_storage_key`; escribir registros; aplicar transiciones | RQ-REP-027, RNF-INT-002, ASM-028, ASM-061, ASM-065 | F3 (claves), F8 (borradores) |
 
-**ASSUMPTION (propuesta):** JOB-08 corre una vez al día, como fija `architecture.md`, y además del número N de borradores
-(ASM-028) usa un margen configurable: solo borra archivos sin referencia más antiguos que ese margen, porque los de una
-generación o una emisión en curso todavía no tienen un registro que los apunte. Se revierte cambiando la frecuencia o el
-margen.
+JOB-08 corre una vez al día, como fija `architecture.md`, y además del número N de borradores (ASM-028) usa un margen
+configurable: solo borra archivos sin referencia más antiguos que ese margen, porque los de una generación o una emisión en
+curso todavía no tienen un registro que los apunte.
 
 ## Listeners
 
@@ -1404,7 +1405,7 @@ de una transición o de un endpoint con transacción. Esta tabla agrega su relac
 | `AreaListener` (`sgspe.territory`) | Cambio por la API genérica de `area_of_influence`, `community`, `land_parcel` o `mining_concession` | Ninguna | `calculated_area_ha` del mismo registro | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre ese objeto |
 | `ContributionTotalsListener` (`sgspe.investment`) | Alta, cambio o baja de `contribution_item` | Ninguna (alimenta `register_procurement`) | `total_amount` de la `social_contribution` | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre `social_contribution`, con motivo |
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | Alta o cambio del origen de un `commitment`; transiciones a `fulfilled`, `closed` y `cancelled`, y `reopen_execution` | `register_fulfillment`, `reopen_execution`, `close` y las `cancel_*` de WF-D | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date` del mismo compromiso; en `reopen_execution` vacía `fulfilled_date` | Sí en las transiciones | En el alta o el cambio, no falla; en una transición, la revierte | Los roles de esas transiciones necesitan `UPDATE` con motivo sobre `commitment`; `FIELD_AGENT` no tiene esas transiciones |
-| `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o a `closed`, y la reapertura de una queja | `resolve`, `resolve_high_severity`, `reopen` y las de cierre de WF-E1, WF-E2 y WF-E3 | `resolved_date` (queja) y `closed_date` del mismo registro | Sí | La transición se revierte | Los roles de esas transiciones ya tienen `UPDATE` sobre el objeto, con motivo |
+| `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o a un estado final (`closed` y, en la queja, `rejected` y `withdrawn`), y la reapertura de una queja | `resolve`, `resolve_high_severity`, `reopen`, las de cierre de WF-E1, WF-E2 y WF-E3, y `reject_*` y `withdraw_*` de WF-E1 | `resolved_date` (queja) y `closed_date` del mismo registro, en todo estado final | Sí | La transición se revierte | Los roles de esas transiciones ya tienen `UPDATE` sobre el objeto, con motivo |
 | `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | `close` de WF-D y, desde F5, `close` de WF-P | Aplica `close_accepted` a la `stakeholder_request` que originó el registro, con la marca y con motivo | Sí | Revierte el cierre del compromiso o del aporte | Los roles de `close` de WF-D y de WF-P tienen `READ` y `UPDATE` sobre `stakeholder_request` y figuran en `close_accepted` |
 | `NotificationListener` (`sgspe.notification`) | Altas y transiciones que generan avisos (ver "Avisos") | Las que figuran en la tabla de avisos | Tablas fijas `notification` y `notification_delivery`, con SQL propio, dentro de un savepoint o con una conexión independiente | Solo dentro de una transición o de un endpoint con transacción | Registra el error y la escritura del usuario sigue: en PostgreSQL una sentencia fallida aborta toda la transacción, y el savepoint o la conexión independiente lo evitan | No escribe registros de wasichai, pero lee `project_assignment` como quien escribió para resolver los destinatarios, así que todo rol que dispara avisos tiene `READ` sobre ella (`security.md`). Los avisos de JOB-01 resuelven las asignaciones como la plataforma |
 
@@ -1416,9 +1417,8 @@ los plazos. Cada aviso es una fila de `notification` (bandeja) y, por correo, un
 aviso. Un aviso que no se puede guardar nunca hace fallar la escritura que lo disparó (ver "Listeners"), y quién recibe cada
 aviso lo fija "Destinatarios por rol".
 
-**ASSUMPTION (propuesta):** los valores de `notification_type` de la tabla, porque RF-NTF-001 nombra los avisos pero no sus
-claves; `database-model.md` documenta las columnas de las tablas fijas. Se revierte cambiando los valores antes de F3, cuando
-nacen esas tablas.
+Los valores de `notification_type` los fija esta tabla, porque RF-NTF-001 nombra los avisos pero no sus claves;
+`database-model.md` documenta las columnas de las tablas fijas.
 
 | Aviso | `notification_type` | Origen | Disparador | Destinatarios | `dedup_key` |
 |---|---|---|---|---|---|
@@ -1507,9 +1507,8 @@ nivel 2, los de su aprobación de nivel superior, `approve_senior`, sin nombres 
 `verify` y `approve_senior` de WF-D. Las QCS, los riesgos y las tareas no tienen aprobación superior, así que su nivel 2 es
 `approve_senior` de WF-D.
 
-**ASSUMPTION (propuesta):** la transición de verificación o de revisión de los objetos que no tienen `verify` propio: las
-consultas usan `verify` de WF-E1; los riesgos, la transición de tratamiento que sigue; y las tareas, la de su registro
-vinculado según la tabla anterior. Se revierte nombrando otras transiciones de referencia.
+**Transición de referencia de los objetos sin `verify` propio (ASM-030):** las consultas usan `verify` de WF-E1; los
+riesgos, la transición de tratamiento que sigue; y las tareas, la de su registro vinculado según la tabla anterior.
 
 ## Plazos y escalamiento
 
@@ -1573,7 +1572,7 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 | WF-B | `StakeholderWorkflowApiTest` | `assess` por la API genérica → rechazada; el endpoint de evaluaciones lleva a `assessed` y aplica `profile` antes si hace falta; `retire_*` sin motivo → 400; `reinstate` vuelve a `identified`; `COMMUNITY_RELATIONS_OFFICER` no evalúa (ni `assess` ni el endpoint); wasichai acepta el workflow sin estado final |
 | WF-C | `EngagementWorkflowApiTest` | `register_held` sin participante con `attended` → rechazada; `close_light` de una REUNION o de una REUNION INFORMATIVA con la política activa → rechazada; `close` con una pregunta pendiente → rechazada; cancelar sin `cancel_reason` → rechazada; `FIELD_AGENT`, sin `EDIT_ANY`, mueve la suya y `EditAnyGuard` rechaza la ajena; `FIELD_AGENT` agrega un participante a una interacción ajena → permitido, con los conteos actualizados; cambiar o borrar un participante que no creó → rechazado |
 | WF-D | `CommitmentWorkflowApiTest` | `submit` sin cada campo de D1 o sin responsable (D2) → rechazada; sin `execution_time` → permitida; vaciar `due_date` u `owner_user_id` en `pending_approval` y aplicar `approve` → rechazada (D1, D2); `approve` por quien registró (D4) → rechazada; compromiso de MESA DE DIALOGO: `approve` rechazada (D5), `approve_senior` permitida; tope superado según la política (D7); con un tope que bloquea, `approve_direct` → rechazada, y el mismo compromiso por `submit` y `approve_senior` → permitido; `approve_direct` con la aprobación interna activa (D8) → rechazada; registrar la entrega no cambia el estado; `register_fulfillment` (D9): MATERIAL sin FOTO → rechazada, NO MATERIAL con conformidad, `conformity_by` y una CARTA → permitida, NO MATERIAL sin `conformity_by` → rechazada; con una dependencia bloqueante (D10) → rechazada; `reopen_execution` vacía `fulfilled_date`; cada `cancel_*` escribe `cancelled_date`; `verify` por el responsable (D11) → rechazada; `close` cierra la solicitud en la misma transacción; si el rol no puede cerrar la solicitud, el compromiso sigue en `verified` |
-| WF-E1 | `GrievanceWorkflowApiTest` | `resolve` de una queja ALTA por `GRIEVANCE_MANAGER` → rechazada y `resolve_high_severity` por `APPROVER` → permitida; `resolve` escribe `resolved_date` y `reopen` lo vacía; `reopen` con conformidad → rechazada; `reject_*` sin `responded_at` → rechazada; la reclasificación cierra el original, con `closed_date` y sin `responded_at`, y crea el registro nuevo con su vínculo y el `received_at` del primer registro de la cadena, del que salen sus plazos (ASM-072) |
+| WF-E1 | `GrievanceWorkflowApiTest` | `resolve` de una queja ALTA por `GRIEVANCE_MANAGER` → rechazada y `resolve_high_severity` por `APPROVER` → permitida; `resolve` escribe `resolved_date` y `reopen` lo vacía; `reopen` con conformidad → rechazada; `reject_*` sin `responded_at` → rechazada; `reject_*` y `withdraw_*` escriben `closed_date`; la reclasificación cierra el original, con `closed_date` y sin `responded_at`, y crea el registro nuevo con su vínculo y el `received_at` del primer registro de la cadena, del que salen sus plazos (ASM-072) |
 | WF-E2 | `InquiryWorkflowApiTest` | `answer` sin respuesta → rechazada; `close_referred` sin `responded_at` → rechazada; AUT-07 solo con CARTA |
 | WF-E3 | `StakeholderRequestWorkflowApiTest` | `accept` por la API genérica → rechazada; `accept` sin `response` o sin `responded_at` → rechazada; el endpoint crea el compromiso en `draft`; `close_accepted` por la API genérica → rechazada; el listener la cierra con motivo; desde F5, cerrar el aporte también la cierra; `close_unfulfilled` solo con el compromiso o el aporte cancelado o rechazado |
 | WF-F | `SocialRiskWorkflowApiTest` | La primera revisión aplica `assess`; `decide_mitigation` sin medida con responsable → rechazada; pasar a monitoreo sin revisión residual → rechazada; cerrar sin `close_reason` → rechazada |
@@ -1593,8 +1592,8 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 
 - **Trabajos:** después de cada corrida de JOB-01 a JOB-05, JOB-07 y JOB-08, ningún `workflow_state` cambió (se compara antes
   y después); los derivados son los esperados con fixtures ficticios; repetir la corrida no crea tareas nuevas; el motivo
-  nombra al trabajo. JOB-08 nunca borra un archivo que referencia una `deliverable_version` o `draft_storage_key`, ni uno sin
-  referencia más reciente que el margen.
+  nombra al trabajo. JOB-08 borra solo las claves de `idempotency_key` más antiguas que su plazo, y nunca borra un archivo
+  que referencia una `deliverable_version` o `draft_storage_key`, ni uno sin referencia más reciente que el margen.
 - **Listeners:** un fallo de `CommitmentDerivationsListener`, también en `reopen_execution`, o de `RequestClosureListener`
   revierte la transición; un insert fallido de `NotificationListener` no aborta la transacción de quien escribe; un alta por
   la API genérica con un listener de derivados que falla queda guardada y JOB-02 la corrige.
@@ -1627,10 +1626,10 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
   los de entregas, el de derivación de preguntas y la verificación en seco de transiciones. Los endpoints de entrega del
   compromiso y del aporte solo capturan datos; el cambio de estado es una transición humana (`register_fulfillment`,
   `register_delivery`) (modelo de dominio §7.2).
-- **`database-model.md`:** los flags `requiresReason` de los ocho objetos citados, los valores propuestos de
+- **`database-model.md`:** los flags `requiresReason` de los nueve objetos (los ocho con workflow más `stakeholder_assessment`), los valores propuestos de
   `notification_type` y `project_assignment.role_name` (ASM-070).
 - **`dashboards.md`:** las QCS originales de una reclasificación no cuentan (su §3.3); una QCS es absuelta cuando tiene
   `responded_at`, que exigen las transiciones que comunican una respuesta; `reopen_execution` vacía `fulfilled_date`, que solo
   existe en `fulfilled`, `verified` y `closed`; `deadline_status` se calcula solo en los estados de "Plazos y escalamiento";
   `resolved_date` y `closed_date` de QCS y `cancelled_date` de `commitment` salen de las transiciones.
-- **`deliverables.md`:** WF-H, el trabajador de generación (JOB-05) y la retención de borradores (JOB-08).
+- **`deliverables.md`:** WF-H, el trabajador de generación (JOB-05) y la retención de borradores (JOB-08, desde F8).

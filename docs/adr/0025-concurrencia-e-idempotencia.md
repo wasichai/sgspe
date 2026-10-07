@@ -66,7 +66,7 @@ Propuesto · 2026-10-07 · se acepta al iniciar F2
   petición: `409` que nombra `Idempotency-Key`.
 - Dos peticiones simultáneas con la misma clave se serializan con `ClusterLock.withXactLock` sobre la clave.
 - La clave vale por organización y usuario, se escribe en la transacción del comando, no guarda el cuerpo sino su SHA-256 y se
-  purga después de un plazo configurable.
+  purga después de un plazo configurable, con JOB-08 desde F3.
 - Las altas de la API genérica no son idempotentes hasta UPS-18.
 
 ## Consecuencias
@@ -83,11 +83,10 @@ Propuesto · 2026-10-07 · se acepta al iniciar F2
   ([architecture.md §14](../architecture.md), riesgo 5).
 - Si la serialización de wasichai recorta la precisión de `updatedAt`, dos escrituras en la misma unidad no se distinguen.
 - Un reenvío devuelve el estado actual de los registros, no el de la primera respuesta.
-- Ningún trabajo de [workflows.md](../workflows.md) ("Trabajos programados") tiene asignada la purga de `idempotency_key`; queda
-  por asignar.
 
 ### Seguimiento
 
+- La purga de `idempotency_key` la hace JOB-08 desde F3 ([workflows.md](../workflows.md)).
 - Abiertos: UPS-04 (F2) y UPS-18 (F3), que retiran la comprobación propia y la tabla; CON-047; GAP-028.
 - Se acepta al iniciar F2 (precondición, y la cabecera de idempotencia aceptada); la idempotencia se honra desde F3.
 - Pruebas: las de integración de cada endpoint de `/api/sgspe/**` contra PostGIS real (RNF-TST-001), que cubren `428`, `412`,

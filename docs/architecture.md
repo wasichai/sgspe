@@ -7,8 +7,8 @@ de las tres fuentes de verdad de la Fase 0 — el [análisis de requisitos](requ
 y el [modelo de dominio](domain-model.md) — y de la decisión del usuario de construir SGSPE sobre wasichai y wasichai-ui, como
 srtm y caja [USR-03]. Los IDs (RF, RNF, RN, RQ, CON, GAP, ASM, UPS) se definen solo en el análisis; aquí se citan. El encaje
 de cada mandato del prompt con la plataforma está en [Encaje con wasichai](platform-fit.md) y el contrato de la API propia, en
-[API de SGSPE](api.md). Los ADR de SGSPE se citan como texto (por ejemplo, ADR-0001) porque sus archivos nacen después en
-`docs/adr/`; su lista y su estado previsto están en [Encaje con wasichai §1.2](platform-fit.md#12-adr-de-sgspe-previstos).
+[API de SGSPE](api.md). Los ADR de SGSPE se citan por su número (por ejemplo, ADR-0001); sus archivos, títulos y estados
+están en el [índice de ADR](adr/README.md).
 
 ## 1. Propósito y alcance
 
@@ -192,7 +192,7 @@ metadata no alcanza para lo que contiene; ninguno es un controlador por objeto (
 
 | Paquete | Contenido principal | BC | Desde |
 |---|---|---|---|
-| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales (`DerivedFieldsGuard`, `TransitionReasonGuard`, `ExactlyOneGuard`, `UserReferenceGuard`, `FieldChangeReasonGuard`, `CommandTransitionGuard`); envoltura de `RecordService`; correlativos; `Idempotency-Key` con la tabla fija `idempotency_key` (ASM-065); precondición sobre `updated_at`; filtros estrictos con 422; fechas en America/Lima y feriados; valores por defecto de los parámetros (UPS-15); `DerivedFieldsJob` | Transversal | F1 |
+| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales (`DerivedFieldsGuard`, `TransitionReasonGuard`, `ExactlyOneGuard`, `UserReferenceGuard`, `FieldChangeReasonGuard`, `CommandTransitionGuard`); envoltura de `RecordService`; correlativos; `Idempotency-Key` con la tabla fija `idempotency_key` (ASM-065) y su purga por JOB-08 (`RetentionJob`); precondición sobre `updated_at`; filtros estrictos con 422; fechas en America/Lima y feriados; valores por defecto de los parámetros (UPS-15); `DerivedFieldsJob` | Transversal | F1 |
 | `sgspe.observability` | Filtro `X-Correlation-Id` antes de la cadena de seguridad; una línea de acceso por petición; logs estructurados | Transversal | F1 |
 | `sgspe.scope` | `ProjectScopeGuard`, `ProjectWriteGuard`, `AssignmentRoleGuard` (`role_name` de `project_assignment` contra los roles configurados, ASM-070) y `EditAnyGuard` (sin `EDIT_ANY`, solo se cambia o borra lo propio, ASM-069); lectura de `project_assignment`; adaptador de la extensión de alcance cuando exista | BC-01, BC-16 | F2 |
 | `sgspe.stakeholder` | `InfluenceClassifier` y `Prioritizer` (funciones puras), endpoint de evaluaciones, `StakeholderWriteGuard`, `StakeholderFollowUpJob` | BC-03 | F2 |
@@ -208,7 +208,7 @@ metadata no alcanza para lo que contiene; ninguno es un controlador por objeto (
 | `sgspe.evidence` | Subida y descarga en streaming, puerto de almacenamiento local o S3, SHA-256, EXIF, vínculos, `EvidenceWriteGuard` | BC-12 | F3 |
 | `sgspe.territory` | Importación con CRS y reconciliación, área en hectáreas, consultas espaciales con compuerta de permisos, sugerencias de miembros, la parte territorial de la ficha (geometría, relaciones y filtros espaciales), proxies WMS y WFS, `TerritoryWriteGuard`, `AreaListener` | BC-02 | F2 (análisis en F6) |
 | `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); conteos con `RecordService`; cierre de periodo | BC-15 | F2–F8 |
-| `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación, emisión, `DeliverableWriteGuard` | BC-15 | F8 |
+| `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación, emisión, `DeliverableWriteGuard`, paso de retención de borradores de JOB-08 | BC-15 | F8 |
 | `sgspe.ai` | Agentes Embabel, seudonimización, registro de `ai_interaction`, creación de `ai_suggestion` y `commitment_candidate`, aceptación, indexación documental (JOB-07) y RAG sobre `knowledge_chunk`; el asistente de wasichai-agent se llama en proceso y un filtro cierra `/api/agent/ask` por HTTP (`ai-architecture.md`) | BC-18 | F7 |
 | `sgspe.privacy` | Niveles de divulgación como transformación del modelo, enmascaramiento, menciones de personas como referencias, exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 |
 
@@ -263,8 +263,9 @@ flowchart BT
 ### 5.4 Modelo como código (`model/`)
 
 - `model/model.json` (ENUM, objetos, acciones declaradas, relaciones, flags, índices y únicos compuestos), `model/roles.json`,
-  los workflows, vistas, formularios y páginas desde F2, y los tipos de documento y las automatizaciones desde F3, con sus
-  starters (RQ-REP-029), versionados en el repositorio (RNF-MNT-002) [WAS-ADR-0003].
+  `model/workflows/<objeto>.json`, `model/views/`, `model/forms/` y `model/pages/` desde F2, y
+  `model/document-types/<objeto>.json` y `model/automations/<objeto>.json` desde F3, con sus starters (convención de
+  `database-model.md` §3.1; RQ-REP-029), versionados en el repositorio (RNF-MNT-002) [WAS-ADR-0003].
 - `apply.py` y `apply_roles.py`, en Python con solo la biblioteca estándar como en caja, los aplican por REST de forma
   idempotente: crean lo que falta, sincronizan lo que cambió y nunca renombran (CON-052). `--validate-only` y
   `--dry-run` revisan sin escribir; `test_model.py` y las pruebas de los scripts corren en CI.
@@ -310,7 +311,8 @@ flowchart BT
   son Custom Objects: son tablas fijas con una migración Flyway propia registrada como `ModuleMigration`, que solo lee y
   escribe su paquete (ASM-012, RQ-AI-008, ASM-065) [WAS-ADR-0026] [domain-model §4.10].
 - `idempotency_key` guarda la clave de cada creación de `/api/sgspe/**` que la trae, en la transacción del comando
-  ([API de SGSPE §3.5](api.md#35-idempotencia-idempotency-key)); la API genérica no es idempotente hasta que exista UPS-18.
+  ([API de SGSPE §3.5](api.md#35-idempotencia-idempotency-key)), y JOB-08 borra desde F3 las claves vencidas (§8.2); la API
+  genérica no es idempotente hasta que exista UPS-18.
 - Ninguna tabla fija se publica en GeoServer ni se lee desde la API genérica.
 
 ## 6. Ruta de una petición
@@ -471,7 +473,8 @@ Brechas de la auditoría de wasichai y cómo se mitigan mientras se resuelven up
   `RecordService.asPlatform(organización)`, donde el motivo es obligatorio: nombra al trabajo, y así su fila de
   `audit_log`, que tiene usuario nulo, dice qué trabajo escribió [WAS-ADR-0041] (ASM-051). No todos escriben así: JOB-06
   solo escribe su tabla fija con SQL propio, JOB-07 escribe además `knowledge_chunk` con SQL propio, y JOB-08 no escribe
-  registros: solo borra archivos que nada referencia (`workflows.md`).
+  registros de wasichai: borra con SQL propio las claves vencidas de `idempotency_key` y borra archivos de borradores que nada
+  referencia (`workflows.md`).
 - **Solo escriben campos derivados y crean registros nuevos** (tareas, avisos, alertas en su estado inicial). Nunca aplican
   una transición ni vinculan registros, porque fuera de `RecordService` los servicios de wasichai piden un usuario y
   `asPlatform` no los cubre [domain-model §8.3] (RN-WFL-001, CON-043). La única excepción son las migraciones de datos de
@@ -503,7 +506,7 @@ Brechas de la auditoría de wasichai y cómo se mitigan mientras se resuelven up
 | JOB-05 Trabajador de generación | `sgspe.deliverable` | Toma los pedidos de borrador pendientes, congela el modelo, pide los mapas por GetMap, genera por nivel de divulgación el borrador y la versión candidata (DOCX y PDF en INTERNO; solo PDF en EXTERNO y PUBLICO) y escribe los campos `draft_*` | Sondeo continuo | F8 | RQ-REP-021, ASM-061 |
 | JOB-06 Envío de correo | `sgspe.notification` | Envía los `notification_delivery` pendientes por SMTP con reintentos, sobre su tabla fija | Sondeo continuo | F3 | RF-NTF-001 |
 | JOB-07 Indexación documental | `sgspe.ai` | Divide en fragmentos el texto de las `evidence` creadas o cambiadas desde la vuelta anterior y los guarda en la tabla fija `knowledge_chunk`, con su proyecto y su clasificación; borra los de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo | Periódica y configurable, solo en las organizaciones con la IA activada | F7 | RF-AIK-006, RQ-AI-008 |
-| JOB-08 Retención de borradores | `sgspe.deliverable` | Purga los archivos de borradores y conserva los N últimos | Diaria | F8 | RQ-REP-027, ASM-028 |
+| JOB-08 Retención (`RetentionJob`) | `sgspe.common` | Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065). Desde F8 purga además los archivos de borradores y conserva los N últimos, con un paso que aporta `sgspe.deliverable`, así que `sgspe.common` no depende de `sgspe.deliverable` | Diaria | F3 (claves), F8 (borradores) | RQ-REP-027, ASM-028, RNF-INT-002, ASM-065 |
 | `AutomationDrain` | wasichai-automation | Ejecuta las acciones de automatización en cola como la plataforma | Cada segundo | F3 | [WAS-ADR-0016] |
 
 Los identificadores `JOB-NN` y `AUT-NN` y los parámetros exactos de cada trabajo los fija `workflows.md`. La indexación de
@@ -553,11 +556,11 @@ flowchart TD
 | Sección del portal | Fase | Notas |
 |---|---|---|
 | Dashboard | F1 (bienvenida y mapa de módulos), F8 (consolidado) | Los indicadores de cada módulo llegan con su módulo (RQ-DSH-036) |
-| Proyectos | F2 | — |
-| Territorio | F2 (datos y mapa básico), F6 (mapa territorial y ficha) | RQ-GIS-014, RQ-GIS-005 |
+| Proyectos | F2; F7 (bandeja de revisión de IA por proyecto y pantalla del asistente) | — |
+| Territorio | F2 (datos y mapa básico), F6 (mapa territorial y ficha) | RQ-GIS-014, RQ-GIS-005. Incluye la línea base social (BC-19) |
 | Grupos de interés | F2 | — |
 | Relacionamiento | F2 | Incluye las visitas de campo (ASM-045) |
-| Compromisos | F3 | — |
+| Compromisos | F3 | Incluye los acuerdos y convenios (BC-06) |
 | Quejas, consultas y solicitudes | F4 | — |
 | Riesgos | F4 | Incluye alertas e incidentes |
 | Programas sociales | F5 | Incluye los aportes (el tope y los lineamientos, en F3) |
@@ -710,8 +713,17 @@ cambió qué y por qué (RQ-AUD-014).
 
 Este documento se apoya en los ADR de wasichai [WAS-ADR-0001] [WAS-ADR-0003] [WAS-ADR-0004] [WAS-ADR-0006] [WAS-ADR-0010]
 [WAS-ADR-0013] [WAS-ADR-0014] [WAS-ADR-0016] [WAS-ADR-0024] [WAS-ADR-0025] [WAS-ADR-0028] [WAS-ADR-0038] [WAS-ADR-0039]
-[WAS-ADR-0040] [WAS-ADR-0041] y en los ADR de SGSPE previstos ADR-0001 (construir sobre wasichai), ADR-0007 (modelo como
-código), ADR-0008 (código propio solo donde la metadata no alcanza y API del portal), ADR-0010 (repositorios), ADR-0011
-(auditoría), ADR-0012 (estados temporales materializados), ADR-0014 (evidencias y almacenamiento de objetos), ADR-0015
-(mapas de informe), ADR-0020 (autenticación), ADR-0024 (portal y `/admin`), ADR-0025 (concurrencia e idempotencia del
-portal) y ADR-0026 (topología de despliegue, puertos y observabilidad).
+[WAS-ADR-0040] [WAS-ADR-0041] y en estos ADR de SGSPE, con los títulos del [índice de ADR](adr/README.md):
+
+- ADR-0001 (Construir SGSPE sobre wasichai);
+- ADR-0007 (El modelo como código en `model/`);
+- ADR-0008 (Código propio solo donde la metadata no alcanza, y API del portal);
+- ADR-0010 (Repositorios `sgspe` y `sgspe-ui`);
+- ADR-0011 (Auditoría sobre el `audit_log` de wasichai);
+- ADR-0012 (Estados temporales materializados por trabajos programados);
+- ADR-0014 (Evidencias y entregables en almacenamiento de objetos);
+- ADR-0015 (Mapas de informe con GeoServer GetMap);
+- ADR-0020 (Autenticación con el JWT de wasichai, endurecida);
+- ADR-0024 (Interfaz: portal en `/` y administración en `/admin`);
+- ADR-0025 (Concurrencia e idempotencia en la API del portal);
+- ADR-0026 (Topología de despliegue, puertos y observabilidad).

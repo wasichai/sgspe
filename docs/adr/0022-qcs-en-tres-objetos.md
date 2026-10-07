@@ -77,8 +77,7 @@ Aceptado · 2026-10-07
 
 - Tres fichas, tres listas y tres juegos de permisos en el portal y en `security.md`.
 - El reporte unificado y los indicadores deben leer los tres objetos y respetar la regla de los originales reclasificados.
-- Que el original se cierre al reclasificar es un supuesto de `workflows.md`: RF-GRV-007 no fija su estado final. Se
-  revierte dejándolo abierto hasta que una persona lo cierre.
+- Que el original se cierre al reclasificar lo decide el modelo de dominio (§6.7, §7.2); RF-GRV-007 no fija su estado final.
 
 ### Seguimiento
 

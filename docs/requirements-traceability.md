@@ -52,10 +52,12 @@ Convenciones:
 | Hueco | Le falta algo que ningún documento define: una prueba o el lugar de un dato. §7.1 dice qué necesita (tipo «Hueco») |
 | Fuera del MVP | Todas sus fases son posteriores a Release 1 (F5 a F8, ASM-044); el diseño existe, pero no entra en el MVP |
 
-Una fila puede llevar varios estados, separados por punto y coma. Dos decisiones del checkpoint no tienen GAP ni CON propio y
+Una fila puede llevar varios estados, separados por punto y coma. Cuatro decisiones del checkpoint no tienen GAP ni CON propio y
 por eso no aparecen como Decisión pendiente: ofrecer AI-05 solo a roles sin acceso a campos restringidos mientras falte UPS-14
-(`security.md` §15), que RF-AIK-005 muestra como Upstream (UPS-14), y contar los plazos desde la primera recepción al reclasificar
-una QCS (ASM-072), que RF-GRV-007 muestra como Diseñado.
+(`security.md` §15), que RF-AIK-005 muestra como Upstream (UPS-14); contar los plazos desde la primera recepción al reclasificar
+una QCS (ASM-072), que RF-GRV-007 muestra como Diseñado; reutilizar `approve_senior` de WF-D en el nivel 2 de escalamiento
+(ASM-030), que RF-WFL-004 muestra como Upstream (UPS-17); y el reparto en releases (ASM-044), que fija el estado «Fuera
+del MVP».
 
 ## 2. Requisitos funcionales (RF)
 
@@ -293,7 +295,7 @@ Fuente de las filas: `requirements-analysis.md` §12.
 | RQ-GIS-010 | [DOC-03] | BC-02 · `sgspe.territory` (reconciliación y versiones) | `project_component` | `POST /api/sgspe/territory/imports`; `POST /api/sgspe/project-components` | Portal › Territorio: ficha de `project_component` | `gis.md` §9 «Importación tipo DOC-03» | F2 | Upstream (UPS-16) |
 | RQ-GIS-011 | [WAS-ADR-0040] | BC-02 · `sgspe.territory` | geometrías de BC-02 | `POST /api/sgspe/territory/geometry-checks`; `GET /api/sgspe/territory/data-quality` | Portal › Territorio: listado de calidad (`gis.md` §8) | `gis.md` §9 «Polígono inválido» | F6 | Diseñado; Fuera del MVP |
 | RQ-GIS-012 | [WAS-ADR-0006] [WAS-ADR-0007] | BC-02 · `sgspe.territory` (capas y proxy WMS) | capas LYR-NN públicas y temáticas | `GET /api/sgspe/territory/layers/{layer}`; `GET /api/sgspe/territory/wms` (desde F6) | Portal › Territorio: mapa territorial (desde F6) | `gis.md` §9 «Proxy WMS»; `security.md` §14 «Proxy WMS» | F2, F6 | Diseñado |
-| RQ-GIS-013 | [PRM-01 §15] | BC-02 · `sgspe-ui` (mapa territorial); configuración por organización | — | — | Portal › Territorio: mapa territorial | `gis.md` §9 «Mapa base» | F6 | Upstream (UPS-13); Hueco; Fuera del MVP |
+| RQ-GIS-013 | [PRM-01 §15] | BC-02 · `application.yml` por despliegue (`sgspe.map.base-style-url` desde F2 y `sgspe.map.base-style-url-by-organization` en F6, `gis.md` §6.4); `sgspe-ui` (mapa territorial) | — | — | Portal › Territorio: mapa territorial | `gis.md` §9 «Mapa base» | F6 | Upstream (UPS-13); Fuera del MVP |
 | RQ-GIS-014 | [PRM-01 §15] [USR-02] [WAS-DOC modules/gis.md] | BC-02 · `sgspe-ui` (`@wasichai/gis`, MapLibre 6.10.0) | capas LYR-NN | `GET /api/sgspe/territory/layers/{layer}`; `GET /api/sgspe/territory/concentration` (desde F6) | Portal › Territorio: mapa territorial (desde F6) | `TerritoryMap.test.tsx` (propuesto) | F2 (básico), F6 | Diseñado |
 | RQ-GIS-015 | [USR-07] | BC-02 · `sgspe.territory` (capas agregadas) | `stakeholder`, `locality`, `community` | `GET /api/sgspe/territory/layers/{layer}` | Portal › Territorio: mapa territorial (desde F6) (LYR-17) | `TerritoryLayersApiTest` (propuesto) | F2 | Diseñado |
 | RQ-GIS-016 | [PRM-01 §6, §20] [WAS-ADR-0036] | BC-02 · `model/model.json` (`indexes`) | objetos con GEOMETRY y campos de filtro | — | — | `test_model.py` | F2 | Diseñado |
@@ -382,7 +384,7 @@ Fuente de las filas: `requirements-analysis.md` §13.2.
 | RQ-DSH-032 | [WAS-ADR-0020] | BC-15 · `sgspe.dashboard` (chequeo previo de lectura) | `stakeholder` (`stance`) | `GET /api/sgspe/dashboards/{dashboard}`; `GET /api/sgspe/dashboards/indicators/{code}` | Portal › todos los tableros («no disponible») | `DashboardPermissionsApiTest` (propuesto); `gis.md` §9 «Compuerta de permisos» | F2–F8 | Diseñado |
 | RQ-DSH-034 | [USR-01] [USR-02] | BC-15 · `sgspe.dashboard`; `sgspe.deliverable` | `indicator` | `GET /api/sgspe/dashboards/indicators/{code}` | Portal › tableros y Reportes | `deliverables.md` §13.2, criterio 19 | F8 | Diseñado; Fuera del MVP |
 | RQ-DSH-035 | [PRM-01 §16] | BC-15 · `sgspe-ui` (ECharts en las rutas de tableros) | — | — | Portal › todos los tableros (tabla «Ver datos») | `DashboardCharts.test.tsx` (propuesto) | F2 | Diseñado |
-| RQ-DSH-036 | [USR-05] | BC-15 · `sgspe.dashboard` por fase (`dashboards.md` §11) | — | `GET /api/sgspe/dashboards/{dashboard}` | Portal › tableros por sección | — | F2–F8 | Hueco |
+| RQ-DSH-036 | [USR-05] | BC-15 · `sgspe.dashboard` por fase (`dashboards.md` §11) | — | `GET /api/sgspe/dashboards/{dashboard}`; `GET /api/sgspe/dashboards/indicators` | Portal › tableros por sección | el `<Tablero>DashboardApiTest` (propuesto) de cada fase verifica que `GET /api/sgspe/dashboards/indicators` informa disponibles los KPI del módulo desde su fase (`dashboards.md` §11) | F2–F8 | Diseñado |
 | RQ-DSH-037 | [DOC-01 §9.3.1, Tabla 9.5] [PRM-01 §16] | BC-15 · `sgspe.dashboard` (cierre de periodo); `model/model.json` (catálogo `indicator`) | `indicator`, `indicator_measurement` | `POST /api/sgspe/indicators/{id}/measurements`; `/api/objects/indicator/records` | `/admin` (catálogos); Portal › Dashboard: tablero de monitoreo | `IndicatorMeasurementApiTest` (propuesto) | F8 | Diseñado; Fuera del MVP |
 
 ### 3.4 Requisitos de seguridad (RQ-SEC)
@@ -402,7 +404,7 @@ Fuente de las filas: `requirements-analysis.md` §14.
 | RQ-SEC-010 | [USR-07] [DOC-01 §5.1.8, §9.3.1.2, Tabla 9.5] | Transversal · `model/roles.json` (permisos de campo); `sgspe.privacy` | campos restringidos de `security.md` §7.9 | `/api/objects/{object}/records` | — | `security.md` §14 «Permisos de campo» | F2 | Decisión pendiente (GAP-001) |
 | RQ-SEC-011 | [WAS-ADR-0006] | BC-02 · `sgspe.territory` (proxy WMS); `model/publish_layers.py` | capas públicas de `gis.md` §2.1 | `GET /api/sgspe/territory/wms`; `/api/gis/layers/**` | Portal › Territorio: mapa territorial | `security.md` §14 «Proxy WMS» | F6 | Diseñado; Fuera del MVP |
 | RQ-SEC-014 | [WAS-ADR-0043] [DOC-01 §9.4.2] | BC-16 · cuentas de servicio de wasichai; `sgspe.warning` (`WarningWriteGuard`) | `early_warning` | `POST /api/auth/token`; `/api/service-accounts` | — | `security.md` §14 «Cuentas de servicio» | F4 | Diseñado |
-| RQ-SEC-015 | [WAS-ADR-0010] | BC-16 · proxy inverso (límite de tasa) | — | `POST /api/auth/login` | — | — | F1 | Upstream (UPS-09); Hueco |
+| RQ-SEC-015 | [WAS-ADR-0010] | BC-16 · proxy inverso (límite de tasa) | — | `POST /api/auth/login`; `POST /api/auth/token` | — | `LoginRateLimitTest` (propuesto), prueba de despliegue (`security.md` §14) | F1 | Upstream (UPS-09) |
 | RQ-SEC-016 | [WAS-ADR-0010] | BC-16 · `application-prod.yml` | — | — | — | `ProdProfileTest` | F1 | Diseñado |
 | RQ-SEC-017 | [PRM-01 §21] | BC-16 · pruebas de seguridad (`security.md` §14) | — | `/api/**` | — | `TenantIsolationApiTest`; `SecurityApiTest`; `security.md` §14 «Permisos de campo» | F1 | Diseñado |
 | RQ-SEC-018 | [USR-07] | Transversal · documentos, seeds, fixtures y tests versionados | — | — | — | `security.md` §14 «Nombres reales» | F0–F8 | Diseñado |
@@ -464,7 +466,7 @@ Las 20 RNF de `requirements-analysis.md` §7. Varias son de proceso o de reposit
 | RNF-MNT-006 | [USR-08] | Transversal · repositorios `wasichai/sgspe` y `wasichai/sgspe-ui` | — | — | — | — | F0 | Diseñado |
 | RNF-MNT-007 | [USR-04] [USR-05] [PRM-01 §24] | Transversal · proceso por fases (`roadmap.md`) | — | — | — | — | F0 | Diseñado |
 | RNF-MNT-008 | [PRM-01 §22, §26] | Transversal · `docs/adr/` | — | — | — | — | F0 | Diseñado |
-| RNF-MNT-009 | [PRM-01 §0, §23, §27] | Transversal · `docs/requirements-traceability.md` | — | — | — | — | F0–F8 | Hueco |
+| RNF-MNT-009 | [PRM-01 §0, §23, §27] | Transversal · `docs/requirements-traceability.md` | — | — | — | `check_traceability.py` (propuesto) en la CI (`roadmap.md`, definición de terminado de F1) | F0–F8 | Diseñado |
 | RNF-PRIV-004 | [USR-07] [DOC-01 §9.3.1.2, Tabla 9.5] [DOC-02 p.4] | Transversal · `model/model.json` (consentimientos); `sgspe.privacy` (salidas EXTERNO) | `contact_method`, `evidence` | `/api/objects/contact_method/records`; `PATCH /api/sgspe/evidence/{id}` | Portal › Documentos; Grupos de interés | `security.md` §14 «Salidas»; `deliverables.md` §13.2, criterio 11 | F3 | Diseñado |
 | RNF-INT-001 | [PRM-01 §11] [WAS-DOC api/rest.md] | Transversal · wasichai core; `sgspe.common` | — | `/api/**` | — | `ErrorContractApiTest` | F1 | Diseñado |
 | RNF-INT-002 | [PRM-01 §11] | Transversal · `sgspe.common` (`Idempotency-Key`) | tabla fija `idempotency_key` | `/api/sgspe/**` con el encabezado `Idempotency-Key` (`api.md` §3.5; marca `IK` en las tablas de `api.md` §4) | — | `IdempotencyApiTest` (propuesto) | F3 | Upstream (UPS-18) |
@@ -658,7 +660,7 @@ documento define; «Upstream» cuando lo que falta llega con una brecha de wasic
 | RNF-MNT-006 | entidad, API, test | No aplica | Decisión de repositorios; se verifica al crearlos en F1. No necesita objeto, ruta ni prueba |
 | RNF-MNT-007 | entidad, API, test | No aplica | Regla de proceso; se cumple con la pausa de revisión al cerrar F0 |
 | RNF-MNT-008 | entidad, API, test | No aplica | Regla de documentación; se verifica en la revisión de `docs/adr/` |
-| RNF-MNT-009 | entidad, API, test | Hueco | Una verificación versionada en la CI de que toda RF y RQ tiene su fila en esta matriz; hoy la hace un verificador local que no se versiona. Ningún documento la nombra |
+| RNF-MNT-009 | entidad, API | No aplica | Es una regla de documentación; no tiene objeto ni ruta. La prueba es `check_traceability.py` (propuesto), que en la CI verifica que toda RF, RNF, RN y RQ tiene su fila |
 | RNF-INT-001 | entidad | No aplica | Aplica a toda respuesta de error; no tiene objeto propio |
 | RNF-INT-003 | entidad | No aplica | Aplica a todo objeto que escribe el portal; no tiene objeto propio |
 | RNF-INT-004 | entidad | No aplica | Convención de toda la API propia; no tiene objeto propio |
@@ -667,16 +669,16 @@ documento define; «Upstream» cuando lo que falta llega con una brecha de wasic
 | RNF-TST-001 | entidad, API | No aplica | Estrategia de pruebas; sus suites están en las demás filas |
 | RNF-OBS-001 | entidad | No aplica | Salud y logs; no tiene objeto propio |
 | RNF-USA-001 | entidad | No aplica | Navegación del portal; no tiene objeto propio |
-| RQ-GIS-013 | entidad, API | Hueco | Dónde se guarda el mapa base por organización de F6: `gis.md` §6.4 lo pide «por organización», pero ningún documento le da campo, objeto ni ruta. Necesita una propuesta en `domain-model.md` o en `architecture.md` §10.2 antes de F6 |
+| RQ-GIS-013 | entidad, API | No aplica | Es configuración de la aplicación, no un objeto ni una ruta: `sgspe.map.base-style-url` y, en F6, el mapa `sgspe.map.base-style-url-by-organization` de `application.yml` (`gis.md` §6.4); el mapa base de `MapView` sigue esperando UPS-13 |
 | RQ-GIS-016 | API | No aplica | Son índices declarados en `model/model.json`; no exponen ruta |
 | RQ-GIS-021 | API | No aplica | Es el conjunto de pruebas GIS; no expone ruta |
 | RQ-GIS-022 | API | No aplica | Regla interna del código de `sgspe.territory`; no expone ruta |
 | RQ-REP-027 | API | No aplica | La retención la hace el trabajo JOB-08; no expone ruta |
 | RQ-DSH-031 | entidad | No aplica | Arquitectura de consulta; lee los objetos de cada KPI |
 | RQ-DSH-035 | entidad, API | No aplica | Biblioteca de gráficos de la interfaz; no tiene objeto ni ruta |
-| RQ-DSH-036 | entidad, test | Hueco | Una comprobación por fase de que los indicadores del módulo aparecen con él, por ejemplo una prueba extremo a extremo del tablero del módulo desde F2; ningún documento la nombra |
+| RQ-DSH-036 | entidad | No aplica | Es una regla de fases; no tiene objeto propio. La prueba es el `<Tablero>DashboardApiTest` (propuesto) de cada fase |
 | RQ-SEC-005 | API | No aplica | Regla de código; no expone ruta |
-| RQ-SEC-015 | entidad, test | Hueco | Una prueba de despliegue del límite de tasa del login en el proxy, que ningún documento nombra, y, cuando exista UPS-09, pruebas de revocación de tokens, intentos de login y política de contraseñas |
+| RQ-SEC-015 | entidad | No aplica | El límite vive en el proxy; no tiene objeto propio. Su prueba de despliegue es `LoginRateLimitTest` (propuesto); la revocación de tokens, los intentos de login y la política de contraseñas llegan con UPS-09 |
 | RQ-SEC-016 | entidad, API | No aplica | Configuración de producción; no tiene objeto ni ruta |
 | RQ-SEC-017 | entidad | No aplica | Es el conjunto de pruebas de seguridad; no tiene objeto propio |
 | RQ-SEC-018 | entidad, API | No aplica | Regla sobre artefactos versionados; no tiene objeto ni ruta |
@@ -705,11 +707,10 @@ Ninguno: cada endpoint de `api.md` §4 aparece en al menos una fila.
 
 ### 7.4 KPIs sin RQ-DSH
 
-Se revisa la columna Requisitos de los 53 KPI de `dashboards.md` §4.
+Se revisa la columna Requisitos de los 53 KPI de `dashboards.md` §4: un KPI es huérfano si ningún requisito lo sostiene.
 
-| KPI | Indicador | Requisitos que cita | Qué necesita |
-|---|---|---|---|
-| KPI-TER-01 | Resumen de una localidad o comunidad | RQ-GIS-005, RF-DSH-006 | Una RQ-DSH propia, o aceptar RQ-GIS-005 como su requisito: hoy lo sostienen RQ-GIS-005 y RF-DSH-006, y RQ-DSH-034 pide que use el mismo código que los tableros. La decisión es del análisis, no de esta matriz |
+Ninguno: KPI-TER-01 lo sostienen RQ-GIS-005 y RF-DSH-006, y RQ-DSH-034 fija el mismo código de los tableros (decisión de la
+Tarea 7).
 
 ## 8. Conteos
 
@@ -763,10 +764,10 @@ Se revisa la columna Requisitos de los 53 KPI de `dashboards.md` §4.
 
 | Estado | Filas que lo llevan |
 |---|---|
-| Diseñado | 255 |
+| Diseñado | 257 |
 | Decisión pendiente | 15 |
 | Upstream | 28 |
-| Hueco | 4 |
+| Hueco | 0 |
 | Fuera del MVP | 82 |
 
 Una fila con varios estados cuenta en cada uno. Las cifras por familia coinciden con `requirements-analysis.md` §20.1.

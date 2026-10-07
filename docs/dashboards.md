@@ -28,7 +28,7 @@ definen aquí, como prevé §0.5 del análisis. Ningún ejemplo usa nombres de p
   - el contrato de los endpoints, en `api.md`;
   - qué roles leen qué objetos y campos, en `security.md`;
   - la anatomía de los entregables, en `deliverables.md`;
-  - la decisión de calcular en vivo y de usar ECharts, en ADR-0016.
+  - la decisión de calcular en vivo y de usar ECharts, en ADR-0016 (KPIs calculados en vivo y ECharts como librería de gráficos).
 
 ## 2. Principios
 
@@ -200,8 +200,8 @@ Los indicadores de QCS leen los tres objetos: `grievance`, `inquiry` y `stakehol
 | KPI-GRV-01 | QCS recibidas | Quejas, consultas y solicitudes recibidas en el periodo, cada planteamiento una vez | Número de QCS con `received_at` en el periodo, por tipo, sin los originales reclasificados: cada planteamiento cuenta una vez, y un registro reclasificado ya trae el `received_at` del primero de la cadena (§3.3, ASM-072) | `received_at`, `channel`, `reclassified_from_grievance`, `reclassified_from_inquiry`, `reclassified_from_request` de los tres objetos | Proyecto, periodo, territorio; desglose por tipo y `channel` | RQ-DSH-022, RF-GRV-007 | Vivo | F4 |
 | KPI-GRV-02 | QCS abiertas | QCS que siguen en atención | Número de QCS abiertas (§3.2), por tipo y estado | `workflow_state` | Proyecto, territorio | RQ-DSH-022, RQ-DSH-002 | Vivo | F4 |
 | KPI-GRV-03 | Quejas resueltas | Quejas que llegaron a `resolved` en el periodo | Número de `grievance` con `resolved_date` en el periodo; una queja reabierta deja de contar hasta su nueva resolución, porque la reapertura vacía la fecha (§12) | `grievance.resolved_date` (derivado), `severity` | Proyecto, periodo, territorio; desglose por `severity` | RQ-DSH-022 | Vivo | F4 |
-| KPI-GRV-04 | QCS cerradas | QCS que llegaron a `closed` en el periodo | Número de QCS con `closed_date` en el periodo, por tipo, sin los originales cerrados por reclasificación (§3.3); las quejas rechazadas o desistidas no son cerradas (KPI-GRV-05) | `closed_date` (derivado) y los vínculos `reclassified_from_*` de los tres objetos | Proyecto, periodo, territorio | RQ-DSH-022 | Vivo | F4 |
-| KPI-GRV-05 | Quejas rechazadas | Quejas rechazadas, y aparte las desistidas | De las quejas con `received_at` en el periodo, las que hoy están en `rejected` (y aparte en `withdrawn`). El corte es por `received_at` porque el modelo no guarda la fecha de esos estados finales (§12); en una queja reclasificada, ese `received_at` es el del primero de la cadena (ASM-072). Un original reclasificado nunca está en `rejected`: se cierra en `closed`. Las solicitudes declinadas se ven en el desglose por estado de KPI-GRV-02 | `grievance.workflow_state`, `received_at` | Proyecto, periodo, territorio | RQ-DSH-022 | Vivo | F4 |
+| KPI-GRV-04 | QCS cerradas | QCS que llegaron a `closed` en el periodo | Número de QCS en `closed` con `closed_date` en el periodo, por tipo, sin los originales cerrados por reclasificación (§3.3). Las quejas rechazadas o desistidas también tienen `closed_date`, pero no están en `closed`: las cuenta KPI-GRV-05 | `workflow_state`, `closed_date` (derivado) y los vínculos `reclassified_from_*` de los tres objetos | Proyecto, periodo, territorio | RQ-DSH-022 | Vivo | F4 |
+| KPI-GRV-05 | Quejas rechazadas | Quejas rechazadas, y aparte las desistidas | Número de quejas en `rejected` con `closed_date` en el periodo (y aparte en `withdrawn`): `closed_date` guarda la fecha de la transición a cualquier estado final (§12). Un original reclasificado nunca está en `rejected`: se cierra en `closed`. Las solicitudes declinadas se ven en el desglose por estado de KPI-GRV-02 | `grievance.workflow_state`, `closed_date` (derivado) | Proyecto, periodo, territorio | RQ-DSH-022 | Vivo | F4 |
 | KPI-GRV-06 | QCS fuera de plazo | QCS abiertas cuyo plazo de atención venció | Número de QCS abiertas con `deadline_status` VENCIDO | `deadline_status`, `workflow_state`, `ack_due_date`, `response_due_date`, `resolution_due_date` | Proyecto, territorio, tipo, responsable | RQ-DSH-022, RF-GRV-006 | Vivo (plazo horario) | F4 |
 | KPI-GRV-07 | #6 QCS absueltas | Porcentaje de quejas, consultas o solicitudes absueltas por el proyecto | Planteamientos recibidos en el periodo (KPI-GRV-01) con respuesta registrada (`responded_at`), en cualquier estado ÷ planteamientos recibidos en el periodo. "Absuelta" es "respondida" (glosario); un original reclasificado no cuenta, porque el caso sigue en el registro nuevo (§3.3) | `received_at`, `responded_at`, vínculos `reclassified_from_*` | Proyecto, periodo, territorio; desglose por tipo | RQ-DSH-023, RF-GRV-003, RF-GRV-005 | Vivo | F4 |
 | KPI-GRV-08 | Desgloses de QCS | Cómo se reparten las QCS recibidas y abiertas | KPI-GRV-01 y KPI-GRV-02, con su regla de reclasificación, por severidad (`grievance.severity`), categoría (`category`), territorio (`locality`, `community`), grupo de interés (`stakeholder`; las anónimas aparte) y canal, los 10 primeros más "Otros" | `severity`, `category`, `locality`, `community`, `stakeholder`, `anonymous`, `channel` | Proyecto, periodo, territorio | RQ-DSH-024 | Vivo | F4 |
@@ -633,6 +633,12 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
 Los indicadores de cada módulo llegan con su módulo y se consolidan en F8 (RQ-DSH-036) [USR-05]. RQ-DSH-001, RQ-DSH-031 y
 RQ-DSH-032 rigen desde F2 para todos.
 
+- KPI-STK-04, KPI-STK-05 y KPI-STK-07 (F2) y KPI-ENG-06, KPI-ENG-07 y KPI-ENG-08 (F4) no tienen zona en un tablero de su
+  fase: desde su fase se consultan con `GET /api/sgspe/dashboards/indicators/{code}` (detalle del KPI) y tienen pantalla en el
+  tablero de monitoreo de F8 (§5.5).
+- Prueba: el `<Tablero>DashboardApiTest` de cada fase verifica que `GET /api/sgspe/dashboards/indicators` informa disponibles
+  los KPI del módulo desde su fase (RQ-DSH-036).
+
 ## 12. Fechas de transición que usan los indicadores
 
 Las series y los cortes por periodo de compromisos y QCS usan fechas derivadas que el modelo de dominio guarda al aplicar cada
@@ -642,14 +648,15 @@ transición (§6.5, §6.7, §7.4 y §7.5 del modelo de dominio). Son fechas de e
 |---|---|---|---|---|
 | `fulfilled_date`, `closed_date`, `cancelled_date` | `commitment` | Fecha, en America/Lima, de la transición a `fulfilled`, `closed` o `cancelled`; volver a ejecución (`reopen_execution`) vacía `fulfilled_date` | `CommitmentDerivationsListener` (`sgspe.commitment`), en la transacción de la transición | KPI-COM-05, KPI-COM-09, KPI-COM-11 |
 | `resolved_date` | `grievance` | Fecha de la transición a `resolved`; una reapertura de la queja la vacía | `QcsTransitionDatesListener` (`sgspe.attention`), en la transacción de la transición | KPI-GRV-03, KPI-GRV-10 |
-| `closed_date` | `grievance`, `inquiry`, `stakeholder_request` | Fecha de la transición a `closed` | `QcsTransitionDatesListener` | KPI-GRV-04, KPI-GRV-09 |
+| `closed_date` | `grievance`, `inquiry`, `stakeholder_request` | Fecha de la transición a cualquier estado final: `closed` y, en la queja, también `rejected` y `withdrawn` (`reject_*` y `withdraw_*`) | `QcsTransitionDatesListener` | KPI-GRV-04 y KPI-GRV-09 (con `workflow_state` = `closed`), KPI-GRV-05 |
 
 - Si el listener no puede escribir la fecha, la transición se revierte (§7.5 del modelo de dominio): un registro que llegó al
   estado siempre tiene su fecha.
 - `fulfilled_date` solo se lee en un compromiso cumplido (§3.2). Como la reapertura la vacía, un compromiso reabierto deja de
   contar como cumplido hasta su nuevo cumplimiento, y la serie de KPI-COM-11 tiene el límite histórico que declara su fila.
 - Las QCS llegan en F4 ya con estas fechas, así que sus indicadores no necesitan una vista por cohorte de respaldo.
-- Los estados finales `rejected` y `withdrawn` de una queja no guardan fecha. Por eso KPI-GRV-05 corta por `received_at`.
+- Una queja que llega a `rejected` o `withdrawn` también recibe `closed_date`, así que KPI-GRV-04 y KPI-GRV-09 filtran por
+  `workflow_state` = `closed` y KPI-GRV-05 corta por `closed_date`.
 
 ## 13. Trazabilidad
 

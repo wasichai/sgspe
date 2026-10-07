@@ -1,7 +1,7 @@
 # Documentación de SGSPE
 
-SGSPE es un Sistema de Gestión Social para Proyectos Extractivos. Organiza la relación de una empresa minera de
-exploración con su entorno social, en una sola herramienta:
+SGSPE es un Sistema de Gestión Social para Proyectos Extractivos. Organiza la relación de la empresa de un proyecto
+extractivo (minería, hidrocarburos o energía) con su entorno social, en una sola herramienta:
 
 - territorio y áreas de influencia;
 - grupos de interés y relacionamiento;

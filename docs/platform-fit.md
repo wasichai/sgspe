@@ -28,43 +28,43 @@ Columnas de las tablas de §2:
 
 - **wasichai:** el ADR o el documento de wasichai que satisface el mandato, citado como `WAS-ADR-00NN` o `WAS-DOC <ruta>`
   (ruta relativa a `wasichai/docs`).
-- **ADR de SGSPE:** el ADR previsto de SGSPE que lo decide (§1.2). Se cita como texto, sin enlace, porque los archivos de
-  `docs/adr/` se escriben después de este documento.
+- **ADR de SGSPE:** el ADR de SGSPE que lo decide (§1.2), con enlace a `docs/adr/` desde la tabla de §1.2 y el
+  [índice de ADR](adr/README.md).
 - **Brecha o CON:** la contradicción, la brecha upstream o el gap que registra lo que falta o lo que cambió.
 
-### 1.2 ADR de SGSPE previstos
+### 1.2 ADR de SGSPE
 
-Ningún ADR de SGSPE repite una decisión de wasichai: la cita y explica solo lo propio de SGSPE (RNF-MNT-008). El estado es el
-previsto al escribirlos.
+Ningún ADR de SGSPE repite una decisión de wasichai: la cita y explica solo lo propio de SGSPE (RNF-MNT-008). Títulos y
+estados copiados del [índice de ADR](adr/README.md).
 
-| ADR | Decisión | Estado previsto |
+| ADR | Título | Estado |
 |---|---|---|
-| ADR-0001 | Construir sobre wasichai | Aceptado |
-| ADR-0002 | PostGIS, SRID 4326 y CRS de trabajo | Aceptado |
-| ADR-0003 | Abstracción de IA | Propuesto |
-| ADR-0004 | Embabel: una sugerencia no es un comando | Propuesto |
-| ADR-0005 | RAG y pgvector en F7 | Propuesto |
-| ADR-0006 | Autorización y alcance | Aceptado; el alcance por proyecto queda Propuesto |
-| ADR-0007 | Modelo como código | Aceptado |
-| ADR-0008 | Código propio solo donde la metadata no alcanza; API del portal | Aceptado |
-| ADR-0009 | Nombres técnicos en inglés; documentación y valores ENUM en español | Aceptado |
-| ADR-0010 | Repositorios `sgspe` y `sgspe-ui` | Aceptado |
-| ADR-0011 | Auditoría | Aceptado |
-| ADR-0012 | Estados temporales materializados (`deadline_status`) | Aceptado |
-| ADR-0013 | Entregables DOCX primero | Propuesto |
-| ADR-0014 | Evidencias y almacenamiento de objetos | Propuesto |
-| ADR-0015 | Mapas de informe con GeoServer GetMap | Propuesto |
-| ADR-0016 | KPIs en vivo y ECharts | Propuesto |
-| ADR-0017 | Datos personales y anonimización | Aceptado |
-| ADR-0018 | Notificaciones | Propuesto |
-| ADR-0019 | Importación geoespacial con reconciliación | Propuesto |
-| ADR-0020 | Autenticación con el JWT de wasichai, endurecida | Aceptado |
-| ADR-0021 | Reglas de workflow: metadata, guardas y motivo | Aceptado |
-| ADR-0022 | QCS en tres objetos | Aceptado |
-| ADR-0023 | Separación de actor, cargo, grupo de interés, comunidad y área de influencia | Aceptado |
-| ADR-0024 | Interfaz: portal y `/admin` | Aceptado |
-| ADR-0025 | Concurrencia e idempotencia del portal | Propuesto |
-| ADR-0026 | Topología de despliegue, puertos y observabilidad | Propuesto |
+| [ADR-0001](adr/0001-construir-sobre-wasichai.md) | Construir SGSPE sobre wasichai | Aceptado |
+| [ADR-0002](adr/0002-geometrias-en-srid-4326-y-crs-de-trabajo.md) | Geometrías en SRID 4326 con CRS de trabajo por proyecto | Aceptado |
+| [ADR-0003](adr/0003-abstraccion-de-ia.md) | Abstracción de IA sobre wasichai-agent | Propuesto (se acepta en F7) |
+| [ADR-0004](adr/0004-la-sugerencia-de-ia-no-es-un-comando.md) | La sugerencia de IA no es un comando de dominio | Propuesto (se acepta en F3) |
+| [ADR-0005](adr/0005-rag-y-pgvector.md) | RAG en F7 y pgvector solo con justificación medida | Propuesto (se acepta en F7) |
+| [ADR-0006](adr/0006-autorizacion-y-alcance-por-proyecto.md) | Autorización por roles y alcance por proyecto | Aceptado; el alcance por proyecto, Propuesto (F2, con la opción del checkpoint) |
+| [ADR-0007](adr/0007-el-modelo-como-codigo.md) | El modelo como código en `model/` | Aceptado |
+| [ADR-0008](adr/0008-codigo-propio-y-api-del-portal.md) | Código propio solo donde la metadata no alcanza, y API del portal | Aceptado |
+| [ADR-0009](adr/0009-nombres-tecnicos-en-ingles.md) | Nombres técnicos en inglés; documentación y valores de ENUM en español | Aceptado |
+| [ADR-0010](adr/0010-repositorios-sgspe-y-sgspe-ui.md) | Repositorios `sgspe` y `sgspe-ui` | Aceptado |
+| [ADR-0011](adr/0011-auditoria.md) | Auditoría sobre el `audit_log` de wasichai | Aceptado |
+| [ADR-0012](adr/0012-estados-temporales-materializados.md) | Estados temporales materializados por trabajos programados | Aceptado |
+| [ADR-0013](adr/0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Propuesto (se acepta en F8) |
+| [ADR-0014](adr/0014-almacenamiento-de-objetos.md) | Evidencias y entregables en almacenamiento de objetos | Propuesto (se acepta en F3) |
+| [ADR-0015](adr/0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Propuesto (se acepta en F6) |
+| [ADR-0016](adr/0016-kpis-en-vivo-y-echarts.md) | KPIs calculados en vivo y ECharts como librería de gráficos | Propuesto (se acepta en F2) |
+| [ADR-0017](adr/0017-datos-personales-y-anonimizacion.md) | Datos personales y anonimización | Aceptado |
+| [ADR-0018](adr/0018-notificaciones.md) | Notificaciones en la aplicación y abstracción del correo | Propuesto (se acepta en F3) |
+| [ADR-0019](adr/0019-importacion-geoespacial-con-reconciliacion.md) | Importación geoespacial con preparación y reconciliación | Propuesto (se acepta en F2) |
+| [ADR-0020](adr/0020-autenticacion-jwt-endurecida.md) | Autenticación con el JWT de wasichai, endurecida | Aceptado |
+| [ADR-0021](adr/0021-reglas-de-workflow.md) | Reglas de workflow: metadata, guardas y motivo | Aceptado |
+| [ADR-0022](adr/0022-qcs-en-tres-objetos.md) | Quejas, consultas y solicitudes en tres objetos | Aceptado |
+| [ADR-0023](adr/0023-separacion-de-actores-y-territorio.md) | Separación de persona, cargo, grupo de interés, comunidad y área de influencia | Aceptado |
+| [ADR-0024](adr/0024-interfaz-portal-y-admin.md) | Interfaz: portal en `/` y administración en `/admin` | Aceptado |
+| [ADR-0025](adr/0025-concurrencia-e-idempotencia.md) | Concurrencia e idempotencia en la API del portal | Propuesto (se acepta en F2) |
+| [ADR-0026](adr/0026-topologia-puertos-y-observabilidad.md) | Topología de despliegue, puertos y observabilidad | Aceptado en parte (puertos, correlación, logs y salud, que rigen desde F1); la topología de producción, Propuesta (al responder GAP-022) |
 
 ## 2. Mandatos del prompt (§3 a §27)
 
@@ -140,7 +140,7 @@ previsto al escribirlos.
 | Los nueve casos de uso espaciales | SGSPE | Un endpoint por consulta ([API §4.2](api.md#42-bc-02-territorio-y-sig)) y la ficha territorial, cuyas cifras son KPI-TER-01 de `sgspe.dashboard` | — | ADR-0002 | — | RQ-GIS-002, RQ-GIS-005, RQ-GIS-014, RQ-DSH-034 |
 | Índices espaciales | Plataforma | GIST automático por geometría; índices declarados por proyecto, estado, fechas y códigos | WAS-DOC gis/geometry.md; WAS-ADR-0036 | ADR-0007 | — | RQ-GIS-016 |
 | SRID configurable según el territorio, sin SRID universal | Plataforma + SGSPE | Almacenamiento en 4326 y `working_crs` por proyecto; el código lee el SRID de la metadata | WAS-ADR-0019; WAS-ADR-0027 | ADR-0002 | CON-037 | RQ-GIS-022, ASM-002 |
-| ADR de arquitectura GIS | SGSPE | ADR-0002, con ADR-0015 (mapas de informe) y ADR-0019 (importación) | WAS-ADR-0005; WAS-ADR-0006 | ADR-0002, ADR-0015, ADR-0019 | — | RNF-MNT-008 |
+| ADR de arquitectura GIS | SGSPE | ADR-0002, con ADR-0015 (Mapas de informe con GeoServer GetMap) y ADR-0019 (Importación geoespacial con preparación y reconciliación) | WAS-ADR-0005; WAS-ADR-0006 | ADR-0002, ADR-0015, ADR-0019 | — | RNF-MNT-008 |
 
 ### 2.5 §7 Roles y seguridad
 

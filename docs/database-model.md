@@ -2156,7 +2156,7 @@ RF-COM-010, RF-AIK-003, RQ-AI-001, RQ-AI-003, RQ-AI-004.
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `proposed_text` | LONG_TEXT | sí | — | Texto propuesto. | RF-COM-010 |
-| `evidence_quote` | LONG_TEXT | no | — | Cita que lo sustenta, seudonimizada: marcadores en lugar de valores restringidos, como en `ai_suggestion` (RQ-AI-009). | RQ-AI-004 |
+| `evidence_quote` | LONG_TEXT | no | — | (restringido) Cita que lo sustenta, seudonimizada: marcadores en lugar de valores restringidos, como en `ai_suggestion` (RQ-AI-009). | RQ-AI-004 |
 | `beneficiaries_text` | LONG_TEXT | no | — | Beneficiarios según la fuente. | RF-COM-010 |
 | `suggested_owner_user_email` | EMAIL | no | — | Responsable sugerido. | RF-COM-010 |
 | `suggested_due_date` | DATE | no | — | Fecha de vencimiento sugerida. | RF-COM-010 |
@@ -2349,7 +2349,7 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 | `owner_user_email` | EMAIL | no | — | Correo del responsable. | ASM-023 |
 | `response` | LONG_TEXT | no | — | Respuesta. | RF-GRV-001 |
 | `responded_at` | DATETIME | no | — | Momento de la respuesta. | RF-GRV-001 |
-| `closed_date` | DATE | no | — | (derivado) Fecha (America/Lima) de la transición a `closed`. | RQ-DSH-022 |
+| `closed_date` | DATE | no | — | (derivado) Fecha (America/Lima) de la transición a un estado final: `closed`, `rejected` o `withdrawn`. | RQ-DSH-022 |
 | `location` | GEOMETRY (POINT) | no | — | Ubicación. | RF-GRV-001 |
 | `severity` | ENUM `grievance_severity` | no | — | Severidad (ASM-036). | RN-GRV-002 |
 | `ack_due_date` | DATE | no | — | (derivado) Plazo de acuse, en días hábiles (ASM-005). | RF-GRV-006 |
@@ -2384,8 +2384,9 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
   plazo (RQ-DSH-022). `QcsDueDatesListener` escribe los plazos al recibir (RF-GRV-006).
-- `QcsTransitionDatesListener` escribe `closed_date` y, en la queja, `resolved_date` en la transacción de la transición;
-  con ellas se miden el flujo y el tiempo de resolución (RQ-DSH-022, RQ-DSH-025).
+- `QcsTransitionDatesListener` escribe, en la transacción de la transición, `closed_date` al llegar a cualquier estado
+  final (`closed` y, en la queja, también `rejected` y `withdrawn`, por `reject_*` y `withdraw_*`) y, en la queja,
+  `resolved_date`; con ellas se miden el flujo y el tiempo de resolución (RQ-DSH-022, RQ-DSH-025).
 
 ### `inquiry`
 
@@ -2436,8 +2437,9 @@ Requisitos: RF-GRV-001, RF-GRV-003, RF-GRV-007.
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
   plazo (RQ-DSH-022). `QcsDueDatesListener` escribe los plazos al recibir (RF-GRV-006).
-- `QcsTransitionDatesListener` escribe `closed_date` y, en la queja, `resolved_date` en la transacción de la transición;
-  con ellas se miden el flujo y el tiempo de resolución (RQ-DSH-022, RQ-DSH-025).
+- `QcsTransitionDatesListener` escribe, en la transacción de la transición, `closed_date` al llegar a cualquier estado
+  final (`closed` y, en la queja, también `rejected` y `withdrawn`, por `reject_*` y `withdraw_*`) y, en la queja,
+  `resolved_date`; con ellas se miden el flujo y el tiempo de resolución (RQ-DSH-022, RQ-DSH-025).
 
 ### `stakeholder_request`
 
@@ -2492,8 +2494,9 @@ Requisitos: RF-GRV-001, RF-GRV-003, RF-GRV-007.
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
   plazo (RQ-DSH-022). `QcsDueDatesListener` escribe los plazos al recibir (RF-GRV-006).
-- `QcsTransitionDatesListener` escribe `closed_date` y, en la queja, `resolved_date` en la transacción de la transición;
-  con ellas se miden el flujo y el tiempo de resolución (RQ-DSH-022, RQ-DSH-025).
+- `QcsTransitionDatesListener` escribe, en la transacción de la transición, `closed_date` al llegar a cualquier estado
+  final (`closed` y, en la queja, también `rejected` y `withdrawn`, por `reject_*` y `withdraw_*`) y, en la queja,
+  `resolved_date`; con ellas se miden el flujo y el tiempo de resolución (RQ-DSH-022, RQ-DSH-025).
 - Al cerrar el compromiso creado y, desde F5, el aporte creado, `RequestClosureListener` cierra la solicitud
   (RN-GRV-001, ASM-068). Si el compromiso o el aporte se cancela o se rechaza, la solicitud se cierra a mano con
   `close_unfulfilled`.
@@ -3622,7 +3625,7 @@ RF-AIK-008, RQ-AI-001, RQ-AI-003, RQ-AI-004, RQ-AI-015.
 | `target_object` | TEXT | no | — | Objeto del registro al que se refiere. | RQ-AI-003 |
 | `target_record_id` | UUID | no | — | Registro al que se refiere; una guarda verifica que exista y se pueda leer. | RQ-AI-003 |
 | `suggested_value` | LONG_TEXT | sí | — | Valor o texto sugerido, con la forma que fija su fila de la lista permitida (`ai-architecture.md` §4.2); lleva marcadores o referencias, nunca valores restringidos (RQ-AI-009). | RQ-AI-001 |
-| `evidence_quote` | LONG_TEXT | no | — | Cita o fragmento que la sustenta, seudonimizado: marcadores en lugar de valores restringidos (RQ-AI-009). | RQ-AI-004 |
+| `evidence_quote` | LONG_TEXT | no | — | (restringido) Cita o fragmento que la sustenta, seudonimizado: marcadores en lugar de valores restringidos (RQ-AI-009). | RQ-AI-004 |
 | `confidence` | DECIMAL | no | — | Confianza. | RQ-AI-004 |
 | `model` | TEXT | sí | — | Modelo que la produjo. | RQ-AI-004 |
 
@@ -3640,9 +3643,10 @@ RF-AIK-008, RQ-AI-001, RQ-AI-003, RQ-AI-004, RQ-AI-015.
 - `target_record_id` lleva índice para listar las sugerencias de un registro. `CommandTransitionGuard` protege
   `accepted`: aceptar ejecuta el comando de dominio con la autorización de quien acepta (RQ-AI-003).
 - `evidence_quote`, aquí y en `commitment_candidate`, se guarda seudonimizada y la API genérica solo devuelve
-  marcadores. Se re-identifica al mostrarla, solo para quien tiene acceso a esos campos y puede descargar la evidencia
-  fuente, y la comprobación de que la cita es literal se hace sobre el fragmento seudonimizado (`ai-architecture.md`
-  §12.2).
+  marcadores. Un permiso de campo (`security.md` §7.9) la oculta además a los roles sin `DOWNLOAD_RESTRICTED` sobre
+  `evidence`, también en la API genérica. Se re-identifica al mostrarla, solo para quien tiene acceso a esos campos y
+  puede descargar la evidencia fuente, y la comprobación de que la cita es literal se hace sobre el fragmento
+  seudonimizado (`ai-architecture.md` §12.2).
 
 ### `ai_interaction`
 
@@ -3711,8 +3715,8 @@ RQ-AUD-003, RQ-AUD-012.
   filtrada por tenant, proyecto y clasificación (RQ-AI-008).
 - El índice GIN de texto completo en español sobre `content` sostiene la primera etapa del RAG de F7, sin extensiones
   nuevas de PostgreSQL; pgvector y `embedding` llegan solo en la segunda etapa (RQ-AI-008, CON-035).
-- Es un dato derivado: se puede borrar y regenerar desde su `evidence`. Si se adopta pgvector, el índice vectorial y la
-  dimensión del vector los fija ADR-0005 (RAG y pgvector) en F7.
+- Es un dato derivado: se puede borrar y regenerar desde su `evidence`. Si se adopta pgvector, un ADR nuevo fija el
+  índice vectorial, la dimensión del vector y el modelo de embeddings (ADR-0005).
 
 ## 21. BC-19 Línea base social
 
@@ -4070,9 +4074,9 @@ de los endpoints propios (RNF-INT-002, ASM-065), con su propia migración (§2.3
 ### `idempotency_key`
 
 **Clave de idempotencia** (Transversal). Clave `Idempotency-Key` de cada creación de `/api/sgspe/**` que la trae,
-escrita en la misma transacción que el comando y purgada después de un plazo configurable; la API genérica de wasichai
-no conoce esa cabecera (UPS-18). Tabla fija `sgspe.idempotency_key`, no Custom Object (§2.3). Requisitos: RNF-INT-002,
-ASM-065, UPS-18.
+escrita en la misma transacción que el comando y purgada por JOB-08 después de un plazo configurable; la API genérica de
+wasichai no conoce esa cabecera (UPS-18). Tabla fija `sgspe.idempotency_key`, no Custom Object (§2.3). Requisitos:
+RNF-INT-002, ASM-065, UPS-18.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
@@ -4092,8 +4096,9 @@ ASM-065, UPS-18.
 - **Acciones declaradas:** no aplican.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- El único compuesto deduplica por organización, usuario y clave; el índice por `created_at` sirve a la purga periódica
-  (ASM-065). Las respuestas a un reenvío y a una clave repetida con otra petición las fija `api.md`.
+- El único compuesto deduplica por organización, usuario y clave; el índice por `created_at` sirve a la purga, que hace
+  JOB-08 desde F3 con SQL propio, sin `asPlatform` (ASM-065). Las respuestas a un reenvío y a una clave repetida con
+  otra petición las fija `api.md`.
 - La escribe y la lee solo `sgspe.common`, en la misma transacción que el comando (RNF-INT-002).
 
 ## 23. Contextos sin objetos propios
@@ -4251,7 +4256,7 @@ decisión registrada permite.
 | Versiones emitidas | `deliverable_version` y almacenamiento | Siempre, con WORM opcional | RQ-REP-017, RQ-REP-027 |
 | Exportaciones e interacciones con IA | `export_log`, `ai_interaction` | Siempre (append-only) | RQ-AUD-011, RQ-AUD-012 |
 | Notificaciones y envíos | `sgspe.notification`, `sgspe.notification_delivery` | Se conservan hasta que GAP-014 fije un plazo | RF-NTF-001, GAP-014 |
-| Claves de idempotencia | `sgspe.idempotency_key` | Se purgan después de un plazo configurable; no guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
+| Claves de idempotencia | `sgspe.idempotency_key` | La purga la hace JOB-08, desde F3, después de un plazo configurable; no guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
 | Fragmentos de RAG | `sgspe.knowledge_chunk` | Son derivados: se regeneran o se borran con su evidencia | RQ-AI-008 |
 | Datos personales | Campos restringidos | Según la política de GAP-014; mientras tanto, minimización con permisos de campo y anonimización en salidas | RNF-PRIV-004, RQ-SEC-010, RQ-REP-014 |
 

@@ -18,7 +18,7 @@ La Fase 0 entrega el diseño completo de SGSPE, sin código, sobre wasichai 0.3.
 - **Pedidos del usuario incorporados** (USR):
   - generar entregables como DOC-01 (DOCX) y DOC-02 (PDF);
   - ver la situación en GIS y en tableros;
-  - construir sobre wasichai como srtm-backend y srtm-ui;
+  - construir sobre wasichai como srtm y caja (la plantilla vigente es caja-backend y caja-ui);
   - nombres técnicos en inglés;
   - anonimizar los datos personales.
 - **[`requirements-analysis.md`](requirements-analysis.md):** 480 IDs, entre ellos:

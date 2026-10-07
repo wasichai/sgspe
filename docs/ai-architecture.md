@@ -30,7 +30,8 @@ personas reales [USR-07].
   - los campos completos de `ai_suggestion`, `commitment_candidate`, `ai_interaction` y de la tabla fija `knowledge_chunk`, en
     `database-model.md`;
   - el contrato de los endpoints, en `api.md`;
-  - las decisiones, en ADR-0003 (abstracción de IA), ADR-0004 (Embabel: sugerencia frente a comando) y ADR-0005 (RAG).
+  - las decisiones, en ADR-0003 (Abstracción de IA sobre wasichai-agent), ADR-0004 (La sugerencia de IA no es un comando de
+    dominio) y ADR-0005 (RAG en F7 y pgvector solo con justificación medida).
 
 ## 2. Principios
 
@@ -327,7 +328,8 @@ Esa restricción es una consecuencia de producto que decide el checkpoint, con l
   - La API genérica devuelve solo los marcadores.
   - La interfaz re-identifica al mostrar, solo para quien puede leer esos campos.
   - La cita solo se muestra, y se re-identifica, a quien además puede abrir la fuente: descargar la `evidence` (RF-DOC-003)
-    o, si la fuente es la minuta, leer `minutes` de la `engagement`.
+    o, si la fuente es la minuta, leer `minutes` de la `engagement`. La oculta además un permiso de campo, también en la API
+    genérica, a los roles sin `DOWNLOAD_RESTRICTED` sobre `evidence` (`security.md` §7.9).
 - `confidence` va de 0 a 1. La informa el modelo y no está calibrada: ordena la bandeja y nunca acepta nada por sí sola.
 - `model` nombra el modelo que produjo la salida (RQ-AI-004).
 - Las escribe `SuggestionWriter`, el escritor de sugerencias de `sgspe.ai`, con `RecordService` como la persona que pidió la
@@ -462,7 +464,8 @@ propios, fragmentos recuperados para AI-06 y texto que se vaya a vectorizar (RQ-
   - los marcadores sin id ni valor (`[PERSONA]`, `[DOCUMENTO]`, `[TELEFONO]`, `[CORREO]`) no se re-identifican: quien puede
     abrir la fuente lee allí el dato;
   - la cita (`evidence_quote`) solo se muestra, y se re-identifica, a quien además puede abrir la fuente: descargar la
-    `evidence` (RF-DOC-003) o, si la fuente es la minuta, leer `minutes` de la `engagement`.
+    `evidence` (RF-DOC-003) o, si la fuente es la minuta, leer `minutes` de la `engagement`. La oculta además un permiso de
+    campo, también en la API genérica, a los roles sin `DOWNLOAD_RESTRICTED` sobre `evidence` (`security.md` §7.9).
 - **Aceptación.** Escribe los valores que la persona revisó (§4.2): un actor nuevo solo lleva nombre si quien acepta puede
   escribirlo, y el responsable de un compromiso lo elige quien acepta.
 - Las opiniones políticas, la religión, el proceso electoral y la postura de una persona no forman parte de las herramientas de
@@ -506,12 +509,12 @@ La recuperación documental con citas llega en F7 (RF-AIK-006); pgvector solo en
   PostgreSQL en español, sin extensiones nuevas. La recuperación aplica los filtros de §13.3 y la respuesta cita sus fuentes.
 - **Etapa 2:** la columna `embedding` y pgvector se agregan solo cuando se cumple el criterio.
 
-Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en ADR-0005):
+Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en ADR-0005, que se acepta en F7):
 
 1. AI-06 está activo en al menos una organización (§12.1) y hay un corpus de `evidence` con texto.
 2. Un juego de preguntas de evaluación, con sus documentos fuente esperados, muestra que la recuperación por texto no alcanza la
-   meta de cobertura y precisión fijada en ADR-0005. El juego usa fixtures ficticios y, si la organización lo autoriza, su corpus
-   anonimizado.
+   meta de cobertura y precisión, que se fija al aceptar ADR-0005 en F7. El juego usa fixtures ficticios y, si la organización lo
+   autoriza, su corpus anonimizado.
 3. El volumen (GAP-027) y el beneficio medido justifican el costo de vectorizar y mantener los vectores.
 4. El proveedor de embeddings cumple la política de residencia (GAP-015), o el modelo de embeddings es autoalojado.
 5. La base tiene pgvector: el núcleo de wasichai crea la extensión `vector` cuando el servidor la ofrece, y la imagen
@@ -556,8 +559,8 @@ flowchart LR
    (RQ-SEC-006).
 3. Clasificación: solo las clasificaciones que la persona puede descargar (RF-DOC-003).
 4. Las `evidence` de los fragmentos candidatos se releen con `RecordService` como la persona (filtro por identificadores), y se
-   descarta todo fragmento cuya evidencia no vuelve. Así se respetan el permiso READ sobre `evidence`, los registros propios
-   (`own_records_only`) y el alcance futuro, con el mismo motor de permisos de la plataforma [WAS-ADR-0014].
+   descarta todo fragmento cuya evidencia no vuelve. Así se respetan el permiso READ sobre `evidence` y el alcance futuro, con el
+   mismo motor de permisos de la plataforma [WAS-ADR-0014].
 5. Los fragmentos se seudonimizan antes de llegar al modelo (§12.2).
 6. La respuesta cita cada fuente: título y enlace de la `evidence` y el fragmento usado. Si ningún fragmento pasa los filtros, la
    respuesta dice que no hay evidencia; nunca responde sin fuente.
@@ -615,7 +618,8 @@ Suites:
   - aceptar una sugerencia con un par de tipo, objeto y campo fuera de la lista de §4.2, o con un campo derivado, se rechaza;
   - una sugerencia guardada, cita incluida, no contiene ningún valor restringido, y la API genérica solo devuelve marcadores;
     quien no puede leer el nombre no lo ve al mostrarla, y la cita no se muestra a quien no puede abrir la fuente (la evidencia
-    o la minuta);
+    o la minuta); la API genérica no devuelve `evidence_quote` a un rol sin `DOWNLOAD_RESTRICTED` sobre `evidence` (la oculta
+    además un permiso de campo, `security.md` §7.9);
   - una persona que no puede leer los nombres de `person` recibe 403 en `runs` y en `knowledge/questions`;
   - la auditoría registra a la persona y el origen;
   - con una organización sin IA o un despliegue sin clave, `runs`, `assistant/questions` y `knowledge/questions` responden 503,

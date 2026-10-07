@@ -66,9 +66,10 @@ Reglas de SGSPE sobre la mecánica de wasichai ([workflows.md](../workflows.md),
    de WF-E3 y de WF-K, `close_accepted`, `issue`, `approve` y `supersede` de WF-O) solo llegan desde un endpoint o un listener
    de SGSPE: `CommandTransitionGuard` las rechaza sin la marca `SgspeWrite`, que es lo que ocurre por la API genérica. El
    comando aplica la transición como la persona, que necesita el rol (ADR-0008).
-9. **Motivo.** Toda transición de los ocho objetos `requiresReason` lleva motivo (`commitment`, `agreement`, `grievance`,
-   `inquiry`, `stakeholder_request`, `social_risk`, `social_contribution`, `deliverable`); en los demás, `TransitionReasonGuard`
-   lo exige al devolver, rechazar, suspender, cancelar, retirar y reabrir (RQ-AUD-002, ASM-058). La auditoría es la de ADR-0011.
+9. **Motivo.** Toda transición de los ocho objetos `requiresReason` con workflow lleva motivo (`commitment`, `agreement`,
+   `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `social_contribution`, `deliverable`); en los demás,
+   `TransitionReasonGuard` lo exige al devolver, rechazar, suspender, cancelar, retirar y reabrir (RQ-AUD-002, ASM-058). La
+   auditoría es la de ADR-0011.
 10. **Políticas con desvío explícito.** Si un proyecto desactiva la aprobación interna, la guarda admite `approve_direct` o
     `plan_direct` (ASM-008). WF-A nunca se desactiva: una organización sin revisión usa una variante de su definición
     (ASM-010).

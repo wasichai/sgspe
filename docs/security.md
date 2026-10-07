@@ -11,7 +11,7 @@ seguridad del prompt maestro: RBAC con autorización por ámbito y sin comprobac
   aquí solo se citan.
 - Los nombres de objetos, campos, estados, guardas, listeners y paquetes son los del [modelo de dominio](domain-model.md),
   y el vocabulario ES ↔ EN está en el [glosario](glossary.md).
-- Las decisiones de arquitectura se registran en los ADR de SGSPE, que se citan como texto: ADR-0006 (autorización y
+- Las decisiones de arquitectura se registran en los ADR de SGSPE ([índice](adr/README.md)): ADR-0006 (autorización y
   alcance), ADR-0011 (auditoría), ADR-0017 (datos personales y anonimización) y ADR-0020 (autenticación).
 - Ningún ejemplo usa nombres de personas reales: las personas se nombran por su cargo [USR-07].
 
@@ -521,7 +521,8 @@ proyecto, el territorio y la región dependen de UPS-01 (§9).
 - Un campo derivado se reconoce por la clave `"derived": true` de su definición en `model/model.json`. Solo la leen las
   herramientas de SGSPE (`apply_roles.py` y las pruebas); `apply.py` no la envía a wasichai. Nunca se marca un derivado con
   `editable: false`: wasichai omite los campos no editables en toda escritura, también en las de la plataforma, y el
-  derivado no se podría escribir [WAS-ADR-0040].
+  derivado no se podría escribir (`PhysicalTableRecordStore.kt`, líneas 40 y 86, en el código de wasichai-core 0.3.2;
+  `database-model.md` §3.1).
 - Los roles existen desde F1 con su etiqueta en español y sin permisos, salvo `AUDITOR`; las concesiones se agregan en
   cada fase (RNF-MNT-002).
 
@@ -778,9 +779,10 @@ Criterios con que se armó:
   - la API genérica devuelve solo los marcadores. La interfaz re-identifica al mostrar, con los permisos de quien mira:
     quien no puede leer el nombre ve el cargo, si puede leerlo, o solo "persona". Los marcadores sin valor no se
     re-identifican;
-  - `evidence_quote` se muestra, y se re-identifica, solo a quien además puede descargar la evidencia fuente (READ y, si
-    es CONFIDENCIAL o DATOS PERSONALES, `DOWNLOAD_RESTRICTED`, RF-DOC-003) o, si la fuente es la minuta de una
-    interacción, a quien puede leerla;
+  - un permiso de campo (§7.9) oculta `evidence_quote` a los roles sin `DOWNLOAD_RESTRICTED` sobre `evidence`, también en
+    la API genérica; además, la interfaz solo la muestra, y la re-identifica, a quien puede abrir esa fuente: descargar la
+    evidencia fuente (READ y, si es CONFIDENCIAL o DATOS PERSONALES, `DOWNLOAD_RESTRICTED`, RF-DOC-003) o, si la fuente es
+    la minuta de una interacción, leerla;
   - riesgo residual: un marcador no revela el valor, pero sí que en ese lugar había un dato restringido, como una persona
     o un teléfono citados en un acta;
   - aceptar una sugerencia escribe los valores que la persona revisó en la petición, así que ningún marcador llega a un
@@ -808,6 +810,7 @@ en la tercera columna, una entrada de campo sin lectura ni escritura. `ADMIN` lo
 | `land_parcel.registry_record` | Partida registral del predio | `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `GIS_ANALYST` | RF-TER-007 |
 | `land_right.holder_person` | Persona titular o posesionaria del predio | `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `GIS_ANALYST` | RF-TER-007 |
 | `person` de `grievance`, `inquiry` y `stakeholder_request` | Persona que plantea la QCS | `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | RF-GRV-001 |
+| `ai_suggestion.evidence_quote`, `commitment_candidate.evidence_quote` | Cita de una evidencia que puede ser restringida | Los roles con `DOWNLOAD_RESTRICTED` sobre `evidence`: `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `STAKEHOLDER_MANAGER`, `COMMITMENT_MANAGER`, `GRIEVANCE_MANAGER`, `SOCIAL_RISK_MANAGER`, `SOCIAL_INVESTMENT_MANAGER`, `GIS_ANALYST` | RF-DOC-003, RQ-AI-004, ASM-071 |
 
 - Un permiso de campo vale para todos los registros del objeto: la postura de una organización queda tan restringida
   como la de una persona, porque la plataforma no distingue registros dentro de un campo (GAP-024).
@@ -831,9 +834,10 @@ No tienen permisos porque corren como la plataforma, con `ClusterLock` y un moti
 escriben campos derivados o crean registros nuevos (domain-model §8.3) [WAS-ADR-0039]: `DeadlineJob` (JOB-01),
 `DerivedFieldsJob` (JOB-02), `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), `DeliverableGenerationJob`
 (JOB-05) y `KnowledgeIndexJob` (JOB-07), que crea `ai_interaction` y escribe la tabla fija `knowledge_chunk`.
-`NotificationMailJob` (JOB-06) solo escribe tablas fijas (`notification_delivery`), y `DraftRetentionJob` (JOB-08) solo
-borra archivos de borradores en el almacenamiento de objetos, nunca lo que referencia una `deliverable_version` o
-`draft_storage_key`; ninguno de los dos escribe registros de wasichai. Las automatizaciones de la metadata también actúan
+`NotificationMailJob` (JOB-06) solo escribe tablas fijas (`notification_delivery`). JOB-08 (`RetentionJob`) borra, desde
+F3, las claves vencidas de la tabla fija `idempotency_key` con SQL propio (ASM-065) y, desde F8, los archivos de borradores
+sin referencia en el almacenamiento de objetos, nunca lo que referencia una `deliverable_version` o `draft_storage_key`;
+ninguno de los dos escribe registros de wasichai. Las automatizaciones de la metadata también actúan
 como la plataforma, y escribirlas exige MANAGE_METADATA, que solo tiene `ADMIN` [WAS-DOC api/rest.md].
 
 ## 8. Permisos que exigen los listeners y los endpoints
@@ -851,7 +855,7 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `AreaListener` (`sgspe.territory`) | `calculated_area_ha` del mismo registro | UPDATE sobre ese objeto | `GIS_ANALYST`; `SOCIAL_MANAGER` (`area_of_influence`, `community` y vínculos de `land_parcel`); `COMMUNITY_RELATIONS_OFFICER` (`community` y vínculos de `land_parcel`); `PROJECT_ADMIN` (`mining_concession`) | Todos tienen U o `u`, y en `u` los derivados siguen escribibles | No escribe esos objetos |
 | `ContributionTotalsListener` (`sgspe.investment`) | `total_amount` de `social_contribution` | UPDATE sobre `social_contribution`, con motivo | `SOCIAL_INVESTMENT_MANAGER` | CRU sobre `social_contribution` | — |
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date`; borra `fulfilled_date` en `reopen_execution` | UPDATE sobre `commitment`, con motivo | Alta y origen: `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `SOCIAL_MANAGER`; `register_fulfillment`: esos tres; `reopen_execution` y `close`: `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`; `cancel_draft`: `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `SOCIAL_MANAGER`; las otras cuatro `cancel_*`: `APPROVER`, `PROJECT_MANAGER` | U o `u` sobre `commitment`: `APPROVER` y `PROJECT_MANAGER` tienen `u`, y bajo `u` las fechas derivadas siguen escribibles | No tiene permisos sobre `commitment` |
-| `QcsTransitionDatesListener` (`sgspe.attention`) | `resolved_date` (queja) y `closed_date` de la misma QCS, en la transacción de la transición; si falla, la transición se revierte | UPDATE sobre la QCS, con motivo | `resolve`, `reopen` y los cierres de quejas y consultas: `GRIEVANCE_MANAGER`; `resolve_high_severity`: `APPROVER`; `close` de consulta: también `COMMUNITY_RELATIONS_OFFICER`; cierres de solicitudes: `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y `SOCIAL_INVESTMENT_MANAGER` | Todos tienen U o `u` sobre su QCS; `APPROVER` tiene `u` sobre `grievance` | No aplica transiciones de QCS |
+| `QcsTransitionDatesListener` (`sgspe.attention`) | `resolved_date` (queja) y `closed_date` de la misma QCS, en la transacción de la transición; si falla, la transición se revierte | UPDATE sobre la QCS, con motivo | `resolve`, `reopen`, los cierres de quejas y consultas, y `reject_*` y `withdraw_*` de la queja: `GRIEVANCE_MANAGER`; `withdraw_*`: también `COMMUNITY_RELATIONS_OFFICER`; `resolve_high_severity`: `APPROVER`; `close` de consulta: también `COMMUNITY_RELATIONS_OFFICER`; cierres de solicitudes: `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y `SOCIAL_INVESTMENT_MANAGER` | Todos tienen U o `u` sobre su QCS; `APPROVER` tiene `u` sobre `grievance` | No aplica transiciones de QCS |
 | `RequestClosureListener` (`sgspe.attention`) | Transición a `closed` de la `stakeholder_request` que originó el compromiso o, desde F5, el aporte (ASM-068) | UPDATE sobre `stakeholder_request`, un rol de esa transición de WF-E3 y motivo | `COMMITMENT_MANAGER` y `SOCIAL_MANAGER`, que cierran compromisos; `SOCIAL_INVESTMENT_MANAGER` y `SOCIAL_MANAGER`, que cierran aportes | UPDATE sobre `stakeholder_request`; `workflows.md` les da esa transición (`close_accepted`) | No cierra compromisos ni aportes |
 | `NotificationListener` (`sgspe.notification`) | Tablas fijas `notification` y `notification_delivery`, con SQL propio | No escribe registros de wasichai; lee `project_assignment` como quien escribe, para resolver los destinatarios (ASM-070) | Todos | Todo rol que aplica transiciones lee `project_assignment` (§7.2); los escalamientos de JOB-01 los resuelve la plataforma | Igual que los demás roles |
 
@@ -869,7 +873,7 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 |---|---|---|---|---|
 | `POST /api/sgspe/stakeholders/{id}/assessments` (`sgspe.stakeholder`) | Crea `stakeholder_assessment`, actualiza los derivados de `stakeholder` (incluida `stance`) y aplica la transición a `assessed` | CREATE `stakeholder_assessment`; UPDATE `stakeholder` con acceso a `stance`; rol de esa transición de WF-B | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` (ver la nota) | F2 |
 | `POST /api/sgspe/areas-of-influence/{id}/approve` (`sgspe.territory`) | Lleva la versión nueva a `approved` y la anterior a `superseded` | UPDATE `area_of_influence`; `APPROVE` | `SOCIAL_MANAGER`, `PROJECT_MANAGER` | F2 |
-| `POST /api/sgspe/territory/imports` y `POST /api/sgspe/project-components` (`sgspe.territory`) | Crea o versiona `project_component` y, desde F3, guarda el archivo original como `evidence` | CREATE y UPDATE `project_component`; CREATE `evidence` | `GIS_ANALYST` | F2 |
+| `POST /api/sgspe/territory/imports`, su confirmación y `POST /api/sgspe/project-components` (`sgspe.territory`) | Crea, versiona o actualiza el objeto destino (`project_component`, `land_parcel` o `mining_concession`) y, desde F3, guarda el archivo original como `evidence` | CREATE y UPDATE sobre el objeto destino; CREATE `evidence` | `GIS_ANALYST` (los tres destinos); `PROJECT_ADMIN` (`mining_concession`) | F2 |
 | `POST /api/sgspe/commitments/{id}/reschedules` (`sgspe.commitment`) | Crea `commitment_reschedule` y cambia `due_date` | CREATE `commitment_reschedule`; UPDATE `commitment` | `COMMITMENT_MANAGER` | F3 |
 | `POST /api/sgspe/commitments/{id}/deliveries` (`sgspe.commitment`) | Solo captura datos: crea la `delivery`, la vincula con sus evidencias y actualiza `executed_amount`; el cumplimiento es después la transición humana `register_fulfillment` | CREATE `delivery`; UPDATE `commitment` y `evidence` | `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F3 |
 | `POST /api/sgspe/commitment-candidates` y `.../{id}/accept` (`sgspe.commitment`) | Registra un candidato; al aceptarlo crea el compromiso en `draft` y lo vincula | CREATE `commitment_candidate`; para aceptar, UPDATE `commitment_candidate` y CREATE `commitment` | `COMMUNITY_RELATIONS_OFFICER`, `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, para registrar y para aceptar | F3 |
@@ -1211,8 +1215,9 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | `TenantIsolationApiTest` | El administrador de otra organización recibe 404 sobre los objetos y registros de la primera, y su auditoría no la ve | Integración | F1 | RQ-SEC-002, RQ-SEC-017 |
 | `SecurityApiTest` | Contraseña errada, usuario deshabilitado y token alterado o vencido responden 401; `/api/auth/me` con un token válido | Integración | F1 | RQ-SEC-001, RQ-SEC-017 |
 | `ProdProfileTest` | El perfil de producción no tiene semilla ni secreto por defecto | Unitaria | F1 | RQ-SEC-016 |
+| `LoginRateLimitTest` (propuesto) | Contra el proxy inverso del despliegue: superar el límite de intentos en `POST /api/auth/login` y `POST /api/auth/token` responde 429; hasta UPS-09 el límite lo pone el proxy (ASM-049) | Despliegue | F1 | RQ-SEC-015 |
 | `RolesApiTest` | `/api/roles` muestra los 15 roles declarados y `ADMIN`, con sus etiquetas; `AUDITOR` lee `/api/audit` y los demás reciben 403; un rol declarado recibe 403 en usuarios y roles | Integración | F1 | RQ-SEC-003, RQ-SEC-007 |
-| `test_apply_roles.py` | 15 declarados y 2 mapeados, que suman los 17 del prompt; solo `AUDITOR` con permiso de todo el tenant; ningún rol con `ownRecordsOnly` y `FIELD_AGENT` sin `EDIT_ANY`; ningún permiso de administración; las acciones declaradas solo en los objetos del catálogo de §5.3; los roles de cada transición tienen UPDATE y los de cada decisión, su acción (`APPROVE`, `VERIFY`, `CONFIRM_ALERT`); `u` se expande en entradas de solo lectura para todos los campos sin `"derived": true`, y ningún derivado usa `editable: false`; todo rol que conserva una RELATION restringida a `person` lee sus nombres; ningún rol tiene CREATE sobre `ai_suggestion` sin leer los nombres de `person` | Modelo | F1–F8 | RQ-SEC-003, RQ-SEC-004, RQ-SEC-010, RQ-AI-009 |
+| `test_apply_roles.py` | 15 declarados y 2 mapeados, que suman los 17 del prompt; solo `AUDITOR` con permiso de todo el tenant; ningún rol con `ownRecordsOnly` y `FIELD_AGENT` sin `EDIT_ANY`; ningún permiso de administración; las acciones declaradas solo en los objetos del catálogo de §5.3; los roles de cada transición tienen UPDATE y los de cada decisión, su acción (`APPROVE`, `VERIFY`, `CONFIRM_ALERT`); `u` se expande en entradas de solo lectura para todos los campos sin `"derived": true`, y ningún derivado usa `editable: false`; todo rol que conserva una RELATION restringida a `person` lee sus nombres; ningún rol tiene CREATE sobre `ai_suggestion` sin leer los nombres de `person`; `evidence_quote` sin lectura para los roles sin `DOWNLOAD_RESTRICTED` sobre `evidence` | Modelo | F1–F8 | RQ-SEC-003, RQ-SEC-004, RQ-SEC-010, RQ-AI-009 |
 | Matriz de permisos | Parametrizada desde `roles.json`: cada rol, objeto y acción responde según la matriz (permitido o 403) | Integración | F2–F8 | RQ-SEC-004, RQ-SEC-017 |
 | Permisos de campo | Los campos de §7.9 no aparecen en registros, listas, historial, auditoría ni exportaciones para los roles sin acceso, y escribirlos se rechaza | Integración | F2 | RQ-SEC-010 |
 | Edición de lo propio | Sin `EDIT_ANY`, cambiar, transicionar, vincular o borrar un registro ajeno de los objetos que la declaran se rechaza; con `EDIT_ANY`, se permite; `FIELD_AGENT` agrega un participante a una interacción ajena y sus conteos se actualizan, y vincula su captura a un proyecto o un grupo de interés que registró otra persona | Integración | F2 | RQ-SEC-008, ASM-069 |

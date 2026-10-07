@@ -222,6 +222,8 @@ usuarios ficticios `@sgspe.test` (RQ-SEC-018), por ejemplo `RequireSession.test.
   ([Seguridad §14](security.md#14-pruebas-de-seguridad)).
 - Las filas de F1 de `requirements-traceability.md` con su estado actualizado (RNF-MNT-009) y cero coincidencias de nombres
   reales (RQ-SEC-018).
+- `check_traceability.py` (propuesto) en la CI verifica que toda RF, RNF, RN y RQ del análisis tiene su fila en la matriz
+  (RNF-MNT-009).
 
 ### Riesgos de F1
 
@@ -299,7 +301,7 @@ pistas de arriba o en las fases siguientes:
 | Alcance | Compromisos con la matriz de DOC-01 (acciones, hitos, reprogramaciones, dependencias, entregas con conformidad y candidatos registrados por personas); acuerdos y convenios con cláusulas y permisos de uso de terreno; evidencias inmutables en almacenamiento de objetos; tareas y aprobaciones; notificaciones en la aplicación y por correo; situación de plazo y vigencia; escalamiento en dos niveles; tope de apoyo social por campaña y lineamientos (RF-INV-002); documentos emitidos de un registro [PRM-01 §24] [DOC-01 §9.3.1.2] |
 | Objetos (12) | BC-05: `commitment`, `commitment_action`, `commitment_milestone`, `commitment_reschedule`, `commitment_dependency`, `delivery`, `commitment_candidate`. BC-06: `agreement`, `agreement_party`, `agreement_clause`. BC-12: `evidence`. BC-13: `task`. Tablas fijas: `notification`, `notification_delivery` (BC-14) e `idempotency_key` (transversal) |
 | Starters y capacidades | + `-automation` (con `AutomationDrain`) y + `-documents`; frontend + `@wasichai/automation` y + `@wasichai/documents`; almacenamiento compatible con S3 (MinIO solo en desarrollo) y SMTP de prueba en el compose; AWS SDK v2 |
-| Código SGSPE | `sgspe.commitment`: `CommitmentWriteGuard`, `CommitmentDerivationsListener`, reprogramación, entregas, alta y aceptación de candidatos. `sgspe.agreement`: `AgreementWriteGuard`. `sgspe.evidence`: `EvidenceWriteGuard` y puerto de almacenamiento local o S3. `sgspe.deadline`: `DeadlineJob` (JOB-01) para compromisos, acuerdos y tareas. `sgspe.notification`: `NotificationListener`, bandeja y `NotificationMailJob` (JOB-06). `sgspe.investment`: `SupportPolicyGuard`. `sgspe.common`: `Idempotency-Key` con la tabla fija `idempotency_key`. `StakeholderFollowUpJob` (JOB-03) empieza a crear tareas de evaluación periódica y de inactividad, porque `task` nace en F3 |
+| Código SGSPE | `sgspe.commitment`: `CommitmentWriteGuard`, `CommitmentDerivationsListener`, reprogramación, entregas, alta y aceptación de candidatos. `sgspe.agreement`: `AgreementWriteGuard`. `sgspe.evidence`: `EvidenceWriteGuard` y puerto de almacenamiento local o S3. `sgspe.deadline`: `DeadlineJob` (JOB-01) para compromisos, acuerdos y tareas. `sgspe.notification`: `NotificationListener`, bandeja y `NotificationMailJob` (JOB-06). `sgspe.investment`: `SupportPolicyGuard`. `sgspe.common`: `Idempotency-Key` con la tabla fija `idempotency_key`. `StakeholderFollowUpJob` (JOB-03) empieza a crear tareas de evaluación periódica y de inactividad, porque `task` nace en F3. `RetentionJob` (JOB-08) purga desde F3, con SQL propio y sin `asPlatform`, las claves vencidas de `idempotency_key` (ASM-065, RNF-INT-002) |
 | Endpoints | `POST /api/sgspe/commitments/{id}/reschedules`; `POST /api/sgspe/commitments/{id}/deliveries`; `PATCH /api/sgspe/deliveries/{id}`; `POST /api/sgspe/commitment-candidates`; `POST /api/sgspe/commitment-candidates/{id}/accept`; `POST /api/sgspe/commitment-candidates/{id}/duplicate`; `POST /api/sgspe/evidence`; `GET /api/sgspe/evidence/{id}/content`; `PATCH /api/sgspe/evidence/{id}`; `POST /api/sgspe/evidence/{id}/links`; `DELETE /api/sgspe/evidence/{id}/links/{object}/{recordId}`; `GET /api/sgspe/notifications`; `GET /api/sgspe/notifications/unread-count`; `POST /api/sgspe/notifications/{id}/read`; `POST /api/sgspe/notifications/read-all`; tablero `commitments`; exportación `commitment-matrix` |
 | Workflows | WF-D (`commitment`), WF-I (`agreement`), WF-K (`commitment_candidate`, registrado por personas), WF-N (`task`); automatizaciones AUT-01, AUT-03, AUT-05 y AUT-10 |
 | Portal | Compromisos, Documentos (evidencias y documentos emitidos), Tareas (bandeja y avisos) y Reportes (matriz de compromisos) |
@@ -387,7 +389,7 @@ pistas de arriba o en las fases siguientes:
 | Alcance | Tableros ejecutivo, de proyecto y de monitoreo de la Tabla 9.5; consolidación de los tableros de módulo; catálogo `indicator` y cierres de periodo; entregables DOCX y PDF, primero T2 y después T1, con WF-H, emisión congelada con SHA-256, niveles de divulgación, plantillas Word por organización y mapas de informe por GetMap; borradores de sección asistidos por IA (AI-04) cuando existe `deliverable_section`, y cada versión emitida lista sus secciones asistidas en `ai_assisted_sections` (RQ-AI-012, RF-AIK-004); T3, T4, T5, T6, T7, T8, T9 y T10 solo si se confirman [USR-01] [USR-02] (ASM-014, ASM-026) |
 | Objetos (5) | BC-15: `indicator`, `indicator_measurement`, `deliverable`, `deliverable_section`, `deliverable_version` |
 | Starters y capacidades | Gotenberg (`gotenberg/gotenberg:8-libreoffice`) solo alcanzable por la app; Apache POI y commonmark-java; PDFBox en pruebas; GetMap de GeoServer |
-| Código SGSPE | `sgspe.deliverable`: una clase por tipo, ensamblado y congelamiento del modelo, DOCX con POI, PDF con Gotenberg, mapas con GetMap, `DeliverableGenerationJob` (JOB-05), `DraftRetentionJob` (JOB-08), emisión y `DeliverableWriteGuard`. `sgspe.dashboard`: consolidación y cierre de periodo. `sgspe.privacy`: niveles de divulgación aplicados al modelo |
+| Código SGSPE | `sgspe.deliverable`: una clase por tipo, ensamblado y congelamiento del modelo, DOCX con POI, PDF con Gotenberg, mapas con GetMap, `DeliverableGenerationJob` (JOB-05), `RetentionJob` (JOB-08), que desde F8 también purga los borradores, emisión y `DeliverableWriteGuard`. `sgspe.dashboard`: consolidación y cierre de periodo. `sgspe.privacy`: niveles de divulgación aplicados al modelo |
 | Endpoints | `POST /api/sgspe/deliverables/{id}/drafts`; `GET /api/sgspe/deliverables/{id}/draft`; `GET /api/sgspe/deliverables/{id}/draft/content`; `POST /api/sgspe/deliverables/{id}/issue`; `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content`; `GET /api/sgspe/deliverable-templates`; `POST /api/sgspe/deliverable-templates`; `POST /api/sgspe/indicators/{id}/measurements`; tableros `executive`, `project` y `monitoring` |
 | Workflows | WF-H (`deliverable`); automatización AUT-12, opcional |
 | Portal | Dashboard consolidado y Reportes (entregables) |
@@ -477,10 +479,10 @@ Cada decisión tiene una recomendación con la que se diseñó la Fase 0; la res
 | BD de desarrollo en el VPS y secreto `PACKAGES_TOKEN` | Prepararlos ahora; integración solo en CI | Prepararlos (T0.3 y T0.4) | RNF-TST-001, RNF-MNT-006 | F1 (integración local y CI de `sgspe-ui`) |
 | Spike de entregables (POI y Gotenberg) y de GetMap | Al inicio de F1; al inicio de F8; omitirlo | Al inicio de F1, porque un fallo cambia ADR-0013 o ADR-0015 sin tocar el modelo de datos | ASM-014, ASM-038, RQ-REP-001, RQ-REP-030, GAP-011 | F8 (y la aceptación de ADR-0013 y ADR-0015) |
 | Valores de ENUM | Español en MAYÚSCULAS (como srtm y caja); inglés con etiquetas en la interfaz | Español en MAYÚSCULAS, como ya aplican los documentos; cambiarlo después exige migrar datos | CON-050, ASM-025, RF-CAT-001 | F2 (primer `model.json` con objetos) |
-| Asistente AI-05 hasta que exista UPS-14 | Solo roles sin acceso a campos restringidos; ampliarlo aceptando que el proveedor reciba esos datos | Solo `ANALYST` | UPS-14, RF-AIK-005, RQ-AI-009, GAP-015 | F7 |
-| Plazos de una QCS reclasificada | Contar desde la primera recepción de la cadena; contar desde la reclasificación | Desde la primera recepción: el registro nuevo copia `received_at` | ASM-072, RF-GRV-007 | F4 |
-| Escalamiento en dos niveles de los objetos sin transición superior propia | Reutilizar los roles de `approve_senior` de WF-D en el nivel 2 de QCS, riesgos y tareas; crear una transición superior en cada workflow; una lista de roles de escalamiento por proyecto | Reutilizar `approve_senior` de WF-D, como fija [Workflows, Avisos](workflows.md#avisos) en "Escalamiento (ASM-030, ASM-070)" y en la ASSUMPTION (propuesta) que elige la transición de nivel 1 de los objetos sin `verify` propio; los destinatarios salen de las asignaciones, sin nombres de rol en el código | ASM-030, ASM-067, ASM-070, RF-WFL-004, RQ-SEC-005 | F3 (compromisos y tareas), F4 (QCS y riesgos) |
-| Releases | Release 1 = F1–F4, Release 2 = F5–F6, Release 3 = F7–F8; otro reparto | El reparto propuesto | ASM-044 | Ninguna |
+| Asistente AI-05 hasta que exista UPS-14 | Solo roles sin acceso a campos restringidos; ampliarlo aceptando que el proveedor reciba esos datos | Solo `ANALYST` | UPS-14, RF-AIK-005, RQ-AI-009, GAP-015 (decisión registrada para el checkpoint, sin GAP ni CON) | F7 |
+| Plazos de una QCS reclasificada | Contar desde la primera recepción de la cadena; contar desde la reclasificación | Desde la primera recepción: el registro nuevo copia `received_at` | ASM-072, RF-GRV-007 (decisión registrada para el checkpoint, sin GAP ni CON) | F4 |
+| Escalamiento en dos niveles de los objetos sin transición superior propia | Reutilizar los roles de `approve_senior` de WF-D en el nivel 2 de QCS, riesgos y tareas; crear una transición superior en cada workflow; una lista de roles de escalamiento por proyecto | Reutilizar `approve_senior` de WF-D, como fija [Workflows, Avisos](workflows.md#avisos) en «Escalamiento (ASM-030, ASM-070)» y en ASM-030, que elige la transición de nivel 1 de los objetos sin `verify` propio; los destinatarios salen de las asignaciones, sin nombres de rol en el código | ASM-030, ASM-067, ASM-070, RF-WFL-004, RQ-SEC-005 (decisión registrada para el checkpoint, sin GAP ni CON) | F3 (compromisos y tareas), F4 (QCS y riesgos) |
+| Releases | Release 1 = F1–F4, Release 2 = F5–F6, Release 3 = F7–F8; otro reparto | El reparto propuesto | ASM-044 (decisión registrada para el checkpoint, sin GAP ni CON) | Ninguna |
 | Normativa | Recibir las normas que deben modelarse; seguir sin obligaciones legales | Ninguna regla como obligación legal hasta recibir la normativa | GAP-001 | Condiciona F2, F3 y F8 |
 | Ponderación de interés y poder | Pesos y umbral del usuario; pesos iguales y umbral 3 | Pesos iguales y umbral 3, configurables | GAP-002, ASM-031, ASM-003 | F2 |
 | Grupo "Vulnerable" | Interés y poder bajos; criterio social | Interés y poder bajos | GAP-003, ASM-003 | F2 |
@@ -554,9 +556,46 @@ antes de la fase que condicionan:
 
 ## Validación de la Fase 0
 
-La Tarea 7 (paso 13 del prompt) completa esta sección con el resultado de los verificadores automáticos (`check_docs.py` en la
-etapa `all` y la búsqueda de nombres reales), el resultado de la revisión de consistencia entre documentos con su lista de
-comprobación, las correcciones aplicadas y la fecha de cierre.
+Cerrada el 2026-10-07 (Tarea 7, paso 13 del prompt).
+
+- **Verificadores automáticos.** `check_docs.py` en la etapa `all` da 0 errores. Comprueba:
+  - las 20 secciones del análisis;
+  - los IDs definidos frente a los citados (480 IDs);
+  - los 89 objetos del catálogo y sus fichas en el modelo de datos;
+  - los workflows sin estados de vencido;
+  - los 17 roles;
+  - el índice y las secciones de los 26 ADR;
+  - una fila de trazabilidad por cada RF y RQ;
+  - los enlaces relativos;
+  - que ningún archivo transitorio esté en el stage ni versionado.
+
+  La búsqueda de nombres reales de las fuentes da 0 coincidencias en 47 archivos. Ningún documento cita los números
+  internos de las decisiones de coordinación.
+- **Revisión de consistencia.** Una revisión independiente de todo el conjunto pasó la lista de comprobación del plan sin
+  fallas en sus doce puntos:
+  - contextos delimitados en la arquitectura, el catálogo, los roles y el roadmap;
+  - un estado inicial único y estados finales por workflow, con roles existentes;
+  - ningún objeto `appendOnly` con relaciones M2M;
+  - endpoint propio para cada objeto `apiOnly`;
+  - geometrías en SRID 4326, nunca requeridas ni únicas;
+  - ninguna capa sensible en GeoServer;
+  - resolución o decisión pendiente para cada CON, reversión para cada ASM y pregunta para cada GAP;
+  - ADR de wasichai citados que existen;
+  - pgvector solo en F7;
+  - mandatos del prompt y pedidos USR cubiertos;
+  - versiones iguales en todos los documentos;
+  - diagramas Mermaid válidos.
+- **Correcciones.**
+  - La revisión verificó 31 pendientes de las tareas anteriores y encontró 7 hallazgos nuevos, todos menores. 24 pendientes
+    seguían abiertos, 5 de ellos importantes:
+    - el nivel 2 de escalamiento de los objetos sin aprobación superior propia (ASM-030);
+    - el permiso de importación sobre predios y concesiones;
+    - supuestos sin ID en los workflows;
+    - la purga de `idempotency_key`, ahora JOB-08 desde F3;
+    - el permiso de campo sobre `evidence_quote`.
+  - Se corrigieron en los documentos que son dueños de cada tema. Una segunda revisión acotada confirmó el cierre y dejó 6
+    menores, que también se corrigieron.
+- **Commits.** Todos los asuntos de la rama son Conventional Commits, y `git ls-files` no contiene insumos transitorios.
 
 ## Respuestas del checkpoint
 

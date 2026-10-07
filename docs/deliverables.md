@@ -13,9 +13,9 @@ almacenamiento y los criterios de aceptación.
 - Las capas `LYR-NN` y los mapas de informe se definen en el [SIG](gis.md).
 - No están aquí: las transiciones, roles y guardas por transición de WF-H (`workflows.md`), el contrato de los endpoints
   (`api.md`), los permisos por rol (`security.md`) y el catálogo de indicadores (`dashboards.md`).
-- Las decisiones de arquitectura se registran en los ADR de SGSPE (`docs/adr/`): ADR-0013 (entregables DOCX primero), ADR-0014
-  (evidencias y almacenamiento de objetos), ADR-0015 (mapas de informe con GeoServer GetMap) y ADR-0017 (datos personales y
-  anonimización).
+- Las decisiones de arquitectura se registran en los ADR de SGSPE (`docs/adr/`): ADR-0013 (Entregables DOCX primero, con PDF
+  por Gotenberg), ADR-0014 (Evidencias y entregables en almacenamiento de objetos), ADR-0015 (Mapas de informe con GeoServer
+  GetMap) y ADR-0017 (Datos personales y anonimización).
 - Ningún ejemplo usa nombres de personas, números de partida ni datos de comprobantes de las fuentes [USR-07] (RQ-SEC-018).
 
 ## 1. Alcance
@@ -391,7 +391,9 @@ stateDiagram-v2
   generación (ASM-061) (domain-model §8.3).
 - **Pedido.** `POST /api/sgspe/deliverables/{id}/drafts` exige la acción `GENERATE`, procede solo en `draft` u `observed` y escribe
   únicamente `generation_requested_at`, como el usuario y con la marca de escritura de SGSPE.
-- **Trabajador.** Corre como la plataforma con `ClusterLock` por entregable [WAS-ADR-0039]. Un pedido está pendiente si
+- **Trabajador.** Es JOB-05 de `workflows.md`: corre como la plataforma en una sola réplica, con `ClusterLock.tryLock` y una
+  clave del paquete, y al procesar cada pedido toma además un candado por entregable (`deliverable:<id>`), para que dos réplicas
+  nunca generen el mismo borrador [WAS-ADR-0039]. Un pedido está pendiente si
   `generation_requested_at` es posterior a `draft_generated_at` o este está vacío. Al tomarlo marca EN COLA; al congelar el modelo,
   EN PROCESO, y guarda ese instante en `draft_generated_at`; al terminar, LISTO o FALLIDO (catálogo "Estado de generación del
   borrador"). Nunca aplica transiciones (domain-model §8.3).

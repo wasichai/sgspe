@@ -191,14 +191,14 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
   idempotentes hasta que exista UPS-18; los únicos compuestos del modelo evitan los duplicados que importan [WAS-ADR-0037].
 - Las claves se guardan en la tabla fija `idempotency_key` del esquema `sgspe` (organización, usuario, clave, ruta, SHA-256
   del cuerpo, objeto e identificadores de los registros creados y fecha), escrita en la misma transacción que el comando y
-  purgada después de un plazo configurable (ASM-065) [domain-model §4.10]. No se guarda la clave en un campo de cada registro
-  creado, como hace caja con su recibo, porque agregaría un campo a todos los objetos que crean los comandos.
+  purgada por JOB-08 después de un plazo configurable (ASM-065) [domain-model §4.10]. No se guarda la clave en un campo de
+  cada registro creado, como hace caja con su recibo, porque agregaría un campo a todos los objetos que crean los comandos.
 
 ### 3.6 Concurrencia: precondición sobre `updatedAt`
 
 wasichai no tiene bloqueo optimista y su `PUT` reemplaza el registro entero (UPS-04, CON-047). Mientras tanto, el portal
 envía como precondición el `updatedAt` que leyó (RNF-INT-003, ASM-035). El mecanismo es una propuesta de este documento, que
-decide ADR-0025 (Propuesto).
+decide ADR-0025 (Propuesto, se acepta en F2).
 
 - **Cabecera:** `If-Match` con el `updatedAt` del registro tal como lo devolvió la API, entre comillas, como una etiqueta de
   entidad: `If-Match: "2026-10-07T14:03:11.482913Z"`.
@@ -711,11 +711,13 @@ sugerencia o un candidato, o marcar como duplicada una sugerencia, son transicio
 
 **Las salidas de la IA solo llevan marcadores.** `suggested_value` y `evidence_quote` de `ai_suggestion`, y `proposed_text`,
 `evidence_quote` y `beneficiaries_text` de `commitment_candidate`, se guardan seudonimizados: una persona registrada queda
-como `[PERSONA:<id>]` y lo detectado por formato como marcador sin valor (`[DOCUMENTO]`, `[TELEFONO]`, `[CORREO]`). La
-respuesta de `runs`, la API genérica y los endpoints de candidatos devuelven solo esos marcadores. El portal re-identifica al
-mostrar, con los permisos de quien mira, y la cita solo la ve quien puede descargar la evidencia fuente (READ y, si es
-CONFIDENCIAL o DATOS PERSONALES, `DOWNLOAD_RESTRICTED`). Aceptar escribe los valores que la persona revisó, así que ningún
-marcador llega a un registro de dominio (`ai-architecture.md` §12.2, `security.md` §7.8).
+como `[PERSONA:<id>]`; los nombres de participantes, beneficiarios y personas no registradas, como `[PERSONA]` sin id; y lo
+detectado por formato, como marcador sin valor (`[DOCUMENTO]`, `[TELEFONO]`, `[CORREO]`). La respuesta de `runs`, la API
+genérica y los endpoints de candidatos devuelven solo esos marcadores. Un permiso de campo oculta `evidence_quote` a los
+roles sin `DOWNLOAD_RESTRICTED` sobre `evidence`, también en la API genérica (`security.md` §7.9); además, el portal
+re-identifica al mostrar, con los permisos de quien mira, y la cita solo la ve quien puede descargar la evidencia fuente
+(READ y, si es CONFIDENCIAL o DATOS PERSONALES, `DOWNLOAD_RESTRICTED`). Aceptar escribe los valores que la persona revisó,
+así que ningún marcador llega a un registro de dominio (`ai-architecture.md` §12.2, `security.md` §7.8).
 
 ### 4.15 Contextos sin endpoints propios
 

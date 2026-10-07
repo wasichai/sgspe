@@ -15,8 +15,9 @@ GeoServer y los mapas de informe, la calidad de los datos y las pruebas. Cumple 
 - No están aquí: la lista completa de campos (`database-model.md`), el contrato de los endpoints (`api.md`), los permisos por rol
   (`security.md`), los indicadores del tablero territorial (`dashboards.md`) ni la anatomía de los entregables
   ([entregables](deliverables.md)).
-- Las decisiones de arquitectura de esta área se registran en los ADR de SGSPE (`docs/adr/`): ADR-0002 (PostGIS, SRID 4326 y CRS
-  de trabajo), ADR-0015 (mapas de informe con GeoServer GetMap) y ADR-0019 (importación geoespacial con reconciliación).
+- Las decisiones de arquitectura de esta área se registran en los ADR de SGSPE (`docs/adr/`): ADR-0002 (Geometrías en SRID
+  4326 con CRS de trabajo por proyecto), ADR-0015 (Mapas de informe con GeoServer GetMap) y ADR-0019 (Importación geoespacial
+  con preparación y reconciliación).
 
 ## 1. Rol del SIG
 
@@ -45,7 +46,7 @@ GeoServer y los mapas de informe, la calidad de los datos y las pruebas. Cumple 
 | El territorio se modela por relaciones; la geometría es opcional | Una geometría nunca es requerida ni única; una entidad sin geometría propia se dibuja por su relación territorial (localidad, comunidad) | RQ-GIS-006, RQ-GIS-015 |
 | Un polígono solo sugiere | La pertenencia a un área de influencia la decide una persona; el cálculo espacial solo propone miembros | RN-TER-004, CON-025 |
 | Nunca coordenadas de personas | El mapa no inventa ni muestra la ubicación de una persona; los grupos de interés se agregan por localidad | RQ-GIS-015 [USR-07] |
-| Solo lo que el usuario puede leer | Cada capa temática respeta los permisos de objeto, campo y registros propios, y el alcance por proyecto de RQ-SEC-006; una capa pública exige READ sobre su objeto | RQ-GIS-001, RQ-GIS-017 |
+| Solo lo que el usuario puede leer | Cada capa temática respeta los permisos de objeto y campo, y el alcance por proyecto de RQ-SEC-006; una capa pública exige READ sobre su objeto | RQ-GIS-001, RQ-GIS-017 |
 | GeoServer nunca es público | Publica solo capas públicas y se consulta detrás de un proxy autenticado | RQ-SEC-011, ASM-038, CON-054 |
 | Sin SRID universal | Se almacena en 4326 y se calcula en el CRS de trabajo; el código lee el SRID de cada campo desde la metadata | RQ-GIS-022, ASM-002, CON-037 |
 | Importar nunca sobrescribe en silencio | Un mismo código con otras coordenadas es una versión nueva, con su distancia en un reporte | RQ-GIS-010, CON-023 |
@@ -391,18 +392,17 @@ El prompt pide soportar intersects, contains, within, distance, buffer, nearest 
     [WAS-DOC modules/core.md]. Responde a un parámetro de consulta de SGSPE y devuelve un `RecordCriterion` con
     `ST_Intersects` o `ST_DWithin` sobre la columna del objeto listado, en su SRID, como hace `bbox` [WAS-ADR-0027].
   - La geometría de referencia (un área de influencia, un territorio comunal) se lee antes con `RecordService` como el usuario, de
-    modo que valen sus permisos de objeto, campo y registros propios; luego se enlaza como parámetro. Si hace falta, el fragmento
+    modo que valen sus permisos de objeto y campo; luego se enlaza como parámetro. Si hace falta, el fragmento
     usa una subconsulta sobre la tabla del mismo tenant, resuelta por metadata [WAS-ADR-0004].
-  - `RecordService` sigue aplicando permisos, campos ilegibles, registros propios y paginación: el patrón no abre ninguna puerta.
+  - `RecordService` sigue aplicando permisos, campos ilegibles y paginación: el patrón no abre ninguna puerta.
 - **(b) Uniones y agregaciones entre objetos.**
   - SQL de solo lectura sobre las tablas físicas del tenant, resueltas por metadata como hace srtm (`TablasCore`), detrás de una
     compuerta de permisos.
   - La compuerta exige READ sobre cada objeto de la consulta; que cada campo usado, geometrías incluidas, sea legible
-    [WAS-ADR-0019]; aplica `own_records_only` como la plataforma si algún rol lo usara (el filtro rige si todos los roles del
-    usuario lo tienen) [WAS-DOC security/authentication.md], aunque ningún rol de SGSPE lo usa (ASM-069); y aplica el alcance
-    por proyecto de RQ-SEC-006. Ese alcance es decisión pendiente (CON-041, recomendación A): con la opción A, del MVP, la
-    compuerta lee a nivel de tenant, como la API genérica, y la escritura se acota por `project_assignment`; con la opción B,
-    UPS-01, filtra además la lectura por las asignaciones del usuario.
+    [WAS-ADR-0019]; y aplica el alcance por proyecto de RQ-SEC-006 (ningún rol usa `own_records_only`, ASM-069). Ese alcance es
+    decisión pendiente (CON-041, recomendación A): con la opción A, del MVP, la compuerta lee a nivel de tenant, como la API
+    genérica, y la escritura se acota por `project_assignment`; con la opción B, UPS-01, filtra además la lectura por las
+    asignaciones del usuario.
   - Devuelve identificadores y medidas. Los atributos personales (titulares, nombres) se leen después con `RecordService`, con
     los permisos de campo del usuario. Si un campo necesario no es legible, el resultado dice "no disponible", nunca cero
     (RQ-DSH-032).
@@ -411,7 +411,7 @@ El prompt pide soportar intersects, contains, within, distance, buffer, nearest 
 ```mermaid
 flowchart LR
     U["Usuario con token"] --> E["Endpoint de /api/sgspe/territory"]
-    E --> C{"Compuerta: READ por objeto, campos legibles, registros propios y alcance"}
+    E --> C{"Compuerta: READ por objeto, campos legibles y alcance"}
     C -->|"falta un permiso"| X["403 o no disponible"]
     C -->|"permitido"| S["SQL de solo lectura sobre las tablas del tenant, resueltas por metadata"]
     S --> I["Identificadores y medidas"]
@@ -493,8 +493,9 @@ Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El en
   (RQ-GIS-013, ASM-048). La cartografía base y sus licencias siguen abiertas en GAP-011.
 - Opciones: un proveedor licenciado por URL de estilo, o un extracto PMTiles del Perú autoalojado, con su licencia y atribución,
   que además funciona sin conexión externa.
-- La configuración es de la aplicación: en F2, una URL de estilo por despliegue; en F6, además, un valor por organización, como
-  pide RQ-GIS-013. En desarrollo puede usarse un estilo de prueba.
+- La configuración es de la aplicación (`application.yml` por despliegue): en F2, `sgspe.map.base-style-url`; en F6, además, un
+  mapa `sgspe.map.base-style-url-by-organization`, que mantiene el operador como `sgspe.ai.enabled-organizations`, para el valor
+  por organización que pide RQ-GIS-013; `MapView` sigue esperando UPS-13. En desarrollo puede usarse un estilo de prueba.
 - `MapView` de `@wasichai/gis` 0.5.0 fija las teselas de OpenStreetMap, y lo heredan `GeometryField` y el componente `MAP` que
   SGSPE reutiliza: es la brecha upstream UPS-13, un mapa base configurable en `MapView`. Mientras no exista, la CSP del proxy de
   producción no permite el dominio de teselas de OpenStreetMap, y esos mapas de edición se ven sin mapa base; el mapa territorial
@@ -654,7 +655,7 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 | MULTI* | MultiPolygon por API e importación se acepta; uno de una parte se vuelve Polygon | RQ-GIS-020 |
 | Componentes × predios | Una plataforma que corta dos predios y un acceso que cruza tres dan los predios y las longitudes esperadas; los titulares solo salen con permiso de campo | RQ-GIS-002, RQ-GIS-021 |
 | Sugerencia de miembros | Devuelve las localidades dentro del área y no escribe nada | RN-TER-004 |
-| Compuerta de permisos | Sin READ sobre `land_parcel`, 403; `own_records_only` respetado con un rol sintético de prueba, porque ningún rol de SGSPE lo usa (ASM-069); campo ilegible, "no disponible"; otro tenant, invisible | RQ-GIS-017, RQ-GIS-021, RQ-SEC-017 |
+| Compuerta de permisos | Sin READ sobre `land_parcel`, 403; campo ilegible, "no disponible"; otro tenant, invisible | RQ-GIS-017, RQ-GIS-021, RQ-SEC-017 |
 | Proxy WMS | Sin token, 401; capa de otro tenant o no pública, 403; sin READ sobre el objeto de la capa, 403; `SLD_BODY`, rechazado; GetCapabilities solo con la lista blanca | RQ-SEC-011 |
 | SRID desde la metadata | Un objeto de prueba con SRID 32718 funciona igual que uno en 4326 | RQ-GIS-022 |
 | Área derivada | Cambiar la geometría por la API genérica recalcula `calculated_area_ha`; si el listener falla, `DerivedFieldsJob` lo corrige | RQ-GIS-009 |
@@ -675,8 +676,9 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 
 ## 11. Decisiones, supuestos y pendientes
 
-- **ADR de SGSPE:** ADR-0002 (PostGIS, SRID 4326 y CRS de trabajo), ADR-0015 (mapas de informe con GeoServer GetMap), ADR-0019
-  (importación geoespacial con reconciliación) y ADR-0006 (autorización y alcance, para la compuerta de §5.2).
+- **ADR de SGSPE:** ADR-0002 (Geometrías en SRID 4326 con CRS de trabajo por proyecto), ADR-0015 (Mapas de informe con
+  GeoServer GetMap), ADR-0019 (Importación geoespacial con preparación y reconciliación) y ADR-0006 (Autorización por roles y
+  alcance por proyecto, para la compuerta de §5.2).
 - **Supuestos que este documento aplica:** ASM-002, ASM-016, ASM-038, ASM-048, ASM-050, ASM-051, ASM-056, ASM-057, ASM-060,
   ASM-062, ASM-063, ASM-064 y ASM-069.
 - **Pendientes:**
