@@ -74,7 +74,20 @@ class CorrelationIdFilterTest {
     @Test
     fun `reemplaza un valor sin formato y nunca lo devuelve`() {
         // Review Focus 2: largo, espacios, marcas y saltos de línea que inyectarían otra cabecera o una línea de log
-        for (hostile in listOf("x".repeat(65), "con espacio", "<script>", "a\r\nSet-Cookie: x=1", "", "ñandú", "abc\n", "abc\r\n", "abc ", "a, b")) {
+        for (hostile in listOf(
+            "x".repeat(65),
+            "con espacio",
+            "<script>",
+            "a\r\nSet-Cookie: x=1",
+            "",
+            "ñandú",
+            "abc\n",
+            "abc\r\n",
+            "abc ",
+            "abc\u0085",
+            "abc\u2028",
+            "a, b"
+        )) {
             val (header, seen) = run(hostile)
             assertNotEquals(hostile, header, hostile)
             UUID.fromString(header)
@@ -97,8 +110,10 @@ class CorrelationIdFilterTest {
         assertTrue(Regex("""GET /api/auth/me 401 \d+ms correlationId=acceso-9""").matches(line), line)
     }
 
-    // I1: un error que la cadena deja pasar llega a ExceptionHandlingWebHandler, que pone el 500 después del filtro: la
-    // línea ya tiene que decir 500, no null, y el error sigue su camino sin cambios
+    // I1: la cadena pelada de esta prueba no tiene ExceptionHandlingWebHandler ni servidor, así que la respuesta no tiene
+    // estado cuando termina en error: aquí se prueba el respaldo (500, o el del ResponseStatusException) y que el error sigue
+    // su camino sin cambios. en el servidor real doFinally corre después del manejador de excepciones, que ya puso el estado,
+    // y en Netty getStatusCode() nunca es null: ese camino lo cubre el servidor real, no esta prueba
     @Test
     fun `un error de la cadena se registra como 500 y se propaga igual`() {
         val boom = IllegalStateException("boom")

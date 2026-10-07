@@ -34,8 +34,10 @@ class CorrelationIdFilter : WebFilter {
             Mono.empty()
         }
         val start = System.nanoTime()
-        // el estado de la línea de acceso según cómo terminó la cadena: un error llega al manejador de excepciones de
-        // WebFlux, que está fuera de los filtros y pone el 500 después, así que aquí la respuesta todavía no lo tiene
+        // el estado de la línea de acceso según cómo terminó la cadena. en el servidor real doFinally corre después de que
+        // ExceptionHandlingWebHandler (fuera de los filtros) puso el estado del error, y en Netty getStatusCode() nunca es
+        // null: el estado sale de la respuesta. el respaldo de ResponseStatusException y 500 solo cuenta con una cadena
+        // pelada, sin ese manejador (las pruebas unitarias)
         var failure: Throwable? = null
         return chain
             .filter(exchange)
