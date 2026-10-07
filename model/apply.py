@@ -8,8 +8,11 @@ Reads a JSON metadata model (objects, fields, relationships, enums), checks it a
 stops there) and creates it in Core via the REST API, in file order (so relationship targets already exist), marking
 each required relationship's field required. A third phase, after the relationships, puts what needs them: each
 object's uniqueConstraints and the `unique: true` of a relationship's field. An object may declare actions of its own
-(POST .../actions, a 409 is "already there"): roles are granted them next to READ, CREATE, UPDATE and DELETE. In F1
-model.json has no objects: "done: 0 created, 0 updated, 0 skipped".
+(POST .../actions, a 409 is "already there"): roles are granted them next to READ, CREATE, UPDATE and DELETE. From F2 a
+relationship may be MANY_TO_MANY (a join table, no field), point at its own object or close a cycle: every object
+exists before the first relationship, so the order of `objects` does not matter. A field may carry `indexed` and
+`defaultValue` (wasichai keeps it and never applies it, UPS-15), and an object `indexes`; the sets that name a
+relationship's field wait for phase 3, like the uniqueConstraints.
 
 On a Core that already has the model it syncs instead: it adds the fields and the ENUM options model.json has and Core
 lacks, declares the actions of each object, drops the ENUM options it no longer lists and no record uses, relaxes a
@@ -89,6 +92,12 @@ FIELD_TYPES = frozenset({
     "ENUM", "EMAIL", "URL", "UUID", "GEOMETRY",
 })
 
+# the relationship types SGSPE uses (database-model.md §2.6): MANY_TO_ONE when the key is left out
+RELATIONSHIP_TYPES = ("MANY_TO_ONE", "MANY_TO_MANY")
+
+# types that take no declared index (database-model.md §2.7)
+NOT_INDEXABLE = ("LONG_TEXT", "GEOMETRY")
+
 # mirror wasichai-gis's GeometryFieldType: a geometry names its shape; srid 1..999999 (default 4326), 2d or 3d
 GEOMETRY_TYPES = frozenset({"POINT", "LINESTRING", "POLYGON", "MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON"})
 
@@ -145,7 +154,6 @@ def validate(model):
         errors.append("relationships must be a list")
         relationships = []
 
-    object_order = []
     seen_objects = set()
     fields_by_object = {}
     types_by_object = {}
@@ -156,7 +164,6 @@ def validate(model):
         if oname in seen_objects:
             errors.append(f"{label}: duplicate object name")
         seen_objects.add(oname)
-        object_order.append(oname)
         errors.extend(_check_identifier(oname, "object", MAX_OBJECT_NAME, label))
         for flag in OBJECT_FLAGS:
             if flag in obj and not isinstance(obj[flag], bool):
@@ -202,6 +209,14 @@ def validate(model):
                 if not enum_name or enum_name not in enums:
                     errors.append(f"{flabel}: enum '{enum_name}' is not defined in enums")
 
+            if "indexed" in field:
+                if not isinstance(field["indexed"], bool):
+                    errors.append(f"{flabel}: indexed must be true or false")
+                elif field["indexed"] and ftype in NOT_INDEXABLE:
+                    errors.append(f"{flabel}: a {ftype} field cannot be indexed")
+            if "defaultValue" in field:
+                errors.extend(_check_default(field, enums, flabel))
+
         fields_by_object[oname] = field_names
         types_by_object[oname] = {f.get("name"): f.get("type") for f in obj.get("fields", [])}
 
@@ -222,14 +237,20 @@ def validate(model):
         if target not in seen_objects:
             errors.append(f"{label}: target '{target}' is not a known object")
 
-        if source == target:
-            errors.append(f"{label}: self-references are not allowed")
-        elif source in object_order and target in object_order:
-            if object_order.index(target) > object_order.index(source):
-                errors.append(
-                    f"{label}: target '{target}' must appear before source '{source}' in objects"
-                )
+        # every object is created before the first relationship: a self-reference or a cycle is fine (§2.6)
 
+        rtype = rel.get("type", "MANY_TO_ONE")
+        if rtype not in RELATIONSHIP_TYPES:
+            errors.append(f"{label}: type must be one of {', '.join(RELATIONSHIP_TYPES)}")
+            continue
+        if rtype == "MANY_TO_MANY":
+            for key in ("fieldName", "required", "unique"):
+                if key in rel:
+                    errors.append(f"{label}: a MANY_TO_MANY relationship has no {key} (it is a join table)")
+            continue
+
+        if "required" in rel and not isinstance(rel["required"], bool):
+            errors.append(f"{label}: required must be true or false")
         field_name = rel.get("fieldName")
         errors.extend(_check_identifier(field_name, "field", MAX_FIELD_NAME, label))
         if field_name in RESERVED_FIELD_NAMES:
@@ -267,30 +288,52 @@ def validate(model):
             if not action.get("label"):
                 errors.append(f"{label}: action {aname} has no label")
 
-    # a constraint may name a relationship's field: it is declared once the relationship exists (phase 3)
-    relation_fields = {(r.get("source"), r.get("fieldName")) for r in relationships}
+    # a set may name a relationship's field: it is declared once the relationship exists (phase 3)
+    relation_fields = {(r.get("source"), r.get("fieldName")) for r in relationships if r.get("fieldName")}
     for obj in objects:
         oname = obj.get("name", "")
         label = f"object {oname}"
-        constraints = obj.get("uniqueConstraints", [])
-        if not isinstance(constraints, list):
-            errors.append(f"{label}: uniqueConstraints must be a list of field lists")
-            continue
-        for fields in constraints:
-            if not isinstance(fields, list) or not all(isinstance(n, str) for n in fields):
-                errors.append(f"{label}: a uniqueConstraints entry must be a list of field names")
+        for key, single in (("uniqueConstraints", "unique: true"), ("indexes", "indexed: true")):
+            sets = obj.get(key, [])
+            if not isinstance(sets, list):
+                errors.append(f"{label}: {key} must be a list of field lists")
                 continue
-            if len(fields) < 2:
-                errors.append(f"{label}: uniqueConstraints {fields} needs at least 2 fields (one field is unique: true)")
-            if len(set(fields)) != len(fields):
-                errors.append(f"{label}: uniqueConstraints {fields} names a field twice")
-            for fname in fields:
-                if fname not in fields_by_object.get(oname, set()) and (oname, fname) not in relation_fields:
-                    errors.append(f"{label}: uniqueConstraints {fields} names '{fname}', which is not a field of {oname}")
-                elif types_by_object.get(oname, {}).get(fname) == "LONG_TEXT":
-                    errors.append(f"{label}: uniqueConstraints {fields} names '{fname}', a LONG_TEXT field cannot be unique")
+            for fields in sets:
+                if not isinstance(fields, list) or not all(isinstance(n, str) for n in fields):
+                    errors.append(f"{label}: a {key} entry must be a list of field names")
+                    continue
+                if len(fields) < 2:
+                    errors.append(f"{label}: {key} {fields} needs at least 2 fields (one field is {single})")
+                if len(set(fields)) != len(fields):
+                    errors.append(f"{label}: {key} {fields} names a field twice")
+                for fname in fields:
+                    ftype = types_by_object.get(oname, {}).get(fname)
+                    if fname not in fields_by_object.get(oname, set()) and (oname, fname) not in relation_fields:
+                        errors.append(f"{label}: {key} {fields} names '{fname}', which is not a field of {oname}")
+                    elif ftype == "LONG_TEXT" or (key == "indexes" and ftype in NOT_INDEXABLE):
+                        errors.append(f"{label}: {key} {fields} names '{fname}', a {ftype} field cannot be in it")
 
     return errors
+
+
+def _check_default(field, enums, flabel):
+    """A defaultValue is text Core keeps as given: an ENUM's must be one of its options, a BOOLEAN's true or false, a
+    number's a number. A geometry takes none."""
+    value = field["defaultValue"]
+    ftype = field.get("type")
+    if not isinstance(value, str) or not value:
+        return [f"{flabel}: defaultValue must be a non-empty string"]
+    if ftype == "GEOMETRY":
+        return [f"{flabel}: a geometry takes no defaultValue"]
+    if ftype == "ENUM" and value not in enums.get(field.get("enum"), []):
+        return [f"{flabel}: defaultValue '{value}' is not an option of enum '{field.get('enum')}'"]
+    if ftype == "BOOLEAN" and value not in ("true", "false"):
+        return [f"{flabel}: defaultValue of a BOOLEAN must be 'true' or 'false'"]
+    if ftype == "INTEGER" and not re.fullmatch(r"-?\d+", value):
+        return [f"{flabel}: defaultValue of an INTEGER must be a whole number"]
+    if ftype == "DECIMAL" and not re.fullmatch(r"-?\d+(\.\d+)?", value):
+        return [f"{flabel}: defaultValue of a DECIMAL must be a number"]
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +350,10 @@ def field_payload(model, f):
     }
     if "description" in f:
         field["description"] = f["description"]
+    if f.get("indexed"):
+        field["indexed"] = True
+    if "defaultValue" in f:
+        field["defaultValue"] = f["defaultValue"]
     if f["type"] == "ENUM":
         field["enumOptions"] = model["enums"][f["enum"]]
     if f["type"] == "GEOMETRY":
@@ -326,15 +373,25 @@ def unique_constraints(obj):
     return obj.get("uniqueConstraints", [])
 
 
-def _own_unique_constraints(obj):
+def declared_indexes(obj):
+    """The field sets model.json indexes together on an object, in its order."""
+    return obj.get("indexes", [])
+
+
+def _own(obj, sets):
     """The sets whose fields are all the object's own: Core takes those in the POST. One that names a relationship's
     field waits for the relationship (phase 3)."""
     own = {f["name"] for f in obj["fields"]}
-    return [fields for fields in unique_constraints(obj) if all(name in own for name in fields)]
+    return [fields for fields in sets if all(name in own for name in fields)]
+
+
+def _own_unique_constraints(obj):
+    return _own(obj, unique_constraints(obj))
 
 
 def object_payload(model, obj):
-    sets = _own_unique_constraints(obj)
+    uniques = _own_unique_constraints(obj)
+    indexes = _own(obj, declared_indexes(obj))
     return {
         "name": obj["name"],
         "label": obj["label"],
@@ -342,7 +399,8 @@ def object_payload(model, obj):
         "description": obj.get("description", ""),
         "fields": [field_payload(model, f) for f in obj["fields"]],
         **object_flags(obj),
-        **({"uniqueConstraints": sets} if sets else {}),
+        **({"uniqueConstraints": uniques} if uniques else {}),
+        **({"indexes": indexes} if indexes else {}),
     }
 
 
@@ -387,15 +445,20 @@ def _records_using(client, object_name, field_name, option):
 
 
 def relationship_payload(rel):
-    return {
+    """POST /api/relationships: a MANY_TO_ONE names the field it creates on the source; a MANY_TO_MANY, a join table,
+    names none."""
+    rtype = rel.get("type", "MANY_TO_ONE")
+    payload = {
         "name": rel["name"],
         "label": rel["label"],
         "inverseLabel": rel["inverseLabel"],
-        "type": "MANY_TO_ONE",
+        "type": rtype,
         "source": rel["source"],
         "target": rel["target"],
-        "fieldName": rel["fieldName"],
     }
+    if rtype == "MANY_TO_ONE":
+        payload["fieldName"] = rel["fieldName"]
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -507,6 +570,25 @@ def sync_object(client, model, obj, current_object=None):
                 return None
             print(f"update field {name}.{field['name']} (optional)")
             updated += 1
+        # indexed and the description are only metadata and an index: model.json's win
+        if bool(current.get("indexed", False)) != bool(field.get("indexed", False)):
+            field_path = f"{path}/{field['name']}"
+            try:
+                client.put(field_path, {"indexed": bool(field.get("indexed", False))})
+            except CoreError as e:
+                _fatal("PUT", field_path, e)
+                return None
+            print(f"update field {name}.{field['name']} (indexed={str(bool(field.get('indexed', False))).lower()})")
+            updated += 1
+        if "description" in field and current.get("description") != field["description"]:
+            field_path = f"{path}/{field['name']}"
+            try:
+                client.put(field_path, {"description": field["description"]})
+            except CoreError as e:
+                _fatal("PUT", field_path, e)
+                return None
+            print(f"update field {name}.{field['name']} (description)")
+            updated += 1
         # a label is only what the admin shows: model.json's wins
         if current.get("label") != field["label"]:
             field_path = f"{path}/{field['name']}"
@@ -519,7 +601,8 @@ def sync_object(client, model, obj, current_object=None):
             updated += 1
     # a field model.json no longer has is reported, never removed (it may hold data); one that is required is relaxed, so
     # a record written without it is still valid. a relationship's field is not model.json's field list: it is not extra
-    wanted_names = {f["name"] for f in obj["fields"]} | {r["fieldName"] for r in model["relationships"] if r["source"] == name}
+    wanted_names = {f["name"] for f in obj["fields"]} | {r["fieldName"] for r in model["relationships"]
+                                                        if r["source"] == name and r.get("fieldName")}
     for field_name, current in existing.items():
         if field_name in wanted_names or current.get("type") == "RELATION":
             continue
@@ -589,7 +672,7 @@ def do_apply(client, model):
         if not _apply_required_put(client, rel):
             return 1
 
-    changed = _apply_uniques(client, model)
+    changed = _apply_field_sets(client, model)
     if changed is None:
         return 1
     updated += changed
@@ -620,24 +703,25 @@ def _apply_actions(client, model):
     return created, skipped
 
 
-def _apply_uniques(client, model):
-    """Phase 3, once the relationships exist: the uniqueConstraints of every object (the full list, so the PUT carries the
-    whole object) and the `unique: true` of a relationship's field. Each only when it differs from what Core has
-    (Core leaves the key out of an object with none). Returns how many it put, or None when Core refused."""
+def _apply_field_sets(client, model):
+    """Phase 3, once the relationships exist: the uniqueConstraints and the indexes of every object (the full lists, so
+    the PUT carries the whole object) and the `unique: true` of a relationship's field. Each only when it differs from
+    what Core has (Core leaves a key out of an object with none). Returns how many it put, or None when Core refused."""
     changed = 0
     stored = _existing_objects(client.get("/api/objects"))
     for obj in model["objects"]:
         name = obj["name"]
-        wanted = unique_constraints(obj)
-        if name not in stored or stored[name].get("uniqueConstraints", []) == wanted:
+        wanted = {"uniqueConstraints": unique_constraints(obj), "indexes": declared_indexes(obj)}
+        if name not in stored or all(stored[name].get(k, []) == v for k, v in wanted.items()):
             continue
         path = f"/api/objects/{name}"
         try:
-            client.put(path, {**object_update_payload(obj), "uniqueConstraints": wanted})
+            client.put(path, {**object_update_payload(obj), **wanted})
         except CoreError as e:
             _fatal("PUT", path, e)
             return None
-        print(f"update object {name} (uniqueConstraints={json.dumps(wanted)})")
+        print(f"update object {name} (uniqueConstraints={json.dumps(wanted['uniqueConstraints'])}, "
+              f"indexes={json.dumps(wanted['indexes'])})")
         changed += 1
     for rel in model["relationships"]:
         if not rel.get("unique"):
@@ -678,12 +762,12 @@ def do_drop(client, model):
     # uniqueConstraints set. the rules go first, with the labels the PUT replaces; an object already gone has nothing to
     # turn off
     for obj in model["objects"]:
-        if not obj.get("appendOnly") and not unique_constraints(obj):
+        if not obj.get("appendOnly") and not unique_constraints(obj) and not declared_indexes(obj):
             continue
         path = f"/api/objects/{obj['name']}"
         try:
-            client.put(path, {**object_update_payload(obj, appendOnly=False), "uniqueConstraints": []})
-            print(f"update object {obj['name']} (appendOnly=false, uniqueConstraints=[])")
+            client.put(path, {**object_update_payload(obj, appendOnly=False), "uniqueConstraints": [], "indexes": []})
+            print(f"update object {obj['name']} (appendOnly=false, uniqueConstraints=[], indexes=[])")
         except CoreError as e:
             if e.status == 404:
                 print(f"skip   object {obj['name']} (not found)")
@@ -722,9 +806,10 @@ def _print_dry_run(model):
         print(json.dumps(relationship_payload(rel), indent=2, ensure_ascii=False))
     for obj in model["objects"]:
         # the sets over the object's own fields went in its POST
-        if unique_constraints(obj) != _own_unique_constraints(obj):
+        if unique_constraints(obj) != _own_unique_constraints(obj) or declared_indexes(obj) != _own(obj, declared_indexes(obj)):
             print(f"# PUT /api/objects/{obj['name']}")
-            print(json.dumps({**object_update_payload(obj), "uniqueConstraints": unique_constraints(obj)}, indent=2, ensure_ascii=False))
+            print(json.dumps({**object_update_payload(obj), "uniqueConstraints": unique_constraints(obj),
+                              "indexes": declared_indexes(obj)}, indent=2, ensure_ascii=False))
     for rel in model["relationships"]:
         if rel.get("unique"):
             print(f"# PUT /api/metadata/objects/{rel['source']}/fields/{rel['fieldName']}")
@@ -733,8 +818,8 @@ def _print_dry_run(model):
 
 def _print_drop_dry_run(model):
     for obj in model["objects"]:
-        if obj.get("appendOnly") or unique_constraints(obj):
-            print(f"# PUT /api/objects/{obj['name']} (appendOnly=false, uniqueConstraints=[])")
+        if obj.get("appendOnly") or unique_constraints(obj) or declared_indexes(obj):
+            print(f"# PUT /api/objects/{obj['name']} (appendOnly=false, uniqueConstraints=[], indexes=[])")
     for rel in reversed(model["relationships"]):
         print(f"# DELETE /api/relationships/{rel['name']}")
     for obj in reversed(model["objects"]):

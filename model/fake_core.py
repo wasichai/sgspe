@@ -18,6 +18,9 @@ ROLE = re.compile(r"^/api/roles/([A-Z0-9_]+)$")
 ROLE_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/permissions$")
 ROLE_FIELD_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/field-permissions$")
 
+# the keys of an object GET /api/objects tells besides its name, when they are set
+OBJECT_KEYS = ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints", "indexes")
+
 
 class FakeCoreHandler(BaseHTTPRequestHandler):
     def log_message(self, *args):
@@ -194,7 +197,7 @@ class FakeCore:
                 return 409, {"message": "exists"}
             # what GET /api/objects tells of it from now on: its write rules and, when it has any, its constraints
             self.existing_objects.add(name)
-            self.object_flags[name] = {k: body[k] for k in ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints") if body.get(k)}
+            self.object_flags[name] = {k: body[k] for k in OBJECT_KEYS if body.get(k)}
             return 201, {"name": name}
         if OBJECT.match(path) and method == "PUT":
             name = OBJECT.match(path).group(1)
@@ -203,9 +206,9 @@ class FakeCore:
             if name == self.fail_put_object:
                 return 409, {"detail": "repeats"}
             # Core replaces the object: the flags it was not sent keep their value, as its null does. an empty
-            # uniqueConstraints is a key GET leaves out
-            flags = {**self.object_flags.get(name, {}), **{k: v for k, v in body.items() if k in ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints")}}
-            self.object_flags[name] = {k: v for k, v in flags.items() if v != [] or k != "uniqueConstraints"}
+            # uniqueConstraints and indexes are keys GET leaves out
+            flags = {**self.object_flags.get(name, {}), **{k: v for k, v in body.items() if k in OBJECT_KEYS}}
+            self.object_flags[name] = {k: v for k, v in flags.items() if v != [] or k not in ("uniqueConstraints", "indexes")}
             return 200, {"name": name, **self.object_flags[name]}
         if path == "/api/relationships" and method == "POST":
             name = body["name"]

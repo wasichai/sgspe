@@ -14,7 +14,7 @@ from contextlib import redirect_stderr, redirect_stdout
 import apply
 import apply_roles
 from fake_core import FakeCore
-from fixture_model import FIXTURE_MODEL
+from fixture_model import F2_FIXTURE_MODEL, FIXTURE_MODEL
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(HERE, "model.json")
@@ -69,6 +69,40 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("zone field area_ha: editable is not used" in e for e in errors), errors)
 
 
+class F2ValidationTests(unittest.TestCase):
+    def mutate(self, fn):
+        model = copy.deepcopy(F2_FIXTURE_MODEL)
+        fn(model)
+        return apply.validate(model)
+
+    def test_the_f2_fixture_is_valid_with_a_self_reference_a_cycle_and_a_many_to_many(self):
+        self.assertEqual(apply.validate(F2_FIXTURE_MODEL), [])
+
+    def test_a_many_to_many_takes_no_field(self):
+        errors = self.mutate(lambda m: m["relationships"][2].update({"fieldName": "zones"}))
+        self.assertTrue(any("visit_zones: a MANY_TO_MANY relationship has no fieldName" in e for e in errors), errors)
+
+    def test_an_unknown_relationship_type_is_refused(self):
+        errors = self.mutate(lambda m: m["relationships"][0].update({"type": "ONE_TO_ONE"}))
+        self.assertTrue(any("visit_zone: type must be one of MANY_TO_ONE, MANY_TO_MANY" in e for e in errors), errors)
+
+    def test_a_default_must_be_an_option_of_its_enum_and_a_boolean_true_or_false(self):
+        errors = self.mutate(lambda m: (m["objects"][1]["fields"][1].update({"defaultValue": "OTRA"}),
+                                        m["objects"][1]["fields"][2].update({"defaultValue": "si"})))
+        self.assertTrue(any("zone_type: defaultValue 'OTRA' is not an option" in e for e in errors), errors)
+        self.assertTrue(any("active: defaultValue of a BOOLEAN must be 'true' or 'false'" in e for e in errors), errors)
+
+    def test_a_long_text_is_never_indexed(self):
+        errors = self.mutate(lambda m: m["objects"][0]["fields"].append(
+            {"name": "notes", "label": "Notas", "type": "LONG_TEXT", "indexed": True}))
+        self.assertTrue(any("visit field notes: a LONG_TEXT field cannot be indexed" in e for e in errors), errors)
+
+    def test_an_index_set_needs_two_known_fields(self):
+        errors = self.mutate(lambda m: m["objects"][0].update({"indexes": [["visit_date"], ["zone", "nowhere"]]}))
+        self.assertTrue(any("indexes ['visit_date'] needs at least 2 fields" in e for e in errors), errors)
+        self.assertTrue(any("names 'nowhere', which is not a field of visit" in e for e in errors), errors)
+
+
 class ApplyTestCase(unittest.TestCase):
     def setUp(self):
         self.core = FakeCore()
@@ -117,6 +151,56 @@ class FixtureApplyTests(ApplyTestCase):
         for field in zone["fields"]:
             keys = {"name", "label", "type", "required", "unique"} | ({"enumOptions"} if field["type"] == "ENUM" else set())
             self.assertEqual(set(field), keys, field)
+
+
+class F2FixtureApplyTests(ApplyTestCase):
+    def apply_f2_fixture(self, *extra):
+        with tempfile.TemporaryDirectory() as folder:
+            return self.run_apply(write_model(folder, F2_FIXTURE_MODEL), *extra)
+
+    def test_every_object_goes_before_the_first_relationship_whatever_their_order(self):
+        code, out, err = self.apply_f2_fixture()
+        self.assertEqual(code, 0, err)
+        posts = [(p, b) for m, p, b in self.writes() if m == "POST"]
+        self.assertEqual([(p, b["name"]) for p, b in posts],
+                         [("/api/objects", "visit"), ("/api/objects", "zone"), ("/api/relationships", "visit_zone"),
+                          ("/api/relationships", "zone_parent_zone"), ("/api/relationships", "visit_zones")])
+
+    def test_a_many_to_many_goes_without_field_and_a_self_reference_with_its_field(self):
+        code, out, err = self.apply_f2_fixture()
+        self.assertEqual(code, 0, err)
+        relationships = {b["name"]: b for m, p, b in self.writes() if p == "/api/relationships"}
+        self.assertEqual(relationships["visit_zones"]["type"], "MANY_TO_MANY")
+        self.assertNotIn("fieldName", relationships["visit_zones"])
+        self.assertEqual((relationships["zone_parent_zone"]["source"], relationships["zone_parent_zone"]["target"],
+                          relationships["zone_parent_zone"]["fieldName"]), ("zone", "zone", "parent_zone"))
+        self.assertIn(("PUT", "/api/metadata/objects/visit/fields/zone", {"required": True}), self.writes())
+
+    def test_indexed_and_default_value_go_in_the_field_and_derived_never(self):
+        code, out, err = self.apply_f2_fixture()
+        self.assertEqual(code, 0, err)
+        objects = {b["name"]: b for m, p, b in self.writes() if p == "/api/objects" and m == "POST"}
+        visit_date = objects["visit"]["fields"][0]
+        self.assertTrue(visit_date["indexed"])
+        zone = {f["name"]: f for f in objects["zone"]["fields"]}
+        self.assertEqual((zone["zone_type"]["defaultValue"], zone["active"]["defaultValue"]), ("DIRECTA", "true"))
+        self.assertNotIn("indexed", zone["code"])
+
+    def test_an_index_over_a_relationship_field_waits_for_phase_3(self):
+        code, out, err = self.apply_f2_fixture()
+        self.assertEqual(code, 0, err)
+        objects = {b["name"]: b for m, p, b in self.writes() if p == "/api/objects" and m == "POST"}
+        self.assertNotIn("indexes", objects["visit"])
+        puts = [b for m, p, b in self.writes() if m == "PUT" and p == "/api/objects/visit"]
+        self.assertEqual([b["indexes"] for b in puts], [[["zone", "visit_date"]]])
+        self.assertEqual(self.core.object_flags["visit"]["indexes"], [["zone", "visit_date"]])
+
+    def test_a_second_run_puts_no_field_set_again(self):
+        self.apply_f2_fixture()
+        self.core.requests.clear()
+        code, out, err = self.apply_f2_fixture()
+        self.assertEqual(code, 0, err)
+        self.assertEqual([p for m, p, b in self.writes() if m == "PUT" and p.startswith("/api/objects/")], [])
 
 
 class WorkflowsPassTests(ApplyTestCase):
