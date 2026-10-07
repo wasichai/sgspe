@@ -1,0 +1,207 @@
+/*
+ * SGSPE · temas sobre el sistema de temas de wasichai (WAS-ADR-034, WAS-ADR-035; ASM-086) · 2026-10-07
+ *
+ * Tres bloques [data-theme='sgspe-*'] que fijan los 28 tokens de @wasichai/ui (18 base y 10 de extensión), la
+ * fuente y los radios, con valores fijos en cada bloque (los alias van con var() dentro del bloque, para que un
+ * tema anidado no herede los del exterior). Se importa después del tema de wasichai y de tokens.css:
+ *
+ *   @import "tailwindcss";
+ *   @import "@wasichai/ui/theme.css";
+ *   @import "./tokens.css";
+ *   @import "./themes.css";
+ *
+ * y se registran en config.themes del portal y de WasichaiApp, con el mapa id → colorScheme del script de arranque:
+ *
+ *   { id: 'sgspe-pino',  label: 'theme.sgspePino',  colorScheme: 'light' }
+ *   { id: 'sgspe-cielo', label: 'theme.sgspeCielo', colorScheme: 'light' }
+ *   { id: 'sgspe-noche', label: 'theme.sgspeNoche', colorScheme: 'dark' }
+ *
+ * Cada bloque también apunta los --sg-* de base y acción de tokens.css a los tokens de wasichai; los demás --sg-*
+ * (IA, territorio, nivel de riesgo, datos) toman los valores claros de tokens.css, o los oscuros en sgspe-noche.
+ * Contraste medido (WCAG 2.2 AA): docs/ux/design-system.md §3.9.
+ */
+
+/* Pino y piedra: el tema predeterminado de SGSPE (ASM-077, ASM-082). Barra superior blanca. */
+[data-theme='sgspe-pino'] {
+  --surface: #ffffff;
+  --surface-muted: #f5f6f3;
+  --border: #d9ddd6;
+  --ink: #18211d;
+  --ink-muted: #5e6862;
+  --brand: #1d5c52;
+  --brand-strong: #164a42;
+  --brand-soft: #e3efec;
+  --on-brand: #ffffff;
+  --shell: #ffffff;
+  --shell-muted: #5e6862;
+  --shell-ink: #18211d;
+  --danger: #a33a2a;
+  --on-danger: #ffffff;
+  --success: #2e6b3e;
+  --warning: #7f5300;
+  --warning-soft: #fbf0d9;
+  --overlay: rgb(24 33 29 / 45%);
+  --success-soft: #e5f0e7;
+  --danger-soft: #f8e7e3;
+  --notice: #4f5954;
+  --notice-soft: #eceeea;
+  --link: #1d5c52;
+  --focus: #2f6fb0;
+  --table-head: #eef0ec;
+  --table-stripe: #f9faf8;
+  --line: #e4e7e1;
+  --map-selected: #e8590c;
+
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-card: 8px;
+
+  --sg-bg: var(--surface-muted);
+  --sg-surface: var(--surface);
+  --sg-border: var(--border);
+  --sg-text: var(--ink);
+  --sg-text-muted: var(--ink-muted);
+  --sg-primary: var(--brand);
+  --sg-primary-hover: var(--brand-strong);
+  --sg-primary-soft: var(--brand-soft);
+  --sg-primary-text: var(--link);
+  --sg-on-primary: var(--on-brand);
+  --sg-focus: var(--focus);
+  --sg-success: var(--success);
+  --sg-success-soft: var(--success-soft);
+  --sg-warning: var(--warning);
+  --sg-warning-soft: var(--warning-soft);
+  --sg-danger: var(--danger);
+  --sg-danger-soft: var(--danger-soft);
+  color-scheme: light;
+}
+
+/* Cielo: fondo blanco y azul, con la barra superior azul profundo. */
+[data-theme='sgspe-cielo'] {
+  --surface: #ffffff;
+  --surface-muted: #f3f6fa;
+  --border: #d3dce6;
+  --ink: #14202c;
+  --ink-muted: #526070;
+  --brand: #1f5fa8;
+  --brand-strong: #174c87;
+  --brand-soft: #e8f0fa;
+  --on-brand: #ffffff;
+  --shell: #0e3a66;
+  --shell-muted: #b9cde4;
+  --shell-ink: #ffffff;
+  --danger: #b0302a;
+  --on-danger: #ffffff;
+  --success: #25693a;
+  --warning: #855600;
+  --warning-soft: #fdf2d9;
+  --overlay: rgb(10 22 38 / 45%);
+  --success-soft: #e6f2e9;
+  --danger-soft: #fbeae8;
+  --notice: #4e5a68;
+  --notice-soft: #edf1f5;
+  --link: #1a5ba3;
+  --focus: #2a78cf;
+  --table-head: #eef3f8;
+  --table-stripe: #f8fafc;
+  --line: #e2e8ef;
+  --map-selected: #e8590c;
+
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-card: 8px;
+
+  --sg-bg: var(--surface-muted);
+  --sg-surface: var(--surface);
+  --sg-border: var(--border);
+  --sg-text: var(--ink);
+  --sg-text-muted: var(--ink-muted);
+  --sg-primary: var(--brand);
+  --sg-primary-hover: var(--brand-strong);
+  --sg-primary-soft: var(--brand-soft);
+  --sg-primary-text: var(--link);
+  --sg-on-primary: var(--on-brand);
+  --sg-focus: var(--focus);
+  --sg-success: var(--success);
+  --sg-success-soft: var(--success-soft);
+  --sg-warning: var(--warning);
+  --sg-warning-soft: var(--warning-soft);
+  --sg-danger: var(--danger);
+  --sg-danger-soft: var(--danger-soft);
+  --sg-surface-sunken: #eef3f8;
+  --sg-surface-hover: #f7f9fc;
+  --sg-border-subtle: #e2e8ef;
+  --sg-border-strong: #7d8a99;
+  --sg-text-secondary: #3e4c5b;
+  --sg-progress: #1f5fa8;
+  --sg-progress-soft: #e8f0fa;
+  --sg-map-ground: #e6ecf2;
+  color-scheme: light;
+}
+
+/* Pino de noche: oscuro de SGSPE, grafito verdoso con acento jade; distinto del oscuro de wasichai. */
+[data-theme='sgspe-noche'] {
+  --surface: #171d1a;
+  --surface-muted: #111614;
+  --border: #2c3530;
+  --ink: #e7ece8;
+  --ink-muted: #9aa59f;
+  --brand: #6fc2b2;
+  --brand-strong: #93d6c8;
+  --brand-soft: #17302b;
+  --on-brand: #0c1210;
+  --shell: #0b0f0d;
+  --shell-muted: #9aa59f;
+  --shell-ink: #e7ece8;
+  --danger: #ef9583;
+  --on-danger: #1a0e0b;
+  --success: #86c496;
+  --warning: #e3b65a;
+  --warning-soft: #33280f;
+  --overlay: rgb(0 0 0 / 60%);
+  --success-soft: #1a2b1f;
+  --danger-soft: #3a1e19;
+  --notice: #c9c3a8;
+  --notice-soft: #26251d;
+  --link: #7fcdbe;
+  --focus: #7fb0e6;
+  --table-head: #1d2420;
+  --table-stripe: #141a17;
+  --line: #232b27;
+  --map-selected: #f0803c;
+
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-card: 8px;
+
+  --sg-bg: var(--surface-muted);
+  --sg-surface: var(--surface);
+  --sg-border: var(--border);
+  --sg-text: var(--ink);
+  --sg-text-muted: var(--ink-muted);
+  --sg-primary: var(--brand);
+  --sg-primary-hover: var(--brand-strong);
+  --sg-primary-soft: var(--brand-soft);
+  --sg-primary-text: var(--link);
+  --sg-on-primary: var(--on-brand);
+  --sg-focus: var(--focus);
+  --sg-success: var(--success);
+  --sg-success-soft: var(--success-soft);
+  --sg-warning: var(--warning);
+  --sg-warning-soft: var(--warning-soft);
+  --sg-danger: var(--danger);
+  --sg-danger-soft: var(--danger-soft);
+  color-scheme: dark;
+}

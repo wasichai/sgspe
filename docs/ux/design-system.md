@@ -30,6 +30,26 @@ el color hable solo cuando importa (estado, plazo, riesgo); la familia Plex tien
 español y una lectura técnica sin frialdad. Se evitan las tipografías y los recursos más gastados (Inter, Roboto, degradados,
 tarjetas con borde lateral de color).
 
+### 2.1 Marca SGSPE
+
+**ASSUMPTION (ASM-082):** SGSPE tiene marca propia; el usuario eligió la dirección «Sendero» (lienzo de la etapa 3, página 22).
+
+- **Isotipo:** cerros en blanco sobre un cuadrado pino de esquinas redondeadas, con un sendero en arena que sube hacia ellos.
+  A 24 px o menos se usa la variante simplificada (trazos más gruesos, un solo tramo de sendero); el favicon sale de ella
+  (16 y 32 px) y el ícono de la aplicación de la versión completa (180 y 512 px).
+- **Logotipo:** isotipo más «SGSPE» en IBM Plex Sans semibold; con el nombre completo («Gestión social de proyectos de
+  exploración») desde 120 px de ancho. Área de respeto: la mitad del isotipo por lado.
+- **Versiones:** a color sobre claro; invertida (isotipo blanco con cerros pino y sendero en arena oscura) sobre pino o tinta;
+  monocroma en tinta para impresión en blanco y negro.
+- **Paleta de marca:** pino #1D5C52, pino profundo #123D36, arena #C9B48A (solo en gráficos: 3.84:1 sobre pino), arena oscura
+  #8A6E35 (4.81:1 sobre blanco), piedra #F5F6F3 y tinta #18211D. Coincide con los tokens de §3; los tokens semánticos no
+  cambian.
+- **Usos incorrectos:** no deformar, no cambiar colores fuera de las tres versiones, no poner el isotipo sobre fotos sin un
+  fondo sólido, no usar la arena para texto.
+- **Aplicaciones:** barra superior (isotipo de 28 px y «SGSPE»), login, pestaña del navegador, correos de aviso y la portada de
+  los entregables, donde manda la marca del cliente y SGSPE figura solo como «Preparado con SGSPE».
+- **Voz y tono:** directa, en segunda persona, sin jerga técnica; dice qué pasó y qué hacer.
+
 ## 3. Tokens
 
 ### 3.1 Color base
@@ -144,6 +164,62 @@ animados ni brillos de carga. Con `prefers-reduced-motion`, todo cambia sin tran
 | Error | Borde y mensaje `danger` con ícono, debajo del campo, enlazado con `aria-describedby`; el mensaje dice cómo corregir |
 | Éxito | Confirmación breve (toast o marca en el campo); nunca bloquea el siguiente paso |
 
+### 3.9 Temas
+
+**ASSUMPTION (ASM-086):** SGSPE ofrece tres temas propios sobre el sistema de temas de wasichai [WAS-ADR-034,
+WAS-ADR-035], sin tocar sus paquetes: cada uno es un bloque `[data-theme='<id>']` de [`themes.css`](themes.css) con los 28
+tokens de `@wasichai/ui` (18 base y 10 de extensión), IBM Plex Sans y los radios de §3.5, y un `ThemeDefinition` en
+`config.themes` del portal y de `WasichaiApp`. Lienzo de la etapa 3, página 25.
+
+| Tema | `id` | `colorScheme` | Carácter |
+|---|---|---|---|
+| Pino y piedra | `sgspe-pino` | `light` | El actual y el predeterminado: barra superior blanca, acento pino, neutros de piedra |
+| Cielo | `sgspe-cielo` | `light` | Fondo blanco y azul (`brand` #1F5FA8), barra superior azul profundo (#0E3A66), como el portal tributario de srtm |
+| Pino de noche | `sgspe-noche` | `dark` | Grafito verdoso con acento jade (#6FC2B2): se distingue del oscuro de wasichai, que es gris azulado |
+
+- **Selector:** Perfil › Tema en el portal y en `/admin`, con una sola preferencia por cuenta
+  (`/api/auth/me/preferences`). Ofrece «Según el sistema», los tres de SGSPE y Claro y Oscuro de wasichai, que la plataforma
+  siempre incluye.
+- **Marca:** no cambia con el tema. El isotipo va a color sobre una barra clara e invertido sobre una oscura (§2.1).
+- **Colores propios de SGSPE:** cada bloque apunta los `--sg-*` de base y acción a los tokens de wasichai; los de IA,
+  territorio, nivel de riesgo y datos toman los valores claros de [`tokens.css`](tokens.css), o los oscuros en
+  `sgspe-noche`.
+- **Impresión:** los documentos impresos siguen en claro (`PrintableDocumentPage` fija `data-theme="light"`).
+- **Brecha:** «Según el sistema» resuelve hoy a `light` o `dark` de wasichai, y la preferencia por defecto es `system`. Para
+  que el portal abra en Pino y piedra y siga al sistema con Pino de noche hace falta UPS-19; mientras tanto, el portal
+  guarda `sgspe-pino` como preferencia inicial de una cuenta que no tiene ninguna.
+- **Pruebas:** como `tokens.test.tsx` de srtm-ui, un test comprueba que cada tema fija los 28 tokens y mide los pares de
+  la tabla.
+
+Contraste medido (WCAG 2.2 AA):
+
+| Par | Mínimo | Pino y piedra | Cielo | Pino de noche |
+|---|---|---|---|---|
+| `ink` / `surface` | 4.5:1 | 16.48 | 16.50 | 14.31 |
+| `ink-muted` / `surface` | 4.5:1 | 5.78 | 6.43 | 6.73 |
+| `brand-strong` / `surface` | 4.5:1 | 10.04 | 8.68 | 10.34 |
+| `danger` / `surface` | 4.5:1 | 6.57 | 6.36 | 7.58 |
+| `success` / `surface` | 4.5:1 | 6.39 | 6.64 | 8.43 |
+| `warning` / `surface` | 4.5:1 | 6.69 | 6.31 | 9.05 |
+| `link` / `surface` | 4.5:1 | 7.76 | 6.84 | 9.27 |
+| `brand` / `surface` | 4.5:1 | 7.76 | 6.44 | 8.18 |
+| `ink` / `surface-muted` | 4.5:1 | 15.19 | 15.22 | 15.29 |
+| `ink-muted` / `surface-muted` | 4.5:1 | 5.33 | 5.93 | 7.19 |
+| `on-brand` / `brand` | 4.5:1 | 7.76 | 6.44 | 9.04 |
+| `shell-ink` / `shell` | 4.5:1 | 16.48 | 11.57 | 16.14 |
+| `shell-muted` / `shell` | 4.5:1 | 5.78 | 7.11 | 7.59 |
+| `on-danger` / `danger` | 4.5:1 | 6.57 | 6.36 | 8.36 |
+| `success` / `success-soft` | 4.5:1 | 5.46 | 5.77 | 7.34 |
+| `warning` / `warning-soft` | 4.5:1 | 5.91 | 5.67 | 7.65 |
+| `danger` / `danger-soft` | 4.5:1 | 5.49 | 5.46 | 6.74 |
+| `notice` / `notice-soft` | 4.5:1 | 6.22 | 6.20 | 8.69 |
+| `brand-strong` / `brand-soft` | 4.5:1 | 8.52 | 7.55 | 8.50 |
+| `ink` / `table-stripe` | 4.5:1 | 15.74 | 15.77 | 14.76 |
+| `ink-muted` / `table-head` | 4.5:1 | 5.04 | 5.76 | 6.23 |
+| `focus` / `surface` | 3:1 | 5.22 | 4.48 | 7.54 |
+| `focus` / `surface-muted` | 3:1 | 4.81 | 4.13 | 8.06 |
+| `map-selected` / `surface` | 3:1 | 3.58 | 3.58 | 6.40 |
+
 ## 4. Sistema de estados
 
 Tres familias que nunca se confunden [PRM-02 §8]:
@@ -238,7 +314,10 @@ o se compone en el portal.
 | Card, MetricCard, KpiCard | Bloques e indicadores | KPI con delta y desglose; "n de N" con barra; "no disponible" | La cifra y su contexto se leen juntos | portal |
 | DataTable | Toda lista | Densa y cómoda; encabezado y primera columna fijos; orden; columnas; selección; grupos por prioridad | `<table>` real; `aria-sort`; encabezados de grupo | wasichai + portal |
 | FilterBar, FilterChip | Filtros en la URL | Chips con valor; "+ Filtro"; limpiar | Cada chip quitable con teclado | portal |
-| SavedViews | Vistas del sistema y personales (ASM-079) | Pestañas; guardar vista | `role="tablist"` | portal |
+| SavedViews | Vistas del sistema, compartidas y mías (ASM-083) | Pestañas agrupadas; chip de visibilidad; guardar vista | `role="tablist"` | portal |
+| SavedViewDialog | Guardar o compartir una vista (ASM-083) | Nombre; visibilidad solo yo, equipo del proyecto u organización (esta última solo para quien puede) | `role="dialog"`; la visibilidad es un `fieldset` de radios | portal |
+| LanguageSwitch | Idioma de la interfaz (ASM-084) | Menú del perfil, enlaces del login y «Más» del teléfono; cada idioma en su propia lengua | `lang` en cada opción; la página cambia su `lang` | portal |
+| MapAttribution | Atribución del mapa base (ASM-085) | Siempre visible; se pliega a «ⓘ» en pantallas chicas | Texto real enlazable; no tapa los controles | `@wasichai/gis` + portal |
 | BulkActionBar | Acciones masivas | Solo acciones válidas para todos los seleccionados | Anuncia "n seleccionados" | portal |
 | Pagination | Listas largas | 25, 50, 100 por página | `nav` con página actual | wasichai |
 | EmptyState | Vacío inicial, por filtros y sin permiso | Con acción principal | Encabezado y texto reales | portal |
@@ -325,7 +404,12 @@ EntityDetailPage
 
 - Encabezado con título, conteo y alcance ("17 en el proyecto"), acción de creación y exportación.
 - **Vistas guardadas** en pestañas: las del sistema por rol (por ejemplo, "Atención", "Mis compromisos", "Vencen este mes",
-  "Prioridad MUY ALTA", "Todos") y las personales (ASM-079). Una vista guarda filtros, columnas, orden y densidad.
+  "Prioridad MUY ALTA", "Todos"), las compartidas y las mías (ASM-083). Una vista guarda filtros, columnas, orden y densidad,
+  nunca datos: cada persona ve solo los registros que su rol puede leer.
+- **Compartir:** «Guardar esta vista…» abre `SavedViewDialog` con la visibilidad solo yo, equipo del proyecto u organización.
+  Cada pestaña compartida lleva un chip con su alcance y, al abrirla, quién la compartió. Solo quien la creó la cambia o la
+  borra; los demás guardan una copia propia o la ocultan de sus pestañas. Borrar una vista que otros usan avisa y pide
+  confirmación. «Gestionar vistas» reúne todo esto (`screens.md`, Gestionar vistas; lienzo de la etapa 3, página 24).
 - **Filtros** como chips con su valor, en la URL; "+ Filtro" y "Limpiar".
 - **Agrupación por atención** cuando la vista lo pide: Vencidos, Por vencer, Bloqueados, en ese orden [PRM-02 §15].
 - **Selección** con casillas; la barra de acciones masivas ofrece solo lo válido para todos los seleccionados (reasignar,
@@ -391,10 +475,12 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
 
 ## 9. Guía de implementación
 
-- **Tokens:** importar `docs/ux/tokens.css` (copiado al portal) después de `@wasichai/ui/theme.css`. Usar siempre los tokens,
+- **Tokens:** importar `docs/ux/tokens.css` y `docs/ux/themes.css` (copiados al portal) después de
+  `@wasichai/ui/theme.css`. Usar siempre los tokens,
   nunca colores sueltos; los colores de ECharts y MapLibre se leen de las mismas variables.
 - **Componentes de estado:** un solo `StatusBadge` que recibe el objeto, el estado y la situación, con un mapa de tono e ícono
-  por workflow tomado de §4.1; las etiquetas salen de la metadata (español) y no se duplican en i18n (CON-051).
+  por workflow tomado de §4.1; las etiquetas de estados y valores salen del catálogo i18n del portal por clave (§9.1), con la
+  etiqueta de la metadata como respaldo en español (CON-051).
 - **Alcance:** las páginas de lista y de ficha reciben `scope` (`{ kind: 'mine' }` o `{ kind: 'project', projectId }`) y leen
   el territorio y los filtros de la URL (ASM-075, ASM-076).
 - **Sin literales de rol:** la visibilidad de acciones se decide con permisos y acciones declaradas, nunca comparando nombres
@@ -403,6 +489,24 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
   precondición de versión, y traduce los errores 400, 403, 409, 412 y 428 (`api.md` §3.3).
 - **Pruebas:** Vitest y Testing Library para componentes y estados; Playwright desde F2 (ASM-066) para los recorridos del
   hilo de contexto.
+
+### 9.1 Idiomas
+
+**ASSUMPTION (ASM-084):** el portal está en español (por defecto), inglés y quechua (lienzo de la etapa 3, página 23).
+
+- **Catálogo:** i18next con react-i18next, como srtm-ui; un archivo por idioma y espacio (`es`, `en`, `qu`, con la variante
+  del quechua como subetiqueta cuando se confirme, por ejemplo `quz` o `quy`). Números, fechas y monedas en formato es-PE en
+  los tres idiomas.
+- **Valores de ENUM:** se guardan en español (ASM-025) y se traducen con una clave por valor, por ejemplo
+  `enum.grievance_severity.ALTA`; lo mismo para estados y transiciones de workflow. Sin clave, se muestra el valor guardado.
+- **Lo que no se traduce:** `/admin` y las vistas generadas por metadata (CON-051), los entregables y los datos que escriben
+  las personas (descripciones, actas, comentarios). Se muestran tal cual, con `lang="es"` si la página está en otro idioma.
+- **Traducción faltante:** se muestra el texto en español con una marca discreta de idioma, nunca la clave técnica; un informe
+  del catálogo lista lo que falta por idioma antes de cada versión.
+- **Textos que se alargan:** el quechua y el inglés pueden ser más largos; ningún botón ni columna tiene ancho fijo, las
+  etiquetas pasan a dos líneas antes que cortarse y el truncado con «…» solo se usa en celdas de tabla, con el texto completo
+  en el título.
+- **Traducción profesional:** las cadenas en quechua las hace y revisa un traductor; el lienzo usa textos de ejemplo.
 
 ## 10. Verificación de contraste
 
@@ -415,7 +519,8 @@ Un script compara cada par de texto y fondo de §3 y del lienzo. Resultado de es
 
 - **Requisitos:** RNF-USA-001, RNF-I18N-001, RNF-MNT-001, RQ-DSH-032, RQ-DSH-035, RQ-GIS-014, RQ-GIS-015, RQ-AUD-002,
   RQ-AUD-011, RQ-AI-003, RQ-AI-004, RQ-AI-012, RQ-SEC-005, RN-WFL-001, RN-COM-001, RN-ENG-001, RN-INV-003, RF-COM-003.
-- **Supuestos:** ASM-021, ASM-063, ASM-066, ASM-075, ASM-076, ASM-077, ASM-079, ASM-081.
+- **Supuestos:** ASM-021, ASM-025, ASM-063, ASM-066, ASM-075, ASM-076, ASM-077, ASM-079, ASM-081, ASM-082, ASM-083, ASM-084,
+  ASM-085, ASM-086.
 - **Documentos:** [workflows.md](../workflows.md), [dashboards.md §3 y §9](../dashboards.md), [gis.md §2 y §7.2](../gis.md),
   [security.md §5 y §9](../security.md), [api.md §3](../api.md), [ADR-0024](../adr/0024-interfaz-portal-y-admin.md),
   [ADR-0025](../adr/0025-concurrencia-e-idempotencia.md).

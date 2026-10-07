@@ -8,9 +8,10 @@
  *   @import "./tokens.css";
  *
  * Las variables --sg-* son la fuente; el bloque @theme inline las expone como utilidades de Tailwind
- * (bg-sg-surface, text-sg-muted, border-sg-strong…). La correspondencia con los nombres de token de
- * @wasichai/ui 0.5.0 y el selector de tema oscuro que usa la plataforma se confirman en F1
- * (pregunta Q2 de docs/ux/ux-architecture.md). Contraste verificado: docs/ux/design-system.md §10.
+ * (bg-sg-surface, text-sg-muted, border-sg-strong…). La correspondencia con los 28 tokens de
+ * @wasichai/ui 0.5.0 y los temas sgspe-pino, sgspe-cielo y sgspe-noche están en themes.css (ASM-086), que
+ * se importa después de este archivo; el oscuro de SGSPE (sgspe-noche) usa los valores oscuros de aquí.
+ * Contraste verificado: docs/ux/design-system.md §3.9 y §10.
  *
  * Fuentes: IBM Plex Sans (400, 500, 600) e IBM Plex Mono (400, 500), con licencia OFL, servidas desde el
  * mismo origen del portal (sin CDN externo, por la CSP de ADR-0026). Mientras cargan se usan las
@@ -87,8 +88,9 @@
   color-scheme: light;
 }
 
-/* Tema oscuro: explícito o según el sistema operativo */
-:root[data-theme="dark"] {
+/* Tema oscuro: el de wasichai, el de SGSPE (sgspe-noche) o, sin data-theme, según el sistema operativo */
+:root[data-theme="dark"],
+:root[data-theme="sgspe-noche"] {
   --sg-bg: #111614;
   --sg-surface: #171d1a;
   --sg-surface-sunken: #0d110f;
@@ -130,7 +132,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {
     --sg-bg: #111614;
     --sg-surface: #171d1a;
     --sg-surface-sunken: #0d110f;

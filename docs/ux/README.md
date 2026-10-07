@@ -21,14 +21,16 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 | E2 | Project 360 y territorio (GIS), grupos de interés, relacionamiento, compromisos y acuerdos | Lienzo de la etapa 2, páginas 05 a 10 (28 hojas) | [`screens.md`](screens.md) (S06–S26, S28–S33), [`flows.md`](flows.md) (flujos 1–11, 16 y 17) | Entregada, en revisión |
 | E3 · parte 3a | QCS, riesgos y alerta temprana, programas e inversión, documentos, tareas y aprobaciones | Lienzo de la etapa 3, páginas 11 a 15 (18 hojas) | [`screens.md`](screens.md) (S35–S48 y la ficha de incidente), [`flows.md`](flows.md) (flujos 12–15) | Entregada, en revisión |
 | E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S38, S49–S55 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
+| Decisiones Q1, Q3, Q6 y Q7, y temas | Marca propia, idiomas, vistas compartidas, mapa base y tres temas | Lienzo de la etapa 3, páginas 22 a 25 (11 hojas) | [`design-system.md`](design-system.md) §2.1, §5, §6.4 y §9.1; [`screens.md`](screens.md) (S01, S12, S16, S28, S35 y S56); [`../gis.md`](../gis.md) §6.4; [`themes.css`](themes.css) y `design-system.md` §3.9; ASM-082 a ASM-086 | Entregada, en revisión |
 
 ## Cómo leer
 
 1. [`ux-architecture.md`](ux-architecture.md): visión, principios, decisiones heredadas de la Fase 0, roles, arquitectura de
-   información, rutas, navegación, el hilo de contexto y el inventario de 55 pantallas.
+   información, rutas, navegación, el hilo de contexto y el inventario de 56 pantallas.
 2. [`design-system.md`](design-system.md): tokens, sistema de estados, componentes, patrones núcleo, accesibilidad, responsive y
    guía de implementación.
-3. [`tokens.css`](tokens.css): los tokens listos para Tailwind 4, como capa sobre `@wasichai/ui/theme.css`.
+3. [`tokens.css`](tokens.css): los tokens listos para Tailwind 4, como capa sobre `@wasichai/ui/theme.css`, y
+   [`themes.css`](themes.css): los temas Pino y piedra, Cielo y Pino de noche con los 28 tokens de wasichai.
 4. [`screens.md`](screens.md): la ficha de handoff de cada pantalla (ruta, roles, acciones, datos y API, estados, permisos,
    responsive, navegación y árbol de componentes React).
 5. [`flows.md`](flows.md): los flujos núcleo paso a paso, con la pantalla, la transición o el endpoint y la regla de cada paso.
@@ -72,12 +74,16 @@ etapa 1.
 | 19 Campo sin conexión | Mis tareas y visita (S54) · Interacción, observación y foto (S55) · Estado de conexión y cola · Sincronización y conflictos |
 | 20 Flujos y handoff | Flujo 18 (preguntar a la IA) · Flujo de campo (sincronización) · Mapa de rutas y árbol de módulos del frontend |
 | 21 Shell responsive | Shell en tableta (panel de navegación) · Shell en teléfono (barra inferior por rol, «Más» y pantallas de escritorio) |
+| 22 Marca SGSPE | Tres direcciones (elegida: C, «Sendero») · Sistema de marca: logotipo, área de respeto, versiones, tamaños mínimos, paleta, tipografía, usos incorrectos, voz y tono · Aplicaciones: barra superior, favicon, login, correo, portada de entregable y teléfono |
+| 23 Idiomas | Misma pantalla en español, inglés y quechua, interactiva · Selector de idioma y reglas (textos que se alargan, traducción faltante, claves de ENUM) |
+| 24 Vistas compartidas y mapa base | Guardar y compartir una vista, interactiva (S56) · Gestionar vistas (S56) · Mapa base por entorno (S12) |
+| 25 Temas | Tres temas de SGSPE · Probador con la misma pantalla en cada tema y los de wasichai, interactiva · Selector e implementación |
 
 ## Convenciones
 
 - Español para documentos, etiquetas y valores de ENUM; nombres técnicos, rutas y componentes en inglés (ADR-0009).
 - Los IDs (RF, RNF, RN, RQ, CON, GAP, ASM, UPS) se definen solo en el [análisis](../requirements-analysis.md); los supuestos de
-  esta carpeta son ASM-073 a ASM-081. Los identificadores de pantalla `S01` a `S55` se definen en el inventario de
+  esta carpeta son ASM-073 a ASM-086. Los identificadores de pantalla `S01` a `S56` se definen en el inventario de
   `ux-architecture.md` §9.
 - Los datos de ejemplo del lienzo son ficticios: proyectos, comunidades, caseríos y personas inventados. En estos documentos
   las personas se nombran por su cargo [USR-07].

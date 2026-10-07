@@ -4,7 +4,8 @@ Fichas de implementación de las pantallas del portal (`sgspe-ui`). Cubren el in
 [`ux-architecture.md`](ux-architecture.md) §9: la **etapa 2** (proyectos y Project 360, territorio, grupos de interés,
 relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33), la **parte 3a** (quejas, consultas y solicitudes; riesgos y
 alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a S48 y la ficha de incidente) y la **parte 3b**
-(tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27, S34, S38, S49 a S55). La búsqueda
+(tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27, S34, S38, S49 a S55), y S56
+(gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7). La búsqueda
 global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
 
 - **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>; **lienzo de la etapa 3:**
@@ -249,6 +250,10 @@ ProjectSettingsPage
   `GET /api/sgspe/territory/concentration?of=grievance` (F6). En F2, la selección abre directamente S13 o S14.
 - **Estados:** sin selección, el panel invita a elegir un lugar; una cifra sin permiso dice "no disponible".
 - **Permisos:** la barra de posturas solo para SMG y SHM; los grupos de interés siempre agregados (LYR-17).
+- **Mapa base (ASM-085):** MapLibre GL y `@wasichai/gis` como srtm-ui; terra-draw para dibujar. En desarrollo, teselas
+  ráster de OpenStreetMap con su atribución; en producción, el estilo configurado, y sin él solo las capas del proyecto con
+  el aviso «Sin mapa base». El selector de fondo va en el panel de capas («Sin fondo» siempre disponible) y la atribución
+  (`MapAttribution`) siempre visible. Hoja `Mapa-Base` del lienzo de la etapa 3, página 24.
 - **Responsive:** en teléfono la ficha contextual es una hoja inferior que se expande.
 - **Relacionadas y navegación:** "Filtrar el proyecto por este lugar" lleva a S16 o S08 con `?territory=`; el rastro anota
   "Mapa territorial".
@@ -369,7 +374,7 @@ GeoImportWizard
 - **Acciones:** primaria "Nuevo grupo de interés"; secundarias "Ver como matriz" (S19), "Exportar"; masivas "Reasignar
   responsable", "Registrar una interacción con ellos" (abre S24 con los seleccionados) y "Exportar".
 - **Disposición y componentes:** `SavedViews` (del sistema: "Prioridad MUY ALTA y ALTA", "Míos", "Sin evaluar", "Sin contacto
-  en N días", "Todos"; personales, ASM-079); `FilterBar` (grupo de influencia, postura, ámbito, estado de la relación,
+  en N días", "Todos"; compartidas y mías, ASM-083); `FilterBar` (grupo de influencia, postura, ámbito, estado de la relación,
   responsable, tipo); `BulkActionBar`; `DataTable` con grupo de interés (actor y tipo), territorio, grupo de influencia (marca
   "ajustado" si `group_overridden`), postura, prioridad, estado (WF-B), relación, responsable, evaluación y último contacto.
 - **Datos y API:** genérica `GET /api/objects/stakeholder/records?project=` con los valores vigentes derivados; la vista
@@ -655,8 +660,8 @@ FieldVisitPage
 - **Acciones:** primaria "Nuevo compromiso"; masivas "Reasignar responsable", "Asignar verificador", "Cambiar prioridad" y
   "Exportar" (no hay cambio masivo de fecha, RF-COM-003). En Candidatos: "Aceptar y crear borrador", "Es duplicado de…",
   "Rechazar".
-- **Disposición y componentes:** patrón de lista (`design-system.md` §6.4) con agrupación Vencidos, Por vencer, Bloqueados;
-  la vista Candidatos lista los propuestos con su procedencia (humano o IA con confianza) y los decididos; panel de revisión
+- **Disposición y componentes:** patrón de lista (`design-system.md` §6.4, con vistas compartidas y mías, ASM-083) con
+  agrupación Vencidos, Por vencer, Bloqueados; la vista Candidatos lista los propuestos con su procedencia (humano o IA con confianza) y los decididos; panel de revisión
   con la cita, campos corregibles y las tres salidas.
 - **Datos y API:** genérica `GET /api/objects/commitment/records?project=`; candidatos con
   `GET /api/objects/commitment_candidate/records?project=&state=proposed`; `POST /api/sgspe/commitment-candidates/{id}/accept`
@@ -833,7 +838,8 @@ atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
   exportan SMG, GVM y ANL (`EXPORT`).
 - **Acciones:** primaria "Registrar QCS" (S37); secundarias "Reporte unificado" y abrir una QCS.
 - **Disposición y componentes:** cuatro indicadores (abiertas por tipo, vencidas, por vencer en 7 días, absueltas en 90 días);
-  vistas guardadas (Atención, Quejas, Consultas, Solicitudes, Mis QCS, Todas); filtros de canal, categoría, severidad y
+  vistas guardadas (del sistema: Atención, Quejas, Consultas, Solicitudes, Mis QCS, Todas; compartidas y mías, ASM-083,
+  hoja `Vistas-Compartidas`); filtros de canal, categoría, severidad y
   responsable; tabla agrupada por situación de plazo (VENCIDAS, POR VENCER, AL DÍA O SIN PLAZO) con tipo, canal, categoría,
   severidad, lugar, estado, plazo que corre y responsable.
 - **Datos y API:** genérica sobre los tres objetos con el filtro de territorio; `GET /api/sgspe/attention/report` para el
@@ -1518,13 +1524,15 @@ Lienzo de la etapa 3, página 18.
 - **Ruta y lienzo:** `/login` · hoja `Ini-Login` · F1.
 - **Propósito:** ingresar con correo y contraseña al portal y a `/admin` con un mismo ingreso.
 - **Roles:** todos.
-- **Acciones:** "Ingresar"; cambiar idioma.
+- **Acciones:** "Ingresar"; cambiar idioma (Español · English · Runasimi; ASM-084).
 - **Disposición y componentes:** columna de presentación y formulario; estados de error.
 - **Datos y API:** `POST /api/auth/login` → token en `sgspe.token` (`architecture.md` §9.1); `GET /api/auth/me` y
   `/api/auth/me/permissions` para la navegación.
 - **Estados:** credenciales incorrectas (sin decir cuál falló); demasiados intentos (`429` del proxy, RQ-SEC-015); sesión
   vencida (un `401` vuelve aquí y, al ingresar, a la ruta donde estaba).
 - **Permisos:** sin recuperación de contraseña propia: la restablece la administración en `/admin`.
+- **Idioma:** antes de ingresar sale del navegador y se cambia con los enlaces; al ingresar manda la preferencia de la cuenta.
+  Lienzo de la etapa 3, página 23.
 - **Responsive:** en teléfono, solo el formulario.
 - **Relacionadas y navegación:** S02.
 
@@ -1640,6 +1648,35 @@ DeliverablePage
 AdminLandingPage
 ├── PortalAdminLinks · ConsoleAdminLinks
 └── AdminCautions
+```
+
+### S56 · Gestionar vistas
+
+- **Ruta y lienzo:** diálogo «Guardar esta vista…» en cada lista y `/views?object=` para gestionar · hojas
+  `Vistas-Compartidas` (interactiva) y `Vistas-Gestionar` del lienzo de la etapa 3, página 24 · F2.
+- **Propósito:** guardar una combinación de filtros, columnas y orden y compartirla con el equipo del proyecto o la
+  organización (ASM-083).
+- **Roles:** todos guardan vistas para sí y las comparten con el equipo de sus proyectos; compartir con la organización solo
+  la gerencia social y la administración (con permiso, nunca con literales de rol).
+- **Acciones:** en el diálogo, "Guardar" con nombre y visibilidad (solo yo, equipo del proyecto, organización). En la gestión,
+  sobre las propias: "Renombrar", "Cambiar visibilidad", "Copiar enlace", "Borrar…"; sobre las ajenas: "Guardar una copia",
+  "Ocultar de mis pestañas".
+- **Disposición y componentes:** `SavedViewDialog`; tabla con vista (y su resumen de filtros), visibilidad, quién la creó, uso
+  y acciones; reglas al pie.
+- **Datos y API:** requiere el objeto o tabla fija `saved_view` (propietario, objeto, alcance, proyecto, definición en JSON,
+  ocultas por persona), que define la sesión de implementación; la definición guarda filtros, columnas y orden, nunca datos.
+- **Estados:** sin vistas propias, invita a guardar la primera desde una lista; una vista compartida cuyo proyecto ya no está
+  asignado deja de aparecer; un enlace a una vista sin acceso muestra «sin permiso».
+- **Permisos:** solo quien creó la vista la cambia o la borra; borrar una que otros usan avisa y pide confirmación. Los
+  registros que muestra dependen del rol de quien la abre.
+- **Responsive:** en teléfono las vistas son un selector y la gestión es de solo lectura, salvo ocultar.
+- **Relacionadas y navegación:** S16, S28, S35 y toda lista con el patrón de `design-system.md` §6.4.
+
+```text
+SavedViewDialog (NameField · VisibilityFieldset)
+ManageViewsPage
+├── SavedViewsTable (VisibilityChip · OwnerCell · RowActions)
+└── SavedViewRules
 ```
 
 ## 15. Campo sin conexión
