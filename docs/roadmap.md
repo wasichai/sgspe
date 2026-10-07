@@ -599,4 +599,13 @@ Cerrada el 2026-10-07 (Tarea 7, paso 13 del prompt).
 
 ## Respuestas del checkpoint
 
-La Tarea 8 registra aquí, y en `docs/HISTORY.md`, las respuestas del usuario a las decisiones pendientes antes de abrir F1.
+Respondido el 2026-10-07. F1 queda autorizada.
+
+| Decisión | Respuesta |
+|---|---|
+| Documentos de la Fase 0, push y PR | Aprobados; push de la rama y PR hacia `main` |
+| Issues upstream | Abrir los 18 (UPS-01 a UPS-18) |
+| BD de desarrollo en el VPS | Prepararla (T0.3); la integración corre también en CI |
+| Spike de entregables y GetMap | Hacerlo al inicio de F1 |
+| `PACKAGES_TOKEN` | Lo carga el usuario en Actions y Dependabot de `sgspe-ui` (T0.4) |
+| Valores por defecto | Aceptados todos, cada uno reversible como dice su ASM o su decisión: <ul><li>alcance A;</li><li>ENUM en español;</li><li>AI-05 solo para `ANALYST`;</li><li>plazos desde la primera recepción (ASM-072);</li><li>nivel 2 de escalamiento con `approve_senior` de WF-D;</li><li>releases (ASM-044);</li><li>los valores por defecto de GAP-001 a GAP-009 y de las demás filas de la tabla anterior</li></ul> |

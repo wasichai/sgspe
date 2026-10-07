@@ -59,3 +59,9 @@ La Fase 0 entrega el diseño completo de SGSPE, sin código, sobre wasichai 0.3.
   - no aparezca ningún nombre real de las fuentes;
   - no se versione ningún insumo transitorio.
 - La Fase 1 empieza solo después del checkpoint con el usuario.
+
+### Checkpoint
+
+El 2026-10-07 el usuario aprobó los documentos y autorizó F1, con todos los valores por defecto del diseño. También pidió
+abrir los 18 issues upstream, preparar la BD de desarrollo en el VPS y hacer el spike de entregables y GetMap. Las respuestas
+están en [`roadmap.md`](roadmap.md) ("Respuestas del checkpoint").
