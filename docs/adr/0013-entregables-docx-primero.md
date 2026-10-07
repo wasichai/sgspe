@@ -97,6 +97,19 @@ DOCX primero (ASM-014), en el paquete propio `sgspe.deliverable` ([deliverables.
 - Abiertos: GAP-009 (marca y tenant), GAP-010 (plantillas corporativas), GAP-022 (despliegue).
 - Pruebas: los criterios de aceptación y las pruebas de [deliverables.md §13](../deliverables.md) (lectura del DOCX con
   POI, PDF con PDFBox, guardas de WF-H) y `DeliverableWorkflowApiTest` ([workflows.md](../workflows.md)).
+- **Resultado del spike de F1 (2026-10-07).** POI 5.4.1 genera el DOCX y Gotenberg (`gotenberg/gotenberg:8-libreoffice`)
+  lo convierte: E1 índice PASS (el índice de la página 2 dice 3, 5 y 7, las páginas reales de los tres capítulos;
+  `updateIndexes` vale `true` por defecto y con `false` queda el texto precalculado del campo TOC); E2 leyendas por
+  capítulo FAIL (LibreOffice 26.8 resuelve `STYLEREF 1 \s` con el texto del título, «Tabla Introducción.1», e ignora el
+  `\s 1` de `SEQ`, que sigue 1 a 6 sin reiniciar por capítulo; sin «Error!»); E2b `PAGEREF` PASS (la frase dice «página
+  5» y la leyenda marcada está en la página 5; con números literales salen «Tabla 1.1» a «Figura 3.1»); E3 paginación
+  PASS («Página N de 8» en las 8 páginas); E4 marca «BORRADOR» PASS (en las 8 páginas); E5 fuentes PASS (subconjuntos
+  incrustados de Carlito, Caladea y LiberationSans, sin sustituciones); E6 PDF/A-2b PASS (`pdfaid:part` 2 y
+  `pdfaid:conformance` B); E7 102 páginas con 40 fotos en 8 s. Hallazgo aparte: `STYLEREF 1 \n` da el número del
+  capítulo y `SEQ Tabla \r 1` en la primera leyenda de cada capítulo reinicia la cuenta; con eso las siete leyendas de E2
+  salen bien en LibreOffice (no se probó en Word). Consecuencia: E2 falla y E2b pasa, así que las leyendas usan la
+  alternativa de [deliverables.md §7.5](../deliverables.md) (número literal, marcador y `PAGEREF`); ADR-0013 no cambia
+  (según la regla de decisión del plan de F1).
 
 ## Referencias
 

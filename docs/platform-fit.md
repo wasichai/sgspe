@@ -450,7 +450,7 @@ de GIS, importación y emisión, sin copiar los rodeos que 0.3.x ya no necesita 
 | Trabajos de generación con candado y retención de borradores (`EmisionMasiva`, `RetencionEmision`) | srtm | Trabajador de borradores de entregables | Sin lotes: un pedido por entregable (ASM-061) | RQ-REP-021, RQ-REP-027 |
 | `Idempotency-Key` de 1 a 64 caracteres; reenvío con la misma clave responde `200` con el resultado de la primera vez | caja (cobros) | Creaciones de `/api/sgspe/**` | La clave se guarda aparte del registro creado, en la tabla fija `idempotency_key`; se honra desde F3 (en F2 la cabecera se ignora), y un reenvío reconstruye su respuesta releyendo los registros ([API §3.5](api.md#35-idempotencia-idempotency-key)) | RNF-INT-002, ASM-065 |
 | Candados por entidad sobre los candados consultivos de PostgreSQL (`Candados`) | caja, srtm | `ClusterLock.withXactLock` para precondiciones y correlativos | — | [WAS-ADR-0039] |
-| Parámetro de consulta desconocido o mal formado como 422 que lo nombra | srtm | Toda la API propia | — | ASM-054 |
+| Parámetro de consulta desconocido como 422 que lo nombra | srtm | Toda la API propia | — | ASM-054 |
 | Permisos comprobados antes de la primera escritura ("403 antes de empezar") | caja | Todos los comandos propios | — | RQ-SEC-004 |
 | Recorrido de organizaciones de un trabajo de fondo (`findAllOrganizations` filtrado por un objeto del modelo) | caja (publicador del buzón) | Trabajos programados de SGSPE | Excepción vigilada a RNF-MNT-005, aislada en `sgspe.common`, hasta que exista la forma soportada que pide UPS-17 | UPS-17 [WAS-ADR-0039] |
 | Importador del ubigeo del INEI | srtm | Catálogo `administrative_unit` | En Python con solo la biblioteca estándar, idempotente | RF-TER-001, ASM-016 |

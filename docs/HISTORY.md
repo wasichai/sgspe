@@ -3,6 +3,76 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-07 — Fase 1: fundación
+
+La Fase 1 deja SGSPE compilando y ejecutable sobre wasichai 0.3.2 y `@wasichai/*` 0.5.0, todavía sin objetos de negocio:
+el arranque de la app, los roles como datos, el contrato con la plataforma, la observabilidad y la CI de los dos
+repositorios. El plan ejecutable está en
+[`superpowers/plans/2026-10-07-fase-1-fundacion.md`](superpowers/plans/2026-10-07-fase-1-fundacion.md).
+
+Estado: las pistas 0, A, B y C están en verde en local y en la CI de los dos PR (wasichai/sgspe#2: build, integración, modelo,
+trazabilidad, formato y commits; wasichai/sgspe-ui#1: web y commits), el 2026-10-07. «Implementado» en la matriz de
+trazabilidad significa que pasa en la CI de su fase. Dependabot de `sgspe` también necesita `PACKAGES_TOKEN`, como secreto de Dependabot del repositorio
+(`docs/develop/README.md`, sección 1); sin él, sus actualizaciones de Gradle no leen GitHub Packages.
+
+### Backend (`sgspe`)
+
+- **App.** `sgspe.SgspeApplication` con `@WasichaiApplication` y los starters core, views, forms y pages; puerto 8094;
+  sondas `/actuator/health/liveness` y `/readiness`; `compose.yml` con `postgis/postgis:18-3.6` en el 5435 del VPS.
+- **Modelo como código.** `model.json` sin objetos; `roles.json` con los 15 roles declarados y su etiqueta en español, y
+  `SUPER_ADMIN` y `ORGANIZATION_ADMIN` mapeados a `ADMIN`; solo `AUDITOR` lee todo el tenant. `apply_roles.py` entiende `"*"`,
+  `u` y `"derived": true`, y deshace `ownRecordsOnly`; `apply.py --workflows` es el segundo pase del aprovisionamiento.
+- **Contrato con la plataforma.** `TenantIsolationApiTest`, `TenantProvisioningApiTest`, `SecurityApiTest`,
+  `RolesApiTest`, `AuditApiTest` y `ErrorContractApiTest`, sobre `SgspeApiTest`, que aprovisiona con los scripts reales.
+- **Observabilidad y producción.** `X-Correlation-Id` antes de la seguridad, también en un 401, y una línea de acceso sin
+  la cadena de consulta; `application-prod.yml` sin semilla, con secreto obligatorio, token de 4 horas y logs ECS, y
+  `ProdGuard`, que con el perfil `prod` impide el arranque, antes de Flyway, si la semilla está encendida, si el secreto es el
+  de desarrollo o si el token dura 8 horas o más.
+- **`sgspe.common`.** La marca `SgspeWrite`, `Records` sobre `RecordService`, la hora de Lima y el 422 de parámetros
+  desconocidos.
+- **Arquitectura y CI.** `ArchitectureTest`; CI con build, integración, modelo, trazabilidad (`tools/check_traceability.py`)
+  y formato.
+
+### Interfaz (`sgspe-ui`)
+
+- Una app Vite con el portal y `/admin` (`WasichaiApp` con views, forms y pages), login compartido en `sgspe.token`,
+  `RequireSession` y `safeNext`; el tema «Pino y piedra» de `docs/ux/tokens.css` en claro y oscuro, sobre el de
+  `@wasichai/ui` y con IBM Plex servida desde el mismo origen, con el script de arranque autorizado por hash en la CSP; el
+  shell y la navegación de `docs/ux/ux-architecture.md` (las 13 secciones con sus rutas y su fase, «Preguntar»
+  deshabilitado hasta F7); español e inglés con números y fechas es-PE; la bienvenida de F1 con el registro del inicio
+  por rol; CI con `PACKAGES_TOKEN` y `boundaries.test`.
+
+### Spike y hallazgos
+
+- El spike de entregables y GetMap dejó su resultado en el «Seguimiento» de ADR-0013 y ADR-0015.
+- wasichai 0.3.2 responde el 401 sin token con `WWW-Authenticate: Bearer` y cuerpo vacío, no con Problem Details;
+  `ErrorContractApiTest` fija ese contrato.
+- wasichai 0.3.2 ignora sin error un atributo que el objeto no tiene; `ErrorContractApiTest` también fija ese contrato.
+- Un token emitido antes de deshabilitar a un usuario sigue valiendo hasta que vence (UPS-09, wasichai#55);
+  `SecurityApiTest` lo fija.
+- Las entradas de permisos de campo no se pueden borrar: un PUT con lista vacía no hace nada y no existe DELETE.
+  `apply_roles.py` las neutraliza con lectura y escritura en verdadero.
+- `apply.py` de caja rechazaba un modelo sin objetos; la copia de SGSPE lo acepta.
+
+### Verificación
+
+- Pista C: aprovisionamiento en orden y prueba de humo con Playwright MCP, con la app arrancada en unos 11 s contra el
+  túnel y PostGIS. El aprovisionamiento es idempotente: `apply.py` sin altas, cambios ni omitidos, `apply_roles.py` con
+  «15 skipped» y `--workflows` en cero.
+- `X-Correlation-Id`: sin cabecera se genera un UUID, `humo-1` se conserva y un valor hostil se reemplaza por un UUID.
+- Como `ADMIN`: login con «Pino y piedra» (fondo rgb 245, 246, 243), IBM Plex cargada y cero peticiones a otro host;
+  Dashboard con la organización «Demo», el rol ADMIN, la tabla «Módulos por fase» de 13 filas, navegación con Dashboard y
+  Administración y «Preguntar» deshabilitado; `/admin/admin/roles` abre sin otro login y muestra las 15 etiquetas en
+  español más ADMIN.
+- Como `AUDITOR`: la navegación muestra solo Dashboard y Administración dice «Solo para administración»;
+  `/admin/admin/audit` carga sin error de permisos pero muestra «Sin resultados», porque el alta de usuarios y de roles no
+  se audita (UPS-02, wasichai#49); por la API, auditoría 200, usuarios 403 y roles 403.
+- CSP en solo informe en desarrollo, con el hash del script; sin violaciones en la consola con la compilación de
+  producción (`vite preview`).
+- Suites: `build` en verde; `integrationTest` con 34 pruebas y 0 fallas; modelo y herramientas de Python en verde;
+  trazabilidad con 298 requisitos; prettier en verde; interfaz con lint y typecheck en verde, 11 archivos con 109 pruebas tras el cierre (107 en la prueba de humo) y
+  `build` en verde.
+
 ## 2026-10-07 — Diseño UX/UI, etapa 2: Project 360, territorio, grupos de interés, relacionamiento y compromisos
 
 Segunda de las tres etapas, en el orden que fijó el usuario (USR-10): los objetos que definen la navegación posterior.

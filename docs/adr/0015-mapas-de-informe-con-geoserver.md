@@ -90,6 +90,18 @@ Los mapas de informe salen de GeoServer con GetMap, estilos SLD y decoraciones, 
 - Abiertos: GAP-011, GAP-022, UPS-13 (mapa base de `MapView`, solo para el portal).
 - Pruebas: GetMap en la suite lenta (el PNG se decodifica y la leyenda no está vacía) y el proxy WMS de
   [gis.md §9](../gis.md); el criterio 7 de [deliverables.md §13.2](../deliverables.md).
+- **Resultado del spike de F1 (2026-10-07).** GeoServer 3.0.1 con capas en línea por `SLD_BODY`: M1 EPSG:32717 PASS,
+  EPSG:32718 PASS, EPSG:32719 PASS (PNG de 1890 × 1417, centro #3366CC, de 0,15 a 1,2 s), siempre que el polígono en
+  línea declare `srsName="http://www.opengis.net/gml/srs/epsg.xml#32717"` (o solo el código): con `EPSG:32717` el lector
+  de elementos en línea de GeoTools falla con `NumberFormatException`; M3 decoraciones (leyenda, escala, norte y fuente)
+  FAIL: norte, fuente y escala numérica (1 : 24997) salen, pero la leyenda queda vacía porque la decoración `legend`
+  busca la capa en el catálogo y una capa en línea no tiene `LayerInfo` (`NullPointerException`, la decoración se omite;
+  con una capa del catálogo la leyenda sí sale, y la opción `layers` de la decoración deja fuera las capas en línea), y
+  la barra `scaleline` con `dpi:300` dibuja «500 m» sobre unos 150 m reales (usa 90,7 dpi salvo que el diseño le pase
+  `dpi`, y entonces queda en una barra de 100 m de 47 px); M4 POST con 300 polígonos PASS por POST XML (`ogc:GetMap`,
+  139 KB, menos de 0,5 s). La grilla UTM la sigue dibujando SGSPE. Consecuencia: M3 falla, así que se anota como
+  pendiente de F6 la alternativa de ASM-038 (otro generador de mapas, o que SGSPE dibuje la leyenda de las capas en
+  línea y la barra de escala como ya dibuja la grilla); ADR-0015 no cambia (según la regla de decisión del plan de F1).
 
 ## Referencias
 

@@ -10,10 +10,10 @@
 el perfil de producción, las pruebas de arquitectura, la CI de los dos repositorios y `sgspe-ui` con portal, `/admin` y
 login compartido.
 
-**Architecture:** El backend vive en la raíz de `/Users/jorge/IdeaProjects/sgspe`, copiado de caja-backend@dc9e391: una
+**Architecture:** El backend vive en la raíz de `~/IdeaProjects/sgspe`, copiado de caja-backend@dc9e391: una
 app Spring Boot WebFlux armada solo con starters de wasichai (core, `-views`, `-forms`, `-pages`), más dos paquetes propios
 (`sgspe.observability` y la base de `sgspe.common`) y `model/` con los scripts de Python que aprovisionan un tenant en el
-orden `apply.py` → `apply_roles.py` → `apply.py --workflows`. La interfaz vive en `/Users/jorge/IdeaProjects/sgspe-ui`,
+orden `apply.py` → `apply_roles.py` → `apply.py --workflows`. La interfaz vive en `~/IdeaProjects/sgspe-ui`,
 copiada de caja-ui@a45b224: una sola app Vite cuyo `src/main.tsx` elige entre el portal (`/`) y `WasichaiApp` (`/admin`),
 con el mismo cliente, el mismo `storagePrefix` `sgspe` y por tanto el mismo token `sgspe.token`. Sin endpoints propios en
 F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
@@ -26,11 +26,14 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 «Cambios respecto del plan aprobado» y «Respuestas del checkpoint». Donde el plan aprobado
 (`docs/superpowers/plans/2026-10-06-sgspe-fase-0-y-1.md`, «Fase 1») difiere, gana el roadmap. Además:
 `docs/security.md` §3.2, §4.1, §6, §13 y §14; `docs/architecture.md` §5, §9, §11, §12 y §13; `docs/platform-fit.md` §5 y §6;
-`docs/api.md` §2, §3.3 y §3.8; ADR-0007, ADR-0010, ADR-0013, ADR-0015, ADR-0020, ADR-0024 y ADR-0026.
+`docs/api.md` §2, §3.3 y §3.8; ADR-0007, ADR-0010, ADR-0013, ADR-0015, ADR-0020, ADR-0024 y ADR-0026. La pista B
+(interfaz) sigue además el diseño UX/UI de `docs/ux/` (`ux-architecture.md` §5 a §7, `design-system.md` §2, §3, §6.5 y §9,
+`tokens.css`) y los supuestos ASM-073 a ASM-079: es la decisión más reciente del usuario (USR-10) y, donde difiere de
+`architecture.md` §9.2, gana `docs/ux/`.
 
 ## Global Constraints
 
-- **Repositorios.** Backend y documentos en `/Users/jorge/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion` creada desde `fase-0/descubrimiento`. Interfaz en `/Users/jorge/IdeaProjects/sgspe-ui`: primero `chore: commit inicial` (vacío) en `main`, después todo el trabajo en `feat/fase-1-fundacion` creada desde ese `main`.
+- **Repositorios.** Backend y documentos en `~/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion` creada desde `fase-0/descubrimiento`. Interfaz en `~/IdeaProjects/sgspe-ui`: primero `chore: commit inicial` (vacío) en `main`, después todo el trabajo en `feat/fase-1-fundacion` creada desde ese `main`.
 - **Plantillas.** caja-backend en el commit `dc9e391` y caja-ui en el commit `a45b224`. «Copiar de caja» significa `cp` desde esas rutas y luego exactamente las ediciones que lista el paso.
 - **Versiones del backend.** `wasichai-bom` 0.3.2; starters `wasichai-spring-boot-starter`, `-views`, `-forms` y `-pages`; `wasichai-test` en pruebas; Kotlin 2.4.20; Spring Boot 4.1.1; plugin `org.jlleitschuh.gradle.ktlint` 14.2.0 con ktlint 1.7.1; JDK 25 (toolchain); Gradle 9.8.0 (wrapper de caja).
 - **Versiones de la interfaz.** `@wasichai/core`, `ui`, `views`, `forms`, `pages` y `testing` en 0.5.0; React y React DOM 19.3.0; React Router 8.4.0; TanStack Query 5.104.0; i18next 26.4.2; react-i18next 17.0.15; Vite 8.3.1; Vitest 5.0.2; TypeScript 7.0.2; Tailwind CSS 4.3.3; Node 26 o superior; Yarn 1 (`yarn.lock` v1).
@@ -41,7 +44,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 - **Alias del VPS.** `$SGSPE_VPS` es el alias SSH del VPS (el mismo host del reenvío de `/tmp/docker.sock`); lo exporta el usuario en su shell. Los pasos que abren túneles los ejecuta el usuario.
 - **Pruebas de integración.** Corren en la CI (Testcontainers) y, en local, contra la base externa `sgspe_test` por el túnel, con las cinco variables `WASICHAI_TEST_DB_HOST=localhost`, `WASICHAI_TEST_DB_PORT=5435`, `WASICHAI_TEST_DB_NAME=sgspe_test`, `WASICHAI_TEST_DB_USERNAME=sgspe` y `WASICHAI_TEST_DB_PASSWORD=sgspe` (el nombre termina en `_test`; la suite la vacía una vez por JVM) y `--rerun`.
 - **Sin túnel.** Si el túnel al 5435 no está disponible, las pruebas de integración pueden correr contra un clúster desechable de PostgreSQL 18 local (Homebrew `postgresql@18`, como la opción 3 de §6 en `docs/develop/README.md` de caja-backend): F1 no usa PostGIS. La CI sigue siendo la referencia.
-- **Gradle.** Siempre `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …` desde `/Users/jorge/IdeaProjects/sgspe`. El token nunca se escribe en un archivo, ni en `develop/.env`.
+- **Gradle.** Siempre `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …` desde `~/IdeaProjects/sgspe`. El token nunca se escribe en un archivo, ni en `develop/.env`.
 - **npm.** El `.npmrc` del proyecto es solo la línea `@wasichai:registry=https://npm.pkg.github.com`, copiada de caja-ui. La autenticación vive en `~/.npmrc` (ya tiene la línea de `npm.pkg.github.com`); los comandos de instalación se corren como `NODE_AUTH_TOKEN=$(gh auth token) yarn install`.
 - **CI de la interfaz.** El secreto `PACKAGES_TOKEN` (PAT con `read:packages`) lo carga el usuario en Actions y en Dependabot de `wasichai/sgspe-ui`.
 - **Commits.** Conventional Commits con asunto en español, líneas del cuerpo de 100 columnas como máximo (commitlint), y al final, tras una línea en blanco, estas dos líneas exactas: `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>` y `Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U`.
@@ -61,6 +64,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 3. **Roles editados a mano en `/admin`.** Si alguien activa `ownRecordsOnly`, agrega un permiso o cambia una etiqueta, volver a correr `apply_roles.py` deja el rol como dice `roles.json`, y la corrida siguiente no escribe nada («15 skipped»). Prueba: `test_apply_roles.py` (Tarea 6).
 4. **Sesión vencida a mitad de uso.** Un `401` en cualquier llamada del portal borra `sgspe.token` y vuelve al login, que después regresa a la ruta interna donde estaba. Prueba: `src/portal/auth/RequireSession.test.tsx` (Tarea 14).
 5. **Segundo tenant.** Un tenant aprovisionado después recibe el modelo y los 15 roles en el orden fijo, sin errores y de forma idempotente, y no ve nada del primero. Pruebas: `TenantProvisioningApiTest` y `TenantIsolationApiTest` (Tarea 7).
+6. **Tema a medias o fuentes de otro host.** Un token de `@wasichai/ui` que no sale de un token de «Pino y piedra» deja una primitiva (o `/admin`) con la paleta de wasichai, y uno que el tema oscuro no cambia queda ilegible en oscuro; una fuente o un `@import` desde un CDN rompe la CSP (`font-src 'self'`). Pruebas: el bloque «Pino y piedra» de `src/themes.test.ts` (Tarea 15) y la comprobación de red de la prueba de humo (Tarea 20).
 
 ## Decisiones de este plan frente a las plantillas
 
@@ -76,12 +80,15 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 | 8 | `safeNext` de caja-ui acepta `/\otro.example` | El de SGSPE lo rechaza, con los caracteres de control (Tarea 14) |
 | 9 | caja prueba contra `postgres:18` | SGSPE fija `postgis/postgis:18-3.6` en `integrationTest` y en la CI (Tareas 3 y 11) |
 | 10 | En wasichai 0.3.2 un atributo que el objeto no tiene se ignora al crear un registro (`201`, sin guardarlo); `api.md` §3.3 y la documentación de wasichai hablan de `400` por «campo desconocido» | `ErrorContractApiTest` prueba el `400` con un valor inválido y fija aparte que el atributo desconocido se ignora; el código de SGSPE manda solo campos del modelo (Tarea 7) |
+| 11 | Pista B sigue docs/ux (USR-10, ASM-073..079) donde difiere de architecture.md §9.2 | Rutas de `ux-architecture.md` §6.2 (`/engagements` y `/programs`, no `/engagement` ni `/social-programs`), shell de §7.1 con «Preguntar» deshabilitado en la barra superior y no como sección (ASM-073), tema «Pino y piedra» (ASM-077) e inicio por rol decidido por permisos (ASM-078 con RQ-SEC-005) (Tareas 15, 16 y 18) |
+| 12 | `docs/ux/tokens.css` deja para F1 la correspondencia con los tokens de `@wasichai/ui` 0.5.0 y su selector oscuro (pregunta Q2 de `ux-architecture.md`). `@wasichai/ui/theme.css` declara `surface`, `ink`, `brand`, `shell` y demás en `:root` y `[data-theme]`, y core pone `data-theme` en `<html>` | `src/theme/tokens.css` es copia exacta de `docs/ux/tokens.css` (su `:root[data-theme="dark"]` coincide con el selector de core) y `src/theme/wasichai.css` lee cada token de color de wasichai de un `--sg-*`, salvo `--overlay` y `--map-selected`; `/admin` también toma la paleta (Tarea 15) |
+| 13 | `tailwind-merge`, dentro de `cn()` de `@wasichai/ui`, lee `text-sg-body` como un color y lo descarta junto a `text-sg-text-*` | En las clases que pasan por `cn()` el cuerpo de 14/20 se escribe `text-sm` (mismo tamaño); fuera de `cn()`, los tamaños `text-sg-*` (Tareas 16 y 18) |
 
 ---
 
 ## Mapa de archivos
 
-### `/Users/jorge/IdeaProjects/sgspe` (backend en la raíz)
+### `~/IdeaProjects/sgspe` (backend en la raíz)
 
 | Ruta | Responsabilidad | Tarea |
 |---|---|---|
@@ -108,7 +115,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 | `docs/adr/0013-entregables-docx-primero.md`, `docs/adr/0015-mapas-de-informe-con-geoserver.md` | Resultado del spike en «Seguimiento» | 2 |
 | `README.md`, `CLAUDE.md`, `docs/README.md`, `docs/HISTORY.md`, `docs/requirements-traceability.md`, `docs/roadmap.md` | Cierre documental de F1 | 21 |
 
-### `/Users/jorge/IdeaProjects/sgspe-ui`
+### `~/IdeaProjects/sgspe-ui`
 
 | Ruta | Responsabilidad | Tarea |
 |---|---|---|
@@ -119,9 +126,11 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 | `src/portal/auth/LoginPage.tsx`, `src/portal/auth/RequireSession.tsx`, `src/portal/auth/RequireSession.test.tsx`, `src/portal/login.test.tsx` | Login compartido, sesión y `safeNext` | 14 |
 | `src/portal/shell/AppShell.tsx`, `src/portal/pages/InicioPage.tsx`, `src/test/portal.ts` | Marco del portal, inicio y ayudas de prueba | 14, 16, 18 |
 | `csp.ts`, `src/csp.test.ts`, `src/themes.test.ts`, `src/portal/shell/ThemeMenu.tsx`, `src/portal/shell/ThemeMenu.test.tsx` | Temas claro y oscuro, script de arranque y CSP | 15 |
-| `src/portal/shell/navTree.ts`, `src/portal/pantallas.ts`, `src/portal/shell/GuardaDeSeccion.tsx`, `src/portal/shell/Navigation.test.tsx` | Árbol de navegación de las 13 secciones | 16 |
+| `src/theme/tokens.css` (copia de `docs/ux/tokens.css`), `src/theme/wasichai.css`, `.prettierignore` | Tema «Pino y piedra» (ASM-077) sobre `@wasichai/ui/theme.css`, con IBM Plex servida desde el mismo origen | 15 |
+| `src/portal/shell/navTree.ts`, `src/portal/pantallas.ts`, `src/portal/shell/GuardaDeSeccion.tsx`, `src/portal/shell/Navigation.test.tsx` | Navegación principal de `docs/ux/ux-architecture.md` §6.2 y §7 | 16 |
+| `src/portal/shell/context.ts` | Gancho del contexto global, de proyecto y de territorio en la URL (ASM-075, ASM-076) | 16 |
 | `src/portal/textos/en.ts`, `src/portal/shell/LanguageMenu.tsx`, `src/portal/I18n.test.tsx` | Inglés, números y fechas es-PE | 17 |
-| `src/portal/queries.ts`, `src/portal/pages/Inicio.test.tsx` | Dashboard de F1 | 18 |
+| `src/portal/queries.ts`, `src/portal/inicios.ts`, `src/portal/pages/Inicio.test.tsx` | Inicio de F1 (S02) e inicio por rol (ASM-078) | 18 |
 | `.github/workflows/ci.yml`, `.github/workflows/commits.yml`, `.github/dependabot.yml`, `src/boundaries.test.ts` | CI y fronteras | 19 |
 | `README.md`, `CLAUDE.md`, `HISTORY.md` | Cierre documental | 21 |
 
@@ -129,7 +138,7 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 
 | Ruta | Responsabilidad | Tarea |
 |---|---|---|
-| `/Users/jorge/IdeaProjects/sgspe-spike/` | Spike desechable de POI, Gotenberg y GetMap; nunca es un repositorio y se borra al terminar | 2 |
+| `~/IdeaProjects/sgspe-spike/` | Spike desechable de POI, Gotenberg y GetMap; nunca es un repositorio y se borra al terminar | 2 |
 
 ## Orden y paralelismo
 
@@ -143,9 +152,9 @@ F1: la API genérica de wasichai más el filtro `X-Correlation-Id`.
 | Cierre | 21 | Coordinador | Tarea 20; Tarea 2 para los ADR |
 
 Las pistas A y B corren en paralelo, un implementador por repositorio: cada repositorio es ya un árbol de trabajo
-aislado, así que cada implementador trabaja directamente en `/Users/jorge/IdeaProjects/sgspe` o en
-`/Users/jorge/IdeaProjects/sgspe-ui` (las rutas absolutas del plan), y el coordinador no toca esos directorios mientras
-corre su pista. La Tarea 2 toca solo `/Users/jorge/IdeaProjects/sgspe-spike` y, al final, dos ADR de `sgspe`, que se
+aislado, así que cada implementador trabaja directamente en `~/IdeaProjects/sgspe` o en
+`~/IdeaProjects/sgspe-ui` (las rutas absolutas del plan), y el coordinador no toca esos directorios mientras
+corre su pista. La Tarea 2 toca solo `~/IdeaProjects/sgspe-spike` y, al final, dos ADR de `sgspe`, que se
 commitean entre dos tareas de la pista A, nunca con una tarea a medias.
 
 ---
@@ -155,8 +164,8 @@ commitean entre dos tareas de la pista A, nunca con una tarea a medias.
 **Pista:** 0. **Responsable:** coordinador; los pasos marcados **[USUARIO]** los hace o los aprueba el usuario.
 
 **Files:**
-- Create (sin commit todavía; se versiona en la Tarea 4): `/Users/jorge/IdeaProjects/sgspe/compose.yml`
-- Modify (local, no versionado): `/Users/jorge/IdeaProjects/sgspe/.git/info/exclude` (solo comprobar)
+- Create (sin commit todavía; se versiona en la Tarea 4): `~/IdeaProjects/sgspe/compose.yml`
+- Modify (local, no versionado): `~/IdeaProjects/sgspe/.git/info/exclude` (solo comprobar)
 
 **Interfaces:**
 - Consumes: el checkpoint aprobado (`docs/roadmap.md`, «Respuestas del checkpoint»).
@@ -166,7 +175,7 @@ commitean entre dos tareas de la pista A, nunca con una tarea a medias.
 - [ ] **Paso 1 (T0.1): exclusiones y rama en `sgspe`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 grep -cE '^/(initial-promp\.md|arch-concept\.md|arch-flow\.md|arch-init\.md|tech-landing\.txt)$' .git/info/exclude
 git status --short
 git switch fase-0/descubrimiento
@@ -178,7 +187,7 @@ Esperado: `5`; `git status --short` vacío; `Switched to a new branch 'feat/fase
 - [ ] **Paso 2 (T0.1): commit inicial y rama en `sgspe-ui`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git status --short
 git commit --allow-empty -F - <<'EOF'
 chore: commit inicial
@@ -197,7 +206,7 @@ Esperado: `git status --short` vacío (el repositorio no tiene archivos); el log
 El PR de la Tarea 21 necesita que `main` exista en el remoto. Con la aprobación del usuario:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git push -u origin main
 git switch -c feat/fase-1-fundacion
 ```
@@ -227,7 +236,7 @@ Esperado: una versión del servidor y `puertos-libres`. Si `docker info` falla c
 
 - [ ] **Paso 6 (T0.3): escribir `compose.yml`**
 
-Crear `/Users/jorge/IdeaProjects/sgspe/compose.yml` (adaptado de caja-backend@dc9e391 `compose.yml`: imagen PostGIS,
+Crear `~/IdeaProjects/sgspe/compose.yml` (adaptado de caja-backend@dc9e391 `compose.yml`: imagen PostGIS,
 nombre `sgspe`, puerto 5435):
 
 ```yaml
@@ -264,7 +273,7 @@ volumes:
 - [ ] **Paso 7 (T0.3): levantar PostGIS en el VPS**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 docker compose config -q && echo compose-ok
 docker compose up -d
 docker compose ps --format '{{.Name}} {{.Status}}'
@@ -285,7 +294,7 @@ Esperado: `tunel-ok`.
 - [ ] **Paso 9 (T0.3): base de pruebas `sgspe_test`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 docker compose exec postgis createdb -U sgspe sgspe_test
 docker compose exec postgis psql -U sgspe -d sgspe_test -tAc 'select 1'
 ```
@@ -310,7 +319,7 @@ Esperado: las dos listas muestran `PACKAGES_TOKEN`.
 `compose.yml` queda sin versionar hasta la Tarea 4. Comprobar que no se agregó nada:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe && git status --short
+cd ~/IdeaProjects/sgspe && git status --short
 ```
 
 Esperado: `?? compose.yml` y nada más.
@@ -319,15 +328,15 @@ Esperado: `?? compose.yml` y nada más.
 
 ### Tarea 2: Spike de entregables (POI y Gotenberg) y de GetMap
 
-**Pista:** spike, en paralelo con A y B. **Lugar:** `/Users/jorge/IdeaProjects/sgspe-spike`, fuera de los dos
+**Pista:** spike, en paralelo con A y B. **Lugar:** `~/IdeaProjects/sgspe-spike`, fuera de los dos
 repositorios; nunca se hace `git init` ahí y se borra al terminar. Lo único que se versiona es la nota de hallazgos en
 ADR-0013 y ADR-0015.
 
 **Files:**
-- Create (desechables): `/Users/jorge/IdeaProjects/sgspe-spike/settings.gradle.kts`, `build.gradle.kts`, `gradlew`,
+- Create (desechables): `~/IdeaProjects/sgspe-spike/settings.gradle.kts`, `build.gradle.kts`, `gradlew`,
   `gradlew.bat`, `gradle/wrapper/*`, `compose.yml`, `layouts/sgspe.xml`, `src/main/kotlin/Spike.kt`
-- Modify: `/Users/jorge/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md` (sección «### Seguimiento»)
-- Modify: `/Users/jorge/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md` (sección «### Seguimiento»)
+- Modify: `~/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md` (sección «### Seguimiento»)
+- Modify: `~/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md` (sección «### Seguimiento»)
 
 **Interfaces:**
 - Consumes: Docker remoto y túneles de la Tarea 1.
@@ -362,17 +371,17 @@ Regla de decisión, que se escribe en los ADR:
 - [ ] **Paso 1: crear el proyecto desechable**
 
 ```bash
-mkdir -p /Users/jorge/IdeaProjects/sgspe-spike/gradle /Users/jorge/IdeaProjects/sgspe-spike/layouts \
-  /Users/jorge/IdeaProjects/sgspe-spike/src/main/kotlin
-cp -R /Users/jorge/IdeaProjects/caja-backend/gradle/wrapper /Users/jorge/IdeaProjects/sgspe-spike/gradle/
-cp /Users/jorge/IdeaProjects/caja-backend/gradlew /Users/jorge/IdeaProjects/caja-backend/gradlew.bat \
-  /Users/jorge/IdeaProjects/sgspe-spike/
-grep distributionUrl /Users/jorge/IdeaProjects/sgspe-spike/gradle/wrapper/gradle-wrapper.properties
+mkdir -p ~/IdeaProjects/sgspe-spike/gradle ~/IdeaProjects/sgspe-spike/layouts \
+  ~/IdeaProjects/sgspe-spike/src/main/kotlin
+cp -R ~/IdeaProjects/caja-backend/gradle/wrapper ~/IdeaProjects/sgspe-spike/gradle/
+cp ~/IdeaProjects/caja-backend/gradlew ~/IdeaProjects/caja-backend/gradlew.bat \
+  ~/IdeaProjects/sgspe-spike/
+grep distributionUrl ~/IdeaProjects/sgspe-spike/gradle/wrapper/gradle-wrapper.properties
 ```
 
 Esperado: `distributionUrl=https\://services.gradle.org/distributions/gradle-9.8.0-bin.zip`.
 
-`/Users/jorge/IdeaProjects/sgspe-spike/settings.gradle.kts`:
+`~/IdeaProjects/sgspe-spike/settings.gradle.kts`:
 
 ```kotlin
 rootProject.name = "sgspe-spike"
@@ -384,7 +393,7 @@ dependencyResolutionManagement {
 }
 ```
 
-`/Users/jorge/IdeaProjects/sgspe-spike/build.gradle.kts`:
+`~/IdeaProjects/sgspe-spike/build.gradle.kts`:
 
 ```kotlin
 plugins {
@@ -412,7 +421,7 @@ application {
 }
 ```
 
-`/Users/jorge/IdeaProjects/sgspe-spike/compose.yml`:
+`~/IdeaProjects/sgspe-spike/compose.yml`:
 
 ```yaml
 name: sgspe-spike
@@ -438,7 +447,7 @@ volumes:
   geoserver-data:
 ```
 
-`/Users/jorge/IdeaProjects/sgspe-spike/layouts/sgspe.xml`:
+`~/IdeaProjects/sgspe-spike/layouts/sgspe.xml`:
 
 ```xml
 <layout>
@@ -1072,7 +1081,7 @@ fun maps() {
 - [ ] **Paso 3: compilar y generar la flecha de norte**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 ./gradlew -q run --args=north
 ls out/norte.png
 ```
@@ -1082,7 +1091,7 @@ Esperado: `out/norte.png listo` y el archivo listado. El spike usa solo Maven Ce
 - [ ] **Paso 4: levantar Gotenberg y GeoServer en el VPS y cargar el diseño de decoración**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 docker compose up -d
 docker compose exec geoserver mkdir -p /opt/geoserver_data/layouts
 docker compose cp layouts/sgspe.xml geoserver:/opt/geoserver_data/layouts/sgspe.xml
@@ -1105,7 +1114,7 @@ Esperado: `200` y `200`.
 - [ ] **Paso 6: correr el spike**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 rm -f out/resultados.txt
 ./gradlew -q run --args=all; echo "salida: $?"
 cat out/resultados.txt
@@ -1118,7 +1127,7 @@ concluir. El hallazgo cita lo que se vio.
 
 - [ ] **Paso 7: escribir los hallazgos en los ADR**
 
-En `/Users/jorge/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md`, al final de la lista de «### Seguimiento»
+En `~/IdeaProjects/sgspe/docs/adr/0013-entregables-docx-primero.md`, al final de la lista de «### Seguimiento»
 (después de la viñeta «Pruebas: …»), agregar una viñeta con esta forma, con la fecha del día (`date +%F`), cada resultado
 copiado de `out/resultados.txt` y la regla de decisión que aplica:
 
@@ -1128,7 +1137,7 @@ copiado de `out/resultados.txt` y la regla de decisión que aplica:
   E5 fuentes …; E6 PDF/A-2b …; E7 N páginas en S s. Consecuencia: … (según la regla de decisión del plan de F1).
 ```
 
-En `/Users/jorge/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md`, igual al final de «### Seguimiento»:
+En `~/IdeaProjects/sgspe/docs/adr/0015-mapas-de-informe-con-geoserver.md`, igual al final de «### Seguimiento»:
 
 ```markdown
 - **Resultado del spike de F1 (AAAA-MM-DD).** GeoServer 3.0.1 con capas en línea por `SLD_BODY`: M1 EPSG:32717 …,
@@ -1142,7 +1151,7 @@ con lo que se vio). No se cambia el estado de ningún ADR.
 - [ ] **Paso 8: verificar el formato de los ADR**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git diff --stat docs/adr/0013-entregables-docx-primero.md docs/adr/0015-mapas-de-informe-con-geoserver.md
 grep -c 'Resultado del spike de F1' docs/adr/0013-entregables-docx-primero.md docs/adr/0015-mapas-de-informe-con-geoserver.md
 ```
@@ -1152,7 +1161,7 @@ Esperado: dos archivos con líneas agregadas; `1` en cada uno.
 - [ ] **Paso 9: commit en `sgspe`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add docs/adr/0013-entregables-docx-primero.md docs/adr/0015-mapas-de-informe-con-geoserver.md
 git commit -F - <<'EOF'
 docs(adr): resultado del spike de entregables y GetMap
@@ -1168,11 +1177,11 @@ EOF
 - [ ] **Paso 10: desmontar el spike**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-spike
+cd ~/IdeaProjects/sgspe-spike
 docker compose down -v
 pkill -f 'ssh -fN -o ExitOnForwardFailure=yes -L 3094:localhost:3094' || true
-cd /Users/jorge/IdeaProjects && rm -rf sgspe-spike
-ls /Users/jorge/IdeaProjects | grep -c sgspe-spike
+cd ~/IdeaProjects && rm -rf sgspe-spike
+ls ~/IdeaProjects | grep -c sgspe-spike
 ```
 
 Esperado: `0`. El túnel del 5435 de la Tarea 1 sigue abierto.
@@ -1181,7 +1190,7 @@ Esperado: `0`. El túnel del 5435 de la Tarea 1 sigue abierto.
 
 ### Tarea 3: A1 · Build de Gradle, app `sgspe` y `SgspeSmokeTest`
 
-**Pista:** A (`/Users/jorge/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion`).
+**Pista:** A (`~/IdeaProjects/sgspe`, rama `feat/fase-1-fundacion`).
 
 **Files:**
 - Create (copia exacta de caja-backend@dc9e391): `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`,
@@ -1199,11 +1208,11 @@ Esperado: `0`. El túnel del 5435 de la Tarea 1 sigue abierto.
 - [ ] **Paso 1: copiar el wrapper y los archivos de editor de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p gradle
-cp -R /Users/jorge/IdeaProjects/caja-backend/gradle/wrapper gradle/
-cp /Users/jorge/IdeaProjects/caja-backend/gradlew /Users/jorge/IdeaProjects/caja-backend/gradlew.bat .
-cp /Users/jorge/IdeaProjects/caja-backend/.editorconfig /Users/jorge/IdeaProjects/caja-backend/.gitignore .
+cp -R ~/IdeaProjects/caja-backend/gradle/wrapper gradle/
+cp ~/IdeaProjects/caja-backend/gradlew ~/IdeaProjects/caja-backend/gradlew.bat .
+cp ~/IdeaProjects/caja-backend/.editorconfig ~/IdeaProjects/caja-backend/.gitignore .
 grep distributionUrl gradle/wrapper/gradle-wrapper.properties
 ```
 
@@ -1409,7 +1418,7 @@ class SgspeSmokeTest : WasichaiIntegrationTest() {
 - [ ] **Paso 5: correr la prueba y ver que falla**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
@@ -1478,7 +1487,7 @@ management:
 - [ ] **Paso 8: correr la prueba y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
@@ -1490,7 +1499,7 @@ Esperado: `BUILD SUCCESSFUL`, 3 pruebas en verde.
 - [ ] **Paso 9: formato y build**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 ```
@@ -1500,7 +1509,7 @@ Esperado: `BUILD SUCCESSFUL` (ktlint limpio; ninguna prueba unitaria todavía).
 - [ ] **Paso 10: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add gradlew gradlew.bat gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.properties \
   .editorconfig .gitignore settings.gradle.kts build.gradle.kts \
   src/main/kotlin/sgspe/SgspeApplication.kt src/main/resources/application.yml src/test/kotlin/sgspe/SgspeSmokeTest.kt
@@ -1726,7 +1735,7 @@ Entrar con `admin@wasichai.local` / `admin`.
 - [ ] **Paso 3: comprobar el compose**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 docker compose config -q && echo compose-ok
 ```
 
@@ -1737,7 +1746,7 @@ Esperado: `compose-ok`.
 En segundo plano (herramienta Bash con `run_in_background`):
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 cp develop/example.env develop/.env
 set -a; source develop/.env; set +a
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew bootRun
@@ -1755,7 +1764,7 @@ Esperado: `{"status":"UP"}` dos veces. Detener `bootRun` después.
 - [ ] **Paso 5: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git status --short develop/
 git add compose.yml develop/example.env docs/develop/README.md
 git commit -F - <<'EOF'
@@ -1789,7 +1798,7 @@ Esperado antes del commit: `git status --short develop/` muestra `?? develop/exa
 - [ ] **Paso 1: comprobar que todavía no hay herramientas**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn -s format:check; echo "salida: $?"
 ```
 
@@ -1798,11 +1807,11 @@ Esperado: error «Couldn't find a package.json file» y `salida: 1`.
 - [ ] **Paso 2: copiar de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p .husky
-cp /Users/jorge/IdeaProjects/caja-backend/commitlint.config.mjs /Users/jorge/IdeaProjects/caja-backend/.prettierrc.json \
-  /Users/jorge/IdeaProjects/caja-backend/.prettierignore /Users/jorge/IdeaProjects/caja-backend/SECURITY.md .
-cp /Users/jorge/IdeaProjects/caja-backend/.husky/commit-msg .husky/commit-msg
+cp ~/IdeaProjects/caja-backend/commitlint.config.mjs ~/IdeaProjects/caja-backend/.prettierrc.json \
+  ~/IdeaProjects/caja-backend/.prettierignore ~/IdeaProjects/caja-backend/SECURITY.md .
+cp ~/IdeaProjects/caja-backend/.husky/commit-msg .husky/commit-msg
 sed -i '' 's#wasichai/caja-backend/security#wasichai/sgspe/security#' SECURITY.md
 grep -c 'wasichai/sgspe/security/advisories/new' SECURITY.md
 ```
@@ -1837,7 +1846,7 @@ Esperado: `1`. Ninguna otra edición: `.prettierignore` de caja ya deja fuera `*
 - [ ] **Paso 4: instalar y formatear**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn install
 yarn -s format
 yarn -s format:check; echo "salida: $?"
@@ -1849,7 +1858,7 @@ Esperado: `yarn.lock` creado (v1); `All matched files use Prettier code style!` 
 - [ ] **Paso 5: commitlint rechaza un mensaje inválido y acepta uno válido**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 printf 'cambios varios\n' | yarn -s commitlint; echo "salida: $?"
 printf 'chore: prueba de commitlint\n' | yarn -s commitlint; echo "salida: $?"
 ```
@@ -1859,7 +1868,7 @@ Esperado: el primero lista `subject may not be empty` y `type may not be empty` 
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add package.json yarn.lock commitlint.config.mjs .husky/commit-msg .prettierrc.json .prettierignore SECURITY.md \
   compose.yml src/main/resources/application.yml
 git commit -F - <<'EOF'
@@ -1905,10 +1914,10 @@ muestra, se quitan de la lista de `git add`.
 - [ ] **Paso 1: copiar los scripts de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p model
-cp /Users/jorge/IdeaProjects/caja-backend/model/core_client.py /Users/jorge/IdeaProjects/caja-backend/model/fake_core.py \
-  /Users/jorge/IdeaProjects/caja-backend/model/apply.py model/
+cp ~/IdeaProjects/caja-backend/model/core_client.py ~/IdeaProjects/caja-backend/model/fake_core.py \
+  ~/IdeaProjects/caja-backend/model/apply.py model/
 sed -i '' 's/shared by apply.py and the importers\./shared by apply.py and apply_roles.py (copied from caja-backend@dc9e391)./' model/core_client.py
 head -1 model/core_client.py
 ```
@@ -2534,7 +2543,7 @@ if __name__ == "__main__":
 - [ ] **Paso 7: correr las pruebas y verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 -m unittest -v 2>&1 | tail -5
 ```
 
@@ -2986,7 +2995,7 @@ ROLE_FIELD_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/field-permissions
 - [ ] **Paso 11: correr las pruebas y verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 -m unittest -v 2>&1 | tail -4
 python3 apply.py --validate-only; echo "salida: $?"
 python3 apply_roles.py --dry-run | grep -c '# POST /api/roles'
@@ -2999,7 +3008,7 @@ Esperado: `Ran 41 tests` y `OK`; `salida: 0`; `15`.
 Con `bootRun` en segundo plano como en la Tarea 4, Paso 4:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 apply.py | tail -1
 python3 apply_roles.py | tail -1
 python3 apply_roles.py | tail -1
@@ -3015,7 +3024,7 @@ plataforma que cambia esta tarea.
 - [ ] **Paso 13: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add model/model.json model/roles.json model/apply.py model/apply_roles.py model/core_client.py model/fake_core.py \
   model/fixture_model.py model/test_apply.py model/test_apply_roles.py
 git commit -F - <<'EOF'
@@ -3467,7 +3476,7 @@ class ErrorContractApiTest : SgspeApiTest() {
 - [ ] **Paso 2: compilarlas y verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
 ```
 
@@ -3673,7 +3682,7 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
 - [ ] **Paso 4: formato, build y compilación de las pruebas**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build compileTestKotlin
 ```
@@ -3683,7 +3692,7 @@ Esperado: `BUILD SUCCESSFUL`.
 - [ ] **Paso 5: correr las pruebas de contrato contra la base externa**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
@@ -3697,7 +3706,7 @@ y cuerpo del mensaje de la aserción) y se reporta al coordinador antes de tocar
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/test/kotlin/sgspe/SgspeApiTest.kt src/test/kotlin/sgspe/contract/TenantIsolationApiTest.kt \
   src/test/kotlin/sgspe/contract/TenantProvisioningApiTest.kt src/test/kotlin/sgspe/contract/SecurityApiTest.kt \
   src/test/kotlin/sgspe/contract/RolesApiTest.kt src/test/kotlin/sgspe/contract/AuditApiTest.kt \
@@ -3916,7 +3925,7 @@ class ProdProfileTest {
 - [ ] **Paso 2: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.ProdProfileTest'
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
 ```
@@ -4040,7 +4049,7 @@ logging:
 - [ ] **Paso 6: correr las pruebas unitarias y verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 ```
@@ -4050,7 +4059,7 @@ Esperado: `BUILD SUCCESSFUL`; en el reporte, `CorrelationIdFilterTest` (4) y `Pr
 - [ ] **Paso 7: correr la prueba de integración y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn -s format
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
@@ -4063,7 +4072,7 @@ Esperado: `BUILD SUCCESSFUL`, 5 pruebas en verde.
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/main/kotlin/sgspe/observability/CorrelationId.kt src/main/kotlin/sgspe/observability/CorrelationIdFilter.kt \
   src/main/resources/application-prod.yml src/test/kotlin/sgspe/observability/CorrelationIdFilterTest.kt \
   src/test/kotlin/sgspe/observability/ObservabilityApiTest.kt src/test/kotlin/sgspe/ProdProfileTest.kt
@@ -4260,7 +4269,7 @@ class RecordsApiTest : SgspeApiTest() {
 - [ ] **Paso 2: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
 ```
 
@@ -4380,7 +4389,7 @@ object StrictQuery {
 - [ ] **Paso 7: correr las pruebas y verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
@@ -4395,7 +4404,7 @@ Esperado: `BUILD SUCCESSFUL` dos veces; `SgspeWriteTest` (1), `LimaTest` (2) y `
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/main/kotlin/sgspe/common/SgspeWrite.kt src/main/kotlin/sgspe/common/Records.kt \
   src/main/kotlin/sgspe/common/Lima.kt src/main/kotlin/sgspe/common/StrictQuery.kt \
   src/test/kotlin/sgspe/common/SgspeWriteTest.kt src/test/kotlin/sgspe/common/LimaTest.kt \
@@ -4537,7 +4546,7 @@ class ArchitectureTest {
 - [ ] **Paso 2: plantar una violación y ver que la prueba falla**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 printf 'package sgspe\n\nval VIOLACION_DE_PRUEBA = listOf("AUDITOR")\n' > src/main/kotlin/sgspe/ViolacionDePrueba.kt
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.ArchitectureTest'
 ```
@@ -4548,7 +4557,7 @@ Esperado: FAIL en `ningun nombre de rol aparece en el codigo principal`, con
 - [ ] **Paso 3: quitar la violación y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 rm src/main/kotlin/sgspe/ViolacionDePrueba.kt
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
@@ -4560,7 +4569,7 @@ Esperado: `BUILD SUCCESSFUL`, `ArchitectureTest` (7) en verde; `git status --sho
 - [ ] **Paso 4: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add src/test/kotlin/sgspe/ArchitectureTest.kt
 git commit -F - <<'EOF'
 test(arch): reglas de arquitectura por escaneo de fuentes
@@ -4662,7 +4671,7 @@ if __name__ == "__main__":
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 python3 -m unittest discover -s tools -v 2>&1 | tail -3
 ```
 
@@ -4732,7 +4741,7 @@ if __name__ == "__main__":
 - [ ] **Paso 4: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 python3 -m unittest discover -s tools -v 2>&1 | tail -3
 python3 tools/check_traceability.py
 ```
@@ -4742,10 +4751,10 @@ Esperado: `Ran 6 tests` y `OK`; `ok: 298 requisitos, todos con su fila`.
 - [ ] **Paso 5: copiar `commits.yml` y `dependabot.yml` de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 mkdir -p .github/workflows
-cp /Users/jorge/IdeaProjects/caja-backend/.github/workflows/commits.yml .github/workflows/commits.yml
-cp /Users/jorge/IdeaProjects/caja-backend/.github/dependabot.yml .github/dependabot.yml
+cp ~/IdeaProjects/caja-backend/.github/workflows/commits.yml .github/workflows/commits.yml
+cp ~/IdeaProjects/caja-backend/.github/dependabot.yml .github/dependabot.yml
 grep -c '@[0-9a-f]\{40\}' .github/workflows/commits.yml
 ```
 
@@ -4865,7 +4874,7 @@ jobs:
 - [ ] **Paso 7: comprobar el formato y la sintaxis de los flujos**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 yarn -s format
 yarn -s format:check; echo "salida: $?"
 grep -c 'postgis/postgis:18-3.6' .github/workflows/ci.yml
@@ -4876,7 +4885,7 @@ Esperado: `salida: 0` (prettier también valida que los tres YAML se parsean); `
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add .github/workflows/ci.yml .github/workflows/commits.yml .github/dependabot.yml \
   tools/check_traceability.py tools/test_check_traceability.py
 git commit -F - <<'EOF'
@@ -4897,7 +4906,7 @@ usuario da acceso de lectura al repositorio `wasichai/sgspe` en la configuració
 
 ### Tarea 12: B1 · Andamiaje de `sgspe-ui`
 
-**Pista:** B (`/Users/jorge/IdeaProjects/sgspe-ui`, rama `feat/fase-1-fundacion`).
+**Pista:** B (`~/IdeaProjects/sgspe-ui`, rama `feat/fase-1-fundacion`).
 
 **Files:**
 - Create (copia exacta de caja-ui@a45b224): `.npmrc`, `.editorconfig`, `.gitignore`, `.prettierrc.json`, `.husky/commit-msg`,
@@ -4915,12 +4924,12 @@ usuario da acceso de lectura al repositorio `wasichai/sgspe` en la configuració
 - [ ] **Paso 1: copiar la configuración de caja**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 mkdir -p .husky src/test
 for f in .npmrc .editorconfig .gitignore .prettierrc.json tsconfig.json tsconfig.build.json SECURITY.md src/test/setup.ts .husky/commit-msg; do
-  cp "/Users/jorge/IdeaProjects/caja-ui/$f" "$f"
+  cp "$HOME/IdeaProjects/caja-ui/$f" "$f"
 done
-cp /Users/jorge/IdeaProjects/caja-backend/commitlint.config.mjs commitlint.config.mjs
+cp ~/IdeaProjects/caja-backend/commitlint.config.mjs commitlint.config.mjs
 cat .npmrc
 sed -i '' 's#wasichai/caja-ui/security#wasichai/sgspe-ui/security#' SECURITY.md
 grep -c 'wasichai/sgspe-ui/security/advisories/new' SECURITY.md
@@ -5008,7 +5017,7 @@ Contenido completo:
 - [ ] **Paso 4: instalar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 NODE_AUTH_TOKEN=$(gh auth token) yarn install
 head -2 yarn.lock
 git config --get core.hooksPath
@@ -5038,7 +5047,7 @@ describe('vite.config', () => {
 - [ ] **Paso 6: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test 2>&1 | tail -5
 ```
 
@@ -5114,7 +5123,7 @@ createRoot(document.getElementById('root')!).render(
 - [ ] **Paso 8: verla pasar y comprobar el resto**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format
 yarn test 2>&1 | tail -4
 yarn lint && yarn typecheck && yarn build
@@ -5125,7 +5134,7 @@ Esperado: `Test Files  1 passed (1)`; `lint`, `typecheck` y `build` sin errores;
 - [ ] **Paso 9: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add .npmrc .editorconfig .gitignore .prettierrc.json commitlint.config.mjs .husky/commit-msg tsconfig.json \
   tsconfig.build.json SECURITY.md package.json yarn.lock vite.config.ts index.html src/main.tsx src/index.css \
   src/test/setup.ts src/viteConfig.test.ts
@@ -5231,7 +5240,7 @@ describe('admin', () => {
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/admin 2>&1 | tail -5
 ```
 
@@ -5283,7 +5292,7 @@ createRoot(document.getElementById('root')!).render(<StrictMode>{admin ? <AdminA
 - [ ] **Paso 5: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
@@ -5292,7 +5301,7 @@ Esperado: `Test Files  2 passed (2)`, 4 pruebas; `lint` y `typecheck` limpios.
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/admin/AdminApp.tsx src/admin/AdminApp.test.tsx src/main.tsx
 git commit -F - <<'EOF'
 feat(admin): /admin con WasichaiApp y los módulos de los starters de F1
@@ -5558,7 +5567,7 @@ describe('login', () => {
 - [ ] **Paso 3: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal 2>&1 | tail -5
 ```
 
@@ -5849,7 +5858,7 @@ createRoot(document.getElementById('root')!).render(<StrictMode>{admin ? <AdminA
 - [ ] **Paso 6: verlas pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
@@ -5859,7 +5868,7 @@ de `login.test.tsx`); `lint` y `typecheck` limpios.
 - [ ] **Paso 7: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/portal/api.ts src/portal/i18n.ts src/portal/textos/es.ts src/portal/PortalApp.tsx \
   src/portal/auth/LoginPage.tsx src/portal/auth/RequireSession.tsx src/portal/shell/AppShell.tsx \
   src/portal/pages/InicioPage.tsx src/test/portal.ts src/main.tsx src/portal/auth/RequireSession.test.tsx \
@@ -5877,13 +5886,16 @@ EOF
 
 ---
 
-### Tarea 15: B4 · Temas claro y oscuro, script de arranque y CSP
+### Tarea 15: B4 · Tema «Pino y piedra» claro y oscuro, script de arranque y CSP
 
 **Pista:** B.
 
 **Files:**
-- Create: `csp.ts` (raíz del repositorio), `src/portal/shell/ThemeMenu.tsx` (copia de caja-ui con tres ediciones)
-- Modify: `index.html`, `vite.config.ts`, `tsconfig.json`, `package.json` (scripts), `src/portal/shell/AppShell.tsx`
+- Create: `csp.ts` (raíz del repositorio), `src/portal/shell/ThemeMenu.tsx` (copia de caja-ui con tres ediciones),
+  `src/theme/tokens.css` (copia exacta de `~/IdeaProjects/sgspe/docs/ux/tokens.css`), `src/theme/wasichai.css`,
+  `.prettierignore`
+- Modify: `index.html`, `vite.config.ts`, `tsconfig.json`, `package.json` (scripts y las dos fuentes), `yarn.lock`,
+  `src/index.css` (contenido completo), `src/portal/shell/AppShell.tsx`
 - Test: `src/themes.test.ts`, `src/csp.test.ts`, `src/portal/shell/ThemeMenu.test.tsx`
 
 **Interfaces:**
@@ -5891,15 +5903,33 @@ EOF
 - Produces: `bootScript(html: string): string`, `scriptHash(script: string): string` y
   `contentSecurityPolicy(html: string): string` en `csp.ts`; la cabecera `Content-Security-Policy-Report-Only` en `yarn dev` y
   `yarn preview`; `yarn csp`, que imprime la política para el proxy de producción; `ThemeMenu({ className? })`.
+- Produces: el tema «Pino y piedra» (ASM-077, `docs/ux/design-system.md` §2 y §3) en claro y oscuro: las variables `--sg-*`
+  y sus utilidades de Tailwind (`bg-sg-bg`, `bg-sg-surface`, `text-sg-text`, `text-sg-text-muted`, `border-sg-border`,
+  `bg-sg-primary-soft`, `text-sg-primary-text`, `text-sg-ai`, `text-sg-h1` a `text-sg-caption`, `rounded-sg-md`,
+  `font-sg-mono` y las demás de `tokens.css`); los tokens de `@wasichai/ui` leídos de ellos, así que `Button`, `Card`,
+  `Alert`, `Table`, `Badge` y `/admin` toman la misma paleta; `font-sans` = IBM Plex Sans y `font-mono` = IBM Plex Mono,
+  servidas desde el mismo origen. Regla para las tareas siguientes: dentro de `cn()` el cuerpo de 14/20 se escribe `text-sm`
+  (decisión 13).
 
 - [ ] **Paso 1: escribir las pruebas que fallan**
 
-`src/themes.test.ts` (adaptada de caja-ui@a45b224 `src/themes/registro.test.tsx`):
+`src/themes.test.ts` (el bloque «temas» adaptado de caja-ui@a45b224 `src/themes/registro.test.tsx`; el bloque «Pino y
+piedra» es propio):
 
 ```ts
 import { BUILT_IN_THEMES } from '@wasichai/core'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import html from '../index.html?raw'
+
+// vitest entrega vacío todo .css, también con ?raw: las hojas se leen del disco
+const hoja = (ruta: string) => readFileSync(join(import.meta.dirname, ruta), 'utf8')
+const indexCss = hoja('index.css')
+const tokens = hoja('theme/tokens.css')
+const puente = hoja('theme/wasichai.css')
+const wasichaiTheme = readFileSync(createRequire(import.meta.url).resolve('@wasichai/ui/theme.css'), 'utf8')
 
 // el script de arranque de index.html, corrido contra un tema guardado en sgspe.theme y el ajuste del sistema operativo,
 // antes de que cargue el bundle
@@ -5928,6 +5958,45 @@ describe('temas', () => {
   it.each([null, 'system', 'portal-tributario', 'toString', '__proto__'])('arranca %s con el ajuste del sistema operativo', (stored) => {
     expect(boot(stored)).toEqual({ theme: 'light', colorScheme: 'light' })
     expect(boot(stored, true)).toEqual({ theme: 'dark', colorScheme: 'dark' })
+  })
+})
+
+// el bloque de un selector: lo que va entre su llave y la llave que lo cierra
+const bloque = (css: string, selector: string) => {
+  const inicio = css.indexOf(selector)
+  if (inicio < 0) throw new Error(`no está el bloque ${selector}`)
+  return css.slice(css.indexOf('{', inicio) + 1, css.indexOf('}', inicio))
+}
+// las variables que declara un bloque
+const declaradas = (css: string) => new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]))
+
+// "Pino y piedra" (ASM-077, docs/ux/design-system.md §2 y §9): los tokens de SGSPE son una capa sobre los de wasichai
+describe('Pino y piedra', () => {
+  const claro = declaradas(bloque(tokens, ':root {'))
+  const oscuro = declaradas(bloque(tokens, ':root[data-theme="dark"] {'))
+  const correspondencia = Object.fromEntries([...puente.matchAll(/(--[a-z-]+):\s*var\((--sg-[a-z-]+)\)/g)].map((m) => [m[1], m[2]]))
+
+  it('index.css importa tailwind, el tema de wasichai, los tokens de SGSPE y el puente, en ese orden', () => {
+    const importa = [...indexCss.matchAll(/@import '([^']+)'/g)].map((m) => m[1])
+    expect(importa.slice(0, 4)).toEqual(['tailwindcss', '@wasichai/ui/theme.css', './theme/tokens.css', './theme/wasichai.css'])
+  })
+
+  it('cada token de color de @wasichai/ui sale de un token de SGSPE', () => {
+    const deWasichai = [...declaradas(bloque(wasichaiTheme, ":root,\n[data-theme='light'] {"))].filter((v) => v !== '--overlay' && v !== '--map-selected')
+    expect(Object.keys(correspondencia).sort()).toEqual(deWasichai.sort())
+    expect(Object.values(correspondencia).filter((sg) => !claro.has(sg))).toEqual([])
+  })
+
+  it('el tema oscuro de SGSPE cambia todo lo que lee el puente, salvo el texto blanco sobre pino', () => {
+    expect([...new Set(Object.values(correspondencia))].filter((sg) => !oscuro.has(sg))).toEqual(['--sg-on-primary'])
+  })
+
+  it('IBM Plex Sans y Plex Mono, servidas desde el mismo origen y nunca desde otro host (font-src self)', () => {
+    const fuentes = [...indexCss.matchAll(/@import '@fontsource\/(ibm-plex-[a-z]+)\/latin-(\d+)\.css'/g)].map((m) => `${m[1]} ${m[2]}`)
+    expect(fuentes).toEqual(['ibm-plex-sans 400', 'ibm-plex-sans 500', 'ibm-plex-sans 600', 'ibm-plex-mono 400', 'ibm-plex-mono 500'])
+    expect(puente).toContain("--font-sans: 'IBM Plex Sans'")
+    expect(puente).toContain("--font-mono: 'IBM Plex Mono'")
+    for (const css of [indexCss, tokens, puente]) expect(css).not.toMatch(/url\(\s*['"]?(https?:)?\/\/|@import\s+(url\()?['"]?(https?:)?\/\//)
   })
 })
 ```
@@ -6018,12 +6087,12 @@ describe('menú de tema', () => {
 - [ ] **Paso 2: verlas fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/themes.test.ts src/csp.test.ts src/portal/shell 2>&1 | tail -6
 ```
 
-Esperado: FAIL: `index.html no tiene el script de arranque`, `Failed to resolve import "../csp"` y el botón `Tema: Sistema`
-que no aparece.
+Esperado: FAIL: `ENOENT: no such file or directory, open '…/src/theme/tokens.css'` (toda `themes.test.ts`),
+`Failed to resolve import "../csp"` y el botón `Tema: Sistema` que no aparece.
 
 - [ ] **Paso 3: `index.html` con el script de arranque** (adaptado de caja-ui@a45b224 `index.html`: clave `sgspe.theme`,
   solo claro y oscuro)
@@ -6135,11 +6204,115 @@ En `package.json`, reemplazar las líneas de `lint` y `format` y agregar `csp`:
         "csp": "node --input-type=module -e \"import { readFileSync } from 'node:fs'; import { contentSecurityPolicy } from './csp.ts'; console.log(contentSecurityPolicy(readFileSync('index.html', 'utf8')))\"",
 ```
 
-- [ ] **Paso 7: el menú de tema**
+- [ ] **Paso 7: «Pino y piedra» sobre el tema de wasichai, con IBM Plex desde el mismo origen**
+
+Las fuentes salen de npm (licencia OFL-1.1) y Vite copia sus `woff2` a `dist/assets`: nada se pide a otro host, como exige
+`font-src 'self'`. En `package.json`, agregar a `dependencies`, después de `"@wasichai/views": "0.5.0",`:
+
+```json
+        "@fontsource/ibm-plex-mono": "5.3.0",
+        "@fontsource/ibm-plex-sans": "5.3.0",
+```
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
-cp /Users/jorge/IdeaProjects/caja-ui/src/portal/shell/ThemeMenu.tsx src/portal/shell/ThemeMenu.tsx
+cd ~/IdeaProjects/sgspe-ui
+npm view @fontsource/ibm-plex-sans@5.3.0 version license
+npm view @fontsource/ibm-plex-mono@5.3.0 version license
+NODE_AUTH_TOKEN=$(gh auth token) yarn install
+mkdir -p src/theme
+cp ~/IdeaProjects/sgspe/docs/ux/tokens.css src/theme/tokens.css
+shasum -a 256 src/theme/tokens.css
+```
+
+Esperado: `version = '5.3.0'` y `license = 'OFL-1.1'` dos veces; instalación sin errores; el hash
+`056a581a7cb22aee102530703524cc7b506aeca5954f7e0d67d3c9a0ad6ab75b`, el de `docs/ux/tokens.css` con el que se validó este
+plan. Si difiere, `docs/ux` cambió después: se copia igual (manda `docs/ux`), se corre el Paso 9 y el commit lo dice en su
+cuerpo.
+
+`.prettierignore` (prettier reformatearía la copia y dejaría de ser idéntica a la de `docs/ux`):
+
+```text
+# copia exacta de docs/ux/tokens.css del repositorio sgspe: se compara con diff, no se reformatea
+src/theme/tokens.css
+```
+
+`src/theme/wasichai.css`:
+
+```css
+/* los tokens de @wasichai/ui/theme.css leídos de los de SGSPE ("Pino y piedra", ASM-077, docs/ux/tokens.css): las
+   primitivas de wasichai (Button, Card, Alert, Table, Badge) y /admin se ven con la misma paleta que el portal. es la
+   correspondencia que tokens.css deja para F1 (pregunta Q2 de docs/ux/ux-architecture.md). wasichai fija sus tokens en
+   :root y en [data-theme] (el atributo que core y el script de arranque ponen en <html>); este bloque va después, con la
+   misma especificidad, y los --sg-* ya cambian solos entre claro y oscuro. --overlay y --map-selected siguen siendo los
+   de wasichai: tokens.css no tiene un equivalente */
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+    --surface: var(--sg-surface);
+    --surface-muted: var(--sg-bg);
+    --border: var(--sg-border);
+    --ink: var(--sg-text);
+    --ink-muted: var(--sg-text-muted);
+    --brand: var(--sg-primary);
+    --brand-strong: var(--sg-primary-hover);
+    --brand-soft: var(--sg-primary-soft);
+    --on-brand: var(--sg-on-primary);
+    --shell: var(--sg-surface);
+    --shell-muted: var(--sg-text-secondary);
+    --shell-ink: var(--sg-text);
+    --danger: var(--sg-danger);
+    --on-danger: var(--sg-on-critical);
+    --success: var(--sg-success);
+    --warning: var(--sg-warning);
+    --warning-soft: var(--sg-warning-soft);
+    --success-soft: var(--sg-success-soft);
+    --danger-soft: var(--sg-danger-soft);
+    --notice: var(--sg-warning);
+    --notice-soft: var(--sg-warning-soft);
+    --link: var(--sg-primary-text);
+    --focus: var(--sg-focus);
+    --table-head: var(--sg-surface-sunken);
+    --table-stripe: var(--sg-surface-hover);
+    --line: var(--sg-border-subtle);
+}
+
+/* IBM Plex Sans y Plex Mono para todo, también para /admin: font-sans y font-mono son las familias por defecto de
+   tailwind. las fuentes se sirven desde el mismo origen (index.css), nunca desde un CDN (font-src 'self') */
+@theme {
+    --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+```
+
+`src/index.css` (contenido completo):
+
+```css
+@import 'tailwindcss';
+@import '@wasichai/ui/theme.css';
+/* "Pino y piedra" (ASM-077): los tokens de docs/ux/tokens.css y, después, los de wasichai leídos de ellos */
+@import './theme/tokens.css';
+@import './theme/wasichai.css';
+/* IBM Plex Sans (400, 500, 600) e IBM Plex Mono (400, 500), latín y latín extendido, servidas desde el mismo origen:
+   vite copia los woff2 a dist/assets (CSP font-src 'self', ADR-0026) */
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-600.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-ext-500.css';
+/* los paquetes @wasichai traen nombres de clase, no css: tailwind los escanea */
+@source '../node_modules/@wasichai';
+```
+
+- [ ] **Paso 8: el menú de tema**
+
+```bash
+cd ~/IdeaProjects/sgspe-ui
+cp ~/IdeaProjects/caja-ui/src/portal/shell/ThemeMenu.tsx src/portal/shell/ThemeMenu.tsx
 ```
 
 Tres ediciones exactas en `src/portal/shell/ThemeMenu.tsx`:
@@ -6156,29 +6329,35 @@ En `src/portal/shell/AppShell.tsx`, agregar `import { ThemeMenu } from './ThemeM
 `import { NS } from '../i18n'`, e insertar `        <ThemeMenu />` en la línea anterior a
 `        <span className="text-sm text-ink">{user?.displayName}</span>`.
 
-- [ ] **Paso 8: verlas pasar y comprobar la política**
+- [ ] **Paso 9: verlas pasar y comprobar la política, el tema y las fuentes**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck && yarn build
 yarn -s csp
+cmp src/theme/tokens.css ~/IdeaProjects/sgspe/docs/ux/tokens.css && echo tokens-identicos
+ls dist/assets | grep -c '^ibm-plex-.*\.woff2$'
+grep -c 'IBM Plex Sans' dist/assets/index-*.css
 ```
 
-Esperado: `Test Files  7 passed (7)`; los demás comandos limpios; `yarn -s csp` imprime una línea que empieza por
-`default-src 'self'; script-src 'self' 'sha256-` y termina en `frame-ancestors 'none'`. Vite avisa que `./csp` se importa sin
-extensión en `vite.config.ts`: es un aviso sobre su cargador nativo futuro, no un error.
+Esperado: `Test Files  7 passed (7)` y `Tests  38 passed (38)` (12 de `themes.test.ts`); los demás comandos limpios;
+`yarn -s csp` imprime una línea que empieza por `default-src 'self'; script-src 'self' 'sha256-` y termina en
+`frame-ancestors 'none'`; `tokens-identicos`; `10` (cinco pesos, latín y latín extendido) y un número mayor que `0`. Vite
+avisa que `./csp` se importa sin extensión en `vite.config.ts` y que el bundle pasa de 500 kB: son avisos, no errores.
 
-- [ ] **Paso 9: commit**
+- [ ] **Paso 10: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
-git add index.html csp.ts vite.config.ts tsconfig.json package.json src/portal/shell/ThemeMenu.tsx \
-  src/portal/shell/AppShell.tsx src/themes.test.ts src/csp.test.ts src/portal/shell/ThemeMenu.test.tsx
+cd ~/IdeaProjects/sgspe-ui
+git add index.html csp.ts vite.config.ts tsconfig.json package.json yarn.lock .prettierignore src/index.css \
+  src/theme/tokens.css src/theme/wasichai.css src/portal/shell/ThemeMenu.tsx src/portal/shell/AppShell.tsx \
+  src/themes.test.ts src/csp.test.ts src/portal/shell/ThemeMenu.test.tsx
 git commit -F - <<'EOF'
-feat(temas): claro y oscuro con script de arranque autorizado por hash en la CSP
+feat(temas): Pino y piedra claro y oscuro, IBM Plex local y CSP por hash
 
-El script de index.html es el único en línea; csp.ts arma la política de security.md
-§3.2 y Vite la manda en modo de solo informe. yarn csp la imprime para el proxy.
+Los tokens de docs/ux/tokens.css (ASM-077) como capa sobre @wasichai/ui/theme.css, con
+IBM Plex servida desde el mismo origen. El script de index.html es el único en línea;
+csp.ts arma la política de security.md §3.2 y Vite la manda en modo de solo informe.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -6187,30 +6366,47 @@ EOF
 
 ---
 
-### Tarea 16: B5 · Marco y árbol de navegación de las 13 secciones
+### Tarea 16: B5 · Shell y navegación principal de `docs/ux`
 
 **Pista:** B.
 
+La navegación y el shell siguen `docs/ux/ux-architecture.md` §6.2, §7.1 y §7.2 (USR-10), no la lista de
+`architecture.md` §9.2: las mismas 13 secciones (RNF-USA-001) en el mismo orden y para todos los roles, con ícono y las
+rutas globales en inglés y kebab-case de ASM-075 (`/engagements` y `/programs`). Se mantienen las reglas de F1: una hoja
+sin pantalla no se dibuja y Administración solo se ofrece a quien administra. Barra superior de 56 px con la marca, el
+botón «Preguntar» del asistente deshabilitado hasta F7 (ASM-073: el asistente no es una sección), el tema y la cuenta con
+sus roles. La navegación mide 240 px desde `xl` y se contrae a 52 px con solo íconos por debajo (design-system §3.6). El
+selector de proyecto, la `ContextBar` con el chip de territorio y la búsqueda con ⌘K llegan en F2 con los proyectos (S03,
+S06): en F1 queda el gancho `src/portal/shell/context.ts`, que lee el contexto de la URL (ASM-075, ASM-076). El panel de
+tableta y la barra inferior del teléfono son de la etapa E3 del diseño, todavía pendiente.
+
 **Files:**
-- Create: `src/portal/shell/navTree.ts`, `src/portal/pantallas.ts`, `src/portal/shell/GuardaDeSeccion.tsx`
+- Create: `src/portal/shell/navTree.ts`, `src/portal/pantallas.ts`, `src/portal/shell/GuardaDeSeccion.tsx`,
+  `src/portal/shell/context.ts`
 - Modify (contenido completo): `src/portal/shell/AppShell.tsx`, `src/portal/PortalApp.tsx`, `src/portal/textos/es.ts`
 - Test: `src/portal/shell/Navigation.test.tsx`
 
 **Interfaces:**
-- Consumes: `PortalApp`, `ThemeMenu`, `src/test/portal.ts` y `ES` (Tareas 14 y 15).
+- Consumes: `PortalApp`, `ThemeMenu`, `src/test/portal.ts`, `ES` y las utilidades `sg-*` (Tareas 14 y 15).
 - Produces, en `src/portal/shell/navTree.ts`:
-  - `type ClaveDeSeccion = 'dashboard' | 'projects' | 'territory' | 'stakeholders' | 'engagement' | 'commitments' |
-    'attention' | 'risks' | 'social-programs' | 'documents' | 'tasks' | 'reports' | 'admin'`;
-  - `type Fase = 'F1' | … | 'F8'`; `interface Par { objeto: string; accion: Accion }`;
-    `interface SeccionNav extends NavTreeLeaf { clave; fases: Fase[]; seOfreceCon?: Par[][]; soloAdmin?: boolean }`;
-  - `NAV_TREE: SeccionNav[]` (las 13 secciones de `architecture.md` §9.2, en su orden);
+  - `type ClaveDeSeccion = 'dashboard' | 'projects' | 'territory' | 'stakeholders' | 'engagements' | 'commitments' |
+    'attention' | 'risks' | 'programs' | 'documents' | 'tasks' | 'reports' | 'admin'`;
+  - `type Fase = 'F1' | … | 'F8'`; `type Accion`; `interface Par { objeto: string; accion: Accion }`;
+    `interface SeccionNav extends NavTreeLeaf { clave; fases: Fase[]; seOfreceCon?: Par[][]; soloAdmin?: boolean }` (el
+    ícono es `icon` de `NavTreeLeaf`);
+  - `NAV_TREE: SeccionNav[]` (las 13 secciones de `docs/ux/ux-architecture.md` §6.2, en su orden, cada una con su ícono);
   - `interface Oferta { isAdmin; can(objeto, accion); conPantalla(clave) }`;
     `type Estado = 'disponible' | 'sin-acceso' | 'solo-admin' | 'por-llegar'`;
-  - `conPantalla(clave)`, `estadoDe(seccion, oferta): Estado`, `arbolPara(secciones, oferta): SeccionNav[]`,
-    `useOferta(): Oferta`, `useArbol(): SeccionNav[]`.
+  - `ofrece(alternativas: Par[][], can): boolean`, `conPantalla(clave)`, `estadoDe(seccion, oferta): Estado`,
+    `arbolPara(secciones, oferta): SeccionNav[]`, `useOferta(): Oferta`, `useArbol(): SeccionNav[]`.
+- Produces, en `src/portal/shell/context.ts`: `type Scope = { kind: 'mine' } | { kind: 'project'; projectId: string }`,
+  `type TerritoryKind = 'community' | 'locality' | 'admin-unit' | 'area'`, `interface TerritoryFilter { kind; id }`,
+  `scopeFromPath(pathname): Scope`, `territoryFromSearch(search): TerritoryFilter | null` y
+  `useContextFilters(): { scope; territory }` (el nombre de `docs/ux/screens.md` §2).
 - Produces: `PANTALLAS: Partial<Record<ClaveDeSeccion, ComponentType>>` (vacío en F1); `GuardaDeSeccion({ seccion, children })`;
-  la navegación `Secciones` (`<nav aria-label>`) del marco; las claves `shell.secciones`, `shell.leyendoPermisos`,
-  `shell.sinAcceso` y `secciones.<clave>` de `ES`.
+  la navegación `Secciones` (`<nav aria-label>`) del shell; el botón «Preguntar» (`aria-disabled`) de la barra superior;
+  las claves `shell.secciones`, `shell.leyendoPermisos`, `shell.sinAcceso`, `shell.preguntar`, `shell.asistentePorLlegar`
+  y `secciones.<clave>` de `ES`.
 
 - [ ] **Paso 1: escribir la prueba que falla, `src/portal/shell/Navigation.test.tsx`**
 
@@ -6223,10 +6419,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { abrirSesion, ADMIN_PERMISOS, ADMINISTRACION, AUDITORA, RELACIONISTA, rutasDeSesion, SIN_PERMISOS, yo } from '../../test/portal'
 import { PortalApp } from '../PortalApp'
 import { ES } from '../textos/es'
+import { scopeFromPath, territoryFromSearch } from './context'
 import { arbolPara, estadoDe, NAV_TREE, type ClaveDeSeccion } from './navTree'
 
-// RF-IAM-002 y RNF-USA-001: las 13 secciones en su orden y su fase; una sección se dibuja solo con pantalla y con los
-// permisos de GET /api/auth/me/permissions; Administración solo para quien administra. en F1 no hay pantallas registradas:
+// RF-IAM-002 y RNF-USA-001 con las rutas de docs/ux/ux-architecture.md §6.2: las 13 secciones en su orden y su fase; una
+// sección se dibuja solo con pantalla y con los permisos de GET /api/auth/me/permissions; Administración solo para quien
+// administra; el asistente no es una sección (ASM-073). en F1 no hay pantallas registradas:
 // cada prueba registra la suya
 const registradas = vi.hoisted(() => ({}) as Record<string, ComponentType>)
 vi.mock('../pantallas', () => ({ PANTALLAS: registradas }))
@@ -6268,22 +6466,24 @@ const cuenta = (pares: string[], isAdmin = false) => ({
 const soloDashboard = (clave: ClaveDeSeccion) => clave === 'dashboard'
 
 describe('NAV_TREE', () => {
-  it('declara las 13 secciones del prompt en su orden, con su ruta y sus fases', () => {
+  it('declara las 13 secciones en su orden, con su ruta de docs/ux, su ícono y sus fases', () => {
     expect(NAV_TREE.map((s) => [s.label, s.to, s.fases.join(', ')])).toEqual([
       ['Dashboard', '/', 'F1, F8'],
       ['Proyectos', '/projects', 'F2, F7'],
       ['Territorio', '/territory', 'F2, F6'],
       ['Grupos de interés', '/stakeholders', 'F2'],
-      ['Relacionamiento', '/engagement', 'F2'],
+      ['Relacionamiento', '/engagements', 'F2'],
       ['Compromisos', '/commitments', 'F3'],
       ['Quejas, consultas y solicitudes', '/attention', 'F4'],
       ['Riesgos', '/risks', 'F4'],
-      ['Programas sociales', '/social-programs', 'F5'],
+      ['Programas sociales', '/programs', 'F5'],
       ['Documentos', '/documents', 'F3'],
       ['Tareas', '/tasks', 'F3'],
       ['Reportes', '/reports', 'F2, F8'],
       ['Administración', '/admin', 'F1']
     ])
+    expect(NAV_TREE.filter((s) => !s.icon)).toEqual([])
+    expect(new Set(NAV_TREE.map((s) => s.icon)).size).toBe(13)
   })
 
   it('las etiquetas del árbol son las de los textos en español', () => {
@@ -6353,6 +6553,22 @@ describe('navegación del portal', () => {
     expect(enlaces()).toEqual(['Dashboard', 'Proyectos'])
   })
 
+  // ASM-073: el asistente es el botón Preguntar de la barra superior, nunca una sección; llega en F7 y hasta entonces
+  // está deshabilitado y dice por qué
+  it('Preguntar está en la barra superior, deshabilitado, y no en las secciones', async () => {
+    start(ADMINISTRACION, rutasDeSesion(ADMINISTRACION, ADMIN_PERMISOS))
+    const preguntar = await within(await screen.findByRole('banner')).findByRole('button', { name: 'Preguntar' })
+    expect(preguntar).toHaveAttribute('aria-disabled', 'true')
+    expect(preguntar).toHaveAttribute('title', 'El asistente de IA llega en una próxima fase')
+    await waitFor(() => expect(enlaces()).toEqual(['Dashboard', 'Administración']))
+  })
+
+  it('la sección abierta se marca como la página actual', async () => {
+    start(RELACIONISTA, rutasDeSesion(RELACIONISTA, SIN_PERMISOS))
+    await screen.findByRole('navigation', { name: 'Secciones' })
+    expect(within(lateral()).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
+  })
+
   it('sin el permiso, la URL de la sección dice que la cuenta no puede abrirla', async () => {
     registradas.projects = Prueba
     start(RELACIONISTA, rutasDeSesion(RELACIONISTA, SIN_PERMISOS), '/projects')
@@ -6361,40 +6577,82 @@ describe('navegación del portal', () => {
     expect(enlaces()).toEqual(['Dashboard'])
   })
 })
+
+// el gancho del contexto (ASM-075, ASM-076): en F1 nadie lo dibuja todavía, pero la URL ya lo dice
+describe('contexto en la URL', () => {
+  it.each([
+    ['/', { kind: 'mine' }],
+    ['/projects', { kind: 'mine' }],
+    ['/projects/new', { kind: 'mine' }],
+    ['/projects/p-1', { kind: 'project', projectId: 'p-1' }],
+    ['/projects/p-1/commitments/c-9', { kind: 'project', projectId: 'p-1' }],
+    ['/territory/communities/c-1', { kind: 'mine' }]
+  ])('%s tiene el alcance %j', (ruta, alcance) => {
+    expect(scopeFromPath(ruta)).toEqual(alcance)
+  })
+
+  it.each([
+    ['?territory=community:c-1', { kind: 'community', id: 'c-1' }],
+    ['?territory=admin-unit:150101&view=candidates', { kind: 'admin-unit', id: '150101' }],
+    ['?territory=planeta:x', null],
+    ['?territory=community:', null],
+    ['?territory=c-1', null],
+    ['', null]
+  ])('%s filtra por %j', (consulta, territorio) => {
+    expect(territoryFromSearch(consulta)).toEqual(territorio)
+  })
+})
 ```
 
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal/shell/Navigation 2>&1 | tail -5
 ```
 
-Esperado: FAIL con `Failed to resolve import "./navTree"` y `"../pantallas"`.
+Esperado: FAIL con `Failed to resolve import "./context"`, `"./navTree"` y `"../pantallas"`.
 
 - [ ] **Paso 3: `src/portal/shell/navTree.ts`** (adaptado de caja-ui@a45b224 `src/portal/shell/navTree.ts`: sin grupos en
-  F1, con la fase de cada sección y su estado)
+  F1, con las rutas y los íconos de `docs/ux/ux-architecture.md` §6.2, la fase de cada sección y su estado)
 
 ```ts
 import { useAuth, type NavTreeLeaf } from '@wasichai/core'
+import {
+  ChartColumn,
+  FileText,
+  FolderKanban,
+  Handshake,
+  HeartHandshake,
+  LayoutDashboard,
+  ListChecks,
+  MapIcon,
+  MessageSquareWarning,
+  MessagesSquare,
+  Settings,
+  ShieldAlert,
+  Users
+} from 'lucide-react'
 import { useMemo } from 'react'
 import { PANTALLAS } from '../pantallas'
 
-// el árbol del portal: las 13 secciones del prompt en su orden, con sus fases (architecture.md §9.2). una sección se dibuja
-// solo si tiene pantalla y la cuenta tiene los permisos que pide (RF-IAM-002, RNF-USA-001); los permisos son los de
-// GET /api/auth/me/permissions mientras falte UPS-06. Administración solo para quien administra (ADR-0024). sin nombres de
-// rol: decide isAdmin de core y los pares objeto/acción (RQ-SEC-005)
+// la navegación principal del portal (docs/ux/ux-architecture.md §6.2 y §7): las 13 secciones de RNF-USA-001 en su orden,
+// el mismo para todos los roles, con ícono, la ruta global en inglés y kebab-case (ASM-075) y sus fases (architecture.md
+// §9.2). una sección se dibuja solo si tiene pantalla y la cuenta tiene los permisos que pide (RF-IAM-002); los permisos
+// son los de GET /api/auth/me/permissions mientras falte UPS-06. Administración, solo para quien administra (ADR-0024). el
+// asistente de IA no es una sección (ASM-073): es el botón Preguntar de la barra superior. sin nombres de rol: decide
+// isAdmin de core y los pares objeto/acción (RQ-SEC-005)
 
 export type ClaveDeSeccion =
   | 'dashboard'
   | 'projects'
   | 'territory'
   | 'stakeholders'
-  | 'engagement'
+  | 'engagements'
   | 'commitments'
   | 'attention'
   | 'risks'
-  | 'social-programs'
+  | 'programs'
   | 'documents'
   | 'tasks'
   | 'reports'
@@ -6424,31 +6682,40 @@ const lee = (objeto: string): Par => ({ objeto, accion: 'READ' })
 
 // los objetos son los del catálogo canónico (domain-model.md §6): el que lee la pantalla principal de cada sección
 export const NAV_TREE: SeccionNav[] = [
-  { clave: 'dashboard', label: 'Dashboard', to: '/', fases: ['F1', 'F8'] },
-  { clave: 'projects', label: 'Proyectos', to: '/projects', fases: ['F2', 'F7'], seOfreceCon: [[lee('project')]] },
-  { clave: 'territory', label: 'Territorio', to: '/territory', fases: ['F2', 'F6'], seOfreceCon: [[lee('locality')]] },
-  { clave: 'stakeholders', label: 'Grupos de interés', to: '/stakeholders', fases: ['F2'], seOfreceCon: [[lee('stakeholder')]] },
-  { clave: 'engagement', label: 'Relacionamiento', to: '/engagement', fases: ['F2'], seOfreceCon: [[lee('engagement')]] },
-  { clave: 'commitments', label: 'Compromisos', to: '/commitments', fases: ['F3'], seOfreceCon: [[lee('commitment')]] },
+  { clave: 'dashboard', label: 'Dashboard', to: '/', icon: LayoutDashboard, fases: ['F1', 'F8'] },
+  { clave: 'projects', label: 'Proyectos', to: '/projects', icon: FolderKanban, fases: ['F2', 'F7'], seOfreceCon: [[lee('project')]] },
+  { clave: 'territory', label: 'Territorio', to: '/territory', icon: MapIcon, fases: ['F2', 'F6'], seOfreceCon: [[lee('locality')]] },
+  { clave: 'stakeholders', label: 'Grupos de interés', to: '/stakeholders', icon: Users, fases: ['F2'], seOfreceCon: [[lee('stakeholder')]] },
+  { clave: 'engagements', label: 'Relacionamiento', to: '/engagements', icon: MessagesSquare, fases: ['F2'], seOfreceCon: [[lee('engagement')]] },
+  { clave: 'commitments', label: 'Compromisos', to: '/commitments', icon: Handshake, fases: ['F3'], seOfreceCon: [[lee('commitment')]] },
   {
     clave: 'attention',
     label: 'Quejas, consultas y solicitudes',
     to: '/attention',
+    icon: MessageSquareWarning,
     fases: ['F4'],
     seOfreceCon: [[lee('grievance')], [lee('inquiry')], [lee('stakeholder_request')]]
   },
-  { clave: 'risks', label: 'Riesgos', to: '/risks', fases: ['F4'], seOfreceCon: [[lee('social_risk')], [lee('early_warning')], [lee('incident')]] },
   {
-    clave: 'social-programs',
+    clave: 'risks',
+    label: 'Riesgos',
+    to: '/risks',
+    icon: ShieldAlert,
+    fases: ['F4'],
+    seOfreceCon: [[lee('social_risk')], [lee('early_warning')], [lee('incident')]]
+  },
+  {
+    clave: 'programs',
     label: 'Programas sociales',
-    to: '/social-programs',
+    to: '/programs',
+    icon: HeartHandshake,
     fases: ['F5'],
     seOfreceCon: [[lee('social_program')], [lee('social_contribution')]]
   },
-  { clave: 'documents', label: 'Documentos', to: '/documents', fases: ['F3'], seOfreceCon: [[lee('evidence')]] },
-  { clave: 'tasks', label: 'Tareas', to: '/tasks', fases: ['F3'], seOfreceCon: [[lee('task')]] },
-  { clave: 'reports', label: 'Reportes', to: '/reports', fases: ['F2', 'F8'] },
-  { clave: 'admin', label: 'Administración', to: '/admin', external: true, soloAdmin: true, fases: ['F1'] }
+  { clave: 'documents', label: 'Documentos', to: '/documents', icon: FileText, fases: ['F3'], seOfreceCon: [[lee('evidence')]] },
+  { clave: 'tasks', label: 'Tareas', to: '/tasks', icon: ListChecks, fases: ['F3'], seOfreceCon: [[lee('task')]] },
+  { clave: 'reports', label: 'Reportes', to: '/reports', icon: ChartColumn, fases: ['F2', 'F8'] },
+  { clave: 'admin', label: 'Administración', to: '/admin', icon: Settings, external: true, soloAdmin: true, fases: ['F1'] }
 ]
 
 // lo que el árbol pregunta de la cuenta (useAuth de core: can es siempre true para el admin) y de las pantallas
@@ -6460,8 +6727,9 @@ export interface Oferta {
 
 export type Estado = 'disponible' | 'sin-acceso' | 'solo-admin' | 'por-llegar'
 
-const seOfrece = (seccion: SeccionNav, can: Oferta['can']) =>
-  !seccion.seOfreceCon || seccion.seOfreceCon.some((alternativa) => alternativa.every(({ objeto, accion }) => can(objeto, accion)))
+// si la cuenta tiene alguna de las alternativas, cada una con todos sus pares. lo usan las secciones y los inicios por rol
+export const ofrece = (alternativas: Par[][], can: Oferta['can']) =>
+  alternativas.some((alternativa) => alternativa.every(({ objeto, accion }) => can(objeto, accion)))
 
 // el Dashboard es la ruta índice del portal y Administración un enlace a /admin: existen sin registrarse en PANTALLAS
 export const conPantalla = (clave: ClaveDeSeccion) => clave === 'dashboard' || PANTALLAS[clave] !== undefined
@@ -6470,7 +6738,7 @@ export const conPantalla = (clave: ClaveDeSeccion) => clave === 'dashboard' || P
 export function estadoDe(seccion: SeccionNav, oferta: Oferta): Estado {
   if (seccion.soloAdmin && !oferta.isAdmin) return 'solo-admin'
   if (!seccion.external && !oferta.conPantalla(seccion.clave)) return 'por-llegar'
-  return seOfrece(seccion, oferta.can) ? 'disponible' : 'sin-acceso'
+  return !seccion.seOfreceCon || ofrece(seccion.seOfreceCon, oferta.can) ? 'disponible' : 'sin-acceso'
 }
 
 // las secciones que se dibujan para esta cuenta, en su orden
@@ -6491,7 +6759,7 @@ export function useArbol(): SeccionNav[] {
 }
 ```
 
-- [ ] **Paso 4: `src/portal/pantallas.ts` y `src/portal/shell/GuardaDeSeccion.tsx`**
+- [ ] **Paso 4: `src/portal/pantallas.ts`, `src/portal/shell/GuardaDeSeccion.tsx` y `src/portal/shell/context.ts`**
 
 ```ts
 import type { ComponentType } from 'react'
@@ -6517,9 +6785,54 @@ export function GuardaDeSeccion({ seccion, children }: { seccion: SeccionNav; ch
   const { t } = useTranslation(NS)
   const { permissions, permissionsError } = useAuth()
   const oferta = useOferta()
-  if (!permissions && !permissionsError) return <p className="text-sm text-ink-muted">{t('shell.leyendoPermisos')}</p>
+  if (!permissions && !permissionsError) return <p className="text-sm text-sg-text-muted">{t('shell.leyendoPermisos')}</p>
   if (estadoDe(seccion, oferta) === 'disponible') return children
   return <Alert tone="warning">{t('shell.sinAcceso', { seccion: t(`secciones.${seccion.clave}`) })}</Alert>
+}
+```
+
+`src/portal/shell/context.ts` (el gancho del contexto: en F1 nadie lo dibuja; F2 lo usa en el selector de proyecto y la
+`ContextBar`):
+
+```ts
+import { useMemo } from 'react'
+import { useLocation } from 'react-router'
+
+// el contexto del portal vive en la URL (ASM-075, docs/ux/ux-architecture.md §6 y §8): global, o un proyecto bajo
+// /projects/:projectId, más un chip de territorio en ?territory=<tipo>:<id>. la misma página de lista o de ficha se monta
+// con uno u otro alcance (ASM-076, design-system.md §9). es el gancho de F1: el selector de proyecto y la ContextBar de la
+// barra superior llegan en F2 con los proyectos y lo leen de aquí (useContextFilters, screens.md §2)
+
+export type Scope = { kind: 'mine' } | { kind: 'project'; projectId: string }
+
+// lo que puede filtrar el chip de territorio: comunidad, localidad, unidad administrativa o área de influencia
+export type TerritoryKind = 'community' | 'locality' | 'admin-unit' | 'area'
+
+export interface TerritoryFilter {
+  kind: TerritoryKind
+  id: string
+}
+
+const TERRITORIOS: readonly string[] = ['community', 'locality', 'admin-unit', 'area']
+
+// /projects/:projectId/… es el alcance de ese proyecto; /projects, /projects/new y cualquier otra ruta, el global
+export function scopeFromPath(pathname: string): Scope {
+  const match = /^\/projects\/([^/]+)(?:\/|$)/.exec(pathname)
+  return match && match[1] !== 'new' ? { kind: 'project', projectId: decodeURIComponent(match[1]) } : { kind: 'mine' }
+}
+
+// ?territory=community:<id>; un tipo desconocido o sin identificador no filtra nada
+export function territoryFromSearch(search: string): TerritoryFilter | null {
+  const value = new URLSearchParams(search).get('territory')
+  const at = value?.indexOf(':') ?? -1
+  if (!value || at < 1 || at === value.length - 1) return null
+  const kind = value.slice(0, at)
+  return TERRITORIOS.includes(kind) ? { kind: kind as TerritoryKind, id: value.slice(at + 1) } : null
+}
+
+export function useContextFilters(): { scope: Scope; territory: TerritoryFilter | null } {
+  const { pathname, search } = useLocation()
+  return useMemo(() => ({ scope: scopeFromPath(pathname), territory: territoryFromSearch(search) }), [pathname, search])
 }
 ```
 
@@ -6541,19 +6854,21 @@ export const ES = {
     salir: 'Cerrar sesión',
     secciones: 'Secciones',
     leyendoPermisos: 'Leyendo los permisos de su cuenta…',
-    sinAcceso: 'Su cuenta no puede abrir «{{seccion}}».'
+    sinAcceso: 'Su cuenta no puede abrir «{{seccion}}».',
+    preguntar: 'Preguntar',
+    asistentePorLlegar: 'El asistente de IA llega en una próxima fase'
   },
-  // las 13 secciones de architecture.md §9.2, con la clave de NAV_TREE (Navigation.test.tsx las mantiene iguales)
+  // las 13 secciones de docs/ux/ux-architecture.md §6.2, con la clave de NAV_TREE (Navigation.test.tsx las mantiene iguales)
   secciones: {
     dashboard: 'Dashboard',
     projects: 'Proyectos',
     territory: 'Territorio',
     stakeholders: 'Grupos de interés',
-    engagement: 'Relacionamiento',
+    engagements: 'Relacionamiento',
     commitments: 'Compromisos',
     attention: 'Quejas, consultas y solicitudes',
     risks: 'Riesgos',
-    'social-programs': 'Programas sociales',
+    programs: 'Programas sociales',
     documents: 'Documentos',
     tasks: 'Tareas',
     reports: 'Reportes',
@@ -6566,73 +6881,94 @@ export const ES = {
 export type Textos = typeof ES
 ```
 
-- [ ] **Paso 6: `src/portal/shell/AppShell.tsx`** (contenido completo; adaptado del marco clásico de caja-ui@a45b224
-  `src/portal/shell/AppShell.tsx`)
+- [ ] **Paso 6: `src/portal/shell/AppShell.tsx`** (contenido completo: el shell de `docs/ux/ux-architecture.md` §7.1 con
+  las utilidades `sg-*` de la Tarea 15; el selector de idioma llega en la Tarea 17)
 
 ```tsx
 import { useAuth, useWasichaiConfig } from '@wasichai/core'
 import { cn } from '@wasichai/ui'
-import { ExternalLink, LayoutDashboard, LogOut, Settings, type LucideIcon } from 'lucide-react'
+import { ExternalLink, LayoutDashboard, LogOut, Mountain, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 import { NS } from '../i18n'
-import { useArbol, type ClaveDeSeccion } from './navTree'
+import { useArbol } from './navTree'
 import { ThemeMenu } from './ThemeMenu'
 
-const ICONOS: Partial<Record<ClaveDeSeccion, LucideIcon>> = { dashboard: LayoutDashboard, admin: Settings }
-const ENLACE = 'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm'
+// text-sm es el cuerpo de 14/20 de tokens.css: dentro de cn(), text-sg-body se confundiría con un color
+const ENLACE = 'flex h-9 items-center gap-2.5 rounded-sg-md px-2.5 text-sm'
+const REPOSO = 'text-sg-text-secondary hover:bg-sg-surface-hover hover:text-sg-text'
+// por debajo de xl (1280 px) la navegación se contrae a 52 px: solo íconos, con la etiqueta para lectores y en title
+const ROTULO = 'sr-only xl:not-sr-only xl:truncate'
 
-// el marco del portal: cabecera con la marca, el tema, la cuenta y la salida; a la izquierda, las secciones que se le
-// ofrecen a la cuenta (useArbol); a la derecha, el contenido. Administración es un enlace a /admin, fuera del portal
+// el shell del portal (docs/ux/ux-architecture.md §7.1): barra superior de 56 px con la marca, el botón Preguntar del
+// asistente, el tema, la cuenta con sus roles y la salida; a la izquierda, la navegación principal con las secciones que se
+// le ofrecen a la cuenta (useArbol), en su orden; a la derecha, el contenido. Administración es un enlace a /admin, fuera
+// del portal. el selector de proyecto, la búsqueda con ⌘K (S03) y los avisos (S04) llegan con sus fases (F2 y F3)
 export function AppShell() {
   const { t } = useTranslation(NS)
   const { appName } = useWasichaiConfig()
   const { user, signOut } = useAuth()
   const secciones = useArbol()
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
-        <span className="text-sm font-bold text-brand">{appName}</span>
-        <span className="hidden truncate text-sm text-ink-muted lg:inline">{t('app.lema')}</span>
+    <div className="flex h-full flex-col bg-sg-bg text-sg-text">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-sg-border bg-sg-surface px-4">
+        <Link to="/" className="flex items-center gap-2 font-semibold text-sg-primary-text">
+          <Mountain aria-hidden className="size-5" />
+          {appName}
+        </Link>
+        <span className="hidden truncate text-sg-body-sm text-sg-text-muted lg:inline">{t('app.lema')}</span>
+        {/* F2: aquí van el selector de proyecto ("Todos mis proyectos" o uno) y la búsqueda con ⌘K; el contexto se lee
+            de la URL con useContextFilters (./context.ts) */}
         <div className="flex-1" />
+        {/* el asistente no es una sección (ASM-073): su botón vive aquí y llega en F7. hasta entonces está deshabilitado
+            y dice por qué (design-system.md §3.8) */}
+        <button
+          type="button"
+          aria-disabled="true"
+          title={t('shell.asistentePorLlegar')}
+          className="flex h-8 cursor-not-allowed items-center gap-1.5 rounded-sg-md border border-dashed border-sg-ai-border px-2.5 text-sg-body-sm text-sg-ai opacity-60"
+        >
+          <Sparkles aria-hidden className="size-4" />
+          {t('shell.preguntar')}
+        </button>
         <ThemeMenu />
-        <span className="hidden max-w-48 truncate text-sm text-ink sm:inline" title={user?.email}>
-          {user?.displayName}
+        <span className="hidden max-w-56 flex-col text-right leading-tight sm:flex" title={user?.email}>
+          <span className="truncate text-sg-body-sm text-sg-text">{user?.displayName}</span>
+          <span className="truncate font-sg-mono text-sg-caption text-sg-text-muted">{user?.roles.join(', ')}</span>
         </span>
         <button
           type="button"
           onClick={signOut}
           aria-label={t('shell.salir')}
           title={t('shell.salir')}
-          className="rounded p-1.5 text-ink-muted hover:bg-surface-muted hover:text-ink"
+          className="rounded-sg-md p-1.5 text-sg-text-muted hover:bg-sg-surface-hover hover:text-sg-text"
         >
           <LogOut className="size-4" />
         </button>
       </header>
       <div className="flex min-h-0 flex-1">
-        <nav aria-label={t('shell.secciones')} className="w-60 shrink-0 bg-shell p-3">
-          <ul className="space-y-1">
+        <nav aria-label={t('shell.secciones')} className="w-[52px] shrink-0 border-r border-sg-border bg-sg-surface p-1.5 xl:w-60 xl:p-3">
+          <ul className="space-y-0.5">
             {secciones.map((seccion) => {
-              const Icono = ICONOS[seccion.clave] ?? LayoutDashboard
+              const Icono = seccion.icon ?? LayoutDashboard
               const rotulo = t(`secciones.${seccion.clave}`)
               return (
                 <li key={seccion.clave}>
                   {seccion.external ? (
-                    <a href={seccion.to} className={cn(ENLACE, 'text-shell-muted hover:bg-shell-ink/5 hover:text-shell-ink')}>
-                      <Icono aria-hidden className="size-4" />
-                      {rotulo}
-                      <ExternalLink aria-hidden className="ml-auto size-3" />
+                    <a href={seccion.to} title={rotulo} className={cn(ENLACE, REPOSO)}>
+                      <Icono aria-hidden className="size-4 shrink-0" />
+                      <span className={ROTULO}>{rotulo}</span>
+                      <ExternalLink aria-hidden className="ml-auto hidden size-3 xl:block" />
                     </a>
                   ) : (
                     <NavLink
                       to={seccion.to}
-                      end
-                      className={({ isActive }) =>
-                        cn(ENLACE, isActive ? 'bg-shell-ink/10 text-shell-ink' : 'text-shell-muted hover:bg-shell-ink/5 hover:text-shell-ink')
-                      }
+                      end={seccion.to === '/'}
+                      title={rotulo}
+                      className={({ isActive }) => cn(ENLACE, isActive ? 'bg-sg-primary-soft font-medium text-sg-primary-text' : REPOSO)}
                     >
-                      <Icono aria-hidden className="size-4" />
-                      {rotulo}
+                      <Icono aria-hidden className="size-4 shrink-0" />
+                      <span className={ROTULO}>{rotulo}</span>
                     </NavLink>
                   )}
                 </li>
@@ -6640,7 +6976,7 @@ export function AppShell() {
             })}
           </ul>
         </nav>
-        <main id="content" className="min-h-0 min-w-0 flex-1 overflow-auto px-6 py-5">
+        <main id="content" className="min-h-0 min-w-0 flex-1 overflow-auto px-4 py-5 md:px-6 2xl:px-8">
           <Outlet />
         </main>
       </div>
@@ -6732,23 +7068,26 @@ export function PortalApp() {
 - [ ] **Paso 8: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
-Esperado: `Test Files  8 passed (8)`; `Navigation.test.tsx` con 14 pruebas en verde; `lint` y `typecheck` limpios.
+Esperado: `Test Files  8 passed (8)`; `Navigation.test.tsx` con 28 pruebas en verde (16 del árbol y del shell, 12 del
+contexto en la URL); `lint` y `typecheck` limpios.
 
 - [ ] **Paso 9: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/portal/shell/navTree.ts src/portal/pantallas.ts src/portal/shell/GuardaDeSeccion.tsx \
-  src/portal/shell/AppShell.tsx src/portal/PortalApp.tsx src/portal/textos/es.ts src/portal/shell/Navigation.test.tsx
+  src/portal/shell/context.ts src/portal/shell/AppShell.tsx src/portal/PortalApp.tsx src/portal/textos/es.ts \
+  src/portal/shell/Navigation.test.tsx
 git commit -F - <<'EOF'
-feat(portal): las 13 secciones del prompt con su fase, por permisos
+feat(portal): shell y navegación de docs/ux, por permisos
 
-Una sección se dibuja solo con pantalla y con los permisos de /api/auth/me/permissions;
-Administración solo para quien administra. En F1 se dibujan Dashboard y Administración.
+Las 13 secciones con las rutas de ux-architecture §6.2; una sección se dibuja solo con
+pantalla y con sus permisos, Administración solo para quien administra. Preguntar queda
+deshabilitado en la barra superior (ASM-073) y el contexto se lee de la URL (context.ts).
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -6856,7 +7195,7 @@ describe('i18n del portal', () => {
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal/I18n 2>&1 | tail -5
 ```
 
@@ -6864,10 +7203,10 @@ Esperado: FAIL con `Failed to resolve import "./textos/en"`.
 
 - [ ] **Paso 3: la clave del idioma en `src/portal/textos/es.ts`**
 
-Reemplazar `    sinAcceso: 'Su cuenta no puede abrir «{{seccion}}».'` por:
+Reemplazar `    asistentePorLlegar: 'El asistente de IA llega en una próxima fase'` por:
 
 ```ts
-    sinAcceso: 'Su cuenta no puede abrir «{{seccion}}».',
+    asistentePorLlegar: 'El asistente de IA llega en una próxima fase',
     idioma: 'Idioma'
 ```
 
@@ -6892,6 +7231,8 @@ export const EN: Textos = {
     secciones: 'Sections',
     leyendoPermisos: 'Reading your account permissions…',
     sinAcceso: 'Your account cannot open “{{seccion}}”.',
+    preguntar: 'Ask',
+    asistentePorLlegar: 'The AI assistant arrives in a later phase',
     idioma: 'Language'
   },
   secciones: {
@@ -6899,11 +7240,11 @@ export const EN: Textos = {
     projects: 'Projects',
     territory: 'Territory',
     stakeholders: 'Stakeholders',
-    engagement: 'Engagement',
+    engagements: 'Engagement',
     commitments: 'Commitments',
     attention: 'Grievances, inquiries and requests',
     risks: 'Risks',
-    'social-programs': 'Social programs',
+    programs: 'Social programs',
     documents: 'Documents',
     tasks: 'Tasks',
     reports: 'Reports',
@@ -6949,7 +7290,7 @@ export function crearI18n(modules: readonly WasichaiModule[] = []): I18n {
 }
 ```
 
-- [ ] **Paso 6: `src/portal/shell/LanguageMenu.tsx` y el marco**
+- [ ] **Paso 6: `src/portal/shell/LanguageMenu.tsx` y el shell**
 
 ```tsx
 import { changeLanguage } from '@wasichai/core'
@@ -6965,7 +7306,7 @@ export function LanguageMenu() {
       aria-label={t('shell.idioma')}
       value={i18n.resolvedLanguage ?? 'es'}
       onChange={(event) => void changeLanguage(i18n, client.keys.lang, event.target.value)}
-      className="rounded border border-border bg-surface px-1.5 py-1 text-sm text-ink"
+      className="h-8 rounded-sg-md border border-sg-border-strong bg-sg-surface px-1.5 text-sm text-sg-text"
     >
       <option value="es">Español</option>
       <option value="en">English</option>
@@ -6975,7 +7316,7 @@ export function LanguageMenu() {
 ```
 
 En `src/portal/shell/AppShell.tsx`, agregar `import { LanguageMenu } from './LanguageMenu'` antes de
-`import { useArbol, type ClaveDeSeccion } from './navTree'`, y reemplazar `        <ThemeMenu />` por:
+`import { useArbol } from './navTree'`, y reemplazar `        <ThemeMenu />` por:
 
 ```tsx
         <LanguageMenu />
@@ -6985,7 +7326,7 @@ En `src/portal/shell/AppShell.tsx`, agregar `import { LanguageMenu } from './Lan
 - [ ] **Paso 7: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck
 ```
 
@@ -6994,7 +7335,7 @@ Esperado: `Test Files  9 passed (9)`; `I18n.test.tsx` con 5 pruebas en verde; `l
 - [ ] **Paso 8: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add src/portal/textos/en.ts src/portal/textos/es.ts src/portal/i18n.ts src/portal/shell/LanguageMenu.tsx \
   src/portal/shell/AppShell.tsx src/portal/I18n.test.tsx
 git commit -F - <<'EOF'
@@ -7010,22 +7351,32 @@ EOF
 
 ---
 
-### Tarea 18: B7 · Dashboard de F1
+### Tarea 18: B7 · Inicio de F1 e inicio por rol
+
+En F1, el inicio (`/`, S02) es la bienvenida de `docs/ux/ux-architecture.md` §6.2 («F1 bienvenida») con lo que F1 sabe de
+la cuenta: usuario, organización y roles, más el mapa de módulos por fase de `architecture.md` §9.2. El inicio por rol de
+ASM-078 queda como registro de variantes (`src/portal/inicios.ts`): RQ-SEC-005 prohíbe decidir con nombres de rol, así que
+cada variante dice con qué permisos se ofrece, como las secciones. Todos los inicios por rol de `ux-architecture.md` §5
+son pantallas de F2 en adelante, de modo que F1 no registra ninguno y toda cuenta ve la bienvenida.
 
 **Pista:** B.
 
 **Files:**
-- Create: `src/portal/queries.ts`
+- Create: `src/portal/queries.ts`, `src/portal/inicios.ts`
 - Modify (contenido completo): `src/portal/pages/InicioPage.tsx`
 - Modify: `src/portal/textos/es.ts` y `src/portal/textos/en.ts` (clave `inicio`)
 - Test: `src/portal/pages/Inicio.test.tsx`
 
 **Interfaces:**
-- Consumes: `NAV_TREE`, `estadoDe`, `useOferta`, `Estado` (Tarea 16); `NS` y los formateadores (Tarea 17).
+- Consumes: `NAV_TREE`, `estadoDe`, `ofrece`, `useOferta`, `Oferta`, `Par`, `Estado` (Tarea 16); `NS` y los formateadores
+  (Tarea 17); las utilidades `sg-*` (Tarea 15).
 - Produces: `useCuenta()` (`GET /api/auth/me`) y `useOrganizacion()` (`GET /api/organizations/current`) en
   `src/portal/queries.ts`, con `interface CuentaDeWasichai { userId; organizationId; email; roles: string[] }` e
-  `interface Organizacion { id; name; slug }`; el Dashboard con la cuenta, la organización, los roles y la tabla de módulos
-  por fase.
+  `interface Organizacion { id; name; slug }`; en `src/portal/inicios.ts`,
+  `interface VarianteDeInicio { clave: string; seOfreceCon: Par[][]; Pantalla: ComponentType }`, `INICIOS` (vacío en F1)
+  e `inicioPara(inicios, oferta): VarianteDeInicio | null`; `InicioPage`, que muestra la variante de la cuenta o la
+  bienvenida (cuenta, organización, roles y tabla de módulos por fase con estados de tono e ícono); la clave
+  `inicio.porRol`.
 
 - [ ] **Paso 1: escribir la prueba que falla, `src/portal/pages/Inicio.test.tsx`**
 
@@ -7033,11 +7384,16 @@ EOF
 import { render, screen, waitFor, within } from '@testing-library/react'
 import type { AuthUser, CallerPermissions } from '@wasichai/core'
 import { mockFetch, type FetchMock, type MockRoute } from '@wasichai/testing'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { abrirSesion, ADMIN_PERMISOS, ADMINISTRACION, AUDITORA, rutasDeSesion } from '../../test/portal'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { abrirSesion, ADMIN_PERMISOS, ADMINISTRACION, AUDITORA, RELACIONISTA, rutasDeSesion, SIN_PERMISOS } from '../../test/portal'
+import type { VarianteDeInicio } from '../inicios'
 import { PortalApp } from '../PortalApp'
 
-// el Dashboard de F1 (roadmap, B7): usuario, organización, roles y mapa de módulos por fase, sin indicadores
+// el inicio de F1 (S02, docs/ux/ux-architecture.md §6.2: "F1 bienvenida"; roadmap, B7): usuario, organización, roles y
+// mapa de módulos por fase, sin indicadores; y el inicio por rol de ASM-078, decidido por permisos. F1 no registra
+// variantes: cada prueba registra la suya
+const variantes = vi.hoisted(() => [] as VarianteDeInicio[])
+vi.mock('../inicios', async (original) => ({ ...(await original<typeof import('../inicios')>()), INICIOS: variantes }))
 
 const ORGANIZACION = { id: 'o1', name: 'Organización de prueba', slug: 'prueba', createdAt: null }
 
@@ -7045,6 +7401,7 @@ let fetch: FetchMock | null = null
 beforeEach(() => {
   localStorage.clear()
   sessionStorage.clear()
+  variantes.length = 0
 })
 afterEach(() => {
   fetch?.restore()
@@ -7058,8 +7415,11 @@ function start(user: AuthUser, permisos: CallerPermissions, primero: MockRoute[]
   render(<PortalApp />)
 }
 
+// el contenido de la página, sin la barra superior (que también muestra el nombre y los roles)
+const pagina = () => within(screen.getByRole('main'))
+
 const filas = () =>
-  within(screen.getByRole('table'))
+  within(pagina().getByRole('table'))
     .getAllByRole('row')
     .slice(1)
     .map((fila) =>
@@ -7082,27 +7442,55 @@ const POR_LLEGAR = [
   ['Reportes', 'F2, F8', 'Llega en F2']
 ]
 
-describe('Dashboard de F1', () => {
+function InicioDePrueba() {
+  return <h1>Inicio de prueba</h1>
+}
+
+describe('inicio de F1', () => {
   it('muestra la cuenta, la organización, los roles y el mapa de módulos por fase', async () => {
     start(ADMINISTRACION, ADMIN_PERMISOS)
     expect(await screen.findByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument()
-    expect(screen.getByText('Administración de prueba (admin@sgspe.test)')).toBeInTheDocument()
-    expect(await screen.findByText('Organización de prueba')).toBeInTheDocument()
-    expect(await screen.findByText('ADMIN')).toBeInTheDocument()
+    expect(pagina().getByText('Le damos la bienvenida, Administración de prueba.')).toBeInTheDocument()
+    expect(pagina().getByText('Administración de prueba (admin@sgspe.test)')).toBeInTheDocument()
+    expect(await pagina().findByText('Organización de prueba')).toBeInTheDocument()
+    expect(await pagina().findByText('ADMIN')).toBeInTheDocument()
     await waitFor(() => expect(filas()).toEqual([['Dashboard', 'F1, F8', 'Disponible'], ...POR_LLEGAR, ['Administración', 'F1', 'Disponible']]))
-    expect(screen.getByText('2 de 13 secciones disponibles para su cuenta')).toBeInTheDocument()
+    expect(pagina().getByText('2 de 13 secciones disponibles para su cuenta')).toBeInTheDocument()
   })
 
   it('a AUDITOR le muestra su rol y que Administración es solo para quien administra', async () => {
     start(AUDITORA, { admin: false, objects: {} })
-    expect(await screen.findByText('AUDITOR')).toBeInTheDocument()
+    expect(await pagina().findByText('AUDITOR')).toBeInTheDocument()
     expect(filas()).toEqual([['Dashboard', 'F1, F8', 'Disponible'], ...POR_LLEGAR, ['Administración', 'F1', 'Solo para administración']])
-    expect(screen.getByText('1 de 13 secciones disponibles para su cuenta')).toBeInTheDocument()
+    expect(pagina().getByText('1 de 13 secciones disponibles para su cuenta')).toBeInTheDocument()
   })
 
   it('dice que no pudo leer la organización en lugar de inventarla', async () => {
     start(AUDITORA, { admin: false, objects: {} }, [{ path: '/organizations/current', status: 404, body: { title: 'Not Found', status: 404 } }])
-    expect(await screen.findByText('No se pudo leer la organización')).toBeInTheDocument()
+    expect(await pagina().findByText('No se pudo leer la organización')).toBeInTheDocument()
+  })
+})
+
+// ASM-078 sin nombres de rol (RQ-SEC-005): la variante del inicio sale de los permisos de la cuenta
+describe('inicio por rol', () => {
+  it('sin variantes registradas, toda cuenta ve la bienvenida y sabe que su inicio llega con su módulo', async () => {
+    start(RELACIONISTA, SIN_PERMISOS)
+    expect(await screen.findByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument()
+    expect(pagina().getByText('Cada rol tendrá su propio inicio cuando llegue su módulo; mientras tanto, todas las cuentas empiezan aquí.')).toBeInTheDocument()
+  })
+
+  it('una variante registrada se ofrece a quien tiene sus permisos, y solo a quien los tiene', async () => {
+    variantes.push({ clave: 'prueba', seOfreceCon: [[{ objeto: 'project', accion: 'READ' }]], Pantalla: InicioDePrueba })
+    start(RELACIONISTA, { admin: false, objects: { project: ['READ'] } })
+    expect(await screen.findByRole('heading', { name: 'Inicio de prueba' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Dashboard' })).not.toBeInTheDocument()
+  })
+
+  it('sin los permisos de ninguna variante, la bienvenida', async () => {
+    variantes.push({ clave: 'prueba', seOfreceCon: [[{ objeto: 'project', accion: 'READ' }]], Pantalla: InicioDePrueba })
+    start(RELACIONISTA, SIN_PERMISOS)
+    expect(await screen.findByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Inicio de prueba' })).not.toBeInTheDocument()
   })
 })
 ```
@@ -7110,13 +7498,14 @@ describe('Dashboard de F1', () => {
 - [ ] **Paso 2: verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn test src/portal/pages 2>&1 | tail -5
 ```
 
-Esperado: FAIL: no aparecen `Administración de prueba (admin@sgspe.test)` ni la tabla.
+Esperado: FAIL en 5 de las 6 pruebas: no aparecen la bienvenida, la cuenta, la tabla ni «Inicio de prueba».
+«sin los permisos de ninguna variante, la bienvenida» ya pasa con el título provisional de la Tarea 14.
 
-- [ ] **Paso 3: los textos del Dashboard**
+- [ ] **Paso 3: los textos del inicio**
 
 En `src/portal/textos/es.ts`, reemplazar `  inicio: { titulo: 'Dashboard' },` por:
 
@@ -7124,6 +7513,7 @@ En `src/portal/textos/es.ts`, reemplazar `  inicio: { titulo: 'Dashboard' },` po
   inicio: {
     titulo: 'Dashboard',
     bienvenida: 'Le damos la bienvenida, {{nombre}}.',
+    porRol: 'Cada rol tendrá su propio inicio cuando llegue su módulo; mientras tanto, todas las cuentas empiezan aquí.',
     cuenta: 'Su cuenta',
     usuario: 'Usuario',
     organizacion: 'Organización',
@@ -7148,6 +7538,7 @@ En `src/portal/textos/en.ts`, reemplazar `  inicio: { titulo: 'Dashboard' },` po
   inicio: {
     titulo: 'Dashboard',
     bienvenida: 'Welcome, {{nombre}}.',
+    porRol: 'Each role gets its own home when its module arrives; until then, every account starts here.',
     cuenta: 'Your account',
     usuario: 'User',
     organizacion: 'Organization',
@@ -7166,7 +7557,7 @@ En `src/portal/textos/en.ts`, reemplazar `  inicio: { titulo: 'Dashboard' },` po
   },
 ```
 
-- [ ] **Paso 4: `src/portal/queries.ts`**
+- [ ] **Paso 4: `src/portal/queries.ts` y `src/portal/inicios.ts`**
 
 ```ts
 import { useQuery } from '@tanstack/react-query'
@@ -7209,20 +7600,63 @@ export function useOrganizacion() {
 }
 ```
 
+`src/portal/inicios.ts`:
+
+```ts
+import type { ComponentType } from 'react'
+import { ofrece, type Oferta, type Par } from './shell/navTree'
+
+// el inicio por rol (ASM-078, docs/ux/ux-architecture.md §5 y §7.2): / muestra la variante que corresponde a lo que la
+// cuenta hace. sin nombres de rol (RQ-SEC-005): cada variante dice con qué permisos se ofrece, como las secciones, y gana
+// la primera que la cuenta tiene, en el orden de ux-architecture §5. F1 no registra ninguna: todos los inicios por rol
+// son pantallas de F2 en adelante (Project 360, matriz, territorio, tareas, aprobaciones…) y una variante sin pantalla no
+// existe, igual que una sección sin pantalla. sin variante, el inicio es la bienvenida de F1. cuando una cuenta tenga más
+// de una, la persona podrá elegir la suya (ASM-078); en F1 no hay qué elegir
+export interface VarianteDeInicio {
+  clave: string
+  // alguna de estas alternativas, cada una una lista de pares que la cuenta debe tener todos
+  seOfreceCon: Par[][]
+  Pantalla: ComponentType
+}
+
+export const INICIOS: VarianteDeInicio[] = []
+
+export function inicioPara(inicios: VarianteDeInicio[], oferta: Pick<Oferta, 'can'>): VarianteDeInicio | null {
+  return inicios.find((variante) => ofrece(variante.seOfreceCon, oferta.can)) ?? null
+}
+```
+
 - [ ] **Paso 5: `src/portal/pages/InicioPage.tsx`** (contenido completo)
 
 ```tsx
 import { useAuth } from '@wasichai/core'
 import { Badge, Table, Td, Th } from '@wasichai/ui'
+import { CircleCheck, Clock, Lock, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NS } from '../i18n'
+import { INICIOS, inicioPara } from '../inicios'
 import { useCuenta, useOrganizacion } from '../queries'
 import { estadoDe, NAV_TREE, useOferta, type Estado } from '../shell/navTree'
 
-// el Dashboard de F1 (roadmap, B7): quién es, de qué organización, con qué roles, y el mapa de módulos por fase, sin
-// indicadores (dashboards.md §11). los roles son los nombres técnicos que contesta wasichai: sus etiquetas en español solo
-// las lee quien administra (/api/roles). lo que no se pudo leer se dice; nunca se inventa
+// cada estado con su tono e ícono de design-system.md §4: nunca solo color
+const TONO: Record<Estado, { clase: string; Icono: LucideIcon }> = {
+  disponible: { clase: 'bg-sg-success-soft text-sg-success', Icono: CircleCheck },
+  'por-llegar': { clase: 'bg-sg-neutral-soft text-sg-neutral', Icono: Clock },
+  'solo-admin': { clase: 'bg-sg-neutral-soft text-sg-neutral', Icono: Lock },
+  'sin-acceso': { clase: 'bg-sg-warning-soft text-sg-warning', Icono: Lock }
+}
+
+// el inicio del portal (S02, ASM-078): la variante del rol si la cuenta tiene una (inicios.ts); si no, la bienvenida de F1
 export function InicioPage() {
+  const oferta = useOferta()
+  const variante = inicioPara(INICIOS, oferta)
+  return variante ? <variante.Pantalla /> : <Bienvenida />
+}
+
+// la bienvenida de F1 (docs/ux/ux-architecture.md §6.2; roadmap, B7): quién es, de qué organización, con qué roles, y el
+// mapa de módulos por fase, sin indicadores (dashboards.md §11). los roles son los nombres técnicos que contesta wasichai:
+// sus etiquetas en español solo las lee quien administra (/api/roles). lo que no se pudo leer se dice; nunca se inventa
+function Bienvenida() {
   const { t } = useTranslation(NS)
   const { user } = useAuth()
   const cuenta = useCuenta()
@@ -7233,57 +7667,70 @@ export function InicioPage() {
   const rotulo = (estado: Estado, fase: string) => (estado === 'por-llegar' ? t('inicio.llegaEn', { fase }) : t(`inicio.estados.${estado}`))
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1440px] space-y-8">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold text-ink">{t('inicio.titulo')}</h1>
-        <p className="text-sm text-ink-muted">{t('inicio.bienvenida', { nombre: user?.displayName ?? '' })}</p>
+        <h1 className="text-sg-h1 font-semibold text-sg-text">{t('inicio.titulo')}</h1>
+        <p className="text-sg-body text-sg-text-secondary">{t('inicio.bienvenida', { nombre: user?.displayName ?? '' })}</p>
+        <p className="text-sg-body-sm text-sg-text-muted">{t('inicio.porRol')}</p>
       </div>
-      <section aria-labelledby="inicio-cuenta" className="space-y-2">
-        <h2 id="inicio-cuenta" className="text-base font-semibold text-ink">
+      <section aria-labelledby="inicio-cuenta" className="space-y-3 rounded-sg-lg border border-sg-border bg-sg-surface p-5">
+        <h2 id="inicio-cuenta" className="text-sg-h3 font-semibold text-sg-text">
           {t('inicio.cuenta')}
         </h2>
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-ink-muted">{t('inicio.usuario')}</dt>
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sg-body">
+          <dt className="text-sg-text-muted">{t('inicio.usuario')}</dt>
           <dd>{user ? `${user.displayName} (${user.email})` : ''}</dd>
-          <dt className="text-ink-muted">{t('inicio.organizacion')}</dt>
+          <dt className="text-sg-text-muted">{t('inicio.organizacion')}</dt>
           <dd>{organizacion.isPending ? t('inicio.cargando') : organizacion.isError ? t('inicio.sinOrganizacion') : organizacion.data.name}</dd>
-          <dt className="text-ink-muted">{t('inicio.roles')}</dt>
+          <dt className="text-sg-text-muted">{t('inicio.roles')}</dt>
           <dd>
-            {cuenta.isPending
-              ? t('inicio.cargando')
-              : cuenta.isError
-                ? t('inicio.sinCuenta')
-                : cuenta.data.roles.length
-                  ? cuenta.data.roles.join(', ')
-                  : t('inicio.sinRoles')}
+            {cuenta.isPending ? (
+              t('inicio.cargando')
+            ) : cuenta.isError ? (
+              t('inicio.sinCuenta')
+            ) : cuenta.data.roles.length ? (
+              <span className="font-sg-mono text-sg-body-sm">{cuenta.data.roles.join(', ')}</span>
+            ) : (
+              t('inicio.sinRoles')
+            )}
           </dd>
         </dl>
       </section>
-      <section aria-labelledby="inicio-modulos" className="space-y-2">
-        <h2 id="inicio-modulos" className="text-base font-semibold text-ink">
-          {t('inicio.modulos')}
-        </h2>
-        <p className="text-sm text-ink-muted">{t('inicio.resumen', { disponibles, total: NAV_TREE.length })}</p>
-        <Table>
-          <thead>
-            <tr>
-              <Th>{t('inicio.seccion')}</Th>
-              <Th>{t('inicio.fases')}</Th>
-              <Th>{t('inicio.estado')}</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {estados.map(({ seccion, estado }) => (
-              <tr key={seccion.clave}>
-                <Td>{t(`secciones.${seccion.clave}`)}</Td>
-                <Td>{seccion.fases.join(', ')}</Td>
-                <Td>
-                  <Badge>{rotulo(estado, seccion.fases[0])}</Badge>
-                </Td>
+      <section aria-labelledby="inicio-modulos" className="space-y-3">
+        <div className="space-y-1">
+          <h2 id="inicio-modulos" className="text-sg-h2 font-semibold text-sg-text">
+            {t('inicio.modulos')}
+          </h2>
+          <p className="text-sg-body-sm text-sg-text-muted">{t('inicio.resumen', { disponibles, total: NAV_TREE.length })}</p>
+        </div>
+        <div className="overflow-x-auto rounded-sg-lg border border-sg-border bg-sg-surface">
+          <Table>
+            <thead>
+              <tr>
+                <Th>{t('inicio.seccion')}</Th>
+                <Th>{t('inicio.fases')}</Th>
+                <Th>{t('inicio.estado')}</Th>
               </tr>
-            ))}
-          </tbody>
-        </Table>
+            </thead>
+            <tbody>
+              {estados.map(({ seccion, estado }) => {
+                const { clase, Icono } = TONO[estado]
+                return (
+                  <tr key={seccion.clave}>
+                    <Td>{t(`secciones.${seccion.clave}`)}</Td>
+                    <Td className="font-sg-mono tabular-nums">{seccion.fases.join(', ')}</Td>
+                    <Td>
+                      <Badge className={`gap-1 ${clase}`}>
+                        <Icono aria-hidden className="size-3" />
+                        {rotulo(estado, seccion.fases[0])}
+                      </Badge>
+                    </Td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </Table>
+        </div>
       </section>
     </div>
   )
@@ -7293,23 +7740,24 @@ export function InicioPage() {
 - [ ] **Paso 6: verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn test 2>&1 | tail -4 && yarn lint && yarn typecheck && yarn build
 ```
 
-Esperado: `Test Files  10 passed (10)`; `Inicio.test.tsx` con 3 pruebas en verde; los demás comandos limpios.
+Esperado: `Test Files  10 passed (10)`; `Inicio.test.tsx` con 6 pruebas en verde; los demás comandos limpios.
 
 - [ ] **Paso 7: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
-git add src/portal/queries.ts src/portal/pages/InicioPage.tsx src/portal/textos/es.ts src/portal/textos/en.ts \
-  src/portal/pages/Inicio.test.tsx
+cd ~/IdeaProjects/sgspe-ui
+git add src/portal/queries.ts src/portal/inicios.ts src/portal/pages/InicioPage.tsx src/portal/textos/es.ts \
+  src/portal/textos/en.ts src/portal/pages/Inicio.test.tsx
 git commit -F - <<'EOF'
-feat(portal): Dashboard de F1 con cuenta, organización, roles y módulos por fase
+feat(portal): inicio de F1 con cuenta, organización, roles y módulos por fase
 
-La cuenta y la organización salen de wasichai; lo que no se puede leer se dice. El mapa
-de módulos usa el mismo estado que el árbol de navegación.
+La cuenta y la organización salen de wasichai; lo que no se puede leer se dice. El inicio
+por rol (ASM-078) es un registro de variantes que se ofrecen por permisos; F1 no tiene
+ninguna y toda cuenta ve la bienvenida.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -7415,7 +7863,7 @@ describe('fronteras de la interfaz', () => {
 - [ ] **Paso 2: plantar una violación y verla fallar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 printf "export const VIOLACION_DE_PRUEBA = ['AUDITOR']\n" > src/violacionDePrueba.ts
 yarn test src/boundaries 2>&1 | tail -6
 ```
@@ -7425,7 +7873,7 @@ Esperado: FAIL en `ningún fuente nombra un rol`, con `violacionDePrueba.ts:1: e
 - [ ] **Paso 3: quitarla y verla pasar**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 rm src/violacionDePrueba.ts
 yarn test src/boundaries 2>&1 | tail -4
 ```
@@ -7435,10 +7883,10 @@ Esperado: 4 pruebas en verde.
 - [ ] **Paso 4: la CI y Dependabot**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 mkdir -p .github/workflows
-cp /Users/jorge/IdeaProjects/caja-ui/.github/workflows/ci.yml .github/workflows/ci.yml
-cp /Users/jorge/IdeaProjects/caja-ui/.github/workflows/commits.yml .github/workflows/commits.yml
+cp ~/IdeaProjects/caja-ui/.github/workflows/ci.yml .github/workflows/ci.yml
+cp ~/IdeaProjects/caja-ui/.github/workflows/commits.yml .github/workflows/commits.yml
 grep -c 'PACKAGES_TOKEN' .github/workflows/ci.yml .github/workflows/commits.yml
 ```
 
@@ -7497,7 +7945,7 @@ En `package.json`, reemplazar las líneas de `lint` y `format` por:
 - [ ] **Paso 5: la verificación completa de la pista B**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn format && yarn lint && yarn typecheck && yarn test 2>&1 | tail -4 && yarn build
 ```
 
@@ -7506,7 +7954,7 @@ Esperado: `Test Files  11 passed (11)`; todo limpio.
 - [ ] **Paso 6: commit**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add .github/workflows/ci.yml .github/workflows/commits.yml .github/dependabot.yml package.json src/boundaries.test.ts
 git commit -F - <<'EOF'
 ci: lint, typecheck, pruebas y build con PACKAGES_TOKEN; fronteras de la interfaz
@@ -7536,7 +7984,7 @@ EOF
 - [ ] **Paso 1: la base y el túnel**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 nc -z localhost 5435 && echo tunel-ok
 docker compose ps --format '{{.Name}} {{.Status}}'
 ```
@@ -7546,7 +7994,7 @@ Esperado: `tunel-ok` y `sgspe-postgis Up … (healthy)`. Si falta el túnel, **[
 - [ ] **Paso 2: arrancar el backend** (herramienta Bash con `run_in_background`)
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 set -a; source develop/.env; set +a
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew bootRun
 ```
@@ -7556,7 +8004,7 @@ Esperado en el log: `Started SgspeApplication`.
 - [ ] **Paso 3: aprovisionar en el orden de `security.md` §4.1**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe/model
+cd ~/IdeaProjects/sgspe/model
 python3 apply.py | tail -1
 python3 apply_roles.py | tail -1
 python3 apply.py --workflows
@@ -7581,7 +8029,7 @@ Esperado: `201` (o `409` si el usuario quedó de una corrida anterior; vale igua
 - [ ] **Paso 5: arrancar la interfaz** (herramienta Bash con `run_in_background`)
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn dev
 ```
 
@@ -7602,23 +8050,28 @@ Esperado: `HTTP/1.1 401` y `x-correlation-id: <un UUID>`; `x-correlation-id: hum
 - [ ] **Paso 7: prueba de humo con Playwright MCP**
 
 Cargar las herramientas en una sola llamada: `ToolSearch` con
-`select:mcp__plugin_playwright_playwright__browser_navigate,mcp__plugin_playwright_playwright__browser_fill_form,mcp__plugin_playwright_playwright__browser_click,mcp__plugin_playwright_playwright__browser_snapshot,mcp__plugin_playwright_playwright__browser_take_screenshot,mcp__plugin_playwright_playwright__browser_close`.
+`select:mcp__plugin_playwright_playwright__browser_navigate,mcp__plugin_playwright_playwright__browser_fill_form,mcp__plugin_playwright_playwright__browser_click,mcp__plugin_playwright_playwright__browser_snapshot,mcp__plugin_playwright_playwright__browser_evaluate,mcp__plugin_playwright_playwright__browser_take_screenshot,mcp__plugin_playwright_playwright__browser_close`.
+Playwright MCP guarda sus capturas y registros en `.playwright-mcp/` del directorio de trabajo: al terminar, esa carpeta se
+mueve al scratchpad de la sesión y nunca se versiona.
 Después, en este orden, con lo esperado en cada uno:
 
 1. `browser_navigate` a `http://localhost:5182/` → la URL termina en `/login?next=%2F` y se ve el formulario con «Correo»,
-   «Contraseña» e «Ingresar».
+   «Contraseña» e «Ingresar». `browser_evaluate` con
+   `async () => { await document.fonts.ready; return { theme: document.documentElement.dataset.theme, fondo: getComputedStyle(document.body).backgroundColor, plex: document.fonts.check('14px "IBM Plex Sans"'), otrosHosts: performance.getEntriesByType('resource').map((r) => r.name).filter((u) => !u.startsWith(location.origin)) } }`
+   → `fondo` `rgb(245, 246, 243)` con `theme` `light` (o `rgb(17, 22, 20)` con `dark`, según el sistema operativo),
+   `plex: true` y `otrosHosts: []`: «Pino y piedra» con IBM Plex servida desde el mismo origen (Review Focus 6).
 2. `browser_fill_form` con «Correo» = `admin@wasichai.local` y «Contraseña» = `admin`; `browser_click` en «Ingresar» →
    `browser_snapshot` muestra el título «Dashboard», «Platform Administrator (admin@wasichai.local)», la organización
-   «Demo», el rol «ADMIN», la tabla «Módulos por fase» con 13 filas y la navegación «Secciones» con «Dashboard» y
-   «Administración».
+   «Demo», el rol «ADMIN», la tabla «Módulos por fase» con 13 filas, la navegación «Secciones» con «Dashboard» y
+   «Administración» (ninguna sección del asistente) y, en la barra superior, el botón «Preguntar» deshabilitado (ASM-073).
 3. `browser_navigate` a `http://localhost:5182/admin/admin/roles` → sin pedir login otra vez (token compartido
    `sgspe.token`), la tabla de roles lista las 15 etiquetas en español (Administrador de proyectos, Jefe de proyecto, Gerente
    social, Relacionista comunitario, Gestor de grupos de interés, Gestor de compromisos, Gestor de quejas, consultas y
    solicitudes, Gestor de riesgos sociales, Gestor de inversión social, Analista SIG, Agente de campo, Aprobador, Auditor,
    Analista, Solo lectura) más el `ADMIN` de wasichai.
 4. `browser_navigate` a `http://localhost:5182/`; `browser_click` en «Cerrar sesión» → vuelve al login.
-5. Entrar con `auditoria.humo@sgspe.test` / `clave-de-humo-1` → el Dashboard muestra el rol «AUDITOR», la navegación solo
-   tiene «Dashboard» y la fila Administración dice «Solo para administración».
+5. Entrar con `auditoria.humo@sgspe.test` / `clave-de-humo-1` → la bienvenida muestra el rol «AUDITOR» (también en la
+   barra superior), la navegación solo tiene «Dashboard» y la fila Administración dice «Solo para administración».
 6. `browser_navigate` a `http://localhost:5182/admin/admin/audit` → la página de auditoría carga y lista cambios (las
    escrituras de los pasos 3 y 4 de esta tarea) sin un error de permisos.
 7. `browser_take_screenshot` del Dashboard del auditor, guardada en el scratchpad de la sesión como
@@ -7639,7 +8092,7 @@ Esperado: `audit 200`, `users 403`, `roles 403`.
 - [ ] **Paso 9: todas las suites**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
 WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test \
 WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
@@ -7648,7 +8101,7 @@ GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew in
 python3 -m unittest discover -s tools 2>&1 | tail -2
 python3 tools/check_traceability.py
 yarn -s format:check
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 yarn lint && yarn typecheck && yarn test 2>&1 | tail -3 && yarn build
 ```
 
@@ -7827,9 +8280,11 @@ repositorios. El plan ejecutable está en
 ### Interfaz (`sgspe-ui`)
 
 - Una app Vite con el portal y `/admin` (`WasichaiApp` con views, forms y pages), login compartido en `sgspe.token`,
-  `RequireSession` y `safeNext`; temas claro y oscuro con el script de arranque autorizado por hash en la CSP; las 13
-  secciones del prompt con su fase; español e inglés con números y fechas es-PE; el Dashboard de F1; CI con
-  `PACKAGES_TOKEN` y `boundaries.test`.
+  `RequireSession` y `safeNext`; el tema «Pino y piedra» de `docs/ux/tokens.css` en claro y oscuro, sobre el de
+  `@wasichai/ui` y con IBM Plex servida desde el mismo origen, con el script de arranque autorizado por hash en la CSP; el
+  shell y la navegación de `docs/ux/ux-architecture.md` (las 13 secciones con sus rutas y su fase, «Preguntar»
+  deshabilitado hasta F7); español e inglés con números y fechas es-PE; la bienvenida de F1 con el registro del inicio
+  por rol; CI con `PACKAGES_TOKEN` y `boundaries.test`.
 
 ### Spike y hallazgos
 
@@ -7886,7 +8341,7 @@ la raíz del repositorio; su guía de desarrollo está en [`develop/README.md`](
 - [ ] **Paso 6: estado de las filas de F1 en `docs/requirements-traceability.md`**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 python3 - <<'EOF'
 import re
 
@@ -7957,7 +8412,7 @@ y `ok: 298 requisitos, todos con su fila`. Si las cifras difieren, revisar que n
 
 - [ ] **Paso 7: `README.md`, `CLAUDE.md` y `HISTORY.md` de `sgspe-ui`**
 
-`/Users/jorge/IdeaProjects/sgspe-ui/README.md`:
+`~/IdeaProjects/sgspe-ui/README.md`:
 
 ````markdown
 # sgspe-ui
@@ -7969,7 +8424,7 @@ el idioma:
 
 | Ruta | Para quién | Qué es |
 |---|---|---|
-| `/` | el equipo social | el **portal**: las 13 secciones del prompt, cada una con su fase; en F1, el Dashboard |
+| `/` | el equipo social | el **portal**: las 13 secciones de `docs/ux` de `sgspe`, cada una con su fase; en F1, la bienvenida |
 | `/admin` | quien administra | el `WasichaiApp` de wasichai-ui con views, forms y pages |
 
 | | |
@@ -7982,13 +8437,22 @@ el idioma:
 
 - **Sesión:** la de core (`useAuth`), la misma de `/admin`. `RequireSession` lleva a `/login?next=…` sin sesión;
   `safeNext` acepta solo rutas internas (rechaza `//`, `/\` y los caracteres de control). Un 401 vuelve al login.
-- **Navegación:** `src/portal/shell/navTree.ts` declara las 13 secciones de `docs/architecture.md` §9.2 de `sgspe`, en su
-  orden y con su fase. Una sección se dibuja solo si tiene pantalla (`src/portal/pantallas.ts`) y la cuenta tiene los
-  permisos que pide (`GET /api/auth/me/permissions`); Administración, solo para quien administra.
-- **Dashboard de F1:** cuenta, organización, roles y mapa de módulos por fase, sin indicadores.
+- **Diseño:** sigue `docs/ux/` de `sgspe` (arquitectura de UX, design system, tokens y fichas de pantalla), que gana sobre
+  `docs/architecture.md` §9.2 donde difieren.
+- **Navegación:** `src/portal/shell/navTree.ts` declara las 13 secciones de `docs/ux/ux-architecture.md` §6.2, en su orden,
+  con su ruta, su ícono y su fase. Una sección se dibuja solo si tiene pantalla (`src/portal/pantallas.ts`) y la cuenta
+  tiene los permisos que pide (`GET /api/auth/me/permissions`); Administración, solo para quien administra. El asistente
+  no es una sección: es el botón «Preguntar» de la barra superior, deshabilitado hasta F7.
+- **Contexto:** `src/portal/shell/context.ts` lee de la URL el alcance (global o `/projects/:projectId`) y el chip de
+  territorio (`?territory=`); el selector de proyecto y la `ContextBar` lo usan desde F2.
+- **Inicio:** en F1, la bienvenida con cuenta, organización, roles y mapa de módulos por fase, sin indicadores. El inicio
+  por rol se registra en `src/portal/inicios.ts` con los permisos que lo ofrecen, nunca con nombres de rol.
 - **Idioma:** español por defecto e inglés (`src/portal/textos/`), con números y fechas es-PE.
-- **Temas:** claro y oscuro. El script de arranque de `index.html` es el único script en línea; `csp.ts` arma la CSP con
-  su hash, Vite la manda en modo de solo informe y `yarn csp` la imprime para el proxy de producción.
+- **Temas:** «Pino y piedra» en claro y oscuro. `src/theme/tokens.css` es copia exacta de `docs/ux/tokens.css` (se compara
+  con `cmp`, prettier no la toca) y `src/theme/wasichai.css` lee de ella los tokens de `@wasichai/ui`; IBM Plex Sans y Mono
+  vienen de `@fontsource/*` y se sirven desde el mismo origen. Dentro de `cn()`, el cuerpo se escribe `text-sm`, no
+  `text-sg-body`. El script de arranque de `index.html` es el único script en línea; `csp.ts` arma la CSP con su hash,
+  Vite la manda en modo de solo informe y `yarn csp` la imprime para el proxy de producción.
 - **Fronteras:** `src/boundaries.test.ts` falla ante un nombre de rol en el código o una importación interna de `@wasichai/*`.
 
 ## Requisitos
@@ -8015,13 +8479,14 @@ yarn -s csp          # la Content-Security-Policy para el proxy
 - La CI instala `@wasichai/*` con el secreto `PACKAGES_TOKEN` (un PAT con `read:packages`), en Actions y en Dependabot.
 ````
 
-`/Users/jorge/IdeaProjects/sgspe-ui/CLAUDE.md`:
+`~/IdeaProjects/sgspe-ui/CLAUDE.md`:
 
 ````markdown
 # CLAUDE.md
 
-Guía para agentes en `sgspe-ui`. El diseño vive en el repositorio `sgspe` (`../sgspe/docs/`): la interfaz es
-`docs/architecture.md` §9 y ADR-0024; la seguridad, `docs/security.md` §3.2 y §5.10.
+Guía para agentes en `sgspe-ui`. El diseño vive en el repositorio `sgspe` (`../sgspe/docs/`): la interfaz es `docs/ux/`
+(arquitectura de UX, design system, tokens, pantallas y flujos; gana sobre `docs/architecture.md` §9 donde difieren) y
+ADR-0024; la seguridad, `docs/security.md` §3.2 y §5.10.
 
 ## Reglas
 
@@ -8030,14 +8495,17 @@ Guía para agentes en `sgspe-ui`. El diseño vive en el repositorio `sgspe` (`..
 - Ningún nombre de rol en `src/` fuera de las pruebas: se decide con `useAuth().isAdmin` y los permisos de
   `/api/auth/me/permissions` (`src/boundaries.test.ts`). `@wasichai/*` se importa solo por la raíz de cada paquete.
 - `/admin` registra solo los módulos de los starters instalados en `sgspe` y nunca `agentModule()`.
-- Una sección nueva se registra en `src/portal/pantallas.ts` con su pantalla; sin pantalla no se dibuja.
+- Una sección nueva se registra en `src/portal/pantallas.ts` con su pantalla; sin pantalla no se dibuja. Un inicio por rol
+  se registra en `src/portal/inicios.ts` con los permisos que lo ofrecen.
+- Colores, tipografía, radios y sombras solo con los tokens `sg-*` de `src/theme/tokens.css`; si `docs/ux/tokens.css`
+  cambia, se copia de nuevo y se verifica con `cmp`.
 - Pruebas primero, con Vitest, Testing Library y `mockFetch` de `@wasichai/testing`; usuarios ficticios `@sgspe.test`.
 - Conventional Commits en español; `git add` con rutas explícitas.
 - `yarn format && yarn lint && yarn typecheck && yarn test && yarn build` antes de cada commit.
 - Instalar con `NODE_AUTH_TOKEN=$(gh auth token) yarn install`; ningún token en archivos del repositorio.
 ````
 
-`/Users/jorge/IdeaProjects/sgspe-ui/HISTORY.md`:
+`~/IdeaProjects/sgspe-ui/HISTORY.md`:
 
 ```markdown
 # Historia de cambios
@@ -8050,18 +8518,20 @@ La entrada más reciente va primero. El diseño y los ADR están en el repositor
   TypeScript, prettier, commitlint y husky.
 - `/admin` con `WasichaiApp` (views, forms y pages) y `storagePrefix: 'sgspe'`.
 - Portal con login compartido (`sgspe.token`), `RequireSession` y `safeNext` estricto.
-- Temas claro y oscuro con el script de arranque autorizado por hash en la CSP (`csp.ts`, modo de solo informe en Vite).
-- Las 13 secciones del prompt con su fase; en F1 se dibujan Dashboard y, para quien administra, Administración.
+- Tema «Pino y piedra» (`docs/ux/tokens.css`) en claro y oscuro sobre `@wasichai/ui`, IBM Plex desde el mismo origen y
+  el script de arranque autorizado por hash en la CSP (`csp.ts`, modo de solo informe en Vite).
+- Shell y navegación de `docs/ux`: las 13 secciones con sus rutas y su fase; en F1 se dibujan Dashboard y, para quien
+  administra, Administración; «Preguntar» deshabilitado hasta F7; el contexto de la URL en `context.ts`.
 - Español por defecto e inglés, con números y fechas es-PE.
-- Dashboard de F1: cuenta, organización, roles y mapa de módulos por fase.
+- Inicio de F1: cuenta, organización, roles y mapa de módulos por fase; el inicio por rol, por permisos, en `inicios.ts`.
 - CI con `PACKAGES_TOKEN`, Dependabot y `boundaries.test`.
 ```
 
 - [ ] **Paso 8: formato y nombres reales**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe && yarn -s format:check && python3 tools/check_traceability.py
-cd /Users/jorge/IdeaProjects/sgspe-ui && yarn lint
+cd ~/IdeaProjects/sgspe && yarn -s format:check && python3 tools/check_traceability.py
+cd ~/IdeaProjects/sgspe-ui && yarn lint
 ```
 
 Esperado: limpio y `ok: 298 requisitos, todos con su fila`. Además, el coordinador corre su verificación de nombres reales
@@ -8070,7 +8540,7 @@ Esperado: limpio y `ok: 298 requisitos, todos con su fila`. Además, el coordina
 - [ ] **Paso 9: commits**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git add README.md CLAUDE.md docs/README.md docs/HISTORY.md docs/requirements-traceability.md docs/roadmap.md \
   docs/superpowers/plans/2026-10-07-fase-1-fundacion.md
 git commit -F - <<'EOF'
@@ -8083,7 +8553,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
 EOF
 
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git add README.md CLAUDE.md HISTORY.md
 git commit -F - <<'EOF'
 docs: README, CLAUDE.md e historia de la Fase 1
@@ -8100,14 +8570,14 @@ Si el plan ejecutable ya se versionó antes, quitarlo de la lista de `git add`.
 Con la aprobación del usuario. La base del PR de `sgspe` depende de si el PR de la Fase 0 ya se fusionó:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 gh pr view fase-0/descubrimiento --json state -q .state
 ```
 
 `MERGED` → base `main`; `OPEN` → base `fase-0/descubrimiento`. Después, en cada repositorio:
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe
+cd ~/IdeaProjects/sgspe
 git push -u origin feat/fase-1-fundacion
 gh pr create --base main --title "feat: Fase 1, fundación de SGSPE sobre wasichai" --body-file - <<'EOF'
 Fase 1 (fundación) según `docs/roadmap.md` y el plan `docs/superpowers/plans/2026-10-07-fase-1-fundacion.md`.
@@ -8123,13 +8593,14 @@ Fase 1 (fundación) según `docs/roadmap.md` y el plan `docs/superpowers/plans/2
 https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
 EOF
 
-cd /Users/jorge/IdeaProjects/sgspe-ui
+cd ~/IdeaProjects/sgspe-ui
 git push -u origin feat/fase-1-fundacion
 gh pr create --base main --title "feat: Fase 1, portal y administración de SGSPE" --body-file - <<'EOF'
 Fase 1 (fundación) de la interfaz, según `docs/roadmap.md` de `sgspe` (pista B).
 
 - `/admin` con `WasichaiApp` y login compartido con el portal (`sgspe.token`).
-- Portal con `RequireSession`, `safeNext`, temas con CSP por hash, las 13 secciones con su fase, i18n y el Dashboard de F1.
+- Portal con `RequireSession`, `safeNext`, el tema «Pino y piedra» con CSP por hash, el shell y la navegación de
+  `docs/ux` (13 secciones con su fase), i18n y la bienvenida de F1 con el registro del inicio por rol.
 - CI con `PACKAGES_TOKEN`, Dependabot y `boundaries.test`.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -8143,8 +8614,8 @@ En el PR de `sgspe`, `--base main` se cambia por `--base fase-0/descubrimiento` 
 - [ ] **Paso 11: CI en verde y cierre de la rama**
 
 ```bash
-cd /Users/jorge/IdeaProjects/sgspe && gh pr checks --watch
-cd /Users/jorge/IdeaProjects/sgspe-ui && gh pr checks --watch
+cd ~/IdeaProjects/sgspe && gh pr checks --watch
+cd ~/IdeaProjects/sgspe-ui && gh pr checks --watch
 ```
 
 Esperado: todos los trabajos en verde (`build`, `integration`, `model`, `traceability`, `format`, `commitlint` y
@@ -8177,10 +8648,11 @@ con el usuario.
 | B1 Vite 8 en 5182, proxy a 8094, `.npmrc` sin token, Tailwind con `@wasichai/ui/theme.css`, tsconfig, prettier, commitlint, husky, versiones de caja-ui | 12 |
 | B2 `/admin` con `WasichaiApp`, `basename '/admin'`, views, forms y pages, `storagePrefix 'sgspe'`, sin `agentModule()` | 13 |
 | B3 login compartido (`sgspe.token`), `RequireSession`, `safeNext` | 14 |
-| B4 temas claro y oscuro, script de arranque único autorizado por hash en la CSP | 15 |
-| B5 shell y árbol con las 13 secciones en orden y con su fase; hojas sin pantalla no se dibujan; permisos de `/api/auth/me/permissions`; Administración solo para admin | 16 |
+| B4 temas claro y oscuro, script de arranque único autorizado por hash en la CSP; «Pino y piedra» (ASM-077) sobre `@wasichai/ui/theme.css` con IBM Plex servida desde el mismo origen | 15 |
+| B5 shell y árbol con las 13 secciones en orden y con su fase; hojas sin pantalla no se dibujan; permisos de `/api/auth/me/permissions`; Administración solo para admin; rutas y shell de `docs/ux/ux-architecture.md` §6.2 y §7 (ASM-075); asistente fuera de la navegación (ASM-073); gancho del contexto (ASM-076) | 16 |
 | B6 i18n: español por defecto, inglés, números y fechas es-PE | 17 |
-| B7 Dashboard de F1: usuario, organización, roles y mapa de módulos por fase | 18 |
+| B7 Dashboard de F1: usuario, organización, roles y mapa de módulos por fase; inicio por rol por permisos (ASM-078 con RQ-SEC-005) | 18 |
+| `docs/ux/` (USR-10, ASM-073 a ASM-079) en la pista B donde difiere de `architecture.md` §9.2 (decisiones 11 a 13). ASM-079 (vistas guardadas) no pide trabajo en F1: no hay listas | 15, 16, 18 |
 | B8 CI con `PACKAGES_TOKEN`, `boundaries.test` | 19 |
 | B9 README y CLAUDE.md | 21 |
 | Pista C: aprovisionamiento en orden, smoke con Playwright MCP (login, Dashboard con organización y rol, 15 roles en `/admin`, `AUDITOR` con auditoría, sin Administración, 403 en usuarios, `X-Correlation-Id` también en un 401), suites completas | 20 |
@@ -8211,11 +8683,15 @@ corrida, con su comando: la fecha (`date +%F`) en `HISTORY.md` y el roadmap, y l
 - Modelo: `apply.validate`, `apply.do_workflows`, `apply_roles.validate`, `permissions_payload`, `field_permissions_payload`
   y las salidas `done: …` iguales en las Tareas 6, 7 y 20; `FIXTURE_MODEL` en `model/fixture_model.py` para las dos pruebas.
 - Interfaz: `client`, `NS`, `IDIOMAS`, `crearI18n`, `ajustarI18n`, `numeroPe`, `fechaPe`, `ES`, `EN`, `Textos`;
-  `NAV_TREE`, `SeccionNav`, `ClaveDeSeccion`, `Fase`, `Oferta`, `Estado`, `conPantalla`, `estadoDe`, `arbolPara`,
-  `useOferta`, `useArbol`; `PANTALLAS`; `GuardaDeSeccion`; `useCuenta`, `useOrganizacion`; en `src/test/portal.ts`,
+  `NAV_TREE`, `SeccionNav`, `ClaveDeSeccion`, `Fase`, `Accion`, `Par`, `Oferta`, `Estado`, `ofrece`, `conPantalla`,
+  `estadoDe`, `arbolPara`, `useOferta`, `useArbol`; `PANTALLAS`; `GuardaDeSeccion`; `Scope`, `TerritoryKind`,
+  `TerritoryFilter`, `scopeFromPath`, `territoryFromSearch`, `useContextFilters`; `VarianteDeInicio`, `INICIOS`,
+  `inicioPara`; `useCuenta`, `useOrganizacion`; las claves de sección `engagements` y `programs` iguales en `NAV_TREE`,
+  `ES`, `EN` y las pruebas; las hojas `src/theme/tokens.css` y `src/theme/wasichai.css`; en `src/test/portal.ts`,
   `RELACIONISTA`, `AUDITORA`, `ADMINISTRACION`, `SIN_PERMISOS`, `ADMIN_PERMISOS`, `yo`, `rutasDeSesion`, `abrirSesion`. Las
-  claves de i18n que usa cada componente (`shell.secciones`, `shell.sinAcceso`, `shell.idioma`, `secciones.<clave>`,
-  `inicio.*`) se agregan en la misma tarea o antes; `EN: Textos` hace que `typecheck` falle si falta una.
+  claves de i18n que usa cada componente (`shell.secciones`, `shell.sinAcceso`, `shell.preguntar`,
+  `shell.asistentePorLlegar`, `shell.idioma`, `secciones.<clave>`, `inicio.*`) se agregan en la misma tarea o antes;
+  `EN: Textos` hace que `typecheck` falle si falta una.
 - Cuentas de las pruebas: 23 de contrato, 5 de observabilidad, 1 de `Records`, 3 de humo; 41 pruebas de Python en `model/` y
   6 en `tools/`; 11 archivos de prueba en `sgspe-ui` al final de la pista B.
 
@@ -8228,6 +8704,7 @@ corrida, con su comando: la fecha (`date +%F`) en `HISTORY.md` y el roadmap, y l
 | Rol editado a mano en `/admin` | `test_deshace_lo_editado_a_mano_en_el_admin` en `test_apply_roles.py` | 6 |
 | Sesión vencida a mitad de uso | «un 401 a mitad de sesión vuelve al login y después regresa a la misma ruta» en `RequireSession.test.tsx` | 14 |
 | Segundo tenant | `TenantProvisioningApiTest` y `TenantIsolationApiTest` | 7 |
+| Tema a medias o fuentes de otro host | bloque «Pino y piedra» de `themes.test.ts` (4 pruebas) y la comprobación de red del Paso 7 de la Tarea 20 | 15, 20 |
 
 ### 5. Validación del plan antes de entregarlo
 
@@ -8240,9 +8717,16 @@ El código del plan se probó en el scratchpad de la sesión, fuera de los repos
   ya incorporados al plan; `build` pasa con 22 pruebas unitarias; `integrationTest` pasa con 32 pruebas contra un PostgreSQL 18
   local, incluido el aprovisionamiento con los scripts reales. Esa corrida encontró la decisión 10 (atributo desconocido
   ignorado), ya reflejada en `ErrorContractApiTest`.
-- Interfaz: el estado final de la pista B, armado con las ediciones de las Tareas 12 a 19, pasa `vitest` (11 archivos, 60
-  pruebas), `tsc` de `typecheck` y de `build`, `prettier --check` (los bloques que prettier reformateó ya están en el plan) y
-  `vite build`; los estados intermedios de las Tareas 14 (4 archivos, 22 pruebas) y 15 (7 archivos, 34 pruebas) también.
+- Interfaz: el estado final de la pista B, armado con las ediciones de las Tareas 12 a 19 (con `docs/ux` aplicado), se
+  instaló de verdad con `NODE_AUTH_TOKEN=$(gh auth token) yarn install` (incluidas `@fontsource/ibm-plex-sans` y
+  `-mono` 5.3.0, verificadas con `npm view`) y pasa `vitest` (11 archivos, 81 pruebas), `tsc` de `typecheck` y de
+  `build`, `prettier --check` (los bloques que prettier reformateó ya están en el plan) y `vite build` (10 `woff2` de IBM
+  Plex en `dist/assets`, ninguna URL de otro host en el CSS); los estados intermedios de las Tareas 14 (4 archivos, 22
+  pruebas) y 15 (7 archivos, 38 pruebas) también, y el de la Tarea 18 antes de implementarla falla en 5 de sus 6 pruebas,
+  como dice su Paso 2. `src/theme/tokens.css` quedó idéntico a `docs/ux/tokens.css` (`cmp`). Con `vite preview` y
+  Playwright, sin backend: el login en claro tiene fondo `rgb(245, 246, 243)`, botón pino `rgb(29, 92, 82)`, IBM Plex
+  cargada y ninguna petición a otro host; el shell en oscuro y en claro a 1100 px (navegación contraída a 52 px) se ve
+  como dice `docs/ux`.
 - Spike: `Spike.kt` compila con POI 5.4.1 y PDFBox 3.0.8, `run --args=north` genera la flecha y las dos clases `Docx`
   generan documentos válidos (índice, `STYLEREF`, numeración, celdas combinadas y la marca en el encabezado). Gotenberg y
   GeoServer no se probaron: esa es la tarea del spike.

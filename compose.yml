@@ -1,0 +1,28 @@
+name: sgspe
+
+services:
+  # postgis desde F1: instalar wasichai-gis en F2 solo crea la extensión, sin migrar datos (architecture.md §5.1).
+  # los servicios de apoyo llegan con su fase: S3 y SMTP de prueba en F3, GeoServer en F6 y Gotenberg en F8
+  postgis:
+    image: postgis/postgis:18-3.6
+    container_name: sgspe-postgis
+    environment:
+      POSTGRES_USER: sgspe
+      POSTGRES_PASSWORD: sgspe
+      POSTGRES_DB: sgspe
+    ports:
+      # 5435, nunca 5432 ni 5434: son de otras apps del mismo entorno (ADR-0026).
+      # solo loopback: con el DOCKER_HOST remoto esto abriría la base en la ip pública del VPS;
+      # se llega por un túnel ssh (ssh -fN -L 5435:localhost:5435 "$SGSPE_VPS")
+      - '127.0.0.1:${SGSPE_PG_PORT:-5435}:5432'
+    volumes:
+      # las imágenes de pg18 quieren el montaje un nivel más arriba; un volumen con nombre, nunca un bind mount
+      - postgis-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sgspe -d sgspe']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgis-data:

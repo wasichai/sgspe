@@ -1,0 +1,24 @@
+# perfil de producción (architecture.md §10.2, ADR-0020 y ADR-0026). ProdProfileTest lo fija
+wasichai:
+  database:
+    # sin valor por defecto, como el secreto: sin la variable la app no arranca y nunca cae en el sgspe/sgspe de desarrollo
+    host: ${WASICHAI_DB_HOST}
+    port: ${WASICHAI_DB_PORT:5432}
+    name: ${WASICHAI_DB_NAME}
+    username: ${WASICHAI_DB_USERNAME}
+    password: ${WASICHAI_DB_PASSWORD}
+  seed:
+    # nunca el admin@wasichai.local de desarrollo
+    dev: false
+  security:
+    jwt:
+      # obligatorio y sin valor por defecto: sin WASICHAI_JWT_SECRET (>= 32 bytes) la app no arranca
+      secret: ${WASICHAI_JWT_SECRET}
+      # menos que las 8 horas por defecto (RQ-SEC-001); el despliegue puede acortarlo, nunca llevarlo a 8 h o más
+      ttl: PT4H
+
+logging:
+  structured:
+    format:
+      # json ECS en la consola, sin datos personales (RNF-OBS-001, RQ-SEC-010)
+      console: ecs
