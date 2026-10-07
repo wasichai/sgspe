@@ -16,7 +16,12 @@ Copiado de caja-backend@dc9e391 (model/apply_roles.py) y extendido con las regla
 Un rol que falta se crea (POST /api/roles) y recibe sus permisos (PUT /api/roles/{name}/permissions) y, si usa `u`, sus
 permisos de campo (PUT /api/roles/{name}/field-permissions). Uno que ya existe queda con lo que dice roles.json, ni uno
 más ni uno menos: lo que se edite a mano en /admin se pierde en la corrida siguiente. Es idempotente: la segunda corrida
-no escribe nada ("done: 0 created, 0 updated, 15 skipped").
+no escribe nada ("done: 0 created, 0 updated, 15 skipped"). Un rol de core que roles.json no declara se avisa en stderr
+(una línea por rol) y no se borra; el ADMIN de wasichai no se avisa.
+
+Permisos de campo en wasichai 0.3.2 (comprobado contra la app): el PUT reemplaza las entradas de cada objeto que nombra y
+deja las de los demás; una lista vacía no borra nada y no hay DELETE. Quitar una restricción es mandar el campo con lectura y
+escritura (entrada neutra, que la comparación ignora); borrar el objeto borra sus entradas.
 
 Correr: python3 apply_roles.py [--dry-run] [--roles R] [--model M] [--core URL] [--email E] [--password P]
 Salida: 0 si va bien, 1 si core rechaza algo o no responde, 2 si roles.json no es válido, o si roles.json o model.json
@@ -58,13 +63,22 @@ def _model_fields(model):
 def validate(roles, model):
     """Los errores de roles.json frente a model.json; vacía si es válido."""
     errors = []
+    if not isinstance(roles, dict):
+        return ["roles.json must be a JSON object with mappedToAdmin and roles"]
     # las acciones que cada objeto acepta: las de core y las que el modelo declara para él
     objects = {o["name"]: ACTIONS + tuple(a["name"] for a in o.get("actions", [])) for o in model.get("objects", [])}
     mapped = roles.get("mappedToAdmin")
     if mapped != MAPPED_TO_ADMIN:
         errors.append(f"mappedToAdmin must be {MAPPED_TO_ADMIN}, not {mapped}")
+    declared = roles.get("roles")
+    if not isinstance(declared, list):
+        errors.append("roles must be a list")
+        declared = []
     seen = set()
-    for role in roles.get("roles", []):
+    for role in declared:
+        if not isinstance(role, dict):
+            errors.append(f"role {role!r}: must be an object with name, label and permisos")
+            continue
         name = role.get("name", "")
         if not isinstance(name, str) or not ROLE_NAME.fullmatch(name):
             errors.append(f"role '{name}': name must match {ROLE_NAME.pattern}")
@@ -77,7 +91,14 @@ def validate(roles, model):
             errors.append(f"role {name}: label is missing")
         if "ownRecordsOnly" in role:
             errors.append(f"role {name}: ownRecordsOnly is not used (ASM-069): EDIT_ANY and EditAnyGuard decide")
-        for obj, actions in role.get("permisos", {}).items():
+        permisos = role.get("permisos")
+        if not isinstance(permisos, dict):
+            errors.append(f"role {name}: permisos must be an object (use {{}} for no permissions)")
+            continue
+        for obj, actions in permisos.items():
+            if not isinstance(actions, list) or not all(isinstance(a, str) for a in actions):
+                errors.append(f"role {name}: permisos of '{obj}' must be a list of action names, not {actions!r}")
+                continue
             if obj == TENANT:
                 if actions != ["READ"]:
                     errors.append(f"role {name}: '{TENANT}' only takes [\"READ\"], not {actions}")
@@ -119,9 +140,23 @@ def _wanted(role):
     return {(p["objectName"], p["action"]) for p in permissions_payload(role)["permissions"]}
 
 
-def _fields(entries):
-    """Permisos de campo como tuplas (objeto, campo, lectura, escritura), para compararlos sin importar el orden."""
-    return {(f["objectName"], f["fieldName"], f.get("read", True), f.get("write", True)) for f in entries or []}
+def _restrictions(entries):
+    """Las restricciones de campo como tuplas (objeto, campo, lectura, escritura), sin importar el orden. Una entrada
+    con lectura y escritura es neutra, igual que no tener entrada: wasichai 0.3.2 no tiene cómo borrarla."""
+    return {(f["objectName"], f["fieldName"], f.get("read", True), f.get("write", True)) for f in entries or []
+            if not (f.get("read", True) and f.get("write", True))}
+
+
+def field_permissions_sync_payload(current, wanted):
+    """El cuerpo de PUT .../field-permissions que deja las restricciones del rol como `wanted`.
+
+    wasichai 0.3.2 reemplaza las entradas de cada objeto que el cuerpo nombra y no toca las de los demás; una lista vacía
+    no borra nada y no hay DELETE. Para quitar una restricción de un objeto que roles.json ya no restringe, se manda cada
+    campo de ese objeto con lectura y escritura: queda una entrada neutra, que `_restrictions` ignora."""
+    kept = {f["objectName"] for f in wanted["fields"]}
+    neutral = [{"objectName": f["objectName"], "fieldName": f["fieldName"], "read": True, "write": True}
+               for f in current or [] if f["objectName"] not in kept and not (f.get("read", True) and f.get("write", True))]
+    return {"fields": wanted["fields"] + neutral}
 
 
 def _fatal(method, path, err):
@@ -135,6 +170,11 @@ def do_apply(client, roles, model):
     except CoreError as e:
         _fatal("GET", "/api/roles", e)
         return 1
+    declared = {role["name"] for role in roles["roles"]}
+    for name in existing:
+        if name not in declared and name not in ADMIN_ROLES:
+            print(f"warning: role {name} is in core but not in roles.json; left as is (delete it in /admin if it is a leftover)",
+                  file=sys.stderr)
     for role in roles["roles"]:
         name = role["name"]
         current = existing.get(name)
@@ -153,8 +193,9 @@ def do_apply(client, roles, model):
             if _granted(current.get("permissions")) != _wanted(role):
                 writes.append(("PUT", f"/api/roles/{name}/permissions", permissions_payload(role),
                                f"update role {name} (permissions)"))
-            if _fields(current.get("fieldPermissions")) != _fields(fields["fields"]):
-                writes.append(("PUT", f"/api/roles/{name}/field-permissions", fields,
+            if _restrictions(current.get("fieldPermissions")) != _restrictions(fields["fields"]):
+                writes.append(("PUT", f"/api/roles/{name}/field-permissions",
+                               field_permissions_sync_payload(current.get("fieldPermissions"), fields),
                                f"update role {name} (field permissions)"))
         for method, path, body, message in writes:
             try:

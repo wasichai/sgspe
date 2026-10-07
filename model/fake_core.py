@@ -159,7 +159,10 @@ class FakeCore:
         if role is None:
             return 404, {"detail": "not found"}
         if ROLE_FIELD_PERMISSIONS.match(path):
-            role["fieldPermissions"] = [{**f, "read": f.get("read", True), "write": f.get("write", True)} for f in body["fields"]]
+            # like wasichai 0.3.2: the entries of each object the body names are replaced, the others stay; [] clears nothing
+            named = {f["objectName"] for f in body["fields"]}
+            role["fieldPermissions"] = [f for f in role["fieldPermissions"] if f["objectName"] not in named] + [
+                {**f, "read": f.get("read", True), "write": f.get("write", True)} for f in body["fields"]]
         elif ROLE_PERMISSIONS.match(path):
             role["permissions"] = [{**p, "allowed": p.get("allowed", True)} for p in body["permissions"]]
         else:

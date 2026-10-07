@@ -148,6 +148,37 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("duplicate role name" in e for e in errors), errors)
 
 
+class StructureTests(unittest.TestCase):
+    """Un roles.json mal formado sale con 2 y un mensaje, nunca con un KeyError (el docstring de apply_roles.py)."""
+
+    def check(self, roles):
+        return apply_roles.validate(roles, load(MODEL_PATH))
+
+    def test_roles_es_obligatorio_y_es_una_lista(self):
+        for roles in ({"mappedToAdmin": MAPPED}, {"mappedToAdmin": MAPPED, "roles": {}}, []):
+            errors = self.check(roles)
+            self.assertTrue(errors, roles)
+        self.assertIn("roles must be a list", self.check({"mappedToAdmin": MAPPED}))
+
+    def test_cada_rol_lleva_permisos_aunque_sea_vacio(self):
+        errors = self.check({"mappedToAdmin": MAPPED, "roles": [{"name": "PRUEBA", "label": "Rol de prueba"}]})
+        self.assertTrue(any("role PRUEBA: permisos must be an object" in e for e in errors), errors)
+        self.assertEqual(self.check({"mappedToAdmin": MAPPED, "roles": [{"name": "PRUEBA", "label": "x", "permisos": {}}]}), [])
+
+    def test_cada_valor_de_permisos_es_una_lista_de_acciones(self):
+        for bad in ("READ", None, {"READ": True}, [1]):
+            errors = self.check({"mappedToAdmin": MAPPED,
+                                 "roles": [{"name": "PRUEBA", "label": "x", "permisos": {"*": bad}}]})
+            self.assertTrue(any("permisos of '*' must be a list of action names" in e for e in errors), (bad, errors))
+
+    def test_un_rol_que_no_es_un_objeto_se_rechaza(self):
+        errors = self.check({"mappedToAdmin": MAPPED, "roles": ["PRUEBA"]})
+        self.assertTrue(any("must be an object" in e for e in errors), errors)
+
+
+MAPPED = ["SUPER_ADMIN", "ORGANIZATION_ADMIN"]
+
+
 class ExpansionTests(unittest.TestCase):
     ROLE = {"name": "PRUEBA", "label": "Rol de prueba", "permisos": {"visit": ["READ", "u"], "zone": ["READ", "u"]}}
 
@@ -268,6 +299,75 @@ class ApplyRolesTests(ApplyRolesTestCase):
         self.assertEqual(code, 2)
         self.assertIn("project", out)
         self.assertEqual(self.core.requests, [])
+
+    def test_un_roles_json_mal_formado_sale_con_2_y_sin_traza(self):
+        malformed = {"mappedToAdmin": MAPPED, "roles": [{"name": "PRUEBA", "label": "Rol de prueba"}]}
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "roles.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(malformed, f)
+            code, out, err = self.run_cli(roles_path=path)
+        self.assertEqual(code, 2)
+        self.assertIn("permisos must be an object", out)
+        self.assertNotIn("Traceback", err)
+        self.assertEqual(self.core.requests, [])
+
+    def test_avisa_de_un_rol_de_core_que_roles_json_no_declara_y_no_lo_borra(self):
+        self.run_cli()
+        self.core.roles["ADMIN"] = {"name": "ADMIN", "label": "Admin", "permissions": [], "fieldPermissions": []}
+        for extra in ("ROL_A_MANO", "OTRO_A_MANO"):
+            self.core.roles[extra] = {"name": extra, "label": "A mano", "permissions": [], "fieldPermissions": []}
+        self.core.requests.clear()
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        warnings = [line for line in err.splitlines() if line.startswith("warning:")]
+        self.assertEqual(len(warnings), 2, err)
+        self.assertTrue(any("ROL_A_MANO" in w for w in warnings) and any("OTRO_A_MANO" in w for w in warnings), warnings)
+        self.assertNotIn("role ADMIN", err)
+        self.assertEqual(self.writes(), [])
+        self.assertIn("ROL_A_MANO", self.core.roles)
+        self.assertIn("done: 0 created, 0 updated, 15 skipped", out)
+
+    def test_un_permiso_de_campo_a_mano_se_neutraliza_y_la_corrida_siguiente_no_escribe(self):
+        # wasichai 0.3.2: PUT [] no borra nada y no hay DELETE; se manda el campo con lectura y escritura (entrada neutra)
+        self.run_cli()
+        self.core.roles["ANALYST"]["fieldPermissions"] = [
+            {"objectName": "zone", "fieldName": "code", "read": True, "write": False}]
+        self.core.requests.clear()
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.writes(), [("PUT", "/api/roles/ANALYST/field-permissions", {"fields": [
+            {"objectName": "zone", "fieldName": "code", "read": True, "write": True}]})])
+        self.assertIn("done: 0 created, 1 updated, 14 skipped", out)
+        self.assertEqual(self.core.roles["ANALYST"]["fieldPermissions"], [
+            {"objectName": "zone", "fieldName": "code", "read": True, "write": True}])
+        self.core.requests.clear()
+        self.assertIn("done: 0 created, 0 updated, 15 skipped", self.run_cli()[1])
+        self.assertEqual(self.writes(), [])
+
+    def test_u_reemplaza_las_restricciones_del_objeto_y_neutraliza_las_de_otro(self):
+        roles = {"mappedToAdmin": MAPPED,
+                 "roles": [{"name": "PRUEBA", "label": "Rol de prueba", "permisos": {"zone": ["READ", "u"]}}]}
+        with tempfile.TemporaryDirectory() as folder:
+            roles_path = os.path.join(folder, "roles.json")
+            model_path = os.path.join(folder, "model.json")
+            for path, data in ((roles_path, roles), (model_path, FIXTURE_MODEL)):
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False)
+            self.run_cli(roles_path=roles_path, model_path=model_path)
+            self.core.roles["PRUEBA"]["fieldPermissions"] += [
+                {"objectName": "visit", "fieldName": "visit_date", "read": False, "write": False}]
+            self.core.requests.clear()
+            code, out, err = self.run_cli(roles_path=roles_path, model_path=model_path)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(self.writes(), [("PUT", "/api/roles/PRUEBA/field-permissions", {"fields": [
+                {"objectName": "zone", "fieldName": "code", "read": True, "write": False},
+                {"objectName": "zone", "fieldName": "zone_type", "read": True, "write": False},
+                {"objectName": "visit", "fieldName": "visit_date", "read": True, "write": True}]})])
+            self.core.requests.clear()
+            code, out, err = self.run_cli(roles_path=roles_path, model_path=model_path)
+        self.assertEqual(self.writes(), [])
+        self.assertIn("done: 0 created, 0 updated, 1 skipped", out)
 
     def test_un_archivo_que_falta_o_que_no_es_json_sale_con_2_sin_traza(self):
         with tempfile.TemporaryDirectory() as folder:

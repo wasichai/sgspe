@@ -153,13 +153,26 @@ class NewTenantTests(unittest.TestCase):
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
         self.assertIn("done: 15 created, 0 updated, 0 skipped", runs[1][1])
         self.assertEqual(sorted(core.roles), sorted(r["name"] for r in load(ROLES_PATH)["roles"]))
-        # el modelo va antes que los roles: wasichai rechaza un rol que nombra un objeto que no existe
-        paths = [p for _, p, _, _ in core.requests]
-        self.assertLess(paths.index("/api/objects"), paths.index("/api/roles"))
-
         again = quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login])
         self.assertEqual(again[0], 0, again)
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
+
+
+class ProvisioningOrderTests(unittest.TestCase):
+    """Con objetos de verdad: wasichai rechaza un rol que nombra un objeto que no existe, así que el modelo va primero."""
+
+    def test_the_first_object_is_created_before_the_first_role(self):
+        core = FakeCore()
+        self.addCleanup(core.stop)
+        login = ["--core", core.base_url, "--email", "admin-tenant@sgspe.test", "--password", "clave-del-tenant"]
+        with tempfile.TemporaryDirectory() as folder:
+            model_path = write_model(folder, FIXTURE_MODEL)
+            runs = [quiet(apply.main, ["--model", model_path, *login]),
+                    quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", model_path, *login]),
+                    quiet(apply.main, ["--model", model_path, "--workflows", *login])]
+        self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
+        posts = [p for m, p, _, _ in core.requests if m == "POST"]
+        self.assertLess(posts.index("/api/objects"), posts.index("/api/roles"))
 
 
 if __name__ == "__main__":
