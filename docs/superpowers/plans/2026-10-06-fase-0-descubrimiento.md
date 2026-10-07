@@ -498,7 +498,7 @@ Se usa superpowers:dispatching-parallel-agents: seis subagentes a la vez, cada u
 - [ ] **Paso 2:** preguntar (AskUserQuestion):
   1. aprobación de los documentos o cambios;
   2. push de la rama y PR;
-  3. abrir issues upstream UPS-01..12;
+  3. abrir issues upstream UPS-01 a UPS-18;
   4. BD de desarrollo en el VPS y secreto `PACKAGES_TOKEN`;
   5. spike opcional de entregables/GetMap;
   6. opción para el alcance por proyecto (UPS-01): esperar la extensión o arrancar F2 solo con org/rol.
