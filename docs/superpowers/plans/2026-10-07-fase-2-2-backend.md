@@ -248,12 +248,13 @@ se corrige el que se apartó de ellos.
 - `WorkflowMatrixApiTest` excluye `DEFERRED_TO_2_2`: `stakeholder.assess`, `stakeholder.retire_assessed`,
   `area_of_influence.approve` y `area_of_influence.supersede`, porque solo se alcanzan por el endpoint de comando. Esos
   casos son de este plan: `StakeholderAssessmentApiTest`, `StakeholderWorkflowGuardsApiTest` y
-  `AreaOfInfluenceWorkflowGuardsApiTest`. La matriz también evita los atajos `engagement.register_held_unplanned` y
-  `engagement.close_light` (`WALK_AVOIDS`) al llevar un registro a un estado, y los prueba `EngagementWorkflowGuardsApiTest`.
+  `AreaOfInfluenceWorkflowGuardsApiTest`. La matriz sí prueba `engagement.register_held_unplanned` y
+  `engagement.close_light` como transiciones, pero no los usa como camino para llevar un registro a un estado
+  (`WALK_AVOIDS`); sus guardas propias las prueba `EngagementWorkflowGuardsApiTest`.
 - Este plan debe escribir el caso de `retire_assessed` desde `assessed` (Tarea 11, `StakeholderWorkflowGuardsApiTest`):
   ninguna clase de 2.1 lo cubre, porque el estado `assessed` solo se alcanza por `assess`.
 - Los tipos formales de interacción (RN-ENG-004) están copiados en `WorkflowMatrixApiTest` (`engagementTypeFor` y la prueba
-  de `FORMAL_TYPES`). Cuando aterrice `EngagementWriteGuard` (Tarea 7), esa copia debe mantenerse igual a la de la guarda, o
+  `los tipos de interaccion de la matriz existen y close_light usa uno no formal`). Cuando aterrice `EngagementWriteGuard` (Tarea 7), esa copia debe mantenerse igual a la de la guarda, o
   la prueba debe leerla de la fuente de la guarda.
 - Al agregar `CommandTransitionGuard` (Tarea 3), volver a revisar `available()` y el 409 de `supersede` desde `draft` en
   `AreaOfInfluenceWorkflowApiTest`: el listado debe seguir ofreciendo `approve` a sus roles y `supersede` desde `draft` debe
