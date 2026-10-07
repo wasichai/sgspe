@@ -103,4 +103,23 @@ class RecordsPatchApiTest : F2ApiTest() {
         assertTrue(thrown is ValidationException, "$thrown")
         assertEquals("P-1", tree(send("GET", "/api/objects/$name/records/$id", null, HttpStatus.OK))["attributes"]["code"].asString())
     }
+
+    // una geometría va en la sección geometries: nombrada en changes, wasichai la ignoraría sin avisar
+    @Test
+    fun `una geometria en changes es un 400 que dice que va en geometries`() {
+        val organization = UUID.fromString(me()["organizationId"].asString())
+        val concession = fixture("mining_concession").id
+        val thrown =
+            runBlocking {
+                records.asPlatform(organization) {
+                    runCatching {
+                        records.patch("mining_concession", UUID.fromString(concession), mapOf("boundary" to mapOf("type" to "Point")), "error de uso")
+                    }.exceptionOrNull()
+                }
+            }
+        assertTrue(thrown is ValidationException, "$thrown")
+        val violation = (thrown as ValidationException).violations.single()
+        assertEquals("boundary", violation.field)
+        assertTrue("geometries" in thrown.message.orEmpty(), thrown.message)
+    }
 }

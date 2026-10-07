@@ -156,7 +156,16 @@ class Records(
         reason: String?,
         geometries: Map<String, Any?> = emptyMap()
     ): RecordResponse {
-        val writable = writableFields(objectName)
+        val fields = writableFields(objectName)
+        val geometryFields = fields.filter { it.geometry }.map { it.name }.toSet()
+        val writable = fields.filter { !it.geometry }.map { it.name }.toSet()
+        val misplaced = (changes.keys intersect geometryFields).sorted()
+        if (misplaced.isNotEmpty()) {
+            throw ValidationException(
+                "Envíe ${misplaced.joinToString(", ")} de $objectName en geometries, no en changes",
+                misplaced.map { FieldViolation(it, "es una geometría: va en la sección geometries") }
+            )
+        }
         val denied = (changes.keys - writable).sorted()
         if (denied.isNotEmpty()) {
             throw ValidationException(
@@ -169,25 +178,25 @@ class Records(
         return withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason) }
     }
 
-    // los campos que quien llama puede escribir en el objeto: los editables para una persona; todos para la plataforma
-    private suspend fun writableFields(objectName: String): Set<String> {
+    private class WritableField(
+        val name: String,
+        val geometry: Boolean
+    )
+
+    // los campos que quien llama puede escribir en el objeto: los editables para una persona; todos para la plataforma.
+    // las geometrías se marcan: se escriben por la sección geometries, no por los atributos
+    private suspend fun writableFields(objectName: String): List<WritableField> {
         val user = callers.userOrNull()
-        if (user != null) {
-            return metadata
-                .definitionOf(objectName)
-                .fields
-                .filter { it.editable }
-                .map { it.name }
-                .toSet()
-        }
-        val organization =
-            currentCoroutineContext()[PlatformOrganization]?.id
-                ?: error("Records.patch fuera de una petición exige Records.asPlatform")
-        return metadata
-            .loadDefinition(organization, objectName)
-            .fields
-            .map { it.name }
-            .toSet()
+        val fields =
+            if (user != null) {
+                metadata.definitionOf(objectName).fields.filter { it.editable }
+            } else {
+                val organization =
+                    currentCoroutineContext()[PlatformOrganization]?.id
+                        ?: error("Records.patch sin usuario ni contexto de plataforma: use Records.asPlatform(organizationId) { … }")
+                metadata.loadDefinition(organization, objectName).fields
+            }
+        return fields.map { WritableField(it.name, it.type.name == "GEOMETRY") }
     }
 
     suspend fun delete(
