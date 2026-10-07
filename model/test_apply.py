@@ -19,6 +19,7 @@ from fixture_model import F2_FIXTURE_MODEL, FIXTURE_MODEL
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(HERE, "model.json")
 ROLES_PATH = os.path.join(HERE, "roles.json")
+EMPTY_MODEL = {"enums": {}, "objects": [], "relationships": []}
 
 
 def load(path):
@@ -203,23 +204,102 @@ class F2FixtureApplyTests(ApplyTestCase):
         self.assertEqual([p for m, p, b in self.writes() if m == "PUT" and p.startswith("/api/objects/")], [])
 
 
+def write_workflow(folder, object_name, workflow):
+    os.makedirs(os.path.join(folder, "workflows"), exist_ok=True)
+    with open(os.path.join(folder, "workflows", f"{object_name}.json"), "w", encoding="utf-8") as f:
+        json.dump(workflow, f, ensure_ascii=False)
+
+
+ZONE_WORKFLOW = {
+    "name": "wf-x-zone",
+    "label": "Zona",
+    "enabled": True,
+    "definition": {
+        "states": [{"name": "draft", "label": "Borrador", "type": "INITIAL"},
+                   {"name": "closed", "label": "Cerrada", "type": "FINAL"}],
+        "transitions": [{"name": "close", "label": "Cerrar", "from": "draft", "to": "closed", "roles": ["READ_ONLY"]}],
+    },
+}
+
+
 class WorkflowsPassTests(ApplyTestCase):
-    def test_f1_has_no_definitions_and_calls_nothing(self):
-        code, out, err = self.run_apply(MODEL_PATH, "--workflows")
+    def test_without_definitions_it_calls_nothing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            code, out, err = self.run_apply(write_model(folder, EMPTY_MODEL), "--workflows")
         self.assertEqual(code, 0, err)
-        self.assertIn("done: 0 workflows, 0 document types, 0 automations, 0 views, 0 forms, 0 pages", out)
+        self.assertIn("done: 0 workflows (0 created, 0 updated, 0 skipped), 0 document types", out)
         self.assertEqual(self.core.requests, [])
 
-    def test_a_definition_before_its_phase_stops_with_2(self):
+    def test_a_kind_before_its_phase_stops_with_2(self):
         with tempfile.TemporaryDirectory() as folder:
             path = write_model(folder, load(MODEL_PATH))
-            os.mkdir(os.path.join(folder, "workflows"))
-            with open(os.path.join(folder, "workflows", "project.json"), "w", encoding="utf-8") as f:
+            os.mkdir(os.path.join(folder, "automations"))
+            with open(os.path.join(folder, "automations", "project.json"), "w", encoding="utf-8") as f:
                 f.write("{}")
             code, out, err = self.run_apply(path, "--workflows")
         self.assertEqual(code, 2)
-        self.assertIn("model/workflows/project.json", err)
+        self.assertIn("model/automations/project.json", err)
         self.assertEqual(self.core.requests, [])
+
+    def test_puts_a_missing_workflow_and_skips_it_the_second_time(self):
+        self.core.roles["READ_ONLY"] = {"name": "READ_ONLY"}
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", ZONE_WORKFLOW)
+            self.run_apply(path)
+            first = self.run_apply(path, "--workflows")
+            second = self.run_apply(path, "--workflows")
+        self.assertEqual(first[0], 0, first)
+        self.assertIn("create workflow wf-x-zone", first[1])
+        self.assertEqual(self.core.workflows["zone"]["definition"]["transitions"][0]["roles"], ["READ_ONLY"])
+        self.assertEqual(second[0], 0, second)
+        self.assertIn("skip   workflow wf-x-zone (up to date)", second[1])
+        self.assertIn("done: 1 workflows (0 created, 0 updated, 1 skipped)", second[1])
+
+    def test_replaces_a_workflow_edited_in_the_admin(self):
+        self.core.roles["READ_ONLY"] = {"name": "READ_ONLY"}
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", ZONE_WORKFLOW)
+            self.run_apply(path)
+            self.run_apply(path, "--workflows")
+            self.core.workflows["zone"]["definition"]["transitions"][0]["roles"] = []
+            code, out, err = self.run_apply(path, "--workflows")
+        self.assertEqual(code, 0, err)
+        self.assertIn("update workflow wf-x-zone", out)
+        self.assertEqual(self.core.workflows["zone"]["definition"]["transitions"][0]["roles"], ["READ_ONLY"])
+
+    def test_a_workflow_that_names_a_role_core_lacks_stops_with_1(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", ZONE_WORKFLOW)
+            self.run_apply(path)
+            code, out, err = self.run_apply(path, "--workflows")
+        self.assertEqual(code, 1)
+        self.assertIn("PUT /api/objects/zone/workflow -> 400", err)
+
+    def test_an_invalid_workflow_stops_with_2_before_calling_core(self):
+        broken = copy.deepcopy(ZONE_WORKFLOW)
+        broken["definition"]["transitions"][0]["roles"] = []
+        broken["definition"]["states"][1]["type"] = "INITIAL"
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", broken)
+            code, out, err = self.run_apply(path, "--workflows")
+        self.assertEqual(code, 2)
+        self.assertIn("exactly one state must be INITIAL", err)
+        self.assertIn("transition close has no roles", err)
+        self.assertEqual(self.core.requests, [])
+
+    def test_validate_only_also_checks_the_workflows(self):
+        broken = copy.deepcopy(ZONE_WORKFLOW)
+        broken["name"] = "zona"
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", broken)
+            code, out, err = self.run_apply(path, "--validate-only")
+        self.assertEqual(code, 2)
+        self.assertIn("name must be wf-<letter>-zone", out)
 
 
 class NewTenantTests(unittest.TestCase):

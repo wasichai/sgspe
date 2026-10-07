@@ -1,6 +1,8 @@
 """A scripted fake wasichai Core for the tests: metadata routes plus in-memory records.
 
-Copied from caja-backend@dc9e391 (model/fake_core.py); roles carry ownRecordsOnly and fieldPermissions. Test helper only.
+Copied from caja-backend@dc9e391 (model/fake_core.py); roles carry ownRecordsOnly and fieldPermissions.
+From F2 it keeps an object's indexes beside its uniqueConstraints and stores one workflow per object, refusing one that
+names a role it lacks, as wasichai does. Test helper only.
 """
 import json
 import re
@@ -17,6 +19,7 @@ FIELDS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields$")
 ROLE = re.compile(r"^/api/roles/([A-Z0-9_]+)$")
 ROLE_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/permissions$")
 ROLE_FIELD_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/field-permissions$")
+WORKFLOW = re.compile(r"^/api/objects/([a-z0-9_]+)/workflow$")
 
 # the keys of an object GET /api/objects tells besides its name, when they are set
 OBJECT_KEYS = ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints", "indexes")
@@ -79,6 +82,7 @@ class FakeCore:
         self.fail_on_role = fail_on_role  # role name -> its POST /api/roles answers 500
         self.records = {}  # object name -> list of {"id", "attributes"}
         self.roles = {}  # role name -> {"name", "label", "permissions": [{"objectName", "action", "allowed"}]}
+        self.workflows = {}  # object name -> the body of its last PUT .../workflow
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -210,6 +214,18 @@ class FakeCore:
             flags = {**self.object_flags.get(name, {}), **{k: v for k, v in body.items() if k in OBJECT_KEYS}}
             self.object_flags[name] = {k: v for k, v in flags.items() if v != [] or k not in ("uniqueConstraints", "indexes")}
             return 200, {"name": name, **self.object_flags[name]}
+        workflow = WORKFLOW.match(path)
+        if workflow and method == "GET":
+            stored = self.workflows.get(workflow.group(1))
+            return (200, stored) if stored is not None else (404, {"detail": "no workflow"})
+        if workflow and method == "PUT":
+            if workflow.group(1) not in self.existing_objects:
+                return 404, {"detail": "not found"}
+            unknown = [r for t in body["definition"]["transitions"] for r in t["roles"] if r not in self.roles]
+            if unknown:
+                return 400, {"detail": f"Unknown role '{unknown[0]}'"}
+            self.workflows[workflow.group(1)] = body
+            return 200, body
         if path == "/api/relationships" and method == "POST":
             name = body["name"]
             if name in self.existing_relationships:

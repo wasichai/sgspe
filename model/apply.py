@@ -26,7 +26,8 @@ skips non-editable fields on every write, the platform's too (security.md §6.3)
 
 --workflows is the second pass of a tenant's provisioning, after apply_roles.py, because wasichai refuses a workflow
 naming a role the tenant lacks: workflows, document types, automations, views, forms and pages, each from its phase.
-F1 has none, so it writes nothing.
+F2 brings the workflows (model/workflows/<object>.json, PUT /api/objects/{object}/workflow): one that Core lacks is
+created, one that differs is replaced, an equal one is skipped. The other kinds still refuse to run until their phase.
 """
 import argparse
 import json
@@ -827,8 +828,14 @@ def _print_drop_dry_run(model):
 
 
 # the second pass, after apply_roles.py (wasichai refuses a workflow naming a role the tenant lacks), each kind from
-# its phase (architecture.md §5.4). F1 has none of them: the pass runs in the provisioning order and writes nothing
+# its phase (architecture.md §5.4): the workflows from F2; the others when their phase brings them
 DEFINITION_DIRS = ("workflows", "document-types", "automations", "views", "forms", "pages")
+APPLIED_KINDS = ("workflows",)
+
+# workflows.md, «Formato JSON de un workflow»: wf-<letter>-<object>; state and transition names as WorkflowService wants
+WORKFLOW_NAME = re.compile(r"^wf-[a-z][a-z0-9]*-[a-z][a-z0-9_]*$")
+STATE_NAME = re.compile(r"^[a-z][a-z0-9_-]{0,48}$")
+STATE_TYPES = ("INITIAL", "INTERMEDIATE", "FINAL")
 
 
 def definition_files(model_dir):
@@ -841,15 +848,138 @@ def definition_files(model_dir):
     return found
 
 
-def do_workflows(model_dir):
-    """F1: nothing to apply. A definition that arrives before its phase's code is an error, never a silent skip."""
-    files = definition_files(model_dir)
-    if files:
-        for path in files:
-            print(f"error: model/{path}: apply.py --workflows does not apply definitions yet; they arrive with their phase",
+def validate_workflow(model, object_name, workflow):
+    """The errors of model/workflows/<object>.json against model.json and the engine's rules; [] when it is valid."""
+    label = f"workflow {object_name}"
+    objects = {o["name"]: o for o in model["objects"]}
+    if object_name not in objects:
+        return [f"{label}: object '{object_name}' is not in model.json"]
+    errors = []
+    if objects[object_name].get("appendOnly"):
+        errors.append(f"{label}: an appendOnly object cannot have a workflow")
+    if not WORKFLOW_NAME.fullmatch(str(workflow.get("name", ""))) or not workflow["name"].endswith("-" + object_name):
+        errors.append(f"{label}: name must be wf-<letter>-{object_name}")
+    if not workflow.get("label"):
+        errors.append(f"{label}: label is missing")
+    if workflow.get("enabled") is not True:
+        errors.append(f"{label}: enabled must be true (ASM-010 is a variant of the definition, not a switch)")
+    definition = workflow.get("definition") or {}
+    states = definition.get("states") or []
+    transitions = definition.get("transitions") or []
+    names = [s.get("name") for s in states]
+    for state in states:
+        if not STATE_NAME.fullmatch(str(state.get("name", ""))) or not state.get("label"):
+            errors.append(f"{label}: state {state.get('name')!r} needs a valid name and a label")
+        if state.get("type") not in STATE_TYPES:
+            errors.append(f"{label}: state {state.get('name')} type must be one of {', '.join(STATE_TYPES)}")
+        if "x" in state or "y" in state:
+            errors.append(f"{label}: state {state.get('name')} carries x or y; the canvas places it")
+    if len(set(names)) != len(names):
+        errors.append(f"{label}: a state name repeats")
+    if sum(1 for s in states if s.get("type") == "INITIAL") != 1:
+        errors.append(f"{label}: exactly one state must be INITIAL")
+    finals = {s.get("name") for s in states if s.get("type") == "FINAL"}
+    seen = set()
+    for t in transitions:
+        tname = t.get("name")
+        if not STATE_NAME.fullmatch(str(tname or "")) or not t.get("label"):
+            errors.append(f"{label}: transition {tname!r} needs a valid name and a label")
+        if tname in seen:
+            errors.append(f"{label}: transition {tname} repeats")
+        seen.add(tname)
+        if t.get("from") not in names or t.get("to") not in names:
+            errors.append(f"{label}: transition {tname} joins states that do not exist")
+        if t.get("from") in finals:
+            errors.append(f"{label}: transition {tname} leaves the final state {t.get('from')}")
+        if not t.get("roles"):
+            errors.append(f"{label}: transition {tname} has no roles (SGSPE never leaves them empty)")
+    return errors
+
+
+def _workflow_body(workflow):
+    """What PUT /api/objects/{object}/workflow takes, and what GET answers once normalized: name, label, enabled and the
+    definition without positions."""
+    definition = workflow.get("definition") or {}
+    return {
+        "name": workflow["name"],
+        "label": workflow["label"],
+        "enabled": workflow.get("enabled", True),
+        "definition": {
+            "states": [{"name": s["name"], "label": s["label"], "type": s.get("type") or "INTERMEDIATE"}
+                       for s in definition.get("states", [])],
+            "transitions": [{"name": t["name"], "label": t["label"], "from": t["from"], "to": t["to"],
+                             "roles": list(t.get("roles", []))} for t in definition.get("transitions", [])],
+        },
+    }
+
+
+def load_workflows(model_dir, model):
+    """(object, workflow) for each model/workflows/<object>.json, and the errors of all of them."""
+    loaded, errors = [], []
+    folder = os.path.join(model_dir, "workflows")
+    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+        if not name.endswith(".json"):
+            continue
+        object_name = name[:-len(".json")]
+        try:
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                workflow = json.load(f)
+        except ValueError as e:
+            errors.append(f"model/workflows/{name}: not valid JSON: {e}")
+            continue
+        found = validate_workflow(model, object_name, workflow)
+        errors.extend(f"model/workflows/{name}: {e}" for e in found)
+        if not found:
+            loaded.append((object_name, workflow))
+    return loaded, errors
+
+
+def do_workflows(model_dir, model, client_factory, dry_run=False):
+    """The workflows of model/workflows/: a missing one is created, one that differs is replaced (PUT is the whole
+    api), an equal one is skipped. A definition of a kind that has not arrived yet is an error, never a silent skip."""
+    early = [path for path in definition_files(model_dir) if path.split("/")[0] not in APPLIED_KINDS]
+    if early:
+        for path in early:
+            print(f"error: model/{path}: apply.py --workflows does not apply this kind yet; it arrives with its phase",
                   file=sys.stderr)
         return 2
-    print("done: 0 workflows, 0 document types, 0 automations, 0 views, 0 forms, 0 pages")
+    workflows, errors = load_workflows(model_dir, model)
+    if errors:
+        for error in errors:
+            print(f"error: {error}", file=sys.stderr)
+        return 2
+    if dry_run:
+        for object_name, workflow in workflows:
+            print(f"# PUT /api/objects/{object_name}/workflow")
+            print(json.dumps(_workflow_body(workflow), indent=2, ensure_ascii=False))
+        return 0
+    created = updated = skipped = 0
+    client = client_factory() if workflows else None
+    for object_name, workflow in workflows:
+        path = f"/api/objects/{object_name}/workflow"
+        wanted = _workflow_body(workflow)
+        try:
+            current = client.get(path)
+        except CoreError as e:
+            _fatal("GET", path, e)
+            return 1
+        if current is not None and _workflow_body(current) == wanted:
+            print(f"skip   workflow {wanted['name']} (up to date)")
+            skipped += 1
+            continue
+        try:
+            client.put(path, wanted)
+        except CoreError as e:
+            _fatal("PUT", path, e)
+            return 1
+        if current is None:
+            print(f"create workflow {wanted['name']}")
+            created += 1
+        else:
+            print(f"update workflow {wanted['name']}")
+            updated += 1
+    print(f"done: {len(workflows)} workflows ({created} created, {updated} updated, {skipped} skipped), "
+          f"0 document types, 0 automations, 0 views, 0 forms, 0 pages")
     return 0
 
 
@@ -883,9 +1013,20 @@ def main(argv=None):
             print(f"model: {args.model}: {e}")
         return 2
     if args.validate_only:
-        return 0
+        _, workflow_errors = load_workflows(os.path.dirname(os.path.abspath(args.model)), model)
+        for e in workflow_errors:
+            print(f"model: {e}")
+        return 2 if workflow_errors else 0
     if args.workflows:
-        return do_workflows(os.path.dirname(os.path.abspath(args.model)))
+        def connect():
+            client = Client(args.core)
+            client.login(args.email, args.password)
+            return client
+        try:
+            return do_workflows(os.path.dirname(os.path.abspath(args.model)), model, connect, args.dry_run)
+        except CoreError as e:
+            _fatal("POST", "/api/auth/login", e)
+            return 1
 
     if args.dry_run:
         if args.drop:
