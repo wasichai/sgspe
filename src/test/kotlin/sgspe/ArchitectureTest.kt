@@ -16,17 +16,30 @@ class ArchitectureTest {
 
     private fun sources(root: File): List<File> = root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
 
-    // el código de una fuente: sus líneas sin los comentarios de línea, que pueden nombrar un rol o una api para explicar
-    // por qué no se usa
-    private fun code(file: File): List<String> = file.readLines().map { it.substringBefore("//") }
+    // el código de una fuente: se exceptúan solo las líneas que son todo comentario (//, /*, /** y las de continuación de un
+    // bloque, que empiezan con *), que pueden nombrar un rol o una api para explicar por qué no se usa. el resto de cada
+    // línea se escanea entera: cortar en el primer // dejaría sin ver lo que sigue a una url en un literal ("https://x").
+    // un comentario al final de una línea de código que nombre algo prohibido es un hallazgo: se reescribe. lo mismo vale
+    // para un nombre de rol en mayúsculas dentro de un KDoc que no empiece la línea con * (poco probable)
+    private fun code(lines: List<String>): List<String> =
+        lines.map { line ->
+            val start = line.trimStart()
+            if (start.startsWith("//") || start.startsWith("*") || start.startsWith("/*")) "" else line
+        }
 
     private fun offenders(
         files: List<File>,
         rule: Regex
     ): List<String> =
         files.flatMap { file ->
-            code(file).mapIndexedNotNull { i, line -> if (rule.containsMatchIn(line)) "${file.path}:${i + 1}: ${line.trim()}" else null }
+            code(file.readLines()).mapIndexedNotNull { i, line -> if (rule.containsMatchIn(line)) "${file.path}:${i + 1}: ${line.trim()}" else null }
         }
+
+    // lo que el vigía ve en un texto: verdadero si alguna línea de código lo contiene
+    private fun flags(
+        rule: Regex,
+        text: String
+    ): Boolean = code(text.lines()).any { rule.containsMatchIn(it) }
 
     private fun isCommon(file: File): Boolean = file.invariantSeparatorsPath.contains("/sgspe/common/")
 
@@ -34,6 +47,16 @@ class ArchitectureTest {
     fun `el escaneo ve las fuentes de F1`() {
         val names = sources(main).map { it.name }
         assertTrue(names.containsAll(listOf("SgspeApplication.kt", "CorrelationIdFilter.kt", "Records.kt")), "$names")
+        val testNames = sources(test).map { it.name }
+        assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
+    }
+
+    // un paquete nuevo de F2 debe clasificarse aquí, de dominio o no: si no, la regla de dominio no lo escanearía
+    @Test
+    fun `cada paquete de sgspe esta clasificado como de dominio o no`() {
+        val packages = File(main, "sgspe").listFiles { f -> f.isDirectory }!!.map { it.name }.toSet()
+        val unclassified = packages - DOMAIN_PACKAGES.toSet() - NON_DOMAIN_PACKAGES.toSet()
+        assertEquals(emptySet<String>(), unclassified, "clasifique el paquete nuevo en DOMAIN_PACKAGES o NON_DOMAIN_PACKAGES")
     }
 
     @Test
@@ -45,7 +68,9 @@ class ArchitectureTest {
 
     @Test
     fun `no se importan las apis internas de wasichai, tampoco en las pruebas`() {
-        assertEquals(emptyList<String>(), offenders(sources(main) + sources(test), INTERNAL_API))
+        // esta clase queda fuera de este escaneo: sus vigías nombran las clases prohibidas en los textos de prueba
+        val scanned = sources(main) + sources(test).filterNot { it.name == "ArchitectureTest.kt" }
+        assertEquals(emptyList<String>(), offenders(scanned, INTERNAL_API))
     }
 
     @Test
@@ -64,7 +89,8 @@ class ArchitectureTest {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
     }
 
-    // solo sgspe.common escribe con la marca SgspeWrite o toca RecordService; el dominio pasa por Records
+    // solo sgspe.common escribe con la marca SgspeWrite o toca RecordService; el dominio pasa por Records. la regla es solo
+    // para src/main: las pruebas (RecordsApiTest, SgspeWriteTest) usan RecordService y SgspeWrite legítimamente
     @Test
     fun `fuera de sgspe common nadie escribe con SgspeWrite ni usa RecordService`() {
         val outside = sources(main).filterNot { isCommon(it) }
@@ -101,6 +127,34 @@ class ArchitectureTest {
         assertFalse(DIRECT_WRITE.containsMatchIn("class Risks(private val records: Records)"))
         assertFalse(DIRECT_WRITE.containsMatchIn("withContext(Dispatchers.IO) { x() }"))
         assertFalse(DIRECT_WRITE.containsMatchIn("import wasichai.core.data.RecordRequest"))
+        // F1 ronda 1: formas que los vigías originales dejaban pasar
+        val aliased = "import sgspe.common.SgspeWrite as W\nsuspend fun f() = withContext(W) { x() }"
+        assertTrue(flags(DIRECT_WRITE, aliased))
+        assertTrue(flags(DIRECT_WRITE, "withContext(Dispatchers.IO.limitedParallelism(1) + SgspeWrite) { x() }"))
+        assertTrue(flags(DIRECT_WRITE, "scope.launch(SgspeWrite) { x() }"))
+        assertTrue(flags(DIRECT_WRITE, "val ctx = SgspeWrite + Dispatchers.IO"))
+        assertTrue(flags(DIRECT_WRITE, "suspend fun f() =\n    withContext(\n        Dispatchers.IO +\n        SgspeWrite\n    ) { x() }"))
+        assertTrue(flags(DIRECT_WRITE, "import wasichai.core.data.*\nclass A(r: RecordService)"))
+        assertFalse(flags(DIRECT_WRITE, "val ctx = SgspeWriter()"))
+        assertFalse(flags(DIRECT_WRITE, "// withContext(SgspeWrite) está prohibido fuera de common"))
+        assertTrue(flags(INTERNAL_API, "import wasichai.core.data.*"))
+        assertTrue(flags(INTERNAL_API, "import wasichai.*"))
+        assertTrue(flags(INTERNAL_API, "val s: wasichai.core.data.RecordStore"))
+        assertTrue(flags(INTERNAL_API, "import wasichai.RecordStore"))
+        assertTrue(flags(INTERNAL_API, "import wasichai.core.audit.AuditService as Audit"))
+        assertFalse(flags(INTERNAL_API, "import wasichai.core.data.RecordService"))
+        assertFalse(flags(INTERNAL_API, "class MyRecordStoreFake"))
+        assertFalse(flags(INTERNAL_API, "// no se usa RecordStore: va por Records"))
+        assertTrue(flags(roles, "hasAuthority(\"ROLE_AUDITOR\")"))
+        assertTrue(flags(roles, "hasAuthority(\"ROLE_SUPER_ADMIN\")"))
+        assertTrue(flags(roles, "val r = \"AUDITOR_X\""))
+        assertFalse(flags(roles, "val r = \"AUDITORIA\""))
+        assertTrue(flags(roles, "listOf(\"https://x\", \"AUDITOR\")"))
+        assertTrue(flags(roles, "val u = \"http://x\"; val r = \"AUDITOR\""))
+        assertFalse(flags(roles, "// el rol AUDITOR no se nombra aquí"))
+        assertFalse(flags(roles, "    * el rol AUDITOR, en un KDoc"))
+        assertFalse(flags(roles, "/** el rol AUDITOR */"))
+        assertFalse(flags(roles, "/* el rol AUDITOR"))
         assertTrue(isCommon(File("src/main/kotlin/sgspe/common/Records.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/risk/Risks.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/commonplace/Risks.kt")))
@@ -108,18 +162,27 @@ class ArchitectureTest {
 
     companion object {
         private val WASICHAI_PACKAGE = Regex("""^\s*package\s+wasichai\b""")
-        private val INTERNAL_API = Regex("""^\s*import\s+wasichai\.\S*\.(RecordStore|PhysicalTableRecordStore|AuditService|ObjectSchemaManager)\b""")
+
+        // el nombre de la clase en cualquier forma (import, alias, nombre completo, uso) y cualquier import con comodín de wasichai
+        private val INTERNAL_API =
+            Regex("""\b(RecordStore|PhysicalTableRecordStore|AuditService|ObjectSchemaManager)\b|^\s*import\s+wasichai\.\S*\*""")
         private val REPORTING_IMPORT = Regex("""^\s*import\s+sgspe\.(dashboard|deliverable|ai)\.""")
         private val OTHER_SGSPE_IMPORT = Regex("""^\s*import\s+sgspe\.(?!observability\.)""")
-        private val DIRECT_WRITE = Regex("""\bwithContext\s*\([^)]*\bSgspeWrite\b|\bRecordService\b""")
+
+        // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
+        private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
+        private val NON_DOMAIN_PACKAGES = listOf("common", "observability", "dashboard", "deliverable", "ai")
         private val DOMAIN_PACKAGES =
             listOf("stakeholder", "engagement", "commitment", "agreement", "attention", "risk", "warning", "investment", "evidence", "territory")
 
-        // los 15 roles declarados, los 2 de mappedToAdmin y el ADMIN de wasichai, leídos de model/roles.json
+        // los 15 roles declarados, los 2 de mappedToAdmin y el ADMIN de wasichai, leídos de model/roles.json. el límite no es
+        // \b: el guion bajo cuenta como letra en \b y dejaría pasar "ROLE_AUDITOR" (Spring Security). distingue mayúsculas a
+        // propósito: en minúsculas las mismas palabras ("admin", "auditor") aparecen en rutas, identificadores y prosa, y
+        // darían falsos positivos; los roles se escriben siempre en mayúsculas
         private fun roleLiteral(): Regex {
             val file = JsonMapper.builder().build().readTree(File("model/roles.json"))
             val names = file["roles"].values().map { it["name"].asString() } + file["mappedToAdmin"].values().map { it.asString() } + "ADMIN"
-            return Regex("\\b(${names.joinToString("|")})\\b")
+            return Regex("(?<![A-Za-z0-9])(${names.joinToString("|")})(?![A-Za-z0-9])")
         }
     }
 }
