@@ -6,7 +6,8 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 
 - **Lienzos de diseño** (privados: se comparten desde el menú de cada lienzo):
   - etapa 1: <https://claude.ai/artifact/LMLBimwromQ5dsRQDDeD61>;
-  - etapa 2: <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>.
+  - etapa 2: <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>;
+  - etapa 3: <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>.
 - **Orden de trabajo y principio rector** [USR-10]: dominio → arquitectura de información → navegación → design system →
   patrones núcleo → Project 360 y territorio → grupos de interés, relacionamiento y compromisos → QCS, riesgos y programas →
   tableros → capa de IA. Ningún módulo es una aplicación aparte: la navegación conserva el contexto de proyecto y territorio y
@@ -18,7 +19,8 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 |---|---|---|---|---|
 | E1 | Visión, dominio, roles, arquitectura de información, navegación, hilo de contexto, design system y patrones núcleo | Páginas 00 a 04 (17 hojas) | [`ux-architecture.md`](ux-architecture.md), [`design-system.md`](design-system.md), [`tokens.css`](tokens.css) | Entregada, en revisión |
 | E2 | Project 360 y territorio (GIS), grupos de interés, relacionamiento, compromisos y acuerdos | Lienzo de la etapa 2, páginas 05 a 10 (28 hojas) | [`screens.md`](screens.md) (S06–S26, S28–S33), [`flows.md`](flows.md) (flujos 1–11, 16 y 17) | Entregada, en revisión |
-| E3 | QCS, riesgos y alerta temprana, programas, documentos, tareas y aprobaciones, tableros (con S27), capa de IA, experiencia móvil de campo y handoff | Lienzo de la etapa 3 | `screens.md` y `flows.md` completos | Pendiente |
+| E3 · parte 3a | QCS, riesgos y alerta temprana, programas e inversión, documentos, tareas y aprobaciones | Lienzo de la etapa 3, páginas 11 a 15 (18 hojas) | [`screens.md`](screens.md) (S35–S48 y la ficha de incidente), [`flows.md`](flows.md) (flujos 12–15) | Entregada, en revisión |
+| E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S38, S49–S55 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
 
 ## Cómo leer
 
@@ -55,11 +57,26 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 La lista de compromisos (S28) y la pestaña Resumen de su ficha (S29) usan las hojas "Lista" y "Ficha" de los patrones de la
 etapa 1.
 
+## Lienzo de la etapa 3
+
+| Página | Hojas |
+|---|---|
+| 11 Quejas, consultas y solicitudes | Índice de la etapa · Lista unificada (S35) · Registrar QCS (S37) · Ficha de queja, interactiva (S36) · Fichas de consulta y de solicitud (S36) |
+| 12 Riesgos y alerta temprana | Registro y matriz, interactiva (S38–S39) · Ficha de riesgo (S40) · Centro de alerta temprana, interactiva (S41) · Ficha de incidente |
+| 13 Programas e inversión | Programas y aportes (S42) · Ficha de programa (S43) · Aporte social con sus políticas (S44) |
+| 14 Documentos, tareas y aprobaciones | Biblioteca (S45) · Ficha de evidencia (S46) · Mis tareas en lista, tablero y calendario, interactiva (S47) · Aprobaciones y escalamientos (S48) |
+| 15 Flujos | Flujos 12 y 13 (queja) · Flujos 14 y 15 (riesgo y mitigación), en carriles por rol |
+| 16 Tableros | Revisión ejecutiva de 5 minutos (S51) · Monitoreo de la Tabla 9.5, interactiva · Compromisos (S27) · QCS (S34) · Riesgos (S38) · Territorial · Inversión social |
+| 17 Capa de IA | Panel del asistente, interactiva (S05) · Respuesta con citas (AI-06) · Bandeja de revisión (S52) · Posible duplicado (AI-07) · Resumen ejecutivo y borrador de sección (AI-04) |
+| 18 Inicio y transversales | Login (S01) · Inicio por rol, interactiva (S02) · Avisos (S04) · Reportes y exportaciones (S49) · Entregable por secciones (S50) · Administración (S53) |
+| 19 Campo sin conexión | Mis tareas y visita (S54) · Interacción, observación y foto (S55) · Estado de conexión y cola · Sincronización y conflictos |
+| 20 Flujos y handoff | Flujo 18 (preguntar a la IA) · Flujo de campo (sincronización) · Mapa de rutas y árbol de módulos del frontend |
+
 ## Convenciones
 
 - Español para documentos, etiquetas y valores de ENUM; nombres técnicos, rutas y componentes en inglés (ADR-0009).
 - Los IDs (RF, RNF, RN, RQ, CON, GAP, ASM, UPS) se definen solo en el [análisis](../requirements-analysis.md); los supuestos de
-  esta carpeta son ASM-073 a ASM-080. Los identificadores de pantalla `S01` a `S55` se definen en el inventario de
+  esta carpeta son ASM-073 a ASM-081. Los identificadores de pantalla `S01` a `S55` se definen en el inventario de
   `ux-architecture.md` §9.
 - Los datos de ejemplo del lienzo son ficticios: proyectos, comunidades, caseríos y personas inventados. En estos documentos
   las personas se nombran por su cargo [USR-07].

@@ -3,6 +3,39 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-07 — Diseño UX/UI, etapa 3, parte 3b: tableros, capa de IA, transversales, campo sin conexión y handoff
+
+Segunda parte de la última etapa, después de la revisión de la 3a. Con ella el inventario de 55 pantallas queda diseñado.
+
+- **Lienzo de la etapa 3**, páginas 16 a 20, con 25 hojas: tableros (revisión ejecutiva de 5 minutos, monitoreo de la Tabla
+  9.5 con cifra oficial o viva y "no disponible", compromisos, QCS, riesgos, territorial e inversión social), capa de IA (panel
+  del asistente por rol y estado de la organización, respuesta con citas, bandeja de revisión, comparación de duplicados,
+  resumen ejecutivo y borrador de sección), inicio y transversales (login, inicio por rol, avisos, reportes y exportaciones con
+  nivel de divulgación, entregable por secciones, administración), campo sin conexión en el teléfono (tareas y visita,
+  captura, cola y conflictos de sincronización) y handoff (flujo 18, flujo de campo, mapa de rutas y árbol de módulos).
+- **[`ux/screens.md`](ux/screens.md):** fichas de S01, S02, S04, S05, S27, S34, S38, S49 a S55, del monitoreo, del tablero
+  territorial, del de inversión, de la respuesta con citas, del duplicado, del resumen de IA y de la cola de campo.
+- **[`ux/flows.md`](ux/flows.md):** flujo 18 (preguntar a la IA) y flujo de campo sin conexión.
+- **Decisión del usuario:** la captura de campo sin conexión se diseña. ASM-081 la registra, responde GAP-008 y deja su
+  implementación después del MVP, con un ADR de sincronización; el análisis pasa a 489 IDs. Se actualizan Q5 y las rutas en
+  `ux-architecture.md`, los componentes de IA, conexión y sincronización en `design-system.md` y el roadmap.
+
+## 2026-10-07 — Diseño UX/UI, etapa 3, parte 3a: QCS, riesgos, programas, documentos y tareas
+
+Primera de las dos partes de la última etapa, en el orden de USR-10: QCS ← riesgos → programas, más las piezas transversales
+de documentos, tareas y aprobaciones.
+
+- **Lienzo de la etapa 3** con 18 hojas en cinco páginas: QCS (lista unificada por plazo, registro por tipo, ficha de queja
+  interactiva con la segregación de la resolución ALTA y CRITICA, consulta y solicitud con aceptación como compromiso o
+  aporte), riesgos (registro con mapa de calor interactivo, ficha con revisiones inmutables y mitigación, centro de alerta
+  temprana interactivo con la confirmación solo por una persona, incidente), programas e inversión (lista con el tope de la
+  campaña, ficha de programa, aporte con las políticas P1 a P8), documentos (biblioteca y ficha de evidencia con descarga
+  restringida), tareas (lista, tablero y calendario interactivos; aprobaciones y escalamientos) y dos hojas de flujos.
+- **[`ux/screens.md`](ux/screens.md):** fichas de S35 a S48 y de la ficha de incidente, con el mismo formato que la etapa 2.
+- **[`ux/flows.md`](ux/flows.md):** flujos 12 a 15 (crear y resolver una queja, identificar un riesgo y mitigarlo).
+- **Decisión del usuario para la parte 3b:** la captura de campo sin conexión entra al diseño; el supuesto que la registra y
+  sus cambios en el análisis se agregan con esa parte.
+
 ## 2026-10-07 — Fase 1: fundación
 
 La Fase 1 deja SGSPE compilando y ejecutable sobre wasichai 0.3.2 y `@wasichai/*` 0.5.0, todavía sin objetos de negocio:

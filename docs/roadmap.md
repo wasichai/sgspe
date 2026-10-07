@@ -92,7 +92,7 @@ Dos reglas cruzan todas las fases:
 | BC-08 | Riesgos sociales | Release 1 | F4 |
 | BC-09 | Alerta temprana e incidentes | Release 1 | F4 |
 | BC-10 | Inversión social y programas | Release 2 | F5 (lineamientos y tope en F3) |
-| BC-11 | Operaciones de campo | Release 1 dentro de BC-04; la captura sin conexión, Release 3 sujeta a GAP-008 | F2 (visitas); sin conexión: sin fase |
+| BC-11 | Operaciones de campo | Release 1 dentro de BC-04; la captura sin conexión, Release 3, con diseño de UX hecho (ASM-081) | F2 (visitas); sin conexión: sin fase |
 | BC-12 | Evidencias y documentos | Release 1 | F3 |
 | BC-13 | Tareas y aprobaciones | Release 1 | F3 (escalamiento de QCS y riesgos en F4) |
 | BC-14 | Notificaciones | Release 1 | F3–F4 |
@@ -528,7 +528,7 @@ antes de la fase que condicionan:
 | Gap | Valor por defecto | Fase que condiciona |
 |---|---|---|
 | GAP-007 | El ciclo del prompt (WF-G) | F5 |
-| GAP-008 | Captura sin conexión fuera del MVP | Release 3, sin fase |
+| GAP-008 | Captura sin conexión fuera del MVP; diseñada (ASM-081) | Release 3, sin fase; ADR de sincronización antes de implementarla |
 | GAP-010 | Solo se emite lo que genera el sistema | F8 |
 | GAP-011 | Capas vectoriales de referencia; GeoServer necesario para emitir mapas | F2, F6, F8 |
 | GAP-012 | XLSX, CSV y GeoJSON en F2 con CRS obligatorio | F2, F6 |

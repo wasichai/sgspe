@@ -253,6 +253,11 @@ o se compone en el portal.
 | ContextBar, TerritoryChip | Contexto de proyecto y territorio | Chip quitable | `nav` "Contexto" | portal |
 | TraceabilityPanel | Origen y consecuencias de un registro | Dos bloques navegables | Encabezados reales | portal |
 | AiSuggestionCard, AiSummary, AiAnswer | Propuestas, resúmenes y respuestas de IA | Con evidencia, confianza, modelo y fuentes; estado "no disponible" | Marca de procedencia en el nombre accesible | portal |
+| AssistantPanel | Asistente global y contextual (S05) | Modos datos y documentos; "no disponible" con razón y alternativa; organización sin IA | `complementary` con encabezado; la respuesta se anuncia con `role="status"` | portal |
+| Citation, SourceCard | Fuentes de una respuesta de AI-06 | Llamada numerada; cita literal; clasificación; "fuente restringida" | La llamada enlaza a su fuente; la cita en `blockquote` | portal |
+| ConnectionIndicator | Estado de conexión en el móvil | En línea, sin señal, enviando, conflicto, sesión vencida | Texto además del color; `role="status"` al cambiar | portal |
+| SyncQueueItem, ConflictResolver | Cola local y conflictos de campo (ASM-081) | Por enviar, enviando, enviado, conflicto, error; versión de la oficina frente a la del teléfono | Cada estado con texto; dos salidas explícitas | portal |
+| CurrencyGauge | Topes y presupuestos | Uno por moneda; marca de lo aprobado; advertencia de otra moneda | `role="progressbar"` con valor y texto | portal |
 
 ## 6. Patrones núcleo
 
@@ -373,8 +378,8 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
 - **Tableta (768–1279):** navegación en panel, fichas en una columna, mapa a pantalla completa con hoja inferior; tablas con
   desplazamiento horizontal dentro de su caja y la primera columna fija.
 - **Móvil (< 640):** no se mete el sistema de escritorio en el teléfono [PRM-02 §31]. Solo: mis tareas, visitas de campo,
-  registrar interacción y observación con foto y ubicación, aprobaciones, avisos y consulta rápida. En línea, sin captura sin
-  conexión en el MVP (ASM-021, GAP-008). El diseño detallado es de E3.
+  registrar interacción y observación con foto y ubicación, aprobaciones, avisos y consulta rápida. En el MVP, en línea
+  (ASM-021); la captura sin conexión está diseñada para después (ASM-081, `screens.md` §15). Objetivos táctiles de 48 px.
 
 ## 9. Guía de implementación
 
@@ -402,7 +407,7 @@ Un script compara cada par de texto y fondo de §3 y del lienzo. Resultado de es
 
 - **Requisitos:** RNF-USA-001, RNF-I18N-001, RNF-MNT-001, RQ-DSH-032, RQ-DSH-035, RQ-GIS-014, RQ-GIS-015, RQ-AUD-002,
   RQ-AUD-011, RQ-AI-003, RQ-AI-004, RQ-AI-012, RQ-SEC-005, RN-WFL-001, RN-COM-001, RN-ENG-001, RN-INV-003, RF-COM-003.
-- **Supuestos:** ASM-021, ASM-063, ASM-066, ASM-075, ASM-076, ASM-077, ASM-079.
+- **Supuestos:** ASM-021, ASM-063, ASM-066, ASM-075, ASM-076, ASM-077, ASM-079, ASM-081.
 - **Documentos:** [workflows.md](../workflows.md), [dashboards.md §3 y §9](../dashboards.md), [gis.md §2 y §7.2](../gis.md),
   [security.md §5 y §9](../security.md), [api.md §3](../api.md), [ADR-0024](../adr/0024-interfaz-portal-y-admin.md),
   [ADR-0025](../adr/0025-concurrencia-e-idempotencia.md).

@@ -278,7 +278,7 @@ en el [glosario](glossary.md).
   [PRM-01 §5, §9].
 - No se divide en microservicios [PRM-01 §3, §26].
 - No certifica cumplimiento legal: sin fuente normativa, ninguna regla se presenta como obligación legal (GAP-001).
-- No captura sin conexión en el MVP (GAP-008, ASM-021).
+- No captura sin conexión en el MVP (GAP-008, ASM-021); su diseño de UX está hecho para una fase posterior (ASM-081).
 
 ## 4. Actores
 
@@ -1244,7 +1244,7 @@ Cada gap lleva su pregunta y el valor por defecto con el que se diseña mientras
 | GAP-005 | No hay plazos de QCS, reglas de anonimato ni instancia de apelación | ¿Qué plazos de acuse, respuesta y resolución aplican? ¿Se aceptan quejas anónimas? ¿Hay apelación? | 5, 15 y 30 días (ASM-005); anónimas permitidas; sin apelación formal | RF-GRV-001, RF-GRV-006 |
 | GAP-006 | No hay matriz de autoridad para aprobar montos | ¿Quién aprueba compromisos, aportes y programas según su monto? | Un solo nivel (`APPROVER`) más la acción declarada `APPROVE_OVER_CAP` para superar el tope (RN-INV-003, RQ-SEC-004) | RF-WFL-002, RN-INV-003 |
 | GAP-007 | No se conoce la estructura de los programas sociales; las fuentes solo mencionan sinergias | ¿Qué programas gestiona la empresa y con qué ciclo, presupuesto e indicadores? | El ciclo del prompt (WF-G) | RF-INV-003 |
-| GAP-008 | No se sabe si hace falta captura móvil sin conexión | ¿El trabajo de campo debe poder operar sin conexión? | Fuera del MVP (ASM-021) | §3 (no objetivos), RF-FLD-001 |
+| GAP-008 | No se sabe si hace falta captura móvil sin conexión | ¿El trabajo de campo debe poder operar sin conexión? | El usuario decidió diseñarla (ASM-081); su implementación sigue fuera del MVP (ASM-021) | §3 (no objetivos), RF-FLD-001 |
 | GAP-009 | No se sabe quién es el tenant ni con qué marca salen los entregables | ¿Usa el sistema la empresa titular, la operadora o una consultora por cliente? ¿Con qué marca se emiten los entregables? | Tenant = empresa cliente (ASM-001) | RQ-SEC-002, RQ-REP-019 |
 | GAP-010 | No hay plantillas corporativas y no se sabe si el DOCX se edita fuera del sistema | ¿Hay una plantilla Word por organización? ¿Se puede editar fuera del sistema un DOCX emitido? | Solo se emite lo que genera el sistema | RQ-REP-001, RQ-REP-019 |
 | GAP-011 | No están definidos el mapa base, las fuentes de concesiones e hidrografía, sus licencias ni la disponibilidad de GeoServer | ¿Qué cartografía base y qué fuentes de concesiones e hidrografía se usan, y con qué licencias? ¿Habrá GeoServer en producción? | Capas vectoriales de referencia; concesiones e hidrografía importadas desde archivos del cliente (RQ-GIS-003); GeoServer necesario para emitir mapas (ASM-038) | RQ-REP-030, RQ-GIS-013, RQ-GIS-003 |
@@ -1324,7 +1324,7 @@ implementan. Las contradicciones, gaps y pedidos upstream que originan un supues
 | ASM-018 | El padrón de comuneros no se guarda nombre por nombre: solo su existencia y los conteos | Minimizar datos personales (USR-07) | Agregar un objeto de padrón si se requiere | RF-TER-003 |
 | ASM-019 | Los lineamientos de DOC-01 son políticas configurables por proyecto con valores por defecto | Eran consejos a un cliente | Fijar una política como regla dura | RF-INV-002, RN-INV-004 |
 | ASM-020 | El portal cubre los flujos principales y `/admin` los catálogos y los objetos de baja frecuencia | Patrón de srtm y caja | Agregar pantallas al portal | RF-IAM-001 |
-| ASM-021 | La captura sin conexión queda fuera del MVP | Las fuentes no la piden (GAP-008) | Incorporarla en una fase posterior | §3 (no objetivos) |
+| ASM-021 | La captura sin conexión queda fuera del MVP; su diseño de UX ya existe (ASM-081) | Las fuentes no la piden (GAP-008) | Incorporarla en una fase posterior | §3 (no objetivos) |
 | ASM-022 | Tras 90 días sin contacto con un grupo de interés se sugiere una tarea, sin cambiar su estado; el seguimiento (JOB-03 de `workflows.md`) corre una vez al día, con frecuencia configurable | Las fuentes no fijan un plazo de inactividad ni la frecuencia del seguimiento | Plazo por proyecto y frecuencia configurable | RF-STK-014 |
 | ASM-023 | El responsable de un registro se guarda como UUID y correo del usuario de wasichai, validados por una guarda | wasichai no tiene relaciones con usuarios | Migrar a una relación cuando exista | RF-COM-005, RF-WFL-001 |
 | ASM-024 | `SUPER_ADMIN` y `ORGANIZATION_ADMIN` se mapean al `ADMIN` de wasichai | El mismo permiso cubre la administración de usuarios y la provisión de tenants (CON-059) | Separarlos cuando exista UPS-10 | RQ-SEC-003 |
@@ -1384,6 +1384,7 @@ implementan. Las contradicciones, gaps y pedidos upstream que originan un supues
 | ASM-078 | Cada rol tiene un inicio por defecto (por ejemplo, "Mis tareas" para el relacionista y "Atención requerida" para la gerencia social) que la persona puede cambiar; el orden de las secciones no cambia por rol | PRM-02 pide adaptar la navegación, los tableros y las acciones por rol [PRM-02 §3] y RNF-USA-001 fija el orden | Un inicio único para todos | RNF-USA-001, RF-IAM-002, `docs/ux/ux-architecture.md` §5 y §7.2 |
 | ASM-079 | Las vistas guardadas de las listas son de dos clases: las del sistema, definidas en el código del portal por rol, y las personales, guardadas en el navegador en el MVP; compartirlas entre personas o dispositivos espera una decisión | PRM-02 pide vistas guardadas [PRM-02 §13, §15, §25] y el modelo de dominio no tiene un objeto para ellas | Agregar un objeto o una tabla fija para vistas guardadas compartidas | RF-WFL-001, `docs/ux/design-system.md` §6.4 |
 | ASM-080 | La jefatura de un proyecto ("Project owner" de PRM-02) son sus asignaciones activas (`project_assignment`) con el rol `PROJECT_MANAGER`: si hay varias se muestran todas, y si no hay ninguna el portal lo marca como "sin jefatura asignada" | `project` no tiene un responsable propio y las asignaciones ya definen el alcance y los destinatarios por rol (ASM-070) [PRM-02 §10] | Agregar un campo de responsable a `project` | RF-PRJ-005, ASM-070, `docs/ux/screens.md` S06, S08 y S11 |
+| ASM-081 | La captura de campo sin conexión se diseña ahora (decisión del usuario en el diseño de UX, que responde GAP-008): el teléfono guarda en una cola local cifrada las interacciones, sus participantes y preguntas, las observaciones y las fotos, cada elemento con un `Idempotency-Key` creado en el dispositivo; al volver la señal los envía en orden por los mismos endpoints y guardas que en línea, y lo que el servidor rechaza (`412`, `409`, `403`) queda en la cola con su razón para que la persona decida, sin sobrescribir nada. El paquete descargado no incluye campos restringidos. Su implementación sigue en una fase posterior al MVP (Release 3, como ASM-021), y la arquitectura de la sincronización (almacenamiento local, orden, reintentos, cifrado) se fija en un ADR antes de implementarla | El usuario pidió diseñar la captura sin conexión; las fuentes no la exigen y el MVP no la incluye (ASM-021) | Mantener solo el diseño en línea hasta que una fuente la pida | RF-FLD-001, ASM-021, ASM-069, RNF-INT-002, GAP-008, `docs/ux/screens.md` §15, `docs/ux/flows.md` (flujo de campo) |
 
 ## 20. Matriz de trazabilidad (resumen; la matriz completa está en `requirements-traceability.md`)
 
@@ -1441,8 +1442,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 32 |
 | `UPS` | 18 |
-| `ASM` | 80 |
-| Total | 488 |
+| `ASM` | 81 |
+| Total | 489 |
 
 ### 20.2 Requisitos por bounded context
 
