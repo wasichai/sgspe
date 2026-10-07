@@ -456,6 +456,25 @@ class WorkflowRecordsTests(ApplyTestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual([p for m, p, _, _ in self.core.requests if "/records" in p], [])
 
+    def test_a_record_count_that_is_missing_stops_the_pass_instead_of_counting_zero(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = self.provision(folder)
+            self.core.add_record("zone", {"code": "Z1"})
+            write_workflow(folder, "zone", ZONE_WORKFLOW)
+            scripted = self.core.server.script
+
+            def without_total(method, full_path, body):
+                status, payload = scripted(method, full_path, body)
+                if method == "GET" and "/records" in full_path and isinstance(payload, dict):
+                    payload = {k: v for k, v in payload.items() if k != "totalElements"}
+                return status, payload
+
+            self.core.server.script = without_total
+            code, out, err = self.run_apply(path, "--workflows")
+        self.assertEqual(code, 1)
+        self.assertIn("no record count", err)
+        self.assertEqual(self.writes(), [])
+
     def test_a_workflow_created_over_records_is_refused_without_the_flag(self):
         with tempfile.TemporaryDirectory() as folder:
             path = self.provision(folder)

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Apply model/model.json to a wasichai Core (SGSPE).
 
-Copied from caja-backend@dc9e391 (model/apply.py), itself adapted from wasichai's examples/gis-sample/perene/apply.py.
-Stdlib only.
+Copied from caja-backend@dc9e391 (model/apply.py), itself adapted from wasichai's
+examples/gis-sample/perene/apply.py. Stdlib only.
 
 Reads a JSON metadata model (objects, fields, relationships, enums), checks it against Core's rules (--validate-only
-stops there) and creates it in Core via the REST API, in file order (so relationship targets already exist), marking
-each required relationship's field required. A third phase, after the relationships, puts what needs them: each
+stops there) and creates it in Core via the REST API: every object first, then the relationships, marking each required
+relationship's field required. A third phase, after the relationships, puts what needs them: each
 object's uniqueConstraints and the `unique: true` of a relationship's field. An object may declare actions of its own
 (POST .../actions, a 409 is "already there"): roles are granted them next to READ, CREATE, UPDATE and DELETE. From F2 a
 relationship may be MANY_TO_MANY (a join table, no field), point at its own object or close a cycle: every object
@@ -27,10 +27,11 @@ skips non-editable fields on every write, the platform's too (security.md §6.3)
 --workflows is the second pass of a tenant's provisioning, after apply_roles.py, because wasichai refuses a workflow
 naming a role the tenant lacks: workflows, document types, automations, views, forms and pages, each from its phase.
 F2 brings the workflows (model/workflows/<object>.json, PUT /api/objects/{object}/workflow): one that Core lacks is
-created, one that differs is replaced, an equal one is skipped. The other kinds still refuse to run until their phase. wasichai checks no record on that PUT, so nothing is written
-until every workflow is checked: one that drops a state records sit in stops the pass with 1 (naming the states and
-counts), and so does one created on an object that already has records, which wasichai leaves with a null state, unless
---allow-stateless-records is given (then it only warns).
+created, one that differs is replaced, an equal one is skipped. The other kinds still refuse to run until their
+phase. wasichai checks no record on that PUT, so nothing is written until every workflow is checked: one that drops
+a state records sit in stops the pass with 1 (naming the states and counts), and so does one created on an object
+that already has records, which wasichai leaves with a null state, unless --allow-stateless-records is given (then
+it only warns).
 """
 import argparse
 import json
@@ -984,9 +985,13 @@ def _kinds_before_their_phase(model_dir):
 
 
 def _record_count(client, object_name):
-    """How many records an object has; 0 when Core does not know it."""
+    """How many records an object has. An answer without that count is an error, not a zero (as in _records_using):
+    a workflow is never created over records on a guess."""
     data = client.get(f"/api/objects/{object_name}/records?page=0&size=1")
-    return int((data or {}).get("totalElements", 0))
+    total = data.get("totalElements") if isinstance(data, dict) else None
+    if not isinstance(total, int):
+        raise CoreError("no record count", json.dumps(data))
+    return total
 
 
 def _records_by_state(client, object_name):

@@ -1,4 +1,4 @@
-"""A small model for the tests of apply.py and apply_roles.py, because model.json has no objects in F1.
+"""A small model for the tests of apply.py and apply_roles.py: model.json (F2, 48 objects) is too big to exercise them.
 
 Two objects, one relationship, one declared action and one derived field: enough to exercise the payloads, `u` and
 "derived": true. Test helper only.

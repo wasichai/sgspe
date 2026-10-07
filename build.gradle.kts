@@ -73,9 +73,9 @@ tasks.register<Test>("integrationTest") {
     testLogging {
         events("standard_error")
     }
-    // SgspeApiTest aprovisiona con los scripts y los json de model/: un cambio en ellos vuelve a correr la suite, nunca un
-    // verde de caché
-    inputs.files(fileTree("model") { include("*.py", "*.json") })
+    // SgspeApiTest aprovisiona con los scripts y los json de model/, incluidos los de model/workflows/: un cambio en ellos
+    // vuelve a correr la suite, nunca un verde de caché
+    inputs.files(fileTree("model") { include("**/*.py", "**/*.json") })
     shouldRunAfter(tasks.named("test"))
 }
 
