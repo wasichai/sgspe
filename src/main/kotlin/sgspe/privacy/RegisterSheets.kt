@@ -2,9 +2,12 @@ package sgspe.privacy
 
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.xssf.streaming.SXSSFWorkbook
+import org.springframework.http.HttpStatus
+import sgspe.common.Finding
 import sgspe.common.Positions
 import sgspe.common.Values
 import sgspe.common.safeCell
+import sgspe.common.toCodedException
 import java.io.OutputStream
 import java.math.BigDecimal
 
@@ -189,7 +192,8 @@ object RegisterSheets {
         return if (disclosure == Disclosure.INTERNO) values + text("owner_user_email") else values
     }
 
-    // los valores del catálogo con que se arma la grilla de PUBLICO (ModelCatalog, model.json)
+    // los valores del catálogo con que se arma la grilla de PUBLICO (ModelCatalog, model.json); vacía es un 409
+    // CATALOGUE_UNAVAILABLE
     class Grid(
         val influenceGroups: List<String>,
         val stances: List<String>,
@@ -198,38 +202,55 @@ object RegisterSheets {
 
     // PUBLICO: solo conteos por grupo de influencia y postura, y por ámbito (deliverables.md §9.1). lo que quien exporta no
     // puede leer es un solo valor «no disponible», nunca como si no hubiera valor. cada desglose se arma sobre la grilla
-    // completa del catálogo (más «SIN EVALUAR»), con las combinaciones sin ningún grupo de interés, y pasa por SmallCells
-    // antes de escribirse (ASM-088, P28b): lo pequeño sale con una marca única y no hay totales ni filas que delaten a una
-    // persona
+    // completa del catálogo (más «SIN EVALUAR» y «no disponible»), con las combinaciones sin ningún grupo de interés, y pasa
+    // por SmallCells antes de escribirse (ASM-088, P28c): lo pequeño sale con una marca única y no hay totales ni filas que
+    // delaten a una persona
     fun aggregates(
         lines: List<StakeholderLine>,
         context: RegisterContext,
         grid: Grid
     ): List<XlsxSheet> {
+        // el valor de un campo del catálogo: el del registro, `empty` si no tiene, y «no disponible» si quien exporta no lo lee o
+        // si el valor no está en el catálogo (un valor heredado): esa fila existe siempre en la grilla, así que no delata nada
         fun value(
             line: StakeholderLine,
             name: String,
+            known: List<String>,
             empty: String
-        ): String = if (context.canRead("$STAKEHOLDER.$name")) Values.text(line.attributes[name]) ?: empty else NOT_AVAILABLE
+        ): String {
+            if (!context.canRead("$STAKEHOLDER.$name")) return NOT_AVAILABLE
+            val found = Values.text(line.attributes[name]) ?: return empty
+            return if (found in known) found else NOT_AVAILABLE
+        }
 
-        // los valores del catálogo y, por si el registro trae uno que no está, los observados; si no se lee, uno solo
+        // la grilla del catálogo y, siempre, «sin valor» y «no disponible»; si no se lee, uno solo. un catálogo vacío no puede
+        // armar una grilla: la salida se rechaza (fallar cerrado) y no se reduce a lo observado
         fun axis(
             name: String,
             known: List<String>,
-            empty: String,
-            observed: List<String>
-        ): List<String> =
-            if (context.canRead("$STAKEHOLDER.$name")) known + empty + (observed.toSet() - known.toSet() - empty).sorted() else listOf(NOT_AVAILABLE)
+            empty: String
+        ): List<String> {
+            if (!context.canRead("$STAKEHOLDER.$name")) return listOf(NOT_AVAILABLE)
+            if (known.isEmpty()) {
+                throw Finding(
+                    "CATALOGUE_UNAVAILABLE",
+                    "El catálogo de $name no está disponible: una salida PUBLICO no puede armar su grilla",
+                    name,
+                    status = HttpStatus.CONFLICT
+                ).toCodedException()
+            }
+            return known + empty + NOT_AVAILABLE
+        }
 
-        val groupOf = lines.map { value(it, "influence_group", UNEVALUATED) }
-        val stanceOf = lines.map { value(it, "stance", UNEVALUATED) }
-        val groupAxis = axis("influence_group", grid.influenceGroups, UNEVALUATED, groupOf)
-        val stanceAxis = axis("stance", grid.stances, UNEVALUATED, stanceOf)
+        val groupOf = lines.map { value(it, "influence_group", grid.influenceGroups, UNEVALUATED) }
+        val stanceOf = lines.map { value(it, "stance", grid.stances, UNEVALUATED) }
+        val groupAxis = axis("influence_group", grid.influenceGroups, UNEVALUATED)
+        val stanceAxis = axis("stance", grid.stances, UNEVALUATED)
         val counts = groupOf.zip(stanceOf).groupingBy { it }.eachCount()
         val groups = SmallCells.apply(groupAxis.flatMap { g -> stanceAxis.map { s -> (g to s) to (counts[g to s] ?: 0) } })
 
-        val scopeOf = lines.map { value(it, "stakeholder_scope", NO_SCOPE) }
-        val scopeAxis = axis("stakeholder_scope", grid.scopes, NO_SCOPE, scopeOf)
+        val scopeOf = lines.map { value(it, "stakeholder_scope", grid.scopes, NO_SCOPE) }
+        val scopeAxis = axis("stakeholder_scope", grid.scopes, NO_SCOPE)
         val scopeCounts = scopeOf.groupingBy { it }.eachCount()
         val scopes = SmallCells.apply(scopeAxis.map { it to (scopeCounts[it] ?: 0) })
         return listOf(

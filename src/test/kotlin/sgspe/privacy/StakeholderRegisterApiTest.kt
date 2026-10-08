@@ -220,8 +220,8 @@ class StakeholderRegisterApiTest : DomainApiTest() {
         repeat(2) { stakeholder(project) }
         val analyst = member("ANALYST", project)
         val bytes = export(request(project, "PUBLICO"), analyst.token).responseBody!!
-        // 2 grupos de interés en una celda menor que 5: el archivo trae una fila de agregados y el conteo, «<5»
-        assertTrue(SmallCells.BELOW in cells(bytes))
+        // 2 grupos de interés en una celda menor que 5: el archivo trae una fila de agregados y el conteo, «reservado»
+        assertTrue(SmallCells.HIDDEN in cells(bytes))
         assertEquals(2, logOf(analyst.id)[0]["attributes"]["row_count"].asInt())
     }
 
@@ -241,7 +241,7 @@ class StakeholderRegisterApiTest : DomainApiTest() {
     }
 
     @Test
-    fun `PUBLICO acotado a una sola persona no dice cual es, todas las celdas son menor que 5`() {
+    fun `PUBLICO acotado a una sola persona no dice cual es, todas las celdas son reservado`() {
         val project = projectWithCrs()
         val locality = fixture("locality").id
         stakeholder(project, mapOf("locality" to locality, "stakeholder_type" to "AUTORIDAD LOCAL"))
@@ -251,10 +251,10 @@ class StakeholderRegisterApiTest : DomainApiTest() {
         XSSFWorkbook(bytes.inputStream()).use { workbook ->
             for (sheet in workbook) {
                 val rows = sheet.drop(1).map { row -> row.last().toString() }
-                assertTrue(rows.isNotEmpty() && rows.all { it == SmallCells.BELOW }, "${sheet.sheetName}: $rows")
+                assertTrue(rows.isNotEmpty() && rows.all { it == SmallCells.HIDDEN }, "${sheet.sheetName}: $rows")
             }
             // la grilla completa del catálogo: la presencia de una fila no dice nada de la persona
-            assertEquals(25, workbook.getSheetAt(0).physicalNumberOfRows - 1)
+            assertEquals(36, workbook.getSheetAt(0).physicalNumberOfRows - 1)
         }
     }
 }

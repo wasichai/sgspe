@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import sgspe.common.RuleException
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 
@@ -131,62 +133,107 @@ class RegisterSheetsTest {
 
     @Test
     fun `PUBLICO trae solo conteos y ningun nombre, sobre la grilla completa del catalogo con sus ceros`() {
-        val lines =
-            many(6) +
-                line("00000000-0000-0000-0000-000000000001", mapOf("organization" to organization, "influence_group" to "ESTRATEGICO", "stance" to "A FAVOR"))
+        val org = line("00000000-0000-0000-0000-000000000001", mapOf("organization" to organization, "influence_group" to "ESTRATEGICO", "stance" to "A FAVOR"))
+        val lines = many(6) + org + many(9, group = "POLITICO", stance = "NEUTRAL")
         val sheets = RegisterSheets.aggregates(lines, context(), grid)
         val cells = texts(sheets)
         assertTrue("Grupos de interés" in cells)
         assertFalse(cells.any { "Persona Ejemplo" in it || "Asociación Ejemplo" in it || it.startsWith("GI-") })
         assertEquals(listOf("Agregados", "Por ámbito"), sheets.map { it.name })
-        // 4 grupos + SIN EVALUAR por 4 posturas + SIN EVALUAR: 25 filas, aunque solo una combinación tenga gente
+        // 4 grupos, SIN EVALUAR y no disponible por 4 posturas, SIN EVALUAR y no disponible: 36 filas, tenga o no gente la combinación
         val rows = sheets[0].rows.toList()
-        assertEquals(25, rows.size)
-        assertEquals(listOf("ESTRATEGICO", "A FAVOR", 7), rows.first().let { listOf(it[0], it[1], it[2]) })
-        assertEquals(24, rows.count { it[2] == SmallCells.BELOW })
-        // 4 ámbitos + SIN AMBITO
-        assertEquals(5, sheets[1].rows.count())
+        assertEquals(36, rows.size)
+        // lo oculto (los ceros) suma menos de 5: sale también la menor visible (7), y queda solo el 9
+        assertEquals(listOf<Any?>(9), counts(sheets[0]).filterIsInstance<Int>())
+        assertEquals(35, rows.count { it[2] == SmallCells.HIDDEN })
+        // 4 ámbitos, SIN AMBITO y no disponible
+        assertEquals(6, sheets[1].rows.count())
     }
 
     @Test
     fun `PUBLICO sin lectura de la postura no la agrupa`() {
-        val sheets = RegisterSheets.aggregates(many(5), context(everything - "stakeholder.stance"), grid)
+        val sheets = RegisterSheets.aggregates(many(5) + many(6, group = "POLITICO"), context(everything - "stakeholder.stance"), grid)
         assertFalse("A FAVOR" in texts(sheets))
         assertTrue(NOT_AVAILABLE in texts(sheets))
-        // la postura es un solo valor: una fila por grupo de influencia (4 + SIN EVALUAR)
-        assertEquals(5, sheets[0].rows.count())
+        // la postura es un solo valor: una fila por grupo de influencia (4, SIN EVALUAR y no disponible)
+        assertEquals(6, sheets[0].rows.count())
     }
 
     @Test
-    fun `PUBLICO suprime lo menor que 5 con una sola marca, y la menor visible tambien si lo oculto suma menos de 5`() {
-        // 7 ESTRATEGICO a favor, 1 ESTRATEGICO en contra y 9 POLITICO neutral: lo oculto (la de 1 y los ceros) suma 1
-        val lines = many(7) + many(1, stance = "EN CONTRA") + many(9, group = "POLITICO", stance = "NEUTRAL")
+    fun `PUBLICO oculta con una sola marca neutra lo menor que 5 y lo que haga falta para que restar no lo despeje`() {
+        // 7 ESTRATEGICO a favor, 1 ESTRATEGICO en contra y 9 POLITICO neutral: lo oculto suma 1
+        val lines = many(7) + many(1, stance = "EN CONTRA") + many(9, group = "POLITICO", stance = "NEUTRAL", scope = "REGIONAL")
         val sheets = RegisterSheets.aggregates(lines, context(), grid)
         assertEquals(listOf<Any?>(9), counts(sheets[0]).filterIsInstance<Int>())
-        assertEquals(24, counts(sheets[0]).count { it == SmallCells.BELOW })
-        assertFalse(texts(sheets).any { "suprimido" in it.lowercase() })
-        // los tres son AIDS: 17, que nadie despeja porque la hoja de grupo por postura no suma
-        assertEquals(listOf(17), counts(sheets[1]).filterIsInstance<Int>())
+        assertFalse(texts(sheets).any { "suprimido" in it.lowercase() || "<5" in it })
+        // el ámbito también oculta su menor visible (AIDS, 8) porque lo oculto suma cero: solo queda REGIONAL, 9
+        assertEquals(listOf(9), counts(sheets[1]).filterIsInstance<Int>())
     }
 
     @Test
-    fun `PUBLICO con un solo grupo de interes no dice cual es, todas las celdas son menor que 5 y la hoja no cambia con la persona`() {
+    fun `PUBLICO con un solo grupo de interes no dice cual es, todas las celdas son reservado y la hoja no cambia con la persona`() {
         val one = RegisterSheets.aggregates(many(1, group = "VULNERABLE", stance = "EN CONTRA PERO ABIERTO A ESCUCHAR", scope = "AIIS"), context(), grid)
         val other = RegisterSheets.aggregates(many(1, group = "POLITICO", stance = "A FAVOR", scope = "NACIONAL"), context(), grid)
-        for (sheet in one) assertTrue(counts(sheet).all { it == SmallCells.BELOW }, sheet.name)
+        for (sheet in one) assertTrue(counts(sheet).all { it == SmallCells.HIDDEN }, sheet.name)
         // la presencia de una fila no dice nada: las dos exportaciones son idénticas
         assertEquals(one.map { it.rows.toList() }, other.map { it.rows.toList() })
-        assertEquals(25, one[0].rows.count())
+        assertEquals(36, one[0].rows.count())
     }
 
     @Test
-    fun `PUBLICO con 1 y 5 y el total de otra hoja visible no despeja cual es cual`() {
-        // un EN CONTRA y cinco A FAVOR, los seis AIDS: la hoja de ámbito publica 6
-        val lines = many(1, stance = "EN CONTRA") + many(5)
-        val sheets = RegisterSheets.aggregates(lines, context(), grid)
-        assertEquals(listOf(6), counts(sheets[1]).filterIsInstance<Int>())
-        // el 5 y el 1 salen con la misma marca, y no hay ningún entero que lo distinga
-        assertTrue(counts(sheets[0]).all { it == SmallCells.BELOW })
+    fun `PUBLICO con 1 y 5 y el total de otra hoja no despeja cual es cual`() {
+        // un EN CONTRA y cinco A FAVOR, los seis AIDS
+        val sheets = RegisterSheets.aggregates(many(1, stance = "EN CONTRA") + many(5), context(), grid)
+        // las dos salen con la misma marca, y no hay ningún entero que lo distinga; el ámbito tampoco queda como total
+        assertTrue(counts(sheets[0]).all { it == SmallCells.HIDDEN })
+        assertTrue(counts(sheets[1]).all { it == SmallCells.HIDDEN })
+    }
+
+    @Test
+    fun `PUBLICO con cinco o mas personas de una sola postura no la delata ni con el total a la vista`() {
+        // seis autoridades de la misma localidad, todas ESTRATEGICO y EN CONTRA: la hoja no puede publicar «6» en esa celda ni el
+        // total en el ámbito, o se sabría que las seis están en contra
+        val sheets = RegisterSheets.aggregates(many(6, stance = "EN CONTRA"), context(), grid)
+        for (sheet in sheets) assertTrue(counts(sheet).all { it == SmallCells.HIDDEN }, sheet.name)
+        assertFalse(texts(sheets).any { it == "6" || it == "6.0" })
+        // con otra población que sí tiene variedad, esa postura sigue sin leerse en la celda de las seis
+        val mixed = RegisterSheets.aggregates(many(6, stance = "EN CONTRA") + many(8, group = "POLITICO", stance = "A FAVOR"), context(), grid)
+        assertEquals(listOf<Any?>(8), counts(mixed[0]).filterIsInstance<Int>())
+    }
+
+    @Test
+    fun `PUBLICO rechaza con 409 CATALOGUE_UNAVAILABLE un catalogo vacio y nombra el campo`() {
+        for ((empty, field) in listOf(
+            RegisterSheets.Grid(emptyList(), grid.stances, grid.scopes) to "influence_group",
+            RegisterSheets.Grid(grid.influenceGroups, emptyList(), grid.scopes) to "stance",
+            RegisterSheets.Grid(grid.influenceGroups, grid.stances, emptyList()) to "stakeholder_scope"
+        )) {
+            val e = assertThrows<RuleException> { RegisterSheets.aggregates(many(6), context(), empty) }
+            assertEquals(409, e.status.value())
+            assertEquals("CATALOGUE_UNAVAILABLE", e.violations.single().message)
+            assertEquals(field, e.violations.single().field)
+        }
+        // si quien exporta no lee la postura, su catálogo no hace falta
+        RegisterSheets.aggregates(many(6), context(everything - "stakeholder.stance"), RegisterSheets.Grid(grid.influenceGroups, emptyList(), grid.scopes))
+    }
+
+    @Test
+    fun `un valor que no esta en el catalogo se cuenta como no disponible, una fila que siempre existe`() {
+        val legacy = many(6, group = "HEREDADO") + many(6, group = "POLITICO", stance = "NEUTRAL") + many(7, group = "VULNERABLE", stance = "EN CONTRA")
+        val sheets = RegisterSheets.aggregates(legacy, context(), grid)
+        val rows = sheets[0].rows.toList()
+        // la grilla no crece con el valor heredado: 36 filas, y su fila «no disponible» existe haya o no valores así
+        assertEquals(36, rows.size)
+        assertFalse(texts(sheets).any { it == "HEREDADO" })
+        val withoutLegacy =
+            RegisterSheets.aggregates(
+                many(6, group = "POLITICO", stance = "NEUTRAL") + many(7, group = "VULNERABLE", stance = "EN CONTRA"),
+                context(),
+                grid
+            )
+        assertEquals(withoutLegacy[0].rows.map { it.take(2) }.toList(), rows.map { it.take(2) })
+        // las 6 de HEREDADO cuentan en la fila de «no disponible» del grupo, que existe siempre
+        assertTrue(rows.any { it[0] == NOT_AVAILABLE && it[1] == "A FAVOR" })
     }
 
     @Test

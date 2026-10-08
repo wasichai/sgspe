@@ -8,6 +8,7 @@ import reactor.core.publisher.Flux
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.time.Duration
@@ -64,7 +65,9 @@ class ExportFile(
                 Files.newDirectoryStream(root, "$PREFIX*").use { entries ->
                     for (entry in entries) {
                         try {
-                            if (Files.isDirectory(entry) && Files.getLastModifiedTime(entry).toInstant().isBefore(limit)) {
+                            if (Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS) &&
+                                Files.getLastModifiedTime(entry, LinkOption.NOFOLLOW_LINKS).toInstant().isBefore(limit)
+                            ) {
                                 Files.walk(entry).use { tree -> tree.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists) }
                             }
                         } catch (_: IOException) {
