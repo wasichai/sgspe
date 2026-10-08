@@ -110,7 +110,7 @@ class Assessments(
             val assessment =
                 records.create(
                     ASSESSMENT,
-                    input.attributes + plan.stored +
+                    plan.stored +
                         mapOf("stakeholder" to stakeholderId.toString(), "assessor_user_id" to user.userId.toString(), "assessor_user_email" to user.email),
                     reason
                 )
@@ -168,9 +168,10 @@ class Assessments(
         val baselineStance = stanceBaseline?.let { Values.text(it.first.attributes["stance"]) }
         val stanceChanged = baselineStance != null && input.stance != null && baselineStance != input.stance
         // la prioridad mira la postura que rige en la fecha de la evaluación: la que trae o, si no trae, la última informada
+        val rules = rules(projectId)
         val priority =
             Prioritizer.priority(
-                rules(projectId),
+                rules,
                 group,
                 input.stance ?: baselineStance,
                 Values.text(attributes["stakeholder_scope"]),
@@ -185,7 +186,11 @@ class Assessments(
             }
         }
         if (!latest) {
-            warnings += AssessmentWarning("BACKDATED_ASSESSMENT", "Hay evaluaciones posteriores: esta no cambia los valores vigentes del grupo de interés")
+            warnings +=
+                AssessmentWarning(
+                    "BACKDATED_ASSESSMENT",
+                    "Hay evaluaciones posteriores: esta no cambia los índices ni el grupo vigentes; la postura y la confianza siguen el último valor informado"
+                )
         }
         if (priority == null) {
             warnings += AssessmentWarning("NO_PRIORITY_RULE", "Ninguna fila de la matriz de priorización coincide: la prioridad queda vacía")
@@ -207,9 +212,10 @@ class Assessments(
         // fechas, con esta evaluación incluida; el resto sale de la última evaluación y no cambia si esta es atrasada
         val timeline = history.map { Values.text(it.first.attributes["stance"]) to Values.decimal(it.first.attributes["trust_score"])?.toInt() }.toMutableList()
         timeline.add(history.count { it.second <= date }, input.stance to input.trustScore)
+        val currentStance = timeline.lastOrNull { it.first != null }?.first
         val current =
             mapOf(
-                "stance" to timeline.lastOrNull { it.first != null }?.first,
+                "stance" to currentStance,
                 "trust_score" to timeline.lastOrNull { it.second != null }?.second
             ) +
                 if (latest) {
@@ -220,9 +226,22 @@ class Assessments(
                         "power_index" to scores.powerIndex,
                         "last_assessment_date" to date.toString()
                     )
+                } else if (!Values.same(currentStance, attributes["stance"])) {
+                    // una evaluación atrasada que cambia la postura vigente: la prioridad sigue al grupo vigente con esa postura
+                    mapOf(
+                        "information_priority" to
+                            Prioritizer.priority(
+                                rules,
+                                Values.text(attributes["influence_group"]),
+                                currentStance,
+                                Values.text(attributes["stakeholder_scope"]),
+                                Values.text(attributes["stakeholder_type"])
+                            )
+                    )
                 } else {
                     emptyMap()
                 }
+        // el cuerpo de la evaluación: lo que mandó el cliente (sin la justificación, que solo queda si el grupo se ajustó) y lo calculado
         return Plan(stored + ("information_priority" to priority), (input.attributes - "override_reason") + stored, current, warnings)
     }
 

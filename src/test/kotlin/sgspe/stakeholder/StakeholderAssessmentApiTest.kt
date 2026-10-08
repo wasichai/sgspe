@@ -218,6 +218,37 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
     }
 
     @Test
+    fun `una evaluacion atrasada que cambia la postura vigente recalcula la prioridad`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        listOf("EN CONTRA" to "ALTA", "NEUTRAL" to "MEDIA").forEach { (stance, priority) ->
+            createRecord(
+                "prioritization_rule",
+                mapOf(
+                    "project" to project,
+                    "influence_group" to "PARA MONITOREO",
+                    "stance" to stance,
+                    "stakeholder_scope" to "AIDS",
+                    "information_priority" to priority
+                )
+            )
+        }
+        val stakeholder = profiled(project, manager)
+        assess(stakeholder, indicators + mapOf("assessment_date" to "2026-05-01", "basis" to "ENTREVISTA", "stance" to "EN CONTRA"), manager.token)
+        val latest = tree(assess(stakeholder, indicators + mapOf("assessment_date" to "2026-05-10", "basis" to "ENCUESTA"), manager.token).body)
+        assertEquals("EN CONTRA", latest["stakeholder"]["attributes"]["stance"].asString())
+        assertEquals("ALTA", latest["stakeholder"]["attributes"]["information_priority"].asString())
+        // cargada después, pero fechada entre las dos: la última postura informada pasa a ser la suya
+        val backdated =
+            tree(assess(stakeholder, indicators + mapOf("assessment_date" to "2026-05-05", "basis" to "ENTREVISTA", "stance" to "NEUTRAL"), manager.token).body)
+        assertTrue(backdated["warnings"].values().any { it["code"].asString() == "BACKDATED_ASSESSMENT" })
+        val current = backdated["stakeholder"]["attributes"]
+        assertEquals("NEUTRAL", current["stance"].asString())
+        assertEquals("MEDIA", current["information_priority"].asString())
+        assertEquals("2026-05-10", current["last_assessment_date"].asString())
+    }
+
+    @Test
     fun `una postura distinta fuera de la ventana no avisa divergencia`() {
         val project = projectWithCrs()
         val manager = member("STAKEHOLDER_MANAGER", project)
