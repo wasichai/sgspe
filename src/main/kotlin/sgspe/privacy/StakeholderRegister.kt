@@ -3,12 +3,18 @@ package sgspe.privacy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.core.io.FileSystemResource
+import org.springframework.core.io.buffer.DataBuffer
+import org.springframework.core.io.buffer.DataBufferUtils
+import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import reactor.core.publisher.Flux
 import sgspe.common.Callers
 import sgspe.common.Criteria
 import sgspe.common.Finding
 import sgspe.common.LIMA
+import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
 import sgspe.common.Positions
 import sgspe.common.Readability
@@ -19,23 +25,47 @@ import sgspe.common.Values
 import sgspe.common.toCodedException
 import wasichai.core.common.Actions
 import wasichai.core.common.ForbiddenException
-import wasichai.core.common.PageRequest
 import wasichai.core.data.RecordCriterion
-import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordResponse
 import wasichai.core.identity.AuthenticatedUser
 import wasichai.core.metadata.MetadataService
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.time.Clock
 import java.time.LocalDate
 import java.util.UUID
 
-// un archivo listo para descargar y borrar después de enviarlo
+// un archivo listo para descargar, en una carpeta propia de permisos 0700 (el XLSX lleva datos personales). stream() lo envía
+// y lo borra con su carpeta cuando el flujo termina, falla o se cancela (Flux.using); discard() lo borra sin enviarlo
 class ExportFile(
     val file: File,
     val filename: String
-)
+) {
+    fun stream(): Flux<DataBuffer> =
+        Flux.using(
+            { file },
+            { DataBufferUtils.read(FileSystemResource(it), DefaultDataBufferFactory.sharedInstance, BUFFER_BYTES) },
+            { discard() }
+        )
+
+    fun discard() {
+        file.delete()
+        file.parentFile?.delete()
+    }
+
+    companion object {
+        private const val BUFFER_BYTES = 64 * 1024
+        private val PRIVATE_DIRECTORY = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
+        private val PRIVATE_FILE = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))
+
+        // un archivo vacío dentro de una carpeta nueva solo de quien corre el servidor
+        fun create(filename: String): ExportFile {
+            val directory = Files.createTempDirectory("sgspe-export-", PRIVATE_DIRECTORY)
+            return ExportFile(Files.createFile(directory.resolve("registro.xlsx"), PRIVATE_FILE).toFile(), filename)
+        }
+    }
+}
 
 // la exportación stakeholder-register (api.md §4.13, RQ-REP-022, deliverables.md §10): el registro de grupos de interés con
 // su evaluación vigente, leído con Records como quien exporta (solo los registros y campos que puede leer; un campo
@@ -53,6 +83,7 @@ class StakeholderRegister(
     private val metadata: MetadataService,
     private val log: ExportLog,
     private val clock: Clock,
+    private val catalog: ModelCatalog,
     @Value("\${sgspe.exports.max-rows:20000}") private val maxRows: Int
 ) {
     suspend fun export(body: Map<String, Any?>): ExportFile {
@@ -73,8 +104,11 @@ class StakeholderRegister(
         if (disclosure == Disclosure.EXTERNO && body["checklistConfirmed"] != true) {
             throw bad("CHECKLIST_REQUIRED", "Una exportación EXTERNO exige confirmar la lista de verificación (ASM-037)", "checklistConfirmed")
         }
-        val requested = uuids(filters["project"], "filters.project")
-        val locality = uuids(filters["locality"], "filters.locality")
+        // sin repetidos: [p, p] es un solo proyecto, con su asignación y su fila de export_log
+        val requested = uuids(filters["project"], "filters.project").distinct()
+        val locality = uuids(filters["locality"], "filters.locality").distinct()
+        val equality = equality(filters)
+        val includeRetired = includeRetired(filters)
         // «mis proyectos» si no se pide ninguno (la forma que fija la Fase 2.3): las asignaciones vigentes de quien exporta;
         // el ADMIN, todos (null). con un solo proyecto pedido, quien no es ADMIN debe estar asignado a él
         val projects: List<UUID>? =
@@ -83,15 +117,15 @@ class StakeholderRegister(
                 user.isAdmin -> null
                 else -> assignedProjects(user)
             }
-        val lines = if (projects?.isEmpty() == true) emptyList() else stakeholders(projects, locality, filters)
+        val lines = if (projects?.isEmpty() == true) emptyList() else stakeholders(projects, locality, equality, includeRetired)
         val sheets = sheets(lines, disclosure)
-        val file = Files.createTempFile("sgspe-register-", ".xlsx").toFile()
+        val export = ExportFile.create("registro-grupos-de-interes-${disclosure.name.lowercase()}.xlsx")
         try {
-            withContext(Dispatchers.IO) { file.outputStream().use { Xlsx.write(sheets, it) } }
+            withContext(Dispatchers.IO) { export.file.outputStream().use { Xlsx.write(sheets, it) } }
             log.export(user, STAKEHOLDER, "XLSX", disclosure, description(projects, filters, disclosure), lines.size, projects?.singleOrNull())
-            return ExportFile(file, "registro-grupos-de-interes-${disclosure.name.lowercase()}.xlsx")
+            return export
         } catch (e: Throwable) {
-            file.delete()
+            export.discard()
             throw e
         }
     }
@@ -143,50 +177,48 @@ class StakeholderRegister(
     private suspend fun stakeholders(
         projects: List<UUID>?,
         locality: List<UUID>,
-        filters: Map<String, Any?>
+        equality: Map<String, String>,
+        includeRetired: Boolean
     ): List<StakeholderLine> {
-        val equality = mutableMapOf<String, String>()
-        text(filters, "scope")?.let { equality["stakeholder_scope"] = it }
-        text(filters, "stakeholderType")?.let { equality["stakeholder_type"] = it }
-        text(filters, "influenceGroup")?.let { equality["influence_group"] = it }
         val criteria =
             listOfNotNull(
                 projects?.let { Criteria.anyOf("project", it) },
                 locality.takeIf { it.isNotEmpty() }?.let { Criteria.anyOf("locality", it) }
             )
-        val includeRetired = filters["includeRetired"] == true
         return read(STAKEHOLDER, equality, criteria)
             .filter { includeRetired || it.state != RETIRED }
             .map { StakeholderLine(it.id, it.state, it.attributes) }
     }
 
-    // los registros que cumplen los filtros, por cursor y ordenados por id, como quien exporta, hasta el tope; `already` son
-    // las filas ya leídas del mismo conjunto
+    // los filtros de catálogo: el valor debe ser uno del catálogo del campo; si no, 400 INVALID_FILTER sobre el filtro (una
+    // exportación vacía en silencio dejaría una fila de export_log de cero filas sin que nadie sepa por qué)
+    private fun equality(filters: Map<String, Any?>): Map<String, String> =
+        EQUALITY
+            .mapNotNull { (name, field) ->
+                val raw = filters[name] ?: return@mapNotNull null
+                val allowed = catalog.enumOf(STAKEHOLDER, field)
+                if (raw !is String || (allowed.isNotEmpty() && raw !in allowed)) {
+                    throw bad("INVALID_FILTER", "El filtro filters.$name debe ser uno de ${allowed.joinToString(", ")}", "filters.$name")
+                }
+                field to raw
+            }.toMap()
+
+    private fun includeRetired(filters: Map<String, Any?>): Boolean =
+        when (val raw = filters["includeRetired"]) {
+            null -> false
+            is Boolean -> raw
+            else -> throw bad("INVALID_FILTER", "El filtro filters.includeRetired debe ser true o false", "filters.includeRetired")
+        }
+
+    // los registros que cumplen los filtros, por cursor y ordenados por id, como quien exporta, hasta el tope: pasarse es un
+    // 400 TOO_MANY_RECORDS sobre filters.project (Records.all). `already` son las filas ya leídas del mismo conjunto
     private suspend fun read(
         objectName: String,
         equal: Map<String, String> = emptyMap(),
         criteria: List<RecordCriterion> = emptyList(),
         ids: List<UUID>? = null,
         already: Int = 0
-    ): List<RecordResponse> {
-        if (ids != null && ids.isEmpty()) return emptyList()
-        return BoundedRead.pages(objectName, maxRows, already) { cursor ->
-            val page =
-                records.page(
-                    objectName,
-                    RecordQuery(
-                        page = PageRequest.of(0, PageRequest.MAX_SIZE),
-                        sort = "id",
-                        filters = equal,
-                        criteria = criteria,
-                        ids = ids,
-                        count = false,
-                        after = cursor
-                    )
-                )
-            page.content to page.nextCursor
-        }
-    }
+    ): List<RecordResponse> = records.all(objectName, equal, criteria, ids, max = maxRows - already, field = TOO_MANY_FIELD)
 
     // los registros de `objectName` con esos ids, en tramos de CHUNK; el tope cuenta el conjunto entero
     private suspend fun readIds(
@@ -329,6 +361,10 @@ class StakeholderRegister(
     companion object {
         const val STAKEHOLDER = "stakeholder"
         const val EXPORT = "EXPORT"
+        private const val TOO_MANY_FIELD = "filters.project"
+
+        // filtro de la petición -> campo de stakeholder cuyo catálogo lo valida
+        private val EQUALITY = listOf("scope" to "stakeholder_scope", "stakeholderType" to "stakeholder_type", "influenceGroup" to "influence_group")
         val FILTERS = setOf("project", "scope", "stakeholderType", "influenceGroup", "locality", "includeRetired")
 
         private const val RETIRED = "retired"

@@ -47,6 +47,9 @@ sgspe:
     layers:
       # tope de elementos por capa de GET /api/sgspe/territory/layers/{layer} (LayersProperties)
       max-features: 5000
+  exports:
+    # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
+    max-rows: 20000
   stakeholder:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30

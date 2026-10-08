@@ -76,8 +76,12 @@ object RegisterSheets {
                 "locality.name"
             )
 
-    // cómo se cita a un grupo de interés sin su nombre: estable, sin datos personales
-    fun code(id: String): String = "GI-${id.take(8).uppercase()}"
+    // cómo se cita a un grupo de interés sin su nombre (ruling P29): un seudónimo estable, no anonimato. son los primeros 12
+    // dígitos hexadecimales (48 bits) del id aleatorio del registro: con 20 000 filas, las colisiones son despreciables. es el
+    // mismo en todas las exportaciones y niveles, así que la organización puede cruzarlo con el registro y revertirlo
+    fun code(id: String): String = "GI-${id.replace("-", "").take(CODE_DIGITS).uppercase()}"
+
+    private const val CODE_DIGITS = 12
 
     private val HEADER =
         listOf(
@@ -186,7 +190,8 @@ object RegisterSheets {
     }
 
     // PUBLICO: solo conteos por grupo de influencia y postura, y por ámbito (deliverables.md §9.1). lo que quien exporta no
-    // puede leer se agrupa como «no disponible», nunca como si no hubiera valor
+    // puede leer se agrupa como «no disponible», nunca como si no hubiera valor. cada desglose pasa por SmallCells antes de
+    // escribirse (ASM-088): una celda menor que 5 sale «<5» y no hay totales
     fun aggregates(
         lines: List<StakeholderLine>,
         context: RegisterContext
@@ -198,22 +203,28 @@ object RegisterSheets {
         ): String = if (context.canRead("$STAKEHOLDER.$name")) Values.text(line.attributes[name]) ?: empty else NOT_AVAILABLE
 
         val groups =
-            lines
-                .groupingBy { value(it, "influence_group", UNEVALUATED) to value(it, "stance", UNEVALUATED) }
-                .eachCount()
-                .toSortedMap(compareBy({ it.first }, { it.second }))
+            SmallCells.apply(
+                lines
+                    .groupingBy { value(it, "influence_group", UNEVALUATED) to value(it, "stance", UNEVALUATED) }
+                    .eachCount()
+                    .toSortedMap(compareBy({ it.first }, { it.second }))
+                    .toList()
+            )
         val scopes =
-            lines
-                .groupingBy { value(it, "stakeholder_scope", NO_SCOPE) }
-                .eachCount()
-                .toSortedMap()
+            SmallCells.apply(
+                lines
+                    .groupingBy { value(it, "stakeholder_scope", NO_SCOPE) }
+                    .eachCount()
+                    .toSortedMap()
+                    .toList()
+            )
         return listOf(
             XlsxSheet(
                 "Agregados",
                 listOf("Grupo de influencia", "Postura", "Grupos de interés"),
-                groups.entries.asSequence().map { (key, count) -> listOf(key.first, key.second, count) }
+                groups.asSequence().map { (key, count) -> listOf(key.first, key.second, count) }
             ),
-            XlsxSheet("Por ámbito", listOf("Ámbito", "Grupos de interés"), scopes.entries.asSequence().map { (scope, count) -> listOf(scope, count) })
+            XlsxSheet("Por ámbito", listOf("Ámbito", "Grupos de interés"), scopes.asSequence().map { (scope, count) -> listOf(scope, count) })
         )
     }
 }

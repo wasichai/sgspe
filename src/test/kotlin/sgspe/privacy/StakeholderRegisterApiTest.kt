@@ -185,4 +185,58 @@ class StakeholderRegisterApiTest : DomainApiTest() {
         val kind = exchange("POST", "/api/sgspe/exports/commitment-matrix", mapOf("disclosureLevel" to "INTERNO"))
         assertEquals("EXPORT_NOT_FOUND", tree(kind.body)["errors"][0]["message"].asString())
     }
+
+    @Test
+    fun `un id de proyecto repetido es un solo proyecto, con su asignacion y su fila de export_log`() {
+        val project = projectWithCrs()
+        stakeholder(project)
+        val outsider = userWithRole("ANALYST")
+        val twice = mapOf("filters" to mapOf("project" to listOf(project, project)), "disclosureLevel" to "INTERNO")
+        val denied = exchange("POST", "/api/sgspe/exports/stakeholder-register", twice, outsider.token)
+        assertEquals(HttpStatus.FORBIDDEN, denied.status, denied.body)
+        assertEquals("NOT_ASSIGNED", tree(denied.body)["errors"][0]["message"].asString())
+        assign(outsider, project, "ANALYST")
+        assertEquals(200, export(twice, outsider.token).status.value())
+        assertEquals(project, logOf(outsider.id)[0]["attributes"]["project"].asString())
+    }
+
+    @Test
+    fun `varios proyectos explicitos se exportan sin asignacion y la fila no lleva proyecto`() {
+        val p = projectWithCrs()
+        val q = projectWithCrs()
+        stakeholder(p)
+        stakeholder(q)
+        val outsider = userWithRole("ANALYST")
+        val both = mapOf("filters" to mapOf("project" to listOf(p, q)), "disclosureLevel" to "INTERNO")
+        assertEquals(200, export(both, outsider.token).status.value())
+        val attributes = logOf(outsider.id)[0]["attributes"]
+        assertEquals(2, attributes["row_count"].asInt())
+        assertTrue(attributes["project"] == null || attributes["project"].isNull)
+    }
+
+    @Test
+    fun `PUBLICO deja en export_log los grupos de interes contados y no las filas del archivo`() {
+        val project = projectWithCrs()
+        repeat(2) { stakeholder(project) }
+        val analyst = member("ANALYST", project)
+        val bytes = export(request(project, "PUBLICO"), analyst.token).responseBody!!
+        // 2 grupos de interés en una celda menor que 5: el archivo trae una fila de agregados y el conteo, «<5»
+        assertTrue(SmallCells.BELOW in cells(bytes))
+        assertEquals(2, logOf(analyst.id)[0]["attributes"]["row_count"].asInt())
+    }
+
+    @Test
+    fun `un filtro fuera del catalogo o de otro tipo es INVALID_FILTER y no deja fila`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val path = "/api/sgspe/exports/stakeholder-register"
+        for ((name, value) in listOf("scope" to "NO EXISTE", "stakeholderType" to listOf("LIDER LOCAL"), "influenceGroup" to 3, "includeRetired" to "si")) {
+            val body = mapOf("filters" to mapOf("project" to listOf(project), name to value), "disclosureLevel" to "INTERNO")
+            val response = exchange("POST", path, body, manager.token)
+            assertEquals(HttpStatus.BAD_REQUEST, response.status, name)
+            assertEquals(listOf("filters.$name"), problemFields(response.body), name)
+            assertEquals("INVALID_FILTER", tree(response.body)["errors"][0]["message"].asString(), name)
+        }
+        assertEquals(0, logOf(manager.id).size())
+    }
 }

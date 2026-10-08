@@ -1,9 +1,6 @@
 package sgspe.privacy
 
-import org.springframework.core.io.FileSystemResource
 import org.springframework.core.io.buffer.DataBuffer
-import org.springframework.core.io.buffer.DataBufferUtils
-import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -20,8 +17,8 @@ import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
 
 // POST /api/sgspe/exports/{kind} (api.md §4.13): el XLSX en streaming, con su fila de export_log ya escrita. el archivo
-// temporal se borra al terminar de enviarlo. los tipos de F3 y F4 se agregan con su módulo; uno que no existe aún es un 404
-// EXPORT_NOT_FOUND. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
+// temporal se borra al terminar, fallar o cancelarse el envío (ExportFile.stream). los tipos de F3 y F4 se agregan con su
+// módulo; uno que no existe aún es un 404 EXPORT_NOT_FOUND. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
 @RestController
 @RequestMapping("/api/sgspe/exports")
 class ExportController(
@@ -45,20 +42,15 @@ class ExportController(
                         status = HttpStatus.NOT_FOUND
                     ).toCodedException()
             }
-        val stream =
-            DataBufferUtils
-                .read(FileSystemResource(export.file), DefaultDataBufferFactory.sharedInstance, BUFFER_BYTES)
-                .doFinally { export.file.delete() }
         return ResponseEntity
             .ok()
             .contentType(MediaType.parseMediaType(XLSX))
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${export.filename}\"")
             .header(HttpHeaders.CACHE_CONTROL, "no-store")
-            .body(stream)
+            .body(export.stream())
     }
 
     companion object {
         const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        private const val BUFFER_BYTES = 64 * 1024
     }
 }

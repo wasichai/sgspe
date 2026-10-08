@@ -62,4 +62,11 @@ class RecordsCapTest {
         assertEquals("project", error.violations.single().field)
         assertEquals(2, queries.size)
     }
+
+    @Test
+    fun `el 400 nombra el campo que pide quien lee`() {
+        val error = assertThrows<WasichaiException> { runBlocking { records.all("stakeholder", max = 300, field = "filters.project") } }
+        assertEquals("filters.project", error.violations.single().field)
+        assertEquals("TOO_MANY_RECORDS", error.violations.single().message)
+    }
 }
