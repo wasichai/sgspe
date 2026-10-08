@@ -1,6 +1,6 @@
 package sgspe.dashboard
 
-import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonValue
 import sgspe.common.Values
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -66,8 +66,9 @@ data class IndicatorResult(
 }
 
 // la respuesta de un indicador (api.md §4.11): disponible con su cifra, o no disponible con la razón y los campos que
-// faltan, nunca cero (RQ-DSH-032). unavailableReason: FIELD_NOT_READABLE, OBJECT_NOT_READABLE o SINGLE_PROJECT_REQUIRED
-@JsonInclude(JsonInclude.Include.NON_NULL)
+// faltan, nunca cero (RQ-DSH-032). unavailableReason: FIELD_NOT_READABLE, OBJECT_NOT_READABLE o SINGLE_PROJECT_REQUIRED.
+// en JSON las claves nulas se omiten, salvo value en un indicador disponible: un porcentaje sin denominador viaja con
+// value en null (disponible y sin cifra), y uno no disponible nunca lleva value
 data class IndicatorValue(
     val code: String,
     val label: String,
@@ -81,7 +82,24 @@ data class IndicatorValue(
     val unavailableReason: String? = null,
     val missingFields: List<String>? = null,
     val warnings: List<String>? = null
-)
+) {
+    @JsonValue
+    fun json(): Map<String, Any?> {
+        val out = linkedMapOf<String, Any?>("code" to code, "label" to label, "available" to available)
+        if (available) out["value"] = value
+        listOf(
+            "numerator" to numerator,
+            "denominator" to denominator,
+            "unit" to unit,
+            "breakdowns" to breakdowns,
+            "series" to series,
+            "unavailableReason" to unavailableReason,
+            "missingFields" to missingFields,
+            "warnings" to warnings
+        ).forEach { (key, item) -> if (item != null) out[key] = item }
+        return out
+    }
+}
 
 data class CatalogEntry(
     val code: String,
