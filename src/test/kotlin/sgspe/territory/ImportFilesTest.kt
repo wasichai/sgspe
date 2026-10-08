@@ -9,10 +9,12 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.api.io.TempDir
 import wasichai.core.common.ValidationException
 import java.io.File
 import java.math.BigDecimal
+import java.time.Duration
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
@@ -474,19 +476,11 @@ class ImportFilesTest {
     }
 
     // BigDecimal(String) es cuadrático en las cifras: un millón de dígitos (más de 20 s si se convirtieran) se rechazan por su largo, sin convertirlos. en el XLSX los
-    // dígitos son aleatorios para que la razón de compresión no actúe antes
+    // dígitos son aleatorios para que la razón de compresión no actúe antes. el plazo mide solo las lecturas: armar el fixture
+    // (el millón de dígitos y el XLSX con XSSF) y cargar las clases de POI no cuentan, para que un arranque en frío de la CI no lo desestabilice
     @Test
-    @Timeout(5)
     fun `una celda numerica de un millon de digitos es un 400 de numero fuera de rango sin convertirla`() {
         val digits = java.util.Random(11).let { random -> buildString { repeat(1_000_000) { append(('0'.code + random.nextInt(10)).toChar()) } } }
-        val csvError = assertThrows<ValidationException> { ImportReaders.csv("code;este\nTST-1;$digits\n") }
-        assertEquals("Número fuera de rango", csvError.message)
-        assertEquals("file", csvError.violations.single().field)
-        assertNull(ImportReaders.number(digits))
-        // un texto largo que empieza con un número no es un número fuera de rango: es texto
-        val note = "2024 " + "nota ".repeat(40)
-        assertEquals(note.trim(), ImportReaders.csv("code;nota\nTST-1;$note\n").single().values["nota"])
-
         val valid = File(dir, "valido.xlsx")
         XSSFWorkbook().use { workbook ->
             workbook
@@ -504,26 +498,40 @@ class ImportFilesTest {
                    <row r="2"><c r="A2"><v>$digits</v></c></row></sheetData></worksheet>""".toByteArray()
             )
         }
-        val xlsxError = assertThrows<ValidationException> { ImportReaders.read(xlsx, "digitos.xlsx", 10) }
-        assertEquals("Número fuera de rango", xlsxError.message)
-        assertTrue("fila 2, columna 1" in xlsxError.violations.single().message, xlsxError.violations.single().message)
+        // un texto largo que empieza con un número no es un número fuera de rango: es texto
+        val note = "2024 " + "nota ".repeat(40)
+        // calienta las clases de lectura (CSV y XLSX) antes de medir
+        ImportReaders.csv("code\nTST-1\n")
+        runCatching { ImportReaders.read(valid, "valido.xlsx", 10) }
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5)) {
+            val csvError = assertThrows<ValidationException> { ImportReaders.csv("code;este\nTST-1;$digits\n") }
+            assertEquals("Número fuera de rango", csvError.message)
+            assertEquals("file", csvError.violations.single().field)
+            assertNull(ImportReaders.number(digits))
+            assertEquals(note.trim(), ImportReaders.csv("code;nota\nTST-1;$note\n").single().values["nota"])
+            val xlsxError = assertThrows<ValidationException> { ImportReaders.read(xlsx, "digitos.xlsx", 10) }
+            assertEquals("Número fuera de rango", xlsxError.message)
+            assertTrue("fila 2, columna 1" in xlsxError.violations.single().message, xlsxError.violations.single().message)
+        }
     }
 
     // la cota mide la racha más larga de dígitos, no el largo total: una lista de cifras cortas que alguien pega en una columna de
     // notas (`1,2,3,…`) es texto y no rechaza el archivo; una racha de más de 40 dígitos sí es un número fuera de rango
     @Test
-    @Timeout(5)
     fun `una lista de cifras cortas es texto y una racha de mas de 40 digitos es un numero fuera de rango`() {
         val list = (1..60).joinToString(",")
         assertTrue(list.length > 52)
-        assertEquals(list, ImportReaders.csv("code;nota\nTST-1;$list\n").single().values["nota"])
         val coordinates = (1..30).joinToString(",") { "-78.$it" }
-        assertEquals(coordinates, ImportReaders.csv("code;nota\nTST-1;$coordinates\n").single().values["nota"])
-        // la lista larga con una racha de 41 dígitos sí se rechaza, nombrando la fila y la columna
         val long = "1".repeat(41)
-        assertEquals("Número fuera de rango", assertThrows<ValidationException> { ImportReaders.csv("code;nota\nTST-1;$list,$long\n") }.message)
-        // y 40 dígitos exactos dentro de una lista no
-        assertEquals("$list,${"1".repeat(40)}", ImportReaders.csv("code;nota\nTST-1;$list,${"1".repeat(40)}\n").single().values["nota"])
+        assertTimeoutPreemptively(Duration.ofSeconds(5)) {
+            assertEquals(list, ImportReaders.csv("code;nota\nTST-1;$list\n").single().values["nota"])
+            assertEquals(coordinates, ImportReaders.csv("code;nota\nTST-1;$coordinates\n").single().values["nota"])
+            // la lista larga con una racha de 41 dígitos sí se rechaza, nombrando la fila y la columna
+            assertEquals("Número fuera de rango", assertThrows<ValidationException> { ImportReaders.csv("code;nota\nTST-1;$list,$long\n") }.message)
+            // y 40 dígitos exactos dentro de una lista no
+            assertEquals("$list,${"1".repeat(40)}", ImportReaders.csv("code;nota\nTST-1;$list,${"1".repeat(40)}\n").single().values["nota"])
+        }
     }
 
     // la interrupción de un hilo cancelado se propaga como InterruptedException y no se confunde con un archivo inválido,
