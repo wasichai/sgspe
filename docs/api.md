@@ -424,6 +424,24 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
 
 - `{layer}` es el identificador `LYR-NN` que fija `gis.md`; el mapa base y las capas de referencia no pasan por aquí
   (RQ-GIS-012, RQ-GIS-013).
+- **Capas básicas de F2 (LYR-01 a LYR-16).** Una capa de F6 (LYR-17 en adelante) es `404` `LAYER_NOT_FOUND`. La respuesta es
+  `{ type: "FeatureCollection", features[], truncated }` con la forma de wasichai-gis: cada elemento tiene `id`
+  (`<registro>:<geometría>`), `geometry` y `properties` con los atributos que quien pide puede leer más `__id`, `__object`,
+  `__layer` y `__state` (el estado del workflow, o `null`); en LYR-07 las propiedades traen además `ofProject`, que es
+  verdadero si la concesión está vinculada a alguno de los proyectos de `project`. La capa tiene un tope de 5000 elementos
+  (`sgspe.territory.layers.max-features`): `truncated` es `true` solo si había más, y entonces se pide por `bbox`. Sin READ
+  sobre alguno de los objetos de la capa, `403`. Los filtros de la capa se aplican en SQL: un campo de filtro que quien pide
+  no puede leer deja la capa vacía, no es un error.
+  - `project` (puede repetirse, hasta 50) acota las capas de proyecto (LYR-09 a LYR-13) y marca `ofProject` en LYR-07, que muestra todas las
+    concesiones; en las demás se acepta y se ignora, porque sus registros no pertenecen a un solo proyecto (`gis.md` §3.3). `periodStart` y `periodEnd` se aceptan y no
+    filtran: las capas temáticas con periodo llegan con F6.
+  - `bbox=minX,minY,maxX,maxY` en EPSG:4326 es tolerante con lo que manda un mapa alejado: se quitan los espacios, las
+    longitudes se recortan a [-180, 180] y las latitudes a [-90, 90] (`-425,-20,275,10` es `-180,-20,180,10`), y si lo
+    recortado cubre todo el globo no se filtra. Un mínimo mayor que el máximo después de recortar, o algo que no son cuatro
+    números, es `400` `INVALID_BBOX`.
+  - Errores (`errors[0].message` lleva el código y `errors[0].field` el campo): `404` `LAYER_NOT_FOUND` (`layer`), `400`
+    `INVALID_BBOX` (`bbox`), `400` `INVALID_PROJECT` (`project` no es un UUID) y `400` `TOO_MANY_PROJECTS` (más de 50
+    proyectos); un parámetro desconocido es `422`.
 - **La ficha contextual la arman dos paquetes.** `sgspe.territory` solo aporta la geometría y los filtros espaciales del
   territorio elegido (su identificación y las zonas que lo contienen). Todas sus cifras (grupos de interés por postura,
   interacciones recientes, compromisos abiertos y vencidos, QCS abiertas, riesgos altos, programas, inversión y última
