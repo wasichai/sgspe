@@ -1357,8 +1357,8 @@ Tabla física `app_data.position__<org8>`. Requisitos: RF-STK-002, CON-005.
 
 ### `stakeholder`
 
-**Grupo de interés** (BC-03). Persona u organización en relación con un proyecto, con los valores vigentes (el último valor informado
-de cada uno) y su último contacto. Tabla física `app_data.stakeholder__<org8>`. Requisitos: RF-STK-003, RF-STK-013,
+**Grupo de interés** (BC-03). Persona u organización en relación con un proyecto, con los valores vigentes de su última
+evaluación (la postura y la confianza, el último valor informado de cada una) y su último contacto. Tabla física `app_data.stakeholder__<org8>`. Requisitos: RF-STK-003, RF-STK-013,
 RF-STK-014, RN-STK-006, RN-STK-008, ASM-032, CON-030.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
@@ -1443,7 +1443,7 @@ CON-006.
 | `group_overridden` | BOOLEAN | sí | — | El grupo se ajustó a mano. | RF-STK-009 |
 | `override_reason` | LONG_TEXT | no | — | Justificación del ajuste manual. | RF-STK-009 |
 | `stance` | ENUM `stance` | no | — | (restringido) Postura; puede faltar cuando la fuente no la da (CON-006). | RF-STK-005 |
-| `stance_changed` | BOOLEAN | no | — | (derivado) La postura difiere de la de la línea base. | RF-STK-010 |
+| `stance_changed` | BOOLEAN | no | — | (derivado) La postura difiere de la última postura informada antes, que puede no ser la de la evaluación de la línea base. | RF-STK-010 |
 | `stance_reasons` | LONG_TEXT | no | — | (restringido) Razones de la postura. | RF-STK-005 |
 | `concerns` | LONG_TEXT | no | — | (restringido) Preocupaciones. | RF-STK-005 |
 | `expectations` | LONG_TEXT | no | — | (restringido) Expectativas. | RF-STK-005 |
