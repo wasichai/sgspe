@@ -187,24 +187,25 @@ object ImportUpload {
         return HexFormat.of().formatHex(digest.digest())
     }
 
-    // los límites del multipart de Spring, que no nombran la parte: una parte con nombre de archivo que pasa el tope de disco
-    // es FILE_TOO_LARGE sobre file (la única parte de archivo que se admite); un campo de texto que pasa el de memoria,
-    // PART_TOO_LARGE; un multipart que Spring no puede decodificar (más partes que max-parts), INVALID_MULTIPART. null si `e`
-    // no viene de ahí
+    // los límites del multipart de Spring, que no nombran la parte: solo el tope de disco de una parte («Part exceeded the
+    // disk usage limit») es FILE_TOO_LARGE sobre file, la única parte de archivo que se admite; cualquier otro «demasiado
+    // grande» (un campo de texto que pasa el de memoria, los encabezados de una parte) es PART_TOO_LARGE; un multipart que
+    // Spring no puede decodificar (más partes que max-parts), INVALID_MULTIPART. null si `e` no viene de ahí. la cadena de
+    // causas se recorre acotada: una excepción con un ciclo de dos no deja el hilo girando
     fun multipartError(
         e: Throwable,
         maxBytes: Long
     ): WasichaiException? {
-        val chain = generateSequence(e) { it.cause?.takeIf { next -> next !== it } }.toList()
+        val chain = generateSequence(e) { it.cause?.takeIf { next -> next !== it } }.take(MAX_CAUSES).toList()
         val limit = chain.filterIsInstance<DataBufferLimitException>().firstOrNull()
         return when {
-            limit != null && limit.message.orEmpty().startsWith("Form field") ->
+            limit != null && limit.message.orEmpty().startsWith("Part exceeded the disk") -> tooLarge(maxBytes)
+            limit != null ->
                 importError(
                     "PART_TOO_LARGE",
                     "multipart",
-                    "Un campo del formulario es demasiado grande: target, project, sourceCrs, columns, sha256 y decisions caben en 1 MB"
+                    "Una parte del formulario es demasiado grande: target, project, sourceCrs, columns, sha256 y decisions caben en 1 MB"
                 )
-            limit != null -> tooLarge(maxBytes)
             chain.any { it is DecodingException } ->
                 importError("INVALID_MULTIPART", "multipart", "El multipart no se pudo leer: tiene demasiadas partes o está mal formado")
             else -> null
@@ -220,6 +221,7 @@ object ImportUpload {
             else -> "$bytes bytes"
         }
 
+    private const val MAX_CAUSES = 32
     private const val KB = 1024L
     private const val MB = 1024L * 1024
 }

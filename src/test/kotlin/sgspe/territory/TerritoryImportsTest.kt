@@ -199,6 +199,14 @@ class TerritoryImportsTest {
             )
         assertEquals("multipart" to "PART_TOO_LARGE", codeOf(field!!))
         assertTrue(field.message!!.contains("decisions"), field.message)
+        // los encabezados de una parte que pasan su tope no son un archivo grande: PART_TOO_LARGE
+        val headers = ImportUpload.multipartError(DataBufferLimitException("Part headers exceeded the memory usage limit of 10240 bytes"), 1024)
+        assertEquals("multipart" to "PART_TOO_LARGE", codeOf(headers!!))
+        // una cadena de causas con un ciclo de dos termina y no la confunde con un límite
+        val a = RuntimeException("a")
+        val b = RuntimeException("b", a)
+        a.initCause(b)
+        assertNull(ImportUpload.multipartError(a, 1024))
         val parts = ImportUpload.multipartError(DecodingException("Too many parts (8 allowed)"), 1024)
         assertEquals(HttpStatus.BAD_REQUEST, parts!!.status)
         assertEquals("multipart" to "INVALID_MULTIPART", codeOf(parts))

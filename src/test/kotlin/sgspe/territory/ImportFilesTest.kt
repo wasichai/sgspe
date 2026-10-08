@@ -509,6 +509,23 @@ class ImportFilesTest {
         assertTrue("fila 2, columna 1" in xlsxError.violations.single().message, xlsxError.violations.single().message)
     }
 
+    // la cota mide la racha más larga de dígitos, no el largo total: una lista de cifras cortas que alguien pega en una columna de
+    // notas (`1,2,3,…`) es texto y no rechaza el archivo; una racha de más de 40 dígitos sí es un número fuera de rango
+    @Test
+    @Timeout(5)
+    fun `una lista de cifras cortas es texto y una racha de mas de 40 digitos es un numero fuera de rango`() {
+        val list = (1..60).joinToString(",")
+        assertTrue(list.length > 52)
+        assertEquals(list, ImportReaders.csv("code;nota\nTST-1;$list\n").single().values["nota"])
+        val coordinates = (1..30).joinToString(",") { "-78.$it" }
+        assertEquals(coordinates, ImportReaders.csv("code;nota\nTST-1;$coordinates\n").single().values["nota"])
+        // la lista larga con una racha de 41 dígitos sí se rechaza, nombrando la fila y la columna
+        val long = "1".repeat(41)
+        assertEquals("Número fuera de rango", assertThrows<ValidationException> { ImportReaders.csv("code;nota\nTST-1;$list,$long\n") }.message)
+        // y 40 dígitos exactos dentro de una lista no
+        assertEquals("$list,${"1".repeat(40)}", ImportReaders.csv("code;nota\nTST-1;$list,${"1".repeat(40)}\n").single().values["nota"])
+    }
+
     // la interrupción de un hilo cancelado se propaga como InterruptedException y no se confunde con un archivo inválido,
     // lea un CSV o un XLSX (el SAX envuelve la excepción)
     @Test

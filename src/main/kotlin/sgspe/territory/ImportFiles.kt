@@ -110,7 +110,21 @@ object ImportReaders {
     // esto se convierte: si solo tiene caracteres de número es un número fuera de rango, y si no, no es un número
     private const val MAX_NUMBER_CHARS = MAX_DIGITS + 12
 
-    private fun tooLongNumber(text: String): Boolean = text.length > MAX_NUMBER_CHARS && text.all { it.isDigit() || it in "+-.,eE" }
+    // el costo cuadrático está en la racha de dígitos, no en el largo total: una lista de cifras cortas pegada en una columna
+    // de notas (`1,2,3,…`) es texto (parseDecimal ya no la convierte por su largo). solo una racha de más de MAX_DIGITS es un
+    // número fuera de rango
+    private fun tooLongNumber(text: String): Boolean =
+        text.length > MAX_NUMBER_CHARS && text.all { it.isDigit() || it in "+-.,eE" } && longestDigitRun(text) > MAX_DIGITS
+
+    private fun longestDigitRun(text: String): Int {
+        var longest = 0
+        var run = 0
+        for (c in text) {
+            run = if (c.isDigit()) run + 1 else 0
+            if (run > longest) longest = run
+        }
+        return longest
+    }
 
     private fun inBounds(value: BigDecimal): Boolean =
         value.precision() <= MAX_DIGITS && kotlin.math.abs(value.precision().toLong() - value.scale() - 1) <= MAX_EXPONENT
