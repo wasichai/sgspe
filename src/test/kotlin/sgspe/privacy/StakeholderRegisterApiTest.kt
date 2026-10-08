@@ -239,4 +239,22 @@ class StakeholderRegisterApiTest : DomainApiTest() {
         }
         assertEquals(0, logOf(manager.id).size())
     }
+
+    @Test
+    fun `PUBLICO acotado a una sola persona no dice cual es, todas las celdas son menor que 5`() {
+        val project = projectWithCrs()
+        val locality = fixture("locality").id
+        stakeholder(project, mapOf("locality" to locality, "stakeholder_type" to "AUTORIDAD LOCAL"))
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val filters = mapOf("project" to listOf(project), "locality" to locality, "stakeholderType" to "AUTORIDAD LOCAL")
+        val bytes = export(mapOf("filters" to filters, "disclosureLevel" to "PUBLICO"), manager.token).responseBody!!
+        XSSFWorkbook(bytes.inputStream()).use { workbook ->
+            for (sheet in workbook) {
+                val rows = sheet.drop(1).map { row -> row.last().toString() }
+                assertTrue(rows.isNotEmpty() && rows.all { it == SmallCells.BELOW }, "${sheet.sheetName}: $rows")
+            }
+            // la grilla completa del catálogo: la presencia de una fila no dice nada de la persona
+            assertEquals(25, workbook.getSheetAt(0).physicalNumberOfRows - 1)
+        }
+    }
 }

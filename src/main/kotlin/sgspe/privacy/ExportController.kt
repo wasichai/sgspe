@@ -17,8 +17,9 @@ import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
 
 // POST /api/sgspe/exports/{kind} (api.md §4.13): el XLSX en streaming, con su fila de export_log ya escrita. el archivo
-// temporal se borra al terminar, fallar o cancelarse el envío (ExportFile.stream). los tipos de F3 y F4 se agregan con su
-// módulo; uno que no existe aún es un 404 EXPORT_NOT_FOUND. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
+// temporal se borra al terminar, fallar o cancelarse el envío (ExportFile.stream); si nadie se suscribe, lo barre la siguiente
+// exportación pasada una hora. los tipos de F3 y F4 se agregan con su módulo; uno que no existe aún es un 404
+// EXPORT_NOT_FOUND. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
 @RestController
 @RequestMapping("/api/sgspe/exports")
 class ExportController(

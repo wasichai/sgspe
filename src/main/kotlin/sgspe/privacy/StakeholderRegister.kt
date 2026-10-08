@@ -3,13 +3,8 @@ package sgspe.privacy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.core.io.FileSystemResource
-import org.springframework.core.io.buffer.DataBuffer
-import org.springframework.core.io.buffer.DataBufferUtils
-import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
 import sgspe.common.Callers
 import sgspe.common.Criteria
 import sgspe.common.Finding
@@ -29,43 +24,9 @@ import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordResponse
 import wasichai.core.identity.AuthenticatedUser
 import wasichai.core.metadata.MetadataService
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.attribute.PosixFilePermissions
 import java.time.Clock
 import java.time.LocalDate
 import java.util.UUID
-
-// un archivo listo para descargar, en una carpeta propia de permisos 0700 (el XLSX lleva datos personales). stream() lo envía
-// y lo borra con su carpeta cuando el flujo termina, falla o se cancela (Flux.using); discard() lo borra sin enviarlo
-class ExportFile(
-    val file: File,
-    val filename: String
-) {
-    fun stream(): Flux<DataBuffer> =
-        Flux.using(
-            { file },
-            { DataBufferUtils.read(FileSystemResource(it), DefaultDataBufferFactory.sharedInstance, BUFFER_BYTES) },
-            { discard() }
-        )
-
-    fun discard() {
-        file.delete()
-        file.parentFile?.delete()
-    }
-
-    companion object {
-        private const val BUFFER_BYTES = 64 * 1024
-        private val PRIVATE_DIRECTORY = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
-        private val PRIVATE_FILE = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))
-
-        // un archivo vacío dentro de una carpeta nueva solo de quien corre el servidor
-        fun create(filename: String): ExportFile {
-            val directory = Files.createTempDirectory("sgspe-export-", PRIVATE_DIRECTORY)
-            return ExportFile(Files.createFile(directory.resolve("registro.xlsx"), PRIVATE_FILE).toFile(), filename)
-        }
-    }
-}
 
 // la exportación stakeholder-register (api.md §4.13, RQ-REP-022, deliverables.md §10): el registro de grupos de interés con
 // su evaluación vigente, leído con Records como quien exporta (solo los registros y campos que puede leer; un campo
@@ -119,7 +80,7 @@ class StakeholderRegister(
             }
         val lines = if (projects?.isEmpty() == true) emptyList() else stakeholders(projects, locality, equality, includeRetired)
         val sheets = sheets(lines, disclosure)
-        val export = ExportFile.create("registro-grupos-de-interes-${disclosure.name.lowercase()}.xlsx")
+        val export = withContext(Dispatchers.IO) { ExportFile.create("registro-grupos-de-interes-${disclosure.name.lowercase()}.xlsx", clock.instant()) }
         try {
             withContext(Dispatchers.IO) { export.file.outputStream().use { Xlsx.write(sheets, it) } }
             log.export(user, STAKEHOLDER, "XLSX", disclosure, description(projects, filters, disclosure), lines.size, projects?.singleOrNull())
@@ -239,7 +200,13 @@ class StakeholderRegister(
         val readability = Readability(metadata)
         val readable = RegisterSheets.REQUIRES.filter { readability.canRead(it) }.toSet()
         if (disclosure == Disclosure.PUBLICO) {
-            return RegisterSheets.aggregates(lines, RegisterContext(readable, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap()))
+            val grid =
+                RegisterSheets.Grid(
+                    catalog.enumOf(STAKEHOLDER, "influence_group"),
+                    catalog.enumOf(STAKEHOLDER, "stance"),
+                    catalog.enumOf(STAKEHOLDER, "stakeholder_scope")
+                )
+            return RegisterSheets.aggregates(lines, RegisterContext(readable, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap()), grid)
         }
 
         fun ids(field: String) = lines.mapNotNull { Values.text(it.attributes[field]) }
@@ -315,6 +282,8 @@ class StakeholderRegister(
 
     // ---- el cuerpo ----
 
+    // export_log no tiene un campo json de filtros: solo filters_description (LONG_TEXT, domain-model §6.15). por eso lleva la lista
+    // completa de proyectos, por larga que sea (RQ-AUD-011 pide los filtros), y no un «N proyectos» que no diga cuáles
     private fun description(
         projects: List<UUID>?,
         filters: Map<String, Any?>,
@@ -322,13 +291,7 @@ class StakeholderRegister(
     ): String =
         buildString {
             append("filtros: proyectos=")
-            append(
-                when {
-                    projects == null -> "todos"
-                    projects.size > MAX_LISTED -> "${projects.size} proyectos"
-                    else -> projects.joinToString(",")
-                }
-            )
+            append(projects?.joinToString(",") ?: "todos")
             filters.filterKeys { it != "project" }.toSortedMap().forEach { (key, value) -> append("; ").append(key).append('=').append(value) }
             if (disclosure == Disclosure.EXTERNO) append("; lista de verificación de EXTERNO confirmada")
         }
@@ -369,6 +332,5 @@ class StakeholderRegister(
 
         private const val RETIRED = "retired"
         private const val CHUNK = 500
-        private const val MAX_LISTED = 20
     }
 }

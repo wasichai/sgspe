@@ -189,12 +189,22 @@ object RegisterSheets {
         return if (disclosure == Disclosure.INTERNO) values + text("owner_user_email") else values
     }
 
+    // los valores del catálogo con que se arma la grilla de PUBLICO (ModelCatalog, model.json)
+    class Grid(
+        val influenceGroups: List<String>,
+        val stances: List<String>,
+        val scopes: List<String>
+    )
+
     // PUBLICO: solo conteos por grupo de influencia y postura, y por ámbito (deliverables.md §9.1). lo que quien exporta no
-    // puede leer se agrupa como «no disponible», nunca como si no hubiera valor. cada desglose pasa por SmallCells antes de
-    // escribirse (ASM-088): una celda menor que 5 sale «<5» y no hay totales
+    // puede leer es un solo valor «no disponible», nunca como si no hubiera valor. cada desglose se arma sobre la grilla
+    // completa del catálogo (más «SIN EVALUAR»), con las combinaciones sin ningún grupo de interés, y pasa por SmallCells
+    // antes de escribirse (ASM-088, P28b): lo pequeño sale con una marca única y no hay totales ni filas que delaten a una
+    // persona
     fun aggregates(
         lines: List<StakeholderLine>,
-        context: RegisterContext
+        context: RegisterContext,
+        grid: Grid
     ): List<XlsxSheet> {
         fun value(
             line: StakeholderLine,
@@ -202,22 +212,26 @@ object RegisterSheets {
             empty: String
         ): String = if (context.canRead("$STAKEHOLDER.$name")) Values.text(line.attributes[name]) ?: empty else NOT_AVAILABLE
 
-        val groups =
-            SmallCells.apply(
-                lines
-                    .groupingBy { value(it, "influence_group", UNEVALUATED) to value(it, "stance", UNEVALUATED) }
-                    .eachCount()
-                    .toSortedMap(compareBy({ it.first }, { it.second }))
-                    .toList()
-            )
-        val scopes =
-            SmallCells.apply(
-                lines
-                    .groupingBy { value(it, "stakeholder_scope", NO_SCOPE) }
-                    .eachCount()
-                    .toSortedMap()
-                    .toList()
-            )
+        // los valores del catálogo y, por si el registro trae uno que no está, los observados; si no se lee, uno solo
+        fun axis(
+            name: String,
+            known: List<String>,
+            empty: String,
+            observed: List<String>
+        ): List<String> =
+            if (context.canRead("$STAKEHOLDER.$name")) known + empty + (observed.toSet() - known.toSet() - empty).sorted() else listOf(NOT_AVAILABLE)
+
+        val groupOf = lines.map { value(it, "influence_group", UNEVALUATED) }
+        val stanceOf = lines.map { value(it, "stance", UNEVALUATED) }
+        val groupAxis = axis("influence_group", grid.influenceGroups, UNEVALUATED, groupOf)
+        val stanceAxis = axis("stance", grid.stances, UNEVALUATED, stanceOf)
+        val counts = groupOf.zip(stanceOf).groupingBy { it }.eachCount()
+        val groups = SmallCells.apply(groupAxis.flatMap { g -> stanceAxis.map { s -> (g to s) to (counts[g to s] ?: 0) } })
+
+        val scopeOf = lines.map { value(it, "stakeholder_scope", NO_SCOPE) }
+        val scopeAxis = axis("stakeholder_scope", grid.scopes, NO_SCOPE, scopeOf)
+        val scopeCounts = scopeOf.groupingBy { it }.eachCount()
+        val scopes = SmallCells.apply(scopeAxis.map { it to (scopeCounts[it] ?: 0) })
         return listOf(
             XlsxSheet(
                 "Agregados",
