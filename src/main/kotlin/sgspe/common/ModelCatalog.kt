@@ -38,7 +38,8 @@ class ModelCatalog(
         val type: String,
         val source: String,
         val target: String,
-        val fieldName: String?
+        val fieldName: String?,
+        val required: Boolean
     )
 
     data class Transition(
@@ -84,7 +85,8 @@ class ModelCatalog(
                 type = node.path("type").takeIf { it.isString }?.asString() ?: "MANY_TO_ONE",
                 source = node.path("source").asString(),
                 target = node.path("target").asString(),
-                fieldName = node.path("fieldName").takeIf { it.isString }?.asString()
+                fieldName = node.path("fieldName").takeIf { it.isString }?.asString(),
+                required = node.path("required").asBoolean(false)
             )
         }
 
@@ -165,6 +167,19 @@ class ModelCatalog(
         source: String,
         target: String
     ): String? = relationships.firstOrNull { it.type == "MANY_TO_ONE" && it.source == source && it.target == target }?.fieldName
+
+    // las relaciones MANY_TO_ONE obligatorias que apuntan a `target`: (objeto, campo). wasichai las declara NOT NULL con ON DELETE
+    // SET NULL, así que borrar un `target` del que todavía dependen falla en la base (DependentsDeleteGuard lo vuelve un 409)
+    fun requiredDependents(target: String): List<Pair<String, String>> =
+        relationships
+            .filter { it.type == "MANY_TO_ONE" && it.required && it.target == target && it.fieldName != null }
+            .map { it.source to it.fieldName!! }
+
+    // si la relación MANY_TO_ONE `fieldName` de `source` es obligatoria en el modelo (false si no existe)
+    fun isRequiredRelation(
+        source: String,
+        fieldName: String
+    ): Boolean = relationships.firstOrNull { it.type == "MANY_TO_ONE" && it.source == source && it.fieldName == fieldName }?.required == true
 
     companion object {
         private val JSON: JsonMapper = JsonMapper.builder().build()

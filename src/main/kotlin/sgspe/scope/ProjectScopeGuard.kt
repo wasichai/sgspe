@@ -8,6 +8,7 @@ import sgspe.common.Finding
 import sgspe.common.GuardOrder
 import sgspe.common.RuleGuard
 import sgspe.common.WriteView
+import sgspe.common.toCodedException
 import wasichai.core.data.RecordWrite
 
 // la escritura acotada por asignación, opción A del checkpoint (security.md §9.2, RQ-SEC-006, CON-041): altas, cambios,
@@ -23,22 +24,40 @@ class ProjectScopeGuard(
     private val resolver: ProjectResolver,
     private val assignments: Assignments
 ) : RuleGuard() {
+    // el 403 de wasichai (ForbiddenException) no lleva campos ni código: aquí errors[0] trae el campo del alcance y, como
+    // message, el código NOT_ASSIGNED, para que el portal y las pruebas distingan este 403 de uno por permiso
+    override suspend fun beforeWrite(change: RecordWrite) {
+        findings(change, dryRun = false).firstOrNull { it.blocking }?.let { throw it.toCodedException() }
+    }
+
     override suspend fun findings(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
         if (change.userId == null || change.objectName in ProjectScope.EXEMPT || !ProjectScope.covers(change.objectName)) return emptyList()
-        val user = callers.userOrNull() ?: return emptyList()
+        // con userId la escritura es de una persona: si no se la puede identificar, se niega (falla cerrado)
+        val user = callers.userOrNull() ?: return listOf(notAssigned("project", "No se pudo identificar a quien escribe, así que no se le puede dar alcance"))
         if (user.isAdmin) return emptyList()
-        val projects = resolver.projectsOf(change, view.after(change))
-        val outside = projects.filterNot { assignments.isAssigned(user.userId, it) }
-        return outside.map { project ->
-            Finding(
-                code = "NOT_ASSIGNED",
-                message = "No tienes una asignación vigente al proyecto $project: solo su equipo escribe en él",
-                field = "project",
-                status = HttpStatus.FORBIDDEN
-            )
+        val scope = resolver.resolve(change, view.after(change))
+        val findings = mutableListOf<Finding>()
+        if (scope.unresolved) {
+            findings +=
+                notAssigned(
+                    scope.field,
+                    "No se pudo determinar el proyecto de este registro (${scope.field}): solo el administrador escribe en un registro sin proyecto"
+                )
         }
+        for (project in scope.projects) {
+            if (!assignments.isAssigned(user.userId, project)) {
+                findings += notAssigned(scope.field, "No tienes una asignación vigente al proyecto $project: solo su equipo escribe en él")
+            }
+        }
+        return findings
     }
+
+    // field: el campo de la relación de alcance (project en las raíces, el padre en los hijos), el que el portal pinta
+    private fun notAssigned(
+        field: String,
+        message: String
+    ) = Finding(code = "NOT_ASSIGNED", message = message, field = field, status = HttpStatus.FORBIDDEN)
 }

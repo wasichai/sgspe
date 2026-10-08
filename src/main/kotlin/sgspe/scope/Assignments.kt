@@ -60,17 +60,20 @@ class Assignments(
     private val catalog: ModelCatalog,
     private val clock: Clock
 ) {
-    fun today(): LocalDate = LocalDate.now(clock.withZone(LIMA))
+    fun today(): LocalDate = todayIn(clock)
 
     suspend fun ofProject(project: UUID): List<Assignment> =
-        records.all(OBJECT, filters = mapOf("project" to project.toString())).mapNotNull { Assignment.of(it.id, it.attributes) }
+        records
+            .all(OBJECT, filters = mapOf("project" to project.toString()))
+            .mapNotNull { Assignment.of(it.id, it.attributes) }
+            .filter { it.project == project }
 
     // los proyectos con una asignación vigente del usuario: el filtro por defecto de los tableros (RF-PRJ-005)
     suspend fun projectsOf(userId: UUID): List<UUID> =
         records
             .all(OBJECT, filters = mapOf("member_user_id" to userId.toString()))
             .mapNotNull { Assignment.of(it.id, it.attributes) }
-            .filter { it.inForce(today()) }
+            .filter { it.memberUserId == userId && it.inForce(today()) }
             .map { it.project }
             .distinct()
 
@@ -82,7 +85,9 @@ class Assignments(
         records
             .all(OBJECT, filters = mapOf("project" to project.toString(), "member_user_id" to userId.toString()))
             .mapNotNull { Assignment.of(it.id, it.attributes) }
-            .any { it.inForce(today()) }
+            // los filtros ya acotan la consulta; aquí se vuelve a comprobar porque esto es una frontera de seguridad y un
+            // filtro ignorado daría alcance a cualquiera
+            .any { it.project == project && it.memberUserId == userId && it.inForce(today()) }
 
     // las asignaciones vigentes del proyecto cuyo role_name está entre los roles de la transición, salvo quien la aplicó
     // y las cuentas de servicio (su correo de respaldo, WAS-ADR-0043). los roles salen de model/workflows/<objeto>.json,
@@ -109,6 +114,9 @@ class Assignments(
     }
 
     companion object {
+        // el día de Lima del reloj: a las 03:00 UTC todavía es el día anterior
+        fun todayIn(clock: Clock): LocalDate = LocalDate.now(clock.withZone(LIMA))
+
         const val OBJECT = "project_assignment"
         const val SERVICE_ACCOUNT_DOMAIN = "@service-accounts.invalid"
     }

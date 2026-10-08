@@ -28,12 +28,14 @@ class AssignmentRoleGuard(
         if (change.objectName != Assignments.OBJECT) return emptyList()
         if (change.kind != RecordChangeKind.CREATED && change.kind != RecordChangeKind.UPDATED) return emptyList()
         if (change.isLink()) return emptyList()
-        val role = Values.text(view.after(change)["role_name"]) ?: return emptyList()
-        if (role in catalog.declaredRoles) return emptyList()
+        // role_name es obligatorio: vacío o solo espacios no es un rol declarado (no se deja a la validación de wasichai)
+        val role = Values.text(view.after(change)["role_name"])
+        if (role != null && role in catalog.declaredRoles) return emptyList()
+        val rule = "debe ser uno de los roles declarados: ${catalog.declaredRoles.sorted().joinToString(", ")}"
         return listOf(
             Finding(
                 code = "UNKNOWN_ROLE",
-                message = "role_name debe ser uno de los roles declarados: ${catalog.declaredRoles.sorted().joinToString(", ")}",
+                message = if (role == null) "role_name es obligatorio y $rule" else "role_name $rule",
                 field = "role_name",
                 status = HttpStatus.BAD_REQUEST
             )

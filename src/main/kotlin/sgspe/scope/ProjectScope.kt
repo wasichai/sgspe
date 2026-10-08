@@ -1,6 +1,7 @@
 package sgspe.scope
 
 import org.springframework.stereotype.Component
+import sgspe.common.ModelCatalog
 import sgspe.common.Records
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
@@ -51,26 +52,27 @@ object ProjectScope {
     fun covers(objectName: String): Boolean = objectName == "project" || objectName in ROOTS || objectName in CHILDREN
 }
 
-// los proyectos que toca una escritura: el de antes y el de después (cambiar el proyecto exige asignación a los dos)
+// a qué proyectos pertenece el registro que una escritura toca. `field` es el campo de la relación de alcance del objeto
+// (`project` en las raíces, el padre en los hijos): el que un error nombra. `unresolved`: el alcance no se pudo determinar
+// (la relación obligatoria está vacía o el padre no da proyecto), y quien no es ADMIN no escribe en lo que no tiene dueño
+data class Resolution(
+    val field: String,
+    val projects: Set<UUID>,
+    val unresolved: Boolean
+)
+
+// los proyectos que toca una escritura: el de antes y el de después (cambiar el proyecto exige asignación a los dos).
+// wasichai deja las relaciones en NULL cuando se borra el registro al que apuntan (ON DELETE SET NULL): un hijo o una raíz
+// huérfanos no resuelven proyecto, y eso se informa como `unresolved` para que la guarda falle cerrado
 @Component
 class ProjectResolver(
-    private val records: Records
+    private val records: Records,
+    private val catalog: ModelCatalog
 ) {
-    suspend fun projectsOf(
+    suspend fun resolve(
         change: RecordWrite,
         after: Map<String, Any?>
-    ): Set<UUID> {
-        val name = change.objectName
-        if (name == "project") {
-            return if (change.kind == RecordChangeKind.CREATED) emptySet() else setOfNotNull(change.recordId)
-        }
-        if (name in ProjectScope.ROOTS) {
-            return setOfNotNull(Records.uuid(change.before?.get("project")), Records.uuid(after["project"]))
-        }
-        val (field, parent) = ProjectScope.CHILDREN[name] ?: return emptySet()
-        val parents = setOfNotNull(Records.uuid(change.before?.get(field)), Records.uuid(after[field]))
-        return parents.mapNotNull { projectOfParent(parent, it) }.toSet()
-    }
+    ): Resolution = resolve(change, after, catalog::isRequiredRelation, ::projectOfParent)
 
     private suspend fun projectOfParent(
         parent: String,
@@ -78,5 +80,42 @@ class ProjectResolver(
     ): UUID? {
         val record = records.find(parent, id) ?: return null
         return if (parent == "project") id else Records.uuid(record.attributes["project"])
+    }
+
+    companion object {
+        // la decisión, sin lecturas: `required` dice si la relación (objeto, campo) es obligatoria en el modelo y
+        // `parentProject` da el proyecto de un padre (null si no existe o no lo tiene)
+        suspend fun resolve(
+            change: RecordWrite,
+            after: Map<String, Any?>,
+            required: (String, String) -> Boolean,
+            parentProject: suspend (String, UUID) -> UUID?
+        ): Resolution {
+            val name = change.objectName
+            val created = change.kind == RecordChangeKind.CREATED
+            if (name == "project") {
+                // el alta de un proyecto aún no tiene equipo; cualquier otra escritura es sobre un proyecto que existe
+                return Resolution("project", if (created) emptySet() else setOfNotNull(change.recordId), !created && change.recordId == null)
+            }
+            val (field, parent) =
+                if (name in ProjectScope.ROOTS) {
+                    Pair<String, String?>("project", null)
+                } else {
+                    ProjectScope.CHILDREN[name] ?: return Resolution("project", emptySet(), false)
+                }
+            val beforeId = Records.uuid(change.before?.get(field))
+            val afterId = Records.uuid(after[field])
+            // la relación de alcance es obligatoria en el modelo salvo en export_log y locality_profile: solo ahí vacía es
+            // válido. un registro existente sin dueño no se toca (el ON DELETE SET NULL de wasichai los deja así); lo que la
+            // escritura deja vacío en una actualización no es de alcance, porque wasichai rechaza el obligatorio vacío, pero
+            // un alta sin él no tiene a quién pedirle asignación
+            var unresolved = required(name, field) && ((!created && beforeId == null) || (created && afterId == null))
+            val projects = mutableSetOf<UUID>()
+            for (id in setOfNotNull(beforeId, afterId)) {
+                val project = if (parent == null) id else parentProject(parent, id)
+                if (project == null) unresolved = true else projects += project
+            }
+            return Resolution(field, projects, unresolved)
+        }
     }
 }

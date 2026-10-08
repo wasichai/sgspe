@@ -1,6 +1,7 @@
 package sgspe.common
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,7 +22,7 @@ class ModelCatalogTest {
                                {"name": "inclusion_reason", "type": "LONG_TEXT"}]},
                    {"name": "engagement", "actions": [{"name": "EDIT_ANY", "label": "Editar lo ajeno"}], "fields": []}
                  ],
-                 "relationships": [{"name": "stakeholder_project", "source": "stakeholder", "target": "project", "fieldName": "project"}]}
+                 "relationships": [{"name": "stakeholder_project", "source": "stakeholder", "target": "project", "fieldName": "project", "required": true}]}
                 """.trimIndent(),
             roles = """{"mappedToAdmin": ["SUPER_ADMIN"], "roles": [{"name": "STAKEHOLDER_MANAGER"}, {"name": "FIELD_AGENT"}]}""",
             workflows =
@@ -47,6 +48,8 @@ class ModelCatalogTest {
         assertEquals(listOf("AIDS", "AIIS"), catalog.enumOf("stakeholder", "stakeholder_scope"))
         assertEquals("project", catalog.relationField("stakeholder", "project"))
         assertNull(catalog.relationField("stakeholder", "engagement"))
+        assertTrue(catalog.isRequiredRelation("stakeholder", "project"))
+        assertFalse(catalog.isRequiredRelation("stakeholder", "engagement"))
     }
 
     @Test

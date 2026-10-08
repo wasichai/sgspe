@@ -933,12 +933,20 @@ endpoint de evaluaciones, porque evaluar escribe `stance`, un campo que solo ell
      `start_date` y `end_date`, en America/Lima);
   3. una escritura que cambia el `project` de un registro exige asignación a ambos proyectos;
   4. los objetos que también pueden ser del tenant (`evidence`, `early_warning_rule`, `indicator_measurement`,
-     `export_log`, `ai_suggestion`, `ai_interaction`) se comprueban solo cuando tienen proyecto;
+     `export_log`, `ai_suggestion`, `ai_interaction`) y `locality_profile`, cuyo `study` es opcional, se comprueban solo
+     cuando tienen proyecto (un `locality_profile` sin `study` es del tenant);
   5. quedan exentos `ADMIN`, la plataforma y las automatizaciones; el alta de un `project`, que todavía no tiene equipo;
      y la escritura de `project_assignment` por quien tiene permiso sobre ella, para formar los equipos;
   6. las cuentas de servicio se asignan como cualquier usuario, con el id de su usuario de respaldo;
   7. la guarda lee las asignaciones como el usuario (§5.8), por eso todo rol que escribe en objetos de proyecto lee
-     `project_assignment`.
+     `project_assignment`;
+  8. la guarda falla cerrado: un registro cuyo proyecto no se resuelve (su relación obligatoria está vacía o su padre no
+     tiene proyecto) solo lo escribe `ADMIN`, y un alta sin esa relación se rechaza; el error es 403 y `errors[0].message`
+     trae `NOT_ASSIGNED`. es defensa en profundidad: `DependentsDeleteGuard` impide borrar un padre con dependientes
+     obligatorios (409 `HAS_DEPENDENTS`), así que por la API no quedan registros sin dueño.
+- **Riesgo residual de las asignaciones:** `PROJECT_ADMIN`, al formar equipos, puede asignarse a sí mismo o a cualquier
+  usuario de la organización a cualquier proyecto y escribir allí con sus roles; lo mitiga la auditoría de
+  `project_assignment`, no la guarda.
 - Las agregaciones con SQL propio de `sgspe.territory` y `sgspe.dashboard` aplican READ por objeto y por campo detrás de
   su compuerta de permisos (RQ-GIS-017, RQ-DSH-031).
 - **Riesgo residual:** quien tiene READ sobre un objeto lo lee en todos los proyectos del tenant, también en los mapas,

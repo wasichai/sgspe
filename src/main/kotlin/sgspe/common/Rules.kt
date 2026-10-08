@@ -28,6 +28,10 @@ data class Finding(
         }
 }
 
+// la misma excepción, pero con el código en errors[0].message: el 403 de wasichai no lleva campos, y un 409 o un 403 de
+// regla sin código no se distingue de otro por permiso o por estado. detail lleva el texto; errors[0], el campo y el código
+fun Finding.toCodedException(): WasichaiException = RuleException(status, message, listOf(FieldViolation(field ?: "record", code)))
+
 // una regla que POST /api/sgspe/transition-checks puede correr en seco. dryRun: la escritura no va a ocurrir, así que una
 // regla que pide algo que la petición traería (el motivo) lo informa como advertencia
 interface WriteRule {
@@ -60,6 +64,7 @@ object GuardOrder {
     const val EXACTLY_ONE = 300
     const val USER_REFERENCE = 310
     const val ASSIGNMENT_ROLE = 320
+    const val DEPENDENTS = 330
     const val DOMAIN = 400
 }
 

@@ -5,7 +5,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.UUID
 
 // la vigencia de una asignación (security.md §9.2): active y, si tiene fechas, hoy entre ellas
@@ -55,5 +58,14 @@ class AssignmentTest {
         assertFalse(ProjectScope.covers("person"))
         assertEquals("engagement" to "engagement", ProjectScope.CHILDREN["engagement_question"])
         assertTrue("project_assignment" in ProjectScope.EXEMPT)
+    }
+
+    // el día de Lima cambia a las 05:00 UTC: a las 03:00 UTC del 13 todavía es el 12 (security.md §9.2)
+    @Test
+    fun `hoy es el dia de Lima y no el de UTC`() {
+        fun today(instant: String) = Assignments.todayIn(Clock.fixed(Instant.parse(instant), ZoneOffset.UTC))
+        assertEquals(LocalDate.parse("2026-05-12"), today("2026-05-13T03:00:00Z"))
+        assertEquals(LocalDate.parse("2026-05-12"), today("2026-05-13T04:59:59Z"))
+        assertEquals(LocalDate.parse("2026-05-13"), today("2026-05-13T05:00:00Z"))
     }
 }
