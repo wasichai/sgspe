@@ -6,6 +6,7 @@ import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.withContext
 import org.apache.poi.xssf.streaming.SXSSFWorkbook
+import org.springframework.core.codec.DecodingException
 import org.springframework.core.io.buffer.DataBuffer
 import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.core.io.buffer.DataBufferUtils
@@ -80,8 +81,8 @@ class ImportController(
         }
     }
 
-    // las partes del multipart, una por nombre. Spring guarda en disco la parte de archivo antes de entregarla; su tope
-    // (spring.webflux.multipart.max-disk-usage-per-part, application.yml) responde como el de sgspe
+    // las partes del multipart, una por nombre. Spring guarda en disco la parte de archivo antes de entregarla; sus topes
+    // (spring.webflux.multipart.*, application.yml) son 400 con código (ImportUpload.multipartError), no 500
     private suspend fun parts(
         exchange: ServerWebExchange,
         allowed: Set<String>
@@ -90,8 +91,7 @@ class ImportController(
             try {
                 exchange.multipartData.awaitSingle()
             } catch (e: Exception) {
-                if (generateSequence<Throwable>(e) { it.cause }.any { it is DataBufferLimitException }) throw ImportUpload.tooLarge(properties.maxBytes)
-                throw e
+                throw ImportUpload.multipartError(e, properties.maxBytes) ?: e
             }
         StrictBody.requireOnly(all, allowed)
         all.entries.firstOrNull { it.value.size > 1 }?.let {
@@ -185,6 +185,30 @@ object ImportUpload {
             }
         }
         return HexFormat.of().formatHex(digest.digest())
+    }
+
+    // los límites del multipart de Spring, que no nombran la parte: una parte con nombre de archivo que pasa el tope de disco
+    // es FILE_TOO_LARGE sobre file (la única parte de archivo que se admite); un campo de texto que pasa el de memoria,
+    // PART_TOO_LARGE; un multipart que Spring no puede decodificar (más partes que max-parts), INVALID_MULTIPART. null si `e`
+    // no viene de ahí
+    fun multipartError(
+        e: Throwable,
+        maxBytes: Long
+    ): WasichaiException? {
+        val chain = generateSequence(e) { it.cause?.takeIf { next -> next !== it } }.toList()
+        val limit = chain.filterIsInstance<DataBufferLimitException>().firstOrNull()
+        return when {
+            limit != null && limit.message.orEmpty().startsWith("Form field") ->
+                importError(
+                    "PART_TOO_LARGE",
+                    "multipart",
+                    "Un campo del formulario es demasiado grande: target, project, sourceCrs, columns, sha256 y decisions caben en 1 MB"
+                )
+            limit != null -> tooLarge(maxBytes)
+            chain.any { it is DecodingException } ->
+                importError("INVALID_MULTIPART", "multipart", "El multipart no se pudo leer: tiene demasiadas partes o está mal formado")
+            else -> null
+        }
     }
 
     fun tooLarge(maxBytes: Long): WasichaiException = importError("FILE_TOO_LARGE", "file", "Archivo demasiado grande: el máximo es ${label(maxBytes)}")

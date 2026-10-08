@@ -118,20 +118,33 @@ internal fun importError(
 // o un 400 IMPORT_TIMEOUT. lo bloqueante (POI, la lectura del archivo) corre con `blocking`: en el despachador de E/S e
 // interrumpible, así que el plazo vencido interrumpe el hilo, los lectores lo atienden (ImportReaders) y el permiso se
 // suelta solo cuando la lectura de verdad se detuvo
-class ImportGate(
+class ImportGate internal constructor(
     maxConcurrent: Int,
-    private val timeout: Duration
+    private val timeout: Duration,
+    // solo para las pruebas: lo que pasa entre obtener el permiso y salir de la espera (la ventana del menor 1)
+    private val afterAcquire: suspend () -> Unit
 ) {
+    constructor(maxConcurrent: Int, timeout: Duration) : this(maxConcurrent, timeout, {})
+
     private val permits = Semaphore(maxConcurrent)
 
+    // se decide por `acquired` y no por el null de withTimeoutOrNull: el plazo puede vencer cuando acquire ya obtuvo el
+    // permiso, y entonces withTimeoutOrNull devuelve null igual. decidir por el null perdería ese permiso para siempre
     suspend fun <T> admit(block: suspend () -> T): T {
-        withTimeoutOrNull(timeout.toMillis()) { permits.acquire() }
-            ?: throw importError(
+        var acquired = false
+        withTimeoutOrNull(timeout.toMillis()) {
+            permits.acquire()
+            acquired = true
+            afterAcquire()
+        }
+        if (!acquired) {
+            throw importError(
                 "IMPORT_BUSY",
                 "file",
                 "Hay demasiadas importaciones en curso: intente de nuevo en unos segundos",
                 HttpStatus.SERVICE_UNAVAILABLE
             )
+        }
         try {
             return block()
         } finally {
@@ -221,6 +234,13 @@ internal object ImportRules {
         val actual = floor((x + 180) / 6).toInt() + 1
         return if (actual != declared) "cae en la zona UTM ${actual}S, no en la ${declared}S del CRS declarado" else null
     }
+
+    // el primer código cuyo registro (id y updatedAt; null si no había) cambió entre el análisis y el candado, o null.
+    // cubre lo creado, lo cambiado y lo borrado entretanto
+    fun <V> conflict(
+        analyzed: Map<String, Pair<String, V>?>,
+        fresh: Map<String, Pair<String, V>>
+    ): String? = analyzed.entries.firstOrNull { (code, seen) -> fresh[code] != seen }?.key
 
     fun numberIssue(
         field: String,
@@ -757,15 +777,15 @@ class TerritoryImports(
     ) {
         val fresh = existing(context, analysis.candidates.map { it.parsed.code })
         val changed =
-            analysis.candidates.firstOrNull { candidate ->
-                val now = fresh[candidate.parsed.code]
-                now?.id != candidate.existing?.id || now?.updatedAt != candidate.existing?.updatedAt
-            }
+            ImportRules.conflict(
+                analysis.candidates.associate { it.parsed.code to it.existing?.let { record -> record.id to record.updatedAt } },
+                fresh.mapValues { (_, record) -> record.id to record.updatedAt }
+            )
         if (changed != null) {
             throw importError(
                 "IMPORT_CONFLICT",
                 "file",
-                "Lo registrado con el código ${changed.parsed.code} cambió mientras se confirmaba: vuelva a previsualizar el archivo",
+                "Lo registrado con el código $changed cambió mientras se confirmaba: vuelva a previsualizar el archivo",
                 HttpStatus.CONFLICT
             )
         }

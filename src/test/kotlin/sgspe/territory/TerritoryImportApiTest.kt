@@ -131,6 +131,7 @@ class TerritoryImportApiTest : DomainApiTest() {
         val rejected = confirm(body, project, other, analyst.token)
         assertEquals(HttpStatus.BAD_REQUEST, rejected.status)
         assertEquals(listOf("sha256"), problemFields(rejected.text))
+        assertEquals(listOf("SHA256_MISMATCH"), problemCodes(rejected.text))
         assertEquals(0, tree(send("GET", "/api/objects/project_component/records?project=$project", null, HttpStatus.OK))["totalElements"].asInt())
     }
 
@@ -182,7 +183,9 @@ class TerritoryImportApiTest : DomainApiTest() {
         val project = projectWithCrs()
         val analyst = member("GIS_ANALYST", project)
         val sheet = "pozos.csv" to csv("TST-DDH001;812345;9123456;3100")
-        assertEquals(listOf("file"), problemFields(preview(project, sheet, analyst.token, target = "land_parcel").text))
+        val format = preview(project, sheet, analyst.token, target = "land_parcel")
+        assertEquals(listOf("file"), problemFields(format.text))
+        assertEquals(listOf("FORMAT_NOT_SUPPORTED"), problemCodes(format.text))
         val officer = member("COMMUNITY_RELATIONS_OFFICER", project)
         assertEquals(HttpStatus.FORBIDDEN, preview(project, sheet, officer.token).status)
         assertEquals(
@@ -232,7 +235,7 @@ class TerritoryImportApiTest : DomainApiTest() {
     // gis.md §4.4: el reporte de diferencias se descarga como XLSX; security.md §11.4: un código de la hoja que empieza con
     // «=», «+», «-» o «@» sale como texto. api.md §3.4: un parámetro de consulta desconocido es 422
     @Test
-    fun `el reporte de diferencias en XLSX neutraliza las formulas y un parametro desconocido es 422`() {
+    fun `el reporte de diferencias en XLSX neutraliza las formulas, un parametro desconocido es 422 y demasiadas partes 400`() {
         val project = projectWithCrs()
         val analyst = member("GIS_ANALYST", project)
         val file = "pozos.csv" to csv("=1+2;812345;9123456;3100", "-TST-9;812345;;3100")
@@ -286,6 +289,16 @@ class TerritoryImportApiTest : DomainApiTest() {
             )
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, unknown.status, unknown.text)
         assertEquals(listOf("dryRun"), problemFields(unknown.text))
+        // más partes que spring.webflux.multipart.max-parts (8): un 400 con código, no un 500
+        val crowded =
+            multipart(
+                "/api/sgspe/territory/imports",
+                mapOf("file" to file),
+                (1..9).associate { "extra$it" to "x" },
+                analyst.token
+            )
+        assertEquals(HttpStatus.BAD_REQUEST, crowded.status, crowded.text)
+        assertEquals(listOf("INVALID_MULTIPART"), problemCodes(crowded.text))
     }
 
     // api.md §4.2: decisions es [{row, action}] con APPLY o DISCARD sobre filas válidas del archivo

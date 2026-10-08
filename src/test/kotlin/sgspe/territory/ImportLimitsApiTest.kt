@@ -7,13 +7,12 @@ import org.springframework.http.HttpStatus
 import org.springframework.test.context.TestPropertySource
 import sgspe.DomainApiTest
 
-// security.md §14 «Importaciones» (RQ-SEC-020, ASM-050): un archivo demasiado grande y una lectura que pasa el plazo son
-// 400 sobre file, cada uno con su código, y no escriben nada. límites bajos solo en este contexto, pero realistas: el
-// plazo de 1 s deja pasar una hoja chica y corta una de miles de filas, que hace varias consultas a PostGIS por fila; con
-// una sola importación a la vez, la siguiente solo entra si la cortada soltó su permiso, es decir, si la cancelación llegó
-// hasta la lectura. la bomba zip se prueba sin plazo en ImportFilesTest
+// security.md §14 «Importaciones» (RQ-SEC-020, ASM-050): un archivo demasiado grande es 400 FILE_TOO_LARGE sobre file y no
+// escribe nada, y uno chico pasa con los mismos límites. el plazo es holgado en este contexto (30 s), así que ninguna
+// respuesta depende de la latencia de la base; el plazo vencido se prueba en ImportTimeoutApiTest, con uno mínimo, y la
+// bomba zip, sin plazo, en ImportFilesTest
 @TestPropertySource(
-    properties = ["sgspe.territory.import.max-bytes=65536", "sgspe.territory.import.timeout=1s", "sgspe.territory.import.max-concurrent=1"]
+    properties = ["sgspe.territory.import.max-bytes=65536", "sgspe.territory.import.timeout=30s", "sgspe.territory.import.max-concurrent=1"]
 )
 class ImportLimitsApiTest : DomainApiTest() {
     private fun preview(
@@ -47,21 +46,12 @@ class ImportLimitsApiTest : DomainApiTest() {
     }
 
     @Test
-    fun `una lectura que pasa el tiempo maximo es 400 sobre file y suelta su permiso`() {
+    fun `un archivo dentro de los limites se previsualiza`() {
         val project = projectWithCrs()
         val analyst = member("GIS_ANALYST", project)
-        // 2 800 filas válidas en menos de 64 KB: unas 11 000 consultas a PostGIS, muy por encima de 1 s
-        val rows = "pozos.csv" to ("code;easting;northing\n" + (1..2800).joinToString("\n") { "T$it;812345;9123456" }).toByteArray()
-        assertTrue(rows.second.size < 65536)
+        val rows = "pozos.csv" to ("code;easting;northing\n" + (1..20).joinToString("\n") { "TST-$it;812345;9123456" }).toByteArray()
         val response = preview(project, rows, analyst.token)
-        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.text)
-        assertEquals(listOf("file"), problemFields(response.text))
-        assertEquals(listOf("IMPORT_TIMEOUT"), codes(response.text))
-        assertTrue(response.text.contains("tardó demasiado"), response.text)
-        assertEquals(0, components(project))
-        // la cortada ya no ocupa el único permiso, y una hoja chica cabe en el plazo: el límite no rechaza todo
-        val small = preview(project, "pozo.csv" to "code;easting;northing\nTST-1;812345;9123456".toByteArray(), analyst.token)
-        assertEquals(HttpStatus.OK, small.status, small.text)
-        assertEquals(1, tree(small.text)["valid"].asInt())
+        assertEquals(HttpStatus.OK, response.status, response.text)
+        assertEquals(20, tree(response.text)["valid"].asInt())
     }
 }

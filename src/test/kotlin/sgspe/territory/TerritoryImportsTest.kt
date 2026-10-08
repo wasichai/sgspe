@@ -1,9 +1,12 @@
 package sgspe.territory
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,6 +17,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.io.TempDir
+import org.springframework.core.codec.DecodingException
+import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpStatus
 import wasichai.core.common.WasichaiException
@@ -144,6 +149,60 @@ class TerritoryImportsTest {
             assertTrue(runCatching { gate.admit { error("falla") } }.exceptionOrNull() is IllegalStateException)
             assertEquals("cuarta", gate.admit { "cuarta" })
         }
+    }
+
+    // revisión de la Tarea 18, menor 1: el plazo de la espera puede vencer cuando acquire ya obtuvo el permiso, y
+    // withTimeoutOrNull devuelve null igual. el gancho reproduce esa ventana: obtiene el permiso y sigue, sin poder
+    // cancelarse, hasta después del plazo. el permiso debe usarse y volver, nunca perderse
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    fun `un permiso obtenido justo cuando vence la espera se usa y vuelve, no se pierde`() {
+        var late = true
+        val gate =
+            ImportGate(1, Duration.ofMillis(100)) {
+                if (late) {
+                    late = false
+                    withContext(NonCancellable) { delay(400) }
+                }
+            }
+        runBlocking {
+            assertEquals("primera", gate.admit { "primera" })
+            // con un solo permiso, la segunda solo entra si la primera lo devolvió
+            assertEquals("segunda", gate.admit { "segunda" })
+        }
+    }
+
+    // la confirmación compara, ya con el candado, lo registrado con lo que analizó (preflight I5): id y updatedAt por código
+    @Test
+    fun `lo registrado que cambio entre el analisis y el candado es un conflicto`() {
+        val t0 = java.time.Instant.parse("2026-10-08T10:00:00Z")
+        val analyzed = mapOf("TST-1" to ("a" to t0), "TST-2" to null)
+        assertNull(ImportRules.conflict(analyzed, mapOf("TST-1" to ("a" to t0))))
+        // otro escribió TST-1 después del análisis
+        assertEquals("TST-1", ImportRules.conflict(analyzed, mapOf("TST-1" to ("a" to t0.plusSeconds(1)))))
+        // otro creó TST-2, que el análisis vio como nuevo
+        assertEquals("TST-2", ImportRules.conflict(analyzed, mapOf("TST-1" to ("a" to t0), "TST-2" to ("b" to t0))))
+        // otro borró TST-1
+        assertEquals("TST-1", ImportRules.conflict(analyzed, emptyMap()))
+    }
+
+    // revisión de la Tarea 18, menores 5 y 6: los límites del multipart de Spring son 400 con código, nunca 500
+    @Test
+    fun `los limites del multipart de Spring son 400 con codigo y nombran el tipo de parte`() {
+        val file = ImportUpload.multipartError(DataBufferLimitException("Part exceeded the disk usage limit of 26214400 bytes"), 20L * 1024 * 1024)
+        assertEquals(HttpStatus.BAD_REQUEST, file!!.status)
+        assertEquals("file" to "FILE_TOO_LARGE", codeOf(file))
+        val field =
+            ImportUpload.multipartError(
+                RuntimeException(DataBufferLimitException("Form field value exceeded the memory usage limit of 1048576 bytes")),
+                1024
+            )
+        assertEquals("multipart" to "PART_TOO_LARGE", codeOf(field!!))
+        assertTrue(field.message!!.contains("decisions"), field.message)
+        val parts = ImportUpload.multipartError(DecodingException("Too many parts (8 allowed)"), 1024)
+        assertEquals(HttpStatus.BAD_REQUEST, parts!!.status)
+        assertEquals("multipart" to "INVALID_MULTIPART", codeOf(parts))
+        assertNull(ImportUpload.multipartError(IllegalStateException("otra cosa"), 1024))
     }
 
     @Test
