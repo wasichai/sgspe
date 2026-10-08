@@ -28,53 +28,97 @@ interface DerivedRecalculator {
     ): Int
 }
 
-// JOB-02 (workflows.md): corrige los derivados que un listener no pudo escribir. cada hora sobre lo cambiado desde la
-// vuelta anterior y una vez al día sobre todo. una sola réplica por vuelta (ClusterLock.tryLock); una organización que
-// falla no detiene a las demás. nunca aplica transiciones ni vincula registros (RN-WFL-001).
-// la primera vuelta horaria de cada proceso no tiene vuelta anterior: es completa. si una organización falla, la vuelta
-// no se da por hecha (lastRun no avanza) y la hora siguiente vuelve a mirar desde la última buena
-@Component
-class DerivedFieldsJob(
+// la vuelta de JOB-02 sin candado ni base, para probarla con recalculadores falsos: qué organizaciones recorre, desde
+// cuándo mira y cuándo da la vuelta por buena. `lastRun` solo avanza si ninguna organización falló; si una falla, la
+// hora siguiente vuelve a mirar desde la última vuelta buena, pero nunca desde más atrás de MAX_WINDOW (un fallo
+// permanente no deja crecer la ventana: la vuelta diaria cubre lo más antiguo)
+class DerivedSweep(
     private val recalculators: List<DerivedRecalculator>,
-    private val organizations: Organizations,
-    private val records: Records,
-    private val locks: ClusterLock,
+    private val organizationsHaving: suspend (String) -> List<UUID>,
+    private val asPlatform: suspend (UUID, suspend () -> Int) -> Int,
     private val clock: Clock
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Volatile
-    private var lastRun: Instant? = null
+    var lastRun: Instant? = null
+        private set
+
+    // los registros escritos
+    suspend fun run(full: Boolean): Int {
+        val started = clock.instant()
+        // el traslape cubre la diferencia entre el reloj de este proceso y el de la base, que es quien fecha updated_at
+        val since = if (full) null else lastRun?.let { maxOf(it.minus(OVERLAP), started.minus(MAX_WINDOW)) }
+        var written = 0
+        var failed = false
+        for (recalculator in recalculators) {
+            val name = recalculator.javaClass.simpleName
+            val organizations =
+                try {
+                    organizationsHaving(recalculator.sourceObject)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failed = true
+                    log.error("DerivedFieldsJob: {} no pudo listar las organizaciones de {}", name, recalculator.sourceObject, e)
+                    continue
+                }
+            for (organization in organizations) {
+                try {
+                    written += asPlatform(organization) { recalculator.recalculate(organization, since) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failed = true
+                    log.error("DerivedFieldsJob: {} falló en la organización {}", name, organization, e)
+                }
+            }
+        }
+        if (!failed) lastRun = started
+        return written
+    }
+
+    companion object {
+        private val OVERLAP: Duration = Duration.ofMinutes(2)
+        private val MAX_WINDOW: Duration = Duration.ofHours(25)
+    }
+}
+
+// JOB-02 (workflows.md): corrige los derivados que un listener no pudo escribir. cada hora sobre lo cambiado desde la
+// vuelta anterior y una vez al día sobre todo. una sola réplica por vuelta (ClusterLock.tryLock); una organización que
+// falla no detiene a las demás. nunca aplica transiciones ni vincula registros (RN-WFL-001).
+// la primera vuelta horaria de cada proceso no tiene vuelta anterior: es completa. si una organización falla, la vuelta
+// no se da por hecha (lastRun no avanza) y la hora siguiente vuelve a mirar desde la última buena (DerivedSweep)
+@Component
+class DerivedFieldsJob(
+    recalculators: List<DerivedRecalculator>,
+    organizations: Organizations,
+    records: Records,
+    private val locks: ClusterLock,
+    clock: Clock
+) {
+    private val sweep =
+        DerivedSweep(
+            recalculators,
+            { organizations.having(it) },
+            { organization, block -> records.asPlatform(organization, block) },
+            clock
+        )
 
     // los registros escritos; null si otra réplica tenía el candado
     suspend fun runOnce(full: Boolean): Int? {
-        val started = clock.instant()
-        // el traslape cubre la diferencia entre el reloj de este proceso y el de la base, que es quien fecha updated_at
-        val since = if (full) null else lastRun?.minus(OVERLAP)
         val lease = locks.tryLock(LOCK) ?: return null
-        return lease.use {
-            var written = 0
-            var failed = false
-            for (recalculator in recalculators) {
-                for (organization in organizations.having(recalculator.sourceObject)) {
-                    try {
-                        written += records.asPlatform(organization) { recalculator.recalculate(organization, since) }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        failed = true
-                        log.error("DerivedFieldsJob: {} falló en la organización {}: {}", recalculator.javaClass.simpleName, organization, e.message)
-                    }
-                }
-            }
-            if (!failed) lastRun = started
-            written
-        }
+        return lease.use { sweep.run(full) }
     }
 
     companion object {
         const val LOCK = "sgspe.derived-fields"
-        private val OVERLAP: Duration = Duration.ofMinutes(2)
+
+        // el trabajo que firma cada escritura de un recalculador (RQ-AUD-007, security.md §13.2): el motivo de un derivado
+        // que escribe JOB-02 es «derivado: <regla> (JOB-02 DerivedFieldsJob)». cada DerivedRecalculator lo arma aquí
+        const val NAME = "JOB-02 DerivedFieldsJob"
+
+        fun reason(rule: String): String = "derivado: $rule ($NAME)"
     }
 }
 

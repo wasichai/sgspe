@@ -69,10 +69,16 @@ class AttendanceCountsApiTest : DomainApiTest() {
         participant(engagement, attributes = mapOf("represented_people_count" to 4))
         damageTotal(engagement)
         assertEquals(99, total(engagement))
+        val stateBefore = state("engagement", engagement)
         assertNotNull(runBlocking { job.runOnce(full = true) }, "otro nodo o la programación tenía el candado")
         assertEquals(4, total(engagement))
+        // JOB-02 nunca aplica transiciones (RN-WFL-001)
+        assertEquals(stateBefore, state("engagement", engagement))
         val history = tree(send("GET", "/api/objects/engagement/records/$engagement/history", null, HttpStatus.OK))
-        assertEquals("derivado: conteos de asistentes", history.values().first()["reason"].asString())
+        // la escritura del trabajo nombra al trabajo (RQ-AUD-007); la del listener, al alta del participante, no
+        assertEquals("derivado: conteos de asistentes (JOB-02 DerivedFieldsJob)", history.values().first()["reason"].asString())
+        assertEquals(DerivedFieldsJob.reason("conteos de asistentes"), AttendanceCountsRecalculator.REASON)
+        assertEquals(AttendanceCountsWriter.REASON, history.values().map { it["reason"].asString() }.last { it.startsWith("derivado") })
     }
 
     @Test

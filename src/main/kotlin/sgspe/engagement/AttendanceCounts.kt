@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import sgspe.common.Criteria
+import sgspe.common.DerivedFieldsJob
 import sgspe.common.DerivedRecalculator
 import sgspe.common.Records
 import sgspe.common.Transactions
@@ -80,8 +81,11 @@ class AttendanceCountsWriter(
     private val records: Records,
     private val transactions: Transactions
 ) {
-    // true si escribió
-    suspend fun refresh(engagement: UUID): Boolean =
+    // true si escribió. reason: el motivo de la historia; el listener manda REASON y JOB-02 el que nombra al trabajo
+    suspend fun refresh(
+        engagement: UUID,
+        reason: String
+    ): Boolean =
         transactions.locked("${EngagementWriteGuard.ENGAGEMENT}:$engagement") {
             val current = records.find(EngagementWriteGuard.ENGAGEMENT, engagement)
             if (current == null) {
@@ -92,7 +96,7 @@ class AttendanceCountsWriter(
                 if (changes.isEmpty()) {
                     false
                 } else {
-                    records.patch(EngagementWriteGuard.ENGAGEMENT, engagement, changes, REASON)
+                    records.patch(EngagementWriteGuard.ENGAGEMENT, engagement, changes, reason)
                     true
                 }
             }
@@ -121,11 +125,11 @@ class AttendanceCountsListener(
         val engagements = setOfNotNull(Records.uuid(change.before?.get("engagement")), Records.uuid(change.after?.get("engagement")))
         for (engagement in engagements) {
             try {
-                writer.refresh(engagement)
+                writer.refresh(engagement, AttendanceCountsWriter.REASON)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                log.warn("AttendanceCountsListener: no se actualizaron los conteos de la interacción {}: {}", engagement, e.message)
+                log.warn("AttendanceCountsListener: no se actualizaron los conteos de la interacción {}", engagement, e)
             }
         }
     }
@@ -159,15 +163,20 @@ class AttendanceCountsRecalculator(
         var failed = 0
         for (engagement in engagements) {
             try {
-                if (writer.refresh(engagement)) written++
+                if (writer.refresh(engagement, REASON)) written++
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 failed++
-                log.warn("AttendanceCountsRecalculator: no se recalcularon los conteos de la interacción {}: {}", engagement, e.message)
+                log.warn("AttendanceCountsRecalculator: no se recalcularon los conteos de la interacción {}", engagement, e)
             }
         }
         check(failed == 0) { "no se recalcularon los conteos de $failed de ${engagements.size} interacciones (se escribieron $written)" }
         return written
+    }
+
+    companion object {
+        // JOB-02 firma sus escrituras: «derivado: conteos de asistentes (JOB-02 DerivedFieldsJob)»
+        val REASON = DerivedFieldsJob.reason("conteos de asistentes")
     }
 }
