@@ -25,6 +25,15 @@ wasichai:
       # solo para desarrollo. producción exige WASICHAI_JWT_SECRET (>= 32 bytes) sin valor por defecto (application-prod.yml)
       secret: ${WASICHAI_JWT_SECRET:sgspe-dev-only-secret-change-me-0123456789}
 
+sgspe:
+  jobs:
+    # trabajos de fondo (JOB-02, DerivedFieldsJob). false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
+    enabled: ${SGSPE_JOBS_ENABLED:true}
+    derived-fields:
+      # cron de Spring (segundos primero), en America/Lima
+      hourly-cron: '0 15 * * * *'
+      daily-cron: '0 45 3 * * *'
+
 management:
   endpoint:
     health:

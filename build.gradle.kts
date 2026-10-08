@@ -62,6 +62,9 @@ tasks.named<Test>("test") {
     inputs.dir("src/main/kotlin")
     // files, no file: tolera que roles.json no exista; file falla en Gradle 9.8 si el archivo falta
     inputs.files("model/roles.json")
+    // la programación de los trabajos (DerivedFieldsSchedule) no corre en las pruebas: competiría por el candado de clúster
+    // con runOnce y recorrería los tenants de la base compartida. las pruebas de un trabajo llaman a runOnce
+    systemProperty("sgspe.jobs.enabled", "false")
     // un shell con develop/.env cargado trae estas variables: ProdStartupTest prueba el perfil prod con sus propios valores y
     // una variable de entorno gana a lo que él fija, así que el JVM de las pruebas no las ve
     for (name in listOf("WASICHAI_JWT_SECRET", "WASICHAI_SEED_DEV", "WASICHAI_SECURITY_JWT_TTL")) {
@@ -80,6 +83,8 @@ tasks.register<Test>("integrationTest") {
     }
     // la imagen del compose desde F1 (architecture.md §5.1); una base externa (WASICHAI_TEST_DB_*) ya la tiene
     systemProperty("wasichai.test.db.image", "postgis/postgis:18-3.6")
+    // sin programación de trabajos: una vuelta programada con el candado de clúster haría que runOnce devolviera null
+    systemProperty("sgspe.jobs.enabled", "false")
     // -Dmatrix.roles=FIELD_AGENT,GIS_ANALYST recorta la matriz de permisos a esos roles (PermissionMatrixApiTest)
     System.getProperty("matrix.roles")?.let { systemProperty("matrix.roles", it) }
     // la app registra en stdout; stderr lleva solo lo que una prueba reporta
