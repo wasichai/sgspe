@@ -386,12 +386,12 @@
         {"name": "owner_user_id", "label": "Responsable", "type": "UUID", "description": "Responsable (ASM-023)."},
         {"name": "owner_user_email", "label": "Correo del responsable", "type": "EMAIL", "description": "Correo del responsable."},
         {"name": "profile_summary", "label": "Perfil del grupo de interés", "type": "LONG_TEXT", "description": "Perfil del grupo de interés."},
-        {"name": "stance", "label": "Postura de la última evaluación", "type": "ENUM", "enum": "stance", "derived": true, "description": "(derivado) (restringido) Último valor informado de la postura."},
+        {"name": "stance", "label": "Postura vigente", "type": "ENUM", "enum": "stance", "derived": true, "description": "(derivado) (restringido) Postura vigente: último valor informado de la postura."},
         {"name": "influence_group", "label": "Grupo de influencia de la última evaluación", "type": "ENUM", "enum": "influence_group", "derived": true, "description": "(derivado) Grupo de influencia de la última evaluación."},
         {"name": "information_priority", "label": "Prioridad informativa", "type": "ENUM", "enum": "information_priority", "derived": true, "description": "(derivado) Prioridad que resulta de la matriz de priorización."},
         {"name": "interest_index", "label": "Índice de interés de la última evaluación", "type": "DECIMAL", "derived": true, "description": "(derivado) Índice de interés de la última evaluación."},
         {"name": "power_index", "label": "Índice de poder de la última evaluación", "type": "DECIMAL", "derived": true, "description": "(derivado) Índice de poder de la última evaluación."},
-        {"name": "trust_score", "label": "Confianza de la última evaluación", "type": "INTEGER", "derived": true, "description": "(derivado) Último valor informado de la confianza."},
+        {"name": "trust_score", "label": "Confianza vigente", "type": "INTEGER", "derived": true, "description": "(derivado) Confianza vigente: último valor informado de la confianza."},
         {"name": "last_assessment_date", "label": "Fecha de la última evaluación", "type": "DATE", "derived": true, "description": "(derivado) Fecha de la última evaluación."},
         {"name": "last_contact_date", "label": "Fecha del último contacto", "type": "DATE", "derived": true, "description": "(derivado) Fecha (America/Lima) de la última interacción realizada con él."}
       ]
