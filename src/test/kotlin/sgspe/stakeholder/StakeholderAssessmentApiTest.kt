@@ -60,6 +60,8 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
         listOfNotNull(why?.let { REASON to reason(it) }).toMap() + headers
     )
 
+    private fun warningCodes(body: String): List<String> = tree(body)["warnings"].values().map { it["code"].asString() }
+
     private fun assessments(stakeholder: String): Int =
         tree(send("GET", "/api/objects/stakeholder_assessment/records?stakeholder=$stakeholder", null, HttpStatus.OK))["totalElements"].asInt()
 
@@ -246,6 +248,37 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
         assertEquals("NEUTRAL", current["stance"].asString())
         assertEquals("MEDIA", current["information_priority"].asString())
         assertEquals("2026-05-10", current["last_assessment_date"].asString())
+    }
+
+    // NO_PRIORITY_RULE de una atrasada habla de la prioridad que queda en el grupo de interés (grupo y postura vigentes), no
+    // de la que saldría con los datos de la atrasada
+    @Test
+    fun `NO_PRIORITY_RULE de una evaluacion atrasada mira la prioridad vigente y no la de la atrasada`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        createRecord(
+            "prioritization_rule",
+            mapOf(
+                "project" to project,
+                "influence_group" to "PARA MONITOREO",
+                "stance" to "EN CONTRA",
+                "stakeholder_scope" to "AIDS",
+                "information_priority" to "ALTA"
+            )
+        )
+        val low = indicators.mapValues { 1 }
+        // vigente con regla (PARA MONITOREO y EN CONTRA); la atrasada calcula otro grupo (VULNERABLE) que no tiene regla
+        val withRule = profiled(project, manager)
+        assess(withRule, indicators + mapOf("assessment_date" to "2026-05-10", "basis" to "ENTREVISTA", "stance" to "EN CONTRA"), manager.token)
+        val backdatedLow = assess(withRule, low + mapOf("assessment_date" to "2026-05-01", "basis" to "ENTREVISTA"), manager.token)
+        assertEquals(listOf("BACKDATED_ASSESSMENT"), warningCodes(backdatedLow.body))
+        assertEquals("ALTA", record("stakeholder", withRule)["attributes"]["information_priority"].asString())
+        // vigente sin regla (VULNERABLE); la atrasada calcula PARA MONITOREO y EN CONTRA, que sí la tiene
+        val withoutRule = profiled(project, manager)
+        assess(withoutRule, low + mapOf("assessment_date" to "2026-05-10", "basis" to "ENTREVISTA", "stance" to "EN CONTRA"), manager.token)
+        val backdatedRule =
+            assess(withoutRule, indicators + mapOf("assessment_date" to "2026-05-01", "basis" to "ENTREVISTA", "stance" to "EN CONTRA"), manager.token)
+        assertEquals(listOf("BACKDATED_ASSESSMENT", "NO_PRIORITY_RULE"), warningCodes(backdatedRule.body))
     }
 
     @Test

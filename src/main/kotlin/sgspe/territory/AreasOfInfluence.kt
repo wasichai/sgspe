@@ -36,7 +36,7 @@ data class AreaApproval(
     val superseded: RecordResponse?
 )
 
-// la aprobación de una versión del área de influencia (RN-TER-003, WF-O, api.md §4.3): en una transacción lleva la versión
+// la aprobación de una versión del área de influencia (RN-TER-003, WF-O, api.md §4.2): en una transacción lleva la versión
 // en `draft` a `approved` y la aprobada anterior del mismo proyecto y tipo a `superseded`, que se conserva. las dos son
 // transiciones de comando: por la API genérica, CommandTransitionGuard las rechaza; aquí se aplican con la marca y como
 // quien llama (nunca asPlatform dentro de una petición). doble llave: UPDATE y la acción declarada APPROVE sobre el área, y
@@ -134,7 +134,7 @@ class AreasOfInfluence(
     }
 }
 
-// api.md §4.3. Idempotency-Key se acepta y se ignora en F2 (§3.5)
+// api.md §4.2. Idempotency-Key se acepta y se ignora en F2 (§3.5)
 @RestController
 @RequestMapping("/api/sgspe/areas-of-influence")
 class AreasOfInfluenceController(

@@ -27,10 +27,30 @@ class StakeholderWorkflowGuardsApiTest : DomainApiTest() {
         val response = transition("stakeholder", stakeholder, "profile", manager.token)
         assertEquals(HttpStatus.CONFLICT, response.status)
         assertEquals(listOf("stakeholder_type"), problemFields(response.body))
+        assertEquals("PROFILE_INCOMPLETE", code(response.body))
         assertEquals(listOf("reason"), problemFields(transition("stakeholder", stakeholder, "retire_identified", manager.token).body))
         move("stakeholder", stakeholder, "retire_identified", manager.token, "duplicado de otro registro")
         assertEquals(listOf("reason"), problemFields(transition("stakeholder", stakeholder, "reinstate", manager.token).body))
         move("stakeholder", stakeholder, "reinstate", manager.token, "se separó de la organización")
+    }
+
+    // P15: el código va en errors[0].message
+    private fun code(body: String): String = tree(body)["errors"][0]["message"].asString()
+
+    @Test
+    fun `caracterizar nombra el primer dato que falta, sea el ambito, el motivo o el responsable`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        listOf("stakeholder_scope", "inclusion_reason", "owner_user_id").forEach { missing ->
+            // el responsable es id y correo juntos (UserReferenceGuard): falta si faltan los dos
+            val cleared = if (missing == "owner_user_id") mapOf(missing to null, "owner_user_email" to null) else mapOf(missing to null)
+            val stakeholder = stakeholder(project, profileFields(manager) + cleared)
+            val response = transition("stakeholder", stakeholder, "profile", manager.token)
+            assertEquals(HttpStatus.CONFLICT, response.status, "$missing: ${response.body}")
+            assertEquals(listOf(missing), problemFields(response.body), missing)
+            assertEquals("PROFILE_INCOMPLETE", code(response.body), missing)
+            assertEquals("identified", state("stakeholder", stakeholder), missing)
+        }
     }
 
     @Test
@@ -44,7 +64,24 @@ class StakeholderWorkflowGuardsApiTest : DomainApiTest() {
             )
         assertEquals(HttpStatus.BAD_REQUEST, vigente.status)
         assertEquals(listOf("position_status"), problemFields(vigente.body))
+        assertEquals("POSITION_WITHOUT_PERSON", code(vigente.body))
         createRecord("position", mapOf("organization" to organization, "position_title" to "Presidente", "position_status" to "VACANTE"))
+    }
+
+    // el PUT reemplaza el registro: quitarle la persona a un cargo VIGENTE lo deja sin persona
+    @Test
+    fun `quitar la persona a un cargo VIGENTE por PUT es 400, y a uno VACANTE no`() {
+        val organization = organization()
+        val vigente =
+            createRecord(
+                "position",
+                mapOf("organization" to organization, "person" to person(), "position_title" to "Presidente", "position_status" to "VIGENTE")
+            )
+        val response = edit("position", vigente, mapOf("person" to null))
+        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+        assertEquals(listOf("position_status"), problemFields(response.body))
+        assertEquals("POSITION_WITHOUT_PERSON", code(response.body))
+        assertEquals(HttpStatus.OK, edit("position", vigente, mapOf("person" to null, "position_status" to "VACANTE")).status)
     }
 
     @Test
@@ -59,8 +96,35 @@ class StakeholderWorkflowGuardsApiTest : DomainApiTest() {
                 "information_priority" to "MUY ALTA"
             )
         createRecord("prioritization_rule", row)
-        assertEquals(HttpStatus.CONFLICT, exchange("POST", "/api/objects/prioritization_rule/records", mapOf("attributes" to row)).status)
+        val duplicate = exchange("POST", "/api/objects/prioritization_rule/records", mapOf("attributes" to row))
+        assertEquals(HttpStatus.CONFLICT, duplicate.status)
+        assertEquals(listOf("stakeholder_type"), problemFields(duplicate.body))
+        assertEquals("DUPLICATE_RULE", code(duplicate.body))
         createRecord("prioritization_rule", row + ("stakeholder_type" to "AUTORIDAD LOCAL"))
+    }
+
+    @Test
+    fun `una regla que pierde su tipo con una gemela sin tipo es 409, y la misma combinacion en otro proyecto se permite`() {
+        val project = projectWithCrs()
+        val row =
+            mapOf(
+                "project" to project,
+                "influence_group" to "ESTRATEGICO",
+                "stance" to "EN CONTRA",
+                "stakeholder_scope" to "AIDS",
+                "information_priority" to "MUY ALTA"
+            )
+        createRecord("prioritization_rule", row)
+        val typed = createRecord("prioritization_rule", row + ("stakeholder_type" to "AUTORIDAD LOCAL"))
+        // la fila con tipo pasa a ser de cualquier tipo: choca con la gemela
+        val response = edit("prioritization_rule", typed, mapOf("stakeholder_type" to null))
+        assertEquals(HttpStatus.CONFLICT, response.status, response.body)
+        assertEquals("DUPLICATE_RULE", code(response.body))
+        // editar la prioridad de la propia fila sin tipo no choca consigo misma
+        val untyped = createRecord("prioritization_rule", row + ("stance" to "A FAVOR"))
+        assertEquals(HttpStatus.OK, edit("prioritization_rule", untyped, mapOf("information_priority" to "ALTA")).status)
+        // el filtro es por proyecto: otro proyecto repite la combinación sin problema
+        createRecord("prioritization_rule", row + ("project" to projectWithCrs()))
     }
 
     // un grupo de interés evaluado por el endpoint, que es la única puerta a assessed

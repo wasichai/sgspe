@@ -99,6 +99,21 @@ class InfluenceClassifierTest {
         assertEquals(BigDecimal("4.45"), scores.influenceScore)
     }
 
+    // el empate del redondeo es HALF_UP: afectación (1,2,2) da 1,6667 y se guarda 1,67; con oportunidad 3,00 el promedio de los
+    // guardados es 2,335, que sube a 2,34 (HALF_EVEN o HALF_DOWN darían 2,33)
+    @Test
+    fun `el empate en la tercera cifra del indice sube (HALF_UP)`() {
+        val indicators =
+            mapOf("affect_environment" to 1, "affect_livelihood" to 2, "affect_property_status" to 2) +
+                mapOf("opportunity_work" to 3, "opportunity_development" to 3, "opportunity_benefits" to 3) +
+                mapOf("power_legal_action" to 1)
+        val scores = InfluenceClassifier.scores(indicators)!!
+        assertEquals(BigDecimal("1.67"), scores.components["interest_affectation"])
+        assertEquals(BigDecimal("3.00"), scores.components["interest_opportunity"])
+        assertEquals(BigDecimal("2.34"), scores.interestIndex)
+        assertEquals(BigDecimal("3.34"), scores.influenceScore)
+    }
+
     @Test
     fun `sin indicadores o todos nulos no hay calculo`() {
         assertNull(InfluenceClassifier.scores(emptyMap()))

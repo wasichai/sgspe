@@ -20,7 +20,12 @@ import wasichai.core.data.RecordWrite
 // compuesto no lo impide con NULL (RF-STK-011, WAS-ADR-0037).
 // `profile` mira solo lo guardado del grupo de interés (tipo, ámbito, motivo, responsable), nunca `stance`, que algunos
 // roles no pueden leer. las filas hermanas de la matriz se leen como quien llama, no con asPlatform: quien no puede leerlas
-// no puede verificar la regla, y es un 403 que lo dice (como EngagementWriteGuard) y no un falso verde
+// no puede verificar la regla, y es un 403 que lo dice (como EngagementWriteGuard) y no un falso verde.
+// límite de la verificación de duplicados: leer las gemelas y escribir no es atómico, y la guarda no toma candado. dos altas
+// (o dos PUT) simultáneas de la misma combinación sin tipo pueden pasar las dos, porque ninguna ve a la otra sin confirmar y
+// el único compuesto no atrapa NULL. se acepta en F2: la matriz la editan pocos roles y casi nunca, y Prioritizer resuelve un
+// empate de forma determinista (la primera por id). si se endurece, Transactions.locked("prioritization_rule:<proyecto>")
+// como AttendanceCountsWriter
 @Component
 @Order(GuardOrder.DOMAIN)
 class StakeholderWriteGuard(

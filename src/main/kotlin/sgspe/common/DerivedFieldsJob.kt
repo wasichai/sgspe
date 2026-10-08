@@ -14,7 +14,8 @@ import java.util.UUID
 
 // un recalculador de campos derivados de un paquete (domain-model §7.4): calcula desde cero a partir de sus fuentes,
 // nunca por incremento, y escribe solo si el valor cambió (un valor igual no toca updatedAt ni deja historia), con la
-// marca y el motivo «derivado: <regla>». corre dentro de RecordService.asPlatform de una organización; cada registro que
+// marca y el motivo «derivado: <regla>» más, en las escrituras de JOB-02, el sufijo « (JOB-02 DerivedFieldsJob)»
+// (DerivedFieldsJob.reason). corre dentro de RecordService.asPlatform de una organización; cada registro que
 // cambia lo escribe dentro de Transactions.locked("<objeto>:<id>"). since: los registros fuente cambiados desde ese
 // instante; null, todos. devuelve los registros que escribió; si algún registro falla lo intenta con los demás y al
 // final lanza, para que el trabajo no dé la vuelta por buena

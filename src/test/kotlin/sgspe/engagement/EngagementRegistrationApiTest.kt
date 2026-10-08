@@ -1,6 +1,7 @@
 package sgspe.engagement
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.DomainApiTest
@@ -41,6 +42,8 @@ class EngagementRegistrationApiTest : DomainApiTest() {
         participant(engagement, agent.token, mapOf("represented_people_count" to 12, "sex" to "FEMENINO", "participant_scope" to "AIDS"))
         participant(engagement, agent.token, mapOf("represented_people_count" to 8, "sex" to "MASCULINO", "participant_scope" to "AIDS"))
         createRecord("engagement_question", mapOf("engagement" to engagement, "question_text" to "¿Y el agua?", "topic" to topic), token = agent.token)
+        // los conteos movieron updatedAt: sin esto la prueba pasaría sin ejercer la tolerancia del If-Match
+        assertNotEquals(created["updatedAt"].asString(), record("engagement", engagement)["updatedAt"].asString())
         val held =
             transitionWith(
                 "engagement",

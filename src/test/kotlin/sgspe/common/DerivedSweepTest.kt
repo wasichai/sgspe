@@ -63,17 +63,18 @@ class DerivedSweepTest {
 
     @Test
     fun `una vuelta con un fallo no avanza lastRun, y una organizacion que falla no detiene a las demas`() {
-        val fake = Fake("engagement", failIn = setOf(orgA))
+        val failing = mutableSetOf(orgA)
+        val fake = Fake("engagement", failIn = failing)
         val sweep = sweep(fake)
         assertEquals(1, runBlocking { sweep.run(full = false) })
         assertEquals(listOf(orgA, orgB), fake.calls.map { it.first })
         assertNull(sweep.lastRun)
-        // la siguiente sigue mirando desde el principio (no hubo vuelta buena) y, al salir bien, lastRun avanza
+        // la siguiente, ya sin el fallo, sigue mirando desde el principio (no hubo vuelta buena) y lastRun avanza
+        failing.clear()
         clock.now = start.plusSeconds(3600)
-        val healthy = Fake("engagement")
-        val next = sweep(healthy)
-        runBlocking { next.run(full = false) }
-        assertEquals(clock.now, next.lastRun)
+        assertEquals(2, runBlocking { sweep.run(full = false) })
+        assertEquals(listOf(null, null), fake.calls.takeLast(2).map { it.second })
+        assertEquals(clock.now, sweep.lastRun)
     }
 
     @Test

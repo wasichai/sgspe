@@ -72,7 +72,7 @@ object AttendanceCounts {
 }
 
 // recalcula y escribe los conteos de una interacción con Records (la marca SgspeWrite y el motivo «derivado: conteos de
-// asistentes»), como quien escribió o como la plataforma. escribe solo si algún conteo cambia: una escritura igual
+// asistentes»; JOB-02 le añade el sufijo «(JOB-02 DerivedFieldsJob)»), como quien escribió o como la plataforma. escribe solo si algún conteo cambia: una escritura igual
 // subiría updatedAt y dejaría una historia vacía, y el If-Match de la persona que edita la interacción fallaría sin
 // conflicto real. la lectura y la escritura van dentro de Transactions.locked("engagement:<id>"): dos participantes que
 // entran a la vez se cuentan los dos

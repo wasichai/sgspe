@@ -57,6 +57,35 @@ object FollowUp {
     }
 }
 
+// la vuelta de JOB-03 sin candado ni base, para probar su aislamiento con un doble: recorre las organizaciones, una que
+// falla se registra con su excepción y no detiene a las demás, y al final lanza si alguna falló (el valor que devolvería se
+// pierde, pero ya quedó en el registro)
+class FollowUpSweep(
+    private val organizationsHaving: suspend () -> List<UUID>,
+    private val asPlatform: suspend (UUID, suspend () -> Int) -> Int,
+    private val followUp: suspend (UUID) -> Int
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    // los grupos de interés escritos
+    suspend fun run(): Int {
+        var written = 0
+        val failed = mutableListOf<UUID>()
+        for (organization in organizationsHaving()) {
+            try {
+                written += asPlatform(organization) { followUp(organization) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed += organization
+                log.error("StakeholderFollowUpJob falló en la organización {}", organization, e)
+            }
+        }
+        check(failed.isEmpty()) { "StakeholderFollowUpJob falló en ${failed.size} organizaciones: $failed (se escribieron $written grupos de interés)" }
+        return written
+    }
+}
+
 // JOB-03 StakeholderFollowUpJob (workflows.md): una vez al día, como la plataforma de cada organización, mantiene
 // last_contact_date de cada grupo de interés (la fecha en Lima del held_at más reciente de sus interacciones realizadas,
 // vinculadas por engagement_stakeholder o por un participante con attended) y aplica la regla de primer contacto. calcula
@@ -64,7 +93,8 @@ object FollowUp {
 // listener, para que cerrar una interacción no exija escribir el grupo de interés. nunca mueve WF-B. las tareas de
 // evaluación periódica y de inactividad llegan en F3, con `task`.
 // una sola réplica por vuelta (ClusterLock.tryLock); una organización o un grupo de interés que falla no detiene a los
-// demás: se registra con su excepción y el resto sigue, y la vuelta del día siguiente lo vuelve a intentar. cada grupo de
+// demás: se registra con su excepción y el resto sigue, la vuelta lanza al final (FollowUpSweep) y la del día siguiente lo
+// vuelve a intentar. cada grupo de
 // interés que cambia se relee y se escribe dentro de Transactions.locked("stakeholder:<id>"), y solo si algún valor cambia
 // (un valor igual no toca updatedAt ni deja historia)
 @Component
@@ -76,22 +106,18 @@ class StakeholderFollowUpJob(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // los grupos de interés escritos; null si otra réplica tenía el candado
+    private val sweep =
+        FollowUpSweep(
+            { organizations.having(STAKEHOLDER) },
+            { organization, block -> records.asPlatform(organization, block) },
+            ::followUp
+        )
+
+    // los grupos de interés escritos; null si otra réplica tenía el candado. si alguna organización o algún grupo de interés
+    // falla, los demás se procesan y al final lanza (como JOB-02), para que el fallo se vea y no solo quede en el log
     suspend fun runOnce(): Int? {
         val lease = locks.tryLock(LOCK) ?: return null
-        return lease.use {
-            var written = 0
-            for (organization in organizations.having(STAKEHOLDER)) {
-                try {
-                    written += records.asPlatform(organization) { followUp(organization) }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    log.error("StakeholderFollowUpJob falló en la organización {}", organization, e)
-                }
-            }
-            written
-        }
+        return lease.use { sweep.run() }
     }
 
     private suspend fun followUp(organization: UUID): Int {
@@ -109,9 +135,10 @@ class StakeholderFollowUpJob(
         val contacts = FollowUp.latest(interactions)
         var written = 0
         var failed = 0
-        for (stakeholder in records.all(STAKEHOLDER)) {
+        val stakeholders = records.all(STAKEHOLDER)
+        for (stakeholder in stakeholders) {
             try {
-                if (refresh(UUID.fromString(stakeholder.id), contacts[stakeholder.id])) written++
+                if (refresh(stakeholder.id, stakeholder.attributes, contacts[stakeholder.id])) written++
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -119,26 +146,31 @@ class StakeholderFollowUpJob(
                 log.error("StakeholderFollowUpJob: no se actualizó el grupo de interés {}", stakeholder.id, e)
             }
         }
-        if (failed > 0) log.warn("StakeholderFollowUpJob: {} grupos de interés sin actualizar en la organización {}", failed, organization)
+        check(failed == 0) { "no se actualizaron $failed de ${stakeholders.size} grupos de interés de la organización $organization (se escribieron $written)" }
         return written
     }
 
-    // true si escribió. relee el grupo de interés bajo el candado: si una persona lo cambió mientras tanto, se parte de lo
-    // guardado ahora
+    // true si escribió. calcula los cambios con lo que ya se leyó: casi ningún grupo de interés cambia cada noche, y ese no
+    // paga el candado ni la relectura. si hay cambios, relee bajo el candado y los calcula otra vez: si una persona lo cambió
+    // mientras tanto, se parte de lo guardado ahora
     private suspend fun refresh(
-        id: UUID,
+        id: String,
+        read: Map<String, Any?>,
         lastContact: LocalDate?
-    ): Boolean =
-        transactions.locked("$STAKEHOLDER:$id") {
-            val current = records.find(STAKEHOLDER, id)
+    ): Boolean {
+        if (FollowUp.changes(read, lastContact).isEmpty()) return false
+        val uuid = UUID.fromString(id)
+        return transactions.locked("$STAKEHOLDER:$id") {
+            val current = records.find(STAKEHOLDER, uuid)
             val changes = if (current == null) emptyMap() else FollowUp.changes(current.attributes, lastContact)
             if (changes.isEmpty()) {
                 false
             } else {
-                records.patch(STAKEHOLDER, id, changes, REASON)
+                records.patch(STAKEHOLDER, uuid, changes, REASON)
                 true
             }
         }
+    }
 
     companion object {
         const val LOCK = "sgspe.stakeholder-follow-up"

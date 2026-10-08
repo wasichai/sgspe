@@ -1,9 +1,7 @@
 package sgspe.stakeholder
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import sgspe.engagement.EngagementWriteGuard
 import java.time.LocalDate
 
 // JOB-03: last_contact_date y la regla de primer contacto (ASM-032), sin tocar un estado que una persona cambió
@@ -51,9 +49,18 @@ class FollowUpTest {
         assertEquals(null, FollowUp.dateOf(" "))
     }
 
+    // una interacción que se desvincula deja al grupo de interés sin fecha: se escribe null y el estado no se toca
     @Test
-    fun `una interaccion realizada son los estados de la guarda de interacciones`() {
-        assertTrue("held" in EngagementWriteGuard.HELD_STATES && "planned" !in EngagementWriteGuard.HELD_STATES)
+    fun `una fecha que pasa a nula se vacia y el estado no se toca`() {
+        assertEquals(
+            mapOf("last_contact_date" to null),
+            FollowUp.changes(mapOf("last_contact_date" to "2026-05-12", "relationship_status" to "CONTACTO ESTABLECIDO"), null)
+        )
+        assertEquals(
+            mapOf("last_contact_date" to null),
+            FollowUp.changes(mapOf("last_contact_date" to "2026-05-12", "relationship_status" to "SIN CONTACTO"), null)
+        )
+        assertEquals(emptyMap<String, Any?>(), FollowUp.changes(mapOf("relationship_status" to "SIN CONTACTO"), null))
     }
 
     @Test

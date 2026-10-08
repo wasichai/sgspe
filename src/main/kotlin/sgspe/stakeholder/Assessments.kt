@@ -177,6 +177,11 @@ class Assessments(
                 Values.text(attributes["stakeholder_scope"]),
                 Values.text(attributes["stakeholder_type"])
             )
+        // los valores vigentes (P18): la postura y la confianza son el último valor informado de cada una, en el orden de las
+        // fechas, con esta evaluación incluida; el resto sale de la última evaluación y no cambia si esta es atrasada
+        val timeline = history.map { Values.text(it.first.attributes["stance"]) to Values.decimal(it.first.attributes["trust_score"])?.toInt() }.toMutableList()
+        timeline.add(history.count { it.second <= date }, input.stance to input.trustScore)
+        val currentStance = timeline.lastOrNull { it.first != null }?.first
         val warnings = mutableListOf<AssessmentWarning>()
         if (stanceChanged) {
             // «cercanas»: la línea base de la postura cae dentro de la ventana (api.md §4.3, M9 del pre-flight)
@@ -192,7 +197,21 @@ class Assessments(
                     "Hay evaluaciones posteriores: esta no cambia los índices ni el grupo vigentes; la postura y la confianza siguen el último valor informado"
                 )
         }
-        if (priority == null) {
+        // la prioridad vigente: la de esta evaluación si es la última; si es atrasada, la que sigue al grupo vigente con la postura
+        // vigente (la de la evaluación atrasada no es la que queda en el grupo de interés)
+        val currentPriority =
+            if (latest) {
+                priority
+            } else {
+                Prioritizer.priority(
+                    rules,
+                    Values.text(attributes["influence_group"]),
+                    currentStance,
+                    Values.text(attributes["stakeholder_scope"]),
+                    Values.text(attributes["stakeholder_type"])
+                )
+            }
+        if (currentPriority == null) {
             warnings += AssessmentWarning("NO_PRIORITY_RULE", "Ninguna fila de la matriz de priorización coincide: la prioridad queda vacía")
         }
         val stored =
@@ -208,11 +227,6 @@ class Assessments(
                     "baseline_assessment" to baseline?.first?.id,
                     "stance_changed" to stanceChanged
                 )
-        // los valores vigentes (P18): la postura y la confianza son el último valor informado de cada una, en el orden de las
-        // fechas, con esta evaluación incluida; el resto sale de la última evaluación y no cambia si esta es atrasada
-        val timeline = history.map { Values.text(it.first.attributes["stance"]) to Values.decimal(it.first.attributes["trust_score"])?.toInt() }.toMutableList()
-        timeline.add(history.count { it.second <= date }, input.stance to input.trustScore)
-        val currentStance = timeline.lastOrNull { it.first != null }?.first
         val current =
             mapOf(
                 "stance" to currentStance,
@@ -228,16 +242,7 @@ class Assessments(
                     )
                 } else if (!Values.same(currentStance, attributes["stance"])) {
                     // una evaluación atrasada que cambia la postura vigente: la prioridad sigue al grupo vigente con esa postura
-                    mapOf(
-                        "information_priority" to
-                            Prioritizer.priority(
-                                rules,
-                                Values.text(attributes["influence_group"]),
-                                currentStance,
-                                Values.text(attributes["stakeholder_scope"]),
-                                Values.text(attributes["stakeholder_type"])
-                            )
-                    )
+                    mapOf("information_priority" to currentPriority)
                 } else {
                     emptyMap()
                 }
