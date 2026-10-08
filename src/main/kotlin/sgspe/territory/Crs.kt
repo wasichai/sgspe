@@ -17,13 +17,24 @@ object Crs {
 
     fun value(srid: Int): String = "EPSG $srid"
 
-    // la zona UTM (17, 18 o 19) de un SRID UTM sur, WGS 84 o PSAD56; null para 4326
+    // la zona UTM (17, 18 o 19) de un SRID UTM sur del catálogo, WGS 84 o PSAD56; null para 4326 y para todo SRID que no
+    // sea del catálogo (por ejemplo 32716 o 32720)
     fun zone(srid: Int): Int? =
         when (srid) {
-            in 32701..32760 -> srid - 32700
-            in 24877..24879 -> srid - 24860
+            in WORKING_ZONES -> srid - 32700
+            in PSAD56 -> srid - 24860
             else -> null
         }
 
-    private val KNOWN = setOf(32717, 32718, 32719, 24877, 24878, 24879, WGS84)
+    // un SRID UTM del catálogo, en el que se puede medir: WGS 84 UTM 17S a 19S o PSAD56 UTM 17S a 19S
+    fun isUtm(srid: Int): Boolean = zone(srid) != null
+
+    // una zona de trabajo (WGS 84 UTM 17S a 19S): la única en la que se mide; PSAD56 es solo de entrada (ADR-0002)
+    fun isWorkingZone(srid: Int): Boolean = srid in WORKING_ZONES
+
+    // cualquier SRID del catálogo: los UTM y 4326
+    fun isCatalogued(srid: Int): Boolean = srid in KNOWN
+
+    private val PSAD56 = setOf(24877, 24878, 24879)
+    private val KNOWN = WORKING_ZONES + PSAD56 + WGS84
 }
