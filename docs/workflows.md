@@ -1193,11 +1193,18 @@ stateDiagram-v2
 **Objeto:** `area_of_influence`
 
 - **Estados:** `draft` (Borrador, inicial), `approved` (Aprobada), `superseded` (Reemplazada, final).
-- **Fase:** F2. Sin `requiresReason`.
+- **Fase:** F2. Sin `requiresReason`: el motivo lo exige el comando de aprobación (marca `CR` de `api.md` §4.2), no el
+  objeto; la transición genérica está bloqueada de todos modos (`CommandTransitionGuard`).
 - **Requisitos:** RF-TER-005, RN-TER-003, RN-TER-004, CON-025.
 - **Una sola versión aprobada por proyecto y tipo (RN-TER-003):** `POST /api/sgspe/areas-of-influence/{id}/approve` lleva la
   versión nueva a `approved` y la anterior del mismo proyecto y tipo a `superseded` en una transacción; por eso las dos
-  transiciones son de comando. `TerritoryWriteGuard` impide cambiar los miembros de una versión `approved` o `superseded`.
+  transiciones son de comando. Una versión `approved` o `superseded` no se edita: `TerritoryWriteGuard` rechaza con 409 los
+  cambios de sus miembros (`FROZEN_MEMBERS`) y de su proyecto, tipo y número de versión (`FROZEN_AREA`), porque cada cambio
+  es una versión nueva (RN-TER-003); sus derivados, sus criterios y las transiciones siguen permitidos. La geometría
+  `boundary` no se congela en F2: las guardas no ven geometrías (`architecture.md` §6.3) y solo sugiere miembros (RN-TER-004).
+  La guarda y la aprobación toman el mismo candado `area_of_influence:<id>`, pero la API genérica no abre una transacción
+  por petición, así que queda una ventana residual en las dos direcciones, un miembro que entra en una versión recién
+  aprobada y uno que sale de una aprobada (`architecture.md` §14, riesgo 16, UPS-22).
 - **La pertenencia la decide una persona (RN-TER-004):** el cálculo espacial solo sugiere miembros
   (`GET /api/sgspe/areas-of-influence/{id}/member-suggestions`).
 - **Validación contra las fuentes:** la composición del AIDS cambia en DOC-01 (un sector en proceso de separación y una
@@ -1213,8 +1220,8 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `approve` (Aprobar) | `draft` | `approved` | `SOCIAL_MANAGER`, `PROJECT_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de aprobación, que exige la acción declarada `APPROVE` y al menos un miembro (`area_of_influence_member`) | Opcional | `supersede` de la versión aprobada anterior, en la misma transacción | [DOC-01 §4, §4.1] (RN-TER-003) |
-| `supersede` (Reemplazar) | `approved` | `superseded` | `SOCIAL_MANAGER`, `PROJECT_MANAGER` | `CommandTransitionGuard`: solo desde el mismo endpoint | Opcional | La versión reemplazada se conserva | Ídem |
+| `approve` (Aprobar) | `draft` | `approved` | `SOCIAL_MANAGER`, `PROJECT_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de aprobación, que exige la acción declarada `APPROVE` y al menos un miembro (`area_of_influence_member`) | Obligatorio en el comando (`CR`); la genérica no la aplica | `supersede` de la versión aprobada anterior, en la misma transacción | [DOC-01 §4, §4.1] (RN-TER-003) |
+| `supersede` (Reemplazar) | `approved` | `superseded` | `SOCIAL_MANAGER`, `PROJECT_MANAGER` | `CommandTransitionGuard`: solo desde el mismo endpoint | El de la aprobación | La versión reemplazada se conserva | Ídem |
 
 ## WF-P · Aporte social
 

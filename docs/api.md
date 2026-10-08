@@ -163,7 +163,7 @@ hace con su código en `errors[0].message` y el campo en `errors[0].field` (`rec
 |---|---|
 | `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1) |
 | `403` | `COMMAND_ONLY` (la transición es de comando), `NOT_ASSIGNED` (sin asignación vigente al proyecto), `ACTION_REQUIRED` (falta la acción declarada `APPROVE`), `OBJECT_NOT_READABLE` (quien escribe no lee un objeto que la regla necesita: `project_party`, `project`, `engagement_participant` o `engagement_question`) |
-| `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED` |
+| `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `FROZEN_MEMBERS` (los miembros de una versión `approved` o `superseded` del área de influencia no cambian; `field`: `area_of_influence`), `FROZEN_AREA` (su proyecto, tipo y número de versión tampoco; `field` es el campo que cambia), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED` |
 
 `HAS_DEPENDENTS` rige para todos, `ADMIN` incluido, porque la base rechazaría el borrado igual: wasichai declara cada relación
 obligatoria NOT NULL con ON DELETE SET NULL y, sin esta guarda, borrar el padre respondería 500 (UPS-20). Borrar primero a los
@@ -174,6 +174,12 @@ Los comandos de §4 usan la misma forma de error y agregan sus propios códigos.
 (§4.3) responde `403` `ROLE_REQUIRED` (quien evalúa no tiene el rol de la transición de WF-B, que también se exige al
 reevaluar), `403` `FIELD_NOT_WRITABLE` (quien evalúa no puede escribir la postura) y `409` `STATE_MISMATCH` (el grupo de interés
 retirado no se evalúa).
+`POST /api/sgspe/areas-of-influence/{id}/approve` (§4.2) responde `428` sin `If-Match`, `412` si el `updatedAt` cambió, `400`
+sobre `reason` sin motivo, `403` (sin código) si falta UPDATE sobre `area_of_influence`, `403` `ACTION_REQUIRED` (falta la
+acción declarada `APPROVE`), `403` `ROLE_REQUIRED` (falta el rol de `approve` o de `supersede`), `403` `NOT_ASSIGNED` (sin
+asignación vigente al proyecto), `409` `STATE_MISMATCH` (`field`: `state`; la versión no está en `draft`) y `409`
+`MEMBERS_REQUIRED` (`field`: `area_of_influence_member`; una versión sin miembros no se aprueba). Un parámetro de consulta
+desconocido es `422` y una propiedad desconocida del cuerpo, `400`.
 
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:

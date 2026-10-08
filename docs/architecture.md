@@ -708,6 +708,7 @@ cambió qué y por qué (RQ-AUD-014).
 | 13 | Trabajos horarios sobre todos los tenants sin volúmenes conocidos | Vueltas largas | Medir antes de optimizar; procesar solo lo cambiado | GAP-027, RQ-DSH-031 |
 | 14 | Licencia de MinIO (AGPL) y disponibilidad de su imagen | Restricción de uso en producción | Cualquier almacenamiento compatible con S3 en producción | GAP-022 |
 | 15 | El catálogo de modelos de Embabel 1.5.2 no conoce los modelos más nuevos | Capacidad de IA menor | Proveedor configurable; revisar al llegar a F7 | [WAS-ADR-0015] GAP-015 |
+| 16 | La API genérica no abre una transacción por petición: una guarda que lee otro registro (el estado de la versión del área de influencia) lo hace bajo un candado que se suelta al volver, y la escritura ocurre después | Ventana de milisegundos en las dos direcciones: un miembro entra en una versión recién aprobada, o sale de una aprobada y la deja sin miembros (RN-TER-003) | `TerritoryWriteGuard` y la aprobación toman el mismo candado `area_of_influence:<id>`, lo que estrecha la ventana sin cerrarla; las aprobaciones las hace una persona y son escasas. Se cierra con una transacción de petición en la plataforma | UPS-22, RN-TER-003, [WAS-ADR-0038] |
 
 ## 15. ADR relacionados
 
