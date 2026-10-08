@@ -103,6 +103,12 @@ object ImportReaders {
     private const val MAX_DIGITS = 40
     private const val MAX_EXPONENT = 40
 
+    // BigDecimal(String) es cuadrático en las cifras: una celda de 1,6 MB de dígitos tarda un minuto. por eso nada más largo que
+    // esto se convierte: si solo tiene caracteres de número es un número fuera de rango, y si no, no es un número
+    private const val MAX_NUMBER_CHARS = MAX_DIGITS + 12
+
+    private fun tooLongNumber(text: String): Boolean = text.length > MAX_NUMBER_CHARS && text.all { it.isDigit() || it in "+-.,eE" }
+
     private fun inBounds(value: BigDecimal): Boolean =
         value.precision() <= MAX_DIGITS && kotlin.math.abs(value.precision().toLong() - value.scale() - 1) <= MAX_EXPONENT
 
@@ -313,7 +319,9 @@ object ImportReaders {
                 "b" -> if (raw.trim() == "1") "TRUE" else "FALSE"
                 "e" -> null
                 else -> {
-                    val number = raw.trim().toBigDecimalOrNull()
+                    val text = raw.trim()
+                    if (tooLongNumber(text)) throw outOfRange("la fila $rowNumber, columna ${column + 1}")
+                    val number = if (text.length > MAX_NUMBER_CHARS) null else text.toBigDecimalOrNull()
                     if (number != null && !inBounds(number)) throw outOfRange("la fila $rowNumber, columna ${column + 1}")
                     number?.stripTrailingZeros()?.toPlainString() ?: raw
                 }
@@ -379,6 +387,7 @@ object ImportReaders {
         fun endCell() {
             if (cells.size >= MAX_COLUMNS) throw ValidationException("Archivo inválido", "file", "la fila $record tiene más de $MAX_COLUMNS columnas")
             val value = cell.toString().trim().ifEmpty { null }
+            if (value != null && tooLongNumber(value)) throw outOfRange("la fila $record, columna ${cells.size + 1}")
             if (value != null && (value[0].isDigit() || value[0] in "+-.,")) {
                 parseDecimal(value)?.let { if (!inBounds(it)) throw outOfRange("la fila $record, columna ${cells.size + 1}") }
             }
@@ -546,7 +555,7 @@ object ImportReaders {
     fun number(raw: String?): BigDecimal? = parseDecimal(raw)?.takeIf(::inBounds)
 
     private fun parseDecimal(raw: String?): BigDecimal? {
-        val value = raw?.trim()?.ifEmpty { null } ?: return null
+        val value = raw?.trim()?.ifEmpty { null }?.takeIf { it.length <= MAX_NUMBER_CHARS } ?: return null
         val comma = value.lastIndexOf(',')
         val dot = value.lastIndexOf('.')
         val normalized =

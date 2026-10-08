@@ -473,6 +473,42 @@ class ImportFilesTest {
         assertEquals("0.0000001", ImportReaders.read(small, "pequeno.geojson", 10).single().values["v"])
     }
 
+    // BigDecimal(String) es cuadrático en las cifras: un millón de dígitos (más de 20 s si se convirtieran) se rechazan por su largo, sin convertirlos. en el XLSX los
+    // dígitos son aleatorios para que la razón de compresión no actúe antes
+    @Test
+    @Timeout(5)
+    fun `una celda numerica de un millon de digitos es un 400 de numero fuera de rango sin convertirla`() {
+        val digits = java.util.Random(11).let { random -> buildString { repeat(1_000_000) { append(('0'.code + random.nextInt(10)).toChar()) } } }
+        val csvError = assertThrows<ValidationException> { ImportReaders.csv("code;este\nTST-1;$digits\n") }
+        assertEquals("Número fuera de rango", csvError.message)
+        assertEquals("file", csvError.violations.single().field)
+        assertNull(ImportReaders.number(digits))
+        // un texto largo que empieza con un número no es un número fuera de rango: es texto
+        val note = "2024 " + "nota ".repeat(40)
+        assertEquals(note.trim(), ImportReaders.csv("code;nota\nTST-1;$note\n").single().values["nota"])
+
+        val valid = File(dir, "valido.xlsx")
+        XSSFWorkbook().use { workbook ->
+            workbook
+                .createSheet("Hoja1")
+                .createRow(0)
+                .createCell(0)
+                .setCellValue("code")
+            valid.outputStream().use(workbook::write)
+        }
+        val xlsx = File(dir, "digitos.xlsx")
+        rewriteEntry(valid, xlsx, "xl/worksheets/sheet1.xml") {
+            it.write(
+                """<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
+                   <row r="1"><c r="A1" t="inlineStr"><is><t>este</t></is></c></row>
+                   <row r="2"><c r="A2"><v>$digits</v></c></row></sheetData></worksheet>""".toByteArray()
+            )
+        }
+        val xlsxError = assertThrows<ValidationException> { ImportReaders.read(xlsx, "digitos.xlsx", 10) }
+        assertEquals("Número fuera de rango", xlsxError.message)
+        assertTrue("fila 2, columna 1" in xlsxError.violations.single().message, xlsxError.violations.single().message)
+    }
+
     // la interrupción de un hilo cancelado se propaga como InterruptedException y no se confunde con un archivo inválido,
     // lea un CSV o un XLSX (el SAX envuelve la excepción)
     @Test
