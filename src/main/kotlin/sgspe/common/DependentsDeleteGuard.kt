@@ -27,10 +27,6 @@ class DependentsDeleteGuard(
     private val schemas: WasichaiSchemas,
     private val db: DatabaseClient
 ) : RuleGuard() {
-    override suspend fun beforeWrite(change: RecordWrite) {
-        findings(change, dryRun = false).firstOrNull { it.blocking }?.let { throw it.toCodedException() }
-    }
-
     override suspend fun findings(
         change: RecordWrite,
         dryRun: Boolean

@@ -41,12 +41,14 @@ interface WriteRule {
     ): List<Finding>
 }
 
-// una guarda de wasichai (WAS-ADR-0040) hecha de reglas: la primera que bloquea lanza su excepción, antes de guardar
+// una guarda de wasichai (WAS-ADR-0040) hecha de reglas: la primera que bloquea lanza su excepción, antes de guardar. la
+// lanza con su código en errors[0].message y el campo en errors[0].field (P15): así el 400, el 403 y el 409 de la API
+// genérica se distinguen por código y no solo por estado
 abstract class RuleGuard :
     RecordWriteGuard,
     WriteRule {
     override suspend fun beforeWrite(change: RecordWrite) {
-        findings(change, dryRun = false).firstOrNull { it.blocking }?.let { throw it.toException() }
+        findings(change, dryRun = false).firstOrNull { it.blocking }?.let { throw it.toCodedException() }
     }
 }
 

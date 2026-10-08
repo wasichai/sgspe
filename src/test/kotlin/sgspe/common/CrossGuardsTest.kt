@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
-import wasichai.core.common.ForbiddenException
-import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import java.util.UUID
@@ -37,8 +35,11 @@ class CrossGuardsTest {
     fun `retirar un grupo de interes sin motivo es un 400 sobre reason, y con motivo pasa`() {
         runBlocking {
             val guard = TransitionReasonGuard()
-            val error = assertThrows<ValidationException> { guard.beforeWrite(transition("stakeholder", "retire_profiled")) }
+            val error = assertThrows<RuleException> { guard.beforeWrite(transition("stakeholder", "retire_profiled")) }
+            assertEquals(400, error.status.value())
+            // el campo y el código viajan en errors[0] (P15)
             assertEquals("reason", error.violations.single().field)
+            assertEquals("REASON_REQUIRED", error.violations.single().message)
             guard.beforeWrite(transition("stakeholder", "retire_profiled", "ya no es actor del proyecto"))
             guard.beforeWrite(transition("stakeholder", "profile"))
         }
@@ -67,8 +68,10 @@ class CrossGuardsTest {
     fun `una transicion de comando sin la marca es un 403, con la marca pasa`() {
         runBlocking {
             val guard = CommandTransitionGuard()
-            assertThrows<ForbiddenException> { guard.beforeWrite(transition("stakeholder", "assess")) }
-            assertThrows<ForbiddenException> { guard.beforeWrite(transition("area_of_influence", "supersede")) }
+            val refused = assertThrows<RuleException> { guard.beforeWrite(transition("stakeholder", "assess")) }
+            assertEquals(403, refused.status.value())
+            assertEquals("COMMAND_ONLY", refused.violations.single().message)
+            assertEquals(403, assertThrows<RuleException> { guard.beforeWrite(transition("area_of_influence", "supersede")) }.status.value())
             withContext(SgspeWrite) { guard.beforeWrite(transition("stakeholder", "assess")) }
             guard.beforeWrite(transition("stakeholder", "profile"))
             assertTrue(guard.findings(transition("area_of_influence", "approve"), dryRun = true).single().blocking)

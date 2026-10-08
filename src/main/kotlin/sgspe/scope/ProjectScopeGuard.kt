@@ -8,7 +8,6 @@ import sgspe.common.Finding
 import sgspe.common.GuardOrder
 import sgspe.common.RuleGuard
 import sgspe.common.WriteView
-import sgspe.common.toCodedException
 import wasichai.core.data.RecordWrite
 
 // la escritura acotada por asignación, opción A del checkpoint (security.md §9.2, RQ-SEC-006, CON-041): altas, cambios,
@@ -24,12 +23,6 @@ class ProjectScopeGuard(
     private val resolver: ProjectResolver,
     private val assignments: Assignments
 ) : RuleGuard() {
-    // el 403 de wasichai (ForbiddenException) no lleva campos ni código: aquí errors[0] trae el campo del alcance y, como
-    // message, el código NOT_ASSIGNED, para que el portal y las pruebas distingan este 403 de uno por permiso
-    override suspend fun beforeWrite(change: RecordWrite) {
-        findings(change, dryRun = false).firstOrNull { it.blocking }?.let { throw it.toCodedException() }
-    }
-
     override suspend fun findings(
         change: RecordWrite,
         dryRun: Boolean
