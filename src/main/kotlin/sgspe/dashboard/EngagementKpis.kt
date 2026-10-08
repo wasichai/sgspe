@@ -49,7 +49,7 @@ object EngagementKpis {
     ): IndicatorResult =
         IndicatorResult(
             inPeriod.size,
-            breakdowns = listOf(Breakdown("engagement_type", StakeholderKpis.counts(inPeriod.map { it.type ?: "SIN TIPO" }))),
+            breakdowns = listOf(Breakdown("engagement_type", Numbers.counts(inPeriod.map { it.type ?: "SIN TIPO" }))),
             series = months(end).map { month -> mapOf("period" to month.toString(), "value" to window.count { YearMonth.from(it.heldDate) == month }) }
         )
 
@@ -70,7 +70,7 @@ object EngagementKpis {
             count,
             numerator = count,
             denominator = target,
-            breakdowns = listOf(Breakdown("engagement_type", StakeholderKpis.counts(inPeriod.filter { it.type in MEETINGS }.map { it.type!! }))),
+            breakdowns = listOf(Breakdown("engagement_type", Numbers.counts(inPeriod.filter { it.type in MEETINGS }.map { it.type!! }))),
             series =
                 months(end).map { month ->
                     mapOf(

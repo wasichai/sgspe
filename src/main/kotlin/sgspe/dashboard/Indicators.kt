@@ -144,4 +144,13 @@ object Numbers {
             decimals.reduce(BigDecimal::add).divide(BigDecimal(decimals.size), 2, RoundingMode.HALF_UP)
         }
     }
+
+    // los desgloses por clave que comparten los KPI-STK y KPI-ENG: de más a menos y, a igual cuenta, por clave
+    fun counts(keys: List<String>): List<Map<String, Any?>> =
+        keys
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .map { mapOf("key" to it.key, "value" to it.value) }
 }

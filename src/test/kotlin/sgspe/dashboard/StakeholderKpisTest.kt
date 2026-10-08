@@ -286,4 +286,26 @@ class StakeholderKpisTest {
         assertTrue(StakeholderKpis.byInfluenceGroup(rows).available)
         assertTrue(StakeholderKpis.trust(rows, emptyMap(), end).available)
     }
+
+    // sin datos no hay cifra, nunca NaN ni un cero que parezca un resultado: KPI-STK-05, 06 y 07 dan value nulo y denominador cero
+    @Test
+    fun `KPI-STK-05, 06 y 07 sin datos dan value nulo y no fallan`() {
+        val contacted = StakeholderKpis.oppositionContacted(emptyList(), emptyMap(), emptyList(), start, end, stanceReadable = true)
+        assertTrue(contacted.available)
+        assertNull(contacted.value)
+        assertEquals(0, contacted.denominator)
+        val changed = StakeholderKpis.oppositionChanged(emptyList(), emptyMap(), start, end, stanceReadable = true)
+        assertTrue(changed.available)
+        assertNull(changed.value)
+        assertEquals(0, changed.denominator)
+        val repeated = StakeholderKpis.repeatedContact(emptyList())
+        assertTrue(repeated.available)
+        assertNull(repeated.value)
+        assertEquals(0, repeated.denominator)
+        // y con grupos de interés pero sin oposición ni contactos: el denominador es cero y el valor sigue siendo nulo
+        val friendly = listOf(stakeholder("a", "ESTRATEGICO", stance = "A FAVOR"))
+        val assessments = mapOf("a" to listOf(assessment("a", "2026-04-01", "A FAVOR")))
+        assertNull(StakeholderKpis.oppositionContacted(friendly, assessments, emptyList(), start, end, stanceReadable = true).value)
+        assertNull(StakeholderKpis.oppositionChanged(friendly, assessments, start, end, stanceReadable = true).value)
+    }
 }

@@ -48,10 +48,12 @@ class DashboardData(
         objectName: String,
         equal: Map<String, String> = emptyMap(),
         criteria: List<RecordCriterion> = emptyList(),
-        ids: List<UUID>? = null
-    ): List<RecordResponse> = records.all(objectName, equal, criteria, ids, max = maxRows)
+        ids: List<UUID>? = null,
+        max: Int = maxRows
+    ): List<RecordResponse> = records.all(objectName, equal, criteria, ids, max = max)
 
-    // lo mismo por una lista de ids o por un campo que apunta a ellos, en tramos de CHUNK: el tope cuenta el conjunto entero
+    // lo mismo por una lista de ids o por un campo que apunta a ellos, en tramos de CHUNK: el tope cuenta el conjunto entero,
+    // así que cada tramo se lee con lo que queda del tope y se pasa en cuanto lo sabe, sin juntar casi el doble antes de lanzar
     private suspend fun readIn(
         objectName: String,
         field: String?,
@@ -60,13 +62,13 @@ class DashboardData(
     ): List<RecordResponse> {
         val out = mutableListOf<RecordResponse>()
         for (chunk in ids.distinct().map(UUID::fromString).chunked(CHUNK)) {
+            val remaining = maxRows - out.size
             out +=
                 if (field == null) {
-                    read(objectName, equal, ids = chunk)
+                    read(objectName, equal, ids = chunk, max = remaining)
                 } else {
-                    read(objectName, equal, listOf(Criteria.anyOf(field, chunk)))
+                    read(objectName, equal, listOf(Criteria.anyOf(field, chunk)), max = remaining)
                 }
-            if (out.size > maxRows) throw Records.tooMany(objectName, maxRows)
         }
         return out
     }

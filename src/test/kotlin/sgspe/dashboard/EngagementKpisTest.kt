@@ -178,4 +178,36 @@ class EngagementKpisTest {
         assertNull(result.value)
         assertEquals(0, result.denominator)
     }
+
+    // sin interacciones informativas ni preguntas no hay porcentaje: value nulo, denominador cero y desglose vacío
+    @Test
+    fun `KPI-ENG-05 sin preguntas da value nulo y sin desglose`() {
+        val empty = EngagementKpis.answered(emptyList(), emptyList(), emptyMap())
+        assertTrue(empty.available)
+        assertNull(empty.value)
+        assertEquals(0, empty.numerator)
+        assertEquals(0, empty.denominator)
+        assertEquals(emptyList<Map<String, Any?>>(), empty.breakdowns.single().rows)
+        // reuniones informativas sin una sola pregunta: igual
+        val meetings = listOf(engagement("1", "REUNION INFORMATIVA", "2026-05-02"))
+        val noQuestions = EngagementKpis.answered(meetings, emptyList(), emptyMap())
+        assertNull(noQuestions.value)
+        assertEquals(0, noQuestions.denominator)
+    }
+
+    // la fila de KPI-ENG-05 por tema lleva key, label, value y questions; no lleva meetings (dashboards.md §4.3: solo el
+    // desglose por tema, y la tarjeta del portal lee el recuadro)
+    @Test
+    fun `la fila de KPI-ENG-05 por tema no trae meetings`() {
+        val meetings = listOf(engagement("1", "REUNION INFORMATIVA", "2026-05-02"))
+        val question = QuestionRow("1", "t-agua", true)
+        val row =
+            EngagementKpis
+                .answered(meetings, listOf(question), mapOf("t-agua" to "Agua"))
+                .breakdowns
+                .single()
+                .rows
+                .single()
+        assertEquals(setOf("key", "label", "value", "questions"), row.keys)
+    }
 }

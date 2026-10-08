@@ -28,7 +28,9 @@ class Kpi(
     override val unit: String,
     override val requires: List<String>,
     override val singleProject: Boolean = false,
-    override val ignores: Set<String> = Kpis.IGNORED_IN_F2,
+    // sin filtros ignorados por defecto: cada KPI declara los suyos (los de F2, abajo); un KPI de compromisos o de inversión de
+    // F3 o F5 sí aplica explorationCampaign y no debe heredar que lo ignora
+    override val ignores: Set<String> = emptySet(),
     private val block: suspend (DashboardData) -> IndicatorResult
 ) : Indicator {
     override suspend fun compute(data: DashboardData): IndicatorResult = block(data)
@@ -179,7 +181,7 @@ object Kpis {
                 listOf("stakeholder_assessment.trust_score", "stakeholder_assessment.assessment_date"),
                 ignores = STAKEHOLDER_IGNORES
             ) { StakeholderKpis.trust(it.stakeholders(), it.assessments(), it.filters.periodEnd) },
-            Kpi("KPI-ENG-01", "Interacciones realizadas", ENGAGEMENT, "interacciones", HELD) {
+            Kpi("KPI-ENG-01", "Interacciones realizadas", ENGAGEMENT, "interacciones", HELD, ignores = IGNORED_IN_F2) {
                 EngagementKpis.held(it.inPeriod(), it.window(), it.filters.periodEnd)
             },
             Kpi(
@@ -187,7 +189,8 @@ object Kpis {
                 "Reuniones sostenidas al mes",
                 ENGAGEMENT,
                 "reuniones",
-                HELD + listOf("engagement_plan.meetings_per_month_target", "project.meetings_per_month_target")
+                HELD + listOf("engagement_plan.meetings_per_month_target", "project.meetings_per_month_target"),
+                ignores = IGNORED_IN_F2
             ) { EngagementKpis.meetings(it.inPeriod(), it.window(), it.monthlyTargets(), it.filters.periodStart, it.filters.periodEnd) },
             Kpi(
                 "KPI-ENG-03",
@@ -195,7 +198,8 @@ object Kpis {
                 ENGAGEMENT,
                 "asistentes",
                 HELD + AttendanceCounts.FIELDS.map { "engagement.$it" } +
-                    listOf("engagement_participant.organization", "engagement_participant.represented_group", "engagement_participant.attended")
+                    listOf("engagement_participant.organization", "engagement_participant.represented_group", "engagement_participant.attended"),
+                ignores = IGNORED_IN_F2
             ) { data ->
                 val meetings = data.inPeriod().filter { it.type in EngagementKpis.INFORMATIVE }
                 EngagementKpis.attendance(meetings, Labels.organizationsOf(data, meetings.map { it.id }))
@@ -205,7 +209,8 @@ object Kpis {
                 "Temas consultados",
                 ENGAGEMENT,
                 "temas",
-                HELD + listOf("topic.name", "engagement_question.topic", "engagement_question.engagement")
+                HELD + listOf("topic.name", "engagement_question.topic", "engagement_question.engagement"),
+                ignores = IGNORED_IN_F2
             ) { data ->
                 val meetings = data.inPeriod().filter { it.type in EngagementKpis.INFORMATIVE }
                 val ids = meetings.map { it.id }
@@ -218,7 +223,8 @@ object Kpis {
                 "Inquietudes resueltas",
                 ENGAGEMENT,
                 "%",
-                HELD + listOf("engagement_question.answered_on_site", "engagement_question.answered_at", "engagement_question.engagement")
+                HELD + listOf("engagement_question.answered_on_site", "engagement_question.answered_at", "engagement_question.engagement"),
+                ignores = IGNORED_IN_F2
             ) { data ->
                 val meetings = data.inPeriod().filter { it.type in EngagementKpis.INFORMATIVE }
                 val questions = data.questions(meetings.map { it.id })

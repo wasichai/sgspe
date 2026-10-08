@@ -54,7 +54,7 @@ object StakeholderKpis {
     // evaluación, «SIN EVALUAR». los nombres de desglose van en snake_case, como los fija la Fase 2.3
     fun byInfluenceGroup(stakeholders: List<StakeholderRow>): IndicatorResult {
         val current = stakeholders.filter { it.current }
-        val groups = counts(current.map { it.influenceGroup ?: NOT_ASSESSED })
+        val groups = Numbers.counts(current.map { it.influenceGroup ?: NOT_ASSESSED })
         val cross =
             current
                 .groupBy { (it.influenceGroup ?: NOT_ASSESSED) to (it.scope ?: "SIN AMBITO") }
@@ -66,7 +66,7 @@ object StakeholderKpis {
                 listOf(
                     Breakdown("influence_group", groups),
                     Breakdown("influence_group_by_scope", cross),
-                    Breakdown("stakeholder_type", counts(current.map { it.type ?: "SIN TIPO" }))
+                    Breakdown("stakeholder_type", Numbers.counts(current.map { it.type ?: "SIN TIPO" }))
                 )
         )
     }
@@ -152,7 +152,12 @@ object StakeholderKpis {
         val institutions = ids.flatMap { institutionsOf[it].orEmpty().ifEmpty { listOf("SIN INSTITUCION") } }
         return IndicatorResult(
             ids.size,
-            breakdowns = listOf(Breakdown("sex", counts(sex)), Breakdown("scope", counts(scope)), Breakdown("institution", counts(institutions)))
+            breakdowns =
+                listOf(
+                    Breakdown("sex", Numbers.counts(sex)),
+                    Breakdown("scope", Numbers.counts(scope)),
+                    Breakdown("institution", Numbers.counts(institutions))
+                )
         )
     }
 
@@ -270,12 +275,4 @@ object StakeholderKpis {
 
     // la última evaluación es la de fecha más reciente y, a igual fecha, la creada después
     val ORDER: Comparator<AssessmentRow> = compareBy<AssessmentRow>({ it.date }, { it.createdAt })
-
-    fun counts(keys: List<String>): List<Map<String, Any?>> =
-        keys
-            .groupingBy { it }
-            .eachCount()
-            .entries
-            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
-            .map { mapOf("key" to it.key, "value" to it.value) }
 }
