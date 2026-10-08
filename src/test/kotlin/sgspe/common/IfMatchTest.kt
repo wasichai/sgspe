@@ -88,6 +88,23 @@ class IfMatchTest {
     }
 
     @Test
+    fun `mas de 50 escrituras posteriores de solo derivados y vinculos no invalidan el If-Match`() {
+        val created = Instant.parse("2026-10-07T14:00:00Z")
+        val derived = setOf("attendees_total_count")
+        val version = LaterWrite(created, setOf("title"))
+        val later =
+            (1..120).map { n ->
+                LaterWrite(created.plusSeconds(n.toLong()), if (n % 2 == 0) setOf("attendees_total_count") else setOf("rel:engagement_topic"))
+            }
+        assertTrue(IfMatch.onlyDerivedSince(created, listOf(version) + later, derived))
+        // el historial llega del más nuevo al más viejo
+        assertTrue(IfMatch.onlyDerivedSince(created, (later + version).sortedByDescending { it.occurredAt }, derived))
+        // una edición visible entre tantas sigue invalidando
+        val edited = later + LaterWrite(created.plusSeconds(60).plusMillis(1), setOf("title"))
+        assertFalse(IfMatch.onlyDerivedSince(created, listOf(version) + edited, derived))
+    }
+
+    @Test
     fun `una escritura sin campos visibles no se tolera`() {
         val created = Instant.parse("2026-10-07T14:00:00Z")
         val derived = setOf("attendees_total_count")

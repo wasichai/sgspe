@@ -120,7 +120,10 @@ class Versions(
     }
 
     companion object {
-        private const val HISTORY = 50
+        // el tope que acepta AuditQueryService.history de wasichai 0.3.2 (coerceIn(1, 500)). una asamblea grande deja
+        // decenas de escrituras de conteos y vínculos tras el alta; con más de 500 posteriores, la entrada de la versión
+        // leída queda fuera de la ventana y el resultado es un 412 (falla cerrado; api.md §3.6)
+        private const val HISTORY = 500
     }
 }
 
