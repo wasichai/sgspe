@@ -100,5 +100,9 @@ class TerritoryLayersApiTest : DomainApiTest() {
         assertEquals("health_facility", features.getValue("$clinic:location")["properties"]["__object"].asString())
         assertEquals("LYR-16", features.getValue("$clinic:location")["properties"]["__layer"].asString())
         assertEquals("Point", features.getValue("$school:location")["geometry"]["type"].asString())
+
+        // un mapa alejado manda longitudes sin envolver (P26): el servidor las recorta y no es un 400
+        val wide = tree(send("GET", "/api/sgspe/territory/layers/LYR-16?bbox=-425,-20,275,10", null, HttpStatus.OK))
+        assertTrue(wide["features"].values().any { it["id"].asString() == "$school:location" })
     }
 }

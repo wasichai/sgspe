@@ -44,6 +44,9 @@ sgspe:
       max-rows: 10000
       timeout: 60s
       max-concurrent: 4
+    layers:
+      # tope de elementos por capa de GET /api/sgspe/territory/layers/{layer} (LayersProperties)
+      max-features: 5000
   stakeholder:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
