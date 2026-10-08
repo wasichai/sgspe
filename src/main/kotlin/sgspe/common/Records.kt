@@ -3,12 +3,14 @@ package sgspe.common
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import wasichai.core.common.FieldViolation
 import wasichai.core.common.NotFoundException
 import wasichai.core.common.PageRequest
 import wasichai.core.common.PageResponse
 import wasichai.core.common.ValidationException
+import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordRequest
@@ -68,12 +70,15 @@ class Records(
     ): PageResponse<RecordResponse> = records.list(objectName, query)
 
     // todos los que cumplen los filtros, por cursor y ordenados por id: cada fila sale una sola vez aunque otras columnas
-    // empaten (la lección de Registros.all de caja), y sin COUNT(*) en cada página (WAS-ADR-0036)
+    // empaten (la lección de Registros.all de caja), y sin COUNT(*) en cada página (WAS-ADR-0036). con `max`, la lectura
+    // es acotada: si hay más de `max` filas lanza 400 TOO_MANY_RECORDS (tooMany) en cuanto lo sabe, sin seguir leyendo y
+    // sin devolver una lista recortada (los tableros, dashboards.md §6.2); sin `max`, lee todo como siempre
     suspend fun all(
         objectName: String,
         filters: Map<String, String> = emptyMap(),
         criteria: List<RecordCriterion> = emptyList(),
-        ids: List<UUID>? = null
+        ids: List<UUID>? = null,
+        max: Int? = null
     ): List<RecordResponse> {
         if (ids != null && ids.isEmpty()) return emptyList()
         val rows = mutableListOf<RecordResponse>()
@@ -93,6 +98,7 @@ class Records(
                     )
                 )
             rows += page.content
+            if (max != null && rows.size > max) throw tooMany(objectName, max)
             cursor = page.nextCursor
         } while (cursor != null)
         return rows
@@ -285,6 +291,19 @@ class Records(
         @Suppress("UNCHECKED_CAST")
         fun geometriesOf(response: RecordResponse): Map<String, Map<String, Any?>?> =
             (response.sections[GEOMETRIES] as Map<String, Map<String, Any?>?>?).orEmpty()
+
+        // el 400 de una lectura acotada que se pasa de su tope (P15: el código en errors[0].message). el campo es project, el
+        // filtro que más acota en los tableros, que son quienes acotan
+        fun tooMany(
+            objectName: String,
+            max: Int
+        ): WasichaiException =
+            Finding(
+                "TOO_MANY_RECORDS",
+                "La consulta leería más de $max registros de $objectName: acote los proyectos, el periodo o el territorio",
+                "project",
+                status = HttpStatus.BAD_REQUEST
+            ).toCodedException()
 
         fun uuid(value: Any?): UUID? = Values.text(value)?.let { runCatching { UUID.fromString(it) }.getOrNull() }
     }
