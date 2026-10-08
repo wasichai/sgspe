@@ -48,7 +48,15 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 |---|---|
 | App | `src/main/kotlin/sgspe/SgspeApplication.kt`, `src/main/resources/application*.yml` |
 | Correlación y línea de acceso | `src/main/kotlin/sgspe/observability/` |
-| Marca de escritura, `Records`, Lima, 422 | `src/main/kotlin/sgspe/common/` |
+| Marca de escritura, `Records`, Lima, 422, catálogo del modelo, reglas y guardas transversales, `If-Match`, consulta en seco, `Positions`, `Readability`, `RequestMemo`, JOB-02 | `src/main/kotlin/sgspe/common/` |
+| Alcance por proyecto, asignaciones, destinatarios por rol, `EDIT_ANY`, WF-A | `src/main/kotlin/sgspe/scope/` |
+| Evaluaciones, índices y grupo, prioridad, WF-B, JOB-03 | `src/main/kotlin/sgspe/stakeholder/` |
+| WF-C, conteos de asistentes | `src/main/kotlin/sgspe/engagement/` |
+| CRS, área oficial, áreas de influencia, importaciones, componentes, capas LYR-01 a LYR-16 (`sgspe.territory.import.*`, `sgspe.territory.layers.*`) | `src/main/kotlin/sgspe/territory/` |
+| KPI-STK, KPI-ENG y tableros | `src/main/kotlin/sgspe/dashboard/` |
+| Exportaciones con nivel de divulgación, celdas pequeñas (`SmallCells`) y `export_log` | `src/main/kotlin/sgspe/privacy/` |
+| Base de las pruebas de integración de F2 | `src/test/kotlin/sgspe/DomainApiTest.kt` |
+| Límites de las importaciones: tamaño, filas, plazo `IMPORT_TIMEOUT` y concurrencia | `src/test/kotlin/sgspe/territory/ImportTimeoutApiTest.kt`, `ImportLimitsApiTest.kt` |
 | Base de las pruebas de contrato | `src/test/kotlin/sgspe/SgspeApiTest.kt` y `src/test/kotlin/sgspe/contract/` |
 | Base de las pruebas de F2 (registros mínimos, asignaciones, transiciones) | `src/test/kotlin/sgspe/F2ApiTest.kt` |
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
