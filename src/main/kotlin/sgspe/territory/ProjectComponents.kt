@@ -25,10 +25,12 @@ import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.common.Versions
 import sgspe.common.toCodedException
+import sgspe.scope.Assignments
 import wasichai.core.common.Actions
 import wasichai.core.common.FieldViolation
 import wasichai.core.data.ChangeReason
 import wasichai.core.data.RecordResponse
+import wasichai.core.identity.AuthenticatedUser
 import java.math.BigDecimal
 import java.net.URI
 import java.util.UUID
@@ -60,7 +62,8 @@ class ProjectComponents(
     private val permissions: Permissions,
     private val transactions: Transactions,
     private val callers: Callers,
-    private val properties: ImportProperties
+    private val properties: ImportProperties,
+    private val assignments: Assignments
 ) {
     suspend fun register(
         body: Map<String, Any?>,
@@ -71,7 +74,13 @@ class ProjectComponents(
         val geometries = StrictBody.objectOf(body, "geometries")
         StrictBody.requireOnly(attributes, CREATABLE, "attributes.")
         StrictBody.requireOnly(geometries, GEOMETRY_TYPES.keys, "geometries.")
-        val project = Records.uuid(attributes["project"]) ?: throw rejected("FIELD_REQUIRED", "Falta el proyecto", "attributes.project")
+        // «falta» y «mal formado» llevan códigos distintos: el cliente sabe si olvidó el campo o lo mandó roto
+        val project =
+            if (Values.text(attributes["project"]) == null) {
+                throw rejected("FIELD_REQUIRED", "Falta el proyecto", "attributes.project")
+            } else {
+                Records.uuid(attributes["project"]) ?: throw rejected("INVALID_VALUE", "El proyecto debe ser un UUID", "attributes.project")
+            }
         val code = Values.text(attributes["code"]) ?: throw rejected("FIELD_REQUIRED", "Falta el código del componente", "attributes.code")
         checkNumbers(attributes)
         val sent = geometries.filterValues { it != null }
@@ -80,6 +89,7 @@ class ProjectComponents(
         val (field, geometry) = sent.entries.single().let { it.key to geometryOf(it.key, it.value) }
         val user = callers.require()
         permissions.require(user, "Registrar un componente", Actions.CREATE to COMPONENT, Actions.UPDATE to COMPONENT)
+        requireAssigned(user, project)
         val projectRecord =
             records.find("project", project) ?: throw rejected("PROJECT_NOT_FOUND", "El proyecto no existe o no tiene acceso a él", "attributes.project")
         val srid = measure(projectRecord, field, geometry)
@@ -162,13 +172,40 @@ class ProjectComponents(
         val project =
             Records.uuid(records.get(COMPONENT, id).attributes["project"])
                 ?: throw rejected("PROJECT_NOT_FOUND", "El componente no tiene proyecto", "attributes.project")
+        requireAssigned(user, project)
         return transactions.locked(TerritoryImports.componentLock(user.organizationId, project)) {
             val current = records.get(COMPONENT, id)
+            // una versión reemplazada es historia: cambiarla reescribiría lo que el mapa y los reportes ya mostraron
+            // (gis.md §2.4 y §4.4, RQ-GIS-010 «nunca sobrescribe»). va antes de If-Match para que un If-Match viejo de una
+            // versión reemplazada diga la causa real, y dentro del candado, tras releer: una versión nueva pudo caer antes
+            if (Values.bool(current.attributes["superseded"]) == true) {
+                throw Finding(
+                    "COMPONENT_SUPERSEDED",
+                    "El componente es una versión reemplazada y no se cambia: cambie la vigente",
+                    "attributes"
+                ).toCodedException()
+            }
             versionCheck.check(COMPONENT, id, expected, current.updatedAt, "El componente")
             // solo lo que cambia se escribe (P11): un PATCH que no cambia nada no toca el updatedAt
             val changes = attributes.filter { (name, value) -> !Values.same(current.attributes[name], value) }
             if (changes.isEmpty()) current else records.patch(COMPONENT, id, changes, reason)
         }
+    }
+
+    // el alcance de escritura (opción A, security.md §9.2) se comprueba antes de gastar cuentas de PostGIS y también cuando el
+    // PATCH no cambia nada y no llega a escribir: ProjectScopeGuard lo exige igual en la escritura, y el resultado no depende
+    // de los datos. mismo código y campo que la guarda
+    private suspend fun requireAssigned(
+        user: AuthenticatedUser,
+        project: UUID
+    ) {
+        if (user.isAdmin || assignments.isAssigned(user.userId, project)) return
+        throw Finding(
+            "NOT_ASSIGNED",
+            "No tiene una asignación vigente al proyecto $project: solo su equipo escribe en él",
+            "project",
+            status = HttpStatus.FORBIDDEN
+        ).toCodedException()
     }
 
     // todo lo que se mide antes de la transacción: la geometría es válida y está en longitud y latitud, y PostGIS puede
