@@ -515,7 +515,8 @@ class TerritoryImports(
         permissions.require(user, "Importar ${target.name}", *grants.toTypedArray())
         // los componentes se escriben bajo el alcance del proyecto: sin asignación vigente, 403 NOT_ASSIGNED ya aquí y no tras
         // analizar el archivo entero con PostGIS. los predios y las concesiones son del tenant y no pasan por el alcance
-        if (target.tables) assignments.requireAssigned(user, project)
+        // componentes y concesiones escriben en el proyecto (la concesión se vincula a él): asignación antes de leer
+        if (target.tables || target.name == CONCESSION) assignments.requireAssigned(user, project)
         val projectRecord = records.get("project", project)
         // solo una zona de trabajo: GeoSql mide en ellas y nada más (P19)
         val workingSrid = Crs.srid(Values.text(projectRecord.attributes["working_crs"]))?.takeIf(Crs::isWorkingZone)

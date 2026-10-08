@@ -353,6 +353,12 @@ class TerritoryImportApiTest : DomainApiTest() {
         val parcel = "predios.geojson" to feature("""{"code":"TST-PRD-9","tenure_type":"POSESION"}""", """{"type":"Polygon","coordinates":$ring}""")
         val tenantLevel = preview(project, parcel, outsider.token, target = "land_parcel", sourceCrs = "EPSG 4326", columns = null)
         assertEquals(HttpStatus.OK, tenantLevel.status, tenantLevel.text)
+        // una concesión se vincula al proyecto al confirmar: su vista previa también exige la asignación
+        val concession =
+            "concesiones.geojson" to feature("""{"code":"TST-CON-9","name":"Concesión Ejemplo Nueve"}""", """{"type":"Polygon","coordinates":$ring}""")
+        val linked = preview(project, concession, outsider.token, target = "mining_concession", sourceCrs = "EPSG 4326", columns = null)
+        assertEquals(HttpStatus.FORBIDDEN, linked.status, linked.text)
+        assertEquals(listOf("NOT_ASSIGNED"), problemCodes(linked.text))
     }
 
     // una concesión no es de un solo proyecto (database-model): la misma ya registrada se vincula al otro, sin duplicarse
