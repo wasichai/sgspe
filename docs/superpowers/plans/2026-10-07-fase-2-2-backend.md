@@ -317,8 +317,9 @@ Los contratos de `docs/api.md` §4.1 a §4.4, §4.11 y §4.13, con estas precisi
   `LESS_FAVORABLE`) y `coverage` (`evaluated`, `opposition`); KPI-STK-08 `series` `{ period: "AAAA-MM", value, evaluated,
   distribution }`; KPI-ENG-01 `engagement_type` y `series` `{ period, value }`; KPI-ENG-02 `engagement_type` y `series`
   `{ period, value, target }`; KPI-ENG-03 `engagement` (`label`, `heldDate`, `value` = asistentes, `femalePercent`,
-  `malePercent`, `directArea`, `indirectArea`, `regional`, `national` (conteos) y `organizations[]`); KPI-ENG-04 y
-  KPI-ENG-05 `topic` (`label`, `meetings`, `questions`). En el catálogo (`GET /api/sgspe/dashboards/indicators`),
+  `malePercent`, `directArea`, `indirectArea`, `regional`, `national` (conteos) y `organizations[]`); KPI-ENG-04 `topic`
+  (`label`, `meetings`, `questions`) y KPI-ENG-05 `topic` (`label`, `value`, `questions`; sus filas no tienen `meetings`). En el
+  catálogo (`GET /api/sgspe/dashboards/indicators`),
   `dashboard` es `stakeholders`, `engagement` o `null` para KPI-STK-04, KPI-STK-05 y KPI-STK-07, que solo tienen detalle en
   F2.
 - **Exportación** `POST /api/sgspe/exports/stakeholder-register`: `filters` es `{ project: string[] }` como lo fija 2.3

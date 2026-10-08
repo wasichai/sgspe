@@ -94,9 +94,8 @@ class FollowUpSweep(
 // evaluación periódica y de inactividad llegan en F3, con `task`.
 // una sola réplica por vuelta (ClusterLock.tryLock); una organización o un grupo de interés que falla no detiene a los
 // demás: se registra con su excepción y el resto sigue, la vuelta lanza al final (FollowUpSweep) y la del día siguiente lo
-// vuelve a intentar. cada grupo de
-// interés que cambia se relee y se escribe dentro de Transactions.locked("stakeholder:<id>"), y solo si algún valor cambia
-// (un valor igual no toca updatedAt ni deja historia)
+// vuelve a intentar. cada grupo de interés que cambia se relee y se escribe dentro de Transactions.locked("stakeholder:<id>"),
+// y solo si algún valor cambia (un valor igual no toca updatedAt ni deja historia)
 @Component
 class StakeholderFollowUpJob(
     private val records: Records,

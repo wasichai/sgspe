@@ -186,7 +186,10 @@ desconocido es `422` y una propiedad desconocida del cuerpo, `400`.
 `SHA256_MISMATCH` (`sha256`: el archivo no es el de la vista previa), `409` `IMPORT_CONFLICT` (`file`: lo registrado con
 un código del archivo cambió entre el análisis de la confirmación y su candado, por ejemplo otra confirmación del mismo
 archivo; no se escribe nada y se vuelve a previsualizar) y `503` `IMPORT_BUSY` (`file`: ya corren `max-concurrent`
-importaciones y no se liberó un lugar dentro del plazo). Las demás respuestas `400` (una parte que falta, se repite o no
+importaciones y no se liberó un lugar dentro del plazo). Los límites del multipart de Spring (§3.10) son `400` con `field`
+`multipart`, que designa la petición entera y no es el nombre de ninguna parte: `PART_TOO_LARGE` (un campo de texto pasa de
+1 MB o los encabezados de una parte pasan de 10 KB) e `INVALID_MULTIPART` (más partes que `max-parts` o un cuerpo que no se
+puede leer); solo el tope de disco de la parte de archivo es `FILE_TOO_LARGE`, sobre `file`. Las demás respuestas `400` (una parte que falta, se repite o no
 existe, un CRS fuera del catálogo, una decisión mal formada o sobre una fila que no es válida) son de validación, con
 texto libre, y un parámetro de consulta es `422`. Una fila que PostGIS no puede transformar ni validar no es un error de
 la petición: va a `invalid[]` con el motivo `geometría inválida: …` en español.
@@ -341,7 +344,8 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
   dentro de los ZIP (RQ-SEC-020, ASM-050). En F2, `sgspe.territory.import.*`: `max-bytes` (20 MB), `max-rows` (10 000),
   `timeout` (60 s, lectura y validación) y `max-concurrent` (4 importaciones a la vez); Spring guarda la parte de archivo
   en disco con su propio tope (`spring.webflux.multipart.max-disk-usage-per-part`, 25 MB, con `max-parts` 8), que responde
-  igual (400 `FILE_TOO_LARGE`; un campo de texto de más de 1 MB, `PART_TOO_LARGE`; demasiadas partes, `INVALID_MULTIPART`).
+  igual (400 `FILE_TOO_LARGE`; un campo de texto de más de 1 MB o encabezados de parte de más de 10 KB, `PART_TOO_LARGE`;
+  demasiadas partes, `INVALID_MULTIPART`, ambos sobre el campo `multipart`).
 - La escritura de la confirmación no está bajo `timeout`: corre después, dentro del candado y de una sola transacción,
   que retienen una conexión del pool hasta el commit. Su cota es `max-rows`: cada fila son unas pocas escrituras con sus
   guardas (del orden de milisegundos con la base local, una estimación sin medir), así que una hoja de 10 000 filas
@@ -405,8 +409,8 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
 |---|---|---|---|---|---|---|
 | `POST` | `/api/sgspe/territory/imports` | Vista previa de una importación: lee el archivo de coordenadas o geometrías, lo transforma a 4326, lo valida contra PostGIS y lo concilia con lo registrado; no escribe nada | CREATE y UPDATE sobre el objeto destino; CREATE sobre `evidence` desde F3 | multipart: `file`, `target` (`project_component`, `land_parcel` o `mining_concession`), `project`, `sourceCrs` (valor del catálogo "CRS de origen"), `columns` (json `{clave: encabezado}`; claves del portal en camelCase como `drillType` o `depth`, o campos del destino; un valor que empieza con `=` es una constante; sin tipo de componente, `SONDAJE`) → `200 { importBatchId, sha256, target, sourceCrs, rows, valid, invalid[], differences[], outOfZone[] }`, sin geometrías; `differences[]` trae una entrada por fila válida con `outcome` `CREATE`, `UNCHANGED`, `NEW_VERSION` o `UPDATE`; con `Accept` de XLSX, el reporte de diferencias como archivo (hojas Diferencias, Rechazadas y Fuera de zona) | — | F2 (XLSX, CSV, GeoJSON, latitud y longitud); F6 (formatos por GDAL) |
 | `POST` | `/api/sgspe/territory/imports/{importBatchId}/confirm` | Confirma: recibe otra vez el mismo archivo y los mismos campos con las decisiones fila por fila (el servidor no guarda nada entre las dos llamadas), exige el SHA-256 de la vista previa, repite la validación y escribe todo en una transacción con candado por destino (y por proyecto en los componentes) y el motivo `importación <id>`; desde F3 guarda el original como `evidence` | Los mismos de la vista previa | multipart: `file`, `target`, `project`, `sourceCrs`, `columns`, `sha256` y `decisions` (json `[{ "row": 7, "action": "DISCARD" }]`, `action` `APPLY` o `DISCARD`; una fila sin decisión aplica su acción propuesta, salvo una de `outOfZone[]`, que solo entra con `APPLY`; una decisión sobre una fila que no es válida es `400`) → `200 { created, newVersions, updated, unchanged, rejected, evidenceId }` | `IK` (desde F3) | F2 |
-| `POST` | `/api/sgspe/project-components` | Alta manual de un componente o versión nueva si el código ya existe con otras coordenadas; nunca sobrescribe | CREATE y UPDATE sobre `project_component` | `{ attributes, geometries }` → `201 { component, previousVersion, distanceM }`; las mismas coordenadas (menos de 1 cm) son `409 SAME_COORDINATES`; una geometría que PostGIS no procesa, `400 INVALID_GEOMETRY`; toma el mismo candado por proyecto que la confirmación de una importación | `IK` (desde F3) | F2 |
-| `PATCH` | `/api/sgspe/project-components/{id}` | Cambia campos descriptivos (estado, campaña) de un componente sin tocar coordenadas; `project_component` es `apiOnly` | UPDATE sobre `project_component` | `{ attributes }` → `200` registro; una geometría en el cuerpo es `400 COORDINATES_NOT_EDITABLE`, y `code`, `project` o un campo de origen, `400 FIELD_NOT_EDITABLE`; solo escribe lo que cambia | `IM` | F2 |
+| `POST` | `/api/sgspe/project-components` | Alta manual de un componente o versión nueva si el código ya existe con otras coordenadas; nunca sobrescribe | CREATE y UPDATE sobre `project_component` | `{ attributes, geometries }` → `201 { component, previousVersion, distanceM }`; las mismas coordenadas (menos de 1 cm) son `409 SAME_COORDINATES`; una geometría que PostGIS no procesa, `400 INVALID_GEOMETRY`; un proyecto que falta es `400 FIELD_REQUIRED` y uno que no es un UUID, `400 INVALID_VALUE`; sin asignación vigente al proyecto, `403 NOT_ASSIGNED` antes de cualquier cuenta de PostGIS; toma el mismo candado por proyecto que la confirmación de una importación | `IK` (desde F3) | F2 |
+| `PATCH` | `/api/sgspe/project-components/{id}` | Cambia campos descriptivos (estado, campaña) de un componente sin tocar coordenadas; `project_component` es `apiOnly` | UPDATE sobre `project_component` | `{ attributes }` → `200` registro; una geometría en el cuerpo es `400 COORDINATES_NOT_EDITABLE`, y `code`, `project` o un campo de origen, `400 FIELD_NOT_EDITABLE`; solo escribe lo que cambia (un PATCH sin cambios deja el `updatedAt` como estaba); una versión reemplazada (`superseded`) no se cambia: `409 COMPONENT_SUPERSEDED` (`attributes`), antes de comparar `If-Match`, porque RQ-GIS-010 «nunca sobrescribe» y las versiones anteriores son historia de solo consulta (`gis.md` §2.4 y §4.4); sin asignación vigente al proyecto, `403 NOT_ASSIGNED`, aunque el PATCH no cambie nada | `IM` | F2 |
 | `POST` | `/api/sgspe/areas-of-influence/{id}/approve` | Aprueba una versión del área de influencia y lleva la aprobada anterior del mismo proyecto y tipo a `superseded`, en una transacción | UPDATE sobre `area_of_influence`, acción declarada `APPROVE` y los roles de las transiciones de comando de WF-O | → `200 { approved, superseded }` | `IM`, `CR` | F2 |
 | `GET` | `/api/sgspe/areas-of-influence/{id}/summary` | Tamaño del área: superficie plana en ha, localidades por tipo de área y componentes que cruzan tierras comunales o privadas | READ sobre `area_of_influence` y los objetos resumidos | → `200 { areaHa, localitiesByType[], componentsOnCommunalLand, componentsOnPrivateLand }` | — | F6 |
 | `GET` | `/api/sgspe/areas-of-influence/{id}/member-suggestions` | Localidades, comunidades y unidades administrativas que el cálculo espacial sugiere como miembros; no escribe | READ sobre `area_of_influence` y sobre los objetos sugeridos | `?bufferM=` → `200 { suggestions[]: { object, recordId, name, relation, alreadyMember } }` | — | F6 |
@@ -438,13 +442,23 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
   (`sgspe.territory.layers.max-features`): `truncated` es `true` solo si había más, y entonces se pide por `bbox`. Sin READ
   sobre alguno de los objetos de la capa, `403`. Los filtros de la capa se aplican en SQL: un campo de filtro que quien pide
   no puede leer deja la capa vacía, no es un error.
+  - **LYR-13** trae, además del polígono de cada área de influencia en `approved` (`__object`: `area_of_influence`), sus miembros
+    (`gis.md` §2.2 y §2.4): un elemento por `area_of_influence_member` con `__object`: `area_of_influence_member`, `__id` del
+    miembro, `__target` y `__targetId` (`locality` o `community` y el id de lo que se dibuja), el id `<miembro>:<geometría>` y
+    sus atributos legibles (entre ellos `area_of_influence`, `member_condition` y `rationale`). La geometría es el límite de la localidad,
+    o su ubicación si no tiene límite, o el territorio de la comunidad, aunque el área no tenga polígono; un miembro cuyo destino
+    no tiene geometría, o cuyo campo de relación quien pide no puede leer, no sale. Solo cuentan las versiones `approved`: un borrador o
+    una versión reemplazada no aportan ni polígono ni miembros. Las unidades administrativas que son miembros no se dibujan
+    (sus límites son LYR-01). Sin READ sobre `area_of_influence_member`, `locality` o `community`, `403`.
   - `project` (puede repetirse, hasta 50) acota las capas de proyecto (LYR-09 a LYR-13) y marca `ofProject` en LYR-07, que muestra todas las
     concesiones; en las demás se acepta y se ignora, porque sus registros no pertenecen a un solo proyecto (`gis.md` §3.3). `periodStart` y `periodEnd` se aceptan y no
     filtran: las capas temáticas con periodo llegan con F6.
   - `bbox=minX,minY,maxX,maxY` en EPSG:4326 es tolerante con lo que manda un mapa alejado: se quitan los espacios, las
     longitudes se recortan a [-180, 180] y las latitudes a [-90, 90] (`-425,-20,275,10` es `-180,-20,180,10`), y si lo
     recortado cubre todo el globo no se filtra. Un mínimo mayor que el máximo después de recortar, o algo que no son cuatro
-    números, es `400` `INVALID_BBOX`.
+    números, es `400` `INVALID_BBOX`. Recortar no es envolver: un bbox que cruza el antimeridiano (`170,-10,190,10`) pierde
+    el tramo que pasa de 180 y no se parte en dos (irrelevante para el Perú, de -81 a -68). En LYR-13, `bbox` acota los miembros
+    por la geometría que se dibuja.
   - Errores (`errors[0].message` lleva el código y `errors[0].field` el campo): `404` `LAYER_NOT_FOUND` (`layer`), `400`
     `INVALID_BBOX` (`bbox`), `400` `INVALID_PROJECT` (`project` no es un UUID) y `400` `TOO_MANY_PROJECTS` (más de 50
     proyectos); un parámetro desconocido es `422`.
