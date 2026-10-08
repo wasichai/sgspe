@@ -13,6 +13,7 @@ import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.StrictBody
 import sgspe.common.Transactions
+import sgspe.common.TransitionRoles
 import sgspe.common.Values
 import sgspe.common.Versions
 import sgspe.common.toCodedException
@@ -20,7 +21,6 @@ import wasichai.core.common.Actions
 import wasichai.core.common.FieldViolation
 import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordResponse
-import wasichai.core.identity.AuthenticatedUser
 import wasichai.core.metadata.MetadataService
 import java.math.BigDecimal
 import java.time.Clock
@@ -104,7 +104,7 @@ class Assessments(
                     else -> listOf("assess")
                 }
             // en `assessed` no hay transición que aplicar, pero reevaluar sigue exigiendo el rol de assess (api.md §4.3)
-            requireTransitionRoles(user, pending)
+            TransitionRoles.require(catalog, user, STAKEHOLDER, pending)
             if (stakeholder.state == IDENTIFIED) stakeholder = records.transition(STAKEHOLDER, stakeholderId, "profile", reason)
             val plan = plan(stakeholder, input)
             val assessment =
@@ -284,24 +284,6 @@ class Assessments(
                 "stance",
                 status = HttpStatus.FORBIDDEN
             ).toCodedException()
-        }
-    }
-
-    // antes de escribir: los roles de las transiciones que el comando aplicará, de model/workflows/stakeholder.json
-    private fun requireTransitionRoles(
-        user: AuthenticatedUser,
-        transitions: List<String>
-    ) {
-        if (user.isAdmin) return
-        for (name in transitions) {
-            val roles = catalog.transition(STAKEHOLDER, name)?.roles.orEmpty()
-            if (roles.none { it in user.roles }) {
-                throw Finding(
-                    "ROLE_REQUIRED",
-                    "La transición $name exige uno de los roles ${roles.joinToString(", ")}",
-                    status = HttpStatus.FORBIDDEN
-                ).toCodedException()
-            }
         }
     }
 

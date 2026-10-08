@@ -7,6 +7,7 @@ import sgspe.common.Finding
 import sgspe.common.GuardOrder
 import sgspe.common.Records
 import sgspe.common.RuleGuard
+import sgspe.common.Transactions
 import sgspe.common.WriteView
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordChangeKind
@@ -15,15 +16,18 @@ import java.util.UUID
 
 // los miembros de una versión de un área de influencia que ya no está en draft (`approved` o `superseded`, WF-O) no
 // cambian (RN-TER-003): una corrección es una versión nueva. vale para altas, cambios y bajas de un miembro, para el
-// miembro que se mueve de versión y para vincular o desvincular, desde cualquiera de los dos lados de la relación: wasichai
-// manda un vínculo como dos UPDATE, uno por cada registro, con `rel:<relación>` en los atributos, y los dos pasan por aquí.
+// miembro que se mueve de versión: el camino real es el atributo `area_of_influence` de POST, PUT y DELETE, porque las
+// relaciones del miembro son MANY_TO_ONE y la API de relaciones de wasichai (`/related/...`) solo vincula MANY_TO_MANY (400).
+// por si un módulo o una versión posterior de wasichai vinculara un MANY_TO_ONE, también se miran los vínculos, que
+// wasichai manda como dos UPDATE (uno por cada registro) con `rel:<relación>` en los atributos; esa rama es defensiva
 // el estado se lee como quien llama (no se puede usar asPlatform dentro de una petición); si no puede leer el área no puede
 // verificar que esté en draft, y es un 403 que lo dice y no un falso verde
 @Component
 @Order(GuardOrder.DOMAIN)
 class TerritoryWriteGuard(
     private val records: Records,
-    private val view: WriteView
+    private val view: WriteView,
+    private val transactions: Transactions
 ) : RuleGuard() {
     override suspend fun findings(
         change: RecordWrite,
@@ -32,14 +36,16 @@ class TerritoryWriteGuard(
         if (change.kind == RecordChangeKind.TRANSITIONED) return emptyList()
         if (change.objectName != MEMBER && change.objectName != Areas.AREA_OF_INFLUENCE) return emptyList()
         val after = if (change.objectName == MEMBER && change.kind != RecordChangeKind.DELETED) view.after(change) else emptyMap()
-        return check(change, after) { records.find(Areas.AREA_OF_INFLUENCE, it)?.state }
+        // el estado se lee con el candado de la versión, el mismo que toma su aprobación: una aprobación en curso termina antes
+        // de que se lea el estado, así que un miembro no se cuela en una versión recién aprobada
+        return check(change, after) { area -> transactions.locked(AreasOfInfluence.areaLock(area)) { records.find(Areas.AREA_OF_INFLUENCE, area)?.state } }
     }
 
     companion object {
         const val MEMBER = "area_of_influence_member"
         const val AREA_FIELD = "area_of_influence"
 
-        // la relación del miembro con su área (database-model.md): la que se vincula desde el miembro o desde el área
+        // la relación del miembro con su área (database-model.md); hoy solo se cambia por el atributo, ver arriba
         const val AREA_RELATION = "aoi_member_area_of_influence"
         const val DRAFT = "draft"
 

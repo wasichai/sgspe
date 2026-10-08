@@ -13,7 +13,9 @@ import java.util.UUID
 
 // RN-TER-003 y WF-O: los miembros de una versión que no está en draft no cambian. la decisión es pura (qué áreas toca la
 // escritura y en qué estado están), así que se prueba sin base con la forma exacta de las escrituras de wasichai: un
-// vínculo llega como dos UPDATE, uno por cada registro, con rel:<relación> en los atributos. la prueba de punta a punta,
+// vínculo llega como dos UPDATE, uno por cada registro, con rel:<relación> en los atributos. hoy las relaciones del miembro
+// son MANY_TO_ONE y /related/... responde 400, así que la vía real es el atributo area_of_influence (las pruebas de alta,
+// cambio, baja y movimiento); las de rel: son defensivas. la prueba de punta a punta,
 // con la versión aprobada por su endpoint, es de la Tarea 16 (AreaOfInfluenceWorkflowGuardsApiTest)
 class TerritoryWriteGuardTest {
     private val draft = UUID.randomUUID()
@@ -72,9 +74,9 @@ class TerritoryWriteGuardTest {
     }
 
     @Test
-    fun `vincular un miembro a una version congelada desde el lado del miembro es 409`() {
+    fun `defensivo - vincular un miembro a una version congelada desde el lado del miembro es 409`() {
         val member = UUID.randomUUID()
-        // POST /api/objects/area_of_influence_member/records/{id}/related/aoi_member_area_of_influence { otherId: <área> }
+        // defensivo: la forma que mandaría wasichai si vinculara el MANY_TO_ONE del miembro con su área (hoy /related/... da 400)
         val link =
             write(
                 "area_of_influence_member",
@@ -87,7 +89,7 @@ class TerritoryWriteGuardTest {
     }
 
     @Test
-    fun `cambiar un vinculo de un miembro de una version congelada es 409 por cualquier relacion`() {
+    fun `defensivo - cambiar un vinculo de un miembro de una version congelada es 409 por cualquier relacion`() {
         // la localidad, la comunidad o la unidad administrativa de un miembro de una versión aprobada tampoco cambian
         for (relation in listOf("aoi_member_locality", "aoi_member_community", "aoi_member_administrative_unit", "aoi_member_area_of_influence")) {
             for (value in listOf(UUID.randomUUID().toString(), null)) {
@@ -112,7 +114,7 @@ class TerritoryWriteGuardTest {
     }
 
     @Test
-    fun `vincular y desvincular un miembro desde el lado del area congelada es 409, y de una en draft pasa`() {
+    fun `defensivo - vincular y desvincular un miembro desde el lado del area congelada es 409, y de una en draft pasa`() {
         for (value in listOf(UUID.randomUUID().toString(), null)) {
             val onApproved =
                 write(
