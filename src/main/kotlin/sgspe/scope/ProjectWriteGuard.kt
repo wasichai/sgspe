@@ -33,7 +33,7 @@ class ProjectWriteGuard(
         val transition = change.transition ?: return emptyList()
         if (transition !in TO_ACTIVE) return emptyList()
         val findings = mutableListOf<Finding>()
-        if (transition == APPROVE_TRANSITION && !holdsApprove()) {
+        if (transition == APPROVE_TRANSITION && !holdsApprove(change)) {
             findings += Finding("ACTION_REQUIRED", "Aprobar un proyecto exige la acción APPROVE sobre project", status = HttpStatus.FORBIDDEN)
         }
         val project = change.before.orEmpty()
@@ -41,35 +41,36 @@ class ProjectWriteGuard(
             if (Values.text(project["working_crs"]) == null) {
                 findings += Finding("WORKING_CRS_REQUIRED", "El proyecto necesita su CRS de trabajo (working_crs) para pasar a activo", "working_crs")
             }
-            if (!hasClientOrOperator(change, dryRun)) {
-                findings += Finding("PARTY_REQUIRED", "El proyecto necesita una parte CLIENTE u OPERADOR para pasar a activo", "project_party")
-            }
+            partyFinding(change)?.let { findings += it }
         }
         return findings
     }
 
-    // sin usuario (un trabajo, una automatización) no hay doble llave que comprobar
-    private suspend fun holdsApprove(): Boolean {
-        val user = callers.userOrNull() ?: return true
+    // sin userId (un trabajo, una automatización) no hay doble llave que comprobar; con userId la escritura es de una
+    // persona y, si no se la puede identificar, se niega (falla cerrado, como ProjectScopeGuard)
+    private suspend fun holdsApprove(change: RecordWrite): Boolean {
+        if (change.userId == null) return true
+        val user = callers.userOrNull() ?: return false
         return permissions.has(user, APPROVE, "project")
     }
 
-    // las partes se leen como quien llama. en seco, quien no puede leerlas (un rol sin READ sobre project_party) no recibe
-    // un 403 de toda la consulta ni un PARTY_REQUIRED falso: esa regla no se evalúa para él, y la transición real se la
-    // habría negado su rol. al escribir, un 403 es la respuesta segura
-    private suspend fun hasClientOrOperator(
-        change: RecordWrite,
-        dryRun: Boolean
-    ): Boolean {
-        val project = change.recordId ?: return false
+    // las partes se leen como quien llama, en seco y al escribir por igual. quien no puede leerlas (un rol sin READ sobre
+    // project_party) no puede verificar la precondición: es un bloqueo 403 que lo dice, no un falso verde ni un 403 mudo
+    private suspend fun partyFinding(change: RecordWrite): Finding? {
+        val project = change.recordId
         val parties =
             try {
-                records.all("project_party", filters = mapOf("project" to project.toString()))
-            } catch (denied: ForbiddenException) {
-                if (dryRun) return true
-                throw denied
+                if (project == null) emptyList() else records.all("project_party", filters = mapOf("project" to project.toString()))
+            } catch (_: ForbiddenException) {
+                return Finding(
+                    "OBJECT_NOT_READABLE",
+                    "No puedes leer project_party, así que no se puede verificar la parte CLIENTE u OPERADOR",
+                    "project_party",
+                    status = HttpStatus.FORBIDDEN
+                )
             }
-        return parties.any { Values.text(it.attributes["party_role"]) in ACTIVATING_ROLES }
+        if (parties.any { Values.text(it.attributes["party_role"]) in ACTIVATING_ROLES }) return null
+        return Finding("PARTY_REQUIRED", "El proyecto necesita una parte CLIENTE u OPERADOR para pasar a activo", "project_party")
     }
 
     companion object {

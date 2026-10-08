@@ -316,6 +316,32 @@ reglas de las guardas (por ejemplo, el cierre de una interacción con preguntas 
 superado sin `APPROVE_OVER_CAP`, RN-INV-003) y muestra antes de confirmar las reglas de tipo advertencia, que piden una
 justificación pero no bloquean (RN-ENG-001, RN-INV-005, RN-INV-006).
 
+**Forma de la respuesta de `transition-checks`.** `allowed` es verdadero si `blocking` está vacío. Cada ítem de `blocking[]` y
+`warnings[]` es `{ code, message, field }`: `code` es una constante en inglés UPPER_SNAKE, `message` va en español y sin datos
+personales, y `field` es el campo que el portal pinta, o `null` si el hallazgo no apunta a uno. Corre las mismas reglas que la
+escritura real, y la consulta no escribe nada. Lee todo como quien llama, con sus permisos de objeto y de campo: sin READ sobre
+el objeto responde 403 o 404 y no dice nada del registro; sin token, 401 con el cuerpo vacío (§3.3). Un parámetro de consulta
+desconocido es 422 y una propiedad desconocida del cuerpo, 400.
+
+**No evalúa los roles de la transición** ni el permiso UPDATE: los explica la lista de transiciones de wasichai
+(`GET /api/objects/{objeto}/records/{id}/transitions`, con `allowed` y `reason` por transición). El portal combina las dos.
+Las reglas de cada transición corren aunque el registro esté en otro estado, así que con `STATE_MISMATCH` pueden salir también
+bloqueos hipotéticos.
+
+| Código | Tipo | Estado de la escritura real | Cuándo |
+|---|---|---|---|
+| `STATE_MISMATCH` | bloqueo | 409 | El registro no está en el estado de origen (`from`) de la transición |
+| `COMMAND_ONLY` | bloqueo | 403 | La transición es de comando: solo la aplica su endpoint (`assess` de WF-B; `approve` y `supersede` de WF-O) |
+| `REASON_REQUIRED` | advertencia (`field`: `reason`) | 400 | La transición exige motivo (`X-Change-Reason`): pídalo antes de confirmar |
+| `NOT_ASSIGNED` | bloqueo | 403 | Quien consulta, si no es ADMIN, no tiene una asignación vigente al proyecto del registro |
+| `ACTION_REQUIRED` | bloqueo | 403 | `approve` de un proyecto exige la acción declarada `APPROVE` además del rol de la transición |
+| `WORKING_CRS_REQUIRED` | bloqueo (`field`: `working_crs`) | 409 | `approve` o `resume` de un proyecto sin `working_crs`, con `policy_activation_preconditions` activa |
+| `PARTY_REQUIRED` | bloqueo (`field`: `project_party`) | 409 | `approve` o `resume` de un proyecto sin una parte CLIENTE u OPERADOR, con la misma política activa |
+| `OBJECT_NOT_READABLE` | bloqueo (`field`: `project_party`) | 403 | Quien consulta no lee `project_party` y no se puede verificar `PARTY_REQUIRED` |
+
+Las reglas de los demás contextos (asistencia, actas, preguntas pendientes, perfil del grupo de interés…) suman sus códigos a
+esta tabla junto con su guarda.
+
 ### 4.2 BC-02 Territorio y SIG
 
 Paquete `sgspe.territory`. Las consultas espaciales cubren los casos de RQ-GIS-002, una por endpoint, con compuerta de

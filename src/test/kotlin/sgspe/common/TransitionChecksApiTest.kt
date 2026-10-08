@@ -12,8 +12,11 @@ class TransitionChecksApiTest : DomainApiTest() {
     private fun check(
         objectName: String,
         id: String,
-        transition: String
-    ) = tree(send("POST", "/api/sgspe/transition-checks", mapOf("object" to objectName, "recordId" to id, "transition" to transition), HttpStatus.OK))
+        transition: String,
+        token: String = this.token
+    ) = tree(
+        send("POST", "/api/sgspe/transition-checks", mapOf("object" to objectName, "recordId" to id, "transition" to transition), HttpStatus.OK, token)
+    )
 
     @Test
     fun `una transicion que pide motivo trae la advertencia, y una de comando se bloquea`() {
@@ -80,4 +83,72 @@ class TransitionChecksApiTest : DomainApiTest() {
         assertEquals(HttpStatus.valueOf(422), response.status)
         assertEquals(listOf("proyecto"), problemFields(response.body))
     }
+
+    @Test
+    fun `sin token es 401`() {
+        val response =
+            exchange(
+                "POST",
+                "/api/sgspe/transition-checks",
+                mapOf("object" to "project", "recordId" to UUID.randomUUID().toString(), "transition" to "approve"),
+                token = null
+            )
+        assertEquals(HttpStatus.UNAUTHORIZED, response.status)
+    }
+
+    @Test
+    fun `quien no lee el objeto no recibe ni la consulta ni el estado del registro`() {
+        val project = projectWithCrs()
+        val outsider = userWithRole("COMMITMENT_MANAGER")
+        val response =
+            exchange(
+                "POST",
+                "/api/sgspe/transition-checks",
+                mapOf("object" to "project", "recordId" to project, "transition" to "submit_for_review"),
+                outsider.token
+            )
+        assertTrue(response.status == HttpStatus.FORBIDDEN || response.status == HttpStatus.NOT_FOUND, "${response.status} ${response.body}")
+        assertTrue("draft" !in response.body, response.body)
+    }
+
+    @Test
+    fun `quien no esta asignado al proyecto recibe NOT_ASSIGNED entre los bloqueos`() {
+        val project = projectWithCrs()
+        val stranger = userWithRole("PROJECT_MANAGER")
+        val check =
+            tree(
+                send(
+                    "POST",
+                    "/api/sgspe/transition-checks",
+                    mapOf("object" to "project", "recordId" to project, "transition" to "submit_for_review"),
+                    HttpStatus.OK,
+                    stranger.token
+                )
+            )
+        assertEquals(false, check["allowed"].asBoolean())
+        assertEquals(listOf("NOT_ASSIGNED"), check["blocking"].values().map { it["code"].asString() })
+    }
+
+    @Test
+    fun `quien no lee las partes recibe OBJECT_NOT_READABLE, y quien las lee no`() {
+        val project = projectWithCrs()
+        party(project, "CLIENTE")
+        move("project", project, "submit_for_review")
+        // FIELD_AGENT asignado lee project pero no project_party, y no tiene APPROVE
+        val agent = member("FIELD_AGENT", project)
+        val blocked = check("project", project, "approve", agent.token)
+        assertEquals(false, blocked["allowed"].asBoolean())
+        val byCode = blocked["blocking"].values().associate { it["code"].asString() to it["field"].asString() }
+        assertEquals(mapOf("OBJECT_NOT_READABLE" to "project_party"), byCode - "ACTION_REQUIRED")
+        assertTrue("ACTION_REQUIRED" in byCode)
+        assertTrue("PARTY_REQUIRED" !in byCode)
+        // quien las lee ve la parte CLIENTE y no recibe ni PARTY_REQUIRED ni OBJECT_NOT_READABLE
+        val reader = check("project", project, "approve", member("PROJECT_ADMIN", project).token)
+        assertEquals(true, reader["allowed"].asBoolean())
+    }
+
+    private fun party(
+        project: String,
+        role: String
+    ) = createRecord("project_party", mapOf("project" to project, "organization" to organization(), "party_role" to role))
 }
