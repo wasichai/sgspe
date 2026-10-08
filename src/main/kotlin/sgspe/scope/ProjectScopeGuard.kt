@@ -42,7 +42,7 @@ class ProjectScopeGuard(
         }
         for (project in scope.projects) {
             if (!assignments.isAssigned(user.userId, project)) {
-                findings += notAssigned(scope.field, "No tienes una asignación vigente al proyecto $project: solo su equipo escribe en él")
+                findings += notAssigned(scope.field, "No tiene una asignación vigente al proyecto $project: solo su equipo escribe en él")
             }
         }
         return findings
