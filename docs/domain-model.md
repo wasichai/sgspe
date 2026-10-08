@@ -858,7 +858,8 @@ tiempo (RN-WFL-001); las transiciones, los roles y las guardas por transición e
 
 Todo campo marcado "(derivado)" en §6 tiene aquí su regla y quién lo escribe. Cada regla es un recalculador idempotente de su
 paquete: calcula el valor desde cero a partir de sus fuentes, nunca por incremento, y escribe con la marca `SgspeWrite` y un
-motivo `derivado: <regla>`. `DerivedFieldsGuard` rechaza cualquier otra escritura (§4.6).
+motivo `derivado: <regla>`; el trabajo que lo corrige lo firma con un sufijo, `derivado: <regla> (JOB-02 DerivedFieldsJob)`
+(RQ-AUD-007). `DerivedFieldsGuard` rechaza cualquier otra escritura (§4.6).
 
 En `model/model.json`, la definición de cada campo derivado lleva la clave `"derived": true`. Solo la leen las herramientas
 de SGSPE: `apply_roles.py`, que con ella expande `u` en UPDATE más una entrada de solo lectura para cada campo no derivado

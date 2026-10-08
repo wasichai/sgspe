@@ -1204,7 +1204,9 @@ stateDiagram-v2
   `boundary` no se congela en F2: las guardas no ven geometrías (`architecture.md` §6.3) y solo sugiere miembros (RN-TER-004).
   La guarda y la aprobación toman el mismo candado `area_of_influence:<id>`, pero la API genérica no abre una transacción
   por petición, así que queda una ventana residual en las dos direcciones, un miembro que entra en una versión recién
-  aprobada y uno que sale de una aprobada (`architecture.md` §14, riesgo 16, UPS-22).
+  aprobada y uno que sale de una aprobada, y también un cambio de la identidad de un borrador (proyecto, tipo o número de
+  versión) que se confirma justo después de la aprobación (`architecture.md` §14, riesgo 16, UPS-22). Editar `boundary`
+  de una versión aprobada recalcula su área oficial y KPI-TER-02 sin una versión nueva (`architecture.md` §14, riesgo 17).
 - **La pertenencia la decide una persona (RN-TER-004):** el cálculo espacial solo sugiere miembros
   (`GET /api/sgspe/areas-of-influence/{id}/member-suggestions`).
 - **Validación contra las fuentes:** la composición del AIDS cambia en DOC-01 (un sector en proceso de separación y una

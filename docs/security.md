@@ -371,7 +371,7 @@ Las mismas acciones, por objeto, para replicarlas en el modelo:
      que se pueda leer (RQ-SEC-008, ASM-069);
   4. deja pasar la escritura que lleva la marca de escritura de SGSPE y solo cambia campos derivados: al agregar un
      participante a una interacción ajena, `AttendanceCountsListener` actualiza sus conteos (§8.1);
-  5. decide con `requirePermission(user, "EDIT_ANY", objectId)` y `created_by`, sin nombres de rol (RQ-SEC-005); `ADMIN`
+  5. decide con `Permissions.has(user, "EDIT_ANY", objectName)` y `created_by`, sin nombres de rol (RQ-SEC-005); `ADMIN`
      tiene siempre la acción [WAS-ADR-0042];
   6. tienen `EDIT_ANY` todos los roles que escriben esos objetos, menos `FIELD_AGENT` (matriz §7).
 - Consecuencias para `FIELD_AGENT`:
