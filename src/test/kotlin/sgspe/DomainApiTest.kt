@@ -149,6 +149,18 @@ abstract class DomainApiTest : F2ApiTest() {
 
     protected fun person(givenNames: String = "Persona Ejemplo"): String = createRecord("person", mapOf("given_names" to givenNames, "sex" to "FEMENINO"))
 
+    // lo que `profile` exige de un grupo de interés (RF-STK-003) además del ámbito: tipo, motivo de inclusión y responsable
+    protected fun profileFields(
+        owner: Account,
+        type: String = "LIDER LOCAL"
+    ): Map<String, Any?> =
+        mapOf(
+            "stakeholder_type" to type,
+            "inclusion_reason" to "Líder de la comunidad",
+            "owner_user_id" to owner.id,
+            "owner_user_email" to owner.email
+        )
+
     protected fun stakeholder(
         project: String,
         attributes: Map<String, Any?> = emptyMap(),
