@@ -100,7 +100,8 @@ class InfluenceClassifierTest {
     }
 
     // el empate del redondeo es HALF_UP: afectación (1,2,2) da 1,6667 y se guarda 1,67; con oportunidad 3,00 el promedio de los
-    // guardados es 2,335, que sube a 2,34 (HALF_EVEN o HALF_DOWN darían 2,33)
+    // guardados es 2,335, que sube a 2,34 (HALF_DOWN daría 2,33; HALF_EVEN también da 2,34, el par, así que esta prueba
+    // distingue HALF_UP de HALF_DOWN y no de HALF_EVEN)
     @Test
     fun `el empate en la tercera cifra del indice sube (HALF_UP)`() {
         val indicators =

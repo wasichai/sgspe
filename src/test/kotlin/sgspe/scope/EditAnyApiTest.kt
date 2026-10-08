@@ -1,6 +1,7 @@
 package sgspe.scope
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.DomainApiTest
@@ -88,6 +89,10 @@ class EditAnyApiTest : DomainApiTest() {
         val deleted = exchange("DELETE", "/api/objects/engagement_participant/records/$own", null, agent.token)
         assertEquals(HttpStatus.NO_CONTENT, deleted.status, deleted.body)
         assertEquals(0, record("engagement", foreign)["attributes"]["attendees_total_count"].asInt())
+        // la ubicación de la interacción sobrevive a la escritura de los conteos
+        val location = record("engagement", foreign)["geometries"]["location"]
+        assertNotNull(location)
+        assertEquals("Point", location["type"].asString())
     }
 
     @Test
