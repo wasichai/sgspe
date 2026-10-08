@@ -1093,6 +1093,9 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   sus permisos de objeto y de campo. Sobre eso se aplica el nivel de divulgación. Exigen `EXPORT` y cada una queda en
   `export_log` con su `export_kind`, quién, qué, nivel, filtros, cuándo y cuántas filas (RQ-AUD-011). Una exportación
   EXTERNO exige una lista de verificación (ASM-037, RQ-REP-033).
+  Todo texto que una exportación XLSX o CSV escribe de datos del usuario o de archivos importados neutraliza el prefijo de
+  fórmula (`=`, `+`, `-`, `@`, tabulador o retorno de carro) con un apóstrofo, con `safeCell` de `sgspe.common`
+  (RQ-SEC-020).
 - **Niveles de divulgación** (catálogo "Nivel de divulgación"; RQ-REP-014, ASM-037):
   - INTERNO: nominal, solo para quien puede leer los datos;
   - EXTERNO: las personas se citan por cargo o código, se excluyen las fotos sin consentimiento y los puntos de vivienda

@@ -1,5 +1,7 @@
 package sgspe.territory
 
+import org.apache.poi.openxml4j.util.ZipSecureFile
+import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -91,11 +93,18 @@ class ImportFilesTest {
 
     @Test
     fun `una entrada que sale de la carpeta temporal se rechaza`() {
-        ImportWorkspace.create().use { workspace ->
-            assertEquals(workspace.dir.resolve("capa.shp"), workspace.resolveEntry("capa.shp"))
-            assertThrows<ValidationException> { workspace.resolveEntry("../../etc/passwd") }
-            assertThrows<ValidationException> { workspace.resolveEntry("/etc/passwd") }
-        }
+        val created =
+            ImportWorkspace.create().use { workspace ->
+                assertEquals(workspace.dir.resolve("capa.shp"), workspace.resolveEntry("capa.shp"))
+                assertThrows<ValidationException> { workspace.resolveEntry("../../etc/passwd") }
+                assertThrows<ValidationException> { workspace.resolveEntry("/etc/passwd") }
+                workspace.dir
+            }
+        assertTrue(
+            !java.nio.file.Files
+                .exists(created),
+            "la carpeta temporal debe borrarse al cerrar"
+        )
     }
 
     @Test
@@ -148,9 +157,10 @@ class ImportFilesTest {
         assertEquals(0, ImportReaders.read(valid, "valido.xlsx", 10).size)
     }
 
-    // una entidad externa en la hoja (XXE) no se resuelve: el archivo se rechaza y su contenido nunca llega a un valor
+    // una entidad externa en la hoja (XXE) no se resuelve: el archivo se rechaza por el DOCTYPE y su contenido nunca llega a
+    // un valor. el control positivo es el mismo libro sin DOCTYPE, que se lee
     @Test
-    fun `un xlsx con una entidad externa se rechaza sin leer el archivo local`() {
+    fun `un xlsx con una entidad externa se rechaza por el DOCTYPE y sin esa declaracion se lee`() {
         val secret = File(dir, "secreto.txt").apply { writeText("CONTENIDO-LOCAL") }
         val valid = File(dir, "valido.xlsx")
         XSSFWorkbook().use { workbook ->
@@ -161,41 +171,53 @@ class ImportFilesTest {
                 .setCellValue("code")
             valid.outputStream().use(workbook::write)
         }
+
+        fun sheet(
+            doctype: String,
+            value: String
+        ) = """<?xml version="1.0"?>$doctype
+               <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
+               <row r="1"><c r="A1" t="inlineStr"><is><t>code</t></is></c></row>
+               <row r="2"><c r="A2" t="inlineStr"><is><t>$value</t></is></c></row>
+               </sheetData></worksheet>""".toByteArray()
+        val clean = File(dir, "limpio.xlsx")
+        rewriteEntry(valid, clean, "xl/worksheets/sheet1.xml") { it.write(sheet("", "TST-1")) }
+        assertEquals("TST-1", ImportReaders.read(clean, "limpio.xlsx", 10).single().values["code"])
         val xxe = File(dir, "xxe.xlsx")
-        rewriteEntry(valid, xxe, "xl/worksheets/sheet1.xml") { sink ->
-            sink.write(
-                """<?xml version="1.0"?><!DOCTYPE worksheet [<!ENTITY leak SYSTEM "${secret.toURI()}">]>
-                   <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
-                   <row r="1"><c r="A1" t="inlineStr"><is><t>code</t></is></c></row>
-                   <row r="2"><c r="A2" t="inlineStr"><is><t>&leak;</t></is></c></row>
-                   </sheetData></worksheet>""".toByteArray()
-            )
+        rewriteEntry(valid, xxe, "xl/worksheets/sheet1.xml") {
+            it.write(sheet("""<!DOCTYPE worksheet [<!ENTITY leak SYSTEM "${secret.toURI()}">]>""", "&leak;"))
         }
         val error = assertThrows<ValidationException> { ImportReaders.read(xxe, "xxe.xlsx", 10) }
         assertEquals("file", error.violations.single().field)
+        assertTrue("DOCTYPE" in error.violations.single().message, error.violations.single().message)
         assertTrue("CONTENIDO-LOCAL" !in error.violations.single().message)
     }
 
-    // una fórmula se lee como texto y nunca se evalúa (inyección de fórmulas, RQ-SEC-020): en CSV y en XLSX
+    // una fórmula nunca se evalúa (inyección de fórmulas, RQ-SEC-020): en CSV es el texto y en XLSX se lee el valor que Excel
+    // dejó guardado, no la fórmula; sin valor guardado la celda queda vacía
     @Test
-    fun `una formula se lee como texto y no se evalua`() {
+    fun `una formula no se evalua, en csv es texto y en xlsx se lee su valor guardado`() {
         val csv = ImportReaders.csv("code;note\nTST-1;\"=HYPERLINK(\"\"http://ejemplo.test\"\";\"\"x\"\")\"\n")
         assertEquals("=HYPERLINK(\"http://ejemplo.test\";\"x\")", csv.single().values["note"])
         val file = File(dir, "formulas.xlsx")
         XSSFWorkbook().use { workbook ->
             val sheet = workbook.createSheet("Hoja1")
             sheet.createRow(0).apply {
-                createCell(0).setCellValue("code")
-                createCell(1).setCellValue("note")
+                listOf("code", "este", "calculado", "sin_valor").forEachIndexed { column, title -> createCell(column).setCellValue(title) }
             }
             sheet.createRow(1).apply {
                 createCell(0).setCellValue("TST-1")
-                createCell(1).cellFormula = "1+2"
+                createCell(1).cellFormula = "800000+12345"
+                createCell(2).cellFormula = "A2&\"-X\""
             }
+            workbook.creationHelper.createFormulaEvaluator().evaluateAll()
+            sheet.getRow(1).createCell(3).cellFormula = "1+2"
             file.outputStream().use(workbook::write)
         }
-        val note = ImportReaders.read(file, "formulas.xlsx", 10).single().values["note"]
-        assertEquals("1+2", note)
+        val row = ImportReaders.read(file, "formulas.xlsx", 10).single()
+        assertEquals("812345", row.values["este"])
+        assertEquals("TST-1-X", row.values["calculado"])
+        assertNull(row.values["sin_valor"])
     }
 
     // Excel en español guarda «CSV» en Windows-1252 si no se elige UTF-8: las tildes no se pierden
@@ -218,6 +240,184 @@ class ImportFilesTest {
         }
         val error = assertThrows<ValidationException> { ImportReaders.read(file, "muchas.xlsx", 4) }
         assertEquals("file", error.violations.single().field)
+    }
+
+    @Test
+    fun `una comilla suelta en mitad de un campo es literal y no se come las filas siguientes`() {
+        val rows = ImportReaders.csv("Codigo;Nota;Este\nTST-1;tubo 2\" de acero;800000\nTST-2;ok;800001\nTST-3;ok;800002\n")
+        assertEquals(3, rows.size)
+        assertEquals("tubo 2\" de acero", rows[0].values["Nota"])
+        assertEquals("800000", rows[0].values["Este"])
+        assertEquals("TST-3", rows[2].values["Codigo"])
+        // una celda citada con salto de línea, comillas dobles y el cierre antes del separador
+        val quoted = ImportReaders.csv("a;b\n\"uno\ndos \"\"x\"\"\";2\n").single()
+        assertEquals("uno\ndos \"x\"", quoted.values["a"])
+        assertEquals("2", quoted.values["b"])
+    }
+
+    @Test
+    fun `una comilla sin cerrar al final es un 400 sobre file`() {
+        val error = assertThrows<ValidationException> { ImportReaders.csv("a;b\nTST-1;\"sin cerrar\nTST-2;3\n") }
+        assertEquals("file", error.violations.single().field)
+        assertTrue("comilla sin cerrar" in error.violations.single().message)
+    }
+
+    @Test
+    fun `el separador se mide fuera de las comillas y admite tabulador`() {
+        val commaInQuotes = ImportReaders.csv("\"Este, m\";\"Norte, m\"\n812345;9123456\n").single()
+        assertEquals("812345", commaInQuotes.values["Este, m"])
+        assertEquals("9123456", commaInQuotes.values["Norte, m"])
+        val tabs = ImportReaders.csv("Codigo\tEste\nTST-1\t812345,5\n").single()
+        assertEquals("TST-1", tabs.values["Codigo"])
+        assertEquals(BigDecimal("812345.5"), ImportReaders.number(tabs.values["Este"]))
+    }
+
+    @Test
+    fun `numeros con separador de miles en las dos convenciones`() {
+        assertEquals(BigDecimal("1234.56"), ImportReaders.number("1.234,56"))
+        assertEquals(BigDecimal("1234.5"), ImportReaders.number("1,234.5"))
+        assertEquals(BigDecimal("1234567.5"), ImportReaders.number("1.234.567,5"))
+        assertEquals(BigDecimal("0.5"), ImportReaders.number("0,5"))
+    }
+
+    @Test
+    fun `un encabezado repetido o una columna con datos sin encabezado es un 400 que lo nombra`() {
+        val repeated = assertThrows<ValidationException> { ImportReaders.csv("code;este;este\nTST-1;1;2\n") }
+        assertEquals("file", repeated.violations.single().field)
+        assertTrue("«este»" in repeated.violations.single().message, repeated.violations.single().message)
+        val headless = assertThrows<ValidationException> { ImportReaders.csv("code;;este\nTST-1;x;2\n") }
+        assertTrue("columna 2" in headless.violations.single().message, headless.violations.single().message)
+        // una columna sin encabezado y sin datos no estorba
+        assertEquals("TST-1", ImportReaders.csv("code;;este\nTST-1;;2\n").single().values["code"])
+    }
+
+    // el tope corta la lectura: el lector de un CSV infinito termina porque se detiene en la fila maxRows + 1 (si leyera todo
+    // antes de contar, nunca volvería). el mensaje nombra el tope y no una cuenta total
+    @Test
+    fun `un csv enorme se rechaza por el tope de filas sin leerlo entero`() {
+        val endless =
+            object : java.io.Reader() {
+                private val line = "TST-1;812345;9123456\n"
+                private var position = 0
+                private var header = true
+
+                override fun read(
+                    buffer: CharArray,
+                    offset: Int,
+                    length: Int
+                ): Int {
+                    val text = if (header) "code;este;norte\n" else line
+                    for (i in 0 until length) {
+                        buffer[offset + i] = text[position++ % text.length]
+                        if (header && position == text.length) {
+                            header = false
+                            position = 0
+                            return i + 1
+                        }
+                    }
+                    return length
+                }
+
+                override fun close() = Unit
+            }
+        val error = assertThrows<ValidationException> { ImportReaders.csv(endless, 100) }
+        assertEquals("file", error.violations.single().field)
+        assertTrue("más de 100 filas" in error.violations.single().message, error.violations.single().message)
+    }
+
+    @Test
+    fun `un xlsx grande y legitimo se rechaza por el tope de filas, y las filas vacias no cuentan`() {
+        val file = File(dir, "grande.xlsx")
+        SXSSFWorkbook(50).use { workbook ->
+            val sheet = workbook.createSheet("Hoja1")
+            sheet.createRow(0).createCell(0).setCellValue("code")
+            (1..200_000).forEach { sheet.createRow(it).createCell(0).setCellValue("TST-$it") }
+            file.outputStream().use(workbook::write)
+            workbook.dispose()
+        }
+        val error = assertThrows<ValidationException> { ImportReaders.read(file, "grande.xlsx", 1_000) }
+        assertEquals("file", error.violations.single().field)
+        assertTrue("más de 1000 filas" in error.violations.single().message, error.violations.single().message)
+        // filas con formato pero vacías hasta la 5 000 no cuentan contra el tope
+        val sparse = File(dir, "dispersa.xlsx")
+        XSSFWorkbook().use { workbook ->
+            val sheet = workbook.createSheet("Hoja1")
+            sheet.createRow(0).createCell(0).setCellValue("code")
+            sheet.createRow(1).createCell(0).setCellValue("TST-1")
+            sheet.createRow(5_000).createCell(0)
+            sparse.outputStream().use(workbook::write)
+        }
+        assertEquals(1, ImportReaders.read(sparse, "dispersa.xlsx", 4).size)
+    }
+
+    // el tope de bytes inflados de una entrada: se baja a 1 MB solo dentro de la prueba y se restaura
+    @Test
+    fun `una hoja que se infla mas que el tope de la entrada es un 400 que nombra la descompresion`() {
+        val file = File(dir, "inflada.xlsx")
+        SXSSFWorkbook(50).use { workbook ->
+            val sheet = workbook.createSheet("Hoja1")
+            sheet.createRow(0).createCell(0).setCellValue("code")
+            val random = java.util.Random(7)
+            (1..30_000).forEach {
+                sheet.createRow(it).createCell(0).setCellValue(java.lang.Long.toString(random.nextLong(), 36) + java.lang.Long.toString(random.nextLong(), 36))
+            }
+            file.outputStream().use(workbook::write)
+            workbook.dispose()
+        }
+        assertEquals(30_000, ImportReaders.read(file, "inflada.xlsx", 100_000).size)
+        ZipSecureFile.setMaxEntrySize(512L * 1024)
+        try {
+            val error = assertThrows<ValidationException> { ImportReaders.read(file, "inflada.xlsx", 100_000) }
+            assertEquals("file", error.violations.single().field)
+            assertTrue("descompresión" in error.violations.single().message, error.violations.single().message)
+        } finally {
+            ZipSecureFile.setMaxEntrySize(ImportReaders.MAX_ENTRY_BYTES)
+        }
+    }
+
+    @Test
+    fun `un csv en Windows-1252 con la tilde despues del primer bloque se lee igual`() {
+        val body = "Código;Nota\n" + (1..5_000).joinToString("") { "TST-$it;ok\n" } + "TST-9;Cajamarca ñ\n"
+        val file = File(dir, "ansi-largo.csv").apply { writeBytes(body.toByteArray(charset("windows-1252"))) }
+        val rows = ImportReaders.read(file, "ansi-largo.csv", 10_000)
+        assertEquals(5_001, rows.size)
+        assertEquals("Cajamarca ñ", rows.last().values["Nota"])
+    }
+
+    @Test
+    fun `geojson sin notacion cientifica, con type al final y un tope que corta la lectura`() {
+        val late = File(dir, "tarde.geojson")
+        late.writeText(
+            """{"features":[{"type":"Feature","properties":{"code":10000000.0,"area":1.5E7,"n":3},"geometry":{"type":"Point","coordinates":[812345.25,9123456.5]}}],"type":"FeatureCollection"}"""
+        )
+        val row = ImportReaders.read(late, "tarde.geojson", 10).single()
+        assertEquals("10000000", row.values["code"])
+        assertEquals("15000000", row.values["area"])
+        assertEquals("3", row.values["n"])
+        assertEquals("Point", row.geometry?.get("type"))
+        val single =
+            File(dir, "uno.geojson").apply {
+                writeText("""{"type":"Feature","properties":{"code":"TST-1"},"geometry":{"type":"Point","coordinates":[0,0]}}""")
+            }
+        assertEquals("TST-1", ImportReaders.read(single, "uno.geojson", 10).single().values["code"])
+        val many = File(dir, "muchos.geojson")
+        many.writeText(
+            """{"type":"FeatureCollection","features":[""" +
+                (1..50).joinToString(",") { """{"type":"Feature","properties":{"code":"TST-$it"},"geometry":null}""" } + "]}"
+        )
+        val error = assertThrows<ValidationException> { ImportReaders.read(many, "muchos.geojson", 10) }
+        assertTrue("más de 10 filas" in error.violations.single().message, error.violations.single().message)
+        val broken = File(dir, "roto.geojson").apply { writeText("""{"type":"FeatureCollection","features":[""") }
+        assertEquals("file", assertThrows<ValidationException> { ImportReaders.read(broken, "roto.geojson", 10) }.violations.single().field)
+    }
+
+    @Test
+    fun `una entrada con NUL es un 400 y no repite el nombre`() {
+        ImportWorkspace.create().use { workspace ->
+            val error = assertThrows<ValidationException> { workspace.resolveEntry("capa\u0000.shp") }
+            assertEquals("file", error.violations.single().field)
+            assertTrue("capa" !in error.violations.single().message)
+        }
     }
 
     private fun rewriteEntry(
