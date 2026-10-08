@@ -64,7 +64,7 @@ class ProjectWriteGuard(
             } catch (_: ForbiddenException) {
                 return Finding(
                     "OBJECT_NOT_READABLE",
-                    "No puedes leer project_party, así que no se puede verificar la parte CLIENTE u OPERADOR",
+                    "No tiene permiso para leer project_party, así que no se puede verificar la parte CLIENTE u OPERADOR",
                     "project_party",
                     status = HttpStatus.FORBIDDEN
                 )

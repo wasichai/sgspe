@@ -56,12 +56,25 @@ class ProjectResolverTest {
     }
 
     @Test
-    fun `un alta sin la relacion obligatoria no se resuelve, y el alta de un proyecto no pide alcance`() {
-        assertTrue(resolve(write("engagement", RecordChangeKind.CREATED, null), emptyMap()).unresolved)
-        assertTrue(resolve(write("planned_activity", RecordChangeKind.CREATED, null), emptyMap()).unresolved)
+    fun `un alta sin la relacion obligatoria no es de alcance (lo rechaza wasichai con su 400), y el alta de un proyecto no pide alcance`() {
+        val root = resolve(write("engagement", RecordChangeKind.CREATED, null), emptyMap())
+        assertFalse(root.unresolved)
+        assertTrue(root.projects.isEmpty())
+        val child = resolve(write("planned_activity", RecordChangeKind.CREATED, null), emptyMap())
+        assertFalse(child.unresolved)
+        assertTrue(child.projects.isEmpty())
         val project = resolve(write("project", RecordChangeKind.CREATED, null, recordId = null), emptyMap())
         assertFalse(project.unresolved)
         assertTrue(project.projects.isEmpty())
+    }
+
+    @Test
+    fun `un alta con un padre que no da proyecto sigue sin resolverse`() {
+        assertTrue(resolve(write("planned_activity", RecordChangeKind.CREATED, null), mapOf("engagement_plan" to orphanPlan.toString())).unresolved)
+        assertEquals(
+            setOf(mine),
+            resolve(write("planned_activity", RecordChangeKind.CREATED, null), mapOf("engagement_plan" to plan.toString())).projects
+        )
     }
 
     @Test

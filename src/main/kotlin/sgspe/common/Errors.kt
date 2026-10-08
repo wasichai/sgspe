@@ -18,7 +18,7 @@ class PreconditionRequiredException(
     message: String
 ) : WasichaiException(HttpStatus.PRECONDITION_REQUIRED, message, listOf(FieldViolation("If-Match", "envíe el updatedAt que leyó, entre comillas")))
 
-// cualquier otro estado con su detalle y sus campos: lo usan las guardas de reglas (Finding.toException)
+// cualquier otro estado con su detalle y sus campos: lo usan las guardas de reglas (Finding.toCodedException)
 class RuleException(
     status: HttpStatus,
     message: String,

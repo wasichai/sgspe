@@ -54,7 +54,8 @@ object ProjectScope {
 
 // a qué proyectos pertenece el registro que una escritura toca. `field` es el campo de la relación de alcance del objeto
 // (`project` en las raíces, el padre en los hijos): el que un error nombra. `unresolved`: el alcance no se pudo determinar
-// (la relación obligatoria está vacía o el padre no da proyecto), y quien no es ADMIN no escribe en lo que no tiene dueño
+// (el registro guardado no tiene la relación obligatoria o el padre no da proyecto), y quien no es ADMIN no escribe en lo
+// que no tiene dueño
 data class Resolution(
     val field: String,
     val projects: Set<UUID>,
@@ -106,10 +107,10 @@ class ProjectResolver(
             val beforeId = Records.uuid(change.before?.get(field))
             val afterId = Records.uuid(after[field])
             // la relación de alcance es obligatoria en el modelo salvo en export_log y locality_profile: solo ahí vacía es
-            // válido. un registro existente sin dueño no se toca (el ON DELETE SET NULL de wasichai los deja así); lo que la
-            // escritura deja vacío en una actualización no es de alcance, porque wasichai rechaza el obligatorio vacío, pero
-            // un alta sin él no tiene a quién pedirle asignación
-            var unresolved = required(name, field) && ((!created && beforeId == null) || (created && afterId == null))
+            // válido. un registro existente sin dueño no se toca (el ON DELETE SET NULL de wasichai los deja así). lo que la
+            // escritura deja vacío no es de alcance: un alta o una actualización sin la relación obligatoria la rechaza
+            // wasichai con su 400 «is required» (y la base con NOT NULL), así que aquí no se la trata como NOT_ASSIGNED
+            var unresolved = required(name, field) && !created && beforeId == null
             val projects = mutableSetOf<UUID>()
             for (id in setOfNotNull(beforeId, afterId)) {
                 val project = if (parent == null) id else parentProject(parent, id)

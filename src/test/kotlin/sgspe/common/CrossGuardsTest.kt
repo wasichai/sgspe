@@ -91,10 +91,16 @@ class CrossGuardsTest {
     }
 
     @Test
-    fun `un hallazgo se vuelve la excepcion de su estado`() {
-        assertEquals(400, Finding("X", "m", "f", status = HttpStatus.BAD_REQUEST).toException().status.value())
-        assertEquals(403, Finding("X", "m", status = HttpStatus.FORBIDDEN).toException().status.value())
-        val conflict = Finding("X", "m", "working_crs").toException()
+    fun `un hallazgo se vuelve la excepcion de su estado con el codigo en errors 0`() {
+        val bad = Finding("X", "m", "f", status = HttpStatus.BAD_REQUEST).toCodedException()
+        assertEquals(400, bad.status.value())
+        assertEquals("f", bad.violations.single().field)
+        assertEquals("X", bad.violations.single().message)
+        // un 403 sin campo lleva el código igual, sobre `record`
+        val forbidden = Finding("X", "m", status = HttpStatus.FORBIDDEN).toCodedException()
+        assertEquals(403, forbidden.status.value())
+        assertEquals("X", forbidden.violations.single().message)
+        val conflict = Finding("X", "m", "working_crs").toCodedException()
         assertEquals(409, conflict.status.value())
         assertEquals("working_crs", conflict.violations.single().field)
     }

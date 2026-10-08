@@ -2,8 +2,6 @@ package sgspe.common
 
 import org.springframework.http.HttpStatus
 import wasichai.core.common.FieldViolation
-import wasichai.core.common.ForbiddenException
-import wasichai.core.common.ValidationException
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
@@ -19,16 +17,9 @@ data class Finding(
     val field: String? = null,
     val blocking: Boolean = true,
     val status: HttpStatus = HttpStatus.CONFLICT
-) {
-    fun toException(): WasichaiException =
-        when (status) {
-            HttpStatus.BAD_REQUEST -> ValidationException(message, field ?: "record", message)
-            HttpStatus.FORBIDDEN -> ForbiddenException(message)
-            else -> RuleException(status, message, field?.let { listOf(FieldViolation(it, message)) }.orEmpty())
-        }
-}
+)
 
-// la misma excepción, pero con el código en errors[0].message: el 403 de wasichai no lleva campos, y un 409 o un 403 de
+// la excepción de la regla, con el código en errors[0].message: el 403 de wasichai no lleva campos, y un 409 o un 403 de
 // regla sin código no se distingue de otro por permiso o por estado. detail lleva el texto; errors[0], el campo y el código
 fun Finding.toCodedException(): WasichaiException = RuleException(status, message, listOf(FieldViolation(field ?: "record", code)))
 

@@ -121,7 +121,7 @@ class EngagementWriteGuard(
             Children.Unreadable(
                 Finding(
                     "OBJECT_NOT_READABLE",
-                    "No puedes leer $objectName, así que no se puede verificar la condición de la transición",
+                    "No tiene permiso para leer $objectName, así que no se puede verificar la condición de la transición",
                     objectName,
                     status = HttpStatus.FORBIDDEN
                 )
@@ -134,7 +134,21 @@ class EngagementWriteGuard(
         engagement: Map<String, Any?>
     ): List<Finding> {
         val type = Values.text(engagement["engagement_type"])
-        val project = Records.uuid(engagement["project"])?.let { records.find("project", it)?.attributes }.orEmpty()
+        // quien no puede leer el proyecto no puede verificar la política: lectura estricta (como si exigiera acta en todo tipo),
+        // y como 403 con su código y no como el ForbiddenException de wasichai sin campos
+        val project =
+            try {
+                Records.uuid(engagement["project"])?.let { records.find("project", it)?.attributes }.orEmpty()
+            } catch (_: ForbiddenException) {
+                return listOf(
+                    Finding(
+                        "OBJECT_NOT_READABLE",
+                        "No tiene permiso para leer project, así que no se puede verificar la política de actas del proyecto",
+                        "project",
+                        status = HttpStatus.FORBIDDEN
+                    )
+                )
+            }
         val onlyFormal = ProjectParameters.policy(project, "policy_minutes_only_formal_types")
         if (onlyFormal && type !in FORMAL_TYPES) return emptyList()
         val why = if (onlyFormal) "una interacción de tipo $type cierra con acta aprobada" else "el proyecto exige acta en todas las interacciones"

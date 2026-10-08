@@ -11,6 +11,7 @@ import wasichai.core.data.RecordWrite
 import wasichai.core.metadata.MetadataService
 import wasichai.core.platform.SqlIdentifier
 import wasichai.core.platform.WasichaiSchemas
+import java.util.UUID
 
 // un registro del que otros dependen no se borra (P13): wasichai declara cada relación obligatoria NOT NULL con ON DELETE
 // SET NULL, así que borrar el padre de un hijo obligatorio falla en la base con un 500. aquí se vuelve un 409 que nombra
@@ -35,7 +36,7 @@ class DependentsDeleteGuard(
         if (change.kind != RecordChangeKind.DELETED || id == null) return emptyList()
         val first =
             catalog.requiredDependents(change.objectName).firstOrNull { (source, field) ->
-                referenced(change, source, field)
+                referenced(change, id, source, field)
             } ?: return emptyList()
         return listOf(
             Finding(
@@ -50,6 +51,7 @@ class DependentsDeleteGuard(
     // si alguna fila del tenant de `source` apunta, por la columna de `field`, al registro que se borra
     private suspend fun referenced(
         change: RecordWrite,
+        id: UUID,
         source: String,
         field: String
     ): Boolean {
@@ -64,7 +66,7 @@ class DependentsDeleteGuard(
         return db
             .sql("SELECT 1 AS one FROM $table WHERE organization_id = :organizationId AND ${SqlIdentifier.quote(column)} = :id LIMIT 1")
             .bind("organizationId", change.organizationId)
-            .bind("id", change.recordId!!)
+            .bind("id", id)
             .fetch()
             .first()
             .awaitSingleOrNull() != null
