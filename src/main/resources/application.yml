@@ -4,6 +4,15 @@ server:
 spring:
   application:
     name: sgspe
+  webflux:
+    multipart:
+      # el único multipart es la importación (api.md §4.2). Spring guarda en disco la parte de archivo antes de entregarla:
+      # sin tope llenaría el disco antes de que ImportController cuente los bytes. va algo por encima de
+      # sgspe.territory.import.max-bytes y responde igual (400 FILE_TOO_LARGE); si se sube ese máximo, se sube este
+      max-disk-usage-per-part: 25MB
+      max-parts: 16
+      # las decisiones de una hoja de 10 000 filas pasan de los 256 KB por defecto
+      max-in-memory-size: 1MB
 
 wasichai:
   database:
@@ -26,6 +35,14 @@ wasichai:
       secret: ${WASICHAI_JWT_SECRET:sgspe-dev-only-secret-change-me-0123456789}
 
 sgspe:
+  territory:
+    import:
+      # RQ-SEC-020, ASM-050: tamaño del archivo, filas, plazo de lectura y validación, e importaciones a la vez (ImportProperties)
+      # bytes (20 MB)
+      max-bytes: 20971520
+      max-rows: 10000
+      timeout: 60s
+      max-concurrent: 4
   stakeholder:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30

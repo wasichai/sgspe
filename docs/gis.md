@@ -314,6 +314,11 @@ sequenceDiagram
   endpoints está en `api.md`.
 - Escribe con `RecordService` dentro de una transacción (`TransactionalOperator`) [WAS-ADR-0038]: o se escribe todo el lote, o
   nada. El motivo de cada escritura es `importación <id>` (ASM-051).
+- La lectura y las cuentas de PostGIS van antes y fuera de esa transacción: una geometría que PostGIS no procesa es una fila
+  rechazada y no aborta el lote. La escritura toma un candado por destino (por proyecto en los componentes) y, si lo
+  registrado con los códigos del archivo cambió desde el análisis, no escribe nada (`409 IMPORT_CONFLICT`): dos
+  confirmaciones del mismo archivo nunca duplican un predio ni una concesión. Quien importa escribe con su permiso y su
+  alcance (`ProjectScopeGuard`), nunca como la plataforma.
 
 ### 4.3 Validaciones
 

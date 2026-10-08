@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
 import sgspe.common.Records
+import sgspe.common.RequestMemo
 import sgspe.common.Validity
 import sgspe.common.Values
 import java.time.Clock
@@ -77,17 +78,20 @@ class Assignments(
             .map { it.project }
             .distinct()
 
-    // si el usuario tiene una asignación vigente al proyecto
+    // si el usuario tiene una asignación vigente al proyecto. dentro de un comando que abrió RequestMemo (la confirmación de
+    // una importación) se lee una vez por usuario y proyecto, no una vez por registro escrito
     suspend fun isAssigned(
         userId: UUID,
         project: UUID
     ): Boolean =
-        records
-            .all(OBJECT, filters = mapOf("project" to project.toString(), "member_user_id" to userId.toString()))
-            .mapNotNull { Assignment.of(it.id, it.attributes) }
-            // los filtros ya acotan la consulta; aquí se vuelve a comprobar porque esto es una frontera de seguridad y un
-            // filtro ignorado daría alcance a cualquiera
-            .any { it.project == project && it.memberUserId == userId && it.inForce(today()) }
+        RequestMemo.remember("$OBJECT:$userId:$project") {
+            records
+                .all(OBJECT, filters = mapOf("project" to project.toString(), "member_user_id" to userId.toString()))
+                .mapNotNull { Assignment.of(it.id, it.attributes) }
+                // los filtros ya acotan la consulta; aquí se vuelve a comprobar porque esto es una frontera de seguridad y un
+                // filtro ignorado daría alcance a cualquiera
+                .any { it.project == project && it.memberUserId == userId && it.inForce(today()) }
+        }
 
     // las asignaciones vigentes del proyecto cuyo role_name está entre los roles de la transición, salvo quien la aplicó
     // y las cuentas de servicio (su correo de respaldo, WAS-ADR-0043). los roles salen de model/workflows/<objeto>.json,

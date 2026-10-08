@@ -135,7 +135,7 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 | `412` | `If-Match` no coincide con el `updatedAt` actual (§3.6) |
 | `422` | Parámetro de consulta desconocido (ASM-054) |
 | `428` | Falta `If-Match` en un comando que lo exige (§3.6) |
-| `503` | Solo en los endpoints de IA que llaman a un modelo (§4.14): la IA no está activada para la organización o su proveedor no responde, como el asistente de wasichai sin clave [WAS-DOC api/rest.md] |
+| `503` | En los endpoints de IA que llaman a un modelo (§4.14): la IA no está activada para la organización o su proveedor no responde, como el asistente de wasichai sin clave [WAS-DOC api/rest.md]; y en una importación cuando ya corren tantas como permite `sgspe.territory.import.max-concurrent` (`IMPORT_BUSY`, §4.2) |
 
 - Un `detail` nunca lleva datos personales ni el valor que repitió un único; los logs tampoco (RQ-SEC-010).
 - La respuesta de error también lleva `X-Correlation-Id`, que el usuario puede citar al pedir ayuda (RQ-AUD-006).
@@ -180,6 +180,16 @@ acción declarada `APPROVE`), `403` `ROLE_REQUIRED` (falta el rol de `approve` o
 asignación vigente al proyecto), `409` `STATE_MISMATCH` (`field`: `state`; la versión no está en `draft`) y `409`
 `MEMBERS_REQUIRED` (`field`: `area_of_influence_member`; una versión sin miembros no se aprueba). Un parámetro de consulta
 desconocido es `422` y una propiedad desconocida del cuerpo, `400`.
+`POST /api/sgspe/territory/imports` y su confirmación (§4.2) responden `400` `FILE_TOO_LARGE` (el archivo pasa de
+`sgspe.territory.import.max-bytes`) e `IMPORT_TIMEOUT` (la lectura y la validación pasan de `timeout`), los dos con `field`
+`file` y sin escribir nada; `400` `FORMAT_NOT_SUPPORTED` (`file`: un predio o una concesión desde una hoja), `400`
+`SHA256_MISMATCH` (`sha256`: el archivo no es el de la vista previa), `409` `IMPORT_CONFLICT` (`file`: lo registrado con
+un código del archivo cambió entre el análisis de la confirmación y su candado, por ejemplo otra confirmación del mismo
+archivo; no se escribe nada y se vuelve a previsualizar) y `503` `IMPORT_BUSY` (`file`: ya corren `max-concurrent`
+importaciones y no se liberó un lugar dentro del plazo). Las demás respuestas `400` (una parte que falta, se repite o no
+existe, un CRS fuera del catálogo, una decisión mal formada o sobre una fila que no es válida) son de validación, con
+texto libre, y un parámetro de consulta es `422`. Una fila que PostGIS no puede transformar ni validar no es un error de
+la petición: va a `invalid[]` con el motivo `geometría inválida: …` en español.
 
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:
@@ -322,7 +332,9 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
 
 - Las subidas usan `multipart/form-data`: una parte `file` y, si hace falta, partes JSON (`attributes`, `links`). El tamaño
   máximo y el tiempo de proceso son configurables; las importaciones corren en una carpeta temporal con control de rutas
-  dentro de los ZIP (RQ-SEC-020, ASM-050).
+  dentro de los ZIP (RQ-SEC-020, ASM-050). En F2, `sgspe.territory.import.*`: `max-bytes` (20 MB), `max-rows` (10 000),
+  `timeout` (60 s, lectura y validación) y `max-concurrent` (4 importaciones a la vez); Spring guarda la parte de archivo
+  en disco con su propio tope (`spring.webflux.multipart.max-disk-usage-per-part`, 25 MB), que responde igual.
 - Las descargas son en streaming, con `Content-Type`, `Content-Disposition` y, para lo inmutable (evidencias y versiones
   emitidas), `ETag` igual al SHA-256 del archivo.
 - Ninguna URL externa se descarga en el servidor (ASM-050).
@@ -378,8 +390,8 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/territory/imports` | Vista previa de una importación: lee el archivo de coordenadas o geometrías, lo transforma a 4326, lo valida contra PostGIS y lo concilia con lo registrado; no escribe nada | CREATE y UPDATE sobre el objeto destino; CREATE sobre `evidence` desde F3 | multipart: `file`, `target` (`project_component`, `land_parcel` o `mining_concession`), `project`, `sourceCrs` (valor del catálogo "CRS de origen"), `columns` → `200 { importBatchId, sha256, rows, valid, invalid[], differences[], outOfZone[] }`; con `Accept` de XLSX, el reporte de diferencias como archivo | — | F2 (XLSX, CSV, GeoJSON, latitud y longitud); F6 (formatos por GDAL) |
-| `POST` | `/api/sgspe/territory/imports/{importBatchId}/confirm` | Confirma: recibe otra vez el mismo archivo con las decisiones fila por fila, exige el SHA-256 de la vista previa, repite la validación y escribe todo en una transacción con el motivo `importación <id>`; desde F3 guarda el original como `evidence` | Los mismos de la vista previa | multipart: `file`, `sha256`, `decisions[]` → `200 { created, newVersions, updated, unchanged, rejected, evidenceId }` | `IK` (desde F3) | F2 |
+| `POST` | `/api/sgspe/territory/imports` | Vista previa de una importación: lee el archivo de coordenadas o geometrías, lo transforma a 4326, lo valida contra PostGIS y lo concilia con lo registrado; no escribe nada | CREATE y UPDATE sobre el objeto destino; CREATE sobre `evidence` desde F3 | multipart: `file`, `target` (`project_component`, `land_parcel` o `mining_concession`), `project`, `sourceCrs` (valor del catálogo "CRS de origen"), `columns` (json `{clave: encabezado}`; claves del portal en camelCase como `drillType` o `depth`, o campos del destino; un valor que empieza con `=` es una constante; sin tipo de componente, `SONDAJE`) → `200 { importBatchId, sha256, target, sourceCrs, rows, valid, invalid[], differences[], outOfZone[] }`, sin geometrías; `differences[]` trae una entrada por fila válida con `outcome` `CREATE`, `UNCHANGED`, `NEW_VERSION` o `UPDATE`; con `Accept` de XLSX, el reporte de diferencias como archivo (hojas Diferencias, Rechazadas y Fuera de zona) | — | F2 (XLSX, CSV, GeoJSON, latitud y longitud); F6 (formatos por GDAL) |
+| `POST` | `/api/sgspe/territory/imports/{importBatchId}/confirm` | Confirma: recibe otra vez el mismo archivo y los mismos campos con las decisiones fila por fila (el servidor no guarda nada entre las dos llamadas), exige el SHA-256 de la vista previa, repite la validación y escribe todo en una transacción con candado por destino (y por proyecto en los componentes) y el motivo `importación <id>`; desde F3 guarda el original como `evidence` | Los mismos de la vista previa | multipart: `file`, `target`, `project`, `sourceCrs`, `columns`, `sha256` y `decisions` (json `[{ "row": 7, "action": "DISCARD" }]`, `action` `APPLY` o `DISCARD`; una fila sin decisión aplica su acción propuesta, salvo una de `outOfZone[]`, que solo entra con `APPLY`; una decisión sobre una fila que no es válida es `400`) → `200 { created, newVersions, updated, unchanged, rejected, evidenceId }` | `IK` (desde F3) | F2 |
 | `POST` | `/api/sgspe/project-components` | Alta manual de un componente o versión nueva si el código ya existe con otras coordenadas; nunca sobrescribe | CREATE y UPDATE sobre `project_component` | `{ attributes, geometries }` → `201 { component, previousVersion, distanceM }` | `IK` (desde F3) | F2 |
 | `PATCH` | `/api/sgspe/project-components/{id}` | Cambia campos descriptivos (estado, campaña) de un componente sin tocar coordenadas; `project_component` es `apiOnly` | UPDATE sobre `project_component` | `{ attributes }` → `200` registro; una geometría en el cuerpo es `400` | `IM` | F2 |
 | `POST` | `/api/sgspe/areas-of-influence/{id}/approve` | Aprueba una versión del área de influencia y lleva la aprobada anterior del mismo proyecto y tipo a `superseded`, en una transacción | UPDATE sobre `area_of_influence`, acción declarada `APPROVE` y los roles de las transiciones de comando de WF-O | → `200 { approved, superseded }` | `IM`, `CR` | F2 |

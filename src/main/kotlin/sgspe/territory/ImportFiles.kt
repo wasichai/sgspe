@@ -34,13 +34,16 @@ import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.time.Duration
 
-// los límites de una importación (RQ-SEC-020, ASM-050): tamaño del archivo, filas, tiempo de lectura y validación, la
-// tolerancia de «sin cambio» (gis.md §4.4: 1 cm) y la envolvente del Perú para marcar lo que cae fuera de la región
+// los límites de una importación (RQ-SEC-020, ASM-050): tamaño del archivo, filas, tiempo de lectura y validación,
+// importaciones a la vez, la tolerancia de «sin cambio» (gis.md §4.4: 1 cm) y la envolvente del Perú para marcar lo que
+// cae fuera de la región. maxConcurrent acota los hilos de E/S y las conexiones que ocupan las importaciones en curso; la
+// que espera más que `timeout` por un lugar es un 503
 @ConfigurationProperties("sgspe.territory.import")
 data class ImportProperties(
     val maxBytes: Long = 20L * 1024 * 1024,
     val maxRows: Int = 10_000,
     val timeout: Duration = Duration.ofSeconds(60),
+    val maxConcurrent: Int = 4,
     val unchangedToleranceM: BigDecimal = BigDecimal("0.01"),
     val minLongitude: Double = -81.4,
     val maxLongitude: Double = -68.6,
