@@ -190,6 +190,8 @@ importaciones y no se liberó un lugar dentro del plazo). Las demás respuestas 
 existe, un CRS fuera del catálogo, una decisión mal formada o sobre una fila que no es válida) son de validación, con
 texto libre, y un parámetro de consulta es `422`. Una fila que PostGIS no puede transformar ni validar no es un error de
 la petición: va a `invalid[]` con el motivo `geometría inválida: …` en español.
+Los tableros y sus indicadores (§4.11) responden `404` `DASHBOARD_NOT_FOUND` e `INDICATOR_NOT_FOUND`, `400`
+`INVALID_BREAKDOWN` y `400` `TOO_MANY_RECORDS`; el detalle está en §4.11.
 
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:
@@ -685,19 +687,46 @@ código que usan los entregables (RQ-DSH-031, RQ-DSH-034). El portal los guarda 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
 | `GET` | `/api/sgspe/dashboards/{dashboard}` | Los indicadores de un tablero con los filtros comunes, en una sola llamada por pantalla | READ sobre los objetos de cada indicador; un indicador sin permiso sale con `available: false` | `?project=&periodStart=&periodEnd=&administrativeUnit=&locality=&community=&areaOfInfluence=&explorationCampaign=&scope=` → `200 { dashboard, filters, computedAt, indicators[] }` | — | Según el tablero |
-| `GET` | `/api/sgspe/dashboards/indicators/{code}` | Un indicador con sus desgloses, su serie mensual y su tabla de datos | Igual | Los mismos filtros más `breakdown` → `200 { code, label, available, value, numerator, denominator, unit, breakdowns[], series[], unavailableReason, missingFields[] }` | — | Según el indicador |
+| `GET` | `/api/sgspe/dashboards/indicators/{code}` | Un indicador con sus desgloses, su serie mensual y su tabla de datos | Igual | Los mismos filtros más `breakdown` → `200 { code, label, available, value, numerator, denominator, unit, breakdowns[], series[], unavailableReason, missingFields[], warnings[], ignoredFilters[] }` | — | Según el indicador |
 | `GET` | `/api/sgspe/dashboards/indicators` | Catálogo de indicadores con su disponibilidad para quien llama, para mostrar u ocultar tableros y zonas | Autenticado | → `200 [{ code, label, dashboard, available }]` | — | F2 |
 | `POST` | `/api/sgspe/indicators/{id}/measurements` | Cierra un periodo: congela la cifra oficial en `indicator_measurement`. Responde `409` para los indicadores que nunca se congelan (`dashboards.md` §10): KPI-STK-02, KPI-STK-05 y KPI-STK-06, que leen la postura, y KPI-TER-01, que no tiene un valor propio | CREATE sobre `indicator_measurement` | `{ project, attributes: { period_start_date, period_end_date } }` → `201` registro | `IK` | F8 |
 
 - `{code}` es el identificador `KPI-*` que define `dashboards.md`; `scope` toma los valores del catálogo "Ámbito del grupo de
   interés" (RQ-DSH-001). `dashboards.md` fija qué tableros e indicadores exigen un solo `project` (el tablero `project` y
   KPI-STK-03). El mapa de calor de riesgos (KPI-RSK-02) acepta varios, pero solo con uno muestra el nivel de cada celda.
-- Sin `project`, el filtro por defecto son las asignaciones de quien llama (RF-PRJ-005): es una comodidad, no un control de
-  acceso, que sigue RQ-SEC-006.
+- Sin `project`, el filtro por defecto (RF-PRJ-005) es: para el `ADMIN`, todos los proyectos; para los demás, sus
+  asignaciones vigentes (`active` y, si tiene fechas, hoy en Lima entre ellas) o, si no tiene ninguna, todos los proyectos que
+  puede leer (`dashboards.md` §3.1). Es una comodidad, no un control de acceso, que sigue RQ-SEC-006. `filters.project` de la
+  respuesta trae los proyectos efectivos.
 - Un tablero aparece en el portal si quien llama puede leer al menos uno de sus indicadores, según el catálogo (RF-IAM-002).
-- Un indicador que necesita un campo que el usuario no puede leer responde `available: false`, la constante
-  `unavailableReason` (`FIELD_NOT_READABLE`) y `missingFields` con los campos que faltan, nunca cero (RQ-DSH-032). `unit` es
-  la palabra en español que muestra la interfaz (`"compromisos"`), la misma de `dashboards.md`.
+- Un indicador que no se puede calcular para quien llama responde `available: false`, la constante `unavailableReason` y
+  `missingFields`, nunca cero (RQ-DSH-032):
+  - `FIELD_NOT_READABLE`: falta un campo que el indicador lee; `missingFields` trae `objeto.campo`.
+  - `OBJECT_NOT_READABLE`: falta READ sobre un objeto que el indicador lee; `missingFields` trae sus campos.
+  - `SINGLE_PROJECT_REQUIRED`: el indicador exige un solo proyecto (KPI-STK-03); `missingFields` es `["project"]`.
+- Forma del indicador: las claves nulas se omiten, salvo `value`, que va siempre en un indicador disponible (`null` si no hay
+  cifra, como un porcentaje sin denominador) y nunca en uno no disponible. `unit` es la palabra en español que muestra la
+  interfaz (`"compromisos"`), la misma de `dashboards.md`.
+- `ignoredFilters` nombra los filtros pedidos que el indicador acepta y no aplica, para que nunca den un cero silencioso
+  (ruling P27): los KPI-STK ignoran `community`, porque `stakeholder` no tiene comunidad, y en F2 todos ignoran
+  `explorationCampaign`, que solo filtra compromisos e inversión social (`dashboards.md` §3.1). Sin filtros ignorados, la clave
+  no viaja.
+- En el catálogo, `dashboard` es `stakeholders`, `engagement` o `null`: KPI-STK-04, KPI-STK-05 y KPI-STK-07 no tienen zona en
+  un tablero de F2 y solo tienen detalle (`dashboards.md` §11).
+- La etiqueta de un punto de KPI-STK-03 que es una persona es su nombre si quien llama puede leerlo; si no, «cargo,
+  organización» de su cargo vigente o, sin cargo, «Persona». La clave `stance` del punto se omite a quien no lee la postura.
+- El contacto de KPI-STK-04, KPI-STK-05 y KPI-STK-07 (`dashboards.md` §3.3) se arma una vez por pedido y lo usan los tres: el
+  territorio y el ámbito filtran al grupo de interés vigente, no a la interacción.
+- La lectura es acotada (`dashboards.md` §6.2): 20 000 filas por conjunto leído y 200 interacciones cuyas relaciones M2M
+  (`engagement_stakeholder`, `engagement_topic`) se leen. Pasarse no recorta la cifra: el pedido entero responde `400`
+  `TOO_MANY_RECORDS` y hay que acotar los proyectos, el periodo o el territorio. Un `ADMIN` sin filtros puede recibirlo; el
+  portal lo muestra como «acote los filtros».
+- Errores, con el código en `errors[0].message` y el campo en `errors[0].field` (§3.3): `404` `DASHBOARD_NOT_FOUND`
+  (`dashboard`: un tablero que no existe o no está en esta fase); `404` `INDICATOR_NOT_FOUND` (`code`); `400`
+  `INVALID_BREAKDOWN` (`breakdown`: un desglose que el indicador no ofrece; sobre un indicador no disponible, `breakdown` se
+  ignora); `400` `TOO_MANY_RECORDS` (`project`). Un filtro mal formado (`project` u otro UUID, una fecha, `periodStart`
+  posterior a `periodEnd`, `scope` fuera del catálogo) es `400` de validación que nombra el parámetro, y un parámetro
+  desconocido es `422`.
 - El cierre de periodo no congela los indicadores que leen campos restringidos, como los de postura: `indicator_measurement`
   lo leen roles sin acceso a esos campos, y una cifra congelada saldría por la API genérica (`dashboards.md` §10).
 
