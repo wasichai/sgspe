@@ -18,7 +18,6 @@ import sgspe.common.Versions
 import sgspe.common.toCodedException
 import wasichai.core.common.Actions
 import wasichai.core.common.FieldViolation
-import wasichai.core.common.ForbiddenException
 import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordResponse
 import wasichai.core.identity.AuthenticatedUser
@@ -102,9 +101,9 @@ class Assessments(
             val pending =
                 when (stakeholder.state) {
                     IDENTIFIED -> listOf("profile", "assess")
-                    ASSESSED -> emptyList()
                     else -> listOf("assess")
                 }
+            // en `assessed` no hay transición que aplicar, pero reevaluar sigue exigiendo el rol de assess (api.md §4.3)
             requireTransitionRoles(user, pending)
             if (stakeholder.state == IDENTIFIED) stakeholder = records.transition(STAKEHOLDER, stakeholderId, "profile", reason)
             val plan = plan(stakeholder, input)
@@ -116,7 +115,7 @@ class Assessments(
                     reason
                 )
             // solo se escribe lo que cambia (P11): una evaluación que repite los valores vigentes no toca el grupo de interés
-            val changes = if (plan.latest) plan.current.filter { (name, value) -> !Values.same(value, stakeholder.attributes[name]) } else emptyMap()
+            val changes = plan.current.filter { (name, value) -> !Values.same(value, stakeholder.attributes[name]) }
             if (changes.isNotEmpty()) records.patch(STAKEHOLDER, stakeholderId, changes, reason)
             if (stakeholder.state != ASSESSED) records.transition(STAKEHOLDER, stakeholderId, "assess", reason)
             AssessmentResult(assessment, records.get(STAKEHOLDER, stakeholderId), plan.warnings)
@@ -127,7 +126,6 @@ class Assessments(
         val computed: Map<String, Any?>,
         val stored: Map<String, Any?>,
         val current: Map<String, Any?>,
-        val latest: Boolean,
         val warnings: List<AssessmentWarning>
     )
 
@@ -156,44 +154,32 @@ class Assessments(
             throw ValidationException("Ajustar el grupo exige justificación", "attributes.override_reason", "explique por qué el grupo no es $computedGroup")
         }
         val group = input.influenceGroup ?: computedGroup
-        // prioritization_rule.stakeholder_scope es Rule.scope e information_priority es Rule.priority
-        val rules =
-            projectId
-                ?.let { records.all("prioritization_rule", filters = mapOf("project" to it.toString())) }
-                .orEmpty()
-                .mapNotNull { row ->
-                    Values.text(row.attributes["information_priority"])?.let { priority ->
-                        Prioritizer.Rule(
-                            Values.text(row.attributes["influence_group"]),
-                            Values.text(row.attributes["stance"]),
-                            Values.text(row.attributes["stakeholder_scope"]),
-                            Values.text(row.attributes["stakeholder_type"]),
-                            priority
-                        )
-                    }
-                }
-        val priority =
-            Prioritizer.priority(
-                rules,
-                group,
-                input.stance,
-                Values.text(attributes["stakeholder_scope"]),
-                Values.text(attributes["stakeholder_type"])
-            )
         val history =
             records
                 .all(ASSESSMENT, filters = mapOf("stakeholder" to stakeholder.id))
                 .map { it to LocalDate.parse(Values.text(it.attributes["assessment_date"])!!) }
                 .sortedWith(compareBy({ it.second }, { it.first.createdAt }))
         val date = input.date ?: today()
+        // la evaluación anterior es la línea base de la evaluación; la de la postura es la anterior más reciente que la
+        // informó (P18): una evaluación sin postura no la reemplaza
         val baseline = history.lastOrNull { it.second <= date }
+        val stanceBaseline = history.lastOrNull { it.second <= date && Values.text(it.first.attributes["stance"]) != null }
         val latest = history.none { it.second > date }
-        val baselineStance = baseline?.let { Values.text(it.first.attributes["stance"]) }
+        val baselineStance = stanceBaseline?.let { Values.text(it.first.attributes["stance"]) }
         val stanceChanged = baselineStance != null && input.stance != null && baselineStance != input.stance
+        // la prioridad mira la postura que rige en la fecha de la evaluación: la que trae o, si no trae, la última informada
+        val priority =
+            Prioritizer.priority(
+                rules(projectId),
+                group,
+                input.stance ?: baselineStance,
+                Values.text(attributes["stakeholder_scope"]),
+                Values.text(attributes["stakeholder_type"])
+            )
         val warnings = mutableListOf<AssessmentWarning>()
         if (stanceChanged) {
-            // «cercanas»: la línea base cae dentro de la ventana (api.md §4.3, M9 del pre-flight)
-            val days = ChronoUnit.DAYS.between(baseline.second, date)
+            // «cercanas»: la línea base de la postura cae dentro de la ventana (api.md §4.3, M9 del pre-flight)
+            val days = ChronoUnit.DAYS.between(stanceBaseline.second, date)
             if (days <= divergenceDays) {
                 warnings += AssessmentWarning("STANCE_DIVERGENCE", "La postura difiere de la evaluación de hace $days días: revise la fuente (CON-006)")
             }
@@ -212,21 +198,51 @@ class Assessments(
                     "influence_score" to scores.influenceScore,
                     "influence_group" to group,
                     "group_overridden" to overridden,
+                    // la justificación solo se guarda si el grupo quedó ajustado
+                    "override_reason" to input.overrideReason.takeIf { overridden },
                     "baseline_assessment" to baseline?.first?.id,
                     "stance_changed" to stanceChanged
                 )
+        // los valores vigentes (P18): la postura y la confianza son el último valor informado de cada una, en el orden de las
+        // fechas, con esta evaluación incluida; el resto sale de la última evaluación y no cambia si esta es atrasada
+        val timeline = history.map { Values.text(it.first.attributes["stance"]) to Values.decimal(it.first.attributes["trust_score"])?.toInt() }.toMutableList()
+        timeline.add(history.count { it.second <= date }, input.stance to input.trustScore)
         val current =
             mapOf(
-                "stance" to input.stance,
-                "influence_group" to group,
-                "information_priority" to priority,
-                "interest_index" to scores.interestIndex,
-                "power_index" to scores.powerIndex,
-                "trust_score" to input.trustScore,
-                "last_assessment_date" to date.toString()
-            )
-        return Plan(stored + ("information_priority" to priority), stored, current, latest, warnings)
+                "stance" to timeline.lastOrNull { it.first != null }?.first,
+                "trust_score" to timeline.lastOrNull { it.second != null }?.second
+            ) +
+                if (latest) {
+                    mapOf(
+                        "influence_group" to group,
+                        "information_priority" to priority,
+                        "interest_index" to scores.interestIndex,
+                        "power_index" to scores.powerIndex,
+                        "last_assessment_date" to date.toString()
+                    )
+                } else {
+                    emptyMap()
+                }
+        return Plan(stored + ("information_priority" to priority), (input.attributes - "override_reason") + stored, current, warnings)
     }
+
+    // la matriz de priorización del proyecto: prioritization_rule.stakeholder_scope es Rule.scope e information_priority es
+    // Rule.priority
+    private suspend fun rules(projectId: UUID?): List<Prioritizer.Rule> =
+        projectId
+            ?.let { records.all("prioritization_rule", filters = mapOf("project" to it.toString())) }
+            .orEmpty()
+            .mapNotNull { row ->
+                Values.text(row.attributes["information_priority"])?.let { priority ->
+                    Prioritizer.Rule(
+                        Values.text(row.attributes["influence_group"]),
+                        Values.text(row.attributes["stance"]),
+                        Values.text(row.attributes["stakeholder_scope"]),
+                        Values.text(row.attributes["stakeholder_type"]),
+                        priority
+                    )
+                }
+            }
 
     // evaluar escribe stance en el grupo de interés y, si viene, en la evaluación: los dos son restringidos (GAP-024)
     private suspend fun requireStanceWritable(input: AssessmentInput) {
@@ -243,7 +259,12 @@ class Assessments(
                 .firstOrNull { it.name == "stance" }
                 ?.editable == true
         if (!onStakeholder || !onAssessment) {
-            throw ForbiddenException("Evaluar escribe la postura del grupo de interés, un campo que tus roles no pueden escribir (GAP-024)")
+            throw Finding(
+                "FIELD_NOT_WRITABLE",
+                "Evaluar escribe la postura del grupo de interés, un campo que tus roles no pueden escribir (GAP-024)",
+                "stance",
+                status = HttpStatus.FORBIDDEN
+            ).toCodedException()
         }
     }
 
@@ -255,7 +276,13 @@ class Assessments(
         if (user.isAdmin) return
         for (name in transitions) {
             val roles = catalog.transition(STAKEHOLDER, name)?.roles.orEmpty()
-            if (roles.none { it in user.roles }) throw ForbiddenException("La transición $name exige uno de los roles ${roles.joinToString(", ")}")
+            if (roles.none { it in user.roles }) {
+                throw Finding(
+                    "ROLE_REQUIRED",
+                    "La transición $name exige uno de los roles ${roles.joinToString(", ")}",
+                    status = HttpStatus.FORBIDDEN
+                ).toCodedException()
+            }
         }
     }
 
@@ -354,7 +381,8 @@ class AssessmentInput(
             violations: MutableList<FieldViolation>
         ): Int? {
             if (value == null) return null
-            val number = Values.decimal(value)
+            // un número de json: un texto como "4" no es un indicador
+            val number = (value as? Number)?.let(Values::decimal)
             if (number == null || number.stripTrailingZeros().scale() > 0 || number < BigDecimal.ONE || number > BigDecimal(5)) {
                 violations += FieldViolation(field, "debe ser un entero de 1 a 5")
                 return null

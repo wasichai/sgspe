@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ServerWebExchange
 import sgspe.common.IfMatch
+import sgspe.common.StrictQuery
 import wasichai.core.data.ChangeReason
 import java.net.URI
 import java.util.UUID
@@ -24,8 +26,10 @@ class AssessmentController(
         @PathVariable id: UUID,
         @RequestBody body: Map<String, Any?>,
         @RequestHeader(name = ChangeReason.HEADER, required = false) reason: String?,
-        @RequestHeader(name = IfMatch.HEADER, required = false) ifMatch: String?
+        @RequestHeader(name = IfMatch.HEADER, required = false) ifMatch: String?,
+        exchange: ServerWebExchange
     ): ResponseEntity<AssessmentResult> {
+        StrictQuery.requireOnly(exchange.request.queryParams, emptySet())
         val result = assessments.register(id, body, ChangeReason.fromHeader(reason), ifMatch)
         return ResponseEntity
             .status(HttpStatus.CREATED)
@@ -36,6 +40,10 @@ class AssessmentController(
     @PostMapping("/preview")
     suspend fun preview(
         @PathVariable id: UUID,
-        @RequestBody body: Map<String, Any?>
-    ): AssessmentPreview = assessments.preview(id, body)
+        @RequestBody body: Map<String, Any?>,
+        exchange: ServerWebExchange
+    ): AssessmentPreview {
+        StrictQuery.requireOnly(exchange.request.queryParams, emptySet())
+        return assessments.preview(id, body)
+    }
 }

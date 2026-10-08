@@ -26,6 +26,9 @@ wasichai:
       secret: ${WASICHAI_JWT_SECRET:sgspe-dev-only-secret-change-me-0123456789}
 
 sgspe:
+  stakeholder:
+    # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
+    stance-divergence-days: 30
   jobs:
     # trabajos de fondo (JOB-02 DerivedFieldsJob y JOB-03 StakeholderFollowUpJob). false los apaga: las pruebas lo fijan
     # en Gradle y llaman a runOnce

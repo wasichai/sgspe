@@ -172,6 +172,94 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
     }
 
     @Test
+    fun `una evaluacion sin postura ni confianza conserva los valores vigentes y la linea base salta las que no tienen postura`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val stakeholder = profiled(project, manager)
+        val first =
+            tree(
+                assess(
+                    stakeholder,
+                    indicators + mapOf("assessment_date" to "2026-05-01", "basis" to "ENTREVISTA", "stance" to "EN CONTRA", "trust_score" to 2),
+                    manager.token
+                ).body
+            )
+        // sin postura ni confianza: el grupo de interés conserva las vigentes, y lo demás sí sale de esta evaluación
+        val silent =
+            tree(
+                assess(
+                    stakeholder,
+                    indicators + mapOf("assessment_date" to "2026-05-05", "basis" to "ENCUESTA", "override_reason" to "sin ajuste"),
+                    manager.token
+                ).body
+            )
+        assertFalse(silent["assessment"]["attributes"]["stance_changed"].asBoolean())
+        // la justificación no se guarda si el grupo no quedó ajustado
+        assertTrue(silent["assessment"]["attributes"]["override_reason"] == null || silent["assessment"]["attributes"]["override_reason"].isNull)
+        val kept = silent["stakeholder"]["attributes"]
+        assertEquals("EN CONTRA", kept["stance"].asString())
+        assertEquals(2, kept["trust_score"].asInt())
+        assertEquals("2026-05-05", kept["last_assessment_date"].asString())
+        // la línea base de la postura es la primera, no la que no la informó
+        val third =
+            tree(assess(stakeholder, indicators + mapOf("assessment_date" to "2026-05-10", "basis" to "ENTREVISTA", "stance" to "NEUTRAL"), manager.token).body)
+        assertEquals(silent["assessment"]["id"].asString(), third["assessment"]["attributes"]["baseline_assessment"].asString())
+        assertTrue(third["assessment"]["attributes"]["stance_changed"].asBoolean())
+        assertTrue(third["warnings"].values().any { it["code"].asString() == "STANCE_DIVERGENCE" })
+        assertEquals("NEUTRAL", third["stakeholder"]["attributes"]["stance"].asString())
+        assertEquals(2, third["stakeholder"]["attributes"]["trust_score"].asInt())
+        assertTrue(first["warnings"].values().none { it["code"].asString() == "STANCE_DIVERGENCE" })
+        // P11: repetir lo vigente no escribe nada en el grupo de interés
+        val before = record("stakeholder", stakeholder)
+        val repeated =
+            assess(stakeholder, indicators + mapOf("assessment_date" to "2026-05-10", "basis" to "ENTREVISTA", "stance" to "NEUTRAL"), manager.token)
+        assertEquals(HttpStatus.CREATED, repeated.status, repeated.body)
+        assertEquals(before["updatedAt"].asString(), record("stakeholder", stakeholder)["updatedAt"].asString())
+    }
+
+    @Test
+    fun `una postura distinta fuera de la ventana no avisa divergencia`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val stakeholder = profiled(project, manager)
+        assess(stakeholder, indicators + mapOf("assessment_date" to "2026-03-01", "basis" to "ENTREVISTA", "stance" to "EN CONTRA"), manager.token)
+        val later =
+            tree(assess(stakeholder, indicators + mapOf("assessment_date" to "2026-05-01", "basis" to "ENTREVISTA", "stance" to "NEUTRAL"), manager.token).body)
+        assertTrue(later["assessment"]["attributes"]["stance_changed"].asBoolean())
+        assertEquals(listOf("NO_PRIORITY_RULE"), later["warnings"].values().map { it["code"].asString() })
+    }
+
+    @Test
+    fun `un fallo dentro del comando revierte el profile y no deja evaluacion`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val stakeholder = complete(project, manager)
+        val base = indicators + mapOf("assessment_date" to "2026-05-12", "basis" to "ENTREVISTA", "influence_group" to "ESTRATEGICO")
+        val response = assess(stakeholder, base, manager.token)
+        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+        assertEquals("identified", record("stakeholder", stakeholder)["state"].asString())
+        assertEquals(0, assessments(stakeholder))
+    }
+
+    @Test
+    fun `un parametro de consulta desconocido es 422 en el registro y en la vista previa`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val stakeholder = profiled(project, manager)
+        val body = mapOf("attributes" to indicators + mapOf("assessment_date" to "2026-05-12", "basis" to "ENTREVISTA"))
+        val headers = mapOf(REASON to reason("evaluación"))
+        assertEquals(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            exchange("POST", "/api/sgspe/stakeholders/$stakeholder/assessments?dry=1", body, manager.token, headers).status
+        )
+        assertEquals(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            exchange("POST", "/api/sgspe/stakeholders/$stakeholder/assessments/preview?dry=1", body, manager.token).status
+        )
+        assertEquals(0, assessments(stakeholder))
+    }
+
+    @Test
     fun `un grupo de interes identificado se caracteriza antes, y uno retirado no se evalua`() {
         val project = projectWithCrs()
         val manager = member("STAKEHOLDER_MANAGER", project)
@@ -280,7 +368,6 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
             tree(send("GET", "/api/objects/stakeholder_assessment/records?stakeholder=$stakeholder", null, HttpStatus.OK, analyst.token))["content"]
         assertEquals(1, listed.size())
         restricted.forEach { assertFalse(listed[0]["attributes"].has(it), "ANALYST no debe recibir $it en la lista") }
-        restricted.filter { it != "stance" }.forEach { assertFalse(listed[0]["attributes"].has(it)) }
         // la postura del grupo de interés, que ya tiene valor, tampoco le llega a quien no la lee
         listOf(analyst, agent).forEach {
             assertFalse(record("stakeholder", stakeholder, it.token)["attributes"].has("stance"), "no debe recibir stance de stakeholder")

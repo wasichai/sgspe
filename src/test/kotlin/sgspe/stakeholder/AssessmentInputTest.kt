@@ -83,6 +83,9 @@ class AssessmentInputTest {
             setOf("attributes.affect_environment", "attributes.power_legal_action", "attributes.assessment_date", "attributes.basis", "attributes.stance"),
             error.violations.map { it.field }.toSet()
         )
+        // un texto no es un indicador, aunque parezca un número
+        val text = assertThrows<ValidationException> { parse(mapOf("assessment_date" to "2026-05-12", "basis" to "ENTREVISTA", "affect_livelihood" to "4")) }
+        assertEquals("attributes.affect_livelihood", text.violations.single().field)
         val computed = assertThrows<ValidationException> { parse(mapOf("interest_index" to 3)) }
         assertEquals("attributes.interest_index", computed.violations.single().field)
         val missing = assertThrows<ValidationException> { parse(emptyMap()) }
