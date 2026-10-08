@@ -871,8 +871,9 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
   por proyecto.
 - **Contenido.** Se lee como quien exporta: un campo que no puede leer sale `no disponible`. `INTERNO` nombra a las
   personas que quien exporta puede leer; `EXTERNO` las cita por código `GI-` (un seudónimo, `deliverables.md` §9.1) y por
-  cargo, y exige `checklistConfirmed: true`; `PUBLICO` solo trae conteos por grupo de influencia y postura y por ámbito, sin
-  totales y con las celdas de menos de 5 como `<5` (ASM-088). Nunca sale el documento de identidad.
+  cargo, y exige `checklistConfirmed: true`; `PUBLICO` solo trae conteos por grupo de influencia y postura y por ámbito, sobre la grilla
+  completa de los valores del catálogo (con las combinaciones sin ningún grupo de interés) y sin totales; todo conteo menor
+  que 5, el cero incluido, sale con la marca `<5`, que no dice qué valor esconde (ASM-088). Nunca sale el documento de identidad.
 - **Errores.** Con su código en `errors[0].message` (ruling P15): `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`),
   `CHECKLIST_REQUIRED` (`checklistConfirmed`), `INVALID_FILTER` (`filters.project`, `filters.locality`, `filters.scope`,
   `filters.stakeholderType`, `filters.influenceGroup` o `filters.includeRetired`) y `TOO_MANY_RECORDS` (`filters.project`);
@@ -882,7 +883,7 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
   `TOO_MANY_RECORDS`: hay que acotar los proyectos o los filtros. No se recorta en silencio.
 - **`export_log`.** Una fila por exportación, con `export_kind = EXPORTACION`, escrita como quien exporta antes de entregar
   el archivo; si algo falla antes, no hay archivo ni fila. `exported_at` es el instante en que se generó el archivo, no el de
-  su entrega, y `row_count` cuenta grupos de interés, no filas del archivo (en `PUBLICO`, los contados en los agregados).
+  su entrega, y `row_count` cuenta grupos de interés, no filas del archivo (en `PUBLICO`, los contados en los agregados). `filters_description` (`export_log` no tiene otro campo de filtros) lleva la lista completa de proyectos y el resto de los filtros.
 
 ### 4.14 BC-18 IA y conocimiento
 
