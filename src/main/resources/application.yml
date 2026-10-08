@@ -27,12 +27,16 @@ wasichai:
 
 sgspe:
   jobs:
-    # trabajos de fondo (JOB-02, DerivedFieldsJob). false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
+    # trabajos de fondo (JOB-02 DerivedFieldsJob y JOB-03 StakeholderFollowUpJob). false los apaga: las pruebas lo fijan
+    # en Gradle y llaman a runOnce
     enabled: ${SGSPE_JOBS_ENABLED:true}
     derived-fields:
       # cron de Spring (segundos primero), en America/Lima
       hourly-cron: '0 15 * * * *'
       daily-cron: '0 45 3 * * *'
+    stakeholder-follow-up:
+      # JOB-03, una vez al día
+      cron: '0 30 4 * * *'
 
 management:
   endpoint:
