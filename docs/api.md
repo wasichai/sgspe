@@ -198,7 +198,8 @@ Los tableros y sus indicadores (§4.11) responden `404` `DASHBOARD_NOT_FOUND` e 
 Las exportaciones (§4.13) responden `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`), `CHECKLIST_REQUIRED`
 (`checklistConfirmed`: EXTERNO sin la lista de verificación), `INVALID_FILTER` (`filters.<filtro>`) y `TOO_MANY_RECORDS`
 (`filters.project`, no `project` como los tableros); `403` `NOT_ASSIGNED` (`filters.project`: un solo proyecto sin asignación
-vigente) y `404` `EXPORT_NOT_FOUND` (`kind`). El detalle está en §4.13.
+vigente), `404` `EXPORT_NOT_FOUND` (`kind`) y `409` `CATALOGUE_UNAVAILABLE` (el campo cuyo catálogo está vacío, en `PUBLICO`). El detalle
+está en §4.13.
 
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:
@@ -872,12 +873,14 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
 - **Contenido.** Se lee como quien exporta: un campo que no puede leer sale `no disponible`. `INTERNO` nombra a las
   personas que quien exporta puede leer; `EXTERNO` las cita por código `GI-` (un seudónimo, `deliverables.md` §9.1) y por
   cargo, y exige `checklistConfirmed: true`; `PUBLICO` solo trae conteos por grupo de influencia y postura y por ámbito, sobre la grilla
-  completa de los valores del catálogo (con las combinaciones sin ningún grupo de interés) y sin totales; todo conteo menor
-  que 5, el cero incluido, sale con la marca `<5`, que no dice qué valor esconde (ASM-088). Nunca sale el documento de identidad.
+  completa de los valores del catálogo (con las combinaciones sin ningún grupo de interés; un valor fuera del catálogo cuenta como
+  `no disponible`) y sin totales; todo conteo menor que 5, el cero incluido, sale con la marca neutra `reservado`, que no dice qué
+  valor esconde, y lo mismo una celda visible cuando ocultarla hace falta para que restar no despeje otra (ASM-088). Nunca sale el documento de identidad.
 - **Errores.** Con su código en `errors[0].message` (ruling P15): `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`),
   `CHECKLIST_REQUIRED` (`checklistConfirmed`), `INVALID_FILTER` (`filters.project`, `filters.locality`, `filters.scope`,
   `filters.stakeholderType`, `filters.influenceGroup` o `filters.includeRetired`) y `TOO_MANY_RECORDS` (`filters.project`);
-  `403` `NOT_ASSIGNED` y `404` `EXPORT_NOT_FOUND` (una exportación que aún no existe en la fase). Sin READ ni `EXPORT` sobre
+  `403` `NOT_ASSIGNED`, `404` `EXPORT_NOT_FOUND` (una exportación que aún no existe en la fase) y `409` `CATALOGUE_UNAVAILABLE` (`PUBLICO`
+  con el catálogo de un campo vacío; `field` es el campo). Sin READ ni `EXPORT` sobre
   `stakeholder`, o sin CREATE sobre `export_log`, `403` sin código.
 - **Tope.** La lectura es acotada: `sgspe.exports.max-rows` (20 000 por defecto) por conjunto leído. Pasarse es
   `TOO_MANY_RECORDS`: hay que acotar los proyectos o los filtros. No se recorta en silencio.

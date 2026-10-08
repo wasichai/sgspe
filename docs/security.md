@@ -1100,8 +1100,8 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - INTERNO: nominal, solo para quien puede leer los datos;
   - EXTERNO: las personas se citan por cargo o código, se excluyen las fotos sin consentimiento y los puntos de vivienda
     se generalizan a la localidad;
-  - PUBLICO: solo agregados, con las celdas de menos de 5 suprimidas (`<5`) y sin totales que permitan despejarlas (ASM-088, ruling
-    P28);
+  - PUBLICO: solo agregados, con las celdas de menos de 5 reservadas (`reservado`) y sin totales que permitan despejarlas (ASM-088, ruling
+    P28c);
   - en ningún nivel aparecen el DNI ni los teléfonos de un entregable. El documento de identidad, además, es solo un campo
     restringido: nunca sale en una exportación, en ningún nivel de divulgación (RF-COM-001, RQ-REP-014).
   - el código `GI-` de EXTERNO es un **seudónimo**, no anonimato (ruling P29): son los 12 primeros dígitos hexadecimales del id

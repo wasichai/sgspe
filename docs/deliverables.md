@@ -502,12 +502,14 @@ Los niveles INTERNO, EXTERNO y PUBLICO (catálogo "Nivel de divulgación") se ap
 | PUBLICO | Cualquiera | Ninguna: solo agregados | Ninguna foto de personas | Solo capas públicas y conteos por localidad o distrito | Ninguno |
 
 - **Celdas pequeñas en PUBLICO (ASM-088).** Una salida PUBLICO no revela nada de una sola persona. Cada desglose se arma sobre la
-  grilla completa de los valores del catálogo (más «SIN EVALUAR»), con las combinaciones sin ningún grupo de interés, para que
-  la presencia de una fila no diga a qué categoría pertenece alguien. Todo conteo menor que 5, el cero incluido, sale con la
-  misma marca «<5», que no dice qué valor esconde. Como restar un total (el de otra hoja del mismo archivo, o lo que suman las
-  celdas visibles) despejaría una celda oculta, si lo oculto suma algo y menos de 5 se marca también la menor de las visibles,
-  con la misma marca. Ninguna hoja de PUBLICO lleva totales. Rige para todo desglose, incluido el de grupo de influencia por
-  postura, que sin ello publicaría la postura de una persona identificable.
+  grilla completa de los valores del catálogo (más «SIN EVALUAR» y «no disponible»), con las combinaciones sin ningún grupo de
+  interés, para que la presencia de una fila no diga a qué categoría pertenece alguien; un valor fuera del catálogo se cuenta
+  como «no disponible», y un catálogo vacío rechaza la salida. Todo conteo menor que 5, el cero incluido, sale con la misma
+  marca neutra «reservado», que no dice qué valor esconde. Como restar un total (el de otra hoja del mismo archivo, o lo que
+  suman las celdas visibles) despejaría una celda oculta, y una población de una sola postura se publicaría celda por celda, en
+  cada tabla se marca también la menor de las visibles, con la misma marca, mientras lo oculto sume menos de 5, el cero
+  incluido. Ninguna hoja de PUBLICO lleva totales. Rige para todo desglose, incluido el de grupo de influencia por postura,
+  que sin ello publicaría la postura de una persona identificable.
 - **El código de un grupo de interés es un seudónimo, no anonimato.** En EXTERNO una persona se cita por código `GI-` y los 12
   primeros dígitos hexadecimales (48 bits) del id del grupo de interés. El código es estable: es el mismo en todas las
   exportaciones y niveles, así que la organización lo cruza con su registro y puede revertirlo, y un tercero que reciba varias
