@@ -941,8 +941,8 @@ endpoint de evaluaciones, porque evaluar escribe `stance`, un campo que solo ell
   7. la guarda lee las asignaciones como el usuario (§5.8), por eso todo rol que escribe en objetos de proyecto lee
      `project_assignment`;
   8. la guarda falla cerrado: un registro cuyo proyecto no se resuelve (su relación obligatoria está vacía o su padre no
-     tiene proyecto) solo lo escribe `ADMIN`, y un alta sin esa relación se rechaza; el error es 403 y `errors[0].message`
-     trae `NOT_ASSIGNED`. es defensa en profundidad: `DependentsDeleteGuard` impide borrar un padre con dependientes
+     tiene proyecto) solo lo escribe `ADMIN`; el error es 403 y `errors[0].message` trae `NOT_ASSIGNED`. un alta sin su relación
+     obligatoria no es de alcance: la rechaza wasichai con su 400 «is required» (y la base con NOT NULL). es defensa en profundidad: `DependentsDeleteGuard` impide borrar un padre con dependientes
      obligatorios (409 `HAS_DEPENDENTS`), así que por la API no quedan registros sin dueño.
 - **Riesgo residual de las asignaciones:** `PROJECT_ADMIN`, al formar equipos, puede asignarse a sí mismo o a cualquier
   usuario de la organización a cualquier proyecto y escribir allí con sus roles; lo mitiga la auditoría de

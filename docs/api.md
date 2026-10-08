@@ -131,7 +131,7 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 | `401` | Sin token o con un token inválido o vencido; sin token, el cuerpo va vacío (§3.3, «Comportamiento fijado de wasichai 0.3.2») |
 | `403` | Falta un permiso o una acción declarada; escritura fuera de las asignaciones; edición de un registro ajeno sin `EDIT_ANY`; escritura genérica sobre un objeto `apiOnly` |
 | `404` | El registro no existe o es de otra organización; ruta de un módulo no instalado |
-| `409` | Estado incompatible (transición desde otro estado, objeto `appendOnly`, regla que depende de otros registros), valor único repetido o `Idempotency-Key` reutilizada con otra petición |
+| `409` | Estado incompatible (transición desde otro estado, objeto `appendOnly`, regla que depende de otros registros, borrado de un registro con dependientes: `HAS_DEPENDENTS`), valor único repetido o `Idempotency-Key` reutilizada con otra petición |
 | `412` | `If-Match` no coincide con el `updatedAt` actual (§3.6) |
 | `422` | Parámetro de consulta desconocido (ASM-054) |
 | `428` | Falta `If-Match` en un comando que lo exige (§3.6) |
@@ -152,6 +152,23 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
   ]
 }
 ```
+
+**Errores de las guardas de SGSPE en la API genérica.** Toda guarda de SGSPE que rechaza una escritura por `/api/objects/**` lo
+hace con su código en `errors[0].message` y el campo en `errors[0].field` (`record` si el hallazgo no apunta a un campo); el
+`detail` lleva el texto en español. Así dos `403` o dos `409` se distinguen por código y no solo por estado (ruling P15). El
+`detail` y `errors[0].message` de un error de wasichai (permiso, validación de tipo, obligatorio vacío) no siguen esta forma: su
+`message` es texto libre. Los códigos que existen hoy, con el estado de la escritura real:
+
+| Estado | Códigos |
+|---|---|
+| `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1) |
+| `403` | `COMMAND_ONLY` (la transición es de comando), `NOT_ASSIGNED` (sin asignación vigente al proyecto), `ACTION_REQUIRED` (falta la acción declarada `APPROVE`), `OBJECT_NOT_READABLE` (quien escribe no lee un objeto que la regla necesita: `project_party`, `project`, `engagement_participant` o `engagement_question`) |
+| `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED` |
+
+`HAS_DEPENDENTS` rige para todos, `ADMIN` incluido, porque la base rechazaría el borrado igual: wasichai declara cada relación
+obligatoria NOT NULL con ON DELETE SET NULL y, sin esta guarda, borrar el padre respondería 500 (UPS-20). Borrar primero a los
+dependientes lo resuelve. `STATE_MISMATCH` es un código solo de `transition-checks` (§4.1): la transición real la rechaza
+wasichai. Esta tabla crece con cada guarda nueva.
 
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:
@@ -337,7 +354,7 @@ bloqueos hipotéticos.
 | `ACTION_REQUIRED` | bloqueo | 403 | `approve` de un proyecto exige la acción declarada `APPROVE` además del rol de la transición |
 | `WORKING_CRS_REQUIRED` | bloqueo (`field`: `working_crs`) | 409 | `approve` o `resume` de un proyecto sin `working_crs`, con `policy_activation_preconditions` activa |
 | `PARTY_REQUIRED` | bloqueo (`field`: `project_party`) | 409 | `approve` o `resume` de un proyecto sin una parte CLIENTE u OPERADOR, con la misma política activa |
-| `OBJECT_NOT_READABLE` | bloqueo (`field`: `project_party`) | 403 | Quien consulta no lee `project_party` y no se puede verificar `PARTY_REQUIRED` |
+| `OBJECT_NOT_READABLE` | bloqueo (`field`: el objeto que no lee) | 403 | Quien consulta no lee `project_party` (no se verifica `PARTY_REQUIRED`), `engagement_participant` o `engagement_question` (asistencia y preguntas pendientes), o `project` en `close_light` (no se verifica la política de actas: lectura estricta) |
 
 Las reglas de los demás contextos (asistencia, actas, preguntas pendientes, perfil del grupo de interés…) suman sus códigos a
 esta tabla junto con su guarda.
