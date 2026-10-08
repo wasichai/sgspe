@@ -800,10 +800,22 @@ class TerritoryImports(
 
     // los componentes se serializan por proyecto; los predios y las concesiones, que son del tenant, por organización
     private fun lockKey(context: Context): String =
-        "territory-import:${context.organization}:${context.target.name}" + if (context.target.name == COMPONENT) ":${context.project}" else ""
+        when (context.target.name) {
+            COMPONENT -> componentLock(context.organization, context.project)
+            else -> "$LOCK_PREFIX${context.organization}:${context.target.name}"
+        }
 
     companion object {
         const val COMPONENT = ComponentVersions.COMPONENT
+        private const val LOCK_PREFIX = "territory-import:"
+
+        // el candado de los componentes de un proyecto: la confirmación de una importación y los comandos de
+        // ProjectComponents (alta, versión y PATCH) toman el mismo, así que se ordenan entre sí
+        fun componentLock(
+            organization: UUID,
+            project: UUID
+        ): String = "$LOCK_PREFIX$organization:$COMPONENT:$project"
+
         const val PARCEL = "land_parcel"
         const val CONCESSION = "mining_concession"
         const val PROJECT_CONCESSION = "project_concession"
