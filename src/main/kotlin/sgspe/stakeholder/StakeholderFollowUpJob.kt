@@ -113,7 +113,8 @@ class StakeholderFollowUpJob(
         )
 
     // los grupos de interés escritos; null si otra réplica tenía el candado. si alguna organización o algún grupo de interés
-    // falla, los demás se procesan y al final lanza (como JOB-02), para que el fallo se vea y no solo quede en el log
+    // falla, los demás se procesan y al final lanza, para que el fallo se vea y no solo quede en el log. JOB-02 (DerivedSweep)
+    // en cambio solo lo registra y devuelve
     suspend fun runOnce(): Int? {
         val lease = locks.tryLock(LOCK) ?: return null
         return lease.use { sweep.run() }

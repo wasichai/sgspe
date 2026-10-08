@@ -6,7 +6,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 ## Qué hay aquí
 
 - Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 0.3.2 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
-  Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2); en F1, `sgspe.common` y `sgspe.observability`.
+  Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
+  `stakeholder`, `territory`, `dashboard`, `privacy` y `prod`.
 - `model/`: `model.json` (los 48 objetos de F2), `roles.json`, `workflows/` (WF-A, WF-B, WF-C, WF-L y WF-O) y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
   los documentos para las pruebas del modelo.
@@ -20,7 +21,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Ningún nombre real de persona en nada versionado; usuarios de prueba ficticios `@sgspe.test`.
 - Conventional Commits con asunto en español y cuerpo de 100 columnas como máximo (commitlint con husky).
 - Ningún código bajo el paquete `wasichai`; nunca `RecordStore`, `PhysicalTableRecordStore`, `AuditService` ni
-  `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila.
+  `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila, y desde F2 también que
+  `scope` y `privacy` solo dependan de `common` y que `findAllOrganizations` solo viva en `common/Organizations.kt`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
   Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` → `load_ubigeo.py`. Por el
   túnel, los tres primeros pasos con el modelo de F2 tardan de 5 a 8 minutos, y la suite de integración completa, de

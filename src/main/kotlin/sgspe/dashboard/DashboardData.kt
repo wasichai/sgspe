@@ -289,7 +289,7 @@ class DashboardData(
             QuestionRow(
                 Values.text(q.attributes["engagement"]) ?: return@mapNotNull null,
                 Values.text(q.attributes["topic"]),
-                Values.bool(q.attributes["answered_on_site"]) == true || Values.text(q.attributes["answered_at"]) != null
+                EngagementWriteGuard.answered(q.attributes)
             )
         }
 
