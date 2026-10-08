@@ -334,7 +334,14 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
   máximo y el tiempo de proceso son configurables; las importaciones corren en una carpeta temporal con control de rutas
   dentro de los ZIP (RQ-SEC-020, ASM-050). En F2, `sgspe.territory.import.*`: `max-bytes` (20 MB), `max-rows` (10 000),
   `timeout` (60 s, lectura y validación) y `max-concurrent` (4 importaciones a la vez); Spring guarda la parte de archivo
-  en disco con su propio tope (`spring.webflux.multipart.max-disk-usage-per-part`, 25 MB), que responde igual.
+  en disco con su propio tope (`spring.webflux.multipart.max-disk-usage-per-part`, 25 MB, con `max-parts` 8), que responde
+  igual (400 `FILE_TOO_LARGE`; un campo de texto de más de 1 MB, `PART_TOO_LARGE`; demasiadas partes, `INVALID_MULTIPART`).
+- La escritura de la confirmación no está bajo `timeout`: corre después, dentro del candado y de una sola transacción,
+  que retienen una conexión del pool hasta el commit. Su cota es `max-rows`: cada fila son unas pocas escrituras con sus
+  guardas (del orden de milisegundos con la base local, una estimación sin medir), así que una hoja de 10 000 filas
+  puede tardar decenas de segundos o, con versiones nuevas, el doble. El proxy delante del backend debe dejar a
+  `POST …/confirm` más tiempo que a las demás rutas (al menos 120 s); si la corta, la transacción se revierte entera y no
+  queda nada escrito. Una hoja más grande se parte en varias importaciones.
 - Las descargas son en streaming, con `Content-Type`, `Content-Disposition` y, para lo inmutable (evidencias y versiones
   emitidas), `ETag` igual al SHA-256 del archivo.
 - Ninguna URL externa se descarga en el servidor (ASM-050).
@@ -432,6 +439,21 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
   predios y concesiones es una actualización con motivo.
 - El CRS de origen es obligatorio, sin valor por defecto silencioso; PSAD56 se acepta solo como origen y se transforma con
   PostGIS (RQ-GIS-003, RQ-GIS-007, CON-024).
+- **Entre la vista previa y la confirmación puede cambiar lo registrado.** Sin estado en el servidor, la confirmación
+  concilia de nuevo al llegar, y solo detecta (`409 IMPORT_CONFLICT`) lo que cambia entre su propio análisis y su
+  candado. Si otra persona registra un código después de la vista previa, una fila vista como `CREATE` se confirma como
+  `UPDATE` (en un predio o una concesión, reemplaza su contorno) o como `NEW_VERSION` (en un componente, que nunca se
+  sobrescribe). Queda auditada con el motivo `importación <id>` y aparece en `updated` o `newVersions` de la respuesta,
+  que el portal compara con la vista previa.
+- **`importBatchId` lo elige el cliente.** La vista previa propone uno al azar, pero el servidor no lo guarda ni lo
+  verifica: la confirmación usa el de la ruta solo como procedencia (`import_batch_id`) y en el motivo
+  `importación <id>`. Dos confirmaciones con el mismo id comparten procedencia en la auditoría; el portal manda el de su
+  vista previa.
+- **El reporte XLSX** se pide con `Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+  application/problem+json`. Sin `application/problem+json`, un error (400, 403 o 409) sale con su estado y el cuerpo
+  vacío, sin `errors[]`.
+- **Conteos de la confirmación.** `rejected` suma las filas inválidas, las descartadas con `DISCARD` (también una
+  `UNCHANGED`) y las de `outOfZone[]` sin `APPLY`; `unchanged`, las `UNCHANGED` que se aplicaron, que no escriben nada.
 - Casos de uso de `gis.md` y su endpoint: miembros de un área y relación entre proyectos y comunidades,
   `member-suggestions`; grupos de interés, compromisos, QCS y riesgos por zona, `zones/{zoneObject}/{id}/records`;
   concentración de eventos, `concentration`; conflictos cercanos, `nearby-conflicts`; inversiones sociales, su capa en
