@@ -327,13 +327,32 @@ class TerritoryImportApiTest : DomainApiTest() {
     @Test
     fun `quien no esta asignado al proyecto no confirma y no se escribe nada`() {
         val project = projectWithCrs()
+        val analyst = member("GIS_ANALYST", project)
         val outsider = member("GIS_ANALYST", projectWithCrs())
         val file = "pozos.csv" to csv("TST-DDH030;812345;9123456;3100", "TST-DDH031;812400;9123500;3105")
-        val body = tree(preview(project, file, outsider.token).text)
+        val body = tree(preview(project, file, analyst.token).text)
         val response = confirm(body, project, file, outsider.token)
         assertEquals(HttpStatus.FORBIDDEN, response.status, response.text)
         assertEquals(listOf("NOT_ASSIGNED"), problemCodes(response.text))
         assertEquals(0, tree(send("GET", "/api/objects/project_component/records?project=$project", null, HttpStatus.OK))["totalElements"].asInt())
+    }
+
+    // api.md §4.2: la vista previa de los componentes comprueba la asignación antes de leer el archivo, como project-components;
+    // los predios y las concesiones son del tenant y su vista previa no la exige
+    @Test
+    fun `la vista previa de componentes sin asignacion al proyecto es 403 NOT_ASSIGNED antes de leer el archivo`() {
+        val project = projectWithCrs()
+        val outsider = member("GIS_ANALYST", projectWithCrs())
+        // un archivo que no se podría leer: si se lo leyera, el error sería otro y no el 403
+        val unreadable = "pozos.csv" to "no es\u0000un archivo de coordenadas".toByteArray()
+        val response = preview(project, unreadable, outsider.token)
+        assertEquals(HttpStatus.FORBIDDEN, response.status, response.text)
+        assertEquals(listOf("NOT_ASSIGNED"), problemCodes(response.text))
+        assertEquals("project", tree(response.text)["errors"][0]["field"].asString())
+        val ring = "[[[-78.60,-7.90],[-78.59,-7.90],[-78.59,-7.89],[-78.60,-7.89],[-78.60,-7.90]]]"
+        val parcel = "predios.geojson" to feature("""{"code":"TST-PRD-9","tenure_type":"POSESION"}""", """{"type":"Polygon","coordinates":$ring}""")
+        val tenantLevel = preview(project, parcel, outsider.token, target = "land_parcel", sourceCrs = "EPSG 4326", columns = null)
+        assertEquals(HttpStatus.OK, tenantLevel.status, tenantLevel.text)
     }
 
     // una concesión no es de un solo proyecto (database-model): la misma ya registrada se vincula al otro, sin duplicarse

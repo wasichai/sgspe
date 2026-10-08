@@ -1,12 +1,16 @@
 package sgspe.scope
 
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
+import sgspe.common.Finding
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
 import sgspe.common.Records
 import sgspe.common.RequestMemo
 import sgspe.common.Validity
 import sgspe.common.Values
+import sgspe.common.toCodedException
+import wasichai.core.identity.AuthenticatedUser
 import java.time.Clock
 import java.time.LocalDate
 import java.util.UUID
@@ -92,6 +96,22 @@ class Assignments(
                 // filtro ignorado daría alcance a cualquiera
                 .any { it.project == project && it.memberUserId == userId && it.inForce(today()) }
         }
+
+    // el alcance de escritura (opción A, security.md §9.2) se comprueba antes de gastar cuentas de PostGIS y también cuando el
+    // comando no llega a escribir: ProjectScopeGuard lo exige igual en la escritura, y el resultado no depende de los datos.
+    // mismo código y campo que la guarda. lo usan los componentes de proyecto y la vista previa de la importación
+    suspend fun requireAssigned(
+        user: AuthenticatedUser,
+        project: UUID
+    ) {
+        if (user.isAdmin || isAssigned(user.userId, project)) return
+        throw Finding(
+            "NOT_ASSIGNED",
+            "No tiene una asignación vigente al proyecto $project: solo su equipo escribe en él",
+            "project",
+            status = HttpStatus.FORBIDDEN
+        ).toCodedException()
+    }
 
     // las asignaciones vigentes del proyecto cuyo role_name está entre los roles de la transición, salvo quien la aplicó
     // y las cuentas de servicio (su correo de respaldo, WAS-ADR-0043). los roles salen de model/workflows/<objeto>.json,

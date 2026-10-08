@@ -22,6 +22,7 @@ import sgspe.common.RequestMemo
 import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.common.toCodedException
+import sgspe.scope.Assignments
 import wasichai.core.common.Actions
 import wasichai.core.common.ValidationException
 import wasichai.core.common.WasichaiException
@@ -330,6 +331,7 @@ class TerritoryImports(
     private val permissions: Permissions,
     private val transactions: Transactions,
     private val callers: Callers,
+    private val assignments: Assignments,
     private val versions: ComponentVersions,
     private val properties: ImportProperties
 ) {
@@ -511,6 +513,9 @@ class TerritoryImports(
         val grants = mutableListOf(Actions.CREATE to target.name, Actions.UPDATE to target.name)
         if (target.name == CONCESSION) grants += Actions.UPDATE to "project"
         permissions.require(user, "Importar ${target.name}", *grants.toTypedArray())
+        // los componentes se escriben bajo el alcance del proyecto: sin asignación vigente, 403 NOT_ASSIGNED ya aquí y no tras
+        // analizar el archivo entero con PostGIS. los predios y las concesiones son del tenant y no pasan por el alcance
+        if (target.tables) assignments.requireAssigned(user, project)
         val projectRecord = records.get("project", project)
         // solo una zona de trabajo: GeoSql mide en ellas y nada más (P19)
         val workingSrid = Crs.srid(Values.text(projectRecord.attributes["working_crs"]))?.takeIf(Crs::isWorkingZone)

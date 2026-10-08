@@ -30,7 +30,6 @@ import wasichai.core.common.Actions
 import wasichai.core.common.FieldViolation
 import wasichai.core.data.ChangeReason
 import wasichai.core.data.RecordResponse
-import wasichai.core.identity.AuthenticatedUser
 import java.math.BigDecimal
 import java.net.URI
 import java.util.UUID
@@ -89,7 +88,7 @@ class ProjectComponents(
         val (field, geometry) = sent.entries.single().let { it.key to geometryOf(it.key, it.value) }
         val user = callers.require()
         permissions.require(user, "Registrar un componente", Actions.CREATE to COMPONENT, Actions.UPDATE to COMPONENT)
-        requireAssigned(user, project)
+        assignments.requireAssigned(user, project)
         val projectRecord =
             records.find("project", project) ?: throw rejected("PROJECT_NOT_FOUND", "El proyecto no existe o no tiene acceso a él", "attributes.project")
         val srid = measure(projectRecord, field, geometry)
@@ -172,7 +171,7 @@ class ProjectComponents(
         val project =
             Records.uuid(records.get(COMPONENT, id).attributes["project"])
                 ?: throw rejected("PROJECT_NOT_FOUND", "El componente no tiene proyecto", "attributes.project")
-        requireAssigned(user, project)
+        assignments.requireAssigned(user, project)
         return transactions.locked(TerritoryImports.componentLock(user.organizationId, project)) {
             val current = records.get(COMPONENT, id)
             // una versión reemplazada es historia: cambiarla reescribiría lo que el mapa y los reportes ya mostraron
@@ -190,22 +189,6 @@ class ProjectComponents(
             val changes = attributes.filter { (name, value) -> !Values.same(current.attributes[name], value) }
             if (changes.isEmpty()) current else records.patch(COMPONENT, id, changes, reason)
         }
-    }
-
-    // el alcance de escritura (opción A, security.md §9.2) se comprueba antes de gastar cuentas de PostGIS y también cuando el
-    // PATCH no cambia nada y no llega a escribir: ProjectScopeGuard lo exige igual en la escritura, y el resultado no depende
-    // de los datos. mismo código y campo que la guarda
-    private suspend fun requireAssigned(
-        user: AuthenticatedUser,
-        project: UUID
-    ) {
-        if (user.isAdmin || assignments.isAssigned(user.userId, project)) return
-        throw Finding(
-            "NOT_ASSIGNED",
-            "No tiene una asignación vigente al proyecto $project: solo su equipo escribe en él",
-            "project",
-            status = HttpStatus.FORBIDDEN
-        ).toCodedException()
     }
 
     // todo lo que se mide antes de la transacción: la geometría es válida y está en longitud y latitud, y PostGIS puede
