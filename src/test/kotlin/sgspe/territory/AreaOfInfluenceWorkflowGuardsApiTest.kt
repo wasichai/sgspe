@@ -160,10 +160,25 @@ class AreaOfInfluenceWorkflowGuardsApiTest : DomainApiTest() {
         val project = projectWithCrs()
         val area = version(project, 1)
         // GIS_ANALYST tiene UPDATE pero no APPROVE; COMMUNITY_RELATIONS_OFFICER y READ_ONLY solo leen
-        for (role in listOf("GIS_ANALYST", "COMMUNITY_RELATIONS_OFFICER", "READ_ONLY")) {
+        val noApprove = approve(area, member("GIS_ANALYST", project).token)
+        assertEquals(HttpStatus.FORBIDDEN, noApprove.status, noApprove.body)
+        assertEquals("ACTION_REQUIRED", code(noApprove.body))
+        for (role in listOf("COMMUNITY_RELATIONS_OFFICER", "READ_ONLY")) {
             val refused = approve(area, member(role, project).token)
             assertEquals(HttpStatus.FORBIDDEN, refused.status, "$role: ${refused.body}")
+            assertTrue(tree(refused.body)["detail"].asString().contains("permiso de edición sobre area_of_influence"), "$role: ${refused.body}")
         }
+        assertEquals("draft", state("area_of_influence", area))
+    }
+
+    @Test
+    fun `quien tiene el rol pero no una asignacion vigente al proyecto recibe 403 NOT_ASSIGNED y nada cambia`() {
+        val project = projectWithCrs()
+        val area = version(project, 1)
+        val elsewhere = member("SOCIAL_MANAGER", projectWithCrs())
+        val refused = approve(area, elsewhere.token)
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("NOT_ASSIGNED", code(refused.body))
         assertEquals("draft", state("area_of_influence", area))
     }
 
@@ -185,7 +200,7 @@ class AreaOfInfluenceWorkflowGuardsApiTest : DomainApiTest() {
     fun `los miembros de una version aprobada no cambian`() {
         val project = projectWithCrs()
         val area = version(project, 1)
-        approve(area)
+        assertEquals(HttpStatus.OK, approve(area).status)
         val locality = createRecord("locality", mapOf("name" to "Sector Ejemplo", "locality_type" to "SECTOR"))
         val response =
             exchange(
@@ -263,6 +278,51 @@ class AreaOfInfluenceWorkflowGuardsApiTest : DomainApiTest() {
         assertTrue(before.compareTo(after) != 0, "el área no cambió de zona: $before")
         // la respuesta del comando ya trae el área recalculada
         assertEquals(0, after.compareTo(tree(approved.body)["approved"]["attributes"]["calculated_area_ha"].decimalValue()))
+    }
+
+    @Test
+    fun `cambiar el proyecto, el tipo o el numero de una version aprobada o reemplazada es 409 FROZEN_AREA`() {
+        val project = projectWithCrs()
+        val manager = member("SOCIAL_MANAGER", project)
+        val first = version(project, 1)
+        assertEquals(HttpStatus.OK, approve(first, manager.token).status)
+
+        fun assertFrozen(
+            area: String,
+            field: String,
+            value: Any,
+            token: String = manager.token
+        ) {
+            val response = edit("area_of_influence", area, mapOf(field to value), token)
+            assertEquals(HttpStatus.CONFLICT, response.status, "$field: ${response.body}")
+            assertEquals("FROZEN_AREA", code(response.body), field)
+            assertEquals(field, errorField(response.body))
+        }
+        // el PUT del portal reenvía todo el registro: solo cuenta lo que cambia. la versión aprobada sigue siendo la única AIDS
+        assertFrozen(first, "area_type", "AIIS")
+        assertFrozen(first, "version_number", 7)
+        // el admin: quien tiene una asignación solo al proyecto de origen recibiría antes el 403 de ProjectScopeGuard
+        assertFrozen(first, "project", projectWithCrs(), token)
+        assertEquals("AIDS", record("area_of_influence", first)["attributes"]["area_type"].asString())
+        // lo demás de una versión aprobada sí se corrige, y reenviarla tal cual pasa
+        assertEquals(HttpStatus.OK, edit("area_of_influence", first, mapOf("criteria" to "criterios ajustados"), manager.token).status)
+        assertEquals(HttpStatus.OK, edit("area_of_influence", first, emptyMap(), manager.token).status)
+        // una reemplazada tampoco cambia de identidad
+        val second = version(project, 2)
+        assertEquals(HttpStatus.OK, approve(second, manager.token).status)
+        assertEquals("superseded", state("area_of_influence", first))
+        assertFrozen(first, "area_type", "AIIS")
+        // una en borrador sí
+        val draft = version(project, 3)
+        assertEquals(HttpStatus.OK, edit("area_of_influence", draft, mapOf("area_type" to "AIIS"), manager.token).status)
+        // al final, una sola aprobada de tipo AIDS y ninguna de AIIS
+        val approved =
+            tree(send("GET", "/api/objects/area_of_influence/records?project=$project", null, HttpStatus.OK))["content"].values().filter {
+                it["state"].asString() ==
+                    "approved"
+            }
+        assertEquals(listOf(second), approved.map { it["id"].asString() })
+        assertEquals("AIDS", approved.single()["attributes"]["area_type"].asString())
     }
 
     @Test

@@ -1,5 +1,6 @@
 package sgspe.territory
 
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.PathVariable
@@ -42,8 +43,11 @@ data class AreaApproval(
 // los roles de las dos transiciones (RF-WFL-002). exige If-Match, motivo y al menos un miembro.
 // candados, siempre en este orden: primero el del proyecto y tipo, que deja en fila a las aprobaciones que compiten por la
 // versión única, y después el de cada área que cambia (`area_of_influence:<id>`), el mismo que toma TerritoryWriteGuard para
-// leer su estado antes de aceptar un miembro: así un miembro no se cuela en una versión recién aprobada. ninguna aprobación
-// toma el del proyecto y tipo estando dentro de uno de área, así que dos aprobaciones no se interbloquean
+// leer su estado antes de aceptar un miembro o un cambio de identidad de la versión. eso estrecha la ventana, no la cierra:
+// la API genérica no abre una transacción por petición (architecture.md §14, riesgo 16, UPS-22), así que el candado de la
+// guarda se suelta al leer el estado y un miembro puede entrar justo después de que la aprobación confirmó (o salir
+// justo antes: una versión aprobada sin miembros). ninguna aprobación toma el del proyecto y tipo estando dentro de uno de
+// área, así que dos aprobaciones no se interbloquean
 @Service
 class AreasOfInfluence(
     private val records: Records,
@@ -54,6 +58,8 @@ class AreasOfInfluence(
     private val callers: Callers,
     private val areas: Areas
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     suspend fun approve(
         id: UUID,
         reason: String?,
@@ -77,6 +83,10 @@ class AreasOfInfluence(
         val read = records.get(AREA, id)
         val project = Values.text(read.attributes["project"])!!
         val type = Values.text(read.attributes["area_type"])!!
+        // el área oficial con el working_crs que el proyecto tiene ahora, no el de cuando se dibujó, se mide ANTES de abrir la
+        // transacción: un fallo de PostGIS dentro la dejaría abortada (25P02) y la respuesta sería un 500 sin código. si la
+        // geometría no se puede medir la aprobación sigue y el área queda como estaba (P20)
+        val measured = areas.measure(AREA, read)
         return transactions.locked("$AREA:$project:$type") {
             transactions.locked(areaLock(id)) {
                 val area = records.get(AREA, id)
@@ -102,13 +112,14 @@ class AreasOfInfluence(
                     records
                         .all(AREA, filters = mapOf("project" to project, "area_type" to type), criteria = listOf(Criteria.inState(setOf("approved"))))
                         .filter { it.id != id.toString() }
+                // RN-TER-003 y FROZEN_AREA lo impiden, pero un dato anterior a la guarda podría traer varias: se reemplazan todas
+                if (previous.size > 1) log.warn("AreasOfInfluence: {} versiones aprobadas de {} {}; se reemplazan todas", previous.size, project, type)
                 val superseded =
                     previous.map { old ->
                         transactions.locked(areaLock(UUID.fromString(old.id))) { records.transition(AREA, UUID.fromString(old.id), "supersede", reason) }
                     }
                 records.transition(AREA, id, "approve", reason)
-                // el área oficial de la versión aprobada usa el working_crs que el proyecto tiene ahora, no el de cuando se dibujó
-                areas.refresh(AREA, id)
+                if (measured != null) areas.write(AREA, id, measured)
                 AreaApproval(records.get(AREA, id), superseded.firstOrNull())
             }
         }

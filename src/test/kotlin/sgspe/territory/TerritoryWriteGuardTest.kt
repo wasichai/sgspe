@@ -11,7 +11,7 @@ import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import java.util.UUID
 
-// RN-TER-003 y WF-O: los miembros de una versión que no está en draft no cambian. la decisión es pura (qué áreas toca la
+// RN-TER-003 y WF-O: los miembros de una versión que no está en draft no cambian, ni su proyecto, tipo y número. la decisión es pura (qué áreas toca la
 // escritura y en qué estado están), así que se prueba sin base con la forma exacta de las escrituras de wasichai: un
 // vínculo llega como dos UPDATE, uno por cada registro, con rel:<relación> en los atributos. hoy las relaciones del miembro
 // son MANY_TO_ONE y /related/... responde 400, así que la vía real es el atributo area_of_influence (las pruebas de alta,
@@ -182,6 +182,60 @@ class TerritoryWriteGuardTest {
             }
         assertEquals(listOf("OBJECT_NOT_READABLE"), found.map { it.code })
         assertEquals(HttpStatus.FORBIDDEN, found.single().status)
+    }
+
+    // RN-TER-003: la identidad de una versión (proyecto, tipo y número) no cambia fuera de draft; `before` y `after` son los
+    // atributos antes y después de la escritura
+    private fun areaUpdate(
+        area: UUID,
+        before: Map<String, Any?>,
+        after: Map<String, Any?>
+    ) = findings(write("area_of_influence", RecordChangeKind.UPDATED, recordId = area, before = before, attributes = after), after)
+
+    private val identity = mapOf("project" to "p-1", "area_type" to "AIDS", "version_number" to 1, "criteria" to "a")
+
+    @Test
+    fun `cambiar el proyecto, el tipo o el numero de una version aprobada o reemplazada es 409 FROZEN_AREA con el campo`() {
+        for (area in listOf(approved, superseded)) {
+            for ((field, value) in listOf("project" to "p-2", "area_type" to "AIIS", "version_number" to 2)) {
+                val found = areaUpdate(area, identity, identity + (field to value))
+                assertEquals(listOf("FROZEN_AREA"), found.map { it.code }, "$area $field")
+                assertEquals(field, found.single().field)
+                assertEquals(HttpStatus.CONFLICT, found.single().status)
+            }
+            // dos campos a la vez: un hallazgo por campo
+            assertEquals(
+                listOf("area_type", "version_number"),
+                areaUpdate(area, identity, identity + mapOf("area_type" to "AIIS", "version_number" to 3)).map { it.field }
+            )
+        }
+    }
+
+    @Test
+    fun `una version en draft cambia su identidad, y en una aprobada lo demas (criterios, derivados) sigue permitido`() {
+        assertTrue(areaUpdate(draft, identity, identity + ("area_type" to "AIIS")).isEmpty())
+        assertTrue(areaUpdate(approved, identity, identity + ("criteria" to "b")).isEmpty())
+        assertTrue(areaUpdate(approved, identity, identity + ("calculated_area_ha" to 12)).isEmpty())
+        // reenviar la identidad tal cual, como el portal, no es un cambio
+        assertTrue(areaUpdate(approved, identity, identity).isEmpty())
+    }
+
+    @Test
+    fun `un area que no se puede leer al cambiar su identidad es 403 y no se deja pasar`() {
+        val found =
+            runBlocking {
+                val change =
+                    write(
+                        "area_of_influence",
+                        RecordChangeKind.UPDATED,
+                        recordId = approved,
+                        before = identity,
+                        attributes =
+                            identity + ("area_type" to "AIIS")
+                    )
+                TerritoryWriteGuard.check(change, change.attributes.orEmpty()) { throw ForbiddenException("sin lectura") }
+            }
+        assertEquals(listOf("OBJECT_NOT_READABLE"), found.map { it.code })
     }
 
     @Test

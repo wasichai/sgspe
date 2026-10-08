@@ -47,9 +47,11 @@ class Areas(
     // quien edita el registro fallaría sin conflicto real. la lectura y la escritura van dentro de
     // Transactions.locked("<objeto>:<id>"), así el listener y JOB-02 no se pisan. true si escribió.
     // la transacción: la API genérica no abre ninguna (api.md §3.6), así que cuando corre el listener la escritura del
-    // cliente ya se confirmó y `locked` abre la suya, aparte. un fallo de PostGIS al medir (InvalidGeometryException)
-    // sale de ese bloque, la revierte sin haber escrito nada, y se captura afuera: no puede deshacer la escritura del
-    // cliente. el listener no corre dentro de la transacción de un comando: sus escrituras llevan la marca y se omite
+    // cliente ya se confirmó y `locked` abre la suya, aparte: un fallo de PostGIS al medir (InvalidGeometryException) sale de
+    // ese bloque, la revierte sin haber escrito nada, y se captura afuera. NO sirve dentro de la transacción de un comando:
+    // un fallo de PostGIS la deja abortada (25P02) y lo que siga falla con un 500. un comando mide antes de abrir su
+    // transacción (`measure`) y dentro solo escribe el valor ya medido (`write`). el listener no corre dentro de un comando:
+    // sus escrituras llevan la marca y se omite
     suspend fun refresh(
         objectName: String,
         id: UUID,
@@ -76,14 +78,55 @@ class Areas(
             false
         }
 
+    // mide el área de un registro ya leído, SIN transacción: para un comando que escribe después, dentro de la suya.
+    // null: PostGIS no puede medir la geometría (InvalidGeometryException): el comando sigue y no escribe el área, que queda
+    // como estaba; un `Measured` con valor null es un área vacía (sin zona, sin geometría) y sí se escribe
+    suspend fun measure(
+        objectName: String,
+        record: RecordResponse
+    ): Measured? = measuring(objectName, record.id) { compute(objectName, record) }
+
+    // escribe un área ya medida, solo si cambió (P11). quien llama tiene el candado `<objeto>:<id>` y su transacción
+    suspend fun write(
+        objectName: String,
+        id: UUID,
+        measured: Measured,
+        reason: String = REASON
+    ): Boolean {
+        val record = records.find(objectName, id) ?: return false
+        if (Values.same(record.attributes[FIELD], measured.value)) return false
+        records.patch(objectName, id, mapOf(FIELD to measured.value), reason)
+        return true
+    }
+
     private suspend fun projectSrid(record: RecordResponse): Int? {
         val project = Records.uuid(record.attributes["project"]) ?: return null
         // solo un CRS UTM de trabajo: GeoSql.areaHa rechaza los demás, y un valor ajeno al catálogo cae a la zona del centroide
         return Crs.srid(Values.text(records.find("project", project)?.attributes?.get("working_crs")))?.takeIf { Crs.isWorkingZone(it) }
     }
 
+    // el resultado de medir: el valor (null es un área vacía)
+    class Measured(
+        val value: BigDecimal?
+    )
+
     companion object {
         const val FIELD = "calculated_area_ha"
+
+        private val MEASURE_LOG = LoggerFactory.getLogger(Areas::class.java)
+
+        // null si PostGIS no puede medir la geometría; cualquier otro fallo sale
+        internal suspend fun measuring(
+            objectName: String,
+            id: String,
+            block: suspend () -> BigDecimal?
+        ): Measured? =
+            try {
+                Measured(block())
+            } catch (e: InvalidGeometryException) {
+                MEASURE_LOG.warn("Areas: no se midió el área de {} {}: {}", objectName, id, e.message)
+                null
+            }
 
         // el motivo del listener; JOB-02 firma el suyo con DerivedFieldsJob.reason (AreaRecalculator.REASON)
         const val REASON = "derivado: área en ha"
