@@ -192,6 +192,10 @@ texto libre, y un parámetro de consulta es `422`. Una fila que PostGIS no puede
 la petición: va a `invalid[]` con el motivo `geometría inválida: …` en español.
 Los tableros y sus indicadores (§4.11) responden `404` `DASHBOARD_NOT_FOUND` e `INDICATOR_NOT_FOUND`, `400`
 `INVALID_BREAKDOWN` y `400` `TOO_MANY_RECORDS`; el detalle está en §4.11.
+Las exportaciones (§4.13) responden `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`), `CHECKLIST_REQUIRED`
+(`checklistConfirmed`: EXTERNO sin la lista de verificación), `INVALID_FILTER` (`filters.<filtro>`) y `TOO_MANY_RECORDS`
+(`filters.project`, no `project` como los tableros); `403` `NOT_ASSIGNED` (`filters.project`: un solo proyecto sin asignación
+vigente) y `404` `EXPORT_NOT_FOUND` (`kind`). El detalle está en §4.13.
 
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:
@@ -837,6 +841,34 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
 | `commitment-matrix` | Matriz de compromisos con los campos de DOC-01 §9.3.1.2 (RF-COM-001), sin el documento de identidad de los solicitantes, que nunca se exporta en ningún nivel (RQ-REP-022) | `commitment` | F3 |
 | `attention-register` | Quejas, consultas y solicitudes | `grievance`, `inquiry` y `stakeholder_request` | F4 |
 | `risk-register` | Matriz de riesgos con su última revisión | `social_risk` | F4 |
+
+**`stakeholder-register` (F2).**
+
+- **Cuerpo.** `{ filters, disclosureLevel, checklistConfirmed }`. `disclosureLevel` es `INTERNO`, `EXTERNO` o `PUBLICO`.
+  `filters` es `{ project: string[], scope, stakeholderType, influenceGroup, locality, includeRetired }`: `project` y `locality`
+  son UUID (o listas de UUID, sin repetidos), `scope`, `stakeholderType` e `influenceGroup` son valores de su catálogo e
+  `includeRetired` es booleano. Una propiedad desconocida del cuerpo o de `filters` es `400` que la nombra, y un parámetro de
+  consulta, `422` (ASM-054).
+- **Proyectos.** Una lista vacía (o sin `project`) es «mis proyectos»: las asignaciones vigentes de quien exporta, hoy en
+  America/Lima; el `ADMIN`, todos. Con **un solo** proyecto (los repetidos cuentan una vez), `export_log.project` lleva ese
+  proyecto y quien no es `ADMIN` necesita una asignación vigente a él: si no, `403` `NOT_ASSIGNED`. Con dos o más proyectos
+  explícitos no se exige asignación y `export_log.project` queda vacío: con la opción A (`security.md` §9.2) la lectura es de
+  todo el tenant y la asignación no es una frontera de confidencialidad, solo la exige la escritura de `export_log` acotada
+  por proyecto.
+- **Contenido.** Se lee como quien exporta: un campo que no puede leer sale `no disponible`. `INTERNO` nombra a las
+  personas que quien exporta puede leer; `EXTERNO` las cita por código `GI-` (un seudónimo, `deliverables.md` §9.1) y por
+  cargo, y exige `checklistConfirmed: true`; `PUBLICO` solo trae conteos por grupo de influencia y postura y por ámbito, sin
+  totales y con las celdas de menos de 5 como `<5` (ASM-088). Nunca sale el documento de identidad.
+- **Errores.** Con su código en `errors[0].message` (ruling P15): `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`),
+  `CHECKLIST_REQUIRED` (`checklistConfirmed`), `INVALID_FILTER` (`filters.project`, `filters.locality`, `filters.scope`,
+  `filters.stakeholderType`, `filters.influenceGroup` o `filters.includeRetired`) y `TOO_MANY_RECORDS` (`filters.project`);
+  `403` `NOT_ASSIGNED` y `404` `EXPORT_NOT_FOUND` (una exportación que aún no existe en la fase). Sin READ ni `EXPORT` sobre
+  `stakeholder`, o sin CREATE sobre `export_log`, `403` sin código.
+- **Tope.** La lectura es acotada: `sgspe.exports.max-rows` (20 000 por defecto) por conjunto leído. Pasarse es
+  `TOO_MANY_RECORDS`: hay que acotar los proyectos o los filtros. No se recorta en silencio.
+- **`export_log`.** Una fila por exportación, con `export_kind = EXPORTACION`, escrita como quien exporta antes de entregar
+  el archivo; si algo falla antes, no hay archivo ni fila. `exported_at` es el instante en que se generó el archivo, no el de
+  su entrega, y `row_count` cuenta grupos de interés, no filas del archivo (en `PUBLICO`, los contados en los agregados).
 
 ### 4.14 BC-18 IA y conocimiento
 

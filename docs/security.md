@@ -1100,9 +1100,13 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - INTERNO: nominal, solo para quien puede leer los datos;
   - EXTERNO: las personas se citan por cargo o código, se excluyen las fotos sin consentimiento y los puntos de vivienda
     se generalizan a la localidad;
-  - PUBLICO: solo agregados;
+  - PUBLICO: solo agregados, con las celdas de menos de 5 suprimidas (`<5`) y sin totales que permitan despejarlas (ASM-088, ruling
+    P28);
   - en ningún nivel aparecen el DNI ni los teléfonos de un entregable. El documento de identidad, además, es solo un campo
     restringido: nunca sale en una exportación, en ningún nivel de divulgación (RF-COM-001, RQ-REP-014).
+  - el código `GI-` de EXTERNO es un **seudónimo**, no anonimato (ruling P29): son los 12 primeros dígitos hexadecimales del id
+    del grupo de interés, el mismo en todas las salidas, así que la organización lo revierte con su registro y quien reciba
+    varias salidas EXTERNO puede enlazarlas. Sigue siendo dato personal para quien responde por el registro (§11.1).
 - **Entregables:** se generan como la plataforma (domain-model §8.3), así que su contenido lo define su tipo y no los
   permisos de campo de quien lo pide. Por eso:
   - `GENERATE`, `APPROVE`, `ISSUE` y `DOWNLOAD_RESTRICTED` sobre `deliverable` se conceden solo a los roles que leen los
