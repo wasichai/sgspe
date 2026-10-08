@@ -45,32 +45,35 @@ class Areas(
     // recalcula y escribe calculated_area_ha con Records (la marca y el motivo), como quien escribió o como la plataforma.
     // escribe solo si el valor cambia: una escritura igual subiría updatedAt y dejaría una historia vacía, y el If-Match de
     // quien edita el registro fallaría sin conflicto real. la lectura y la escritura van dentro de
-    // Transactions.locked("<objeto>:<id>"), así el listener y JOB-02 no se pisan. true si escribió
+    // Transactions.locked("<objeto>:<id>"), así el listener y JOB-02 no se pisan. true si escribió.
+    // la transacción: la API genérica no abre ninguna (api.md §3.6), así que cuando corre el listener la escritura del
+    // cliente ya se confirmó y `locked` abre la suya, aparte. un fallo de PostGIS al medir (InvalidGeometryException)
+    // sale de ese bloque, la revierte sin haber escrito nada, y se captura afuera: no puede deshacer la escritura del
+    // cliente. el listener no corre dentro de la transacción de un comando: sus escrituras llevan la marca y se omite
     suspend fun refresh(
         objectName: String,
         id: UUID,
         reason: String = REASON
     ): Boolean =
-        transactions.locked("$objectName:$id") {
-            val record = records.find(objectName, id)
-            if (record == null) {
-                false
-            } else {
-                val area =
-                    try {
-                        compute(objectName, record)
-                    } catch (e: InvalidGeometryException) {
-                        // PostGIS no puede medir esa geometría: el valor guardado se deja como está y no se escribe uno equivocado
-                        log.warn("Areas: no se midió el área de {} {}: {}", objectName, id, e.message)
-                        return@locked false
-                    }
-                if (Values.same(record.attributes[FIELD], area)) {
+        try {
+            transactions.locked("$objectName:$id") {
+                val record = records.find(objectName, id)
+                if (record == null) {
                     false
                 } else {
-                    records.patch(objectName, id, mapOf(FIELD to area), reason)
-                    true
+                    val area = compute(objectName, record)
+                    if (Values.same(record.attributes[FIELD], area)) {
+                        false
+                    } else {
+                        records.patch(objectName, id, mapOf(FIELD to area), reason)
+                        true
+                    }
                 }
             }
+        } catch (e: InvalidGeometryException) {
+            // PostGIS no puede medir esa geometría: el valor guardado se deja como está y no se escribe uno equivocado
+            log.warn("Areas: no se midió el área de {} {}: {}", objectName, id, e.message)
+            false
         }
 
     private suspend fun projectSrid(record: RecordResponse): Int? {
@@ -131,6 +134,8 @@ class AreaRecalculator(
 ) : DerivedRecalculator {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    // solo elige las organizaciones que recorre DerivedSweep (las que tienen este objeto), no qué se recalcula: eso lo
+    // fija Areas.GEOMETRY en recalculate, que cubre los cuatro objetos
     override val sourceObject: String = "community"
 
     override suspend fun recalculate(

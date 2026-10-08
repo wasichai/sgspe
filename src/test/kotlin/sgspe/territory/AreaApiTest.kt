@@ -29,6 +29,9 @@ class AreaApiTest : DomainApiTest() {
     @Autowired
     private lateinit var recordService: RecordService
 
+    @Autowired
+    private lateinit var geo: GeoSql
+
     private fun communityAt(side: Double): String =
         createWith(
             "community",
@@ -131,6 +134,10 @@ class AreaApiTest : DomainApiTest() {
             )
         assertEquals(HttpStatus.OK, response.status, response.body)
         assertTrue(areaOf("community", community) > BigDecimal(400))
+        // y el updatedAt de esa respuesta, anterior a la escritura del área, vale para la edición siguiente
+        val returned = tree(response.body)["updatedAt"].asString()
+        val next = edit("community", community, mapOf("registered_members_count" to 40), headers = mapOf(IfMatch.HEADER to "\"$returned\""))
+        assertEquals(HttpStatus.OK, next.status, next.body)
     }
 
     @Test
@@ -171,6 +178,41 @@ class AreaApiTest : DomainApiTest() {
         // y el If-Match de esa respuesta vale para la edición siguiente
         val next = edit("community", community, mapOf("registered_members_count" to 41), headers = mapOf(IfMatch.HEADER to "\"$returned\""))
         assertEquals(HttpStatus.OK, next.status, next.body)
+    }
+
+    @Test
+    fun `el area de influencia se mide en el working_crs de su proyecto, no en la zona del centroide`() {
+        val boundary = square(-78.6, -7.9, 0.01, "MultiPolygon")
+        val in17 =
+            createWith(
+                "area_of_influence",
+                mapOf("project" to projectWithCrs(), "area_type" to "AIDS", "version_number" to 1),
+                mapOf("boundary" to boundary)
+            )
+        val in18 =
+            createWith(
+                "area_of_influence",
+                mapOf("project" to projectWithCrs(mapOf("working_crs" to "EPSG 32718")), "area_type" to "AIDS", "version_number" to 1),
+                mapOf("boundary" to boundary)
+            )
+        // el mismo polígono, en la zona 17 y en la 18: la diferencia (unas décimas de ha) se ve a dos decimales
+        val expected17 = runBlocking { geo.areaHa(boundary, 32717) }!!
+        val expected18 = runBlocking { geo.areaHa(boundary, 32718) }!!
+        assertTrue(expected17.compareTo(expected18) != 0, "$expected17 y $expected18 deben diferir")
+        assertEquals(0, expected17.compareTo(areaOf("area_of_influence", in17)))
+        assertEquals(0, expected18.compareTo(areaOf("area_of_influence", in18)))
+    }
+
+    @Test
+    fun `un territorio fuera de las zonas 17S a 19S deja el area vacia, no en cero`() {
+        val community =
+            createWith(
+                "community",
+                mapOf("name" to "Comunidad Ejemplo"),
+                mapOf("territory" to square(-60.0, -7.9, 0.01, "MultiPolygon"))
+            )
+        val area = record("community", community)["attributes"]["calculated_area_ha"]
+        assertTrue(area == null || area.isNull, "área $area")
     }
 
     @Test
