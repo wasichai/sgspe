@@ -6,7 +6,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 ## Qué hay aquí
 
 - Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 0.3.2 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
-  Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2); en F1, `sgspe.common` y `sgspe.observability`.
+  Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
+  `stakeholder`, `territory`, `dashboard`, `privacy` y `prod`.
 - `model/`: `model.json` (los 48 objetos de F2), `roles.json`, `workflows/` (WF-A, WF-B, WF-C, WF-L y WF-O) y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
   los documentos para las pruebas del modelo.
@@ -20,7 +21,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Ningún nombre real de persona en nada versionado; usuarios de prueba ficticios `@sgspe.test`.
 - Conventional Commits con asunto en español y cuerpo de 100 columnas como máximo (commitlint con husky).
 - Ningún código bajo el paquete `wasichai`; nunca `RecordStore`, `PhysicalTableRecordStore`, `AuditService` ni
-  `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila.
+  `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila, y desde F2 también que
+  `scope` y `privacy` solo dependan de `common` y que `findAllOrganizations` solo viva en `common/Organizations.kt`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
   Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` → `load_ubigeo.py`. Por el
   túnel, los tres primeros pasos con el modelo de F2 tardan de 5 a 8 minutos, y la suite de integración completa, de
@@ -48,7 +50,15 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 |---|---|
 | App | `src/main/kotlin/sgspe/SgspeApplication.kt`, `src/main/resources/application*.yml` |
 | Correlación y línea de acceso | `src/main/kotlin/sgspe/observability/` |
-| Marca de escritura, `Records`, Lima, 422 | `src/main/kotlin/sgspe/common/` |
+| Marca de escritura, `Records`, Lima, 422, catálogo del modelo, reglas y guardas transversales, `If-Match`, consulta en seco, `Positions`, `Readability`, `RequestMemo`, JOB-02 | `src/main/kotlin/sgspe/common/` |
+| Alcance por proyecto, asignaciones, destinatarios por rol, `EDIT_ANY`, WF-A | `src/main/kotlin/sgspe/scope/` |
+| Evaluaciones, índices y grupo, prioridad, WF-B, JOB-03 | `src/main/kotlin/sgspe/stakeholder/` |
+| WF-C, conteos de asistentes | `src/main/kotlin/sgspe/engagement/` |
+| CRS, área oficial, áreas de influencia, importaciones, componentes, capas LYR-01 a LYR-16 (`sgspe.territory.import.*`, `sgspe.territory.layers.*`) | `src/main/kotlin/sgspe/territory/` |
+| KPI-STK, KPI-ENG y tableros | `src/main/kotlin/sgspe/dashboard/` |
+| Exportaciones con nivel de divulgación, celdas pequeñas (`SmallCells`) y `export_log` | `src/main/kotlin/sgspe/privacy/` |
+| Base de las pruebas de integración de F2 | `src/test/kotlin/sgspe/DomainApiTest.kt` |
+| Límites de las importaciones: tamaño, filas, plazo `IMPORT_TIMEOUT` y concurrencia | `src/test/kotlin/sgspe/territory/ImportTimeoutApiTest.kt`, `ImportLimitsApiTest.kt` |
 | Base de las pruebas de contrato | `src/test/kotlin/sgspe/SgspeApiTest.kt` y `src/test/kotlin/sgspe/contract/` |
 | Base de las pruebas de F2 (registros mínimos, asignaciones, transiciones) | `src/test/kotlin/sgspe/F2ApiTest.kt` |
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |

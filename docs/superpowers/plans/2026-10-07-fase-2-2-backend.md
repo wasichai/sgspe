@@ -317,8 +317,9 @@ Los contratos de `docs/api.md` §4.1 a §4.4, §4.11 y §4.13, con estas precisi
   `LESS_FAVORABLE`) y `coverage` (`evaluated`, `opposition`); KPI-STK-08 `series` `{ period: "AAAA-MM", value, evaluated,
   distribution }`; KPI-ENG-01 `engagement_type` y `series` `{ period, value }`; KPI-ENG-02 `engagement_type` y `series`
   `{ period, value, target }`; KPI-ENG-03 `engagement` (`label`, `heldDate`, `value` = asistentes, `femalePercent`,
-  `malePercent`, `directArea`, `indirectArea`, `regional`, `national` (conteos) y `organizations[]`); KPI-ENG-04 y
-  KPI-ENG-05 `topic` (`label`, `meetings`, `questions`). En el catálogo (`GET /api/sgspe/dashboards/indicators`),
+  `malePercent`, `directArea`, `indirectArea`, `regional`, `national` (conteos) y `organizations[]`); KPI-ENG-04 `topic`
+  (`label`, `meetings`, `questions`) y KPI-ENG-05 `topic` (`label`, `value`, `questions`; sus filas no tienen `meetings`). En el
+  catálogo (`GET /api/sgspe/dashboards/indicators`),
   `dashboard` es `stakeholders`, `engagement` o `null` para KPI-STK-04, KPI-STK-05 y KPI-STK-07, que solo tienen detalle en
   F2.
 - **Exportación** `POST /api/sgspe/exports/stakeholder-register`: `filters` es `{ project: string[] }` como lo fija 2.3
@@ -5062,11 +5063,11 @@ Expected: `ktlintCheck` sin hallazgos y el commit creado.
 
 ### Tarea 10: Índices de interés y poder, grupo de influencia y prioridad
 
-`InfluenceClassifier` aplica `docs/domain-model.md` §8.2 (RN-STK-003 a RN-STK-005): los quince indicadores de 1 a
+`InfluenceClassifier` aplica `docs/domain-model.md` §8.2 (RF-STK-006 a RF-STK-009, ASM-031 y ASM-003): los quince indicadores de 1 a
 5 dan los componentes de afectación, oportunidad y poder; el índice de interés es el promedio de los componentes de
 interés y el de poder el de los de poder, con dos decimales HALF_UP; el grupo sale de los umbrales del proyecto
 (`ESTRATEGICO`, `POLITICO`, `PARA MONITOREO`, `VULNERABLE`). `Prioritizer` busca la regla de `prioritization_rule` más
-específica para el grupo, la postura, el ámbito y el tipo (RN-STK-007). Los dos son funciones puras.
+específica para el grupo, la postura, el ámbito y el tipo (RF-STK-011). Los dos son funciones puras.
 
 **Archivos:**
 - Crear: `src/main/kotlin/sgspe/stakeholder/InfluenceClassifier.kt`
@@ -7116,11 +7117,11 @@ Expected: `ktlintCheck` sin hallazgos y el commit creado.
 ### Tarea 15: Área oficial en hectáreas y miembros congelados
 
 `calculated_area_ha` de `area_of_influence`, `community`, `land_parcel` y `mining_concession` es el área en el CRS
-de trabajo del proyecto (`docs/gis.md` §4, RN-TER-006; sin proyecto o sin `working_crs`, la zona UTM del centroide).
+de trabajo del proyecto (`docs/gis.md` §4, RQ-GIS-009, ASM-057 y ASM-064; sin proyecto o sin `working_crs`, la zona UTM del centroide).
 `AreaListener` la recalcula tras cada alta o cambio, con la marca, y `AreaRecalculator` la corrige en JOB-02. El listener
 escribe el mismo registro dentro de la petición del cliente: con `If-Match` en esa petición el área se escribe igual
 (Review Focus 2). `TerritoryWriteGuard` congela los miembros de un área de influencia que no está en `draft` (409
-`FROZEN_MEMBERS`, RN-TER-004).
+`FROZEN_MEMBERS`, RN-TER-003).
 
 **Archivos:**
 - Crear: `src/main/kotlin/sgspe/territory/Areas.kt`

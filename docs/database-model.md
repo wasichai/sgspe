@@ -1358,7 +1358,7 @@ Tabla física `app_data.position__<org8>`. Requisitos: RF-STK-002, CON-005.
 ### `stakeholder`
 
 **Grupo de interés** (BC-03). Persona u organización en relación con un proyecto, con los valores vigentes de su última
-evaluación y su último contacto. Tabla física `app_data.stakeholder__<org8>`. Requisitos: RF-STK-003, RF-STK-013,
+evaluación (la postura y la confianza, el último valor informado de cada una) y su último contacto. Tabla física `app_data.stakeholder__<org8>`. Requisitos: RF-STK-003, RF-STK-013,
 RF-STK-014, RN-STK-006, RN-STK-008, ASM-032, CON-030.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
@@ -1371,12 +1371,12 @@ RF-STK-014, RN-STK-006, RN-STK-008, ASM-032, CON-030.
 | `owner_user_id` | UUID | no | — | Responsable (ASM-023). | ASM-023 |
 | `owner_user_email` | EMAIL | no | — | Correo del responsable. | ASM-023 |
 | `profile_summary` | LONG_TEXT | no | — | Perfil del grupo de interés. | RF-STK-003 |
-| `stance` | ENUM `stance` | no | — | (derivado) (restringido) Postura de la última evaluación. | RF-STK-003 |
+| `stance` | ENUM `stance` | no | — | (derivado) (restringido) Postura vigente: último valor informado de la postura. | RF-STK-003 |
 | `influence_group` | ENUM `influence_group` | no | — | (derivado) Grupo de influencia de la última evaluación. | RF-STK-003 |
 | `information_priority` | ENUM `information_priority` | no | — | (derivado) Prioridad que resulta de la matriz de priorización. | RF-STK-011 |
 | `interest_index` | DECIMAL | no | — | (derivado) Índice de interés de la última evaluación. | RF-STK-003 |
 | `power_index` | DECIMAL | no | — | (derivado) Índice de poder de la última evaluación. | RF-STK-003 |
-| `trust_score` | INTEGER | no | — | (derivado) Confianza de la última evaluación. | RF-STK-003 |
+| `trust_score` | INTEGER | no | — | (derivado) Confianza vigente: último valor informado de la confianza. | RF-STK-003 |
 | `last_assessment_date` | DATE | no | — | (derivado) Fecha de la última evaluación. | RF-STK-003 |
 | `last_contact_date` | DATE | no | — | (derivado) Fecha (America/Lima) de la última interacción realizada con él. | RF-STK-014 |
 
@@ -1443,7 +1443,7 @@ CON-006.
 | `group_overridden` | BOOLEAN | sí | — | El grupo se ajustó a mano. | RF-STK-009 |
 | `override_reason` | LONG_TEXT | no | — | Justificación del ajuste manual. | RF-STK-009 |
 | `stance` | ENUM `stance` | no | — | (restringido) Postura; puede faltar cuando la fuente no la da (CON-006). | RF-STK-005 |
-| `stance_changed` | BOOLEAN | no | — | (derivado) La postura difiere de la de la línea base. | RF-STK-010 |
+| `stance_changed` | BOOLEAN | no | — | (derivado) La postura difiere de la última postura informada antes, que puede no ser la de la evaluación de la línea base. | RF-STK-010 |
 | `stance_reasons` | LONG_TEXT | no | — | (restringido) Razones de la postura. | RF-STK-005 |
 | `concerns` | LONG_TEXT | no | — | (restringido) Preocupaciones. | RF-STK-005 |
 | `expectations` | LONG_TEXT | no | — | (restringido) Expectativas. | RF-STK-005 |

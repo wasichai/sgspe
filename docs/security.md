@@ -371,7 +371,7 @@ Las mismas acciones, por objeto, para replicarlas en el modelo:
      que se pueda leer (RQ-SEC-008, ASM-069);
   4. deja pasar la escritura que lleva la marca de escritura de SGSPE y solo cambia campos derivados: al agregar un
      participante a una interacción ajena, `AttendanceCountsListener` actualiza sus conteos (§8.1);
-  5. decide con `requirePermission(user, "EDIT_ANY", objectId)` y `created_by`, sin nombres de rol (RQ-SEC-005); `ADMIN`
+  5. decide con `Permissions.has(user, "EDIT_ANY", objectName)` y `created_by`, sin nombres de rol (RQ-SEC-005); `ADMIN`
      tiene siempre la acción [WAS-ADR-0042];
   6. tienen `EDIT_ANY` todos los roles que escriben esos objetos, menos `FIELD_AGENT` (matriz §7).
 - Consecuencias para `FIELD_AGENT`:
@@ -933,12 +933,20 @@ endpoint de evaluaciones, porque evaluar escribe `stance`, un campo que solo ell
      `start_date` y `end_date`, en America/Lima);
   3. una escritura que cambia el `project` de un registro exige asignación a ambos proyectos;
   4. los objetos que también pueden ser del tenant (`evidence`, `early_warning_rule`, `indicator_measurement`,
-     `export_log`, `ai_suggestion`, `ai_interaction`) se comprueban solo cuando tienen proyecto;
+     `export_log`, `ai_suggestion`, `ai_interaction`) y `locality_profile`, cuyo `study` es opcional, se comprueban solo
+     cuando tienen proyecto (un `locality_profile` sin `study` es del tenant);
   5. quedan exentos `ADMIN`, la plataforma y las automatizaciones; el alta de un `project`, que todavía no tiene equipo;
      y la escritura de `project_assignment` por quien tiene permiso sobre ella, para formar los equipos;
   6. las cuentas de servicio se asignan como cualquier usuario, con el id de su usuario de respaldo;
   7. la guarda lee las asignaciones como el usuario (§5.8), por eso todo rol que escribe en objetos de proyecto lee
-     `project_assignment`.
+     `project_assignment`;
+  8. la guarda falla cerrado: un registro cuyo proyecto no se resuelve (su relación obligatoria está vacía o su padre no
+     tiene proyecto) solo lo escribe `ADMIN`; el error es 403 y `errors[0].message` trae `NOT_ASSIGNED`. un alta sin su relación
+     obligatoria no es de alcance: la rechaza wasichai con su 400 «is required» (y la base con NOT NULL). es defensa en profundidad: `DependentsDeleteGuard` impide borrar un padre con dependientes
+     obligatorios (409 `HAS_DEPENDENTS`), así que por la API no quedan registros sin dueño.
+- **Riesgo residual de las asignaciones:** `PROJECT_ADMIN`, al formar equipos, puede asignarse a sí mismo o a cualquier
+  usuario de la organización a cualquier proyecto y escribir allí con sus roles; lo mitiga la auditoría de
+  `project_assignment`, no la guarda.
 - Las agregaciones con SQL propio de `sgspe.territory` y `sgspe.dashboard` aplican READ por objeto y por campo detrás de
   su compuerta de permisos (RQ-GIS-017, RQ-DSH-031).
 - **Riesgo residual:** quien tiene READ sobre un objeto lo lee en todos los proyectos del tenant, también en los mapas,
@@ -1085,13 +1093,21 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   sus permisos de objeto y de campo. Sobre eso se aplica el nivel de divulgación. Exigen `EXPORT` y cada una queda en
   `export_log` con su `export_kind`, quién, qué, nivel, filtros, cuándo y cuántas filas (RQ-AUD-011). Una exportación
   EXTERNO exige una lista de verificación (ASM-037, RQ-REP-033).
+  Todo texto que una exportación XLSX o CSV escribe de datos del usuario o de archivos importados neutraliza el prefijo de
+  fórmula (`=`, `+`, `-`, `@`, tabulador o retorno de carro) con un apóstrofo, con `safeCell` de `sgspe.common`
+  (RQ-SEC-020).
 - **Niveles de divulgación** (catálogo "Nivel de divulgación"; RQ-REP-014, ASM-037):
   - INTERNO: nominal, solo para quien puede leer los datos;
   - EXTERNO: las personas se citan por cargo o código, se excluyen las fotos sin consentimiento y los puntos de vivienda
     se generalizan a la localidad;
-  - PUBLICO: solo agregados;
+  - PUBLICO: solo agregados, con las celdas de menos de 5 reservadas (`reservado`) y, cuando hace falta para que no se
+    despejen por resta, también las visibles más chicas; sin totales que permitan despejarlas y sin publicar dos salidas
+    que difieran en pocas personas (ASM-088, ruling P28c);
   - en ningún nivel aparecen el DNI ni los teléfonos de un entregable. El documento de identidad, además, es solo un campo
     restringido: nunca sale en una exportación, en ningún nivel de divulgación (RF-COM-001, RQ-REP-014).
+  - el código `GI-` de EXTERNO es un **seudónimo**, no anonimato (ruling P29): son los 12 primeros dígitos hexadecimales del id
+    del grupo de interés, el mismo en todas las salidas, así que la organización lo revierte con su registro y quien reciba
+    varias salidas EXTERNO puede enlazarlas. Sigue siendo dato personal para quien responde por el registro (§11.1).
 - **Entregables:** se generan como la plataforma (domain-model §8.3), así que su contenido lo define su tipo y no los
   permisos de campo de quien lo pide. Por eso:
   - `GENERATE`, `APPROVE`, `ISSUE` y `DOWNLOAD_RESTRICTED` sobre `deliverable` se conceden solo a los roles que leen los

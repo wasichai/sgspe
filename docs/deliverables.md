@@ -501,6 +501,22 @@ Los niveles INTERNO, EXTERNO y PUBLICO (catálogo "Nivel de divulgación") se ap
 | EXTERNO | Terceros (cliente, autoridades, socios) | Por cargo y organización, o por código | Se excluyen las que muestran personas identificables sin consentimiento | Los puntos que pueden ser viviendas (QCS, entregas, observaciones) se generalizan a la localidad | Se omiten religión, proceso electoral, razones de postura de personas y nombres de beneficiarios |
 | PUBLICO | Cualquiera | Ninguna: solo agregados | Ninguna foto de personas | Solo capas públicas y conteos por localidad o distrito | Ninguno |
 
+- **Celdas pequeñas en PUBLICO (ASM-088).** Una salida PUBLICO no revela nada de una sola persona. Cada desglose se arma sobre la
+  grilla completa de los valores del catálogo (más «SIN EVALUAR» y «no disponible»), con las combinaciones sin ningún grupo de
+  interés, para que la presencia de una fila no diga a qué categoría pertenece alguien; un valor fuera del catálogo se cuenta
+  como «no disponible», y un catálogo vacío rechaza la salida. Todo conteo menor que 5, el cero incluido, sale con la misma
+  marca neutra «reservado», que no dice qué valor esconde. Como restar un total (el de otra hoja del mismo archivo, o lo que
+  suman las celdas visibles) despejaría una celda oculta, y una población de una sola postura se publicaría celda por celda, en
+  cada tabla se marca también la menor de las visibles, con la misma marca, mientras lo oculto sume menos de 5, el cero
+  incluido. Ninguna hoja de PUBLICO lleva totales. Rige para todo desglose, incluido el de grupo de influencia por postura,
+  que sin ello publicaría la postura de una persona identificable.
+- **El código de un grupo de interés es un seudónimo, no anonimato.** En EXTERNO una persona se cita por código `GI-` y los 12
+  primeros dígitos hexadecimales (48 bits) del id del grupo de interés. El código es estable: es el mismo en todas las
+  exportaciones y niveles, así que la organización lo cruza con su registro y puede revertirlo, y un tercero que reciba varias
+  salidas EXTERNO puede enlazar las filas entre ellas. Como `stakeholder` es por proyecto, la misma persona tiene códigos
+  distintos en proyectos distintos. Con la Ley 29733 sigue siendo dato personal para quien responde por el registro; EXTERNO
+  reduce la exposición de quien recibe el archivo, no la anula (ruling P29).
+
 ### 9.2 Reglas por elemento
 
 | Elemento | INTERNO | EXTERNO | PUBLICO |
@@ -690,7 +706,7 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 
 - **ADR de SGSPE:** ADR-0013, ADR-0014, ADR-0015 y ADR-0017.
 - **Supuestos que este documento aplica:** ASM-003, ASM-013, ASM-014, ASM-026, ASM-027, ASM-028, ASM-029, ASM-031, ASM-037,
-  ASM-038, ASM-047, ASM-055, ASM-058, ASM-061 y ASM-063.
+  ASM-038, ASM-047, ASM-055, ASM-058, ASM-061, ASM-063 y ASM-088.
 - **Pendientes:** GAP-001 (normativa, en particular la de datos personales), GAP-009 (tenant y marca), GAP-010 (plantillas
   corporativas y DOCX editado fuera del sistema), GAP-011 (GeoServer y cartografía), GAP-014 (consentimiento y retención de fotos)
   y GAP-022 (despliegue y almacenamiento); los valores del catálogo "Tipo de entregable" para T3 a T10.

@@ -48,9 +48,12 @@ class ArchitectureTest {
     private fun isCommon(file: File): Boolean = file.invariantSeparatorsPath.contains("/sgspe/common/")
 
     @Test
-    fun `el escaneo ve las fuentes de F1`() {
+    fun `el escaneo ve las fuentes de F1 y de F2`() {
         val names = sources(main).map { it.name }
         assertTrue(names.containsAll(listOf("SgspeApplication.kt", "CorrelationIdFilter.kt", "Records.kt")), "$names")
+        // una fuente de cada paquete de F2: si el escaneo dejara de verlos, las reglas pasarían en vacío
+        val f2 = listOf("ProjectScopeGuard.kt", "Assessments.kt", "AttendanceCounts.kt", "Layers.kt", "Dashboards.kt", "StakeholderRegister.kt")
+        assertTrue(names.containsAll(f2), "$names")
         val testNames = sources(test).map { it.name }
         assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
     }
@@ -88,6 +91,23 @@ class ArchitectureTest {
     fun `los paquetes de dominio no dependen de tableros, entregables ni IA`() {
         val domain = DOMAIN_PACKAGES.flatMap { sources(File(main, "sgspe/$it")) }
         assertEquals(emptyList<String>(), offenders(domain, REPORTING_IMPORT))
+    }
+
+    // sgspe.scope y sgspe.privacy dependen solo de sgspe.common (architecture.md §5.3): el alcance no conoce el dominio y
+    // las exportaciones leen con Records
+    @Test
+    fun `scope y privacy solo dependen de common`() {
+        for (name in listOf("scope", "privacy")) {
+            assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/$name")), NOT_COMMON_IMPORT), name)
+        }
+    }
+
+    // la enumeración de organizaciones de los trabajos es una excepción vigilada (UPS-17, architecture.md §8.1): vive solo
+    // en sgspe/common/Organizations.kt
+    @Test
+    fun `solo Organizations enumera las organizaciones`() {
+        val outside = sources(main).filterNot { it.invariantSeparatorsPath.endsWith("/sgspe/common/Organizations.kt") }
+        assertEquals(emptyList<String>(), offenders(outside, ORGANIZATIONS))
     }
 
     @Test
@@ -166,6 +186,10 @@ class ArchitectureTest {
         assertFalse(isSelf(File("src/main/kotlin/sgspe/ArchitectureTest.kt")))
         assertTrue(WASICHAI_IMPORT.containsMatchIn("import wasichai.core.data.RecordStore"))
         assertFalse(WASICHAI_IMPORT.containsMatchIn("assertTrue(flags(INTERNAL_API, \"import wasichai.*\"))"))
+        assertTrue(NOT_COMMON_IMPORT.containsMatchIn("import sgspe.stakeholder.Assessments"))
+        assertFalse(NOT_COMMON_IMPORT.containsMatchIn("import sgspe.common.Records"))
+        assertTrue(ORGANIZATIONS.containsMatchIn("objects.findAllOrganizations()"))
+        assertFalse(ORGANIZATIONS.containsMatchIn("organizations.having(\"stakeholder\")"))
         assertTrue(isCommon(File("src/main/kotlin/sgspe/common/Records.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/risk/Risks.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/commonplace/Risks.kt")))
@@ -180,10 +204,12 @@ class ArchitectureTest {
         private val WASICHAI_IMPORT = Regex("""^\s*import\s+wasichai\.""")
         private val REPORTING_IMPORT = Regex("""^\s*import\s+sgspe\.(dashboard|deliverable|ai)\.""")
         private val OTHER_SGSPE_IMPORT = Regex("""^\s*import\s+sgspe\.(?!observability\.)""")
+        private val NOT_COMMON_IMPORT = Regex("""^\s*import\s+sgspe\.(?!common\.)""")
+        private val ORGANIZATIONS = Regex("""\bfindAllOrganizations\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
-        private val NON_DOMAIN_PACKAGES = listOf("common", "observability", "prod", "dashboard", "deliverable", "ai")
+        private val NON_DOMAIN_PACKAGES = listOf("common", "observability", "prod", "scope", "privacy", "dashboard", "deliverable", "ai")
         private val DOMAIN_PACKAGES =
             listOf("stakeholder", "engagement", "commitment", "agreement", "attention", "risk", "warning", "investment", "evidence", "territory")
 

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.springframework.http.HttpStatus
 import sgspe.F2ApiTest
+import sgspe.engagement.EngagementWriteGuard
 import java.io.File
 
 // la matriz de los cinco workflows de F2 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
@@ -248,8 +249,8 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     fun `los tipos de interaccion de la matriz existen y close_light usa uno no formal`() {
         val types = Model.enums.getValue("engagement_type")
         assertTrue(FORMAL_TYPE in types && LIGHT_CLOSE_TYPE in types, "tipos de la matriz fuera de enums.engagement_type: $types")
-        // los tipos formales de RN-ENG-004 (EngagementWriteGuard.FORMAL_TYPES de 2.2)
-        val formal = setOf("REUNION", "REUNION INFORMATIVA", "TALLER", "ASAMBLEA", "MESA DE DIALOGO")
+        // los tipos formales de RN-ENG-004: los de la guarda, sin copia (M11)
+        val formal = EngagementWriteGuard.FORMAL_TYPES
         assertTrue(FORMAL_TYPE in formal)
         assertFalse(LIGHT_CLOSE_TYPE in formal)
     }

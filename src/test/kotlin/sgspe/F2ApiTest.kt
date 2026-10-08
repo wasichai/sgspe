@@ -206,7 +206,12 @@ abstract class F2ApiTest : SgspeApiTest() {
                 "network_node" to listOf("organization")
             )
 
-        // valores que la regla genérica no puede dar: un rol declarado (AssignmentRoleGuard, plan 2.2)
-        val FIXED = mapOf("project_assignment" to mapOf("role_name" to "READ_ONLY", "active" to true))
+        // valores que la regla genérica no puede dar: un rol declarado (AssignmentRoleGuard, plan 2.2) y un cargo sin persona,
+        // que solo puede estar VACANTE o PREVISTO (StakeholderWriteGuard, RF-STK-002)
+        val FIXED =
+            mapOf(
+                "project_assignment" to mapOf("role_name" to "READ_ONLY", "active" to true),
+                "position" to mapOf("position_status" to "VACANTE")
+            )
     }
 }
