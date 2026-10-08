@@ -81,7 +81,9 @@ data class IndicatorValue(
     val series: List<Map<String, Any?>>? = null,
     val unavailableReason: String? = null,
     val missingFields: List<String>? = null,
-    val warnings: List<String>? = null
+    val warnings: List<String>? = null,
+    // los filtros pedidos que este indicador no aplica (ruling P27): community en los KPI-STK, explorationCampaign en F2
+    val ignoredFilters: List<String>? = null
 ) {
     @JsonValue
     fun json(): Map<String, Any?> {
@@ -95,7 +97,8 @@ data class IndicatorValue(
             "series" to series,
             "unavailableReason" to unavailableReason,
             "missingFields" to missingFields,
-            "warnings" to warnings
+            "warnings" to warnings,
+            "ignoredFilters" to ignoredFilters
         ).forEach { (key, item) -> if (item != null) out[key] = item }
         return out
     }

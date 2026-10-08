@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus
 import sgspe.DomainApiTest
 import sgspe.stakeholder.InfluenceClassifier
 import tools.jackson.databind.JsonNode
+import java.util.UUID
 
 // StakeholdersDashboardApiTest, EngagementDashboardApiTest y DashboardPermissionsApiTest de la matriz de trazabilidad,
 // juntas porque comparten los datos: los tableros `stakeholders` y `engagement` (api.md §4.11), el catálogo (RQ-DSH-036)
@@ -92,6 +93,24 @@ class DashboardsApiTest : DomainApiTest() {
         val changed = indicator(body, "KPI-STK-06")
         assertTrue(changed["available"].asBoolean())
         assertTrue(changed.has("value") && changed["value"].isNull)
+        assertFalse(changed.has("ignoredFilters"))
+        // P27: stakeholder no tiene comunidad; los KPI-STK ignoran community (y F2, explorationCampaign) y lo dicen, sin
+        // quedar en cero
+        val ignoring =
+            tree(
+                send(
+                    "GET",
+                    "/api/sgspe/dashboards/stakeholders?project=${f.project}&periodStart=2026-05-01&periodEnd=2026-05-31" +
+                        "&community=${UUID.randomUUID()}&explorationCampaign=${UUID.randomUUID()}",
+                    null,
+                    HttpStatus.OK,
+                    f.manager.token
+                )
+            )
+        for (code in listOf("KPI-STK-01", "KPI-STK-02", "KPI-STK-03", "KPI-STK-06", "KPI-STK-08")) {
+            assertEquals(listOf("community", "explorationCampaign"), indicator(ignoring, code)["ignoredFilters"].values().map { it.asString() }, code)
+        }
+        assertEquals(2, indicator(ignoring, "KPI-STK-01")["value"].asInt())
     }
 
     @Test
@@ -119,6 +138,19 @@ class DashboardsApiTest : DomainApiTest() {
         assertEquals(1, indicator(body, "KPI-ENG-01")["breakdowns"].values().count { it["by"].asString() == "engagement_type" })
         assertEquals("Agua", indicator(body, "KPI-ENG-04")["breakdowns"][0]["rows"][0]["label"].asString())
         assertEquals(50.0, indicator(body, "KPI-ENG-05")["value"].asDouble())
+        // en relacionamiento community sí filtra (la interacción tiene comunidad): otra comunidad deja 0 realizadas
+        val elsewhere =
+            tree(
+                send(
+                    "GET",
+                    "/api/sgspe/dashboards/engagement?project=${f.project}&periodStart=2026-05-01&periodEnd=2026-05-31&community=${UUID.randomUUID()}",
+                    null,
+                    HttpStatus.OK,
+                    f.officer.token
+                )
+            )
+        assertEquals(0, indicator(elsewhere, "KPI-ENG-01")["value"].asInt())
+        assertFalse(indicator(elsewhere, "KPI-ENG-01").has("ignoredFilters"))
     }
 
     @Test
@@ -145,34 +177,83 @@ class DashboardsApiTest : DomainApiTest() {
         assertTrue(catalog.getValue("KPI-STK-07")["dashboard"].isNull)
     }
 
-    // ANALYST y READ_ONLY leen grupos de interés y evaluaciones pero no los nombres de las personas ni la postura
-    // (roles.json restrictedFields): la etiqueta del punto es el cargo vigente o «Persona»
+    // ANALYST y READ_ONLY leen grupos de interés, evaluaciones y cargos pero no los nombres de las personas ni la postura
+    // (roles.json restrictedFields): la etiqueta del punto es «cargo, organización» del cargo vigente o, sin cargo,
+    // «Persona»
     @Test
     fun `el nombre de una persona no llega por la matriz a quien no lo lee`() {
         val project = projectWithCrs()
         val manager = member("STAKEHOLDER_MANAGER", project)
-        val person = createRecord("person", mapOf("given_names" to "Persona Ejemplo Tres"))
-        val stakeholder = stakeholder(project, mapOf("person" to person) + profileFields(manager, "AUTORIDAD LOCAL"))
-        send(
-            "POST",
-            "/api/sgspe/stakeholders/$stakeholder/assessments",
-            mapOf("attributes" to high + mapOf("assessment_date" to "2026-05-02", "basis" to "ENTREVISTA", "stance" to "NEUTRAL")),
-            HttpStatus.CREATED,
-            manager.token,
-            mapOf(REASON to reason("evaluación"))
+        val withPosition = createRecord("person", mapOf("given_names" to "Persona Ejemplo Tres"))
+        val withoutPosition = createRecord("person", mapOf("given_names" to "Persona Ejemplo Cuatro"))
+        createRecord(
+            "position",
+            mapOf(
+                "position_title" to "Teniente gobernador",
+                "position_status" to "VIGENTE",
+                "person" to withPosition,
+                "organization" to organization("Asociación Ejemplo")
+            )
         )
-        val reader = tree(send("GET", "/api/sgspe/dashboards/indicators/KPI-STK-03?project=$project", null, HttpStatus.OK, manager.token))
-        val shown = reader["breakdowns"][0]["rows"][0]
-        assertEquals("Persona Ejemplo Tres", shown["label"].asString())
-        assertEquals("NEUTRAL", shown["stance"].asString())
+        val stakeholders =
+            listOf(withPosition, withoutPosition).associateWith { person ->
+                stakeholder(project, mapOf("person" to person) + profileFields(manager, "AUTORIDAD LOCAL")).also {
+                    send(
+                        "POST",
+                        "/api/sgspe/stakeholders/$it/assessments",
+                        mapOf("attributes" to high + mapOf("assessment_date" to "2026-05-02", "basis" to "ENTREVISTA", "stance" to "NEUTRAL")),
+                        HttpStatus.CREATED,
+                        manager.token,
+                        mapOf(REASON to reason("evaluación"))
+                    )
+                }
+            }
+
+        fun rows(auth: String): Map<String, JsonNode> =
+            tree(send("GET", "/api/sgspe/dashboards/indicators/KPI-STK-03?project=$project", null, HttpStatus.OK, auth))["breakdowns"][0]["rows"]
+                .values()
+                .associateBy { it["key"].asString() }
+
+        val shown = rows(manager.token)
+        assertEquals("Persona Ejemplo Tres", shown.getValue(stakeholders.getValue(withPosition))["label"].asString())
+        assertEquals("Persona Ejemplo Cuatro", shown.getValue(stakeholders.getValue(withoutPosition))["label"].asString())
+        assertEquals("NEUTRAL", shown.getValue(stakeholders.getValue(withPosition))["stance"].asString())
         for (role in listOf("ANALYST", "READ_ONLY")) {
-            val account = member(role, project)
-            val hidden = tree(send("GET", "/api/sgspe/dashboards/indicators/KPI-STK-03?project=$project", null, HttpStatus.OK, account.token))
-            val row = hidden["breakdowns"][0]["rows"][0]
-            assertEquals("Persona", row["label"].asString(), role)
-            assertFalse(row.toString().contains("Persona Ejemplo Tres"), role)
-            assertFalse(row.has("stance"), role)
+            val hidden = rows(member(role, project).token)
+            assertEquals("Teniente gobernador, Asociación Ejemplo", hidden.getValue(stakeholders.getValue(withPosition))["label"].asString(), role)
+            assertEquals("Persona", hidden.getValue(stakeholders.getValue(withoutPosition))["label"].asString(), role)
+            for (row in hidden.values) {
+                assertFalse(row.toString().contains("Persona Ejemplo"), role)
+                assertFalse(row.has("stance"), role)
+            }
         }
+    }
+
+    // FIELD_AGENT no lee stakeholder_assessment (roles.json): KPI-STK-08 no está disponible por el objeto, sin cifra
+    @Test
+    fun `sin READ sobre un objeto del indicador es OBJECT_NOT_READABLE`() {
+        val project = projectWithCrs()
+        val agent = member("FIELD_AGENT", project)
+        val trust = tree(send("GET", "/api/sgspe/dashboards/indicators/KPI-STK-08?project=$project", null, HttpStatus.OK, agent.token))
+        assertFalse(trust["available"].asBoolean())
+        assertEquals("OBJECT_NOT_READABLE", trust["unavailableReason"].asString())
+        assertTrue("stakeholder_assessment.trust_score" in trust["missingFields"].values().map { it.asString() })
+        assertFalse(trust.has("value"))
+    }
+
+    // sin project: el ADMIN ve todos los proyectos; quien no tiene asignaciones, todos los que puede leer; quien las tiene,
+    // solo las suyas vigentes (dashboards.md §3.1)
+    @Test
+    fun `los proyectos por defecto del ADMIN, de quien no tiene asignaciones y de quien las tiene`() {
+        val mine = projectWithCrs()
+        val other = projectWithCrs()
+        val path = "/api/sgspe/dashboards/stakeholders?periodStart=2026-05-01&periodEnd=2026-05-31"
+
+        fun projects(auth: String): List<String> = tree(send("GET", path, null, HttpStatus.OK, auth))["filters"]["project"].values().map { it.asString() }
+
+        assertTrue(projects(token).containsAll(listOf(mine, other)))
+        assertTrue(projects(userWithRole("ANALYST").token).containsAll(listOf(mine, other)))
+        assertEquals(listOf(mine), projects(member("ANALYST", mine).token))
     }
 
     @Test

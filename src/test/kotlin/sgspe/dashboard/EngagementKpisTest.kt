@@ -42,6 +42,59 @@ class EngagementKpisTest {
         assertEquals(3L, result.series!!.last()["target"])
     }
 
+    // un periodo de 18 meses: la meta cubre todos sus meses, no solo los 12 de la serie (revisión de la Tarea 22, I1)
+    @Test
+    fun `KPI-ENG-02 con un periodo de 18 meses suma la meta de los 18`() {
+        val start = LocalDate.parse("2025-01-01")
+        val last = LocalDate.parse("2026-06-30")
+        val months = EngagementKpis.targetMonths(start, last)
+        assertEquals(18, months.size)
+        assertEquals(YearMonth.of(2025, 1), months.first())
+        assertEquals(YearMonth.of(2026, 6), months.last())
+        val targets = EngagementKpis.monthlyTargets(months, mapOf("p" to 2L, "q" to 3L), emptyList())
+        assertEquals(18, targets.size)
+        assertTrue(targets.all { it.target == 5L })
+        val held =
+            (1..18).map {
+                engagement(
+                    "$it",
+                    "REUNION",
+                    YearMonth
+                        .of(2025, 1)
+                        .plusMonths(it - 1L)
+                        .atDay(10)
+                        .toString()
+                )
+            }
+        val result = EngagementKpis.meetings(held, held.filter { !it.heldDate.isBefore(LocalDate.parse("2025-07-01")) }, targets, start, last)
+        assertEquals(18, result.value)
+        assertEquals(90L, result.denominator)
+        assertEquals(12, result.series!!.size)
+        assertEquals(5L, result.series.first()["target"])
+    }
+
+    // un periodo corto pide igual los 12 meses de la serie; un periodo parcial cuenta la meta de su mes entero
+    @Test
+    fun `los meses de la meta son la union de la serie y el periodo`() {
+        val months = EngagementKpis.targetMonths(LocalDate.parse("2026-05-15"), LocalDate.parse("2026-05-20"))
+        assertEquals(EngagementKpis.months(LocalDate.parse("2026-05-20")), months)
+    }
+
+    // la meta del plan vigente en el mes; con dos planes vigentes del mismo proyecto, la del de start_date más reciente;
+    // sin plan, la del proyecto
+    @Test
+    fun `con dos planes en el mismo mes manda el de inicio mas reciente`() {
+        val plans =
+            listOf(
+                EngagementKpis.PlanTarget("a", "p", LocalDate.parse("2026-01-01"), null, 4),
+                EngagementKpis.PlanTarget("b", "p", LocalDate.parse("2026-05-10"), LocalDate.parse("2026-12-31"), 6),
+                EngagementKpis.PlanTarget("c", "p", null, LocalDate.parse("2026-03-31"), 9)
+            )
+        val targets =
+            EngagementKpis.monthlyTargets(listOf(YearMonth.of(2026, 2), YearMonth.of(2026, 4), YearMonth.of(2026, 5)), mapOf("p" to 2L, "q" to 2L), plans)
+        assertEquals(listOf(4L + 2L, 4L + 2L, 6L + 2L), targets.map { it.target })
+    }
+
     @Test
     fun `KPI-ENG-03 promedia los asistentes de las reuniones informativas`() {
         val meetings =

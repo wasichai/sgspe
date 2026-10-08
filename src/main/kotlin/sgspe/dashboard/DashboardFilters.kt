@@ -41,6 +41,17 @@ data class DashboardFilters(
             "scope" to scope
         ).filterValues { it != null }
 
+    // los filtros comunes que vinieron (sin los periodos, que siempre tienen valor, ni project, que siempre se aplica)
+    fun given(): Set<String> =
+        listOfNotNull(
+            administrativeUnit?.let { "administrativeUnit" },
+            locality?.let { "locality" },
+            community?.let { "community" },
+            areaOfInfluence?.let { "areaOfInfluence" },
+            explorationCampaign?.let { "explorationCampaign" },
+            scope?.let { "scope" }
+        ).toSet()
+
     companion object {
         val COMMON =
             setOf("project", "periodStart", "periodEnd", "administrativeUnit", "locality", "community", "areaOfInfluence", "explorationCampaign", "scope")

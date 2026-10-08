@@ -166,4 +166,49 @@ object EngagementKpis {
 
     // los 12 meses que terminan en el de `end`
     fun months(end: LocalDate): List<YearMonth> = (11 downTo 0).map { YearMonth.from(end).minusMonths(it.toLong()) }
+
+    // un plan de relacionamiento con meta (engagement_plan): su proyecto, su vigencia y su meta de reuniones al mes
+    data class PlanTarget(
+        val id: String,
+        val project: String,
+        val start: LocalDate?,
+        val end: LocalDate?,
+        val target: Long
+    )
+
+    // los meses que necesitan meta en KPI-ENG-02: la unión de los 12 de la serie y todos los del periodo, que puede pasar
+    // de 12 meses (el denominador suma la meta de cada mes del periodo). en orden
+    fun targetMonths(
+        start: LocalDate,
+        end: LocalDate
+    ): List<YearMonth> {
+        val first = minOf(YearMonth.from(start), months(end).first())
+        val last = YearMonth.from(end)
+        return generateSequence(first) { it.plusMonths(1) }.takeWhile { !it.isAfter(last) }.toList()
+    }
+
+    // la meta de cada mes, una entrada por mes ya sumada entre los proyectos (RN-ENG-003): por proyecto, la del plan
+    // vigente en el mes (con dos o más, el de start_date más reciente, un plan sin inicio cuenta como el más antiguo, y a
+    // igual inicio el de id mayor) o, sin plan, la del proyecto (projectTargets, con su valor por defecto ya aplicado). un
+    // mes cuenta su meta entera aunque el periodo lo cubra solo en parte
+    fun monthlyTargets(
+        months: List<YearMonth>,
+        projectTargets: Map<String, Long>,
+        plans: List<PlanTarget>
+    ): List<MonthlyTarget> {
+        val newest = compareBy<PlanTarget>({ it.start ?: LocalDate.MIN }, { it.id })
+        return months.map { month ->
+            val target =
+                projectTargets.entries.sumOf { (project, fallback) ->
+                    plans
+                        .filter { p ->
+                            p.project == project &&
+                                (p.start == null || !p.start.isAfter(month.atEndOfMonth())) &&
+                                (p.end == null || !p.end.isBefore(month.atDay(1)))
+                        }.maxWithOrNull(newest)
+                        ?.target ?: fallback
+                }
+            MonthlyTarget(month, target)
+        }
+    }
 }

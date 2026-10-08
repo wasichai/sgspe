@@ -13,12 +13,12 @@ import sgspe.common.Callers
 import sgspe.common.Finding
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
+import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
 import sgspe.scope.Assignments
 import wasichai.core.common.ForbiddenException
-import wasichai.core.common.NotFoundException
 import wasichai.core.metadata.MetadataService
 import java.time.Clock
 import java.time.LocalDate
@@ -29,7 +29,7 @@ import java.util.UUID
 // usa; si no, sale no disponible con la razón (OBJECT_NOT_READABLE si falta READ sobre un objeto, FIELD_NOT_READABLE si
 // falta un campo) y los campos que faltan, nunca cero (RQ-DSH-032). KPI-STK-03 exige un solo proyecto
 // (SINGLE_PROJECT_REQUIRED). nada se guarda en el servidor (§6.8). los errores llevan su código en errors[0].message (P15):
-// 404 DASHBOARD_NOT_FOUND e INDICATOR_NOT_FOUND, 400 INVALID_BREAKDOWN y TOO_MANY_RECORDS (DashboardData)
+// 404 DASHBOARD_NOT_FOUND e INDICATOR_NOT_FOUND, 400 INVALID_BREAKDOWN y TOO_MANY_RECORDS (Records.all con tope)
 @Service
 class Dashboards(
     private val records: Records,
@@ -76,21 +76,30 @@ class Dashboards(
         return value.copy(breakdowns = value.breakdowns.orEmpty().filter { it.by == by })
     }
 
+    // la disponibilidad primero (permisos, un solo proyecto) y después el cálculo; los filtros que el KPI ignora van en
+    // ignoredFilters, disponible o no (ruling P27: nunca un cero silencioso por un filtro que no aplica)
     private suspend fun evaluate(
         kpi: Indicator,
         data: DashboardData,
         readable: Readability
     ): IndicatorValue {
         val missing = readable.missing(kpi.requires)
-        if (missing.isNotEmpty()) {
-            val reason =
-                if (missing.any { readable.objectMissing(it) }) UnavailableReason.OBJECT_NOT_READABLE else UnavailableReason.FIELD_NOT_READABLE
-            return IndicatorResult.unavailable(reason, missing).toValue(kpi.code, kpi.label, kpi.unit)
-        }
-        if (kpi.singleProject && data.filters.projects.size != 1) {
-            return IndicatorResult.unavailable(UnavailableReason.SINGLE_PROJECT_REQUIRED, listOf("project")).toValue(kpi.code, kpi.label, kpi.unit)
-        }
-        return kpi.compute(data).toValue(kpi.code, kpi.label, kpi.unit)
+        val result =
+            when {
+                missing.isNotEmpty() -> {
+                    val reason =
+                        if (missing.any { readable.objectMissing(it) }) UnavailableReason.OBJECT_NOT_READABLE else UnavailableReason.FIELD_NOT_READABLE
+                    IndicatorResult.unavailable(reason, missing)
+                }
+                kpi.singleProject && data.filters.projects.size != 1 ->
+                    IndicatorResult.unavailable(
+                        UnavailableReason.SINGLE_PROJECT_REQUIRED,
+                        listOf("project")
+                    )
+                else -> kpi.compute(data)
+            }
+        val ignored = Kpis.ignoredFilters(kpi, data.filters)
+        return result.toValue(kpi.code, kpi.label, kpi.unit).copy(ignoredFilters = ignored.ifEmpty { null })
     }
 
     private suspend fun filters(
@@ -116,7 +125,7 @@ class Dashboards(
     // los proyectos que quien mira puede leer, hasta el tope de una lectura del tablero; sin READ sobre project, ninguno
     private suspend fun allProjects(): List<UUID> =
         try {
-            DashboardData.readBounded(records, "project", DashboardData.MAX_ROWS).map { UUID.fromString(it.id) }
+            records.all("project", max = DashboardData.MAX_ROWS).map { UUID.fromString(it.id) }
         } catch (_: ForbiddenException) {
             emptyList()
         }
@@ -130,44 +139,6 @@ class Dashboards(
     companion object {
         const val BREAKDOWN = "breakdown"
     }
-}
-
-// qué objetos y campos puede leer quien mira: la definición de cada objeto filtrada por sus permisos
-// (MetadataService.definitionOf, la misma vista que usan la interfaz y el agente, dashboards.md §8). sin READ sobre el
-// objeto, ningún campo suyo es legible. se consulta una vez por objeto en cada pedido
-class Readability(
-    private val metadata: MetadataService
-) {
-    private val fields = mutableMapOf<String, Set<String>?>()
-
-    private suspend fun fieldsOf(objectName: String): Set<String>? {
-        if (objectName in fields) return fields[objectName]
-        val readable =
-            try {
-                metadata
-                    .definitionOf(objectName)
-                    .fields
-                    .map { it.name }
-                    .toSet()
-            } catch (_: ForbiddenException) {
-                null
-            } catch (_: NotFoundException) {
-                null
-            }
-        fields[objectName] = readable
-        return readable
-    }
-
-    suspend fun canRead(path: String): Boolean {
-        val objectName = path.substringBefore('.')
-        val field = path.substringAfter('.', "")
-        val readable = fieldsOf(objectName) ?: return false
-        return field.isEmpty() || field in readable
-    }
-
-    suspend fun missing(requires: List<String>): List<String> = requires.filterNot { canRead(it) }
-
-    suspend fun objectMissing(path: String): Boolean = fieldsOf(path.substringBefore('.')) == null
 }
 
 @RestController

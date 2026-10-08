@@ -1,20 +1,15 @@
 package sgspe.dashboard
 
-import org.springframework.http.HttpStatus
 import sgspe.common.Criteria
-import sgspe.common.Finding
 import sgspe.common.LIMA
 import sgspe.common.Positions
 import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Values
-import sgspe.common.toCodedException
 import sgspe.engagement.AttendanceCounts
 import sgspe.engagement.EngagementWriteGuard
 import sgspe.stakeholder.FollowUp
-import wasichai.core.common.PageRequest
 import wasichai.core.data.RecordCriterion
-import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordResponse
 import java.time.LocalDate
 import java.time.YearMonth
@@ -24,16 +19,18 @@ import java.util.UUID
 // aplica el tenant y los permisos de objeto y de campo; nunca asPlatform) y agregados en Kotlin (dashboards.md §6). los
 // filtros de territorio se resuelven a localidades y comunidades: una localidad incluye sus sectores, una unidad
 // administrativa sus localidades y unidades hijas, un área de influencia los miembros de esa versión (dashboards.md §3.1).
-// en los indicadores de grupos de interés el territorio filtra al grupo de interés (su localidad y su área de influencia);
-// en los de relacionamiento, a la interacción (su localidad o su comunidad).
-// la lectura es acotada (dashboards.md §6.2, conjuntos pequeños): cada conjunto se lee por cursor en páginas de
-// PageRequest.MAX_SIZE hasta maxRows filas, y las relaciones M2M se leen una interacción a la vez hasta maxRelated
-// interacciones. pasarse no recorta la cifra en silencio: es un 400 TOO_MANY_RECORDS que pide acotar los filtros
+// en los indicadores de grupos de interés el territorio filtra al grupo de interés (su localidad y su área de influencia;
+// stakeholder no tiene comunidad, así que community no lo filtra y el KPI lo dice en ignoredFilters, ruling P27); en los
+// de relacionamiento, a la interacción (su localidad o su comunidad).
+// la lectura es acotada (dashboards.md §6.2, conjuntos pequeños): cada conjunto se lee con Records.all hasta maxRows
+// filas, y las relaciones M2M se leen una interacción a la vez hasta maxRelated interacciones. pasarse no recorta la
+// cifra en silencio: es un 400 TOO_MANY_RECORDS que pide acotar los filtros
 class DashboardData(
     private val records: Records,
     val filters: DashboardFilters,
-    // si quien mira puede leer objeto.campo (la definición filtrada por sus permisos, dashboards.md §8)
-    val readable: suspend (String) -> Boolean = { true },
+    // si quien mira puede leer objeto.campo (la definición filtrada por sus permisos, dashboards.md §8). sin valor por
+    // defecto: es una barrera de privacidad y quien arma los datos tiene que decirla
+    val readable: suspend (String) -> Boolean,
     private val maxRows: Int = MAX_ROWS,
     private val maxRelated: Int = MAX_RELATED
 ) {
@@ -51,9 +48,8 @@ class DashboardData(
         objectName: String,
         equal: Map<String, String> = emptyMap(),
         criteria: List<RecordCriterion> = emptyList(),
-        ids: List<UUID>? = null,
-        already: Int = 0
-    ): List<RecordResponse> = readBounded(records, objectName, maxRows, equal, criteria, ids, already)
+        ids: List<UUID>? = null
+    ): List<RecordResponse> = records.all(objectName, equal, criteria, ids, max = maxRows)
 
     // lo mismo por una lista de ids o por un campo que apunta a ellos, en tramos de CHUNK: el tope cuenta el conjunto entero
     private suspend fun readIn(
@@ -66,10 +62,11 @@ class DashboardData(
         for (chunk in ids.distinct().map(UUID::fromString).chunked(CHUNK)) {
             out +=
                 if (field == null) {
-                    read(objectName, equal, ids = chunk, already = out.size)
+                    read(objectName, equal, ids = chunk)
                 } else {
-                    read(objectName, equal, listOf(Criteria.anyOf(field, chunk)), already = out.size)
+                    read(objectName, equal, listOf(Criteria.anyOf(field, chunk)))
                 }
+            if (out.size > maxRows) throw Records.tooMany(objectName, maxRows)
         }
         return out
     }
@@ -79,7 +76,7 @@ class DashboardData(
         engagements: Collection<String>,
         relationship: String
     ): Map<String, List<RecordResponse>> {
-        if (engagements.size > maxRelated) throw tooMany("engagement", maxRelated)
+        if (engagements.size > maxRelated) throw Records.tooMany("engagement", maxRelated)
         return engagements.associateWith { records.related("engagement", UUID.fromString(it), relationship) }
     }
 
@@ -88,18 +85,28 @@ class DashboardData(
     class Territory(
         val localities: Set<String>,
         val communities: Set<String>,
-        val area: String?
+        val area: String?,
+        // el filtro community: los grupos de interés lo ignoran
+        val community: Boolean = false
     )
 
-    suspend fun territories(): List<Territory> =
+    // los filtros de territorio pedidos, cada uno resuelto a localidades y comunidades; todos deben cumplirse
+    private suspend fun territories(): List<Territory> =
         cached("territories") {
             val out = mutableListOf<Territory>()
             filters.locality?.let { out += Territory(withSectors(setOf(it.toString())), emptySet(), null) }
-            filters.community?.let { out += Territory(emptySet(), setOf(it.toString()), null) }
+            filters.community?.let { out += Territory(emptySet(), setOf(it.toString()), null, community = true) }
             filters.administrativeUnit?.let { out += unitTerritory(setOf(it.toString())) }
             filters.areaOfInfluence?.let { out += areaTerritory(listOf(it.toString())) }
             out
         }
+
+    // el territorio de los grupos de interés: sin community, que stakeholder no tiene (ruling P27; el KPI lo informa en
+    // ignoredFilters en vez de quedar en cero)
+    suspend fun stakeholderTerritories(): List<Territory> = territories().filterNot { it.community }
+
+    // el territorio de las interacciones: los filtros más AIDS o AIIS del ámbito
+    suspend fun engagementTerritories(): List<Territory> = territories() + scopeTerritory()
 
     private suspend fun withSectors(localities: Set<String>): Set<String> {
         if (localities.isEmpty()) return emptySet()
@@ -154,7 +161,7 @@ class DashboardData(
         cached("stakeholders") {
             if (filters.projects.isEmpty()) return@cached emptyList<StakeholderRow>()
             val all = read("stakeholder", criteria = listOf(Criteria.anyOf("project", filters.projects)))
-            val territories = territories()
+            val territories = stakeholderTerritories()
             all
                 .filter { s ->
                     val locality = Values.text(s.attributes["locality"])
@@ -224,7 +231,7 @@ class DashboardData(
                             Criteria.between("held_at", start, until)
                         )
                 )
-            val territories = if (territorial) territories() + scopeTerritory() else emptyList()
+            val territories = if (territorial) engagementTerritories() else emptyList()
             all
                 .filter { e ->
                     val locality = Values.text(e.attributes["locality"])
@@ -335,83 +342,40 @@ class DashboardData(
 
     suspend fun projectRecords(): List<RecordResponse> = cached("projects") { readIn("project", null, filters.projects.map { it.toString() }) }
 
-    // la meta de cada mes de la ventana, una entrada por mes ya sumada entre los proyectos del filtro: la del plan vigente
-    // en el mes o, si no hay, la del proyecto (2 por defecto) (RN-ENG-003). EngagementKpis.meetings toma la serie de esta
-    // entrada única y suma las del periodo para el denominador
+    // la meta de cada mes que pide KPI-ENG-02 (la serie de 12 meses y todos los del periodo), una entrada por mes ya sumada
+    // entre los proyectos del filtro (EngagementKpis.monthlyTargets): la del plan vigente en el mes o, si no hay, la del
+    // proyecto (2 por defecto, ProjectParameters) (RN-ENG-003)
     suspend fun monthlyTargets(): List<MonthlyTarget> {
-        val plans = if (filters.projects.isEmpty()) emptyList() else read("engagement_plan", criteria = listOf(Criteria.anyOf("project", filters.projects)))
-        return EngagementKpis.months(filters.periodEnd).map { month ->
-            val target =
-                projectRecords().sumOf { project ->
-                    val plan =
-                        plans.firstOrNull { p ->
-                            Values.text(p.attributes["project"]) == project.id &&
-                                (Values.text(p.attributes["start_date"])?.let(LocalDate::parse)?.let { !it.isAfter(month.atEndOfMonth()) } ?: true) &&
-                                (Values.text(p.attributes["end_date"])?.let(LocalDate::parse)?.let { !it.isBefore(month.atDay(1)) } ?: true) &&
-                                Values.decimal(p.attributes["meetings_per_month_target"]) != null
-                        }
-                    plan?.let { Values.decimal(it.attributes["meetings_per_month_target"])!!.toLong() }
-                        ?: ProjectParameters.integer(project.attributes, "meetings_per_month_target")
+        val plans =
+            if (filters.projects.isEmpty()) {
+                emptyList()
+            } else {
+                read("engagement_plan", criteria = listOf(Criteria.anyOf("project", filters.projects))).mapNotNull { p ->
+                    val a = p.attributes
+                    EngagementKpis.PlanTarget(
+                        p.id,
+                        Values.text(a["project"]) ?: return@mapNotNull null,
+                        Values.text(a["start_date"])?.let(LocalDate::parse),
+                        Values.text(a["end_date"])?.let(LocalDate::parse),
+                        Values.decimal(a["meetings_per_month_target"])?.toLong() ?: return@mapNotNull null
+                    )
                 }
-            MonthlyTarget(month, target)
-        }
+            }
+        val projects = projectRecords().associate { it.id to ProjectParameters.integer(it.attributes, "meetings_per_month_target") }
+        return EngagementKpis.monthlyTargets(EngagementKpis.targetMonths(filters.periodStart, filters.periodEnd), projects, plans)
     }
 
     companion object {
         const val CHUNK = 500
 
-        // el tope de filas de un conjunto y de interacciones cuyas M2M se leen una a una (dashboards.md §6.2; sin
-        // requisito de volumen hasta GAP-027)
+        // el tope de filas de un conjunto y de interacciones cuyas M2M se leen una a una, en serie (dashboards.md §6.2;
+        // sin requisito de volumen hasta GAP-027). 200 lecturas de related son unos segundos por el túnel y menos de uno
+        // con la base al lado
         const val MAX_ROWS = 20_000
-        const val MAX_RELATED = 1_000
+        const val MAX_RELATED = 200
 
         private const val AIDS = "AIDS"
         private const val AIIS = "AIIS"
         private const val APPROVED = "approved"
-
-        // los registros que cumplen los filtros, por cursor y ordenados por id, hasta maxRows (contando lo ya leído del mismo
-        // conjunto en `already`); uno más es TOO_MANY_RECORDS
-        suspend fun readBounded(
-            records: Records,
-            objectName: String,
-            maxRows: Int,
-            equal: Map<String, String> = emptyMap(),
-            criteria: List<RecordCriterion> = emptyList(),
-            ids: List<UUID>? = null,
-            already: Int = 0
-        ): List<RecordResponse> {
-            if (ids != null && ids.isEmpty()) return emptyList()
-            val rows = mutableListOf<RecordResponse>()
-            var cursor: String? = null
-            do {
-                val page =
-                    records.page(
-                        objectName,
-                        RecordQuery(
-                            page = PageRequest.of(0, PageRequest.MAX_SIZE),
-                            sort = "id",
-                            filters = equal,
-                            criteria = criteria,
-                            ids = ids,
-                            count = false,
-                            after = cursor
-                        )
-                    )
-                rows += page.content
-                if (already + rows.size > maxRows) throw tooMany(objectName, maxRows)
-                cursor = page.nextCursor
-            } while (cursor != null)
-            return rows
-        }
-
-        fun tooMany(
-            objectName: String,
-            limit: Int
-        ) = Finding(
-            "TOO_MANY_RECORDS",
-            "El tablero leería más de $limit registros de $objectName: acote los proyectos, el periodo o el territorio",
-            "project",
-            status = HttpStatus.BAD_REQUEST
-        ).toCodedException()
     }
 }

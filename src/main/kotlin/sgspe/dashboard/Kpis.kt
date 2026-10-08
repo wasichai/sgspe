@@ -14,6 +14,9 @@ interface Indicator {
     val requires: List<String>
     val singleProject: Boolean get() = false
 
+    // los filtros comunes que el indicador acepta y no aplica: si vienen, la respuesta los nombra en ignoredFilters
+    val ignores: Set<String> get() = emptySet()
+
     suspend fun compute(data: DashboardData): IndicatorResult
 }
 
@@ -25,6 +28,7 @@ class Kpi(
     override val unit: String,
     override val requires: List<String>,
     override val singleProject: Boolean = false,
+    override val ignores: Set<String> = Kpis.IGNORED_IN_F2,
     private val block: suspend (DashboardData) -> IndicatorResult
 ) : Indicator {
     override suspend fun compute(data: DashboardData): IndicatorResult = block(data)
@@ -36,6 +40,18 @@ class Kpi(
 object Kpis {
     const val STAKEHOLDERS = "stakeholders"
     const val ENGAGEMENT = "engagement"
+
+    // F2 acepta explorationCampaign y no lo aplica (dashboards.md §3.1: solo compromisos e inversión social)
+    val IGNORED_IN_F2: Set<String> = setOf("explorationCampaign")
+
+    // los KPI-STK ignoran además community: stakeholder no tiene comunidad (ruling P27)
+    private val STAKEHOLDER_IGNORES: Set<String> = IGNORED_IN_F2 + "community"
+
+    // los filtros pedidos que el indicador ignora, en el orden de DashboardFilters.COMMON; vacío si ninguno
+    fun ignoredFilters(
+        indicator: Indicator,
+        filters: DashboardFilters
+    ): List<String> = DashboardFilters.COMMON.filter { it in indicator.ignores && it in filters.given() }
 
     // los tableros de F2 y sus zonas, en el orden de dashboards.md §5.3 y §5.4
     val DASHBOARDS: Map<String, List<String>> =
@@ -62,14 +78,16 @@ object Kpis {
                 "Grupos de interés por grupo de influencia y ámbito",
                 STAKEHOLDERS,
                 "grupos de interés",
-                listOf("stakeholder.influence_group", "stakeholder.stakeholder_scope", "stakeholder.stakeholder_type")
+                listOf("stakeholder.influence_group", "stakeholder.stakeholder_scope", "stakeholder.stakeholder_type"),
+                ignores = STAKEHOLDER_IGNORES
             ) { StakeholderKpis.byInfluenceGroup(it.stakeholders()) },
             Kpi(
                 "KPI-STK-02",
                 "Distribución de posturas",
                 STAKEHOLDERS,
                 "grupos de interés",
-                listOf("stakeholder.stance", "stakeholder.influence_group", "stakeholder.stakeholder_type")
+                listOf("stakeholder.stance", "stakeholder.influence_group", "stakeholder.stakeholder_type"),
+                ignores = STAKEHOLDER_IGNORES
             ) { StakeholderKpis.byStance(it.stakeholders(), stanceReadable = it.readable("stakeholder.stance")) },
             Kpi(
                 "KPI-STK-03",
@@ -86,7 +104,8 @@ object Kpis {
                     "project.interest_threshold",
                     "project.power_threshold"
                 ),
-                singleProject = true
+                singleProject = true,
+                ignores = STAKEHOLDER_IGNORES
             ) { data ->
                 val project =
                     data
@@ -109,7 +128,8 @@ object Kpis {
                 "Grupos de interés contactados",
                 null,
                 "grupos de interés",
-                CONTACT + listOf("person.sex", "position.organization", "position.position_status")
+                CONTACT + listOf("person.sex", "position.organization", "position.position_status"),
+                ignores = STAKEHOLDER_IGNORES
             ) { data ->
                 val current = data.currentStakeholders()
                 StakeholderKpis.contacted(data.contacts(), current.associateBy { it.id }, Labels.sexOf(data, current), Labels.institutionsOf(data, current))
@@ -119,7 +139,8 @@ object Kpis {
                 "Oposición que aceptó conversar",
                 null,
                 "%",
-                CONTACT + listOf("stakeholder_assessment.stance", "stakeholder_assessment.assessment_date")
+                CONTACT + listOf("stakeholder_assessment.stance", "stakeholder_assessment.assessment_date"),
+                ignores = STAKEHOLDER_IGNORES
             ) {
                 StakeholderKpis.oppositionContacted(
                     it.stakeholders(),
@@ -135,7 +156,8 @@ object Kpis {
                 "Oposición que cambió de postura",
                 STAKEHOLDERS,
                 "%",
-                listOf("stakeholder_assessment.stance", "stakeholder_assessment.assessment_date")
+                listOf("stakeholder_assessment.stance", "stakeholder_assessment.assessment_date"),
+                ignores = STAKEHOLDER_IGNORES
             ) {
                 StakeholderKpis.oppositionChanged(
                     it.stakeholders(),
@@ -146,13 +168,16 @@ object Kpis {
                 )
             },
             // el mismo conjunto de contactos que KPI-STK-04 (DashboardData.contacts): su denominador son los contactados
-            Kpi("KPI-STK-07", "Grupos de interés con más de un contacto", null, "%", CONTACT) { StakeholderKpis.repeatedContact(it.contacts()) },
+            Kpi("KPI-STK-07", "Grupos de interés con más de un contacto", null, "%", CONTACT, ignores = STAKEHOLDER_IGNORES) {
+                StakeholderKpis.repeatedContact(it.contacts())
+            },
             Kpi(
                 "KPI-STK-08",
                 "Confianza promedio y tendencia",
                 STAKEHOLDERS,
                 "confianza de 1 a 5",
-                listOf("stakeholder_assessment.trust_score", "stakeholder_assessment.assessment_date")
+                listOf("stakeholder_assessment.trust_score", "stakeholder_assessment.assessment_date"),
+                ignores = STAKEHOLDER_IGNORES
             ) { StakeholderKpis.trust(it.stakeholders(), it.assessments(), it.filters.periodEnd) },
             Kpi("KPI-ENG-01", "Interacciones realizadas", ENGAGEMENT, "interacciones", HELD) {
                 EngagementKpis.held(it.inPeriod(), it.window(), it.filters.periodEnd)
@@ -218,7 +243,8 @@ object Labels {
     ): Map<String, String> {
         val people = stakeholders.mapNotNull { it.person }
         val names = data.namesOfPeople(people)
-        val positions = data.positionLabels(people)
+        // los cargos solo de las personas cuyo nombre no se puede mostrar
+        val positions = data.positionLabels(people.filter { it !in names })
         val organizations = data.names("organization", stakeholders.mapNotNull { it.organization })
         return stakeholders.associate { s ->
             s.id to
