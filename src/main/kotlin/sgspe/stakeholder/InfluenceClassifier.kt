@@ -6,7 +6,10 @@ import java.math.RoundingMode
 // los índices de una evaluación (RF-STK-006 a RF-STK-009, ASM-031, ASM-003). cada indicador va de 1 a 5; cada componente
 // es el promedio de sus indicadores informados y cada índice, el promedio de sus componentes, con pesos iguales mientras
 // GAP-002 no fije otros. influencia = interés + poder. el grupo sale de los umbrales del proyecto (3 por defecto): un
-// índice es alto desde su umbral. todo se redondea a dos decimales, como se guarda, y el grupo se decide con lo guardado
+// índice es alto desde su umbral. cada valor se redondea a dos decimales (HALF_UP) y el siguiente nivel se calcula desde
+// los valores ya redondeados, o sea los guardados (P17): componente desde sus indicadores, índice desde los componentes
+// redondeados e influencia desde los índices redondeados. así todo valor guardado se reproduce desde los de un nivel
+// más abajo, y el grupo se decide con lo guardado
 object InfluenceClassifier {
     val INTEREST: Map<String, List<String>> =
         linkedMapOf(
@@ -35,10 +38,11 @@ object InfluenceClassifier {
 
     // null si a uno de los dos índices no le llega ningún indicador
     fun scores(indicators: Map<String, Int?>): Scores? {
-        val components = (INTEREST + POWER).mapValues { (_, names) -> average(names.mapNotNull { indicators[it] }.map { BigDecimal(it) }) }
-        val interest = average(INTEREST.keys.mapNotNull { components[it] }) ?: return null
-        val power = average(POWER.keys.mapNotNull { components[it] }) ?: return null
-        return Scores(components.mapValues { it.value?.let(::round) }, round(interest), round(power), round(interest + power))
+        val components =
+            (INTEREST + POWER).mapValues { (_, names) -> average(names.mapNotNull { indicators[it] }.map { BigDecimal(it) })?.let(::round) }
+        val interest = average(INTEREST.keys.mapNotNull { components[it] })?.let(::round) ?: return null
+        val power = average(POWER.keys.mapNotNull { components[it] })?.let(::round) ?: return null
+        return Scores(components, interest, power, interest + power)
     }
 
     fun group(

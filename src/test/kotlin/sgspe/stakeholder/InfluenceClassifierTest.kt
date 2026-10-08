@@ -56,4 +56,74 @@ class InfluenceClassifierTest {
         assertNull(scores.components["interest_opportunity"])
         assertNull(InfluenceClassifier.scores(mapOf("affect_environment" to 5)))
     }
+
+    // P17: cada valor guardado se reproduce desde los guardados un nivel más abajo
+    @Test
+    fun `el ejemplo oficial de api md se sostiene con el redondeo por nivel`() {
+        val scores = InfluenceClassifier.scores(example)!!
+        assertEquals(BigDecimal("3.00"), scores.components["interest_affectation"])
+        assertEquals(BigDecimal("3.00"), scores.components["interest_opportunity"])
+        assertEquals(BigDecimal("3.00"), scores.components["power_resource_control"])
+        assertEquals(BigDecimal("2.67"), scores.components["power_action_capacity"])
+        assertEquals(BigDecimal("2.33"), scores.components["power_network_mobilization"])
+        assertEquals(BigDecimal("3.00"), scores.interestIndex)
+        assertEquals(BigDecimal("2.67"), scores.powerIndex)
+        assertEquals(BigDecimal("5.67"), scores.influenceScore)
+    }
+
+    @Test
+    fun `la influencia es la suma de los indices redondeados`() {
+        // (2,2,3) da 2,3333 en cada componente: interés 2,33 y poder 2,33; la suma sin redondear daría 4,67
+        val indicators =
+            InfluenceClassifier.INDICATORS.zip(listOf(2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3)).toMap()
+        val scores = InfluenceClassifier.scores(indicators)!!
+        assertEquals(BigDecimal("2.33"), scores.interestIndex)
+        assertEquals(BigDecimal("2.33"), scores.powerIndex)
+        assertEquals(BigDecimal("4.66"), scores.influenceScore)
+        assertEquals(scores.interestIndex + scores.powerIndex, scores.influenceScore)
+    }
+
+    @Test
+    fun `el indice es el promedio de los componentes redondeados`() {
+        // poder: componentes 1,6667, 1,6667 y 1,00 se guardan como 1,67, 1,67 y 1,00; su promedio es 1,45 (desde sin redondear, 1,44)
+        val indicators =
+            mapOf("affect_environment" to 3) +
+                listOf("power_legal_action", "power_credibility", "power_permit_control").zip(listOf(1, 2, 2)) +
+                listOf("power_action_scope", "power_organization_level", "power_convening_capacity").zip(listOf(1, 2, 2)) +
+                listOf("power_network_membership", "power_group_mobilization", "power_other_pressure").zip(listOf(1, 1, 1))
+        val scores = InfluenceClassifier.scores(indicators)!!
+        assertEquals(BigDecimal("1.67"), scores.components["power_resource_control"])
+        assertEquals(BigDecimal("1.67"), scores.components["power_action_capacity"])
+        assertEquals(BigDecimal("1.00"), scores.components["power_network_mobilization"])
+        assertEquals(BigDecimal("1.45"), scores.powerIndex)
+        assertEquals(BigDecimal("4.45"), scores.influenceScore)
+    }
+
+    @Test
+    fun `sin indicadores o todos nulos no hay calculo`() {
+        assertNull(InfluenceClassifier.scores(emptyMap()))
+        assertNull(InfluenceClassifier.scores(InfluenceClassifier.INDICATORS.associateWith { null }))
+    }
+
+    @Test
+    fun `un indicador ausente dentro de un componente se promedia con los informados`() {
+        val indicators = mapOf("affect_environment" to 4, "affect_livelihood" to null, "affect_property_status" to 2, "power_credibility" to 5)
+        val scores = InfluenceClassifier.scores(indicators)!!
+        assertEquals(BigDecimal("3.00"), scores.components["interest_affectation"])
+        assertEquals(BigDecimal("5.00"), scores.components["power_resource_control"])
+        assertNull(scores.components["power_action_capacity"])
+        assertEquals(BigDecimal("8.00"), scores.influenceScore)
+    }
+
+    @Test
+    fun `INDICATORS son los 15 campos sin repetir`() {
+        assertEquals(15, InfluenceClassifier.INDICATORS.size)
+        assertEquals(15, InfluenceClassifier.INDICATORS.toSet().size)
+    }
+
+    @Test
+    fun `el grupo no depende de la escala del umbral ni del indice`() {
+        assertEquals("ESTRATEGICO", InfluenceClassifier.group(BigDecimal("3.00"), BigDecimal("3.00"), BigDecimal(3), BigDecimal(3)))
+        assertEquals("ESTRATEGICO", InfluenceClassifier.group(BigDecimal(3), BigDecimal(3), BigDecimal("3.00"), BigDecimal("3.0")))
+    }
 }
