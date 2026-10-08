@@ -13,6 +13,10 @@ wasichai:
     name: ${WASICHAI_DB_NAME:sgspe}
     username: ${WASICHAI_DB_USERNAME:sgspe}
     password: ${WASICHAI_DB_PASSWORD:sgspe}
+  gis:
+    geoserver:
+      # GeoServer es de la F6 (ADR-0015): apagado, /api/gis/layers lista las capas con published=false en vez de llamarlo
+      enabled: ${WASICHAI_GIS_GEOSERVER_ENABLED:false}
   seed:
     # admin@wasichai.local / admin. solo para desarrollo: application-prod.yml lo apaga
     dev: ${WASICHAI_SEED_DEV:true}

@@ -42,6 +42,7 @@ set -a; source develop/.env; set +a
 | `SGSPE_PG_PORT` | `5435` | puerto que publica `compose.yml` en `127.0.0.1` |
 | `WASICHAI_JWT_SECRET` | valor de desarrollo | firma de los tokens; 32 bytes o más; en producción, obligatorio y sin valor por defecto |
 | `WASICHAI_SEED_DEV` | `true` | crea `admin@wasichai.local` / `admin`; producción lo apaga, y con el perfil `prod` `true` impide el arranque (`ProdGuard`) |
+| `WASICHAI_GIS_GEOSERVER_ENABLED` | `false` | integración con GeoServer (F6, ADR-0015); apagada, `/api/gis/layers` lista las capas con `published=false`; encenderla exige un GeoServer en `localhost:8081` |
 | `WASICHAI_CORE` | `http://localhost:8094` | URL de los scripts de `model/` |
 | `WASICHAI_EMAIL` / `WASICHAI_PASSWORD` | el administrador de desarrollo | login de esos scripts |
 | `WASICHAI_TEST_DB_*` | comentadas | pruebas de integración contra la base externa (sección 6) |
