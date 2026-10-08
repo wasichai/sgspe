@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import wasichai.core.common.ValidationException
@@ -418,6 +419,107 @@ class ImportFilesTest {
             assertEquals("file", error.violations.single().field)
             assertTrue("capa" !in error.violations.single().message)
         }
+    }
+
+    // un exponente enorme no se expande: BigDecimal.toPlainString de «1E+999999999» agota el heap con 3 KB de archivo. cada
+    // formato lo rechaza con un 400 sobre file que nombra la celda o el feature, y rápido
+    @Test
+    @Timeout(20)
+    fun `un numero con exponente enorme es un 400 en xlsx, geojson y csv`() {
+        val valid = File(dir, "valido.xlsx")
+        XSSFWorkbook().use { workbook ->
+            workbook
+                .createSheet("Hoja1")
+                .createRow(0)
+                .createCell(0)
+                .setCellValue("code")
+            valid.outputStream().use(workbook::write)
+        }
+        listOf("1E+999999999", "1E-999999999", "1E+400").forEach { number ->
+            val xlsx = File(dir, "exponente.xlsx")
+            rewriteEntry(valid, xlsx, "xl/worksheets/sheet1.xml") {
+                it.write(
+                    """<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
+                       <row r="1"><c r="A1" t="inlineStr"><is><t>este</t></is></c></row>
+                       <row r="2"><c r="A2"><v>$number</v></c></row></sheetData></worksheet>""".toByteArray()
+                )
+            }
+            val fromXlsx = assertThrows<ValidationException> { ImportReaders.read(xlsx, "exponente.xlsx", 10) }.violations.single()
+            assertEquals("file", fromXlsx.field)
+            assertTrue("fila 2, columna 1" in fromXlsx.message, fromXlsx.message)
+
+            val inProperty =
+                File(dir, "propiedad.geojson").apply {
+                    writeText("""{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"code":${number.lowercase()}},"geometry":null}]}""")
+                }
+            val fromProperty = assertThrows<ValidationException> { ImportReaders.read(inProperty, "propiedad.geojson", 10) }.violations.single()
+            assertEquals("file", fromProperty.field)
+            assertTrue("feature 1" in fromProperty.message, fromProperty.message)
+            val inCoordinate =
+                File(dir, "coordenada.geojson").apply {
+                    writeText("""{"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[${number.lowercase()},0.5]}}""")
+                }
+            assertEquals("file", assertThrows<ValidationException> { ImportReaders.read(inCoordinate, "coordenada.geojson", 10) }.violations.single().field)
+
+            val csv = File(dir, "exponente.csv").apply { writeText("code;este\nTST-1;${number.lowercase()}\n") }
+            val fromCsv = assertThrows<ValidationException> { ImportReaders.read(csv, "exponente.csv", 10) }.violations.single()
+            assertEquals("file", fromCsv.field)
+            assertTrue("fila 2, columna 2" in fromCsv.message, fromCsv.message)
+            assertNull(ImportReaders.number(number.lowercase()))
+        }
+        // dentro de las cotas se lee igual: una coordenada UTM con decimales y un valor pequeño
+        assertEquals(BigDecimal("812345.25"), ImportReaders.number("812345.25"))
+        val small = File(dir, "pequeno.geojson").apply { writeText("""{"type":"Feature","properties":{"v":1e-7},"geometry":null}""") }
+        assertEquals("0.0000001", ImportReaders.read(small, "pequeno.geojson", 10).single().values["v"])
+    }
+
+    // la interrupción de un hilo cancelado se propaga como InterruptedException y no se confunde con un archivo inválido,
+    // lea un CSV o un XLSX (el SAX envuelve la excepción)
+    @Test
+    fun `un hilo interrumpido corta la lectura de csv y xlsx con InterruptedException`() {
+        val csv = File(dir, "largo.csv").apply { writeText("code\n" + (1..3_000).joinToString("\n") { "TST-$it" }) }
+        val xlsx = File(dir, "largo.xlsx")
+        XSSFWorkbook().use { workbook ->
+            val sheet = workbook.createSheet("Hoja1")
+            (0..3_000).forEach { sheet.createRow(it).createCell(0).setCellValue(if (it == 0) "code" else "TST-$it") }
+            xlsx.outputStream().use(workbook::write)
+        }
+        try {
+            Thread.currentThread().interrupt()
+            assertThrows<InterruptedException> { ImportReaders.read(csv, "largo.csv", 10_000) }
+            Thread.currentThread().interrupt()
+            assertThrows<InterruptedException> { ImportReaders.read(xlsx, "largo.xlsx", 10_000) }
+        } finally {
+            Thread.interrupted()
+        }
+        assertEquals(3_000, ImportReaders.read(xlsx, "largo.xlsx", 10_000).size)
+    }
+
+    @Test
+    fun `un elemento de features que no es un objeto es un 400 que lo nombra`() {
+        val file =
+            File(dir, "nulo.geojson").apply {
+                writeText(
+                    """{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"code":"A"}},null,{"type":"Feature","properties":{"code":"B"}}]}"""
+                )
+            }
+        val error = assertThrows<ValidationException> { ImportReaders.read(file, "nulo.geojson", 10) }.violations.single()
+        assertEquals("file", error.field)
+        assertTrue("elemento 2" in error.message, error.message)
+        val trailing = File(dir, "basura.geojson").apply { writeText("""{"type":"FeatureCollection","features":[]} {"x":1}""") }
+        assertEquals("file", assertThrows<ValidationException> { ImportReaders.read(trailing, "basura.geojson", 10) }.violations.single().field)
+    }
+
+    // el BOM de Excel UTF-8 no impide que la comilla del encabezado citado abra: la coma de adentro no es un separador
+    @Test
+    fun `un csv con BOM y encabezado citado con comas se lee en dos columnas`() {
+        val file =
+            File(dir, "bom-citado.csv").apply {
+                writeBytes(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + "\"Este, m, UTM\";\"Norte, m\"\n812345;9123456\n".toByteArray())
+            }
+        val row = ImportReaders.read(file, "bom-citado.csv", 10).single()
+        assertEquals("812345", row.values["Este, m, UTM"])
+        assertEquals("9123456", row.values["Norte, m"])
     }
 
     private fun rewriteEntry(

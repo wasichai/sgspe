@@ -98,6 +98,16 @@ object ImportReaders {
     private const val INTERRUPT_EVERY = 1024
     private const val BOM = 0xFEFF
 
+    // un número de un archivo cabe en 40 cifras significativas y un exponente de a lo más 40 (una coordenada UTM tiene 7 u 8
+    // cifras): lo demás no es un dato, y expandir «1E+999999999» con toPlainString agota el heap con un archivo de 3 KB
+    private const val MAX_DIGITS = 40
+    private const val MAX_EXPONENT = 40
+
+    private fun inBounds(value: BigDecimal): Boolean =
+        value.precision() <= MAX_DIGITS && kotlin.math.abs(value.precision().toLong() - value.scale() - 1) <= MAX_EXPONENT
+
+    private fun outOfRange(where: String) = ValidationException("Número fuera de rango", "file", "un número de $where está fuera de rango")
+
     private val JSON: JsonMapper = JsonMapper.builder().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).build()
 
     init {
@@ -184,6 +194,9 @@ object ImportReaders {
         } catch (e: InterruptedException) {
             throw e
         } catch (e: Exception) {
+            // el lector SAX envuelve la interrupción de un hilo cancelado: se devuelve tal cual, para que la cancelación se
+            // propague y no se confunda con un archivo inválido
+            generateSequence<Throwable>(e) { it.cause }.filterIsInstance<InterruptedException>().firstOrNull()?.let { throw it }
             throw ValidationException("Archivo inválido", "file", xlsxDetail(e))
         }
         return collector.rows
@@ -299,12 +312,11 @@ object ImportReaders {
                 "str", "inlineStr", "d" -> raw
                 "b" -> if (raw.trim() == "1") "TRUE" else "FALSE"
                 "e" -> null
-                else ->
-                    raw
-                        .trim()
-                        .toBigDecimalOrNull()
-                        ?.stripTrailingZeros()
-                        ?.toPlainString() ?: raw
+                else -> {
+                    val number = raw.trim().toBigDecimalOrNull()
+                    if (number != null && !inBounds(number)) throw outOfRange("la fila $rowNumber, columna ${column + 1}")
+                    number?.stripTrailingZeros()?.toPlainString() ?: raw
+                }
             }
 
         // «AB12» -> 27 (A es 0)
@@ -335,7 +347,7 @@ object ImportReaders {
         charset: Charset
     ): Reader =
         InputStreamReader(
-            Files.newInputStream(file.toPath()),
+            java.io.FileInputStream(file), // no Files.newInputStream: su canal se cierra con la interrupción del hilo
             charset.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
         )
 
@@ -352,6 +364,9 @@ object ImportReaders {
         maxRows: Int = Int.MAX_VALUE
     ): List<SourceRow> {
         val input = if (reader is BufferedReader) reader else BufferedReader(reader)
+        // el BOM se salta antes de medir el separador: si no, la comilla de un encabezado citado no abriría
+        input.mark(1)
+        if (input.read() != BOM) input.reset()
         val separator = detectSeparator(input).code
         val collector = RowCollector(maxRows)
         val cells = ArrayList<String?>()
@@ -360,11 +375,14 @@ object ImportReaders {
         var atStart = true
         var record = 1
         var current = input.read()
-        if (current == BOM) current = input.read()
 
         fun endCell() {
             if (cells.size >= MAX_COLUMNS) throw ValidationException("Archivo inválido", "file", "la fila $record tiene más de $MAX_COLUMNS columnas")
-            cells += cell.toString().trim().ifEmpty { null }
+            val value = cell.toString().trim().ifEmpty { null }
+            if (value != null && (value[0].isDigit() || value[0] in "+-.,")) {
+                parseDecimal(value)?.let { if (!inBounds(it)) throw outOfRange("la fila $record, columna ${cells.size + 1}") }
+            }
+            cells += value
             cell.clear()
             atStart = true
         }
@@ -409,7 +427,9 @@ object ImportReaders {
         return collector.rows
     }
 
-    // el separador es el más frecuente en el encabezado fuera de comillas: «;», «,» o tabulador (Excel «Texto Unicode»)
+    // el separador es el más frecuente en el encabezado fuera de comillas: «;», «,» o tabulador (Excel «Texto Unicode»). un
+    // empate cae a «;». límite conocido: un encabezado con «;» y comas sin comillas («Este (m, UTM);Norte (m, UTM);Cota (m)»)
+    // gana la coma; el mapeo no halla las columnas y el 400 lo hace visible
     private fun detectSeparator(input: BufferedReader): Char {
         val candidates = listOf(';', ',', '\t')
         val counts = IntArray(candidates.size)
@@ -463,7 +483,10 @@ object ImportReaders {
                     when {
                         name == "type" && token == JsonToken.VALUE_STRING -> type = parser.string
                         name == "features" && token == JsonToken.START_ARRAY ->
-                            while (parser.nextToken() == JsonToken.START_OBJECT) {
+                            while (parser.nextToken() != JsonToken.END_ARRAY) {
+                                if (parser.currentToken() != JsonToken.START_OBJECT) {
+                                    throw ValidationException("Archivo inválido", "file", "el elemento ${rows.size + 1} de features no es un objeto")
+                                }
                                 if (rows.size >= maxRows) throw tooManyRows(maxRows)
                                 if (rows.size % INTERRUPT_EVERY == 0) checkInterrupted()
                                 rows += featureRow(rows.size + 1, parser.readValueAs(Map::class.java) as Map<String, Any?>)
@@ -473,6 +496,8 @@ object ImportReaders {
                         else -> parser.skipChildren()
                     }
                 }
+                // tras el objeto raíz no debe quedar nada: un documento truncado o con basura no se lee a medias
+                if (parser.nextToken() != null) throw invalid
             }
         } catch (e: JacksonException) {
             throw invalid
@@ -491,8 +516,21 @@ object ImportReaders {
         index: Int,
         feature: Map<String, Any?>
     ): SourceRow {
+        checkNumbers(feature, index)
         val properties = (feature["properties"] as? Map<String, Any?>).orEmpty()
         return SourceRow(index, properties.mapValues { text(it.value) }, feature["geometry"] as? Map<String, Any?>)
+    }
+
+    // propiedades y coordenadas dentro de las cotas de un número (MAX_DIGITS, MAX_EXPONENT): un 400 que nombra el feature
+    private fun checkNumbers(
+        value: Any?,
+        index: Int
+    ) {
+        when (value) {
+            is BigDecimal -> if (!inBounds(value)) throw outOfRange("el feature $index")
+            is Map<*, *> -> value.values.forEach { checkNumbers(it, index) }
+            is List<*> -> value.forEach { checkNumbers(it, index) }
+        }
     }
 
     // un decimal sin notación científica; lo anidado, como texto
@@ -505,7 +543,9 @@ object ImportReaders {
 
     // un número de una celda: punto o coma decimal; con las dos presentes, la última es la decimal («1.234,56» y
     // «1,234.5»); una sola coma es decimal. null si no es un número
-    fun number(raw: String?): BigDecimal? {
+    fun number(raw: String?): BigDecimal? = parseDecimal(raw)?.takeIf(::inBounds)
+
+    private fun parseDecimal(raw: String?): BigDecimal? {
         val value = raw?.trim()?.ifEmpty { null } ?: return null
         val comma = value.lastIndexOf(',')
         val dot = value.lastIndexOf('.')
