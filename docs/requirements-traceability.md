@@ -54,12 +54,13 @@ Convenciones:
 | Hueco | Le falta algo que ningún documento define: una prueba o el lugar de un dato. §7.1 dice qué necesita (tipo «Hueco») |
 | Fuera del MVP | Todas sus fases son posteriores a Release 1 (F5 a F8, ASM-044); el diseño existe, pero no entra en el MVP |
 
-Una fila puede llevar varios estados, separados por punto y coma. Cuatro decisiones del checkpoint no tienen GAP ni CON propio y
-por eso no aparecen como Decisión pendiente: ofrecer AI-05 solo a roles sin acceso a campos restringidos mientras falte UPS-14
-(`security.md` §15), que RF-AIK-005 muestra como Upstream (UPS-14); contar los plazos desde la primera recepción al reclasificar
-una QCS (ASM-072), que RF-GRV-007 muestra como Diseñado; reutilizar `approve_senior` de WF-D en el nivel 2 de escalamiento
-(ASM-030), que RF-WFL-004 muestra como Upstream (UPS-17); y el reparto en releases (ASM-044), que fija el estado «Fuera
-del MVP».
+Una fila puede llevar varios estados, separados por punto y coma. Cuatro decisiones del checkpoint no tienen GAP ni CON
+propio y por eso no aparecen como Decisión pendiente: ofrecer AI-05 solo a roles sin acceso a campos restringidos
+mientras falte UPS-14 (`security.md` §15), que RF-AIK-005 muestra como Upstream (UPS-14); contar los plazos desde la
+primera recepción al reclasificar una QCS (ASM-072), que RF-GRV-007 muestra como Diseñado; reutilizar `approve_senior`
+de WF-D en el nivel 2 de escalamiento (ASM-030), que RF-WFL-004 muestra como Upstream (UPS-17); y el reparto en releases
+(ASM-044), que fija el estado «Fuera del MVP». El checkpoint aceptó los valores por defecto de GAP-004 y GAP-005, y F4
+se diseñó con ellos: sus filas de F4 (RF-GRV-001, RF-GRV-006, RF-RSK-001 y RN-RSK-002) pasan a Diseñado.
 
 ## 2. Requisitos funcionales (RF)
 
@@ -167,19 +168,19 @@ Las 114 RF de `requirements-analysis.md` §6, en su orden. §6.18 (AUD) no tiene
 
 | Requirement | Source | Module | Entity | API | UI | Test | Fase | Estado |
 |---|---|---|---|---|---|---|---|---|
-| RF-GRV-001 | [DOC-01 Tabla 9.5, §9.1.1.2, §9.4.2] [PRM-01 §5] | BC-07 · `model/model.json`; `sgspe.attention` (`AttentionWriteGuard`, `QcsDueDatesListener`) | `grievance`, `inquiry`, `stakeholder_request` | `/api/objects/grievance/records`; `/api/objects/inquiry/records`; `/api/objects/stakeholder_request/records` | Portal › Quejas, consultas y solicitudes | `GrievanceWorkflowApiTest`; `InquiryWorkflowApiTest`; `StakeholderRequestWorkflowApiTest` | F4 | Decisión pendiente (GAP-005) |
+| RF-GRV-001 | [DOC-01 Tabla 9.5, §9.1.1.2, §9.4.2] [PRM-01 §5] | BC-07 · `model/model.json`; `sgspe.attention` (`AttentionWriteGuard`, `QcsDueDatesListener`); `sgspe.scope` (`ConfidentialAttentionScope`, ADR-0028) | `grievance`, `inquiry`, `stakeholder_request` | `/api/objects/grievance/records`; `/api/objects/inquiry/records`; `/api/objects/stakeholder_request/records` | Portal › Quejas, consultas y solicitudes | `GrievanceWorkflowApiTest`; `InquiryWorkflowApiTest`; `StakeholderRequestWorkflowApiTest`; `ConfidentialAttentionApiTest` | F4 | Diseñado |
 | RF-GRV-002 | [PRM-01 §5, §8] | BC-07 · `model/workflows/grievance.json` (WF-E1); `sgspe.attention` (`QcsTransitionDatesListener`); automatizaciones AUT-02 y AUT-06 | `grievance` | `/api/objects/grievance/records/{id}/transitions/{name}` | Portal › Quejas, consultas y solicitudes: ficha de `grievance` | `GrievanceWorkflowApiTest` | F4 | Diseñado |
 | RF-GRV-003 | [DOC-01 Tabla 9.5] | BC-07 · `model/workflows/inquiry.json` (WF-E2); automatización AUT-07 | `inquiry` | `/api/objects/inquiry/records/{id}/transitions/{name}` | Portal › Quejas, consultas y solicitudes: ficha de `inquiry`; tablero de QCS (KPI-GRV-07) | `InquiryWorkflowApiTest` | F4 | Diseñado |
 | RF-GRV-004 | [DOC-01 §9.3.1.2] | BC-07 · `model/workflows/stakeholder_request.json` (WF-E3); `sgspe.attention` (aceptación, `RequestClosureListener`); automatización AUT-08 | `stakeholder_request`, `commitment`, `social_contribution` (desde F5) | `POST /api/sgspe/stakeholder-requests/{id}/accept`; `/api/objects/stakeholder_request/records/{id}/transitions/{name}` | Portal › Quejas, consultas y solicitudes: ficha de `stakeholder_request` | `StakeholderRequestWorkflowApiTest` | F4 | Diseñado |
 | RF-GRV-005 | [DOC-01 Tabla 9.5] | BC-07 · `sgspe.attention` (reporte unificado); `sgspe.privacy` (exportación) | `grievance`, `inquiry`, `stakeholder_request` | `GET /api/sgspe/attention/report`; `POST /api/sgspe/exports/{kind}` (`attention-register`) | Portal › Quejas, consultas y solicitudes; Portal › Reportes | `AttentionReportApiTest` (propuesto); `security.md` §14 «Salidas» | F4 | Diseñado |
-| RF-GRV-006 | [PRM-01 §5, §17] | BC-07 · `sgspe.attention` (`QcsDueDatesListener`); `sgspe.deadline` (`DeadlineJob`, JOB-01); `model/model.json` (plazos del proyecto) | `grievance`, `inquiry`, `stakeholder_request`, `task`, `project` | `/api/objects/grievance/records`; `/api/objects/inquiry/records` | Portal › Quejas, consultas y solicitudes; Portal › Tareas | `GrievanceWorkflowApiTest`; `workflows.md` §Pruebas «Trabajos» | F4 | Decisión pendiente (GAP-005) |
+| RF-GRV-006 | [PRM-01 §5, §17] | BC-07 · `sgspe.attention` (`QcsDueDatesListener`); `sgspe.common` (`BusinessDays`); `sgspe.deadline` (`DeadlineJob`, JOB-01); `model/model.json` (plazos del proyecto) | `grievance`, `inquiry`, `stakeholder_request`, `task`, `project` | `/api/objects/grievance/records`; `/api/objects/inquiry/records` | Portal › Quejas, consultas y solicitudes; Portal › Tareas | `GrievanceWorkflowApiTest`; `QcsDueDatesApiTest`; `BusinessDaysTest`; `workflows.md` §Pruebas «Trabajos» | F4 | Diseñado |
 | RF-GRV-007 | [DOC-01 Tabla 9.5] | BC-07 · `sgspe.attention` (reclasificación) | `grievance`, `inquiry`, `stakeholder_request` | `POST /api/sgspe/grievances/{id}/reclassify`; `POST /api/sgspe/inquiries/{id}/reclassify`; `POST /api/sgspe/stakeholder-requests/{id}/reclassify` | Portal › Quejas, consultas y solicitudes: ficha de cada QCS | `GrievanceWorkflowApiTest` | F4 | Diseñado |
 
 ### 2.9 Riesgos sociales (RSK)
 
 | Requirement | Source | Module | Entity | API | UI | Test | Fase | Estado |
 |---|---|---|---|---|---|---|---|---|
-| RF-RSK-001 | [DOC-01 §9.3.2, §9.3.2.1] [PRM-01 §5] | BC-08 · `model/model.json`; `model/workflows/social_risk.json` (WF-F); `sgspe.risk` (`RiskWriteGuard`) | `social_risk` (M2M `social_risk_stakeholder`) | `/api/objects/social_risk/records`; `/api/objects/social_risk/records/{id}/transitions/{name}` | Portal › Riesgos: ficha de `social_risk` | `SocialRiskWorkflowApiTest` | F4 | Decisión pendiente (GAP-004) |
+| RF-RSK-001 | [DOC-01 §9.3.2, §9.3.2.1] [PRM-01 §5] | BC-08 · `model/model.json`; `model/workflows/social_risk.json` (WF-F); `sgspe.risk` (`RiskWriteGuard`) | `social_risk` (M2M `social_risk_stakeholder`) | `/api/objects/social_risk/records`; `/api/objects/social_risk/records/{id}/transitions/{name}` | Portal › Riesgos: ficha de `social_risk` | `SocialRiskWorkflowApiTest` | F4 | Diseñado |
 | RF-RSK-002 | [DOC-01 §9.3.2.1] | BC-08 · `sgspe.risk` (endpoint de revisiones); `sgspe.deadline` (`review_status`) | `risk_assessment`, `social_risk` | `POST /api/sgspe/social-risks/{id}/assessments` | Portal › Riesgos: ficha de `social_risk` | `SocialRiskWorkflowApiTest`; `workflows.md` §Pruebas «Trabajos» | F4 | Diseñado |
 | RF-RSK-003 | [DOC-01 §9.3.2.2] | BC-08 · `model/workflows/social_risk.json` (WF-F); `sgspe.risk` (`RiskWriteGuard`); automatización AUT-11 | `mitigation_measure`, `social_risk` | `/api/objects/mitigation_measure/records`; `/api/objects/social_risk/records/{id}/transitions/{name}` | Portal › Riesgos: ficha de `social_risk` | `SocialRiskWorkflowApiTest` | F4 | Diseñado |
 | RF-RSK-004 | [DOC-01 §9.3, Tabla 9.4] | BC-08 · `model/model.json` | `potential_impact` | `/api/objects/potential_impact/records` | Portal › Riesgos | `test_model.py` | F4 | Diseñado |
@@ -476,7 +477,7 @@ Las 20 RNF de `requirements-analysis.md` §7. Varias son de proceso o de reposit
 | RNF-INT-004 | [USR-09] [PRM-01 §11] | Transversal · `sgspe.common` (filtros estrictos con 422) | — | `/api/sgspe/**` | — | `StrictQueryParamsApiTest` (propuesto) | F2 | Diseñado |
 | RNF-INT-005 | [WAS-ADR-0007] [WAS-ADR-0019] | BC-02 · wasichai-gis | campos GEOMETRY de BC-01, BC-02, BC-19 y de gestión | `GET /api/gis/objects/{object}/features`; `/api/objects/{object}/records` | Portal › Territorio: mapa del proyecto | `gis.md` §9 «Ida y vuelta UTM ↔ 4326» | F2 | Diseñado |
 | RNF-I18N-001 | [PRM-01 §3, §13] [USR-09] | Transversal · `sgspe-ui` (i18next) | — | — | portal y `/admin` en español e inglés | `I18n.test.tsx`; `architecture.md` §13 «Frontend» | F1 | Implementado |
-| RNF-I18N-002 | [DOC-02 p.4] | Transversal · `sgspe.common` (America/Lima, feriados, valores por defecto) | `project` (`currency` por defecto) | — | — | `QcsDueDatesApiTest` (propuesto); `architecture.md` §13 «Unitarias» | F2 | Upstream (UPS-15) |
+| RNF-I18N-002 | [DOC-02 p.4] | Transversal · `sgspe.common` (America/Lima; `HolidayCalendar` y `BusinessDays` para los días hábiles, ASM-096; valores por defecto) | `project` (`currency` por defecto) | — | — | `BusinessDaysTest`; `QcsDueDatesApiTest`; `architecture.md` §13 «Unitarias» | F2 | Diseñado |
 | RNF-TST-001 | [PRM-01 §21] [WAS-ADR-0015] | Transversal · todas las suites (`architecture.md` §13) | — | — | — | `SgspeApiTest`; `test_model.py`; `ArchitectureTest`; Playwright | F1–F8 | Diseñado |
 | RNF-OBS-001 | [PRM-01 §24, §25] | Transversal · `sgspe.observability` | — | `/actuator/health/liveness`; `/actuator/health/readiness` | — | `ObservabilityApiTest` | F1 | Implementado |
 | RNF-USA-001 | [PRM-01 §14] [USR-09] | Transversal · `sgspe-ui` (navegación del portal) | — | `GET /api/auth/me/permissions` | Portal › navegación principal con las 13 secciones | `Navigation.test.tsx` | F1 | Implementado |
@@ -513,7 +514,7 @@ Las 31 RN de `requirements-analysis.md` §8. Su fase se deriva como dice §1.1.
 | RN-GRV-001 | [DOC-01 §9.3.1.2] | BC-07 · `sgspe.attention` (`RequestClosureListener`); `model/workflows/stakeholder_request.json` (WF-E3) (`close_unfulfilled`) | `stakeholder_request`, `commitment`, `social_contribution` (desde F5) | `/api/objects/commitment/records/{id}/transitions/{name}`; `/api/objects/stakeholder_request/records/{id}/transitions/{name}` | Portal › Quejas, consultas y solicitudes: ficha de `stakeholder_request` | `StakeholderRequestWorkflowApiTest`; `CommitmentWorkflowApiTest` | F4 | Diseñado |
 | RN-GRV-002 | [PRM-01 §5] | BC-07 · `sgspe.attention` (`AttentionWriteGuard`); `model/workflows/grievance.json` (WF-E1) (`resolve_high_severity`) | `grievance` | `/api/objects/grievance/records/{id}/transitions/{name}` | Portal › Quejas, consultas y solicitudes: ficha de `grievance` | `GrievanceWorkflowApiTest` | F4 | Diseñado |
 | RN-RSK-001 | [DOC-01 §9.3.2.1] | BC-08 · `model/model.json` (`risk_review_days`); `sgspe.deadline` (`DeadlineJob`, JOB-01) | `social_risk`, `task` | `/api/objects/social_risk/records` | Portal › Riesgos; Tareas | `workflows.md` §Pruebas «Trabajos» | F4 | Diseñado |
-| RN-RSK-002 | [DOC-01 §9.3.2.1] | BC-08 · `sgspe.risk` (endpoint de revisiones); `model/model.json` (`risk_medium_min_score`, `risk_high_min_score`, `risk_critical_min_score`) | `social_risk`, `risk_assessment` | `POST /api/sgspe/social-risks/{id}/assessments` | Portal › Riesgos: ficha de `social_risk` | `SocialRiskAssessmentApiTest` (propuesto); `architecture.md` §13 «Unitarias» | F4 | Decisión pendiente (GAP-004) |
+| RN-RSK-002 | [DOC-01 §9.3.2.1] | BC-08 · `sgspe.risk` (endpoint de revisiones); `model/model.json` (`risk_medium_min_score`, `risk_high_min_score`, `risk_critical_min_score`) | `social_risk`, `risk_assessment` | `POST /api/sgspe/social-risks/{id}/assessments` | Portal › Riesgos: ficha de `social_risk` | `SocialRiskAssessmentApiTest` (propuesto); `architecture.md` §13 «Unitarias» | F4 | Diseñado |
 | RN-RSK-003 | [DOC-01 §9.3.2.2] | BC-08 · `sgspe.risk` (`RiskWriteGuard`); `model/workflows/social_risk.json` (WF-F) | `social_risk`, `mitigation_measure` | `/api/objects/social_risk/records/{id}/transitions/{name}` | Portal › Riesgos: ficha de `social_risk` | `SocialRiskWorkflowApiTest` | F4 | Diseñado |
 | RN-EWS-001 | [PRM-01 §5] | BC-09 · `sgspe.warning` (`WarningWriteGuard`); `model/roles.json` (`CONFIRM_ALERT`) | `early_warning` | `/api/objects/early_warning/records/{id}/transitions/{name}` | Portal › Riesgos: ficha de `early_warning` | `EarlyWarningWorkflowApiTest`; `security.md` §14 «Cuentas de servicio» | F4 | Diseñado |
 | RN-WFL-001 | [PRM-01 §8] [WAS-ADR-0013] [WAS-ADR-0039] | BC-13 · `sgspe.deadline` (`DeadlineJob`, JOB-01); `model/workflows/*.json` (sin estados de plazo) | `commitment`, `grievance` (desde F4), `inquiry` (desde F4), `stakeholder_request` (desde F4), `task`, `agreement`, `social_risk` (desde F4) | `/api/objects/commitment/records` | Portal › Compromisos; Tareas | `test_model.py`; `workflows.md` §Pruebas «Trabajos» | F3, F4 | Upstream (UPS-17) |
@@ -766,10 +767,10 @@ Tarea 7).
 
 | Estado | Filas que lo llevan |
 |---|---|
-| Diseñado | 230 |
+| Diseñado | 236 |
 | Implementado | 46 |
-| Decisión pendiente | 14 |
-| Upstream | 24 |
+| Decisión pendiente | 10 |
+| Upstream | 22 |
 | Hueco | 0 |
 | Fuera del MVP | 82 |
 
