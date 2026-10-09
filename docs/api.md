@@ -266,16 +266,24 @@ decide ADR-0025 (Propuesto, se acepta en F2).
   obligatorio: sin él, `428`. El comando toma `ClusterLock.withXactLock` sobre `<objeto>:<id>`, relee el registro dentro de su
   transacción y compara; si no coincide, `412` con el valor actual en `errors[]`, y no escribe nada. Dos comandos sobre el
   mismo registro quedan serializados en todas las réplicas, así que la comprobación es atómica [WAS-ADR-0039].
-- **En la API genérica** (`PUT`, `DELETE`, transiciones y vínculos), el portal envía la misma cabecera. Un filtro web de
+- **En la API genérica** (`PUT`, `PATCH`, `DELETE`, transiciones y vínculos), el portal envía la misma cabecera. Un filtro web de
   `sgspe.common` la pone en el contexto de Reactor, como hace el filtro de correlación con su identificador, y una guarda de
   `sgspe.common` la compara con el `updatedAt` almacenado antes de la escritura (`412` si no coincide); la guarda corre en la
   corrutina de la petición, que conserva ese contexto [WAS-ADR-0040]. La API genérica no abre una transacción, así que queda
   una ventana mínima entre la comparación y la escritura hasta que exista UPS-04.
 - **Cuando solo cambiaron derivados.** Si el `updatedAt` leído ya no es el actual, la guarda no responde `412` mientras todo
   lo escrito después sean campos derivados o vínculos (los conteos de asistentes que mueve un participante, el área que
-  recalcula un listener): lo lee del historial de auditoría con los permisos de quien llama. **Límite conocido:** el historial
+  recalcula un listener): lo lee del historial de auditoría con los permisos de quien llama. La versión leída es la
+  escritura cuya entrada del historial cae más cerca del `updatedAt`: desde wasichai 0.5.0, `updatedAt` toma la hora de su
+  sentencia y la entrada, la del inicio de su transacción, así que cae poco antes dentro de una transacción y poco después
+  fuera de ella [WAS-ADR-0051]. **Límite conocido:** el historial
   que lee wasichai 0.3.2 es de a lo sumo 500 entradas, las más recientes; con más de 500 escrituras posteriores a la versión
   leída su entrada queda fuera de la ventana y la respuesta es `412`. Falla cerrado: el portal recarga el registro y repite.
+- **La comparación de wasichai no participa.** Desde 0.5.0 wasichai responde `ETag` con el `updatedAt` entre comillas y
+  compara `If-Match` en la propia escritura, con igualdad estricta [WAS-ADR-0051]. Esa comparación respondería `412` en el
+  caso de los derivados del punto anterior, así que el filtro de `sgspe.common` quita la cabecera de la petición después de
+  guardarla y la precondición sigue siendo solo la de la guarda; la decisión de adoptarla está en
+  [Encaje con wasichai §4.3](platform-fit.md#43-lo-que-trae-wasichai-060). El `PATCH` de 0.5.0 pasa por la misma guarda.
 - **`/admin` no envía la cabecera:** ahí sigue ganando la última escritura (UPS-04).
 - **Precisión:** se compara el texto exacto que devuelve wasichai. Si su serialización recorta la precisión de la columna, dos
   escrituras dentro de la misma unidad no se distinguen; el riesgo desaparece con UPS-04, que retira esta comprobación.

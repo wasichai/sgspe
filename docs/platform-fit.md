@@ -73,7 +73,7 @@ estados copiados del [índice de ADR](adr/README.md).
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
 | Java o Kotlin según el repositorio | Sustituido | Kotlin 2.4.20 sobre JDK 25, como wasichai y caja | WAS-ADR-0024; WAS-DOC guides/build-your-app.md | ADR-0001 | CON-039 | RNF-MNT-001 |
-| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 0.3.2 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
+| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 0.6.0 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
 | Spring Web | Sustituido | Spring WebFlux reactivo; la E/S bloqueante del código propio va a `Dispatchers.IO` | WAS-DOC architecture/overview.md | ADR-0001 | CON-039 | RNF-MNT-005 |
 | Spring Security | Plataforma | Servidor de recursos OAuth2 de WebFlux que valida el JWT HS256 de wasichai; la cadena de core va en `@Order(0)` | WAS-ADR-0010; WAS-DOC security/authentication.md | ADR-0020 | CON-056 | RQ-SEC-001 |
 | Spring Data JPA e Hibernate | Sustituido | Prohibidos: SQL por `DatabaseClient`, registros dinámicos por `RecordService`, una tabla física por objeto | WAS-ADR-0003; WAS-ADR-0004; WAS-DOC architecture/overview.md | ADR-0001, ADR-0008 | CON-039 | RNF-MNT-005 |
@@ -433,6 +433,42 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | El token viaja en `localStorage`, no en una cookie HttpOnly | CON-056, RQ-SEC-001 | CSP, TTL corto; la cookie queda como propuesta upstream |
 | El WMS de GeoServer no autentica | RQ-SEC-011, CON-054 | Proxy autenticado con lista blanca por tenant, que exige READ sobre el objeto de cada capa |
 
+### 4.3 Lo que trae wasichai 0.6.0
+
+El 2026-10-09 el backend pasa de wasichai 0.3.2 a 0.6.0 (0.3.3, 0.4.0, 0.5.0 y 0.6.0; el `CHANGELOG.md` de wasichai tiene
+el detalle). Kotlin, Spring Boot y el JDK no cambian. Las migraciones de core (`V9` a `V17` y el repetible
+`R__audit_purge_role`) y de automation (`V2`) corren solas al arrancar. La actualización neutraliza lo que choca con
+SGSPE y, salvo el identificador de correlación, no adopta nada nuevo: cada adopción es una decisión aparte, y esta tabla
+dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar la mitigación.
+
+| Brecha | Qué trae wasichai | Estado en SGSPE tras la actualización | Para adoptarla |
+|---|---|---|---|
+| UPS-01 | 0.5.0: SPI `RecordReadScope`, que acota las lecturas de una persona en registros, relacionados, auditoría y transiciones [WAS-ADR-0048] | Sin cambios: lectura a nivel de tenant (CON-041, opción A) | Un `RecordReadScope` en `sgspe.scope` con las asignaciones vigentes, cacheadas por petición; decide el checkpoint de CON-041 |
+| UPS-02 | 0.5.0: filas de auditoría para usuarios, roles, permisos y metadata [WAS-ADR-0049] | Resuelta por la actualización | Nada |
+| UPS-03 | 0.5.0: `correlation_id` y `source` en cada fila de `audit_log`, y el identificador en el MDC de todos los logs [WAS-ADR-0050] | Resuelta. `CorrelationIdFilter` corre después del filtro de la plataforma y usa su identificador, así la respuesta, la línea de acceso y la fila de auditoría coinciden | Etiquetar los trabajos con `asPlatform(organización, source = "job:…")` en lugar del prefijo del motivo (ASM-051) |
+| UPS-04 | 0.5.0: `ETag`, `If-Match` comparado en la propia escritura con igualdad estricta, `412` y `PATCH` con mezcla [WAS-ADR-0051] | Neutralizada: `IfMatchFilter` quita `If-Match` antes de la plataforma, porque su comparación estricta respondería `412` donde SGSPE tolera escrituras posteriores de derivados y vínculos (§3.6 de la API), como el área o los conteos que escribe un listener tras el alta. `PATCH` ya responde y pasa por las mismas guardas y la misma precondición de SGSPE | Decidir entre la comparación atómica (sin la tolerancia: el portal vuelve a leer tras cada escritura de un listener) y la propia; `Records.patch` puede pasar a `RecordService.patch` |
+| UPS-05 | 0.5.0: `/api/audit` paginado por cursor y filtrado por período y usuario [WAS-ADR-0052] | Disponible, sin uso | Consulta de auditoría en `sgspe-ui`; `Versions` puede recorrer el historial con `historyPage` y levantar el tope de 500 entradas de §3.6 de la API |
+| UPS-06 | 0.5.0: `capabilities` en `GET /api/auth/me/permissions` [WAS-ADR-0053] | Disponible, sin uso | El portal lee las capacidades en lugar de deducirlas |
+| UPS-07 | 0.6.0: módulo `wasichai-files`, campos `FILE` e `IMAGE` con un SPI de almacenamiento [WAS-ADR-0061] | Disponible, sin uso (no se agrega el starter) | Decidir en F3 si `evidence` usa el campo `FILE` |
+| UPS-09 | 0.6.0: revocación de tokens, límite de intentos de login y política de contraseñas, apagados por defecto [WAS-ADR-0059] | Disponible, apagado | Encender `wasichai.security.jwt.revocation`, `wasichai.security.login.*` y `wasichai.security.password.*` en el perfil de producción |
+| UPS-10 | 0.5.0: acción `MANAGE_TENANTS` y `wasichai.organizations.separate-provisioning` [WAS-ADR-0055] | Disponible, sin uso (por defecto, como antes) | Separar `SUPER_ADMIN` de `ORGANIZATION_ADMIN` en `model/roles.json` |
+| UPS-11 | 0.4.0 y 0.6.0: módulo `wasichai-notifications`, con bandeja, SSE, canales de entrega y preferencias [WAS-ADR-0046] [WAS-ADR-0060] | Disponible, sin uso | Decidir en F3–F4 entre el módulo y las tablas propias de ASM-012 |
+| UPS-12 | 0.5.0: `audit_log` de solo inserción en la base, por disparadores; la purga, solo con `wasichai.audit.purge-role` [WAS-ADR-0054] | Resuelta por la actualización (migración `V13`) | Nada |
+| UPS-14 | 0.6.0: filtro de los resultados de las herramientas, activación por quien llama y tokens por respuesta en wasichai-agent [WAS-ADR-0056] | Disponible, sin uso | Diseño de AI-05 en F7 |
+| UPS-15 | 0.5.0: un alta que omite un campo recibe su `defaultValue` | Resuelta para las altas; el código que lee un parámetro vacío (ASM-019) se queda para los valores borrados | Nada para las altas |
+| UPS-16 | 0.5.0: `direction=forward\|inverse` en los relacionados de una autorrelación | Disponible, sin uso | El portal deja el filtro por campo |
+| UPS-17 | 0.5.0: `TenantDirectory.organizationsWithObject` para los trabajos de fondo [WAS-ADR-0057]; `findAllOrganizations` queda obsoleto | Sin cambios: `Organizations` sigue usando `findAllOrganizations`, que compila con un aviso de obsolescencia | Cambiar `Organizations.having` por `TenantDirectory` y que `ArchitectureTest` rechace `findAllOrganizations` en todo el código |
+| UPS-18 | 0.6.0: `Idempotency-Key` en el alta de la API genérica [WAS-ADR-0058] | Disponible, sin uso | Decidir en F3 si la tabla `idempotency_key` se queda para `/api/sgspe/**` |
+| UPS-21 | 0.4.0: `UserDirectory.idsByEmail` por organización (solo usuarios habilitados) | Disponible, sin uso | `UserReferenceGuard` puede usarlo si un usuario deshabilitado deja de valer como referencia |
+| UPS-20, UPS-22 | Sin cambios: la columna de una relación obligatoria sigue con `ON DELETE SET NULL`, y la API genérica no abre una transacción de la petición | Siguen las mitigaciones | — |
+
+UPS-08, UPS-13 y UPS-19 son de wasichai-ui y se evalúan con la actualización de `@wasichai/*` en `sgspe-ui`.
+
+Además, sin relación con una brecha: `updated_at` toma la hora de cada sentencia (`clock_timestamp()`), así que dos
+escrituras de una misma transacción ya no comparten `updatedAt`; cada respuesta de un registro lleva `ETag`; y la
+plataforma suma `RecordService.createAll`, la acción `NOTIFY` de las automatizaciones y las unidades organizacionales
+(`/api/org-units`), que SGSPE no usa.
+
 ## 5. Patrones de srtm y caja que se reutilizan
 
 caja (wasichai 0.3.2, `@wasichai/*` 0.5.0) es la plantilla vigente; de srtm (todavía en 0.2.0) se toman sobre todo las piezas
@@ -463,12 +499,13 @@ ni el buzón de salida de caja, porque el MVP no integra sistemas externos.
 
 ## 6. Versiones fijadas
 
-Las versiones de wasichai (0.3.2) y de `@wasichai/*` (0.5.0) son líneas independientes [WAS-ADR-0032]: se fijan exactas, se
-actualizan juntas y las pruebas de contrato con la plataforma detectan cambios de comportamiento (RNF-MNT-001).
+Las versiones de wasichai (0.6.0) y de `@wasichai/*` (0.5.0) son líneas independientes [WAS-ADR-0032]: se fijan exactas, se
+actualizan juntas y las pruebas de contrato con la plataforma detectan cambios de comportamiento (RNF-MNT-001). El backend
+pasó de 0.3.2 a 0.6.0 el 2026-10-09 (§4.3); `@wasichai/*` se actualiza en `sgspe-ui`.
 
 | Componente | Versión | Fase | Fuente |
 |---|---|---|---|
-| wasichai (`wasichai-bom` y starters) | 0.3.2 | F1 | [USR-03] RNF-MNT-001 |
+| wasichai (`wasichai-bom` y starters) | 0.6.0 (0.3.2 hasta el 2026-10-09) | F2 | [USR-03] RNF-MNT-001 |
 | `@wasichai/*` | 0.5.0 | F1 | [USR-03] RNF-MNT-001 |
 | Kotlin | 2.4.20 | F1 | WAS-DOC guides/build-your-app.md |
 | Spring Boot | 4.1.1 | F1 | WAS-DOC guides/build-your-app.md |

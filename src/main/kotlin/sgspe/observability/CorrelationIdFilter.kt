@@ -2,7 +2,6 @@ package sgspe.observability
 
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
-import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
@@ -13,19 +12,34 @@ import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
 import reactor.core.publisher.SignalType
 import reactor.util.context.Context
+import wasichai.core.platform.CorrelationIdWebFilter
 
 // antes de la cadena de seguridad de wasichai (WebFilterChainProxy, orden -100), así que toda respuesta lleva el
 // identificador, también un 401. viaja en el contexto de Reactor y en la línea de acceso: una por petición, con método,
 // ruta sin la cadena de consulta, estado, duración e identificador. nunca el cuerpo ni la consulta, que pueden llevar
 // datos personales (security.md §11.6). no depende de ningún paquete de dominio (architecture.md §5.3)
+//
+// desde wasichai 0.5.0 el CorrelationIdWebFilter de la plataforma acepta o genera el identificador con el mismo formato y
+// lo deja en el contexto de Reactor con la misma clave, de donde lo toman sus filas de auditoría [WAS-ADR-0050]. este
+// filtro corre justo después y usa ese, así la respuesta, la línea de acceso y la auditoría dicen lo mismo aunque el
+// cliente no mande ninguno; sin el de la plataforma (la cadena pelada de las pruebas unitarias) lo resuelve él
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(CorrelationIdWebFilter.ORDER + 1)
 class CorrelationIdFilter : WebFilter {
     override fun filter(
         exchange: ServerWebExchange,
         chain: WebFilterChain
+    ): Mono<Void> =
+        Mono.deferContextual { context ->
+            val platform = (context.getOrEmpty<Any>(CorrelationId.KEY).orElse(null) as? String)?.takeIf(CorrelationId::valid)
+            serve(exchange, chain, platform ?: CorrelationId.accept(exchange.request.headers.getFirst(CorrelationId.HEADER)))
+        }
+
+    private fun serve(
+        exchange: ServerWebExchange,
+        chain: WebFilterChain,
+        id: String
     ): Mono<Void> {
-        val id = CorrelationId.accept(exchange.request.headers.getFirst(CorrelationId.HEADER))
         val response = exchange.response
         response.headers.set(CorrelationId.HEADER, id)
         // un manejador de errores puede rehacer las cabeceras: se vuelve a poner justo antes de responder

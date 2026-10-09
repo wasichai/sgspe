@@ -24,6 +24,23 @@ class ConcurrencyApiTest : DomainApiTest() {
         assertEquals(HttpStatus.OK, edit("locality", locality, mapOf("alternative_names" to "Sin precondición")).status)
     }
 
+    // el PATCH de wasichai 0.5.0 [WAS-ADR-0051] pasa por la misma precondición de sgspe, que responde el 412 con su valor
+    // actual: la comparación propia de wasichai no ve el If-Match (IfMatchFilter lo quita)
+    @Test
+    fun `un PATCH tambien se condiciona con la precondicion de sgspe`() {
+        val locality = createRecord("locality", mapOf("name" to "Caserío Ejemplo", "locality_type" to "CASERIO"))
+        val read = record("locality", locality)["updatedAt"].asString()
+        val path = "/api/objects/locality/records/$locality"
+        val first = exchange("PATCH", path, mapOf("attributes" to mapOf("alternative_names" to "Ejemplo Alto")), headers = mapOf(IfMatch.HEADER to "\"$read\""))
+        assertEquals(HttpStatus.OK, first.status, first.body)
+        val stale = exchange("PATCH", path, mapOf("attributes" to mapOf("alternative_names" to "Ejemplo Bajo")), headers = mapOf(IfMatch.HEADER to "\"$read\""))
+        assertEquals(HttpStatus.PRECONDITION_FAILED, stale.status, stale.body)
+        val current = record("locality", locality)
+        assertEquals("Ejemplo Alto", current["attributes"]["alternative_names"].asString())
+        assertEquals("Caserío Ejemplo", current["attributes"]["name"].asString())
+        assertEquals("valor actual ${current["updatedAt"].asString()}", tree(stale.body)["errors"][0]["message"].asString())
+    }
+
     @Test
     fun `una transicion y un borrado tambien se condicionan, y un If-Match que no es un instante es 400`() {
         val project = projectWithCrs()

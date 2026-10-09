@@ -70,6 +70,7 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
                 "GET" -> client.get().uri(path)
                 "DELETE" -> client.delete().uri(path)
                 "PUT" -> client.put().uri(path).bodyValue(body!!)
+                "PATCH" -> client.patch().uri(path).bodyValue(body!!)
                 "POST" -> if (body == null) client.post().uri(path) else client.post().uri(path).bodyValue(body)
                 else -> error("método $method")
             }

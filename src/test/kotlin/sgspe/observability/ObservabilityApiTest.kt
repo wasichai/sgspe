@@ -61,4 +61,22 @@ class ObservabilityApiTest : SgspeApiTest() {
         assertTrue(lines.isNotEmpty() && lines.all { format.containsMatchIn(it) }, lines.toString())
         assertFalse(output.out.contains("secreto-de-prueba"))
     }
+
+    // desde wasichai 0.5.0 cada fila de auditoría guarda el identificador de su petición [WAS-ADR-0050]: la respuesta, la
+    // línea de acceso y la fila dicen el mismo, también cuando el cliente no manda ninguno y los dos filtros lo generan
+    @Test
+    fun `la fila de auditoria y la linea de acceso llevan el identificador de la respuesta aunque el cliente no mande ninguno`(output: CapturedOutput) {
+        val name = uniqueName("correlado")
+        createObject(name, listOf(field("visits", "INTEGER")))
+        val created = exchange("POST", "/api/objects/$name/records", mapOf("attributes" to mapOf("visits" to 1)))
+        assertEquals(HttpStatus.CREATED, created.status, created.body)
+        val returned = id(created)!!
+        UUID.fromString(returned)
+        val record = tree(created.body)["id"].asString()
+        val history = tree(send("GET", "/api/objects/$name/records/$record/history", null, HttpStatus.OK))
+        assertEquals(returned, history.values().single()["correlationId"].asString())
+        val deadline = System.nanoTime() + 5_000_000_000
+        while (!output.out.contains("correlationId=$returned") && System.nanoTime() < deadline) Thread.sleep(50)
+        assertTrue(Regex("""POST /api/objects/$name/records 201 \d+ms correlationId=$returned""").containsMatchIn(output.out))
+    }
 }
