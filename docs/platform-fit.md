@@ -261,7 +261,7 @@ Cada evento de ejemplo del prompt tiene su mecanismo; los avisos que generan los
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
 | Notificaciones en la aplicación y abstracción de correo | Plataforma + SGSPE | wasichai-notifications (bandeja, SSE y correo); SGSPE decide destinatarios y textos | WAS-ADR-0046; WAS-ADR-0060 | ADR-0018 | CON-058, UPS-11 | RF-NTF-001, ASM-012 |
-| Por vencer, vencido, plazo de queja, escalamiento de riesgo, aprobación pendiente y tarea vencida | SGSPE | `DeadlineJob` y `NotificationListener`, con clave de deduplicación | WAS-ADR-0039 | ADR-0018 | — | RF-NTF-001, RF-WFL-004 |
+| Por vencer, vencido, plazo de queja, escalamiento de riesgo, aprobación pendiente y tarea vencida | SGSPE | `DeadlineJob` (JOB-01) y la fuente de avisos de plazo `DeadlineNotices` de wasichai-notifications, con clave estable por aviso | WAS-ADR-0039 | ADR-0018 | — | RF-NTF-001, RF-WFL-004 |
 | No notificar desde las entidades; usar eventos de aplicación | SGSPE | Solo listeners y trabajos crean avisos | WAS-ADR-0025 | ADR-0018 | — | RN-NTF-001 |
 | Responder WHO, WHAT, WHEN, WHY, FROM y TO | Plataforma | `audit_log` (tabla siguiente) | WAS-ADR-0040; WAS-ADR-0041 | ADR-0011 | — | RQ-AUD-001, RQ-AUD-002 |
 | Implementar auditoría | Plataforma + SGSPE | `requiresReason` en los objetos críticos, `appendOnly` en la historia y `export_log` para las salidas | WAS-ADR-0040; WAS-ADR-0041 | ADR-0011 | — | RQ-AUD-003, RQ-AUD-011, ASM-058 |
@@ -381,7 +381,7 @@ el plan de implementación y la validación de consistencia. El paso 14 (empezar
 | BC-10 Inversión social | `social_contribution` `requiresReason`; `program_measurement` `appendOnly` | WF-G, WF-P | Acta de recepción al entregar el aporte | Ubicación de iniciativas | `SupportPolicyGuard`, `InvestmentWriteGuard`, `ContributionTotalsListener` | `sgspe.investment` | F5 (tope en F3) |
 | BC-12 Evidencias | `evidence` `apiOnly` con guarda de inmutabilidad | — | Documentos emitidos de wasichai-documents | Ubicación de la foto | `EvidenceWriteGuard` | `sgspe.evidence` | F3 |
 | BC-13 Tareas | `task` con único `generator_key` | WF-N | Las automatizaciones crean tareas | — | `ExactlyOneGuard`, `DeadlineJob` | `sgspe.deadline` | F3 |
-| BC-14 Notificaciones | Tablas fijas, no Custom Objects | — | — | — | `NotificationListener`, envío SMTP | `sgspe.notification` | F3 |
+| BC-14 Notificaciones | Tablas fijas, no Custom Objects | — | — | — | `ApprovalNoticeListener`, `DeadlineNotices` | `sgspe.notification` | F3 |
 | BC-15 Reportes y entregables | `indicator`; `indicator_measurement`, `deliverable_version` y `export_log` `appendOnly` y `apiOnly`; `deliverable` `requiresReason`, con las acciones `APPROVE`, `GENERATE`, `ISSUE`, `EXPORT` y `DOWNLOAD_RESTRICTED` | WF-H | — | GetMap de GeoServer para mapas de informe | `DeliverableWriteGuard`, trabajador de generación | `sgspe.dashboard`, `sgspe.deliverable`, `sgspe.privacy` | F2–F8 |
 | BC-16 Identidad | Usuarios, roles, permisos, acciones declaradas y cuentas de servicio de wasichai; `project_assignment` | — | — | — | `ProjectScopeGuard`, `AssignmentRoleGuard`, `EditAnyGuard` | `sgspe.scope` | F1 |
 | BC-17 Auditoría | `audit_log` de wasichai; `export_log` | — | — | Sin coordenadas en la auditoría | — | `sgspe.observability`, `sgspe.privacy` | F1 |

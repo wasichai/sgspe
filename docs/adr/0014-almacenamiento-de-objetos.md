@@ -3,7 +3,7 @@
 ## Estado
 
 Aceptado · 2026-10-09 · decisión D1 del usuario: las evidencias usan el campo `FILE` de wasichai-files (UPS-07,
-WAS-ADR-0061); el puerto propio queda para los entregables de F8
+WAS-ADR-0061); los entregables de F8 (`FileStore` del mismo módulo o puerto propio) se deciden con su plan
 
 ## Contexto
 
