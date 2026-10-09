@@ -20,7 +20,7 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 | E1 | Visión, dominio, roles, arquitectura de información, navegación, hilo de contexto, design system y patrones núcleo | Páginas 00 a 04 (17 hojas) | [`ux-architecture.md`](ux-architecture.md), [`design-system.md`](design-system.md), [`tokens.css`](tokens.css) | Entregada, en revisión |
 | E2 | Project 360 y territorio (GIS), grupos de interés, relacionamiento, compromisos y acuerdos | Lienzo de la etapa 2, páginas 05 a 10 (28 hojas) | [`screens.md`](screens.md) (S06–S26, S28–S33), [`flows.md`](flows.md) (flujos 1–11, 16 y 17) | Entregada, en revisión |
 | E3 · parte 3a | QCS, riesgos y alerta temprana, programas e inversión, documentos, tareas y aprobaciones | Lienzo de la etapa 3, páginas 11 a 15 (18 hojas) | [`screens.md`](screens.md) (S35–S48 y la ficha de incidente), [`flows.md`](flows.md) (flujos 12–15) | Entregada, en revisión |
-| E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S38, S49–S55 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
+| E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S49–S55, S62 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
 | Decisiones Q1, Q3, Q6 y Q7, y temas | Marca propia, idiomas, vistas compartidas, mapa base y tres temas | Lienzo de la etapa 3, páginas 22 a 25 (11 hojas) | [`design-system.md`](design-system.md) §2.1, §5, §6.4 y §9.1; [`screens.md`](screens.md) (S01, S12, S16, S28, S35 y S56); [`../gis.md`](../gis.md) §6.4; [`themes.css`](themes.css) y `design-system.md` §3.9; ASM-082 a ASM-086 | Entregada, en revisión |
 
 ## Cómo leer
@@ -63,12 +63,12 @@ etapa 1.
 
 | Página | Hojas |
 |---|---|
-| 11 Quejas, consultas y solicitudes | Índice de la etapa · Lista unificada (S35) · Registrar QCS (S37) · Ficha de queja, interactiva (S36) · Fichas de consulta y de solicitud (S36) |
+| 11 Quejas, consultas y solicitudes | Índice de la etapa · Lista unificada (S35) · Registrar QCS (S37) · Ficha de queja, interactiva (S36) · Fichas de consulta y de solicitud (S57) |
 | 12 Riesgos y alerta temprana | Registro y matriz, interactiva (S38–S39) · Ficha de riesgo (S40) · Centro de alerta temprana, interactiva (S41) · Ficha de incidente |
 | 13 Programas e inversión | Programas y aportes (S42) · Ficha de programa (S43) · Aporte social con sus políticas (S44) |
 | 14 Documentos, tareas y aprobaciones | Biblioteca (S45) · Ficha de evidencia (S46) · Mis tareas en lista, tablero y calendario, interactiva (S47) · Aprobaciones y escalamientos (S48) |
 | 15 Flujos | Flujos 12 y 13 (queja) · Flujos 14 y 15 (riesgo y mitigación), en carriles por rol |
-| 16 Tableros | Revisión ejecutiva de 5 minutos (S51) · Monitoreo de la Tabla 9.5, interactiva · Compromisos (S27) · QCS (S34) · Riesgos (S38) · Territorial · Inversión social |
+| 16 Tableros | Revisión ejecutiva de 5 minutos (S51) · Monitoreo de la Tabla 9.5, interactiva · Compromisos (S27) · QCS (S34) · Riesgos (S62) · Territorial · Inversión social |
 | 17 Capa de IA | Panel del asistente, interactiva (S05) · Respuesta con citas (AI-06) · Bandeja de revisión (S52) · Posible duplicado (AI-07) · Resumen ejecutivo y borrador de sección (AI-04) |
 | 18 Inicio y transversales | Login (S01) · Inicio por rol, interactiva (S02) · Avisos (S04) · Reportes y exportaciones (S49) · Entregable por secciones (S50) · Administración (S53) |
 | 19 Campo sin conexión | Mis tareas y visita (S54) · Interacción, observación y foto (S55) · Estado de conexión y cola · Sincronización y conflictos |

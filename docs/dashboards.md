@@ -99,7 +99,8 @@ borrador o un compromiso pendiente de aprobación no tiene plazo en curso. Adem�
 - **Reunión informativa (#7, #8 y #9):** interacción realizada de tipo REUNION INFORMATIVA o TALLER, como agrupa el glosario
   [DOC-01 §9.1.1.2].
 - **Vencido y por vencer:** `deadline_status` VENCIDO o POR VENCER, que `DeadlineJob` recalcula cada hora; "por vencer" usa
-  `due_soon_days` del proyecto, 7 días por defecto (ASM-006, RN-WFL-001).
+  `due_soon_days` del proyecto, 7 días por defecto (ASM-006, RN-WFL-001); en una QCS, POR VENCER empieza a lo sumo a la
+  mitad del plazo (ASM-100).
 - **Cumplimiento:** `fulfilled_date` solo se lee en un compromiso cumplido (§3.2). Volver a ejecución (`reopen_execution`) la
   vacía, y se escribe de nuevo en el siguiente cumplimiento (§12).
 - **Reclasificación:** reclasificar una QCS crea el registro del otro tipo, con el vínculo `reclassified_from_*`, y cierra el
@@ -107,9 +108,11 @@ borrador o un compromiso pendiente de aprobación no tiene plazo en curso. Adem�
   - El registro nuevo copia el `received_at` del primer registro de la cadena, y sus plazos corren desde esa fecha (ASM-072).
     Así cada registro ya trae la fecha en que llegó el planteamiento, y los cortes por periodo y el tiempo de atención usan su
     propio `received_at`.
-  - El planteamiento cuenta una sola vez, como el último registro de la cadena: los originales a los que apunta otra QCS por
-    `reclassified_from_grievance`, `reclassified_from_inquiry` o `reclassified_from_request` no cuentan como recibidos, cerrados
-    ni atendidos.
+  - El planteamiento cuenta una sola vez, como el último registro de la cadena: los originales a los que apunta otra QCS
+    por `reclassified_from_grievance`, `reclassified_from_inquiry` o `reclassified_from_request` no cuentan como
+    recibidos, cerrados ni atendidos.
+  - Lo cuenta `AttentionCounting` (`sgspe.common`), la misma función pura en el reporte unificado, los KPI-GRV, la
+    exportación PUBLICO de `attention-register` y la regla CONTEO DE QCS de JOB-04.
 - **Absuelta:** una QCS con `responded_at` (glosario), en cualquier estado. Una queja rechazada o una consulta derivada cuentan si
   se registró la respuesta comunicada.
 - **Riesgo alto:** `risk_level` ALTO o CRITICO, según los umbrales del proyecto (ASM-004, RN-RSK-002).
@@ -170,7 +173,7 @@ qué cortes ofrece; **Actualización**, según §3.4; **Fase**, cuándo aparece 
 | KPI-ENG-02 | #5 Reuniones sostenidas al mes | Reuniones realizadas en cada mes frente a la meta, que DOC-01 sugiere en al menos dos | Por mes, número de reuniones realizadas (§3.3). Meta: `meetings_per_month_target` del `engagement_plan` vigente en el mes (con dos o más vigentes, el de `start_date` más reciente) o, si no hay, el del `project` (2 por defecto); con varios proyectos, la suma. La meta del periodo suma la de cada uno de sus meses, aunque pase de 12; un mes que el periodo cubre en parte cuenta su meta entera | `engagement.engagement_type`, `held_at`, `workflow_state`; `engagement_plan.meetings_per_month_target`, `start_date`, `end_date`; `project.meetings_per_month_target` | Proyecto, periodo, territorio; desglose por tipo | RQ-DSH-011, RN-ENG-003, RF-ENG-007 | Vivo | F2 |
 | KPI-ENG-03 | #7 Asistentes por reunión informativa | Participantes de cada reunión informativa, su porcentaje por sexo y ámbito y la organización que representan | Por reunión informativa realizada en el periodo: `attendees_total_count`; porcentajes con `attendees_female_count` y `attendees_male_count` y con los conteos por ámbito; organizaciones de sus participantes con `attended` (`organization` o `represented_group`). También el total y el promedio del periodo | `engagement.attendees_total_count`, `attendees_female_count`, `attendees_male_count`, `attendees_direct_area_count`, `attendees_indirect_area_count`, `attendees_regional_count`, `attendees_national_count`; `engagement_participant.organization`, `represented_group`, `attended` | Proyecto, periodo, territorio | RQ-DSH-012, RF-ENG-004 | Vivo (derivado) | F2 |
 | KPI-ENG-04 | #8 Temas consultados | Temas tratados en las reuniones informativas y su frecuencia | Por `topic`: número de reuniones informativas realizadas en el periodo que lo trataron (M2M `engagement_topic`) y número de preguntas de esas reuniones con ese tema (`engagement_question.topic`) | M2M `engagement_topic`; `engagement_question.topic`; `topic.name`, `parent_topic` | Proyecto, periodo, territorio; agrupación por tema padre | RQ-DSH-013, RF-ENG-012 | Vivo | F2 |
-| KPI-ENG-05 | #9 Inquietudes resueltas | Porcentaje de inquietudes resueltas en las reuniones informativas | Preguntas absueltas ÷ preguntas efectuadas [DOC-01 Tabla 9.5], sobre las `engagement_question` de reuniones informativas realizadas en el periodo. Absuelta: `answered_on_site` o con `answered_at`. Desde F4, una pregunta derivada cuenta cuando la QCS a la que se derivó tiene `responded_at`; si esa QCS se reclasificó, cuando lo tiene el último registro de la cadena (§3.3) | `engagement_question.answered_on_site`, `answered_at`, `engagement`; `origin_question`, `responded_at` y vínculos `reclassified_from_*` de las QCS | Proyecto, periodo, territorio; desglose por tema | RQ-DSH-014, RF-ENG-003, RN-ENG-005 | Vivo | F2 |
+| KPI-ENG-05 | #9 Inquietudes resueltas | Porcentaje de inquietudes resueltas en las reuniones informativas | Preguntas absueltas ÷ preguntas efectuadas [DOC-01 Tabla 9.5], sobre las `engagement_question` de reuniones informativas realizadas en el periodo. Absuelta: `answered_on_site` o con `answered_at`. Desde F4, una pregunta derivada cuenta cuando la QCS a la que se derivó tiene `responded_at`; si esa QCS se reclasificó, cuando lo tiene el último registro de la cadena (§3.3). Lee como quien llama: una pregunta derivada a una QCS confidencial que no lee no cuenta como absuelta, y la respuesta lleva `confidentialHidden` (§8) | `engagement_question.answered_on_site`, `answered_at`, `engagement`; `origin_question`, `responded_at` y vínculos `reclassified_from_*` de las QCS | Proyecto, periodo, territorio; desglose por tema | RQ-DSH-014, RF-ENG-003, RN-ENG-005 | Vivo | F2 |
 | KPI-ENG-06 | #11 Monitoreos participativos de agua | Monitoreos ambientales del agua hechos con participación de grupos de interés y un agente independiente | Número de `engagement` realizadas de tipo MONITOREO PARTICIPATIVO en el periodo (ASM-029), con sus grupos de interés participantes; el agente independiente y los resultados constan en sus `evidence` | `engagement.engagement_type`, `held_at`, `workflow_state`; M2M `engagement_stakeholder`; `engagement_participant.organization` | Proyecto, periodo, territorio | RQ-DSH-015, ASM-029 | Vivo | F4 |
 | KPI-ENG-07 | #12 Comunicados sobre compromisos cumplidos | Comunicados en medios que informan sobre compromisos cumplidos | Número de `media_mention` con `reports_fulfilled_commitment` y `published_date` en el periodo (ASM-029) | `media_mention.reports_fulfilled_commitment`, `published_date`, `commitment`, `outlet` | Proyecto, periodo | RQ-DSH-016, ASM-029 | Vivo | F4 |
 | KPI-ENG-08 | #13 Medios con información positiva y negativa | Porcentaje de medios que presentan información positiva o negativa | Menciones del periodo de cada `tone` ÷ menciones del periodo; además, medios distintos (`outlet` u `outlet_name`) con al menos una mención de cada tono ÷ medios con menciones | `media_mention.tone`, `outlet`, `outlet_name`, `published_date`, `topic` | Proyecto, periodo; desglose por medio y tema | RQ-DSH-017, RF-EWS-002 | Vivo | F4 |
@@ -193,8 +196,9 @@ qué cortes ofrece; **Actualización**, según §3.4; **Fase**, cuándo aparece 
 
 ### 4.5 Quejas, consultas y solicitudes (`KPI-GRV`)
 
-Los indicadores de QCS leen los tres objetos: `grievance`, `inquiry` y `stakeholder_request`; no hay un objeto "QCS" genérico
-(§6.7 del modelo de dominio).
+Los indicadores de QCS leen los tres objetos: `grievance`, `inquiry` y `stakeholder_request`; no hay un objeto "QCS"
+genérico (§6.7 del modelo de dominio). Leen como quien llama: una QCS confidencial que no lee no cuenta (ASM-095), y la
+respuesta de cada KPI-GRV y del tablero `attention` lo dice con `confidentialHidden` (§8).
 
 | ID | Indicador | Definición | Fórmula | Fuente | Filtros y desgloses | Requisitos | Actualización | Fase |
 |---|---|---|---|---|---|---|---|---|
@@ -205,7 +209,7 @@ Los indicadores de QCS leen los tres objetos: `grievance`, `inquiry` y `stakehol
 | KPI-GRV-05 | Quejas rechazadas | Quejas rechazadas, y aparte las desistidas | Número de quejas en `rejected` con `closed_date` en el periodo (y aparte en `withdrawn`): `closed_date` guarda la fecha de la transición a cualquier estado final (§12). Un original reclasificado nunca está en `rejected`: se cierra en `closed`. Las solicitudes declinadas se ven en el desglose por estado de KPI-GRV-02 | `grievance.workflow_state`, `closed_date` (derivado) | Proyecto, periodo, territorio | RQ-DSH-022 | Vivo | F4 |
 | KPI-GRV-06 | QCS fuera de plazo | QCS abiertas cuyo plazo de atención venció | Número de QCS abiertas con `deadline_status` VENCIDO | `deadline_status`, `workflow_state`, `ack_due_date`, `response_due_date`, `resolution_due_date` | Proyecto, territorio, tipo, responsable | RQ-DSH-022, RF-GRV-006 | Vivo (plazo horario) | F4 |
 | KPI-GRV-07 | #6 QCS absueltas | Porcentaje de quejas, consultas o solicitudes absueltas por el proyecto | Planteamientos recibidos en el periodo (KPI-GRV-01) con respuesta registrada (`responded_at`), en cualquier estado ÷ planteamientos recibidos en el periodo. "Absuelta" es "respondida" (glosario); un original reclasificado no cuenta, porque el caso sigue en el registro nuevo (§3.3) | `received_at`, `responded_at`, vínculos `reclassified_from_*` | Proyecto, periodo, territorio; desglose por tipo | RQ-DSH-023, RF-GRV-003, RF-GRV-005 | Vivo | F4 |
-| KPI-GRV-08 | Desgloses de QCS | Cómo se reparten las QCS recibidas y abiertas | KPI-GRV-01 y KPI-GRV-02, con su regla de reclasificación, por severidad (`grievance.severity`), categoría (`category`), territorio (`locality`, `community`), grupo de interés (`stakeholder`; las anónimas aparte) y canal, los 10 primeros más "Otros" | `severity`, `category`, `locality`, `community`, `stakeholder`, `anonymous`, `channel` | Proyecto, periodo, territorio | RQ-DSH-024 | Vivo | F4 |
+| KPI-GRV-08 | Desgloses de QCS | Cómo se reparten las QCS recibidas y abiertas | KPI-GRV-01 y KPI-GRV-02, con su regla de reclasificación, por severidad (`grievance.severity`), categoría (`category`), territorio (`locality`, `community`), grupo de interés (`stakeholder`; las anónimas aparte) y canal, los 10 primeros más "Otros". El tablero es interno y no aplica celdas pequeñas: lee como quien llama, así que las QCS confidenciales que no ve ya quedan fuera (§8) | `severity`, `category`, `locality`, `community`, `stakeholder`, `anonymous`, `channel` | Proyecto, periodo, territorio | RQ-DSH-024 | Vivo | F4 |
 | KPI-GRV-09 | QCS recibidas frente a cerradas por mes | Ritmo de entrada y de salida de las QCS | Dos series mensuales de 12 meses, por tipo: recibidas, como en KPI-GRV-01, y cerradas, como en KPI-GRV-04 (sin originales reclasificados, §3.3) | `received_at`, `closed_date` (derivado), vínculos `reclassified_from_*` | Proyecto, territorio, tipo | RQ-DSH-024, RQ-DSH-003 | Vivo | F4 |
 | KPI-GRV-10 | Tiempo de atención | Días que toma atender una QCS y cumplimiento de sus plazos | Mediana de días desde `received_at` (que en un registro reclasificado es el del primero de la cadena, ASM-072) hasta `resolved_date` en quejas y hasta `responded_at` en consultas y solicitudes, sobre las atendidas en el periodo; porcentaje dentro de plazo frente a `resolution_due_date` (quejas) y `response_due_date` (consultas), con los plazos de ASM-005. Las solicitudes no tienen plazo por defecto (GAP-005) y solo muestran la mediana | `received_at`, `resolved_date` (derivado), `responded_at`, `resolution_due_date`, `response_due_date` | Proyecto, periodo, territorio, tipo, `severity` | RQ-DSH-025, ASM-005 | Vivo | F4 |
 
@@ -540,9 +544,16 @@ como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestr
     su endpoint responde 409 (§10). Un periodo cerrado no abre la postura a quien no puede leerla.
   - Mostrar esos agregados a más roles es una decisión del checkpoint. `security.md` prevé hacerlo publicando la cifra oficial
     del periodo en `indicator_measurement` (ASM-042); solo entonces el cierre los congelaría para esos roles.
+- **QCS confidenciales (F4, ASM-095).** Los KPI-GRV, el tablero `attention` y KPI-ENG-05 leen como quien llama, así que
+  excluyen las QCS confidenciales que la persona no ve (`security.md` §9.6). Su respuesta lleva `confidentialHidden:
+  true` cuando quien llama no es `ADMIN` ni tiene `READ_CONFIDENTIAL` sobre los tres objetos: un booleano, nunca el
+  número de excluidas, y la interfaz avisa que la cifra puede no incluirlas.
+- **Celdas pequeñas.** Los tableros son internos y no aplican `SmallCells`: la supresión de celdas de menos de 5 rige
+  solo en las salidas PUBLICO (ASM-088). Un desglose de KPI-GRV-08 por grupo de interés o canal muestra lo que quien
+  llama ya puede leer registro por registro.
 - **Registros propios.** Desde ASM-069, `FIELD_AGENT` no usa `own_records_only`: la guarda de `EDIT_ANY` limita lo que
-  actualiza, no lo que lee (RQ-SEC-008). Si un rol usara `own_records_only`, la plataforma filtraría en silencio sus lecturas
-  [WAS-ADR-0020] y sus cifras serían parciales. `security.md` decide qué roles ven tableros.
+  actualiza, no lo que lee (RQ-SEC-008). Si un rol usara `own_records_only`, la plataforma filtraría en silencio sus
+  lecturas [WAS-ADR-0020] y sus cifras serían parciales. `security.md` decide qué roles ven tableros.
 - **Alcance.** El alcance por proyecto de los endpoints de indicadores depende de UPS-01 (RQ-SEC-006). Mientras tanto rige la
   lectura que decida CON-041, con recomendación A (lectura a nivel de tenant en el MVP). El filtro de proyecto por defecto son
   las asignaciones de la persona (RF-PRJ-005), que es una comodidad y no un control de acceso.

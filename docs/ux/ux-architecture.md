@@ -323,7 +323,7 @@ El lienzo trae un prototipo navegable de este recorrido ("Hilo de contexto"):
 
 ## 9. Inventario de pantallas
 
-Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083). "Etapa" es la etapa de diseño en que se dibujan; "Fase",
+Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083), más S57 a S62 de la Fase 4 (plan 4.0): la ficha de consulta y solicitud, que compartía S36 con la queja, las de menciones, señales, reglas e impactos, y el tablero de riesgos, que compartía S38 con el registro y matriz. "Etapa" es la etapa de diseño en que se dibujan; "Fase",
 cuándo llega el módulo. La ficha de handoff de cada pantalla (ruta, roles, datos, API, estados, permisos, árbol de componentes)
 está en [`screens.md`](screens.md), completa desde la etapa 3.
 
@@ -364,9 +364,9 @@ está en [`screens.md`](screens.md), completa desde la etapa 3.
 | S33 | Acuerdo o convenio | `/projects/:projectId/agreements/:agreementId` | F3 | E2 |
 | S34 | Tablero de QCS | `/attention/dashboard` | F4, F8 | E3 |
 | S35 | Lista unificada de QCS | `/attention` | F4 | E3 |
-| S36 | Ficha de queja, consulta o solicitud | `/projects/:projectId/grievances/:id` (y pares) | F4 | E3 |
+| S36 | Ficha de queja | `/projects/:projectId/grievances/:id` | F4 | E3 |
 | S37 | Registrar QCS | `/projects/:projectId/attention/new` | F4 | E3 |
-| S38 | Tablero y matriz de riesgos | `/risks` | F4, F8 | E3 |
+| S38 | Matriz de riesgos (con el registro) | `/risks/register` | F4 | E3 |
 | S39 | Registro de riesgos | `/risks/register` | F4 | E3 |
 | S40 | Ficha de riesgo | `/projects/:projectId/risks/:riskId` | F4 | E3 |
 | S41 | Centro de alerta temprana | `/risks/warnings` | F4 | E3 |
@@ -385,6 +385,12 @@ está en [`screens.md`](screens.md), completa desde la etapa 3.
 | S54 | Campo: mis tareas y visita | `/tasks`, `/field-visits` (móvil) | F2, F3 | E3 |
 | S55 | Campo: interacción, observación y foto | `/projects/:projectId/engagements/new` (móvil) | F2 | E3 |
 | S56 | Gestionar vistas (ASM-083) | `/views` y diálogo en cada lista | F2 | E3 |
+| S57 | Ficha de consulta y ficha de solicitud | `/projects/:projectId/inquiries/:id`, `/projects/:projectId/requests/:id` | F4 | E3 |
+| S58 | Menciones en medios | `/projects/:projectId/risks/mentions` | F4 | Plan 4.0, sin hoja |
+| S59 | Señales de alerta | `/projects/:projectId/risks/signals` | F4 | Plan 4.0, sin hoja |
+| S60 | Reglas de alerta | `/risks/rules`, `/projects/:projectId/risks/rules` | F4 | Plan 4.0, sin hoja |
+| S61 | Impactos potenciales | `/projects/:projectId/risks/impacts` | F4 | Plan 4.0, sin hoja |
+| S62 | Tablero de riesgos | `/risks` | F4, F8 | E3 |
 
 Absorbidas o movidas respecto de PRM-02: "Project Detail" y "Project Dashboard" son el Resumen de Project 360; "Early Warning
 Center" vive en Riesgos; "Grievance Dashboard" es el tablero de QCS; "Approval Center" es Tareas › Aprobaciones. Agregadas por
