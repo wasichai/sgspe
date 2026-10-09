@@ -55,7 +55,11 @@ class ModelOfF3Tests(unittest.TestCase):
         self.assertEqual(sorted(name for name, _ in workflows),
                          ["agreement", "area_of_influence", "commitment", "commitment_candidate", "engagement",
                           "field_visit", "project", "stakeholder", "task"])
-        self.assertEqual((types, automations), ([], []))
+        self.assertEqual([(obj, t["name"]) for obj, t in types],
+                         [("engagement", "meeting-minutes"), ("engagement", "attendance-list")])
+        self.assertEqual([(obj, a["name"]) for obj, a in automations],
+                         [("commitment", "aut-01-commitment-execution-task"), ("engagement", "aut-05-meeting-minutes"),
+                          ("engagement", "aut-10-engagement-reschedule-task")])
 
 
 class ValidationTests(unittest.TestCase):
@@ -859,20 +863,20 @@ class NewTenantTests(unittest.TestCase):
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
         self.assertIn("done: 232 created, 15 updated, 0 skipped", runs[0][1])
         self.assertIn("done: 15 created, 0 updated, 0 skipped", runs[1][1])
-        self.assertIn("done: 9 workflows (9 created, 0 updated, 0 skipped), 0 document types (0 created, 0 updated, "
-                      "0 skipped), 0 automations (0 created, 0 updated, 0 skipped)", runs[2][1])
+        self.assertIn("done: 9 workflows (9 created, 0 updated, 0 skipped), 2 document types (2 created, 0 updated, "
+                      "0 skipped), 3 automations (3 created, 0 updated, 0 skipped)", runs[2][1])
         self.assertEqual(sorted(core.roles), sorted(r["name"] for r in load(ROLES_PATH)["roles"]))
         self.assertEqual(sorted(core.workflows), ["agreement", "area_of_influence", "commitment", "commitment_candidate",
                                                   "engagement", "field_visit", "project", "stakeholder", "task"])
-        self.assertEqual(core.automations, {})
+        self.assertEqual(sorted(core.automations), ["commitment", "engagement"])
         again = [quiet(apply.main, ["--model", MODEL_PATH, *login]),
                  quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login]),
                  quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])]
         self.assertEqual([code for code, _, _ in again], [0, 0, 0], again)
         self.assertIn("done: 0 created, 0 updated, 232 skipped", again[0][1])
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1][1])
-        self.assertIn("done: 9 workflows (0 created, 0 updated, 9 skipped), 0 document types (0 created, 0 updated, "
-                      "0 skipped), 0 automations (0 created, 0 updated, 0 skipped)", again[2][1])
+        self.assertIn("done: 9 workflows (0 created, 0 updated, 9 skipped), 2 document types (0 created, 0 updated, "
+                      "2 skipped), 3 automations (0 created, 0 updated, 3 skipped)", again[2][1])
 
     def test_a_tenant_of_f2_moves_to_f3_adding_only_what_f3_brings(self):
         # Review Focus 1: el modelo de F2 sale de model.json con las fases de las fichas (168 creados y 11 conjuntos, como

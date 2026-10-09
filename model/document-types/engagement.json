@@ -1,0 +1,55 @@
+[
+  {
+    "name": "meeting-minutes",
+    "label": "Minuta de reunión",
+    "prefix": "MR",
+    "template": { "type": "doc", "content": [
+      {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "platformValue", "attrs": {"value": "documentName"}}, {"type": "text", "text": " "}, {"type": "platformValue", "attrs": {"value": "documentNumber"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Interacción: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "title"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Tipo: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "engagement_type"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Fecha y hora: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "held_at"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Lugar: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "place"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Objetivo: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "objective"}}]},
+      {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Minuta"}]},
+      {"type": "paragraph", "content": [{"type": "objectField", "attrs": {"field": "minutes"}}]},
+      {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Resultados"}]},
+      {"type": "paragraph", "content": [{"type": "objectField", "attrs": {"field": "results"}}]},
+      {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Asistencia"}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Asistentes: "}, {"type": "objectField", "attrs": {"field": "attendees_total_count"}}, {"type": "text", "text": " (mujeres: "}, {"type": "objectField", "attrs": {"field": "attendees_female_count"}}, {"type": "text", "text": "; hombres: "}, {"type": "objectField", "attrs": {"field": "attendees_male_count"}}, {"type": "text", "text": ")"}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Emitida el "}, {"type": "platformValue", "attrs": {"value": "today"}}, {"type": "text", "text": "."}]}
+    ] }
+  },
+  {
+    "name": "attendance-list",
+    "label": "Lista de asistentes",
+    "prefix": "LA",
+    "template": { "type": "doc", "content": [
+      {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "platformValue", "attrs": {"value": "documentName"}}, {"type": "text", "text": " "}, {"type": "platformValue", "attrs": {"value": "documentNumber"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Interacción: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "title"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Tipo: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "engagement_type"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Fecha y hora: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "held_at"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Lugar: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "place"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Asistentes registrados: "}, {"type": "objectField", "attrs": {"field": "attendees_total_count"}}]},
+      {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Nombres y firmas"}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Cada asistente escribe su nombre, su cargo u organización y su firma."}]},
+      { "type": "orderedList", "content": [
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Nombre: ______________________  Cargo u organización: ______________________  Firma: ______________"}]}]}
+      ] },
+      {"type": "paragraph", "content": [{"type": "text", "text": "Emitida el "}, {"type": "platformValue", "attrs": {"value": "today"}}, {"type": "text", "text": "."}]}
+    ] }
+  }
+]
