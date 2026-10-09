@@ -134,8 +134,9 @@ class TotalsTests(unittest.TestCase):
 
     def test_totales_de_las_fichas(self):
         cards = self.cards
-        # 91 desde F3: las tablas de avisos de §18 se retiraron con la decisión D2 (ASM-012)
-        self.assertEqual(len(cards), 91)
+        # 91 desde F3: las tablas de avisos de §18 se retiraron con la decisión D2 (ASM-012); 92 con la tabla fija
+        # derived_version (ADR-0027)
+        self.assertEqual(len(cards), 92)
         f2 = [c for c in cards.values() if c.phase == "F2"]
         fields = [f for c in f2 for f in c.fields if design_docs.field_phase(c, f) == "F2"]
         rels = [r for c in f2 for r in c.relationships

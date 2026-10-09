@@ -51,7 +51,8 @@ El contrato completo está en la documentación de wasichai:
 Lo que SGSPE agrega o restringe sobre la API genérica, con guardas y filtros propios:
 
 - `X-Correlation-Id` en toda respuesta (§3.8), también en un `401`.
-- `If-Match` opcional en las escrituras del portal, comprobado por una guarda (§3.6).
+- `If-Match` opcional en las escrituras del portal, comprobado por una guarda y por la propia escritura de wasichai
+  (§3.6).
 - `X-Change-Reason` obligatorio en los objetos `requiresReason` [WAS-ADR-0041] y, además, en las transiciones de devolver,
   rechazar, suspender, cancelar, retirar y reabrir, aunque el objeto no lo exija (`TransitionReasonGuard`, RQ-AUD-002).
 - Un campo derivado enviado por la API genérica es un `400` que lo nombra (`DerivedFieldsGuard`), y una escritura sobre un
@@ -266,27 +267,35 @@ decide ADR-0025 (Propuesto, se acepta en F2).
   obligatorio: sin él, `428`. El comando toma `ClusterLock.withXactLock` sobre `<objeto>:<id>`, relee el registro dentro de su
   transacción y compara; si no coincide, `412` con el valor actual en `errors[]`, y no escribe nada. Dos comandos sobre el
   mismo registro quedan serializados en todas las réplicas, así que la comprobación es atómica [WAS-ADR-0039].
-- **En la API genérica** (`PUT`, `PATCH`, `DELETE`, transiciones y vínculos), el portal envía la misma cabecera. Un filtro web de
-  `sgspe.common` la pone en el contexto de Reactor, como hace el filtro de correlación con su identificador, y una guarda de
-  `sgspe.common` la compara con el `updatedAt` almacenado antes de la escritura (`412` si no coincide); la guarda corre en la
-  corrutina de la petición, que conserva ese contexto [WAS-ADR-0040]. La API genérica no abre una transacción, así que queda
-  una ventana mínima entre la comparación y la escritura hasta que exista UPS-04.
-- **Cuando solo cambiaron derivados.** Si el `updatedAt` leído ya no es el actual, la guarda no responde `412` mientras todo
-  lo escrito después sean campos derivados o vínculos (los conteos de asistentes que mueve un participante, el área que
-  recalcula un listener): lo lee del historial de auditoría con los permisos de quien llama. La versión leída es la
-  escritura cuya entrada del historial cae más cerca del `updatedAt`: desde wasichai 0.5.0, `updatedAt` toma la hora de su
-  sentencia y la entrada, la del inicio de su transacción, así que cae poco antes dentro de una transacción y poco después
-  fuera de ella [WAS-ADR-0051]. **Límite conocido:** el historial
-  que lee wasichai 0.3.2 es de a lo sumo 500 entradas, las más recientes; con más de 500 escrituras posteriores a la versión
-  leída su entrada queda fuera de la ventana y la respuesta es `412`. Falla cerrado: el portal recarga el registro y repite.
-- **La comparación de wasichai no participa.** Desde 0.5.0 wasichai responde `ETag` con el `updatedAt` entre comillas y
-  compara `If-Match` en la propia escritura, con igualdad estricta [WAS-ADR-0051]. Esa comparación respondería `412` en el
-  caso de los derivados del punto anterior, así que el filtro de `sgspe.common` quita la cabecera de la petición después de
-  guardarla y la precondición sigue siendo solo la de la guarda; la decisión de adoptarla está en
-  [Encaje con wasichai §4.3](platform-fit.md#43-lo-que-trae-wasichai-060). El `PATCH` de 0.5.0 pasa por la misma guarda.
+- **En la API genérica** (`PUT`, `PATCH`, `DELETE`, transiciones, vínculos y archivos), el portal envía la misma cabecera.
+  Un filtro web de `sgspe.common`, que corre después de la cadena de seguridad, lee las versiones aceptadas (el punto
+  siguiente) y con ellas:
+  - Las pone en el contexto de Reactor, como hace el filtro de correlación con su identificador. Una guarda de
+    `sgspe.common` las compara con el `updatedAt` almacenado antes de la escritura y responde el `412` con el valor actual;
+    la guarda corre en la corrutina de la petición, que conserva ese contexto [WAS-ADR-0040].
+  - Cambia `If-Match` por esa lista de etiquetas fuertes. wasichai vuelve a comparar en el propio `UPDATE`, `DELETE`,
+    transición o subida de archivo [WAS-ADR-0051]: una escritura de otro que cae entre la guarda y la escritura recibe el
+    `412` de la plataforma, con `errors[0].field = "If-Match"`, y no se pierde nada. Un vínculo no tiene esa segunda
+    comparación, pero tampoco mueve `updatedAt` ni reemplaza nada.
+  - Un valor que no es un instante sale de la petición y la guarda responde `400`; `*` no compara.
+  - Si no puede leer las versiones aceptadas (la base no responde), el filtro responde el `500` de wasichai en
+    problem+json y la petición no sigue.
+- **Cuando solo cambiaron derivados** (ADR-0027). Si el `updatedAt` leído ya no es el actual, no hay `412` mientras todo lo
+  escrito después sean campos derivados: los conteos de asistentes que mueve un participante, el área que recalcula un
+  listener, lo que escribe JOB-02.
+  - Cada escritura de solo derivados (`Records.patch`) se condiciona al `updatedAt` que leyó y deja su salto exacto, de
+    qué versión a qué versión, en la tabla fija `derived_version`.
+  - Las versiones aceptadas son la leída y las que la siguieron por esos saltos. Una escritura que no es un salto (la de
+    otra persona, un cambio de geometría, una transición) corta la cadena aunque caiga a un milisegundo, porque no se
+    mira la hora de la auditoría.
+  - Un vínculo no mueve `updatedAt` [WAS-ADR-0051], así que no hace falta tolerarlo.
+  - **Límites conocidos:** la cadena llega hasta 500 saltos, y un salto se guarda 7 días (ASM-091). Más allá, la
+    respuesta es `412`: falla cerrado, y el portal recarga el registro y repite.
 - **`/admin` no envía la cabecera:** ahí sigue ganando la última escritura (UPS-04).
-- **Precisión:** se compara el texto exacto que devuelve wasichai. Si su serialización recorta la precisión de la columna, dos
-  escrituras dentro de la misma unidad no se distinguen; el riesgo desaparece con UPS-04, que retira esta comprobación.
+- **Precisión:** se comparan instantes al microsegundo, la precisión de la columna y del `ETag` de wasichai
+  [WAS-ADR-0051], y cada escritura toma la hora de su propia sentencia, así que dos escrituras no comparten `updatedAt`.
+- **Comandos y API genérica a la vez:** un comando compara con su candado, pero su escritura aún no lleva la versión, y la
+  API genérica no toma ese candado; entre las dos queda la ventana de ADR-0025 (ADR-0027, seguimiento).
 
 ```json
 {

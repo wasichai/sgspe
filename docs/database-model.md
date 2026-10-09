@@ -58,6 +58,7 @@ flowchart LR
     subgraph SG["esquema sgspe (tablas fijas)"]
         K1["knowledge_chunk (F7)"]
         I1["idempotency_key"]
+        D1["derived_version"]
     end
 ```
 
@@ -82,11 +83,12 @@ flowchart LR
 
 ### 2.3 El esquema `sgspe` de las tablas fijas
 
-- `idempotency_key` (transversal, desde F3) y `knowledge_chunk` (BC-18, F7) no son Custom Objects: son tablas fijas del
-  esquema `sgspe` (ASM-065, RQ-AI-008, CON-052). Los avisos no tienen tablas propias desde la decisión D2: los guarda el
-  módulo wasichai-notifications en su esquema (ASM-012, ADR-0018).
+- `idempotency_key` y `derived_version` (transversales, desde F3) y `knowledge_chunk` (BC-18, F7) no son Custom Objects:
+  son tablas fijas del esquema `sgspe` (ASM-065, ASM-091, RQ-AI-008, CON-052). Los avisos no tienen tablas propias desde
+  la decisión D2: los guarda el módulo wasichai-notifications en su esquema (ASM-012, ADR-0018).
 - Cada paquete dueño registra su propia `ModuleMigration`, como un módulo más [WAS-ADR-0026]:
-  - `sgspe_common`, en `classpath:db/sgspe/common`, con orden 200, en F3, para `idempotency_key`;
+  - `sgspe_common`, en `classpath:db/sgspe/common`, con orden 200, en F3, para `idempotency_key` (`V1`) y
+    `derived_version` (`V2`, ADR-0027);
   - `sgspe_ai`, en `classpath:db/sgspe/ai`, en F7 con el RAG documental (RF-AIK-006, RQ-AI-008).
 - Las dos usan un orden mayor que el de los módulos de wasichai (100), guardan su historia en `flyway_history_<nombre>` del
   esquema de metadatos y su primera migración crea el esquema `sgspe` si no existe. Un cambio es una migración nueva: una
@@ -653,6 +655,7 @@ decir, de §6 del modelo de dominio.
 | `key_theme` | BC-19 | no | no | no | — | F2 |
 | `topic` | BC-19 | no | no | no | — | F2 |
 | `idempotency_key` (tabla fija) | Transversal | — | — | — | — | F3 |
+| `derived_version` (tabla fija) | Transversal | — | — | — | — | F3 |
 
 ## 6. BC-01 Proyectos
 
@@ -4008,10 +4011,14 @@ Tabla física `app_data.key_theme__<org8>`. Requisitos: RF-LBS-008 [DOC-01 §8, 
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
-## 22. Tabla fija transversal
+## 22. Tablas fijas transversales
 
-Tabla fija del esquema `sgspe` que no pertenece a un contexto: `sgspe.common` guarda en ella las claves de idempotencia
-de los endpoints propios (RNF-INT-002, ASM-065), con su propia migración (§2.3). No tiene relaciones.
+Tablas fijas del esquema `sgspe` que no pertenecen a un contexto, con la migración de `sgspe.common` (§2.3). No tienen
+relaciones:
+
+- `idempotency_key`: las claves de idempotencia de los endpoints propios (RNF-INT-002, ASM-065).
+- `derived_version`: los saltos de versión de las escrituras de solo derivados, que acepta `If-Match` (RNF-INT-003,
+  ADR-0027).
 
 ### `idempotency_key`
 
@@ -4043,6 +4050,35 @@ respuesta que recibió la primera petición, escrita en la misma transacción qu
   confirmó; un comando que falló no deja fila y la clave queda libre (`api.md` §3.5).
 - Una fila más antigua que el plazo se borra antes de leerla, así que el plazo es exacto aunque la purga se atrase. La escribe
   y la lee solo `sgspe.common`, con `DatabaseClient` (RNF-INT-002).
+
+### `derived_version`
+
+**Salto de versión de derivados** (Transversal). Cada escritura de solo derivados (`Records.patch` con campos
+`"derived"`, sin geometrías) se condiciona al `updated_at` que leyó y, si gana, deja aquí de cuál a cuál pasó el
+registro. El `If-Match` de la API genérica y de los comandos acepta la versión leída y las que la siguieron solo por
+estos saltos (`api.md` §3.6); JOB-08 los purga después de `sgspe.concurrency.derived-versions-retention`. Tabla fija
+`sgspe.derived_version`, no Custom Object (§2.3). Requisitos: RNF-INT-003, ASM-035, ASM-091, UPS-04.
+
+| Campo | Tipo | Req. | Único | Descripción | Fuente |
+|---|---|---|---|---|---|
+| `organization_id` | uuid | sí | compuesto | Tenant; toda consulta filtra por él. | ASM-091 |
+| `object_name` | text | sí | compuesto | Objeto del registro, como en la ruta de la API genérica. | RNF-INT-003 |
+| `record_id` | uuid | sí | compuesto | Registro que cambió; referencia lógica, sin clave foránea (§2.3). | RNF-INT-003 |
+| `from_updated_at` | timestamptz | sí | compuesto | `updated_at` que leyó la escritura de derivados y al que se condicionó su `UPDATE`. | ADR-0027 |
+| `to_updated_at` | timestamptz | sí | — | `updated_at` que produjo, la hora de su sentencia [WAS-ADR-0051]. | ADR-0027 |
+| `created_at` | timestamptz | sí | — | Momento del salto; `now()` por defecto y base del plazo y de la purga. | ASM-091 |
+
+- **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
+- **Únicos:** clave primaria (`organization_id`, `object_name`, `record_id`, `from_updated_at`): de una versión sale a lo
+  sumo un salto, porque solo una escritura condicionada a ella puede ganar.
+- **Índices:** la clave primaria, que sirve a la lectura de la cadena desde una versión; (`created_at`), que sirve a la
+  purga de JOB-08 con SQL propio, sin `asPlatform`.
+- **Acciones declaradas:** no aplican.
+- **Workflow:** ninguno.
+- **Fase:** F3 · Release 1 (MVP).
+- Fuera de una transacción el salto se inserta justo después del `UPDATE` ya confirmado: en ese intervalo una
+  comparación no lo ve y responde `412`, nunca deja pasar una actualización perdida. Un salto más viejo que el plazo no
+  cuenta aunque la purga se atrase. La escribe y la lee solo `sgspe.common`, con `DatabaseClient` (ADR-0027).
 
 ## 23. Contextos sin objetos propios
 
@@ -4158,8 +4194,8 @@ Casos previstos:
 
 - `DELETE /api/organizations/current` borra la organización con todas sus tablas [WAS-DOC api/rest.md]. No borra sus filas de
   las tablas fijas de `sgspe.*`, porque no hay claves foráneas entre esquemas (§2.3).
-- Por eso la baja incluye un paso que borra, por `organization_id`, las filas del tenant en `sgspe.idempotency_key` y
-  `sgspe.knowledge_chunk`, y después llama a
+- Por eso la baja incluye un paso que borra, por `organization_id`, las filas del tenant en `sgspe.idempotency_key`,
+  `sgspe.derived_version` y `sgspe.knowledge_chunk`, y después llama a
   `DELETE /api/organizations/current`. Quién la opera queda en GAP-026, como el alta.
 
 ### Cómo se prueba
@@ -4207,6 +4243,7 @@ decisión registrada permite.
 | Exportaciones e interacciones con IA | `export_log`, `ai_interaction` | Siempre (append-only) | RQ-AUD-011, RQ-AUD-012 |
 | Avisos y envíos | Tablas de wasichai-notifications | El módulo purga los avisos resueltos o vencidos después de `wasichai.notifications.retention` (90 días); los envíos se van con su aviso | RF-NTF-001, ADR-0018 |
 | Claves de idempotencia | `sgspe.idempotency_key` | JOB-08 borra cada día las más antiguas que `wasichai.idempotency.ttl` (24 h por defecto), el mismo plazo de la cabecera nativa; guardan la respuesta de la primera petición, acotada, para reenviarla; esa respuesta puede llevar datos que quien llamó podía leer y por eso expira con el plazo; nunca guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
+| Saltos de versión de derivados | `sgspe.derived_version` | JOB-08 borra cada día los más antiguos que `sgspe.concurrency.derived-versions-retention` (7 días); un salto solo sirve a quien leyó la versión de la que sale, y uno vencido no cuenta aunque la purga se atrase: esa versión, seguida de derivados, responde `412` | ASM-091, RNF-INT-003 |
 | Fragmentos de RAG | `sgspe.knowledge_chunk` | Son derivados: se regeneran o se borran con su evidencia | RQ-AI-008 |
 | Datos personales | Campos restringidos | Según la política de GAP-014; mientras tanto, minimización con permisos de campo y anonimización en salidas | RNF-PRIV-004, RQ-SEC-010, RQ-REP-014 |
 
@@ -4219,7 +4256,7 @@ decisión registrada permite.
 |---|---|---|
 | Idioma de los valores de ENUM | Hoy en español MAYÚSCULAS; cambiarlo exige migraciones por script, en proceso en los objetos `apiOnly` y con un ADR en los `appendOnly` (§24) | CON-050, ASM-025 |
 | Alcance de lectura por proyecto | El modelo ya lleva `project` y `project_assignment`; falta la extensión de wasichai | CON-041, UPS-01, GAP-025 |
-| Bloqueo optimista | Sin columna `version`; precondición sobre `updated_at` mientras tanto | UPS-04, ASM-035 |
+| Bloqueo optimista | Sin columna `version`; precondición sobre `updated_at`, comparada por wasichai en la propia escritura, con la tabla fija `derived_version` para tolerar los derivados (ADR-0027) | UPS-04, ASM-035, ASM-091 |
 | Campo FILE | `evidence` y el almacenamiento propio hasta que exista; después, migración | UPS-07, ASM-013 |
 | Retención y consentimiento | Plazos de purga de datos personales y de notificaciones | GAP-014, RNF-PRIV-004 |
 | pgvector | La columna `embedding` de `knowledge_chunk` solo con una medición que lo justifique | RQ-AI-008, CON-035 |

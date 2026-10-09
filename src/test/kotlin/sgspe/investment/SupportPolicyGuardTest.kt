@@ -10,6 +10,8 @@ import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import sgspe.commitment.NotReadable
 import sgspe.common.Callers
+import sgspe.common.DerivedVersions
+import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.Transactions
@@ -63,7 +65,9 @@ class SupportPolicyGuardTest {
                 provider<RelatedRecordService>(null),
                 provider<WorkflowService>(null),
                 mock(MetadataService::class.java),
-                mock(Callers::class.java)
+                mock(Callers::class.java),
+                mock(ModelCatalog::class.java),
+                mock(DerivedVersions::class.java)
             ),
             mock(Callers::class.java),
             mock(Permissions::class.java),
