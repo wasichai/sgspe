@@ -3,6 +3,18 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-09 — Adopción de UPS-03, UPS-09 y UPS-17
+
+Tres soluciones de wasichai 0.6.0 pasan de disponibles a adoptadas ([Encaje con wasichai §4.3](platform-fit.md#43-lo-que-trae-wasichai-060)).
+
+- **UPS-17.** `Organizations` lista los tenants con `TenantDirectory.organizationsWithObject`; `ArchitectureTest` rechaza
+  `findAllOrganizations` en todo el código y `TenantDirectory` fuera de `Organizations`.
+- **UPS-03.** JOB-02 y JOB-03 escriben con `Records.asPlatform(organización, source, …)`: `job:derived-fields` y
+  `job:stakeholder-follow-up` quedan en `audit_log.source`. El motivo conserva el nombre del trabajo (ASM-051).
+- **UPS-09.** `application-prod.yml` enciende la revocación de tokens, el límite de 5 y 20 intentos de login por 15 minutos y
+  la política de contraseñas de 12 caracteres con mayúscula, minúscula, dígito y símbolo; `ProdProfileTest` los fija y
+  [Seguridad §3.2](security.md#32-endurecimiento-de-sgspe) los documenta.
+
 ## 2026-10-09 — wasichai 0.6.0
 
 El backend pasa de wasichai 0.3.2 a 0.6.0. La evaluación, brecha por brecha, está en

@@ -4,8 +4,14 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.boot.context.properties.bind.Bindable
+import org.springframework.boot.context.properties.bind.Binder
+import org.springframework.boot.context.properties.source.ConfigurationPropertySources
 import org.springframework.boot.env.YamlPropertySourceLoader
 import org.springframework.core.io.ClassPathResource
+import wasichai.core.platform.JwtProperties
+import wasichai.core.platform.WasichaiLoginProperties
+import wasichai.core.platform.WasichaiPasswordProperties
 import java.time.Duration
 
 // RQ-SEC-016, RQ-SEC-001 y ADR-0020: el perfil de producción no tiene semilla ni secreto por defecto, acorta el token y
@@ -43,6 +49,38 @@ class ProdProfileTest {
     fun `el token dura menos que las 8 horas por defecto`() {
         val ttl = Duration.parse(value("wasichai.security.jwt.ttl"))
         assertTrue(ttl.isPositive && ttl < Duration.ofHours(8), "$ttl")
+    }
+
+    // UPS-09 (WAS-ADR-0059): revocación de tokens, límite de intentos de login y política de contraseñas, apagados por
+    // defecto en wasichai y encendidos aquí. se ligan a las clases reales de wasichai (con el mismo prefijo que ellas), así una
+    // propiedad mal escrita falla en lugar de ignorarse. security.md §3.2 documenta los valores
+    private val binder = Binder(ConfigurationPropertySources.from(prod).filterNotNull())
+
+    private inline fun <reified T : Any> bound(prefix: String): T = binder.bind(prefix, Bindable.of(T::class.java)).get()
+
+    @Test
+    fun `revoca los tokens`() {
+        val jwt = bound<JwtProperties>("wasichai.security.jwt")
+        assertTrue(jwt.revocation)
+        assertTrue(jwt.revocationCache.isPositive && jwt.revocationCache <= Duration.ofSeconds(10), "${jwt.revocationCache}")
+    }
+
+    @Test
+    fun `limita los intentos de login`() {
+        val login = bound<WasichaiLoginProperties>("wasichai.security.login")
+        assertEquals(WasichaiLoginProperties(enabled = true, maxAttempts = 5, accountMaxAttempts = 20, window = Duration.ofMinutes(15)), login)
+    }
+
+    @Test
+    fun `exige una politica de contrasenas`() {
+        val password = bound<WasichaiPasswordProperties>("wasichai.security.password")
+        assertEquals(WasichaiPasswordProperties(12, true, true, true, true, true), password)
+    }
+
+    // el límite de intentos cuenta por remoteAddress: detrás del proxy solo es la del cliente con esta estrategia
+    @Test
+    fun `lee la direccion del cliente de las cabeceras del proxy`() {
+        assertEquals("framework", value("server.forward-headers-strategy"))
     }
 
     @Test

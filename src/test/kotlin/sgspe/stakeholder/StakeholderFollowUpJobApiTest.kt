@@ -42,6 +42,9 @@ class StakeholderFollowUpJobApiTest : DomainApiTest() {
         val reason = history(linked).values().first()["reason"].asString()
         assertEquals(StakeholderFollowUpJob.REASON, reason)
         assertTrue(reason.endsWith("(JOB-03 StakeholderFollowUpJob)"), reason)
+        // y la fila de auditoría lleva el origen de la plataforma (UPS-03, WAS-ADR-0050)
+        assertEquals("job:stakeholder-follow-up", history(linked).values().first()["source"].asString())
+        assertEquals(StakeholderFollowUpJob.SOURCE, "job:stakeholder-follow-up")
         // la segunda corrida no escribe (P11): ni historia ni updatedAt
         val before = history(linked).size()
         val updatedAt = linkedNow["updatedAt"].asString()

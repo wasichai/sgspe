@@ -1374,13 +1374,15 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
   continuo (JOB-05 y JOB-06). JOB-05 toma además, al procesar cada pedido, un candado por entregable (`deliverable:<id>`),
   para que dos réplicas nunca generen el mismo borrador (`deliverables.md` §8.2).
 - **Registros de wasichai como la plataforma:** JOB-01 a JOB-05, JOB-07 y el paso de borradores de JOB-08 los leen o los escriben con
-  `RecordService.asPlatform(organizationId)`, una organización por vez. Para recorrer las organizaciones necesitan la forma
-  soportada que pide UPS-17; mientras no exista, siguen el precedente de caja como excepción vigilada. JOB-07 solo recorre
+  `RecordService.asPlatform(organizationId)`, una organización por vez. Para recorrer las organizaciones usan `Organizations`
+  (`sgspe.common`), que envuelve `TenantDirectory` (UPS-17, [WAS-ADR-0057]). JOB-02 y JOB-03 escriben con
+  `asPlatform(organización, source = "job:…")` (UPS-03). JOB-07 solo recorre
   la lista de organizaciones con la IA activada (`ai-architecture.md` §12.1).
 - **Tablas fijas con SQL propio, sin `asPlatform`:** JOB-06 solo escribe `notification_delivery`, JOB-07 escribe además
   `knowledge_chunk`, y JOB-08 borra las claves vencidas de `idempotency_key`.
-- **Motivo:** nombra al trabajo (`DeadlineJob: situación de plazo`). Una escritura de la plataforma no tiene usuario, y su
-  motivo es lo que la distingue en la auditoría [WAS-ADR-0041] (ASM-051).
+- **Motivo y origen:** el motivo nombra al trabajo (`DeadlineJob: situación de plazo`) y la fila de auditoría lleva
+  `source = job:<nombre>` [WAS-ADR-0050]. Una escritura de la plataforma no tiene usuario: el origen la distingue en la
+  auditoría y el motivo se lo dice a quien lee el historial [WAS-ADR-0041] (ASM-051).
 - **Idempotencia:** recalculan desde cero, así que repetir una corrida no cambia el resultado; las tareas que crean llevan
   `generator_key`.
 - **Nunca aplican transiciones ni vinculan registros:** solo escriben campos derivados y crean registros nuevos (RN-WFL-001,

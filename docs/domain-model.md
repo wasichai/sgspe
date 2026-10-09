@@ -1032,8 +1032,8 @@ de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-00
   envío de avisos por SMTP (JOB-06), que solo escribe tablas fijas, la indexación para RAG (JOB-07, F7), que crea registros
   de `ai_interaction` y escribe la tabla fija `knowledge_chunk`, y la retención (JOB-08), que desde F3 borra con SQL propio,
   sin `asPlatform`, las claves vencidas de la tabla fija `idempotency_key` (ASM-065, RNF-INT-002) y desde F8 lee `deliverable`
-  y `deliverable_version` y borra archivos de borradores sin referencia, sin escribir registros de wasichai. Para recorrer las organizaciones necesitan
-  una forma soportada de listar los tenants, que wasichai todavía no ofrece (UPS-17). La excepción son las migraciones de datos de
+  y `deliverable_version` y borra archivos de borradores sin referencia, sin escribir registros de wasichai. Para recorrer las organizaciones usan
+  `TenantDirectory`, la forma soportada de listar los tenants desde wasichai 0.5.0 (UPS-17). La excepción son las migraciones de datos de
   `database-model.md` §24 sobre un objeto `apiOnly`: corren en proceso, dentro del paquete dueño del objeto, y escriben
   campos no derivados como la plataforma, con un motivo que nombra la migración (ASM-051) y con las guardas activas
   [WAS-ADR-0039] [WAS-ADR-0041]. Tampoco aplican transiciones.

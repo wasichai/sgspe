@@ -16,6 +16,30 @@ wasichai:
       secret: ${WASICHAI_JWT_SECRET}
       # menos que las 8 horas por defecto (RQ-SEC-001); el despliegue puede acortarlo, nunca llevarlo a 8 h o más
       ttl: PT4H
+      # UPS-09 (WAS-ADR-0059): un token anterior a la marca del usuario se rechaza (deshabilitar, cambiar roles o clave,
+      # cerrar sesión). la caché por usuario acota cuánto tarda otra réplica en enterarse
+      revocation: true
+      revocation-cache: PT5S
+    login:
+      # 5 intentos por correo y dirección, 20 por correo desde cualquier dirección, en ventanas de 15 minutos; pasado el
+      # límite responde 429 con Retry-After. el proxy conserva su propio límite como defensa extra (RQ-SEC-015)
+      enabled: true
+      max-attempts: 5
+      account-max-attempts: 20
+      window: PT15M
+    password:
+      min-length: 12
+      require-uppercase: true
+      require-lowercase: true
+      require-digit: true
+      require-symbol: true
+      not-equal-email: true
+
+server:
+  # el despliegue siempre está detrás del proxy inverso (ADR-0026): sin esto remoteAddress es la del proxy y el límite de
+  # intentos de login (wasichai.security.login) cuenta a todos los clientes como uno. exige que el proxy sobrescriba, nunca
+  # agregue, X-Forwarded-For y X-Forwarded-Proto (architecture.md §10.2)
+  forward-headers-strategy: framework
 
 logging:
   structured:

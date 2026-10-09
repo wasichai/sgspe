@@ -489,10 +489,11 @@ Brechas de la auditoría de wasichai y cómo se mitigan mientras se resuelven up
   [domain-model §7.5] (RQ-SEC-008, ASM-069).
 - **Un trabajo nunca decide por una persona**: las reglas de alerta crean alertas en `detected` y confirmarlas o
   descartarlas es humano (RN-EWS-001).
-- Cada trabajo recorre las organizaciones que tienen el modelo de SGSPE. wasichai no documenta cómo enumerarlas (UPS-17):
-  caja usa `CustomObjectRepository.findAllOrganizations()`, una lectura de la plataforma sin tenant que wasichai reserva para
-  su propio trabajo de arranque [WAS-ADR-0036]. SGSPE sigue ese precedente como excepción vigilada a RNF-MNT-005, aislada en
-  `sgspe.common`, y lo registra como riesgo (§14).
+- Cada trabajo recorre las organizaciones que tienen el modelo de SGSPE con `TenantDirectory.organizationsWithObject`, la forma
+  soportada desde wasichai 0.5.0 (UPS-17, [WAS-ADR-0057]): una instantánea ordenada por id que lanza si se pide desde una
+  petición. Solo `sgspe.common.Organizations` toca `TenantDirectory`, y `ArchitectureTest` rechaza `findAllOrganizations` en todo
+  el código. Cada trabajo escribe con `Records.asPlatform(organización, source, …)`: la fila de auditoría lleva
+  `source = job:<nombre>` ([WAS-ADR-0050], UPS-03) y el motivo conserva el nombre del trabajo (ASM-051).
 - Una organización que falla no detiene a las demás: el error se registra y la vuelta sigue, como en el publicador de caja.
 
 ### 8.2 Trabajos y procesos en segundo plano
@@ -628,6 +629,8 @@ flowchart LR
 | Datos semilla de desarrollo | `wasichai.seed.dev: false` | RQ-SEC-016 |
 | Secreto JWT | `WASICHAI_JWT_SECRET` obligatorio, sin valor por defecto: el arranque falla si falta | RQ-SEC-016 [WAS-ADR-0010] |
 | Duración del token | Más corta que las 8 horas por defecto | RQ-SEC-001 |
+| Revocación, límite de intentos y contraseñas | `wasichai.security.jwt.revocation`, `wasichai.security.login.*` y `wasichai.security.password.*` encendidos; valores en [Seguridad §3.2](security.md#32-endurecimiento-de-sgspe) | RQ-SEC-015 (UPS-09) [WAS-ADR-0059] |
+| Cabeceras de reenvío | `server.forward-headers-strategy: framework`. **Condición obligatoria del despliegue:** el proxy inverso sobrescribe, nunca agrega, `X-Forwarded-For` y `X-Forwarded-Proto` con lo que él mismo ve; si los reenvía tal como llegan, un cliente falsifica su dirección y evade el límite de intentos de login, que cuenta por `remoteAddress`. El servicio de aplicación no debe ser alcanzable sin pasar por el proxy | ADR-0026, RQ-SEC-015 |
 | Logs | JSON estructurado (ECS), sin datos personales | RNF-OBS-001, RQ-SEC-010 |
 | GeoServer | `wasichai.gis.geoserver.*` hacia el servicio interno; su datastore apunta a la base vista desde su red | [WAS-DOC modules/gis.md] |
 | IA | Desactivada por defecto; se activa por organización | RQ-AI-009, ASM-015 |
@@ -695,7 +698,7 @@ cambió qué y por qué (RQ-AUD-014).
 |---|---|---|---|---|
 | 1 | La extensión de alcance por proyecto (UPS-01) no llega antes de la producción con varios proyectos | Lectura a nivel de tenant: un usuario lee proyectos que no le corresponden | Decisión pendiente en el checkpoint, con recomendación A: en el MVP con un solo cliente, lectura a nivel de tenant y escritura acotada por asignación; UPS-01 antes de operar varios proyectos | CON-041, GAP-025, RQ-SEC-006, UPS-01 |
 | 2 | wasichai está en versiones 0.x y sus líneas de backend (0.6.0) y frontend (0.5.0) son independientes | Cambios de contrato entre versiones | Versiones exactas, actualizar las dos juntas, pruebas de contrato con la plataforma | [WAS-ADR-0032] RNF-MNT-001 |
-| 3 | Acoplamiento a detalles de la plataforma: SQL de agregación sobre tablas físicas `<objeto>__<org8>` y enumeración de organizaciones para los trabajos | Una actualización de wasichai puede romper consultas o trabajos | Un solo módulo resuelve tablas por la metadata; compuerta de permisos con pruebas; la enumeración, aislada en `sgspe.common` hasta que exista la forma soportada que pide UPS-17. El SQL de las tablas físicas no es solo de agregación: `DependentsDeleteGuard` también las lee (con el tenant de la escritura, identificadores entrecomillados y valores enlazados) porque wasichai responde 500 al borrar un padre con hijos obligatorios (NOT NULL con ON DELETE SET NULL); se acepta hasta que lo corrija upstream (UPS-20). `UserReferenceGuard` lee además la tabla `users` de la metadata de wasichai (por organización y correo, con valores enlazados) porque el único buscador público es global y falla con el mismo correo en dos tenants, y el listado de usuarios exige `MANAGE_ORGANIZATION`; se acepta hasta UPS-21 | RQ-GIS-017, RQ-DSH-031, UPS-17, UPS-20, UPS-21 [WAS-ADR-0004] [WAS-ADR-0036] |
+| 3 | Acoplamiento a detalles de la plataforma: SQL de agregación sobre tablas físicas `<objeto>__<org8>` y enumeración de organizaciones para los trabajos | Una actualización de wasichai puede romper consultas o trabajos | Un solo módulo resuelve tablas por la metadata; compuerta de permisos con pruebas; la enumeración usa `TenantDirectory` (UPS-17, adoptada), aislado en `sgspe.common`. El SQL de las tablas físicas no es solo de agregación: `DependentsDeleteGuard` también las lee (con el tenant de la escritura, identificadores entrecomillados y valores enlazados) porque wasichai responde 500 al borrar un padre con hijos obligatorios (NOT NULL con ON DELETE SET NULL); se acepta hasta que lo corrija upstream (UPS-20). `UserReferenceGuard` lee además la tabla `users` de la metadata de wasichai (por organización y correo, con valores enlazados) porque el único buscador público es global y falla con el mismo correo en dos tenants, y el listado de usuarios exige `MANAGE_ORGANIZATION`; se acepta hasta UPS-21 | RQ-GIS-017, RQ-DSH-031, UPS-17, UPS-20, UPS-21 [WAS-ADR-0004] [WAS-ADR-0036] |
 | 4 | Deriva del modelo por ediciones en `/admin` | Producción distinta del repositorio, sin auditoría de metadata | `apply.py` resincroniza; el repositorio es la fuente de verdad | GAP-030, UPS-02, RNF-MNT-002 |
 | 5 | Escrituras concurrentes por la API genérica: el `PUT` reemplaza el registro | Se pierden cambios (gana el último) | Precondición sobre `updatedAt` en el portal y en los comandos | UPS-04, ASM-035, RNF-INT-003 |
 | 6 | Listeners no atómicos por la API genérica | Derivados desactualizados por un rato | Recalculadores idempotentes y `DerivedFieldsJob` | [domain-model §7.5] |

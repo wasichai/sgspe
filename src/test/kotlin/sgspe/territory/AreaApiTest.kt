@@ -116,6 +116,7 @@ class AreaApiTest : DomainApiTest() {
         // la del trabajo es la más reciente y dice «JOB-02»; la del listener, al alta, no
         assertEquals(DerivedFieldsJob.reason("área en ha"), reasons.first())
         assertEquals(AreaRecalculator.REASON, reasons.first())
+        assertEquals("job:derived-fields", history("community", community).values().first()["source"].asString())
         assertTrue(reasons.contains(Areas.REASON), "$reasons")
         assertEquals("derivado: área en ha (JOB-02 DerivedFieldsJob)", AreaRecalculator.REASON)
     }
