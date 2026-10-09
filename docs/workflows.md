@@ -1315,6 +1315,8 @@ Reglas de SGSPE:
 - `ProjectScopeGuard` y `UserReferenceGuard` aceptan las escrituras sin usuario (plataforma y automatizaciones), que no tienen
   asignación a un proyecto.
 - Las tareas creadas por automatizaciones dejan `generator_key` vacío; esa clave es para los trabajos.
+- Sin `NOTIFY` (D2, ASM-070): un aviso a `role:<NOMBRE>` llegaría a todos los titulares del rol en el tenant, sin mirar las
+  asignaciones del proyecto; los avisos los decide `sgspe.notification`. `apply.py` rechaza `WEBHOOK` y `NOTIFY`.
 - Se versionan junto al modelo (`model/automations/<objeto>.json`) y `apply.py` las aplica; escribir una regla exige
   `MANAGE_METADATA` [WAS-DOC api/rest.md].
 - Llegan en F3, con el starter de automatización, el objeto `task` y el starter de documentos.

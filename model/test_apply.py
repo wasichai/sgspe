@@ -1,5 +1,6 @@
-"""Pruebas de apply.py contra un FakeCore: el modelo vacío de F1, un modelo de prueba, el segundo pase (--workflows) y
-el aprovisionamiento de un tenant nuevo en su orden (security.md §4.1 y §14, «Alta de un tenant»).
+"""Pruebas de apply.py contra un FakeCore: el modelo vacío de F1, un modelo de prueba, el segundo pase (--workflows) con
+los workflows, los tipos de documento y las automatizaciones, los campos FILE, el aprovisionamiento de un tenant nuevo en
+su orden (security.md §4.1 y §14, «Alta de un tenant») y la subida de un tenant de F2 a F3.
 
 Correr: cd model && python3 -m unittest -v
 """
@@ -322,12 +323,12 @@ class WorkflowsPassTests(ApplyTestCase):
     def test_a_kind_before_its_phase_stops_with_2(self):
         with tempfile.TemporaryDirectory() as folder:
             path = write_model(folder, load(MODEL_PATH))
-            os.mkdir(os.path.join(folder, "automations"))
-            with open(os.path.join(folder, "automations", "project.json"), "w", encoding="utf-8") as f:
+            os.mkdir(os.path.join(folder, "views"))
+            with open(os.path.join(folder, "views", "project.json"), "w", encoding="utf-8") as f:
                 f.write("{}")
             code, out, err = self.run_apply(path, "--workflows")
         self.assertEqual(code, 2)
-        self.assertIn("model/automations/project.json", err)
+        self.assertIn("model/views/project.json: apply.py --workflows does not apply this kind yet", err)
         self.assertEqual(self.core.requests, [])
 
     def test_puts_a_missing_workflow_and_skips_it_the_second_time(self):
@@ -575,12 +576,270 @@ class WorkflowValidationTests(ApplyTestCase):
     def test_validate_only_refuses_a_kind_before_its_phase_too(self):
         with tempfile.TemporaryDirectory() as folder:
             path = write_model(folder, FIXTURE_MODEL)
-            os.mkdir(os.path.join(folder, "automations"))
-            with open(os.path.join(folder, "automations", "project.json"), "w", encoding="utf-8") as f:
+            os.mkdir(os.path.join(folder, "pages"))
+            with open(os.path.join(folder, "pages", "project.json"), "w", encoding="utf-8") as f:
                 f.write("{}")
             code, out, err = self.run_apply(path, "--validate-only")
         self.assertEqual(code, 2)
-        self.assertIn("model/automations/project.json", out + err)
+        self.assertIn("model/pages/project.json", out + err)
+
+
+def write_list(folder, kind, object_name, items):
+    os.makedirs(os.path.join(folder, kind), exist_ok=True)
+    with open(os.path.join(folder, kind, f"{object_name}.json"), "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False)
+
+
+ZONE_SHEET = {
+    "name": "zone-sheet",
+    "label": "Ficha de la zona",
+    "prefix": "FZ",
+    "template": {"type": "doc", "content": [
+        {"type": "heading", "attrs": {"level": 1}, "content": [
+            {"type": "platformValue", "attrs": {"value": "documentName"}}, {"type": "text", "text": " "},
+            {"type": "platformValue", "attrs": {"value": "documentNumber"}}]},
+        {"type": "paragraph", "content": [{"type": "text", "text": "Código: "},
+                                          {"type": "objectField", "attrs": {"field": "code"}}]},
+        {"type": "relatedTable", "attrs": {"relationship": "visit_zone"}}]},
+}
+
+ZONE_CLOSED = {
+    "name": "aut-x-zone-closed",
+    "label": "Visita y ficha de la zona cerrada",
+    "enabled": True,
+    "definition": {
+        "trigger": {"type": "STATE_ENTERED", "state": "closed"},
+        "conditions": [{"field": "zone_type", "operator": "EQUALS", "value": "DIRECTA"}],
+        "actions": [
+            {"type": "CREATE_RECORD", "targetObject": "visit", "values": {"visit_date": "{{today}}", "zone": "{{id}}"}},
+            {"type": "GENERATE_DOCUMENT", "documentType": "zone-sheet"},
+        ],
+    },
+}
+
+
+class DefinitionsPassTests(ApplyTestCase):
+    """F3: --workflows applies the document types and then the automations, after the workflows (database-model.md §24)."""
+
+    def setUp(self):
+        super().setUp()
+        self.core.roles["READ_ONLY"] = {"name": "READ_ONLY"}
+
+    def run_with(self, *extra, sheet=ZONE_SHEET, automation=ZONE_CLOSED, model=FIXTURE_MODEL):
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, model)
+            write_workflow(folder, "zone", ZONE_WORKFLOW)
+            write_list(folder, "document-types", "zone", [sheet])
+            write_list(folder, "automations", "zone", [automation])
+            if not extra or extra[0] != "--validate-only":
+                self.run_apply(path)
+            return self.run_apply(path, *extra)
+
+    def test_creates_the_types_then_the_automations_after_the_workflow_and_skips_them_the_second_time(self):
+        code, out, err = self.run_with("--workflows")
+        self.assertEqual(code, 0, err)
+        writes = [(m, p) for m, p, _ in self.writes() if "/workflow" in p or "/document-types" in p or "/automations" in p]
+        self.assertEqual(writes, [("PUT", "/api/objects/zone/workflow"), ("POST", "/api/objects/zone/document-types"),
+                                  ("POST", "/api/objects/zone/automations")])
+        self.assertIn("done: 1 workflows (1 created, 0 updated, 0 skipped), 1 document types (1 created, 0 updated, "
+                      "0 skipped), 1 automations (1 created, 0 updated, 0 skipped), 0 views, 0 forms, 0 pages", out)
+        self.core.requests.clear()
+        code, out, err = self.run_with("--workflows")
+        self.assertEqual(code, 0, err)
+        self.assertIn("skip   document type zone.zone-sheet (up to date)", out)
+        self.assertIn("skip   automation zone.aut-x-zone-closed (up to date)", out)
+        self.assertEqual([w for w in self.writes() if "/document-types" in w[1] or "/automations" in w[1]], [])
+
+    def test_replaces_a_type_and_an_automation_edited_in_the_admin(self):
+        self.run_with("--workflows")
+        self.core.document_types["zone"]["zone-sheet"]["label"] = "Ficha cambiada a mano"
+        self.core.automations["zone"]["aut-x-zone-closed"]["definition"]["conditions"] = []
+        code, out, err = self.run_with("--workflows")
+        self.assertEqual(code, 0, err)
+        self.assertIn("update document type zone.zone-sheet", out)
+        self.assertIn("update automation zone.aut-x-zone-closed", out)
+        self.assertEqual(self.core.document_types["zone"]["zone-sheet"]["label"], "Ficha de la zona")
+        self.assertEqual(len(self.core.automations["zone"]["aut-x-zone-closed"]["definition"]["conditions"]), 1)
+
+    def test_an_automation_core_has_and_model_does_not_is_reported_and_kept(self):
+        self.run_with("--workflows")
+        self.core.automations["zone"]["aut-x-leftover"] = {"label": "Sobrante", "enabled": True,
+                                                         "definition": ZONE_CLOSED["definition"]}
+        code, out, err = self.run_with("--workflows")
+        self.assertEqual(code, 0, err)
+        self.assertIn("warning: automation aut-x-leftover of zone is in core but not in model/", err)
+        self.assertIn("aut-x-leftover", self.core.automations["zone"])
+
+    def test_dry_run_prints_the_bodies_and_calls_nothing(self):
+        code, out, err = self.run_with("--workflows", "--dry-run")
+        self.assertEqual(code, 0, err)
+        self.assertIn("# POST /api/objects/zone/document-types", out)
+        self.assertIn("# POST /api/objects/zone/automations", out)
+        self.assertEqual([p for _, p, _ in self.writes() if "/document-types" in p or "/automations" in p], [])
+
+    def refused(self, *expected, sheet=ZONE_SHEET, automation=ZONE_CLOSED):
+        code, out, err = self.run_with("--validate-only", sheet=sheet, automation=automation)
+        self.assertEqual(code, 2, out + err)
+        for text in expected:
+            self.assertIn(text, out + err)
+        self.assertEqual(self.core.requests, [])
+
+    def test_a_type_that_names_a_field_or_a_relationship_the_object_lacks_is_refused(self):
+        sheet = copy.deepcopy(ZONE_SHEET)
+        sheet["template"]["content"][1]["content"][1]["attrs"]["field"] = "nowhere"
+        sheet["template"]["content"][2]["attrs"]["relationship"] = "zone_nowhere"
+        sheet["prefix"] = "fz"
+        self.refused("objectField names 'nowhere'", "relatedTable names 'zone_nowhere'", "prefix must match", sheet=sheet)
+
+    def test_an_automation_that_names_a_state_or_a_type_the_object_lacks_is_refused(self):
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["trigger"]["state"] = "archived"
+        automation["definition"]["actions"][1]["documentType"] = "zone-letter"
+        self.refused("STATE_ENTERED names 'archived'", "documentType 'zone-letter' is not a document type of zone",
+                     automation=automation)
+
+    def test_an_automation_that_writes_a_derived_field_or_leaves_out_a_required_one_is_refused(self):
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["actions"] = [
+            {"type": "UPDATE_FIELD", "field": "area_ha", "value": "1"},
+            {"type": "CREATE_RECORD", "targetObject": "visit", "values": {"zone": "{{id}}"}},
+        ]
+        self.refused("UPDATE_FIELD writes the derived field area_ha", "CREATE_RECORD leaves out visit.visit_date",
+                     automation=automation)
+
+    def test_webhook_and_notify_are_not_used(self):
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["actions"] = [{"type": "WEBHOOK", "url": "https://ejemplo.test/x"},
+                                               {"type": "NOTIFY", "to": "role:READ_ONLY", "title": "Zona cerrada"}]
+        self.refused("WEBHOOK is not used", "NOTIFY is not used: sgspe.notification tells people by project assignment",
+                     automation=automation)
+
+    def test_a_prefix_or_an_automation_name_used_twice_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", ZONE_WORKFLOW)
+            other = {**ZONE_SHEET, "name": "zone-letter"}
+            write_list(folder, "document-types", "zone", [ZONE_SHEET, other])
+            write_list(folder, "automations", "zone", [ZONE_CLOSED, ZONE_CLOSED])
+            code, out, err = self.run_apply(path, "--validate-only")
+        self.assertEqual(code, 2)
+        self.assertIn("prefix FZ is used by two types", out)
+        self.assertIn("automation aut-x-zone-closed is declared twice", out)
+
+    def test_a_type_as_wasichai_stores_it_is_still_up_to_date(self):
+        # what GET answers adds the id, the object and every node key as null: none of it is a difference
+        self.run_with("--workflows")
+        self.core.requests.clear()
+        code, out, err = self.run_with("--workflows")
+        self.assertEqual(code, 0, err)
+        stored = self.core.server.script("GET", "/api/objects/zone/document-types/zone-sheet", None)[1]
+        self.assertIsNone(stored["template"]["content"][0]["marks"])
+        self.assertIn("skip   document type zone.zone-sheet (up to date)", out)
+
+
+class DefinitionsRobustnessTests(ApplyTestCase):
+    """Fix round 1: stable compare, wrong JSON types as error lines, unknown keys, leftovers on any object."""
+
+    def run_with(self, *extra, sheet=ZONE_SHEET, automation=ZONE_CLOSED):
+        return DefinitionsPassTests.run_with(self, *extra, sheet=sheet, automation=automation)
+
+    refused = DefinitionsPassTests.refused
+
+    def setUp(self):
+        super().setUp()
+        self.core.roles["READ_ONLY"] = {"name": "READ_ONLY"}
+
+    def test_an_automation_without_conditions_is_skipped_the_second_time(self):
+        automation = copy.deepcopy(ZONE_CLOSED)
+        del automation["definition"]["conditions"]
+        self.run_with("--workflows", automation=automation)
+        self.assertEqual(self.core.automations["zone"]["aut-x-zone-closed"]["definition"]["conditions"], [])
+        self.core.requests.clear()
+        code, out, err = self.run_with("--workflows", automation=automation)
+        self.assertEqual(code, 0, err)
+        self.assertIn("skip   automation zone.aut-x-zone-closed (up to date)", out)
+        self.assertEqual([w for w in self.writes() if "/automations" in w[1]], [])
+
+    def test_wrong_json_types_are_error_lines_not_tracebacks(self):
+        sheet = copy.deepcopy(ZONE_SHEET)
+        sheet["template"]["content"][1]["content"][1]["attrs"] = ["field"]
+        sheet["template"]["content"][2]["attrs"]["relationship"] = ["visit_zone"]
+        self.refused("objectField names None", "relatedTable names ['visit_zone']", sheet=sheet)
+        listed = {**ZONE_SHEET, "name": ["zone-sheet"]}
+        self.refused("name must match", sheet=listed)
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["trigger"]["state"] = ["closed"]
+        automation["definition"]["conditions"][0]["field"] = ["zone_type"]
+        automation["definition"]["actions"] = [{"type": ["CREATE_RECORD"]},
+                                               {"type": "GENERATE_DOCUMENT", "documentType": ["zone-sheet"]},
+                                               {"type": "CREATE_RECORD", "targetObject": ["visit"]}]
+        self.refused("STATE_ENTERED names", "a condition names", "action type must be one of", "documentType",
+                     "CREATE_RECORD targets", automation=automation)
+
+    def test_a_state_without_a_name_is_an_error_line(self):
+        workflow = copy.deepcopy(ZONE_WORKFLOW)
+        workflow["definition"]["states"].append({"label": "Sin nombre"})
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", workflow)
+            write_list(folder, "automations", "zone", [ZONE_CLOSED])
+            write_list(folder, "document-types", "zone", [ZONE_SHEET])
+            code, out, err = self.run_apply(path, "--validate-only")
+        self.assertNotIn("Traceback", out + err)
+
+    def test_unknown_keys_in_a_node_or_an_action_are_refused(self):
+        sheet = copy.deepcopy(ZONE_SHEET)
+        sheet["template"]["content"][1]["bogus"] = 1
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["actions"][1]["bogus"] = 1
+        self.refused("template node has unknown keys", "GENERATE_DOCUMENT has unknown keys", sheet=sheet,
+                     automation=automation)
+
+    def test_a_blank_condition_value_is_refused(self):
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["conditions"][0]["value"] = "  "
+        self.refused("needs a value", automation=automation)
+
+    def test_a_leftover_automation_on_an_object_without_a_file_is_reported(self):
+        self.run_with("--workflows")
+        self.core.automations["visit"] = {"aut-x-old": {"label": "Vieja", "enabled": True,
+                                                         "definition": ZONE_CLOSED["definition"]}}
+        code, out, err = self.run_with("--workflows")
+        self.assertEqual(code, 0, err)
+        self.assertIn("warning: automation aut-x-old of visit is in core but not in model/", err)
+
+
+class FileFieldTests(unittest.TestCase):
+    """F3: a FILE field of wasichai-files (WAS-ADR-0061) is uploaded, never unique, defaulted or indexed."""
+
+    def mutate(self, **keys):
+        model = copy.deepcopy(FIXTURE_MODEL)
+        model["objects"][1]["fields"].append({"name": "scan", "label": "Archivo", "type": "FILE", **keys})
+        return apply.validate(model)
+
+    def test_a_required_file_is_valid_and_goes_with_its_type(self):
+        self.assertEqual(self.mutate(required=True), [])
+        model = copy.deepcopy(FIXTURE_MODEL)
+        model["objects"][1]["fields"].append({"name": "scan", "label": "Archivo", "type": "FILE", "required": True})
+        self.assertEqual(apply.field_payload(model, model["objects"][1]["fields"][-1]),
+                         {"name": "scan", "label": "Archivo", "type": "FILE", "required": True, "unique": False})
+
+    def test_its_allow_list_of_media_types_goes_with_it_and_a_bad_one_is_refused(self):
+        model = copy.deepcopy(FIXTURE_MODEL)
+        model["objects"][1]["fields"].append({"name": "scan", "label": "Archivo", "type": "FILE",
+                                              "contentTypes": ["application/pdf", "image/*"]})
+        self.assertEqual(apply.validate(model), [])
+        self.assertEqual(apply.field_payload(model, model["objects"][1]["fields"][-1])["contentTypes"],
+                         ["application/pdf", "image/*"])
+        for bad in ([], ["pdf"], ["image/*", "Text/Plain"]):
+            self.assertTrue(any("contentTypes must be a non-empty list" in e for e in self.mutate(contentTypes=bad)), bad)
+        model["objects"][1]["fields"][0]["contentTypes"] = ["application/pdf"]
+        self.assertTrue(any("only a FILE field takes contentTypes" in e for e in apply.validate(model)))
+
+    def test_a_file_is_never_unique_defaulted_or_indexed(self):
+        self.assertTrue(any("a file can not be unique" in e for e in self.mutate(unique=True)))
+        self.assertTrue(any("a file takes no defaultValue" in e for e in self.mutate(defaultValue="x")))
+        self.assertTrue(any("a FILE field cannot be indexed" in e for e in self.mutate(indexed=True)))
 
 
 class NewTenantTests(unittest.TestCase):
@@ -633,3 +892,20 @@ class ProvisioningOrderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FileMaxBytesTests(unittest.TestCase):
+    """wasichai-files reads maxBytes from the field definition (FileFieldType.maxBytesOf): a whole number >= 1."""
+
+    def mutate(self, **keys):
+        return FileFieldTests.mutate(self, **keys)
+
+    def test_max_bytes_goes_with_a_file_and_a_bad_one_is_refused(self):
+        model = copy.deepcopy(FIXTURE_MODEL)
+        model["objects"][1]["fields"].append({"name": "scan", "label": "Archivo", "type": "FILE", "maxBytes": 1048576})
+        self.assertEqual(apply.validate(model), [])
+        self.assertEqual(apply.field_payload(model, model["objects"][1]["fields"][-1])["maxBytes"], 1048576)
+        for bad in (0, -1, "1", 1.5, True):
+            self.assertTrue(any("maxBytes must be a whole number" in e for e in self.mutate(maxBytes=bad)), bad)
+        model["objects"][1]["fields"][0]["maxBytes"] = 10
+        self.assertTrue(any("only a FILE field takes maxBytes" in e for e in apply.validate(model)))

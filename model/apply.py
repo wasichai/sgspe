@@ -26,9 +26,12 @@ skips non-editable fields on every write, the platform's too (security.md §6.3)
 
 --workflows is the second pass of a tenant's provisioning, after apply_roles.py, because wasichai refuses a workflow
 naming a role the tenant lacks: workflows, document types, automations, views, forms and pages, each from its phase.
-F2 brings the workflows (model/workflows/<object>.json, PUT /api/objects/{object}/workflow): one that Core lacks is
-created, one that differs is replaced, an equal one is skipped. The other kinds still refuse to run until their
-phase. wasichai checks no record on that PUT, so nothing is written until every workflow is checked: one that drops
+F2 brings the workflows (model/workflows/<object>.json, PUT /api/objects/{object}/workflow); F3 the document types
+(model/document-types/<object>.json, a list, /api/objects/{object}/document-types) and then the automations
+(model/automations/<object>.json, a list, /api/objects/{object}/automations), which name states and document types: one
+that Core lacks is created, one that differs is replaced, an equal one is skipped, and an automation Core has and
+model/ does not is reported, never deleted. Views, forms and pages still refuse to run until their phase. wasichai
+checks no record on that PUT, so nothing is written until every workflow is checked: one that drops
 a state records sit in stops the pass with 1 (naming the states and counts), and so does one created on an object
 that already has records, which wasichai leaves with a null state, unless --allow-stateless-records is given (then
 it only warns).
@@ -91,17 +94,22 @@ MAX_OBJECT_NAME = 39
 MAX_FIELD_NAME = 49
 MAX_RELATIONSHIP_NAME = 35
 
-# core's scalar types, plus GEOMETRY from wasichai-gis (SGSPE installs it in F2)
+# core's scalar types, plus GEOMETRY from wasichai-gis (SGSPE installs it in F2) and FILE from wasichai-files (F3,
+# WAS-ADR-0061)
 FIELD_TYPES = frozenset({
     "TEXT", "LONG_TEXT", "INTEGER", "DECIMAL", "BOOLEAN", "DATE", "DATETIME",
-    "ENUM", "EMAIL", "URL", "UUID", "GEOMETRY",
+    "ENUM", "EMAIL", "URL", "UUID", "GEOMETRY", "FILE",
 })
 
 # the relationship types SGSPE uses (database-model.md §2.6): MANY_TO_ONE when the key is left out
 RELATIONSHIP_TYPES = ("MANY_TO_ONE", "MANY_TO_MANY")
 
-# types that take no declared index (database-model.md §2.7)
-NOT_INDEXABLE = ("LONG_TEXT", "GEOMETRY")
+# types that take no declared index (database-model.md §2.7). a FILE column gets its own index from wasichai-files and
+# cannot be filtered or sorted on, so it is in no set either
+NOT_INDEXABLE = ("LONG_TEXT", "GEOMETRY", "FILE")
+
+# mirror wasichai-files's FileFieldType: a media type of a FILE field's allow-list
+MEDIA_TYPE = re.compile(r"^[a-z0-9][a-z0-9!#$&^_.+-]{0,62}/([a-z0-9][a-z0-9!#$&^_.+-]{0,62}|\*)$")
 
 # mirror wasichai-gis's GeometryFieldType: a geometry names its shape; srid 1..999999 (default 4326), 2d or 3d
 GEOMETRY_TYPES = frozenset({"POINT", "LINESTRING", "POLYGON", "MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON"})
@@ -208,6 +216,25 @@ def validate(model):
                     errors.append(f"{flabel}: dimension must be 2 or 3")
                 if field.get("unique") or field.get("required"):
                     errors.append(f"{flabel}: a geometry can be neither unique nor required here")
+
+            # mirror wasichai-files's FileFieldType: a file is uploaded, never unique nor defaulted, and takes an allow-list
+            # of media types (type/subtype or type/*)
+            if ftype == "FILE" and field.get("unique"):
+                errors.append(f"{flabel}: a file can not be unique")
+            if "maxBytes" in field:
+                limit = field["maxBytes"]
+                if ftype != "FILE":
+                    errors.append(f"{flabel}: only a FILE field takes maxBytes")
+                elif not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+                    errors.append(f"{flabel}: maxBytes must be a whole number of bytes of 1 or more (the server ceiling "
+                                  f"wasichai.files.max-bytes still applies)")
+            if "contentTypes" in field:
+                types = field["contentTypes"]
+                if ftype != "FILE":
+                    errors.append(f"{flabel}: only a FILE field takes contentTypes")
+                elif not isinstance(types, list) or not types or not all(isinstance(t, str) and MEDIA_TYPE.fullmatch(t)
+                                                                        for t in types):
+                    errors.append(f"{flabel}: contentTypes must be a non-empty list of media types such as image/png or image/*")
 
             if ftype == "ENUM":
                 enum_name = field.get("enum")
@@ -335,6 +362,8 @@ def _check_default(field, enums, flabel):
         return [f"{flabel}: defaultValue must be a non-empty string"]
     if ftype == "GEOMETRY":
         return [f"{flabel}: a geometry takes no defaultValue"]
+    if ftype == "FILE":
+        return [f"{flabel}: a file takes no defaultValue"]
     if ftype == "ENUM" and value not in enums.get(field.get("enum"), []):
         return [f"{flabel}: defaultValue '{value}' is not an option of enum '{field.get('enum')}'"]
     if ftype == "BOOLEAN" and value not in ("true", "false"):
@@ -366,6 +395,10 @@ def field_payload(model, f):
         field["defaultValue"] = f["defaultValue"]
     if f["type"] == "ENUM":
         field["enumOptions"] = model["enums"][f["enum"]]
+    if f["type"] == "FILE" and "contentTypes" in f:
+        field["contentTypes"] = f["contentTypes"]
+    if f["type"] == "FILE" and "maxBytes" in f:
+        field["maxBytes"] = f["maxBytes"]
     if f["type"] == "GEOMETRY":
         field["geometryType"] = f["geometryType"].upper()
         field["srid"] = f.get("srid", 4326)
@@ -827,9 +860,10 @@ def _print_drop_dry_run(model):
 
 
 # the second pass, after apply_roles.py (wasichai refuses a workflow naming a role the tenant lacks), each kind from
-# its phase (architecture.md §5.4): the workflows from F2; the others when their phase brings them
+# its phase (architecture.md §5.4): the workflows from F2; the document types and the automations from F3; views, forms
+# and pages when their phase brings them
 DEFINITION_DIRS = ("workflows", "document-types", "automations", "views", "forms", "pages")
-APPLIED_KINDS = ("workflows",)
+APPLIED_KINDS = ("workflows", "document-types", "automations")
 
 # workflows.md, «Formato JSON de un workflow»: wf-<letter>-<object>; state and transition names as WorkflowService wants
 WORKFLOW_NAME = re.compile(r"^wf-[a-z][a-z0-9]*-[a-z][a-z0-9_]*$")
@@ -975,6 +1009,338 @@ def load_workflows(model_dir, model):
     return loaded, errors
 
 
+# wasichai-documents 0.6.0 (DocumentTypeService): a type's name, its printed sigla and what a template may name
+DOCUMENT_TYPE_NAME = re.compile(r"^[a-z][a-z0-9_-]{0,48}$")
+DOCUMENT_PREFIX = re.compile(r"^[A-Z][A-Z0-9]{0,11}$")
+PLATFORM_VALUES = ("today", "now", "user", "id", "documentName", "documentPrefix", "documentSerial", "documentNumber")
+MAX_TEMPLATE_NODES = 5000
+# the keys wasichai-documents keeps in a template node (TemplateNode), and those of an automation's parts: others are
+# dropped by the server, so a file that carried them would differ from its own answer on every run
+NODE_KEYS = frozenset({"type", "attrs", "content", "marks", "text"})
+TRIGGER_KEYS = frozenset({"type", "transition", "state"})
+CONDITION_KEYS = frozenset({"field", "operator", "value"})
+ACTION_KEYS = frozenset({"type", "field", "value", "targetObject", "values", "url", "documentType"})
+
+# wasichai-automation 0.6.0 (AutomationService): a name is unique in the organization, whatever its object
+AUTOMATION_NAME = re.compile(r"^[a-z][a-z0-9_-]{0,48}$")
+TRIGGER_TYPES = ("RECORD_CREATED", "RECORD_UPDATED", "RECORD_DELETED", "TRANSITION_APPLIED", "STATE_ENTERED")
+OPERATORS = ("EQUALS", "NOT_EQUALS", "GREATER_THAN", "LESS_THAN", "CONTAINS", "IS_EMPTY", "IS_NOT_EMPTY", "CHANGED")
+VALUELESS = ("IS_EMPTY", "IS_NOT_EMPTY", "CHANGED")
+ACTION_TYPES = ("UPDATE_FIELD", "CREATE_RECORD", "GENERATE_DOCUMENT")
+# workflows.md, «Automatizaciones»: no WEBHOOK in the MVP (GAP-020), and sgspe.notification decides who is told, by
+# project assignment (ASM-070): a NOTIFY to a role would reach every holder of the role in the tenant
+REFUSED_ACTIONS = {
+    "WEBHOOK": "no WEBHOOK in the MVP (GAP-020)",
+    "NOTIFY": "sgspe.notification tells people by project assignment (ASM-070), never NOTIFY",
+}
+
+
+def _record_fields(model, object_name):
+    """{name: field} of what a record of the object holds: its own fields and the field of each MANY_TO_ONE relationship
+    it is the source of (type RELATION)."""
+    obj = next(o for o in model["objects"] if o["name"] == object_name)
+    fields = {f["name"]: f for f in obj["fields"]}
+    for rel in model["relationships"]:
+        if rel["source"] == object_name and rel.get("fieldName"):
+            fields[rel["fieldName"]] = {"name": rel["fieldName"], "type": "RELATION", "required": rel.get("required", False)}
+    return fields
+
+
+def _list_of_objects(label, items):
+    if not isinstance(items, list):
+        return [f"{label}: the file must be a JSON list"]
+    if not all(isinstance(item, dict) for item in items):
+        return [f"{label}: every entry must be a JSON object"]
+    return []
+
+
+def _template_errors(label, root, fields, relationships):
+    """What wasichai-documents would refuse in a template: a root that is not a doc, a node that is not an object, an
+    objectField, relatedTable or platformValue naming something that does not exist, and more than 5000 nodes."""
+    if not isinstance(root, dict) or root.get("type") != "doc":
+        return [f"{label}: the template root must be a node of type doc"]
+    errors, seen = [], 0
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        seen += 1
+        if not isinstance(node, dict) or not isinstance(node.get("type"), str):
+            errors.append(f"{label}: every template node must be an object with a type")
+            continue
+        extra = sorted(set(node) - NODE_KEYS)
+        if extra:
+            errors.append(f"{label}: a template node has unknown keys {', '.join(extra)} (wasichai drops them)")
+        attrs = node.get("attrs") or {}
+        if not isinstance(attrs, dict):
+            errors.append(f"{label}: the attrs of a {node['type']} node must be an object")
+            attrs = {}
+        if node["type"] == "objectField" and not (isinstance(attrs.get("field"), str) and attrs["field"] in fields):
+            errors.append(f"{label}: objectField names {attrs.get('field')!r}, which is not a field of the object")
+        if node["type"] == "relatedTable" and not (isinstance(attrs.get("relationship"), str)
+                                                   and attrs["relationship"] in relationships):
+            errors.append(f"{label}: relatedTable names {attrs.get('relationship')!r}, which is not a relationship of the object")
+        if node["type"] == "platformValue" and not (isinstance(attrs.get("value"), str)
+                                                    and attrs["value"] in PLATFORM_VALUES):
+            errors.append(f"{label}: platformValue {attrs.get('value')!r} must be one of {', '.join(PLATFORM_VALUES)}")
+        content = node.get("content") or []
+        if not isinstance(content, list):
+            errors.append(f"{label}: the content of a {node['type']} node must be a list")
+            continue
+        stack.extend(content)
+    if seen > MAX_TEMPLATE_NODES:
+        errors.append(f"{label}: the template holds {seen} nodes, more than {MAX_TEMPLATE_NODES}")
+    return errors
+
+
+def validate_document_types(model, object_name, types):
+    """The errors of model/document-types/<object>.json against model.json and wasichai-documents's rules."""
+    label = f"document types of {object_name}"
+    if object_name not in {o["name"] for o in model["objects"]}:
+        return [f"{label}: object '{object_name}' is not in model.json"]
+    errors = _list_of_objects(label, types)
+    if errors:
+        return errors
+    fields = _record_fields(model, object_name)
+    relationships = {r["name"] for r in model["relationships"] if object_name in (r["source"], r["target"])}
+    names = set()
+    for doc in types:
+        name = doc.get("name")
+        where = f"document type {object_name}.{name}"
+        if not isinstance(name, str) or not DOCUMENT_TYPE_NAME.fullmatch(name):
+            errors.append(f"{where}: name must match {DOCUMENT_TYPE_NAME.pattern}")
+        if isinstance(name, str) and name in names:
+            errors.append(f"{where}: the name repeats")
+        if isinstance(name, str):
+            names.add(name)
+        if not isinstance(doc.get("label"), str) or not doc["label"] or _edge_spaces(doc["label"]):
+            errors.append(f"{where}: label is missing or has leading or trailing spaces")
+        if not isinstance(doc.get("prefix"), str) or not DOCUMENT_PREFIX.fullmatch(doc["prefix"]):
+            errors.append(f"{where}: prefix must match {DOCUMENT_PREFIX.pattern}")
+        errors.extend(_template_errors(where, doc.get("template"), fields, relationships))
+    return errors
+
+
+def _state_names(workflow):
+    return {s["name"] for s in (workflow or {}).get("definition", {}).get("states", [])
+            if isinstance(s, dict) and isinstance(s.get("name"), str)}
+
+
+def _transition_names(workflow):
+    return {t["name"] for t in (workflow or {}).get("definition", {}).get("transitions", [])
+            if isinstance(t, dict) and isinstance(t.get("name"), str)}
+
+
+def _action_errors(where, action, model, object_name, fields, document_types):
+    kind = action.get("type")
+    if not isinstance(kind, str):
+        return [f"{where}: action type must be one of {', '.join(ACTION_TYPES)}"]
+    if kind in REFUSED_ACTIONS:
+        return [f"{where}: {kind} is not used: {REFUSED_ACTIONS[kind]}"]
+    if kind not in ACTION_TYPES:
+        return [f"{where}: action type must be one of {', '.join(ACTION_TYPES)}"]
+    extra = sorted(set(action) - ACTION_KEYS)
+    if extra:
+        return [f"{where}: {kind} has unknown keys {', '.join(extra)} (wasichai drops them)"]
+    if kind == "GENERATE_DOCUMENT":
+        if not isinstance(action.get("documentType"), str) or action["documentType"] not in document_types:
+            return [f"{where}: documentType {action.get('documentType')!r} is not a document type of {object_name}"]
+        return []
+    if kind == "UPDATE_FIELD":
+        field = fields.get(action.get("field")) if isinstance(action.get("field"), str) else None
+        if field is None:
+            return [f"{where}: UPDATE_FIELD names {action.get('field')!r}, which is not a field of {object_name}"]
+        if field.get("derived"):
+            return [f"{where}: UPDATE_FIELD writes the derived field {field['name']} (DerivedFieldsGuard refuses it)"]
+        if not isinstance(action.get("value"), str):
+            return [f"{where}: UPDATE_FIELD needs a text value"]
+        return []
+    target = action.get("targetObject")
+    if not isinstance(target, str) or target not in {o["name"] for o in model["objects"]}:
+        return [f"{where}: CREATE_RECORD targets {target!r}, which is not in model.json"]
+    values = action.get("values")
+    if not isinstance(values, dict) or not all(isinstance(v, str) for v in values.values()):
+        return [f"{where}: CREATE_RECORD values must be an object of texts"]
+    target_fields = _record_fields(model, target)
+    errors = []
+    for name in values:
+        if name not in target_fields:
+            errors.append(f"{where}: CREATE_RECORD sets {target}.{name}, which does not exist")
+        elif target_fields[name].get("derived"):
+            errors.append(f"{where}: CREATE_RECORD sets the derived field {target}.{name} (DerivedFieldsGuard refuses it)")
+    for name, field in target_fields.items():
+        if field.get("required") and "defaultValue" not in field and name not in values:
+            errors.append(f"{where}: CREATE_RECORD leaves out {target}.{name}, which is required")
+    return errors
+
+
+def validate_automations(model, object_name, automations, workflow, document_types):
+    """The errors of model/automations/<object>.json against model.json, the object's workflow and document types, and
+    wasichai-automation's rules."""
+    label = f"automations of {object_name}"
+    if object_name not in {o["name"] for o in model["objects"]}:
+        return [f"{label}: object '{object_name}' is not in model.json"]
+    errors = _list_of_objects(label, automations)
+    if errors:
+        return errors
+    fields = _record_fields(model, object_name)
+    for automation in automations:
+        name = automation.get("name")
+        where = f"automation {name}"
+        if not isinstance(name, str) or not AUTOMATION_NAME.fullmatch(name):
+            errors.append(f"{where}: name must match {AUTOMATION_NAME.pattern}")
+        if not isinstance(automation.get("label"), str) or not automation["label"] or _edge_spaces(automation["label"]):
+            errors.append(f"{where}: label is missing or has leading or trailing spaces")
+        if automation.get("enabled") is not True:
+            errors.append(f"{where}: enabled must be true (an automation that waits is left out of model/)")
+        definition = automation.get("definition")
+        if not isinstance(definition, dict) or not isinstance(definition.get("trigger"), dict):
+            errors.append(f"{where}: definition must be an object with a trigger")
+            continue
+        trigger = definition["trigger"]
+        if set(trigger) - TRIGGER_KEYS:
+            errors.append(f"{where}: the trigger has unknown keys {', '.join(sorted(set(trigger) - TRIGGER_KEYS))}")
+        if trigger.get("type") not in TRIGGER_TYPES:
+            errors.append(f"{where}: trigger type must be one of {', '.join(TRIGGER_TYPES)}")
+        elif trigger["type"] == "STATE_ENTERED" and not (isinstance(trigger.get("state"), str)
+                                                          and trigger["state"] in _state_names(workflow)):
+            errors.append(f"{where}: STATE_ENTERED names {trigger.get('state')!r}, which is not a state of {object_name}")
+        elif trigger["type"] == "TRANSITION_APPLIED" and trigger.get("transition") is not None \
+                and not (isinstance(trigger["transition"], str) and trigger["transition"] in _transition_names(workflow)):
+            errors.append(f"{where}: TRANSITION_APPLIED names {trigger['transition']!r}, which is not a transition of "
+                          f"{object_name}")
+        conditions = definition.get("conditions", [])
+        actions = definition.get("actions")
+        if not isinstance(conditions, list) or not all(isinstance(c, dict) for c in conditions):
+            errors.append(f"{where}: conditions must be a list of objects")
+            conditions = []
+        for condition in conditions:
+            if set(condition) - CONDITION_KEYS:
+                errors.append(f"{where}: a condition has unknown keys {', '.join(sorted(set(condition) - CONDITION_KEYS))}")
+            cfield = condition.get("field")
+            if cfield != "state" and not (isinstance(cfield, str) and cfield in fields):
+                errors.append(f"{where}: a condition names {condition.get('field')!r}, which is not a field of {object_name}")
+            if not isinstance(condition.get("operator"), str) or condition["operator"] not in OPERATORS:
+                errors.append(f"{where}: a condition operator must be one of {', '.join(OPERATORS)}")
+            elif condition["operator"] not in VALUELESS and not (isinstance(condition.get("value"), str)
+                                                                and condition["value"].strip()):
+                errors.append(f"{where}: a {condition['operator']} condition needs a value")
+        if not isinstance(actions, list) or not actions or not all(isinstance(a, dict) for a in actions):
+            errors.append(f"{where}: actions must be a non-empty list of objects")
+            continue
+        for action in actions:
+            errors.extend(_action_errors(where, action, model, object_name, fields, document_types))
+    return errors
+
+
+def _load_json(model_dir, path, errors):
+    try:
+        with open(os.path.join(model_dir, path), encoding="utf-8") as f:
+            return json.load(f)
+    except ValueError as e:
+        errors.append(f"model/{path}: not valid JSON: {e}")
+        return None
+
+
+def load_definitions(model_dir, model):
+    """Everything --workflows applies, checked: (workflows, document types, automations, errors), where the document
+    types and the automations are (object, definition) pairs in file order. Names and prefixes that wasichai keeps
+    unique in the organization are checked across files."""
+    workflows, errors = load_workflows(model_dir, model)
+    by_object = dict(workflows)
+    types, automations = [], []
+    for path in definition_files(model_dir):
+        kind, name = path.split("/")
+        if kind not in ("document-types", "automations"):
+            continue
+        object_name = name[:-len(".json")]
+        loaded = _load_json(model_dir, path, errors)
+        if loaded is None:
+            continue
+        if kind == "document-types":
+            found = validate_document_types(model, object_name, loaded)
+            errors.extend(f"model/{path}: {e}" for e in found)
+            if not found:
+                types.extend((object_name, doc) for doc in loaded)
+    names_by_object = {}
+    for object_name, doc in types:
+        names_by_object.setdefault(object_name, set()).add(doc["name"])
+    for path in definition_files(model_dir):
+        kind, name = path.split("/")
+        if kind != "automations":
+            continue
+        object_name = name[:-len(".json")]
+        loaded = _load_json(model_dir, path, errors)
+        if loaded is None:
+            continue
+        found = validate_automations(model, object_name, loaded, by_object.get(object_name),
+                                     names_by_object.get(object_name, set()))
+        errors.extend(f"model/{path}: {e}" for e in found)
+        if not found:
+            automations.extend((object_name, automation) for automation in loaded)
+    prefixes = [doc["prefix"] for _, doc in types]
+    errors.extend(f"model/document-types: prefix {p} is used by two types (wasichai keeps one per organization)"
+                  for p in sorted({p for p in prefixes if prefixes.count(p) > 1}))
+    names = [a["name"] for _, a in automations]
+    errors.extend(f"model/automations: automation {n} is declared twice (wasichai keeps one per organization)"
+                  for n in sorted({n for n in names if names.count(n) > 1}))
+    return workflows, types, automations, errors
+
+
+def _compact(value):
+    """A definition as wasichai answers it, comparable with the file: no null keys and no empty objects (the keys an
+    answer adds that the file leaves out). An empty list counts as missing too: wasichai defaults conditions, content and
+    the like to []."""
+    if isinstance(value, dict):
+        return {k: _compact(v) for k, v in value.items() if v is not None and v != {} and v != []}
+    if isinstance(value, list):
+        return [_compact(v) for v in value]
+    return value
+
+
+def _document_type_body(doc):
+    return {"label": doc["label"], "prefix": doc["prefix"], "template": doc["template"]}
+
+
+def _automation_body(automation):
+    definition = automation["definition"]
+    return {"label": automation["label"], "enabled": automation["enabled"],
+            "definition": {**definition, "conditions": definition.get("conditions", [])}}
+
+
+def _sync_named(client, kind, object_name, name, wanted, collection):
+    """Create (POST) the named definition Core lacks, replace (PUT) the one that differs, skip the equal one. Returns
+    'created', 'updated', 'skipped', or None when Core refused (already reported)."""
+    path = f"{collection}/{name}"
+    method, target = "GET", path
+    try:
+        current = client.get(path)
+        if current is not None and _compact({k: current.get(k) for k in wanted}) == _compact(wanted):
+            print(f"skip   {kind} {object_name}.{name} (up to date)")
+            return "skipped"
+        if current is None:
+            method, target = "POST", collection
+            client.post(collection, {"name": name, **wanted})
+            print(f"create {kind} {object_name}.{name}")
+            return "created"
+        method = "PUT"
+        client.put(path, {"name": name, **wanted})
+        print(f"update {kind} {object_name}.{name}")
+        return "updated"
+    except CoreError as e:
+        _fatal(method, target, e)
+        return None
+
+
+def _warn_extra_automations(client, automations, object_names):
+    """An automation Core runs and model/ no longer declares keeps running: reported on stderr, never deleted."""
+    declared = {a["name"] for _, a in automations}
+    for object_name in object_names:
+        for current in client.get(f"/api/objects/{object_name}/automations") or []:
+            if current.get("name") not in declared:
+                print(f"warning: automation {current.get('name')} of {object_name} is in core but not in model/; left as is "
+                      f"(delete it in /admin if it is a leftover)", file=sys.stderr)
+
+
 def _kinds_before_their_phase(model_dir):
     """The definition files of a kind apply.py does not apply yet, reported on stderr; True when there are any."""
     early = [path for path in definition_files(model_dir) if path.split("/")[0] not in APPLIED_KINDS]
@@ -1032,13 +1398,15 @@ def _workflow_hazards(client, object_name, wanted, current, allow_stateless):
 
 
 def do_workflows(model_dir, model, client_factory, dry_run=False, allow_stateless_records=False):
-    """The workflows of model/workflows/: a missing one is created, one that differs is replaced (PUT is the whole
-    api), an equal one is skipped. A definition of a kind that has not arrived yet is an error, never a silent skip.
-    Nothing is written until every workflow is checked against the records: one that would strand records (it drops a
-    state they sit in) stops the pass with 1, and so does one created over records unless allow_stateless_records."""
+    """The workflows of model/workflows/, then the document types of model/document-types/ and the automations of
+    model/automations/, in that order (an automation names states and document types): a missing one is created, one
+    that differs is replaced, an equal one is skipped. A definition of a kind that has not arrived yet is an error, never
+    a silent skip. Nothing is written until every workflow is checked against the records: one that would strand records
+    (it drops a state they sit in) stops the pass with 1, and so does one created over records unless
+    allow_stateless_records."""
     if _kinds_before_their_phase(model_dir):
         return 2
-    workflows, errors = load_workflows(model_dir, model)
+    workflows, types, automations, errors = load_definitions(model_dir, model)
     if errors:
         for error in errors:
             print(f"error: {error}", file=sys.stderr)
@@ -1047,8 +1415,14 @@ def do_workflows(model_dir, model, client_factory, dry_run=False, allow_stateles
         for object_name, workflow in workflows:
             print(f"# PUT /api/objects/{object_name}/workflow")
             print(json.dumps(_workflow_body(workflow), indent=2, ensure_ascii=False))
+        for object_name, doc in types:
+            print(f"# POST /api/objects/{object_name}/document-types")
+            print(json.dumps({"name": doc["name"], **_document_type_body(doc)}, indent=2, ensure_ascii=False))
+        for object_name, automation in automations:
+            print(f"# POST /api/objects/{object_name}/automations")
+            print(json.dumps({"name": automation["name"], **_automation_body(automation)}, indent=2, ensure_ascii=False))
         return 0
-    client = client_factory() if workflows else None
+    client = client_factory() if workflows or types or automations else None
     plan = []
     refusals = []
     for object_name, workflow in workflows:
@@ -1088,8 +1462,31 @@ def do_workflows(model_dir, model, client_factory, dry_run=False, allow_stateles
         else:
             print(f"update workflow {wanted['name']}")
             updated += 1
+    counts = {}
+    for kind, entries, body, collection in (
+            ("document type", types, _document_type_body, "document-types"),
+            ("automation", automations, _automation_body, "automations")):
+        tally = {"created": 0, "updated": 0, "skipped": 0}
+        for object_name, definition in entries:
+            outcome = _sync_named(client, kind, object_name, definition["name"], body(definition),
+                                  f"/api/objects/{object_name}/{collection}")
+            if outcome is None:
+                return 1
+            tally[outcome] += 1
+        counts[kind] = tally
+    if automations:
+        try:
+            _warn_extra_automations(client, automations, [o["name"] for o in model["objects"]])
+        except CoreError as e:
+            _fatal("GET", "/api/objects/{object}/automations", e)
+            return 1
+
+    def summary(count, noun, tally):
+        return (f"{count} {noun} ({tally['created']} created, {tally['updated']} updated, {tally['skipped']} skipped)")
+
     print(f"done: {len(workflows)} workflows ({created} created, {updated} updated, {skipped} skipped), "
-          f"0 document types, 0 automations, 0 views, 0 forms, 0 pages")
+          f"{summary(len(types), 'document types', counts['document type'])}, "
+          f"{summary(len(automations), 'automations', counts['automation'])}, 0 views, 0 forms, 0 pages")
     return 0
 
 
@@ -1129,10 +1526,10 @@ def main(argv=None):
         model_dir = os.path.dirname(os.path.abspath(args.model))
         if _kinds_before_their_phase(model_dir):
             return 2
-        _, workflow_errors = load_workflows(model_dir, model)
-        for e in workflow_errors:
+        _, _, _, definition_errors = load_definitions(model_dir, model)
+        for e in definition_errors:
             print(f"model: {e}")
-        return 2 if workflow_errors else 0
+        return 2 if definition_errors else 0
     if args.workflows:
         def connect():
             client = Client(args.core)
