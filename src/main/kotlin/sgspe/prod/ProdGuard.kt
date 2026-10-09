@@ -9,8 +9,9 @@ import java.time.Duration
 
 /**
  * Guarda de producción (ADR-0020, RQ-SEC-016, RQ-SEC-001). Con el perfil `prod` activo, el arranque falla si la
- * semilla de desarrollo está encendida, si el secreto JWT falta o es el de desarrollo, si el token dura 8 horas o más, o
- * si las evidencias no van a un bucket compatible con S3 (ADR-0014: el disco de una réplica no lo ven las demás).
+ * semilla de desarrollo está encendida, si el secreto JWT falta o es el de desarrollo, si el token dura 8 horas o más,
+ * si las evidencias no van a un bucket compatible con S3 (ADR-0014: el disco de una réplica no lo ven las demás) o usan
+ * las claves del MinIO de desarrollo, o si el correo está encendido con el servidor o el remitente de desarrollo.
  *
  * Es un `EnvironmentPostProcessor`: corre cuando la configuración ya está cargada (application-prod.yml, variables de
  * entorno, argumentos) y antes de crear el contexto. Flyway pertenece al contexto, así que la guarda corre antes de
@@ -73,24 +74,31 @@ class ProdGuard :
         }
     }
 
-    // sin claves rige la cadena de credenciales del SDK (rol de instancia); con una sola, wasichai falla tarde con su mensaje
+    // sin claves rige la cadena de credenciales del SDK (rol de instancia); con una sola, wasichai falla tarde con su mensaje;
+    // las del MinIO de desarrollo (develop/example.env) son públicas
     private fun keys(environment: ConfigurableEnvironment): String? {
-        val access = !environment.getProperty(ACCESS_KEY).isNullOrBlank()
-        val secret = !environment.getProperty(SECRET_KEY).isNullOrBlank()
-        return if (access != secret) {
-            "$ACCESS_KEY y $SECRET_KEY van juntas o ninguna: defina WASICHAI_FILES_S3_ACCESS_KEY y WASICHAI_FILES_S3_SECRET_KEY, o quite las dos"
-        } else {
-            null
+        val access = environment.getProperty(ACCESS_KEY)
+        val secret = environment.getProperty(SECRET_KEY)
+        return when {
+            access.isNullOrBlank() != secret.isNullOrBlank() ->
+                "$ACCESS_KEY y $SECRET_KEY van juntas o ninguna: defina WASICHAI_FILES_S3_ACCESS_KEY y WASICHAI_FILES_S3_SECRET_KEY, o quite las dos"
+            access == DEV_S3_ACCESS_KEY || secret == DEV_S3_SECRET_KEY ->
+                "$ACCESS_KEY o $SECRET_KEY es la clave del MinIO de desarrollo, que es pública: defina WASICHAI_FILES_S3_ACCESS_KEY y " +
+                    "WASICHAI_FILES_S3_SECRET_KEY con las del almacenamiento de producción"
+            else -> null
         }
     }
 
-    // el valor por defecto de spring.mail.host en application.yml es el Mailpit de desarrollo; en prod lo nombra el despliegue
+    // el valor por defecto de spring.mail.host en application.yml es el Mailpit de desarrollo, y el del remitente, un correo
+    // @sgspe.test: en prod los nombra el despliegue
     private fun mail(environment: ConfigurableEnvironment): String? {
-        val on = environment.getProperty(EMAIL, Boolean::class.javaObjectType) == true
-        return if (on && environment.getProperty(MAIL_HOST).isNullOrBlank()) {
-            "$EMAIL=true sin $MAIL_HOST: defina SPRING_MAIL_HOST con el servidor SMTP"
-        } else {
-            null
+        if (environment.getProperty(EMAIL, Boolean::class.javaObjectType) != true) return null
+        val from = environment.getProperty(MAIL_FROM)?.trim()
+        return when {
+            environment.getProperty(MAIL_HOST).isNullOrBlank() -> "$EMAIL=true sin $MAIL_HOST: defina SPRING_MAIL_HOST con el servidor SMTP"
+            from.isNullOrEmpty() || from.endsWith(TEST_DOMAIN, ignoreCase = true) ->
+                "$EMAIL=true con $MAIL_FROM de prueba (@sgspe.test): defina WASICHAI_NOTIFICATIONS_EMAIL_FROM con el remitente real"
+            else -> null
         }
     }
 
@@ -108,6 +116,12 @@ class ProdGuard :
         private const val SECRET_KEY = "wasichai.files.s3.secret-key"
         private const val EMAIL = "wasichai.notifications.email.enabled"
         private const val MAIL_HOST = "spring.mail.host"
+        private const val MAIL_FROM = "wasichai.notifications.email.from"
+        private const val TEST_DOMAIN = "@sgspe.test"
+
+        // las claves del MinIO de compose.yml, en develop/example.env
+        private const val DEV_S3_ACCESS_KEY = "sgspe"
+        private const val DEV_S3_SECRET_KEY = "sgspe-minio"
         private val MAX_TTL: Duration = Duration.ofHours(8)
     }
 }
