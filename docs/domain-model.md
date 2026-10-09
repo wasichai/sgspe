@@ -564,8 +564,8 @@ es requisito del MVP y depende de GAP-008 (ASM-021); si se aprueba, BC-11 se sep
 |---|---|---|---|---|---|
 | `evidence` | `evidence_type` ENUM (Tipo de evidencia); `classification` ENUM (Clasificación de evidencia); `title` TEXT; `file` FILE (el archivo de wasichai-files, con su nombre, tipo, tamaño y SHA-256); `document_date` DATE; `author` TEXT; `captured_at` DATETIME; `people_identifiable` BOOLEAN; `photo_consent_given` BOOLEAN; `import_batch_id` UUID (archivo original de una importación, ASM-060); `location` GEOMETRY (POINT) | M2O `project`; M2O `replaces` → `evidence` (versión que reemplaza); una M2M `evidence_<objeto>` por destino: `community`, `land_parcel`, `stakeholder`, `engagement`, `field_visit`, `field_observation`, `commitment`, `delivery`, `agreement`, `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `incident`, `media_mention`, `social_contribution`, `social_program`, `study` | `apiOnly` más guarda de inmutabilidad (sin append-only, porque tiene vínculos M2M) | — | RF-DOC-001, RF-DOC-003, RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07 |
 
-- El archivo vive en almacenamiento de objetos local o compatible con S3; el registro guarda su clave, su tamaño y su SHA-256
-  (ASM-013). Ningún destino de `evidence_<objeto>` es `appendOnly`, porque un vínculo con un registro `appendOnly` responde 409
+- El archivo vive en almacenamiento de objetos local o compatible con S3; el registro guarda el descriptor del campo FILE (id del
+  archivo, nombre, tipo, tamaño y SHA-256), no una clave de almacenamiento (ASM-013). Ningún destino de `evidence_<objeto>` es `appendOnly`, porque un vínculo con un registro `appendOnly` responde 409
   [WAS-ADR-0040]. El proyecto de una evidencia es su M2O `project`; no hay una M2M hacia `project`.
 - Los vínculos con destinos `requiresReason` (`commitment`, `agreement`, `grievance`, `inquiry`, `stakeholder_request`,
   `social_risk`, `social_contribution`) exigen motivo en ambos registros: `sgspe.evidence` lo pasa en cada vínculo
@@ -573,9 +573,9 @@ es requisito del MVP y depende de GAP-008 (ASM-021); si se aprueba, BC-11 se sep
 - **Documentos emitidos** (wasichai-documents) no son objetos de SGSPE: son tipos de documento por objeto (catálogo "Tipo de
   documento administrativo"), emitidos congelados y con correlativo (RQ-REP-029) [WAS-ADR-0023]. Se emiten desde `delivery`
   (acta de entrega o de recepción), `engagement` (minuta y lista de asistentes), `grievance` (cargo de queja), `inquiry` y
-  `stakeholder_request` (carta de respuesta), `stakeholder` (ficha de grupo de interés) y `locality` (ficha de localidad). Un
+  `stakeholder_request` (carta de respuesta), `stakeholder` (ficha de grupo de interés, tras UPS-23: `stance` es restringido) y `locality` (ficha de localidad). Un
   documento emitido no se filtra por permisos de campo y su copia congelada lleva el registro entero (UPS-23): solo se
-  declara sobre objetos sin campos restringidos (`security.md` §11.4), y el acta de entrega espera a UPS-23.
+  declara sobre objetos sin campos restringidos (`security.md` §11.4), y el acta de entrega (y la de recepción, AUT-04) y la ficha de grupo de interés esperan a UPS-23.
 
 ### 6.13 BC-13 Tareas y aprobaciones
 
