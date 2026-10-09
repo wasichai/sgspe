@@ -1597,7 +1597,7 @@ AiReviewPage
 - **Estados:** si algo falla, nada cambia.
 - **Permisos:** la persona que plantea sigue restringida.
 - **Responsive:** la tabla pasa a dos tarjetas apiladas.
-- **Relacionadas y navegación:** S36, S52.
+- **Relacionadas y navegación:** S36 o S57, S52.
 
 ```text
 DuplicateReviewPage
