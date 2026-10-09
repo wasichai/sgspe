@@ -4,7 +4,7 @@ Stdlib only. What it reads, and from where:
 
 - docs/database-model.md, the cards (§6 to §21): per object its label, description, fields (type, required, unique,
   derived, restricted, default, phase), relationships (type, field, target, required, phase), flags, uniques, declared
-  indexes, declared actions, workflow and phase; §4, the key of each ENUM catalog;
+  indexes, declared actions, the media types of a FILE field, workflow and phase; §4, the key of each ENUM catalog;
 - docs/requirements-analysis.md §10, the options of each catalog, in order, without the "(propuesto)" notes;
 - docs/security.md §7.1 (the phase of each role), §7.2 to §7.8 (the matrix) and §7.9 (the restricted fields);
 - docs/domain-model.md §7.3, the states of each workflow.
@@ -23,6 +23,8 @@ FROM_PHASE = re.compile(r"[Dd]esde (F\d)")
 DEFAULT = re.compile(r"Por defecto: ([^.]+)\.")
 SEPARATOR = re.compile(r"^\|\s*:?-{3,}")
 DATA_ROW = re.compile(r"^\| `[a-z_0-9]+` \|")
+# the "; " before the second form of a Únicos or Índices bullet, never the one between two sets of the same form
+BOTH_FORMS = re.compile(r"; (?=`(?:unique|uniqueConstraints|indexed|indexes)`)")
 
 
 def read(name):
@@ -75,6 +77,7 @@ class Card:
         self.workflow = None
         self.phase = None
         self.exactly_one = []  # lists of relation field names
+        self.content_types = {}  # FILE field name -> the media types it takes (contentTypes)
 
 
 def _bullets(lines, start):
@@ -158,22 +161,27 @@ def cards():
                 bullets = _bullets(lines, j)
                 flags = bullets.get("Flags", "")
                 card.flags = {flag: bool(re.search(rf"`{flag}` sí", flags)) for flag in ("appendOnly", "apiOnly", "requiresReason")}
-                uniques = bullets.get("Únicos", "ninguno")
-                if uniques.startswith("`unique` en"):
-                    card.unique = ticks(uniques)[1:]
-                elif uniques.startswith("`uniqueConstraints`"):
-                    card.unique_constraints = _sets(uniques)
-                indexes = bullets.get("Índices declarados", "ninguno")
-                if indexes.startswith("`indexed` en"):
-                    card.indexed = ticks(indexes)[1:]
-                elif indexes.startswith("`indexes`"):
-                    card.indexes = _sets(indexes)
+                # a bullet may carry both forms: "`indexed` en `a`, `b`; `indexes` (`c`, `d`)"
+                for part in BOTH_FORMS.split(bullets.get("Únicos", "ninguno")):
+                    if part.startswith("`unique` en"):
+                        card.unique = ticks(part)[1:]
+                    elif part.startswith("`uniqueConstraints`"):
+                        card.unique_constraints = _sets(part)
+                for part in BOTH_FORMS.split(bullets.get("Índices declarados", "ninguno")):
+                    if part.startswith("`indexed` en"):
+                        card.indexed = ticks(part)[1:]
+                    elif part.startswith("`indexes`"):
+                        card.indexes = _sets(part)
                 card.actions = [a for a in ticks(bullets.get("Acciones declaradas", "")) if a.isupper()]
                 workflow = re.match(r"(WF-[A-Z0-9]+)", bullets.get("Workflow", ""))
                 card.workflow = workflow.group(1) if workflow else None
                 phase = re.match(r"(F\d)", bullets.get("Fase", ""))
                 card.phase = phase.group(1) if phase else None
                 card.exactly_one = _sets(bullets.get("Exactamente uno de", ""))
+                # "`file` admite `application/pdf`, `image/*`…": the FILE field, then its media types
+                types = ticks(bullets.get("Tipos de archivo", ""))
+                if types:
+                    card.content_types = {types[0]: types[1:]}
                 break
             j += 1
         # Fail closed: a renamed header, a dropped separator or a blank line inside a table would leave rows out.
@@ -340,13 +348,31 @@ def workflow_states():
 TRANSITION_NAME = re.compile(r"^`([a-z_]+)` \(([^()]+)\)$")
 ROLE = re.compile(r"`([A-Z][A-Z0-9_]*)`")
 SAME_ROLES = re.compile(r"^Los mismos de `([a-z_]+)`$")
+# a cell that names the section's own list, as WF-N does: "- **Roles operativos:** `A`, `B`…"
+ROLE_LIST = re.compile(r"^Roles ([a-záéíóú]+)$")
+SUBJECT = re.compile(r"^\*\*Objeto:\*\* `([a-z_]+)`$")
 
 
-def workflow_transitions(letter):
+def _section_bullet(lines, start, end, name):
+    """The text of the '- **<name>:**' bullet of lines[start:end], continuation lines joined, or None."""
+    for i in range(start, end):
+        if lines[i].startswith(f"- **{name}:**"):
+            text = lines[i]
+            j = i + 1
+            while j < end and lines[j].startswith("  ") and lines[j].strip():
+                text += " " + lines[j].strip()
+                j += 1
+            return text
+    return None
+
+
+def workflow_transitions(letter, obj=None):
     """The transitions of the WF-<letter> section of workflows.md: [{name, label, from, to, roles}] in table order.
 
     Fails (ValueError) when the section, its table or a cell does not have the expected shape, so a changed document
-    cannot make a test compare against less than the document says. The cell "Los mismos de `x`" takes the roles of x.
+    cannot make a test compare against less than the document says. The cell "Los mismos de `x`" takes the roles of x;
+    the cell "Roles <adjective>" takes the roles of the section's bullet "- **Roles <adjective>:**". A section with one
+    table per object (WF-K) needs `obj`: the table that follows its "**Objeto:** `obj`" line.
     """
     lines = read("workflows.md").splitlines()
     heading = f"## WF-{letter} ·"
@@ -354,9 +380,17 @@ def workflow_transitions(letter):
     if len(starts) != 1:
         raise ValueError(f"workflows.md has {len(starts)} sections that start with {heading!r}, expected 1")
     end = next((i for i in range(starts[0] + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
-    tables = [i for i in range(starts[0], end) if lines[i].startswith("| Transición | De | A | Roles |")]
+    start = starts[0]
+    if obj is not None:
+        subjects = [i for i in range(start, end) if SUBJECT.match(lines[i]) and SUBJECT.match(lines[i]).group(1) == obj]
+        if len(subjects) != 1:
+            raise ValueError(f"section WF-{letter} has {len(subjects)} '**Objeto:** `{obj}`' lines, expected 1")
+        start = subjects[0]
+        end = next((i for i in range(start + 1, end) if SUBJECT.match(lines[i])), end)
+    tables = [i for i in range(start, end) if lines[i].startswith("| Transición | De | A | Roles |")]
     if len(tables) != 1:
-        raise ValueError(f"section WF-{letter} has {len(tables)} transition tables, expected 1")
+        where = f"WF-{letter}" + (f" ({obj})" if obj else "")
+        raise ValueError(f"section {where} has {len(tables)} transition tables, expected 1")
     rows = table_rows(lines, tables[0])
     if not rows:
         raise ValueError(f"the transition table of WF-{letter} has no rows")
@@ -371,14 +405,82 @@ def workflow_transitions(letter):
         if len(source) != 1 or len(target) != 1 or row[1] != f"`{source[0]}`" or row[2] != f"`{target[0]}`":
             raise ValueError(f"WF-{letter}: {name.group(1)} has From {row[1]!r} / To {row[2]!r}, expected one `state` each")
         same = SAME_ROLES.match(row[3])
+        listed = ROLE_LIST.match(row[3])
         if same:
             donor = next((t for t in result if t["name"] == same.group(1)), None)
             if donor is None:
                 raise ValueError(f"WF-{letter}: {name.group(1)} takes its roles from {same.group(1)}, which is not above it")
             roles = list(donor["roles"])
+        elif listed:
+            bullet = _section_bullet(lines, starts[0], end, row[3])
+            if bullet is None:
+                raise ValueError(f"WF-{letter}: {name.group(1)} names {row[3]!r}, but the section has no such bullet")
+            roles = ROLE.findall(bullet)
         else:
             roles = ROLE.findall(row[3])
         if not roles:
             raise ValueError(f"WF-{letter}: {name.group(1)} has no roles in {row[3]!r}")
         result.append({"name": name.group(1), "label": name.group(2), "from": source[0], "to": target[0], "roles": roles})
+    return result
+
+
+# ---------------------------------------------------------------------------
+# workflows.md: automations and document types
+# ---------------------------------------------------------------------------
+
+AFTER_GAP = re.compile(r"tras (UPS-\d+)")
+
+
+def _phase_cell(cell):
+    """('F3', 'UPS-23') from 'F3, tras UPS-23'; ('F4', None) from 'F4'."""
+    phase = re.match(r"(F\d)", cell)
+    if not phase:
+        raise ValueError(f"phase cell {cell!r} does not start with a phase")
+    gap = AFTER_GAP.search(cell)
+    return phase.group(1), gap.group(1) if gap else None
+
+
+def automations():
+    """The rows of the AUT-NN table of workflows.md: [{id, name, object, trigger, state, transition, phase, after}].
+
+    `trigger` is the trigger type (`STATE_ENTERED`, `RECORD_CREATED`…); `state` and `transition` the state or the
+    transition it names, if any; `after` the upstream gap the row waits for ("F3, tras UPS-23"), or None."""
+    lines = read("workflows.md").splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("| ID | Nombre técnico | Objeto | Disparador |"))
+    result = []
+    for row in table_rows(lines, start):
+        if len(row) != 8:
+            raise ValueError(f"automation row {row[0]!r} has {len(row)} cells, expected 8")
+        names = ticks(row[1])
+        objects = ticks(row[2])
+        trigger = ticks(row[3])
+        if not re.fullmatch(r"AUT-\d{2}", row[0]) or not names or len(objects) != 1 or not trigger:
+            raise ValueError(f"automation row {row[0]!r} is not 'AUT-NN | `name` | `object` | `TRIGGER` …'")
+        phase, after = _phase_cell(row[6])
+        kind = trigger[0]
+        named = trigger[1] if len(trigger) > 1 else None
+        result.append({
+            "id": row[0], "name": names[0], "object": objects[0], "trigger": kind,
+            "state": named if kind == "STATE_ENTERED" else None,
+            "transition": named if kind == "TRANSITION_APPLIED" else None,
+            "phase": phase, "after": after,
+        })
+    return result
+
+
+def document_types():
+    """The rows of the document types table of workflows.md: [{name, label, prefix, object, phase, after}]."""
+    lines = read("workflows.md").splitlines()
+    start = next(i for i, line in enumerate(lines)
+                 if line.startswith("| Tipo de documento | Nombre técnico | Prefijo | Objeto |"))
+    result = []
+    for row in table_rows(lines, start):
+        if len(row) != 6:
+            raise ValueError(f"document type row {row[0]!r} has {len(row)} cells, expected 6")
+        names, prefixes, objects = ticks(row[1]), ticks(row[2]), ticks(row[3])
+        if len(names) != 1 or len(prefixes) != 1 or len(objects) != 1:
+            raise ValueError(f"document type row {row[0]!r} is not 'Label | `name` | `PREFIX` | `object` …'")
+        phase, after = _phase_cell(row[4])
+        result.append({"label": row[0], "name": names[0], "prefix": prefixes[0], "object": objects[0], "phase": phase,
+                       "after": after})
     return result

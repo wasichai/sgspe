@@ -3149,8 +3149,8 @@ Requisitos: RF-INV-003.
 
 ## 16. BC-12 Evidencias y documentos
 
-Archivos inmutables con hash en almacenamiento de objetos, porque wasichai no tiene campo FILE (CON-046, UPS-07,
-ASM-013). Los documentos emitidos de wasichai-documents (actas, cargos, cartas y fichas) no son objetos de SGSPE: son tipos
+Archivos inmutables con hash en un campo `FILE` de wasichai-files, cuyos bytes viven en almacenamiento compatible con
+S3 (UPS-07, ASM-013, ADR-0014). Los documentos emitidos de wasichai-documents (actas, cargos, cartas y fichas) no son objetos de SGSPE: son tipos
 de documento por objeto, congelados y con correlativo, que viven en el esquema de metadatos (RQ-REP-029) [WAS-ADR-0023].
 
 ```mermaid
@@ -3179,7 +3179,7 @@ erDiagram
 
 ### `evidence`
 
-**Evidencia** (BC-12). Archivo inmutable con hash que prueba un hecho, guardado en almacenamiento de objetos y
+**Evidencia** (BC-12). Archivo inmutable con hash que prueba un hecho, guardado en un campo `FILE` de wasichai-files y
 vinculable a varios registros. Tabla física `app_data.evidence__<org8>`. Requisitos: RF-DOC-001, RF-DOC-003,
 RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07.
 
@@ -3188,11 +3188,7 @@ RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07.
 | `evidence_type` | ENUM `evidence_type` | sí | — | Tipo de evidencia; la regla de evidencia mínima para cumplir un compromiso lo lee (ASM-009). | RF-DOC-001 |
 | `classification` | ENUM `evidence_classification` | sí | — | Clasificación; decide quién descarga el archivo. | RF-DOC-003 |
 | `title` | TEXT | no | — | Título. | RF-DOC-001 |
-| `storage_key` | TEXT | sí | sí | Clave del archivo en el almacenamiento de objetos (ASM-013). | RF-DOC-001 |
-| `file_name` | TEXT | sí | — | Nombre original del archivo. | RF-DOC-001 |
-| `mime_type` | TEXT | sí | — | Tipo MIME. | RF-DOC-001 |
-| `size_bytes` | INTEGER | sí | — | Tamaño en bytes. | RF-DOC-001 |
-| `sha256` | TEXT | sí | — | Hash SHA-256 calculado al subir. | RF-DOC-001 |
+| `file` | FILE | sí | — | Archivo; wasichai-files guarda al subirlo su nombre original, su tipo MIME detectado por su contenido, su tamaño y su hash SHA-256, y el registro los muestra como su descriptor (ASM-013). | RF-DOC-001 |
 | `document_date` | DATE | no | — | Fecha del documento. | RF-DOC-001 |
 | `author` | TEXT | no | — | Autor. | RF-DOC-001 |
 | `captured_at` | DATETIME | no | — | Momento de captura (EXIF de una foto). | RF-DOC-001 |
@@ -3225,13 +3221,24 @@ RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07.
 | `evidence_study` | MANY_TO_MANY | — | `study` | — | Registros que prueba |
 
 - **Flags:** `appendOnly` no · `apiOnly` sí · `requiresReason` no.
-- **Únicos:** `unique` en `storage_key`.
+- **Únicos:** ninguno.
 - **Índices declarados:** `indexed` en `import_batch_id`.
 - **Acciones declaradas:** `DOWNLOAD_RESTRICTED`, `EDIT_ANY`.
+- **Tipos de archivo:** `file` admite `application/pdf`, `image/*`, `text/csv`, `text/plain`,
+  `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+  `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `application/vnd.oasis.opendocument.text` y
+  `application/vnd.oasis.opendocument.spreadsheet`, la lista contentTypes del campo; wasichai-files detecta el tipo por
+  el contenido y responde 400 a los demás.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- `apiOnly` más `EvidenceWriteGuard` (clave, hash, tamaño y tipo no cambian; no se borra) y no `appendOnly`, porque
-  tiene vínculos MANY_TO_MANY y un vínculo con un registro `appendOnly` responde 409 [WAS-ADR-0040].
+- `apiOnly` más `EvidenceWriteGuard` (el archivo no cambia; no se borra) y no `appendOnly`, porque tiene vínculos
+  MANY_TO_MANY y un vínculo con un registro `appendOnly` responde 409 [WAS-ADR-0040].
+- `file` es un campo `FILE` de wasichai-files [WAS-ADR-0061]: la columna guarda el id de una fila de `stored_files` y el
+  registro, su historial y los listeners ven `{ id, name, contentType, size, sha256 }`, nunca los bytes. Lo escribe solo
+  `sgspe.evidence`, al crear la evidencia, con la subida que la misma persona hizo antes
+  (`POST /api/objects/evidence/files/file`); la ruta genérica que reemplaza el archivo responde 403 porque el objeto es
+  `apiOnly`. Un campo `FILE` no es `unique` ni se filtra ni se ordena; los bytes viven en el almacenamiento compatible con
+  S3 de `wasichai.files.*` (MinIO solo en desarrollo) y un trabajo de wasichai borra los que ningún registro nombra.
 - Los vínculos con destinos `requiresReason` exigen motivo en ambos registros; `sgspe.evidence` lo pasa en cada vínculo
   [WAS-ADR-0041]. `import_batch_id` lleva índice para encontrar el archivo de una importación.
 
