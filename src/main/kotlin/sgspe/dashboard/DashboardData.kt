@@ -32,12 +32,12 @@ class DashboardData(
     // si quien mira puede leer objeto.campo (la definición filtrada por sus permisos, dashboards.md §8). sin valor por
     // defecto: es una barrera de privacidad y quien arma los datos tiene que decirla
     val readable: suspend (String) -> Boolean,
+    // hoy en Lima, del reloj de la aplicación (los días de atraso de KPI-COM-03 y el corte de KPI-COM-11): obligatorio, sin
+    // caer al fin del periodo
+    val today: LocalDate,
     private val maxRows: Int = MAX_ROWS,
-    private val maxRelated: Int = MAX_RELATED,
-    // hoy en Lima, del reloj de la aplicación (los días de atraso de KPI-COM-03); sin él, el fin del periodo
-    private val clockToday: LocalDate? = null
+    private val maxRelated: Int = MAX_RELATED
 ) {
-    val today: LocalDate get() = clockToday ?: filters.periodEnd
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
 
@@ -404,24 +404,28 @@ class DashboardData(
         val skipped = mutableListOf<String>()
         for (r in records) {
             val commitment = Values.text(r.attributes["commitment"])
-            val previous = Values.text(r.attributes["previous_due_date"])?.let(LocalDate::parse)
-            val newDate = Values.text(r.attributes["new_due_date"])?.let(LocalDate::parse)
+            // una fecha mal formada es lo mismo que una que falta: dato corrupto
+            val previous = Values.text(r.attributes["previous_due_date"])?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val newDate = Values.text(r.attributes["new_due_date"])?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             val created = r.createdAt
             if (commitment == null || previous == null || newDate == null || created == null) {
-                log.error("Reprogramación {} con datos incompletos (compromiso, fechas o creación): se excluye del cálculo", r.id)
+                log.warn("Reprogramación {} con datos incompletos o inválidos (compromiso, fechas o creación): se excluye del cálculo", r.id)
                 skipped += r.id
             } else {
+                // sequence resuelve al milisegundo: dos reprogramaciones del mismo compromiso creadas en el mismo milisegundo
+                // empatan y conservan el orden de lectura (la ordenación es estable)
                 rows += RescheduleRow(commitment, previous, newDate, created.atZone(LIMA).toLocalDate(), created.toEpochMilli())
             }
         }
         return RescheduleRead(rows, skipped)
     }
 
-    // la moneda de la campaña pedida (PEN por defecto, RNF-I18N-002); null si no se pidió una campaña
+    // la moneda de la campaña pedida (PEN si la campaña no la trae, RNF-I18N-002); null si no se pidió una campaña o si la
+    // pedida no existe o no se lee: quien llama lo distingue por filters.explorationCampaign
     suspend fun campaignCurrency(): String? {
         val campaign = filters.explorationCampaign ?: return null
-        val record = readIn("exploration_campaign", null, listOf(campaign.toString())).firstOrNull()
-        return Values.text(record?.attributes?.get("currency")) ?: CommitmentKpis.DEFAULT_CURRENCY
+        val record = readIn("exploration_campaign", null, listOf(campaign.toString())).firstOrNull() ?: return null
+        return Values.text(record.attributes["currency"]) ?: CommitmentKpis.DEFAULT_CURRENCY
     }
 
     // los umbrales de escalamiento de cada proyecto del filtro (ProjectParameters: 7 y 15 por defecto)

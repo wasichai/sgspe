@@ -85,6 +85,9 @@ object Kpis {
 
     // lo que leen todos los KPI-COM: el compromiso, su estado y su territorio
     private val COMMITMENT = listOf("commitment.project", "commitment.locality", "commitment.community")
+
+    // el filtro explorationCampaign se aplica sobre este campo, así que los KPI que lo aceptan lo exigen legible
+    private const val CAMPAIGN = "commitment.exploration_campaign"
     private val PLAZO = COMMITMENT + listOf("commitment.deadline_status", "commitment.due_date")
 
     // el contacto de dashboards.md §3.3: la interacción realizada, su vínculo M2M y el participante que asistió
@@ -256,10 +259,17 @@ object Kpis {
                 EngagementKpis.answered(meetings, questions, data.names("topic", questions.mapNotNull { it.topic }))
             },
             // ---- F3: compromisos (dashboards.md §4.4); cada uno aplica los filtros de su fila y declara los demás ----
-            Kpi("KPI-COM-01", "Compromisos registrados", COMMITMENTS, "compromisos", COMMITMENT, ignores = commitmentIgnores("explorationCampaign")) {
+            Kpi(
+                "KPI-COM-01",
+                "Compromisos registrados",
+                COMMITMENTS,
+                "compromisos",
+                COMMITMENT + CAMPAIGN,
+                ignores = commitmentIgnores("explorationCampaign")
+            ) {
                 CommitmentKpis.registered(it.commitments(campaign = true, owner = false))
             },
-            Kpi("KPI-COM-02", "Compromisos abiertos", COMMITMENTS, "compromisos", COMMITMENT, ignores = commitmentIgnores("explorationCampaign")) {
+            Kpi("KPI-COM-02", "Compromisos abiertos", COMMITMENTS, "compromisos", COMMITMENT + CAMPAIGN, ignores = commitmentIgnores("explorationCampaign")) {
                 CommitmentKpis.open(it.commitments(campaign = true, owner = false))
             },
             Kpi(
@@ -267,7 +277,7 @@ object Kpis {
                 "Compromisos vencidos",
                 COMMITMENTS,
                 "compromisos",
-                PLAZO + listOf("commitment.owner_user_id", "project.escalation_first_days", "project.escalation_second_days"),
+                PLAZO + listOf(CAMPAIGN, "commitment.owner_user_id", "project.escalation_first_days", "project.escalation_second_days"),
                 ignores = commitmentIgnores("explorationCampaign", "owner")
             ) { data ->
                 val escalation = data.escalation()
@@ -278,7 +288,7 @@ object Kpis {
                 "Compromisos por vencer",
                 COMMITMENTS,
                 "compromisos",
-                PLAZO + "commitment.owner_user_id",
+                PLAZO + listOf(CAMPAIGN, "commitment.owner_user_id"),
                 ignores = commitmentIgnores("explorationCampaign", "owner")
             ) { CommitmentKpis.dueSoon(it.commitments(campaign = true, owner = true)) },
             Kpi(
@@ -286,7 +296,7 @@ object Kpis {
                 "Compromisos cumplidos en el periodo",
                 COMMITMENTS,
                 "compromisos",
-                COMMITMENT + "commitment.fulfilled_date",
+                COMMITMENT + listOf(CAMPAIGN, "commitment.fulfilled_date"),
                 ignores = commitmentIgnores("explorationCampaign")
             ) { CommitmentKpis.fulfilled(it.commitments(campaign = true, owner = false), it.filters.periodStart, it.filters.periodEnd) },
             Kpi(
@@ -348,9 +358,17 @@ object Kpis {
                 "Monto comprometido frente a ejecutado",
                 COMMITMENTS,
                 "monto",
-                COMMITMENT + listOf("commitment.amount", "commitment.currency", "commitment.executed_amount", "exploration_campaign.currency"),
+                COMMITMENT + listOf(CAMPAIGN, "commitment.amount", "commitment.currency", "commitment.executed_amount", "exploration_campaign.currency"),
                 ignores = commitmentIgnores("explorationCampaign")
-            ) { CommitmentKpis.amounts(it.commitments(campaign = true, owner = false), it.campaignCurrency()) },
+            ) { data ->
+                // con una campaña pedida que no existe o no se lee no hay moneda base: no disponible, no PEN supuesto
+                val currency = data.campaignCurrency()
+                if (data.filters.explorationCampaign != null && currency == null) {
+                    IndicatorResult.unavailable(UnavailableReason.OBJECT_NOT_READABLE, listOf("exploration_campaign"))
+                } else {
+                    CommitmentKpis.amounts(data.commitments(campaign = true, owner = false), currency)
+                }
+            },
             Kpi(
                 "KPI-COM-11",
                 "Compromisos vencidos al cierre de cada mes",

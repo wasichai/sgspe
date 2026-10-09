@@ -14,6 +14,10 @@ import java.util.UUID
 
 // los topes de lectura de los tableros y los filtros que cada KPI ignora (dashboards.md §3.1 y §6.2), sin base
 class DashboardDataTest {
+    private companion object {
+        val TODAY: LocalDate = LocalDate.parse("2026-05-15")
+    }
+
     private fun filters(
         community: UUID? = null,
         campaign: UUID? = null,
@@ -34,7 +38,7 @@ class DashboardDataTest {
     @Test
     fun `pasarse del tope de las M2M es TOO_MANY_RECORDS antes de leer ninguna`() {
         val records = mock(Records::class.java)
-        val data = DashboardData(records, filters(), { true }, maxRelated = 1)
+        val data = DashboardData(records, filters(), { true }, TODAY, maxRelated = 1)
         val error = assertThrows<WasichaiException> { runBlocking { data.topicsOf(listOf(UUID.randomUUID().toString(), UUID.randomUUID().toString())) } }
         assertEquals(400, error.status.value())
         assertEquals("TOO_MANY_RECORDS", error.violations.single().message)
@@ -57,7 +61,7 @@ class DashboardDataTest {
                 if (max != null && 400 > max) throw Records.tooMany(call.arguments[0] as String, max)
                 List(400) { row }
             }
-        val data = DashboardData(records, filters(), { true }, maxRows = 600)
+        val data = DashboardData(records, filters(), { true }, TODAY, maxRows = 600)
         val ids = List(DashboardData.CHUNK + 1) { UUID.randomUUID().toString() }
         val error = assertThrows<WasichaiException> { runBlocking { data.participants(ids) } }
         assertEquals("TOO_MANY_RECORDS", error.violations.single().message)
@@ -91,7 +95,7 @@ class DashboardDataTest {
     // con community, los grupos de interés no se filtran por una comunidad que no tienen: no quedan en cero
     @Test
     fun `community no filtra a los grupos de interes`() {
-        val data = DashboardData(mock(Records::class.java), filters(community = UUID.randomUUID()), { true })
+        val data = DashboardData(mock(Records::class.java), filters(community = UUID.randomUUID()), { true }, TODAY)
         assertEquals(0, runBlocking { data.stakeholderTerritories() }.size)
         assertEquals(1, runBlocking { data.engagementTerritories() }.size)
     }
@@ -118,7 +122,7 @@ class DashboardDataTest {
         val commitment = UUID.randomUUID().toString()
         val good = record("ok", mapOf("commitment" to commitment, "previous_due_date" to "2026-05-01", "new_due_date" to "2026-06-01"))
         val bad = record("bad", mapOf("commitment" to commitment, "previous_due_date" to "2026-05-01"))
-        val data = DashboardData(mock(Records::class.java), filters(), { true })
+        val data = DashboardData(mock(Records::class.java), filters(), { true }, TODAY)
         val read = data.parseReschedules(listOf(good, bad))
         assertEquals(1, read.rows.size)
         assertEquals(listOf("bad"), read.skipped)
@@ -126,5 +130,41 @@ class DashboardDataTest {
         assertEquals(1, warned.warnings.size)
         assertEquals(3, warned.value)
         assertEquals(emptyList<String>(), data.parseReschedules(listOf(good)).warn(IndicatorResult(3)).warnings)
+    }
+
+    // una fecha mal formada es un dato corrupto como una que falta: se excluye y se avisa, no es un 500
+    @Test
+    fun `una reprogramacion con una fecha mal formada se excluye y avisa`() {
+        val r = mock(RecordResponse::class.java)
+        org.mockito.Mockito
+            .`when`(r.id)
+            .thenReturn("mala")
+        org.mockito.Mockito.`when`(r.attributes).thenReturn(
+            mapOf("commitment" to UUID.randomUUID().toString(), "previous_due_date" to "no-es-fecha", "new_due_date" to "2026-06-01")
+        )
+        org.mockito.Mockito
+            .`when`(r.createdAt)
+            .thenReturn(java.time.Instant.parse("2026-05-10T15:00:00Z"))
+        val read = DashboardData(mock(Records::class.java), filters(), { true }, TODAY).parseReschedules(listOf(r))
+        assertEquals(emptyList<RescheduleRow>(), read.rows)
+        assertEquals(listOf("mala"), read.skipped)
+        assertEquals(1, read.warn(IndicatorResult(0)).warnings.size)
+    }
+
+    // la lectura de compromisos es acotada: pasarse del tope es TOO_MANY_RECORDS, nunca un recorte silencioso
+    @Test
+    fun `pasarse del tope de compromisos es TOO_MANY_RECORDS`() {
+        val row = mock(RecordResponse::class.java)
+        val records =
+            mock(Records::class.java) { call ->
+                if (call.method.name != "all") return@mock null
+                val max = call.arguments[4] as Int?
+                if (max != null && 11 > max) throw Records.tooMany(call.arguments[0] as String, max)
+                List(11) { row }
+            }
+        val data = DashboardData(records, filters(), { true }, TODAY, maxRows = 10)
+        val error = assertThrows<WasichaiException> { runBlocking { data.commitments(campaign = false, owner = false) } }
+        assertEquals(400, error.status.value())
+        assertEquals("TOO_MANY_RECORDS", error.violations.single().message)
     }
 }
