@@ -35,6 +35,19 @@ class EvidenceRulesTest {
         assertFalse(EvidenceRules.downgrade("INTERNA", "CONFIDENCIAL"))
     }
 
+    // la descarga falla cerrado: una clasificación que quien llama no lee (el permiso de campo la quita del registro) o que
+    // falta se trata como restringida
+    @Test
+    fun `descargar exige DOWNLOAD_RESTRICTED con una clasificacion restringida, ausente o vacia`() {
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to "CONFIDENCIAL")))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to "DATOS PERSONALES")))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("title" to "Acta")))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to null)))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to " ")))
+        assertFalse(EvidenceRules.downloadRestricted(mapOf("classification" to "INTERNA")))
+        assertFalse(EvidenceRules.downloadRestricted(mapOf("classification" to "PUBLICA")))
+    }
+
     @Test
     fun `cada vinculo es evidence_ mas el objeto, y lo descriptivo nunca incluye el archivo`() {
         assertEquals("evidence_delivery", EvidenceRules.linkRelationship("delivery"))
