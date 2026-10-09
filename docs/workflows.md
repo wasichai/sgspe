@@ -101,9 +101,9 @@ los objetos, campos, estados y mecanismos vienen del [modelo de dominio](domain-
    Por la API genérica de registros no lo es (modelo de dominio §7.1, §7.5) [WAS-ADR-0038]. Por eso el único cambio de estado
    automático del MVP (RN-GRV-001) corre como listener de una transición, con la identidad y los roles de la persona.
 6. **Cada efecto por su vía.** Cambios simples sin lógica: automatizaciones de metadata. Avisos:
-   `ApprovalNoticeListener`, `DeadlineNotices` y, desde F4, los listeners de avisos de `sgspe.notification`, nunca las
-   entidades (RN-NTF-001). Efectos por tiempo: trabajos. Efectos sobre varios registros: endpoints o listeners de
-   transición.
+   `ApprovalNoticeListener`, `DeadlineNotices` y, desde F4, `RiskNoticeListener` y `WarningNoticeListener` de
+   `sgspe.notification`, nunca las entidades (RN-NTF-001). Efectos por tiempo: trabajos. Efectos sobre varios registros:
+   endpoints o listeners de transición.
 7. **Decisión humana.** Ninguna IA, regla automática ni cuenta de servicio confirma un conflicto o una alerta ni acepta una
    sugerencia (RN-EWS-001, RQ-AI-001, RQ-AI-003):
    - ninguno de los 17 roles es de la IA, y el asistente de wasichai-agent no tiene herramienta que mueva un workflow
@@ -123,9 +123,12 @@ los objetos, campos, estados y mecanismos vienen del [modelo de dominio](domain-
 9. **Un mismo paso desde varios estados son varias transiciones** con la misma etiqueta y el estado de origen como sufijo
    (`cancel_draft`, `cancel_in_progress`), porque cada transición tiene un solo `from`.
 10. **Alcance por proyecto y registros propios.** Una transición es una escritura, así que `ProjectScopeGuard`
-    (`sgspe.scope`) la limita a quien está asignado al proyecto (RQ-SEC-006); el alcance de lectura espera UPS-01 (CON-041).
-    Ningún rol usa `own_records_only` (ASM-069). `FIELD_AGENT` puede agregar participantes u observaciones a cualquier
-    interacción o visita que pueda leer, y solo cambia, borra o mueve lo que creó (RQ-SEC-008):
+    (`sgspe.scope`) la limita a quien está asignado al proyecto (RQ-SEC-006); el alcance de lectura por proyecto espera
+    UPS-01 (CON-041). Desde F4, las QCS confidenciales tienen su propio alcance de lectura
+    (`ConfidentialAttentionScope`, ASM-095, `security.md` §9.6), y `ProjectLinkGuard` (`sgspe.scope`) rechaza con `409
+    PROJECT_MISMATCH` toda relación de un objeto de F4 hacia un registro de otro proyecto. Ningún rol usa
+    `own_records_only` (ASM-069). `FIELD_AGENT` puede agregar participantes u observaciones a cualquier interacción o
+    visita que pueda leer, y solo cambia, borra o mueve lo que creó (RQ-SEC-008):
     - en `engagement`, `engagement_participant`, `field_visit`, `field_observation` y `evidence`, `EditAnyGuard`
       (`sgspe.scope`) también ve las transiciones y rechaza las de un registro ajeno a quien no tiene la acción declarada
       `EDIT_ANY` sobre el objeto;
@@ -155,18 +158,15 @@ aplica la transición como la persona que lo invoca: esa persona necesita el rol
 | `close_reclassified` y `close_reclassified_*` | WF-E1, WF-E2, WF-E3 | `POST /api/sgspe/grievances/{id}/reclassify` y sus pares de `inquiry` y `stakeholder_request` | La QCS del otro tipo con su vínculo `reclassified_from_*` | RF-GRV-007 |
 | `accept` | WF-E3 | `POST /api/sgspe/stakeholder-requests/{id}/accept` | El compromiso en `draft` (o, desde F5, el aporte) y su vínculo | RF-GRV-004 |
 | `close_accepted` | WF-E3 | `RequestClosureListener`, al cerrar el compromiso o, desde F5, el aporte | El cierre de la solicitud aceptada | RN-GRV-001, ASM-068 |
+| `assess` | WF-F | `POST /api/sgspe/social-risks/{id}/assessments`, en la primera revisión | La `risk_assessment`, los valores vigentes y `next_review_date` del riesgo | RF-RSK-001, ASM-099 |
 | `issue` | WF-H | `POST /api/sgspe/deliverables/{id}/issue` | La `deliverable_version`, `current_version`, `current_revision` y el `export_log` | RQ-REP-026, RQ-REP-017 |
 | `accept` | WF-K (`commitment_candidate`) | `POST /api/sgspe/commitment-candidates/{id}/accept` | El compromiso en `draft` y `created_commitment` | RF-COM-010, RQ-AI-003 |
 | `accept` | WF-K (`ai_suggestion`) | `POST /api/sgspe/ai-suggestions/{id}/accept` | El comando de dominio que la sugerencia propone | RQ-AI-001, RQ-AI-003 |
 | `approve`, `supersede` | WF-O | `POST /api/sgspe/areas-of-influence/{id}/approve` | La versión nueva en `approved` y la anterior del mismo tipo en `superseded` | RN-TER-003 |
 
-Otras transiciones las aplica normalmente un endpoint:
-
-- `assess` de WF-F la aplica el endpoint de revisiones en la primera revisión, y `RiskWriteGuard` la admite por cualquier vía
-  si se cumplen sus condiciones;
-- `mark_duplicate` de `commitment_candidate` la aplica `POST /api/sgspe/commitment-candidates/{id}/duplicate`, que escribe
-  `duplicate_of`. Como el objeto es `apiOnly`, ninguna otra vía puede informar ese campo, y `CommitmentWriteGuard` rechaza
-  la transición sin él.
+Otra transición la aplica normalmente un endpoint sin ser de comando: `mark_duplicate` de `commitment_candidate` la
+aplica `POST /api/sgspe/commitment-candidates/{id}/duplicate`, que escribe `duplicate_of`. Como el objeto es `apiOnly`,
+ninguna otra vía puede informar ese campo, y `CommitmentWriteGuard` rechaza la transición sin él.
 
 ### Transiciones con motivo obligatorio
 
@@ -632,6 +632,20 @@ Tres objetos con un workflow cada uno y un reporte unificado (ASM-011, CON-033):
   `rejected` (`reject_*`) y `withdrawn` (`withdraw_*`). La reapertura de una queja vacía `resolved_date`. Si no puede
   escribir, la transición se revierte (modelo de dominio §7.4, §7.5).
 - Una QCS anónima no lleva `person` ni `stakeholder` (`AttentionWriteGuard`, RF-GRV-001, GAP-005).
+- **Registro (ASM-104).** Solo el equipo social registra QCS (`COMMUNITY_RELATIONS_OFFICER` y `GRIEVANCE_MANAGER`), por
+  el canal en que llegaron; no hay canal público ni avisos a quien plantea en el MVP (UPS-25, UPS-26).
+- **Confidencial (ASM-095).** Una QCS con `confidential` verdadero solo la leen `ADMIN`, quien tiene `READ_CONFIDENTIAL`
+  sobre el objeto (`GRIEVANCE_MANAGER`), su responsable, quien la recibió y, en una queja ALTA o CRITICA, quien tiene
+  `APPROVE` sobre `grievance` (`ConfidentialAttentionScope`, `security.md` §9.6). Quien no la lee tampoco la cambia ni
+  la transiciona. `AttentionWriteGuard` exige que el alta de una QCS confidencial lleve `received_by_user_id` igual a
+  quien escribe, salvo con `READ_CONFIDENTIAL` (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y esa acción para quitar la marca
+  o cambiar `owner_user_id` o `received_by_user_id` de una confidencial (`403 ACTION_REQUIRED`).
+- **Días hábiles (ASM-096).** El acuse de una queja cuenta días hábiles con `BusinessDays` (`sgspe.common`): lunes a
+  viernes menos los feriados nacionales configurados por año; la respuesta y la resolución, días calendario. El día de
+  recepción no cuenta.
+- **Documentos (ASM-098).** «Cargo de queja» y «Carta de respuesta» esperan a UPS-23 (AUT-06 a AUT-08): mientras tanto
+  se imprimen fuera de SGSPE, se entregan en papel y, firmados, se suben como evidencia FORMULARIO (cargo) o CARTA
+  (carta) vinculada a la QCS.
 - **Reclasificación** (RF-GRV-007): `POST /api/sgspe/grievances/{id}/reclassify` y sus pares crean la QCS del otro tipo con
   el vínculo `reclassified_from_*` y llevan el original a `closed` con una transición de comando `close_reclassified_*`. El
   registro nuevo copia el `received_at` del primer registro de la cadena, así que `QcsDueDatesListener` calcula sus plazos
@@ -643,7 +657,8 @@ Tres objetos con un workflow cada uno y un reporte unificado (ASM-011, CON-033):
   `responded_at` las transiciones que comunican una respuesta: `close_resolved`, `close` y `reject_*` de WF-E1; `answer` y
   `close_referred` de WF-E2; `accept` y `close_declined` de WF-E3.
 - **Roles:** `GRIEVANCE_MANAGER` lleva las QCS; `COMMUNITY_RELATIONS_OFFICER` acusa, responde y registra desistimientos en
-  terreno; `APPROVER` resuelve las quejas graves (RN-GRV-002).
+  terreno; `APPROVER` resuelve las quejas graves (RN-GRV-002) y recibe `approval_pending` de una queja ALTA o CRITICA en
+  `in_action` (ASM-102).
 - **Validación contra las fuentes:** DOC-01 nombra quejas, consultas y solicitudes y pide el porcentaje absuelto y el
   reporte [DOC-01 Tabla 9.5]; los pasos de cada flujo son [PRM] (CON-029), salvo el cierre de la solicitud
   [DOC-01 §9.3.1.2].
@@ -693,18 +708,18 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `acknowledge` (Acusar recibo) | `received` | `acknowledged` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | AUT-06: «Cargo de queja» como documento emitido; `deadline_status` pasa a medir `resolution_due_date` | [PRM-01 §5, §8] ACKNOWLEDGED; plazo de ASM-005 |
+| `acknowledge` (Acusar recibo) | `received` | `acknowledged` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | AUT-06 (tras UPS-23): «Cargo de queja» como documento emitido; hasta entonces, el cargo firmado se sube como evidencia FORMULARIO (ASM-098); `deadline_status` pasa a medir `resolution_due_date` | [PRM-01 §5, §8] ACKNOWLEDGED; plazo de ASM-005 |
 | `assess` (Evaluar) | `acknowledged` | `in_assessment` | `GRIEVANCE_MANAGER` | — | Obligatorio (`requiresReason`) | — | [PRM-01 §5, §8] UNDER_REVIEW y Assessment |
 | `investigate` (Investigar) | `in_assessment` | `in_investigation` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `category` y `severity` informadas | Obligatorio (`requiresReason`) | — | [PRM-01 §5, §8] INVESTIGATION, opcional |
-| `start_action` (Atender) | `in_assessment` | `in_action` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `category` y `severity` informadas | Obligatorio (`requiresReason`) | — | [PRM-01 §5, §8] ACTION_REQUIRED y Action |
-| `start_action_after_investigation` (Atender) | `in_investigation` | `in_action` | `GRIEVANCE_MANAGER` | — | Obligatorio (`requiresReason`) | — | Ídem |
+| `start_action` (Atender) | `in_assessment` | `in_action` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `category` y `severity` informadas | Obligatorio (`requiresReason`) | `ApprovalNoticeListener`: `approval_pending` a los roles de `resolve_high_severity` si la queja es ALTA o CRITICA y `policy_high_severity_requires_approver` está activo (ASM-102) | [PRM-01 §5, §8] ACTION_REQUIRED y Action |
+| `start_action_after_investigation` (Atender) | `in_investigation` | `in_action` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `category` y `severity` informadas | Obligatorio (`requiresReason`) | Como `start_action` | Ídem |
 | `resolve` (Resolver) | `in_action` | `resolved` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `resolution` y `response` informadas; rechaza la severidad ALTA o CRITICA si `policy_high_severity_requires_approver` está activo (RN-GRV-002, ASM-036) | Obligatorio (`requiresReason`) | `QcsTransitionDatesListener` escribe `resolved_date` | [PRM-01 §5, §8] RESOLVED |
 | `resolve_high_severity` (Resolver con aprobación) | `in_action` | `resolved` | `APPROVER` | `AttentionWriteGuard`: la acción declarada `APPROVE` sobre `grievance`; `resolution` y `response` informadas | Obligatorio (`requiresReason`) | `QcsTransitionDatesListener` escribe `resolved_date` | RN-GRV-002 (ASM-036) |
 | `reopen` (Reabrir) | `resolved` | `in_assessment` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: el reclamante no dio conformidad (`complainant_conformity_given` no es verdadero) | Obligatorio (`requiresReason`) | `QcsTransitionDatesListener` vacía `resolved_date`; `deadline_status` vuelve a medir `resolution_due_date` | RF-GRV-002 |
 | `verify` (Verificar) | `resolved` | `verified` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | [PRM-01 §8] Verification, opcional |
 | `close_resolved` (Cerrar) | `resolved` | `closed` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: respuesta comunicada (`responded_at` informado) | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 Tabla 9.5] |
 | `close` (Cerrar) | `verified` | `closed` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `responded_at` informado | Obligatorio (`requiresReason`) | `closed_date` | [PRM-01 §5, §8] CLOSED |
-| `reject_received` (Rechazar) | `received` | `rejected` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `response` y `responded_at` informados, porque el rechazo se comunica; un duplicado lleva `duplicate_of` | Obligatorio (`requiresReason`) | `closed_date`; con `responded_at`, cuenta como absuelta | [PRM-01 §5] REJECTED |
+| `reject_received` (Rechazar) | `received` | `rejected` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `response` y `responded_at` informados, porque el rechazo se comunica; un duplicado lleva `duplicate_of`, que no puede ser la misma queja (`400 INVALID_LINK`) | Obligatorio (`requiresReason`) | `closed_date`; con `responded_at`, cuenta como absuelta | [PRM-01 §5] REJECTED |
 | `reject_acknowledged` (Rechazar) | `acknowledged` | `rejected` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 | `reject_in_assessment` (Rechazar) | `in_assessment` | `rejected` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 | `withdraw_received` (Registrar desistimiento) | `received` | `withdrawn` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | `closed_date` | RF-GRV-002 |
@@ -716,8 +731,8 @@ stateDiagram-v2
 | `close_reclassified_acknowledged` (Cerrar por reclasificación) | `acknowledged` | `closed` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 | `close_reclassified_in_assessment` (Cerrar por reclasificación) | `in_assessment` | `closed` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 
-Al recibir una queja (alta, no transición) corren `QcsDueDatesListener` (plazos) y AUT-02 (tarea de acuse). El aviso de plazo
-próximo a incumplirse y el escalamiento los genera JOB-01.
+Al recibir una queja (alta, no transición) corren `QcsDueDatesListener` (plazos) y AUT-02 (tarea de acuse). La situación
+de plazo y las tareas de escalamiento las escribe JOB-01, y los avisos los publica `DeadlineNotices`.
 
 ### WF-E2 · Consulta
 
@@ -741,7 +756,7 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `answer` (Responder) | `received` | `answered` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | `AttentionWriteGuard`: `response` y `responded_at` informados | Obligatorio (`requiresReason`) | AUT-07: «Carta de respuesta» si llegó por CARTA; con `responded_at`, cuenta como absuelta (RQ-DSH-023) | [DOC-01 Tabla 9.5] consultas absueltas |
+| `answer` (Responder) | `received` | `answered` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | `AttentionWriteGuard`: `response` y `responded_at` informados | Obligatorio (`requiresReason`) | AUT-07 (tras UPS-23): «Carta de respuesta» si llegó por CARTA; hasta entonces, la carta firmada se sube como evidencia CARTA (ASM-098); con `responded_at`, cuenta como absuelta (RQ-DSH-023) | [DOC-01 Tabla 9.5] consultas absueltas |
 | `refer` (Derivar) | `received` | `referred` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `response` informada, con la entidad a la que se deriva | Obligatorio (`requiresReason`) | — | Estado `referred` del análisis §11 |
 | `close` (Cerrar) | `answered` | `closed` | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | — | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 Tabla 9.5] |
 | `close_referred` (Cerrar) | `referred` | `closed` | `GRIEVANCE_MANAGER` | `AttentionWriteGuard`: `responded_at` informado, porque la derivación se comunicó | Obligatorio (`requiresReason`) | `closed_date`; con `responded_at`, cuenta como absuelta | Ídem |
@@ -780,6 +795,8 @@ stateDiagram-v2
     `rejected` o `cancelled`, y con `response` informada. Sin ella, la solicitud quedaría abierta para siempre.
 
   Se revierte cerrando solo por el compromiso, como dice RN-GRV-001, y dejando el resto a mano.
+- **Fase de cada rol.** `SOCIAL_INVESTMENT_MANAGER` entra en `accept` y `close_accepted` desde F5, cuando recibe
+  permisos (`security.md` §7.1), como en WF-N: en F4, `model/workflows/stakeholder_request.json` no lo lleva.
 
 ```mermaid
 stateDiagram-v2
@@ -798,8 +815,8 @@ stateDiagram-v2
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
 | `start_evaluation` (Evaluar) | `received` | `under_evaluation` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | RF-GRV-004 |
-| `accept` (Aceptar) | `under_evaluation` | `accepted` | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de aceptación, que crea el compromiso en `draft` (o, desde F5, el aporte en `requested`) y guarda `created_commitment` o `created_contribution`. `AttentionWriteGuard`: `response` y `responded_at` de la solicitud informados, porque la aceptación es la respuesta y el cierre que sigue es automático | Obligatorio (`requiresReason`) | El compromiso nuevo sigue WF-D, con su aprobación; el aporte, WF-P. Con `responded_at`, la solicitud cuenta como absuelta | [DOC-01 §9.3.1.2] medio de solicitud (RF-GRV-004) |
-| `decline` (Declinar) | `under_evaluation` | `declined` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: `response` informada (RF-GRV-004), p. ej. por RN-INV-001 | Obligatorio (`requiresReason`) | AUT-08: «Carta de respuesta» si llegó por CARTA DE SOLICITUD | RF-GRV-004 |
+| `accept` (Aceptar) | `under_evaluation` | `accepted` | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` (desde F5) | `CommandTransitionGuard`: solo desde el endpoint de aceptación, que crea el compromiso en `draft` (o, desde F5, el aporte en `requested`) y guarda `created_commitment` o `created_contribution`. `AttentionWriteGuard`: `response` y `responded_at` de la solicitud informados, porque la aceptación es la respuesta y el cierre que sigue es automático | Obligatorio (`requiresReason`) | El compromiso nuevo sigue WF-D, con su aprobación; el aporte, WF-P. Con `responded_at`, la solicitud cuenta como absuelta | [DOC-01 §9.3.1.2] medio de solicitud (RF-GRV-004) |
+| `decline` (Declinar) | `under_evaluation` | `declined` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: `response` informada (RF-GRV-004), p. ej. por RN-INV-001 | Obligatorio (`requiresReason`) | AUT-08 (tras UPS-23): «Carta de respuesta» si llegó por CARTA DE SOLICITUD; hasta entonces, la carta firmada se sube como evidencia CARTA (ASM-098) | RF-GRV-004 |
 | `close_declined` (Cerrar) | `declined` | `closed` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: `responded_at` informado | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 §9.3.1.2] cierre de la solicitud |
 | `close_accepted` (Cerrar por cierre del compromiso o del aporte) | `accepted` | `closed` | `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` (desde F5) | `CommandTransitionGuard`: solo desde `RequestClosureListener` | Obligatorio (`requiresReason`); lo pasa el listener | `closed_date` | [DOC-01 §9.3.1.2] (RN-GRV-001, ASM-068) |
 | `close_unfulfilled` (Cerrar sin ejecución) | `accepted` | `closed` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: el compromiso creado está en `cancelled`, o el aporte en `rejected` o `cancelled`; `response` informada | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 §9.3.1.2] (ASM-068) |
@@ -814,9 +831,11 @@ stateDiagram-v2
   monitoreo), `closed` (Cerrado, final).
 - **Fase:** F4. `requiresReason`: toda transición lleva motivo.
 - **Requisitos:** RF-RSK-001, RF-RSK-002, RF-RSK-003, RN-RSK-001, RN-RSK-002, RN-RSK-003, ASM-004, CON-011.
-- **Revisiones:** `POST /api/sgspe/social-risks/{id}/assessments` crea la `risk_assessment` (inmutable), recalcula los valores
-  vigentes y el nivel con los umbrales del proyecto (RN-RSK-002, ASM-004) y aplica `assess` en la primera revisión. Una
-  revisión residual lleva `residual` en verdadero.
+- **Revisiones (ASM-099):** `POST /api/sgspe/social-risks/{id}/assessments` crea la `risk_assessment` (`appendOnly` y
+  `apiOnly`: una revisión se corrige con otra), recalcula los valores vigentes o los residuales y el nivel con los
+  umbrales del proyecto (RN-RSK-002, ASM-004), fija `next_review_date` en la fecha de la revisión más
+  `review_every_days` (o `risk_review_days`) y aplica `assess` en la primera revisión, que no puede ser residual. Las
+  revisiones de un tipo, residual o no, van en orden de fecha. Una revisión residual lleva `residual` en verdadero.
 - **Validación contra las fuentes:**
   - el prompt propone Identified → Assessed → Mitigation → Monitoring → Closed [PRM-01 §8];
   - DOC-01 respalda evaluar la fuente, la probabilidad y el impacto, decidir qué riesgos mitigar, monitorear y reconsiderar
@@ -841,7 +860,7 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `assess` (Evaluar) | `identified` | `assessed` | `SOCIAL_RISK_MANAGER` | `RiskWriteGuard`: probabilidad, impacto y responsable informados (RF-RSK-001) | Obligatorio (`requiresReason`) | La aplica el endpoint de revisiones en la primera revisión; aviso de riesgo escalado si el nivel es ALTO o CRITICO; AUT-11 si es CRITICO | [DOC-01 §9.3.2.1] evaluación |
+| `assess` (Evaluar) | `identified` | `assessed` | `SOCIAL_RISK_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de revisiones, en la primera revisión (ASM-099). `RiskWriteGuard`: probabilidad, impacto y responsable informados (RF-RSK-001) | Obligatorio (`requiresReason`) | La aplica el endpoint de revisiones; `RiskNoticeListener` publica `risk_escalated` si el nivel es ALTO o CRITICO; AUT-11 si es CRITICO | [DOC-01 §9.3.2.1] evaluación |
 | `decide_mitigation` (Decidir mitigar) | `assessed` | `mitigating` | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` | `RiskWriteGuard`: `treatment_decision` MITIGAR y al menos una `mitigation_measure` con responsable (RN-RSK-003) | Obligatorio (`requiresReason`) | — | [DOC-01 §9.3.2.2] decisión de mitigar |
 | `decide_monitoring` (Decidir monitorear) | `assessed` | `monitoring` | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` | `RiskWriteGuard`: `treatment_decision` MONITOREAR o ACEPTAR y una revisión residual (RN-RSK-003) | Obligatorio (`requiresReason`) | — | [DOC-01 §9.3.2.2] |
 | `start_monitoring` (Pasar a monitoreo) | `mitigating` | `monitoring` | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` | `RiskWriteGuard`: una revisión residual (RN-RSK-003) | Obligatorio (`requiresReason`) | — | [DOC-01 §9.3.2.2] riesgo residual |
@@ -852,7 +871,8 @@ stateDiagram-v2
 | `close_monitoring` (Cerrar) | `monitoring` | `closed` | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` | Ídem | Obligatorio (`requiresReason`) | — | Ídem |
 
 Las revisiones siguientes no cambian el estado: actualizan los valores vigentes, `next_review_date` y la tendencia. Si
-el nivel sube a ALTO o CRITICO, un listener de `sgspe.notification` publica el aviso de riesgo escalado (F4).
+el nivel sube a ALTO o CRITICO, `RiskNoticeListener` (`sgspe.notification`) publica `risk_escalated` en la transacción
+del endpoint (F4).
 
 ## WF-G · Programa social
 
@@ -1016,9 +1036,9 @@ stateDiagram-v2
   final), `responding` (En respuesta), `resolved` (Resuelta), `closed` (Cerrada, final).
 - **Fase:** F4. Sin `requiresReason`.
 - **Requisitos:** RF-EWS-003, RF-EWS-004, RN-EWS-001, RQ-SEC-014.
-- **Origen de las alertas:** las crea en `detected` `WarningRulesJob` (JOB-04) o una persona. `ai_detected` indica que la
-  señal la detectó la IA, pero la IA no escribe la alerta ni aplica transiciones: la registra una persona (RQ-AI-001,
-  RQ-AI-003). Ningún tipo de sugerencia de IA crea alertas.
+- **Origen de las alertas:** las crea en `detected` `WarningRulesJob` (JOB-04, con los «Tipos de regla de JOB-04») o una
+  persona. `ai_detected` indica que la señal la detectó la IA, pero la IA no escribe la alerta ni aplica transiciones:
+  la registra una persona (RQ-AI-001, RQ-AI-003). Ningún tipo de sugerencia de IA crea alertas.
 - **Decisión humana (RN-EWS-001):** `WarningWriteGuard` rechaza `confirm` y `dismiss` sin usuario (plataforma o automatización)
   o con una cuenta de servicio, aunque tenga el rol. `WorkflowService` ya exige un usuario; la guarda cierra el paso a las
   cuentas de servicio (RQ-SEC-014) [WAS-ADR-0043]. Como doble llave, la guarda exige además la acción declarada
@@ -1048,7 +1068,8 @@ stateDiagram-v2
 | `resolve` (Resolver) | `responding` | `resolved` | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` | — | Opcional | — | Ídem |
 | `close` (Cerrar) | `resolved` | `closed` | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` | — | Opcional | — | Ídem |
 
-Al crear una alerta (alta, no transición) corren AUT-09 (tarea de triaje) y el aviso de alerta nueva.
+Al crear una alerta (alta, no transición) corren AUT-09 (tarea de triaje) y `WarningNoticeListener`, que publica
+`warning_new`, también cuando la crea JOB-04 como la plataforma.
 
 ## WF-K · Candidatos a compromiso y sugerencias de IA
 
@@ -1166,6 +1187,8 @@ stateDiagram-v2
 - **Estados:** `reported` (Reportado, inicial), `under_review` (En revisión), `responding` (En respuesta), `closed` (Cerrado,
   final).
 - **Fase:** F4. Sin `requiresReason`.
+- **Sin severidad ni escalamiento (ASM-103):** un incidente no tiene `severity`, motivo obligatorio ni plazo; escalan
+  las QCS y los riesgos que origina.
 - **Requisitos:** RF-EWS-001.
 - **Validación contra las fuentes:** DOC-02 relata una expulsión con retención del vehículo y la respuesta inmediata del
   equipo social [DOC-02 p.2]. Un incidente puede alimentar una señal (`early_warning_signal.incident`), que una regla de tipo
@@ -1376,9 +1399,9 @@ Reglas de SGSPE:
 | AUT-03 | `aut-03-delivery-certificate` | `delivery` | `RECORD_CREATED` | `commitment` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de entrega» (`delivery-certificate`) | F3, tras UPS-23 | Modelo de dominio §7.3; RQ-REP-029 |
 | AUT-04 | `aut-04-receipt-certificate` | `delivery` | `RECORD_CREATED` | `social_contribution` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de recepción» | F5, tras UPS-23 | RQ-REP-029 [DOC-02 p.4] |
 | AUT-05 | `aut-05-meeting-minutes` | `engagement` | `STATE_ENTERED` `minutes_approved` | — | `GENERATE_DOCUMENT` tipo «Minuta de reunión» (`meeting-minutes`); `GENERATE_DOCUMENT` tipo «Lista de asistentes» (`attendance-list`) | F3 | RQ-REP-029, RF-ENG-005 |
-| AUT-06 | `aut-06-grievance-receipt` | `grievance` | `STATE_ENTERED` `acknowledged` | — | `GENERATE_DOCUMENT` tipo «Cargo de queja» | F4 | RQ-REP-029 |
-| AUT-07 | `aut-07-inquiry-answer-letter` | `inquiry` | `STATE_ENTERED` `answered` | `channel` `EQUALS` CARTA | `GENERATE_DOCUMENT` tipo «Carta de respuesta» | F4 | RQ-REP-029 |
-| AUT-08 | `aut-08-request-decline-letter` | `stakeholder_request` | `STATE_ENTERED` `declined` | `request_medium` `EQUALS` CARTA DE SOLICITUD | `GENERATE_DOCUMENT` tipo «Carta de respuesta» | F4 | RQ-REP-029, RF-GRV-004 |
+| AUT-06 | `aut-06-grievance-receipt` | `grievance` | `STATE_ENTERED` `acknowledged` | — | `GENERATE_DOCUMENT` tipo «Cargo de queja» (`grievance-receipt`) | F4, tras UPS-23 | RQ-REP-029, ASM-098 |
+| AUT-07 | `aut-07-inquiry-answer-letter` | `inquiry` | `STATE_ENTERED` `answered` | `channel` `EQUALS` CARTA | `GENERATE_DOCUMENT` tipo «Carta de respuesta» (`inquiry-answer-letter`) | F4, tras UPS-23 | RQ-REP-029, ASM-098 |
+| AUT-08 | `aut-08-request-decline-letter` | `stakeholder_request` | `STATE_ENTERED` `declined` | `request_medium` `EQUALS` CARTA DE SOLICITUD | `GENERATE_DOCUMENT` tipo «Carta de respuesta» (`request-answer-letter`) | F4, tras UPS-23 | RQ-REP-029, RF-GRV-004, ASM-098 |
 | AUT-09 | `aut-09-warning-triage-task` | `early_warning` | `RECORD_CREATED` | — | `CREATE_RECORD` `task`: "Triaje de la alerta {{title}}", `early_warning` = `{{id}}`, `project` = `{{project}}` | F4 | RF-EWS-004 |
 | AUT-10 | `aut-10-engagement-reschedule-task` | `engagement` | `STATE_ENTERED` `cancelled` | — | `CREATE_RECORD` `task`: "Reprogramar o reemplazar la interacción {{title}}", `engagement` = `{{id}}`, `project` = `{{project}}` | F3 | RF-ENG-006 [DOC-02 p.2] |
 | AUT-11 | `aut-11-critical-risk-task` | `social_risk` | `RECORD_UPDATED` | `risk_level` `CHANGED`; `risk_level` `EQUALS` CRITICO | `CREATE_RECORD` `task`: "Revisar el riesgo crítico {{code}}", `social_risk` = `{{id}}`, `project` = `{{project}}`, responsable `{{owner_user_id}}` y `{{owner_user_email}}` (exigido en `assess`) | F4 | RF-RSK-003 |
@@ -1390,18 +1413,23 @@ Los tipos de documento («Acta de entrega», «Minuta de reunión»…) son los 
 antes que las automatizaciones que los nombran (`database-model.md` §24). Un documento emitido por una automatización dice
 que lo emitió la plataforma [WAS-DOC api/rest.md].
 
-Un documento emitido no se filtra por permisos de campo, y su copia congelada lleva todos los campos del registro y todas
-las columnas de cada tabla relacionada que nombra la plantilla, aunque la plantilla no las imprima (código de
+Un documento emitido no se filtra por permisos de campo, y su copia congelada lleva todos los campos del registro y
+todas las columnas de cada tabla relacionada que nombra la plantilla, aunque la plantilla no las imprima (código de
 wasichai-documents 0.6.0, UPS-23). Por eso un tipo de documento solo se declara sobre un objeto sin campos restringidos
-y sin tablas relacionadas de objetos con campos restringidos (`security.md` §11.4); `test_model.py` lo comprueba. El acta
-de entrega espera a UPS-23, porque `delivery` restringe `recipients` y `conformity_by`; hasta entonces el acta firmada se
-sube como evidencia ACTA DE ENTREGA, que D9 ya exige.
+y sin tablas relacionadas de objetos con campos restringidos (`security.md` §11.4); `test_model.py` lo comprueba. El
+acta de entrega espera a UPS-23, porque `delivery` restringe `recipients` y `conformity_by`; hasta entonces el acta
+firmada se sube como evidencia ACTA DE ENTREGA, que D9 ya exige. Por la misma regla esperan el «Cargo de queja» y las
+dos «Carta de respuesta» (ASM-098): las tres QCS restringen `person`, así que el cargo y la carta se imprimen fuera de
+SGSPE, se entregan en papel y, firmados, se suben como evidencia FORMULARIO o CARTA vinculada a la QCS.
 
 | Tipo de documento | Nombre técnico | Prefijo | Objeto | Fase | Lo que imprime |
 |---|---|---|---|---|---|
 | Acta de entrega | `delivery-certificate` | `AE` | `delivery` | F3, tras UPS-23 | Fecha, lugar y lo entregado; espacios para los nombres y las firmas de quienes reciben y dan conformidad |
 | Minuta de reunión | `meeting-minutes` | `MR` | `engagement` | F3 | Título, tipo, fecha, lugar, objetivo, minuta, resultados y conteos de asistentes |
 | Lista de asistentes | `attendance-list` | `LA` | `engagement` | F3 | Título, tipo, fecha, lugar y total de asistentes; quince filas en blanco para el nombre, el cargo u organización y la firma de cada asistente, que se llenan a mano |
+| Cargo de queja | `grievance-receipt` | `CQ` | `grievance` | F4, tras UPS-23 | Código, fecha y hora de recepción, canal, categoría y plazo de acuse; espacios para el nombre y la firma de quien plantea y de quien recibe |
+| Carta de respuesta | `inquiry-answer-letter` | `CC` | `inquiry` | F4, tras UPS-23 | Código, fecha de recepción, respuesta y fecha de respuesta; espacio para el nombre y la firma de quien recibe |
+| Carta de respuesta | `request-answer-letter` | `CS` | `stakeholder_request` | F4, tras UPS-23 | Código, fecha de recepción, recurso pedido, respuesta y fecha de respuesta; espacio para el nombre y la firma de quien recibe |
 
 `model/automations/<objeto>.json` es una lista con las automatizaciones del objeto, cada una en el formato de wasichai.
 Ejemplo: AUT-01 (`POST /api/objects/commitment/automations`).
@@ -1441,9 +1469,11 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
   para que dos réplicas nunca generen el mismo borrador (`deliverables.md` §8.2).
 - **Registros de wasichai como la plataforma:** JOB-01 a JOB-05, JOB-07 y el paso de borradores de JOB-08 los leen o los
   escriben con `RecordService.asPlatform(organizationId)`, una organización por vez. Para recorrer las organizaciones
-  usan `Organizations` (`sgspe.common`), que envuelve `TenantDirectory` (UPS-17, [WAS-ADR-0057]). JOB-01, JOB-02 y
-  JOB-03 escriben con `asPlatform(organización, source = "job:…")` (UPS-03). JOB-07 solo recorre la lista de
-  organizaciones con la IA activada (`ai-architecture.md` §12.1).
+  usan `Organizations` (`sgspe.common`), que envuelve `TenantDirectory` (UPS-17, [WAS-ADR-0057]); desde F4, JOB-01 y
+  JOB-04 recorren solo las organizaciones que tienen el objeto que miden (`Organizations.having`), así un tenant que
+  todavía no tiene el modelo de F4 sigue con F3. JOB-01, JOB-02, JOB-03 y JOB-04 escriben con `asPlatform(organización,
+  source = "job:…")` (UPS-03). JOB-07 solo recorre la lista de organizaciones con la IA activada (`ai-architecture.md`
+  §12.1).
 - **Tablas fijas con SQL propio, sin `asPlatform`:** JOB-07 escribe `knowledge_chunk`, y JOB-08 borra las claves
   vencidas de `idempotency_key` y los saltos vencidos de `derived_version`.
 - **La fuente de avisos de plazo** (`DeadlineNotices`, `sgspe.deadline`) no es un trabajo propio: la llama cada hora el
@@ -1459,28 +1489,75 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 
 | ID | Trabajo (paquete) | Frecuencia | Qué escribe | Qué nunca hace | Fuente | Fase |
 |---|---|---|---|---|---|---|
-| JOB-01 | `DeadlineJob` (`sgspe.deadline`) | Cada hora (ASM-006) | `deadline_status` de `commitment`, QCS y `task`; `validity_status` de `agreement`; `review_status` de `social_risk`, y `next_review_date` si cambia `review_every_days`; tareas de escalamiento (`escalation:commitment:<id>:<fecha del plazo>:<nivel>`) y de revisión de riesgos; los avisos de plazo los publica `DeadlineNotices`, una fuente de wasichai-notifications que lee lo que este trabajo escribe, así que llegan a lo sumo una hora después | Cambiar `workflow_state`: un compromiso vencido sigue en `in_progress` o en `blocked` | RN-WFL-001, RF-WFL-004, RN-RSK-001, ASM-006, ASM-030, ASM-070 | F3 (compromisos, acuerdos, tareas), F4 (QCS, riesgos) |
+| JOB-01 | `DeadlineJob` (`sgspe.deadline`) | Cada hora (ASM-006) | `deadline_status` de `commitment`, QCS y `task`; `validity_status` de `agreement`; `review_status` de `social_risk`, y `next_review_date` si cambia `review_every_days`; tareas de escalamiento (`escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`, de compromisos y, desde F4, de quejas y consultas, sin asignado ni fecha) y, desde F4, de revisión de riesgos (`risk_review:<id>:<next_review_date>`, asignada al responsable del riesgo, con fecha `next_review_date` y título «Revisar el riesgo <código>», al pasar a POR REVISAR o REVISION VENCIDA, ASM-099); los avisos de plazo los publica `DeadlineNotices`, una fuente de wasichai-notifications que lee lo que este trabajo escribe, así que llegan a lo sumo una hora después | Cambiar `workflow_state`: un compromiso vencido sigue en `in_progress` o en `blocked` | RN-WFL-001, RF-WFL-004, RN-RSK-001, ASM-006, ASM-030, ASM-070 | F3 (compromisos, acuerdos, tareas), F4 (QCS, riesgos) |
 | JOB-02 | `DerivedFieldsJob` (`sgspe.common`) | Cada hora sobre los registros fuente cambiados desde la corrida anterior (por `updated_at`) y una vez al día sobre todos | Los campos derivados de §7.4 del modelo de dominio que mantienen listeners o que no tienen otro escritor: `executed_social_amount`, `other_currency_items_count`, `calculated_area_ha`, conteos de asistentes, `formalized`, `requires_senior_approval` (los vínculos de solicitantes no llegan a los listeners: la vuelta diaria los recoge), `total_amount`, `total_budget` y los plazos de QCS que falten | Escribir campos no derivados | Modelo de dominio §7.4, §7.5 | F2 |
 | JOB-03 | `StakeholderFollowUpJob` (`sgspe.stakeholder`) | Una vez al día, configurable (ASM-022): sus parámetros se miden en días | `last_contact_date`; la regla de primer contacto de `relationship_status` (SIN CONTACTO → CONTACTO ESTABLECIDO); desde F3, tareas de evaluación periódica (`stakeholder_review_days`, clave `stakeholder_review:<id>:<fecha>`) y de inactividad (`inactivity_days`, clave `stakeholder_inactivity:<id>:<fecha de referencia>`, la del último contacto o, sin contacto, la del alta) | Mover WF-B o cambiar `relationship_status` fuera de la regla de primer contacto | RF-STK-010, RF-STK-014, ASM-022, ASM-032 | F2 |
-| JOB-04 | `WarningRulesJob` (`sgspe.warning`) | Cada hora, configurable (ASM-006), como los plazos, para que una alerta no espere un día | `early_warning` en `detected` cuando una regla habilitada supera su umbral (`threshold`) en su ventana (`window_days`); no crea otra si ya hay una abierta de la misma regla y proyecto | Confirmar o descartar una alerta (RN-EWS-001) | RF-EWS-004 | F4 |
+| JOB-04 | `WarningRulesJob` (`sgspe.warning`) | Cada hora, configurable (ASM-006), como los plazos, para que una alerta no espere un día | `early_warning` en `detected` cuando una regla habilitada alcanza su umbral (`threshold`) en su ventana (`window_days`), según «Tipos de regla de JOB-04»: por proyecto en `active` o `suspended`, con las reglas del proyecto y, de cada tipo que el proyecto no tiene, las del tenant; sin otra alerta si hay una abierta (fuera de `dismissed` y `closed`) de la misma regla y proyecto (y riesgo, en NIVEL DE RIESGO) o una creada en los últimos `window_days` días; con `generator_key` `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, único, y el motivo `alerta por regla (JOB-04 WarningRulesJob)` | Confirmar o descartar una alerta (RN-EWS-001); aplicar transiciones; escribir datos personales, texto libre de otros registros o valores de campos restringidos | RF-EWS-004, ASM-097 | F4 |
 | JOB-05 | `DeliverableGenerationJob` (`sgspe.deliverable`): el trabajador de generación de entregables | Continuo: toma los pedidos pendientes (`generation_requested_at` posterior a `draft_generated_at`, o este vacío) | `draft_generation_status` (EN COLA, EN PROCESO, LISTO o FALLIDO), `draft_generated_at` (al congelar el modelo), `draft_model_sha256`, `draft_storage_key` | Aplicar `approve` o `issue`; escribir secciones | RQ-REP-021, ASM-061 | F8 |
 | JOB-07 | `KnowledgeIndexJob` (`sgspe.ai`, `ai-architecture.md` §13.2): indexación documental para RAG | Periódica y configurable (ASM-006), solo en las organizaciones que activaron la IA (RQ-AI-009, ASM-015) | Fragmentos en la tabla fija `knowledge_chunk`, con SQL propio, de las `evidence` creadas o cambiadas desde la corrida anterior; copia su proyecto y su clasificación, borra los fragmentos de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo, como la plataforma | Aplicar transiciones; indexar documentos sin texto (sin OCR en F7) | RF-AIK-006, RQ-AI-008 | F7 |
 | JOB-08 | `RetentionJob` (`sgspe.common`): retención, con un paso por paquete | Una vez al día, configurable | Ningún registro de wasichai. Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065) y las de `derived_version` anteriores a `sgspe.concurrency.derived-versions-retention`, 7 días (ASM-091, ADR-0027). Desde F8, el paso de `sgspe.deliverable` borra en el almacenamiento de objetos, de cada entregable, las carpetas `drafts/<instante>/` salvo las N más recientes y la que apunta `draft_storage_key`, y los archivos que ningún registro referencia, como los de una emisión fallida (`deliverables.md` §8.4, §11) | Borrar lo que referencia una `deliverable_version` o `draft_storage_key`; escribir registros; aplicar transiciones | RQ-REP-027, RNF-INT-002, RNF-INT-003, ASM-028, ASM-061, ASM-065, ASM-091 | F3 (claves y saltos de derivados), F8 (borradores) |
 
 JOB-08 corre una vez al día, como fija `architecture.md`, y además del número N de borradores (ASM-028) usa un margen
-configurable: solo borra archivos sin referencia más antiguos que ese margen, porque los de una generación o una emisión en
-curso todavía no tienen un registro que los apunte.
+configurable: solo borra archivos sin referencia más antiguos que ese margen, porque los de una generación o una emisión
+en curso todavía no tienen un registro que los apunte.
+
+### Tipos de regla de JOB-04
+
+`WarningRulesJob` corre cada hora en una réplica (`ClusterLock` con la clave `sgspe.warning`), recorre
+`Organizations.having("early_warning_rule")` y escribe como la plataforma de cada organización con
+`source = job:warning-rules`; una organización que falla se registra y no detiene a las demás. Por organización:
+
+1. lee las reglas con `enabled` verdadero y los proyectos en `active` o `suspended`;
+2. para cada proyecto toma sus reglas y, de cada tipo que el proyecto no tiene, las del tenant (sin `project`): una
+   regla del proyecto reemplaza a la del tenant del mismo tipo (ASM-097);
+3. evalúa cada regla con su evaluador puro y con conteos (`Records.count`), nunca cargando los registros;
+4. si dispara, crea la alerta salvo que haya una abierta (fuera de `dismissed` y `closed`) de la misma regla y proyecto
+   (y riesgo, en NIVEL DE RIESGO) o una creada en los últimos `window_days` días;
+5. la alerta nace en `detected` con `title` «<nombre de la regla>: <tipo>», `trigger_description` con el conteo, el
+   umbral y la ventana, `severity` de la regla (MEDIO si está vacía), `detected_at` ahora, `early_warning_rule`,
+   `project`, `ai_detected` falso y `generator_key` `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, cuyo
+   único frena una carrera entre réplicas, como en las tareas de los trabajos.
+
+Nunca aplica transiciones ni confirma (RN-EWS-001), y ningún texto que escribe lleva datos personales, texto libre de
+otros registros ni valores de campos restringidos.
+
+Reglas comunes:
+
+- `threshold` es un número entero; un valor con parte fraccionaria se rechaza (`WarningWriteGuard`, `400 OUT_OF_RANGE`),
+  igual que `window_days` fuera de 1 a 365. `window_days` vacío vale 7.
+- La ventana de los tipos por eventos son los `window_days` días de Lima que terminan hoy: desde el inicio del día
+  `hoy − window_days + 1` hasta ahora.
+- En todos los tipos, `window_days` es también el silencio tras una alerta de la misma regla y proyecto (y riesgo, en
+  NIVEL DE RIESGO).
+- Dispara cuando el valor medido es mayor o igual que `threshold`.
+- Una regla del tenant crea una alerta por cada proyecto que alcanza el umbral; una del proyecto, solo para el suyo.
+
+| Tipo | Entrada (proyecto P) | `threshold` | Ventana | Deduplicación | Crea |
+|---|---|---|---|---|---|
+| CONTEO DE SEÑALES | `early_warning_signal` de P con `received_at` en la ventana, de cualquier fuente | Conteo, entero desde 1 | Sí | Regla y proyecto | Alerta con «<n> señales en <W> días (umbral <T>)» |
+| CONTEO DE QCS | Planteamientos de P (las tres QCS contadas con `AttentionCounting`, confidenciales incluidas) con `received_at` en la ventana | Conteo, entero desde 1 | Sí | Regla y proyecto | Alerta con «<n> QCS recibidas en <W> días (umbral <T>)», sin desglose |
+| COMPROMISOS VENCIDOS | `commitment` de P en `approved`, `in_progress` o `blocked` con `deadline_status` VENCIDO en el momento de la corrida | Conteo, entero desde 1 | No (solo silencio) | Regla y proyecto | Alerta con «<n> compromisos vencidos (umbral <T>)» |
+| MENCIONES NEGATIVAS | `media_mention` de P con `tone` NEGATIVO y `published_date` en la ventana | Conteo, entero desde 1 | Sí | Regla y proyecto | Alerta con «<n> menciones negativas en <W> días (umbral <T>)» |
+| INCIDENTES | `incident` de P con `occurred_at` en la ventana, de cualquier tipo y estado | Conteo, entero desde 1 | Sí | Regla y proyecto | Alerta con «<n> incidentes en <W> días (umbral <T>)» |
+| NIVEL DE RIESGO | Cada `social_risk` de P en `assessed`, `mitigating` o `monitoring` con `score` vigente | Puntaje P × I mínimo, entero de 1 a 25 | No (solo silencio) | Regla, proyecto y riesgo | Una alerta por riesgo, con `social_risk`, su `locality` y su `community`, y «Riesgo <código> con puntaje <s> (umbral <T>)» |
+
+**Por qué no CAMBIO DE POSTURA.** Esa regla leería `stakeholder.stance` o `stakeholder_assessment.stance`, campos
+restringidos a `SOCIAL_MANAGER` y `STAKEHOLDER_MANAGER` (GAP-024). JOB-04 lee como la plataforma, sin permisos de campo,
+y la alerta diría en su título o en `trigger_description` qué grupo de interés cambió de postura y hacia dónde.
+`early_warning` lo leen todos los roles operativos y `warning_new` lo llevaría a la bandeja: la regla publicaría un dato
+restringido. Queda fuera del MVP (ASM-097) y el valor sale del catálogo; vuelve cuando la alerta pueda llevar campos
+restringidos o un alcance por registro propio.
 
 ## Listeners
 
-Los listeners son los nueve de §7.5 del modelo de dominio, con `ApprovalNoticeListener` en lugar de
-`NotificationListener` desde la decisión D2 y `DeadlineStatusListener` desde F3. Corren como quien escribió y son
-atómicos con la escritura solo dentro de una transición o de un endpoint con transacción. Esta tabla agrega su relación
-con los workflows.
+Los listeners son los once de §7.5 del modelo de dominio, con `ApprovalNoticeListener` en lugar de
+`NotificationListener` desde la decisión D2, `DeadlineStatusListener` desde F3 y `RiskNoticeListener` y
+`WarningNoticeListener` desde F4. Corren como quien escribió y son atómicos con la escritura solo dentro de una
+transición o de un endpoint con transacción. Esta tabla agrega su relación con los workflows.
 
 | Listener (paquete) | Se dispara con | Transiciones que lo disparan | Escribe en | Atómico | Si no puede escribir | Consecuencia para los roles |
 |---|---|---|---|---|---|---|
-| `QcsDueDatesListener` (`sgspe.attention`) | Alta de `grievance`, `inquiry` o `stakeholder_request` | Ninguna | `ack_due_date`, `response_due_date`, `resolution_due_date` del mismo registro, con la marca | Solo si el alta llega por un endpoint con transacción | No falla el alta; JOB-02 completa | Quien registra QCS necesita `UPDATE` sobre el objeto, con motivo |
+| `QcsDueDatesListener` (`sgspe.attention`) | Alta de `grievance`, `inquiry` o `stakeholder_request` | Ninguna | `ack_due_date` (días hábiles con `BusinessDays`, ASM-096) y `resolution_due_date` de la queja y `response_due_date` de la consulta, del mismo registro, con la marca; la solicitud no tiene plazo en el MVP (ASM-100) | Solo si el alta llega por un endpoint con transacción | No falla el alta; JOB-02 completa | Quien registra QCS necesita `UPDATE` sobre el objeto, con motivo |
 | `AttendanceCountsListener` (`sgspe.engagement`) | Alta, cambio o baja de `engagement_participant` | Ninguna | Conteos de asistentes de la `engagement` | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre `engagement`. `FIELD_AGENT` puede agregar participantes a cualquier interacción que pueda leer y solo cambia o borra los que creó (`EditAnyGuard`, ASM-069); la escritura derivada de los conteos lleva la marca `SgspeWrite`, así que `EditAnyGuard` no la frena, tampoco en una interacción ajena |
 | `AreaListener` (`sgspe.territory`) | Cambio por la API genérica de `area_of_influence`, `community`, `land_parcel` o `mining_concession` | Ninguna | `calculated_area_ha` del mismo registro | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre ese objeto |
 | `ContributionTotalsListener` (`sgspe.investment`) | Alta, cambio o baja de `contribution_item` | Ninguna (alimenta `register_procurement`) | `total_amount` de la `social_contribution` | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre `social_contribution`, con motivo |
@@ -1488,14 +1565,23 @@ con los workflows.
 | `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o a un estado final (`closed` y, en la queja, `rejected` y `withdrawn`), y la reapertura de una queja | `resolve`, `resolve_high_severity`, `reopen`, las de cierre de WF-E1, WF-E2 y WF-E3, y `reject_*` y `withdraw_*` de WF-E1 | `resolved_date` (queja) y `closed_date` del mismo registro, en todo estado final | Sí | La transición se revierte | Los roles de esas transiciones ya tienen `UPDATE` sobre el objeto, con motivo |
 | `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | `close` de WF-D y, desde F5, `close` de WF-P | Aplica `close_accepted` a la `stakeholder_request` que originó el registro, con la marca y con motivo | Sí | Revierte el cierre del compromiso o del aporte | Los roles de `close` de WF-D y de WF-P tienen `READ` y `UPDATE` sobre `stakeholder_request` y figuran en `close_accepted` |
 | `DeadlineStatusListener` (`sgspe.deadline`) | Cambio de `due_date` de un `commitment` (desde `approved`, solo la reprogramación) | Ninguna | `deadline_status` del mismo compromiso, con la misma regla de JOB-01 y con la marca | Sí: corre en la transacción de la reprogramación | Una regla que rechaza la escritura se registra y la reprogramación sigue (JOB-01 corrige a la hora); un fallo de la base revierte la reprogramación | Quien reprograma ya tiene `UPDATE` sobre `commitment`, con motivo |
-| `ApprovalNoticeListener` (`sgspe.notification`) | Envío a aprobación (`submit_for_review` de WF-A, `submit_minutes` de WF-C, `submit` de WF-D) y toda transición que sale del estado pendiente | Las mismas | El módulo wasichai-notifications (`Notifications.publish` y `resolve`), en la transacción de la transición | Sí | Un aviso mal formado se registra y la transición sigue; un fallo de la base al guardarlo revierte la transición; sin asignaciones que coincidan, una advertencia en el log | Lee `project_assignment` como quien envió, así que todo rol que envía a aprobación tiene `READ` sobre ella (`security.md`). Si quien envía un compromiso no puede leer lo que decide el nivel (D5), el aviso va a los roles de `approve` y de `approve_senior` |
+| `ApprovalNoticeListener` (`sgspe.notification`) | Envío a aprobación (`submit_for_review` de WF-A, `submit_minutes` de WF-C, `submit` de WF-D) y toda transición que sale del estado pendiente; desde F4, una queja ALTA o CRITICA que entra en `in_action` con `policy_high_severity_requires_approver` activo, un cambio de `severity` a ALTA o CRITICA en `in_action` y toda transición que sale de `in_action` (ASM-102) | Las mismas; desde F4, `start_action`, `start_action_after_investigation`, `resolve_high_severity` y `withdraw_in_action` de WF-E1 | El módulo wasichai-notifications (`Notifications.publish` y `resolve`), en la transacción de la transición | Sí | Un aviso mal formado se registra y la transición sigue; un fallo de la base al guardarlo revierte la transición; sin asignaciones que coincidan, una advertencia en el log | Lee `project_assignment` como quien envió, así que todo rol que envía a aprobación tiene `READ` sobre ella (`security.md`). Si quien envía un compromiso no puede leer lo que decide el nivel (D5), el aviso va a los roles de `approve` y de `approve_senior` |
+
+| `RiskNoticeListener` (`sgspe.notification`) | Revisión no residual que sube `risk_level` a ALTO o CRITICO (de un nivel menor, o de ALTO a CRITICO), en la transacción del endpoint de revisiones | Ninguna (la primera revisión aplica `assess` en la misma transacción) | El módulo wasichai-notifications: publica `risk_escalated` del nivel y resuelve el anterior del mismo riesgo | Sí: corre en la transacción del endpoint | Un aviso mal formado se registra y la revisión sigue; un fallo de la base al guardarlo revierte la revisión; sin asignaciones que coincidan, una advertencia en el log | Lee `project_assignment` como quien revisa, que tiene `READ` sobre ella |
+| `WarningNoticeListener` (`sgspe.notification`) | Alta de `early_warning`, por una persona o por JOB-04 como la plataforma; `start_triage` resuelve el aviso | `start_triage` | El módulo wasichai-notifications: publica `warning_new` y lo resuelve | Solo si el alta llega por un endpoint con transacción o por JOB-04, que crea la alerta en la suya | Un aviso mal formado se registra y el alta sigue | Lee `project_assignment` como quien crea la alerta; en las de JOB-04, como la plataforma |
+
+Si una alerta que JOB-04 crea como la plataforma no llegara a `WarningNoticeListener` ni a AUT-09, JOB-04 publica
+`warning_new` con la misma clave, sin duplicar, y crea la tarea de triaje con la clave `warning_triage:<id>`; lo decide
+la prueba de integración del plan 4.2b.
 
 ## Avisos
 
-Los avisos salen de eventos, nunca de las entidades (RN-NTF-001): `ApprovalNoticeListener` al enviar a aprobación y
+Los avisos salen de eventos, nunca de las entidades (RN-NTF-001): `ApprovalNoticeListener` al enviar a aprobación,
 `DeadlineNotices` (`sgspe.deadline`), una fuente de wasichai-notifications que cada hora devuelve todos los avisos de
-plazo vigentes según lo que escribió JOB-01. Los guarda y los entrega el módulo (bandeja, SSE y correo, ADR-0018,
-ASM-012). Cada aviso tiene una clave estable dentro de su fuente (`sgspe.approvals` o `sgspe.deadlines`): publicarla
+plazo vigentes según lo que escribió JOB-01, y, desde F4, `RiskNoticeListener` al subir el nivel de un riesgo y
+`WarningNoticeListener` al crear una alerta. Los guarda y los entrega el módulo (bandeja, SSE y correo, ADR-0018,
+ASM-012). Cada aviso tiene una clave estable dentro de su fuente (`sgspe.approvals` o `sgspe.deadlines` y, desde F4,
+`sgspe.risks` y `sgspe.warnings`): publicarla
 otra vez no duplica (RF-NTF-001), y un aviso que deja de ser cierto se resuelve (el envío deja el estado pendiente; el
 compromiso deja de estar vencido). Un aviso de aprobación es `ACTION`; uno por vencer, `WARNING`; uno vencido o de
 escalamiento, `ACTION`. Quién recibe cada aviso lo fija «Destinatarios por rol».
@@ -1506,13 +1592,21 @@ prefijo de la clave de cada aviso.
 
 | Aviso | `notification_type` | Origen | Disparador | Destinatarios | Clave |
 |---|---|---|---|---|---|
-| Aprobación pendiente (RF-NTF-001) | `approval_pending` | `ApprovalNoticeListener` (WF-G, WF-H y `social_contribution` suman su paso a `ApprovalNoticeListener.STEPS` en su fase) | WF-A `submit_for_review`; WF-C `submit_minutes`; WF-D `submit`; WF-G `submit`; WF-H `submit_for_review` y `resubmit`; alta de `social_contribution` en `requested` | Los roles de la transición de aprobación que sigue | `approval_pending:<objeto>:<id>`: volver a enviar reabre el mismo aviso |
+| Aprobación pendiente (RF-NTF-001) | `approval_pending` | `ApprovalNoticeListener` (WF-G, WF-H y `social_contribution` suman su paso a `ApprovalNoticeListener.STEPS` en su fase) | WF-A `submit_for_review`; WF-C `submit_minutes`; WF-D `submit`; WF-G `submit`; WF-H `submit_for_review` y `resubmit`; alta de `social_contribution` en `requested`; desde F4, `start_action` o `start_action_after_investigation` de una queja ALTA o CRITICA con `policy_high_severity_requires_approver` activo, o un cambio de `severity` a ALTA o CRITICA en `in_action` (ASM-102) | Los roles de la transición de aprobación que sigue; en la queja, los de `resolve_high_severity` | `approval_pending:<objeto>:<id>`: volver a enviar reabre el mismo aviso; el de una queja se resuelve al salir de `in_action` o si la severidad baja de ALTA |
 | Compromiso por vencer (RF-NTF-001) | `commitment_due_soon` | `DeadlineNotices` | `deadline_status` pasa a POR VENCER (`due_soon_days`, ASM-006) | El responsable (`owner_user_id`) | `commitment_due_soon:<id>:<due_date>` |
 | Compromiso vencido (RF-NTF-001, RF-WFL-004) | `commitment_overdue` | `DeadlineNotices` | `deadline_status` pasa a VENCIDO (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0: el responsable; nivel 1: los roles de `verify`; nivel 2: los de `approve_senior` (ASM-030, ASM-070). Una tarea de escalamiento en los niveles 1 y 2 | `commitment_overdue:<id>:<due_date>:<nivel>`: un aviso por nivel alcanzado, todos abiertos mientras dure el atraso |
-| Plazo de QCS próximo a incumplirse (queja: RF-NTF-001; consulta: RF-WFL-004) | `qcs_deadline` | JOB-01 | `deadline_status` de una queja o una consulta pasa a POR VENCER o a VENCIDO (nivel 0: acuse, respuesta o resolución); luego, los niveles 1 y 2 de atraso | Nivel 0: el responsable o, sin responsable, los roles de la transición que sigue; nivel 1: los de `verify` de WF-E1; nivel 2: los de `approve_senior` de WF-D, porque WF-E no tiene aprobación superior. Una tarea de escalamiento en los niveles 1 y 2 | `qcs_deadline:<objeto>:<id>:<fecha del plazo>:<situación o nivel>` |
-| Riesgo escalado (RF-NTF-001) | `risk_escalated` | Un listener de `sgspe.notification` (F4); JOB-01 | El endpoint de revisiones sube `risk_level` a ALTO o CRITICO; o la revisión vence (`review_status` REVISION VENCIDA, nivel 0) y escala a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso (RF-WFL-004) | Al subir el nivel: el responsable del riesgo y los roles de la transición de tratamiento que sigue. Revisión vencida: nivel 0, el responsable; nivel 1, esos roles de tratamiento; nivel 2, los de `approve_senior` de WF-D | `risk_escalated:<id>:<nivel o situación>:<fecha>` |
+| Plazo de QCS próximo a incumplirse (queja: RF-NTF-001; consulta: RF-WFL-004) | `qcs_deadline` | `DeadlineNotices` | `deadline_status` de una queja o una consulta en POR VENCER o en VENCIDO (nivel 0: acuse, respuesta o resolución); luego, los niveles 1 y 2 de atraso | Nivel 0: el responsable o, sin responsable, los roles de la transición que sigue; nivel 1: los de `verify` de WF-E1; nivel 2: los de `approve_senior` de WF-D, porque WF-E no tiene aprobación superior; en una QCS confidencial, solo los que la verían (ASM-102). Una tarea de escalamiento en los niveles 1 y 2 | `qcs_deadline:<objeto>:<id>:<fecha del plazo>:<POR VENCER o nivel>`; se resuelve cuando la situación deja de ser cierta |
+| Riesgo escalado por nivel (RF-NTF-001) | `risk_escalated` | `RiskNoticeListener` (F4) | Una revisión no residual sube `risk_level` a ALTO o CRITICO (de un nivel menor, o de ALTO a CRITICO) | El responsable del riesgo y los roles de la transición de tratamiento que sigue | `risk_escalated:<id>:<nivel de riesgo>:<assessment_date>`; se resuelve con la revisión siguiente o el cierre del riesgo |
+| Riesgo con revisión vencida (RF-NTF-001, RF-WFL-004) | `risk_escalated` | `DeadlineNotices` (F4) | `review_status` REVISION VENCIDA (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0, el responsable; nivel 1, los roles de la transición de tratamiento que sigue; nivel 2, los de `approve_senior` de WF-D | `risk_escalated:<id>:<nivel>:<next_review_date>`; se resuelve con la revisión que mueve `next_review_date` |
 | Tarea vencida (RF-NTF-001) | `task_overdue` | `DeadlineNotices` | `deadline_status` de una tarea pasa a VENCIDO (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0: el asignado; nivel 1, o una tarea sin asignado: los roles de la transición de verificación o de revisión del registro vinculado; nivel 2: los de `approve_senior` de WF-D. Sin asignado ni registro vinculado, nadie hasta el nivel 2 (ASM-094) | `task_overdue:<id>:<due_date>:<nivel>`, como el compromiso |
-| Alerta nueva (RF-NTF-001) | `warning_new` | Un listener de `sgspe.notification` (F4) | Alta de `early_warning`, también la que crea JOB-04 como la plataforma | El responsable de la alerta, si lo tiene, y los roles de `start_triage` | `warning_new:<id>` |
+| Alerta nueva (RF-NTF-001) | `warning_new` | `WarningNoticeListener` (F4) | Alta de `early_warning`, también la que crea JOB-04 como la plataforma | El responsable de la alerta, si lo tiene, y los roles de `start_triage` | `warning_new:<id>`; se resuelve con `start_triage` |
+| QCS confidencial en el nivel 2 (RF-WFL-004) | `qcs_confidential_overdue` | `DeadlineNotices` (F4) | Nivel 2 de `qcs_deadline` de una QCS confidencial | Los asignados con un rol de `approve_senior` de WF-D que no la verían (los que sí la ven reciben `qcs_deadline`) (ASM-102) | `qcs_confidential_overdue:<proyecto>:<huella>`, donde `<huella>` son los 16 primeros dígitos hexadecimales del SHA-256 de `<objeto>:<id>:<fecha del plazo>`: un aviso por QCS y plazo sin su id, tipo ni fecha; se resuelve cuando la QCS deja el nivel 2 o el estado con plazo |
+
+Los textos de los avisos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripción, persona ni texto
+libre. El de `qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto
+<proyecto> superó su plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría
+ni enlace al registro, y es `ACTION`. La tarea de escalamiento del nivel 2 se crea igual, con su clave
+`escalation:<objeto>:<id>:<fecha>:2`, y su título solo lleva el código de la QCS.
 
 ### Destinatarios por rol
 
@@ -1542,14 +1636,21 @@ dominio §7.2):
      `member_user_email`, la dirección de respaldo `<id>@service-accounts.invalid` que wasichai le da [WAS-ADR-0043].
 4. **Sin coincidencias.** Si ninguna asignación vigente coincide, no se crea el aviso y quien lo pidió deja una
    advertencia en el log. La tarea de escalamiento, si la hay, la crea JOB-01 igual, con la clave
-   `escalation:commitment:<id>:<fecha del plazo>:<nivel>`, y queda visible en las tareas del proyecto.
+   `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`, y queda visible en las tareas del proyecto.
 5. **El rol declarado no da permisos.** Quien recibe un aviso actúa con sus roles de wasichai: si su asignación nombra un rol
    que no tiene, recibe el aviso y la transición le responde 403 (`security.md`). Quien forma los equipos mantiene
    `role_name` al día con los roles de cada usuario.
-6. **Tareas de escalamiento.** Un aviso va a varias personas y una tarea tiene un solo asignado. Por eso, en los niveles 1 y
-   2 de un compromiso o de una QCS, JOB-01 crea la tarea vinculada al registro vencido, sin asignado ni fecha y con
-   `generator_key` `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`; la toma uno de los destinatarios. Una tarea vencida
-   y una revisión de riesgo vencida escalan solo con avisos: la tarea ya existe, y el riesgo ya tiene su tarea de revisión.
+6. **Tareas de escalamiento.** Un aviso va a varias personas y una tarea tiene un solo asignado. Por eso, en los niveles
+   1 y 2 de un compromiso o de una QCS, JOB-01 crea la tarea vinculada al registro vencido, sin asignado ni fecha y con
+   `generator_key` `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`; la toma uno de los destinatarios. Una tarea
+   vencida y una revisión de riesgo vencida escalan solo con avisos: la tarea ya existe, y el riesgo ya tiene su tarea
+   de revisión.
+7. **QCS confidenciales (ASM-102).** Un aviso sobre una QCS confidencial (`qcs_deadline`, `approval_pending` de una
+   queja grave y `task_overdue` de una tarea vinculada a ella) solo llega a quien la vería por `security.md` §9.6: su
+   responsable, quien la recibió, los asignados cuyo `role_name` tiene `READ_CONFIDENTIAL` sobre ese objeto en
+   `model/roles.json` y, en una queja ALTA o CRITICA, los que tienen `APPROVE` sobre `grievance`. `ModelCatalog` da las
+   concesiones de cada rol, así que el filtro no compara nombres de rol. En el nivel 2, los roles de `approve_senior` de
+   WF-D que no la verían reciben `qcs_confidential_overdue`, sin datos del registro.
 
 | `notification_type` | Nivel o caso | Destinatarios |
 |---|---|---|
@@ -1565,7 +1666,9 @@ dominio §7.2):
 | `commitment_overdue` | Nivel 2 | Roles de `approve_senior` de WF-D, la aprobación superior (ASM-030, ASM-067) |
 | `qcs_deadline` | Nivel 0 | El responsable de la QCS (`owner_user_id`). Sin responsable, los roles de la transición que sigue en su estado: en una queja, `acknowledge` (`received`), `assess` (`acknowledged`), `start_action` (`in_assessment`), `start_action_after_investigation` (`in_investigation`) o `resolve` (`in_action`), y en `in_action` también los de `resolve_high_severity` si la severidad es ALTA o CRITICA y `policy_high_severity_requires_approver` está activo; en una consulta, `answer` |
 | `qcs_deadline` | Nivel 1 | Roles de `verify` de WF-E1, la transición de verificación de las QCS, también para las consultas, que comparten equipo y reporte (ASM-011) |
-| `qcs_deadline` | Nivel 2 | Roles de `approve_senior` de WF-D, porque WF-E no tiene aprobación superior |
+| `qcs_deadline` | Nivel 2 | Roles de `approve_senior` de WF-D, porque WF-E no tiene aprobación superior; en una QCS confidencial, solo los que la verían |
+| `qcs_confidential_overdue` | Nivel 2 de una QCS confidencial | Los roles de `approve_senior` de WF-D que no la verían (regla 7) |
+| `approval_pending` | Queja ALTA o CRITICA en `in_action` con `policy_high_severity_requires_approver` activo | Roles de `resolve_high_severity`; en una queja confidencial, quienes tienen `APPROVE` sobre `grievance` la leen (regla 7) |
 | `risk_escalated` | Nivel de riesgo ALTO o CRITICO | El responsable del riesgo y los roles de la transición de tratamiento que sigue, su transición de revisión: `decide_mitigation` en `assessed`, `start_monitoring` en `mitigating` y `resume_mitigation` en `monitoring` |
 | `risk_escalated` | Revisión vencida, nivel 0 | El responsable del riesgo |
 | `risk_escalated` | Revisión vencida, nivel 1 | Roles de la transición de tratamiento que sigue, como en la primera fila |
@@ -1607,16 +1710,26 @@ la columna "Se calcula en" y los deja vacíos en los demás, así VENCIDO siempr
   aprobado. Los conjuntos de estados de `dashboards.md` (§3.2) son estos mismos, y todo indicador de plazo filtra por estado.
 - Los indicadores de cumplimiento a tiempo usan las fechas de la transición (`fulfilled_date` frente a `due_date`,
   RQ-DSH-020); `reopen_execution` vacía `fulfilled_date`.
+- **QCS (ASM-100).** Los plazos se calculan al recibir, desde la fecha de recepción en Lima: el acuse en días hábiles
+  con el calendario de feriados (ASM-096), la respuesta y la resolución en días calendario; no se recalculan si después
+  cambia la lista de feriados o un parámetro, y no se pausan en `in_investigation`. Una queja mide `ack_due_date` en
+  `received` y `resolution_due_date` después; su `response_due_date` queda siempre vacío, porque el campo común solo lo
+  usan las consultas. POR VENCER empieza `min(due_soon_days, ⌊d / 2⌋)` días antes del plazo, donde `d` son los días
+  calendario entre la fecha de recepción y el plazo: con los valores por defecto, el acuse de 5 días hábiles no nace POR
+  VENCER.
+- **Riesgos (ASM-099).** `review_status` es AL DIA; POR REVISAR desde el día anterior a `next_review_date` y ese día; y
+  REVISION VENCIDA desde el día siguiente. Sus niveles 1 y 2 cuentan los días de atraso desde `next_review_date`.
+- **Incidentes (ASM-103).** No tienen plazo ni escalamiento.
 
 | Objeto | Campo derivado | Fecha que mide | Se calcula en | Vacío en | Parámetros del proyecto | Escalamiento |
 |---|---|---|---|---|---|---|
 | `commitment` | `deadline_status` | `due_date` | `approved`, `in_progress`, `blocked` | `draft`, `pending_approval`, `fulfilled`, `verified`, `closed`, `cancelled` | `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify`; nivel 2: roles de `approve_senior` (RF-WFL-004, ASM-030, ASM-070) |
-| `grievance` | `deadline_status` | `ack_due_date` en `received`; `resolution_due_date` después | `received`, `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | `resolved`, `verified`, `closed`, `rejected`, `withdrawn` | `grievance_ack_days`, `grievance_resolution_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify` de WF-E1; nivel 2: roles de `approve_senior` de WF-D (RF-WFL-004, ASM-030, ASM-070) |
+| `grievance` | `deadline_status` | `ack_due_date` en `received`; `resolution_due_date` después; `response_due_date` siempre vacío | `received`, `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | `resolved`, `verified`, `closed`, `rejected`, `withdrawn` | `grievance_ack_days`, `grievance_resolution_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify` de WF-E1; nivel 2: roles de `approve_senior` de WF-D (RF-WFL-004, ASM-030, ASM-070) |
 | `inquiry` | `deadline_status` | `response_due_date` | `received` | `answered`, `referred`, `closed` | `inquiry_response_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Como la queja |
-| `stakeholder_request` | `deadline_status` | `response_due_date`, vacío mientras GAP-005 no fije un plazo | `received`, `under_evaluation` | `accepted`, `declined`, `closed` | — | — |
+| `stakeholder_request` | `deadline_status` | Ninguna en el MVP: `response_due_date` y `deadline_status` quedan vacíos mientras GAP-005 no fije un plazo de solicitudes (ASM-100) | Ninguno | Todos | — | — |
 | `task` | `deadline_status` | `due_date` | `open`, `in_progress`, `blocked` | `done`, `cancelled` | `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de la transición de verificación o de revisión del registro vinculado; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |
 | `agreement` | `validity_status` | `expiry_date` | `active`, `suspended` | `draft`, `in_negotiation`, `concluded`, `terminated`, `cancelled` | `due_soon_days`, como umbral de POR VENCER | — |
-| `social_risk` | `review_status` | `next_review_date` | `assessed`, `mitigating`, `monitoring` | `identified`, `closed` | `risk_review_days` (RN-RSK-001), `escalation_first_days`, `escalation_second_days` | Tarea de revisión para el responsable y aviso de riesgo escalado; nivel 1: roles de la transición de tratamiento que sigue; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |
+| `social_risk` | `review_status` | `next_review_date` | `assessed`, `mitigating`, `monitoring` | `identified`, `closed` | `risk_review_days` (RN-RSK-001), `escalation_first_days`, `escalation_second_days` | Tarea de revisión `risk_review:<id>:<next_review_date>` para el responsable, con fecha `next_review_date` (ASM-099), y aviso de riesgo escalado; nivel 1: roles de la transición de tratamiento que sigue; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |
 
 ## Pruebas
 
@@ -1637,9 +1750,9 @@ externa por túnel, porque Docker es remoto.
 - las transiciones que nombran las guardas, los listeners y los endpoints existen (por ejemplo, `close_accepted` y `issue`);
 - las automatizaciones nombran estados y transiciones que existen, sus `CREATE_RECORD` apuntan a objetos que existen y ninguna
   escribe un campo derivado; una tarea que crea lleva su proyecto y un solo origen;
-- las automatizaciones y los tipos de documento son los de la tabla de su fase, salvo los que esperan una brecha
-  («F3, tras UPS-23»), y ningún tipo de documento se declara sobre un objeto con campos restringidos ni nombra una tabla
-  relacionada de uno (`security.md` §11.4);
+- las automatizaciones y los tipos de documento son los de la tabla de su fase, salvo los que esperan una brecha («F3,
+  tras UPS-23» o «F4, tras UPS-23»), y ningún tipo de documento se declara sobre un objeto con campos restringidos ni
+  nombra una tabla relacionada de uno (`security.md` §11.4);
 - un campo derivado se reconoce por la clave `"derived": true` de su definición en `model/model.json`, que solo leen las
   herramientas de SGSPE. Nunca se marca con `editable: false`, porque el almacén de wasichai omite esos campos en toda
   escritura, también en las de la plataforma, y ningún trabajo ni listener podría mantenerlo (código de wasichai 0.3.2).
@@ -1685,6 +1798,12 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
   `stakeholder_inactivity:<id>:<fecha de referencia>`. JOB-08 borra solo las claves de `idempotency_key` y los saltos de
   `derived_version` más antiguos que su plazo, y nunca borra un archivo que referencia una `deliverable_version` o
   `draft_storage_key`, ni uno sin referencia más reciente que el margen.
+- **JOB-04 (ASM-097):** cada tipo de regla dispara con el valor medido igual al umbral y no con uno menos; la regla del
+  proyecto reemplaza a la del tenant del mismo tipo; una alerta abierta, o creada dentro de `window_days`, silencia la
+  regla; una regla del tenant crea una alerta por proyecto; ningún texto de la alerta lleva datos personales ni valores
+  restringidos; la alerta creada por JOB-04 dispara AUT-09 y `warning_new`.
+- **Revisiones de riesgo (ASM-099):** JOB-01 crea una sola tarea `risk_review:<id>:<next_review_date>` por fecha,
+  asignada al responsable; la escritura de `risk_level` del endpoint de revisiones dispara AUT-11.
 - **Listeners:** un fallo de `CommitmentDerivationsListener`, también en `reopen_execution`, o de
   `RequestClosureListener` revierte la transición; un aviso mal formado de `ApprovalNoticeListener` no aborta la
   transición; un alta por la API genérica con un listener de derivados que falla queda guardada y JOB-02 la corrige.
