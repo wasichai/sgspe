@@ -1,0 +1,44 @@
+package sgspe.evidence
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+// la evidencia inmutable y su clasificación (RF-DOC-001, RF-DOC-003, ASM-071), sin base
+class EvidenceRulesTest {
+    private val descriptor = mapOf("id" to "11111111-1111-1111-1111-111111111111", "name" to "acta.pdf", "sha256" to "a".repeat(64))
+
+    @Test
+    fun `el id del archivo sale del descriptor que da una lectura o del id que manda un alta`() {
+        assertEquals("11111111-1111-1111-1111-111111111111", EvidenceRules.fileId(descriptor))
+        assertEquals("11111111-1111-1111-1111-111111111111", EvidenceRules.fileId("11111111-1111-1111-1111-111111111111"))
+        assertNull(EvidenceRules.fileId(null))
+    }
+
+    @Test
+    fun `reenviar el descriptor tal como se leyo no cambia el archivo, otro id, otra version o otra importacion si`() {
+        val before = mapOf("file" to descriptor, "replaces" to null, "import_batch_id" to null, "title" to "Acta")
+        assertEquals(emptyList<String>(), EvidenceRules.changedImmutable(before, before + ("title" to "Acta firmada")))
+        assertEquals(emptyList<String>(), EvidenceRules.changedImmutable(before, before + ("file" to descriptor["id"])))
+        assertEquals(listOf("file"), EvidenceRules.changedImmutable(before, before + ("file" to "22222222-2222-2222-2222-222222222222")))
+        assertEquals(listOf("replaces", "import_batch_id"), EvidenceRules.changedImmutable(before, before + ("replaces" to "x") + ("import_batch_id" to "y")))
+    }
+
+    @Test
+    fun `bajar la clasificacion es pasar de restringida a no restringida`() {
+        assertTrue(EvidenceRules.downgrade("CONFIDENCIAL", "INTERNA"))
+        assertTrue(EvidenceRules.downgrade("DATOS PERSONALES", "PUBLICA"))
+        assertFalse(EvidenceRules.downgrade("DATOS PERSONALES", "CONFIDENCIAL"))
+        assertFalse(EvidenceRules.downgrade("INTERNA", "PUBLICA"))
+        assertFalse(EvidenceRules.downgrade("INTERNA", "CONFIDENCIAL"))
+    }
+
+    @Test
+    fun `cada vinculo es evidence_ mas el objeto, y lo descriptivo nunca incluye el archivo`() {
+        assertEquals("evidence_delivery", EvidenceRules.linkRelationship("delivery"))
+        assertFalse(EvidenceRules.FILE in EvidenceRules.DESCRIPTIVE)
+        assertTrue(EvidenceRules.CLASSIFICATION in EvidenceRules.DESCRIPTIVE)
+    }
+}

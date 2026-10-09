@@ -8,7 +8,6 @@ import kotlinx.coroutines.withContext
 import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.springframework.core.codec.DecodingException
 import org.springframework.core.io.buffer.DataBuffer
-import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -24,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ServerWebExchange
 import sgspe.common.StrictBody
 import sgspe.common.StrictQuery
+import sgspe.common.UploadLimits
 import sgspe.common.safeCell
 import tools.jackson.databind.json.JsonMapper
 import wasichai.core.common.ValidationException
@@ -187,43 +187,23 @@ object ImportUpload {
         return HexFormat.of().formatHex(digest.digest())
     }
 
-    // los límites del multipart de Spring, que no nombran la parte: solo el tope de disco de una parte («Part exceeded the
-    // disk usage limit») es FILE_TOO_LARGE sobre file, la única parte de archivo que se admite; cualquier otro «demasiado
-    // grande» (un campo de texto que pasa el de memoria, los encabezados de una parte) es PART_TOO_LARGE; un multipart que
-    // Spring no puede decodificar (más partes que max-parts), INVALID_MULTIPART. null si `e` no viene de ahí. la cadena de
-    // causas se recorre acotada: una excepción con un ciclo de dos no deja el hilo girando
+    // los límites del multipart de Spring, que no nombran la parte: los traduce UploadLimits (FILE_TOO_LARGE sobre file, la
+    // única parte de archivo que se admite, o PART_TOO_LARGE con el texto de la importación); un multipart que Spring no
+    // puede decodificar (más partes que max-parts) es INVALID_MULTIPART. null si `e` no viene de ahí
     fun multipartError(
         e: Throwable,
         maxBytes: Long
-    ): WasichaiException? {
-        val chain = generateSequence(e) { it.cause?.takeIf { next -> next !== it } }.take(MAX_CAUSES).toList()
-        val limit = chain.filterIsInstance<DataBufferLimitException>().firstOrNull()
-        return when {
-            limit != null && limit.message.orEmpty().startsWith("Part exceeded the disk") -> tooLarge(maxBytes)
-            limit != null ->
-                importError(
-                    "PART_TOO_LARGE",
-                    "multipart",
-                    "Una parte del formulario es demasiado grande: target, project, sourceCrs, columns, sha256 y decisions caben en 1 MB"
-                )
-            chain.any { it is DecodingException } ->
+    ): WasichaiException? =
+        UploadLimits.error(e, maxBytes, PART_MESSAGE)
+            ?: if (UploadLimits.causes(e).any { it is DecodingException }) {
                 importError("INVALID_MULTIPART", "multipart", "El multipart no se pudo leer: tiene demasiadas partes o está mal formado")
-            else -> null
-        }
-    }
+            } else {
+                null
+            }
 
-    fun tooLarge(maxBytes: Long): WasichaiException = importError("FILE_TOO_LARGE", "file", "Archivo demasiado grande: el máximo es ${label(maxBytes)}")
+    fun tooLarge(maxBytes: Long): WasichaiException = UploadLimits.tooLarge(maxBytes)
 
-    private fun label(bytes: Long): String =
-        when {
-            bytes >= MB && bytes % MB == 0L -> "${bytes / MB} MB"
-            bytes >= KB -> "${bytes / KB} KB"
-            else -> "$bytes bytes"
-        }
-
-    private const val MAX_CAUSES = 32
-    private const val KB = 1024L
-    private const val MB = 1024L * 1024
+    private const val PART_MESSAGE = "${UploadLimits.PART_MESSAGE}: target, project, sourceCrs, columns, sha256 y decisions caben en 1 MB"
 }
 
 // el reporte de diferencias como hoja (gis.md §4.4): una fila por fila válida con su acción, y aparte las rechazadas y las
