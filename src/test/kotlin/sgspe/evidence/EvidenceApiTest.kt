@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F3DomainApiTest
+import java.util.UUID
 
 // las evidencias de F3 sobre wasichai-files (decisión D1, api.md §4.9, RF-DOC-001, RF-DOC-003, ASM-071): el alta con sus vínculos,
 // la inmutabilidad y la reclasificación; la descarga con DOWNLOAD_RESTRICTED por las dos rutas llega en la Tarea 6
@@ -49,6 +50,7 @@ class EvidenceApiTest : F3DomainApiTest() {
         val other = member("COMMUNITY_RELATIONS_OFFICER", project)
         val foreign = createEvidence(mapOf("file" to file, "evidence_type" to "ACTA", "classification" to "INTERNA", "project" to project), token = other.token)
         assertEquals(HttpStatus.BAD_REQUEST, foreign.status, foreign.body)
+        assertEquals(listOf("file"), problemFields(foreign.body))
     }
 
     @Test
@@ -60,7 +62,8 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals(HttpStatus.FORBIDDEN, exchange("DELETE", "/api/objects/evidence/records/$id", null, token).status)
         val replace =
             multipart("/api/objects/evidence/records/$id/files/file", mapOf("file" to ("otra.pdf" to PDF)), emptyMap(), token, ifMatch("evidence", id))
-        assertTrue(replace.status.is4xxClientError, replace.text)
+        // la ruta nativa escribe por la API genérica, que no escribe un objeto apiOnly
+        assertEquals(HttpStatus.FORBIDDEN, replace.status, replace.text)
     }
 
     @Test
@@ -122,14 +125,42 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals("NOT_OWN_RECORD", code(foreign))
     }
 
-    // revisión final del plan 3.1: un archivo que pasa el tope por parte de Spring (spring.webflux.multipart.max-disk-usage-per-part,
-    // 25 MB, por encima de los 20 MB de wasichai.files.max-bytes) es un 400 con código sobre file, nunca un 500
+    // P52: el tope por parte de Spring es el de wasichai.files.max-bytes (20 MB). Spring cuenta solo los bytes del contenido y
+    // rechaza los que pasan el tope: 20 MB exactos entran, y un byte más es 400 FILE_TOO_LARGE sobre file (UploadLimits), con
+    // código, nunca un 500 ni el texto libre de wasichai-files
     @Test
-    fun `un archivo de 26 MB en la subida preparada es 400 FILE_TOO_LARGE sobre file, no 500`() {
-        val big = PDF + ByteArray(26 * 1024 * 1024)
-        val response = multipart("/api/objects/evidence/files/file", mapOf("file" to ("grande.pdf" to big)), emptyMap())
-        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.text)
-        assertEquals(listOf("file"), problemFields(response.text))
-        assertEquals("FILE_TOO_LARGE", tree(response.text)["errors"][0]["message"].asString())
+    fun `un archivo de 20 MB exactos se sube y uno de un byte mas es 400 FILE_TOO_LARGE sobre file`() {
+        val max = 20 * 1024 * 1024
+        val limit = PDF + ByteArray(max - PDF.size)
+        val accepted = multipart("/api/objects/evidence/files/file", mapOf("file" to ("limite.pdf" to limit)), emptyMap())
+        assertEquals(HttpStatus.CREATED, accepted.status, accepted.text)
+        assertEquals(max.toLong(), tree(accepted.text)["size"].asLong())
+        val over = multipart("/api/objects/evidence/files/file", mapOf("file" to ("grande.pdf" to (limit + 0.toByte()))), emptyMap())
+        assertEquals(HttpStatus.BAD_REQUEST, over.status, over.text)
+        assertEquals(listOf("file"), problemFields(over.text))
+        assertEquals("FILE_TOO_LARGE", tree(over.text)["errors"][0]["message"].asString())
+    }
+
+    // UploadLimitsAdvice traduce solo un multipart: un cuerpo JSON que pasa spring.codec.max-in-memory-size (256 KB) sigue
+    // siendo el 413 de Spring, aunque su causa también sea una DataBufferLimitException
+    @Test
+    fun `un cuerpo JSON mas grande que el tope del codec sigue siendo 413`() {
+        val response = createEvidence(mapOf("file" to UUID.randomUUID().toString(), "title" to "x".repeat(300 * 1024)))
+        assertEquals(HttpStatus.CONTENT_TOO_LARGE, response.status, response.body)
+    }
+
+    // un archivo es de una sola evidencia (ASM-071): con el mismo archivo, quien no puede bajar la clasificación no crea otra
+    // evidencia menos restringida, y un reintento sin Idempotency-Key no deja un duplicado
+    @Test
+    fun `un archivo ya adjunto no se adjunta a otra evidencia`() {
+        val project = testProject()
+        val agent = member("FIELD_AGENT", project)
+        val file = stagedFile("evidence", "file", agent)
+        val attributes = mapOf("file" to file, "evidence_type" to "FOTO", "classification" to "DATOS PERSONALES", "project" to project)
+        assertEquals(HttpStatus.CREATED, createEvidence(attributes, token = agent.token).status)
+        val again = createEvidence(attributes + ("classification" to "INTERNA"), token = agent.token)
+        assertEquals(HttpStatus.CONFLICT, again.status, again.body)
+        assertEquals("EVIDENCE_FILE_IN_USE", code(again))
+        assertEquals(listOf("file"), problemFields(again.body))
     }
 }

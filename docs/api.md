@@ -357,7 +357,7 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
   máximo y el tiempo de proceso son configurables; las importaciones corren en una carpeta temporal con control de rutas
   dentro de los ZIP (RQ-SEC-020, ASM-050). En F2, `sgspe.territory.import.*`: `max-bytes` (20 MB), `max-rows` (10 000),
   `timeout` (60 s, lectura y validación) y `max-concurrent` (4 importaciones a la vez); Spring guarda la parte de archivo
-  en disco con su propio tope (`spring.webflux.multipart.max-disk-usage-per-part`, 25 MB, con `max-parts` 8), que responde
+  en disco con su propio tope (`spring.webflux.multipart.max-disk-usage-per-part`, 20 MB, con `max-parts` 8), que responde
   igual (400 `FILE_TOO_LARGE`; un campo de texto de más de 1 MB o encabezados de parte de más de 10 KB, `PART_TOO_LARGE`;
   demasiadas partes, `INVALID_MULTIPART`, ambos sobre el campo `multipart`).
 - La escritura de la confirmación no está bajo `timeout`: corre después, dentro del candado y de una sola transacción,
