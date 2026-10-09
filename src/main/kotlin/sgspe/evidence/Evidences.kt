@@ -134,7 +134,7 @@ class Evidences(
         transactions.run { records.unlink(EvidenceRules.EVIDENCE, id, EvidenceRules.linkRelationship(target.objectName), target.recordId, reason) }
     }
 
-    // el compromiso de cada entrega pedida, leído como quien llama (su compromiso no cambia nunca, Deliveries.FIXED); una
+    // el compromiso de cada entrega pedida, leído como quien llama (su compromiso no cambia nunca, CommitmentDeliveries.FIXED); una
     // entrega que no existe o no se lee queda fuera y su vínculo falla al escribirse. a lo sumo MAX_LINKS lecturas
     private suspend fun commitmentsOf(links: List<EvidenceLink>): Map<UUID, UUID> =
         links

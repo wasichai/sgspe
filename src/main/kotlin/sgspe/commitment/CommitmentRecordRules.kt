@@ -166,7 +166,7 @@ class CommitmentRecordRules(
 
     // una entrega cuyo compromiso ya está cumplido sostiene esa transición: no cambia, no se vincula ni se desvincula hasta
     // reopen_execution; la de un compromiso cancelado tampoco, porque cancelled es final (P55). el compromiso es el de antes: la
-    // corrección (Deliveries.patch) nunca lo cambia. su estado no viene en `before` (wasichai 0.6.0): se lee como quien escribe
+    // corrección (CommitmentDeliveries.patch) nunca lo cambia. su estado no viene en `before` (wasichai 0.6.0): se lee como quien escribe
     // y, si no se lee, falla cerrado (P12). la escritura lo lee con el candado del compromiso (Reschedules.lock), el mismo que
     // toman register_fulfillment y las cancel_* (FulfillmentLockRule): la corrección de una entrega (PATCH
     // /api/sgspe/deliveries/{id}) o un vínculo de evidencia que se agrega o se quita (POST /api/sgspe/evidence con links,

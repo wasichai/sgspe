@@ -154,7 +154,7 @@ class FulfillmentEvidenceRule(
                 records.all(
                     Commitments.DELIVERY,
                     filters = mapOf("commitment" to id.toString()),
-                    max = Deliveries.MAX_DELIVERIES,
+                    max = CommitmentDeliveries.MAX_DELIVERIES,
                     field = Commitments.DELIVERY
                 )
             }
@@ -181,7 +181,7 @@ class FulfillmentEvidenceRule(
                 )
             if (!Fulfillment.conforms(row)) continue
             val evidence =
-                readAs(Deliveries.EVIDENCE) {
+                readAs(CommitmentDeliveries.EVIDENCE) {
                     records.related(
                         Commitments.DELIVERY,
                         UUID.fromString(delivery.id),
