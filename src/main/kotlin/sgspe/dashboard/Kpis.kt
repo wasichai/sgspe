@@ -368,7 +368,7 @@ object Kpis {
                 ignores = commitmentIgnores()
             ) { data ->
                 val rows = data.commitments(campaign = false, owner = false)
-                CommitmentKpis.overdueSeries(rows, data.reschedules(rows.map { it.id }), data.filters.periodEnd)
+                CommitmentKpis.overdueSeries(rows, data.reschedules(rows.map { it.id }), data.filters.periodEnd, data.today)
             }
         )
 

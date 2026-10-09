@@ -1,5 +1,6 @@
 package sgspe.dashboard
 
+import org.slf4j.LoggerFactory
 import sgspe.common.Criteria
 import sgspe.common.LIMA
 import sgspe.common.Positions
@@ -37,6 +38,7 @@ class DashboardData(
     private val clockToday: LocalDate? = null
 ) {
     val today: LocalDate get() = clockToday ?: filters.periodEnd
+    private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
 
     @Suppress("UNCHECKED_CAST")
@@ -395,12 +397,15 @@ class DashboardData(
     // las reprogramaciones de esos compromisos, con el día de Lima en que se registraron
     suspend fun reschedules(commitments: Collection<String>): List<RescheduleRow> =
         readIn("commitment_reschedule", "commitment", commitments).mapNotNull { r ->
-            RescheduleRow(
-                Values.text(r.attributes["commitment"]) ?: return@mapNotNull null,
-                Values.text(r.attributes["previous_due_date"])?.let(LocalDate::parse),
-                Values.text(r.attributes["new_due_date"])?.let(LocalDate::parse),
-                r.createdAt?.atZone(LIMA)?.toLocalDate() ?: return@mapNotNull null
-            )
+            val commitment = Values.text(r.attributes["commitment"])
+            val previous = Values.text(r.attributes["previous_due_date"])?.let(LocalDate::parse)
+            val newDate = Values.text(r.attributes["new_due_date"])?.let(LocalDate::parse)
+            val created = r.createdAt
+            if (commitment == null || previous == null || newDate == null || created == null) {
+                log.warn("Reprogramación {} omitida: le falta el compromiso, una fecha o su creación", r.id)
+                return@mapNotNull null
+            }
+            RescheduleRow(commitment, previous, newDate, created.atZone(LIMA).toLocalDate(), created.toEpochMilli())
         }
 
     // la moneda de la campaña pedida (PEN por defecto, RNF-I18N-002); null si no se pidió una campaña
