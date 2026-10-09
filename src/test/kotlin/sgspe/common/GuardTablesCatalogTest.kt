@@ -10,7 +10,7 @@ class GuardTablesCatalogTest {
     private val catalog = ModelCatalog.fromClasspath()
 
     // objetos de las tablas que model.json aún no declara; la prueba exige que sigan sin declararse (si no, ya se verifican)
-    private val notYetModeled = setOf("social_program", "early_warning", "commitment_candidate", "ai_suggestion", "task")
+    private val notYetModeled = setOf("social_program", "early_warning", "ai_suggestion")
 
     @Test
     fun `los objetos pendientes siguen sin estar en el modelo`() {

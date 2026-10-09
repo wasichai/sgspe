@@ -13,7 +13,7 @@ import unittest
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F2"
+PHASE = "F3"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -37,7 +37,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         catalog = design_docs.matrix()
         wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 48)
+        self.assertEqual(len(wanted), 60)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -63,6 +63,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
                 self.assertEqual(got.get("derived", False), doc["derived"], where)
                 self.assertEqual(got.get("indexed", False), got["name"] in card.indexed, where)
                 self.assertEqual(got.get("defaultValue"), doc["default"], where)
+                self.assertEqual(got.get("contentTypes"), card.content_types.get(got["name"]), where)
                 self.assertTrue(got.get("label"), where)
                 self.assertNotIn("editable", got, where)
 
@@ -203,14 +204,21 @@ class WorkflowTests(unittest.TestCase):
                     self.assertTrue(any(t["from"] == state["name"] for t in transitions), (obj, state["name"]))
 
     def test_las_transiciones_que_nombran_las_guardas_y_los_endpoints_existen(self):
-        # workflows.md: «Transiciones de comando» y «Transiciones con motivo obligatorio», filas de F2
+        # workflows.md: «Transiciones de comando», «Transiciones con motivo obligatorio», las guardas D1 a D11 de WF-D, la de
+        # AgreementWriteGuard, los listeners y los destinatarios por rol (verify y approve_senior), filas de F2 y F3
         named = {
             "project": {"approve", "resume", "return_to_draft", "suspend", "cancel_draft", "cancel_in_review"},
             "stakeholder": {"profile", "assess", "retire_identified", "retire_profiled", "retire_assessed", "reinstate"},
             "engagement": {"register_held", "register_held_unplanned", "close", "close_light", "postpone",
-                           "return_minutes", "cancel_planned", "cancel_scheduled", "cancel_postponed"},
+                           "return_minutes", "cancel_planned", "cancel_scheduled", "cancel_postponed", "approve_minutes"},
             "field_visit": {"cancel"},
             "area_of_influence": {"approve", "supersede"},
+            "commitment": {"submit", "approve", "approve_senior", "approve_direct", "register_fulfillment",
+                           "reopen_execution", "verify", "close", "cancel_draft", "cancel_pending_approval",
+                           "cancel_approved", "cancel_in_progress", "cancel_blocked"},
+            "agreement": {"activate", "activate_from_draft", "resume"},
+            "commitment_candidate": {"accept", "reject", "mark_duplicate"},
+            "task": {"cancel_open", "cancel_in_progress", "cancel_blocked"},
         }
         for obj, names in named.items():
             have = {t["name"] for t in self.workflows[obj]["definition"]["transitions"]}
@@ -222,13 +230,23 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(without, ["stakeholder"])
 
     def test_transiciones_nombre_etiqueta_origen_destino_y_roles_son_los_de_workflows_md(self):
+        # un rol entra en una transición desde su fase (security.md §7.1): los «Roles operativos» de WF-N que reciben
+        # permisos en F4 y F5 (GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER) llegan con su fase
+        phases, _ = design_docs.role_phases()
         for obj, wf in self.workflows.items():
             letter = self.cards[obj].workflow.split("-")[1]
-            doc = design_docs.workflow_transitions(letter)
+            doc = design_docs.workflow_transitions(letter, obj)
             self.assertTrue(doc, obj)
             got = [(t["name"], t["label"], t["from"], t["to"], sorted(t["roles"])) for t in wf["definition"]["transitions"]]
-            wanted = [(t["name"], t["label"], t["from"], t["to"], sorted(t["roles"])) for t in doc]
+            wanted = [(t["name"], t["label"], t["from"], t["to"], sorted(r for r in t["roles"] if phases[r] <= PHASE))
+                      for t in doc]
             self.assertEqual(sorted(got), sorted(wanted), obj)
+
+    def test_un_rol_de_una_fase_posterior_no_esta_en_ningun_workflow(self):
+        phases, _ = design_docs.role_phases()
+        for obj, wf in self.workflows.items():
+            for t in wf["definition"]["transitions"]:
+                self.assertEqual([r for r in t["roles"] if phases[r] > PHASE], [], (obj, t["name"]))
 
 
 if __name__ == "__main__":

@@ -1157,6 +1157,8 @@ stateDiagram-v2
 - **Roles operativos:** `PROJECT_ADMIN`, `PROJECT_MANAGER`, `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`,
   `STAKEHOLDER_MANAGER`, `COMMITMENT_MANAGER`, `GRIEVANCE_MANAGER`, `SOCIAL_RISK_MANAGER`, `SOCIAL_INVESTMENT_MANAGER`,
   `GIS_ANALYST`, `FIELD_AGENT` y `APPROVER`: todos los roles declarados salvo los de solo lectura.
+- **Fase de cada rol:** un rol operativo entra en las transiciones de `model/workflows/task.json` desde la fase en que
+  recibe permisos (`security.md` §7.1): los de quejas y riesgos en F4 y el de inversión social en F5.
 - **Tareas automáticas:** las crean automatizaciones (`AUT-NN`) y trabajos (`JOB-NN`); los trabajos usan `generator_key` para
   no duplicarlas. Ninguno las mueve: las cierra la persona.
 - **Validación contra las fuentes:** el prompt pide tareas [PRM-01 §5]; la tarea vencida es `deadline_status`, nunca un estado
