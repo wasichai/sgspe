@@ -202,6 +202,29 @@ class ArchitectureTest {
         assertFalse(isCommon(File("src/main/kotlin/sgspe/commonplace/Risks.kt")))
     }
 
+    // el nombre de un bean de estereotipo es el nombre simple de su clase con la inicial en minúscula: dos clases con el mismo
+    // nombre simple en paquetes distintos, o una con el nombre de un bean de wasichai (`deliveries` de notificaciones), tumban
+    // el arranque con BeanDefinitionOverrideException
+    @Test
+    fun `no hay dos beans de estereotipo con el mismo nombre simple`() {
+        val stereotype = Regex("""^@(Component|Service|RestController|Controller|Configuration|Repository)\b""")
+        val named = Regex("""^(?:(?:internal|open|abstract|private)\s+)*class\s+(\w+)""")
+        val beans =
+            sources(main).flatMap { file ->
+                val lines = file.readLines().map { it.trim() }
+                lines.mapIndexedNotNull { i, line ->
+                    val m = named.find(line) ?: return@mapIndexedNotNull null
+                    val annotated = (i - 1 downTo maxOf(0, i - 4)).map { lines[it] }.takeWhile { it.startsWith("@") }.any { stereotype.containsMatchIn(it) }
+                    if (annotated) m.groupValues[1] to file.path else null
+                }
+            }
+        assertTrue(beans.size > 20, "el escaneo no ve los beans: $beans")
+        val duplicated = beans.groupBy({ it.first }, { it.second }).filterValues { it.size > 1 }
+        assertTrue(duplicated.isEmpty(), "nombres de bean repetidos: $duplicated")
+        // `Deliveries` chocaba con el bean `deliveries` de wasichai-notifications
+        assertFalse(beans.any { it.first == "Deliveries" }, "Deliveries choca con el bean deliveries de wasichai-notifications")
+    }
+
     companion object {
         private val WASICHAI_PACKAGE = Regex("""^\s*package\s+wasichai\b""")
 
