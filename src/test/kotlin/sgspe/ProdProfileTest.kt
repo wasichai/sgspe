@@ -51,6 +51,14 @@ class ProdProfileTest {
         assertTrue(ttl.isPositive && ttl < Duration.ofHours(8), "$ttl")
     }
 
+    // sin claves estáticas rige la cadena por defecto del SDK (rol de instancia); un valor vacío aquí haría fallar a wasichai
+    @Test
+    fun `no declara claves de S3 ni servidor de correo de desarrollo`() {
+        assertEquals(null, value("wasichai.files.s3.access-key"))
+        assertEquals(null, value("wasichai.files.s3.secret-key"))
+        assertEquals("\${SPRING_MAIL_HOST:}", value("spring.mail.host"))
+    }
+
     // ADR-0014 (decisión D1): las evidencias van a un bucket compatible con S3, que el despliegue nombra; ProdGuard no deja
     // arrancar sin él
     @Test

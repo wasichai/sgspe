@@ -104,6 +104,33 @@ class ProdGuardTest {
         }
     }
 
+    // sin claves rige la cadena de credenciales del SDK (rol de instancia); con las dos, las estáticas; con una sola,
+    // wasichai fallaría tarde con su propio mensaje
+    @Test
+    fun `las claves de S3 van juntas o ninguna`() {
+        check(secure)
+        check(secure + ("wasichai.files.s3.access-key" to "a") + ("wasichai.files.s3.secret-key" to "b"))
+        for (one in listOf("wasichai.files.s3.access-key", "wasichai.files.s3.secret-key")) {
+            val message = failure(secure + (one to "a"))
+            assertTrue(
+                message.contains("WASICHAI_FILES_S3_ACCESS_KEY") && message.contains("WASICHAI_FILES_S3_SECRET_KEY"),
+                message
+            )
+        }
+    }
+
+    // GAP-021: con el correo encendido en producción, el servidor SMTP lo nombra el despliegue, no el de desarrollo
+    @Test
+    fun `el correo encendido exige SPRING_MAIL_HOST`() {
+        val on = secure + ("wasichai.notifications.email.enabled" to "true")
+        for (values in listOf(on, on + ("spring.mail.host" to " "))) {
+            val message = failure(values)
+            assertTrue(message.contains("spring.mail.host") && message.contains("SPRING_MAIL_HOST"), message)
+        }
+        check(on + ("spring.mail.host" to "smtp.sgspe.test"))
+        check(secure + ("wasichai.notifications.email.enabled" to "false"))
+    }
+
     // la guarda es de producción: el desarrollo y las pruebas siguen con la semilla y el secreto por defecto
     @Test
     fun `sin el perfil prod no comprueba nada`() {

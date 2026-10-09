@@ -2,6 +2,7 @@ package sgspe.contract
 
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Tag
@@ -65,7 +66,23 @@ class FileStoreContractTest {
     fun `el almacen local cumple el contrato`() = contract(LocalFileStore(folder))
 
     @Test
-    fun `el almacen S3 cumple el contrato contra MinIO`() = contract(S3FileStore(Minio.client, Minio.bucket(), "pruebas-${UUID.randomUUID()}"))
+    fun `el almacen S3 cumple el contrato contra MinIO`() {
+        val prefix = "pruebas-${UUID.randomUUID()}"
+        val bucket = Minio.bucket()
+        try {
+            contract(S3FileStore(Minio.client, bucket, prefix))
+        } finally {
+            // el MinIO del túnel es compartido: no deja objetos de la prueba
+            Minio.clean(bucket, prefix)
+        }
+    }
+
+    companion object {
+        // el contenedor de Testcontainers no sobrevive a la clase (el MinIO del túnel, que no es nuestro, no se toca)
+        @JvmStatic
+        @AfterAll
+        fun stopMinio() = Minio.stop()
+    }
 
     private object Minio {
         private val external = System.getenv("SGSPE_TEST_S3_ENDPOINT")
@@ -73,7 +90,27 @@ class FileStoreContractTest {
         // la misma imagen que compose.yml; solo se levanta sin un MinIO externo
         private val container: MinIOContainer by lazy {
             MinIOContainer(DockerImageName.parse("pgsty/minio:RELEASE.2026-08-04T00-00-00Z").asCompatibleSubstituteFor("minio/minio"))
-                .also { it.start() }
+                .also {
+                    it.start()
+                    started = it
+                }
+        }
+
+        @Volatile
+        private var started: MinIOContainer? = null
+
+        fun stop() {
+            started?.stop()
+            started = null
+        }
+
+        // borra los objetos que el almacén escribió bajo el prefijo de la prueba
+        fun clean(
+            bucket: String,
+            prefix: String
+        ) {
+            val keys = client.listObjectsV2 { it.bucket(bucket).prefix(prefix) }.join().contents()
+            for (item in keys) client.deleteObject { it.bucket(bucket).key(item.key()) }.join()
         }
 
         val client: S3AsyncClient by lazy {

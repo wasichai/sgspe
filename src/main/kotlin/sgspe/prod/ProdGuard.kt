@@ -28,7 +28,7 @@ class ProdGuard :
         application: SpringApplication
     ) {
         if (PROFILE !in environment.activeProfiles) return
-        val problems = listOfNotNull(seed(environment), secret(environment), ttl(environment), files(environment))
+        val problems = listOfNotNull(seed(environment), secret(environment), ttl(environment), files(environment), keys(environment), mail(environment))
         check(problems.isEmpty()) {
             "el perfil prod no arranca con una configuración de desarrollo (ADR-0020):\n" + problems.joinToString("\n") { "- $it" }
         }
@@ -73,6 +73,27 @@ class ProdGuard :
         }
     }
 
+    // sin claves rige la cadena de credenciales del SDK (rol de instancia); con una sola, wasichai falla tarde con su mensaje
+    private fun keys(environment: ConfigurableEnvironment): String? {
+        val access = !environment.getProperty(ACCESS_KEY).isNullOrBlank()
+        val secret = !environment.getProperty(SECRET_KEY).isNullOrBlank()
+        return if (access != secret) {
+            "$ACCESS_KEY y $SECRET_KEY van juntas o ninguna: defina WASICHAI_FILES_S3_ACCESS_KEY y WASICHAI_FILES_S3_SECRET_KEY, o quite las dos"
+        } else {
+            null
+        }
+    }
+
+    // el valor por defecto de spring.mail.host en application.yml es el Mailpit de desarrollo; en prod lo nombra el despliegue
+    private fun mail(environment: ConfigurableEnvironment): String? {
+        val on = environment.getProperty(EMAIL, Boolean::class.javaObjectType) == true
+        return if (on && environment.getProperty(MAIL_HOST).isNullOrBlank()) {
+            "$EMAIL=true sin $MAIL_HOST: defina SPRING_MAIL_HOST con el servidor SMTP"
+        } else {
+            null
+        }
+    }
+
     companion object {
         const val PROFILE = "prod"
 
@@ -83,6 +104,10 @@ class ProdGuard :
         private const val TTL = "wasichai.security.jwt.ttl"
         private const val STORE = "wasichai.files.store"
         private const val BUCKET = "wasichai.files.s3.bucket"
+        private const val ACCESS_KEY = "wasichai.files.s3.access-key"
+        private const val SECRET_KEY = "wasichai.files.s3.secret-key"
+        private const val EMAIL = "wasichai.notifications.email.enabled"
+        private const val MAIL_HOST = "spring.mail.host"
         private val MAX_TTL: Duration = Duration.ofHours(8)
     }
 }

@@ -50,8 +50,8 @@ wasichai:
       bucket: ${WASICHAI_FILES_S3_BUCKET:sgspe-evidencias}
       endpoint: ${WASICHAI_FILES_S3_ENDPOINT:http://localhost:9095}
       region: ${WASICHAI_FILES_S3_REGION:us-east-1}
-      access-key: ${WASICHAI_FILES_S3_ACCESS_KEY:sgspe}
-      secret-key: ${WASICHAI_FILES_S3_SECRET_KEY:sgspe-minio}
+      # access-key y secret-key sin valor por defecto: para el MinIO de compose.yml, develop/.env (example.env); sin ellas
+      # rige la cadena de credenciales del SDK
       # MinIO pide URL con la ruta del bucket; AWS S3 acepta las dos
       path-style-access: ${WASICHAI_FILES_S3_PATH_STYLE_ACCESS:true}
   notifications:
