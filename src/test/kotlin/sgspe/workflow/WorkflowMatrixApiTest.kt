@@ -50,6 +50,11 @@ class WorkflowMatrixApiTest : F3ApiTest() {
     private val accounts = mutableMapOf<String, Account>()
     private val assigned = mutableSetOf<Pair<String, String>>()
 
+    // el proyecto de la prueba, sin aprobación interna: approve_direct solo pasa así (D8, plan 3.2) y approve no la mira
+    private var relaxed: String? = null
+
+    override fun testProject(): String = relaxed ?: project(mapOf("policy_internal_approval" to false)).also { relaxed = it }
+
     // un usuario por rol, asignado al proyecto de la prueba (o al proyecto que se mueve, en WF-A)
     private fun actor(
         workflow: Workflow,
@@ -328,17 +333,16 @@ class WorkflowMatrixApiTest : F3ApiTest() {
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
         // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest
         // F3: lo que el plan 3.2 hace comando o pide de su comando (`accept` de WF-K, CommandTransitionGuard, y
-        // `mark_duplicate`, que pide el `duplicate_of` que solo escribe POST .../duplicate), lo que pide la entrega con su
+        // `mark_duplicate`, que pide el `duplicate_of` que solo escribe POST .../duplicate), y lo que pide la entrega con su
         // evidencia, que solo da su endpoint (`register_fulfillment`, D9) y lo que solo se alcanza por ella
-        // (`reopen_execution`, `verify`, `close`), y `approve_direct`, que pide un proyecto sin aprobación interna (D8): los
-        // prueba el plan 3.2 en CommitmentApprovalApiTest, CommitmentFulfillmentApiTest y CandidateApiTest
+        // (`reopen_execution`, `verify`, `close`): las tareas 13 y 14 del plan 3.2 las sacan de aquí. `approve_direct` corre en
+        // el proyecto de la prueba, que no tiene aprobación interna (D8)
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
                 "area_of_influence.supersede",
-                "commitment.approve_direct",
                 "commitment.register_fulfillment",
                 "commitment.reopen_execution",
                 "commitment.verify",
@@ -347,8 +351,9 @@ class WorkflowMatrixApiTest : F3ApiTest() {
                 "commitment_candidate.mark_duplicate"
             )
 
-        // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held)
-        val WALK_AVOIDS = setOf("engagement.register_held_unplanned", "engagement.close_light")
+        // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held);
+        // y approve_direct de WF-D: un compromiso llega a `approved` con submit y approve, la doble llave de D3 y D4
+        val WALK_AVOIDS = setOf("engagement.register_held_unplanned", "engagement.close_light", "commitment.approve_direct")
 
         // quién lleva cada registro por sus estados: el primero lo crea; cada paso lo da el primero que está en la lista del paso
         val DRIVERS =
