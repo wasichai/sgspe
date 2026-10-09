@@ -56,7 +56,6 @@ flowchart LR
     end
     FW["Flyway por paquete (ModuleMigration)"] --> SG
     subgraph SG["esquema sgspe (tablas fijas)"]
-        N1["notification, notification_delivery"]
         K1["knowledge_chunk (F7)"]
         I1["idempotency_key"]
     end
@@ -83,25 +82,22 @@ flowchart LR
 
 ### 2.3 El esquema `sgspe` de las tablas fijas
 
-- `notification` y `notification_delivery` (BC-14, desde F3), `knowledge_chunk` (BC-18, F7) e `idempotency_key`
-  (transversal, desde F3) no son Custom Objects: son tablas fijas del esquema `sgspe` (ASM-012, ASM-065, RQ-AI-008,
-  CON-052). Las notificaciones lo son porque una vista de wasichai no filtra por "yo" y la plataforma no tiene módulo de
-  notificaciones (CON-058, UPS-11); las claves de idempotencia, porque wasichai no reconoce `Idempotency-Key` (UPS-18).
+- `idempotency_key` (transversal, desde F3) y `knowledge_chunk` (BC-18, F7) no son Custom Objects: son tablas fijas del
+  esquema `sgspe` (ASM-065, RQ-AI-008, CON-052). Los avisos no tienen tablas propias desde la decisión D2: los guarda el
+  módulo wasichai-notifications en su esquema (ASM-012, ADR-0018).
 - Cada paquete dueño registra su propia `ModuleMigration`, como un módulo más [WAS-ADR-0026]:
-  - `sgspe_common`, en `classpath:db/sgspe/common`, en F3, para `idempotency_key`;
-  - `sgspe_notification`, en `classpath:db/sgspe/notification`, en F3;
+  - `sgspe_common`, en `classpath:db/sgspe/common`, con orden 200, en F3, para `idempotency_key`;
   - `sgspe_ai`, en `classpath:db/sgspe/ai`, en F7 con el RAG documental (RF-AIK-006, RQ-AI-008).
-- Las tres usan un orden mayor que el de los módulos de wasichai (100), guardan su historia en `flyway_history_<nombre>` del
+- Las dos usan un orden mayor que el de los módulos de wasichai (100), guardan su historia en `flyway_history_<nombre>` del
   esquema de metadatos y su primera migración crea el esquema `sgspe` si no existe. Un cambio es una migración nueva: una
   migración aplicada nunca se edita, porque Flyway verifica su checksum [WAS-ADR-0026].
 - Un bean que lea estas tablas al arrancar declara `@DependsOn("wasichaiMigrations")` para no adelantarse a su migración
   [WAS-ADR-0026].
-- Solo su paquete las lee y las escribe (`sgspe.common`, `sgspe.notification` y `sgspe.ai`), con `DatabaseClient` y SQL
+- Solo su paquete las lee y las escribe (`sgspe.common` y `sgspe.ai`), con `DatabaseClient` y SQL
   propio; toda consulta filtra por `organization_id` (RQ-SEC-002).
 - No hay claves foráneas entre esquemas: ni hacia `app_data`, porque cada organización tiene su propia tabla física, ni
-  hacia las organizaciones de `wasichai`. `source_record_id`, `project_id`, `evidence_id` y `created_record_ids` son
-  referencias lógicas que valida el paquete. La única clave foránea real es `notification_delivery.notification_id` →
-  `notification`, dentro del mismo esquema.
+  hacia las organizaciones de `wasichai`. `project_id` y `evidence_id` de `knowledge_chunk` son referencias lógicas que valida
+  el paquete.
 - Por eso borrar una organización en wasichai no borra sus filas de `sgspe.*`: la baja de un tenant incluye un paso que las
   borra por `organization_id` (§24, GAP-026).
 
@@ -635,8 +631,6 @@ decir, de §6 del modelo de dominio.
 | `program_milestone` | BC-10 | no | no | no | — | F5 |
 | `evidence` | BC-12 | no | sí | no | — | F3 |
 | `task` | BC-13 | no | no | no | WF-N | F3 |
-| `notification` (tabla fija) | BC-14 | — | — | — | — | F3 |
-| `notification_delivery` (tabla fija) | BC-14 | — | — | — | — | F3 |
 | `indicator` | BC-15 | no | no | no | — | F8 |
 | `indicator_measurement` | BC-15 | sí | sí | no | — | F8 |
 | `deliverable` | BC-15 | no | no | sí | WF-H | F8 |
@@ -3308,70 +3302,11 @@ ASM-022, ASM-030.
 
 ## 18. BC-14 Notificaciones
 
-Bandeja y envíos de avisos en tablas fijas del esquema `sgspe` (§2.3), porque wasichai no tiene módulo de notificaciones
-(UPS-11, CON-058, ASM-012). Los avisos salen de listeners y trabajos, nunca de las entidades (RN-NTF-001).
-
-```mermaid
-erDiagram
-    notification ||--o{ notification_delivery : "notification_id"
-```
-
-### `notification`
-
-**Notificación** (BC-14). Aviso de la bandeja de un usuario. Tabla fija `sgspe.notification`, no Custom Object (§2.3).
-Requisitos: RF-NTF-001, RN-NTF-001, ASM-012, UPS-11.
-
-| Campo | Tipo | Req. | Único | Descripción | Fuente |
-|---|---|---|---|---|---|
-| `id` | uuid | sí | sí | Clave primaria; `gen_random_uuid()`. | ASM-012 |
-| `organization_id` | uuid | sí | compuesto | Tenant; toda consulta filtra por él. | ASM-012 |
-| `recipient_user_id` | uuid | sí | compuesto | Usuario destinatario. | RF-NTF-001 |
-| `notification_type` | text | sí | — | Tipo de aviso (por vencer, vencido, aprobación pendiente, alerta nueva…). | RF-NTF-001 |
-| `source_object` | text | no | — | Objeto del registro que origina el aviso. | RF-NTF-001 |
-| `source_record_id` | uuid | no | — | Registro que origina el aviso (referencia lógica). | RF-NTF-001 |
-| `title` | text | sí | — | Título del aviso. | RF-NTF-001 |
-| `body` | text | no | — | Cuerpo del aviso. | RF-NTF-001 |
-| `created_at` | timestamptz | sí | — | Momento de creación; `now()` por defecto. | RF-NTF-001 |
-| `read_at` | timestamptz | no | — | Momento de lectura; vacío si no se leyó. | RF-NTF-001 |
-| `dedup_key` | text | sí | compuesto | Clave de deduplicación del aviso. | RN-NTF-001 |
-
-- **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
-- **Únicos:** clave primaria `id`; (`organization_id`, `recipient_user_id`, `dedup_key`).
-- **Índices:** (`organization_id`, `recipient_user_id`, `read_at`).
-- **Acciones declaradas:** no aplican.
-- **Workflow:** ninguno.
-- **Fase:** F3 · Release 1 (MVP).
-- El único compuesto evita repetir el mismo aviso (RF-NTF-001); el índice sirve a la bandeja de no leídos de
-  `/api/sgspe/notifications`.
-- Llega en F3 con los avisos de compromisos y tareas; los de QCS, riesgos y alertas se suman en F4.
-
-### `notification_delivery`
-
-**Envío de notificación** (BC-14). Envío por correo de una notificación, con sus reintentos. Tabla fija
-`sgspe.notification_delivery`, no Custom Object (§2.3). Requisitos: RF-NTF-001, GAP-021.
-
-| Campo | Tipo | Req. | Único | Descripción | Fuente |
-|---|---|---|---|---|---|
-| `id` | uuid | sí | sí | Clave primaria; `gen_random_uuid()`. | ASM-012 |
-| `organization_id` | uuid | sí | — | Tenant. | ASM-012 |
-| `notification_id` | uuid | sí | — | Notificación que se envía; clave foránea a `notification`. | RF-NTF-001 |
-| `channel` | text | sí | — | Canal; EMAIL en el MVP. | RF-NTF-001 |
-| `recipient_email` | text | sí | — | Correo de destino. | RF-NTF-001 |
-| `delivery_status` | text | sí | — | Estado del envío; sus valores los fija el código de `sgspe.notification`. | RF-NTF-001 |
-| `attempts` | integer | sí | — | Intentos realizados; 0 por defecto. | RF-NTF-001 |
-| `last_attempt_at` | timestamptz | no | — | Momento del último intento. | RF-NTF-001 |
-| `sent_at` | timestamptz | no | — | Momento del envío exitoso. | RF-NTF-001 |
-| `error_detail` | text | no | — | Detalle del último error, sin datos personales. | GAP-021 |
-
-- **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
-- **Únicos:** clave primaria `id`.
-- **Índices:** (`notification_id`); (`delivery_status`).
-- **Acciones declaradas:** no aplican.
-- **Workflow:** ninguno.
-- **Fase:** F3 · Release 1 (MVP).
-- `notification_id` es una clave foránea real a `sgspe.notification` con `ON DELETE CASCADE`, porque las dos tablas
-  viven en el mismo esquema; el índice por `delivery_status` sirve al envío con reintentos. El servidor SMTP se define
-  en GAP-021.
+BC-14 no tiene objetos ni tablas propias desde la decisión D2 (ASM-012, ADR-0018): los avisos, su estado por persona, los
+envíos por correo y las preferencias viven en las tablas del módulo wasichai-notifications (`notifications`,
+`notification_targets`, `notification_receipts`, `notification_deliveries`, `notification_preferences`), que SGSPE no lee
+ni escribe con SQL: publica con `Notifications.publish` y lee la bandeja con la API del módulo. Los avisos salen de
+listeners y trabajos, nunca de las entidades (RN-NTF-001); sus claves están en `workflows.md` («Avisos»).
 
 ## 19. BC-15 Reportes, tableros y entregables
 
@@ -4080,33 +4015,34 @@ de los endpoints propios (RNF-INT-002, ASM-065), con su propia migración (§2.3
 
 ### `idempotency_key`
 
-**Clave de idempotencia** (Transversal). Clave `Idempotency-Key` de cada creación de `/api/sgspe/**` que la trae,
-escrita en la misma transacción que el comando y purgada por JOB-08 después de un plazo configurable; la API genérica de
-wasichai no conoce esa cabecera (UPS-18). Tabla fija `sgspe.idempotency_key`, no Custom Object (§2.3). Requisitos:
-RNF-INT-002, ASM-065, UPS-18.
+**Clave de idempotencia** (Transversal). Clave `Idempotency-Key` de cada comando de `/api/sgspe/**` que la trae, con la
+respuesta que recibió la primera petición, escrita en la misma transacción que el comando y purgada por JOB-08 después de
+`wasichai.idempotency.ttl`; el alta genérica usa la tabla nativa de wasichai, con el mismo contrato (UPS-18). Tabla fija
+`sgspe.idempotency_key`, no Custom Object (§2.3). Requisitos: RNF-INT-002, ASM-065, UPS-18.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
-| `id` | uuid | sí | sí | Clave primaria; `gen_random_uuid()`. | ASM-065 |
 | `organization_id` | uuid | sí | compuesto | Tenant; toda consulta filtra por él. | ASM-065 |
 | `user_id` | uuid | sí | compuesto | Usuario que hizo la petición: la clave vale por organización y usuario. | ASM-065 |
-| `request_key` | text | sí | compuesto | Valor de la cabecera `Idempotency-Key`, de 1 a 64 caracteres. | RNF-INT-002 |
-| `request_path` | text | sí | — | Ruta del endpoint `/api/sgspe/**` que la recibió. | RNF-INT-002 |
-| `request_sha256` | text | sí | — | SHA-256 del cuerpo; con la misma ruta distingue un reenvío de otra petición. | RNF-INT-002 |
-| `created_object` | text | no | — | Objeto del registro principal creado; vacío en un comando sin registro principal. | RNF-INT-002 |
-| `created_record_ids` | uuid[] | no | — | Registros creados por el comando, que un reenvío devuelve en su estado actual. | RNF-INT-002 |
-| `created_at` | timestamptz | sí | — | Momento de la primera petición; `now()` por defecto y base de la purga. | ASM-065 |
+| `request_key` | text | sí | compuesto | Valor de la cabecera `Idempotency-Key`, de 1 a 128 caracteres ASCII imprimibles. | RNF-INT-002 |
+| `request_sha256` | text | sí | — | SHA-256 del método, la ruta y el cuerpo con sus claves ordenadas: con la misma clave, otra petición es un `422`. | RNF-INT-002 |
+| `response_status` | integer | sí | — | Estado de la primera respuesta. | RNF-INT-002 |
+| `response_body` | text | sí | — | Cuerpo de la primera respuesta, que un reenvío recibe byte por byte; lleva lo que quien llama podía leer. | RNF-INT-002 |
+| `response_etag` | text | no | — | `ETag` de la primera respuesta. | RNF-INT-002 |
+| `response_location` | text | no | — | `Location` de la primera respuesta. | RNF-INT-002 |
+| `created_at` | timestamptz | sí | — | Momento de la primera petición; `now()` por defecto y base del plazo y de la purga. | ASM-065 |
 
 - **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
-- **Únicos:** clave primaria `id`; (`organization_id`, `user_id`, `request_key`).
+- **Únicos:** clave primaria (`organization_id`, `user_id`, `request_key`).
 - **Índices:** (`created_at`).
 - **Acciones declaradas:** no aplican.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- El único compuesto deduplica por organización, usuario y clave; el índice por `created_at` sirve a la purga, que hace
-  JOB-08 desde F3 con SQL propio, sin `asPlatform` (ASM-065). Las respuestas a un reenvío y a una clave repetida con
-  otra petición las fija `api.md`.
-- La escribe y la lee solo `sgspe.common`, en la misma transacción que el comando (RNF-INT-002).
+- Lo que está en curso no es una columna: es un candado de transacción (`pg_try_advisory_xact_lock`) sobre la clave, que no
+  espera; una segunda petición con la clave en curso recibe `409` con `Retry-After`. Una fila significa que el comando se
+  confirmó; un comando que falló no deja fila y la clave queda libre (`api.md` §3.5).
+- Una fila más antigua que el plazo se borra antes de leerla, así que el plazo es exacto aunque la purga se atrase. La escribe
+  y la lee solo `sgspe.common`, con `DatabaseClient` (RNF-INT-002).
 
 ## 23. Contextos sin objetos propios
 
@@ -4222,8 +4158,8 @@ Casos previstos:
 
 - `DELETE /api/organizations/current` borra la organización con todas sus tablas [WAS-DOC api/rest.md]. No borra sus filas de
   las tablas fijas de `sgspe.*`, porque no hay claves foráneas entre esquemas (§2.3).
-- Por eso la baja incluye un paso que borra, por `organization_id`, las filas del tenant en `sgspe.notification_delivery`,
-  `sgspe.notification`, `sgspe.idempotency_key` y `sgspe.knowledge_chunk`, y después llama a
+- Por eso la baja incluye un paso que borra, por `organization_id`, las filas del tenant en `sgspe.idempotency_key` y
+  `sgspe.knowledge_chunk`, y después llama a
   `DELETE /api/organizations/current`. Quién la opera queda en GAP-026, como el alta.
 
 ### Cómo se prueba
@@ -4269,8 +4205,8 @@ decisión registrada permite.
 | Borradores de entregable | Almacenamiento de objetos | Se conservan los últimos N y se purgan los demás; `deliverable` apunta solo al último | RQ-REP-027, ASM-028, ASM-061 |
 | Versiones emitidas | `deliverable_version` y almacenamiento | Siempre, con WORM opcional | RQ-REP-017, RQ-REP-027 |
 | Exportaciones e interacciones con IA | `export_log`, `ai_interaction` | Siempre (append-only) | RQ-AUD-011, RQ-AUD-012 |
-| Notificaciones y envíos | `sgspe.notification`, `sgspe.notification_delivery` | Se conservan hasta que GAP-014 fije un plazo | RF-NTF-001, GAP-014 |
-| Claves de idempotencia | `sgspe.idempotency_key` | La purga la hace JOB-08, desde F3, después de un plazo configurable; no guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
+| Avisos y envíos | Tablas de wasichai-notifications | El módulo purga los avisos resueltos o vencidos después de `wasichai.notifications.retention` (90 días); los envíos se van con su aviso | RF-NTF-001, ADR-0018 |
+| Claves de idempotencia | `sgspe.idempotency_key` | JOB-08 borra cada día las más antiguas que `wasichai.idempotency.ttl` (24 h por defecto), el mismo plazo de la cabecera nativa; guardan la respuesta de la primera petición, nunca su cuerpo | ASM-065, RNF-INT-002 |
 | Fragmentos de RAG | `sgspe.knowledge_chunk` | Son derivados: se regeneran o se borran con su evidencia | RQ-AI-008 |
 | Datos personales | Campos restringidos | Según la política de GAP-014; mientras tanto, minimización con permisos de campo y anonimización en salidas | RNF-PRIV-004, RQ-SEC-010, RQ-REP-014 |
 
