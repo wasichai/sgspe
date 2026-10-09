@@ -1130,9 +1130,13 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - las menciones de personas en la narrativa son referencias que EXTERNO y PUBLICO sustituyen (RQ-REP-033);
   - cada emisión queda en `export_log` y en `audit_log` (RQ-AUD-011).
 - **Documentos emitidos** de wasichai-documents (RQ-REP-029): no se filtran por permisos de campo, porque quien ve el
-  documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Regla: una plantilla imprime un campo restringido solo si
-  todo rol con READ sobre el objeto puede leerlo. El acta de entrega deja espacios para los nombres y las firmas en lugar
-  de imprimir `recipients`, y la ficha de grupo de interés no imprime la postura.
+  documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Además, la copia congelada lleva **todos** los campos del
+  registro y todas las columnas de cada tabla relacionada que nombra la plantilla, aunque no los imprima, y
+  `GET /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto (código de wasichai-documents 0.6.0, UPS-23).
+  Regla: un tipo de documento solo se declara sobre un objeto sin campos restringidos y sin tablas relacionadas de
+  objetos con campos restringidos; `test_model.py` lo comprueba. Por eso, hasta UPS-23, el acta de entrega (`delivery`
+  restringe `recipients` y `conformity_by`) no es un documento emitido, y la lista de asistentes imprime el total y deja
+  filas en blanco para los nombres y las firmas en lugar de la tabla de `engagement_participant`.
 
 ### 11.5 IA
 

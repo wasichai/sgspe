@@ -1,0 +1,29 @@
+[
+  {
+    "name": "aut-05-meeting-minutes",
+    "label": "Minuta y lista de asistentes del acta aprobada",
+    "enabled": true,
+    "definition": {
+      "trigger": { "type": "STATE_ENTERED", "state": "minutes_approved" },
+      "conditions": [],
+      "actions": [
+        { "type": "GENERATE_DOCUMENT", "documentType": "meeting-minutes" },
+        { "type": "GENERATE_DOCUMENT", "documentType": "attendance-list" }
+      ]
+    }
+  },
+  {
+    "name": "aut-10-engagement-reschedule-task",
+    "label": "Tarea para reprogramar la interacción cancelada",
+    "enabled": true,
+    "definition": {
+      "trigger": { "type": "STATE_ENTERED", "state": "cancelled" },
+      "conditions": [],
+      "actions": [
+        { "type": "CREATE_RECORD", "targetObject": "task",
+          "values": { "title": "Reprogramar o reemplazar la interacción {{title}}", "engagement": "{{id}}",
+                      "project": "{{project}}" } }
+      ]
+    }
+  }
+]

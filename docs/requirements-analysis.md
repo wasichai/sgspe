@@ -1297,6 +1297,7 @@ Capacidades que wasichai 0.3.2 no ofrece. Los issues upstream se abren solo con 
 | UPS-19 | Elegir qué temas usa «Según el sistema» (por ejemplo, `config.systemThemes = { light, dark }`) o el tema inicial de una app | `resolveTheme` de `@wasichai/core` lleva la preferencia `system` y las desconocidas a `light` o `dark`, así que un portal con temas propios abre en los de la plataforma | Ninguno automático: la preferencia del servidor manda (`{ "theme": "system" }` sin fila, WAS-ADR-034) y pisa la copia local, así que un usuario sin preferencia ve Claro u Oscuro de wasichai y elige un tema de SGSPE en Perfil › Tema; no se escribe la preferencia en el primer ingreso, porque no distingue a quien eligió «Según el sistema» (ASM-086). Pedida en wasichai/wasichai-ui#39 | F1 | RNF-USA-001 |
 | UPS-20 | Borrar un registro que tiene hijos de una relación MANY_TO_ONE obligatoria: wasichai 0.3.2 declara la columna NOT NULL con ON DELETE SET NULL, así que la base rechaza el borrado y la API responde 500 en vez de 409 | Borrar un padre con hijos obligatorios falla con un 500 sin causa legible, en vez de un error de regla que nombre al dependiente | `DependentsDeleteGuard` consulta las tablas físicas del tenant y responde 409 `HAS_DEPENDENTS` (riesgo 3 de `architecture.md` §14) | F2 | RNF-INT-001 |
 | UPS-21 | Buscar un usuario por correo dentro de una organización sin ser administrador: wasichai 0.3.2 solo ofrece `UserRepository.findByEmail`, global y con `.one()`, y `AdminService.listUsers`, que exige `MANAGE_ORGANIZATION` | Validar una referencia a usuario (`*_user_id`/`*_user_email`) falla con 500 si el mismo correo existe en dos tenants | `UserReferenceGuard` consulta la tabla `users` de la metadata por organización y correo (riesgo 3 de `architecture.md` §14); falta un buscador por organización como `RoleDirectory` | F2 | RNF-INT-001 |
+| UPS-23 | Que un documento emitido de wasichai-documents congele solo lo que su plantilla nombra, o respete los permisos de campo de quien lo lee: hoy su copia guarda todos los campos del registro y todas las columnas de las tablas relacionadas, y `GET /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto | Un documento de un objeto con campos restringidos los entrega a quien no los lee: el acta de entrega de `delivery` (`recipients`, `conformity_by`) o una lista de asistentes con la tabla de `engagement_participant` (RQ-SEC-010) | Los tipos de documento solo se declaran sobre objetos sin campos restringidos (`security.md` §11.4): el acta de entrega (AUT-03) espera, y el acta firmada se sube como evidencia ACTA DE ENTREGA; la lista de asistentes deja filas en blanco para los nombres y las firmas | F3 | RQ-REP-029, RQ-SEC-010 |
 | UPS-22 | Que las escrituras de la API genérica (`RecordService.create`, `update` y `delete`) corran en una transacción de la petición, a la que se unan las guardas y los listeners ([WAS-ADR-0038]), o que ofrezcan un gancho para que una guarda retenga un candado hasta el commit | Una guarda que lee el estado de otro registro con un candado lo suelta al volver, y la escritura ocurre después: un miembro entra en una versión de área de influencia recién aprobada, o sale de una aprobada y la deja sin miembros (RN-TER-003); lo mismo ocurre con un cambio de la identidad de un borrador (proyecto, tipo o número de versión) que se confirma justo después de la aprobación | `TerritoryWriteGuard` y la aprobación toman el mismo candado `area_of_influence:<id>`, lo que estrecha la ventana sin cerrarla (riesgo 16 de `architecture.md` §14); el mismo caso se repetirá en toda guarda que lea otro registro | F2 | RN-TER-003, RNF-INT-003 |
 
 ## 19. Assumptions
@@ -1452,9 +1453,9 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `RQ-AI` | 13 |
 | `CON` | 60 |
 | `GAP` | 32 |
-| `UPS` | 22 |
+| `UPS` | 23 |
 | `ASM` | 88 |
-| Total | 500 |
+| Total | 501 |
 
 ### 20.2 Requisitos por bounded context
 

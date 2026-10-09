@@ -574,7 +574,8 @@ es requisito del MVP y depende de GAP-008 (ASM-021); si se aprueba, BC-11 se sep
   documento administrativo"), emitidos congelados y con correlativo (RQ-REP-029) [WAS-ADR-0023]. Se emiten desde `delivery`
   (acta de entrega o de recepción), `engagement` (minuta y lista de asistentes), `grievance` (cargo de queja), `inquiry` y
   `stakeholder_request` (carta de respuesta), `stakeholder` (ficha de grupo de interés) y `locality` (ficha de localidad). Un
-  documento emitido no se filtra por permisos de campo: su plantilla decide qué dato personal imprime.
+  documento emitido no se filtra por permisos de campo y su copia congelada lleva el registro entero (UPS-23): solo se
+  declara sobre objetos sin campos restringidos (`security.md` §11.4), y el acta de entrega espera a UPS-23.
 
 ### 6.13 BC-13 Tareas y aprobaciones
 
@@ -852,7 +853,7 @@ tiempo (RN-WFL-001); las transiciones, los roles y las guardas por transición e
   comando con `CommandTransitionGuard`, porque `apiOnly` no rechaza transiciones [WAS-DOC modules/workflow.md].
 - Efectos simples como automatizaciones de metadata: al llegar un compromiso a `approved` se crea su tarea de ejecución; al
   recibir una queja, la tarea de acuse; al crear una `delivery`, el acta de entrega o de recepción como documento emitido
-  (RQ-REP-029). `workflows.md` los numera.
+  (RQ-REP-029), cuando se resuelva UPS-23. `workflows.md` los numera.
 
 ### 7.4 Campos derivados: regla y escritor
 

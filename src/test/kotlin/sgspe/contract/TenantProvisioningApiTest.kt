@@ -26,8 +26,8 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         assertEquals(0, workflows.exit, workflows.output)
         assertTrue(
             workflows.output.contains(
-                "done: 9 workflows (9 created, 0 updated, 0 skipped), 0 document types (0 created, 0 updated, 0 skipped), " +
-                    "0 automations (0 created, 0 updated, 0 skipped)"
+                "done: 9 workflows (9 created, 0 updated, 0 skipped), 2 document types (2 created, 0 updated, 0 skipped), " +
+                    "3 automations (3 created, 0 updated, 0 skipped)"
             ),
             workflows.output
         )
@@ -42,8 +42,8 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         assertEquals(0, workflowsAgain.exit, workflowsAgain.output)
         assertTrue(
             workflowsAgain.output.contains(
-                "done: 9 workflows (0 created, 0 updated, 9 skipped), 0 document types (0 created, 0 updated, 0 skipped), " +
-                    "0 automations (0 created, 0 updated, 0 skipped)"
+                "done: 9 workflows (0 created, 0 updated, 9 skipped), 2 document types (0 created, 0 updated, 2 skipped), " +
+                    "3 automations (0 created, 0 updated, 3 skipped)"
             ),
             workflowsAgain.output
         )

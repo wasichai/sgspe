@@ -1581,7 +1581,10 @@ externa por túnel, porque Docker es remoto.
 - ningún objeto con workflow es `appendOnly`;
 - las transiciones que nombran las guardas, los listeners y los endpoints existen (por ejemplo, `close_accepted` y `issue`);
 - las automatizaciones nombran estados y transiciones que existen, sus `CREATE_RECORD` apuntan a objetos que existen y ninguna
-  escribe un campo derivado;
+  escribe un campo derivado; una tarea que crea lleva su proyecto y un solo origen;
+- las automatizaciones y los tipos de documento son los de la tabla de su fase, salvo los que esperan una brecha
+  («F3, tras UPS-23»), y ningún tipo de documento se declara sobre un objeto con campos restringidos ni nombra una tabla
+  relacionada de uno (`security.md` §11.4);
 - un campo derivado se reconoce por la clave `"derived": true` de su definición en `model/model.json`, que solo leen las
   herramientas de SGSPE. Nunca se marca con `editable: false`, porque el almacén de wasichai omite esos campos en toda
   escritura, también en las de la plataforma, y ningún trabajo ni listener podría mantenerlo (código de wasichai 0.3.2).
