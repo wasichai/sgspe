@@ -102,7 +102,7 @@ class DerivedFieldsJob(
         DerivedSweep(
             recalculators,
             { organizations.having(it) },
-            { organization, block -> records.asPlatform(organization, block) },
+            { organization, block -> records.asPlatform(organization, SOURCE, block) },
             clock
         )
 
@@ -118,6 +118,10 @@ class DerivedFieldsJob(
         // el trabajo que firma cada escritura de un recalculador (RQ-AUD-007, security.md §13.2): el motivo de un derivado
         // que escribe JOB-02 es «derivado: <regla> (JOB-02 DerivedFieldsJob)». cada DerivedRecalculator lo arma aquí
         const val NAME = "JOB-02 DerivedFieldsJob"
+
+        // el origen que la plataforma guarda en `audit_log.source` de cada escritura del trabajo (WAS-ADR-0050, UPS-03). el
+        // motivo conserva el nombre del trabajo: es lo que lee la persona en el historial (RQ-AUD-007, ASM-051)
+        const val SOURCE = "job:derived-fields"
 
         fun reason(rule: String): String = "derivado: $rule ($NAME)"
     }

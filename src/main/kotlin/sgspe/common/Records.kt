@@ -272,6 +272,13 @@ class Records(
         block: suspend () -> T
     ): T = withContext(PlatformOrganization(organizationId)) { records.asPlatform(organizationId, block) }
 
+    // lo mismo con el origen del cambio en la fila de auditoría (`job:<nombre>`, WAS-ADR-0050, UPS-03) en lugar de `platform`
+    suspend fun <T> asPlatform(
+        organizationId: UUID,
+        source: String,
+        block: suspend () -> T
+    ): T = withContext(PlatformOrganization(organizationId)) { records.asPlatform(organizationId, source, block) }
+
     // la organización del trabajo de fondo en curso: PlatformCaller es interno de wasichai y patch necesita la definición del
     // objeto para saber qué campos existen
     private class PlatformOrganization(

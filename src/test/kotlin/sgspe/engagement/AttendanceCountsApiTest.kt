@@ -78,6 +78,9 @@ class AttendanceCountsApiTest : DomainApiTest() {
         // la escritura del trabajo nombra al trabajo (RQ-AUD-007); la del listener, al alta del participante, no
         assertEquals("derivado: conteos de asistentes (JOB-02 DerivedFieldsJob)", history.values().first()["reason"].asString())
         assertEquals(DerivedFieldsJob.reason("conteos de asistentes"), AttendanceCountsRecalculator.REASON)
+        // y el origen de la fila de auditoría es el del trabajo (UPS-03, WAS-ADR-0050)
+        assertEquals("job:derived-fields", history.values().first()["source"].asString())
+        assertEquals("job:derived-fields", DerivedFieldsJob.SOURCE)
         assertEquals(AttendanceCountsWriter.REASON, history.values().map { it["reason"].asString() }.last { it.startsWith("derivado") })
     }
 

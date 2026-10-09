@@ -102,12 +102,17 @@ class ArchitectureTest {
         }
     }
 
-    // la enumeración de organizaciones de los trabajos es una excepción vigilada (UPS-17, architecture.md §8.1): vive solo
-    // en sgspe/common/Organizations.kt
+    // UPS-17: findAllOrganizations (obsoleto desde wasichai 0.5.0) no se usa en ningún archivo; los trabajos listan los
+    // tenants con TenantDirectory, y solo sgspe/common/Organizations.kt lo toca (nunca un controlador ni un dominio)
     @Test
-    fun `solo Organizations enumera las organizaciones`() {
+    fun `nadie usa findAllOrganizations`() {
+        assertEquals(emptyList<String>(), offenders(sources(main), ORGANIZATIONS))
+    }
+
+    @Test
+    fun `solo Organizations toca TenantDirectory`() {
         val outside = sources(main).filterNot { it.invariantSeparatorsPath.endsWith("/sgspe/common/Organizations.kt") }
-        assertEquals(emptyList<String>(), offenders(outside, ORGANIZATIONS))
+        assertEquals(emptyList<String>(), offenders(outside, TENANT_DIRECTORY))
     }
 
     @Test
@@ -190,6 +195,8 @@ class ArchitectureTest {
         assertFalse(NOT_COMMON_IMPORT.containsMatchIn("import sgspe.common.Records"))
         assertTrue(ORGANIZATIONS.containsMatchIn("objects.findAllOrganizations()"))
         assertFalse(ORGANIZATIONS.containsMatchIn("organizations.having(\"stakeholder\")"))
+        assertTrue(TENANT_DIRECTORY.containsMatchIn("private val tenants: TenantDirectory"))
+        assertFalse(TENANT_DIRECTORY.containsMatchIn("organizations.having(\"stakeholder\")"))
         assertTrue(isCommon(File("src/main/kotlin/sgspe/common/Records.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/risk/Risks.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/commonplace/Risks.kt")))
@@ -206,6 +213,7 @@ class ArchitectureTest {
         private val OTHER_SGSPE_IMPORT = Regex("""^\s*import\s+sgspe\.(?!observability\.)""")
         private val NOT_COMMON_IMPORT = Regex("""^\s*import\s+sgspe\.(?!common\.)""")
         private val ORGANIZATIONS = Regex("""\bfindAllOrganizations\b""")
+        private val TENANT_DIRECTORY = Regex("""\bTenantDirectory\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")

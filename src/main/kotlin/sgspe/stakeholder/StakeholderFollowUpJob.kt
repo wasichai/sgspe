@@ -108,7 +108,7 @@ class StakeholderFollowUpJob(
     private val sweep =
         FollowUpSweep(
             { organizations.having(STAKEHOLDER) },
-            { organization, block -> records.asPlatform(organization, block) },
+            { organization, block -> records.asPlatform(organization, SOURCE, block) },
             ::followUp
         )
 
@@ -178,6 +178,9 @@ class StakeholderFollowUpJob(
         // el trabajo que firma cada escritura (RQ-AUD-007, security.md §13.2), como JOB-02
         const val NAME = "JOB-03 StakeholderFollowUpJob"
         const val REASON = "último contacto ($NAME)"
+
+        // el origen de `audit_log.source` (WAS-ADR-0050, UPS-03); el motivo conserva el nombre del trabajo (ASM-051)
+        const val SOURCE = "job:stakeholder-follow-up"
         const val STAKEHOLDER = "stakeholder"
         const val ENGAGEMENT = "engagement"
     }
