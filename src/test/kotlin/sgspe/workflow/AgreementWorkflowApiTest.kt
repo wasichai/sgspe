@@ -10,7 +10,7 @@ import sgspe.F3ApiTest
 // CONVENIO firmado y vigente, que AgreementWriteGuard (plan 3.2) deja llegar a `active`; las reglas de esa guarda
 // (permiso de uso de terreno o servidumbre sin predios o sin comunidad titular, autorización de asamblea sin la interacción
 // de asamblea, firma y vigencia) y `validity_status`, que mantiene DeadlineJob, los prueba el plan 3.2 en
-// AgreementWorkflowGuardsApiTest y DeadlineJobApiTest
+// AgreementGuardApiTest y DeadlineJobApiTest
 class AgreementWorkflowApiTest : F3ApiTest() {
     private val officer by lazy { member("COMMUNITY_RELATIONS_OFFICER") }
     private val social by lazy { member("SOCIAL_MANAGER") }
@@ -34,12 +34,13 @@ class AgreementWorkflowApiTest : F3ApiTest() {
         val active = agreement(testProject(), social)
         move("agreement", active, "activate_from_draft", social.token, "se registra firmado")
         move("agreement", active, "terminate", manager.token, "incumplimiento de la contraparte")
-        assertEquals("terminated", state("agreement", active))
+        assertEquals("terminated", state("agreement", active), "terminate")
         val suspended = agreement(testProject(), social)
         move("agreement", suspended, "activate_from_draft", manager.token, "se registra firmado")
         move("agreement", suspended, "suspend", social.token, "conflicto en la zona")
+        assertEquals(HttpStatus.FORBIDDEN, transition("agreement", suspended, "terminate_suspended", social.token, "x").status)
         move("agreement", suspended, "terminate_suspended", manager.token, "no se pudo reanudar")
-        assertEquals("terminated", state("agreement", suspended))
+        assertEquals("terminated", state("agreement", suspended), "terminate_suspended")
     }
 
     @Test
@@ -49,7 +50,8 @@ class AgreementWorkflowApiTest : F3ApiTest() {
         val negotiating = agreement(testProject(), officer)
         move("agreement", negotiating, "start_negotiation", officer.token, "inicio")
         move("agreement", negotiating, "cancel_in_negotiation", manager.token, "la comunidad no aceptó")
-        assertEquals(listOf("cancelled", "cancelled"), listOf(state("agreement", draft), state("agreement", negotiating)))
+        assertEquals("cancelled", state("agreement", draft), "cancel_draft")
+        assertEquals("cancelled", state("agreement", negotiating), "cancel_in_negotiation")
     }
 
     @Test

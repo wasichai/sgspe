@@ -12,8 +12,9 @@ import sgspe.F3ApiTest
 // 3.2. los casos de CommitmentWriteGuard y SupportPolicyGuard (D1 a D11: campos mínimos, responsable, doble llave,
 // segregación, nivel superior, empleo, tope, `approve_direct` con la política, entrega con conformidad y evidencia,
 // dependencias, verificación), los derivados de CommitmentDerivationsListener y `register_fulfillment`, `reopen_execution`,
-// `verify` y `close`, que necesitan la entrega con evidencia del plan 3.2, los prueba ese plan en
-// CommitmentWorkflowGuardsApiTest
+// `verify` y `close`, que necesitan la entrega con evidencia del plan 3.2, los prueba ese plan: CommitmentApprovalApiTest
+// (`approve_direct`, D8) y CommitmentFulfillmentApiTest (`register_fulfillment`, `reopen_execution`, `verify` y `close`);
+// ver también el comentario DEFERRED de WorkflowMatrixApiTest
 class CommitmentWorkflowApiTest : F3ApiTest() {
     private val manager by lazy { member("COMMITMENT_MANAGER") }
     private val officer by lazy { member("COMMUNITY_RELATIONS_OFFICER") }
@@ -38,7 +39,10 @@ class CommitmentWorkflowApiTest : F3ApiTest() {
         assertEquals("in_progress", state("commitment", id))
 
         val reasons = tree(send("GET", "/api/objects/commitment/records/$id/history", null, HttpStatus.OK)).values().map { it["reason"]?.asString() }
-        assertTrue(reasons.containsAll(listOf("matriz completa", "dentro del presupuesto", "lluvias en la zona")), reasons.toString())
+        assertTrue(
+            reasons.containsAll(listOf("matriz completa", "dentro del presupuesto", "lluvias en la zona", "pasaron las lluvias")),
+            reasons.toString()
+        )
     }
 
     @Test
@@ -50,6 +54,15 @@ class CommitmentWorkflowApiTest : F3ApiTest() {
         move("commitment", id, "submit", officer.token, "unidad corregida")
         move("commitment", id, "approve_senior", senior.token, "mesa de diálogo")
         assertEquals("approved", state("commitment", id))
+    }
+
+    @Test
+    fun `approve es de APPROVER y approve_senior de PROJECT_MANAGER, y cada uno recibe 403 en la del otro`() {
+        val id = draft()
+        move("commitment", id, "submit", manager.token, "matriz completa")
+        assertEquals(HttpStatus.FORBIDDEN, transition("commitment", id, "approve", senior.token, "x").status)
+        assertEquals(HttpStatus.FORBIDDEN, transition("commitment", id, "approve_senior", approver.token, "x").status)
+        assertEquals("pending_approval", state("commitment", id))
     }
 
     @Test
@@ -85,7 +98,7 @@ class CommitmentWorkflowApiTest : F3ApiTest() {
             }
         move("commitment", blocked, "cancel_blocked", senior.token, "el acceso no se recuperó")
         cancelled += blocked
-        assertEquals(List(5) { "cancelled" }, cancelled.map { state("commitment", it) })
+        cancelled.forEachIndexed { index, it -> assertEquals("cancelled", state("commitment", it), "cancelación ${index + 1}") }
     }
 
     @Test
@@ -93,6 +106,15 @@ class CommitmentWorkflowApiTest : F3ApiTest() {
         // commitment es requiresReason (ASM-058): lo exige wasichai antes que cualquier guarda
         val id = draft()
         val response = transition("commitment", id, "submit", manager.token)
+        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+        assertEquals(listOf("reason"), problemFields(response.body))
+        assertEquals("draft", state("commitment", id))
+    }
+
+    @Test
+    fun `una cancelacion sin motivo responde 400 en reason y el compromiso sigue en su estado`() {
+        val id = draft()
+        val response = transition("commitment", id, "cancel_draft", manager.token)
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
         assertEquals(listOf("reason"), problemFields(response.body))
         assertEquals("draft", state("commitment", id))
