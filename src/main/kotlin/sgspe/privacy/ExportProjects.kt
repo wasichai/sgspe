@@ -29,12 +29,15 @@ class ExportProjects(
     suspend fun resolve(
         user: AuthenticatedUser,
         requested: List<UUID>
-    ): List<UUID>? =
-        when {
-            requested.isNotEmpty() -> requested.also { requireAssigned(user, it) }
-            user.isAdmin -> null
-            else -> assigned(user)
+    ): List<UUID>? {
+        // sin `also`: una llamada suspendida dentro de un lambda en línea en posición de cola se compila como llamada de cola
+        // (Kotlin 2.4.20) y, si suspende de verdad, devuelve Unit a quien llama
+        if (requested.isNotEmpty()) {
+            requireAssigned(user, requested)
+            return requested
         }
+        return if (user.isAdmin) null else assigned(user)
+    }
 
     // sin READ sobre project_assignment no tiene asignaciones que leer
     suspend fun assigned(user: AuthenticatedUser): List<UUID> {
