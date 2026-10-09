@@ -1,0 +1,38 @@
+{
+  "name": "wf-i-agreement",
+  "label": "Acuerdo",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
+      { "name": "in_negotiation", "label": "En negociación", "type": "INTERMEDIATE" },
+      { "name": "active", "label": "Vigente", "type": "INTERMEDIATE" },
+      { "name": "suspended", "label": "Suspendido", "type": "INTERMEDIATE" },
+      { "name": "concluded", "label": "Concluido", "type": "FINAL" },
+      { "name": "terminated", "label": "Resuelto", "type": "FINAL" },
+      { "name": "cancelled", "label": "Anulado", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "start_negotiation", "label": "Iniciar negociación", "from": "draft", "to": "in_negotiation",
+        "roles": ["SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
+      { "name": "activate", "label": "Registrar vigencia", "from": "in_negotiation", "to": "active",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
+      { "name": "activate_from_draft", "label": "Registrar vigencia", "from": "draft", "to": "active",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
+      { "name": "suspend", "label": "Suspender", "from": "active", "to": "suspended",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
+      { "name": "resume", "label": "Reanudar", "from": "suspended", "to": "active",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
+      { "name": "conclude", "label": "Concluir", "from": "active", "to": "concluded",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
+      { "name": "terminate", "label": "Resolver", "from": "active", "to": "terminated",
+        "roles": ["PROJECT_MANAGER"] },
+      { "name": "terminate_suspended", "label": "Resolver", "from": "suspended", "to": "terminated",
+        "roles": ["PROJECT_MANAGER"] },
+      { "name": "cancel_draft", "label": "Anular", "from": "draft", "to": "cancelled",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
+      { "name": "cancel_in_negotiation", "label": "Anular", "from": "in_negotiation", "to": "cancelled",
+        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] }
+    ]
+  }
+}

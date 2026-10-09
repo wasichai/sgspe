@@ -689,7 +689,7 @@ Criterios con que se armó:
 | `agreement_party` | — | R | CRUD | CRUD | R | R | R | R | R | R | — | R | R | R |
 | `agreement_clause` | — | R | CRUD | CRUD | R | R | R | R | R | R | — | R | R | R |
 | `evidence` | CRU `EDIT_ANY` | R | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU | R | R | R |
-| `task` | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | RU | R | R |
+| `task` | RU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | RU | R | R |
 
 - `COMMUNITY_RELATIONS_OFFICER` registra compromisos acordados en reuniones; `COMMITMENT_MANAGER` y `SOCIAL_MANAGER` los
   llevan, verifican y cierran; `APPROVER` los aprueba, y `PROJECT_MANAGER` aprueba los de nivel superior y los que superan
@@ -701,6 +701,9 @@ Criterios con que se armó:
   subió; las PUBLICA e INTERNA se descargan con READ (RF-DOC-003). Bajar la clasificación de una evidencia restringida
   exige `DOWNLOAD_RESTRICTED`, para que un cambio de clasificación no abra la descarga; lo comprueba `EvidenceWriteGuard`
   (ASM-071).
+- `PROJECT_ADMIN` trabaja las tareas que le asignan (RU) pero no las crea: una tarea lleva exactamente un origen
+  (`ExactlyOneGuard`) y `PROJECT_ADMIN` no lee ninguno, así que wasichai le rechazaría el alta (§5.6).
+  `test_apply_roles.py` comprueba que quien crea un objeto con «exactamente uno de» lee algún destino de cada grupo.
 - `FIELD_AGENT` sube evidencias de su captura y, sin `EDIT_ANY`, solo cambia o vincula las que subió (§5.5); sin
   `DOWNLOAD_RESTRICTED`, no descarga las CONFIDENCIAL ni las de DATOS PERSONALES.
 

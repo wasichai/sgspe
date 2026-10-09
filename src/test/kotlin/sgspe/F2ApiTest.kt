@@ -1,14 +1,18 @@
 package sgspe
 
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.client.MultipartBodyBuilder
+import org.springframework.web.reactive.function.BodyInserters
 import tools.jackson.databind.JsonNode
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-// la base de las pruebas de integración de F2 (plan 2.1): registros mínimos válidos de los 48 objetos, armados desde
-// model/model.json, usuarios con un rol y su asignación al proyecto de la clase, y las llamadas de workflow. los
-// registros respetan desde ya las guardas que trae el plan 2.2 (alcance por asignación, exactamente uno de, rol de la
-// asignación, sin campos derivados), para que estas pruebas sigan en verde cuando lleguen
+// la base de las pruebas de integración de F2 (plan 2.1): registros mínimos válidos de los objetos de model/model.json
+// (los 60 de F3 desde el plan 3.1, con la subida de sus campos FILE), usuarios con un rol y su asignación al proyecto de
+// la clase, y las llamadas de workflow. los registros respetan las guardas de los planes 2.2 y 3.2 (alcance por
+// asignación, exactamente uno de, rol de la asignación, sin campos derivados), para que estas pruebas sigan en verde
 abstract class F2ApiTest : SgspeApiTest() {
     // un registro creado por la prueba: su id y los atributos con que se creó (los que un PUT vuelve a mandar)
     protected data class Fixture(
@@ -110,6 +114,7 @@ abstract class F2ApiTest : SgspeApiTest() {
                 type == "DATE" -> attributes[name] = "2026-10-07"
                 type == "DATETIME" -> attributes[name] = "2026-10-07T15:00:00Z"
                 type == "ENUM" -> attributes[name] = Model.enums.getValue(field["enum"] as String).first()
+                type == "FILE" -> attributes[name] = stagedFile(objectName, name)
                 else -> error("sin valor de prueba para $objectName.$name ($type)")
             }
         }
@@ -124,6 +129,30 @@ abstract class F2ApiTest : SgspeApiTest() {
     }
 
     protected fun requiresReason(objectName: String): Boolean = Model.objects.getValue(objectName)["requiresReason"] == true
+
+    // una subida preparada para el campo FILE `field` (WAS-ADR-0061), como `account` (el admin si es null): su id, que
+    // adjunta el archivo en el alta de quien lo subió dentro de la mitad de wasichai.files.cleanup.delay
+    protected fun stagedFile(
+        objectName: String,
+        field: String,
+        account: Account? = null
+    ): String {
+        val parts = MultipartBodyBuilder().apply { part("file", PDF).filename("prueba.pdf") }.build()
+        val body =
+            client
+                .post()
+                .uri("/api/objects/$objectName/files/$field")
+                .header(HttpHeaders.AUTHORIZATION, account?.token ?: token)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(parts))
+                .exchange()
+                .expectStatus()
+                .isCreated
+                .expectBody(String::class.java)
+                .returnResult()
+                .responseBody!!
+        return tree(body)["id"].asString()
+    }
 
     // los campos con "derived": true de un objeto: un PUT los devuelve con su valor, porque wasichai vacía lo que no recibe
     @Suppress("UNCHECKED_CAST")
@@ -194,8 +223,12 @@ abstract class F2ApiTest : SgspeApiTest() {
     companion object {
         private val SEQUENCE = AtomicInteger()
 
+        // un PDF mínimo: wasichai-files reconoce el tipo por su número mágico (application/pdf)
+        val PDF: ByteArray = "%PDF-1.4\n%archivo de prueba de sgspe\n".toByteArray()
+
         // el destino que eligen las pruebas en los objetos con "exactamente uno de" (database-model.md, ExactlyOneGuard):
-        // la organización, que no tiene campos restringidos
+        // la organización, que no tiene campos restringidos; desde F3, el compromiso de una entrega y la interacción de una
+        // tarea, que leen todos los roles que crean tareas (security.md §7.5)
         val EXACTLY_ONE =
             mapOf(
                 "area_of_influence_member" to listOf("locality"),
@@ -203,15 +236,20 @@ abstract class F2ApiTest : SgspeApiTest() {
                 "contact_method" to listOf("organization"),
                 "stakeholder" to listOf("organization"),
                 "actor_relationship" to listOf("from_organization", "to_organization"),
-                "network_node" to listOf("organization")
+                "network_node" to listOf("organization"),
+                "delivery" to listOf("commitment"),
+                "agreement_party" to listOf("organization"),
+                "task" to listOf("engagement")
             )
 
-        // valores que la regla genérica no puede dar: un rol declarado (AssignmentRoleGuard, plan 2.2) y un cargo sin persona,
-        // que solo puede estar VACANTE o PREVISTO (StakeholderWriteGuard, RF-STK-002)
+        // valores que la regla genérica no puede dar: un rol declarado (AssignmentRoleGuard, plan 2.2), un cargo sin persona,
+        // que solo puede estar VACANTE o PREVISTO (StakeholderWriteGuard, RF-STK-002), y un candidato a compromiso que
+        // registra una persona (RF-COM-010: la IA llega en F7)
         val FIXED =
             mapOf(
                 "project_assignment" to mapOf("role_name" to "READ_ONLY", "active" to true),
-                "position" to mapOf("position_status" to "VACANTE")
+                "position" to mapOf("position_status" to "VACANTE"),
+                "commitment_candidate" to mapOf("ai_generated" to false)
             )
     }
 }

@@ -43,17 +43,19 @@ def write_model(folder, model):
     return path
 
 
-class ModelOfF2Tests(unittest.TestCase):
-    def test_f2_has_its_48_objects_and_is_valid(self):
+class ModelOfF3Tests(unittest.TestCase):
+    def test_f3_has_its_60_objects_and_is_valid(self):
         model = load(MODEL_PATH)
-        self.assertEqual(len(model["objects"]), 48)
+        self.assertEqual(len(model["objects"]), 60)
         self.assertEqual(apply.validate(model), [])
 
-    def test_the_f2_workflows_are_valid(self):
-        workflows, errors = apply.load_workflows(HERE, load(MODEL_PATH))
+    def test_the_f3_definitions_are_valid(self):
+        workflows, types, automations, errors = apply.load_definitions(HERE, load(MODEL_PATH))
         self.assertEqual(errors, [])
         self.assertEqual(sorted(name for name, _ in workflows),
-                         ["area_of_influence", "engagement", "field_visit", "project", "stakeholder"])
+                         ["agreement", "area_of_influence", "commitment", "commitment_candidate", "engagement",
+                          "field_visit", "project", "stakeholder", "task"])
+        self.assertEqual((types, automations), ([], []))
 
 
 class ValidationTests(unittest.TestCase):
@@ -855,13 +857,64 @@ class NewTenantTests(unittest.TestCase):
             quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login]),
         ]
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
+        self.assertIn("done: 232 created, 15 updated, 0 skipped", runs[0][1])
         self.assertIn("done: 15 created, 0 updated, 0 skipped", runs[1][1])
-        self.assertIn("done: 5 workflows (5 created, 0 updated, 0 skipped)", runs[2][1])
+        self.assertIn("done: 9 workflows (9 created, 0 updated, 0 skipped), 0 document types (0 created, 0 updated, "
+                      "0 skipped), 0 automations (0 created, 0 updated, 0 skipped)", runs[2][1])
         self.assertEqual(sorted(core.roles), sorted(r["name"] for r in load(ROLES_PATH)["roles"]))
-        self.assertEqual(sorted(core.workflows), ["area_of_influence", "engagement", "field_visit", "project", "stakeholder"])
-        again = quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login])
-        self.assertEqual(again[0], 0, again)
-        self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
+        self.assertEqual(sorted(core.workflows), ["agreement", "area_of_influence", "commitment", "commitment_candidate",
+                                                  "engagement", "field_visit", "project", "stakeholder", "task"])
+        self.assertEqual(core.automations, {})
+        again = [quiet(apply.main, ["--model", MODEL_PATH, *login]),
+                 quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login]),
+                 quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])]
+        self.assertEqual([code for code, _, _ in again], [0, 0, 0], again)
+        self.assertIn("done: 0 created, 0 updated, 232 skipped", again[0][1])
+        self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1][1])
+        self.assertIn("done: 9 workflows (0 created, 0 updated, 9 skipped), 0 document types (0 created, 0 updated, "
+                      "0 skipped), 0 automations (0 created, 0 updated, 0 skipped)", again[2][1])
+
+    def test_a_tenant_of_f2_moves_to_f3_adding_only_what_f3_brings(self):
+        # Review Focus 1: el modelo de F2 sale de model.json con las fases de las fichas (168 creados y 11 conjuntos, como
+        # el aprovisionamiento real de F2); subirlo a F3 agrega 12 objetos, 15 campos de project, 6 acciones y 46
+        # relaciones, pone los únicos de 4 objetos nuevos y no toca nada de F2
+        core = FakeCore()
+        self.addCleanup(core.stop)
+        login = ["--core", core.base_url, "--email", "admin-tenant@sgspe.test", "--password", "clave-del-tenant"]
+        with tempfile.TemporaryDirectory() as folder:
+            f2 = quiet(apply.main, ["--model", write_model(folder, f2_subset(load(MODEL_PATH))), *login])
+        self.assertEqual(f2[0], 0, f2)
+        self.assertIn("done: 168 created, 11 updated, 0 skipped", f2[1])
+        core.requests.clear()
+        f3 = quiet(apply.main, ["--model", MODEL_PATH, *login])
+        self.assertEqual(f3[0], 0, f3)
+        self.assertIn("done: 79 created, 4 updated, 167 skipped", f3[1])
+        touched = {p.split("/")[3] for m, p, _, _ in core.requests if m == "PUT" and p.startswith("/api/objects/")}
+        self.assertEqual(touched, {"commitment", "commitment_dependency", "agreement", "agreement_clause"})
+        added = [line for line in f3[1].splitlines() if line.startswith("add    field")]
+        self.assertEqual(len(added), 15)
+        self.assertTrue(all(line.startswith("add    field project.") for line in added), added)
+
+
+def f2_subset(model):
+    """model.json as it was in F2: the objects, fields, relationships and ENUM keys whose phase is F2 by the cards."""
+    import design_docs
+    cards = design_docs.cards()
+    objects = []
+    for obj in model["objects"]:
+        card = cards[obj["name"]]
+        if card.phase > "F2":
+            continue
+        phases = {f["name"]: design_docs.field_phase(card, f) for f in card.fields}
+        objects.append({**obj, "fields": [f for f in obj["fields"] if phases[f["name"]] <= "F2"]})
+    names = {o["name"] for o in objects}
+    relationships = [r for r in model["relationships"] if r["source"] in names and r["target"] in names
+                     and design_docs.relationship_phase(cards, cards[r["source"]],
+                                                        next(x for x in cards[r["source"]].relationships
+                                                             if x["name"] == r["name"])) <= "F2"]
+    used = {f["enum"] for o in objects for f in o["fields"] if f["type"] == "ENUM"}
+    return {"enums": {k: v for k, v in model["enums"].items() if k in used}, "objects": objects,
+            "relationships": relationships}
 
 
 class ProvisioningOrderTests(unittest.TestCase):
