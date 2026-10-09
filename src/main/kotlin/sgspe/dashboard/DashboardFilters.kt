@@ -25,7 +25,9 @@ data class DashboardFilters(
     val areaOfInfluence: UUID?,
     val explorationCampaign: UUID?,
     val scope: String?,
-    val breakdown: String?
+    val breakdown: String?,
+    // F3: el responsable de un compromiso (owner_user_id), en los KPI-COM que lo aceptan (dashboards.md §4.4)
+    val owner: UUID? = null
 ) {
     // lo que la respuesta devuelve en `filters`: los proyectos efectivos y los filtros que vinieron
     fun echo(): Map<String, Any?> =
@@ -38,7 +40,8 @@ data class DashboardFilters(
             "community" to community?.toString(),
             "areaOfInfluence" to areaOfInfluence?.toString(),
             "explorationCampaign" to explorationCampaign?.toString(),
-            "scope" to scope
+            "scope" to scope,
+            "owner" to owner?.toString()
         ).filterValues { it != null }
 
     // los filtros comunes que vinieron (sin los periodos, que siempre tienen valor, ni project, que siempre se aplica)
@@ -49,12 +52,24 @@ data class DashboardFilters(
             community?.let { "community" },
             areaOfInfluence?.let { "areaOfInfluence" },
             explorationCampaign?.let { "explorationCampaign" },
-            scope?.let { "scope" }
+            scope?.let { "scope" },
+            owner?.let { "owner" }
         ).toSet()
 
     companion object {
         val COMMON =
-            setOf("project", "periodStart", "periodEnd", "administrativeUnit", "locality", "community", "areaOfInfluence", "explorationCampaign", "scope")
+            setOf(
+                "project",
+                "periodStart",
+                "periodEnd",
+                "administrativeUnit",
+                "locality",
+                "community",
+                "areaOfInfluence",
+                "explorationCampaign",
+                "scope",
+                "owner"
+            )
 
         fun parse(
             params: MultiValueMap<String, String>,
@@ -105,6 +120,7 @@ data class DashboardFilters(
                     uuid("explorationCampaign"),
                     scope,
                     params.getFirst("breakdown"),
+                    uuid("owner"),
                     defaultProjects
                 )
             if (violations.isNotEmpty()) throw ValidationException("Filtro inválido", violations)
@@ -124,6 +140,7 @@ data class DashboardFilters(
         private val explorationCampaign: UUID?,
         private val scope: String?,
         private val breakdown: String?,
+        private val owner: UUID?,
         private val defaults: suspend () -> List<UUID>
     ) {
         suspend fun resolve(): DashboardFilters =
@@ -137,7 +154,8 @@ data class DashboardFilters(
                 areaOfInfluence,
                 explorationCampaign,
                 scope,
-                breakdown
+                breakdown,
+                owner
             )
     }
 }

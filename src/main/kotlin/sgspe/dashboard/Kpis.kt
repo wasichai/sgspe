@@ -42,9 +42,15 @@ class Kpi(
 object Kpis {
     const val STAKEHOLDERS = "stakeholders"
     const val ENGAGEMENT = "engagement"
+    const val COMMITMENTS = "commitments"
 
-    // F2 acepta explorationCampaign y no lo aplica (dashboards.md §3.1: solo compromisos e inversión social)
-    val IGNORED_IN_F2: Set<String> = setOf("explorationCampaign")
+    // los KPI de F2 no aplican explorationCampaign (dashboards.md §3.1: solo compromisos e inversión social) ni owner, el
+    // responsable de un compromiso que llega en F3
+    val IGNORED_IN_F2: Set<String> = setOf("explorationCampaign", "owner")
+
+    // los filtros que un KPI-COM no aplica, según su fila de dashboards.md §4.4: todos aplican el territorio y el ámbito
+    // (traducidos a localidades y comunidades, §3.1); la campaña y el responsable, solo los que los nombran
+    private fun commitmentIgnores(vararg accepts: String): Set<String> = setOf("explorationCampaign", "owner") - accepts.toSet()
 
     // los KPI-STK ignoran además community: stakeholder no tiene comunidad (ruling P27)
     private val STAKEHOLDER_IGNORES: Set<String> = IGNORED_IN_F2 + "community"
@@ -59,8 +65,27 @@ object Kpis {
     val DASHBOARDS: Map<String, List<String>> =
         mapOf(
             STAKEHOLDERS to listOf("KPI-STK-01", "KPI-STK-02", "KPI-STK-03", "KPI-STK-06", "KPI-STK-08"),
-            ENGAGEMENT to listOf("KPI-ENG-01", "KPI-ENG-02", "KPI-ENG-03", "KPI-ENG-04", "KPI-ENG-05")
+            ENGAGEMENT to listOf("KPI-ENG-01", "KPI-ENG-02", "KPI-ENG-03", "KPI-ENG-04", "KPI-ENG-05"),
+            // dashboards.md §5.6: estado, desgloses, cumplimiento, montos, formales por tema e historia
+            COMMITMENTS to
+                listOf(
+                    "KPI-COM-01",
+                    "KPI-COM-02",
+                    "KPI-COM-03",
+                    "KPI-COM-04",
+                    "KPI-COM-05",
+                    "KPI-COM-06",
+                    "KPI-COM-07",
+                    "KPI-COM-09",
+                    "KPI-COM-10",
+                    "KPI-COM-08",
+                    "KPI-COM-11"
+                )
         )
+
+    // lo que leen todos los KPI-COM: el compromiso, su estado y su territorio
+    private val COMMITMENT = listOf("commitment.project", "commitment.locality", "commitment.community")
+    private val PLAZO = COMMITMENT + listOf("commitment.deadline_status", "commitment.due_date")
 
     // el contacto de dashboards.md §3.3: la interacción realizada, su vínculo M2M y el participante que asistió
     private val CONTACT =
@@ -229,6 +254,121 @@ object Kpis {
                 val meetings = data.inPeriod().filter { it.type in EngagementKpis.INFORMATIVE }
                 val questions = data.questions(meetings.map { it.id })
                 EngagementKpis.answered(meetings, questions, data.names("topic", questions.mapNotNull { it.topic }))
+            },
+            // ---- F3: compromisos (dashboards.md §4.4); cada uno aplica los filtros de su fila y declara los demás ----
+            Kpi("KPI-COM-01", "Compromisos registrados", COMMITMENTS, "compromisos", COMMITMENT, ignores = commitmentIgnores("explorationCampaign")) {
+                CommitmentKpis.registered(it.commitments(campaign = true, owner = false))
+            },
+            Kpi("KPI-COM-02", "Compromisos abiertos", COMMITMENTS, "compromisos", COMMITMENT, ignores = commitmentIgnores("explorationCampaign")) {
+                CommitmentKpis.open(it.commitments(campaign = true, owner = false))
+            },
+            Kpi(
+                "KPI-COM-03",
+                "Compromisos vencidos",
+                COMMITMENTS,
+                "compromisos",
+                PLAZO + listOf("commitment.owner_user_id", "project.escalation_first_days", "project.escalation_second_days"),
+                ignores = commitmentIgnores("explorationCampaign", "owner")
+            ) { data ->
+                val escalation = data.escalation()
+                CommitmentKpis.overdue(data.commitments(campaign = true, owner = true), data.today) { escalation[it] ?: Escalation(7, 15) }
+            },
+            Kpi(
+                "KPI-COM-04",
+                "Compromisos por vencer",
+                COMMITMENTS,
+                "compromisos",
+                PLAZO + "commitment.owner_user_id",
+                ignores = commitmentIgnores("explorationCampaign", "owner")
+            ) { CommitmentKpis.dueSoon(it.commitments(campaign = true, owner = true)) },
+            Kpi(
+                "KPI-COM-05",
+                "Compromisos cumplidos en el periodo",
+                COMMITMENTS,
+                "compromisos",
+                COMMITMENT + "commitment.fulfilled_date",
+                ignores = commitmentIgnores("explorationCampaign")
+            ) { CommitmentKpis.fulfilled(it.commitments(campaign = true, owner = false), it.filters.periodStart, it.filters.periodEnd) },
+            Kpi(
+                "KPI-COM-06",
+                "Compromisos bloqueados",
+                COMMITMENTS,
+                "compromisos",
+                COMMITMENT + "commitment.owner_user_id",
+                ignores = commitmentIgnores("owner")
+            ) {
+                CommitmentKpis.blocked(it.commitments(campaign = false, owner = true))
+            },
+            Kpi(
+                "KPI-COM-07",
+                "Desgloses de compromisos",
+                COMMITMENTS,
+                "compromisos",
+                PLAZO + listOf("commitment.owner_user_email", "commitment.topic", "project.code", "locality.name", "community.name", "topic.name"),
+                ignores = commitmentIgnores()
+            ) { data ->
+                val rows = data.commitments(campaign = false, owner = false)
+                CommitmentKpis.breakdowns(
+                    rows,
+                    data.names("project", rows.mapNotNull { it.project }, "code"),
+                    data.names("locality", rows.mapNotNull { it.locality }) + data.names("community", rows.mapNotNull { it.community }),
+                    data.names("topic", rows.mapNotNull { it.topic })
+                )
+            },
+            Kpi(
+                "KPI-COM-08",
+                "Compromisos formales por tema",
+                COMMITMENTS,
+                "compromisos",
+                COMMITMENT + listOf("commitment.formality", "commitment.commitment_theme", "commitment.agreed_date"),
+                ignores = commitmentIgnores()
+            ) { CommitmentKpis.formalByTheme(it.commitments(campaign = false, owner = false), it.filters.periodStart, it.filters.periodEnd) },
+            Kpi(
+                "KPI-COM-09",
+                "Compromisos cumplidos a tiempo",
+                COMMITMENTS,
+                "%",
+                COMMITMENT +
+                    listOf(
+                        "commitment.fulfilled_date",
+                        "commitment.due_date",
+                        "commitment.owner_user_id",
+                        "commitment_reschedule.previous_due_date",
+                        "commitment_reschedule.new_due_date",
+                        "commitment_reschedule.commitment"
+                    ),
+                ignores = commitmentIgnores("owner")
+            ) { data ->
+                val rows = data.commitments(campaign = false, owner = true)
+                CommitmentKpis.onTime(rows, data.reschedules(rows.map { it.id }), data.filters.periodStart, data.filters.periodEnd)
+            },
+            Kpi(
+                "KPI-COM-10",
+                "Monto comprometido frente a ejecutado",
+                COMMITMENTS,
+                "monto",
+                COMMITMENT + listOf("commitment.amount", "commitment.currency", "commitment.executed_amount", "exploration_campaign.currency"),
+                ignores = commitmentIgnores("explorationCampaign")
+            ) { CommitmentKpis.amounts(it.commitments(campaign = true, owner = false), it.campaignCurrency()) },
+            Kpi(
+                "KPI-COM-11",
+                "Compromisos vencidos al cierre de cada mes",
+                COMMITMENTS,
+                "compromisos",
+                COMMITMENT +
+                    listOf(
+                        "commitment.agreed_date",
+                        "commitment.due_date",
+                        "commitment.fulfilled_date",
+                        "commitment.cancelled_date",
+                        "commitment_reschedule.previous_due_date",
+                        "commitment_reschedule.new_due_date",
+                        "commitment_reschedule.commitment"
+                    ),
+                ignores = commitmentIgnores()
+            ) { data ->
+                val rows = data.commitments(campaign = false, owner = false)
+                CommitmentKpis.overdueSeries(rows, data.reschedules(rows.map { it.id }), data.filters.periodEnd)
             }
         )
 

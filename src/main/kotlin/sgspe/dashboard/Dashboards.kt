@@ -54,7 +54,7 @@ class Dashboards(
                 ?: throw notFound("DASHBOARD_NOT_FOUND", "El tablero $name no existe o no está disponible en esta fase", "dashboard")
         val filters = filters(params, DashboardFilters.COMMON)
         val readable = Readability(metadata)
-        val data = DashboardData(records, filters, readable::canRead)
+        val data = DashboardData(records, filters, readable::canRead, clockToday = LocalDate.now(clock.withZone(LIMA)))
         return DashboardResponse(name, filters.echo(), clock.instant().toString(), codes.map { evaluate(Kpis.BY_CODE.getValue(it), data, readable) })
     }
 
@@ -65,7 +65,7 @@ class Dashboards(
         val kpi = Kpis.BY_CODE[code] ?: throw notFound("INDICATOR_NOT_FOUND", "El indicador $code no existe o no está disponible en esta fase", "code")
         val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN)
         val readable = Readability(metadata)
-        val value = evaluate(kpi, DashboardData(records, filters, readable::canRead), readable)
+        val value = evaluate(kpi, DashboardData(records, filters, readable::canRead, clockToday = LocalDate.now(clock.withZone(LIMA))), readable)
         val by = filters.breakdown ?: return value
         if (!value.available) return value
         val offered = value.breakdowns.orEmpty().map { it.by }
