@@ -27,6 +27,16 @@ object Criteria {
             "workflow_state = ANY(${bind(states.toTypedArray())})"
         }
 
+    // workflow_state en un conjunto, o fuera de él con `field` todavía lleno: lo que un trabajo debe calcular más lo que
+    // debe vaciar (JOB-01, deadline_status y validity_status), sin releer cada hora los registros cerrados que ya vació
+    fun inStateOrFilled(
+        states: Collection<String>,
+        field: String
+    ): RecordCriterion {
+        val state = inState(states)
+        return RecordCriterion { definition, bind -> "(${state.condition(definition, bind)} OR ${column(definition, field)} IS NOT NULL)" }
+    }
+
     fun anyOf(
         field: String,
         ids: Collection<UUID>

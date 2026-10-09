@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono
 import wasichai.core.common.GlobalExceptionHandler
 import wasichai.core.common.WasichaiException
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
 
 // los topes del multipart de Spring (spring.webflux.multipart.*, application.yml): un 400 con código, nunca el 500 de una
 // DataBufferLimitException sin manejar. los usan la importación (ImportUpload.multipartError, que suma INVALID_MULTIPART y
@@ -48,6 +49,27 @@ object UploadLimits {
             .toCodedException()
 
     fun multipart(contentType: MediaType?): Boolean = contentType?.isCompatibleWith(MediaType.MULTIPART_FORM_DATA) == true
+
+    // los argumentos con que se llama al @ExceptionHandler `method`: a su primer parámetro Throwable, la primera de `thrown` y
+    // sus causas que encaja; a uno que acepta el exchange, el exchange. null si pide otra cosa o si ninguna causa le sirve
+    fun handlerArguments(
+        method: Method,
+        thrown: Throwable,
+        exchange: ServerWebExchange
+    ): Array<Any?>? {
+        val types = method.parameterTypes
+        val index = types.indexOfFirst { Throwable::class.java.isAssignableFrom(it) }
+        if (index < 0) return null
+        val error = causes(thrown).firstOrNull { types[index].isInstance(it) } ?: return null
+        return types
+            .mapIndexed { i, type ->
+                when {
+                    i == index -> error
+                    type.isInstance(exchange) -> exchange
+                    else -> return null
+                }
+            }.toTypedArray()
+    }
 
     private fun label(bytes: Long): String =
         when {
@@ -90,21 +112,30 @@ class UploadLimitsAdvice(
             } else {
                 null
             }
-        return if (coded != null) Mono.just(entity(handler.handleWasichai(coded))) else delegate(thrown)
+        return if (coded != null) Mono.just(entity(handler.handleWasichai(coded))) else delegate(thrown, exchange)
     }
 
-    // el método de GlobalExceptionHandler para `thrown` (handleResponseStatus para el 413), con el argumento que pide
-    private fun delegate(thrown: Throwable): Mono<ResponseEntity<ProblemDetail>> {
-        val method = wasichai.resolveMethodByThrowable(thrown) ?: return Mono.error(thrown)
-        val argument = UploadLimits.causes(thrown).firstOrNull { method.parameterTypes.single().isInstance(it) } ?: return Mono.error(thrown)
+    // el método de GlobalExceptionHandler para `thrown` (handleResponseStatus para el 413), con los argumentos que pide (la
+    // causa que acepta su primer parámetro Throwable y el exchange, UploadLimits.handlerArguments). un método que pide otra
+    // cosa, o ninguno, cae en handleUnexpected: el 500 de wasichai con su problem+json y su línea en el log
+    private fun delegate(
+        thrown: Throwable,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<ProblemDetail>> {
+        val method = wasichai.resolveMethodByThrowable(thrown) ?: return unexpected(thrown)
+        val arguments = UploadLimits.handlerArguments(method, thrown, exchange) ?: return unexpected(thrown)
         val answer =
             try {
-                method.invoke(handler, argument)
+                method.invoke(handler, *arguments)
             } catch (e: InvocationTargetException) {
                 return Mono.error(e.targetException)
             }
         return if (answer is Mono<*>) answer.map(::entity) else Mono.just(entity(answer))
     }
+
+    // un Error (no una Exception) no se traduce: sigue su camino
+    private fun unexpected(thrown: Throwable): Mono<ResponseEntity<ProblemDetail>> =
+        if (thrown is Exception) Mono.just(entity(handler.handleUnexpected(thrown))) else Mono.error(thrown)
 
     @Suppress("UNCHECKED_CAST")
     private fun entity(answer: Any?): ResponseEntity<ProblemDetail> =

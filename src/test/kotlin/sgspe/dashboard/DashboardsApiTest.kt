@@ -262,7 +262,7 @@ class DashboardsApiTest : DomainApiTest() {
         val other = projectWithCrs()
         val body = tree(send("GET", "/api/sgspe/dashboards/stakeholders?project=${f.project}&project=$other", null, HttpStatus.OK, f.manager.token))
         assertEquals("SINGLE_PROJECT_REQUIRED", indicator(body, "KPI-STK-03")["unavailableReason"].asString())
-        val unknown = exchange("GET", "/api/sgspe/dashboards/commitments", token = f.manager.token)
+        val unknown = exchange("GET", "/api/sgspe/dashboards/no-existe", token = f.manager.token)
         assertEquals(HttpStatus.NOT_FOUND, unknown.status)
         assertEquals("DASHBOARD_NOT_FOUND", tree(unknown.body)["errors"][0]["message"].asString())
         assertEquals(

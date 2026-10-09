@@ -445,7 +445,8 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
     }
 
     // la evaluación es append-only y position es opcional en ella: ON DELETE SET NULL vaciaría el cargo de una evaluación
-    // sin motivo ni auditoría, así que DependentsDeleteGuard (guardedDependents) responde 409 también al administrador
+    // sin motivo ni auditoría, así que la plataforma (AppendOnlyReferences) responde 409 también al administrador, antes que las
+    // guardas: es su 409 con solo `detail`, sin código ni errors (P57)
     @Test
     fun `un cargo que nombra una evaluacion no se borra y uno libre si`() {
         val project = projectWithCrs()
@@ -458,8 +459,8 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
         assertEquals(HttpStatus.CREATED, assess(stakeholder, attributes, manager.token).status)
         val refused = exchange("DELETE", "/api/objects/position/records/$cited", null)
         assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
-        assertEquals("HAS_DEPENDENTS", code(refused))
-        assertEquals(listOf("stakeholder_assessment.position"), problemFields(refused.body))
+        val detail = tree(refused.body)["detail"].asString()
+        assertTrue(detail.contains("stakeholder_assessment") && detail.contains("position"), detail)
         assertEquals(HttpStatus.NO_CONTENT, exchange("DELETE", "/api/objects/position/records/$free", null).status)
     }
 }

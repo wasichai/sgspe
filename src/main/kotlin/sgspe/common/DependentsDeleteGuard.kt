@@ -16,7 +16,7 @@ import java.util.UUID
 // un registro del que otros dependen no se borra (P13): wasichai declara cada relación obligatoria NOT NULL con ON DELETE
 // SET NULL, así que borrar el padre de un hijo obligatorio falla en la base con un 500. aquí se vuelve un 409 que nombra
 // el primer dependiente. rige para todos, ADMIN incluido, porque la base lo rechazaría igual.
-// desde F3 vigila también las relaciones opcionales de un objeto requiresReason o appendOnly (ModelCatalog.guardedDependents):
+// desde F3 vigila también las relaciones opcionales de un objeto requiresReason (ModelCatalog.guardedDependents):
 // ahí la base no falla, pero SET NULL cambiaría ese registro sin motivo ni auditoría (borrar una cláusula que nombra un
 // compromiso).
 // la comprobación es de la base y no de quien borra: con Records solo vería lo que sus permisos le dejan leer (y

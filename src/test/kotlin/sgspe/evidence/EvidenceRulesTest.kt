@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.UUID
 
 // la evidencia inmutable y su clasificación (RF-DOC-001, RF-DOC-003, ASM-071), sin base
 class EvidenceRulesTest {
@@ -35,10 +36,45 @@ class EvidenceRulesTest {
         assertFalse(EvidenceRules.downgrade("INTERNA", "CONFIDENCIAL"))
     }
 
+    // la descarga falla cerrado: una clasificación que quien llama no lee (el permiso de campo la quita del registro) o que
+    // falta se trata como restringida
+    @Test
+    fun `descargar exige DOWNLOAD_RESTRICTED con una clasificacion restringida, ausente o vacia`() {
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to "CONFIDENCIAL")))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to "DATOS PERSONALES")))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("title" to "Acta")))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to null)))
+        assertTrue(EvidenceRules.downloadRestricted(mapOf("classification" to " ")))
+        assertFalse(EvidenceRules.downloadRestricted(mapOf("classification" to "INTERNA")))
+        assertFalse(EvidenceRules.downloadRestricted(mapOf("classification" to "PUBLICA")))
+    }
+
     @Test
     fun `cada vinculo es evidence_ mas el objeto, y lo descriptivo nunca incluye el archivo`() {
         assertEquals("evidence_delivery", EvidenceRules.linkRelationship("delivery"))
         assertFalse(EvidenceRules.FILE in EvidenceRules.DESCRIPTIVE)
         assertTrue(EvidenceRules.CLASSIFICATION in EvidenceRules.DESCRIPTIVE)
+    }
+
+    // vincular una entrega toma commitment:<id> hasta el fin de la transacción (DELIVERY_FROZEN): el alta vincula las entregas
+    // por el id ascendente de su compromiso, así dos altas con los mismos compromisos en orden inverso no se interbloquean
+    @Test
+    fun `el alta vincula las entregas por el id ascendente de su compromiso, despues de lo que no toma candado`() {
+        val low = UUID.fromString("00000000-0000-0000-0000-00000000000a")
+        val high = UUID.fromString("f0000000-0000-0000-0000-000000000000")
+        val d1 = EvidenceLink("delivery", UUID.fromString("90000000-0000-0000-0000-000000000001"))
+        val d2 = EvidenceLink("delivery", UUID.fromString("10000000-0000-0000-0000-000000000002"))
+        val d3 = EvidenceLink("delivery", UUID.fromString("50000000-0000-0000-0000-000000000003"))
+        val unknown = EvidenceLink("delivery", UUID.fromString("20000000-0000-0000-0000-000000000004"))
+        val engagement = EvidenceLink("engagement", UUID.fromString("30000000-0000-0000-0000-000000000005"))
+        val commitments = mapOf(d1.recordId to low, d2.recordId to high, d3.recordId to low)
+        val expected = listOf(unknown, engagement, d3, d1, d2)
+        assertEquals(expected, EvidenceRules.lockOrder(listOf(d2, unknown, d1, engagement, d3), commitments))
+        // el orden pedido no importa: la misma lista en orden inverso da el mismo orden de candados
+        assertEquals(
+            listOf(d3, d1, d2),
+            EvidenceRules.lockOrder(listOf(d1, d3, d2), commitments)
+        )
+        assertEquals(EvidenceRules.lockOrder(listOf(d2, d1), commitments), EvidenceRules.lockOrder(listOf(d1, d2), commitments))
     }
 }

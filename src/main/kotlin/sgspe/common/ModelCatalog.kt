@@ -175,6 +175,10 @@ class ModelCatalog(
         target: String
     ): String? = relationships.firstOrNull { it.type == "MANY_TO_ONE" && it.source == source && it.target == target }?.fieldName
 
+    // los campos RELATION (MANY_TO_ONE) de `source` con el objeto al que apuntan: (campo, objeto)
+    fun manyToOneFields(source: String): List<Pair<String, String>> =
+        relationships.filter { it.type == "MANY_TO_ONE" && it.source == source && it.fieldName != null }.map { it.fieldName!! to it.target }
+
     // las relaciones MANY_TO_ONE obligatorias que apuntan a `target`: (objeto, campo). wasichai las declara NOT NULL con ON DELETE
     // SET NULL, así que borrar un `target` del que todavía dependen falla en la base (DependentsDeleteGuard lo vuelve un 409)
     fun requiredDependents(target: String): List<Pair<String, String>> =
@@ -183,14 +187,15 @@ class ModelCatalog(
             .map { it.source to it.fieldName!! }
 
     // lo que DependentsDeleteGuard vigila al borrar `target`: las relaciones obligatorias y, desde F3, las opcionales de un objeto
-    // requiresReason o appendOnly, porque ON DELETE SET NULL vaciaría el vínculo de ese registro sin motivo ni fila de auditoría
-    // (commitment.agreement_clause, stakeholder_assessment.position)
+    // requiresReason, porque ON DELETE SET NULL vaciaría el vínculo de ese registro sin motivo ni fila de auditoría
+    // (commitment.agreement_clause). un objeto appendOnly no hace falta: AppendOnlyReferences de wasichai rechaza antes que las
+    // guardas, con su propio 409 sin código (stakeholder_assessment.position, P57)
     fun guardedDependents(target: String): List<Pair<String, String>> =
         relationships
             .filter { rel ->
                 val source = objects[rel.source]
                 rel.type == "MANY_TO_ONE" && rel.target == target && rel.fieldName != null &&
-                    (rel.required || source?.requiresReason == true || source?.appendOnly == true)
+                    (rel.required || source?.requiresReason == true)
             }.map { it.source to it.fieldName!! }
 
     // si la relación MANY_TO_ONE `fieldName` de `source` es obligatoria en el modelo (false si no existe)

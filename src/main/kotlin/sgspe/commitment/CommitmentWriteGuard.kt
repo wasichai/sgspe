@@ -9,6 +9,7 @@ import sgspe.common.Records
 import sgspe.common.RequestMemo
 import sgspe.common.RuleGuard
 import sgspe.common.toCodedException
+import sgspe.scope.ProjectScope
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordResponse
 import wasichai.core.data.RecordWrite
@@ -77,6 +78,18 @@ suspend fun Records.stakeholdersOf(commitmentId: UUID): List<RecordResponse> =
     RequestMemo.remember(Commitments.STAKEHOLDERS to commitmentId) {
         readAs("stakeholder") { related(Commitments.COMMITMENT, commitmentId, Commitments.STAKEHOLDERS) }
     }
+
+// el proyecto del registro `id` de `target` (un objeto con alcance de proyecto) leído como quien escribe: el suyo si es una raíz,
+// el de su padre si es un hijo (agreement_clause). lo usa ProjectLinks.judge (P54); un destino que no se lee es NotReadable
+suspend fun Records.linkedProject(
+    target: String,
+    id: UUID
+): UUID? {
+    val record = readable(target, id)
+    val child = ProjectScope.CHILDREN[target] ?: return Records.uuid(record.attributes["project"])
+    val parent = Records.uuid(record.attributes[child.first]) ?: return null
+    return Records.uuid(readable(child.second, parent).attributes["project"])
+}
 
 // CommitmentWriteGuard (sgspe.commitment): junta las reglas de compromisos, entregas, dependencias y candidatos. cada regla
 // mira solo sus objetos y sus transiciones

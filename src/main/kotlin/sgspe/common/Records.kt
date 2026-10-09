@@ -254,13 +254,16 @@ class Records(
         reason: String?
     ) = withContext(SgspeWrite) { related.unlink(objectName, id, relationship, otherId, reason) }
 
-    // los registros del otro lado de una relación, como los ve quien llama
+    // los registros del otro lado de una relación, como los ve quien llama. con `max`, la lectura es acotada como en `all`: más
+    // de `max` vínculos es un 400 TOO_MANY_RECORDS en `field`, nunca una lista recortada
     suspend fun related(
         objectName: String,
         id: UUID,
-        relationship: String
+        relationship: String,
+        max: Int? = null,
+        field: String = TOO_MANY_FIELD
     ): List<RecordResponse> =
-        relatedPages { query ->
+        relatedPages(max?.let { { size: Int -> if (size > it) throw tooMany(relationship, it, field) } }) { query ->
             related
                 .relatedRecords(objectName, id, relationship, query)
                 .second.content
@@ -278,13 +281,18 @@ class Records(
             related.relatedRows(organizationId, objectName, id, relationship, query).second.content
         }
 
-    // recorre las páginas de una relación (sin cursor: la relación se pagina por número) hasta una incompleta
-    private suspend fun <T> relatedPages(fetch: suspend (RecordQuery) -> List<T>): List<T> {
+    // recorre las páginas de una relación (sin cursor: la relación se pagina por número) hasta una incompleta; `check` mira el
+    // tamaño acumulado después de cada página (el tope de `related`) y deja de leer en cuanto lo pasa
+    private suspend fun <T> relatedPages(
+        check: ((Int) -> Unit)? = null,
+        fetch: suspend (RecordQuery) -> List<T>
+    ): List<T> {
         val rows = mutableListOf<T>()
         var page = 0
         do {
             val content = fetch(RecordQuery(page = PageRequest.of(page, PageRequest.MAX_SIZE), sort = "id"))
             rows += content
+            check?.invoke(rows.size)
             page++
         } while (content.size >= PageRequest.MAX_SIZE)
         return rows

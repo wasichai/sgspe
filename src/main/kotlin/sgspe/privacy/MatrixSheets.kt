@@ -39,6 +39,10 @@ object MatrixSheets {
     private const val NO_THEME = "SIN TEMA"
     private const val NO_DATA = "SIN DATO"
 
+    // los estados donde JOB-01 calcula deadline_status (WF-D, Commitments.PENDING; privacy solo depende de common, y
+    // DeadlinesTest comprueba que son los mismos)
+    val DEADLINE_STATES = setOf("approved", "in_progress", "blocked")
+
     // los campos de commitment y de delivery que la matriz escribe: su lectura se comprueba antes (Readability)
     val COMMITMENT_FIELDS =
         listOf(
@@ -162,7 +166,7 @@ object MatrixSheets {
                         line.actions ?: NOT_AVAILABLE,
                         text("delay_risk_reported"),
                         text("delay_risk_note"),
-                        text("deadline_status"),
+                        deadline(line, readable, ::text),
                         text("closed_date")
                     ) + if (internal) listOf(text("owner_user_email")) else emptyList()
             }
@@ -204,6 +208,14 @@ object MatrixSheets {
 
     // el lugar de la entrega: literal solo en INTERNO; en EXTERNO se generaliza a la localidad del compromiso (deliverables.md
     // §9.1, P48), vacío si no tiene
+    // la situación de plazo solo en un compromiso pendiente: uno cumplido o anulado conserva la de su última vuelta de
+    // JOB-01 hasta la siguiente, y la matriz nunca debe mostrarlo VENCIDO. lo que no se lee sigue saliendo no disponible
+    private fun deadline(
+        line: MatrixLine,
+        readable: Set<String>,
+        text: (String) -> Any
+    ): Any = if ("$COMMITMENT.deadline_status" in readable && line.state !in DEADLINE_STATES) "" else text("deadline_status")
+
     private fun place(
         d: MatrixDelivery,
         readable: Set<String>,
