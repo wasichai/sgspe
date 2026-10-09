@@ -162,11 +162,14 @@ class CommitmentRecordRules(
     }
 
     // una entrega cuyo compromiso ya está cumplido sostiene esa transición: no cambia, no se vincula ni se desvincula hasta
-    // reopen_execution
+    // reopen_execution. el compromiso es el de antes: la corrección (Deliveries.patch) nunca lo cambia. su estado no viene en
+    // `before` (wasichai 0.6.0): se lee como quien escribe y, si no se lee, falla cerrado (P12)
     private suspend fun delivery(change: RecordWrite): List<Finding> {
         if (change.kind != RecordChangeKind.UPDATED && change.kind != RecordChangeKind.DELETED) return emptyList()
         val commitment = Records.uuid(change.before?.get("commitment")) ?: return emptyList()
-        val state = readAs(Commitments.COMMITMENT) { records.find(Commitments.COMMITMENT, commitment) }?.state
+        val state =
+            readAs(Commitments.COMMITMENT) { records.find(Commitments.COMMITMENT, commitment) }?.state
+                ?: throw NotReadable(Commitments.COMMITMENT)
         if (state !in Commitments.FULFILLED) return emptyList()
         return listOf(
             Finding(
