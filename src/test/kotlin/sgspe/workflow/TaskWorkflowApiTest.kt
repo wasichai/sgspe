@@ -27,6 +27,8 @@ class TaskWorkflowApiTest : F3ApiTest() {
         val quick = task(testProject(), gis)
         move("task", quick, "complete_open", approver.token)
         val open = task(testProject(), gis)
+        assertEquals(HttpStatus.BAD_REQUEST, transition("task", open, "cancel_open", gis.token).status)
+        assertEquals("open", state("task", open))
         move("task", open, "cancel_open", gis.token, "ya no hace falta")
         val running = task(testProject(), gis).also { move("task", it, "start", gis.token) }
         move("task", running, "cancel_in_progress", approver.token, "la reunión se suspendió")
@@ -42,23 +44,31 @@ class TaskWorkflowApiTest : F3ApiTest() {
     @Test
     fun `los roles de solo lectura no mueven tareas y desde un estado final responde 409`() {
         val id = task(testProject())
+        // AUDITOR no tiene permisos sobre task: wasichai exige UPDATE antes de mirar el registro, así que responde 403
         for (role in listOf("ANALYST", "READ_ONLY", "AUDITOR")) {
             assertEquals(HttpStatus.FORBIDDEN, transition("task", id, "start", member(role).token).status, role)
         }
         val agent = member("FIELD_AGENT")
-        move("task", id, "complete_open", agent.token)
+        assertEquals(HttpStatus.CONFLICT, transition("task", id, "unblock", agent.token).status)
+        move("task", id, "start", agent.token)
+        assertEquals(HttpStatus.CONFLICT, transition("task", id, "complete_open", agent.token).status)
+        move("task", id, "complete", agent.token)
         assertEquals(HttpStatus.CONFLICT, transition("task", id, "start", agent.token).status)
         assertTrue(available("task", id, agent.token).isEmpty(), "una tarea hecha no ofrece transiciones")
     }
 
     @Test
-    fun `PROJECT_ADMIN trabaja tareas pero no las crea, y la clave de un generador es unica`() {
+    fun `PROJECT_ADMIN trabaja tareas pero no las crea`() {
         // security.md §7.5 (plan 3.1): PROJECT_ADMIN no lee ningún origen de una tarea, así que tiene RU y no CRU
         val admin = member("PROJECT_ADMIN")
         val create = exchange("POST", "/api/objects/task/records", mapOf("attributes" to mapOf("project" to testProject(), "title" to "x")), admin.token)
         assertEquals(HttpStatus.FORBIDDEN, create.status, create.body)
         val id = task(testProject())
         move("task", id, "start", admin.token)
+    }
+
+    @Test
+    fun `la clave de un generador es unica`() {
         val key = uniqueName("escalation:commitment:")
         task(testProject(), attributes = mapOf("generator_key" to key))
         val repeated =
