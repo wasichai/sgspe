@@ -11,12 +11,21 @@ object ProjectParameters {
         mapOf(
             "stakeholder_review_days" to 30L,
             "inactivity_days" to 90L,
-            "meetings_per_month_target" to 2L
+            "meetings_per_month_target" to 2L,
+            // F3: plazos y escalamiento (ASM-006, ASM-030)
+            "due_soon_days" to 7L,
+            "escalation_first_days" to 7L,
+            "escalation_second_days" to 15L
         )
     private val POLICIES =
         mapOf(
             "policy_minutes_only_formal_types" to true,
-            "policy_activation_preconditions" to true
+            "policy_activation_preconditions" to true,
+            // F3: compromisos (RN-ENG-001, RN-ENG-002, ASM-008) y tope de apoyo social (RN-INV-003)
+            "policy_workshop_commitments_blocked" to false,
+            "policy_senior_approval_for_dialogue" to true,
+            "policy_internal_approval" to true,
+            "policy_cap_blocks_approval" to true
         )
 
     fun decimal(

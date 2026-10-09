@@ -33,6 +33,7 @@ class FieldChangeReasonGuard(
     }
 
     companion object {
-        val FIELDS: Map<String, Set<String>> = mapOf("project" to setOf("stage", "exploration_phase"))
+        // F3: reclasificar una evidencia lleva motivo (api.md §4.9, ASM-071)
+        val FIELDS: Map<String, Set<String>> = mapOf("project" to setOf("stage", "exploration_phase"), "evidence" to setOf("classification"))
     }
 }

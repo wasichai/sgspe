@@ -19,6 +19,31 @@ object StrictBody {
         )
     }
 
+    // los atributos de un registro que manda un comando (`prefix` es donde van en el cuerpo, attributes. por defecto): campos del
+    // objeto o sus relaciones MANY_TO_ONE, nunca un derivado ni un campo que fija el propio comando (`fixed`). un nombre que el
+    // objeto no tiene es un 400 que lo nombra; la API genérica lo ignoraría en silencio (api.md §3.2). desde F3
+    fun requireAttributes(
+        catalog: ModelCatalog,
+        objectName: String,
+        attributes: Map<String, Any?>,
+        fixed: Set<String> = emptySet(),
+        prefix: String = "attributes."
+    ) {
+        val obj = catalog.objectOrNull(objectName)
+        val known = obj?.fields?.keys.orEmpty() + catalog.relationships.filter { it.source == objectName }.mapNotNull { it.fieldName }
+        val derived = catalog.derivedFields(objectName)
+        val violations =
+            attributes.keys.sorted().mapNotNull { name ->
+                when {
+                    name !in known -> FieldViolation("$prefix$name", "no es un campo de $objectName")
+                    name in derived -> FieldViolation("$prefix$name", "es derivado: lo calcula SGSPE")
+                    name in fixed -> FieldViolation("$prefix$name", "lo fija este comando")
+                    else -> null
+                }
+            }
+        if (violations.isNotEmpty()) throw ValidationException("Atributo no admitido", violations)
+    }
+
     // un objeto json del cuerpo, o vacío si no vino; cualquier otra cosa es un 400 sobre la propiedad
     @Suppress("UNCHECKED_CAST")
     fun objectOf(

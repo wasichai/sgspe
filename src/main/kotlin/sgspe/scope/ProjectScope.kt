@@ -28,7 +28,13 @@ object ProjectScope {
             "strategic_alliance",
             "study",
             "key_theme",
-            "export_log"
+            "export_log",
+            // F3: evidence también puede ser del tenant (project opcional), como export_log
+            "commitment",
+            "commitment_candidate",
+            "agreement",
+            "task",
+            "evidence"
         )
 
     // hijo -> (campo RELATION, objeto padre)
@@ -43,7 +49,14 @@ object ProjectScope {
             "planned_activity" to ("engagement_plan" to "engagement_plan"),
             "study_instrument" to ("study" to "study"),
             "perception" to ("study" to "study"),
-            "locality_profile" to ("study" to "study")
+            "locality_profile" to ("study" to "study"),
+            "commitment_action" to ("commitment" to "commitment"),
+            "commitment_milestone" to ("commitment" to "commitment"),
+            "commitment_reschedule" to ("commitment" to "commitment"),
+            "commitment_dependency" to ("commitment" to "commitment"),
+            "delivery" to ("commitment" to "commitment"),
+            "agreement_party" to ("agreement" to "agreement"),
+            "agreement_clause" to ("agreement" to "agreement")
         )
 
     // quien escribe una asignación con permiso sobre ella forma los equipos: no se le pide asignación (security.md §9.2)

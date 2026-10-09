@@ -162,6 +162,13 @@ class ModelCatalog(
         name: String
     ): Transition? = transitions(objectName).firstOrNull { it.name == name }
 
+    // los estados del workflow de un objeto en el orden en que aparecen sus transiciones (de y a), sin repetir: la grilla de
+    // las tablas que cuentan por estado (la matriz de compromisos en PUBLICO)
+    fun states(objectName: String): List<String> = transitions(objectName).flatMap { listOf(it.from, it.to) }.distinct()
+
+    // la relación MANY_TO_MANY `name` del modelo, o null
+    fun manyToMany(name: String): Relationship? = relationships.firstOrNull { it.type == "MANY_TO_MANY" && it.name == name }
+
     // el campo RELATION de `source` que apunta a `target` (MANY_TO_ONE), o null
     fun relationField(
         source: String,
