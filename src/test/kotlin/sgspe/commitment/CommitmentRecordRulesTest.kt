@@ -8,6 +8,7 @@ import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import sgspe.common.Callers
 import sgspe.common.Records
+import sgspe.common.Transactions
 import sgspe.common.WriteView
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordResponse
@@ -50,7 +51,7 @@ class CommitmentRecordRulesTest {
                     else -> null
                 }
             }
-        return CommitmentRecordRules(records, view)
+        return CommitmentRecordRules(records, view, mock(Transactions::class.java))
     }
 
     private fun edit() =

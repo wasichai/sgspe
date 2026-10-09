@@ -20,7 +20,9 @@ import java.time.LocalDate
 // DerivedFieldsGuard deja pasar. así un compromiso vencido que se reprograma a una fecha futura no sigue VENCIDO hasta la
 // próxima vuelta del trabajo. el estado se lee del registro, nunca de change.before (wasichai 0.6.0 no lo trae). si quien
 // reprograma no lee el proyecto, se usan los parámetros por defecto: VENCIDO no depende de ellos, y JOB-01 corrige POR
-// VENCER en su vuelta. si la escritura falla, se registra y la reprogramación sigue: JOB-01 la corrige a la hora
+// VENCER en su vuelta. si la escritura falla por una regla de la aplicación (una guarda, una validación), se registra y la
+// reprogramación sigue: JOB-01 la corrige a la hora. un fallo de SQL, en cambio, aborta en PostgreSQL la transacción de la
+// reprogramación: la advertencia queda en el log, la reprogramación se revierte entera y quien la pidió recibe el error
 @Component
 @Order(130)
 class DeadlineStatusListener(
@@ -41,7 +43,13 @@ class DeadlineStatusListener(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.warn("DeadlineStatusListener: no se recalculó {} de {} {}; JOB-01 lo corregirá", tracked.field, tracked.objectName, change.recordId, e)
+            log.warn(
+                "DeadlineStatusListener: no se recalculó {} de {} {}; JOB-01 lo corregirá si la reprogramación se confirma",
+                tracked.field,
+                tracked.objectName,
+                change.recordId,
+                e
+            )
         }
     }
 

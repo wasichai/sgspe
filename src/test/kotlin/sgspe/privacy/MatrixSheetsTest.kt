@@ -53,6 +53,34 @@ class MatrixSheetsTest {
         assertFalse("Responsable" in sheet.header)
     }
 
+    // un compromiso cumplido o anulado conserva el deadline_status de la última vuelta de JOB-01: la matriz no lo muestra
+    @Test
+    fun `la situacion de plazo sale solo en un compromiso pendiente`() {
+        val overdue = line.attributes + ("deadline_status" to "VENCIDO")
+
+        fun row(state: String) =
+            cells(
+                MatrixSheets.matrix(
+                    listOf(MatrixLine(line.id, state, overdue, line.requesters, line.milestones, line.reschedules, line.actions)),
+                    emptyMap(),
+                    all,
+                    Disclosure.INTERNO
+                )
+            ).single()
+        for (state in listOf("approved", "in_progress", "blocked")) assertTrue("VENCIDO" in row(state), state)
+        for (state in listOf("fulfilled", "verified", "closed", "cancelled", "draft")) assertFalse("VENCIDO" in row(state), state)
+        val unreadable =
+            cells(
+                MatrixSheets.matrix(
+                    listOf(MatrixLine(line.id, "fulfilled", overdue, line.requesters, line.milestones, line.reschedules, line.actions)),
+                    emptyMap(),
+                    all - "commitment.deadline_status",
+                    Disclosure.INTERNO
+                )
+            ).single()
+        assertTrue(NOT_AVAILABLE in unreadable)
+    }
+
     @Test
     fun `un campo que no se lee sale no disponible`() {
         val sheet = MatrixSheets.matrix(listOf(line), emptyMap(), all - "commitment.amount", Disclosure.INTERNO)

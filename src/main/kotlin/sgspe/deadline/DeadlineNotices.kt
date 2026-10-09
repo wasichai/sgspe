@@ -1,5 +1,6 @@
 package sgspe.deadline
 
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import sgspe.commitment.Commitments
 import sgspe.common.Criteria
@@ -124,6 +125,8 @@ class DeadlineNotices(
     private val records: Records,
     private val assignments: Assignments
 ) : NotificationSource {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     override val key: String = Notices.DEADLINES
 
     override val interval: Duration = Duration.ofHours(1)
@@ -167,7 +170,12 @@ class DeadlineNotices(
             val project = Records.uuid(row.attributes["project"]) ?: return
             for (notice in plan) {
                 val users = users(project, notice.audience)
-                if (users.isEmpty()) continue
+                if (users.isEmpty()) {
+                    // sin coincidencias no hay aviso y queda la advertencia (workflows.md, «Destinatarios por rol», punto 4);
+                    // la tarea de escalamiento, si la hay, ya la creó JOB-01
+                    log.warn("DeadlineNotices: {} no tiene destinatarios ({}); no hay aviso", notice.key, notice.audience)
+                    continue
+                }
                 val link = NotificationLink.Record(objectName, UUID.fromString(row.id))
                 drafts += Notices.draft(notice.key, notice.kind, notice.text, users, link, due.atStartOfDay(LIMA).toInstant())
             }
