@@ -41,7 +41,9 @@ class Records(
     relatedService: ObjectProvider<RelatedRecordService>,
     workflowService: ObjectProvider<WorkflowService>,
     private val metadata: MetadataService,
-    private val callers: Callers
+    private val callers: Callers,
+    private val catalog: ModelCatalog,
+    private val derivedVersions: DerivedVersions
 ) {
     private val records by lazy { recordService.getObject() }
     private val related by lazy { relatedService.getObject() }
@@ -156,7 +158,10 @@ class Records(
     // los campos del objeto.
     // no es atómico: entre el get y el update otra escritura puede caer y revertirse en los campos que patch no nombró
     // (api.md §3.6 acepta la ventana hasta UPS-04). un trabajo de fondo que cambia un registro que una persona también
-    // edita corre dentro de Transactions.locked("<objeto>:<id>"), que al menos serializa el código de sgspe
+    // edita corre dentro de Transactions.locked("<objeto>:<id>"), que al menos serializa el código de sgspe.
+    // salvo una escritura de solo derivados (todo lo que nombra es "derived" en model.json y no trae geometrías): esa se
+    // condiciona al updatedAt que leyó, vuelve a leer si otra ganó, y deja su salto de versión en derived_version, así el
+    // If-Match de quien leyó antes la sigue aceptando y el de quien leyó otra cosa no (ADR-0027, DerivedWrite)
     suspend fun patch(
         objectName: String,
         id: UUID,
@@ -181,10 +186,29 @@ class Records(
                 denied.map { FieldViolation(it, "no es un campo de $objectName que quien llama pueda escribir") }
             )
         }
+        if (geometries.isEmpty() && changes.isNotEmpty() && catalog.derivedFields(objectName).containsAll(changes.keys)) {
+            val organizationId = organizationId()
+            return DerivedWrite.conditioned(
+                stored = { records.get(objectName, id) },
+                versionOf = { it.updatedAt },
+                write = { stored, expected ->
+                    val body = stored.attributes.filterKeys { it in writable } + changes
+                    withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason, expected) }
+                },
+                writtenVersion = { it.updatedAt },
+                record = { jump -> derivedVersions.record(organizationId, objectName, id, jump) }
+            )
+        }
         val stored = records.get(objectName, id).attributes
         val body = stored.filterKeys { it in writable } + changes
         return withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason) }
     }
+
+    // la organización de quien escribe: la de la persona, o la del trabajo de fondo en curso
+    private suspend fun organizationId(): UUID =
+        callers.userOrNull()?.organizationId
+            ?: currentCoroutineContext()[PlatformOrganization]?.id
+            ?: error("Records sin usuario ni contexto de plataforma: use Records.asPlatform(organizationId) { … }")
 
     private class WritableField(
         val name: String,

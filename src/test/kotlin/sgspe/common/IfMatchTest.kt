@@ -1,9 +1,8 @@
 package sgspe.common
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
@@ -49,117 +48,78 @@ class IfMatchTest {
         assertEquals(read, IfMatch.required("\"2026-10-07T14:03:11.482913Z\""))
     }
 
-    @Test
-    fun `despues de la version leida, solo derivados y vinculos no invalidan el If-Match`() {
-        val created = Instant.parse("2026-10-07T14:00:00Z")
-        val derived = setOf("attendees_total_count")
-        val writes =
-            listOf(
-                LaterWrite(created.plusMillis(1), setOf("title", "engagement_type")),
-                LaterWrite(created.plusSeconds(1), setOf("rel:engagement_topic")),
-                LaterWrite(created.plusSeconds(2), setOf("attendees_total_count"))
-            )
-        assertTrue(IfMatch.onlyDerivedSince(created, writes, derived))
-        val edited = writes + LaterWrite(created.plusSeconds(3), setOf("title"))
-        assertFalse(IfMatch.onlyDerivedSince(created, edited, derived))
-        assertFalse(IfMatch.onlyDerivedSince(created.plusSeconds(9), writes, derived))
-        // un If-Match que no es la versión de ninguna escritura (anterior al alta) no pasa
-        assertFalse(IfMatch.onlyDerivedSince(Instant.parse("2020-01-01T00:00:00Z"), writes, derived))
+    // ---- Versions: la versión leída vale mientras lo posterior sean saltos de derivados (ADR-0027) ----
+
+    private val derived = Instant.parse("2026-10-07T14:03:11.601877Z")
+    private val other = Instant.parse("2026-10-07T14:03:11.655012Z")
+
+    // las cadenas de mentira: desde `read`, un salto de derivados a `derived`; cuenta cuántas veces se le pregunta
+    private class FakeChains(
+        private val chains: Map<Instant, List<Instant>>
+    ) : VersionChains {
+        var asked = 0
+
+        override suspend fun accepted(
+            objectName: String,
+            recordId: UUID,
+            expected: Instant
+        ): List<Instant> {
+            asked++
+            return chains[expected] ?: listOf(expected)
+        }
     }
 
-    @Test
-    fun `dos escrituras del mismo instante son la version en cualquier orden`() {
-        val created = Instant.parse("2026-10-07T14:00:00Z")
-        val derived = setOf("attendees_total_count")
-        val own = LaterWrite(created, setOf("title"))
-        val listener = LaterWrite(created, setOf("attendees_total_count"))
-        assertTrue(IfMatch.onlyDerivedSince(created, listOf(own, listener), derived))
-        assertTrue(IfMatch.onlyDerivedSince(created, listOf(listener, own), derived))
-        val other = LaterWrite(created.plusSeconds(1), setOf("title"))
-        assertFalse(IfMatch.onlyDerivedSince(created, listOf(own, listener, other), derived))
-        assertFalse(IfMatch.onlyDerivedSince(created, listOf(listener, own, other), derived))
-    }
+    private val id = UUID.fromString("8a0c3c64-1f0e-4a43-9a3e-1d6f2a1b7c55")
 
     @Test
-    fun `la version debe caer a lo sumo 2 segundos despues de lo leido`() {
-        val read = Instant.parse("2026-10-07T14:00:00Z")
-        val derived = setOf("attendees_total_count")
-        val later = LaterWrite(read.plusSeconds(5), setOf("attendees_total_count"))
-        assertTrue(IfMatch.onlyDerivedSince(read, listOf(LaterWrite(read.plusSeconds(2), setOf("title")), later), derived))
-        assertFalse(IfMatch.onlyDerivedSince(read, listOf(LaterWrite(read.plusSeconds(2).plusNanos(1), setOf("title")), later), derived))
-        assertFalse(IfMatch.onlyDerivedSince(read, listOf(later), derived))
-        assertFalse(IfMatch.onlyDerivedSince(read, emptyList(), derived))
+    fun `la version vigente pasa sin leer saltos, y una a la que se llega por derivados tambien`() {
+        val chains = FakeChains(mapOf(read to listOf(read, derived)))
+        val versions = Versions(chains)
+        runBlocking { versions.check("engagement", id, read, read, "El registro") }
+        assertEquals(0, chains.asked)
+        runBlocking { versions.check("engagement", id, read, derived, "El registro") }
+        assertEquals(1, chains.asked)
+        runBlocking { versions.check("engagement", id, null, other, "sin expectativa no compara") }
     }
 
-    // desde wasichai 0.5.0 la entrada de una escritura dentro de una transacción cae antes de su updatedAt, y la de una fuera
-    // de ella, después [WAS-ADR-0051]: la versión es la entrada más cercana a lo leído
+    // el fallo E: lo vigente es la escritura de otro, que no es un salto de derivados desde lo leído: 412 con el valor actual,
+    // por cerca que haya caído en el tiempo
     @Test
-    fun `la version es la entrada mas cercana a lo leido, antes o despues`() {
-        val read = Instant.parse("2026-10-07T14:00:00.500Z")
-        val derived = setOf("calculated_area_ha")
-        // lo leído es el área que escribió un listener en su transacción, 3 ms después de abrirla; luego otro cambió la
-        // geometría por la API genérica y el listener volvió a escribir el área
-        val listener = LaterWrite(read.minusMillis(3), setOf("calculated_area_ha"))
-        val geometry = LaterWrite(read.plusMillis(105), emptySet())
-        val area = LaterWrite(read.plusMillis(110), setOf("calculated_area_ha"))
-        assertFalse(IfMatch.onlyDerivedSince(read, listOf(area, geometry, listener), derived))
-        // lo leído es la respuesta del cambio de geometría del propio cliente, cuya entrada cae 2 ms después; antes quedó el
-        // área del alta y después, la que recalculó el listener
-        val created = LaterWrite(read.minusMillis(120), setOf("calculated_area_ha"))
-        val own = LaterWrite(read.plusMillis(2), emptySet())
-        val recalculated = LaterWrite(read.plusMillis(9), setOf("calculated_area_ha"))
-        assertTrue(IfMatch.onlyDerivedSince(read, listOf(recalculated, own, created), derived))
-        // a igual distancia gana la de antes, y la de después cuenta como posterior
-        assertFalse(
-            IfMatch.onlyDerivedSince(read, listOf(LaterWrite(read.minusMillis(4), setOf("title")), LaterWrite(read.plusMillis(4), emptySet())), derived)
-        )
+    fun `una version a la que no se llega por derivados es 412 con el valor actual`() {
+        val versions = Versions(FakeChains(mapOf(read to listOf(read, derived))))
+        val error = assertThrows<PreconditionFailedException> { runBlocking { versions.check("engagement", id, read, other, "La interacción") } }
+        assertEquals(412, error.status.value())
+        assertEquals("valor actual $other", error.violations.single().message)
+        assertThrows<PreconditionFailedException> { runBlocking { versions.check("engagement", id, read, null, "La interacción") } }
     }
 
+    // la guarda usa las versiones que el filtro ya pidió, así compara contra lo mismo que la escritura de wasichai
     @Test
-    fun `mas de 50 escrituras posteriores de solo derivados y vinculos no invalidan el If-Match`() {
-        val created = Instant.parse("2026-10-07T14:00:00Z")
-        val derived = setOf("attendees_total_count")
-        val version = LaterWrite(created, setOf("title"))
-        val later =
-            (1..120).map { n ->
-                LaterWrite(created.plusSeconds(n.toLong()), if (n % 2 == 0) setOf("attendees_total_count") else setOf("rel:engagement_topic"))
-            }
-        assertTrue(IfMatch.onlyDerivedSince(created, listOf(version) + later, derived))
-        // el historial llega del más nuevo al más viejo
-        assertTrue(IfMatch.onlyDerivedSince(created, (later + version).sortedByDescending { it.occurredAt }, derived))
-        // una edición visible entre tantas sigue invalidando
-        val edited = later + LaterWrite(created.plusSeconds(60).plusMillis(1), setOf("title"))
-        assertFalse(IfMatch.onlyDerivedSince(created, listOf(version) + edited, derived))
+    fun `con las versiones aceptadas ya leidas no vuelve a preguntar`() {
+        val chains = FakeChains(emptyMap())
+        val versions = Versions(chains)
+        runBlocking { versions.check("engagement", id, read, derived, "El registro", accepted = listOf(read, derived)) }
+        assertThrows<PreconditionFailedException> {
+            runBlocking { versions.check("engagement", id, read, other, "El registro", accepted = listOf(read, derived)) }
+        }
+        assertEquals(0, chains.asked)
     }
 
-    @Test
-    fun `una escritura sin campos visibles no se tolera`() {
-        val created = Instant.parse("2026-10-07T14:00:00Z")
-        val derived = setOf("attendees_total_count")
-        val version = LaterWrite(created, setOf("title"))
-        assertFalse(IfMatch.onlyDerivedSince(created, listOf(version, LaterWrite(created.plusSeconds(1), emptySet())), derived))
-        assertFalse(
-            IfMatch.onlyDerivedSince(
-                created,
-                listOf(version, LaterWrite(created.plusSeconds(1), setOf("attendees_total_count")), LaterWrite(created.plusSeconds(2), emptySet())),
-                derived
-            )
-        )
-        // una entrada de solo vínculos sí tiene campos: no es un conflicto
-        assertTrue(IfMatch.onlyDerivedSince(created, listOf(version, LaterWrite(created.plusSeconds(1), setOf("rel:engagement_topic"))), derived))
-    }
+    // ---- IfMatchFilter ----
 
-    // el filtro deja la expectativa en el contexto para IfMatchGuard y quita la cabecera de la petición que sigue, para que
-    // la comparación estricta de wasichai 0.5.0 [WAS-ADR-0051] no pise la de sgspe; fuera de esas escrituras no toca nada
+    // en las escrituras de un registro por la API genérica, el filtro deja la expectativa en el contexto para IfMatchGuard y
+    // cambia If-Match por la lista de versiones aceptadas (la leída y las que la siguieron por derivados), así wasichai la
+    // compara en el propio UPDATE [WAS-ADR-0051]. un valor que no es un instante, o `*`, sale de la petición: la guarda
+    // responde el 400 con Problem Details, o no compara. fuera de esas escrituras no toca nada
     @Test
-    fun `el filtro guarda la expectativa y quita If-Match solo en las escrituras de un registro`() {
-        val id = "8a0c3c64-1f0e-4a43-9a3e-1d6f2a1b7c55"
+    fun `el filtro guarda la expectativa y cambia If-Match por las versiones aceptadas solo en las escrituras de un registro`() {
         val sent = "\"2026-10-07T14:03:11.482913Z\""
+        val chains = FakeChains(mapOf(read to listOf(read, derived)))
 
         fun through(request: MockServerHttpRequest): Pair<String?, IfMatchExpectation?> {
             var header: String? = null
             var expectation: IfMatchExpectation? = null
-            IfMatchFilter()
+            IfMatchFilter(chains)
                 .filter(MockServerWebExchange.from(request)) { e ->
                     header = e.request.headers.getFirst(IfMatch.HEADER)
                     Mono.deferContextual { context ->
@@ -170,16 +130,26 @@ class IfMatchTest {
             return header to expectation
         }
 
-        val expected = IfMatchExpectation("stakeholder", UUID.fromString(id), sent)
+        val accepted = "\"$read\", \"$derived\""
+        val expected = IfMatchExpectation("stakeholder", id, sent, listOf(read, derived))
         for (request in listOf(
             MockServerHttpRequest.put("/api/objects/stakeholder/records/$id"),
             MockServerHttpRequest.patch("/api/objects/stakeholder/records/$id"),
             MockServerHttpRequest.delete("/api/objects/stakeholder/records/$id"),
             MockServerHttpRequest.post("/api/objects/stakeholder/records/$id/transitions/approve")
         )) {
-            assertEquals(null to expected, through(request.header(IfMatch.HEADER, sent).build()))
+            assertEquals(accepted to expected, through(request.header(IfMatch.HEADER, sent).build()))
         }
+        // un instante sin comillas o débil vale como en IfMatch.parse: a wasichai le llega la etiqueta fuerte
+        val weak = through(MockServerHttpRequest.put("/api/objects/stakeholder/records/$id").header(IfMatch.HEADER, "W/$sent").build())
+        assertEquals(accepted, weak.first)
+        for (raw in listOf("\"ayer\"", "*")) {
+            val put = MockServerHttpRequest.put("/api/objects/stakeholder/records/$id").header(IfMatch.HEADER, raw).build()
+            assertEquals(null to IfMatchExpectation("stakeholder", id, raw), through(put))
+        }
+        val asked = chains.asked
         assertEquals(sent to null, through(MockServerHttpRequest.get("/api/objects/stakeholder/records/$id").header(IfMatch.HEADER, sent).build()))
         assertEquals(sent to null, through(MockServerHttpRequest.post("/api/sgspe/commitments/$id/close").header(IfMatch.HEADER, sent).build()))
+        assertEquals(asked, chains.asked)
     }
 }

@@ -81,6 +81,10 @@ sgspe:
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000
+  concurrency:
+    # cuánto se guardan los saltos de versión de las escrituras de derivados (sgspe.derived_version, ADR-0027, ASM-091):
+    # una versión leída hace más que esto, seguida de derivados, es 412. JOB-08 purga los vencidos
+    derived-versions-retention: 7d
   stakeholder:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
@@ -96,7 +100,8 @@ sgspe:
       # JOB-03, una vez al día
       cron: '0 30 4 * * *'
     retention:
-      # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl)
+      # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl) y los saltos de
+      # derivados vencidos (sgspe.concurrency.derived-versions-retention)
       cron: '0 15 4 * * *'
 
 management:

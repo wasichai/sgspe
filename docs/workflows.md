@@ -1399,15 +1399,15 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
   `asPlatform(organización, source = "job:…")` (UPS-03). JOB-07 solo recorre
   la lista de organizaciones con la IA activada (`ai-architecture.md` §12.1).
 - **Tablas fijas con SQL propio, sin `asPlatform`:** JOB-06 solo escribe `notification_delivery`, JOB-07 escribe además
-  `knowledge_chunk`, y JOB-08 borra las claves vencidas de `idempotency_key`.
+  `knowledge_chunk`, y JOB-08 borra las claves vencidas de `idempotency_key` y los saltos vencidos de `derived_version`.
 - **Motivo y origen:** el motivo nombra al trabajo (`DeadlineJob: situación de plazo`) y la fila de auditoría lleva
   `source = job:<nombre>` [WAS-ADR-0050]. Una escritura de la plataforma no tiene usuario: el origen la distingue en la
   auditoría y el motivo se lo dice a quien lee el historial [WAS-ADR-0041] (ASM-051).
 - **Idempotencia:** recalculan desde cero, así que repetir una corrida no cambia el resultado; las tareas que crean llevan
   `generator_key`.
 - **Nunca aplican transiciones ni vinculan registros:** solo escriben campos derivados y crean registros nuevos (RN-WFL-001,
-  CON-043). JOB-08 no escribe registros de wasichai: solo borra claves vencidas de `idempotency_key` y archivos que nada
-  referencia.
+  CON-043). JOB-08 no escribe registros de wasichai: solo borra claves vencidas de `idempotency_key`, saltos vencidos de
+  `derived_version` y archivos que nada referencia.
 
 | ID | Trabajo (paquete) | Frecuencia | Qué escribe | Qué nunca hace | Fuente | Fase |
 |---|---|---|---|---|---|---|
@@ -1418,7 +1418,7 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 | JOB-05 | `DeliverableGenerationJob` (`sgspe.deliverable`): el trabajador de generación de entregables | Continuo: toma los pedidos pendientes (`generation_requested_at` posterior a `draft_generated_at`, o este vacío) | `draft_generation_status` (EN COLA, EN PROCESO, LISTO o FALLIDO), `draft_generated_at` (al congelar el modelo), `draft_model_sha256`, `draft_storage_key` | Aplicar `approve` o `issue`; escribir secciones | RQ-REP-021, ASM-061 | F8 |
 | JOB-06 | `NotificationMailJob` (`sgspe.notification`, modelo de dominio §8.2): envío por SMTP con reintentos | Continuo | `notification_delivery` (`delivery_status`, `attempts`, `last_attempt_at`, `sent_at`, `error_detail`), con SQL propio sobre tablas fijas | Escribir registros de wasichai | RF-NTF-001, ASM-012, GAP-021 | F3 |
 | JOB-07 | `KnowledgeIndexJob` (`sgspe.ai`, `ai-architecture.md` §13.2): indexación documental para RAG | Periódica y configurable (ASM-006), solo en las organizaciones que activaron la IA (RQ-AI-009, ASM-015) | Fragmentos en la tabla fija `knowledge_chunk`, con SQL propio, de las `evidence` creadas o cambiadas desde la corrida anterior; copia su proyecto y su clasificación, borra los fragmentos de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo, como la plataforma | Aplicar transiciones; indexar documentos sin texto (sin OCR en F7) | RF-AIK-006, RQ-AI-008 | F7 |
-| JOB-08 | `RetentionJob` (`sgspe.common`): retención, con un paso por paquete | Una vez al día, configurable | Ningún registro de wasichai. Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065). Desde F8, el paso de `sgspe.deliverable` borra en el almacenamiento de objetos, de cada entregable, las carpetas `drafts/<instante>/` salvo las N más recientes y la que apunta `draft_storage_key`, y los archivos que ningún registro referencia, como los de una emisión fallida (`deliverables.md` §8.4, §11) | Borrar lo que referencia una `deliverable_version` o `draft_storage_key`; escribir registros; aplicar transiciones | RQ-REP-027, RNF-INT-002, ASM-028, ASM-061, ASM-065 | F3 (claves), F8 (borradores) |
+| JOB-08 | `RetentionJob` (`sgspe.common`): retención, con un paso por paquete | Una vez al día, configurable | Ningún registro de wasichai. Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065) y las de `derived_version` anteriores a `sgspe.concurrency.derived-versions-retention`, 7 días (ASM-091, ADR-0027). Desde F8, el paso de `sgspe.deliverable` borra en el almacenamiento de objetos, de cada entregable, las carpetas `drafts/<instante>/` salvo las N más recientes y la que apunta `draft_storage_key`, y los archivos que ningún registro referencia, como los de una emisión fallida (`deliverables.md` §8.4, §11) | Borrar lo que referencia una `deliverable_version` o `draft_storage_key`; escribir registros; aplicar transiciones | RQ-REP-027, RNF-INT-002, RNF-INT-003, ASM-028, ASM-061, ASM-065, ASM-091 | F3 (claves y saltos de derivados), F8 (borradores) |
 
 JOB-08 corre una vez al día, como fija `architecture.md`, y además del número N de borradores (ASM-028) usa un margen
 configurable: solo borra archivos sin referencia más antiguos que ese margen, porque los de una generación o una emisión en
@@ -1626,7 +1626,7 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 
 - **Trabajos:** después de cada corrida de JOB-01 a JOB-05, JOB-07 y JOB-08, ningún `workflow_state` cambió (se compara antes
   y después); los derivados son los esperados con fixtures ficticios; repetir la corrida no crea tareas nuevas; el motivo
-  nombra al trabajo. JOB-08 borra solo las claves de `idempotency_key` más antiguas que su plazo, y nunca borra un archivo
+  nombra al trabajo. JOB-08 borra solo las claves de `idempotency_key` y los saltos de `derived_version` más antiguos que su plazo, y nunca borra un archivo
   que referencia una `deliverable_version` o `draft_storage_key`, ni uno sin referencia más reciente que el margen.
 - **Listeners:** un fallo de `CommitmentDerivationsListener`, también en `reopen_execution`, o de `RequestClosureListener`
   revierte la transición; un insert fallido de `NotificationListener` no aborta la transacción de quien escribe; un alta por

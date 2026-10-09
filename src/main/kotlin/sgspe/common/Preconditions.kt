@@ -2,7 +2,7 @@ package sgspe.common
 
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.reactor.ReactorContext
-import org.springframework.core.Ordered
+import kotlinx.coroutines.reactor.mono
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.stereotype.Component
@@ -11,12 +11,10 @@ import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
 import reactor.util.context.Context
-import wasichai.core.audit.AuditQueryService
 import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.data.RecordWriteGuard
-import java.time.Duration
 import java.time.Instant
 import java.time.format.DateTimeParseException
 import java.util.UUID
@@ -53,105 +51,55 @@ object IfMatch {
 
     // un comando con la marca IM de api.md §4: sin If-Match, 428
     fun required(raw: String?): Instant = parse(raw) ?: throw PreconditionRequiredException("Este comando exige If-Match con el updatedAt que leíste")
-
-    // si después de la versión que leyó el cliente solo hubo escrituras de derivados o vínculos. la versión es la escritura
-    // que produjo el updatedAt, y su entrada de audit_log es la más cercana a `expected`, antes o después: desde wasichai
-    // 0.5.0 updated_at toma la hora de su sentencia (clock_timestamp()) y occurred_at la del inicio de su transacción
-    // (now()) [WAS-ADR-0051]. fuera de una transacción (la API genérica) la fila de auditoría se escribe justo después del
-    // UPDATE, así que cae poco después; dentro de una (un comando o un listener con su candado) lleva el inicio de la
-    // transacción, así que cae poco antes, junto con las demás de esa transacción (el mismo now(), en cualquier orden). la
-    // entrada de una escritura vecina queda más lejos, porque entre las dos hubo otra petición. si la más cercana no cae
-    // dentro de VERSION_WINDOW (un If-Match que no es la versión de ninguna escritura, como uno anterior al alta) no pasa.
-    // de las posteriores, un vínculo (rel:…) no cambia la versión y cuenta como inofensivo; un derivado también. una
-    // entrada sin ningún campo visible no se tolera: puede ser un cambio que el diff de atributos no ve (una geometría) y,
-    // aunque sea un campo que quien llama no puede leer, el PUT de wasichai lo conserva, así que el 412 solo cuesta volver
-    // a cargar. así un listener que actualiza un derivado (los conteos de asistentes, el área) no invalida el If-Match de
-    // quien sigue trabajando
-    fun onlyDerivedSince(
-        expected: Instant,
-        writes: List<LaterWrite>,
-        derived: Set<String>
-    ): Boolean {
-        // a igual distancia, la de antes: deja la otra entre las posteriores y falla cerrado
-        val versionAt = writes.map { it.occurredAt }.minWithOrNull(compareBy({ Duration.between(it, expected).abs() }, { it })) ?: return false
-        if (Duration.between(versionAt, expected).abs() > VERSION_WINDOW) return false
-        return writes.filter { it.occurredAt.isAfter(versionAt) }.all { write ->
-            write.fields.isNotEmpty() && write.fields.all { it.startsWith("rel:") || it in derived }
-        }
-    }
-
-    // la mayor distancia entre el updated_at de un registro y el occurred_at de su entrada de audit_log: el tiempo de una
-    // transacción hasta su UPDATE, o el de la API genérica entre el UPDATE y la fila de auditoría
-    private val VERSION_WINDOW: Duration = Duration.ofSeconds(2)
 }
 
-// una escritura del historial de un registro (audit_log), con los campos que cambió tal como los ve quien llama
-data class LaterWrite(
-    val occurredAt: Instant,
-    val fields: Set<String>
-)
-
-// la comparación de If-Match con el registro guardado: igual, pasa; distinto, pasa solo si lo que cambió desde la versión
-// leída son derivados (IfMatch.onlyDerivedSince, leído del historial con los permisos de quien llama); si no, 412. la usan
-// IfMatchGuard y los comandos con IM
+// la comparación de If-Match con el registro guardado: igual, pasa; distinto, pasa solo si lo vigente es una de las versiones
+// a las que se llega desde la leída por saltos de derivados (ADR-0027, VersionChains); si no, 412 con el valor actual. un
+// vínculo no mueve updated_at [WAS-ADR-0051], así que no hace falta tolerarlo. la usan IfMatchGuard, con las versiones que
+// ya pidió IfMatchFilter, y los comandos con IM, dentro de su transacción y con su candado
 @Component
 class Versions(
-    private val audit: AuditQueryService,
-    private val catalog: ModelCatalog
+    private val chains: VersionChains
 ) {
     suspend fun check(
         objectName: String,
         recordId: UUID,
         expected: Instant?,
         current: Instant?,
-        what: String
+        what: String,
+        accepted: List<Instant>? = null
     ) {
         if (expected == null || current == expected) return
-        if (current != null && onlyDerived(objectName, recordId, expected)) return
+        if (current != null && current in (accepted ?: chains.accepted(objectName, recordId, expected))) return
         IfMatch.check(expected, current, what)
-    }
-
-    private suspend fun onlyDerived(
-        objectName: String,
-        recordId: UUID,
-        expected: Instant
-    ): Boolean {
-        val writes =
-            audit.history(objectName, recordId, HISTORY).mapNotNull { entry ->
-                entry.occurredAt?.let { LaterWrite(it, entry.changes.map { change -> change.field }.toSet()) }
-            }
-        return IfMatch.onlyDerivedSince(expected, writes, catalog.derivedFields(objectName))
-    }
-
-    companion object {
-        // el tope que acepta AuditQueryService.history de wasichai (coerceIn(1, 500); desde 0.5.0 historyPage pagina por
-        // cursor y lo levantaría, platform-fit.md §4.3). una asamblea grande deja decenas de escrituras de conteos y
-        // vínculos tras el alta; con más de 500 posteriores, la entrada de la versión leída queda fuera de la ventana y el
-        // resultado es un 412 (falla cerrado; api.md §3.6)
-        private const val HISTORY = 500
     }
 }
 
-// lo que pide el If-Match de una petición a la API genérica: el registro de la ruta y el valor tal como llegó. lo lee la
-// guarda, dentro del controlador, para que un valor inválido sea un 400 con Problem Details y no un error del filtro
+// lo que pide el If-Match de una petición a la API genérica: el registro de la ruta, el valor tal como llegó y, si es un
+// instante, las versiones que acepta (la leída y las que la siguieron por derivados). lo lee la guarda, dentro del
+// controlador, para que un valor inválido sea un 400 con Problem Details y no un error del filtro
 data class IfMatchExpectation(
     val objectName: String,
     val recordId: UUID,
-    val raw: String
+    val raw: String,
+    val accepted: List<Instant>? = null
 )
 
 // pone la expectativa en el contexto de Reactor, como el filtro de correlación pone su identificador: la guarda corre en
 // la corrutina de la petición, que conserva ese contexto (WAS-ADR-0040). solo las escrituras de la API genérica sobre un
-// registro (PUT, PATCH y DELETE de /api/objects/{objeto}/records/{id}, sus transiciones y sus vínculos); los comandos
-// propios comparan dentro de su transacción y con su candado
+// registro (PUT, PATCH y DELETE de /api/objects/{objeto}/records/{id}, sus transiciones, sus vínculos y sus archivos); los
+// comandos propios comparan dentro de su transacción y con su candado
 //
-// y quita If-Match de la petición que sigue: desde 0.5.0 wasichai lo compara en la propia escritura, con igualdad estricta
-// [WAS-ADR-0051], y respondería 412 donde sgspe deja pasar una versión cuyo único cambio posterior es un derivado o un
-// vínculo (IfMatch.onlyDerivedSince), como el área o los conteos que escribe un listener tras el alta. hasta decidir esa
-// tolerancia frente a la comparación atómica (UPS-04, platform-fit.md §4.3), la precondición sigue siendo solo la de sgspe
+// y cambia If-Match por la lista de versiones aceptadas, como etiquetas fuertes (ADR-0027): wasichai compara en el propio
+// UPDATE, DELETE o transición que updated_at sea una de ellas [WAS-ADR-0051], así una escritura de otro que cae entre la
+// guarda y la escritura es un 412 de la plataforma y no una actualización perdida. un valor que no es un instante, o `*`,
+// sale de la petición: la guarda responde el 400 con Problem Details, o no compara. corre después de la cadena de
+// seguridad, que deja a quien llama en el contexto: los saltos se leen con su organización
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 10)
-class IfMatchFilter : WebFilter {
+@Order(IfMatchFilter.ORDER)
+class IfMatchFilter(
+    private val chains: VersionChains
+) : WebFilter {
     override fun filter(
         exchange: ServerWebExchange,
         chain: WebFilterChain
@@ -161,19 +109,45 @@ class IfMatchFilter : WebFilter {
         if (request.method == HttpMethod.GET) return chain.filter(exchange)
         val match = RECORD_PATH.find(request.path.value()) ?: return chain.filter(exchange)
         val recordId = runCatching { UUID.fromString(match.groupValues[2]) }.getOrNull() ?: return chain.filter(exchange)
-        val expectation = IfMatchExpectation(match.groupValues[1], recordId, raw)
-        val withoutHeader = exchange.mutate().request { it.headers { headers -> headers.remove(IfMatch.HEADER) } }.build()
-        return chain.filter(withoutHeader).contextWrite(Context.of(KEY, expectation))
+        val objectName = match.groupValues[1]
+        return mono {
+            // un valor inválido no se compara aquí: la guarda responde su 400
+            val expected =
+                try {
+                    IfMatch.parse(raw)
+                } catch (_: ValidationException) {
+                    null
+                }
+            IfMatchExpectation(objectName, recordId, raw, expected?.let { chains.accepted(objectName, recordId, it) })
+        }.flatMap { expectation ->
+            val accepted = expectation.accepted?.joinToString(", ") { "\"$it\"" }
+            val rewritten =
+                exchange
+                    .mutate()
+                    .request {
+                        it.headers { headers ->
+                            headers.remove(IfMatch.HEADER)
+                            if (accepted != null) headers.set(IfMatch.HEADER, accepted)
+                        }
+                    }.build()
+            chain.filter(rewritten).contextWrite(Context.of(KEY, expectation))
+        }
     }
 
     companion object {
         const val KEY = "sgspe.ifMatch"
+
+        // después de la cadena de Spring Security, que es WebFluxSecurityConfiguration.WEB_FILTER_CHAIN_FILTER_ORDER (-100;
+        // la clase no es pública)
+        const val ORDER = -90
         private val RECORD_PATH = Regex("^/api/objects/([a-z][a-z0-9_]*)/records/([0-9a-fA-F-]{36})(/.*)?$")
     }
 }
 
 // compara la expectativa con el updatedAt guardado antes de cambiar, transicionar, vincular o borrar el registro de la
-// ruta. por la API genérica no hay transacción: queda una ventana mínima entre comparar y escribir hasta UPS-04
+// ruta, para responder el 412 de sgspe (con el valor actual) antes que las demás guardas. por la API genérica no hay
+// transacción: entre esta comparación y la escritura, la que cierra la ventana es la de wasichai en el propio UPDATE, con
+// las mismas versiones (IfMatchFilter); un vínculo no la tiene, pero tampoco mueve updated_at ni reemplaza nada
 @Component
 @Order(GuardOrder.IF_MATCH)
 class IfMatchGuard(
@@ -190,6 +164,6 @@ class IfMatchGuard(
         if (expectation.objectName != change.objectName || expectation.recordId != recordId) return
         val expected = IfMatch.parse(expectation.raw) ?: return
         val current = records.find(change.objectName, recordId)?.updatedAt
-        versions.check(change.objectName, recordId, expected, current, "El registro")
+        versions.check(change.objectName, recordId, expected, current, "El registro", expectation.accepted)
     }
 }

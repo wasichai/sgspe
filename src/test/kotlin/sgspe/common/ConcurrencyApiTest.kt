@@ -25,7 +25,7 @@ class ConcurrencyApiTest : DomainApiTest() {
     }
 
     // el PATCH de wasichai 0.5.0 [WAS-ADR-0051] pasa por la misma precondición de sgspe, que responde el 412 con su valor
-    // actual: la comparación propia de wasichai no ve el If-Match (IfMatchFilter lo quita)
+    // actual antes que la comparación propia de wasichai (que recibe de IfMatchFilter las versiones aceptadas, ADR-0027)
     @Test
     fun `un PATCH tambien se condiciona con la precondicion de sgspe`() {
         val locality = createRecord("locality", mapOf("name" to "Caserío Ejemplo", "locality_type" to "CASERIO"))
