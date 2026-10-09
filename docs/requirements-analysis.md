@@ -1400,6 +1400,7 @@ implementan. Las contradicciones, gaps y pedidos upstream que originan un supues
 | ASM-089 | D6 de WF-D (políticas de empleo y de servidumbres, RN-COM-002 y RN-COM-003) no se verifica en F3: ningún campo del modelo dice que un compromiso ofrece puestos de trabajo ni cuántos, y el registro de empleo está fuera de alcance (GAP-016) | Una guarda no puede evaluar un dato que el modelo no guarda | Agregar a `commitment` un dato de puestos ofrecidos y la regla D6 en `CommitmentWriteGuard` | RN-COM-002, RN-COM-003, GAP-016, WF-D |
 | ASM-090 | Un tipo de documento de wasichai-documents solo se declara sobre un objeto sin campos restringidos y sin tablas relacionadas de objetos que los tengan: en F3, la «Minuta de reunión» y la «Lista de asistentes» de `engagement`, esta con el total de asistentes y filas en blanco para los nombres y las firmas; el «Acta de entrega» de `delivery` y AUT-03 esperan, y el acta firmada se sube como evidencia ACTA DE ENTREGA | Un documento emitido congela el registro entero y cada columna de las tablas relacionadas que nombra la plantilla, sin permisos de campo, y se lee con READ sobre el objeto (UPS-23, WAS-ADR-0023, `security.md` §11.4) | Que wasichai-documents congele solo lo que la plantilla nombra o aplique los permisos de campo de quien lee (UPS-23) | RQ-REP-029, RQ-SEC-010, UPS-23, AUT-03, AUT-05 |
 | ASM-091 | Un cliente no conserva una versión leída de un registro más de 7 días: los saltos de versión de las escrituras de solo derivados (`sgspe.derived_version`), con los que `If-Match` tolera los derivados que se escribieron después de lo leído, se guardan 7 días (`sgspe.concurrency.derived-versions-retention`) y JOB-08 los purga. Pasado el plazo, una versión seguida de derivados responde `412` y el portal recarga (falla cerrado) | El JWT dura 8 horas y la clave de idempotencia 24; ninguna fuente fija cuánto puede durar una edición abierta, y sin purga la tabla crece con cada escritura de derivados | Otro plazo, o atarlo a `wasichai.idempotency.ttl` | RNF-INT-003, ASM-035, UPS-04, ADR-0027, `docs/api.md` §3.6, `docs/database-model.md` §22 y §26 |
+| ASM-092 | Un monto que alguien escribe (`exploration_campaign.social_support_cap`, `commitment.amount`, `delivery.delivered_amount`, `agreement.amount`) es un número de 0 a 999 999 999 999 999,9999: nunca negativo, con 15 dígitos enteros y 4 decimales como máximo tras quitar los ceros finales; otro valor se rechaza en el alta y en todo cambio de su valor, y un valor guardado que la escritura no toca no se vuelve a juzgar (rulings P44 y P58) | DECIMAL de wasichai es un `numeric` sin escala ni mínimo, y un tope negativo o con más decimales deja a `SupportPolicyGuard` sin poder sumar contra él en cada aprobación de la campaña (`CAP_DATA_INVALID`) | Escala y mínimo por campo en el modelo, si wasichai los ofrece | RN-INV-003, RN-COM-004, RF-AGR-001, ASM-063 |
 
 ## 20. Matriz de trazabilidad (resumen; la matriz completa está en `requirements-traceability.md`)
 
@@ -1457,8 +1458,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 32 |
 | `UPS` | 23 |
-| `ASM` | 91 |
-| Total | 504 |
+| `ASM` | 92 |
+| Total | 505 |
 
 ### 20.2 Requisitos por bounded context
 
