@@ -28,4 +28,12 @@ class ProjectLinksTest {
         assertEquals(listOf("agreement"), ProjectLinks.mismatches(a, mapOf("agreement" to null)))
         assertEquals(emptyList<String>(), ProjectLinks.mismatches(null, mapOf("agreement" to b)))
     }
+
+    @Test
+    fun `un destino que puede ser del tenant pasa sin proyecto, pero no con el de otro`() {
+        val targets = mapOf("source_evidence" to ("evidence" to null), "engagement" to ("engagement" to null))
+        assertEquals(listOf("engagement"), ProjectLinks.mismatches(a, targets, setOf("evidence")))
+        assertEquals(listOf("source_evidence"), ProjectLinks.mismatches(a, mapOf("source_evidence" to ("evidence" to b)), setOf("evidence")))
+        assertEquals(listOf("source_evidence", "engagement"), ProjectLinks.mismatches(a, targets, emptySet()))
+    }
 }

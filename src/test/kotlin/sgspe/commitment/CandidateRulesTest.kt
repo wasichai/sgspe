@@ -1,11 +1,16 @@
 package sgspe.commitment
 
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.springframework.http.HttpStatus
+import sgspe.common.RuleException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
+import wasichai.core.identity.AuthenticatedUser
 import java.util.UUID
 
 // las reglas de los candidatos sin base: mark_duplicate exige duplicate_of y P54 sobre los vínculos del candidato
@@ -64,5 +69,16 @@ class CandidateRulesTest {
         assertEquals(listOf("duplicate_of", "created_commitment"), CandidateLinks.mismatches(project, targets))
         assertEquals(listOf("source_evidence"), CandidateLinks.mismatches(project, mapOf("source_evidence" to ("evidence" to other))))
         assertEquals(emptyList<String>(), CandidateLinks.mismatches(null, targets))
+    }
+
+    // RQ-AI-003: solo una persona acepta o descarta un candidato; una cuenta de servicio no, aunque tenga el rol
+    @Test
+    fun `una cuenta de servicio con el rol recibe 403 PERSON_REQUIRED y una persona pasa`() {
+        val service = AuthenticatedUser(UUID.randomUUID(), UUID.randomUUID(), "svc@sgspe.test", listOf("COMMITMENT_MANAGER"), "cuenta-servicio")
+        val refused = assertThrows<RuleException> { Candidates.requirePerson(service) }
+        assertEquals(HttpStatus.FORBIDDEN, refused.status)
+        assertEquals("PERSON_REQUIRED", refused.violations.single().message)
+        val person = AuthenticatedUser(UUID.randomUUID(), UUID.randomUUID(), "persona@sgspe.test", listOf("COMMITMENT_MANAGER"), null)
+        assertDoesNotThrow { Candidates.requirePerson(person) }
     }
 }
