@@ -16,9 +16,9 @@ plataforma, en [Encaje con wasichai](platform-fit.md).
   `/api/health`; `/actuator/health/**` también es público [WAS-DOC api/rest.md] [WAS-DOC security/authentication.md]
   (RQ-SEC-001).
 - **Tenant.** La organización sale del token, nunca del cuerpo ni de un parámetro (RQ-SEC-002) [WAS-ADR-0010].
-- **Solo lo que la API genérica no puede.** Un endpoint de `/api/sgspe/**` existe para comandos que escriben varios registros,
-  cálculos al escribir, archivos, geometrías con reglas, consultas agregadas o espaciales y la bandeja de avisos. Nunca es un
-  CRUD por objeto (CON-040, RQ-AUD-004).
+- **Solo lo que la API genérica no puede.** Un endpoint de `/api/sgspe/**` existe para comandos que escriben varios
+  registros, cálculos al escribir, archivos con reglas propias, geometrías con reglas y consultas agregadas o
+  espaciales. Nunca es un CRUD por objeto (CON-040, RQ-AUD-004).
 - **Como el usuario que llama.** El código propio usa `RecordService` en proceso con la identidad de quien llama: aplica los
   mismos permisos de rol, objeto y campo, el mismo tenant y la misma auditoría que la API genérica [WAS-ADR-0038].
 - **Objetos `apiOnly`.** Sus escrituras solo pasan por `/api/sgspe/**`; la API genérica responde `403` [WAS-ADR-0040].
@@ -38,10 +38,12 @@ El contrato completo está en la documentación de wasichai:
 | Organizaciones | `GET /api/organizations/current`, `POST /api/organizations` | Datos del tenant; alta de tenants por el `ADMIN` de la organización operadora (GAP-026) | F1 |
 | Metadata | `/api/objects`, `/api/metadata/objects/**`, `/api/relationships`, acciones declaradas | Las usan `apply.py` y `/admin`; el portal lee definiciones para dibujar formularios | F1 |
 | Usuarios y roles | `/api/users`, `/api/roles` | `/admin` y `apply_roles.py` | F1 |
-| Registros | `GET`, `POST`, `PUT` y `DELETE /api/objects/{object}/records` | Lectura de todos los objetos y escritura de los que no son `apiOnly` | F1 (objetos desde F2) |
+| Registros | `GET`, `POST`, `PUT` y `DELETE /api/objects/{object}/records` | Lectura de todos los objetos y escritura de los que no son `apiOnly`; el alta admite `Idempotency-Key` nativa (WAS-ADR-0058, §3.5) | F1 (objetos desde F2) |
 | Registros relacionados | `/api/objects/{object}/records/{id}/related/{relationship}` | Vínculos MANY_TO_MANY entre objetos que no son `apiOnly`. Una autorrelación (localidad padre, versión anterior, duplicado) solo se lee desde el lado que apunta: los registros que apuntan a uno se leen filtrando la lista por el campo, por ejemplo `?parent_locality=<id>` (UPS-16) | F2 |
 | Workflow | `GET /api/objects/{object}/records/{id}/transitions`, `POST …/transitions/{name}` | Toda transición que no es de comando; la lista explica por qué una transición no está permitida | F2 |
-| Documentos emitidos | `POST /api/objects/{object}/records/{id}/documents/{type}`, `GET /api/documents/{id}` | Actas, minutas, cartas y fichas de un registro (RQ-REP-029) | F3 |
+| Documentos emitidos | `GET /api/objects/{object}/records/{id}/documents`, `POST …/documents/{type}`, `GET /api/documents/{id}` | Actas, minutas, cartas y fichas de un registro (RQ-REP-029), emitidos a mano o por una automatización (en F3, la minuta y la lista de asistentes de AUT-05). La copia congelada lleva el registro entero sin permisos de campo, así que un tipo solo se declara sobre un objeto sin campos restringidos (`security.md` §11.4, UPS-23, ASM-090). El JSON no trae el nombre técnico del tipo: el prefijo de `number` (`MR-`, `LA-`) y `snapshot.platform.documentName` (la etiqueta) lo identifican. Emitir a mano pide lo mismo que cambiar el registro (§3.3) | F3 |
+| Archivos | `POST /api/objects/{object}/files/{field}` (subir para un alta), `GET /api/objects/{object}/records/{id}/files/{field}` (descargar) | El primer paso del alta de una evidencia (§4.9), con un tope de 20 MB (`wasichai.files.max-bytes`): más es `400` `FILE_TOO_LARGE` sobre `file`, y una parte de texto o unos encabezados demasiado grandes, `400` `PART_TOO_LARGE` sobre `multipart`. La descarga de `evidence` la atiende SGSPE con su propia comprobación de la clasificación | F3 |
+| Avisos | `GET /api/auth/me/notifications`, `…/summary`, `…/{id}/read`, `…/{id}/dismiss`, `…/{id}/snooze`, `…/read-all`, `…/stream` (SSE); `GET` y `PUT /api/auth/me/notification-preferences` | La bandeja, el contador, el flujo en vivo y las preferencias de correo de wasichai-notifications (§4.10, ADR-0018, ASM-012) | F3 |
 | GIS | `GET /api/gis/objects/{object}/features`, `/api/gis/layers/**`, `GET /api/gis/services` | Capas temáticas básicas en el mapa (F2); publicación en GeoServer solo de capas no sensibles, desde `model/publish_layers.py` (F6, RQ-SEC-011) | F2 (features), F6 (`/api/gis/layers/**`) |
 | Auditoría | `GET /api/audit`, `GET /api/objects/{object}/records/{id}/history` | `AUDITOR` consulta todo el tenant; las fichas del portal muestran el historial de cada registro (RQ-AUD-005) | F1, F2 |
 | Vistas, formularios y páginas | `/api/objects/{object}/views/**`, `/forms/**`, `/pages/**` | Listas y fichas configuradas por metadata, en `/admin` y en el portal | F2 |
@@ -68,6 +70,9 @@ Lo que SGSPE agrega o restringe sobre la API genérica, con guardas y filtros pr
   ([Arquitectura §5.4](architecture.md#54-modelo-como-código-model)) [WAS-ADR-0040].
 - Las transiciones de comando (por ejemplo, la aceptación de un candidato) solo llegan desde su endpoint
   (`CommandTransitionGuard`); por la API genérica se rechazan.
+- Desde F3, las reglas de los compromisos, los acuerdos, los montos y las tareas también corren en la API genérica, con
+  los códigos de §3.3: `CommitmentWriteGuard`, `SupportPolicyGuard`, `AgreementWriteGuard`, `AmountFieldsGuard` y
+  `GeneratorKeyGuard` (`generator_key` de una tarea solo lo escribe un trabajo).
 
 Forma de un registro, la misma en las dos superficies: `id`, `createdAt`, `updatedAt`, `state` (estado de workflow),
 `attributes` (los campos con su nombre del modelo) y `geometries` (GeoJSON EPSG:4326, aparte de `attributes`)
@@ -96,8 +101,7 @@ Forma de un registro, la misma en las dos superficies: `id`, `createdAt`, `updat
    `deadline_status`, `stance`. Las geometrías van aparte, en `geometries`, también con su nombre del modelo.
 3. Un comando que crea o cambia registros recibe sus valores en `attributes` y devuelve cada registro afectado con la forma de
    registro de §2, bajo un nombre que dice qué es: `{ "reschedule": {…}, "commitment": {…} }`.
-4. Lo que no es un Custom Object (un aviso de la tabla fija `notification`, un indicador) va todo en camelCase, sin
-   `attributes`.
+4. Lo que no es un Custom Object (un indicador, el descriptor de un archivo) va todo en camelCase, sin `attributes`.
 
 Además:
 
@@ -127,14 +131,14 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 | `200` | Lectura; comando que no crea registros; reenvío con la misma `Idempotency-Key` |
 | `201` | Comando que crea registros, con `Location` del registro principal |
 | `202` | Pedido aceptado para trabajo en segundo plano (borradores de entregable) |
-| `204` | Sin cuerpo: marcar un aviso como leído, vincular o desvincular |
+| `204` | Sin cuerpo: vincular o desvincular |
 | `400` | Cuerpo inválido: valor, campo desconocido, motivo faltante o una guarda que rechaza los datos enviados |
 | `401` | Sin token o con un token inválido o vencido; sin token, el cuerpo va vacío (§3.3, «Comportamiento fijado de wasichai 0.3.2») |
 | `403` | Falta un permiso o una acción declarada; escritura fuera de las asignaciones; edición de un registro ajeno sin `EDIT_ANY`; escritura genérica sobre un objeto `apiOnly` |
 | `404` | El registro no existe o es de otra organización; ruta de un módulo no instalado |
-| `409` | Estado incompatible (transición desde otro estado, objeto `appendOnly`, regla que depende de otros registros, borrado de un registro con dependientes: `HAS_DEPENDENTS`), valor único repetido o `Idempotency-Key` reutilizada con otra petición |
+| `409` | Estado incompatible (transición desde otro estado, objeto `appendOnly`, regla que depende de otros registros, borrado de un registro con dependientes: `HAS_DEPENDENTS`), valor único repetido o una petición con la misma `Idempotency-Key` todavía en curso (`IDEMPOTENCY_IN_FLIGHT`, §3.5) |
 | `412` | `If-Match` no coincide con el `updatedAt` actual (§3.6) |
-| `422` | Parámetro de consulta desconocido (ASM-054) |
+| `422` | Parámetro de consulta desconocido (ASM-054); la misma `Idempotency-Key` con otra petición (`IDEMPOTENCY_KEY_REUSED`, §3.5) |
 | `428` | Falta `If-Match` en un comando que lo exige (§3.6) |
 | `503` | En los endpoints de IA que llaman a un modelo (§4.14): la IA no está activada para la organización o su proveedor no responde, como el asistente de wasichai sin clave [WAS-DOC api/rest.md]; y en una importación cuando ya corren tantas como permite `sgspe.territory.import.max-concurrent` (`IMPORT_BUSY`, §4.2) |
 
@@ -162,23 +166,31 @@ hace con su código en `errors[0].message` y el campo en `errors[0].field` (`rec
 
 | Estado | Códigos |
 |---|---|
-| `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1), `POSITION_WITHOUT_PERSON` (`position_status`: un cargo sin persona solo puede estar `VACANTE` o `PREVISTO`), `INVALID_NUMBER` (un monto que no es un número) y `OUT_OF_RANGE` (un monto negativo, con más de 15 dígitos enteros o con más de 4 decimales tras quitar los ceros finales), sobre el campo: `exploration_campaign.social_support_cap`, `commitment.amount`, `delivery.delivered_amount` y `agreement.amount`, en el alta y en todo cambio de su valor (`AmountFieldsGuard`, ruling P58, ASM-092) |
-| `403` | `COMMAND_ONLY` (la transición es de comando), `NOT_ASSIGNED` (sin asignación vigente al proyecto), `ACTION_REQUIRED` (falta la acción declarada `APPROVE`), `NOT_OWN_RECORD` (el objeto declara `EDIT_ANY`, quien escribe no lo tiene y no creó el registro: no lo cambia, mueve, vincula ni borra; `record`), `OBJECT_NOT_READABLE` (quien escribe no lee un objeto que la regla necesita: `project_party`, `project`, `engagement_participant`, `engagement_question` o `area_of_influence`) |
-| `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `FROZEN_MEMBERS` (los miembros de una versión `approved` o `superseded` del área de influencia no cambian; `field`: `area_of_influence`), `FROZEN_AREA` (su proyecto, tipo y número de versión tampoco; `field` es el campo que cambia), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED`, `PROFILE_INCOMPLETE` (`caracterizar` exige `stakeholder_type`, `stakeholder_scope`, `inclusion_reason` y `owner_user_id`; `field` es el primero que falta), `DUPLICATE_RULE` (`stakeholder_type`: ya hay una fila de `prioritization_rule` para cualquier tipo de actor con ese proyecto, grupo de influencia, postura y ámbito) |
+| `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1), `POSITION_WITHOUT_PERSON` (`position_status`: un cargo sin persona solo puede estar `VACANTE` o `PREVISTO`), `INVALID_NUMBER` (un monto que no es un número) y `OUT_OF_RANGE` (un monto negativo, con más de 15 dígitos enteros o con más de 4 decimales tras quitar los ceros finales), sobre el campo: `exploration_campaign.social_support_cap`, `commitment.amount`, `delivery.delivered_amount` y `agreement.amount`, en el alta y en todo cambio de su valor (`AmountFieldsGuard`, ASM-092), `JUSTIFICATION_REQUIRED` (`origin_justification`: un compromiso que nace de un taller o de una reunión informativa, RN-ENG-001) y `DEPENDENCY_SELF` (`depends_on`: un compromiso no depende de sí mismo) |
+| `403` | `COMMAND_ONLY` (la transición es de comando), `NOT_ASSIGNED` (sin asignación vigente al proyecto), `ACTION_REQUIRED` (falta la acción declarada: `APPROVE` de un proyecto o de un compromiso y `VERIFY` de un compromiso, sobre `record`; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una evidencia restringida, sobre `classification`), `NOT_OWN_RECORD` (el objeto declara `EDIT_ANY`, quien escribe no lo tiene y no creó el registro: no lo cambia, mueve, vincula ni borra; `record`), `SEGREGATION_OF_DUTIES` (quien aprueba un compromiso lo registró, `record`; quien lo verifica es su responsable, `owner_user_id`; RN-COM-005), `FIELD_NOT_READABLE` (`delivery.conformity_by`: registrar el cumplimiento necesita leer quiénes dieron la conformidad), `GENERATOR_KEY_PLATFORM_ONLY` (`generator_key`: una persona fija, cambia o vacía la clave de una tarea, también con un `PUT` que la omite; reenviarla tal como se leyó no es cambiarla), `OBJECT_NOT_READABLE` (quien escribe no lee un objeto que la regla necesita: `project_party`, `project`, `engagement_participant`, `engagement_question` o `area_of_influence`; desde F3 también `commitment`, `engagement`, `exploration_campaign`, `delivery`, `evidence`, `commitment_dependency` o `stakeholder`, y `agreement_land_parcel` al activar un acuerdo; `field` es el objeto) |
+| `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios, o uno opcional de un objeto `requiresReason`, y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `FROZEN_MEMBERS` (los miembros de una versión `approved` o `superseded` del área de influencia no cambian; `field`: `area_of_influence`), `FROZEN_AREA` (su proyecto, tipo y número de versión tampoco; `field` es el campo que cambia), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED`, `PROFILE_INCOMPLETE` (`caracterizar` exige `stakeholder_type`, `stakeholder_scope`, `inclusion_reason` y `owner_user_id`; `field` es el primero que falta), `DUPLICATE_RULE` (`stakeholder_type`: ya hay una fila de `prioritization_rule` para cualquier tipo de actor con ese proyecto, grupo de influencia, postura y ámbito). Desde F3: `WORKSHOP_COMMITMENT_BLOCKED` (`origin_engagement`: el proyecto no admite compromisos de talleres ni reuniones informativas), `DUE_DATE_RESCHEDULE_ONLY` (`due_date`: desde `approved`, también en `cancelled`, la fecha solo cambia con una reprogramación), `DEPENDENCY_CYCLE` y `DEPENDENCY_GRAPH_TOO_LARGE` (`depends_on`: la dependencia cerraría un ciclo, o encadena más de 500 compromisos y no se puede verificar), `PROJECT_MISMATCH` (el campo de un compromiso o de un candidato que apunta a un registro de otro proyecto), `DELIVERY_FROZEN` (`commitment`: la entrega de un compromiso cumplido, verificado, cerrado o cancelado no cambia ni se vincula), `FIELD_REQUIRED` también con los campos de la matriz de compromisos y el responsable (el primero que falta), `resource_type` al registrar el cumplimiento, `signed_date`, `effective_date` y `community` de un acuerdo, y `duplicate_of`; `STAKEHOLDER_REQUIRED` (`commitment_stakeholder`), `SENIOR_APPROVAL_REQUIRED` (`origin_engagement` si nace de una mesa de diálogo, `commitment_stakeholder` si lo pide un grupo de interés POLITICO), `INTERNAL_APPROVAL_REQUIRED` (`project`), `SUPPORT_CAP_EXCEEDED` y `CAP_DATA_INVALID` (`exploration_campaign`: la aprobación supera el tope de la campaña, o un monto guardado de la campaña no es válido y el tope no se puede sumar), `DELIVERY_REQUIRED` (`delivery`), `EVIDENCE_REQUIRED` (`evidence_delivery`), `BLOCKING_DEPENDENCY` (`commitment_dependency`), `LAND_PARCEL_REQUIRED` (`agreement_land_parcel`), `ASSEMBLY_REQUIRED` (`assembly_engagement`) y, por los comandos de evidencias, `EVIDENCE_IMMUTABLE` (`file`, `replaces` o `import_batch_id`), `EVIDENCE_NOT_DELETABLE` (`record`) y `EVIDENCE_FILE_IN_USE` (`file`: el archivo ya es de otra evidencia) |
 
 La emisión manual de un documento (`POST /api/objects/{object}/records/{id}/documents/{type}`, §2) no es una escritura
-de `RecordService`, pero archiva el documento vigente del tipo: `IssueDocumentFilter` (`sgspe.scope`) le pide lo mismo que
-a cambiar el registro, UPDATE sobre el objeto, una asignación vigente al proyecto del registro y, en los objetos que
-declaran `EDIT_ANY`, esa acción o haber creado el registro (rulings P60 y P62, `security.md` §11.4), con la misma forma de
-error: `403` `ACTION_REQUIRED` (`record`: falta UPDATE), `OBJECT_NOT_READABLE` (`record`: quien emite no lee el registro),
+de `RecordService`, pero archiva el documento vigente del tipo: `IssueDocumentFilter` (`sgspe.scope`) le pide lo mismo
+que a cambiar el registro, UPDATE sobre el objeto, una asignación vigente al proyecto del registro y, en los objetos que
+declaran `EDIT_ANY`, esa acción o haber creado el registro (`security.md` §11.4), con la misma forma de error: `403`
+`ACTION_REQUIRED` (`record`: falta UPDATE), `OBJECT_NOT_READABLE` (`record`: quien emite no lee el registro),
 `NOT_ASSIGNED` (el campo de alcance: sin asignación vigente, o el proyecto no se resuelve) y `NOT_OWN_RECORD` (`record`:
-sin `EDIT_ANY`, el registro es de otra persona). Un registro que no existe responde `403` `OBJECT_NOT_READABLE` a quien no
-es `ADMIN`, igual que uno que no puede leer, para no revelar si existe; `ADMIN` recibe el `404` de wasichai.
+sin `EDIT_ANY`, el registro es de otra persona). Un registro que no existe responde `403` `OBJECT_NOT_READABLE` a quien
+no es `ADMIN`, igual que uno que no puede leer, para no revelar si existe; `ADMIN` recibe el `404` de wasichai.
 
-`HAS_DEPENDENTS` rige para todos, `ADMIN` incluido, porque la base rechazaría el borrado igual: wasichai declara cada relación
-obligatoria NOT NULL con ON DELETE SET NULL y, sin esta guarda, borrar el padre respondería 500 (UPS-20). Borrar primero a los
-dependientes lo resuelve. `STATE_MISMATCH` es un código de `transition-checks` (§4.1) y del comando de evaluaciones (§4.3): la transición real por la API
-genérica la rechaza wasichai. Esta tabla crece con cada guarda nueva.
+`HAS_DEPENDENTS` rige para todos, `ADMIN` incluido, porque la base rechazaría el borrado igual: wasichai declara cada
+relación obligatoria NOT NULL con ON DELETE SET NULL y, sin esta guarda, borrar el padre respondería 500 (UPS-20).
+Borrar primero a los dependientes lo resuelve. Desde F3 cuenta también el vínculo opcional de un objeto `requiresReason`
+(`commitment` y `agreement`: por ejemplo `commitment.agreement_clause`, `commitment.origin_engagement` o
+`agreement.assembly_engagement`): ahí la base no falla, pero el borrado cambiaría ese registro sin motivo ni auditoría.
+Para borrar una cláusula o una interacción que un compromiso cita, primero se vacía el vínculo en el compromiso, con un
+cambio con motivo. Lo que apunta un objeto `appendOnly` no se borra nunca, porque ese registro no se puede cambiar: un
+cargo que cita una evaluación (`stakeholder_assessment.position`) o un proyecto que cita `export_log`. Ahí responde
+antes wasichai con su propio `409`, sin código ni `errors[]`: solo el `detail`, que nombra el objeto y el campo que lo
+apuntan. Un cargo así se da por terminado con `end_date` y su `position_status`, no se borra. `STATE_MISMATCH` es un
+código de `transition-checks` (§4.1), del comando de evaluaciones (§4.3) y de los comandos de F3 (§4.5): la transición
+real por la API genérica la rechaza wasichai. Esta tabla crece con cada guarda nueva.
 
 Los comandos de §4 usan la misma forma de error y agregan sus propios códigos. `POST /api/sgspe/stakeholders/{id}/assessments`
 (§4.3) responde `403` `ROLE_REQUIRED` (quien evalúa no tiene el rol de la transición de WF-B, que también se exige al
@@ -211,6 +223,20 @@ Las exportaciones (§4.13) responden `400` `INVALID_DISCLOSURE_LEVEL` (`disclosu
 vigente), `404` `EXPORT_NOT_FOUND` (`kind`) y `409` `CATALOGUE_UNAVAILABLE` (el campo cuyo catálogo está vacío, en `PUBLICO`). El detalle
 está en §4.13.
 
+Los comandos de F3 (§4.5 y §4.9) responden además `400` `SAME_DUE_DATE` (`attributes.new_due_date`), `FIELD_REQUIRED`
+(`attributes.<campo>`, o `due_date` si el compromiso no tiene fecha que reprogramar), `FIELD_NOT_EDITABLE`
+(`attributes.<campo>`), `INVALID_LINK` (`links[i].object` u `object`), `REASON_REQUIRED` (`reason`: un vínculo de
+evidencia con un objeto `requiresReason`), `INVALID_NUMBER` y `OUT_OF_RANGE` (`attributes.delivered_amount`: un monto de
+más de 15 dígitos enteros, de más de 4 decimales o negativo), `DUPLICATE_NOT_FOUND` y `DUPLICATE_OTHER_PROJECT`
+(`duplicateOf`); `403` `PERSON_REQUIRED` (una cuenta de servicio no decide sobre un candidato), `ROLE_REQUIRED` (falta
+el rol de `accept` o de `mark_duplicate`) y `ACTION_REQUIRED` (`classification`: descargar una evidencia restringida sin
+`DOWNLOAD_RESTRICTED`); y `409` `STATE_MISMATCH` (`state`; `commitment` si la entrega no es de un compromiso). El motivo
+que falta en una reprogramación, una entrega, una aceptación o un duplicado es un `400` de validación sobre `reason`,
+con texto libre. Una evidencia de `evidence[]` que no existe en el alta de una entrega responde el `404` de wasichai,
+sin código, y no escribe nada. La idempotencia (§3.5) responde `400` de validación sobre `Idempotency-Key` (mal
+formada), `409` `IDEMPOTENCY_IN_FLIGHT` con `Retry-After: 1` y `422` `IDEMPOTENCY_KEY_REUSED`, los dos con `field`
+`Idempotency-Key`.
+
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:
 
@@ -237,32 +263,38 @@ contrato las fijan para que un cambio de wasichai avise:
 
 ### 3.5 Idempotencia (`Idempotency-Key`)
 
-- Los `POST` de `/api/sgspe/**` que crean registros admiten `Idempotency-Key` (marca `IK` en las tablas de §4)
-  (RNF-INT-002). El portal genera una clave por acción del usuario, de 1 a 64 caracteres, y la repite en cada reintento, como
-  en caja.
-- La clave se honra desde F3, cuando llega la tabla `idempotency_key`. En F2, los endpoints aceptan la cabecera y la
-  ignoran: el portal la envía desde F2 y no cambia cuando empieza a honrarse.
-- Primera petición con una clave: se procesa y responde como siempre (`201`, o `200` en un comando sin registro principal,
-  como la confirmación de una importación).
-- Reenvío con la misma clave y la misma petición (misma ruta y mismo SHA-256 del cuerpo): `200` sin escribir nada. La
-  respuesta se reconstruye releyendo, en su estado actual, los registros principales que guarda la clave (`created_object`
-  y `created_record_ids`) y los que la respuesta nombraba a partir de ellos, como el compromiso de una reprogramación. En la
-  confirmación de una importación, se recuentan por `import_batch_id` los registros que escribió; las filas sin cambio o
-  rechazadas no dejan registro y la repetición no las informa. La tabla no guarda nada más (ASM-065).
-- Las partes calculadas de una respuesta que la relectura no reconstruye se vuelven a calcular si se puede y, si no, la
-  repetición las omite. Por ejemplo, `distanceM` de `POST /api/sgspe/project-components` se recalcula con la versión nueva
-  y la anterior releídas, y los `warnings[]` de una evaluación (`POST /api/sgspe/stakeholders/{id}/assessments`), que
-  dependían del estado de ese momento, se omiten.
-- La misma clave con otra petición: `409` que nombra `Idempotency-Key`.
-- Dos peticiones simultáneas con la misma clave se serializan con `ClusterLock.withXactLock` sobre la clave: la segunda espera
-  y recibe el `200` del reenvío [WAS-ADR-0039].
-- La clave vale por organización y usuario: la de un usuario nunca choca con la de otro.
-- Sin la cabecera no hay deduplicación. La API genérica de wasichai no conoce `Idempotency-Key`, así que sus altas no son
-  idempotentes hasta que exista UPS-18; los únicos compuestos del modelo evitan los duplicados que importan [WAS-ADR-0037].
-- Las claves se guardan en la tabla fija `idempotency_key` del esquema `sgspe` (organización, usuario, clave, ruta, SHA-256
-  del cuerpo, objeto e identificadores de los registros creados y fecha), escrita en la misma transacción que el comando y
-  purgada por JOB-08 después de un plazo configurable (ASM-065) [domain-model §4.10]. No se guarda la clave en un campo de
-  cada registro creado, como hace caja con su recibo, porque agregaría un campo a todos los objetos que crean los comandos.
+Desde F3, con el contrato de la cabecera nativa de wasichai (WAS-ADR-0058, decisión D3, ASM-065):
+
+- **Dónde.** La API genérica la honra en `POST /api/objects/{object}/records` (tabla nativa `idempotency_keys`). Los
+  comandos de `/api/sgspe/**` marcados `IK` en §4 la honran con la tabla fija `sgspe.idempotency_key`
+  ([database-model.md §22](database-model.md)). El portal genera una clave por acción del usuario y la repite en cada
+  reintento. Las dos tablas son espacios de claves separados: la misma clave usada en un alta genérica y en un comando
+  corre las dos peticiones, así que una clave nunca se reutiliza entre acciones.
+- **Forma.** De 1 a 128 caracteres ASCII imprimibles; otra cosa es un `400` sobre `Idempotency-Key`. La clave vale por
+  organización y usuario: la de otra persona es otra clave.
+- **Primera petición.** El comando corre como sin clave (permisos, reglas, guardas, auditoría y listeners) y su
+  respuesta se guarda con la clave en la misma transacción: sin comando no hay clave. Un comando que falla no deja
+  clave: se corrige y se reenvía con la misma. La respuesta guardada tiene un tope de 2 MiB; un comando que respondiera
+  más fallaría con `500` y no escribiría nada (un comando responde uno o dos registros, muy por debajo).
+- **Reenvío con la misma petición** (mismo método, ruta y cuerpo, con las claves ordenadas: el orden y los espacios no
+  cuentan): la respuesta guardada, byte por byte, con su estado, su `ETag` y su `Location`, y la cabecera
+  `Idempotent-Replayed: true`. No corre nada, ni permisos ni guardas: devuelve a quien llama su propia respuesta, tal
+  como la recibió, aunque el registro haya cambiado después o quien llama haya dejado de leer alguno de sus campos.
+- **La misma clave con otra petición:** `422` `IDEMPOTENCY_KEY_REUSED` sobre `Idempotency-Key`.
+- **En curso.** Mientras la primera corre, otra con la misma clave recibe `409` `IDEMPOTENCY_IN_FLIGHT` con
+  `Retry-After: 1`: el candado es de transacción y no espera, así que nunca retiene una conexión.
+- **Plazo.** `wasichai.idempotency.ttl` (24 h por defecto), el mismo para las dos tablas. Pasado el plazo la clave no
+  existe aunque la purga no haya pasado; JOB-08 borra cada día las vencidas de `sgspe.idempotency_key`. Hasta entonces
+  la tabla guarda la respuesta entera, con los campos restringidos que quien llamó podía leer (por ejemplo, `recipients`
+  y `conformity_by` de una entrega): es un límite aceptado (`security.md` §11.6).
+- **Sin `IK`.** La confirmación de una importación y el alta de componentes no la honran: son idempotentes por
+  conciliación (un reintento encuentra las filas `UNCHANGED` o responde `409 SAME_COORDINATES`), y envolverlos en la
+  transacción de la clave pondría dentro de ella las cuentas de PostGIS, que corren fuera de toda transacción. Las
+  exportaciones y las descargas no crean registros de negocio.
+- **ETag.** Un comando responde `ETag` con el `updatedAt` del registro que el portal sigue editando: el compromiso en
+  una reprogramación y en la aceptación de un candidato, la entrega en su alta y su corrección, la evidencia en su alta
+  y su cambio, el candidato al marcarlo como duplicado y el grupo de interés en una evaluación. El portal lo usa como el
+  próximo `If-Match`.
 
 ### 3.6 Concurrencia: precondición sobre `updatedAt`
 
@@ -343,12 +375,12 @@ decide ADR-0025 (Propuesto, se acepta en F2).
   escritura y aplica los permisos de campo (RQ-SEC-004).
 - El código nunca compara nombres de rol (RQ-SEC-005). Cuando un comando aplica una transición, `WorkflowService` exige además
   el rol de esa transición, que fija `workflows.md`.
-- Las escrituras sobre objetos de un proyecto pasan por `ProjectScopeGuard`: fuera de las asignaciones de quien llama, `403`.
-  La emisión manual de un documento pasa por `IssueDocumentFilter`, que además exige UPDATE sobre el objeto (ruling P60,
-  §3.3). Las consultas propias aplican el mismo alcance de lectura que la API genérica según la decisión pendiente
-  CON-041, con la recomendación A (lectura a nivel de tenant y escritura acotada por `project_assignment` en el MVP; la
-  extensión UPS-01 antes de la producción con varios proyectos), y todas aceptan `project` para acotar (RQ-SEC-006,
-  GAP-025).
+- Las escrituras sobre objetos de un proyecto pasan por `ProjectScopeGuard`: fuera de las asignaciones de quien llama,
+  `403`. La emisión manual de un documento pasa por `IssueDocumentFilter`, que además exige UPDATE sobre el objeto y,
+  con `EDIT_ANY`, que el registro sea propio (§3.3). Las consultas propias aplican el mismo alcance de lectura que la
+  API genérica según la decisión pendiente CON-041, con la recomendación A (lectura a nivel de tenant y escritura
+  acotada por `project_assignment` en el MVP; la extensión UPS-01 antes de la producción con varios proyectos), y todas
+  aceptan `project` para acotar (RQ-SEC-006, GAP-025).
 - Ningún rol usa `own_records_only`. `FIELD_AGENT` solo cambia o borra lo que creó porque no tiene `EDIT_ANY`, y eso lo
   aplica `EditAnyGuard` (`sgspe.scope`) con el permiso, nunca con el nombre del rol; sí agrega participantes u
   observaciones a las interacciones y visitas que puede leer (RQ-SEC-008, ASM-069).
@@ -373,13 +405,18 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
 
 ### 3.10 Archivos
 
-- Las subidas usan `multipart/form-data`: una parte `file` y, si hace falta, partes JSON (`attributes`, `links`). El tamaño
-  máximo y el tiempo de proceso son configurables; las importaciones corren en una carpeta temporal con control de rutas
-  dentro de los ZIP (RQ-SEC-020, ASM-050). En F2, `sgspe.territory.import.*`: `max-bytes` (20 MB), `max-rows` (10 000),
-  `timeout` (60 s, lectura y validación) y `max-concurrent` (4 importaciones a la vez); Spring guarda la parte de archivo
-  en disco con su propio tope (`spring.webflux.multipart.max-disk-usage-per-part`, 20 MB, con `max-parts` 8), que responde
-  igual (400 `FILE_TOO_LARGE`; un campo de texto de más de 1 MB o encabezados de parte de más de 10 KB, `PART_TOO_LARGE`;
+- Las importaciones usan `multipart/form-data` con una parte `file` y sus campos (§4.2). El tamaño máximo y el tiempo de
+  proceso son configurables; corren en una carpeta temporal con control de rutas dentro de los ZIP (RQ-SEC-020,
+  ASM-050). En F2, `sgspe.territory.import.*`: `max-bytes` (20 MB), `max-rows` (10 000), `timeout` (60 s, lectura y
+  validación) y `max-concurrent` (4 importaciones a la vez); Spring guarda la parte de archivo en disco con su propio
+  tope (`spring.webflux.multipart.max-disk-usage-per-part`, 20 MB, con `max-parts` 8), que responde igual (400
+  `FILE_TOO_LARGE`; un campo de texto de más de 1 MB o encabezados de parte de más de 10 KB, `PART_TOO_LARGE`;
   demasiadas partes, `INVALID_MULTIPART`, ambos sobre el campo `multipart`).
+- Los archivos de una evidencia los sube la ruta de wasichai-files (`POST /api/objects/evidence/files/file`, parte
+  `file`), con el tope y los tipos del campo `evidence.file` (`wasichai.files.max-bytes`, 20 MB, el mismo tope de Spring
+  por parte, así que pasarse es siempre `400` `FILE_TOO_LARGE` sobre `file`), el tipo detectado por sus bytes y el
+  SHA-256 calculado en el servidor (WAS-ADR-0061). El descriptor del archivo (`{ id, name, contentType, size, sha256 }`)
+  lo lee todo lector del registro, también el nombre original (UPS-24, ASM-093).
 - La escritura de la confirmación no está bajo `timeout`: corre después, dentro del candado y de una sola transacción,
   que retienen una conexión del pool hasta el commit. Su cota es `max-rows`: cada fila son unas pocas escrituras con sus
   guardas (del orden de milisegundos con la base local, una estimación sin medir), así que una hoja de 10 000 filas
@@ -387,15 +424,16 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
   `POST …/confirm` más tiempo que a las demás rutas (al menos 120 s); si la corta, la transacción se revierte entera y no
   queda nada escrito. Una hoja más grande se parte en varias importaciones.
 - Las descargas son en streaming, con `Content-Type`, `Content-Disposition` y, para lo inmutable (evidencias y versiones
-  emitidas), `ETag` igual al SHA-256 del archivo.
+  emitidas), `ETag` igual al SHA-256 del archivo. Las de evidencias son siempre `attachment`, con
+  `X-Content-Type-Options: nosniff` y `Cache-Control: no-store`.
 - Ninguna URL externa se descarga en el servidor (ASM-050).
 
 ## 4. Endpoints de `/api/sgspe/**` por bounded context
 
-Columnas: **Encabezados** usa `IK` (admite `Idempotency-Key`, §3.5, que se honra desde F3), `IM` (exige `If-Match`,
-§3.6), `IM?` (lo admite sin exigirlo) y `CR` (exige `X-Change-Reason`, §3.7). **Fase** es la del roadmap; una ruta de una
-fase futura no existe antes. Las transiciones que no son de comando, las altas y las ediciones de objetos que no son
-`apiOnly` usan la API genérica (§2).
+Columnas: **Encabezados** usa `IK` (honra `Idempotency-Key`, §3.5), `IM` (exige `If-Match`, §3.6), `IM?` (lo admite sin
+exigirlo) y `CR` (exige `X-Change-Reason`, §3.7). **Fase** es la del roadmap; una ruta de una fase futura no existe
+antes. Las transiciones que no son de comando, las altas y las ediciones de objetos que no son `apiOnly` usan la API
+genérica (§2).
 
 ### 4.1 Transversal (`sgspe.common`)
 
@@ -420,22 +458,42 @@ desconocido es 422 y una propiedad desconocida del cuerpo, 400.
 Las reglas de cada transición corren aunque el registro esté en otro estado, así que con `STATE_MISMATCH` pueden salir también
 bloqueos hipotéticos.
 
+**Las reglas de un compromiso** corren en un orden fijo: las de su aprobación primero D8 (`approve_direct`), después D1
+y D2, D3 y D4, D5 y al final D7, la única que toma un candado; las del cumplimiento, D9, D10 y D11. La escritura real se
+detiene en el primer bloqueo y la consulta los junta todos, en ese orden, sin tomar candados: si los datos cambian entre
+las dos, la escritura puede responder otro código de la lista. `mark_duplicate` de un candidato sin `duplicate_of`
+informa siempre `FIELD_REQUIRED`: la transición real la aplica el comando de duplicado (§4.5), que escribe
+`duplicate_of` antes, así que el portal no deshabilita el botón por ese bloqueo.
+
 | Código | Tipo | Estado de la escritura real | Cuándo |
 |---|---|---|---|
 | `STATE_MISMATCH` | bloqueo | 409 | El registro no está en el estado de origen (`from`) de la transición |
-| `COMMAND_ONLY` | bloqueo | 403 | La transición es de comando: solo la aplica su endpoint (`assess` de WF-B; `approve` y `supersede` de WF-O) |
+| `COMMAND_ONLY` | bloqueo | 403 | La transición es de comando: solo la aplica su endpoint (`assess` de WF-B; `approve` y `supersede` de WF-O; `accept` de WF-K) |
 | `REASON_REQUIRED` | advertencia (`field`: `reason`) | 400 | La transición exige motivo (`X-Change-Reason`): pídalo antes de confirmar |
 | `NOT_ASSIGNED` | bloqueo | 403 | Quien consulta, si no es ADMIN, no tiene una asignación vigente al proyecto del registro |
-| `ACTION_REQUIRED` | bloqueo | 403 | `approve` de un proyecto exige la acción declarada `APPROVE` además del rol de la transición |
+| `ACTION_REQUIRED` | bloqueo (`field`: `record` en un compromiso) | 403 | `approve` de un proyecto exige la acción declarada `APPROVE` además del rol de la transición; aprobar un compromiso sin `APPROVE` (D3) o verificarlo sin `VERIFY` (D11) |
 | `WORKING_CRS_REQUIRED` | bloqueo (`field`: `working_crs`) | 409 | `approve` o `resume` de un proyecto sin `working_crs`, con `policy_activation_preconditions` activa |
 | `PARTY_REQUIRED` | bloqueo (`field`: `project_party`) | 409 | `approve` o `resume` de un proyecto sin una parte CLIENTE u OPERADOR, con la misma política activa |
 | `NOT_OWN_RECORD` | bloqueo | 403 | El objeto declara `EDIT_ANY`, quien consulta no lo tiene y no creó el registro |
 | `PROFILE_INCOMPLETE` | bloqueo (`field`: el primer campo que falta) | 409 | `profile` de un grupo de interés sin `stakeholder_type`, `stakeholder_scope`, `inclusion_reason` o `owner_user_id` |
-| `FIELD_REQUIRED` | bloqueo (`field`: `scheduled_at`, `held_at`, `minutes` o `cancel_reason`) | 409 | La transición de una interacción necesita ese campo: programar o reprogramar, registrar la realización, el acta o cancelar |
+| `FIELD_REQUIRED` | bloqueo (`field`: `scheduled_at`, `held_at`, `minutes` o `cancel_reason`; desde F3, el primer campo de la matriz o del responsable que falta, `resource_type`, `signed_date`, `effective_date`, `community` o `duplicate_of`) | 409 | La transición de una interacción necesita ese campo: programar o reprogramar, registrar la realización, el acta o cancelar. Desde F3: `submit` y las aprobaciones de un compromiso (D1, D2); `register_fulfillment` sin tipo de recurso (D9); la activación de un acuerdo; `mark_duplicate` de un candidato |
 | `ATTENDANCE_REQUIRED` | bloqueo (`field`: `attended`) | 409 | Registrar la realización sin ningún participante con `attended` |
 | `PENDING_QUESTIONS` | bloqueo (`field`: `engagement_question`) | 409 | `close` o `close_light` con preguntas sin respuesta (RN-ENG-005) |
 | `MINUTES_REQUIRED` | bloqueo (`field`: `engagement_type`) | 409 | `close_light` de una interacción cuya política exige acta (RN-ENG-004) |
-| `OBJECT_NOT_READABLE` | bloqueo (`field`: el objeto que no lee) | 403 | Quien consulta no lee `project_party` (no se verifica `PARTY_REQUIRED`), `engagement_participant` o `engagement_question` (asistencia y preguntas pendientes), o `project` en `close_light` (no se verifica la política de actas: lectura estricta) |
+| `OBJECT_NOT_READABLE` | bloqueo (`field`: el objeto que no lee) | 403 | Quien consulta no lee `project_party` (no se verifica `PARTY_REQUIRED`), `engagement_participant` o `engagement_question` (asistencia y preguntas pendientes), o `project` en `close_light` (no se verifica la política de actas: lectura estricta). Desde F3, lo que leen las reglas de un compromiso o de un acuerdo: `commitment`, `engagement`, `project`, `exploration_campaign`, `stakeholder`, `delivery`, `evidence`, `commitment_dependency` o `agreement_land_parcel`; una regla que no puede leer nunca deja pasar |
+| `STAKEHOLDER_REQUIRED` | bloqueo (`field`: `commitment_stakeholder`) | 409 | Un compromiso sin solicitante (D1) |
+| `SEGREGATION_OF_DUTIES` | bloqueo (`field`: `record` u `owner_user_id`) | 403 | Quien aprueba registró el compromiso (D4); quien verifica es su responsable (D11) |
+| `SENIOR_APPROVAL_REQUIRED` | bloqueo (`field`: `origin_engagement` si nace de una mesa de diálogo, `commitment_stakeholder` si lo pide un grupo de interés POLITICO) | 409 | `approve` o `approve_direct` de un compromiso que exige nivel superior (D5, RN-ENG-002) |
+| `INTERNAL_APPROVAL_REQUIRED` | bloqueo (`field`: `project`) | 409 | `approve_direct` con la aprobación interna activa (D8) |
+| `SUPPORT_CAP_EXCEEDED` | bloqueo, o advertencia con `policy_cap_blocks_approval` en falso o para quien tiene `APPROVE_OVER_CAP` (`field`: `exploration_campaign`) | 409 | La aprobación supera el tope de la campaña (D7) |
+| `CAP_DATA_INVALID` | Como `SUPPORT_CAP_EXCEEDED` (`field`: `exploration_campaign`) | 409 | Un monto guardado de la campaña (el tope o el de otro compromiso) no es un monto válido: se omite de la suma y la aprobación no puede comparar el tope |
+| `CAP_OTHER_CURRENCY` | advertencia (`field`: `currency`) | — | Hay montos de la campaña en otra moneda, que no se suman al tope, o la campaña no tiene moneda y el tope no se compara |
+| `DELIVERY_REQUIRED` | bloqueo (`field`: `delivery`) | 409 | `register_fulfillment` sin una entrega con conformidad y quiénes la dieron (D9) |
+| `EVIDENCE_REQUIRED` | bloqueo (`field`: `evidence_delivery`) | 409 | A la entrega con conformidad le falta la evidencia de su tipo de recurso, del mismo proyecto del compromiso (D9) |
+| `FIELD_NOT_READABLE` | bloqueo (`field`: `delivery.conformity_by`) | 403 | Quien consulta no lee quiénes dieron la conformidad, y D9 no se puede verificar |
+| `BLOCKING_DEPENDENCY` | bloqueo (`field`: `commitment_dependency`) | 409 | Una dependencia bloqueante sigue abierta: el compromiso del que depende no está cumplido, verificado, cerrado ni cancelado (D10) |
+| `LAND_PARCEL_REQUIRED` | bloqueo (`field`: `agreement_land_parcel`) | 409 | Un permiso de uso de terreno o una servidumbre sin predios |
+| `ASSEMBLY_REQUIRED` | bloqueo (`field`: `assembly_engagement`) | 409 | Una autorización de asamblea sin la interacción de tipo ASAMBLEA |
 
 Las reglas de los demás contextos suman sus códigos a esta tabla junto con su guarda.
 
@@ -446,9 +504,9 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/territory/imports` | Vista previa de una importación: lee el archivo de coordenadas o geometrías, lo transforma a 4326, lo valida contra PostGIS y lo concilia con lo registrado; no escribe nada; para `project_component` y `mining_concession` (que al confirmar se vincula al proyecto), quien no es `ADMIN` y no tiene una asignación vigente al proyecto recibe `403` `NOT_ASSIGNED` (`project`) antes de leer el archivo; los predios, que son del tenant, no la exigen | CREATE y UPDATE sobre el objeto destino; CREATE sobre `evidence` desde F3 | multipart: `file`, `target` (`project_component`, `land_parcel` o `mining_concession`), `project`, `sourceCrs` (valor del catálogo "CRS de origen"), `columns` (json `{clave: encabezado}`; claves del portal en camelCase como `drillType` o `depth`, o campos del destino; un valor que empieza con `=` es una constante; sin tipo de componente, `SONDAJE`) → `200 { importBatchId, sha256, target, sourceCrs, rows, valid, invalid[], differences[], outOfZone[] }`, sin geometrías; `differences[]` trae una entrada por fila válida con `outcome` `CREATE`, `UNCHANGED`, `NEW_VERSION` o `UPDATE`; con `Accept` de XLSX, el reporte de diferencias como archivo (hojas Diferencias, Rechazadas y Fuera de zona) | — | F2 (XLSX, CSV, GeoJSON, latitud y longitud); F6 (formatos por GDAL) |
-| `POST` | `/api/sgspe/territory/imports/{importBatchId}/confirm` | Confirma: recibe otra vez el mismo archivo y los mismos campos con las decisiones fila por fila (el servidor no guarda nada entre las dos llamadas), exige el SHA-256 de la vista previa, repite la validación y escribe todo en una transacción con candado por destino (y por proyecto en los componentes) y el motivo `importación <id>`; desde F3 guarda el original como `evidence` | Los mismos de la vista previa | multipart: `file`, `target`, `project`, `sourceCrs`, `columns`, `sha256` y `decisions` (json `[{ "row": 7, "action": "DISCARD" }]`, `action` `APPLY` o `DISCARD`; una fila sin decisión aplica su acción propuesta, salvo una de `outOfZone[]`, que solo entra con `APPLY`; una decisión sobre una fila que no es válida es `400`) → `200 { created, newVersions, updated, unchanged, rejected, evidenceId }` | `IK` (desde F3) | F2 |
-| `POST` | `/api/sgspe/project-components` | Alta manual de un componente o versión nueva si el código ya existe con otras coordenadas; nunca sobrescribe | CREATE y UPDATE sobre `project_component` | `{ attributes, geometries }` → `201 { component, previousVersion, distanceM }`; las mismas coordenadas (menos de 1 cm) son `409 SAME_COORDINATES`; una geometría que PostGIS no procesa, `400 INVALID_GEOMETRY`; un proyecto que falta es `400 FIELD_REQUIRED` y uno que no es un UUID, `400 INVALID_VALUE`; sin ninguna geometría o con más de una, `400 GEOMETRY_REQUIRED` (`geometries`); un número que no lo es, `400 INVALID_NUMBER`, y fuera de rango, `400 OUT_OF_RANGE` (`attributes.<campo>`); un proyecto que no existe o que no puede leer, `400 PROJECT_NOT_FOUND`; si la versión vigente no tiene geometría, `409 NO_CURRENT_GEOMETRY` (`geometries`), y si otra escritura registró la misma versión mientras tanto, `409 VERSION_CONFLICT` (`attributes.code`); sin asignación vigente al proyecto, `403 NOT_ASSIGNED` antes de cualquier cuenta de PostGIS; toma el mismo candado por proyecto que la confirmación de una importación | `IK` (desde F3) | F2 |
+| `POST` | `/api/sgspe/territory/imports` | Vista previa de una importación: lee el archivo de coordenadas o geometrías, lo transforma a 4326, lo valida contra PostGIS y lo concilia con lo registrado; no escribe nada; para `project_component` y `mining_concession` (que al confirmar se vincula al proyecto), quien no es `ADMIN` y no tiene una asignación vigente al proyecto recibe `403` `NOT_ASSIGNED` (`project`) antes de leer el archivo; los predios, que son del tenant, no la exigen | CREATE y UPDATE sobre el objeto destino | multipart: `file`, `target` (`project_component`, `land_parcel` o `mining_concession`), `project`, `sourceCrs` (valor del catálogo "CRS de origen"), `columns` (json `{clave: encabezado}`; claves del portal en camelCase como `drillType` o `depth`, o campos del destino; un valor que empieza con `=` es una constante; sin tipo de componente, `SONDAJE`) → `200 { importBatchId, sha256, target, sourceCrs, rows, valid, invalid[], differences[], outOfZone[] }`, sin geometrías; `differences[]` trae una entrada por fila válida con `outcome` `CREATE`, `UNCHANGED`, `NEW_VERSION` o `UPDATE`; con `Accept` de XLSX, el reporte de diferencias como archivo (hojas Diferencias, Rechazadas y Fuera de zona) | — | F2 (XLSX, CSV, GeoJSON, latitud y longitud); F6 (formatos por GDAL) |
+| `POST` | `/api/sgspe/territory/imports/{importBatchId}/confirm` | Confirma: recibe otra vez el mismo archivo y los mismos campos con las decisiones fila por fila (el servidor no guarda nada entre las dos llamadas), exige el SHA-256 de la vista previa, repite la validación y escribe todo en una transacción con candado por destino (y por proyecto en los componentes) y el motivo `importación <id>`. Guardar el original como `evidence` (ASM-060) sigue pendiente: `evidenceId` llega `null` | Los mismos de la vista previa | multipart: `file`, `target`, `project`, `sourceCrs`, `columns`, `sha256` y `decisions` (json `[{ "row": 7, "action": "DISCARD" }]`, `action` `APPLY` o `DISCARD`; una fila sin decisión aplica su acción propuesta, salvo una de `outOfZone[]`, que solo entra con `APPLY`; una decisión sobre una fila que no es válida es `400`) → `200 { created, newVersions, updated, unchanged, rejected, evidenceId }` | — | F2 |
+| `POST` | `/api/sgspe/project-components` | Alta manual de un componente o versión nueva si el código ya existe con otras coordenadas; nunca sobrescribe | CREATE y UPDATE sobre `project_component` | `{ attributes, geometries }` → `201 { component, previousVersion, distanceM }`; las mismas coordenadas (menos de 1 cm) son `409 SAME_COORDINATES`; una geometría que PostGIS no procesa, `400 INVALID_GEOMETRY`; un proyecto que falta es `400 FIELD_REQUIRED` y uno que no es un UUID, `400 INVALID_VALUE`; sin ninguna geometría o con más de una, `400 GEOMETRY_REQUIRED` (`geometries`); un número que no lo es, `400 INVALID_NUMBER`, y fuera de rango, `400 OUT_OF_RANGE` (`attributes.<campo>`); un proyecto que no existe o que no puede leer, `400 PROJECT_NOT_FOUND`; si la versión vigente no tiene geometría, `409 NO_CURRENT_GEOMETRY` (`geometries`), y si otra escritura registró la misma versión mientras tanto, `409 VERSION_CONFLICT` (`attributes.code`); sin asignación vigente al proyecto, `403 NOT_ASSIGNED` antes de cualquier cuenta de PostGIS; toma el mismo candado por proyecto que la confirmación de una importación | — | F2 |
 | `PATCH` | `/api/sgspe/project-components/{id}` | Cambia campos descriptivos (estado, campaña) de un componente sin tocar coordenadas; `project_component` es `apiOnly` | UPDATE sobre `project_component` | `{ attributes }` → `200` registro; una geometría en el cuerpo es `400 COORDINATES_NOT_EDITABLE`, y `code`, `project` o un campo de origen, `400 FIELD_NOT_EDITABLE`; solo escribe lo que cambia (un PATCH sin cambios deja el `updatedAt` como estaba); una versión reemplazada (`superseded`) no se cambia: `409 COMPONENT_SUPERSEDED` (`attributes`), antes de comparar `If-Match`, porque RQ-GIS-010 «nunca sobrescribe» y las versiones anteriores son historia de solo consulta (`gis.md` §2.4 y §4.4); sin asignación vigente al proyecto, `403 NOT_ASSIGNED`, aunque el PATCH no cambie nada | `IM` | F2 |
 | `POST` | `/api/sgspe/areas-of-influence/{id}/approve` | Aprueba una versión del área de influencia y lleva la aprobada anterior del mismo proyecto y tipo a `superseded`, en una transacción | UPDATE sobre `area_of_influence`, acción declarada `APPROVE` y los roles de las transiciones de comando de WF-O | → `200 { approved, superseded }` | `IM`, `CR` | F2 |
 | `GET` | `/api/sgspe/areas-of-influence/{id}/summary` | Tamaño del área: superficie plana en ha, localidades por tipo de área y componentes que cruzan tierras comunales o privadas | READ sobre `area_of_influence` y los objetos resumidos | → `200 { areaHa, localitiesByType[], componentsOnCommunalLand, componentsOnPrivateLand }` | — | F6 |
@@ -558,7 +616,7 @@ Paquete `sgspe.stakeholder`. Las evaluaciones son inmutables: una corrección es
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/stakeholders/{id}/assessments` | Registra una evaluación: valida los indicadores de 1 a 5, calcula índices, grupo de influencia y prioridad, toma la evaluación anterior como línea base, actualiza los valores vigentes del grupo de interés (el último valor informado de cada uno) y, en la primera, lo lleva a `assessed` | CREATE sobre `stakeholder_assessment`, UPDATE sobre `stakeholder` (con acceso a `stance`) y el rol de la transición de WF-B a `assessed` | `{ attributes }` → `201 { assessment, stakeholder, warnings[] }` | `IK` (desde F3), `IM?`, `CR` | F2 |
+| `POST` | `/api/sgspe/stakeholders/{id}/assessments` | Registra una evaluación: valida los indicadores de 1 a 5, calcula índices, grupo de influencia y prioridad, toma la evaluación anterior como línea base, actualiza los valores vigentes del grupo de interés (el último valor informado de cada uno) y, en la primera, lo lleva a `assessed` | CREATE sobre `stakeholder_assessment`, UPDATE sobre `stakeholder` (con acceso a `stance`) y el rol de la transición de WF-B a `assessed` | `{ attributes }` → `201 { assessment, stakeholder, warnings[] }`, con `ETag` del grupo de interés | `IK`, `IM?`, `CR` | F2 |
 | `POST` | `/api/sgspe/stakeholders/{id}/assessments/preview` | Calcula índices, grupo y prioridad sin guardar nada, para revisar antes de una escritura inmutable | READ sobre `stakeholder`, `prioritization_rule` y `stakeholder_assessment` (lee el historial para la línea base; sin él, `403` sin código) | `{ attributes }` → `200 { computed, warnings[] }` | — | F2 |
 
 - El cálculo sigue RF-STK-008, RF-STK-009 y RF-STK-011 con los pesos y umbrales del proyecto (ASM-003, ASM-031); el ajuste
@@ -627,25 +685,40 @@ de esa interacción como escritura derivada [domain-model §7.2, §7.5].
 ### 4.5 BC-05 Compromisos
 
 Paquete `sgspe.commitment`. Aprobar, iniciar, bloquear, registrar el cumplimiento, verificar, cerrar y cancelar son
-transiciones de la API genérica, con sus guardas (`CommitmentWriteGuard`, `SupportPolicyGuard`) y su motivo (RF-COM-002);
-aprobar por encima del tope de la campaña exige además `APPROVE_OVER_CAP` (RN-INV-003).
+transiciones de la API genérica, con sus guardas (`CommitmentWriteGuard`, `SupportPolicyGuard`) y su motivo
+(RF-COM-002); aprobar por encima del tope de la campaña exige además `APPROVE_OVER_CAP` (RN-INV-003). Los comandos de
+esta tabla leen y escriben como quien llama; los que tocan un compromiso toman su candado (`commitment:<id>`), el mismo
+de `register_fulfillment`, las cancelaciones y JOB-01.
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/commitments/{id}/reschedules` | Reprograma: crea `commitment_reschedule` con la fecha anterior y la nueva y cambia `due_date`, en una transacción | CREATE sobre `commitment_reschedule`, UPDATE sobre `commitment` | `{ attributes: { new_due_date, reschedule_reason, agreed_with_stakeholder } }` → `201 { reschedule, commitment }` | `IK`, `IM`, `CR` | F3 |
-| `POST` | `/api/sgspe/commitments/{id}/deliveries` | Solo captura datos: crea la entrega con su conformidad y sus vínculos de evidencia (acta de entrega, fotos) en una transacción, y recalcula `executed_amount`; no cambia el estado del compromiso | CREATE sobre `delivery`, UPDATE sobre `commitment` y sobre las `evidence` vinculadas | `{ attributes, geometries, evidence[] }` → `201 { delivery, commitment }` | `IK`, `CR` | F3 |
-| `PATCH` | `/api/sgspe/deliveries/{id}` | Corrige los datos de una entrega (`delivery` es `apiOnly`) y recalcula los montos de su compromiso. Responde `409` si su compromiso está en `fulfilled`, `verified` o `closed`, o su aporte en `delivered` o `closed`, porque una transición ya se apoyó en esa entrega; un compromiso cumplido se corrige después de devolverlo a ejecución con `reopen_execution` | UPDATE sobre `delivery` y sobre su compromiso o aporte | `{ attributes }` → `200 { delivery, commitment }` | `IM`, `CR` | F3 |
-| `POST` | `/api/sgspe/commitment-candidates` | Alta humana de un candidato a compromiso, con su evidencia | CREATE sobre `commitment_candidate` | `{ attributes }` → `201` registro | `IK` | F3 |
-| `POST` | `/api/sgspe/commitment-candidates/{id}/accept` | Acepta: crea el compromiso en `draft` con los valores que la persona revisó, lo vincula (`created_commitment`) y lleva el candidato a `accepted` | UPDATE sobre `commitment_candidate`, CREATE sobre `commitment` y el rol de la transición de WF-K a `accepted` | `{ attributes }` → `201 { commitment, candidate }` | `IK`, `IM`, `CR` | F3 (candidatos de IA en F7) |
-| `POST` | `/api/sgspe/commitment-candidates/{id}/duplicate` | Marca el candidato como duplicado de un compromiso existente (`duplicate_of`) | UPDATE sobre `commitment_candidate` y el rol de la transición de WF-K a `duplicate` | `{ duplicateOf }` → `200 { candidate }` | `IM`, `CR` | F3 |
+| `POST` | `/api/sgspe/commitments/{id}/reschedules` | Reprograma: crea `commitment_reschedule` con la fecha anterior y la nueva y cambia `due_date`, en una transacción, solo en ejecución; `deadline_status` se recalcula en la misma transacción | CREATE sobre `commitment_reschedule`, UPDATE sobre `commitment` | `{ attributes: { new_due_date, reschedule_reason, agreed_with_stakeholder } }` → `201 { reschedule, commitment }`, con `ETag` del compromiso; fuera de `approved`, `in_progress` o `blocked`, `409 STATE_MISMATCH`; la misma fecha, `400 SAME_DUE_DATE`; un atributo que falta, `400 FIELD_REQUIRED` (`attributes.<campo>`), y un compromiso sin fecha que reprogramar, `400 FIELD_REQUIRED` (`due_date`) | `IK`, `IM`, `CR` | F3 |
+| `POST` | `/api/sgspe/commitments/{id}/deliveries` | Solo captura datos: crea la entrega, la vincula con sus evidencias (`evidence_delivery`) y recalcula `executed_amount`, en una transacción; no cambia el estado. El «Acta de entrega» emitida (AUT-03) espera a UPS-23: el acta firmada es una evidencia ACTA DE ENTREGA | CREATE sobre `delivery`, UPDATE sobre `commitment` y, si vincula, sobre `delivery` y `evidence` | `{ attributes, geometries?, evidence?: [<id de evidence>] }` (hasta 50 evidencias; `commitment` lo fija el comando) → `201 { delivery, commitment }`, con `ETag` de la entrega; fuera de ejecución, `409 STATE_MISMATCH`; `delivered_amount` que no es un número, `400 INVALID_NUMBER`, y fuera de cotas, `400 OUT_OF_RANGE` | `IK`, `CR` | F3 |
+| `PATCH` | `/api/sgspe/deliveries/{id}` | Corrige los datos de una entrega y recalcula el ejecutado de su compromiso; solo escribe lo que cambia, y el compromiso de la entrega no cambia nunca. Con el compromiso en `fulfilled`, `verified`, `closed` o `cancelled`, `409 DELIVERY_FROZEN`: una entrega que sostiene un cumplimiento se corrige después de `reopen_execution`, y la de un compromiso cancelado ya no cambia | UPDATE sobre `delivery` y sobre su compromiso | `{ attributes, geometries? }` → `200 { delivery, commitment }`, con `ETag` de la entrega | `IM`, `CR` | F3 |
+| `POST` | `/api/sgspe/commitment-candidates` | Alta humana de un candidato a compromiso (`ai_generated` en falso) | CREATE sobre `commitment_candidate` | `{ attributes }` (sin `ai_generated`, `confidence`, `ai_interaction`, `created_commitment` ni `duplicate_of`: `400`) → `201` registro; un vínculo a un registro de otro proyecto, `409 PROJECT_MISMATCH` | `IK` | F3 |
+| `POST` | `/api/sgspe/commitment-candidates/{id}/accept` | Acepta: crea el compromiso en `draft` con los valores que la persona revisó, lo guarda en `created_commitment` y lleva el candidato a `accepted`. El proyecto sale del candidato, y la interacción de origen también si no se manda; un `origin_engagement` en `null` explícito quita el origen heredado | UPDATE sobre `commitment_candidate`, CREATE sobre `commitment` y el rol de `accept`; una persona, nunca una cuenta de servicio (`403 PERSON_REQUIRED`) | `{ attributes }` (los del compromiso, sin `project`) → `201 { commitment, candidate }`, con `ETag` del compromiso; ya decidido, `409 STATE_MISMATCH`; sin el rol, `403 ROLE_REQUIRED`; el compromiso pasa por las reglas de alta (por ejemplo, `400 JUSTIFICATION_REQUIRED` si el origen es un taller) | `IK`, `IM`, `CR` | F3 (candidatos de IA en F7) |
+| `POST` | `/api/sgspe/commitment-candidates/{id}/duplicate` | Marca el candidato como duplicado de un compromiso del mismo proyecto (`duplicate_of`) | UPDATE sobre `commitment_candidate` y el rol de `mark_duplicate`; una persona | `{ duplicateOf }` → `200 { candidate }`, con `ETag` del candidato; un compromiso que no existe o no se lee, `400 DUPLICATE_NOT_FOUND`; de otro proyecto, `400 DUPLICATE_OTHER_PROJECT`; ya decidido, `409 STATE_MISMATCH` | `IM`, `CR` | F3 |
 
 - **Registrar la entrega no cumple el compromiso.** Después de capturarla, una persona aplica la transición explícita
-  `register_fulfillment` de WF-D por la API genérica, con motivo; `CommitmentWriteGuard` la rechaza si no existe una entrega
-  con conformidad y su evidencia o si queda una dependencia bloqueante abierta (RN-COM-001, RF-COM-004, ASM-009)
+  `register_fulfillment` de WF-D por la API genérica, con motivo; `CommitmentWriteGuard` la rechaza si no existe una
+  entrega con conformidad y su evidencia o si queda una dependencia bloqueante abierta (RN-COM-001, RF-COM-004, ASM-009)
   [domain-model §7.2]. Si el recurso es MATERIAL, la evidencia es el acta de entrega y la foto; si es NO MATERIAL,
   `conformity_given` verdadero, `conformity_by` informado y al menos una evidencia vinculada de tipo ACTA, CARTA u OTRO.
-- La fecha de vencimiento de un compromiso aprobado solo cambia con una reprogramación (RF-COM-003); el `PUT` genérico que la
-  toque es un `400`.
+  Solo cuenta la evidencia del mismo proyecto del compromiso: una de otro proyecto, o sin proyecto, no sostiene el
+  cumplimiento.
+- **Una entrega cumplida o cancelada no cambia.** Su corrección, sus vínculos de evidencia nuevos y sus desvínculos
+  responden `409 DELIVERY_FROZEN` mientras el compromiso esté en `fulfilled`, `verified`, `closed` o `cancelled`.
+- La fecha de vencimiento de un compromiso aprobado solo cambia con una reprogramación (RF-COM-003): desde `approved`,
+  también en `cancelled`, un cambio de `due_date` por la API genérica es un `409 DUE_DATE_RESCHEDULE_ONLY`.
+- **Un compromiso y un candidato solo apuntan a registros de su proyecto.** Cada relación hacia un objeto de proyecto
+  (`exploration_campaign`, `origin_engagement`, `agreement`, `agreement_clause` y las del candidato) se juzga al crear,
+  al cambiar el vínculo y al cambiar el proyecto: otra es un `409 PROJECT_MISMATCH` sobre ese campo. **Límite
+  conocido:** la regla mira desde el compromiso; mover el destino a otro proyecto (una campaña, un acuerdo o una
+  interacción) no se bloquea y deja el vínculo cruzado.
+- **Dependencias** (`commitment_dependency`, RF-COM-004): un compromiso no depende de sí mismo (`400 DEPENDENCY_SELF`)
+  ni cierra un ciclo (`409 DEPENDENCY_CYCLE`). La búsqueda recorre hasta 500 compromisos (más es
+  `409 DEPENDENCY_GRAPH_TOO_LARGE`). **Límite conocido:** lee como quien escribe, así que no ve las dependencias de
+  compromisos que no puede leer, y no se serializa: dos altas simultáneas, `a → b` y `b → a`, pueden pasar las dos.
 - Rechazar un candidato es una transición de la API genérica, con motivo; aceptarlo nunca: la transición a `accepted` solo
   llega desde su endpoint (`CommandTransitionGuard`, RF-COM-010).
 
@@ -711,32 +784,42 @@ comprobante (RF-INV-001) [domain-model §7.2]. Aprobar un aporte por encima del 
 
 ### 4.9 BC-12 Evidencias y documentos
 
-Paquete `sgspe.evidence`. `evidence` es `apiOnly` e inmutable en su archivo: clave, hash, tamaño y tipo no cambian, no se
-borra y se reemplaza con una versión nueva (RF-DOC-001). Los documentos emitidos de un registro usan la API de wasichai (§2).
+Paquete `sgspe.evidence`. El archivo es el campo `evidence.file` de wasichai-files (decisión D1, ADR-0014): se sube con
+la ruta del módulo y el registro, `apiOnly` e inmutable en su archivo, lo crea el comando de alta; no se borra
+(`409 EVIDENCE_NOT_DELETABLE`) y una corrección es una evidencia nueva con `replaces` (RF-DOC-001). Los EXIF los lee el
+portal y llegan como `captured_at` y `geometries.location`. Los documentos emitidos de un registro usan la API de
+wasichai (§2).
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/evidence` | Sube un archivo: calcula SHA-256 y tamaño, lee los EXIF, lo guarda en el almacenamiento de objetos y crea `evidence`; puede vincularlo y reemplazar una versión anterior (`replaces`) | CREATE sobre `evidence`; UPDATE sobre cada registro vinculado | multipart: `file`, `attributes`, `links[]: { object, recordId }` → `201` registro con `sha256` | `IK`; `CR` si un vínculo toca un objeto `requiresReason` | F3 |
-| `GET` | `/api/sgspe/evidence/{id}/content` | Descarga el archivo en streaming | READ sobre `evidence`; para las clasificaciones CONFIDENCIAL y DATOS PERSONALES, además `DOWNLOAD_RESTRICTED` (RF-DOC-003) | → archivo con `ETag` igual al SHA-256 | — | F3 |
-| `PATCH` | `/api/sgspe/evidence/{id}` | Cambia los datos descriptivos (título, clasificación, fecha, autor, consentimiento de fotos); nunca el archivo | UPDATE sobre `evidence`; `EDIT_ANY` si la evidencia la subió otra persona; bajar la clasificación de una evidencia CONFIDENCIAL o DATOS PERSONALES exige además `DOWNLOAD_RESTRICTED` (ASM-071), para que reclasificar no abra la descarga | `{ attributes }` → `200` registro | `IM`; `CR` si cambia la clasificación | F3 |
-| `POST` | `/api/sgspe/evidence/{id}/links` | Vincula la evidencia con un registro de uno de los destinos de `evidence_<objeto>` | UPDATE sobre los dos registros; `EDIT_ANY` sobre `evidence` si la evidencia la subió otra persona (`EditAnyGuard`) | `{ object, recordId }` → `204` | `CR` si el destino es `requiresReason` | F3 |
-| `DELETE` | `/api/sgspe/evidence/{id}/links/{object}/{recordId}` | Desvincula | UPDATE sobre los dos registros; `EDIT_ANY` sobre `evidence` si la evidencia la subió otra persona (`EditAnyGuard`) | → `204` | `CR` si el destino es `requiresReason` | F3 |
+| `POST` | `/api/objects/evidence/files/file` (wasichai-files) | Sube el archivo: tope de 20 MB, tipo detectado por sus bytes contra los 8 `contentTypes` de `evidence.file`, SHA-256; queda sin adjuntar hasta el alta | CREATE sobre `evidence` | multipart `file` → `201 { id, name, contentType, size, sha256 }`; más de 20 MB, `400 FILE_TOO_LARGE` (`file`) | — | F3 |
+| `POST` | `/api/sgspe/evidence` | Registra la evidencia con el archivo subido por la misma persona y la vincula, en una transacción | CREATE sobre `evidence`; UPDATE sobre `evidence` y cada objeto vinculado | `{ attributes: { file: <id>, evidence_type, classification, … }, geometries?, links?: [{ object, recordId }] }` (hasta 50 vínculos) → `201` registro, con `attributes.file` = el descriptor y `ETag`; un archivo que subió otra persona, `400` sobre `file`; un archivo que ya es de otra evidencia, `409 EVIDENCE_FILE_IN_USE` (`file`) | `IK`; `CR` si un vínculo toca un objeto `requiresReason` | F3 |
+| `GET` | `/api/sgspe/evidence/{id}/content` | Descarga el archivo en streaming; la ruta nativa `GET /api/objects/evidence/records/{id}/files/{field}` aplica la misma comprobación, también con `HEAD` | READ sobre `evidence`; para CONFIDENCIAL y DATOS PERSONALES, o si quien llama no lee la clasificación, además `DOWNLOAD_RESTRICTED` (`403 ACTION_REQUIRED` sobre `classification`, RF-DOC-003) | → archivo `attachment` con `ETag` igual al SHA-256 | — | F3 |
+| `PATCH` | `/api/sgspe/evidence/{id}` | Cambia los datos descriptivos (`title`, `classification`, `document_date`, `author`, `captured_at`, `people_identifiable`, `photo_consent_given`); nunca el archivo; solo escribe lo que cambia | UPDATE sobre `evidence`; `EDIT_ANY` si la subió otra persona; bajar una clasificación restringida exige `DOWNLOAD_RESTRICTED` (`403 ACTION_REQUIRED`, ASM-071), para que reclasificar no abra la descarga | `{ attributes }` → `200` registro, con `ETag`; otro campo, `400 FIELD_NOT_EDITABLE` (`attributes.<campo>`); cambiar la clasificación sin motivo, `400 FIELD_REASON_REQUIRED` (`reason`) | `IM`; `CR` si cambia la clasificación | F3 |
+| `POST` | `/api/sgspe/evidence/{id}/links` | Vincula la evidencia con un registro de un destino `evidence_<objeto>` | UPDATE sobre los dos registros; `EDIT_ANY` sobre `evidence` si la subió otra persona (`EditAnyGuard`) | `{ object, recordId }` → `204`; un objeto que no es destino, `400 INVALID_LINK` (`object`); una entrega cumplida o cancelada, `409 DELIVERY_FROZEN` | `CR` si el destino es `requiresReason` (sin él, `400 REASON_REQUIRED`) | F3 |
+| `DELETE` | `/api/sgspe/evidence/{id}/links/{object}/{recordId}` | Desvincula; una entrega de un compromiso cumplido o cancelado no pierde evidencias (`409 DELIVERY_FROZEN`) | Igual | → `204` | `CR` si el destino es `requiresReason` | F3 |
 
-Una foto de personas sin consentimiento no sale en una salida EXTERNO (RNF-PRIV-004, RQ-REP-014).
+- Un reintento repite solo el segundo paso, con la misma `Idempotency-Key` y el mismo `file`: el archivo no se vuelve a
+  subir.
+- **El nombre del archivo lo lee todo lector.** El descriptor (`{ id, name, contentType, size, sha256 }`) viaja en el
+  registro, su historial y la lista a todo rol con READ sobre `evidence`, también el de una evidencia CONFIDENCIAL o de
+  DATOS PERSONALES, cuya descarga exige `DOWNLOAD_RESTRICTED`: wasichai-files no ofrece cómo ocultarlo (UPS-24). Por eso
+  el portal sube una evidencia restringida con un nombre neutro (`evidencia-<aaaammdd-hhmmss>.<ext>`) y le muestra
+  «Archivo reservado» a quien no la descarga; quien sube por la API debe hacer lo mismo (ASM-093).
+- **Límite conocido:** el alta acepta `replaces` e `import_batch_id` de cualquier persona con CREATE: nada comprueba que
+  la evidencia reemplazada sea de quien sube ni que la importación exista (ASM-060). Después del alta no cambian
+  (`409 EVIDENCE_IMMUTABLE`).
+- Una foto de personas sin consentimiento no sale en una salida EXTERNO (RNF-PRIV-004, RQ-REP-014).
 
 ### 4.10 BC-14 Notificaciones
 
-Paquete `sgspe.notification`. La bandeja lee la tabla fija `notification`, que no es un Custom Object: por eso las propiedades
-de un aviso van en camelCase y sin `attributes` (ASM-012, UPS-11).
-
-| Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
-|---|---|---|---|---|---|---|
-| `GET` | `/api/sgspe/notifications` | La bandeja de quien llama, de la más reciente a la más antigua | Autenticado; solo sus avisos | `?unread=true&page=&size=` → página de `{ id, notificationType, sourceObject, sourceRecordId, title, body, createdAt, readAt }` | — | F3 |
-| `GET` | `/api/sgspe/notifications/unread-count` | Cantidad de avisos sin leer | Autenticado | → `200 { count }` | — | F3 |
-| `POST` | `/api/sgspe/notifications/{id}/read` | Marca un aviso como leído | Autenticado; un aviso de otra persona es `404` | → `204` | — | F3 |
-| `POST` | `/api/sgspe/notifications/read-all` | Marca como leídos todos los avisos de quien llama | Autenticado | → `204` | — | F3 |
-
-El envío por correo (`notification_delivery`) no tiene endpoint: lo hace un proceso en segundo plano (RF-NTF-001).
+Sin endpoints propios (decisión D2, ADR-0018): la bandeja, el resumen, leer, descartar, posponer, el flujo SSE y las
+preferencias son de wasichai-notifications (§2); `@wasichai/*` trae sus componentes. SGSPE publica con las fuentes
+`sgspe.approvals` (aprobación pendiente, `ACTION`, clave `approval_pending:<objeto>:<id>`) y `sgspe.deadlines` (por
+vencer, `WARNING`; vencido y escalamientos, `ACTION`, claves de `workflows.md`, «Avisos»), siempre a personas concretas
+y con un enlace `RECORD` al registro, que la bandeja quita a quien no puede leerlo. Un aviso de una fuente no se edita
+ni se borra a mano, y uno `ACTION` no se descarta: se resuelve cuando deja de ser cierto (el envío sale del estado
+pendiente; el compromiso o la tarea dejan de estar vencidos).
 
 ### 4.11 BC-15 Indicadores y tableros
 
@@ -745,8 +828,8 @@ código que usan los entregables (RQ-DSH-031, RQ-DSH-034). El portal los guarda 
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
-| `GET` | `/api/sgspe/dashboards/{dashboard}` | Los indicadores de un tablero con los filtros comunes, en una sola llamada por pantalla | READ sobre los objetos de cada indicador; un indicador sin permiso sale con `available: false` | `?project=&periodStart=&periodEnd=&administrativeUnit=&locality=&community=&areaOfInfluence=&explorationCampaign=&scope=` → `200 { dashboard, filters, computedAt, indicators[] }` | — | Según el tablero |
-| `GET` | `/api/sgspe/dashboards/indicators/{code}` | Un indicador con sus desgloses, su serie mensual y su tabla de datos | Igual | Los mismos filtros más `breakdown` → `200 { code, label, available, value, numerator, denominator, unit, breakdowns[], series[], unavailableReason, missingFields[], warnings[], ignoredFilters[] }` | — | Según el indicador |
+| `GET` | `/api/sgspe/dashboards/{dashboard}` | Los indicadores de un tablero con los filtros comunes, en una sola llamada por pantalla | READ sobre los objetos de cada indicador; un indicador sin permiso sale con `available: false` | `?project=&periodStart=&periodEnd=&administrativeUnit=&locality=&community=&areaOfInfluence=&explorationCampaign=&scope=&owner=` → `200 { dashboard, filters, computedAt, indicators[] }` | — | Según el tablero |
+| `GET` | `/api/sgspe/dashboards/indicators/{code}` | Un indicador con sus desgloses, su serie mensual y su tabla de datos | Igual | Los mismos filtros (con `owner`) más `breakdown` → `200 { code, label, available, value, numerator, denominator, unit, breakdowns[], series[], unavailableReason, missingFields[], warnings[], ignoredFilters[] }` | — | Según el indicador |
 | `GET` | `/api/sgspe/dashboards/indicators` | Catálogo de indicadores con su disponibilidad para quien llama, para mostrar u ocultar tableros y zonas | Autenticado | → `200 [{ code, label, dashboard, available }]` | — | F2 |
 | `POST` | `/api/sgspe/indicators/{id}/measurements` | Cierra un periodo: congela la cifra oficial en `indicator_measurement`. Responde `409` para los indicadores que nunca se congelan (`dashboards.md` §10): KPI-STK-02, KPI-STK-05 y KPI-STK-06, que leen la postura, y KPI-TER-01, que no tiene un valor propio | CREATE sobre `indicator_measurement` | `{ project, attributes: { period_start_date, period_end_date } }` → `201` registro | `IK` | F8 |
 
@@ -767,9 +850,20 @@ código que usan los entregables (RQ-DSH-031, RQ-DSH-034). El portal los guarda 
   cifra, como un porcentaje sin denominador) y nunca en uno no disponible. `unit` es la palabra en español que muestra la
   interfaz (`"compromisos"`), la misma de `dashboards.md`.
 - `ignoredFilters` nombra los filtros pedidos que el indicador acepta y no aplica, para que nunca den un cero silencioso
-  (ruling P27): los KPI-STK ignoran `community`, porque `stakeholder` no tiene comunidad, y en F2 todos ignoran
-  `explorationCampaign`, que solo filtra compromisos e inversión social (`dashboards.md` §3.1). Sin filtros ignorados, la clave
-  no viaja.
+  (ruling P27): los KPI-STK ignoran `community`, porque `stakeholder` no tiene comunidad, y los KPI-STK y KPI-ENG
+  ignoran `explorationCampaign` y `owner`, que solo filtran compromisos e inversión social (`dashboards.md` §3.1). Sin
+  filtros ignorados, la clave no viaja.
+- `owner` (UUID de `owner_user_id`) es el responsable de un compromiso: lo aplican KPI-COM-03, KPI-COM-04, KPI-COM-06 y
+  KPI-COM-09 (`dashboards.md` §4.4); los demás indicadores lo devuelven en `ignoredFilters`. `explorationCampaign` lo
+  aplican KPI-COM-01 a KPI-COM-05 y KPI-COM-10; los demás KPI-COM y todos los de F2 lo devuelven en `ignoredFilters`.
+- El tablero `commitments` (`dashboards.md` §5.6) trae KPI-COM-01 a KPI-COM-11. Desgloses: KPI-COM-01 `workflow_state`;
+  KPI-COM-03 `daysOverdue`, con las claves `OVERDUE_FIRST`, `OVERDUE_SECOND` y `OVERDUE_OVER` según los umbrales de
+  escalamiento del proyecto de cada compromiso, y la etiqueta `1-<primero>`, `<primero+1>-<segundo>` y
+  `más de <segundo>` si todos los compromisos comparten umbrales («Hasta el primer umbral», «Hasta el segundo umbral» y
+  «Más del segundo umbral» si no); KPI-COM-07 `owner`, `project`, `territory` y `topic`, con filas
+  `{ key, label, value, overdue }`, las 10 de más abiertos y «Otros»; KPI-COM-08 `commitment_theme`; KPI-COM-09
+  `against` con `current` y `original` (`value`, `numerator`, `denominator`); KPI-COM-10 `currency` (`value` =
+  `committed`, `executed`); KPI-COM-11 `series` `{ period, value }` de 12 meses.
 - En el catálogo, `dashboard` es `stakeholders`, `engagement` o `null`: KPI-STK-04, KPI-STK-05 y KPI-STK-07 no tienen zona en
   un tablero de F2 y solo tienen detalle (`dashboards.md` §11).
 - La etiqueta de un punto de KPI-STK-03 que es una persona es su nombre si quien llama puede leerlo; si no, «cargo,
@@ -814,7 +908,15 @@ código que usan los entregables (RQ-DSH-031, RQ-DSH-034). El portal los guarda 
       "available": true,
       "value": 7,
       "unit": "compromisos",
-      "breakdowns": [{ "by": "daysOverdue", "rows": [{ "key": "1-7", "value": 4 }, { "key": "8-15", "value": 3 }] }],
+      "breakdowns": [
+        {
+          "by": "daysOverdue",
+          "rows": [
+            { "key": "OVERDUE_FIRST", "label": "1-7", "value": 4 },
+            { "key": "OVERDUE_SECOND", "label": "8-15", "value": 3 }
+          ]
+        }
+      ],
       "warnings": []
     },
     {
@@ -928,6 +1030,28 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
   el archivo; si algo falla antes, no hay archivo ni fila. `exported_at` es el instante en que se generó el archivo, no el de
   su entrega, y `row_count` cuenta grupos de interés, no filas del archivo (en `PUBLICO`, los contados en los agregados). `filters_description` (`export_log` no tiene otro campo de filtros) lleva la lista completa de proyectos y el resto de los filtros.
 
+**`commitment-matrix` (F3).**
+
+- **Cuerpo.** `{ filters, disclosureLevel, checklistConfirmed }`; `filters` es
+  `{ project: string[], explorationCampaign, state: string[] }`: `explorationCampaign` es una sola campaña y `state`
+  toma los estados de WF-D (`400 INVALID_FILTER` sobre `filters.explorationCampaign` o `filters.state`). Los proyectos
+  siguen la regla de `stakeholder-register`.
+- **Contenido.** INTERNO: hojas «Matriz» (los campos de DOC-01 §9.3.1.2, los solicitantes por nombre si se leen, hitos,
+  reprogramaciones, acciones y el responsable) y «Entregas» (con quiénes dieron la conformidad y los receptores si se
+  leen, y los conteos de actas, fotos y otras evidencias). EXTERNO: lo mismo sin el responsable ni los campos
+  restringidos (`beneficiaries_detail`, `conformity_by`, `recipients`), con los solicitantes por código `GI-` y el lugar
+  de cada entrega generalizado a la localidad del compromiso (`deliverables.md` §9.1); exige `checklistConfirmed`.
+  PUBLICO: hojas «Por estado y tema» y «Por tipo de recurso», sobre la grilla completa con la marca `reservado`
+  (ASM-088). Nunca el documento de identidad de los solicitantes (CON-014). `deadline_status` sale solo en un compromiso
+  pendiente (`approved`, `in_progress` o `blocked`): uno cumplido o cancelado no sale VENCIDO aunque JOB-01 todavía no
+  lo haya vaciado.
+- **Tope.** `sgspe.exports.max-rows` por conjunto y 2 000 compromisos o entregas cuyos solicitantes y evidencias se leen
+  uno por uno; pasarse es `400 TOO_MANY_RECORDS` sobre `filters.project`. Cada lectura por registro tiene además su tope
+  de 200: un compromiso con más de 200 solicitantes, o una entrega con más de 200 evidencias, responde el mismo `400`
+  filtre como filtre (límite aceptado en F3).
+- **Errores.** Los de `stakeholder-register`; `export_log` lleva `object_name` `commitment` y `row_count` cuenta
+  compromisos.
+
 ### 4.14 BC-18 IA y conocimiento
 
 Paquete `sgspe.ai`, desde F7. Ningún endpoint de IA escribe datos de dominio: guarda `ai_interaction` y sugerencias o
@@ -980,7 +1104,7 @@ BC-11 (operaciones de campo) vive en BC-04 durante el MVP (ASM-045).
 |---|---|
 | F1 | Ninguno: la API genérica de wasichai más el filtro de correlación |
 | F2 | `transition-checks`; importación del territorio (vista previa y confirmación); `project-components` (alta, versión y `PATCH`); aprobación de áreas de influencia; capas temáticas básicas; evaluaciones de grupos de interés y su vista previa; catálogo de indicadores y tableros `stakeholders` y `engagement`; exportación `stakeholder-register` |
-| F3 | Reprogramaciones y entregas de compromisos; `PATCH` de entregas; candidatos (alta, aceptación y duplicado); evidencias (subida, descarga, `PATCH` y vínculos); bandeja de notificaciones; tablero `commitments`; exportación `commitment-matrix` |
+| F3 | Reprogramaciones y entregas de compromisos; `PATCH` de entregas; candidatos (alta, aceptación y duplicado); evidencias (alta, descarga, `PATCH` y vínculos); tablero `commitments`; exportación `commitment-matrix`. Los avisos, la subida de archivos y los documentos emitidos son de wasichai |
 | F4 | Derivación de preguntas; reclasificación y aceptación de QCS; reporte unificado de QCS; revisiones de riesgo; tableros `attention` y `risks`; exportaciones `attention-register` y `risk-register` |
 | F5 | Entregas de aportes sociales; aceptación de solicitudes como aporte; tablero `investment` |
 | F6 | Sugerencias de miembros y resumen del área de influencia, consultas espaciales, punto en polígono, fichas territoriales, proxies WMS y WFS, validación y calidad de geometrías, exportaciones geográficas, formatos de importación por GDAL; tablero `territory` |

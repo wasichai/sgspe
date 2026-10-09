@@ -140,9 +140,9 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
 
 - `required` se vuelve NOT NULL y `unique`, una restricción UNIQUE con su índice. La validación vive en la base además de en
   la aplicación, así que un dato inválido no entra por otro camino [WAS-DOC domain/metadata-model.md].
-- No existen FILE, IMAGE, CURRENCY, FORMULA, ROLLUP ni JSON: los archivos son `evidence` en almacenamiento de objetos
-  (ASM-013, UPS-07), los montos son DECIMAL más `currency` y los cálculos son campos derivados (§3.6)
-  [WAS-DOC domain/metadata-model.md].
+- No existen CURRENCY, FORMULA, ROLLUP ni JSON: los montos son DECIMAL más `currency` y los cálculos son campos
+  derivados (§3.6) [WAS-DOC domain/metadata-model.md]. `FILE` e `IMAGE` llegan con wasichai-files en F3 (UPS-07
+  resuelta, WAS-ADR-0061): el único campo `FILE` del modelo es `evidence.file` (ASM-013, ADR-0014).
 - El nombre y el tipo de un campo, y el nombre de un objeto, no cambian: wasichai los rechaza con 400. Cambiar un tipo es un
   campo nuevo más una migración de datos (§24) [WAS-ADR-0017].
 
@@ -161,8 +161,18 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
   un borrado (§2.9).
 - **Apuntadas por un objeto `appendOnly`.** No se pueden borrar `stakeholder`, `position`, `commitment`, `social_risk`,
   `program_indicator`, `indicator`, `deliverable`, `deliverable_version` ni `project` mientras una evaluación, una
-  reprogramación, una revisión, una medición, una versión, un registro de exportación o una interacción con IA los apunte:
-  responde 409 para todos, también para `ADMIN` [WAS-ADR-0040] [WAS-ADR-0044].
+  reprogramación, una revisión, una medición, una versión, un registro de exportación o una interacción con IA los
+  apunte: responde 409 para todos, también para `ADMIN` [WAS-ADR-0040] [WAS-ADR-0044]. Ese `409` lo da wasichai antes
+  que las guardas y no lleva código ni `errors[]`: solo un `detail` que nombra el objeto y el campo (`api.md` §3.3).
+  Como el registro `appendOnly` no se puede cambiar, lo que apunta no se borra nunca: un cargo citado por una evaluación
+  se da por terminado con `end_date` y su `position_status`.
+- **Apuntadas por una relación opcional de un objeto `requiresReason`.** Desde F3, `DependentsDeleteGuard` también
+  rechaza con `409` `HAS_DEPENDENTS` el borrado de lo que apuntan `commitment` (`exploration_campaign`, `locality`,
+  `community`, `topic`, `origin_engagement`, `agreement` y `agreement_clause`) y `agreement` (`community` y
+  `assembly_engagement`): la base no lo impediría, pero `ON DELETE SET NULL` vaciaría el vínculo de ese registro sin
+  motivo ni fila de auditoría. Con los roles de F3, solo una `agreement_clause` citada queda así bloqueada para quien
+  no es `ADMIN`: se borra después de vaciar `agreement_clause` en el compromiso, con un cambio con motivo. El campo
+  del `409` es `<objeto>.<campo>` del primer dependiente.
 - **Autorreferencias y ciclos.** Son intencionales: `parent_unit`, `parent_locality`, `affiliated_to`, `split_from`,
   `previous_version`, `baseline_assessment`, `duplicate_of`, `replaces`, `derived_from` y `parent_topic` apuntan a su propio
   objeto, y hay ciclos entre `deliverable` y `deliverable_version` y entre las tres QCS. wasichai los admite, y `apply.py`
@@ -361,7 +371,7 @@ Aplican §4.1 del modelo de dominio:
   `score`).
 - Los montos son DECIMAL más `currency` ENUM (PEN por defecto, RNF-I18N-002). DECIMAL es un `numeric` sin escala ni
   mínimo, así que `AmountFieldsGuard` acota los montos que alguien escribe en toda alta y en todo cambio de su valor: de
-  0 a 15 dígitos enteros y 4 decimales tras quitar los ceros finales (ruling P58, ASM-092); los derivados los escribe
+  0 a 15 dígitos enteros y 4 decimales tras quitar los ceros finales (ASM-092); los derivados los escribe
   solo la plataforma.
 - Una persona usuaria del sistema es un par `<rol>_user_id` UUID y `<rol>_user_email` EMAIL, que valida `UserReferenceGuard`,
   porque wasichai no tiene relaciones con usuarios (ASM-023).
@@ -795,11 +805,13 @@ RF-INV-004, RN-INV-003, ASM-063.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
-- `social_support_cap` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
+- `social_support_cap` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
   decimales tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER`
   u `OUT_OF_RANGE` sobre `social_support_cap`.
 - Los derivados se calculan desde F3 (compromisos) y F5 (aportes) con el recalculador de `sgspe.investment` (§7.4 del
   modelo de dominio).
+- Sin `currency` (PEN por defecto), el tope no se compara al aprobar: `SupportPolicyGuard` solo advierte
+  `CAP_OTHER_CURRENCY` y nunca bloquea (`workflows.md`, D7).
 
 ### `project_assignment`
 
@@ -2015,14 +2027,18 @@ RF-COM-005, RF-COM-007, RF-COM-009, RN-COM-004, RN-ENG-001, RN-ENG-002, RN-WFL-0
 - **Acciones declaradas:** `APPROVE`, `VERIFY`, `EXPORT`, `APPROVE_OVER_CAP`.
 - **Workflow:** WF-D.
 - **Fase:** F3 · Release 1 (MVP).
-- `amount` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
+- `amount` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
   tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER` u
   `OUT_OF_RANGE` sobre `amount`.
 - Índices: `due_date` para `DeadlineJob` (RN-WFL-001), `owner_user_id` para "mis compromisos" y el desglose por
   responsable (RQ-DSH-019), y (`project`, `deadline_status`) para los vencidos y por vencer de cada proyecto
   (RQ-DSH-018).
-- `DerivedFieldsGuard` protege los derivados y `due_date` después de `approved`; solo la cambia
-  `POST /api/sgspe/commitments/{id}/reschedules` (RF-COM-003).
+- `DerivedFieldsGuard` protege los derivados; `CommitmentWriteGuard` protege `due_date` desde `approved`, también en
+  `cancelled` (`409` `DUE_DATE_RESCHEDULE_ONLY`): solo la cambia `POST /api/sgspe/commitments/{id}/reschedules`
+  (RF-COM-003), que recalcula `deadline_status` en su transacción.
+- Las relaciones hacia un objeto de proyecto (`exploration_campaign`, `origin_engagement`, `agreement`,
+  `agreement_clause`) apuntan a registros del mismo `project` (`409` `PROJECT_MISMATCH`), al crear, al cambiar el
+  vínculo y al cambiar el proyecto. Mover el destino a otro proyecto no se bloquea: es un límite conocido.
 - `CommitmentDerivationsListener` escribe `fulfilled_date`, `closed_date` y `cancelled_date` en la transacción de su
   transición, y vacía `fulfilled_date` cuando `reopen_execution` devuelve el compromiso a ejecución; los tableros y la
   tendencia mensual las leen (RQ-DSH-003, RQ-DSH-020).
@@ -2118,7 +2134,10 @@ la dependencia es bloqueante. Tabla física `app_data.commitment_dependency__<or
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- `CommitmentWriteGuard` rechaza los ciclos al crear la dependencia (RF-COM-004).
+- `CommitmentWriteGuard` rechaza los ciclos al crear o cambiar la dependencia (RF-COM-004): `400` `DEPENDENCY_SELF` y
+  `409` `DEPENDENCY_CYCLE`, sobre `depends_on`. La búsqueda recorre hasta 500 compromisos (`409`
+  `DEPENDENCY_GRAPH_TOO_LARGE`), lee como quien escribe y no se serializa: dos altas simultáneas `a → b` y `b → a`
+  pueden pasar las dos (límite aceptado en F3).
 
 ### `delivery`
 
@@ -2149,12 +2168,15 @@ evidencias. Tabla física `app_data.delivery__<org8>`. Requisitos: RF-COM-008, R
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- `delivered_amount` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
+- `delivered_amount` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
   decimales tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER`
   u `OUT_OF_RANGE` sobre `delivered_amount`.
-- Escriben `POST /api/sgspe/commitments/{id}/deliveries` y, desde F5,
-  `POST /api/sgspe/social-contributions/{id}/deliveries`; al crearla se emite el acta como documento de
-  wasichai-documents (RQ-REP-029).
+- Escriben `POST /api/sgspe/commitments/{id}/deliveries`, `PATCH /api/sgspe/deliveries/{id}` y, desde F5,
+  `POST /api/sgspe/social-contributions/{id}/deliveries`. El «Acta de entrega» como documento de wasichai-documents
+  (RQ-REP-029, AUT-03) espera a UPS-23, porque `recipients` y `conformity_by` son restringidos (ASM-090).
+- La entrega de un compromiso en `fulfilled`, `verified`, `closed` o `cancelled` no cambia ni gana o pierde evidencias
+  (`409` `DELIVERY_FROZEN` sobre `commitment`); su `commitment` no cambia nunca. En la matriz de compromisos EXTERNO,
+  `place` se generaliza a la localidad del compromiso (`deliverables.md` §9.1).
 
 ### `commitment_candidate`
 
@@ -2189,6 +2211,10 @@ RF-COM-010, RF-AIK-003, RQ-AI-001, RQ-AI-003, RQ-AI-004.
 - **Fase:** F3 · Release 1 (MVP).
 - Con IA desde F7. `CommandTransitionGuard` protege `accepted`, porque `apiOnly` no rechaza transiciones
   [WAS-DOC modules/workflow.md].
+- `engagement`, `source_evidence`, `created_commitment` y `duplicate_of` apuntan a registros del mismo `project`
+  (`409` `PROJECT_MISMATCH`); una evidencia sin proyecto, del tenant, se admite. El alta humana no escribe
+  `ai_generated` (lo fija en falso), `confidence`, `created_commitment` ni `duplicate_of`; `duplicate_of` solo lo
+  escribe `POST /api/sgspe/commitment-candidates/{id}/duplicate`.
 
 ## 11. BC-06 Acuerdos y convenios
 
@@ -2242,7 +2268,7 @@ Requisitos: RF-AGR-001, RF-AGR-002, RF-AGR-003, RN-INV-004, RN-WFL-001.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** WF-I.
 - **Fase:** F3 · Release 1 (MVP).
-- `amount` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
+- `amount` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
   tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER` u
   `OUT_OF_RANGE` sobre `amount`.
 - `expiry_date` lleva índice para `DeadlineJob` (RN-WFL-001).
@@ -3253,6 +3279,12 @@ RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07.
   S3 de `wasichai.files.*` (MinIO solo en desarrollo) y un trabajo de wasichai borra los que ningún registro nombra.
 - Los vínculos con destinos `requiresReason` exigen motivo en ambos registros; `sgspe.evidence` lo pasa en cada vínculo
   [WAS-ADR-0041]. `import_batch_id` lleva índice para encontrar el archivo de una importación.
+- Un archivo es de una sola evidencia: un alta con un `file` que ya tiene otra responde `409` `EVIDENCE_FILE_IN_USE`.
+  `file`, `replaces` e `import_batch_id` no cambian después del alta (`409` `EVIDENCE_IMMUTABLE`), pero el alta no
+  comprueba que la evidencia reemplazada sea de quien sube ni que la importación exista: es un límite conocido.
+- El descriptor de `file`, con el nombre original, lo lee todo rol con READ sobre `evidence`, también en una
+  CONFIDENCIAL o de DATOS PERSONALES: wasichai-files no deja ocultarlo (UPS-24), y el portal sube las restringidas
+  con un nombre neutro (ASM-093).
 
 ## 17. BC-13 Tareas y aprobaciones
 
@@ -3317,6 +3349,10 @@ ASM-022, ASM-030.
 - **Fase:** F3 · Release 1 (MVP).
 - Índices: `assignee_user_id` para la bandeja "mis tareas" y `due_date` para `DeadlineJob` (RF-WFL-001, RN-WFL-001).
   Cada origen llega en la fase de su objeto.
+- `generator_key` solo la escribe un trabajo (JOB-01 y JOB-03): una persona que la fija, la cambia o la vacía, también
+  con un `PUT` que la omite, recibe `403` `GENERATOR_KEY_PLATFORM_ONLY` (`GeneratorKeyGuard`). Las claves son
+  `escalation:commitment:<id>:<fecha del plazo>:<nivel>`, `stakeholder_review:<id>:<fecha>` y
+  `stakeholder_inactivity:<id>:<fecha de referencia>`; una tarea borrada vuelve a crearse mientras dure su condición.
 
 ## 18. BC-14 Notificaciones
 
@@ -4065,6 +4101,11 @@ respuesta que recibió la primera petición, escrita en la misma transacción qu
   confirmó; un comando que falló no deja fila y la clave queda libre (`api.md` §3.5).
 - Una fila más antigua que el plazo se borra antes de leerla, así que el plazo es exacto aunque la purga se atrase. La escribe
   y la lee solo `sgspe.common`, con `DatabaseClient` (RNF-INT-002).
+- `response_body` tiene un tope de 2 MiB (el `CHECK` `idempotency_key_response_size`): un comando que respondiera más
+  falla con `500` y no escribe nada. Puede llevar campos restringidos que quien llamó podía leer, y por eso expira
+  con el plazo (`security.md` §11.6).
+- Las claves de esta tabla y las de la tabla nativa del alta genérica son espacios separados: la misma clave en las dos
+  rutas corre las dos peticiones (`api.md` §3.5).
 
 ### `derived_version`
 
@@ -4211,7 +4252,8 @@ Casos previstos:
   las tablas fijas de `sgspe.*`, porque no hay claves foráneas entre esquemas (§2.3).
 - Por eso la baja incluye un paso que borra, por `organization_id`, las filas del tenant en `sgspe.idempotency_key`,
   `sgspe.derived_version` y `sgspe.knowledge_chunk`, y después llama a
-  `DELETE /api/organizations/current`. Quién la opera queda en GAP-026, como el alta.
+  `DELETE /api/organizations/current`; los avisos los borra la baja de wasichai con el módulo. Quién la opera queda en
+  GAP-026, como el alta.
 
 ### Cómo se prueba
 
