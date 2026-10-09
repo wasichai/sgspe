@@ -99,7 +99,16 @@ class TransitionChecksApiTest : DomainApiTest() {
     @Test
     fun `quien no lee el objeto no recibe ni la consulta ni el estado del registro`() {
         val project = projectWithCrs()
-        val outsider = userWithRole("COMMITMENT_MANAGER")
+        // ningún rol de roles.json queda sin READ sobre project en todas las fases (AUDITOR lee todo el tenant con `*`), así que
+        // el ajeno es un usuario sin roles: no depende de la fase
+        val email = "${uniqueName("sin-roles")}@sgspe.test"
+        send(
+            "POST",
+            "/api/users",
+            mapOf("email" to email, "displayName" to "Usuario sin roles", "password" to PASSWORD, "roles" to emptyList<String>()),
+            HttpStatus.CREATED
+        )
+        val outsider = Account(bearer(email, PASSWORD), email)
         val response =
             exchange(
                 "POST",

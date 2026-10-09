@@ -2,7 +2,9 @@
 
 Copied from caja-backend@dc9e391 (model/fake_core.py); roles carry ownRecordsOnly and fieldPermissions.
 From F2 it keeps an object's indexes beside its uniqueConstraints and stores one workflow per object, refusing one that
-names a role it lacks, as wasichai does. Test helper only.
+names a role it lacks, as wasichai does. From F3 it keeps document types and automations by object and name, answers
+them with the null keys and the ids wasichai adds, and refuses a GENERATE_DOCUMENT naming a type the object lacks.
+Test helper only.
 """
 import json
 import re
@@ -21,6 +23,12 @@ ROLE = re.compile(r"^/api/roles/([A-Z0-9_]+)$")
 ROLE_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/permissions$")
 ROLE_FIELD_PERMISSIONS = re.compile(r"^/api/roles/([A-Z0-9_]+)/field-permissions$")
 WORKFLOW = re.compile(r"^/api/objects/([a-z0-9_]+)/workflow$")
+DOCUMENT_TYPES = re.compile(r"^/api/objects/([a-z0-9_]+)/document-types$")
+DOCUMENT_TYPE = re.compile(r"^/api/objects/([a-z0-9_]+)/document-types/([a-z0-9_-]+)$")
+AUTOMATIONS = re.compile(r"^/api/objects/([a-z0-9_]+)/automations$")
+AUTOMATION = re.compile(r"^/api/objects/([a-z0-9_]+)/automations/([a-z0-9_-]+)$")
+# what wasichai-automation answers for every action, whatever its type (AutomationAction)
+ACTION_KEYS = {"field": None, "value": None, "targetObject": None, "values": {}, "url": None, "documentType": None}
 
 # the keys of an object GET /api/objects tells besides its name, when they are set
 OBJECT_KEYS = ("apiOnly", "appendOnly", "requiresReason", "uniqueConstraints", "indexes")
@@ -93,6 +101,8 @@ class FakeCore:
         self.records = {}  # object name -> list of {"id", "attributes"}
         self.roles = {}  # role name -> {"name", "label", "permissions": [{"objectName", "action", "allowed"}]}
         self.workflows = {}  # object name -> the body of its last PUT .../workflow
+        self.document_types = {}  # object name -> {type name -> {label, prefix, template}}
+        self.automations = {}  # object name -> {automation name -> {label, enabled, definition}}
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -189,6 +199,89 @@ class FakeCore:
             role["ownRecordsOnly"] = body.get("ownRecordsOnly", role.get("ownRecordsOnly", False))
         return 200, role
 
+    @staticmethod
+    def _node(node):
+        """A template node as wasichai-documents answers it: every key, null when the file left it out."""
+        return {"type": node["type"], "attrs": node.get("attrs"), "marks": node.get("marks"), "text": node.get("text"),
+                "content": [FakeCore._node(child) for child in node["content"]] if "content" in node else None}
+
+    def _document_types(self, method, path, body):
+        """GET (a list or one, 404 when missing), POST (409 when the name or the prefix exists) and PUT (404 when
+        missing) of an object's document types, answered as wasichai-documents answers them."""
+        match = DOCUMENT_TYPES.match(path) or DOCUMENT_TYPE.match(path)
+        name = match.group(1)
+        if name not in self.existing_objects:
+            return 404, {"detail": "not found"}
+        types = self.document_types.get(name, {}) if method == "GET" else self.document_types.setdefault(name, {})
+
+        def answer(type_name):
+            stored = types[type_name]
+            return {"id": f"dt-{type_name}", "name": type_name, "label": stored["label"], "prefix": stored["prefix"],
+                    "objectName": name, "template": self._node(stored["template"])}
+
+        if DOCUMENT_TYPES.match(path):
+            if method == "GET":
+                return 200, [answer(t) for t in types]
+            if body["name"] in types:
+                return 409, {"detail": f"Document type '{body['name']}' already exists"}
+            if any(t["prefix"] == body["prefix"] for per in self.document_types.values() for t in per.values()):
+                return 409, {"detail": f"Prefix '{body['prefix']}' already belongs to another type"}
+            types[body["name"]] = {k: body[k] for k in ("label", "prefix", "template")}
+            return 201, answer(body["name"])
+        type_name = match.group(2)
+        if type_name not in types:
+            return 404, {"detail": f"Document type '{type_name}' does not exist"}
+        if method == "PUT":
+            types[type_name] = {k: body[k] for k in ("label", "prefix", "template")}
+        return 200, answer(type_name)
+
+    def _automations(self, method, path, body):
+        """GET (a list or one, 404 when missing), POST (409 when the name exists in the organization) and PUT (404 when
+        missing) of an object's automations, answered as wasichai-automation answers them. A GENERATE_DOCUMENT naming a
+        document type the object lacks is a 400, as wasichai checks it when the rule is saved."""
+        match = AUTOMATIONS.match(path) or AUTOMATION.match(path)
+        name = match.group(1)
+        if name not in self.existing_objects:
+            return 404, {"detail": "not found"}
+        rules = self.automations.get(name, {}) if method == "GET" else self.automations.setdefault(name, {})
+
+        def answer(rule_name):
+            stored = rules[rule_name]
+            definition = stored["definition"]
+            return {"id": f"au-{rule_name}", "objectName": name, "name": rule_name, "label": stored["label"],
+                    "enabled": stored["enabled"],
+                    "definition": {"trigger": {"type": definition["trigger"]["type"],
+                                               "transition": definition["trigger"].get("transition"),
+                                               "state": definition["trigger"].get("state")},
+                                   "conditions": [{"value": None, **c} for c in definition.get("conditions", [])],
+                                   "actions": [{**ACTION_KEYS, **a} for a in definition["actions"]]}}
+
+        def refused(definition):
+            for action in definition["actions"]:
+                if action["type"] == "GENERATE_DOCUMENT" and action.get("documentType") not in self.document_types.get(name, {}):
+                    return 400, {"detail": f"Unknown document type '{action.get('documentType')}'"}
+            return None
+
+        if AUTOMATIONS.match(path):
+            if method == "GET":
+                return 200, [answer(r) for r in rules]
+            if any(body["name"] in per for per in self.automations.values()):
+                return 409, {"detail": f"Automation '{body['name']}' already exists"}
+            refusal = refused(body["definition"])
+            if refusal:
+                return refusal
+            rules[body["name"]] = {k: body[k] for k in ("label", "enabled", "definition")}
+            return 201, answer(body["name"])
+        rule_name = match.group(2)
+        if rule_name not in rules:
+            return 404, {"detail": f"Automation '{rule_name}' does not exist"}
+        if method == "PUT":
+            refusal = refused(body["definition"])
+            if refusal:
+                return refusal
+            rules[rule_name] = {k: body[k] for k in ("label", "enabled", "definition")}
+        return 200, answer(rule_name)
+
     def _script(self, method, full_path, body):
         path, _, query = full_path.partition("?")
         if path == "/api/roles" or path.startswith("/api/roles/"):
@@ -228,6 +321,10 @@ class FakeCore:
             flags = {**self.object_flags.get(name, {}), **{k: v for k, v in body.items() if k in OBJECT_KEYS}}
             self.object_flags[name] = {k: v for k, v in flags.items() if v != [] or k not in ("uniqueConstraints", "indexes")}
             return 200, {"name": name, **self.object_flags[name]}
+        if DOCUMENT_TYPES.match(path) or DOCUMENT_TYPE.match(path):
+            return self._document_types(method, path, body)
+        if AUTOMATIONS.match(path) or AUTOMATION.match(path):
+            return self._automations(method, path, body)
         workflow = WORKFLOW.match(path)
         if workflow and method == "GET":
             stored = self.workflows.get(workflow.group(1))

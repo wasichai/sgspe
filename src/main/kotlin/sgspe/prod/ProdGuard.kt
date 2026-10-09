@@ -9,7 +9,9 @@ import java.time.Duration
 
 /**
  * Guarda de producción (ADR-0020, RQ-SEC-016, RQ-SEC-001). Con el perfil `prod` activo, el arranque falla si la
- * semilla de desarrollo está encendida, si el secreto JWT falta o es el de desarrollo, o si el token dura 8 horas o más.
+ * semilla de desarrollo está encendida, si el secreto JWT falta o es el de desarrollo, si el token dura 8 horas o más,
+ * si las evidencias no van a un bucket compatible con S3 (ADR-0014: el disco de una réplica no lo ven las demás) o usan
+ * las claves del MinIO de desarrollo, o si el correo está encendido con el servidor o el remitente de desarrollo.
  *
  * Es un `EnvironmentPostProcessor`: corre cuando la configuración ya está cargada (application-prod.yml, variables de
  * entorno, argumentos) y antes de crear el contexto. Flyway pertenece al contexto, así que la guarda corre antes de
@@ -27,7 +29,7 @@ class ProdGuard :
         application: SpringApplication
     ) {
         if (PROFILE !in environment.activeProfiles) return
-        val problems = listOfNotNull(seed(environment), secret(environment), ttl(environment))
+        val problems = listOfNotNull(seed(environment), secret(environment), ttl(environment), files(environment), keys(environment), mail(environment))
         check(problems.isEmpty()) {
             "el perfil prod no arranca con una configuración de desarrollo (ADR-0020):\n" + problems.joinToString("\n") { "- $it" }
         }
@@ -62,6 +64,44 @@ class ProdGuard :
         }
     }
 
+    private fun files(environment: ConfigurableEnvironment): String? {
+        val store = environment.getProperty(STORE)?.trim()?.lowercase()
+        val bucket = environment.getProperty(BUCKET)?.trim()
+        return when {
+            store != "s3" -> "$STORE=${store ?: "local"} guarda las evidencias en el disco de una réplica; use s3 (WASICHAI_FILES_STORE=s3)"
+            bucket.isNullOrEmpty() -> "falta $BUCKET: defina WASICHAI_FILES_S3_BUCKET con el bucket de las evidencias"
+            else -> null
+        }
+    }
+
+    // sin claves rige la cadena de credenciales del SDK (rol de instancia); con una sola, wasichai falla tarde con su mensaje;
+    // las del MinIO de desarrollo (develop/example.env) son públicas
+    private fun keys(environment: ConfigurableEnvironment): String? {
+        val access = environment.getProperty(ACCESS_KEY)
+        val secret = environment.getProperty(SECRET_KEY)
+        return when {
+            access.isNullOrBlank() != secret.isNullOrBlank() ->
+                "$ACCESS_KEY y $SECRET_KEY van juntas o ninguna: defina WASICHAI_FILES_S3_ACCESS_KEY y WASICHAI_FILES_S3_SECRET_KEY, o quite las dos"
+            access == DEV_S3_ACCESS_KEY || secret == DEV_S3_SECRET_KEY ->
+                "$ACCESS_KEY o $SECRET_KEY es la clave del MinIO de desarrollo, que es pública: defina WASICHAI_FILES_S3_ACCESS_KEY y " +
+                    "WASICHAI_FILES_S3_SECRET_KEY con las del almacenamiento de producción"
+            else -> null
+        }
+    }
+
+    // el valor por defecto de spring.mail.host en application.yml es el Mailpit de desarrollo, y el del remitente, un correo
+    // @sgspe.test: en prod los nombra el despliegue
+    private fun mail(environment: ConfigurableEnvironment): String? {
+        if (environment.getProperty(EMAIL, Boolean::class.javaObjectType) != true) return null
+        val from = environment.getProperty(MAIL_FROM)?.trim()
+        return when {
+            environment.getProperty(MAIL_HOST).isNullOrBlank() -> "$EMAIL=true sin $MAIL_HOST: defina SPRING_MAIL_HOST con el servidor SMTP"
+            from.isNullOrEmpty() || from.endsWith(TEST_DOMAIN, ignoreCase = true) ->
+                "$EMAIL=true con $MAIL_FROM de prueba (@sgspe.test): defina WASICHAI_NOTIFICATIONS_EMAIL_FROM con el remitente real"
+            else -> null
+        }
+    }
+
     companion object {
         const val PROFILE = "prod"
 
@@ -70,6 +110,18 @@ class ProdGuard :
         private const val SEED = "wasichai.seed.dev"
         private const val SECRET = "wasichai.security.jwt.secret"
         private const val TTL = "wasichai.security.jwt.ttl"
+        private const val STORE = "wasichai.files.store"
+        private const val BUCKET = "wasichai.files.s3.bucket"
+        private const val ACCESS_KEY = "wasichai.files.s3.access-key"
+        private const val SECRET_KEY = "wasichai.files.s3.secret-key"
+        private const val EMAIL = "wasichai.notifications.email.enabled"
+        private const val MAIL_HOST = "spring.mail.host"
+        private const val MAIL_FROM = "wasichai.notifications.email.from"
+        private const val TEST_DOMAIN = "@sgspe.test"
+
+        // las claves del MinIO de compose.yml, en develop/example.env
+        private const val DEV_S3_ACCESS_KEY = "sgspe"
+        private const val DEV_S3_SECRET_KEY = "sgspe-minio"
         private val MAX_TTL: Duration = Duration.ofHours(8)
     }
 }

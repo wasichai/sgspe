@@ -689,7 +689,7 @@ Criterios con que se armó:
 | `agreement_party` | — | R | CRUD | CRUD | R | R | R | R | R | R | — | R | R | R |
 | `agreement_clause` | — | R | CRUD | CRUD | R | R | R | R | R | R | — | R | R | R |
 | `evidence` | CRU `EDIT_ANY` | R | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU `EDIT_ANY` `DOWNLOAD_RESTRICTED` | CRU | R | R | R |
-| `task` | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | RU | R | R |
+| `task` | RU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | CRU | RU | R | R |
 
 - `COMMUNITY_RELATIONS_OFFICER` registra compromisos acordados en reuniones; `COMMITMENT_MANAGER` y `SOCIAL_MANAGER` los
   llevan, verifican y cierran; `APPROVER` los aprueba, y `PROJECT_MANAGER` aprueba los de nivel superior y los que superan
@@ -701,6 +701,9 @@ Criterios con que se armó:
   subió; las PUBLICA e INTERNA se descargan con READ (RF-DOC-003). Bajar la clasificación de una evidencia restringida
   exige `DOWNLOAD_RESTRICTED`, para que un cambio de clasificación no abra la descarga; lo comprueba `EvidenceWriteGuard`
   (ASM-071).
+- `PROJECT_ADMIN` trabaja las tareas que le asignan (RU) pero no las crea: una tarea lleva exactamente un origen
+  (`ExactlyOneGuard`) y `PROJECT_ADMIN` no lee ninguno, así que wasichai le rechazaría el alta (§5.6).
+  `test_apply_roles.py` comprueba que quien crea un objeto con «exactamente uno de» lee algún destino de cada grupo.
 - `FIELD_AGENT` sube evidencias de su captura y, sin `EDIT_ANY`, solo cambia o vincula las que subió (§5.5); sin
   `DOWNLOAD_RESTRICTED`, no descarga las CONFIDENCIAL ni las de DATOS PERSONALES.
 
@@ -1127,9 +1130,20 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - las menciones de personas en la narrativa son referencias que EXTERNO y PUBLICO sustituyen (RQ-REP-033);
   - cada emisión queda en `export_log` y en `audit_log` (RQ-AUD-011).
 - **Documentos emitidos** de wasichai-documents (RQ-REP-029): no se filtran por permisos de campo, porque quien ve el
-  documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Regla: una plantilla imprime un campo restringido solo si
-  todo rol con READ sobre el objeto puede leerlo. El acta de entrega deja espacios para los nombres y las firmas en lugar
-  de imprimir `recipients`, y la ficha de grupo de interés no imprime la postura.
+  documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Además, la copia congelada lleva **todos** los campos del
+  registro y todas las columnas de cada tabla relacionada que nombra la plantilla, aunque no los imprima, y
+  `GET /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto (código de wasichai-documents 0.6.0, UPS-23).
+  Regla: un tipo de documento solo se declara sobre un objeto sin campos restringidos y sin tablas relacionadas de
+  objetos con campos restringidos; `test_model.py` lo comprueba. Por eso, hasta UPS-23, el acta de entrega (`delivery`
+  restringe `recipients` y `conformity_by`) no es un documento emitido, y la lista de asistentes imprime el total y deja
+  filas en blanco para los nombres y las firmas en lugar de la tabla de `engagement_participant`.
+- **Quién emite a mano (wasichai 0.6.0):** `POST /api/objects/engagement/records/{id}/documents/{tipo}` solo pide READ sobre
+  `engagement`. Hoy, entonces, cualquier rol que lee interacciones (`ANALYST`, `READ_ONLY`, `APPROVER`, entre otros) puede
+  emitir «Minuta de reunión» y «Lista de asistentes» de una interacción en cualquier estado, y **cada emisión archiva el
+  documento vigente anterior del mismo tipo**, incluida la minuta que AUT-05 congeló al aprobarse el acta. No filtra datos
+  restringidos (la regla de UPS-23 se cumple), pero rompe la promesa de solo lectura de §7. El plan 3.2 lo restringe
+  (decisión por tomar: un filtro en `sgspe.privacy` que exija UPDATE sobre el objeto, o una brecha upstream de permiso de
+  emisión por tipo) y agrega el caso a `IssuedDocumentsApiTest`; este plan no cambia código.
 
 ### 11.5 IA
 

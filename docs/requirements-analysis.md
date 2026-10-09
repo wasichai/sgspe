@@ -1213,7 +1213,7 @@ supuesto, gap o brecha (enlazados); Pendiente.
 | CON-043 | El prompt pide eventos de dominio y eventos temporales (por vencer, vencido, escalamiento); las automatizaciones de wasichai no tienen disparadores temporales | [PRM-01 §12, §17] [WAS-ADR-0016] [WAS-ADR-0039] | Listeners y automatizaciones para los cambios; trabajos programados con `ClusterLock` para el tiempo (RN-WFL-001, RF-WFL-004) | Resuelta |
 | CON-044 | Las herramientas `createDraftCommitment` y `createDraftMeetingSummary` del prompt frente al agente de wasichai, que es de solo lectura | [PRM-01 §9] [WAS-ADR-0014] | Producen sugerencias que guarda el código de SGSPE, nunca registros (RQ-AI-013) | Resuelta |
 | CON-045 | USR-01 pide DOCX y PDF con mapas; wasichai-documents emite una plantilla HTML congelada que se imprime desde el navegador | [USR-01] [WAS-ADR-0023] | Paquete propio DOCX primero (POI) con PDF por Gotenberg; wasichai-documents queda para documentos de un registro (ASM-014, RQ-REP-029) | Resuelta |
-| CON-046 | Las evidencias necesitan archivos y wasichai no tiene campos FILE ni IMAGE | [PRM-01 §5] [WAS-DOC domain/metadata-model.md] | Almacenamiento de objetos propio y `evidence` inmutable; migrar a FILE cuando exista (ASM-013, UPS-07) | Resuelta con brecha |
+| CON-046 | Las evidencias necesitan archivos y wasichai no tenía campos FILE ni IMAGE | [PRM-01 §5] [WAS-DOC domain/metadata-model.md] | Desde wasichai 0.6.0, `evidence.file` es un campo `FILE` de wasichai-files y `evidence` sigue inmutable con `EvidenceWriteGuard` (ASM-013, UPS-07) | Resuelta |
 | CON-047 | El prompt pide bloqueo optimista; en wasichai el PUT reemplaza el registro y `version` es un nombre reservado sin columna | [PRM-01 §11, §20] | Precondición sobre `updated_at` con `If-Match` (ASM-035) y UPS-04 | Resuelta con brecha |
 | CON-048 | El prompt propone rutas `/api/projects/...`; las apps de wasichai usan la API genérica más `/api/<app>/**` | [PRM-01 §11] | API genérica de wasichai más `/api/sgspe/**` con recursos en inglés (RNF-INT-004) | Resuelta |
 | CON-049 | Identificadores técnicos en inglés (prompt y USR-09) frente a srtm y caja, que los usan en español | [USR-09] [PRM-01 §5] | Inglés (USR-09, RNF-MNT-004) | Resuelta |
@@ -1298,6 +1298,7 @@ Capacidades que wasichai 0.3.2 no ofrece. Los issues upstream se abren solo con 
 | UPS-20 | Borrar un registro que tiene hijos de una relación MANY_TO_ONE obligatoria: wasichai 0.3.2 declara la columna NOT NULL con ON DELETE SET NULL, así que la base rechaza el borrado y la API responde 500 en vez de 409 | Borrar un padre con hijos obligatorios falla con un 500 sin causa legible, en vez de un error de regla que nombre al dependiente | `DependentsDeleteGuard` consulta las tablas físicas del tenant y responde 409 `HAS_DEPENDENTS` (riesgo 3 de `architecture.md` §14) | F2 | RNF-INT-001 |
 | UPS-21 | Buscar un usuario por correo dentro de una organización sin ser administrador: wasichai 0.3.2 solo ofrece `UserRepository.findByEmail`, global y con `.one()`, y `AdminService.listUsers`, que exige `MANAGE_ORGANIZATION` | Validar una referencia a usuario (`*_user_id`/`*_user_email`) falla con 500 si el mismo correo existe en dos tenants | `UserReferenceGuard` consulta la tabla `users` de la metadata por organización y correo (riesgo 3 de `architecture.md` §14); falta un buscador por organización como `RoleDirectory` | F2 | RNF-INT-001 |
 | UPS-22 | Que las escrituras de la API genérica (`RecordService.create`, `update` y `delete`) corran en una transacción de la petición, a la que se unan las guardas y los listeners ([WAS-ADR-0038]), o que ofrezcan un gancho para que una guarda retenga un candado hasta el commit | Una guarda que lee el estado de otro registro con un candado lo suelta al volver, y la escritura ocurre después: un miembro entra en una versión de área de influencia recién aprobada, o sale de una aprobada y la deja sin miembros (RN-TER-003); lo mismo ocurre con un cambio de la identidad de un borrador (proyecto, tipo o número de versión) que se confirma justo después de la aprobación | `TerritoryWriteGuard` y la aprobación toman el mismo candado `area_of_influence:<id>`, lo que estrecha la ventana sin cerrarla (riesgo 16 de `architecture.md` §14); el mismo caso se repetirá en toda guarda que lea otro registro | F2 | RN-TER-003, RNF-INT-003 |
+| UPS-23 | Que un documento emitido de wasichai-documents congele solo lo que su plantilla nombra, o respete los permisos de campo de quien lo lee: hoy su copia guarda todos los campos del registro y todas las columnas de las tablas relacionadas, y `GET /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto | Un documento de un objeto con campos restringidos los entrega a quien no los lee: el acta de entrega de `delivery` (`recipients`, `conformity_by`) o una lista de asistentes con la tabla de `engagement_participant` (RQ-SEC-010) | Los tipos de documento solo se declaran sobre objetos sin campos restringidos (`security.md` §11.4): el acta de entrega (AUT-03) espera, y el acta firmada se sube como evidencia ACTA DE ENTREGA; la lista de asistentes deja filas en blanco para los nombres y las firmas | F3 | RQ-REP-029, RQ-SEC-010 |
 
 ## 19. Assumptions
 
@@ -1452,9 +1453,9 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `RQ-AI` | 13 |
 | `CON` | 60 |
 | `GAP` | 32 |
-| `UPS` | 22 |
+| `UPS` | 23 |
 | `ASM` | 88 |
-| Total | 500 |
+| Total | 501 |
 
 ### 20.2 Requisitos por bounded context
 

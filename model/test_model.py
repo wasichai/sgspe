@@ -1,8 +1,10 @@
-"""model.json y model/workflows/ frente a los documentos de diseño (database-model.md §24, «Cómo se prueba», y
-workflows.md, «Pruebas del modelo»).
+"""model.json, model/workflows/, model/automations/ y model/document-types/ frente a los documentos de diseño
+(database-model.md §24, «Cómo se prueba», y workflows.md, «Pruebas del modelo»).
 
 Cada objeto, campo, relación, ENUM, flag, único, índice y acción de las fichas de la fase está en model.json con su tipo,
-y nada de una fase posterior; cada workflow tiene los estados de domain-model.md §7.3 y las reglas del motor.
+y nada de una fase posterior; cada workflow tiene los estados de domain-model.md §7.3 y las reglas del motor; cada
+automatización y cada tipo de documento de la fase está, con su disparador, sin escribir derivados y sin congelar campos
+restringidos.
 
 Correr: cd model && python3 -m unittest -v test_model
 """
@@ -13,7 +15,7 @@ import unittest
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F2"
+PHASE = "F3"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -37,7 +39,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         catalog = design_docs.matrix()
         wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 48)
+        self.assertEqual(len(wanted), 60)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -63,6 +65,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
                 self.assertEqual(got.get("derived", False), doc["derived"], where)
                 self.assertEqual(got.get("indexed", False), got["name"] in card.indexed, where)
                 self.assertEqual(got.get("defaultValue"), doc["default"], where)
+                self.assertEqual(got.get("contentTypes"), card.content_types.get(got["name"]), where)
                 self.assertTrue(got.get("label"), where)
                 self.assertNotIn("editable", got, where)
 
@@ -203,14 +206,21 @@ class WorkflowTests(unittest.TestCase):
                     self.assertTrue(any(t["from"] == state["name"] for t in transitions), (obj, state["name"]))
 
     def test_las_transiciones_que_nombran_las_guardas_y_los_endpoints_existen(self):
-        # workflows.md: «Transiciones de comando» y «Transiciones con motivo obligatorio», filas de F2
+        # workflows.md: «Transiciones de comando», «Transiciones con motivo obligatorio», las guardas D1 a D11 de WF-D, la de
+        # AgreementWriteGuard, los listeners y los destinatarios por rol (verify y approve_senior), filas de F2 y F3
         named = {
             "project": {"approve", "resume", "return_to_draft", "suspend", "cancel_draft", "cancel_in_review"},
             "stakeholder": {"profile", "assess", "retire_identified", "retire_profiled", "retire_assessed", "reinstate"},
             "engagement": {"register_held", "register_held_unplanned", "close", "close_light", "postpone",
-                           "return_minutes", "cancel_planned", "cancel_scheduled", "cancel_postponed"},
+                           "return_minutes", "cancel_planned", "cancel_scheduled", "cancel_postponed", "approve_minutes"},
             "field_visit": {"cancel"},
             "area_of_influence": {"approve", "supersede"},
+            "commitment": {"submit", "approve", "approve_senior", "approve_direct", "register_fulfillment",
+                           "reopen_execution", "verify", "close", "cancel_draft", "cancel_pending_approval",
+                           "cancel_approved", "cancel_in_progress", "cancel_blocked"},
+            "agreement": {"activate", "activate_from_draft", "resume"},
+            "commitment_candidate": {"accept", "reject", "mark_duplicate"},
+            "task": {"cancel_open", "cancel_in_progress", "cancel_blocked"},
         }
         for obj, names in named.items():
             have = {t["name"] for t in self.workflows[obj]["definition"]["transitions"]}
@@ -222,13 +232,126 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(without, ["stakeholder"])
 
     def test_transiciones_nombre_etiqueta_origen_destino_y_roles_son_los_de_workflows_md(self):
+        # un rol entra en una transición desde su fase (security.md §7.1): los «Roles operativos» de WF-N que reciben
+        # permisos en F4 y F5 (GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER) llegan con su fase
+        phases, _ = design_docs.role_phases()
         for obj, wf in self.workflows.items():
             letter = self.cards[obj].workflow.split("-")[1]
-            doc = design_docs.workflow_transitions(letter)
+            doc = design_docs.workflow_transitions(letter, obj)
             self.assertTrue(doc, obj)
             got = [(t["name"], t["label"], t["from"], t["to"], sorted(t["roles"])) for t in wf["definition"]["transitions"]]
-            wanted = [(t["name"], t["label"], t["from"], t["to"], sorted(t["roles"])) for t in doc]
+            wanted = [(t["name"], t["label"], t["from"], t["to"], sorted(r for r in t["roles"] if phases[r] <= PHASE))
+                      for t in doc]
             self.assertEqual(sorted(got), sorted(wanted), obj)
+
+    def test_un_rol_de_una_fase_posterior_no_esta_en_ningun_workflow(self):
+        phases, _ = design_docs.role_phases()
+        for obj, wf in self.workflows.items():
+            for t in wf["definition"]["transitions"]:
+                self.assertEqual([r for r in t["roles"] if phases[r] > PHASE], [], (obj, t["name"]))
+
+def definitions(kind):
+    """{object: [definition]} of model/<kind>/<object>.json, in file order."""
+    folder = os.path.join(HERE, kind)
+    if not os.path.isdir(folder):
+        return {}
+    return {f[:-len(".json")]: load(os.path.join(kind, f)) for f in sorted(os.listdir(folder)) if f.endswith(".json")}
+
+
+class AutomationsAndDocumentTypesTests(unittest.TestCase):
+    """workflows.md, «Automatizaciones» y «Pruebas del modelo»: las automatizaciones y los tipos de documento de la fase,
+    sus disparadores, sus acciones y lo que imprimen (security.md §11.4)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model = load("model.json")
+        cls.objects = {o["name"]: o for o in cls.model["objects"]}
+        cls.cards = design_docs.cards()
+        cls.automations = definitions("automations")
+        cls.types = definitions("document-types")
+        cls.workflows = {name: wf for name, wf in definitions("workflows").items()}
+        cls.restricted = {(e["object"], f) for e in load("roles.json")["restrictedFields"] for f in e["fields"]}
+
+    def test_las_automatizaciones_son_las_de_workflows_md_hasta_la_fase_salvo_las_que_esperan_una_brecha(self):
+        doc = [a for a in design_docs.automations() if a["phase"] <= PHASE]
+        wanted = sorted((a["object"], a["name"]) for a in doc if a["after"] is None)
+        got = sorted((obj, a["name"]) for obj, items in self.automations.items() for a in items)
+        self.assertEqual(got, wanted)
+        # AUT-03 (y AUT-04 desde F5) esperan a UPS-23: el acta congelaría los receptores de delivery (workflows.md)
+        waiting = {a["id"]: a["after"] for a in doc if a["after"]}
+        self.assertEqual(waiting.get("AUT-03"), "UPS-23")
+        self.assertLessEqual(set(waiting), {"AUT-03", "AUT-04"})
+        self.assertEqual(set(waiting.values()), {"UPS-23"})
+
+    def test_cada_disparador_es_el_de_workflows_md_y_nombra_un_estado_de_su_workflow(self):
+        doc = {a["name"]: a for a in design_docs.automations()}
+        for obj, items in self.automations.items():
+            for automation in items:
+                trigger = automation["definition"]["trigger"]
+                wanted = doc[automation["name"]]
+                self.assertEqual((trigger["type"], trigger.get("state"), trigger.get("transition")),
+                                 (wanted["trigger"], wanted["state"], wanted["transition"]), automation["name"])
+                if trigger.get("state"):
+                    states = {st["name"] for st in self.workflows[obj]["definition"]["states"]}
+                    self.assertIn(trigger["state"], states, automation["name"])
+
+    def test_ninguna_escribe_un_derivado_y_cada_tarea_que_crea_lleva_proyecto_y_un_solo_origen(self):
+        # workflows.md: ninguna automatización escribe un campo derivado; ExactlyOneGuard pide un único origen en task
+        origins = self.cards["task"].exactly_one[0]
+        for items in self.automations.values():
+            for automation in items:
+                for action in automation["definition"]["actions"]:
+                    if action["type"] != "CREATE_RECORD":
+                        continue
+                    target = self.objects[action["targetObject"]]
+                    derived = {f["name"] for f in target["fields"] if f.get("derived")}
+                    self.assertEqual(set(action["values"]) & derived, set(), automation["name"])
+                    if action["targetObject"] == "task":
+                        self.assertEqual(action["values"]["project"], "{{project}}", automation["name"])
+                        self.assertEqual(len([o for o in origins if o in action["values"]]), 1, automation["name"])
+
+    def test_los_tipos_de_documento_son_los_de_workflows_md_hasta_la_fase_salvo_los_que_esperan_una_brecha(self):
+        wanted = sorted((t["object"], t["name"], t["label"], t["prefix"]) for t in design_docs.document_types()
+                        if t["phase"] <= PHASE and t["after"] is None)
+        got = sorted((obj, t["name"], t["label"], t["prefix"]) for obj, items in self.types.items() for t in items)
+        self.assertEqual(got, wanted)
+
+    def test_cada_documento_generado_es_un_tipo_de_su_objeto(self):
+        for obj, items in self.automations.items():
+            names = {t["name"] for t in self.types.get(obj, [])}
+            for automation in items:
+                for action in automation["definition"]["actions"]:
+                    if action["type"] == "GENERATE_DOCUMENT":
+                        self.assertIn(action["documentType"], names, automation["name"])
+
+    def has_restricted(self, obj):
+        card = self.cards[obj]
+        fields = {f["name"] for f in card.fields if f["restricted"]}
+        fields |= {r["field"] for r in card.relationships if r["restricted"] and not r["inverse"]}
+        return bool(fields) or any(o == obj for o, _ in self.restricted)
+
+    def test_ningun_tipo_de_documento_congela_un_campo_restringido(self):
+        # security.md §11.4 y UPS-23: la copia congelada lleva el registro entero y cada columna de las tablas
+        # relacionadas que nombra la plantilla, sin filtrar por permisos de campo
+        relationships = {r["name"]: r for r in self.model["relationships"]}
+
+        def related(node):
+            found = [node["attrs"]["relationship"]] if node["type"] == "relatedTable" else []
+            for child in node.get("content", []):
+                found.extend(related(child))
+            return found
+
+        for obj, items in self.types.items():
+            self.assertFalse(self.has_restricted(obj), obj)
+            for doc in items:
+                for name in related(doc["template"]):
+                    rel = relationships[name]
+                    other = rel["source"] if rel["target"] == obj else rel["target"]
+                    self.assertFalse(self.has_restricted(other), (doc["name"], name))
+
+    def test_el_objeto_del_acta_de_entrega_tiene_campos_restringidos(self):
+        # lo que espera UPS-23: si delivery dejara de restringir campos, el acta de entrega podría volver a F3
+        self.assertTrue(self.has_restricted("delivery"))
 
 
 if __name__ == "__main__":

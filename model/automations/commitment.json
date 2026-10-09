@@ -1,0 +1,17 @@
+[
+  {
+    "name": "aut-01-commitment-execution-task",
+    "label": "Tarea de ejecución del compromiso aprobado",
+    "enabled": true,
+    "definition": {
+      "trigger": { "type": "STATE_ENTERED", "state": "approved" },
+      "conditions": [],
+      "actions": [
+        { "type": "CREATE_RECORD", "targetObject": "task",
+          "values": { "title": "Ejecutar compromiso {{code}}", "commitment": "{{id}}", "project": "{{project}}",
+                      "assignee_user_id": "{{owner_user_id}}", "assignee_user_email": "{{owner_user_email}}",
+                      "due_date": "{{due_date}}" } }
+      ]
+    }
+  }
+]

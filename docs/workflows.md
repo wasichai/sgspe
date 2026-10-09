@@ -568,7 +568,7 @@ transición de WF-D, campos de `commitment` o de sus hijos y, cuando aplica, una
 | Plazo de entrega: fecha de acuerdo, fechas parciales y fecha final | Al salir de `draft` (D1); desde `approved`, la fecha final solo cambia con una reprogramación | `agreed_date`, `due_date`; `commitment_milestone`, si hay fechas parciales; `commitment_reschedule` | — | RF-COM-003, RF-COM-006 |
 | Monto | Obligatorio desde el alta, con su moneda al salir de `draft` (D1); el tope de la campaña (D7) se verifica en `approve`, `approve_senior` y `approve_direct` | `amount`, `currency`; `executed_amount` (derivado) | — | RN-COM-004, RN-INV-003, ASM-063 |
 | Estatus de avance: gestiones internas y aviso oportuno de retrasos | `approved`, `in_progress` y `blocked`; el atraso es `deadline_status`, nunca un estado | `commitment_action`; `delay_risk_reported`, `delay_risk_note`; `deadline_status` (derivado) | — | RF-COM-006, RF-COM-007, RN-WFL-001 |
-| Entrega: fecha, quienes dan conformidad, acta de entrega y registro fotográfico | El endpoint de entregas captura los datos; la transición humana `register_fulfillment` → `fulfilled` (D9) | `delivery`: `delivery_date`, `place`, `recipients`, `conformity_given`, `conformity_by` | ACTA DE ENTREGA y FOTO si el recurso es MATERIAL; ACTA, CARTA u OTRO si es NO MATERIAL, con la conformidad registrada en la entrega; documento emitido «Acta de entrega» (AUT-03) | RF-COM-008, RN-COM-001, ASM-009, RQ-REP-029 |
+| Entrega: fecha, quienes dan conformidad, acta de entrega y registro fotográfico | El endpoint de entregas captura los datos; la transición humana `register_fulfillment` → `fulfilled` (D9) | `delivery`: `delivery_date`, `place`, `recipients`, `conformity_given`, `conformity_by` | ACTA DE ENTREGA y FOTO si el recurso es MATERIAL; ACTA, CARTA u OTRO si es NO MATERIAL, con la conformidad registrada en la entrega; documento emitido «Acta de entrega» (AUT-03, tras UPS-23) | RF-COM-008, RN-COM-001, ASM-009, RQ-REP-029 |
 | Cierre: "consignar el cierre de la solicitud, al final del proceso" | `verify` y `close` → `closed`; la solicitud aceptada pasa a `closed` | `closed_date` (derivado); estado de `stakeholder_request` | — | RN-GRV-001 |
 
 Lo que el prompt agrega y DOC-01 no pide: la aprobación interna (ASM-008), la verificación (CON-027), el bloqueo, la
@@ -1157,6 +1157,8 @@ stateDiagram-v2
 - **Roles operativos:** `PROJECT_ADMIN`, `PROJECT_MANAGER`, `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`,
   `STAKEHOLDER_MANAGER`, `COMMITMENT_MANAGER`, `GRIEVANCE_MANAGER`, `SOCIAL_RISK_MANAGER`, `SOCIAL_INVESTMENT_MANAGER`,
   `GIS_ANALYST`, `FIELD_AGENT` y `APPROVER`: todos los roles declarados salvo los de solo lectura.
+- **Fase de cada rol:** un rol operativo entra en las transiciones de `model/workflows/task.json` desde la fase en que
+  recibe permisos (`security.md` §7.1): los de quejas y riesgos en F4 y el de inversión social en F5.
 - **Tareas automáticas:** las crean automatizaciones (`AUT-NN`) y trabajos (`JOB-NN`); los trabajos usan `generator_key` para
   no duplicarlas. Ninguno las mueve: las cierra la persona.
 - **Validación contra las fuentes:** el prompt pide tareas [PRM-01 §5]; la tarea vencida es `deadline_status`, nunca un estado
@@ -1315,6 +1317,8 @@ Reglas de SGSPE:
 - `ProjectScopeGuard` y `UserReferenceGuard` aceptan las escrituras sin usuario (plataforma y automatizaciones), que no tienen
   asignación a un proyecto.
 - Las tareas creadas por automatizaciones dejan `generator_key` vacío; esa clave es para los trabajos.
+- Sin `NOTIFY` (D2, ASM-070): un aviso a `role:<NOMBRE>` llegaría a todos los titulares del rol en el tenant, sin mirar las
+  asignaciones del proyecto; los avisos los decide `sgspe.notification`. `apply.py` rechaza `WEBHOOK` y `NOTIFY`.
 - Se versionan junto al modelo (`model/automations/<objeto>.json`) y `apply.py` las aplica; escribir una regla exige
   `MANAGE_METADATA` [WAS-DOC api/rest.md].
 - Llegan en F3, con el starter de automatización, el objeto `task` y el starter de documentos.
@@ -1323,9 +1327,9 @@ Reglas de SGSPE:
 |---|---|---|---|---|---|---|---|
 | AUT-01 | `aut-01-commitment-execution-task` | `commitment` | `STATE_ENTERED` `approved` | — | `CREATE_RECORD` `task`: "Ejecutar compromiso {{code}}", `commitment` = `{{id}}`, `project` = `{{project}}`, responsable `{{owner_user_id}}` y `{{owner_user_email}}`, `due_date` = `{{due_date}}`; el responsable y la fecha existen porque las tres transiciones de aprobación los vuelven a exigir al entrar en `approved` (D1, D2), aunque `pending_approval` admita cambios | F3 | Modelo de dominio §7.3; RF-WFL-001 |
 | AUT-02 | `aut-02-grievance-ack-task` | `grievance` | `RECORD_CREATED` | — | `CREATE_RECORD` `task`: "Acusar recibo de la queja {{code}}", `grievance` = `{{id}}`, `project` = `{{project}}`; sin responsable ni fecha: el plazo vive en `ack_due_date` de la queja | F4 | Modelo de dominio §7.3; RF-GRV-006 |
-| AUT-03 | `aut-03-delivery-certificate` | `delivery` | `RECORD_CREATED` | `commitment` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de entrega» | F3 | Modelo de dominio §7.3; RQ-REP-029 |
-| AUT-04 | `aut-04-receipt-certificate` | `delivery` | `RECORD_CREATED` | `social_contribution` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de recepción» | F5 | RQ-REP-029 [DOC-02 p.4] |
-| AUT-05 | `aut-05-meeting-minutes` | `engagement` | `STATE_ENTERED` `minutes_approved` | — | `GENERATE_DOCUMENT` tipo «Minuta de reunión»; `GENERATE_DOCUMENT` tipo «Lista de asistentes» | F3 | RQ-REP-029, RF-ENG-005 |
+| AUT-03 | `aut-03-delivery-certificate` | `delivery` | `RECORD_CREATED` | `commitment` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de entrega» (`delivery-certificate`) | F3, tras UPS-23 | Modelo de dominio §7.3; RQ-REP-029 |
+| AUT-04 | `aut-04-receipt-certificate` | `delivery` | `RECORD_CREATED` | `social_contribution` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de recepción» | F5, tras UPS-23 | RQ-REP-029 [DOC-02 p.4] |
+| AUT-05 | `aut-05-meeting-minutes` | `engagement` | `STATE_ENTERED` `minutes_approved` | — | `GENERATE_DOCUMENT` tipo «Minuta de reunión» (`meeting-minutes`); `GENERATE_DOCUMENT` tipo «Lista de asistentes» (`attendance-list`) | F3 | RQ-REP-029, RF-ENG-005 |
 | AUT-06 | `aut-06-grievance-receipt` | `grievance` | `STATE_ENTERED` `acknowledged` | — | `GENERATE_DOCUMENT` tipo «Cargo de queja» | F4 | RQ-REP-029 |
 | AUT-07 | `aut-07-inquiry-answer-letter` | `inquiry` | `STATE_ENTERED` `answered` | `channel` `EQUALS` CARTA | `GENERATE_DOCUMENT` tipo «Carta de respuesta» | F4 | RQ-REP-029 |
 | AUT-08 | `aut-08-request-decline-letter` | `stakeholder_request` | `STATE_ENTERED` `declined` | `request_medium` `EQUALS` CARTA DE SOLICITUD | `GENERATE_DOCUMENT` tipo «Carta de respuesta» | F4 | RQ-REP-029, RF-GRV-004 |
@@ -1335,10 +1339,26 @@ Reglas de SGSPE:
 | AUT-12 | `aut-12-issue-certificate` (opcional, por configuración) | `deliverable` | `STATE_ENTERED` `issued` | — | `GENERATE_DOCUMENT` tipo «Constancia»: constancia de emisión con correlativo y entrada `ISSUE` en el historial | F8 | RQ-REP-029 [WAS-ADR-0023] |
 
 Los tipos de documento («Acta de entrega», «Minuta de reunión»…) son los del catálogo "Tipo de documento administrativo" de
-§10 del análisis; su nombre técnico se declara con las plantillas de wasichai-documents. Un documento emitido por una
-automatización dice que lo emitió la plataforma [WAS-DOC api/rest.md].
+§10 del análisis. Se versionan en `model/document-types/<objeto>.json` (una lista con los tipos del objeto: `name`,
+`label`, `prefix` y `template`, el árbol de nodos del editor de wasichai-documents) y `apply.py --workflows` los aplica
+antes que las automatizaciones que los nombran (`database-model.md` §24). Un documento emitido por una automatización dice
+que lo emitió la plataforma [WAS-DOC api/rest.md].
 
-Ejemplo: AUT-01 en el formato de wasichai (`POST /api/objects/commitment/automations`).
+Un documento emitido no se filtra por permisos de campo, y su copia congelada lleva todos los campos del registro y todas
+las columnas de cada tabla relacionada que nombra la plantilla, aunque la plantilla no las imprima (código de
+wasichai-documents 0.6.0, UPS-23). Por eso un tipo de documento solo se declara sobre un objeto sin campos restringidos
+y sin tablas relacionadas de objetos con campos restringidos (`security.md` §11.4); `test_model.py` lo comprueba. El acta
+de entrega espera a UPS-23, porque `delivery` restringe `recipients` y `conformity_by`; hasta entonces el acta firmada se
+sube como evidencia ACTA DE ENTREGA, que D9 ya exige.
+
+| Tipo de documento | Nombre técnico | Prefijo | Objeto | Fase | Lo que imprime |
+|---|---|---|---|---|---|
+| Acta de entrega | `delivery-certificate` | `AE` | `delivery` | F3, tras UPS-23 | Fecha, lugar y lo entregado; espacios para los nombres y las firmas de quienes reciben y dan conformidad |
+| Minuta de reunión | `meeting-minutes` | `MR` | `engagement` | F3 | Título, tipo, fecha, lugar, objetivo, minuta, resultados y conteos de asistentes |
+| Lista de asistentes | `attendance-list` | `LA` | `engagement` | F3 | Título, tipo, fecha, lugar y total de asistentes; quince filas en blanco para el nombre, el cargo u organización y la firma de cada asistente, que se llenan a mano |
+
+`model/automations/<objeto>.json` es una lista con las automatizaciones del objeto, cada una en el formato de wasichai.
+Ejemplo: AUT-01 (`POST /api/objects/commitment/automations`).
 
 ```json
 {
@@ -1561,7 +1581,10 @@ externa por túnel, porque Docker es remoto.
 - ningún objeto con workflow es `appendOnly`;
 - las transiciones que nombran las guardas, los listeners y los endpoints existen (por ejemplo, `close_accepted` y `issue`);
 - las automatizaciones nombran estados y transiciones que existen, sus `CREATE_RECORD` apuntan a objetos que existen y ninguna
-  escribe un campo derivado;
+  escribe un campo derivado; una tarea que crea lleva su proyecto y un solo origen;
+- las automatizaciones y los tipos de documento son los de la tabla de su fase, salvo los que esperan una brecha
+  («F3, tras UPS-23»), y ningún tipo de documento se declara sobre un objeto con campos restringidos ni nombra una tabla
+  relacionada de uno (`security.md` §11.4);
 - un campo derivado se reconoce por la clave `"derived": true` de su definición en `model/model.json`, que solo leen las
   herramientas de SGSPE. Nunca se marca con `editable: false`, porque el almacén de wasichai omite esos campos en toda
   escritura, también en las de la plataforma, y ningún trabajo ni listener podría mantenerlo (código de wasichai 0.3.2).
