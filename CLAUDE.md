@@ -22,7 +22,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Conventional Commits con asunto en español y cuerpo de 100 columnas como máximo (commitlint con husky).
 - Ningún código bajo el paquete `wasichai`; nunca `RecordStore`, `PhysicalTableRecordStore`, `AuditService` ni
   `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila, y desde F2 también que
-  `scope` y `privacy` solo dependan de `common` y que `findAllOrganizations` solo viva en `common/Organizations.kt`.
+  `scope` y `privacy` solo dependan de `common`, que `findAllOrganizations` no aparezca en ningún archivo y que
+  `TenantDirectory` solo viva en `common/Organizations.kt`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
   Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` → `load_ubigeo.py`. Por el
   túnel, los tres primeros pasos con el modelo de F2 tardan de 5 a 8 minutos, y la suite de integración completa, de

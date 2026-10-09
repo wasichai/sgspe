@@ -160,7 +160,9 @@ E (elevación de privilegios).
 | Perfil de producción | `wasichai.seed.dev=false` y `WASICHAI_JWT_SECRET` sin valor por defecto en `application-prod.yml`, y la guarda `ProdGuard` (abajo); pruebas en §14 | RQ-SEC-016 |
 | Guarda de arranque | Con el perfil `prod`, el arranque falla, con un mensaje que nombra la propiedad y la variable, si `wasichai.seed.dev` es verdadero (`WASICHAI_SEED_DEV`), si `wasichai.security.jwt.secret` falta o es el secreto de desarrollo de `application.yml` (`WASICHAI_JWT_SECRET`) o si `wasichai.security.jwt.ttl` es de 8 horas o más (`WASICHAI_SECURITY_JWT_TTL`) | RQ-SEC-016, RQ-SEC-001 |
 | CSP en el proxy | La política del bloque siguiente, desplegada primero en modo `Content-Security-Policy-Report-Only` y ajustada con sus informes | RQ-SEC-001 |
-| Límite de intentos | En el proxy, por dirección IP y por cuenta, sobre `/api/auth/login` y `/api/auth/token`; wasichai no lo ofrece y pide ponerlo delante | RQ-SEC-015, ASM-049 [WAS-DOC security/authentication.md] |
+| Revocación de tokens | `wasichai.security.jwt.revocation: true` y `revocation-cache: PT5S` en `application-prod.yml`. Deshabilitar a un usuario, cambiar sus roles o su clave, rotar o deshabilitar una cuenta de servicio y `POST /api/auth/logout` rechazan sus tokens anteriores; otra réplica tarda como mucho los 5 segundos de la caché en enterarse. Una cuenta borrada pierde sus tokens al instante | RQ-SEC-015 (UPS-09) [WAS-ADR-0059] |
+| Límite de intentos | `wasichai.security.login.enabled: true` en `application-prod.yml`: 5 intentos por correo y dirección (`max-attempts`), 20 por correo desde cualquier dirección (`account-max-attempts`) y 5 por id de cliente en `/api/auth/token`, en ventanas fijas de 15 minutos (`window: PT15M`). Pasado el límite responde `429` con `Retry-After`, aun con la clave correcta. `application-prod.yml` fija `server.forward-headers-strategy: framework` para que la dirección del cliente sea la que reenvía el proxy; condición obligatoria del despliegue: el proxy sobrescribe, nunca agrega, `X-Forwarded-For` y `X-Forwarded-Proto` (architecture §10.2). El proxy conserva su propio límite por IP y por cuenta como defensa extra | RQ-SEC-015, ASM-049 [WAS-ADR-0059] |
+| Política de contraseñas | `wasichai.security.password.*` en `application-prod.yml`: 12 caracteres como mínimo (`min-length`), con mayúscula, minúscula, dígito y símbolo, y distinta del correo. Se aplica al crear un usuario, cambiar la clave y dar de alta una organización (`400` con una entrada por regla incumplida). No hay caducidad. Los secretos de las cuentas de servicio son generados y no se juzgan | RQ-SEC-015 [WAS-ADR-0059] |
 | Un solo origen | El proxy sirve el portal y `/admin` y reenvía `/api/**`; no hace falta CORS. La topología de despliegue la fija ADR-0026 | RF-IAM-001 |
 | Cabeceras | `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` y `Cache-Control: no-store` en las respuestas de `/api/**` | RQ-SEC-001, RQ-SEC-010 |
 | Sin contenido activo | Textos largos en Markdown sin HTML; evidencias servidas como adjunto, con su tipo MIME y `nosniff`; la redirección posterior al login solo acepta rutas internas | RF-DOC-001, RF-DOC-003 |
@@ -213,9 +215,11 @@ object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 ### 3.4 Brechas y camino futuro
 
-- **UPS-09:** wasichai no revoca tokens, no limita los intentos de login ni aplica una política de contraseñas. Un token
-  robado sigue siendo válido hasta que vence, y deshabilitar a un usuario no corta su token vigente, porque nada revisa la
-  cuenta en cada petición [WAS-ADR-0043]. Mientras tanto: TTL corto y límite en el proxy (RQ-SEC-015, ASM-049).
+- **UPS-09:** adoptada con wasichai 0.6.0 en el perfil de producción (§3.2). Fuera de él, o con otro perfil, un token robado
+  sigue siendo válido hasta que vence y deshabilitar a un usuario no corta su token vigente [WAS-ADR-0043]. Con la revocación
+  encendida, el límite que queda es la caché de 5 segundos. El límite de intentos tiene un precio aceptado: quien adivine 20
+  veces la clave de una cuenta la bloquea también para su dueño hasta que cierre la ventana. Los contadores viven en la memoria
+  de cada réplica (`InMemoryLoginAttemptStore`): con varias réplicas el límite efectivo se multiplica, y el del proxy lo cubre.
 - **OIDC** es el camino futuro y no entra en el MVP: cambia el decodificador y el login, no los permisos [WAS-ADR-0010].
 - **Cookie HttpOnly:** llevar el token en una cookie con protección CSRF queda como propuesta upstream (CON-056,
   RQ-SEC-001).
@@ -1207,8 +1211,10 @@ wasichai las responde para toda escritura de registros [WAS-ADR-0040] [WAS-ADR-0
   `program_measurement`, `indicator_measurement`, `deliverable_version`, `export_log` e `ai_interaction` (RQ-AUD-003).
 - `evidence` inmutable, con SHA-256 (RF-DOC-001).
 - `X-Correlation-Id` en cada petición, respuesta y línea de log (RQ-AUD-006, ASM-034).
-- El origen del cambio, codificado en el motivo hasta que exista UPS-03 (RQ-AUD-007, ASM-051): `importación <id>`,
-  `automation '<nombre>'` o `derivado: <regla>`, y el nombre del trabajo programado en sus escrituras.
+- El origen del cambio (RQ-AUD-007, ASM-051): wasichai lo guarda en `audit_log.source` y SGSPE lo usa en los trabajos
+  (`job:derived-fields` para JOB-02 y `job:stakeholder-follow-up` para JOB-03, filtrables con `GET /api/audit?source=`). El motivo
+  sigue diciéndolo en palabras: `importación <id>`, `automation '<nombre>'` o `derivado: <regla>`, y el nombre del trabajo
+  programado en sus escrituras.
 - Los datos de origen de cada importación, porque la auditoría no guarda coordenadas (RQ-AUD-013, RQ-GIS-008).
 
 ### 13.3 Quién consulta la auditoría
@@ -1224,7 +1230,7 @@ wasichai las responde para toda escritura de registros [WAS-ADR-0040] [WAS-ADR-0
 | Brecha | Qué falta | Mientras tanto |
 |---|---|---|
 | UPS-02 | No se audita la administración de usuarios, roles, permisos ni metadata | Modelo y roles solo desde el repositorio, con su historia en git (RNF-MNT-002, RQ-AUD-008) |
-| UPS-03 | Las filas de auditoría no llevan identificador de correlación ni origen | `X-Correlation-Id` propio en los logs (ASM-034) y convención de motivo (ASM-051) |
+| UPS-03 | Resuelta con wasichai 0.6.0: la fila lleva `correlation_id` y `source`. Falta etiquetar con un origen propio las importaciones y las automatizaciones | Convención de motivo (ASM-051) |
 | UPS-05 | `/api/audit` sin paginación ni filtros por fecha y usuario | Historial por registro y filtros por objeto, registro y operación (RQ-AUD-009) |
 | UPS-08 | La interfaz de wasichai no pide el motivo, así que editar en `/admin` un objeto `requiresReason` falla con 400 | Las escrituras críticas se hacen desde el portal (RQ-AUD-002) |
 | UPS-12 | `audit_log` se puede alterar con acceso directo a la base | Ningún código de SGSPE escribe en la auditoría y el acceso directo a la base se limita a la operación (RQ-AUD-010) |

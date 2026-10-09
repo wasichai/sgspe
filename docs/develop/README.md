@@ -152,7 +152,9 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
 - `X-Correlation-Id`: se acepta el del cliente si cumple `^[A-Za-z0-9._-]{1,64}$`; si no, se genera un UUID. Va en toda
   respuesta, también en un `401`, y en la línea de acceso (`sgspe.access`): método, ruta sin la cadena de consulta, estado,
   duración e identificador.
-- Producción (`application-prod.yml`): sin semilla, `WASICHAI_JWT_SECRET` obligatorio, token de 4 horas y logs JSON ECS.
+- Producción (`application-prod.yml`): sin semilla, `WASICHAI_JWT_SECRET` obligatorio, token de 4 horas y logs JSON ECS, más revocación de tokens, límite de intentos de login y política de contraseñas
+  ([Seguridad §3.2](../security.md#32-endurecimiento-de-sgspe)). En producción toda contraseña, incluida `adminPassword` al
+  aprovisionar una organización, debe cumplirla: 12 caracteres o más, con mayúscula, minúscula, dígito y símbolo, y distinta del correo.
 
 ## 8. Con la interfaz (`../sgspe-ui`)
 
