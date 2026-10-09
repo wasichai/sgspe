@@ -512,12 +512,12 @@ Los niveles INTERNO, EXTERNO y PUBLICO (catálogo "Nivel de divulgación") se ap
   cada tabla se marca también la menor de las visibles, con la misma marca, mientras lo oculto sume menos de 5, el cero
   incluido. Ninguna hoja de PUBLICO lleva totales. Rige para todo desglose, incluido el de grupo de influencia por postura,
   que sin ello publicaría la postura de una persona identificable.
-- **El código de un grupo de interés es un seudónimo, no anonimato.** En EXTERNO una persona se cita por código `GI-` y los 12
-  primeros dígitos hexadecimales (48 bits) del id del grupo de interés. El código es estable: es el mismo en todas las
-  exportaciones y niveles, así que la organización lo cruza con su registro y puede revertirlo, y un tercero que reciba varias
-  salidas EXTERNO puede enlazar las filas entre ellas. Como `stakeholder` es por proyecto, la misma persona tiene códigos
-  distintos en proyectos distintos. Con la Ley 29733 sigue siendo dato personal para quien responde por el registro; EXTERNO
-  reduce la exposición de quien recibe el archivo, no la anula (ruling P29).
+- **El código de un grupo de interés es un seudónimo, no anonimato.** En EXTERNO una persona se cita por código `GI-` y
+  los 12 primeros dígitos hexadecimales (48 bits) del id del grupo de interés. El código es estable: es el mismo en
+  todas las exportaciones y niveles, así que la organización lo cruza con su registro y puede revertirlo, y un tercero
+  que reciba varias salidas EXTERNO puede enlazar las filas entre ellas. Como `stakeholder` es por proyecto, la misma
+  persona tiene códigos distintos en proyectos distintos. Con la Ley 29733 sigue siendo dato personal para quien
+  responde por el registro; EXTERNO reduce la exposición de quien recibe el archivo, no la anula.
 
 ### 9.2 Reglas por elemento
 

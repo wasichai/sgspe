@@ -158,11 +158,12 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 }
 ```
 
-**Errores de las guardas de SGSPE en la API genérica.** Toda guarda de SGSPE que rechaza una escritura por `/api/objects/**` lo
-hace con su código en `errors[0].message` y el campo en `errors[0].field` (`record` si el hallazgo no apunta a un campo); el
-`detail` lleva el texto en español. Así dos `403` o dos `409` se distinguen por código y no solo por estado (ruling P15). El
-`detail` y `errors[0].message` de un error de wasichai (permiso, validación de tipo, obligatorio vacío) no siguen esta forma: su
-`message` es texto libre. Los códigos que existen hoy, con el estado de la escritura real:
+**Errores de las guardas de SGSPE en la API genérica.** Toda guarda de SGSPE que rechaza una escritura por
+`/api/objects/**` lo hace con su código en `errors[0].message` y el campo en `errors[0].field` (`record` si el hallazgo
+no apunta a un campo); el `detail` lleva el texto en español. Así dos `403` o dos `409` se distinguen por código y no
+solo por estado. El `detail` y `errors[0].message` de un error de wasichai (permiso, validación de tipo, obligatorio
+vacío) no siguen esta forma: su `message` es texto libre. Los códigos que existen hoy, con el estado de la escritura
+real:
 
 | Estado | Códigos |
 |---|---|
@@ -288,7 +289,7 @@ Desde F3, con el contrato de la cabecera nativa de wasichai (WAS-ADR-0058, decis
   la tabla guarda la respuesta entera, con los campos restringidos que quien llamó podía leer (por ejemplo, `recipients`
   y `conformity_by` de una entrega): es un límite aceptado (`security.md` §11.6).
 - **Sin `IK`.** La confirmación de una importación y el alta de componentes no la honran: son idempotentes por
-  conciliación (un reintento encuentra las filas `UNCHANGED` o responde `409 SAME_COORDINATES`), y envolverlos en la
+  conciliación (un reintento encuentra las filas `UNCHANGED` o responde `409` `SAME_COORDINATES`), y envolverlos en la
   transacción de la clave pondría dentro de ella las cuentas de PostGIS, que corren fuera de toda transacción. Las
   exportaciones y las descargas no crean registros de negocio.
 - **ETag.** Un comando responde `ETag` con el `updatedAt` del registro que el portal sigue editando: el compromiso en
@@ -506,8 +507,8 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
 |---|---|---|---|---|---|---|
 | `POST` | `/api/sgspe/territory/imports` | Vista previa de una importación: lee el archivo de coordenadas o geometrías, lo transforma a 4326, lo valida contra PostGIS y lo concilia con lo registrado; no escribe nada; para `project_component` y `mining_concession` (que al confirmar se vincula al proyecto), quien no es `ADMIN` y no tiene una asignación vigente al proyecto recibe `403` `NOT_ASSIGNED` (`project`) antes de leer el archivo; los predios, que son del tenant, no la exigen | CREATE y UPDATE sobre el objeto destino | multipart: `file`, `target` (`project_component`, `land_parcel` o `mining_concession`), `project`, `sourceCrs` (valor del catálogo "CRS de origen"), `columns` (json `{clave: encabezado}`; claves del portal en camelCase como `drillType` o `depth`, o campos del destino; un valor que empieza con `=` es una constante; sin tipo de componente, `SONDAJE`) → `200 { importBatchId, sha256, target, sourceCrs, rows, valid, invalid[], differences[], outOfZone[] }`, sin geometrías; `differences[]` trae una entrada por fila válida con `outcome` `CREATE`, `UNCHANGED`, `NEW_VERSION` o `UPDATE`; con `Accept` de XLSX, el reporte de diferencias como archivo (hojas Diferencias, Rechazadas y Fuera de zona) | — | F2 (XLSX, CSV, GeoJSON, latitud y longitud); F6 (formatos por GDAL) |
 | `POST` | `/api/sgspe/territory/imports/{importBatchId}/confirm` | Confirma: recibe otra vez el mismo archivo y los mismos campos con las decisiones fila por fila (el servidor no guarda nada entre las dos llamadas), exige el SHA-256 de la vista previa, repite la validación y escribe todo en una transacción con candado por destino (y por proyecto en los componentes) y el motivo `importación <id>`. Guardar el original como `evidence` (ASM-060) sigue pendiente: `evidenceId` llega `null` | Los mismos de la vista previa | multipart: `file`, `target`, `project`, `sourceCrs`, `columns`, `sha256` y `decisions` (json `[{ "row": 7, "action": "DISCARD" }]`, `action` `APPLY` o `DISCARD`; una fila sin decisión aplica su acción propuesta, salvo una de `outOfZone[]`, que solo entra con `APPLY`; una decisión sobre una fila que no es válida es `400`) → `200 { created, newVersions, updated, unchanged, rejected, evidenceId }` | — | F2 |
-| `POST` | `/api/sgspe/project-components` | Alta manual de un componente o versión nueva si el código ya existe con otras coordenadas; nunca sobrescribe | CREATE y UPDATE sobre `project_component` | `{ attributes, geometries }` → `201 { component, previousVersion, distanceM }`; las mismas coordenadas (menos de 1 cm) son `409 SAME_COORDINATES`; una geometría que PostGIS no procesa, `400 INVALID_GEOMETRY`; un proyecto que falta es `400 FIELD_REQUIRED` y uno que no es un UUID, `400 INVALID_VALUE`; sin ninguna geometría o con más de una, `400 GEOMETRY_REQUIRED` (`geometries`); un número que no lo es, `400 INVALID_NUMBER`, y fuera de rango, `400 OUT_OF_RANGE` (`attributes.<campo>`); un proyecto que no existe o que no puede leer, `400 PROJECT_NOT_FOUND`; si la versión vigente no tiene geometría, `409 NO_CURRENT_GEOMETRY` (`geometries`), y si otra escritura registró la misma versión mientras tanto, `409 VERSION_CONFLICT` (`attributes.code`); sin asignación vigente al proyecto, `403 NOT_ASSIGNED` antes de cualquier cuenta de PostGIS; toma el mismo candado por proyecto que la confirmación de una importación | — | F2 |
-| `PATCH` | `/api/sgspe/project-components/{id}` | Cambia campos descriptivos (estado, campaña) de un componente sin tocar coordenadas; `project_component` es `apiOnly` | UPDATE sobre `project_component` | `{ attributes }` → `200` registro; una geometría en el cuerpo es `400 COORDINATES_NOT_EDITABLE`, y `code`, `project` o un campo de origen, `400 FIELD_NOT_EDITABLE`; solo escribe lo que cambia (un PATCH sin cambios deja el `updatedAt` como estaba); una versión reemplazada (`superseded`) no se cambia: `409 COMPONENT_SUPERSEDED` (`attributes`), antes de comparar `If-Match`, porque RQ-GIS-010 «nunca sobrescribe» y las versiones anteriores son historia de solo consulta (`gis.md` §2.4 y §4.4); sin asignación vigente al proyecto, `403 NOT_ASSIGNED`, aunque el PATCH no cambie nada | `IM` | F2 |
+| `POST` | `/api/sgspe/project-components` | Alta manual de un componente o versión nueva si el código ya existe con otras coordenadas; nunca sobrescribe | CREATE y UPDATE sobre `project_component` | `{ attributes, geometries }` → `201 { component, previousVersion, distanceM }`; las mismas coordenadas (menos de 1 cm) son `409` `SAME_COORDINATES`; una geometría que PostGIS no procesa, `400 INVALID_GEOMETRY`; un proyecto que falta es `400 FIELD_REQUIRED` y uno que no es un UUID, `400 INVALID_VALUE`; sin ninguna geometría o con más de una, `400 GEOMETRY_REQUIRED` (`geometries`); un número que no lo es, `400 INVALID_NUMBER`, y fuera de rango, `400 OUT_OF_RANGE` (`attributes.<campo>`); un proyecto que no existe o que no puede leer, `400 PROJECT_NOT_FOUND`; si la versión vigente no tiene geometría, `409` `NO_CURRENT_GEOMETRY` (`geometries`), y si otra escritura registró la misma versión mientras tanto, `409` `VERSION_CONFLICT` (`attributes.code`); sin asignación vigente al proyecto, `403 NOT_ASSIGNED` antes de cualquier cuenta de PostGIS; toma el mismo candado por proyecto que la confirmación de una importación | — | F2 |
+| `PATCH` | `/api/sgspe/project-components/{id}` | Cambia campos descriptivos (estado, campaña) de un componente sin tocar coordenadas; `project_component` es `apiOnly` | UPDATE sobre `project_component` | `{ attributes }` → `200` registro; una geometría en el cuerpo es `400 COORDINATES_NOT_EDITABLE`, y `code`, `project` o un campo de origen, `400 FIELD_NOT_EDITABLE`; solo escribe lo que cambia (un PATCH sin cambios deja el `updatedAt` como estaba); una versión reemplazada (`superseded`) no se cambia: `409` `COMPONENT_SUPERSEDED` (`attributes`), antes de comparar `If-Match`, porque RQ-GIS-010 «nunca sobrescribe» y las versiones anteriores son historia de solo consulta (`gis.md` §2.4 y §4.4); sin asignación vigente al proyecto, `403 NOT_ASSIGNED`, aunque el PATCH no cambie nada | `IM` | F2 |
 | `POST` | `/api/sgspe/areas-of-influence/{id}/approve` | Aprueba una versión del área de influencia y lleva la aprobada anterior del mismo proyecto y tipo a `superseded`, en una transacción | UPDATE sobre `area_of_influence`, acción declarada `APPROVE` y los roles de las transiciones de comando de WF-O | → `200 { approved, superseded }` | `IM`, `CR` | F2 |
 | `GET` | `/api/sgspe/areas-of-influence/{id}/summary` | Tamaño del área: superficie plana en ha, localidades por tipo de área y componentes que cruzan tierras comunales o privadas | READ sobre `area_of_influence` y los objetos resumidos | → `200 { areaHa, localitiesByType[], componentsOnCommunalLand, componentsOnPrivateLand }` | — | F6 |
 | `GET` | `/api/sgspe/areas-of-influence/{id}/member-suggestions` | Localidades, comunidades y unidades administrativas que el cálculo espacial sugiere como miembros; no escribe | READ sobre `area_of_influence` y sobre los objetos sugeridos | `?bufferM=` → `200 { suggestions[]: { object, recordId, name, relation, alreadyMember } }` | — | F6 |
@@ -849,10 +850,10 @@ código que usan los entregables (RQ-DSH-031, RQ-DSH-034). El portal los guarda 
 - Forma del indicador: las claves nulas se omiten, salvo `value`, que va siempre en un indicador disponible (`null` si no hay
   cifra, como un porcentaje sin denominador) y nunca en uno no disponible. `unit` es la palabra en español que muestra la
   interfaz (`"compromisos"`), la misma de `dashboards.md`.
-- `ignoredFilters` nombra los filtros pedidos que el indicador acepta y no aplica, para que nunca den un cero silencioso
-  (ruling P27): los KPI-STK ignoran `community`, porque `stakeholder` no tiene comunidad, y los KPI-STK y KPI-ENG
-  ignoran `explorationCampaign` y `owner`, que solo filtran compromisos e inversión social (`dashboards.md` §3.1). Sin
-  filtros ignorados, la clave no viaja.
+- `ignoredFilters` nombra los filtros pedidos que el indicador acepta y no aplica, para que nunca den un cero
+  silencioso: los KPI-STK ignoran `community`, porque `stakeholder` no tiene comunidad, y los KPI-STK y KPI-ENG ignoran
+  `explorationCampaign` y `owner`, que solo filtran compromisos e inversión social (`dashboards.md` §3.1). Sin filtros
+  ignorados, la clave no viaja.
 - `owner` (UUID de `owner_user_id`) es el responsable de un compromiso: lo aplican KPI-COM-03, KPI-COM-04, KPI-COM-06 y
   KPI-COM-09 (`dashboards.md` §4.4); los demás indicadores lo devuelven en `ignoredFilters`. `explorationCampaign` lo
   aplican KPI-COM-01 a KPI-COM-05 y KPI-COM-10; los demás KPI-COM y todos los de F2 lo devuelven en `ignoredFilters`.
@@ -1018,12 +1019,13 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
   completa de los valores del catálogo (con las combinaciones sin ningún grupo de interés; un valor fuera del catálogo cuenta como
   `no disponible`) y sin totales; todo conteo menor que 5, el cero incluido, sale con la marca neutra `reservado`, que no dice qué
   valor esconde, y lo mismo una celda visible cuando ocultarla hace falta para que restar no despeje otra (ASM-088). Nunca sale el documento de identidad.
-- **Errores.** Con su código en `errors[0].message` (ruling P15): `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`),
-  `CHECKLIST_REQUIRED` (`checklistConfirmed`), `INVALID_FILTER` (`filters.project`, `filters.locality`, `filters.scope`,
-  `filters.stakeholderType`, `filters.influenceGroup` o `filters.includeRetired`) y `TOO_MANY_RECORDS` (`filters.project`);
-  `403` `NOT_ASSIGNED`, `404` `EXPORT_NOT_FOUND` (una exportación que aún no existe en la fase) y `409` `CATALOGUE_UNAVAILABLE` (`PUBLICO`
-  con el catálogo de un campo vacío; `field` es el campo). Sin READ ni `EXPORT` sobre
-  `stakeholder`, o sin CREATE sobre `export_log`, `403` sin código.
+- **Errores.** Con su código en `errors[0].message` y el campo en `errors[0].field` (§3.3): `400`
+  `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`), `CHECKLIST_REQUIRED` (`checklistConfirmed`), `INVALID_FILTER`
+  (`filters.project`, `filters.locality`, `filters.scope`, `filters.stakeholderType`, `filters.influenceGroup` o
+  `filters.includeRetired`) y `TOO_MANY_RECORDS` (`filters.project`); `403` `NOT_ASSIGNED`, `404` `EXPORT_NOT_FOUND`
+  (una exportación que aún no existe en la fase) y `409` `CATALOGUE_UNAVAILABLE` (`PUBLICO` con el catálogo de un campo
+  vacío; `field` es el campo). Sin READ ni `EXPORT` sobre `stakeholder`, o sin CREATE sobre `export_log`, `403` sin
+  código.
 - **Tope.** La lectura es acotada: `sgspe.exports.max-rows` (20 000 por defecto) por conjunto leído. Pasarse es
   `TOO_MANY_RECORDS`: hay que acotar los proyectos o los filtros. No se recorta en silencio.
 - **`export_log`.** Una fila por exportación, con `export_kind = EXPORTACION`, escrita como quien exporta antes de entregar

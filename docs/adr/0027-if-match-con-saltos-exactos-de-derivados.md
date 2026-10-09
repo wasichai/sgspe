@@ -71,7 +71,7 @@ CI 1 de la fase 3.2) y completa ADR-0025 en lo que dice de la concurrencia; la i
     listener los recalcula después, porque el del área y el de los conteos toman el mismo candado `<objeto>:<id>`, y si
     no, JOB-02 los corrige; es el mismo «gana el último» de antes (riesgo 6 de `architecture.md`).
   - Tras 3 pérdidas escribe sin condición y no deja salto, así quien tenga una versión anterior recibe `412` (falla
-    cerrado). Esa caída es la misma mezcla sin `expectedUpdatedAt`, que escribe solo los derivados (P61): lo que otra
+    cerrado). Esa caída es la misma mezcla sin `expectedUpdatedAt`, que escribe solo los derivados: lo que otra
     persona escriba entre su lectura y su `UPDATE` en los demás campos se queda.
   - Todas las escrituras de derivados de F2 y F3 pasan por ahí: los listeners, JOB-02, JOB-03 y los comandos.
     `DerivedFieldsGuard` rechaza un derivado que llegue por otra puerta (la API genérica, `/admin`, una automatización).
