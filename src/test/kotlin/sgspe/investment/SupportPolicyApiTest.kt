@@ -1,16 +1,27 @@
 package sgspe.investment
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 import sgspe.F3DomainApiTest
-import java.util.concurrent.CountDownLatch
+import wasichai.core.platform.ClusterLock
 import java.util.concurrent.Executors
 
 // SupportPolicyGuard, D7 de WF-D (RN-INV-003, ASM-063): el tope de la campaña bloquea salvo con APPROVE_OVER_CAP, o advierte
 // con la política apagada
 class SupportPolicyApiTest : F3DomainApiTest() {
+    @Autowired
+    private lateinit var operator: TransactionalOperator
+
+    @Autowired
+    private lateinit var locks: ClusterLock
+
     private fun campaign(
         project: String,
         cap: Int
@@ -52,7 +63,8 @@ class SupportPolicyApiTest : F3DomainApiTest() {
     }
 
     // la entrada del Review Focus 4: dos aprobaciones simultáneas de la misma campaña no pasan el tope juntas, porque el candado
-    // de la campaña las pone en fila dentro de la transacción de la transición
+    // de la campaña las pone en fila dentro de la transacción de la transición. el solape se fuerza: otra transacción tiene el
+    // candado de la campaña mientras llegan las dos aprobaciones, y ninguna termina hasta que lo suelta
     @Test
     fun `dos aprobaciones simultaneas de la misma campana no pasan el tope juntas`() {
         val project = testProject()
@@ -60,23 +72,79 @@ class SupportPolicyApiTest : F3DomainApiTest() {
         val ids = List(2) { commitment(project, attributes = mapOf("exploration_campaign" to campaign, "amount" to 600)) }
         ids.forEach { move("commitment", it, "submit", reason = "envío") }
         val approver = member("APPROVER", project)
-        val start = CountDownLatch(1)
         val pool = Executors.newFixedThreadPool(2)
         val statuses =
             try {
-                val calls =
-                    ids.map { id ->
-                        pool.submit<HttpStatus> {
-                            start.await()
-                            transition("commitment", id, "approve", approver.token, "aprobación").status
-                        }
-                    }
-                start.countDown()
-                calls.map { it.get() }
+                runBlocking {
+                    operator
+                        .executeAndAwait {
+                            locks.withXactLock("sgspe.exploration_campaign:$campaign") {
+                                val calls =
+                                    ids.map { id ->
+                                        pool.submit<HttpStatus> { transition("commitment", id, "approve", approver.token, "aprobación").status }
+                                    }
+                                delay(2_000)
+                                assertTrue(calls.none { it.isDone }, "ninguna aprobación termina mientras otra transacción tiene el candado de la campaña")
+                                calls
+                            }
+                        }.map { it.get() }
+                }
             } finally {
                 pool.shutdown()
             }
         assertEquals(listOf(HttpStatus.CONFLICT, HttpStatus.OK), statuses.sortedBy { it.value() }.reversed())
-        assertEquals(1, ids.count { record("commitment", it)["state"].asString() == "approved" })
+        assertEquals(
+            1,
+            ids.count { state("commitment", it) == "approved" }
+        )
+    }
+
+    private fun usd(project: String) =
+        approvedCommitment(
+            project,
+            attributes =
+                mapOf(
+                    "exploration_campaign" to campaignOf(project),
+                    "amount" to 9000,
+                    "currency" to "USD"
+                ),
+            start = false
+        )
+
+    private val campaigns = mutableMapOf<String, String>()
+
+    private fun campaignOf(project: String) = campaigns.getOrPut(project) { campaign(project, 1000) }
+
+    @Test
+    fun `un monto en otra moneda no se suma y se advierte con CAP_OTHER_CURRENCY`() {
+        val project = testProject()
+        usd(project)
+        val id = commitment(project, attributes = mapOf("exploration_campaign" to campaignOf(project), "amount" to 900))
+        move("commitment", id, "submit", reason = "envío")
+        val approver = member("APPROVER", project)
+        val check =
+            tree(
+                send(
+                    "POST",
+                    "/api/sgspe/transition-checks",
+                    mapOf("object" to "commitment", "recordId" to id, "transition" to "approve"),
+                    HttpStatus.OK,
+                    approver.token
+                )
+            )
+        assertTrue(check["warnings"].values().any { it["code"].asString() == "CAP_OTHER_CURRENCY" }, check.toString())
+        assertTrue(check["warnings"].values().none { it["code"].asString() == "SUPPORT_CAP_EXCEEDED" }, check.toString())
+        assertEquals(HttpStatus.OK, transition("commitment", id, "approve", approver.token, "aprobación").status)
+    }
+
+    @Test
+    fun `approve_direct tambien respeta un tope que bloquea`() {
+        val project = project(mapOf("policy_internal_approval" to false))
+        val campaign = campaign(project, 100)
+        val id = commitment(project, attributes = mapOf("exploration_campaign" to campaign, "amount" to 600))
+        val refused = transition("commitment", id, "approve_direct", member("COMMITMENT_MANAGER", project).token, "aprobación directa")
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("SUPPORT_CAP_EXCEEDED", code(refused))
+        assertEquals("draft", state("commitment", id))
     }
 }
