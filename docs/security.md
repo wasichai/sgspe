@@ -132,6 +132,7 @@ E (elevación de privilegios).
 | 23 | T | Un agente de campo cambia o borra lo que capturó otra persona | `EditAnyGuard`: sin `EDIT_ANY` solo se cambia o borra lo propio (§5.5) | ASM-069 |
 | 24 | I | Identificar a quien plantea una QCS confidencial por su grupo de interés, que no está restringido | `person` bajo permiso de campo; QCS anónima sin `person` ni `stakeholder` (§7.9, §11.3) | Riesgo residual; decisión en §15 |
 | 25 | I | Una sugerencia de IA guarda valores restringidos o cita una evidencia que quien la mira no puede descargar | Salidas y citas guardadas con marcadores; la API genérica solo devuelve marcadores; se re-identifican al mostrar solo para quien lee el campo, y la cita solo para quien puede descargar la fuente (§7.8) | GAP-015; riesgo residual: un marcador revela que había un dato restringido |
+| 26 | I | El nombre original del archivo de una evidencia CONFIDENCIAL o de DATOS PERSONALES, que puede llevar datos personales, lo lee todo rol con READ sobre `evidence` | El portal sube toda evidencia restringida con un nombre neutro y reserva el nombre a quien la descarga (§11.6) | UPS-24; riesgo aceptado (ASM-093) |
 
 ## 3. Autenticación
 
@@ -236,8 +237,9 @@ object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 - El trabajo en segundo plano corre con `RecordService.asPlatform(organizationId)`: una organización, sin usuario, sin
   permisos, y nunca dentro de una petición [WAS-ADR-0039].
 - Cada tenant tiene su propia copia del modelo y de los roles (RQ-SEC-002).
-- Las tablas fijas del esquema `sgspe` (`notification`, `notification_delivery`, `idempotency_key` desde F3 y, en F7,
-  `knowledge_chunk`) llevan `organization_id`, y el código que las lee filtra por él (RF-NTF-001, RQ-AI-008, ASM-065).
+- Las tablas fijas del esquema `sgspe` (`idempotency_key` y `derived_version` desde F3 y, en F7, `knowledge_chunk`)
+  llevan `organization_id`, y el código que las lee filtra por él (RQ-AI-008, ASM-065, ASM-091). Los avisos los guarda
+  wasichai-notifications, por organización (ADR-0018).
 - La organización tenant no es el objeto `organization`, que es un actor del territorio ([glosario](glossary.md)).
 
 ### 4.1 Alta de un tenant
@@ -444,9 +446,9 @@ Las mismas acciones, por objeto, para replicarlas en el modelo:
   - `project_assignment.role_name` nombra un rol declarado de wasichai, y `AssignmentRoleGuard` (`sgspe.scope`) lo valida
     contra `model/roles.json`, cargado como configuración;
   - los destinatarios de escalamientos (como el de compromisos vencidos, ASM-030), aprobaciones pendientes y alertas son
-    las asignaciones activas del proyecto cuyo `role_name` está entre los roles de la transición siguiente, tomados de la
-    definición del workflow. `NotificationListener` los resuelve como quien escribe, y por eso todo rol que aplica
-    transiciones lee `project_assignment` (matriz §7.2); los escalamientos de `DeadlineJob` (JOB-01) los resuelve la
+    las asignaciones activas del proyecto cuyo `role_name` está entre los roles de la transición siguiente, tomados de
+    la definición del workflow. `ApprovalNoticeListener` los resuelve como quien envía, y por eso todo rol que aplica
+    transiciones lee `project_assignment` (matriz §7.2); los avisos de plazo de `DeadlineNotices` los resuelve la
     plataforma;
   - `role_name` no concede permisos: quien recibe un aviso actúa solo con sus roles de wasichai. Si su asignación nombra
     un rol que no tiene, recibe el aviso pero no puede aplicar la transición, y por eso un aviso nunca lleva valores
@@ -849,11 +851,15 @@ No tienen permisos porque corren como la plataforma, con `ClusterLock` y un moti
 escriben campos derivados o crean registros nuevos (domain-model §8.3) [WAS-ADR-0039]: `DeadlineJob` (JOB-01),
 `DerivedFieldsJob` (JOB-02), `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), `DeliverableGenerationJob`
 (JOB-05) y `KnowledgeIndexJob` (JOB-07), que crea `ai_interaction` y escribe la tabla fija `knowledge_chunk`.
-`NotificationMailJob` (JOB-06) solo escribe tablas fijas (`notification_delivery`). JOB-08 (`RetentionJob`) borra, desde
-F3, las claves vencidas de la tabla fija `idempotency_key` con SQL propio (ASM-065) y, desde F8, los archivos de borradores
+JOB-08 (`RetentionJob`) borra, desde F3, las claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de
+`derived_version` con SQL propio (ASM-065, ASM-091) y, desde F8, los archivos de borradores
 sin referencia en el almacenamiento de objetos, nunca lo que referencia una `deliverable_version` o `draft_storage_key`;
 ninguno de los dos escribe registros de wasichai. Las automatizaciones de la metadata también actúan
-como la plataforma, y escribirlas exige MANAGE_METADATA, que solo tiene `ADMIN` [WAS-DOC api/rest.md].
+como la plataforma, y escribirlas exige MANAGE_METADATA, que solo tiene `ADMIN` [WAS-DOC api/rest.md]. Las escrituras
+de un trabajo llevan además su origen en la columna `source` de la auditoría (`job:<nombre>`, WAS-ADR-0050, §13.2). La
+clave `generator_key` de las tareas de un trabajo solo la escribe la plataforma: una persona que la fija, la cambia o la
+vacía recibe `403` (`GeneratorKeyGuard`), porque una clave escrita a mano suprimiría en silencio la tarea que el
+trabajo debe crear.
 
 ## 8. Permisos que exigen los listeners y los endpoints
 
@@ -872,7 +878,8 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date`; borra `fulfilled_date` en `reopen_execution` | UPDATE sobre `commitment`, con motivo | Alta y origen: `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `SOCIAL_MANAGER`; `register_fulfillment`: esos tres; `reopen_execution` y `close`: `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`; `cancel_draft`: `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `SOCIAL_MANAGER`; las otras cuatro `cancel_*`: `APPROVER`, `PROJECT_MANAGER` | U o `u` sobre `commitment`: `APPROVER` y `PROJECT_MANAGER` tienen `u`, y bajo `u` las fechas derivadas siguen escribibles | No tiene permisos sobre `commitment` |
 | `QcsTransitionDatesListener` (`sgspe.attention`) | `resolved_date` (queja) y `closed_date` de la misma QCS, en la transacción de la transición; si falla, la transición se revierte | UPDATE sobre la QCS, con motivo | `resolve`, `reopen`, los cierres de quejas y consultas, y `reject_*` y `withdraw_*` de la queja: `GRIEVANCE_MANAGER`; `withdraw_*`: también `COMMUNITY_RELATIONS_OFFICER`; `resolve_high_severity`: `APPROVER`; `close` de consulta: también `COMMUNITY_RELATIONS_OFFICER`; cierres de solicitudes: `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y `SOCIAL_INVESTMENT_MANAGER` | Todos tienen U o `u` sobre su QCS; `APPROVER` tiene `u` sobre `grievance` | No aplica transiciones de QCS |
 | `RequestClosureListener` (`sgspe.attention`) | Transición a `closed` de la `stakeholder_request` que originó el compromiso o, desde F5, el aporte (ASM-068) | UPDATE sobre `stakeholder_request`, un rol de esa transición de WF-E3 y motivo | `COMMITMENT_MANAGER` y `SOCIAL_MANAGER`, que cierran compromisos; `SOCIAL_INVESTMENT_MANAGER` y `SOCIAL_MANAGER`, que cierran aportes | UPDATE sobre `stakeholder_request`; `workflows.md` les da esa transición (`close_accepted`) | No cierra compromisos ni aportes |
-| `NotificationListener` (`sgspe.notification`) | Tablas fijas `notification` y `notification_delivery`, con SQL propio | No escribe registros de wasichai; lee `project_assignment` como quien escribe, para resolver los destinatarios (ASM-070) | Todos | Todo rol que aplica transiciones lee `project_assignment` (§7.2); los escalamientos de JOB-01 los resuelve la plataforma | Igual que los demás roles |
+| `DeadlineStatusListener` (`sgspe.deadline`) | `deadline_status` del compromiso que se reprograma, en la transacción de la reprogramación | UPDATE sobre `commitment`, con motivo | `COMMITMENT_MANAGER`, que reprograma | CRU sobre `commitment` | No reprograma |
+| `ApprovalNoticeListener` (`sgspe.notification`) | El módulo wasichai-notifications (`publish` y `resolve`), en la transacción de la transición; no escribe registros de wasichai | Lee `project_assignment` como quien envía, para resolver los destinatarios (ASM-070) | Los de las transiciones de envío: `submit_for_review` de WF-A, `submit_minutes` de WF-C y `submit` de WF-D | Todo rol que aplica transiciones lee `project_assignment` (§7.2); los avisos de plazo de `DeadlineNotices` los resuelve la plataforma | No envía a aprobación |
 
 - Si un listener de derivados no puede escribir, registra el error y `DerivedFieldsJob` corrige el valor en la hora
   siguiente; si falla un listener sobre una transición, la transición se revierte (domain-model §7.5).
@@ -888,11 +895,12 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 |---|---|---|---|---|
 | `POST /api/sgspe/stakeholders/{id}/assessments` (`sgspe.stakeholder`) | Crea `stakeholder_assessment`, actualiza los derivados de `stakeholder` (incluida `stance`) y aplica la transición a `assessed` | CREATE `stakeholder_assessment`; UPDATE `stakeholder` con acceso a `stance`; rol de esa transición de WF-B | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` (ver la nota) | F2 |
 | `POST /api/sgspe/areas-of-influence/{id}/approve` (`sgspe.territory`) | Lleva la versión nueva a `approved` y la anterior a `superseded` | UPDATE `area_of_influence`; `APPROVE` | `SOCIAL_MANAGER`, `PROJECT_MANAGER` | F2 |
-| `POST /api/sgspe/territory/imports`, su confirmación y `POST /api/sgspe/project-components` (`sgspe.territory`) | Crea, versiona o actualiza el objeto destino (`project_component`, `land_parcel` o `mining_concession`) y, desde F3, guarda el archivo original como `evidence` | CREATE y UPDATE sobre el objeto destino; CREATE `evidence` | `GIS_ANALYST` (los tres destinos); `PROJECT_ADMIN` (`mining_concession`) | F2 |
-| `POST /api/sgspe/commitments/{id}/reschedules` (`sgspe.commitment`) | Crea `commitment_reschedule` y cambia `due_date` | CREATE `commitment_reschedule`; UPDATE `commitment` | `COMMITMENT_MANAGER` | F3 |
-| `POST /api/sgspe/commitments/{id}/deliveries` (`sgspe.commitment`) | Solo captura datos: crea la `delivery`, la vincula con sus evidencias y actualiza `executed_amount`; el cumplimiento es después la transición humana `register_fulfillment` | CREATE `delivery`; UPDATE `commitment` y `evidence` | `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F3 |
-| `POST /api/sgspe/commitment-candidates` y `.../{id}/accept` (`sgspe.commitment`) | Registra un candidato; al aceptarlo crea el compromiso en `draft` y lo vincula | CREATE `commitment_candidate`; para aceptar, UPDATE `commitment_candidate` y CREATE `commitment` | `COMMUNITY_RELATIONS_OFFICER`, `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, para registrar y para aceptar | F3 |
-| `POST /api/sgspe/evidence` y `GET /api/sgspe/evidence/{id}/content` (`sgspe.evidence`) | Sube el archivo con su SHA-256 y lo vincula; lo descarga según su clasificación | CREATE `evidence`; UPDATE `evidence` y del destino para vincular; `DOWNLOAD_RESTRICTED` para descargar CONFIDENCIAL y DATOS PERSONALES | Los que tienen CRU sobre `evidence` | F3 |
+| `POST /api/sgspe/territory/imports`, su confirmación y `POST /api/sgspe/project-components` (`sgspe.territory`) | Crea, versiona o actualiza el objeto destino (`project_component`, `land_parcel` o `mining_concession`); guardar el archivo original como `evidence` (ASM-060) sigue pendiente | CREATE y UPDATE sobre el objeto destino | `GIS_ANALYST` (los tres destinos); `PROJECT_ADMIN` (`mining_concession`) | F2 |
+| `POST /api/sgspe/commitments/{id}/reschedules` (`sgspe.commitment`) | Crea `commitment_reschedule` y cambia `due_date`; `DeadlineStatusListener` recalcula `deadline_status` | CREATE `commitment_reschedule`; UPDATE `commitment` | `COMMITMENT_MANAGER` | F3 |
+| `POST /api/sgspe/commitments/{id}/deliveries` (`sgspe.commitment`) | Solo captura datos: crea la `delivery`, la vincula con sus evidencias y actualiza `executed_amount`; el cumplimiento es después la transición humana `register_fulfillment` | CREATE `delivery`; UPDATE `commitment` y `evidence` | `COMMITMENT_MANAGER`, `SOCIAL_MANAGER` (CRU sobre `delivery`; `COMMUNITY_RELATIONS_OFFICER` solo la lee) | F3 |
+| `PATCH /api/sgspe/deliveries/{id}` (`sgspe.commitment`) | Corrige la entrega y recalcula `executed_amount`; nunca la de un compromiso cumplido o cancelado | UPDATE `delivery` y `commitment` | `COMMITMENT_MANAGER`, `SOCIAL_MANAGER` | F3 |
+| `POST /api/sgspe/commitment-candidates`, `.../{id}/accept` y `.../{id}/duplicate` (`sgspe.commitment`) | Registra un candidato; al aceptarlo crea el compromiso en `draft` y lo vincula; al marcarlo como duplicado escribe `duplicate_of` | CREATE `commitment_candidate`; para aceptar, UPDATE `commitment_candidate`, CREATE `commitment` y el rol de `accept`; para el duplicado, UPDATE y el rol de `mark_duplicate`. Decide una persona: una cuenta de servicio recibe `403` aunque tenga el rol (RQ-AI-003) | `COMMUNITY_RELATIONS_OFFICER`, `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, para registrar y para aceptar | F3 |
+| `POST /api/sgspe/evidence`, `GET /api/sgspe/evidence/{id}/content` y la ruta nativa de descarga de `evidence` (`sgspe.evidence`) | Registra la evidencia con el archivo que la misma persona subió por wasichai-files (que calcula el SHA-256) y la vincula; la descarga según su clasificación, por las dos rutas | CREATE `evidence` (también para subir el archivo); UPDATE `evidence` y del destino para vincular; `DOWNLOAD_RESTRICTED` para descargar CONFIDENCIAL y DATOS PERSONALES, o si quien llama no lee la clasificación | Los que tienen CRU sobre `evidence` | F3 |
 | `PATCH /api/sgspe/evidence/{id}` (`sgspe.evidence`) | Cambia los datos descriptivos, nunca el archivo | UPDATE `evidence`; `EDIT_ANY` si la subió otra persona; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una CONFIDENCIAL o DATOS PERSONALES (`EvidenceWriteGuard`, ASM-071) | Los que tienen CRU sobre `evidence` | F3 |
 | `POST /api/sgspe/stakeholder-requests/{id}/accept` (`sgspe.attention`) | Aplica `accepted` y crea el compromiso en `draft` o, desde F5, el aporte | UPDATE `stakeholder_request` y rol de la transición; CREATE `commitment` o, desde F5, `social_contribution`; `u` sobre `stakeholder` si vincula solicitantes | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y, desde F5, `SOCIAL_INVESTMENT_MANAGER` | F4 |
 | `POST /api/sgspe/grievances/{id}/reclassify` y sus pares (`sgspe.attention`) | Crea el registro de destino y conserva el vínculo con el original | CREATE del destino; UPDATE del origen | `GRIEVANCE_MANAGER` | F4 |
@@ -1139,12 +1147,12 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   filas en blanco para los nombres y las firmas en lugar de la tabla de `engagement_participant`.
 - **Quién emite a mano:** wasichai-documents 0.6.0 emite con `POST /api/objects/{objeto}/records/{id}/documents/{tipo}`
   y solo pide READ sobre el objeto, y **cada emisión archiva el documento vigente anterior del mismo tipo**, incluida la
-  minuta que AUT-05 congeló al aprobarse el acta. Emitir es, por eso, editar ese registro, y SGSPE pide lo mismo que para
-  cambiarlo: **UPDATE sobre el objeto, una asignación vigente al proyecto del registro y, en los objetos que declaran
-  `EDIT_ANY`, esa acción o haber creado el registro** (rulings P60 y P62, como `ProjectScopeGuard` en §9.2 y
-  `EditAnyGuard` en §5.5). Como wasichai-documents no ofrece un SPI ni una guarda para la emisión, lo hace
-  `IssueDocumentFilter` (`sgspe.scope`), un filtro de WebFlux sobre esa ruta y solo sobre ella, que corre después de la
-  cadena de seguridad, en el orden de las guardas:
+  minuta que AUT-05 congeló al aprobarse el acta. Emitir es, por eso, editar ese registro, y SGSPE pide lo mismo que
+  para cambiarlo: **UPDATE sobre el objeto, una asignación vigente al proyecto del registro y, en los objetos que
+  declaran `EDIT_ANY`, esa acción o haber creado el registro** (como `ProjectScopeGuard` en §9.2 y `EditAnyGuard` en
+  §5.5). Como wasichai-documents no ofrece un SPI ni una guarda para la emisión, lo hace `IssueDocumentFilter`
+  (`sgspe.scope`), un filtro de WebFlux sobre esa ruta y solo sobre ella, que corre después de la cadena de seguridad,
+  en el orden de las guardas:
   1. sin UPDATE sobre el objeto, `403` `ACTION_REQUIRED` sobre `record`;
   2. lee el registro como quien llama y resuelve su proyecto con `ProjectResolver`; si no lo puede leer (o no existe),
      `403` `OBJECT_NOT_READABLE` sobre `record`, y si el proyecto no se resuelve, `403` `NOT_ASSIGNED` (falla cerrado);
@@ -1188,8 +1196,20 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
 
 - Los logs no contienen datos personales (RQ-SEC-010). La línea de acceso registra método, ruta sin la cadena de
   consulta, estado, duración e identificador de correlación (RQ-AUD-006), porque un parámetro `q` puede llevar un nombre.
-- Los avisos (`notification` y correo) no pasan por los permisos de campo: su título y su cuerpo nombran el registro y el
-  evento, nunca valores restringidos (RF-NTF-001).
+- Los avisos (bandeja y correo de wasichai-notifications) no pasan por los permisos de campo: su título y su cuerpo
+  nombran el registro y el evento, nunca valores restringidos (RF-NTF-001); su enlace al registro lo quita la bandeja a
+  quien no lo lee. Los documentos emitidos tampoco pasan por los permisos de campo: por eso un tipo de documento solo se
+  declara sobre un objeto sin campos restringidos (§11.4, UPS-23, ASM-090).
+- **La respuesta guardada de una clave de idempotencia** (`sgspe.idempotency_key`, `api.md` §3.5) lleva lo que quien
+  llamó podía leer, campos restringidos incluidos (por ejemplo, `recipients` y `conformity_by` de una entrega), y se
+  guarda hasta 24 h (`wasichai.idempotency.ttl`). Un reenvío con la misma clave se la devuelve a esa misma persona
+  aunque después haya perdido la lectura o la entrega se haya corregido. Es un límite aceptado: no entrega a nadie un
+  dato que no recibió ya, y es el mismo contrato de la clave nativa (WAS-ADR-0058).
+- **El nombre del archivo de una evidencia restringida** lo lee todo rol con READ sobre `evidence`: el descriptor del
+  campo `FILE` viaja en el registro, su historial y la lista, y wasichai-files no deja ocultarlo (UPS-24). El portal
+  sube toda evidencia CONFIDENCIAL o de DATOS PERSONALES con un nombre neutro (`evidencia-<aaaammdd-hhmmss>.<ext>`) y
+  muestra «Archivo reservado» a quien no la descarga; el nombre de una evidencia subida antes, o por la API con su
+  nombre original, queda visible a sus lectores. Es un riesgo aceptado hasta UPS-24 (ASM-093).
 - Retención: no hay política (GAP-014). En los entregables se purgan los borradores y se conserva todo lo emitido
   (RQ-REP-027, ASM-028).
 - Los respaldos y el almacenamiento de objetos contienen datos personales: su retención y su cifrado dependen del
@@ -1239,12 +1259,12 @@ wasichai las responde para toda escritura de registros [WAS-ADR-0040] [WAS-ADR-0
 - `ai_interaction` y las decisiones sobre sugerencias, con la persona que decide (RF-AIK-009, RQ-AUD-012).
 - Objetos de historia `appendOnly`: `stakeholder_assessment`, `commitment_reschedule`, `risk_assessment`,
   `program_measurement`, `indicator_measurement`, `deliverable_version`, `export_log` e `ai_interaction` (RQ-AUD-003).
-- `evidence` inmutable, con SHA-256 (RF-DOC-001).
+- `evidence` inmutable, con el SHA-256 que calcula wasichai-files al subir el archivo (RF-DOC-001).
 - `X-Correlation-Id` en cada petición, respuesta y línea de log (RQ-AUD-006, ASM-034).
 - El origen del cambio (RQ-AUD-007, ASM-051): wasichai lo guarda en `audit_log.source` y SGSPE lo usa en los trabajos
-  (`job:derived-fields` para JOB-02 y `job:stakeholder-follow-up` para JOB-03, filtrables con `GET /api/audit?source=`). El motivo
-  sigue diciéndolo en palabras: `importación <id>`, `automation '<nombre>'` o `derivado: <regla>`, y el nombre del trabajo
-  programado en sus escrituras.
+  (`job:deadline` para JOB-01, `job:derived-fields` para JOB-02 y `job:stakeholder-follow-up` para JOB-03, filtrables
+  con `GET /api/audit?source=`). El motivo sigue diciéndolo en palabras: `importación <id>`, `automation '<nombre>'` o
+  `derivado: <regla>`, y el nombre del trabajo programado en sus escrituras.
 - Los datos de origen de cada importación, porque la auditoría no guarda coordenadas (RQ-AUD-013, RQ-GIS-008).
 
 ### 13.3 Quién consulta la auditoría
@@ -1286,7 +1306,8 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | Acciones declaradas | Los endpoints rechazan sin la acción, y `/api/auth/me/permissions` las lista | Integración | F2–F8 | RQ-SEC-004 |
 | Transiciones | Cada transición, permitida y denegada por rol; segregación de funciones; las transiciones de comando se rechazan por la ruta genérica | Integración | F2–F8 | RNF-TST-001, RN-COM-005 |
 | Alcance, opción A | Un usuario sin asignación no escribe en el proyecto y uno asignado sí; `ADMIN` queda exento | Integración | F2 | RQ-SEC-006 |
-| Destinatarios por rol | Un `role_name` que no es un rol declarado se rechaza (`AssignmentRoleGuard`); un aviso de aprobación pendiente llega solo a las asignaciones activas cuyo `role_name` está entre los roles de la transición siguiente | Integración | F2 | RQ-SEC-005, ASM-070 |
+| Destinatarios por rol | Un `role_name` que no es un rol declarado se rechaza (`AssignmentRoleGuard`); un aviso de aprobación pendiente llega solo a las asignaciones activas cuyo `role_name` está entre los roles de la transición siguiente (`ApprovalNoticesApiTest`) | Integración | F2, F3 | RQ-SEC-005, ASM-070 |
+| Tareas de un trabajo | Una persona no fija, cambia ni vacía `generator_key` (`TaskWorkflowApiTest`) | Integración | F3 | RF-WFL-004 |
 | Alta de un tenant | `test_apply.py` aplica sobre un tenant nuevo `apply.py`, `apply_roles.py` y `apply.py --workflows`, en ese orden y sin errores | Integración | F1–F8 | RNF-MNT-002, RQ-SEC-003 |
 | Alcance, opción B | Listas, detalle, relacionados, historial, features, asistente y destinos RELATION filtrados por proyecto | Integración | Con UPS-01 | RQ-SEC-006, RQ-GIS-017 |
 | Listeners | La escritura derivada de un listener sobre un registro ajeno pasa `EditAnyGuard` y solo cambia campos derivados; `DerivedFieldsJob` completa lo pendiente; `CommitmentDerivationsListener` (también en `reopen_execution`), `QcsTransitionDatesListener` y `RequestClosureListener` revierten la transición si no pueden escribir | Integración | F2–F5 | RQ-SEC-008 |
@@ -1297,7 +1318,7 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | Cuentas de servicio | No confirman ni descartan alertas, se rechazan en la administración y quedan auditadas con `serviceAccount` | Integración | F4 | RQ-SEC-014, RN-EWS-001 |
 | Proxy WMS | Sin token responde 401; una capa de otro tenant, fuera de la lista o de un objeto que el usuario no lee se rechaza; el `GetCapabilities` propio lista solo las capas de la lista blanca del tenant; `GetFeatureInfo`, `SLD` y `SLD_BODY` se rechazan | Integración | F6 | RQ-SEC-011 |
 | Salidas | Una exportación y un entregable EXTERNO generados con fixtures no contienen nombres ni fotos sin consentimiento; ninguna exportación, de ningún nivel, contiene el documento de identidad; cada exportación deja un `export_log` | Integración | F2–F8 | RQ-REP-014, RQ-AUD-011, RF-COM-001 |
-| Descargas | Un borrador siempre lleva la marca BORRADOR y antes de emitir no hay descarga sin ella; borradores y versiones INTERNO exigen `DOWNLOAD_RESTRICTED`, y las EXTERNO y PUBLICO, `EXPORT`; toda descarga de un archivo de entregable, de cualquier nivel, deja un `export_log`; los borradores y las versiones EXTERNO y PUBLICO se sirven solo en PDF y el modelo congelado nunca se sirve; una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` para descargarla, también a quien la subió, y para bajar su clasificación | Integración | F3, F8 | RF-DOC-003, RQ-REP-021, RQ-AUD-011, ASM-071 |
+| Descargas | Un borrador siempre lleva la marca BORRADOR y antes de emitir no hay descarga sin ella; borradores y versiones INTERNO exigen `DOWNLOAD_RESTRICTED`, y las EXTERNO y PUBLICO, `EXPORT`; toda descarga de un archivo de entregable, de cualquier nivel, deja un `export_log`; los borradores y las versiones EXTERNO y PUBLICO se sirven solo en PDF y el modelo congelado nunca se sirve; una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` para descargarla, también a quien la subió y también por la ruta nativa de wasichai-files (`EvidenceApiTest`), y para bajar su clasificación | Integración | F3, F8 | RF-DOC-003, RQ-REP-021, RQ-AUD-011, ASM-071 |
 | IA | El modelo falso recibe el texto sin nombres; instrucciones inyectadas en un documento no producen escrituras; la IA nace desactivada; una corrida o una pregunta documental de quien no lee los nombres de `person` responde 403; una sugerencia guarda referencias y marcadores, también en su cita; la API genérica solo devuelve marcadores; la interfaz los muestra resueltos solo a quien lee el campo, y la cita solo a quien puede descargar la evidencia fuente | Unitaria e integración | F7 | RQ-AI-009, RQ-AI-011, RQ-AI-007, RF-DOC-003 |
 | Importaciones | ZIP con rutas fuera de su carpeta, archivo demasiado grande y tiempo excedido | Integración | F2, F6 | RQ-SEC-020 |
 | Plantillas Word | Una plantilla con macros o fuentes desconocidas se rechaza | Unitaria | F8 | RQ-SEC-019 |
@@ -1321,4 +1342,5 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Autoridad sobre montos | GAP-006 | Quién aprueba según el monto y quién supera el tope de la campaña | Un nivel de aprobación más `APPROVE_OVER_CAP`: `PROJECT_MANAGER` en los compromisos y `SOCIAL_MANAGER` en los aportes (§5.3) |
 | TTL de producción | RQ-SEC-001 | Duración del token | `PT4H`, fijado por `application-prod.yml` como tope provisional de F1; el despliegue puede cambiarlo, siempre por debajo de 8 horas (§3.2) |
 | Transporte del token | CON-056 | Cookie HttpOnly u OIDC | Propuestas a futuro, fuera del MVP (§3.4) |
-| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14 | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
+| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14, UPS-23, UPS-24 | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
+| Nombre del archivo de una evidencia restringida | UPS-24, ASM-093 | ¿Se acepta que su nombre lo lean todos los lectores de `evidence` hasta UPS-24, o se renombra en el servidor y se pierde el original? | Aceptado: el portal sube con un nombre neutro (§11.6) |
