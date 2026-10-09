@@ -1,6 +1,7 @@
 package sgspe.evidence
 
 import sgspe.common.Values
+import java.util.UUID
 
 // las reglas de una evidencia, puras para las pruebas unitarias (RF-DOC-001, RF-DOC-003, ASM-071). desde F3 el archivo es un
 // campo FILE de wasichai-files (decisión D1, WAS-ADR-0061): el registro guarda el descriptor {id, name, contentType, size,
@@ -47,4 +48,19 @@ object EvidenceRules {
 
     // la relación MANY_TO_MANY de evidence hacia un objeto (database-model.md §16): evidence_<objeto>
     fun linkRelationship(target: String): String = "${EVIDENCE}_$target"
+
+    const val DELIVERY = "delivery"
+
+    // el orden en que el alta vincula (Transactions, «el orden acordado»): vincular una entrega toma el candado de su
+    // compromiso (DELIVERY_FROZEN) hasta el fin de la transacción, así que dos altas con entregas de los mismos compromisos en
+    // orden inverso se interbloquearían. primero va lo que no toma candado, en el orden pedido (los demás vínculos y una
+    // entrega sin compromiso conocido, cuyo vínculo falla por su cuenta), y después las entregas por el id ascendente de su
+    // compromiso y, dentro de uno, por el suyo. `commitments`: el compromiso de cada entrega pedida, por su id
+    fun lockOrder(
+        links: List<EvidenceLink>,
+        commitments: Map<UUID, UUID>
+    ): List<EvidenceLink> {
+        val (locking, free) = links.partition { it.objectName == DELIVERY && it.recordId in commitments }
+        return free + locking.sortedWith(compareBy({ commitments.getValue(it.recordId).toString() }, { it.recordId.toString() }))
+    }
 }

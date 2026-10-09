@@ -168,8 +168,10 @@ class CommitmentRecordRules(
     // reopen_execution; la de un compromiso cancelado tampoco, porque cancelled es final (P55). el compromiso es el de antes: la
     // corrección (Deliveries.patch) nunca lo cambia. su estado no viene en `before` (wasichai 0.6.0): se lee como quien escribe
     // y, si no se lee, falla cerrado (P12). la escritura lo lee con el candado del compromiso (Reschedules.lock), el mismo que
-    // toman register_fulfillment y las cancel_* (FulfillmentLockRule): un cambio de la entrega o de sus evidencias por la API
-    // genérica o por POST/DELETE .../links no se cruza con el cumplimiento. la consulta en seco no lo toma
+    // toman register_fulfillment y las cancel_* (FulfillmentLockRule): la corrección de una entrega (PATCH
+    // /api/sgspe/deliveries/{id}) o un vínculo de evidencia que se agrega o se quita (POST /api/sgspe/evidence con links,
+    // POST y DELETE /api/sgspe/evidence/{id}/links) no se cruza con el cumplimiento. delivery y evidence son apiOnly: la API
+    // genérica no llega aquí. la consulta en seco no lo toma
     private suspend fun delivery(
         change: RecordWrite,
         dryRun: Boolean

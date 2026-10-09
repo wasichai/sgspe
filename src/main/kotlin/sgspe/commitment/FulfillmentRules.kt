@@ -9,7 +9,6 @@ import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.Values
-import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.metadata.MetadataService
 import java.util.UUID
@@ -40,9 +39,22 @@ object Fulfillment {
             .toSet()
     }
 
+    // sin tipo de recurso no se sabe qué evidencia pedir: falla cerrada (no cuenta como NO MATERIAL). D1 lo exige al enviar y
+    // al aprobar, pero en ejecución el campo se puede vaciar
+    fun resourceTypeFinding(resourceType: String?): Finding? =
+        if (resourceType != null) {
+            null
+        } else {
+            Finding(
+                "FIELD_REQUIRED",
+                "Registrar el cumplimiento exige el tipo de recurso del compromiso: decide la evidencia mínima (D9, ASM-009)",
+                RESOURCE_TYPE
+            )
+        }
+
     // los tipos de evidencia que le faltan a una entrega con conformidad; vacío si la entrega basta
     fun missing(
-        resourceType: String?,
+        resourceType: String,
         delivery: DeliveryEvidence
     ): List<String> =
         if (resourceType == MATERIAL) {
@@ -57,7 +69,7 @@ object Fulfillment {
 
     // el hallazgo de D9 sobre todas las entregas del compromiso: pasa si alguna basta
     fun finding(
-        resourceType: String?,
+        resourceType: String,
         deliveries: List<DeliveryEvidence>
     ): Finding? {
         val conforming = deliveries.filter { conforms(it) }
@@ -80,20 +92,15 @@ object Fulfillment {
     // D10: una dependencia bloqueante sigue abierta mientras el compromiso del que depende no se cumple ni se cancela
     val RESOLVED = Commitments.SETTLED
 
+    const val RESOURCE_TYPE = "resource_type"
     const val REGISTER = "register_fulfillment"
+    const val VERIFY = "verify"
 
-    // la transición del compromiso si es una de `transitions`; si no, null y la regla no mira la escritura
-    fun target(
-        change: RecordWrite,
-        transitions: (String?) -> Boolean
-    ): UUID? {
-        if (change.objectName != Commitments.COMMITMENT || change.kind != RecordChangeKind.TRANSITIONED) return null
-        if (!transitions(change.transition)) return null
-        return change.recordId
-    }
+    // las cancelaciones de WF-D (model/workflows/commitment.json)
+    val CANCELS = setOf("cancel_draft", "cancel_pending_approval", "cancel_approved", "cancel_in_progress", "cancel_blocked")
 
-    // las cancelaciones de WF-D: cancel_draft, cancel_pending_approval, cancel_approved, cancel_in_progress y cancel_blocked
-    fun isCancel(transition: String?): Boolean = transition?.startsWith("cancel_") == true
+    // las evidencias de una entrega que D9 lee como mucho (las lecturas M2M son acotadas): más es un 400 TOO_MANY_RECORDS
+    const val MAX_EVIDENCE = 500
 }
 
 // CommitmentWriteGuard, cumplimiento y verificación (workflows.md WF-D): D9 (register_fulfillment exige una entrega con
@@ -101,8 +108,8 @@ object Fulfillment {
 // exige la acción VERIFY y que quien verifica no sea el responsable, RN-COM-005). cada regla tiene su lugar desde
 // CommitmentRuleOrder.FULFILLMENT (P49): primero el candado, después D9, D10 y D11. leen las entregas, sus evidencias y las
 // dependencias como quien aplica la transición: sin lectura, OBJECT_NOT_READABLE; sin lectura de conformity_by (un campo
-// restringido), FIELD_NOT_READABLE
-
+// restringido), FIELD_NOT_READABLE.
+//
 // el candado del compromiso (Reschedules.lock), el mismo de las entregas, las reprogramaciones y DELIVERY_FROZEN: lo toman
 // register_fulfillment, antes de que D9 y D10 lean, y las cancel_*, que congelan las entregas (P55). así una entrega nueva, una
 // corrección o un vínculo de evidencia que se quita no se cruzan con el cumplimiento ni con la cancelación. la guarda corre
@@ -119,7 +126,7 @@ class FulfillmentLockRule(
         dryRun: Boolean
     ): List<Finding> {
         if (dryRun) return emptyList()
-        val id = Fulfillment.target(change) { it == Fulfillment.REGISTER || Fulfillment.isCancel(it) } ?: return emptyList()
+        val id = ApprovalRules.target(change, Fulfillment.CANCELS + Fulfillment.REGISTER) ?: return emptyList()
         transactions.locked(Reschedules.lock(id)) {}
         return emptyList()
     }
@@ -138,8 +145,10 @@ class FulfillmentEvidenceRule(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
-        val id = Fulfillment.target(change) { it == Fulfillment.REGISTER } ?: return emptyList()
+        val id = ApprovalRules.target(change, setOf(Fulfillment.REGISTER)) ?: return emptyList()
         val before = change.before.orEmpty()
+        val resourceType = Values.text(before[Fulfillment.RESOURCE_TYPE])
+        if (resourceType == null) return listOfNotNull(Fulfillment.resourceTypeFinding(null))
         val deliveries =
             readAs(Commitments.DELIVERY) {
                 records.all(
@@ -160,26 +169,32 @@ class FulfillmentEvidenceRule(
             )
         }
         val project = Records.uuid(before["project"])
-        val rows =
-            deliveries.map { delivery ->
-                val row =
-                    Fulfillment.DeliveryEvidence(
-                        Values.bool(delivery.attributes["conformity_given"]) == true,
-                        Values.text(delivery.attributes[CONFORMITY_BY]),
-                        emptySet()
+        // solo una entrega con conformidad puede sostener el cumplimiento: las demás no leen sus evidencias. se leen de una en
+        // una, con el candado del compromiso tomado, y la primera que basta corta la lectura
+        val rows = mutableListOf<Fulfillment.DeliveryEvidence>()
+        for (delivery in deliveries) {
+            val row =
+                Fulfillment.DeliveryEvidence(
+                    Values.bool(delivery.attributes["conformity_given"]) == true,
+                    Values.text(delivery.attributes[CONFORMITY_BY]),
+                    emptySet()
+                )
+            if (!Fulfillment.conforms(row)) continue
+            val evidence =
+                readAs(Deliveries.EVIDENCE) {
+                    records.related(
+                        Commitments.DELIVERY,
+                        UUID.fromString(delivery.id),
+                        Commitments.EVIDENCE_DELIVERY,
+                        max = Fulfillment.MAX_EVIDENCE,
+                        field = Commitments.EVIDENCE_DELIVERY
                     )
-                // solo una entrega con conformidad puede sostener el cumplimiento: las demás no leen sus evidencias
-                if (!Fulfillment.conforms(row)) {
-                    row
-                } else {
-                    val evidence =
-                        readAs(Deliveries.EVIDENCE) {
-                            records.related(Commitments.DELIVERY, UUID.fromString(delivery.id), Commitments.EVIDENCE_DELIVERY)
-                        }
-                    row.copy(evidenceTypes = Fulfillment.countedTypes(project, evidence.map { it.attributes }))
                 }
-            }
-        return listOfNotNull(Fulfillment.finding(Values.text(before["resource_type"]), rows))
+            val counted = row.copy(evidenceTypes = Fulfillment.countedTypes(project, evidence.map { it.attributes }))
+            rows += counted
+            if (Fulfillment.missing(resourceType, counted).isEmpty()) break
+        }
+        return listOfNotNull(Fulfillment.finding(resourceType, rows))
     }
 
     companion object {
@@ -199,7 +214,7 @@ class BlockingDependencyRule(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
-        val id = Fulfillment.target(change) { it == Fulfillment.REGISTER } ?: return emptyList()
+        val id = ApprovalRules.target(change, setOf(Fulfillment.REGISTER)) ?: return emptyList()
         val blocking =
             readAs(Commitments.DEPENDENCY) {
                 records.all(
@@ -239,7 +254,7 @@ class VerificationRule(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
-        Fulfillment.target(change) { it == VERIFY_TRANSITION } ?: return emptyList()
+        ApprovalRules.target(change, setOf(Fulfillment.VERIFY)) ?: return emptyList()
         val user = callers.userOrNull()
         val findings = mutableListOf<Finding>()
         if (user == null || !permissions.has(user, VERIFY, Commitments.COMMITMENT)) {
@@ -266,6 +281,5 @@ class VerificationRule(
 
     companion object {
         const val VERIFY = "VERIFY"
-        const val VERIFY_TRANSITION = "verify"
     }
 }
