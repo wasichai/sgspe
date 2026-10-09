@@ -11,20 +11,22 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.springframework.http.HttpStatus
-import sgspe.F2ApiTest
+import sgspe.F3ApiTest
 import sgspe.engagement.EngagementWriteGuard
 import java.io.File
 
-// la matriz de los cinco workflows de F2 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
+// la matriz de los nueve workflows de F2 y F3 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
 // rol de su lista la aplica desde su estado de origen y el registro queda en el destino, (2) un rol fuera de la lista que
 // tiene UPDATE (o `u`) sobre el objeto recibe 403 y el listado le dice `requires role ...`, y (3) desde un estado que no es
 // el de origen responde 409 con el registro sin cambios. las expectativas salen de esos mismos JSON, así que un cambio de
 // roles o de estados en ellos cambia los casos y no los hace fallar: lo que la matriz prueba es que wasichai aplica los
 // workflows tal como están escritos. que los JSON coincidan con docs/workflows.md lo prueba model/test_model.py, y los
 // conteos fijos de WORKFLOW_TRANSITIONS impiden que una carga vacía o truncada deje la matriz sin casos. cada paso lleva
-// motivo, para que TransitionReasonGuard (plan 2.2) no rompa esta clase, y cada registro trae lo que piden las guardas de
-// 2.2 (como `activatable()` y `profileable()` de WF-A y WF-B; `close_light` usa un tipo no formal, ver LIGHT_CLOSE_TYPE)
-class WorkflowMatrixApiTest : F2ApiTest() {
+// motivo, para que TransitionReasonGuard (plan 2.2) y `requiresReason` no rompan esta clase, y cada registro trae lo que
+// piden las guardas de 2.2 y 3.2 (como `activatable()` y `profileable()` de WF-A y WF-B; `close_light` usa un tipo no
+// formal, ver LIGHT_CLOSE_TYPE; los compromisos traen D1, D2 y una aprobación de otra persona, D4; los acuerdos son
+// convenios firmados y vigentes; los candidatos, apiOnly, los crea la plataforma)
+class WorkflowMatrixApiTest : F3ApiTest() {
     private data class Transition(
         val name: String,
         val from: String,
@@ -112,6 +114,22 @@ class WorkflowMatrixApiTest : F2ApiTest() {
                 engagement
             }
             "field_visit" -> fixture("field_visit", account = actor(workflow, creatorRole, null)).id
+            // F3: un compromiso que cumple D1 y D2, con un responsable y un verificador que no lo mueven
+            "commitment" ->
+                commitment(
+                    testProject(),
+                    owner = accounts.getOrPut("\u0000owner") { userWithRole("READ_ONLY") },
+                    verifier = accounts.getOrPut("\u0000verifier") { userWithRole("READ_ONLY") },
+                    creator = actor(workflow, creatorRole, null)
+                )
+            "agreement" -> agreement(testProject(), actor(workflow, creatorRole, null))
+            // apiOnly: la plataforma, como hará el alta humana del plan 3.2
+            "commitment_candidate" ->
+                platformCreate(
+                    "commitment_candidate",
+                    mapOf("project" to testProject(), "proposed_text" to "Arreglar el canal de riego", "ai_generated" to false)
+                )
+            "task" -> task(testProject(), actor(workflow, creatorRole, null))
             else -> error("sin registro de prueba para ${workflow.objectName}")
         }
 
@@ -130,7 +148,8 @@ class WorkflowMatrixApiTest : F2ApiTest() {
         return id
     }
 
-    // quien crea el registro de la prueba: el propio rol si puede crearlo (RU: FIELD_AGENT solo cambia lo que creó), si no el primero de los que llevan el objeto
+    // quien crea el registro de la prueba: el propio rol si puede crearlo (RU: FIELD_AGENT solo cambia lo que creó), si no el
+    // primero de los que llevan el objeto. quien aprueba un compromiso nunca lo creó (D4): sus roles no tienen CREATE
     private fun creatorFor(
         workflow: Workflow,
         role: String
@@ -156,6 +175,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     }
 
     // el estado desde el que la transición no es válida: el inicial y, si ella sale del inicial, el primer estado no final
+    // que se alcanza o, si no hay ninguno (WF-K: de `proposed` solo se sale a finales), el primer final que se alcanza
     private fun wrongState(
         workflow: Workflow,
         rule: Transition
@@ -163,7 +183,8 @@ class WorkflowMatrixApiTest : F2ApiTest() {
         if (rule.from != workflow.initial) {
             workflow.initial
         } else {
-            workflow.states.first { it != rule.from && it !in workflow.finals && pathTo(workflow, it) != null }
+            workflow.states.firstOrNull { it != rule.from && it !in workflow.finals && pathTo(workflow, it) != null }
+                ?: workflow.states.first { it != rule.from && pathTo(workflow, it) != null }
         }
 
     // el camino más corto desde el estado inicial hasta `state` sin las transiciones diferidas a 2.2 ni los atajos que 2.2 guarda
@@ -171,7 +192,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
         workflow: Workflow,
         state: String
     ): List<Transition>? {
-        val usable = workflow.transitions.filter { workflow.key(it) !in DEFERRED_TO_2_2 && workflow.key(it) !in WALK_AVOIDS }
+        val usable = workflow.transitions.filter { workflow.key(it) !in DEFERRED && workflow.key(it) !in WALK_AVOIDS }
         val seen = mutableSetOf(workflow.initial)
         val queue = ArrayDeque(listOf(workflow.initial to emptyList<Transition>()))
         while (queue.isNotEmpty()) {
@@ -185,7 +206,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     @TestFactory
     fun `cada transicion por rol permitido, rol denegado y estado equivocado`(): List<DynamicNode> =
         WORKFLOWS.values.map { workflow ->
-            val transitions = workflow.transitions.filter { workflow.key(it) !in DEFERRED_TO_2_2 }
+            val transitions = workflow.transitions.filter { workflow.key(it) !in DEFERRED }
             dynamicContainer(
                 "${workflow.objectName} (${transitions.size} de ${workflow.transitions.size} transiciones)",
                 transitions.map { rule -> dynamicContainer(rule.name, cases(workflow, rule)) }
@@ -233,8 +254,8 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     }
 
     @Test
-    fun `cada transicion diferida a 2_2 existe en su workflow`() {
-        for (key in DEFERRED_TO_2_2 + WALK_AVOIDS) {
+    fun `cada transicion diferida a 2_2 o 3_2 existe en su workflow`() {
+        for (key in DEFERRED + WALK_AVOIDS) {
             val (objectName, name) = key.split(".")
             assertTrue(WORKFLOWS.getValue(objectName).transitions.any { it.name == name }, "$key no existe en model/workflows/$objectName.json")
         }
@@ -256,7 +277,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     }
 
     @Test
-    fun `los cinco workflows de model estan en la matriz`() {
+    fun `los nueve workflows de model estan en la matriz`() {
         val files = File("model/workflows").listFiles { file -> file.extension == "json" }!!.map { it.nameWithoutExtension }.toSet()
         assertEquals(files, WORKFLOWS.keys)
     }
@@ -264,7 +285,7 @@ class WorkflowMatrixApiTest : F2ApiTest() {
     @Test
     fun `todo estado de origen se alcanza sin las transiciones diferidas`() {
         for (workflow in WORKFLOWS.values) {
-            for (rule in workflow.transitions.filter { workflow.key(it) !in DEFERRED_TO_2_2 }) {
+            for (rule in workflow.transitions.filter { workflow.key(it) !in DEFERRED }) {
                 assertNotNull(pathTo(workflow, rule.from), "${workflow.key(rule)}: ${rule.from} no se alcanza")
                 assertNotNull(pathTo(workflow, wrongState(workflow, rule)), "${workflow.key(rule)}: no hay un estado equivocado alcanzable")
             }
@@ -288,19 +309,42 @@ class WorkflowMatrixApiTest : F2ApiTest() {
         private const val FORMAL_TYPE = "REUNION"
         private const val LIGHT_CLOSE_TYPE = "CONTACTO CARA A CARA"
 
-        // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2)
+        // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2, WF-D 17, WF-I 10, WF-K 3,
+        // WF-N 8)
         private val WORKFLOW_TRANSITIONS =
-            mapOf("project" to 9, "stakeholder" to 6, "engagement" to 14, "field_visit" to 4, "area_of_influence" to 2)
+            mapOf(
+                "project" to 9,
+                "stakeholder" to 6,
+                "engagement" to 14,
+                "field_visit" to 4,
+                "area_of_influence" to 2,
+                "commitment" to 17,
+                "agreement" to 10,
+                "commitment_candidate" to 3,
+                "task" to 8
+            )
 
         // lo que el plan 2.2 convierte en comando y la API genérica rechaza (CommandTransitionGuard: `assess` de WF-B, `approve`
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
         // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest
-        val DEFERRED_TO_2_2 =
+        // F3: lo que el plan 3.2 hace comando o pide de su comando (`accept` de WF-K, CommandTransitionGuard, y
+        // `mark_duplicate`, que pide el `duplicate_of` que solo escribe POST .../duplicate), lo que pide la entrega con su
+        // evidencia, que solo da su endpoint (`register_fulfillment`, D9) y lo que solo se alcanza por ella
+        // (`reopen_execution`, `verify`, `close`), y `approve_direct`, que pide un proyecto sin aprobación interna (D8): los
+        // prueba el plan 3.2 en CommitmentApprovalApiTest, CommitmentFulfillmentApiTest y CandidateApiTest
+        val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
-                "area_of_influence.supersede"
+                "area_of_influence.supersede",
+                "commitment.approve_direct",
+                "commitment.register_fulfillment",
+                "commitment.reopen_execution",
+                "commitment.verify",
+                "commitment.close",
+                "commitment_candidate.accept",
+                "commitment_candidate.mark_duplicate"
             )
 
         // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held)
@@ -313,7 +357,11 @@ class WorkflowMatrixApiTest : F2ApiTest() {
                 "stakeholder" to listOf("STAKEHOLDER_MANAGER"),
                 "engagement" to listOf("COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"),
                 "field_visit" to listOf("COMMUNITY_RELATIONS_OFFICER"),
-                "area_of_influence" to listOf("SOCIAL_MANAGER")
+                "area_of_influence" to listOf("SOCIAL_MANAGER"),
+                "commitment" to listOf("COMMITMENT_MANAGER", "APPROVER"),
+                "agreement" to listOf("SOCIAL_MANAGER", "PROJECT_MANAGER"),
+                "commitment_candidate" to listOf("COMMITMENT_MANAGER"),
+                "task" to listOf("COMMUNITY_RELATIONS_OFFICER")
             )
 
         private val WORKFLOWS: Map<String, Workflow> = DRIVERS.keys.associateWith(::load)

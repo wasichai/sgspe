@@ -60,7 +60,7 @@ abstract class F2ApiTest : SgspeApiTest() {
         overrides: Map<String, Any?> = emptyMap(),
         account: Account? = null
     ): Fixture {
-        val attributes = sample(objectName) + overrides
+        val attributes = sample(objectName, account) + overrides
         val headers = if (requiresReason(objectName)) mapOf(REASON to reason("alta de prueba")) else emptyMap()
         val id = createRecord(objectName, attributes, headers, account?.token ?: token)
         return Fixture(id, attributes)
@@ -76,10 +76,13 @@ abstract class F2ApiTest : SgspeApiTest() {
             }
         }
 
-    // atributos mínimos de `objectName`: sus requeridos, los miembros de sus únicos, sus relaciones requeridas y la de
+    // atributos mínimos de `objectName` (sus archivos los prepara `account`, quien lo crea: solo quien sube adjunta): sus requeridos, los miembros de sus únicos, sus relaciones requeridas y la de
     // "exactamente uno de"; nunca un derivado
     @Suppress("UNCHECKED_CAST")
-    protected fun sample(objectName: String): Map<String, Any?> {
+    protected fun sample(
+        objectName: String,
+        account: Account? = null
+    ): Map<String, Any?> {
         val obj = Model.objects.getValue(objectName)
         val n = SEQUENCE.incrementAndGet()
         val inSets = (obj["uniqueConstraints"] as List<List<String>>?).orEmpty().flatten().toSet()
@@ -114,7 +117,7 @@ abstract class F2ApiTest : SgspeApiTest() {
                 type == "DATE" -> attributes[name] = "2026-10-07"
                 type == "DATETIME" -> attributes[name] = "2026-10-07T15:00:00Z"
                 type == "ENUM" -> attributes[name] = Model.enums.getValue(field["enum"] as String).first()
-                type == "FILE" -> attributes[name] = stagedFile(objectName, name)
+                type == "FILE" -> attributes[name] = stagedFile(objectName, name, account)
                 else -> error("sin valor de prueba para $objectName.$name ($type)")
             }
         }

@@ -13,7 +13,7 @@ import sgspe.F2ApiTest
 // `retire_assessed` sale de `assessed`, que solo se alcanza por él. el plan 2.2 los agrega: `assess` por el endpoint en
 // StakeholderAssessmentApiTest y `assess` genérica rechazada, el motivo obligatorio de `retire_*` y `reinstate` y la guarda
 // de `profile` en StakeholderWorkflowGuardsApiTest; `retire_assessed` desde `assessed` no está en la tabla de «Interfaces»
-// de 2.2 y hay que escribirla allí (en el WorkflowMatrixApiTest, `DEFERRED_TO_2_2` la excluye)
+// de 2.2 y hay que escribirla allí (en el WorkflowMatrixApiTest, `DEFERRED` la excluye)
 class StakeholderWorkflowApiTest : F2ApiTest() {
     // un grupo de interés con lo que `profile` exige (RF-STK-003): tipo, ámbito, motivo de inclusión y responsable
     private fun profileable(owner: Account): String =
