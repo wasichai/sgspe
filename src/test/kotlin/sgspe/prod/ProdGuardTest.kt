@@ -127,8 +127,39 @@ class ProdGuardTest {
             val message = failure(values)
             assertTrue(message.contains("spring.mail.host") && message.contains("SPRING_MAIL_HOST"), message)
         }
-        check(on + ("spring.mail.host" to "smtp.sgspe.test"))
+        check(on + ("spring.mail.host" to "smtp.sgspe.test") + ("wasichai.notifications.email.from" to "avisos@sgspe.pe"))
         check(secure + ("wasichai.notifications.email.enabled" to "false"))
+    }
+
+    // el remitente por defecto de application.yml es avisos@sgspe.test: con el correo encendido, prod exige el real
+    @Test
+    fun `el correo encendido con el remitente de prueba o sin remitente falla y nombra la variable`() {
+        val on = secure + ("wasichai.notifications.email.enabled" to "true") + ("spring.mail.host" to "smtp.sgspe.pe")
+        for (from in listOf("avisos@sgspe.test", " Avisos@SGSPE.test ", "")) {
+            val message = failure(on + ("wasichai.notifications.email.from" to from))
+            assertTrue(message.contains("wasichai.notifications.email.from") && message.contains("WASICHAI_NOTIFICATIONS_EMAIL_FROM"), message)
+        }
+        assertTrue(failure(on).contains("WASICHAI_NOTIFICATIONS_EMAIL_FROM"))
+        // apagado, el remitente de prueba no importa
+        check(secure + ("wasichai.notifications.email.from" to "avisos@sgspe.test"))
+    }
+
+    // develop/example.env: las claves del MinIO de compose.yml son públicas
+    @Test
+    fun `las claves del MinIO de desarrollo fallan y nombran las variables`() {
+        val dev = secure + ("wasichai.files.s3.access-key" to "sgspe") + ("wasichai.files.s3.secret-key" to "sgspe-minio")
+        val cases =
+            listOf(
+                dev,
+                dev + ("wasichai.files.s3.access-key" to "AKIAPRODUCCION"),
+                dev + ("wasichai.files.s3.secret-key" to "una-clave-de-produccion")
+            )
+        for (values in cases) {
+            val message = failure(values)
+            assertTrue(message.contains("WASICHAI_FILES_S3_ACCESS_KEY") && message.contains("WASICHAI_FILES_S3_SECRET_KEY"), message)
+            assertTrue(!message.contains("sgspe-minio"), "el mensaje no repite la clave")
+        }
+        check(secure + ("wasichai.files.s3.access-key" to "AKIAPRODUCCION") + ("wasichai.files.s3.secret-key" to "una-clave-de-produccion"))
     }
 
     // la guarda es de producción: el desarrollo y las pruebas siguen con la semilla y el secreto por defecto

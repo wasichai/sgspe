@@ -443,4 +443,23 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
         assertTrue(stakeholders.size() >= 1)
         stakeholders.values().forEach { assertFalse(it["attributes"].has("stance")) }
     }
+
+    // la evaluación es append-only y position es opcional en ella: ON DELETE SET NULL vaciaría el cargo de una evaluación
+    // sin motivo ni auditoría, así que DependentsDeleteGuard (guardedDependents) responde 409 también al administrador
+    @Test
+    fun `un cargo que nombra una evaluacion no se borra y uno libre si`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val stakeholder = profiled(project, manager)
+        val organization = organization()
+        val cited = createRecord("position", mapOf("organization" to organization, "position_title" to "Presidente", "position_status" to "VACANTE"))
+        val free = createRecord("position", mapOf("organization" to organization, "position_title" to "Tesorero", "position_status" to "VACANTE"))
+        val attributes = indicators + mapOf("assessment_date" to "2026-05-12", "basis" to "ENTREVISTA", "stance" to "NEUTRAL", "position" to cited)
+        assertEquals(HttpStatus.CREATED, assess(stakeholder, attributes, manager.token).status)
+        val refused = exchange("DELETE", "/api/objects/position/records/$cited", null)
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("HAS_DEPENDENTS", code(refused))
+        assertEquals(listOf("stakeholder_assessment.position"), problemFields(refused.body))
+        assertEquals(HttpStatus.NO_CONTENT, exchange("DELETE", "/api/objects/position/records/$free", null).status)
+    }
 }

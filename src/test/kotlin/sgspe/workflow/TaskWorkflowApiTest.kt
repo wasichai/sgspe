@@ -1,15 +1,17 @@
 package sgspe.workflow
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.http.HttpStatus
 import sgspe.F3ApiTest
 
 // WF-N (workflows.md): la tarea se inicia, se bloquea, se desbloquea y se completa, también desde `open`, y se cancela
 // desde cada estado abierto, por los «Roles operativos» que tienen permisos en F3. cada tarea lleva un único origen
 // (ExactlyOneGuard) y cada cancelación su motivo (TransitionReasonGuard, ya activo para task); `deadline_status`, las
-// tareas de escalamiento y las de JOB-03, que no se duplican por `generator_key`, los prueba el plan 3.2
+// tareas de escalamiento y las de JOB-03, que no se duplican por `generator_key`, los prueba el plan 3.2; generator_key solo la escribe la plataforma (GeneratorKeyGuard)
 class TaskWorkflowApiTest : F3ApiTest() {
     @Test
     fun `FIELD_AGENT inicia, bloquea, desbloquea y completa una tarea`() {
@@ -68,15 +70,35 @@ class TaskWorkflowApiTest : F3ApiTest() {
     }
 
     @Test
-    fun `la clave de un generador es unica`() {
+    fun `la clave de un generador es unica y la fija solo la plataforma`() {
         val key = uniqueName("escalation:commitment:")
-        task(testProject(), attributes = mapOf("generator_key" to key))
+        val project = testProject()
+        val engagement = engagement(project)
+        platformCreate("task", mapOf("project" to project, "title" to "Primera", "engagement" to engagement, "generator_key" to key))
+        // la base frena la segunda de la plataforma con el único (409 si llegara por la API, la guarda lo adelanta con 403)
+        assertThrows(DuplicateKeyException::class.java) {
+            platformCreate("task", mapOf("project" to project, "title" to "Otra", "engagement" to engagement, "generator_key" to key))
+        }
+        // una persona no puede fijar la clave de un trabajo: suprimiría su tarea
         val repeated =
             exchange(
                 "POST",
                 "/api/objects/task/records",
-                mapOf("attributes" to mapOf("project" to testProject(), "title" to "Otra", "engagement" to engagement(testProject()), "generator_key" to key))
+                mapOf("attributes" to mapOf("project" to project, "title" to "Otra", "engagement" to engagement, "generator_key" to key))
             )
-        assertEquals(HttpStatus.CONFLICT, repeated.status, repeated.body)
+        assertEquals(HttpStatus.FORBIDDEN, repeated.status, repeated.body)
+        assertEquals("GENERATOR_KEY_PLATFORM_ONLY", code(repeated))
+        assertEquals("generator_key", tree(repeated.body)["errors"][0]["field"].asString())
+    }
+
+    @Test
+    fun `una persona no cambia generator_key de una tarea, y la plataforma la crea con ella`() {
+        val project = testProject()
+        val id = task(project)
+        val put = edit("task", id, mapOf("generator_key" to uniqueName("k:")))
+        assertEquals(HttpStatus.FORBIDDEN, put.status, put.body)
+        assertEquals("GENERATOR_KEY_PLATFORM_ONLY", code(put))
+        // sin la clave, la tarea se edita con normalidad
+        edit("task", id, mapOf("title" to "Otro título"))
     }
 }

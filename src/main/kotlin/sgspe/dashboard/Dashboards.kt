@@ -52,9 +52,10 @@ class Dashboards(
         val codes =
             Kpis.DASHBOARDS[name]
                 ?: throw notFound("DASHBOARD_NOT_FOUND", "El tablero $name no existe o no está disponible en esta fase", "dashboard")
-        val filters = filters(params, DashboardFilters.COMMON)
+        val today = today()
+        val filters = filters(params, DashboardFilters.COMMON, today)
         val readable = Readability(metadata)
-        val data = DashboardData(records, filters, readable::canRead)
+        val data = DashboardData(records, filters, readable::canRead, today)
         return DashboardResponse(name, filters.echo(), clock.instant().toString(), codes.map { evaluate(Kpis.BY_CODE.getValue(it), data, readable) })
     }
 
@@ -63,9 +64,10 @@ class Dashboards(
         params: MultiValueMap<String, String>
     ): IndicatorValue {
         val kpi = Kpis.BY_CODE[code] ?: throw notFound("INDICATOR_NOT_FOUND", "El indicador $code no existe o no está disponible en esta fase", "code")
-        val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN)
+        val today = today()
+        val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN, today)
         val readable = Readability(metadata)
-        val value = evaluate(kpi, DashboardData(records, filters, readable::canRead), readable)
+        val value = evaluate(kpi, DashboardData(records, filters, readable::canRead, today), readable)
         val by = filters.breakdown ?: return value
         if (!value.available) return value
         val offered = value.breakdowns.orEmpty().map { it.by }
@@ -102,13 +104,17 @@ class Dashboards(
         return result.toValue(kpi.code, kpi.label, kpi.unit).copy(ignoredFilters = ignored.ifEmpty { null })
     }
 
+    // hoy en Lima, del reloj de la aplicación: una sola vez por petición
+    private fun today(): LocalDate = LocalDate.now(clock.withZone(LIMA))
+
     private suspend fun filters(
         params: MultiValueMap<String, String>,
-        allowed: Set<String>
+        allowed: Set<String>,
+        today: LocalDate
     ): DashboardFilters {
         val user = callers.require()
         return DashboardFilters
-            .parse(params, allowed, catalog, LocalDate.now(clock.withZone(LIMA))) {
+            .parse(params, allowed, catalog, today) {
                 if (user.isAdmin) allProjects() else assigned(user.userId).ifEmpty { allProjects() }
             }.resolve()
     }

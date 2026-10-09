@@ -676,6 +676,16 @@ class DefinitionsPassTests(ApplyTestCase):
         self.assertIn("warning: automation aut-x-leftover of zone is in core but not in model/", err)
         self.assertIn("aut-x-leftover", self.core.automations["zone"])
 
+    def test_a_document_type_core_has_and_model_does_not_is_reported_and_kept(self):
+        self.run_with("--workflows")
+        self.core.document_types["zone"]["ficha-a-mano"] = {"label": "A mano", "prefix": "MANO",
+                                                            "template": ZONE_SHEET["template"]}
+        code, out, err = self.run_with("--workflows")
+        self.assertEqual(code, 0, err)
+        self.assertIn("warning: document type ficha-a-mano of zone is in core but not in model/", err)
+        self.assertNotIn("zone-sheet of zone is in core", err)
+        self.assertIn("ficha-a-mano", self.core.document_types["zone"])
+
     def test_dry_run_prints_the_bodies_and_calls_nothing(self):
         code, out, err = self.run_with("--workflows", "--dry-run")
         self.assertEqual(code, 0, err)
