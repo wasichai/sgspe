@@ -85,8 +85,8 @@ sgspe:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
   jobs:
-    # trabajos de fondo (JOB-02 DerivedFieldsJob y JOB-03 StakeholderFollowUpJob). false los apaga: las pruebas lo fijan
-    # en Gradle y llaman a runOnce
+    # trabajos de fondo (JOB-01 DeadlineJob, JOB-02 DerivedFieldsJob, JOB-03 StakeholderFollowUpJob y JOB-08 RetentionJob).
+    # false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
     enabled: ${SGSPE_JOBS_ENABLED:true}
     derived-fields:
       # cron de Spring (segundos primero), en America/Lima
@@ -95,6 +95,9 @@ sgspe:
     stakeholder-follow-up:
       # JOB-03, una vez al día
       cron: '0 30 4 * * *'
+    retention:
+      # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl)
+      cron: '0 15 4 * * *'
 
 management:
   endpoint:

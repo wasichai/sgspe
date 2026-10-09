@@ -2,7 +2,6 @@ package sgspe.common
 
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpHeaders
@@ -19,6 +18,7 @@ import wasichai.core.common.UnprocessableContentException
 import wasichai.core.common.ValidationException
 import wasichai.core.platform.ClusterLock
 import wasichai.core.platform.ModuleMigration
+import wasichai.core.platform.WasichaiIdempotencyProperties
 import java.net.URI
 import java.security.MessageDigest
 import java.time.Duration
@@ -117,8 +117,11 @@ class Idempotency(
     private val transactions: Transactions,
     private val callers: Callers,
     private val json: JsonMapper,
-    @Value("\${wasichai.idempotency.ttl:24h}") private val ttl: Duration
+    properties: WasichaiIdempotencyProperties
 ) {
+    // el mismo plazo que la clave nativa de wasichai, tomado de sus propiedades
+    private val ttl: Duration = properties.ttl
+
     suspend fun respond(
         rawKey: String?,
         method: String,
@@ -212,17 +215,28 @@ class Idempotency(
     private fun store(answer: CommandAnswer): StoredAnswer =
         StoredAnswer(answer.status.value(), json.writeValueAsString(answer.body), answer.etag?.let { "\"$it\"" }, answer.location)
 
-    // borra las claves vencidas de todas las organizaciones (JOB-08); devuelve cuántas
-    suspend fun purgeExpired(): Long =
-        db
-            .sql("DELETE FROM $TABLE WHERE created_at < now() - make_interval(secs => :ttl)")
-            .bind("ttl", ttl.toMillis() / 1000.0)
-            .fetch()
-            .rowsUpdated()
-            .awaitSingle()
+    // borra las claves vencidas de todas las organizaciones (JOB-08, ASM-065) en lotes acotados, para no tener una sola
+    // transacción larga ni un bloqueo grande; devuelve cuántas. usa el índice de created_at
+    suspend fun purgeExpired(): Long {
+        var total = 0L
+        while (true) {
+            val deleted =
+                db
+                    .sql(
+                        "DELETE FROM $TABLE WHERE ctid IN (SELECT ctid FROM $TABLE " +
+                            "WHERE created_at < now() - make_interval(secs => :ttl) LIMIT $PURGE_BATCH)"
+                    ).bind("ttl", ttl.toMillis() / 1000.0)
+                    .fetch()
+                    .rowsUpdated()
+                    .awaitSingle()
+            total += deleted
+            if (deleted < PURGE_BATCH) return total
+        }
+    }
 
     companion object {
         const val TABLE = "sgspe.idempotency_key"
+        private const val PURGE_BATCH = 5000
         const val IN_FLIGHT = "IDEMPOTENCY_IN_FLIGHT"
         const val REUSED = "IDEMPOTENCY_KEY_REUSED"
         private const val MATCH = "organization_id = :organizationId AND user_id = :userId AND request_key = :key"
