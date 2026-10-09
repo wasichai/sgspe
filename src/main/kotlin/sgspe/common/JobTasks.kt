@@ -1,11 +1,11 @@
 package sgspe.common
 
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Component
-import wasichai.core.common.ConflictException
 
 // las tareas que crea un trabajo programado (JOB-01 para el escalamiento, JOB-03 para el seguimiento): una por generator_key,
 // que el modelo declara único (RF-WFL-004), así que repetir la corrida nunca duplica. corre dentro de Records.asPlatform de una
-// organización. si otra réplica la creó entre la lectura y el alta, el único de la base la frena (409) y cuenta como hecha
+// organización. si otra réplica la creó entre la lectura y el alta, el único de la base la frena (DuplicateKeyException) y cuenta como hecha
 @Component
 class JobTasks(
     private val records: Records
@@ -20,7 +20,9 @@ class JobTasks(
         return try {
             records.create(TASK, attributes + (GENERATOR_KEY to key), reason)
             true
-        } catch (_: ConflictException) {
+        } catch (_: DuplicateKeyException) {
+            // wasichai 0.6.0: RecordService.create no envuelve la violación del único; sube el DuplicateKeyException de Spring,
+            // que GlobalExceptionHandler convierte en 409 (wasichai-core/.../common/GlobalExceptionHandler.kt)
             false
         }
     }

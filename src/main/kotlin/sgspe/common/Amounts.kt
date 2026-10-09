@@ -25,7 +25,10 @@ object Amounts {
                 Values.decimal(if (value is Number) value else text)
                     ?: throw Finding("INVALID_NUMBER", "$field debe ser un número", field, status = HttpStatus.BAD_REQUEST).toCodedException()
             }
-        if (number == null || number.signum() < 0 || number.precision() - number.scale() > MAX_INTEGER_DIGITS || number.scale() > MAX_SCALE) {
+        // se normaliza: 1.50000 es 1.5. primero se acotan (sin materializar un exponente enorme) y después se lleva la escala a
+        // 0 o más (1E+2 es 100)
+        val stripped = number?.let { if (it.signum() == 0) BigDecimal.ZERO else it.stripTrailingZeros() }
+        if (stripped == null || stripped.signum() < 0 || stripped.precision() - stripped.scale() > MAX_INTEGER_DIGITS || stripped.scale() > MAX_SCALE) {
             throw Finding(
                 "OUT_OF_RANGE",
                 "$field debe ser un número de 0 a ${"9".repeat(MAX_INTEGER_DIGITS)} con a lo sumo $MAX_SCALE decimales",
@@ -33,6 +36,6 @@ object Amounts {
                 status = HttpStatus.BAD_REQUEST
             ).toCodedException()
         }
-        return number
+        return if (stripped.scale() < 0) stripped.setScale(0) else stripped
     }
 }

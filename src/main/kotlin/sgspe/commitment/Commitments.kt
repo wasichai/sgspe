@@ -20,7 +20,7 @@ object Commitments {
     // los montos aprobados de ASM-063: comprometido
     val COMMITTED = PENDING + FULFILLED
 
-    // abierto: todos salvo closed y cancelled
+    // los estados terminales: closed y cancelled (abierto es todo lo demás)
     val CLOSED = setOf("closed", "cancelled")
 
     // desde approved la fecha de vencimiento solo cambia con una reprogramación (RF-COM-003)
