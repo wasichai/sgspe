@@ -26,4 +26,12 @@ class ApprovalDataTest {
         assertFalse(SeniorApproval.required(true, "REUNION", listOf("ESTRATEGICO", null)))
         assertFalse(SeniorApproval.required(false, "MESA DE DIALOGO", listOf("POLITICO")))
     }
+
+    @Test
+    fun `la causa del nivel superior es el origen antes que los solicitantes`() {
+        assertEquals(SeniorApproval.Cause.ORIGIN, SeniorApproval.cause(true, "MESA DE DIALOGO", listOf("POLITICO")))
+        assertEquals(SeniorApproval.Cause.STAKEHOLDER, SeniorApproval.cause(true, "REUNION", listOf("POLITICO")))
+        assertNull(SeniorApproval.cause(true, null, emptyList()))
+        assertNull(SeniorApproval.cause(false, "MESA DE DIALOGO", listOf("POLITICO")))
+    }
 }

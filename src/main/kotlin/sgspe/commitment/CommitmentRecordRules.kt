@@ -104,11 +104,11 @@ class CommitmentRecordRules(
             val origin = Records.uuid(after["origin_engagement"])
             if (origin != null) {
                 // un origen que no se lee (no existe o está fuera del alcance) no pasa en silencio (P12)
-                val engagement = readAs("engagement") { records.find("engagement", origin) } ?: throw NotReadable("engagement")
+                val engagement = records.readable("engagement", origin)
                 val type = engagement.attributes["engagement_type"]
                 val blocked =
                     Values.text(type) in CommitmentData.WORKSHOP_TYPES &&
-                        ProjectParameters.policy(project(after), "policy_workshop_commitments_blocked")
+                        ProjectParameters.policy(records.projectOf(after), "policy_workshop_commitments_blocked")
                 CommitmentData.workshopFinding(Values.text(type), after["origin_justification"], blocked)?.let { findings += it }
             }
         }
@@ -175,12 +175,6 @@ class CommitmentRecordRules(
                 "commitment"
             )
         )
-    }
-
-    // el proyecto del registro, para sus políticas (ASM-019); sin lectura de project, NotReadable
-    private suspend fun project(after: Map<String, Any?>): Map<String, Any?> {
-        val id = Records.uuid(after["project"]) ?: return emptyMap()
-        return readAs("project") { records.find("project", id) }?.attributes.orEmpty()
     }
 
     companion object {

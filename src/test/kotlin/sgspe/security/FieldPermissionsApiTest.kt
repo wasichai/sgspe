@@ -44,18 +44,6 @@ class FieldPermissionsApiTest : F3ApiTest() {
         send("PUT", "/api/objects/$objectName/records/${fixture.id}", mapOf("attributes" to fixture.attributes + changes), HttpStatus.OK)
     }
 
-    // un usuario con varios roles a la vez (security.md §5.4)
-    private fun userWithRoles(roles: List<String>): Account {
-        val email = "${uniqueName("dos-roles")}@sgspe.test"
-        send(
-            "POST",
-            "/api/users",
-            mapOf("email" to email, "displayName" to "Usuario de prueba", "password" to PASSWORD, "roles" to roles),
-            HttpStatus.CREATED
-        )
-        return Account(bearer(email, PASSWORD), email)
-    }
-
     @Test
     fun `los nombres y el documento de una persona no llegan a quien no los lee`() {
         val kind = uniqueName("DOC-")

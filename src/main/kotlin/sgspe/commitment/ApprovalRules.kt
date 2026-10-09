@@ -35,19 +35,23 @@ object ApprovalData {
     fun firstMissing(attributes: Map<String, Any?>): String? = (MATRIX + OWNER).firstOrNull { Values.text(attributes[it]) == null }
 }
 
-// CommitmentWriteGuard, aprobación (workflows.md WF-D): D1 y D2 al enviar y en cada aprobación, porque pending_approval admite
-// cambios; D3 (la acción APPROVE, doble llave, RF-WFL-002) y D4 (quien aprueba no registró el compromiso, RN-COM-005) en
-// approve y approve_senior; D5 (approve y approve_direct rechazan el compromiso que exige nivel superior, RN-ENG-002); D8
-// (approve_direct solo sin aprobación interna, ASM-008). D6 (políticas de empleo y servidumbres) espera el dato que GAP-016
-// deja fuera de alcance (ASM-089) y D7 es SupportPolicyGuard. cada regla es una CommitmentRule con su lugar
-// (CommitmentRuleOrder.APPROVAL + 1 a 4, P49): la escritura se detiene en la primera que bloquea y no hace las lecturas de
-// las siguientes. deciden con permisos y datos, nunca con nombres de rol
+// CommitmentWriteGuard, aprobación (workflows.md WF-D): D8 (approve_direct solo sin aprobación interna, ASM-008) primero,
+// como lo lista WF-D (P53); D1 y D2 al enviar y en cada aprobación, porque pending_approval admite cambios; D3 (la acción
+// APPROVE, doble llave, RF-WFL-002) y D4 (quien aprueba no registró el compromiso, RN-COM-005) en approve y approve_senior;
+// D5 (approve y approve_direct rechazan el compromiso que exige nivel superior, RN-ENG-002). D6 (políticas de empleo y
+// servidumbres) espera el dato que GAP-016 deja fuera de alcance (ASM-089) y D7 es SupportPolicyGuard (APPROVAL + 5). cada
+// regla es una CommitmentRule con su lugar (CommitmentRuleOrder.APPROVAL a APPROVAL + 3, P49): la escritura se detiene en la
+// primera que bloquea y no hace las lecturas de las siguientes. deciden con permisos y datos, nunca con nombres de rol
 object ApprovalRules {
     const val SUBMIT = "submit"
     const val SENIOR = "approve_senior"
     const val DIRECT = "approve_direct"
     const val APPROVE = "APPROVE"
     val DOUBLE_KEY = setOf("approve", SENIOR)
+
+    // el campo de los hallazgos sobre quien aprueba (D3, D4): el mismo que toCodedException pone al escribir, para que la
+    // consulta en seco diga lo mismo
+    const val RECORD = "record"
 
     // el compromiso de la transición si es una de `transitions`; si no, null y la regla no mira la escritura
     fun target(
@@ -57,6 +61,30 @@ object ApprovalRules {
         if (change.objectName != Commitments.COMMITMENT || change.kind != RecordChangeKind.TRANSITIONED) return null
         if (change.transition !in transitions) return null
         return change.recordId
+    }
+}
+
+// D8: approve_direct solo en un proyecto sin aprobación interna (ASM-008). va primero (P53): decide si la transición tiene
+// sentido en el proyecto antes de pedir que se completen los datos
+@Component
+class DirectApprovalRule(
+    private val records: Records
+) : CommitmentRule {
+    override val order = CommitmentRuleOrder.APPROVAL
+
+    override suspend fun findings(
+        change: RecordWrite,
+        dryRun: Boolean
+    ): List<Finding> {
+        ApprovalRules.target(change, setOf(ApprovalRules.DIRECT)) ?: return emptyList()
+        if (!ProjectParameters.policy(records.projectOf(change.before.orEmpty()), "policy_internal_approval")) return emptyList()
+        return listOf(
+            Finding(
+                "INTERNAL_APPROVAL_REQUIRED",
+                "El proyecto tiene la aprobación interna activa: el compromiso se envía a aprobación (D8, ASM-008)",
+                "project"
+            )
+        )
     }
 }
 
@@ -77,8 +105,7 @@ class ApprovalDataRule(
             findings += Finding("FIELD_REQUIRED", "Falta $field: la matriz de compromisos lo exige antes de enviar y de aprobar (D1, D2)", field)
             if (!dryRun) return findings
         }
-        val stakeholders = readAs("stakeholder") { records.related(Commitments.COMMITMENT, id, Commitments.STAKEHOLDERS) }
-        if (stakeholders.isEmpty()) {
+        if (records.stakeholdersOf(id).isEmpty()) {
             findings += Finding("STAKEHOLDER_REQUIRED", "Falta al menos un grupo de interés solicitante (D1)", Commitments.STAKEHOLDERS)
         }
         return findings
@@ -103,7 +130,13 @@ class ApprovalKeyRule(
         val user = callers.userOrNull()
         val findings = mutableListOf<Finding>()
         if (user == null || !permissions.has(user, ApprovalRules.APPROVE, Commitments.COMMITMENT)) {
-            findings += Finding("ACTION_REQUIRED", "Aprobar un compromiso exige la acción APPROVE sobre commitment (D3)", status = HttpStatus.FORBIDDEN)
+            findings +=
+                Finding(
+                    "ACTION_REQUIRED",
+                    "Aprobar un compromiso exige la acción APPROVE sobre commitment (D3)",
+                    ApprovalRules.RECORD,
+                    status = HttpStatus.FORBIDDEN
+                )
             if (!dryRun) return findings
         }
         if (user == null || createdBy(id, user.userId)) {
@@ -111,6 +144,7 @@ class ApprovalKeyRule(
                 Finding(
                     "SEGREGATION_OF_DUTIES",
                     "Quien aprueba un compromiso no puede ser quien lo registró (D4, RN-COM-005)",
+                    ApprovalRules.RECORD,
                     status = HttpStatus.FORBIDDEN
                 )
         }
@@ -130,7 +164,7 @@ class ApprovalKeyRule(
 }
 
 // D5: approve y approve_direct rechazan el compromiso que exige nivel superior, con la regla evaluada en el momento
-// (SeniorApprovalReader, nunca el derivado requires_senior_approval)
+// (SeniorApprovalReader, nunca el derivado requires_senior_approval). el campo dice la causa: el origen o los solicitantes
 @Component
 class SeniorApprovalRule(
     private val senior: SeniorApprovalReader
@@ -142,42 +176,18 @@ class SeniorApprovalRule(
         dryRun: Boolean
     ): List<Finding> {
         val id = ApprovalRules.target(change, Commitments.APPROVALS - ApprovalRules.SENIOR) ?: return emptyList()
-        if (!senior.required(id, change.before.orEmpty())) return emptyList()
+        val cause = senior.cause(id, change.before.orEmpty()) ?: return emptyList()
+        val (field, why) =
+            when (cause) {
+                SeniorApproval.Cause.ORIGIN -> "origin_engagement" to "nace de una mesa de diálogo"
+                SeniorApproval.Cause.STAKEHOLDER -> Commitments.STAKEHOLDERS to "lo pide un grupo de interés POLITICO"
+            }
         return listOf(
             Finding(
                 "SENIOR_APPROVAL_REQUIRED",
-                "Este compromiso exige la aprobación de nivel superior (approve_senior, RN-ENG-002)",
-                "origin_engagement"
+                "Este compromiso $why: exige la aprobación de nivel superior (approve_senior, RN-ENG-002)",
+                field
             )
         )
-    }
-}
-
-// D8: approve_direct solo en un proyecto sin aprobación interna (ASM-008)
-@Component
-class DirectApprovalRule(
-    private val records: Records
-) : CommitmentRule {
-    override val order = CommitmentRuleOrder.APPROVAL + 4
-
-    override suspend fun findings(
-        change: RecordWrite,
-        dryRun: Boolean
-    ): List<Finding> {
-        ApprovalRules.target(change, setOf(ApprovalRules.DIRECT)) ?: return emptyList()
-        if (!ProjectParameters.policy(project(change.before.orEmpty()), "policy_internal_approval")) return emptyList()
-        return listOf(
-            Finding(
-                "INTERNAL_APPROVAL_REQUIRED",
-                "El proyecto tiene la aprobación interna activa: el compromiso se envía a aprobación (D8, ASM-008)",
-                "project"
-            )
-        )
-    }
-
-    // el proyecto del compromiso, para sus políticas (ASM-019); fuera del alcance, NotReadable (nunca la política por defecto)
-    private suspend fun project(attributes: Map<String, Any?>): Map<String, Any?> {
-        val id = Records.uuid(attributes["project"]) ?: return emptyMap()
-        return readAs("project") { records.find("project", id) }?.attributes ?: throw NotReadable("project")
     }
 }

@@ -5,10 +5,14 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import sgspe.common.Finding
 import sgspe.common.GuardOrder
+import sgspe.common.Records
+import sgspe.common.RequestMemo
 import sgspe.common.RuleGuard
 import sgspe.common.toCodedException
 import wasichai.core.common.ForbiddenException
+import wasichai.core.data.RecordResponse
 import wasichai.core.data.RecordWrite
+import java.util.UUID
 
 // una familia de reglas de CommitmentWriteGuard (workflows.md WF-D y WF-K, domain-model §7.1): las del alta y la edición, las
 // de aprobación (D1 a D5 y D8), las de cumplimiento y verificación (D9 a D11) y las de los candidatos. no es una WriteRule:
@@ -54,6 +58,26 @@ suspend fun <T> readAs(
         throw NotReadable(objectName)
     }
 
+// el registro `id` de `objectName` leído como quien escribe. falla cerrada (P12): sin READ, fuera del alcance o inexistente es
+// NotReadable, y el mensaje no distingue «no existe» de «no se lee» para no revelar si existe
+suspend fun Records.readable(
+    objectName: String,
+    id: UUID
+): RecordResponse = readAs(objectName) { find(objectName, id) } ?: throw NotReadable(objectName)
+
+// los atributos del proyecto de un registro, para sus políticas (ASM-019): sin project, vacío (las políticas por defecto de la
+// ficha); un proyecto que no se lee es NotReadable, nunca los valores por defecto
+suspend fun Records.projectOf(attributes: Map<String, Any?>): Map<String, Any?> =
+    Records.uuid(attributes["project"])?.let { readable("project", it).attributes }.orEmpty()
+
+// los solicitantes de un compromiso (commitment_stakeholder) como los ve quien escribe, leídos una vez por escritura:
+// CommitmentWriteGuard abre un RequestMemo en cada corrida de sus reglas, así que D1 y D5 comparten la lectura. fuera de la
+// guarda (un trabajo, un listener), cada llamada lee
+suspend fun Records.stakeholdersOf(commitmentId: UUID): List<RecordResponse> =
+    RequestMemo.remember(Commitments.STAKEHOLDERS to commitmentId) {
+        readAs("stakeholder") { related(Commitments.COMMITMENT, commitmentId, Commitments.STAKEHOLDERS) }
+    }
+
 // CommitmentWriteGuard (sgspe.commitment): junta las reglas de compromisos, entregas, dependencias y candidatos. cada regla
 // mira solo sus objetos y sus transiciones
 @Component
@@ -69,14 +93,16 @@ class CommitmentWriteGuard(
         dryRun: Boolean
     ): List<Finding> {
         if (change.objectName !in OBJECTS) return emptyList()
-        return ordered.flatMap { run(it, change, dryRun) }
+        return RequestMemo.within { ordered.flatMap { run(it, change, dryRun) } }
     }
 
     // la escritura: se detiene en el primer hallazgo que bloquea
     override suspend fun beforeWrite(change: RecordWrite) {
         if (change.objectName !in OBJECTS) return
-        for (rule in ordered) {
-            run(rule, change, dryRun = false).firstOrNull { it.blocking }?.let { throw it.toCodedException() }
+        RequestMemo.within {
+            for (rule in ordered) {
+                run(rule, change, dryRun = false).firstOrNull { it.blocking }?.let { throw it.toCodedException() }
+            }
         }
     }
 
@@ -91,7 +117,7 @@ class CommitmentWriteGuard(
             listOf(
                 Finding(
                     "OBJECT_NOT_READABLE",
-                    "La regla necesita leer ${e.objectName} y quien escribe no puede leerlo",
+                    "La regla necesita leer ${e.objectName}: el registro no existe o quien escribe no puede leerlo",
                     e.objectName,
                     status = HttpStatus.FORBIDDEN
                 )
