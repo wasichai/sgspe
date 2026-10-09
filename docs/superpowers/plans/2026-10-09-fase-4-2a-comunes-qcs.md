@@ -15,9 +15,10 @@ la aceptación de solicitudes, la derivación de preguntas, JOB-01 para las QCS 
 
 **Architecture:** Paquete nuevo `sgspe.attention` (guarda, listeners, comandos y reporte de las QCS); cambios en
 `sgspe.common` (`HolidayCalendar`, `BusinessDays`, `Attention`, `AttentionCounting`, parámetros de F4, `NotReadable` y
-`readAs`, que salen de `sgspe.commitment`, las concesiones de `roles.json` en `ModelCatalog`), `sgspe.scope` (alcance de
-los 12 objetos de F4, `ProjectLinks` y `ProjectLinkGuard`, `ConfidentialAttentionScope`), `sgspe.evidence` (vínculos con
-QCS confidenciales), `sgspe.engagement` (`referred_at` en RN-ENG-005), `sgspe.deadline` (JOB-01 por objeto y los avisos
+`readAs`, que salen de `sgspe.commitment`, `ConfidentialRelease`, las concesiones de `roles.json` en `ModelCatalog`),
+`sgspe.scope` (alcance de los 12 objetos de F4, `ProjectLinks` y `ProjectLinkGuard`, `ConfidentialAttentionScope`),
+`sgspe.evidence` (vínculos con QCS confidenciales), `sgspe.engagement` (`referred_at` en RN-ENG-005; `u` de
+`GRIEVANCE_MANAGER` sobre `engagement_question` en `roles.json`), `sgspe.deadline` (JOB-01 por objeto y los avisos
 `qcs_deadline` y `qcs_confidential_overdue`), `sgspe.notification` (`ConfidentialReaders` y el aviso de queja grave),
 `sgspe.dashboard` y `sgspe.privacy`. Todo escribe por `sgspe.common.Records` con la marca `SgspeWrite`; las reglas son
 `RecordWriteGuard` hechas de reglas puras que `POST /api/sgspe/transition-checks` corre en seco; los comandos honran
@@ -55,7 +56,11 @@ KPI-RSK y KPI-ENG-06 a 08) queda fuera.
 - **Lecturas y escrituras.** Nunca `asPlatform` dentro de una petición: guardas, listeners, comandos, el reporte, los
   tableros y las exportaciones leen y escriben como quien llama; solo JOB-01, JOB-02 y la fuente `DeadlineNotices` leen
   como la plataforma, con `source = job:<nombre>` y un motivo que nombra al trabajo. Los trabajos nunca aplican
-  transiciones ni vinculan registros existentes. `JobTasks.ensure` nunca dentro de una transacción abierta.
+  transiciones ni vinculan registros existentes. `JobTasks.ensure` nunca dentro de una transacción abierta. La única
+  acción del sistema dentro de una petición es `RequestClosureListener` (decisión 4): corre como quien cierra el
+  compromiso, porque wasichai no deja ser la plataforma en una petición ni aplicar una transición sin usuario, pero dentro
+  de `ConfidentialRelease` y con el origen `listener:request-closure` en la auditoría; nadie más usa `ConfidentialRelease`
+  (`ArchitectureTest`).
 - **Errores.** Todo 400, 403 o 409 de una guarda o de un comando lleva su código en `errors[0].message` y el campo en
   `errors[0].field` (`Finding.toCodedException`). Los códigos son los de `api.md` §3.3 tras el plan 4.0;
   `FIELD_REQUIRED` de `AttentionWriteGuard` es `400` (decisión 9 del plan 4.0).
@@ -128,14 +133,14 @@ tarea dueña del código:
 |---|---|---|
 | 1 | `ProjectLinks` (P54) vive en `sgspe.commitment` y usa `readable`, `NotReadable` y `linkedProject` de `CommitmentWriteGuard.kt`; `ProjectLinkGuard` va en `sgspe.scope`, que solo depende de `common` | `NotReadable`, `readAs` y `Records.readable` pasan a `sgspe.common` (`ReadAs.kt`); `ProjectLinks` y `Records.linkedProject`, a `sgspe.scope` (`ProjectLinks.kt`). Los archivos que los usaban cambian solo sus imports (Tarea 4) |
 | 2 | La especificación pide que `CommitmentWriteGuard` y `CandidateLinkRule` usen la misma pieza que `ProjectLinkGuard` | `ProjectLinkRule` y `CandidateLinkRule` siguen como reglas de su guarda (su orden P49 no cambia) y llaman a `sgspe.scope.ProjectLinks`; como los campos salen del catálogo filtrado por `ProjectScope.covers`, `commitment.origin_grievance` y `commitment.social_risk` se juzgan solos en cuanto `grievance` y `social_risk` tienen alcance. `ProjectLinkGuard` cubre los 12 objetos de F4 y los vínculos `social_risk_stakeholder` e `incident_stakeholder` (Tarea 4) |
-| 3 | La derivación escribe `referred_at` en la pregunta como quien llama, y `api.md` §4.4 solo pide READ sobre `engagement_question`; `GRIEVANCE_MANAGER` no tiene UPDATE sobre ella en `roles.json` | El comando exige UPDATE sobre `engagement_question` y CREATE sobre el destino: hoy deriva `COMMUNITY_RELATIONS_OFFICER`, que registra las preguntas en la reunión. `api.md` §4.4 lo dice (Tarea 18). Darle UPDATE a `GRIEVANCE_MANAGER` es un cambio de `roles.json` que queda como pregunta abierta |
-| 4 | `RequestClosureListener` corre como quien cierra el compromiso; si la solicitud aceptada es confidencial y quien cierra no la lee, wasichai no la muestra | El listener busca las solicitudes aceptadas como quien cierra: una que no lee no aparece y queda en `accepted` (lo registra en el log). No se usa `asPlatform` dentro de una petición. Queda como pregunta abierta: dar `READ_CONFIDENTIAL` o el responsable a quien cierra, o un paso manual del gestor de quejas |
+| 3 | La derivación escribe `referred_at` en la pregunta como quien llama, y `api.md` §4.4 solo pide READ sobre `engagement_question`; `GRIEVANCE_MANAGER`, que `security.md` §8.2 nombra entre quienes derivan, no tiene UPDATE sobre ella en `roles.json` | Decisión del usuario (2026-10-09): `GRIEVANCE_MANAGER` también deriva. Recibe `u` sobre `engagement_question` (no `U`): UPDATE con todo campo no derivado y la relación `engagement` en solo lectura, así que solo escribe `referred_at`, el derivado que pone el comando con la marca; no edita el texto, la respuesta ni la interacción de la pregunta. El comando exige UPDATE sobre `engagement_question` y CREATE sobre el destino. `roles.json`, la matriz de `security.md` §7.4, su tabla de §8.2 y `api.md` §4.4 lo dicen en la Tarea 11, con su prueba |
+| 4 | `RequestClosureListener` corre como quien cierra el compromiso; si la solicitud aceptada es confidencial y quien cierra no la lee, wasichai no la muestra y quedaría en `accepted` para siempre | Decisión del usuario (2026-10-09): el cierre automático es una acción del sistema. `asPlatform` no se puede: `RecordService.asPlatform` lanza dentro de una petición (el listener corre en la de `close`) y `WorkflowService.apply` exige un usuario, así que ni un trabajo de fondo podría aplicar `close_accepted`. Lo más cercano: el listener corre como quien cierra, dentro de `ConfidentialRelease` (`sgspe.common`), con el que `ConfidentialAttentionScope` admite además, mientras dura el bloque, las solicitudes cuyo `created_commitment` es el compromiso que se cierra, y solo ellas; la auditoría lleva el origen `listener:request-closure` (`ChangeOrigin.within`) y el motivo «RN-GRV-001: compromiso <código> cerrado», con el usuario de quien cerró. Sigue en la transacción de `close`: si no puede cerrar la solicitud, el cierre se revierte; no toca `JobTasks`. `ArchitectureTest` vigila que solo `RequestClosureListener` use `ConfidentialRelease` (Tarea 10) |
 | 5 | `close_accepted` de WF-E3 solo la aplica `RequestClosureListener`, al cerrar un compromiso que llegó a `verified` | Sigue en `DEFERRED` de `WorkflowMatrixApiTest`; `StakeholderRequestWorkflowApiTest` prueba el cierre, el motivo y `COMMAND_ONLY`. `accept` y `close_unfulfilled` dejan de diferirse: `perform` acepta por el comando y `prepare` cancela el compromiso creado (Tarea 10) |
 | 6 | El comando de reclasificación elige la transición `close_reclassified_*` por el estado del original; la matriz prueba cada transición también desde un estado equivocado | `perform` reclasifica por el comando cuando el registro está en el estado de origen de la transición; fuera de él la pide por la API genérica, que responde `409` antes de las guardas, como pide el caso «estado equivocado» (Tarea 9) |
 | 7 | `workflows.md` pone el aviso de queja grave como un paso de `ApprovalNoticeListener`, cuyos `STEPS` modelan envío y estado pendiente | Un listener propio, `GraveGrievanceNoticeListener` (`sgspe.notification`), con la misma fuente (`sgspe.approvals`) y la clave `approval_pending:grievance:<id>`: dispara por severidad y política, no por un envío. `workflows.md` lo nombra (Tarea 18) |
 | 8 | `assess` de WF-F está entre las transiciones de comando de §3.1 | Llega con su endpoint en el plan 4.2b: una transición de comando sin su endpoint no se podría aplicar. `WorkflowMatrixApiTest` ya la difiere |
 | 9 | La especificación pone el alcance de los objetos de F4 en las piezas comunes | Este plan suma los 12 objetos a `ProjectScope` (raíces y, por `social_risk`, `risk_assessment` y `mitigation_measure`), también los de riesgos y alertas, y la regla de rangos de los umbrales de riesgo en `ProjectWriteGuard` (Tareas 3 y 4) |
-| 10 | La lista de feriados la pide la especificación «verificada contra El Peruano» | `application.yml` trae los 16 feriados nacionales de 2026 y de 2027 (D. Leg. 713 y sus modificatorias: 7 de junio, 23 de julio, 6 de agosto y 9 de diciembre sumados desde 2022); los días no laborables del sector público no son feriados. Quien ejecuta la Tarea 1 los contrasta con la norma vigente antes del commit |
+| 10 | La especificación (§3.4) pide las listas de 2026 y 2027 «verificadas contra El Peruano» | Decisión del usuario (2026-10-09): el calendario se configura por año cuando se publica la lista oficial. `application.yml` trae solo los 16 feriados nacionales de 2026 (D. Leg. 713 y sus modificatorias: 7 de junio, 23 de julio, 6 de agosto y 9 de diciembre sumados desde 2022); los días no laborables del sector público no son feriados. 2027 se agrega cuando se publique; mientras tanto cuenta de lunes a viernes con la advertencia del año faltante. Quien ejecuta la Tarea 1 contrasta 2026 con la norma vigente antes del commit; `docs/develop/README.md` y `architecture.md` §10.2 explican cómo agregar un año (Tarea 18) |
 | 11 | La reclasificación «copia los campos comunes» y el código es único por proyecto en cada objeto | El código no se copia: cada tipo numera los suyos y `attributes` trae el del registro nuevo; si falta, wasichai responde `400` por el campo requerido (Tarea 9) |
 | 12 | La tabla de §3.2 pide categoría y severidad en `investigate` y `start_action`; `workflows.md` (plan 4.0) también en `start_action_after_investigation` | Las tres (Tarea 6) |
 | 13 | El nivel 1 del aviso de una tarea vencida sale de su registro vinculado (`TASK_REFERENCE`) y no había fila para las QCS | La tarea vinculada a una queja, una consulta o una solicitud escala en el nivel 1 a los roles de `verify` de WF-E1, como los plazos de las QCS (Tarea 13) |
@@ -169,6 +174,8 @@ Lo que este plan deja y el plan 4.2b consume (nombres exactos):
   `ProjectWriteGuard` (el endpoint de revisiones responde `409 RISK_THRESHOLDS_INVALID` ante umbrales guardados antes de
   ella).
 - `sgspe.common.NotReadable`, `readAs(objectName) { … }` y `Records.readable(objectName, id)`.
+- `sgspe.common.ConfidentialRelease` existe solo para `RequestClosureListener` (decisión 4): `ArchitectureTest` rechaza
+  cualquier otro uso, así que el plan 4.2b no lo usa.
 - `sgspe.scope.ProjectScope` con los 12 objetos de F4; `ProjectLinks.fieldsOf(catalog, objectName)`,
   `ProjectLinks.tenantCapable(catalog)`, `ProjectLinks.judge(...)`, `Records.linkedProject(target, id)`;
   `ProjectLinkGuard` ya juzga `social_risk`, `potential_impact`, `incident`, `media_mention`, `early_warning_signal`,
@@ -198,7 +205,7 @@ Todos bajo la raíz del repositorio. «Crear» es un archivo nuevo; «Modificar�
 
 | Archivo | Responsabilidad | Tarea |
 |---|---|---|
-| `src/main/kotlin/sgspe/common/BusinessDays.kt` (crear), `src/main/resources/application.yml` | `CalendarProperties`, `HolidayCalendar`, `BusinessDays`; feriados de 2026 y 2027 | 1 |
+| `src/main/kotlin/sgspe/common/BusinessDays.kt` (crear), `src/main/resources/application.yml` | `CalendarProperties`, `HolidayCalendar`, `BusinessDays`; feriados de 2026 | 1 |
 | `src/main/kotlin/sgspe/common/Attention.kt` (crear) | Nombres de las QCS, `Raised`, `AttentionTotals`, `AttentionCounting` | 2 |
 | `src/main/kotlin/sgspe/common/ProjectParameters.kt`, `src/main/kotlin/sgspe/scope/ProjectWriteGuard.kt` | Parámetros de F4 y sus rangos | 3 |
 | `src/main/kotlin/sgspe/common/ReadAs.kt`, `src/main/kotlin/sgspe/scope/ProjectLinks.kt`, `ProjectLinkGuard.kt` (crear); `ProjectScope.kt`; `CommitmentWriteGuard.kt`, `ProjectLinkRule.kt` y los imports de nueve archivos de `commitment`, `investment` y `notification` | Alcance de F4 y «mismo proyecto»; `NotReadable` y `readAs` a `common` | 4 |
@@ -207,15 +214,15 @@ Todos bajo la raíz del repositorio. «Crear» es un archivo nuevo; «Modificar�
 | `src/main/kotlin/sgspe/evidence/EvidenceWriteGuard.kt` | `EVIDENCE_NOT_RESTRICTED` | 7 |
 | `src/main/kotlin/sgspe/attention/QcsDates.kt` (crear) | `QcsDueDates`, `QcsTransitionDates`, sus listeners y el recalculador de JOB-02 | 8 |
 | `src/main/kotlin/sgspe/attention/Reclassifications.kt` (crear), `src/main/kotlin/sgspe/common/CommandTransitionGuard.kt`, `src/test/kotlin/sgspe/workflow/WorkflowMatrixApiTest.kt` | Reclasificación | 9 |
-| `src/main/kotlin/sgspe/attention/Acceptances.kt` (crear), `CommandTransitionGuard.kt`, `WorkflowMatrixApiTest.kt` | Aceptación y `RequestClosureListener` | 10 |
-| `src/main/kotlin/sgspe/attention/Referrals.kt` (crear), `src/main/kotlin/sgspe/engagement/EngagementWriteGuard.kt` | Derivación y RN-ENG-005 | 11 |
+| `src/main/kotlin/sgspe/attention/Acceptances.kt`, `src/main/kotlin/sgspe/common/ConfidentialRelease.kt` (crear), `ConfidentialAttentionScope.kt`, `CommandTransitionGuard.kt`, `WorkflowMatrixApiTest.kt`, `ArchitectureTest.kt` | Aceptación y `RequestClosureListener` como acción del sistema | 10 |
+| `src/main/kotlin/sgspe/attention/Referrals.kt` (crear), `src/main/kotlin/sgspe/engagement/EngagementWriteGuard.kt`, `model/roles.json`, `docs/security.md`, `docs/api.md` | Derivación, RN-ENG-005 y el `u` de `GRIEVANCE_MANAGER` sobre `engagement_question` | 11 |
 | `src/main/kotlin/sgspe/deadline/Deadlines.kt`, `DeadlineJob.kt` | JOB-01 por objeto con quejas y consultas | 12 |
 | `src/main/kotlin/sgspe/notification/ConfidentialReaders.kt` (crear), `Notices.kt`, `src/main/kotlin/sgspe/common/ModelCatalog.kt`, `src/main/kotlin/sgspe/deadline/DeadlineNotices.kt` | `qcs_deadline`, filtro de destinatarios y `qcs_confidential_overdue` | 13 |
 | `src/main/kotlin/sgspe/notification/GraveGrievanceNotices.kt` (crear) | Aviso de queja grave | 14 |
 | `src/main/kotlin/sgspe/attention/AttentionReport.kt` (crear) | Reporte unificado | 15 |
 | `src/main/kotlin/sgspe/dashboard/AttentionKpis.kt` (crear), `DashboardData.kt`, `Kpis.kt`, `Indicators.kt`, `Dashboards.kt` | KPI-GRV y tablero `attention` | 16 |
 | `src/main/kotlin/sgspe/privacy/AttentionSheets.kt`, `AttentionRegister.kt` (crear), `ExportController.kt` | `attention-register` | 17 |
-| `docs/api.md`, `docs/workflows.md`, `CLAUDE.md`, `src/test/kotlin/sgspe/ArchitectureTest.kt` | Cierre | 18 |
+| `docs/workflows.md`, `docs/security.md`, `docs/architecture.md`, `docs/develop/README.md`, `CLAUDE.md`, `src/test/kotlin/sgspe/ArchitectureTest.kt` | Cierre | 18 |
 
 Las pruebas viven en `src/test/kotlin/sgspe/<paquete>/` con el nombre que da cada tarea: unitarias `*Test` (sin base) y de
 integración `*ApiTest` (sobre `F4ApiTest`, en la CI del PR).
@@ -237,6 +244,7 @@ la CI del PR (o el coordinador, una clase tras otra, porque todas usan `sgspe_sd
 | G | 18 | Todas | Documentos, vigía, verificación, push y PR |
 
 Archivos que comparten tareas y por eso las ordenan: `WorkflowMatrixApiTest.kt` y `CommandTransitionGuard.kt` (9 → 10),
+`ConfidentialAttentionScope.kt` y su prueba (5 → 10), `ArchitectureTest.kt` (10 → 18), `docs/security.md` (11 → 18),
 `Notices.kt` y `ModelCatalog.kt` (13), `Permissions.kt` (5, que leen 15, 16 y 17).
 
 ---
@@ -257,9 +265,11 @@ Archivos que comparten tareas y por eso las ordenan: `WorkflowMatrixApiTest.kt` 
   `addBusinessDays(start: LocalDate, n: Int, calendar: HolidayCalendar): LocalDate`.
 
 La especificación §3.4 fija la forma: feriados nacionales por año en `application.yml`, validados al arrancar; un año sin
-lista usa lunes a viernes con una advertencia por año y proceso; el día de recepción no cuenta. Antes del commit, quien
-ejecuta contrasta las dos listas con la norma vigente publicada en El Peruano (D. Leg. 713 y sus modificatorias); un
-cambio en la lista cambia la cuenta de la prueba `application yml trae los feriados de 2026 y 2027`.
+lista usa lunes a viernes con una advertencia por año y proceso; el día de recepción no cuenta. El calendario se configura
+por año cuando se publica la lista oficial (decisión 10): hoy solo 2026, y 2027 cuenta de lunes a viernes hasta que se
+agregue. Antes del commit, quien ejecuta contrasta la lista de 2026 con la norma vigente publicada en El Peruano (D. Leg.
+713 y sus modificatorias); un cambio en ella cambia la cuenta de la prueba `application yml trae los feriados de 2026 y
+cada anio agregado es valido`, que valida también todo año que se agregue después.
 
 - [ ] **Paso 1: Escribir la prueba que falla**
 
@@ -274,6 +284,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.boot.env.YamlPropertySourceLoader
+import org.springframework.core.env.EnumerablePropertySource
 import org.springframework.core.io.ClassPathResource
 import java.time.LocalDate
 
@@ -318,19 +329,20 @@ class BusinessDaysTest {
         assertThrows<IllegalStateException> { HolidayCalendar.of(mapOf("dos mil" to emptyList())) }
     }
 
-    // la configuración de application.yml: 2026 y 2027 completos (16 feriados cada uno) y válidos
+    // la configuración de application.yml: 2026 completo (16 feriados) y cada año que operación agregue después, válido. el
+    // calendario se configura por año cuando se publica la lista oficial: un año que falta cuenta de lunes a viernes
     @Test
-    fun `application yml trae los feriados de 2026 y 2027`() {
-        val sources = YamlPropertySourceLoader().load("application", ClassPathResource("application.yml"))
+    fun `application yml trae los feriados de 2026 y cada anio agregado es valido`() {
+        val prefix = "sgspe.calendar.holidays."
         val byYear =
-            listOf("2026", "2027").associateWith { year ->
-                (0 until 20).mapNotNull { i -> sources.firstNotNullOfOrNull { it.getProperty("sgspe.calendar.holidays.$year[$i]") }?.toString() }
-            }
-        assertEquals(16, byYear.getValue("2026").size, byYear.toString())
-        assertEquals(16, byYear.getValue("2027").size, byYear.toString())
-        val calendar = HolidayCalendar.of(byYear.mapValues { (_, dates) -> dates.map(LocalDate::parse) })
+            YamlPropertySourceLoader()
+                .load("application", ClassPathResource("application.yml"))
+                .filterIsInstance<EnumerablePropertySource<*>>()
+                .flatMap { source -> source.propertyNames.filter { it.startsWith(prefix) }.map { it to source.getProperty(it).toString() } }
+                .groupBy({ (name, _) -> name.removePrefix(prefix).substringBefore("[") }, { (_, value) -> LocalDate.parse(value) })
+        assertEquals(16, byYear["2026"]?.size, byYear.toString())
+        val calendar = HolidayCalendar.of(byYear)
         assertFalse(BusinessDays.isBusinessDay(date("2026-04-03"), calendar))
-        assertFalse(BusinessDays.isBusinessDay(date("2027-03-25"), calendar))
         assertFalse(BusinessDays.isBusinessDay(date("2026-12-09"), calendar))
     }
 }
@@ -344,7 +356,7 @@ cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(
 
 Esperado: FAIL en la compilación de las pruebas (`Unresolved reference 'HolidayCalendar'` y `'BusinessDays'`).
 
-- [ ] **Paso 3: El calendario y los feriados de 2026 y 2027**
+- [ ] **Paso 3: El calendario y los feriados de 2026**
 
 Crear `src/main/kotlin/sgspe/common/BusinessDays.kt`:
 
@@ -362,7 +374,8 @@ import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
 // los feriados nacionales por año, por despliegue y no por organización (ASM-096, architecture.md §10.2): sgspe.calendar.holidays
-// en application.yml, con el año entre comillas como clave. cada año alguien de operación agrega el siguiente
+// en application.yml, con el año entre comillas como clave. operación agrega cada año cuando se publica su lista oficial
+// (docs/develop/README.md §4); mientras falte, ese año cuenta de lunes a viernes
 @ConfigurationProperties("sgspe.calendar")
 data class CalendarProperties(
     val holidays: Map<String, List<LocalDate>> = emptyMap()
@@ -472,9 +485,10 @@ por:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000
   calendar:
-    # feriados nacionales por año (ASM-096, HolidayCalendar): el acuse de una queja cuenta días hábiles. un año que falta
-    # usa lunes a viernes con una advertencia en el log; cada año, operación agrega el siguiente según la norma publicada
-    # en El Peruano (D. Leg. 713 y sus modificatorias). los días no laborables del sector público no son feriados
+    # feriados nacionales por año (ASM-096, HolidayCalendar): el acuse de una queja cuenta días hábiles. un año se agrega
+    # cuando se publica su lista oficial en El Peruano (D. Leg. 713 y sus modificatorias), con su clave entre comillas y
+    # sus fechas; mientras falte, ese año usa lunes a viernes con una advertencia en el log (docs/develop/README.md §4).
+    # los días no laborables del sector público no son feriados
     holidays:
       '2026':
         - 2026-01-01
@@ -493,23 +507,6 @@ por:
         - 2026-12-08
         - 2026-12-09
         - 2026-12-25
-      '2027':
-        - 2027-01-01
-        - 2027-03-25
-        - 2027-03-26
-        - 2027-05-01
-        - 2027-06-07
-        - 2027-06-29
-        - 2027-07-23
-        - 2027-07-28
-        - 2027-07-29
-        - 2027-08-06
-        - 2027-08-30
-        - 2027-10-08
-        - 2027-11-01
-        - 2027-12-08
-        - 2027-12-09
-        - 2027-12-25
   concurrency:
     # cuánto se guardan los saltos de versión de las escrituras de derivados (sgspe.derived_version, ADR-0027, ASM-091):
 ```
@@ -528,11 +525,11 @@ Esperado: `BUILD SUCCESSFUL`; `BusinessDaysTest` con sus 5 pruebas en verde.
 cd ~/IdeaProjects/sgspe
 git add src/main/kotlin/sgspe/common/BusinessDays.kt src/main/resources/application.yml src/test/kotlin/sgspe/common/BusinessDaysTest.kt
 git commit -F - <<'MSG'
-feat: calendario de días hábiles con los feriados de 2026 y 2027
+feat: calendario de días hábiles con los feriados de 2026
 
 HolidayCalendar lee los feriados nacionales por año de application.yml y los valida al arrancar;
-BusinessDays cuenta días hábiles desde el día siguiente a la recepción. Un año sin lista usa lunes
-a viernes y lo advierte una vez (ASM-096).
+BusinessDays cuenta días hábiles desde el día siguiente a la recepción. Un año sin lista, como 2027
+hasta que se publique la suya, usa lunes a viernes y lo advierte una vez (ASM-096).
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -4559,16 +4556,27 @@ MSG
 ### Tarea 10: La aceptación de una solicitud y su cierre por el compromiso
 
 **Files:**
-- Create: `src/main/kotlin/sgspe/attention/Acceptances.kt`
-- Modify: `src/main/kotlin/sgspe/common/CommandTransitionGuard.kt`, `src/test/kotlin/sgspe/workflow/WorkflowMatrixApiTest.kt`
-- Test: `src/test/kotlin/sgspe/attention/StakeholderRequestWorkflowApiTest.kt`
+- Create: `src/main/kotlin/sgspe/attention/Acceptances.kt`, `src/main/kotlin/sgspe/common/ConfidentialRelease.kt`
+- Modify: `src/main/kotlin/sgspe/common/CommandTransitionGuard.kt`, `src/main/kotlin/sgspe/scope/ConfidentialAttentionScope.kt`,
+  `src/test/kotlin/sgspe/scope/ConfidentialAttentionScopeTest.kt`, `src/test/kotlin/sgspe/workflow/WorkflowMatrixApiTest.kt`,
+  `src/test/kotlin/sgspe/ArchitectureTest.kt`
+- Test: `src/test/kotlin/sgspe/attention/StakeholderRequestWorkflowApiTest.kt`, `src/test/kotlin/sgspe/common/ConfidentialReleaseTest.kt`
 
 **Interfaces:**
-- Consumes: lo mismo que la Tarea 9; `AttentionRules.CREATED_COMMITMENT`; `Criteria.inState`.
+- Consumes: lo mismo que la Tarea 9; `AttentionRules.CREATED_COMMITMENT`; `Criteria.inState`; `ConfidentialCondition` y
+  `ConfidentialAttentionScope` (Tarea 5); `wasichai.core.platform.ChangeOrigin.within`.
 - Produces: `POST /api/sgspe/stakeholder-requests/{id}/accept` `{ creates, response, respondedAt, attributes }` →
   `201 { request, commitment }` con `ETag` de la solicitud (`IK`, `IM`, `CR`); `Acceptances` (`CREATES`, `COMMITMENT`,
-  `ACCEPT`, `UNDER_EVALUATION`); `RequestClosureListener` (`@Order(130)`, `CLOSE`, `ACCEPTED`, `CLOSE_ACCEPTED`);
-  `CommandTransitionGuard.COMMANDS` con `accept` y `close_accepted` de WF-E3.
+  `ACCEPT`, `UNDER_EVALUATION`); `RequestClosureListener` (`@Order(130)`, `CLOSE`, `ACCEPTED`, `CLOSE_ACCEPTED`,
+  `SOURCE = "listener:request-closure"`); `sgspe.common.ConfidentialRelease` (`within(objectName, field, value) { … }`,
+  `on(objectName)`); `ConfidentialCondition.released(condition, column, value, bind)`; `CommandTransitionGuard.COMMANDS`
+  con `accept` y `close_accepted` de WF-E3; la regla de `ArchitectureTest` «solo RequestClosureListener libera el alcance
+  de las confidenciales».
+
+El cierre automático de la solicitud es una acción del sistema (decisión 4): una solicitud confidencial que quien cierra el
+compromiso no lee también se cierra. Como wasichai no deja ser la plataforma dentro de una petición ni aplicar una
+transición sin usuario, `RequestClosureListener` corre como quien cierra dentro de `ConfidentialRelease`, que
+`ConfidentialAttentionScope` honra solo para las solicitudes de ese compromiso y solo mientras dura el bloque.
 
 - [ ] **Paso 1: Escribir las pruebas que fallan**
 
@@ -4586,8 +4594,8 @@ import tools.jackson.databind.JsonNode
 
 // WF-E3 (workflows.md, api.md §4.6, RN-GRV-001, ASM-068): aceptar es responder y crear el compromiso en draft, por su comando;
 // la API genérica no acepta ni cierra por el compromiso (COMMAND_ONLY); el cierre del compromiso cierra la solicitud
-// (RequestClosureListener, como quien cierra y con el motivo); close_unfulfilled exige el compromiso cancelado; declinar exige
-// la respuesta
+// (RequestClosureListener, una acción del sistema con su origen y el motivo), también una confidencial que quien cierra no
+// lee; close_unfulfilled exige el compromiso cancelado; declinar exige la respuesta
 class StakeholderRequestWorkflowApiTest : F4ApiTest() {
     private val manager by lazy { member("SOCIAL_MANAGER") }
     private val grievances by lazy { member("GRIEVANCE_MANAGER") }
@@ -4618,6 +4626,46 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         )
 
     private fun attributes(id: String): JsonNode = record("stakeholder_request", id)["attributes"]
+
+    // el compromiso creado sigue WF-D; para no recorrerlo entero, la solicitud apunta a uno ya aprobado del proyecto. `request`
+    // cambia además la solicitud como la plataforma
+    private fun linkApprovedCommitment(
+        id: String,
+        request: Map<String, Any?> = emptyMap()
+    ): String {
+        val commitment = approvedCommitment(testProject(), member("COMMITMENT_MANAGER"), mapOf("resource_type" to "NO MATERIAL"))
+        platformPatch("stakeholder_request", id, mapOf("created_commitment" to commitment) + request)
+        return commitment
+    }
+
+    // la entrega con conformidad, el cumplimiento y la verificación; `verifier` cierra el compromiso
+    private fun closeCommitment(
+        commitment: String,
+        verifier: Account
+    ) {
+        val delivery =
+            exchange(
+                "POST",
+                "/api/sgspe/commitments/$commitment/deliveries",
+                mapOf(
+                    "attributes" to mapOf("delivery_date" to "2026-10-01", "conformity_given" to true, "conformity_by" to "Junta directiva"),
+                    "evidence" to listOf(evidence(testProject(), "ACTA"))
+                ),
+                token,
+                withReason()
+            )
+        assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
+        move("commitment", commitment, "register_fulfillment", reason = "entregado")
+        move("commitment", commitment, "verify", verifier.token, "verificado")
+        move("commitment", commitment, "close", verifier.token, "cerrado")
+    }
+
+    // la entrada del historial del cierre automático: su motivo nombra RN-GRV-001 y el compromiso
+    private fun closing(id: String): JsonNode {
+        val history = tree(send("GET", "/api/objects/stakeholder_request/records/$id/history", null, HttpStatus.OK))
+        return history.values().firstOrNull { it["reason"]?.asString()?.startsWith("RN-GRV-001: compromiso") == true }
+            ?: error("sin la entrada del cierre automático: $history")
+    }
 
     @Test
     fun `aceptar responde la solicitud y crea el compromiso en draft`() {
@@ -4652,38 +4700,36 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
     }
 
     @Test
-    fun `cerrar el compromiso creado cierra la solicitud, como quien cierra y con el motivo`() {
+    fun `cerrar el compromiso creado cierra la solicitud, como accion del sistema y con el motivo`() {
         val id = underEvaluation()
         assertEquals(HttpStatus.CREATED, accept(id).status)
-        // el compromiso creado sigue WF-D; para no recorrerlo entero, la solicitud apunta a uno ya aprobado del proyecto
-        val owner = member("COMMITMENT_MANAGER")
-        val commitment = approvedCommitment(testProject(), owner, mapOf("resource_type" to "NO MATERIAL"))
-        platformPatch("stakeholder_request", id, mapOf("created_commitment" to commitment))
-        val delivery =
-            exchange(
-                "POST",
-                "/api/sgspe/commitments/$commitment/deliveries",
-                mapOf(
-                    "attributes" to mapOf("delivery_date" to "2026-10-01", "conformity_given" to true, "conformity_by" to "Junta directiva"),
-                    "evidence" to listOf(evidence(testProject(), "ACTA"))
-                ),
-                token,
-                withReason()
-            )
-        assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
-        move("commitment", commitment, "register_fulfillment", reason = "entregado")
-        val verifier = member("COMMITMENT_MANAGER")
-        move("commitment", commitment, "verify", verifier.token, "verificado")
-        move("commitment", commitment, "close", verifier.token, "cerrado")
+        closeCommitment(linkApprovedCommitment(id), member("COMMITMENT_MANAGER"))
         assertEquals("closed", state("stakeholder_request", id))
-        val history = tree(send("GET", "/api/objects/stakeholder_request/records/$id/history", null, HttpStatus.OK))
-        assertTrue(history.values().any { it["reason"]?.asString()?.startsWith("RN-GRV-001: compromiso") == true }, history.toString())
+        assertEquals(RequestClosureListener.SOURCE, closing(id)["source"].asString())
         // por la API genérica, una solicitud aceptada no se cierra por el compromiso
         val other = underEvaluation()
         assertEquals(HttpStatus.CREATED, accept(other).status)
         val generic = transition("stakeholder_request", other, "close_accepted", manager.token, "cierre")
         assertEquals(HttpStatus.FORBIDDEN, generic.status, generic.body)
         assertEquals("COMMAND_ONLY", code(generic))
+    }
+
+    // decisión 4 del plan 4.2a: el cierre automático no depende de que quien cierra el compromiso lea la solicitud
+    @Test
+    fun `una solicitud confidencial se cierra con su compromiso aunque quien lo cierra no la lea`() {
+        val id = stakeholderRequest(testProject(), member("COMMUNITY_RELATIONS_OFFICER"))
+        move("stakeholder_request", id, "start_evaluation", grievances.token, "evaluación")
+        assertEquals(HttpStatus.CREATED, accept(id).status)
+        val commitment = linkApprovedCommitment(id, mapOf("confidential" to true))
+        val verifier = member("COMMITMENT_MANAGER")
+        val path = "/api/objects/stakeholder_request/records/$id"
+        // quien cierra no tiene READ_CONFIDENTIAL ni es su responsable ni quien la recibió: no la ve
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
+        closeCommitment(commitment, verifier)
+        assertEquals("closed", state("stakeholder_request", id))
+        assertEquals(RequestClosureListener.SOURCE, closing(id)["source"].asString())
+        // la liberación duró solo el cierre: después sigue sin verla
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
     }
 
     @Test
@@ -4859,13 +4905,133 @@ por:
                 "social_risk.decide_mitigation",
 ```
 
-- [ ] **Paso 2: Compilar para verlas fallar**
+La liberación del alcance, sin base: vale solo dentro de su bloque y para su objeto, y suma a la condición los registros de
+su campo.
 
-```bash
-cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
+Crear `src/test/kotlin/sgspe/common/ConfidentialReleaseTest.kt`:
+
+```kotlin
+package sgspe.common
+
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import java.util.UUID
+
+// la liberación del alcance de las QCS confidenciales que abre RequestClosureListener (decisión 4 del plan 4.2a): vale solo
+// dentro de su bloque y solo para su objeto
+class ConfidentialReleaseTest {
+    private val commitment = UUID.fromString("00000000-0000-0000-0000-00000000000c")
+
+    @Test
+    fun `vale dentro del bloque y para su objeto, y fuera no`() =
+        runBlocking {
+            assertNull(ConfidentialRelease.on("stakeholder_request"))
+            val inside =
+                ConfidentialRelease.within("stakeholder_request", "created_commitment", commitment) {
+                    assertNull(ConfidentialRelease.on("grievance"))
+                    ConfidentialRelease.on("stakeholder_request")
+                }
+            assertEquals("created_commitment", inside?.field)
+            assertEquals(commitment, inside?.value)
+            assertNull(ConfidentialRelease.on("stakeholder_request"))
+        }
+}
 ```
 
-Esperado: `BUILD SUCCESSFUL` (las pruebas son de integración: sin el comando, la CI recibiría `404` en la aceptación).
+En `src/test/kotlin/sgspe/scope/ConfidentialAttentionScopeTest.kt`, reemplazar:
+
+```kotlin
+    @Test
+    fun `sin una columna no admite ningun registro`() {
+        assertEquals("false", condition("grievance", columns = columns - "received_by_user_id").first)
+        assertEquals("false", condition("grievance", approve = true, columns = columns + ("severity" to null)).first)
+    }
+}
+```
+
+por:
+
+```kotlin
+    @Test
+    fun `sin una columna no admite ningun registro`() {
+        assertEquals("false", condition("grievance", columns = columns - "received_by_user_id").first)
+        assertEquals("false", condition("grievance", approve = true, columns = columns + ("severity" to null)).first)
+    }
+
+    // ConfidentialRelease (decisión 4 del plan 4.2a): suma los registros cuyo campo vale el enlazado; sin la columna, nada
+    @Test
+    fun `una liberacion del sistema suma los registros de su campo`() {
+        val bound = mutableListOf<Any>()
+        val commitment = UUID.fromString("00000000-0000-0000-0000-00000000000c")
+        val text =
+            ConfidentialCondition.released("\"confidential\" IS NOT TRUE", "\"created_commitment\"", commitment) { value ->
+                bound += value
+                ":c${bound.size - 1}"
+            }
+        assertEquals("(\"confidential\" IS NOT TRUE) OR \"created_commitment\" = :c0", text)
+        assertEquals(listOf<Any>(commitment), bound)
+        assertEquals("false", ConfidentialCondition.released("false", null, commitment) { ":x" })
+    }
+}
+```
+
+`ArchitectureTest` vigila que la liberación sea de una sola regla del sistema:
+
+En `src/test/kotlin/sgspe/ArchitectureTest.kt`, reemplazar:
+
+```kotlin
+    @Test
+    fun `solo Organizations toca TenantDirectory`() {
+        val outside = sources(main).filterNot { it.invariantSeparatorsPath.endsWith("/sgspe/common/Organizations.kt") }
+        assertEquals(emptyList<String>(), offenders(outside, TENANT_DIRECTORY))
+    }
+```
+
+por:
+
+```kotlin
+    @Test
+    fun `solo Organizations toca TenantDirectory`() {
+        val outside = sources(main).filterNot { it.invariantSeparatorsPath.endsWith("/sgspe/common/Organizations.kt") }
+        assertEquals(emptyList<String>(), offenders(outside, TENANT_DIRECTORY))
+    }
+
+    // la liberación del alcance de las QCS confidenciales (decisión 4 del plan 4.2a) es de una sola regla del sistema: common la
+    // define, ConfidentialAttentionScope la honra y solo RequestClosureListener (attention/Acceptances.kt) la abre
+    @Test
+    fun `solo RequestClosureListener libera el alcance de las confidenciales`() {
+        val allowed = listOf("/sgspe/common/ConfidentialRelease.kt", "/sgspe/scope/ConfidentialAttentionScope.kt", "/sgspe/attention/Acceptances.kt")
+        val outside = sources(main).filterNot { file -> allowed.any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(outside, CONFIDENTIAL_RELEASE))
+        assertTrue(flags(CONFIDENTIAL_RELEASE, "ConfidentialRelease.within(\"grievance\", \"owner_user_id\", id) { x() }"))
+        assertFalse(flags(CONFIDENTIAL_RELEASE, "// ConfidentialRelease solo en RequestClosureListener"))
+        assertFalse(flags(CONFIDENTIAL_RELEASE, "class ConfidentialAttentionScope"))
+    }
+```
+
+En `src/test/kotlin/sgspe/ArchitectureTest.kt`, reemplazar:
+
+```kotlin
+        private val TENANT_DIRECTORY = Regex("""\bTenantDirectory\b""")
+```
+
+por:
+
+```kotlin
+        private val TENANT_DIRECTORY = Regex("""\bTenantDirectory\b""")
+        private val CONFIDENTIAL_RELEASE = Regex("""\bConfidentialRelease\b""")
+```
+
+- [ ] **Paso 2: Correr las pruebas para verlas fallar**
+
+```bash
+cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.common.ConfidentialReleaseTest'
+```
+
+Esperado: FAIL en la compilación de las pruebas (`Unresolved reference 'ConfidentialRelease'`, `'released'` y
+`'RequestClosureListener'`).
 
 - [ ] **Paso 3: El comando, el listener y las transiciones de comando**
 
@@ -4874,7 +5040,6 @@ Crear `src/main/kotlin/sgspe/attention/Acceptances.kt`:
 ```kotlin
 package sgspe.attention
 
-import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -4890,6 +5055,7 @@ import org.springframework.web.server.ServerWebExchange
 import sgspe.common.Attention
 import sgspe.common.Callers
 import sgspe.common.CommandAnswer
+import sgspe.common.ConfidentialRelease
 import sgspe.common.Criteria
 import sgspe.common.Finding
 import sgspe.common.Idempotency
@@ -4912,6 +5078,7 @@ import wasichai.core.data.RecordChange
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordChangeListener
 import wasichai.core.data.RecordResponse
+import wasichai.core.platform.ChangeOrigin
 import java.util.UUID
 
 data class RequestAcceptance(
@@ -4979,37 +5146,44 @@ class Acceptances(
     }
 }
 
-// RequestClosureListener (RN-GRV-001, ASM-068, workflows.md WF-E3): en la transacción de `close` de WF-D, como quien cierra el
-// compromiso, aplica close_accepted (transición de comando, con la marca) a la solicitud aceptada que lo originó, con el motivo
-// «RN-GRV-001: compromiso <código> cerrado». si no puede, lanza y el cierre se revierte. lee las solicitudes como quien cierra:
-// una solicitud confidencial que no lee no aparece y queda aceptada (se registra una advertencia; decisión 4 del plan 4.2a)
+// RequestClosureListener (RN-GRV-001, ASM-068, workflows.md WF-E3): en la transacción de `close` de WF-D aplica close_accepted
+// (transición de comando, con la marca) a la solicitud aceptada que originó el compromiso, con el motivo «RN-GRV-001:
+// compromiso <código> cerrado»; si no puede, lanza y el cierre se revierte. es una acción del sistema, no de quien cierra: la
+// solicitud puede ser confidencial y quien cierra no leerla (decisión 4 del plan 4.2a). wasichai no deja ser la plataforma
+// dentro de una petición (RecordService.asPlatform lanza) ni aplicar una transición sin usuario, así que corre como quien
+// cierra, pero dentro de ConfidentialRelease, con el que ConfidentialAttentionScope admite además las solicitudes de este
+// compromiso, y solo ellas, mientras dura el bloque; y con el origen SOURCE en la auditoría (ChangeOrigin), que distingue el
+// cierre automático de uno a mano
 @Component
 @Order(130)
 class RequestClosureListener(
     private val records: Records
 ) : RecordChangeListener {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     override suspend fun recordChanged(change: RecordChange) {
         if (change.objectName != Acceptances.COMMITMENT || change.kind != RecordChangeKind.TRANSITIONED || change.transition != CLOSE) return
-        val requests =
-            records.all(
-                Attention.REQUEST,
-                filters = mapOf(AttentionRules.CREATED_COMMITMENT to change.recordId.toString()),
-                criteria = listOf(Criteria.inState(listOf(ACCEPTED)))
-            )
-        if (requests.isEmpty()) {
-            log.debug("RequestClosureListener: el compromiso {} no tiene una solicitud aceptada que quien cierra lea", change.recordId)
-            return
-        }
         val code = Values.text((change.after ?: change.before).orEmpty()["code"]) ?: change.recordId.toString()
-        for (request in requests) records.transition(Attention.REQUEST, UUID.fromString(request.id), CLOSE_ACCEPTED, "RN-GRV-001: compromiso $code cerrado")
+        ConfidentialRelease.within(Attention.REQUEST, AttentionRules.CREATED_COMMITMENT, change.recordId) {
+            ChangeOrigin.within(SOURCE) {
+                val requests =
+                    records.all(
+                        Attention.REQUEST,
+                        filters = mapOf(AttentionRules.CREATED_COMMITMENT to change.recordId.toString()),
+                        criteria = listOf(Criteria.inState(listOf(ACCEPTED)))
+                    )
+                for (request in requests) {
+                    records.transition(Attention.REQUEST, UUID.fromString(request.id), CLOSE_ACCEPTED, "RN-GRV-001: compromiso $code cerrado")
+                }
+            }
+        }
     }
 
     companion object {
         const val CLOSE = "close"
         const val ACCEPTED = "accepted"
         const val CLOSE_ACCEPTED = "close_accepted"
+
+        // el origen de sus escrituras en la auditoría (WAS-ADR-0050): el cierre automático, no una acción de quien cierra
+        const val SOURCE = "listener:request-closure"
     }
 }
 
@@ -5059,26 +5233,136 @@ por:
             )
 ```
 
+Crear `src/main/kotlin/sgspe/common/ConfidentialRelease.kt`:
+
+```kotlin
+package sgspe.common
+
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
+import java.util.UUID
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
+
+// la liberación del alcance de las QCS confidenciales para una regla del sistema (RN-GRV-001, decisión 4 del plan 4.2a).
+// wasichai no deja ser la plataforma dentro de una petición (RecordService.asPlatform lanza) ni aplicar una transición sin
+// usuario, así que RequestClosureListener cierra la solicitud como quien cierra el compromiso, dentro de `within`: mientras
+// dura el bloque, ConfidentialAttentionScope admite además los registros de `objectName` cuyo `field` vale `value` (las
+// solicitudes de ese compromiso), y nada más. es un elemento del contexto de la corrutina, como SgspeWrite: un cliente http
+// no puede ponerlo, y ArchitectureTest vigila que solo RequestClosureListener lo abra
+class ConfidentialRelease private constructor(
+    val objectName: String,
+    val field: String,
+    val value: UUID
+) : AbstractCoroutineContextElement(Key) {
+    companion object Key : CoroutineContext.Key<ConfidentialRelease> {
+        suspend fun <T> within(
+            objectName: String,
+            field: String,
+            value: UUID,
+            block: suspend () -> T
+        ): T = withContext(ConfidentialRelease(objectName, field, value)) { block() }
+
+        // la liberación en curso sobre `objectName`, o null
+        suspend fun on(objectName: String): ConfidentialRelease? = currentCoroutineContext()[Key]?.takeIf { it.objectName == objectName }
+    }
+
+    override fun toString() = "ConfidentialRelease($objectName.$field=$value)"
+}
+```
+
+`ConfidentialAttentionScope` honra la liberación:
+
+En `src/main/kotlin/sgspe/scope/ConfidentialAttentionScope.kt`, reemplazar:
+
+```kotlin
+import sgspe.common.Attention
+import sgspe.common.Permissions
+```
+
+por:
+
+```kotlin
+import sgspe.common.Attention
+import sgspe.common.ConfidentialRelease
+import sgspe.common.Permissions
+```
+
+En `src/main/kotlin/sgspe/scope/ConfidentialAttentionScope.kt`, reemplazar:
+
+```kotlin
+        return terms.joinToString(" OR ")
+    }
+}
+```
+
+por:
+
+```kotlin
+        return terms.joinToString(" OR ")
+    }
+
+    // la condición más los registros que libera una regla del sistema (ConfidentialRelease): los de `column` igual a `value`.
+    // sin la columna en la definición, la misma condición
+    fun released(
+        condition: String,
+        column: String?,
+        value: UUID,
+        bind: (Any) -> String
+    ): String = if (column == null) condition else "($condition) OR $column = ${bind(value)}"
+}
+```
+
+En `src/main/kotlin/sgspe/scope/ConfidentialAttentionScope.kt`, reemplazar:
+
+```kotlin
+        if (readConfidential) return null
+        return RecordCriterion { _, bind ->
+            ConfidentialCondition.condition(objectName, columns, caller.userId, readConfidential = false, approve, bind) ?: ConfidentialCondition.NOTHING
+        }
+```
+
+por:
+
+```kotlin
+        if (readConfidential) return null
+        // la regla del sistema que cierra una solicitud confidencial (RequestClosureListener, decisión 4 del plan 4.2a)
+        val release = ConfidentialRelease.on(objectName)
+        val releasedColumn = release?.let { column(definition, it.field) }
+        return RecordCriterion { _, bind ->
+            val condition =
+                ConfidentialCondition.condition(objectName, columns, caller.userId, readConfidential = false, approve, bind) ?: ConfidentialCondition.NOTHING
+            if (release == null) condition else ConfidentialCondition.released(condition, releasedColumn, release.value, bind)
+        }
+```
+
 - [ ] **Paso 4: Build**
 
 ```bash
 cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
 ```
 
-Esperado: `BUILD SUCCESSFUL` (`GuardTablesCatalogTest` comprueba que `accept` y `close_accepted` existen en WF-E3).
+Esperado: `BUILD SUCCESSFUL` (`GuardTablesCatalogTest` comprueba que `accept` y `close_accepted` existen en WF-E3);
+`ConfidentialReleaseTest` (1), la prueba nueva de `ConfidentialAttentionScopeTest` (ahora 5) y la de `ArchitectureTest`
+en verde.
 
 - [ ] **Paso 5: Commit**
 
 ```bash
 cd ~/IdeaProjects/sgspe
 git add src/main/kotlin/sgspe/attention/Acceptances.kt src/main/kotlin/sgspe/common/CommandTransitionGuard.kt \
+  src/main/kotlin/sgspe/common/ConfidentialRelease.kt src/main/kotlin/sgspe/scope/ConfidentialAttentionScope.kt \
+  src/test/kotlin/sgspe/common/ConfidentialReleaseTest.kt src/test/kotlin/sgspe/scope/ConfidentialAttentionScopeTest.kt \
+  src/test/kotlin/sgspe/ArchitectureTest.kt \
   src/test/kotlin/sgspe/attention/StakeholderRequestWorkflowApiTest.kt src/test/kotlin/sgspe/workflow/WorkflowMatrixApiTest.kt
 git commit -F - <<'MSG'
 feat: aceptación de solicitudes y cierre por su compromiso
 
 POST /api/sgspe/stakeholder-requests/{id}/accept responde la solicitud, crea el compromiso en draft
 y aplica accept en una transacción; RequestClosureListener cierra la solicitud aceptada al cerrarse
-su compromiso (RN-GRV-001). La matriz deja de diferir accept y close_unfulfilled.
+su compromiso (RN-GRV-001) como acción del sistema: dentro de ConfidentialRelease cierra también
+una confidencial que quien cierra no lee, con el origen listener:request-closure en la auditoría.
+La matriz deja de diferir accept y close_unfulfilled.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -5094,7 +5378,9 @@ MSG
 
 **Files:**
 - Create: `src/main/kotlin/sgspe/attention/Referrals.kt`
-- Modify: `src/main/kotlin/sgspe/engagement/EngagementWriteGuard.kt`, `src/test/kotlin/sgspe/engagement/EngagementWriteGuardTest.kt`
+- Modify: `src/main/kotlin/sgspe/engagement/EngagementWriteGuard.kt`, `src/test/kotlin/sgspe/engagement/EngagementWriteGuardTest.kt`,
+  `model/roles.json` (`u` de `GRIEVANCE_MANAGER` sobre `engagement_question`), `docs/security.md` (§7.4 y §8.2),
+  `docs/api.md` (§4.4)
 - Test: `src/test/kotlin/sgspe/attention/ReferralApiTest.kt`
 
 **Interfaces:**
@@ -5103,7 +5389,12 @@ MSG
   (`IK`, `CR`); `Referrals` (`TARGET`, `QUESTION`, `ENGAGEMENT`, `REFERRED_AT`, `CHANNEL`, `FIXED`, `HELD`);
   `EngagementWriteGuard.answered(question)` cuenta `referred_at`.
 
-Escribir `referred_at` como quien deriva exige UPDATE sobre `engagement_question` (decisión 3).
+Escribir `referred_at` como quien deriva exige UPDATE sobre `engagement_question` (decisión 3). Derivan
+`COMMUNITY_RELATIONS_OFFICER`, que registra las preguntas en la reunión (CRU), y `GRIEVANCE_MANAGER`, que recibe aquí `u`
+sobre `engagement_question`: el UPDATE justo para la derivación, porque bajo `u` todo campo no derivado y la relación
+`engagement` quedan de solo lectura y `referred_at` es derivado. La matriz de `security.md` §7.4 y
+`test_apply_roles.py` («los permisos son los de la matriz») piden el cambio en los dos lados; `PermissionMatrixApiTest` y
+`FieldPermissionsApiTest` salen de `roles.json` y lo cubren sin cambios.
 
 - [ ] **Paso 1: Escribir las pruebas que fallan**
 
@@ -5203,6 +5494,26 @@ class ReferralApiTest : F4ApiTest() {
         assertEquals("INVALID_TARGET", code(invalid))
     }
 
+    // decisión 3 del plan 4.2a: el gestor de quejas deriva con su `u` sobre engagement_question, que solo le deja escribir
+    // referred_at (derivado, lo pone el comando con la marca): editar la pregunta es un 400 que nombra el campo
+    @Test
+    fun `el gestor de quejas deriva, pero no edita la pregunta`() {
+        val (_, question) = meeting()
+        val manager = member("GRIEVANCE_MANAGER")
+        val response = refer(question, account = manager)
+        assertEquals(HttpStatus.CREATED, response.status, response.body)
+        assertTrue(tree(response.body)["question"]["attributes"]["referred_at"].asString().isNotBlank())
+        val edit =
+            exchange(
+                "PUT",
+                "/api/objects/engagement_question/records/$question",
+                mapOf("attributes" to mapOf("question_text" to "Otra pregunta.")),
+                manager.token
+            )
+        assertEquals(HttpStatus.BAD_REQUEST, edit.status, edit.body)
+        assertEquals(listOf("question_text"), problemFields(edit.body))
+    }
+
     @Test
     fun `una derivacion confidencial la recibe quien deriva`() {
         val (_, question) = meeting()
@@ -5283,7 +5594,8 @@ data class Referral(
 // `attributes` (sujetos a AttentionWriteGuard) más origin_question, origin_engagement (la interacción de la pregunta), el
 // proyecto de la interacción, el canal REUNION y la recepción igual al held_at de la interacción, y escribe referred_at en la
 // pregunta con la marca: EngagementWriteGuard la cuenta como atendida (RN-ENG-005) sin leer la QCS, que puede ser confidencial.
-// todo como quien llama: escribir referred_at exige UPDATE sobre engagement_question (decisión 3 del plan 4.2a)
+// todo como quien llama: escribir referred_at exige UPDATE sobre engagement_question, que tienen COMMUNITY_RELATIONS_OFFICER
+// (CRU) y GRIEVANCE_MANAGER (`u`, solo los derivados; decisión 3 del plan 4.2a)
 @Service
 class Referrals(
     private val records: Records,
@@ -5420,26 +5732,158 @@ por:
 }
 ```
 
+`GRIEVANCE_MANAGER` deriva con `u` sobre `engagement_question` (decisión 3):
+
+En `model/roles.json`, reemplazar:
+
+```json
+      "description": "Atiende las quejas, consultas y solicitudes; lee las confidenciales (READ_CONFIDENTIAL).",
+      "permisos": {
+        "project": ["READ"],
+        "project_party": ["READ"],
+        "exploration_campaign": ["READ"],
+        "project_assignment": ["READ"],
+        "mining_concession": ["READ"],
+        "administrative_unit": ["READ"],
+        "locality": ["READ"],
+        "community": ["READ"],
+        "community_sector": ["READ"],
+        "area_of_influence": ["READ"],
+        "area_of_influence_member": ["READ"],
+        "project_component": ["READ"],
+        "land_parcel": ["READ"],
+        "land_right": ["READ"],
+        "environmental_feature": ["READ"],
+        "person": ["READ", "CREATE", "UPDATE"],
+        "organization": ["READ"],
+        "contact_method": ["READ", "CREATE", "UPDATE"],
+        "position": ["READ"],
+        "stakeholder": ["READ"],
+        "stakeholder_assessment": ["READ"],
+        "prioritization_rule": ["READ"],
+        "actor_relationship": ["READ"],
+        "community_network": ["READ"],
+        "network_node": ["READ"],
+        "engagement": ["READ"],
+        "engagement_participant": ["READ"],
+        "engagement_question": ["READ"],
+```
+
+por:
+
+```json
+      "description": "Atiende las quejas, consultas y solicitudes; lee las confidenciales (READ_CONFIDENTIAL).",
+      "permisos": {
+        "project": ["READ"],
+        "project_party": ["READ"],
+        "exploration_campaign": ["READ"],
+        "project_assignment": ["READ"],
+        "mining_concession": ["READ"],
+        "administrative_unit": ["READ"],
+        "locality": ["READ"],
+        "community": ["READ"],
+        "community_sector": ["READ"],
+        "area_of_influence": ["READ"],
+        "area_of_influence_member": ["READ"],
+        "project_component": ["READ"],
+        "land_parcel": ["READ"],
+        "land_right": ["READ"],
+        "environmental_feature": ["READ"],
+        "person": ["READ", "CREATE", "UPDATE"],
+        "organization": ["READ"],
+        "contact_method": ["READ", "CREATE", "UPDATE"],
+        "position": ["READ"],
+        "stakeholder": ["READ"],
+        "stakeholder_assessment": ["READ"],
+        "prioritization_rule": ["READ"],
+        "actor_relationship": ["READ"],
+        "community_network": ["READ"],
+        "network_node": ["READ"],
+        "engagement": ["READ"],
+        "engagement_participant": ["READ"],
+        "engagement_question": ["READ", "u"],
+```
+
+En `docs/security.md`, reemplazar:
+
+```markdown
+| `engagement_question` | — | R | RU | CRU | CRU | R | R | R | R | R | CR | R | R | R |
+```
+
+por:
+
+```markdown
+| `engagement_question` | — | R | RU | CRU | CRU | R | Ru | R | R | R | CR | R | R | R |
+```
+
+En `docs/security.md`, reemplazar:
+
+```markdown
+- `SOCIAL_MANAGER` aprueba las actas (`minutes_approved`) con su UPDATE sobre `engagement` y el rol de esa transición.
+```
+
+por:
+
+```markdown
+- `SOCIAL_MANAGER` aprueba las actas (`minutes_approved`) con su UPDATE sobre `engagement` y el rol de esa transición.
+- El `u` de `GRIEVANCE_MANAGER` sobre `engagement_question` (F4) sirve para derivar preguntas a QCS (§8.2): solo deja
+  escribir `referred_at`, el derivado que pone el endpoint de derivación con la marca; el texto, la respuesta y la
+  interacción de la pregunta quedan de solo lectura para él.
+```
+
+En `docs/security.md`, reemplazar:
+
+```markdown
+| `POST /api/sgspe/engagement-questions/{id}/referral` (`sgspe.engagement`) | Crea la QCS con `origin_question` | CREATE de la QCS; READ `engagement_question` | `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | F4 |
+```
+
+por:
+
+```markdown
+| `POST /api/sgspe/engagement-questions/{id}/referral` (`sgspe.engagement`) | Crea la QCS con `origin_question` | CREATE de la QCS; UPDATE (`U` o `u`) sobre `engagement_question`, porque escribe `referred_at` | `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | F4 |
+```
+
+En `docs/api.md`, reemplazar:
+
+```markdown
+| Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
+|---|---|---|---|---|---|---|
+| `POST` | `/api/sgspe/engagement-questions/{id}/referral` | Deriva una pregunta pendiente a una consulta, una solicitud o una queja, creada y vinculada (`origin_question`) en un solo comando | CREATE sobre el objeto destino; READ sobre `engagement_question` | `{ target, attributes }` con `target` igual a `inquiry`, `stakeholder_request` o `grievance` → `201 { question, created }` | `IK`, `CR` | F4 |
+```
+
+por:
+
+```markdown
+| Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
+|---|---|---|---|---|---|---|
+| `POST` | `/api/sgspe/engagement-questions/{id}/referral` | Deriva una pregunta pendiente a una consulta, una solicitud o una queja, creada y vinculada (`origin_question`) en un solo comando | CREATE sobre el objeto destino; READ y UPDATE sobre `engagement_question`, porque escribe `referred_at` como quien deriva: `COMMUNITY_RELATIONS_OFFICER` con su CRU y `GRIEVANCE_MANAGER` con `u`, que solo le deja escribir los derivados (`security.md` §7.4) | `{ target, attributes }` con `target` igual a `inquiry`, `stakeholder_request` o `grievance` → `201 { question, created }` | `IK`, `CR` | F4 |
+```
+
 - [ ] **Paso 4: Correr las pruebas para verlas pasar**
 
 ```bash
 cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
+(cd model && python3 -m unittest 2>&1 | tail -1 && python3 apply_roles.py --dry-run > /dev/null && echo roles-ok)
+yarn format:check
 ```
 
-Esperado: `BUILD SUCCESSFUL`.
+Esperado: `BUILD SUCCESSFUL`; `OK` del modelo (`test_apply_roles.py` compara `roles.json` con la matriz de `security.md`),
+`roles-ok` y prettier sin cambios.
 
 - [ ] **Paso 5: Commit**
 
 ```bash
 cd ~/IdeaProjects/sgspe
 git add src/main/kotlin/sgspe/attention/Referrals.kt src/main/kotlin/sgspe/engagement/EngagementWriteGuard.kt \
-  src/test/kotlin/sgspe/engagement/EngagementWriteGuardTest.kt src/test/kotlin/sgspe/attention/ReferralApiTest.kt
+  src/test/kotlin/sgspe/engagement/EngagementWriteGuardTest.kt src/test/kotlin/sgspe/attention/ReferralApiTest.kt \
+  model/roles.json docs/security.md docs/api.md
 git commit -F - <<'MSG'
 feat: derivación de preguntas de reunión a QCS
 
 POST /api/sgspe/engagement-questions/{id}/referral crea la QCS con la pregunta, la interacción, el
 canal REUNION y la recepción de la reunión y marca referred_at; EngagementWriteGuard cuenta la
-pregunta derivada como atendida sin leer la QCS (RN-ENG-005).
+pregunta derivada como atendida sin leer la QCS (RN-ENG-005). GRIEVANCE_MANAGER también deriva: su
+u sobre engagement_question solo le deja escribir los derivados (roles.json, security.md, api.md).
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -5447,7 +5891,8 @@ MSG
 ```
 
 **Integración pendiente (coordinador):** `sgspe.attention.ReferralApiTest` y `sgspe.engagement.EngagementWorkflowGuardsApiTest`
-(en la CI del PR, con Testcontainers).
+(en la CI del PR, con Testcontainers); `sgspe.security.PermissionMatrixApiTest` prueba el `u` nuevo con el resto de la
+matriz.
 
 ---
 
@@ -9851,35 +10296,17 @@ MSG
 ### Tarea 18: Documentos, vigía de arquitectura, verificación final, push y PR
 
 **Files:**
-- Modify: `docs/api.md` (§4.4, permiso de la derivación), `docs/workflows.md` (WF-E1 `start_action`, «Listeners»,
-  «Avisos»), `CLAUDE.md`, `src/test/kotlin/sgspe/ArchitectureTest.kt`
+- Modify: `docs/workflows.md` (WF-E1 `start_action`, «Listeners», «Avisos»), `docs/security.md` (§9.6, el cierre
+  automático de una solicitud confidencial), `docs/architecture.md` (§10.2, feriados), `docs/develop/README.md` (§4, cómo
+  agregar un año de feriados), `CLAUDE.md`, `src/test/kotlin/sgspe/ArchitectureTest.kt`
 
 **Interfaces:**
 - Consumes: todo lo anterior.
 - Produces: la rama `feat/fase-4-2a-qcs` en verde y el PR. Los documentos dicen lo que este plan decidió frente a ellos
-  (decisiones 3, 4 y 7); el resto del diseño de F4 ya lo escribió el plan 4.0.
+  (decisiones 4, 7 y 10; la 3 la escriben `security.md` y `api.md` en la Tarea 11); el resto del diseño de F4 ya lo
+  escribió el plan 4.0.
 
 - [ ] **Paso 1: Los documentos y `CLAUDE.md`**
-
-En `docs/api.md`, reemplazar:
-
-```markdown
-| Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
-|---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/engagement-questions/{id}/referral` | Deriva una pregunta pendiente a una consulta, una solicitud o una queja, creada y vinculada (`origin_question`) en un solo comando | CREATE sobre el objeto destino; READ sobre `engagement_question` | `{ target, attributes }` con `target` igual a `inquiry`, `stakeholder_request` o `grievance` → `201 { question, created }` | `IK`, `CR` | F4 |
-
-- **Derivación (F4).** En una transacción, crea la QCS de `target` con `attributes` (sujetos a `AttentionWriteGuard`)
-```
-
-por:
-
-```markdown
-| Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
-|---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/engagement-questions/{id}/referral` | Deriva una pregunta pendiente a una consulta, una solicitud o una queja, creada y vinculada (`origin_question`) en un solo comando | CREATE sobre el objeto destino; READ y UPDATE sobre `engagement_question`, porque escribe `referred_at` como quien deriva | `{ target, attributes }` con `target` igual a `inquiry`, `stakeholder_request` o `grievance` → `201 { question, created }` | `IK`, `CR` | F4 |
-
-- **Derivación (F4).** En una transacción, crea la QCS de `target` con `attributes` (sujetos a `AttentionWriteGuard`)
-```
 
 En `docs/workflows.md`, reemplazar:
 
@@ -9945,7 +10372,7 @@ por:
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | Alta o cambio del origen de un `commitment`; transiciones a `fulfilled`, `closed` y `cancelled`, y `reopen_execution` | `register_fulfillment`, `reopen_execution`, `close` y las `cancel_*` de WF-D | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date` del mismo compromiso; en `reopen_execution` vacía `fulfilled_date` | Sí en las transiciones | En el alta o el cambio, no falla; en una transición, la revierte | Los roles de esas transiciones necesitan `UPDATE` con motivo sobre `commitment`; `FIELD_AGENT` no tiene esas transiciones |
 | `GraveGrievanceNoticeListener` (`sgspe.notification`, F4) | Una queja ALTA o CRITICA que entra en `in_action` con `policy_high_severity_requires_approver` activo, un cambio de `severity` a ALTA o CRITICA en `in_action` y toda transición que sale de `in_action` (ASM-102) | `start_action`, `start_action_after_investigation`, `resolve`, `resolve_high_severity` y `withdraw_in_action` de WF-E1 | El módulo wasichai-notifications, en la fuente `sgspe.approvals` con la clave `approval_pending:grievance:<id>`, en la transacción de la escritura | Sí | Como `ApprovalNoticeListener`; si quien escribe no lee el proyecto o las asignaciones, se registra y la escritura sigue | Lee el proyecto y `project_assignment` como quien escribe; los destinatarios de una queja confidencial se filtran por quien la vería (`ConfidentialReaders`, regla 7 de «Destinatarios por rol») |
 | `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o a un estado final (`closed` y, en la queja, `rejected` y `withdrawn`), y la reapertura de una queja | `resolve`, `resolve_high_severity`, `reopen`, las de cierre de WF-E1, WF-E2 y WF-E3, y `reject_*` y `withdraw_*` de WF-E1 | `resolved_date` (queja) y `closed_date` del mismo registro, en todo estado final | Sí | La transición se revierte | Los roles de esas transiciones ya tienen `UPDATE` sobre el objeto, con motivo |
-| `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | `close` de WF-D y, desde F5, `close` de WF-P | Aplica `close_accepted` a la `stakeholder_request` que originó el registro, con la marca y con motivo; busca la solicitud como quien cierra, así que una confidencial que no lee queda en `accepted` y se registra en el log (plan 4.2a, decisión 4) | Sí | Revierte el cierre del compromiso o del aporte | Los roles de `close` de WF-D y de WF-P tienen `READ` y `UPDATE` sobre `stakeholder_request` y figuran en `close_accepted` |
+| `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | `close` de WF-D y, desde F5, `close` de WF-P | Aplica `close_accepted` a la `stakeholder_request` que originó el registro, con la marca y con motivo, como acción del sistema: corre como quien cierra (wasichai no deja ser la plataforma en una petición ni aplicar una transición sin usuario), dentro de `ConfidentialRelease`, así que cierra también una solicitud confidencial que quien cierra no lee, y la auditoría lleva el origen `listener:request-closure` (plan 4.2a, decisión 4) | Sí | Revierte el cierre del compromiso o del aporte | Los roles de `close` de WF-D y de WF-P tienen `READ` y `UPDATE` sobre `stakeholder_request` y figuran en `close_accepted` |
 | `DeadlineStatusListener` (`sgspe.deadline`) | Cambio de `due_date` de un `commitment` (desde `approved`, solo la reprogramación) | Ninguna | `deadline_status` del mismo compromiso, con la misma regla de JOB-01 y con la marca | Sí: corre en la transacción de la reprogramación | Una regla que rechaza la escritura se registra y la reprogramación sigue (JOB-01 corrige a la hora); un fallo de la base revierte la reprogramación | Quien reprograma ya tiene `UPDATE` sobre `commitment`, con motivo |
 | `ApprovalNoticeListener` (`sgspe.notification`) | Envío a aprobación (`submit_for_review` de WF-A, `submit_minutes` de WF-C, `submit` de WF-D) y toda transición que sale del estado pendiente | Las mismas | El módulo wasichai-notifications (`Notifications.publish` y `resolve`), en la transacción de la transición | Sí | Un aviso mal formado se registra y la transición sigue; un fallo de la base al guardarlo revierte la transición; sin asignaciones que coincidan, una advertencia en el log | Lee `project_assignment` como quien envió, así que todo rol que envía a aprobación tiene `READ` sobre ella (`security.md`). Si quien envía un compromiso no puede leer lo que decide el nivel (D5), el aviso va a los roles de `approve` y de `approve_senior` |
 
@@ -9970,6 +10397,61 @@ por:
 | Aprobación pendiente (RF-NTF-001) | `approval_pending` | `ApprovalNoticeListener` (WF-G, WF-H y `social_contribution` suman su paso a `ApprovalNoticeListener.STEPS` en su fase); el de una queja grave, `GraveGrievanceNoticeListener` (F4) | WF-A `submit_for_review`; WF-C `submit_minutes`; WF-D `submit`; WF-G `submit`; WF-H `submit_for_review` y `resubmit`; alta de `social_contribution` en `requested`; desde F4, `start_action` o `start_action_after_investigation` de una queja ALTA o CRITICA con `policy_high_severity_requires_approver` activo, o un cambio de `severity` a ALTA o CRITICA en `in_action` (ASM-102) | Los roles de la transición de aprobación que sigue; en la queja, los de `resolve_high_severity` | `approval_pending:<objeto>:<id>`: volver a enviar reabre el mismo aviso; el de una queja se resuelve al salir de `in_action` o si la severidad baja de ALTA |
 | Compromiso por vencer (RF-NTF-001) | `commitment_due_soon` | `DeadlineNotices` | `deadline_status` pasa a POR VENCER (`due_soon_days`, ASM-006) | El responsable (`owner_user_id`) | `commitment_due_soon:<id>:<due_date>` |
 | Compromiso vencido (RF-NTF-001, RF-WFL-004) | `commitment_overdue` | `DeadlineNotices` | `deadline_status` pasa a VENCIDO (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0: el responsable; nivel 1: los roles de `verify`; nivel 2: los de `approve_senior` (ASM-030, ASM-070). Una tarea de escalamiento en los niveles 1 y 2 | `commitment_overdue:<id>:<due_date>:<nivel>`: un aviso por nivel alcanzado, todos abiertos mientras dure el atraso |
+```
+
+En `docs/security.md`, reemplazar:
+
+```markdown
+- **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
+```
+
+por:
+
+```markdown
+- **Cierre automático de una solicitud.** `RequestClosureListener` cierra la solicitud aceptada al cerrarse su compromiso
+  aunque quien cierra no la lea (RN-GRV-001): es la única excepción al alcance dentro de una petición. Como wasichai no
+  deja ser la plataforma en una petición ni aplicar una transición sin usuario, corre como quien cierra dentro de
+  `ConfidentialRelease` (`sgspe.common`), con el que `ConfidentialAttentionScope` admite además, mientras dura el cierre,
+  las solicitudes cuyo `created_commitment` es ese compromiso, y solo ellas; la auditoría lleva el origen
+  `listener:request-closure` y el motivo que nombra al compromiso. `ArchitectureTest` vigila que nadie más lo use.
+- **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
+```
+
+En `docs/architecture.md`, reemplazar:
+
+```markdown
+| Feriados | `sgspe.calendar.holidays` con la lista de feriados nacionales del año en curso y del siguiente, verificada contra la norma publicada en El Peruano; operación agrega cada año el que sigue. Sin el año en curso, el arranque lo advierte y el acuse cuenta de lunes a viernes; una fecha que no es de su año o repetida impide arrancar | RNF-I18N-002, ASM-096 |
+```
+
+por:
+
+```markdown
+| Feriados | `sgspe.calendar.holidays` con la lista de feriados nacionales de cada año, que operación agrega cuando se publica la oficial en El Peruano (desde F4, 2026; `develop/README.md` §4 dice cómo). Un año sin lista cuenta de lunes a viernes y se advierte en el log, también al arrancar si falta el año en curso; una fecha que no es de su año o repetida impide arrancar | RNF-I18N-002, ASM-096 |
+```
+
+En `docs/develop/README.md`, reemplazar:
+
+```markdown
+La clase principal es `sgspe.SgspeApplication`. Toda respuesta trae `X-Correlation-Id` (sección 7).
+```
+
+por:
+
+```markdown
+La clase principal es `sgspe.SgspeApplication`. Toda respuesta trae `X-Correlation-Id` (sección 7).
+
+### Feriados
+
+El acuse de una queja cuenta días hábiles con los feriados nacionales de `sgspe.calendar.holidays` en
+`src/main/resources/application.yml` (ASM-096). La lista se configura por año, cuando se publica la oficial en El Peruano
+(D. Leg. 713 y sus modificatorias); hoy trae 2026. Para agregar un año:
+
+1. Sumar su clave entre comillas bajo `holidays` (`'2027':`) con una fecha `AAAA-MM-DD` por línea, solo feriados
+   nacionales: los días no laborables del sector público no lo son.
+2. Correr `BusinessDaysTest`, que valida todo año configurado, y desplegar.
+
+Mientras un año falte, cuenta de lunes a viernes y el log lo advierte una vez por año y proceso (y al arrancar, si falta
+el año en curso). Una fecha de otro año o repetida impide arrancar. Los plazos ya calculados no se recalculan.
 ```
 
 En `CLAUDE.md`, reemplazar:
@@ -10010,7 +10492,7 @@ por:
 | Avisos sobre wasichai-notifications (`Notices`, `ApprovalNoticeListener`, `GraveGrievanceNoticeListener`, `ConfidentialReaders`) | `src/main/kotlin/sgspe/notification/` |
 | QCS: `AttentionWriteGuard`, plazos y fechas, reclasificación, aceptación, derivación, `RequestClosureListener`, reporte unificado | `src/main/kotlin/sgspe/attention/` |
 | Días hábiles (`HolidayCalendar`, `BusinessDays`, feriados en `sgspe.calendar.holidays`), `Attention` y `AttentionCounting`, `NotReadable` y `readAs` | `src/main/kotlin/sgspe/common/`, `src/main/resources/application.yml` |
-| QCS confidenciales (`ConfidentialAttentionScope`, un `RecordReadScope`) y la regla «mismo proyecto» (`ProjectLinks`, `ProjectLinkGuard`) | `src/main/kotlin/sgspe/scope/` |
+| QCS confidenciales (`ConfidentialAttentionScope`, un `RecordReadScope` que honra `ConfidentialRelease`, la liberación que solo abre `RequestClosureListener`) y la regla «mismo proyecto» (`ProjectLinks`, `ProjectLinkGuard`) | `src/main/kotlin/sgspe/scope/` |
 | Base de las pruebas de integración del plan 3.2 (sobre `F3ApiTest`: evidencias y compromisos de los comandos) y de las de `Idempotency-Key` sin el modelo de F3 | `src/test/kotlin/sgspe/F3DomainApiTest.kt`, `src/test/kotlin/sgspe/common/AssessmentCommandApiTest.kt` |
 | Base de las pruebas de integración de F2 | `src/test/kotlin/sgspe/DomainApiTest.kt` |
 ```
@@ -10069,21 +10551,23 @@ grep -rn 'sgspe.commitment.NotReadable\|sgspe.commitment.ProjectLinks' src || ec
 git status --short
 ```
 
-Esperado: `BUILD SUCCESSFUL` con todas las unitarias en verde (531 en la copia de trabajo de este plan: las 460 que deja
-el plan 4.1 y 71 de este plan), `OK` del modelo, `ok: 298 requisitos, todos con su fila`, prettier sin cambios, `limpio`
+Esperado: `BUILD SUCCESSFUL` con todas las unitarias en verde (534 en la copia de trabajo de este plan: las 460 que deja
+el plan 4.1 y 74 de este plan), `OK` del modelo, `ok: 298 requisitos, todos con su fila`, prettier sin cambios, `limpio`
 y un `git status` vacío tras el commit del paso 4.
 
 - [ ] **Paso 4: Commit**
 
 ```bash
 cd ~/IdeaProjects/sgspe
-git add docs/api.md docs/workflows.md CLAUDE.md src/test/kotlin/sgspe/ArchitectureTest.kt
+git add docs/workflows.md docs/security.md docs/architecture.md docs/develop/README.md CLAUDE.md \
+  src/test/kotlin/sgspe/ArchitectureTest.kt
 git commit -F - <<'MSG'
 docs: cierre del plan 4.2a con las decisiones de QCS
 
-api.md pide UPDATE sobre la pregunta para derivarla; workflows.md nombra
-GraveGrievanceNoticeListener y el límite de RequestClosureListener con una solicitud confidencial;
-CLAUDE.md dice dónde está cada pieza de F4 y ArchitectureTest ve sus fuentes.
+workflows.md nombra GraveGrievanceNoticeListener y el cierre automático de una solicitud
+confidencial; security.md §9.6 lo cuenta como la única excepción al alcance; architecture.md y
+develop/README.md dicen cómo agregar el año de feriados; CLAUDE.md dice dónde está cada pieza de
+F4 y ArchitectureTest ve sus fuentes.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -10117,7 +10601,7 @@ cd ~/IdeaProjects/sgspe && git push -u origin feat/fase-4-2a-qcs
 gh pr create --base main --title "feat: fase 4, plan 4.2a: piezas comunes y backend de QCS" --body-file - <<'MSG'
 ## Qué trae
 
-- Piezas comunes de F4: calendario de días hábiles con los feriados de 2026 y 2027, conteo de planteamientos, los ocho
+- Piezas comunes de F4: calendario de días hábiles con los feriados de 2026, conteo de planteamientos, los ocho
   parámetros de `project` con sus rangos, alcance de los doce objetos de F4 y la regla «mismo proyecto»
   (`ProjectLinkGuard`).
 - QCS confidenciales con un `RecordReadScope` (`ConfidentialAttentionScope`): solo su responsable, quien la recibió, el
@@ -10132,15 +10616,17 @@ gh pr create --base main --title "feat: fase 4, plan 4.2a: piezas comunes y back
 
 ## Pruebas
 
-- Unitarias: 531 (71 nuevas).
+- Unitarias: 534 (74 nuevas).
 - Integración (esta CI): alcance y confidencialidad, las tres clases de workflow de QCS, plazos, reclasificación,
   aceptación, derivación, JOB-01 y avisos, queja grave, reporte, tablero y exportación; la matriz de workflows sin las
   reclasificaciones ni `accept` en `DEFERRED`.
 
 ## Para revisar
 
-- Decisiones 3 y 4 del plan (derivación con UPDATE sobre la pregunta; solicitud confidencial que quien cierra el
-  compromiso no ve) quedan como preguntas abiertas.
+- Decisiones 3, 4 y 10 del plan, del usuario: `GRIEVANCE_MANAGER` deriva con `u` sobre `engagement_question`; el
+  cierre automático de una solicitud corre como quien cierra dentro de `ConfidentialRelease` (wasichai no deja usar
+  `asPlatform` en una petición) y cierra también una confidencial que no lee; feriados solo de 2026 hasta que se publique
+  la lista de 2027.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -10154,7 +10640,7 @@ MSG
 
 | Tarea | Entrega | Grupo | Integración (CI del PR) |
 |---|---|---|---|
-| 1 | Calendario de días hábiles y feriados de 2026 y 2027 | A | — |
+| 1 | Calendario de días hábiles y feriados de 2026 | A | — |
 | 2 | `Attention` y `AttentionCounting` | A | — |
 | 3 | Parámetros de F4 y sus rangos | A | `ProjectParametersApiTest` |
 | 4 | Alcance de F4 y «mismo proyecto» | B | `ProjectLinkGuardApiTest`, `CommitmentRecordRulesApiTest` |
@@ -10164,7 +10650,7 @@ MSG
 | 8 | Plazos y fechas de las QCS, JOB-02 | C | `QcsDueDatesApiTest` |
 | 9 | Reclasificación | D | `ReclassificationApiTest`, `InquiryWorkflowApiTest`, `WorkflowMatrixApiTest` |
 | 10 | Aceptación y cierre por el compromiso | E | `StakeholderRequestWorkflowApiTest`, `WorkflowMatrixApiTest` |
-| 11 | Derivación de preguntas | D | `ReferralApiTest`, `EngagementWorkflowGuardsApiTest` |
+| 11 | Derivación de preguntas y `u` de `GRIEVANCE_MANAGER` | D | `ReferralApiTest`, `EngagementWorkflowGuardsApiTest`, `PermissionMatrixApiTest` |
 | 12 | JOB-01 con quejas y consultas | D | `DeadlineJobQcsApiTest`, `DeadlineJobApiTest` |
 | 13 | Avisos de plazo y aviso genérico de nivel 2 | E | `QcsNoticesApiTest` |
 | 14 | Aviso de queja grave | F | `GraveGrievanceNoticesApiTest`, `ApprovalNoticesApiTest` |
