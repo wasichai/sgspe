@@ -51,10 +51,25 @@ class ProjectParametersTest {
         listOf("interest_threshold", "power_threshold").forEach {
             assertEquals(0, BigDecimal(defaults.getValue(it)).compareTo(ProjectParameters.decimal(empty, it)), it)
         }
-        listOf("stakeholder_review_days", "inactivity_days", "meetings_per_month_target").forEach {
+        // desde F3, los plazos y las políticas que leen las guardas, JOB-01 y los tableros (el modelo del plan 3.1)
+        listOf(
+            "stakeholder_review_days",
+            "inactivity_days",
+            "meetings_per_month_target",
+            "due_soon_days",
+            "escalation_first_days",
+            "escalation_second_days"
+        ).forEach {
             assertEquals(defaults.getValue(it).toLong(), ProjectParameters.integer(empty, it), it)
         }
-        listOf("policy_minutes_only_formal_types", "policy_activation_preconditions").forEach {
+        listOf(
+            "policy_minutes_only_formal_types",
+            "policy_activation_preconditions",
+            "policy_workshop_commitments_blocked",
+            "policy_senior_approval_for_dialogue",
+            "policy_internal_approval",
+            "policy_cap_blocks_approval"
+        ).forEach {
             assertEquals(defaults.getValue(it).toBooleanStrict(), ProjectParameters.policy(empty, it), it)
         }
     }

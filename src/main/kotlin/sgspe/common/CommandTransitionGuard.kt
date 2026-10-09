@@ -36,7 +36,8 @@ class CommandTransitionGuard : RuleGuard() {
                     mapOf(
                         "approve" to "POST /api/sgspe/areas-of-influence/{id}/approve",
                         "supersede" to "POST /api/sgspe/areas-of-influence/{id}/approve"
-                    )
+                    ),
+                "commitment_candidate" to mapOf("accept" to "POST /api/sgspe/commitment-candidates/{id}/accept")
             )
     }
 }
