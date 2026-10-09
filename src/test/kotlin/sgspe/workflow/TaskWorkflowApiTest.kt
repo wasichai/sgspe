@@ -70,12 +70,14 @@ class TaskWorkflowApiTest : F3ApiTest() {
     @Test
     fun `la clave de un generador es unica`() {
         val key = uniqueName("escalation:commitment:")
-        task(testProject(), attributes = mapOf("generator_key" to key))
+        // la clave la escribe la plataforma, como JOB-01 y JOB-03: el plan 3.2 la deja solo a la plataforma en las escrituras con usuario
+        val project = testProject()
+        platformCreate("task", mapOf("project" to project, "title" to "Primera", "engagement" to engagement(project), "generator_key" to key))
         val repeated =
             exchange(
                 "POST",
                 "/api/objects/task/records",
-                mapOf("attributes" to mapOf("project" to testProject(), "title" to "Otra", "engagement" to engagement(testProject()), "generator_key" to key))
+                mapOf("attributes" to mapOf("project" to project, "title" to "Otra", "engagement" to engagement(project), "generator_key" to key))
             )
         assertEquals(HttpStatus.CONFLICT, repeated.status, repeated.body)
     }
