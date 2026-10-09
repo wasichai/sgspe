@@ -387,15 +387,17 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
         assertEquals(0, assessments(stakeholder))
     }
 
+    // desde F3 la clave se honra (decisión D3): el detalle del contrato está en IdempotencyApiTest
     @Test
-    fun `Idempotency-Key se acepta y en F2 todavia no deduplica`() {
+    fun `Idempotency-Key deduplica el registro desde F3`() {
         val project = projectWithCrs()
         val manager = member("STAKEHOLDER_MANAGER", project)
         val stakeholder = profiled(project, manager)
         val headers = mapOf(REASON to reason("evaluación"), "Idempotency-Key" to "clave-de-prueba-1")
         val body = mapOf("attributes" to indicators + mapOf("assessment_date" to "2026-05-12", "basis" to "ENTREVISTA"))
-        repeat(2) { send("POST", "/api/sgspe/stakeholders/$stakeholder/assessments", body, HttpStatus.CREATED, manager.token, headers) }
-        assertEquals(2, assessments(stakeholder))
+        val sent = (1..2).map { send("POST", "/api/sgspe/stakeholders/$stakeholder/assessments", body, HttpStatus.CREATED, manager.token, headers) }
+        assertEquals(sent[0], sent[1])
+        assertEquals(1, assessments(stakeholder))
     }
 
     // security.md §7.9 (P8, I7): lo que 2.1 dejó a este plan. FieldPermissionsApiTest se salta stakeholder.stance (derivado) y
