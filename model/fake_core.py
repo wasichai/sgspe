@@ -212,7 +212,7 @@ class FakeCore:
         name = match.group(1)
         if name not in self.existing_objects:
             return 404, {"detail": "not found"}
-        types = self.document_types.setdefault(name, {})
+        types = self.document_types.get(name, {}) if method == "GET" else self.document_types.setdefault(name, {})
 
         def answer(type_name):
             stored = types[type_name]
@@ -243,7 +243,7 @@ class FakeCore:
         name = match.group(1)
         if name not in self.existing_objects:
             return 404, {"detail": "not found"}
-        rules = self.automations.setdefault(name, {})
+        rules = self.automations.get(name, {}) if method == "GET" else self.automations.setdefault(name, {})
 
         def answer(rule_name):
             stored = rules[rule_name]

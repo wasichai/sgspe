@@ -90,6 +90,8 @@ class AutomationsApiTest : F3ApiTest() {
         assertEquals("SUCCEEDED", awaitRun("engagement", "aut-05-meeting-minutes", id)["status"].asString())
         val documents = tree(send("GET", "/api/objects/engagement/records/$id/documents", null, HttpStatus.OK)).values()
         assertEquals(setOf("MR", "LA"), documents.map { it["number"].asString().substringBefore("-") }.toSet())
+        val minutes = documents.single { it["number"].asString().startsWith("MR-") }
+        assertTrue(minutes.toString().contains("attendees_total_count"), minutes.toString())
         for (document in documents) {
             assertEquals("VALID", document["status"].asString())
             val snapshot = document["snapshot"]

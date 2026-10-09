@@ -868,8 +868,7 @@ class NewTenantTests(unittest.TestCase):
         self.assertEqual(sorted(core.roles), sorted(r["name"] for r in load(ROLES_PATH)["roles"]))
         self.assertEqual(sorted(core.workflows), ["agreement", "area_of_influence", "commitment", "commitment_candidate",
                                                   "engagement", "field_visit", "project", "stakeholder", "task"])
-        self.assertEqual(sorted(name for name, rules in core.automations.items() if rules),
-                         ["commitment", "engagement"])
+        self.assertEqual(sorted(core.automations), ["commitment", "engagement"])
         again = [quiet(apply.main, ["--model", MODEL_PATH, *login]),
                  quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login]),
                  quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])]
