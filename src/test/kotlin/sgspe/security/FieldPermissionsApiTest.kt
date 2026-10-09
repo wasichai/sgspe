@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
-import sgspe.F2ApiTest
+import sgspe.F3ApiTest
 
 // security.md §7.9 y §14, «Permisos de campo» (RQ-SEC-010): un campo restringido no llega al registro, a la lista, al
 // historial ni a la auditoría de quien no lo lee, y escribirlo se rechaza nombrando el campo; quien lo lee lo ve. las
-// exportaciones las prueba el plan 2.2 con su endpoint
-class FieldPermissionsApiTest : F2ApiTest() {
+// exportaciones las prueban los planes 2.2 y 3.2 con sus endpoints
+class FieldPermissionsApiTest : F3ApiTest() {
     private fun record(
         objectName: String,
         id: String,
@@ -166,6 +166,43 @@ class FieldPermissionsApiTest : F2ApiTest() {
     }
 
     @Test
+    fun `los receptores de una entrega y la cita de un candidato solo los ven sus lectores`() {
+        // delivery y commitment_candidate son apiOnly: los crea la plataforma, como harán los endpoints del plan 3.2
+        val commitment = commitment(testProject(), owner = member("COMMUNITY_RELATIONS_OFFICER"), verifier = member("SOCIAL_MANAGER"))
+        val delivery =
+            platformCreate(
+                "delivery",
+                mapOf(
+                    "commitment" to commitment,
+                    "delivery_date" to "2026-11-20",
+                    "conformity_given" to true,
+                    "recipients" to "Persona Ejemplo 6 y Persona Ejemplo 7",
+                    "conformity_by" to "Persona Ejemplo 6"
+                )
+            )
+        val candidate =
+            platformCreate(
+                "commitment_candidate",
+                mapOf(
+                    "project" to testProject(),
+                    "proposed_text" to "Arreglar el canal",
+                    "ai_generated" to false,
+                    "evidence_quote" to "[PERSONA_1] pidió el canal"
+                )
+            )
+        val readOnly = userWithRole("READ_ONLY")
+        val approver = userWithRole("APPROVER")
+        val manager = userWithRole("COMMITMENT_MANAGER")
+        val forReadOnly = record("delivery", delivery, readOnly)
+        assertFalse(forReadOnly.has("recipients") || forReadOnly.has("conformity_by"), forReadOnly.toString())
+        assertEquals("2026-11-20", forReadOnly["delivery_date"].asString())
+        assertEquals("Persona Ejemplo 6", record("delivery", delivery, manager)["conformity_by"].asString())
+        // la cita la leen quienes descargan evidencias restringidas (DOWNLOAD_RESTRICTED); APPROVER no
+        assertFalse(record("commitment_candidate", candidate, approver).has("evidence_quote"))
+        assertEquals("[PERSONA_1] pidió el canal", record("commitment_candidate", candidate, manager)["evidence_quote"].asString())
+    }
+
+    @Test
     fun `con dos roles gana el mas permisivo`() {
         // security.md §5.4: un usuario con FIELD_AGENT y STAKEHOLDER_MANAGER lee la postura que FIELD_AGENT solo no lee,
         // con el lector primero y con el lector al final: no gana ni el primer rol ni el último
@@ -301,15 +338,21 @@ class FieldPermissionsApiTest : F2ApiTest() {
             }
         }
         assertTrue(failures.isEmpty(), failures.joinToString("\n"))
-        // la partición queda fija: solo se salta `stakeholder.stance` (derivado) y `stakeholder_assessment` (apiOnly), cuyos
-        // valores prueba el plan 2.2; las otras 7 entradas de roles.json se cubren. una entrada nueva que se salte, o una
-        // que deje de cubrirse, rompe esta prueba en vez de pasar en silencio
+        // la partición queda fija: se saltan `stakeholder.stance` (derivado), `stakeholder_assessment` (apiOnly), cuyos valores
+        // prueba el plan 2.2, y `delivery` y `commitment_candidate` (apiOnly), que cubre la prueba de los receptores y la
+        // cita; las otras 8 entradas de roles.json se cubren. una entrada nueva que se salte, o una que deje de cubrirse,
+        // rompe esta prueba en vez de pasar en silencio
         assertEquals(
-            setOf("stakeholder.stance", "stakeholder_assessment.stance,stance_reasons,concerns,expectations"),
+            setOf(
+                "stakeholder.stance",
+                "stakeholder_assessment.stance,stance_reasons,concerns,expectations",
+                "delivery.recipients,conformity_by",
+                "commitment_candidate.evidence_quote"
+            ),
             skipped.keys,
             "entradas saltadas: $skipped"
         )
-        assertEquals(7, covered.size, "entradas cubiertas: $covered")
+        assertEquals(8, covered.size, "entradas cubiertas: $covered")
     }
 
     @Test
