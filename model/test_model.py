@@ -277,8 +277,11 @@ class AutomationsAndDocumentTypesTests(unittest.TestCase):
         wanted = sorted((a["object"], a["name"]) for a in doc if a["after"] is None)
         got = sorted((obj, a["name"]) for obj, items in self.automations.items() for a in items)
         self.assertEqual(got, wanted)
-        # AUT-03 espera a UPS-23: el acta de entrega congelaría los receptores de delivery (workflows.md)
-        self.assertEqual([(a["id"], a["after"]) for a in doc if a["after"]], [("AUT-03", "UPS-23")])
+        # AUT-03 (y AUT-04 desde F5) esperan a UPS-23: el acta congelaría los receptores de delivery (workflows.md)
+        waiting = {a["id"]: a["after"] for a in doc if a["after"]}
+        self.assertEqual(waiting.get("AUT-03"), "UPS-23")
+        self.assertLessEqual(set(waiting), {"AUT-03", "AUT-04"})
+        self.assertEqual(set(waiting.values()), {"UPS-23"})
 
     def test_cada_disparador_es_el_de_workflows_md_y_nombra_un_estado_de_su_workflow(self):
         doc = {a["name"]: a for a in design_docs.automations()}
