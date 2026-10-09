@@ -3,6 +3,24 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-09 — wasichai 0.6.0
+
+El backend pasa de wasichai 0.3.2 a 0.6.0. La evaluación, brecha por brecha, está en
+[Encaje con wasichai §4.3](platform-fit.md#43-lo-que-trae-wasichai-060): la actualización resuelve UPS-02, UPS-03, UPS-12 y,
+para las altas, UPS-15, y deja disponibles, sin adoptarlas, las soluciones upstream de UPS-01, UPS-04 a UPS-07, UPS-09 a
+UPS-11, UPS-14, UPS-16 a UPS-18 y UPS-21. Tres cambios de la plataforma tocaban código de SGSPE:
+
+- **`If-Match`.** wasichai lo compara ahora en la propia escritura, con igualdad estricta, y respondería `412` donde SGSPE
+  tolera escrituras posteriores de derivados. `IfMatchFilter` quita la cabecera después de guardarla, así que la
+  precondición sigue siendo solo la de SGSPE, también para el `PATCH` nuevo.
+- **`updated_at`.** Toma la hora de su sentencia (`clock_timestamp()`), ya no la de la transacción, así que la entrada de
+  auditoría de una escritura dentro de una transacción cae antes de su `updatedAt`. `IfMatch.onlyDerivedSince` toma como
+  versión la entrada más cercana a lo leído, antes o después; con la regla anterior, un cambio de geometría posterior a la
+  escritura del área por un listener pasaba sin `412`.
+- **`X-Correlation-Id`.** La plataforma tiene su propio filtro y guarda el identificador en cada fila de auditoría.
+  `CorrelationIdFilter` corre después y usa ese, así la respuesta, la línea de acceso y la auditoría dicen lo mismo aunque
+  el cliente no mande ninguno.
+
 ## 2026-10-07 — Diseño UX/UI: marca, idiomas, vistas compartidas, mapa base y temas
 
 El usuario respondió las preguntas abiertas Q1, Q3, Q6 y Q7 de `ux/ux-architecture.md` §10.

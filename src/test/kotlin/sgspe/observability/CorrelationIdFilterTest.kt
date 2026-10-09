@@ -18,6 +18,7 @@ import org.springframework.mock.web.server.MockServerWebExchange
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
+import wasichai.core.platform.CorrelationIdWebFilter
 import java.util.UUID
 
 // el filtro sin servidor: acepta un identificador con formato, reemplaza cualquier otro por un UUID, lo devuelve en la
@@ -135,5 +136,31 @@ class CorrelationIdFilterTest {
     fun `una peticion cancelada se registra como 499`() {
         filter.filter(get(), WebFilterChain { _ -> Mono.never() }).subscribe().dispose()
         assertTrue(Regex("""GET /api/auth/me 499 \d+ms correlationId=\S+""").matches(accessLines().single()), accessLines().toString())
+    }
+
+    // en la app, el filtro de wasichai corre antes y deja su identificador en el contexto [WAS-ADR-0050]: este usa ese, así
+    // la respuesta, la línea de acceso y las filas de auditoría dicen el mismo aunque el cliente no mande ninguno
+    @Test
+    fun `detras del filtro de wasichai usa su identificador`() {
+        for (sent in listOf(null, "con espacio", "del-cliente-7")) {
+            lines.list.clear()
+            val request = MockServerHttpRequest.get("/api/auth/me")
+            if (sent != null) request.header(CorrelationId.HEADER, sent)
+            val exchange = MockServerWebExchange.from(request.build())
+            var platform: String? = null
+            var seen: String? = null
+            val inner = WebFilterChain { _ -> CorrelationId.current().doOnNext { id -> seen = id }.then() }
+            CorrelationIdWebFilter()
+                .filter(exchange) { e ->
+                    Mono.deferContextual { context ->
+                        platform = context.get<String>(CorrelationId.KEY)
+                        filter.filter(e, inner)
+                    }
+                }.block()
+            assertEquals(platform, exchange.response.headers.getFirst(CorrelationId.HEADER), sent)
+            assertEquals(platform, seen, sent)
+            assertTrue(accessLines().single().endsWith("correlationId=$platform"), accessLines().toString())
+            if (sent == "del-cliente-7") assertEquals(sent, platform) else UUID.fromString(platform)
+        }
     }
 }

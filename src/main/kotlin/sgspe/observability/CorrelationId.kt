@@ -8,13 +8,15 @@ import java.util.UUID
 object CorrelationId {
     const val HEADER = "X-Correlation-Id"
 
-    // la clave en el contexto de Reactor y en el MDC de la línea de acceso (lo único que hoy escribe en el MDC). el puente del
-    // contexto de Reactor al MDC de los demás logs llega cuando el código de dominio escriba logs
+    // la clave en el contexto de Reactor y en el MDC de la línea de acceso. es la misma de wasichai (ChangeOrigin.MDC_KEY),
+    // que desde 0.5.0 la pasa del contexto de Reactor al MDC de todos los logs de la petición [WAS-ADR-0050]
     const val KEY = "correlationId"
 
     private val FORMAT = Regex("^[A-Za-z0-9._-]{1,64}$")
 
-    fun accept(sent: String?): String = if (sent != null && FORMAT.matches(sent)) sent else UUID.randomUUID().toString()
+    fun accept(sent: String?): String = if (sent != null && valid(sent)) sent else UUID.randomUUID().toString()
+
+    fun valid(value: String): Boolean = FORMAT.matches(value)
 
     // el de la petición en curso, para el código de sgspe que corre en su cadena reactiva
     fun current(): Mono<String> = Mono.deferContextual { context -> Mono.justOrEmpty(context.getOrEmpty<String>(KEY)) }

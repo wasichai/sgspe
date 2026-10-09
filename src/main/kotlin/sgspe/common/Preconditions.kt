@@ -54,30 +54,34 @@ object IfMatch {
     // un comando con la marca IM de api.md §4: sin If-Match, 428
     fun required(raw: String?): Instant = parse(raw) ?: throw PreconditionRequiredException("Este comando exige If-Match con el updatedAt que leíste")
 
-    // si después de la versión que leyó el cliente solo hubo escrituras de derivados o vínculos. la versión es la que
-    // produjo el updatedAt: todas las entradas con el instante de la primera en o después de `expected` (una transacción
-    // puede dejar varias con el mismo now(), y el orden entre ellas no importa). si ninguna cae dentro de VERSION_WINDOW
-    // (un If-Match que no es la versión de ninguna escritura, como uno anterior al alta) no pasa. de las posteriores, un
-    // vínculo (rel:…) no cambia la versión y cuenta como inofensivo; un derivado también. una entrada sin ningún campo
-    // visible no se tolera: puede ser un cambio que el diff de atributos no ve (una geometría) y, aunque sea un campo
-    // que quien llama no puede leer, el PUT de wasichai lo conserva, así que el 412 solo cuesta volver a cargar. así un
-    // listener que actualiza un derivado (los conteos de asistentes, el área) no invalida el If-Match de quien sigue
-    // trabajando
+    // si después de la versión que leyó el cliente solo hubo escrituras de derivados o vínculos. la versión es la escritura
+    // que produjo el updatedAt, y su entrada de audit_log es la más cercana a `expected`, antes o después: desde wasichai
+    // 0.5.0 updated_at toma la hora de su sentencia (clock_timestamp()) y occurred_at la del inicio de su transacción
+    // (now()) [WAS-ADR-0051]. fuera de una transacción (la API genérica) la fila de auditoría se escribe justo después del
+    // UPDATE, así que cae poco después; dentro de una (un comando o un listener con su candado) lleva el inicio de la
+    // transacción, así que cae poco antes, junto con las demás de esa transacción (el mismo now(), en cualquier orden). la
+    // entrada de una escritura vecina queda más lejos, porque entre las dos hubo otra petición. si la más cercana no cae
+    // dentro de VERSION_WINDOW (un If-Match que no es la versión de ninguna escritura, como uno anterior al alta) no pasa.
+    // de las posteriores, un vínculo (rel:…) no cambia la versión y cuenta como inofensivo; un derivado también. una
+    // entrada sin ningún campo visible no se tolera: puede ser un cambio que el diff de atributos no ve (una geometría) y,
+    // aunque sea un campo que quien llama no puede leer, el PUT de wasichai lo conserva, así que el 412 solo cuesta volver
+    // a cargar. así un listener que actualiza un derivado (los conteos de asistentes, el área) no invalida el If-Match de
+    // quien sigue trabajando
     fun onlyDerivedSince(
         expected: Instant,
         writes: List<LaterWrite>,
         derived: Set<String>
     ): Boolean {
-        val after = writes.filter { !it.occurredAt.isBefore(expected) }
-        val versionAt = after.minOfOrNull { it.occurredAt } ?: return false
-        if (versionAt.isAfter(expected.plus(VERSION_WINDOW))) return false
-        return after.filter { it.occurredAt != versionAt }.all { write ->
+        // a igual distancia, la de antes: deja la otra entre las posteriores y falla cerrado
+        val versionAt = writes.map { it.occurredAt }.minWithOrNull(compareBy({ Duration.between(it, expected).abs() }, { it })) ?: return false
+        if (Duration.between(versionAt, expected).abs() > VERSION_WINDOW) return false
+        return writes.filter { it.occurredAt.isAfter(versionAt) }.all { write ->
             write.fields.isNotEmpty() && write.fields.all { it.startsWith("rel:") || it in derived }
         }
     }
 
-    // la mayor distancia entre el updated_at de un registro y el occurred_at de su entrada de audit_log, escritos en una
-    // misma transacción
+    // la mayor distancia entre el updated_at de un registro y el occurred_at de su entrada de audit_log: el tiempo de una
+    // transacción hasta su UPDATE, o el de la API genérica entre el UPDATE y la fila de auditoría
     private val VERSION_WINDOW: Duration = Duration.ofSeconds(2)
 }
 
@@ -120,9 +124,10 @@ class Versions(
     }
 
     companion object {
-        // el tope que acepta AuditQueryService.history de wasichai 0.3.2 (coerceIn(1, 500)). una asamblea grande deja
-        // decenas de escrituras de conteos y vínculos tras el alta; con más de 500 posteriores, la entrada de la versión
-        // leída queda fuera de la ventana y el resultado es un 412 (falla cerrado; api.md §3.6)
+        // el tope que acepta AuditQueryService.history de wasichai (coerceIn(1, 500); desde 0.5.0 historyPage pagina por
+        // cursor y lo levantaría, platform-fit.md §4.3). una asamblea grande deja decenas de escrituras de conteos y
+        // vínculos tras el alta; con más de 500 posteriores, la entrada de la versión leída queda fuera de la ventana y el
+        // resultado es un 412 (falla cerrado; api.md §3.6)
         private const val HISTORY = 500
     }
 }
@@ -137,8 +142,13 @@ data class IfMatchExpectation(
 
 // pone la expectativa en el contexto de Reactor, como el filtro de correlación pone su identificador: la guarda corre en
 // la corrutina de la petición, que conserva ese contexto (WAS-ADR-0040). solo las escrituras de la API genérica sobre un
-// registro (PUT y DELETE de /api/objects/{objeto}/records/{id}, sus transiciones y sus vínculos); los comandos propios
-// comparan dentro de su transacción y con su candado
+// registro (PUT, PATCH y DELETE de /api/objects/{objeto}/records/{id}, sus transiciones y sus vínculos); los comandos
+// propios comparan dentro de su transacción y con su candado
+//
+// y quita If-Match de la petición que sigue: desde 0.5.0 wasichai lo compara en la propia escritura, con igualdad estricta
+// [WAS-ADR-0051], y respondería 412 donde sgspe deja pasar una versión cuyo único cambio posterior es un derivado o un
+// vínculo (IfMatch.onlyDerivedSince), como el área o los conteos que escribe un listener tras el alta. hasta decidir esa
+// tolerancia frente a la comparación atómica (UPS-04, platform-fit.md §4.3), la precondición sigue siendo solo la de sgspe
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 class IfMatchFilter : WebFilter {
@@ -152,7 +162,8 @@ class IfMatchFilter : WebFilter {
         val match = RECORD_PATH.find(request.path.value()) ?: return chain.filter(exchange)
         val recordId = runCatching { UUID.fromString(match.groupValues[2]) }.getOrNull() ?: return chain.filter(exchange)
         val expectation = IfMatchExpectation(match.groupValues[1], recordId, raw)
-        return chain.filter(exchange).contextWrite(Context.of(KEY, expectation))
+        val withoutHeader = exchange.mutate().request { it.headers { headers -> headers.remove(IfMatch.HEADER) } }.build()
+        return chain.filter(withoutHeader).contextWrite(Context.of(KEY, expectation))
     }
 
     companion object {
