@@ -17,7 +17,8 @@ GIS, tableros y entregables DOCX y PDF.
 **Fase 1, fundación:** en verde en local y en la CI de los dos repositorios (ver [`docs/HISTORY.md`](docs/HISTORY.md)). La Fase 2 trae los primeros objetos de
 negocio: proyectos, territorio, grupos de interés y relacionamiento ([`docs/roadmap.md`](docs/roadmap.md)).
 
-- La app `sgspe` corre sobre wasichai 0.3.2 con los starters core, views, forms y pages, todavía sin objetos de negocio.
+- La app `sgspe` corre sobre wasichai 0.6.0 con los starters core, views, forms, pages, gis, workflow y, desde F3,
+  automation, documents, files y notifications.
 - `model/` declara los 17 roles (15 en `roles.json` y 2 mapeados a `ADMIN`) y aprovisiona un tenant en orden.
 - Pruebas de contrato con la plataforma, `X-Correlation-Id`, perfil de producción y pruebas de arquitectura.
 
