@@ -1624,10 +1624,11 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 
 ### Pruebas de trabajos, listeners y automatizaciones
 
-- **Trabajos:** después de cada corrida de JOB-01 a JOB-05, JOB-07 y JOB-08, ningún `workflow_state` cambió (se compara antes
-  y después); los derivados son los esperados con fixtures ficticios; repetir la corrida no crea tareas nuevas; el motivo
-  nombra al trabajo. JOB-08 borra solo las claves de `idempotency_key` y los saltos de `derived_version` más antiguos que su plazo, y nunca borra un archivo
-  que referencia una `deliverable_version` o `draft_storage_key`, ni uno sin referencia más reciente que el margen.
+- **Trabajos:** después de cada corrida de JOB-01 a JOB-05, JOB-07 y JOB-08, ningún `workflow_state` cambió (se compara
+  antes y después); los derivados son los esperados con fixtures ficticios; repetir la corrida no crea tareas nuevas; el
+  motivo nombra al trabajo. JOB-08 borra solo las claves de `idempotency_key` y los saltos de `derived_version` más
+  antiguos que su plazo, y nunca borra un archivo que referencia una `deliverable_version` o `draft_storage_key`, ni uno
+  sin referencia más reciente que el margen.
 - **Listeners:** un fallo de `CommitmentDerivationsListener`, también en `reopen_execution`, o de `RequestClosureListener`
   revierte la transición; un insert fallido de `NotificationListener` no aborta la transacción de quien escribe; un alta por
   la API genérica con un listener de derivados que falla queda guardada y JOB-02 la corrige.

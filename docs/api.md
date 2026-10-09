@@ -51,7 +51,8 @@ El contrato completo está en la documentación de wasichai:
 Lo que SGSPE agrega o restringe sobre la API genérica, con guardas y filtros propios:
 
 - `X-Correlation-Id` en toda respuesta (§3.8), también en un `401`.
-- `If-Match` opcional en las escrituras del portal, comprobado por una guarda y por la propia escritura de wasichai (§3.6).
+- `If-Match` opcional en las escrituras del portal, comprobado por una guarda y por la propia escritura de wasichai
+  (§3.6).
 - `X-Change-Reason` obligatorio en los objetos `requiresReason` [WAS-ADR-0041] y, además, en las transiciones de devolver,
   rechazar, suspender, cancelar, retirar y reabrir, aunque el objeto no lo exija (`TransitionReasonGuard`, RQ-AUD-002).
 - Un campo derivado enviado por la API genérica es un `400` que lo nombra (`DerivedFieldsGuard`), y una escritura sobre un
@@ -277,6 +278,8 @@ decide ADR-0025 (Propuesto, se acepta en F2).
     `412` de la plataforma, con `errors[0].field = "If-Match"`, y no se pierde nada. Un vínculo no tiene esa segunda
     comparación, pero tampoco mueve `updatedAt` ni reemplaza nada.
   - Un valor que no es un instante sale de la petición y la guarda responde `400`; `*` no compara.
+  - Si no puede leer las versiones aceptadas (la base no responde), el filtro responde el `500` de wasichai en
+    problem+json y la petición no sigue.
 - **Cuando solo cambiaron derivados** (ADR-0027). Si el `updatedAt` leído ya no es el actual, no hay `412` mientras todo lo
   escrito después sean campos derivados: los conteos de asistentes que mueve un participante, el área que recalcula un
   listener, lo que escribe JOB-02.

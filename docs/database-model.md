@@ -84,8 +84,8 @@ flowchart LR
 ### 2.3 El esquema `sgspe` de las tablas fijas
 
 - `idempotency_key` y `derived_version` (transversales, desde F3) y `knowledge_chunk` (BC-18, F7) no son Custom Objects:
-  son tablas fijas del esquema `sgspe` (ASM-065, ASM-091, RQ-AI-008, CON-052). Los avisos no tienen tablas propias desde la decisión D2: los guarda el
-  módulo wasichai-notifications en su esquema (ASM-012, ADR-0018).
+  son tablas fijas del esquema `sgspe` (ASM-065, ASM-091, RQ-AI-008, CON-052). Los avisos no tienen tablas propias desde
+  la decisión D2: los guarda el módulo wasichai-notifications en su esquema (ASM-012, ADR-0018).
 - Cada paquete dueño registra su propia `ModuleMigration`, como un módulo más [WAS-ADR-0026]:
   - `sgspe_common`, en `classpath:db/sgspe/common`, con orden 200, en F3, para `idempotency_key` (`V1`) y
     `derived_version` (`V2`, ADR-0027);
@@ -4053,10 +4053,10 @@ respuesta que recibió la primera petición, escrita en la misma transacción qu
 
 ### `derived_version`
 
-**Salto de versión de derivados** (Transversal). Cada escritura de solo derivados (`Records.patch` con campos `"derived"`,
-sin geometrías) se condiciona al `updated_at` que leyó y, si gana, deja aquí de cuál a cuál pasó el registro. El
-`If-Match` de la API genérica y de los comandos acepta la versión leída y las que la siguieron solo por estos saltos
-(`api.md` §3.6); JOB-08 los purga después de `sgspe.concurrency.derived-versions-retention`. Tabla fija
+**Salto de versión de derivados** (Transversal). Cada escritura de solo derivados (`Records.patch` con campos
+`"derived"`, sin geometrías) se condiciona al `updated_at` que leyó y, si gana, deja aquí de cuál a cuál pasó el
+registro. El `If-Match` de la API genérica y de los comandos acepta la versión leída y las que la siguieron solo por
+estos saltos (`api.md` §3.6); JOB-08 los purga después de `sgspe.concurrency.derived-versions-retention`. Tabla fija
 `sgspe.derived_version`, no Custom Object (§2.3). Requisitos: RNF-INT-003, ASM-035, ASM-091, UPS-04.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
@@ -4076,9 +4076,9 @@ sin geometrías) se condiciona al `updated_at` que leyó y, si gana, deja aquí 
 - **Acciones declaradas:** no aplican.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- Fuera de una transacción el salto se inserta justo después del `UPDATE` ya confirmado: en ese intervalo una comparación
-  no lo ve y responde `412`, nunca deja pasar una actualización perdida. Un salto más viejo que el plazo no cuenta aunque
-  la purga se atrase. La escribe y la lee solo `sgspe.common`, con `DatabaseClient` (ADR-0027).
+- Fuera de una transacción el salto se inserta justo después del `UPDATE` ya confirmado: en ese intervalo una
+  comparación no lo ve y responde `412`, nunca deja pasar una actualización perdida. Un salto más viejo que el plazo no
+  cuenta aunque la purga se atrase. La escribe y la lee solo `sgspe.common`, con `DatabaseClient` (ADR-0027).
 
 ## 23. Contextos sin objetos propios
 

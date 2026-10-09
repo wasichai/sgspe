@@ -1,16 +1,22 @@
 package sgspe.common
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.reactor.ReactorContext
 import kotlinx.coroutines.reactor.mono
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
+import org.springframework.http.MediaType
+import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.stereotype.Component
+import org.springframework.web.reactive.function.server.ServerResponse
+import org.springframework.web.reactive.result.view.ViewResolver
 import org.springframework.web.server.ServerWebExchange
 import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
 import reactor.util.context.Context
+import wasichai.core.common.GlobalExceptionHandler
 import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
@@ -98,7 +104,9 @@ data class IfMatchExpectation(
 @Component
 @Order(IfMatchFilter.ORDER)
 class IfMatchFilter(
-    private val chains: VersionChains
+    private val chains: VersionChains,
+    private val handler: GlobalExceptionHandler,
+    private val codecs: ServerCodecConfigurer
 ) : WebFilter {
     override fun filter(
         exchange: ServerWebExchange,
@@ -110,28 +118,71 @@ class IfMatchFilter(
         val match = RECORD_PATH.find(request.path.value()) ?: return chain.filter(exchange)
         val recordId = runCatching { UUID.fromString(match.groupValues[2]) }.getOrNull() ?: return chain.filter(exchange)
         val objectName = match.groupValues[1]
-        return mono {
-            // un valor inválido no se compara aquí: la guarda responde su 400
-            val expected =
-                try {
-                    IfMatch.parse(raw)
-                } catch (_: ValidationException) {
-                    null
-                }
-            IfMatchExpectation(objectName, recordId, raw, expected?.let { chains.accepted(objectName, recordId, it) })
-        }.flatMap { expectation ->
-            val accepted = expectation.accepted?.joinToString(", ") { "\"$it\"" }
-            val rewritten =
-                exchange
-                    .mutate()
-                    .request {
-                        it.headers { headers ->
-                            headers.remove(IfMatch.HEADER)
-                            if (accepted != null) headers.set(IfMatch.HEADER, accepted)
-                        }
-                    }.build()
-            chain.filter(rewritten).contextWrite(Context.of(KEY, expectation))
+        return mono { expectation(objectName, recordId, raw) }.flatMap { looked ->
+            looked.fold({ expectation -> next(exchange, chain, expectation) }, { error -> problem(exchange, error) })
         }
+    }
+
+    // la expectativa con las versiones aceptadas; un fallo al leerlas (la base) se devuelve para responderlo como Problem
+    // Details, porque un error que sale de un WebFilter no llega a los manejadores de los controladores
+    private suspend fun expectation(
+        objectName: String,
+        recordId: UUID,
+        raw: String
+    ): Result<IfMatchExpectation> {
+        // un valor inválido no se compara aquí: la guarda responde su 400
+        val expected =
+            try {
+                IfMatch.parse(raw)
+            } catch (_: ValidationException) {
+                null
+            }
+        return try {
+            Result.success(IfMatchExpectation(objectName, recordId, raw, expected?.let { chains.accepted(objectName, recordId, it) }))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun next(
+        exchange: ServerWebExchange,
+        chain: WebFilterChain,
+        expectation: IfMatchExpectation
+    ): Mono<Void> {
+        val accepted = expectation.accepted?.joinToString(", ") { "\"$it\"" }
+        val rewritten =
+            exchange
+                .mutate()
+                .request {
+                    it.headers { headers ->
+                        headers.remove(IfMatch.HEADER)
+                        if (accepted != null) headers.set(IfMatch.HEADER, accepted)
+                    }
+                }.build()
+        return chain.filter(rewritten).contextWrite(Context.of(KEY, expectation))
+    }
+
+    // el 500 de wasichai (handleUnexpected: su problem+json y su línea en el log), escrito con los codificadores de la
+    // aplicación, como lo escribiría un controlador
+    private fun problem(
+        exchange: ServerWebExchange,
+        error: Throwable
+    ): Mono<Void> {
+        if (error !is Exception) return Mono.error(error)
+        val body = handler.handleUnexpected(error)
+        val context =
+            object : ServerResponse.Context {
+                override fun messageWriters() = codecs.writers
+
+                override fun viewResolvers() = emptyList<ViewResolver>()
+            }
+        return ServerResponse
+            .status(body.status)
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .bodyValue(body)
+            .flatMap { it.writeTo(exchange, context) }
     }
 
     companion object {

@@ -2,12 +2,17 @@ package sgspe.common
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.http.MediaType
+import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import reactor.core.publisher.Mono
+import wasichai.core.common.GlobalExceptionHandler
 import wasichai.core.common.ValidationException
 import java.time.Instant
 import java.util.UUID
@@ -71,6 +76,8 @@ class IfMatchTest {
 
     private val id = UUID.fromString("8a0c3c64-1f0e-4a43-9a3e-1d6f2a1b7c55")
 
+    private val handler = GlobalExceptionHandler("https://sgspe.test/problems")
+
     @Test
     fun `la version vigente pasa sin leer saltos, y una a la que se llega por derivados tambien`() {
         val chains = FakeChains(mapOf(read to listOf(read, derived)))
@@ -119,7 +126,7 @@ class IfMatchTest {
         fun through(request: MockServerHttpRequest): Pair<String?, IfMatchExpectation?> {
             var header: String? = null
             var expectation: IfMatchExpectation? = null
-            IfMatchFilter(chains)
+            IfMatchFilter(chains, handler, ServerCodecConfigurer.create())
                 .filter(MockServerWebExchange.from(request)) { e ->
                     header = e.request.headers.getFirst(IfMatch.HEADER)
                     Mono.deferContextual { context ->
@@ -151,5 +158,35 @@ class IfMatchTest {
         assertEquals(sent to null, through(MockServerHttpRequest.get("/api/objects/stakeholder/records/$id").header(IfMatch.HEADER, sent).build()))
         assertEquals(sent to null, through(MockServerHttpRequest.post("/api/sgspe/commitments/$id/close").header(IfMatch.HEADER, sent).build()))
         assertEquals(asked, chains.asked)
+    }
+
+    // un fallo al leer los saltos (la base) no sale del filtro como un error sin cuerpo: es el 500 de wasichai con su
+    // problem+json, y la petición no sigue
+    @Test
+    fun `un fallo al leer las versiones es el 500 de wasichai en problem+json`() {
+        val failing =
+            object : VersionChains {
+                override suspend fun accepted(
+                    objectName: String,
+                    recordId: UUID,
+                    expected: Instant
+                ): List<Instant> = error("la base no responde")
+            }
+        val exchange =
+            MockServerWebExchange.from(
+                MockServerHttpRequest.put("/api/objects/stakeholder/records/$id").header(IfMatch.HEADER, "\"$read\"").build()
+            )
+        var reached = false
+        IfMatchFilter(failing, handler, ServerCodecConfigurer.create())
+            .filter(exchange) {
+                reached = true
+                Mono.empty()
+            }.block()
+        assertFalse(reached)
+        assertEquals(500, exchange.response.statusCode?.value())
+        assertEquals(MediaType.APPLICATION_PROBLEM_JSON, exchange.response.headers.contentType)
+        val body = exchange.response.bodyAsString.block()!!
+        assertTrue(body.contains("\"status\":500"), body)
+        assertTrue(body.contains("Unexpected error"), body)
     }
 }

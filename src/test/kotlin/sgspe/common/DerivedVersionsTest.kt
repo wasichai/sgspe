@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import wasichai.core.common.ConflictException
+import wasichai.core.common.FieldViolation
 import java.time.Instant
 import wasichai.core.common.PreconditionFailedException as StaleWrite
 
@@ -62,40 +63,62 @@ class DerivedVersionsTest {
 
     // ---- la escritura de derivados condicionada a la versión que leyó ----
 
-    // un registro de mentira: su versión y lo que se le escribió; stale fuerza que las primeras escrituras condicionadas
-    // pierdan contra otra, como si alguien hubiera escrito entre la lectura y el UPDATE
+    // un registro de mentira: su versión, sus campos y lo que se le escribió. staleAttempts fuerza que las primeras
+    // escrituras condicionadas pierdan contra otra, como si alguien hubiera escrito entre la lectura y el UPDATE; esa otra
+    // escritura deja su nombre en `fields`
     private class FakeRecord(
         var version: Instant,
         var staleAttempts: Int = 0,
         val next: MutableList<Instant>
     ) {
         val writes = mutableListOf<Instant?>()
+        val fields = mutableMapOf<String, Any?>("name" to "de A", "calculated_area_ha" to 1)
 
-        fun write(expected: Instant?): Instant {
+        // la mezcla de wasichai: solo las claves enviadas, condicionada a `expected` si viene
+        fun patch(
+            expected: Instant?,
+            changes: Map<String, Any?>
+        ): Instant {
             writes += expected
             if (expected != null && staleAttempts > 0) {
                 staleAttempts--
-                // otro escribió antes: la versión cambió y el UPDATE condicionado no encuentra fila
-                version = next.removeAt(0)
-                throw StaleWrite("Record changed since you read it")
+                otherWrites()
+                throw stale()
             }
-            if (expected != null && expected != version) throw StaleWrite("Record changed since you read it")
+            if (expected != null && expected != version) throw stale()
+            fields += changes
             version = next.removeAt(0)
             return version
         }
+
+        // B escribe su nombre y mueve la versión
+        fun otherWrites() {
+            fields["name"] = "de B ${writes.size}"
+            version = next.removeAt(0)
+        }
+
+        fun stale() = StaleWrite("Record r changed since you read it", listOf(FieldViolation("If-Match", "does not match")))
     }
+
+    private val area = mapOf("calculated_area_ha" to 2)
 
     private fun conditioned(
         record: FakeRecord,
-        jumps: MutableList<DerivedJump>
+        jumps: MutableList<DerivedJump>,
+        beforeFallback: () -> Unit = {}
     ): Instant =
         runBlocking {
             DerivedWrite.conditioned(
                 stored = { record.version },
                 versionOf = { it },
-                write = { _, expected -> record.write(expected) },
+                write = { _, expected -> record.patch(expected, area) },
                 writtenVersion = { it },
-                record = { jumps += it }
+                record = { jumps += it },
+                fallback = {
+                    beforeFallback()
+                    record.patch(null, area)
+                },
+                stale = { it.violations.any { v -> v.field == "If-Match" } }
             )
         }
 
@@ -117,18 +140,41 @@ class DerivedVersionsTest {
         assertEquals(v2, conditioned(record, jumps))
         assertEquals(listOf<Instant?>(v0, v1), record.writes)
         assertEquals(listOf(DerivedJump(v1, v2)), jumps)
-        assertTrue(DerivedChain.from(v0, jumps) == listOf(v0), "quien leyó v0 no alcanza la versión de B")
+        assertEquals("de B 1", record.fields["name"])
+        assertEquals(listOf(v0), DerivedChain.from(v0, jumps), "quien leyó v0 no alcanza la versión de B")
     }
 
-    // con un registro que no deja de cambiar, el derivado se escribe igual, como antes, pero sin salto: quien tenga una
-    // versión anterior recibe 412 y recarga (falla cerrado)
+    // P61: con un registro que no deja de cambiar, el derivado se escribe igual, sin condición y sin salto (quien tenga una
+    // versión anterior recibe 412), y como mezcla de solo los derivados: B escribe otra vez justo antes, y su nombre queda
     @Test
-    fun `tras los intentos escribe sin condicion y no registra salto`() {
-        val record = FakeRecord(v0, staleAttempts = DerivedWrite.ATTEMPTS, next = mutableListOf(v1, v2, v3, v3.plusSeconds(1)))
+    fun `tras los intentos escribe solo los derivados sin condicion, no registra salto y no pisa a B`() {
+        val record = FakeRecord(v0, staleAttempts = DerivedWrite.ATTEMPTS, next = mutableListOf(v1, v2, v3, v3.plusSeconds(1), v3.plusSeconds(2)))
         val jumps = mutableListOf<DerivedJump>()
-        assertEquals(v3.plusSeconds(1), conditioned(record, jumps))
+        assertEquals(v3.plusSeconds(2), conditioned(record, jumps, beforeFallback = { record.otherWrites() }))
         assertEquals(DerivedWrite.ATTEMPTS + 1, record.writes.size)
         assertEquals(null, record.writes.last())
+        assertTrue(jumps.isEmpty())
+        assertEquals("de B 3", record.fields["name"])
+        assertEquals(2, record.fields["calculated_area_ha"])
+    }
+
+    // un 412 que no es el de este UPDATE (por ejemplo, el de un listener de la propia escritura) sale tal cual
+    @Test
+    fun `un 412 que no es el de la comparacion propia sale tal cual`() {
+        val jumps = mutableListOf<DerivedJump>()
+        assertThrows<StaleWrite> {
+            runBlocking {
+                DerivedWrite.conditioned<Instant, Instant>(
+                    stored = { v0 },
+                    versionOf = { it },
+                    write = { _, _ -> throw StaleWrite("otro registro") },
+                    writtenVersion = { it },
+                    record = { jumps += it },
+                    fallback = { error("no debe caer") },
+                    stale = { it.violations.any { v -> v.field == "If-Match" } }
+                )
+            }
+        }
         assertTrue(jumps.isEmpty())
     }
 
@@ -142,7 +188,8 @@ class DerivedVersionsTest {
                     versionOf = { it },
                     write = { _, _ -> throw ConflictException("appendOnly") },
                     writtenVersion = { it },
-                    record = { jumps += it }
+                    record = { jumps += it },
+                    fallback = { error("no debe caer") }
                 )
             }
         }
@@ -155,15 +202,13 @@ class DerivedVersionsTest {
         val jumps = mutableListOf<DerivedJump>()
         val written =
             runBlocking {
-                DerivedWrite.conditioned(
-                    stored = { null as Instant? },
+                DerivedWrite.conditioned<Instant?, Instant>(
+                    stored = { null },
                     versionOf = { it },
-                    write = { _, expected ->
-                        assertEquals(null, expected)
-                        v1
-                    },
+                    write = { _, _ -> error("sin versión no se condiciona") },
                     writtenVersion = { it },
-                    record = { jumps += it }
+                    record = { jumps += it },
+                    fallback = { v1 }
                 )
             }
         assertEquals(v1, written)

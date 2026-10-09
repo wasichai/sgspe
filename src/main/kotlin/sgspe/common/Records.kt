@@ -12,6 +12,7 @@ import wasichai.core.common.PageResponse
 import wasichai.core.common.ValidationException
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordCriterion
+import wasichai.core.data.RecordETag
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordRequest
 import wasichai.core.data.RecordResponse
@@ -159,9 +160,11 @@ class Records(
     // no es atómico: entre el get y el update otra escritura puede caer y revertirse en los campos que patch no nombró
     // (api.md §3.6 acepta la ventana hasta UPS-04). un trabajo de fondo que cambia un registro que una persona también
     // edita corre dentro de Transactions.locked("<objeto>:<id>"), que al menos serializa el código de sgspe.
-    // salvo una escritura de solo derivados (todo lo que nombra es "derived" en model.json y no trae geometrías): esa se
-    // condiciona al updatedAt que leyó, vuelve a leer si otra ganó, y deja su salto de versión en derived_version, así el
-    // If-Match de quien leyó antes la sigue aceptando y el de quien leyó otra cosa no (ADR-0027, DerivedWrite)
+    // salvo una escritura de solo derivados (todo lo que nombra es "derived" en model.json y no trae geometrías): esa es
+    // la mezcla de wasichai (RecordService.patch), que escribe solo esos campos, condicionada al updatedAt que leyó; vuelve
+    // a leer si otra ganó y deja su salto de versión en derived_version, así el If-Match de quien leyó antes la sigue
+    // aceptando y el de quien leyó otra cosa no. tras tres pérdidas escribe la mezcla sin condición y sin salto (P61,
+    // ADR-0027, DerivedWrite)
     suspend fun patch(
         objectName: String,
         id: UUID,
@@ -188,15 +191,16 @@ class Records(
         }
         if (geometries.isEmpty() && changes.isNotEmpty() && catalog.derivedFields(objectName).containsAll(changes.keys)) {
             val organizationId = organizationId()
+            // la mezcla de wasichai [WAS-ADR-0051]: escribe solo los derivados nombrados, con las mismas guardas que un PUT
+            val derived = RecordRequest(changes)
             return DerivedWrite.conditioned(
                 stored = { records.get(objectName, id) },
                 versionOf = { it.updatedAt },
-                write = { stored, expected ->
-                    val body = stored.attributes.filterKeys { it in writable } + changes
-                    withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason, expected) }
-                },
+                write = { _, expected -> withContext(SgspeWrite) { records.patch(objectName, id, derived, reason, expected) } },
                 writtenVersion = { it.updatedAt },
-                record = { jump -> derivedVersions.record(organizationId, objectName, id, jump) }
+                record = { jump -> derivedVersions.record(organizationId, objectName, id, jump) },
+                fallback = { withContext(SgspeWrite) { records.patch(objectName, id, derived, reason) } },
+                stale = { it.message == RecordETag.stale(id).message && it.violations.any { v -> v.field == RecordETag.IF_MATCH } }
             )
         }
         val stored = records.get(objectName, id).attributes
@@ -204,10 +208,11 @@ class Records(
         return withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason) }
     }
 
-    // la organización de quien escribe: la de la persona, o la del trabajo de fondo en curso
+    // la organización de quien escribe, en el orden de RecordService.caller(): la del trabajo de fondo en curso, o la de la
+    // persona
     private suspend fun organizationId(): UUID =
-        callers.userOrNull()?.organizationId
-            ?: currentCoroutineContext()[PlatformOrganization]?.id
+        currentCoroutineContext()[PlatformOrganization]?.id
+            ?: callers.userOrNull()?.organizationId
             ?: error("Records sin usuario ni contexto de plataforma: use Records.asPlatform(organizationId) { … }")
 
     private class WritableField(

@@ -435,10 +435,11 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 
 ### 4.3 Lo que trae wasichai 0.6.0
 
-El 2026-10-09 el backend pasa de wasichai 0.3.2 a 0.6.0 (0.3.3, 0.4.0, 0.5.0 y 0.6.0; el `CHANGELOG.md` de wasichai tiene
-el detalle). Kotlin, Spring Boot y el JDK no cambian. Las migraciones de core (`V9` a `V17` y el repetible
+El 2026-10-09 el backend pasa de wasichai 0.3.2 a 0.6.0 (0.3.3, 0.4.0, 0.5.0 y 0.6.0; el `CHANGELOG.md` de wasichai
+tiene el detalle). Kotlin, Spring Boot y el JDK no cambian. Las migraciones de core (`V9` a `V17` y el repetible
 `R__audit_purge_role`) y de automation (`V2`) corren solas al arrancar. La actualización neutraliza lo que choca con
-SGSPE y, salvo el identificador de correlación, no adopta nada nuevo por sí misma: cada adopción es una decisión aparte (UPS-03, UPS-09 y UPS-17 están adoptadas, y UPS-07, UPS-11 y UPS-18 desde F3), y esta tabla
+SGSPE y, salvo el identificador de correlación, no adopta nada nuevo por sí misma: cada adopción es una decisión aparte
+(UPS-03, UPS-09 y UPS-17 están adoptadas, y UPS-04, UPS-07, UPS-11 y UPS-18 desde F3; UPS-04 con ADR-0027), y esta tabla
 dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar la mitigación.
 
 | Brecha | Qué trae wasichai | Estado en SGSPE tras la actualización | Para adoptarla |

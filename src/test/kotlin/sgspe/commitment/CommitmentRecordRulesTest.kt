@@ -7,6 +7,8 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import sgspe.common.Callers
+import sgspe.common.DerivedVersions
+import sgspe.common.ModelCatalog
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.WriteView
@@ -35,7 +37,9 @@ class CommitmentRecordRulesTest {
                 provider<RelatedRecordService>(),
                 provider<WorkflowService>(),
                 mock(MetadataService::class.java),
-                mock(Callers::class.java)
+                mock(Callers::class.java),
+                mock(ModelCatalog::class.java),
+                mock(DerivedVersions::class.java)
             ) {
                 override suspend fun find(
                     objectName: String,

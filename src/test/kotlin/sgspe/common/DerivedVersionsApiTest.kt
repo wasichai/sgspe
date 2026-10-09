@@ -35,10 +35,28 @@ class DerivedVersionsApiTest : DomainApiTest() {
         }
     }
 
+    // B escribe el nombre antes de cada UPDATE de una escritura de derivados con el motivo CONTENDED: los tres intentos
+    // condicionados pierden y la caída sin condición (P61) corre con B recién escrito entre su lectura y su UPDATE
+    @Order(GuardOrder.IF_MATCH + 1)
+    class WriteBeforeEveryDerivedUpdate(
+        private val records: Records
+    ) : RecordWriteGuard {
+        var writes = 0
+
+        override suspend fun beforeWrite(change: RecordWrite) {
+            if (change.reason != CONTENDED) return
+            writes++
+            records.patch(change.objectName, change.recordId!!, mapOf("name" to "Concesión de B $writes"), "B antes del UPDATE del derivado")
+        }
+    }
+
     @TestConfiguration
     class Race {
         @Bean
         fun writeBetweenGuardAndUpdate(records: Records) = WriteBetweenGuardAndUpdate(records)
+
+        @Bean
+        fun writeBeforeEveryDerivedUpdate(records: Records) = WriteBeforeEveryDerivedUpdate(records)
     }
 
     @Autowired
@@ -49,6 +67,12 @@ class DerivedVersionsApiTest : DomainApiTest() {
 
     @Autowired
     private lateinit var job: RetentionJob
+
+    @Autowired
+    private lateinit var transactions: Transactions
+
+    @Autowired
+    private lateinit var contended: WriteBeforeEveryDerivedUpdate
 
     private fun organization(): UUID = UUID.fromString(me()["organizationId"].asString())
 
@@ -62,13 +86,36 @@ class DerivedVersionsApiTest : DomainApiTest() {
     // una escritura de solo derivados, como la de JOB-02: con la marca, condicionada a lo leído y con su salto
     private fun derive(
         id: String,
-        area: String
+        area: String,
+        reason: String = "derivado: área de la prueba"
     ): Instant =
         runBlocking {
             records.asPlatform(organization()) {
-                records.patch("mining_concession", UUID.fromString(id), mapOf("calculated_area_ha" to BigDecimal(area)), "derivado: área de la prueba")
+                records.patch("mining_concession", UUID.fromString(id), mapOf("calculated_area_ha" to BigDecimal(area)), reason)
             }
         }.updatedAt!!
+
+    // un salto puesto a mano, como si la escritura que movió `from` a `to` hubiera sido de derivados: así una transición o
+    // un borrado, que no escriben derivados, prueban que wasichai recibe y compara la lista que deja IfMatchFilter
+    private fun hop(
+        objectName: String,
+        id: String,
+        from: String,
+        to: String
+    ) = runBlocking {
+        db
+            .sql(
+                "INSERT INTO ${DerivedVersions.TABLE} (organization_id, object_name, record_id, from_updated_at, to_updated_at) " +
+                    "VALUES (:organizationId, :objectName, :recordId, :from, :to)"
+            ).bind("organizationId", organization())
+            .bind("objectName", objectName)
+            .bind("recordId", UUID.fromString(id))
+            .bind("from", Instant.parse(from))
+            .bind("to", Instant.parse(to))
+            .fetch()
+            .rowsUpdated()
+            .awaitSingle()
+    }
 
     private fun jumps(id: String): List<DerivedJump> =
         runBlocking {
@@ -135,6 +182,61 @@ class DerivedVersionsApiTest : DomainApiTest() {
         assertEquals("Escrito por B", record("locality", locality)["attributes"]["alternative_names"].asString())
     }
 
+    // P61: tres intentos condicionados pierden contra B y la caída sin condición escribe solo el área (la mezcla de
+    // wasichai), así el nombre que B escribió entre su lectura y su UPDATE se queda. no deja salto: la versión que produce
+    // no se alcanza desde ninguna anterior
+    @Test
+    fun `la caida sin condicion escribe solo los derivados y no pisa la escritura de otro`() {
+        val id = concession()
+        contended.writes = 0
+        val written = derive(id, "7.7777", reason = CONTENDED)
+        assertEquals(DerivedWrite.ATTEMPTS + 1, contended.writes)
+        val stored = record("mining_concession", id)
+        assertEquals("Concesión de B ${DerivedWrite.ATTEMPTS + 1}", stored["attributes"]["name"].asString())
+        assertEquals(0, BigDecimal("7.7777").compareTo(stored["attributes"]["calculated_area_ha"].decimalValue()))
+        assertEquals(written, Instant.parse(stored["updatedAt"].asString()))
+        assertTrue(jumps(id).none { it.to == written }, jumps(id).toString())
+    }
+
+    // una transición y un borrado comparan en su propia sentencia [WAS-ADR-0051]: con la lista del filtro pasan aunque lo
+    // leído ya no sea lo vigente, porque lo siguió un salto; con una igualdad estricta serían 412
+    @Test
+    fun `una transicion y un borrado aceptan la lista de versiones que deja el filtro`() {
+        val visit = createRecord("field_visit", mapOf("project" to projectWithCrs(), "title" to "Visita de prueba"))
+        val visitRead = record("field_visit", visit)["updatedAt"].asString()
+        edit("field_visit", visit, mapOf("itinerary" to "Caserío Ejemplo"))
+        hop("field_visit", visit, visitRead, record("field_visit", visit)["updatedAt"].asString())
+        val moved = transitionWith("field_visit", visit, "start", headers = mapOf(IfMatch.HEADER to "\"$visitRead\""))
+        assertEquals(HttpStatus.OK, moved.status, moved.body)
+
+        val topic = createRecord("topic", mapOf("code" to uniqueName("T-"), "name" to "Agua", "active" to true))
+        val topicRead = record("topic", topic)["updatedAt"].asString()
+        edit("topic", topic, mapOf("description" to "Calidad y cantidad"))
+        hop("topic", topic, topicRead, record("topic", topic)["updatedAt"].asString())
+        val deleted = exchange("DELETE", "/api/objects/topic/records/$topic", null, headers = mapOf(IfMatch.HEADER to "\"$topicRead\""))
+        assertEquals(HttpStatus.NO_CONTENT, deleted.status, deleted.body)
+    }
+
+    // el salto va en la transacción de quien escribe: si se revierte, no queda ni la escritura ni el salto
+    @Test
+    fun `una transaccion que se revierte no deja salto`() {
+        val id = concession()
+        val read = updatedAt(id)
+        runBlocking {
+            try {
+                transactions.run {
+                    records.asPlatform(organization()) {
+                        records.patch("mining_concession", UUID.fromString(id), mapOf("calculated_area_ha" to BigDecimal("3.1416")), "derivado: se revierte")
+                    }
+                    throw IllegalStateException("el comando falla después de escribir el derivado")
+                }
+            } catch (_: IllegalStateException) {
+            }
+        }
+        assertEquals(read, updatedAt(id))
+        assertTrue(jumps(id).none { it.from == read }, jumps(id).toString())
+    }
+
     // JOB-08 borra los saltos más viejos que el plazo (sgspe.concurrency.derived-versions-retention, 7 días): una versión
     // leída hace más que eso ya no se sigue por derivados y es 412 (falla cerrado: el portal recarga)
     @Test
@@ -159,5 +261,6 @@ class DerivedVersionsApiTest : DomainApiTest() {
 
     companion object {
         const val RACE = "MARCA-CARRERA-DE-LA-PRUEBA"
+        const val CONTENDED = "derivado: área bajo contención"
     }
 }

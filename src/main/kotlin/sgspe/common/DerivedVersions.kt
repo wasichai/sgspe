@@ -1,7 +1,7 @@
 package sgspe.common
 
-import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.stereotype.Component
@@ -44,34 +44,40 @@ object DerivedChain {
     }
 }
 
-// la escritura de solo derivados condicionada a la versión que leyó (ADR-0027): si gana, deja su salto `leída -> escrita`;
-// si otra escritura ganó entre la lectura y el UPDATE (wasichai responde su 412 y no escribe nada), vuelve a leer y lo
-// intenta de nuevo sobre lo nuevo, así nunca pisa lo que otro acaba de escribir. tras ATTEMPTS pérdidas escribe sin
-// condición, como antes, y no deja salto: quien tenga una versión anterior recibe 412 y recarga. sin versión leída (no
-// debería pasar) tampoco hay de dónde condicionar
+// la escritura de solo derivados condicionada a la versión que leyó (ADR-0027): si gana, deja su salto `leída -> escrita`.
+// si otra escritura ganó entre la lectura y el UPDATE (wasichai responde su 412 y no escribe nada; `stale` reconoce ese 412
+// y no otro, como el de un listener de la propia escritura), vuelve a leer y lo intenta otra vez sobre lo nuevo. reaplica
+// los mismos valores, que quien llama calculó antes: si la otra escritura cambió aquello de lo que dependen, su propio
+// listener (que espera el mismo candado) o JOB-02 los recalculan. tras ATTEMPTS pérdidas, o sin versión leída (no debería
+// pasar), `fallback` escribe sin condición y no deja salto: quien tenga una versión anterior recibe 412 y recarga (falla
+// cerrado). `fallback` es una mezcla que escribe solo los derivados (P61), así no revierte lo que otro escribió en los
+// demás campos entre su lectura y su UPDATE
 object DerivedWrite {
     const val ATTEMPTS = 3
 
     suspend fun <S, R> conditioned(
         stored: suspend () -> S,
         versionOf: (S) -> Instant?,
-        write: suspend (S, Instant?) -> R,
+        write: suspend (S, Instant) -> R,
         writtenVersion: (R) -> Instant?,
-        record: suspend (DerivedJump) -> Unit
+        record: suspend (DerivedJump) -> Unit,
+        fallback: suspend () -> R,
+        stale: (StaleWrite) -> Boolean = { true }
     ): R {
         repeat(ATTEMPTS) {
             val current = stored()
-            val from = versionOf(current) ?: return write(current, null)
+            val from = versionOf(current) ?: return fallback()
             val written =
                 try {
                     write(current, from)
-                } catch (_: StaleWrite) {
+                } catch (e: StaleWrite) {
+                    if (!stale(e)) throw e
                     return@repeat
                 }
             writtenVersion(written)?.let { to -> record(DerivedJump(from, to)) }
             return written
         }
-        return write(stored(), null)
+        return fallback()
     }
 }
 
@@ -95,23 +101,30 @@ class DerivedVersions(
     private val callers: Callers,
     @Value("\${sgspe.concurrency.derived-versions-retention:7d}") private val retention: Duration
 ) : VersionChains {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    // un salto que ya existe solo puede venir de un reloj que retrocedió: no se pisa ni aborta la transacción de quien
+    // escribe, se registra en el log. el `to` nuevo queda sin camino, así que la comparación falla cerrado (412)
     suspend fun record(
         organizationId: UUID,
         objectName: String,
         recordId: UUID,
         jump: DerivedJump
     ) {
-        db
-            .sql(
-                "INSERT INTO $TABLE (organization_id, object_name, record_id, from_updated_at, to_updated_at) " +
-                    "VALUES (:organizationId, :objectName, :recordId, :from, :to)"
-            ).bind("organizationId", organizationId)
-            .bind("objectName", objectName)
-            .bind("recordId", recordId)
-            .bind("from", jump.from)
-            .bind("to", jump.to)
-            .then()
-            .awaitFirstOrNull()
+        val inserted =
+            db
+                .sql(
+                    "INSERT INTO $TABLE (organization_id, object_name, record_id, from_updated_at, to_updated_at) " +
+                        "VALUES (:organizationId, :objectName, :recordId, :from, :to) ON CONFLICT DO NOTHING"
+                ).bind("organizationId", organizationId)
+                .bind("objectName", objectName)
+                .bind("recordId", recordId)
+                .bind("from", jump.from)
+                .bind("to", jump.to)
+                .fetch()
+                .rowsUpdated()
+                .awaitSingle()
+        if (inserted == 0L) log.warn("DerivedVersions: ya había un salto desde {} en {} {}; no se registra {}", jump.from, objectName, recordId, jump)
     }
 
     // sin persona que llama (no debería pasar en una petición) no hay organización con qué leer: solo lo leído
