@@ -2,11 +2,12 @@ package sgspe.deadline
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import sgspe.commitment.Commitments
+import sgspe.privacy.MatrixSheets
 import java.time.LocalDate
 import java.util.UUID
 
@@ -68,8 +69,13 @@ class DeadlinesTest {
         assertNull(Deadlines.rescheduled("commitment", null, before))
         assertNull(Deadlines.rescheduled("agreement", mapOf("expiry_date" to "2026-01-01"), mapOf("expiry_date" to "2027-01-01")))
         // el compromiso vencido que se reprograma a una fecha futura deja de estar VENCIDO ese mismo día
-        val after = Deadlines.wanted(commitment, "in_progress", mapOf("due_date" to "2027-02-01"), today, 7)
-        assertEquals("AL DIA", after)
-        assertFalse(after == Deadlines.OVERDUE)
+        assertEquals("AL DIA", Deadlines.wanted(commitment, "in_progress", mapOf("due_date" to "2027-02-01"), today, 7))
+    }
+
+    // la matriz de compromisos (privacy, que solo depende de common) muestra deadline_status en los mismos estados
+    @Test
+    fun `la matriz y JOB-01 usan los mismos estados de plazo`() {
+        assertEquals(Commitments.PENDING, MatrixSheets.DEADLINE_STATES)
+        assertEquals(Commitments.PENDING, commitment.states)
     }
 }

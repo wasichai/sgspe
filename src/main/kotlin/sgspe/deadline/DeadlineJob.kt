@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import sgspe.commitment.Commitments
+import sgspe.common.Criteria
 import sgspe.common.JobTasks
 import sgspe.common.LIMA
 import sgspe.common.Organizations
@@ -92,12 +93,16 @@ class DeadlineJob(
         var created = 0
         var failed = 0
         for (tracked in Deadlines.TRACKED) {
-            for (row in records.all(tracked.objectName)) {
+            // solo los estados donde se calcula, más los que salieron de ellos con el campo todavía lleno (hay que vaciarlo):
+            // los registros cerrados que ya se vaciaron no se vuelven a leer cada hora
+            val rows = records.all(tracked.objectName, criteria = listOf(Criteria.inStateOrFilled(tracked.states, tracked.field)))
+            for (row in rows) {
                 try {
                     val params = project(Values.text(row.attributes["project"]))
-                    if (write(tracked, row, today, ProjectParameters.integer(params, "due_soon_days"))) written++
+                    val outcome = write(tracked, row, today, ProjectParameters.integer(params, "due_soon_days"))
+                    if (outcome.written) written++
                     // JobTasks.ensure va fuera de toda transacción: write ya cerró la suya (un único duplicado aborta la abierta)
-                    if (tracked.objectName == Commitments.COMMITMENT) created += escalate(row, today, params)
+                    if (tracked.objectName == Commitments.COMMITMENT) created += escalate(row, outcome.locked, today, params)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -111,48 +116,68 @@ class DeadlineJob(
         return written + created
     }
 
-    // true si escribió; relee bajo el candado y recalcula, por si una persona lo cambió entretanto
+    // lo que hizo write: si escribió y el registro que releyó bajo el candado (null si no tomó el candado o ya no existe)
+    private class Outcome(
+        val written: Boolean,
+        val locked: RecordResponse?
+    )
+
+    // relee bajo el candado y recalcula, por si una persona lo cambió entretanto; sin cambio en lo leído, no toma el candado
     private suspend fun write(
         tracked: Deadlines.Tracked,
         row: RecordResponse,
         today: LocalDate,
         dueSoonDays: Long
-    ): Boolean {
+    ): Outcome {
         val wanted = Deadlines.wanted(tracked, row.state, row.attributes, today, dueSoonDays)
-        if (Values.same(row.attributes[tracked.field], wanted)) return false
+        if (Values.same(row.attributes[tracked.field], wanted)) return Outcome(false, null)
         val id = UUID.fromString(row.id)
         return transactions.locked("${tracked.objectName}:$id") {
-            val current = records.find(tracked.objectName, id) ?: return@locked false
+            val current = records.find(tracked.objectName, id) ?: return@locked Outcome(false, null)
             val again = Deadlines.wanted(tracked, current.state, current.attributes, today, dueSoonDays)
             if (Values.same(current.attributes[tracked.field], again)) {
-                false
+                Outcome(false, current)
             } else {
-                records.patch(tracked.objectName, id, mapOf(tracked.field to again), REASON)
-                true
+                Outcome(true, records.patch(tracked.objectName, id, mapOf(tracked.field to again), REASON))
             }
         }
     }
 
-    // la tarea de cada nivel alcanzado de un compromiso vencido y pendiente: una por compromiso, fecha y nivel
+    // la fecha de vencimiento y el nivel alcanzado de un compromiso vencido y pendiente; null si no escala
+    private fun escalation(
+        record: RecordResponse,
+        today: LocalDate,
+        params: Map<String, Any?>
+    ): Pair<LocalDate, Int>? {
+        if (record.state !in Commitments.PENDING) return null
+        val due = Values.text(record.attributes["due_date"])?.let(LocalDate::parse) ?: return null
+        if (!today.isAfter(due)) return null
+        val level =
+            Deadlines.level(due, today, ProjectParameters.integer(params, "escalation_first_days"), ProjectParameters.integer(params, "escalation_second_days"))
+        return if (level == 0) null else due to level
+    }
+
+    // la tarea de cada nivel alcanzado de un compromiso vencido y pendiente: una por compromiso, fecha y nivel. decide con el
+    // registro releído bajo el candado de write o, si write no lo tomó, con uno releído ahora: la fila de la lectura inicial
+    // puede tener horas en una organización grande, y una reprogramación o un cumplimiento entretanto no deben escalar
     private suspend fun escalate(
         row: RecordResponse,
+        locked: RecordResponse?,
         today: LocalDate,
         params: Map<String, Any?>
     ): Int {
-        if (row.state !in Commitments.PENDING) return 0
-        val due = Values.text(row.attributes["due_date"])?.let(LocalDate::parse) ?: return 0
-        if (!today.isAfter(due)) return 0
-        val level =
-            Deadlines.level(due, today, ProjectParameters.integer(params, "escalation_first_days"), ProjectParameters.integer(params, "escalation_second_days"))
-        val code = Values.text(row.attributes["code"]) ?: row.id
+        if (locked == null && escalation(row, today, params) == null) return 0
+        val record = locked ?: records.find(Commitments.COMMITMENT, UUID.fromString(row.id)) ?: return 0
+        val (due, level) = escalation(record, today, params) ?: return 0
+        val code = Values.text(record.attributes["code"]) ?: record.id
         return (1..level).count { reached ->
             tasks.ensure(
-                escalationKey(row.id, due, reached),
+                escalationKey(record.id, due, reached),
                 mapOf(
                     "title" to "Escalamiento nivel $reached: compromiso $code vencido",
                     "description" to "El compromiso venció el $due y sigue abierto. Tómela quien atienda el escalamiento.",
-                    "project" to row.attributes["project"],
-                    "commitment" to row.id
+                    "project" to record.attributes["project"],
+                    "commitment" to record.id
                 ),
                 TASK_REASON
             )
