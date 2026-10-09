@@ -55,6 +55,7 @@ object GuardOrder {
     const val EDIT_ANY = 210
     const val IF_MATCH = 220
     const val EXACTLY_ONE = 300
+    const val AMOUNTS = 305
     const val USER_REFERENCE = 310
     const val ASSIGNMENT_ROLE = 320
     const val DEPENDENTS = 330
