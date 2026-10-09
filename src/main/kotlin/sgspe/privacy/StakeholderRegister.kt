@@ -8,24 +8,19 @@ import org.springframework.stereotype.Service
 import sgspe.common.Callers
 import sgspe.common.Criteria
 import sgspe.common.Finding
-import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
 import sgspe.common.Positions
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictBody
-import sgspe.common.Validity
 import sgspe.common.Values
 import sgspe.common.toCodedException
 import wasichai.core.common.Actions
-import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordResponse
-import wasichai.core.identity.AuthenticatedUser
 import wasichai.core.metadata.MetadataService
 import java.time.Clock
-import java.time.LocalDate
 import java.util.UUID
 
 // la exportación stakeholder-register (api.md §4.13, RQ-REP-022, deliverables.md §10): el registro de grupos de interés con
@@ -45,6 +40,7 @@ class StakeholderRegister(
     private val log: ExportLog,
     private val clock: Clock,
     private val catalog: ModelCatalog,
+    private val scope: ExportProjects,
     @Value("\${sgspe.exports.max-rows:20000}") private val maxRows: Int
 ) {
     suspend fun export(body: Map<String, Any?>): ExportFile {
@@ -70,14 +66,8 @@ class StakeholderRegister(
         val locality = uuids(filters["locality"], "filters.locality").distinct()
         val equality = equality(filters)
         val includeRetired = includeRetired(filters)
-        // «mis proyectos» si no se pide ninguno (la forma que fija la Fase 2.3): las asignaciones vigentes de quien exporta;
-        // el ADMIN, todos (null). con un solo proyecto pedido, quien no es ADMIN debe estar asignado a él
-        val projects: List<UUID>? =
-            when {
-                requested.isNotEmpty() -> requested.also { requireAssigned(user, it) }
-                user.isAdmin -> null
-                else -> assignedProjects(user)
-            }
+        // «mis proyectos» si no se pide ninguno; con un solo proyecto pedido, quien no es ADMIN debe estar asignado (ExportProjects)
+        val projects: List<UUID>? = scope.resolve(user, requested)
         val lines = if (projects?.isEmpty() == true) emptyList() else stakeholders(projects, locality, equality, includeRetired)
         val sheets = sheets(lines, disclosure)
         val export = withContext(Dispatchers.IO) { ExportFile.create("registro-grupos-de-interes-${disclosure.name.lowercase()}.xlsx", clock.instant()) }
@@ -89,48 +79,6 @@ class StakeholderRegister(
             export.discard()
             throw e
         }
-    }
-
-    // ---- quién y qué proyectos ----
-
-    // los proyectos de las asignaciones vigentes de quien exporta, hoy en America/Lima (security.md §9.2). privacy solo
-    // depende de common (architecture.md §5.3): lee project_assignment con Records y aplica la vigencia de common. sin READ
-    // sobre project_assignment no tiene asignaciones que leer
-    private suspend fun assignedProjects(user: AuthenticatedUser): List<UUID> {
-        val today = LocalDate.now(clock.withZone(LIMA))
-        val rows =
-            try {
-                read("project_assignment", mapOf("member_user_id" to user.userId.toString()))
-            } catch (_: ForbiddenException) {
-                return emptyList()
-            }
-        return rows
-            .filter { row ->
-                Records.uuid(row.attributes["member_user_id"]) == user.userId &&
-                    Validity.inForce(
-                        Values.bool(row.attributes["active"]) == true,
-                        Values.text(row.attributes["start_date"])?.let(LocalDate::parse),
-                        Values.text(row.attributes["end_date"])?.let(LocalDate::parse),
-                        today
-                    )
-            }.mapNotNull { Records.uuid(it.attributes["project"]) }
-            .distinct()
-    }
-
-    // alcance opción A (security.md §9.2): exportar un solo proyecto exige una asignación vigente a él, salvo el ADMIN. se
-    // comprueba antes de leer nada; ProjectScopeGuard lo vuelve a exigir al escribir la fila de export_log
-    private suspend fun requireAssigned(
-        user: AuthenticatedUser,
-        requested: List<UUID>
-    ) {
-        val single = requested.singleOrNull() ?: return
-        if (user.isAdmin || single in assignedProjects(user)) return
-        throw Finding(
-            "NOT_ASSIGNED",
-            "Exportar un proyecto exige una asignación vigente a él",
-            "filters.project",
-            status = HttpStatus.FORBIDDEN
-        ).toCodedException()
     }
 
     // ---- lectura ----
