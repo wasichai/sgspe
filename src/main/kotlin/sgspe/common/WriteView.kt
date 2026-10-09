@@ -38,8 +38,11 @@ class WriteView(
     }
 
     // los campos cuyo valor cambia con la escritura. en un alta, los que llegan con valor
-    suspend fun changed(change: RecordWrite): Set<String> {
-        val after = after(change)
+    suspend fun changed(
+        change: RecordWrite,
+        after: Map<String, Any?>? = null
+    ): Set<String> {
+        val after = after ?: after(change)
         if (change.kind == RecordChangeKind.CREATED) return after.filterValues { Values.text(it) != null }.keys
         val before = change.before.orEmpty()
         return (after.keys + before.keys).filter { !Values.same(after[it], before[it]) }.toSet()

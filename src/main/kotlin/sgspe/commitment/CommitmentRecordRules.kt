@@ -81,6 +81,8 @@ class CommitmentRecordRules(
     private val records: Records,
     private val view: WriteView
 ) : CommitmentRule {
+    override val order = CommitmentRuleOrder.RECORD
+
     override suspend fun findings(
         change: RecordWrite,
         dryRun: Boolean
@@ -96,12 +98,14 @@ class CommitmentRecordRules(
         if (change.kind != RecordChangeKind.CREATED && change.kind != RecordChangeKind.UPDATED) return emptyList()
         if (change.isLink()) return emptyList()
         val after = view.after(change)
-        val changed = view.changed(change)
+        val changed = view.changed(change, after)
         val findings = mutableListOf<Finding>()
         if (CommitmentData.originJudged(change.kind, changed)) {
             val origin = Records.uuid(after["origin_engagement"])
             if (origin != null) {
-                val type = readAs("engagement") { records.find("engagement", origin) }?.attributes?.get("engagement_type")
+                // un origen que no se lee (no existe o está fuera del alcance) no pasa en silencio (P12)
+                val engagement = readAs("engagement") { records.find("engagement", origin) } ?: throw NotReadable("engagement")
+                val type = engagement.attributes["engagement_type"]
                 val blocked =
                     Values.text(type) in CommitmentData.WORKSHOP_TYPES &&
                         ProjectParameters.policy(project(after), "policy_workshop_commitments_blocked")
@@ -110,7 +114,11 @@ class CommitmentRecordRules(
         }
         val id = change.recordId
         if (change.kind == RecordChangeKind.UPDATED && id != null && "due_date" in changed && !WriteMark.present()) {
-            val state = records.find(Commitments.COMMITMENT, id)?.state
+            // el estado de antes; si wasichai no lo trae en `before`, se lee como quien escribe y sin lectura falla cerrado
+            val state =
+                Values.text(change.before?.get("workflow_state"))
+                    ?: readAs(Commitments.COMMITMENT) { records.find(Commitments.COMMITMENT, id) }?.state
+                    ?: throw NotReadable(Commitments.COMMITMENT)
             if (state in Commitments.AFTER_APPROVAL) {
                 findings +=
                     Finding(
@@ -123,6 +131,9 @@ class CommitmentRecordRules(
         return findings
     }
 
+    // RF-COM-004. una dependencia que no bloquea (blocking = false) también cuenta para el ciclo. límite aceptado en F3
+    // (recogido para la Tarea 23): la búsqueda lee como quien escribe, así que no ve dependencias de proyectos fuera de su
+    // alcance, y no se serializa: dos altas simultáneas a → b y b → a pueden pasar las dos
     private suspend fun dependency(change: RecordWrite): List<Finding> {
         if (change.kind != RecordChangeKind.CREATED && change.kind != RecordChangeKind.UPDATED) return emptyList()
         if (change.isLink()) return emptyList()
@@ -136,7 +147,7 @@ class CommitmentRecordRules(
             CommitmentData.createsCycle(from, to, MAX_GRAPH) { node ->
                 readAs(Commitments.DEPENDENCY) {
                     records
-                        .all(Commitments.DEPENDENCY, filters = mapOf("commitment" to node.toString()))
+                        .all(Commitments.DEPENDENCY, filters = mapOf("commitment" to node.toString()), max = MAX_GRAPH)
                         .filter { it.id != change.recordId?.toString() }
                         .mapNotNull { Records.uuid(it.attributes["depends_on"]) }
                 }

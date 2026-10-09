@@ -43,15 +43,15 @@ class CommitmentRecordRulesApiTest : F3DomainApiTest() {
     fun `una dependencia de si mismo o que cierra un ciclo se rechaza`() {
         val project = testProject()
         val (a, b) = commitment(project) to commitment(project)
-        assertEquals(
-            HttpStatus.BAD_REQUEST,
+        val own =
             exchange(
                 "POST",
                 "/api/objects/commitment_dependency/records",
                 mapOf("attributes" to mapOf("commitment" to a, "depends_on" to a, "blocking" to true)),
                 token
-            ).status
-        )
+            )
+        assertEquals(HttpStatus.BAD_REQUEST, own.status, own.body)
+        assertEquals("DEPENDENCY_SELF", code(own))
         createRecord("commitment_dependency", mapOf("commitment" to a, "depends_on" to b, "blocking" to true))
         val cycle =
             exchange(
@@ -62,5 +62,40 @@ class CommitmentRecordRulesApiTest : F3DomainApiTest() {
             )
         assertEquals(HttpStatus.CONFLICT, cycle.status, cycle.body)
         assertEquals("DEPENDENCY_CYCLE", code(cycle))
+    }
+
+    @Test
+    fun `un cambio de origen que deja vacia la justificacion se rechaza`() {
+        val project = testProject()
+        val workshop = engagement(project, "TALLER")
+        val id = commitment(project, mapOf("origin_engagement" to workshop, "origin_justification" to "Absuelve una pregunta"))
+        val blank = edit("commitment", id, mapOf("origin_justification" to null), headers = withReason())
+        assertEquals(HttpStatus.BAD_REQUEST, blank.status, blank.body)
+        assertEquals("JUSTIFICATION_REQUIRED", code(blank))
+    }
+
+    @Test
+    fun `editar otro campo de un compromiso aprobado no toca la fecha de vencimiento`() {
+        val project = testProject()
+        val approved = approvedCommitment(project)
+        val renamed = edit("commitment", approved, mapOf("title" to "Otro título"), headers = withReason())
+        assertEquals(HttpStatus.OK, renamed.status, renamed.body)
+        val patched = patch("/api/objects/commitment/records/$approved", mapOf("attributes" to mapOf("title" to "Otro más")), token, withReason())
+        assertEquals(HttpStatus.OK, patched.status, patched.body)
+    }
+
+    @Test
+    fun `un origen que quien escribe no lee es OBJECT_NOT_READABLE y no pasa en silencio`() {
+        val project = testProject()
+        val body =
+            attributes(project) + (
+                "origin_engagement" to
+                    java.util.UUID
+                        .randomUUID()
+                        .toString()
+            ) + ("origin_justification" to "x")
+        val refused = exchange("POST", "/api/objects/commitment/records", mapOf("attributes" to body), token, withReason())
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("OBJECT_NOT_READABLE", code(refused))
     }
 }
