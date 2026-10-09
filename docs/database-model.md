@@ -2387,7 +2387,7 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 | `category` | ENUM `qcs_category` | no | — | Categoría. | RF-GRV-001 |
 | `description` | LONG_TEXT | sí | — | Descripción del planteamiento. | RF-GRV-001 |
 | `priority` | ENUM `priority` | no | — | Prioridad. | RF-GRV-001 |
-| `response_due_date` | DATE | no | — | (derivado) Plazo de respuesta (ASM-005). | RF-GRV-006 |
+| `response_due_date` | DATE | no | — | (derivado) Plazo de respuesta (ASM-005). En la queja queda siempre vacío (ASM-100). | RF-GRV-006 |
 | `deadline_status` | ENUM `deadline_status` | no | — | (derivado) Situación de plazo; nunca es un estado. | RN-WFL-001 |
 | `owner_user_id` | UUID | no | — | Responsable (ASM-023). | ASM-023 |
 | `owner_user_email` | EMAIL | no | — | Correo del responsable. | ASM-023 |
@@ -2396,7 +2396,7 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 | `closed_date` | DATE | no | — | (derivado) Fecha (America/Lima) de la transición a un estado final: `closed`, `rejected` o `withdrawn`. | RQ-DSH-022 |
 | `location` | GEOMETRY (POINT) | no | — | Ubicación. | RF-GRV-001 |
 | `severity` | ENUM `grievance_severity` | no | — | Severidad (ASM-036). | RN-GRV-002 |
-| `ack_due_date` | DATE | no | — | (derivado) Plazo de acuse: el n-ésimo día hábil posterior a la fecha de recepción en Lima (`BusinessDays`, ASM-005, ASM-096). En la queja, `response_due_date` queda siempre vacío (ASM-100). | RF-GRV-006 |
+| `ack_due_date` | DATE | no | — | (derivado) Plazo de acuse: el n-ésimo día hábil posterior a la fecha de recepción en Lima (`BusinessDays`, ASM-005, ASM-096). | RF-GRV-006 |
 | `resolution_due_date` | DATE | no | — | (derivado) Plazo de resolución (ASM-005). | RF-GRV-006 |
 | `resolved_date` | DATE | no | — | (derivado) Fecha (America/Lima) de la transición a `resolved`; una reapertura la vacía. | RQ-DSH-025 |
 | `resolution` | LONG_TEXT | no | — | Resolución. | RF-GRV-002 |
@@ -2428,7 +2428,7 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 - Confidencialidad por registro (ASM-095): con `confidential` verdadero, la queja solo la leen `ADMIN`, quien tiene
   `READ_CONFIDENTIAL`, su responsable, quien la recibió y, si es ALTA o CRITICA, quien tiene `APPROVE`
   (`ConfidentialAttentionScope`, `security.md` §9.6). El alta de una confidencial lleva `received_by_user_id` igual a
-  quien escribe.
+  quien escribe, salvo que tenga `READ_CONFIDENTIAL`.
 - La queja mide `ack_due_date` en `received` y `resolution_due_date` después; `response_due_date` queda siempre vacío
   (ASM-100).
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
@@ -2486,7 +2486,7 @@ Requisitos: RF-GRV-001, RF-GRV-003, RF-GRV-007.
 - **Fase:** F4 · Release 1 (MVP).
 - Confidencialidad por registro (ASM-095): con `confidential` verdadero, la consulta solo la leen `ADMIN`, quien tiene
   `READ_CONFIDENTIAL`, su responsable y quien la recibió (`ConfidentialAttentionScope`, `security.md` §9.6). El alta de
-  una confidencial lleva `received_by_user_id` igual a quien escribe.
+  una confidencial lleva `received_by_user_id` igual a quien escribe, salvo que tenga `READ_CONFIDENTIAL`.
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
   plazo (RQ-DSH-022). `QcsDueDatesListener` escribe los plazos al recibir (RF-GRV-006).
@@ -2546,7 +2546,7 @@ Requisitos: RF-GRV-001, RF-GRV-003, RF-GRV-007.
 - **Fase:** F4 · Release 1 (MVP).
 - Confidencialidad por registro (ASM-095): con `confidential` verdadero, la solicitud solo la leen `ADMIN`, quien tiene
   `READ_CONFIDENTIAL`, su responsable y quien la recibió (`ConfidentialAttentionScope`, `security.md` §9.6). El alta de
-  una confidencial lleva `received_by_user_id` igual a quien escribe.
+  una confidencial lleva `received_by_user_id` igual a quien escribe, salvo que tenga `READ_CONFIDENTIAL`.
 - `response_due_date` y `deadline_status` quedan vacíos mientras GAP-005 no fije un plazo de solicitudes (ASM-100).
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
