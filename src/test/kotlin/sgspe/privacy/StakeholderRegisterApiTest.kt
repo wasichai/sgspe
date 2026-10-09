@@ -108,7 +108,7 @@ class StakeholderRegisterApiTest : DomainApiTest() {
             val denied = exchange("POST", "/api/sgspe/exports/stakeholder-register", request(project, "INTERNO"), member(role, project).token)
             assertEquals(HttpStatus.FORBIDDEN, denied.status, role)
         }
-        assertEquals(HttpStatus.NOT_FOUND, exchange("POST", "/api/sgspe/exports/commitment-matrix", mapOf("disclosureLevel" to "INTERNO")).status)
+        assertEquals(HttpStatus.NOT_FOUND, exchange("POST", "/api/sgspe/exports/no-existe", mapOf("disclosureLevel" to "INTERNO")).status)
         assertEquals(
             HttpStatus.FORBIDDEN,
             exchange("POST", "/api/objects/export_log/records", mapOf("attributes" to mapOf("export_kind" to "EXPORTACION"))).status
@@ -182,7 +182,7 @@ class StakeholderRegisterApiTest : DomainApiTest() {
         val query = exchange("POST", "$path?formato=csv", request(project, "INTERNO"), manager.token)
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, query.status)
         assertEquals(listOf("formato"), problemFields(query.body))
-        val kind = exchange("POST", "/api/sgspe/exports/commitment-matrix", mapOf("disclosureLevel" to "INTERNO"))
+        val kind = exchange("POST", "/api/sgspe/exports/no-existe", mapOf("disclosureLevel" to "INTERNO"))
         assertEquals("EXPORT_NOT_FOUND", tree(kind.body)["errors"][0]["message"].asString())
     }
 

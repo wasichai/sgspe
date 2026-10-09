@@ -84,8 +84,10 @@ class CommitmentRecordRulesApiTest : F3DomainApiTest() {
         assertEquals(HttpStatus.OK, patched.status, patched.body)
     }
 
+    // wasichai (RelationTargets) rechaza un valor RELATION que no es un registro legible para quien escribe antes de las guardas de
+    // sgspe, y no distingue «no existe» de «no se lee». NotReadable solo se alcanza al editar sin cambiar el origen (CommitmentRecordRulesTest)
     @Test
-    fun `un origen que quien escribe no lee es OBJECT_NOT_READABLE y no pasa en silencio`() {
+    fun `un origen inexistente es el 400 de la plataforma y no pasa en silencio`() {
         val project = testProject()
         val body =
             attributes(project) + (
@@ -95,7 +97,8 @@ class CommitmentRecordRulesApiTest : F3DomainApiTest() {
                         .toString()
             ) + ("origin_justification" to "x")
         val refused = exchange("POST", "/api/objects/commitment/records", mapOf("attributes" to body), token, withReason())
-        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
-        assertEquals("OBJECT_NOT_READABLE", code(refused))
+        assertEquals(HttpStatus.BAD_REQUEST, refused.status, refused.body)
+        assertEquals(listOf("origin_engagement"), problemFields(refused.body))
+        assertEquals("no record with this id", tree(refused.body)["errors"][0]["message"].asString())
     }
 }
