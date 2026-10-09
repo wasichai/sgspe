@@ -30,6 +30,13 @@ object EvidenceRules {
 
     fun restricted(classification: Any?): Boolean = Values.text(classification) in RESTRICTED
 
+    // si descargar exige DOWNLOAD_RESTRICTED, con el registro como lo lee quien llama: falla cerrado, así que una
+    // clasificación que quien llama no lee (el permiso de campo la quita del registro) o que falta cuenta como restringida
+    fun downloadRestricted(attributes: Map<String, Any?>): Boolean {
+        val classification = attributes[CLASSIFICATION]
+        return Values.text(classification) == null || restricted(classification)
+    }
+
     // bajar la clasificación: de una restringida a una que no lo es (ASM-071)
     fun downgrade(
         before: Any?,
