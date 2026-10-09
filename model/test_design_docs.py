@@ -192,6 +192,21 @@ class F3WorkflowsTests(unittest.TestCase):
         self.assertEqual(len(task[0]["roles"]), 12)
         self.assertNotIn("READ_ONLY", task[0]["roles"])
         self.assertEqual([len(design_docs.workflow_transitions(letter)) for letter in "DI"], [17, 10])
+        # todas las filas de WF-N comparten la lista del bullet
+        self.assertTrue(all(t["roles"] == task[0]["roles"] for t in task))
+        # transiciones reales fijadas
+        wf_d = {t["name"]: t for t in design_docs.workflow_transitions("D")}
+        self.assertEqual((wf_d["approve_direct"]["from"], wf_d["approve_direct"]["to"], wf_d["approve_direct"]["roles"]),
+                         ("draft", "approved", ["COMMITMENT_MANAGER", "SOCIAL_MANAGER"]))
+        self.assertEqual(wf_d["approve_senior"]["roles"], ["PROJECT_MANAGER"])
+        start = design_docs.workflow_transitions("I")[0]
+        self.assertEqual((start["name"], start["from"], start["to"], start["roles"]),
+                         ("start_negotiation", "draft", "in_negotiation", ["SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"]))
+        # WF-K: los roles de cada objeto difieren
+        for obj, roles in (("commitment_candidate", ["COMMITMENT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"]),
+                           ("ai_suggestion", ["SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER",
+                                              "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER"])):
+            self.assertTrue(all(t["roles"] == roles for t in design_docs.workflow_transitions("K", obj)))
 
     def test_automatizaciones_y_tipos_de_documento(self):
         automations = {a["id"]: a for a in design_docs.automations()}
@@ -204,6 +219,15 @@ class F3WorkflowsTests(unittest.TestCase):
         self.assertEqual(types["meeting-minutes"], {"label": "Minuta de reunión", "name": "meeting-minutes", "prefix": "MR",
                                                     "object": "engagement", "phase": "F3", "after": None})
         self.assertEqual(types["delivery-certificate"]["after"], "UPS-23")
+        self.assertEqual([(t["name"], t["prefix"], t["object"], t["phase"], t["after"]) for t in design_docs.document_types()],
+                         [("delivery-certificate", "AE", "delivery", "F3", "UPS-23"),
+                          ("meeting-minutes", "MR", "engagement", "F3", None),
+                          ("attendance-list", "LA", "engagement", "F3", None)])
+
+    def test_indexed_e_indexes_en_las_otras_tres_fichas(self):
+        cards = design_docs.cards()
+        for name in ("grievance", "inquiry", "stakeholder_request"):
+            self.assertEqual((cards[name].indexed, cards[name].indexes), (["received_at"], [["project", "deadline_status"]]))
 
 
 class BrokenDocsTests(unittest.TestCase):
@@ -312,7 +336,30 @@ class BrokenDocsTests(unittest.TestCase):
             i = self.index(lines, "- **Roles operativos:**")
             lines[i] = lines[i].replace("Roles operativos", "Roles de la tarea", 1)
 
-        for name, change, reader in (("short automation row", short_automation, design_docs.automations),
+        def blank_in_automations(lines):
+            lines.insert(self.index(lines, "| AUT-05 |"), "")
+
+        def blank_in_types(lines):
+            lines.insert(self.index(lines, "| Lista de asistentes |"), "")
+
+        def rename_aut_header(lines):
+            i = self.index(lines, "| ID | Nombre técnico | Objeto | Disparador |")
+            lines[i] = lines[i].replace("| ID |", "| Id |", 1)
+
+        def rename_types_header(lines):
+            i = self.index(lines, "| Tipo de documento | Nombre técnico |")
+            lines[i] = lines[i].replace("Tipo de documento", "Tipo", 1)
+
+        def bad_phase_text(lines):
+            i = self.index(lines, "| Minuta de reunión |")
+            lines[i] = lines[i].replace("| F3 |", "| F3, luego algo |", 1)
+
+        for name, change, reader in (("blank line in automations", blank_in_automations, design_docs.automations),
+                                     ("blank line in document types", blank_in_types, design_docs.document_types),
+                                     ("automations header renamed", rename_aut_header, design_docs.automations),
+                                     ("document types header renamed", rename_types_header, design_docs.document_types),
+                                     ("unknown text after the phase", bad_phase_text, design_docs.document_types),
+                                     ("short automation row", short_automation, design_docs.automations),
                                      ("document type without phase", no_phase, design_docs.document_types),
                                      ("roles bullet renamed", no_roles_bullet, lambda: design_docs.workflow_transitions("N"))):
             with self.subTest(name):
@@ -320,6 +367,24 @@ class BrokenDocsTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     reader()
                 shutil.copy(os.path.join(self.original, "workflows.md"), self.tmp)
+
+    def test_el_bullet_de_tipos_de_archivo_y_los_campos_file_van_de_la_mano(self):
+        design_docs.cards()
+
+        def no_bullet(lines):
+            i = self.index(lines, "- **Tipos de archivo:**")
+            lines[i] = lines[i].replace("Tipos de archivo", "Tipos", 1)
+
+        def wrong_field(lines):
+            i = self.index(lines, "- **Tipos de archivo:** `file`")
+            lines[i] = lines[i].replace("`file`", "`import_batch_id`", 1)
+
+        for name, change in (("FILE field without bullet", no_bullet), ("bullet names a non-FILE field", wrong_field)):
+            with self.subTest(name):
+                self.edit("database-model.md", change)
+                with self.assertRaises(ValueError):
+                    design_docs.cards()
+                shutil.copy(os.path.join(self.original, "database-model.md"), self.tmp)
 
     def test_una_letra_de_permiso_desconocida_falla(self):
         with self.assertRaises(ValueError):

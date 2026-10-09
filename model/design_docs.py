@@ -192,6 +192,10 @@ def cards():
         if rows != len(card.fields) + len(card.relationships):
             raise ValueError(f"card {card.name}: {rows} table rows in the document, but {len(card.fields)} fields and "
                              f"{len(card.relationships)} relationships read")
+        file_fields = {f["name"] for f in card.fields if f["type"] == "FILE"}
+        if set(card.content_types) != file_fields:
+            raise ValueError(f"card {card.name}: FILE fields {sorted(file_fields)}, but the 'Tipos de archivo' bullet "
+                             f"names {sorted(card.content_types)}")
         found[card.name] = card
         i = j
     return found
@@ -436,7 +440,10 @@ def _phase_cell(cell):
     phase = re.match(r"(F\d)", cell)
     if not phase:
         raise ValueError(f"phase cell {cell!r} does not start with a phase")
-    gap = AFTER_GAP.search(cell)
+    rest = cell[phase.end():].strip()
+    gap = AFTER_GAP.fullmatch(rest.lstrip(",").strip()) if rest else None
+    if rest and not gap:
+        raise ValueError(f"phase cell {cell!r}: after the phase only ', tras UPS-n' is understood")
     return phase.group(1), gap.group(1) if gap else None
 
 
@@ -446,7 +453,10 @@ def automations():
     `trigger` is the trigger type (`STATE_ENTERED`, `RECORD_CREATED`…); `state` and `transition` the state or the
     transition it names, if any; `after` the upstream gap the row waits for ("F3, tras UPS-23"), or None."""
     lines = read("workflows.md").splitlines()
-    start = next(i for i, line in enumerate(lines) if line.startswith("| ID | Nombre técnico | Objeto | Disparador |"))
+    start = next((i for i, line in enumerate(lines) if line.startswith("| ID | Nombre técnico | Objeto | Disparador |")),
+                 None)
+    if start is None:
+        raise ValueError("workflows.md has no automations table (a renamed header?)")
     result = []
     for row in table_rows(lines, start):
         if len(row) != 8:
@@ -462,17 +472,23 @@ def automations():
         result.append({
             "id": row[0], "name": names[0], "object": objects[0], "trigger": kind,
             "state": named if kind == "STATE_ENTERED" else None,
+            # no automation uses TRANSITION_APPLIED yet, but workflows.md lists it among the triggers
             "transition": named if kind == "TRANSITION_APPLIED" else None,
             "phase": phase, "after": after,
         })
+    in_document = sum(1 for line in lines if re.match(r"^\| AUT-\d{2} \|", line))
+    if in_document != len(result):
+        raise ValueError(f"workflows.md has {in_document} AUT-NN rows, but {len(result)} read (a blank line inside the table?)")
     return result
 
 
 def document_types():
     """The rows of the document types table of workflows.md: [{name, label, prefix, object, phase, after}]."""
     lines = read("workflows.md").splitlines()
-    start = next(i for i, line in enumerate(lines)
-                 if line.startswith("| Tipo de documento | Nombre técnico | Prefijo | Objeto |"))
+    start = next((i for i, line in enumerate(lines)
+                  if line.startswith("| Tipo de documento | Nombre técnico | Prefijo | Objeto |")), None)
+    if start is None:
+        raise ValueError("workflows.md has no document types table (a renamed header?)")
     result = []
     for row in table_rows(lines, start):
         if len(row) != 6:
@@ -483,4 +499,8 @@ def document_types():
         phase, after = _phase_cell(row[4])
         result.append({"label": row[0], "name": names[0], "prefix": prefixes[0], "object": objects[0], "phase": phase,
                        "after": after})
+    in_document = sum(1 for line in lines if re.match(r"^\| [^|`]+ \| `[a-z-]+` \| `[A-Z]+` \| `[a-z_]+` \|", line))
+    if in_document != len(result):
+        raise ValueError(f"workflows.md has {in_document} document type rows, but {len(result)} read "
+                         f"(a blank line inside the table?)")
     return result
