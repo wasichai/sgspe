@@ -68,7 +68,7 @@ F4); el aporte social como destino de una solicitud aceptada (F5).
 | # | Decisión | Modelo (4.1) | Backend (4.2) | Portal (4.3) |
 |---|---|---|---|---|
 | 1 | Solo el equipo social registra QCS; el formulario público es una brecha upstream candidata, posterior al MVP | Sin objeto ni rol nuevos; CREATE sobre las QCS solo para `COMMUNITY_RELATIONS_OFFICER` y `GRIEVANCE_MANAGER` (§7.6 de `security.md`) | Ninguna cadena de seguridad propia ni ruta pública; `CONTRATISTA` sigue siendo un canal que registra el equipo (ASM-043) | S37 es la única entrada; el canal se elige de la lista |
-| 2 | QCS confidencial: `RecordReadScope` limitado a las QCS con `confidential` verdadero, que solo leen `GRIEVANCE_MANAGER`, su responsable y `ADMIN`; reabre la respuesta del checkpoint | Acción declarada nueva `READ_CONFIDENTIAL` en `grievance`, `inquiry` y `stakeholder_request`, concedida solo a `GRIEVANCE_MANAGER` en `roles.json` | `ConfidentialAttentionScope` en `sgspe.scope` (§3.3); reglas de escritura de la confidencialidad en `AttentionWriteGuard`; destinatarios de avisos filtrados; exportaciones y tableros leen como quien llama | Interruptor «Confidencial» con explicación; responsable propio fijado al registrar; «Registro reservado» en los vínculos a una QCS que no se lee; aviso de exclusión en tableros y reportes |
+| 2 | QCS confidencial: `RecordReadScope` limitado a las QCS con `confidential` verdadero, que solo leen `GRIEVANCE_MANAGER`, su responsable y `ADMIN`; reabre la respuesta del checkpoint. Ampliada por el usuario: la leen también `APPROVER` (solo ALTA o CRITICA) y quien la recibió | Acción declarada nueva `READ_CONFIDENTIAL` en `grievance`, `inquiry` y `stakeholder_request`, concedida solo a `GRIEVANCE_MANAGER` en `roles.json` | `ConfidentialAttentionScope` en `sgspe.scope` (§3.3); reglas de escritura de la confidencialidad en `AttentionWriteGuard`; destinatarios de avisos filtrados; exportaciones y tableros leen como quien llama | Interruptor «Confidencial» con explicación; quien registra queda como quien la recibió; «Registro reservado» en los vínculos a una QCS que no se lee; aviso de exclusión en tableros y reportes |
 | 3 | «Cargo de queja» y «Carta de respuesta» no se emiten mientras UPS-23 siga abierta; el documento firmado se sube como evidencia de la QCS | AUT-06, AUT-07, AUT-08 y sus tipos de documento no entran en `model/`; `test_model.py` los trata como «F4, tras UPS-23», igual que AUT-03 | Ningún código de documentos; `EvidenceWriteGuard` acepta los vínculos con las tres QCS | En S36, «Subir cargo firmado» (evidencia FORMULARIO) y «Subir carta firmada» (evidencia CARTA), con clasificación DATOS PERSONALES por defecto |
 | 4 | Alertas: alta manual más seis tipos de regla, sin CAMBIO DE POSTURA; la semántica de cada regla se escribe en `workflows.md` antes del plan | `warning_rule_kind` sin CAMBIO DE POSTURA; `early_warning.generator_key` | `WarningRulesJob` con un evaluador puro por tipo (§4) | Formulario de reglas que explica el umbral y la ventana de cada tipo |
 | 5 | Días hábiles: feriados nacionales por año en configuración; si falta el año, lunes a viernes con aviso en el log | Ninguno | `HolidayCalendar` y `BusinessDays` en `sgspe.common` (§3.4) | S37 muestra el plazo de acuse calculado por el backend |
@@ -93,11 +93,12 @@ F4); el aporte social como destino de una solicitud aceptada (F5).
    como acción declarada, igual que `CONFIRM_ALERT`: quitarla en `roles.json` retira la capacidad sin tocar el código.
 2. **`APPROVER` lee las quejas confidenciales ALTA o CRITICA.** La decisión 8 le avisa, y RN-GRV-002 le exige
    resolverlas con `resolve_high_severity`; sin lectura no podría. Quien tiene `APPROVE` sobre `grievance` ve una queja
-   confidencial solo si su severidad es ALTA o CRITICA. Es una ampliación de la decisión 2 que el usuario debe confirmar
-   (§8).
-3. **Registrar una QCS confidencial exige ser su responsable o tener `READ_CONFIDENTIAL`.** Así quien la registra no la
-   pierde al guardarla y los listeners, que escriben como esa persona, la pueden actualizar. Cambiar el responsable de
-   una QCS confidencial, o quitarle la marca, exige `READ_CONFIDENTIAL`.
+   confidencial solo si su severidad es ALTA o CRITICA. Ampliación de la decisión 2 confirmada por el usuario.
+3. **Quien recibió una QCS confidencial la sigue leyendo** (respuesta del usuario). Quien la registra es quien la
+   recibe: el alta de una QCS confidencial lleva `received_by_user_id` igual a quien escribe, salvo que tenga
+   `READ_CONFIDENTIAL`. Así quien registra siempre puede hacerlo, no la pierde al guardarla y los listeners, que
+   escriben como esa persona, la pueden actualizar. Cambiar el responsable o quien la recibió de una QCS confidencial, o
+   quitarle la marca, exige `READ_CONFIDENTIAL`.
 4. **Una regla de alerta del proyecto reemplaza a la del tenant del mismo tipo** para ese proyecto, y `window_days` es
    también el silencio tras una alerta (§4). Con eso, las reglas no necesitan parámetros nuevos en `project`.
 5. **`engagement_question.referred_at`** (derivado, lo escribe el endpoint de derivación): `EngagementWriteGuard` decide
@@ -108,6 +109,8 @@ F4); el aporte social como destino de una solicitud aceptada (F5).
 8. **El reporte y los tableros nunca cuentan lo que quien llama no lee**, y lo dicen con `confidentialHidden`, un
    booleano sin conteo (§3.3).
 9. **4.2 se divide en 4.2a (QCS) y 4.2b (riesgos y alertas)** (§7).
+10. **Aviso genérico de nivel 2** (respuesta del usuario): en el nivel 2 de una QCS confidencial, los roles de
+    `approve_senior` de WF-D que no la ven reciben `qcs_confidential_overdue`, un aviso sin datos del registro (§3.5).
 
 ## 3. Diseño por subsistema
 
@@ -173,8 +176,8 @@ WF-E3 pierden `SOCIAL_INVESTMENT_MANAGER` hasta F5 (regla de fase de `task.json`
 | Regla | Cuándo | Error |
 |---|---|---|
 | Anónima sin identidad | Alta o cambio con `anonymous` verdadero y `person` o `stakeholder` informado | `400 ANONYMOUS_WITH_IDENTITY` sobre el campo |
-| Confidencial con responsable | Alta, o cambio de `confidential` a verdadero, sin que `owner_user_id` sea quien escribe y sin `READ_CONFIDENTIAL` | `400 CONFIDENTIAL_OWNER_REQUIRED` sobre `owner_user_id` |
-| Confidencialidad protegida | Quitar `confidential`, o cambiar `owner_user_id` de una QCS confidencial, sin `READ_CONFIDENTIAL` | `403 ACTION_REQUIRED` sobre el campo |
+| Confidencial con receptor | Alta de una QCS con `confidential` verdadero cuyo `received_by_user_id` está vacío o no es quien escribe, sin `READ_CONFIDENTIAL`; el portal lo llena siempre con quien registra, así que registrar nunca se rechaza | `400 CONFIDENTIAL_RECEIVER_REQUIRED` sobre `received_by_user_id` |
+| Confidencialidad protegida | Quitar `confidential`, o cambiar `owner_user_id` o `received_by_user_id` de una QCS confidencial, sin `READ_CONFIDENTIAL` | `403 ACTION_REQUIRED` sobre el campo |
 | Atender con datos | `investigate` y `start_action` sin `category` o sin `severity` | `400 FIELD_REQUIRED` |
 | Resolver con datos | `resolve` y `resolve_high_severity` sin `resolution` o sin `response` | `400 FIELD_REQUIRED` |
 | Queja grave | `resolve` de una queja ALTA o CRITICA con `policy_high_severity_requires_approver` activo | `409 SENIOR_APPROVAL_REQUIRED` |
@@ -217,6 +220,7 @@ JOB-02 completa los plazos que falten. `EngagementWriteGuard` (RN-ENG-005) cuent
 | `ADMIN` (también `SUPER_ADMIN` y `ORGANIZATION_ADMIN`) | Siempre: wasichai no aplica los `RecordReadScope` al `ADMIN` |
 | Con `READ_CONFIDENTIAL` sobre el objeto (`GRIEVANCE_MANAGER`) | Siempre |
 | Su responsable (`owner_user_id` igual a quien llama) | Siempre |
+| Quien la recibió (`received_by_user_id` igual a quien llama) | Siempre |
 | Con `APPROVE` sobre `grievance` (`APPROVER`) | Solo una queja con `severity` ALTA o CRITICA |
 | Cualquier otro rol con READ | Nunca |
 
@@ -226,14 +230,15 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
 
 - para un objeto que no es una de las tres QCS, no restringe;
 - con `READ_CONFIDENTIAL` sobre el objeto, no restringe;
-- si no, devuelve la condición `confidential IS NOT TRUE OR owner_user_id = <quien llama>` y, en `grievance` con
-  `APPROVE`, además `OR severity IN ('ALTA', 'CRITICA')`, con los nombres de columna de la definición y valores
-  enlazados (nunca concatenados);
+- si no, devuelve la condición
+  `confidential IS NOT TRUE OR owner_user_id = <quien llama> OR received_by_user_id = <quien llama>` y, en
+  `grievance` con `APPROVE`, además `OR severity IN ('ALTA', 'CRITICA')`, con los nombres de columna de la definición
+  y valores enlazados (nunca concatenados);
 - las acciones de quien llama salen de la misma consulta de permisos que usa `sgspe.common.Permissions`, memorizada por
   petición (`RequestMemo`);
-- **falla cerrado:** si la definición no trae `confidential` u `owner_user_id`, o si la consulta de permisos falla,
-  devuelve una condición que no admite ningún registro del objeto y deja una advertencia en el log sin datos del
-  registro.
+- **falla cerrado:** si la definición no trae `confidential`, `owner_user_id` o `received_by_user_id`, o si la consulta
+  de permisos falla, devuelve una condición que no admite ningún registro del objeto y deja una advertencia en el log
+  sin datos del registro.
 
 **Dónde rige.** wasichai lo aplica en listas, detalle, relacionados, historial, auditoría, transiciones, features GIS y
 agente. Consecuencias:
@@ -243,7 +248,7 @@ agente. Consecuencias:
 - **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
   apuntar a una QCS que quien lee no ve: el id es visible, el registro no. El portal muestra «Registro reservado». Los
   títulos de las tareas automáticas solo llevan el código de la QCS.
-- **Listeners y comandos.** Corren como quien escribe; por la regla «confidencial con responsable», quien registra la
+- **Listeners y comandos.** Corren como quien escribe; por la regla «confidencial con receptor», quien registra la
   ve.
 - **Trabajos.** JOB-01, JOB-02, JOB-04 y `DeadlineNotices` leen como la plataforma, sin el alcance: ven todo, y lo que
   producen se filtra en la salida (avisos) o es agregado (conteos de JOB-04).
@@ -254,18 +259,20 @@ agente. Consecuencias:
 - **Exportaciones.** INTERNO y PUBLICO leen como quien exporta; EXTERNO excluye toda QCS confidencial, también para
   `GRIEVANCE_MANAGER` (§5).
 - **Avisos.** Un aviso sobre una QCS confidencial (`qcs_deadline`, `approval_pending` de queja grave y `task_overdue` de
-  una tarea vinculada a ella) solo va a quien la vería: su responsable, los asignados cuyo `role_name` tiene
-  `READ_CONFIDENTIAL` sobre ese objeto en `model/roles.json` y, en una queja ALTA o CRITICA, los que tienen `APPROVE`
-  sobre `grievance`. `ModelCatalog` expone las concesiones de cada rol para decidirlo sin literales. Si un nivel queda
-  sin destinatarios, no se crea el aviso y queda una advertencia en el log, como hoy; la tarea de escalamiento se crea
-  igual.
+  una tarea vinculada a ella) solo va a quien la vería: su responsable, quien la recibió, los asignados cuyo `role_name`
+  tiene `READ_CONFIDENTIAL` sobre ese objeto en `model/roles.json` y, en una queja ALTA o CRITICA, los que tienen
+  `APPROVE` sobre `grievance`. `ModelCatalog` expone las concesiones de cada rol para decidirlo sin literales. Si un
+  nivel queda sin destinatarios, no se crea el aviso y queda una advertencia en el log, como hoy; la tarea de
+  escalamiento se crea igual. Excepción del nivel 2: los roles de `approve_senior` de WF-D que no la ven reciben el
+  aviso genérico `qcs_confidential_overdue` (§3.5).
 - **Capa LYR-20.** Lee como quien llama: hereda el alcance.
 
 **Pruebas.** `ConfidentialAttentionScopeTest` (unitaria: condición por caso, falla cerrada) y
-`ConfidentialAttentionApiTest` (integración: un relacionista que no es responsable no ve la QCS en lista, detalle,
-historial, relacionados ni transiciones; el responsable, el gestor de quejas y el `ADMIN` sí; el aprobador solo la
-grave; el tablero la excluye con `confidentialHidden`; EXTERNO la excluye también para el gestor; un aviso no llega a
-quien no la ve; quitar la marca sin la acción es `403`).
+`ConfidentialAttentionApiTest` (integración: un relacionista que no es responsable ni la recibió no la ve en lista,
+detalle, historial, relacionados ni transiciones; el responsable, quien la recibió, el gestor de quejas y el `ADMIN`
+sí; el aprobador solo la grave; el tablero la excluye con `confidentialHidden`; EXTERNO la excluye también para el
+gestor; un aviso con datos no llega a quien no la ve y el nivel 2 genérico no lleva código, título ni enlace; quitar
+la marca sin la acción es `403`).
 
 ### 3.4 Calendario de días hábiles
 
@@ -329,12 +336,17 @@ la plataforma, solo si cambia y con el motivo `situación de plazo (JOB-01 Deadl
 | `risk_escalated` por revisión vencida | `DeadlineNotices` | `review_status` REVISION VENCIDA (niveles 0, 1 y 2) | Nivel 0: responsable; nivel 1: roles de la transición de tratamiento que sigue; nivel 2: roles de `approve_senior` de WF-D | `risk_escalated:<id>:<nivel>:<next_review_date>` | Con la revisión que mueve `next_review_date` |
 | `warning_new` | `WarningNoticeListener` (`sgspe.notification`) | Alta de `early_warning`, por una persona o por JOB-04 | Responsable de la alerta, si lo tiene, y roles de `start_triage` | `warning_new:<id>` | Con `start_triage` |
 | `approval_pending` de queja grave | `ApprovalNoticeListener` (paso nuevo) | `start_action` o `start_action_after_investigation` de una queja ALTA o CRITICA con la política activa; o un cambio de `severity` a ALTA o CRITICA en `in_action` | Roles de `resolve_high_severity` | `approval_pending:grievance:<id>` | Al salir de `in_action` o si la severidad baja de ALTA |
+| `qcs_confidential_overdue` | `DeadlineNotices` | Nivel 2 de `qcs_deadline` de una QCS confidencial | Los asignados con un rol de `approve_senior` de WF-D que no la verían por §3.3 (los que sí la ven reciben `qcs_deadline`) | `qcs_confidential_overdue:<proyecto>:<huella>`, donde `<huella>` son los 16 primeros dígitos hexadecimales del SHA-256 de `<objeto>:<id>:<fecha del plazo>`: un aviso por QCS y plazo sin poner su id, tipo ni fecha en la clave | Cuando la QCS deja el nivel 2 o el estado con plazo |
 
-Los textos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripción, persona ni texto libre.
+Los textos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripción, persona ni texto libre. El de
+`qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto <proyecto> superó
+su plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría ni enlace al
+registro, y es `ACTION`; una prueba de `NoticeTexts` verifica que ningún dato del registro entra en el texto ni en la
+clave. La tarea de escalamiento del nivel 2 se crea igual, con su clave `escalation:<objeto>:<id>:<fecha>:2`.
 
 **Automatizaciones.** AUT-02 (tarea de acuse), AUT-09 (tarea de triaje) y AUT-11 (tarea de riesgo crítico), como las
 diseña `workflows.md`. El plan 4.2b prueba que la escritura de `risk_level` del endpoint dispara AUT-11 y que una alerta
-creada por JOB-04 como la plataforma dispara AUT-09 y `warning_new` (§8).
+creada por JOB-04 como la plataforma dispara AUT-09 y `warning_new` (§8, riesgos).
 
 ### 3.6 Riesgos
 
@@ -510,14 +522,14 @@ UPS 24 a 26 y de 508 a 520 en total, y §20.4 los consolida):
 
 | ID | Contenido |
 |---|---|
-| ASM-095 | Confidencialidad por registro de las QCS (§3.3): quién ve, la acción `READ_CONFIDENTIAL`, el aprobador en las quejas graves, el responsable propio al registrar; reversible quitando el alcance o con la opción B de CON-041 |
+| ASM-095 | Confidencialidad por registro de las QCS (§3.3): quién ve, la acción `READ_CONFIDENTIAL`, el aprobador en las quejas graves, quien la recibió, el registrante como receptor; reversible quitando el alcance o con la opción B de CON-041 |
 | ASM-096 | Días hábiles (§3.4): lunes a viernes menos los feriados nacionales configurados por año y despliegue; año faltante con lunes a viernes y advertencia; el día de recepción no cuenta; los plazos no se recalculan; reversible a un catálogo por organización (ASM-017) |
 | ASM-097 | Semántica de los seis tipos de regla, precedencia de la regla del proyecto, silencio de `window_days` y CAMBIO DE POSTURA fuera del MVP (§4) |
 | ASM-098 | «Cargo de queja» y «Carta de respuesta» esperan UPS-23; el firmado se sube como evidencia FORMULARIO o CARTA; sin avisos al reclamante en el MVP (amplía ASM-090) |
 | ASM-099 | Revisiones de riesgo: cadencia desde la última revisión, `assess` por comando, revisiones en orden de fecha, la primera no residual, POR REVISAR desde el día anterior, tarea `risk_review:<id>:<next_review_date>` |
 | ASM-100 | Plazos de QCS: acuse en días hábiles, respuesta y resolución en días calendario desde la fecha de recepción en Lima; sin pausa; solicitudes sin plazo; `grievance.response_due_date` vacío; tope de POR VENCER a la mitad del plazo |
 | ASM-101 | Contenido de `attention-register` y `risk-register` por nivel (§5), con `EXPORT` sobre los tres objetos de QCS |
-| ASM-102 | Avisos de una QCS confidencial solo a quien la vería; queja ALTA o CRITICA avisa a los roles de `resolve_high_severity` (§3.5) |
+| ASM-102 | Avisos de una QCS confidencial solo a quien la vería, salvo el aviso genérico `qcs_confidential_overdue` del nivel 2, sin datos del registro; queja ALTA o CRITICA avisa a los roles de `resolve_high_severity` (§3.5) |
 | ASM-103 | Los incidentes no tienen severidad, `requiresReason` ni escalamiento en el MVP |
 | ASM-104 | Solo el equipo social (CRO y GVM) registra QCS; sin canal público ni recepción en línea en el MVP |
 | UPS-25 | Candidata: alta pública acotada por tenant y objeto, sin usuario (cadena de seguridad, captcha y límite de tasa de la plataforma); necesaria después del MVP; sin issue hasta la aprobación del usuario |
@@ -567,7 +579,7 @@ UPS 24 a 26 y de 508 a 520 en total, y §20.4 los consolida):
 - `roadmap.md` «Respuestas del checkpoint»: la protección de quien plantea pasa de «sin restringir» a la decisión 2.
 - `api.md`: los contratos de los comandos y del reporte (§3.2 de esta especificación) y de las revisiones (§3.6), y en
   su §3.3 los códigos nuevos:
-  `ANONYMOUS_WITH_IDENTITY`, `CONFIDENTIAL_OWNER_REQUIRED`, `CONFORMITY_GIVEN`, `INVALID_TARGET`, `ALREADY_REFERRED`,
+  `ANONYMOUS_WITH_IDENTITY`, `CONFIDENTIAL_RECEIVER_REQUIRED`, `CONFORMITY_GIVEN`, `INVALID_TARGET`, `ALREADY_REFERRED`,
   `ASSESSMENT_OUT_OF_ORDER`, `FIRST_ASSESSMENT_NOT_RESIDUAL`, `RISK_THRESHOLDS_INVALID`, `MEASURE_OWNER_REQUIRED`,
   `RESIDUAL_ASSESSMENT_REQUIRED`, `HUMAN_DECISION_REQUIRED` y `EVIDENCE_NOT_RESTRICTED`.
 - `database-model.md`: `engagement_question.referred_at`; `READ_CONFIDENTIAL` en las tres QCS; las notas de
@@ -592,26 +604,23 @@ y todo lo de QCS; 4.2b parte de 4.2a ya integrada, porque reutiliza JOB-01 multi
 de destinatarios. No se paralelizan: comparten `sgspe_sdd_test` y el coordinador corre las integraciones una tras otra.
 El portal puede empezar las pantallas de QCS cuando 4.2a esté en `main`.
 
-## 8. Riesgos y puntos abiertos
+## 8. Riesgos y consecuencias aceptadas
 
-**Puntos abiertos para el usuario.**
+**Respuestas del usuario (aplicadas).** El aprobador lee las quejas confidenciales ALTA o CRITICA (§2.3, elección 2);
+quien recibió una QCS confidencial la sigue leyendo y quien registra es siempre su receptor (elección 3); el nivel 2
+de una QCS confidencial avisa con `qcs_confidential_overdue`, sin datos del registro (elección 10, §3.5).
 
-1. **El aprobador y las quejas confidenciales graves** (§2.3, elección 2). Sin esa lectura, una queja confidencial ALTA
-   o CRITICA con la política activa solo la resuelve el `ADMIN`. Alternativa: desactivar la política para esas quejas.
-2. **Responsable propio al registrar una QCS confidencial** (§2.3, elección 3). Alternativa: que también la vea quien la
-   recibió (`received_by_user_id`), lo que amplía la decisión 2.
-3. **Nivel 2 de escalamiento de una QCS confidencial.** Los roles de `approve_senior` de WF-D (hoy `PROJECT_MANAGER`)
-   no la ven, así que su aviso no se crea; queda la tarea de escalamiento con el código. Alternativas: un aviso sin
-   código ni enlace, o conceder `READ_CONFIDENTIAL` a ese rol.
-4. **PUBLICO de `attention-register` depende de quién exporta.** Solo es completo si lo genera quien ve las
-   confidenciales; «Notas» lo dice. Alternativa: exigir `READ_CONFIDENTIAL` para PUBLICO.
-5. **CONTEO DE QCS cuenta confidenciales.** La alerta solo lleva un número sin desglose; la ven todos los lectores de
-   `early_warning`. Alternativa: excluirlas del conteo.
+**Consecuencias aceptadas.**
+
+1. **PUBLICO de `attention-register` depende de quién exporta.** Solo es completo si lo genera quien ve las
+   confidenciales; «Notas» lo dice (§5.1).
+2. **CONTEO DE QCS cuenta confidenciales.** La alerta solo lleva un número sin desglose, y la ven todos los lectores
+   de `early_warning` (§4).
 
 **Riesgos.**
 
 1. **`RecordReadScope` en escrituras y en la respuesta de un alta.** La especificación supone que una QCS que no se lee
-   no se puede cambiar ni transicionar y que el alta de una confidencial devuelve el registro a su responsable. Lo
+   no se puede cambiar ni transicionar y que el alta de una confidencial devuelve el registro a quien la recibió. Lo
    prueba la primera tarea de integración de 4.2a; si la plataforma difiere, `AttentionWriteGuard` suma la regla que
    falte.
 2. **Escrituras de la plataforma y listeners.** Si una alerta creada por JOB-04 como la plataforma no llega a
