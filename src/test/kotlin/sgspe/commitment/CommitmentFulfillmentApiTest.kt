@@ -81,6 +81,34 @@ class CommitmentFulfillmentApiTest : F3DomainApiTest() {
         move("commitment", id, "register_fulfillment", reason = "entregado")
     }
 
+    // D10 falla cerrada: un compromiso del que se depende y que quien registra no lee (otro proyecto) no cuenta como resuelto
+    @Test
+    fun `una dependencia hacia un compromiso que quien registra no lee es OBJECT_NOT_READABLE`() {
+        val project = testProject()
+        val manager = member("COMMITMENT_MANAGER", project)
+        val id = approvedCommitment(project, attributes = mapOf("resource_type" to "NO MATERIAL"))
+        createRecord("commitment_dependency", mapOf("commitment" to id, "depends_on" to commitment(project()), "blocking" to true))
+        delivery(id, evidence = listOf(evidence(project, "OTRO")))
+        val refused = transition("commitment", id, "register_fulfillment", manager.token, "entregado")
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("OBJECT_NOT_READABLE", code(refused))
+        assertEquals("commitment", tree(refused.body)["errors"][0]["field"].asString())
+        assertEquals("in_progress", state("commitment", id))
+    }
+
+    // sin tipo de recurso, D9 no supone NO MATERIAL: falla cerrada
+    @Test
+    fun `sin tipo de recurso no se registra el cumplimiento`() {
+        val project = testProject()
+        val id = approvedCommitment(project, attributes = mapOf("resource_type" to "NO MATERIAL"))
+        delivery(id, evidence = listOf(evidence(project, "CARTA")))
+        assertEquals(HttpStatus.OK, edit("commitment", id, mapOf("resource_type" to null), headers = withReason()).status)
+        val refused = transition("commitment", id, "register_fulfillment", reason = "entregado")
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("FIELD_REQUIRED", code(refused))
+        assertEquals("resource_type", tree(refused.body)["errors"][0]["field"].asString())
+    }
+
     @Test
     fun `el responsable no verifica su compromiso, otro gestor si, y cerrar fecha closed_date`() {
         val project = testProject()
