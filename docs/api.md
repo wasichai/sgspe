@@ -167,9 +167,13 @@ real:
 
 | Estado | Códigos |
 |---|---|
-| `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1), `POSITION_WITHOUT_PERSON` (`position_status`: un cargo sin persona solo puede estar `VACANTE` o `PREVISTO`), `INVALID_NUMBER` (un monto que no es un número) y `OUT_OF_RANGE` (un monto negativo, con más de 15 dígitos enteros o con más de 4 decimales tras quitar los ceros finales), sobre el campo: `exploration_campaign.social_support_cap`, `commitment.amount`, `delivery.delivered_amount` y `agreement.amount`, en el alta y en todo cambio de su valor (`AmountFieldsGuard`, ASM-092), `JUSTIFICATION_REQUIRED` (`origin_justification`: un compromiso que nace de un taller o de una reunión informativa, RN-ENG-001) y `DEPENDENCY_SELF` (`depends_on`: un compromiso no depende de sí mismo) |
-| `403` | `COMMAND_ONLY` (la transición es de comando), `NOT_ASSIGNED` (sin asignación vigente al proyecto), `ACTION_REQUIRED` (falta la acción declarada: `APPROVE` de un proyecto o de un compromiso y `VERIFY` de un compromiso, sobre `record`; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una evidencia restringida, sobre `classification`), `NOT_OWN_RECORD` (el objeto declara `EDIT_ANY`, quien escribe no lo tiene y no creó el registro: no lo cambia, mueve, vincula ni borra; `record`), `SEGREGATION_OF_DUTIES` (quien aprueba un compromiso lo registró, `record`; quien lo verifica es su responsable, `owner_user_id`; RN-COM-005), `FIELD_NOT_READABLE` (`delivery.conformity_by`: registrar el cumplimiento necesita leer quiénes dieron la conformidad), `GENERATOR_KEY_PLATFORM_ONLY` (`generator_key`: una persona fija, cambia o vacía la clave de una tarea, también con un `PUT` que la omite; reenviarla tal como se leyó no es cambiarla), `OBJECT_NOT_READABLE` (quien escribe no lee un objeto que la regla necesita: `project_party`, `project`, `engagement_participant`, `engagement_question` o `area_of_influence`; desde F3 también `commitment`, `engagement`, `exploration_campaign`, `delivery`, `evidence`, `commitment_dependency` o `stakeholder`, y `agreement_land_parcel` al activar un acuerdo; `field` es el objeto) |
-| `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios, o uno opcional de un objeto `requiresReason`, y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `FROZEN_MEMBERS` (los miembros de una versión `approved` o `superseded` del área de influencia no cambian; `field`: `area_of_influence`), `FROZEN_AREA` (su proyecto, tipo y número de versión tampoco; `field` es el campo que cambia), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED`, `PROFILE_INCOMPLETE` (`caracterizar` exige `stakeholder_type`, `stakeholder_scope`, `inclusion_reason` y `owner_user_id`; `field` es el primero que falta), `DUPLICATE_RULE` (`stakeholder_type`: ya hay una fila de `prioritization_rule` para cualquier tipo de actor con ese proyecto, grupo de influencia, postura y ámbito). Desde F3: `WORKSHOP_COMMITMENT_BLOCKED` (`origin_engagement`: el proyecto no admite compromisos de talleres ni reuniones informativas), `DUE_DATE_RESCHEDULE_ONLY` (`due_date`: desde `approved`, también en `cancelled`, la fecha solo cambia con una reprogramación), `DEPENDENCY_CYCLE` y `DEPENDENCY_GRAPH_TOO_LARGE` (`depends_on`: la dependencia cerraría un ciclo, o encadena más de 500 compromisos y no se puede verificar), `PROJECT_MISMATCH` (el campo de un compromiso o de un candidato que apunta a un registro de otro proyecto), `DELIVERY_FROZEN` (`commitment`: la entrega de un compromiso cumplido, verificado, cerrado o cancelado no cambia ni se vincula), `FIELD_REQUIRED` también con los campos de la matriz de compromisos y el responsable (el primero que falta), `resource_type` al registrar el cumplimiento, `signed_date`, `effective_date` y `community` de un acuerdo, y `duplicate_of`; `STAKEHOLDER_REQUIRED` (`commitment_stakeholder`), `SENIOR_APPROVAL_REQUIRED` (`origin_engagement` si nace de una mesa de diálogo, `commitment_stakeholder` si lo pide un grupo de interés POLITICO), `INTERNAL_APPROVAL_REQUIRED` (`project`), `SUPPORT_CAP_EXCEEDED` y `CAP_DATA_INVALID` (`exploration_campaign`: la aprobación supera el tope de la campaña, o un monto guardado de la campaña no es válido y el tope no se puede sumar), `DELIVERY_REQUIRED` (`delivery`), `EVIDENCE_REQUIRED` (`evidence_delivery`), `BLOCKING_DEPENDENCY` (`commitment_dependency`), `LAND_PARCEL_REQUIRED` (`agreement_land_parcel`), `ASSEMBLY_REQUIRED` (`assembly_engagement`) y, por los comandos de evidencias, `EVIDENCE_IMMUTABLE` (`file`, `replaces` o `import_batch_id`), `EVIDENCE_NOT_DELETABLE` (`record`) y `EVIDENCE_FILE_IN_USE` (`file`: el archivo ya es de otra evidencia) |
+| `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1), `POSITION_WITHOUT_PERSON` (`position_status`: un cargo sin persona solo puede estar `VACANTE` o `PREVISTO`), `INVALID_NUMBER` (un monto que no es un número) y `OUT_OF_RANGE` (un monto negativo, con más de 15 dígitos enteros o con más de 4 decimales tras quitar los ceros finales), sobre el campo: `exploration_campaign.social_support_cap`, `commitment.amount`, `delivery.delivered_amount` y `agreement.amount`, en el alta y en todo cambio de su valor (`AmountFieldsGuard`, ASM-092), `JUSTIFICATION_REQUIRED` (`origin_justification`: un compromiso que nace de un taller o de una reunión informativa, RN-ENG-001) y `DEPENDENCY_SELF` (`depends_on`: un compromiso no depende de sí mismo). Desde F4: `ANONYMOUS_WITH_IDENTITY` (`person` o `stakeholder` de una QCS anónima), `CONFIDENTIAL_RECEIVER_REQUIRED` (`received_by_user_id`: el alta de una QCS confidencial, sin `READ_CONFIDENTIAL`, lleva como receptor a quien escribe), `INVALID_LINK` (`duplicate_of`: una queja no es duplicado de sí misma), `FIELD_REQUIRED` (`category` y `severity` para atender una queja; `resolution` y `response` para resolverla; `responded_at` y `response` en las transiciones que comunican una respuesta; probabilidad, impacto y `owner_user_id` al evaluar un riesgo; `close_reason` al cerrarlo; `immediate_response` y `consequences` al cerrar un incidente) y `OUT_OF_RANGE` también en los plazos y la cadencia del proyecto (de 1 a 365), sus umbrales de riesgo (de 1 a 25 y crecientes) y `threshold` y `window_days` de una regla de alerta (ASM-097) |
+| `403` | `COMMAND_ONLY` (la transición es de comando), `NOT_ASSIGNED` (sin asignación vigente al proyecto), `ACTION_REQUIRED` (falta la acción declarada: `APPROVE` de un proyecto o de un compromiso y `VERIFY` de un compromiso, sobre `record`; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una evidencia restringida, sobre `classification`), `NOT_OWN_RECORD` (el objeto declara `EDIT_ANY`, quien escribe no lo tiene y no creó el registro: no lo cambia, mueve, vincula ni borra; `record`), `SEGREGATION_OF_DUTIES` (quien aprueba un compromiso lo registró, `record`; quien lo verifica es su responsable, `owner_user_id`; RN-COM-005), `FIELD_NOT_READABLE` (`delivery.conformity_by`: registrar el cumplimiento necesita leer quiénes dieron la conformidad), `GENERATOR_KEY_PLATFORM_ONLY` (`generator_key`: una persona fija, cambia o vacía la clave de una tarea, también con un `PUT` que la omite; reenviarla tal como se leyó no es cambiarla), `OBJECT_NOT_READABLE` (quien escribe no lee un objeto que la regla necesita: `project_party`, `project`, `engagement_participant`, `engagement_question` o `area_of_influence`; desde F3 también `commitment`, `engagement`, `exploration_campaign`, `delivery`, `evidence`, `commitment_dependency` o `stakeholder`, y `agreement_land_parcel` al activar un acuerdo; `field` es el objeto). Desde F4: `ACTION_REQUIRED` también sin `READ_CONFIDENTIAL` al quitar `confidential` o cambiar `owner_user_id` o `received_by_user_id` de una QCS confidencial (sobre el campo), sin `APPROVE` en `resolve_high_severity` y sin `CONFIRM_ALERT` en `confirm` y `dismiss` (`record`); `HUMAN_DECISION_REQUIRED` (`record`: confirmar o descartar una alerta sin usuario o con una cuenta de servicio, RN-EWS-001); `COMMAND_ONLY` también en `close_reclassified` y `close_reclassified_*`, `accept` y `close_accepted` de WF-E3 y `assess` de WF-F; `GENERATOR_KEY_PLATFORM_ONLY` también en `early_warning.generator_key` |
+| `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios, o uno opcional de un objeto `requiresReason`, y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `FROZEN_MEMBERS` (los miembros de una versión `approved` o `superseded` del área de influencia no cambian; `field`: `area_of_influence`), `FROZEN_AREA` (su proyecto, tipo y número de versión tampoco; `field` es el campo que cambia), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED`, `PROFILE_INCOMPLETE` (`caracterizar` exige `stakeholder_type`, `stakeholder_scope`, `inclusion_reason` y `owner_user_id`; `field` es el primero que falta), `DUPLICATE_RULE` (`stakeholder_type`: ya hay una fila de `prioritization_rule` para cualquier tipo de actor con ese proyecto, grupo de influencia, postura y ámbito). Desde F3: `WORKSHOP_COMMITMENT_BLOCKED` (`origin_engagement`: el proyecto no admite compromisos de talleres ni reuniones informativas), `DUE_DATE_RESCHEDULE_ONLY` (`due_date`: desde `approved`, también en `cancelled`, la fecha solo cambia con una reprogramación), `DEPENDENCY_CYCLE` y `DEPENDENCY_GRAPH_TOO_LARGE` (`depends_on`: la dependencia cerraría un ciclo, o encadena más de 500 compromisos y no se puede verificar), `PROJECT_MISMATCH` (el campo de un compromiso o de un candidato que apunta a un registro de otro proyecto), `DELIVERY_FROZEN` (`commitment`: la entrega de un compromiso cumplido, verificado, cerrado o cancelado no cambia ni se vincula), `FIELD_REQUIRED` también con los campos de la matriz de compromisos y el responsable (el primero que falta), `resource_type` al registrar el cumplimiento, `signed_date`, `effective_date` y `community` de un acuerdo, y `duplicate_of`; `STAKEHOLDER_REQUIRED` (`commitment_stakeholder`), `SENIOR_APPROVAL_REQUIRED` (`origin_engagement` si nace de una mesa de diálogo, `commitment_stakeholder` si lo pide un grupo de interés POLITICO), `INTERNAL_APPROVAL_REQUIRED` (`project`), `SUPPORT_CAP_EXCEEDED` y `CAP_DATA_INVALID` (`exploration_campaign`: la aprobación supera el tope de la campaña, o un monto guardado de la campaña no es válido y el tope no se puede sumar), `DELIVERY_REQUIRED` (`delivery`), `EVIDENCE_REQUIRED` (`evidence_delivery`), `BLOCKING_DEPENDENCY` (`commitment_dependency`), `LAND_PARCEL_REQUIRED` (`agreement_land_parcel`), `ASSEMBLY_REQUIRED` (`assembly_engagement`) y, por los comandos de evidencias, `EVIDENCE_IMMUTABLE` (`file`, `replaces` o `import_batch_id`), `EVIDENCE_NOT_DELETABLE` (`record`) y `EVIDENCE_FILE_IN_USE` (`file`: el archivo ya es de otra evidencia). Desde F4: `PROJECT_MISMATCH` en toda relación de un objeto de F4 hacia un registro de otro proyecto (`origin_engagement`, `origin_question`, `stakeholder`, `social_risk`, `incident`, `duplicate_of`, `reclassified_from_*`, `created_commitment`, `area_of_influence`, `key_theme`, `origin_incident`, `commitment`, `media_mention`, `early_warning` y `early_warning_rule`; una regla del tenant no discrepa), en `commitment.origin_grievance` y `commitment.social_risk` y en los vínculos `social_risk_stakeholder` e `incident_stakeholder` (`ProjectLinkGuard`); `SENIOR_APPROVAL_REQUIRED` (`record`: `resolve` de una queja ALTA o CRITICA con `policy_high_severity_requires_approver` activo); `CONFORMITY_GIVEN` (`complainant_conformity_given`: no se reabre una queja con conformidad); `STATE_MISMATCH` (`created_commitment`: `close_unfulfilled` con el compromiso fuera de `cancelled`); `MEASURE_OWNER_REQUIRED` (`mitigation_measure`: mitigar sin una medida con responsable); `RESIDUAL_ASSESSMENT_REQUIRED` (`risk_assessment`: monitorear sin una revisión residual); `HAS_DEPENDENTS` también en una regla de alerta con alertas; y, por los vínculos de evidencias, `EVIDENCE_NOT_RESTRICTED` (`classification`: una evidencia que no es CONFIDENCIAL ni DATOS PERSONALES no se vincula a una QCS confidencial) |
+
+Los comandos de F4 suman sus propios códigos, con la misma forma: `INVALID_TARGET`, `ALREADY_REFERRED`,
+`STATE_MISMATCH`, `ASSESSMENT_OUT_OF_ORDER`, `FIRST_ASSESSMENT_NOT_RESIDUAL` y `RISK_THRESHOLDS_INVALID`; §4.4, §4.6 y
+§4.7 dicen cuándo.
 
 La emisión manual de un documento (`POST /api/objects/{object}/records/{id}/documents/{type}`, §2) no es una escritura
 de `RecordService`, pero archiva el documento vigente del tipo: `IssueDocumentFilter` (`sgspe.scope`) le pide lo mismo
@@ -683,6 +687,14 @@ de esa interacción como escritura derivada [domain-model §7.2, §7.5].
 |---|---|---|---|---|---|---|
 | `POST` | `/api/sgspe/engagement-questions/{id}/referral` | Deriva una pregunta pendiente a una consulta, una solicitud o una queja, creada y vinculada (`origin_question`) en un solo comando | CREATE sobre el objeto destino; READ sobre `engagement_question` | `{ target, attributes }` con `target` igual a `inquiry`, `stakeholder_request` o `grievance` → `201 { question, created }` | `IK`, `CR` | F4 |
 
+- **Derivación (F4).** En una transacción, crea la QCS de `target` con `attributes` (sujetos a `AttentionWriteGuard`)
+  más `origin_question`, `origin_engagement` (la interacción de la pregunta), el `project` de la interacción, `channel`
+  REUNION y `received_at` igual al `held_at` de la interacción, y escribe `referred_at` en la pregunta con la marca
+  `SgspeWrite`. `EngagementWriteGuard` cuenta como atendida una pregunta con `referred_at` (RN-ENG-005) sin leer la QCS,
+  que puede ser confidencial. Errores: `409 ALREADY_REFERRED` (`record`) si la pregunta ya tiene `referred_at`; `409
+  STATE_MISMATCH` (`engagement`) si la interacción no está entre `held` y `minutes_approved`; `400 INVALID_TARGET`
+  (`target`).
+
 ### 4.5 BC-05 Compromisos
 
 Paquete `sgspe.commitment`. Aprobar, iniciar, bloquear, registrar el cumplimiento, verificar, cerrar y cancelar son
@@ -746,7 +758,7 @@ compromiso o su aporte cancelado o rechazado se cierra a mano con la transición
 | `POST` | `/api/sgspe/inquiries/{id}/reclassify` | Reclasifica una consulta como queja o solicitud y cierra la original | CREATE sobre el objeto destino, UPDATE sobre `inquiry` y el rol de la transición de cierre | Igual | `IK`, `IM`, `CR` | F4 |
 | `POST` | `/api/sgspe/stakeholder-requests/{id}/reclassify` | Reclasifica una solicitud como queja o consulta y cierra la original | CREATE sobre el objeto destino, UPDATE sobre `stakeholder_request` y el rol de la transición de cierre | Igual | `IK`, `IM`, `CR` | F4 |
 | `POST` | `/api/sgspe/stakeholder-requests/{id}/accept` | Acepta la solicitud: crea un compromiso en `draft` o, desde F5, un aporte social, lo vincula (`created_commitment` o `created_contribution`) y lleva la solicitud a `accepted` | UPDATE sobre `stakeholder_request`, CREATE sobre `commitment` o `social_contribution`, el rol de la transición de WF-E3 a `accepted` y, si vincula solicitantes, UPDATE sobre `stakeholder` (basta el de solo vínculo, `u` en `security.md`) | `{ creates, response, respondedAt, attributes }`: `creates` igual a `commitment` o `social_contribution`; `response` (texto) y `respondedAt` (fecha y hora) son la respuesta a la solicitud, y `attributes`, los valores del registro que se crea → `201 { request, commitment }` o `201 { request, contribution }` | `IK`, `IM`, `CR` | F4 (aporte en F5) |
-| `GET` | `/api/sgspe/attention/report` | Reporte unificado de quejas, consultas y solicitudes: totales por tipo, estado, canal y categoría, y la lista | READ sobre los tres objetos; lo que no se puede leer sale como no disponible | `?project=&periodStart=&periodEnd=&channel=&category=` → `200 { totals, byType, page }` | — | F4 |
+| `GET` | `/api/sgspe/attention/report` | Reporte unificado de quejas, consultas y solicitudes: totales por tipo, estado, canal y categoría, y la lista | READ sobre los tres objetos; lo que no se puede leer sale como no disponible | `?project=&periodStart=&periodEnd=&type=&channel=&category=&page=&size=` → `200 { totals, byType, confidentialHidden, page }` | — | F4 |
 
 - El registro nuevo de una reclasificación guarda el vínculo `reclassified_from_*` con el original (RF-GRV-007), y el
   original pasa a `closed` con la transición de comando `close_reclassified_*` que fija `workflows.md`: el planteamiento sigue
@@ -754,10 +766,34 @@ compromiso o su aporte cancelado o rechazado se cierra a mano con la transición
 - **La reclasificación conserva la fecha de recepción.** El registro nuevo copia `received_at` del primer registro de la
   cadena, y sus plazos corren desde esa fecha, porque el grupo de interés planteó el caso una sola vez (ASM-072).
 - Una QCS anónima no lleva persona ni grupo de interés (`AttentionWriteGuard`, RF-GRV-001).
-- **Aceptar una solicitud es responderla.** El endpoint escribe `response` y `responded_at` en la `stakeholder_request`, en la
-  misma transacción que la transición a `accepted` y el alta del compromiso o del aporte. Si falta `response` o
+- **Aceptar una solicitud es responderla.** El endpoint escribe `response` y `responded_at` en la `stakeholder_request`,
+  en la misma transacción que la transición a `accepted` y el alta del compromiso o del aporte. Si falta `response` o
   `respondedAt`, `AttentionWriteGuard` rechaza la transición con un `400` que nombra el campo y no se escribe nada. Con
   `responded_at` informado, la solicitud cuenta como absuelta (RF-GRV-004, RQ-DSH-023) (`workflows.md`, WF-E3).
+- **Reclasificación, contrato.** En una transacción, crea la QCS de `targetType` copiando los campos comunes (canal,
+  `received_at` del primer registro de la cadena, quien recibió, anonimato, confidencialidad, categoría, descripción,
+  prioridad, responsable, ubicación, grupo de interés, persona, localidad, comunidad, tema, interacción y pregunta de
+  origen) más `reclassified_from_<tipo>`; `attributes` puede completar o cambiar los campos no derivados salvo
+  `received_at` y los vínculos de reclasificación; aplica `close_reclassified_*` al original con el motivo de la
+  petición. Errores: `400 INVALID_TARGET` (`targetType`: el mismo tipo, o uno que no es de los tres) y
+  `409 STATE_MISMATCH` (`record`: el original no está en un estado con transición de reclasificación).
+- **Aceptación, errores.** `400 INVALID_TARGET` (`creates`: en F4 solo `commitment`; el aporte llega en F5) y
+  `409 STATE_MISMATCH` (`record`) fuera de `under_evaluation`.
+- **Reporte unificado.** Lee como quien llama. `totals` y cada fila de `byType` traen `received`, `open`, `closed`,
+  `rejected`, `withdrawn`, `absolved` y `overdue`, contados con `AttentionCounting` (cada planteamiento una vez,
+  `dashboards.md` §3.3); `byType` suma `byState`, `byChannel` y `byCategory`. `page.items` lleva `type`, `id`, `code`,
+  `state`, `channel`, `category`, `severity`, `receivedAt`, `deadlineStatus`, `dueDate` (el plazo que corre en el
+  estado), `ownerEmail`, `respondedAt` y `anonymous`: nunca texto libre ni persona. Un tipo que quien llama no lee sale
+  `available: false`. `confidentialHidden` es `true` cuando quien llama no es `ADMIN` ni tiene `READ_CONFIDENTIAL` sobre
+  los tres objetos: un booleano, nunca el número de excluidas. Tope: `sgspe.exports.max-rows`
+  (`400 TOO_MANY_RECORDS`); un parámetro desconocido es `422` (ASM-054).
+- **Confidencialidad (ASM-095).** Una QCS confidencial que quien llama no lee no aparece en ninguna ruta (lista,
+  detalle, relacionados, historial, transiciones, features ni agente): wasichai le aplica `ConfidentialAttentionScope`
+  (`security.md` §9.6), y quien no la lee tampoco la cambia ni la transiciona. Un vínculo desde otro objeto (tarea,
+  evidencia, compromiso o pregunta) deja ver el id, no el registro.
+- **Mismo proyecto.** Toda relación de una QCS hacia un registro con alcance de proyecto, también la que escribe un
+  comando, debe ser del mismo proyecto: si no, `409 PROJECT_MISMATCH` sobre el campo (`ProjectLinkGuard`).
+- **Idempotencia.** La derivación, las reclasificaciones y la aceptación honran `Idempotency-Key` (§3.5).
 
 ### 4.7 BC-08 Riesgos sociales
 
@@ -767,8 +803,23 @@ Paquete `sgspe.risk`.
 |---|---|---|---|---|---|---|
 | `POST` | `/api/sgspe/social-risks/{id}/assessments` | Revisión del riesgo: valida probabilidad e impacto de 1 a 5, calcula puntaje, nivel y tendencia, crea `risk_assessment` y actualiza los valores vigentes (o los residuales); la primera revisión lleva el riesgo a `assessed` | CREATE sobre `risk_assessment`, UPDATE sobre `social_risk` y el rol de la transición de WF-F a `assessed` | `{ attributes: { assessment_date, probability, impact, residual, notes } }` → `201 { assessment, risk }` | `IK`, `CR` | F4 |
 
-El nivel sale de los umbrales del proyecto (RN-RSK-002, ASM-004). Mitigar, monitorear y cerrar son transiciones genéricas con
-`RiskWriteGuard` (RN-RSK-003).
+El nivel sale de los umbrales del proyecto (RN-RSK-002, ASM-004). Mitigar, monitorear y cerrar son transiciones
+genéricas con `RiskWriteGuard` (RN-RSK-003).
+
+- **Revisiones, contrato (ASM-099).** En una transacción: (1) valida `probability` e `impact` enteros de 1 a 5
+  (`400 OUT_OF_RANGE`), `assessment_date` no futura en Lima (`400 OUT_OF_RANGE`) y no anterior a la última revisión del
+  mismo tipo, residual o no (`409 ASSESSMENT_OUT_OF_ORDER`); un riesgo `closed` responde `409 STATE_MISMATCH`, y la
+  primera revisión no puede ser residual (`409 FIRST_ASSESSMENT_NOT_RESIDUAL`); (2) calcula `score` = P × I y el nivel
+  con `RiskLevels`: CRITICO desde `risk_critical_min_score`, ALTO desde `risk_high_min_score`, MEDIO desde
+  `risk_medium_min_score` y BAJO por debajo; umbrales inválidos guardados antes de la regla de `ProjectWriteGuard`
+  responden `409 RISK_THRESHOLDS_INVALID`; (3) calcula `trend` frente a la revisión anterior del mismo tipo (AUMENTA, SE
+  MANTIENE o DISMINUYE según el puntaje; vacía en la primera); (4) crea la `risk_assessment` con quien revisa; (5)
+  actualiza los valores vigentes (no residual) o los residuales, y `next_review_date` = `assessment_date` +
+  (`review_every_days` o `risk_review_days`), con la marca; (6) en la primera revisión aplica `assess`, una transición
+  de comando, con el motivo de la petición.
+- La subida de `risk_level` a ALTO o CRITICO publica `risk_escalated` (`RiskNoticeListener`) y, a CRITICO, dispara
+  AUT-11. Un cambio de umbrales del proyecto no recalcula los niveles guardados: los cambia la revisión siguiente.
+- `risk_assessment` es `appendOnly` y `apiOnly`: una revisión se corrige con otra, nunca se cambia ni se borra.
 
 ### 4.8 BC-10 Inversión social y programas
 
@@ -797,7 +848,7 @@ wasichai (§2).
 | `POST` | `/api/sgspe/evidence` | Registra la evidencia con el archivo subido por la misma persona y la vincula, en una transacción | CREATE sobre `evidence`; UPDATE sobre `evidence` y cada objeto vinculado | `{ attributes: { file: <id>, evidence_type, classification, … }, geometries?, links?: [{ object, recordId }] }` (hasta 50 vínculos) → `201` registro, con `attributes.file` = el descriptor y `ETag`; un archivo que subió otra persona, `400` sobre `file`; un archivo que ya es de otra evidencia, `409 EVIDENCE_FILE_IN_USE` (`file`) | `IK`; `CR` si un vínculo toca un objeto `requiresReason` | F3 |
 | `GET` | `/api/sgspe/evidence/{id}/content` | Descarga el archivo en streaming; la ruta nativa `GET /api/objects/evidence/records/{id}/files/{field}` aplica la misma comprobación, también con `HEAD` | READ sobre `evidence`; para CONFIDENCIAL y DATOS PERSONALES, o si quien llama no lee la clasificación, además `DOWNLOAD_RESTRICTED` (`403 ACTION_REQUIRED` sobre `classification`, RF-DOC-003) | → archivo `attachment` con `ETag` igual al SHA-256 | — | F3 |
 | `PATCH` | `/api/sgspe/evidence/{id}` | Cambia los datos descriptivos (`title`, `classification`, `document_date`, `author`, `captured_at`, `people_identifiable`, `photo_consent_given`); nunca el archivo; solo escribe lo que cambia | UPDATE sobre `evidence`; `EDIT_ANY` si la subió otra persona; bajar una clasificación restringida exige `DOWNLOAD_RESTRICTED` (`403 ACTION_REQUIRED`, ASM-071), para que reclasificar no abra la descarga | `{ attributes }` → `200` registro, con `ETag`; otro campo, `400 FIELD_NOT_EDITABLE` (`attributes.<campo>`); cambiar la clasificación sin motivo, `400 FIELD_REASON_REQUIRED` (`reason`) | `IM`; `CR` si cambia la clasificación | F3 |
-| `POST` | `/api/sgspe/evidence/{id}/links` | Vincula la evidencia con un registro de un destino `evidence_<objeto>` | UPDATE sobre los dos registros; `EDIT_ANY` sobre `evidence` si la subió otra persona (`EditAnyGuard`) | `{ object, recordId }` → `204`; un objeto que no es destino, `400 INVALID_LINK` (`object`); una entrega cumplida o cancelada, `409 DELIVERY_FROZEN` | `CR` si el destino es `requiresReason` (sin él, `400 REASON_REQUIRED`) | F3 |
+| `POST` | `/api/sgspe/evidence/{id}/links` | Vincula la evidencia con un registro de un destino `evidence_<objeto>` | UPDATE sobre los dos registros; `EDIT_ANY` sobre `evidence` si la subió otra persona (`EditAnyGuard`) | `{ object, recordId }` → `204`; un objeto que no es destino, `400 INVALID_LINK` (`object`); una entrega cumplida o cancelada, `409 DELIVERY_FROZEN`; desde F4 acepta `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `incident` y `media_mention`, y una evidencia que no es CONFIDENCIAL ni DATOS PERSONALES no se vincula a una QCS confidencial (`409 EVIDENCE_NOT_RESTRICTED`, `classification`) | `CR` si el destino es `requiresReason` (sin él, `400 REASON_REQUIRED`) | F3 |
 | `DELETE` | `/api/sgspe/evidence/{id}/links/{object}/{recordId}` | Desvincula; una entrega de un compromiso cumplido o cancelado no pierde evidencias (`409 DELIVERY_FROZEN`) | Igual | → `204` | `CR` si el destino es `requiresReason` | F3 |
 
 - Un reintento repite solo el segundo paso, con la misma `Idempotency-Key` y el mismo `file`: el archivo no se vuelve a
@@ -883,6 +934,11 @@ código que usan los entregables (RQ-DSH-031, RQ-DSH-034). El portal los guarda 
   desconocido es `422`.
 - El cierre de periodo no congela los indicadores que leen campos restringidos, como los de postura: `indicator_measurement`
   lo leen roles sin acceso a esos campos, y una cifra congelada saldría por la API genérica (`dashboards.md` §10).
+
+- Los tableros `attention` y `risks` (F4) son internos y no aplican celdas pequeñas. La respuesta de `attention`, la de
+  cada KPI-GRV y la de KPI-ENG-05 llevan `confidentialHidden: true` cuando quien llama no es `ADMIN` ni tiene
+  `READ_CONFIDENTIAL` sobre los tres objetos de QCS; nunca el número de excluidas (`dashboards.md` §8). KPI-ENG-06 a
+  KPI-ENG-08 solo se piden por `GET /api/sgspe/dashboards/indicators/{code}` hasta F8.
 
 | `{dashboard}` | Tablero | Requisito | Desde |
 |---|---|---|---|
@@ -997,8 +1053,8 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
 |---|---|---|---|
 | `stakeholder-register` | Registro de grupos de interés con su evaluación vigente | `stakeholder` | F2 |
 | `commitment-matrix` | Matriz de compromisos con los campos de DOC-01 §9.3.1.2 (RF-COM-001), sin el documento de identidad de los solicitantes, que nunca se exporta en ningún nivel (RQ-REP-022) | `commitment` | F3 |
-| `attention-register` | Quejas, consultas y solicitudes | `grievance`, `inquiry` y `stakeholder_request` | F4 |
-| `risk-register` | Matriz de riesgos con su última revisión | `social_risk` | F4 |
+| `attention-register` | Quejas, consultas y solicitudes, con las confidenciales solo en INTERNO (ASM-101) | `grievance`, `inquiry` y `stakeholder_request` | F4 |
+| `risk-register` | Matriz de riesgos con sus revisiones, medidas e impactos (ASM-101) | `social_risk` | F4 |
 
 **`stakeholder-register` (F2).**
 
@@ -1053,6 +1109,38 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
   filtre como filtre (límite aceptado en F3).
 - **Errores.** Los de `stakeholder-register`; `export_log` lleva `object_name` `commitment` y `row_count` cuenta
   compromisos.
+
+**`attention-register` (F4).**
+
+- **Permiso.** READ y `EXPORT` sobre los tres objetos (hoy `SOCIAL_MANAGER`, `GRIEVANCE_MANAGER` y `ANALYST`) y CREATE
+  sobre `export_log`; sin alguno, `403` sin código: un registro unificado con un tipo de menos engañaría.
+- **Cuerpo.** `{ filters, disclosureLevel, checklistConfirmed }`; `filters` es `{ project: string[], periodStart,
+  periodEnd, type: string[], state: string[], channel, category, includeReclassified }`. El periodo filtra `received_at`
+  en fechas de Lima; `state` toma estados de los tres workflows; `includeReclassified` (falso por defecto) agrega los
+  originales reclasificados. Un filtro inválido es `400 INVALID_FILTER` sobre el filtro. Los proyectos siguen la regla
+  de `stakeholder-register`.
+- **Contenido.** Las hojas y columnas de cada nivel están en `deliverables.md` §10. INTERNO incluye las QCS
+  confidenciales que quien exporta lee; EXTERNO excluye toda QCS confidencial (aunque quien exporta la lea), todo texto
+  libre, la persona, quien recibió y el responsable, y exige `checklistConfirmed`; PUBLICO cuenta planteamientos
+  (`AttentionCounting`) sobre la grilla completa con la marca `reservado` (ASM-088), sin totales, territorio ni grupo de
+  interés, y su hoja «Notas» dice si el conteo incluye las confidenciales.
+- **Tope.** `sgspe.exports.max-rows` por conjunto y 2 000 registros cuyos vínculos se leen uno por uno, con 200 por
+  registro (`400 TOO_MANY_RECORDS` sobre `filters.project`).
+- **Errores.** Los de `stakeholder-register`; `export_log` lleva `object_name` `grievance,inquiry,stakeholder_request` y
+  `row_count` cuenta planteamientos.
+
+**`risk-register` (F4).**
+
+- **Permiso.** READ y `EXPORT` sobre `social_risk` (`SOCIAL_MANAGER`, `SOCIAL_RISK_MANAGER` y `ANALYST`) y CREATE sobre
+  `export_log`.
+- **Cuerpo.** `{ filters, disclosureLevel, checklistConfirmed }`; `filters` es `{ project: string[], state: string[],
+  category: string[], riskLevel: string[], includeClosed }`, con `includeClosed` falso por defecto (`400 INVALID_FILTER`
+  sobre el filtro).
+- **Contenido.** Las hojas y columnas de cada nivel están en `deliverables.md` §10: INTERNO con «Matriz», «Revisiones»,
+  «Medidas» e «Impactos»; EXTERNO sin texto libre ni correos, con los grupos de interés por código `GI-` y las medidas
+  contadas en la «Matriz»; PUBLICO con conteos de riesgos activos sobre la grilla completa y `SmallCells`.
+- **Tope y errores.** Los de `attention-register`; `export_log` lleva `object_name` `social_risk` y `row_count` cuenta
+  riesgos.
 
 ### 4.14 BC-18 IA y conocimiento
 

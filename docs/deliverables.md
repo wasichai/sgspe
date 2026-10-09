@@ -584,9 +584,28 @@ La generación, la revisión y la emisión quedan además en `audit_log` con su 
   los solicitantes por código `GI-`; en PUBLICO solo cuenta por estado y tema y por tipo de recurso, con la marca
   `reservado` (ASM-088). `deadline_status` sale solo en un compromiso pendiente, y un compromiso o una entrega con más
   de 200 solicitantes o evidencias no se exporta (`api.md` §4.13).
-- **Documento de identidad de los solicitantes.** La matriz de DOC-01 lo pide [DOC-01 §9.3.1.2], pero en SGSPE es solo un campo
-  restringido y nunca se exporta, en ningún nivel de divulgación: la matriz exportada no tiene esa columna (RF-COM-001,
-  RQ-REP-014, RQ-REP-022, CON-014).
+- **Documento de identidad de los solicitantes.** La matriz de DOC-01 lo pide [DOC-01 §9.3.1.2], pero en SGSPE es solo
+  un campo restringido y nunca se exporta, en ningún nivel de divulgación: la matriz exportada no tiene esa columna
+  (RF-COM-001, RQ-REP-014, RQ-REP-022, CON-014).
+- **Texto libre (F4, ASM-101).** Son los campos LONG_TEXT: en las QCS `description`, `response`, `resolution` y
+  `requested_resource`; en los riesgos `risk_source`, `treatment_rationale`, `current_controls`, `monitoring_sources` y
+  `close_reason`; en las revisiones `notes`; en medidas e impactos `description`. EXTERNO no lleva ninguno.
+- **Quejas, consultas y solicitudes (`attention-register`, F4, RF-GRV-005).** Exige READ y `EXPORT` sobre los tres
+  objetos. Filtros, topes y errores en `api.md` §4.13; `export_log` cuenta planteamientos.
+
+| Nivel | Hojas | Columnas y exclusiones |
+|---|---|---|
+| INTERNO | «Quejas», «Consultas», «Solicitudes», «Resumen» | Comunes: código, canal, recibida (fecha y hora de Lima), recibida por (correo), anónima, confidencial, categoría, prioridad, estado, situación de plazo (solo en estados con plazo), plazo que corre, responsable (correo), grupo de interés (nombre), persona (nombres y apellidos si los lee; «anónima»; «no disponible»), localidad, comunidad, tema, descripción, respuesta, respondida, cerrada, reclasificada de (código). Queja: severidad, acuse, plazo de resolución, resuelta, resolución, conformidad. Solicitud: medio, recurso pedido, compromiso creado (código). «Resumen»: los conteos del reporte unificado. Las confidenciales salen si quien exporta las ve |
+| EXTERNO | Las mismas | Sin QCS confidenciales (aunque quien exporta las vea), sin texto libre, sin persona, sin quien recibió ni responsable; grupo de interés por código `GI-`; una hoja «Notas» dice que las confidenciales y el texto libre no se incluyen, sin conteos |
+| PUBLICO | «Por tipo y estado», «Por tipo y canal», «Por tipo y categoría», «Absueltas por tipo» | Conteos de planteamientos (`AttentionCounting`) del periodo: estado agrupado (abiertas, cerradas, rechazadas, desistidas, declinadas), canal y categoría sobre la grilla completa; «Absueltas por tipo» con recibidas y absueltas por tipo. Cuenta lo que quien exporta lee, confidenciales incluidas si las ve; «Notas» dice si el conteo incluye las confidenciales (sí o no). Sin territorio ni grupo de interés; con la marca `reservado` (ASM-088) |
+
+- **Matriz de riesgos (`risk-register`, F4).** Exige READ y `EXPORT` sobre `social_risk`; `export_log` cuenta riesgos.
+
+| Nivel | Hojas | Columnas y exclusiones |
+|---|---|---|
+| INTERNO | «Matriz», «Revisiones», «Medidas», «Impactos» | «Matriz» con los campos de DOC-01 §9.3.2: código, título, fuente, categoría, tipo y naturaleza del impacto, P, I, puntaje, nivel, tendencia y fecha de la última revisión, decisión de tratamiento y su razón, acciones actuales y su adecuación, fuentes de monitoreo, P, I, puntaje y nivel residuales, próxima revisión, situación de revisión (solo en estados que la calculan), estado, responsable (correo), localidad, comunidad, área de influencia, conflicto local, tema clave, incidente de origen (código), grupos de interés (nombres), motivo de cierre. «Revisiones»: todas, con quien revisó. «Medidas» e «Impactos» completos |
+| EXTERNO | «Matriz», «Revisiones», «Impactos» | Sin texto libre ni correos; grupos de interés por código `GI-`; la «Matriz» suma medidas totales, completadas y atrasadas en lugar de la hoja «Medidas»; «Impactos» con actividad, tipo, naturaleza, signo y riesgo |
+| PUBLICO | «Por nivel y categoría», «Por tratamiento y nivel» | Conteos de riesgos activos sobre la grilla completa (nivel × categoría; decisión de tratamiento, con «sin decidir», × nivel), con la marca `reservado` (ASM-088) |
 
 ## 11. Almacenamiento, hashes y retención
 
