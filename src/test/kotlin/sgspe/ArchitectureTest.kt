@@ -48,12 +48,15 @@ class ArchitectureTest {
     private fun isCommon(file: File): Boolean = file.invariantSeparatorsPath.contains("/sgspe/common/")
 
     @Test
-    fun `el escaneo ve las fuentes de F1 y de F2`() {
+    fun `el escaneo ve las fuentes de F1, F2 y F3`() {
         val names = sources(main).map { it.name }
         assertTrue(names.containsAll(listOf("SgspeApplication.kt", "CorrelationIdFilter.kt", "Records.kt")), "$names")
         // una fuente de cada paquete de F2: si el escaneo dejara de verlos, las reglas pasarían en vacío
         val f2 = listOf("ProjectScopeGuard.kt", "Assessments.kt", "AttendanceCounts.kt", "Layers.kt", "Dashboards.kt", "StakeholderRegister.kt")
         assertTrue(names.containsAll(f2), "$names")
+        // y una de cada paquete de F3
+        val f3 = listOf("Idempotency.kt", "Evidences.kt", "CommitmentWriteGuard.kt", "AgreementWriteGuard.kt", "DeadlineJob.kt", "Notices.kt")
+        assertTrue(names.containsAll(f3), "$names")
         val testNames = sources(test).map { it.name }
         assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
     }
