@@ -60,13 +60,22 @@ class ApprovalNoticeListener(
     ) {
         val attributes = change.after ?: change.before.orEmpty()
         val project = if (step.objectName == PROJECT) change.recordId else Records.uuid(attributes["project"]) ?: return
+        val roles = approvals(step, change.recordId, attributes)
+        // solo la lectura de las asignaciones: un Forbidden de las lecturas de la regla de nivel superior no es este caso
         val users =
             try {
-                approvals(step, change.recordId, attributes).flatMap { assignments.recipients(project, step.objectName, it, change.userId) }.map { it.userId }
+                roles
+                    .flatMap { assignments.recipients(project, step.objectName, it, change.userId) }
+                    .map { it.userId }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ForbiddenException) {
-                log.error("ApprovalNoticeListener: quien envió {} {} no lee las asignaciones; no hay aviso", step.objectName, change.recordId, e)
+                log.error(
+                    "ApprovalNoticeListener: quien envió {} {} no lee las asignaciones; no hay aviso",
+                    step.objectName,
+                    change.recordId,
+                    e
+                )
                 return
             }
         if (users.isEmpty()) {

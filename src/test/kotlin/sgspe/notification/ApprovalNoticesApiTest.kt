@@ -1,6 +1,6 @@
 package sgspe.notification
 
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
@@ -15,7 +15,10 @@ class ApprovalNoticesApiTest : F3DomainApiTest() {
     private fun pendingFor(
         token: String,
         id: String
-    ): Boolean = inbox(token).any { it["link"]?.get("recordId")?.asString() == id && it["kind"].asString() == "ACTION" }
+    ): Boolean =
+        inbox(token).any {
+            it["link"]?.get("recordId")?.asString() == id && it["kind"].asString() == "ACTION"
+        }
 
     @Test
     fun `enviar un compromiso avisa a los aprobadores asignados y aprobarlo lo resuelve`() {
@@ -29,11 +32,11 @@ class ApprovalNoticesApiTest : F3DomainApiTest() {
         move("commitment", id, "submit", manager.token, "envío")
         assertTrue(pendingFor(approver.token, id))
         assertTrue(pendingFor(senior.token, id))
-        assertTrue(!pendingFor(other.token, id))
-        assertTrue(!pendingFor(inactive.token, id))
-        assertTrue(!pendingFor(manager.token, id))
+        assertFalse(pendingFor(other.token, id))
+        assertFalse(pendingFor(inactive.token, id))
+        assertFalse(pendingFor(manager.token, id))
         move("commitment", id, "approve", approver.token, "aprobado")
-        assertTrue(!pendingFor(approver.token, id))
+        assertFalse(pendingFor(approver.token, id))
     }
 
     @Test
@@ -44,6 +47,6 @@ class ApprovalNoticesApiTest : F3DomainApiTest() {
         val id = commitment(project, attributes = mapOf("origin_engagement" to engagement(project, "MESA DE DIALOGO")))
         move("commitment", id, "submit", reason = "envío")
         assertTrue(pendingFor(senior.token, id))
-        assertEquals(false, pendingFor(approver.token, id))
+        assertFalse(pendingFor(approver.token, id))
     }
 }
