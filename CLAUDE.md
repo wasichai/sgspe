@@ -25,7 +25,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   `scope` y `privacy` solo dependan de `common`, que `findAllOrganizations` no aparezca en ningún archivo y que
   `TenantDirectory` solo viva en `common/Organizations.kt`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
-  Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` → `load_ubigeo.py`. Por el
+  Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` (workflows, tipos de documento y
+  automatizaciones) → `load_ubigeo.py`. Por el
   túnel, los tres primeros pasos con el modelo de F2 tardan de 5 a 8 minutos, y la suite de integración completa, de
   30 minutos a más de una hora (la matriz de permisos, entre 11 y 58 minutos según la carga del túnel,
   aprovisionamiento incluido).
@@ -33,7 +34,9 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Docker es remoto: las pruebas de integración corren en la CI o con `WASICHAI_TEST_DB_*` contra `sgspe_test` por el túnel
   del puerto 5435 (`docs/develop/README.md` §6).
 - TDD: la prueba primero. `./gradlew ktlintFormat` antes de `build`; `yarn format` antes de commitear yaml o json.
-- Puertos: backend 8094, interfaz 5182, PostGIS 5435.
+- Puertos: backend 8094, interfaz 5182, PostGIS 5435; en desarrollo, MinIO 9095 (consola 9096) y Mailpit 1029 (web 8029).
+- Archivos: `evidence.file` es un campo `FILE` de wasichai-files (D1, ADR-0014); un documento emitido congela el registro
+  entero (UPS-23): ningún tipo de documento sobre un objeto con campos restringidos.
 
 ## Comandos
 
@@ -62,6 +65,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Límites de las importaciones: tamaño, filas, plazo `IMPORT_TIMEOUT` y concurrencia | `src/test/kotlin/sgspe/territory/ImportTimeoutApiTest.kt`, `ImportLimitsApiTest.kt` |
 | Base de las pruebas de contrato | `src/test/kotlin/sgspe/SgspeApiTest.kt` y `src/test/kotlin/sgspe/contract/` |
 | Base de las pruebas de F2 (registros mínimos, asignaciones, transiciones) | `src/test/kotlin/sgspe/F2ApiTest.kt` |
+| Base de las pruebas de F3 del modelo (compromisos, acuerdos y tareas listos para sus guardas, altas apiOnly como la plataforma, espera de automatizaciones) | `src/test/kotlin/sgspe/F3ApiTest.kt` |
+| Tipos de documento y automatizaciones (AUT-NN) | `model/document-types/`, `model/automations/`; `src/test/kotlin/sgspe/workflow/AutomationsApiTest.kt` |
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
 | Modelo frente a los documentos | `model/test_model.py`, `model/design_docs.py` |
 | Reglas de arquitectura | `src/test/kotlin/sgspe/ArchitectureTest.kt` |
