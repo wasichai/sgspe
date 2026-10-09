@@ -95,6 +95,9 @@ sgspe:
     stakeholder-follow-up:
       # JOB-03, una vez al día
       cron: '0 30 4 * * *'
+    deadline:
+      # JOB-01, cada hora (ASM-006)
+      cron: '0 5 * * * *'
     retention:
       # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl)
       cron: '0 15 4 * * *'
