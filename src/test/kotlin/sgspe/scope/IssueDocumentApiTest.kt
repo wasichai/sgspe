@@ -1,4 +1,4 @@
-package sgspe.privacy
+package sgspe.scope
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -6,10 +6,11 @@ import org.springframework.http.HttpStatus
 import sgspe.F3DomainApiTest
 import tools.jackson.databind.JsonNode
 
-// IssueDocumentFilter (security.md §11.4, hallazgo I1 de la revisión final del plan 3.1): emitir a mano un documento de una
-// interacción exige UPDATE sobre engagement. ANALYST y READ_ONLY leen interacciones pero no las editan: su emisión es un 403
-// ACTION_REQUIRED y la minuta que AUT-05 congeló sigue vigente. COMMUNITY_RELATIONS_OFFICER, que edita interacciones, emite
-// (y su emisión archiva la anterior, como en wasichai-documents). AUT-05 emite como la plataforma, sin pasar por el filtro
+// IssueDocumentFilter (security.md §11.4, hallazgo I1 de la revisión final del plan 3.1, ruling P60): emitir a mano un documento
+// de una interacción exige UPDATE sobre engagement y una asignación vigente al proyecto de la interacción. ANALYST y READ_ONLY
+// leen interacciones pero no las editan: su emisión es un 403 ACTION_REQUIRED y la minuta que AUT-05 congeló sigue vigente.
+// COMMUNITY_RELATIONS_OFFICER, que edita interacciones, emite en su proyecto (y su emisión archiva la anterior, como en
+// wasichai-documents) y no en otro: 403 NOT_ASSIGNED. AUT-05 emite como la plataforma, sin pasar por el filtro
 class IssueDocumentApiTest : F3DomainApiTest() {
     private fun documents(id: String): List<JsonNode> =
         tree(send("GET", "/api/objects/engagement/records/$id/documents", null, HttpStatus.OK)).values().toList()
@@ -48,5 +49,21 @@ class IssueDocumentApiTest : F3DomainApiTest() {
         val issued = exchange("POST", "/api/objects/engagement/records/$id/documents/meeting-minutes", null, officer.token)
         assertEquals(HttpStatus.CREATED, issued.status, issued.body)
         assertEquals(listOf(tree(issued.body)["id"].asString()), validMinutes(id))
+    }
+
+    @Test
+    fun `con UPDATE sobre engagement se emite en el proyecto asignado y no en otro`() {
+        val officer = member("COMMUNITY_RELATIONS_OFFICER")
+        val other = engagement(project())
+        val refused = exchange("POST", "/api/objects/engagement/records/$other/documents/meeting-minutes", null, officer.token)
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("NOT_ASSIGNED", code(refused))
+        assertEquals(listOf("project"), problemFields(refused.body))
+        assertEquals(emptyList<String>(), validMinutes(other))
+
+        val own = engagement(testProject(), token = officer.token)
+        val issued = exchange("POST", "/api/objects/engagement/records/$own/documents/meeting-minutes", null, officer.token)
+        assertEquals(HttpStatus.CREATED, issued.status, issued.body)
+        assertEquals(listOf(tree(issued.body)["id"].asString()), validMinutes(own))
     }
 }

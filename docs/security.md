@@ -1137,17 +1137,25 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   objetos con campos restringidos; `test_model.py` lo comprueba. Por eso, hasta UPS-23, el acta de entrega (`delivery`
   restringe `recipients` y `conformity_by`) no es un documento emitido, y la lista de asistentes imprime el total y deja
   filas en blanco para los nombres y las firmas en lugar de la tabla de `engagement_participant`.
-- **Quién emite a mano:** wasichai-documents 0.6.0 emite con
-  `POST /api/objects/{objeto}/records/{id}/documents/{tipo}` y solo pide READ sobre el objeto, y **cada emisión archiva el
-  documento vigente anterior del mismo tipo**, incluida la minuta que AUT-05 congeló al aprobarse el acta. Emitir es, por
-  eso, una escritura: SGSPE exige **UPDATE sobre el objeto**. Como wasichai-documents no ofrece un SPI ni una guarda para
-  la emisión, lo hace `IssueDocumentFilter` (`sgspe.privacy`), un filtro de WebFlux sobre esa ruta y solo sobre ella, que
-  corre después de la cadena de seguridad y consulta el permiso de objeto de wasichai para quien llama; sin él responde 403
-  `ACTION_REQUIRED` sobre `record`. Así `ANALYST`, `READ_ONLY`, `APPROVER` y los demás roles que solo leen interacciones
-  ya no emiten ni reemplazan «Minuta de reunión» o «Lista de asistentes», y los que las editan
-  (`COMMUNITY_RELATIONS_OFFICER`, `STAKEHOLDER_MANAGER`, `SOCIAL_MANAGER`, `FIELD_AGENT`) sí. Las automatizaciones (AUT-05)
-  emiten como la plataforma, sin pasar por HTTP, así que el filtro no las toca. El permiso es por objeto, no por registro
-  ni por tipo: el permiso de emisión por tipo sigue siendo una brecha upstream. Lo prueban `IssueDocumentFilterTest` e
+- **Quién emite a mano:** wasichai-documents 0.6.0 emite con `POST /api/objects/{objeto}/records/{id}/documents/{tipo}`
+  y solo pide READ sobre el objeto, y **cada emisión archiva el documento vigente anterior del mismo tipo**, incluida la
+  minuta que AUT-05 congeló al aprobarse el acta. Emitir es, por eso, una escritura del registro, y SGSPE pide lo mismo
+  que para escribirlo: **UPDATE sobre el objeto y una asignación vigente al proyecto del registro** (ruling P60, como
+  `ProjectScopeGuard`, §9.2). Como wasichai-documents no ofrece un SPI ni una guarda para la emisión, lo hace
+  `IssueDocumentFilter` (`sgspe.scope`), un filtro de WebFlux sobre esa ruta y solo sobre ella, que corre después de la
+  cadena de seguridad:
+  1. sin UPDATE sobre el objeto, `403` `ACTION_REQUIRED` sobre `record`;
+  2. lee el registro como quien llama y resuelve su proyecto con `ProjectResolver`; si no lo puede leer (o no existe),
+     `403` `OBJECT_NOT_READABLE` sobre `record`, y si el proyecto no se resuelve, `403` `NOT_ASSIGNED` (falla cerrado);
+  3. sin una asignación vigente a ese proyecto, `403` `NOT_ASSIGNED` sobre el campo de alcance (`project` en las
+     raíces);
+  4. `ADMIN` y los objetos sin alcance por proyecto no necesitan asignación.
+
+  Así `ANALYST`, `READ_ONLY`, `APPROVER` y los demás roles que solo leen interacciones ya no emiten ni reemplazan
+  «Minuta de reunión» o «Lista de asistentes», y los que las editan (`COMMUNITY_RELATIONS_OFFICER`,
+  `STAKEHOLDER_MANAGER`, `SOCIAL_MANAGER`, `FIELD_AGENT`) emiten solo en los proyectos a los que están asignados. Las
+  automatizaciones (AUT-05) emiten como la plataforma, sin pasar por HTTP, así que el filtro no las toca. El permiso de
+  emisión por tipo de documento sigue siendo una brecha upstream. Lo prueban `IssueDocumentFilterTest` e
   `IssueDocumentApiTest`.
 
 ### 11.5 IA
