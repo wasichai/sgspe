@@ -66,4 +66,32 @@ class IssueDocumentApiTest : F3DomainApiTest() {
         assertEquals(HttpStatus.CREATED, issued.status, issued.body)
         assertEquals(listOf(tree(issued.body)["id"].asString()), validMinutes(own))
     }
+
+    // P62: emitir es editar ese registro. FIELD_AGENT edita interacciones (UPDATE) pero sin EDIT_ANY solo las suyas, como en
+    // EditAnyGuard: en la ajena de su proyecto, 403 NOT_OWN_RECORD sobre record y la interacción queda sin minuta; en la suya, 201
+    @Test
+    fun `sin EDIT_ANY se emite en la interaccion propia y no en la ajena`() {
+        val agent = member("FIELD_AGENT")
+        val foreign = engagement(testProject())
+        val refused = exchange("POST", "/api/objects/engagement/records/$foreign/documents/meeting-minutes", null, agent.token)
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("NOT_OWN_RECORD", code(refused))
+        assertEquals(listOf("record"), problemFields(refused.body))
+        assertEquals(emptyList<String>(), validMinutes(foreign))
+
+        val own = engagement(testProject(), token = agent.token)
+        val issued = exchange("POST", "/api/objects/engagement/records/$own/documents/meeting-minutes", null, agent.token)
+        assertEquals(HttpStatus.CREATED, issued.status, issued.body)
+        assertEquals(listOf(tree(issued.body)["id"].asString()), validMinutes(own))
+    }
+
+    // sin token, la cadena de seguridad responde 401 y nada se emite. el orden del filtro (después de esa cadena) lo fijan los 403
+    // de las otras pruebas: si corriera antes no vería al usuario, dejaría pasar y wasichai emitiría con 201
+    @Test
+    fun `sin token la emision es un 401 de la seguridad`() {
+        val id = engagement(testProject())
+        val anonymous = exchange("POST", "/api/objects/engagement/records/$id/documents/meeting-minutes", null, null)
+        assertEquals(HttpStatus.UNAUTHORIZED, anonymous.status, anonymous.body)
+        assertEquals(emptyList<String>(), validMinutes(id))
+    }
 }

@@ -359,7 +359,7 @@ Aplican §4.1 del modelo de dominio:
   `score`).
 - Los montos son DECIMAL más `currency` ENUM (PEN por defecto, RNF-I18N-002). DECIMAL es un `numeric` sin escala ni
   mínimo, así que `AmountFieldsGuard` acota los montos que alguien escribe en toda alta y en todo cambio de su valor: de
-  0 a 15 dígitos enteros y 4 decimales tras quitar los ceros finales (ruling P58, ASM-091); los derivados los escribe
+  0 a 15 dígitos enteros y 4 decimales tras quitar los ceros finales (ruling P58, ASM-092); los derivados los escribe
   solo la plataforma.
 - Una persona usuaria del sistema es un par `<rol>_user_id` UUID y `<rol>_user_email` EMAIL, que valida `UserReferenceGuard`,
   porque wasichai no tiene relaciones con usuarios (ASM-023).
@@ -792,7 +792,7 @@ RF-INV-004, RN-INV-003, ASM-063.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
-- `social_support_cap` es un monto (ruling P58, ASM-091): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
+- `social_support_cap` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
   decimales tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER`
   u `OUT_OF_RANGE` sobre `social_support_cap`.
 - Los derivados se calculan desde F3 (compromisos) y F5 (aportes) con el recalculador de `sgspe.investment` (§7.4 del
@@ -2012,7 +2012,7 @@ RF-COM-005, RF-COM-007, RF-COM-009, RN-COM-004, RN-ENG-001, RN-ENG-002, RN-WFL-0
 - **Acciones declaradas:** `APPROVE`, `VERIFY`, `EXPORT`, `APPROVE_OVER_CAP`.
 - **Workflow:** WF-D.
 - **Fase:** F3 · Release 1 (MVP).
-- `amount` es un monto (ruling P58, ASM-091): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
+- `amount` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
   tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER` u
   `OUT_OF_RANGE` sobre `amount`.
 - Índices: `due_date` para `DeadlineJob` (RN-WFL-001), `owner_user_id` para "mis compromisos" y el desglose por
@@ -2146,7 +2146,7 @@ evidencias. Tabla física `app_data.delivery__<org8>`. Requisitos: RF-COM-008, R
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- `delivered_amount` es un monto (ruling P58, ASM-091): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
+- `delivered_amount` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
   decimales tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER`
   u `OUT_OF_RANGE` sobre `delivered_amount`.
 - Escriben `POST /api/sgspe/commitments/{id}/deliveries` y, desde F5,
@@ -2239,7 +2239,7 @@ Requisitos: RF-AGR-001, RF-AGR-002, RF-AGR-003, RN-INV-004, RN-WFL-001.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** WF-I.
 - **Fase:** F3 · Release 1 (MVP).
-- `amount` es un monto (ruling P58, ASM-091): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
+- `amount` es un monto (ruling P58, ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
   tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER` u
   `OUT_OF_RANGE` sobre `amount`.
 - `expiry_date` lleva índice para `DeadlineJob` (RN-WFL-001).

@@ -5,6 +5,7 @@ import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ProblemDetail
 import org.springframework.http.codec.HttpMessageWriter
 import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.http.server.reactive.ServerHttpRequest
@@ -18,6 +19,7 @@ import org.springframework.web.util.pattern.PathPatternParser
 import reactor.core.publisher.Mono
 import sgspe.common.Callers
 import sgspe.common.Finding
+import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.toCodedException
@@ -25,9 +27,11 @@ import wasichai.core.common.Actions
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.GlobalExceptionHandler
 import wasichai.core.common.NotFoundException
+import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.metadata.MetadataService
+import java.net.URI
 import java.util.Optional
 import java.util.UUID
 
@@ -43,15 +47,17 @@ interface IssueAccess {
     suspend fun refusal(target: IssueTarget): Finding?
 }
 
-// emitir un documento a mano archiva el documento vigente del mismo tipo, así que es una escritura del registro y pide lo mismo
-// que escribirlo (security.md §11.4, hallazgo I1 de la revisión final del plan 3.1, ruling P60): UPDATE sobre el objeto y, como
-// en ProjectScopeGuard, una asignación vigente al proyecto del registro, resuelto con ProjectResolver sobre el registro guardado
-// leído como quien llama. ADMIN y los objetos sin alcance por proyecto no la necesitan. un registro que quien llama no puede
-// leer (o que no existe) falla cerrado con OBJECT_NOT_READABLE, y uno sin proyecto resoluble con NOT_ASSIGNED, como en la
-// guarda. sin usuario o con un objeto que no existe no decide: wasichai contesta su 401 o su 404. nunca compara nombres de rol
-// (RQ-SEC-005)
+// emitir un documento a mano archiva el documento vigente del mismo tipo, así que es editar ese registro y pide lo mismo que
+// cambiarlo (security.md §11.4, hallazgo I1 de la revisión final del plan 3.1, rulings P60 y P62), en el orden de las guardas:
+// UPDATE sobre el objeto; como en ProjectScopeGuard, una asignación vigente al proyecto del registro, resuelto con
+// ProjectResolver sobre el registro guardado leído como quien llama (ADMIN y los objetos sin alcance por proyecto no la
+// necesitan); y, como en EditAnyGuard, la regla de OwnRecords: sin EDIT_ANY, solo en un registro propio. un registro que quien
+// llama no puede leer (o que no existe) falla cerrado con OBJECT_NOT_READABLE, y uno sin proyecto resoluble con NOT_ASSIGNED,
+// como en la guarda. sin usuario o con un objeto que no existe no decide: wasichai contesta su 401 o su 404. nunca compara
+// nombres de rol (RQ-SEC-005)
 @Component
 class IssueAccessByScope(
+    private val catalog: ModelCatalog,
     private val callers: Callers,
     private val permissions: Permissions,
     private val metadata: MetadataService,
@@ -89,7 +95,16 @@ class IssueAccessByScope(
                     resolver.resolve(write, attributes)
                 }
             },
-            assigned = { project -> assignments.isAssigned(user.userId, project) }
+            assigned = { project -> assignments.isAssigned(user.userId, project) },
+            ownRecord = {
+                OwnRecords.refusal(
+                    name,
+                    declaresEditAny = name in catalog.objectsDeclaring(OwnRecords.EDIT_ANY),
+                    user = user,
+                    holdsEditAny = { caller -> permissions.has(caller, OwnRecords.EDIT_ANY, name) },
+                    createdIt = { caller -> OwnRecords.createdBy(records, name, target.recordId, caller.userId) }
+                )
+            }
         )
     }
 
@@ -103,13 +118,15 @@ class IssueAccessByScope(
 
     companion object {
         // pura, para las pruebas unitarias: la primera negativa, o null. `scope` lee el registro (null si no se puede) y solo
-        // se llama con UPDATE y sin exención; `assigned` dice si quien llama tiene una asignación vigente al proyecto
+        // se llama con UPDATE y sin exención; `assigned` dice si quien llama tiene una asignación vigente al proyecto;
+        // `ownRecord` es la negativa de OwnRecords, la última, también para quien está exento del alcance
         suspend fun decide(
             objectName: String,
             canUpdate: Boolean,
             exempt: Boolean,
             scope: suspend () -> Resolution?,
-            assigned: suspend (UUID) -> Boolean
+            assigned: suspend (UUID) -> Boolean,
+            ownRecord: suspend () -> Finding?
         ): Finding? {
             if (!canUpdate) {
                 return Finding(
@@ -119,7 +136,7 @@ class IssueAccessByScope(
                     status = HttpStatus.FORBIDDEN
                 )
             }
-            if (exempt) return null
+            if (exempt) return ownRecord()
             val resolution =
                 scope() ?: return Finding(
                     "OBJECT_NOT_READABLE",
@@ -133,7 +150,7 @@ class IssueAccessByScope(
                     "No se pudo determinar el proyecto de este registro (${resolution.field}): solo el administrador emite sus documentos"
                 )
             }
-            val outside = resolution.projects.firstOrNull { !assigned(it) } ?: return null
+            val outside = resolution.projects.firstOrNull { !assigned(it) } ?: return ownRecord()
             return notAssigned(resolution.field, "No tiene una asignación vigente al proyecto $outside: solo su equipo emite sus documentos")
         }
 
@@ -172,17 +189,25 @@ class IssueDocumentFilter(
         chain: WebFilterChain
     ): Mono<Void> {
         val target = targetOf(exchange.request) ?: return chain.filter(exchange)
-        // Optional: una corrutina que devuelve null completaría vacía y la petición no seguiría ni se respondería
-        return mono { Optional.ofNullable(access.refusal(target)) }.flatMap { refusal ->
-            if (refusal.isPresent) refuse(exchange, refusal.get()) else chain.filter(exchange)
+        // Optional: una corrutina que devuelve null completaría vacía y la petición no seguiría ni se respondería. un error al
+        // decidir (la base, por ejemplo) no es un pase: sale como el problem+json del manejador de wasichai, no como el 500 de
+        // Boot. solo la decisión se envuelve; lo que falle después en la cadena lo maneja el controlador
+        val decision =
+            mono { Optional.ofNullable(access.refusal(target)?.let { handler.handleWasichai(it.toCodedException()) }) }
+                .onErrorResume(Exception::class.java) { e -> Mono.just(Optional.of(problemOf(e))) }
+        return decision.flatMap { problem ->
+            if (problem.isPresent) write(exchange, problem.get()) else chain.filter(exchange)
         }
     }
 
-    private fun refuse(
+    private fun problemOf(e: Exception): ProblemDetail = if (e is WasichaiException) handler.handleWasichai(e) else handler.handleUnexpected(e)
+
+    private fun write(
         exchange: ServerWebExchange,
-        refusal: Finding
+        problem: ProblemDetail
     ): Mono<Void> {
-        val problem = handler.handleWasichai(refusal.toCodedException())
+        // como el problem+json de un controlador, que WebFlux completa con la ruta de la petición
+        if (problem.instance == null) problem.instance = URI.create(exchange.request.path.value())
         return ServerResponse
             .status(problem.status)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)

@@ -40,6 +40,34 @@ class AmountFieldsGuard(
                 "agreement" to setOf("amount")
             )
 
+        // los DECIMAL no derivados del modelo que no son dinero, con su motivo. AmountFieldsGuardTest exige que cada DECIMAL no
+        // derivado esté aquí o en FIELDS: un DECIMAL nuevo hace fallar la prueba hasta que alguien lo clasifique
+        val NOT_MONEY: Map<String, String> =
+            mapOf(
+                "project.interest_threshold" to "umbral de la matriz de poder e interés, en la escala de los índices",
+                "project.power_threshold" to "umbral de la matriz de poder e interés, en la escala de los índices",
+                "mining_concession.registered_area_ha" to "área en hectáreas",
+                "community.registered_area_ha" to "área en hectáreas",
+                "land_parcel.registered_area_ha" to "área en hectáreas",
+                "project_component.source_easting" to "coordenada de origen, puede ser cualquier valor del CRS",
+                "project_component.source_northing" to "coordenada de origen, puede ser cualquier valor del CRS",
+                "project_component.source_elevation" to "cota de origen, puede ser negativa",
+                "project_component.azimuth" to "ángulo en grados",
+                "project_component.dip" to "ángulo en grados, puede ser negativo",
+                "project_component.depth_m" to "profundidad en metros",
+                "stakeholder_assessment.interest_affectation" to "puntaje de la evaluación",
+                "stakeholder_assessment.interest_opportunity" to "puntaje de la evaluación",
+                "stakeholder_assessment.interest_index" to "índice de la evaluación",
+                "stakeholder_assessment.power_resource_control" to "puntaje de la evaluación",
+                "stakeholder_assessment.power_action_capacity" to "puntaje de la evaluación",
+                "stakeholder_assessment.power_network_mobilization" to "puntaje de la evaluación",
+                "stakeholder_assessment.power_index" to "índice de la evaluación",
+                "stakeholder_assessment.influence_score" to "puntaje de la evaluación",
+                "commitment.quantity" to "cantidad de lo comprometido en su unidad (metros, sacos), no dinero",
+                "commitment_candidate.confidence" to "confianza de la extracción, de 0 a 1",
+                "locality_profile.members_per_family" to "promedio de miembros por familia"
+            )
+
         // pura, para las pruebas unitarias: un hallazgo por monto de `objectName` que cambia y no pasa Amounts.parse
         fun findings(
             objectName: String,

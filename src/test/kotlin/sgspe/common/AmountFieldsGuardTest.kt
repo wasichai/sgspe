@@ -79,4 +79,30 @@ class AmountFieldsGuardTest {
             AmountFieldsGuard.FIELDS
         )
     }
+
+    // la completitud: cada DECIMAL no derivado del modelo es un monto (FIELDS) o está en NOT_MONEY con su motivo. un DECIMAL
+    // nuevo (los montos de F4: receipt.amount, contribution_item.line_amount, program_budget.*) hace fallar esta prueba hasta
+    // que alguien lo clasifique, así un monto no entra al modelo sin cotas
+    @Test
+    fun `todo DECIMAL no derivado del modelo es un monto de FIELDS o esta en NOT_MONEY con su motivo`() {
+        val decimals =
+            catalog.objects.values
+                .flatMap { model ->
+                    model.fields.values
+                        .filter { it.type == "DECIMAL" && !it.derived }
+                        .map { "${model.name}.${it.name}" }
+                }.toSet()
+        val money = AmountFieldsGuard.FIELDS.flatMap { (objectName, fields) -> fields.map { "$objectName.$it" } }.toSet()
+        assertEquals(emptySet<String>(), decimals - money - AmountFieldsGuard.NOT_MONEY.keys, "clasifíquelos en FIELDS o en NOT_MONEY")
+        assertEquals(emptySet<String>(), AmountFieldsGuard.NOT_MONEY.keys - decimals, "NOT_MONEY nombra campos que no son DECIMAL no derivados")
+        assertEquals(emptySet<String>(), AmountFieldsGuard.NOT_MONEY.keys.intersect(money), "un campo no puede ser monto y no serlo")
+        assertEquals(
+            emptyList<String>(),
+            AmountFieldsGuard.NOT_MONEY
+                .filterValues { it.isBlank() }
+                .keys
+                .toList(),
+            "cada uno lleva su motivo"
+        )
+    }
 }

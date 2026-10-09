@@ -14,6 +14,7 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import reactor.core.publisher.Mono
 import sgspe.common.Finding
+import wasichai.core.common.ForbiddenException
 import wasichai.core.common.GlobalExceptionHandler
 import java.net.URI
 import java.util.UUID
@@ -27,12 +28,14 @@ class IssueDocumentFilterTest {
     private val project = UUID.fromString("3f1d2c4b-5a6e-4f70-8a9b-0c1d2e3f4a5b")
 
     private class Access(
-        private val refusal: Finding?
+        private val refusal: Finding?,
+        private val failure: Exception? = null
     ) : IssueAccess {
         val asked = mutableListOf<IssueTarget>()
 
         override suspend fun refusal(target: IssueTarget): Finding? {
             asked += target
+            if (failure != null) throw failure
             return refusal
         }
     }
@@ -91,8 +94,26 @@ class IssueDocumentFilterTest {
         assertEquals(HttpStatus.FORBIDDEN, exchange.response.statusCode)
         assertTrue(MediaType.APPLICATION_PROBLEM_JSON.isCompatibleWith(exchange.response.headers.contentType), exchange.response.headers.toString())
         assertTrue(body.contains("\"NOT_ASSIGNED\"") && body.contains("\"project\""), body)
+        // instance, como la rellena WebFlux en el problem+json de un controlador: la ruta de la petición
+        assertTrue(body.contains("\"instance\":\"/api/objects/engagement/records/$id/documents/meeting-minutes\""), body)
         assertFalse(passed)
         assertEquals(listOf(IssueTarget("engagement", UUID.fromString(id))), access.asked)
+    }
+
+    // un error al decidir (la base, por ejemplo) sale por el manejador de wasichai como problem+json, nunca como el 500 de Boot,
+    // y la emisión no llega a wasichai
+    @Test
+    fun `un error al decidir es el problem+json del manejador de wasichai`() {
+        val path = "/api/objects/engagement/records/$id/documents/meeting-minutes"
+        val (failed, failedBody, failedPassed) = through(Access(null, IllegalStateException("la base no responde")), MockServerHttpRequest.post(path).build())
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failed.response.statusCode)
+        assertTrue(MediaType.APPLICATION_PROBLEM_JSON.isCompatibleWith(failed.response.headers.contentType), failed.response.headers.toString())
+        assertTrue(failedBody.contains("Unexpected error") && !failedBody.contains("la base no responde"), failedBody)
+        assertFalse(failedPassed)
+
+        val (forbidden, _, forbiddenPassed) = through(Access(null, ForbiddenException("Missing permission READ")), MockServerHttpRequest.post(path).build())
+        assertEquals(HttpStatus.FORBIDDEN, forbidden.response.statusCode)
+        assertFalse(forbiddenPassed)
     }
 
     @Test
@@ -107,13 +128,14 @@ class IssueDocumentFilterTest {
         assertEquals(emptyList<IssueTarget>(), refused.asked)
     }
 
-    // ---- la decisión (P60): UPDATE, después el alcance del registro leído como quien llama ----
+    // ---- la decisión (P60 y P62): UPDATE, el alcance del registro leído como quien llama y, al final, EDIT_ANY ----
 
     private fun decide(
         canUpdate: Boolean = true,
         exempt: Boolean = false,
         scope: Resolution? = Resolution("project", setOf(project), false),
-        assigned: Boolean = true
+        assigned: Boolean = true,
+        own: Finding? = null
     ): Pair<String?, String>? {
         var scopeRead = false
         val finding =
@@ -126,7 +148,8 @@ class IssueDocumentFilterTest {
                         scopeRead = true
                         scope
                     },
-                    { assigned }
+                    { assigned },
+                    { own }
                 )
             }
         if (!canUpdate || exempt) assertFalse(scopeRead, "sin UPDATE o exento no se lee el registro")
@@ -150,6 +173,17 @@ class IssueDocumentFilterTest {
     fun `sin asignacion al proyecto es NOT_ASSIGNED sobre el campo de alcance`() {
         assertEquals("project" to "NOT_ASSIGNED", decide(assigned = false))
         assertEquals("engagement" to "NOT_ASSIGNED", decide(scope = Resolution("engagement", setOf(project), false), assigned = false))
+    }
+
+    // P62: emitir es editar ese registro, así que también pide lo que EditAnyGuard pide para cambiarlo (OwnRecords), después
+    // del alcance como en el orden de las guardas (SCOPE antes que EDIT_ANY); ADMIN, exento del alcance, igual pasa por aquí
+    @Test
+    fun `sin EDIT_ANY sobre un registro ajeno es la negativa de OwnRecords, despues del alcance`() {
+        val notOwn = Finding("NOT_OWN_RECORD", "ajeno", status = HttpStatus.FORBIDDEN)
+        assertEquals(null to "NOT_OWN_RECORD", decide(own = notOwn))
+        assertEquals(null to "NOT_OWN_RECORD", decide(exempt = true, own = notOwn))
+        assertEquals("project" to "NOT_ASSIGNED", decide(assigned = false, own = notOwn))
+        assertEquals("record" to "ACTION_REQUIRED", decide(canUpdate = false, own = notOwn))
     }
 
     @Test

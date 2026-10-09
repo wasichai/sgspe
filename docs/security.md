@@ -1139,24 +1139,27 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   filas en blanco para los nombres y las firmas en lugar de la tabla de `engagement_participant`.
 - **Quién emite a mano:** wasichai-documents 0.6.0 emite con `POST /api/objects/{objeto}/records/{id}/documents/{tipo}`
   y solo pide READ sobre el objeto, y **cada emisión archiva el documento vigente anterior del mismo tipo**, incluida la
-  minuta que AUT-05 congeló al aprobarse el acta. Emitir es, por eso, una escritura del registro, y SGSPE pide lo mismo
-  que para escribirlo: **UPDATE sobre el objeto y una asignación vigente al proyecto del registro** (ruling P60, como
-  `ProjectScopeGuard`, §9.2). Como wasichai-documents no ofrece un SPI ni una guarda para la emisión, lo hace
+  minuta que AUT-05 congeló al aprobarse el acta. Emitir es, por eso, editar ese registro, y SGSPE pide lo mismo que para
+  cambiarlo: **UPDATE sobre el objeto, una asignación vigente al proyecto del registro y, en los objetos que declaran
+  `EDIT_ANY`, esa acción o haber creado el registro** (rulings P60 y P62, como `ProjectScopeGuard` en §9.2 y
+  `EditAnyGuard` en §5.5). Como wasichai-documents no ofrece un SPI ni una guarda para la emisión, lo hace
   `IssueDocumentFilter` (`sgspe.scope`), un filtro de WebFlux sobre esa ruta y solo sobre ella, que corre después de la
-  cadena de seguridad:
+  cadena de seguridad, en el orden de las guardas:
   1. sin UPDATE sobre el objeto, `403` `ACTION_REQUIRED` sobre `record`;
   2. lee el registro como quien llama y resuelve su proyecto con `ProjectResolver`; si no lo puede leer (o no existe),
      `403` `OBJECT_NOT_READABLE` sobre `record`, y si el proyecto no se resuelve, `403` `NOT_ASSIGNED` (falla cerrado);
   3. sin una asignación vigente a ese proyecto, `403` `NOT_ASSIGNED` sobre el campo de alcance (`project` en las
-     raíces);
-  4. `ADMIN` y los objetos sin alcance por proyecto no necesitan asignación.
+     raíces); `ADMIN` y los objetos sin alcance por proyecto no necesitan asignación;
+  4. en un objeto que declara `EDIT_ANY`, quien no la tiene y no creó el registro recibe `403` `NOT_OWN_RECORD` sobre
+     `record`, con la misma regla de `EditAnyGuard` (`OwnRecords`);
+  5. un error al decidir sale como el problem+json del manejador de wasichai (`500` sin detalle), nunca como un pase.
 
   Así `ANALYST`, `READ_ONLY`, `APPROVER` y los demás roles que solo leen interacciones ya no emiten ni reemplazan
-  «Minuta de reunión» o «Lista de asistentes», y los que las editan (`COMMUNITY_RELATIONS_OFFICER`,
-  `STAKEHOLDER_MANAGER`, `SOCIAL_MANAGER`, `FIELD_AGENT`) emiten solo en los proyectos a los que están asignados. Las
-  automatizaciones (AUT-05) emiten como la plataforma, sin pasar por HTTP, así que el filtro no las toca. El permiso de
-  emisión por tipo de documento sigue siendo una brecha upstream. Lo prueban `IssueDocumentFilterTest` e
-  `IssueDocumentApiTest`.
+  «Minuta de reunión» o «Lista de asistentes»; `COMMUNITY_RELATIONS_OFFICER`, `STAKEHOLDER_MANAGER` y `SOCIAL_MANAGER`,
+  que las editan con `EDIT_ANY`, emiten en los proyectos a los que están asignados, y `FIELD_AGENT`, sin `EDIT_ANY`, solo
+  en las interacciones que registró. Las automatizaciones (AUT-05) emiten como la plataforma, sin pasar por HTTP, así que
+  el filtro no las toca. El permiso de emisión por tipo de documento sigue siendo una brecha upstream. Lo prueban
+  `IssueDocumentFilterTest`, `OwnRecordsTest` e `IssueDocumentApiTest`.
 
 ### 11.5 IA
 
