@@ -221,6 +221,15 @@ class Records(
         reason: String?
     ) = withContext(SgspeWrite) { related.link(objectName, id, relationship, otherId, reason) }
 
+    // deshace un vínculo MANY_TO_MANY, como quien llama y con la marca (las evidencias, desde F3)
+    suspend fun unlink(
+        objectName: String,
+        id: UUID,
+        relationship: String,
+        otherId: UUID,
+        reason: String?
+    ) = withContext(SgspeWrite) { related.unlink(objectName, id, relationship, otherId, reason) }
+
     // los registros del otro lado de una relación, como los ve quien llama
     suspend fun related(
         objectName: String,

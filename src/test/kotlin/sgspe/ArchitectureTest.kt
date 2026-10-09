@@ -218,8 +218,23 @@ class ArchitectureTest {
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
         private val NON_DOMAIN_PACKAGES = listOf("common", "observability", "prod", "scope", "privacy", "dashboard", "deliverable", "ai")
+
+        // deadline (BC-13, JOB-01) y notification (BC-14) son de dominio desde F3: no dependen de tableros, entregables ni IA
         private val DOMAIN_PACKAGES =
-            listOf("stakeholder", "engagement", "commitment", "agreement", "attention", "risk", "warning", "investment", "evidence", "territory")
+            listOf(
+                "stakeholder",
+                "engagement",
+                "commitment",
+                "agreement",
+                "attention",
+                "risk",
+                "warning",
+                "investment",
+                "evidence",
+                "territory",
+                "deadline",
+                "notification"
+            )
 
         // los 15 roles declarados, los 2 de mappedToAdmin y el ADMIN de wasichai, leídos de model/roles.json. el límite no es
         // \b: el guion bajo cuenta como letra en \b y dejaría pasar "ROLE_AUDITOR" (Spring Security). distingue mayúsculas a
