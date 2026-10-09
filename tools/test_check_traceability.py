@@ -108,6 +108,26 @@ class CheckTraceabilityTests(unittest.TestCase):
         self.assertEqual(found, declared)
         self.assertEqual(sum(declared.values()), 298)
 
+    def test_las_familias_que_no_son_requisitos_coinciden_con_sus_filas_y_el_total(self):
+        # CON, GAP, UPS y ASM no van a la matriz, pero su cantidad en §20.1 tampoco debe quedar atrás de sus filas
+        with open(os.path.join(check_traceability.ROOT, "docs", "requirements-analysis.md"), encoding="utf-8") as f:
+            text = f.read()
+        declared = {
+            family: int(count) for family, count in re.findall(r"^\| `(CON|GAP|UPS|ASM)` \| (\d+) \|$", text, re.MULTILINE)
+        }
+        self.assertEqual(sorted(declared), ["ASM", "CON", "GAP", "UPS"])
+        # la fila que define un ID abre con él; las citas en otras celdas no cuentan
+        rows = set(re.findall(r"^\|[ \t]*((?:CON|GAP|UPS|ASM)-\d+)[ \t]*\|", text, re.MULTILINE))
+        found = {}
+        for identifier in rows:
+            family = identifier.split("-")[0]
+            found[family] = found.get(family, 0) + 1
+        self.assertEqual(found, declared)
+        requirements = len(check_traceability.row_ids(text))
+        total = re.search(r"^\| Total \| (\d+) \|$", text, re.MULTILINE)
+        self.assertIsNotNone(total, "§20.1 sin fila Total")
+        self.assertEqual(int(total.group(1)), requirements + sum(declared.values()))
+
 
 if __name__ == "__main__":
     unittest.main()

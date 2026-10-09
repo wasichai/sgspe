@@ -139,7 +139,8 @@ class Areas(
 // escribió y escribe el área. las guardas y los listeners no ven geometrías (WAS-ADR-0040), por eso relee. si no puede,
 // registra el error y deja el valor a DerivedFieldsJob; las escrituras con la marca (importaciones, el propio listener)
 // ya traen su área. la escritura del listener no es la que el cliente condicionó con If-Match: IfMatchGuard la deja pasar
-// por llevar la marca, y Versions tolera que el área sea lo único que cambió después de la versión que el cliente leyó
+// por llevar la marca, y su salto de derivados (derived_version, ADR-0027) hace que la versión que el cliente leyó antes
+// siga valiendo
 @Component
 @Order(110)
 class AreaListener(

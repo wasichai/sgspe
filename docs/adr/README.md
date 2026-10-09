@@ -41,3 +41,4 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 | [0024](0024-interfaz-portal-y-admin.md) | Interfaz: portal en `/` y administración en `/admin` | Aceptado | 2026-10-07 | 0020, 0028, 0031, 0042 |
 | [0025](0025-concurrencia-e-idempotencia.md) | Concurrencia e idempotencia en la API del portal | Propuesto (se acepta en F2) | 2026-10-07 | 0037, 0038, 0039, 0040 |
 | [0026](0026-topologia-puertos-y-observabilidad.md) | Topología de despliegue, puertos y observabilidad | Aceptado en parte (puertos, correlación, logs y salud, que rigen desde F1); la topología de producción, Propuesta (al responder GAP-022) | 2026-10-07 | 0006, 0024, 0033, 0039 |
+| [0027](0027-if-match-con-saltos-exactos-de-derivados.md) | `If-Match` con saltos exactos de derivados y la comparación de wasichai | Aceptado | 2026-10-09 | 0038, 0040, 0051 |

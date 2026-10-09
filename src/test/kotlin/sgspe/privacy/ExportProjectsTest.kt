@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import sgspe.common.Callers
+import sgspe.common.DerivedVersions
+import sgspe.common.ModelCatalog
 import sgspe.common.Records
 import wasichai.core.data.RecordResponse
 import wasichai.core.data.RecordService
@@ -33,7 +35,9 @@ class ExportProjectsTest {
             provider<RelatedRecordService>(),
             provider<WorkflowService>(),
             mock(MetadataService::class.java),
-            mock(Callers::class.java)
+            mock(Callers::class.java),
+            mock(ModelCatalog::class.java),
+            mock(DerivedVersions::class.java)
         ) {
             override suspend fun all(
                 objectName: String,
