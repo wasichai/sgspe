@@ -114,10 +114,10 @@ class CommitmentRecordRules(
         }
         val id = change.recordId
         if (change.kind == RecordChangeKind.UPDATED && id != null && "due_date" in changed && !WriteMark.present()) {
-            // el estado de antes; si wasichai no lo trae en `before`, se lee como quien escribe y sin lectura falla cerrado
+            // el estado de antes: wasichai 0.6.0 no lo trae en `before` (solo los atributos), así que se lee como quien escribe y
+            // sin lectura falla cerrado
             val state =
-                Values.text(change.before?.get("workflow_state"))
-                    ?: readAs(Commitments.COMMITMENT) { records.find(Commitments.COMMITMENT, id) }?.state
+                readAs(Commitments.COMMITMENT) { records.find(Commitments.COMMITMENT, id) }?.state
                     ?: throw NotReadable(Commitments.COMMITMENT)
             if (state in Commitments.AFTER_APPROVAL) {
                 findings +=
