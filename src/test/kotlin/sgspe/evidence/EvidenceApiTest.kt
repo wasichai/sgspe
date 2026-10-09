@@ -129,15 +129,16 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals(HttpStatus.OK, exchange("GET", "/api/objects/evidence/records/$restricted/files/file", null, manager.token).status)
     }
 
-    // la entrada 2 del Review Focus con cada rol que lee evidence sin DOWNLOAD_RESTRICTED (los cuatro que solo leen y FIELD_AGENT,
-    // que además la subió: subirla no da la descarga, security.md §14). la ruta nativa la atiende SGSPE también cuando deja
-    // bajar: el ETag y no-store son de EvidenceContent, wasichai-files no los pone
+    // la entrada 2 del Review Focus con cada rol que lee evidence sin DOWNLOAD_RESTRICTED (los cuatro que solo leen,
+    // PROJECT_ADMIN, que además la edita, y FIELD_AGENT, que la subió: subirla no da la descarga, security.md §14). la ruta
+    // nativa la atiende SGSPE también con HEAD (el mismo @GetMapping) y cuando deja bajar: el ETag y no-store son de
+    // EvidenceContent, wasichai-files no los pone
     @Test
     fun `ningun rol sin DOWNLOAD_RESTRICTED baja una evidencia CONFIDENCIAL o DATOS PERSONALES, ni quien la subio`() {
         val project = testProject()
         val uploader = member("FIELD_AGENT", project)
         val restricted = listOf(evidence(project, "FOTO", "DATOS PERSONALES", uploader), evidence(project, "ACTA", "CONFIDENCIAL"))
-        val readers = listOf("PROJECT_MANAGER", "APPROVER", "ANALYST", "READ_ONLY").map { member(it, project) } + uploader
+        val readers = listOf("PROJECT_MANAGER", "APPROVER", "ANALYST", "READ_ONLY", "PROJECT_ADMIN").map { member(it, project) } + uploader
         for (reader in readers) {
             for (id in restricted) {
                 for (path in listOf("/api/sgspe/evidence/$id/content", "/api/objects/evidence/records/$id/files/file")) {
@@ -148,6 +149,16 @@ class EvidenceApiTest : F3DomainApiTest() {
                 }
             }
         }
+        // HEAD no trae cuerpo, así que el código no se lee: el 403 basta, porque FileController le respondería 200
+        val head =
+            client
+                .head()
+                .uri("/api/objects/evidence/records/${restricted.first()}/files/file")
+                .header(HttpHeaders.AUTHORIZATION, uploader.token)
+                .exchange()
+                .returnResult(Void::class.java)
+        assertEquals(HttpStatus.FORBIDDEN.value(), head.status.value())
+        assertEquals(null, head.responseHeaders.eTag)
         val open = evidence(project, "ACTA", "INTERNA")
         val native = exchange("GET", "/api/objects/evidence/records/$open/files/file", null, readers.first().token)
         assertEquals(HttpStatus.OK, native.status, native.body)
