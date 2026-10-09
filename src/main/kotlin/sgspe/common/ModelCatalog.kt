@@ -175,6 +175,10 @@ class ModelCatalog(
         target: String
     ): String? = relationships.firstOrNull { it.type == "MANY_TO_ONE" && it.source == source && it.target == target }?.fieldName
 
+    // los campos RELATION (MANY_TO_ONE) de `source` con el objeto al que apuntan: (campo, objeto)
+    fun manyToOneFields(source: String): List<Pair<String, String>> =
+        relationships.filter { it.type == "MANY_TO_ONE" && it.source == source && it.fieldName != null }.map { it.fieldName!! to it.target }
+
     // las relaciones MANY_TO_ONE obligatorias que apuntan a `target`: (objeto, campo). wasichai las declara NOT NULL con ON DELETE
     // SET NULL, así que borrar un `target` del que todavía dependen falla en la base (DependentsDeleteGuard lo vuelve un 409)
     fun requiredDependents(target: String): List<Pair<String, String>> =

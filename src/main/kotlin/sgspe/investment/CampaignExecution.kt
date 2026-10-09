@@ -24,12 +24,12 @@ object CampaignExecution {
     )
 
     fun of(
-        campaignCurrency: String,
+        campaignCurrency: String?,
         commitments: List<Executed>
     ): Map<String, Any?> {
         val executed = commitments.filter { (it.amount ?: BigDecimal.ZERO).signum() > 0 }
         // P45: una moneda que falta no se supone PEN; el ejecutado sin moneda se cuenta como de otra
-        val same = executed.filter { it.currency == campaignCurrency }
+        val same = if (campaignCurrency == null) emptyList() else executed.filter { it.currency == campaignCurrency }
         return mapOf(
             "executed_social_amount" to same.mapNotNull { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add),
             "other_currency_items_count" to (executed.size - same.size)
@@ -57,7 +57,7 @@ class CampaignExecutionRecalculator(
         val campaigns = records.all(CAMPAIGN)
         for (campaign in campaigns) {
             try {
-                if (refresh(UUID.fromString(campaign.id), campaign.attributes)) written++
+                if (refresh(UUID.fromString(campaign.id))) written++
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -69,20 +69,22 @@ class CampaignExecutionRecalculator(
         return written
     }
 
-    private suspend fun refresh(
-        id: UUID,
-        read: Map<String, Any?>
-    ): Boolean {
-        // P45: una campaña sin moneda no suma nada y cuenta todo lo ejecutado como de otra moneda
-        val currency = Values.text(read["currency"]) ?: ""
-        val commitments =
-            records
-                .all(Commitments.COMMITMENT, filters = mapOf(CAMPAIGN to id.toString()))
-                .map { CampaignExecution.Executed(Amounts.parse(it.attributes["executed_amount"], "executed_amount"), Values.text(it.attributes["currency"])) }
-        val wanted = CampaignExecution.of(currency, commitments)
-        if (wanted.all { (field, value) -> Values.same(read[field], value) }) return false
-        return transactions.locked("$CAMPAIGN:$id") {
+    // todo dentro del candado de la campaña: la moneda, los compromisos y la escritura se leen con la aprobación que los suma
+    // ya confirmada o aún esperando, nunca a medias. una campaña sin moneda (null) no suma nada y cuenta todo lo ejecutado como
+    // de otra moneda (P45)
+    private suspend fun refresh(id: UUID): Boolean =
+        transactions.locked("$CAMPAIGN:$id") {
             val current = records.find(CAMPAIGN, id)?.attributes ?: return@locked false
+            val commitments =
+                records
+                    .all(Commitments.COMMITMENT, filters = mapOf(CAMPAIGN to id.toString()))
+                    .map {
+                        CampaignExecution.Executed(
+                            Amounts.parse(it.attributes["executed_amount"], "executed_amount"),
+                            Values.text(it.attributes["currency"])
+                        )
+                    }
+            val wanted = CampaignExecution.of(Values.text(current["currency"]), commitments)
             val changes = wanted.filter { (field, value) -> !Values.same(current[field], value) }
             if (changes.isEmpty()) {
                 false
@@ -91,7 +93,6 @@ class CampaignExecutionRecalculator(
                 true
             }
         }
-    }
 
     companion object {
         const val CAMPAIGN = "exploration_campaign"
