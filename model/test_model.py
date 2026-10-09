@@ -250,6 +250,28 @@ class WorkflowTests(unittest.TestCase):
             for t in wf["definition"]["transitions"]:
                 self.assertEqual([r for r in t["roles"] if phases[r] > PHASE], [], (obj, t["name"]))
 
+class SubmitRolesReadAssignmentsTests(unittest.TestCase):
+    """Quien envía a aprobación lee project_assignment: los destinatarios del aviso salen de esa lectura como quien envía,
+    y sin READ el aviso se pierde (ApprovalNoticeListener, Forbidden)."""
+
+    def test_todo_rol_de_una_transicion_submit_lee_project_assignment(self):
+        roles = {r["name"]: r.get("permisos", {}) for r in load("roles.json")["roles"]}
+        checked = 0
+        for name in sorted(os.listdir(os.path.join(HERE, "workflows"))):
+            definition = load(os.path.join("workflows", name))["definition"]
+            for t in definition["transitions"]:
+                if not t["name"].startswith("submit"):
+                    continue
+                for role in t["roles"]:
+                    checked += 1
+                    self.assertIn(
+                        "READ",
+                        roles.get(role, {}).get("project_assignment", []),
+                        f"{name}: {role} aplica {t['name']} sin READ sobre project_assignment",
+                    )
+        self.assertGreater(checked, 0)
+
+
 def definitions(kind):
     """{object: [definition]} of model/<kind>/<object>.json, in file order."""
     folder = os.path.join(HERE, kind)
