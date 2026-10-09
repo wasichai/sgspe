@@ -48,21 +48,23 @@ class ProjectLinkRule(
         val changed = view.changed(change, after)
         val all = change.kind == RecordChangeKind.CREATED || "project" in changed
         val judged = ProjectLinks.fields(catalog).filter { (field, _) -> (all || field in changed) && Records.uuid(after[field]) != null }
-        val projects = judged.associate { (field, target) -> field to projectOf(target, Records.uuid(after[field])!!) }
+        val projects = judged.associate { (field, target) -> field to records.linkedProject(target, Records.uuid(after[field])!!) }
         return ProjectLinks.mismatches(project, projects).map { field ->
             Finding("PROJECT_MISMATCH", "El registro vinculado en $field es de otro proyecto: un compromiso solo referencia lo de su proyecto (P54)", field)
         }
     }
+}
 
-    // el proyecto del registro destino: el suyo si es una raíz, el de su padre si es un hijo (agreement_clause)
-    private suspend fun projectOf(
-        target: String,
-        id: UUID
-    ): UUID? {
-        val record = readAs(target) { records.find(target, id) } ?: throw NotReadable(target)
-        val child = ProjectScope.CHILDREN[target] ?: return Records.uuid(record.attributes["project"])
-        val parent = Records.uuid(record.attributes[child.first]) ?: return null
-        val owner = readAs(child.second) { records.find(child.second, parent) } ?: throw NotReadable(child.second)
-        return Records.uuid(owner.attributes["project"])
-    }
+// el proyecto del registro `id` de `target` (un objeto con alcance de proyecto) leído como quien escribe: el suyo si es una raíz,
+// el de su padre si es un hijo (agreement_clause). lo usan ProjectLinkRule y CandidateLinkRule; un destino que no se lee es
+// NotReadable
+suspend fun Records.linkedProject(
+    target: String,
+    id: UUID
+): UUID? {
+    val record = readAs(target) { find(target, id) } ?: throw NotReadable(target)
+    val child = ProjectScope.CHILDREN[target] ?: return Records.uuid(record.attributes["project"])
+    val parent = Records.uuid(record.attributes[child.first]) ?: return null
+    val owner = readAs(child.second) { find(child.second, parent) } ?: throw NotReadable(child.second)
+    return Records.uuid(owner.attributes["project"])
 }
