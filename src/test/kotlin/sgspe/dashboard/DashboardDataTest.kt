@@ -95,4 +95,36 @@ class DashboardDataTest {
         assertEquals(0, runBlocking { data.stakeholderTerritories() }.size)
         assertEquals(1, runBlocking { data.engagementTerritories() }.size)
     }
+
+    // un dato corrupto no se descarta en silencio: se excluye, se registra y el KPI avisa que está incompleto
+    @Test
+    fun `una reprogramacion sin fecha se excluye y el KPI avisa que esta incompleto`() {
+        fun record(
+            id: String,
+            attributes: Map<String, Any?>
+        ): RecordResponse {
+            val r = mock(RecordResponse::class.java)
+            org.mockito.Mockito
+                .`when`(r.id)
+                .thenReturn(id)
+            org.mockito.Mockito
+                .`when`(r.attributes)
+                .thenReturn(attributes)
+            org.mockito.Mockito
+                .`when`(r.createdAt)
+                .thenReturn(java.time.Instant.parse("2026-05-10T15:00:00Z"))
+            return r
+        }
+        val commitment = UUID.randomUUID().toString()
+        val good = record("ok", mapOf("commitment" to commitment, "previous_due_date" to "2026-05-01", "new_due_date" to "2026-06-01"))
+        val bad = record("bad", mapOf("commitment" to commitment, "previous_due_date" to "2026-05-01"))
+        val data = DashboardData(mock(Records::class.java), filters(), { true })
+        val read = data.parseReschedules(listOf(good, bad))
+        assertEquals(1, read.rows.size)
+        assertEquals(listOf("bad"), read.skipped)
+        val warned = read.warn(IndicatorResult(3))
+        assertEquals(1, warned.warnings.size)
+        assertEquals(3, warned.value)
+        assertEquals(emptyList<String>(), data.parseReschedules(listOf(good)).warn(IndicatorResult(3)).warnings)
+    }
 }

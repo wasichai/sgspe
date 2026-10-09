@@ -39,6 +39,20 @@ data class RescheduleRow(
     val sequence: Long
 )
 
+// las reprogramaciones leídas y los ids de las que se excluyeron por datos incompletos
+class RescheduleRead(
+    val rows: List<RescheduleRow>,
+    val skipped: List<String>
+) {
+    // el resultado con el aviso de que está incompleto si se excluyó alguna reprogramación (nunca en silencio)
+    fun warn(result: IndicatorResult): IndicatorResult =
+        if (skipped.isEmpty()) {
+            result
+        } else {
+            result.copy(warnings = result.warnings + "${skipped.size} reprogramaciones con datos incompletos se excluyeron: el resultado está incompleto")
+        }
+}
+
 // los umbrales de escalamiento de un proyecto (escalation_first_days y escalation_second_days, 7 y 15 por defecto)
 data class Escalation(
     val first: Long,
@@ -270,7 +284,8 @@ object CommitmentKpis {
     // KPI-COM-11: para cada fin de mes M de los 12 que terminan en `end`, los compromisos vencidos en M (dashboards.md §4.4):
     // hoy en approved o después (o cancelados después de M), con agreed_date hasta M, con su fecha vigente en M anterior a M y
     // sin fulfilled_date hasta M. la fecha vigente en M es la new_due_date de la última reprogramación registrada hasta M o, si
-    // no la hay, la original (la previous_due_date de la primera, o due_date si nunca se reprogramó)
+    // no la hay, la original (la previous_due_date de la primera, o due_date si nunca se reprogramó). si `end` cae en un mes
+    // posterior al de hoy, los meses después de hoy repiten el punto de hoy: el mes en curso se mide a hoy y no hay futuro
     fun overdueSeries(
         rows: List<CommitmentRow>,
         reschedules: List<RescheduleRow>,

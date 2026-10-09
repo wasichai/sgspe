@@ -395,18 +395,27 @@ class DashboardData(
     }
 
     // las reprogramaciones de esos compromisos, con el día de Lima en que se registraron
-    suspend fun reschedules(commitments: Collection<String>): List<RescheduleRow> =
-        readIn("commitment_reschedule", "commitment", commitments).mapNotNull { r ->
+    suspend fun reschedules(commitments: Collection<String>): RescheduleRead = parseReschedules(readIn("commitment_reschedule", "commitment", commitments))
+
+    // una reprogramación sin compromiso, sin alguna de sus fechas o sin creación es un dato corrupto (los campos son
+    // obligatorios y el objeto solo se agrega): se registra con su id, se excluye y el KPI avisa que está incompleto
+    fun parseReschedules(records: List<RecordResponse>): RescheduleRead {
+        val rows = mutableListOf<RescheduleRow>()
+        val skipped = mutableListOf<String>()
+        for (r in records) {
             val commitment = Values.text(r.attributes["commitment"])
             val previous = Values.text(r.attributes["previous_due_date"])?.let(LocalDate::parse)
             val newDate = Values.text(r.attributes["new_due_date"])?.let(LocalDate::parse)
             val created = r.createdAt
             if (commitment == null || previous == null || newDate == null || created == null) {
-                log.warn("Reprogramación {} omitida: le falta el compromiso, una fecha o su creación", r.id)
-                return@mapNotNull null
+                log.error("Reprogramación {} con datos incompletos (compromiso, fechas o creación): se excluye del cálculo", r.id)
+                skipped += r.id
+            } else {
+                rows += RescheduleRow(commitment, previous, newDate, created.atZone(LIMA).toLocalDate(), created.toEpochMilli())
             }
-            RescheduleRow(commitment, previous, newDate, created.atZone(LIMA).toLocalDate(), created.toEpochMilli())
         }
+        return RescheduleRead(rows, skipped)
+    }
 
     // la moneda de la campaña pedida (PEN por defecto, RNF-I18N-002); null si no se pidió una campaña
     suspend fun campaignCurrency(): String? {

@@ -340,7 +340,8 @@ object Kpis {
                 ignores = commitmentIgnores("owner")
             ) { data ->
                 val rows = data.commitments(campaign = false, owner = true)
-                CommitmentKpis.onTime(rows, data.reschedules(rows.map { it.id }), data.filters.periodStart, data.filters.periodEnd)
+                val reschedules = data.reschedules(rows.map { it.id })
+                reschedules.warn(CommitmentKpis.onTime(rows, reschedules.rows, data.filters.periodStart, data.filters.periodEnd))
             },
             Kpi(
                 "KPI-COM-10",
@@ -368,7 +369,8 @@ object Kpis {
                 ignores = commitmentIgnores()
             ) { data ->
                 val rows = data.commitments(campaign = false, owner = false)
-                CommitmentKpis.overdueSeries(rows, data.reschedules(rows.map { it.id }), data.filters.periodEnd, data.today)
+                val reschedules = data.reschedules(rows.map { it.id })
+                reschedules.warn(CommitmentKpis.overdueSeries(rows, reschedules.rows, data.filters.periodEnd, data.today))
             }
         )
 
