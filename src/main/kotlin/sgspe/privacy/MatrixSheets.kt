@@ -11,17 +11,21 @@ class MatrixLine(
     val state: String?,
     val attributes: Map<String, Any?>,
     // los solicitantes (commitment_stakeholder): su id de grupo de interés y su nombre si se puede mostrar
-    val requesters: List<Pair<String, String?>>,
-    val milestones: List<String>,
-    val reschedules: List<String>,
-    val actions: Int
+    // null en los hijos = quien exporta no los lee: la celda sale «no disponible», no vacía ni en cero
+    val requesters: List<Pair<String, String?>>?,
+    val milestones: List<String>?,
+    val reschedules: List<String>?,
+    val actions: Int?
 )
 
 // una entrega de la matriz, con los tipos de sus evidencias vinculadas
 class MatrixDelivery(
     val commitmentCode: String,
     val attributes: Map<String, Any?>,
-    val evidenceTypes: List<String>
+    // null = las evidencias no se leen
+    val evidenceTypes: List<String>?,
+    // el nombre de la localidad del compromiso: en EXTERNO sustituye al lugar de la entrega (deliverables.md §9.1, P48)
+    val locality: String? = null
 )
 
 // las hojas de commitment-matrix según el nivel de divulgación (deliverables.md §9 y §10): INTERNO nombra a las organizaciones y
@@ -71,7 +75,7 @@ object MatrixSheets {
 
     val REQUIRES: List<String> =
         COMMITMENT_FIELDS.map { "$COMMITMENT.$it" } + DELIVERY_FIELDS.map { "$DELIVERY.$it" } +
-            listOf("project.code", "organization.name", "person.given_names", "person.surnames", "evidence.evidence_type")
+            listOf("project.code", "organization.name", "person.given_names", "person.surnames", "evidence.evidence_type", "locality.name")
 
     fun matrix(
         lines: List<MatrixLine>,
@@ -122,14 +126,14 @@ object MatrixSheets {
                 fun text(name: String): Any = if ("$COMMITMENT.$name" in readable) Values.text(a[name]).orEmpty() else NOT_AVAILABLE
 
                 fun number(name: String): Any = if ("$COMMITMENT.$name" in readable) Values.decimal(a[name]) ?: "" else NOT_AVAILABLE
-                val requesters =
-                    line.requesters.joinToString("; ") { (id, name) -> if (internal && name != null) name else RegisterSheets.code(id) }
+
+                fun joined(items: List<String>?): Any = items?.joinToString("; ") ?: NOT_AVAILABLE
+                val requesters: Any =
+                    line.requesters
+                        ?.joinToString("; ") { (id, name) -> if (internal && name != null) name else RegisterSheets.code(id) }
+                        ?: NOT_AVAILABLE
                 listOf(
-                    Values
-                        .text(a["project"])
-                        ?.takeIf { "project.code" in readable }
-                        ?.let { projects[it] }
-                        .orEmpty(),
+                    if ("project.code" in readable) Values.text(a["project"])?.let { projects[it] }.orEmpty() else NOT_AVAILABLE,
                     text("code"),
                     text("title"),
                     text("description"),
@@ -148,14 +152,14 @@ object MatrixSheets {
                     listOf(
                         text("request_medium"),
                         text("agreed_date"),
-                        line.milestones.joinToString("; "),
+                        joined(line.milestones),
                         text("due_date"),
-                        line.reschedules.joinToString("; "),
+                        joined(line.reschedules),
                         number("amount"),
                         text("currency"),
                         number("executed_amount"),
                         line.state.orEmpty(),
-                        line.actions,
+                        line.actions ?: NOT_AVAILABLE,
                         text("delay_risk_reported"),
                         text("delay_risk_note"),
                         text("deadline_status"),
@@ -184,15 +188,33 @@ object MatrixSheets {
                 listOf(
                     d.commitmentCode,
                     text("delivery_date"),
-                    text("place"),
+                    place(d, readable, internal, ::text),
                     text("delivered_items"),
                     if ("$DELIVERY.delivered_amount" in readable) Values.decimal(a["delivered_amount"]) ?: "" else NOT_AVAILABLE,
                     if ("$DELIVERY.conformity_given" in readable) (if (Values.bool(a["conformity_given"]) == true) "Sí" else "No") else NOT_AVAILABLE
                 ) + (if (internal) listOf(text("conformity_by"), text("recipients")) else emptyList()) +
-                    listOf(types.count { it == "ACTA DE ENTREGA" }, types.count { it == "FOTO" }, types.count { it != "ACTA DE ENTREGA" && it != "FOTO" })
+                    if (types == null) {
+                        listOf(NOT_AVAILABLE, NOT_AVAILABLE, NOT_AVAILABLE)
+                    } else {
+                        listOf(types.count { it == "ACTA DE ENTREGA" }, types.count { it == "FOTO" }, types.count { it != "ACTA DE ENTREGA" && it != "FOTO" })
+                    }
             }
         return XlsxSheet("Entregas", header, rows)
     }
+
+    // el lugar de la entrega: literal solo en INTERNO; en EXTERNO se generaliza a la localidad del compromiso (deliverables.md
+    // §9.1, P48), vacío si no tiene
+    private fun place(
+        d: MatrixDelivery,
+        readable: Set<String>,
+        internal: Boolean,
+        text: (String) -> Any
+    ): Any =
+        when {
+            internal -> text("place")
+            "locality.name" !in readable -> NOT_AVAILABLE
+            else -> d.locality.orEmpty()
+        }
 
     // PUBLICO: compromisos por estado y tema y por tipo de recurso, sobre la grilla del catálogo (los estados de WF-D) con sus
     // ceros, y con SmallCells en cada tabla; sin totales. un catálogo vacío rechaza la salida (409 CATALOGUE_UNAVAILABLE)

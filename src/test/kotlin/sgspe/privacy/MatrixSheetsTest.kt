@@ -85,4 +85,30 @@ class MatrixSheetsTest {
         assertTrue(byState.all { it[2] == SmallCells.HIDDEN || (it[2] as Int) >= SmallCells.MIN })
         assertThrows<RuleException> { MatrixSheets.aggregates(lines, all, states, emptyList(), listOf("MATERIAL")) }
     }
+
+    @Test
+    fun `el lugar de la entrega sale literal en INTERNO y en EXTERNO se generaliza a la localidad`() {
+        val delivery = MatrixDelivery("C-1", mapOf("place" to "Vivienda de Persona Ejemplo"), emptyList(), "Caserío Ejemplo")
+        val internal = cells(MatrixSheets.deliveries(listOf(delivery), all, Disclosure.INTERNO)).single()
+        assertTrue("Vivienda de Persona Ejemplo" in internal)
+        val readable = all - MatrixSheets.RESTRICTED
+        val external = cells(MatrixSheets.deliveries(listOf(delivery), readable, Disclosure.EXTERNO)).single()
+        assertFalse("Vivienda de Persona Ejemplo" in external)
+        assertTrue("Caserío Ejemplo" in external)
+        val noLocality = MatrixDelivery("C-1", mapOf("place" to "Vivienda de Persona Ejemplo"), emptyList(), null)
+        val empty = cells(MatrixSheets.deliveries(listOf(noLocality), readable, Disclosure.EXTERNO)).single()
+        assertFalse("Vivienda de Persona Ejemplo" in empty)
+        assertEquals("", empty[2])
+    }
+
+    @Test
+    fun `lo que no se lee sale no disponible y nunca vacio ni cero`() {
+        val hidden = MatrixLine("x", "draft", mapOf("project" to "p1", "code" to "C-1"), null, null, null, null)
+        val row = cells(MatrixSheets.matrix(listOf(hidden), mapOf("p1" to "PRY-1"), all - "project.code", Disclosure.INTERNO)).single()
+        assertFalse("PRY-1" in row)
+        assertTrue(row.count { it == NOT_AVAILABLE } >= 5, row.toString())
+        val noEvidence = MatrixDelivery("C-1", emptyMap(), null)
+        val delivery = cells(MatrixSheets.deliveries(listOf(noEvidence), all, Disclosure.INTERNO)).single()
+        assertEquals(listOf(NOT_AVAILABLE, NOT_AVAILABLE, NOT_AVAILABLE), delivery.takeLast(3))
+    }
 }

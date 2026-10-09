@@ -546,6 +546,9 @@ Toda emisión o exportación EXTERNO exige confirmar (RQ-REP-033, ASM-037):
 3. que los mapas no muestran titulares ni ubicaciones de viviendas;
 4. que los anexos no traen datos personales.
 
+En la matriz de compromisos, el lugar de cada entrega (`delivery.place`) se generaliza a la localidad del compromiso en EXTERNO
+(§9.1, ubicaciones): se escribe el nombre de la localidad, o nada si el compromiso no tiene una.
+
 La confirmación queda en `filters_description` de la fila de `export_log` de esa emisión o exportación.
 
 ### 9.5 Registro de exportaciones y emisiones

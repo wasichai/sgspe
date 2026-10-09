@@ -53,7 +53,12 @@ class CommitmentMatrix(
             throw bad("CHECKLIST_REQUIRED", "Una exportación EXTERNO exige confirmar la lista de verificación (ASM-037)", "checklistConfirmed")
         }
         val requested = uuids(filters["project"], "filters.project").distinct()
-        val campaign = uuids(filters["explorationCampaign"], "filters.explorationCampaign").singleOrNull()
+        val campaigns = uuids(filters["explorationCampaign"], "filters.explorationCampaign").distinct()
+        // un filtro que no se aplica ensancharía la exportación en silencio y export_log describiría otro archivo
+        if (campaigns.size > 1) {
+            throw bad("INVALID_FILTER", "El filtro filters.explorationCampaign admite una sola campaña", "filters.explorationCampaign")
+        }
+        val campaign = campaigns.singleOrNull()
         val states = states(filters["state"])
         val projects = scope.resolve(user, requested)
         val commitments = if (projects?.isEmpty() == true) emptyList() else commitments(projects, campaign, states)
@@ -103,53 +108,67 @@ class CommitmentMatrix(
         val ids = commitments.map { it.id }
 
         // un hijo que quien exporta no puede leer queda vacío, como un campo ilegible: la matriz sale igual
-        suspend fun children(objectName: String): List<RecordResponse> = if (readability.canRead(objectName)) readIn(objectName, ids) else emptyList()
-        val milestones = children("commitment_milestone").groupBy { Values.text(it.attributes["commitment"]) }
-        val reschedules = children("commitment_reschedule").groupBy { Values.text(it.attributes["commitment"]) }
-        val actions = children("commitment_action").groupingBy { Values.text(it.attributes["commitment"]) }.eachCount()
-        val deliveries = children(MatrixSheets.DELIVERY)
+        // (null = no se lee: la celda sale «no disponible», no vacía ni en cero)
+        suspend fun children(objectName: String): List<RecordResponse>? = if (readability.canRead(objectName)) readIn(objectName, ids) else null
+        val milestones = children("commitment_milestone")?.groupBy { Values.text(it.attributes["commitment"]) }
+        val reschedules = children("commitment_reschedule")?.groupBy { Values.text(it.attributes["commitment"]) }
+        val actions = children("commitment_action")?.groupingBy { Values.text(it.attributes["commitment"]) }?.eachCount()
+        val deliveries = children(MatrixSheets.DELIVERY).orEmpty()
         if (deliveries.size > MAX_RELATED) throw Records.tooMany(MatrixSheets.DELIVERY, MAX_RELATED, TOO_MANY_FIELD)
+        // Records no ofrece un filtro por vínculo M2M: una lectura por compromiso, cada una con su tope (MAX_PER_LINK)
         val requesters =
             if (readability.canRead("stakeholder")) {
-                commitments.associate { it.id to records.related(COMMITMENT, UUID.fromString(it.id), "commitment_stakeholder") }
+                commitments.associate { it.id to linked(COMMITMENT, it.id, "commitment_stakeholder") }
             } else {
-                emptyMap()
+                null
             }
-        val names = if (disclosure == Disclosure.INTERNO) requesterNames(requesters.values.flatten(), readable) else emptyMap()
+        val names = if (disclosure == Disclosure.INTERNO) requesterNames(requesters?.values?.flatten().orEmpty(), readable) else emptyMap()
         val lines =
             commitments.map { c ->
                 MatrixLine(
                     c.id,
                     c.state,
                     c.attributes,
-                    requesters[c.id].orEmpty().map { it.id to names[it.id] },
-                    milestones[c.id].orEmpty().map {
+                    requesters
+                        ?.get(c.id)
+                        .orEmpty()
+                        .map { it.id to names[it.id] }
+                        .takeIf { requesters != null },
+                    milestones?.get(c.id).orEmpty().map {
                         "${Values.text(
                             it.attributes["description"]
                         ).orEmpty()} (${Values.text(it.attributes["due_date"]).orEmpty()})"
                     },
-                    reschedules[c.id].orEmpty().map {
+                    reschedules?.get(c.id).orEmpty().map {
                         "${Values.text(it.attributes["previous_due_date"]).orEmpty()} → ${Values.text(it.attributes["new_due_date"]).orEmpty()}"
                     },
-                    actions[c.id] ?: 0
+                    actions?.let { it[c.id] ?: 0 }
                 )
             }
-        val codes = commitments.associate { it.id to (Values.text(it.attributes["code"]) ?: it.id) }
+        val codeReadable = "commitment.code" in readable
+        val codes = commitments.associate { it.id to (Values.text(it.attributes["code"]) ?: NO_CODE) }
+        val localities =
+            if (disclosure == Disclosure.EXTERNO && "locality.name" in readable) {
+                readIds("locality", commitments.mapNotNull { Values.text(it.attributes["locality"]) }).associate { it.id to Values.text(it.attributes["name"]) }
+            } else {
+                emptyMap()
+            }
         val evidenceReadable = "evidence.evidence_type" in readable
         val matrixDeliveries =
             deliveries.map { d ->
                 val types =
                     if (evidenceReadable) {
-                        records
-                            .related(
-                                MatrixSheets.DELIVERY,
-                                UUID.fromString(d.id),
-                                "evidence_delivery"
-                            ).mapNotNull { Values.text(it.attributes["evidence_type"]) }
+                        linked(MatrixSheets.DELIVERY, d.id, "evidence_delivery").mapNotNull { Values.text(it.attributes["evidence_type"]) }
                     } else {
-                        emptyList()
+                        null
                     }
-                MatrixDelivery(codes[Values.text(d.attributes["commitment"])] ?: "", d.attributes, types)
+                val commitmentId = Values.text(d.attributes["commitment"])
+                MatrixDelivery(
+                    if (codeReadable) codes[commitmentId] ?: NO_CODE else NOT_AVAILABLE,
+                    d.attributes,
+                    types,
+                    commitments.firstOrNull { it.id == commitmentId }?.let { localities[Values.text(it.attributes["locality"])] }
+                )
             }
         val projects = if ("project.code" in readable) readIds("project", commitments.mapNotNull { Values.text(it.attributes["project"]) }) else emptyList()
         return listOf(
@@ -192,6 +211,16 @@ class CommitmentMatrix(
     }
 
     // ---- lectura acotada ----
+
+    // los registros vinculados a uno (M2M), con su propio tope: pasarse es 400 TOO_MANY_RECORDS
+    private suspend fun linked(
+        objectName: String,
+        id: String,
+        relationship: String
+    ): List<RecordResponse> =
+        records.related(objectName, UUID.fromString(id), relationship).also {
+            if (it.size > MAX_PER_LINK) throw Records.tooMany(relationship, MAX_PER_LINK, TOO_MANY_FIELD)
+        }
 
     private suspend fun read(
         objectName: String,
@@ -284,5 +313,7 @@ class CommitmentMatrix(
         // los compromisos y las entregas cuyos solicitantes y evidencias se leen uno por uno
         const val MAX_RELATED = 2_000
         private const val CHUNK = 500
+        private const val MAX_PER_LINK = 200
+        private const val NO_CODE = "(sin código)"
     }
 }

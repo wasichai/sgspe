@@ -1,5 +1,6 @@
 package sgspe.privacy
 
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import sgspe.common.Finding
@@ -22,7 +23,8 @@ import java.util.UUID
 @Component
 class ExportProjects(
     private val records: Records,
-    private val clock: Clock
+    private val clock: Clock,
+    @Value("\${sgspe.exports.max-rows:20000}") private val maxRows: Int
 ) {
     suspend fun resolve(
         user: AuthenticatedUser,
@@ -39,7 +41,7 @@ class ExportProjects(
         val today = LocalDate.now(clock.withZone(LIMA))
         val rows =
             try {
-                records.all(ASSIGNMENT, filters = mapOf("member_user_id" to user.userId.toString()))
+                records.all(ASSIGNMENT, filters = mapOf("member_user_id" to user.userId.toString()), max = maxRows, field = "filters.project")
             } catch (_: ForbiddenException) {
                 return emptyList()
             }
