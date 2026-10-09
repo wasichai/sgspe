@@ -1,9 +1,11 @@
 package sgspe.dashboard
 
 import sgspe.commitment.Commitments
+import sgspe.common.Amounts
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 
 // un compromiso como lo leen los KPI-COM, ya acotado a los filtros y a los permisos de quien mira
 data class CommitmentRow(
@@ -26,12 +28,15 @@ data class CommitmentRow(
     val executed: BigDecimal?
 )
 
-// una reprogramación: la fecha anterior, la nueva y el día (en Lima) en que se registró
+// una reprogramación: la fecha anterior, la nueva y el día (en Lima) en que se registró. `sequence` es el orden real de
+// creación (el instante o el id) y desempata las del mismo día. previous y newDate son obligatorias: quien lee las filas
+// descarta o rechaza una reprogramación sin ellas, estas funciones nunca la sustituyen por el plazo vigente
 data class RescheduleRow(
     val commitment: String,
-    val previous: LocalDate?,
-    val newDate: LocalDate?,
-    val created: LocalDate
+    val previous: LocalDate,
+    val newDate: LocalDate,
+    val created: LocalDate,
+    val sequence: Long
 )
 
 // los umbrales de escalamiento de un proyecto (escalation_first_days y escalation_second_days, 7 y 15 por defecto)
@@ -48,6 +53,11 @@ object CommitmentKpis {
     const val OTHERS = "Otros"
     const val TOP = 10
     const val DEFAULT_CURRENCY = "PEN"
+    const val BUCKET_FIRST = "OVERDUE_FIRST"
+    const val BUCKET_SECOND = "OVERDUE_SECOND"
+    const val BUCKET_OVER = "OVERDUE_OVER"
+    const val DEFAULT_FIRST = 7L
+    const val DEFAULT_SECOND = 15L
 
     // los estados de WF-D en el orden del workflow: el orden de los desgloses por estado
     val STATES = listOf("draft", "pending_approval", "approved", "in_progress", "blocked", "fulfilled", "verified", "closed", "cancelled")
@@ -69,30 +79,33 @@ object CommitmentKpis {
         today: LocalDate,
         escalation: (String?) -> Escalation
     ): IndicatorResult {
-        val overdue = rows.filter { it.state in Commitments.PENDING && it.deadlineStatus == OVERDUE && it.dueDate != null }
+        val overdue = rows.filter { it.state in Commitments.PENDING && it.deadlineStatus == OVERDUE }
+        val thresholds = overdue.map { escalation(it.project) }.distinct()
         val buckets =
             overdue.map { row ->
-                val days =
-                    java.time.temporal.ChronoUnit.DAYS
-                        .between(row.dueDate, today)
-                val (first, second) = escalation(row.project).let { it.first to it.second }
+                val (first, second) = escalation(row.project)
+                val days = row.dueDate?.let { ChronoUnit.DAYS.between(it, today) } ?: Long.MAX_VALUE
                 when {
-                    days <= first -> "1-$first"
-                    days <= second -> "${first + 1}-$second"
-                    else -> "más de $second"
+                    days <= first -> BUCKET_FIRST
+                    days <= second -> BUCKET_SECOND
+                    else -> BUCKET_OVER
                 }
             }
+        val counts = buckets.groupingBy { it }.eachCount()
+        // las claves son estables entre proyectos; la etiqueta lleva los umbrales solo si son los mismos en todas las filas
+        val uniform = thresholds.singleOrNull() ?: Escalation(DEFAULT_FIRST, DEFAULT_SECOND).takeIf { thresholds.isEmpty() }
+        val labels =
+            mapOf(
+                BUCKET_FIRST to (uniform?.let { "1-${it.first}" } ?: "Hasta el primer umbral"),
+                BUCKET_SECOND to (uniform?.let { "${it.first + 1}-${it.second}" } ?: "Hasta el segundo umbral"),
+                BUCKET_OVER to (uniform?.let { "más de ${it.second}" } ?: "Más del segundo umbral")
+            )
         val rowsOut =
-            buckets
-                .groupingBy { it }
-                .eachCount()
-                .entries
-                .sortedBy { bucketOrder(it.key) }
-                .map { mapOf("key" to it.key, "value" to it.value) }
+            listOf(BUCKET_FIRST, BUCKET_SECOND, BUCKET_OVER)
+                .filter { it in counts }
+                .map { mapOf("key" to it, "label" to labels.getValue(it), "value" to counts.getValue(it)) }
         return IndicatorResult(overdue.size, breakdowns = listOf(Breakdown("daysOverdue", rowsOut)))
     }
-
-    private fun bucketOrder(key: String): Long = if (key.startsWith("más de ")) Long.MAX_VALUE else key.substringBefore('-').toLongOrNull() ?: 0
 
     // KPI-COM-04: pendientes de cumplimiento con deadline_status POR VENCER
     fun dueSoon(rows: List<CommitmentRow>): IndicatorResult = IndicatorResult(rows.count { it.state in Commitments.PENDING && it.deadlineStatus == DUE_SOON })
@@ -196,7 +209,7 @@ object CommitmentKpis {
         end: LocalDate
     ): IndicatorResult {
         val done = fulfilledIn(rows, start, end)
-        val original = reschedules.groupBy { it.commitment }.mapValues { (_, list) -> list.minWith(compareBy({ it.created }, { it.previous })).previous }
+        val original = reschedules.groupBy { it.commitment }.mapValues { (_, list) -> list.minWith(compareBy({ it.created }, { it.sequence })).previous }
         val current = done.count { it.dueDate != null && !it.fulfilledDate!!.isAfter(it.dueDate) }
         val againstOriginal =
             done.count { row ->
@@ -231,23 +244,28 @@ object CommitmentKpis {
         rows: List<CommitmentRow>,
         campaignCurrency: String?
     ): IndicatorResult {
-        val committed = rows.filter { it.state in Commitments.COMMITTED }
-        val byCurrency = committed.groupBy { it.currency ?: DEFAULT_CURRENCY }
+        // P45: sin monto o sin moneda no hay qué sumar y se omite la fila
+        val committed = rows.filter { it.state in Commitments.COMMITTED && it.amount != null && it.currency != null }
+        val main = campaignCurrency ?: DEFAULT_CURRENCY
+        val byCurrency = committed.groupBy { it.currency!! }
         val shown = if (campaignCurrency == null) byCurrency else byCurrency.filterKeys { it == campaignCurrency }
         val outRows =
             shown.entries.sortedBy { it.key }.map { (currency, list) ->
-                val amount = list.mapNotNull { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add)
-                val executed = list.mapNotNull { it.executed }.fold(BigDecimal.ZERO, BigDecimal::add)
+                val amount = scaled(list.mapNotNull { it.amount }.fold(BigDecimal.ZERO, BigDecimal::add))
+                val executed = scaled(list.mapNotNull { it.executed }.fold(BigDecimal.ZERO, BigDecimal::add))
                 mapOf("key" to currency, "value" to amount, "committed" to amount, "executed" to executed)
             }
-        val other = if (campaignCurrency == null) 0 else committed.count { (it.currency ?: DEFAULT_CURRENCY) != campaignCurrency }
-        val main = outRows.firstOrNull { it["key"] == (campaignCurrency ?: DEFAULT_CURRENCY) }
+        val other = if (campaignCurrency == null) 0 else committed.count { it.currency != campaignCurrency }
+        // P45: sin compromisos con monto en la moneda principal no hay base de comparación y value es null
         return IndicatorResult(
-            main?.get("value") as BigDecimal?,
+            outRows.firstOrNull { it["key"] == main }?.get("value") as BigDecimal?,
             breakdowns = listOf(Breakdown("currency", outRows)),
             warnings = if (other > 0) listOf("$other compromisos en otra moneda que la de la campaña no se suman") else emptyList()
         )
     }
+
+    // P44: los montos salen con la escala de Amounts, para que el JSON no cambie con la fila de origen
+    private fun scaled(value: BigDecimal): BigDecimal = value.setScale(Amounts.MAX_SCALE, java.math.RoundingMode.HALF_UP)
 
     // KPI-COM-11: para cada fin de mes M de los 12 que terminan en `end`, los compromisos vencidos en M (dashboards.md §4.4):
     // hoy en approved o después (o cancelados después de M), con agreed_date hasta M, con su fecha vigente en M anterior a M y
@@ -256,13 +274,15 @@ object CommitmentKpis {
     fun overdueSeries(
         rows: List<CommitmentRow>,
         reschedules: List<RescheduleRow>,
-        end: LocalDate
+        end: LocalDate,
+        today: LocalDate
     ): IndicatorResult {
-        val byCommitment = reschedules.groupBy { it.commitment }.mapValues { (_, list) -> list.sortedWith(compareBy({ it.created }, { it.newDate })) }
+        val byCommitment = reschedules.groupBy { it.commitment }.mapValues { (_, list) -> list.sortedWith(compareBy({ it.created }, { it.sequence })) }
         val months = (11 downTo 0).map { YearMonth.from(end).minusMonths(it.toLong()) }
         val series =
             months.map { month ->
-                val closing = month.atEndOfMonth()
+                // el mes que aún no cierra se mide a hoy: lo que vence entre hoy y fin de mes todavía no está vencido
+                val closing = minOf(month.atEndOfMonth(), today)
                 val count =
                     rows.count { row ->
                         val alive =
