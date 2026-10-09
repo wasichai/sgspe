@@ -1331,13 +1331,14 @@ def _sync_named(client, kind, object_name, name, wanted, collection):
         return None
 
 
-def _warn_extra_automations(client, automations, object_names):
-    """An automation Core runs and model/ no longer declares keeps running: reported on stderr, never deleted."""
-    declared = {a["name"] for _, a in automations}
+def _warn_extra_definitions(client, kind, collection, entries, object_names):
+    """A document type or automation Core has and model/ no longer declares keeps working: reported on stderr, never
+    deleted. `kind` is the word for the message ('document type', 'automation'); `collection` the REST segment."""
+    declared = {d["name"] for _, d in entries}
     for object_name in object_names:
-        for current in client.get(f"/api/objects/{object_name}/automations") or []:
+        for current in client.get(f"/api/objects/{object_name}/{collection}") or []:
             if current.get("name") not in declared:
-                print(f"warning: automation {current.get('name')} of {object_name} is in core but not in model/; left as is "
+                print(f"warning: {kind} {current.get('name')} of {object_name} is in core but not in model/; left as is "
                       f"(delete it in /admin if it is a leftover)", file=sys.stderr)
 
 
@@ -1474,11 +1475,13 @@ def do_workflows(model_dir, model, client_factory, dry_run=False, allow_stateles
                 return 1
             tally[outcome] += 1
         counts[kind] = tally
-    if automations:
+    for kind, collection, entries in (("document type", "document-types", types), ("automation", "automations", automations)):
+        if not entries:
+            continue
         try:
-            _warn_extra_automations(client, automations, [o["name"] for o in model["objects"]])
+            _warn_extra_definitions(client, kind, collection, entries, [o["name"] for o in model["objects"]])
         except CoreError as e:
-            _fatal("GET", "/api/objects/{object}/automations", e)
+            _fatal("GET", f"/api/objects/{{object}}/{collection}", e)
             return 1
 
     def summary(count, noun, tally):
