@@ -4034,7 +4034,7 @@ respuesta que recibió la primera petición, escrita en la misma transacción qu
 
 - **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
 - **Únicos:** clave primaria (`organization_id`, `user_id`, `request_key`).
-- **Índices:** (`created_at`).
+- **Índices:** (`created_at`), que sirve a la purga de JOB-08 con SQL propio, sin `asPlatform` (ASM-065).
 - **Acciones declaradas:** no aplican.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
@@ -4206,7 +4206,7 @@ decisión registrada permite.
 | Versiones emitidas | `deliverable_version` y almacenamiento | Siempre, con WORM opcional | RQ-REP-017, RQ-REP-027 |
 | Exportaciones e interacciones con IA | `export_log`, `ai_interaction` | Siempre (append-only) | RQ-AUD-011, RQ-AUD-012 |
 | Avisos y envíos | Tablas de wasichai-notifications | El módulo purga los avisos resueltos o vencidos después de `wasichai.notifications.retention` (90 días); los envíos se van con su aviso | RF-NTF-001, ADR-0018 |
-| Claves de idempotencia | `sgspe.idempotency_key` | JOB-08 borra cada día las más antiguas que `wasichai.idempotency.ttl` (24 h por defecto), el mismo plazo de la cabecera nativa; guardan la respuesta de la primera petición, nunca su cuerpo | ASM-065, RNF-INT-002 |
+| Claves de idempotencia | `sgspe.idempotency_key` | JOB-08 borra cada día las más antiguas que `wasichai.idempotency.ttl` (24 h por defecto), el mismo plazo de la cabecera nativa; guardan la respuesta de la primera petición, acotada, para reenviarla; esa respuesta puede llevar datos que quien llamó podía leer y por eso expira con el plazo; nunca guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
 | Fragmentos de RAG | `sgspe.knowledge_chunk` | Son derivados: se regeneran o se borran con su evidencia | RQ-AI-008 |
 | Datos personales | Campos restringidos | Según la política de GAP-014; mientras tanto, minimización con permisos de campo y anonimización en salidas | RNF-PRIV-004, RQ-SEC-010, RQ-REP-014 |
 

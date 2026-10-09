@@ -10,7 +10,7 @@ WAS-ADR-0047, WAS-ADR-0060); SGSPE decide los destinatarios y los textos
 - El prompt pide avisos en la aplicación y por correo (compromiso por vencer y vencido, plazo de queja, riesgo escalado,
   aprobación pendiente, tarea vencida), sin notificar desde las entidades sino desde eventos de aplicación [PRM-01 §12,
   §17] (RF-NTF-001, RN-NTF-001).
-- wasichai no tiene módulo de notificaciones (CON-058, UPS-11), una vista de wasichai no puede filtrar por "yo", y las
+- wasichai no tenía módulo de notificaciones (CON-058, UPS-11); lo trae desde la 0.4.0 y la 0.6.0 (wasichai-notifications). Una vista de wasichai no puede filtrar por "yo", y las
   automatizaciones no tienen disparadores temporales (CON-043) [WAS-ADR-0016].
 - Muchos avisos van a un rol, pero wasichai no le da al código una búsqueda de usuarios por rol ni roles por proyecto
   ([workflows.md](../workflows.md), "Destinatarios por rol"; CON-041, UPS-01), y el código no puede comparar nombres de
