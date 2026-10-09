@@ -35,7 +35,7 @@ class DependentsDeleteGuardTest {
     }
 
     @Test
-    fun `una relacion opcional de un objeto requiresReason o appendOnly tambien cuenta`() {
+    fun `una relacion opcional de un objeto requiresReason tambien cuenta, la de uno appendOnly no`() {
         val reasoned =
             ModelCatalog.parse(
                 model =
@@ -52,7 +52,8 @@ class DependentsDeleteGuardTest {
                 roles = """{"roles": []}"""
             )
         assertEquals(listOf("commitment" to "agreement_clause"), reasoned.guardedDependents("agreement_clause"))
-        assertEquals(listOf("stakeholder_assessment" to "position"), reasoned.guardedDependents("position"))
+        // la de un objeto appendOnly la rechaza antes la plataforma (AppendOnlyReferences, 409 sin código): aquí no cuenta (P57)
+        assertTrue(reasoned.guardedDependents("position").isEmpty())
         // la tarea no lleva motivo: borrar su acuerdo la deja sin origen, como cualquier relación opcional
         assertTrue(reasoned.guardedDependents("agreement").isEmpty())
         assertTrue(reasoned.requiredDependents("agreement_clause").isEmpty())
