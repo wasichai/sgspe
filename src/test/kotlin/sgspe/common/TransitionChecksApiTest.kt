@@ -99,7 +99,8 @@ class TransitionChecksApiTest : DomainApiTest() {
     @Test
     fun `quien no lee el objeto no recibe ni la consulta ni el estado del registro`() {
         val project = projectWithCrs()
-        val outsider = userWithRole("COMMITMENT_MANAGER")
+        // un rol sin permisos sobre project mientras su fase no llegue (GRIEVANCE_MANAGER los recibe en F4)
+        val outsider = userWithRole("GRIEVANCE_MANAGER")
         val response =
             exchange(
                 "POST",
