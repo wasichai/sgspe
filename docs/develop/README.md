@@ -47,10 +47,11 @@ set -a; source develop/.env; set +a
 | `WASICHAI_EMAIL` / `WASICHAI_PASSWORD` | el administrador de desarrollo | login de esos scripts |
 | `WASICHAI_TEST_DB_*` | comentadas | pruebas de integración contra la base externa (sección 6) |
 | `WASICHAI_FILES_STORE` | `local` | dónde guarda wasichai-files los archivos de `evidence.file` (ADR-0014): `local` en `WASICHAI_FILES_LOCAL_PATH` (`build/wasichai-files`), o `s3` en el MinIO de `compose.yml`; el perfil `prod` exige `s3` (`ProdGuard`) |
-| `WASICHAI_FILES_S3_BUCKET` / `_ENDPOINT` / `_ACCESS_KEY` / `_SECRET_KEY` | `sgspe-evidencias` / `http://localhost:9095` / `sgspe` / `sgspe-minio` | el bucket y las credenciales del MinIO de desarrollo; en producción, sin valor por defecto |
+| `WASICHAI_FILES_S3_BUCKET` / `_ENDPOINT` | `sgspe-evidencias` / `http://localhost:9095` | el bucket y la URL del MinIO de desarrollo; en producción, sin valor por defecto |
+| `WASICHAI_FILES_S3_ACCESS_KEY` / `_SECRET_KEY` | sin valor por defecto | con `WASICHAI_FILES_STORE=s3` contra el MinIO local, cópielas de `develop/example.env` a `develop/.env`; sin ninguna de las dos, el SDK usa su cadena de credenciales (un rol IAM en producción), y con una sola `ProdGuard` impide el arranque |
 | `SGSPE_MINIO_PORT` / `SGSPE_MINIO_CONSOLE_PORT` | `9095` / `9096` | puertos que publica `compose.yml` para la API y la consola de MinIO |
 | `WASICHAI_NOTIFICATIONS_EMAIL_ENABLED` / `_FROM` | `false` / `avisos@sgspe.test` | el canal de correo de wasichai-notifications (GAP-021), apagado por defecto |
-| `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT` | `localhost` / `1029` | el SMTP de prueba (Mailpit) de `compose.yml`, por el túnel |
+| `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT` | `localhost` / `1029` | el SMTP de prueba (Mailpit) de `compose.yml`, por el túnel; el perfil `prod` no tiene servidor por defecto y, con el correo encendido, `ProdGuard` exige `SPRING_MAIL_HOST` |
 | `SGSPE_SMTP_PORT` / `SGSPE_MAILPIT_PORT` | `1029` / `8029` | puertos que publica `compose.yml` para el SMTP y la web de Mailpit |
 | `SGSPE_TEST_S3_ENDPOINT` / `_ACCESS_KEY` / `_SECRET_KEY` | comentadas | el MinIO de `FileStoreContractTest` cuando Testcontainers no alcanza el Docker remoto (sección 6) |
 
