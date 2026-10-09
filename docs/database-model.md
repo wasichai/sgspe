@@ -4145,6 +4145,12 @@ RNF-INT-002, ASM-065, UPS-18.
   MANY_TO_MANY con `type`; autorreferencias y ciclos, que los validadores de caja y de srtm rechazan (exigen que el destino
   aparezca antes que el origen); `defaultValue`, que wasichai guarda pero no aplica (UPS-15); y el paso `--workflows`. Cada
   fase agrega solo los objetos, campos, relaciones y definiciones de su fase, según las fichas.
+- Desde F3: el tipo `FILE` de wasichai-files (nunca `unique`, con `defaultValue` ni en un índice), y en `--workflows` los
+  tipos de documento (`model/document-types/<objeto>.json`) y las automatizaciones (`model/automations/<objeto>.json`), cada
+  archivo una lista. Los valida sin red contra `model.json` y el workflow del objeto (lo que nombran sus plantillas, sus
+  disparadores y sus acciones; sin `WEBHOOK` ni `NOTIFY`; ningún derivado escrito; ningún requerido de `CREATE_RECORD`
+  omitido), crea los que faltan, reemplaza los que difieren y avisa, sin borrarla, de una automatización que el tenant
+  tiene y `model/` ya no.
 
 ### Cómo sincroniza un modelo existente
 
