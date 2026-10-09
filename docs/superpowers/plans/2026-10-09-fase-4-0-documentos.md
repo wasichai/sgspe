@@ -9,8 +9,8 @@
 (ASM-095 a ASM-104, UPS-25 y UPS-26) con los totales de §20.1; los huecos C1 (documentos de QCS frente a UPS-23), C7
 (días hábiles), C10 y C6 (los seis tipos de regla de alerta) y C12 (contenido de `attention-register` y
 `risk-register`); las contradicciones menores C2 a C5, C8, C9, C11 y C13 a C17; el `RecordReadScope` de las QCS
-confidenciales en `security.md`; y el roadmap, la trazabilidad y la historia al día. Los planes 4.1, 4.2a, 4.2b y 4.3
-leen estos documentos como fuente de verdad.
+confidenciales en `security.md` y en su ADR (ADR-0028); el tablero de riesgos con su propio id (S62); y el roadmap, la
+trazabilidad y la historia al día. Los planes 4.1, 4.2a, 4.2b y 4.3 leen estos documentos como fuente de verdad.
 
 **Architecture:** Solo documentos y una prueba del lector de documentos. Cada tarea reemplaza texto exacto de uno o más
 documentos (bloques «reemplazar … por …») y empieza con una comprobación en Python de solo biblioteca estándar que falla
@@ -92,6 +92,8 @@ Fuentes: `.superpowers/sdd/fase-4/readiness.md` (huecos C1 a C18) y `.superpower
 | 7 | RNF-I18N-002 cubre zona, moneda y feriados, y su fila de trazabilidad decía «Upstream (UPS-15)» por los valores por defecto | Pasa a «Diseñado», como pide la especificación (C7), con `BusinessDaysTest` y `QcsDueDatesApiTest`; la fila de UPS-15 en el análisis sigue citándola, porque la mitigación de los valores por defecto no cambia (Tarea 7) |
 | 8 | `deliverables.md` y `api.md` debían «ganar el contrato» de las dos exportaciones | Las hojas y columnas por nivel van una sola vez, en `deliverables.md` §10; `api.md` §4.13 lleva permiso, cuerpo, filtros, topes, errores y `export_log`, y remite a §10 (Tarea 5) |
 | 9 | La especificación decide `400 FIELD_REQUIRED` para las reglas de F4, mientras que el `FIELD_REQUIRED` de F2 y F3 de la API genérica está en la fila `409` de `api.md` §3.3 | Se documenta como dice la especificación, en la fila `400` con «Desde F4»; la fila `409` no cambia (Tarea 5) |
+| 10 | `ux/screens.md` usa S38 para el registro y matriz de riesgos (con S39) y para el tablero de riesgos, y `ux-architecture.md` §9 llama S38 al tablero | Decisión del usuario (2026-10-09): S38 sigue siendo el registro y matriz; el tablero de riesgos pasa a S62, el siguiente id libre tras S57 a S61. Cambian `screens.md` (la ficha y sus referencias), `ux/README.md` y el inventario de `ux-architecture.md` §9, que suma S57 a S62. `dashboards.md`, la trazabilidad y el roadmap no citan pantallas por id; la entrada de 2026-10-07 de `HISTORY.md` queda como se escribió (Tareas 6 y 8) |
+| 11 | La especificación pone la confidencialidad de las QCS en `security.md` §9 sin un ADR, y es una decisión de arquitectura que reabre una respuesta del checkpoint | Decisión del usuario (2026-10-09): ADR propio, ADR-0028 «QCS confidenciales con `RecordReadScope`» (MADR, aceptado), con `ConfidentialAttentionScope`, `READ_CONFIDENTIAL` y la excepción `ConfidentialRelease` de `RequestClosureListener` (decisión 4 del plan 4.2a, aceptada por el usuario); `docs/adr/README.md` lo indexa y §9.6, §15 de `security.md` y la fila de RF-GRV-001 de la trazabilidad lo citan (Tareas 3 y 7) |
 
 Huecos y contradicciones que cierra cada tarea: C1 (Tareas 2, 3, 4 y 7), C2 (7), C3 (7), C4 (2), C5 (2), C6 y C10 (1, 2
 y 4), C7 (4 y 7), C8 (2), C9 (2), C11 (6), C12 (5), C13 (2 y 5), C14 (6), C15 (2 y 4), C16 (2 y 7) y C17 (7). C18
@@ -107,11 +109,12 @@ y 4), C7 (4 y 7), C8 (2), C9 (2), C11 (6), C12 (5), C13 (2 y 5), C14 (6), C15 (2
 | `docs/workflows.md` | Reglas de SGSPE, transiciones de comando (`assess`), WF-E, WF-F, WF-J, WF-M, automatizaciones y tipos de documento, trabajos y «Tipos de regla de JOB-04», listeners, avisos, destinatarios, plazos y pruebas | 2 |
 | `model/test_design_docs.py` | Los tres tipos de documento de QCS y AUT-06 a AUT-08 tras UPS-23 | 2 |
 | `docs/security.md` | §5.3, §7.6, §9.6 (nueva), §11.3, §11.4, §14 y §15 | 3 |
+| `docs/adr/0028-qcs-confidenciales-con-recordreadscope.md` (nuevo), `docs/adr/README.md` | ADR-0028 y su fila del índice | 3 |
 | `docs/gis.md`, `docs/glossary.md` | LYR-20; «QCS confidencial» y «Día hábil» | 3 |
-| `docs/database-model.md` | `project`, `grievance`, `inquiry`, `stakeholder_request`, `engagement_question`, `early_warning_rule` y `early_warning` | 4 |
+| `docs/database-model.md` | `project`, `grievance`, `inquiry`, `stakeholder_request`, `engagement_question`, `social_risk` (`review_every_days`), `early_warning_rule` y `early_warning` | 4 |
 | `docs/domain-model.md`, `docs/architecture.md` | §6.12, §7.3, §7.4, §7.5, §8.1.1 y §8.2; §5.2, §8.2, §10.2 y §13 | 4 |
 | `docs/api.md`, `docs/deliverables.md` | §3.3, §4.4, §4.6, §4.7, §4.9, §4.11 y §4.13; §10 | 5 |
-| `docs/dashboards.md`, `docs/ux/screens.md`, `docs/ux/README.md` | §3.3, §4.3, §4.5 y §8; §8, §9 y §16 de las pantallas, con S57 a S61 | 6 |
+| `docs/dashboards.md`, `docs/ux/screens.md`, `docs/ux/README.md`, `docs/ux/ux-architecture.md` | §3.3, §4.3, §4.5 y §8; §8, §9, §12, §14 y §16 de las pantallas, con S57 a S61 y el tablero de riesgos en S62; el inventario de §9 | 6 |
 | `docs/roadmap.md`, `docs/requirements-traceability.md` | F3 «Estado», fila F4, brechas por fase y respuestas del checkpoint; estados y totales | 7 |
 | `docs/HISTORY.md` | Entrada del plan 4.0 | 8 |
 
@@ -129,14 +132,15 @@ Lo que este plan deja para los siguientes (todos parten de `main` con 4.0 integr
   de `test_model.py` lo deja fuera de `stakeholder_request.json` en F4. `workflows.md` declara `assess` de WF-F como
   transición de comando, que `WorkflowMatrixApiTest` difiere.
 - **4.2a (QCS).** Los códigos de error de `api.md` §3.3 y §4.4 a §4.6, el contrato del reporte unificado, la
-  confidencialidad de `security.md` §9.6, los avisos y destinatarios de `workflows.md` (con las fuentes `sgspe.risks` y
+  confidencialidad de `security.md` §9.6 y ADR-0028 (que ya registra `ConfidentialRelease`), los avisos y destinatarios de `workflows.md` (con las fuentes `sgspe.risks` y
   `sgspe.warnings`, decisión 2), el calendario de `architecture.md` §10.2 y el contenido de `attention-register` en
   `deliverables.md` §10.
 - **4.2b (riesgos y alertas).** «Tipos de regla de JOB-04» en `workflows.md`, el contrato de revisiones de `api.md`
   §4.7, las notas de `early_warning_rule` y `early_warning` en `database-model.md` §14 y el contenido de
   `risk-register`.
-- **4.3 (portal).** `ux/screens.md` §8 y §9 con S57 a S61, «Registro reservado», el interruptor de confidencialidad de
-  S37 y «Subir cargo firmado» y «Subir carta firmada».
+- **4.3 (portal).** `ux/screens.md` §8 y §9 con S57 a S61, el tablero de riesgos como S62 (§12; S38 es el registro y
+  matriz), «Registro reservado», el interruptor de confidencialidad de S37 y «Subir cargo firmado» y «Subir carta
+  firmada».
 
 ## Orden y paralelismo
 
@@ -147,7 +151,7 @@ Cada tarea del grupo 1 puede hacerse en su propio worktree cuando la Tarea 1 est
 | Grupo | Tareas | Necesita | Por qué juntas |
 |---|---|---|---|
 | 0 | 1 | La rama creada | Define los IDs que citan las demás |
-| 1 | 2, 3, 4, 5, 6, 7 | La Tarea 1 integrada | Archivos disjuntos: `workflows.md` y `test_design_docs.py`; `security.md`, `gis.md` y `glossary.md`; `database-model.md`, `domain-model.md` y `architecture.md`; `api.md` y `deliverables.md`; `dashboards.md` y `ux/`; `roadmap.md` y la trazabilidad |
+| 1 | 2, 3, 4, 5, 6, 7 | La Tarea 1 integrada | Archivos disjuntos: `workflows.md` y `test_design_docs.py`; `security.md`, `gis.md`, `glossary.md` y `adr/`; `database-model.md`, `domain-model.md` y `architecture.md`; `api.md` y `deliverables.md`; `dashboards.md` y `ux/`; `roadmap.md` y la trazabilidad |
 | 2 | 8, después 9 | Todas las anteriores | La historia resume lo integrado; la 9 verifica, hace push y abre el PR |
 
 ---
@@ -1220,16 +1224,18 @@ MSG
 `security.md` suma la acción declarada `READ_CONFIDENTIAL` (§5.3, §7.6), la subsección §9.6 con quién ve una QCS
 confidencial, el componente y dónde rige (CON-041 sigue en la opción A para el alcance por proyecto), reemplaza el
 riesgo residual de §11.3, suma a §11.4 las salidas de F4 y los documentos de QCS tras UPS-23 (C1), a §14 las pruebas y a
-§15 la respuesta del usuario. `gis.md` y el glosario lo reflejan.
+§15 la respuesta del usuario. `gis.md` y el glosario lo reflejan, y ADR-0028 registra la decisión (decisión 11).
 
 **Archivos:**
-- Modificar: `docs/security.md`, `docs/gis.md` (LYR-20), `docs/glossary.md` (QCS)
+- Crear: `docs/adr/0028-qcs-confidenciales-con-recordreadscope.md`
+- Modificar: `docs/security.md`, `docs/gis.md` (LYR-20), `docs/glossary.md` (QCS), `docs/adr/README.md`
 - Probar: `model/test_apply_roles.py` y `model/test_design_docs.py` (leen la matriz de §7)
 
 **Interfaces:**
 - Consume: ASM-095, ASM-098, ASM-101, ASM-102, ASM-104, UPS-25 y UPS-26 de la Tarea 1.
 - Produce: §9.6 («QCS confidenciales: `RecordReadScope` (F4)»), que citan `workflows.md`, `api.md`, `database-model.md`
-  y el roadmap; `READ_CONFIDENTIAL` de `GRIEVANCE_MANAGER` en la matriz, que lee el plan 4.1.
+  y el roadmap; `READ_CONFIDENTIAL` de `GRIEVANCE_MANAGER` en la matriz, que lee el plan 4.1; ADR-0028, que citan §9.6,
+  §15, la trazabilidad (Tarea 7) y el plan 4.2a.
 
 - [ ] **Paso 1: La comprobación falla**
 
@@ -1242,6 +1248,7 @@ checks = [
     ('docs/security.md', '`confidential` es un dato que no restringe la lectura', False),
     ('docs/gis.md', 'hereda su `RecordReadScope` (ASM-095)', True),
     ('docs/glossary.md', '| Día hábil |', True),
+    ('docs/adr/README.md', '| [0028](0028-qcs-confidenciales-con-recordreadscope.md) |', True),
 ]
 bad = [f"{p}: {'falta' if want else 'sobra'} {s!r}" for p, s, want in checks
        if (s in open(p, encoding='utf-8').read()) != want]
@@ -1250,7 +1257,7 @@ raise SystemExit(1 if bad else 0)
 PY
 ```
 
-Esperado: salida 1 con las seis líneas.
+Esperado: salida 1 con las siete líneas.
 
 - [ ] **Paso 2: La acción declarada `READ_CONFIDENTIAL` y la matriz de F4**
 
@@ -1345,7 +1352,8 @@ wasichai 0.6.0 trae el SPI `RecordReadScope` (WAS-ADR-0048): para cada usuario y
 la plataforma aplica en listas, detalle, relacionados, historial, auditoría, transiciones, features GIS y agente, y que
 no se aplica al `ADMIN` ni a la plataforma. F4 lo adopta **solo** para las QCS confidenciales (ASM-095, decisión del
 usuario del 2026-10-09); el alcance por proyecto sigue en la opción A de CON-041 (§9.2) hasta que el checkpoint decida
-UPS-01, que este mismo SPI resolvería del lado de SGSPE.
+UPS-01, que este mismo SPI resolvería del lado de SGSPE. La decisión, sus alternativas y sus consecuencias están en
+[ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md).
 
 | Quien llama | Ve una QCS confidencial (`grievance`, `inquiry`, `stakeholder_request`) |
 |---|---|
@@ -1488,7 +1496,7 @@ En `docs/security.md`, reemplazar:
 por:
 
 ```markdown
-| Protección de quien plantea una QCS | GAP-005, GAP-024, ASM-095 | ¿Se restringe el vínculo `stakeholder` de las QCS a los roles que leen su `person`? | Decidido el 2026-10-09: una QCS confidencial solo la leen quienes fija §9.6 (`RecordReadScope`); el vínculo `stakeholder` de una QCS no confidencial sigue sin restringir (§11.3) |
+| Protección de quien plantea una QCS | GAP-005, GAP-024, ASM-095 | ¿Se restringe el vínculo `stakeholder` de las QCS a los roles que leen su `person`? | Decidido el 2026-10-09: una QCS confidencial solo la leen quienes fija §9.6 (`RecordReadScope`, ADR-0028); el vínculo `stakeholder` de una QCS no confidencial sigue sin restringir (§11.3) |
 ```
 
 En `docs/security.md`, reemplazar:
@@ -1531,7 +1539,150 @@ por:
 | Día hábil | `BusinessDays` (`sgspe.common`) | — | Día de lunes a viernes que no es un feriado nacional de la lista configurada de su año; sin la lista del año, de lunes a viernes. Mide el plazo de acuse de una queja (ASM-005, ASM-096) | [PRM-01 §17] | día laborable | día calendario |
 ```
 
-- [ ] **Paso 6: Verificar**
+- [ ] **Paso 6: El ADR de la confidencialidad (decisión 11)**
+
+Crear `docs/adr/0028-qcs-confidenciales-con-recordreadscope.md`:
+
+```markdown
+# ADR-0028: QCS confidenciales con `RecordReadScope`
+
+## Estado
+
+Aceptado · 2026-10-09 · decisión del usuario para F4, que reabre la respuesta del checkpoint «sin restringir en el
+MVP»; el alcance por proyecto de ADR-0006 no cambia (sigue la opción A de CON-041)
+
+## Contexto
+
+- Las QCS llevan la marca `confidential` desde su diseño ([domain-model.md §6.7](../domain-model.md)), pero la marca no
+  restringía la lectura: la plataforma no tenía alcance por registro (GAP-024) y, con la opción A de CON-041, todos los
+  roles operativos menos `PROJECT_ADMIN` leen todas las QCS ([security.md §9.2](../security.md)). El checkpoint lo
+  aceptó como riesgo residual del MVP.
+- Quien plantea una QCS confidencial puede temer represalias. Su `person` está restringida (`security.md` §7.9), pero
+  el registro, con su descripción y su vínculo `stakeholder`, lo leía todo rol con READ.
+- wasichai 0.6.0 trae el SPI `RecordReadScope` [WAS-ADR-0048]: para cada usuario y objeto, la app devuelve un criterio
+  que la plataforma aplica en listas, detalle, relacionados, historial, auditoría, transiciones, features GIS y agente.
+  No se aplica al `ADMIN` ni a la plataforma.
+- El usuario decidió el 2026-10-09 (decisión 2 de la especificación de F4) que una QCS confidencial la lean solo
+  `GRIEVANCE_MANAGER`, su responsable y `ADMIN`, y la amplió a quien la recibió y, en una queja ALTA o CRITICA, a
+  `APPROVER`, que debe resolverla (RN-GRV-002).
+- Ningún rol se nombra en el código (RQ-SEC-005): quién ve una QCS confidencial tiene que salir de `model/roles.json`.
+- Al cerrarse un compromiso, `RequestClosureListener` cierra la solicitud aceptada que lo originó (RN-GRV-001, ASM-068)
+  y corre como quien cierra. Si esa solicitud es confidencial y quien cierra no la lee, wasichai no la muestra y
+  quedaría en `accepted` para siempre. wasichai no deja ser la plataforma dentro de una petición
+  (`RecordService.asPlatform` lanza) ni aplicar una transición sin usuario (`WorkflowService.apply`), así que ni un
+  trabajo de fondo podría aplicar `close_accepted`.
+
+## Opciones consideradas
+
+### `confidential` sin efecto en la lectura, como respondió el checkpoint
+
+- A favor: nada propio; ninguna ruta de lectura cambia.
+- En contra: no protege a quien plantea y contradice la decisión del usuario.
+
+### Filtrar en SGSPE con `RecordQueryContributor` y guardas
+
+- A favor: no depende de un SPI nuevo.
+- En contra: `RecordQueryContributor` solo estrecha listas con su parámetro; el detalle, el historial, los
+  relacionados, las features y el agente seguirían mostrando la QCS ([security.md §9.1](../security.md)).
+
+### El alcance por proyecto completo, con la opción B de CON-041
+
+- A favor: el mismo SPI resolvería UPS-01.
+- En contra: cambia la lectura de todos los objetos y espera la decisión del checkpoint sobre UPS-01; es mucho más que
+  lo que pide F4.
+
+### Un `RecordReadScope` solo para las QCS confidenciales, con una acción declarada (elegida)
+
+- A favor: rige en todas las rutas de lectura de wasichai; el resto del tenant sigue en la opción A; quién ve sale de
+  `roles.json` (`READ_CONFIDENTIAL` y `APPROVE`), sin literales de rol.
+- En contra: un componente propio que debe fallar cerrado; los tableros, el reporte y las exportaciones cuentan
+  distinto según quién llama; los trabajos y los avisos tienen que filtrar lo que producen.
+
+## Decisión
+
+- **Quién ve una QCS confidencial** (`grievance`, `inquiry` o `stakeholder_request` con `confidential` verdadero):
+  `ADMIN`, porque wasichai no le aplica los alcances; quien tiene la acción declarada `READ_CONFIDENTIAL` sobre el
+  objeto (en `roles.json`, solo `GRIEVANCE_MANAGER`); su responsable (`owner_user_id`); quien la recibió
+  (`received_by_user_id`); y, en una queja ALTA o CRITICA, quien tiene `APPROVE` sobre `grievance` (`APPROVER`). Nadie
+  más (ASM-095). Una QCS no confidencial la ven todos los que tienen READ, como hasta F3.
+- **Componente.** `ConfidentialAttentionScope` (`sgspe.scope`) implementa `RecordReadScope.criterion(user,
+  definition)`. Fuera de las tres QCS, o con `READ_CONFIDENTIAL` sobre el objeto, no restringe. Si no, devuelve
+  `confidential IS NOT TRUE OR owner_user_id = <quien llama> OR received_by_user_id = <quien llama>` y, en `grievance`
+  con `APPROVE`, además `OR severity IN ('ALTA', 'CRITICA')`, con las columnas de la definición y valores enlazados,
+  nunca concatenados. Las acciones de quien llama salen de `sgspe.common.Permissions`.
+- **Falla cerrado.** Sin esas columnas en la definición, o si la consulta de permisos falla, devuelve una condición que
+  no admite ningún registro del objeto y deja una advertencia en el log sin datos del registro.
+- **Escrituras.** Quien no lee una QCS no la cambia ni la transiciona: wasichai la trata como inexistente.
+  `AttentionWriteGuard` cubre la marca: el alta de una confidencial lleva como receptor a quien escribe, salvo con
+  `READ_CONFIDENTIAL` (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y quitar la marca o cambiar el responsable o el receptor
+  exige esa acción (`403 ACTION_REQUIRED`). Una evidencia vinculada a una QCS confidencial es CONFIDENCIAL o DATOS
+  PERSONALES (`409 EVIDENCE_NOT_RESTRICTED`).
+- **Trabajos, avisos y cifras.** JOB-01, JOB-02, JOB-04 y `DeadlineNotices` leen como la plataforma, sin el alcance, y
+  filtran lo que producen: un aviso con datos solo llega a quien vería la QCS (ASM-102), el aviso genérico del nivel 2
+  (`qcs_confidential_overdue`) no lleva datos del registro y JOB-04 solo cuenta. Los tableros, el reporte unificado y
+  las exportaciones leen como quien llama y dicen `confidentialHidden` sin el número de excluidas; EXTERNO excluye toda
+  QCS confidencial, también para `GRIEVANCE_MANAGER` (ASM-101).
+- **Vínculos.** El id de una QCS que quien lee no ve es visible desde una tarea, una evidencia, un compromiso o una
+  pregunta; el registro no. El portal muestra «Registro reservado».
+- **La única excepción dentro de una petición: `ConfidentialRelease`.** `RequestClosureListener` corre como quien
+  cierra el compromiso, dentro de `ConfidentialRelease` (`sgspe.common`): mientras dura el bloque,
+  `ConfidentialAttentionScope` admite además las solicitudes cuyo `created_commitment` es ese compromiso, y solo ellas.
+  La auditoría lleva el origen `listener:request-closure` [WAS-ADR-0050] y el motivo «RN-GRV-001: compromiso <código>
+  cerrado», con el usuario de quien cerró; sigue en la transacción del cierre, que se revierte si la solicitud no se
+  puede cerrar. Es el sustituto de una acción del sistema que wasichai no permite en una petición, aceptado por el
+  usuario el 2026-10-09 (plan 4.2a, decisión 4). `ArchitectureTest` vigila que solo `RequestClosureListener` lo use.
+
+## Consecuencias
+
+### Positivas
+
+- Una QCS confidencial queda protegida en todas las rutas de lectura de wasichai, no solo en las listas.
+- Quién la ve se cambia en `roles.json`, sin tocar el código.
+- El mismo SPI, del lado de SGSPE, resolvería UPS-01 si el checkpoint elige la opción B de CON-041.
+
+### Negativas y riesgos
+
+- Las cifras de los tableros y del reporte dependen de quién llama; `confidentialHidden` lo avisa sin decir cuántas.
+- PUBLICO de `attention-register` solo es completo si lo genera quien ve las confidenciales, y «Notas» lo dice.
+- KPI-ENG-05 cuenta de menos para quien no ve la QCS a la que se derivó una pregunta.
+- Que wasichai trate como inexistente una QCS que no se lee también en las escrituras, y que el alta la devuelva a
+  quien la recibió, lo prueba la primera tarea de integración del plan 4.2a (riesgo 1 de la especificación de F4).
+- `ConfidentialRelease` es una puerta en el alcance: una sola, acotada a un objeto, un campo y un valor, y vigilada.
+
+### Seguimiento
+
+- Pruebas: `ConfidentialAttentionScopeTest` y `ConfidentialReleaseTest` (unitarias); `ConfidentialAttentionApiTest`,
+  `StakeholderRequestWorkflowApiTest` (cierre de una solicitud confidencial por su compromiso), `QcsNoticesApiTest`,
+  `AttentionDashboardApiTest` y `AttentionRegisterApiTest` (integración); `ArchitectureTest`.
+- Si el checkpoint decide UPS-01 con la opción B de CON-041, este alcance se integra en el del proyecto.
+- Se revierte quitando el `RecordReadScope` y volviendo al riesgo residual de `security.md` §11.3 (ASM-095).
+
+## Referencias
+
+- Requisitos: RF-GRV-001, RN-GRV-001, RN-GRV-002, RQ-SEC-004, RQ-SEC-005, RQ-SEC-010; CON-041; GAP-024; UPS-01;
+  ASM-068, ASM-095, ASM-101, ASM-102.
+- Documentos: [security.md §9.6, §11.3 y §11.4](../security.md), [workflows.md](../workflows.md) («Listeners»,
+  «Avisos» y «Destinatarios por rol»), [api.md §4.6](../api.md), [dashboards.md §8](../dashboards.md),
+  [deliverables.md §10](../deliverables.md), [ux/screens.md §8](../ux/screens.md).
+- ADR de SGSPE: ADR-0006, ADR-0022.
+- WAS-ADR-0042 (acciones declaradas por la app), WAS-ADR-0048 (`RecordReadScope`, el alcance de lectura que aporta la
+  app), WAS-ADR-0050 (origen de cada escritura en la auditoría).
+```
+
+En `docs/adr/README.md`, reemplazar:
+
+```markdown
+| [0027](0027-if-match-con-saltos-exactos-de-derivados.md) | `If-Match` con saltos exactos de derivados y la comparación de wasichai | Aceptado | 2026-10-09 | 0038, 0040, 0051 |
+```
+
+por:
+
+```markdown
+| [0027](0027-if-match-con-saltos-exactos-de-derivados.md) | `If-Match` con saltos exactos de derivados y la comparación de wasichai | Aceptado | 2026-10-09 | 0038, 0040, 0051 |
+| [0028](0028-qcs-confidenciales-con-recordreadscope.md) | QCS confidenciales con `RecordReadScope` | Aceptado | 2026-10-09 | 0042, 0048, 0050 |
+```
+
+- [ ] **Paso 7: Verificar**
 
 Repetir la comprobación del Paso 1 y correr las compuertas de «Global Constraints».
 
@@ -1539,20 +1690,24 @@ Además:
 
 ```bash
 cd model && python3 -c 'import design_docs as d; print(d.matrix()["grievance"]["GRIEVANCE_MANAGER"])'
+cd .. && python3 -c 'import sys; print([n for n, l in enumerate(open(sys.argv[1], encoding="utf-8"), 1) if len(l.rstrip()) > 120])' \
+  docs/adr/0028-qcs-confidenciales-con-recordreadscope.md
 ```
 
-Esperado: `ok`, las compuertas en verde y `['READ', 'CREATE', 'UPDATE', 'EXPORT', 'READ_CONFIDENTIAL']`.
+Esperado: `ok`, las compuertas en verde, `['READ', 'CREATE', 'UPDATE', 'EXPORT', 'READ_CONFIDENTIAL']` y `[]` (ninguna
+línea del ADR de más de 120 columnas).
 
-- [ ] **Paso 7: Commit**
+- [ ] **Paso 8: Commit**
 
 ```bash
-git add docs/security.md docs/gis.md docs/glossary.md
+git add docs/security.md docs/gis.md docs/glossary.md docs/adr/0028-qcs-confidenciales-con-recordreadscope.md docs/adr/README.md
 git commit -F - <<'MSG'
 docs: seguridad de la fase 4 con las QCS confidenciales
 
 security.md suma READ_CONFIDENTIAL al catálogo y a GRIEVANCE_MANAGER, explica en §9.6 el
 RecordReadScope de las QCS confidenciales con CON-041 todavía en la opción A, cambia el riesgo
-residual de §11.3, agrega las salidas de F4 y sus pruebas; gis.md y el glosario lo reflejan.
+residual de §11.3, agrega las salidas de F4 y sus pruebas; gis.md y el glosario lo reflejan, y
+ADR-0028 registra la decisión con la excepción de ConfidentialRelease.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -1589,6 +1744,7 @@ checks = [
     ('docs/database-model.md', '- **Acciones declaradas:** `APPROVE`, `EXPORT`, `READ_CONFIDENTIAL`.', True),
     ('docs/domain-model.md', '| `RiskNoticeListener` (`sgspe.notification`) |', True),
     ('docs/architecture.md', '| Feriados | `sgspe.calendar.holidays`', True),
+    ('docs/database-model.md', '| `review_every_days` | INTEGER | no | — | Días entre revisiones, de 1 a 365', True),
 ]
 bad = [f"{p}: {'falta' if want else 'sobra'} {s!r}" for p, s, want in checks
        if (s in open(p, encoding='utf-8').read()) != want]
@@ -1597,7 +1753,7 @@ raise SystemExit(1 if bad else 0)
 PY
 ```
 
-Esperado: salida 1 con las cinco líneas.
+Esperado: salida 1 con las seis líneas.
 
 - [ ] **Paso 2: Las fichas de `project`, las QCS y `engagement_question`**
 
@@ -1732,7 +1888,7 @@ por:
   (`409 ALREADY_REFERRED`).
 ```
 
-- [ ] **Paso 3: Las fichas de `early_warning_rule` y `early_warning`**
+- [ ] **Paso 3: Las fichas de `early_warning_rule` y `early_warning`, y la cadencia propia de `social_risk`**
 
 En `docs/database-model.md`, reemplazar:
 
@@ -1835,6 +1991,22 @@ por:
   cuenta de servicio (RN-EWS-001, RQ-SEC-014).
 - `generator_key` solo la escribe JOB-04: una persona que la fija, la cambia o la vacía recibe
   `403 GENERATOR_KEY_PLATFORM_ONLY`, como en `task`. Su único frena una carrera entre réplicas.
+```
+
+La cadencia propia de un riesgo va de 1 a 365 días, como la del proyecto (decisión del usuario del 2026-10-09; la aplica
+`RiskWriteGuard` en el plan 4.2b). El plan 4.1 copia esta descripción a `model.json`; su etiqueta sigue siendo «Días entre
+revisiones».
+
+En `docs/database-model.md`, reemplazar:
+
+```markdown
+| `review_every_days` | INTEGER | no | — | Días entre revisiones; vacío = `risk_review_days` del proyecto. | RN-RSK-001 |
+```
+
+por:
+
+```markdown
+| `review_every_days` | INTEGER | no | — | Días entre revisiones, de 1 a 365 (`400 OUT_OF_RANGE` fuera de rango); vacío = `risk_review_days` del proyecto. | RN-RSK-001 |
 ```
 
 - [ ] **Paso 4: El modelo de dominio: documentos, derivados, listeners, acciones y paquetes**
@@ -2095,9 +2267,9 @@ git commit -F - <<'MSG'
 docs: modelo de datos, dominio y arquitectura de la fase 4
 
 Las fichas suman READ_CONFIDENTIAL en las QCS, engagement_question.referred_at,
-early_warning.generator_key y las notas de las reglas de alerta; el dominio y la arquitectura
-nombran HolidayCalendar, BusinessDays, AttentionCounting, ConfidentialAttentionScope,
-ProjectLinkGuard y los listeners de avisos de riesgos y alertas.
+early_warning.generator_key, las notas de las reglas de alerta y el rango de review_every_days; el
+dominio y la arquitectura nombran HolidayCalendar, BusinessDays, AttentionCounting,
+ConfidentialAttentionScope, ProjectLinkGuard y los listeners de avisos de riesgos y alertas.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -2484,16 +2656,17 @@ MSG
 Cierra C14 (los tableros son internos, sin celdas pequeñas, y excluyen lo que quien llama no ve, con
 `confidentialHidden`) y C11 (la ficha de consulta y solicitud pasa a S57; fichas S58 a S61 de menciones, señales, reglas
 e impactos; las medidas dentro de S40; «Crear compromiso desde esta queja» abre S30 con `origin_grievance`; el
-interruptor de confidencialidad de S37 y «Registro reservado»), y quita de S36 y S57 la emisión de documentos (C1).
+interruptor de confidencialidad de S37 y «Registro reservado»), quita de S36 y S57 la emisión de documentos (C1) y da al
+tablero de riesgos el id S62, porque S38 es el registro y matriz (decisión 10).
 
 **Archivos:**
-- Modificar: `docs/dashboards.md` (§3.3, §4.3, §4.5, §8), `docs/ux/screens.md` (§8, §9, §16 e introducción),
-  `docs/ux/README.md` (página 11 del lienzo)
+- Modificar: `docs/dashboards.md` (§3.3, §4.3, §4.5, §8), `docs/ux/screens.md` (§8, §9, §12, §14, §16 e introducción),
+  `docs/ux/README.md` (etapa 3b y páginas 11 y 16 del lienzo), `docs/ux/ux-architecture.md` (§9, inventario)
 - Probar: `tools/check_traceability.py`
 
 **Interfaces:**
 - Consume: ASM-095 a ASM-104; «Tipos de regla de JOB-04» (Tarea 2), que S60 cita por su nombre.
-- Produce: los ids S57 a S61 y los textos que implementa el plan 4.3.
+- Produce: los ids S57 a S62 y los textos que implementa el plan 4.3.
 
 - [ ] **Paso 1: La comprobación falla**
 
@@ -2505,6 +2678,9 @@ checks = [
     ('docs/ux/screens.md', '### S61 · Impactos potenciales', True),
     ('docs/ux/screens.md', '### S36 · Ficha de consulta y ficha de solicitud', False),
     ('docs/ux/README.md', 'Fichas de consulta y de solicitud (S57)', True),
+    ('docs/ux/screens.md', '### S62 · Tablero de riesgos', True),
+    ('docs/ux/screens.md', '### S38 · Tablero de riesgos', False),
+    ('docs/ux/ux-architecture.md', '| S62 | Tablero de riesgos | `/risks` | F4, F8 | E3 |', True),
 ]
 bad = [f"{p}: {'falta' if want else 'sobra'} {s!r}" for p, s, want in checks
        if (s in open(p, encoding='utf-8').read()) != want]
@@ -2513,7 +2689,7 @@ raise SystemExit(1 if bad else 0)
 PY
 ```
 
-Esperado: salida 1 con cuatro líneas «falta» y una «sobra».
+Esperado: salida 1 con seis líneas «falta» y dos «sobra».
 
 - [ ] **Paso 2: Tableros: conteo de planteamientos, confidencialidad y celdas pequeñas**
 
@@ -2632,8 +2808,8 @@ Fichas de implementación de las pantallas del portal (`sgspe-ui`). Cubren el in
 relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33), la **parte 3a** (quejas, consultas y solicitudes;
 riesgos y alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a S48, S57 a S61 y la ficha de
 incidente) y la **parte 3b** (tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27,
-S34, S38, S49 a S55), y S56 (gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7). La búsqueda global
-(S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
+S34, S49 a S55 y S62, el tablero de riesgos), y S56 (gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7).
+La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
 ```
 
 En `docs/ux/screens.md`, reemplazar:
@@ -3015,24 +3191,182 @@ PotentialImpactsPage
 ```
 ````
 
-- [ ] **Paso 5: Verificar**
+- [ ] **Paso 5: El tablero de riesgos pasa a S62 (decisión 10)**
+
+S38 queda para el registro y matriz de riesgos (con S39); el tablero de riesgos toma S62, el siguiente id libre después
+de S57 a S61, y el inventario de `ux-architecture.md` §9 suma S57 a S62.
+
+En `docs/ux/screens.md`, reemplazar:
+
+```markdown
+- **Ruta y lienzo:** `/projects/:projectId/risks/register` · hoja `Rsk-Registro` (interactiva) · F4. El tablero de riesgos
+  (S38 completo, con tendencia) llega en la etapa 3b.
+```
+
+por:
+
+```markdown
+- **Ruta y lienzo:** `/projects/:projectId/risks/register` · hoja `Rsk-Registro` (interactiva) · F4. El tablero de
+  riesgos (S62, con tendencia) llega en la etapa 3b.
+```
+
+En `docs/ux/screens.md`, reemplazar:
+
+```markdown
+- **Relacionadas y navegación:** cada cifra abre su lista filtrada; S27, S34, S38, monitoreo.
+```
+
+por:
+
+```markdown
+- **Relacionadas y navegación:** cada cifra abre su lista filtrada; S27, S34, S62, monitoreo.
+```
+
+En `docs/ux/screens.md`, reemplazar:
+
+```markdown
+### S38 · Tablero de riesgos
+```
+
+por:
+
+```markdown
+### S62 · Tablero de riesgos
+```
+
+En `docs/ux/screens.md`, reemplazar:
+
+```markdown
+- **Acciones:** "Ir al registro" (S39); abrir medidas atrasadas.
+```
+
+por:
+
+```markdown
+- **Acciones:** "Ir al registro" (S38 y S39); abrir medidas atrasadas.
+```
+
+En `docs/ux/screens.md`, reemplazar:
+
+```markdown
+- **Relacionadas y navegación:** S39, S40.
+```
+
+por:
+
+```markdown
+- **Relacionadas y navegación:** el registro y matriz (S38 y S39), S40.
+```
+
+En `docs/ux/screens.md`, reemplazar:
+
+```markdown
+- **Relacionadas y navegación:** S47, S48, S51, S38, S52.
+```
+
+por:
+
+```markdown
+- **Relacionadas y navegación:** S47, S48, S51, S62, S52.
+```
+
+En `docs/ux/README.md`, reemplazar:
+
+```markdown
+| E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S38, S49–S55 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
+```
+
+por:
+
+```markdown
+| E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S49–S55, S62 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
+```
+
+En `docs/ux/README.md`, reemplazar:
+
+```markdown
+| 16 Tableros | Revisión ejecutiva de 5 minutos (S51) · Monitoreo de la Tabla 9.5, interactiva · Compromisos (S27) · QCS (S34) · Riesgos (S38) · Territorial · Inversión social |
+```
+
+por:
+
+```markdown
+| 16 Tableros | Revisión ejecutiva de 5 minutos (S51) · Monitoreo de la Tabla 9.5, interactiva · Compromisos (S27) · QCS (S34) · Riesgos (S62) · Territorial · Inversión social |
+```
+
+En `docs/ux/ux-architecture.md`, reemplazar:
+
+```markdown
+Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083). "Etapa" es la etapa de diseño en que se dibujan; "Fase",
+```
+
+por:
+
+```markdown
+Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083), más S57 a S62 de la Fase 4 (plan 4.0): la ficha de consulta y solicitud, que compartía S36 con la queja, las de menciones, señales, reglas e impactos, y el tablero de riesgos, que compartía S38 con el registro y matriz. "Etapa" es la etapa de diseño en que se dibujan; "Fase",
+```
+
+En `docs/ux/ux-architecture.md`, reemplazar:
+
+```markdown
+| S36 | Ficha de queja, consulta o solicitud | `/projects/:projectId/grievances/:id` (y pares) | F4 | E3 |
+```
+
+por:
+
+```markdown
+| S36 | Ficha de queja | `/projects/:projectId/grievances/:id` | F4 | E3 |
+```
+
+En `docs/ux/ux-architecture.md`, reemplazar:
+
+```markdown
+| S38 | Tablero y matriz de riesgos | `/risks` | F4, F8 | E3 |
+```
+
+por:
+
+```markdown
+| S38 | Matriz de riesgos (con el registro) | `/risks/register` | F4 | E3 |
+```
+
+En `docs/ux/ux-architecture.md`, reemplazar:
+
+```markdown
+| S56 | Gestionar vistas (ASM-083) | `/views` y diálogo en cada lista | F2 | E3 |
+```
+
+por:
+
+```markdown
+| S56 | Gestionar vistas (ASM-083) | `/views` y diálogo en cada lista | F2 | E3 |
+| S57 | Ficha de consulta y ficha de solicitud | `/projects/:projectId/inquiries/:id`, `/projects/:projectId/requests/:id` | F4 | E3 |
+| S58 | Menciones en medios | `/projects/:projectId/risks/mentions` | F4 | Plan 4.0, sin hoja |
+| S59 | Señales de alerta | `/projects/:projectId/risks/signals` | F4 | Plan 4.0, sin hoja |
+| S60 | Reglas de alerta | `/risks/rules`, `/projects/:projectId/risks/rules` | F4 | Plan 4.0, sin hoja |
+| S61 | Impactos potenciales | `/projects/:projectId/risks/impacts` | F4 | Plan 4.0, sin hoja |
+| S62 | Tablero de riesgos | `/risks` | F4, F8 | E3 |
+```
+
+- [ ] **Paso 6: Verificar**
 
 Repetir la comprobación del Paso 1 y correr las compuertas de «Global Constraints». Además, `grep -n 'S36'
 docs/ux/screens.md` ya no lleva a S36 a una consulta ni a una solicitud (las líneas que quedan hablan de la queja o de
-la anatomía de S36 que S57 comparte).
+la anatomía de S36 que S57 comparte), y `grep -n 'S38' docs/ux/*.md` solo nombra el registro y matriz de riesgos.
 
 Esperado: `ok` y las compuertas en verde.
 
-- [ ] **Paso 6: Commit**
+- [ ] **Paso 7: Commit**
 
 ```bash
-git add docs/dashboards.md docs/ux/screens.md docs/ux/README.md
+git add docs/dashboards.md docs/ux/screens.md docs/ux/README.md docs/ux/ux-architecture.md
 git commit -F - <<'MSG'
 docs: tableros y pantallas de la fase 4
 
 dashboards.md dice que los KPI de QCS leen como quien llama, con confidentialHidden y sin celdas
 pequeñas; screens.md da a la ficha de consulta y solicitud el id S57, agrega las fichas S58 a S61,
-las medidas dentro de S40, el interruptor de confidencialidad de S37 y el «Registro reservado».
+las medidas dentro de S40, el interruptor de confidencialidad de S37 y el «Registro reservado», y
+el tablero de riesgos pasa de S38 a S62; ux-architecture.md suma S57 a S62 a su inventario.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -3054,7 +3388,7 @@ respuesta del usuario que reabre la protección de quien plantea una QCS.
 
 **Interfaces:**
 - Consume: los IDs de la Tarea 1; §9.6 de `security.md` (Tarea 3), que el roadmap enlaza con el ancla
-  `security.md#96-qcs-confidenciales-recordreadscope-f4`.
+  `security.md#96-qcs-confidenciales-recordreadscope-f4`; ADR-0028 (Tarea 3), que cita la fila de RF-GRV-001.
 - Produce: la definición de terminado de F4 que verifican los planes 4.1 a 4.3 (actualizar el tenant de desarrollo de
   F2 a F4, comprobar MinIO y decidir UPS-01 antes de la producción con varios proyectos).
 
@@ -3218,7 +3552,7 @@ En `docs/requirements-traceability.md`, reemplazar:
 por:
 
 ```markdown
-| RF-GRV-001 | [DOC-01 Tabla 9.5, §9.1.1.2, §9.4.2] [PRM-01 §5] | BC-07 · `model/model.json`; `sgspe.attention` (`AttentionWriteGuard`, `QcsDueDatesListener`); `sgspe.scope` (`ConfidentialAttentionScope`) | `grievance`, `inquiry`, `stakeholder_request` | `/api/objects/grievance/records`; `/api/objects/inquiry/records`; `/api/objects/stakeholder_request/records` | Portal › Quejas, consultas y solicitudes | `GrievanceWorkflowApiTest`; `InquiryWorkflowApiTest`; `StakeholderRequestWorkflowApiTest`; `ConfidentialAttentionApiTest` | F4 | Diseñado |
+| RF-GRV-001 | [DOC-01 Tabla 9.5, §9.1.1.2, §9.4.2] [PRM-01 §5] | BC-07 · `model/model.json`; `sgspe.attention` (`AttentionWriteGuard`, `QcsDueDatesListener`); `sgspe.scope` (`ConfidentialAttentionScope`, ADR-0028) | `grievance`, `inquiry`, `stakeholder_request` | `/api/objects/grievance/records`; `/api/objects/inquiry/records`; `/api/objects/stakeholder_request/records` | Portal › Quejas, consultas y solicitudes | `GrievanceWorkflowApiTest`; `InquiryWorkflowApiTest`; `StakeholderRequestWorkflowApiTest`; `ConfidentialAttentionApiTest` | F4 | Diseñado |
 ```
 
 En `docs/requirements-traceability.md`, reemplazar:
@@ -3388,13 +3722,16 @@ Los documentos de diseño quedan al día con la especificación de F4
 (`docs/superpowers/specs/2026-10-09-fase-4-design.md`) antes de tocar el modelo y el código. Las decisiones están en
 [Requisitos](requirements-analysis.md) (ASM-095 a ASM-104; UPS-25 y UPS-26, candidatas sin issue; 520 IDs).
 
-- **QCS confidenciales.** `READ_CONFIDENTIAL` y el `RecordReadScope` de las QCS confidenciales (`security.md` §9.6)
-  reemplazan la respuesta del checkpoint «sin restringir en el MVP»; el alcance por proyecto sigue en la opción A.
+- **QCS confidenciales.** `READ_CONFIDENTIAL` y el `RecordReadScope` de las QCS confidenciales (`security.md` §9.6 y
+  [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md), con la excepción de `ConfidentialRelease` para el
+  cierre automático de una solicitud) reemplazan la respuesta del checkpoint «sin restringir en el MVP»; el alcance por
+  proyecto sigue en la opción A.
 - **Huecos cerrados.** Documentos de QCS tras UPS-23 (C1), días hábiles con feriados en configuración (C7), los seis
   tipos de regla de JOB-04 sin CAMBIO DE POSTURA (C10 y C6) y el contenido de `attention-register` y `risk-register`
   (C12); además, las contradicciones menores C2 a C5, C8, C9, C11 y C13 a C17.
 - **Pantallas.** La ficha de consulta y solicitud pasa a S57, y S58 a S61 son las fichas de menciones, señales, reglas e
-  impactos.
+  impactos. El tablero de riesgos, que compartía S38 con el registro y matriz, pasa a S62; `ux-architecture.md` §9
+  suma S57 a S62 a su inventario.
 
 ## 2026-10-09 — Plan 3.2: el backend de F3
 ```
@@ -3450,14 +3787,15 @@ gh pr create --base main --title "docs: fase 4, plan 4.0: documentos de F4" --bo
 ## Qué trae
 
 - ASM-095 a ASM-104 y UPS-25 y UPS-26 (candidatas, sin issue); §20.1 suma 520 IDs.
-- QCS confidenciales: `READ_CONFIDENTIAL` y el `RecordReadScope` de `security.md` §9.6; el alcance por proyecto sigue en
-  la opción A.
+- QCS confidenciales: `READ_CONFIDENTIAL` y el `RecordReadScope` de `security.md` §9.6, con su ADR (ADR-0028); el
+  alcance por proyecto sigue en la opción A.
 - `workflows.md`: los seis tipos de regla de JOB-04 sin CAMBIO DE POSTURA, `assess` de WF-F como transición de comando,
   la tarea de revisión de riesgo, el origen y los destinatarios de cada aviso de F4 y los plazos sin solicitudes;
   AUT-06 a AUT-08 esperan a UPS-23.
 - Días hábiles con feriados por año en configuración (`HolidayCalendar`, `BusinessDays`).
 - Contratos de la API de F4 y el contenido por nivel de `attention-register` y `risk-register`.
-- Pantallas S57 a S61, «Registro reservado» y el interruptor de confidencialidad.
+- Pantallas S57 a S61, el tablero de riesgos como S62 (S38 queda para el registro y matriz), «Registro reservado» y el
+  interruptor de confidencialidad.
 - Roadmap y trazabilidad al día (F3 integrada; GAP-004 y GAP-005 diseñados; totales por estado recalculados).
 
 ## Pruebas
@@ -3479,7 +3817,7 @@ MSG
 |---|---|---|
 | 1 | IDs de F4 en el análisis | 0 |
 | 2 | `workflows.md` y la prueba de los tipos de documento | 1 |
-| 3 | `security.md` (§9.6), `gis.md`, glosario | 1 |
+| 3 | `security.md` (§9.6), ADR-0028, `gis.md`, glosario | 1 |
 | 4 | Modelo de datos, dominio y arquitectura | 1 |
 | 5 | API y exportaciones | 1 |
 | 6 | Tableros y pantallas | 1 |
@@ -3501,7 +3839,7 @@ MSG
 | C11 | Tarea 6 |
 | C13: `api.md` §3.3 y §4.6 | Tarea 5 (y la regla 10 de `workflows.md`, Tarea 2) |
 | C14: `dashboards.md` §4.5 y §8 | Tarea 6 |
-| `security.md` §5.3, §7.6, §9, §11.3, §11.4, §14 | Tarea 3 |
+| `security.md` §5.3, §7.6, §9, §11.3, §11.4, §14; ADR-0028 | Tarea 3 |
 | `roadmap.md` «Respuestas del checkpoint» | Tarea 7 |
 | `api.md`: contratos de comandos, reporte y revisiones; códigos de §3.3 | Tarea 5 |
 | `database-model.md`: `referred_at`, `READ_CONFIDENTIAL`, notas de `early_warning_rule` | Tarea 4 |

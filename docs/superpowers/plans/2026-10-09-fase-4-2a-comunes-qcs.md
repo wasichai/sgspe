@@ -60,7 +60,7 @@ KPI-RSK y KPI-ENG-06 a 08) queda fuera.
   acción del sistema dentro de una petición es `RequestClosureListener` (decisión 4): corre como quien cierra el
   compromiso, porque wasichai no deja ser la plataforma en una petición ni aplicar una transición sin usuario, pero dentro
   de `ConfidentialRelease` y con el origen `listener:request-closure` en la auditoría; nadie más usa `ConfidentialRelease`
-  (`ArchitectureTest`).
+  (`ArchitectureTest`). El usuario aceptó este sustituto el 2026-10-09 y ADR-0028 lo registra.
 - **Errores.** Todo 400, 403 o 409 de una guarda o de un comando lleva su código en `errors[0].message` y el campo en
   `errors[0].field` (`Finding.toCodedException`). Los códigos son los de `api.md` §3.3 tras el plan 4.0;
   `FIELD_REQUIRED` de `AttentionWriteGuard` es `400` (decisión 9 del plan 4.0).
@@ -134,7 +134,7 @@ tarea dueña del código:
 | 1 | `ProjectLinks` (P54) vive en `sgspe.commitment` y usa `readable`, `NotReadable` y `linkedProject` de `CommitmentWriteGuard.kt`; `ProjectLinkGuard` va en `sgspe.scope`, que solo depende de `common` | `NotReadable`, `readAs` y `Records.readable` pasan a `sgspe.common` (`ReadAs.kt`); `ProjectLinks` y `Records.linkedProject`, a `sgspe.scope` (`ProjectLinks.kt`). Los archivos que los usaban cambian solo sus imports (Tarea 4) |
 | 2 | La especificación pide que `CommitmentWriteGuard` y `CandidateLinkRule` usen la misma pieza que `ProjectLinkGuard` | `ProjectLinkRule` y `CandidateLinkRule` siguen como reglas de su guarda (su orden P49 no cambia) y llaman a `sgspe.scope.ProjectLinks`; como los campos salen del catálogo filtrado por `ProjectScope.covers`, `commitment.origin_grievance` y `commitment.social_risk` se juzgan solos en cuanto `grievance` y `social_risk` tienen alcance. `ProjectLinkGuard` cubre los 12 objetos de F4 y los vínculos `social_risk_stakeholder` e `incident_stakeholder` (Tarea 4) |
 | 3 | La derivación escribe `referred_at` en la pregunta como quien llama, y `api.md` §4.4 solo pide READ sobre `engagement_question`; `GRIEVANCE_MANAGER`, que `security.md` §8.2 nombra entre quienes derivan, no tiene UPDATE sobre ella en `roles.json` | Decisión del usuario (2026-10-09): `GRIEVANCE_MANAGER` también deriva. Recibe `u` sobre `engagement_question` (no `U`): UPDATE con todo campo no derivado y la relación `engagement` en solo lectura, así que solo escribe `referred_at`, el derivado que pone el comando con la marca; no edita el texto, la respuesta ni la interacción de la pregunta. El comando exige UPDATE sobre `engagement_question` y CREATE sobre el destino. `roles.json`, la matriz de `security.md` §7.4, su tabla de §8.2 y `api.md` §4.4 lo dicen en la Tarea 11, con su prueba |
-| 4 | `RequestClosureListener` corre como quien cierra el compromiso; si la solicitud aceptada es confidencial y quien cierra no la lee, wasichai no la muestra y quedaría en `accepted` para siempre | Decisión del usuario (2026-10-09): el cierre automático es una acción del sistema. `asPlatform` no se puede: `RecordService.asPlatform` lanza dentro de una petición (el listener corre en la de `close`) y `WorkflowService.apply` exige un usuario, así que ni un trabajo de fondo podría aplicar `close_accepted`. Lo más cercano: el listener corre como quien cierra, dentro de `ConfidentialRelease` (`sgspe.common`), con el que `ConfidentialAttentionScope` admite además, mientras dura el bloque, las solicitudes cuyo `created_commitment` es el compromiso que se cierra, y solo ellas; la auditoría lleva el origen `listener:request-closure` (`ChangeOrigin.within`) y el motivo «RN-GRV-001: compromiso <código> cerrado», con el usuario de quien cerró. Sigue en la transacción de `close`: si no puede cerrar la solicitud, el cierre se revierte; no toca `JobTasks`. `ArchitectureTest` vigila que solo `RequestClosureListener` use `ConfidentialRelease` (Tarea 10) |
+| 4 | `RequestClosureListener` corre como quien cierra el compromiso; si la solicitud aceptada es confidencial y quien cierra no la lee, wasichai no la muestra y quedaría en `accepted` para siempre | Decisión del usuario (2026-10-09): el cierre automático es una acción del sistema. `asPlatform` no se puede: `RecordService.asPlatform` lanza dentro de una petición (el listener corre en la de `close`) y `WorkflowService.apply` exige un usuario, así que ni un trabajo de fondo podría aplicar `close_accepted`. Lo más cercano: el listener corre como quien cierra, dentro de `ConfidentialRelease` (`sgspe.common`), con el que `ConfidentialAttentionScope` admite además, mientras dura el bloque, las solicitudes cuyo `created_commitment` es el compromiso que se cierra, y solo ellas; la auditoría lleva el origen `listener:request-closure` (`ChangeOrigin.within`) y el motivo «RN-GRV-001: compromiso <código> cerrado», con el usuario de quien cerró. Sigue en la transacción de `close`: si no puede cerrar la solicitud, el cierre se revierte; no toca `JobTasks`. `ArchitectureTest` vigila que solo `RequestClosureListener` use `ConfidentialRelease` (Tarea 10). Aceptada por el usuario (2026-10-09): `ConfidentialRelease` es el sustituto de la acción del sistema que wasichai no permite, y ADR-0028 (plan 4.0) lo registra como la única excepción al alcance de las QCS confidenciales |
 | 5 | `close_accepted` de WF-E3 solo la aplica `RequestClosureListener`, al cerrar un compromiso que llegó a `verified` | Sigue en `DEFERRED` de `WorkflowMatrixApiTest`; `StakeholderRequestWorkflowApiTest` prueba el cierre, el motivo y `COMMAND_ONLY`. `accept` y `close_unfulfilled` dejan de diferirse: `perform` acepta por el comando y `prepare` cancela el compromiso creado (Tarea 10) |
 | 6 | El comando de reclasificación elige la transición `close_reclassified_*` por el estado del original; la matriz prueba cada transición también desde un estado equivocado | `perform` reclasifica por el comando cuando el registro está en el estado de origen de la transición; fuera de él la pide por la API genérica, que responde `409` antes de las guardas, como pide el caso «estado equivocado» (Tarea 9) |
 | 7 | `workflows.md` pone el aviso de queja grave como un paso de `ApprovalNoticeListener`, cuyos `STEPS` modelan envío y estado pendiente | Un listener propio, `GraveGrievanceNoticeListener` (`sgspe.notification`), con la misma fuente (`sgspe.approvals`) y la clave `approval_pending:grievance:<id>`: dispara por severidad y política, no por un envío. `workflows.md` lo nombra (Tarea 18) |
@@ -174,8 +174,8 @@ Lo que este plan deja y el plan 4.2b consume (nombres exactos):
   `ProjectWriteGuard` (el endpoint de revisiones responde `409 RISK_THRESHOLDS_INVALID` ante umbrales guardados antes de
   ella).
 - `sgspe.common.NotReadable`, `readAs(objectName) { … }` y `Records.readable(objectName, id)`.
-- `sgspe.common.ConfidentialRelease` existe solo para `RequestClosureListener` (decisión 4): `ArchitectureTest` rechaza
-  cualquier otro uso, así que el plan 4.2b no lo usa.
+- `sgspe.common.ConfidentialRelease` existe solo para `RequestClosureListener` (decisión 4, aceptada por el usuario;
+  ADR-0028): `ArchitectureTest` rechaza cualquier otro uso, así que el plan 4.2b no lo usa.
 - `sgspe.scope.ProjectScope` con los 12 objetos de F4; `ProjectLinks.fieldsOf(catalog, objectName)`,
   `ProjectLinks.tenantCapable(catalog)`, `ProjectLinks.judge(...)`, `Records.linkedProject(target, id)`;
   `ProjectLinkGuard` ya juzga `social_risk`, `potential_impact`, `incident`, `media_mention`, `early_warning_signal`,
@@ -10297,7 +10297,7 @@ MSG
 
 **Files:**
 - Modify: `docs/workflows.md` (WF-E1 `start_action`, «Listeners», «Avisos»), `docs/security.md` (§9.6, el cierre
-  automático de una solicitud confidencial), `docs/architecture.md` (§10.2, feriados), `docs/develop/README.md` (§4, cómo
+  automático de una solicitud confidencial, que remite a ADR-0028), `docs/architecture.md` (§10.2, feriados), `docs/develop/README.md` (§4, cómo
   agregar un año de feriados), `CLAUDE.md`, `src/test/kotlin/sgspe/ArchitectureTest.kt`
 
 **Interfaces:**
@@ -10413,7 +10413,9 @@ por:
   deja ser la plataforma en una petición ni aplicar una transición sin usuario, corre como quien cierra dentro de
   `ConfidentialRelease` (`sgspe.common`), con el que `ConfidentialAttentionScope` admite además, mientras dura el cierre,
   las solicitudes cuyo `created_commitment` es ese compromiso, y solo ellas; la auditoría lleva el origen
-  `listener:request-closure` y el motivo que nombra al compromiso. `ArchitectureTest` vigila que nadie más lo use.
+  `listener:request-closure` y el motivo que nombra al compromiso. `ArchitectureTest` vigila que nadie más lo use. La
+  decisión, aceptada por el usuario el 2026-10-09, está en
+  [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md).
 - **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
 ```
 
@@ -10565,7 +10567,7 @@ git commit -F - <<'MSG'
 docs: cierre del plan 4.2a con las decisiones de QCS
 
 workflows.md nombra GraveGrievanceNoticeListener y el cierre automático de una solicitud
-confidencial; security.md §9.6 lo cuenta como la única excepción al alcance; architecture.md y
+confidencial; security.md §9.6 lo cuenta como la única excepción (ADR-0028); architecture.md y
 develop/README.md dicen cómo agregar el año de feriados; CLAUDE.md dice dónde está cada pieza de
 F4 y ArchitectureTest ve sus fuentes.
 
@@ -10625,8 +10627,8 @@ gh pr create --base main --title "feat: fase 4, plan 4.2a: piezas comunes y back
 
 - Decisiones 3, 4 y 10 del plan, del usuario: `GRIEVANCE_MANAGER` deriva con `u` sobre `engagement_question`; el
   cierre automático de una solicitud corre como quien cierra dentro de `ConfidentialRelease` (wasichai no deja usar
-  `asPlatform` en una petición) y cierra también una confidencial que no lee; feriados solo de 2026 hasta que se publique
-  la lista de 2027.
+  `asPlatform` en una petición) y cierra también una confidencial que no lee, un sustituto que el usuario aceptó y que
+  ADR-0028 registra; feriados solo de 2026 hasta que se publique la lista de 2027.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 

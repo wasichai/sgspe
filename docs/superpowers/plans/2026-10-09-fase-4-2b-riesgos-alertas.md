@@ -132,20 +132,23 @@ tarea dueña del código:
 | # | Hallazgo | Decisión |
 |---|---|---|
 | 1 | El riesgo 2 de la especificación (§8) y el plan 4.1 dejan a 4.2b decidir si una escritura de la plataforma llega a `WarningNoticeListener`, a AUT-09 y a AUT-11 | Decidido por el código de wasichai 0.6.0: `RecordService` avisa a los listeners de toda escritura, también de la plataforma (`RecordService.recorded` → `notify`), y `AutomationDispatcher` es un listener sin filtro de usuario. JOB-04 no publica `warning_new` ni crea la tarea de triaje por su cuenta, ni el endpoint la de riesgo crítico. Lo vigilan `WarningRulesJobApiTest` y `RiskAssessmentsApiTest`; `workflows.md` cambia el párrafo de la salida alternativa (Tarea 16) |
-| 2 | `RiskNoticeListener` publica `risk_escalated:<id>:<nivel>:<assessment_date>` y lo resuelve «con la revisión siguiente o el cierre», pero `social_risk` no guarda la fecha de su última revisión | Escucha el alta de una `risk_assessment` no residual: compara su nivel con el de la revisión no residual anterior (la clave de su aviso), resuelve ese aviso y publica el nuevo si escala; al cerrar el riesgo resuelve el de la última. No depende del orden de escritura del endpoint. Como en «Destinatarios por rol» (regla 3), quien revisa no lo recibe (Tarea 5) |
+| 2 | `RiskNoticeListener` publica `risk_escalated:<id>:<nivel>:<assessment_date>` y lo resuelve «con la revisión siguiente o el cierre», pero `social_risk` no guarda la fecha de su última revisión | Escucha el alta de una `risk_assessment` no residual: compara su nivel con el de la revisión no residual anterior (la clave de su aviso), resuelve ese aviso y publica el nuevo si escala; al cerrar el riesgo resuelve el de la última. No depende del orden de escritura del endpoint. Como en «Destinatarios por rol» (regla 3), quien revisa no lo recibe, aunque sea el responsable del riesgo: decisión del usuario (2026-10-09) (Tarea 5) |
 | 3 | `decide_mitigation` y `decide_monitoring` exigen una decisión de tratamiento, pero `api.md` §3.3 no tiene código para una decisión equivocada | `400 FIELD_REQUIRED` sobre `treatment_decision`, como lo que falta al evaluar; `api.md` §3.3 lo dice (Tareas 2 y 16) |
 | 4 | El endpoint mueve `next_review_date`; `review_status` lo calcula JOB-01 cada hora, y `DeadlineNotices` publicaría la revisión vencida con la fecha nueva y la situación vieja | El endpoint escribe también `review_status` con la misma función (`RiskReview.status`), y `DeadlineNotices` recalcula la situación con la fecha antes de avisar; `api.md` §4.7 lo dice (Tareas 3, 7 y 16) |
-| 5 | JOB-01 mueve `next_review_date` «si cambió `review_every_days`», pero sin cadencia propia rige `risk_review_days` del proyecto | La cadencia efectiva (`review_every_days` o, vacía o menor que 1, `risk_review_days`) desde la última revisión de cualquier tipo: cambiar cualquiera de las dos mueve la fecha en la vuelta siguiente. El endpoint usa la misma fecha base. `workflows.md` y `domain-model.md` lo dicen (Tareas 6 y 16) |
+| 5 | JOB-01 mueve `next_review_date` «si cambió `review_every_days`», pero sin cadencia propia rige `risk_review_days` del proyecto | La cadencia efectiva (`review_every_days` o, vacía, `risk_review_days`; `review_every_days` va de 1 a 365, decisión 16) desde la última revisión de cualquier tipo: cambiar cualquiera de las dos mueve la fecha en la vuelta siguiente. El endpoint usa la misma fecha base. `workflows.md` y `domain-model.md` lo dicen (Tareas 6 y 16) |
 | 6 | La especificación dice que «una regla con alertas responde `409 HAS_DEPENDENTS`» y que «lo cubre el catálogo», pero `early_warning.early_warning_rule` es opcional y `early_warning` no es `requiresReason`: `ModelCatalog.guardedDependents` no la vigila | `DependentsDeleteGuard.PRESERVED` suma esa relación, con una prueba que exige que siga siendo opcional y fuera del catálogo vigilado (Tarea 9) |
 | 7 | `workflows.md` pide a JOB-04 contar «con conteos, nunca cargando los registros», pero CONTEO DE QCS cuenta con `AttentionCounting`, que necesita la cadena de reclasificaciones, y NIVEL DE RIESGO crea una alerta por riesgo | Esos dos leen sus filas (las QCS de la ventana y los riesgos revisados del proyecto, acotadas a 20 000); los otros cuatro cuentan. `workflows.md` lo dice (Tareas 12 y 16) |
 | 8 | El silencio es «una alerta creada en los últimos `window_days` días» | Se mide por `detected_at` dentro de la misma ventana de días de Lima que los eventos; JOB-04 escribe `detected_at` = ahora y la clave por fecha de Lima frena dos alertas el mismo día (Tarea 12) |
-| 9 | KPI-ENG-08 define dos cocientes (menciones por tono y medios por tono) y un solo valor | El valor es el porcentaje de menciones NEGATIVO del periodo (con su numerador y denominador); los demás cocientes van en el desglose `tone` (`value`, `outletPercent`); además `outlet` y `topic`. KPI-ENG-07 y 08 no aplican los filtros de territorio ni ámbito (`media_mention` no tiene territorio) y lo dicen en `ignoredFilters`. `dashboards.md` lo dice (Tareas 13 y 16) |
+| 9 | KPI-ENG-08 define dos cocientes (menciones por tono y medios por tono) y un solo valor | El valor es el porcentaje de menciones NEGATIVO del periodo (con su numerador y denominador); los demás cocientes van en el desglose `tone` (`value`, `outletPercent`); además `outlet` y `topic`. KPI-ENG-07 y 08 no aplican los filtros de territorio ni ámbito (`media_mention` no tiene territorio) y lo dicen en `ignoredFilters`. `dashboards.md` lo dice (Tareas 13 y 16). Decisión del usuario (2026-10-09): el titular de KPI-ENG-08 es el porcentaje de menciones NEGATIVO |
 | 10 | KPI-RSK-04 pide «semana a semana» sin fijar la semana | Semanas de lunes a domingo; las doce que terminan en la de `periodEnd`, cada una por su lunes (`period`) (Tarea 14) |
 | 11 | `risk-register` PUBLICO cuenta «riesgos activos», y el filtro `includeClosed` es común | PUBLICO nunca cuenta los cerrados; INTERNO y EXTERNO los incluyen solo con `includeClosed` (Tarea 15) |
 | 12 | `ACTION_REQUIRED` en `confirm` y `dismiss` no se alcanza por la API con los roles de hoy: los dos roles de esas transiciones tienen `CONFIRM_ALERT` | La prueba de integración lo comprueba con la consulta en seco (`POST /api/sgspe/transition-checks`), que corre las guardas sin mirar los roles; la regla pura tiene su prueba unitaria (Tarea 8) |
 | 13 | `WorkflowMatrixApiTest` difería WF-F entero (plan 4.1) | Ya no: `perform` aplica `assess` por el endpoint de revisiones desde `identified` (fuera de él, por la API genérica, que responde 409, como la decisión 6 de 4.2a) y `prepare` escribe la decisión de tratamiento, la medida con responsable y la revisión residual. `SocialRiskWorkflowApiTest`, `EarlyWarningWorkflowApiTest` e `IncidentWorkflowApiTest` son las clases por workflow que faltaban (Tareas 4 y 8) |
 | 14 | El umbral de los tipos por conteo es «entero ≥ 1» sin tope | Sin tope; NIVEL DE RIESGO de 1 a 25. Un cambio que no toca umbral, ventana ni tipo no se juzga, para que una regla guardada antes de la guarda se pueda renombrar o desactivar (Tarea 8) |
 | 15 | La ventana de eventos va «hasta ahora» y `Criteria.between` excluye el segundo instante | Hasta ahora más un segundo: un registro escrito en el mismo instante que la vuelta cuenta (Tarea 12) |
+| 16 | `social_risk.review_every_days` no tenía rango, y `RiskLevels.cadence` caía en silencio a `risk_review_days` con un valor menor que 1 | Decisión del usuario (2026-10-09): `RiskWriteGuard` rechaza con `400 OUT_OF_RANGE` sobre `review_every_days` un valor que no sea un entero de 1 a 365, en el alta y en todo cambio de su valor, como la cadencia del proyecto (`ProjectParameters`); vacío sigue valiendo `risk_review_days` del proyecto, y un valor que la escritura no cambia no se juzga. `RiskLevels.cadence` ya no cae en silencio: usa el valor guardado o, vacío, el del proyecto. La ficha de `database-model.md` lo dice desde el plan 4.0 y `api.md` §3.3 en la Tarea 16 (Tareas 1, 2 y 4) |
+| 17 | KPI-ENG-06 cuenta grupos de interés de las reuniones de monitoreo, y una interacción los vincula de más de una forma | Decisión del usuario (2026-10-09): en el MVP los cuenta por el vínculo `engagement_stakeholder` de cada interacción (`DashboardData.stakeholdersOf`) (Tarea 13) |
+| 18 | Una regla de alerta del tenant (sin `project`) no dice en qué proyectos se evalúa | Decisión del usuario (2026-10-09): alerta en cada proyecto `active` o `suspended` que no tenga una regla propia del mismo tipo, con su propia alerta y su propio silencio (`WarningRulesJob.ACTIVE`) (Tarea 12) |
 
 ## Lo que este plan toma de los planes 4.0, 4.1 y 4.2a
 
@@ -166,8 +169,8 @@ tarea dueña del código:
   `NoticeAudience`, `PlannedNotice`; `Notices.APPROVALS` y `DEADLINES`; `Kpis.confidentialSensitive`; `ExportProjects`,
   `ExportLog`, `SmallCells`, `Xlsx`, `RegisterSheets.code`; `CommandTransitionGuard.COMMANDS` sin `assess` (decisión 8 de
   4.2a); `WorkflowMatrixApiTest` con `close_accepted` como única diferida de QCS. Las decisiones de la revisión de 4.2a
-  (`ConfidentialRelease` solo para `RequestClosureListener`, feriados solo de 2026, `GRIEVANCE_MANAGER` con `u` sobre
-  `engagement_question`) no cambian nada aquí.
+  (`ConfidentialRelease` solo para `RequestClosureListener`, aceptado por el usuario y registrado en ADR-0028; feriados
+  solo de 2026; `GRIEVANCE_MANAGER` con `u` sobre `engagement_question`) no cambian nada aquí.
 
 ## Interfaces con el portal (plan 4.3)
 
@@ -188,6 +191,8 @@ Lo que el portal consume de este plan, además de lo de 4.2a (contrato completo 
   FIELD_REQUIRED` (`immediate_response`, `consequences`). Todas en la consulta en seco.
 - Reglas de alerta: `400 OUT_OF_RANGE` (`threshold`, `window_days`); borrar una con alertas: `409 HAS_DEPENDENTS`
   (`early_warning.early_warning_rule`). `early_warning.generator_key` por la API: `403 GENERATOR_KEY_PLATFORM_ONLY`.
+- Cadencia propia de un riesgo: `400 OUT_OF_RANGE` (`review_every_days`) si no es un entero de 1 a 365, al crear o al
+  cambiarla por la API genérica; vacía vale `risk_review_days` del proyecto (decisión 16).
 - Avisos en la bandeja: `risk_escalated:<riesgo>:<nivel>:<fecha>` (fuente `sgspe.risks`, `ACTION`, enlace al riesgo);
   `risk_escalated:<riesgo>:<0|1|2>:<next_review_date>` (fuente `sgspe.deadlines`); `warning_new:<alerta>` (fuente
   `sgspe.warnings`, `ACTION`, enlace a la alerta). Tareas: `risk_review:<riesgo>:<fecha>` (asignada al responsable, con
@@ -337,12 +342,14 @@ class RiskLevelsTest {
         assertFalse(RiskLevels.escalates("BAJO", "MEDIO"))
     }
 
+    // decisión 16: review_every_days va de 1 a 365 (RiskWriteGuard), así que la cadencia ya no cae en silencio al proyecto
     @Test
     fun `la cadencia es la del riesgo o, vacia, la del proyecto`() {
         assertEquals(7L, RiskLevels.cadence(emptyMap(), emptyMap()))
         assertEquals(14L, RiskLevels.cadence(emptyMap(), mapOf("risk_review_days" to 14)))
+        assertEquals(14L, RiskLevels.cadence(mapOf("review_every_days" to null), mapOf("risk_review_days" to 14)))
         assertEquals(30L, RiskLevels.cadence(mapOf("review_every_days" to 30), mapOf("risk_review_days" to 14)))
-        assertEquals(14L, RiskLevels.cadence(mapOf("review_every_days" to 0), mapOf("risk_review_days" to 14)))
+        assertEquals(365L, RiskLevels.cadence(mapOf("review_every_days" to "365"), mapOf("risk_review_days" to 14)))
     }
 
     // ASM-099: POR REVISAR desde el día anterior a la fecha y ese día; REVISION VENCIDA desde el día siguiente
@@ -495,11 +502,12 @@ object RiskLevels {
         current: String?
     ): Boolean = current in Risks.ESCALATED && rank(current) > rank(previous)
 
-    // la cadencia del riesgo: review_every_days o, vacío o menor que 1, risk_review_days del proyecto (7 por defecto)
+    // la cadencia del riesgo: review_every_days (de 1 a 365, RiskWriteGuard) o, vacío, risk_review_days del proyecto (7 por
+    // defecto)
     fun cadence(
         risk: Map<String, Any?>,
         project: Map<String, Any?>
-    ): Long = Values.decimal(risk[Risks.REVIEW_EVERY])?.toLong()?.takeIf { it >= 1 } ?: ProjectParameters.integer(project, "risk_review_days")
+    ): Long = Values.decimal(risk[Risks.REVIEW_EVERY])?.toLong() ?: ProjectParameters.integer(project, "risk_review_days")
 }
 
 // la situación de revisión de un riesgo, pura (ASM-099, workflows.md «Plazos y escalamiento»): AL DIA; POR REVISAR desde el día
@@ -578,14 +586,17 @@ MSG
 
 **Interfaces:**
 - Consumes: `Risks` (Tarea 1); `RuleGuard`, `Finding`, `GuardOrder`, `Records.count`, `readAs` y `NotReadable` (plan
-  4.2a).
+  4.2a); `WriteView` e `isLink` (F2).
 - Produces: `Criteria.filled(field): RecordCriterion` (`IS NOT NULL`); `object RiskRules` (`MITIGATE`, `MONITOR`,
-  `TREATMENT`, `CLOSE_REASON`, `CLOSE`, `NEEDS_MEASURE`, `NEEDS_RESIDUAL`, `transition(name, record): List<Finding>`,
-  `measureRequired()`, `residualRequired()`); el bean `RiskWriteGuard(records: Records)` (`@Order(GuardOrder.DOMAIN)`).
+  `TREATMENT`, `CLOSE_REASON`, `CLOSE`, `NEEDS_MEASURE`, `NEEDS_RESIDUAL`, `MAX_REVIEW_EVERY`, `transition(name, record):
+  List<Finding>`, `reviewEvery(after, changed): List<Finding>`, `measureRequired()`, `residualRequired()`); el bean
+  `RiskWriteGuard(records: Records, view: WriteView)` (`@Order(GuardOrder.DOMAIN)`).
 
 La tabla de §3.6 de la especificación: `assess` con probabilidad, impacto y responsable; mitigar con la decisión MITIGAR y
 una medida con responsable; monitorear con la decisión MONITOREAR o ACEPTAR y una revisión residual; cerrar con motivo
 (decisión 3). Las medidas y las revisiones se cuentan como quien transiciona; lo que no lee es `403 OBJECT_NOT_READABLE`.
+En el alta y en el cambio de un riesgo, la cadencia propia (`review_every_days`) vacía o entera de 1 a 365; si no, `400
+OUT_OF_RANGE` (decisión 16).
 
 - [ ] **Paso 1: Escribir la prueba que falla**
 
@@ -600,6 +611,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import sgspe.common.ModelCatalog
 import sgspe.common.Records
+import sgspe.common.WriteView
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
@@ -626,7 +638,7 @@ class RiskWriteGuardTest {
                 val answer = if (call.arguments[0] == Risks.MEASURE) measures else residuals
                 answer ?: throw ForbiddenException("sin lectura")
             }
-        return RiskWriteGuard(records)
+        return RiskWriteGuard(records, mock(WriteView::class.java))
     }
 
     private fun transition(
@@ -681,6 +693,16 @@ class RiskWriteGuardTest {
     @Test
     fun `sin lectura de las medidas es OBJECT_NOT_READABLE, nunca un pase`() {
         assertEquals(listOf("OBJECT_NOT_READABLE" to "mitigation_measure"), findings(guard(null, 1), "resume_mitigation"))
+    }
+
+    // decisión 16: la cadencia propia va de 1 a 365 días, como la del proyecto; vacía vale risk_review_days del proyecto
+    @Test
+    fun `una cadencia propia fuera de 1 a 365 dias es OUT_OF_RANGE y vacia vale la del proyecto`() {
+        fun every(value: Any?) = RiskRules.reviewEvery(mapOf(Risks.REVIEW_EVERY to value), setOf(Risks.REVIEW_EVERY)).map { it.code to it.field }
+        for (valid in listOf(null, "", 1, 30, "365.00")) assertEquals(emptyList<Pair<String, String?>>(), every(valid), "$valid")
+        for (wrong in listOf(0, -7, 366, "2.5", "semanal")) assertEquals(listOf("OUT_OF_RANGE" to Risks.REVIEW_EVERY), every(wrong), "$wrong")
+        // una cadencia que la escritura no cambia no se juzga: un valor guardado antes de la regla no bloquea otra escritura
+        assertEquals(emptyList<Pair<String, String?>>(), RiskRules.reviewEvery(mapOf(Risks.REVIEW_EVERY to 0), setOf("title")))
     }
 
     // las transiciones de RiskRules existen en WF-F: un renombre dejaría de vigilarlas en silencio
@@ -740,6 +762,8 @@ import sgspe.common.NotReadable
 import sgspe.common.Records
 import sgspe.common.RuleGuard
 import sgspe.common.Values
+import sgspe.common.WriteView
+import sgspe.common.isLink
 import sgspe.common.readAs
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
@@ -757,6 +781,9 @@ object RiskRules {
     // las que exigen una medida con responsable (RN-RSK-003) y las que exigen una revisión residual
     val NEEDS_MEASURE: Set<String> = setOf("decide_mitigation", "resume_mitigation")
     val NEEDS_RESIDUAL: Set<String> = setOf("decide_monitoring", "start_monitoring")
+
+    // la cadencia propia de un riesgo, en días, como la del proyecto (ProjectParameters.PERIODS)
+    const val MAX_REVIEW_EVERY = 365L
 
     // assess con probabilidad, impacto y responsable (RF-RSK-001); la decisión de tratamiento que cada camino exige; el motivo de
     // cierre. todo 400 FIELD_REQUIRED sobre el campo: lo que falta lo completa quien transiciona
@@ -784,6 +811,25 @@ object RiskRules {
         return findings
     }
 
+    // la cadencia propia (decisión 16 del plan 4.2b): vacía vale risk_review_days del proyecto; si no, un número entero de días
+    // de 1 a 365. se juzga si la escritura la cambia; en un alta, siempre que llegue. 400 OUT_OF_RANGE sobre el campo
+    fun reviewEvery(
+        after: Map<String, Any?>,
+        changed: Set<String>
+    ): List<Finding> {
+        if (Risks.REVIEW_EVERY !in changed || Values.text(after[Risks.REVIEW_EVERY]) == null) return emptyList()
+        val days = Values.decimal(after[Risks.REVIEW_EVERY])?.let { runCatching { it.stripTrailingZeros().longValueExact() }.getOrNull() }
+        if (days != null && days in 1..MAX_REVIEW_EVERY) return emptyList()
+        return listOf(
+            Finding(
+                "OUT_OF_RANGE",
+                "review_every_days es un número entero de días de 1 a 365; vacío, rige risk_review_days del proyecto",
+                Risks.REVIEW_EVERY,
+                status = HttpStatus.BAD_REQUEST
+            )
+        )
+    }
+
     fun measureRequired(): Finding =
         Finding("MEASURE_OWNER_REQUIRED", "Mitigar exige al menos una medida de mitigación con responsable (RN-RSK-003)", Risks.MEASURE)
 
@@ -794,17 +840,24 @@ object RiskRules {
 // RiskWriteGuard (sgspe.risk, especificación de F4 §3.6): las reglas de WF-F por cualquier puerta (la API genérica, el endpoint
 // de revisiones y la consulta en seco). las de datos son RiskRules; aquí se suman las que leen, como quien transiciona, las
 // medidas del riesgo (409 MEASURE_OWNER_REQUIRED) y sus revisiones residuales (409 RESIDUAL_ASSESSMENT_REQUIRED). lo que no
-// se puede leer es 403 OBJECT_NOT_READABLE, nunca un pase
+// se puede leer es 403 OBJECT_NOT_READABLE, nunca un pase. en el alta y el cambio, la cadencia propia (400 OUT_OF_RANGE)
 @Component
 @Order(GuardOrder.DOMAIN)
 class RiskWriteGuard(
-    private val records: Records
+    private val records: Records,
+    private val view: WriteView
 ) : RuleGuard() {
     override suspend fun findings(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
-        if (change.objectName != Risks.SOCIAL_RISK || change.kind != RecordChangeKind.TRANSITIONED) return emptyList()
+        if (change.objectName != Risks.SOCIAL_RISK) return emptyList()
+        if ((change.kind == RecordChangeKind.CREATED || change.kind == RecordChangeKind.UPDATED) && !change.isLink()) {
+            val after = view.after(change)
+            val changed = if (change.kind == RecordChangeKind.CREATED) after.keys else view.changed(change, after)
+            return RiskRules.reviewEvery(after, changed)
+        }
+        if (change.kind != RecordChangeKind.TRANSITIONED) return emptyList()
         val name = change.transition ?: return emptyList()
         val id = change.recordId ?: return emptyList()
         val findings = RiskRules.transition(name, change.before.orEmpty()).toMutableList()
@@ -843,7 +896,7 @@ class RiskWriteGuard(
 cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
 ```
 
-Esperado: `BUILD SUCCESSFUL`; `RiskWriteGuardTest` con 5 pruebas en verde.
+Esperado: `BUILD SUCCESSFUL`; `RiskWriteGuardTest` con 6 pruebas en verde.
 
 - [ ] **Paso 5: Commit**
 
@@ -855,7 +908,7 @@ feat: guarda de WF-F para mitigar, monitorear y cerrar riesgos
 
 RiskWriteGuard exige probabilidad, impacto y responsable al evaluar, la decisión de tratamiento y
 una medida con responsable al mitigar, una revisión residual al monitorear y el motivo al cerrar
-(RN-RSK-003), también en la consulta en seco.
+(RN-RSK-003), también en la consulta en seco; y una cadencia propia de 1 a 365 días.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -1539,7 +1592,7 @@ import sgspe.F4ApiTest
 
 // WF-F con RiskWriteGuard (workflows.md, especificación de F4 §3.6): los casos propios del riesgo que la matriz de workflows no
 // cubre. la primera revisión aplica assess; mitigar exige la decisión MITIGAR y una medida con responsable; monitorear, una
-// revisión residual; cerrar, el motivo. también en la consulta en seco
+// revisión residual; cerrar, el motivo. también en la consulta en seco; y la cadencia propia de 1 a 365 días
 class SocialRiskWorkflowApiTest : F4ApiTest() {
     private val manager by lazy { member("SOCIAL_RISK_MANAGER") }
 
@@ -1619,6 +1672,20 @@ class SocialRiskWorkflowApiTest : F4ApiTest() {
         val response = transition("social_risk", risk, "close_identified", manager.token, "cerrar")
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
         assertEquals(listOf("close_reason"), problemFields(response.body))
+    }
+
+    // decisión 16: la cadencia propia va de 1 a 365 días (RiskWriteGuard); vacía vale risk_review_days del proyecto
+    @Test
+    fun `una cadencia propia fuera de 1 a 365 dias es OUT_OF_RANGE y vacia vale la del proyecto`() {
+        val risk = socialRisk(testProject())
+        for (days in listOf(0, 366)) {
+            val wrong = edit("social_risk", risk, mapOf("review_every_days" to days), manager.token, withReason("cadencia"))
+            assertEquals(HttpStatus.BAD_REQUEST, wrong.status, wrong.body)
+            assertEquals("OUT_OF_RANGE", code(wrong))
+            assertEquals(listOf("review_every_days"), problemFields(wrong.body))
+        }
+        assertEquals(HttpStatus.OK, edit("social_risk", risk, mapOf("review_every_days" to 365), manager.token, withReason("cadencia")).status)
+        assertEquals(HttpStatus.OK, edit("social_risk", risk, mapOf("review_every_days" to null), manager.token, withReason("cadencia")).status)
     }
 
     // POST /api/sgspe/transition-checks corre RiskWriteGuard en seco, como las demás guardas
@@ -7198,7 +7265,8 @@ MSG
 **Interfaces:**
 - Consumes: todo lo anterior.
 - Produces: la rama `feat/fase-4-2b-riesgos` en verde y el PR. Los documentos dicen lo que este plan decidió frente a ellos
-  (decisiones 1, 3, 4, 5, 7 y 9); el resto del diseño de F4 ya lo escribió el plan 4.0.
+  (decisiones 1, 3, 4, 5, 7, 9 y 16); el resto del diseño de F4 ya lo escribió el plan 4.0 (también la ficha de
+  `review_every_days`, de 1 a 365).
 
 - [ ] **Paso 1: Los documentos, `CLAUDE.md` y el vigía**
 
@@ -7217,7 +7285,7 @@ por:
 ```markdown
 | Estado | Códigos |
 |---|---|
-| `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1), `POSITION_WITHOUT_PERSON` (`position_status`: un cargo sin persona solo puede estar `VACANTE` o `PREVISTO`), `INVALID_NUMBER` (un monto que no es un número) y `OUT_OF_RANGE` (un monto negativo, con más de 15 dígitos enteros o con más de 4 decimales tras quitar los ceros finales), sobre el campo: `exploration_campaign.social_support_cap`, `commitment.amount`, `delivery.delivered_amount` y `agreement.amount`, en el alta y en todo cambio de su valor (`AmountFieldsGuard`, ASM-092), `JUSTIFICATION_REQUIRED` (`origin_justification`: un compromiso que nace de un taller o de una reunión informativa, RN-ENG-001) y `DEPENDENCY_SELF` (`depends_on`: un compromiso no depende de sí mismo). Desde F4: `ANONYMOUS_WITH_IDENTITY` (`person` o `stakeholder` de una QCS anónima), `CONFIDENTIAL_RECEIVER_REQUIRED` (`received_by_user_id`: el alta de una QCS confidencial, sin `READ_CONFIDENTIAL`, lleva como receptor a quien escribe), `INVALID_LINK` (`duplicate_of`: una queja no es duplicado de sí misma), `FIELD_REQUIRED` (`category` y `severity` para atender una queja; `resolution` y `response` para resolverla; `responded_at` y `response` en las transiciones que comunican una respuesta; probabilidad, impacto y `owner_user_id` al evaluar un riesgo; `treatment_decision` MITIGAR al decidir mitigar y MONITOREAR o ACEPTAR al decidir monitorear; `close_reason` al cerrarlo; `immediate_response` y `consequences` al cerrar un incidente) y `OUT_OF_RANGE` también en los plazos y la cadencia del proyecto (de 1 a 365), sus umbrales de riesgo (de 1 a 25 y crecientes) y `threshold` y `window_days` de una regla de alerta (ASM-097) |
+| `400` | `DERIVED_FIELD` (se envió un campo derivado), `REASON_REQUIRED` (la transición exige `X-Change-Reason`), `FIELD_REASON_REQUIRED` (cambiar `stage` o `exploration_phase` de un proyecto exige motivo), `EXACTLY_ONE` (debe venir exactamente uno de un grupo de campos), `USER_REFERENCE` (el par `<rol>_user_id` y `<rol>_user_email` no nombra a un usuario de la organización), `UNKNOWN_ROLE` (`role_name` de una asignación no es un rol declarado), `REPRESENTED_PEOPLE` (`represented_people_count` menor que 1), `POSITION_WITHOUT_PERSON` (`position_status`: un cargo sin persona solo puede estar `VACANTE` o `PREVISTO`), `INVALID_NUMBER` (un monto que no es un número) y `OUT_OF_RANGE` (un monto negativo, con más de 15 dígitos enteros o con más de 4 decimales tras quitar los ceros finales), sobre el campo: `exploration_campaign.social_support_cap`, `commitment.amount`, `delivery.delivered_amount` y `agreement.amount`, en el alta y en todo cambio de su valor (`AmountFieldsGuard`, ASM-092), `JUSTIFICATION_REQUIRED` (`origin_justification`: un compromiso que nace de un taller o de una reunión informativa, RN-ENG-001) y `DEPENDENCY_SELF` (`depends_on`: un compromiso no depende de sí mismo). Desde F4: `ANONYMOUS_WITH_IDENTITY` (`person` o `stakeholder` de una QCS anónima), `CONFIDENTIAL_RECEIVER_REQUIRED` (`received_by_user_id`: el alta de una QCS confidencial, sin `READ_CONFIDENTIAL`, lleva como receptor a quien escribe), `INVALID_LINK` (`duplicate_of`: una queja no es duplicado de sí misma), `FIELD_REQUIRED` (`category` y `severity` para atender una queja; `resolution` y `response` para resolverla; `responded_at` y `response` en las transiciones que comunican una respuesta; probabilidad, impacto y `owner_user_id` al evaluar un riesgo; `treatment_decision` MITIGAR al decidir mitigar y MONITOREAR o ACEPTAR al decidir monitorear; `close_reason` al cerrarlo; `immediate_response` y `consequences` al cerrar un incidente) y `OUT_OF_RANGE` también en los plazos y la cadencia del proyecto (de 1 a 365), sus umbrales de riesgo (de 1 a 25 y crecientes), `threshold` y `window_days` de una regla de alerta (ASM-097) y la cadencia propia de un riesgo (`review_every_days`: entera de 1 a 365, en el alta y en todo cambio de su valor; vacía vale `risk_review_days` del proyecto) |
 | `403` | `COMMAND_ONLY` (la transición es de comando), `NOT_ASSIGNED` (sin asignación vigente al proyecto), `ACTION_REQUIRED` (falta la acción declarada: `APPROVE` de un proyecto o de un compromiso y `VERIFY` de un compromiso, sobre `record`; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una evidencia restringida, sobre `classification`), `NOT_OWN_RECORD` (el objeto declara `EDIT_ANY`, quien escribe no lo tiene y no creó el registro: no lo cambia, mueve, vincula ni borra; `record`), `SEGREGATION_OF_DUTIES` (quien aprueba un compromiso lo registró, `record`; quien lo verifica es su responsable, `owner_user_id`; RN-COM-005), `FIELD_NOT_READABLE` (`delivery.conformity_by`: registrar el cumplimiento necesita leer quiénes dieron la conformidad), `GENERATOR_KEY_PLATFORM_ONLY` (`generator_key`: una persona fija, cambia o vacía la clave de una tarea, también con un `PUT` que la omite; reenviarla tal como se leyó no es cambiarla), `OBJECT_NOT_READABLE` (quien escribe no lee un objeto que la regla necesita: `project_party`, `project`, `engagement_participant`, `engagement_question` o `area_of_influence`; desde F3 también `commitment`, `engagement`, `exploration_campaign`, `delivery`, `evidence`, `commitment_dependency` o `stakeholder`, y `agreement_land_parcel` al activar un acuerdo; `field` es el objeto). Desde F4: `ACTION_REQUIRED` también sin `READ_CONFIDENTIAL` al quitar `confidential` o cambiar `owner_user_id` o `received_by_user_id` de una QCS confidencial (sobre el campo), sin `APPROVE` en `resolve_high_severity` y sin `CONFIRM_ALERT` en `confirm` y `dismiss` (`record`); `HUMAN_DECISION_REQUIRED` (`record`: confirmar o descartar una alerta sin usuario o con una cuenta de servicio, RN-EWS-001); `COMMAND_ONLY` también en `close_reclassified` y `close_reclassified_*`, `accept` y `close_accepted` de WF-E3 y `assess` de WF-F; `GENERATOR_KEY_PLATFORM_ONLY` también en `early_warning.generator_key` |
 | `409` | `HAS_DEPENDENTS` (el registro tiene dependientes obligatorios, o uno opcional de un objeto `requiresReason`, y no se borra; `field` es `<objeto>.<campo>` del primer dependiente), `FROZEN_MEMBERS` (los miembros de una versión `approved` o `superseded` del área de influencia no cambian; `field`: `area_of_influence`), `FROZEN_AREA` (su proyecto, tipo y número de versión tampoco; `field` es el campo que cambia), `WORKING_CRS_REQUIRED`, `PARTY_REQUIRED`, `FIELD_REQUIRED` (`scheduled_at`, `held_at`, `minutes` o `cancel_reason` de una interacción), `ATTENDANCE_REQUIRED`, `PENDING_QUESTIONS`, `MINUTES_REQUIRED`, `PROFILE_INCOMPLETE` (`caracterizar` exige `stakeholder_type`, `stakeholder_scope`, `inclusion_reason` y `owner_user_id`; `field` es el primero que falta), `DUPLICATE_RULE` (`stakeholder_type`: ya hay una fila de `prioritization_rule` para cualquier tipo de actor con ese proyecto, grupo de influencia, postura y ámbito). Desde F3: `WORKSHOP_COMMITMENT_BLOCKED` (`origin_engagement`: el proyecto no admite compromisos de talleres ni reuniones informativas), `DUE_DATE_RESCHEDULE_ONLY` (`due_date`: desde `approved`, también en `cancelled`, la fecha solo cambia con una reprogramación), `DEPENDENCY_CYCLE` y `DEPENDENCY_GRAPH_TOO_LARGE` (`depends_on`: la dependencia cerraría un ciclo, o encadena más de 500 compromisos y no se puede verificar), `PROJECT_MISMATCH` (el campo de un compromiso o de un candidato que apunta a un registro de otro proyecto), `DELIVERY_FROZEN` (`commitment`: la entrega de un compromiso cumplido, verificado, cerrado o cancelado no cambia ni se vincula), `FIELD_REQUIRED` también con los campos de la matriz de compromisos y el responsable (el primero que falta), `resource_type` al registrar el cumplimiento, `signed_date`, `effective_date` y `community` de un acuerdo, y `duplicate_of`; `STAKEHOLDER_REQUIRED` (`commitment_stakeholder`), `SENIOR_APPROVAL_REQUIRED` (`origin_engagement` si nace de una mesa de diálogo, `commitment_stakeholder` si lo pide un grupo de interés POLITICO), `INTERNAL_APPROVAL_REQUIRED` (`project`), `SUPPORT_CAP_EXCEEDED` y `CAP_DATA_INVALID` (`exploration_campaign`: la aprobación supera el tope de la campaña, o un monto guardado de la campaña no es válido y el tope no se puede sumar), `DELIVERY_REQUIRED` (`delivery`), `EVIDENCE_REQUIRED` (`evidence_delivery`), `BLOCKING_DEPENDENCY` (`commitment_dependency`), `LAND_PARCEL_REQUIRED` (`agreement_land_parcel`), `ASSEMBLY_REQUIRED` (`assembly_engagement`) y, por los comandos de evidencias, `EVIDENCE_IMMUTABLE` (`file`, `replaces` o `import_batch_id`), `EVIDENCE_NOT_DELETABLE` (`record`) y `EVIDENCE_FILE_IN_USE` (`file`: el archivo ya es de otra evidencia). Desde F4: `PROJECT_MISMATCH` en toda relación de un objeto de F4 hacia un registro de otro proyecto (`origin_engagement`, `origin_question`, `stakeholder`, `social_risk`, `incident`, `duplicate_of`, `reclassified_from_*`, `created_commitment`, `area_of_influence`, `key_theme`, `origin_incident`, `commitment`, `media_mention`, `early_warning` y `early_warning_rule`; una regla del tenant no discrepa), en `commitment.origin_grievance` y `commitment.social_risk` y en los vínculos `social_risk_stakeholder` e `incident_stakeholder` (`ProjectLinkGuard`); `SENIOR_APPROVAL_REQUIRED` (`record`: `resolve` de una queja ALTA o CRITICA con `policy_high_severity_requires_approver` activo); `CONFORMITY_GIVEN` (`complainant_conformity_given`: no se reabre una queja con conformidad); `STATE_MISMATCH` (`created_commitment`: `close_unfulfilled` con el compromiso fuera de `cancelled`); `MEASURE_OWNER_REQUIRED` (`mitigation_measure`: mitigar sin una medida con responsable); `RESIDUAL_ASSESSMENT_REQUIRED` (`risk_assessment`: monitorear sin una revisión residual); `HAS_DEPENDENTS` también en una regla de alerta con alertas; y, por los vínculos de evidencias, `EVIDENCE_NOT_RESTRICTED` (`classification`: una evidencia que no es CONFIDENCIAL ni DATOS PERSONALES no se vincula a una QCS confidencial) |
 ```
@@ -7435,8 +7503,8 @@ python3 tools/check_traceability.py && yarn format:check
 git status --short
 ```
 
-Esperado: `BUILD SUCCESSFUL` con todas las unitarias en verde (592 en la copia de trabajo de este plan: las 534 que deja el
-plan 4.2a y 58 de este plan), `OK` del modelo, `ok: 298 requisitos, todos con su fila`, prettier sin cambios y un `git
+Esperado: `BUILD SUCCESSFUL` con todas las unitarias en verde (593 en la copia de trabajo de este plan: las 534 que deja el
+plan 4.2a y 59 de este plan), `OK` del modelo, `ok: 298 requisitos, todos con su fila`, prettier sin cambios y un `git
 status` con solo los seis archivos de este paso.
 
 - [ ] **Paso 3: Commit**
@@ -7447,7 +7515,8 @@ git add docs/api.md docs/workflows.md docs/domain-model.md docs/dashboards.md CL
 git commit -F - <<'MSG'
 docs: cierre del plan 4.2b con las decisiones de riesgos y alertas
 
-api.md pide la decisión de tratamiento y dice que la revisión escribe review_status; workflows.md
+api.md pide la decisión de tratamiento, acota review_every_days y dice que la revisión escribe
+review_status; workflows.md
 explica cómo cuenta JOB-04 y que su alta llega a los listeners; la cadencia efectiva, el valor de
 KPI-ENG-08, CLAUDE.md y ArchitectureTest se ponen al día.
 
@@ -7485,7 +7554,8 @@ cd ~/IdeaProjects/sgspe && git push -u origin feat/fase-4-2b-riesgos
 gh pr create --base main --title "feat: fase 4, plan 4.2b: backend de riesgos, alertas e incidentes" --body-file - <<'MSG'
 ## Qué trae
 
-- Riesgos: niveles con los umbrales del proyecto, `RiskWriteGuard` (WF-F) y el endpoint de revisiones con `assess` como
+- Riesgos: niveles con los umbrales del proyecto, `RiskWriteGuard` (WF-F y la cadencia propia de 1 a 365 días) y el
+  endpoint de revisiones con `assess` como
   transición de comando e `Idempotency-Key`; aviso `risk_escalated` por nivel y por revisión vencida.
 - JOB-01 con la revisión de los riesgos: cadencia efectiva, `review_status` y la tarea `risk_review` del responsable.
 - Alerta temprana: `WarningWriteGuard` (decisión humana, doble llave, cierre del incidente, reglas válidas),
@@ -7494,15 +7564,17 @@ gh pr create --base main --title "feat: fase 4, plan 4.2b: backend de riesgos, a
 
 ## Pruebas
 
-- Unitarias: 592 (58 nuevas).
+- Unitarias: 593 (59 nuevas).
 - Integración (esta CI): revisiones, WF-F, WF-J y WF-M, avisos de riesgo y de alerta, JOB-01 y JOB-04 (AUT-09 y
   `warning_new` desde la plataforma, AUT-11 desde el endpoint), tableros y exportación; la matriz de workflows sin WF-F en
   `DEFERRED`.
 
 ## Para revisar
 
-- Decisiones 1 (sin salida alternativa para las altas de la plataforma), 9 (valor de KPI-ENG-08) y 11 (PUBLICO sin
-  cerrados) del plan.
+- Decisiones 1 (sin salida alternativa para las altas de la plataforma) y 11 (PUBLICO sin cerrados) del plan. Las
+  decisiones 2 (quien revisa no recibe `risk_escalated`, aunque sea el responsable), 9 (KPI-ENG-08 es el porcentaje de
+  menciones NEGATIVO), 16 (`review_every_days` de 1 a 365), 17 (KPI-ENG-06 por `engagement_stakeholder`) y 18 (una
+  regla del tenant alerta en cada proyecto activo o suspendido) son del usuario.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -7516,7 +7588,7 @@ MSG
 | Tarea | Entrega | Grupo | Integración (CI del PR) |
 |---|---|---|---|
 | 1 | Nombres, niveles y revisión de los riesgos | A | — |
-| 2 | `RiskWriteGuard` y `Criteria.filled` | B | (Tareas 3 y 4) |
+| 2 | `RiskWriteGuard`, la cadencia propia y `Criteria.filled` | B | (Tareas 3 y 4) |
 | 3 | Endpoint de revisiones y `assess` como comando | C | `RiskAssessmentsApiTest` |
 | 4 | WF-F en la matriz y `SocialRiskWorkflowApiTest` | D | `SocialRiskWorkflowApiTest`, `WorkflowMatrixApiTest` |
 | 5 | `risk_escalated` por nivel | D | `RiskNoticesApiTest` |
