@@ -77,7 +77,7 @@ abstract class F2ApiTest : SgspeApiTest() {
         }
 
     // atributos mínimos de `objectName` (sus archivos los prepara `account`, quien lo crea: solo quien sube adjunta): sus requeridos, los miembros de sus únicos, sus relaciones requeridas y la de
-    // "exactamente uno de"; nunca un derivado
+    // "exactamente uno de"; nunca un derivado ni un campo de la plataforma (SampleFields)
     @Suppress("UNCHECKED_CAST")
     protected fun sample(
         objectName: String,
@@ -94,7 +94,7 @@ abstract class F2ApiTest : SgspeApiTest() {
             val type = field["type"] as String
             val required = field["required"] == true
             val unique = field["unique"] == true
-            if (field["derived"] == true || type == "GEOMETRY") continue
+            if (SampleFields.skipped(objectName, field)) continue
             when {
                 name in fixed -> attributes[name] = fixed[name]
                 type == "ENUM" && name in inSets -> {

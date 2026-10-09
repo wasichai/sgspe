@@ -253,10 +253,12 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals("EVIDENCE_FILE_IN_USE", code(responses.single { it.status == HttpStatus.CONFLICT }))
     }
 
-    // la comprobación del archivo en uso es de la base y no de quien llama: una evidencia que quien sube ya no lee (perdió la
-    // asignación al proyecto) sigue teniendo el archivo
+    // la comprobación del archivo en uso es de la base y no de quien llama (EvidenceWriteGuard no lee con Records): una
+    // evidencia de un proyecto del que quien sube ya no es miembro sigue teniendo el archivo. hoy la lectura es de todo el
+    // tenant (CON-041, opción A): perder la asignación no quita la lectura, y la prueba lo deja dicho; con UPS-01 esa lectura
+    // será un 4xx y la prueba cubrirá también la evidencia que quien llama no lee
     @Test
-    fun `un archivo adjunto a una evidencia que quien llama ya no lee tampoco se adjunta a otra`() {
+    fun `un archivo adjunto a una evidencia de un proyecto del que quien llama ya no es miembro tampoco se adjunta a otra`() {
         val first = testProject()
         val second = project()
         val agent = userWithRole("FIELD_AGENT")
@@ -268,7 +270,8 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals(HttpStatus.CREATED, created.status, created.body)
         assertEquals(HttpStatus.OK, edit("project_assignment", assignment, mapOf("active" to false)).status)
         val id = tree(created.body)["id"].asString()
-        assertTrue(exchange("GET", "/api/objects/evidence/records/$id", null, agent.token).status.is4xxClientError)
+        val read = exchange("GET", "/api/objects/evidence/records/$id", null, agent.token)
+        assertEquals(HttpStatus.OK, read.status, "la lectura ya no es de todo el tenant (UPS-01): exija aquí un 4xx")
         val again = createEvidence(attributes + ("project" to second), token = agent.token)
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("EVIDENCE_FILE_IN_USE", code(again))

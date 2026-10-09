@@ -81,18 +81,20 @@ class CommitmentFulfillmentApiTest : F3DomainApiTest() {
         move("commitment", id, "register_fulfillment", reason = "entregado")
     }
 
-    // D10 falla cerrada: un compromiso del que se depende y que quien registra no lee (otro proyecto) no cuenta como resuelto
+    // D10 con un compromiso de otro proyecto: hoy la lectura es de todo el tenant (CON-041, opción A, hasta UPS-01), así que
+    // quien registra sin asignación a ese proyecto lo lee y, abierto, bloquea como cualquier otro. que un compromiso que no se
+    // lee falle cerrado (OBJECT_NOT_READABLE) lo prueba BlockingDependencyRuleTest: ningún rol que registra deja de leerlo
     @Test
-    fun `una dependencia hacia un compromiso que quien registra no lee es OBJECT_NOT_READABLE`() {
+    fun `una dependencia bloqueante hacia un compromiso de otro proyecto tambien impide registrar el cumplimiento`() {
         val project = testProject()
         val manager = member("COMMITMENT_MANAGER", project)
         val id = approvedCommitment(project, attributes = mapOf("resource_type" to "NO MATERIAL"))
         createRecord("commitment_dependency", mapOf("commitment" to id, "depends_on" to commitment(project()), "blocking" to true))
         delivery(id, evidence = listOf(evidence(project, "OTRO")))
         val refused = transition("commitment", id, "register_fulfillment", manager.token, "entregado")
-        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
-        assertEquals("OBJECT_NOT_READABLE", code(refused))
-        assertEquals("commitment", tree(refused.body)["errors"][0]["field"].asString())
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("BLOCKING_DEPENDENCY", code(refused))
+        assertEquals("commitment_dependency", tree(refused.body)["errors"][0]["field"].asString())
         assertEquals("in_progress", state("commitment", id))
     }
 
