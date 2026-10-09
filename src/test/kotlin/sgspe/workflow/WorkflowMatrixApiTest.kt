@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.springframework.http.HttpStatus
-import sgspe.F3ApiTest
+import sgspe.F3DomainApiTest
 import sgspe.engagement.EngagementWriteGuard
 import java.io.File
 
@@ -26,7 +26,7 @@ import java.io.File
 // piden las guardas de 2.2 y 3.2 (como `activatable()` y `profileable()` de WF-A y WF-B; `close_light` usa un tipo no
 // formal, ver LIGHT_CLOSE_TYPE; los compromisos traen D1, D2 y una aprobación de otra persona, D4; los acuerdos son
 // convenios firmados y vigentes; los candidatos, apiOnly, los crea la plataforma)
-class WorkflowMatrixApiTest : F3ApiTest() {
+class WorkflowMatrixApiTest : F3DomainApiTest() {
     private data class Transition(
         val name: String,
         val from: String,
@@ -139,18 +139,38 @@ class WorkflowMatrixApiTest : F3ApiTest() {
         }
 
     // un registro nuevo llevado hasta `state` por el camino de pathTo, cada paso por el primer rol de su lista que maneja el objeto
+    // y con lo que pide (prepare); si se da `next`, también listo para aplicarla
     private fun recordAt(
         workflow: Workflow,
         state: String,
         creatorRole: String,
-        engagementType: String = FORMAL_TYPE
+        engagementType: String = FORMAL_TYPE,
+        next: Transition? = null
     ): String {
         val id = create(workflow, creatorRole, engagementType)
         for (step in checkNotNull(pathTo(workflow, state)) { "${workflow.objectName}: el estado $state no se alcanza" }) {
             val role = workflow.drivers.first { it in step.roles }
+            prepare(workflow, id, step)
             move(workflow.objectName, id, step.name, actor(workflow, role, id).token, TEXT)
         }
+        if (next != null) prepare(workflow, id, next)
         return id
+    }
+
+    // lo que una transición pide antes de aplicarse y la API genérica no da: register_fulfillment de WF-D exige una entrega con
+    // conformidad y, en un compromiso MATERIAL, su acta de entrega y su foto (D9), que el admin registra con el comando de
+    // entregas del plan 3.2
+    private fun prepare(
+        workflow: Workflow,
+        id: String,
+        rule: Transition
+    ) {
+        if (workflow.key(rule) != "commitment.register_fulfillment") return
+        val evidence = listOf(evidence(testProject(), "ACTA DE ENTREGA"), evidence(testProject(), "FOTO", "PUBLICA"))
+        val attributes = mapOf("delivery_date" to "2026-10-01", "conformity_given" to true, "conformity_by" to "Junta directiva")
+        val delivery =
+            exchange("POST", "/api/sgspe/commitments/$id/deliveries", mapOf("attributes" to attributes, "evidence" to evidence), token, withReason(TEXT))
+        assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
     }
 
     // quien crea el registro de la prueba: el propio rol si puede crearlo (RU: FIELD_AGENT solo cambia lo que creó), si no el
@@ -227,7 +247,7 @@ class WorkflowMatrixApiTest : F3ApiTest() {
         val allowed =
             rule.roles.map { role ->
                 dynamicTest("$role aplica ${rule.name}: ${rule.from} pasa a ${rule.to}") {
-                    val id = recordAt(workflow, rule.from, creatorFor(workflow, role), type)
+                    val id = recordAt(workflow, rule.from, creatorFor(workflow, role), type, rule)
                     move(objectName, id, rule.name, actor(workflow, role, id).token, TEXT)
                     assertEquals(rule.to, state(objectName, id))
                 }
@@ -237,7 +257,7 @@ class WorkflowMatrixApiTest : F3ApiTest() {
             dynamicTest("un rol con UPDATE fuera de la lista recibe 403 y el listado dice requires role") {
                 // sin un rol así no hay caso: todos los que actualizan el objeto están en la lista de la transición
                 assumeTrue(outsider != null) { "${workflow.key(rule)}: todo rol con UPDATE sobre $objectName está en su lista" }
-                val id = recordAt(workflow, rule.from, workflow.drivers.first(), type)
+                val id = recordAt(workflow, rule.from, workflow.drivers.first(), type, rule)
                 val who = actor(workflow, outsider!!, id)
                 val response = transition(objectName, id, rule.name, who.token, TEXT)
                 assertEquals(HttpStatus.FORBIDDEN, response.status, "$outsider: ${response.body}")
@@ -333,20 +353,15 @@ class WorkflowMatrixApiTest : F3ApiTest() {
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
         // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest
         // F3: lo que el plan 3.2 hace comando o pide de su comando (`accept` de WF-K, CommandTransitionGuard, y
-        // `mark_duplicate`, que pide el `duplicate_of` que solo escribe POST .../duplicate), y lo que pide la entrega con su
-        // evidencia, que solo da su endpoint (`register_fulfillment`, D9) y lo que solo se alcanza por ella
-        // (`reopen_execution`, `verify`, `close`): las tareas 13 y 14 del plan 3.2 las sacan de aquí. `approve_direct` corre en
-        // el proyecto de la prueba, que no tiene aprobación interna (D8)
+        // `mark_duplicate`, que pide el `duplicate_of` que solo escribe POST .../duplicate): la Tarea 14 del plan 3.2 las saca
+        // de aquí. `approve_direct` corre en un proyecto sin aprobación interna y prepare registra la entrega que pide
+        // `register_fulfillment` (D9)
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
                 "area_of_influence.supersede",
-                "commitment.register_fulfillment",
-                "commitment.reopen_execution",
-                "commitment.verify",
-                "commitment.close",
                 "commitment_candidate.accept",
                 "commitment_candidate.mark_duplicate"
             )
