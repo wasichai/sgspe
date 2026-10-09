@@ -255,17 +255,21 @@ decisiones de nombres del usuario [USR-09]. `database-model.md` las detalla para
 
 ### 4.10 Tablas fijas
 
-- `notification` y `notification_delivery` (BC-14), `knowledge_chunk` (BC-18, F7) e `idempotency_key` (transversal,
-  ASM-065) **no son Custom Objects**: son tablas fijas del esquema `sgspe`, con migración Flyway propia registrada como
-  `ModuleMigration` (ASM-012, ASM-065, RQ-AI-008, CON-052) [WAS-ADR-0026]. Las lee y escribe solo su paquete. Sus columnas
-  van con tipo PostgreSQL: las de BC-14 y BC-18 en §6.14 y §6.18, y la transversal aquí.
-- `idempotency_key` (`sgspe.common`, desde F3) guarda la clave de cada creación de `/api/sgspe/**` que la trae, en la misma
-  transacción que el comando, y se purga después de un plazo configurable (RNF-INT-002, ASM-065). La API genérica de wasichai
-  no conoce `Idempotency-Key` (UPS-18).
+- `knowledge_chunk` (BC-18, F7) e `idempotency_key` y `derived_version` (transversales, ASM-065, ASM-091) **no son
+  Custom Objects**: son tablas fijas del esquema `sgspe`, con migración Flyway propia registrada como `ModuleMigration`
+  (ASM-065, ASM-091, RQ-AI-008, CON-052) [WAS-ADR-0026]. Las lee y escribe solo su paquete. Sus columnas van con tipo
+  PostgreSQL: las de BC-18 en §6.18, y las transversales aquí. BC-14 no tiene tablas propias desde la decisión D2: los
+  avisos los guarda wasichai-notifications (ASM-012, ADR-0018).
+- `idempotency_key` (`sgspe.common`, desde F3) guarda la clave y la respuesta de cada comando de `/api/sgspe/**` que la
+  trae, en la misma transacción que el comando, con el contrato de la cabecera nativa de wasichai, que la honra en el
+  alta genérica (UPS-18, WAS-ADR-0058); JOB-08 la purga después de `wasichai.idempotency.ttl` (RNF-INT-002, ASM-065,
+  `api.md` §3.5). `derived_version` guarda los saltos de versión de las escrituras de solo derivados que acepta
+  `If-Match` (ADR-0027).
 
 | Tabla fija | Columnas (tipo PostgreSQL) | Restricciones | Requisitos |
 |---|---|---|---|
-| `idempotency_key` | `id` uuid; `organization_id` uuid; `user_id` uuid; `request_key` text (1 a 64 caracteres); `request_path` text; `request_sha256` text (SHA-256 del cuerpo); `created_object` text; `created_record_ids` uuid[]; `created_at` timestamptz | único (`organization_id`, `user_id`, `request_key`) | RNF-INT-002, ASM-065, UPS-18 |
+| `idempotency_key` | `organization_id` uuid; `user_id` uuid; `request_key` text (1 a 128 caracteres ASCII imprimibles); `request_sha256` text (SHA-256 del método, la ruta y el cuerpo con sus claves ordenadas); `response_status` integer; `response_body` text (a lo sumo 2 MiB); `response_etag` text; `response_location` text; `created_at` timestamptz | clave primaria (`organization_id`, `user_id`, `request_key`) | RNF-INT-002, ASM-065, UPS-18 |
+| `derived_version` | `organization_id` uuid; `object_name` text; `record_id` uuid; `from_updated_at` timestamptz; `to_updated_at` timestamptz; `created_at` timestamptz | clave primaria (`organization_id`, `object_name`, `record_id`, `from_updated_at`) | RNF-INT-003, ASM-091, UPS-04 |
 
 ## 5. Bounded contexts
 
@@ -288,7 +292,7 @@ del prompt [PRM-01 §24] [USR-05]; los indicadores de cada módulo aparecen cuan
 | BC-11 | Operaciones de campo | Field Operations | Fusionado en BC-04 para el MVP: `field_visit` y `field_observation` (ASM-045); la captura sin conexión queda fuera del MVP (ASM-021, GAP-008) | Release 1 (dentro de BC-04); sin conexión: Release 3, sujeto a GAP-008 | F2 (visitas); sin conexión: sin fase asignada | Ninguno en el MVP |
 | BC-12 | Evidencias y documentos | Documents / Evidence | Se mantiene: archivos inmutables con hash en el campo `FILE` de wasichai-files (CON-046, ADR-0014); documentos administrativos de un registro con wasichai-documents (RQ-REP-029) | Release 1 (MVP) | F3 | `sgspe.evidence` (subida, descarga por clasificación, hash, EXIF, vínculos) |
 | BC-13 | Tareas y aprobaciones | Workflow / Tasks | El motor de workflow es de wasichai [WAS-ADR-0013]; SGSPE agrega `task`, guardas por transición, plazos y escalamientos con trabajos programados (CON-042, CON-043) | Release 1 (MVP) | F3 (escalamiento de QCS y riesgos en F4) | `sgspe.deadline` (situaciones derivadas, escalamientos, tareas de revisión); guardas en cada paquete |
-| BC-14 | Notificaciones | Notifications | Propio, porque wasichai no tiene módulo de notificaciones (UPS-11, CON-058): bandeja y envíos en tablas fijas más SMTP | Release 1 (MVP) | F3–F4 | `sgspe.notification` (tablas fijas, bandeja, correo, deduplicación) |
+| BC-14 | Notificaciones | Notifications | Sobre el módulo wasichai-notifications (UPS-11 resuelta, CON-058, ADR-0018): la bandeja, el correo y las preferencias son del módulo; SGSPE decide destinatarios y textos | Release 1 (MVP) | F3–F4 | `sgspe.notification` (destinatarios, textos, `ApprovalNoticeListener`); `sgspe.deadline` (`DeadlineNotices`) |
 | BC-15 | Reportes, tableros y entregables | Reporting / BI | Se amplía con entregables DOCX y PDF [USR-01] y con el catálogo de indicadores; tableros por módulo desde F2 y consolidados en F8 | Release 3 (consolidado); exportaciones e indicadores por módulo desde Release 1 | F8 (indicadores F2–F6; exportaciones F2–F4) | `sgspe.dashboard` (indicadores), `sgspe.deliverable` (DOCX primero, PDF, emisión), `sgspe.privacy` (divulgación, exportaciones) |
 | BC-16 | Identidad y acceso | Identity / Access Control | Lo provee wasichai (JWT, roles, permisos por objeto, campo y acción) [USR-06]; SGSPE agrega `project_assignment`; el alcance de lectura por proyecto depende de UPS-01 (CON-041) | Release 1 (MVP) | F1 (asignaciones en F2) | `sgspe.scope` |
 | BC-17 | Auditoría | Audit | Lo provee wasichai (`audit_log` con motivo) [WAS-ADR-0040] [WAS-ADR-0041]; SGSPE agrega `export_log` y el identificador de correlación; brechas UPS-02, UPS-03, UPS-05 y UPS-12 (CON-057) | Release 1 (MVP) | F1 (`export_log` en F2) | `sgspe.privacy` (registro de exportaciones), `sgspe.observability` (correlación, ASM-034) |
@@ -321,7 +325,8 @@ los equivalentes del prompt están en §9.2 del análisis y en el glosario.
   M2M con los objetos listados en §6.12.
 - **Flags:** `appendOnly`, `apiOnly` y `requiresReason` (§4.5); "único" son restricciones `unique` o `uniqueConstraints`.
 - **WF:** letra del workflow en §11 del análisis; sus estados están en §7.3.
-- **Tablas fijas:** las de BC-14 y BC-18 tienen sus columnas en §6.14 y §6.18; la transversal `idempotency_key`, en §4.10.
+- **Tablas fijas:** las de BC-18 tienen sus columnas en §6.18; las transversales `idempotency_key` y `derived_version`,
+  en §4.10. BC-14 no tiene tablas propias (§6.14).
 
 ### 6.1 BC-01 Proyectos
 
@@ -564,9 +569,12 @@ es requisito del MVP y depende de GAP-008 (ASM-021); si se aprueba, BC-11 se sep
 |---|---|---|---|---|---|
 | `evidence` | `evidence_type` ENUM (Tipo de evidencia); `classification` ENUM (Clasificación de evidencia); `title` TEXT; `file` FILE (el archivo de wasichai-files, con su nombre, tipo, tamaño y SHA-256); `document_date` DATE; `author` TEXT; `captured_at` DATETIME; `people_identifiable` BOOLEAN; `photo_consent_given` BOOLEAN; `import_batch_id` UUID (archivo original de una importación, ASM-060); `location` GEOMETRY (POINT) | M2O `project`; M2O `replaces` → `evidence` (versión que reemplaza); una M2M `evidence_<objeto>` por destino: `community`, `land_parcel`, `stakeholder`, `engagement`, `field_visit`, `field_observation`, `commitment`, `delivery`, `agreement`, `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `incident`, `media_mention`, `social_contribution`, `social_program`, `study` | `apiOnly` más guarda de inmutabilidad (sin append-only, porque tiene vínculos M2M) | — | RF-DOC-001, RF-DOC-003, RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07 |
 
-- El archivo vive en almacenamiento de objetos local o compatible con S3; el registro guarda el descriptor del campo FILE (id del
-  archivo, nombre, tipo, tamaño y SHA-256), no una clave de almacenamiento (ASM-013). Ningún destino de `evidence_<objeto>` es `appendOnly`, porque un vínculo con un registro `appendOnly` responde 409
-  [WAS-ADR-0040]. El proyecto de una evidencia es su M2O `project`; no hay una M2M hacia `project`.
+- El archivo vive en almacenamiento de objetos local o compatible con S3; el registro guarda el descriptor del campo
+  FILE (id del archivo, nombre, tipo, tamaño y SHA-256), no una clave de almacenamiento (ASM-013). Lo sube la ruta de
+  wasichai-files y el registro lo crea `POST /api/sgspe/evidence`, en JSON; los EXIF los lee el portal. El descriptor,
+  con el nombre original del archivo, lo lee todo lector del registro (UPS-24, ASM-093). Ningún destino de
+  `evidence_<objeto>` es `appendOnly`, porque un vínculo con un registro `appendOnly` responde 409 [WAS-ADR-0040]. El
+  proyecto de una evidencia es su M2O `project`; no hay una M2M hacia `project`.
 - Los vínculos con destinos `requiresReason` (`commitment`, `agreement`, `grievance`, `inquiry`, `stakeholder_request`,
   `social_risk`, `social_contribution`) exigen motivo en ambos registros: `sgspe.evidence` lo pasa en cada vínculo
   [WAS-ADR-0041].
@@ -590,13 +598,9 @@ es requisito del MVP y depende de GAP-008 (ASM-021); si se aprueba, BC-11 se sep
 
 ### 6.14 BC-14 Notificaciones
 
-| Tabla fija | Columnas (tipo PostgreSQL) | Relación | Naturaleza | WF | Requisitos |
-|---|---|---|---|---|---|
-| `notification` | `id` uuid; `organization_id` uuid; `recipient_user_id` uuid; `notification_type` text; `source_object` text; `source_record_id` uuid; `title` text; `body` text; `created_at` timestamptz; `read_at` timestamptz (vacío si no se leyó); `dedup_key` text, único con `organization_id` y `recipient_user_id` | — | Tabla fija del esquema `sgspe`, no Custom Object | — | RF-NTF-001, RN-NTF-001, ASM-012, UPS-11 |
-| `notification_delivery` | `id` uuid; `organization_id` uuid; `notification_id` uuid; `channel` text (EMAIL); `recipient_email` text; `delivery_status` text; `attempts` integer; `last_attempt_at` timestamptz; `sent_at` timestamptz; `error_detail` text | `notification_id` → `notification` | Tabla fija del esquema `sgspe`, no Custom Object | — | RF-NTF-001, GAP-021 |
-
-- Son tablas fijas porque una vista de wasichai no puede filtrar por "yo" y la plataforma no tiene módulo de notificaciones
-  (CON-058). La clave de deduplicación evita repetir el mismo aviso (RF-NTF-001).
+BC-14 no tiene objetos ni tablas propias desde la decisión D2 (ASM-012, ADR-0018): los avisos los guarda y los entrega
+el módulo wasichai-notifications, y SGSPE publica con una clave estable por aviso a personas que resuelve por las
+asignaciones (ASM-070). Requisitos: RF-NTF-001, RN-NTF-001, GAP-021.
 
 ### 6.15 BC-15 Reportes, tableros y entregables
 
@@ -727,7 +731,7 @@ mantienen listeners (§7.5).
 | `project` | Llegar a `active` exige el CRS de trabajo y al menos una parte CLIENTE u OPERADOR | RF-PRJ-003, ASM-062 | Guarda `ProjectWriteGuard` (`sgspe.scope`), que se desactiva con `policy_activation_preconditions`. WF-A nunca se desactiva: una organización que no revisa proyectos aplica una variante de su definición, sin `submit_for_review` ni `return_to_draft`, en la que `approve` sale de `draft` (ASM-010) |
 | `project_assignment` | Una asignación por usuario y proyecto, con un usuario real del tenant | RF-PRJ-005, ASM-023 | Metadata (único compuesto) y `UserReferenceGuard` |
 | `project_assignment` | `role_name` es requerido y nombra un rol declarado en `model/roles.json`, porque los destinatarios por rol dependen de él | RF-PRJ-005, ASM-070 | Metadata (campo requerido) y guarda `AssignmentRoleGuard` (`sgspe.scope`), que compara con la lista de roles cargada como configuración |
-| `notification` | Los destinatarios de escalamientos, aprobaciones pendientes y alertas son las asignaciones activas del proyecto cuyo `role_name` está en la lista de roles de la transición que corresponde: la siguiente en aprobaciones y alertas; en un escalamiento, la de verificación o de revisión del objeto (nivel 1) y `approve_senior` de WF-D (nivel 2; los objetos sin aprobación superior propia reutilizan esos roles, ASM-030). Los nombres de rol salen de la definición del workflow, nunca de literales en el código | RF-NTF-001, RF-WFL-004, RQ-SEC-005, ASM-030, ASM-070 | `sgspe.notification` resuelve los destinatarios leyendo el workflow y `project_assignment`: como quien escribe cuando el aviso sale de `NotificationListener`, y como la plataforma en los escalamientos de `DeadlineJob` (JOB-01) |
+| Avisos (BC-14) | Los destinatarios de escalamientos, aprobaciones pendientes y alertas son las asignaciones activas del proyecto cuyo `role_name` está en la lista de roles de la transición que corresponde: la siguiente en aprobaciones y alertas; en un escalamiento, la de verificación o de revisión del objeto (nivel 1) y `approve_senior` de WF-D (nivel 2; los objetos sin aprobación superior propia reutilizan esos roles, ASM-030). Los nombres de rol salen de la definición del workflow, nunca de literales en el código | RF-NTF-001, RF-WFL-004, RQ-SEC-005, ASM-030, ASM-070 | `sgspe.notification` resuelve los destinatarios leyendo el workflow y `project_assignment`: como quien envía cuando el aviso sale de `ApprovalNoticeListener`, y como la plataforma en los avisos de plazo de `DeadlineNotices` |
 | Toda raíz de proyecto | Solo escribe quien está asignado al proyecto | RQ-SEC-006, CON-041 | `ProjectScopeGuard`; la lectura por proyecto espera UPS-01 |
 | `engagement`, `engagement_participant`, `field_visit`, `field_observation`, `evidence` | A quien no tiene `EDIT_ANY` sobre el objeto se le rechaza cambiar, transicionar, vincular o borrar registros ajenos; sí puede agregar participantes u observaciones a cualquier interacción o visita que pueda leer | RQ-SEC-008, ASM-069 | `EditAnyGuard` (`sgspe.scope`): compara `created_by` con quien escribe y decide con el permiso, nunca con el nombre del rol (RQ-SEC-005); no frena las escrituras de campos derivados que llevan la marca de SGSPE |
 | `exploration_campaign` | `executed_social_amount` suma lo ejecutado de la campaña: `executed_amount` de sus compromisos más `total_amount` de sus aportes en `delivered` o `closed`, solo en la moneda de la campaña; los demás se cuentan en `other_currency_items_count` y se muestran como advertencia | RF-INV-004, RQ-DSH-021, ASM-063 | `DerivedFieldsJob` con el recalculador de `sgspe.investment` (§7.4) |
@@ -768,9 +772,9 @@ mantienen listeners (§7.5).
 | `commitment` | La aprobación verifica el tope de apoyo social de la campaña contra la suma de los montos aprobados (comprometidos) de sus compromisos y aportes, más el que se aprueba, solo en la moneda de la campaña (los demás montos no se suman y la guarda lo advierte); bloquea o advierte según `policy_cap_blocks_approval`, salvo con la acción declarada `APPROVE_OVER_CAP` | RN-INV-003, GAP-006, ASM-063 | Guarda `SupportPolicyGuard` (`sgspe.investment`, disponible desde F3 por RF-INV-002) hacia `approved` |
 | `commitment` | Los compromisos de mayor alcance (mesa de diálogo, reunión con grupos políticos) requieren aprobación de nivel superior | RN-ENG-002 | `CommitmentWriteGuard` hacia `approved`, si `policy_senior_approval_for_dialogue` está activo: evalúa la regla en el momento, sin leer `requires_senior_approval`, que solo informa (§7.4) |
 | `commitment` | Un compromiso que nace de un taller o de una reunión informativa exige justificación | RN-ENG-001, ASM-007 | `CommitmentWriteGuard` al crear (`origin_justification`) |
-| `commitment` | Las políticas de empleo y de servidumbres del proyecto se respetan o se justifican | RN-COM-002, RN-COM-003 | `CommitmentWriteGuard` hacia `approved`, según las políticas del proyecto |
-| `commitment` | La fecha de vencimiento solo cambia con una reprogramación | RF-COM-003 | Endpoint `POST /api/sgspe/commitments/{id}/reschedules` (crea `commitment_reschedule` y actualiza `due_date` en una transacción) y `DerivedFieldsGuard` sobre `due_date` después de `approved` |
-| `commitment` | Llegar a `fulfilled` exige una entrega con conformidad (`conformity_given` verdadero y `conformity_by` lleno), vinculada a evidencias según el tipo de recurso: ACTA DE ENTREGA y FOTO si es MATERIAL; si es NO MATERIAL, al menos una ACTA, CARTA u OTRO, sin un tipo de evidencia propio | RN-COM-001, ASM-009 | El endpoint `POST /api/sgspe/commitments/{id}/deliveries` solo captura datos: crea la `delivery` y sus vínculos de evidencia en una transacción. El cambio de estado es la transición humana `register_fulfillment` de WF-D, con `CommitmentWriteGuard`: exige una entrega con conformidad y su evidencia |
+| `commitment` | Las políticas de empleo y de servidumbres del proyecto se respetan o se justifican | RN-COM-002, RN-COM-003 | `CommitmentWriteGuard` hacia `approved`, según las políticas del proyecto, cuando el modelo guarde si un compromiso ofrece puestos: no se verifica en F3 (ASM-089) |
+| `commitment` | La fecha de vencimiento solo cambia con una reprogramación | RF-COM-003 | Endpoint `POST /api/sgspe/commitments/{id}/reschedules` (crea `commitment_reschedule` y actualiza `due_date` en una transacción) y `CommitmentWriteGuard` (`DUE_DATE_RESCHEDULE_ONLY`) sobre `due_date` después de `approved` |
+| `commitment` | Llegar a `fulfilled` exige una entrega con conformidad (`conformity_given` verdadero y `conformity_by` lleno), vinculada a evidencias según el tipo de recurso: ACTA DE ENTREGA y FOTO si es MATERIAL; si es NO MATERIAL, al menos una ACTA, CARTA u OTRO, sin un tipo de evidencia propio | RN-COM-001, ASM-009 | El endpoint `POST /api/sgspe/commitments/{id}/deliveries` solo captura datos: crea la `delivery` y sus vínculos de evidencia en una transacción. El cambio de estado es la transición humana `register_fulfillment` de WF-D, con `CommitmentWriteGuard`: exige una entrega con conformidad y su evidencia, del mismo proyecto del compromiso. Una entrega de un compromiso cumplido o cancelado no cambia (`DELIVERY_FROZEN`) |
 | `commitment` | `executed_amount` es la suma de `delivered_amount` de sus entregas | ASM-063, RQ-DSH-021 | Endpoint `POST /api/sgspe/commitments/{id}/deliveries`, en la misma transacción que la entrega |
 | `commitment_dependency` | No se registra el cumplimiento con dependencias bloqueantes abiertas, y no hay ciclos | RF-COM-004 | `CommitmentWriteGuard` hacia `fulfilled` y al crear la dependencia |
 | `commitment` | Vencido y por vencer son `deadline_status`; el atraso escala por días | RN-WFL-001, RF-WFL-004, ASM-006, ASM-030 | Trabajo `DeadlineJob` (`sgspe.deadline`) |
@@ -802,8 +806,8 @@ mantienen listeners (§7.5).
 | `social_contribution` | `total_amount` es la suma de `line_amount` de sus ítems, recalculada desde cero | RF-INV-001 | `ContributionTotalsListener` (`sgspe.investment`) y `DerivedFieldsJob` (§7.5) |
 | `social_program` (+ iniciativas, beneficiarios, presupuesto, indicadores, hitos) | Llegar a `planned` exige el acuerdo de sinergia con el socio | RN-INV-004 | `InvestmentWriteGuard` |
 | `program_budget`, `program_measurement` | Un presupuesto por año; mediciones inmutables | RF-INV-003, RQ-AUD-003 | Metadata (único compuesto, `appendOnly`) |
-| `evidence` | El archivo es inmutable: clave, hash, tamaño y tipo no cambian, no se borra y se reemplaza con una versión nueva | RF-DOC-001 | `apiOnly` y guarda `EvidenceWriteGuard` (`sgspe.evidence`) |
-| `evidence` | El hash SHA-256 se calcula al subir; la descarga depende de la clasificación | RF-DOC-001, RF-DOC-003, ASM-013 | Endpoints `POST /api/sgspe/evidence` y `GET /api/sgspe/evidence/{id}/content`; la descarga de una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` |
+| `evidence` | El archivo es inmutable: no cambia, no se borra y se reemplaza con una versión nueva; un archivo es de una sola evidencia | RF-DOC-001 | `apiOnly` y `EvidenceWriteGuard` (`sgspe.evidence`): el archivo, `replaces` e `import_batch_id` no cambian y no se borra |
+| `evidence` | El hash SHA-256 se calcula al subir; la descarga depende de la clasificación | RF-DOC-001, RF-DOC-003, ASM-013 | `POST /api/objects/evidence/files/file` (wasichai-files, que calcula el hash al subir) y `POST /api/sgspe/evidence`; la descarga, `GET /api/sgspe/evidence/{id}/content` y la ruta nativa, con la misma comprobación: una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` |
 | `evidence` | Bajar la clasificación de una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` | RF-DOC-003, ASM-071 | `EvidenceWriteGuard` (`sgspe.evidence`) en el cambio de `classification`, que además lleva motivo |
 | `evidence` | Una foto de personas sin consentimiento no sale en una salida EXTERNO | RNF-PRIV-004, RQ-REP-014 | `sgspe.privacy` al ensamblar exportaciones y entregables |
 | `task` | Tiene un único origen y su vencimiento es derivado | RF-WFL-001, RN-WFL-001 | `ExactlyOneGuard` y `DeadlineJob` |
@@ -820,7 +824,7 @@ mantienen listeners (§7.5).
 | `ai_suggestion`, `commitment_candidate` | Ningún agente escribe datos de dominio; una persona acepta y el comando corre con su autorización | RQ-AI-001, RQ-AI-003, RQ-AUD-012 | `apiOnly`, endpoint `POST /api/sgspe/ai-suggestions/{id}/accept` y `CommandTransitionGuard`; wasichai-agent es de solo lectura [WAS-ADR-0014] |
 | `ai_interaction` | Toda llamada a un modelo queda registrada y no cambia | RF-AIK-009, RQ-AI-006 | Metadata (`appendOnly`, `apiOnly`) |
 | `ai_suggestion` | Un duplicado nunca se fusiona solo | RQ-AI-015, ASM-053 | WF-K: `duplicate` es una decisión humana |
-| `notification` | Los avisos salen de eventos y trabajos, nunca de las entidades, y no se repiten | RN-NTF-001, RF-NTF-001 | Listener y trabajos de `sgspe.notification`; clave de deduplicación |
+| Avisos (BC-14) | Los avisos salen de eventos y trabajos, nunca de las entidades, y no se repiten | RN-NTF-001, RF-NTF-001 | `ApprovalNoticeListener` (`sgspe.notification`) y la fuente `DeadlineNotices` (`sgspe.deadline`) de wasichai-notifications; clave estable por aviso |
 
 ### 7.3 Estados de workflow
 
@@ -881,7 +885,7 @@ los campos no editables en toda escritura, también en las de la plataforma, as�
 | Conteos de asistentes de `engagement` | Suma de `represented_people_count` de los participantes con `attended`: total, por sexo y por ámbito | `AttendanceCountsListener`; `DerivedFieldsJob` | RF-ENG-004, RQ-DSH-012 |
 | `strategic_alliance.formalized` | Tiene `agreement` y ese acuerdo llegó a `active`, aunque después haya pasado a `suspended`, `concluded` o `terminated` | `DerivedFieldsJob` | RF-ENG-010 |
 | `commitment.executed_amount` | Suma de `delivered_amount` de sus `delivery` | Endpoint de entregas, en su transacción | RQ-DSH-021, ASM-063 |
-| `commitment.requires_senior_approval` | Origen en una interacción de tipo MESA DE DIALOGO o con un grupo de interés del grupo POLITICO, si `policy_senior_approval_for_dialogue` está activo | `CommitmentDerivationsListener` al crear o cambiar el origen; `DerivedFieldsJob`. La guarda de aprobación evalúa la regla sin leer el campo | RN-ENG-002 |
+| `commitment.requires_senior_approval` | Origen en una interacción de tipo MESA DE DIALOGO o con un grupo de interés del grupo POLITICO, si `policy_senior_approval_for_dialogue` está activo | `CommitmentDerivationsListener` al crear o cambiar el origen; `DerivedFieldsJob`: los vínculos de solicitantes no llegan a los listeners, y los recoge su vuelta diaria. La guarda de aprobación evalúa la regla sin leer el campo | RN-ENG-002 |
 | `commitment.fulfilled_date`, `commitment.closed_date`, `commitment.cancelled_date` | Fecha en America/Lima de la transición a `fulfilled`, `closed` o `cancelled`; la transición `reopen_execution` (de `fulfilled` a `in_progress`) vacía `fulfilled_date` | `CommitmentDerivationsListener`, en la transacción de la transición | RQ-DSH-003, RQ-DSH-020, RQ-DSH-031 |
 | `grievance.resolved_date`; `closed_date` de `grievance`, `inquiry` y `stakeholder_request` | Fecha en America/Lima de la transición a `resolved` (queja) o, en `closed_date`, a cualquier estado final (`closed`, y en la queja también `rejected` y `withdrawn`); una reapertura de la queja vacía `resolved_date` | `QcsTransitionDatesListener` (`sgspe.attention`), en la transacción de la transición | RQ-DSH-003, RQ-DSH-022, RQ-DSH-025, RQ-DSH-031 |
 | `deadline_status` de `commitment`, QCS y `task` | El plazo frente a la fecha de hoy y `due_soon_days`, mientras el registro siga abierto | `DeadlineJob` | RN-WFL-001, ASM-006 |
@@ -898,21 +902,21 @@ los campos no editables en toda escritura, también en las de la plataforma, as�
 | `deliverable.current_version`, `deliverable.current_revision` | La última `deliverable_version` emitida y su revisión | Endpoint de emisión, en su transacción | RQ-REP-026 |
 
 `commitment.due_date` no es derivado, pero desde `approved` solo cambia con el endpoint de reprogramaciones;
-`DerivedFieldsGuard` rechaza los demás cambios (RF-COM-003).
+`CommitmentWriteGuard` rechaza los demás cambios con `DUE_DATE_RESCHEDULE_ONLY` (RF-COM-003), y `DeadlineStatusListener`
+recalcula `deadline_status` en la transacción de la reprogramación.
 
 ### 7.5 Listeners: qué escriben y qué permiso exigen
 
-Un listener corre como quien escribió y necesita sus permisos, y es atómico con la escritura solo si quien llama abrió una
-transacción (§7.1). Por eso los listeners de derivados recalculan desde cero, no hacen fallar la petición si no pueden
-escribir (registran el error) y dejan el valor pendiente a `DerivedFieldsJob`. Los que aplican una regla de negocio sobre una
-transición (`CommitmentDerivationsListener` en `fulfilled`, `closed`, `cancelled` y `reopen_execution`,
-`QcsTransitionDatesListener` y `RequestClosureListener`) sí fallan, y la transición se revierte. `NotificationListener` es
-atómico con la escritura solo dentro de una transición o de un endpoint transaccional, e inserta sus filas con un savepoint
-o con una conexión independiente, porque en PostgreSQL una sentencia fallida aborta toda la transacción de quien escribe: así
-un aviso fallido nunca hace fallar la escritura.
-`DerivedFieldsJob` (`sgspe.common`) corre cada hora con `ClusterLock` y `RecordService.asPlatform`, ejecuta los mismos
-recalculadores sobre los registros fuente cambiados desde su última corrida (por `updated_at`) y una vez al día sobre todos;
-como todo trabajo, solo escribe campos derivados (§8.3) [WAS-ADR-0039].
+Un listener corre como quien escribió y necesita sus permisos, y es atómico con la escritura solo si quien llama abrió
+una transacción (§7.1). Por eso los listeners de derivados recalculan desde cero, no hacen fallar la petición si no
+pueden escribir (registran el error) y dejan el valor pendiente a `DerivedFieldsJob`. Los que aplican una regla de
+negocio sobre una transición (`CommitmentDerivationsListener` en `fulfilled`, `closed`, `cancelled` y
+`reopen_execution`, `QcsTransitionDatesListener` y `RequestClosureListener`) sí fallan, y la transición se revierte.
+`ApprovalNoticeListener` publica en la transacción de la transición: un aviso mal formado se registra y la transición
+sigue, y un fallo de la base al guardarlo la revierte con todo lo demás. `DerivedFieldsJob` (`sgspe.common`) corre cada
+hora con `ClusterLock` y `RecordService.asPlatform`, ejecuta los mismos recalculadores sobre los registros fuente
+cambiados desde su última corrida (por `updated_at`) y una vez al día sobre todos; como todo trabajo, solo escribe
+campos derivados (§8.3) [WAS-ADR-0039].
 
 | Listener (paquete) | Se dispara con | Escribe en | Permiso que exige a quien escribe | Si no puede escribir |
 |---|---|---|---|---|
@@ -923,7 +927,8 @@ como todo trabajo, solo escribe campos derivados (§8.3) [WAS-ADR-0039].
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | Alta o cambio del origen de un `commitment`; transiciones a `fulfilled`, `closed` y `cancelled`, y `reopen_execution` | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date` del mismo compromiso; en `reopen_execution` vacía `fulfilled_date` | UPDATE sobre `commitment`, con motivo | En el alta o el cambio, no falla y `DerivedFieldsJob` recalcula; en una transición, la transición se revierte |
 | `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o a un estado final (`closed`, y en la queja también `rejected` y `withdrawn`), y la reapertura de una queja | `resolved_date` y `closed_date` del mismo registro | UPDATE sobre ese objeto, con motivo porque es `requiresReason` | La transición se revierte |
 | `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | Transición a `closed` de la `stakeholder_request` que lo originó (`created_commitment` o `created_contribution`) | El rol de esa transición de WF-E3 y motivo | La transición del compromiso o del aporte se revierte |
-| `NotificationListener` (`sgspe.notification`) | Altas y transiciones que generan avisos | Tablas fijas `notification` y `notification_delivery`, con SQL propio, dentro de un savepoint o con una conexión independiente | READ sobre `project_assignment`, que lee como quien escribe para resolver los destinatarios (ASM-070); no escribe registros de wasichai. Los escalamientos de JOB-01 se resuelven como la plataforma | Registra el error; la escritura del usuario sigue |
+| `DeadlineStatusListener` (`sgspe.deadline`) | Cambio de `due_date` de un `commitment` (desde `approved`, solo la reprogramación) | `deadline_status` del mismo compromiso, con la regla de JOB-01 | UPDATE sobre `commitment`, con motivo | Una regla que rechaza la escritura se registra y la reprogramación sigue (JOB-01 corrige); un fallo de la base revierte la reprogramación |
+| `ApprovalNoticeListener` (`sgspe.notification`) | Envío a aprobación y salida del estado pendiente (WF-A, WF-C, WF-D) | Avisos de wasichai-notifications (`publish` y `resolve`), no registros de wasichai | READ sobre `project_assignment`, que lee como quien envía (ASM-070) | Un aviso mal formado se registra; un fallo de la base revierte la transición |
 
 - Ningún rol de SGSPE usa `own_records_only`. `FIELD_AGENT` puede agregar participantes u observaciones a cualquier
   interacción o visita que pueda leer, pero, como no tiene `EDIT_ANY`, se le rechaza cambiar, transicionar, vincular o borrar
@@ -988,20 +993,20 @@ además `EXPORT` (RQ-GIS-018).
 
 | Paquete | Contenido | BC | Fase | Por qué no basta la metadata |
 |---|---|---|---|---|
-| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales de §7.1; envoltura de `RecordService` para el código propio; correlativos de `code`; `Idempotency-Key` (RNF-INT-002); precondición sobre `updated_at` (RNF-INT-003, ASM-035); filtros estrictos con 422 (ASM-054); fechas en America/Lima y feriados (RNF-I18N-002); contrato de los recalculadores de campos derivados y `DerivedFieldsJob` (§7.4, §7.5); tabla fija `idempotency_key` con su migración y su purga por JOB-08 (`RetentionJob`) (desde F3, ASM-065) | Transversal | F1 | Son reglas y convenciones de API que la plataforma no ofrece |
+| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales de §7.1; envoltura de `RecordService` para el código propio; correlativos de `code`; `Idempotency-Key` con el contrato nativo (RNF-INT-002); precondición sobre `updated_at` con los saltos de `derived_version` (RNF-INT-003, ASM-035, ASM-091); `AmountFieldsGuard` (ASM-092), `GeneratorKeyGuard` y `DependentsDeleteGuard`; filtros estrictos con 422 (ASM-054); fechas en America/Lima y feriados (RNF-I18N-002); contrato de los recalculadores de campos derivados y `DerivedFieldsJob` (§7.4, §7.5); tabla fija `idempotency_key` con su migración y su purga por JOB-08 (`RetentionJob`) (desde F3, ASM-065) | Transversal | F1 | Son reglas y convenciones de API que la plataforma no ofrece |
 | `sgspe.observability` | Filtro `X-Correlation-Id` ordenado antes de la cadena de seguridad, que acepta o genera el identificador y lo devuelve; una línea de acceso por petición; logs estructurados, como en el diseño de F1 | Transversal | F1 | wasichai no lleva identificador de correlación (RQ-AUD-006, RNF-OBS-001, ASM-034, UPS-03) |
-| `sgspe.scope` | `ProjectScopeGuard`, `ProjectWriteGuard`, `AssignmentRoleGuard` (`role_name` de `project_assignment` contra los roles configurados, ASM-070) y `EditAnyGuard` (a quien no tiene `EDIT_ANY` sobre el objeto le rechaza cambiar, transicionar, vincular o borrar registros ajenos, ASM-069); lectura de `project_assignment`; adaptador de la extensión de alcance cuando exista | BC-01, BC-16 | F2 | wasichai no tiene alcance por proyecto (CON-041, UPS-01) |
+| `sgspe.scope` | `ProjectScopeGuard`, `ProjectWriteGuard`, `AssignmentRoleGuard` (`role_name` de `project_assignment` contra los roles configurados, ASM-070) y `EditAnyGuard` (a quien no tiene `EDIT_ANY` sobre el objeto le rechaza cambiar, transicionar, vincular o borrar registros ajenos, ASM-069); lectura de `project_assignment`; `IssueDocumentFilter` (emitir un documento a mano pide lo mismo que cambiar el registro); adaptador de la extensión de alcance cuando exista | BC-01, BC-16 | F2 | wasichai no tiene alcance por proyecto (CON-041, UPS-01) |
 | `sgspe.stakeholder` | `InfluenceClassifier` y `Prioritizer` (funciones puras); endpoint de evaluaciones; `StakeholderWriteGuard`; `StakeholderFollowUpJob` (evaluación periódica, inactividad, `last_contact_date` y regla de primer contacto de `relationship_status`) | BC-03 | F2 | Cálculo entre registros y escritura atómica de evaluación y grupo de interés (RF-STK-008, RF-STK-009, RF-STK-011) |
 | `sgspe.engagement` | `EngagementWriteGuard` (cierre según tipo y preguntas; `held` con al menos un participante con `attended`; `represented_people_count` de al menos 1); derivación de preguntas a QCS (F4); `AttendanceCountsListener` y su recalculador; recalculador de `strategic_alliance.formalized` | BC-04 | F2 | La regla de cierre lee otros registros (RN-ENG-004, RN-ENG-005) |
-| `sgspe.commitment` | `CommitmentWriteGuard` (matriz mínima, segregación de funciones, aprobación de nivel superior, políticas de empleo, evidencia de cumplimiento, dependencias); endpoints de reprogramación, entrega del compromiso (solo captura datos; el cumplimiento es la transición `register_fulfillment`), alta humana y aceptación de candidatos; `CommitmentDerivationsListener` | BC-05 | F3 | Comandos de varios registros y reglas que leen otros registros (RF-COM-003, RF-COM-004, RN-COM-001, RN-COM-005) |
+| `sgspe.commitment` | `CommitmentWriteGuard` (matriz mínima, segregación de funciones, aprobación de nivel superior, evidencia de cumplimiento, dependencias, vínculos del mismo proyecto, entregas congeladas; las políticas de empleo esperan su dato, ASM-089); endpoints de reprogramación, entrega del compromiso y su corrección (solo captura datos; el cumplimiento es la transición `register_fulfillment`), alta humana, aceptación y duplicado de candidatos; `CommitmentDerivationsListener` | BC-05 | F3 | Comandos de varios registros y reglas que leen otros registros (RF-COM-003, RF-COM-004, RN-COM-001, RN-COM-005) |
 | `sgspe.agreement` | `AgreementWriteGuard`: permisos de uso de terreno y servidumbres vinculados a sus predios y a la comunidad titular, autorizaciones de asamblea y cláusulas que originan compromisos | BC-06 | F3 | Las reglas leen vínculos y registros relacionados (RF-AGR-001, RF-AGR-002, RF-AGR-003) |
 | `sgspe.attention` | `QcsDueDatesListener` (plazos al recibir); `QcsTransitionDatesListener` (`resolved_date` y `closed_date`); reclasificación, que copia `received_at` del primer registro de la cadena (ASM-072); aceptación de solicitudes; `RequestClosureListener` (cierre de la solicitud al cerrar su compromiso o, desde F5, su aporte, ASM-068); reporte unificado de QCS | BC-07 | F4 | Comandos entre objetos y reporte de tres objetos (RF-GRV-004, RF-GRV-005, RF-GRV-007, RN-GRV-001) |
 | `sgspe.risk` | Endpoint de revisiones (puntaje, nivel, tendencia y residual); `RiskWriteGuard` | BC-08 | F4 | Cálculo al escribir y escritura de dos objetos (RN-RSK-002, RN-RSK-003) |
 | `sgspe.warning` | `WarningRulesJob` (evaluador de reglas); `WarningWriteGuard` (decisión humana) | BC-09 | F4 | Reglas sobre ventanas de tiempo y control de quién decide (RN-EWS-001) |
 | `sgspe.investment` | `SupportPolicyGuard` (tope de apoyo social por campaña sobre compromisos y aportes; lineamientos de aportes) e `InvestmentWriteGuard` (entrega de aportes con acta, foto y comprobante; sinergia antes de aprobar un programa); endpoint de entrega de aportes (solo captura datos; la entrega es una transición de WF-P); `ContributionTotalsListener`; recalculadores de `total_amount`, `total_budget`, `executed_social_amount` y `other_currency_items_count` (ASM-063) | BC-10 | F5 (tope y lineamientos desde F3, RF-INV-002) | Políticas del proyecto y sumas entre objetos (RN-INV-003, RN-INV-004, RN-INV-006, RF-INV-004) |
-| `sgspe.deadline` | `DeadlineJob`: `deadline_status`, `validity_status`, `review_status`, escalamientos (sus destinatarios los resuelve `sgspe.notification`, ASM-070) y tareas de revisión | BC-13 (para BC-05 a BC-08) | F3–F4 | Las automatizaciones no tienen disparadores temporales (CON-043, RN-WFL-001) |
-| `sgspe.notification` | Tablas fijas `notification` y `notification_delivery` con su migración; bandeja `/api/sgspe/notifications`; envío por SMTP con reintentos (JOB-06); `NotificationListener`; resolución de destinatarios por `project_assignment.role_name` y la definición del workflow (ASM-070) | BC-14 | F3–F4 | wasichai no tiene módulo de notificaciones (UPS-11, ASM-012) |
-| `sgspe.evidence` | Subida y descarga en streaming, almacenamiento local o S3, SHA-256, EXIF, vínculos con `RelatedRecordService`; `EvidenceWriteGuard` | BC-12 | F3 | No hay campo FILE (CON-046, UPS-07, ASM-013) |
+| `sgspe.deadline` | `DeadlineJob`: `deadline_status`, `validity_status` y, desde F4, `review_status`, escalamientos (sus destinatarios los resuelve `sgspe.notification`, ASM-070) y tareas de revisión; la fuente de avisos de plazo `DeadlineNotices`; `DeadlineStatusListener` | BC-13 (para BC-05 a BC-08) | F3–F4 | Las automatizaciones no tienen disparadores temporales (CON-043, RN-WFL-001) |
+| `sgspe.notification` | Destinatarios por `project_assignment.role_name` y la definición del workflow (ASM-070) y textos de los avisos; `ApprovalNoticeListener`; publica en wasichai-notifications | BC-14 | F3–F4 | El módulo guarda, entrega y purga los avisos; SGSPE decide quién y qué (ASM-012) |
+| `sgspe.evidence` | Alta, cambio y vínculos sobre el campo `FILE` de wasichai-files; descarga con `DOWNLOAD_RESTRICTED` por las dos rutas; `EvidenceWriteGuard` | BC-12 | F3 | El campo `FILE` no conoce la clasificación (UPS-07 resuelta, ADR-0014) |
 | `sgspe.territory` | Importación con CRS y reconciliación; área en hectáreas en el `working_crs` del proyecto o, si el registro no pertenece a un solo proyecto, en la zona UTM del centroide (ASM-064); consultas espaciales con compuerta de permisos; sugerencias de miembros; geometría y filtros espaciales de la ficha territorial, cuyas cifras calcula `sgspe.dashboard` (KPI-TER-01); proxy WMS; `TerritoryWriteGuard`; `AreaListener` y su recalculador | BC-02 | F2 (análisis en F6) | `RecordService` solo filtra por `bbox` y las guardas no ven geometrías (RQ-GIS-011, RQ-GIS-017) |
 | `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`; las cifras de la ficha territorial (KPI-TER-01, RQ-GIS-005); conteos con `RecordService` y agregación en Kotlin; cierre de periodo | BC-15 | F2–F8 | Agregaciones entre objetos sin vistas materializadas (RQ-DSH-031, RQ-DSH-034) |
 | `sgspe.deliverable` | Una clase por tipo de entregable; ensamblado del modelo; DOCX con Apache POI; PDF con Gotenberg; mapas con GeoServer GetMap; endpoint que pide borradores; trabajador de generación, que escribe los `draft_*` como la plataforma (ASM-061); emisión; `DeliverableWriteGuard`; paso de retención de borradores de JOB-08 | BC-15 | F8 | wasichai-documents no genera DOCX ni PDF en el servidor (CON-045, ASM-014) |
@@ -1025,19 +1030,20 @@ Dentro de `RecordService.asPlatform` solo `RecordService` actúa como la platafo
 de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-0039]. De ahí cuatro reglas del modelo:
 
 - **Los trabajos programados solo escriben campos derivados y crean registros nuevos.** Mantienen `deadline_status`,
-  `validity_status`, `review_status` y los demás campos marcados "(derivado)" (§7.4), aplican la regla automática de primer
-  contacto de `relationship_status`, que se deriva de las interacciones (ASM-032), y crean tareas, avisos y, en
+  `validity_status`, `review_status` y los demás campos marcados "(derivado)" (§7.4), aplican la regla automática de
+  primer contacto de `relationship_status`, que se deriva de las interacciones (ASM-032), y crean tareas, avisos y, en
   `sgspe.warning`, alertas en su estado inicial. Nunca aplican una transición ni vinculan o desvinculan registros
   (RN-WFL-001, CON-043). Son, con la numeración de `workflows.md`: `DeadlineJob` (JOB-01), `DerivedFieldsJob` (JOB-02),
-  `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), el trabajador de generación de entregables (JOB-05), el
-  envío de avisos por SMTP (JOB-06), que solo escribe tablas fijas, la indexación para RAG (JOB-07, F7), que crea registros
-  de `ai_interaction` y escribe la tabla fija `knowledge_chunk`, y la retención (JOB-08), que desde F3 borra con SQL propio,
-  sin `asPlatform`, las claves vencidas de la tabla fija `idempotency_key` (ASM-065, RNF-INT-002) y desde F8 lee `deliverable`
-  y `deliverable_version` y borra archivos de borradores sin referencia, sin escribir registros de wasichai. Para recorrer las organizaciones usan
-  `TenantDirectory`, la forma soportada de listar los tenants desde wasichai 0.5.0 (UPS-17). La excepción son las migraciones de datos de
-  `database-model.md` §24 sobre un objeto `apiOnly`: corren en proceso, dentro del paquete dueño del objeto, y escriben
-  campos no derivados como la plataforma, con un motivo que nombra la migración (ASM-051) y con las guardas activas
-  [WAS-ADR-0039] [WAS-ADR-0041]. Tampoco aplican transiciones.
+  `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), el trabajador de generación de entregables (JOB-05), la
+  indexación para RAG (JOB-07, F7), que crea registros de `ai_interaction` y escribe la tabla fija `knowledge_chunk`, y
+  la retención (JOB-08), que desde F3 borra con SQL propio, sin `asPlatform`, las claves vencidas de la tabla fija
+  `idempotency_key` y los saltos vencidos de `derived_version` (ASM-065, ASM-091, RNF-INT-002) y desde F8 lee
+  `deliverable` y `deliverable_version` y borra archivos de borradores sin referencia, sin escribir registros de
+  wasichai. Para recorrer las organizaciones usan `TenantDirectory`, la forma soportada de listar los tenants desde
+  wasichai 0.5.0 (UPS-17). La excepción son las migraciones de datos de `database-model.md` §24 sobre un objeto
+  `apiOnly`: corren en proceso, dentro del paquete dueño del objeto, y escriben campos no derivados como la plataforma,
+  con un motivo que nombra la migración (ASM-051) y con las guardas activas [WAS-ADR-0039] [WAS-ADR-0041]. Tampoco
+  aplican transiciones.
 - **Todo cambio de estado automático ocurre en la petición de una persona**, como listener que corre con su identidad. Sobre
   una transición, el listener es atómico con ella porque `WorkflowService.apply` es transaccional [WAS-ADR-0038]; por la API
   genérica no lo sería (§7.1, §7.5). El caso del MVP es RN-GRV-001: al cerrar un compromiso (y desde F5 un aporte, ASM-068),
