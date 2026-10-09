@@ -78,17 +78,18 @@ class Candidates(
         val attributes = StrictBody.objectOf(body, "attributes")
         StrictBody.requireAttributes(catalog, Commitments.COMMITMENT, attributes, setOf("project"))
         if (reason.isNullOrBlank()) throw ValidationException("Aceptar un candidato exige un motivo", "reason", "envíe la cabecera X-Change-Reason")
-        val user = person(callers.require())
+        val user = requirePerson(callers.require())
         permissions.require(user, "Aceptar un candidato", Actions.UPDATE to Commitments.CANDIDATE, Actions.CREATE to Commitments.COMMITMENT)
         TransitionRoles.require(catalog, user, Commitments.CANDIDATE, listOf(ACCEPT))
         val result =
             transactions.locked(lock(id)) {
                 val candidate = proposed(id, expected)
-                val origin = attributes["origin_engagement"] ?: candidate.attributes["engagement"]
+                // la interacción de origen la hereda del candidato, salvo que quien revisa la cambie o la quite (null explícito)
+                val origin = if (ORIGIN in attributes) attributes[ORIGIN] else candidate.attributes["engagement"]
                 val commitment =
                     records.create(
                         Commitments.COMMITMENT,
-                        attributes + ("project" to candidate.attributes["project"]) + ("origin_engagement" to origin),
+                        attributes + ("project" to candidate.attributes["project"]) + (ORIGIN to origin),
                         reason
                     )
                 records.patch(Commitments.CANDIDATE, id, mapOf(CREATED_COMMITMENT to commitment.id), reason)
@@ -114,7 +115,7 @@ class Candidates(
         val duplicateOf =
             Records.uuid(body["duplicateOf"]) ?: throw ValidationException("Falta el compromiso", "duplicateOf", "debe ser el id de un commitment")
         if (reason.isNullOrBlank()) throw ValidationException("Marcar un duplicado exige un motivo", "reason", "envíe la cabecera X-Change-Reason")
-        val user = person(callers.require())
+        val user = requirePerson(callers.require())
         permissions.require(user, "Marcar un candidato como duplicado", Actions.UPDATE to Commitments.CANDIDATE)
         TransitionRoles.require(catalog, user, Commitments.CANDIDATE, listOf(CandidateRules.MARK_DUPLICATE))
         return transactions.locked(lock(id)) {
@@ -152,28 +153,29 @@ class Candidates(
         return candidate
     }
 
-    // solo una persona decide sobre un candidato (RQ-AI-003): una cuenta de servicio nunca, tenga el rol que tenga
-    private fun person(user: AuthenticatedUser): AuthenticatedUser {
-        if (user.serviceAccount != null) {
-            throw Finding(
-                "PERSON_REQUIRED",
-                "Solo una persona acepta o descarta un candidato a compromiso; una cuenta de servicio no",
-                status = HttpStatus.FORBIDDEN
-            ).toCodedException()
-        }
-        return user
-    }
-
     companion object {
         const val ACCEPT = "accept"
         const val PROPOSED = "proposed"
         const val AI_GENERATED = "ai_generated"
         const val CREATED_COMMITMENT = "created_commitment"
+        const val ORIGIN = "origin_engagement"
 
         // lo que fija el sistema y nunca una persona en el alta humana: el origen de IA, la confianza y las decisiones
         val SYSTEM = setOf(AI_GENERATED, "confidence", "ai_interaction", CREATED_COMMITMENT, CandidateRules.DUPLICATE_OF)
 
         fun lock(id: UUID): String = "${Commitments.CANDIDATE}:$id"
+
+        // solo una persona decide sobre un candidato (RQ-AI-003): una cuenta de servicio nunca, tenga el rol que tenga
+        internal fun requirePerson(user: AuthenticatedUser): AuthenticatedUser {
+            if (user.serviceAccount != null) {
+                throw Finding(
+                    "PERSON_REQUIRED",
+                    "Solo una persona acepta o descarta un candidato a compromiso; una cuenta de servicio no",
+                    status = HttpStatus.FORBIDDEN
+                ).toCodedException()
+            }
+            return user
+        }
     }
 }
 

@@ -2,6 +2,7 @@ package sgspe.commitment
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F3DomainApiTest
@@ -53,7 +54,8 @@ class CandidateApiTest : F3DomainApiTest() {
                 mapOf("attributes" to mapOf("project" to testProject(), "proposed_text" to "x", "ai_generated" to true)),
                 token
             )
-        assertEquals(HttpStatus.BAD_REQUEST, refused.status)
+        assertEquals(HttpStatus.BAD_REQUEST, refused.status, refused.body)
+        assertEquals(listOf("attributes.ai_generated"), problemFields(refused.body))
         val decided = create(mapOf("project" to testProject(), "proposed_text" to "x", "duplicate_of" to commitment(testProject())))
         assertEquals(HttpStatus.BAD_REQUEST, decided.status, decided.body)
     }
@@ -101,6 +103,33 @@ class CandidateApiTest : F3DomainApiTest() {
         val again = accept(id, manager)
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("STATE_MISMATCH", code(again))
+    }
+
+    // RN-ENG-001 al aceptar: el compromiso que hereda un taller como origen exige justificación, que quien revisa agrega
+    @Test
+    fun `aceptar un candidato de un taller exige origin_justification`() {
+        val project = testProject()
+        val workshop = engagement(project, "TALLER")
+        val id = candidate(project, mapOf("engagement" to workshop))
+        val manager = member("COMMITMENT_MANAGER", project)
+        val refused = accept(id, manager)
+        assertEquals(HttpStatus.BAD_REQUEST, refused.status, refused.body)
+        assertEquals("JUSTIFICATION_REQUIRED", code(refused))
+        assertEquals("proposed", state("commitment_candidate", id))
+        val accepted = accept(id, manager, reviewed() + ("origin_justification" to "Absuelve un pedido de la comunidad"))
+        assertEquals(HttpStatus.CREATED, accepted.status, accepted.body)
+        assertEquals(workshop, tree(accepted.body)["commitment"]["attributes"]["origin_engagement"].asString())
+    }
+
+    // quien revisa puede quitar el origen heredado con un null explícito; omitirlo lo hereda
+    @Test
+    fun `un origin_engagement null explicito quita el origen heredado`() {
+        val project = testProject()
+        val id = candidate(project, mapOf("engagement" to engagement(project)))
+        val accepted = accept(id, member("COMMITMENT_MANAGER", project), reviewed() + ("origin_engagement" to null))
+        assertEquals(HttpStatus.CREATED, accepted.status, accepted.body)
+        val origin = tree(accepted.body)["commitment"]["attributes"]["origin_engagement"]
+        assertTrue(origin == null || origin.isNull, origin.toString())
     }
 
     // P54: el candidato no guarda una interacción de otro proyecto, que el compromiso aceptado heredaría
