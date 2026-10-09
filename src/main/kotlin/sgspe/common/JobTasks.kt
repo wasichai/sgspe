@@ -10,7 +10,13 @@ import org.springframework.stereotype.Component
 class JobTasks(
     private val records: Records
 ) {
-    // true si la creó
+    /**
+     * Crea la tarea de la clave `key` si no existe; true si la creó.
+     *
+     * Quien llama no debe tener una transacción abierta: si otra réplica gana la carrera, el insert falla con el único y en
+     * PostgreSQL eso aborta la transacción en curso (todo lo que siga falla hasta el rollback). Si hace falta llamarla dentro
+     * de una, envuélvala en un SAVEPOINT (transacción anidada) para que solo ese insert se deshaga.
+     */
     suspend fun ensure(
         key: String,
         attributes: Map<String, Any?>,

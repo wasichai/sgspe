@@ -30,6 +30,12 @@ class AmountsTest {
         assertEquals("OUT_OF_RANGE", code("1".repeat(41)))
         assertEquals("OUT_OF_RANGE", code("1e-999999999"))
         assertEquals("OUT_OF_RANGE", code("1E+999999999"))
+        // stripTrailingZeros desbordaría un int con estos: se acotan antes
+        assertEquals("OUT_OF_RANGE", code("100e2147483647"))
+        assertEquals("OUT_OF_RANGE", code("0.0001e2147483647"))
+        assertEquals("OUT_OF_RANGE", code("1e-2147483647"))
+        // el exponente no cabe en un int: ni siquiera es un número
+        assertEquals("INVALID_NUMBER", code("1e-2147483648"))
     }
 
     @Test

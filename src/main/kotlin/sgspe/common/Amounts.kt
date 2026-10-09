@@ -11,6 +11,9 @@ object Amounts {
     const val MAX_INTEGER_DIGITS = 15
     const val MAX_SCALE = 4
 
+    // cota del valor crudo (antes de quitar ceros finales): entero hasta 15 dígitos más los ceros que se pueden quitar
+    private const val MAX_RAW_DIGITS = MAX_INTEGER_DIGITS + 64
+
     // null si no vino; 400 INVALID_NUMBER si no es un número y OUT_OF_RANGE si se sale de las cotas, sobre `field`
     fun parse(
         value: Any?,
@@ -25,10 +28,19 @@ object Amounts {
                 Values.decimal(if (value is Number) value else text)
                     ?: throw Finding("INVALID_NUMBER", "$field debe ser un número", field, status = HttpStatus.BAD_REQUEST).toCodedException()
             }
-        // se normaliza: 1.50000 es 1.5. primero se acotan (sin materializar un exponente enorme) y después se lleva la escala a
-        // 0 o más (1E+2 es 100)
-        val stripped = number?.let { if (it.signum() == 0) BigDecimal.ZERO else it.stripTrailingZeros() }
-        if (stripped == null || stripped.signum() < 0 || stripped.precision() - stripped.scale() > MAX_INTEGER_DIGITS || stripped.scale() > MAX_SCALE) {
+        // se acota el valor crudo antes de quitar ceros: stripTrailingZeros desborda (ArithmeticException) con exponentes
+        // cercanos al límite de un int. después se normaliza: 1.50000 es 1.5
+        val stripped =
+            try {
+                if (number == null || number.signum() < 0 || number.precision().toLong() - number.scale() > MAX_RAW_DIGITS) {
+                    null
+                } else {
+                    if (number.signum() == 0) BigDecimal.ZERO else number.stripTrailingZeros()
+                }
+            } catch (_: ArithmeticException) {
+                null
+            }
+        if (stripped == null || stripped.precision() - stripped.scale() > MAX_INTEGER_DIGITS || stripped.scale() > MAX_SCALE) {
             throw Finding(
                 "OUT_OF_RANGE",
                 "$field debe ser un número de 0 a ${"9".repeat(MAX_INTEGER_DIGITS)} con a lo sumo $MAX_SCALE decimales",
