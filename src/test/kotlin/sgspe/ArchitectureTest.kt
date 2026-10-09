@@ -48,12 +48,15 @@ class ArchitectureTest {
     private fun isCommon(file: File): Boolean = file.invariantSeparatorsPath.contains("/sgspe/common/")
 
     @Test
-    fun `el escaneo ve las fuentes de F1 y de F2`() {
+    fun `el escaneo ve las fuentes de F1, F2 y F3`() {
         val names = sources(main).map { it.name }
         assertTrue(names.containsAll(listOf("SgspeApplication.kt", "CorrelationIdFilter.kt", "Records.kt")), "$names")
         // una fuente de cada paquete de F2: si el escaneo dejara de verlos, las reglas pasarían en vacío
         val f2 = listOf("ProjectScopeGuard.kt", "Assessments.kt", "AttendanceCounts.kt", "Layers.kt", "Dashboards.kt", "StakeholderRegister.kt")
         assertTrue(names.containsAll(f2), "$names")
+        // y una de cada paquete de F3
+        val f3 = listOf("Idempotency.kt", "Evidences.kt", "CommitmentWriteGuard.kt", "AgreementWriteGuard.kt", "DeadlineJob.kt", "Notices.kt")
+        assertTrue(names.containsAll(f3), "$names")
         val testNames = sources(test).map { it.name }
         assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
     }
@@ -202,6 +205,29 @@ class ArchitectureTest {
         assertFalse(isCommon(File("src/main/kotlin/sgspe/commonplace/Risks.kt")))
     }
 
+    // el nombre de un bean de estereotipo es el nombre simple de su clase con la inicial en minúscula: dos clases con el mismo
+    // nombre simple en paquetes distintos, o una con el nombre de un bean de wasichai (`deliveries` de notificaciones), tumban
+    // el arranque con BeanDefinitionOverrideException
+    @Test
+    fun `no hay dos beans de estereotipo con el mismo nombre simple`() {
+        val stereotype = Regex("""^@(Component|Service|RestController|Controller|Configuration|Repository)\b""")
+        val named = Regex("""^(?:(?:internal|open|abstract|private)\s+)*class\s+(\w+)""")
+        val beans =
+            sources(main).flatMap { file ->
+                val lines = file.readLines().map { it.trim() }
+                lines.mapIndexedNotNull { i, line ->
+                    val m = named.find(line) ?: return@mapIndexedNotNull null
+                    val annotated = (i - 1 downTo maxOf(0, i - 4)).map { lines[it] }.takeWhile { it.startsWith("@") }.any { stereotype.containsMatchIn(it) }
+                    if (annotated) m.groupValues[1] to file.path else null
+                }
+            }
+        assertTrue(beans.size > 20, "el escaneo no ve los beans: $beans")
+        val duplicated = beans.groupBy({ it.first }, { it.second }).filterValues { it.size > 1 }
+        assertTrue(duplicated.isEmpty(), "nombres de bean repetidos: $duplicated")
+        // `Deliveries` chocaba con el bean `deliveries` de wasichai-notifications
+        assertFalse(beans.any { it.first == "Deliveries" }, "Deliveries choca con el bean deliveries de wasichai-notifications")
+    }
+
     companion object {
         private val WASICHAI_PACKAGE = Regex("""^\s*package\s+wasichai\b""")
 
@@ -218,8 +244,23 @@ class ArchitectureTest {
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
         private val NON_DOMAIN_PACKAGES = listOf("common", "observability", "prod", "scope", "privacy", "dashboard", "deliverable", "ai")
+
+        // deadline (BC-13, JOB-01) y notification (BC-14) son de dominio desde F3: no dependen de tableros, entregables ni IA
         private val DOMAIN_PACKAGES =
-            listOf("stakeholder", "engagement", "commitment", "agreement", "attention", "risk", "warning", "investment", "evidence", "territory")
+            listOf(
+                "stakeholder",
+                "engagement",
+                "commitment",
+                "agreement",
+                "attention",
+                "risk",
+                "warning",
+                "investment",
+                "evidence",
+                "territory",
+                "deadline",
+                "notification"
+            )
 
         // los 15 roles declarados, los 2 de mappedToAdmin y el ADMIN de wasichai, leídos de model/roles.json. el límite no es
         // \b: el guion bajo cuenta como letra en \b y dejaría pasar "ROLE_AUDITOR" (Spring Security). distingue mayúsculas a

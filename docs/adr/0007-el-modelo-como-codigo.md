@@ -71,10 +71,11 @@ del esquema `sgspe`** ([database-model.md §3.1 y §24](../database-model.md), [
   dueño, con `RecordService` como la plataforma y las guardas activas (WAS-ADR-0039). Uno `appendOnly` exige un ADR
   explícito o conservar la opción vieja (WAS-ADR-0040). Casos previstos: renombrar una opción (ASM-025), renombrar o
   cambiar de tipo un campo, cambiar un valor por defecto y volver requerido un campo.
-- **Tablas fijas.** `notification`, `notification_delivery`, `idempotency_key` y `knowledge_chunk` viven en el esquema
-  `sgspe` con su `ModuleMigration` (`sgspe_common` y `sgspe_notification` en F3, `sgspe_ai` en F7), de orden mayor que
-  100; una migración aplicada nunca se edita. Sin claves foráneas entre esquemas: la baja de un tenant borra antes sus
-  filas por `organization_id` y después llama a `DELETE /api/organizations/current` (GAP-026).
+- **Tablas fijas.** `idempotency_key`, `derived_version` y `knowledge_chunk` viven en el esquema `sgspe` con su
+  `ModuleMigration` (`sgspe_common` en F3, `sgspe_ai` en F7), de orden mayor que 100; desde la decisión D2 de F3
+  (ADR-0018), `notification`, `notification_delivery` y `sgspe_notification` se retiran: los avisos son de
+  wasichai-notifications; una migración aplicada nunca se edita. Sin claves foráneas entre esquemas: la baja de un
+  tenant borra antes sus filas por `organization_id` y después llama a `DELETE /api/organizations/current` (GAP-026).
 - **Fuente de verdad.** El repositorio; `/admin` no lo es en producción y volver a aplicar resincroniza (GAP-030). Los
   valores por defecto los aplica el código de SGSPE mientras exista UPS-15 (ASM-019).
 

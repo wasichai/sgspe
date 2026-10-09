@@ -7,7 +7,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 
 - Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 0.6.0 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
-  `stakeholder`, `territory`, `dashboard`, `privacy` y `prod`.
+  `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
+  `deadline` y `notification`.
 - `model/`: `model.json` (los 48 objetos de F2), `roles.json`, `workflows/` (WF-A, WF-B, WF-C, WF-L y WF-O) y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
   los documentos para las pruebas del modelo.
@@ -37,6 +38,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Puertos: backend 8094, interfaz 5182, PostGIS 5435; en desarrollo, MinIO 9095 (consola 9096) y Mailpit 1029 (web 8029).
 - Archivos: `evidence.file` es un campo `FILE` de wasichai-files (D1, ADR-0014); un documento emitido congela el registro
   entero (UPS-23): ningún tipo de documento sobre un objeto con campos restringidos.
+  La descarga de un campo `FILE` con datos restringidos pasa por SGSPE (`EvidenceContent`), e `IssuedDocumentsPrivacyTest`
+  vigila la regla de los documentos del lado de la aplicación.
 
 ## Comandos
 
@@ -61,6 +64,14 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | CRS, área oficial, áreas de influencia, importaciones, componentes, capas LYR-01 a LYR-16 (`sgspe.territory.import.*`, `sgspe.territory.layers.*`) | `src/main/kotlin/sgspe/territory/` |
 | KPI-STK, KPI-ENG y tableros | `src/main/kotlin/sgspe/dashboard/` |
 | Exportaciones con nivel de divulgación, celdas pequeñas (`SmallCells`) y `export_log` | `src/main/kotlin/sgspe/privacy/` |
+| Idempotencia de los comandos (`Idempotency`, tabla `sgspe.idempotency_key`), JOB-08, `JobTasks`, `Amounts` | `src/main/kotlin/sgspe/common/`, `src/main/resources/db/sgspe/common/` |
+| Compromisos: `CommitmentWriteGuard` y sus reglas, reprogramaciones, entregas, candidatos, derivados | `src/main/kotlin/sgspe/commitment/` |
+| Acuerdos (`AgreementWriteGuard`) | `src/main/kotlin/sgspe/agreement/` |
+| Evidencias sobre wasichai-files, descarga con `DOWNLOAD_RESTRICTED` | `src/main/kotlin/sgspe/evidence/` |
+| Tope de apoyo social (`SupportPolicyGuard`) | `src/main/kotlin/sgspe/investment/` |
+| JOB-01 y los avisos de plazo (`DeadlineNotices`) | `src/main/kotlin/sgspe/deadline/` |
+| Avisos sobre wasichai-notifications (`Notices`, `ApprovalNoticeListener`) | `src/main/kotlin/sgspe/notification/` |
+| Base de las pruebas de integración del plan 3.2 (sobre `F3ApiTest`: evidencias y compromisos de los comandos) y de las de `Idempotency-Key` sin el modelo de F3 | `src/test/kotlin/sgspe/F3DomainApiTest.kt`, `src/test/kotlin/sgspe/common/AssessmentCommandApiTest.kt` |
 | Base de las pruebas de integración de F2 | `src/test/kotlin/sgspe/DomainApiTest.kt` |
 | Límites de las importaciones: tamaño, filas, plazo `IMPORT_TIMEOUT` y concurrencia | `src/test/kotlin/sgspe/territory/ImportTimeoutApiTest.kt`, `ImportLimitsApiTest.kt` |
 | Base de las pruebas de contrato | `src/test/kotlin/sgspe/SgspeApiTest.kt` y `src/test/kotlin/sgspe/contract/` |

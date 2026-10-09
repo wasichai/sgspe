@@ -162,11 +162,22 @@ class ModelCatalog(
         name: String
     ): Transition? = transitions(objectName).firstOrNull { it.name == name }
 
+    // los estados del workflow de un objeto en el orden en que aparecen sus transiciones (de y a), sin repetir: la grilla de
+    // las tablas que cuentan por estado (la matriz de compromisos en PUBLICO)
+    fun states(objectName: String): List<String> = transitions(objectName).flatMap { listOf(it.from, it.to) }.distinct()
+
+    // la relación MANY_TO_MANY `name` del modelo, o null
+    fun manyToMany(name: String): Relationship? = relationships.firstOrNull { it.type == "MANY_TO_MANY" && it.name == name }
+
     // el campo RELATION de `source` que apunta a `target` (MANY_TO_ONE), o null
     fun relationField(
         source: String,
         target: String
     ): String? = relationships.firstOrNull { it.type == "MANY_TO_ONE" && it.source == source && it.target == target }?.fieldName
+
+    // los campos RELATION (MANY_TO_ONE) de `source` con el objeto al que apuntan: (campo, objeto)
+    fun manyToOneFields(source: String): List<Pair<String, String>> =
+        relationships.filter { it.type == "MANY_TO_ONE" && it.source == source && it.fieldName != null }.map { it.fieldName!! to it.target }
 
     // las relaciones MANY_TO_ONE obligatorias que apuntan a `target`: (objeto, campo). wasichai las declara NOT NULL con ON DELETE
     // SET NULL, así que borrar un `target` del que todavía dependen falla en la base (DependentsDeleteGuard lo vuelve un 409)
@@ -174,6 +185,18 @@ class ModelCatalog(
         relationships
             .filter { it.type == "MANY_TO_ONE" && it.required && it.target == target && it.fieldName != null }
             .map { it.source to it.fieldName!! }
+
+    // lo que DependentsDeleteGuard vigila al borrar `target`: las relaciones obligatorias y, desde F3, las opcionales de un objeto
+    // requiresReason, porque ON DELETE SET NULL vaciaría el vínculo de ese registro sin motivo ni fila de auditoría
+    // (commitment.agreement_clause). un objeto appendOnly no hace falta: AppendOnlyReferences de wasichai rechaza antes que las
+    // guardas, con su propio 409 sin código (stakeholder_assessment.position, P57)
+    fun guardedDependents(target: String): List<Pair<String, String>> =
+        relationships
+            .filter { rel ->
+                val source = objects[rel.source]
+                rel.type == "MANY_TO_ONE" && rel.target == target && rel.fieldName != null &&
+                    (rel.required || source?.requiresReason == true)
+            }.map { it.source to it.fieldName!! }
 
     // si la relación MANY_TO_ONE `fieldName` de `source` es obligatoria en el modelo (false si no existe)
     fun isRequiredRelation(

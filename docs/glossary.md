@@ -261,7 +261,7 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Trabajo programado | — | — | Proceso en segundo plano que corre como la plataforma, con un cerrojo de clúster (plazos, revisiones, indicadores) | [WAS-ADR-0039] | job | automatización |
 | Automatización | metadata de wasichai | domain event (parcial) | Acción que dispara un cambio de registro o una transición: crear un registro, actualizar un campo, generar un documento | [WAS-ADR-0016] | — | trabajo programado (por tiempo) |
 | Listener | — | domain event | Código que reacciona a cambios de registros para derivar valores o notificar | [PRM-01 §12] | — | automatización |
-| Notificación | tablas fijas `notification` y `notification_delivery` | Notification | Aviso en la aplicación o por correo de un evento: por vencer, vencido, aprobación pendiente, alerta | [PRM-01 §17] | aviso | alerta temprana |
+| Notificación | aviso de wasichai-notifications (fuentes `sgspe.approvals` y `sgspe.deadlines`) | Notification | Aviso en la aplicación o por correo de un evento: por vencer, vencido, aprobación pendiente, alerta | [PRM-01 §17] | aviso | alerta temprana |
 | Acción declarada | catálogo de RQ-SEC-004 | — | Permiso adicional que declara un objeto y se otorga a roles, como las operaciones CRUD | [WAS-ADR-0042] | — | acción de compromiso (`commitment_action`) |
 | Confirmar o descartar una alerta | `CONFIRM_ALERT` (acción declarada de `early_warning`) | — | Permiso para llevar una alerta temprana a confirmada o descartada; no lo tiene ninguna cuenta de servicio ni la IA (RN-EWS-001, RQ-SEC-004) | [PRM-01 §5] [WAS-ADR-0042] | — | triaje de la alerta |
 | Aprobar sobre el tope | `APPROVE_OVER_CAP` (acción declarada de `commitment` y `social_contribution`) | — | Permiso para aprobar un compromiso o un aporte que supera el tope de apoyo social de la campaña cuando la política del proyecto bloquea la aprobación (RN-INV-003, GAP-006, RQ-SEC-004) | [DOC-01 §9.3.1.2] [WAS-ADR-0042] | — | `APPROVE`, la aprobación ordinaria |
@@ -393,7 +393,7 @@ Entidades y roles del prompt maestro con su término en español y su destino en
 | WorkflowInstance | Estado del registro | `workflow_state` |
 | Approval | Aprobación | transición o acción declarada `APPROVE` |
 | Escalation | Escalamiento | trabajo programado |
-| Notification | Notificación | `notification`, `notification_delivery` |
+| Notification | Notificación | avisos de wasichai-notifications |
 | AuditEvent | Registro de auditoría | `audit_log` |
 | AIInteraction | Interacción con IA | `ai_interaction` |
 | CommitmentCandidate | Candidato a compromiso | `commitment_candidate` |

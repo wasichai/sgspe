@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.web.reactive.function.BodyInserters
+import sgspe.common.IfMatch
 import tools.jackson.databind.JsonNode
 
 // la base de las pruebas de integración del plan 2.2: F2ApiTest del plan 2.1 (project, assign, member, transition, move,
@@ -127,6 +128,21 @@ abstract class DomainApiTest : F2ApiTest() {
         otherId: String,
         token: String = this.token
     ): Response = exchange("POST", "/api/objects/$objectName/records/$id/related/$relationship", mapOf("otherId" to otherId), token)
+
+    // ---- los comandos de /api/sgspe/** (desde F3) ----
+
+    // la cabecera de motivo de un comando o de una transición
+    protected fun withReason(text: String = "motivo de prueba"): Map<String, String> = mapOf(REASON to reason(text))
+
+    // el updatedAt del registro como lo pide If-Match
+    protected fun ifMatch(
+        objectName: String,
+        id: String,
+        token: String = this.token
+    ): Map<String, String> = mapOf(IfMatch.HEADER to "\"${record(objectName, id, token)["updatedAt"].asString()}\"")
+
+    // el código de una respuesta de error (P15: errors[0].message)
+    protected fun code(response: Response): String = tree(response.body)["errors"][0]["message"].asString()
 
     // ---- datos de prueba ----
 

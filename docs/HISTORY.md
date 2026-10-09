@@ -3,6 +3,30 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-09 — Plan 3.2: el backend de F3
+
+El backend de F3 (compromisos y evidencias) queda construido en la rama `feat/fase-3-2-backend`, en 24 tareas más las
+correcciones que dejó la revisión. La verificación de integración corre en la CI y por el túnel; las decisiones están en
+[Requisitos](requirements-analysis.md) (ASM-091 a ASM-094, UPS-24) y en [ADR-0027](adr/0027-if-match-con-saltos-exactos-de-derivados.md).
+
+- **Paquetes nuevos.** `commitment`, `agreement`, `evidence`, `investment`, `deadline` y `notification`; en `common`,
+  `Idempotency` (tabla `sgspe.idempotency_key`), JOB-08, `JobTasks` y `Amounts`. `ArchitectureTest` ve una fuente de cada uno.
+- **Pérdida de actualización en `If-Match` (también en F2).** Desde wasichai 0.6.0, `IfMatch.onlyDerivedSince` decidía por
+  tiempo si una escritura posterior era solo de derivados, y de forma intermitente dejaba pasar una escritura ajena. El
+  arreglo (ADR-0027, ASM-091) guarda un salto de versión por escritura de derivados en `sgspe.derived_version` (siete días),
+  y la caída sin condición hace un merge-patch solo de las claves derivadas, con `412` para versiones viejas (a costa de un
+  `412` espurio bajo contención). Rige igual para los objetos de F2.
+- **Montos y emisión.** Todo monto escrito se valida con `Amounts` en una guarda (ASM-092); emitir un documento exige la
+  asignación al proyecto del registro y `EDIT_ANY`, porque emitir es editar ese registro.
+- **Nombre de bean.** `Deliveries` pasó a `CommitmentDeliveries`: chocaba con el bean `deliveries` de wasichai-notifications.
+- **Dos rondas de la CI.** La primera corrigió una exportación de un solo proyecto que respondía 500, pruebas con rutas que
+  ya existen y el `409` sin código de los objetos solo de anexar, que ahora rige la plataforma; la segunda, solo pruebas
+  (lectura de todo el tenant por CON-041, asistente de documentos, campos de ejemplo).
+- **Pendiente.** (1) Actualizar el tenant de desarrollo de F2 a F3 y comprobar MinIO: necesitan el túnel del usuario.
+  (2) El original de cada importación como evidencia (ASM-060, «desde F3») no tiene plan todavía. (3) El portal de F3 es el
+  plan 3.3, que sube la evidencia restringida con un nombre neutro (el nombre del archivo no se enmascara en el backend,
+  UPS-24, ASM-093 y ASM-094).
+
 ## 2026-10-09 — Adopción de UPS-03, UPS-09 y UPS-17
 
 Tres soluciones de wasichai 0.6.0 pasan de disponibles a adoptadas ([Encaje con wasichai §4.3](platform-fit.md#43-lo-que-trae-wasichai-060)).

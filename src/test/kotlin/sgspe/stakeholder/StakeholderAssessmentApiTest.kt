@@ -387,15 +387,17 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
         assertEquals(0, assessments(stakeholder))
     }
 
+    // desde F3 la clave se honra (decisión D3): el detalle del contrato está en IdempotencyApiTest
     @Test
-    fun `Idempotency-Key se acepta y en F2 todavia no deduplica`() {
+    fun `Idempotency-Key deduplica el registro desde F3`() {
         val project = projectWithCrs()
         val manager = member("STAKEHOLDER_MANAGER", project)
         val stakeholder = profiled(project, manager)
         val headers = mapOf(REASON to reason("evaluación"), "Idempotency-Key" to "clave-de-prueba-1")
         val body = mapOf("attributes" to indicators + mapOf("assessment_date" to "2026-05-12", "basis" to "ENTREVISTA"))
-        repeat(2) { send("POST", "/api/sgspe/stakeholders/$stakeholder/assessments", body, HttpStatus.CREATED, manager.token, headers) }
-        assertEquals(2, assessments(stakeholder))
+        val sent = (1..2).map { send("POST", "/api/sgspe/stakeholders/$stakeholder/assessments", body, HttpStatus.CREATED, manager.token, headers) }
+        assertEquals(sent[0], sent[1])
+        assertEquals(1, assessments(stakeholder))
     }
 
     // security.md §7.9 (P8, I7): lo que 2.1 dejó a este plan. FieldPermissionsApiTest se salta stakeholder.stance (derivado) y
@@ -440,5 +442,25 @@ class StakeholderAssessmentApiTest : DomainApiTest() {
             tree(send("GET", "/api/objects/stakeholder/records?project=$project", null, HttpStatus.OK, agent.token))["content"]
         assertTrue(stakeholders.size() >= 1)
         stakeholders.values().forEach { assertFalse(it["attributes"].has("stance")) }
+    }
+
+    // la evaluación es append-only y position es opcional en ella: ON DELETE SET NULL vaciaría el cargo de una evaluación
+    // sin motivo ni auditoría, así que la plataforma (AppendOnlyReferences) responde 409 también al administrador, antes que las
+    // guardas: es su 409 con solo `detail`, sin código ni errors (P57)
+    @Test
+    fun `un cargo que nombra una evaluacion no se borra y uno libre si`() {
+        val project = projectWithCrs()
+        val manager = member("STAKEHOLDER_MANAGER", project)
+        val stakeholder = profiled(project, manager)
+        val organization = organization()
+        val cited = createRecord("position", mapOf("organization" to organization, "position_title" to "Presidente", "position_status" to "VACANTE"))
+        val free = createRecord("position", mapOf("organization" to organization, "position_title" to "Tesorero", "position_status" to "VACANTE"))
+        val attributes = indicators + mapOf("assessment_date" to "2026-05-12", "basis" to "ENTREVISTA", "stance" to "NEUTRAL", "position" to cited)
+        assertEquals(HttpStatus.CREATED, assess(stakeholder, attributes, manager.token).status)
+        val refused = exchange("DELETE", "/api/objects/position/records/$cited", null)
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        val detail = tree(refused.body)["detail"].asString()
+        assertTrue(detail.contains("stakeholder_assessment") && detail.contains("position"), detail)
+        assertEquals(HttpStatus.NO_CONTENT, exchange("DELETE", "/api/objects/position/records/$free", null).status)
     }
 }

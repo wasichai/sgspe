@@ -128,14 +128,17 @@ abstract class SgspeApiTest : WasichaiIntegrationTest() {
     protected fun me(token: String = this.token): JsonNode = tree(send("GET", "/api/auth/me", null, HttpStatus.OK, token))
 
     // un usuario (no ADMIN) con un rol de roles.json, con un correo ficticio @sgspe.test
-    protected fun userWithRole(role: String): Account {
-        val email = "${uniqueName(role.lowercase().replace('_', '-'))}@sgspe.test"
+    protected fun userWithRole(role: String): Account = userWithRoles(listOf(role))
+
+    // un usuario con varios roles a la vez (security.md §5.4: la unión de sus permisos), con su id para asignarlo
+    protected fun userWithRoles(roles: List<String>): Account {
+        val email = "${uniqueName(roles.joinToString("-") { it.lowercase().replace('_', '-') })}@sgspe.test"
         val created =
             tree(
                 send(
                     "POST",
                     "/api/users",
-                    mapOf("email" to email, "displayName" to "Usuario de prueba", "password" to PASSWORD, "roles" to listOf(role)),
+                    mapOf("email" to email, "displayName" to "Usuario de prueba", "password" to PASSWORD, "roles" to roles),
                     HttpStatus.CREATED
                 )
             )

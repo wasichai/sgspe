@@ -35,11 +35,37 @@ class DependentsDeleteGuardTest {
     }
 
     @Test
+    fun `una relacion opcional de un objeto requiresReason tambien cuenta, la de uno appendOnly no`() {
+        val reasoned =
+            ModelCatalog.parse(
+                model =
+                    """
+                    {"objects": [{"name": "commitment", "fields": [], "requiresReason": true},
+                                 {"name": "stakeholder_assessment", "fields": [], "appendOnly": true},
+                                 {"name": "task", "fields": []}],
+                     "relationships": [
+                      {"name": "a", "source": "commitment", "target": "agreement_clause", "fieldName": "agreement_clause"},
+                      {"name": "b", "source": "stakeholder_assessment", "target": "position", "fieldName": "position"},
+                      {"name": "c", "source": "task", "target": "agreement", "fieldName": "agreement"}
+                    ]}
+                    """.trimIndent(),
+                roles = """{"roles": []}"""
+            )
+        assertEquals(listOf("commitment" to "agreement_clause"), reasoned.guardedDependents("agreement_clause"))
+        // la de un objeto appendOnly la rechaza antes la plataforma (AppendOnlyReferences, 409 sin código): aquí no cuenta (P57)
+        assertTrue(reasoned.guardedDependents("position").isEmpty())
+        // la tarea no lleva motivo: borrar su acuerdo la deja sin origen, como cualquier relación opcional
+        assertTrue(reasoned.guardedDependents("agreement").isEmpty())
+        assertTrue(reasoned.requiredDependents("agreement_clause").isEmpty())
+    }
+
+    @Test
     fun `el modelo real vigila a los padres de los hijos obligatorios`() {
         val real = ModelCatalog.fromClasspath()
         assertTrue(("planned_activity" to "engagement_plan") in real.requiredDependents("engagement_plan"))
         assertTrue(("engagement_participant" to "engagement") in real.requiredDependents("engagement"))
         assertTrue(real.requiredDependents("project").any { it.first == "stakeholder" })
         assertTrue(real.requiredDependents("study").none { it.first == "locality_profile" })
+        assertTrue(("commitment" to "agreement_clause") in real.guardedDependents("agreement_clause"))
     }
 }

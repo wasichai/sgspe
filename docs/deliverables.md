@@ -25,9 +25,11 @@ almacenamiento y los criterios de aceptación.
 - Un **entregable** es un informe de varias secciones que se genera, se revisa, se aprueba y se emite. No se confunde con el
   **documento emitido** de un registro (acta de entrega, minuta, cargo de queja), que sale de wasichai-documents (RQ-REP-029)
   [WAS-ADR-0023], ni con la **evidencia**, que es un archivo que prueba un hecho (RF-DOC-001) (domain-model §3).
-- wasichai-documents emite una plantilla congelada de un solo registro que se imprime desde el navegador; no genera DOCX ni PDF en
-  el servidor ni informes con mapas y gráficos [WAS-DOC modules/documents.md]. Por eso los entregables son código propio,
-  `sgspe.deliverable`, con DOCX primero (ASM-014, CON-045).
+- wasichai-documents emite una plantilla congelada de un solo registro que se imprime desde el navegador; no genera DOCX
+  ni PDF en el servidor ni informes con mapas y gráficos [WAS-DOC modules/documents.md]. Por eso los entregables son
+  código propio, `sgspe.deliverable`, con DOCX primero (ASM-014, CON-045). Su copia congelada lleva el registro entero
+  sin permisos de campo, así que un tipo de documento solo se declara sobre un objeto sin campos restringidos (UPS-23,
+  ASM-090): el acta de entrega espera.
 - Las exportaciones XLSX (RQ-REP-022) también están aquí, porque comparten niveles de divulgación y registro (§10).
 
 ## 2. Principios
@@ -510,12 +512,12 @@ Los niveles INTERNO, EXTERNO y PUBLICO (catálogo "Nivel de divulgación") se ap
   cada tabla se marca también la menor de las visibles, con la misma marca, mientras lo oculto sume menos de 5, el cero
   incluido. Ninguna hoja de PUBLICO lleva totales. Rige para todo desglose, incluido el de grupo de influencia por postura,
   que sin ello publicaría la postura de una persona identificable.
-- **El código de un grupo de interés es un seudónimo, no anonimato.** En EXTERNO una persona se cita por código `GI-` y los 12
-  primeros dígitos hexadecimales (48 bits) del id del grupo de interés. El código es estable: es el mismo en todas las
-  exportaciones y niveles, así que la organización lo cruza con su registro y puede revertirlo, y un tercero que reciba varias
-  salidas EXTERNO puede enlazar las filas entre ellas. Como `stakeholder` es por proyecto, la misma persona tiene códigos
-  distintos en proyectos distintos. Con la Ley 29733 sigue siendo dato personal para quien responde por el registro; EXTERNO
-  reduce la exposición de quien recibe el archivo, no la anula (ruling P29).
+- **El código de un grupo de interés es un seudónimo, no anonimato.** En EXTERNO una persona se cita por código `GI-` y
+  los 12 primeros dígitos hexadecimales (48 bits) del id del grupo de interés. El código es estable: es el mismo en
+  todas las exportaciones y niveles, así que la organización lo cruza con su registro y puede revertirlo, y un tercero
+  que reciba varias salidas EXTERNO puede enlazar las filas entre ellas. Como `stakeholder` es por proyecto, la misma
+  persona tiene códigos distintos en proyectos distintos. Con la Ley 29733 sigue siendo dato personal para quien
+  responde por el registro; EXTERNO reduce la exposición de quien recibe el archivo, no la anula.
 
 ### 9.2 Reglas por elemento
 
@@ -546,6 +548,9 @@ Toda emisión o exportación EXTERNO exige confirmar (RQ-REP-033, ASM-037):
 3. que los mapas no muestran titulares ni ubicaciones de viviendas;
 4. que los anexos no traen datos personales.
 
+En la matriz de compromisos, el lugar de cada entrega (`delivery.place`) se generaliza a la localidad del compromiso en EXTERNO
+(§9.1, ubicaciones): se escribe el nombre de la localidad, o nada si el compromiso no tiene una.
+
 La confirmación queda en `filters_description` de la fila de `export_log` de esa emisión o exportación.
 
 ### 9.5 Registro de exportaciones y emisiones
@@ -571,21 +576,24 @@ La generación, la revisión y la emisión quedan además en `audit_log` con su 
   campos que puede leer, y un campo ilegible sale como "no disponible", con el mismo criterio de los indicadores (RQ-DSH-032).
   Exige la acción `EXPORT` sobre el objeto y aplica el nivel de divulgación pedido, con la lista de verificación si es EXTERNO.
 - Cada exportación escribe su fila de `export_log`, con `export_kind` exportación (RQ-AUD-011).
-- **Matriz de compromisos.** Sus columnas siguen la correspondencia de domain-model §6.5: descripción (objetivo, tipo de recurso,
-  cantidad, unidad, tiempo), solicitantes, beneficiarios, medio de solicitud, plazos (acuerdo, hitos, vencimiento y
-  reprogramaciones), monto comprometido y ejecutado con su moneda (ASM-063), estatus de avance (estado de WF-D, acciones, riesgo de
-  retraso, `deadline_status`), entrega (fecha, lugar, conformidad, acta, fotos) y cierre (RF-COM-001).
+- **Matriz de compromisos.** Sus columnas siguen la correspondencia de domain-model §6.5: descripción (objetivo, tipo de
+  recurso, cantidad, unidad, tiempo), solicitantes, beneficiarios, medio de solicitud, plazos (acuerdo, hitos,
+  vencimiento y reprogramaciones), monto comprometido y ejecutado con su moneda (ASM-063), estatus de avance (estado de
+  WF-D, acciones, riesgo de retraso, `deadline_status`), entrega (fecha, lugar, conformidad, acta, fotos) y cierre
+  (RF-COM-001). En EXTERNO no lleva al responsable ni `beneficiaries_detail`, `conformity_by` ni `recipients`, y cita a
+  los solicitantes por código `GI-`; en PUBLICO solo cuenta por estado y tema y por tipo de recurso, con la marca
+  `reservado` (ASM-088). `deadline_status` sale solo en un compromiso pendiente, y un compromiso o una entrega con más
+  de 200 solicitantes o evidencias no se exporta (`api.md` §4.13).
 - **Documento de identidad de los solicitantes.** La matriz de DOC-01 lo pide [DOC-01 §9.3.1.2], pero en SGSPE es solo un campo
   restringido y nunca se exporta, en ningún nivel de divulgación: la matriz exportada no tiene esa columna (RF-COM-001,
   RQ-REP-014, RQ-REP-022, CON-014).
 
 ## 11. Almacenamiento, hashes y retención
 
-- **Dónde.** En el almacenamiento de objetos, local o compatible con S3, nunca como bytes en la base (ASM-013, ADR-0014). Es el
-  mismo puerto de almacenamiento que las evidencias, en `sgspe.evidence`, copiado del patrón `AlmacenEmision` de srtm: claves
-  relativas con segmentos `[A-Za-z0-9._-]`, operaciones de guardar, abrir en flujo, traer, borrar, existir, tamaño y listar, E/S
-  bloqueante en `Dispatchers.IO` y una prueba de contrato que pasan la implementación local y la de S3. El despliegue y los
-  respaldos siguen abiertos en GAP-022.
+- **Dónde.** En el almacenamiento de objetos compatible con S3, nunca como bytes en la base (ASM-013, ADR-0014). Las
+  evidencias usan el campo `FILE` de wasichai-files; los entregables de F8 usan el `FileStore` del mismo módulo o un
+  puerto propio, que decide el plan de F8, con claves relativas y una prueba de contrato. El despliegue y los respaldos
+  siguen abiertos en GAP-022.
 - **Claves:**
 
 | Qué | Clave |
@@ -686,7 +694,7 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 |---|---|
 | F1 | Spike técnico de ADR-0013 (POI, Gotenberg, fuentes e índice) y de ADR-0015 (GetMap), recomendado al inicio |
 | F2 | Registro de grupos de interés en XLSX con niveles y `export_log`; el tablero de grupos de interés (interés × poder) |
-| F3 | Puerto de almacenamiento de objetos con las evidencias; matriz de compromisos en XLSX; documentos emitidos de un registro con wasichai-documents (RQ-REP-029) |
+| F3 | Evidencias en el campo `FILE` de wasichai-files; matriz de compromisos en XLSX; documentos emitidos de un registro con wasichai-documents (RQ-REP-029) |
 | F4 | Reportes de QCS y de riesgos en XLSX |
 | F6 | Estilos y publicación en GeoServer; capas del Anexo 1 |
 | F7 | Sugerencias de IA para secciones y resumen ejecutivo, con adopción humana (RQ-AI-012, RF-AIK-004) |

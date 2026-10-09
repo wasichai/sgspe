@@ -7,13 +7,17 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import sgspe.common.Criteria
+import sgspe.common.JobTasks
 import sgspe.common.LIMA
 import sgspe.common.Organizations
+import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.engagement.EngagementWriteGuard
+import wasichai.core.data.RecordResponse
 import wasichai.core.platform.ClusterLock
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -57,6 +61,61 @@ object FollowUp {
     }
 }
 
+// las tareas de seguimiento de un grupo de interés vigente, puras (RF-STK-010, RF-STK-014, ASM-022): la de evaluación
+// periódica, stakeholder_review_days después de su última evaluación, y la de inactividad, inactivity_days sin contacto (o
+// desde el alta si nunca lo hubo). cada una lleva la clave del plazo que la originó: no se repite mientras el plazo sea el
+// mismo, y una evaluación o un contacto nuevos dan un plazo nuevo. los títulos no nombran al grupo de interés: la tarea lo
+// vincula
+object FollowUpTasks {
+    data class Planned(
+        val key: String,
+        val title: String,
+        val description: String,
+        val due: LocalDate
+    )
+
+    const val RETIRED = "retired"
+    const val ASSESSED = "assessed"
+
+    fun review(
+        id: String,
+        state: String?,
+        lastAssessment: LocalDate?,
+        reviewDays: Long,
+        today: LocalDate
+    ): Planned? {
+        if (state != ASSESSED || lastAssessment == null) return null
+        val due = lastAssessment.plusDays(reviewDays)
+        if (today.isBefore(due)) return null
+        return Planned(
+            "stakeholder_review:$id:$due",
+            "Evaluación periódica de un grupo de interés",
+            "Pasaron $reviewDays días desde su última evaluación ($lastAssessment): evalúelo otra vez (RF-STK-010).",
+            due
+        )
+    }
+
+    fun inactivity(
+        id: String,
+        state: String?,
+        lastContact: LocalDate?,
+        created: LocalDate?,
+        inactivityDays: Long,
+        today: LocalDate
+    ): Planned? {
+        if (state == RETIRED) return null
+        val reference = lastContact ?: created ?: return null
+        val due = reference.plusDays(inactivityDays)
+        if (today.isBefore(due)) return null
+        return Planned(
+            "stakeholder_inactivity:$id:$reference",
+            "Retomar el contacto con un grupo de interés",
+            "No hay contacto registrado desde $reference ($inactivityDays días o más): planifique una interacción (RF-STK-014).",
+            due
+        )
+    }
+}
+
 // la vuelta de JOB-03 sin candado ni base, para probar su aislamiento con un doble: recorre las organizaciones, una que
 // falla se registra con su excepción y no detiene a las demás, y al final lanza si alguna falló (el valor que devolvería se
 // pierde, pero ya quedó en el registro)
@@ -91,7 +150,8 @@ class FollowUpSweep(
 // vinculadas por engagement_stakeholder o por un participante con attended) y aplica la regla de primer contacto. calcula
 // desde cero, sin ventana: la fecha más reciente depende de todas las interacciones, no de las que cambiaron. no usa
 // listener, para que cerrar una interacción no exija escribir el grupo de interés. nunca mueve WF-B. las tareas de
-// evaluación periódica y de inactividad llegan en F3, con `task`.
+// evaluación periódica y de inactividad (FollowUpTasks) llegan en F3, con `task`: una por clave (JobTasks), asignada al
+// responsable del grupo de interés si lo tiene.
 // una sola réplica por vuelta (ClusterLock.tryLock); una organización o un grupo de interés que falla no detiene a los
 // demás: se registra con su excepción y el resto sigue, la vuelta lanza al final (FollowUpSweep) y la del día siguiente lo
 // vuelve a intentar. cada grupo de interés que cambia se relee y se escribe dentro de Transactions.locked("stakeholder:<id>"),
@@ -101,7 +161,9 @@ class StakeholderFollowUpJob(
     private val records: Records,
     private val organizations: Organizations,
     private val transactions: Transactions,
-    private val locks: ClusterLock
+    private val locks: ClusterLock,
+    private val tasks: JobTasks,
+    private val clock: Clock
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -133,12 +195,22 @@ class StakeholderFollowUpJob(
             interactions += date to (linked.map { it.id.toString() } + attended)
         }
         val contacts = FollowUp.latest(interactions)
+        val today = LocalDate.now(clock.withZone(LIMA))
+        val projects = mutableMapOf<String, Map<String, Any?>>()
+
+        // los parámetros del proyecto de un grupo de interés, leídos una vez por proyecto
+        suspend fun params(project: Any?): Map<String, Any?> {
+            val id = Values.text(project) ?: return emptyMap()
+            return projects.getOrPut(id) { records.find("project", UUID.fromString(id))?.attributes.orEmpty() }
+        }
         var written = 0
         var failed = 0
         val stakeholders = records.all(STAKEHOLDER)
         for (stakeholder in stakeholders) {
             try {
                 if (refresh(stakeholder.id, stakeholder.attributes, contacts[stakeholder.id])) written++
+                // JobTasks.ensure va fuera de toda transacción: refresh ya cerró la suya (un único duplicado aborta la abierta)
+                written += followUpTasks(stakeholder, contacts[stakeholder.id], params(stakeholder.attributes["project"]), today)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -148,6 +220,51 @@ class StakeholderFollowUpJob(
         }
         check(failed == 0) { "no se actualizaron $failed de ${stakeholders.size} grupos de interés de la organización $organization (se escribieron $written)" }
         return written
+    }
+
+    // las tareas de seguimiento que faltan; devuelve cuántas creó
+    private suspend fun followUpTasks(
+        stakeholder: RecordResponse,
+        lastContact: LocalDate?,
+        params: Map<String, Any?>,
+        today: LocalDate
+    ): Int {
+        val a = stakeholder.attributes
+        val planned =
+            listOfNotNull(
+                FollowUpTasks.review(
+                    stakeholder.id,
+                    stakeholder.state,
+                    Values.text(a["last_assessment_date"])?.let(LocalDate::parse),
+                    ProjectParameters.integer(params, "stakeholder_review_days"),
+                    today
+                ),
+                FollowUpTasks.inactivity(
+                    stakeholder.id,
+                    stakeholder.state,
+                    lastContact ?: Values.text(a["last_contact_date"])?.let(LocalDate::parse),
+                    stakeholder.createdAt?.atZone(LIMA)?.toLocalDate(),
+                    ProjectParameters.integer(params, "inactivity_days"),
+                    today
+                )
+            )
+        // el responsable del grupo de interés, solo si el par está completo (UserReferenceGuard lo exige junto)
+        val ownerId = Values.text(a["owner_user_id"])
+        val ownerEmail = Values.text(a["owner_user_email"])
+        val owner = if (ownerId != null && ownerEmail != null) mapOf("assignee_user_id" to ownerId, "assignee_user_email" to ownerEmail) else emptyMap()
+        return planned.count { task ->
+            tasks.ensure(
+                task.key,
+                mapOf(
+                    "title" to task.title,
+                    "description" to task.description,
+                    "due_date" to task.due.toString(),
+                    "project" to a["project"],
+                    "stakeholder" to stakeholder.id
+                ) + owner,
+                TASK_REASON
+            )
+        }
     }
 
     // true si escribió. calcula los cambios con lo que ya se leyó: casi ningún grupo de interés cambia cada noche, y ese no
@@ -178,6 +295,7 @@ class StakeholderFollowUpJob(
         // el trabajo que firma cada escritura (RQ-AUD-007, security.md §13.2), como JOB-02
         const val NAME = "JOB-03 StakeholderFollowUpJob"
         const val REASON = "último contacto ($NAME)"
+        const val TASK_REASON = "tarea de seguimiento ($NAME)"
 
         // el origen de `audit_log.source` (WAS-ADR-0050, UPS-03); el motivo conserva el nombre del trabajo (ASM-051)
         const val SOURCE = "job:stakeholder-follow-up"

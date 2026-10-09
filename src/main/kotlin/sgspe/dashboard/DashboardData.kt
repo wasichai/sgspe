@@ -1,5 +1,6 @@
 package sgspe.dashboard
 
+import org.slf4j.LoggerFactory
 import sgspe.common.Criteria
 import sgspe.common.LIMA
 import sgspe.common.Positions
@@ -31,9 +32,13 @@ class DashboardData(
     // si quien mira puede leer objeto.campo (la definición filtrada por sus permisos, dashboards.md §8). sin valor por
     // defecto: es una barrera de privacidad y quien arma los datos tiene que decirla
     val readable: suspend (String) -> Boolean,
+    // hoy en Lima, del reloj de la aplicación (los días de atraso de KPI-COM-03 y el corte de KPI-COM-11): obligatorio, sin
+    // caer al fin del periodo
+    val today: LocalDate,
     private val maxRows: Int = MAX_ROWS,
     private val maxRelated: Int = MAX_RELATED
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
 
     @Suppress("UNCHECKED_CAST")
@@ -341,6 +346,97 @@ class DashboardData(
         val organizations = names("organization", positions.values.flatten().mapNotNull { it.organization })
         return positions.mapValues { (_, list) -> list.mapNotNull { p -> p.organization?.let(organizations::get)?.ifBlank { null } }.distinct() }
     }
+
+    // ---- compromisos (F3) ----
+
+    // los compromisos de los proyectos, filtrados por territorio y ámbito como las interacciones (su localidad o su comunidad,
+    // dashboards.md §3.1) y, si el KPI los acepta, por campaña y por responsable
+    suspend fun commitments(
+        campaign: Boolean,
+        owner: Boolean
+    ): List<CommitmentRow> =
+        cached("commitments:$campaign:$owner") {
+            if (filters.projects.isEmpty()) return@cached emptyList<CommitmentRow>()
+            val equal = mutableMapOf<String, String>()
+            if (campaign) filters.explorationCampaign?.let { equal["exploration_campaign"] = it.toString() }
+            if (owner) filters.owner?.let { equal["owner_user_id"] = it.toString() }
+            val territories = engagementTerritories()
+            read("commitment", equal, listOf(Criteria.anyOf("project", filters.projects)))
+                .filter { c ->
+                    val locality = Values.text(c.attributes["locality"])
+                    val community = Values.text(c.attributes["community"])
+                    territories.all { t -> (locality != null && locality in t.localities) || (community != null && community in t.communities) }
+                }.map { commitmentRow(it) }
+        }
+
+    private fun commitmentRow(record: RecordResponse): CommitmentRow {
+        val a = record.attributes
+
+        fun date(name: String): LocalDate? = Values.text(a[name])?.let(LocalDate::parse)
+        return CommitmentRow(
+            record.id,
+            Values.text(a["project"]),
+            record.state,
+            Values.text(a["owner_user_email"]),
+            Values.text(a["locality"]),
+            Values.text(a["community"]),
+            Values.text(a["topic"]),
+            Values.text(a["commitment_theme"]),
+            Values.text(a["formality"]),
+            date("agreed_date"),
+            date("due_date"),
+            date("fulfilled_date"),
+            date("cancelled_date"),
+            Values.text(a["deadline_status"]),
+            Values.decimal(a["amount"]),
+            Values.text(a["currency"]),
+            Values.decimal(a["executed_amount"])
+        )
+    }
+
+    // las reprogramaciones de esos compromisos, con el día de Lima en que se registraron
+    suspend fun reschedules(commitments: Collection<String>): RescheduleRead = parseReschedules(readIn("commitment_reschedule", "commitment", commitments))
+
+    // una reprogramación sin compromiso, sin alguna de sus fechas o sin creación es un dato corrupto (los campos son
+    // obligatorios y el objeto solo se agrega): se registra con su id, se excluye y el KPI avisa que está incompleto
+    fun parseReschedules(records: List<RecordResponse>): RescheduleRead {
+        val rows = mutableListOf<RescheduleRow>()
+        val skipped = mutableListOf<String>()
+        for (r in records) {
+            val commitment = Values.text(r.attributes["commitment"])
+            // una fecha mal formada es lo mismo que una que falta: dato corrupto
+            val previous = Values.text(r.attributes["previous_due_date"])?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val newDate = Values.text(r.attributes["new_due_date"])?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val created = r.createdAt
+            if (commitment == null || previous == null || newDate == null || created == null) {
+                log.warn("Reprogramación {} con datos incompletos o inválidos (compromiso, fechas o creación): se excluye del cálculo", r.id)
+                skipped += r.id
+            } else {
+                // sequence resuelve al milisegundo: dos reprogramaciones del mismo compromiso creadas en el mismo milisegundo
+                // empatan y conservan el orden de lectura (la ordenación es estable)
+                rows += RescheduleRow(commitment, previous, newDate, created.atZone(LIMA).toLocalDate(), created.toEpochMilli())
+            }
+        }
+        return RescheduleRead(rows, skipped)
+    }
+
+    // la moneda de la campaña pedida (PEN si la campaña no la trae, RNF-I18N-002); null si no se pidió una campaña o si la
+    // pedida no existe o no se lee: quien llama lo distingue por filters.explorationCampaign
+    suspend fun campaignCurrency(): String? {
+        val campaign = filters.explorationCampaign ?: return null
+        val record = readIn("exploration_campaign", null, listOf(campaign.toString())).firstOrNull() ?: return null
+        return Values.text(record.attributes["currency"]) ?: CommitmentKpis.DEFAULT_CURRENCY
+    }
+
+    // los umbrales de escalamiento de cada proyecto del filtro (ProjectParameters: 7 y 15 por defecto)
+    suspend fun escalation(): Map<String, Escalation> =
+        projectRecords().associate {
+            it.id to
+                Escalation(
+                    ProjectParameters.integer(it.attributes, "escalation_first_days"),
+                    ProjectParameters.integer(it.attributes, "escalation_second_days")
+                )
+        }
 
     suspend fun projectRecords(): List<RecordResponse> = cached("projects") { readIn("project", null, filters.projects.map { it.toString() }) }
 

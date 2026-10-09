@@ -33,7 +33,11 @@ class ExactlyOneGuard(
                 "stakeholder" to listOf(listOf("person", "organization")),
                 "contact_method" to listOf(listOf("person", "organization")),
                 "actor_relationship" to listOf(listOf("from_person", "from_organization"), listOf("to_person", "to_organization")),
-                "network_node" to listOf(listOf("person", "organization"))
+                "network_node" to listOf(listOf("person", "organization")),
+                // F3. los orígenes de F4, F5 y F8 (QCS, riesgos, alertas, aportes, programas, entregables) los agrega su fase
+                "delivery" to listOf(listOf("commitment")),
+                "agreement_party" to listOf(listOf("organization", "person")),
+                "task" to listOf(listOf("commitment", "engagement", "agreement", "stakeholder"))
             )
 
         // pura, para las pruebas unitarias: null si el grupo tiene exactamente uno informado

@@ -12,7 +12,10 @@ import wasichai.core.platform.ClusterLock
 // (WAS-ADR-0039), y el candado se suelta con el commit o el rollback.
 // dos límites: un `locked` anidado con claves distintas debe tomarlas siempre en el mismo orden, o dos comandos pueden
 // interbloquearse (PostgreSQL corta uno con 40P01, un 500); y quien espera el candado retiene una conexión del pool, así
-// que no conviene dejar `locked` envolviendo trabajo lento
+// que no conviene dejar `locked` envolviendo trabajo lento.
+// el orden acordado: varias claves del mismo tipo en una transacción van por id ascendente (el texto del UUID, que es el orden
+// de PostgreSQL). hoy solo pasa con commitment:<id>: el alta de una evidencia con vínculos a entregas de varios compromisos
+// toma el candado de cada uno al vincular (DELIVERY_FROZEN), y por eso vincula en EvidenceRules.lockOrder
 @Component
 class Transactions(
     private val operator: TransactionalOperator,

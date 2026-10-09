@@ -52,11 +52,11 @@ estados copiados del [índice de ADR](adr/README.md).
 | [ADR-0011](adr/0011-auditoria.md) | Auditoría sobre el `audit_log` de wasichai | Aceptado |
 | [ADR-0012](adr/0012-estados-temporales-materializados.md) | Estados temporales materializados por trabajos programados | Aceptado |
 | [ADR-0013](adr/0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Propuesto (se acepta en F8) |
-| [ADR-0014](adr/0014-almacenamiento-de-objetos.md) | Evidencias y entregables en almacenamiento de objetos | Propuesto (se acepta en F3) |
+| [ADR-0014](adr/0014-almacenamiento-de-objetos.md) | Evidencias y entregables en almacenamiento de objetos | Aceptado |
 | [ADR-0015](adr/0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Propuesto (se acepta en F6) |
 | [ADR-0016](adr/0016-kpis-en-vivo-y-echarts.md) | KPIs calculados en vivo y ECharts como librería de gráficos | Propuesto (se acepta en F2) |
 | [ADR-0017](adr/0017-datos-personales-y-anonimizacion.md) | Datos personales y anonimización | Aceptado |
-| [ADR-0018](adr/0018-notificaciones.md) | Notificaciones en la aplicación y abstracción del correo | Propuesto (se acepta en F3) |
+| [ADR-0018](adr/0018-notificaciones.md) | Notificaciones en la aplicación y abstracción del correo | Aceptado |
 | [ADR-0019](adr/0019-importacion-geoespacial-con-reconciliacion.md) | Importación geoespacial con preparación y reconciliación | Propuesto (se acepta en F2) |
 | [ADR-0020](adr/0020-autenticacion-jwt-endurecida.md) | Autenticación con el JWT de wasichai, endurecida | Aceptado |
 | [ADR-0021](adr/0021-reglas-de-workflow.md) | Reglas de workflow: metadata, guardas y motivo | Aceptado |
@@ -204,7 +204,7 @@ Los workflows que el prompt no tiene (WF-H a WF-P) siguen las mismas reglas [req
 | Paginación, orden y filtros | Plataforma + SGSPE | `page`, `size`, `sort`, `dir`, `q`, `count` y `after`; en la API propia, un parámetro desconocido es 422 | WAS-ADR-0036 | ADR-0008 | — | RNF-INT-001, ASM-054 |
 | Validación | Plataforma + SGSPE | `400` con `errors[]` por campo, de la metadata, de las guardas y de los endpoints | WAS-ADR-0003; WAS-ADR-0040 | ADR-0021 | — | RNF-INT-001 |
 | Manejo de errores con Problem Details | Plataforma | `application/problem+json` con `type`, `title`, `status`, `detail`, `instance` y `errors[]` | WAS-DOC api/rest.md | ADR-0008 | — | RNF-INT-001 |
-| Idempotencia cuando corresponda | SGSPE | `Idempotency-Key` en las creaciones de `/api/sgspe/**`, con la tabla fija `idempotency_key` (ASM-065); las altas de la API genérica no son idempotentes | — | ADR-0025 | UPS-18 | RNF-INT-002, ASM-065 |
+| Idempotencia cuando corresponda | SGSPE | `Idempotency-Key` en los comandos de `/api/sgspe/**`, con la tabla fija `idempotency_key` (ASM-065), y la cabecera nativa en el alta de la API genérica (WAS-ADR-0058), con el mismo contrato | — | ADR-0025 | UPS-18 | RNF-INT-002, ASM-065 |
 | Bloqueo optimista | Brecha | Precondición sobre `updatedAt` mientras la plataforma no lo tenga | — | ADR-0025 | CON-047, UPS-04 | RNF-INT-003, ASM-035 |
 | Correlation IDs | Plataforma + SGSPE | `X-Correlation-Id` en peticiones, respuestas y logs; todavía no en la auditoría | — | ADR-0011, ADR-0026 | CON-057, UPS-03 | RQ-AUD-006, ASM-034 |
 
@@ -221,7 +221,7 @@ Cada evento de ejemplo del prompt tiene su mecanismo; los avisos que generan los
 | ProjectCreated | Alta de `project`, auditada como `CREATE` | RQ-AUD-001 |
 | EngagementCompleted | Transición de `engagement` a `held` o a `closed`, con sus guardas | RN-ENG-004, RN-ENG-005 |
 | CommitmentCreated | Alta de `commitment` por la API genérica o por la aceptación de un candidato o una solicitud | RF-COM-010, RF-GRV-004 |
-| CommitmentDueSoon y CommitmentOverdue | `DeadlineJob` cambia `deadline_status` a POR VENCER o VENCIDO y crea el aviso | RN-WFL-001, RF-NTF-001 |
+| CommitmentDueSoon y CommitmentOverdue | `DeadlineJob` cambia `deadline_status` a POR VENCER o VENCIDO, y la fuente `DeadlineNotices` de wasichai-notifications publica el aviso | RN-WFL-001, RF-NTF-001 |
 | CommitmentFulfilled | Transición humana `register_fulfillment` de WF-D a `fulfilled`: `CommitmentWriteGuard` exige una entrega con conformidad y su evidencia, y `CommitmentDerivationsListener` fija `fulfilled_date`. Registrar la entrega no la aplica | RN-COM-001, RF-COM-004 |
 | GrievanceCreated | Alta de `grievance` con la tarea de acuse por automatización | RF-GRV-002 |
 | GrievanceEscalated | Escalamiento por días de atraso en `DeadlineJob` | RF-GRV-006, RF-WFL-004 |
@@ -260,8 +260,8 @@ Cada evento de ejemplo del prompt tiene su mecanismo; los avisos que generan los
 
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
-| Notificaciones en la aplicación y abstracción de correo | SGSPE | Tablas fijas `notification` y `notification_delivery` más SMTP | — | ADR-0018 | CON-058, UPS-11 | RF-NTF-001, ASM-012 |
-| Por vencer, vencido, plazo de queja, escalamiento de riesgo, aprobación pendiente y tarea vencida | SGSPE | `DeadlineJob` y `NotificationListener`, con clave de deduplicación | WAS-ADR-0039 | ADR-0018 | — | RF-NTF-001, RF-WFL-004 |
+| Notificaciones en la aplicación y abstracción de correo | Plataforma + SGSPE | wasichai-notifications (bandeja, SSE y correo); SGSPE decide destinatarios y textos | WAS-ADR-0046; WAS-ADR-0060 | ADR-0018 | CON-058, UPS-11 | RF-NTF-001, ASM-012 |
+| Por vencer, vencido, plazo de queja, escalamiento de riesgo, aprobación pendiente y tarea vencida | SGSPE | `DeadlineJob` (JOB-01) y la fuente de avisos de plazo `DeadlineNotices` de wasichai-notifications, con clave estable por aviso | WAS-ADR-0039 | ADR-0018 | — | RF-NTF-001, RF-WFL-004 |
 | No notificar desde las entidades; usar eventos de aplicación | SGSPE | Solo listeners y trabajos crean avisos | WAS-ADR-0025 | ADR-0018 | — | RN-NTF-001 |
 | Responder WHO, WHAT, WHEN, WHY, FROM y TO | Plataforma | `audit_log` (tabla siguiente) | WAS-ADR-0040; WAS-ADR-0041 | ADR-0011 | — | RQ-AUD-001, RQ-AUD-002 |
 | Implementar auditoría | Plataforma + SGSPE | `requiresReason` en los objetos críticos, `appendOnly` en la historia y `export_log` para las salidas | WAS-ADR-0040; WAS-ADR-0041 | ADR-0011 | — | RQ-AUD-003, RQ-AUD-011, ASM-058 |
@@ -373,7 +373,7 @@ el plan de implementación y la validación de consistencia. El paso 14 (empezar
 | BC-02 Territorio y SIG | Objetos del territorio; `project_component` `apiOnly` | WF-O | — | GEOMETRY, `bbox`, features, capas no sensibles en GeoServer, `MAP` | `TerritoryWriteGuard`, `ExactlyOneGuard`, `AreaListener`, `DerivedFieldsJob` | `sgspe.territory` | F2, F6 |
 | BC-03 Grupos de interés | Actores, cargos, grupos de interés; `stakeholder_assessment` `appendOnly`, `apiOnly` y `requiresReason` | WF-B | Ficha de grupo de interés (documento emitido) | Por relación territorial, nunca puntos de personas | `StakeholderWriteGuard`, `StakeholderFollowUpJob` | `sgspe.stakeholder` | F2 |
 | BC-04 Relacionamiento | `engagement` y sus hijos, plan, mensajes, alianzas, visitas | WF-C, WF-L | Minuta y lista de asistentes (documentos emitidos) | Ubicación de interacciones y observaciones | `EngagementWriteGuard`, `AttendanceCountsListener` | `sgspe.engagement` | F2 |
-| BC-05 Compromisos | `commitment` `requiresReason`; `commitment_reschedule` `appendOnly` y `apiOnly`; `delivery` y `commitment_candidate` `apiOnly` | WF-D, WF-K | Tarea al aprobar; acta de entrega al crear la entrega | Ubicación del compromiso | `CommitmentWriteGuard`, `SupportPolicyGuard`, `CommitmentDerivationsListener`, `DeadlineJob` | `sgspe.commitment` | F3 |
+| BC-05 Compromisos | `commitment` `requiresReason`; `commitment_reschedule` `appendOnly` y `apiOnly`; `delivery` y `commitment_candidate` `apiOnly` | WF-D, WF-K | Tarea al aprobar; acta de entrega al crear la entrega, tras UPS-23 | Ubicación del compromiso | `CommitmentWriteGuard`, `SupportPolicyGuard`, `CommitmentDerivationsListener`, `DeadlineJob` | `sgspe.commitment` | F3 |
 | BC-06 Acuerdos | `agreement` `requiresReason`, partes y cláusulas | WF-I | — | Predios afectados por M2M | `AgreementWriteGuard`, `DeadlineJob` (vigencia) | `sgspe.agreement` | F3 |
 | BC-07 QCS | `grievance`, `inquiry`, `stakeholder_request`, todos `requiresReason` | WF-E1, WF-E2, WF-E3 | Tarea de acuse; cargo de queja y carta de respuesta | Ubicación de la QCS | `AttentionWriteGuard`, `QcsDueDatesListener`, `QcsTransitionDatesListener`, `RequestClosureListener` (también al cerrarse el aporte, desde F5; ASM-068), `DeadlineJob` | `sgspe.attention` | F4 |
 | BC-08 Riesgos | `social_risk` `requiresReason`; `risk_assessment` `appendOnly` y `apiOnly` | WF-F | — | Ubicación del riesgo | `RiskWriteGuard`, `DeadlineJob` (revisión y su tarea) | `sgspe.risk` | F4 |
@@ -381,7 +381,7 @@ el plan de implementación y la validación de consistencia. El paso 14 (empezar
 | BC-10 Inversión social | `social_contribution` `requiresReason`; `program_measurement` `appendOnly` | WF-G, WF-P | Acta de recepción al entregar el aporte | Ubicación de iniciativas | `SupportPolicyGuard`, `InvestmentWriteGuard`, `ContributionTotalsListener` | `sgspe.investment` | F5 (tope en F3) |
 | BC-12 Evidencias | `evidence` `apiOnly` con guarda de inmutabilidad | — | Documentos emitidos de wasichai-documents | Ubicación de la foto | `EvidenceWriteGuard` | `sgspe.evidence` | F3 |
 | BC-13 Tareas | `task` con único `generator_key` | WF-N | Las automatizaciones crean tareas | — | `ExactlyOneGuard`, `DeadlineJob` | `sgspe.deadline` | F3 |
-| BC-14 Notificaciones | Tablas fijas, no Custom Objects | — | — | — | `NotificationListener`, envío SMTP | `sgspe.notification` | F3 |
+| BC-14 Notificaciones | Sin tablas propias: los avisos son de wasichai-notifications (ADR-0018) | — | — | — | `ApprovalNoticeListener`, `DeadlineNotices` | `sgspe.notification` | F3 |
 | BC-15 Reportes y entregables | `indicator`; `indicator_measurement`, `deliverable_version` y `export_log` `appendOnly` y `apiOnly`; `deliverable` `requiresReason`, con las acciones `APPROVE`, `GENERATE`, `ISSUE`, `EXPORT` y `DOWNLOAD_RESTRICTED` | WF-H | — | GetMap de GeoServer para mapas de informe | `DeliverableWriteGuard`, trabajador de generación | `sgspe.dashboard`, `sgspe.deliverable`, `sgspe.privacy` | F2–F8 |
 | BC-16 Identidad | Usuarios, roles, permisos, acciones declaradas y cuentas de servicio de wasichai; `project_assignment` | — | — | — | `ProjectScopeGuard`, `AssignmentRoleGuard`, `EditAnyGuard` | `sgspe.scope` | F1 |
 | BC-17 Auditoría | `audit_log` de wasichai; `export_log` | — | — | Sin coordenadas en la auditoría | — | `sgspe.observability`, `sgspe.privacy` | F1 |
@@ -394,7 +394,7 @@ automatizaciones (`AUT-NN`) y los documentos emitidos por tipo los fija `workflo
 
 ## 4. Brechas upstream
 
-### 4.1 Las dieciocho brechas registradas
+### 4.1 Las brechas registradas
 
 Las brechas se definen en [requirements-analysis §18.2](requirements-analysis.md#182-brechas-upstream-de-wasichai-ups). Esta
 tabla agrega dónde vive la mitigación en la arquitectura y qué se retira cuando llegue la solución upstream. Los issues
@@ -405,21 +405,27 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-01 Alcance de lectura por proyecto, territorio o región | Antes de la producción con varios proyectos (crítica) | Decisión pendiente en el checkpoint (CON-041), con recomendación A: escritura acotada por asignación y lectura a nivel de tenant en el MVP con un solo cliente | `ProjectScopeGuard` en `sgspe.scope` | El adaptador de la extensión reemplaza la lectura a nivel de tenant; la guarda se queda |
 | UPS-02 Auditoría de la administración de usuarios, roles, permisos y metadata | F1 | Modelo y roles solo desde el repositorio | `model/`, `apply.py`, `apply_roles.py` | Nada: la auditoría upstream complementa |
 | UPS-03 Correlation id y origen del cambio en las filas de auditoría | F1 | `X-Correlation-Id` en los logs y en la auditoría; origen `job:<nombre>` en los trabajos y nombre del trabajo en el motivo | `sgspe.observability`, `Records.asPlatform(…, source, …)`, convención de motivos (ASM-051) | La convención de motivos de importaciones y automatizaciones |
-| UPS-04 Bloqueo optimista y actualización parcial | F2 | Precondición sobre `updatedAt` con `If-Match` | `sgspe.common`; [API §3.6](api.md#36-concurrencia-precondición-sobre-updatedat) | La comprobación propia |
+| UPS-04 Bloqueo optimista y actualización parcial | F2 | Precondición sobre `updatedAt` con `If-Match`; desde ADR-0027, con la comparación de wasichai y los saltos de derivados | `sgspe.common`; [API §3.6](api.md#36-concurrencia-precondición-sobre-updatedat) | La tolerancia de los derivados (`derived_version`) |
 | UPS-05 Paginación y filtros por fecha y usuario en `/api/audit` | F1 | Historial por registro en las fichas | Portal | — |
 | UPS-06 Capacidades de tenant (y alcance) en `/me/permissions` | F2 | El portal deduce las capacidades de los permisos por objeto | `sgspe-ui` | La deducción del portal |
-| UPS-07 Campo FILE e IMAGE | F3 | Almacenamiento de objetos propio y `evidence` inmutable | `sgspe.evidence` | Migración de `evidence` al campo FILE |
+| UPS-07 Campo FILE e IMAGE | F3 | Resuelta en wasichai 0.6.0: `evidence.file` es un campo `FILE` de wasichai-files; SGSPE reemplaza la descarga nativa de `evidence` para aplicar `DOWNLOAD_RESTRICTED` (ADR-0014) | `model/model.json`; `sgspe.evidence` | Nada |
 | UPS-08 Interfaz de reglas de escritura en wasichai-ui | F2 | Las escrituras críticas se hacen desde el portal, que pide el motivo | `sgspe-ui` | Ediciones con motivo en `/admin` |
 | UPS-09 Revocación de tokens, límite de intentos de login y política de contraseñas | Antes de producción | Revocación, límite de intentos y política de contraseñas de wasichai, más TTL corto y límite en el proxy | `application-prod.yml`, proxy inverso | El límite del proxy queda como defensa extra |
 | UPS-10 Provisión de tenants separada de la administración de la organización | Operación multicliente | `SUPER_ADMIN` y `ORGANIZATION_ADMIN` como `ADMIN` | `model/roles.json` | El mapeo de los dos roles |
-| UPS-11 Módulo de notificaciones | F3–F4 | Tablas fijas `notification` y `notification_delivery` más SMTP | `sgspe.notification` | Migración al módulo upstream |
+| UPS-11 Módulo de notificaciones | F3–F4 | Resuelta: wasichai-notifications (ADR-0018); SGSPE decide destinatarios y textos (ASM-012) | `sgspe.notification` | Nada |
 | UPS-12 Inmutabilidad de `audit_log` en la base | Endurecimiento | Ningún código de SGSPE escribe en la auditoría | Prueba de arquitectura | — |
 | UPS-13 Mapa base configurable en `MapView` de `@wasichai/gis` | Antes de producción | El mapa territorial del portal aplica su propio estilo configurable (ASM-048); la CSP de producción no admite las teselas de OpenStreetMap, así que los mapas de edición con `MapView` se ven sin mapa base | `sgspe-ui` y la CSP del proxy | Los mapas de edición recuperan el mapa base, con el estilo del portal |
 | UPS-14 Puntos de extensión de wasichai-agent: seudonimizar los resultados de las herramientas, activarse por organización e informar los tokens | F7 | AI-05 solo en organizaciones con la IA activada, con el proveedor decidido (GAP-015) y para roles sin lectura de los campos restringidos (hoy, `ANALYST`); `POST /api/agent/ask` cerrado por HTTP | `sgspe.ai` | Las restricciones de AI-05 y el filtro que cierra `/api/agent/ask` |
 | UPS-15 `defaultValue` se guarda pero no se aplica | F2 | El código de SGSPE aplica los valores por defecto: el portal los propone al crear y el código que lee un parámetro vacío usa el mismo valor (ASM-019) | `sgspe-ui` y `sgspe.common` | Los valores por defecto escritos en el código |
 | UPS-16 Lectura de las autorrelaciones desde el lado destino | F2 | Los registros que apuntan a uno se leen filtrando la lista por el campo, por ejemplo `?parent_locality=<id>` | `sgspe-ui` | El filtro del portal |
 | UPS-17 Forma soportada de listar los tenants desde un trabajo en segundo plano | Antes de producción | `TenantDirectory.organizationsWithObject` [WAS-ADR-0057], aislado en `Organizations` | `sgspe.common` | Nada |
-| UPS-18 Idempotencia en la API genérica (`Idempotency-Key`) | F3 | Solo las creaciones de `/api/sgspe/**` son idempotentes, con la tabla fija `idempotency_key` (ASM-065) | `sgspe.common`; [API §3.5](api.md#35-idempotencia-idempotency-key) | La tabla `idempotency_key` |
+| UPS-18 Idempotencia en la API genérica (`Idempotency-Key`) | F3 | Resuelta en el alta genérica (WAS-ADR-0058); los comandos de `/api/sgspe/**` usan la tabla fija `idempotency_key` con el mismo contrato (ASM-065) | `sgspe.common`; [API §3.5](api.md#35-idempotencia-idempotency-key) | La tabla `idempotency_key`, cuando la plataforma ofrezca la clave a las rutas de una app |
+| UPS-19 Temas que usa «Según el sistema» en `@wasichai/core` | F1 | La preferencia del servidor manda; quien no eligió un tema ve Claro u Oscuro de wasichai y elige uno de SGSPE en Perfil › Tema (ASM-086) | `sgspe-ui` | Nada: el portal declara sus temas para «Según el sistema» |
+| UPS-20 Borrar un registro con hijos de una relación obligatoria | F2 | `DependentsDeleteGuard` responde `409` `HAS_DEPENDENTS` con el primer dependiente, en vez del `500` de la base; desde F3 vigila también las relaciones opcionales de un objeto `requiresReason` ([API §3.3](api.md#33-errores-problem-details)) | `sgspe.common` | La consulta de las relaciones obligatorias; la de los objetos `requiresReason` se queda |
+| UPS-21 Buscar un usuario por correo dentro de una organización | F2 | `UserReferenceGuard` consulta la tabla `users` de la metadata por organización y correo | `sgspe.common` | La consulta propia |
+| UPS-22 Una transacción de la petición en la API genérica | F2 | `TerritoryWriteGuard` y la aprobación de un área toman el mismo candado, que estrecha la ventana sin cerrarla | `sgspe.territory` | La ventana entre la guarda y la escritura |
+| UPS-23 Un documento emitido que congele solo lo que nombra la plantilla o aplique los permisos de campo | F3 | Los tipos de documento solo se declaran sobre objetos sin campos restringidos (ASM-090); el acta firmada se sube como evidencia ACTA DE ENTREGA | `model/document-types/`, `test_model.py` | La regla de `test_model.py`; llegan el «Acta de entrega» (AUT-03) y el «Acta de recepción» (AUT-04) |
+| UPS-24 Un enganche de lectura para el descriptor de un campo `FILE` | F3 | El portal sube una evidencia restringida con un nombre neutro y reserva el nombre a quien la descarga; el nombre de una evidencia subida antes o por la API queda visible a sus lectores (ASM-093) | `sgspe-ui` | El nombre neutro del portal: el backend oculta `name` a quien no descarga la evidencia |
 
 ### 4.2 Otras diferencias con la plataforma ya registradas
 
@@ -435,10 +441,11 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 
 ### 4.3 Lo que trae wasichai 0.6.0
 
-El 2026-10-09 el backend pasa de wasichai 0.3.2 a 0.6.0 (0.3.3, 0.4.0, 0.5.0 y 0.6.0; el `CHANGELOG.md` de wasichai tiene
-el detalle). Kotlin, Spring Boot y el JDK no cambian. Las migraciones de core (`V9` a `V17` y el repetible
+El 2026-10-09 el backend pasa de wasichai 0.3.2 a 0.6.0 (0.3.3, 0.4.0, 0.5.0 y 0.6.0; el `CHANGELOG.md` de wasichai
+tiene el detalle). Kotlin, Spring Boot y el JDK no cambian. Las migraciones de core (`V9` a `V17` y el repetible
 `R__audit_purge_role`) y de automation (`V2`) corren solas al arrancar. La actualización neutraliza lo que choca con
-SGSPE y, salvo el identificador de correlación, no adopta nada nuevo por sí misma: cada adopción es una decisión aparte (UPS-03, UPS-09 y UPS-17 están adoptadas), y esta tabla
+SGSPE y, salvo el identificador de correlación, no adopta nada nuevo por sí misma: cada adopción es una decisión aparte
+(UPS-03, UPS-09 y UPS-17 están adoptadas, y UPS-04, UPS-07, UPS-11 y UPS-18 desde F3; UPS-04 con ADR-0027), y esta tabla
 dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar la mitigación.
 
 | Brecha | Qué trae wasichai | Estado en SGSPE tras la actualización | Para adoptarla |
@@ -446,21 +453,22 @@ dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar
 | UPS-01 | 0.5.0: SPI `RecordReadScope`, que acota las lecturas de una persona en registros, relacionados, auditoría y transiciones [WAS-ADR-0048] | Sin cambios: lectura a nivel de tenant (CON-041, opción A) | Un `RecordReadScope` en `sgspe.scope` con las asignaciones vigentes, cacheadas por petición; decide el checkpoint de CON-041 |
 | UPS-02 | 0.5.0: filas de auditoría para usuarios, roles, permisos y metadata [WAS-ADR-0049] | Resuelta por la actualización | Nada |
 | UPS-03 | 0.5.0: `correlation_id` y `source` en cada fila de `audit_log`, y el identificador en el MDC de todos los logs [WAS-ADR-0050] | Adoptada. `CorrelationIdFilter` corre después del filtro de la plataforma y usa su identificador, así la respuesta, la línea de acceso y la fila de auditoría coinciden. JOB-02 y JOB-03 escriben con `asPlatform(organización, source = "job:derived-fields" / "job:stakeholder-follow-up")`; el motivo conserva el nombre del trabajo, que es lo que lee la persona (ASM-051) | Nada. Las importaciones y las automatizaciones aún no se etiquetan con un origen propio |
-| UPS-04 | 0.5.0: `ETag`, `If-Match` comparado en la propia escritura con igualdad estricta, `412` y `PATCH` con mezcla [WAS-ADR-0051] | Neutralizada: `IfMatchFilter` quita `If-Match` antes de la plataforma, porque su comparación estricta respondería `412` donde SGSPE tolera escrituras posteriores de derivados y vínculos (§3.6 de la API), como el área o los conteos que escribe un listener tras el alta. `PATCH` ya responde y pasa por las mismas guardas y la misma precondición de SGSPE | Decidir entre la comparación atómica (sin la tolerancia: el portal vuelve a leer tras cada escritura de un listener) y la propia; `Records.patch` puede pasar a `RecordService.patch` |
-| UPS-05 | 0.5.0: `/api/audit` paginado por cursor y filtrado por período y usuario [WAS-ADR-0052] | Disponible, sin uso | Consulta de auditoría en `sgspe-ui`; `Versions` puede recorrer el historial con `historyPage` y levantar el tope de 500 entradas de §3.6 de la API |
+| UPS-04 | 0.5.0: `ETag`, `If-Match` comparado en la propia escritura contra una lista de etiquetas, `412` y `PATCH` con mezcla [WAS-ADR-0051] | Adoptada con la tolerancia de SGSPE (ADR-0027): cada escritura de solo derivados se condiciona a lo que leyó y deja su salto exacto en `sgspe.derived_version`, e `IfMatchFilter` cambia `If-Match` por la versión leída y las que la siguieron por esos saltos, así la plataforma compara en el propio `UPDATE` sin responder `412` por un derivado (§3.6 de la API). La guarda de SGSPE sigue respondiendo antes su `412` con el valor actual. `PATCH` pasa por las mismas guardas y la misma precondición | Que los comandos con `IM` pasen su versión a la escritura; `Records.patch` puede pasar a `RecordService.patch` |
+| UPS-05 | 0.5.0: `/api/audit` paginado por cursor y filtrado por período y usuario [WAS-ADR-0052] | Disponible, sin uso | Consulta de auditoría en `sgspe-ui` (`Versions` ya no lee el historial desde ADR-0027) |
 | UPS-06 | 0.5.0: `capabilities` en `GET /api/auth/me/permissions` [WAS-ADR-0053] | Disponible, sin uso | El portal lee las capacidades en lugar de deducirlas |
-| UPS-07 | 0.6.0: módulo `wasichai-files`, campos `FILE` e `IMAGE` con un SPI de almacenamiento [WAS-ADR-0061] | Disponible, sin uso (no se agrega el starter) | Decidir en F3 si `evidence` usa el campo `FILE` |
+| UPS-07 | 0.6.0: módulo `wasichai-files`, campos `FILE` e `IMAGE` con un SPI de almacenamiento [WAS-ADR-0061] | Adoptada en F3 (decisión D1): `evidence.file` es un campo `FILE`; SGSPE reemplaza la descarga nativa de `evidence` para aplicar `DOWNLOAD_RESTRICTED` (ADR-0014) | Nada |
 | UPS-09 | 0.6.0: revocación de tokens, límite de intentos de login y política de contraseñas, apagados por defecto [WAS-ADR-0059] | Adoptada en `application-prod.yml`: revocación de tokens, 5 y 20 intentos de login por ventana de 15 minutos y política de contraseñas de 12 caracteres ([Seguridad §3.2](security.md#32-endurecimiento-de-sgspe)); `ProdProfileTest` la fija | Nada. El límite del proxy queda como defensa extra |
 | UPS-10 | 0.5.0: acción `MANAGE_TENANTS` y `wasichai.organizations.separate-provisioning` [WAS-ADR-0055] | Disponible, sin uso (por defecto, como antes) | Separar `SUPER_ADMIN` de `ORGANIZATION_ADMIN` en `model/roles.json` |
-| UPS-11 | 0.4.0 y 0.6.0: módulo `wasichai-notifications`, con bandeja, SSE, canales de entrega y preferencias [WAS-ADR-0046] [WAS-ADR-0060] | Disponible, sin uso | Decidir en F3–F4 entre el módulo y las tablas propias de ASM-012 |
+| UPS-11 | 0.4.0 y 0.6.0: módulo `wasichai-notifications`, con bandeja, SSE, canales de entrega y preferencias [WAS-ADR-0046] [WAS-ADR-0060] | Adoptada en F3 (decisión D2): bandeja, correo y fuentes del módulo; SGSPE publica a personas resueltas por las asignaciones (ADR-0018) | Nada |
 | UPS-12 | 0.5.0: `audit_log` de solo inserción en la base, por disparadores; la purga, solo con `wasichai.audit.purge-role` [WAS-ADR-0054] | Resuelta por la actualización (migración `V13`) | Nada |
 | UPS-14 | 0.6.0: filtro de los resultados de las herramientas, activación por quien llama y tokens por respuesta en wasichai-agent [WAS-ADR-0056] | Disponible, sin uso | Diseño de AI-05 en F7 |
 | UPS-15 | 0.5.0: un alta que omite un campo recibe su `defaultValue` | Resuelta para las altas; el código que lee un parámetro vacío (ASM-019) se queda para los valores borrados | Nada para las altas |
 | UPS-16 | 0.5.0: `direction=forward\|inverse` en los relacionados de una autorrelación | Disponible, sin uso | El portal deja el filtro por campo |
 | UPS-17 | 0.5.0: `TenantDirectory.organizationsWithObject` para los trabajos de fondo [WAS-ADR-0057]; `findAllOrganizations` queda obsoleto | Adoptada: `Organizations.having` usa `TenantDirectory.organizationsWithObject`; `ArchitectureTest` rechaza `findAllOrganizations` en todo el código y `TenantDirectory` fuera de `Organizations` | Nada |
-| UPS-18 | 0.6.0: `Idempotency-Key` en el alta de la API genérica [WAS-ADR-0058] | Disponible, sin uso | Decidir en F3 si la tabla `idempotency_key` se queda para `/api/sgspe/**` |
+| UPS-18 | 0.6.0: `Idempotency-Key` en el alta de la API genérica [WAS-ADR-0058] | Adoptada en F3 (decisión D3) en el alta genérica; los comandos de `/api/sgspe/**` usan la tabla fija `idempotency_key` con el mismo contrato (ASM-065) | Retirar `idempotency_key` cuando la plataforma ofrezca la clave a las rutas de una app |
 | UPS-21 | 0.4.0: `UserDirectory.idsByEmail` por organización (solo usuarios habilitados) | Disponible, sin uso | `UserReferenceGuard` puede usarlo si un usuario deshabilitado deja de valer como referencia |
 | UPS-20, UPS-22 | Sin cambios: la columna de una relación obligatoria sigue con `ON DELETE SET NULL`, y la API genérica no abre una transacción de la petición | Siguen las mitigaciones | — |
+| UPS-23, UPS-24 | Sin cambios: wasichai-documents congela el registro entero, y wasichai-files devuelve el descriptor de un campo `FILE` a todo lector del registro | Siguen las mitigaciones (ASM-090, ASM-093) | — |
 
 UPS-08, UPS-13 y UPS-19 son de wasichai-ui y se evalúan con la actualización de `@wasichai/*` en `sgspe-ui`.
 
@@ -482,9 +490,9 @@ de GIS, importación y emisión, sin copiar los rodeos que 0.3.x ya no necesita 
 | Marca de escritura propia (`EscrituraDeCaja`, `EscrituraDeSrtm`) y su guarda | caja, srtm | `SgspeWrite` con `DerivedFieldsGuard` y `CommandTransitionGuard` | Nombre en inglés | [domain-model §4.5] RQ-AUD-004 |
 | Envoltura de `RecordService` para el código propio (`Registros`) | srtm, caja | Lecturas y escrituras tipadas del código propio, con la marca | En `sgspe.common` | [domain-model §8.2] |
 | Resolución de la tabla física por la metadata (`TablasCore`) | srtm | Solo SQL de agregación de solo lectura detrás de una compuerta de permisos | srtm escribía directo en las tablas porque 0.2.0 no tenía `asPlatform`; SGSPE nunca escribe así | RQ-GIS-017, RQ-DSH-031 [WAS-ADR-0039] |
-| Puerto de almacenamiento (`AlmacenEmision`, con implementaciones local y S3, claves relativas, descarga en streaming y prueba de contrato) | srtm | Archivos de evidencias y de entregables | En `sgspe.evidence`; sin el decorador `AlmacenGuardado` ni `IdentidadEmision`, rodeos de 0.2.0 | ASM-013, ASM-014 |
+| Puerto de almacenamiento (`AlmacenEmision`, con implementaciones local y S3, claves relativas, descarga en streaming y prueba de contrato) | srtm | Archivos de los entregables, si el plan de F8 no usa el `FileStore` de wasichai-files; las evidencias usan el campo `FILE` desde F3 (ADR-0014) | Sin el decorador `AlmacenGuardado` ni `IdentidadEmision`, rodeos de 0.2.0 | ASM-013, ASM-014 |
 | Trabajos de generación con candado y retención de borradores (`EmisionMasiva`, `RetencionEmision`) | srtm | Trabajador de borradores de entregables | Sin lotes: un pedido por entregable (ASM-061) | RQ-REP-021, RQ-REP-027 |
-| `Idempotency-Key` de 1 a 64 caracteres; reenvío con la misma clave responde `200` con el resultado de la primera vez | caja (cobros) | Creaciones de `/api/sgspe/**` | La clave se guarda aparte del registro creado, en la tabla fija `idempotency_key`; se honra desde F3 (en F2 la cabecera se ignora), y un reenvío reconstruye su respuesta releyendo los registros ([API §3.5](api.md#35-idempotencia-idempotency-key)) | RNF-INT-002, ASM-065 |
+| `Idempotency-Key` generada por acción del usuario y repetida en cada reintento | caja (cobros) | Comandos de `/api/sgspe/**` marcados `IK` | El contrato de la cabecera nativa de wasichai (WAS-ADR-0058): de 1 a 128 caracteres, la respuesta guardada byte por byte con `Idempotent-Replayed: true`, `422` con otra petición y `409` con `Retry-After` en curso; la clave y la respuesta se guardan aparte del registro, en la tabla fija `idempotency_key`, no en un campo del registro como el recibo de caja ([API §3.5](api.md#35-idempotencia-idempotency-key)) | RNF-INT-002, ASM-065 |
 | Candados por entidad sobre los candados consultivos de PostgreSQL (`Candados`) | caja, srtm | `ClusterLock.withXactLock` para precondiciones y correlativos | — | [WAS-ADR-0039] |
 | Parámetro de consulta desconocido como 422 que lo nombra | srtm | Toda la API propia | — | ASM-054 |
 | Permisos comprobados antes de la primera escritura ("403 antes de empezar") | caja | Todos los comandos propios | — | RQ-SEC-004 |

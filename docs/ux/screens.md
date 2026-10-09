@@ -1551,7 +1551,8 @@ LoginPage
 - **Acciones:** abrir cada elemento; atajos de creación del rol; cambiar el inicio en preferencias.
 - **Disposición y componentes:** saludo y contexto; tiles del rol; dos o tres listas (agenda, tareas, pendientes, atención
   requerida, aprobaciones); atajos.
-- **Datos y API:** `task`, `notification` e indicadores del rol; preferencias en `PUT /api/auth/me/preferences`.
+- **Datos y API:** `task`, los avisos de wasichai-notifications e indicadores del rol; preferencias en
+  `PUT /api/auth/me/preferences`.
 - **Estados:** sin asignaciones de proyecto, bienvenida con el mapa de módulos (F1).
 - **Permisos:** solo lo que el rol lee.
 - **Responsive:** en teléfono, las listas en una columna; el agente de campo entra a S54.
@@ -1571,10 +1572,11 @@ HomePage
 - **Roles:** cada persona ve solo sus avisos.
 - **Acciones:** abrir (marca como leído); "Solo sin leer"; "Marcar todos como leídos".
 - **Disposición y componentes:** lista con tipo por color e ícono, título, detalle y hora; punto de no leído; nota de origen.
-- **Datos y API:** `GET /api/sgspe/notifications`, `GET …/unread-count`, `POST …/{id}/read`, `POST …/read-all`; tipos de
-  `workflows.md` "Avisos".
+- **Datos y API:** la bandeja de wasichai-notifications (`api.md` §4.10): `GET /api/auth/me/notifications`,
+  `GET …/summary`, `POST …/{id}/read`, `POST …/read-all` y `GET …/stream` (SSE), con los componentes de `@wasichai/*`;
+  tipos de `workflows.md` "Avisos".
 - **Estados:** sin avisos, vacío; la campana muestra los últimos cinco.
-- **Permisos:** un aviso de otra persona es `404`.
+- **Permisos:** cada persona solo ve sus avisos; la bandeja quita el enlace a un registro que no puede leer.
 - **Responsive:** igual en teléfono.
 - **Relacionadas y navegación:** el registro de cada aviso.
 

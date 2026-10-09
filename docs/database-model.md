@@ -56,9 +56,9 @@ flowchart LR
     end
     FW["Flyway por paquete (ModuleMigration)"] --> SG
     subgraph SG["esquema sgspe (tablas fijas)"]
-        N1["notification, notification_delivery"]
         K1["knowledge_chunk (F7)"]
         I1["idempotency_key"]
+        D1["derived_version"]
     end
 ```
 
@@ -83,25 +83,23 @@ flowchart LR
 
 ### 2.3 El esquema `sgspe` de las tablas fijas
 
-- `notification` y `notification_delivery` (BC-14, desde F3), `knowledge_chunk` (BC-18, F7) e `idempotency_key`
-  (transversal, desde F3) no son Custom Objects: son tablas fijas del esquema `sgspe` (ASM-012, ASM-065, RQ-AI-008,
-  CON-052). Las notificaciones lo son porque una vista de wasichai no filtra por "yo" y la plataforma no tiene módulo de
-  notificaciones (CON-058, UPS-11); las claves de idempotencia, porque wasichai no reconoce `Idempotency-Key` (UPS-18).
+- `idempotency_key` y `derived_version` (transversales, desde F3) y `knowledge_chunk` (BC-18, F7) no son Custom Objects:
+  son tablas fijas del esquema `sgspe` (ASM-065, ASM-091, RQ-AI-008, CON-052). Los avisos no tienen tablas propias desde
+  la decisión D2: los guarda el módulo wasichai-notifications en su esquema (ASM-012, ADR-0018).
 - Cada paquete dueño registra su propia `ModuleMigration`, como un módulo más [WAS-ADR-0026]:
-  - `sgspe_common`, en `classpath:db/sgspe/common`, en F3, para `idempotency_key`;
-  - `sgspe_notification`, en `classpath:db/sgspe/notification`, en F3;
+  - `sgspe_common`, en `classpath:db/sgspe/common`, con orden 200, en F3, para `idempotency_key` (`V1`) y
+    `derived_version` (`V2`, ADR-0027);
   - `sgspe_ai`, en `classpath:db/sgspe/ai`, en F7 con el RAG documental (RF-AIK-006, RQ-AI-008).
-- Las tres usan un orden mayor que el de los módulos de wasichai (100), guardan su historia en `flyway_history_<nombre>` del
+- Las dos usan un orden mayor que el de los módulos de wasichai (100), guardan su historia en `flyway_history_<nombre>` del
   esquema de metadatos y su primera migración crea el esquema `sgspe` si no existe. Un cambio es una migración nueva: una
   migración aplicada nunca se edita, porque Flyway verifica su checksum [WAS-ADR-0026].
 - Un bean que lea estas tablas al arrancar declara `@DependsOn("wasichaiMigrations")` para no adelantarse a su migración
   [WAS-ADR-0026].
-- Solo su paquete las lee y las escribe (`sgspe.common`, `sgspe.notification` y `sgspe.ai`), con `DatabaseClient` y SQL
+- Solo su paquete las lee y las escribe (`sgspe.common` y `sgspe.ai`), con `DatabaseClient` y SQL
   propio; toda consulta filtra por `organization_id` (RQ-SEC-002).
 - No hay claves foráneas entre esquemas: ni hacia `app_data`, porque cada organización tiene su propia tabla física, ni
-  hacia las organizaciones de `wasichai`. `source_record_id`, `project_id`, `evidence_id` y `created_record_ids` son
-  referencias lógicas que valida el paquete. La única clave foránea real es `notification_delivery.notification_id` →
-  `notification`, dentro del mismo esquema.
+  hacia las organizaciones de `wasichai`. `project_id` y `evidence_id` de `knowledge_chunk` son referencias lógicas que valida
+  el paquete.
 - Por eso borrar una organización en wasichai no borra sus filas de `sgspe.*`: la baja de un tenant incluye un paso que las
   borra por `organization_id` (§24, GAP-026).
 
@@ -142,9 +140,9 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
 
 - `required` se vuelve NOT NULL y `unique`, una restricción UNIQUE con su índice. La validación vive en la base además de en
   la aplicación, así que un dato inválido no entra por otro camino [WAS-DOC domain/metadata-model.md].
-- No existen FILE, IMAGE, CURRENCY, FORMULA, ROLLUP ni JSON: los archivos son `evidence` en almacenamiento de objetos
-  (ASM-013, UPS-07), los montos son DECIMAL más `currency` y los cálculos son campos derivados (§3.6)
-  [WAS-DOC domain/metadata-model.md].
+- No existen CURRENCY, FORMULA, ROLLUP ni JSON: los montos son DECIMAL más `currency` y los cálculos son campos
+  derivados (§3.6) [WAS-DOC domain/metadata-model.md]. `FILE` e `IMAGE` llegan con wasichai-files en F3 (UPS-07
+  resuelta, WAS-ADR-0061): el único campo `FILE` del modelo es `evidence.file` (ASM-013, ADR-0014).
 - El nombre y el tipo de un campo, y el nombre de un objeto, no cambian: wasichai los rechaza con 400. Cambiar un tipo es un
   campo nuevo más una migración de datos (§24) [WAS-ADR-0017].
 
@@ -163,8 +161,18 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
   un borrado (§2.9).
 - **Apuntadas por un objeto `appendOnly`.** No se pueden borrar `stakeholder`, `position`, `commitment`, `social_risk`,
   `program_indicator`, `indicator`, `deliverable`, `deliverable_version` ni `project` mientras una evaluación, una
-  reprogramación, una revisión, una medición, una versión, un registro de exportación o una interacción con IA los apunte:
-  responde 409 para todos, también para `ADMIN` [WAS-ADR-0040] [WAS-ADR-0044].
+  reprogramación, una revisión, una medición, una versión, un registro de exportación o una interacción con IA los
+  apunte: responde 409 para todos, también para `ADMIN` [WAS-ADR-0040] [WAS-ADR-0044]. Ese `409` lo da wasichai antes
+  que las guardas y no lleva código ni `errors[]`: solo un `detail` que nombra el objeto y el campo (`api.md` §3.3).
+  Como el registro `appendOnly` no se puede cambiar, lo que apunta no se borra nunca: un cargo citado por una evaluación
+  se da por terminado con `end_date` y su `position_status`.
+- **Apuntadas por una relación opcional de un objeto `requiresReason`.** Desde F3, `DependentsDeleteGuard` también
+  rechaza con `409` `HAS_DEPENDENTS` el borrado de lo que apuntan `commitment` (`exploration_campaign`, `locality`,
+  `community`, `topic`, `origin_engagement`, `agreement` y `agreement_clause`) y `agreement` (`community` y
+  `assembly_engagement`): la base no lo impediría, pero `ON DELETE SET NULL` vaciaría el vínculo de ese registro sin
+  motivo ni fila de auditoría. Con los roles de F3, solo una `agreement_clause` citada queda así bloqueada para quien
+  no es `ADMIN`: se borra después de vaciar `agreement_clause` en el compromiso, con un cambio con motivo. El campo
+  del `409` es `<objeto>.<campo>` del primer dependiente.
 - **Autorreferencias y ciclos.** Son intencionales: `parent_unit`, `parent_locality`, `affiliated_to`, `split_from`,
   `previous_version`, `baseline_assessment`, `duplicate_of`, `replaces`, `derived_from` y `parent_topic` apuntan a su propio
   objeto, y hay ciclos entre `deliverable` y `deliverable_version` y entre las tres QCS. wasichai los admite, y `apply.py`
@@ -361,7 +369,10 @@ Aplican §4.1 del modelo de dominio:
   America/Lima (RNF-I18N-002).
 - Las cantidades son INTEGER con sufijo `_count`; los índices y los puntajes tienen nombre propio (`interest_index`,
   `score`).
-- Los montos son DECIMAL más `currency` ENUM (PEN por defecto, RNF-I18N-002).
+- Los montos son DECIMAL más `currency` ENUM (PEN por defecto, RNF-I18N-002). DECIMAL es un `numeric` sin escala ni
+  mínimo, así que `AmountFieldsGuard` acota los montos que alguien escribe en toda alta y en todo cambio de su valor: de
+  0 a 15 dígitos enteros y 4 decimales tras quitar los ceros finales (ASM-092); los derivados los escribe
+  solo la plataforma.
 - Una persona usuaria del sistema es un par `<rol>_user_id` UUID y `<rol>_user_email` EMAIL, que valida `UserReferenceGuard`,
   porque wasichai no tiene relaciones con usuarios (ASM-023).
 - Un BOOLEAN se lee como afirmación: un adjetivo o participio, `has_` más un sustantivo o un verbo en tercera persona; las
@@ -635,8 +646,6 @@ decir, de §6 del modelo de dominio.
 | `program_milestone` | BC-10 | no | no | no | — | F5 |
 | `evidence` | BC-12 | no | sí | no | — | F3 |
 | `task` | BC-13 | no | no | no | WF-N | F3 |
-| `notification` (tabla fija) | BC-14 | — | — | — | — | F3 |
-| `notification_delivery` (tabla fija) | BC-14 | — | — | — | — | F3 |
 | `indicator` | BC-15 | no | no | no | — | F8 |
 | `indicator_measurement` | BC-15 | sí | sí | no | — | F8 |
 | `deliverable` | BC-15 | no | no | sí | WF-H | F8 |
@@ -659,6 +668,7 @@ decir, de §6 del modelo de dominio.
 | `key_theme` | BC-19 | no | no | no | — | F2 |
 | `topic` | BC-19 | no | no | no | — | F2 |
 | `idempotency_key` (tabla fija) | Transversal | — | — | — | — | F3 |
+| `derived_version` (tabla fija) | Transversal | — | — | — | — | F3 |
 
 ## 6. BC-01 Proyectos
 
@@ -795,8 +805,13 @@ RF-INV-004, RN-INV-003, ASM-063.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
+- `social_support_cap` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
+  decimales tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER`
+  u `OUT_OF_RANGE` sobre `social_support_cap`.
 - Los derivados se calculan desde F3 (compromisos) y F5 (aportes) con el recalculador de `sgspe.investment` (§7.4 del
   modelo de dominio).
+- Sin `currency` (PEN por defecto), el tope no se compara al aprobar: `SupportPolicyGuard` solo advierte
+  `CAP_OTHER_CURRENCY` y nunca bloquea (`workflows.md`, D7).
 
 ### `project_assignment`
 
@@ -2012,11 +2027,18 @@ RF-COM-005, RF-COM-007, RF-COM-009, RN-COM-004, RN-ENG-001, RN-ENG-002, RN-WFL-0
 - **Acciones declaradas:** `APPROVE`, `VERIFY`, `EXPORT`, `APPROVE_OVER_CAP`.
 - **Workflow:** WF-D.
 - **Fase:** F3 · Release 1 (MVP).
+- `amount` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
+  tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER` u
+  `OUT_OF_RANGE` sobre `amount`.
 - Índices: `due_date` para `DeadlineJob` (RN-WFL-001), `owner_user_id` para "mis compromisos" y el desglose por
   responsable (RQ-DSH-019), y (`project`, `deadline_status`) para los vencidos y por vencer de cada proyecto
   (RQ-DSH-018).
-- `DerivedFieldsGuard` protege los derivados y `due_date` después de `approved`; solo la cambia
-  `POST /api/sgspe/commitments/{id}/reschedules` (RF-COM-003).
+- `DerivedFieldsGuard` protege los derivados; `CommitmentWriteGuard` protege `due_date` desde `approved`, también en
+  `cancelled` (`409` `DUE_DATE_RESCHEDULE_ONLY`): solo la cambia `POST /api/sgspe/commitments/{id}/reschedules`
+  (RF-COM-003), que recalcula `deadline_status` en su transacción.
+- Las relaciones hacia un objeto de proyecto (`exploration_campaign`, `origin_engagement`, `agreement`,
+  `agreement_clause`) apuntan a registros del mismo `project` (`409` `PROJECT_MISMATCH`), al crear, al cambiar el
+  vínculo y al cambiar el proyecto. Mover el destino a otro proyecto no se bloquea: es un límite conocido.
 - `CommitmentDerivationsListener` escribe `fulfilled_date`, `closed_date` y `cancelled_date` en la transacción de su
   transición, y vacía `fulfilled_date` cuando `reopen_execution` devuelve el compromiso a ejecución; los tableros y la
   tendencia mensual las leen (RQ-DSH-003, RQ-DSH-020).
@@ -2112,7 +2134,10 @@ la dependencia es bloqueante. Tabla física `app_data.commitment_dependency__<or
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- `CommitmentWriteGuard` rechaza los ciclos al crear la dependencia (RF-COM-004).
+- `CommitmentWriteGuard` rechaza los ciclos al crear o cambiar la dependencia (RF-COM-004): `400` `DEPENDENCY_SELF` y
+  `409` `DEPENDENCY_CYCLE`, sobre `depends_on`. La búsqueda recorre hasta 500 compromisos (`409`
+  `DEPENDENCY_GRAPH_TOO_LARGE`), lee como quien escribe y no se serializa: dos altas simultáneas `a → b` y `b → a`
+  pueden pasar las dos (límite aceptado en F3).
 
 ### `delivery`
 
@@ -2143,9 +2168,15 @@ evidencias. Tabla física `app_data.delivery__<org8>`. Requisitos: RF-COM-008, R
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- Escriben `POST /api/sgspe/commitments/{id}/deliveries` y, desde F5,
-  `POST /api/sgspe/social-contributions/{id}/deliveries`; al crearla se emite el acta como documento de
-  wasichai-documents (RQ-REP-029).
+- `delivered_amount` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4
+  decimales tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER`
+  u `OUT_OF_RANGE` sobre `delivered_amount`.
+- Escriben `POST /api/sgspe/commitments/{id}/deliveries`, `PATCH /api/sgspe/deliveries/{id}` y, desde F5,
+  `POST /api/sgspe/social-contributions/{id}/deliveries`. El «Acta de entrega» como documento de wasichai-documents
+  (RQ-REP-029, AUT-03) espera a UPS-23, porque `recipients` y `conformity_by` son restringidos (ASM-090).
+- La entrega de un compromiso en `fulfilled`, `verified`, `closed` o `cancelled` no cambia ni gana o pierde evidencias
+  (`409` `DELIVERY_FROZEN` sobre `commitment`); su `commitment` no cambia nunca. En la matriz de compromisos EXTERNO,
+  `place` se generaliza a la localidad del compromiso (`deliverables.md` §9.1).
 
 ### `commitment_candidate`
 
@@ -2180,6 +2211,10 @@ RF-COM-010, RF-AIK-003, RQ-AI-001, RQ-AI-003, RQ-AI-004.
 - **Fase:** F3 · Release 1 (MVP).
 - Con IA desde F7. `CommandTransitionGuard` protege `accepted`, porque `apiOnly` no rechaza transiciones
   [WAS-DOC modules/workflow.md].
+- `engagement`, `source_evidence`, `created_commitment` y `duplicate_of` apuntan a registros del mismo `project`
+  (`409` `PROJECT_MISMATCH`); una evidencia sin proyecto, del tenant, se admite. El alta humana no escribe
+  `ai_generated` (lo fija en falso), `confidence`, `created_commitment` ni `duplicate_of`; `duplicate_of` solo lo
+  escribe `POST /api/sgspe/commitment-candidates/{id}/duplicate`.
 
 ## 11. BC-06 Acuerdos y convenios
 
@@ -2233,6 +2268,9 @@ Requisitos: RF-AGR-001, RF-AGR-002, RF-AGR-003, RN-INV-004, RN-WFL-001.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** WF-I.
 - **Fase:** F3 · Release 1 (MVP).
+- `amount` es un monto (ASM-092): `AmountFieldsGuard` lo acepta de 0 a 15 dígitos enteros y 4 decimales
+  tras quitar los ceros finales, en el alta y en todo cambio de su valor; otro valor es `400` `INVALID_NUMBER` u
+  `OUT_OF_RANGE` sobre `amount`.
 - `expiry_date` lleva índice para `DeadlineJob` (RN-WFL-001).
 
 ### `agreement_party`
@@ -3241,6 +3279,12 @@ RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07.
   S3 de `wasichai.files.*` (MinIO solo en desarrollo) y un trabajo de wasichai borra los que ningún registro nombra.
 - Los vínculos con destinos `requiresReason` exigen motivo en ambos registros; `sgspe.evidence` lo pasa en cada vínculo
   [WAS-ADR-0041]. `import_batch_id` lleva índice para encontrar el archivo de una importación.
+- Un archivo es de una sola evidencia: un alta con un `file` que ya tiene otra responde `409` `EVIDENCE_FILE_IN_USE`.
+  `file`, `replaces` e `import_batch_id` no cambian después del alta (`409` `EVIDENCE_IMMUTABLE`), pero el alta no
+  comprueba que la evidencia reemplazada sea de quien sube ni que la importación exista: es un límite conocido.
+- El descriptor de `file`, con el nombre original, lo lee todo rol con READ sobre `evidence`, también en una
+  CONFIDENCIAL o de DATOS PERSONALES: wasichai-files no deja ocultarlo (UPS-24), y el portal sube las restringidas
+  con un nombre neutro (ASM-093).
 
 ## 17. BC-13 Tareas y aprobaciones
 
@@ -3305,73 +3349,18 @@ ASM-022, ASM-030.
 - **Fase:** F3 · Release 1 (MVP).
 - Índices: `assignee_user_id` para la bandeja "mis tareas" y `due_date` para `DeadlineJob` (RF-WFL-001, RN-WFL-001).
   Cada origen llega en la fase de su objeto.
+- `generator_key` solo la escribe un trabajo (JOB-01 y JOB-03): una persona que la fija, la cambia o la vacía, también
+  con un `PUT` que la omite, recibe `403` `GENERATOR_KEY_PLATFORM_ONLY` (`GeneratorKeyGuard`). Las claves son
+  `escalation:commitment:<id>:<fecha del plazo>:<nivel>`, `stakeholder_review:<id>:<fecha>` y
+  `stakeholder_inactivity:<id>:<fecha de referencia>`; una tarea borrada vuelve a crearse mientras dure su condición.
 
 ## 18. BC-14 Notificaciones
 
-Bandeja y envíos de avisos en tablas fijas del esquema `sgspe` (§2.3), porque wasichai no tiene módulo de notificaciones
-(UPS-11, CON-058, ASM-012). Los avisos salen de listeners y trabajos, nunca de las entidades (RN-NTF-001).
-
-```mermaid
-erDiagram
-    notification ||--o{ notification_delivery : "notification_id"
-```
-
-### `notification`
-
-**Notificación** (BC-14). Aviso de la bandeja de un usuario. Tabla fija `sgspe.notification`, no Custom Object (§2.3).
-Requisitos: RF-NTF-001, RN-NTF-001, ASM-012, UPS-11.
-
-| Campo | Tipo | Req. | Único | Descripción | Fuente |
-|---|---|---|---|---|---|
-| `id` | uuid | sí | sí | Clave primaria; `gen_random_uuid()`. | ASM-012 |
-| `organization_id` | uuid | sí | compuesto | Tenant; toda consulta filtra por él. | ASM-012 |
-| `recipient_user_id` | uuid | sí | compuesto | Usuario destinatario. | RF-NTF-001 |
-| `notification_type` | text | sí | — | Tipo de aviso (por vencer, vencido, aprobación pendiente, alerta nueva…). | RF-NTF-001 |
-| `source_object` | text | no | — | Objeto del registro que origina el aviso. | RF-NTF-001 |
-| `source_record_id` | uuid | no | — | Registro que origina el aviso (referencia lógica). | RF-NTF-001 |
-| `title` | text | sí | — | Título del aviso. | RF-NTF-001 |
-| `body` | text | no | — | Cuerpo del aviso. | RF-NTF-001 |
-| `created_at` | timestamptz | sí | — | Momento de creación; `now()` por defecto. | RF-NTF-001 |
-| `read_at` | timestamptz | no | — | Momento de lectura; vacío si no se leyó. | RF-NTF-001 |
-| `dedup_key` | text | sí | compuesto | Clave de deduplicación del aviso. | RN-NTF-001 |
-
-- **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
-- **Únicos:** clave primaria `id`; (`organization_id`, `recipient_user_id`, `dedup_key`).
-- **Índices:** (`organization_id`, `recipient_user_id`, `read_at`).
-- **Acciones declaradas:** no aplican.
-- **Workflow:** ninguno.
-- **Fase:** F3 · Release 1 (MVP).
-- El único compuesto evita repetir el mismo aviso (RF-NTF-001); el índice sirve a la bandeja de no leídos de
-  `/api/sgspe/notifications`.
-- Llega en F3 con los avisos de compromisos y tareas; los de QCS, riesgos y alertas se suman en F4.
-
-### `notification_delivery`
-
-**Envío de notificación** (BC-14). Envío por correo de una notificación, con sus reintentos. Tabla fija
-`sgspe.notification_delivery`, no Custom Object (§2.3). Requisitos: RF-NTF-001, GAP-021.
-
-| Campo | Tipo | Req. | Único | Descripción | Fuente |
-|---|---|---|---|---|---|
-| `id` | uuid | sí | sí | Clave primaria; `gen_random_uuid()`. | ASM-012 |
-| `organization_id` | uuid | sí | — | Tenant. | ASM-012 |
-| `notification_id` | uuid | sí | — | Notificación que se envía; clave foránea a `notification`. | RF-NTF-001 |
-| `channel` | text | sí | — | Canal; EMAIL en el MVP. | RF-NTF-001 |
-| `recipient_email` | text | sí | — | Correo de destino. | RF-NTF-001 |
-| `delivery_status` | text | sí | — | Estado del envío; sus valores los fija el código de `sgspe.notification`. | RF-NTF-001 |
-| `attempts` | integer | sí | — | Intentos realizados; 0 por defecto. | RF-NTF-001 |
-| `last_attempt_at` | timestamptz | no | — | Momento del último intento. | RF-NTF-001 |
-| `sent_at` | timestamptz | no | — | Momento del envío exitoso. | RF-NTF-001 |
-| `error_detail` | text | no | — | Detalle del último error, sin datos personales. | GAP-021 |
-
-- **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
-- **Únicos:** clave primaria `id`.
-- **Índices:** (`notification_id`); (`delivery_status`).
-- **Acciones declaradas:** no aplican.
-- **Workflow:** ninguno.
-- **Fase:** F3 · Release 1 (MVP).
-- `notification_id` es una clave foránea real a `sgspe.notification` con `ON DELETE CASCADE`, porque las dos tablas
-  viven en el mismo esquema; el índice por `delivery_status` sirve al envío con reintentos. El servidor SMTP se define
-  en GAP-021.
+BC-14 no tiene objetos ni tablas propias desde la decisión D2 (ASM-012, ADR-0018): los avisos, su estado por persona, los
+envíos por correo y las preferencias viven en las tablas del módulo wasichai-notifications (`notifications`,
+`notification_targets`, `notification_receipts`, `notification_deliveries`, `notification_preferences`), que SGSPE no lee
+ni escribe con SQL: publica con `Notifications.publish` y lee la bandeja con la API del módulo. Los avisos salen de
+listeners y trabajos, nunca de las entidades (RN-NTF-001); sus claves están en `workflows.md` («Avisos»).
 
 ## 19. BC-15 Reportes, tableros y entregables
 
@@ -4073,40 +4062,79 @@ Tabla física `app_data.key_theme__<org8>`. Requisitos: RF-LBS-008 [DOC-01 §8, 
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
-## 22. Tabla fija transversal
+## 22. Tablas fijas transversales
 
-Tabla fija del esquema `sgspe` que no pertenece a un contexto: `sgspe.common` guarda en ella las claves de idempotencia
-de los endpoints propios (RNF-INT-002, ASM-065), con su propia migración (§2.3). No tiene relaciones.
+Tablas fijas del esquema `sgspe` que no pertenecen a un contexto, con la migración de `sgspe.common` (§2.3). No tienen
+relaciones:
+
+- `idempotency_key`: las claves de idempotencia de los endpoints propios (RNF-INT-002, ASM-065).
+- `derived_version`: los saltos de versión de las escrituras de solo derivados, que acepta `If-Match` (RNF-INT-003,
+  ADR-0027).
 
 ### `idempotency_key`
 
-**Clave de idempotencia** (Transversal). Clave `Idempotency-Key` de cada creación de `/api/sgspe/**` que la trae,
-escrita en la misma transacción que el comando y purgada por JOB-08 después de un plazo configurable; la API genérica de
-wasichai no conoce esa cabecera (UPS-18). Tabla fija `sgspe.idempotency_key`, no Custom Object (§2.3). Requisitos:
-RNF-INT-002, ASM-065, UPS-18.
+**Clave de idempotencia** (Transversal). Clave `Idempotency-Key` de cada comando de `/api/sgspe/**` que la trae, con la
+respuesta que recibió la primera petición, escrita en la misma transacción que el comando y purgada por JOB-08 después de
+`wasichai.idempotency.ttl`; el alta genérica usa la tabla nativa de wasichai, con el mismo contrato (UPS-18). Tabla fija
+`sgspe.idempotency_key`, no Custom Object (§2.3). Requisitos: RNF-INT-002, ASM-065, UPS-18.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
-| `id` | uuid | sí | sí | Clave primaria; `gen_random_uuid()`. | ASM-065 |
 | `organization_id` | uuid | sí | compuesto | Tenant; toda consulta filtra por él. | ASM-065 |
 | `user_id` | uuid | sí | compuesto | Usuario que hizo la petición: la clave vale por organización y usuario. | ASM-065 |
-| `request_key` | text | sí | compuesto | Valor de la cabecera `Idempotency-Key`, de 1 a 64 caracteres. | RNF-INT-002 |
-| `request_path` | text | sí | — | Ruta del endpoint `/api/sgspe/**` que la recibió. | RNF-INT-002 |
-| `request_sha256` | text | sí | — | SHA-256 del cuerpo; con la misma ruta distingue un reenvío de otra petición. | RNF-INT-002 |
-| `created_object` | text | no | — | Objeto del registro principal creado; vacío en un comando sin registro principal. | RNF-INT-002 |
-| `created_record_ids` | uuid[] | no | — | Registros creados por el comando, que un reenvío devuelve en su estado actual. | RNF-INT-002 |
-| `created_at` | timestamptz | sí | — | Momento de la primera petición; `now()` por defecto y base de la purga. | ASM-065 |
+| `request_key` | text | sí | compuesto | Valor de la cabecera `Idempotency-Key`, de 1 a 128 caracteres ASCII imprimibles. | RNF-INT-002 |
+| `request_sha256` | text | sí | — | SHA-256 del método, la ruta y el cuerpo con sus claves ordenadas: con la misma clave, otra petición es un `422`. | RNF-INT-002 |
+| `response_status` | integer | sí | — | Estado de la primera respuesta. | RNF-INT-002 |
+| `response_body` | text | sí | — | Cuerpo de la primera respuesta, que un reenvío recibe byte por byte; lleva lo que quien llama podía leer. | RNF-INT-002 |
+| `response_etag` | text | no | — | `ETag` de la primera respuesta. | RNF-INT-002 |
+| `response_location` | text | no | — | `Location` de la primera respuesta. | RNF-INT-002 |
+| `created_at` | timestamptz | sí | — | Momento de la primera petición; `now()` por defecto y base del plazo y de la purga. | ASM-065 |
 
 - **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
-- **Únicos:** clave primaria `id`; (`organization_id`, `user_id`, `request_key`).
-- **Índices:** (`created_at`).
+- **Únicos:** clave primaria (`organization_id`, `user_id`, `request_key`).
+- **Índices:** (`created_at`), que sirve a la purga de JOB-08 con SQL propio, sin `asPlatform` (ASM-065).
 - **Acciones declaradas:** no aplican.
 - **Workflow:** ninguno.
 - **Fase:** F3 · Release 1 (MVP).
-- El único compuesto deduplica por organización, usuario y clave; el índice por `created_at` sirve a la purga, que hace
-  JOB-08 desde F3 con SQL propio, sin `asPlatform` (ASM-065). Las respuestas a un reenvío y a una clave repetida con
-  otra petición las fija `api.md`.
-- La escribe y la lee solo `sgspe.common`, en la misma transacción que el comando (RNF-INT-002).
+- Lo que está en curso no es una columna: es un candado de transacción (`pg_try_advisory_xact_lock`) sobre la clave, que no
+  espera; una segunda petición con la clave en curso recibe `409` con `Retry-After`. Una fila significa que el comando se
+  confirmó; un comando que falló no deja fila y la clave queda libre (`api.md` §3.5).
+- Una fila más antigua que el plazo se borra antes de leerla, así que el plazo es exacto aunque la purga se atrase. La escribe
+  y la lee solo `sgspe.common`, con `DatabaseClient` (RNF-INT-002).
+- `response_body` tiene un tope de 2 MiB (el `CHECK` `idempotency_key_response_size`): un comando que respondiera más
+  falla con `500` y no escribe nada. Puede llevar campos restringidos que quien llamó podía leer, y por eso expira
+  con el plazo (`security.md` §11.6).
+- Las claves de esta tabla y las de la tabla nativa del alta genérica son espacios separados: la misma clave en las dos
+  rutas corre las dos peticiones (`api.md` §3.5).
+
+### `derived_version`
+
+**Salto de versión de derivados** (Transversal). Cada escritura de solo derivados (`Records.patch` con campos
+`"derived"`, sin geometrías) se condiciona al `updated_at` que leyó y, si gana, deja aquí de cuál a cuál pasó el
+registro. El `If-Match` de la API genérica y de los comandos acepta la versión leída y las que la siguieron solo por
+estos saltos (`api.md` §3.6); JOB-08 los purga después de `sgspe.concurrency.derived-versions-retention`. Tabla fija
+`sgspe.derived_version`, no Custom Object (§2.3). Requisitos: RNF-INT-003, ASM-035, ASM-091, UPS-04.
+
+| Campo | Tipo | Req. | Único | Descripción | Fuente |
+|---|---|---|---|---|---|
+| `organization_id` | uuid | sí | compuesto | Tenant; toda consulta filtra por él. | ASM-091 |
+| `object_name` | text | sí | compuesto | Objeto del registro, como en la ruta de la API genérica. | RNF-INT-003 |
+| `record_id` | uuid | sí | compuesto | Registro que cambió; referencia lógica, sin clave foránea (§2.3). | RNF-INT-003 |
+| `from_updated_at` | timestamptz | sí | compuesto | `updated_at` que leyó la escritura de derivados y al que se condicionó su `UPDATE`. | ADR-0027 |
+| `to_updated_at` | timestamptz | sí | — | `updated_at` que produjo, la hora de su sentencia [WAS-ADR-0051]. | ADR-0027 |
+| `created_at` | timestamptz | sí | — | Momento del salto; `now()` por defecto y base del plazo y de la purga. | ASM-091 |
+
+- **Flags:** no aplican; es una tabla fija sin metadata de wasichai.
+- **Únicos:** clave primaria (`organization_id`, `object_name`, `record_id`, `from_updated_at`): de una versión sale a lo
+  sumo un salto, porque solo una escritura condicionada a ella puede ganar.
+- **Índices:** la clave primaria, que sirve a la lectura de la cadena desde una versión; (`created_at`), que sirve a la
+  purga de JOB-08 con SQL propio, sin `asPlatform`.
+- **Acciones declaradas:** no aplican.
+- **Workflow:** ninguno.
+- **Fase:** F3 · Release 1 (MVP).
+- Fuera de una transacción el salto se inserta justo después del `UPDATE` ya confirmado: en ese intervalo una
+  comparación no lo ve y responde `412`, nunca deja pasar una actualización perdida. Un salto más viejo que el plazo no
+  cuenta aunque la purga se atrase. La escribe y la lee solo `sgspe.common`, con `DatabaseClient` (ADR-0027).
 
 ## 23. Contextos sin objetos propios
 
@@ -4222,9 +4250,10 @@ Casos previstos:
 
 - `DELETE /api/organizations/current` borra la organización con todas sus tablas [WAS-DOC api/rest.md]. No borra sus filas de
   las tablas fijas de `sgspe.*`, porque no hay claves foráneas entre esquemas (§2.3).
-- Por eso la baja incluye un paso que borra, por `organization_id`, las filas del tenant en `sgspe.notification_delivery`,
-  `sgspe.notification`, `sgspe.idempotency_key` y `sgspe.knowledge_chunk`, y después llama a
-  `DELETE /api/organizations/current`. Quién la opera queda en GAP-026, como el alta.
+- Por eso la baja incluye un paso que borra, por `organization_id`, las filas del tenant en `sgspe.idempotency_key`,
+  `sgspe.derived_version` y `sgspe.knowledge_chunk`, y después llama a
+  `DELETE /api/organizations/current`; los avisos los borra la baja de wasichai con el módulo. Quién la opera queda en
+  GAP-026, como el alta.
 
 ### Cómo se prueba
 
@@ -4269,8 +4298,9 @@ decisión registrada permite.
 | Borradores de entregable | Almacenamiento de objetos | Se conservan los últimos N y se purgan los demás; `deliverable` apunta solo al último | RQ-REP-027, ASM-028, ASM-061 |
 | Versiones emitidas | `deliverable_version` y almacenamiento | Siempre, con WORM opcional | RQ-REP-017, RQ-REP-027 |
 | Exportaciones e interacciones con IA | `export_log`, `ai_interaction` | Siempre (append-only) | RQ-AUD-011, RQ-AUD-012 |
-| Notificaciones y envíos | `sgspe.notification`, `sgspe.notification_delivery` | Se conservan hasta que GAP-014 fije un plazo | RF-NTF-001, GAP-014 |
-| Claves de idempotencia | `sgspe.idempotency_key` | La purga la hace JOB-08, desde F3, después de un plazo configurable; no guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
+| Avisos y envíos | Tablas de wasichai-notifications | El módulo purga los avisos resueltos o vencidos después de `wasichai.notifications.retention` (90 días); los envíos se van con su aviso | RF-NTF-001, ADR-0018 |
+| Claves de idempotencia | `sgspe.idempotency_key` | JOB-08 borra cada día las más antiguas que `wasichai.idempotency.ttl` (24 h por defecto), el mismo plazo de la cabecera nativa; guardan la respuesta de la primera petición, acotada, para reenviarla; esa respuesta puede llevar datos que quien llamó podía leer y por eso expira con el plazo; nunca guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
+| Saltos de versión de derivados | `sgspe.derived_version` | JOB-08 borra cada día los más antiguos que `sgspe.concurrency.derived-versions-retention` (7 días); un salto solo sirve a quien leyó la versión de la que sale, y uno vencido no cuenta aunque la purga se atrase: esa versión, seguida de derivados, responde `412` | ASM-091, RNF-INT-003 |
 | Fragmentos de RAG | `sgspe.knowledge_chunk` | Son derivados: se regeneran o se borran con su evidencia | RQ-AI-008 |
 | Datos personales | Campos restringidos | Según la política de GAP-014; mientras tanto, minimización con permisos de campo y anonimización en salidas | RNF-PRIV-004, RQ-SEC-010, RQ-REP-014 |
 
@@ -4283,7 +4313,7 @@ decisión registrada permite.
 |---|---|---|
 | Idioma de los valores de ENUM | Hoy en español MAYÚSCULAS; cambiarlo exige migraciones por script, en proceso en los objetos `apiOnly` y con un ADR en los `appendOnly` (§24) | CON-050, ASM-025 |
 | Alcance de lectura por proyecto | El modelo ya lleva `project` y `project_assignment`; falta la extensión de wasichai | CON-041, UPS-01, GAP-025 |
-| Bloqueo optimista | Sin columna `version`; precondición sobre `updated_at` mientras tanto | UPS-04, ASM-035 |
+| Bloqueo optimista | Sin columna `version`; precondición sobre `updated_at`, comparada por wasichai en la propia escritura, con la tabla fija `derived_version` para tolerar los derivados (ADR-0027) | UPS-04, ASM-035, ASM-091 |
 | Campo FILE | `evidence` y el almacenamiento propio hasta que exista; después, migración | UPS-07, ASM-013 |
 | Retención y consentimiento | Plazos de purga de datos personales y de notificaciones | GAP-014, RNF-PRIV-004 |
 | pgvector | La columna `embedding` de `knowledge_chunk` solo con una medición que lo justifique | RQ-AI-008, CON-035 |

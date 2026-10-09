@@ -12,12 +12,12 @@ spring:
     multipart:
       # los multipart son la importación (api.md §4.2) y la subida de una evidencia (POST /api/objects/evidence/files/file).
       # Spring guarda en disco la parte de archivo antes de entregarla: sin tope llenaría el disco antes de que
-      # ImportController o wasichai-files cuenten los bytes. va por encima de sgspe.territory.import.max-bytes y de
-      # wasichai.files.max-bytes (20 MB), para que un archivo grande llegue a ellos y responda su 400 (FILE_TOO_LARGE en la
-      # importación, «File too large» en la evidencia) y no un 500 por DataBufferLimitException; si se sube alguno de los
-      # dos máximos, se sube este
-      max-disk-usage-per-part: 21MB
-      # la confirmación usa 7 partes; 8 acota el disco que una petición puede ocupar (8 × 21 MB)
+      # ImportController o wasichai-files cuenten los bytes. es igual a wasichai.files.max-bytes y a
+      # sgspe.territory.import.max-bytes (20 MB, P52): Spring cuenta solo los bytes del contenido y rechaza los que pasan el
+      # tope, así que un archivo de 20 MB exactos entra; uno más grande lo corta Spring y UploadLimits responde
+      # 400 FILE_TOO_LARGE sobre file, con código, en las dos rutas. si se sube un máximo, se suben los tres
+      max-disk-usage-per-part: 20MB
+      # la confirmación usa 7 partes; 8 acota el disco que una petición puede ocupar (8 × 20 MB)
       max-parts: 8
       # las decisiones de una hoja de 10 000 filas pasan de los 256 KB por defecto
       max-in-memory-size: 1MB
@@ -45,7 +45,7 @@ wasichai:
     # D1 (ADR-0014, WAS-ADR-0061): el campo FILE de evidence. local guarda en una carpeta (una sola réplica, sin compose);
     # s3 usa el MinIO de compose.yml en desarrollo y un servicio compatible con S3 en producción (application-prod.yml)
     store: ${WASICHAI_FILES_STORE:local}
-    # tope de un archivo, el mismo de las importaciones (RQ-SEC-020): por debajo de max-disk-usage-per-part de Spring
+    # tope de un archivo, el mismo de las importaciones (RQ-SEC-020) y de max-disk-usage-per-part de Spring (P52)
     max-bytes: 20MB
     local:
       path: ${WASICHAI_FILES_LOCAL_PATH:build/wasichai-files}
@@ -81,12 +81,16 @@ sgspe:
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000
+  concurrency:
+    # cuánto se guardan los saltos de versión de las escrituras de derivados (sgspe.derived_version, ADR-0027, ASM-091):
+    # una versión leída hace más que esto, seguida de derivados, es 412. JOB-08 purga los vencidos
+    derived-versions-retention: 7d
   stakeholder:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
   jobs:
-    # trabajos de fondo (JOB-02 DerivedFieldsJob y JOB-03 StakeholderFollowUpJob). false los apaga: las pruebas lo fijan
-    # en Gradle y llaman a runOnce
+    # trabajos de fondo (JOB-01 DeadlineJob, JOB-02 DerivedFieldsJob, JOB-03 StakeholderFollowUpJob y JOB-08 RetentionJob).
+    # false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
     enabled: ${SGSPE_JOBS_ENABLED:true}
     derived-fields:
       # cron de Spring (segundos primero), en America/Lima
@@ -95,6 +99,13 @@ sgspe:
     stakeholder-follow-up:
       # JOB-03, una vez al día
       cron: '0 30 4 * * *'
+    deadline:
+      # JOB-01, cada hora (ASM-006)
+      cron: '0 5 * * * *'
+    retention:
+      # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl) y los saltos de
+      # derivados vencidos (sgspe.concurrency.derived-versions-retention)
+      cron: '0 15 4 * * *'
 
 management:
   endpoint:

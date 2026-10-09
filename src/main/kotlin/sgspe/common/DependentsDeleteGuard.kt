@@ -16,6 +16,9 @@ import java.util.UUID
 // un registro del que otros dependen no se borra (P13): wasichai declara cada relación obligatoria NOT NULL con ON DELETE
 // SET NULL, así que borrar el padre de un hijo obligatorio falla en la base con un 500. aquí se vuelve un 409 que nombra
 // el primer dependiente. rige para todos, ADMIN incluido, porque la base lo rechazaría igual.
+// desde F3 vigila también las relaciones opcionales de un objeto requiresReason (ModelCatalog.guardedDependents):
+// ahí la base no falla, pero SET NULL cambiaría ese registro sin motivo ni auditoría (borrar una cláusula que nombra un
+// compromiso).
 // la comprobación es de la base y no de quien borra: con Records solo vería lo que sus permisos le dejan leer (y
 // RecordService.asPlatform no se puede usar dentro de una petición). por eso es un SELECT 1 … LIMIT 1 por relación sobre la
 // tabla del tenant (organization_id de la escritura), con la tabla y la columna que dice la metadata del objeto, los
@@ -35,7 +38,7 @@ class DependentsDeleteGuard(
         val id = change.recordId
         if (change.kind != RecordChangeKind.DELETED || id == null) return emptyList()
         val first =
-            catalog.requiredDependents(change.objectName).firstOrNull { (source, field) ->
+            catalog.guardedDependents(change.objectName).firstOrNull { (source, field) ->
                 referenced(change, id, source, field)
             } ?: return emptyList()
         return listOf(

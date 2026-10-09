@@ -161,8 +161,8 @@ flowchart TB
 | PostgreSQL con PostGIS | PostgreSQL 18, PostGIS 3.6 (`postgis/postgis:18-3.6`) | Esquema de metadata `wasichai`, esquema de datos `app_data` (una tabla por objeto y organización) y esquema `sgspe` de tablas fijas | F1 | [WAS-ADR-0002] [WAS-ADR-0004] CON-052 |
 | GeoServer | GeoServer, red interna | Capas de referencia no sensibles por WMS (vía el proxy autenticado de `sgspe.territory`) y mapas de informe por GetMap | F6, F8 | RQ-SEC-011, RQ-REP-030, ASM-038 [WAS-ADR-0006] |
 | Gotenberg | `gotenberg/gotenberg:8-libreoffice` | Convierte a PDF el DOCX que arma el trabajador de generación, que es el único que lo llama: con marca de agua en los borradores y en PDF/A-2b en las versiones candidatas que se emiten. En INTERNO se entregan el DOCX y el PDF; en EXTERNO y PUBLICO el DOCX es solo un paso intermedio y se entrega solo el PDF | F8 | ASM-014, RQ-REP-001 |
-| Almacenamiento de objetos | Sistema de archivos local o compatible con S3 (MinIO en desarrollo) | Archivos de evidencias, originales de importación y entregables; el registro guarda clave, tamaño y SHA-256. En F2 las cargas de importación usan una carpeta temporal | F3 | ASM-013, ASM-060, RF-DOC-001, RQ-SEC-020, GAP-022 |
-| Servidor SMTP | Configurable; servidor de prueba en desarrollo | Correos de `notification_delivery` | F3 | RF-NTF-001, GAP-021 |
+| Almacenamiento de objetos | Compatible con S3 (MinIO solo en desarrollo), el `FileStore` de wasichai-files | Los archivos de las evidencias (campo `FILE`, ADR-0014); desde F8, los entregables. En F2 las cargas de importación usan una carpeta temporal | F3 | ASM-013, ASM-060, RF-DOC-001, RQ-SEC-020, GAP-022 [WAS-ADR-0061] |
+| Servidor SMTP | Configurable; servidor de prueba en desarrollo | Correos del canal `email` de wasichai-notifications | F3 | RF-NTF-001, GAP-021 |
 | Proveedor de LLM | Embabel (Anthropic por defecto, intercambiable) | Asistente de solo lectura y agentes propios que sugieren | F7 | RQ-AI-005, RQ-AI-014 [WAS-ADR-0015] |
 
 ## 5. Componentes del backend
@@ -192,20 +192,20 @@ metadata no alcanza para lo que contiene; ninguno es un controlador por objeto (
 
 | Paquete | Contenido principal | BC | Desde |
 |---|---|---|---|
-| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales (`DerivedFieldsGuard`, `TransitionReasonGuard`, `ExactlyOneGuard`, `UserReferenceGuard`, `FieldChangeReasonGuard`, `CommandTransitionGuard`); envoltura de `RecordService`; correlativos; `Idempotency-Key` con la tabla fija `idempotency_key` (ASM-065) y su purga por JOB-08 (`RetentionJob`); precondición sobre `updated_at`; filtros estrictos con 422; fechas en America/Lima y feriados; valores por defecto de los parámetros (UPS-15); `DerivedFieldsJob` | Transversal | F1 |
+| `sgspe.common` | Marca de escritura `SgspeWrite`; guardas transversales (`DerivedFieldsGuard`, `TransitionReasonGuard`, `ExactlyOneGuard`, `UserReferenceGuard`, `FieldChangeReasonGuard`, `CommandTransitionGuard`); envoltura de `RecordService`; correlativos; `Idempotency-Key` de los comandos con la tabla fija `idempotency_key` y el contrato nativo (ASM-065) y su purga por JOB-08 (`RetentionJob`); precondición sobre `updated_at` con los saltos de `derived_version` (ADR-0027); `AmountFieldsGuard` (montos, ASM-092), `GeneratorKeyGuard` (`generator_key` solo de un trabajo) y `DependentsDeleteGuard`; los topes del multipart (`FILE_TOO_LARGE`, `PART_TOO_LARGE`); filtros estrictos con 422; fechas en America/Lima y feriados; valores por defecto de los parámetros (UPS-15); `DerivedFieldsJob` | Transversal | F1 |
 | `sgspe.observability` | Filtro `X-Correlation-Id` antes de la cadena de seguridad; una línea de acceso por petición; logs estructurados | Transversal | F1 |
-| `sgspe.scope` | `ProjectScopeGuard`, `ProjectWriteGuard`, `AssignmentRoleGuard` (`role_name` de `project_assignment` contra los roles configurados, ASM-070) y `EditAnyGuard` (sin `EDIT_ANY`, solo se cambia o borra lo propio, ASM-069); lectura de `project_assignment`; adaptador de la extensión de alcance cuando exista | BC-01, BC-16 | F2 |
+| `sgspe.scope` | `ProjectScopeGuard`, `ProjectWriteGuard`, `AssignmentRoleGuard` (`role_name` de `project_assignment` contra los roles configurados, ASM-070) y `EditAnyGuard` (sin `EDIT_ANY`, solo se cambia o borra lo propio, ASM-069); `IssueDocumentFilter` (emitir un documento a mano pide lo mismo que cambiar el registro); lectura de `project_assignment`; adaptador de la extensión de alcance cuando exista | BC-01, BC-16 | F2 |
 | `sgspe.stakeholder` | `InfluenceClassifier` y `Prioritizer` (funciones puras), endpoint de evaluaciones, `StakeholderWriteGuard`, `StakeholderFollowUpJob` | BC-03 | F2 |
 | `sgspe.engagement` | `EngagementWriteGuard`, derivación de preguntas a QCS (F4), `AttendanceCountsListener`, recalculador de `strategic_alliance.formalized` | BC-04 | F2 |
-| `sgspe.commitment` | `CommitmentWriteGuard`, reprogramación, entrega, alta humana y aceptación de candidatos, `CommitmentDerivationsListener` | BC-05 | F3 |
+| `sgspe.commitment` | `CommitmentWriteGuard` (reglas de alta y edición, del mismo proyecto, de aprobación, de cumplimiento y de candidatos, en un orden fijo), reprogramación, entrega y su corrección, alta humana, aceptación y duplicado de candidatos, `CommitmentDerivationsListener`; `Commitments`, los conjuntos de estados de WF-D que leen `sgspe.deadline`, `sgspe.notification`, `sgspe.investment` y los tableros | BC-05 | F3 |
 | `sgspe.agreement` | `AgreementWriteGuard` (predios, comunidad titular, autorizaciones de asamblea, cláusulas) | BC-06 | F3 |
 | `sgspe.attention` | `QcsDueDatesListener` (plazos al recibir), `QcsTransitionDatesListener` (`resolved_date` y `closed_date`), reclasificación, aceptación de solicitudes, `RequestClosureListener` (cierra la solicitud al cerrarse su compromiso o, desde F5, su aporte, ASM-068), reporte unificado de QCS | BC-07 | F4 |
 | `sgspe.risk` | Endpoint de revisiones (puntaje, nivel, tendencia y residual), `RiskWriteGuard` | BC-08 | F4 |
 | `sgspe.warning` | `WarningRulesJob` (evaluador de reglas) y `WarningWriteGuard` (decisión humana) | BC-09 | F4 |
-| `sgspe.investment` | `SupportPolicyGuard` (desde F3), `InvestmentWriteGuard`, entrega de aportes, `ContributionTotalsListener`, recalculadores de montos | BC-10 | F5 (tope y lineamientos en F3) |
-| `sgspe.deadline` | `DeadlineJob`: situaciones derivadas de plazo, vigencia y revisión, escalamientos y tareas de revisión | BC-13 | F3–F4 |
-| `sgspe.notification` | Tablas fijas `notification` y `notification_delivery`, bandeja `/api/sgspe/notifications`, envío SMTP con reintentos, `NotificationListener` | BC-14 | F3–F4 |
-| `sgspe.evidence` | Subida y descarga en streaming, puerto de almacenamiento local o S3, SHA-256, EXIF, vínculos, `EvidenceWriteGuard` | BC-12 | F3 |
+| `sgspe.investment` | `SupportPolicyGuard` (desde F3, con el candado de la campaña), el recalculador de `executed_social_amount` de JOB-02 (desde F3), `InvestmentWriteGuard`, entrega de aportes, `ContributionTotalsListener` | BC-10 | F5 (tope y lineamientos en F3) |
+| `sgspe.deadline` | `DeadlineJob`: situaciones derivadas de plazo y vigencia (revisión de riesgos en F4), tareas de escalamiento; la fuente de avisos de plazo `DeadlineNotices`; `DeadlineStatusListener` (la situación al reprogramar) | BC-13 | F3–F4 |
+| `sgspe.notification` | Destinatarios por asignación y textos de los avisos sobre wasichai-notifications; `ApprovalNoticeListener` | BC-14 | F3–F4 |
+| `sgspe.evidence` | Alta, cambio y vínculos de evidencias sobre el campo `FILE` de wasichai-files; la descarga con `DOWNLOAD_RESTRICTED` por las dos rutas; `EvidenceWriteGuard` | BC-12 | F3 |
 | `sgspe.territory` | Importación con CRS y reconciliación, área en hectáreas, consultas espaciales con compuerta de permisos, sugerencias de miembros, la parte territorial de la ficha (geometría, relaciones y filtros espaciales), proxies WMS y WFS, `TerritoryWriteGuard`, `AreaListener` | BC-02 | F2 (análisis en F6) |
 | `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); conteos con `RecordService`; cierre de periodo | BC-15 | F2–F8 |
 | `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación, emisión, `DeliverableWriteGuard`, paso de retención de borradores de JOB-08 | BC-15 | F8 |
@@ -222,7 +222,9 @@ flowchart BT
     COMMON["sgspe.common"]
     OBSV["sgspe.observability"]
     SCOPE["sgspe.scope"]
-    DOM["Dominio: stakeholder, engagement, commitment, agreement, attention, risk, warning, investment, evidence, territory"]
+    DOM["Dominio: stakeholder, engagement, agreement, attention, risk, warning, evidence, territory"]
+    COMMIT["sgspe.commitment"]
+    INV["sgspe.investment"]
     DEAD["sgspe.deadline"]
     NOTI["sgspe.notification"]
     PRIV["sgspe.privacy"]
@@ -232,11 +234,20 @@ flowchart BT
     SCOPE --> COMMON
     DOM --> COMMON
     DOM --> SCOPE
+    COMMIT --> COMMON
+    COMMIT --> SCOPE
+    INV --> COMMON
+    INV --> COMMIT
     DEAD --> COMMON
+    DEAD --> SCOPE
+    DEAD --> COMMIT
     DEAD --> NOTI
     NOTI --> COMMON
+    NOTI --> SCOPE
+    NOTI --> COMMIT
     PRIV --> COMMON
     DASH --> DOM
+    DASH --> COMMIT
     DELIV --> DASH
     DELIV --> PRIV
     DELIV --> DOM
@@ -252,6 +263,12 @@ flowchart BT
 - `sgspe.deliverable` usa el mismo código de indicadores que `sgspe.dashboard`, para que tableros y entregables den las mismas
   cifras (RQ-DSH-034), y aplica el nivel de divulgación de `sgspe.privacy` al modelo antes de generar (RQ-REP-014).
 - `sgspe.observability` no depende de ningún paquete de dominio: es un filtro web.
+- Entre paquetes de dominio, las flechas van hacia `sgspe.commitment`: `sgspe.investment` (el tope de la campaña),
+  `sgspe.deadline` (JOB-01 y los avisos de plazo) y `sgspe.notification` (los avisos de aprobación) leen sus conjuntos
+  de estados (`Commitments`) y la regla de nivel superior; `sgspe.deadline` y `sgspe.notification` leen además las
+  asignaciones de `sgspe.scope`, y `sgspe.deadline` publica con `sgspe.notification`. `sgspe.commitment` no depende de
+  ninguno de los tres. `ArchitectureTest` clasifica cada paquete como de dominio o no y vigila que `sgspe.scope` y
+  `sgspe.privacy` solo dependan de `sgspe.common`.
 - Las reglas que miran otro contexto (por ejemplo, el tope de apoyo de `sgspe.investment` al aprobar un compromiso) viven
   como guardas del paquete dueño de la regla; wasichai las reúne todas, así que el paquete que escribe no las importa
   [WAS-ADR-0040].
@@ -307,12 +324,13 @@ flowchart BT
 
 ### 5.5 Tablas fijas del esquema `sgspe`
 
-- `notification`, `notification_delivery` (BC-14), `knowledge_chunk` (BC-18, F7) e `idempotency_key` (transversal, F3) no
-  son Custom Objects: son tablas fijas con una migración Flyway propia registrada como `ModuleMigration`, que solo lee y
-  escribe su paquete (ASM-012, RQ-AI-008, ASM-065) [WAS-ADR-0026] [domain-model §4.10].
-- `idempotency_key` guarda la clave de cada creación de `/api/sgspe/**` que la trae, en la transacción del comando
-  ([API de SGSPE §3.5](api.md#35-idempotencia-idempotency-key)), y JOB-08 borra desde F3 las claves vencidas (§8.2); la API
-  genérica no es idempotente hasta que exista UPS-18.
+- `idempotency_key` y `derived_version` (transversales, desde F3) y `knowledge_chunk` (BC-18, F7) no son Custom Objects:
+  son tablas fijas con una migración Flyway propia registrada como `ModuleMigration`, que solo lee y escribe su paquete
+  (ASM-065, ASM-091, RQ-AI-008) [WAS-ADR-0026] ([database-model.md §2.3](database-model.md)). Los avisos no tienen
+  tablas propias desde la decisión D2: los guarda wasichai-notifications (ASM-012, ADR-0018).
+- `idempotency_key` guarda la clave y la respuesta de cada comando de `/api/sgspe/**` que la trae, en la transacción del
+  comando ([API de SGSPE §3.5](api.md#35-idempotencia-idempotency-key)); el alta genérica usa la tabla nativa de
+  wasichai con el mismo contrato; JOB-08 borra las claves vencidas (§8.2).
 - Ninguna tabla fija se publica en GeoServer ni se lee desde la API genérica.
 
 ## 6. Ruta de una petición
@@ -392,10 +410,11 @@ sequenceDiagram
   nada [WAS-ADR-0038]. Los listeners de una transición son atómicos con ella porque `WorkflowService.apply` es transaccional
   [domain-model §7.1].
 - `ClusterLock.withXactLock` serializa dos comandos sobre el mismo registro y vale en todas las réplicas, porque usa los
-  candados consultivos de PostgreSQL [WAS-ADR-0039]. Una creación no tiene registro raíz: toma el candado sobre su clave de
-  idempotencia ([API de SGSPE §3.5](api.md#35-idempotencia-idempotency-key)).
-- La clave de idempotencia se honra desde F3, cuando llega la tabla `idempotency_key`; en F2 la cabecera se acepta y se
-  ignora. Un reenvío no escribe nada: su respuesta se reconstruye releyendo los registros que guarda la clave (ASM-065).
+  candados consultivos de PostgreSQL [WAS-ADR-0039].
+- Una creación no tiene registro raíz: la clave de idempotencia se protege con un candado de transacción que no espera,
+  y una segunda petición en curso recibe `409` con `Retry-After`
+  ([API de SGSPE §3.5](api.md#35-idempotencia-idempotency-key)). Un reenvío no escribe nada: recibe la respuesta
+  guardada (ASM-065).
 - La marca `SgspeWrite` es un elemento del contexto de corrutina: las guardas rechazan sin ella las transiciones de comando
   y los campos derivados, que es lo que ocurre con toda llamada por la API genérica [domain-model §4.5] [WAS-ADR-0040].
 - La comprobación de permisos ocurre antes de la primera escritura, como en caja: el usuario recibe un `403` que nombra el
@@ -467,14 +486,14 @@ Brechas de la auditoría de wasichai y cómo se mitigan mientras se resuelven up
 
 ### 8.1 Reglas
 
-- Los trabajos programados corren con `@Scheduled`, o con un sondeo continuo (JOB-05 y JOB-06), y toman un `ClusterLock`
+- Los trabajos programados corren con `@Scheduled`, o con un sondeo continuo (JOB-05), y toman un `ClusterLock`
   para que una sola réplica haga cada vuelta [WAS-ADR-0039] [WAS-DOC guides/build-your-app.md].
 - Los que leen o escriben registros de wasichai (JOB-01 a JOB-05, JOB-07 y JOB-08) lo hacen con
   `RecordService.asPlatform(organización)`, donde el motivo es obligatorio: nombra al trabajo, y así su fila de
-  `audit_log`, que tiene usuario nulo, dice qué trabajo escribió [WAS-ADR-0041] (ASM-051). No todos escriben así: JOB-06
-  solo escribe su tabla fija con SQL propio, JOB-07 escribe además `knowledge_chunk` con SQL propio, y JOB-08 no escribe
-  registros de wasichai: borra con SQL propio las claves vencidas de `idempotency_key` y borra archivos de borradores que nada
-  referencia (`workflows.md`).
+  `audit_log`, que tiene usuario nulo, dice qué trabajo escribió [WAS-ADR-0041] (ASM-051). No todos escriben así: JOB-07
+  escribe además `knowledge_chunk` con SQL propio, y JOB-08 no escribe registros de wasichai: borra con SQL propio las
+  claves vencidas de `idempotency_key` y los saltos vencidos de `derived_version`, y borra archivos de borradores que
+  nada referencia (`workflows.md`).
 - **Solo escriben campos derivados y crean registros nuevos** (tareas, avisos, alertas en su estado inicial). Nunca aplican
   una transición ni vinculan registros, porque fuera de `RecordService` los servicios de wasichai piden un usuario y
   `asPlatform` no los cubre [domain-model §8.3] (RN-WFL-001, CON-043). La única excepción son las migraciones de datos de
@@ -500,15 +519,15 @@ Brechas de la auditoría de wasichai y cómo se mitigan mientras se resuelven up
 
 | Proceso | Paquete | Qué hace | Frecuencia | Desde | Fuente |
 |---|---|---|---|---|---|
-| JOB-01 `DeadlineJob` | `sgspe.deadline` | `deadline_status`, `validity_status` y `review_status`; escalamientos por días de atraso; tareas de revisión | Cada hora | F3 (QCS y riesgos en F4) | RN-WFL-001, RF-WFL-004, ASM-006, ASM-030 |
+| JOB-01 `DeadlineJob` | `sgspe.deadline` | `deadline_status` y `validity_status` (y `review_status` desde F4); escalamientos por días de atraso con su tarea; los avisos de plazo los publica `DeadlineNotices` | Cada hora | F3 (QCS y riesgos en F4) | RN-WFL-001, RF-WFL-004, ASM-006, ASM-030 |
 | JOB-02 `DerivedFieldsJob` | `sgspe.common` | Recalcula los campos derivados que mantienen listeners, sobre los registros cambiados desde la última vuelta y una vez al día sobre todos | Cada hora | F2 | [domain-model §7.4, §7.5] |
 | JOB-03 `StakeholderFollowUpJob` | `sgspe.stakeholder` | Tareas de evaluación periódica e inactividad, `last_contact_date` y la regla de primer contacto de `relationship_status` | Diaria, configurable | F2 (tareas desde F3) | RF-STK-010, RF-STK-014, ASM-022 |
 | JOB-04 `WarningRulesJob` | `sgspe.warning` | Evalúa las reglas de alerta y crea alertas en `detected` | Cada hora, configurable | F4 | RF-EWS-004, RN-EWS-001, ASM-006 |
 | JOB-05 Trabajador de generación | `sgspe.deliverable` | Toma los pedidos de borrador pendientes, congela el modelo, pide los mapas por GetMap, genera por nivel de divulgación el borrador y la versión candidata (DOCX y PDF en INTERNO; solo PDF en EXTERNO y PUBLICO) y escribe los campos `draft_*` | Sondeo continuo | F8 | RQ-REP-021, ASM-061 |
-| JOB-06 Envío de correo | `sgspe.notification` | Envía los `notification_delivery` pendientes por SMTP con reintentos, sobre su tabla fija | Sondeo continuo | F3 | RF-NTF-001 |
 | JOB-07 Indexación documental | `sgspe.ai` | Divide en fragmentos el texto de las `evidence` creadas o cambiadas desde la vuelta anterior y los guarda en la tabla fija `knowledge_chunk`, con su proyecto y su clasificación; borra los de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo | Periódica y configurable, solo en las organizaciones con la IA activada | F7 | RF-AIK-006, RQ-AI-008 |
 | JOB-08 Retención (`RetentionJob`) | `sgspe.common` | Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065). Desde F8 purga además los archivos de borradores y conserva los N últimos, con un paso que aporta `sgspe.deliverable`, así que `sgspe.common` no depende de `sgspe.deliverable` | Diaria | F3 (claves), F8 (borradores) | RQ-REP-027, ASM-028, RNF-INT-002, ASM-065 |
 | `AutomationDrain` | wasichai-automation | Ejecuta las acciones de automatización en cola como la plataforma | Cada segundo | F3 | [WAS-ADR-0016] |
+| Bucle de wasichai-notifications | wasichai-notifications | Corre las fuentes de avisos (`DeadlineNotices`), envía el correo con reintentos y purga los avisos resueltos | Cada 30 s (`wasichai.notifications.tick`) | F3 | [WAS-ADR-0046] [WAS-ADR-0060] |
 
 Los identificadores `JOB-NN` y `AUT-NN` y los parámetros exactos de cada trabajo los fija `workflows.md`. La indexación de
 JOB-07 no depende de pgvector: en F7 guarda fragmentos de texto con un índice de búsqueda de texto completo de PostgreSQL, y
@@ -523,7 +542,7 @@ flowchart TD
     P --> Q["Lee con RecordService"]
     Q --> W["Escribe derivados o crea tareas y avisos, con motivo del trabajo"]
     W --> A[("audit_log con usuario nulo")]
-    W --> N["Aviso deduplicado en la tabla notification"]
+    W --> N["Aviso con clave estable en wasichai-notifications"]
 ```
 
 ## 9. Frontend (`sgspe-ui`)
@@ -667,7 +686,7 @@ La línea base de F1 la decide ADR-0026 (topología de despliegue, puertos y obs
 | Métricas y trazas | — | Micrometer y trazas distribuidas, diferidas | ASM-059 |
 | Trabajos | Cada vuelta registra una línea por organización con lo que escribió y sus errores | Métricas de duración y atraso | RNF-OBS-001 |
 | Automatizaciones | Registro de ejecuciones de wasichai (`/api/automation-runs`) | — | [WAS-DOC modules/automation.md] |
-| Correo y entregables | Estado de `notification_delivery` y de `draft_generation_status` | — | RF-NTF-001, RQ-REP-021 |
+| Correo y entregables | Estado de los envíos de wasichai-notifications y de `draft_generation_status` | — | RF-NTF-001, RQ-REP-021 |
 
 La auditoría de negocio vive en la base, no en los logs: los logs sirven para operar, y `audit_log` para responder quién
 cambió qué y por qué (RQ-AUD-014).
@@ -701,7 +720,7 @@ cambió qué y por qué (RQ-AUD-014).
 | 2 | wasichai está en versiones 0.x y sus líneas de backend (0.6.0) y frontend (0.5.0) son independientes | Cambios de contrato entre versiones | Versiones exactas, actualizar las dos juntas, pruebas de contrato con la plataforma | [WAS-ADR-0032] RNF-MNT-001 |
 | 3 | Acoplamiento a detalles de la plataforma: SQL de agregación sobre tablas físicas `<objeto>__<org8>` y enumeración de organizaciones para los trabajos | Una actualización de wasichai puede romper consultas o trabajos | Un solo módulo resuelve tablas por la metadata; compuerta de permisos con pruebas; la enumeración usa `TenantDirectory` (UPS-17, adoptada), aislado en `sgspe.common`. El SQL de las tablas físicas no es solo de agregación: `DependentsDeleteGuard` también las lee (con el tenant de la escritura, identificadores entrecomillados y valores enlazados) porque wasichai responde 500 al borrar un padre con hijos obligatorios (NOT NULL con ON DELETE SET NULL); se acepta hasta que lo corrija upstream (UPS-20). `UserReferenceGuard` lee además la tabla `users` de la metadata de wasichai (por organización y correo, con valores enlazados) porque el único buscador público es global y falla con el mismo correo en dos tenants, y el listado de usuarios exige `MANAGE_ORGANIZATION`; se acepta hasta UPS-21 | RQ-GIS-017, RQ-DSH-031, UPS-17, UPS-20, UPS-21 [WAS-ADR-0004] [WAS-ADR-0036] |
 | 4 | Deriva del modelo por ediciones en `/admin` | Producción distinta del repositorio, sin auditoría de metadata | `apply.py` resincroniza; el repositorio es la fuente de verdad | GAP-030, UPS-02, RNF-MNT-002 |
-| 5 | Escrituras concurrentes por la API genérica: el `PUT` reemplaza el registro | Se pierden cambios (gana el último) | Precondición sobre `updatedAt` en el portal y en los comandos | UPS-04, ASM-035, RNF-INT-003 |
+| 5 | Escrituras concurrentes por la API genérica: el `PUT` reemplaza el registro | Se pierden cambios (gana el último) | Precondición sobre `updatedAt` en el portal y en los comandos; por la API genérica, wasichai la compara en la propia escritura con la versión leída y las que la siguieron por saltos exactos de derivados (ADR-0027) | UPS-04, ASM-035, ASM-091, RNF-INT-003 |
 | 6 | Listeners no atómicos por la API genérica | Derivados desactualizados por un rato | Recalculadores idempotentes y `DerivedFieldsJob` | [domain-model §7.5] |
 | 7 | LibreOffice pagina y numera distinto que Word; fuentes sin licencia | Entregables con otro aspecto que DOC-01 | Pico técnico en F1, constructos de Word restringidos, fuentes métricamente compatibles | ASM-014, ASM-055, RQ-SEC-019 |
 | 8 | GeoServer pasa a ser necesario para emitir mapas y su WMS no autentica | Emisión bloqueada si cae; fuga si se expone | Red interna, proxy autenticado con lista blanca, solo capas no sensibles; el borrador muestra un aviso | ASM-038, RQ-SEC-011, RQ-REP-030 |

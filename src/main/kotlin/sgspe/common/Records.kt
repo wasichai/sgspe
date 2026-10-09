@@ -12,6 +12,7 @@ import wasichai.core.common.PageResponse
 import wasichai.core.common.ValidationException
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordCriterion
+import wasichai.core.data.RecordETag
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordRequest
 import wasichai.core.data.RecordResponse
@@ -41,7 +42,9 @@ class Records(
     relatedService: ObjectProvider<RelatedRecordService>,
     workflowService: ObjectProvider<WorkflowService>,
     private val metadata: MetadataService,
-    private val callers: Callers
+    private val callers: Callers,
+    private val catalog: ModelCatalog,
+    private val derivedVersions: DerivedVersions
 ) {
     private val records by lazy { recordService.getObject() }
     private val related by lazy { relatedService.getObject() }
@@ -156,7 +159,12 @@ class Records(
     // los campos del objeto.
     // no es atómico: entre el get y el update otra escritura puede caer y revertirse en los campos que patch no nombró
     // (api.md §3.6 acepta la ventana hasta UPS-04). un trabajo de fondo que cambia un registro que una persona también
-    // edita corre dentro de Transactions.locked("<objeto>:<id>"), que al menos serializa el código de sgspe
+    // edita corre dentro de Transactions.locked("<objeto>:<id>"), que al menos serializa el código de sgspe.
+    // salvo una escritura de solo derivados (todo lo que nombra es "derived" en model.json y no trae geometrías): esa es
+    // la mezcla de wasichai (RecordService.patch), que escribe solo esos campos, condicionada al updatedAt que leyó; vuelve
+    // a leer si otra ganó y deja su salto de versión en derived_version, así el If-Match de quien leyó antes la sigue
+    // aceptando y el de quien leyó otra cosa no. tras tres pérdidas escribe la mezcla sin condición y sin salto (P61,
+    // ADR-0027, DerivedWrite)
     suspend fun patch(
         objectName: String,
         id: UUID,
@@ -181,10 +189,31 @@ class Records(
                 denied.map { FieldViolation(it, "no es un campo de $objectName que quien llama pueda escribir") }
             )
         }
+        if (geometries.isEmpty() && changes.isNotEmpty() && catalog.derivedFields(objectName).containsAll(changes.keys)) {
+            val organizationId = organizationId()
+            // la mezcla de wasichai [WAS-ADR-0051]: escribe solo los derivados nombrados, con las mismas guardas que un PUT
+            val derived = RecordRequest(changes)
+            return DerivedWrite.conditioned(
+                stored = { records.get(objectName, id) },
+                versionOf = { it.updatedAt },
+                write = { _, expected -> withContext(SgspeWrite) { records.patch(objectName, id, derived, reason, expected) } },
+                writtenVersion = { it.updatedAt },
+                record = { jump -> derivedVersions.record(organizationId, objectName, id, jump) },
+                fallback = { withContext(SgspeWrite) { records.patch(objectName, id, derived, reason) } },
+                stale = { it.message == RecordETag.stale(id).message && it.violations.any { v -> v.field == RecordETag.IF_MATCH } }
+            )
+        }
         val stored = records.get(objectName, id).attributes
         val body = stored.filterKeys { it in writable } + changes
         return withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason) }
     }
+
+    // la organización de quien escribe, en el orden de RecordService.caller(): la del trabajo de fondo en curso, o la de la
+    // persona
+    private suspend fun organizationId(): UUID =
+        currentCoroutineContext()[PlatformOrganization]?.id
+            ?: callers.userOrNull()?.organizationId
+            ?: error("Records sin usuario ni contexto de plataforma: use Records.asPlatform(organizationId) { … }")
 
     private class WritableField(
         val name: String,
@@ -221,13 +250,25 @@ class Records(
         reason: String?
     ) = withContext(SgspeWrite) { related.link(objectName, id, relationship, otherId, reason) }
 
-    // los registros del otro lado de una relación, como los ve quien llama
+    // deshace un vínculo MANY_TO_MANY, como quien llama y con la marca (las evidencias, desde F3)
+    suspend fun unlink(
+        objectName: String,
+        id: UUID,
+        relationship: String,
+        otherId: UUID,
+        reason: String?
+    ) = withContext(SgspeWrite) { related.unlink(objectName, id, relationship, otherId, reason) }
+
+    // los registros del otro lado de una relación, como los ve quien llama. con `max`, la lectura es acotada como en `all`: más
+    // de `max` vínculos es un 400 TOO_MANY_RECORDS en `field`, nunca una lista recortada
     suspend fun related(
         objectName: String,
         id: UUID,
-        relationship: String
+        relationship: String,
+        max: Int? = null,
+        field: String = TOO_MANY_FIELD
     ): List<RecordResponse> =
-        relatedPages { query ->
+        relatedPages(max?.let { { size: Int -> if (size > it) throw tooMany(relationship, it, field) } }) { query ->
             related
                 .relatedRecords(objectName, id, relationship, query)
                 .second.content
@@ -245,13 +286,18 @@ class Records(
             related.relatedRows(organizationId, objectName, id, relationship, query).second.content
         }
 
-    // recorre las páginas de una relación (sin cursor: la relación se pagina por número) hasta una incompleta
-    private suspend fun <T> relatedPages(fetch: suspend (RecordQuery) -> List<T>): List<T> {
+    // recorre las páginas de una relación (sin cursor: la relación se pagina por número) hasta una incompleta; `check` mira el
+    // tamaño acumulado después de cada página (el tope de `related`) y deja de leer en cuanto lo pasa
+    private suspend fun <T> relatedPages(
+        check: ((Int) -> Unit)? = null,
+        fetch: suspend (RecordQuery) -> List<T>
+    ): List<T> {
         val rows = mutableListOf<T>()
         var page = 0
         do {
             val content = fetch(RecordQuery(page = PageRequest.of(page, PageRequest.MAX_SIZE), sort = "id"))
             rows += content
+            check?.invoke(rows.size)
             page++
         } while (content.size >= PageRequest.MAX_SIZE)
         return rows

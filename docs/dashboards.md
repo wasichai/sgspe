@@ -56,9 +56,10 @@ Todos los tableros comparten una fila de filtros sobre todos sus gráficos (RQ-D
 | Organización | Implícita: el tenant del token | Solo se leen las tablas de la organización | RQ-SEC-002 |
 | Proyecto | `project`, uno o varios | Por la relación `project` de cada objeto. Por defecto, los proyectos con `project_assignment` vigente de la persona (`active` y, si tiene fechas, hoy en Lima entre ellas) o, si no tiene asignaciones vigentes, todos los que puede leer; el `ADMIN`, todos los proyectos. Quien tuvo asignaciones y se le vencieron pasa a ver todos los que puede leer | RF-PRJ-005, RQ-SEC-006 |
 | Periodo | `periodStart`, `periodEnd` | Fechas en America/Lima; por defecto, el mes en curso. Las series mensuales cubren los 12 meses que terminan en `periodEnd` | RNF-I18N-002 |
-| Territorio | `locality`, `community`, `administrativeUnit`, `areaOfInfluence` | Por las relaciones `locality` y `community` de cada objeto. Una localidad incluye sus sectores (`parent_locality`); una unidad administrativa, sus localidades y unidades hijas; un área de influencia, los miembros de su versión `approved`. `stakeholder` no tiene `community`: los KPI-STK no aplican ese filtro y lo informan en `ignoredFilters`, nunca con un cero (ruling P27) | RF-TER-002, RF-TER-005 |
+| Territorio | `locality`, `community`, `administrativeUnit`, `areaOfInfluence` | Por las relaciones `locality` y `community` de cada objeto. Una localidad incluye sus sectores (`parent_locality`); una unidad administrativa, sus localidades y unidades hijas; un área de influencia, los miembros de su versión `approved`. `stakeholder` no tiene `community`: los KPI-STK no aplican ese filtro y lo informan en `ignoredFilters`, nunca con un cero | RF-TER-002, RF-TER-005 |
 | Ámbito | `scope` | En los indicadores de grupos de interés y de participantes, por `stakeholder_scope` o `participant_scope`. En los demás, AIDS y AIIS se traducen a las localidades y comunidades miembros del área de influencia aprobada de ese tipo; REGIONAL y NACIONAL solo filtran grupos de interés | RQ-DSH-001, ASM-040 |
-| Campaña | `explorationCampaign` | Solo en compromisos e inversión social. En F2 se acepta, no filtra ningún indicador y cada uno lo informa en `ignoredFilters` | RF-PRJ-004 |
+| Campaña | `explorationCampaign` | Solo en compromisos e inversión social: desde F3 la aplican KPI-COM-01 a KPI-COM-05 y KPI-COM-10. Los demás indicadores la aceptan, no la aplican y lo informan en `ignoredFilters` | RF-PRJ-004 |
+| Responsable | `owner` | Por `owner_user_id` del compromiso, en KPI-COM-03, KPI-COM-04, KPI-COM-06 y KPI-COM-09; los demás indicadores lo declaran en `ignoredFilters` | RQ-DSH-019 |
 
 Lo "local" de la Tabla 9.5 corresponde a AIDS más AIIS: el ámbito del grupo de interés y el ámbito de acción son datos distintos
 (CON-016, ASM-040).
@@ -180,7 +181,7 @@ qué cortes ofrece; **Actualización**, según §3.4; **Fase**, cuándo aparece 
 |---|---|---|---|---|---|---|---|---|
 | KPI-COM-01 | Compromisos registrados | Todos los compromisos del filtro | Número de `commitment` en cualquier estado, con desglose por estado de WF-D | `commitment.workflow_state` | Proyecto, territorio, campaña | RQ-DSH-018 | Vivo | F3 |
 | KPI-COM-02 | Compromisos abiertos | Compromisos que todavía no se cierran ni se cancelan | Número de `commitment` abiertos (§3.2) | `commitment.workflow_state` | Proyecto, territorio, campaña | RQ-DSH-018, RQ-DSH-002 | Vivo | F3 |
-| KPI-COM-03 | Compromisos vencidos | Compromisos pendientes de cumplimiento cuyo plazo venció | Número de `commitment` pendientes de cumplimiento con `deadline_status` VENCIDO; desglose por días de atraso con los umbrales de escalamiento del proyecto (`escalation_first_days` y `escalation_second_days`, 7 y 15 por defecto, ASM-030) | `commitment.deadline_status`, `workflow_state`, `due_date`; `project.escalation_first_days`, `escalation_second_days` | Proyecto, territorio, campaña, responsable | RQ-DSH-018, RQ-DSH-002, RN-WFL-001, RF-WFL-004 | Vivo (plazo horario) | F3 |
+| KPI-COM-03 | Compromisos vencidos | Compromisos pendientes de cumplimiento cuyo plazo venció | Número de `commitment` pendientes de cumplimiento con `deadline_status` VENCIDO; desglose por días de atraso (`1-7`, `8-15`, `más de 15` con los umbrales por defecto) con los umbrales de escalamiento del proyecto (`escalation_first_days` y `escalation_second_days`, 7 y 15 por defecto, ASM-030): las claves `OVERDUE_FIRST`, `OVERDUE_SECOND` y `OVERDUE_OVER` no cambian entre proyectos, y la etiqueta lleva los días solo si todos los compromisos comparten umbrales | `commitment.deadline_status`, `workflow_state`, `due_date`; `project.escalation_first_days`, `escalation_second_days` | Proyecto, territorio, campaña, responsable | RQ-DSH-018, RQ-DSH-002, RN-WFL-001, RF-WFL-004 | Vivo (plazo horario) | F3 |
 | KPI-COM-04 | Compromisos por vencer | Compromisos pendientes cuyo plazo vence pronto | Número de `commitment` pendientes de cumplimiento con `deadline_status` POR VENCER (`due_soon_days`, 7 días por defecto, ASM-006) | `commitment.deadline_status`, `workflow_state`, `due_date`; `project.due_soon_days` | Proyecto, territorio, campaña, responsable | RQ-DSH-018 | Vivo (plazo horario) | F3 |
 | KPI-COM-05 | Compromisos cumplidos en el periodo | Compromisos entregados con conformidad en el periodo | Número de `commitment` cumplidos (§3.2) con `fulfilled_date` en el periodo | `commitment.fulfilled_date`, `workflow_state` | Proyecto, periodo, territorio, campaña | RQ-DSH-018 | Vivo | F3 |
 | KPI-COM-06 | Compromisos bloqueados | Compromisos detenidos | Número de `commitment` en `blocked` | `commitment.workflow_state` | Proyecto, territorio, responsable | RQ-DSH-018 | Vivo | F3 |
@@ -449,9 +450,9 @@ flowchart LR
    ejecutiva por proyecto o el resumen territorial), se usa SQL de agregación sobre las tablas del propio tenant, resueltas
    desde la metadata. Va detrás de la misma compuerta de permisos que las consultas espaciales: READ sobre cada objeto, lectura de
    cada campo usado, registros propios y alcance (RQ-GIS-017). No hay requisito de volumen hasta que se responda GAP-027.
-4. **Sin vistas materializadas ni tablas de instantáneas.** El DDL de negocio solo nace de la metadata por `ObjectSchemaManager`,
-   y las únicas tablas fijas son `notification`, `notification_delivery`, `knowledge_chunk` e `idempotency_key` (§4.10 del
-   modelo de dominio) [WAS-ADR-0003].
+4. **Sin vistas materializadas ni tablas de instantáneas.** El DDL de negocio solo nace de la metadata por
+   `ObjectSchemaManager`, y las únicas tablas fijas son `knowledge_chunk`, `idempotency_key` y `derived_version` (§4.10
+   del modelo de dominio) [WAS-ADR-0003].
 5. **Historia desde los registros.** Las series usan las fechas de los eventos (`held_at`, `received_at`, `published_date`,
    `assessment_date`, `delivery_date` y las fechas derivadas de transición de §12) y los objetos append-only: las evaluaciones
    mensuales de grupos de interés, las revisiones semanales de riesgos y las reprogramaciones (RQ-AUD-003).
@@ -500,7 +501,15 @@ como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestr
       "available": true,
       "value": 7,
       "unit": "compromisos",
-      "breakdowns": [{ "by": "daysOverdue", "rows": [{ "key": "1-7", "value": 4 }, { "key": "8-15", "value": 3 }] }],
+      "breakdowns": [
+        {
+          "by": "daysOverdue",
+          "rows": [
+            { "key": "OVERDUE_FIRST", "label": "1-7", "value": 4 },
+            { "key": "OVERDUE_SECOND", "label": "8-15", "value": 3 }
+          ]
+        }
+      ],
       "warnings": []
     },
     {

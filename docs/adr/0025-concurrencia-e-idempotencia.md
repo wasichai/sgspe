@@ -2,7 +2,9 @@
 
 ## Estado
 
-Propuesto · 2026-10-07 · se acepta al iniciar F2
+Propuesto · 2026-10-07 · se acepta al iniciar F2. La idempotencia la reemplaza en F3 la decisión D3 del usuario
+(2026-10-09): el contrato de la cabecera nativa de wasichai (WAS-ADR-0058), que describe abajo «Idempotencia». La
+concurrencia la completa ADR-0027
 
 ## Contexto
 
@@ -56,18 +58,18 @@ Propuesto · 2026-10-07 · se acepta al iniciar F2
 
 **Idempotencia** ([api.md §3.5](../api.md)) (RNF-INT-002, ASM-065):
 
-- Los `POST` de `/api/sgspe/**` que crean registros (marca `IK`) admiten `Idempotency-Key`, de 1 a 64 caracteres, que el
-  portal genera por acción del usuario y repite en cada reintento.
-- Se honra desde F3, cuando llega la tabla fija `idempotency_key` ([database-model.md](../database-model.md)); en F2 la cabecera
-  se acepta y se ignora, así que el portal la envía desde F2 sin cambiar después.
-- Primera petición: se procesa como siempre. Reenvío con la misma ruta y el mismo SHA-256 del cuerpo: `200` sin escribir nada,
-  con la respuesta reconstruida **releyendo** en su estado actual los registros que guarda la clave (`created_object`,
-  `created_record_ids`); lo calculado que no se reconstruye se recalcula si se puede y, si no, se omite. La misma clave con otra
-  petición: `409` que nombra `Idempotency-Key`.
-- Dos peticiones simultáneas con la misma clave se serializan con `ClusterLock.withXactLock` sobre la clave.
-- La clave vale por organización y usuario, se escribe en la transacción del comando, no guarda el cuerpo sino su SHA-256 y se
-  purga después de un plazo configurable, con JOB-08 desde F3.
-- Las altas de la API genérica no son idempotentes hasta UPS-18.
+- Los comandos de `/api/sgspe/**` marcados `IK` honran `Idempotency-Key`, de 1 a 128 caracteres ASCII imprimibles, que
+  el portal genera por acción del usuario y repite en cada reintento.
+- Desde F3, con el contrato de la cabecera nativa de wasichai (decisión D3, WAS-ADR-0058): la primera petición corre y
+  su respuesta se guarda en la tabla fija `idempotency_key` en la misma transacción; un reenvío con la misma petición
+  (mismo método, ruta y cuerpo) recibe esa respuesta byte por byte con `Idempotent-Replayed: true`, sin correr nada; la
+  misma clave con otra petición es un `422`, y una petición con la clave en curso, un `409` con `Retry-After`, porque el
+  candado de la clave no espera.
+- La clave vale por organización y usuario, no guarda el cuerpo de la petición sino su SHA-256, y JOB-08 la purga
+  después de `wasichai.idempotency.ttl`, el mismo plazo de la clave nativa.
+- El alta de la API genérica la honra con la tabla nativa de wasichai (UPS-18 resuelta en 0.6.0).
+- Antes de D3, esta decisión pedía 64 caracteres, un `409` para otra petición, esperar el candado y reconstruir el
+  reenvío releyendo los registros (`created_object`, `created_record_ids`): todo eso se retiró.
 
 ## Consecuencias
 
@@ -82,15 +84,17 @@ Propuesto · 2026-10-07 · se acepta al iniciar F2
 - Por la API genérica queda una ventana entre la comparación y la escritura hasta UPS-04
   ([architecture.md §14](../architecture.md), riesgo 5).
 - Si la serialización de wasichai recorta la precisión de `updatedAt`, dos escrituras en la misma unidad no se distinguen.
-- Un reenvío devuelve el estado actual de los registros, no el de la primera respuesta.
+- Un reenvío devuelve la primera respuesta, no el estado actual de los registros; la tabla la guarda, con los campos que
+  quien llamó podía leer, hasta el fin del plazo ([security.md §11.6](../security.md)).
 
 ### Seguimiento
 
 - La purga de `idempotency_key` la hace JOB-08 desde F3 ([workflows.md](../workflows.md)).
 - Abiertos: UPS-04 (F2) y UPS-18 (F3), que retiran la comprobación propia y la tabla; CON-047; GAP-028.
 - Se acepta al iniciar F2 (precondición, y la cabecera de idempotencia aceptada); la idempotencia se honra desde F3.
-- Pruebas: las de integración de cada endpoint de `/api/sgspe/**` contra PostGIS real (RNF-TST-001), que cubren `428`, `412`,
-  el reenvío con `200` y la clave repetida con `409`.
+- Pruebas: las de integración de cada endpoint de `/api/sgspe/**` contra PostGIS real (RNF-TST-001), que cubren `428`,
+  `412`, el reenvío con los mismos bytes, la clave repetida con `422` y la clave en curso con `409`
+  (`IdempotencyApiTest`).
 
 ## Referencias
 

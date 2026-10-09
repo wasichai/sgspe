@@ -43,7 +43,9 @@ class RecordsCapTest {
             provider<RelatedRecordService>(null),
             provider<WorkflowService>(null),
             mock(MetadataService::class.java),
-            mock(Callers::class.java)
+            mock(Callers::class.java),
+            mock(ModelCatalog::class.java),
+            mock(DerivedVersions::class.java)
         )
 
     @Test
