@@ -22,6 +22,17 @@ dependencies {
     // (workflows.md)
     implementation("wasichai:wasichai-spring-boot-starter-gis")
     implementation("wasichai:wasichai-spring-boot-starter-workflow")
+    // F3: automatizaciones (AUT-NN, AutomationDrain), documentos emitidos (RQ-REP-029), campos FILE con su
+    // almacenamiento (D1, WAS-ADR-0061) y notificaciones con su canal de correo (D2, WAS-ADR-0046 y 0060)
+    implementation("wasichai:wasichai-spring-boot-starter-automation")
+    implementation("wasichai:wasichai-spring-boot-starter-documents")
+    implementation("wasichai:wasichai-spring-boot-starter-files")
+    implementation("wasichai:wasichai-spring-boot-starter-notifications")
+    // wasichai.files.store=s3 (MinIO en desarrollo, ADR-0014): el cliente asíncrono del AWS SDK v2, alineado por su BOM
+    implementation(platform("software.amazon.awssdk:bom:2.55.10"))
+    implementation("software.amazon.awssdk:s3")
+    // el canal de correo de wasichai-notifications pide un MailSender (spring.mail.*, GAP-021)
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // sgspe.territory lee hojas XLSX y sgspe.privacy las escribe (RQ-REP-022); 5.4 o superior por CVE-2025-31672
     // (platform-fit.md §6)
@@ -29,6 +40,9 @@ dependencies {
 
     // WasichaiIntegrationTest; brings spring-boot-starter-test, webflux-test and testcontainers
     testImplementation("wasichai:wasichai-test")
+    // el contrato del almacenamiento S3 contra un MinIO de Testcontainers (FileStoreContractTest); versión del BOM de
+    // Testcontainers que trae Spring Boot
+    testImplementation("org.testcontainers:testcontainers-minio")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -67,7 +81,9 @@ tasks.named<Test>("test") {
     systemProperty("sgspe.jobs.enabled", "false")
     // un shell con develop/.env cargado trae estas variables: ProdStartupTest prueba el perfil prod con sus propios valores y
     // una variable de entorno gana a lo que él fija, así que el JVM de las pruebas no las ve
-    for (name in listOf("WASICHAI_JWT_SECRET", "WASICHAI_SEED_DEV", "WASICHAI_SECURITY_JWT_TTL")) {
+    val fromEnvFile =
+        listOf("WASICHAI_JWT_SECRET", "WASICHAI_SEED_DEV", "WASICHAI_SECURITY_JWT_TTL", "WASICHAI_FILES_STORE", "WASICHAI_FILES_S3_BUCKET")
+    for (name in fromEnvFile) {
         environment.remove(name)
     }
 }
@@ -85,6 +101,7 @@ tasks.register<Test>("integrationTest") {
     systemProperty("wasichai.test.db.image", "postgis/postgis:18-3.6")
     // sin programación de trabajos: una vuelta programada con el candado de clúster haría que runOnce devolviera null
     systemProperty("sgspe.jobs.enabled", "false")
+    integrationDefaults()
     // -Dmatrix.roles=FIELD_AGENT,GIS_ANALYST recorta la matriz de permisos a esos roles (PermissionMatrixApiTest)
     System.getProperty("matrix.roles")?.let { systemProperty("matrix.roles", it) }
     // la app registra en stdout; stderr lleva solo lo que una prueba reporta
@@ -95,6 +112,24 @@ tasks.register<Test>("integrationTest") {
     // vuelve a correr la suite, nunca un verde de caché
     inputs.files(fileTree("model") { include("**/*.py", "**/*.json") })
     shouldRunAfter(tasks.named("test"))
+}
+
+// lo que la integración fija para los módulos de F3, como propiedades del sistema, que ganan a las variables de
+// develop/.env (en `test` no: ProdStartupTest necesita que application-prod.yml decida el almacenamiento): los archivos
+// en una carpeta de build (sin MinIO: el almacenamiento S3 lo prueba FileStoreContractTest), sin la limpieza de archivos
+// ni el bucle de notificaciones, que recorrerían todos los tenants de la base compartida, y sin correo
+fun Test.integrationDefaults() {
+    systemProperty("wasichai.files.store", "local")
+    systemProperty(
+        "wasichai.files.local.path",
+        layout.buildDirectory
+            .dir("wasichai-files")
+            .get()
+            .asFile.path
+    )
+    systemProperty("wasichai.files.cleanup.interval", "0s")
+    systemProperty("wasichai.notifications.tick", "0s")
+    systemProperty("wasichai.notifications.email.enabled", "false")
 }
 
 // un jar ejecutable con nombre fijo

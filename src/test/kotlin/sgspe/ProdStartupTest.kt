@@ -8,7 +8,8 @@ import org.springframework.boot.builder.SpringApplicationBuilder
 import sgspe.prod.ProdGuard
 
 // RQ-SEC-001 y RQ-SEC-016: el perfil prod no arranca con el secreto ausente, con el secreto de desarrollo, con la semilla
-// encendida ni con un token de 8 horas o más. levanta la app de verdad (SgspeApplication), pero sin alcanzar ninguna base:
+// encendida, con un token de 8 horas o más ni sin el bucket de las evidencias (ADR-0014). levanta la app de verdad
+// (SgspeApplication), pero sin alcanzar ninguna base:
 // el puerto de la base es uno cerrado, así que cada caso solo pasa si el contexto cae por su causa y no por la conexión.
 // ProdGuard corre como EnvironmentPostProcessor, antes de crear el contexto y por tanto antes de Flyway (la semilla de
 // wasichai 0.3.2 es una migración): el mensaje de la causa es el de la guarda, no uno de Flyway ni de la conexión. es
@@ -34,6 +35,8 @@ class ProdStartupTest {
                             "WASICHAI_DB_NAME=prueba",
                             "WASICHAI_DB_USERNAME=prueba",
                             "WASICHAI_DB_PASSWORD=prueba",
+                            // el bucket de las evidencias (ADR-0014): sin él, ProdGuard sumaría su causa a la de cada caso
+                            "WASICHAI_FILES_S3_BUCKET=prueba",
                             secret?.let { "WASICHAI_JWT_SECRET=$it" }
                         ).toTypedArray()
                     ).run(*args)
@@ -73,6 +76,12 @@ class ProdStartupTest {
         val messages = start(secret = ProdGuard.DEV_SECRET)
         assertOnlyCause(messages, "secreto de desarrollo", listOf("WASICHAI_SEED_DEV", "wasichai.security.jwt.ttl"))
         assertTrue(messages.any { it.contains("wasichai.security.jwt.secret") && it.contains("WASICHAI_JWT_SECRET") }, messages.toString())
+    }
+
+    @Test
+    fun `sin el bucket de las evidencias el perfil prod no arranca`() {
+        val messages = start("--WASICHAI_FILES_S3_BUCKET=")
+        assertOnlyCause(messages, "WASICHAI_FILES_S3_BUCKET", listOf("WASICHAI_SEED_DEV", "secreto de desarrollo", "wasichai.security.jwt.ttl"))
     }
 
     @Test

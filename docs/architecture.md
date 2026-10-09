@@ -177,7 +177,7 @@ Cada módulo de wasichai es un starter del backend más un paquete del frontend;
 |---|---|---|---|
 | F1 | `wasichai-spring-boot-starter` (core), `-views`, `-forms`, `-pages`; `wasichai-test` en pruebas | `@wasichai/core`, `@wasichai/ui`, `@wasichai/views`, `@wasichai/forms`, `@wasichai/pages`, `@wasichai/testing` | El conjunto de administración y diseño de caja; identidad, auditoría y errores ya vienen en core (CON-053) |
 | F2 | + `-gis`, + `-workflow` | + `@wasichai/gis` (con `maplibre-gl` 6.10.0 y su worker), + `@wasichai/workflow` | Primeras geometrías (proyecto, comunidad, área de influencia) y primeros ciclos de vida (WF-A, WF-B, WF-C, WF-L, WF-O) (CON-036) |
-| F3–F4 | + `-automation`, + `-documents` | + `@wasichai/automation`, + `@wasichai/documents` | Tareas al aprobar o recibir (automatizaciones de metadata) y documentos administrativos de un registro (RQ-REP-029) |
+| F3–F4 | + `-automation`, + `-documents`, + `-files`, + `-notifications`; AWS SDK v2 (S3) y `spring-boot-starter-mail` | + `@wasichai/automation`, + `@wasichai/documents` | Tareas al aprobar o recibir (automatizaciones de metadata), documentos administrativos de un registro (RQ-REP-029), el campo `FILE` de las evidencias (ADR-0014) y las notificaciones con su canal de correo (ADR-0018) |
 | F7 | + `-agent` | Ninguno: el portal pregunta por `/api/sgspe/ai/**` y `/admin` no registra `agentModule()` (`ai-architecture.md`) | Asistente de solo lectura de AI-05 sobre Embabel, llamado en proceso por `sgspe.ai` (RF-AIK-005) |
 
 - La imagen `postgis/postgis:18-3.6` se usa desde F1 en el entorno y en las pruebas: instalar wasichai-gis en F2 solo
@@ -645,9 +645,10 @@ flowchart LR
 | Producción | Por definir (GAP-022) | Solo el proxy expone 443 | PostgreSQL 18 con PostGIS 3.6 | §10 |
 
 - Los puertos 8094, 5182 y 5435 se eligieron libres frente a las otras apps de wasichai que corren en el mismo entorno; los
-  fija ADR-0026 junto con la topología de cada entorno.
-- Los servicios de apoyo se agregan al `compose.yml` en la fase que los necesita: almacenamiento S3 y servidor SMTP de
-  prueba en F3, GeoServer en F6 y Gotenberg en F8; el pico técnico de F1 los levanta solo para probar la ruta de entregables
+  fija ADR-0026 junto con la topología de cada entorno. Desde F3, el desarrollo publica también MinIO en 9095 (API) y
+  9096 (consola) y Mailpit en 1029 (SMTP) y 8029 (web), en el loopback del VPS y por túnel.
+- Los servicios de apoyo se agregan al `compose.yml` en la fase que los necesita: almacenamiento S3 (MinIO) y servidor SMTP
+  de prueba (Mailpit) en F3, GeoServer en F6 y Gotenberg en F8; el pico técnico de F1 los levanta solo para probar la ruta de entregables
   (ASM-014, ASM-038).
 - Las credenciales de GitHub Packages para descargar wasichai van en variables de entorno, nunca en archivos del
   repositorio; los paquetes Maven son públicos y los npm son internos, así que la CI de `sgspe-ui` necesita un token de

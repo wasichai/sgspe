@@ -524,13 +524,14 @@ pasó de 0.3.2 a 0.6.0 el 2026-10-09 (§4.3); `@wasichai/*` se actualiza en `sgs
 | Node y Yarn | Node 26 o superior; Yarn 1 (`yarn.lock` v1) | F1 | WAS-DOC guides/build-your-app.md (Node); caja-ui (Yarn) |
 | Apache POI (`poi-ooxml`) | 5.4 o superior (incluye la corrección de CVE-2025-31672) | F2 (exportaciones XLSX) | RQ-REP-022, ASM-014 |
 | commonmark-java con tablas GFM | Por fijar en F8 | F8 | ASM-014 |
-| AWS SDK v2 (S3) | Por fijar en F3 | F3 | ASM-013 |
+| AWS SDK v2 (S3) | 2.55.10 (`software.amazon.awssdk:bom`), el cliente asíncrono que usa wasichai-files | F3 | ASM-013 |
 | PDFBox | 3, solo en pruebas | F8 | RQ-REP-017 |
 | ECharts | 6 | F2 | RQ-DSH-035, ASM-046 |
 | GDAL (`gdal-bin` en la imagen del backend) | Por fijar en F6 | F6 | RQ-GIS-018, ASM-056 |
 | Gotenberg | `gotenberg/gotenberg:8-libreoffice` | F8 (pico técnico en F1) | ASM-014 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1` | F6 | ASM-038 |
-| MinIO | Solo en desarrollo, por su licencia AGPL | F3 | ASM-013, GAP-022 |
+| MinIO | `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` y `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`, solo en desarrollo y en las pruebas, por su licencia AGPL | F3 | ASM-013, GAP-022 |
+| Mailpit (SMTP de prueba) | `axllent/mailpit:v1.31.2`, solo en desarrollo | F3 | GAP-021 |
 
 No se usan iText (AGPL), Aspose, Highcharts ni fuentes de Microsoft sin licencia dentro de los contenedores; los mapas base
 de Esri sin licencia tampoco (RQ-GIS-013, ASM-055).

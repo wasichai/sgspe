@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: sgspe
+  mail:
+    # el canal de correo de wasichai-notifications (GAP-021): Mailpit de compose.yml en desarrollo, por el túnel
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1029}
   webflux:
     multipart:
       # el único multipart es la importación (api.md §4.2). Spring guarda en disco la parte de archivo antes de entregarla:
@@ -34,6 +38,30 @@ wasichai:
     jwt:
       # solo para desarrollo. producción exige WASICHAI_JWT_SECRET (>= 32 bytes) sin valor por defecto (application-prod.yml)
       secret: ${WASICHAI_JWT_SECRET:sgspe-dev-only-secret-change-me-0123456789}
+  files:
+    # D1 (ADR-0014, WAS-ADR-0061): el campo FILE de evidence. local guarda en una carpeta (una sola réplica, sin compose);
+    # s3 usa el MinIO de compose.yml en desarrollo y un servicio compatible con S3 en producción (application-prod.yml)
+    store: ${WASICHAI_FILES_STORE:local}
+    # tope de un archivo, el mismo de las importaciones (RQ-SEC-020): por debajo de max-disk-usage-per-part de Spring
+    max-bytes: 20MB
+    local:
+      path: ${WASICHAI_FILES_LOCAL_PATH:build/wasichai-files}
+    s3:
+      bucket: ${WASICHAI_FILES_S3_BUCKET:sgspe-evidencias}
+      endpoint: ${WASICHAI_FILES_S3_ENDPOINT:http://localhost:9095}
+      region: ${WASICHAI_FILES_S3_REGION:us-east-1}
+      # access-key y secret-key sin valor por defecto: para el MinIO de compose.yml, develop/.env (example.env); sin ellas
+      # rige la cadena de credenciales del SDK
+      # MinIO pide URL con la ruta del bucket; AWS S3 acepta las dos
+      path-style-access: ${WASICHAI_FILES_S3_PATH_STYLE_ACCESS:true}
+  notifications:
+    # D2 (ADR-0018, WAS-ADR-0046 y 0060): bandeja, SSE y correo. el día de las reglas de fecha empieza en Lima
+    zone: America/Lima
+    email:
+      # GAP-021: el servidor de prueba de compose.yml (Mailpit) en desarrollo; apagado si no se define
+      enabled: ${WASICHAI_NOTIFICATIONS_EMAIL_ENABLED:false}
+      from: ${WASICHAI_NOTIFICATIONS_EMAIL_FROM:avisos@sgspe.test}
+      subject-prefix: '[SGSPE] '
 
 sgspe:
   territory:
@@ -71,3 +99,7 @@ management:
       # /actuator/health/liveness y /actuator/health/readiness, públicos en la cadena de wasichai (ADR-0026)
       probes:
         enabled: true
+  health:
+    mail:
+      # el SMTP es un canal de entrega con reintentos (wasichai-notifications): si no responde, la app sigue sana
+      enabled: false
