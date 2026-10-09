@@ -34,6 +34,16 @@ wasichai:
       require-digit: true
       require-symbol: true
       not-equal-email: true
+  files:
+    # las evidencias en un servicio compatible con S3, nunca en el disco de una réplica (ADR-0014). sin bucket la app no
+    # arranca (ProdGuard); el endpoint y las credenciales vacíos usan los de AWS y su cadena por defecto
+    store: s3
+    s3:
+      bucket: ${WASICHAI_FILES_S3_BUCKET:}
+      endpoint: ${WASICHAI_FILES_S3_ENDPOINT:}
+      access-key: ${WASICHAI_FILES_S3_ACCESS_KEY:}
+      secret-key: ${WASICHAI_FILES_S3_SECRET_KEY:}
+      path-style-access: ${WASICHAI_FILES_S3_PATH_STYLE_ACCESS:false}
 
 server:
   # el despliegue siempre está detrás del proxy inverso (ADR-0026): sin esto remoteAddress es la del proxy y el límite de

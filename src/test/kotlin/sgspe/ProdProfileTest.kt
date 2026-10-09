@@ -51,6 +51,14 @@ class ProdProfileTest {
         assertTrue(ttl.isPositive && ttl < Duration.ofHours(8), "$ttl")
     }
 
+    // ADR-0014 (decisión D1): las evidencias van a un bucket compatible con S3, que el despliegue nombra; ProdGuard no deja
+    // arrancar sin él
+    @Test
+    fun `las evidencias van a un bucket compatible con S3 sin valor por defecto`() {
+        assertEquals("s3", value("wasichai.files.store"))
+        assertEquals("\${WASICHAI_FILES_S3_BUCKET:}", value("wasichai.files.s3.bucket"))
+    }
+
     // UPS-09 (WAS-ADR-0059): revocación de tokens, límite de intentos de login y política de contraseñas, apagados por
     // defecto en wasichai y encendidos aquí. se ligan a las clases reales de wasichai (con el mismo prefijo que ellas), así una
     // propiedad mal escrita falla en lugar de ignorarse. security.md §3.2 documenta los valores

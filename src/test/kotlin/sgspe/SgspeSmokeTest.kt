@@ -2,7 +2,12 @@ package sgspe
 
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
+import org.springframework.http.client.MultipartBodyBuilder
+import org.springframework.web.reactive.function.BodyInserters
 import wasichai.test.WasichaiIntegrationTest
+import java.security.MessageDigest
+import java.util.HexFormat
 
 // la app misma (SgspeApplication) sobre PostGIS: su salud responde, los módulos que instala responden, los que deja
 // fuera no, y lo propio de sgspe exige token (adaptado de caja-backend@dc9e391, src/test/kotlin/caja/CajaSmokeTest.kt)
@@ -59,20 +64,63 @@ class SgspeSmokeTest : WasichaiIntegrationTest() {
             .expectBody()
             .jsonPath("$.detail")
             .isEqualTo("Object '$name' has no workflow")
-        // documents, automation y agent llegan en su fase: hoy sus rutas no existen
-        listOf(
-            "/api/objects/$name/document-types",
-            "/api/automation-runs",
-            "/api/agent/status"
-        ).forEach { path ->
+        // documents, automation y notifications desde F3
+        listOf("/api/objects/$name/document-types", "/api/automation-runs", "/api/auth/me/notifications").forEach { path ->
             client
                 .get()
                 .uri(path)
                 .header(HttpHeaders.AUTHORIZATION, token)
                 .exchange()
                 .expectStatus()
-                .isNotFound
+                .isOk
         }
+        // agent llega en F7: hoy su ruta no existe
+        client
+            .get()
+            .uri("/api/agent/status")
+            .header(HttpHeaders.AUTHORIZATION, token)
+            .exchange()
+            .expectStatus()
+            .isNotFound
+    }
+
+    @Test
+    fun `files acepta un campo FILE y guarda una subida con su hash`() {
+        // D1 (WAS-ADR-0061): el tipo FILE existe en la metadata y una subida preparada responde su descriptor
+        val token = bearer()
+        val name = uniqueName("archivo")
+        client
+            .post()
+            .uri("/api/objects")
+            .header(HttpHeaders.AUTHORIZATION, token)
+            .bodyValue(
+                mapOf(
+                    "name" to name,
+                    "label" to name,
+                    "pluralLabel" to name,
+                    "fields" to listOf(mapOf("name" to "scan", "label" to "Archivo", "type" to "FILE"))
+                )
+            ).exchange()
+            .expectStatus()
+            .isCreated
+        val pdf = "%PDF-1.4\n%prueba de sgspe\n".toByteArray()
+        val parts = MultipartBodyBuilder().apply { part("file", pdf).filename("prueba.pdf") }.build()
+        client
+            .post()
+            .uri("/api/objects/$name/files/scan")
+            .header(HttpHeaders.AUTHORIZATION, token)
+            .contentType(MediaType.MULTIPART_FORM_DATA)
+            .body(BodyInserters.fromMultipartData(parts))
+            .exchange()
+            .expectStatus()
+            .isCreated
+            .expectBody()
+            .jsonPath("$.contentType")
+            .isEqualTo("application/pdf")
+            .jsonPath("$.size")
+            .isEqualTo(pdf.size)
+            .jsonPath("$.sha256")
+            .isEqualTo(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(pdf)))
     }
 
     @Test

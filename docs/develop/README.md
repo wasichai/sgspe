@@ -46,6 +46,13 @@ set -a; source develop/.env; set +a
 | `WASICHAI_CORE` | `http://localhost:8094` | URL de los scripts de `model/` |
 | `WASICHAI_EMAIL` / `WASICHAI_PASSWORD` | el administrador de desarrollo | login de esos scripts |
 | `WASICHAI_TEST_DB_*` | comentadas | pruebas de integración contra la base externa (sección 6) |
+| `WASICHAI_FILES_STORE` | `local` | dónde guarda wasichai-files los archivos de `evidence.file` (ADR-0014): `local` en `WASICHAI_FILES_LOCAL_PATH` (`build/wasichai-files`), o `s3` en el MinIO de `compose.yml`; el perfil `prod` exige `s3` (`ProdGuard`) |
+| `WASICHAI_FILES_S3_BUCKET` / `_ENDPOINT` / `_ACCESS_KEY` / `_SECRET_KEY` | `sgspe-evidencias` / `http://localhost:9095` / `sgspe` / `sgspe-minio` | el bucket y las credenciales del MinIO de desarrollo; en producción, sin valor por defecto |
+| `SGSPE_MINIO_PORT` / `SGSPE_MINIO_CONSOLE_PORT` | `9095` / `9096` | puertos que publica `compose.yml` para la API y la consola de MinIO |
+| `WASICHAI_NOTIFICATIONS_EMAIL_ENABLED` / `_FROM` | `false` / `avisos@sgspe.test` | el canal de correo de wasichai-notifications (GAP-021), apagado por defecto |
+| `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT` | `localhost` / `1029` | el SMTP de prueba (Mailpit) de `compose.yml`, por el túnel |
+| `SGSPE_SMTP_PORT` / `SGSPE_MAILPIT_PORT` | `1029` / `8029` | puertos que publica `compose.yml` para el SMTP y la web de Mailpit |
+| `SGSPE_TEST_S3_ENDPOINT` / `_ACCESS_KEY` / `_SECRET_KEY` | comentadas | el MinIO de `FileStoreContractTest` cuando Testcontainers no alcanza el Docker remoto (sección 6) |
 
 `WASICHAI_DB_*`, `WASICHAI_JWT_SECRET` y `WASICHAI_SEED_DEV` tienen el mismo valor por defecto en
 `src/main/resources/application.yml`: con la base del compose y el túnel, el servidor arranca sin cargar nada. Las demás
@@ -57,15 +64,19 @@ El Docker de desarrollo es remoto: `DOCKER_HOST` es un socket reenviado por SSH 
 su puerto en el loopback del VPS; a esta máquina llega por un túnel.
 
 ```bash
-docker compose up -d                               # postgis/postgis:18-3.6, contenedor sgspe-postgis, base sgspe
-docker compose ps                                  # debe decir healthy
-ssh -fN -L 5435:localhost:5435 "$SGSPE_VPS"        # el alias SSH del VPS
+docker compose up -d                               # postgis, MinIO (crea el bucket sgspe-evidencias) y Mailpit
+docker compose ps                                  # postgis y minio deben decir healthy; minio-init termina con 0
+ssh -fN -L 5435:localhost:5435 -L 9095:localhost:9095 -L 9096:localhost:9096 \
+    -L 1029:localhost:1029 -L 8029:localhost:8029 "$SGSPE_VPS"   # el alias SSH del VPS
 docker compose exec postgis createdb -U sgspe sgspe_test   # una sola vez: la base de las pruebas externas
 ```
 
 - `compose.yml` usa un volumen con nombre y ningún bind mount, porque el demonio es remoto.
 - Al arrancar, el servidor crea el esquema con las migraciones de wasichai. SGSPE no tiene migraciones propias en F1.
-- Los servicios de apoyo llegan con su fase: almacenamiento S3 y SMTP de prueba en F3, GeoServer en F6 y Gotenberg en F8.
+- Los servicios de apoyo llegan con su fase. Desde F3: MinIO (`sgspe-minio`, API en 9095 y consola en 9096, usuario
+  `sgspe` / `sgspe-minio`) guarda los archivos de las evidencias con `WASICHAI_FILES_STORE=s3`, y Mailpit (`sgspe-mailpit`,
+  SMTP en 1029 y web en 8029) recibe los correos de las notificaciones con `WASICHAI_NOTIFICATIONS_EMAIL_ENABLED=true`, sin
+  entregarlos. GeoServer llega en F6 y Gotenberg en F8.
 - Empezar de cero: `docker compose down -v` borra el volumen y todos los datos.
 
 ## 4. Iniciar el backend
@@ -85,10 +96,10 @@ El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre
 
 ```bash
 cd model
-python3 apply.py --validate-only        # el modelo y los workflows cumplen las reglas de wasichai (no necesita servidor)
-python3 apply.py                        # objetos, acciones, relaciones e índices. En F2: "done: 168 created, 11 updated, 0 skipped"
+python3 apply.py --validate-only        # el modelo, los workflows, los tipos de documento y las automatizaciones (sin servidor)
+python3 apply.py                        # objetos, acciones, relaciones e índices. En F3: "done: 232 created, 15 updated, 0 skipped"
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
-python3 apply.py --workflows            # los 5 workflows de F2: "done: 5 workflows (5 created, 0 updated, 0 skipped)"
+python3 apply.py --workflows            # 9 workflows, 2 tipos de documento y 3 automatizaciones de F3
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
 python3 -m unittest -v                  # las pruebas de los scripts, contra un core falso, y del modelo contra docs/
 ```
@@ -146,6 +157,17 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
    ```bash
    GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew integrationTest --rerun --tests 'sgspe.security.PermissionMatrixApiTest' -Dmatrix.roles=FIELD_AGENT
    ```
+
+   `FileStoreContractTest` prueba el almacenamiento S3 contra un MinIO: en la CI lo levanta Testcontainers; aquí, con el
+   MinIO de `compose.yml` y su túnel, se le pasa por variables (la base no le hace falta):
+
+   ```bash
+   SGSPE_TEST_S3_ENDPOINT=http://localhost:9095 SGSPE_TEST_S3_ACCESS_KEY=sgspe SGSPE_TEST_S3_SECRET_KEY=sgspe-minio \
+     GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew integrationTest --rerun --tests 'sgspe.contract.FileStoreContractTest'
+   ```
+
+   En la integración, los archivos de wasichai-files van a `build/wasichai-files` (`wasichai.files.store=local`), y el bucle
+   de notificaciones y la limpieza de archivos no corren (`build.gradle.kts`, `integrationDefaults`).
 
 ## 7. Observabilidad
 

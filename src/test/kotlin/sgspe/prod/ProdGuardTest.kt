@@ -18,7 +18,9 @@ class ProdGuardTest {
         mapOf(
             "wasichai.seed.dev" to "false",
             "wasichai.security.jwt.secret" to "un-secreto-de-produccion-de-mas-de-32-bytes",
-            "wasichai.security.jwt.ttl" to "PT4H"
+            "wasichai.security.jwt.ttl" to "PT4H",
+            "wasichai.files.store" to "s3",
+            "wasichai.files.s3.bucket" to "sgspe-evidencias"
         )
 
     private fun check(
@@ -86,6 +88,19 @@ class ProdGuardTest {
             failure(mapOf("wasichai.seed.dev" to "true", "wasichai.security.jwt.secret" to ProdGuard.DEV_SECRET, "wasichai.security.jwt.ttl" to "PT8H"))
         for (name in listOf("wasichai.seed.dev", "wasichai.security.jwt.secret", "wasichai.security.jwt.ttl")) {
             assertTrue(message.contains(name), "$name en $message")
+        }
+    }
+
+    // ADR-0014: en producción las evidencias van a un bucket compatible con S3
+    @Test
+    fun `el almacenamiento local o un bucket vacio fallan y nombran la variable`() {
+        for (values in listOf(secure - "wasichai.files.store", secure + ("wasichai.files.store" to "local"))) {
+            val message = failure(values)
+            assertTrue(message.contains("wasichai.files.store") && message.contains("WASICHAI_FILES_STORE=s3"), message)
+        }
+        for (values in listOf(secure - "wasichai.files.s3.bucket", secure + ("wasichai.files.s3.bucket" to " "))) {
+            val message = failure(values)
+            assertTrue(message.contains("wasichai.files.s3.bucket") && message.contains("WASICHAI_FILES_S3_BUCKET"), message)
         }
     }
 
