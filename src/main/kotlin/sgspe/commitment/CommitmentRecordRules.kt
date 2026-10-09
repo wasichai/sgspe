@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component
 import sgspe.common.Finding
 import sgspe.common.ProjectParameters
 import sgspe.common.Records
+import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.common.WriteMark
 import sgspe.common.WriteView
@@ -75,11 +76,13 @@ object CommitmentData {
 
 // CommitmentWriteGuard, alta y edición (domain-model §7.1): RN-ENG-001 al crear o cambiar el origen, la fecha de
 // vencimiento que desde approved solo cambia con una reprogramación (RF-COM-003), las dependencias sin ciclos (RF-COM-004) y
-// las entregas que ya sostienen un cumplimiento (api.md §4.5: corregirlas exige reopen_execution)
+// las entregas que ya sostienen un cumplimiento (api.md §4.5: corregirlas exige reopen_execution) o son de un compromiso
+// cancelado (P55)
 @Component
 class CommitmentRecordRules(
     private val records: Records,
-    private val view: WriteView
+    private val view: WriteView,
+    private val transactions: Transactions
 ) : CommitmentRule {
     override val order = CommitmentRuleOrder.RECORD
 
@@ -90,7 +93,7 @@ class CommitmentRecordRules(
         when (change.objectName) {
             Commitments.COMMITMENT -> commitment(change)
             Commitments.DEPENDENCY -> dependency(change)
-            Commitments.DELIVERY -> delivery(change)
+            Commitments.DELIVERY -> delivery(change, dryRun)
             else -> emptyList()
         }
 
@@ -162,23 +165,29 @@ class CommitmentRecordRules(
     }
 
     // una entrega cuyo compromiso ya está cumplido sostiene esa transición: no cambia, no se vincula ni se desvincula hasta
-    // reopen_execution. el compromiso es el de antes: la corrección (Deliveries.patch) nunca lo cambia. su estado no viene en
-    // `before` (wasichai 0.6.0): se lee como quien escribe y, si no se lee, falla cerrado (P12)
-    private suspend fun delivery(change: RecordWrite): List<Finding> {
+    // reopen_execution; la de un compromiso cancelado tampoco, porque cancelled es final (P55). el compromiso es el de antes: la
+    // corrección (Deliveries.patch) nunca lo cambia. su estado no viene en `before` (wasichai 0.6.0): se lee como quien escribe
+    // y, si no se lee, falla cerrado (P12). la escritura lo lee con el candado del compromiso (Reschedules.lock), el mismo que
+    // toman register_fulfillment y las cancel_* (FulfillmentLockRule): un cambio de la entrega o de sus evidencias por la API
+    // genérica o por POST/DELETE .../links no se cruza con el cumplimiento. la consulta en seco no lo toma
+    private suspend fun delivery(
+        change: RecordWrite,
+        dryRun: Boolean
+    ): List<Finding> {
         if (change.kind != RecordChangeKind.UPDATED && change.kind != RecordChangeKind.DELETED) return emptyList()
         val commitment = Records.uuid(change.before?.get("commitment")) ?: return emptyList()
-        val state =
-            readAs(Commitments.COMMITMENT) { records.find(Commitments.COMMITMENT, commitment) }?.state
-                ?: throw NotReadable(Commitments.COMMITMENT)
-        if (state !in Commitments.FULFILLED) return emptyList()
-        return listOf(
-            Finding(
-                "DELIVERY_FROZEN",
-                "La entrega sostiene el cumplimiento del compromiso: devuélvalo a ejecución (reopen_execution) para corregirla",
-                "commitment"
-            )
-        )
+        val state = if (dryRun) stateOf(commitment) else transactions.locked(Reschedules.lock(commitment)) { stateOf(commitment) }
+        if (state !in Commitments.SETTLED) return emptyList()
+        val why =
+            if (state == "cancelled") {
+                "El compromiso está cancelado: sus entregas ya no cambian"
+            } else {
+                "La entrega sostiene el cumplimiento del compromiso: devuélvalo a ejecución (reopen_execution) para corregirla"
+            }
+        return listOf(Finding("DELIVERY_FROZEN", why, "commitment"))
     }
+
+    private suspend fun stateOf(commitment: UUID): String? = records.readable(Commitments.COMMITMENT, commitment).state
 
     companion object {
         // los compromisos que la búsqueda de ciclos visita como mucho

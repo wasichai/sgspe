@@ -23,6 +23,10 @@ object Commitments {
     // los estados terminales: closed y cancelled (abierto es todo lo demás)
     val CLOSED = setOf("closed", "cancelled")
 
+    // cumplido o cancelado: fuera de la ejecución. sus entregas quedan congeladas (DELIVERY_FROZEN, P55) y una dependencia
+    // bloqueante hacia él deja de bloquear (D10)
+    val SETTLED = FULFILLED + "cancelled"
+
     // desde approved la fecha de vencimiento solo cambia con una reprogramación (RF-COM-003)
     val AFTER_APPROVAL = COMMITTED + "cancelled"
 
