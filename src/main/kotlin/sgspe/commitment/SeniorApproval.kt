@@ -13,16 +13,31 @@ object SeniorApproval {
     const val DIALOGUE = "MESA DE DIALOGO"
     const val POLITICAL = "POLITICO"
 
+    // por qué se exige: el origen (una mesa de diálogo) o un solicitante POLITICO. el origen se informa primero
+    enum class Cause { ORIGIN, STAKEHOLDER }
+
+    fun cause(
+        policy: Boolean,
+        originType: String?,
+        stakeholderGroups: Collection<String?>
+    ): Cause? =
+        when {
+            !policy -> null
+            originType == DIALOGUE -> Cause.ORIGIN
+            POLITICAL in stakeholderGroups -> Cause.STAKEHOLDER
+            else -> null
+        }
+
     fun required(
         policy: Boolean,
         originType: String?,
         stakeholderGroups: Collection<String?>
-    ): Boolean = policy && (originType == DIALOGUE || POLITICAL in stakeholderGroups)
+    ): Boolean = cause(policy, originType, stakeholderGroups) != null
 }
 
 // lee lo que la regla necesita: la política del proyecto, el tipo de la interacción de origen y el grupo de influencia de los
 // solicitantes (commitment_stakeholder), como quien llama o como la plataforma dentro de un trabajo. falla cerrada: un proyecto
-// o un origen que no se leen (sin READ o fuera del alcance) son NotReadable, nunca un «no exige nivel superior»
+// o un origen que no existen o no se leen (sin READ o fuera del alcance) son NotReadable, nunca un «no exige nivel superior»
 @Component
 class SeniorApprovalReader(
     private val records: Records
@@ -30,21 +45,25 @@ class SeniorApprovalReader(
     suspend fun required(
         commitmentId: UUID,
         attributes: Map<String, Any?>
-    ): Boolean {
-        val project = Records.uuid(attributes["project"])?.let { find("project", it) }.orEmpty()
-        val policy = ProjectParameters.policy(project, "policy_senior_approval_for_dialogue")
-        if (!policy) return false
-        val type = Records.uuid(attributes["origin_engagement"])?.let { find("engagement", it) }?.get("engagement_type")
-        if (Values.text(type) == SeniorApproval.DIALOGUE) return true
-        val groups =
-            readAs("stakeholder") { records.related(Commitments.COMMITMENT, commitmentId, Commitments.STAKEHOLDERS) }
-                .map { Values.text(it.attributes["influence_group"]) }
-        return SeniorApproval.required(true, Values.text(type), groups)
-    }
+    ): Boolean = cause(commitmentId, attributes) != null
 
-    // los atributos de un registro referido; null (fuera del alcance) es NotReadable
-    private suspend fun find(
-        objectName: String,
-        id: UUID
-    ): Map<String, Any?> = readAs(objectName) { records.find(objectName, id) }?.attributes ?: throw NotReadable(objectName)
+    // la causa, o null si no se exige; los solicitantes solo se leen si el origen no decide
+    suspend fun cause(
+        commitmentId: UUID,
+        attributes: Map<String, Any?>
+    ): SeniorApproval.Cause? {
+        val policy = ProjectParameters.policy(records.projectOf(attributes), "policy_senior_approval_for_dialogue")
+        if (!policy) return null
+        val type =
+            Values.text(
+                Records
+                    .uuid(attributes["origin_engagement"])
+                    ?.let { records.readable("engagement", it) }
+                    ?.attributes
+                    ?.get("engagement_type")
+            )
+        if (type == SeniorApproval.DIALOGUE) return SeniorApproval.Cause.ORIGIN
+        val groups = records.stakeholdersOf(commitmentId).map { Values.text(it.attributes["influence_group"]) }
+        return SeniorApproval.cause(true, type, groups)
+    }
 }
