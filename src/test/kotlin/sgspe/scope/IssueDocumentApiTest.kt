@@ -32,6 +32,8 @@ class IssueDocumentApiTest : F3DomainApiTest() {
                         "minutes" to "Se acordó mejorar el canal de riego."
                     )
             )
+        // register_held exige al menos un participante que asistió (EngagementWriteGuard, ATTENDANCE_REQUIRED)
+        participant(id, officer.token)
         for (step in listOf("schedule", "register_held", "draft_minutes", "submit_minutes")) move("engagement", id, step, officer.token)
         move("engagement", id, "approve_minutes", member("SOCIAL_MANAGER").token)
         assertEquals("SUCCEEDED", awaitRun("engagement", "aut-05-meeting-minutes", id)["status"].asString())
