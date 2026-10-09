@@ -7,12 +7,16 @@ import org.junit.jupiter.api.Test
 import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ProblemDetail
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import org.springframework.util.unit.DataSize
+import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.server.ContentTooLargeException
+import org.springframework.web.server.ServerWebExchange
 import wasichai.core.common.FieldViolation
 import wasichai.core.common.GlobalExceptionHandler
+import java.util.Locale
 
 // los topes del multipart de Spring fuera de las importaciones (la subida preparada de wasichai-files): un 400 con código,
 // nunca el 500 de una excepción sin manejar (revisión final del plan 3.1), sin base
@@ -87,5 +91,45 @@ class UploadLimitsTest {
                 .statusCode
                 .value()
         )
+    }
+
+    // ---- delegar: un manejador de wasichai con más de un parámetro ----
+
+    // un manejador como el de wasichai, con un método que pide además el exchange y otro que pide algo que el advice no tiene
+    open class TwoParameters : GlobalExceptionHandler("https://sgspe.test/problems/") {
+        @ExceptionHandler(IllegalStateException::class)
+        fun handleState(
+            exchange: ServerWebExchange,
+            ex: IllegalStateException
+        ): ProblemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.I_AM_A_TEAPOT, "${ex.message} ${exchange.request.path.value()}")
+
+        @ExceptionHandler(UnsupportedOperationException::class)
+        fun handleUnsupported(
+            locale: Locale,
+            ex: UnsupportedOperationException
+        ): ProblemDetail = ProblemDetail.forStatus(HttpStatus.I_AM_A_TEAPOT)
+    }
+
+    private val twoParameters = UploadLimitsAdvice(TwoParameters(), DataSize.ofMegabytes(20))
+
+    @Test
+    fun `los argumentos de un manejador son la causa que acepta su primer Throwable y el exchange`() {
+        val exchange = request(MediaType.APPLICATION_JSON)
+        val method = TwoParameters::class.java.getMethod("handleState", ServerWebExchange::class.java, IllegalStateException::class.java)
+        val cause = IllegalStateException("adentro")
+        val arguments = UploadLimits.handlerArguments(method, RuntimeException("afuera", cause), exchange)!!
+        assertEquals(listOf<Any?>(exchange, cause), arguments.toList())
+        val other = TwoParameters::class.java.getMethod("handleUnsupported", Locale::class.java, UnsupportedOperationException::class.java)
+        assertNull(UploadLimits.handlerArguments(other, UnsupportedOperationException("x"), exchange))
+        assertNull(UploadLimits.handlerArguments(method, RuntimeException("sin causa"), exchange))
+    }
+
+    @Test
+    fun `fuera de un multipart un manejador con el exchange recibe los dos, y uno que pide otra cosa cae en el 500 de wasichai`() {
+        val state = twoParameters.limit(IllegalStateException("tope", disk()), request(MediaType.APPLICATION_JSON)).block()!!
+        assertEquals(418, state.statusCode.value())
+        assertEquals("tope /api/objects/evidence/files/file", state.body!!.detail)
+        val unsupported = twoParameters.limit(UnsupportedOperationException("tope", disk()), request(MediaType.APPLICATION_JSON)).block()!!
+        assertEquals(500, unsupported.statusCode.value())
     }
 }

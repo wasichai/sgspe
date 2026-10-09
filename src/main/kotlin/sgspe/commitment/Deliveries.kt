@@ -46,7 +46,7 @@ data class DeliveryResult(
 // todo se lee y se escribe como quien llama (RecordService aplica sus permisos de campo: recipients y conformity_by,
 // restringidos, solo los ve quien es su lector), nunca como la plataforma
 @Service
-class Deliveries(
+class CommitmentDeliveries(
     private val records: Records,
     private val callers: Callers,
     private val permissions: Permissions,
@@ -174,7 +174,7 @@ class Deliveries(
 // api.md §4.5. el alta honra Idempotency-Key (decisión D3)
 @RestController
 class DeliveryController(
-    private val deliveries: Deliveries,
+    private val deliveries: CommitmentDeliveries,
     private val idempotency: Idempotency
 ) {
     @PostMapping("/api/sgspe/commitments/{id}/deliveries")

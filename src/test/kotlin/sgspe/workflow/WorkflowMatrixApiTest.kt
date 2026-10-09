@@ -55,6 +55,9 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
 
     override fun testProject(): String = relaxed ?: project(mapOf("policy_internal_approval" to false)).also { relaxed = it }
 
+    // el compromiso que cubre a los candidatos de la prueba (duplicate_of)
+    private val covering: String by lazy { commitment(testProject()) }
+
     // un usuario por rol, asignado al proyecto de la prueba (o al proyecto que se mueve, en WF-A)
     private fun actor(
         workflow: Workflow,
@@ -128,11 +131,12 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
                     creator = actor(workflow, creatorRole, null)
                 )
             "agreement" -> agreement(testProject(), actor(workflow, creatorRole, null))
-            // apiOnly: la plataforma, como hará el alta humana del plan 3.2
+            // apiOnly: la plataforma, como el alta humana del plan 3.2, con el compromiso que lo cubre: mark_duplicate exige
+            // duplicate_of (CandidateRules), que en el portal escribe POST .../duplicate
             "commitment_candidate" ->
                 platformCreate(
                     "commitment_candidate",
-                    mapOf("project" to testProject(), "proposed_text" to "Arreglar el canal de riego", "ai_generated" to false)
+                    mapOf("project" to testProject(), "proposed_text" to "Arreglar el canal de riego", "ai_generated" to false, "duplicate_of" to covering)
                 )
             "task" -> task(testProject(), actor(workflow, creatorRole, null))
             else -> error("sin registro de prueba para ${workflow.objectName}")
@@ -151,7 +155,8 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
         for (step in checkNotNull(pathTo(workflow, state)) { "${workflow.objectName}: el estado $state no se alcanza" }) {
             val role = workflow.drivers.first { it in step.roles }
             prepare(workflow, id, step)
-            move(workflow.objectName, id, step.name, actor(workflow, role, id).token, TEXT)
+            val response = perform(workflow, id, step, actor(workflow, role, id))
+            assertTrue(response.status.is2xxSuccessful, "${workflow.key(step)}: ${response.status} ${response.body}")
         }
         if (next != null) prepare(workflow, id, next)
         return id
@@ -171,6 +176,25 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
         val delivery =
             exchange("POST", "/api/sgspe/commitments/$id/deliveries", mapOf("attributes" to attributes, "evidence" to evidence), token, withReason(TEXT))
         assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
+    }
+
+    // una transición como la aplica el portal: accept de WF-K por su comando, que crea el compromiso en draft con los valores
+    // que revisa la persona (CommandTransitionGuard rechaza la API genérica); las demás, por la API genérica
+    private fun perform(
+        workflow: Workflow,
+        id: String,
+        rule: Transition,
+        who: Account
+    ): Response {
+        if (workflow.key(rule) != "commitment_candidate.accept") return transition(workflow.objectName, id, rule.name, who.token, TEXT)
+        val reviewed = mapOf("code" to uniqueName("COM-"), "title" to "Mejora del canal de riego", "amount" to 15000, "currency" to "PEN")
+        return exchange(
+            "POST",
+            "/api/sgspe/commitment-candidates/$id/accept",
+            mapOf("attributes" to reviewed),
+            who.token,
+            ifMatch(workflow.objectName, id, who.token) + withReason(TEXT)
+        )
     }
 
     // quien crea el registro de la prueba: el propio rol si puede crearlo (RU: FIELD_AGENT solo cambia lo que creó), si no el
@@ -248,7 +272,8 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
             rule.roles.map { role ->
                 dynamicTest("$role aplica ${rule.name}: ${rule.from} pasa a ${rule.to}") {
                     val id = recordAt(workflow, rule.from, creatorFor(workflow, role), type, rule)
-                    move(objectName, id, rule.name, actor(workflow, role, id).token, TEXT)
+                    val response = perform(workflow, id, rule, actor(workflow, role, id))
+                    assertTrue(response.status.is2xxSuccessful, "$role: ${response.status} ${response.body}")
                     assertEquals(rule.to, state(objectName, id))
                 }
             }
@@ -259,7 +284,7 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
                 assumeTrue(outsider != null) { "${workflow.key(rule)}: todo rol con UPDATE sobre $objectName está en su lista" }
                 val id = recordAt(workflow, rule.from, workflow.drivers.first(), type, rule)
                 val who = actor(workflow, outsider!!, id)
-                val response = transition(objectName, id, rule.name, who.token, TEXT)
+                val response = perform(workflow, id, rule, who)
                 assertEquals(HttpStatus.FORBIDDEN, response.status, "$outsider: ${response.body}")
                 assertEquals(rule.from, state(objectName, id))
                 assertEquals(false to "requires role ${rule.roles.joinToString(" or ")}", available(objectName, id, who.token)[rule.name], outsider)
@@ -270,7 +295,7 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
                 val role = rule.roles.first()
                 val id = recordAt(workflow, wrong, creatorFor(workflow, role), type)
                 val who = actor(workflow, role, id)
-                val response = transition(objectName, id, rule.name, who.token, TEXT)
+                val response = perform(workflow, id, rule, who)
                 assertEquals(HttpStatus.CONFLICT, response.status, "$role: ${response.body}")
                 assertEquals(wrong, state(objectName, id))
                 assertFalse(rule.name in available(objectName, id, who.token).keys, "el listado no ofrece ${rule.name} desde $wrong")
@@ -351,19 +376,15 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
 
         // lo que el plan 2.2 convierte en comando y la API genérica rechaza (CommandTransitionGuard: `assess` de WF-B, `approve`
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
-        // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest
-        // F3: lo que el plan 3.2 hace comando o pide de su comando (`accept` de WF-K, CommandTransitionGuard, y
-        // `mark_duplicate`, que pide el `duplicate_of` que solo escribe POST .../duplicate): la Tarea 14 del plan 3.2 las saca
-        // de aquí. `approve_direct` corre en un proyecto sin aprobación interna y prepare registra la entrega que pide
-        // `register_fulfillment` (D9)
+        // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest.
+        // las de F3 ya no se difieren (plan 3.2): approve_direct corre en un proyecto sin aprobación interna, prepare registra la
+        // entrega que pide register_fulfillment y perform aplica accept por su comando
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
-                "area_of_influence.supersede",
-                "commitment_candidate.accept",
-                "commitment_candidate.mark_duplicate"
+                "area_of_influence.supersede"
             )
 
         // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held);

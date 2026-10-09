@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import sgspe.SgspeApiTest
+import java.io.File
 import java.util.UUID
 
 // D9 de WF-D: la entrega con conformidad y la evidencia según el tipo de recurso (RN-COM-001, ASM-009), sin base
@@ -46,11 +48,41 @@ class FulfillmentTest {
         assertEquals(emptySet<String>(), Fulfillment.countedTypes(null, evidence))
     }
 
-    // un compromiso cumplido o cancelado ya no bloquea a quien depende de él (D10) y congela sus entregas (P55)
+    // sin tipo de recurso no se sabe qué evidencia pedir: no cuenta como NO MATERIAL
     @Test
-    fun `cumplido y cancelado resuelven la dependencia y congelan las entregas`() {
+    fun `sin tipo de recurso D9 falla cerrada con FIELD_REQUIRED`() {
+        val finding = Fulfillment.resourceTypeFinding(null)
+        assertEquals("FIELD_REQUIRED", finding?.code)
+        assertEquals("resource_type", finding?.field)
+        assertNull(Fulfillment.resourceTypeFinding("NO MATERIAL"))
+    }
+
+    // RESOLVED (D10) y el congelamiento de las entregas (P55) contra el workflow de WF-D: son los estados a los que se llega
+    // por register_fulfillment o por una cancelación, y los que salen de ellos sin volver a ejecución; ninguno admite entregas
+    @Test
+    fun `RESOLVED son los estados de WF-D desde el cumplimiento o la cancelacion, fuera de la ejecucion`() {
         assertEquals(setOf("fulfilled", "verified", "closed", "cancelled"), Fulfillment.RESOLVED)
-        assertEquals(Commitments.SETTLED, Fulfillment.RESOLVED)
-        assertTrue(Commitments.SETTLED.none { it in Commitments.EXECUTING })
+        val transitions = workflow()
+        val reached = mutableSetOf<String>()
+        val frontier = ArrayDeque(transitions.filter { it["name"] == Fulfillment.REGISTER || it["name"] in Fulfillment.CANCELS }.map { it["to"] as String })
+        while (frontier.isNotEmpty()) {
+            val state = frontier.removeFirst()
+            if (!reached.add(state)) continue
+            transitions.filter { it["from"] == state && it["to"] !in Commitments.EXECUTING }.forEach { frontier.addLast(it["to"] as String) }
+        }
+        assertEquals(reached, Fulfillment.RESOLVED)
+        assertTrue(Fulfillment.RESOLVED.none { it in Commitments.EXECUTING })
+    }
+
+    // el candado de FulfillmentLockRule cubre todas las cancelaciones del workflow, y solo esas
+    @Test
+    fun `CANCELS son las transiciones de WF-D que llegan a cancelled`() {
+        assertEquals(workflow().filter { it["to"] == "cancelled" }.map { it["name"] }.toSet(), Fulfillment.CANCELS)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun workflow(): List<Map<String, Any?>> {
+        val json = SgspeApiTest.JSON.readValue(File("model/workflows/commitment.json"), Map::class.java) as Map<String, Any?>
+        return (json["definition"] as Map<String, Any?>)["transitions"] as List<Map<String, Any?>>
     }
 }
