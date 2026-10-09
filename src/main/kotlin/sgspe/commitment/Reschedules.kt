@@ -106,7 +106,10 @@ class Reschedules(
                         ),
                         reason
                     )
-                RescheduleResult(reschedule, records.patch(Commitments.COMMITMENT, id, mapOf("due_date" to newDate.toString()), reason))
+                records.patch(Commitments.COMMITMENT, id, mapOf("due_date" to newDate.toString()), reason)
+                // se relee: los listeners de la escritura (deadline_status, DeadlineStatusListener) ya escribieron en esta
+                // transacción, y la respuesta y su ETag deben ser los del compromiso tal como quedó
+                RescheduleResult(reschedule, records.get(Commitments.COMMITMENT, id))
             }
         return CommandAnswer(
             HttpStatus.CREATED,
