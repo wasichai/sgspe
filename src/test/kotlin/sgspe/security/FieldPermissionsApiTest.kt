@@ -100,8 +100,9 @@ class FieldPermissionsApiTest : F3ApiTest() {
                     "email" to "asistente@sgspe.test"
                 )
             )
-        val analyst = userWithRole("ANALYST")
-        val fieldAgent = userWithRole("FIELD_AGENT")
+        // el asistente es de una interacción del proyecto de la prueba: desde 4.4 (ASM-106) lo lee quien está asignado a él
+        val analyst = member("ANALYST")
+        val fieldAgent = member("FIELD_AGENT")
         val forAnalyst = record("engagement_participant", participant.id, analyst)
         assertTrue(listOf("participant_name", "phone", "email").none { forAnalyst.has(it) }, forAnalyst.toString())
         assertEquals("Persona Ejemplo 3", record("engagement_participant", participant.id, fieldAgent)["participant_name"].asString())
@@ -147,8 +148,8 @@ class FieldPermissionsApiTest : F3ApiTest() {
     @Test
     fun `la postura del grupo de interes no llega a quien no la lee aunque este vacia`() {
         val stakeholder = adminFixture("stakeholder")
-        val fieldAgent = userWithRole("FIELD_AGENT")
-        val manager = userWithRole("STAKEHOLDER_MANAGER")
+        val fieldAgent = member("FIELD_AGENT")
+        val manager = member("STAKEHOLDER_MANAGER")
         assertFalse(record("stakeholder", stakeholder.id, fieldAgent).has("stance"))
         assertTrue(record("stakeholder", stakeholder.id, manager).has("stance"))
     }
@@ -178,9 +179,9 @@ class FieldPermissionsApiTest : F3ApiTest() {
                     "evidence_quote" to "[PERSONA_1] pidió el canal"
                 )
             )
-        val readOnly = userWithRole("READ_ONLY")
-        val approver = userWithRole("APPROVER")
-        val manager = userWithRole("COMMITMENT_MANAGER")
+        val readOnly = member("READ_ONLY")
+        val approver = member("APPROVER")
+        val manager = member("COMMITMENT_MANAGER")
         val forReadOnly = record("delivery", delivery, readOnly)
         assertFalse(forReadOnly.has("recipients") || forReadOnly.has("conformity_by"), forReadOnly.toString())
         assertEquals("2026-11-20", forReadOnly["delivery_date"].asString())
@@ -196,7 +197,8 @@ class FieldPermissionsApiTest : F3ApiTest() {
         // con el lector primero y con el lector al final: no gana ni el primer rol ni el último
         val stakeholder = adminFixture("stakeholder")
         for (roles in listOf(listOf("FIELD_AGENT", "STAKEHOLDER_MANAGER"), listOf("STAKEHOLDER_MANAGER", "FIELD_AGENT"))) {
-            assertTrue(record("stakeholder", stakeholder.id, userWithRoles(roles)).has("stance"), roles.toString())
+            val account = userWithRoles(roles).also { assign(it, testProject(), roles.first()) }
+            assertTrue(record("stakeholder", stakeholder.id, account).has("stance"), roles.toString())
         }
     }
 
@@ -206,7 +208,7 @@ class FieldPermissionsApiTest : F3ApiTest() {
         val stakeholder = adminFixture("stakeholder")
         val person = fixture("person", mapOf("given_names" to "Persona", "surnames" to "Ejemplo Cinco", "id_document_number" to "00000005"))
         for (roles in listOf(listOf("FIELD_AGENT", "PROJECT_MANAGER"), listOf("PROJECT_MANAGER", "FIELD_AGENT"))) {
-            val account = userWithRoles(roles)
+            val account = userWithRoles(roles).also { assign(it, testProject(), roles.first()) }
             assertFalse(record("stakeholder", stakeholder.id, account).has("stance"), roles.toString())
             val forPerson = record("person", person.id, account)
             assertFalse(forPerson.has("id_document_number"), "$roles $forPerson")
@@ -309,9 +311,10 @@ class FieldPermissionsApiTest : F3ApiTest() {
                                 val relation = relations.keys.first { it !in restricted && created.attributes[it] != null }
                                 relation to created.attributes.getValue(relation) as String
                             }
-                        val byId = record(objectName, created.id, userWithRole(nonReader))
-                        val inList = listed(objectName, filter, userWithRole(nonReader))
-                        val forReader = record(objectName, created.id, userWithRole(reader))
+                        // asignados al proyecto de la prueba, del que cuelga el registro (ASM-106); en un maestro no cambia nada
+                        val byId = record(objectName, created.id, member(nonReader))
+                        val inList = listed(objectName, filter, member(nonReader))
+                        val forReader = record(objectName, created.id, member(reader))
                         for (field in fields) {
                             if (byId.has(field)) failures += "$label: $nonReader recibe $field por id"
                             if (inList.has(field)) failures += "$label: $nonReader recibe $field en la lista"

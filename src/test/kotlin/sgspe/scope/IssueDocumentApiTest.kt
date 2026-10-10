@@ -10,7 +10,7 @@ import tools.jackson.databind.JsonNode
 // de una interacción exige UPDATE sobre engagement y una asignación vigente al proyecto de la interacción. ANALYST y READ_ONLY
 // leen interacciones pero no las editan: su emisión es un 403 ACTION_REQUIRED y la minuta que AUT-05 congeló sigue vigente.
 // COMMUNITY_RELATIONS_OFFICER, que edita interacciones, emite en su proyecto (y su emisión archiva la anterior, como en
-// wasichai-documents) y no en otro: 403 NOT_ASSIGNED. AUT-05 emite como la plataforma, sin pasar por el filtro
+// wasichai-documents) y no en otro, que no lee: 404 (ASM-108). AUT-05 emite como la plataforma, sin pasar por el filtro
 class IssueDocumentApiTest : F3DomainApiTest() {
     private fun documents(id: String): List<JsonNode> =
         tree(send("GET", "/api/objects/engagement/records/$id/documents", null, HttpStatus.OK)).values().toList()
@@ -57,10 +57,9 @@ class IssueDocumentApiTest : F3DomainApiTest() {
     fun `con UPDATE sobre engagement se emite en el proyecto asignado y no en otro`() {
         val officer = member("COMMUNITY_RELATIONS_OFFICER")
         val other = engagement(project())
+        // la interacción de otro proyecto no se lee: el 404 de wasichai, como su detalle (ASM-108)
         val refused = exchange("POST", "/api/objects/engagement/records/$other/documents/meeting-minutes", null, officer.token)
-        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
-        assertEquals("NOT_ASSIGNED", code(refused))
-        assertEquals(listOf("project"), problemFields(refused.body))
+        assertEquals(HttpStatus.NOT_FOUND, refused.status, refused.body)
         assertEquals(emptyList<String>(), validMinutes(other))
 
         val own = engagement(testProject(), token = officer.token)

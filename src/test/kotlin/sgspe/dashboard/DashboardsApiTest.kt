@@ -241,7 +241,7 @@ class DashboardsApiTest : DomainApiTest() {
         assertFalse(trust.has("value"))
     }
 
-    // sin project: el ADMIN ve todos los proyectos; quien no tiene asignaciones, todos los que puede leer; quien las tiene,
+    // sin project: el ADMIN y quien lee todos los proyectos ven todos; quien no tiene asignaciones, ninguno; quien las tiene,
     // solo las suyas vigentes (dashboards.md §3.1)
     @Test
     fun `los proyectos por defecto del ADMIN, de quien no tiene asignaciones y de quien las tiene`() {
@@ -252,7 +252,9 @@ class DashboardsApiTest : DomainApiTest() {
         fun projects(auth: String): List<String> = tree(send("GET", path, null, HttpStatus.OK, auth))["filters"]["project"].values().map { it.asString() }
 
         assertTrue(projects(token).containsAll(listOf(mine, other)))
-        assertTrue(projects(userWithRole("ANALYST").token).containsAll(listOf(mine, other)))
+        // desde 4.4 (ProjectReach): quien lee todos los proyectos (AUDITOR) los recibe todos; sin asignaciones, ninguno
+        assertTrue(projects(userWithRole("AUDITOR").token).containsAll(listOf(mine, other)))
+        assertEquals(emptyList<String>(), projects(userWithRole("ANALYST").token))
         assertEquals(listOf(mine), projects(member("ANALYST", mine).token))
     }
 

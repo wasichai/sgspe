@@ -6,8 +6,10 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.DomainApiTest
 
-// security.md §14 «Alcance, opción A» (RQ-SEC-006): sin asignación vigente no se escribe en el proyecto; con ella sí;
-// ADMIN queda exento; los hijos se acotan por su raíz; cambiar de proyecto exige los dos
+// security.md §14 «Alcance» (RQ-SEC-006, ASM-106, ASM-108): sin asignación vigente no se escribe en el proyecto; con ella sí;
+// ADMIN queda exento; los hijos se acotan por su raíz; cambiar de proyecto exige los dos. desde 4.4 el alcance de lectura
+// responde antes que ProjectScopeGuard: un proyecto que no se lee es el 400 de wasichai sobre la relación (registro
+// inexistente) y un registro que no se lee, 404. NOT_ASSIGNED queda para quien lee sin estar asignado (PROJECT_ADMIN)
 class ProjectScopeApiTest : DomainApiTest() {
     // el 403 del alcance lleva en errors[0] el campo de la relación de alcance y, como message, el código NOT_ASSIGNED: un 403
     // por permiso o por otra guarda no lo trae, así que la prueba no se queda verde si otra guarda rechaza antes
@@ -19,6 +21,17 @@ class ProjectScopeApiTest : DomainApiTest() {
         val error = tree(response.body)["errors"].values().single()
         assertEquals("NOT_ASSIGNED", error["message"].asString(), response.body)
         assertEquals(field, error["field"].asString(), response.body)
+    }
+
+    // el 400 de wasichai sobre una RELATION que nombra un registro que quien escribe no lee (D30, ASM-108)
+    private fun assertMissing(
+        response: Response,
+        field: String
+    ) {
+        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+        val error = tree(response.body)["errors"].values().single()
+        assertEquals(field, error["field"].asString(), response.body)
+        assertEquals("no record with this id", error["message"].asString(), response.body)
     }
 
     private fun delete(
@@ -38,12 +51,24 @@ class ProjectScopeApiTest : DomainApiTest() {
     )
 
     @Test
-    fun `sin asignacion es 403 y con una asignacion vigente se escribe`() {
+    fun `sin asignacion el proyecto no existe para quien escribe y con una asignacion vigente se escribe`() {
         val project = projectWithCrs()
         val outsider = userWithRole("COMMUNITY_RELATIONS_OFFICER")
-        assertNotAssigned(createEngagement(project, outsider.token), "project")
+        assertMissing(createEngagement(project, outsider.token), "project")
         assign(outsider, project, "COMMUNITY_RELATIONS_OFFICER")
         assertEquals(HttpStatus.CREATED, createEngagement(project, outsider.token).status)
+    }
+
+    // quien lee todos los proyectos (READ_ALL_PROJECTS) sin estar asignado sigue recibiendo NOT_ASSIGNED: ProjectScopeGuard es
+    // la segunda línea (elección 5 de la especificación 4.4)
+    @Test
+    fun `quien lee todos los proyectos no escribe en uno sin asignacion`() {
+        val project = projectWithCrs()
+        val admin = userWithRole("PROJECT_ADMIN")
+        val party = mapOf("project" to project, "organization" to organization(), "party_role" to "CLIENTE")
+        assertNotAssigned(exchange("POST", "/api/objects/project_party/records", mapOf("attributes" to party), admin.token), "project")
+        assign(admin, project, "PROJECT_ADMIN")
+        assertEquals(HttpStatus.CREATED, exchange("POST", "/api/objects/project_party/records", mapOf("attributes" to party), admin.token).status)
     }
 
     @Test
@@ -51,10 +76,10 @@ class ProjectScopeApiTest : DomainApiTest() {
         val project = projectWithCrs()
         val inactive = userWithRole("COMMUNITY_RELATIONS_OFFICER")
         assignWith(inactive, project, "COMMUNITY_RELATIONS_OFFICER", mapOf("active" to false))
-        assertNotAssigned(createEngagement(project, inactive.token), "project")
+        assertMissing(createEngagement(project, inactive.token), "project")
         val expired = userWithRole("COMMUNITY_RELATIONS_OFFICER")
         assignWith(expired, project, "COMMUNITY_RELATIONS_OFFICER", mapOf("start_date" to "2020-01-01", "end_date" to "2020-12-31"))
-        assertNotAssigned(createEngagement(project, expired.token), "project")
+        assertMissing(createEngagement(project, expired.token), "project")
         assertEquals(HttpStatus.CREATED, createEngagement(project, token).status)
     }
 
@@ -71,9 +96,9 @@ class ProjectScopeApiTest : DomainApiTest() {
                 mapOf("attributes" to mapOf("engagement" to foreign, "represented_people_count" to 1)),
                 officer.token
             )
-        assertNotAssigned(participant, "engagement")
+        assertMissing(participant, "engagement")
         val own = engagement(mine, token = officer.token)
-        assertNotAssigned(edit("engagement", own, mapOf("project" to other), officer.token), "project")
+        assertMissing(edit("engagement", own, mapOf("project" to other), officer.token), "project")
         assign(officer, other, "COMMUNITY_RELATIONS_OFFICER")
         assertEquals(HttpStatus.OK, edit("engagement", own, mapOf("project" to other), officer.token).status)
     }
@@ -86,21 +111,23 @@ class ProjectScopeApiTest : DomainApiTest() {
         val other = projectWithCrs()
         val outsider = member("SOCIAL_MANAGER", other)
         val plan = fixture("engagement_plan", mapOf("project" to mine)).id
-        assertNotAssigned(delete("engagement_plan", plan, outsider.token), "project")
+        assertEquals(HttpStatus.NOT_FOUND, delete("engagement_plan", plan, outsider.token).status)
 
         val foreign = engagement(mine)
-        assertNotAssigned(transition("engagement", foreign, "schedule", outsider.token, "prueba"), "project")
+        assertEquals(HttpStatus.NOT_FOUND, transition("engagement", foreign, "schedule", outsider.token, "prueba").status)
 
         val holder = stakeholder(mine)
-        assertNotAssigned(link("stakeholder", holder, "engagement_stakeholder", foreign, outsider.token), "project")
+        // un vínculo M2M con un extremo que no se lee: 404 de RelatedRecordService
+        assertEquals(HttpStatus.NOT_FOUND, link("stakeholder", holder, "engagement_stakeholder", foreign, outsider.token).status)
         // con asignación al proyecto, el mismo vínculo se acepta
         val insider = member("SOCIAL_MANAGER", mine)
         val linked = link("stakeholder", holder, "engagement_stakeholder", foreign, insider.token)
         assertTrue(linked.status.is2xxSuccessful, linked.body)
 
-        // asignado solo al destino: sacar un registro del proyecto de origen exige asignación a él
+        // asignado solo al destino: el registro del proyecto de origen no se lee, así que no se saca de él (404)
         val ownProject = member("COMMUNITY_RELATIONS_OFFICER", other)
-        assertNotAssigned(edit("engagement", foreign, mapOf("project" to other), ownProject.token), "project")
+        val moved = mapOf("attributes" to mapOf("project" to other, "engagement_type" to "REUNION", "title" to "Reunión de prueba"))
+        assertEquals(HttpStatus.NOT_FOUND, exchange("PUT", "/api/objects/engagement/records/$foreign", moved, ownProject.token).status)
     }
 
     // un padre con dependientes no se borra (DependentsDeleteGuard, P13): wasichai declara las relaciones obligatorias NOT NULL
@@ -124,8 +151,8 @@ class ProjectScopeApiTest : DomainApiTest() {
             assertEquals("HAS_DEPENDENTS", error["message"].asString(), refused.body)
             assertEquals("planned_activity.engagement_plan", error["field"].asString(), refused.body)
         }
-        // el alcance habla primero: quien no es del equipo recibe 403, sin enterarse de los dependientes
-        assertNotAssigned(delete("engagement_plan", plan, outsider.token), "project")
+        // el alcance habla primero: quien no es del equipo no lee el plan (404), sin enterarse de los dependientes
+        assertEquals(HttpStatus.NOT_FOUND, delete("engagement_plan", plan, outsider.token).status)
         // ambos registros siguen, y la actividad sigue ligada al plan
         assertEquals(plan, record("planned_activity", activity)["attributes"]["engagement_plan"].asString())
         assertEquals(mine, record("engagement_plan", plan)["attributes"]["project"].asString())
