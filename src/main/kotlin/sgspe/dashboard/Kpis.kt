@@ -120,6 +120,12 @@ object Kpis {
         )
     private val HELD = listOf("engagement.held_at", "engagement.engagement_type")
 
+    // F4: lo que leen KPI-ENG-07 y 08, y los filtros que no aplican: las menciones no tienen territorio ni ámbito (dashboards.md
+    // §4.3: «Proyecto, periodo»)
+    private val MEDIA =
+        listOf("media_mention.project", "media_mention.published_date", "media_mention.outlet", "media_mention.outlet_name", "media_mention.tone")
+    private val MEDIA_IGNORES: Set<String> = IGNORED_IN_F2 + setOf("administrativeUnit", "locality", "community", "areaOfInfluence", "scope")
+
     val ALL: List<Indicator> =
         listOf(
             Kpi(
@@ -276,6 +282,44 @@ object Kpis {
                 val meetings = data.inPeriod().filter { it.type in EngagementKpis.INFORMATIVE }
                 val questions = data.questions(meetings.map { it.id })
                 EngagementKpis.answered(meetings, questions, data.names("topic", questions.mapNotNull { it.topic }))
+            },
+            // ---- F4: relacionamiento (dashboards.md §4.3, #11 a #13 de la Tabla 9.5): sin zona en un tablero hasta F8 (§11) ----
+            Kpi(
+                "KPI-ENG-06",
+                "Monitoreos participativos de agua",
+                null,
+                "monitoreos",
+                HELD + listOf("engagement.title", "stakeholder.project"),
+                ignores = IGNORED_IN_F2
+            ) { data ->
+                val monitoring = data.inPeriod().filter { it.type == EngagementKpis.MONITORING }
+                EngagementKpis.monitoring(monitoring, data.stakeholdersOf(monitoring.map { it.id }))
+            },
+            Kpi(
+                "KPI-ENG-07",
+                "Comunicados sobre compromisos cumplidos",
+                null,
+                "menciones",
+                MEDIA + listOf("media_mention.reports_fulfilled_commitment", "organization.name"),
+                ignores = MEDIA_IGNORES
+            ) { data ->
+                val mentions = data.mentions()
+                EngagementKpis.fulfilledCommunications(mentions, data.names("organization", mentions.mapNotNull { it.outlet }))
+            },
+            Kpi(
+                "KPI-ENG-08",
+                "Medios con información positiva y negativa",
+                null,
+                "%",
+                MEDIA + listOf("media_mention.topic", "organization.name", "topic.name"),
+                ignores = MEDIA_IGNORES
+            ) { data ->
+                val mentions = data.mentions()
+                EngagementKpis.tones(
+                    mentions,
+                    data.names("organization", mentions.mapNotNull { it.outlet }),
+                    data.names("topic", mentions.mapNotNull { it.topic })
+                )
             },
             // ---- F3: compromisos (dashboards.md §4.4); cada uno aplica los filtros de su fila y declara los demás ----
             Kpi(
