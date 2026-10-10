@@ -65,6 +65,28 @@ class DeadlineJobQcsApiTest : F4ApiTest() {
         assertFalse(task.toString().contains(code), task.toString())
         runBlocking { job.runOnce() }
         assertEquals(1, tree(send("GET", "/api/objects/task/records?generator_key=$key", null, HttpStatus.OK))["content"].values().count())
+        // una persona que no lee la queja trabaja la tarea genérica: se la asigna (ExactlyOneGuard la admite sin origen)
+        val manager = member("PROJECT_MANAGER")
+        val taskId = found.single()["id"].asString()
+        val assigned = edit("task", taskId, mapOf("assignee_user_id" to manager.id, "assignee_user_email" to manager.email), manager.token)
+        assertEquals(HttpStatus.OK, assigned.status, assigned.body)
+        // y nadie puede crear una tarea sin origen con una clave de esa forma: la clave la fija solo la plataforma
+        val forged =
+            exchange(
+                "POST",
+                "/api/objects/task/records",
+                mapOf(
+                    "attributes" to
+                        mapOf(
+                            "project" to testProject(),
+                            "title" to "Otra",
+                            "generator_key" to DeadlineJob.confidentialEscalationKey("grievance", id, ack.plusDays(1))
+                        )
+                ),
+                manager.token
+            )
+        assertEquals(HttpStatus.FORBIDDEN, forged.status, forged.body)
+        assertEquals("GENERATOR_KEY_PLATFORM_ONLY", code(forged))
     }
 
     @Test

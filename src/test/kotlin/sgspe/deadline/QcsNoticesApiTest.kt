@@ -85,4 +85,27 @@ class QcsNoticesApiTest : F4ApiTest() {
         assertFalse(generic.single().key!!.contains(id))
         assertFalse((generic.single().title + generic.single().body).contains(code))
     }
+
+    @Test
+    fun `una tarea vencida vinculada a una queja confidencial solo avisa a quien la veria`() {
+        val receiver = member("COMMUNITY_RELATIONS_OFFICER")
+        val manager = member("GRIEVANCE_MANAGER")
+        val social = member("SOCIAL_MANAGER")
+        val grievance = grievance(testProject(), receiver, mapOf("confidential" to true))
+        val task =
+            createRecord(
+                "task",
+                mapOf(
+                    "project" to testProject(),
+                    "title" to "Visitar al reclamante",
+                    "grievance" to grievance,
+                    "due_date" to "2026-01-05"
+                )
+            )
+        runBlocking { job.runOnce() }
+        val mine = drafts().filter { it.key?.startsWith("task_overdue:$task:") == true }.associateBy { it.key!!.substringAfterLast(":") }
+        // sin asignado, el nivel 1 va a los roles de verify de WF-E1 que la verían: el gestor de quejas, no la gerencia social
+        assertEquals(ids(manager), users(mine.getValue("1")))
+        assertFalse(UUID.fromString(social.id) in users(mine.getValue("1")))
+    }
 }

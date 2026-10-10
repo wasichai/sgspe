@@ -58,9 +58,9 @@ class DeadlineSweep(
 // proyecto, solo si cambia (P11) y bajo el candado del registro, con el motivo que nombra al trabajo (P16); crea la tarea de
 // escalamiento de los niveles 1 y 2 de un compromiso, una queja o una consulta vencidos (generator_key, sin asignado ni fecha:
 // la toma uno de los avisados; su título solo lleva el código). la del nivel 2 de una QCS confidencial no la delata: su clave
-// lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vincula al proyecto (ASM-102). nunca aplica transiciones (RN-WFL-001). el día de Lima se lee
-// una vez por vuelta: todas las organizaciones se miden con la misma fecha. los avisos de plazo los publica DeadlineNotices,
-// que lee lo que este trabajo escribió
+// lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vincula al proyecto (ASM-102). nunca
+// aplica transiciones (RN-WFL-001). el día de Lima se lee una vez por vuelta: todas las organizaciones se miden con la misma
+// fecha. los avisos de plazo los publica DeadlineNotices, que lee lo que este trabajo escribió
 @Component
 class DeadlineJob(
     private val records: Records,
@@ -194,7 +194,12 @@ class DeadlineJob(
         return (1..level).count { reached ->
             if (confidential && reached == 2) {
                 val project = Values.text(record.attributes["project"])
-                val (title, description) = NoticeTexts.qcsConfidentialEscalation(NoticeTexts.projectName(params, project.orEmpty()))
+                if (project == null) {
+                    // sin proyecto, la tarea genérica no tendría ningún vínculo: no se crea (el log no lleva datos de la QCS)
+                    log.warn("DeadlineJob: una {} confidencial vencida no tiene proyecto; no se crea su tarea genérica de escalamiento", tracked.objectName)
+                    return@count false
+                }
+                val (title, description) = NoticeTexts.qcsConfidentialEscalation(NoticeTexts.projectName(params, project))
                 return@count tasks.ensure(
                     confidentialEscalationKey(tracked.objectName, record.id, due),
                     mapOf("title" to title, "description" to description, "project" to project),
