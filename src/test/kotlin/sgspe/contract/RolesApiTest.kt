@@ -32,7 +32,8 @@ class RolesApiTest : SgspeApiTest() {
         }
         val auditor = roles.values().single { it["name"].asString() == "AUDITOR" }
         val grants = auditor["permissions"].values().map { (if (it["objectName"].isNull) null else it["objectName"].asString()) to it["action"].asString() }
-        assertEquals(listOf(null to "READ"), grants)
+        // AUDITOR lee todo el tenant y, con la acción declarada READ_ALL_PROJECTS, todos los proyectos (ADR-0029)
+        assertEquals(setOf(null to "READ", "project" to "READ_ALL_PROJECTS"), grants.toSet())
     }
 
     @Test
