@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import org.mockito.invocation.InvocationOnMock
-import sgspe.commitment.NotReadable
 import sgspe.commitment.SeniorApprovalReader
 import sgspe.common.ModelCatalog
+import sgspe.common.NotReadable
 import sgspe.scope.Assignments
 import tools.jackson.databind.json.JsonMapper
 import wasichai.core.data.RecordChange

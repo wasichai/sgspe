@@ -8,6 +8,7 @@ import sgspe.common.Criteria
 import sgspe.common.DerivedFieldsJob
 import sgspe.common.DerivedRecalculator
 import sgspe.common.LIMA
+import sgspe.common.NotReadable
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.Values

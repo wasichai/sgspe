@@ -9,7 +9,7 @@ import java.util.UUID
 
 // a qué proyecto pertenece un registro (domain-model §4.7): las raíces llevan `project`; los hijos lo heredan de su raíz
 // por su relación; `project` es su propio proyecto. los objetos que también pueden ser del tenant (export_log y, desde F3,
-// evidence…) tienen `project` opcional y solo se acotan cuando lo traen. las fases siguientes agregan sus objetos aquí
+// evidence y, desde F4, early_warning_rule) tienen `project` opcional y solo se acotan cuando lo traen. las fases siguientes agregan sus objetos aquí
 object ProjectScope {
     val ROOTS: Set<String> =
         setOf(
@@ -34,7 +34,18 @@ object ProjectScope {
             "commitment_candidate",
             "agreement",
             "task",
-            "evidence"
+            "evidence",
+            // F4: early_warning_rule también puede ser del tenant (project opcional): una regla sin proyecto no se acota
+            "grievance",
+            "inquiry",
+            "stakeholder_request",
+            "social_risk",
+            "potential_impact",
+            "incident",
+            "media_mention",
+            "early_warning_signal",
+            "early_warning_rule",
+            "early_warning"
         )
 
     // hijo -> (campo RELATION, objeto padre)
@@ -56,7 +67,9 @@ object ProjectScope {
             "commitment_dependency" to ("commitment" to "commitment"),
             "delivery" to ("commitment" to "commitment"),
             "agreement_party" to ("agreement" to "agreement"),
-            "agreement_clause" to ("agreement" to "agreement")
+            "agreement_clause" to ("agreement" to "agreement"),
+            "risk_assessment" to ("social_risk" to "social_risk"),
+            "mitigation_measure" to ("social_risk" to "social_risk")
         )
 
     // quien escribe una asignación con permiso sobre ella forma los equipos: no se le pide asignación (security.md §9.2)
