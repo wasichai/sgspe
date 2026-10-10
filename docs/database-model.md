@@ -720,7 +720,7 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
 | `due_soon_days` | INTEGER | no | — | Días antes del plazo desde los que se marca POR VENCER (compromisos, QCS y tareas). Desde F3. Por defecto: 7. | ASM-006 |
 | `escalation_first_days` | INTEGER | no | — | Días de atraso del primer nivel de escalamiento, que avisa a los roles de la transición de verificación o de revisión del objeto, resueltos con las asignaciones del proyecto y sin nombres de rol fijos (ASM-030, ASM-070). Desde F3. Por defecto: 7. | RF-WFL-004 |
 | `escalation_second_days` | INTEGER | no | — | Días de atraso del segundo nivel, que avisa a los roles de la aprobación de nivel superior (`approve_senior` de WF-D), resueltos igual (ASM-030, ASM-070). Desde F3. Por defecto: 15. | RF-WFL-004 |
-| `grievance_ack_days` | INTEGER | no | — | Plazo de acuse de quejas, en días hábiles (ASM-005). Desde F4. Por defecto: 5. | RF-GRV-006 |
+| `grievance_ack_days` | INTEGER | no | — | Plazo de acuse de quejas, en días hábiles: de lunes a viernes, menos los feriados nacionales configurados por año en `sgspe.calendar.holidays`; el día de recepción no cuenta (`BusinessDays`, ASM-005, ASM-096). Desde F4. Por defecto: 5. | RF-GRV-006 |
 | `inquiry_response_days` | INTEGER | no | — | Plazo de respuesta de consultas, en días (ASM-005). Desde F4. Por defecto: 15. | RF-GRV-006 |
 | `grievance_resolution_days` | INTEGER | no | — | Plazo de resolución de quejas, en días (ASM-005). Desde F4. Por defecto: 30. | RF-GRV-006 |
 | `policy_high_severity_requires_approver` | BOOLEAN | no | — | Resolver quejas ALTA o CRITICA exige `APPROVER` (ASM-036). Desde F4. Por defecto: true. | RN-GRV-002 |
@@ -750,6 +750,10 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
   aplica la precondición de `active` mientras `policy_activation_preconditions` esté activo (ASM-062).
 - Los parámetros y políticas llegan con el módulo que los usa (columna "Descripción"); `apply.py` agrega cada campo en
   su fase. Su `defaultValue` lo aplica el código de SGSPE, porque wasichai no lo aplica (§3.6, UPS-15).
+- Los parámetros de F4: `ProjectWriteGuard` rechaza con `400 OUT_OF_RANGE` un plazo o una cadencia
+  (`grievance_ack_days`, `inquiry_response_days`, `grievance_resolution_days`, `risk_review_days`) menor que 1 o mayor
+  que 365, y umbrales de riesgo fuera de 1 a 25 o que no crezcan estrictamente (`risk_medium_min_score` <
+  `risk_high_min_score` < `risk_critical_min_score`).
 
 ### `project_party`
 
@@ -1732,6 +1736,7 @@ o posterior. Tabla física `app_data.engagement_question__<org8>`. Requisitos: R
 | `answered_on_site` | BOOLEAN | no | — | Se respondió en la interacción. | RQ-DSH-014 |
 | `answer` | LONG_TEXT | no | — | Respuesta. | RF-ENG-003 |
 | `answered_at` | DATETIME | no | — | Momento de la respuesta posterior. | RF-ENG-003 |
+| `referred_at` | DATETIME | no | — | (derivado) Momento en que la pregunta se derivó a una QCS; lo escribe el endpoint de derivación con la marca, y con él `EngagementWriteGuard` la cuenta como atendida sin leer la QCS, que puede ser confidencial. Desde F4. | RN-ENG-005 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
@@ -1746,7 +1751,8 @@ o posterior. Tabla física `app_data.engagement_question__<org8>`. Requisitos: R
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 - La derivación a `inquiry`, `stakeholder_request` o `grievance` se guarda en la QCS (`origin_question`) desde F4
-  (RN-ENG-005).
+  (RN-ENG-005), y la pregunta guarda `referred_at`: una pregunta ya derivada no se vuelve a derivar
+  (`409 ALREADY_REFERRED`).
 
 ### `field_visit`
 
@@ -2381,7 +2387,7 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 | `category` | ENUM `qcs_category` | no | — | Categoría. | RF-GRV-001 |
 | `description` | LONG_TEXT | sí | — | Descripción del planteamiento. | RF-GRV-001 |
 | `priority` | ENUM `priority` | no | — | Prioridad. | RF-GRV-001 |
-| `response_due_date` | DATE | no | — | (derivado) Plazo de respuesta (ASM-005). | RF-GRV-006 |
+| `response_due_date` | DATE | no | — | (derivado) Plazo de respuesta (ASM-005). En la queja queda siempre vacío (ASM-100). | RF-GRV-006 |
 | `deadline_status` | ENUM `deadline_status` | no | — | (derivado) Situación de plazo; nunca es un estado. | RN-WFL-001 |
 | `owner_user_id` | UUID | no | — | Responsable (ASM-023). | ASM-023 |
 | `owner_user_email` | EMAIL | no | — | Correo del responsable. | ASM-023 |
@@ -2390,7 +2396,7 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 | `closed_date` | DATE | no | — | (derivado) Fecha (America/Lima) de la transición a un estado final: `closed`, `rejected` o `withdrawn`. | RQ-DSH-022 |
 | `location` | GEOMETRY (POINT) | no | — | Ubicación. | RF-GRV-001 |
 | `severity` | ENUM `grievance_severity` | no | — | Severidad (ASM-036). | RN-GRV-002 |
-| `ack_due_date` | DATE | no | — | (derivado) Plazo de acuse, en días hábiles (ASM-005). | RF-GRV-006 |
+| `ack_due_date` | DATE | no | — | (derivado) Plazo de acuse: el n-ésimo día hábil posterior a la fecha de recepción en Lima (`BusinessDays`, ASM-005, ASM-096). | RF-GRV-006 |
 | `resolution_due_date` | DATE | no | — | (derivado) Plazo de resolución (ASM-005). | RF-GRV-006 |
 | `resolved_date` | DATE | no | — | (derivado) Fecha (America/Lima) de la transición a `resolved`; una reapertura la vacía. | RQ-DSH-025 |
 | `resolution` | LONG_TEXT | no | — | Resolución. | RF-GRV-002 |
@@ -2416,9 +2422,15 @@ RQ-DSH-022, RQ-DSH-025, ASM-005, ASM-036.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` sí.
 - **Únicos:** `uniqueConstraints` (`project`, `code`).
 - **Índices declarados:** `indexed` en `received_at`; `indexes` (`project`, `deadline_status`).
-- **Acciones declaradas:** `APPROVE`, `EXPORT`.
+- **Acciones declaradas:** `APPROVE`, `EXPORT`, `READ_CONFIDENTIAL`.
 - **Workflow:** WF-E1.
 - **Fase:** F4 · Release 1 (MVP).
+- Confidencialidad por registro (ASM-095): con `confidential` verdadero, la queja solo la leen `ADMIN`, quien tiene
+  `READ_CONFIDENTIAL`, su responsable, quien la recibió y, si es ALTA o CRITICA, quien tiene `APPROVE`
+  (`ConfidentialAttentionScope`, `security.md` §9.6). El alta de una confidencial lleva `received_by_user_id` igual a
+  quien escribe, salvo que tenga `READ_CONFIDENTIAL`.
+- La queja mide `ack_due_date` en `received` y `resolution_due_date` después; `response_due_date` queda siempre vacío
+  (ASM-100).
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
   plazo (RQ-DSH-022). `QcsDueDatesListener` escribe los plazos al recibir (RF-GRV-006).
@@ -2469,9 +2481,12 @@ Requisitos: RF-GRV-001, RF-GRV-003, RF-GRV-007.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` sí.
 - **Únicos:** `uniqueConstraints` (`project`, `code`).
 - **Índices declarados:** `indexed` en `received_at`; `indexes` (`project`, `deadline_status`).
-- **Acciones declaradas:** `EXPORT`.
+- **Acciones declaradas:** `EXPORT`, `READ_CONFIDENTIAL`.
 - **Workflow:** WF-E2.
 - **Fase:** F4 · Release 1 (MVP).
+- Confidencialidad por registro (ASM-095): con `confidential` verdadero, la consulta solo la leen `ADMIN`, quien tiene
+  `READ_CONFIDENTIAL`, su responsable y quien la recibió (`ConfidentialAttentionScope`, `security.md` §9.6). El alta de
+  una confidencial lleva `received_by_user_id` igual a quien escribe, salvo que tenga `READ_CONFIDENTIAL`.
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
   plazo (RQ-DSH-022). `QcsDueDatesListener` escribe los plazos al recibir (RF-GRV-006).
@@ -2526,9 +2541,13 @@ Requisitos: RF-GRV-001, RF-GRV-003, RF-GRV-007.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` sí.
 - **Únicos:** `uniqueConstraints` (`project`, `code`).
 - **Índices declarados:** `indexed` en `received_at`; `indexes` (`project`, `deadline_status`).
-- **Acciones declaradas:** `EXPORT`.
+- **Acciones declaradas:** `EXPORT`, `READ_CONFIDENTIAL`.
 - **Workflow:** WF-E3.
 - **Fase:** F4 · Release 1 (MVP).
+- Confidencialidad por registro (ASM-095): con `confidential` verdadero, la solicitud solo la leen `ADMIN`, quien tiene
+  `READ_CONFIDENTIAL`, su responsable y quien la recibió (`ConfidentialAttentionScope`, `security.md` §9.6). El alta de
+  una confidencial lleva `received_by_user_id` igual a quien escribe, salvo que tenga `READ_CONFIDENTIAL`.
+- `response_due_date` y `deadline_status` quedan vacíos mientras GAP-005 no fije un plazo de solicitudes (ASM-100).
 - Campos y relaciones comunes de las tres QCS (ASM-011); el reporte unificado los lee juntos (RF-GRV-005).
 - Índices: `received_at` para los conteos por mes (RQ-DSH-024) y (`project`, `deadline_status`) para las QCS fuera de
   plazo (RQ-DSH-022). `QcsDueDatesListener` escribe los plazos al recibir (RF-GRV-006).
@@ -2587,7 +2606,7 @@ RF-RSK-003, RF-RSK-005, RN-RSK-002, RN-RSK-003, RN-WFL-001, ASM-004, CON-011.
 | `residual_impact` | INTEGER | no | — | (derivado) Impacto residual. | RN-RSK-003 |
 | `residual_score` | INTEGER | no | — | (derivado) Puntaje residual. | RN-RSK-003 |
 | `residual_level` | ENUM `risk_level` | no | — | (derivado) Nivel residual. | RN-RSK-003 |
-| `review_every_days` | INTEGER | no | — | Días entre revisiones; vacío = `risk_review_days` del proyecto. | RN-RSK-001 |
+| `review_every_days` | INTEGER | no | — | Días entre revisiones, de 1 a 365 (`400 OUT_OF_RANGE` fuera de rango); vacío = `risk_review_days` del proyecto. | RN-RSK-001 |
 | `next_review_date` | DATE | no | — | (derivado) Fecha de la próxima revisión. | RN-RSK-001 |
 | `review_status` | ENUM `review_status` | no | — | (derivado) Situación de revisión; nunca es un estado de WF-F. | RN-WFL-001 |
 | `owner_user_id` | UUID | no | — | Responsable (ASM-023). | RF-RSK-001 |
@@ -2830,15 +2849,15 @@ física `app_data.early_warning_rule__<org8>`. Requisitos: RF-EWS-004.
 |---|---|---|---|---|---|
 | `name` | TEXT | sí | — | Nombre. | RF-EWS-004 |
 | `rule_kind` | ENUM `warning_rule_kind` | sí | — | Tipo de regla; decide qué evalúa `WarningRulesJob`. | RF-EWS-004 |
-| `threshold` | DECIMAL | no | — | Umbral. | RF-EWS-004 |
-| `window_days` | INTEGER | no | — | Ventana en días. | RF-EWS-004 |
+| `threshold` | DECIMAL | no | — | Umbral entero; su sentido depende de `rule_kind`: un conteo de 1 en adelante, o un puntaje de 1 a 25 en NIVEL DE RIESGO (ASM-097). | RF-EWS-004 |
+| `window_days` | INTEGER | no | — | Ventana en días de Lima que terminan hoy, de 1 a 365; vacía vale 7. Es también el silencio tras una alerta de la regla (ASM-097). | RF-EWS-004 |
 | `severity` | ENUM `warning_severity` | no | — | Severidad de las alertas que crea. | RF-EWS-004 |
 | `enabled` | BOOLEAN | sí | — | Regla activa. Por defecto: true. | RF-EWS-004 |
 | `description` | LONG_TEXT | no | — | Descripción. | RF-EWS-004 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
-| `early_warning_rule_project` | MANY_TO_ONE | `project` | `project` | no | Vacío = todo el tenant |
+| `early_warning_rule_project` | MANY_TO_ONE | `project` | `project` | no | Vacío = regla del tenant, que un proyecto reemplaza con una propia del mismo tipo |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** ninguno.
@@ -2846,6 +2865,12 @@ física `app_data.early_warning_rule__<org8>`. Requisitos: RF-EWS-004.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F4 · Release 1 (MVP).
+- Una regla sin `project` es del tenant: aplica a cada proyecto en `active` o `suspended`, salvo a los que tienen una
+  regla propia del mismo tipo, que la reemplaza (ASM-097). `ProjectScopeGuard` acota solo las reglas con proyecto.
+- `WarningWriteGuard` rechaza con `400 OUT_OF_RANGE` un `threshold` vacío, no entero o fuera del rango de su tipo, y un
+  `window_days` fuera de 1 a 365. Qué cuenta cada tipo está en `workflows.md`, «Tipos de regla de JOB-04».
+- Una regla con alertas no se borra (`409 HAS_DEPENDENTS`): se desactiva con `enabled` en falso, para no perder el
+  origen de sus alertas.
 
 ### `early_warning`
 
@@ -2862,6 +2887,7 @@ física `app_data.early_warning_rule__<org8>`. Requisitos: RF-EWS-004.
 | `owner_user_id` | UUID | no | — | Responsable (ASM-023). | ASM-023 |
 | `owner_user_email` | EMAIL | no | — | Correo del responsable. | ASM-023 |
 | `location` | GEOMETRY (POINT) | no | — | Ubicación. | RF-EWS-004 |
+| `generator_key` | TEXT | no | sí | Clave idempotente de una alerta creada por JOB-04: `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`; vacía en una alerta creada por una persona. Solo la escribe JOB-04 (`GeneratorKeyGuard`, ASM-097). | RF-EWS-004 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
@@ -2872,13 +2898,15 @@ física `app_data.early_warning_rule__<org8>`. Requisitos: RF-EWS-004.
 | `early_warning_social_risk` | MANY_TO_ONE | `social_risk` | `social_risk` | no | Riesgo al que alimenta |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
-- **Únicos:** ninguno.
+- **Únicos:** `unique` en `generator_key`.
 - **Índices declarados:** ninguno.
 - **Acciones declaradas:** `CONFIRM_ALERT`.
 - **Workflow:** WF-J.
 - **Fase:** F4 · Release 1 (MVP).
 - `WarningRulesJob` la crea en `detected`; `WarningWriteGuard` rechaza `confirmed` y `dismissed` sin usuario o desde una
   cuenta de servicio (RN-EWS-001, RQ-SEC-014).
+- `generator_key` solo la escribe JOB-04: una persona que la fija, la cambia o la vacía recibe
+  `403 GENERATOR_KEY_PLATFORM_ONLY`, como en `task`. Su único frena una carrera entre réplicas.
 
 ## 15. BC-10 Inversión social y programas
 
