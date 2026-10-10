@@ -1146,9 +1146,13 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 - **Falla cerrado:** un objeto sin clasificar en `ProjectScope`, una definición sin sus columnas o un error al consultar
   permisos o definiciones no admiten ningún registro. `ArchitectureTest` exige que todo objeto de `model.json` esté en
   un solo grupo.
+- **Hijos con padre opcional:** un hijo sin su padre se lee en todo el tenant. `ArchitectureTest` fija la lista exacta
+  (`delivery` y `locality_profile`) y exige que ninguno tenga otra relación hacia un objeto de proyecto. Cuando F5 dé a
+  `delivery` su segundo padre (`social_contribution`), la entrega se acota por el padre que tenga, nunca «sin padre,
+  todos».
 - **Documentos emitidos:** wasichai-documents solo pide READ sobre el objeto (UPS-28); `IssueDocumentFilter` lee el
-  registro del documento como quien llama en `GET .../records/{id}/documents` y `GET /api/documents/{id}` y responde
-  `404` si no lo lee.
+  registro del documento como quien llama en `GET .../records/{id}/documents` y `GET /api/documents/{id}` (y en su
+  `HEAD`, que WebFlux sirve con los mismos `@GetMapping`) y responde `404` si no lo lee.
 - **Escritura:** `ProjectScopeGuard` (§9.2) sigue como segunda línea: frena a quien lee todo sin estar asignado.
 - **Errores (ASM-108):** fuera del alcance, `404`; un `RELATION` hacia un registro ilegible, el `400` de wasichai sobre
   el campo (`"no record with this id"`); un vínculo M2M con un extremo ilegible, `404`; `NOT_ASSIGNED`, para quien lee

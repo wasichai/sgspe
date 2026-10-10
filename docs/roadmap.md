@@ -347,7 +347,7 @@ pistas de arriba o en las fases siguientes:
 | Roles con permisos desde F5 | `SOCIAL_INVESTMENT_MANAGER` |
 | KPIs | KPI-INV-01, KPI-INV-02, KPI-INV-03, KPI-INV-04; tablero `investment` |
 | Entregables | Documento «Acta de recepción»; datos de la sección "Apoyo entregado" de T2 |
-| Definición de terminado | La general, más: `SocialProgramWorkflowApiTest`, `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest` que cierra la solicitud al cerrar su aporte; objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`) |
+| Definición de terminado | La general, más: `SocialProgramWorkflowApiTest`, `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest` que cierra la solicitud al cerrar su aporte; objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`); `delivery` con dos padres: se lee por el alcance de su `commitment` o de su `social_contribution`, nunca «sin padre, todos», con `ProjectReadCondition` y la regla de los hijos con padre opcional de `ArchitectureTest` actualizadas (security.md §9.7) |
 | Riesgos | Estructura real de los programas desconocida (GAP-007); montos en otra moneda que no se suman (ASM-063) |
 | IDs abiertos | Condicionan: GAP-006, GAP-007, GAP-032; ASM-019, ASM-063, ASM-068 |
 
