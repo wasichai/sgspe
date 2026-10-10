@@ -13,6 +13,7 @@ import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.RuleGuard
 import sgspe.common.Values
+import sgspe.common.WriteMark
 import sgspe.common.WriteView
 import sgspe.common.isLink
 import sgspe.common.readable
@@ -24,7 +25,8 @@ import wasichai.core.data.RecordWrite
 // otros registros como quien escribe: la confidencialidad (READ_CONFIDENTIAL, ASM-095), la queja grave
 // (policy_high_severity_requires_approver del proyecto, RN-GRV-002), la doble llave de resolve_high_severity (APPROVE) y el
 // cierre sin ejecución (close_unfulfilled con el compromiso cancelado). una escritura sin usuario (la plataforma, una
-// automatización) no tiene permisos que comprobar. lo que no se puede leer es 403 OBJECT_NOT_READABLE, nunca un pase
+// automatización) no tiene permisos que comprobar; el alta de la reclasificación copia el receptor del original y no lo
+// juzga (AttentionRules.receiverCopied). lo que no se puede leer es 403 OBJECT_NOT_READABLE, nunca un pase
 @Component
 @Order(GuardOrder.DOMAIN)
 class AttentionWriteGuard(
@@ -61,7 +63,10 @@ class AttentionWriteGuard(
         val findings = AttentionRules.record(change.objectName, change.recordId, after).toMutableList()
         val writer = change.userId ?: return findings
         if (change.kind == RecordChangeKind.CREATED) {
-            if (AttentionRules.foreignReceiver(after, writer) && !holds(Attention.READ_CONFIDENTIAL, change.objectName)) {
+            if (AttentionRules.foreignReceiver(after, writer) &&
+                !AttentionRules.receiverCopied(change.objectName, after, WriteMark.present()) &&
+                !holds(Attention.READ_CONFIDENTIAL, change.objectName)
+            ) {
                 findings +=
                     Finding(
                         "CONFIDENTIAL_RECEIVER_REQUIRED",
