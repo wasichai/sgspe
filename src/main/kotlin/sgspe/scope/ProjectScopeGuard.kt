@@ -10,9 +10,10 @@ import sgspe.common.RuleGuard
 import sgspe.common.WriteView
 import wasichai.core.data.RecordWrite
 
-// la escritura acotada por asignación, opción A del checkpoint (security.md §9.2, RQ-SEC-006, CON-041): altas, cambios,
-// bajas, transiciones y vínculos de los objetos de un proyecto solo para quien tiene una project_assignment vigente a ese
-// proyecto. la lectura sigue siendo de todo el tenant hasta UPS-01. exentos: ADMIN (isAdmin), la plataforma y las
+// la escritura acotada por asignación (security.md §9.2, RQ-SEC-006, CON-041): altas, cambios, bajas, transiciones y
+// vínculos de los objetos de un proyecto solo para quien tiene una project_assignment vigente a ese proyecto. desde 4.4 la
+// lectura la acota ProjectReadScope (§9.7) y esta guarda es la segunda línea: frena a quien lee todo sin estar asignado
+// (READ_ALL_PROJECTS) y el alta de raíces que la persona lee. exentos: ADMIN (isAdmin), la plataforma y las
 // automatizaciones (sin usuario), el alta de un project (aún sin equipo) y las asignaciones (forman el equipo). decide con
 // datos, nunca con nombres de rol (RQ-SEC-005)
 @Component
