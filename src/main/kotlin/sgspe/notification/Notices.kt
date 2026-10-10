@@ -18,6 +18,13 @@ import java.util.UUID
 object NoticeTexts {
     private val DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
+    // F4: una alerta nueva (WarningNoticeListener), por una persona o por JOB-04: su título y su severidad, que no llevan datos
+    // personales (los de JOB-04 dicen la regla, el tipo, el conteo y el umbral)
+    fun warningNew(
+        title: String,
+        severity: String?
+    ): Pair<String, String> = "Alerta nueva: $title" to (severity?.let { "Severidad $it. " } ?: "") + "Inicie su triaje."
+
     fun approvalPending(
         objectName: String,
         label: String
@@ -135,7 +142,9 @@ class Notices(
         }
 
     companion object {
-        // las fuentes de SGSPE en el módulo (^[a-z][a-z0-9_.:-]{1,80}$; nunca manual, rule:… ni automation:…)
+        // las fuentes de SGSPE en el módulo (^[a-z][a-z0-9_.:-]{1,80}$; nunca manual, rule:… ni automation:…). desde F4, también
+        // las alertas nuevas (WarningNoticeListener)
+        const val WARNINGS = "sgspe.warnings"
         const val APPROVALS = "sgspe.approvals"
         const val DEADLINES = "sgspe.deadlines"
 
