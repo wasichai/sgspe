@@ -161,6 +161,19 @@ class IssueDocumentFilterTest {
         assertNull(IssueDocumentFilter.readOf(MockServerHttpRequest.get("/api/objects/engagement/document-types").build()))
     }
 
+    // WebFlux sirve HEAD con los @GetMapping: sin vigilarlo, el estado y el Content-Length dirían si existe un documento de
+    // otro proyecto y cuánto mide
+    @Test
+    fun `HEAD sobre las dos lecturas de documentos es la misma lectura que GET`() {
+        val record = UUID.fromString(id)
+        assertEquals(
+            DocumentRead.OfRecord("engagement", record),
+            IssueDocumentFilter.readOf(MockServerHttpRequest.head("/api/objects/Engagement/records/$id/documents").build())
+        )
+        assertEquals(DocumentRead.ById(record), IssueDocumentFilter.readOf(MockServerHttpRequest.head("/api/documents/$id").build()))
+        assertNull(IssueDocumentFilter.readOf(MockServerHttpRequest.head("/api/objects/engagement/records/$id").build()))
+    }
+
     @Test
     fun `un documento cuyo registro no se lee es el 404 de wasichai y no llega al controlador`() {
         val reads = Reads(NotFoundException("Record $id does not exist"))

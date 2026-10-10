@@ -31,3 +31,9 @@ node_modules/
 
 # python
 __pycache__/
+
+# inventario real de tenants de upgrade_tenants.py (--inventory RUTA, ruta libre): nunca versionado. solo la forma de
+# ejemplo, model/tenants.example.json, va al repositorio
+model/tenants.json
+model/tenants.*.json
+!model/tenants.example.json

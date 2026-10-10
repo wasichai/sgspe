@@ -208,6 +208,46 @@ class ArchitectureTest {
         }
     }
 
+    // un hijo cuya relación con el padre no es obligatoria se lee en todo el tenant cuando no tiene padre ("<padre> IS NULL OR …"
+    // de ProjectReadCondition). la lista es fija: si un hijo nuevo tiene padre opcional, o uno de estos gana otra relación de
+    // padre (en F5, delivery.social_contribution, domain-model.md), esta prueba obliga a revisar CHILDREN y la condición para
+    // que el registro sin el padre de CHILDREN se acote por su otro padre y nunca quede abierto (security.md §9.7)
+    @Test
+    fun `los hijos con padre opcional son exactamente los revisados`() {
+        val model = JsonMapper.builder().build().readTree(File("model/model.json"))
+        val optional =
+            model["relationships"]
+                .values()
+                .filter { rel ->
+                    val link = ProjectScope.CHILDREN[rel["source"].asString()]
+                    link != null && rel["fieldName"]?.takeUnless { it.isNull }?.asString() == link.first && rel["required"]?.asBoolean() != true
+                }.map { it["source"].asString() }
+                .toSet()
+        assertEquals(
+            setOf("delivery", "locality_profile"),
+            optional,
+            "los hijos con padre opcional se leen en todo el tenant cuando no lo tienen: revise ProjectScope.CHILDREN, " +
+                "ProjectReadCondition y security.md §9.7 antes de cambiar esta lista"
+        )
+        // ninguno de ellos tiene otra relación hacia un objeto acotado por proyecto: un segundo padre (delivery.social_contribution
+        // desde F5) dejaría abiertos sus registros sin el padre de CHILDREN
+        val scoped = ProjectScope.ROOTS + ProjectScope.CHILDREN.keys + ProjectScope.PROJECT
+        val otherParents =
+            model["relationships"]
+                .values()
+                .filter { rel ->
+                    val source = rel["source"].asString()
+                    source in optional && rel["fieldName"]?.takeUnless { it.isNull }?.asString() != ProjectScope.CHILDREN.getValue(source).first &&
+                        rel["target"].asString() in scoped
+                }.map { "${it["source"].asString()}.${it["fieldName"]?.asString()}" }
+        assertEquals(
+            emptyList<String>(),
+            otherParents,
+            "un hijo con padre opcional ganó otra relación hacia un objeto de proyecto: acótelo también por ella en " +
+                "ProjectReadCondition (nunca «sin padre, todos») y actualice esta prueba"
+        )
+    }
+
     // la condición del alcance por proyecto la arma solo ProjectReadScope, y «lee todos los proyectos» lo preguntan solo common y
     // scope: los demás paquetes usan mine, assigned o reaches de ProjectReach (elección 6 de la especificación 4.4)
     @Test
