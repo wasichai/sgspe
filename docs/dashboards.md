@@ -150,7 +150,7 @@ qué cortes ofrece; **Actualización**, según §3.4; **Fase**, cuándo aparece 
 |---|---|---|---|---|---|---|---|---|
 | KPI-EXE-01 | Proyectos activos | Proyectos en ejecución que la persona puede leer | Número de `project` en `active` (§3.2) | `project.workflow_state`, `stage`, `project_type` | Proyecto; desglose por `stage` y `project_type` | RQ-DSH-002, RF-PRJ-003 | Vivo | F8 |
 | KPI-EXE-02 | Alertas activas | Alertas tempranas que siguen en curso | Número de `early_warning` activas (§3.2) | `early_warning.workflow_state`, `severity`, `detected_at`, `project`, `locality`, `community` | Proyecto, territorio; desglose por `severity` y estado | RQ-DSH-002, RF-EWS-004, RN-EWS-001 | Vivo | F8 (alertas desde F4) |
-| KPI-EXE-03 | Tendencia mensual | Evolución de la actividad, de las quejas y de los atrasos en los últimos 12 meses | Tres series mensuales, cada una en su propio gráfico: interacciones realizadas (KPI-ENG-01 por mes), quejas recibidas frente a cerradas (KPI-GRV-09 de `grievance`) y compromisos vencidos al cierre de cada mes (KPI-COM-11) | Las de los KPI que compone | Proyecto, territorio, ámbito | RQ-DSH-003 | Vivo | F8 |
+| KPI-EXE-03 | Tendencia mensual | Evolución de la actividad, de las quejas y de los atrasos en los últimos 12 meses | Tres series mensuales, cada una en su propio gráfico: interacciones realizadas (KPI-ENG-01 por mes), quejas recibidas frente a cerradas (calculadas como KPI-GRV-09, pero solo sobre `grievance`: KPI-GRV-09 suma las tres QCS) y compromisos vencidos al cierre de cada mes (KPI-COM-11) | Las de los KPI que compone | Proyecto, territorio, ámbito | RQ-DSH-003 | Vivo | F8 |
 
 ### 4.2 Grupos de interés (`KPI-STK`)
 

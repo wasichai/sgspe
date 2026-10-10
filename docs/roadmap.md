@@ -493,6 +493,8 @@ Los issues se abrieron el 2026-10-07, tras el checkpoint:
 | UPS-16 | [wasichai#61](https://github.com/wasichai/wasichai/issues/61) |
 | UPS-17 | [wasichai#62](https://github.com/wasichai/wasichai/issues/62) |
 | UPS-18 | [wasichai#63](https://github.com/wasichai/wasichai/issues/63) |
+| UPS-24 | [wasichai#90](https://github.com/wasichai/wasichai/issues/90) |
+| UPS-27 | [wasichai-ui#46](https://github.com/wasichai/wasichai-ui/issues/46) |
 
 ## Decisiones pendientes para el checkpoint
 
