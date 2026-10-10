@@ -10,6 +10,11 @@ wasichai:
   seed:
     # nunca el admin@wasichai.local de desarrollo
     dev: false
+  organizations:
+    # UPS-10 (WAS-ADR-0055, ASM-109): crear y borrar tenants exige MANAGE_TENANTS, que solo tiene el rol ADMIN de la
+    # organización operadora, sembrado fuera de banda antes de desplegar (docs/develop/README.md). el ADMIN de un cliente
+    # conserva usuarios, roles, cuentas de servicio y el nombre de su tenant
+    separate-provisioning: true
   security:
     jwt:
       # obligatorio y sin valor por defecto: sin WASICHAI_JWT_SECRET (>= 32 bytes) la app no arranca

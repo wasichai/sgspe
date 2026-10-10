@@ -128,6 +128,26 @@ python3 -m unittest -v                  # las pruebas de los scripts, contra un 
 - El CSV del INEI trae una fila sin código (`NA`, distrito San Antonio, provincia Mariscal Nieto, Moquegua): `load_ubigeo.py`
   la informa y la salta.
 
+### Varios clientes: la siembra de `MANAGE_TENANTS` (ASM-109)
+
+En producción `wasichai.organizations.separate-provisioning` está encendido (`application-prod.yml`): crear y borrar
+tenants exige `MANAGE_TENANTS`, que nadie tiene hasta que quien opera la base siembra el primer titular (WAS-ADR-0055). Se
+hace **una sola vez, antes del primer despliegue con el interruptor encendido**, para el rol `ADMIN` de la organización
+operadora (la del `SUPER_ADMIN`). Nunca va en `roles.json`, que se aplica a cada tenant cliente, y ninguna cuenta de
+servicio la recibe:
+
+```sql
+INSERT INTO <esquema de metadata>.permissions (role_id, object_id, action)
+SELECT r.id, NULL, 'MANAGE_TENANTS'
+FROM <esquema de metadata>.roles r JOIN <esquema de metadata>.organizations o ON o.id = r.organization_id
+WHERE o.slug = '<slug de la organización operadora>' AND r.name = 'ADMIN'
+  AND NOT EXISTS (SELECT 1 FROM <esquema de metadata>.permissions p WHERE p.role_id = r.id AND p.action = 'MANAGE_TENANTS');
+```
+
+El esquema de metadata es `wasichai.database.metadata-schema`. Con el interruptor encendido y sin la fila, nadie crea
+tenants hasta sembrarla. Comprobación: `GET /api/auth/me/permissions` del `ADMIN` operador lista `MANAGE_TENANTS` en
+`capabilities`, y el de un cliente no. `SeparateProvisioningApiTest` prueba lo mismo.
+
 ## 6. Pruebas
 
 ```bash
