@@ -1,0 +1,6 @@
+{
+  "tenants": [
+    { "slug": "cliente-ejemplo-a", "adminEmail": "admin-cliente-ejemplo-a@sgspe.test" },
+    { "slug": "cliente-ejemplo-b", "adminEmail": "admin-cliente-ejemplo-b@sgspe.test" }
+  ]
+}

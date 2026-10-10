@@ -834,6 +834,11 @@ atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
   los reportes. Un vínculo a ella desde otra pantalla (tarea, evidencia, compromiso, pregunta de reunión) muestra
   «Registro reservado», sin enlace ni datos, y los tableros y el reporte avisan cuando la cifra excluye confidenciales
   (`confidentialHidden`).
+- **Registro reservado general y proyectos (ASM-106, plan 4.4b).** Todo vínculo cuyo destino responde `404` (otro
+  proyecto o una QCS confidencial) muestra «Registro reservado»; una ficha que responde `404` dice «El registro no existe o
+  no es de sus proyectos», sin distinguir. El selector de proyectos lista los `project` que la cuenta lee y, con
+  `READ_ALL_PROJECTS` en `/api/auth/me/permissions`, ofrece «Todos los proyectos»; sin asignaciones ni la acción, dice «No
+  tiene proyectos asignados. Pida una asignación al administrador de proyectos».
 
 ### S35 · Lista unificada de QCS
 

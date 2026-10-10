@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import sgspe.scope.ProjectScope
 import tools.jackson.databind.json.JsonMapper
 import java.io.File
 
@@ -170,6 +171,100 @@ class ArchitectureTest {
         assertFalse(flags(DERIVED_RESTORE_NEW, "// DerivedRestore(objeto, id) solo en el keeper"))
     }
 
+    // el alcance de lectura por proyecto (ASM-106, security.md §9.7): cada objeto de model.json está en un solo grupo de
+    // ProjectScope, todo objeto con la relación `project` es una raíz (o project_assignment) y el padre de cada hijo es una raíz
+    // por el campo que dice CHILDREN. así una fase nueva (F5 a F8) no agrega un objeto sin clasificarlo: ProjectReadScope no
+    // admitiría ningún registro suyo
+    @Test
+    fun `cada objeto del modelo esta clasificado en ProjectScope`() {
+        val model = JsonMapper.builder().build().readTree(File("model/model.json"))
+        val objects = model["objects"].values().map { it["name"].asString() }
+        val groups =
+            mapOf(
+                "project" to setOf(ProjectScope.PROJECT),
+                "project_assignment" to setOf(ProjectScope.ASSIGNMENT),
+                "ROOTS" to ProjectScope.ROOTS,
+                "CHILDREN" to ProjectScope.CHILDREN.keys,
+                "TENANT" to ProjectScope.TENANT
+            )
+        for (name in objects) {
+            val holders = groups.filterValues { name in it }.keys
+            assertEquals(1, holders.size, "$name está en $holders: clasifíquelo en un solo grupo de ProjectScope")
+        }
+        val named = ProjectScope.ROOTS + ProjectScope.CHILDREN.keys + ProjectScope.TENANT
+        assertEquals(emptySet<String>(), named - objects.toSet(), "ProjectScope nombra objetos que model.json no tiene")
+        // (objeto, campo, destino) de cada relación con campo
+        val relations =
+            model["relationships"].values().mapNotNull { rel ->
+                val field = rel["fieldName"]?.takeUnless { it.isNull }?.asString() ?: return@mapNotNull null
+                Triple(rel["source"].asString(), field, rel["target"].asString())
+            }
+        val withProject = relations.filter { (_, field, target) -> field == "project" && target == "project" }.map { it.first }.toSet()
+        assertEquals(ProjectScope.ROOTS + ProjectScope.ASSIGNMENT, withProject)
+        for ((child, link) in ProjectScope.CHILDREN) {
+            val (field, parent) = link
+            assertTrue(parent in ProjectScope.ROOTS, "$child: su padre $parent no es una raíz")
+            assertTrue(Triple(child, field, parent) in relations, "$child.$field no apunta a $parent")
+        }
+    }
+
+    // un hijo cuya relación con el padre no es obligatoria se lee en todo el tenant cuando no tiene padre ("<padre> IS NULL OR …"
+    // de ProjectReadCondition). la lista es fija: si un hijo nuevo tiene padre opcional, o uno de estos gana otra relación de
+    // padre (en F5, delivery.social_contribution, domain-model.md), esta prueba obliga a revisar CHILDREN y la condición para
+    // que el registro sin el padre de CHILDREN se acote por su otro padre y nunca quede abierto (security.md §9.7)
+    @Test
+    fun `los hijos con padre opcional son exactamente los revisados`() {
+        val model = JsonMapper.builder().build().readTree(File("model/model.json"))
+        val optional =
+            model["relationships"]
+                .values()
+                .filter { rel ->
+                    val link = ProjectScope.CHILDREN[rel["source"].asString()]
+                    link != null && rel["fieldName"]?.takeUnless { it.isNull }?.asString() == link.first && rel["required"]?.asBoolean() != true
+                }.map { it["source"].asString() }
+                .toSet()
+        assertEquals(
+            setOf("delivery", "locality_profile"),
+            optional,
+            "los hijos con padre opcional se leen en todo el tenant cuando no lo tienen: revise ProjectScope.CHILDREN, " +
+                "ProjectReadCondition y security.md §9.7 antes de cambiar esta lista"
+        )
+        // ninguno de ellos tiene otra relación hacia un objeto acotado por proyecto: un segundo padre (delivery.social_contribution
+        // desde F5) dejaría abiertos sus registros sin el padre de CHILDREN
+        val scoped = ProjectScope.ROOTS + ProjectScope.CHILDREN.keys + ProjectScope.PROJECT
+        val otherParents =
+            model["relationships"]
+                .values()
+                .filter { rel ->
+                    val source = rel["source"].asString()
+                    source in optional && rel["fieldName"]?.takeUnless { it.isNull }?.asString() != ProjectScope.CHILDREN.getValue(source).first &&
+                        rel["target"].asString() in scoped
+                }.map { "${it["source"].asString()}.${it["fieldName"]?.asString()}" }
+        assertEquals(
+            emptyList<String>(),
+            otherParents,
+            "un hijo con padre opcional ganó otra relación hacia un objeto de proyecto: acótelo también por ella en " +
+                "ProjectReadCondition (nunca «sin padre, todos») y actualice esta prueba"
+        )
+    }
+
+    // la condición del alcance por proyecto la arma solo ProjectReadScope, y «lee todos los proyectos» lo preguntan solo common y
+    // scope: los demás paquetes usan mine, assigned o reaches de ProjectReach (elección 6 de la especificación 4.4)
+    @Test
+    fun `solo ProjectReadScope arma la condicion y solo common y scope preguntan si se lee todo`() {
+        val scope = "/sgspe/scope/ProjectReadScope.kt"
+        val definition = "/sgspe/scope/ProjectReadCondition.kt"
+        val others = sources(main).filterNot { file -> listOf(scope, definition).any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, READ_CONDITION))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(scope) })
+        val outside = sources(main).filterNot { isCommon(it) || it.invariantSeparatorsPath.contains("/sgspe/scope/") }
+        assertEquals(emptyList<String>(), offenders(outside, READS_ALL))
+        assertTrue(flags(READ_CONDITION, "ProjectReadCondition.condition(group, columns, organization, user, today, bind)"))
+        assertFalse(flags(READ_CONDITION, "// ProjectReadCondition solo en ProjectReadScope"))
+        assertTrue(flags(READS_ALL, "if (reach.readsAll(user)) return null"))
+        assertFalse(flags(READS_ALL, "val projects = reach.mine(user)"))
+    }
+
     @Test
     fun `observability no depende de otros paquetes de sgspe`() {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
@@ -296,6 +391,8 @@ class ArchitectureTest {
         private val RELEASE_WITHIN = Regex("""\bConfidentialRelease\s*\.\s*within\b""")
         private val RELEASE_ON = Regex("""\bConfidentialRelease\s*\.\s*on\b""")
         private val DERIVED_RESTORE_NEW = Regex("""\bDerivedRestore\s*\(""")
+        private val READ_CONDITION = Regex("""\bProjectReadCondition\b""")
+        private val READS_ALL = Regex("""\.\s*readsAll\s*\(""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")

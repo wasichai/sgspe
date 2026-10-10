@@ -172,13 +172,13 @@ class AreaOfInfluenceWorkflowGuardsApiTest : DomainApiTest() {
     }
 
     @Test
-    fun `quien tiene el rol pero no una asignacion vigente al proyecto recibe 403 NOT_ASSIGNED y nada cambia`() {
+    fun `quien tiene el rol pero no una asignacion vigente al proyecto no ve el area y nada cambia`() {
+        // desde 4.4 el área de otro proyecto no se lee: 404 (ASM-108)
         val project = projectWithCrs()
         val area = version(project, 1)
         val elsewhere = member("SOCIAL_MANAGER", projectWithCrs())
         val refused = approve(area, elsewhere.token)
-        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
-        assertEquals("NOT_ASSIGNED", code(refused.body))
+        assertEquals(HttpStatus.NOT_FOUND, refused.status, refused.body)
         assertEquals("draft", state("area_of_influence", area))
     }
 

@@ -210,7 +210,8 @@ class TerritoryLayersApiTest : DomainApiTest() {
         approve(area(project, "AIDS", 1, null, "locality" to mine), manager.token)
         approve(area(other, "AIDS", 1, null, "locality" to theirs), member("SOCIAL_MANAGER", other).token)
 
-        val readOnly = userWithRole("READ_ONLY")
+        // desde 4.4 la capa solo trae lo que quien mira lee (ASM-106): asignado a los dos proyectos
+        val readOnly = member("READ_ONLY", project).also { assign(it, other, "READ_ONLY") }
         val own = tree(send("GET", "/api/sgspe/territory/layers/LYR-13?project=$project", null, HttpStatus.OK, readOnly.token))
         assertEquals(listOf(mine), featuresOf(own, "area_of_influence_member").map { it["properties"]["__targetId"].asString() })
         val both = tree(send("GET", "/api/sgspe/territory/layers/LYR-13?project=$project&project=$other", null, HttpStatus.OK, readOnly.token))

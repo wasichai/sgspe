@@ -51,6 +51,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Build y pruebas unitarias | `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build` |
 | Integración (base externa) | `WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_test WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew integrationTest --rerun` |
 | Modelo | `cd model && python3 -m unittest -v && python3 apply.py --validate-only && python3 load_ubigeo.py --dry-run` |
+| Alta de un tenant (operador) | `cd model && SGSPE_OPERATOR_PASSWORD=… SGSPE_TENANT_ADMIN_PASSWORD=… python3 provision_tenant.py --core URL --operator-email … --name … --slug … --admin-email …` |
+| Subida de fase de los tenants | `cd model && python3 upgrade_tenants.py --core URL --inventory RUTA` (contraseñas por `SGSPE_TENANT_PASSWORD_<SLUG>` o consola) |
 | Trazabilidad | `python3 tools/check_traceability.py` |
 | Formato | `yarn format:check` |
 
@@ -79,6 +81,9 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | QCS: `AttentionWriteGuard`, plazos y fechas, reclasificación, aceptación, derivación, `RequestClosureListener`, reporte unificado | `src/main/kotlin/sgspe/attention/` |
 | Días hábiles (`HolidayCalendar`, `BusinessDays`, feriados en `sgspe.calendar.holidays`), `Attention` y `AttentionCounting`, `NotReadable` y `readAs`, `ConfidentialRelease` (solo para `RequestClosureListener`) | `src/main/kotlin/sgspe/common/`, `src/main/resources/application.yml` |
 | QCS confidenciales (`ConfidentialAttentionScope`, un `RecordReadScope` que honra `ConfidentialRelease`) y la regla «mismo proyecto» (`ProjectLinks`, `ProjectLinkGuard`) | `src/main/kotlin/sgspe/scope/` |
+| Alcance de lectura por proyecto (`ProjectReadScope`, su condición pura `ProjectReadCondition`, la clasificación `ProjectScope.TENANT` y `readGroup`), documentos emitidos (`IssueDocumentFilter`, `DocumentReadByScope`) | `src/main/kotlin/sgspe/scope/` |
+| «Mis proyectos» o todos (`ProjectReach`, acción `READ_ALL_PROJECTS`), duración por organización de los trabajos (`SweepTiming`) | `src/main/kotlin/sgspe/common/` |
+| Alta y subida de fase por tenant (`provision_tenant.py`, `upgrade_tenants.py`, `tenant_steps.py`; inventario con la forma de `tenants.example.json`, sin versionar) | `model/` |
 | Base de las pruebas de integración del plan 3.2 (sobre `F3ApiTest`: evidencias y compromisos de los comandos) y de las de `Idempotency-Key` sin el modelo de F3 | `src/test/kotlin/sgspe/F3DomainApiTest.kt`, `src/test/kotlin/sgspe/common/AssessmentCommandApiTest.kt` |
 | Base de las pruebas de integración de F2 | `src/test/kotlin/sgspe/DomainApiTest.kt` |
 | Límites de las importaciones: tamaño, filas, plazo `IMPORT_TIMEOUT` y concurrencia | `src/test/kotlin/sgspe/territory/ImportTimeoutApiTest.kt`, `ImportLimitsApiTest.kt` |

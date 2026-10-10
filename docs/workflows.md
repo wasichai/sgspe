@@ -123,8 +123,8 @@ los objetos, campos, estados y mecanismos vienen del [modelo de dominio](domain-
 9. **Un mismo paso desde varios estados son varias transiciones** con la misma etiqueta y el estado de origen como sufijo
    (`cancel_draft`, `cancel_in_progress`), porque cada transición tiene un solo `from`.
 10. **Alcance por proyecto y registros propios.** Una transición es una escritura, así que `ProjectScopeGuard`
-    (`sgspe.scope`) la limita a quien está asignado al proyecto (RQ-SEC-006); el alcance de lectura por proyecto espera
-    UPS-01 (CON-041). Desde F4, las QCS confidenciales tienen su propio alcance de lectura
+    (`sgspe.scope`) la limita a quien está asignado al proyecto (RQ-SEC-006); la lectura por proyecto la acota
+    `ProjectReadScope` (ADR-0029, CON-041). Desde F4, las QCS confidenciales tienen su propio alcance de lectura
     (`ConfidentialAttentionScope`, ASM-095, `security.md` §9.6), y `ProjectLinkGuard` (`sgspe.scope`) rechaza con
     `409 PROJECT_MISMATCH` toda relación de un objeto de F4 hacia un registro de otro proyecto. Ningún rol usa
     `own_records_only` (ASM-069). `FIELD_AGENT` puede agregar participantes u observaciones a cualquier interacción o

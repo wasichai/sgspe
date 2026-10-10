@@ -20,7 +20,7 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 | [0003](0003-abstraccion-de-ia.md) | Abstracción de IA sobre wasichai-agent | Propuesto (se acepta en F7) | 2026-10-07 | 0014, 0015, 0031 |
 | [0004](0004-la-sugerencia-de-ia-no-es-un-comando.md) | La sugerencia de IA no es un comando de dominio | Propuesto (se acepta en F3) | 2026-10-07 | 0014, 0038, 0040 |
 | [0005](0005-rag-y-pgvector.md) | RAG en F7 y pgvector solo con justificación medida | Propuesto (se acepta en F7) | 2026-10-07 | 0002, 0026, 0039 |
-| [0006](0006-autorizacion-y-alcance-por-proyecto.md) | Autorización por roles y alcance por proyecto | Aceptado; el alcance por proyecto, Propuesto (F2, con la opción del checkpoint) | 2026-10-07 | 0004, 0010, 0020, 0025, 0040, 0042 |
+| [0006](0006-autorizacion-y-alcance-por-proyecto.md) | Autorización por roles y alcance por proyecto | Aceptado; el alcance por proyecto, sustituido por ADR-0029 | 2026-10-07 | 0004, 0010, 0020, 0025, 0040, 0042 |
 | [0007](0007-el-modelo-como-codigo.md) | El modelo como código en `model/` | Aceptado | 2026-10-07 | 0003, 0004, 0026, 0039, 0040 |
 | [0008](0008-codigo-propio-y-api-del-portal.md) | Código propio solo donde la metadata no alcanza, y API del portal | Aceptado | 2026-10-07 | 0003, 0025, 0038, 0039, 0040 |
 | [0009](0009-nombres-tecnicos-en-ingles.md) | Nombres técnicos en inglés; documentación y valores de ENUM en español | Aceptado | 2026-10-07 | 0003, 0042 |
@@ -43,3 +43,4 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 | [0026](0026-topologia-puertos-y-observabilidad.md) | Topología de despliegue, puertos y observabilidad | Aceptado en parte (puertos, correlación, logs y salud, que rigen desde F1); la topología de producción, Propuesta (al responder GAP-022) | 2026-10-07 | 0006, 0024, 0033, 0039 |
 | [0027](0027-if-match-con-saltos-exactos-de-derivados.md) | `If-Match` con saltos exactos de derivados y la comparación de wasichai | Aceptado | 2026-10-09 | 0038, 0040, 0051 |
 | [0028](0028-qcs-confidenciales-con-recordreadscope.md) | QCS confidenciales con `RecordReadScope` | Aceptado | 2026-10-09 | 0042, 0048, 0050 |
+| [0029](0029-alcance-de-lectura-por-proyecto.md) | Alcance de lectura por proyecto con `RecordReadScope` | Aceptado | 2026-10-10 | 0042, 0048, 0055 |

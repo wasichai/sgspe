@@ -1,6 +1,7 @@
 package sgspe.scope
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
@@ -83,9 +84,10 @@ class ProjectLinkGuardApiTest : F4ApiTest() {
 
     @Test
     fun `quien no esta asignado al proyecto no registra una queja`() {
+        // desde 4.4 el proyecto no existe para quien no lo lee: el 400 de wasichai sobre la relación (ASM-108)
         val outsider = userWithRole("COMMUNITY_RELATIONS_OFFICER")
         val response = create("grievance", attentionAttributes(testProject(), outsider, "QJ-"), outsider.token)
-        assertEquals(HttpStatus.FORBIDDEN, response.status, response.body)
-        assertEquals("NOT_ASSIGNED", code(response))
+        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+        assertTrue("project" in problemFields(response.body), response.body)
     }
 }

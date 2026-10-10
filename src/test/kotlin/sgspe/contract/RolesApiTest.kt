@@ -15,16 +15,25 @@ class RolesApiTest : SgspeApiTest() {
 
     @Test
     fun `api roles muestra los 15 roles declarados y ADMIN, con su etiqueta y sin ownRecordsOnly`() {
+        // ProjectReadScopeApiTest crea roles PRUEBA_* por la API y no los borra: no son parte de lo declarado
         val roles = tree(send("GET", "/api/roles", null, HttpStatus.OK))
-        assertEquals(declared.keys + "ADMIN", roles.values().map { it["name"].asString() }.toSet())
+        val names =
+            roles
+                .values()
+                .map { it["name"].asString() }
+                .filterNot { it.startsWith("PRUEBA_") }
+                .toSet()
+        assertEquals(declared.keys + "ADMIN", names)
         for (role in roles) {
             val name = role["name"].asString()
+            if (name.startsWith("PRUEBA_")) continue
             if (name != "ADMIN") assertEquals(declared.getValue(name), role["label"].asString(), name)
             assertFalse(role["ownRecordsOnly"].asBoolean(), name)
         }
         val auditor = roles.values().single { it["name"].asString() == "AUDITOR" }
         val grants = auditor["permissions"].values().map { (if (it["objectName"].isNull) null else it["objectName"].asString()) to it["action"].asString() }
-        assertEquals(listOf(null to "READ"), grants)
+        // AUDITOR lee todo el tenant y, con la acción declarada READ_ALL_PROJECTS, todos los proyectos (ADR-0029)
+        assertEquals(setOf(null to "READ", "project" to "READ_ALL_PROJECTS"), grants.toSet())
     }
 
     @Test

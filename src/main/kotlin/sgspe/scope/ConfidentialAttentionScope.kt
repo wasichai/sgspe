@@ -73,7 +73,7 @@ object ConfidentialCondition {
 // cuenta de servicio que lee grievance, inquiry o stakeholder_request (nunca para ADMIN ni para la plataforma) y aplica la
 // condición en listas, detalle, relacionados, historial, auditoría, transiciones, features GIS y agente; fuera de ella el
 // registro no existe, así que tampoco se cambia ni se transiciona. las acciones de quien llama salen de Permissions, la misma
-// consulta de permisos de sgspe, memorizada dentro de un comando (RequestMemo). falla cerrado: sin las columnas, o si la
+// consulta de permisos de sgspe, memorizada por petición de /api (RequestMemoFilter) o comando (RequestMemo). falla cerrado: sin las columnas, o si la
 // consulta de permisos falla, ningún registro del objeto, con una advertencia sin datos del registro
 @Component
 class ConfidentialAttentionScope(
@@ -94,7 +94,7 @@ class ConfidentialAttentionScope(
         }
         val (readConfidential, approve) =
             try {
-                RequestMemo.remember(MEMO to (caller.userId to objectName)) { held(caller, objectName) }
+                RequestMemo.rememberForRequest(MEMO to (caller.userId to objectName)) { held(caller, objectName) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

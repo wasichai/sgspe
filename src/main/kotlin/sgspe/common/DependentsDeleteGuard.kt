@@ -45,7 +45,7 @@ class DependentsDeleteGuard(
         return listOf(
             Finding(
                 code = "HAS_DEPENDENTS",
-                message = "No se puede borrar ${change.objectName}: ${first.first} todavía depende de él por ${first.second}",
+                message = message(change.objectName),
                 field = "${first.first}.${first.second}",
                 status = HttpStatus.CONFLICT
             )
@@ -55,6 +55,11 @@ class DependentsDeleteGuard(
     companion object {
         // objeto que se borra -> (objeto, campo) que lo referencian y que se vigilan aunque la relación sea opcional
         val PRESERVED: Map<String, List<Pair<String, String>>> = mapOf("early_warning_rule" to listOf("early_warning" to "early_warning_rule"))
+
+        // el detalle del 409: no nombra el proyecto, el objeto dependiente ni cuántos hay, porque el dependiente puede ser de un
+        // proyecto que quien borra no lee (ASM-108, oráculo aceptado de sí o no). el campo sigue siendo <objeto>.<campo> del
+        // primer dependiente (api.md §3.3), que el portal usa para elegir su texto
+        fun message(objectName: String): String = "No se puede borrar $objectName: otros registros todavía dependen de él"
     }
 
     // si alguna fila del tenant de `source` apunta, por la columna de `field`, al registro que se borra

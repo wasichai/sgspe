@@ -31,6 +31,7 @@ import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.metadata.MetadataService
+import wasichai.documents.DocumentService
 import java.net.URI
 import java.util.Optional
 import java.util.UUID
@@ -51,9 +52,10 @@ interface IssueAccess {
 // cambiarlo (security.md §11.4, hallazgo I1 de la revisión final del plan 3.1, rulings P60 y P62), en el orden de las guardas:
 // UPDATE sobre el objeto; como en ProjectScopeGuard, una asignación vigente al proyecto del registro, resuelto con
 // ProjectResolver sobre el registro guardado leído como quien llama (ADMIN y los objetos sin alcance por proyecto no la
-// necesitan); y, como en EditAnyGuard, la regla de OwnRecords: sin EDIT_ANY, solo en un registro propio. un registro que quien
-// llama no puede leer (o que no existe) falla cerrado con OBJECT_NOT_READABLE, y uno sin proyecto resoluble con NOT_ASSIGNED,
-// como en la guarda. sin usuario o con un objeto que no existe no decide: wasichai contesta su 401 o su 404. nunca compara
+// necesitan); y, como en EditAnyGuard, la regla de OwnRecords: sin EDIT_ANY, solo en un registro propio. sin READ sobre el
+// objeto falla cerrado con OBJECT_NOT_READABLE; un registro que no existe o que quien llama no lee (otro proyecto, una QCS
+// confidencial ajena) es el 404 de wasichai (ASM-108); y uno sin proyecto resoluble, NOT_ASSIGNED, como en la guarda. sin
+// usuario o con un objeto que no existe no decide: wasichai contesta su 401 o su 404. nunca compara
 // nombres de rol (RQ-SEC-005)
 @Component
 class IssueAccessByScope(
@@ -108,16 +110,18 @@ class IssueAccessByScope(
         )
     }
 
-    // el registro como lo lee quien llama, o null si no lo puede leer o no existe
+    // el registro como lo lee quien llama, o null sin READ sobre el objeto. uno que no existe o que está fuera de su alcance
+    // (otro proyecto, una QCS confidencial ajena) es el 404 de wasichai, como el detalle del registro (ASM-108)
     private suspend fun stored(target: IssueTarget): Map<String, Any?>? =
         try {
-            records.find(target.objectName, target.recordId)?.attributes
+            records.find(target.objectName, target.recordId)?.attributes ?: throw NotFoundException("Record ${target.recordId} does not exist")
         } catch (_: ForbiddenException) {
             null
         }
 
     companion object {
-        // pura, para las pruebas unitarias: la primera negativa, o null. `scope` lee el registro (null si no se puede) y solo
+        // pura, para las pruebas unitarias: la primera negativa, o null. `scope` lee el registro (null sin READ; si no existe o
+        // no se lee lanza el 404) y solo
         // se llama con UPDATE y sin exención; `assigned` dice si quien llama tiene una asignación vigente al proyecto;
         // `ownRecord` es la negativa de OwnRecords, la última, también para quien está exento del alcance
         suspend fun decide(
@@ -162,6 +166,48 @@ class IssueAccessByScope(
     }
 }
 
+// la lectura de documentos emitidos que el filtro vigila: los de un registro (GET /api/objects/{objeto}/records/{id}/documents)
+// o uno por su id (GET /api/documents/{id})
+sealed interface DocumentRead {
+    data class OfRecord(
+        val objectName: String,
+        val recordId: UUID
+    ) : DocumentRead
+
+    data class ById(
+        val documentId: UUID
+    ) : DocumentRead
+}
+
+// si quien llama lee el registro de un documento: lanza el 404 de wasichai si no lo lee (DocumentReadByScope; las pruebas del
+// filtro dan la suya)
+interface DocumentReadAccess {
+    suspend fun requireReadable(read: DocumentRead)
+}
+
+// wasichai-documents 0.6.0 solo pide READ sobre el objeto para leer documentos emitidos, y la respuesta lleva el snapshot
+// congelado del registro (UPS-28): sin esto, el alcance de lectura (ProjectReadScope, ConfidentialAttentionScope) se saltaría
+// leyendo el documento. aquí el registro se lee como quien llama con Records: si no lo lee, 404 como el detalle del registro.
+// el documento por id se resuelve con DocumentService.byId, que ya exige READ sobre su objeto (403) y responde 404 si no
+// existe. sin usuario no decide: wasichai responde su 401. el ADMIN no tiene alcance que aplicar
+@Component
+class DocumentReadByScope(
+    private val callers: Callers,
+    private val records: Records,
+    private val documents: DocumentService
+) : DocumentReadAccess {
+    override suspend fun requireReadable(read: DocumentRead) {
+        val user = callers.userOrNull() ?: return
+        if (user.isAdmin) return
+        val (objectName, recordId) =
+            when (read) {
+                is DocumentRead.OfRecord -> read.objectName to read.recordId
+                is DocumentRead.ById -> documents.byId(read.documentId).let { it.snapshot.objectName to it.recordId }
+            }
+        records.find(objectName, recordId) ?: throw NotFoundException("Record $recordId does not exist")
+    }
+}
+
 // wasichai-documents 0.6.0 emite con POST /api/objects/{objeto}/records/{id}/documents/{tipo} y solo pide READ sobre el objeto
 // (DocumentService.issueAsUser), sin un SPI ni una guarda que sgspe pueda enganchar: un ANALYST o un READ_ONLY reemplazaría
 // la minuta que AUT-05 congeló al aprobarse el acta, y quien edita interacciones lo haría en un proyecto que no es el suyo.
@@ -174,6 +220,7 @@ class IssueAccessByScope(
 @Order(IssueDocumentFilter.ORDER)
 class IssueDocumentFilter(
     private val access: IssueAccess,
+    private val reads: DocumentReadAccess,
     private val handler: GlobalExceptionHandler,
     private val codecs: ServerCodecConfigurer
 ) : WebFilter {
@@ -188,13 +235,22 @@ class IssueDocumentFilter(
         exchange: ServerWebExchange,
         chain: WebFilterChain
     ): Mono<Void> {
-        val target = targetOf(exchange.request) ?: return chain.filter(exchange)
+        val target = targetOf(exchange.request)
+        val read = if (target == null) readOf(exchange.request) else null
+        if (target == null && read == null) return chain.filter(exchange)
         // Optional: una corrutina que devuelve null completaría vacía y la petición no seguiría ni se respondería. un error al
         // decidir (la base, por ejemplo) no es un pase: sale como el problem+json del manejador de wasichai, no como el 500 de
-        // Boot. solo la decisión se envuelve; lo que falle después en la cadena lo maneja el controlador
+        // Boot; el 404 de un registro que no se lee, igual. solo la decisión se envuelve; lo que falle después en la cadena lo
+        // maneja el controlador
         val decision =
-            mono { Optional.ofNullable(access.refusal(target)?.let { handler.handleWasichai(it.toCodedException()) }) }
-                .onErrorResume(Exception::class.java) { e -> Mono.just(Optional.of(problemOf(e))) }
+            mono {
+                if (target != null) {
+                    Optional.ofNullable(access.refusal(target)?.let { handler.handleWasichai(it.toCodedException()) })
+                } else {
+                    reads.requireReadable(read!!)
+                    Optional.empty<ProblemDetail>()
+                }
+            }.onErrorResume(Exception::class.java) { e -> Mono.just(Optional.of(problemOf(e))) }
         return decision.flatMap { problem ->
             if (problem.isPresent) write(exchange, problem.get()) else chain.filter(exchange)
         }
@@ -225,6 +281,10 @@ class IssueDocumentFilter(
         // decodificadas y sin parámetros de ruta, como las ve el controlador
         private val ROUTE = PathPatternParser.defaultInstance.parse("/api/objects/{object}/records/{id}/documents/{type}")
 
+        // las dos lecturas de DocumentController: los documentos de un registro y uno por su id
+        private val RECORD_DOCUMENTS = PathPatternParser.defaultInstance.parse("/api/objects/{object}/records/{id}/documents")
+        private val DOCUMENT = PathPatternParser.defaultInstance.parse("/api/documents/{id}")
+
         // el registro de una emisión manual, o null si la petición no es una. un id que no es UUID no llega a emitir: el
         // controlador de wasichai responde su 400
         fun targetOf(request: ServerHttpRequest): IssueTarget? {
@@ -233,6 +293,20 @@ class IssueDocumentFilter(
             val objectName = match.uriVariables["object"]?.trim()?.lowercase() ?: return null
             val recordId = runCatching { UUID.fromString(match.uriVariables["id"]) }.getOrNull() ?: return null
             return IssueTarget(objectName, recordId)
+        }
+
+        // la lectura de documentos de la petición, o null si no es una. un id que no es UUID no llega a leer: el controlador
+        // de wasichai responde su 400. HEAD es la misma lectura: WebFlux lo sirve con los @GetMapping
+        fun readOf(request: ServerHttpRequest): DocumentRead? {
+            if (request.method != HttpMethod.GET && request.method != HttpMethod.HEAD) return null
+            val path = request.path.pathWithinApplication()
+            RECORD_DOCUMENTS.matchAndExtract(path)?.let { match ->
+                val objectName = match.uriVariables["object"]?.trim()?.lowercase() ?: return null
+                val recordId = runCatching { UUID.fromString(match.uriVariables["id"]) }.getOrNull() ?: return null
+                return DocumentRead.OfRecord(objectName, recordId)
+            }
+            val match = DOCUMENT.matchAndExtract(path) ?: return null
+            return runCatching { UUID.fromString(match.uriVariables["id"]) }.getOrNull()?.let { DocumentRead.ById(it) }
         }
     }
 }

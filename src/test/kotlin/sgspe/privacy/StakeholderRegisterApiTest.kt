@@ -210,7 +210,8 @@ class StakeholderRegisterApiTest : DomainApiTest() {
         val both = mapOf("filters" to mapOf("project" to listOf(p, q)), "disclosureLevel" to "INTERNO")
         assertEquals(200, export(both, outsider.token).status.value())
         val attributes = logOf(outsider.id)[0]["attributes"]
-        assertEquals(2, attributes["row_count"].asInt())
+        // desde 4.4 las filas de proyectos que no lee no salen (ASM-106): el archivo va vacío
+        assertEquals(0, attributes["row_count"].asInt())
         assertTrue(attributes["project"] == null || attributes["project"].isNull)
     }
 

@@ -285,7 +285,8 @@ Los ejemplos del prompt ("¿Qué compromisos están vencidos en la Comunidad X?"
    la activación por organización y por el registro. `/admin` no registra `agentModule()`.
 3. La respuesta de wasichai-agent no informa tokens: en AI-05, `input_tokens` y `output_tokens` quedan vacíos y `sgspe.ai` mide
    la latencia (UPS-14).
-4. El alcance por proyecto del asistente depende de UPS-01, que incluye al agente entre las rutas de lectura (RQ-SEC-006).
+4. El alcance por proyecto del asistente lo da `ProjectReadScope`, que incluye al agente entre las rutas de lectura
+   (RQ-SEC-006, ADR-0029).
 
 wasichai-agent no tiene puntos de extensión para seudonimizar o filtrar los resultados de sus herramientas antes de enviarlos al
 modelo, ni para activarse por organización, ni informa los tokens de cada respuesta: es la brecha upstream UPS-14. Sin ellos,
@@ -555,8 +556,7 @@ flowchart LR
 ```
 
 1. Tenant: solo filas con el `organization_id` del token (RQ-SEC-002).
-2. Proyecto: los proyectos del alcance de la persona cuando exista UPS-01; mientras tanto, la lectura que decida CON-041
-   (RQ-SEC-006).
+2. Proyecto: los proyectos del alcance de la persona, `ProjectReadScope` (RQ-SEC-006, ADR-0029).
 3. Clasificación: solo las clasificaciones que la persona puede descargar (RF-DOC-003).
 4. Las `evidence` de los fragmentos candidatos se releen con `RecordService` como la persona (filtro por identificadores), y se
    descarta todo fragmento cuya evidencia no vuelve. Así se respetan el permiso READ sobre `evidence` y el alcance futuro, con el

@@ -409,6 +409,33 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         return allowed + forbidden + conflict
     }
 
+    // un rol de la lista que no lee todos los proyectos: sin asignación al proyecto del registro, no lo ve (ASM-106)
+    private fun scoped(role: String): Boolean = "READ_ALL_PROJECTS" !in Model.roles.getValue(role)["project"].orEmpty()
+
+    // la columna «no asignado» (ASM-108, security.md §14): por workflow, la primera transición que se aplica por la API genérica,
+    // como un rol de su lista que no lee todos los proyectos y está asignado a otro proyecto: 404 y el registro no cambia. las
+    // de comando (aceptaciones, reclasificaciones, assess) leen el registro antes y responden igual, por su endpoint
+    @TestFactory
+    fun `una transicion de cada workflow como no asignado responde 404`(): List<DynamicNode> =
+        // area_of_influence (WF-O) no tiene ninguna transición elegible (approve y supersede están en DEFERRED): se omite aquí y
+        // la guarda de quien tiene el rol sin asignación (403 NOT_ASSIGNED) la cubre AreaOfInfluenceWorkflowGuardsApiTest y el 404 de lectura
+        // fuera del alcance, ProjectReadScopeApiTest
+        WORKFLOWS.values.mapNotNull { workflow ->
+            val rule =
+                workflow.transitions.firstOrNull { rule ->
+                    workflow.key(rule) !in DEFERRED && workflow.key(rule) !in BY_COMMAND && !rule.name.startsWith("close_reclassified") &&
+                        rule.roles.any(::scoped) && pathTo(workflow, rule.from) != null
+                } ?: return@mapNotNull null
+            dynamicTest("${workflow.objectName}.${rule.name}") {
+                val role = rule.roles.first(::scoped)
+                val id = recordAt(workflow, rule.from, creatorFor(workflow, role), engagementTypeFor(workflow, rule), rule)
+                val stranger = userWithRole(role).also { assign(it, project(), role) }
+                val response = transition(workflow.objectName, id, rule.name, stranger.token, TEXT)
+                assertEquals(HttpStatus.NOT_FOUND, response.status, "$role: ${response.body}")
+                assertEquals(rule.from, state(workflow.objectName, id))
+            }
+        }
+
     @Test
     fun `cada transicion diferida a 2_2 o 3_2 existe en su workflow`() {
         for (key in DEFERRED + WALK_AVOIDS) {
@@ -462,6 +489,9 @@ class WorkflowMatrixApiTest : F4ApiTest() {
 
     companion object {
         private const val TEXT = "prueba de la matriz de workflows"
+
+        // las transiciones que el portal aplica por su comando y no por la API genérica (perform)
+        private val BY_COMMAND = setOf("commitment_candidate.accept", "stakeholder_request.accept", "social_risk.assess")
         private const val FORMAL_TYPE = "REUNION"
         private const val LIGHT_CLOSE_TYPE = "CONTACTO CARA A CARA"
 

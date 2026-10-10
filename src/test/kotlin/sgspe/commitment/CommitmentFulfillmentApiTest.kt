@@ -81,9 +81,9 @@ class CommitmentFulfillmentApiTest : F3DomainApiTest() {
         move("commitment", id, "register_fulfillment", reason = "entregado")
     }
 
-    // D10 con un compromiso de otro proyecto: hoy la lectura es de todo el tenant (CON-041, opción A, hasta UPS-01), así que
-    // quien registra sin asignación a ese proyecto lo lee y, abierto, bloquea como cualquier otro. que un compromiso que no se
-    // lee falle cerrado (OBJECT_NOT_READABLE) lo prueba BlockingDependencyRuleTest: ningún rol que registra deja de leerlo
+    // D10 con un compromiso de otro proyecto y el alcance de lectura por proyecto (ADR-0029, security.md §9.7): el gestor
+    // asignado solo a su proyecto no lee el compromiso del otro, y la regla falla cerrado (P12, OBJECT_NOT_READABLE) en vez
+    // de darlo por resuelto; quien lee todo el tenant (ADMIN) lo lee y, abierto, bloquea como cualquier otro
     @Test
     fun `una dependencia bloqueante hacia un compromiso de otro proyecto tambien impide registrar el cumplimiento`() {
         val project = testProject()
@@ -91,7 +91,11 @@ class CommitmentFulfillmentApiTest : F3DomainApiTest() {
         val id = approvedCommitment(project, attributes = mapOf("resource_type" to "NO MATERIAL"))
         createRecord("commitment_dependency", mapOf("commitment" to id, "depends_on" to commitment(project()), "blocking" to true))
         delivery(id, evidence = listOf(evidence(project, "OTRO")))
-        val refused = transition("commitment", id, "register_fulfillment", manager.token, "entregado")
+        val unreadable = transition("commitment", id, "register_fulfillment", manager.token, "entregado")
+        assertEquals(HttpStatus.FORBIDDEN, unreadable.status, unreadable.body)
+        assertEquals("OBJECT_NOT_READABLE", code(unreadable))
+        assertEquals("commitment", tree(unreadable.body)["errors"][0]["field"].asString())
+        val refused = transition("commitment", id, "register_fulfillment", reason = "entregado")
         assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
         assertEquals("BLOCKING_DEPENDENCY", code(refused))
         assertEquals("commitment_dependency", tree(refused.body)["errors"][0]["field"].asString())

@@ -15,6 +15,7 @@ import sgspe.common.ModelCatalog
 import sgspe.common.Organizations
 import sgspe.common.Raised
 import sgspe.common.Records
+import sgspe.common.SweepTiming
 import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.risk.Risks
@@ -40,7 +41,7 @@ class WarningSweep(
         val all = organizations()
         for (organization in all) {
             try {
-                created += asPlatform(organization) { evaluate(organization) }
+                created += SweepTiming.timed(log, "WarningRulesJob", organization) { asPlatform(organization) { evaluate(organization) } }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

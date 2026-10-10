@@ -116,7 +116,7 @@ E (elevación de privilegios).
 | 7 | T | Coordenadas confundidas o manipuladas: un mismo sondaje con dos posiciones | Importación con CRS obligatorio, reporte de diferencias y versiones, sin sobrescritura silenciosa (RQ-GIS-010, CON-023) | GAP-012 |
 | 8 | R | Negar una aprobación, una verificación o la confirmación de una alerta | `audit_log` con usuario o cuenta de servicio, motivo y cambio de estado; segregación de funciones (RN-COM-005) | UPS-02, UPS-03 |
 | 9 | I | Un usuario lee posturas, razones de postura, religión o proceso electoral que no necesita | Permisos de campo (§7.9) | GAP-024 |
-| 10 | I | Un usuario lee datos de proyectos en los que no trabaja | Escritura acotada por asignación; lectura por proyecto cuando exista UPS-01 (§9) | UPS-01, CON-041 |
+| 10 | I | Un usuario lee datos de proyectos en los que no trabaja | Escritura acotada por asignación y lectura por proyecto con `ProjectReadScope` (§9.7) | UPS-01, CON-041 |
 | 11 | I | GeoServer sirve capas con columnas sensibles o de otro tenant | Nunca público; proxy autenticado con lista blanca por tenant; solo capas no sensibles (§10) | GAP-011 |
 | 12 | I | Titulares y partidas de predios expuestos en un mapa, una exportación o un entregable | `registry_record` y `holder_person` bajo permiso de campo; predios nunca publicados en GeoServer; nivel EXTERNO sin titulares (§7.9, §10, §11.4) | — |
 | 13 | I | Exposición de líderes, redes comunitarias y territorio de comunidades indígenas | Nombres y documentos bajo permiso de campo, citas por cargo, redes nunca publicadas como capa (§10, §11) | GAP-001 |
@@ -269,6 +269,13 @@ Procedimiento operativo (GAP-026):
    `test_apply.py` recorre el orden completo sobre un tenant nuevo. Una subida de fase repite los pasos 2 a 6, que son
    idempotentes.
 
+Desde el plan 4.4 (ASM-109), el paso 1 lo da la persona del operador que tiene `MANAGE_TENANTS`
+(`wasichai.organizations.separate-provisioning` está encendido en producción; el `ADMIN` de un cliente recibe `403` en
+`POST /api/organizations` y `DELETE /api/organizations/current`), y los pasos 1 a 5 los corre
+`model/provision_tenant.py`; una subida de fase los repite en cada tenant con `model/upgrade_tenants.py` sobre un
+inventario que no se versiona. La siembra de `MANAGE_TENANTS` y el uso de los scripts están en `docs/develop/README.md`
+§5.
+
 Dos reglas de operación:
 
 - `model/roles.json` es la fuente de verdad: volver a correr `apply_roles.py` reescribe lo editado a mano en `/admin`
@@ -285,7 +292,7 @@ El prompt pide limitar la autorización por organización, proyecto, región, te
 | Dimensión | Mecanismo | Estado |
 |---|---|---|
 | Organización | Tenant del token (§4) | Nativo (RQ-SEC-002) |
-| Proyecto | `project_assignment` y `ProjectScopeGuard` para escribir; para leer, UPS-01 | Parcial (RQ-SEC-006, CON-041) |
+| Proyecto | `project_assignment` y `ProjectScopeGuard` para escribir; `ProjectReadScope` para leer (§9.7) | Diseñado (RQ-SEC-006, ADR-0029) |
 | Región y territorio | Sin fuente de datos en el modelo: `project_assignment` solo asigna proyectos | Pendiente (UPS-01, §9) |
 | Módulo | Permisos por objeto; el portal muestra una sección solo si el usuario tiene permisos sobre sus objetos | Nativo (RF-IAM-002) [WAS-ADR-0020] |
 | Operación | READ, CREATE, UPDATE, DELETE y acciones declaradas | Nativo (RQ-SEC-004) [WAS-ADR-0042] |
@@ -320,12 +327,14 @@ declaración quita sus concesiones [WAS-ADR-0042]. Este es el catálogo definiti
 | `DOWNLOAD_RESTRICTED` | `evidence`, `deliverable` | Descargar evidencias CONFIDENCIAL o DATOS PERSONALES y bajar su clasificación; descargar borradores y versiones INTERNO de un entregable | `GET /api/sgspe/evidence/{id}/content`, el cambio de clasificación de `evidence` (`EvidenceWriteGuard`) y las descargas de `sgspe.deliverable` | `evidence`: quienes la escriben, salvo `PROJECT_ADMIN` y `FIELD_AGENT`. `deliverable`: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | RF-DOC-003, RQ-REP-014, ASM-071 |
 | `EDIT_ANY` | `engagement`, `engagement_participant`, `field_visit`, `field_observation`, `evidence` | Cambiar, transicionar, vincular o borrar un registro que creó otra persona. Agregar participantes u observaciones a una interacción o visita ajena no la exige | `EditAnyGuard` (`sgspe.scope`, §5.5) | Todo rol que escribe esos objetos, salvo `FIELD_AGENT` | RQ-SEC-008, ASM-069 |
 | `READ_CONFIDENTIAL` | `grievance`, `inquiry`, `stakeholder_request` | Leer toda QCS confidencial del objeto; quitarle la marca `confidential` o cambiar su responsable o quien la recibió; registrar una confidencial recibida por otra persona; marcar confidencial una QCS existente de la que no es receptor ni responsable | `ConfidentialAttentionScope` (`sgspe.scope`, §9.6), `AttentionWriteGuard` y el filtro de destinatarios de `sgspe.notification` | `GRIEVANCE_MANAGER` | RQ-SEC-004, RQ-SEC-010, ASM-095, ASM-102 |
+| `READ_ALL_PROJECTS` | `project` | Leer todos los proyectos del tenant sin asignación: `ProjectReadScope` no acota a quien la tiene, y sus tableros, reporte y exportaciones toman todos los proyectos por defecto. No da escritura: `ProjectScopeGuard` sigue exigiendo la asignación | `ProjectReadScope` y `ProjectReach` (§9.7) | `AUDITOR`, `PROJECT_ADMIN` (confirmado por el usuario el 2026-10-10); el `*` READ de `AUDITOR` no concede acciones declaradas | RQ-SEC-005, RQ-SEC-006, ASM-106 |
 
 Las mismas acciones, por objeto, para replicarlas en el modelo:
 
 | Objeto | Acciones declaradas |
 |---|---|
-| `project`, `area_of_influence`, `social_program` | `APPROVE` |
+| `project` | `APPROVE`, `READ_ALL_PROJECTS` |
+| `area_of_influence`, `social_program` | `APPROVE` |
 | `stakeholder`, `social_risk` | `EXPORT` |
 | `inquiry`, `stakeholder_request` | `EXPORT`, `READ_CONFIDENTIAL` |
 | `engagement`, `engagement_participant`, `field_visit`, `field_observation` | `EDIT_ANY` |
@@ -386,8 +395,9 @@ Las mismas acciones, por objeto, para replicarlas en el modelo:
 - Consecuencias para `FIELD_AGENT`:
   - captura interacciones, visitas y evidencias; agrega participantes, preguntas y observaciones a cualquier interacción
     o visita que puede leer; y solo cambia o borra lo que creó;
-  - lee el contexto que necesita para capturar (proyecto, territorio, actores, grupos de interés, temas y línea base) y lo
-    vincula con su `u` sobre `stakeholder` y `topic`. Con la opción A esas lecturas son de todo el tenant (§9.2);
+  - lee el contexto que necesita para capturar (proyecto, territorio, actores, grupos de interés, temas y línea base) y
+    lo vincula con su `u` sobre `stakeholder` y `topic`. Esas lecturas se acotan a sus proyectos, salvo los maestros del
+    tenant (§9.7);
   - ve su bandeja y completa sus tareas como los demás roles operativos, porque `task` no declara `EDIT_ANY`;
   - pasa `ProjectScopeGuard`, que lee su `project_assignment`;
   - si además tiene otro rol con `EDIT_ANY`, edita todo lo que ese otro rol permite.
@@ -482,8 +492,10 @@ flowchart LR
 
 Los roles conservan su nombre técnico en inglés y una etiqueta en español [PRM-01 §7] [USR-09]. "Permisos desde" es la
 fase en que el rol recibe sus primeras concesiones (§4.1 del análisis); sobre cada objeto, el rol recibe permisos desde
-la fase más tardía entre la suya y la del objeto (§7.1). En "Ámbito que necesita", la organización es nativa; el
-proyecto, el territorio y la región dependen de UPS-01 (§9).
+la fase más tardía entre la suya y la del objeto (§7.1). En "Ámbito que necesita", la organización es nativa y el
+proyecto lo pone `ProjectReadScope` desde el plan 4.4 (§9.7): leen la organización entera solo `ADMIN` y quien tiene
+`READ_ALL_PROJECTS` (`AUDITOR` y `PROJECT_ADMIN`); `SOCIAL_MANAGER` se asigna a cada proyecto que conduce y `ANALYST`
+lee sus proyectos. El territorio y la región siguen sin fuente de datos (UPS-01).
 
 | Rol | Descripción | Mapeo en wasichai | Permisos desde | Ámbito que necesita |
 |---|---|---|---|---|
@@ -513,8 +525,10 @@ proyecto, el territorio y la región dependen de UPS-01 (§9).
 - `SUPER_ADMIN` es el `ADMIN` de la organización operadora: aprovisiona tenants con `POST /api/organizations` sin
   verlos después [WAS-DOC api/rest.md], salvo que el cliente conserve la contraseña inicial que el operador le fijó al
   primer administrador (§4.1, UPS-09). `ORGANIZATION_ADMIN` es el `ADMIN` de cada tenant, que nace con el tenant.
-- Separar la provisión de tenants de la administración de la organización es UPS-10, necesaria solo para operar varios
-  clientes en una misma instalación.
+- Separar la provisión de tenants de la administración de la organización era UPS-10, resuelta con wasichai 0.6.0
+  (WAS-ADR-0055, ASM-109): en producción, crear y borrar tenants exige `MANAGE_TENANTS`, que solo tiene el `ADMIN` de la
+  organización operadora, sembrado fuera de banda; el `ADMIN` de un cliente conserva usuarios, roles, cuentas de
+  servicio y el nombre de su tenant.
 - `ADMIN` pasa los permisos, los permisos de campo y las acciones declaradas, pero no las reglas de los objetos
   (`appendOnly`, `apiOnly`, `requiresReason`) ni las guardas de SGSPE [WAS-ADR-0040]. `ProjectScopeGuard` lo exime
   (§9.2).
@@ -549,8 +563,8 @@ proyecto, el territorio y la región dependen de UPS-01 (§9).
 
 - Hay una tabla por grupo de bounded contexts. Las filas son los 89 objetos del catálogo y las columnas, los 14 roles
   declarados distintos de `AUDITOR`.
-- `AUDITOR` no tiene columna: lee todo el tenant (`*` READ), incluida `/api/audit`, no escribe nada y no ve los campos
-  restringidos (§7.9) mientras no se responda GAP-024.
+- `AUDITOR` no tiene columna: lee todo el tenant (`*` READ y `READ_ALL_PROJECTS` sobre `project`, §9.7), incluida
+  `/api/audit`, no escribe nada y no ve los campos restringidos (§7.9) mientras no se responda GAP-024.
 - `SUPER_ADMIN` y `ORGANIZATION_ADMIN` tampoco tienen columna: son `ADMIN` (§6.2).
 - Un rol recibe un permiso desde la fase más tardía entre la suya (tabla siguiente) y la del objeto (encabezado de cada
   tabla).
@@ -590,8 +604,7 @@ Criterios con que se armó:
 - Quien decide no edita: `APPROVER` y los permisos de solo vínculo usan `u`.
 - Un endpoint de comando exige los permisos de todo lo que escribe (§8.2), y una guarda, READ sobre lo que lee (§5.8).
 - Los objetos reservados (`contact_method`, `export_log`, `ai_interaction`, `ai_suggestion`) solo los lee quien los
-  necesita; el resto de los roles operativos lee todo lo demás, porque la lectura es de todo el tenant mientras no exista
-  UPS-01 (§9).
+  necesita; el resto de los roles operativos lee todo lo demás de sus proyectos (§9.7) y los maestros del tenant.
 - `PROJECT_ADMIN` lee solo proyectos, territorio, organizaciones, temas, evidencias y tareas: no necesita grupos de
   interés, compromisos ni quejas.
 - `FIELD_AGENT` escribe solo sus objetos de captura y, sin `EDIT_ANY`, solo cambia lo que creó; lee el contexto que
@@ -602,7 +615,7 @@ Criterios con que se armó:
 
 | Objeto | PAD | PMG | SMG | CRO | SHM | CMM | GVM | SRM | SIM | GAN | FAG | APR | ANL | RDO |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `project` | CRU `APPROVE` | RU | R | R | R | R | R | R | R | Ru | R | R | R | R |
+| `project` | CRU `APPROVE` `READ_ALL_PROJECTS` | RU | R | R | R | R | R | R | R | Ru | R | R | R | R |
 | `project_party` | CRUD | CRUD | R | R | R | R | R | R | R | R | — | R | R | R |
 | `exploration_campaign` | CRU | CRU | R | R | R | R | R | R | R | R | R | R | R | R |
 | `project_assignment` | CRUD | R | R | R | R | R | R | R | R | R | R | R | R | R |
@@ -850,7 +863,7 @@ en la tercera columna, una entrada de campo sin lectura ni escritura. `ADMIN` lo
   titulares de los predios, está en la fila de nombres (RF-TER-007). `test_apply_roles.py` lo comprueba (§14).
 - La `person` de una QCS está restringida, pero la protección de quien la plantea es parcial: ver §11.3.
 - `FIELD_AGENT` necesita los datos de los asistentes para capturarlos. Sin `own_records_only` (ASM-069) también lee los de
-  las interacciones de otros, en todo el tenant mientras rija la opción A; con la opción B se acotan a sus proyectos (§9).
+  las interacciones de otros, solo en sus proyectos (§9.7).
 - Los indicadores que usan un campo restringido, como la distribución de posturas o la oposición (RQ-DSH-004, RQ-DSH-007,
   RQ-DSH-008), dicen "no disponible" a quien no tiene el campo (RQ-DSH-032). `indicator_measurement` no tiene campos
   restringidos, así que el cierre de un periodo no congela esos indicadores: el endpoint responde 409 (§8.2). Si el
@@ -939,8 +952,8 @@ endpoint de evaluaciones, porque evaluar escribe `stance`, un campo que solo ell
 
 - El prompt pide limitar la autorización por proyecto, región y territorio [PRM-01 §7]. wasichai ofrece de forma nativa
   la organización, el módulo, la operación, el campo y los registros propios (que SGSPE no usa, §5.5), pero no el alcance
-  por proyecto, territorio ni región. Es la brecha UPS-01, crítica antes de la producción con varios proyectos, y una
-  decisión pendiente del checkpoint (CON-041, GAP-025).
+  por proyecto, territorio ni región. Es la brecha UPS-01 (CON-041, GAP-025), resuelta para
+  proyectos con el SPI `RecordReadScope` de wasichai 0.6.0 (§9.7, ADR-0029); territorio y región siguen sin fuente.
 - No se puede resolver solo del lado de la app:
   - `RecordQueryContributor` con su `RecordCriterion` solo estrecha las listas, y solo cuando llega su parámetro de
     consulta [WAS-ADR-0025] [WAS-ADR-0027];
@@ -951,7 +964,10 @@ endpoint de evaluaciones, porque evaluar escribe `stance`, un campo que solo ell
   features GIS, el asistente, la comprobación de destinos RELATION y las agregaciones propias de indicadores y análisis
   espacial (UPS-01, RQ-SEC-006, RQ-GIS-017).
 
-### 9.2 Opción A: lectura de todo el tenant y escritura acotada por asignación
+### 9.2 Opción A: lectura de todo el tenant y escritura acotada por asignación (hasta F4)
+
+Rigió hasta F4. Desde el plan 4.4, la lectura la acota `ProjectReadScope` (§9.7); la escritura de esta sección sigue
+igual, como segunda línea.
 
 - **Lectura:** de todo el tenant, filtrada por los permisos de objeto y de campo. El filtro "mis proyectos" del portal
   (RQ-DSH-001) es una comodidad, no una frontera de seguridad.
@@ -984,7 +1000,8 @@ endpoint de evaluaciones, porque evaluar escribe `stance`, un campo que solo ell
 
 ### 9.3 Opción B: SPI de alcance de lectura en wasichai
 
-Diseño propuesto para la extensión upstream (UPS-01), tomado del diseño de la Fase 1 y del blueprint del dominio:
+Diseño de la extensión upstream (UPS-01), tomado del diseño de la Fase 1 y del blueprint del dominio; wasichai 0.6.0 lo
+adoptó como `RecordReadScope` y SGSPE lo usa desde el plan 4.4 (§9.7):
 
 - **Un criterio por usuario.** Para cada usuario autenticado y cada objeto, SGSPE devuelve un `RecordCriterion`, el tipo
   de fragmento `WHERE` que la plataforma ya tiene y que siempre va entre paréntesis, de modo que solo puede estrechar la
@@ -1010,7 +1027,7 @@ Diseño propuesto para la extensión upstream (UPS-01), tomado del diseño de la
 | Leer las tablas físicas desde SGSPE con un filtro propio | Es API interna de la plataforma (RNF-MNT-005), y la API genérica y `/admin` quedarían abiertas |
 | Filtrar solo en el portal | Un filtro de interfaz no es una frontera: la API genérica sigue respondiendo |
 
-### 9.5 Recomendación
+### 9.5 Decisión
 
 | Criterio | Opción A | Opción B |
 |---|---|---|
@@ -1020,18 +1037,18 @@ Diseño propuesto para la extensión upstream (UPS-01), tomado del diseño de la
 | Reversible | Sí: la guarda sigue siendo útil con B | — |
 | Adecuada para | Piloto de un proyecto o equipos que trabajan en todos los proyectos | Producción con varios proyectos y equipos separados |
 
-- **Decisión pendiente del checkpoint, con recomendación A** (CON-041, GAP-025): la opción A para el MVP con un solo
-  cliente, y la opción B (UPS-01) antes de la producción con varios proyectos.
-- A no hace depender F2 de una extensión upstream cuyo plazo no controla SGSPE (GAP-028). Si UPS-01 llega antes, se adopta
-  B sin quitar la guarda.
+- **Decidido el 2026-10-10 (CON-041, GAP-025, ADR-0029):** la opción B del lado de SGSPE, con el SPI `RecordReadScope`
+  de wasichai 0.6.0 en lugar de una extensión upstream nueva. A rigió hasta F4; `ProjectScopeGuard` se queda.
 
 ### 9.6 QCS confidenciales: `RecordReadScope` (F4)
 
 wasichai 0.6.0 trae el SPI `RecordReadScope` (WAS-ADR-0048): para cada usuario y objeto, la app devuelve un criterio que
 la plataforma aplica en listas, detalle, relacionados, historial, auditoría, transiciones, features GIS y agente, y que
 no se aplica al `ADMIN` ni a la plataforma. F4 lo adopta **solo** para las QCS confidenciales (ASM-095, decisión del
-usuario del 2026-10-09); el alcance por proyecto sigue en la opción A de CON-041 (§9.2) hasta que el checkpoint decida
-UPS-01, que este mismo SPI resolvería del lado de SGSPE. La decisión, sus alternativas y sus consecuencias están en
+usuario del 2026-10-09). Desde el plan 4.4 el alcance por proyecto usa el mismo SPI (§9.7): los dos criterios se
+componen por AND, así que `READ_CONFIDENTIAL` no abre otros proyectos y `READ_ALL_PROJECTS` no abre las confidenciales;
+la regla del sistema `ConfidentialRelease` no se extiende, porque la solicitud y el compromiso son siempre del mismo
+proyecto (`ProjectLinkGuard`). La decisión, sus alternativas y sus consecuencias están en
 [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md).
 
 | Quien llama | Ve una QCS confidencial (`grievance`, `inquiry`, `stakeholder_request`) |
@@ -1107,6 +1124,42 @@ Las decisiones D-1, D-2 y D-3 del usuario del 2026-10-10 (tareas genéricas, rie
 marca una QCS existente) extienden [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md) sin cambiarlo: el
 alcance de lectura sigue siendo el mismo.
 
+### 9.7 Alcance de lectura por proyecto: `ProjectReadScope` (plan 4.4)
+
+El segundo `RecordReadScope` de SGSPE (ASM-106, [ADR-0029](adr/0029-alcance-de-lectura-por-proyecto.md)). wasichai lo
+pide para toda persona y cuenta de servicio que no es `ADMIN`, nunca para la plataforma ni para las automatizaciones, y
+lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, relacionados (y `POST/DELETE
+.../related`), destinos de `RELATION`, historial, `/api/audit`, features GIS, archivos y agente.
+
+| Objeto | Lo lee quien llama si… |
+|---|---|
+| `project` | Está entre «mis proyectos»: los de sus asignaciones vigentes (`active` y, si las tiene, hoy en Lima entre `start_date` y `end_date`) |
+| `project_assignment` | Es suya (aunque esté vencida) o es de uno de mis proyectos |
+| Las 31 raíces de `ProjectScope.ROOTS` | Su `project` es de mis proyectos; `evidence`, `early_warning_rule` y `export_log` sin `project`, siempre |
+| Los 19 hijos de `ProjectScope.CHILDREN` | Su padre es de mis proyectos; `delivery` sin compromiso y `locality_profile` sin estudio, siempre |
+| Los 20 maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`) | Siempre (ASM-107) |
+
+- **Exentos:** `ADMIN` (wasichai) y quien tiene la acción declarada `READ_ALL_PROJECTS` sobre `project` (`AUDITOR` y
+  `PROJECT_ADMIN`). `ProjectReach` (`sgspe.common`) lo decide también para los tableros, el reporte y las exportaciones.
+- **SQL puro:** «mis proyectos» es una subconsulta sobre la tabla de `project_assignment`, con valores enlazados; leerla
+  con `Records` dispararía el mismo alcance sobre sí misma. Los nombres de tabla y columna salen de la definición.
+- **Falla cerrado:** un objeto sin clasificar en `ProjectScope`, una definición sin sus columnas o un error al consultar
+  permisos o definiciones no admiten ningún registro. `ArchitectureTest` exige que todo objeto de `model.json` esté en
+  un solo grupo.
+- **Hijos con padre opcional:** un hijo sin su padre se lee en todo el tenant. `ArchitectureTest` fija la lista exacta
+  (`delivery` y `locality_profile`) y exige que ninguno tenga otra relación hacia un objeto de proyecto. Cuando F5 dé a
+  `delivery` su segundo padre (`social_contribution`), la entrega se acota por el padre que tenga, nunca «sin padre,
+  todos».
+- **Documentos emitidos:** wasichai-documents solo pide READ sobre el objeto (UPS-28); `IssueDocumentFilter` lee el
+  registro del documento como quien llama en `GET .../records/{id}/documents` y `GET /api/documents/{id}` (y en su
+  `HEAD`, que WebFlux sirve con los mismos `@GetMapping`) y responde `404` si no lo lee.
+- **Escritura:** `ProjectScopeGuard` (§9.2) sigue como segunda línea: frena a quien lee todo sin estar asignado.
+- **Errores (ASM-108):** fuera del alcance, `404`; un `RELATION` hacia un registro ilegible, el `400` de wasichai sobre
+  el campo (`"no record with this id"`); un vínculo M2M con un extremo ilegible, `404`; `NOT_ASSIGNED`, para quien lee
+  sin estar asignado; `409 HAS_DEPENDENTS` y los únicos del tenant son oráculos aceptados de sí o no.
+- **Riesgos aceptados:** maestros compartidos (ASM-107); el texto de los avisos viejos en la bandeja de quien deja un
+  proyecto; cifras que dependen de quién llama. GeoServer no publica objetos de proyecto (§10.2).
+
 ## 10. GeoServer
 
 ### 10.1 Por qué es un riesgo
@@ -1150,6 +1203,10 @@ alcance de lectura sigue siendo el mismo.
 6. **Datastore de solo lectura:** GeoServer se conecta a la base con un rol que solo puede leer. wasichai configura el
    usuario de ese datastore por separado [WAS-DOC modules/gis.md].
 7. **Sin servidores de teselas vectoriales** que lean la base en el MVP (RQ-GIS-012).
+8. **Ningún objeto de proyecto.** GeoServer lee la base con sus credenciales, sin permisos ni alcance (WAS-ADR-0048):
+   solo publica maestros de `ProjectScope.TENANT` sin campos restringidos; ningún `project`, raíz ni hijo de
+   `ProjectScope`. `publish_layers.py` (F6) lo comprueba contra la misma clasificación y `test_model.py` lo prueba
+   (ASM-106).
 
 El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.md` con estas reglas.
 
@@ -1190,9 +1247,9 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   (`READ_CONFIDENTIAL`), su responsable, quien la recibió y, si es una queja ALTA o CRITICA, `APPROVER`; el alcance rige
   en todas las rutas de lectura de wasichai (§9.6). Su `person` está además restringida (§7.9).
 - **Riesgo residual del MVP:** en una QCS **no** confidencial, el vínculo `stakeholder` no está restringido, y de él
-  puede inferirse la persona cuando el grupo de interés la representa; con la opción A, todos los roles operativos menos
-  `PROJECT_ADMIN`, `FIELD_AGENT` incluido, leen todas las QCS no confidenciales (§9.2). Quien teme esa exposición pide
-  que su QCS se registre como confidencial o anónima.
+  puede inferirse la persona cuando el grupo de interés la representa; los roles con READ sobre esos objetos,
+  `FIELD_AGENT` incluido, leen las QCS no confidenciales de sus proyectos (§9.7). Quien teme esa exposición pide que su
+  QCS se registre como confidencial o anónima.
 - El mapa nunca inventa coordenadas de personas (RQ-GIS-015).
 - El DNI y los teléfonos nunca aparecen en un entregable (RQ-REP-014).
 - Las URL de medios se guardan como dato y el servidor nunca las descarga (ASM-050).
@@ -1417,11 +1474,12 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | Edición de lo propio | Sin `EDIT_ANY`, cambiar, transicionar, vincular o borrar un registro ajeno de los objetos que la declaran se rechaza; con `EDIT_ANY`, se permite; `FIELD_AGENT` agrega un participante a una interacción ajena y sus conteos se actualizan, y vincula su captura a un proyecto o un grupo de interés que registró otra persona | Integración | F2 | RQ-SEC-008, ASM-069 |
 | Acciones declaradas | Los endpoints rechazan sin la acción, y `/api/auth/me/permissions` las lista | Integración | F2–F8 | RQ-SEC-004 |
 | Transiciones | Cada transición, permitida y denegada por rol; segregación de funciones; las transiciones de comando se rechazan por la ruta genérica | Integración | F2–F8 | RNF-TST-001, RN-COM-005 |
-| Alcance, opción A | Un usuario sin asignación no escribe en el proyecto y uno asignado sí; `ADMIN` queda exento | Integración | F2 | RQ-SEC-006 |
+| Alcance, escritura | Un usuario sin asignación no escribe en el proyecto y uno asignado sí; `ADMIN` queda exento; quien lee todo sin estar asignado recibe `403 NOT_ASSIGNED` (`ProjectScopeApiTest`) | Integración | F2, 4.4 | RQ-SEC-006 |
+| Alcance, lectura | Dos proyectos: quien está asignado a uno no lee el otro en listas, totales, detalle, relacionados, historial, auditoría, transiciones, features, archivos, documentos, indicadores, exportaciones y capas; asignación vencida; exenciones; cuenta de servicio; composición con las QCS confidenciales (`ProjectReadScopeApiTest`); condición y componente sin base (`ProjectReadConditionTest`, `ProjectReadScopeTest`, `ProjectReachTest`); clasificación de los objetos (`ArchitectureTest`); columnas «otro proyecto» y «no asignado» de las matrices | Unitaria e integración | 4.4 | RQ-SEC-006, RQ-GIS-017 |
 | Destinatarios por rol | Un `role_name` que no es un rol declarado se rechaza (`AssignmentRoleGuard`); un aviso de aprobación pendiente llega solo a las asignaciones activas cuyo `role_name` está entre los roles de la transición siguiente (`ApprovalNoticesApiTest`) | Integración | F2, F3 | RQ-SEC-005, ASM-070 |
 | Tareas de un trabajo | Una persona no fija, cambia ni vacía `generator_key` (`TaskWorkflowApiTest`) | Integración | F3 | RF-WFL-004 |
 | Alta de un tenant | `test_apply.py` aplica sobre un tenant nuevo `apply.py`, `apply_roles.py` y `apply.py --workflows`, en ese orden y sin errores | Integración | F1–F8 | RNF-MNT-002, RQ-SEC-003 |
-| Alcance, opción B | Listas, detalle, relacionados, historial, features, asistente y destinos RELATION filtrados por proyecto | Integración | Con UPS-01 | RQ-SEC-006, RQ-GIS-017 |
+| Alta de tenants separada | Con `separate-provisioning`, el `ADMIN` de un cliente recibe `403` al crear o borrar tenants y el de la operadora, con `MANAGE_TENANTS`, crea uno (`SeparateProvisioningApiTest`, `ProdProfileTest`) | Integración y unitaria | 4.4 | RQ-SEC-003 |
 | Listeners | La escritura derivada de un listener sobre un registro ajeno pasa `EditAnyGuard` y solo cambia campos derivados; `DerivedFieldsJob` completa lo pendiente; `CommitmentDerivationsListener` (también en `reopen_execution`), `QcsTransitionDatesListener` y `RequestClosureListener` revierten la transición si no pueden escribir | Integración | F2–F5 | RQ-SEC-008 |
 | `AuditApiTest` | Quién, qué, cuándo, por qué, desde y hacia; motivo obligatorio; motivo con tildes de ida y vuelta; `appendOnly` responde 409 sin auditar | Integración | F1 | RQ-AUD-001, RQ-AUD-002 |
 | `ErrorContractApiTest` | Problem Details para 400, 401, 403, 404 y 409 | Integración | F1 | RNF-INT-001 |
@@ -1446,7 +1504,7 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 
 | Tema | IDs | Qué se decide | Valor por defecto en este documento |
 |---|---|---|---|
-| Alcance por proyecto | CON-041, GAP-025, UPS-01 | Decisión pendiente (checkpoint) entre la opción A y la opción B | Recomendación A: A en el MVP con un solo cliente; B antes de la producción con varios proyectos (§9.5) |
+| Alcance por proyecto | CON-041, GAP-025, UPS-01 | Decidido el 2026-10-10: opción B del lado de SGSPE (§9.7, ADR-0029) | `READ_ALL_PROJECTS` solo para `AUDITOR` y `PROJECT_ADMIN`; territorio y región, sin fuente (UPS-01) |
 | Datos sensibles | GAP-024 | Quién ve postura, religión y proceso electoral, `AUDITOR` incluido | `SOCIAL_MANAGER` y `STAKEHOLDER_MANAGER` (§7.9); son también los únicos que evalúan grupos de interés (§8.2) y que preparan, aprueban, emiten y descargan entregables INTERNO (§11.4) |
 | Canal de contratistas | GAP-020, ASM-043 | Cuenta de servicio, con un rol declarado propio fuera de los 17 del prompt, o reporte por el equipo social | Por el equipo social (§3.3) |
 | Protección de quien plantea una QCS | GAP-005, GAP-024, ASM-095 | ¿Se restringe el vínculo `stakeholder` de las QCS a los roles que leen su `person`? | Decidido el 2026-10-09: una QCS confidencial solo la leen quienes fija §9.6 (`RecordReadScope`, ADR-0028); el vínculo `stakeholder` de una QCS no confidencial sigue sin restringir (§11.3) |

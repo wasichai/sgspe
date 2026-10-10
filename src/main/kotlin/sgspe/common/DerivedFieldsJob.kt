@@ -66,7 +66,8 @@ class DerivedSweep(
                 }
             for (organization in organizations) {
                 try {
-                    written += asPlatform(organization) { recalculator.recalculate(organization, since) }
+                    written +=
+                        SweepTiming.timed(log, "DerivedFieldsJob", organization) { asPlatform(organization) { recalculator.recalculate(organization, since) } }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
