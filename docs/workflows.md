@@ -1489,7 +1489,7 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 
 | ID | Trabajo (paquete) | Frecuencia | Qué escribe | Qué nunca hace | Fuente | Fase |
 |---|---|---|---|---|---|---|
-| JOB-01 | `DeadlineJob` (`sgspe.deadline`) | Cada hora (ASM-006) | `deadline_status` de `commitment`, QCS y `task`; `validity_status` de `agreement`; `review_status` de `social_risk`, y `next_review_date` si cambia `review_every_days`; tareas de escalamiento (`escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`, de compromisos y, desde F4, de quejas y consultas, sin asignado ni fecha) y, desde F4, de revisión de riesgos (`risk_review:<id>:<next_review_date>`, asignada al responsable del riesgo, con fecha `next_review_date` y título «Revisar el riesgo <código>», al pasar a POR REVISAR o REVISION VENCIDA, ASM-099); los avisos de plazo los publica `DeadlineNotices`, una fuente de wasichai-notifications que lee lo que este trabajo escribe, así que llegan a lo sumo una hora después | Cambiar `workflow_state`: un compromiso vencido sigue en `in_progress` o en `blocked` | RN-WFL-001, RF-WFL-004, RN-RSK-001, ASM-006, ASM-030, ASM-070 | F3 (compromisos, acuerdos, tareas), F4 (QCS, riesgos) |
+| JOB-01 | `DeadlineJob` (`sgspe.deadline`) | Cada hora (ASM-006) | `deadline_status` de `commitment`, QCS y `task`; `validity_status` de `agreement`; `review_status` de `social_risk`, y `next_review_date` si cambia `review_every_days`; tareas de escalamiento (`escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`, de compromisos y, desde F4, de quejas y consultas, sin asignado ni fecha; la del nivel 2 de una QCS confidencial, `escalation:<objeto>:<huella>:<fecha del plazo>:2`, con título y descripción genéricos y vinculada solo al proyecto) y, desde F4, de revisión de riesgos (`risk_review:<id>:<next_review_date>`, asignada al responsable del riesgo, con fecha `next_review_date` y título «Revisar el riesgo <código>», al pasar a POR REVISAR o REVISION VENCIDA, ASM-099); los avisos de plazo los publica `DeadlineNotices`, una fuente de wasichai-notifications que lee lo que este trabajo escribe, así que llegan a lo sumo una hora después | Cambiar `workflow_state`: un compromiso vencido sigue en `in_progress` o en `blocked` | RN-WFL-001, RF-WFL-004, RN-RSK-001, ASM-006, ASM-030, ASM-070 | F3 (compromisos, acuerdos, tareas), F4 (QCS, riesgos) |
 | JOB-02 | `DerivedFieldsJob` (`sgspe.common`) | Cada hora sobre los registros fuente cambiados desde la corrida anterior (por `updated_at`) y una vez al día sobre todos | Los campos derivados de §7.4 del modelo de dominio que mantienen listeners o que no tienen otro escritor: `executed_social_amount`, `other_currency_items_count`, `calculated_area_ha`, conteos de asistentes, `formalized`, `requires_senior_approval` (los vínculos de solicitantes no llegan a los listeners: la vuelta diaria los recoge), `total_amount`, `total_budget` y los plazos de QCS que falten | Escribir campos no derivados | Modelo de dominio §7.4, §7.5 | F2 |
 | JOB-03 | `StakeholderFollowUpJob` (`sgspe.stakeholder`) | Una vez al día, configurable (ASM-022): sus parámetros se miden en días | `last_contact_date`; la regla de primer contacto de `relationship_status` (SIN CONTACTO → CONTACTO ESTABLECIDO); desde F3, tareas de evaluación periódica (`stakeholder_review_days`, clave `stakeholder_review:<id>:<fecha>`) y de inactividad (`inactivity_days`, clave `stakeholder_inactivity:<id>:<fecha de referencia>`, la del último contacto o, sin contacto, la del alta) | Mover WF-B o cambiar `relationship_status` fuera de la regla de primer contacto | RF-STK-010, RF-STK-014, ASM-022, ASM-032 | F2 |
 | JOB-04 | `WarningRulesJob` (`sgspe.warning`) | Cada hora, configurable (ASM-006), como los plazos, para que una alerta no espere un día | `early_warning` en `detected` cuando una regla habilitada alcanza su umbral (`threshold`) en su ventana (`window_days`), según «Tipos de regla de JOB-04»: por proyecto en `active` o `suspended`, con las reglas del proyecto y, de cada tipo que el proyecto no tiene, las del tenant; sin otra alerta si hay una abierta (fuera de `dismissed` y `closed`) de la misma regla y proyecto (y riesgo, en NIVEL DE RIESGO) o una creada en los últimos `window_days` días; con `generator_key` `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, único, y el motivo `alerta por regla (JOB-04 WarningRulesJob)` | Confirmar o descartar una alerta (RN-EWS-001); aplicar transiciones; escribir datos personales, texto libre de otros registros o valores de campos restringidos | RF-EWS-004, ASM-097 | F4 |
@@ -1604,8 +1604,14 @@ prefijo de la clave de cada aviso.
 Los textos de los avisos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripción, persona ni texto
 libre. El de `qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto
 <proyecto> superó su plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría
-ni enlace al registro, y es `ACTION`. La tarea de escalamiento del nivel 2 se crea igual, con su clave
-`escalation:<objeto>:<id>:<fecha>:2`, y su título solo lleva el código de la QCS.
+ni enlace al registro, y es `ACTION`. La tarea de escalamiento del nivel 2 de una QCS confidencial tampoco la delata,
+porque la leen todos los lectores de `task` del proyecto: su clave es
+`escalation:<objeto>:<huella>:<fecha del plazo>:2`, con la misma huella del aviso genérico en lugar del id; su título es
+«QCS confidencial vencida en <proyecto>» y su descripción, fija: «Una QCS confidencial superó su plazo. Pida el detalle
+al equipo de quejas.»; y no lleva el campo `grievance` ni `inquiry`, solo `project`. Es la única tarea sin origen:
+`ExactlyOneGuard` la admite porque su `generator_key` tiene esa forma, y esa clave solo la escribe la plataforma
+(`GeneratorKeyGuard`). La del nivel 1 y la de una QCS no confidencial llevan el id en la clave, el código en el título y
+el vínculo con la QCS.
 
 ### Destinatarios por rol
 
@@ -1635,21 +1641,23 @@ dominio §7.2):
      `member_user_email`, la dirección de respaldo `<id>@service-accounts.invalid` que wasichai le da [WAS-ADR-0043].
 4. **Sin coincidencias.** Si ninguna asignación vigente coincide, no se crea el aviso y quien lo pidió deja una
    advertencia en el log. La tarea de escalamiento, si la hay, la crea JOB-01 igual, con la clave
-   `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`, y queda visible en las tareas del proyecto.
+   `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>` (con la huella en lugar del id en el nivel 2 de una QCS
+   confidencial, «Avisos»), y queda visible en las tareas del proyecto.
 5. **El rol declarado no da permisos.** Quien recibe un aviso actúa con sus roles de wasichai: si su asignación nombra un rol
    que no tiene, recibe el aviso y la transición le responde 403 (`security.md`). Quien forma los equipos mantiene
    `role_name` al día con los roles de cada usuario.
 6. **Tareas de escalamiento.** Un aviso va a varias personas y una tarea tiene un solo asignado. Por eso, en los niveles
    1 y 2 de un compromiso o de una QCS, JOB-01 crea la tarea vinculada al registro vencido, sin asignado ni fecha y con
-   `generator_key` `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`; la toma uno de los destinatarios. Una tarea
-   vencida y una revisión de riesgo vencida escalan solo con avisos: la tarea ya existe, y el riesgo ya tiene su tarea
-   de revisión.
+   `generator_key` `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`; la toma uno de los destinatarios. La del nivel
+   2 de una QCS confidencial es genérica y no se vincula a ella (punto 7 y «Avisos»). Una tarea vencida y una revisión
+   de riesgo vencida escalan solo con avisos: la tarea ya existe, y el riesgo ya tiene su tarea de revisión.
 7. **QCS confidenciales (ASM-102).** Un aviso sobre una QCS confidencial (`qcs_deadline`, `approval_pending` de una
    queja grave y `task_overdue` de una tarea vinculada a ella) solo llega a quien la vería por `security.md` §9.6: su
    responsable, quien la recibió, los asignados cuyo `role_name` tiene `READ_CONFIDENTIAL` sobre ese objeto en
    `model/roles.json` y, en una queja ALTA o CRITICA, los que tienen `APPROVE` sobre `grievance`. `ModelCatalog` da las
    concesiones de cada rol, así que el filtro no compara nombres de rol. En el nivel 2, los roles de `approve_senior` de
-   WF-D que no la verían reciben `qcs_confidential_overdue`, sin datos del registro.
+   WF-D que no la verían reciben `qcs_confidential_overdue`, sin datos del registro, y la tarea de escalamiento de ese
+   nivel no lleva el id, el código ni el vínculo con la QCS («Avisos»).
 
 | `notification_type` | Nivel o caso | Destinatarios |
 |---|---|---|
@@ -1723,7 +1731,7 @@ la columna "Se calcula en" y los deja vacíos en los demás, así VENCIDO siempr
 | Objeto | Campo derivado | Fecha que mide | Se calcula en | Vacío en | Parámetros del proyecto | Escalamiento |
 |---|---|---|---|---|---|---|
 | `commitment` | `deadline_status` | `due_date` | `approved`, `in_progress`, `blocked` | `draft`, `pending_approval`, `fulfilled`, `verified`, `closed`, `cancelled` | `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify`; nivel 2: roles de `approve_senior` (RF-WFL-004, ASM-030, ASM-070) |
-| `grievance` | `deadline_status` | `ack_due_date` en `received`; `resolution_due_date` después; `response_due_date` siempre vacío | `received`, `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | `resolved`, `verified`, `closed`, `rejected`, `withdrawn` | `grievance_ack_days`, `grievance_resolution_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify` de WF-E1; nivel 2: roles de `approve_senior` de WF-D (RF-WFL-004, ASM-030, ASM-070) |
+| `grievance` | `deadline_status` | `ack_due_date` en `received`; `resolution_due_date` después; `response_due_date` siempre vacío | `received`, `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | `resolved`, `verified`, `closed`, `rejected`, `withdrawn` | `grievance_ack_days`, `grievance_resolution_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify` de WF-E1; nivel 2: roles de `approve_senior` de WF-D (RF-WFL-004, ASM-030, ASM-070). En una confidencial, la tarea del nivel 2 es genérica y solo se vincula al proyecto («Avisos», ASM-102) |
 | `inquiry` | `deadline_status` | `response_due_date` | `received` | `answered`, `referred`, `closed` | `inquiry_response_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Como la queja |
 | `stakeholder_request` | `deadline_status` | Ninguna en el MVP: `response_due_date` y `deadline_status` quedan vacíos mientras GAP-005 no fije un plazo de solicitudes (ASM-100) | Ninguno | Todos | — | — |
 | `task` | `deadline_status` | `due_date` | `open`, `in_progress`, `blocked` | `done`, `cancelled` | `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de la transición de verificación o de revisión del registro vinculado; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |

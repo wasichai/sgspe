@@ -3379,8 +3379,12 @@ ASM-022, ASM-030.
   Cada origen llega en la fase de su objeto.
 - `generator_key` solo la escribe un trabajo (JOB-01 y JOB-03): una persona que la fija, la cambia o la vacía, también
   con un `PUT` que la omite, recibe `403` `GENERATOR_KEY_PLATFORM_ONLY` (`GeneratorKeyGuard`). Las claves son
-  `escalation:commitment:<id>:<fecha del plazo>:<nivel>`, `stakeholder_review:<id>:<fecha>` y
+  `escalation:<commitment, grievance o inquiry>:<id>:<fecha del plazo>:<nivel>` (con la huella en lugar del id en el
+  nivel 2 de una QCS confidencial), `stakeholder_review:<id>:<fecha>` y
   `stakeholder_inactivity:<id>:<fecha de referencia>`; una tarea borrada vuelve a crearse mientras dure su condición.
+- La tarea de escalamiento del nivel 2 de una QCS confidencial es la única sin origen, para no delatarla:
+  `ExactlyOneGuard` la admite solo con una `generator_key` de la forma
+  `escalation:<objeto>:<huella>:<fecha del plazo>:2` (`workflows.md`, «Avisos»).
 
 ## 18. BC-14 Notificaciones
 
