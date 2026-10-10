@@ -9,7 +9,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
   `deadline` y `notification`.
-- `model/`: `model.json` (los 48 objetos de F2), `roles.json`, `workflows/` (WF-A, WF-B, WF-C, WF-L y WF-O) y los
+- `model/`: `model.json` (los 72 objetos de F2 a F4), `roles.json`, `workflows/` (los 15 de F2 a F4: WF-A, WF-B, WF-C,
+  WF-L, WF-O, WF-D, WF-I, WF-K, WF-N, WF-E1, WF-E2, WF-E3, WF-F, WF-J y WF-M), `document-types/`, `automations/` y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
   los documentos para las pruebas del modelo.
 - `docs/`: análisis, diseño, ADR, trazabilidad, roadmap y planes. La interfaz vive en `../sgspe-ui`.
@@ -77,6 +78,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Base de las pruebas de contrato | `src/test/kotlin/sgspe/SgspeApiTest.kt` y `src/test/kotlin/sgspe/contract/` |
 | Base de las pruebas de F2 (registros mínimos, asignaciones, transiciones) | `src/test/kotlin/sgspe/F2ApiTest.kt` |
 | Base de las pruebas de F3 del modelo (compromisos, acuerdos y tareas listos para sus guardas, altas apiOnly como la plataforma, espera de automatizaciones) | `src/test/kotlin/sgspe/F3ApiTest.kt` |
+| Base de las pruebas de F4 (QCS, riesgos, incidentes, menciones, señales, reglas y alertas listos para las guardas de 4.2; revisiones de riesgo y derivados como la plataforma) | `src/test/kotlin/sgspe/F4ApiTest.kt` |
 | Tipos de documento y automatizaciones (AUT-NN) | `model/document-types/`, `model/automations/`; `src/test/kotlin/sgspe/workflow/AutomationsApiTest.kt` |
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
 | Modelo frente a los documentos | `model/test_model.py`, `model/design_docs.py` |
