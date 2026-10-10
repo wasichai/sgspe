@@ -37,7 +37,7 @@ data class Referral(
     val created: RecordResponse
 )
 
-// la derivación de una pregunta de reunión a una QCS (RF-ENG-006, api.md §4.4): en una transacción crea la QCS de `target` con
+// la derivación de una pregunta de reunión pendiente a una QCS (RF-ENG-006, api.md §4.4): en una transacción crea la QCS de `target` con
 // `attributes` (sujetos a AttentionWriteGuard) más origin_question, origin_engagement (la interacción de la pregunta), el
 // proyecto de la interacción, el canal REUNION y la recepción igual al held_at de la interacción, y escribe referred_at en la
 // pregunta con la marca: EngagementWriteGuard la cuenta como atendida (RN-ENG-005) sin leer la QCS, que puede ser confidencial.
@@ -72,6 +72,9 @@ class Referrals(
                 val question = records.get(QUESTION, id)
                 if (Values.text(question.attributes[REFERRED_AT]) != null) {
                     throw Finding("ALREADY_REFERRED", "La pregunta ya se derivó a una QCS", "record").toCodedException()
+                }
+                if (answered(question.attributes)) {
+                    throw Finding("STATE_MISMATCH", "Solo se deriva una pregunta pendiente: esta ya se respondió", "record").toCodedException()
                 }
                 val engagementId =
                     Records.uuid(question.attributes[ENGAGEMENT])
@@ -108,6 +111,10 @@ class Referrals(
 
         // lo que fija la derivación: la pregunta y la interacción de origen, el proyecto, el canal y la recepción
         val FIXED: Set<String> = setOf("origin_question", "origin_engagement", "project", "channel", Attention.RECEIVED_AT)
+
+        // respondida en el lugar o después (answered_at): ya no está pendiente y no se deriva (api.md §4.4). la misma lectura que
+        // EngagementWriteGuard.answered sin referred_at, que la derivación juzga aparte (ALREADY_REFERRED)
+        fun answered(question: Map<String, Any?>): Boolean = Values.bool(question["answered_on_site"]) == true || Values.text(question["answered_at"]) != null
 
         // de held a minutes_approved: realizada y sin cerrar (WF-C)
         val HELD: Set<String> = setOf("held", "minutes_drafted", "minutes_in_review", "minutes_approved")

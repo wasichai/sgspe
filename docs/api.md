@@ -692,8 +692,10 @@ de esa interacción como escritura derivada [domain-model §7.2, §7.5].
   REUNION y `received_at` igual al `held_at` de la interacción, y escribe `referred_at` en la pregunta con la marca
   `SgspeWrite`. `EngagementWriteGuard` cuenta como atendida una pregunta con `referred_at` (RN-ENG-005) sin leer la QCS,
   que puede ser confidencial. Errores: `409 ALREADY_REFERRED` (`record`) si la pregunta ya tiene `referred_at`; `409
-  STATE_MISMATCH` (`engagement`) si la interacción no está entre `held` y `minutes_approved`; `400 INVALID_TARGET`
-  (`target`).
+  STATE_MISMATCH` (`record`) si ya está respondida (`answered_on_site` verdadero o `answered_at` informado: solo se deriva
+  una pregunta pendiente); `409 STATE_MISMATCH` (`engagement`) si la interacción no está entre `held` y
+  `minutes_approved`; `400 INVALID_TARGET` (`target`); `403` sin UPDATE sobre `engagement_question` o sin CREATE sobre el
+  destino.
 
 ### 4.5 BC-05 Compromisos
 
