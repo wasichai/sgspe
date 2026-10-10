@@ -650,7 +650,7 @@ Criterios con que se armó:
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `engagement` | — | R | RU `EDIT_ANY` | CRU `EDIT_ANY` | CRU `EDIT_ANY` | R | R | R | R | R | CRU | R | R | R |
 | `engagement_participant` | — | R | R | CRUD `EDIT_ANY` | CRUD `EDIT_ANY` | R | R | R | R | R | CRUD | R | R | R |
-| `engagement_question` | — | R | RU | CRU | CRU | R | R | R | R | R | CR | R | R | R |
+| `engagement_question` | — | R | RU | CRU | CRU | R | Ru | R | R | R | CR | R | R | R |
 | `field_visit` | — | R | RU `EDIT_ANY` | CRU `EDIT_ANY` | R | R | R | R | R | R | CRU | R | R | R |
 | `field_observation` | — | R | R | CRUD `EDIT_ANY` | R | R | R | R | R | R | CRUD | R | R | R |
 | `engagement_plan` | — | R | CRUD | R | R | R | R | R | R | R | R | R | R | R |
@@ -677,6 +677,9 @@ Criterios con que se armó:
   o visita que puede leer; sin `EDIT_ANY`, `EditAnyGuard` limita a lo que creó sus cambios y sus bajas (ASM-069). Sus
   preguntas se registran con su respuesta en el lugar o la responde después otro rol del equipo.
 - `SOCIAL_MANAGER` aprueba las actas (`minutes_approved`) con su UPDATE sobre `engagement` y el rol de esa transición.
+- El `u` de `GRIEVANCE_MANAGER` sobre `engagement_question` (F4) sirve para derivar preguntas a QCS (§8.2): solo deja
+  escribir `referred_at`, el derivado que pone el endpoint de derivación con la marca; el texto, la respuesta y la
+  interacción de la pregunta quedan de solo lectura para él.
 
 ### 7.5 BC-05 Compromisos, BC-06 Acuerdos, BC-12 Evidencias y BC-13 Tareas (F3)
 
@@ -914,7 +917,7 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `PATCH /api/sgspe/evidence/{id}` (`sgspe.evidence`) | Cambia los datos descriptivos, nunca el archivo | UPDATE `evidence`; `EDIT_ANY` si la subió otra persona; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una CONFIDENCIAL o DATOS PERSONALES (`EvidenceWriteGuard`, ASM-071) | Los que tienen CRU sobre `evidence` | F3 |
 | `POST /api/sgspe/stakeholder-requests/{id}/accept` (`sgspe.attention`) | Aplica `accepted` y crea el compromiso en `draft` o, desde F5, el aporte | UPDATE `stakeholder_request` y rol de la transición; CREATE `commitment` o, desde F5, `social_contribution`; `u` sobre `stakeholder` si vincula solicitantes | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y, desde F5, `SOCIAL_INVESTMENT_MANAGER` | F4 |
 | `POST /api/sgspe/grievances/{id}/reclassify` y sus pares (`sgspe.attention`) | Crea el registro de destino y conserva el vínculo con el original | CREATE del destino; UPDATE del origen | `GRIEVANCE_MANAGER` | F4 |
-| `POST /api/sgspe/engagement-questions/{id}/referral` (`sgspe.engagement`) | Crea la QCS con `origin_question` | CREATE de la QCS; READ `engagement_question` | `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | F4 |
+| `POST /api/sgspe/engagement-questions/{id}/referral` (`sgspe.engagement`) | Crea la QCS con `origin_question` | CREATE de la QCS; UPDATE (`U` o `u`) sobre `engagement_question`, porque escribe `referred_at` | `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | F4 |
 | `POST /api/sgspe/social-risks/{id}/assessments` (`sgspe.risk`) | Crea `risk_assessment`, actualiza los valores vigentes de `social_risk` y, en la primera revisión, aplica `assessed` | CREATE `risk_assessment`; UPDATE `social_risk`; rol de la transición | `SOCIAL_RISK_MANAGER` | F4 |
 | `POST /api/sgspe/social-contributions/{id}/deliveries` (`sgspe.investment`) | Solo captura datos: crea la entrega del aporte y vincula acta, foto y comprobante; llevar el aporte a `delivered` es después la transición humana de entrega de WF-P | CREATE `delivery`; UPDATE `social_contribution` y `evidence` | `SOCIAL_INVESTMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F5 |
 | Exportaciones XLSX (`sgspe.privacy`) | Lee con `RecordService` como el usuario y crea `export_log` | READ del objeto; `EXPORT`; CREATE `export_log` | Ver la matriz | F2–F4 |
