@@ -9,12 +9,15 @@ import sgspe.common.Attention
 import sgspe.common.Callers
 import sgspe.common.Finding
 import sgspe.common.GuardOrder
+import sgspe.common.NotReadable
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.RuleGuard
 import sgspe.common.Transactions
 import sgspe.common.WriteView
 import sgspe.common.isLink
+import sgspe.common.readAs
+import sgspe.common.readable
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.metadata.MetadataService
@@ -29,7 +32,8 @@ import java.util.UUID
 // la clasificación lo exige FieldChangeReasonGuard. un archivo pertenece a una sola evidencia: adjuntarlo a otra abriría la
 // descarga de una restringida con otra clasificación (ASM-071) y un reintento sin Idempotency-Key dejaría un duplicado que
 // no se borra. desde F4, una evidencia que no es CONFIDENCIAL ni DATOS PERSONALES no se vincula a una QCS confidencial
-// (409 EVIDENCE_NOT_RESTRICTED, ASM-095): su descarga no exigiría DOWNLOAD_RESTRICTED y abriría el caso reservado
+// (409 EVIDENCE_NOT_RESTRICTED, ASM-095): su descarga no exigiría DOWNLOAD_RESTRICTED y abriría el caso reservado. por lo
+// mismo, una ya vinculada a una QCS confidencial no baja a una clasificación no restringida
 @Component
 @Order(GuardOrder.DOMAIN)
 class EvidenceWriteGuard(
@@ -47,6 +51,25 @@ class EvidenceWriteGuard(
         dryRun: Boolean
     ): List<Finding> {
         if (change.objectName != EvidenceRules.EVIDENCE) return emptyList()
+        return try {
+            evidence(change, dryRun)
+        } catch (e: NotReadable) {
+            listOf(
+                Finding(
+                    "OBJECT_NOT_READABLE",
+                    "La regla necesita leer ${e.objectName}: el registro no existe o quien escribe no puede leerlo",
+                    e.objectName,
+                    status = HttpStatus.FORBIDDEN
+                )
+            )
+        }
+    }
+
+    // las reglas de la evidencia; lo que no se puede leer como quien escribe sale como NotReadable (falla cerrada, P12)
+    private suspend fun evidence(
+        change: RecordWrite,
+        dryRun: Boolean
+    ): List<Finding> {
         if (change.kind == RecordChangeKind.DELETED) {
             return listOf(
                 Finding("EVIDENCE_NOT_DELETABLE", "Una evidencia no se borra: se reemplaza con una versión nueva", status = HttpStatus.CONFLICT)
@@ -78,23 +101,43 @@ class EvidenceWriteGuard(
                     )
             }
         }
+        if (change.userId != null &&
+            EvidenceRules.downgrade(before[EvidenceRules.CLASSIFICATION], after[EvidenceRules.CLASSIFICATION]) &&
+            linkedToConfidential(change.recordId)
+        ) {
+            findings += notRestricted()
+        }
         return findings
     }
 
+    // si la evidencia ya está vinculada a una QCS confidencial, con los vínculos leídos como quien escribe: bajar su
+    // clasificación abriría la descarga del caso reservado igual que vincular una no restringida (ASM-095). sin READ sobre
+    // un objeto de las QCS, NotReadable. una escritura sin usuario no tiene con quién leer: no se juzga, como la regla de
+    // DOWNLOAD_RESTRICTED
+    private suspend fun linkedToConfidential(id: UUID?): Boolean =
+        id != null &&
+            Attention.OBJECTS.any { target ->
+                readAs(target) { records.related(EvidenceRules.EVIDENCE, id, EvidenceRules.linkRelationship(target)) }
+                    .any { Attention.isConfidential(it.attributes) }
+            }
+
+    private fun notRestricted(): Finding =
+        Finding(
+            "EVIDENCE_NOT_RESTRICTED",
+            "Una evidencia vinculada a una QCS confidencial debe ser CONFIDENCIAL o DATOS PERSONALES: cambie su clasificación antes",
+            EvidenceRules.CLASSIFICATION,
+            status = HttpStatus.CONFLICT
+        )
+
     // el vínculo de una evidencia no restringida con una QCS confidencial, en el extremo de la evidencia (wasichai llama a las
-    // guardas con cada extremo). la QCS se lee como quien vincula: wasichai ya comprobó que la lee. deshacer un vínculo no se juzga
+    // guardas con cada extremo). la QCS se lee como quien vincula; si no la lee, NotReadable (falla cerrada, nunca un pase).
+    // deshacer un vínculo no se juzga
     private suspend fun confidentialLinks(change: RecordWrite): List<Finding> {
         if (EvidenceRules.restricted(change.before.orEmpty()[EvidenceRules.CLASSIFICATION])) return emptyList()
         return Attention.OBJECTS.mapNotNull { target ->
-            val id = Records.uuid(change.attributes.orEmpty()["rel:${EvidenceRules.linkRelationship(target)}"]) ?: return@mapNotNull null
-            val qcs = records.find(target, id) ?: return@mapNotNull null
-            if (!Attention.isConfidential(qcs.attributes)) return@mapNotNull null
-            Finding(
-                "EVIDENCE_NOT_RESTRICTED",
-                "Una evidencia vinculada a una QCS confidencial debe ser CONFIDENCIAL o DATOS PERSONALES: cambie su clasificación antes",
-                EvidenceRules.CLASSIFICATION,
-                status = HttpStatus.CONFLICT
-            )
+            val relationship = "rel:${EvidenceRules.linkRelationship(target)}"
+            val id = Records.uuid(change.attributes.orEmpty()[relationship]) ?: return@mapNotNull null
+            if (Attention.isConfidential(records.readable(target, id).attributes)) notRestricted() else null
         }
     }
 
