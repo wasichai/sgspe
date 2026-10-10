@@ -1,0 +1,21 @@
+{
+  "name": "wf-m-incident",
+  "label": "Incidente",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "reported", "label": "Reportado", "type": "INITIAL" },
+      { "name": "under_review", "label": "En revisión", "type": "INTERMEDIATE" },
+      { "name": "responding", "label": "En respuesta", "type": "INTERMEDIATE" },
+      { "name": "closed", "label": "Cerrado", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "start_review", "label": "Revisar", "from": "reported", "to": "under_review",
+        "roles": ["SOCIAL_MANAGER", "SOCIAL_RISK_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
+      { "name": "start_response", "label": "Responder", "from": "under_review", "to": "responding",
+        "roles": ["SOCIAL_MANAGER", "SOCIAL_RISK_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
+      { "name": "close", "label": "Cerrar", "from": "responding", "to": "closed",
+        "roles": ["SOCIAL_MANAGER", "SOCIAL_RISK_MANAGER"] }
+    ]
+  }
+}

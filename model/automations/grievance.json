@@ -1,0 +1,15 @@
+[
+  {
+    "name": "aut-02-grievance-ack-task",
+    "label": "Tarea de acuse de la queja recibida",
+    "enabled": true,
+    "definition": {
+      "trigger": { "type": "RECORD_CREATED" },
+      "conditions": [],
+      "actions": [
+        { "type": "CREATE_RECORD", "targetObject": "task",
+          "values": { "title": "Acusar recibo de la queja {{code}}", "grievance": "{{id}}", "project": "{{project}}" } }
+      ]
+    }
+  }
+]

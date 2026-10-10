@@ -65,7 +65,8 @@ class AmountFieldsGuard(
                 "stakeholder_assessment.influence_score" to "puntaje de la evaluación",
                 "commitment.quantity" to "cantidad de lo comprometido en su unidad (metros, sacos), no dinero",
                 "commitment_candidate.confidence" to "confianza de la extracción, de 0 a 1",
-                "locality_profile.members_per_family" to "promedio de miembros por familia"
+                "locality_profile.members_per_family" to "promedio de miembros por familia",
+                "early_warning_rule.threshold" to "umbral de una regla de alerta: un conteo o un puntaje entero, no dinero"
             )
 
         // pura, para las pruebas unitarias: un hallazgo por monto de `objectName` que cambia y no pasa Amounts.parse
