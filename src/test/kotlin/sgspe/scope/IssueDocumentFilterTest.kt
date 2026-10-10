@@ -16,6 +16,7 @@ import reactor.core.publisher.Mono
 import sgspe.common.Finding
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.GlobalExceptionHandler
+import wasichai.core.common.NotFoundException
 import java.net.URI
 import java.util.UUID
 
@@ -40,16 +41,32 @@ class IssueDocumentFilterTest {
         }
     }
 
-    private fun filter(access: IssueAccess) = IssueDocumentFilter(access, GlobalExceptionHandler("https://sgspe.test/problems"), ServerCodecConfigurer.create())
+    // la lectura de documentos: lanza `failure` si se da; anota lo que se le preguntó
+    private class Reads(
+        private val failure: Exception? = null
+    ) : DocumentReadAccess {
+        val asked = mutableListOf<DocumentRead>()
+
+        override suspend fun requireReadable(read: DocumentRead) {
+            asked += read
+            if (failure != null) throw failure
+        }
+    }
+
+    private fun filter(
+        access: IssueAccess,
+        reads: DocumentReadAccess = Reads()
+    ) = IssueDocumentFilter(access, reads, GlobalExceptionHandler("https://sgspe.test/problems"), ServerCodecConfigurer.create())
 
     // el intercambio, el cuerpo y si la cadena siguió
     private fun through(
         access: IssueAccess,
-        request: MockServerHttpRequest
+        request: MockServerHttpRequest,
+        reads: DocumentReadAccess = Reads()
     ): Triple<MockServerWebExchange, String, Boolean> {
         val exchange = MockServerWebExchange.from(request)
         var passed = false
-        filter(access)
+        filter(access, reads)
             .filter(exchange) {
                 passed = true
                 Mono.empty()
@@ -126,6 +143,47 @@ class IssueDocumentFilterTest {
         assertTrue(through(refused, MockServerHttpRequest.get("/api/objects/engagement/records/$id/documents").build()).third)
         assertTrue(through(refused, MockServerHttpRequest.put("/api/objects/engagement/records/$id").build()).third)
         assertEquals(emptyList<IssueTarget>(), refused.asked)
+    }
+
+    // ---- la lectura de documentos emitidos (UPS-28, ASM-108): sus dos rutas GET, y el 404 de un registro que no se lee ----
+
+    @Test
+    fun `las dos lecturas de documentos son rutas del filtro, y la emision y lo demas no`() {
+        val record = UUID.fromString(id)
+        assertEquals(
+            DocumentRead.OfRecord("engagement", record),
+            IssueDocumentFilter.readOf(MockServerHttpRequest.get("/api/objects/Engagement/records/$id/documents").build())
+        )
+        assertEquals(DocumentRead.ById(record), IssueDocumentFilter.readOf(MockServerHttpRequest.get("/api/documents/$id").build()))
+        assertNull(IssueDocumentFilter.readOf(MockServerHttpRequest.get("/api/documents/no-es-uuid").build()))
+        assertNull(IssueDocumentFilter.readOf(MockServerHttpRequest.post("/api/objects/engagement/records/$id/documents/meeting-minutes").build()))
+        assertNull(IssueDocumentFilter.readOf(MockServerHttpRequest.get("/api/objects/engagement/records/$id").build()))
+        assertNull(IssueDocumentFilter.readOf(MockServerHttpRequest.get("/api/objects/engagement/document-types").build()))
+    }
+
+    @Test
+    fun `un documento cuyo registro no se lee es el 404 de wasichai y no llega al controlador`() {
+        val reads = Reads(NotFoundException("Record $id does not exist"))
+        for (path in listOf("/api/objects/engagement/records/$id/documents", "/api/documents/$id")) {
+            val (exchange, body, passed) = through(Access(null), MockServerHttpRequest.get(path).build(), reads)
+            assertEquals(HttpStatus.NOT_FOUND, exchange.response.statusCode, body)
+            assertTrue(MediaType.APPLICATION_PROBLEM_JSON.isCompatibleWith(exchange.response.headers.contentType), exchange.response.headers.toString())
+            assertFalse(passed, path)
+        }
+        val allowed = Reads()
+        assertTrue(through(Access(null), MockServerHttpRequest.get("/api/documents/$id").build(), allowed).third)
+        assertEquals(listOf<DocumentRead>(DocumentRead.ById(UUID.fromString(id))), allowed.asked)
+    }
+
+    @Test
+    fun `emitir sobre un registro que no se lee tambien es 404`() {
+        val (exchange, _, passed) =
+            through(
+                Access(null, NotFoundException("Record $id does not exist")),
+                MockServerHttpRequest.post("/api/objects/engagement/records/$id/documents/meeting-minutes").build()
+            )
+        assertEquals(HttpStatus.NOT_FOUND, exchange.response.statusCode)
+        assertFalse(passed)
     }
 
     // ---- la decisión (P60 y P62): UPDATE, el alcance del registro leído como quien llama y, al final, EDIT_ANY ----
