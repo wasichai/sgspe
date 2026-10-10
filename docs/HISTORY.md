@@ -3,6 +3,23 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-09 — Plan 4.0: los documentos de F4
+
+Los documentos de diseño quedan al día con la especificación de F4
+(`docs/superpowers/specs/2026-10-09-fase-4-design.md`) antes de tocar el modelo y el código. Las decisiones están en
+[Requisitos](requirements-analysis.md) (ASM-095 a ASM-104; UPS-25 y UPS-26, candidatas sin issue; 520 IDs).
+
+- **QCS confidenciales.** `READ_CONFIDENTIAL` y el `RecordReadScope` de las QCS confidenciales (`security.md` §9.6 y
+  [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md), con la excepción de `ConfidentialRelease` para el
+  cierre automático de una solicitud) reemplazan la respuesta del checkpoint «sin restringir en el MVP»; el alcance por
+  proyecto sigue en la opción A.
+- **Huecos cerrados.** Documentos de QCS tras UPS-23 (C1), días hábiles con feriados en configuración (C7), los seis
+  tipos de regla de JOB-04 sin CAMBIO DE POSTURA (C10 y C6) y el contenido de `attention-register` y `risk-register`
+  (C12); además, las contradicciones menores C2 a C5, C8, C9, C11 y C13 a C17.
+- **Pantallas.** La ficha de consulta y solicitud pasa a S57, y S58 a S61 son las fichas de menciones, señales, reglas e
+  impactos. El tablero de riesgos, que compartía S38 con el registro y matriz, pasa a S62; `ux-architecture.md` §9
+  suma S57 a S62 a su inventario.
+
 ## 2026-10-09 — Plan 3.2: el backend de F3
 
 El backend de F3 (compromisos y evidencias) queda construido en la rama `feat/fase-3-2-backend`, en 24 tareas más las
