@@ -98,6 +98,19 @@ class EvidenceApiTest : F3DomainApiTest() {
             )
         assertEquals(HttpStatus.FORBIDDEN, denied.status, denied.body)
         assertEquals("ACTION_REQUIRED", code(denied))
+        // PROJECT_ADMIN edita evidencias pero no tiene DOWNLOAD_RESTRICTED ni lee las QCS: su 403 sigue siendo ACTION_REQUIRED
+        // sobre classification (api.md §3.3), no el OBJECT_NOT_READABLE de la regla de las QCS confidenciales, que no se evalúa
+        val admin = member("PROJECT_ADMIN", project)
+        val noAction =
+            patch(
+                "/api/sgspe/evidence/$id",
+                mapOf("attributes" to mapOf("classification" to "INTERNA")),
+                admin.token,
+                ifMatch("evidence", id) + withReason()
+            )
+        assertEquals(HttpStatus.FORBIDDEN, noAction.status, noAction.body)
+        assertEquals("ACTION_REQUIRED", code(noAction))
+        assertEquals(listOf("classification"), problemFields(noAction.body))
         val manager = member("SOCIAL_MANAGER", project)
         val allowed =
             patch(

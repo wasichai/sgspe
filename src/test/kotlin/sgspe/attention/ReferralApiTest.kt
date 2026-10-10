@@ -1,6 +1,7 @@
 package sgspe.attention
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
@@ -13,10 +14,13 @@ class ReferralApiTest : F4ApiTest() {
     private val officer by lazy { member("COMMUNITY_RELATIONS_OFFICER") }
 
     // una reunión realizada con acta aprobada y una pregunta pendiente: su id y el de la pregunta
-    private fun meeting(held: Boolean = true): Pair<String, String> {
+    private fun meeting(
+        held: Boolean = true,
+        answer: Map<String, Any?> = emptyMap()
+    ): Pair<String, String> {
         val meeting = engagement(testProject(), attributes = mapOf("held_at" to "2026-10-05T15:00:00Z", "minutes" to "Se presentó el proyecto."))
         participant(meeting)
-        val question = createRecord("engagement_question", mapOf("engagement" to meeting, "question_text" to "¿Quién arregla el canal?"))
+        val question = createRecord("engagement_question", mapOf("engagement" to meeting, "question_text" to "¿Quién arregla el canal?") + answer)
         if (held) for (step in listOf("register_held_unplanned", "draft_minutes", "submit_minutes", "approve_minutes")) move("engagement", meeting, step)
         return meeting to question
     }
@@ -69,6 +73,38 @@ class ReferralApiTest : F4ApiTest() {
         val invalid = refer(question, "commitment")
         assertEquals(HttpStatus.BAD_REQUEST, invalid.status, invalid.body)
         assertEquals("INVALID_TARGET", code(invalid))
+    }
+
+    // api.md §4.4: se deriva una pregunta pendiente; una ya respondida, en el lugar o después, es 409 STATE_MISMATCH
+    @Test
+    fun `una pregunta respondida no se deriva`() {
+        val (_, onSite) = meeting(answer = mapOf("answered_on_site" to true, "answer" to "Lo arregla la junta de usuarios."))
+        val later = meeting(answer = mapOf("answer" to "Lo arregla la junta de usuarios.", "answered_at" to "2026-10-06T15:00:00Z")).second
+        for (question in listOf(onSite, later)) {
+            val response = refer(question)
+            assertEquals(HttpStatus.CONFLICT, response.status, response.body)
+            assertEquals("STATE_MISMATCH", code(response))
+            assertEquals(listOf("record"), problemFields(response.body))
+            assertNull(record("engagement_question", question)["attributes"]["referred_at"]?.takeUnless { it.isNull })
+        }
+    }
+
+    // derivar exige UPDATE sobre la pregunta y CREATE sobre el destino (permissions.require): el gestor de compromisos solo
+    // lee la pregunta, y el gestor social la actualiza pero no crea consultas. es el 403 de permisos, sin código propio: su
+    // detail nombra lo que falta, y solo eso
+    @Test
+    fun `sin UPDATE sobre la pregunta o sin CREATE sobre el destino no se deriva`() {
+        val (_, question) = meeting()
+        val update = "permiso de edición sobre engagement_question"
+        val create = "permiso de creación sobre inquiry"
+        for ((role, missing) in listOf("COMMITMENT_MANAGER" to update, "SOCIAL_MANAGER" to create)) {
+            val response = refer(question, account = member(role))
+            assertEquals(HttpStatus.FORBIDDEN, response.status, "$role: ${response.body}")
+            val detail = tree(response.body)["detail"].asString()
+            assertTrue(detail.contains(missing), "$role: ${response.body}")
+            assertEquals(1, listOf(update, create).count { detail.contains(it) }, "$role: ${response.body}")
+        }
+        assertEquals(HttpStatus.CREATED, refer(question).status)
     }
 
     // decisión 3 del plan 4.2a: el gestor de quejas deriva con su `u` sobre engagement_question, que solo le deja escribir

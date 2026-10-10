@@ -10,7 +10,9 @@ import sgspe.common.Records
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordResponse
 import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import java.util.UUID
+import org.mockito.Mockito.`when` as whenever
 
 // los topes de lectura de los tableros y los filtros que cada KPI ignora (dashboards.md §3.1 y §6.2), sin base
 class DashboardDataTest {
@@ -108,14 +110,11 @@ class DashboardDataTest {
             attributes: Map<String, Any?>
         ): RecordResponse {
             val r = mock(RecordResponse::class.java)
-            org.mockito.Mockito
-                .`when`(r.id)
+            whenever(r.id)
                 .thenReturn(id)
-            org.mockito.Mockito
-                .`when`(r.attributes)
+            whenever(r.attributes)
                 .thenReturn(attributes)
-            org.mockito.Mockito
-                .`when`(r.createdAt)
+            whenever(r.createdAt)
                 .thenReturn(java.time.Instant.parse("2026-05-10T15:00:00Z"))
             return r
         }
@@ -136,14 +135,12 @@ class DashboardDataTest {
     @Test
     fun `una reprogramacion con una fecha mal formada se excluye y avisa`() {
         val r = mock(RecordResponse::class.java)
-        org.mockito.Mockito
-            .`when`(r.id)
+        whenever(r.id)
             .thenReturn("mala")
-        org.mockito.Mockito.`when`(r.attributes).thenReturn(
+        whenever(r.attributes).thenReturn(
             mapOf("commitment" to UUID.randomUUID().toString(), "previous_due_date" to "no-es-fecha", "new_due_date" to "2026-06-01")
         )
-        org.mockito.Mockito
-            .`when`(r.createdAt)
+        whenever(r.createdAt)
             .thenReturn(java.time.Instant.parse("2026-05-10T15:00:00Z"))
         val read = DashboardData(mock(Records::class.java), filters(), { true }, TODAY).parseReschedules(listOf(r))
         assertEquals(emptyList<RescheduleRow>(), read.rows)
@@ -166,5 +163,21 @@ class DashboardDataTest {
         val error = assertThrows<WasichaiException> { runBlocking { data.commitments(campaign = false, owner = false) } }
         assertEquals(400, error.status.value())
         assertEquals("TOO_MANY_RECORDS", error.violations.single().message)
+    }
+
+    // una QCS con una fecha mal formada no sale callada de KPI-GRV-03, 04, 05 y 10: la lectura lanza, como la de compromisos
+    // (son campos DATE que wasichai valida, así que es un dato corrupto)
+    @Test
+    fun `una QCS con una fecha mal formada lanza en vez de salir del KPI`() {
+        val row = mock(RecordResponse::class.java)
+        whenever(row.id)
+            .thenReturn(UUID.randomUUID().toString())
+        whenever(row.state)
+            .thenReturn("resolved")
+        whenever(row.attributes)
+            .thenReturn(mapOf("received_at" to "2026-01-05T15:00:00Z", "resolved_date" to "no-es-fecha"))
+        val records = mock(Records::class.java) { call -> if (call.method.name == "all") listOf(row) else null }
+        val data = DashboardData(records, filters(), { true }, TODAY)
+        assertThrows<DateTimeParseException> { runBlocking { data.attention() } }
     }
 }

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
+import tools.jackson.databind.JsonNode
 
 // WF-E1 con AttentionWriteGuard (workflows.md, especificación de F4 §3.2): los casos propios de la queja que la matriz de
 // workflows no cubre. la anónima sin identidad, la confidencialidad (receptor y marca protegida), atender y resolver con
@@ -58,6 +59,8 @@ class GrievanceWorkflowApiTest : F4ApiTest() {
         assertEquals("ACTION_REQUIRED", code(response))
         assertEquals(listOf("confidential"), problemFields(response.body))
         val owner = edit("grievance", id, mapOf("owner_user_id" to manager.id, "owner_user_email" to manager.email), officer.token, withReason())
+        assertEquals(HttpStatus.FORBIDDEN, owner.status, owner.body)
+        assertEquals("ACTION_REQUIRED", code(owner))
         assertEquals(listOf("owner_user_id"), problemFields(owner.body))
         assertEquals(HttpStatus.OK, edit("grievance", id, mapOf("confidential" to false), manager.token, withReason()).status)
     }
@@ -89,6 +92,20 @@ class GrievanceWorkflowApiTest : F4ApiTest() {
     }
 
     @Test
+    fun `la consulta en seco de resolve_high_severity exige APPROVE`() {
+        val id = inAction(mapOf("severity" to "ALTA"))
+        // el gestor de quejas no tiene APPROVE: la doble llave lo bloquea, sin campo (los roles los explica la lista de
+        // transiciones de wasichai, no la consulta en seco)
+        val refused = check(id, "resolve_high_severity", manager.token)
+        assertEquals(false, refused["allowed"].asBoolean())
+        assertEquals(listOf("ACTION_REQUIRED" to null), blocking(refused).filter { it.first == "ACTION_REQUIRED" })
+        // quien tiene APPROVE no tropieza con ella
+        val approver = check(id, "resolve_high_severity", member("APPROVER").token)
+        assertEquals(emptyList<String>(), blocking(approver).map { it.first }.filter { it == "ACTION_REQUIRED" })
+        assertEquals("in_action", state("grievance", id))
+    }
+
+    @Test
     fun `no se reabre una queja con conformidad`() {
         val id = inAction(mapOf("complainant_conformity_given" to true))
         move("grievance", id, "resolve", manager.token, "resolver")
@@ -112,4 +129,24 @@ class GrievanceWorkflowApiTest : F4ApiTest() {
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
         assertEquals("INVALID_LINK", code(response))
     }
+
+    // POST /api/sgspe/transition-checks de `transition` sobre la queja `id`, como `token`
+    private fun check(
+        id: String,
+        transition: String,
+        token: String
+    ): JsonNode =
+        tree(
+            send(
+                "POST",
+                "/api/sgspe/transition-checks",
+                mapOf("object" to "grievance", "recordId" to id, "transition" to transition),
+                HttpStatus.OK,
+                token
+            )
+        )
+
+    // los bloqueos de una consulta en seco: código y campo
+    private fun blocking(check: JsonNode): List<Pair<String, String?>> =
+        check["blocking"].values().map { it["code"].asString() to it["field"]?.takeUnless { f -> f.isNull }?.asString() }
 }

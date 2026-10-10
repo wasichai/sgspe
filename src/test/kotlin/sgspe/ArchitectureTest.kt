@@ -119,13 +119,22 @@ class ArchitectureTest {
     }
 
     // la liberación del alcance de las QCS confidenciales (decisión 4 del plan 4.2a) es de una sola regla del sistema: common la
-    // define, ConfidentialAttentionScope la honra y solo RequestClosureListener (attention/Acceptances.kt) la abre
+    // define, solo ConfidentialAttentionScope la honra (on) y solo RequestClosureListener, en su propio archivo, la abre (within)
     @Test
     fun `solo RequestClosureListener libera el alcance de las confidenciales`() {
-        val allowed = listOf("/sgspe/common/ConfidentialRelease.kt", "/sgspe/scope/ConfidentialAttentionScope.kt", "/sgspe/attention/Acceptances.kt")
-        val outside = sources(main).filterNot { file -> allowed.any { file.invariantSeparatorsPath.endsWith(it) } }
-        assertEquals(emptyList<String>(), offenders(outside, CONFIDENTIAL_RELEASE))
+        val definition = "/sgspe/common/ConfidentialRelease.kt"
+        val scope = "/sgspe/scope/ConfidentialAttentionScope.kt"
+        val listener = "/sgspe/attention/RequestClosureListener.kt"
+
+        fun except(vararg allowed: String) = sources(main).filterNot { file -> allowed.any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(except(definition, scope, listener), CONFIDENTIAL_RELEASE))
+        assertEquals(emptyList<String>(), offenders(except(listener), RELEASE_WITHIN))
+        assertEquals(emptyList<String>(), offenders(except(scope), RELEASE_ON))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(listener) })
         assertTrue(flags(CONFIDENTIAL_RELEASE, "ConfidentialRelease.within(\"grievance\", \"owner_user_id\", id) { x() }"))
+        assertTrue(flags(RELEASE_WITHIN, "ConfidentialRelease.within(\"grievance\", \"owner_user_id\", id) { x() }"))
+        assertFalse(flags(RELEASE_WITHIN, "val release = ConfidentialRelease.on(objectName)"))
+        assertTrue(flags(RELEASE_ON, "val release = ConfidentialRelease.on(objectName)"))
         assertFalse(flags(CONFIDENTIAL_RELEASE, "// ConfidentialRelease solo en RequestClosureListener"))
         assertFalse(flags(CONFIDENTIAL_RELEASE, "class ConfidentialAttentionScope"))
     }
@@ -253,6 +262,8 @@ class ArchitectureTest {
         private val ORGANIZATIONS = Regex("""\bfindAllOrganizations\b""")
         private val TENANT_DIRECTORY = Regex("""\bTenantDirectory\b""")
         private val CONFIDENTIAL_RELEASE = Regex("""\bConfidentialRelease\b""")
+        private val RELEASE_WITHIN = Regex("""\bConfidentialRelease\s*\.\s*within\b""")
+        private val RELEASE_ON = Regex("""\bConfidentialRelease\s*\.\s*on\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")

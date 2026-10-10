@@ -25,6 +25,7 @@ import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.common.readable
 import sgspe.common.toCodedException
+import sgspe.engagement.EngagementWriteGuard
 import wasichai.core.common.Actions
 import wasichai.core.common.ValidationException
 import wasichai.core.data.ChangeReason
@@ -37,7 +38,7 @@ data class Referral(
     val created: RecordResponse
 )
 
-// la derivación de una pregunta de reunión a una QCS (RF-ENG-006, api.md §4.4): en una transacción crea la QCS de `target` con
+// la derivación de una pregunta de reunión pendiente a una QCS (RF-ENG-006, api.md §4.4): en una transacción crea la QCS de `target` con
 // `attributes` (sujetos a AttentionWriteGuard) más origin_question, origin_engagement (la interacción de la pregunta), el
 // proyecto de la interacción, el canal REUNION y la recepción igual al held_at de la interacción, y escribe referred_at en la
 // pregunta con la marca: EngagementWriteGuard la cuenta como atendida (RN-ENG-005) sin leer la QCS, que puede ser confidencial.
@@ -72,6 +73,10 @@ class Referrals(
                 val question = records.get(QUESTION, id)
                 if (Values.text(question.attributes[REFERRED_AT]) != null) {
                     throw Finding("ALREADY_REFERRED", "La pregunta ya se derivó a una QCS", "record").toCodedException()
+                }
+                // sin referred_at, atendida es respondida en el lugar o después: solo se deriva una pendiente (api.md §4.4)
+                if (EngagementWriteGuard.answered(question.attributes)) {
+                    throw Finding("STATE_MISMATCH", "Solo se deriva una pregunta pendiente: esta ya se respondió", "record").toCodedException()
                 }
                 val engagementId =
                     Records.uuid(question.attributes[ENGAGEMENT])

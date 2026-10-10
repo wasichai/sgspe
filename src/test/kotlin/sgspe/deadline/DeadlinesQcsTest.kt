@@ -54,4 +54,18 @@ class DeadlinesQcsTest {
         }
         assertEquals(false, Deadlines.TRACKED.any { it.objectName == "stakeholder_request" })
     }
+
+    // JOB-01 titula la tarea de escalamiento con DeadlineJob.OVERDUE (getValue): cada objeto que escala necesita su entrada,
+    // y una sobrante delata un objeto que dejó de escalar. así un Tracked nuevo (social_risk en el plan 4.2b) falla aquí y no
+    // en la integración
+    @Test
+    fun `cada objeto que escala tiene su titulo de vencido y solo ellos`() {
+        assertEquals(
+            Deadlines.TRACKED
+                .filter { it.escalates }
+                .map { it.objectName }
+                .toSet(),
+            DeadlineJob.OVERDUE.keys
+        )
+    }
 }
