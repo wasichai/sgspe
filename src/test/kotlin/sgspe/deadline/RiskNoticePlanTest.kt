@@ -1,6 +1,8 @@
 package sgspe.deadline
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import sgspe.common.ModelCatalog
 import sgspe.notification.NoticeTexts
@@ -33,12 +35,20 @@ class RiskNoticePlanTest {
     }
 
     @Test
-    fun `una tarea de un riesgo o de una alerta escala a su transicion de revision`() {
+    fun `una tarea de una alerta escala a confirm, y una de un riesgo ya no tiene transicion de referencia`() {
         val catalog = ModelCatalog.fromClasspath()
-        for (linked in listOf("social_risk", "early_warning")) {
-            val (objectName, transition) = DeadlineNoticePlan.TASK_REFERENCE.getValue(linked)
-            assertEquals(linked, objectName)
-            assertEquals(true, catalog.transition(objectName, transition) != null, transition)
-        }
+        val (objectName, transition) = DeadlineNoticePlan.TASK_REFERENCE.getValue("early_warning")
+        assertEquals("early_warning", objectName)
+        assertEquals(true, catalog.transition(objectName, transition) != null, transition)
+        // la revisión vencida de un riesgo avisa solo por risk_escalated (ronda branchfix de 4.2b, R-I1)
+        assertFalse("social_risk" in DeadlineNoticePlan.TASK_REFERENCE)
+    }
+
+    @Test
+    fun `la tarea de revision de un riesgo no entra en la cadena de tarea vencida`() {
+        assertFalse(DeadlineNoticePlan.escalatesAsTask(DeadlineJob.reviewKey("r1", "2026-10-14")))
+        assertTrue(DeadlineNoticePlan.escalatesAsTask(null))
+        assertTrue(DeadlineNoticePlan.escalatesAsTask(DeadlineJob.escalationKey("commitment", "c1", LocalDate.parse("2026-10-14"), 1)))
+        assertTrue(DeadlineNoticePlan.escalatesAsTask("follow_up:s1:2026-10-14"))
     }
 }

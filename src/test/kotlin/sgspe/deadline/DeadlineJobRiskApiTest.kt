@@ -11,7 +11,7 @@ import tools.jackson.databind.JsonNode
 
 // JOB-01 con los riesgos (workflows.md «Plazos y escalamiento» y «Pruebas de trabajos», ASM-099): la revisión vencida queda
 // REVISION VENCIDA sin cambiar el estado, crea una sola tarea risk_review:<id>:<fecha> para el responsable, la cadencia nueva
-// mueve la próxima revisión y un riesgo cerrado deja de medirse
+// mueve la próxima revisión, revisar cierra la tarea abierta y un riesgo cerrado deja de medirse
 class DeadlineJobRiskApiTest : F4ApiTest() {
     @Autowired
     private lateinit var job: DeadlineJob
@@ -58,6 +58,33 @@ class DeadlineJobRiskApiTest : F4ApiTest() {
         )
         val history = tree(send("GET", "/api/objects/social_risk/records/$risk/history", null, HttpStatus.OK))
         assertTrue(history.values().any { it["reason"]?.asString() == DeadlineJob.REASON })
+    }
+
+    // ronda branchfix de 4.2b (R-I1): la revisión registrada cierra, como quien revisa, la tarea de revisión abierta del riesgo
+    @Test
+    fun `revisar el riesgo deja hecha su tarea de revision abierta`() {
+        val owner = member("SOCIAL_RISK_MANAGER")
+        val reviewer = member("SOCIAL_RISK_MANAGER")
+        val risk = socialRisk(testProject(), owner = owner)
+
+        fun assess(date: String) =
+            exchange(
+                "POST",
+                "/api/sgspe/social-risks/$risk/assessments",
+                mapOf("attributes" to mapOf("assessment_date" to date, "probability" to 2, "impact" to 2)),
+                reviewer.token,
+                withReason("revisión semanal")
+            )
+        assertEquals(HttpStatus.CREATED, assess("2026-01-05").status)
+        runBlocking { job.runOnce() }
+        val task = reviews(risk).single()
+        assertEquals("open", task["state"].asString())
+        val second = assess("2026-01-12")
+        assertEquals(HttpStatus.CREATED, second.status, second.body)
+        val closed = record("task", task["id"].asString())
+        assertEquals("done", closed["state"].asString())
+        val history = tree(send("GET", "/api/objects/task/records/${task["id"].asString()}/history", null, HttpStatus.OK))
+        assertTrue(history.values().any { it["reason"]?.asString() == "revisión semanal" })
     }
 
     @Test
