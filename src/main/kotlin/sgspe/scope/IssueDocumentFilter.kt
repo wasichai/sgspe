@@ -296,9 +296,9 @@ class IssueDocumentFilter(
         }
 
         // la lectura de documentos de la petición, o null si no es una. un id que no es UUID no llega a leer: el controlador
-        // de wasichai responde su 400
+        // de wasichai responde su 400. HEAD es la misma lectura: WebFlux lo sirve con los @GetMapping
         fun readOf(request: ServerHttpRequest): DocumentRead? {
-            if (request.method != HttpMethod.GET) return null
+            if (request.method != HttpMethod.GET && request.method != HttpMethod.HEAD) return null
             val path = request.path.pathWithinApplication()
             RECORD_DOCUMENTS.matchAndExtract(path)?.let { match ->
                 val objectName = match.uriVariables["object"]?.trim()?.lowercase() ?: return null
