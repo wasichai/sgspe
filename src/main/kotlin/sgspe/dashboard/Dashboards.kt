@@ -14,11 +14,11 @@ import sgspe.common.Finding
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
+import sgspe.common.ProjectReach
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
-import sgspe.scope.Assignments
 import wasichai.core.common.ForbiddenException
 import wasichai.core.metadata.MetadataService
 import java.time.Clock
@@ -31,13 +31,15 @@ import java.util.UUID
 // falta un campo) y los campos que faltan, nunca cero (RQ-DSH-032). KPI-STK-03 exige un solo proyecto
 // (SINGLE_PROJECT_REQUIRED). nada se guarda en el servidor (§6.8). los errores llevan su código en errors[0].message (P15):
 // 404 DASHBOARD_NOT_FOUND e INDICATOR_NOT_FOUND, 400 INVALID_BREAKDOWN y TOO_MANY_RECORDS (Records.all con tope). desde F4, el
-// tablero attention, cada KPI-GRV y KPI-ENG-05 llevan confidentialHidden si quien mira no ve las QCS confidenciales
+// tablero attention, cada KPI-GRV y KPI-ENG-05 llevan confidentialHidden si quien mira no ve las QCS confidenciales. desde 4.4,
+// los proyectos por defecto son «mis proyectos» de ProjectReach (todos los que lee quien lee todo, ninguno si no tiene
+// asignaciones) y un proyecto ajeno pedido da conjuntos vacíos: el alcance de lectura acota las filas (dashboards.md §3.1)
 @Service
 class Dashboards(
     private val records: Records,
     private val metadata: MetadataService,
     private val callers: Callers,
-    private val assignments: Assignments,
+    private val reach: ProjectReach,
     private val catalog: ModelCatalog,
     private val clock: Clock,
     private val permissions: Permissions
@@ -129,19 +131,9 @@ class Dashboards(
     ): DashboardFilters {
         val user = callers.require()
         return DashboardFilters
-            .parse(params, allowed, catalog, today) {
-                if (user.isAdmin) allProjects() else assigned(user.userId).ifEmpty { allProjects() }
-            }.resolve()
+            .parse(params, allowed, catalog, today) { reach.mine(user) ?: allProjects() }
+            .resolve()
     }
-
-    // las asignaciones vigentes de quien mira (Assignments.projectsOf, con Validity.inForce); sin READ sobre
-    // project_assignment no tiene asignaciones que leer
-    private suspend fun assigned(userId: UUID): List<UUID> =
-        try {
-            assignments.projectsOf(userId)
-        } catch (_: ForbiddenException) {
-            emptyList()
-        }
 
     // los proyectos que quien mira puede leer, hasta el tope de una lectura del tablero; sin READ sobre project, ninguno
     private suspend fun allProjects(): List<UUID> =

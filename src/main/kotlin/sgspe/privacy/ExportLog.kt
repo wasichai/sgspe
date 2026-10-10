@@ -1,6 +1,7 @@
 package sgspe.privacy
 
 import org.springframework.stereotype.Component
+import sgspe.common.ProjectReach
 import sgspe.common.Records
 import wasichai.core.identity.AuthenticatedUser
 import java.time.Clock
@@ -9,10 +10,13 @@ import java.util.UUID
 // una fila de export_log por cada salida (RQ-AUD-011, deliverables.md §9.5): quién, qué, con qué nivel, qué filtros y
 // cuántas filas. export_log es appendOnly y apiOnly: solo la escriben los endpoints de sgspe, como el usuario que sale, con la
 // marca de Records; nunca como la plataforma. leerla es de SOCIAL_MANAGER y AUDITOR, así que quien exporta puede no leer la
-// fila que acaba de escribir. export_kind distingue exportación, emisión y descarga (estas dos, desde F8)
+// fila que acaba de escribir. export_kind distingue exportación, emisión y descarga (estas dos, desde F8). la fila lleva el
+// proyecto solo si quien exporta es ADMIN o está asignado a él: quien lo lee todo sin estar asignado (READ_ALL_PROJECTS) no
+// escribe en ese proyecto (ProjectScopeGuard respondería 403), y el proyecto queda en filters_description
 @Component
 class ExportLog(
     private val records: Records,
+    private val reach: ProjectReach,
     private val clock: Clock
 ) {
     suspend fun export(
@@ -24,6 +28,7 @@ class ExportLog(
         rows: Int,
         project: UUID?
     ) {
+        val logged = if (project == null || user.isAdmin || project in reach.assigned(user)) project else null
         records.create(
             OBJECT,
             mapOf(
@@ -36,7 +41,7 @@ class ExportLog(
                 "disclosure_level" to disclosure.name,
                 "filters_description" to filters,
                 "row_count" to rows
-            ) + listOfNotNull(project?.let { "project" to it.toString() }),
+            ) + listOfNotNull(logged?.let { "project" to it.toString() }),
             "exportación $objectName ${disclosure.name}"
         )
     }

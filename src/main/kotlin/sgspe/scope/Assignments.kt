@@ -73,15 +73,6 @@ class Assignments(
             .mapNotNull { Assignment.of(it.id, it.attributes) }
             .filter { it.project == project }
 
-    // los proyectos con una asignación vigente del usuario: el filtro por defecto de los tableros (RF-PRJ-005)
-    suspend fun projectsOf(userId: UUID): List<UUID> =
-        records
-            .all(OBJECT, filters = mapOf("member_user_id" to userId.toString()))
-            .mapNotNull { Assignment.of(it.id, it.attributes) }
-            .filter { it.memberUserId == userId && it.inForce(today()) }
-            .map { it.project }
-            .distinct()
-
     // si el usuario tiene una asignación vigente al proyecto. dentro de un comando que abrió RequestMemo (la confirmación de
     // una importación) se lee una vez por usuario y proyecto, no una vez por registro escrito
     suspend fun isAssigned(

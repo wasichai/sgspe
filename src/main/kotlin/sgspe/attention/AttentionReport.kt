@@ -16,12 +16,12 @@ import sgspe.common.Finding
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
+import sgspe.common.ProjectReach
 import sgspe.common.Raised
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.Values
 import sgspe.common.toCodedException
-import sgspe.scope.Assignments
 import wasichai.core.common.ForbiddenException
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
@@ -222,21 +222,21 @@ object AttentionReportRows {
 
 // GET /api/sgspe/attention/report (api.md §4.6): lee como quien llama, nunca como la plataforma, así que una QCS confidencial
 // que no ve no cuenta, y lo dice confidentialHidden, sin el número de excluidas (security.md §9.6). sin `project`, «mis
-// proyectos»: las asignaciones vigentes o, para el ADMIN o quien no tiene ninguna, todos los proyectos que lee. la lectura es
-// acotada por tipo (sgspe.exports.max-rows): pasarse es 400 TOO_MANY_RECORDS
+// proyectos» de ProjectReach: todos los que lee quien lee todo (ADMIN y READ_ALL_PROJECTS) y, si no, las asignaciones vigentes
+// (ninguna, sin asignaciones). la lectura es acotada por tipo (sgspe.exports.max-rows): pasarse es 400 TOO_MANY_RECORDS
 @Service
 class AttentionReport(
     private val records: Records,
     private val callers: Callers,
     private val permissions: Permissions,
-    private val assignments: Assignments,
+    private val reach: ProjectReach,
     private val catalog: ModelCatalog,
     @Value("\${sgspe.exports.max-rows:20000}") private val maxRows: Int
 ) {
     suspend fun report(params: Map<String, List<String>>): Map<String, Any?> {
         val filters = AttentionReportRows.parse(params, catalog)
         val user = callers.require()
-        val projects = filters.projects.ifEmpty { if (user.isAdmin) allProjects() else assigned(user.userId).ifEmpty { allProjects() } }
+        val projects = if (filters.projects.isNotEmpty()) filters.projects else reach.mine(user) ?: allProjects()
         val read = filters.types.associateWith { type -> rows(type, projects, filters) }
         return AttentionReportRows.report(read, permissions.confidentialHidden(user), filters.page, filters.size)
     }
@@ -268,13 +268,6 @@ class AttentionReport(
             null
         }
     }
-
-    private suspend fun assigned(userId: UUID): List<UUID> =
-        try {
-            assignments.projectsOf(userId)
-        } catch (_: ForbiddenException) {
-            emptyList()
-        }
 
     private suspend fun allProjects(): List<UUID> =
         try {
