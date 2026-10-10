@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import sgspe.common.JobTasks
 import sgspe.common.ModelCatalog
 import sgspe.notification.ConfidentialReaders
 import sgspe.notification.NoticeTexts
@@ -68,6 +69,26 @@ class QcsNoticePlanTest {
         assertTrue(print.all { it in "0123456789abcdef" })
         assertFalse(print.contains(id.take(8)))
         assertEquals(print, ConfidentialReaders.fingerprint("grievance", id, due))
+    }
+
+    @Test
+    fun `la tarea del nivel 2 de una confidencial lleva la huella en la clave y un texto generico`() {
+        val id = UUID.randomUUID().toString()
+        val key = DeadlineJob.confidentialEscalationKey("grievance", id, due)
+        assertEquals("escalation:grievance:${ConfidentialReaders.fingerprint("grievance", id, due)}:2026-10-13:2", key)
+        assertFalse(key.contains(id))
+        assertTrue(JobTasks.isConfidentialEscalation(key))
+        // la clave con id del nivel 2 de una QCS no confidencial, la del nivel 1 y otra cualquiera no tienen esa forma
+        assertFalse(JobTasks.isConfidentialEscalation(DeadlineJob.escalationKey("grievance", id, due, 2)))
+        assertFalse(JobTasks.isConfidentialEscalation(key.removeSuffix(":2") + ":1"))
+        assertFalse(JobTasks.isConfidentialEscalation(key.replace("grievance", "commitment")))
+        assertFalse(JobTasks.isConfidentialEscalation(null))
+        val (title, description) = NoticeTexts.qcsConfidentialEscalation("Proyecto Ejemplo")
+        assertEquals("QCS confidencial vencida en Proyecto Ejemplo", title)
+        assertEquals("Una QCS confidencial superó su plazo. Pida el detalle al equipo de quejas.", description)
+        assertEquals("Proyecto Ejemplo", NoticeTexts.projectName(mapOf("name" to "Proyecto Ejemplo", "code" to "PE-1"), "p"))
+        assertEquals("PE-1", NoticeTexts.projectName(mapOf("code" to "PE-1"), "p"))
+        assertEquals("p", NoticeTexts.projectName(emptyMap(), "p"))
     }
 
     @Test

@@ -248,7 +248,7 @@ class DeadlineNotices(
                     // el nivel 2 de una QCS confidencial: quienes no la ven reciben el aviso genérico (ASM-102)
                     val blind = all - users.toSet()
                     if (blind.isNotEmpty()) {
-                        val name = Values.text(params(project.toString())["name"]) ?: Values.text(params(project.toString())["code"]) ?: project.toString()
+                        val name = NoticeTexts.projectName(params(project.toString()), project.toString())
                         val key = "qcs_confidential_overdue:$project:${ConfidentialReaders.fingerprint(objectName, row.id, due)}"
                         drafts += Notices.draft(key, NotificationKind.ACTION, NoticeTexts.qcsConfidentialOverdue(name), blind, null, null)
                     }
