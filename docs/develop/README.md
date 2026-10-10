@@ -96,9 +96,9 @@ La clase principal es `sgspe.SgspeApplication`. Toda respuesta trae `X-Correlati
 
 El acuse de una queja cuenta días hábiles con los feriados nacionales de `sgspe.calendar.holidays` en
 `src/main/resources/application.yml` (ASM-096). La lista se configura por año, cuando se publica la oficial en El Peruano
-(D. Leg. 713 y sus modificatorias); hoy trae 2026. Para agregar un año:
+(D. Leg. 713 y sus modificatorias); hoy trae 2026 y 2027. Para agregar un año:
 
-1. Sumar su clave entre comillas bajo `holidays` (`'2027':`) con una fecha `AAAA-MM-DD` por línea, solo feriados
+1. Sumar su clave entre comillas bajo `holidays` (`'2028':`) con una fecha `AAAA-MM-DD` por línea, solo feriados
    nacionales: los días no laborables del sector público no lo son.
 2. Correr `BusinessDaysTest`, que valida todo año configurado, y desplegar.
 

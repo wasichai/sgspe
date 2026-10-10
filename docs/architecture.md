@@ -653,7 +653,7 @@ flowchart LR
 | Logs | JSON estructurado (ECS), sin datos personales | RNF-OBS-001, RQ-SEC-010 |
 | GeoServer | `wasichai.gis.geoserver.*` hacia el servicio interno; su datastore apunta a la base vista desde su red | [WAS-DOC modules/gis.md] |
 | IA | Desactivada por defecto; se activa por organización | RQ-AI-009, ASM-015 |
-| Feriados | `sgspe.calendar.holidays` con la lista de feriados nacionales de cada año, que operación agrega cuando se publica la oficial en El Peruano (desde F4, 2026; `develop/README.md` §4 dice cómo). Un año sin lista cuenta de lunes a viernes y se advierte en el log, también al arrancar si falta el año en curso; una fecha que no es de su año o repetida impide arrancar | RNF-I18N-002, ASM-096 |
+| Feriados | `sgspe.calendar.holidays` con la lista de feriados nacionales de cada año, que operación agrega cuando se publica la oficial en El Peruano (desde F4, 2026 y 2027; `develop/README.md` §4 dice cómo). Un año sin lista cuenta de lunes a viernes y se advierte en el log, también al arrancar si falta el año en curso; una fecha que no es de su año o repetida impide arrancar | RNF-I18N-002, ASM-096 |
 
 ## 11. Entornos
 
