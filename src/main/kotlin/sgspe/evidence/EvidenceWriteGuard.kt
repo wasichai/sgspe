@@ -5,6 +5,7 @@ import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.stereotype.Component
+import sgspe.common.Attention
 import sgspe.common.Callers
 import sgspe.common.Finding
 import sgspe.common.GuardOrder
@@ -27,7 +28,8 @@ import java.util.UUID
 // guarda vale igual para los comandos de sgspe.evidence, /admin y cualquier otra puerta (WAS-ADR-0040). el motivo al cambiar
 // la clasificación lo exige FieldChangeReasonGuard. un archivo pertenece a una sola evidencia: adjuntarlo a otra abriría la
 // descarga de una restringida con otra clasificación (ASM-071) y un reintento sin Idempotency-Key dejaría un duplicado que
-// no se borra
+// no se borra. desde F4, una evidencia que no es CONFIDENCIAL ni DATOS PERSONALES no se vincula a una QCS confidencial
+// (409 EVIDENCE_NOT_RESTRICTED, ASM-095): su descarga no exigiría DOWNLOAD_RESTRICTED y abriría el caso reservado
 @Component
 @Order(GuardOrder.DOMAIN)
 class EvidenceWriteGuard(
@@ -37,7 +39,8 @@ class EvidenceWriteGuard(
     private val transactions: Transactions,
     private val metadata: MetadataService,
     private val schemas: WasichaiSchemas,
-    private val db: DatabaseClient
+    private val db: DatabaseClient,
+    private val records: Records
 ) : RuleGuard() {
     override suspend fun findings(
         change: RecordWrite,
@@ -50,7 +53,8 @@ class EvidenceWriteGuard(
             )
         }
         if (change.kind == RecordChangeKind.CREATED) return fileInUse(change, dryRun)
-        if (change.kind != RecordChangeKind.UPDATED || change.isLink()) return emptyList()
+        if (change.kind == RecordChangeKind.UPDATED && change.isLink()) return confidentialLinks(change)
+        if (change.kind != RecordChangeKind.UPDATED) return emptyList()
         val before = change.before.orEmpty()
         val after = view.after(change)
         val findings =
@@ -75,6 +79,23 @@ class EvidenceWriteGuard(
             }
         }
         return findings
+    }
+
+    // el vínculo de una evidencia no restringida con una QCS confidencial, en el extremo de la evidencia (wasichai llama a las
+    // guardas con cada extremo). la QCS se lee como quien vincula: wasichai ya comprobó que la lee. deshacer un vínculo no se juzga
+    private suspend fun confidentialLinks(change: RecordWrite): List<Finding> {
+        if (EvidenceRules.restricted(change.before.orEmpty()[EvidenceRules.CLASSIFICATION])) return emptyList()
+        return Attention.OBJECTS.mapNotNull { target ->
+            val id = Records.uuid(change.attributes.orEmpty()["rel:${EvidenceRules.linkRelationship(target)}"]) ?: return@mapNotNull null
+            val qcs = records.find(target, id) ?: return@mapNotNull null
+            if (!Attention.isConfidential(qcs.attributes)) return@mapNotNull null
+            Finding(
+                "EVIDENCE_NOT_RESTRICTED",
+                "Una evidencia vinculada a una QCS confidencial debe ser CONFIDENCIAL o DATOS PERSONALES: cambie su clasificación antes",
+                EvidenceRules.CLASSIFICATION,
+                status = HttpStatus.CONFLICT
+            )
+        }
     }
 
     // el archivo de un alta que ya tiene otra evidencia. la comprobación es de la base y no de quien llama, como en
