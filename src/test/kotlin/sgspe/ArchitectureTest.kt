@@ -208,6 +208,23 @@ class ArchitectureTest {
         }
     }
 
+    // la condición del alcance por proyecto la arma solo ProjectReadScope, y «lee todos los proyectos» lo preguntan solo common y
+    // scope: los demás paquetes usan mine, assigned o reaches de ProjectReach (elección 6 de la especificación 4.4)
+    @Test
+    fun `solo ProjectReadScope arma la condicion y solo common y scope preguntan si se lee todo`() {
+        val scope = "/sgspe/scope/ProjectReadScope.kt"
+        val definition = "/sgspe/scope/ProjectReadCondition.kt"
+        val others = sources(main).filterNot { file -> listOf(scope, definition).any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, READ_CONDITION))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(scope) })
+        val outside = sources(main).filterNot { isCommon(it) || it.invariantSeparatorsPath.contains("/sgspe/scope/") }
+        assertEquals(emptyList<String>(), offenders(outside, READS_ALL))
+        assertTrue(flags(READ_CONDITION, "ProjectReadCondition.condition(group, columns, organization, user, today, bind)"))
+        assertFalse(flags(READ_CONDITION, "// ProjectReadCondition solo en ProjectReadScope"))
+        assertTrue(flags(READS_ALL, "if (reach.readsAll(user)) return null"))
+        assertFalse(flags(READS_ALL, "val projects = reach.mine(user)"))
+    }
+
     @Test
     fun `observability no depende de otros paquetes de sgspe`() {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
@@ -334,6 +351,8 @@ class ArchitectureTest {
         private val RELEASE_WITHIN = Regex("""\bConfidentialRelease\s*\.\s*within\b""")
         private val RELEASE_ON = Regex("""\bConfidentialRelease\s*\.\s*on\b""")
         private val DERIVED_RESTORE_NEW = Regex("""\bDerivedRestore\s*\(""")
+        private val READ_CONDITION = Regex("""\bProjectReadCondition\b""")
+        private val READS_ALL = Regex("""\.\s*readsAll\s*\(""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
