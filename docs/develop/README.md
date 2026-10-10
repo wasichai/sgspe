@@ -148,7 +148,7 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
    `--rerun` evita que la caché de Gradle devuelva un verde viejo. Detalles en
    `wasichai/docs/development/getting-started.md#integration-tests`.
 
-   La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 48 objetos y por el túnel tarda
+   La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 72 objetos y por el túnel tarda
    entre 11 y 58 minutos según la carga del túnel (una corrida de Gradle midió 57 min 40 s), con el aprovisionamiento del
    tenant incluido. Para depurar
    un cambio de `model/roles.json`, recórtala a unos roles con `-Dmatrix.roles=FIELD_AGENT,GIS_ANALYST` (separados por
