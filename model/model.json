@@ -1130,7 +1130,7 @@
       "actions": [{"name": "CONFIRM_ALERT", "label": "Confirmar o descartar alertas"}],
       "fields": [
         {"name": "title", "label": "Título", "type": "TEXT", "required": true, "description": "Título."},
-        {"name": "detected_at", "label": "Momento de detección", "type": "DATETIME", "required": true, "description": "Momento de detección."},
+        {"name": "detected_at", "label": "Momento de detección", "type": "DATETIME", "description": "Momento de detección. Solo lo escribe la plataforma: JOB-04 o, en el alta manual, SGSPE con la hora del alta (GeneratorKeyGuard, 403 PLATFORM_ONLY)."},
         {"name": "severity", "label": "Severidad", "type": "ENUM", "enum": "warning_severity", "description": "Severidad."},
         {"name": "trigger_description", "label": "Qué la disparó", "type": "LONG_TEXT", "description": "Qué la disparó."},
         {"name": "ai_detected", "label": "Detectada por la IA", "type": "BOOLEAN", "description": "La detectó la IA, que solo propone (RN-EWS-001)."},

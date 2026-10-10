@@ -40,20 +40,31 @@ class SampleFieldsTest {
         assertTrue(SampleFields.skipped("area_of_influence", field("geometry", "GEOMETRY")))
     }
 
-    // cada campo reservado a la plataforma existe en model.json y no es derivado: si fuera derivado ya lo saltaría la otra regla,
-    // y un nombre que el modelo no tiene no protegería nada
+    @Test
+    fun `la regla y la hora de una alerta tampoco entran`() {
+        // de la plataforma desde la ronda branchfix de 4.2b: una persona que los fija recibiría 403 PLATFORM_ONLY
+        assertTrue(SampleFields.skipped("early_warning", field("detected_at", "DATETIME")))
+        assertTrue(SampleFields.skipped("early_warning", field("early_warning_rule", "UUID")))
+    }
+
+    // cada campo reservado a la plataforma existe en model.json (un campo que no es derivado, o una relación): si fuera
+    // derivado ya lo saltaría la otra regla, y un nombre que el modelo no tiene no protegería nada
     @Test
     fun `los campos de la plataforma existen en el modelo`() {
         assertEquals(
-            mapOf(JobTasks.TASK to setOf(JobTasks.GENERATOR_KEY), "early_warning" to setOf(JobTasks.GENERATOR_KEY)),
+            mapOf(
+                JobTasks.TASK to setOf(JobTasks.GENERATOR_KEY),
+                "early_warning" to setOf(JobTasks.GENERATOR_KEY, "early_warning_rule", "detected_at")
+            ),
             SampleFields.PLATFORM_ONLY
         )
         for ((objectName, fields) in SampleFields.PLATFORM_ONLY) {
             val obj = catalog.objectOrNull(objectName)
+            val relations = catalog.manyToOneFields(objectName).toMap()
             for (name in fields) {
                 val modelField = obj?.fields?.get(name)
-                assertTrue(modelField != null, "$objectName.$name no está en model.json")
-                assertFalse(modelField!!.derived, "$objectName.$name es derivado")
+                assertTrue(modelField != null || name in relations, "$objectName.$name no está en model.json")
+                assertFalse(modelField?.derived == true, "$objectName.$name es derivado")
             }
         }
     }

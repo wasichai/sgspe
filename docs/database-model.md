@@ -405,8 +405,9 @@ Aplican §4.1 del modelo de dominio:
     `evidence_type`, `level`, `locality_type`, `position_status`, `role_name`, `commitment_dependency.blocking`, entre otros;
   - el monto y la moneda de lo que existe para registrar dinero: `commitment.amount` y `currency`, `receipt.amount` y
     `currency`, `program_budget.allocated_amount` y `currency`, `social_contribution.currency`, `contribution_item.line_amount`;
-  - la fecha o el número que ancla un plazo o un orden: `received_at` de las QCS y de la señal, `occurred_at`, `detected_at`,
-    `published_date`, `commitment_milestone.due_date`, `deliverable_section.sort_order`;
+  - la fecha o el número que ancla un plazo o un orden: `received_at` de las QCS y de la señal, `occurred_at`,
+    `published_date`, `commitment_milestone.due_date`, `deliverable_section.sort_order` (`early_warning.detected_at` no: lo
+    escribe solo la plataforma, y en el alta manual SGSPE le pone la hora del alta);
   - los interruptores y los conteos con valor por defecto: `project_assignment.active`, `early_warning_rule.enabled`,
     `topic.active` y `engagement_participant.represented_people_count`;
   - en un objeto `appendOnly`, lo que el registro necesita para estar completo, porque no se puede completar después; y en un
@@ -2880,7 +2881,7 @@ física `app_data.early_warning_rule__<org8>`. Requisitos: RF-EWS-004.
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `title` | TEXT | sí | — | Título. | RF-EWS-004 |
-| `detected_at` | DATETIME | sí | — | Momento de detección. | RF-EWS-004 |
+| `detected_at` | DATETIME | no | — | Momento de detección. Solo lo escribe la plataforma: JOB-04 o, en el alta manual, SGSPE con la hora del alta (`GeneratorKeyGuard`, 403 `PLATFORM_ONLY`). | RF-EWS-004 |
 | `severity` | ENUM `warning_severity` | no | — | Severidad. | RF-EWS-004 |
 | `trigger_description` | LONG_TEXT | no | — | Qué la disparó. | RF-EWS-004 |
 | `ai_detected` | BOOLEAN | no | — | La detectó la IA, que solo propone (RN-EWS-001). | RN-EWS-001 |

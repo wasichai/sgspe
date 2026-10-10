@@ -71,26 +71,14 @@ class ProjectLinkGuardApiTest : F4ApiTest() {
         assertEquals(HttpStatus.NO_CONTENT, linkWithReason("social_risk", risk, "social_risk_stakeholder", stakeholder(testProject())).status)
     }
 
+    // el vínculo con la regla solo lo escribe la plataforma (JOB-04; ronda branchfix de 4.2b, R-I3), y la regla «mismo
+    // proyecto» la juzga también entonces
     @Test
     fun `una alerta de una regla del tenant pasa y una de una regla de otro proyecto no`() {
-        earlyWarning(testProject(), attributes = mapOf("early_warning_rule" to warningRule(null)))
-        val response =
-            exchange(
-                "POST",
-                "/api/objects/early_warning/records",
-                mapOf(
-                    "attributes" to
-                        mapOf(
-                            "project" to testProject(),
-                            "title" to "Alerta",
-                            "detected_at" to "2026-10-07T15:00:00Z",
-                            "early_warning_rule" to warningRule(project())
-                        )
-                ),
-                token
-            )
-        assertEquals(HttpStatus.CONFLICT, response.status, response.body)
-        assertEquals(listOf("early_warning_rule"), problemFields(response.body))
+        ruleWarning(testProject(), warningRule(null))
+        val refused = assertThrows<WasichaiException> { ruleWarning(testProject(), warningRule(project())) }
+        assertEquals(HttpStatus.CONFLICT, refused.status)
+        assertEquals(listOf("early_warning_rule" to "PROJECT_MISMATCH"), refused.violations.map { it.field to it.message })
     }
 
     @Test

@@ -225,7 +225,27 @@ abstract class F4ApiTest : F3DomainApiTest() {
             token = creator?.token ?: token
         )
 
-    // una alerta registrada por una persona, en detected (WF-J); las de JOB-04 las crea la plataforma con generator_key
+    // una alerta de una regla como la crea JOB-04: la plataforma, con su regla y su hora (los campos de la plataforma)
+    protected fun ruleWarning(
+        project: String,
+        rule: String,
+        detectedAt: String = "2026-10-07T15:00:00Z"
+    ): String =
+        platformCreate(
+            "early_warning",
+            mapOf(
+                "project" to project,
+                "title" to "Alerta de la regla",
+                "detected_at" to detectedAt,
+                "severity" to "MEDIO",
+                "ai_detected" to false,
+                "early_warning_rule" to rule
+            ),
+            "alerta de prueba como JOB-04"
+        )
+
+    // una alerta registrada por una persona, en detected (WF-J); las de JOB-04 las crea la plataforma con generator_key. sin
+    // detected_at ni early_warning_rule, que solo escribe la plataforma (403 PLATFORM_ONLY): la hora la pone SGSPE en el alta
     protected fun earlyWarning(
         project: String,
         creator: Account? = null,
@@ -236,7 +256,6 @@ abstract class F4ApiTest : F3DomainApiTest() {
             mapOf(
                 "project" to project,
                 "title" to "Movilización anunciada",
-                "detected_at" to "2026-10-07T15:00:00Z",
                 "severity" to "ALTO",
                 "trigger_description" to "Tres señales del equipo social en una semana.",
                 "ai_detected" to false
