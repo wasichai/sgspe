@@ -55,9 +55,9 @@ data class PlannedNotice(
 // 1; los de approve_senior de WF-D en el nivel 2. cada nivel alcanzado sigue abierto mientras dure el atraso
 object DeadlineNoticePlan {
     // la transición de referencia del nivel 1 de una tarea, por su registro vinculado (workflows.md); F4 suma las QCS (verify
-    // de WF-E1, como el nivel 1 de sus plazos) y las alertas (confirm de WF-J; la tarea de AUT-09 nace sin fecha). los riesgos
-    // no: su revisión vencida avisa por risk_escalated (DeadlineNoticePlan.risk), y la tarea de revisión de JOB-01 queda
-    // fuera de esta cadena (escalatesAsTask; ronda branchfix de 4.2b, R-I1)
+    // de WF-E1, como el nivel 1 de sus plazos), los riesgos (decide_mitigation de WF-F) y las alertas (confirm de WF-J). la
+    // tarea de revisión de un riesgo de JOB-01 queda fuera de esta cadena (escalatesAsTask; ronda branchfix de 4.2b, R-I1):
+    // su revisión vencida avisa por risk_escalated (DeadlineNoticePlan.risk)
     val TASK_REFERENCE =
         linkedMapOf(
             Commitments.COMMITMENT to (Commitments.COMMITMENT to "verify"),
@@ -67,6 +67,7 @@ object DeadlineNoticePlan {
             Attention.GRIEVANCE to (Attention.GRIEVANCE to "verify"),
             Attention.INQUIRY to (Attention.GRIEVANCE to "verify"),
             Attention.REQUEST to (Attention.GRIEVANCE to "verify"),
+            Risks.SOCIAL_RISK to (Risks.SOCIAL_RISK to "decide_mitigation"),
             "early_warning" to ("early_warning" to "confirm")
         )
 
