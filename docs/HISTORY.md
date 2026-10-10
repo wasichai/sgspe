@@ -3,6 +3,14 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-11 — wasichai 1.0.0
+
+Antes del release 1.0.0 de SGSPE, el backend pasa de wasichai 0.6.0 a 1.0.0 y `sgspe-ui` de `@wasichai/*` 0.6.0 a 1.0.0.
+Ninguna de las dos trae cambios incompatibles. La 1.0.0 de wasichai suma la zona horaria opcional de los campos
+`DATETIME` (wasichai/wasichai#92 y #101) y una política de lectura de los descriptores de los campos `FILE`
+(wasichai/wasichai#102), el enganche que pedía UPS-24 para ocultar la huella SHA-256 de una evidencia restringida
+también en el backend. Las dos quedan disponibles, sin adoptarlas; el portal ya reserva la huella desde el plan 4.3.
+
 ## 2026-10-10 — Releases con GitHub Actions
 
 `sgspe` suma el soporte de releases de wasichai ([`develop/releasing.md`](develop/releasing.md)), sin cambiar el código de la
