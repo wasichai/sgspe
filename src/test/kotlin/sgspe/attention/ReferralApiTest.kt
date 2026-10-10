@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
 import sgspe.common.IdempotencyKey
+import java.util.UUID
 
 // la derivación de una pregunta de reunión (RF-ENG-006, api.md §4.4): crea la QCS con la pregunta, la interacción, el proyecto,
 // el canal REUNION y la recepción de la reunión, marca referred_at y con eso la interacción cierra (RN-ENG-005); una pregunta
@@ -64,6 +65,24 @@ class ReferralApiTest : F4ApiTest() {
         val again = refer(question, "grievance")
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("ALREADY_REFERRED", code(again))
+    }
+
+    // la marca del comando deja pasar los vínculos de solo comando: por eso `attributes` no los admite. una solicitud derivada
+    // no apunta a un compromiso que no creó (created_commitment lo escribe solo la aceptación)
+    @Test
+    fun `la derivacion no deja fijar created_commitment ni reclassified_from en attributes`() {
+        val (_, question) = meeting()
+        for (field in listOf("created_commitment", "reclassified_from_grievance")) {
+            val response =
+                refer(
+                    question,
+                    "stakeholder_request",
+                    attributes = mapOf("code" to uniqueName("SO-"), "description" to "Pregunta derivada de la reunión.", field to UUID.randomUUID().toString())
+                )
+            assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+            assertEquals(listOf("attributes.$field"), problemFields(response.body))
+        }
+        assertNull(record("engagement_question", question)["attributes"]["referred_at"]?.takeIf { !it.isNull })
     }
 
     // un reenvío con la misma Idempotency-Key devuelve la respuesta guardada, no ALREADY_REFERRED: la pregunta no se deriva
