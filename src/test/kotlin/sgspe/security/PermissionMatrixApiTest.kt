@@ -6,6 +6,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.springframework.http.HttpStatus
 import sgspe.F2ApiTest
+import sgspe.scope.ProjectScope
 import java.util.concurrent.ConcurrentHashMap
 
 // security.md §14, «Matriz de permisos» (RQ-SEC-004, RQ-SEC-017): parametrizada desde model/roles.json, cada rol lee,
@@ -115,6 +116,74 @@ class PermissionMatrixApiTest : F2ApiTest() {
         assertEquals(emptyList<String>(), failures, "$role:\n${failures.joinToString("\n")}")
     }
 
+    // la columna «otro proyecto» (ASM-106 y ASM-108, security.md §14): un registro de un proyecto al que el rol no está asignado
+    // no se lee (404) y el alta con ese proyecto es el 400 de wasichai sobre `project` (registro inexistente); quien tiene
+    // READ_ALL_PROJECTS sobre project lo lee (200) y no da de alta en él sin asignación (403 NOT_ASSIGNED de ProjectScopeGuard).
+    // se prueban el proyecto y las raíces cuyo registro mínimo solo nombra maestros del tenant (OTHER_PROJECT_ROOTS)
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("roles")
+    fun `ningun rol lee ni da de alta en un proyecto al que no esta asignado`(role: String) {
+        val account = member(role)
+        val grants = Model.roles.getValue(role)
+        val readsTenant = grants["*"]?.contains("READ") == true
+        val readsAll = "READ_ALL_PROJECTS" in grants["project"].orEmpty()
+        val other = SHARED.shared.getOrPut(OTHER) { Fixture(project(), emptyMap()) }.id
+        val failures = mutableListOf<String>()
+
+        fun expect(
+            what: String,
+            wanted: HttpStatus,
+            response: Response,
+            field: String? = null
+        ) {
+            if (response.status != wanted) {
+                failures += "$what: $wanted esperado, ${response.status} ${response.body.take(300)}"
+            } else if (field != null && field !in problemFields(response.body)) {
+                failures += "$what: el error no nombra $field: ${response.body.take(300)}"
+            }
+        }
+        if ("READ" in grants["project"].orEmpty() || readsTenant) {
+            expect(
+                "project READ (otro proyecto)",
+                if (readsAll) HttpStatus.OK else HttpStatus.NOT_FOUND,
+                exchange("GET", "/api/objects/project/records/$other", token = account.token)
+            )
+        }
+        for (name in OTHER_PROJECT_ROOTS) {
+            val actions = grants[name].orEmpty()
+            val headers = if (requiresReason(name)) mapOf(REASON to reason("matriz de permisos")) else emptyMap()
+            val records = "/api/objects/$name/records"
+            if ("READ" in actions || readsTenant) {
+                val foreign =
+                    try {
+                        SHARED.shared.getOrPut("$OTHER:$name") { fixture(name, mapOf("project" to other)) }
+                    } catch (e: Throwable) {
+                        failures += "$name: no se pudo armar el registro del otro proyecto, ${e.message?.take(300)}"
+                        null
+                    }
+                if (foreign != null) {
+                    expect(
+                        "$name READ (otro proyecto)",
+                        if (readsAll) HttpStatus.OK else HttpStatus.NOT_FOUND,
+                        exchange("GET", "$records/${foreign.id}", token = account.token)
+                    )
+                }
+            }
+            if ("CREATE" in actions) {
+                val created = exchange("POST", records, mapOf("attributes" to sample(name) + ("project" to other)), account.token, headers)
+                if (readsAll) {
+                    expect("$name CREATE (otro proyecto)", HttpStatus.FORBIDDEN, created, "project")
+                } else {
+                    expect("$name CREATE (otro proyecto)", HttpStatus.BAD_REQUEST, created, "project")
+                }
+            }
+        }
+        assertEquals(emptyList<String>(), failures, "$role:\n${failures.joinToString("\n")}")
+    }
+
+    private fun problemFields(body: String): List<String> =
+        runCatching { tree(body)["errors"].values().map { it["field"].asString() } }.getOrDefault(emptyList())
+
     // el admin del tenant tiene acceso a todo por otro camino: un objeto apiOnly le rechaza el alta aunque el cuerpo sea
     // válido (con `sample`, un 400 no puede tapar el 403)
     @Test
@@ -131,6 +200,20 @@ class PermissionMatrixApiTest : F2ApiTest() {
 
     companion object {
         private const val PROJECT = "\u0000project"
+        private const val OTHER = "\u0000other"
+
+        // las raíces con `project` obligatorio cuyo registro mínimo solo nombra maestros del tenant: se pueden armar en otro
+        // proyecto sin un padre de ese proyecto (ProjectScope, ASM-106)
+        private val OTHER_PROJECT_ROOTS: List<String> get() =
+            ProjectScope.ROOTS
+                .filter { name ->
+                    val obj = Model.objects.getValue(name)
+                    obj["apiOnly"] != true && name !in EXACTLY_ONE &&
+                        Model.relationships.any { it["source"] == name && it["fieldName"] == "project" && it["required"] == true } &&
+                        Model.relationships
+                            .filter { it["source"] == name && it["required"] == true && it["fieldName"] != null && it["fieldName"] != "project" }
+                            .all { it["target"] in ProjectScope.TENANT }
+                }.sorted()
 
         // los objetos de model.json con "apiOnly": true
         private val API_ONLY: List<String> get() =
