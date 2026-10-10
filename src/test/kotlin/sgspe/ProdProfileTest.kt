@@ -11,6 +11,7 @@ import org.springframework.boot.env.YamlPropertySourceLoader
 import org.springframework.core.io.ClassPathResource
 import wasichai.core.platform.JwtProperties
 import wasichai.core.platform.WasichaiLoginProperties
+import wasichai.core.platform.WasichaiOrganizationsProperties
 import wasichai.core.platform.WasichaiPasswordProperties
 import java.time.Duration
 
@@ -73,6 +74,12 @@ class ProdProfileTest {
     private val binder = Binder(ConfigurationPropertySources.from(prod).filterNotNull())
 
     private inline fun <reified T : Any> bound(prefix: String): T = binder.bind(prefix, Bindable.of(T::class.java)).get()
+
+    // UPS-10 (WAS-ADR-0055): el ADMIN de un cliente no crea ni borra tenants; ligado a la clase de wasichai, como los de UPS-09
+    @Test
+    fun `separa el alta de tenants de la administracion de cada uno`() {
+        assertTrue(bound<WasichaiOrganizationsProperties>("wasichai.organizations").separateProvisioning)
+    }
 
     @Test
     fun `revoca los tokens`() {
