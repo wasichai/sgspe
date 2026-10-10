@@ -133,6 +133,7 @@ E (elevación de privilegios).
 | 24 | I | Identificar a quien plantea una QCS confidencial por su grupo de interés, que no está restringido | `person` bajo permiso de campo; QCS anónima sin `person` ni `stakeholder` (§7.9, §11.3) | Riesgo residual; decisión en §15 |
 | 25 | I | Una sugerencia de IA guarda valores restringidos o cita una evidencia que quien la mira no puede descargar | Salidas y citas guardadas con marcadores; la API genérica solo devuelve marcadores; se re-identifican al mostrar solo para quien lee el campo, y la cita solo para quien puede descargar la fuente (§7.8) | GAP-015; riesgo residual: un marcador revela que había un dato restringido |
 | 26 | I | El nombre original del archivo de una evidencia CONFIDENCIAL o de DATOS PERSONALES, que puede llevar datos personales, lo lee todo rol con READ sobre `evidence` | El portal sube toda evidencia restringida con un nombre neutro y reserva el nombre a quien la descarga (§11.6) | UPS-24; riesgo aceptado (ASM-093) |
+| 27 | E, I | Quien tiene `DOWNLOAD_RESTRICTED` sobre `evidence` y no ve la QCS confidencial a la que está vinculada una evidencia baja su clasificación, y la evidencia deja de estar reservada | La regla de la evidencia vinculada a una QCS confidencial (`409 EVIDENCE_NOT_RESTRICTED`) frena a quien sí ve la QCS; el cambio queda en `audit_log` con usuario y motivo; `DOWNLOAD_RESTRICTED` solo para los roles que escriben evidencias (§9.6) | Riesgo aceptado (ASM-105, D-2) |
 
 ## 3. Autenticación
 
@@ -318,7 +319,7 @@ declaración quita sus concesiones [WAS-ADR-0042]. Este es el catálogo definiti
 | `APPROVE_OVER_CAP` | `commitment`, `social_contribution` | Aprobar aunque se supere el tope de apoyo social de la campaña cuando `policy_cap_blocks_approval` bloquea | `SupportPolicyGuard` hacia `approved` | `commitment`: `PROJECT_MANAGER`, en `approve_senior` de WF-D. `social_contribution`: `SOCIAL_MANAGER`, en `approve` de WF-P | RN-INV-003, GAP-006, ASM-067 |
 | `DOWNLOAD_RESTRICTED` | `evidence`, `deliverable` | Descargar evidencias CONFIDENCIAL o DATOS PERSONALES y bajar su clasificación; descargar borradores y versiones INTERNO de un entregable | `GET /api/sgspe/evidence/{id}/content`, el cambio de clasificación de `evidence` (`EvidenceWriteGuard`) y las descargas de `sgspe.deliverable` | `evidence`: quienes la escriben, salvo `PROJECT_ADMIN` y `FIELD_AGENT`. `deliverable`: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | RF-DOC-003, RQ-REP-014, ASM-071 |
 | `EDIT_ANY` | `engagement`, `engagement_participant`, `field_visit`, `field_observation`, `evidence` | Cambiar, transicionar, vincular o borrar un registro que creó otra persona. Agregar participantes u observaciones a una interacción o visita ajena no la exige | `EditAnyGuard` (`sgspe.scope`, §5.5) | Todo rol que escribe esos objetos, salvo `FIELD_AGENT` | RQ-SEC-008, ASM-069 |
-| `READ_CONFIDENTIAL` | `grievance`, `inquiry`, `stakeholder_request` | Leer toda QCS confidencial del objeto; quitarle la marca `confidential` o cambiar su responsable o quien la recibió; registrar una confidencial recibida por otra persona | `ConfidentialAttentionScope` (`sgspe.scope`, §9.6), `AttentionWriteGuard` y el filtro de destinatarios de `sgspe.notification` | `GRIEVANCE_MANAGER` | RQ-SEC-004, RQ-SEC-010, ASM-095, ASM-102 |
+| `READ_CONFIDENTIAL` | `grievance`, `inquiry`, `stakeholder_request` | Leer toda QCS confidencial del objeto; quitarle la marca `confidential` o cambiar su responsable o quien la recibió; registrar una confidencial recibida por otra persona; marcar confidencial una QCS existente de la que no es receptor ni responsable | `ConfidentialAttentionScope` (`sgspe.scope`, §9.6), `AttentionWriteGuard` y el filtro de destinatarios de `sgspe.notification` | `GRIEVANCE_MANAGER` | RQ-SEC-004, RQ-SEC-010, ASM-095, ASM-102 |
 
 Las mismas acciones, por objeto, para replicarlas en el modelo:
 
@@ -1059,7 +1060,10 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   original (`api.md` §4.6) (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y quitar la marca o cambiar
   `owner_user_id` o `received_by_user_id` de una confidencial exige esa acción (`403 ACTION_REQUIRED`). Así quien
   registra siempre la ve, no la pierde al guardarla y los listeners, que escriben como esa persona, la pueden
-  actualizar.
+  actualizar. Marcar confidencial una QCS existente (de falso a verdadero) lo hace su receptor o su responsable
+  guardados, o quien tiene `READ_CONFIDENTIAL` (D-3 del 2026-10-10); los demás reciben
+  `403 CONFIDENTIAL_MARK_FORBIDDEN` sobre `confidential`, también si se ponen de responsable en la misma escritura. Así
+  nadie oculta a los demás una QCS que no le toca, y quien la marca la sigue viendo.
 - **Excepción: el cierre automático de una solicitud (`ConfidentialRelease`).** `RequestClosureListener` cierra la
   solicitud aceptada al cerrarse su compromiso aunque quien cierra no la lea (RN-GRV-001): es la única excepción al
   alcance dentro de una petición. Como wasichai no deja ser la plataforma en una petición ni aplicar una transición sin
@@ -1070,8 +1074,17 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   está en [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md).
 - **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
   apuntar a una QCS que quien lee no ve: el id es visible y el registro no, y el portal muestra «Registro reservado».
-  Los títulos de las tareas automáticas solo llevan el código de la QCS. Una evidencia vinculada a una QCS confidencial
-  debe ser CONFIDENCIAL o DATOS PERSONALES (`409 EVIDENCE_NOT_RESTRICTED`).
+  Los títulos de las tareas automáticas solo llevan el código de la QCS, salvo las de una confidencial, que son
+  genéricas (D-1 del 2026-10-10): las de escalamiento de los niveles 1 y 2 de JOB-01 y la de acuse de una queja
+  (`ConfidentialTasksListener`, en lugar de AUT-02, que no corre en una confidencial) llevan la huella en lugar del id
+  en su clave, un texto que solo nombra el proyecto y ningún vínculo con la QCS; al marcar confidencial una QCS
+  existente, sus tareas automáticas abiertas se vuelven genéricas y las cerradas quedan como historia (`workflows.md`,
+  «Avisos» y «Listeners»). Quedan dos residuales aceptados: la tarea de acuse que AUT-02 crea después de que la queja se
+  marcó (su ejecución corre fuera de la petición) y la tarea vieja cuya genérica ya existía porque la marca se quitó y se
+  volvió a poner. Una evidencia vinculada a una QCS confidencial debe ser CONFIDENCIAL o DATOS PERSONALES
+  (`409 EVIDENCE_NOT_RESTRICTED`); quien tiene `DOWNLOAD_RESTRICTED` y no ve la QCS puede, aun así, bajar la
+  clasificación de la evidencia, porque `EvidenceWriteGuard` lee los vínculos como quien escribe y la QCS que no ve no
+  aparece entre ellos: es un riesgo aceptado (D-2, ASM-105, amenaza 27).
 - **Trabajos.** JOB-01, JOB-02, JOB-04 y `DeadlineNotices` leen como la plataforma, sin el alcance: lo que producen se
   filtra en la salida (avisos, ASM-102) o es agregado (conteos de JOB-04).
 - **Indicadores, reporte y exportaciones.** Leen como quien llama y excluyen lo que no ve. El tablero `attention`, cada
@@ -1079,6 +1092,10 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   `READ_CONFIDENTIAL` sobre los tres objetos; nunca el número de excluidas. EXTERNO excluye toda QCS confidencial,
   también para `GRIEVANCE_MANAGER` (§11.4).
 - **Capa LYR-20.** Lee como quien llama: hereda el alcance (`gis.md` §2.2).
+
+Las decisiones D-1, D-2 y D-3 del usuario del 2026-10-10 (tareas genéricas, riesgo aceptado de las evidencias y quién
+marca una QCS existente) extienden [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md) sin cambiarlo: el
+alcance de lectura sigue siendo el mismo.
 
 ## 10. GeoServer
 
