@@ -95,10 +95,10 @@ class ReclassificationApiTest : F4ApiTest() {
     }
 
     // el receptor de la QCS nueva es el del original, copiado por el sistema (AttentionRules.receiverCopied): quien
-    // reclasifica no tiene que ser quien la recibió. los roles de close_reclassified_* tienen hoy READ_CONFIDENTIAL; la
-    // exención la prueba sin base AttentionRulesTest
+    // reclasifica no tiene que ser quien la recibió, y `attributes` no lo cambia. los roles de close_reclassified_* tienen hoy
+    // READ_CONFIDENTIAL; la exención la prueba sin base AttentionRulesTest
     @Test
-    fun `una QCS confidencial reclasificada conserva su receptor y sigue confidencial`() {
+    fun `al reclasificar una QCS confidencial el receptor se conserva y no se cambia`() {
         val officer = member("COMMUNITY_RELATIONS_OFFICER")
         val id =
             grievance(
@@ -106,6 +106,17 @@ class ReclassificationApiTest : F4ApiTest() {
                 officer,
                 mapOf("confidential" to true, "owner_user_id" to manager.id, "owner_user_email" to manager.email)
             )
+        val chosen =
+            reclassify(
+                "grievances",
+                "grievance",
+                id,
+                "stakeholder_request",
+                attributes = mapOf("code" to uniqueName("RC-"), "received_by_user_id" to manager.id)
+            )
+        assertEquals(HttpStatus.BAD_REQUEST, chosen.status, chosen.body)
+        assertEquals(listOf("attributes.received_by_user_id"), problemFields(chosen.body))
+        assertEquals("received", state("grievance", id))
         val response = reclassify("grievances", "grievance", id, "stakeholder_request")
         assertEquals(HttpStatus.CREATED, response.status, response.body)
         val created = tree(response.body)["created"]["attributes"]

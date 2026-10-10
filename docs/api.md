@@ -774,7 +774,8 @@ compromiso o su aporte cancelado o rechazado se cierra a mano con la transición
   `received_at` del primer registro de la cadena, quien recibió, anonimato, confidencialidad, categoría, descripción,
   prioridad, responsable, ubicación, grupo de interés, persona, localidad, comunidad, tema, interacción y pregunta de
   origen) más `reclassified_from_<tipo>`; `attributes` puede completar o cambiar los campos no derivados salvo
-  `received_at` y los vínculos de reclasificación; aplica `close_reclassified_*` al original con el motivo de la
+  `received_at`, el proyecto, quien recibió (`received_by_user_id` y `received_by_user_email`) y los vínculos de
+  reclasificación (`400` sobre `attributes.<campo>`); aplica `close_reclassified_*` al original con el motivo de la
   petición. Errores: `400 INVALID_TARGET` (`targetType`: el mismo tipo, o uno que no es de los tres) y
   `409 STATE_MISMATCH` (`record`: el original no está en un estado con transición de reclasificación).
 - **Aceptación, errores.** `400 INVALID_TARGET` (`creates`: en F4 solo `commitment`; el aporte llega en F5) y

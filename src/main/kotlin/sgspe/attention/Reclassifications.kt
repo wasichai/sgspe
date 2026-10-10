@@ -41,8 +41,8 @@ data class Reclassification(
 // la reclasificación de una QCS (RF-GRV-007, ASM-072, api.md §4.6): en una transacción crea la QCS de `targetType` con los
 // campos comunes del original (la fecha de recepción es la del primer registro de la cadena, que el original ya trae) más
 // reclassified_from_<tipo>, y cierra el original con la transición de comando close_reclassified_* de su estado, con el motivo
-// de la petición. `attributes` completa o cambia los campos no derivados, salvo received_at, el proyecto y los vínculos de
-// reclasificación. el código no se copia: cada tipo numera sus registros. todo como quien llama (las QCS confidenciales las
+// de la petición. `attributes` completa o cambia los campos no derivados, salvo received_at, el proyecto, quien recibió y los
+// vínculos de reclasificación. el código no se copia: cada tipo numera sus registros. todo como quien llama (las QCS confidenciales las
 // copia quien las lee, con su marca y su receptor)
 @Service
 class Reclassifications(
@@ -98,8 +98,10 @@ class Reclassifications(
         return CommandAnswer(HttpStatus.CREATED, result, result.created.updatedAt, "/api/objects/$target/records/${result.created.id}")
     }
 
-    // lo que una reclasificación fija y `attributes` no cambia
-    private fun fixed(target: String): Set<String> = setOf(Attention.RECEIVED_AT, "project") + Attention.RECLASSIFIED_FROM.getValue(target).keys
+    // lo que una reclasificación fija y `attributes` no cambia: la recepción, el proyecto, quien recibió (siempre la copia del
+    // original, que AttentionWriteGuard no juzga como receptor ajeno) y los vínculos de reclasificación
+    private fun fixed(target: String): Set<String> =
+        setOf(Attention.RECEIVED_AT, "project", Attention.RECEIVER, "received_by_user_email") + Attention.RECLASSIFIED_FROM.getValue(target).keys
 
     companion object {
         const val TARGET = "targetType"

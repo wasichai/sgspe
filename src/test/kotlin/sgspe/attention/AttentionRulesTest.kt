@@ -115,6 +115,15 @@ class AttentionRulesTest {
         assertTrue(AttentionRules.receiverCopied("grievance", copy + ("reclassified_from_request" to id.toString()), marked = true))
         assertEquals(false, AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_grievance" to id.toString()), marked = false))
         assertEquals(false, AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_grievance" to null), marked = true))
+        // sin receptor no hay copia que respetar
+        assertEquals(
+            false,
+            AttentionRules.receiverCopied(
+                "inquiry",
+                copy + mapOf("received_by_user_id" to null, "reclassified_from_grievance" to id.toString()),
+                marked = true
+            )
+        )
         // el vínculo de otro objeto no cuenta: una consulta no se reclasifica desde otra consulta
         assertEquals(false, AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_inquiry" to id.toString()), marked = true))
     }
