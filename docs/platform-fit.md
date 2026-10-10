@@ -73,7 +73,7 @@ estados copiados del [índice de ADR](adr/README.md).
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
 | Java o Kotlin según el repositorio | Sustituido | Kotlin 2.4.20 sobre JDK 25, como wasichai y caja | WAS-ADR-0024; WAS-DOC guides/build-your-app.md | ADR-0001 | CON-039 | RNF-MNT-001 |
-| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 0.6.0 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
+| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 1.0.0 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
 | Spring Web | Sustituido | Spring WebFlux reactivo; la E/S bloqueante del código propio va a `Dispatchers.IO` | WAS-DOC architecture/overview.md | ADR-0001 | CON-039 | RNF-MNT-005 |
 | Spring Security | Plataforma | Servidor de recursos OAuth2 de WebFlux que valida el JWT HS256 de wasichai; la cadena de core va en `@Order(0)` | WAS-ADR-0010; WAS-DOC security/authentication.md | ADR-0020 | CON-056 | RQ-SEC-001 |
 | Spring Data JPA e Hibernate | Sustituido | Prohibidos: SQL por `DatabaseClient`, registros dinámicos por `RecordService`, una tabla física por objeto | WAS-ADR-0003; WAS-ADR-0004; WAS-DOC architecture/overview.md | ADR-0001, ADR-0008 | CON-039 | RNF-MNT-005 |
@@ -507,14 +507,15 @@ ni el buzón de salida de caja, porque el MVP no integra sistemas externos.
 
 ## 6. Versiones fijadas
 
-Las versiones de wasichai (0.6.0) y de `@wasichai/*` (0.5.0) son líneas independientes [WAS-ADR-0032]: se fijan exactas, se
+Las versiones de wasichai (1.0.0) y de `@wasichai/*` (1.0.0) son líneas independientes [WAS-ADR-0032]: se fijan exactas, se
 actualizan juntas y las pruebas de contrato con la plataforma detectan cambios de comportamiento (RNF-MNT-001). El backend
-pasó de 0.3.2 a 0.6.0 el 2026-10-09 (§4.3); `@wasichai/*` se actualiza en `sgspe-ui`.
+pasó de 0.3.2 a 0.6.0 el 2026-10-09 (§4.3) y a 1.0.0 el 2026-10-11, antes del release 1.0.0 de SGSPE; `@wasichai/*` se
+actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 
 | Componente | Versión | Fase | Fuente |
 |---|---|---|---|
-| wasichai (`wasichai-bom` y starters) | 0.6.0 (0.3.2 hasta el 2026-10-09) | F2 | [USR-03] RNF-MNT-001 |
-| `@wasichai/*` | 0.5.0 | F1 | [USR-03] RNF-MNT-001 |
+| wasichai (`wasichai-bom` y starters) | 1.0.0 (0.6.0 hasta el 2026-10-11; 0.3.2 hasta el 2026-10-09) | F2 | [USR-03] RNF-MNT-001 |
+| `@wasichai/*` | 1.0.0 | F1 | [USR-03] RNF-MNT-001 |
 | Kotlin | 2.4.20 | F1 | WAS-DOC guides/build-your-app.md |
 | Spring Boot | 4.1.1 | F1 | WAS-DOC guides/build-your-app.md |
 | JDK (toolchain de Gradle) | 25 | F1 | WAS-DOC guides/build-your-app.md |
