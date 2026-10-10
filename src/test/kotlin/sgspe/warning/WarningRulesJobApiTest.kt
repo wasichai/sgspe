@@ -71,8 +71,17 @@ class WarningRulesJobApiTest : F4ApiTest() {
         }
         warningSignal(project, attributes = mapOf("received_at" to recent()))
         val original = grievance(project, attributes = mapOf("received_at" to recent()))
-        // un planteamiento reclasificado cuenta una vez (AttentionCounting)
-        inquiry(project, attributes = mapOf("received_at" to recent(), "reclassified_from_grievance" to original))
+        // un planteamiento reclasificado cuenta una vez (AttentionCounting): la consulta nace del comando de reclasificación
+        // (reclassified_from_* es COMMAND_ONLY por la API genérica) y conserva la recepción de la queja
+        val grievances = member("GRIEVANCE_MANAGER")
+        move("grievance", original, "acknowledge", grievances.token, "acuse")
+        exchange(
+            "POST",
+            "/api/sgspe/grievances/$original/reclassify",
+            mapOf("targetType" to "inquiry", "attributes" to mapOf("code" to uniqueName("RC-"))),
+            grievances.token,
+            ifMatch("grievance", original, grievances.token) + withReason("era una consulta")
+        ).also { assertEquals(HttpStatus.CREATED, it.status, it.body) }
         platformPatch("commitment", approvedCommitment(project), mapOf("deadline_status" to "VENCIDO"))
         mediaMention(project, attributes = mapOf("published_date" to today()))
         mediaMention(project, attributes = mapOf("published_date" to today(), "tone" to "POSITIVO"))
