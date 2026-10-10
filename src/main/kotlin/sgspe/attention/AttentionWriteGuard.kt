@@ -22,7 +22,8 @@ import wasichai.core.data.RecordWrite
 
 // AttentionWriteGuard (sgspe.attention, especificación de F4 §3.2): las reglas de las QCS por cualquier puerta (la API
 // genérica, los comandos y la consulta en seco). las de datos son AttentionRules; aquí se suman las que miran permisos o leen
-// otros registros como quien escribe: la confidencialidad (READ_CONFIDENTIAL, ASM-095), la queja grave
+// otros registros como quien escribe: la confidencialidad (READ_CONFIDENTIAL, ASM-095; desde D-3, marcar confidencial una QCS
+// existente lo hace su receptor, su responsable o quien tiene READ_CONFIDENTIAL), la queja grave
 // (policy_high_severity_requires_approver del proyecto, RN-GRV-002), la doble llave de resolve_high_severity (APPROVE) y el
 // cierre sin ejecución (close_unfulfilled con el compromiso cancelado). una escritura sin usuario (la plataforma, una
 // automatización) no tiene permisos que comprobar; el alta de la reclasificación copia el receptor del original y no lo
@@ -76,6 +77,9 @@ class AttentionWriteGuard(
                     )
             }
             return findings
+        }
+        if (AttentionRules.strangerMarks(change.before.orEmpty(), after, writer) && !holds(Attention.READ_CONFIDENTIAL, change.objectName)) {
+            findings += AttentionRules.confidentialMarkForbidden()
         }
         val protected = AttentionRules.protectedChanges(change.before.orEmpty(), after)
         if (protected.isNotEmpty() && !holds(Attention.READ_CONFIDENTIAL, change.objectName)) {

@@ -7,8 +7,9 @@ import sgspe.F4ApiTest
 import tools.jackson.databind.JsonNode
 
 // WF-E1 con AttentionWriteGuard (workflows.md, especificación de F4 §3.2): los casos propios de la queja que la matriz de
-// workflows no cubre. la anónima sin identidad, la confidencialidad (receptor y marca protegida), atender y resolver con
-// datos, la queja grave con su doble llave, la reapertura sin conformidad, la respuesta comunicada y el duplicado
+// workflows no cubre. la anónima sin identidad, la confidencialidad (receptor, marca protegida y quién la pone, D-3),
+// atender y resolver con datos, la queja grave con su doble llave, la reapertura sin conformidad, la respuesta comunicada y el
+// duplicado
 class GrievanceWorkflowApiTest : F4ApiTest() {
     private val manager by lazy { member("GRIEVANCE_MANAGER") }
     private val officer by lazy { member("COMMUNITY_RELATIONS_OFFICER") }
@@ -63,6 +64,25 @@ class GrievanceWorkflowApiTest : F4ApiTest() {
         assertEquals("ACTION_REQUIRED", code(owner))
         assertEquals(listOf("owner_user_id"), problemFields(owner.body))
         assertEquals(HttpStatus.OK, edit("grievance", id, mapOf("confidential" to false), manager.token, withReason()).status)
+    }
+
+    // D-3: marcar confidencial una queja existente lo hace su receptor, su responsable o quien tiene READ_CONFIDENTIAL; un
+    // tercero recibe 403 CONFIDENTIAL_MARK_FORBIDDEN, también si se pone de responsable en la misma escritura
+    @Test
+    fun `marcar confidencial una queja existente lo hace su receptor, su responsable o READ_CONFIDENTIAL`() {
+        val other = member("COMMUNITY_RELATIONS_OFFICER")
+        val id = grievance(testProject(), officer)
+        val refused = edit("grievance", id, mapOf("confidential" to true), other.token, withReason())
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("CONFIDENTIAL_MARK_FORBIDDEN", code(refused))
+        assertEquals(listOf("confidential"), problemFields(refused.body))
+        val owned =
+            edit("grievance", id, mapOf("confidential" to true, "owner_user_id" to other.id, "owner_user_email" to other.email), other.token, withReason())
+        assertEquals(HttpStatus.FORBIDDEN, owned.status, owned.body)
+        assertEquals("CONFIDENTIAL_MARK_FORBIDDEN", code(owned))
+        assertEquals(HttpStatus.OK, edit("grievance", id, mapOf("confidential" to true), officer.token, withReason()).status)
+        val managed = grievance(testProject(), officer)
+        assertEquals(HttpStatus.OK, edit("grievance", managed, mapOf("confidential" to true), manager.token, withReason()).status)
     }
 
     @Test

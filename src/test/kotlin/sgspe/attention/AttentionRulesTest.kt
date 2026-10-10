@@ -1,8 +1,10 @@
 package sgspe.attention
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.http.HttpStatus
 import sgspe.common.ModelCatalog
 import java.util.UUID
 
@@ -104,6 +106,27 @@ class AttentionRulesTest {
         assertTrue(AttentionRules.foreignReceiver(mapOf("confidential" to true, "received_by_user_id" to null), writer))
         assertEquals(false, AttentionRules.foreignReceiver(mapOf("confidential" to true, "received_by_user_id" to writer.toString()), writer))
         assertEquals(false, AttentionRules.foreignReceiver(mapOf("confidential" to false), writer))
+    }
+
+    // D-3: marcar confidencial una QCS existente lo hace su receptor o su responsable guardados (o quien tiene
+    // READ_CONFIDENTIAL, que mira la guarda); ponerse de responsable en la misma escritura no cuenta
+    @Test
+    fun `marcar confidencial una QCS existente lo hace su receptor o su responsable`() {
+        val other = UUID.randomUUID().toString()
+        val before = mapOf("confidential" to false, "owner_user_id" to other, "received_by_user_id" to other)
+        val marked = before + ("confidential" to true)
+        assertTrue(AttentionRules.strangerMarks(before, marked, writer))
+        assertFalse(AttentionRules.strangerMarks(before + ("received_by_user_id" to writer.toString()), marked, writer))
+        assertFalse(AttentionRules.strangerMarks(before + ("owner_user_id" to writer.toString()), marked, writer))
+        assertTrue(AttentionRules.strangerMarks(before, marked + ("owner_user_id" to writer.toString()), writer))
+        // sin el paso de no confidencial a confidencial no hay nada que juzgar
+        assertFalse(AttentionRules.strangerMarks(marked, marked, writer))
+        assertFalse(AttentionRules.strangerMarks(before, before + ("description" to "otra"), writer))
+        assertFalse(AttentionRules.strangerMarks(marked, before, writer))
+        val finding = AttentionRules.confidentialMarkForbidden()
+        assertEquals("CONFIDENTIAL_MARK_FORBIDDEN" to "confidential", finding.code to finding.field)
+        assertEquals(HttpStatus.FORBIDDEN, finding.status)
+        assertEquals("Marcar confidencial una QCS existente lo hace su receptor, su responsable o quien tiene READ_CONFIDENTIAL", finding.message)
     }
 
     // la reclasificación copia el receptor del original: es una copia del sistema (la marca SgspeWrite de Records) con el
