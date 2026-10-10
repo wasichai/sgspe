@@ -76,4 +76,26 @@ class WarningEvaluationTest {
         assertEquals("warning_rule:b:P:r:2026-10-09", risk["generator_key"])
         assertEquals(listOf("r", "loc", "com"), listOf(risk["social_risk"], risk["locality"], risk["community"]))
     }
+
+    // el silencio de JOB-04 (ASM-097, decisión 8): la ventana de una regla de 7 días que termina el 9 de octubre empieza el 3 a
+    // las 00:00 de Lima (05:00Z); una alerta abierta silencia aunque sea de un día anterior, una descartada o cerrada solo
+    // dentro de la ventana, y una fuera de ella no
+    @Test
+    fun `una alerta abierta o detectada dentro de la ventana silencia la regla`() {
+        val from = WarningEvaluation.windowFrom(today, 7)
+        assertEquals(Instant.parse("2026-10-03T05:00:00Z"), from)
+        val inside = Instant.parse("2026-10-03T05:00:00Z")
+        val outside = Instant.parse("2026-10-03T04:59:59Z")
+        for (state in listOf("detected", "in_triage", "confirmed", "responding", "resolved")) {
+            assertTrue(WarningEvaluation.silences(state, Instant.parse("2026-09-01T15:00:00Z"), from), state)
+        }
+        for (state in Warnings.FINISHED) {
+            assertTrue(WarningEvaluation.silences(state, inside, from), state)
+            assertFalse(WarningEvaluation.silences(state, outside, from), state)
+            assertFalse(WarningEvaluation.silences(state, null, from), state)
+        }
+        assertEquals(inside, WarningEvaluation.instant("2026-10-03T00:00:00-05:00"))
+        assertEquals(inside, WarningEvaluation.instant("2026-10-03T05:00:00Z"))
+        assertNull(WarningEvaluation.instant("no es una fecha"))
+    }
 }
