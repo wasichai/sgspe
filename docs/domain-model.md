@@ -897,8 +897,8 @@ los campos no editables en toda escritura, también en las de la plataforma, as�
 | `ack_due_date`, `response_due_date` y `resolution_due_date` de QCS | La fecha de recepción en Lima (`received_at`; en un registro reclasificado, el del primer registro de la cadena, ASM-072) más `grievance_ack_days` días hábiles (`BusinessDays`, ASM-096), `inquiry_response_days` o `grievance_resolution_days` del proyecto. La queja no usa `response_due_date`, y la solicitud no tiene plazo en el MVP (ASM-100) | `QcsDueDatesListener`; `DerivedFieldsJob` | RF-GRV-006, ASM-005, ASM-072, ASM-096 |
 | `engagement_question.referred_at` | Momento en que la pregunta se derivó a una QCS | Endpoint de derivación, en su transacción | RN-ENG-005 |
 | `probability`, `impact`, `score`, `risk_level` y los `residual_*` de `social_risk` | Valores de la última revisión, residual o no; el nivel sale de los umbrales del proyecto | Endpoint de revisiones, en su transacción | RN-RSK-002, RN-RSK-003, ASM-004 |
-| `social_risk.next_review_date` | Fecha de la última revisión más `review_every_days` | Endpoint de revisiones; `DeadlineJob` si cambia `review_every_days` | RN-RSK-001 |
-| `social_risk.review_status` | `next_review_date` frente a la fecha de hoy | `DeadlineJob` | RN-WFL-001 |
+| `social_risk.next_review_date` | Fecha de la última revisión más `review_every_days` (o, sin ella, `risk_review_days` del proyecto) | Endpoint de revisiones; `DeadlineJob` si cambia la cadencia | RN-RSK-001 |
+| `social_risk.review_status` | `next_review_date` frente a la fecha de hoy | Endpoint de revisiones, con la misma función; `DeadlineJob` | RN-WFL-001 |
 | `social_contribution.total_amount` | Suma de `line_amount` de sus ítems | `ContributionTotalsListener`; `DerivedFieldsJob` | RF-INV-001 |
 | `social_program.total_budget` | Suma de `allocated_amount` de sus `program_budget` | `DerivedFieldsJob` | RF-INV-003 |
 | `deliverable.generation_requested_at` | Momento del último pedido de borrador | Endpoint `POST /api/sgspe/deliverables/{id}/drafts`, como el usuario | RQ-REP-021 |
