@@ -83,7 +83,7 @@ class FakeCore:
     def __init__(self, existing_objects=(), existing_relationships=(), fail_on_post_object=None,
                  fail_put=False, fail_put_status=500, login_response=None, fail_on_record=None, existing_fields=None,
                  fail_on_update=None, fail_on_delete=None, fail_on_role=None, object_flags=None, fail_put_object=None,
-                 existing_actions=()):
+                 existing_actions=(), refuse_organizations=False):
         self.existing_objects = set(existing_objects)
         self.existing_fields = existing_fields or {}  # object name -> list of {"name", "enumOptions"?}
         self.existing_relationships = set(existing_relationships)
@@ -103,6 +103,8 @@ class FakeCore:
         self.workflows = {}  # object name -> the body of its last PUT .../workflow
         self.document_types = {}  # object name -> {type name -> {label, prefix, template}}
         self.automations = {}  # object name -> {automation name -> {label, enabled, definition}}
+        self.refuse_organizations = refuse_organizations  # POST /api/organizations answers 403 (sin MANAGE_TENANTS)
+        self.organizations = []  # the bodies of POST /api/organizations
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -290,6 +292,11 @@ class FakeCore:
             if self.login_response is not None:
                 return 200, self.login_response
             return 200, {"token": "t"}
+        if path == "/api/organizations" and method == "POST":
+            if self.refuse_organizations:
+                return 403, {"detail": "Missing permission MANAGE_TENANTS"}
+            self.organizations.append(body)
+            return 201, {"id": str(uuid.uuid4()), "slug": body.get("slug"), "name": body.get("name")}
         if RECORDS.match(path) and method in ("GET", "POST"):
             return self._records(method, path, query, body)
         if RECORD.match(path) and method == "PUT":

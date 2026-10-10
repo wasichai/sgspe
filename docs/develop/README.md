@@ -112,7 +112,7 @@ El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre
 ```bash
 cd model
 python3 apply.py --validate-only        # el modelo, los workflows, los tipos de documento y las automatizaciones (sin servidor)
-python3 apply.py                        # objetos, acciones, relaciones e índices. En F4: "done: 332 created, 21 updated, 0 skipped"
+python3 apply.py                        # objetos, acciones, relaciones e índices. En F4: "done: 333 created, 21 updated, 0 skipped"
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
 python3 apply.py --workflows            # 15 workflows, 2 tipos de documento y 6 automatizaciones de F4
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
@@ -122,7 +122,18 @@ python3 -m unittest -v                  # las pruebas de los scripts, contra un 
 - `roles.json` es la fuente de verdad: volver a correr `apply_roles.py` deshace lo editado a mano en `/admin`.
 - `SUPER_ADMIN` y `ORGANIZATION_ADMIN` no se declaran: son el `ADMIN` de wasichai (`mappedToAdmin`).
 - Un tenant nuevo se prepara con `POST /api/organizations` y después estos cuatro pasos, con el administrador del tenant.
-  Los cuatro son idempotentes: una subida de fase los repite.
+  Los cuatro son idempotentes: una subida de fase los repite. Desde el plan 4.4 lo hacen dos scripts (ASM-109):
+
+  ```bash
+  # alta: como la persona del operador con MANAGE_TENANTS; las contraseñas, por variable o por consola
+  SGSPE_OPERATOR_PASSWORD=… SGSPE_TENANT_ADMIN_PASSWORD=… python3 provision_tenant.py --core https://… \
+    --operator-email operador@… --name "Cliente Ejemplo" --slug cliente-ejemplo --admin-email admin-cliente-ejemplo@…
+  # subida de fase de cada tenant del inventario (no versionado; la forma, en tenants.example.json)
+  SGSPE_TENANT_PASSWORD_CLIENTE_EJEMPLO=… python3 upgrade_tenants.py --core https://… --inventory ~/tenants.json
+  ```
+
+  Un tenant que falla en `upgrade_tenants.py` se informa y no detiene a los demás; la salida es 1 y el resumen dice qué
+  paso falló en cuál. El administrador de un tenant nuevo cambia la contraseña inicial en su primer acceso.
 - `model.json` y `roles.json` se editan a mano y `test_model.py` y `test_apply_roles.py` los comparan con
   `database-model.md` y `security.md`: si un documento cambia, la prueba dice qué falta.
 - El CSV del INEI trae una fila sin código (`NA`, distrito San Antonio, provincia Mariscal Nieto, Moquegua): `load_ubigeo.py`
