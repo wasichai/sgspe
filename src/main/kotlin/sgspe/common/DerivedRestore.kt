@@ -1,13 +1,6 @@
 package sgspe.common
 
 import kotlinx.coroutines.currentCoroutineContext
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-import wasichai.automation.AutomationDispatcher
-import wasichai.automation.AutomationProperties
-import wasichai.automation.AutomationRepository
-import wasichai.automation.AutomationRunRepository
 import wasichai.core.data.RecordChange
 import wasichai.core.data.RecordChangeKind
 import java.util.UUID
@@ -38,29 +31,4 @@ class DerivedRestore(
     }
 
     override fun toString() = "DerivedRestore($objectName $recordId ${values.keys})"
-}
-
-// el despachador de automatizaciones de wasichai-automation con una sola diferencia: no evalúa el eco de una reposición de
-// DerivedFieldsKeeper (DerivedRestore), que no es un cambio. todo lo demás (las condiciones, las corridas, la profundidad y
-// causedBy) es el de wasichai. reemplaza al de la autoconfiguración, que se declara @ConditionalOnMissingBean
-class RestoreAwareAutomationDispatcher(
-    automations: AutomationRepository,
-    runs: AutomationRunRepository,
-    properties: AutomationProperties
-) : AutomationDispatcher(automations, runs, properties) {
-    override suspend fun recordChanged(change: RecordChange) {
-        if (DerivedRestore.current()?.echoes(change) == true) return
-        super.recordChanged(change)
-    }
-}
-
-@Configuration
-@ConditionalOnProperty(prefix = "wasichai.automation", name = ["enabled"], havingValue = "true", matchIfMissing = true)
-class AutomationDispatcherConfiguration {
-    @Bean
-    fun restoreAwareAutomationDispatcher(
-        automations: AutomationRepository,
-        runs: AutomationRunRepository,
-        properties: AutomationProperties
-    ): AutomationDispatcher = RestoreAwareAutomationDispatcher(automations, runs, properties)
 }

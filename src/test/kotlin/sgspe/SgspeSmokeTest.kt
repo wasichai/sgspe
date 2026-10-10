@@ -1,10 +1,16 @@
 package sgspe
 
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.ApplicationContext
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.web.reactive.function.BodyInserters
+import sgspe.common.RestoreAwareAutomationDispatcher
+import wasichai.automation.AutomationDispatcher
 import wasichai.test.WasichaiIntegrationTest
 import java.security.MessageDigest
 import java.util.HexFormat
@@ -12,6 +18,17 @@ import java.util.HexFormat
 // la app misma (SgspeApplication) sobre PostGIS: su salud responde, los módulos que instala responden, los que deja
 // fuera no, y lo propio de sgspe exige token (adaptado de caja-backend@dc9e391, src/test/kotlin/caja/CajaSmokeTest.kt)
 class SgspeSmokeTest : WasichaiIntegrationTest() {
+    @Autowired
+    private lateinit var context: ApplicationContext
+
+    // un solo despachador de automatizaciones, el de sgspe (ronda branchfix de 4.2b, R-I2): dos duplicarían cada corrida
+    @Test
+    fun `hay un solo despachador de automatizaciones y es el de sgspe`() {
+        val dispatchers = context.getBeansOfType(AutomationDispatcher::class.java).values
+        assertEquals(1, dispatchers.size, dispatchers.toString())
+        assertTrue(dispatchers.single() is RestoreAwareAutomationDispatcher)
+    }
+
     @Test
     fun `la salud responde UP`() {
         client
