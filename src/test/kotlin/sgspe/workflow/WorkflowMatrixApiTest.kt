@@ -11,11 +11,11 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.springframework.http.HttpStatus
-import sgspe.F3DomainApiTest
+import sgspe.F4ApiTest
 import sgspe.engagement.EngagementWriteGuard
 import java.io.File
 
-// la matriz de los nueve workflows de F2 y F3 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
+// la matriz de los quince workflows de F2 a F4 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
 // rol de su lista la aplica desde su estado de origen y el registro queda en el destino, (2) un rol fuera de la lista que
 // tiene UPDATE (o `u`) sobre el objeto recibe 403 y el listado le dice `requires role ...`, y (3) desde un estado que no es
 // el de origen responde 409 con el registro sin cambios. las expectativas salen de esos mismos JSON, así que un cambio de
@@ -25,8 +25,9 @@ import java.io.File
 // motivo, para que TransitionReasonGuard (plan 2.2) y `requiresReason` no rompan esta clase, y cada registro trae lo que
 // piden las guardas de 2.2 y 3.2 (como `activatable()` y `profileable()` de WF-A y WF-B; `close_light` usa un tipo no
 // formal, ver LIGHT_CLOSE_TYPE; los compromisos traen D1, D2 y una aprobación de otra persona, D4; los acuerdos son
-// convenios firmados y vigentes; los candidatos, apiOnly, los crea la plataforma)
-class WorkflowMatrixApiTest : F3DomainApiTest() {
+// convenios firmados y vigentes; los candidatos, apiOnly, los crea la plataforma; las QCS, los riesgos, los incidentes y las
+// alertas traen lo que piden las guardas de 4.2a y 4.2b, con F4ApiTest)
+class WorkflowMatrixApiTest : F4ApiTest() {
     private data class Transition(
         val name: String,
         val from: String,
@@ -139,6 +140,18 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
                     mapOf("project" to testProject(), "proposed_text" to "Arreglar el canal de riego", "ai_generated" to false, "duplicate_of" to covering)
                 )
             "task" -> task(testProject(), actor(workflow, creatorRole, null))
+            // F4: quien crea una QCS queda como quien la recibió; el responsable del riesgo no lo mueve
+            "grievance" -> grievance(testProject(), actor(workflow, creatorRole, null))
+            "inquiry" -> inquiry(testProject(), actor(workflow, creatorRole, null))
+            "stakeholder_request" -> stakeholderRequest(testProject(), actor(workflow, creatorRole, null))
+            "social_risk" ->
+                socialRisk(
+                    testProject(),
+                    actor(workflow, creatorRole, null),
+                    owner = accounts.getOrPut("\u0000owner") { userWithRole("READ_ONLY") }
+                )
+            "early_warning" -> earlyWarning(testProject(), actor(workflow, creatorRole, null))
+            "incident" -> incident(testProject(), actor(workflow, creatorRole, null))
             else -> error("sin registro de prueba para ${workflow.objectName}")
         }
 
@@ -327,7 +340,7 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
     }
 
     @Test
-    fun `los nueve workflows de model estan en la matriz`() {
+    fun `los quince workflows de model estan en la matriz`() {
         val files = File("model/workflows").listFiles { file -> file.extension == "json" }!!.map { it.nameWithoutExtension }.toSet()
         assertEquals(files, WORKFLOWS.keys)
     }
@@ -360,7 +373,7 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
         private const val LIGHT_CLOSE_TYPE = "CONTACTO CARA A CARA"
 
         // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2, WF-D 17, WF-I 10, WF-K 3,
-        // WF-N 8)
+        // WF-N 8, WF-E1 22, WF-E2 5, WF-E3 8, WF-F 9, WF-J 6, WF-M 3)
         private val WORKFLOW_TRANSITIONS =
             mapOf(
                 "project" to 9,
@@ -371,25 +384,54 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
                 "commitment" to 17,
                 "agreement" to 10,
                 "commitment_candidate" to 3,
-                "task" to 8
+                "task" to 8,
+                "grievance" to 22,
+                "inquiry" to 5,
+                "stakeholder_request" to 8,
+                "social_risk" to 9,
+                "early_warning" to 6,
+                "incident" to 3
             )
 
         // lo que el plan 2.2 convierte en comando y la API genérica rechaza (CommandTransitionGuard: `assess` de WF-B, `approve`
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
         // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest.
         // las de F3 ya no se difieren (plan 3.2): approve_direct corre en un proyecto sin aprobación interna, prepare registra la
-        // entrega que pide register_fulfillment y perform aplica accept por su comando
+        // entrega que pide register_fulfillment y perform aplica accept por su comando. las de F4 que llegan con sus comandos
+        // (CommandTransitionGuard, planes 4.2a y 4.2b) y lo que solo se alcanza por ellos: las reclasificaciones de WF-E1,
+        // WF-E2 y WF-E3, accept y close_accepted de WF-E3 (y close_unfulfilled, que sale de `accepted`), y assess de WF-F
+        // (y todo lo que sale de `assessed`, `mitigating` y `monitoring`); sus casos los escriben GrievanceWorkflowApiTest,
+        // InquiryWorkflowApiTest, StakeholderRequestWorkflowApiTest y SocialRiskWorkflowApiTest, que también los quitan de aquí
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
-                "area_of_influence.supersede"
+                "area_of_influence.supersede",
+                "grievance.close_reclassified_received",
+                "grievance.close_reclassified_acknowledged",
+                "grievance.close_reclassified_in_assessment",
+                "inquiry.close_reclassified",
+                "stakeholder_request.accept",
+                "stakeholder_request.close_accepted",
+                "stakeholder_request.close_unfulfilled",
+                "stakeholder_request.close_reclassified_received",
+                "stakeholder_request.close_reclassified_under_evaluation",
+                "social_risk.assess",
+                "social_risk.decide_mitigation",
+                "social_risk.decide_monitoring",
+                "social_risk.start_monitoring",
+                "social_risk.resume_mitigation",
+                "social_risk.close_assessed",
+                "social_risk.close_mitigating",
+                "social_risk.close_monitoring"
             )
 
         // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held);
-        // y approve_direct de WF-D: un compromiso llega a `approved` con submit y approve, la doble llave de D3 y D4
-        val WALK_AVOIDS = setOf("engagement.register_held_unplanned", "engagement.close_light", "commitment.approve_direct")
+        // approve_direct de WF-D: un compromiso llega a `approved` con submit y approve, la doble llave de D3 y D4; y
+        // resolve_high_severity de WF-E1: una queja llega a `resolved` con resolve, sin la doble llave de las graves
+        val WALK_AVOIDS =
+            setOf("engagement.register_held_unplanned", "engagement.close_light", "commitment.approve_direct", "grievance.resolve_high_severity")
 
         // quién lleva cada registro por sus estados: el primero lo crea; cada paso lo da el primero que está en la lista del paso
         val DRIVERS =
@@ -402,7 +444,13 @@ class WorkflowMatrixApiTest : F3DomainApiTest() {
                 "commitment" to listOf("COMMITMENT_MANAGER", "APPROVER"),
                 "agreement" to listOf("SOCIAL_MANAGER", "PROJECT_MANAGER"),
                 "commitment_candidate" to listOf("COMMITMENT_MANAGER"),
-                "task" to listOf("COMMUNITY_RELATIONS_OFFICER")
+                "task" to listOf("COMMUNITY_RELATIONS_OFFICER"),
+                "grievance" to listOf("GRIEVANCE_MANAGER"),
+                "inquiry" to listOf("GRIEVANCE_MANAGER"),
+                "stakeholder_request" to listOf("GRIEVANCE_MANAGER"),
+                "social_risk" to listOf("SOCIAL_RISK_MANAGER"),
+                "early_warning" to listOf("SOCIAL_RISK_MANAGER"),
+                "incident" to listOf("SOCIAL_RISK_MANAGER")
             )
 
         private val WORKFLOWS: Map<String, Workflow> = DRIVERS.keys.associateWith(::load)
