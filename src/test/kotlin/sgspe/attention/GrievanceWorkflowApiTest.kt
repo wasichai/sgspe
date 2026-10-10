@@ -1,6 +1,7 @@
 package sgspe.attention
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
@@ -83,6 +84,41 @@ class GrievanceWorkflowApiTest : F4ApiTest() {
         assertEquals(HttpStatus.OK, edit("grievance", id, mapOf("confidential" to true), officer.token, withReason()).status)
         val managed = grievance(testProject(), officer)
         assertEquals(HttpStatus.OK, edit("grievance", managed, mapOf("confidential" to true), manager.token, withReason()).status)
+    }
+
+    // un PUT genérico como el del portal: lo guardado sin los derivados, más los cambios (wasichai vacía lo que no recibe)
+    private fun putWithoutDerived(
+        id: String,
+        changes: Map<String, Any?>,
+        account: Account
+    ): Response {
+        val stored = attributesOf(record("grievance", id, account.token)) - derivedFields("grievance")
+        return exchange("PUT", "/api/objects/grievance/records/$id", mapOf("attributes" to stored + changes), account.token, withReason())
+    }
+
+    private fun dueDates(id: String): Pair<Any?, Any?> = attributesOf(record("grievance", id)).let { it["ack_due_date"] to it["resolution_due_date"] }
+
+    // ronda 2: la reposición de derivados (DerivedFieldsKeeper) no depende de que quien escribe siga viendo la QCS. el receptor
+    // marca con un PUT que omite los derivados, y el responsable marca y pasa la queja a otra persona en el mismo PUT, con lo
+    // que deja de verla: en los dos casos los plazos se conservan (leídos como ADMIN)
+    @Test
+    fun `marcar confidencial con un PUT sin derivados conserva los plazos aunque quien escribe deje de verla`() {
+        val received = grievance(testProject(), officer)
+        val dates = dueDates(received)
+        assertTrue(dates.first != null && dates.second != null, dates.toString())
+        val marked = putWithoutDerived(received, mapOf("confidential" to true), officer)
+        assertEquals(HttpStatus.OK, marked.status, marked.body)
+        assertEquals(dates, dueDates(received))
+
+        val owner = member("COMMUNITY_RELATIONS_OFFICER")
+        val other = member("COMMUNITY_RELATIONS_OFFICER")
+        val owned = grievance(testProject(), officer, mapOf("owner_user_id" to owner.id, "owner_user_email" to owner.email))
+        val before = dueDates(owned)
+        val handed = putWithoutDerived(owned, mapOf("confidential" to true, "owner_user_id" to other.id, "owner_user_email" to other.email), owner)
+        assertEquals(HttpStatus.OK, handed.status, handed.body)
+        val after = attributesOf(record("grievance", owned))
+        assertEquals(true to other.id, after["confidential"] to after["owner_user_id"])
+        assertEquals(before, dueDates(owned))
     }
 
     @Test

@@ -1064,6 +1064,12 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   guardados, o quien tiene `READ_CONFIDENTIAL` (D-3 del 2026-10-10); los demás reciben
   `403 CONFIDENTIAL_MARK_FORBIDDEN` sobre `confidential`, también si se ponen de responsable en la misma escritura. Así
   nadie oculta a los demás una QCS que no le toca, y quien la marca la sigue viendo.
+- **Reposición de derivados.** Un PUT que no trae los derivados los vacía y `DerivedFieldsKeeper` los repone, como
+  quien escribe; pero la escritura puede volver la QCS ilegible para esa persona (el responsable la marca y la pasa a
+  otro en el mismo PUT). Por eso la lectura y la escritura de la reposición corren con `DerivedRestore` (`sgspe.common`),
+  con el que `ConfidentialAttentionScope` admite además ese registro, por su `id`, solo en su objeto y solo mientras dura
+  la reposición; nada de lo leído vuelve al cliente, y los plazos no se pierden. `ArchitectureTest` vigila que solo
+  `DerivedFieldsKeeper` construya un `DerivedRestore`.
 - **Excepción: el cierre automático de una solicitud (`ConfidentialRelease`).** `RequestClosureListener` cierra la
   solicitud aceptada al cerrarse su compromiso aunque quien cierra no la lea (RN-GRV-001): es la única excepción al
   alcance dentro de una petición. Como wasichai no deja ser la plataforma en una petición ni aplicar una transición sin

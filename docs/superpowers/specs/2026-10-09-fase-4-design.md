@@ -381,7 +381,10 @@ clave.
 su receptor (`received_by_user_id`) o su responsable (`owner_user_id`) guardados, o quien tiene `READ_CONFIDENTIAL`
 sobre el objeto; los demás reciben `403 CONFIDENTIAL_MARK_FORBIDDEN` sobre `confidential` (`AttentionWriteGuard`).
 Ponerse de responsable en la misma escritura no cuenta. El alta ya confidencial sigue con sus reglas (§3.3) y quitar
-la marca sigue exigiendo `READ_CONFIDENTIAL` (`403 ACTION_REQUIRED`).
+la marca sigue exigiendo `READ_CONFIDENTIAL` (`403 ACTION_REQUIRED`). La escritura permitida puede dejar a quien escribe
+sin ver la QCS (el responsable la marca y la pasa a otro en el mismo `PUT`); la reposición de los plazos y demás derivados
+que el `PUT` omitió no depende de eso: `DerivedFieldsKeeper` lee y escribe con `DerivedRestore`, con el que
+`ConfidentialAttentionScope` admite ese registro solo mientras lo repone (`security.md` §9.6).
 
 **Automatizaciones.** AUT-02 (tarea de acuse, salvo en una queja confidencial), AUT-09 (tarea de triaje) y AUT-11 (tarea de riesgo crítico), como las
 diseña `workflows.md`. El plan 4.2b prueba que la escritura de `risk_level` del endpoint dispara AUT-11 y que una alerta
