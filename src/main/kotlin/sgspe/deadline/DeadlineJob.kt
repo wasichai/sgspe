@@ -17,6 +17,10 @@ import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.notification.ConfidentialReaders
 import sgspe.notification.NoticeTexts
+import sgspe.risk.RiskLevels
+import sgspe.risk.RiskReview
+import sgspe.risk.RiskReviewTasks
+import sgspe.risk.Risks
 import wasichai.core.data.RecordResponse
 import wasichai.core.platform.ClusterLock
 import java.time.Clock
@@ -58,9 +62,12 @@ class DeadlineSweep(
 // proyecto, solo si cambia (P11) y bajo el candado del registro, con el motivo que nombra al trabajo (P16); crea la tarea de
 // escalamiento de los niveles 1 y 2 de un compromiso, una queja o una consulta vencidos (generator_key, sin asignado ni fecha:
 // la toma uno de los avisados; su título solo lleva el código). la del nivel 2 de una QCS confidencial no la delata: su clave
-// lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vincula al proyecto (ASM-102). nunca
-// aplica transiciones (RN-WFL-001). el día de Lima se lee una vez por vuelta: todas las organizaciones se miden con la misma
-// fecha. los avisos de plazo los publica DeadlineNotices, que lee lo que este trabajo escribió
+// lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vincula al proyecto (ASM-102). desde el
+// plan 4.2b mide también la revisión de los riesgos (ASM-099): mueve next_review_date si cambió la cadencia (última revisión +
+// review_every_days o risk_review_days), escribe review_status y crea la tarea risk_review:<id>:<next_review_date> para el
+// responsable al pasar a POR REVISAR o REVISION VENCIDA. nunca aplica transiciones (RN-WFL-001). el día de Lima se lee una vez
+// por vuelta: todas las organizaciones se miden con la misma fecha. los avisos de plazo los publica DeadlineNotices, que lee lo
+// que este trabajo escribió
 @Component
 class DeadlineJob(
     private val records: Records,
@@ -112,13 +119,22 @@ class DeadlineJob(
             // solo los estados donde se calcula, más los que salieron de ellos con el campo todavía lleno (hay que vaciarlo):
             // los registros cerrados que ya se vaciaron no se vuelven a leer cada hora
             val rows = records.all(tracked.objectName, criteria = listOf(Criteria.inStateOrFilled(tracked.states, tracked.field)))
+            // la última revisión de cada riesgo, de la que corre su cadencia: una lectura por organización
+            val latest = if (tracked.review) latestAssessments(rows) else emptyMap()
             for (row in rows) {
                 try {
                     val params = project(Values.text(row.attributes["project"]))
-                    val outcome = write(tracked, row, today, ProjectParameters.integer(params, "due_soon_days"))
+                    // bajo el candado, la última revisión se relee: una revisión guardada durante la vuelta no se pisa con la fecha
+                    // vieja de la lectura inicial
+                    val outcome =
+                        write(tracked, row) { record, reread ->
+                            val last = if (tracked.review && reread) latestAssessments(listOf(record))[record.id] else latest[record.id]
+                            desired(tracked, record, today, params, last)
+                        }
                     if (outcome.written) written++
                     // JobTasks.ensure va fuera de toda transacción: write ya cerró la suya (un único duplicado aborta la abierta)
                     if (tracked.escalates) created += escalate(tracked, row, outcome.locked, today, params)
+                    if (tracked.review) created += reviewTask(row, outcome.locked)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -142,22 +158,81 @@ class DeadlineJob(
     private suspend fun write(
         tracked: Deadlines.Tracked,
         row: RecordResponse,
-        today: LocalDate,
-        dueSoonDays: Long
+        desired: suspend (RecordResponse, Boolean) -> Map<String, Any?>
     ): Outcome {
-        val wanted = Deadlines.wanted(tracked, row.state, row.attributes, today, dueSoonDays)
-        if (Values.same(row.attributes[tracked.field], wanted)) return Outcome(false, null)
+        if (changed(row, desired(row, false)).isEmpty()) return Outcome(false, null)
         val id = UUID.fromString(row.id)
         return transactions.locked("${tracked.objectName}:$id") {
             val current = records.find(tracked.objectName, id) ?: return@locked Outcome(false, null)
-            val again = Deadlines.wanted(tracked, current.state, current.attributes, today, dueSoonDays)
-            if (Values.same(current.attributes[tracked.field], again)) {
-                Outcome(false, current)
-            } else {
-                Outcome(true, records.patch(tracked.objectName, id, mapOf(tracked.field to again), REASON))
-            }
+            val changes = changed(current, desired(current, true))
+            if (changes.isEmpty()) Outcome(false, current) else Outcome(true, records.patch(tracked.objectName, id, changes, REASON))
         }
     }
+
+    // lo que el registro debe tener: la situación de plazo o de vigencia y, en un riesgo, también su próxima revisión
+    private fun desired(
+        tracked: Deadlines.Tracked,
+        record: RecordResponse,
+        today: LocalDate,
+        params: Map<String, Any?>,
+        latest: LocalDate?
+    ): Map<String, Any?> =
+        if (tracked.review) {
+            RiskReview.changes(record.state, record.attributes, latest, RiskLevels.cadence(record.attributes, params), today)
+        } else {
+            mapOf(tracked.field to Deadlines.wanted(tracked, record.state, record.attributes, today, ProjectParameters.integer(params, "due_soon_days")))
+        }
+
+    private fun changed(
+        record: RecordResponse,
+        wanted: Map<String, Any?>
+    ): Map<String, Any?> = wanted.filter { (name, value) -> !Values.same(record.attributes[name], value) }
+
+    // la fecha de la última revisión (residual o no) de cada riesgo revisado de `rows`, por id
+    private suspend fun latestAssessments(rows: List<RecordResponse>): Map<String, LocalDate> =
+        rows
+            .filter { it.state in Risks.REVIEWED }
+            .map { UUID.fromString(it.id) }
+            .chunked(CHUNK)
+            .flatMap { chunk -> records.all(Risks.ASSESSMENT, criteria = listOf(Criteria.anyOf(Risks.SOCIAL_RISK, chunk))) }
+            .mapNotNull { a ->
+                val risk = Values.text(a.attributes[Risks.SOCIAL_RISK]) ?: return@mapNotNull null
+                val date = Values.text(a.attributes["assessment_date"])?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@mapNotNull null
+                risk to date
+            }.groupBy({ it.first }, { it.second })
+            .mapValues { (_, dates) -> dates.max() }
+
+    // la tarea de revisión de un riesgo POR REVISAR o con REVISION VENCIDA (ASM-099): una por riesgo y fecha, para su
+    // responsable y con la fecha de la revisión. decide, como escalate, con el registro releído y no con la fila inicial
+    private suspend fun reviewTask(
+        row: RecordResponse,
+        locked: RecordResponse?
+    ): Int {
+        if (locked == null && !reviewDue(row)) return 0
+        val record = locked ?: records.find(Risks.SOCIAL_RISK, UUID.fromString(row.id)) ?: return 0
+        if (!reviewDue(record)) return 0
+        val next = Values.text(record.attributes[Risks.NEXT_REVIEW]) ?: return 0
+        val code = Values.text(record.attributes["code"]) ?: record.id
+        val owner = Values.text(record.attributes[Risks.OWNER])
+        val email = Values.text(record.attributes[Risks.OWNER_EMAIL])
+        val assignee = if (owner != null && email != null) mapOf("assignee_user_id" to owner, "assignee_user_email" to email) else emptyMap()
+        val created =
+            tasks.ensure(
+                reviewKey(record.id, next),
+                mapOf(
+                    "title" to "Revisar el riesgo $code",
+                    "description" to "La revisión del riesgo vence el $next.",
+                    "project" to record.attributes["project"],
+                    Risks.SOCIAL_RISK to record.id,
+                    "due_date" to next
+                ) + assignee,
+                REVIEW_REASON
+            )
+        return if (created) 1 else 0
+    }
+
+    private fun reviewDue(record: RecordResponse): Boolean =
+        record.state in Risks.REVIEWED && Values.text(record.attributes[Risks.REVIEW_STATUS]) in setOf(RiskReview.DUE, RiskReview.OVERDUE)
 
     // la fecha de vencimiento y el nivel alcanzado de un registro vencido en un estado con plazo; null si no escala
     private fun escalation(
@@ -227,6 +302,14 @@ class DeadlineJob(
         const val SOURCE = "job:deadline"
         const val REASON = "situación de plazo ($NAME)"
         const val TASK_REASON = "tarea de escalamiento ($NAME)"
+        const val REVIEW_REASON = "tarea de revisión de riesgo ($NAME)"
+        private const val CHUNK = 500
+
+        // la tarea de revisión de un riesgo (ASM-099): una por riesgo y próxima revisión
+        fun reviewKey(
+            risk: String,
+            next: String
+        ): String = RiskReviewTasks.key(risk, next)
 
         fun escalationKey(
             objectName: String,

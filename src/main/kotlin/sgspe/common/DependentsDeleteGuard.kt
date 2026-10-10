@@ -19,6 +19,9 @@ import java.util.UUID
 // desde F3 vigila también las relaciones opcionales de un objeto requiresReason (ModelCatalog.guardedDependents):
 // ahí la base no falla, pero SET NULL cambiaría ese registro sin motivo ni auditoría (borrar una cláusula que nombra un
 // compromiso).
+// desde F4 vigila además PRESERVED: relaciones opcionales que el modelo no puede marcar y cuyo vínculo es la historia de un
+// registro. una regla de alerta con alertas no se borra (409 HAS_DEPENDENTS): se desactiva con `enabled` falso, para no perder
+// el origen de sus alertas (especificación de F4 §3.1)
 // la comprobación es de la base y no de quien borra: con Records solo vería lo que sus permisos le dejan leer (y
 // RecordService.asPlatform no se puede usar dentro de una petición). por eso es un SELECT 1 … LIMIT 1 por relación sobre la
 // tabla del tenant (organization_id de la escritura), con la tabla y la columna que dice la metadata del objeto, los
@@ -37,10 +40,8 @@ class DependentsDeleteGuard(
     ): List<Finding> {
         val id = change.recordId
         if (change.kind != RecordChangeKind.DELETED || id == null) return emptyList()
-        val first =
-            catalog.guardedDependents(change.objectName).firstOrNull { (source, field) ->
-                referenced(change, id, source, field)
-            } ?: return emptyList()
+        val dependents = catalog.guardedDependents(change.objectName) + PRESERVED[change.objectName].orEmpty()
+        val first = dependents.firstOrNull { (source, field) -> referenced(change, id, source, field) } ?: return emptyList()
         return listOf(
             Finding(
                 code = "HAS_DEPENDENTS",
@@ -49,6 +50,11 @@ class DependentsDeleteGuard(
                 status = HttpStatus.CONFLICT
             )
         )
+    }
+
+    companion object {
+        // objeto que se borra -> (objeto, campo) que lo referencian y que se vigilan aunque la relación sea opcional
+        val PRESERVED: Map<String, List<Pair<String, String>>> = mapOf("early_warning_rule" to listOf("early_warning" to "early_warning_rule"))
     }
 
     // si alguna fila del tenant de `source` apunta, por la columna de `field`, al registro que se borra

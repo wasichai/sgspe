@@ -18,6 +18,13 @@ import java.util.UUID
 object NoticeTexts {
     private val DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
+    // F4: una alerta nueva (WarningNoticeListener), por una persona o por JOB-04: su título y su severidad, que no llevan datos
+    // personales (los de JOB-04 dicen la regla, el tipo, el conteo y el umbral)
+    fun warningNew(
+        title: String,
+        severity: String?
+    ): Pair<String, String> = "Alerta nueva: $title" to (severity?.let { "Severidad $it. " } ?: "") + "Inicie su triaje."
+
     fun approvalPending(
         objectName: String,
         label: String
@@ -43,6 +50,18 @@ object NoticeTexts {
             "Compromiso vencido: $label" to "Venció el ${due.format(DATE)}."
         } else {
             "Compromiso vencido, escalamiento $level: $label" to "Venció el ${due.format(DATE)} y sigue abierto: revise con su responsable."
+        }
+
+    // F4: un riesgo con la revisión vencida (DeadlineNotices, ASM-099). `label` es «Riesgo <código>»
+    fun riskReviewOverdue(
+        label: String,
+        due: LocalDate,
+        level: Int
+    ): Pair<String, String> =
+        if (level == 0) {
+            "Revisión de riesgo vencida: $label" to "La revisión debía hacerse el ${due.format(DATE)}."
+        } else {
+            "Revisión de riesgo vencida, escalamiento $level: $label" to "La revisión debía hacerse el ${due.format(DATE)} y sigue pendiente."
         }
 
     // F4: el plazo de una QCS (ASM-100, ASM-102). `label` es «Queja <código>» o «Consulta <código>»: el tipo y el código, nunca
@@ -78,6 +97,12 @@ object NoticeTexts {
         project: Map<String, Any?>,
         id: String
     ): String = Values.text(project["name"]) ?: Values.text(project["code"]) ?: id
+
+    // F4: un riesgo cuya revisión sube su nivel a ALTO o CRITICO (RiskNoticeListener). `label` es «Riesgo <código>»
+    fun riskEscalated(
+        label: String,
+        level: String
+    ): Pair<String, String> = "Riesgo escalado a $level: $label" to "La última revisión dejó el riesgo en nivel $level: decida su tratamiento."
 
     fun taskOverdue(
         label: String,
@@ -135,9 +160,14 @@ class Notices(
         }
 
     companion object {
-        // las fuentes de SGSPE en el módulo (^[a-z][a-z0-9_.:-]{1,80}$; nunca manual, rule:… ni automation:…)
+        // las fuentes de SGSPE en el módulo (^[a-z][a-z0-9_.:-]{1,80}$; nunca manual, rule:… ni automation:…). desde F4, también
+        // las alertas nuevas (WarningNoticeListener)
+        const val WARNINGS = "sgspe.warnings"
         const val APPROVALS = "sgspe.approvals"
         const val DEADLINES = "sgspe.deadlines"
+
+        // F4: los avisos de nivel de riesgo (RiskNoticeListener)
+        const val RISKS = "sgspe.risks"
 
         // el borrador de un aviso a personas concretas, con su enlace al registro (la bandeja lo quita a quien no lee el objeto)
         fun draft(

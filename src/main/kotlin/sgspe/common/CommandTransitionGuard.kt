@@ -8,8 +8,7 @@ import wasichai.core.data.RecordWrite
 
 // las transiciones de comando solo llegan desde su endpoint, que escribe varios registros en una transacción y lleva la
 // marca SgspeWrite (workflows.md, «Transiciones de comando»). por la API genérica de workflow, sin la marca: 403, como la
-// puerta cerrada de un objeto apiOnly. las de F3 y F4 las agregan sus fases a COMMANDS (assess de WF-F, con su endpoint, en el
-// plan 4.2b)
+// puerta cerrada de un objeto apiOnly. las de F3 y F4 las agregan sus fases a COMMANDS
 @Component
 @Order(GuardOrder.COMMAND)
 class CommandTransitionGuard : RuleGuard() {
@@ -53,7 +52,9 @@ class CommandTransitionGuard : RuleGuard() {
                         "close_reclassified_under_evaluation" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify",
                         "accept" to "POST /api/sgspe/stakeholder-requests/{id}/accept",
                         "close_accepted" to "el cierre del compromiso creado (RequestClosureListener)"
-                    )
+                    ),
+                // F4: la primera revisión de un riesgo (plan 4.2b)
+                "social_risk" to mapOf("assess" to "POST /api/sgspe/social-risks/{id}/assessments")
             )
     }
 }

@@ -177,12 +177,17 @@ class WorkflowMatrixApiTest : F4ApiTest() {
 
     // lo que una transición pide antes de aplicarse y la API genérica no da: register_fulfillment de WF-D exige una entrega con
     // conformidad y, en un compromiso MATERIAL, su acta de entrega y su foto (D9), que el admin registra con el comando de
-    // entregas del plan 3.2; close_unfulfilled de WF-E3, el compromiso creado al aceptar ya cancelado (plan 4.2a)
+    // entregas del plan 3.2; close_unfulfilled de WF-E3, el compromiso creado al aceptar ya cancelado (plan 4.2a); y en WF-F
+    // (plan 4.2b) la decisión de tratamiento, una medida con responsable y una revisión residual (RiskWriteGuard)
     private fun prepare(
         workflow: Workflow,
         id: String,
         rule: Transition
     ) {
+        if (workflow.objectName == "social_risk" && state(workflow.objectName, id) == rule.from) {
+            prepareRisk(id, rule)
+            return
+        }
         if (workflow.key(rule) == "stakeholder_request.close_unfulfilled" && state(workflow.objectName, id) == rule.from) {
             move("commitment", record(workflow.objectName, id)["attributes"]["created_commitment"].asString(), "cancel_draft", reason = TEXT)
             return
@@ -194,6 +199,43 @@ class WorkflowMatrixApiTest : F4ApiTest() {
             exchange("POST", "/api/sgspe/commitments/$id/deliveries", mapOf("attributes" to attributes, "evidence" to evidence), token, withReason(TEXT))
         assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
     }
+
+    // lo que pide RiskWriteGuard (plan 4.2b), escrito por el admin: mitigar, la decisión MITIGAR y una medida con responsable;
+    // monitorear, la decisión MONITOREAR y una revisión residual por el endpoint de revisiones
+    private fun prepareRisk(
+        id: String,
+        rule: Transition
+    ) {
+        val decision =
+            when (rule.name) {
+                "decide_mitigation" -> "MITIGAR"
+                "decide_monitoring" -> "MONITOREAR"
+                else -> null
+            }
+        if (decision != null) {
+            val edited = edit("social_risk", id, mapOf("treatment_decision" to decision), headers = withReason(TEXT))
+            assertEquals(HttpStatus.OK, edited.status, edited.body)
+        }
+        if (rule.name in setOf("decide_mitigation", "resume_mitigation")) mitigationMeasure(id, accounts.getOrPut("\u0000owner") { userWithRole("READ_ONLY") })
+        if (rule.name in setOf("decide_monitoring", "start_monitoring")) {
+            val residual = assessRisk(id, token, residual = true)
+            assertEquals(HttpStatus.CREATED, residual.status, residual.body)
+        }
+    }
+
+    // una revisión de riesgo por su endpoint (POST /api/sgspe/social-risks/{id}/assessments): la primera aplica assess
+    private fun assessRisk(
+        id: String,
+        token: String,
+        residual: Boolean = false
+    ): Response =
+        exchange(
+            "POST",
+            "/api/sgspe/social-risks/$id/assessments",
+            mapOf("attributes" to mapOf("assessment_date" to "2026-01-05", "probability" to 2, "impact" to 3, "residual" to residual)),
+            token,
+            withReason(TEXT)
+        )
 
     // una transición como la aplica el portal: accept de WF-K por su comando, que crea el compromiso en draft con los valores
     // que revisa la persona (CommandTransitionGuard rechaza la API genérica); las reclasificaciones de F4 por el suyo, cuando el
@@ -207,6 +249,8 @@ class WorkflowMatrixApiTest : F4ApiTest() {
     ): Response {
         if (rule.name.startsWith("close_reclassified") && state(workflow.objectName, id) == rule.from) return reclassify(workflow, id, who)
         if (workflow.key(rule) == "stakeholder_request.accept") return accept(id, who)
+        // assess de WF-F por el endpoint de revisiones, desde identified; fuera de él, por la API genérica, que responde 409
+        if (workflow.key(rule) == "social_risk.assess" && state(workflow.objectName, id) == rule.from) return assessRisk(id, who.token)
         if (workflow.key(rule) != "commitment_candidate.accept") return transition(workflow.objectName, id, rule.name, who.token, TEXT)
         val reviewed = mapOf("code" to uniqueName("COM-"), "title" to "Mejora del canal de riego", "amount" to 15000, "currency" to "PEN")
         return exchange(
@@ -446,26 +490,18 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
         // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest.
         // las de F3 ya no se difieren (plan 3.2): approve_direct corre en un proyecto sin aprobación interna, prepare registra la
-        // entrega que pide register_fulfillment y perform aplica accept por su comando. de F4 se difieren close_accepted de WF-E3,
-        // que solo aplica RequestClosureListener al cerrar el compromiso (sus casos, en StakeholderRequestWorkflowApiTest), y
-        // assess de WF-F con todo lo que sale de `assessed`, `mitigating` y `monitoring` (plan 4.2b, SocialRiskWorkflowApiTest).
-        // las reclasificaciones de WF-E1, WF-E2 y WF-E3 y accept de WF-E3 ya no se difieren (plan 4.2a): perform las aplica por
-        // su comando y prepare cancela el compromiso que pide close_unfulfilled
+        // entrega que pide register_fulfillment y perform aplica accept por su comando. de F4 se difiere close_accepted de WF-E3,
+        // que solo aplica RequestClosureListener al cerrar el compromiso (sus casos, en StakeholderRequestWorkflowApiTest). las
+        // reclasificaciones de WF-E1, WF-E2 y WF-E3 y accept de WF-E3 ya no se difieren (plan 4.2a): perform las aplica por su
+        // comando y prepare cancela el compromiso que pide close_unfulfilled; WF-F tampoco (plan 4.2b): perform aplica assess por
+        // el endpoint de revisiones y prepare escribe lo que piden mitigar y monitorear
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
                 "area_of_influence.supersede",
-                "stakeholder_request.close_accepted",
-                "social_risk.assess",
-                "social_risk.decide_mitigation",
-                "social_risk.decide_monitoring",
-                "social_risk.start_monitoring",
-                "social_risk.resume_mitigation",
-                "social_risk.close_assessed",
-                "social_risk.close_mitigating",
-                "social_risk.close_monitoring"
+                "stakeholder_request.close_accepted"
             )
 
         // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held);

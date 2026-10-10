@@ -125,6 +125,9 @@ sgspe:
     deadline:
       # JOB-01, cada hora (ASM-006)
       cron: '0 5 * * * *'
+    warning-rules:
+      # JOB-04, cada hora (ASM-006, ASM-097): las alertas por regla
+      cron: '0 25 * * * *'
     retention:
       # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl) y los saltos de
       # derivados vencidos (sgspe.concurrency.derived-versions-retention)

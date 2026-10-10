@@ -1199,7 +1199,11 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   y `close_reason`; en las revisiones `notes`; en medidas e impactos `description`. Tampoco lleva la persona, quien
   recibió, el responsable ni correos, y cita los grupos de interés por código `GI-`. PUBLICO cuenta sobre la grilla
   completa con `SmallCells`, y la hoja «Notas» de `attention-register` dice si el conteo incluye las confidenciales
-  (`deliverables.md` §10).
+  (`deliverables.md` §10). Residual aceptado de PUBLICO: `SmallCells` completa la supresión dentro de cada tabla, no
+  entre las hojas de un archivo, y las hojas comparten un total: el tipo en `attention-register` y el nivel de riesgo en
+  `risk-register` («Por nivel y categoría» y «Por tratamiento y nivel»). Una celda reservada de esa fila se puede
+  despejar restando la misma fila de la otra hoja si allí todo es visible. Se acepta porque se cuentan planteamientos y
+  riesgos, no personas (ronda branchfix de 4.2b).
 - **Entregables:** se generan como la plataforma (domain-model §8.3), así que su contenido lo define su tipo y no los
   permisos de campo de quien lo pide. Por eso:
   - `GENERATE`, `APPROVE`, `ISSUE` y `DOWNLOAD_RESTRICTED` sobre `deliverable` se conceden solo a los roles que leen los

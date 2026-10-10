@@ -81,7 +81,7 @@ F4); el aporte social como destino de una solicitud aceptada (F5).
 | Tema | Valor | Consecuencia |
 |---|---|---|
 | Revisiones de riesgo | `risk_assessment` `appendOnly` + `apiOnly`; una revisión se corrige con otra; `assess` es transición de comando | `CommandTransitionGuard` suma `assess` de WF-F; el endpoint de revisiones es la única vía |
-| Tarea de revisión de riesgo | Clave `risk_review:<id>:<next_review_date>`, asignada al responsable del riesgo, con fecha `next_review_date` | JOB-01 la crea con `JobTasks` (§3.5) |
+| Tarea de revisión de riesgo | Clave `risk_review:<id>:<next_review_date>`, asignada al responsable del riesgo, con fecha `next_review_date`; no escala como tarea vencida y la revisión registrada la deja hecha (ronda branchfix de 4.2b, R-I1) | JOB-01 la crea con `JobTasks` (§3.5); el endpoint de revisiones la cierra |
 | Plazos de QCS | En JOB-01, sin pausa en `in_investigation`; las solicitudes no tienen plazo | `response_due_date` y `deadline_status` de `stakeholder_request` quedan vacíos en el MVP |
 | Mismo proyecto | `409 PROJECT_MISMATCH` en todas las relaciones de F4 hacia objetos con alcance de proyecto, también las M2M | `ProjectLinkGuard` general en `sgspe.scope` (§3.1) |
 | Incidentes | Sin severidad ni escalamiento; sin `requiresReason` | WF-M queda como está diseñado |
@@ -148,7 +148,11 @@ F4); el aporte social como destino de una solicitud aceptada (F5).
 - **Idempotencia.** Todos los comandos `POST` nuevos honran `Idempotency-Key` con `Idempotency` de F3: derivación,
   las tres reclasificaciones, la aceptación y las revisiones de riesgo.
 - **`generator_key` de las alertas.** `GeneratorKeyGuard` suma `early_warning.generator_key`: solo lo escribe JOB-04, y
-  una persona que lo fija, lo cambia o lo vacía recibe `403 GENERATOR_KEY_PLATFORM_ONLY`.
+  una persona que lo fija, lo cambia o lo vacía recibe `403 GENERATOR_KEY_PLATFORM_ONLY`. Desde la ronda branchfix de
+  4.2b (R-I3), `early_warning.early_warning_rule` y `detected_at` también son de la plataforma, con `403 PLATFORM_ONLY`
+  sobre el campo (también con un `PUT` que los omite; reenviarlos tal como se leyeron pasa): el silencio de JOB-04 y la
+  protección de una regla con alertas confían en ellos. `detected_at` deja de ser obligatorio en el modelo: una alerta
+  manual nace sin regla y SGSPE le pone la hora de su alta (`WarningDetectedAt`).
 - **Conteo de planteamientos (`AttentionCounting`, `sgspe.common`).** Una función pura con la regla de §3.3 de
   `dashboards.md`: cada planteamiento cuenta una vez, como el último registro de la cadena; los originales a los que
   apunta un `reclassified_from_*` no cuentan. La usan el reporte, los KPI-GRV, la exportación PUBLICO y la regla CONTEO
@@ -333,7 +337,7 @@ la plataforma, solo si cambia y con el motivo `situación de plazo (JOB-01 Deadl
 |---|---|---|---|---|---|
 | `qcs_deadline` | `DeadlineNotices` | `deadline_status` de una queja o consulta en POR VENCER (situación) o VENCIDO (niveles 0, 1 y 2) | Nivel 0: responsable o, sin él, los roles de la transición que sigue (`workflows.md`); nivel 1: roles de `verify` de WF-E1; nivel 2: roles de `approve_senior` de WF-D; con el filtro de §3.3 | `qcs_deadline:<objeto>:<id>:<fecha del plazo>:<POR VENCER o nivel>` | Cuando la situación deja de ser cierta |
 | `risk_escalated` por nivel | `RiskNoticeListener` (`sgspe.notification`), en la transacción del endpoint de revisiones | Una revisión no residual sube `risk_level` a ALTO o CRITICO (de un nivel menor, o de ALTO a CRITICO) | Responsable del riesgo y roles de la transición de tratamiento que sigue | `risk_escalated:<id>:<nivel de riesgo>:<assessment_date>` | Con la revisión siguiente o el cierre del riesgo |
-| `risk_escalated` por revisión vencida | `DeadlineNotices` | `review_status` REVISION VENCIDA (niveles 0, 1 y 2) | Nivel 0: responsable; nivel 1: roles de la transición de tratamiento que sigue; nivel 2: roles de `approve_senior` de WF-D | `risk_escalated:<id>:<nivel>:<next_review_date>` | Con la revisión que mueve `next_review_date` |
+| `risk_escalated` por revisión vencida | `DeadlineNotices` | `review_status` REVISION VENCIDA (niveles 0, 1 y 2) | Nivel 0: responsable; nivel 1: roles de la transición de tratamiento que sigue; nivel 2: roles de `approve_senior` de WF-D | `risk_escalated:<id>:<nivel>:<next_review_date>` | Con la revisión que mueve `next_review_date`. Es el único aviso de la revisión vencida: su tarea `risk_review:*` no suma `task_overdue` (R-I1) |
 | `warning_new` | `WarningNoticeListener` (`sgspe.notification`) | Alta de `early_warning`, por una persona o por JOB-04 | Responsable de la alerta, si lo tiene, y roles de `start_triage` | `warning_new:<id>` | Con `start_triage` |
 | `approval_pending` de queja grave | `ApprovalNoticeListener` (paso nuevo) | `start_action` o `start_action_after_investigation` de una queja ALTA o CRITICA con la política activa; o un cambio de `severity` a ALTA o CRITICA en `in_action` | Roles de `resolve_high_severity` | `approval_pending:grievance:<id>` | Al salir de `in_action` o si la severidad baja de ALTA |
 | `qcs_confidential_overdue` | `DeadlineNotices` | Nivel 2 de `qcs_deadline` de una QCS confidencial | Los asignados con un rol de `approve_senior` de WF-D que no la verían por §3.3 (los que sí la ven reciben `qcs_deadline`) | `qcs_confidential_overdue:<proyecto>:<huella>`, donde `<huella>` son los 16 primeros dígitos hexadecimales del SHA-256 de `<objeto>:<id>:<fecha del plazo>`: un aviso por QCS y plazo sin poner su id, tipo ni fecha en la clave | Cuando la QCS deja el nivel 2 o el estado con plazo |

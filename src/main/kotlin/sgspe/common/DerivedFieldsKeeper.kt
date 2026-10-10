@@ -1,6 +1,7 @@
 package sgspe.common
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
@@ -13,7 +14,10 @@ import wasichai.core.data.RecordChangeListener
 // después de un cambio sin la marca, cada derivado que tenía valor y quedó vacío vuelve a su valor, con la marca y el
 // motivo de abajo. un null explícito no llega aquí: es un cambio, y DerivedFieldsGuard lo rechazó con un 400. corre antes
 // que los listeners que recalculan (AreaListener), que después escriben su valor nuevo. antes de devolver un derivado se
-// lee lo guardado: si otra escritura ya le dio valor entre el PUT y este listener, ese valor no se pisa
+// lee lo guardado: si otra escritura ya le dio valor entre el PUT y este listener, ese valor no se pisa. reponer un valor
+// igual al guardado no es un cambio: la reposición corre con DerivedRestore, y el despachador de automatizaciones no evalúa
+// su eco (RestoreAwareAutomationDispatcher; ronda branchfix de 4.2b, R-I2: el PUT de un riesgo CRITICO no vuelve a
+// disparar AUT-11)
 @Component
 @Order(100)
 class DerivedFieldsKeeper(
@@ -35,7 +39,11 @@ class DerivedFieldsKeeper(
             lost,
             before,
             stored = { records.get(change.objectName, change.recordId).attributes },
-            patch = { values -> records.patch(change.objectName, change.recordId, values, REASON) }
+            patch = { values ->
+                withContext(DerivedRestore(change.objectName, change.recordId, values)) {
+                    records.patch(change.objectName, change.recordId, values, REASON)
+                }
+            }
         )
     }
 

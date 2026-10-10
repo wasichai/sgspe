@@ -4,6 +4,7 @@ import sgspe.common.Attention
 import sgspe.common.ProjectParameters
 import sgspe.common.Values
 import sgspe.engagement.AttendanceCounts
+import sgspe.risk.RiskLevels
 
 // un KPI de dashboards.md §4. requires: "objeto.campo" que lee; si alguno no es legible para quien llama, el indicador
 // sale no disponible. dashboard: el tablero que lo muestra en su fase; null si solo se consulta por su detalle (§11)
@@ -45,6 +46,7 @@ object Kpis {
     const val ENGAGEMENT = "engagement"
     const val COMMITMENTS = "commitments"
     const val ATTENTION = "attention"
+    const val RISKS = "risks"
 
     // los indicadores que leen QCS y que, a quien no ve las confidenciales, se lo dicen con confidentialHidden (dashboards.md §8,
     // ASM-095): los KPI-GRV y KPI-ENG-05, que cuenta como atendida una pregunta derivada a una QCS
@@ -88,8 +90,16 @@ object Kpis {
                     "KPI-COM-11"
                 ),
             // dashboards.md §5.7: flujo, absueltas, desgloses, tendencia y tiempos
-            ATTENTION to (1..10).map { "KPI-GRV-%02d".format(it) }
+            ATTENTION to (1..10).map { "KPI-GRV-%02d".format(it) },
+            // dashboards.md §5.8: mapa de calor, riesgos altos, distribución, evolución y mitigación
+            RISKS to listOf("KPI-RSK-02", "KPI-RSK-01", "KPI-RSK-03", "KPI-RSK-04", "KPI-RSK-05")
         )
+
+    // los KPI-RSK aplican el territorio y el ámbito por la localidad o la comunidad del riesgo; la campaña y el responsable no
+    private val RISK_IGNORES: Set<String> = setOf("explorationCampaign", "owner")
+
+    // lo que leen todos los KPI-RSK: el riesgo, su estado y su territorio
+    private val RISK = listOf("social_risk.project", "social_risk.locality", "social_risk.community")
 
     // los KPI-GRV no aplican la campaña ni el responsable de un compromiso (dashboards.md §3.1); el territorio y el ámbito sí,
     // por la localidad o la comunidad de la QCS
@@ -119,6 +129,12 @@ object Kpis {
             "stakeholder.stakeholder_scope"
         )
     private val HELD = listOf("engagement.held_at", "engagement.engagement_type")
+
+    // F4: lo que leen KPI-ENG-07 y 08, y los filtros que no aplican: las menciones no tienen territorio ni ámbito (dashboards.md
+    // §4.3: «Proyecto, periodo»)
+    private val MEDIA =
+        listOf("media_mention.project", "media_mention.published_date", "media_mention.outlet", "media_mention.outlet_name", "media_mention.tone")
+    private val MEDIA_IGNORES: Set<String> = IGNORED_IN_F2 + setOf("administrativeUnit", "locality", "community", "areaOfInfluence", "scope")
 
     val ALL: List<Indicator> =
         listOf(
@@ -276,6 +292,44 @@ object Kpis {
                 val meetings = data.inPeriod().filter { it.type in EngagementKpis.INFORMATIVE }
                 val questions = data.questions(meetings.map { it.id })
                 EngagementKpis.answered(meetings, questions, data.names("topic", questions.mapNotNull { it.topic }))
+            },
+            // ---- F4: relacionamiento (dashboards.md §4.3, #11 a #13 de la Tabla 9.5): sin zona en un tablero hasta F8 (§11) ----
+            Kpi(
+                "KPI-ENG-06",
+                "Monitoreos participativos de agua",
+                null,
+                "monitoreos",
+                HELD + listOf("engagement.title", "stakeholder.project"),
+                ignores = IGNORED_IN_F2
+            ) { data ->
+                val monitoring = data.inPeriod().filter { it.type == EngagementKpis.MONITORING }
+                EngagementKpis.monitoring(monitoring, data.stakeholdersOf(monitoring.map { it.id }))
+            },
+            Kpi(
+                "KPI-ENG-07",
+                "Comunicados sobre compromisos cumplidos",
+                null,
+                "menciones",
+                MEDIA + listOf("media_mention.reports_fulfilled_commitment", "organization.name"),
+                ignores = MEDIA_IGNORES
+            ) { data ->
+                val mentions = data.mentions()
+                EngagementKpis.fulfilledCommunications(mentions, data.names("organization", mentions.mapNotNull { it.outlet }))
+            },
+            Kpi(
+                "KPI-ENG-08",
+                "Medios con información positiva y negativa",
+                null,
+                "%",
+                MEDIA + listOf("media_mention.topic", "organization.name", "topic.name"),
+                ignores = MEDIA_IGNORES
+            ) { data ->
+                val mentions = data.mentions()
+                EngagementKpis.tones(
+                    mentions,
+                    data.names("organization", mentions.mapNotNull { it.outlet }),
+                    data.names("topic", mentions.mapNotNull { it.topic })
+                )
             },
             // ---- F3: compromisos (dashboards.md §4.4); cada uno aplica los filtros de su fila y declara los demás ----
             Kpi(
@@ -464,7 +518,92 @@ object Kpis {
                 "días",
                 QCS + qcs("responded_at") + listOf("grievance.resolved_date", "grievance.resolution_due_date", "inquiry.response_due_date"),
                 ignores = ATTENTION_IGNORES
-            ) { AttentionKpis.attentionTime(it.attention(), it.filters.periodStart, it.filters.periodEnd) }
+            ) { AttentionKpis.attentionTime(it.attention(), it.filters.periodStart, it.filters.periodEnd) },
+            // ---- F4: riesgos (dashboards.md §4.6); leen como quien mira, los riesgos activos ----
+            Kpi("KPI-RSK-01", "Riesgos altos", RISKS, "riesgos", RISK + listOf("social_risk.risk_level", "social_risk.category"), ignores = RISK_IGNORES) {
+                RiskKpis.high(it.risks())
+            },
+            Kpi(
+                "KPI-RSK-02",
+                "Mapa de calor probabilidad × impacto",
+                RISKS,
+                "riesgos",
+                RISK +
+                    listOf(
+                        "social_risk.probability",
+                        "social_risk.impact",
+                        "social_risk.residual_probability",
+                        "social_risk.residual_impact",
+                        "project.risk_medium_min_score",
+                        "project.risk_high_min_score",
+                        "project.risk_critical_min_score"
+                    ),
+                ignores = RISK_IGNORES
+            ) { data ->
+                // el nivel de cada celda solo con un proyecto: con varios, los umbrales pueden diferir (dashboards.md §7)
+                val single = if (data.filters.projects.size == 1) data.projectRecords().singleOrNull() else null
+                RiskKpis.heatmap(data.risks(), single?.let { RiskLevels.thresholds(it.attributes) })
+            },
+            Kpi(
+                "KPI-RSK-03",
+                "Riesgos por territorio y por proyecto",
+                RISKS,
+                "riesgos",
+                RISK +
+                    listOf(
+                        "social_risk.area_of_influence",
+                        "social_risk.risk_level",
+                        "project.code",
+                        "locality.name",
+                        "community.name",
+                        "area_of_influence.area_type"
+                    ),
+                ignores = RISK_IGNORES
+            ) { data ->
+                val rows = data.risks()
+                val names =
+                    data.names("locality", rows.mapNotNull { it.locality }) + data.names("community", rows.mapNotNull { it.community }) +
+                        data.names("area_of_influence", rows.mapNotNull { it.areaOfInfluence }, "area_type") +
+                        data.names("project", rows.mapNotNull { it.project }, "code")
+                RiskKpis.distribution(rows, names)
+            },
+            Kpi(
+                "KPI-RSK-04",
+                "Evolución de los riesgos",
+                RISKS,
+                "revisiones",
+                RISK +
+                    listOf(
+                        "risk_assessment.social_risk",
+                        "risk_assessment.assessment_date",
+                        "risk_assessment.risk_level",
+                        "risk_assessment.trend",
+                        "risk_assessment.residual"
+                    ),
+                ignores = RISK_IGNORES
+            ) { data ->
+                val rows = data.risks()
+                RiskKpis.evolution(rows, data.riskPoints(rows.map { it.id }), data.filters.periodEnd)
+            },
+            Kpi(
+                "KPI-RSK-05",
+                "Avance de la mitigación",
+                RISKS,
+                "%",
+                RISK +
+                    listOf(
+                        "social_risk.code",
+                        "mitigation_measure.social_risk",
+                        "mitigation_measure.completed",
+                        "mitigation_measure.planned_date",
+                        "mitigation_measure.owner_user_email",
+                        "mitigation_measure.description"
+                    ),
+                ignores = RISK_IGNORES
+            ) { data ->
+                val rows = data.risks()
+                RiskKpis.mitigation(data.measures(rows.map { it.id }), rows.associate { it.id to it.code }, data.today)
+            }
         )
 
     val BY_CODE: Map<String, Indicator> = ALL.associateBy { it.code }

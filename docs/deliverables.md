@@ -600,6 +600,8 @@ La generación, la revisión y la emisión quedan además en `audit_log` con su 
 | PUBLICO | «Por tipo y estado», «Por tipo y canal», «Por tipo y categoría», «Absueltas por tipo» | Conteos de planteamientos (`AttentionCounting`) del periodo: estado agrupado (abiertas, cerradas, rechazadas, desistidas, declinadas), canal y categoría sobre la grilla completa; «Absueltas por tipo» con recibidas y absueltas por tipo (absueltas «no disponible» si quien exporta no lee `responded_at` de ese tipo). Cuenta lo que quien exporta lee, confidenciales incluidas si las ve; «Notas» dice si el conteo incluye las confidenciales (sí o no). Sin territorio ni grupo de interés; con la marca `reservado` (ASM-088) |
 
 - **Matriz de riesgos (`risk-register`, F4).** Exige READ y `EXPORT` sobre `social_risk`; `export_log` cuenta riesgos.
+  Las dos hojas de PUBLICO comparten el total por nivel: una celda reservada de un nivel se puede despejar restando
+  entre ellas, como el tipo entre las hojas de `attention-register`; es un residual aceptado (`security.md` §11.4).
 
 | Nivel | Hojas | Columnas y exclusiones |
 |---|---|---|
