@@ -77,10 +77,6 @@ object QcsTransitionDates {
     const val RESOLVED = "resolved_date"
     const val CLOSED = "closed_date"
 
-    // los nombres de resolve y reopen de WF-E1, los mismos que AttentionRules.RESOLVE y AttentionRules.REOPEN (Tarea 6)
-    private val RESOLVE_TRANSITIONS = setOf("resolve", "resolve_high_severity")
-    private const val REOPEN_TRANSITION = "reopen"
-
     fun changes(
         objectName: String,
         transition: String?,
@@ -88,8 +84,8 @@ object QcsTransitionDates {
         today: LocalDate
     ): Map<String, Any?> {
         val changes = linkedMapOf<String, Any?>()
-        if (objectName == Attention.GRIEVANCE && transition in RESOLVE_TRANSITIONS) changes[RESOLVED] = today.toString()
-        if (objectName == Attention.GRIEVANCE && transition == REOPEN_TRANSITION) changes[RESOLVED] = null
+        if (objectName == Attention.GRIEVANCE && transition in AttentionRules.RESOLVE) changes[RESOLVED] = today.toString()
+        if (objectName == Attention.GRIEVANCE && transition == AttentionRules.REOPEN) changes[RESOLVED] = null
         if (to != null && to in Attention.FINAL_STATES.getValue(objectName)) changes[CLOSED] = today.toString()
         return changes
     }

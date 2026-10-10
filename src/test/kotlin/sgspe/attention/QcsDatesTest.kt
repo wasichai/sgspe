@@ -43,6 +43,7 @@ class QcsDatesTest {
     @Test
     fun `resolver, reabrir y cerrar escriben sus fechas`() {
         assertEquals(mapOf("resolved_date" to "2026-10-20"), QcsTransitionDates.changes("grievance", "resolve", "resolved", today))
+        assertEquals(mapOf("resolved_date" to "2026-10-20"), QcsTransitionDates.changes("grievance", "resolve_high_severity", "resolved", today))
         assertEquals(mapOf("resolved_date" to null), QcsTransitionDates.changes("grievance", "reopen", "in_assessment", today))
         assertEquals(mapOf("closed_date" to "2026-10-20"), QcsTransitionDates.changes("grievance", "withdraw_received", "withdrawn", today))
         assertEquals(mapOf("closed_date" to "2026-10-20"), QcsTransitionDates.changes("stakeholder_request", "close_declined", "closed", today))
