@@ -13,6 +13,7 @@ import sgspe.common.NotReadable
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.RuleGuard
+import sgspe.common.TenantModel
 import sgspe.common.Transactions
 import sgspe.common.WriteView
 import sgspe.common.isLink
@@ -44,7 +45,8 @@ class EvidenceWriteGuard(
     private val metadata: MetadataService,
     private val schemas: WasichaiSchemas,
     private val db: DatabaseClient,
-    private val records: Records
+    private val records: Records,
+    private val tenant: TenantModel
 ) : RuleGuard() {
     override suspend fun findings(
         change: RecordWrite,
@@ -83,7 +85,8 @@ class EvidenceWriteGuard(
             } else {
                 // solo quien sí puede bajarla: a quien le falta DOWNLOAD_RESTRICTED le basta ese 403 (api.md §3.3), y la
                 // regla no lee QCS que no necesita juzgar
-                findings += readingQcs { if (linkedToConfidential(change.recordId)) listOf(notRestricted()) else emptyList() }
+                findings +=
+                    readingQcs { if (linkedToConfidential(change.organizationId, change.recordId)) listOf(notRestricted()) else emptyList() }
             }
         }
         return findings
@@ -92,10 +95,14 @@ class EvidenceWriteGuard(
     // si la evidencia ya está vinculada a una QCS confidencial, con los vínculos leídos como quien escribe: bajar su
     // clasificación abriría la descarga del caso reservado igual que vincular una no restringida (ASM-095). sin READ sobre
     // un objeto de las QCS, NotReadable. una escritura sin usuario no tiene con quién leer: no se juzga, como la regla de
-    // DOWNLOAD_RESTRICTED, y tampoco la de quien no tiene esa acción
-    private suspend fun linkedToConfidential(id: UUID?): Boolean =
+    // DOWNLOAD_RESTRICTED, y tampoco la de quien no tiene esa acción. solo mira las relaciones evidence_<qcs> de las QCS que el
+    // tenant tiene (TenantModel): uno sin el modelo de F4 no tiene esas relaciones y baja la clasificación como en F3
+    private suspend fun linkedToConfidential(
+        organizationId: UUID,
+        id: UUID?
+    ): Boolean =
         id != null &&
-            Attention.OBJECTS.any { target ->
+            tenant.present(organizationId, Attention.OBJECTS).any { target ->
                 readAs(target) { records.related(EvidenceRules.EVIDENCE, id, EvidenceRules.linkRelationship(target)) }
                     .any { Attention.isConfidential(it.attributes) }
             }
