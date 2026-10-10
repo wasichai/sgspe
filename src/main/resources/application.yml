@@ -81,6 +81,29 @@ sgspe:
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000
+  calendar:
+    # feriados nacionales por año (ASM-096, HolidayCalendar): el acuse de una queja cuenta días hábiles. un año se agrega
+    # cuando se publica su lista oficial en El Peruano (D. Leg. 713 y sus modificatorias), con su clave entre comillas y
+    # sus fechas; mientras falte, ese año usa lunes a viernes con una advertencia en el log (docs/develop/README.md §4).
+    # los días no laborables del sector público no son feriados
+    holidays:
+      '2026':
+        - 2026-01-01
+        - 2026-04-02
+        - 2026-04-03
+        - 2026-05-01
+        - 2026-06-07
+        - 2026-06-29
+        - 2026-07-23
+        - 2026-07-28
+        - 2026-07-29
+        - 2026-08-06
+        - 2026-08-30
+        - 2026-10-08
+        - 2026-11-01
+        - 2026-12-08
+        - 2026-12-09
+        - 2026-12-25
   concurrency:
     # cuánto se guardan los saltos de versión de las escrituras de derivados (sgspe.derived_version, ADR-0027, ASM-091):
     # una versión leída hace más que esto, seguida de derivados, es 412. JOB-08 purga los vencidos
