@@ -29,9 +29,11 @@ Mientras la versión sea 0.x, un `feat` sube el menor, un `fix` sube el parche y
 `BREAKING CHANGE:` en el cuerpo) también sube el menor (`bump-minor-pre-major`). Los tipos `docs`, `chore`, `ci`, `build`,
 `test`, `refactor` y `style` no aparecen en el `CHANGELOG.md`.
 
-- La versión parte de `0.0.0`. El primer PR de release recoge todo el historial de `main` y propone `0.1.0`.
-- Para fijar una versión (por ejemplo `1.0.0` al cerrar el MVP, Release 1 del [roadmap](../roadmap.md)), un commit que llegue
-  a `main` lleva en el pie `Release-As: 1.0.0`.
+- La versión parte de `0.0.0`, que es solo el punto de partida del manifest: sin un release anterior, release-please no
+  aplica `bump-minor-pre-major` y el primer PR de release, que recoge todo el historial de `main`, propone `1.0.0`.
+- Para fijar una versión, un commit que llegue a `main` lleva en el pie `Release-As: X.Y.Z`. Vale una vez: release-please
+  actualiza el PR de release abierto y los siguientes vuelven a calcularse por los commits. El primer release se fijó así
+  en `0.10.0`; `1.0.0` queda para cerrar el MVP (Release 1 del [roadmap](../roadmap.md)).
 - Nada de esto se edita a mano: ni `version=` en `gradle.properties`, ni `.release-please-manifest.json`, ni
   `CHANGELOG.md`. El PR de release es el único que los toca.
 
