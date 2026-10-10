@@ -142,7 +142,9 @@ object AttentionReportRows {
             counted.sortedWith(
                 compareByDescending<Raised> { Values.text(it.attributes[Attention.RECEIVED_AT]).orEmpty() }.thenBy { it.id }
             )
-        val items = sorted.drop(page * size).take(size).map { item(it) }
+        // el desplazamiento en Long: page * size desborda Int con una página enorme; fuera de rango, la página sale vacía
+        val offset = minOf(page.toLong() * size, sorted.size.toLong()).toInt()
+        val items = sorted.drop(offset).take(size).map { item(it) }
         return linkedMapOf(
             "totals" to totals(AttentionCounting.totals(counted)),
             "byType" to byType,

@@ -103,5 +103,23 @@ class AttentionReportRowsTest {
             assertEquals(bad.first, e.violations.single().field)
             assertEquals("INVALID_FILTER", e.violations.single().message)
         }
+        val reversed =
+            assertThrows<RuleException> {
+                AttentionReportRows.parse(mapOf("periodStart" to listOf("2026-10-09"), "periodEnd" to listOf("2026-10-01")), catalog)
+            }
+        assertEquals("periodStart", reversed.violations.single().field)
+        assertEquals("INVALID_FILTER", reversed.violations.single().message)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `una pagina fuera de rango sale vacia sin desbordar el desplazamiento`() {
+        val read = mapOf("grievance" to listOf(raised("grievance", "q1", "received")), "inquiry" to emptyList<Raised>())
+        for (size in listOf(1, AttentionReportRows.MAX_SIZE)) {
+            val page = AttentionReportRows.report(read, false, Int.MAX_VALUE, size)["page"] as Map<String, Any?>
+            assertEquals(emptyList<Any>(), page["items"])
+            assertEquals(Int.MAX_VALUE, page["page"])
+            assertEquals(1, page["totalElements"])
+        }
     }
 }
