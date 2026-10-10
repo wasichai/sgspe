@@ -1053,7 +1053,7 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
 |---|---|---|---|
 | `stakeholder-register` | Registro de grupos de interés con su evaluación vigente | `stakeholder` | F2 |
 | `commitment-matrix` | Matriz de compromisos con los campos de DOC-01 §9.3.1.2 (RF-COM-001), sin el documento de identidad de los solicitantes, que nunca se exporta en ningún nivel (RQ-REP-022) | `commitment` | F3 |
-| `attention-register` | Quejas, consultas y solicitudes, con las confidenciales solo en INTERNO (ASM-101) | `grievance`, `inquiry` y `stakeholder_request` | F4 |
+| `attention-register` | Quejas, consultas y solicitudes; EXTERNO sin las confidenciales, aunque quien exporta las lea (ASM-101) | `grievance`, `inquiry` y `stakeholder_request` | F4 |
 | `risk-register` | Matriz de riesgos con sus revisiones, medidas e impactos (ASM-101) | `social_risk` | F4 |
 
 **`stakeholder-register` (F2).**
