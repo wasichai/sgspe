@@ -4,6 +4,7 @@ import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import sgspe.common.Attention
+import sgspe.common.ConfidentialRelease
 import sgspe.common.Permissions
 import sgspe.common.RequestMemo
 import wasichai.core.data.RecordCriterion
@@ -43,6 +44,15 @@ object ConfidentialCondition {
         }
         return terms.joinToString(" OR ")
     }
+
+    // la condición más los registros que libera una regla del sistema (ConfidentialRelease): los de `column` igual a `value`.
+    // sin la columna en la definición, la misma condición
+    fun released(
+        condition: String,
+        column: String?,
+        value: UUID,
+        bind: (Any) -> String
+    ): String = if (column == null) condition else "($condition) OR $column = ${bind(value)}"
 }
 
 // el RecordReadScope de las QCS confidenciales (WAS-ADR-0048, ASM-095, security.md §9.6): wasichai lo pide para cada persona o
@@ -78,8 +88,13 @@ class ConfidentialAttentionScope(
                 return NOTHING
             }
         if (readConfidential) return null
+        // la regla del sistema que cierra una solicitud confidencial (RequestClosureListener, decisión 4 del plan 4.2a)
+        val release = ConfidentialRelease.on(objectName)
+        val releasedColumn = release?.let { column(definition, it.field) }
         return RecordCriterion { _, bind ->
-            ConfidentialCondition.condition(objectName, columns, caller.userId, readConfidential = false, approve, bind) ?: ConfidentialCondition.NOTHING
+            val condition =
+                ConfidentialCondition.condition(objectName, columns, caller.userId, readConfidential = false, approve, bind) ?: ConfidentialCondition.NOTHING
+            if (release == null) condition else ConfidentialCondition.released(condition, releasedColumn, release.value, bind)
         }
     }
 

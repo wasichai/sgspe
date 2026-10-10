@@ -50,7 +50,9 @@ class CommandTransitionGuard : RuleGuard() {
                 "stakeholder_request" to
                     mapOf(
                         "close_reclassified_received" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify",
-                        "close_reclassified_under_evaluation" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify"
+                        "close_reclassified_under_evaluation" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify",
+                        "accept" to "POST /api/sgspe/stakeholder-requests/{id}/accept",
+                        "close_accepted" to "el cierre del compromiso creado (RequestClosureListener)"
                     )
             )
     }
