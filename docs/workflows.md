@@ -1047,7 +1047,8 @@ stateDiagram-v2
   (`GeneratorKeyGuard`): una persona que los fija, cambia o vacía, también con un `PUT` que los omite, recibe `403
   PLATFORM_ONLY` (`GENERATOR_KEY_PLATFORM_ONLY` en la clave), y reenviarlos tal como se leyeron pasa. Una alerta manual
   nace sin regla y SGSPE le pone `detected_at` con la hora de su alta (`WarningDetectedAt`, como quien la crea y con la
-  marca): así nadie silencia una regla de JOB-04 ni la libera de `HAS_DEPENDENTS` con una alerta propia.
+  marca): así nadie silencia una regla de JOB-04 ni la libera de `HAS_DEPENDENTS` con una alerta propia. La respuesta
+  del alta no trae esa hora y su `ETag` ya quedó superado: el portal relee la alerta antes de editarla (`api.md` §3.3).
 - **Decisión humana (RN-EWS-001):** `WarningWriteGuard` rechaza `confirm` y `dismiss` sin usuario (plataforma o automatización)
   o con una cuenta de servicio, aunque tenga el rol. `WorkflowService` ya exige un usuario; la guarda cierra el paso a las
   cuentas de servicio (RQ-SEC-014) [WAS-ADR-0043]. Como doble llave, la guarda exige además la acción declarada

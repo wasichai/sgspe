@@ -196,7 +196,10 @@ Lo que el portal consume de este plan, además de lo de 4.2a (contrato completo 
   (`early_warning.early_warning_rule`). `early_warning.generator_key` por la API: `403 GENERATOR_KEY_PLATFORM_ONLY`;
   `early_warning.early_warning_rule` y `detected_at`: `403 PLATFORM_ONLY` sobre el campo si una persona los fija,
   cambia o vacía, también con un `PUT` que los omite (decisión 21). El formulario de alertas no los ofrece y reenvía en
-  el `PUT` lo que leyó; una alerta manual nace sin regla y con la hora de su alta.
+  el `PUT` lo que leyó; una alerta manual nace sin regla y con la hora de su alta. La hora la pone un listener después
+  de que wasichai arma la respuesta: el `201` del alta manual no trae `detected_at` y su `ETag` (`updatedAt`) ya quedó
+  superado, así que el portal relee la alerta (`GET`) antes de mostrarla o de editarla; con el `ETag` del alta, el
+  `If-Match` de la edición siguiente recibe `412`.
 - Cadencia propia de un riesgo: `400 OUT_OF_RANGE` (`review_every_days`) si no es un entero de 1 a 365, al crear o al
   cambiarla por la API genérica; vacía vale `risk_review_days` del proyecto (decisión 16).
 - Avisos en la bandeja: `risk_escalated:<riesgo>:<nivel>:<fecha>` (fuente `sgspe.risks`, `ACTION`, enlace al riesgo);
