@@ -12,10 +12,11 @@ import wasichai.core.data.RecordWrite
 
 // la escritura acotada por asignación (security.md §9.2, RQ-SEC-006, CON-041): altas, cambios, bajas, transiciones y
 // vínculos de los objetos de un proyecto solo para quien tiene una project_assignment vigente a ese proyecto. desde 4.4 la
-// lectura la acota ProjectReadScope (§9.7) y esta guarda es la segunda línea: frena a quien lee todo sin estar asignado
-// (READ_ALL_PROJECTS) y el alta de raíces que la persona lee. exentos: ADMIN (isAdmin), la plataforma y las
-// automatizaciones (sin usuario), el alta de un project (aún sin equipo) y las asignaciones (forman el equipo). decide con
-// datos, nunca con nombres de rol (RQ-SEC-005)
+// lectura la acota ProjectReadScope (§9.7) y esta guarda es la segunda línea: leer un proyecto no basta para escribir en
+// él. el alcance de lectura ya rechaza el registro o el project que la persona no lee, pero deja pasar el alta o el cambio
+// que apunta a un proyecto que lee sin estar asignada (READ_ALL_PROJECTS); eso lo frena esta guarda. exentos: ADMIN
+// (isAdmin), la plataforma y las automatizaciones (sin usuario), el alta de un project (aún sin equipo) y las asignaciones
+// (forman el equipo). decide con datos, nunca con nombres de rol (RQ-SEC-005)
 @Component
 @Order(GuardOrder.SCOPE)
 class ProjectScopeGuard(
