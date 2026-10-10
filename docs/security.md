@@ -318,16 +318,18 @@ declaración quita sus concesiones [WAS-ADR-0042]. Este es el catálogo definiti
 | `APPROVE_OVER_CAP` | `commitment`, `social_contribution` | Aprobar aunque se supere el tope de apoyo social de la campaña cuando `policy_cap_blocks_approval` bloquea | `SupportPolicyGuard` hacia `approved` | `commitment`: `PROJECT_MANAGER`, en `approve_senior` de WF-D. `social_contribution`: `SOCIAL_MANAGER`, en `approve` de WF-P | RN-INV-003, GAP-006, ASM-067 |
 | `DOWNLOAD_RESTRICTED` | `evidence`, `deliverable` | Descargar evidencias CONFIDENCIAL o DATOS PERSONALES y bajar su clasificación; descargar borradores y versiones INTERNO de un entregable | `GET /api/sgspe/evidence/{id}/content`, el cambio de clasificación de `evidence` (`EvidenceWriteGuard`) y las descargas de `sgspe.deliverable` | `evidence`: quienes la escriben, salvo `PROJECT_ADMIN` y `FIELD_AGENT`. `deliverable`: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | RF-DOC-003, RQ-REP-014, ASM-071 |
 | `EDIT_ANY` | `engagement`, `engagement_participant`, `field_visit`, `field_observation`, `evidence` | Cambiar, transicionar, vincular o borrar un registro que creó otra persona. Agregar participantes u observaciones a una interacción o visita ajena no la exige | `EditAnyGuard` (`sgspe.scope`, §5.5) | Todo rol que escribe esos objetos, salvo `FIELD_AGENT` | RQ-SEC-008, ASM-069 |
+| `READ_CONFIDENTIAL` | `grievance`, `inquiry`, `stakeholder_request` | Leer toda QCS confidencial del objeto; quitarle la marca `confidential` o cambiar su responsable o quien la recibió; registrar una confidencial recibida por otra persona | `ConfidentialAttentionScope` (`sgspe.scope`, §9.6), `AttentionWriteGuard` y el filtro de destinatarios de `sgspe.notification` | `GRIEVANCE_MANAGER` | RQ-SEC-004, RQ-SEC-010, ASM-095, ASM-102 |
 
 Las mismas acciones, por objeto, para replicarlas en el modelo:
 
 | Objeto | Acciones declaradas |
 |---|---|
 | `project`, `area_of_influence`, `social_program` | `APPROVE` |
-| `stakeholder`, `inquiry`, `stakeholder_request`, `social_risk` | `EXPORT` |
+| `stakeholder`, `social_risk` | `EXPORT` |
+| `inquiry`, `stakeholder_request` | `EXPORT`, `READ_CONFIDENTIAL` |
 | `engagement`, `engagement_participant`, `field_visit`, `field_observation` | `EDIT_ANY` |
 | `commitment` | `APPROVE`, `VERIFY`, `EXPORT`, `APPROVE_OVER_CAP` |
-| `grievance` | `APPROVE`, `EXPORT` |
+| `grievance` | `APPROVE`, `EXPORT`, `READ_CONFIDENTIAL` |
 | `early_warning` | `CONFIRM_ALERT` |
 | `social_contribution` | `APPROVE`, `APPROVE_OVER_CAP` |
 | `evidence` | `DOWNLOAD_RESTRICTED`, `EDIT_ANY` |
@@ -713,9 +715,9 @@ Criterios con que se armó:
 
 | Objeto | PAD | PMG | SMG | CRO | SHM | CMM | GVM | SRM | SIM | GAN | FAG | APR | ANL | RDO |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `grievance` | — | R | RU `EXPORT` | CRU | R | R | CRU `EXPORT` | R | R | R | R | Ru `APPROVE` | R `EXPORT` | R |
-| `inquiry` | — | R | R `EXPORT` | CRU | R | R | CRU `EXPORT` | R | R | R | R | R | R `EXPORT` | R |
-| `stakeholder_request` | — | R | RU `EXPORT` | CRU | R | RU | CRU `EXPORT` | R | RU | R | R | R | R `EXPORT` | R |
+| `grievance` | — | R | RU `EXPORT` | CRU | R | R | CRU `EXPORT` `READ_CONFIDENTIAL` | R | R | R | R | Ru `APPROVE` | R `EXPORT` | R |
+| `inquiry` | — | R | R `EXPORT` | CRU | R | R | CRU `EXPORT` `READ_CONFIDENTIAL` | R | R | R | R | R | R `EXPORT` | R |
+| `stakeholder_request` | — | R | RU `EXPORT` | CRU | R | RU | CRU `EXPORT` `READ_CONFIDENTIAL` | R | RU | R | R | R | R `EXPORT` | R |
 | `social_risk` | — | R | RU `EXPORT` | R | R | R | R | CRU `EXPORT` | R | R | — | R | R `EXPORT` | R |
 | `risk_assessment` | — | R | R | R | R | R | R | CR | R | R | — | R | R | R |
 | `mitigation_measure` | — | R | R | R | R | R | R | CRUD | R | R | — | R | R | R |
@@ -730,7 +732,15 @@ Criterios con que se armó:
 - El UPDATE de `COMMITMENT_MANAGER` y `SOCIAL_MANAGER` sobre `stakeholder_request` es el que exigen la aceptación de
   solicitudes y `RequestClosureListener` al cerrar un compromiso (§8.1); `SOCIAL_INVESTMENT_MANAGER` lo usa desde F5 para
   aceptar solicitudes de aporte.
-- Las alertas las crea `WarningRulesJob` en `detected`; confirmarlas o descartarlas es siempre humano (RN-EWS-001).
+- Las alertas las crean una persona o `WarningRulesJob` (JOB-04) en `detected`; confirmarlas o descartarlas es siempre
+  humano (RN-EWS-001).
+- CREATE sobre las QCS es solo de `COMMUNITY_RELATIONS_OFFICER` y `GRIEVANCE_MANAGER`: solo el equipo social registra
+  QCS, sin canal público (ASM-104, UPS-25).
+- `READ_CONFIDENTIAL` sobre las tres QCS es solo de `GRIEVANCE_MANAGER` (ASM-095): con ella lee toda QCS confidencial.
+  Los demás roles con READ ven una confidencial solo si son su responsable o quien la recibió, y `APPROVER`, por su
+  `APPROVE` sobre `grievance`, también una queja ALTA o CRITICA (§9.6).
+- Nadie tiene D sobre las raíces de F4. `SOCIAL_RISK_MANAGER` borra medidas, impactos y reglas; una regla con alertas no
+  se borra (`409 HAS_DEPENDENTS`) y se desactiva con `enabled` en falso.
 
 ### 7.7 BC-10 Inversión social y programas (F5; lineamientos y tope desde F3)
 
@@ -1011,6 +1021,57 @@ Diseño propuesto para la extensión upstream (UPS-01), tomado del diseño de la
 - A no hace depender F2 de una extensión upstream cuyo plazo no controla SGSPE (GAP-028). Si UPS-01 llega antes, se adopta
   B sin quitar la guarda.
 
+### 9.6 QCS confidenciales: `RecordReadScope` (F4)
+
+wasichai 0.6.0 trae el SPI `RecordReadScope` (WAS-ADR-0048): para cada usuario y objeto, la app devuelve un criterio que
+la plataforma aplica en listas, detalle, relacionados, historial, auditoría, transiciones, features GIS y agente, y que
+no se aplica al `ADMIN` ni a la plataforma. F4 lo adopta **solo** para las QCS confidenciales (ASM-095, decisión del
+usuario del 2026-10-09); el alcance por proyecto sigue en la opción A de CON-041 (§9.2) hasta que el checkpoint decida
+UPS-01, que este mismo SPI resolvería del lado de SGSPE. La decisión, sus alternativas y sus consecuencias están en
+[ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md).
+
+| Quien llama | Ve una QCS confidencial (`grievance`, `inquiry`, `stakeholder_request`) |
+|---|---|
+| `ADMIN` (también `SUPER_ADMIN` y `ORGANIZATION_ADMIN`) | Siempre: wasichai no aplica los `RecordReadScope` al `ADMIN` |
+| Con `READ_CONFIDENTIAL` sobre el objeto (`GRIEVANCE_MANAGER`) | Siempre |
+| Su responsable (`owner_user_id` igual a quien llama) | Siempre |
+| Quien la recibió (`received_by_user_id` igual a quien llama) | Siempre |
+| Con `APPROVE` sobre `grievance` (`APPROVER`) | Solo una queja con `severity` ALTA o CRITICA, que debe resolver (RN-GRV-002) |
+| Cualquier otro rol con READ | Nunca |
+
+Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hasta F3.
+
+- **Componente.** `ConfidentialAttentionScope` (`sgspe.scope`) implementa `RecordReadScope.criterion(user, definition)`:
+  para un objeto que no es una de las tres QCS, o con `READ_CONFIDENTIAL` sobre el objeto, no restringe; si no, devuelve
+  `confidential IS NOT TRUE OR owner_user_id = <quien llama> OR received_by_user_id = <quien llama>` y, en `grievance`
+  con `APPROVE`, además `OR severity IN ('ALTA', 'CRITICA')`, con los nombres de columna de la definición y valores
+  enlazados, nunca concatenados. Las acciones de quien llama salen de la misma consulta de permisos de
+  `sgspe.common.Permissions`, memorizada por petición (`RequestMemo`).
+- **Falla cerrado.** Si la definición no trae `confidential`, `owner_user_id` o `received_by_user_id`, o si la consulta
+  de permisos falla, devuelve una condición que no admite ningún registro del objeto y deja una advertencia en el log
+  sin datos del registro.
+- **Escrituras.** Quien no lee una QCS no la cambia ni la transiciona: wasichai la trata como inexistente.
+  `AttentionWriteGuard` cubre la marca y el responsable: el alta de una confidencial lleva `received_by_user_id` igual a
+  quien escribe, salvo con `READ_CONFIDENTIAL` (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y quitar la marca o cambiar
+  `owner_user_id` o `received_by_user_id` de una confidencial exige esa acción (`403 ACTION_REQUIRED`). Así quien
+  registra siempre la ve, no la pierde al guardarla y los listeners, que escriben como esa persona, la pueden
+  actualizar.
+- **Excepción: `ConfidentialRelease`.** `RequestClosureListener` cierra la solicitud aceptada como quien cierra el
+  compromiso, dentro de `ConfidentialRelease` (`sgspe.common`): mientras dura el bloque, `ConfidentialAttentionScope`
+  admite además las solicitudes cuyo `created_commitment` es ese compromiso, y solo ellas. La auditoría lleva el origen
+  `listener:request-closure`; `ArchitectureTest` vigila que solo ese listener lo use (ADR-0028).
+- **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
+  apuntar a una QCS que quien lee no ve: el id es visible y el registro no, y el portal muestra «Registro reservado».
+  Los títulos de las tareas automáticas solo llevan el código de la QCS. Una evidencia vinculada a una QCS confidencial
+  debe ser CONFIDENCIAL o DATOS PERSONALES (`409 EVIDENCE_NOT_RESTRICTED`).
+- **Trabajos.** JOB-01, JOB-02, JOB-04 y `DeadlineNotices` leen como la plataforma, sin el alcance: lo que producen se
+  filtra en la salida (avisos, ASM-102) o es agregado (conteos de JOB-04).
+- **Indicadores, reporte y exportaciones.** Leen como quien llama y excluyen lo que no ve. El tablero `attention`, cada
+  KPI-GRV, KPI-ENG-05 y el reporte unificado llevan `confidentialHidden: true` cuando quien llama no es `ADMIN` ni tiene
+  `READ_CONFIDENTIAL` sobre los tres objetos; nunca el número de excluidas. EXTERNO excluye toda QCS confidencial,
+  también para `GRIEVANCE_MANAGER` (§11.4).
+- **Capa LYR-20.** Lee como quien llama: hereda el alcance (`gis.md` §2.2).
+
 ## 10. GeoServer
 
 ### 10.1 Por qué es un riesgo
@@ -1090,13 +1151,13 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   (`represented_people_count`) (RF-ENG-004).
 - Las citas y las preguntas se atribuyen por cargo (`attributed_role`, `raised_by_role`), nunca por nombre (RF-LBS-007).
 - Una QCS anónima no lleva `person` ni `stakeholder`, y `AttentionWriteGuard` lo exige (RF-GRV-001).
-- **Riesgo residual del MVP:** la protección de quien plantea una QCS confidencial es parcial:
-  - su `person` está restringida (§7.9), pero el vínculo `stakeholder` no lo está, y de él puede inferirse la persona
-    cuando el grupo de interés la representa;
-  - `confidential` es un dato que no restringe la lectura, porque la plataforma no restringe por registro (GAP-024);
-  - con la opción A, todos los roles operativos menos `PROJECT_ADMIN`, `FIELD_AGENT` incluido, leen todas las QCS (§9.2);
-  - el checkpoint puede restringir el vínculo `stakeholder` de las QCS a los roles que leen su `person`, a costa de que
-    los demás no vean las QCS de cada grupo de interés (§15).
+- **QCS confidenciales (ASM-095).** Una QCS con `confidential` verdadero la leen solo `ADMIN`, `GRIEVANCE_MANAGER`
+  (`READ_CONFIDENTIAL`), su responsable, quien la recibió y, si es una queja ALTA o CRITICA, `APPROVER`; el alcance rige
+  en todas las rutas de lectura de wasichai (§9.6). Su `person` está además restringida (§7.9).
+- **Riesgo residual del MVP:** en una QCS **no** confidencial, el vínculo `stakeholder` no está restringido, y de él
+  puede inferirse la persona cuando el grupo de interés la representa; con la opción A, todos los roles operativos menos
+  `PROJECT_ADMIN`, `FIELD_AGENT` incluido, leen todas las QCS no confidenciales (§9.2). Quien teme esa exposición pide
+  que su QCS se registre como confidencial o anónima.
 - El mapa nunca inventa coordenadas de personas (RQ-GIS-015).
 - El DNI y los teléfonos nunca aparecen en un entregable (RQ-REP-014).
 - Las URL de medios se guardan como dato y el servidor nunca las descarga (ASM-050).
@@ -1123,6 +1184,14 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - el código `GI-` de EXTERNO es un **seudónimo**, no anonimato: son los 12 primeros dígitos hexadecimales del id del
     grupo de interés, el mismo en todas las salidas, así que la organización lo revierte con su registro y quien reciba
     varias salidas EXTERNO puede enlazarlas. Sigue siendo dato personal para quien responde por el registro (§11.1).
+- **QCS y riesgos (F4, ASM-101).** `attention-register` exige READ y `EXPORT` sobre las tres QCS, y `risk-register`,
+  sobre `social_risk`. INTERNO incluye las QCS confidenciales que quien exporta lee. EXTERNO excluye toda QCS
+  confidencial, también para `GRIEVANCE_MANAGER`, y todo texto libre: en las QCS `description`, `response`, `resolution`
+  y `requested_resource`; en los riesgos `risk_source`, `treatment_rationale`, `current_controls`, `monitoring_sources`
+  y `close_reason`; en las revisiones `notes`; en medidas e impactos `description`. Tampoco lleva la persona, quien
+  recibió, el responsable ni correos, y cita los grupos de interés por código `GI-`. PUBLICO cuenta sobre la grilla
+  completa con `SmallCells`, y la hoja «Notas» de `attention-register` dice si el conteo incluye las confidenciales
+  (`deliverables.md` §10).
 - **Entregables:** se generan como la plataforma (domain-model §8.3), así que su contenido lo define su tipo y no los
   permisos de campo de quien lo pide. Por eso:
   - `GENERATE`, `APPROVE`, `ISSUE` y `DOWNLOAD_RESTRICTED` sobre `deliverable` se conceden solo a los roles que leen los
@@ -1140,11 +1209,15 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
 - **Documentos emitidos** de wasichai-documents (RQ-REP-029): no se filtran por permisos de campo, porque quien ve el
   documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Además, la copia congelada lleva **todos** los campos del
   registro y todas las columnas de cada tabla relacionada que nombra la plantilla, aunque no los imprima, y
-  `GET /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto (código de wasichai-documents 0.6.0, UPS-23).
+  `GET /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto (código de wasichai-documents 0.6.0,
+  UPS-23).
   Regla: un tipo de documento solo se declara sobre un objeto sin campos restringidos y sin tablas relacionadas de
   objetos con campos restringidos; `test_model.py` lo comprueba. Por eso, hasta UPS-23, el acta de entrega (`delivery`
   restringe `recipients` y `conformity_by`) no es un documento emitido, y la lista de asistentes imprime el total y deja
-  filas en blanco para los nombres y las firmas en lugar de la tabla de `engagement_participant`.
+  filas en blanco para los nombres y las firmas en lugar de la tabla de `engagement_participant`. Por la misma regla, el
+  «Cargo de queja» y las «Carta de respuesta» de consultas y solicitudes esperan a UPS-23, porque las tres QCS
+  restringen `person`: el cargo y la carta se entregan en papel y, firmados, se suben como evidencia FORMULARIO o CARTA
+  vinculada a la QCS, con clasificación DATOS PERSONALES por defecto (ASM-098).
 - **Quién emite a mano:** wasichai-documents 0.6.0 emite con `POST /api/objects/{objeto}/records/{id}/documents/{tipo}`
   y solo pide READ sobre el objeto, y **cada emisión archiva el documento vigente anterior del mismo tipo**, incluida la
   minuta que AUT-05 congeló al aprobarse el acta. Emitir es, por eso, editar ese registro, y SGSPE pide lo mismo que
@@ -1316,6 +1389,9 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | `ObservabilityApiTest` | El identificador de correlación también en un 401 | Integración | F1 | RQ-AUD-006 |
 | `ArchitectureTest` y `boundaries.test` | Sin literales de rol, sin código bajo `wasichai` ni APIs internas, en el backend y en la UI | Unitaria | F1 | RQ-SEC-005, RNF-MNT-005 |
 | Cuentas de servicio | No confirman ni descartan alertas, se rechazan en la administración y quedan auditadas con `serviceAccount` | Integración | F4 | RQ-SEC-014, RN-EWS-001 |
+| `ConfidentialAttentionScopeTest` | La condición de `ConfidentialAttentionScope` por caso (con `READ_CONFIDENTIAL`, responsable, quien la recibió, `APPROVE` en una queja grave, otro rol), con valores enlazados, y que falla cerrado sin las columnas o sin la consulta de permisos | Unitaria | F4 | RQ-SEC-010, ASM-095 |
+| `ConfidentialReleaseTest` | Dentro de `ConfidentialRelease`, `ConfidentialAttentionScope` admite además las solicitudes cuyo `created_commitment` es el compromiso que se cierra, y solo ellas; fuera del bloque, nada cambia; `ArchitectureTest` vigila que solo `RequestClosureListener` lo use | Unitaria | F4 | RF-GRV-001, RN-GRV-001, RQ-SEC-004 |
+| `ConfidentialAttentionApiTest` | Un relacionista que no es responsable ni la recibió no ve una QCS confidencial en lista, detalle, historial, relacionados ni transiciones; el responsable, quien la recibió, el gestor de quejas y el `ADMIN` sí; el aprobador solo la grave; el tablero la excluye con `confidentialHidden`; EXTERNO la excluye también para el gestor; un aviso con datos no llega a quien no la ve y el aviso genérico del nivel 2 no lleva código, título ni enlace; quitar la marca sin la acción responde `403` | Integración | F4 | RQ-SEC-010, RQ-SEC-004, ASM-095, ASM-102 |
 | Proxy WMS | Sin token responde 401; una capa de otro tenant, fuera de la lista o de un objeto que el usuario no lee se rechaza; el `GetCapabilities` propio lista solo las capas de la lista blanca del tenant; `GetFeatureInfo`, `SLD` y `SLD_BODY` se rechazan | Integración | F6 | RQ-SEC-011 |
 | Salidas | Una exportación y un entregable EXTERNO generados con fixtures no contienen nombres ni fotos sin consentimiento; ninguna exportación, de ningún nivel, contiene el documento de identidad; cada exportación deja un `export_log` | Integración | F2–F8 | RQ-REP-014, RQ-AUD-011, RF-COM-001 |
 | Descargas | Un borrador siempre lleva la marca BORRADOR y antes de emitir no hay descarga sin ella; borradores y versiones INTERNO exigen `DOWNLOAD_RESTRICTED`, y las EXTERNO y PUBLICO, `EXPORT`; toda descarga de un archivo de entregable, de cualquier nivel, deja un `export_log`; los borradores y las versiones EXTERNO y PUBLICO se sirven solo en PDF y el modelo congelado nunca se sirve; una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` para descargarla, también a quien la subió y también por la ruta nativa de wasichai-files (`EvidenceApiTest`), y para bajar su clasificación | Integración | F3, F8 | RF-DOC-003, RQ-REP-021, RQ-AUD-011, ASM-071 |
@@ -1334,7 +1410,7 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Alcance por proyecto | CON-041, GAP-025, UPS-01 | Decisión pendiente (checkpoint) entre la opción A y la opción B | Recomendación A: A en el MVP con un solo cliente; B antes de la producción con varios proyectos (§9.5) |
 | Datos sensibles | GAP-024 | Quién ve postura, religión y proceso electoral, `AUDITOR` incluido | `SOCIAL_MANAGER` y `STAKEHOLDER_MANAGER` (§7.9); son también los únicos que evalúan grupos de interés (§8.2) y que preparan, aprueban, emiten y descargan entregables INTERNO (§11.4) |
 | Canal de contratistas | GAP-020, ASM-043 | Cuenta de servicio, con un rol declarado propio fuera de los 17 del prompt, o reporte por el equipo social | Por el equipo social (§3.3) |
-| Protección de quien plantea una QCS | GAP-005, GAP-024 | ¿Se restringe el vínculo `stakeholder` de las QCS a los roles que leen su `person`? | Sin restringir: riesgo residual del MVP (§11.3) |
+| Protección de quien plantea una QCS | GAP-005, GAP-024, ASM-095 | ¿Se restringe el vínculo `stakeholder` de las QCS a los roles que leen su `person`? | Decidido el 2026-10-09: una QCS confidencial solo la leen quienes fija §9.6 (`RecordReadScope`, ADR-0028); el vínculo `stakeholder` de una QCS no confidencial sigue sin restringir (§11.3) |
 | Normativa | GAP-001 | Qué obligaciones de la Ley 29733 se modelan | Ninguna se presenta como obligación legal (§11.1) |
 | Retención y consentimiento | GAP-014 | Plazos y forma del consentimiento | Consentimiento por foto y por medio de contacto (§11.6) |
 | Proveedor de IA | GAP-015 | Proveedor y residencia de datos | IA desactivada (§11.5) |
@@ -1342,5 +1418,5 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Autoridad sobre montos | GAP-006 | Quién aprueba según el monto y quién supera el tope de la campaña | Un nivel de aprobación más `APPROVE_OVER_CAP`: `PROJECT_MANAGER` en los compromisos y `SOCIAL_MANAGER` en los aportes (§5.3) |
 | TTL de producción | RQ-SEC-001 | Duración del token | `PT4H`, fijado por `application-prod.yml` como tope provisional de F1; el despliegue puede cambiarlo, siempre por debajo de 8 horas (§3.2) |
 | Transporte del token | CON-056 | Cookie HttpOnly u OIDC | Propuestas a futuro, fuera del MVP (§3.4) |
-| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14, UPS-23, UPS-24 | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
+| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14, UPS-23, UPS-24; UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
 | Nombre del archivo de una evidencia restringida | UPS-24, ASM-093 | ¿Se acepta que su nombre lo lean todos los lectores de `evidence` hasta UPS-24, o se renombra en el servidor y se pierde el original? | Aceptado: el portal sube con un nombre neutro (§11.6) |
