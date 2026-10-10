@@ -52,6 +52,18 @@ object NoticeTexts {
             "Compromiso vencido, escalamiento $level: $label" to "Venció el ${due.format(DATE)} y sigue abierto: revise con su responsable."
         }
 
+    // F4: un riesgo con la revisión vencida (DeadlineNotices, ASM-099). `label` es «Riesgo <código>»
+    fun riskReviewOverdue(
+        label: String,
+        due: LocalDate,
+        level: Int
+    ): Pair<String, String> =
+        if (level == 0) {
+            "Revisión de riesgo vencida: $label" to "La revisión debía hacerse el ${due.format(DATE)}."
+        } else {
+            "Revisión de riesgo vencida, escalamiento $level: $label" to "La revisión debía hacerse el ${due.format(DATE)} y sigue pendiente."
+        }
+
     // F4: el plazo de una QCS (ASM-100, ASM-102). `label` es «Queja <código>» o «Consulta <código>»: el tipo y el código, nunca
     // la descripción, la persona ni otro texto libre
     fun qcsDueSoon(

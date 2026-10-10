@@ -12,6 +12,8 @@ import sgspe.common.Values
 import sgspe.notification.ConfidentialReaders
 import sgspe.notification.NoticeTexts
 import sgspe.notification.Notices
+import sgspe.risk.RiskReview
+import sgspe.risk.Risks
 import sgspe.scope.Assignment
 import sgspe.scope.Assignments
 import wasichai.core.common.NotFoundException
@@ -52,7 +54,7 @@ data class PlannedNotice(
 // 1; los de approve_senior de WF-D en el nivel 2. cada nivel alcanzado sigue abierto mientras dure el atraso
 object DeadlineNoticePlan {
     // la transición de referencia del nivel 1 de una tarea, por su registro vinculado (workflows.md); F4 suma las QCS (verify
-    // de WF-E1, como el nivel 1 de sus plazos) y el plan 4.2b, los riesgos
+    // de WF-E1, como el nivel 1 de sus plazos), los riesgos (decide_mitigation de WF-F) y las alertas (confirm de WF-J)
     val TASK_REFERENCE =
         linkedMapOf(
             Commitments.COMMITMENT to (Commitments.COMMITMENT to "verify"),
@@ -61,7 +63,9 @@ object DeadlineNoticePlan {
             "stakeholder" to ("stakeholder" to "assess"),
             Attention.GRIEVANCE to (Attention.GRIEVANCE to "verify"),
             Attention.INQUIRY to (Attention.GRIEVANCE to "verify"),
-            Attention.REQUEST to (Attention.GRIEVANCE to "verify")
+            Attention.REQUEST to (Attention.GRIEVANCE to "verify"),
+            Risks.SOCIAL_RISK to (Risks.SOCIAL_RISK to "decide_mitigation"),
+            "early_warning" to ("early_warning" to "confirm")
         )
 
     // la transición que sigue en cada estado con plazo de una QCS: sus roles reciben el nivel 0 de una QCS sin responsable
@@ -118,6 +122,27 @@ object DeadlineNoticePlan {
     }
 
     val SENIOR = NoticeAudience.Roles(Commitments.COMMITMENT, "approve_senior")
+
+    // un riesgo con la revisión vencida (workflows.md «Avisos», ASM-099): risk_escalated:<id>:<nivel>:<next_review_date>, el
+    // nivel 0 al responsable, el 1 a los roles de la transición de tratamiento que sigue en su estado y el 2 a los de
+    // approve_senior de WF-D, porque WF-F no tiene aprobación superior. no hay aviso por revisar: ya está la tarea de revisión
+    fun risk(
+        id: String,
+        label: String,
+        state: String?,
+        due: LocalDate,
+        level: Int,
+        owner: UUID?
+    ): List<PlannedNotice> =
+        (0..level).mapNotNull { reached ->
+            val audience =
+                when (reached) {
+                    0 -> owner?.let { NoticeAudience.Person(it) }
+                    1 -> Risks.NEXT_TREATMENT[state]?.let { NoticeAudience.Roles(Risks.SOCIAL_RISK, it) }
+                    else -> SENIOR
+                } ?: return@mapNotNull null
+            PlannedNotice("risk_escalated:$id:$reached:$due", NotificationKind.ACTION, NoticeTexts.riskReviewOverdue(label, due, reached), audience, reached)
+        }
 
     fun commitment(
         id: String,
@@ -185,7 +210,8 @@ object DeadlineNoticePlan {
 // vigentes del proyecto del registro con ese role_name (ASM-070); sin coincidencias no hay aviso (workflows.md). desde F4 suma
 // las quejas y las consultas (qcs_deadline) en las organizaciones que las tienen; el aviso de una QCS confidencial, y el de una
 // tarea vinculada a ella, solo va a quien la vería (ConfidentialReaders, ASM-102), y en el nivel 2 los roles de approve_senior
-// que no la ven reciben qcs_confidential_overdue, sin datos del registro ni enlace
+// que no la ven reciben qcs_confidential_overdue, sin datos del registro ni enlace. y la revisión vencida de los riesgos
+// (risk_escalated por niveles, ASM-099), con la situación que escribe JOB-01 y su fecha recalculada
 @Component
 class DeadlineNotices(
     private val records: Records,
@@ -211,6 +237,7 @@ class DeadlineNotices(
             }
         val tasks = records.all(TASK, criteria = listOf(Criteria.inState(Deadlines.TASK_OPEN)))
         val qcs = Deadlines.TRACKED.filter { it.objectName in Attention.OBJECTS }.associateWith { tracked -> qcsRows(tracked) }
+        val risks = overdueRisks(today)
         val projects = mutableMapOf<String, Map<String, Any?>>()
         val recipients = mutableMapOf<Triple<UUID, String, String>, List<UUID>>()
         val teams = mutableMapOf<UUID, List<Assignment>>()
@@ -299,6 +326,20 @@ class DeadlineNotices(
                 add(row, tracked.objectName, plan, due, confidential)
             }
         }
+        for (row in risks) {
+            val due = Values.text(row.attributes[Risks.NEXT_REVIEW])?.let(LocalDate::parse) ?: continue
+            val params = params(Values.text(row.attributes["project"]) ?: continue)
+            val plan =
+                DeadlineNoticePlan.risk(
+                    row.id,
+                    "Riesgo ${Values.text(row.attributes["code"]) ?: row.id}",
+                    row.state,
+                    due,
+                    level(due, today, params),
+                    Records.uuid(row.attributes[Risks.OWNER])
+                )
+            add(row, Risks.SOCIAL_RISK, plan, due)
+        }
         // las QCS confidenciales a las que apunta una tarea: su aviso de vencida también se filtra (ASM-102)
         val linkedQcs = linkedConfidential(tasks)
         for (row in tasks) {
@@ -327,6 +368,16 @@ class DeadlineNotices(
             records
                 .all(tracked.objectName, criteria = listOf(Criteria.inState(tracked.states)))
                 .filter { Values.text(it.attributes[tracked.field]) in setOf(Deadlines.DUE_SOON, Deadlines.OVERDUE) }
+        } catch (_: NotFoundException) {
+            emptyList()
+        }
+
+    // los riesgos con la revisión vencida que escribió JOB-01 y que lo siguen hoy; vacío si la organización no tiene el modelo de F4
+    private suspend fun overdueRisks(today: LocalDate): List<RecordResponse> =
+        try {
+            records
+                .all(Risks.SOCIAL_RISK, filters = mapOf(Risks.REVIEW_STATUS to RiskReview.OVERDUE), criteria = listOf(Criteria.inState(Risks.REVIEWED)))
+                .filter { RiskReview.status(Values.text(it.attributes[Risks.NEXT_REVIEW])?.let(LocalDate::parse), today) == RiskReview.OVERDUE }
         } catch (_: NotFoundException) {
             emptyList()
         }
