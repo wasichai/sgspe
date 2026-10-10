@@ -11,25 +11,34 @@ import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.RuleGuard
 import sgspe.common.Values
+import sgspe.common.WriteView
+import sgspe.common.isLink
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 
 // las reglas de WF-A (workflows.md, RF-PRJ-003): llegar a `active` (approve, y resume desde suspended) exige el CRS de
 // trabajo y al menos una project_party CLIENTE u OPERADOR, salvo que policy_activation_preconditions esté en falso
-// (ASM-062); approve exige además la acción declarada APPROVE sobre project, la doble llave de RF-WFL-002
+// (ASM-062); approve exige además la acción declarada APPROVE sobre project, la doble llave de RF-WFL-002. desde F4, el alta
+// y el cambio de un proyecto rechazan los plazos, la cadencia y los umbrales de riesgo fuera de rango (ProjectParameters)
 @Component
 @Order(GuardOrder.DOMAIN)
 class ProjectWriteGuard(
     private val records: Records,
     private val callers: Callers,
-    private val permissions: Permissions
+    private val permissions: Permissions,
+    private val view: WriteView
 ) : RuleGuard() {
     override suspend fun findings(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
-        if (change.objectName != "project" || change.kind != RecordChangeKind.TRANSITIONED) return emptyList()
+        if (change.objectName != "project") return emptyList()
+        if ((change.kind == RecordChangeKind.CREATED || change.kind == RecordChangeKind.UPDATED) && !change.isLink()) {
+            val after = view.after(change)
+            return ProjectParameters.outOfRange(after, view.changed(change, after))
+        }
+        if (change.kind != RecordChangeKind.TRANSITIONED) return emptyList()
         val transition = change.transition ?: return emptyList()
         if (transition !in TO_ACTIVE) return emptyList()
         val findings = mutableListOf<Finding>()
