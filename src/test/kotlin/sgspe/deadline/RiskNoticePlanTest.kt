@@ -35,17 +35,19 @@ class RiskNoticePlanTest {
     }
 
     @Test
-    fun `una tarea de una alerta escala a confirm, y una de un riesgo ya no tiene transicion de referencia`() {
+    fun `una tarea de un riesgo o de una alerta escala a su transicion de revision`() {
         val catalog = ModelCatalog.fromClasspath()
-        val (objectName, transition) = DeadlineNoticePlan.TASK_REFERENCE.getValue("early_warning")
-        assertEquals("early_warning", objectName)
-        assertEquals(true, catalog.transition(objectName, transition) != null, transition)
-        // la revisión vencida de un riesgo avisa solo por risk_escalated (ronda branchfix de 4.2b, R-I1)
-        assertFalse("social_risk" in DeadlineNoticePlan.TASK_REFERENCE)
+        for (linked in listOf("social_risk", "early_warning")) {
+            val (objectName, transition) = DeadlineNoticePlan.TASK_REFERENCE.getValue(linked)
+            assertEquals(linked, objectName)
+            assertEquals(true, catalog.transition(objectName, transition) != null, transition)
+        }
     }
 
     @Test
     fun `la tarea de revision de un riesgo no entra en la cadena de tarea vencida`() {
+        // su atraso avisa solo por risk_escalated (ronda branchfix de 4.2b, R-I1); las demás tareas vinculadas a un riesgo
+        // siguen escalando a decide_mitigation en el nivel 1
         assertFalse(DeadlineNoticePlan.escalatesAsTask(DeadlineJob.reviewKey("r1", "2026-10-14")))
         assertTrue(DeadlineNoticePlan.escalatesAsTask(null))
         assertTrue(DeadlineNoticePlan.escalatesAsTask(DeadlineJob.escalationKey("commitment", "c1", LocalDate.parse("2026-10-14"), 1)))

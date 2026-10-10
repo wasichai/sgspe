@@ -7,8 +7,8 @@ import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 
 // un campo que solo escribe la plataforma (un trabajo, sin usuario), con el código del 403 que recibe una persona que lo fija,
-// cambia o vacía. `marked`: el código de sgspe con la marca SgspeWrite también lo escribe (un endpoint o un listener como
-// quien llama)
+// cambia o vacía. `marked`: el código de sgspe con la marca SgspeWrite también lo fija cuando falta (un listener como quien
+// llama), pero no lo cambia ni lo vacía
 class PlatformField(
     val code: String,
     val marked: Boolean = false
@@ -39,17 +39,19 @@ object PlatformOnlyFields {
         )
 
     // `changed`, los campos que la escritura cambia (WriteView.changed: reenviar un valor tal como se leyó no es cambiarlo);
-    // `person`, si la escribe una persona (la plataforma no tiene usuario); `marked`, si lleva la marca de sgspe
+    // `person`, si la escribe una persona (la plataforma no tiene usuario); `marked`, si lleva la marca de sgspe; `before`, lo
+    // guardado (vacío en un alta): la marca solo fija un campo que estaba vacío
     fun findings(
         objectName: String,
         changed: Set<String>,
         person: Boolean,
-        marked: Boolean
+        marked: Boolean,
+        before: Map<String, Any?> = emptyMap()
     ): List<Finding> {
         if (!person) return emptyList()
         return FIELDS[objectName]
             .orEmpty()
-            .filter { (name, field) -> name in changed && !(marked && field.marked) }
+            .filter { (name, field) -> name in changed && !(marked && field.marked && Values.text(before[name]) == null) }
             .map { (name, field) ->
                 Finding(
                     code = field.code,
@@ -76,7 +78,7 @@ class GeneratorKeyGuard(
         if (change.objectName !in OBJECTS || change.isLink()) return emptyList()
         if (change.kind != RecordChangeKind.CREATED && change.kind != RecordChangeKind.UPDATED) return emptyList()
         if (change.userId == null) return emptyList()
-        return PlatformOnlyFields.findings(change.objectName, view.changed(change), person = true, marked = WriteMark.present())
+        return PlatformOnlyFields.findings(change.objectName, view.changed(change), true, WriteMark.present(), change.before.orEmpty())
     }
 
     companion object {

@@ -14,8 +14,9 @@ class PlatformOnlyFieldsTest {
         objectName: String,
         changed: Set<String>,
         person: Boolean = true,
-        marked: Boolean = false
-    ) = PlatformOnlyFields.findings(objectName, changed, person, marked)
+        marked: Boolean = false,
+        before: Map<String, Any?> = emptyMap()
+    ) = PlatformOnlyFields.findings(objectName, changed, person, marked, before)
 
     @Test
     fun `generator_key sigue con su codigo en las tareas y en las alertas`() {
@@ -39,6 +40,9 @@ class PlatformOnlyFieldsTest {
     fun `la plataforma los escribe y la marca solo la hora del alta manual`() {
         assertTrue(findings("early_warning", setOf("generator_key", "early_warning_rule", "detected_at"), person = false).isEmpty())
         assertTrue(findings("early_warning", setOf("detected_at"), marked = true).isEmpty())
+        // la marca solo fija la hora que falta: cambiarla o vaciarla sigue siendo de la plataforma (ronda 1 de branchfix)
+        val dated = mapOf<String, Any?>("detected_at" to "2026-10-07T15:00:00Z")
+        assertEquals(listOf("detected_at"), findings("early_warning", setOf("detected_at"), marked = true, before = dated).map { it.field })
         assertEquals(listOf("early_warning_rule"), findings("early_warning", setOf("early_warning_rule"), marked = true).map { it.field })
         assertEquals(listOf("generator_key"), findings("task", setOf("generator_key"), marked = true).map { it.field })
     }
