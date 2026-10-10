@@ -28,7 +28,7 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
                 "creates" to "commitment",
                 "response" to "Se atenderá con un compromiso de materiales.",
                 "respondedAt" to "2026-10-08T15:00:00Z",
-                "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego")
+                "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego") + AMOUNT
             ),
         account: Account = manager
     ): Response =
@@ -102,7 +102,7 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         assertEquals(HttpStatus.BAD_REQUEST, contribution.status, contribution.body)
         assertEquals("INVALID_TARGET", code(contribution))
         assertEquals(listOf("creates"), problemFields(contribution.body))
-        val silent = accept(id, mapOf("creates" to "commitment", "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Sin respuesta")))
+        val silent = accept(id, mapOf("creates" to "commitment", "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Sin respuesta") + AMOUNT))
         assertEquals(HttpStatus.BAD_REQUEST, silent.status, silent.body)
         assertEquals("FIELD_REQUIRED", code(silent))
         assertEquals("under_evaluation", state("stakeholder_request", id))
@@ -165,5 +165,10 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         val response = transition("stakeholder_request", id, "decline", grievances.token, "no procede")
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
         assertEquals(listOf("response"), problemFields(response.body))
+    }
+
+    companion object {
+        // el monto y la moneda que model.json exige a todo compromiso (como F3ApiTest)
+        private val AMOUNT = mapOf("amount" to 15000, "currency" to "PEN")
     }
 }

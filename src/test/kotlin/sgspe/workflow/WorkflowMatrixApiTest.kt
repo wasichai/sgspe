@@ -247,7 +247,13 @@ class WorkflowMatrixApiTest : F4ApiTest() {
                 "creates" to "commitment",
                 "response" to "Se atenderá con un compromiso.",
                 "respondedAt" to "2026-10-08T15:00:00Z",
-                "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego")
+                "attributes" to
+                    mapOf(
+                        "code" to uniqueName("COM-"),
+                        "title" to "Materiales para el canal de riego",
+                        "amount" to 15000,
+                        "currency" to "PEN"
+                    )
             ),
             who.token,
             ifMatch("stakeholder_request", id, who.token) + withReason(TEXT)
@@ -482,7 +488,8 @@ class WorkflowMatrixApiTest : F4ApiTest() {
                 "task" to listOf("COMMUNITY_RELATIONS_OFFICER"),
                 "grievance" to listOf("GRIEVANCE_MANAGER"),
                 "inquiry" to listOf("GRIEVANCE_MANAGER"),
-                "stakeholder_request" to listOf("GRIEVANCE_MANAGER"),
+                // accept de WF-E3 no es de GRIEVANCE_MANAGER: lo da SOCIAL_MANAGER, para llegar a `accepted` (close_unfulfilled)
+                "stakeholder_request" to listOf("GRIEVANCE_MANAGER", "SOCIAL_MANAGER"),
                 "social_risk" to listOf("SOCIAL_RISK_MANAGER"),
                 "early_warning" to listOf("SOCIAL_RISK_MANAGER"),
                 "incident" to listOf("SOCIAL_RISK_MANAGER")
