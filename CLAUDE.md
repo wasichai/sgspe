@@ -42,7 +42,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Archivos: `evidence.file` es un campo `FILE` de wasichai-files (D1, ADR-0014); un documento emitido congela el registro
   entero (UPS-23): ningún tipo de documento sobre un objeto con campos restringidos.
   La descarga de un campo `FILE` con datos restringidos pasa por SGSPE (`EvidenceContent`), e `IssuedDocumentsPrivacyTest`
-  vigila la regla de los documentos del lado de la aplicación.
+  vigila la regla de los documentos del lado de la aplicación. El descriptor de una evidencia restringida sale sin
+  nombre ni huella a quien no tiene `DOWNLOAD_RESTRICTED` (`EvidenceFileReadPolicy`).
 
 ## Comandos
 
@@ -72,7 +73,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Idempotencia de los comandos (`Idempotency`, tabla `sgspe.idempotency_key`), JOB-08, `JobTasks`, `Amounts` | `src/main/kotlin/sgspe/common/`, `src/main/resources/db/sgspe/common/` |
 | Compromisos: `CommitmentWriteGuard` y sus reglas, reprogramaciones, entregas, candidatos, derivados | `src/main/kotlin/sgspe/commitment/` |
 | Acuerdos (`AgreementWriteGuard`) | `src/main/kotlin/sgspe/agreement/` |
-| Evidencias sobre wasichai-files, descarga con `DOWNLOAD_RESTRICTED` | `src/main/kotlin/sgspe/evidence/` |
+| Evidencias sobre wasichai-files, descarga con `DOWNLOAD_RESTRICTED`, descriptor sin nombre ni huella (`EvidenceFileReadPolicy`, UPS-24) | `src/main/kotlin/sgspe/evidence/` |
 | Tope de apoyo social (`SupportPolicyGuard`) | `src/main/kotlin/sgspe/investment/` |
 | JOB-01 y los avisos de plazo (`DeadlineNotices`), también la revisión de los riesgos y su tarea `risk_review` | `src/main/kotlin/sgspe/deadline/` |
 | Avisos sobre wasichai-notifications (`Notices`, `ApprovalNoticeListener`, `GraveGrievanceNoticeListener`, `ConfidentialReaders`, `RiskNoticeListener`, `WarningNoticeListener`) | `src/main/kotlin/sgspe/notification/` |

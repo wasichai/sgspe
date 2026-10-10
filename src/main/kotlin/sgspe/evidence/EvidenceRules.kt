@@ -38,6 +38,13 @@ object EvidenceRules {
         return Values.text(classification) == null || restricted(classification)
     }
 
+    // lo que del descriptor de un campo FILE no lee quien no descarga una evidencia restringida (UPS-24): el nombre original,
+    // que suele llevar el nombre o el documento de una persona, y la huella SHA-256, que deja confirmar si alguien tiene un
+    // archivo concreto. quedan el id (la plataforma lo exige), el tipo y el tamaño
+    val IDENTIFYING = setOf("name", "sha256")
+
+    fun reserved(descriptor: Map<String, Any?>): Map<String, Any?> = descriptor.filterKeys { it !in IDENTIFYING }
+
     // bajar la clasificación: de una restringida a una que no lo es (ASM-071)
     fun downgrade(
         before: Any?,

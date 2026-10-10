@@ -574,8 +574,8 @@ es requisito del MVP y depende de GAP-008 (ASM-021); si se aprueba, BC-11 se sep
 
 - El archivo vive en almacenamiento de objetos local o compatible con S3; el registro guarda el descriptor del campo
   FILE (id del archivo, nombre, tipo, tamaño y SHA-256), no una clave de almacenamiento (ASM-013). Lo sube la ruta de
-  wasichai-files y el registro lo crea `POST /api/sgspe/evidence`, en JSON; los EXIF los lee el portal. El descriptor,
-  con el nombre original del archivo, lo lee todo lector del registro (UPS-24, ASM-093). Ningún destino de
+  wasichai-files y el registro lo crea `POST /api/sgspe/evidence`, en JSON; los EXIF los lee el portal. El descriptor
+  de una evidencia restringida se lee sin nombre ni huella salvo con `DOWNLOAD_RESTRICTED` (UPS-24, ASM-093). Ningún destino de
   `evidence_<objeto>` es `appendOnly`, porque un vínculo con un registro `appendOnly` responde 409 [WAS-ADR-0040]. El
   proyecto de una evidencia es su M2O `project`; no hay una M2M hacia `project`.
 - Los vínculos con destinos `requiresReason` (`commitment`, `agreement`, `grievance`, `inquiry`, `stakeholder_request`,

@@ -3311,9 +3311,9 @@ RNF-PRIV-004, ASM-013, ASM-060, CON-046, UPS-07.
 - Un archivo es de una sola evidencia: un alta con un `file` que ya tiene otra responde `409` `EVIDENCE_FILE_IN_USE`.
   `file`, `replaces` e `import_batch_id` no cambian después del alta (`409` `EVIDENCE_IMMUTABLE`), pero el alta no
   comprueba que la evidencia reemplazada sea de quien sube ni que la importación exista: es un límite conocido.
-- El descriptor de `file`, con el nombre original, lo lee todo rol con READ sobre `evidence`, también en una
-  CONFIDENCIAL o de DATOS PERSONALES: wasichai-files no deja ocultarlo (UPS-24), y el portal sube las restringidas
-  con un nombre neutro (ASM-093).
+- El descriptor de `file` guarda el nombre original y la huella, pero en una evidencia CONFIDENCIAL o de DATOS
+  PERSONALES se lee sin `name` ni `sha256` salvo con `DOWNLOAD_RESTRICTED` (`EvidenceFileReadPolicy`, UPS-24); el portal
+  sube además las restringidas con un nombre neutro (ASM-093).
 
 ## 17. BC-13 Tareas y aprobaciones
 

@@ -132,7 +132,7 @@ E (elevación de privilegios).
 | 23 | T | Un agente de campo cambia o borra lo que capturó otra persona | `EditAnyGuard`: sin `EDIT_ANY` solo se cambia o borra lo propio (§5.5) | ASM-069 |
 | 24 | I | Identificar a quien plantea una QCS confidencial por su grupo de interés, que no está restringido | `person` bajo permiso de campo; QCS anónima sin `person` ni `stakeholder` (§7.9, §11.3) | Riesgo residual; decisión en §15 |
 | 25 | I | Una sugerencia de IA guarda valores restringidos o cita una evidencia que quien la mira no puede descargar | Salidas y citas guardadas con marcadores; la API genérica solo devuelve marcadores; se re-identifican al mostrar solo para quien lee el campo, y la cita solo para quien puede descargar la fuente (§7.8) | GAP-015; riesgo residual: un marcador revela que había un dato restringido |
-| 26 | I | El nombre original del archivo de una evidencia CONFIDENCIAL o de DATOS PERSONALES, que puede llevar datos personales, lo lee todo rol con READ sobre `evidence` | El portal sube toda evidencia restringida con un nombre neutro y reserva el nombre a quien la descarga (§11.6) | UPS-24; riesgo aceptado (ASM-093) |
+| 26 | I | El nombre original del archivo de una evidencia CONFIDENCIAL o de DATOS PERSONALES, que puede llevar datos personales, y su huella SHA-256 los lee todo rol con READ sobre `evidence` | `EvidenceFileReadPolicy` (UPS-24, wasichai 1.0.0) entrega el descriptor sin `name` ni `sha256` a quien no tiene `DOWNLOAD_RESTRICTED`; el portal sube toda evidencia restringida con un nombre neutro como defensa adicional (§11.6) | Resuelta (UPS-24, ASM-093) |
 | 27 | E, I | Quien tiene `DOWNLOAD_RESTRICTED` sobre `evidence` y no ve la QCS confidencial a la que está vinculada una evidencia baja su clasificación, y la evidencia deja de estar reservada | La regla de la evidencia vinculada a una QCS confidencial (`409 EVIDENCE_NOT_RESTRICTED`) frena a quien sí ve la QCS; el cambio queda en `audit_log` con usuario y motivo; `DOWNLOAD_RESTRICTED` solo para los roles que escriben evidencias (§9.6) | Riesgo aceptado (ASM-105, D-2) |
 
 ## 3. Autenticación
@@ -1374,11 +1374,13 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   guarda hasta 24 h (`wasichai.idempotency.ttl`). Un reenvío con la misma clave se la devuelve a esa misma persona
   aunque después haya perdido la lectura o la entrega se haya corregido. Es un límite aceptado: no entrega a nadie un
   dato que no recibió ya, y es el mismo contrato de la clave nativa (WAS-ADR-0058).
-- **El nombre del archivo de una evidencia restringida** lo lee todo rol con READ sobre `evidence`: el descriptor del
-  campo `FILE` viaja en el registro, su historial y la lista, y wasichai-files no deja ocultarlo (UPS-24). El portal
-  sube toda evidencia CONFIDENCIAL o de DATOS PERSONALES con un nombre neutro (`evidencia-<aaaammdd-hhmmss>.<ext>`) y
-  muestra «Archivo reservado» a quien no la descarga; el nombre de una evidencia subida antes, o por la API con su
-  nombre original, queda visible a sus lectores. Es un riesgo aceptado hasta UPS-24 (ASM-093).
+- **El nombre y la huella del archivo de una evidencia restringida** se ocultan en el backend (UPS-24, wasichai 1.0.0):
+  `EvidenceFileReadPolicy` entrega el descriptor del campo `FILE` sin `name` ni `sha256` a quien no tiene
+  `DOWNLOAD_RESTRICTED` sobre `evidence`, cuando la evidencia es CONFIDENCIAL o de DATOS PERSONALES o le falta la
+  clasificación (falla cerrado, como la descarga). La plataforma lo aplica en el registro, la lista, los vínculos, las
+  respuestas de escritura, la historia y `/api/audit`; ADMIN lo lee entero. Vale también para una evidencia subida
+  antes o por la API con su nombre original. El portal sube toda restringida con un nombre neutro
+  (`evidencia-<aaaammdd-hhmmss>.<ext>`) y muestra «Archivo reservado»: queda como defensa adicional (ASM-093).
 - Retención: no hay política (GAP-014). En los entregables se purgan los borradores y se conserva todo lo emitido
   (RQ-REP-027, ASM-028).
 - Los respaldos y el almacenamiento de objetos contienen datos personales: su retención y su cifrado dependen del
@@ -1515,5 +1517,5 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Autoridad sobre montos | GAP-006 | Quién aprueba según el monto y quién supera el tope de la campaña | Un nivel de aprobación más `APPROVE_OVER_CAP`: `PROJECT_MANAGER` en los compromisos y `SOCIAL_MANAGER` en los aportes (§5.3) |
 | TTL de producción | RQ-SEC-001 | Duración del token | `PT4H`, fijado por `application-prod.yml` como tope provisional de F1; el despliegue puede cambiarlo, siempre por debajo de 8 horas (§3.2) |
 | Transporte del token | CON-056 | Cookie HttpOnly u OIDC | Propuestas a futuro, fuera del MVP (§3.4) |
-| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14, UPS-23, UPS-24; UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
-| Nombre del archivo de una evidencia restringida | UPS-24, ASM-093 | ¿Se acepta que su nombre lo lean todos los lectores de `evidence` hasta UPS-24, o se renombra en el servidor y se pierde el original? | Aceptado: el portal sube con un nombre neutro (§11.6) |
+| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14, UPS-23; UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
+| Nombre y huella del archivo de una evidencia restringida | UPS-24, ASM-093 | ¿Se acepta que su nombre lo lean todos los lectores de `evidence` hasta UPS-24, o se renombra en el servidor y se pierde el original? | Resuelta en wasichai 1.0.0: `EvidenceFileReadPolicy` oculta `name` y `sha256` a quien no descarga; el nombre neutro del portal queda como defensa adicional (§11.6) |

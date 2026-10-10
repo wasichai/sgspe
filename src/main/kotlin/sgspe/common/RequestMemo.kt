@@ -13,7 +13,8 @@ import kotlin.coroutines.CoroutineContext
 //   SgspeWrite). solo para datos que el comando no cambia: sus asignaciones, los solicitantes de un compromiso
 // - el de una petición de /api (`forRequest`, que abre RequestMemoFilter, y `rememberForRequest`): solo lo que ninguna
 //   petición cambia, los permisos de quien llama (ProjectReach.readsAll, ConfidentialAttentionScope), que wasichai pide en
-//   cada RecordReadScope, una vez por objeto y lectura (plan 4.4a, Tarea 17). los permisos se cambian por /api/roles, que no
+//   cada RecordReadScope, una vez por objeto y lectura (plan 4.4a, Tarea 17), y EvidenceFileReadPolicy, una vez por
+//   evidencia restringida de una lista (UPS-24). los permisos se cambian por /api/roles, que no
 //   lee registros después en la misma petición, y un permiso cambiado vale desde la petición siguiente. lo que una petición
 //   sí puede escribir (asignaciones, solicitantes) nunca va al memo de la petición: un comando que escribe varios registros
 //   sigue usando el suyo
