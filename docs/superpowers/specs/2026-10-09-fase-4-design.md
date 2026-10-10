@@ -267,7 +267,7 @@ agente. Consecuencias:
   tiene `READ_CONFIDENTIAL` sobre ese objeto en `model/roles.json` y, en una queja ALTA o CRITICA, los que tienen
   `APPROVE` sobre `grievance`. `ModelCatalog` expone las concesiones de cada rol para decidirlo sin literales. Si un
   nivel queda sin destinatarios, no se crea el aviso y queda una advertencia en el log, como hoy; la tarea de
-  escalamiento se crea igual (la del nivel 2, genérica y sin vínculo con la QCS, §3.5). Excepción del nivel 2: los roles
+  escalamiento se crea igual (en una confidencial, genérica y sin vínculo con la QCS en los dos niveles, §3.5). Excepción del nivel 2: los roles
   de `approve_senior` de WF-D que no la ven reciben el aviso genérico `qcs_confidential_overdue` (§3.5).
 - **Capa LYR-20.** Lee como quien llama: hereda el alcance.
 
@@ -318,8 +318,8 @@ la plataforma, solo si cambia y con el motivo `situación de plazo (JOB-01 Deadl
 
 | Objeto | Mide | En | Escribe | Tarea |
 |---|---|---|---|---|
-| `grievance` | `ack_due_date` en `received`; `resolution_due_date` en `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | Esos estados; vacío en los demás | `deadline_status` | `escalation:grievance:<id>:<fecha del plazo>:<nivel>` en los niveles 1 y 2, sin asignado ni fecha; en una confidencial, la del nivel 2 es `escalation:grievance:<huella>:<fecha del plazo>:2`, genérica y sin vínculo con la queja |
-| `inquiry` | `response_due_date` en `received` | `received` | `deadline_status` | `escalation:inquiry:<id>:<fecha del plazo>:<nivel>`; en una confidencial, la del nivel 2 es `escalation:inquiry:<huella>:<fecha del plazo>:2`, como la queja |
+| `grievance` | `ack_due_date` en `received`; `resolution_due_date` en `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | Esos estados; vacío en los demás | `deadline_status` | `escalation:grievance:<id>:<fecha del plazo>:<nivel>` en los niveles 1 y 2, sin asignado ni fecha; en una confidencial, las de los dos niveles son `escalation:grievance:<huella>:<fecha del plazo>:<nivel>`, genéricas y sin vínculo con la queja |
+| `inquiry` | `response_due_date` en `received` | `received` | `deadline_status` | `escalation:inquiry:<id>:<fecha del plazo>:<nivel>`; en una confidencial, `escalation:inquiry:<huella>:<fecha del plazo>:<nivel>` en los dos niveles, como la queja |
 | `stakeholder_request` | — | — | Nada en el MVP | — |
 | `social_risk` | `next_review_date` en `assessed`, `mitigating`, `monitoring` | Esos estados | `review_status`; `next_review_date` si cambió `review_every_days` (última revisión + cadencia) | `risk_review:<id>:<next_review_date>` al pasar a POR REVISAR o REVISION VENCIDA, asignada al responsable, con fecha `next_review_date` y título «Revisar el riesgo <código>» |
 
@@ -346,16 +346,52 @@ Los textos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripc
 `qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto <proyecto> superó su
 plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría ni enlace al
 registro, y es `ACTION`; una prueba de `NoticeTexts` verifica que ningún dato del registro entra en el texto ni en la
-clave. La tarea de escalamiento del nivel 2 se crea igual, con su clave `escalation:<objeto>:<id>:<fecha>:2`, salvo en
-una QCS confidencial, porque la leen todos los lectores de `task` del proyecto: su clave es
-`escalation:<objeto>:<huella>:<fecha del plazo>:2`, con la huella del aviso genérico; su título, «QCS confidencial
-vencida en <proyecto>»; su descripción, fija («Una QCS confidencial superó su plazo. Pida el detalle al equipo de
-quejas.»); y no lleva `grievance` ni `inquiry`, solo `project`. `ExactlyOneGuard` admite una tarea sin origen solo con
-una `generator_key` de esa forma (`JobTasks.isConfidentialEscalation`), que solo escribe la plataforma
-(`GeneratorKeyGuard`), también en los cambios posteriores de una persona. La del nivel 1 y la de AUT-02 siguen con el
-código y el vínculo.
+clave.
 
-**Automatizaciones.** AUT-02 (tarea de acuse), AUT-09 (tarea de triaje) y AUT-11 (tarea de riesgo crítico), como las
+**Tareas automáticas de una QCS confidencial** (D-1 del 2026-10-10; extiende ADR-0028). Las leen todos los lectores de
+`task` del proyecto, así que ninguna lleva el id, el código ni el vínculo con la QCS:
+
+- **Escalamiento (JOB-01), niveles 1 y 2.** Clave `escalation:<objeto>:<huella>:<fecha del plazo>:<nivel>`, con la
+  huella del aviso genérico; título «QCS confidencial vencida en <proyecto>»; descripción fija salvo el nivel («Una QCS
+  confidencial superó su plazo (escalamiento de nivel <n>). Pida el detalle al equipo de quejas.»); solo `project`. Sin
+  proyecto no se crea (una advertencia sin datos de la QCS). Las de una QCS no confidencial y las de un compromiso no
+  cambian: `escalation:<objeto>:<id>:<fecha>:<nivel>`, con el código en el título y el vínculo.
+- **Acuse de una queja.** AUT-02 no corre en una confidencial (su condición `confidential NOT_EQUALS true`; la ejecución
+  queda `SKIPPED`). En su lugar, `ConfidentialTasksListener`, en la transacción del alta y como quien la registra con la
+  marca, crea la tarea `ack:grievance:<huella>` (la huella con la fecha de recepción en Lima en lugar de la del plazo),
+  con el título «Acusar recibo de una QCS confidencial en <proyecto>», la descripción «Una QCS confidencial espera su
+  acuse. Pida el detalle al equipo de quejas.», solo `project` y, como AUT-02, sin responsable ni fecha. Sin proyecto o
+  sin `received_at` no se crea; si la escritura falla, el alta se revierte.
+- **Marca posterior.** Al marcar confidencial una QCS existente, el mismo listener reescribe en la transacción de la
+  marca sus tareas automáticas **abiertas** vinculadas: las de escalamiento pasan a la clave de huella de su nivel, con
+  el título y la descripción genéricos, y la de acuse de AUT-02 de una queja (sin clave, con el título «Acusar recibo de
+  la queja <código>») pasa a `ack:grievance:<huella>`; en todas se vacía el vínculo. Las cerradas (`done`,
+  `cancelled`) no se tocan: son historia. Si la tarea genérica de destino ya existe (se quitó la marca y se volvió a
+  poner, y JOB-01 creó entretanto la genérica y la normal), la vieja queda como está, con una advertencia sin datos de
+  la QCS: es un residual aceptado. También lo son la ventana de AUT-02 (si la queja se marca antes de que su ejecución,
+  que corre fuera de la petición, cree la tarea de acuse, esa tarea nace con el código y el vínculo); el historial y la
+  auditoría de la tarea reescrita, que conservan su versión anterior con el código y el vínculo y revelan que la QCS
+  pasó a confidencial; la tarea de AUT-02 cuyo título se editó o cuya QCS cambió de código, que no se reconoce y queda
+  como estaba; y la carrera con JOB-01, o una genérica que quien marca no lee, que chocan con el único de
+  `generator_key` y revierten la marca (409, falla cerrado). Sin proyecto, las tareas no se reescriben (una advertencia
+  sin datos). Quitar la marca no revincula ni retitula nada. El listener corre con `@Order(131)`, después de
+  `QcsDueDatesListener` y de `RequestClosureListener`.
+- **Guardas.** `ExactlyOneGuard` admite una tarea sin origen solo con una `generator_key` de esas formas
+  (`JobTasks.isConfidentialTask`: `escalation:<objeto de QCS>:<huella>:<fecha>:<1 o 2>` y `ack:grievance:<huella>`).
+  `generator_key` la escribe la plataforma y, desde D-1, el código de sgspe con la marca solo cuando el valor nuevo
+  tiene una de esas formas (`GeneratorKeyGuard`); una persona por la API genérica sigue recibiendo
+  `403 GENERATOR_KEY_PLATFORM_ONLY`.
+
+**Marcar confidencial una QCS existente** (D-3 del 2026-10-10). El paso de `confidential` de falso a verdadero lo hace
+su receptor (`received_by_user_id`) o su responsable (`owner_user_id`) guardados, o quien tiene `READ_CONFIDENTIAL`
+sobre el objeto; los demás reciben `403 CONFIDENTIAL_MARK_FORBIDDEN` sobre `confidential` (`AttentionWriteGuard`).
+Ponerse de responsable en la misma escritura no cuenta. El alta ya confidencial sigue con sus reglas (§3.3) y quitar
+la marca sigue exigiendo `READ_CONFIDENTIAL` (`403 ACTION_REQUIRED`). La escritura permitida puede dejar a quien escribe
+sin ver la QCS (el responsable la marca y la pasa a otro en el mismo `PUT`); la reposición de los plazos y demás derivados
+que el `PUT` omitió no depende de eso: `DerivedFieldsKeeper` lee y escribe con `DerivedRestore`, con el que
+`ConfidentialAttentionScope` admite ese registro solo mientras lo repone (`security.md` §9.6).
+
+**Automatizaciones.** AUT-02 (tarea de acuse, salvo en una queja confidencial), AUT-09 (tarea de triaje) y AUT-11 (tarea de riesgo crítico), como las
 diseña `workflows.md`. El plan 4.2b prueba que la escritura de `risk_level` del endpoint dispara AUT-11 y que una alerta
 creada por JOB-04 como la plataforma dispara AUT-09 y `warning_new` (§8, riesgos).
 

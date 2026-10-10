@@ -17,7 +17,10 @@ import wasichai.core.data.RecordChangeListener
 // lee lo guardado: si otra escritura ya le dio valor entre el PUT y este listener, ese valor no se pisa. reponer un valor
 // igual al guardado no es un cambio: la reposición corre con DerivedRestore, y el despachador de automatizaciones no evalúa
 // su eco (RestoreAwareAutomationDispatcher; ronda branchfix de 4.2b, R-I2: el PUT de un riesgo CRITICO no vuelve a
-// disparar AUT-11)
+// disparar AUT-11). la lectura y la escritura de la reposición corren con DerivedRestore, con el que
+// ConfidentialAttentionScope admite ese registro mientras dura: la reposición no depende de que quien escribe siga viendo la
+// QCS que acaba de marcar confidencial o de pasar a otro responsable. solo este listener construye un DerivedRestore
+// (ArchitectureTest)
 @Component
 @Order(100)
 class DerivedFieldsKeeper(
@@ -38,7 +41,14 @@ class DerivedFieldsKeeper(
             "${change.objectName} ${change.recordId}",
             lost,
             before,
-            stored = { records.get(change.objectName, change.recordId).attributes },
+            // la lectura también dentro de un DerivedRestore, sin valores (no es el eco de nada): el PUT pudo volver el registro
+            // ilegible para quien escribe (una QCS que marca confidencial o cuyo responsable cambia, ConfidentialAttentionScope)
+            // y la reposición no depende de que lo siga viendo. nada de lo leído vuelve al cliente
+            stored = {
+                withContext(DerivedRestore(change.objectName, change.recordId, emptyMap())) {
+                    records.get(change.objectName, change.recordId).attributes
+                }
+            },
             patch = { values ->
                 withContext(DerivedRestore(change.objectName, change.recordId, values)) {
                     records.patch(change.objectName, change.recordId, values, REASON)

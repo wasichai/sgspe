@@ -154,6 +154,22 @@ class ArchitectureTest {
         assertFalse(flags(CONFIDENTIAL_RELEASE, "class ConfidentialAttentionScope"))
     }
 
+    // la reposición de derivados ve el registro que repone aunque quien escribe ya no lo lea (ConfidentialAttentionScope): solo
+    // DerivedFieldsKeeper construye un DerivedRestore, que vive en el contexto de la corrutina y un cliente http no puede poner
+    @Test
+    fun `solo DerivedFieldsKeeper construye un DerivedRestore`() {
+        val keeper = "/sgspe/common/DerivedFieldsKeeper.kt"
+        val definition = "/sgspe/common/DerivedRestore.kt"
+        val others = sources(main).filterNot { file -> listOf(keeper, definition).any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, DERIVED_RESTORE_NEW))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(keeper) })
+        assertTrue(flags(DERIVED_RESTORE_NEW, "withContext(DerivedRestore(change.objectName, change.recordId, values)) {"))
+        assertTrue(flags(DERIVED_RESTORE_NEW, "val r = DerivedRestore (\"grievance\", id, emptyMap())"))
+        assertFalse(flags(DERIVED_RESTORE_NEW, "val restore = DerivedRestore.current()"))
+        assertFalse(flags(DERIVED_RESTORE_NEW, "class DerivedRestore"))
+        assertFalse(flags(DERIVED_RESTORE_NEW, "// DerivedRestore(objeto, id) solo en el keeper"))
+    }
+
     @Test
     fun `observability no depende de otros paquetes de sgspe`() {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
@@ -279,6 +295,7 @@ class ArchitectureTest {
         private val CONFIDENTIAL_RELEASE = Regex("""\bConfidentialRelease\b""")
         private val RELEASE_WITHIN = Regex("""\bConfidentialRelease\s*\.\s*within\b""")
         private val RELEASE_ON = Regex("""\bConfidentialRelease\s*\.\s*on\b""")
+        private val DERIVED_RESTORE_NEW = Regex("""\bDerivedRestore\s*\(""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")

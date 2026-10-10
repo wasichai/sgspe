@@ -72,20 +72,36 @@ class QcsNoticePlanTest {
     }
 
     @Test
-    fun `la tarea del nivel 2 de una confidencial lleva la huella en la clave y un texto generico`() {
+    fun `las tareas de escalamiento de una confidencial llevan la huella en la clave y un texto generico`() {
         val id = UUID.randomUUID().toString()
-        val key = DeadlineJob.confidentialEscalationKey("grievance", id, due)
-        assertEquals("escalation:grievance:${ConfidentialReaders.fingerprint("grievance", id, due)}:2026-10-13:2", key)
-        assertFalse(key.contains(id))
-        assertTrue(JobTasks.isConfidentialEscalation(key))
-        // la clave con id del nivel 2 de una QCS no confidencial, la del nivel 1 y otra cualquiera no tienen esa forma
-        assertFalse(JobTasks.isConfidentialEscalation(DeadlineJob.escalationKey("grievance", id, due, 2)))
-        assertFalse(JobTasks.isConfidentialEscalation(key.removeSuffix(":2") + ":1"))
-        assertFalse(JobTasks.isConfidentialEscalation(key.replace("grievance", "commitment")))
-        assertFalse(JobTasks.isConfidentialEscalation(null))
-        val (title, description) = NoticeTexts.qcsConfidentialEscalation("Proyecto Ejemplo")
-        assertEquals("QCS confidencial vencida en Proyecto Ejemplo", title)
-        assertEquals("Una QCS confidencial superó su plazo. Pida el detalle al equipo de quejas.", description)
+        val print = ConfidentialReaders.fingerprint("grievance", id, due)
+        for (level in 1..2) {
+            val key = DeadlineJob.confidentialEscalationKey("grievance", id, due, level)
+            assertEquals("escalation:grievance:$print:2026-10-13:$level", key)
+            assertFalse(key.contains(id))
+            assertTrue(JobTasks.isConfidentialTask(key), key)
+        }
+        // la clave de acuse de una queja confidencial: solo la huella
+        assertEquals("ack:grievance:$print", JobTasks.confidentialAckKey(print))
+        assertTrue(JobTasks.isConfidentialTask(JobTasks.confidentialAckKey(print)))
+        assertTrue(JobTasks.isConfidentialTask(JobTasks.confidentialEscalationKey("stakeholder_request", print, due, 1)))
+        // la clave con id de una QCS no confidencial, un nivel 3, otro objeto y null no tienen esa forma
+        val key = DeadlineJob.confidentialEscalationKey("grievance", id, due, 2)
+        assertFalse(JobTasks.isConfidentialTask(DeadlineJob.escalationKey("grievance", id, due, 2)))
+        assertFalse(JobTasks.isConfidentialTask(DeadlineJob.escalationKey("grievance", id, due, 1)))
+        assertFalse(JobTasks.isConfidentialTask(key.removeSuffix(":2") + ":3"))
+        assertFalse(JobTasks.isConfidentialTask(key.replace("grievance", "commitment")))
+        assertFalse(JobTasks.isConfidentialTask("ack:grievance:$id"))
+        assertFalse(JobTasks.isConfidentialTask("ack:inquiry:$print"))
+        assertFalse(JobTasks.isConfidentialTask(null))
+        for (level in 1..2) {
+            val (title, description) = NoticeTexts.qcsConfidentialEscalation("Proyecto Ejemplo", level)
+            assertEquals("QCS confidencial vencida en Proyecto Ejemplo", title)
+            assertEquals("Una QCS confidencial superó su plazo (escalamiento de nivel $level). Pida el detalle al equipo de quejas.", description)
+        }
+        val (ackTitle, ackDescription) = NoticeTexts.qcsConfidentialAck("Proyecto Ejemplo")
+        assertEquals("Acusar recibo de una QCS confidencial en Proyecto Ejemplo", ackTitle)
+        assertEquals("Una QCS confidencial espera su acuse. Pida el detalle al equipo de quejas.", ackDescription)
         assertEquals("Proyecto Ejemplo", NoticeTexts.projectName(mapOf("name" to "Proyecto Ejemplo", "code" to "PE-1"), "p"))
         assertEquals("PE-1", NoticeTexts.projectName(mapOf("code" to "PE-1"), "p"))
         assertEquals("p", NoticeTexts.projectName(emptyMap(), "p"))

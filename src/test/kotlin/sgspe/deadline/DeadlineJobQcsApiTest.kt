@@ -12,8 +12,8 @@ import tools.jackson.databind.JsonNode
 import java.time.LocalDate
 
 // JOB-01 con las QCS (workflows.md «Plazos y escalamiento», ASM-100): la queja vencida queda VENCIDO sin cambiar de estado y
-// escala con una tarea por nivel, una sola vez y con solo su código en el título (la del nivel 2 de una confidencial, genérica
-// y sin vínculo con ella); la consulta respondida deja de medirse; la solicitud no tiene plazo
+// escala con una tarea por nivel, una sola vez y con solo su código en el título (las de una confidencial, de los dos niveles,
+// genéricas y sin vínculo con ella, D-1); la consulta respondida deja de medirse; la solicitud no tiene plazo
 class DeadlineJobQcsApiTest : F4ApiTest() {
     @Autowired
     private lateinit var job: DeadlineJob
@@ -45,29 +45,37 @@ class DeadlineJobQcsApiTest : F4ApiTest() {
     }
 
     @Test
-    fun `el nivel 2 de una queja confidencial crea una tarea generica sin vinculo, una sola vez`() {
+    fun `los niveles 1 y 2 de una queja confidencial crean tareas genericas sin vinculo, una sola vez`() {
         val id = grievance(testProject(), attributes = mapOf("received_at" to "2026-01-05T15:00:00Z", "confidential" to true))
         val attributes = record("grievance", id)["attributes"]
         val ack = LocalDate.parse(attributes["ack_due_date"].asString())
         val code = attributes["code"].asString()
         runBlocking { job.runOnce() }
-        // el nivel 1 sigue con el id en la clave y el vínculo con la queja
-        assertEquals(listOf("escalation:grievance:$id:$ack:1"), escalations("grievance", id).map { it["attributes"]["generator_key"].asString() })
-        val key = DeadlineJob.confidentialEscalationKey("grievance", id, ack)
-        val found = tree(send("GET", "/api/objects/task/records?generator_key=$key", null, HttpStatus.OK))["content"].values().toList()
-        assertEquals(1, found.size, found.toString())
-        val task = found.single()["attributes"]
+        // ningún nivel lleva el id en la clave ni el vínculo con la queja (D-1)
+        assertEquals(emptyList<JsonNode>(), escalations("grievance", id))
         val name = record("project", testProject())["attributes"]["name"].asString()
-        assertEquals("QCS confidencial vencida en $name", task["title"].asString())
-        assertEquals(testProject(), task["project"].asString())
-        assertTrue(blank(task["grievance"]), task.toString())
-        assertFalse(task.toString().contains(id), task.toString())
-        assertFalse(task.toString().contains(code), task.toString())
+        val found =
+            (1..2).map { level ->
+                val key = DeadlineJob.confidentialEscalationKey("grievance", id, ack, level)
+                val tasks = tree(send("GET", "/api/objects/task/records?generator_key=$key", null, HttpStatus.OK))["content"].values().toList()
+                assertEquals(1, tasks.size, tasks.toString())
+                val task = tasks.single()["attributes"]
+                assertEquals("QCS confidencial vencida en $name", task["title"].asString())
+                assertTrue(task["description"].asString().contains("nivel $level"), task.toString())
+                assertEquals(testProject(), task["project"].asString())
+                assertTrue(blank(task["grievance"]), task.toString())
+                assertFalse(task.toString().contains(id), task.toString())
+                assertFalse(task.toString().contains(code), task.toString())
+                tasks.single()
+            }
         runBlocking { job.runOnce() }
-        assertEquals(1, tree(send("GET", "/api/objects/task/records?generator_key=$key", null, HttpStatus.OK))["content"].values().count())
+        for (level in 1..2) {
+            val key = DeadlineJob.confidentialEscalationKey("grievance", id, ack, level)
+            assertEquals(1, tree(send("GET", "/api/objects/task/records?generator_key=$key", null, HttpStatus.OK))["content"].values().count())
+        }
         // una persona que no lee la queja trabaja la tarea genérica: se la asigna (ExactlyOneGuard la admite sin origen)
         val manager = member("PROJECT_MANAGER")
-        val taskId = found.single()["id"].asString()
+        val taskId = found.last()["id"].asString()
         val assigned = edit("task", taskId, mapOf("assignee_user_id" to manager.id, "assignee_user_email" to manager.email), manager.token)
         assertEquals(HttpStatus.OK, assigned.status, assigned.body)
         // y nadie puede crear una tarea sin origen con una clave de esa forma: la clave la fija solo la plataforma
@@ -80,7 +88,7 @@ class DeadlineJobQcsApiTest : F4ApiTest() {
                         mapOf(
                             "project" to testProject(),
                             "title" to "Otra",
-                            "generator_key" to DeadlineJob.confidentialEscalationKey("grievance", id, ack.plusDays(1))
+                            "generator_key" to DeadlineJob.confidentialEscalationKey("grievance", id, ack.plusDays(1), 1)
                         )
                 ),
                 manager.token

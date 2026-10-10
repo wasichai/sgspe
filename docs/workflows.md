@@ -735,8 +735,9 @@ stateDiagram-v2
 | `close_reclassified_acknowledged` (Cerrar por reclasificación) | `acknowledged` | `closed` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 | `close_reclassified_in_assessment` (Cerrar por reclasificación) | `in_assessment` | `closed` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 
-Al recibir una queja (alta, no transición) corren `QcsDueDatesListener` (plazos) y AUT-02 (tarea de acuse). La situación
-de plazo y las tareas de escalamiento las escribe JOB-01, y los avisos los publica `DeadlineNotices`.
+Al recibir una queja (alta, no transición) corren `QcsDueDatesListener` (plazos) y AUT-02 (tarea de acuse); en una queja
+confidencial AUT-02 no corre y la tarea de acuse genérica la crea `ConfidentialTasksListener` («Listeners», D-1). La
+situación de plazo y las tareas de escalamiento las escribe JOB-01, y los avisos los publica `DeadlineNotices`.
 
 ### WF-E2 · Consulta
 
@@ -1405,7 +1406,7 @@ Reglas de SGSPE:
 | ID | Nombre técnico | Objeto | Disparador | Condiciones | Acciones | Fase | Fuente |
 |---|---|---|---|---|---|---|---|
 | AUT-01 | `aut-01-commitment-execution-task` | `commitment` | `STATE_ENTERED` `approved` | — | `CREATE_RECORD` `task`: "Ejecutar compromiso {{code}}", `commitment` = `{{id}}`, `project` = `{{project}}`, responsable `{{owner_user_id}}` y `{{owner_user_email}}`, `due_date` = `{{due_date}}`; el responsable y la fecha existen porque las tres transiciones de aprobación los vuelven a exigir al entrar en `approved` (D1, D2), aunque `pending_approval` admita cambios | F3 | Modelo de dominio §7.3; RF-WFL-001 |
-| AUT-02 | `aut-02-grievance-ack-task` | `grievance` | `RECORD_CREATED` | — | `CREATE_RECORD` `task`: "Acusar recibo de la queja {{code}}", `grievance` = `{{id}}`, `project` = `{{project}}`; sin responsable ni fecha: el plazo vive en `ack_due_date` de la queja | F4 | Modelo de dominio §7.3; RF-GRV-006 |
+| AUT-02 | `aut-02-grievance-ack-task` | `grievance` | `RECORD_CREATED` | `confidential` `NOT_EQUALS` `true` (D-1: una queja confidencial no lleva esta tarea, con su código y su vínculo; la ejecución queda `SKIPPED` y la tarea de acuse genérica la crea `ConfidentialTasksListener`) | `CREATE_RECORD` `task`: "Acusar recibo de la queja {{code}}", `grievance` = `{{id}}`, `project` = `{{project}}`; sin responsable ni fecha: el plazo vive en `ack_due_date` de la queja | F4 | Modelo de dominio §7.3; RF-GRV-006 |
 | AUT-03 | `aut-03-delivery-certificate` | `delivery` | `RECORD_CREATED` | `commitment` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de entrega» (`delivery-certificate`) | F3, tras UPS-23 | Modelo de dominio §7.3; RQ-REP-029 |
 | AUT-04 | `aut-04-receipt-certificate` | `delivery` | `RECORD_CREATED` | `social_contribution` `IS_NOT_EMPTY` | `GENERATE_DOCUMENT` tipo «Acta de recepción» | F5, tras UPS-23 | RQ-REP-029 [DOC-02 p.4] |
 | AUT-05 | `aut-05-meeting-minutes` | `engagement` | `STATE_ENTERED` `minutes_approved` | — | `GENERATE_DOCUMENT` tipo «Minuta de reunión» (`meeting-minutes`); `GENERATE_DOCUMENT` tipo «Lista de asistentes» (`attendance-list`) | F3 | RQ-REP-029, RF-ENG-005 |
@@ -1576,7 +1577,8 @@ restringidos o un alcance por registro propio.
 Los listeners son los once de §7.5 del modelo de dominio, con `ApprovalNoticeListener` en lugar de
 `NotificationListener` desde la decisión D2, `DeadlineStatusListener` desde F3 y `RiskNoticeListener` y
 `WarningNoticeListener` desde F4, más `GraveGrievanceNoticeListener` (F4), que publica el aviso de aprobación pendiente de
-una queja grave aparte de `ApprovalNoticeListener` porque no lo dispara un envío sino la severidad. Corren como quien
+una queja grave aparte de `ApprovalNoticeListener` porque no lo dispara un envío sino la severidad, y
+`ConfidentialTasksListener` (F4, D-1), que mantiene genéricas las tareas automáticas de una QCS confidencial. Corren como quien
 escribió y son atómicos con la escritura solo dentro de una transición o de un endpoint con transacción. Esta tabla agrega
 su relación con los workflows.
 
@@ -1588,6 +1590,7 @@ su relación con los workflows.
 | `ContributionTotalsListener` (`sgspe.investment`) | Alta, cambio o baja de `contribution_item` | Ninguna (alimenta `register_procurement`) | `total_amount` de la `social_contribution` | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre `social_contribution`, con motivo |
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | Alta o cambio del origen de un `commitment`; transiciones a `fulfilled`, `closed` y `cancelled`, y `reopen_execution` | `register_fulfillment`, `reopen_execution`, `close` y las `cancel_*` de WF-D | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date` del mismo compromiso; en `reopen_execution` vacía `fulfilled_date` | Sí en las transiciones | En el alta o el cambio, no falla; en una transición, la revierte | Los roles de esas transiciones necesitan `UPDATE` con motivo sobre `commitment`; `FIELD_AGENT` no tiene esas transiciones |
 | `GraveGrievanceNoticeListener` (`sgspe.notification`, F4) | Una queja ALTA o CRITICA que entra en `in_action` con `policy_high_severity_requires_approver` activo, un cambio de `severity` en `in_action` que la sube a ALTA o CRITICA (publica) o la pasa de ALTA o CRITICA a una severidad no grave (resuelve) y toda transición que sale de `in_action`, que también lo resuelve (ASM-102) | `start_action`, `start_action_after_investigation`, `resolve`, `resolve_high_severity` y `withdraw_in_action` de WF-E1 | El módulo wasichai-notifications, en la fuente `sgspe.approvals` con la clave `approval_pending:grievance:<id>`, en la transacción de la escritura | Sí | Como `ApprovalNoticeListener`; si quien escribe no lee el proyecto o las asignaciones, se registra y la escritura sigue | Lee el proyecto y `project_assignment` como quien escribe; los destinatarios de una queja confidencial se filtran por quien la vería (`ConfidentialReaders`, regla 7 de «Destinatarios por rol») |
+| `ConfidentialTasksListener` (`sgspe.attention`, F4, D-1) | Alta de una `grievance` confidencial; cambio de una QCS de no confidencial a confidencial | Ninguna | `task`, como quien escribe y con la marca: en el alta, la tarea de acuse genérica `ack:grievance:<huella>` (sin vínculo, solo `project`); en la marca posterior, las tareas automáticas abiertas vinculadas a la QCS (escalamiento de JOB-01 y acuse de AUT-02) pasan a la clave de huella, el título y la descripción genéricos y sin vínculo; las cerradas no se tocan, y si la genérica de destino ya existe la vieja queda como está, con una advertencia sin datos de la QCS | Sí: corre en la transacción de la escritura | Lanza: el alta o la marca se revierten | Quien registra o marca una QCS tiene `READ`, `CREATE` y `UPDATE` sobre `task` (`model/roles.json`) |
 | `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o a un estado final (`closed` y, en la queja, `rejected` y `withdrawn`), y la reapertura de una queja | `resolve`, `resolve_high_severity`, `reopen`, las de cierre de WF-E1, WF-E2 y WF-E3, y `reject_*` y `withdraw_*` de WF-E1 | `resolved_date` (queja) y `closed_date` del mismo registro, en todo estado final | Sí | La transición se revierte | Los roles de esas transiciones ya tienen `UPDATE` sobre el objeto, con motivo |
 | `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | `close` de WF-D y, desde F5, `close` de WF-P | Aplica `close_accepted` a la `stakeholder_request` que originó el registro, con la marca y con motivo, como acción del sistema: corre como quien cierra (wasichai no deja ser la plataforma en una petición ni aplicar una transición sin usuario), dentro de `ConfidentialRelease`, así que cierra también una solicitud confidencial que quien cierra no lee, y la auditoría lleva el origen `listener:request-closure` (plan 4.2a, decisión 4) | Sí | Revierte el cierre del compromiso o del aporte | Los roles de `close` de WF-D y de WF-P tienen `READ` y `UPDATE` sobre `stakeholder_request` y figuran en `close_accepted` |
 | `DeadlineStatusListener` (`sgspe.deadline`) | Cambio de `due_date` de un `commitment` (desde `approved`, solo la reprogramación) | Ninguna | `deadline_status` del mismo compromiso, con la misma regla de JOB-01 y con la marca | Sí: corre en la transacción de la reprogramación | Una regla que rechaza la escritura se registra y la reprogramación sigue (JOB-01 corrige a la hora); un fallo de la base revierte la reprogramación | Quien reprograma ya tiene `UPDATE` sobre `commitment`, con motivo |
@@ -1633,14 +1636,19 @@ prefijo de la clave de cada aviso.
 Los textos de los avisos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripción, persona ni texto
 libre. El de `qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto
 <proyecto> superó su plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría
-ni enlace al registro, y es `ACTION`. La tarea de escalamiento del nivel 2 de una QCS confidencial tampoco la delata,
-porque la leen todos los lectores de `task` del proyecto: su clave es
-`escalation:<objeto>:<huella>:<fecha del plazo>:2`, con la misma huella del aviso genérico en lugar del id; su título es
-«QCS confidencial vencida en <proyecto>» y su descripción, fija: «Una QCS confidencial superó su plazo. Pida el detalle
-al equipo de quejas.»; y no lleva el campo `grievance` ni `inquiry`, solo `project`. Es la única tarea sin origen:
-`ExactlyOneGuard` la admite porque su `generator_key` tiene esa forma, y esa clave solo la escribe la plataforma
-(`GeneratorKeyGuard`). La del nivel 1 y la de una QCS no confidencial llevan el id en la clave, el código en el título y
-el vínculo con la QCS.
+ni enlace al registro, y es `ACTION`. Las tareas automáticas de una QCS confidencial tampoco la delatan, porque las leen
+todos los lectores de `task` del proyecto (D-1): las de escalamiento de los niveles 1 y 2 llevan la clave
+`escalation:<objeto>:<huella>:<fecha del plazo>:<nivel>`, con la misma huella del aviso genérico en lugar del id; su
+título es «QCS confidencial vencida en <proyecto>» y su descripción, fija salvo el nivel: «Una QCS confidencial superó su
+plazo (escalamiento de nivel <n>). Pida el detalle al equipo de quejas.»; y no llevan el campo `grievance` ni `inquiry`,
+solo `project`. La de acuse de una queja confidencial no la crea AUT-02 sino `ConfidentialTasksListener`, con la clave
+`ack:grievance:<huella>` (la fecha de recepción en Lima en lugar de la del plazo), el título «Acusar recibo de una QCS
+confidencial en <proyecto>» y la descripción «Una QCS confidencial espera su acuse. Pida el detalle al equipo de
+quejas.»; y al marcar confidencial una QCS existente, el mismo listener vuelve genéricas sus tareas automáticas abiertas
+(«Listeners»). Son las únicas tareas sin origen: `ExactlyOneGuard` las admite porque su `generator_key` tiene una de esas
+formas (`JobTasks.isConfidentialTask`), y esa clave la escribe la plataforma o, solo con esas formas, el código de sgspe
+con la marca (`GeneratorKeyGuard`). Las de una QCS no confidencial llevan el id en la clave, el código en el título y el
+vínculo con la QCS.
 
 ### Destinatarios por rol
 
@@ -1670,23 +1678,23 @@ dominio §7.2):
      `member_user_email`, la dirección de respaldo `<id>@service-accounts.invalid` que wasichai le da [WAS-ADR-0043].
 4. **Sin coincidencias.** Si ninguna asignación vigente coincide, no se crea el aviso y quien lo pidió deja una
    advertencia en el log. La tarea de escalamiento, si la hay, la crea JOB-01 igual, con la clave
-   `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>` (con la huella en lugar del id en el nivel 2 de una QCS
+   `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>` (con la huella en lugar del id en los dos niveles de una QCS
    confidencial, «Avisos»), y queda visible en las tareas del proyecto.
 5. **El rol declarado no da permisos.** Quien recibe un aviso actúa con sus roles de wasichai: si su asignación nombra un rol
    que no tiene, recibe el aviso y la transición le responde 403 (`security.md`). Quien forma los equipos mantiene
    `role_name` al día con los roles de cada usuario.
 6. **Tareas de escalamiento.** Un aviso va a varias personas y una tarea tiene un solo asignado. Por eso, en los niveles
    1 y 2 de un compromiso o de una QCS, JOB-01 crea la tarea vinculada al registro vencido, sin asignado ni fecha y con
-   `generator_key` `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`; la toma uno de los destinatarios. La del nivel
-   2 de una QCS confidencial es genérica y no se vincula a ella (punto 7 y «Avisos»). Una tarea vencida y una revisión
+   `generator_key` `escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`; la toma uno de los destinatarios. Las de una
+   QCS confidencial, en los dos niveles, son genéricas y no se vinculan a ella (punto 7 y «Avisos»). Una tarea vencida y una revisión
    de riesgo vencida escalan solo con avisos: la tarea ya existe, y el riesgo ya tiene su tarea de revisión.
 7. **QCS confidenciales (ASM-102).** Un aviso sobre una QCS confidencial (`qcs_deadline`, `approval_pending` de una
    queja grave y `task_overdue` de una tarea vinculada a ella) solo llega a quien la vería por `security.md` §9.6: su
    responsable, quien la recibió, los asignados cuyo `role_name` tiene `READ_CONFIDENTIAL` sobre ese objeto en
    `model/roles.json` y, en una queja ALTA o CRITICA, los que tienen `APPROVE` sobre `grievance`. `ModelCatalog` da las
    concesiones de cada rol, así que el filtro no compara nombres de rol. En el nivel 2, los roles de `approve_senior` de
-   WF-D que no la verían reciben `qcs_confidential_overdue`, sin datos del registro, y la tarea de escalamiento de ese
-   nivel no lleva el id, el código ni el vínculo con la QCS («Avisos»).
+   WF-D que no la verían reciben `qcs_confidential_overdue`, sin datos del registro, y las tareas de escalamiento de los
+   dos niveles no llevan el id, el código ni el vínculo con la QCS («Avisos»).
 
 | `notification_type` | Nivel o caso | Destinatarios |
 |---|---|---|
@@ -1760,7 +1768,7 @@ la columna "Se calcula en" y los deja vacíos en los demás, así VENCIDO siempr
 | Objeto | Campo derivado | Fecha que mide | Se calcula en | Vacío en | Parámetros del proyecto | Escalamiento |
 |---|---|---|---|---|---|---|
 | `commitment` | `deadline_status` | `due_date` | `approved`, `in_progress`, `blocked` | `draft`, `pending_approval`, `fulfilled`, `verified`, `closed`, `cancelled` | `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify`; nivel 2: roles de `approve_senior` (RF-WFL-004, ASM-030, ASM-070) |
-| `grievance` | `deadline_status` | `ack_due_date` en `received`; `resolution_due_date` después; `response_due_date` siempre vacío | `received`, `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | `resolved`, `verified`, `closed`, `rejected`, `withdrawn` | `grievance_ack_days`, `grievance_resolution_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify` de WF-E1; nivel 2: roles de `approve_senior` de WF-D (RF-WFL-004, ASM-030, ASM-070). En una confidencial, la tarea del nivel 2 es genérica y solo se vincula al proyecto («Avisos», ASM-102) |
+| `grievance` | `deadline_status` | `ack_due_date` en `received`; `resolution_due_date` después; `response_due_date` siempre vacío | `received`, `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | `resolved`, `verified`, `closed`, `rejected`, `withdrawn` | `grievance_ack_days`, `grievance_resolution_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de `verify` de WF-E1; nivel 2: roles de `approve_senior` de WF-D (RF-WFL-004, ASM-030, ASM-070). En una confidencial, las tareas de los dos niveles son genéricas y solo se vinculan al proyecto («Avisos», ASM-102, D-1) |
 | `inquiry` | `deadline_status` | `response_due_date` | `received` | `answered`, `referred`, `closed` | `inquiry_response_days`, `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Como la queja |
 | `stakeholder_request` | `deadline_status` | Ninguna en el MVP: `response_due_date` y `deadline_status` quedan vacíos mientras GAP-005 no fije un plazo de solicitudes (ASM-100) | Ninguno | Todos | — | — |
 | `task` | `deadline_status` | `due_date` | `open`, `in_progress`, `blocked` | `done`, `cancelled` | `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de la transición de verificación o de revisión del registro vinculado; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |

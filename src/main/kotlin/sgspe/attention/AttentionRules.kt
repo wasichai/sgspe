@@ -130,6 +130,27 @@ object AttentionRules {
         return fields
     }
 
+    // marcar confidencial una QCS existente (D-3 del 2026-10-10, ASM-095): el paso de no confidencial a confidencial por quien
+    // no es su receptor ni su responsable guardados (`before`: ponerse de responsable en la misma escritura no cuenta). la
+    // guarda suma quien tiene READ_CONFIDENTIAL, que sí puede
+    fun strangerMarks(
+        before: Map<String, Any?>,
+        after: Map<String, Any?>,
+        writer: UUID
+    ): Boolean =
+        !Attention.isConfidential(before) &&
+            Attention.isConfidential(after) &&
+            writer.toString() != Values.text(before[Attention.RECEIVER]) &&
+            writer.toString() != Values.text(before[Attention.OWNER])
+
+    fun confidentialMarkForbidden(): Finding =
+        Finding(
+            "CONFIDENTIAL_MARK_FORBIDDEN",
+            "Marcar confidencial una QCS existente lo hace su receptor, su responsable o quien tiene READ_CONFIDENTIAL",
+            Attention.CONFIDENTIAL,
+            status = HttpStatus.FORBIDDEN
+        )
+
     // el alta de una confidencial cuyo receptor no es quien escribe (ASM-095): exige READ_CONFIDENTIAL
     fun foreignReceiver(
         after: Map<String, Any?>,

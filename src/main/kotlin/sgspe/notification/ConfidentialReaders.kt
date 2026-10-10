@@ -48,8 +48,9 @@ class ConfidentialReaders(
     companion object {
         // la huella de una QCS confidencial: los 16 primeros dígitos hexadecimales del SHA-256 de «<objeto>:<id>:<fecha del
         // plazo>», en lugar de su id. la clave del aviso genérico (qcs_confidential_overdue:<proyecto>:<huella>) no lleva el id,
-        // el tipo ni la fecha; la de la tarea genérica del nivel 2 (escalation:<objeto>:<huella>:<fecha>:2, JobTasks) no lleva
-        // el id, pero sí el tipo y la fecha
+        // el tipo ni la fecha; las de las tareas genéricas de escalamiento (escalation:<objeto>:<huella>:<fecha>:<nivel>,
+        // JobTasks) no llevan el id, pero sí el tipo y la fecha; la de acuse de una queja (ack:grievance:<huella>, con la fecha
+        // de recepción en Lima en lugar de la del plazo) solo la huella
         fun fingerprint(
             objectName: String,
             id: String,

@@ -76,4 +76,21 @@ class ConfidentialAttentionScopeTest {
         assertEquals(listOf<Any>(commitment), bound)
         assertEquals("false", ConfidentialCondition.released("false", null, commitment) { ":x" })
     }
+
+    // la reposición de derivados (DerivedFieldsKeeper, DerivedRestore): suma el registro que repone, por su id, solo en su
+    // objeto; sin reposición en curso, o en otro objeto, la misma condición
+    @Test
+    fun `la reposicion de derivados suma solo el registro que repone`() {
+        val bound = mutableListOf<Any>()
+        val record = UUID.fromString("00000000-0000-0000-0000-00000000000d")
+        val text =
+            ConfidentialCondition.restored("\"confidential\" IS NOT TRUE", "grievance", "grievance", record) { value ->
+                bound += value
+                ":c${bound.size - 1}"
+            }
+        assertEquals("(\"confidential\" IS NOT TRUE) OR \"id\" = :c0", text)
+        assertEquals(listOf<Any>(record), bound)
+        assertEquals("false", ConfidentialCondition.restored("false", "inquiry", "grievance", record) { ":x" })
+        assertEquals("false", ConfidentialCondition.restored("false", "grievance", null, null) { ":x" })
+    }
 }

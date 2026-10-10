@@ -8,10 +8,12 @@ import wasichai.core.data.RecordWrite
 
 // un campo que solo escribe la plataforma (un trabajo, sin usuario), con el código del 403 que recibe una persona que lo fija,
 // cambia o vacía. `marked`: el código de sgspe con la marca SgspeWrite también lo fija cuando falta (un listener como quien
-// llama), pero no lo cambia ni lo vacía
+// llama), pero no lo cambia ni lo vacía. `markedValue`: el código de sgspe con la marca lo fija o lo cambia, también si ya
+// tenía valor, cuando el valor nuevo cumple el predicado (nunca al vaciarlo: el predicado recibe null)
 class PlatformField(
     val code: String,
-    val marked: Boolean = false
+    val marked: Boolean = false,
+    val markedValue: ((String?) -> Boolean)? = null
 )
 
 // los campos de la plataforma, puro. generator_key de task solo la escribe la plataforma (JobTasks, dentro del trabajo): la
@@ -21,7 +23,9 @@ class PlatformField(
 // detected_at de una alerta, en los que confían el silencio de JOB-04 (WarningRulesJob.silenced) y la protección de una regla
 // con alertas (DependentsDeleteGuard.PRESERVED): una persona que vinculara una alerta manual a una regla, la reapuntara o
 // moviera su hora silenciaría la regla, y quien vaciara el vínculo podría borrarla. detected_at de una alerta manual lo pone
-// sgspe en el alta (WarningDetectedAt), con la marca
+// sgspe en el alta (WarningDetectedAt), con la marca. y desde D-1 (2026-10-10), la clave de una tarea la escribe además el
+// código de sgspe con la marca cuando es la de una tarea confidencial (JobTasks.isConfidentialTask): ConfidentialTasksListener
+// crea la tarea de acuse genérica y reescribe las de una QCS que se marca confidencial, como quien llama
 object PlatformOnlyFields {
     const val GENERATOR_KEY_CODE = "GENERATOR_KEY_PLATFORM_ONLY"
     const val CODE = "PLATFORM_ONLY"
@@ -29,7 +33,7 @@ object PlatformOnlyFields {
     // por objeto, en el orden en que se juzgan: la clave primero, con su código de siempre
     val FIELDS: Map<String, Map<String, PlatformField>> =
         mapOf(
-            JobTasks.TASK to mapOf(JobTasks.GENERATOR_KEY to PlatformField(GENERATOR_KEY_CODE)),
+            JobTasks.TASK to mapOf(JobTasks.GENERATOR_KEY to PlatformField(GENERATOR_KEY_CODE, markedValue = JobTasks::isConfidentialTask)),
             "early_warning" to
                 linkedMapOf(
                     JobTasks.GENERATOR_KEY to PlatformField(GENERATOR_KEY_CODE),
@@ -40,18 +44,20 @@ object PlatformOnlyFields {
 
     // `changed`, los campos que la escritura cambia (WriteView.changed: reenviar un valor tal como se leyó no es cambiarlo);
     // `person`, si la escribe una persona (la plataforma no tiene usuario); `marked`, si lleva la marca de sgspe; `before`, lo
-    // guardado (vacío en un alta): la marca solo fija un campo que estaba vacío
+    // guardado (vacío en un alta): la marca solo fija un campo que estaba vacío; `after`, el registro como queda: la marca
+    // escribe el valor nuevo de un campo con markedValue si lo cumple
     fun findings(
         objectName: String,
         changed: Set<String>,
         person: Boolean,
         marked: Boolean,
-        before: Map<String, Any?> = emptyMap()
+        before: Map<String, Any?> = emptyMap(),
+        after: Map<String, Any?> = emptyMap()
     ): List<Finding> {
         if (!person) return emptyList()
         return FIELDS[objectName]
             .orEmpty()
-            .filter { (name, field) -> name in changed && !(marked && field.marked && Values.text(before[name]) == null) }
+            .filter { (name, field) -> name in changed && !(marked && allowed(name, field, before, after)) }
             .map { (name, field) ->
                 Finding(
                     code = field.code,
@@ -61,6 +67,16 @@ object PlatformOnlyFields {
                 )
             }
     }
+
+    // lo que la marca puede escribir de `name`: fijarlo si faltaba (marked) o darle un valor que cumple markedValue
+    private fun allowed(
+        name: String,
+        field: PlatformField,
+        before: Map<String, Any?>,
+        after: Map<String, Any?>
+    ): Boolean =
+        (field.marked && Values.text(before[name]) == null) ||
+            (field.markedValue?.invoke(Values.text(after[name])) == true)
 }
 
 // la guarda de los campos de la plataforma (PlatformOnlyFields): una persona que fija o cambia uno de ellos (también al
@@ -78,7 +94,14 @@ class GeneratorKeyGuard(
         if (change.objectName !in OBJECTS || change.isLink()) return emptyList()
         if (change.kind != RecordChangeKind.CREATED && change.kind != RecordChangeKind.UPDATED) return emptyList()
         if (change.userId == null) return emptyList()
-        return PlatformOnlyFields.findings(change.objectName, view.changed(change), true, WriteMark.present(), change.before.orEmpty())
+        return PlatformOnlyFields.findings(
+            change.objectName,
+            view.changed(change),
+            true,
+            WriteMark.present(),
+            change.before.orEmpty(),
+            view.after(change)
+        )
     }
 
     companion object {

@@ -91,11 +91,16 @@ class CrossGuardsTest {
     }
 
     @Test
-    fun `una tarea sin origen solo pasa con la clave del escalamiento confidencial`() {
+    fun `una tarea sin origen solo pasa con la clave de una tarea confidencial`() {
         val group = ExactlyOneGuard.GROUPS.getValue("task").single()
         val key = "escalation:grievance:0123456789abcdef:2026-10-13:2"
         assertNull(ExactlyOneGuard.violation("task", group, mapOf("project" to "p-1", "generator_key" to key)))
+        // también el nivel 1 y la tarea de acuse de una queja confidencial (D-1)
+        assertNull(ExactlyOneGuard.violation("task", group, mapOf("project" to "p-1", "generator_key" to key.removeSuffix(":2") + ":1")))
+        assertNull(ExactlyOneGuard.violation("task", group, mapOf("project" to "p-1", "generator_key" to "ack:grievance:0123456789abcdef")))
         assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("generator_key" to "escalation:grievance:g-1:2026-10-13:2"))?.code)
+        assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("generator_key" to "escalation:grievance:g-1:2026-10-13:1"))?.code)
+        assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("generator_key" to "risk_review:r-1:2026-10-13"))?.code)
         assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("project" to "p-1"))?.code)
         assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("generator_key" to key, "grievance" to "g-1", "inquiry" to "c-1"))?.code)
         assertNull(ExactlyOneGuard.violation("task", group, mapOf("generator_key" to key, "grievance" to "g-1")))

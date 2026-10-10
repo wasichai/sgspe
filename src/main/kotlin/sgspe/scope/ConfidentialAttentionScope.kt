@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import sgspe.common.Attention
 import sgspe.common.ConfidentialRelease
+import sgspe.common.DerivedRestore
 import sgspe.common.Permissions
 import sgspe.common.RequestMemo
 import wasichai.core.data.RecordCriterion
@@ -53,6 +54,19 @@ object ConfidentialCondition {
         value: UUID,
         bind: (Any) -> String
     ): String = if (column == null) condition else "($condition) OR $column = ${bind(value)}"
+
+    // la columna física del id de un registro de wasichai
+    const val ID_COLUMN = "\"id\""
+
+    // la condición más el registro que repone DerivedFieldsKeeper (DerivedRestore): el de id `recordId`, solo si la reposición
+    // en curso es de `objectName` (`restoring`). sin reposición, o de otro objeto, la misma condición
+    fun restored(
+        condition: String,
+        objectName: String,
+        restoring: String?,
+        recordId: UUID?,
+        bind: (Any) -> String
+    ): String = if (restoring != objectName || recordId == null) condition else released(condition, ID_COLUMN, recordId, bind)
 }
 
 // el RecordReadScope de las QCS confidenciales (WAS-ADR-0048, ASM-095, security.md §9.6): wasichai lo pide para cada persona o
@@ -91,10 +105,14 @@ class ConfidentialAttentionScope(
         // la regla del sistema que cierra una solicitud confidencial (RequestClosureListener, decisión 4 del plan 4.2a)
         val release = ConfidentialRelease.on(objectName)
         val releasedColumn = release?.let { column(definition, it.field) }
+        // la reposición de derivados (DerivedFieldsKeeper): ve el registro que repone, solo mientras lo repone, aunque la
+        // escritura que la dispara lo haya vuelto ilegible para quien escribe (la marca confidential, otro responsable)
+        val restore = DerivedRestore.current()
         return RecordCriterion { _, bind ->
             val condition =
                 ConfidentialCondition.condition(objectName, columns, caller.userId, readConfidential = false, approve, bind) ?: ConfidentialCondition.NOTHING
-            if (release == null) condition else ConfidentialCondition.released(condition, releasedColumn, release.value, bind)
+            val released = if (release == null) condition else ConfidentialCondition.released(condition, releasedColumn, release.value, bind)
+            ConfidentialCondition.restored(released, objectName, restore?.objectName, restore?.recordId, bind)
         }
     }
 
