@@ -238,6 +238,56 @@ class F3WorkflowsTests(unittest.TestCase):
             self.assertEqual((cards[name].indexed, cards[name].indexes), (["received_at"], [["project", "deadline_status"]]))
 
 
+class F4WorkflowsTests(unittest.TestCase):
+    def test_wf_e1_a_e3_se_leen_por_su_subseccion_y_wf_f_j_y_m_por_su_seccion(self):
+        self.assertEqual([len(design_docs.workflow_transitions(letter)) for letter in ("E1", "E2", "E3", "F", "J", "M")],
+                         [22, 5, 8, 9, 6, 3])
+        grievance = {t["name"]: t for t in design_docs.workflow_transitions("E1", "grievance")}
+        self.assertEqual((grievance["reopen"]["from"], grievance["reopen"]["to"]), ("resolved", "in_assessment"))
+        self.assertEqual(grievance["resolve_high_severity"]["roles"], ["APPROVER"])
+        self.assertEqual(grievance["verify"]["roles"], ["GRIEVANCE_MANAGER", "SOCIAL_MANAGER"])
+        self.assertEqual(grievance["close_reclassified_in_assessment"]["label"], "Cerrar por reclasificación")
+        # la consulta termina antes de la solicitud: la subsección de WF-E2 no se come la tabla de WF-E3
+        self.assertEqual([t["name"] for t in design_docs.workflow_transitions("E2", "inquiry")],
+                         ["answer", "refer", "close", "close_referred", "close_reclassified"])
+        request = {t["name"]: t for t in design_docs.workflow_transitions("E3", "stakeholder_request")}
+        # SOCIAL_INVESTMENT_MANAGER llega en F5: el lector lo devuelve si la celda lo nombra y test_model.py lo filtra por
+        # fase, así que aquí no cuenta
+        for name, roles in (("accept", ["SOCIAL_MANAGER", "COMMITMENT_MANAGER"]),
+                            ("close_accepted", ["COMMITMENT_MANAGER", "SOCIAL_MANAGER"])):
+            self.assertEqual([r for r in request[name]["roles"] if r != "SOCIAL_INVESTMENT_MANAGER"], roles, name)
+        risk = {t["name"]: t for t in design_docs.workflow_transitions("F", "social_risk")}
+        self.assertEqual((risk["assess"]["from"], risk["assess"]["roles"]), ("identified", ["SOCIAL_RISK_MANAGER"]))
+        warning = {t["name"]: t for t in design_docs.workflow_transitions("J", "early_warning")}
+        self.assertEqual(warning["confirm"]["roles"], ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"])
+        self.assertEqual(warning["dismiss"]["roles"], warning["confirm"]["roles"])
+        incident = design_docs.workflow_transitions("M", "incident")
+        self.assertEqual([(t["name"], t["from"], t["to"]) for t in incident],
+                         [("start_review", "reported", "under_review"), ("start_response", "under_review", "responding"),
+                          ("close", "responding", "closed")])
+
+    def test_la_seccion_comun_de_wf_e_pide_el_objeto_y_una_subseccion_que_no_existe_falla(self):
+        with self.assertRaises(ValueError):
+            design_docs.workflow_transitions("E")  # tres tablas: hay que nombrar el objeto
+        self.assertEqual(len(design_docs.workflow_transitions("E", "inquiry")), 5)
+        with self.assertRaises(ValueError):
+            design_docs.workflow_transitions("E4")
+
+    def test_las_fichas_de_f4_traen_lo_que_suma_el_plan_4_0(self):
+        cards = design_docs.cards()
+        self.assertEqual(cards["grievance"].actions, ["APPROVE", "EXPORT", "READ_CONFIDENTIAL"])
+        for name in ("inquiry", "stakeholder_request"):
+            self.assertEqual(cards[name].actions, ["EXPORT", "READ_CONFIDENTIAL"], name)
+        self.assertEqual(cards["early_warning"].unique, ["generator_key"])
+        self.assertEqual(cards["early_warning"].actions, ["CONFIRM_ALERT"])
+        referred = next(f for f in cards["engagement_question"].fields if f["name"] == "referred_at")
+        self.assertEqual((referred["type"], referred["derived"], design_docs.field_phase(cards["engagement_question"], referred)),
+                         ("DATETIME", True, "F4"))
+        self.assertEqual((cards["risk_assessment"].flags["appendOnly"], cards["risk_assessment"].flags["apiOnly"]), (True, True))
+        self.assertNotIn("CAMBIO DE POSTURA", design_docs.catalogs()["warning_rule_kind"])
+        self.assertEqual(len(design_docs.catalogs()["warning_rule_kind"]), 6)
+
+
 class BrokenDocsTests(unittest.TestCase):
     """El lector falla, no devuelve de menos, cuando una tabla de un documento cambia de forma."""
 
@@ -326,6 +376,22 @@ class BrokenDocsTests(unittest.TestCase):
                 self.edit("workflows.md", change)
                 with self.assertRaises(ValueError):
                     design_docs.workflow_transitions("A")
+                shutil.copy(os.path.join(self.original, "workflows.md"), self.tmp)
+
+    def test_una_subseccion_de_wf_e_repetida_o_sin_su_titulo_hace_fallar_al_lector(self):
+        design_docs.workflow_transitions("E1", "grievance")  # la copia sin tocar se lee
+
+        def repeated(lines):
+            lines.insert(self.index(lines, "### WF-E2 ·"), "### WF-E1 · Queja (otra vez)")
+
+        def renamed(lines):
+            lines[self.index(lines, "### WF-E1 ·")] = "### WF-E1 - Queja"
+
+        for name, change in (("repeated", repeated), ("renamed", renamed)):
+            with self.subTest(name):
+                self.edit("workflows.md", change)
+                with self.assertRaises(ValueError):
+                    design_docs.workflow_transitions("E1", "grievance")
                 shutil.copy(os.path.join(self.original, "workflows.md"), self.tmp)
 
     def test_las_tablas_de_automatizaciones_y_tipos_rotas_hacen_fallar_al_lector(self):

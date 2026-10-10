@@ -1,0 +1,19 @@
+[
+  {
+    "name": "aut-11-critical-risk-task",
+    "label": "Tarea de revisión del riesgo que pasa a crítico",
+    "enabled": true,
+    "definition": {
+      "trigger": { "type": "RECORD_UPDATED" },
+      "conditions": [
+        { "field": "risk_level", "operator": "CHANGED" },
+        { "field": "risk_level", "operator": "EQUALS", "value": "CRITICO" }
+      ],
+      "actions": [
+        { "type": "CREATE_RECORD", "targetObject": "task",
+          "values": { "title": "Revisar el riesgo crítico {{code}}", "social_risk": "{{id}}", "project": "{{project}}",
+                      "assignee_user_id": "{{owner_user_id}}", "assignee_user_email": "{{owner_user_email}}" } }
+      ]
+    }
+  }
+]

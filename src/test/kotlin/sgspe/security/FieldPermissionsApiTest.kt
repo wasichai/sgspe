@@ -328,8 +328,8 @@ class FieldPermissionsApiTest : F3ApiTest() {
         assertTrue(failures.isEmpty(), failures.joinToString("\n"))
         // la partición queda fija: se saltan `stakeholder.stance` (derivado), `stakeholder_assessment` (apiOnly), cuyos valores
         // prueba el plan 2.2, y `delivery` y `commitment_candidate` (apiOnly), que cubre la prueba de los receptores y la
-        // cita; las otras 8 entradas de roles.json se cubren. una entrada nueva que se salte, o una que deje de cubrirse,
-        // rompe esta prueba en vez de pasar en silencio
+        // cita; las otras 11 entradas de roles.json se cubren (desde F4, la persona de las tres QCS). una entrada nueva que
+        // se salte, o una que deje de cubrirse, rompe esta prueba en vez de pasar en silencio
         assertEquals(
             setOf(
                 "stakeholder.stance",
@@ -340,7 +340,7 @@ class FieldPermissionsApiTest : F3ApiTest() {
             skipped.keys,
             "entradas saltadas: $skipped"
         )
-        assertEquals(8, covered.size, "entradas cubiertas: $covered")
+        assertEquals(11, covered.size, "entradas cubiertas: $covered")
     }
 
     @Test

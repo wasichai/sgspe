@@ -30,7 +30,9 @@ F2 brings the workflows (model/workflows/<object>.json, PUT /api/objects/{object
 (model/document-types/<object>.json, a list, /api/objects/{object}/document-types) and then the automations
 (model/automations/<object>.json, a list, /api/objects/{object}/automations), which name states and document types: one
 that Core lacks is created, one that differs is replaced, an equal one is skipped, and an automation Core has and
-model/ does not is reported, never deleted. Views, forms and pages still refuse to run until their phase. wasichai
+model/ does not is reported, never deleted. From F4 a condition's value must be one its field can hold (an option of
+its ENUM, true or false, a number, a state of the workflow): wasichai compares it as text and would skip every run.
+Views, forms and pages still refuse to run until their phase. wasichai
 checks no record on that PUT, so nothing is written until every workflow is checked: one that drops
 a state records sit in stops the pass with 1 (naming the states and counts), and so does one created on an object
 that already has records, which wasichai leaves with a null state, unless --allow-stateless-records is given (then
@@ -1035,6 +1037,34 @@ REFUSED_ACTIONS = {
 }
 
 
+# wasichai-automation 0.6.0 compares a condition's value as text, or as numbers when both sides are numbers
+# (AutomationRules.same): a value the field can never hold makes every run skip, without an error
+COMPARED = ("EQUALS", "NOT_EQUALS")
+ORDERED = ("GREATER_THAN", "LESS_THAN")
+NUMBER = re.compile(r"-?\d+(\.\d+)?")
+
+
+def _condition_value_error(object_name, condition, fields, model, workflow):
+    """Why the value of a condition with a value can never match its field, or None: an ENUM option that the catalog
+    lacks, a BOOLEAN that is not true or false, a number that is not a number, a state the workflow lacks."""
+    operator, value, name = condition["operator"], condition["value"], condition.get("field")
+    if name == "state":
+        if operator in COMPARED and value not in _state_names(workflow):
+            return f"state {operator} names {value!r}, which is not a state of {object_name}"
+        return None
+    field = fields.get(name) if isinstance(name, str) else None
+    if field is None:
+        return None  # already reported: the condition names a field the object lacks
+    kind = field.get("type")
+    if kind == "ENUM" and operator in COMPARED and value not in model.get("enums", {}).get(field.get("enum"), []):
+        return f"{name} {operator} {value!r} is not an option of {field.get('enum')}"
+    if kind == "BOOLEAN" and operator in COMPARED and value not in ("true", "false"):
+        return f"{name} {operator} takes true or false, not {value!r}"
+    if kind in ("INTEGER", "DECIMAL") and operator in COMPARED + ORDERED and not NUMBER.fullmatch(value):
+        return f"{name} {operator} takes a number, not {value!r}"
+    return None
+
+
 def _record_fields(model, object_name):
     """{name: field} of what a record of the object holds: its own fields and the field of each MANY_TO_ONE relationship
     it is the source of (type RELATION)."""
@@ -1224,6 +1254,10 @@ def validate_automations(model, object_name, automations, workflow, document_typ
             elif condition["operator"] not in VALUELESS and not (isinstance(condition.get("value"), str)
                                                                 and condition["value"].strip()):
                 errors.append(f"{where}: a {condition['operator']} condition needs a value")
+            elif condition["operator"] not in VALUELESS:
+                problem = _condition_value_error(object_name, condition, fields, model, workflow)
+                if problem:
+                    errors.append(f"{where}: {problem}")
         if not isinstance(actions, list) or not actions or not all(isinstance(a, dict) for a in actions):
             errors.append(f"{where}: actions must be a non-empty list of objects")
             continue

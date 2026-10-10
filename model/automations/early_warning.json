@@ -1,0 +1,15 @@
+[
+  {
+    "name": "aut-09-warning-triage-task",
+    "label": "Tarea de triaje de la alerta nueva",
+    "enabled": true,
+    "definition": {
+      "trigger": { "type": "RECORD_CREATED" },
+      "conditions": [],
+      "actions": [
+        { "type": "CREATE_RECORD", "targetObject": "task",
+          "values": { "title": "Triaje de la alerta {{title}}", "early_warning": "{{id}}", "project": "{{project}}" } }
+      ]
+    }
+  }
+]

@@ -15,7 +15,7 @@ import unittest
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F3"
+PHASE = "F4"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -39,7 +39,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         catalog = design_docs.matrix()
         wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 60)
+        self.assertEqual(len(wanted), 72)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -207,7 +207,10 @@ class WorkflowTests(unittest.TestCase):
 
     def test_las_transiciones_que_nombran_las_guardas_y_los_endpoints_existen(self):
         # workflows.md: «Transiciones de comando», «Transiciones con motivo obligatorio», las guardas D1 a D11 de WF-D, la de
-        # AgreementWriteGuard, los listeners y los destinatarios por rol (verify y approve_senior), filas de F2 y F3
+        # AgreementWriteGuard, los listeners y los destinatarios por rol (verify y approve_senior), filas de F2 y F3; desde
+        # F4, las de AttentionWriteGuard, RiskWriteGuard y WarningWriteGuard, los comandos de reclasificación, aceptación
+        # y revisiones, RequestClosureListener, QcsTransitionDatesListener y los avisos (verify de WF-E1,
+        # resolve_high_severity, start_triage y las de tratamiento de WF-F)
         named = {
             "project": {"approve", "resume", "return_to_draft", "suspend", "cancel_draft", "cancel_in_review"},
             "stakeholder": {"profile", "assess", "retire_identified", "retire_profiled", "retire_assessed", "reinstate"},
@@ -221,6 +224,19 @@ class WorkflowTests(unittest.TestCase):
             "agreement": {"activate", "activate_from_draft", "resume"},
             "commitment_candidate": {"accept", "reject", "mark_duplicate"},
             "task": {"cancel_open", "cancel_in_progress", "cancel_blocked"},
+            "grievance": {"acknowledge", "investigate", "start_action", "start_action_after_investigation", "resolve",
+                          "resolve_high_severity", "reopen", "verify", "close_resolved", "close", "reject_received",
+                          "reject_acknowledged", "reject_in_assessment", "withdraw_received", "withdraw_acknowledged",
+                          "withdraw_in_assessment", "withdraw_in_investigation", "withdraw_in_action",
+                          "close_reclassified_received", "close_reclassified_acknowledged",
+                          "close_reclassified_in_assessment"},
+            "inquiry": {"answer", "refer", "close", "close_referred", "close_reclassified"},
+            "stakeholder_request": {"accept", "decline", "close_declined", "close_accepted", "close_unfulfilled",
+                                    "close_reclassified_received", "close_reclassified_under_evaluation"},
+            "social_risk": {"assess", "decide_mitigation", "decide_monitoring", "start_monitoring", "resume_mitigation",
+                            "close_identified", "close_assessed", "close_mitigating", "close_monitoring"},
+            "early_warning": {"start_triage", "confirm", "dismiss"},
+            "incident": {"close"},
         }
         for obj, names in named.items():
             have = {t["name"] for t in self.workflows[obj]["definition"]["transitions"]}
@@ -299,11 +315,14 @@ class AutomationsAndDocumentTypesTests(unittest.TestCase):
         wanted = sorted((a["object"], a["name"]) for a in doc if a["after"] is None)
         got = sorted((obj, a["name"]) for obj, items in self.automations.items() for a in items)
         self.assertEqual(got, wanted)
-        # AUT-03 (y AUT-04 desde F5) esperan a UPS-23: el acta congelaría los receptores de delivery (workflows.md)
+        # AUT-03 (y AUT-04 desde F5) esperan a UPS-23: el acta congelaría los receptores de delivery; AUT-06, AUT-07 y
+        # AUT-08 también, porque el cargo y las cartas congelarían la persona de la QCS (workflows.md, decisión 3 de F4)
         waiting = {a["id"]: a["after"] for a in doc if a["after"]}
-        self.assertEqual(waiting.get("AUT-03"), "UPS-23")
-        self.assertLessEqual(set(waiting), {"AUT-03", "AUT-04"})
-        self.assertEqual(set(waiting.values()), {"UPS-23"})
+        self.assertEqual(waiting, {"AUT-03": "UPS-23", "AUT-06": "UPS-23", "AUT-07": "UPS-23", "AUT-08": "UPS-23"})
+        self.assertEqual(wanted, [("commitment", "aut-01-commitment-execution-task"),
+                                  ("early_warning", "aut-09-warning-triage-task"),
+                                  ("engagement", "aut-05-meeting-minutes"), ("engagement", "aut-10-engagement-reschedule-task"),
+                                  ("grievance", "aut-02-grievance-ack-task"), ("social_risk", "aut-11-critical-risk-task")])
 
     def test_cada_disparador_es_el_de_workflows_md_y_nombra_un_estado_de_su_workflow(self):
         doc = {a["name"]: a for a in design_docs.automations()}
@@ -374,6 +393,13 @@ class AutomationsAndDocumentTypesTests(unittest.TestCase):
     def test_el_objeto_del_acta_de_entrega_tiene_campos_restringidos(self):
         # lo que espera UPS-23: si delivery dejara de restringir campos, el acta de entrega podría volver a F3
         self.assertTrue(self.has_restricted("delivery"))
+
+    def test_las_qcs_restringen_su_persona_y_no_tienen_tipos_de_documento(self):
+        # lo que espera UPS-23 en F4 (decisión 3): el cargo de queja y las cartas de respuesta congelarían la persona que
+        # plantea la QCS, que solo leen SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER y GRIEVANCE_MANAGER (security.md §7.9)
+        for obj in ("grievance", "inquiry", "stakeholder_request"):
+            self.assertTrue(self.has_restricted(obj), obj)
+            self.assertNotIn(obj, self.types, obj)
 
 
 if __name__ == "__main__":

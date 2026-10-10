@@ -28,6 +28,13 @@ class SampleFieldsTest {
     }
 
     @Test
+    fun `generator_key de una alerta tampoco entra`() {
+        // JOB-04 lo escribe como la plataforma (plan 4.2b); una persona que lo fija recibiría 403 GENERATOR_KEY_PLATFORM_ONLY
+        assertTrue(SampleFields.skipped("early_warning", field(JobTasks.GENERATOR_KEY)))
+        assertFalse(SampleFields.skipped("early_warning", field("title")))
+    }
+
+    @Test
     fun `los derivados y las geometrias tampoco entran`() {
         assertTrue(SampleFields.skipped("task", field("deadline_status", "ENUM", derived = true)))
         assertTrue(SampleFields.skipped("area_of_influence", field("geometry", "GEOMETRY")))
@@ -37,7 +44,10 @@ class SampleFieldsTest {
     // y un nombre que el modelo no tiene no protegería nada
     @Test
     fun `los campos de la plataforma existen en el modelo`() {
-        assertEquals(mapOf(JobTasks.TASK to setOf(JobTasks.GENERATOR_KEY)), SampleFields.PLATFORM_ONLY)
+        assertEquals(
+            mapOf(JobTasks.TASK to setOf(JobTasks.GENERATOR_KEY), "early_warning" to setOf(JobTasks.GENERATOR_KEY)),
+            SampleFields.PLATFORM_ONLY
+        )
         for ((objectName, fields) in SampleFields.PLATFORM_ONLY) {
             val obj = catalog.objectOrNull(objectName)
             for (name in fields) {

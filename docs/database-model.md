@@ -4215,6 +4215,9 @@ estos saltos (`api.md` §3.6); JOB-08 los purga después de `sgspe.concurrency.d
   disparadores y sus acciones; sin `WEBHOOK` ni `NOTIFY`; ningún derivado escrito; ningún requerido de `CREATE_RECORD`
   omitido), crea los que faltan, reemplaza los que difieren y avisa, sin borrarla, de una automatización que el tenant
   tiene y `model/` ya no.
+- Desde F4: el valor de cada condición de una automatización tiene que poder darse en su campo: una opción de su ENUM,
+  `true` o `false` en un BOOLEAN, un número en un INTEGER o un DECIMAL y un estado del workflow en `state`. wasichai lo
+  compara como texto (AUT-11 compara `risk_level` con `CRITICO`), así que otro valor saltaría cada ejecución sin error.
 
 ### Cómo sincroniza un modelo existente
 
