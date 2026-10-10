@@ -1056,6 +1056,10 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   `owner_user_id` o `received_by_user_id` de una confidencial exige esa acción (`403 ACTION_REQUIRED`). Así quien
   registra siempre la ve, no la pierde al guardarla y los listeners, que escriben como esa persona, la pueden
   actualizar.
+- **Excepción: `ConfidentialRelease`.** `RequestClosureListener` cierra la solicitud aceptada como quien cierra el
+  compromiso, dentro de `ConfidentialRelease` (`sgspe.common`): mientras dura el bloque, `ConfidentialAttentionScope`
+  admite además las solicitudes cuyo `created_commitment` es ese compromiso, y solo ellas. La auditoría lleva el origen
+  `listener:request-closure`; `ArchitectureTest` vigila que solo ese listener lo use (ADR-0028).
 - **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
   apuntar a una QCS que quien lee no ve: el id es visible y el registro no, y el portal muestra «Registro reservado».
   Los títulos de las tareas automáticas solo llevan el código de la QCS. Una evidencia vinculada a una QCS confidencial
@@ -1204,8 +1208,9 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - cada emisión queda en `export_log` y en `audit_log` (RQ-AUD-011).
 - **Documentos emitidos** de wasichai-documents (RQ-REP-029): no se filtran por permisos de campo, porque quien ve el
   documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Además, la copia congelada lleva **todos** los campos del
-  registro y todas las columnas de cada tabla relacionada que nombra la plantilla, aunque no los imprima, y `GET
-  /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto (código de wasichai-documents 0.6.0, UPS-23).
+  registro y todas las columnas de cada tabla relacionada que nombra la plantilla, aunque no los imprima, y
+  `GET /api/documents/{id}` la devuelve a todo rol con READ sobre el objeto (código de wasichai-documents 0.6.0,
+  UPS-23).
   Regla: un tipo de documento solo se declara sobre un objeto sin campos restringidos y sin tablas relacionadas de
   objetos con campos restringidos; `test_model.py` lo comprueba. Por eso, hasta UPS-23, el acta de entrega (`delivery`
   restringe `recipients` y `conformity_by`) no es un documento emitido, y la lista de asistentes imprime el total y deja
@@ -1385,6 +1390,7 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | `ArchitectureTest` y `boundaries.test` | Sin literales de rol, sin código bajo `wasichai` ni APIs internas, en el backend y en la UI | Unitaria | F1 | RQ-SEC-005, RNF-MNT-005 |
 | Cuentas de servicio | No confirman ni descartan alertas, se rechazan en la administración y quedan auditadas con `serviceAccount` | Integración | F4 | RQ-SEC-014, RN-EWS-001 |
 | `ConfidentialAttentionScopeTest` | La condición de `ConfidentialAttentionScope` por caso (con `READ_CONFIDENTIAL`, responsable, quien la recibió, `APPROVE` en una queja grave, otro rol), con valores enlazados, y que falla cerrado sin las columnas o sin la consulta de permisos | Unitaria | F4 | RQ-SEC-010, ASM-095 |
+| `ConfidentialReleaseTest` | Dentro de `ConfidentialRelease`, `ConfidentialAttentionScope` admite además las solicitudes cuyo `created_commitment` es el compromiso que se cierra, y solo ellas; fuera del bloque, nada cambia; `ArchitectureTest` vigila que solo `RequestClosureListener` lo use | Unitaria | F4 | RF-GRV-001, RN-GRV-001, RQ-SEC-004 |
 | `ConfidentialAttentionApiTest` | Un relacionista que no es responsable ni la recibió no ve una QCS confidencial en lista, detalle, historial, relacionados ni transiciones; el responsable, quien la recibió, el gestor de quejas y el `ADMIN` sí; el aprobador solo la grave; el tablero la excluye con `confidentialHidden`; EXTERNO la excluye también para el gestor; un aviso con datos no llega a quien no la ve y el aviso genérico del nivel 2 no lleva código, título ni enlace; quitar la marca sin la acción responde `403` | Integración | F4 | RQ-SEC-010, RQ-SEC-004, ASM-095, ASM-102 |
 | Proxy WMS | Sin token responde 401; una capa de otro tenant, fuera de la lista o de un objeto que el usuario no lee se rechaza; el `GetCapabilities` propio lista solo las capas de la lista blanca del tenant; `GetFeatureInfo`, `SLD` y `SLD_BODY` se rechazan | Integración | F6 | RQ-SEC-011 |
 | Salidas | Una exportación y un entregable EXTERNO generados con fixtures no contienen nombres ni fotos sin consentimiento; ninguna exportación, de ningún nivel, contiene el documento de identidad; cada exportación deja un `export_log` | Integración | F2–F8 | RQ-REP-014, RQ-AUD-011, RF-COM-001 |
