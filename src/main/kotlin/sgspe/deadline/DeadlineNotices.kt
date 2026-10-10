@@ -74,6 +74,10 @@ object DeadlineNoticePlan {
     // ya escala por risk_escalated con los mismos niveles y plazos; con las dos, cada nivel recibiría dos avisos por lo mismo
     fun escalatesAsTask(generatorKey: String?): Boolean = !RiskReviewTasks.isReviewTask(generatorKey)
 
+    // la próxima revisión de un riesgo (un DATE AAAA-MM-DD); null si falta o está mal formada: esa fila se salta, nunca rompe los
+    // avisos de toda la organización
+    fun reviewDate(raw: Any?): LocalDate? = Values.text(raw)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
     // la transición que sigue en cada estado con plazo de una QCS: sus roles reciben el nivel 0 de una QCS sin responsable
     val QCS_NEXT: Map<String, Map<String, String>> =
         mapOf(
@@ -333,7 +337,7 @@ class DeadlineNotices(
             }
         }
         for (row in risks) {
-            val due = Values.text(row.attributes[Risks.NEXT_REVIEW])?.let(LocalDate::parse) ?: continue
+            val due = DeadlineNoticePlan.reviewDate(row.attributes[Risks.NEXT_REVIEW]) ?: continue
             val params = params(Values.text(row.attributes["project"]) ?: continue)
             val plan =
                 DeadlineNoticePlan.risk(
@@ -384,7 +388,12 @@ class DeadlineNotices(
         try {
             records
                 .all(Risks.SOCIAL_RISK, filters = mapOf(Risks.REVIEW_STATUS to RiskReview.OVERDUE), criteria = listOf(Criteria.inState(Risks.REVIEWED)))
-                .filter { RiskReview.status(Values.text(it.attributes[Risks.NEXT_REVIEW])?.let(LocalDate::parse), today) == RiskReview.OVERDUE }
+                .filter { row ->
+                    val raw = row.attributes[Risks.NEXT_REVIEW]
+                    val next = DeadlineNoticePlan.reviewDate(raw)
+                    if (next == null && Values.text(raw) != null) log.warn("DeadlineNotices: social_risk {} con next_review_date mal formada; se salta", row.id)
+                    next != null && RiskReview.status(next, today) == RiskReview.OVERDUE
+                }
         } catch (_: NotFoundException) {
             emptyList()
         }

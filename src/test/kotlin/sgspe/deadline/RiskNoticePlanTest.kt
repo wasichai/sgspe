@@ -51,4 +51,14 @@ class RiskNoticePlanTest {
         assertTrue(DeadlineNoticePlan.escalatesAsTask(DeadlineJob.escalationKey("commitment", "c1", LocalDate.parse("2026-10-14"), 1)))
         assertTrue(DeadlineNoticePlan.escalatesAsTask("follow_up:s1:2026-10-14"))
     }
+
+    // una fila mal formada se salta y no rompe los avisos de la organización (Minor de la revisión de toda la rama)
+    @Test
+    fun `la fecha de la proxima revision se lee sin romper con una fila mal formada`() {
+        assertEquals(LocalDate.parse("2026-10-14"), DeadlineNoticePlan.reviewDate("2026-10-14"))
+        assertEquals(null, DeadlineNoticePlan.reviewDate(null))
+        assertEquals(null, DeadlineNoticePlan.reviewDate(""))
+        assertEquals(null, DeadlineNoticePlan.reviewDate("14/10/2026"))
+        assertEquals(null, DeadlineNoticePlan.reviewDate("2026-02-30"))
+    }
 }
