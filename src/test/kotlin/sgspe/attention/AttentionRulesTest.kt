@@ -128,6 +128,31 @@ class AttentionRulesTest {
         assertEquals(false, AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_inquiry" to id.toString()), marked = true))
     }
 
+    // los vínculos que solo escriben los comandos (reclasificación y aceptación): una persona sin la marca SgspeWrite que los
+    // fija, cambia o vacía recibe 403 COMMAND_ONLY sobre el campo; la plataforma y los comandos sí los escriben, y un cambio
+    // que no los toca pasa
+    @Test
+    fun `los vinculos de los comandos solo los escriben sus comandos`() {
+        val refused = AttentionRules.commandOnly("inquiry", setOf("title", "reclassified_from_grievance"), person = true, marked = false)
+        assertEquals(listOf("COMMAND_ONLY" to "reclassified_from_grievance"), codes(listOfNotNull(refused)))
+        assertEquals(403, refused!!.status.value())
+        assertEquals(
+            listOf("COMMAND_ONLY" to "created_commitment"),
+            codes(listOfNotNull(AttentionRules.commandOnly("stakeholder_request", setOf("created_commitment"), person = true, marked = false)))
+        )
+        assertEquals(null, AttentionRules.commandOnly("inquiry", setOf("reclassified_from_grievance"), person = true, marked = true))
+        assertEquals(null, AttentionRules.commandOnly("inquiry", setOf("reclassified_from_grievance"), person = false, marked = false))
+        assertEquals(null, AttentionRules.commandOnly("inquiry", setOf("title"), person = true, marked = false))
+        // created_commitment de una queja no existe: solo la solicitud lo tiene
+        assertEquals(null, AttentionRules.commandOnly("grievance", setOf("created_commitment"), person = true, marked = false))
+        // cada campo es una relación M2O del objeto en model.json: un nombre que el modelo no tiene no protegería nada
+        for ((objectName, fields) in AttentionRules.COMMAND_FIELDS) {
+            for (name in fields) {
+                assertTrue(catalog.relationships.any { it.source == objectName && it.fieldName == name && it.type == "MANY_TO_ONE" }, "$objectName.$name")
+            }
+        }
+    }
+
     // las tablas nombran transiciones por texto: si el modelo renombra una, la regla dejaría de vigilarla en silencio
     @Test
     fun `cada transicion de las reglas existe en su workflow`() {

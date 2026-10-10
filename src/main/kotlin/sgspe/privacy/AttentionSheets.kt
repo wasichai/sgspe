@@ -228,8 +228,12 @@ object AttentionSheets {
         return context.codes[id] ?: NOT_AVAILABLE
     }
 
-    // «Resumen» de INTERNO: los conteos del reporte unificado, por tipo y en total
-    fun summary(byType: Map<String, AttentionTotals>): XlsxSheet {
+    // «Resumen» de INTERNO: los conteos del reporte unificado, por tipo y en total. «Absueltas» se cuenta con responded_at:
+    // si quien exporta no lo lee en un tipo, la celda sale «no disponible», y el total también, nunca un 0 (RQ-DSH-032)
+    fun summary(
+        byType: Map<String, AttentionTotals>,
+        readable: Set<String>
+    ): XlsxSheet {
         val total =
             AttentionTotals(
                 byType.values.sumOf { it.received },
@@ -240,11 +244,21 @@ object AttentionSheets {
                 byType.values.sumOf { it.absolved },
                 byType.values.sumOf { it.overdue }
             )
-        val rows = byType.map { (type, t) -> listOf<Any?>(SHEETS.getValue(type)) + counts(t) } + listOf(listOf<Any?>("Total") + counts(total))
+        val rows =
+            byType.map { (type, t) -> listOf<Any?>(SHEETS.getValue(type)) + counts(t, absolvedReadable(type, readable)) } +
+                listOf(listOf<Any?>("Total") + counts(total, byType.keys.all { absolvedReadable(it, readable) }))
         return XlsxSheet("Resumen", listOf("Tipo", "Recibidas", "Abiertas", "Cerradas", "Rechazadas", "Desistidas", "Absueltas", "Vencidas"), rows.asSequence())
     }
 
-    private fun counts(t: AttentionTotals): List<Any?> = listOf(t.received, t.open, t.closed, t.rejected, t.withdrawn, t.absolved, t.overdue)
+    private fun counts(
+        t: AttentionTotals,
+        absolvedReadable: Boolean
+    ): List<Any?> = listOf(t.received, t.open, t.closed, t.rejected, t.withdrawn, if (absolvedReadable) t.absolved else NOT_AVAILABLE, t.overdue)
+
+    private fun absolvedReadable(
+        type: String,
+        readable: Set<String>
+    ): Boolean = "$type.${Attention.RESPONDED_AT}" in readable
 
     // «Notas»: en EXTERNO, que no salen las confidenciales ni el texto libre (sin conteos); en PUBLICO, si el conteo las incluye
     fun notes(
@@ -311,13 +325,16 @@ object AttentionSheets {
                     }.eachCount()
             return SmallCells.apply(types.flatMap { t -> axis.map { v -> (t to v) to (counts[t to v] ?: 0) } })
         }
-        val absolved =
-            SmallCells.apply(
-                types.flatMap { t ->
-                    val ofType = counted.filter { it.type == t }
-                    listOf((t to "Recibidas") to ofType.size, (t to "Absueltas") to ofType.count { Values.text(it.attributes[Attention.RESPONDED_AT]) != null })
-                }
-            )
+        // las absueltas de un tipo cuyo responded_at quien exporta no lee salen «no disponible», fuera de la supresión, que se
+        // completa sobre las demás celdas de la tabla
+        val absolvedCells =
+            types.flatMap { t ->
+                val ofType = counted.filter { it.type == t }
+                listOf((t to "Recibidas") to ofType.size, (t to "Absueltas") to ofType.count { Values.text(it.attributes[Attention.RESPONDED_AT]) != null })
+            }
+        val unknown = absolvedCells.map { it.first }.filter { (t, column) -> column == "Absueltas" && !absolvedReadable(t, readable) }.toSet()
+        val published = SmallCells.apply(absolvedCells.filter { it.first !in unknown }).toMap()
+        val absolved = absolvedCells.map { (key, _) -> key to (published[key] ?: NOT_AVAILABLE) }
 
         fun sheet(
             name: String,

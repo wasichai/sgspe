@@ -2,8 +2,10 @@ package sgspe.scope
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
+import wasichai.core.common.WasichaiException
 
 // el alcance de los objetos de F4 y la regla «mismo proyecto» (ProjectLinkGuard, api.md §3.3): un registro de F4 solo
 // referencia registros de su proyecto, también por un vínculo M2M y desde un compromiso; una regla del tenant no discrepa
@@ -25,13 +27,19 @@ class ProjectLinkGuardApiTest : F4ApiTest() {
         grievance(testProject(), attributes = mapOf("stakeholder" to stakeholder(testProject())))
     }
 
+    // reclassified_from_* solo lo escribe su comando (403 COMMAND_ONLY por la API genérica), y el comando fija el proyecto del
+    // original; la regla «mismo proyecto» vale igual para quien sí lo escribe: aquí, la plataforma
     @Test
     fun `una solicitud reclasificada de una queja de otro proyecto es PROJECT_MISMATCH`() {
         val foreign = grievance(project())
-        val response =
+        val generic =
             create("stakeholder_request", attentionAttributes(testProject(), null, "SO-") + mapOf("reclassified_from_grievance" to foreign))
-        assertEquals("PROJECT_MISMATCH", code(response))
-        assertEquals(listOf("reclassified_from_grievance"), problemFields(response.body))
+        assertEquals("COMMAND_ONLY", code(generic))
+        val request = stakeholderRequest(testProject())
+        val refused = assertThrows<WasichaiException> { platformPatch("stakeholder_request", request, mapOf("reclassified_from_grievance" to foreign)) }
+        assertEquals(HttpStatus.CONFLICT, refused.status)
+        assertEquals("PROJECT_MISMATCH", refused.violations.single().message)
+        assertEquals("reclassified_from_grievance", refused.violations.single().field)
     }
 
     @Test

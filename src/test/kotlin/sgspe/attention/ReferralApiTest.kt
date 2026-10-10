@@ -1,11 +1,13 @@
 package sgspe.attention
 
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
+import sgspe.common.IdempotencyKey
 
 // la derivación de una pregunta de reunión (RF-ENG-006, api.md §4.4): crea la QCS con la pregunta, la interacción, el proyecto,
 // el canal REUNION y la recepción de la reunión, marca referred_at y con eso la interacción cierra (RN-ENG-005); una pregunta
@@ -29,14 +31,15 @@ class ReferralApiTest : F4ApiTest() {
         question: String,
         target: String = "inquiry",
         account: Account = officer,
-        attributes: Map<String, Any?> = mapOf("code" to uniqueName("CO-"), "description" to "Pregunta derivada de la reunión.")
+        attributes: Map<String, Any?> = mapOf("code" to uniqueName("CO-"), "description" to "Pregunta derivada de la reunión."),
+        headers: Map<String, String> = emptyMap()
     ): Response =
         exchange(
             "POST",
             "/api/sgspe/engagement-questions/$question/referral",
             mapOf("target" to target, "attributes" to attributes),
             account.token,
-            withReason("derivada")
+            withReason("derivada") + headers
         )
 
     @Test
@@ -61,6 +64,21 @@ class ReferralApiTest : F4ApiTest() {
         val again = refer(question, "grievance")
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("ALREADY_REFERRED", code(again))
+    }
+
+    // un reenvío con la misma Idempotency-Key devuelve la respuesta guardada, no ALREADY_REFERRED: la pregunta no se deriva
+    // dos veces
+    @Test
+    fun `un reenvio con la misma clave devuelve la misma respuesta y no deriva dos veces`() {
+        val (_, question) = meeting()
+        val key = mapOf(IdempotencyKey.HEADER to uniqueName("rf-"))
+        val attributes = mapOf("code" to uniqueName("CO-"), "description" to "Pregunta derivada de la reunión.")
+        val first = refer(question, attributes = attributes, headers = key)
+        assertEquals(HttpStatus.CREATED, first.status, first.body)
+        val again = refer(question, attributes = attributes, headers = key)
+        assertEquals(HttpStatus.CREATED, again.status, again.body)
+        assertEquals("true", again.headers.getFirst("Idempotent-Replayed"))
+        assertArrayEquals(first.body.toByteArray(), again.body.toByteArray())
     }
 
     @Test
@@ -90,19 +108,18 @@ class ReferralApiTest : F4ApiTest() {
     }
 
     // derivar exige UPDATE sobre la pregunta y CREATE sobre el destino (permissions.require): el gestor de compromisos solo
-    // lee la pregunta, y el gestor social la actualiza pero no crea consultas. es el 403 de permisos, sin código propio: su
-    // detail nombra lo que falta, y solo eso
+    // lee la pregunta y las consultas (le faltan las dos), y el gestor social la actualiza pero no crea consultas. es el 403
+    // de permisos, sin código propio: su detail nombra lo que falta, y solo eso
     @Test
     fun `sin UPDATE sobre la pregunta o sin CREATE sobre el destino no se deriva`() {
         val (_, question) = meeting()
         val update = "permiso de edición sobre engagement_question"
         val create = "permiso de creación sobre inquiry"
-        for ((role, missing) in listOf("COMMITMENT_MANAGER" to update, "SOCIAL_MANAGER" to create)) {
+        for ((role, missing) in listOf("COMMITMENT_MANAGER" to listOf(update, create), "SOCIAL_MANAGER" to listOf(create))) {
             val response = refer(question, account = member(role))
             assertEquals(HttpStatus.FORBIDDEN, response.status, "$role: ${response.body}")
             val detail = tree(response.body)["detail"].asString()
-            assertTrue(detail.contains(missing), "$role: ${response.body}")
-            assertEquals(1, listOf(update, create).count { detail.contains(it) }, "$role: ${response.body}")
+            assertEquals(missing, listOf(update, create).filter { detail.contains(it) }, "$role: ${response.body}")
         }
         assertEquals(HttpStatus.CREATED, refer(question).status)
     }

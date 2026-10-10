@@ -125,13 +125,15 @@ class ReclassificationApiTest : F4ApiTest() {
         assertEquals(manager.id, created["owner_user_id"].asString())
     }
 
-    // por la API genérica, un reclassified_from_* no exime: el alta confidencial con un receptor ajeno sigue en 400
+    // reclassified_from_* solo lo escribe la reclasificación (AttentionCommandFieldsGuard): la regla de conteo saca de los
+    // conteos al original que apunta. por la API genérica, fijarlo en un alta (tampoco exime del receptor: ni se juzga) o en
+    // un cambio, o vaciar el que puso el comando, es 403 COMMAND_ONLY sobre el campo; reenviarlo tal como se leyó pasa
     @Test
-    fun `por la API generica un vinculo de reclasificacion no exime del receptor`() {
+    fun `por la API generica reclassified_from no se fija, no se cambia ni se vacia`() {
         val officer = member("COMMUNITY_RELATIONS_OFFICER")
         val other = member("COMMUNITY_RELATIONS_OFFICER")
         val original = grievance(testProject())
-        val response =
+        val created =
             exchange(
                 "POST",
                 "/api/objects/inquiry/records",
@@ -143,8 +145,20 @@ class ReclassificationApiTest : F4ApiTest() {
                 officer.token,
                 withReason("alta de prueba")
             )
-        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
-        assertEquals("CONFIDENTIAL_RECEIVER_REQUIRED", code(response))
-        assertEquals(listOf("received_by_user_id"), problemFields(response.body))
+        assertEquals(HttpStatus.FORBIDDEN, created.status, created.body)
+        assertEquals("COMMAND_ONLY", code(created))
+        assertEquals(listOf("reclassified_from_grievance"), problemFields(created.body))
+        val changed = edit("inquiry", inquiry(testProject()), mapOf("reclassified_from_grievance" to original), token, withReason())
+        assertEquals(HttpStatus.FORBIDDEN, changed.status, changed.body)
+        assertEquals("COMMAND_ONLY", code(changed))
+        // el comando sí lo escribe
+        val response = reclassify("grievances", "grievance", original, "inquiry")
+        assertEquals(HttpStatus.CREATED, response.status, response.body)
+        val successor = tree(response.body)["created"]["id"].asString()
+        val emptied = edit("inquiry", successor, mapOf("reclassified_from_grievance" to null), token, withReason())
+        assertEquals(HttpStatus.FORBIDDEN, emptied.status, emptied.body)
+        assertEquals(listOf("reclassified_from_grievance"), problemFields(emptied.body))
+        assertEquals(HttpStatus.OK, edit("inquiry", successor, emptyMap(), token, withReason()).status)
+        assertEquals(original, record("inquiry", successor)["attributes"]["reclassified_from_grievance"].asString())
     }
 }

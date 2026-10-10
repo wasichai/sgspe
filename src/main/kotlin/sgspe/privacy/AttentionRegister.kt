@@ -124,7 +124,7 @@ class AttentionRegister(
         val byType = lines.groupBy { it.type }
         val sheets = types.map { type -> AttentionSheets.records(type, byType[type].orEmpty(), context, disclosure) }
         return if (disclosure == Disclosure.INTERNO) {
-            sheets + AttentionSheets.summary(types.associateWith { type -> AttentionCounting.totals(counted.filter { it.type == type }) })
+            sheets + AttentionSheets.summary(types.associateWith { type -> AttentionCounting.totals(counted.filter { it.type == type }) }, readable)
         } else {
             sheets + AttentionSheets.notes(disclosure, confidentialIncluded = false)
         }

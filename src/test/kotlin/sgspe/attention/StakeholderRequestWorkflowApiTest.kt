@@ -1,10 +1,12 @@
 package sgspe.attention
 
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
+import sgspe.common.IdempotencyKey
 import tools.jackson.databind.JsonNode
 
 // WF-E3 (workflows.md, api.md §4.6, RN-GRV-001, ASM-068): aceptar es responder y crear el compromiso en draft, por su comando;
@@ -167,6 +169,68 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         assertEquals("closed", state("stakeholder_request", id))
         assertEquals("accepted", state("stakeholder_request", other))
         assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
+    }
+
+    // un respondedAt mal formado es un 400 sobre la propiedad del cuerpo, no sobre responded_at del modelo
+    @Test
+    fun `un respondedAt mal formado responde sobre respondedAt`() {
+        val id = underEvaluation(mapOf("response" to null, "responded_at" to null))
+        val response =
+            accept(
+                id,
+                mapOf(
+                    "creates" to "commitment",
+                    "response" to "Se atenderá con un compromiso de materiales.",
+                    "respondedAt" to "ayer por la tarde",
+                    "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego") + AMOUNT
+                )
+            )
+        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+        assertEquals(listOf("respondedAt"), problemFields(response.body))
+        assertEquals("under_evaluation", state("stakeholder_request", id))
+    }
+
+    // un reenvío con la misma Idempotency-Key, con las mismas cabeceras (también el If-Match ya vencido), devuelve la
+    // respuesta guardada: la solicitud no se acepta dos veces ni nace otro compromiso
+    @Test
+    fun `un reenvio con la misma clave devuelve la misma respuesta y no acepta dos veces`() {
+        val id = underEvaluation()
+        val headers = ifMatch("stakeholder_request", id, manager.token) + withReason("se atiende la solicitud") + (IdempotencyKey.HEADER to uniqueName("ac-"))
+        val body =
+            mapOf(
+                "creates" to "commitment",
+                "response" to "Se atenderá con un compromiso de materiales.",
+                "respondedAt" to "2026-10-08T15:00:00Z",
+                "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego") + AMOUNT
+            )
+        val path = "/api/sgspe/stakeholder-requests/$id/accept"
+        val first = exchange("POST", path, body, manager.token, headers)
+        assertEquals(HttpStatus.CREATED, first.status, first.body)
+        val again = exchange("POST", path, body, manager.token, headers)
+        assertEquals(HttpStatus.CREATED, again.status, again.body)
+        assertEquals("true", again.headers.getFirst("Idempotent-Replayed"))
+        assertArrayEquals(first.body.toByteArray(), again.body.toByteArray())
+        assertEquals(tree(first.body)["commitment"]["id"].asString(), attributes(id)["created_commitment"].asString())
+    }
+
+    // created_commitment solo lo escribe la aceptación (AttentionCommandFieldsGuard): el cierre del compromiso y
+    // close_unfulfilled confían en él. por la API genérica, reapuntarlo a otro compromiso o vaciarlo es 403 COMMAND_ONLY sobre
+    // el campo; reenviar la solicitud tal como se leyó pasa
+    @Test
+    fun `created_commitment lo escribe solo la aceptacion`() {
+        val id = underEvaluation()
+        val accepted = accept(id)
+        assertEquals(HttpStatus.CREATED, accepted.status, accepted.body)
+        val created = tree(accepted.body)["commitment"]["id"].asString()
+        val other = approvedCommitment(testProject(), member("COMMITMENT_MANAGER"), mapOf("resource_type" to "NO MATERIAL"))
+        for (value in listOf(other, null)) {
+            val refused = edit("stakeholder_request", id, mapOf("created_commitment" to value), token, withReason())
+            assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+            assertEquals("COMMAND_ONLY", code(refused))
+            assertEquals(listOf("created_commitment"), problemFields(refused.body))
+        }
+        assertEquals(HttpStatus.OK, edit("stakeholder_request", id, emptyMap(), token, withReason()).status)
+        assertEquals(created, attributes(id)["created_commitment"].asString())
     }
 
     @Test

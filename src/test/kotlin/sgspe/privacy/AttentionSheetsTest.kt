@@ -126,10 +126,43 @@ class AttentionSheetsTest {
 
     @Test
     fun `el resumen trae los conteos del reporte y el estado agrupado de PUBLICO`() {
-        val summary = AttentionSheets.summary(mapOf("grievance" to sgspe.common.AttentionCounting.totals(listOf(grievance))))
+        val summary = AttentionSheets.summary(mapOf("grievance" to sgspe.common.AttentionCounting.totals(listOf(grievance))), all)
         assertEquals(listOf<Any?>("Quejas", 1, 1, 0, 0, 0, 0, 0), summary.rows.first())
         assertEquals("abiertas", AttentionSheets.group("in_action"))
         assertEquals("declinadas", AttentionSheets.group("declined"))
+    }
+
+    // RQ-DSH-032: quien exporta sin leer responded_at no ve «Absueltas» como 0, sino «no disponible», en el «Resumen» de
+    // INTERNO (también el total) y en «Absueltas por tipo» de PUBLICO; los demás conteos siguen
+    @Test
+    fun `sin leer responded_at las absueltas salen no disponible`() {
+        val answered = grievance.copy(attributes = grievance.attributes + ("responded_at" to "2026-10-07T15:00:00Z"))
+        val totals =
+            mapOf(
+                "grievance" to sgspe.common.AttentionCounting.totals(listOf(answered)),
+                "inquiry" to sgspe.common.AttentionCounting.totals(emptyList())
+            )
+        val blind = AttentionSheets.summary(totals, all - "grievance.responded_at").rows.toList()
+        assertEquals(listOf<Any?>("Quejas", 1, 1, 0, 0, 0, NOT_AVAILABLE, 0), blind[0])
+        assertEquals(listOf<Any?>("Consultas", 0, 0, 0, 0, 0, 0, 0), blind[1])
+        assertEquals(listOf<Any?>("Total", 1, 1, 0, 0, 0, NOT_AVAILABLE, 0), blind[2])
+        assertEquals(listOf<Any?>("Total", 1, 1, 0, 0, 0, 1, 0), AttentionSheets.summary(totals, all).rows.toList()[2])
+        val absolved =
+            AttentionSheets
+                .aggregates(
+                    List(6) { answered.copy(id = "q$it") },
+                    all - "grievance.responded_at",
+                    listOf("grievance", "inquiry", "stakeholder_request").associateWith { catalog.states(it) },
+                    catalog.enumValues("qcs_channel"),
+                    catalog.enumValues("qcs_category"),
+                    confidentialIncluded = false
+                ).first { it.name == "Absueltas por tipo" }
+                .rows
+                .toList()
+        // las 6 recibidas se reservan igual: lo oculto de la tabla (los ceros de consultas y solicitudes) suma menos de MIN
+        assertEquals(listOf<Any?>("Quejas", "Recibidas", SmallCells.HIDDEN), absolved[0])
+        assertEquals(listOf<Any?>("Quejas", "Absueltas", NOT_AVAILABLE), absolved[1])
+        assertEquals(listOf<Any?>("Consultas", "Absueltas", SmallCells.HIDDEN), absolved[3])
     }
 
     // los estados con plazo y su fecha son los de JOB-01 (privacy solo depende de common)
