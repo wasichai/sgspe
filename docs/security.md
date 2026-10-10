@@ -1085,9 +1085,13 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   (`ConfidentialTasksListener`, en lugar de AUT-02, que no corre en una confidencial) llevan la huella en lugar del id
   en su clave, un texto que solo nombra el proyecto y ningún vínculo con la QCS; al marcar confidencial una QCS
   existente, sus tareas automáticas abiertas se vuelven genéricas y las cerradas quedan como historia (`workflows.md`,
-  «Avisos» y «Listeners»). Quedan dos residuales aceptados: la tarea de acuse que AUT-02 crea después de que la queja se
-  marcó (su ejecución corre fuera de la petición) y la tarea vieja cuya genérica ya existía porque la marca se quitó y se
-  volvió a poner. Una evidencia vinculada a una QCS confidencial debe ser CONFIDENCIAL o DATOS PERSONALES
+  «Avisos» y «Listeners»). Quedan residuales aceptados: la tarea de acuse que AUT-02 crea después de que la queja se
+  marcó (su ejecución corre fuera de la petición); la tarea vieja cuya genérica ya existía porque la marca se quitó y se
+  volvió a poner; el historial y la auditoría de una tarea reescrita, que conservan su versión anterior (el código y el
+  vínculo, que quien lee `task` ya veía) y así revelan que esa QCS pasó a ser confidencial; la tarea de AUT-02 cuyo
+  título se editó o cuya QCS cambió de código, que no se reconoce y queda como estaba; y la marca que coincide con
+  JOB-01 creando la genérica de la misma clave, o cuya genérica ya existe pero quien marca no la lee, que choca con el
+  único de `generator_key` y se revierte (409: falla cerrado, sin filtrar datos). Una evidencia vinculada a una QCS confidencial debe ser CONFIDENCIAL o DATOS PERSONALES
   (`409 EVIDENCE_NOT_RESTRICTED`); quien tiene `DOWNLOAD_RESTRICTED` y no ve la QCS puede, aun así, bajar la
   clasificación de la evidencia, porque `EvidenceWriteGuard` lee los vínculos como quien escribe y la QCS que no ve no
   aparece entre ellos: es un riesgo aceptado (D-2, ASM-105, amenaza 27).

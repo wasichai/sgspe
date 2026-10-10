@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import sgspe.common.JobTasks
 import sgspe.common.ModelCatalog
+import sgspe.deadline.Deadlines
 import sgspe.notification.ConfidentialReaders
 import java.time.LocalDate
 import java.util.UUID
@@ -94,7 +95,7 @@ class ConfidentialTasksTest {
     @Test
     fun `no se tocan las cerradas, las manuales ni las de otro registro`() {
         val escalation = mapOf("generator_key" to "escalation:grievance:$id:$due:1", "grievance" to id)
-        for (closed in ConfidentialTasks.CLOSED) assertNull(rewrite(escalation, state = closed), closed)
+        for (closed in ModelCatalog.fromClasspath().states("task") - Deadlines.TASK_OPEN) assertNull(rewrite(escalation, state = closed), closed)
         assertNull(rewrite(mapOf("generator_key" to "escalation:grievance:${UUID.randomUUID()}:$due:1", "grievance" to id)))
         assertNull(rewrite(mapOf("generator_key" to "escalation:grievance:$id:$due:3", "grievance" to id)))
         assertNull(rewrite(mapOf("title" to "Llamar a la persona", "grievance" to id)))
@@ -105,11 +106,11 @@ class ConfidentialTasksTest {
         assertNull(ConfidentialTasks.rewrite("grievance", id, "QJ-1", null, "Proyecto Ejemplo", "open", mapOf("title" to "Acusar recibo de la queja QJ-1")))
     }
 
-    // CLOSED son los estados finales de wf-n-task: los que no son origen de ninguna transición
+    // las abiertas que se reescriben son Deadlines.TASK_OPEN: todo estado de wf-n-task que es origen de alguna transición
     @Test
-    fun `las cerradas son los estados finales del workflow de la tarea`() {
+    fun `las abiertas son los estados no finales del workflow de la tarea`() {
         val catalog = ModelCatalog.fromClasspath()
-        val finals = catalog.states("task") - catalog.transitions("task").map { it.from }.toSet()
-        assertEquals(finals.toSet(), ConfidentialTasks.CLOSED)
+        assertEquals(catalog.transitions("task").map { it.from }.toSet(), Deadlines.TASK_OPEN)
+        assertEquals(setOf("done", "cancelled"), catalog.states("task").toSet() - Deadlines.TASK_OPEN)
     }
 }

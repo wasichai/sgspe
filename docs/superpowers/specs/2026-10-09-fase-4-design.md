@@ -368,9 +368,14 @@ clave.
   la queja <código>») pasa a `ack:grievance:<huella>`; en todas se vacía el vínculo. Las cerradas (`done`,
   `cancelled`) no se tocan: son historia. Si la tarea genérica de destino ya existe (se quitó la marca y se volvió a
   poner, y JOB-01 creó entretanto la genérica y la normal), la vieja queda como está, con una advertencia sin datos de
-  la QCS: es un residual aceptado. También lo es la ventana de AUT-02: si la queja se marca antes de que su ejecución,
-  que corre fuera de la petición, cree la tarea de acuse, esa tarea nace con el código y el vínculo. Quitar la marca no
-  revincula ni retitula nada.
+  la QCS: es un residual aceptado. También lo son la ventana de AUT-02 (si la queja se marca antes de que su ejecución,
+  que corre fuera de la petición, cree la tarea de acuse, esa tarea nace con el código y el vínculo); el historial y la
+  auditoría de la tarea reescrita, que conservan su versión anterior con el código y el vínculo y revelan que la QCS
+  pasó a confidencial; la tarea de AUT-02 cuyo título se editó o cuya QCS cambió de código, que no se reconoce y queda
+  como estaba; y la carrera con JOB-01, o una genérica que quien marca no lee, que chocan con el único de
+  `generator_key` y revierten la marca (409, falla cerrado). Sin proyecto, las tareas no se reescriben (una advertencia
+  sin datos). Quitar la marca no revincula ni retitula nada. El listener corre con `@Order(131)`, después de
+  `QcsDueDatesListener` y de `RequestClosureListener`.
 - **Guardas.** `ExactlyOneGuard` admite una tarea sin origen solo con una `generator_key` de esas formas
   (`JobTasks.isConfidentialTask`: `escalation:<objeto de QCS>:<huella>:<fecha>:<1 o 2>` y `ack:grievance:<huella>`).
   `generator_key` la escribe la plataforma y, desde D-1, el código de sgspe con la marca solo cuando el valor nuevo

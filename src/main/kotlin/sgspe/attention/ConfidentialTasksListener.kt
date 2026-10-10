@@ -7,6 +7,7 @@ import sgspe.common.Attention
 import sgspe.common.JobTasks
 import sgspe.common.Records
 import sgspe.common.Values
+import sgspe.deadline.Deadlines
 import sgspe.notification.ConfidentialReaders
 import sgspe.notification.NoticeTexts
 import wasichai.core.data.RecordChange
@@ -20,9 +21,6 @@ import java.util.UUID
 // confidencial: su condición) y lleva la huella de la fecha de recepción en Lima; al marcar confidencial una QCS existente,
 // sus tareas automáticas abiertas (las de escalamiento de JOB-01 y, en una queja, la de acuse de AUT-02) pasan a las genéricas
 object ConfidentialTasks {
-    // los estados finales de wf-n-task (model/workflows/task.json): una tarea cerrada no se reescribe, es historia
-    val CLOSED: Set<String> = setOf("done", "cancelled")
-
     // la plantilla del título de AUT-02 (model/automations/grievance.json) con el código de la queja
     const val ACK_TITLE = "Acusar recibo de la queja %s"
 
@@ -64,7 +62,8 @@ object ConfidentialTasks {
         state: String?,
         task: Map<String, Any?>
     ): Map<String, Any?>? {
-        if (state in CLOSED) return null
+        // solo las abiertas (Deadlines.TASK_OPEN): una tarea cerrada no se reescribe, es historia
+        if (state !in Deadlines.TASK_OPEN) return null
         val key = Values.text(task[JobTasks.GENERATOR_KEY])
         val escalation = key?.let { ESCALATION.matchEntire(it) }
         if (escalation != null) {
@@ -88,14 +87,15 @@ object ConfidentialTasks {
     }
 }
 
-// ConfidentialTasksListener (workflows.md, «Listeners»; D-1): después de QcsDueDatesListener, en la transacción de la escritura,
+// ConfidentialTasksListener (workflows.md, «Listeners»; D-1): después de QcsDueDatesListener (120) y de
+// RequestClosureListener (130), con un orden propio para que sea determinista, en la transacción de la escritura,
 // como quien escribe y con la marca (Records), nunca como la plataforma (wasichai no lo deja dentro de una petición). en el
 // alta de una queja confidencial crea la tarea de acuse genérica (sin vínculo, con la clave de huella); al marcar confidencial
 // una QCS existente reescribe sus tareas automáticas abiertas a las genéricas y vacía su vínculo. si una escritura falla,
 // lanza y la escritura de la QCS se revierte. quitar la marca no revincula ni retitula nada. no usa JobTasks.ensure: hay una
 // transacción abierta (su KDoc); comprueba la clave con un conteo y crea
 @Component
-@Order(130)
+@Order(131)
 class ConfidentialTasksListener(
     private val records: Records
 ) : RecordChangeListener {
@@ -134,7 +134,12 @@ class ConfidentialTasksListener(
         after: Map<String, Any?>
     ) {
         val project = Values.text(after["project"]) ?: Values.text(before["project"])
-        val name = project?.let { projectName(it) } ?: ""
+        if (project == null) {
+            // sin proyecto la tarea genérica no nombraría nada ni tendría vínculo: no se reescribe (el log no lleva datos)
+            log.warn("ConfidentialTasksListener: una QCS marcada confidencial no tiene proyecto; sus tareas automáticas quedan como están")
+            return
+        }
+        val name = projectName(project)
         val code = Values.text(before["code"]) ?: Values.text(after["code"])
         val tasks = records.all(JobTasks.TASK, filters = mapOf(objectName to id.toString()))
         for (task in tasks) {
