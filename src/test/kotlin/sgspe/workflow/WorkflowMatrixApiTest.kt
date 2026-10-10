@@ -417,12 +417,15 @@ class WorkflowMatrixApiTest : F4ApiTest() {
     // de comando (aceptaciones, reclasificaciones, assess) leen el registro antes y responden igual, por su endpoint
     @TestFactory
     fun `una transicion de cada workflow como no asignado responde 404`(): List<DynamicNode> =
-        WORKFLOWS.values.map { workflow ->
+        // area_of_influence (WF-O) no tiene ninguna transición elegible (approve y supersede están en DEFERRED): se omite aquí y
+        // la guarda de quien tiene el rol sin asignación (403 NOT_ASSIGNED) la cubre AreaOfInfluenceWorkflowGuardsApiTest y el 404 de lectura
+        // fuera del alcance, ProjectReadScopeApiTest
+        WORKFLOWS.values.mapNotNull { workflow ->
             val rule =
-                workflow.transitions.first { rule ->
+                workflow.transitions.firstOrNull { rule ->
                     workflow.key(rule) !in DEFERRED && workflow.key(rule) !in BY_COMMAND && !rule.name.startsWith("close_reclassified") &&
                         rule.roles.any(::scoped) && pathTo(workflow, rule.from) != null
-                }
+                } ?: return@mapNotNull null
             dynamicTest("${workflow.objectName}.${rule.name}") {
                 val role = rule.roles.first(::scoped)
                 val id = recordAt(workflow, rule.from, creatorFor(workflow, role), engagementTypeFor(workflow, rule), rule)
