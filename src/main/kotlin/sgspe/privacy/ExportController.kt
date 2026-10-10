@@ -25,7 +25,8 @@ import sgspe.common.toCodedException
 class ExportController(
     private val register: StakeholderRegister,
     private val matrix: CommitmentMatrix,
-    private val attention: AttentionRegister
+    private val attention: AttentionRegister,
+    private val risks: RiskRegister
 ) {
     @PostMapping("/{kind}")
     suspend fun export(
@@ -39,6 +40,7 @@ class ExportController(
                 "stakeholder-register" -> register.export(body)
                 "commitment-matrix" -> matrix.export(body)
                 "attention-register" -> attention.export(body)
+                "risk-register" -> risks.export(body)
                 else ->
                     throw Finding(
                         "EXPORT_NOT_FOUND",
