@@ -216,6 +216,9 @@ class F3WorkflowsTests(unittest.TestCase):
         self.assertEqual((automations["AUT-01"]["object"], automations["AUT-01"]["trigger"], automations["AUT-01"]["state"]),
                          ("commitment", "STATE_ENTERED", "approved"))
         self.assertEqual((automations["AUT-03"]["phase"], automations["AUT-03"]["after"]), ("F3", "UPS-23"))
+        # ASM-098: el cargo de queja y las cartas de respuesta esperan a UPS-23, porque las QCS restringen person
+        for aut in ("AUT-06", "AUT-07", "AUT-08"):
+            self.assertEqual((automations[aut]["phase"], automations[aut]["after"]), ("F4", "UPS-23"), aut)
         self.assertEqual(automations["AUT-11"]["trigger"], "RECORD_UPDATED")
         types = {t["name"]: t for t in design_docs.document_types()}
         self.assertEqual(types["meeting-minutes"], {"label": "Minuta de reunión", "name": "meeting-minutes", "prefix": "MR",
@@ -224,7 +227,10 @@ class F3WorkflowsTests(unittest.TestCase):
         self.assertEqual([(t["name"], t["prefix"], t["object"], t["phase"], t["after"]) for t in design_docs.document_types()],
                          [("delivery-certificate", "AE", "delivery", "F3", "UPS-23"),
                           ("meeting-minutes", "MR", "engagement", "F3", None),
-                          ("attendance-list", "LA", "engagement", "F3", None)])
+                          ("attendance-list", "LA", "engagement", "F3", None),
+                          ("grievance-receipt", "CQ", "grievance", "F4", "UPS-23"),
+                          ("inquiry-answer-letter", "CC", "inquiry", "F4", "UPS-23"),
+                          ("request-answer-letter", "CS", "stakeholder_request", "F4", "UPS-23")])
 
     def test_indexed_e_indexes_en_las_otras_tres_fichas(self):
         cards = design_docs.cards()

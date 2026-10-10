@@ -186,6 +186,8 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Acuse | transición `acknowledge` de WF-E1 | ACKNOWLEDGED | Confirmación de la recepción de una queja dentro del plazo (ASM-005) | [PRM-01 §5, §8] | cargo de queja | resolución |
 | Severidad | campo de `grievance` | Grievance.severity | Gravedad de una queja (catálogo "Severidad de queja" de §10; ASM-036) | [PRM-01 §5] | gravedad | nivel de riesgo |
 | Absuelta | — | — | Consulta o queja respondida, con su `responded_at`; base del indicador "porcentaje absuelto" | [DOC-01 Tabla 9.5] | respondida | cerrada |
+| QCS confidencial | campo `confidential` de QCS | — | QCS que solo leen `ADMIN`, quien tiene `READ_CONFIDENTIAL` (`GRIEVANCE_MANAGER`), su responsable, quien la recibió y, si es una queja ALTA o CRITICA, `APPROVER` (ASM-095) | [PRM-01 §5] | reservada | anónima (sin persona ni grupo de interés) |
+| Día hábil | `BusinessDays` (`sgspe.common`) | — | Día de lunes a viernes que no es un feriado nacional de la lista configurada de su año; sin la lista del año, de lunes a viernes. Mide el plazo de acuse de una queja (ASM-005, ASM-096) | [PRM-01 §17] | día laborable | día calendario |
 
 ## Riesgos y alertas
 
