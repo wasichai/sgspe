@@ -148,6 +148,7 @@ tarea dueña del código:
 | 16 | `ExportProjects` leía con tope (`sgspe.exports.max-rows`) | `ProjectReach.assigned` lee sin tope: son las asignaciones de una sola persona |
 | 17 | §3.5 pone en `test_model.py` las reglas «quien crea proyectos tiene `READ_ALL_PROJECTS`» y «solo sobre `project`» | Van en `test_apply_roles.py` (`RolesJsonTests`), donde se prueba `roles.json`; `test_model.py` ya compara las acciones de `model.json` con las fichas de `database-model.md`, y `apply_roles.validate` ya rechaza una acción declarada sobre otro objeto |
 | 18 | Un objeto creado fuera de `model.json` (`createObject` en las pruebas, `/admin`) no está en `ProjectScope` | `ReadGroup.UNCLASSIFIED`: nadie que no sea `ADMIN` lo lee (falla cerrado, con una advertencia por lectura). Las pruebas que crean objetos propios los leen como `ADMIN` o `AUDITOR`, o esperan el `403` por permiso, que llega antes (`RolesApiTest`, `ErrorContractApiTest`, `TenantIsolationApiTest`); el PR lo señala |
+| 19 | La especificación (§4, riesgo 5) pide aplicar los roles antes que el backend para no cortar la lectura de `AUDITOR` y `PROJECT_ADMIN` | El usuario decidió (2026-10-10) partir de una base vacía: no hay datos que migrar ni orden de despliegue que cuidar. La Tarea 17 recrea el tenant de desarrollo desde cero. La «migración» de la Tarea 13 no es de datos: es el código de las pruebas de integración que hoy usan personas sin asignación, y sigue siendo necesaria |
 
 ## Lo que este plan toma de la especificación y de la evaluación
 
@@ -226,359 +227,6 @@ corre la CI del PR (o el coordinador, una clase tras otra, porque todas usan `sg
 
 Archivos que comparten tareas y por eso las ordenan: `src/test/kotlin/sgspe/ArchitectureTest.kt` (4 → 7),
 `docs/security.md` (2 → 3), `docs/develop/README.md` (15 → 16), `docs/roadmap.md` (2 → 18).
-
----
-# Fase 3.2 · Código propio del backend (Kotlin) Implementation Plan
-
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
-**Goal:** Escribir el código propio de SGSPE de la Fase 3 («Compromisos y evidencias») sobre wasichai 0.6.0: las guardas, los
-listeners, los comandos y los trabajos de compromisos, acuerdos, evidencias, tareas, plazos y avisos; la idempotencia de los
-comandos de `/api/sgspe/**`; el tablero `commitments` con KPI-COM-01 a KPI-COM-11; la exportación `commitment-matrix`; y los
-documentos que registran las decisiones D1 a D3 del 2026-10-09.
-
-**Architecture:** Paquetes nuevos `sgspe.commitment`, `sgspe.agreement`, `sgspe.evidence`, `sgspe.investment`
-(`SupportPolicyGuard`), `sgspe.deadline` (JOB-01) y `sgspe.notification`; cambios en `sgspe.common` (idempotencia con la tabla
-fija `sgspe.idempotency_key`, JOB-08, piezas comunes), `sgspe.scope` (alcance de los objetos de F3), `sgspe.stakeholder`
-(tareas de JOB-03), `sgspe.dashboard` y `sgspe.privacy`. Todo escribe por `sgspe.common.Records` con la marca `SgspeWrite`;
-las reglas son `RecordWriteGuard` hechas de `WriteRule` que `POST /api/sgspe/transition-checks` corre en seco. Las evidencias
-guardan el archivo en el campo `FILE` de wasichai-files (D1); los avisos los entrega wasichai-notifications y SGSPE solo
-decide a quién y con qué texto (D2); los comandos propios honran `Idempotency-Key` con el contrato de la cabecera nativa (D3).
-
-**Tech Stack:** Kotlin 2.4.20, Spring Boot 4.1.1 WebFlux con corrutinas, wasichai 0.6.0 (core, `-gis`, `-workflow`, y los que
-agrega el plan 3.1: `-automation`, `-documents`, `-files`, `-notifications`), Flyway por `ModuleMigration` de wasichai, R2DBC
-`DatabaseClient`, Apache POI 5.5.1, Jackson 3 (`tools.jackson`), JUnit 5, `wasichai-test` (`WasichaiIntegrationTest`).
-
-**Spec:** `docs/roadmap.md` (fila F3), `docs/api.md` (§2, §3.3, §3.5, §3.10, §4.1, §4.5, §4.9, §4.10, §4.11, §4.13, §5),
-`docs/workflows.md` (WF-D, WF-I, WF-K, WF-N, «Transiciones de comando», «Automatizaciones», «Trabajos programados»,
-«Listeners», «Avisos», «Destinatarios por rol», «Plazos y escalamiento», «Pruebas»), `docs/domain-model.md` (§6.1, §7.1, §7.4,
-§7.5, §8), `docs/database-model.md` (§2.3, §10, §11, §16, §17, §18, §22, §26), `docs/security.md` (§4, §7.9, §8, §11.6, §14),
-`docs/dashboards.md` (§3, §4.4, §5.6, §6 a §8, §12), `docs/deliverables.md` (§9, §10, §11), `docs/platform-fit.md` §4.3,
-ADR-0014, ADR-0018, ADR-0025, y las decisiones D1 a D4 de `.superpowers/sdd/f3-plan-common.md`. Las lecciones que este plan
-diseña desde el principio salen del registro de la Fase 2.2 (`.superpowers/sdd/2026-10-07-fase-2-2-backend/progress.md`,
-dictámenes P1 a P29) y de su revisión final (`final-review.md`).
-
-## Global Constraints
-
-- wasichai `0.6.0` exacto (`wasichai-bom`); Kotlin `2.4.20`; Spring Boot `4.1.1`; JDK `25`; Gradle `9.8.0`; ktlint `1.7.1`;
-  Apache POI `poi-ooxml:5.5.1`.
-- Imagen de pruebas `postgis/postgis:18-3.6`; base externa por el túnel `localhost:5435`, usuario y clave `sgspe`; las
-  corridas de SDD usan la base `sgspe_sdd_test`.
-- Español (es-PE) en comentarios, mensajes y `detail`; nombres técnicos en inglés (ADR-0009). Constantes de la API en inglés
-  UPPER_SNAKE; propiedades en camelCase; atributos con su nombre del modelo en snake_case (`docs/api.md` §3.2).
-- Valores ENUM exactamente como los guarda el modelo, en español MAYÚSCULAS sin tildes (`MESA DE DIALOGO`, `ACTA DE
-  ENTREGA`, `DATOS PERSONALES`, `POR VENCER`).
-- Ningún literal de rol en `src/main/kotlin`; ningún código bajo el paquete `wasichai`; nunca `RecordStore`,
-  `PhysicalTableRecordStore`, `AuditService` ni `ObjectSchemaManager`; `SgspeWrite` y `RecordService` solo en `sgspe/common`;
-  `scope` y `privacy` solo dependen de `common`; los tenants solo se enumeran con `Organizations` (sobre `TenantDirectory`),
-  nunca con `findAllOrganizations` (`ArchitectureTest`).
-- Nunca `asPlatform` dentro de una petición: los comandos, guardas y listeners leen y escriben como quien llama; solo los
-  trabajos (JOB-01, JOB-02, JOB-03) y la fuente de avisos de plazo (llamada por el bucle de wasichai-notifications) corren
-  como la plataforma. Cada escritura de un trabajo lleva el motivo que nombra al trabajo (P16) y la etiqueta `job:<nombre>` en
-  la columna `source` de su auditoría (WAS-ADR-0050).
-- Todo 400, 403 o 409 de una guarda o de un comando de SGSPE lleva su código en `errors[0].message` y el campo en
-  `errors[0].field` (P15). Cada código nuevo queda en `docs/api.md` (Tarea 23).
-- `If-Match` con el `updatedAt` entre comillas, obligatorio (428/412) en los comandos `IM`, comparado con la tolerancia de
-  `Versions` (derivados y vínculos posteriores no son conflicto, api.md §3.6); un comando que no cambia nada no mueve
-  `updatedAt`; un derivado se escribe solo si cambia (P11).
-- `Idempotency-Key`: de 1 a 128 caracteres ASCII imprimibles; mismo plazo que la nativa (`wasichai.idempotency.ttl`, 24 h por
-  defecto); reenvío con los mismos bytes y `Idempotent-Replayed: true`; otra petición con la misma clave `422`; en curso
-  `409` con `Retry-After: 1`.
-- Un parámetro de consulta desconocido es `422` (`StrictQuery`); una propiedad o un atributo desconocido del cuerpo de un
-  comando es `400` que lo nombra (`StrictBody`).
-- Toda lectura de un comando, un tablero o una exportación es acotada: `Records.all(max)` con `400 TOO_MANY_RECORDS`, nunca un
-  recorte silencioso; las lecturas por registro (vínculos M2M) tienen su propio tope.
-- Todo monto que llega en un cuerpo pasa por `Amounts.parse` (15 dígitos enteros, 4 decimales, no negativo) antes de sumarse.
-- Fechas y periodos en America/Lima (`sgspe.common.LIMA`, `Clock`); instantes en UTC con `Z`; las pruebas que dependen del
-  tiempo fijan el reloj o usan fechas lejanas.
-- Datos de prueba ficticios (`@sgspe.test`, «Persona Ejemplo», «Asociación Ejemplo», códigos `C-…`, `A-…`, `P-…`).
-- Commits: Conventional Commits con asunto en español, cuerpo de 100 columnas como máximo (contadas en caracteres), `git add`
-  con rutas explícitas y el único trailer `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`. Nunca
-  imprimir tokens.
-- Antes de cada commit: `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat`.
-
-### Comandos
-
-Unitarias de una clase (sin base):
-
-```bash
-GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests '<clase>'
-```
-
-Build completo (ktlint y todas las unitarias):
-
-```bash
-GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
-```
-
-Integración de una clase. **La corre el coordinador**, no el implementador ni un subagente (el clasificador de permisos los
-frena): el implementador escribe, compila (`compileTestKotlin`) y corre `build`, y entrega la tarea marcada «integración
-pendiente». Con el túnel abierto:
-
-```bash
-WASICHAI_TEST_DB_HOST=localhost WASICHAI_TEST_DB_PORT=5435 WASICHAI_TEST_DB_NAME=sgspe_sdd_test \
-WASICHAI_TEST_DB_USERNAME=sgspe WASICHAI_TEST_DB_PASSWORD=sgspe \
-GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew integrationTest --rerun --tests '<clase>'
-```
-
-La primera clase de una JVM aprovisiona el modelo de F3 con los scripts de `model/` (de 5 a 8 minutos por el túnel): conviene
-correr juntas las clases de una tarea. Cada tarea dice en su último paso qué clases de integración debe correr el coordinador.
-
-## Review Focus
-
-Las cinco entradas que la especificación implica y que más pueden morder a quien use esto, cada una con su prueba en la tarea
-dueña del código:
-
-1. **El portal reintenta un comando tras perder la red, con la misma `Idempotency-Key`.** Un teléfono en campo reenvía la
-   entrega o la evaluación; un segundo registro sería una entrega o una evaluación duplicada que nadie puede borrar
-   (append-only). Pruebas: `IdempotencyApiTest` «un reenvío con la misma clave devuelve los mismos bytes y no evalúa otra
-   vez» y «una petición con la clave en curso recibe 409 con Retry-After» (Tarea 3).
-2. **Un campo `FILE` se descarga por la ruta nativa de wasichai-files.** `@wasichai/ui` baja un campo FILE con
-   `GET /api/objects/{object}/records/{id}/files/{field}`, que solo mira READ: una evidencia CONFIDENCIAL se abriría sin
-   `DOWNLOAD_RESTRICTED`. Prueba: `EvidenceApiTest` «una evidencia restringida no se descarga sin DOWNLOAD_RESTRICTED,
-   tampoco por la ruta nativa» (Tarea 6).
-3. **Un documento emitido imprime datos restringidos.** wasichai-documents lee el registro sin los permisos de campo de quien
-   lo pide y `relatedTable` imprime todos los campos del otro objeto: una «Lista de asistentes» con la tabla de participantes
-   mostraría nombres, teléfonos y correos a cualquiera con READ sobre `engagement`. Pruebas: `IssuedDocumentsPrivacyTest`
-   «ninguna plantilla de documento emitido imprime un campo restringido» y `IssuedDocumentsApiTest` (Tarea 22).
-4. **Dos aprobaciones simultáneas de compromisos de la misma campaña.** Cada una ve los aprobados sin la otra y las dos pasan
-   el tope de apoyo social (RN-INV-003). Prueba: `SupportPolicyApiTest` «dos aprobaciones simultáneas de la misma campaña no
-   pasan el tope juntas» (Tarea 9).
-5. **Un monto con un exponente enorme en una entrega.** `1e999999` en `delivered_amount` agotaría la memoria al sumar el
-   ejecutado (la lección de la Tarea 17 de F2). Pruebas: `AmountsTest` (Tarea 2) y `DeliveryApiTest` «un monto negativo o
-   enorme, un atributo desconocido o el compromiso en draft no crean nada» (Tarea 12).
-
----
-## Mapa de archivos
-
-Todos bajo la raíz del repositorio `sgspe`. «Crear» es un archivo nuevo; «Modificar», uno existente.
-
-| Archivo | Responsabilidad | Tarea |
-|---|---|---|
-| `docs/adr/0014-almacenamiento-de-objetos.md`, `docs/adr/0018-notificaciones.md` (modificar) | D1 y D2: se aceptan con wasichai-files y wasichai-notifications | 1 |
-| `docs/requirements-analysis.md`, `docs/platform-fit.md`, `docs/database-model.md` §2.3, §18, §22, §26, `docs/roadmap.md` (modificar) | ASM-012, ASM-013, ASM-065, UPS-07, UPS-11, UPS-18; ASM-089 y ASM-090; tablas fijas | 1 |
-| `src/main/kotlin/sgspe/common/{Records,ModelCatalog,ProjectParameters,StrictBody,ExactlyOneGuard,CommandTransitionGuard,FieldChangeReasonGuard}.kt` (modificar) | `unlink`, `asPlatform` con etiqueta, estados y M2M del catálogo, parámetros de F3, atributos estrictos, grupos y comandos de F3 | 2 |
-| `src/main/kotlin/sgspe/common/{Amounts,JobTasks}.kt` | Montos acotados; tareas de trabajos por `generator_key` | 2 |
-| `src/main/kotlin/sgspe/scope/ProjectScope.kt` (modificar) | Alcance de los objetos de F3 | 2 |
-| `src/test/kotlin/sgspe/F3DomainApiTest.kt`, `src/test/kotlin/sgspe/ArchitectureTest.kt` (modificar) | Base de integración de F3; paquetes de F3 clasificados | 2 |
-| `src/main/resources/db/sgspe/common/V1__idempotency_key.sql`, `src/main/kotlin/sgspe/common/Idempotency.kt` | Idempotencia de los comandos (D3) | 3 |
-| `src/main/kotlin/sgspe/stakeholder/AssessmentController.kt` (modificar) | Las evaluaciones honran la clave | 3 |
-| `src/main/kotlin/sgspe/common/RetentionJob.kt`, `src/main/resources/application.yml` (modificar) | JOB-08 | 4 |
-| `src/main/kotlin/sgspe/evidence/{EvidenceRules,EvidenceWriteGuard,Evidences}.kt` | Evidencias: guarda, alta, cambio y vínculos | 5 |
-| `src/main/kotlin/sgspe/evidence/EvidenceContent.kt` | Descarga con `DOWNLOAD_RESTRICTED` por las dos rutas | 6 |
-| `src/main/kotlin/sgspe/commitment/{Commitments,CommitmentWriteGuard,CommitmentRecordRules}.kt` | La guarda de compromisos y sus reglas de datos | 7 |
-| `src/main/kotlin/sgspe/commitment/{SeniorApproval,ApprovalRules}.kt` | D1 a D5 y D8 | 8 |
-| `src/main/kotlin/sgspe/investment/{SupportPolicyGuard,CampaignExecution}.kt` | D7 y el ejecutado de la campaña | 9 |
-| `src/main/kotlin/sgspe/commitment/CommitmentDerivations.kt` | Fechas de transición y `requires_senior_approval` | 10 |
-| `src/main/kotlin/sgspe/commitment/Reschedules.kt` | Reprogramaciones | 11 |
-| `src/main/kotlin/sgspe/commitment/Deliveries.kt` | Entregas y su corrección | 12 |
-| `src/main/kotlin/sgspe/commitment/FulfillmentRules.kt` | D9, D10 y D11 | 13 |
-| `src/main/kotlin/sgspe/commitment/{CandidateRules,Candidates}.kt` | Candidatos humanos (WF-K) | 14 |
-| `src/main/kotlin/sgspe/agreement/AgreementWriteGuard.kt` | WF-I | 15 |
-| `src/main/kotlin/sgspe/notification/{Notices,ApprovalNotices}.kt`, `build.gradle.kts` (modificar) | Avisos de aprobación pendiente sobre wasichai-notifications | 16 |
-| `src/main/kotlin/sgspe/deadline/{Deadlines,DeadlineJob,DeadlineNotices}.kt`, `src/main/resources/application.yml` (modificar) | JOB-01 y los avisos de plazo | 17 |
-| `src/main/kotlin/sgspe/stakeholder/StakeholderFollowUpJob.kt` (modificar) | Tareas de JOB-03 | 18 |
-| `src/main/kotlin/sgspe/dashboard/CommitmentKpis.kt` | KPI-COM puros | 19 |
-| `src/main/kotlin/sgspe/dashboard/{DashboardFilters,DashboardData,Kpis,Dashboards}.kt` (modificar) | Tablero `commitments` y filtro `owner` | 20 |
-| `src/main/kotlin/sgspe/privacy/{ExportProjects,MatrixSheets,CommitmentMatrix}.kt`, `{StakeholderRegister,ExportController}.kt` (modificar) | Exportación `commitment-matrix` | 21 |
-| `src/test/kotlin/sgspe/privacy/{IssuedDocumentsPrivacyTest,IssuedDocumentsApiTest}.kt` | Documentos emitidos sin datos restringidos | 22 |
-| `docs/api.md`, `docs/workflows.md`, `docs/security.md`, `docs/architecture.md`, `docs/deliverables.md`, `docs/domain-model.md`, `docs/dashboards.md`, `docs/requirements-traceability.md`, más los restos de las tablas de avisos en `docs/database-model.md`, `docs/requirements-analysis.md`, `docs/glossary.md` y `docs/platform-fit.md` (modificar) | El contrato de F3 y el diseño como quedó | 23 |
-| `src/test/kotlin/sgspe/ArchitectureTest.kt`, `CLAUDE.md` (modificar) | Cierre | 24 |
-
-Las pruebas viven en `src/test/kotlin/sgspe/<paquete>/` con el nombre que cada tarea da.
-
-## Interfaces con los otros planes de F3 y con la rama de wasichai 0.6.0
-
-### Lo que este plan asume de la rama `chore/adopta-wasichai-0.6.0`, que se mezcla antes
-
-- `sgspe.common.Organizations.having(objectName)` sobre `wasichai.core.platform.TenantDirectory.organizationsWithObject`
-  (UPS-17), y `ArchitectureTest` que rechaza `findAllOrganizations` en todo el código. Este plan no toca `Organizations`.
-- Las escrituras de JOB-02 y JOB-03 ya etiquetadas con la fuente del trabajo (`source = "job:…"`, WAS-ADR-0050, UPS-03). Si
-  esa rama ya agregó a `Records` un `asPlatform(organizationId, source, block)`, la Tarea 2 no lo vuelve a agregar y los
-  trabajos de este plan usan el suyo con la misma firma; si su firma difiere, se adapta la única línea de cada trabajo que lo
-  llama (`DeadlineJob`, `StakeholderFollowUpJob`).
-
-### Lo que este plan asume del plan 3.1 (modelo y aprovisionamiento), que se ejecuta antes
-
-- **`build.gradle.kts`** con `wasichai-spring-boot-starter-automation`, `-documents`, `-files` y `-notifications`, el SDK de S3
-  (`software.amazon.awssdk:s3`) y `spring-boot-starter-mail`; y su configuración: `wasichai.files.store` (S3 con MinIO en
-  desarrollo), `wasichai.notifications.email.*` con el SMTP de prueba. Este plan agrega solo
-  `wasichai.notifications.tick=0` a las dos tareas de prueba (Tarea 16); si 3.1 ya lo fijó, no se duplica.
-- **`model/model.json`** con los 12 objetos de la fila F3 de `docs/roadmap.md` y los nombres exactos de `docs/database-model.md`
-  §10, §11, §16 y §17, y en particular:
-  - `evidence` con el campo **`file`** de tipo `FILE`, obligatorio, en lugar de `storage_key`, `file_name`, `mime_type`,
-    `size_bytes` y `sha256` (decisión D1), con `contentTypes` que admite al menos `application/pdf`, `image/jpeg` e
-    `image/png`; `evidence_type`, `classification`, `title`, `document_date`, `author`, `captured_at`,
-    `people_identifiable`, `photo_consent_given`, `import_batch_id`, `location`; relaciones `project` y `replaces`
-    (MANY_TO_ONE) y las M2M `evidence_<objeto>` de §16 que existen en F3 (`evidence_community`, `evidence_land_parcel`,
-    `evidence_stakeholder`, `evidence_engagement`, `evidence_field_visit`, `evidence_field_observation`,
-    `evidence_commitment`, `evidence_delivery`, `evidence_agreement`, `evidence_study`); `apiOnly`; acciones
-    `DOWNLOAD_RESTRICTED` y `EDIT_ANY`.
-  - `commitment` con los campos de §10 (los derivados `executed_amount`, `deadline_status`, `requires_senior_approval`,
-    `fulfilled_date`, `closed_date`, `cancelled_date` con `"derived": true`), `requiresReason`, acciones `APPROVE`, `VERIFY`,
-    `EXPORT`, `APPROVE_OVER_CAP`, la M2M `commitment_stakeholder` y las MANY_TO_ONE `project`, `exploration_campaign`,
-    `locality`, `community`, `topic`, `origin_engagement`, `agreement`, `agreement_clause`.
-  - `commitment_reschedule` (`appendOnly`, `apiOnly`), `commitment_dependency` (`commitment`, `depends_on`, `blocking`),
-    `commitment_action`, `commitment_milestone`, `delivery` (`apiOnly`, con `commitment`, `delivered_amount`,
-    `conformity_given` obligatorio, `conformity_by` y `recipients` restringidos), `commitment_candidate` (`apiOnly`, con
-    `ai_generated` obligatorio, `confidence`, `created_commitment`, `duplicate_of`, `project`, `engagement`,
-    `source_evidence`).
-  - `agreement` (`requiresReason`, `agreement_type`, `signed_date`, `effective_date`, `expiry_date`, el derivado
-    `validity_status`, `community`, `assembly_engagement`, la M2M `agreement_land_parcel`), `agreement_party`,
-    `agreement_clause`.
-  - `task` (`title`, `description`, `assignee_user_id`, `assignee_user_email`, `due_date`, `priority`, el derivado
-    `deadline_status`, `generator_key` único; MANY_TO_ONE `project`, `commitment`, `engagement`, `agreement`, `stakeholder`).
-  - `project` con los parámetros «Desde F3» de §6: `policy_workshop_commitments_blocked`,
-    `policy_senior_approval_for_dialogue`, `policy_internal_approval`, `policy_cap_blocks_approval`, `due_soon_days`,
-    `escalation_first_days`, `escalation_second_days` (y los demás de la ficha).
-  - Los ENUM `resource_type`, `commitment_theme`, `commitment_formality`, `request_medium`, `deadline_status`,
-    `validity_status`, `agreement_type`, `evidence_type`, `evidence_classification`, `priority`, con los valores de §10 del
-    análisis.
-- **`model/workflows/`** `commitment.json` (WF-D), `agreement.json` (WF-I), `commitment_candidate.json` (WF-K) y `task.json`
-  (WF-N) con las transiciones y los roles de `docs/workflows.md`; este plan nombra `submit`, `approve`, `approve_senior`,
-  `approve_direct`, `start`, `register_fulfillment`, `reopen_execution`, `verify`, `close`, las `cancel_*` (WF-D);
-  `activate`, `activate_from_draft`, `resume` (WF-I); `accept`, `reject`, `mark_duplicate` (WF-K); y los estados `open`,
-  `in_progress`, `blocked`, `done`, `cancelled` (WF-N).
-- **`model/automations/`** con AUT-01, AUT-03, AUT-05 y AUT-10, y **`model/document-types/`** con un archivo por objeto
-  (`delivery.json`, `engagement.json`), cada uno una lista JSON de cuerpos de `POST /api/objects/{object}/document-types`
-  (`{ name, label, prefix, template }`), con los nombres técnicos `acta-de-entrega`, `minuta-de-reunion` y
-  `lista-de-asistentes`. Las plantillas no nombran campos restringidos ni tablas relacionadas de objetos con campos
-  restringidos: la Tarea 22 lo prueba (ASM-090).
-- **`model/roles.json`** con las concesiones de F3 de `docs/security.md` §7 (incluidos `COMMITMENT_MANAGER` y `APPROVER`),
-  las acciones declaradas (`APPROVE`, `VERIFY` y `APPROVE_OVER_CAP` en `commitment`; `DOWNLOAD_RESTRICTED` y `EDIT_ANY` en
-  `evidence`), READ sobre `project_assignment` para todo rol que aplica transiciones, y los `restrictedFields` de §7.9 para
-  F3 (`commitment.beneficiaries_detail`, `delivery.recipients`, `delivery.conformity_by`,
-  `commitment_candidate.evidence_quote`).
-- **Pruebas de 3.1** que este plan da por hechas: `F2ApiTest.sample` sabe dar un valor a un campo `FILE` (subiendo un
-  archivo) y `EXACTLY_ONE`/`FIXED` tienen las entradas de `delivery`, `agreement_party` y `task`; `GuardTablesCatalogTest`
-  ya no lista `commitment_candidate` ni `task` en `notYetModeled`. Los casos de `CommitmentWorkflowApiTest`,
-  `AgreementWorkflowApiTest`, `CommitmentCandidateWorkflowApiTest` y `TaskWorkflowApiTest` que dependen de una guarda o un
-  comando de este plan los cubren clases propias de este plan:
-
-  | Caso que 3.1 deja a 3.2 | Prueba de este plan (tarea) |
-  |---|---|
-  | D1 (cada campo de la matriz), D2, sin `execution_time` permitido, D4, D5 (`approve` rechazada, `approve_senior` permitida), D8 | `CommitmentApprovalApiTest` (8) |
-  | D7 con la política que bloquea y la que advierte; `approve_direct` con un tope que bloquea | `SupportPolicyApiTest` (9) |
-  | `reopen_execution` vacía `fulfilled_date`; cada `cancel_*` escribe `cancelled_date` | `CommitmentDerivationsApiTest` (10), `CommitmentFulfillmentApiTest` (13) |
-  | Registrar la entrega no cambia el estado; D9 MATERIAL y NO MATERIAL; D10; D11 | `DeliveryApiTest` (12), `CommitmentFulfillmentApiTest` (13) |
-  | `accept` por la API genérica rechazada; el endpoint crea el compromiso; cuenta de servicio rechazada; `mark_duplicate` sin `duplicate_of` | `CandidateApiTest` (14) |
-  | Servidumbre sin predios; autorización de asamblea sin ASAMBLEA; vencer no cambia el estado | `AgreementGuardApiTest` (15), `DeadlineJobApiTest` (17) |
-  | Las tareas de un trabajo no se duplican | `DeadlineJobApiTest` (17), `FollowUpTasksApiTest` (18) |
-
-  `close` cierra la solicitud que originó el compromiso (`RequestClosureListener`) es de F4: llega con `stakeholder_request`.
-
-Si un nombre de 3.1 difiere de lo de arriba, mandan `docs/database-model.md` y `docs/workflows.md`: se corrige el que se
-apartó de ellos. En la copia de trabajo de este plan, la verificación usó un modelo de F3 generado desde
-`docs/database-model.md` con `evidence.file` (FILE) en lugar de los cinco campos del archivo.
-
-### Lo que este plan entrega al plan 3.3 (portal)
-
-Los contratos de `docs/api.md` como los deja la Tarea 23. En resumen:
-
-- **Idempotencia:** `Idempotency-Key` en `POST` de `/api/sgspe/commitments/{id}/reschedules`, `…/deliveries`,
-  `/api/sgspe/commitment-candidates`, `…/{id}/accept`, `/api/sgspe/evidence` y `/api/sgspe/stakeholders/{id}/assessments`;
-  en la API genérica, la cabecera nativa de wasichai en `POST /api/objects/{object}/records`. Un reenvío responde los mismos
-  bytes con `Idempotent-Replayed: true`; `422` (`errors[0].message` = `IDEMPOTENCY_KEY_REUSED`, `field` =
-  `Idempotency-Key`) si la clave se usó con otra petición; `409` con `Retry-After: 1` (`IDEMPOTENCY_IN_FLIGHT`) si la
-  primera sigue en curso: el portal espera y reenvía. Una clave por acción del usuario, repetida en cada reintento.
-- **ETag:** los comandos responden `ETag` con el `updatedAt` del registro que el portal sigue editando: el compromiso en la
-  reprogramación y en la aceptación de un candidato, la entrega en su alta y en su `PATCH`, la evidencia en su alta y en su
-  `PATCH`, el grupo de interés en una evaluación. El portal lo usa como el próximo `If-Match`.
-- **Evidencias:** subir es dos pasos: `POST /api/objects/evidence/files/file` (multipart, parte `file`; wasichai-files
-  valida tamaño y tipo y responde `201 { id, name, contentType, size, sha256 }`) y `POST /api/sgspe/evidence`
-  `{ attributes: { file: <id>, evidence_type, classification, … }, geometries?, links?: [{ object, recordId }] }` →
-  `201` registro (con `attributes.file` = el descriptor). Un reintento repite solo el segundo paso, con la misma clave y el
-  mismo `file`. Los EXIF los lee el portal (`captured_at`, `geometries.location`). `PATCH /api/sgspe/evidence/{id}`
-  `{ attributes }` solo con `title`, `classification`, `document_date`, `author`, `captured_at`, `people_identifiable`,
-  `photo_consent_given`. `POST /api/sgspe/evidence/{id}/links` `{ object, recordId }` y
-  `DELETE /api/sgspe/evidence/{id}/links/{object}/{recordId}` → `204`. Descarga: `GET /api/sgspe/evidence/{id}/content` o la
-  ruta nativa `GET /api/objects/evidence/records/{id}/files/file`, las dos con la misma comprobación.
-  Códigos: `400 INVALID_LINK` (`links[i].object`), `400 FIELD_NOT_EDITABLE` (`attributes.<campo>`), `400 REASON_REQUIRED`
-  (`reason`), `400 FIELD_REASON_REQUIRED` (`reason`, al cambiar la clasificación), `403 ACTION_REQUIRED` (`classification`,
-  bajar o descargar una restringida sin `DOWNLOAD_RESTRICTED`), `403 NOT_OWN_RECORD`, `409 EVIDENCE_IMMUTABLE` (el campo),
-  `409 EVIDENCE_NOT_DELETABLE`.
-- **Compromisos:** reprogramación `{ attributes: { new_due_date, reschedule_reason, agreed_with_stakeholder } }` →
-  `201 { reschedule, commitment }` (`IK`, `IM`, `CR`; `409 STATE_MISMATCH`, `400 SAME_DUE_DATE`, `400 FIELD_REQUIRED`);
-  entrega `{ attributes, geometries?, evidence?: [<id de evidence>] }` → `201 { delivery, commitment }` (`IK`, `CR`;
-  `409 STATE_MISMATCH`, `400 INVALID_NUMBER`, `400 OUT_OF_RANGE`); `PATCH /api/sgspe/deliveries/{id}` →
-  `200 { delivery, commitment }` (`IM`, `CR`; `409 DELIVERY_FROZEN`). Por la API genérica y la consulta en seco:
-  `400 JUSTIFICATION_REQUIRED` (`origin_justification`), `409 WORKSHOP_COMMITMENT_BLOCKED` (`origin_engagement`),
-  `409 DUE_DATE_RESCHEDULE_ONLY` (`due_date`), `400 DEPENDENCY_SELF`, `409 DEPENDENCY_CYCLE`, `409 DEPENDENCY_GRAPH_TOO_LARGE`
-  (`depends_on`), `409 FIELD_REQUIRED` (el primer campo de la matriz que falta), `409 STAKEHOLDER_REQUIRED`
-  (`commitment_stakeholder`), `403 ACTION_REQUIRED`, `403 SEGREGATION_OF_DUTIES` (`record` u `owner_user_id`),
-  `409 SENIOR_APPROVAL_REQUIRED` (`origin_engagement`), `409 INTERNAL_APPROVAL_REQUIRED` (`project`),
-  `409 SUPPORT_CAP_EXCEEDED` (`exploration_campaign`; advertencia con la política apagada), advertencia `CAP_OTHER_CURRENCY`
-  (`currency`), `409 DELIVERY_REQUIRED` (`delivery`), `409 EVIDENCE_REQUIRED` (`evidence_delivery`), `403 FIELD_NOT_READABLE`
-  (`delivery.conformity_by`), `409 BLOCKING_DEPENDENCY` (`commitment_dependency`), `403 OBJECT_NOT_READABLE` (el objeto),
-  `409 DELIVERY_FROZEN` (`commitment`).
-- **Candidatos:** alta `{ attributes }` → `201` registro (sin `ai_generated`, `confidence`, `ai_interaction`,
-  `created_commitment` ni `duplicate_of`: `400`); aceptación `{ attributes }` (los del compromiso, sin `project`) →
-  `201 { commitment, candidate }` (`IK`, `IM`, `CR`; `403 PERSON_REQUIRED`, `403 ROLE_REQUIRED`, `409 STATE_MISMATCH`);
-  duplicado `{ duplicateOf }` → `200 { candidate }` (`IM`, `CR`; `400 DUPLICATE_NOT_FOUND`, `400 DUPLICATE_OTHER_PROJECT`).
-  `mark_duplicate` por la API genérica: `409 FIELD_REQUIRED` (`duplicate_of`); `accept`: `403 COMMAND_ONLY`.
-- **Acuerdos:** al activar, `409 FIELD_REQUIRED` (`signed_date`, `effective_date`, `community`),
-  `409 LAND_PARCEL_REQUIRED` (`agreement_land_parcel`), `409 ASSEMBLY_REQUIRED` (`assembly_engagement`).
-- **Avisos (decisión D2):** no hay `/api/sgspe/notifications*`. La bandeja es la de wasichai-notifications:
-  `GET /api/auth/me/notifications?kind=&state=&page=&size=`, `GET …/summary`, `POST …/{id}/read`, `…/dismiss`, `…/snooze`,
-  `POST …/read-all`, `GET …/stream` (SSE) y `GET`/`PUT /api/auth/me/notification-preferences`; `@wasichai/*` 0.5.1 trae sus
-  componentes. SGSPE publica con las fuentes `sgspe.approvals` (aprobación pendiente: `ACTION`, clave
-  `approval_pending:<objeto>:<id>`, se resuelve al salir del estado pendiente) y `sgspe.deadlines` (por vencer: `WARNING`;
-  vencido y escalamientos: `ACTION`, se resuelven al dejar de estar vencido); cada aviso lleva un enlace `RECORD` al registro.
-- **Tableros:** `GET /api/sgspe/dashboards/commitments` con KPI-COM-01 a KPI-COM-11 en el orden de `dashboards.md` §5.6; el
-  filtro nuevo `owner` (UUID, `owner_user_id`) que aplican KPI-COM-03, 04, 06 y 09; los demás lo devuelven en
-  `ignoredFilters`, igual que `explorationCampaign` en los KPI que no lo aplican. Desgloses: KPI-COM-01 `workflow_state`;
-  KPI-COM-03 `daysOverdue` (`1-7`, `8-15`, `más de 15` con los umbrales del proyecto); KPI-COM-07 `owner`, `project`,
-  `territory`, `topic` (filas `{ key, label, value, overdue }`, 10 y «Otros»); KPI-COM-08 `commitment_theme`; KPI-COM-09
-  `against` (`current`, `original` con `value`, `numerator`, `denominator`); KPI-COM-10 `currency` (`committed`,
-  `executed`); KPI-COM-11 `series` `{ period, value }` de 12 meses.
-- **Exportación** `POST /api/sgspe/exports/commitment-matrix` `{ filters: { project[], explorationCampaign, state[] },
-  disclosureLevel, checklistConfirmed }`: INTERNO hojas «Matriz» y «Entregas»; EXTERNO sin responsable ni campos
-  restringidos y con los solicitantes por código `GI-`; PUBLICO hojas «Por estado y tema» y «Por tipo de recurso» con la
-  marca `reservado`. Errores: los de `stakeholder-register` y `400 INVALID_FILTER` (`filters.state`).
-- **Documentos emitidos:** `GET /api/objects/{object}/records/{id}/documents` y `GET /api/documents/{id}` de
-  wasichai-documents; la «Lista de asistentes» solo trae conteos (ASM-090).
-
-## Decisiones de este plan
-
-Conflictos entre documentos, o entre un documento y D1 a D3, que este plan resuelve; la Tarea 1 o la 23 los escribe:
-
-1. **La subida de una evidencia es en dos pasos** (D1): el archivo por la ruta de wasichai-files, que ya valida, calcula el
-   SHA-256 y aplica el `StoredFileGuard`; el registro por `POST /api/sgspe/evidence` en JSON. Así la clave de idempotencia
-   cubre una petición JSON (como la nativa) y un reintento no vuelve a subir el archivo. `api.md` §4.9 decía multipart con
-   `attributes` y `links` y lectura de EXIF en el servidor: los EXIF los lee el portal.
-2. **La ruta nativa de descarga de `evidence` se reemplaza** por un controlador de SGSPE con el segmento literal `evidence`
-   (más específico que `{object}` para Spring), que aplica la misma comprobación que `GET /api/sgspe/evidence/{id}/content`.
-   Sin esto, D1 abriría las evidencias restringidas a todo lector.
-3. **`Idempotency-Key` sigue el contrato nativo** (D3): `422` (no `409`) para otra petición con la misma clave, `409` con
-   `Retry-After` en vez de esperar el candado, 128 caracteres en vez de 64, y la respuesta guardada byte por byte en vez de
-   releer los registros. `idempotency_key` guarda la respuesta y no `created_object`/`created_record_ids`.
-4. **`IK` sale de la confirmación de importaciones y del alta de componentes.** Son idempotentes por conciliación: un
-   reintento de la confirmación encuentra las filas `UNCHANGED` y uno del alta de componentes responde
-   `409 SAME_COORDINATES`. Envolverlos en la transacción de la clave rompería P20 (las cuentas de PostGIS fuera de la
-   transacción). `api.md` §4.2 deja de marcarlos `IK (desde F3)`.
-5. **D6 (políticas de empleo y servidumbres) no se implementa en F3** (ASM-089): el modelo no tiene un dato que diga que un
-   compromiso ofrece empleo, y GAP-016 deja fuera de alcance el registro de empleo. La guarda no puede evaluar lo que el
-   modelo no guarda; WF-D lo anota.
-6. **Los documentos emitidos no imprimen campos restringidos** (ASM-090): wasichai-documents no aplica permisos de campo y
-   `relatedTable` imprime todos los campos del otro objeto. La «Lista de asistentes» lleva los conteos de la interacción, no
-   la tabla de participantes, y el «Acta de entrega» no lleva receptores ni quiénes dieron la conformidad.
-7. **La fecha de vencimiento desde `approved`** la protege `CommitmentWriteGuard` (`DUE_DATE_RESCHEDULE_ONLY`), no
-   `DerivedFieldsGuard`, que solo mira derivados (`domain-model.md` §7.4 lo decía al revés).
-8. **Los avisos se publican en la transacción de quien escribe** (D2, `Notifications.publish` se une a ella): un aviso mal
-   formado se registra y la escritura sigue, pero un fallo de la base al insertar el aviso revierte la transición, como
-   cualquier otra escritura de esa transacción. `workflows.md` («Listeners») pedía un savepoint o una conexión aparte.
-9. **Los avisos de plazo son una fuente de wasichai-notifications** (`DeadlineNotices`), no escrituras de JOB-01: el módulo
-   resuelve solo lo que deja de ser cierto. JOB-01 escribe los derivados y las tareas de escalamiento; la fuente lee lo que
-   JOB-01 escribió, así que un aviso llega a lo sumo una hora después.
-10. **Un vínculo M2M no llega a los listeners** (wasichai 0.6.0, `RelatedRecordService`): `requires_senior_approval` se
-    recalcula al crear o cambiar el origen y, para los solicitantes, en la vuelta diaria de JOB-02. La guarda D5 y los avisos
-    evalúan la regla en el momento, así que el derivado atrasado no cambia ninguna decisión.
-11. **Las tareas de seguimiento de JOB-03** tienen las claves `stakeholder_review:<id>:<fecha>` y
-    `stakeholder_inactivity:<id>:<fecha de referencia>`, que `workflows.md` no fijaba; la tarea de escalamiento de un
-    compromiso, `escalation:commitment:<id>:<fecha>:<nivel>`, como dice «Destinatarios por rol».
-12. **El filtro `owner` de los tableros** existe porque `dashboards.md` §4.4 da «responsable» como filtro de KPI-COM-03, 04,
-    06 y 09, y §3.1 no lo tenía: se agrega a la fila de filtros y a `api.md` §4.11.
 
 ---
 ### Tarea 1: IDs, ADR-0029 y la especificación
@@ -5660,18 +5308,19 @@ MSG
 
 **Solo el coordinador principal**: exige base, túnel y el tenant de desarrollo. Ningún subagente la ejecuta.
 
-- [ ] **Paso 1: El tenant de desarrollo, antes del backend nuevo (coordinador)**
+- [ ] **Paso 1: El tenant de desarrollo desde una base vacía (coordinador)**
 
-Con el backend de `main` todavía corriendo contra la base de desarrollo, desde la rama:
+Decisión del usuario (2026-10-10, decisión 19): no hay datos que conservar, así que no se migra nada ni importa el orden
+de despliegue. Con el backend detenido, el coordinador vacía la base de desarrollo `sgspe` (no `sgspe_test`), arranca el
+backend de la rama (`docs/develop/README.md` §4; la semilla de desarrollo crea el admin) y aprovisiona desde cero en el
+orden de `CLAUDE.md`:
 
 ```bash
 cd ~/IdeaProjects/sgspe/model
-python3 apply.py                 # "done: 1 created, … updated, … skipped": la acción READ_ALL_PROJECTS
-python3 apply_roles.py           # AUDITOR y PROJECT_ADMIN reciben la acción: "2 updated"
-python3 apply.py --workflows     # sin cambios
+python3 apply.py && python3 apply_roles.py && python3 apply.py --workflows && python3 load_ubigeo.py
 ```
 
-Después se reinicia el backend desde la rama (`docs/develop/README.md` §4) y se comprueba:
+Y comprueba:
 
 ```bash
 TOKEN=$(curl -s localhost:8094/api/auth/login -H 'Content-Type: application/json' \
@@ -5683,8 +5332,9 @@ for r in json.load(sys.stdin):
         print(r["name"], sorted({p.get("objectName") or "*" for p in r.get("permissions", []) if p["action"]=="READ_ALL_PROJECTS"}))'
 ```
 
-Esperado: `AUDITOR ['project']` y `PROJECT_ADMIN ['project']`. Si el backend nuevo se arranca antes que los roles,
-`AUDITOR` y `PROJECT_ADMIN` dejan de leer los proyectos sin asignación hasta que corre `apply_roles.py` (riesgo 5).
+Esperado: `AUDITOR ['project']` y `PROJECT_ADMIN ['project']`; una segunda corrida de los tres primeros scripts
+responde todo `skipped`. El bucket de MinIO de desarrollo se vacía también, porque las evidencias de la base anterior
+quedan huérfanas.
 
 - [ ] **Paso 2: El volumen de la medición en `sgspe_test` (coordinador)**
 
