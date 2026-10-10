@@ -39,6 +39,11 @@ class Permissions(
             false
         }
 
+    // si a quien llama se le ocultan QCS confidenciales (security.md §9.6): no es ADMIN ni tiene READ_CONFIDENTIAL sobre los tres
+    // objetos. el tablero attention, los KPI-GRV, KPI-ENG-05 y el reporte lo dicen con confidentialHidden, un booleano sin
+    // el número de excluidas
+    suspend fun confidentialHidden(user: AuthenticatedUser): Boolean = !user.isAdmin && Attention.OBJECTS.any { !has(user, Attention.READ_CONFIDENTIAL, it) }
+
     private fun label(action: String): String =
         when (action) {
             Actions.READ -> "permiso de lectura"
