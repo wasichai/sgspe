@@ -5,9 +5,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import sgspe.commitment.Commitments
-import sgspe.commitment.NotReadable
 import sgspe.commitment.SeniorApprovalReader
 import sgspe.common.ModelCatalog
+import sgspe.common.NotReadable
 import sgspe.common.Records
 import sgspe.common.Values
 import sgspe.scope.Assignments

@@ -650,7 +650,7 @@ Criterios con que se armó:
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `engagement` | — | R | RU `EDIT_ANY` | CRU `EDIT_ANY` | CRU `EDIT_ANY` | R | R | R | R | R | CRU | R | R | R |
 | `engagement_participant` | — | R | R | CRUD `EDIT_ANY` | CRUD `EDIT_ANY` | R | R | R | R | R | CRUD | R | R | R |
-| `engagement_question` | — | R | RU | CRU | CRU | R | R | R | R | R | CR | R | R | R |
+| `engagement_question` | — | R | RU | CRU | CRU | R | Ru | R | R | R | CR | R | R | R |
 | `field_visit` | — | R | RU `EDIT_ANY` | CRU `EDIT_ANY` | R | R | R | R | R | R | CRU | R | R | R |
 | `field_observation` | — | R | R | CRUD `EDIT_ANY` | R | R | R | R | R | R | CRUD | R | R | R |
 | `engagement_plan` | — | R | CRUD | R | R | R | R | R | R | R | R | R | R | R |
@@ -677,6 +677,9 @@ Criterios con que se armó:
   o visita que puede leer; sin `EDIT_ANY`, `EditAnyGuard` limita a lo que creó sus cambios y sus bajas (ASM-069). Sus
   preguntas se registran con su respuesta en el lugar o la responde después otro rol del equipo.
 - `SOCIAL_MANAGER` aprueba las actas (`minutes_approved`) con su UPDATE sobre `engagement` y el rol de esa transición.
+- El `u` de `GRIEVANCE_MANAGER` sobre `engagement_question` (F4) sirve para derivar preguntas a QCS (§8.2): solo deja
+  escribir `referred_at`, el derivado que pone el endpoint de derivación con la marca; el texto, la respuesta y la
+  interacción de la pregunta quedan de solo lectura para él.
 
 ### 7.5 BC-05 Compromisos, BC-06 Acuerdos, BC-12 Evidencias y BC-13 Tareas (F3)
 
@@ -912,9 +915,9 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `POST /api/sgspe/commitment-candidates`, `.../{id}/accept` y `.../{id}/duplicate` (`sgspe.commitment`) | Registra un candidato; al aceptarlo crea el compromiso en `draft` y lo vincula; al marcarlo como duplicado escribe `duplicate_of` | CREATE `commitment_candidate`; para aceptar, UPDATE `commitment_candidate`, CREATE `commitment` y el rol de `accept`; para el duplicado, UPDATE y el rol de `mark_duplicate`. Decide una persona: una cuenta de servicio recibe `403` aunque tenga el rol (RQ-AI-003) | `COMMUNITY_RELATIONS_OFFICER`, `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, para registrar y para aceptar | F3 |
 | `POST /api/sgspe/evidence`, `GET /api/sgspe/evidence/{id}/content` y la ruta nativa de descarga de `evidence` (`sgspe.evidence`) | Registra la evidencia con el archivo que la misma persona subió por wasichai-files (que calcula el SHA-256) y la vincula; la descarga según su clasificación, por las dos rutas | CREATE `evidence` (también para subir el archivo); UPDATE `evidence` y del destino para vincular; `DOWNLOAD_RESTRICTED` para descargar CONFIDENCIAL y DATOS PERSONALES, o si quien llama no lee la clasificación | Los que tienen CRU sobre `evidence` | F3 |
 | `PATCH /api/sgspe/evidence/{id}` (`sgspe.evidence`) | Cambia los datos descriptivos, nunca el archivo | UPDATE `evidence`; `EDIT_ANY` si la subió otra persona; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una CONFIDENCIAL o DATOS PERSONALES (`EvidenceWriteGuard`, ASM-071) | Los que tienen CRU sobre `evidence` | F3 |
-| `POST /api/sgspe/stakeholder-requests/{id}/accept` (`sgspe.attention`) | Aplica `accepted` y crea el compromiso en `draft` o, desde F5, el aporte | UPDATE `stakeholder_request` y rol de la transición; CREATE `commitment` o, desde F5, `social_contribution`; `u` sobre `stakeholder` si vincula solicitantes | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y, desde F5, `SOCIAL_INVESTMENT_MANAGER` | F4 |
+| `POST /api/sgspe/stakeholder-requests/{id}/accept` (`sgspe.attention`) | Aplica `accepted` y crea el compromiso en `draft` o, desde F5, el aporte | UPDATE `stakeholder_request` y rol de la transición; CREATE `commitment` o, desde F5, `social_contribution` | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y, desde F5, `SOCIAL_INVESTMENT_MANAGER` | F4 |
 | `POST /api/sgspe/grievances/{id}/reclassify` y sus pares (`sgspe.attention`) | Crea el registro de destino y conserva el vínculo con el original | CREATE del destino; UPDATE del origen | `GRIEVANCE_MANAGER` | F4 |
-| `POST /api/sgspe/engagement-questions/{id}/referral` (`sgspe.engagement`) | Crea la QCS con `origin_question` | CREATE de la QCS; READ `engagement_question` | `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | F4 |
+| `POST /api/sgspe/engagement-questions/{id}/referral` (`sgspe.attention`) | Crea la QCS con `origin_question` | CREATE de la QCS; UPDATE (`U` o `u`) sobre `engagement_question`, porque escribe `referred_at` | `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | F4 |
 | `POST /api/sgspe/social-risks/{id}/assessments` (`sgspe.risk`) | Crea `risk_assessment`, actualiza los valores vigentes de `social_risk` y, en la primera revisión, aplica `assessed` | CREATE `risk_assessment`; UPDATE `social_risk`; rol de la transición | `SOCIAL_RISK_MANAGER` | F4 |
 | `POST /api/sgspe/social-contributions/{id}/deliveries` (`sgspe.investment`) | Solo captura datos: crea la entrega del aporte y vincula acta, foto y comprobante; llevar el aporte a `delivered` es después la transición humana de entrega de WF-P | CREATE `delivery`; UPDATE `social_contribution` y `evidence` | `SOCIAL_INVESTMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F5 |
 | Exportaciones XLSX (`sgspe.privacy`) | Lee con `RecordService` como el usuario y crea `export_log` | READ del objeto; `EXPORT`; CREATE `export_log` | Ver la matriz | F2–F4 |
@@ -1052,14 +1055,19 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   sin datos del registro.
 - **Escrituras.** Quien no lee una QCS no la cambia ni la transiciona: wasichai la trata como inexistente.
   `AttentionWriteGuard` cubre la marca y el responsable: el alta de una confidencial lleva `received_by_user_id` igual a
-  quien escribe, salvo con `READ_CONFIDENTIAL` (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y quitar la marca o cambiar
+  quien escribe, salvo con `READ_CONFIDENTIAL` o en el alta que hace la reclasificación, que conserva el receptor del
+  original (`api.md` §4.6) (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y quitar la marca o cambiar
   `owner_user_id` o `received_by_user_id` de una confidencial exige esa acción (`403 ACTION_REQUIRED`). Así quien
   registra siempre la ve, no la pierde al guardarla y los listeners, que escriben como esa persona, la pueden
   actualizar.
-- **Excepción: `ConfidentialRelease`.** `RequestClosureListener` cierra la solicitud aceptada como quien cierra el
-  compromiso, dentro de `ConfidentialRelease` (`sgspe.common`): mientras dura el bloque, `ConfidentialAttentionScope`
-  admite además las solicitudes cuyo `created_commitment` es ese compromiso, y solo ellas. La auditoría lleva el origen
-  `listener:request-closure`; `ArchitectureTest` vigila que solo ese listener lo use (ADR-0028).
+- **Excepción: el cierre automático de una solicitud (`ConfidentialRelease`).** `RequestClosureListener` cierra la
+  solicitud aceptada al cerrarse su compromiso aunque quien cierra no la lea (RN-GRV-001): es la única excepción al
+  alcance dentro de una petición. Como wasichai no deja ser la plataforma en una petición ni aplicar una transición sin
+  usuario, corre como quien cierra dentro de `ConfidentialRelease` (`sgspe.common`), con el que
+  `ConfidentialAttentionScope` admite además, mientras dura el cierre, las solicitudes cuyo `created_commitment` es ese
+  compromiso, y solo ellas; la auditoría lleva el origen `listener:request-closure` y el motivo «RN-GRV-001: compromiso
+  <código> cerrado». `ArchitectureTest` vigila que nadie más lo use. La decisión, aceptada por el usuario el 2026-10-09,
+  está en [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md).
 - **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
   apuntar a una QCS que quien lee no ve: el id es visible y el registro no, y el portal muestra «Registro reservado».
   Los títulos de las tareas automáticas solo llevan el código de la QCS. Una evidencia vinculada a una QCS confidencial

@@ -263,8 +263,8 @@ agente. Consecuencias:
   tiene `READ_CONFIDENTIAL` sobre ese objeto en `model/roles.json` y, en una queja ALTA o CRITICA, los que tienen
   `APPROVE` sobre `grievance`. `ModelCatalog` expone las concesiones de cada rol para decidirlo sin literales. Si un
   nivel queda sin destinatarios, no se crea el aviso y queda una advertencia en el log, como hoy; la tarea de
-  escalamiento se crea igual. Excepción del nivel 2: los roles de `approve_senior` de WF-D que no la ven reciben el
-  aviso genérico `qcs_confidential_overdue` (§3.5).
+  escalamiento se crea igual (la del nivel 2, genérica y sin vínculo con la QCS, §3.5). Excepción del nivel 2: los roles
+  de `approve_senior` de WF-D que no la ven reciben el aviso genérico `qcs_confidential_overdue` (§3.5).
 - **Capa LYR-20.** Lee como quien llama: hereda el alcance.
 
 **Pruebas.** `ConfidentialAttentionScopeTest` (unitaria: condición por caso, falla cerrada) y
@@ -314,8 +314,8 @@ la plataforma, solo si cambia y con el motivo `situación de plazo (JOB-01 Deadl
 
 | Objeto | Mide | En | Escribe | Tarea |
 |---|---|---|---|---|
-| `grievance` | `ack_due_date` en `received`; `resolution_due_date` en `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | Esos estados; vacío en los demás | `deadline_status` | `escalation:grievance:<id>:<fecha del plazo>:<nivel>` en los niveles 1 y 2, sin asignado ni fecha |
-| `inquiry` | `response_due_date` en `received` | `received` | `deadline_status` | `escalation:inquiry:<id>:<fecha del plazo>:<nivel>` |
+| `grievance` | `ack_due_date` en `received`; `resolution_due_date` en `acknowledged`, `in_assessment`, `in_investigation`, `in_action` | Esos estados; vacío en los demás | `deadline_status` | `escalation:grievance:<id>:<fecha del plazo>:<nivel>` en los niveles 1 y 2, sin asignado ni fecha; en una confidencial, la del nivel 2 es `escalation:grievance:<huella>:<fecha del plazo>:2`, genérica y sin vínculo con la queja |
+| `inquiry` | `response_due_date` en `received` | `received` | `deadline_status` | `escalation:inquiry:<id>:<fecha del plazo>:<nivel>`; en una confidencial, la del nivel 2 es `escalation:inquiry:<huella>:<fecha del plazo>:2`, como la queja |
 | `stakeholder_request` | — | — | Nada en el MVP | — |
 | `social_risk` | `next_review_date` en `assessed`, `mitigating`, `monitoring` | Esos estados | `review_status`; `next_review_date` si cambió `review_every_days` (última revisión + cadencia) | `risk_review:<id>:<next_review_date>` al pasar a POR REVISAR o REVISION VENCIDA, asignada al responsable, con fecha `next_review_date` y título «Revisar el riesgo <código>» |
 
@@ -339,10 +339,17 @@ la plataforma, solo si cambia y con el motivo `situación de plazo (JOB-01 Deadl
 | `qcs_confidential_overdue` | `DeadlineNotices` | Nivel 2 de `qcs_deadline` de una QCS confidencial | Los asignados con un rol de `approve_senior` de WF-D que no la verían por §3.3 (los que sí la ven reciben `qcs_deadline`) | `qcs_confidential_overdue:<proyecto>:<huella>`, donde `<huella>` son los 16 primeros dígitos hexadecimales del SHA-256 de `<objeto>:<id>:<fecha del plazo>`: un aviso por QCS y plazo sin poner su id, tipo ni fecha en la clave | Cuando la QCS deja el nivel 2 o el estado con plazo |
 
 Los textos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripción, persona ni texto libre. El de
-`qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto <proyecto> superó
-su plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría ni enlace al
+`qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto <proyecto> superó su
+plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría ni enlace al
 registro, y es `ACTION`; una prueba de `NoticeTexts` verifica que ningún dato del registro entra en el texto ni en la
-clave. La tarea de escalamiento del nivel 2 se crea igual, con su clave `escalation:<objeto>:<id>:<fecha>:2`.
+clave. La tarea de escalamiento del nivel 2 se crea igual, con su clave `escalation:<objeto>:<id>:<fecha>:2`, salvo en
+una QCS confidencial, porque la leen todos los lectores de `task` del proyecto: su clave es
+`escalation:<objeto>:<huella>:<fecha del plazo>:2`, con la huella del aviso genérico; su título, «QCS confidencial
+vencida en <proyecto>»; su descripción, fija («Una QCS confidencial superó su plazo. Pida el detalle al equipo de
+quejas.»); y no lleva `grievance` ni `inquiry`, solo `project`. `ExactlyOneGuard` admite una tarea sin origen solo con
+una `generator_key` de esa forma (`JobTasks.isConfidentialEscalation`), que solo escribe la plataforma
+(`GeneratorKeyGuard`), también en los cambios posteriores de una persona. La del nivel 1 y la de AUT-02 siguen con el
+código y el vínculo.
 
 **Automatizaciones.** AUT-02 (tarea de acuse), AUT-09 (tarea de triaje) y AUT-11 (tarea de riesgo crítico), como las
 diseña `workflows.md`. El plan 4.2b prueba que la escritura de `risk_level` del endpoint dispara AUT-11 y que una alerta

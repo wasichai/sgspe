@@ -1,6 +1,8 @@
 package sgspe.dashboard
 
 import org.slf4j.LoggerFactory
+import sgspe.attention.QcsDueDates
+import sgspe.common.Attention
 import sgspe.common.Criteria
 import sgspe.common.LIMA
 import sgspe.common.Positions
@@ -418,6 +420,59 @@ class DashboardData(
             }
         }
         return RescheduleRead(rows, skipped)
+    }
+
+    // ---- quejas, consultas y solicitudes (F4) ----
+
+    // las QCS de los proyectos, de los tres objetos, filtradas por territorio y ámbito como los compromisos (su localidad o su
+    // comunidad). se leen enteras (no por periodo): la regla de conteo necesita la cadena de reclasificaciones, y cada KPI-GRV
+    // corta por la fecha que le toca. como quien mira: una QCS confidencial que no lee no está (ASM-095)
+    suspend fun attention(): List<AttentionRow> =
+        cached("attention") {
+            if (filters.projects.isEmpty()) return@cached emptyList<AttentionRow>()
+            val territories = engagementTerritories()
+            Attention.OBJECTS.flatMap { type ->
+                read(type, criteria = listOf(Criteria.anyOf("project", filters.projects)))
+                    .filter { q ->
+                        val locality = Values.text(q.attributes["locality"])
+                        val community = Values.text(q.attributes["community"])
+                        territories.all { t -> (locality != null && locality in t.localities) || (community != null && community in t.communities) }
+                    }.map { attentionRow(type, it) }
+            }
+        }
+
+    private fun attentionRow(
+        type: String,
+        record: RecordResponse
+    ): AttentionRow {
+        val a = record.attributes
+
+        // estricta como commitmentRow: una fecha DATE mal formada es un dato corrupto que lanza, no una QCS que sale callada
+        fun date(name: String): LocalDate? = Values.text(a[name])?.let(LocalDate::parse)
+        return AttentionRow(
+            type,
+            record.id,
+            record.state,
+            QcsDueDates.receivedDate(a[Attention.RECEIVED_AT]),
+            QcsDueDates.receivedDate(a[Attention.RESPONDED_AT]),
+            date("resolved_date"),
+            date("closed_date"),
+            date(QcsDueDates.RESOLUTION),
+            date(QcsDueDates.RESPONSE),
+            Values.text(a[Attention.DEADLINE_STATUS]),
+            Values.text(a["channel"]),
+            Values.text(a["category"]),
+            Values.text(a[Attention.SEVERITY]),
+            Values.text(a["locality"]),
+            Values.text(a["community"]),
+            Values.text(a["stakeholder"]),
+            Values.bool(a["anonymous"]) == true,
+            Attention.RECLASSIFIED_FROM
+                .getValue(type)
+                .keys
+                .mapNotNull { field -> Values.text(a[field])?.let { field to it } }
+                .toMap()
+        )
     }
 
     // la moneda de la campaña pedida (PEN si la campaña no la trae, RNF-I18N-002); null si no se pidió una campaña o si la

@@ -1,5 +1,6 @@
 package sgspe.dashboard
 
+import sgspe.common.Attention
 import sgspe.common.ProjectParameters
 import sgspe.common.Values
 import sgspe.engagement.AttendanceCounts
@@ -43,6 +44,11 @@ object Kpis {
     const val STAKEHOLDERS = "stakeholders"
     const val ENGAGEMENT = "engagement"
     const val COMMITMENTS = "commitments"
+    const val ATTENTION = "attention"
+
+    // los indicadores que leen QCS y que, a quien no ve las confidenciales, se lo dicen con confidentialHidden (dashboards.md §8,
+    // ASM-095): los KPI-GRV y KPI-ENG-05, que cuenta como atendida una pregunta derivada a una QCS
+    fun confidentialSensitive(code: String): Boolean = code.startsWith("KPI-GRV-") || code == "KPI-ENG-05"
 
     // los KPI de F2 no aplican explorationCampaign (dashboards.md §3.1: solo compromisos e inversión social) ni owner, el
     // responsable de un compromiso que llega en F3
@@ -80,8 +86,21 @@ object Kpis {
                     "KPI-COM-10",
                     "KPI-COM-08",
                     "KPI-COM-11"
-                )
+                ),
+            // dashboards.md §5.7: flujo, absueltas, desgloses, tendencia y tiempos
+            ATTENTION to (1..10).map { "KPI-GRV-%02d".format(it) }
         )
+
+    // los KPI-GRV no aplican la campaña ni el responsable de un compromiso (dashboards.md §3.1); el territorio y el ámbito sí,
+    // por la localidad o la comunidad de la QCS
+    private val ATTENTION_IGNORES: Set<String> = setOf("explorationCampaign", "owner")
+
+    // los campos de los tres objetos de QCS
+    private fun qcs(vararg fields: String): List<String> = Attention.OBJECTS.flatMap { o -> fields.map { "$o.$it" } }
+
+    // lo que leen todos los KPI-GRV: el proyecto, la recepción, el territorio y los vínculos de reclasificación (§3.3)
+    private val QCS: List<String> =
+        qcs("project", "received_at", "locality", "community") + Attention.RECLASSIFIED_FROM.flatMap { (o, links) -> links.keys.map { "$o.$it" } }
 
     // lo que leen todos los KPI-COM: el compromiso, su estado y su territorio
     private val COMMITMENT = listOf("commitment.project", "commitment.locality", "commitment.community")
@@ -389,7 +408,63 @@ object Kpis {
                 val rows = data.commitments(campaign = false, owner = false)
                 val reschedules = data.reschedules(rows.map { it.id })
                 reschedules.warn(CommitmentKpis.overdueSeries(rows, reschedules.rows, data.filters.periodEnd, data.today))
-            }
+            },
+            // ---- F4: quejas, consultas y solicitudes (dashboards.md §4.5); leen como quien mira (ASM-095) ----
+            Kpi("KPI-GRV-01", "QCS recibidas", ATTENTION, "QCS", QCS + qcs("channel"), ignores = ATTENTION_IGNORES) {
+                AttentionKpis.received(it.attention(), it.filters.periodStart, it.filters.periodEnd)
+            },
+            Kpi("KPI-GRV-02", "QCS abiertas", ATTENTION, "QCS", QCS, ignores = ATTENTION_IGNORES) { AttentionKpis.open(it.attention()) },
+            Kpi(
+                "KPI-GRV-03",
+                "Quejas resueltas",
+                ATTENTION,
+                "quejas",
+                QCS + listOf("grievance.resolved_date", "grievance.severity"),
+                ignores = ATTENTION_IGNORES
+            ) {
+                AttentionKpis.resolved(it.attention(), it.filters.periodStart, it.filters.periodEnd)
+            },
+            Kpi("KPI-GRV-04", "QCS cerradas", ATTENTION, "QCS", QCS + qcs("closed_date"), ignores = ATTENTION_IGNORES) {
+                AttentionKpis.closed(it.attention(), it.filters.periodStart, it.filters.periodEnd)
+            },
+            Kpi("KPI-GRV-05", "Quejas rechazadas", ATTENTION, "quejas", QCS + "grievance.closed_date", ignores = ATTENTION_IGNORES) {
+                AttentionKpis.rejected(it.attention(), it.filters.periodStart, it.filters.periodEnd)
+            },
+            Kpi("KPI-GRV-06", "QCS fuera de plazo", ATTENTION, "QCS", QCS + qcs("deadline_status"), ignores = ATTENTION_IGNORES) {
+                AttentionKpis.overdue(it.attention())
+            },
+            Kpi("KPI-GRV-07", "QCS absueltas", ATTENTION, "%", QCS + qcs("responded_at"), ignores = ATTENTION_IGNORES) {
+                AttentionKpis.absolved(it.attention(), it.filters.periodStart, it.filters.periodEnd)
+            },
+            Kpi(
+                "KPI-GRV-08",
+                "Desgloses de QCS",
+                ATTENTION,
+                "QCS",
+                QCS + qcs("category", "stakeholder", "anonymous", "channel") + "grievance.severity",
+                ignores = ATTENTION_IGNORES
+            ) { data ->
+                val rows = data.attention()
+                val stakeholders = rows.mapNotNull { it.stakeholder }.toSet()
+                AttentionKpis.breakdowns(
+                    rows,
+                    data.filters.periodStart,
+                    data.filters.periodEnd,
+                    data.names("locality", rows.mapNotNull { it.locality }) + data.names("community", rows.mapNotNull { it.community }),
+                    Labels.of(data, data.stakeholders().filter { it.id in stakeholders })
+                )
+            },
+            Kpi("KPI-GRV-09", "QCS recibidas frente a cerradas por mes", ATTENTION, "QCS", QCS + qcs("closed_date"), ignores = ATTENTION_IGNORES) {
+                AttentionKpis.receivedVsClosed(it.attention(), it.filters.periodEnd)
+            },
+            Kpi(
+                "KPI-GRV-10",
+                "Tiempo de atención",
+                ATTENTION,
+                "días",
+                QCS + qcs("responded_at") + listOf("grievance.resolved_date", "grievance.resolution_due_date", "inquiry.response_due_date"),
+                ignores = ATTENTION_IGNORES
+            ) { AttentionKpis.attentionTime(it.attention(), it.filters.periodStart, it.filters.periodEnd) }
         )
 
     val BY_CODE: Map<String, Indicator> = ALL.associateBy { it.code }

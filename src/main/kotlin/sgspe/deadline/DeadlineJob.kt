@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import sgspe.commitment.Commitments
+import sgspe.common.Attention
 import sgspe.common.Criteria
 import sgspe.common.JobTasks
 import sgspe.common.LIMA
@@ -15,6 +15,8 @@ import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.Values
+import sgspe.notification.ConfidentialReaders
+import sgspe.notification.NoticeTexts
 import wasichai.core.data.RecordResponse
 import wasichai.core.platform.ClusterLock
 import java.time.Clock
@@ -51,12 +53,14 @@ class DeadlineSweep(
 }
 
 // JOB-01 DeadlineJob (sgspe.deadline, workflows.md): cada hora, una sola réplica (ClusterLock.tryLock), como la plataforma de
-// cada organización con el modelo de F3 (TenantDirectory). escribe deadline_status de compromisos y tareas y validity_status de
-// acuerdos con los parámetros de su proyecto, solo si cambia (P11) y bajo el candado del registro, con el motivo que nombra al
-// trabajo (P16); crea la tarea de escalamiento de los niveles 1 y 2 de un compromiso vencido (generator_key, sin asignado ni
-// fecha: la toma uno de los avisados). nunca aplica transiciones (RN-WFL-001). el día de Lima se lee una vez por vuelta: todas
-// las organizaciones se miden con la misma fecha. los avisos de plazo los publica DeadlineNotices, que lee lo que este trabajo
-// escribió
+// cada organización. recorre por objeto (Organizations.having): un tenant sin el modelo de F4 sigue con los objetos de F3.
+// escribe deadline_status de compromisos, tareas, quejas y consultas y validity_status de acuerdos con los parámetros de su
+// proyecto, solo si cambia (P11) y bajo el candado del registro, con el motivo que nombra al trabajo (P16); crea la tarea de
+// escalamiento de los niveles 1 y 2 de un compromiso, una queja o una consulta vencidos (generator_key, sin asignado ni fecha:
+// la toma uno de los avisados; su título solo lleva el código). la del nivel 2 de una QCS confidencial no la delata: su clave
+// lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vincula al proyecto (ASM-102). nunca
+// aplica transiciones (RN-WFL-001). el día de Lima se lee una vez por vuelta: todas las organizaciones se miden con la misma
+// fecha. los avisos de plazo los publica DeadlineNotices, que lee lo que este trabajo escribió
 @Component
 class DeadlineJob(
     private val records: Records,
@@ -73,17 +77,29 @@ class DeadlineJob(
         val lease = locks.tryLock(LOCK) ?: return null
         return lease.use {
             val today = LocalDate.now(clock.withZone(LIMA))
+            // las organizaciones que tienen cada objeto seguido, una vez por vuelta
+            val having =
+                Deadlines.TRACKED
+                    .map { it.objectName }
+                    .distinct()
+                    .associateWith { organizations.having(it).toSet() }
             DeadlineSweep(
-                { organizations.having(Commitments.COMMITMENT) },
+                {
+                    having.values
+                        .flatten()
+                        .distinct()
+                        .sorted()
+                },
                 { organization, block -> records.asPlatform(organization, SOURCE, block) },
-                { organization -> refresh(organization, today) }
+                { organization -> refresh(organization, today, Deadlines.TRACKED.filter { organization in having.getValue(it.objectName) }) }
             ).run()
         }
     }
 
     private suspend fun refresh(
         organization: UUID,
-        today: LocalDate
+        today: LocalDate,
+        tracked: List<Deadlines.Tracked>
     ): Int {
         val projects = mutableMapOf<String, Map<String, Any?>>()
 
@@ -92,7 +108,7 @@ class DeadlineJob(
         var written = 0
         var created = 0
         var failed = 0
-        for (tracked in Deadlines.TRACKED) {
+        for (tracked in tracked) {
             // solo los estados donde se calcula, más los que salieron de ellos con el campo todavía lleno (hay que vaciarlo):
             // los registros cerrados que ya se vaciaron no se vuelven a leer cada hora
             val rows = records.all(tracked.objectName, criteria = listOf(Criteria.inStateOrFilled(tracked.states, tracked.field)))
@@ -102,7 +118,7 @@ class DeadlineJob(
                     val outcome = write(tracked, row, today, ProjectParameters.integer(params, "due_soon_days"))
                     if (outcome.written) written++
                     // JobTasks.ensure va fuera de toda transacción: write ya cerró la suya (un único duplicado aborta la abierta)
-                    if (tracked.objectName == Commitments.COMMITMENT) created += escalate(row, outcome.locked, today, params)
+                    if (tracked.escalates) created += escalate(tracked, row, outcome.locked, today, params)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -143,41 +159,60 @@ class DeadlineJob(
         }
     }
 
-    // la fecha de vencimiento y el nivel alcanzado de un compromiso vencido y pendiente; null si no escala
+    // la fecha de vencimiento y el nivel alcanzado de un registro vencido en un estado con plazo; null si no escala
     private fun escalation(
+        tracked: Deadlines.Tracked,
         record: RecordResponse,
         today: LocalDate,
         params: Map<String, Any?>
     ): Pair<LocalDate, Int>? {
-        if (record.state !in Commitments.PENDING) return null
-        val due = Values.text(record.attributes["due_date"])?.let(LocalDate::parse) ?: return null
+        if (record.state !in tracked.states) return null
+        val due = Deadlines.due(tracked, record.state, record.attributes) ?: return null
         if (!today.isAfter(due)) return null
         val level =
             Deadlines.level(due, today, ProjectParameters.integer(params, "escalation_first_days"), ProjectParameters.integer(params, "escalation_second_days"))
         return if (level == 0) null else due to level
     }
 
-    // la tarea de cada nivel alcanzado de un compromiso vencido y pendiente: una por compromiso, fecha y nivel. decide con el
-    // registro releído bajo el candado de write o, si write no lo tomó, con uno releído ahora: la fila de la lectura inicial
-    // puede tener horas en una organización grande, y una reprogramación o un cumplimiento entretanto no deben escalar
+    // la tarea de cada nivel alcanzado de un registro vencido: una por registro, fecha y nivel. decide con el registro releído
+    // bajo el candado de write o, si write no lo tomó, con uno releído ahora: la fila de la lectura inicial puede tener horas en
+    // una organización grande, y una reprogramación, un cumplimiento o una respuesta entretanto no deben escalar. el título y la
+    // descripción solo llevan el tipo, el código y la fecha: nunca texto libre. la del nivel 2 de una QCS confidencial la
+    // leen todos los lectores de task del proyecto: lleva la huella en la clave, el texto genérico y ningún vínculo con la QCS
     private suspend fun escalate(
+        tracked: Deadlines.Tracked,
         row: RecordResponse,
         locked: RecordResponse?,
         today: LocalDate,
         params: Map<String, Any?>
     ): Int {
-        if (locked == null && escalation(row, today, params) == null) return 0
-        val record = locked ?: records.find(Commitments.COMMITMENT, UUID.fromString(row.id)) ?: return 0
-        val (due, level) = escalation(record, today, params) ?: return 0
+        if (locked == null && escalation(tracked, row, today, params) == null) return 0
+        val record = locked ?: records.find(tracked.objectName, UUID.fromString(row.id)) ?: return 0
+        val (due, level) = escalation(tracked, record, today, params) ?: return 0
         val code = Values.text(record.attributes["code"]) ?: record.id
+        val confidential = tracked.objectName in Attention.OBJECTS && Attention.isConfidential(record.attributes)
         return (1..level).count { reached ->
+            if (confidential && reached == 2) {
+                val project = Values.text(record.attributes["project"])
+                if (project == null) {
+                    // sin proyecto, la tarea genérica no tendría ningún vínculo: no se crea (el log no lleva datos de la QCS)
+                    log.warn("DeadlineJob: una {} confidencial vencida no tiene proyecto; no se crea su tarea genérica de escalamiento", tracked.objectName)
+                    return@count false
+                }
+                val (title, description) = NoticeTexts.qcsConfidentialEscalation(NoticeTexts.projectName(params, project))
+                return@count tasks.ensure(
+                    confidentialEscalationKey(tracked.objectName, record.id, due),
+                    mapOf("title" to title, "description" to description, "project" to project),
+                    TASK_REASON
+                )
+            }
             tasks.ensure(
-                escalationKey(record.id, due, reached),
+                escalationKey(tracked.objectName, record.id, due, reached),
                 mapOf(
-                    "title" to "Escalamiento nivel $reached: compromiso $code vencido",
-                    "description" to "El compromiso venció el $due y sigue abierto. Tómela quien atienda el escalamiento.",
+                    "title" to "Escalamiento nivel $reached: ${OVERDUE.getValue(tracked.objectName).format(code)}",
+                    "description" to "El plazo venció el $due y sigue abierto. Tómela quien atienda el escalamiento.",
                     "project" to record.attributes["project"],
-                    "commitment" to record.id
+                    tracked.objectName to record.id
                 ),
                 TASK_REASON
             )
@@ -194,10 +229,28 @@ class DeadlineJob(
         const val TASK_REASON = "tarea de escalamiento ($NAME)"
 
         fun escalationKey(
+            objectName: String,
+            id: String,
+            due: LocalDate,
+            level: Int
+        ): String = "escalation:$objectName:$id:$due:$level"
+
+        // la del nivel 2 de una QCS confidencial: la huella del registro (la del aviso genérico) en lugar de su id
+        fun confidentialEscalationKey(
+            objectName: String,
+            id: String,
+            due: LocalDate
+        ): String = JobTasks.confidentialEscalationKey(objectName, ConfidentialReaders.fingerprint(objectName, id, due), due)
+
+        // la de un compromiso (F3)
+        fun escalationKey(
             commitment: String,
             due: LocalDate,
             level: Int
-        ): String = "escalation:${Commitments.COMMITMENT}:$commitment:$due:$level"
+        ): String = escalationKey("commitment", commitment, due, level)
+
+        // cómo nombra la tarea de escalamiento al registro vencido, solo con su código
+        val OVERDUE: Map<String, String> = mapOf("commitment" to "compromiso %s vencido", "grievance" to "queja %s vencida", "inquiry" to "consulta %s vencida")
     }
 }
 

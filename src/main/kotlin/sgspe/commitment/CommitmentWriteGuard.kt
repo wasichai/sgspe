@@ -5,12 +5,13 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import sgspe.common.Finding
 import sgspe.common.GuardOrder
+import sgspe.common.NotReadable
 import sgspe.common.Records
 import sgspe.common.RequestMemo
 import sgspe.common.RuleGuard
+import sgspe.common.readAs
+import sgspe.common.readable
 import sgspe.common.toCodedException
-import sgspe.scope.ProjectScope
-import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordResponse
 import wasichai.core.data.RecordWrite
 import java.util.UUID
@@ -33,12 +34,6 @@ interface CommitmentRule {
     ): List<Finding>
 }
 
-// lo que una regla no puede leer como quien escribe (P12): un objeto sin READ es un bloqueo OBJECT_NOT_READABLE, nunca un
-// pase en silencio
-class NotReadable(
-    val objectName: String
-) : RuntimeException("sin lectura de $objectName")
-
 // las familias de reglas y su lugar (CommitmentRule.order): alta y edición, aprobación (D1 a D5 y D8), cumplimiento y
 // verificación (D9 a D11) y candidatos. dentro de una familia, se suma un desplazamiento (1, 2, …)
 object CommitmentRuleOrder {
@@ -47,24 +42,6 @@ object CommitmentRuleOrder {
     const val FULFILLMENT = 300
     const val CANDIDATE = 400
 }
-
-// lee como quien escribe; sin READ sobre el objeto, NotReadable
-suspend fun <T> readAs(
-    objectName: String,
-    block: suspend () -> T
-): T =
-    try {
-        block()
-    } catch (_: ForbiddenException) {
-        throw NotReadable(objectName)
-    }
-
-// el registro `id` de `objectName` leído como quien escribe. falla cerrada (P12): sin READ, fuera del alcance o inexistente es
-// NotReadable, y el mensaje no distingue «no existe» de «no se lee» para no revelar si existe
-suspend fun Records.readable(
-    objectName: String,
-    id: UUID
-): RecordResponse = readAs(objectName) { find(objectName, id) } ?: throw NotReadable(objectName)
 
 // los atributos del proyecto de un registro, para sus políticas (ASM-019): sin project, vacío (las políticas por defecto de la
 // ficha); un proyecto que no se lee es NotReadable, nunca los valores por defecto
@@ -78,18 +55,6 @@ suspend fun Records.stakeholdersOf(commitmentId: UUID): List<RecordResponse> =
     RequestMemo.remember(Commitments.STAKEHOLDERS to commitmentId) {
         readAs("stakeholder") { related(Commitments.COMMITMENT, commitmentId, Commitments.STAKEHOLDERS) }
     }
-
-// el proyecto del registro `id` de `target` (un objeto con alcance de proyecto) leído como quien escribe: el suyo si es una raíz,
-// el de su padre si es un hijo (agreement_clause). lo usa ProjectLinks.judge (P54); un destino que no se lee es NotReadable
-suspend fun Records.linkedProject(
-    target: String,
-    id: UUID
-): UUID? {
-    val record = readable(target, id)
-    val child = ProjectScope.CHILDREN[target] ?: return Records.uuid(record.attributes["project"])
-    val parent = Records.uuid(record.attributes[child.first]) ?: return null
-    return Records.uuid(readable(child.second, parent).attributes["project"])
-}
 
 // CommitmentWriteGuard (sgspe.commitment): junta las reglas de compromisos, entregas, dependencias y candidatos. cada regla
 // mira solo sus objetos y sus transiciones

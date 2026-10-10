@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F3DomainApiTest
+import sgspe.common.NotReadable
 
 // CommitmentWriteGuard, alta y edición (RN-ENG-001, RF-COM-003, RF-COM-004): por la API genérica, como el portal
 class CommitmentRecordRulesApiTest : F3DomainApiTest() {

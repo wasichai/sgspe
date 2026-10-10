@@ -98,7 +98,8 @@ MVP»; el alcance por proyecto de ADR-0006 no cambia (sigue la opción A de CON-
 
 - Las cifras de los tableros y del reporte dependen de quién llama; `confidentialHidden` lo avisa sin decir cuántas.
 - PUBLICO de `attention-register` solo es completo si lo genera quien ve las confidenciales, y «Notas» lo dice.
-- KPI-ENG-05 cuenta de menos para quien no ve la QCS a la que se derivó una pregunta.
+- KPI-ENG-05 no depende de quién llama en las preguntas derivadas: el plan 4.2a las cuenta por `referred_at` de la
+  pregunta, sin leer la QCS a la que se derivaron (`dashboards.md` §4.3), y aun así lleva `confidentialHidden`.
 - Que wasichai trate como inexistente una QCS que no se lee también en las escrituras, y que el alta la devuelva a
   quien la recibió, lo prueba la primera tarea de integración del plan 4.2a (riesgo 1 de la especificación de F4).
 - `ConfidentialRelease` es una puerta en el alcance: una sola, acotada a un objeto, un campo y un valor, y vigilada.

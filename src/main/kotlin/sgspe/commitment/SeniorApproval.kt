@@ -1,9 +1,11 @@
 package sgspe.commitment
 
 import org.springframework.stereotype.Component
+import sgspe.common.NotReadable
 import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Values
+import sgspe.common.readable
 import java.util.UUID
 
 // RN-ENG-002 (ASM-067): un compromiso nacido de una mesa de diálogo o pedido por un grupo de interés del grupo POLITICO

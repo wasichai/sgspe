@@ -6,6 +6,7 @@ import sgspe.common.ModelCatalog
 import sgspe.common.Records
 import sgspe.common.Values
 import sgspe.common.WriteView
+import sgspe.scope.ProjectLinks
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import java.util.UUID

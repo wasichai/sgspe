@@ -48,7 +48,7 @@ class ArchitectureTest {
     private fun isCommon(file: File): Boolean = file.invariantSeparatorsPath.contains("/sgspe/common/")
 
     @Test
-    fun `el escaneo ve las fuentes de F1, F2 y F3`() {
+    fun `el escaneo ve las fuentes de F1, F2, F3 y F4`() {
         val names = sources(main).map { it.name }
         assertTrue(names.containsAll(listOf("SgspeApplication.kt", "CorrelationIdFilter.kt", "Records.kt")), "$names")
         // una fuente de cada paquete de F2: si el escaneo dejara de verlos, las reglas pasarían en vacío
@@ -57,6 +57,10 @@ class ArchitectureTest {
         // y una de cada paquete de F3
         val f3 = listOf("Idempotency.kt", "Evidences.kt", "CommitmentWriteGuard.kt", "AgreementWriteGuard.kt", "DeadlineJob.kt", "Notices.kt")
         assertTrue(names.containsAll(f3), "$names")
+        // y las de F4 que cruzan paquetes: attention, el alcance de las confidenciales, el calendario, los avisos y la exportación
+        // attention-register (AttentionRegister.kt)
+        val f4 = listOf("AttentionWriteGuard.kt", "ConfidentialAttentionScope.kt", "BusinessDays.kt", "ConfidentialReaders.kt", "AttentionRegister.kt")
+        assertTrue(names.containsAll(f4), "$names")
         val testNames = sources(test).map { it.name }
         assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
     }
@@ -116,6 +120,27 @@ class ArchitectureTest {
     fun `solo Organizations toca TenantDirectory`() {
         val outside = sources(main).filterNot { it.invariantSeparatorsPath.endsWith("/sgspe/common/Organizations.kt") }
         assertEquals(emptyList<String>(), offenders(outside, TENANT_DIRECTORY))
+    }
+
+    // la liberación del alcance de las QCS confidenciales (decisión 4 del plan 4.2a) es de una sola regla del sistema: common la
+    // define, solo ConfidentialAttentionScope la honra (on) y solo RequestClosureListener, en su propio archivo, la abre (within)
+    @Test
+    fun `solo RequestClosureListener libera el alcance de las confidenciales`() {
+        val definition = "/sgspe/common/ConfidentialRelease.kt"
+        val scope = "/sgspe/scope/ConfidentialAttentionScope.kt"
+        val listener = "/sgspe/attention/RequestClosureListener.kt"
+
+        fun except(vararg allowed: String) = sources(main).filterNot { file -> allowed.any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(except(definition, scope, listener), CONFIDENTIAL_RELEASE))
+        assertEquals(emptyList<String>(), offenders(except(listener), RELEASE_WITHIN))
+        assertEquals(emptyList<String>(), offenders(except(scope), RELEASE_ON))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(listener) })
+        assertTrue(flags(CONFIDENTIAL_RELEASE, "ConfidentialRelease.within(\"grievance\", \"owner_user_id\", id) { x() }"))
+        assertTrue(flags(RELEASE_WITHIN, "ConfidentialRelease.within(\"grievance\", \"owner_user_id\", id) { x() }"))
+        assertFalse(flags(RELEASE_WITHIN, "val release = ConfidentialRelease.on(objectName)"))
+        assertTrue(flags(RELEASE_ON, "val release = ConfidentialRelease.on(objectName)"))
+        assertFalse(flags(CONFIDENTIAL_RELEASE, "// ConfidentialRelease solo en RequestClosureListener"))
+        assertFalse(flags(CONFIDENTIAL_RELEASE, "class ConfidentialAttentionScope"))
     }
 
     @Test
@@ -240,6 +265,9 @@ class ArchitectureTest {
         private val NOT_COMMON_IMPORT = Regex("""^\s*import\s+sgspe\.(?!common\.)""")
         private val ORGANIZATIONS = Regex("""\bfindAllOrganizations\b""")
         private val TENANT_DIRECTORY = Regex("""\bTenantDirectory\b""")
+        private val CONFIDENTIAL_RELEASE = Regex("""\bConfidentialRelease\b""")
+        private val RELEASE_WITHIN = Regex("""\bConfidentialRelease\s*\.\s*within\b""")
+        private val RELEASE_ON = Regex("""\bConfidentialRelease\s*\.\s*on\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
