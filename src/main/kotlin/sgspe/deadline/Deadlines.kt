@@ -4,6 +4,8 @@ import sgspe.attention.QcsDueDates
 import sgspe.commitment.Commitments
 import sgspe.common.Attention
 import sgspe.common.Values
+import sgspe.risk.RiskReview
+import sgspe.risk.Risks
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -18,7 +20,9 @@ object Deadlines {
 
     // un objeto que JOB-01 sigue: su campo derivado, la fecha que mide y los estados en que se calcula. desde F4: la fecha que
     // mide un estado si no es la de siempre (el acuse de una queja en `received`), si POR VENCER se acota a la mitad del plazo
-    // medido desde la recepción (una QCS, ASM-100) y si escala con tareas (los compromisos y, desde F4, las QCS)
+    // medido desde la recepción (una QCS, ASM-100) y si escala con tareas (los compromisos y, desde F4, las QCS). `review`: la
+    // situación de revisión de un riesgo (AL DIA, POR REVISAR, REVISION VENCIDA, ASM-099), que no escala con tareas sino con
+    // su tarea de revisión
     data class Tracked(
         val objectName: String,
         val field: String,
@@ -27,7 +31,8 @@ object Deadlines {
         val validity: Boolean = false,
         val dateByState: Map<String, String> = emptyMap(),
         val halfFromReceipt: Boolean = false,
-        val escalates: Boolean = false
+        val escalates: Boolean = false,
+        val review: Boolean = false
     ) {
         fun dateFieldIn(state: String?): String = dateByState[state] ?: dateField
     }
@@ -35,7 +40,7 @@ object Deadlines {
     val TASK_OPEN = setOf("open", "in_progress", "blocked")
 
     // F3: compromisos, tareas y acuerdos; F4 suma las quejas y las consultas (las solicitudes no tienen plazo en el MVP,
-    // ASM-100) y el plan 4.2b, los riesgos
+    // ASM-100) y la revisión de los riesgos (ASM-099)
     val TRACKED =
         listOf(
             Tracked(Commitments.COMMITMENT, "deadline_status", "due_date", Commitments.PENDING, escalates = true),
@@ -50,7 +55,8 @@ object Deadlines {
                 halfFromReceipt = true,
                 escalates = true
             ),
-            Tracked(Attention.INQUIRY, Attention.DEADLINE_STATUS, QcsDueDates.RESPONSE, setOf("received"), halfFromReceipt = true, escalates = true)
+            Tracked(Attention.INQUIRY, Attention.DEADLINE_STATUS, QcsDueDates.RESPONSE, setOf("received"), halfFromReceipt = true, escalates = true),
+            Tracked(Risks.SOCIAL_RISK, Risks.REVIEW_STATUS, Risks.NEXT_REVIEW, Risks.REVIEWED, review = true)
         )
 
     // AL DIA, POR VENCER (vence dentro de dueSoonDays días, hoy incluido) o VENCIDO (la fecha ya pasó); null sin fecha
@@ -84,6 +90,7 @@ object Deadlines {
         if (state !in tracked.states) return null
         val date = due(tracked, state, attributes)
         if (tracked.validity) return validity(date, today, dueSoonDays)
+        if (tracked.review) return RiskReview.status(date, today)
         val soon =
             if (tracked.halfFromReceipt &&
                 date != null
