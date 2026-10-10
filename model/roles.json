@@ -6,7 +6,7 @@
       "label": "Administrador de proyectos",
       "description": "Da de alta y aprueba proyectos y su equipo.",
       "permisos": {
-        "project": ["READ", "CREATE", "UPDATE", "APPROVE"],
+        "project": ["READ", "CREATE", "UPDATE", "APPROVE", "READ_ALL_PROJECTS"],
         "project_party": ["READ", "CREATE", "UPDATE", "DELETE"],
         "exploration_campaign": ["READ", "CREATE", "UPDATE"],
         "project_assignment": ["READ", "CREATE", "UPDATE", "DELETE"],
@@ -792,7 +792,8 @@
       "label": "Auditor",
       "description": "Lee todo el tenant y la auditoría; no escribe nada.",
       "permisos": {
-        "*": ["READ"]
+        "*": ["READ"],
+        "project": ["READ_ALL_PROJECTS"]
       }
     },
     {

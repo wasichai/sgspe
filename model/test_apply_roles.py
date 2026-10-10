@@ -69,7 +69,23 @@ class RolesJsonTests(unittest.TestCase):
     def test_solo_auditor_tiene_un_permiso_de_todo_el_tenant_y_es_de_lectura(self):
         tenant = {name for name, role in self.roles.items() if "*" in role["permisos"]}
         self.assertEqual(tenant, {"AUDITOR"})
-        self.assertEqual(self.roles["AUDITOR"]["permisos"], {"*": ["READ"]})
+        # "*" READ no concede acciones declaradas: la de leer todos los proyectos va aparte (ASM-106)
+        self.assertEqual(self.roles["AUDITOR"]["permisos"], {"*": ["READ"], "project": ["READ_ALL_PROJECTS"]})
+
+    def test_leen_todos_los_proyectos_solo_auditor_y_project_admin(self):
+        # decisión 2 de la especificación 4.4 (ASM-106), confirmada por el usuario el 2026-10-10: SOCIAL_MANAGER, ANALYST,
+        # GIS_ANALYST y READ_ONLY leen solo sus proyectos. sumar un rol es agregarle la acción aquí, sin tocar el código
+        holders = {(name, obj) for name, role in self.roles.items() for obj, grants in role["permisos"].items()
+                   if "READ_ALL_PROJECTS" in grants}
+        self.assertEqual(holders, {("AUDITOR", "project"), ("PROJECT_ADMIN", "project")})
+
+    def test_quien_crea_proyectos_lee_todos_los_proyectos(self):
+        # el alta de un proyecto todavía no tiene equipo: sin READ_ALL_PROJECTS, wasichai respondería el alta con un 404
+        # porque ProjectReadScope no le dejaría leer lo que acaba de crear (security.md §9.7)
+        creators = {name for name, role in self.roles.items() if "CREATE" in role["permisos"].get("project", [])}
+        self.assertTrue(creators)
+        for name in creators:
+            self.assertIn("READ_ALL_PROJECTS", self.roles[name]["permisos"]["project"], name)
 
     def test_los_permisos_son_los_de_la_matriz_de_security_para_los_objetos_del_modelo(self):
         # security.md §7.1: un rol recibe un permiso desde la fase más tardía entre la suya y la del objeto
@@ -452,7 +468,9 @@ class ApplyRolesTests(ApplyRolesTestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual([b["name"] for m, p, b in self.writes() if m == "POST"], list(LABELS))
         puts = {p: b for m, p, b in self.writes() if m == "PUT"}
-        self.assertEqual(puts["/api/roles/AUDITOR/permissions"], {"permissions": [{"objectName": None, "action": "READ"}]})
+        self.assertEqual(puts["/api/roles/AUDITOR/permissions"],
+                         {"permissions": [{"objectName": None, "action": "READ"},
+                                          {"objectName": "project", "action": "READ_ALL_PROJECTS"}]})
         field_agent = next(r for r in load(ROLES_PATH)["roles"] if r["name"] == "FIELD_AGENT")
         self.assertEqual(puts["/api/roles/FIELD_AGENT/permissions"], apply_roles.permissions_payload(field_agent))
         self.assertIn({"objectName": "stakeholder", "fieldName": "stance", "read": False, "write": False},

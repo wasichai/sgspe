@@ -78,7 +78,7 @@
       "label": "Proyecto",
       "pluralLabel": "Proyectos",
       "description": "Proyecto extractivo (o prospecto) con su etapa, su fase de exploración, su CRS de trabajo y los parámetros y políticas que configuran las reglas de DOC-01 (ASM-019).",
-      "actions": [{"name": "APPROVE", "label": "Aprobar"}],
+      "actions": [{"name": "APPROVE", "label": "Aprobar"}, {"name": "READ_ALL_PROJECTS", "label": "Leer todos los proyectos"}],
       "fields": [
         {"name": "code", "label": "Código del proyecto", "type": "TEXT", "required": true, "unique": true, "description": "Código del proyecto."},
         {"name": "name", "label": "Nombre del proyecto o prospecto", "type": "TEXT", "required": true, "description": "Nombre del proyecto o prospecto."},

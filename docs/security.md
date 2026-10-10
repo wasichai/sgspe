@@ -615,7 +615,7 @@ Criterios con que se armó:
 
 | Objeto | PAD | PMG | SMG | CRO | SHM | CMM | GVM | SRM | SIM | GAN | FAG | APR | ANL | RDO |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `project` | CRU `APPROVE` | RU | R | R | R | R | R | R | R | Ru | R | R | R | R |
+| `project` | CRU `APPROVE` `READ_ALL_PROJECTS` | RU | R | R | R | R | R | R | R | Ru | R | R | R | R |
 | `project_party` | CRUD | CRUD | R | R | R | R | R | R | R | R | — | R | R | R |
 | `exploration_campaign` | CRU | CRU | R | R | R | R | R | R | R | R | R | R | R | R |
 | `project_assignment` | CRUD | R | R | R | R | R | R | R | R | R | R | R | R | R |
