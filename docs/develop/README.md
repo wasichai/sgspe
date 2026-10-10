@@ -91,6 +91,19 @@ curl -s http://localhost:8094/actuator/health/readiness    # {"status":"UP"}
 
 La clase principal es `sgspe.SgspeApplication`. Toda respuesta trae `X-Correlation-Id` (sección 7).
 
+### Feriados
+
+El acuse de una queja cuenta días hábiles con los feriados nacionales de `sgspe.calendar.holidays` en
+`src/main/resources/application.yml` (ASM-096). La lista se configura por año, cuando se publica la oficial en El Peruano
+(D. Leg. 713 y sus modificatorias); hoy trae 2026. Para agregar un año:
+
+1. Sumar su clave entre comillas bajo `holidays` (`'2027':`) con una fecha `AAAA-MM-DD` por línea, solo feriados
+   nacionales: los días no laborables del sector público no lo son.
+2. Correr `BusinessDaysTest`, que valida todo año configurado, y desplegar.
+
+Mientras un año falte, cuenta de lunes a viernes y el log lo advierte una vez por año y proceso (y al arrancar, si falta
+el año en curso). Una fecha de otro año o repetida impide arrancar. Los plazos ya calculados no se recalculan.
+
 ## 5. Modelo y roles
 
 El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre en este orden (`security.md` §4.1):

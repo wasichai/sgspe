@@ -1055,14 +1055,19 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
   sin datos del registro.
 - **Escrituras.** Quien no lee una QCS no la cambia ni la transiciona: wasichai la trata como inexistente.
   `AttentionWriteGuard` cubre la marca y el responsable: el alta de una confidencial lleva `received_by_user_id` igual a
-  quien escribe, salvo con `READ_CONFIDENTIAL` (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y quitar la marca o cambiar
+  quien escribe, salvo con `READ_CONFIDENTIAL` o en el alta que hace la reclasificación, que conserva el receptor del
+  original (`api.md` §4.6) (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y quitar la marca o cambiar
   `owner_user_id` o `received_by_user_id` de una confidencial exige esa acción (`403 ACTION_REQUIRED`). Así quien
   registra siempre la ve, no la pierde al guardarla y los listeners, que escriben como esa persona, la pueden
   actualizar.
-- **Excepción: `ConfidentialRelease`.** `RequestClosureListener` cierra la solicitud aceptada como quien cierra el
-  compromiso, dentro de `ConfidentialRelease` (`sgspe.common`): mientras dura el bloque, `ConfidentialAttentionScope`
-  admite además las solicitudes cuyo `created_commitment` es ese compromiso, y solo ellas. La auditoría lleva el origen
-  `listener:request-closure`; `ArchitectureTest` vigila que solo ese listener lo use (ADR-0028).
+- **Excepción: el cierre automático de una solicitud (`ConfidentialRelease`).** `RequestClosureListener` cierra la
+  solicitud aceptada al cerrarse su compromiso aunque quien cierra no la lea (RN-GRV-001): es la única excepción al
+  alcance dentro de una petición. Como wasichai no deja ser la plataforma en una petición ni aplicar una transición sin
+  usuario, corre como quien cierra dentro de `ConfidentialRelease` (`sgspe.common`), con el que
+  `ConfidentialAttentionScope` admite además, mientras dura el cierre, las solicitudes cuyo `created_commitment` es ese
+  compromiso, y solo ellas; la auditoría lleva el origen `listener:request-closure` y el motivo «RN-GRV-001: compromiso
+  <código> cerrado». `ArchitectureTest` vigila que nadie más lo use. La decisión, aceptada por el usuario el 2026-10-09,
+  está en [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md).
 - **Vínculos desde otros objetos.** Una tarea, una evidencia, un compromiso (`origin_grievance`) o una pregunta pueden
   apuntar a una QCS que quien lee no ve: el id es visible y el registro no, y el portal muestra «Registro reservado».
   Los títulos de las tareas automáticas solo llevan el código de la QCS. Una evidencia vinculada a una QCS confidencial
