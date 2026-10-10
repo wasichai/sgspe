@@ -303,6 +303,31 @@ class DashboardData(
     suspend fun topicsOf(engagements: Collection<String>): Map<String, Set<String>> =
         relatedOf(engagements, "engagement_topic").mapValues { (_, topics) -> topics.map { it.id }.toSet() }
 
+    // F4: los grupos de interés vinculados a cada interacción (engagement_stakeholder, KPI-ENG-06), hasta maxRelated interacciones
+    suspend fun stakeholdersOf(engagements: Collection<String>): Map<String, List<String>> =
+        relatedOf(engagements, "engagement_stakeholder").mapValues { (_, linked) -> linked.map { it.id } }
+
+    // F4: las menciones en medios de los proyectos con published_date en el periodo (KPI-ENG-07 y 08). no tienen territorio: esos
+    // KPI no aplican sus filtros y lo dicen en ignoredFilters
+    suspend fun mentions(): List<MentionRow> =
+        cached("mentions") {
+            if (filters.projects.isEmpty()) return@cached emptyList<MentionRow>()
+            read(
+                "media_mention",
+                criteria = listOf(Criteria.anyOf("project", filters.projects), Criteria.dateBetween("published_date", filters.periodStart, filters.periodEnd))
+            ).map {
+                val a = it.attributes
+                MentionRow(
+                    it.id,
+                    Values.text(a["outlet"]),
+                    Values.text(a["outlet_name"]),
+                    Values.text(a["tone"]),
+                    Values.text(a["topic"]),
+                    Values.bool(a["reports_fulfilled_commitment"]) == true
+                )
+            }
+        }
+
     // el campo `field` de cada registro, solo si quien mira puede leerlo; si no, ninguno (la etiqueta cae a otra cosa)
     suspend fun names(
         objectName: String,

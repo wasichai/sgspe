@@ -14,6 +14,20 @@ data class EngagementRow(
     val counts: Map<String, Long?>
 )
 
+// una mención en medios del periodo (F4, KPI-ENG-07 y 08): su medio (la organización o, sin ella, el nombre escrito), su tono,
+// su tema y si informa de un compromiso cumplido
+data class MentionRow(
+    val id: String,
+    val outlet: String?,
+    val outletName: String?,
+    val tone: String?,
+    val topic: String?,
+    val reportsFulfilled: Boolean
+) {
+    // el medio: la organización, o el nombre escrito sin mayúsculas ni espacios de más; null si no tiene ninguno
+    val outletKey: String? get() = outlet ?: outletName?.trim()?.lowercase()?.ifEmpty { null }
+}
+
 data class QuestionRow(
     val engagement: String,
     val topic: String?,
@@ -163,6 +177,82 @@ object EngagementKpis {
             }
         return IndicatorResult(Numbers.percent(numerator, asked.size), numerator, asked.size, listOf(Breakdown("topic", byTopic)))
     }
+
+    // ---- F4 (dashboards.md §4.3: #11, #12 y #13 de la Tabla 9.5, sin zona en un tablero hasta F8) ----
+
+    const val MONITORING = "MONITOREO PARTICIPATIVO"
+    val TONES: List<String> = listOf("POSITIVO", "NEGATIVO", "NEUTRO")
+    const val NO_OUTLET = "SIN MEDIO"
+    const val NO_TOPIC = "SIN TEMA"
+
+    // KPI-ENG-06: los monitoreos participativos realizados en el periodo, cada uno con sus grupos de interés participantes (la
+    // M2M engagement_stakeholder); el agente independiente y los resultados constan en sus evidencias
+    fun monitoring(
+        meetings: List<EngagementRow>,
+        stakeholders: Map<String, List<String>>
+    ): IndicatorResult {
+        val rows =
+            meetings.filter { it.type == MONITORING }.sortedBy { it.heldDate }.map { m ->
+                mapOf("key" to m.id, "label" to m.title, "heldDate" to m.heldDate.toString(), "value" to stakeholders[m.id].orEmpty().distinct().size)
+            }
+        return IndicatorResult(rows.size, breakdowns = listOf(Breakdown("engagement", rows)))
+    }
+
+    // KPI-ENG-07: las menciones del periodo que informan de un compromiso cumplido, por medio
+    fun fulfilledCommunications(
+        mentions: List<MentionRow>,
+        outletNames: Map<String, String>
+    ): IndicatorResult {
+        val reporting = mentions.filter { it.reportsFulfilled }
+        return IndicatorResult(reporting.size, breakdowns = listOf(Breakdown("outlet", outlets(reporting, outletNames))))
+    }
+
+    // KPI-ENG-08: el porcentaje de menciones negativas del periodo (valor, con su numerador y denominador); por tono, el
+    // porcentaje de menciones y el de medios con al menos una mención de ese tono sobre los medios con menciones; por medio y
+    // por tema, las menciones de cada tono
+    fun tones(
+        mentions: List<MentionRow>,
+        outletNames: Map<String, String>,
+        topicNames: Map<String, String>
+    ): IndicatorResult {
+        val outlets = mentions.mapNotNull { it.outletKey }.toSet()
+        val byTone =
+            TONES.map { tone ->
+                val ofTone = mentions.filter { it.tone == tone }
+                val withTone = ofTone.mapNotNull { it.outletKey }.toSet()
+                mapOf(
+                    "key" to tone,
+                    "value" to Numbers.percent(ofTone.size, mentions.size),
+                    "mentions" to ofTone.size,
+                    "outletPercent" to Numbers.percent(withTone.size, outlets.size),
+                    "outlets" to withTone.size
+                )
+            }
+        val byTopic =
+            mentions.groupBy { it.topic }.map { (topic, list) ->
+                mapOf("key" to (topic ?: NO_TOPIC), "label" to (topic?.let { topicNames[it] } ?: "Sin tema"), "value" to list.size) +
+                    TONES.associateWith { tone -> list.count { it.tone == tone } }
+            }
+        val negative = mentions.count { it.tone == TONES[1] }
+        return IndicatorResult(
+            Numbers.percent(negative, mentions.size),
+            negative,
+            mentions.size,
+            listOf(Breakdown("tone", byTone), Breakdown("outlet", outlets(mentions, outletNames)), Breakdown("topic", byTopic))
+        )
+    }
+
+    // las menciones por medio, con las de cada tono, de más a menos
+    private fun outlets(
+        mentions: List<MentionRow>,
+        names: Map<String, String>
+    ): List<Map<String, Any?>> =
+        mentions
+            .groupBy { it.outletKey ?: NO_OUTLET }
+            .map { (key, list) ->
+                val label = list.first().outlet?.let { names[it] } ?: list.firstNotNullOfOrNull { it.outletName?.trim() } ?: "Sin medio"
+                mapOf("key" to key, "label" to label, "value" to list.size) + TONES.associateWith { tone -> list.count { it.tone == tone } }
+            }.sortedWith(compareByDescending<Map<String, Any?>> { it["value"] as Int }.thenBy { it["label"].toString() })
 
     // los 12 meses que terminan en el de `end`
     fun months(end: LocalDate): List<YearMonth> = (11 downTo 0).map { YearMonth.from(end).minusMonths(it.toLong()) }
