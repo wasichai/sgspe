@@ -58,6 +58,9 @@ object Criteria {
             "$column >= ${bind(OffsetDateTime.ofInstant(from, ZoneOffset.UTC))} AND $column < ${bind(OffsetDateTime.ofInstant(until, ZoneOffset.UTC))}"
         }
 
+    // el campo informado (IS NOT NULL): desde F4, la medida con responsable de RiskWriteGuard
+    fun filled(field: String): RecordCriterion = RecordCriterion { definition, _ -> "${column(definition, field)} IS NOT NULL" }
+
     // una fecha entre dos días, ambos incluidos (gancho de los filtros por periodo de F3)
     fun dateBetween(
         field: String,
