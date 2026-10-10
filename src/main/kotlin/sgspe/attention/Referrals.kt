@@ -25,6 +25,7 @@ import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.common.readable
 import sgspe.common.toCodedException
+import sgspe.engagement.EngagementWriteGuard
 import wasichai.core.common.Actions
 import wasichai.core.common.ValidationException
 import wasichai.core.data.ChangeReason
@@ -73,7 +74,8 @@ class Referrals(
                 if (Values.text(question.attributes[REFERRED_AT]) != null) {
                     throw Finding("ALREADY_REFERRED", "La pregunta ya se derivó a una QCS", "record").toCodedException()
                 }
-                if (answered(question.attributes)) {
+                // sin referred_at, atendida es respondida en el lugar o después: solo se deriva una pendiente (api.md §4.4)
+                if (EngagementWriteGuard.answered(question.attributes)) {
                     throw Finding("STATE_MISMATCH", "Solo se deriva una pregunta pendiente: esta ya se respondió", "record").toCodedException()
                 }
                 val engagementId =
@@ -111,10 +113,6 @@ class Referrals(
 
         // lo que fija la derivación: la pregunta y la interacción de origen, el proyecto, el canal y la recepción
         val FIXED: Set<String> = setOf("origin_question", "origin_engagement", "project", "channel", Attention.RECEIVED_AT)
-
-        // respondida en el lugar o después (answered_at): ya no está pendiente y no se deriva (api.md §4.4). la misma lectura que
-        // EngagementWriteGuard.answered sin referred_at, que la derivación juzga aparte (ALREADY_REFERRED)
-        fun answered(question: Map<String, Any?>): Boolean = Values.bool(question["answered_on_site"]) == true || Values.text(question["answered_at"]) != null
 
         // de held a minutes_approved: realizada y sin cerrar (WF-C)
         val HELD: Set<String> = setOf("held", "minutes_drafted", "minutes_in_review", "minutes_approved")

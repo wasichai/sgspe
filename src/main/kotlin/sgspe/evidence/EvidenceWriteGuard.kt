@@ -51,25 +51,6 @@ class EvidenceWriteGuard(
         dryRun: Boolean
     ): List<Finding> {
         if (change.objectName != EvidenceRules.EVIDENCE) return emptyList()
-        return try {
-            evidence(change, dryRun)
-        } catch (e: NotReadable) {
-            listOf(
-                Finding(
-                    "OBJECT_NOT_READABLE",
-                    "La regla necesita leer ${e.objectName}: el registro no existe o quien escribe no puede leerlo",
-                    e.objectName,
-                    status = HttpStatus.FORBIDDEN
-                )
-            )
-        }
-    }
-
-    // las reglas de la evidencia; lo que no se puede leer como quien escribe sale como NotReadable (falla cerrada, P12)
-    private suspend fun evidence(
-        change: RecordWrite,
-        dryRun: Boolean
-    ): List<Finding> {
         if (change.kind == RecordChangeKind.DELETED) {
             return listOf(
                 Finding("EVIDENCE_NOT_DELETABLE", "Una evidencia no se borra: se reemplaza con una versión nueva", status = HttpStatus.CONFLICT)
@@ -99,13 +80,11 @@ class EvidenceWriteGuard(
                         EvidenceRules.CLASSIFICATION,
                         status = HttpStatus.FORBIDDEN
                     )
+            } else {
+                // solo quien sí puede bajarla: a quien le falta DOWNLOAD_RESTRICTED le basta ese 403 (api.md §3.3), y la
+                // regla no lee QCS que no necesita juzgar
+                findings += readingQcs { if (linkedToConfidential(change.recordId)) listOf(notRestricted()) else emptyList() }
             }
-        }
-        if (change.userId != null &&
-            EvidenceRules.downgrade(before[EvidenceRules.CLASSIFICATION], after[EvidenceRules.CLASSIFICATION]) &&
-            linkedToConfidential(change.recordId)
-        ) {
-            findings += notRestricted()
         }
         return findings
     }
@@ -113,13 +92,29 @@ class EvidenceWriteGuard(
     // si la evidencia ya está vinculada a una QCS confidencial, con los vínculos leídos como quien escribe: bajar su
     // clasificación abriría la descarga del caso reservado igual que vincular una no restringida (ASM-095). sin READ sobre
     // un objeto de las QCS, NotReadable. una escritura sin usuario no tiene con quién leer: no se juzga, como la regla de
-    // DOWNLOAD_RESTRICTED
+    // DOWNLOAD_RESTRICTED, y tampoco la de quien no tiene esa acción
     private suspend fun linkedToConfidential(id: UUID?): Boolean =
         id != null &&
             Attention.OBJECTS.any { target ->
                 readAs(target) { records.related(EvidenceRules.EVIDENCE, id, EvidenceRules.linkRelationship(target)) }
                     .any { Attention.isConfidential(it.attributes) }
             }
+
+    // las reglas que leen QCS como quien escribe: lo que no lee es 403 OBJECT_NOT_READABLE (falla cerrada, P12), sin
+    // descartar los hallazgos que la escritura ya reunió
+    private suspend fun readingQcs(rule: suspend () -> List<Finding>): List<Finding> =
+        try {
+            rule()
+        } catch (e: NotReadable) {
+            listOf(
+                Finding(
+                    "OBJECT_NOT_READABLE",
+                    "La regla necesita leer ${e.objectName}: el registro no existe o quien escribe no puede leerlo",
+                    e.objectName,
+                    status = HttpStatus.FORBIDDEN
+                )
+            )
+        }
 
     private fun notRestricted(): Finding =
         Finding(
@@ -134,10 +129,12 @@ class EvidenceWriteGuard(
     // deshacer un vínculo no se juzga
     private suspend fun confidentialLinks(change: RecordWrite): List<Finding> {
         if (EvidenceRules.restricted(change.before.orEmpty()[EvidenceRules.CLASSIFICATION])) return emptyList()
-        return Attention.OBJECTS.mapNotNull { target ->
-            val relationship = "rel:${EvidenceRules.linkRelationship(target)}"
-            val id = Records.uuid(change.attributes.orEmpty()[relationship]) ?: return@mapNotNull null
-            if (Attention.isConfidential(records.readable(target, id).attributes)) notRestricted() else null
+        return readingQcs {
+            Attention.OBJECTS.mapNotNull { target ->
+                val relationship = "rel:${EvidenceRules.linkRelationship(target)}"
+                val id = Records.uuid(change.attributes.orEmpty()[relationship]) ?: return@mapNotNull null
+                if (Attention.isConfidential(records.readable(target, id).attributes)) notRestricted() else null
+            }
         }
     }
 

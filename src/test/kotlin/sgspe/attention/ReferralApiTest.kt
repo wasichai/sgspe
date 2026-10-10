@@ -90,13 +90,19 @@ class ReferralApiTest : F4ApiTest() {
     }
 
     // derivar exige UPDATE sobre la pregunta y CREATE sobre el destino (permissions.require): el gestor de compromisos solo
-    // lee la pregunta, y el gestor social la actualiza pero no crea consultas
+    // lee la pregunta, y el gestor social la actualiza pero no crea consultas. es el 403 de permisos, sin código propio: su
+    // detail nombra lo que falta, y solo eso
     @Test
     fun `sin UPDATE sobre la pregunta o sin CREATE sobre el destino no se deriva`() {
         val (_, question) = meeting()
-        for (role in listOf("COMMITMENT_MANAGER", "SOCIAL_MANAGER")) {
+        val update = "permiso de edición sobre engagement_question"
+        val create = "permiso de creación sobre inquiry"
+        for ((role, missing) in listOf("COMMITMENT_MANAGER" to update, "SOCIAL_MANAGER" to create)) {
             val response = refer(question, account = member(role))
             assertEquals(HttpStatus.FORBIDDEN, response.status, "$role: ${response.body}")
+            val detail = tree(response.body)["detail"].asString()
+            assertTrue(detail.contains(missing), "$role: ${response.body}")
+            assertEquals(1, listOf(update, create).count { detail.contains(it) }, "$role: ${response.body}")
         }
         assertEquals(HttpStatus.CREATED, refer(question).status)
     }
