@@ -23,9 +23,8 @@ import wasichai.workflow.WorkflowService
 import java.util.UUID
 
 // D10 sin base (RF-COM-004, P12): un compromiso del que se depende y que quien registra no lee no cuenta como resuelto ni como
-// abierto: es NotReadable (OBJECT_NOT_READABLE), sin decir cuántos ni cuáles. hoy la lectura es de todo el tenant (CON-041,
-// opción A): ningún rol que registra el cumplimiento deja de leer un compromiso, así que esta rama solo se prueba aquí; con
-// UPS-01, un compromiso de otro proyecto la alcanzará también por la API
+// abierto: es NotReadable (OBJECT_NOT_READABLE), sin decir cuántos ni cuáles. con el alcance de lectura por proyecto
+// (ADR-0029), un compromiso de otro proyecto la alcanza también por la API (CommitmentFulfillmentApiTest)
 class BlockingDependencyRuleTest {
     private val commitment = UUID.randomUUID()
 

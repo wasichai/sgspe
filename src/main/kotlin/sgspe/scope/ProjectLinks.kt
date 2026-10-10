@@ -10,9 +10,10 @@ import wasichai.core.data.RecordWrite
 import java.util.UUID
 
 // P54 (F3) y la regla «mismo proyecto» de F4 (api.md §3.3, `PROJECT_MISMATCH`): un registro solo referencia registros de su
-// propio proyecto. las lecturas son del tenant hasta UPS-01, así que sin esta regla un miembro del proyecto A vincularía lo del
-// proyecto B. fieldsOf y mismatches son puras; judge lee los destinos como quien escribe. la usan ProjectLinkRule y
-// CandidateLinkRule (sgspe.commitment) y ProjectLinkGuard (F4)
+// propio proyecto. con el alcance de lectura por proyecto (ADR-0029) un miembro del proyecto A ya no lee lo del proyecto B,
+// pero quien lee todo el tenant (ADMIN, READ_ALL_PROJECTS) sí: sin esta regla vincularía lo de dos proyectos. fieldsOf y
+// mismatches son puras; judge lee los destinos como quien escribe. la usan ProjectLinkRule y CandidateLinkRule
+// (sgspe.commitment) y ProjectLinkGuard (F4)
 object ProjectLinks {
     // los campos RELATION de `objectName` cuyo objeto destino tiene alcance de proyecto, derivados del modelo; `project` es el
     // propio alcance y no un vínculo
