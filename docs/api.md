@@ -399,9 +399,8 @@ decide ADR-0025 (Propuesto, se acepta en F2).
 - Las escrituras sobre objetos de un proyecto pasan por `ProjectScopeGuard`: fuera de las asignaciones de quien llama,
   `403`. La emisión manual de un documento pasa por `IssueDocumentFilter`, que además exige UPDATE sobre el objeto y,
   con `EDIT_ANY`, que el registro sea propio (§3.3). Las consultas propias aplican el mismo alcance de lectura que la
-  API genérica según la decisión pendiente CON-041, con la recomendación A (lectura a nivel de tenant y escritura
-  acotada por `project_assignment` en el MVP; la extensión UPS-01 antes de la producción con varios proyectos), y todas
-  aceptan `project` para acotar (RQ-SEC-006, GAP-025).
+  API genérica: el alcance de lectura por proyecto `ProjectReadScope` (`security.md` §9.7, ADR-0029) y la escritura
+  acotada por `project_assignment`; todas aceptan `project` para acotar (RQ-SEC-006, GAP-025).
 - Ningún rol usa `own_records_only`. `FIELD_AGENT` solo cambia o borra lo que creó porque no tiene `EDIT_ANY`, y eso lo
   aplica `EditAnyGuard` (`sgspe.scope`) con el permiso, nunca con el nombre del rol; sí agrega participantes u
   observaciones a las interacciones y visitas que puede leer (RQ-SEC-008, ASM-069).

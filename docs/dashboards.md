@@ -555,9 +555,8 @@ como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestr
 - **Registros propios.** Desde ASM-069, `FIELD_AGENT` no usa `own_records_only`: la guarda de `EDIT_ANY` limita lo que
   actualiza, no lo que lee (RQ-SEC-008). Si un rol usara `own_records_only`, la plataforma filtraría en silencio sus
   lecturas [WAS-ADR-0020] y sus cifras serían parciales. `security.md` decide qué roles ven tableros.
-- **Alcance.** El alcance por proyecto de los endpoints de indicadores depende de UPS-01 (RQ-SEC-006). Mientras tanto rige la
-  lectura que decida CON-041, con recomendación A (lectura a nivel de tenant en el MVP). El filtro de proyecto por defecto son
-  las asignaciones de la persona (RF-PRJ-005), que es una comodidad y no un control de acceso.
+- **Alcance.** El alcance por proyecto de los endpoints de indicadores lo da `ProjectReadScope` desde el plan 4.4
+  (RQ-SEC-006, ADR-0029). El filtro de proyecto por defecto son «mis proyectos» de la persona (RF-PRJ-005, §3.1).
 - **Navegación.** Un tablero aparece si la persona puede leer al menos uno de sus KPI, según
   `GET /api/sgspe/dashboards/indicators` (RF-IAM-002).
 - **Sin exportación de tableros.** En el MVP la tabla "Ver datos" solo se puede copiar: los tableros no generan archivos. Las

@@ -395,7 +395,7 @@ Las mismas acciones, por objeto, para replicarlas en el modelo:
   - captura interacciones, visitas y evidencias; agrega participantes, preguntas y observaciones a cualquier interacción
     o visita que puede leer; y solo cambia o borra lo que creó;
   - lee el contexto que necesita para capturar (proyecto, territorio, actores, grupos de interés, temas y línea base) y lo
-    vincula con su `u` sobre `stakeholder` y `topic`. Con la opción A esas lecturas son de todo el tenant (§9.2);
+    vincula con su `u` sobre `stakeholder` y `topic`. Esas lecturas se acotan a sus proyectos, salvo los maestros del tenant (§9.7);
   - ve su bandeja y completa sus tareas como los demás roles operativos, porque `task` no declara `EDIT_ANY`;
   - pasa `ProjectScopeGuard`, que lee su `project_assignment`;
   - si además tiene otro rol con `EDIT_ANY`, edita todo lo que ese otro rol permite.
@@ -861,7 +861,7 @@ en la tercera columna, una entrada de campo sin lectura ni escritura. `ADMIN` lo
   titulares de los predios, está en la fila de nombres (RF-TER-007). `test_apply_roles.py` lo comprueba (§14).
 - La `person` de una QCS está restringida, pero la protección de quien la plantea es parcial: ver §11.3.
 - `FIELD_AGENT` necesita los datos de los asistentes para capturarlos. Sin `own_records_only` (ASM-069) también lee los de
-  las interacciones de otros, en todo el tenant mientras rija la opción A; con la opción B se acotan a sus proyectos (§9).
+  las interacciones de otros, solo en sus proyectos (§9.7).
 - Los indicadores que usan un campo restringido, como la distribución de posturas o la oposición (RQ-DSH-004, RQ-DSH-007,
   RQ-DSH-008), dicen "no disponible" a quien no tiene el campo (RQ-DSH-032). `indicator_measurement` no tiene campos
   restringidos, así que el cierre de un periodo no congela esos indicadores: el endpoint responde 409 (§8.2). Si el
@@ -1239,8 +1239,8 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   (`READ_CONFIDENTIAL`), su responsable, quien la recibió y, si es una queja ALTA o CRITICA, `APPROVER`; el alcance rige
   en todas las rutas de lectura de wasichai (§9.6). Su `person` está además restringida (§7.9).
 - **Riesgo residual del MVP:** en una QCS **no** confidencial, el vínculo `stakeholder` no está restringido, y de él
-  puede inferirse la persona cuando el grupo de interés la representa; con la opción A, todos los roles operativos menos
-  `PROJECT_ADMIN`, `FIELD_AGENT` incluido, leen todas las QCS no confidenciales (§9.2). Quien teme esa exposición pide
+  puede inferirse la persona cuando el grupo de interés la representa; todos los roles operativos menos
+  `PROJECT_ADMIN`, `FIELD_AGENT` incluido, leen las QCS no confidenciales de sus proyectos (§9.7). Quien teme esa exposición pide
   que su QCS se registre como confidencial o anónima.
 - El mapa nunca inventa coordenadas de personas (RQ-GIS-015).
 - El DNI y los teléfonos nunca aparecen en un entregable (RQ-REP-014).

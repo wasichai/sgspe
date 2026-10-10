@@ -409,10 +409,9 @@ El prompt pide soportar intersects, contains, within, distance, buffer, nearest 
   - SQL de solo lectura sobre las tablas físicas del tenant, resueltas por metadata como hace srtm (`TablasCore`), detrás de una
     compuerta de permisos.
   - La compuerta exige READ sobre cada objeto de la consulta; que cada campo usado, geometrías incluidas, sea legible
-    [WAS-ADR-0019]; y aplica el alcance por proyecto de RQ-SEC-006 (ningún rol usa `own_records_only`, ASM-069). Ese alcance es
-    decisión pendiente (CON-041, recomendación A): con la opción A, del MVP, la compuerta lee a nivel de tenant, como la API
-    genérica, y la escritura se acota por `project_assignment`; con la opción B, UPS-01, filtra además la lectura por las
-    asignaciones del usuario.
+    [WAS-ADR-0019]; y aplica el alcance por proyecto de RQ-SEC-006 (ningún rol usa `own_records_only`, ASM-069). Desde el plan
+    4.4 ese alcance es `ProjectReadScope` (`security.md` §9.7, ADR-0029): la compuerta lee como quien consulta, igual que la
+    API genérica, y la escritura se acota por `project_assignment`.
   - Devuelve identificadores y medidas. Los atributos personales (titulares, nombres) se leen después con `RecordService`, con
     los permisos de campo del usuario. Si un campo necesario no es legible, el resultado dice "no disponible", nunca cero
     (RQ-DSH-032).
@@ -702,8 +701,7 @@ integración corren en CI con Testcontainers o contra una base externa por túne
   - GAP-011: cartografía base, fuentes oficiales y licencias, y disponibilidad de GeoServer en producción.
   - GAP-012: formatos, volúmenes, CRS y datum reales de los datos que se cargarán.
   - GAP-019: a qué proyecto pertenece DOC-03; sus datos solo sirven como ejemplo de formato (CON-026).
-  - CON-041 y GAP-025: alcance de lectura por proyecto en las features y en las consultas. Es una decisión pendiente
-    (checkpoint), con recomendación A: lectura a nivel de tenant y escritura acotada por `project_assignment` en el MVP, y UPS-01
-    (opción B) antes de la producción con varios proyectos. La compuerta de §5.2 sigue la opción elegida.
+  - CON-041 y GAP-025: alcance de lectura por proyecto en las features y en las consultas. Decidido el 2026-10-10
+    (ADR-0029): `ProjectReadScope` en la lectura y `project_assignment` en la escritura. La compuerta de §5.2 lo sigue.
   - UPS-13: mapa base configurable en `MapView` de `@wasichai/gis` (§6.4).
   - El spike de ADR-0015 (elementos en línea, decoraciones y grilla).
