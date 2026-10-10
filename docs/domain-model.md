@@ -232,8 +232,11 @@ decisiones de nombres del usuario [USR-09]. `database-model.md` las detalla para
   (`administrative_unit`, `locality`, `community`, `community_sector`,
   `land_parcel`, `land_right`, `environmental_feature`, `mining_concession`), los actores (`person`, `organization`,
   `contact_method`, `position`, `actor_relationship`) y la línea base sin proyecto son del tenant.
-- La escritura en objetos de proyecto la acota una guarda por asignación (`ProjectScopeGuard`, `sgspe.scope`); la lectura por
-  proyecto requiere la extensión upstream UPS-01 (RQ-SEC-006, CON-041, GAP-025).
+- La escritura en objetos de proyecto la acota una guarda por asignación (`ProjectScopeGuard`, `sgspe.scope`) y, desde el
+  plan 4.4, la lectura `ProjectReadScope` (ASM-106, `security.md` §9.7). `ProjectScope` clasifica cada objeto en un solo
+  grupo: `project`; `project_assignment`; las 31 raíces con `project` (`evidence`, `early_warning_rule` y `export_log` con
+  `project` opcional); los 19 hijos, por su padre (`delivery` y `locality_profile` con padre opcional); y los 20 maestros del
+  tenant (`TENANT`), compartidos entre los proyectos (ASM-107). Un objeto nuevo se clasifica en su fase.
 
 ### 4.8 Workflows
 
@@ -294,7 +297,7 @@ del prompt [PRM-01 §24] [USR-05]; los indicadores de cada módulo aparecen cuan
 | BC-13 | Tareas y aprobaciones | Workflow / Tasks | El motor de workflow es de wasichai [WAS-ADR-0013]; SGSPE agrega `task`, guardas por transición, plazos y escalamientos con trabajos programados (CON-042, CON-043) | Release 1 (MVP) | F3 (escalamiento de QCS y riesgos en F4) | `sgspe.deadline` (situaciones derivadas, escalamientos, tareas de revisión); guardas en cada paquete |
 | BC-14 | Notificaciones | Notifications | Sobre el módulo wasichai-notifications (UPS-11 resuelta, CON-058, ADR-0018): la bandeja, el correo y las preferencias son del módulo; SGSPE decide destinatarios y textos | Release 1 (MVP) | F3–F4 | `sgspe.notification` (destinatarios, textos, `ApprovalNoticeListener`); `sgspe.deadline` (`DeadlineNotices`) |
 | BC-15 | Reportes, tableros y entregables | Reporting / BI | Se amplía con entregables DOCX y PDF [USR-01] y con el catálogo de indicadores; tableros por módulo desde F2 y consolidados en F8 | Release 3 (consolidado); exportaciones e indicadores por módulo desde Release 1 | F8 (indicadores F2–F6; exportaciones F2–F4) | `sgspe.dashboard` (indicadores), `sgspe.deliverable` (DOCX primero, PDF, emisión), `sgspe.privacy` (divulgación, exportaciones) |
-| BC-16 | Identidad y acceso | Identity / Access Control | Lo provee wasichai (JWT, roles, permisos por objeto, campo y acción) [USR-06]; SGSPE agrega `project_assignment`; el alcance de lectura por proyecto depende de UPS-01 (CON-041) | Release 1 (MVP) | F1 (asignaciones en F2) | `sgspe.scope` |
+| BC-16 | Identidad y acceso | Identity / Access Control | Lo provee wasichai (JWT, roles, permisos por objeto, campo y acción) [USR-06]; SGSPE agrega `project_assignment`; el alcance de lectura por proyecto es `ProjectReadScope` (ADR-0029, CON-041) | Release 1 (MVP) | F1 (asignaciones en F2) | `sgspe.scope` |
 | BC-17 | Auditoría | Audit | Lo provee wasichai (`audit_log` con motivo) [WAS-ADR-0040] [WAS-ADR-0041]; SGSPE agrega `export_log` y el identificador de correlación; brechas UPS-02, UPS-03, UPS-05 y UPS-12 (CON-057) | Release 1 (MVP) | F1 (`export_log` en F2) | `sgspe.privacy` (registro de exportaciones), `sgspe.observability` (correlación, ASM-034) |
 | BC-18 | IA y conocimiento | AI / Knowledge | Asistente de solo lectura de wasichai-agent para AI-05, que hasta UPS-14 solo se ofrece a roles sin acceso a campos restringidos (hoy `ANALYST`, decisión pendiente de `security.md` §15), y agentes propios que solo producen sugerencias; RAG diferido (CON-035, CON-044) | Release 3 | F7 | `sgspe.ai` (agentes, seudonimización, registro de interacciones, RAG) |
 | BC-19 | Línea base social | — (nuevo) | Nuevo: DOC-01 dedica sus capítulos 3, 5, 7.1 y 8 al estudio, el contexto socioeconómico, las percepciones y los temas clave (ASM-045) | Release 1 (MVP) | F2 | Ninguno (metadata) |
@@ -734,7 +737,7 @@ mantienen listeners (§7.5).
 | `project_assignment` | Una asignación por usuario y proyecto, con un usuario real del tenant | RF-PRJ-005, ASM-023 | Metadata (único compuesto) y `UserReferenceGuard` |
 | `project_assignment` | `role_name` es requerido y nombra un rol declarado en `model/roles.json`, porque los destinatarios por rol dependen de él | RF-PRJ-005, ASM-070 | Metadata (campo requerido) y guarda `AssignmentRoleGuard` (`sgspe.scope`), que compara con la lista de roles cargada como configuración |
 | Avisos (BC-14) | Los destinatarios de escalamientos, aprobaciones pendientes y alertas son las asignaciones activas del proyecto cuyo `role_name` está en la lista de roles de la transición que corresponde: la siguiente en aprobaciones y alertas; en un escalamiento, la de verificación o de revisión del objeto (nivel 1) y `approve_senior` de WF-D (nivel 2; los objetos sin aprobación superior propia reutilizan esos roles, ASM-030). Los nombres de rol salen de la definición del workflow, nunca de literales en el código | RF-NTF-001, RF-WFL-004, RQ-SEC-005, ASM-030, ASM-070 | `sgspe.notification` resuelve los destinatarios leyendo el workflow y `project_assignment`: como quien envía cuando el aviso sale de `ApprovalNoticeListener`, y como la plataforma en los avisos de plazo de `DeadlineNotices` |
-| Toda raíz de proyecto | Solo escribe quien está asignado al proyecto | RQ-SEC-006, CON-041 | `ProjectScopeGuard`; la lectura por proyecto espera UPS-01 |
+| Toda raíz de proyecto | Solo escribe quien está asignado al proyecto | RQ-SEC-006, CON-041 | `ProjectScopeGuard`; la lectura por proyecto, `ProjectReadScope` (ADR-0029) |
 | `engagement`, `engagement_participant`, `field_visit`, `field_observation`, `evidence` | A quien no tiene `EDIT_ANY` sobre el objeto se le rechaza cambiar, transicionar, vincular o borrar registros ajenos; sí puede agregar participantes u observaciones a cualquier interacción o visita que pueda leer | RQ-SEC-008, ASM-069 | `EditAnyGuard` (`sgspe.scope`): compara `created_by` con quien escribe y decide con el permiso, nunca con el nombre del rol (RQ-SEC-005); no frena las escrituras de campos derivados que llevan la marca de SGSPE |
 | `exploration_campaign` | `executed_social_amount` suma lo ejecutado de la campaña: `executed_amount` de sus compromisos más `total_amount` de sus aportes en `delivered` o `closed`, solo en la moneda de la campaña; los demás se cuentan en `other_currency_items_count` y se muestran como advertencia | RF-INV-004, RQ-DSH-021, ASM-063 | `DerivedFieldsJob` con el recalculador de `sgspe.investment` (§7.4) |
 | `area_of_influence` (+ `area_of_influence_member`) | Cada miembro es exactamente uno de localidad, comunidad o unidad administrativa, sin repetirse | RN-TER-001 | `ExactlyOneGuard` y únicos compuestos |
@@ -980,7 +983,7 @@ Réplica del catálogo de acciones declaradas de `security.md` (§5.3), que es l
 
 | Objeto | Acciones declaradas | Qué habilitan |
 |---|---|---|
-| `project` | `APPROVE` | Llevar el proyecto a `active` (WF-A) |
+| `project` | `APPROVE`, `READ_ALL_PROJECTS` | Llevar el proyecto a `active` (WF-A); leer todos los proyectos sin asignación (ASM-106) |
 | `area_of_influence` | `APPROVE` | Aprobar una versión (WF-O) |
 | `stakeholder` | `EXPORT` | Exportar el registro de grupos de interés |
 | `engagement`, `engagement_participant`, `field_visit`, `field_observation` | `EDIT_ANY` | Cambiar, transicionar, vincular o borrar registros ajenos; sin ella, `EditAnyGuard` lo rechaza. Agregar participantes u observaciones a una interacción o visita ajena no la exige (ASM-069) |

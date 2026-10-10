@@ -4348,7 +4348,7 @@ decisión registrada permite.
 | Decisión | Efecto en el modelo | Referencia |
 |---|---|---|
 | Idioma de los valores de ENUM | Hoy en español MAYÚSCULAS; cambiarlo exige migraciones por script, en proceso en los objetos `apiOnly` y con un ADR en los `appendOnly` (§24) | CON-050, ASM-025 |
-| Alcance de lectura por proyecto | El modelo ya lleva `project` y `project_assignment`; falta la extensión de wasichai | CON-041, UPS-01, GAP-025 |
+| Alcance de lectura por proyecto | El modelo ya lleva `project` y `project_assignment`; la lectura la acota `ProjectReadScope` (ADR-0029) | CON-041, UPS-01, GAP-025 |
 | Bloqueo optimista | Sin columna `version`; precondición sobre `updated_at`, comparada por wasichai en la propia escritura, con la tabla fija `derived_version` para tolerar los derivados (ADR-0027) | UPS-04, ASM-035, ASM-091 |
 | Campo FILE | `evidence` y el almacenamiento propio hasta que exista; después, migración | UPS-07, ASM-013 |
 | Retención y consentimiento | Plazos de purga de datos personales y de notificaciones | GAP-014, RNF-PRIV-004 |

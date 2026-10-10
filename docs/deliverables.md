@@ -651,8 +651,8 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
     congelado nunca se sirve (§11): en `api.md`, `format=docx` de un nivel EXTERNO o PUBLICO y `format=model` responden 404;
   - toda descarga, de un borrador o de una versión y de cualquier nivel, queda en `export_log` (§9.5);
   - antes de emitir nunca se sirve un archivo sin marca de agua: la versión candidata no se descarga (§8.2, RQ-REP-021).
-- **Alcance.** El alcance por proyecto sigue RQ-SEC-006, y es una decisión pendiente (CON-041, recomendación A): en el MVP,
-  lectura a nivel de tenant y escritura acotada por `project_assignment`; antes de la producción con varios proyectos, UPS-01.
+- **Alcance.** El alcance por proyecto sigue RQ-SEC-006: desde el plan 4.4, lectura por proyecto con `ProjectReadScope`
+  (ADR-0029) y escritura acotada por `project_assignment`.
 - **Exportaciones:** las exportaciones XLSX y las geoespaciales exigen `EXPORT` sobre el objeto que se exporta (§10).
 - **Plantillas:** `MANAGE_METADATA` sobre `deliverable`.
 - Ningún log técnico contiene datos personales (RQ-SEC-010).

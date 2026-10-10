@@ -54,7 +54,7 @@ Todos los tableros comparten una fila de filtros sobre todos sus gráficos (RQ-D
 | Filtro | Parámetro | Cómo se aplica | Fuente |
 |---|---|---|---|
 | Organización | Implícita: el tenant del token | Solo se leen las tablas de la organización | RQ-SEC-002 |
-| Proyecto | `project`, uno o varios | Por la relación `project` de cada objeto. Por defecto, los proyectos con `project_assignment` vigente de la persona (`active` y, si tiene fechas, hoy en Lima entre ellas) o, si no tiene asignaciones vigentes, todos los que puede leer; el `ADMIN`, todos los proyectos. Quien tuvo asignaciones y se le vencieron pasa a ver todos los que puede leer | RF-PRJ-005, RQ-SEC-006 |
+| Proyecto | `project`, uno o varios | Por la relación `project` de cada objeto. Por defecto, «mis proyectos» de `ProjectReach`: todos los que lee quien lee todos los proyectos (`ADMIN` y `READ_ALL_PROJECTS`) y, si no, los de sus asignaciones vigentes (`active` y, si tiene fechas, hoy en Lima entre ellas); sin asignaciones vigentes, ninguno. Un proyecto pedido que quien mira no lee da conjuntos vacíos, sin error (`security.md` §9.7) | RF-PRJ-005, RQ-SEC-006 |
 | Periodo | `periodStart`, `periodEnd` | Fechas en America/Lima; por defecto, el mes en curso. Las series mensuales cubren los 12 meses que terminan en `periodEnd` | RNF-I18N-002 |
 | Territorio | `locality`, `community`, `administrativeUnit`, `areaOfInfluence` | Por las relaciones `locality` y `community` de cada objeto. Una localidad incluye sus sectores (`parent_locality`); una unidad administrativa, sus localidades y unidades hijas; un área de influencia, los miembros de su versión `approved`. `stakeholder` no tiene `community`: los KPI-STK no aplican ese filtro y lo informan en `ignoredFilters`, nunca con un cero | RF-TER-002, RF-TER-005 |
 | Ámbito | `scope` | En los indicadores de grupos de interés y de participantes, por `stakeholder_scope` o `participant_scope`. En los demás, AIDS y AIIS se traducen a las localidades y comunidades miembros del área de influencia aprobada de ese tipo; REGIONAL y NACIONAL solo filtran grupos de interés | RQ-DSH-001, ASM-040 |
@@ -555,9 +555,8 @@ como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestr
 - **Registros propios.** Desde ASM-069, `FIELD_AGENT` no usa `own_records_only`: la guarda de `EDIT_ANY` limita lo que
   actualiza, no lo que lee (RQ-SEC-008). Si un rol usara `own_records_only`, la plataforma filtraría en silencio sus
   lecturas [WAS-ADR-0020] y sus cifras serían parciales. `security.md` decide qué roles ven tableros.
-- **Alcance.** El alcance por proyecto de los endpoints de indicadores depende de UPS-01 (RQ-SEC-006). Mientras tanto rige la
-  lectura que decida CON-041, con recomendación A (lectura a nivel de tenant en el MVP). El filtro de proyecto por defecto son
-  las asignaciones de la persona (RF-PRJ-005), que es una comodidad y no un control de acceso.
+- **Alcance.** El alcance por proyecto de los endpoints de indicadores lo da `ProjectReadScope` desde el plan 4.4
+  (RQ-SEC-006, ADR-0029). El filtro de proyecto por defecto son «mis proyectos» de la persona (RF-PRJ-005, §3.1).
 - **Navegación.** Un tablero aparece si la persona puede leer al menos uno de sus KPI, según
   `GET /api/sgspe/dashboards/indicators` (RF-IAM-002).
 - **Sin exportación de tableros.** En el MVP la tabla "Ver datos" solo se puede copiar: los tableros no generan archivos. Las

@@ -301,7 +301,7 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Registro de auditoría | `audit_log` | AuditEvent | Registro append-only de los cambios de registros con usuario, operación, valores antes y después y motivo | [WAS-ADR-0040] [WAS-ADR-0041] | auditoría | log técnico; `export_log` |
 | Rol | rol de wasichai | role | Conjunto de permisos por objeto, acción y campo; SGSPE usa los 17 roles del prompt | [PRM-01 §7] [WAS-ADR-0020] | — | rol en el proyecto (`project_assignment`); rol de una parte (`project_party`) |
 | Registros propios | `own_records_only` | — | Restricción de un rol a los registros que creó; SGSPE no la usa: `FIELD_AGENT` edita lo propio con la guarda de `EDIT_ANY` (ASM-069) | [WAS-ADR-0020] | — | alcance por proyecto |
-| Alcance por proyecto | — | scope-based authorization | Limitar lo que un usuario lee y escribe a sus proyectos o territorios; requiere UPS-01 | [PRM-01 §7] | scope | tenant |
+| Alcance por proyecto | — | scope-based authorization | Limitar lo que un usuario lee y escribe a sus proyectos: la escritura la acota `ProjectScopeGuard` y la lectura `ProjectReadScope` (ADR-0029); el territorio y la región siguen sin fuente (UPS-01) | [PRM-01 §7] | scope | tenant |
 | Cuenta de servicio | — | — | Usuario técnico de una integración, con credenciales de cliente | [WAS-ADR-0043] | — | persona |
 | Portal | `sgspe-ui` en `/` | — | Interfaz propia de SGSPE construida con `@wasichai/ui` | [USR-03] [USR-08] | — | `/admin` |
 | Consola de administración | `/admin` (`WasichaiApp`) | — | Administración y constructor de wasichai, con el mismo login que el portal | [USR-03] | admin | portal |
@@ -309,6 +309,8 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | GeoServer | — | — | Servidor de mapas WMS; en SGSPE nunca es público | [WAS-ADR-0006] | — | — |
 | Gotenberg | — | — | Servicio que convierte DOCX a PDF con LibreOffice (ASM-014) | [USR-01] | — | — |
 | Brecha upstream | UPS | — | Capacidad que falta en wasichai y se propone a sus mantenedores (§18.2 del análisis) | [USR-03] | — | gap (pregunta al usuario) |
+| Alcance de lectura por proyecto | `ProjectReadScope` | project-scoped read | Regla por la que una persona lee los registros de los proyectos a los que está asignada (y los maestros del tenant); quien tiene `READ_ALL_PROJECTS` lee todos (ASM-106) | [PRM-01 §7] | alcance por proyecto | permiso por objeto; registros propios |
+| Maestro del tenant | `ProjectScope.TENANT` | tenant master data | Objeto que no pertenece a un proyecto y comparten todos los proyectos de un cliente: territorio, actores, línea base y temas (ASM-107) | ADR-0029 | maestro | raíz de proyecto |
 
 ## Distinciones obligatorias
 
