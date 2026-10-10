@@ -1,11 +1,13 @@
 package sgspe.attention
 
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
+import sgspe.common.IdempotencyKey
 
 // la derivación de una pregunta de reunión (RF-ENG-006, api.md §4.4): crea la QCS con la pregunta, la interacción, el proyecto,
 // el canal REUNION y la recepción de la reunión, marca referred_at y con eso la interacción cierra (RN-ENG-005); una pregunta
@@ -29,14 +31,15 @@ class ReferralApiTest : F4ApiTest() {
         question: String,
         target: String = "inquiry",
         account: Account = officer,
-        attributes: Map<String, Any?> = mapOf("code" to uniqueName("CO-"), "description" to "Pregunta derivada de la reunión.")
+        attributes: Map<String, Any?> = mapOf("code" to uniqueName("CO-"), "description" to "Pregunta derivada de la reunión."),
+        headers: Map<String, String> = emptyMap()
     ): Response =
         exchange(
             "POST",
             "/api/sgspe/engagement-questions/$question/referral",
             mapOf("target" to target, "attributes" to attributes),
             account.token,
-            withReason("derivada")
+            withReason("derivada") + headers
         )
 
     @Test
@@ -61,6 +64,21 @@ class ReferralApiTest : F4ApiTest() {
         val again = refer(question, "grievance")
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("ALREADY_REFERRED", code(again))
+    }
+
+    // un reenvío con la misma Idempotency-Key devuelve la respuesta guardada, no ALREADY_REFERRED: la pregunta no se deriva
+    // dos veces
+    @Test
+    fun `un reenvio con la misma clave devuelve la misma respuesta y no deriva dos veces`() {
+        val (_, question) = meeting()
+        val key = mapOf(IdempotencyKey.HEADER to uniqueName("rf-"))
+        val attributes = mapOf("code" to uniqueName("CO-"), "description" to "Pregunta derivada de la reunión.")
+        val first = refer(question, attributes = attributes, headers = key)
+        assertEquals(HttpStatus.CREATED, first.status, first.body)
+        val again = refer(question, attributes = attributes, headers = key)
+        assertEquals(HttpStatus.CREATED, again.status, again.body)
+        assertEquals("true", again.headers.getFirst("Idempotent-Replayed"))
+        assertArrayEquals(first.body.toByteArray(), again.body.toByteArray())
     }
 
     @Test
