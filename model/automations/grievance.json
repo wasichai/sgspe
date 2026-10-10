@@ -5,7 +5,9 @@
     "enabled": true,
     "definition": {
       "trigger": { "type": "RECORD_CREATED" },
-      "conditions": [],
+      "conditions": [
+        { "field": "confidential", "operator": "NOT_EQUALS", "value": "true" }
+      ],
       "actions": [
         { "type": "CREATE_RECORD", "targetObject": "task",
           "values": { "title": "Acusar recibo de la queja {{code}}", "grievance": "{{id}}", "project": "{{project}}" } }

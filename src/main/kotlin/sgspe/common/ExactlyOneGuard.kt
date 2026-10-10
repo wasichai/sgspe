@@ -54,9 +54,10 @@ class ExactlyOneGuard(
                     )
             )
 
-        // la de un objeto: una tarea sin ningún origen pasa solo si es la del escalamiento del nivel 2 de una QCS confidencial
-        // (su generator_key con la forma de JobTasks.isConfidentialEscalation), que no se vincula a la QCS para no delatarla;
-        // vale también en los UPDATE de una persona, que no puede cambiar la clave (GeneratorKeyGuard)
+        // la de un objeto: una tarea sin ningún origen pasa solo si es una tarea automática de una QCS confidencial (su
+        // generator_key con la forma de JobTasks.isConfidentialTask: el escalamiento de los niveles 1 y 2 o el acuse), que no se
+        // vincula a la QCS para no delatarla; vale también en los UPDATE de una persona, que no puede cambiar la clave salvo el
+        // código de sgspe con la marca, y solo a una de esas formas (GeneratorKeyGuard)
         fun violation(
             objectName: String,
             group: List<String>,
@@ -65,7 +66,7 @@ class ExactlyOneGuard(
             val exempt =
                 objectName == JobTasks.TASK &&
                     group.none { Values.text(after[it]) != null } &&
-                    JobTasks.isConfidentialEscalation(Values.text(after[JobTasks.GENERATOR_KEY]))
+                    JobTasks.isConfidentialTask(Values.text(after[JobTasks.GENERATOR_KEY]))
             return if (exempt) null else violation(group, after)
         }
 

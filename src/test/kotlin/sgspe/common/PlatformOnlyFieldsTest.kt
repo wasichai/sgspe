@@ -15,8 +15,9 @@ class PlatformOnlyFieldsTest {
         changed: Set<String>,
         person: Boolean = true,
         marked: Boolean = false,
-        before: Map<String, Any?> = emptyMap()
-    ) = PlatformOnlyFields.findings(objectName, changed, person, marked, before)
+        before: Map<String, Any?> = emptyMap(),
+        after: Map<String, Any?> = emptyMap()
+    ) = PlatformOnlyFields.findings(objectName, changed, person, marked, before, after)
 
     @Test
     fun `generator_key sigue con su codigo en las tareas y en las alertas`() {
@@ -45,6 +46,28 @@ class PlatformOnlyFieldsTest {
         assertEquals(listOf("detected_at"), findings("early_warning", setOf("detected_at"), marked = true, before = dated).map { it.field })
         assertEquals(listOf("early_warning_rule"), findings("early_warning", setOf("early_warning_rule"), marked = true).map { it.field })
         assertEquals(listOf("generator_key"), findings("task", setOf("generator_key"), marked = true).map { it.field })
+    }
+
+    // D-1: el listener de las QCS confidenciales (ConfidentialTasksListener) escribe, como quien llama y con la marca, la
+    // clave de una tarea confidencial; nada más
+    @Test
+    fun `la marca fija o cambia la clave de una tarea solo a una clave confidencial`() {
+        val ack = mapOf<String, Any?>("generator_key" to "ack:grievance:0123456789abcdef")
+        val escalation = mapOf<String, Any?>("generator_key" to "escalation:grievance:0123456789abcdef:2026-10-13:1")
+        val stored = mapOf<String, Any?>("generator_key" to "escalation:grievance:g-1:2026-10-13:1")
+        assertTrue(findings("task", setOf("generator_key"), marked = true, after = ack).isEmpty())
+        assertTrue(findings("task", setOf("generator_key"), marked = true, before = stored, after = escalation).isEmpty())
+        // con la marca, una clave normal; sin la marca, una confidencial; con la marca, vaciarla: 403
+        val normal = mapOf<String, Any?>("generator_key" to "escalation:grievance:g-1:2026-10-13:2")
+        assertEquals(listOf("GENERATOR_KEY_PLATFORM_ONLY"), findings("task", setOf("generator_key"), marked = true, after = normal).map { it.code })
+        assertEquals(listOf("GENERATOR_KEY_PLATFORM_ONLY"), findings("task", setOf("generator_key"), after = ack).map { it.code })
+        val emptied = mapOf<String, Any?>("generator_key" to null)
+        assertEquals(
+            listOf("GENERATOR_KEY_PLATFORM_ONLY"),
+            findings("task", setOf("generator_key"), marked = true, before = ack, after = emptied).map { it.code }
+        )
+        // la excepción es solo de task: la clave de una alerta sigue siendo de la plataforma
+        assertEquals(listOf("generator_key"), findings("early_warning", setOf("generator_key"), marked = true, after = ack).map { it.field })
     }
 
     @Test

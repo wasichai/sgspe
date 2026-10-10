@@ -61,8 +61,9 @@ class DeadlineSweep(
 // escribe deadline_status de compromisos, tareas, quejas y consultas y validity_status de acuerdos con los parámetros de su
 // proyecto, solo si cambia (P11) y bajo el candado del registro, con el motivo que nombra al trabajo (P16); crea la tarea de
 // escalamiento de los niveles 1 y 2 de un compromiso, una queja o una consulta vencidos (generator_key, sin asignado ni fecha:
-// la toma uno de los avisados; su título solo lleva el código). la del nivel 2 de una QCS confidencial no la delata: su clave
-// lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vincula al proyecto (ASM-102). desde el
+// la toma uno de los avisados; su título solo lleva el código). las de una QCS confidencial, de los dos niveles, no la delatan
+// (D-1): su clave lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vinculan al proyecto
+// (ASM-102). desde el
 // plan 4.2b mide también la revisión de los riesgos (ASM-099): mueve next_review_date si cambió la cadencia (última revisión +
 // review_every_days o risk_review_days), escribe review_status y crea la tarea risk_review:<id>:<next_review_date> para el
 // responsable al pasar a POR REVISAR o REVISION VENCIDA. nunca aplica transiciones (RN-WFL-001). el día de Lima se lee una vez
@@ -252,8 +253,8 @@ class DeadlineJob(
     // la tarea de cada nivel alcanzado de un registro vencido: una por registro, fecha y nivel. decide con el registro releído
     // bajo el candado de write o, si write no lo tomó, con uno releído ahora: la fila de la lectura inicial puede tener horas en
     // una organización grande, y una reprogramación, un cumplimiento o una respuesta entretanto no deben escalar. el título y la
-    // descripción solo llevan el tipo, el código y la fecha: nunca texto libre. la del nivel 2 de una QCS confidencial la
-    // leen todos los lectores de task del proyecto: lleva la huella en la clave, el texto genérico y ningún vínculo con la QCS
+    // descripción solo llevan el tipo, el código y la fecha: nunca texto libre. las de una QCS confidencial (los dos niveles, D-1)
+    // las leen todos los lectores de task del proyecto: llevan la huella en la clave, el texto genérico y ningún vínculo con la QCS
     private suspend fun escalate(
         tracked: Deadlines.Tracked,
         row: RecordResponse,
@@ -267,16 +268,16 @@ class DeadlineJob(
         val code = Values.text(record.attributes["code"]) ?: record.id
         val confidential = tracked.objectName in Attention.OBJECTS && Attention.isConfidential(record.attributes)
         return (1..level).count { reached ->
-            if (confidential && reached == 2) {
+            if (confidential) {
                 val project = Values.text(record.attributes["project"])
                 if (project == null) {
                     // sin proyecto, la tarea genérica no tendría ningún vínculo: no se crea (el log no lleva datos de la QCS)
                     log.warn("DeadlineJob: una {} confidencial vencida no tiene proyecto; no se crea su tarea genérica de escalamiento", tracked.objectName)
                     return@count false
                 }
-                val (title, description) = NoticeTexts.qcsConfidentialEscalation(NoticeTexts.projectName(params, project))
+                val (title, description) = NoticeTexts.qcsConfidentialEscalation(NoticeTexts.projectName(params, project), reached)
                 return@count tasks.ensure(
-                    confidentialEscalationKey(tracked.objectName, record.id, due),
+                    confidentialEscalationKey(tracked.objectName, record.id, due, reached),
                     mapOf("title" to title, "description" to description, "project" to project),
                     TASK_REASON
                 )
@@ -318,12 +319,13 @@ class DeadlineJob(
             level: Int
         ): String = "escalation:$objectName:$id:$due:$level"
 
-        // la del nivel 2 de una QCS confidencial: la huella del registro (la del aviso genérico) en lugar de su id
+        // la de los niveles 1 y 2 de una QCS confidencial: la huella del registro (la del aviso genérico) en lugar de su id
         fun confidentialEscalationKey(
             objectName: String,
             id: String,
-            due: LocalDate
-        ): String = JobTasks.confidentialEscalationKey(objectName, ConfidentialReaders.fingerprint(objectName, id, due), due)
+            due: LocalDate,
+            level: Int
+        ): String = JobTasks.confidentialEscalationKey(objectName, ConfidentialReaders.fingerprint(objectName, id, due), due, level)
 
         // la de un compromiso (F3)
         fun escalationKey(

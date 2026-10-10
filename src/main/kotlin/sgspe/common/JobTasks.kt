@@ -38,18 +38,26 @@ class JobTasks(
         const val TASK = "task"
         const val GENERATOR_KEY = "generator_key"
 
-        // la tarea de escalamiento del nivel 2 de una QCS confidencial (JOB-01, ASM-102): la clave lleva la huella del registro
-        // (16 dígitos hexadecimales, ConfidentialReaders.fingerprint) en lugar de su id, y la tarea no se vincula a la QCS. es
-        // la única tarea sin origen que admite ExactlyOneGuard; generator_key solo la escribe la plataforma (GeneratorKeyGuard)
+        // las tareas automáticas de una QCS confidencial (ASM-102, D-1 del 2026-10-10): las de escalamiento de los niveles 1 y 2
+        // (JOB-01) y la de acuse de una queja (ConfidentialTasksListener, en lugar de AUT-02). su clave lleva la huella del
+        // registro (16 dígitos hexadecimales, ConfidentialReaders.fingerprint) en lugar de su id, y la tarea no se vincula a la
+        // QCS. son las únicas tareas sin origen que admite ExactlyOneGuard, y las únicas claves que el código de sgspe con la
+        // marca escribe como quien llama (PlatformOnlyFields); fuera de eso, generator_key solo la escribe la plataforma
         private val CONFIDENTIAL_ESCALATION =
-            Regex("escalation:(${Attention.OBJECTS.joinToString("|")}):[0-9a-f]{16}:\\d{4}-\\d{2}-\\d{2}:2")
+            Regex("escalation:(${Attention.OBJECTS.joinToString("|")}):[0-9a-f]{16}:\\d{4}-\\d{2}-\\d{2}:[12]")
+        private val CONFIDENTIAL_ACK = Regex("ack:${Attention.GRIEVANCE}:[0-9a-f]{16}")
 
+        // la de escalamiento del nivel `level` (1 o 2) de una QCS confidencial
         fun confidentialEscalationKey(
             objectName: String,
             fingerprint: String,
-            due: LocalDate
-        ): String = "escalation:$objectName:$fingerprint:$due:2"
+            due: LocalDate,
+            level: Int
+        ): String = "escalation:$objectName:$fingerprint:$due:$level"
 
-        fun isConfidentialEscalation(key: String?): Boolean = key != null && CONFIDENTIAL_ESCALATION.matches(key)
+        // la de acuse de una queja confidencial: solo la huella
+        fun confidentialAckKey(fingerprint: String): String = "ack:${Attention.GRIEVANCE}:$fingerprint"
+
+        fun isConfidentialTask(key: String?): Boolean = key != null && (CONFIDENTIAL_ESCALATION.matches(key) || CONFIDENTIAL_ACK.matches(key))
     }
 }

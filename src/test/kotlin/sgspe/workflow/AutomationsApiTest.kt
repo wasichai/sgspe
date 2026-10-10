@@ -1,20 +1,30 @@
 package sgspe.workflow
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
+import sgspe.attention.ConfidentialTasks
+import sgspe.attention.ConfidentialTasksListener
+import sgspe.common.JobTasks
+import sgspe.deadline.DeadlineJob
 
 // workflows.md, «Pruebas de trabajos, listeners y automatizaciones»: cada automatización de F3 y F4 deja una ejecución
 // SUCCEEDED con el registro o el documento esperado y su motivo `automation '<nombre>'`, y ninguna escribe un derivado.
 // AUT-01 crea la tarea de ejecución de un compromiso aprobado, AUT-10 la de una interacción cancelada y AUT-05 emite la
 // minuta y la lista de asistentes de un acta aprobada, sin congelar los datos de los asistentes (security.md §11.4).
 // desde F4, AUT-02 crea la tarea de acuse de una queja, AUT-09 la de triaje de una alerta y AUT-11 la de un riesgo que
-// pasa a CRITICO. AUT-03, el acta de entrega, y AUT-06 a AUT-08, el cargo de queja y las cartas de respuesta, esperan a
-// UPS-23
+// pasa a CRITICO; en una queja confidencial AUT-02 queda SKIPPED y la tarea de acuse es la genérica de
+// ConfidentialTasksListener (D-1). AUT-03, el acta de entrega, y AUT-06 a AUT-08, el cargo de queja y las cartas de respuesta,
+// esperan a UPS-23
 class AutomationsApiTest : F4ApiTest() {
+    @Autowired
+    private lateinit var job: DeadlineJob
+
     // la tarea que creó una automatización para el registro `origin` del campo `field`
     private fun createdTask(
         field: String,
@@ -140,6 +150,58 @@ class AutomationsApiTest : F4ApiTest() {
         assertEquals(null to null, task["assignee_user_id"] to task["due_date"])
         assertEquals("open", state("task", task["id"] as String))
         assertEquals("automation 'aut-02-grievance-ack-task'", reasonOf("task", task["id"] as String))
+    }
+
+    // D-1: AUT-02 no corre en una queja confidencial (su condición); ConfidentialTasksListener crea en el alta la tarea de
+    // acuse genérica, sin vínculo, con la huella de la fecha de recepción en la clave y sin el código
+    @Test
+    fun `una queja confidencial lleva la tarea de acuse generica y AUT-02 queda SKIPPED`() {
+        val officer = member("COMMUNITY_RELATIONS_OFFICER")
+        val id = grievance(testProject(), officer, mapOf("confidential" to true))
+
+        assertEquals("SKIPPED", awaitRun("grievance", "aut-02-grievance-ack-task", id)["status"].asString())
+        val attributes = attributesOf(record("grievance", id))
+        val code = attributes["code"] as String
+        assertTrue(tree(send("GET", "/api/objects/task/records?grievance=$id", null, HttpStatus.OK))["content"].isEmpty)
+        val key = ConfidentialTasks.ackKey(id, attributes["received_at"])!!
+        val found = tree(send("GET", "/api/objects/task/records?generator_key=$key", null, HttpStatus.OK))["content"].values()
+        assertEquals(1, found.size, found.toString())
+        val task = attributesOf(found.single())
+        val name = attributesOf(record("project", testProject()))["name"]
+        assertEquals("Acusar recibo de una QCS confidencial en $name", task["title"])
+        assertEquals(testProject(), task["project"])
+        assertEquals(null, task["grievance"])
+        assertFalse(found.single().toString().contains(id) || found.single().toString().contains(code), found.single().toString())
+        assertEquals(ConfidentialTasksListener.ACK_REASON, reasonOf("task", found.single()["id"].asString()))
+    }
+
+    // D-1: marcar confidencial una queja existente reescribe sus tareas automáticas abiertas (la de acuse de AUT-02 y las de
+    // escalamiento de JOB-01) a las genéricas, sin vínculo; la siguiente vuelta de JOB-01 no las duplica
+    @Test
+    fun `marcar confidencial una queja vuelve genericas sus tareas automaticas abiertas`() {
+        val officer = member("COMMUNITY_RELATIONS_OFFICER")
+        val id = grievance(testProject(), officer, mapOf("received_at" to "2026-01-05T15:00:00Z"))
+        assertEquals("SUCCEEDED", awaitRun("grievance", "aut-02-grievance-ack-task", id)["status"].asString())
+        runBlocking { job.runOnce() }
+        val linked = tree(send("GET", "/api/objects/task/records?grievance=$id", null, HttpStatus.OK))["content"].values()
+        assertTrue(linked.size >= 2, linked.toString())
+        assertTrue(linked.any { it["attributes"]["generator_key"]?.asString()?.endsWith(":1") == true }, linked.toString())
+        val code = attributesOf(record("grievance", id))["code"] as String
+
+        val marked = edit("grievance", id, mapOf("confidential" to true), officer.token, withReason())
+        assertEquals(HttpStatus.OK, marked.status, marked.body)
+        assertTrue(tree(send("GET", "/api/objects/task/records?grievance=$id", null, HttpStatus.OK))["content"].isEmpty)
+        for (before in linked) {
+            val after = record("task", before["id"].asString())
+            val key = after["attributes"]["generator_key"].asString()
+            assertTrue(JobTasks.isConfidentialTask(key), after.toString())
+            assertFalse(after.toString().contains(id) || after.toString().contains(code), after.toString())
+        }
+        val keys = linked.map { record("task", it["id"].asString())["attributes"]["generator_key"].asString() }
+        assertTrue(ConfidentialTasks.ackKey(id, "2026-01-05T15:00:00Z") in keys, keys.toString())
+        runBlocking { job.runOnce() }
+        assertTrue(tree(send("GET", "/api/objects/task/records?grievance=$id", null, HttpStatus.OK))["content"].isEmpty)
+        for (key in keys) assertEquals(1, tree(send("GET", "/api/objects/task/records?generator_key=$key", null, HttpStatus.OK))["content"].size(), key)
     }
 
     @Test

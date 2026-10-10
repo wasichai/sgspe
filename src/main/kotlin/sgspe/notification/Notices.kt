@@ -87,10 +87,18 @@ object NoticeTexts {
     fun qcsConfidentialOverdue(project: String): Pair<String, String> =
         "QCS confidencial fuera de plazo" to "Una QCS confidencial del proyecto $project superó su plazo. Pida el detalle al equipo de quejas."
 
-    // el título y la descripción de la tarea de escalamiento del nivel 2 de una QCS confidencial (JOB-01): fijos salvo el
-    // nombre del proyecto, como el aviso genérico
-    fun qcsConfidentialEscalation(project: String): Pair<String, String> =
-        "QCS confidencial vencida en $project" to "Una QCS confidencial superó su plazo. Pida el detalle al equipo de quejas."
+    // el título y la descripción de la tarea de escalamiento de los niveles 1 y 2 de una QCS confidencial (JOB-01, D-1): fijos
+    // salvo el nombre del proyecto y el nivel, como el aviso genérico
+    fun qcsConfidentialEscalation(
+        project: String,
+        level: Int
+    ): Pair<String, String> =
+        "QCS confidencial vencida en $project" to
+            "Una QCS confidencial superó su plazo (escalamiento de nivel $level). Pida el detalle al equipo de quejas."
+
+    // los de la tarea de acuse genérica de una queja confidencial (ConfidentialTasksListener, D-1), en lugar de la de AUT-02
+    fun qcsConfidentialAck(project: String): Pair<String, String> =
+        "Acusar recibo de una QCS confidencial en $project" to "Una QCS confidencial espera su acuse. Pida el detalle al equipo de quejas."
 
     // cómo nombran el aviso y la tarea genéricos al proyecto: su nombre, su código o, sin ellos, su id
     fun projectName(
