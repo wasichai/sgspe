@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import sgspe.scope.ProjectScope
 import tools.jackson.databind.json.JsonMapper
 import java.io.File
 
@@ -168,6 +169,43 @@ class ArchitectureTest {
         assertFalse(flags(DERIVED_RESTORE_NEW, "val restore = DerivedRestore.current()"))
         assertFalse(flags(DERIVED_RESTORE_NEW, "class DerivedRestore"))
         assertFalse(flags(DERIVED_RESTORE_NEW, "// DerivedRestore(objeto, id) solo en el keeper"))
+    }
+
+    // el alcance de lectura por proyecto (ASM-106, security.md §9.7): cada objeto de model.json está en un solo grupo de
+    // ProjectScope, todo objeto con la relación `project` es una raíz (o project_assignment) y el padre de cada hijo es una raíz
+    // por el campo que dice CHILDREN. así una fase nueva (F5 a F8) no agrega un objeto sin clasificarlo: ProjectReadScope no
+    // admitiría ningún registro suyo
+    @Test
+    fun `cada objeto del modelo esta clasificado en ProjectScope`() {
+        val model = JsonMapper.builder().build().readTree(File("model/model.json"))
+        val objects = model["objects"].values().map { it["name"].asString() }
+        val groups =
+            mapOf(
+                "project" to setOf(ProjectScope.PROJECT),
+                "project_assignment" to setOf(ProjectScope.ASSIGNMENT),
+                "ROOTS" to ProjectScope.ROOTS,
+                "CHILDREN" to ProjectScope.CHILDREN.keys,
+                "TENANT" to ProjectScope.TENANT
+            )
+        for (name in objects) {
+            val holders = groups.filterValues { name in it }.keys
+            assertEquals(1, holders.size, "$name está en $holders: clasifíquelo en un solo grupo de ProjectScope")
+        }
+        val named = ProjectScope.ROOTS + ProjectScope.CHILDREN.keys + ProjectScope.TENANT
+        assertEquals(emptySet<String>(), named - objects.toSet(), "ProjectScope nombra objetos que model.json no tiene")
+        // (objeto, campo, destino) de cada relación con campo
+        val relations =
+            model["relationships"].values().mapNotNull { rel ->
+                val field = rel["fieldName"]?.takeUnless { it.isNull }?.asString() ?: return@mapNotNull null
+                Triple(rel["source"].asString(), field, rel["target"].asString())
+            }
+        val withProject = relations.filter { (_, field, target) -> field == "project" && target == "project" }.map { it.first }.toSet()
+        assertEquals(ProjectScope.ROOTS + ProjectScope.ASSIGNMENT, withProject)
+        for ((child, link) in ProjectScope.CHILDREN) {
+            val (field, parent) = link
+            assertTrue(parent in ProjectScope.ROOTS, "$child: su padre $parent no es una raíz")
+            assertTrue(Triple(child, field, parent) in relations, "$child.$field no apunta a $parent")
+        }
     }
 
     @Test

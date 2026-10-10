@@ -75,8 +75,53 @@ object ProjectScope {
     // quien escribe una asignación con permiso sobre ella forma los equipos: no se le pide asignación (security.md §9.2)
     val EXEMPT: Set<String> = setOf("project_assignment")
 
+    // los maestros del tenant (ASM-107, decisión 3 de la especificación 4.4): territorio, actores, línea base y el catálogo
+    // topic. se comparten entre los proyectos del cliente y ProjectReadScope no los acota. mining_concession se vincula a los
+    // proyectos por M2M (project_concession) pero es un maestro. las fases siguientes clasifican aquí sus objetos nuevos
+    val TENANT: Set<String> =
+        setOf(
+            "administrative_unit",
+            "locality",
+            "community",
+            "community_sector",
+            "mining_concession",
+            "land_parcel",
+            "land_right",
+            "environmental_feature",
+            "person",
+            "organization",
+            "contact_method",
+            "position",
+            "actor_relationship",
+            "school",
+            "health_facility",
+            "road_access",
+            "festivity",
+            "state_program",
+            "local_conflict",
+            "topic"
+        )
+
     fun covers(objectName: String): Boolean = objectName == "project" || objectName in ROOTS || objectName in CHILDREN
+
+    // cómo se lee un objeto (security.md §9.7, ASM-106): el grupo decide la condición de ProjectReadCondition
+    fun readGroup(objectName: String): ReadGroup =
+        when (objectName) {
+            PROJECT -> ReadGroup.PROJECT
+            ASSIGNMENT -> ReadGroup.ASSIGNMENT
+            in ROOTS -> ReadGroup.ROOT
+            in CHILDREN -> ReadGroup.CHILD
+            in TENANT -> ReadGroup.TENANT
+            else -> ReadGroup.UNCLASSIFIED
+        }
+
+    const val PROJECT = "project"
+    const val ASSIGNMENT = "project_assignment"
 }
+
+// los grupos de la lectura por proyecto: el proyecto mismo, las asignaciones, las raíces con `project`, los hijos por su
+// padre, los maestros del tenant y lo que nadie clasificó (falla cerrado; ArchitectureTest impide que llegue a main)
+enum class ReadGroup { PROJECT, ASSIGNMENT, ROOT, CHILD, TENANT, UNCLASSIFIED }
 
 // a qué proyectos pertenece el registro que una escritura toca. `field` es el campo de la relación de alcance del objeto
 // (`project` en las raíces, el padre en los hijos): el que un error nombra. `unresolved`: el alcance no se pudo determinar
