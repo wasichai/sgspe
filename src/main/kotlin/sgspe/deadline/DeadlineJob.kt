@@ -13,6 +13,7 @@ import sgspe.common.LIMA
 import sgspe.common.Organizations
 import sgspe.common.ProjectParameters
 import sgspe.common.Records
+import sgspe.common.SweepTiming
 import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.notification.ConfidentialReaders
@@ -42,7 +43,7 @@ class DeadlineSweep(
         val all = organizations()
         for (organization in all) {
             try {
-                written += asPlatform(organization) { refresh(organization) }
+                written += SweepTiming.timed(log, "DeadlineJob", organization) { asPlatform(organization) { refresh(organization) } }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

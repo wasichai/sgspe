@@ -12,6 +12,7 @@ import sgspe.common.LIMA
 import sgspe.common.Organizations
 import sgspe.common.ProjectParameters
 import sgspe.common.Records
+import sgspe.common.SweepTiming
 import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.engagement.EngagementWriteGuard
@@ -132,7 +133,7 @@ class FollowUpSweep(
         val failed = mutableListOf<UUID>()
         for (organization in organizationsHaving()) {
             try {
-                written += asPlatform(organization) { followUp(organization) }
+                written += SweepTiming.timed(log, "StakeholderFollowUpJob", organization) { asPlatform(organization) { followUp(organization) } }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
