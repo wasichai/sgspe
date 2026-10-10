@@ -212,8 +212,9 @@ leyendo el documento.
 |---|---|---|
 | Leer el detalle, el historial, los relacionados o las transiciones de un registro de otro proyecto | `200` | `404` |
 | Cambiar, borrar o transicionar un registro de otro proyecto | `403 NOT_ASSIGNED` | `404` |
-| Alta de una raíz con `project` ajeno | `403 NOT_ASSIGNED` sobre `project` | `400` de wasichai sobre `project` (registro inexistente) |
-| Vincular por `RELATION` o M2M un registro de un proyecto en que no se está asignado | `409 PROJECT_MISMATCH` | `400` sobre el campo |
+| Alta de una raíz con `project` ajeno | `403 NOT_ASSIGNED` sobre `project` | `400` de wasichai: `errors[{field: "project", message: "no record with this id"}]` (registro inexistente, `RelationTargets`) |
+| Vincular por `RELATION` un registro de un proyecto en que no se está asignado | `409 PROJECT_MISMATCH` | `400` de wasichai sobre el campo, con la misma forma |
+| Vincular por M2M (`POST .../related`) un registro de un proyecto en que no se está asignado | `409 PROJECT_MISMATCH` | `404` (`RelatedRecordService`: un extremo ilegible no existe) |
 | Vincular dos registros de proyectos distintos, ambos legibles | `409 PROJECT_MISMATCH` | Igual |
 | Escribir sin asignación teniendo `READ_ALL_PROJECTS` (`PROJECT_ADMIN`) | `403 NOT_ASSIGNED` | Igual (`ProjectScopeGuard`) |
 | Asignación vencida | `403 NOT_ASSIGNED` al escribir | `404` al leer y al escribir |
@@ -461,7 +462,7 @@ mientras 4.4a corre, pero se integra después.
    procedimiento de `docs/develop/README.md` pone la siembra primero.
 8. **Trabajos en serie**: con muchos clientes, un barrido puede no caber en su intervalo; §3.10 lo mide y no lo resuelve.
 
-**Pregunta abierta para el usuario.** Solo una confirmación: la decisión 2 nombra `AUDITOR` y `PROJECT_ADMIN` «por
-ejemplo». Esta especificación concede `READ_ALL_PROJECTS` solo a esos dos; `SOCIAL_MANAGER` («región si conduce varios
-proyectos», `security.md` §6.1) queda acotado a sus asignaciones y se asigna a cada proyecto que conduce. Si debe leer
-todo el tenant, basta sumarle la acción en `roles.json`.
+**Pregunta resuelta (2026-10-10).** La decisión 2 nombraba `AUDITOR` y `PROJECT_ADMIN` «por ejemplo». El usuario aprobó
+esta especificación con `READ_ALL_PROJECTS` solo para esos dos: `SOCIAL_MANAGER` («región si conduce varios proyectos»,
+`security.md` §6.1) queda acotado a sus asignaciones y se asigna a cada proyecto que conduce. Sumarle la acción más adelante
+es un cambio de `roles.json` y de `security.md` §7.2, sin código (`test_apply_roles.py` lo fija).

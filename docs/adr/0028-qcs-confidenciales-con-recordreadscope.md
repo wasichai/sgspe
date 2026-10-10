@@ -109,7 +109,8 @@ MVP»; el alcance por proyecto de ADR-0006 no cambia (sigue la opción A de CON-
 - Pruebas: `ConfidentialAttentionScopeTest` y `ConfidentialReleaseTest` (unitarias); `ConfidentialAttentionApiTest`,
   `StakeholderRequestWorkflowApiTest` (cierre de una solicitud confidencial por su compromiso), `QcsNoticesApiTest`,
   `AttentionDashboardApiTest` y `AttentionRegisterApiTest` (integración); `ArchitectureTest`.
-- Si el checkpoint decide UPS-01 con la opción B de CON-041, este alcance se integra en el del proyecto.
+- Desde el plan 4.4 se compone por AND con el alcance por proyecto de ADR-0029: `READ_CONFIDENTIAL` no abre otros
+  proyectos y `READ_ALL_PROJECTS` no abre las confidenciales.
 - Se revierte quitando el `RecordReadScope` y volviendo al riesgo residual de `security.md` §11.3 (ASM-095).
 
 ## Referencias

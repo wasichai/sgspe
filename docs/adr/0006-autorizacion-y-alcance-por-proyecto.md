@@ -2,7 +2,8 @@
 
 ## Estado
 
-Aceptado; el alcance por proyecto, Propuesto · 2026-10-07 · el alcance se acepta al iniciar F2, con la opción del checkpoint
+Aceptado · 2026-10-07 · el alcance por proyecto (opción A hasta F4) queda sustituido por ADR-0029 desde el plan 4.4
+(2026-10-10)
 
 ## Contexto
 
@@ -114,6 +115,7 @@ Aceptado; el alcance por proyecto, Propuesto · 2026-10-07 · el alcance se acep
 ### Seguimiento
 
 - Checkpoint de F0: elegir A o B (CON-041, GAP-025) y aprobar los issues UPS-01, UPS-02, UPS-06 y UPS-10 (GAP-028).
+  Resuelto el 2026-10-10: opción B del lado de SGSPE (ADR-0029); UPS-10 resuelta con wasichai 0.6.0 (ASM-109).
 - Pruebas de [security.md §14](../security.md): `TenantIsolationApiTest`, `RolesApiTest` y `test_apply_roles.py` (F1);
   matriz de permisos, permisos de campo, edición de lo propio, acciones declaradas, "Alcance, opción A" y destinatarios
   por rol (F2); "Alcance, opción B" con UPS-01; `ArchitectureTest` y `boundaries.test` sin literales de rol.
