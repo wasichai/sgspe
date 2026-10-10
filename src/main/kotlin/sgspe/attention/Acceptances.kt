@@ -28,6 +28,7 @@ import sgspe.common.Values
 import sgspe.common.Versions
 import sgspe.common.toCodedException
 import wasichai.core.common.Actions
+import wasichai.core.common.FieldViolation
 import wasichai.core.common.ValidationException
 import wasichai.core.data.ChangeReason
 import wasichai.core.data.RecordResponse
@@ -58,7 +59,7 @@ class Acceptances(
         ifMatch: String?
     ): CommandAnswer {
         val expected = IfMatch.required(ifMatch)
-        StrictBody.requireOnly(body, setOf(CREATES, "response", "respondedAt", "attributes"))
+        StrictBody.requireOnly(body, setOf(CREATES, "response", RESPONDED_AT, "attributes"))
         if (Values.text(body[CREATES]) != COMMITMENT) {
             throw Finding(
                 "INVALID_TARGET",
@@ -81,7 +82,13 @@ class Acceptances(
                     throw Finding("STATE_MISMATCH", "Solo se acepta una solicitud en evaluación; esta está en ${request.state}", "record").toCodedException()
                 }
                 // la respuesta primero: AttentionWriteGuard exige response y responded_at para aplicar accept
-                records.patch(Attention.REQUEST, id, mapOf("response" to body["response"], Attention.RESPONDED_AT to body["respondedAt"]), reason)
+                // un respondedAt mal formado lo rechaza la validación de wasichai sobre responded_at: el 400 nombra la propiedad del
+                // cuerpo
+                try {
+                    records.patch(Attention.REQUEST, id, mapOf("response" to body["response"], Attention.RESPONDED_AT to body[RESPONDED_AT]), reason)
+                } catch (e: ValidationException) {
+                    throw bodyFields(e)
+                }
                 val commitment = records.create(COMMITMENT, attributes + ("project" to request.attributes["project"]), reason)
                 records.patch(Attention.REQUEST, id, mapOf(AttentionRules.CREATED_COMMITMENT to commitment.id), reason)
                 records.transition(Attention.REQUEST, id, ACCEPT, reason)
@@ -92,6 +99,16 @@ class Acceptances(
 
     companion object {
         const val CREATES = "creates"
+        const val RESPONDED_AT = "respondedAt"
+
+        // la validación de la respuesta con los nombres del cuerpo: responded_at del modelo es respondedAt (response se llama
+        // igual en los dos); el mensaje y las demás violaciones no cambian
+        fun bodyFields(e: ValidationException): ValidationException =
+            ValidationException(
+                e.message,
+                e.violations.map { if (it.field == Attention.RESPONDED_AT) FieldViolation(RESPONDED_AT, it.message) else it }
+            )
+
         const val COMMITMENT = "commitment"
         const val ACCEPT = "accept"
         const val UNDER_EVALUATION = "under_evaluation"

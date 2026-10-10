@@ -171,6 +171,25 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
     }
 
+    // un respondedAt mal formado es un 400 sobre la propiedad del cuerpo, no sobre responded_at del modelo
+    @Test
+    fun `un respondedAt mal formado responde sobre respondedAt`() {
+        val id = underEvaluation(mapOf("response" to null, "responded_at" to null))
+        val response =
+            accept(
+                id,
+                mapOf(
+                    "creates" to "commitment",
+                    "response" to "Se atenderá con un compromiso de materiales.",
+                    "respondedAt" to "ayer por la tarde",
+                    "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego") + AMOUNT
+                )
+            )
+        assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+        assertEquals(listOf("respondedAt"), problemFields(response.body))
+        assertEquals("under_evaluation", state("stakeholder_request", id))
+    }
+
     // un reenvío con la misma Idempotency-Key, con las mismas cabeceras (también el If-Match ya vencido), devuelve la
     // respuesta guardada: la solicitud no se acepta dos veces ni nace otro compromiso
     @Test
