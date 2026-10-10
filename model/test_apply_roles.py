@@ -1,4 +1,4 @@
-"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F3).
+"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F4).
 
 Desde F2, roles.json se contrasta con la matriz de security.md §7.2 a §7.8 y con los campos restringidos de §7.9, que
 lee design_docs.py.
@@ -85,14 +85,14 @@ class RolesJsonTests(unittest.TestCase):
             self.assertEqual(role["permisos"], wanted, name)
 
     def test_los_roles_de_una_fase_posterior_siguen_sin_permisos(self):
-        # la fase del modelo es la de su objeto más tardío: F3 desde el plan 3.1, así que GRIEVANCE_MANAGER,
-        # SOCIAL_RISK_MANAGER (F4) y SOCIAL_INVESTMENT_MANAGER (F5) siguen con {}
+        # la fase del modelo es la de su objeto más tardío: F4 desde el plan 4.1, así que solo SOCIAL_INVESTMENT_MANAGER
+        # (F5) sigue con {}
         phases, _ = design_docs.role_phases()
         cards = design_docs.cards()
         phase = max(cards[o["name"]].phase for o in load(MODEL_PATH)["objects"])
-        self.assertEqual(phase, "F3")
+        self.assertEqual(phase, "F4")
         later = sorted(name for name in self.roles if name != "AUDITOR" and phases[name] > phase)
-        self.assertEqual(later, ["GRIEVANCE_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "SOCIAL_RISK_MANAGER"])
+        self.assertEqual(later, ["SOCIAL_INVESTMENT_MANAGER"])
         for name in later:
             self.assertEqual(self.roles[name]["permisos"], {}, name)
 
@@ -138,15 +138,52 @@ class RolesJsonTests(unittest.TestCase):
 
     def test_los_roles_de_cada_aprobacion_son_exactamente_los_que_tienen_approve(self):
         # security.md §5.3, «Doble llave en las decisiones»: en WF-D, approve (APPROVER) y approve_senior
-        # (PROJECT_MANAGER) son las dos aprobaciones, y verify la verificación (D3, D11)
+        # (PROJECT_MANAGER) son las dos aprobaciones, y verify la verificación (D3, D11); en WF-E1, resolve_high_severity
+        # resuelve las quejas graves (RN-GRV-002), y en WF-J confirm y dismiss deciden la alerta (RN-EWS-001)
         for obj, transitions, action in (("project", ("approve",), "APPROVE"), ("area_of_influence", ("approve",), "APPROVE"),
                                          ("area_of_influence", ("supersede",), "APPROVE"),
                                          ("commitment", ("approve", "approve_senior"), "APPROVE"),
-                                         ("commitment", ("verify",), "VERIFY")):
+                                         ("commitment", ("verify",), "VERIFY"),
+                                         ("grievance", ("resolve_high_severity",), "APPROVE"),
+                                         ("early_warning", ("confirm", "dismiss"), "CONFIRM_ALERT")):
             workflow = load(os.path.join(HERE, "workflows", f"{obj}.json"))
             roles = {r for t in workflow["definition"]["transitions"] if t["name"] in transitions for r in t["roles"]}
             holders = {name for name, role in self.roles.items() if action in role["permisos"].get(obj, [])}
             self.assertEqual(roles, holders, (obj, transitions))
+
+    def test_solo_grievance_manager_lee_las_qcs_confidenciales(self):
+        # decisión 2 de F4 (ASM-095): READ_CONFIDENTIAL es una acción declarada de las tres QCS, que en roles.json solo
+        # tiene GRIEVANCE_MANAGER; quitarla aquí retira la capacidad sin tocar el código (ConfidentialAttentionScope)
+        holders = {(name, obj) for name, role in self.roles.items() for obj, grants in role["permisos"].items()
+                   if "READ_CONFIDENTIAL" in grants}
+        self.assertEqual(holders, {("GRIEVANCE_MANAGER", "grievance"), ("GRIEVANCE_MANAGER", "inquiry"),
+                                   ("GRIEVANCE_MANAGER", "stakeholder_request")})
+
+    def test_quien_cierra_un_compromiso_cierra_su_solicitud(self):
+        # workflows.md, WF-E3: RequestClosureListener aplica close_accepted como quien aplica close de WF-D, que necesita
+        # su rol en close_accepted y READ y UPDATE sobre stakeholder_request; si no, el cierre del compromiso se revierte
+        commitment = load(os.path.join(HERE, "workflows", "commitment.json"))
+        request = load(os.path.join(HERE, "workflows", "stakeholder_request.json"))
+        closers = next(set(t["roles"]) for t in commitment["definition"]["transitions"] if t["name"] == "close")
+        accepted = next(set(t["roles"]) for t in request["definition"]["transitions"] if t["name"] == "close_accepted")
+        self.assertLessEqual(closers, accepted)
+        for name in closers:
+            self.assertLessEqual({"READ", "UPDATE"}, set(self.roles[name]["permisos"]["stakeholder_request"]), name)
+
+    def test_los_roles_de_cada_comando_de_f4_crean_lo_que_el_comando_escribe(self):
+        # security.md §8.2: un endpoint de comando exige los permisos de todo lo que escribe. accept de WF-E3 crea el
+        # compromiso en draft; las reclasificaciones crean la QCS del otro tipo; assess de WF-F crea la revisión
+        writes = {("stakeholder_request", "accept"): ["commitment"],
+                  ("grievance", "close_reclassified_received"): ["inquiry", "stakeholder_request"],
+                  ("inquiry", "close_reclassified"): ["grievance", "stakeholder_request"],
+                  ("stakeholder_request", "close_reclassified_received"): ["grievance", "inquiry"],
+                  ("social_risk", "assess"): ["risk_assessment"]}
+        for (obj, name), created in writes.items():
+            workflow = load(os.path.join(HERE, "workflows", f"{obj}.json"))
+            roles = next(t["roles"] for t in workflow["definition"]["transitions"] if t["name"] == name)
+            for role in roles:
+                for target in created:
+                    self.assertIn("CREATE", self.roles[role]["permisos"].get(target, []), (obj, name, role, target))
 
     def test_quien_supera_el_tope_tiene_la_aprobacion_superior(self):
         # workflows.md, WF-D (D7): APPROVE_OVER_CAP solo sirve con una transición de aprobación; en commitment la tiene
@@ -249,8 +286,8 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("MANAGE_METADATA" in e for e in errors), errors)
 
     def test_un_objeto_que_el_modelo_no_tiene_se_rechaza(self):
-        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"grievance": ["READ"]}))
-        self.assertTrue(any("object 'grievance' is not in model.json" in e for e in errors), errors)
+        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"social_contribution": ["READ"]}))
+        self.assertTrue(any("object 'social_contribution' is not in model.json" in e for e in errors), errors)
 
     def test_una_accion_declarada_solo_vale_sobre_su_objeto(self):
         def only(permisos):
@@ -261,11 +298,11 @@ class ValidationTests(unittest.TestCase):
 
     def test_restricted_fields_nombra_objetos_campos_y_lectores_que_existen(self):
         errors = self.mutate(lambda r: r["restrictedFields"].extend([
-            {"object": "grievance", "fields": ["description"], "readers": []},
+            {"object": "social_contribution", "fields": ["description"], "readers": []},
             {"object": "person", "fields": ["nickname"], "readers": ["SOCIAL_MANAGER"]},
             {"object": "topic", "fields": ["code"], "readers": ["INTRUSO"]},
             {"object": "stakeholder", "fields": ["stance"], "readers": ["SOCIAL_MANAGER"]}]))
-        self.assertTrue(any("object 'grievance' is not in model.json" in e for e in errors), errors)
+        self.assertTrue(any("object 'social_contribution' is not in model.json" in e for e in errors), errors)
         self.assertTrue(any("'nickname' is not a field of person" in e for e in errors), errors)
         self.assertTrue(any("reader 'INTRUSO' of topic is not a declared role" in e for e in errors), errors)
         self.assertTrue(any("stakeholder.stance is listed twice" in e for e in errors), errors)
@@ -478,14 +515,14 @@ class ApplyRolesTests(ApplyRolesTestCase):
 
     def test_un_roles_json_invalido_no_llama_a_core(self):
         roles = load(ROLES_PATH)
-        roles["roles"][0]["permisos"]["grievance"] = ["READ"]
+        roles["roles"][0]["permisos"]["social_contribution"] = ["READ"]
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "roles.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(roles, f)
             code, out, err = self.run_cli(roles_path=path)
         self.assertEqual(code, 2)
-        self.assertIn("grievance", out)
+        self.assertIn("social_contribution", out)
         self.assertEqual(self.core.requests, [])
 
     def test_un_roles_json_mal_formado_sale_con_2_y_sin_traza(self):

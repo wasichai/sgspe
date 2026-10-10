@@ -1,0 +1,34 @@
+{
+  "name": "wf-f-social_risk",
+  "label": "Riesgo social",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "identified", "label": "Identificado", "type": "INITIAL" },
+      { "name": "assessed", "label": "Evaluado", "type": "INTERMEDIATE" },
+      { "name": "mitigating", "label": "En mitigación", "type": "INTERMEDIATE" },
+      { "name": "monitoring", "label": "En monitoreo", "type": "INTERMEDIATE" },
+      { "name": "closed", "label": "Cerrado", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "assess", "label": "Evaluar", "from": "identified", "to": "assessed",
+        "roles": ["SOCIAL_RISK_MANAGER"] },
+      { "name": "decide_mitigation", "label": "Decidir mitigar", "from": "assessed", "to": "mitigating",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "decide_monitoring", "label": "Decidir monitorear", "from": "assessed", "to": "monitoring",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "start_monitoring", "label": "Pasar a monitoreo", "from": "mitigating", "to": "monitoring",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "resume_mitigation", "label": "Volver a mitigar", "from": "monitoring", "to": "mitigating",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "close_identified", "label": "Cerrar", "from": "identified", "to": "closed",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "close_assessed", "label": "Cerrar", "from": "assessed", "to": "closed",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "close_mitigating", "label": "Cerrar", "from": "mitigating", "to": "closed",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "close_monitoring", "label": "Cerrar", "from": "monitoring", "to": "closed",
+        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] }
+    ]
+  }
+}
