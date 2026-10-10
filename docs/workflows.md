@@ -639,7 +639,8 @@ Tres objetos con un workflow cada uno y un reporte unificado (ASM-011, CON-033):
   `APPROVE` sobre `grievance` (`ConfidentialAttentionScope`, `security.md` §9.6). Quien no la lee tampoco la cambia ni
   la transiciona. `AttentionWriteGuard` exige que el alta de una QCS confidencial lleve `received_by_user_id` igual a
   quien escribe, salvo con `READ_CONFIDENTIAL` (`400 CONFIDENTIAL_RECEIVER_REQUIRED`), y esa acción para quitar la marca
-  o cambiar `owner_user_id` o `received_by_user_id` de una confidencial (`403 ACTION_REQUIRED`).
+  o cambiar `owner_user_id` o `received_by_user_id` de una confidencial (`403 ACTION_REQUIRED`). La reclasificación no
+  elige receptor: el registro nuevo conserva el del original, y esa alta del comando no exige que sea quien escribe.
 - **Días hábiles (ASM-096).** El acuse de una queja cuenta días hábiles con `BusinessDays` (`sgspe.common`): lunes a
   viernes menos los feriados nacionales configurados por año; la respuesta y la resolución, días calendario. El día de
   recepción no cuenta.

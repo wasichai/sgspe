@@ -107,4 +107,20 @@ object AttentionRules {
         after: Map<String, Any?>,
         writer: UUID
     ): Boolean = Attention.isConfidential(after) && Values.text(after[Attention.RECEIVER]) != writer.toString()
+
+    // el alta que hace la reclasificación (Reclassifications): el código de sgspe (`marked`, la marca SgspeWrite) con el
+    // vínculo reclassified_from_* del objeto y el receptor informados. su receptor es el del original, copiado (el comando no
+    // deja cambiarlo), no uno que elige quien llama: foreignReceiver no la juzga. sin receptor no hay exención, y por la API
+    // genérica, sin la marca, un reclassified_from_* no exime
+    fun receiverCopied(
+        objectName: String,
+        after: Map<String, Any?>,
+        marked: Boolean
+    ): Boolean =
+        marked &&
+            Values.text(after[Attention.RECEIVER]) != null &&
+            Attention.RECLASSIFIED_FROM[objectName]
+                .orEmpty()
+                .keys
+                .any { Values.text(after[it]) != null }
 }

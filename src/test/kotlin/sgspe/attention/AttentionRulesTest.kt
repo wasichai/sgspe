@@ -106,6 +106,28 @@ class AttentionRulesTest {
         assertEquals(false, AttentionRules.foreignReceiver(mapOf("confidential" to false), writer))
     }
 
+    // la reclasificación copia el receptor del original: es una copia del sistema (la marca SgspeWrite de Records) con el
+    // vínculo reclassified_from_* informado, no un receptor elegido por quien llama; sin la marca o sin el vínculo, no
+    @Test
+    fun `el receptor copiado por la reclasificacion no es un receptor ajeno`() {
+        val copy = mapOf("confidential" to true, "received_by_user_id" to UUID.randomUUID().toString())
+        assertTrue(AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_grievance" to id.toString()), marked = true))
+        assertTrue(AttentionRules.receiverCopied("grievance", copy + ("reclassified_from_request" to id.toString()), marked = true))
+        assertEquals(false, AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_grievance" to id.toString()), marked = false))
+        assertEquals(false, AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_grievance" to null), marked = true))
+        // sin receptor no hay copia que respetar
+        assertEquals(
+            false,
+            AttentionRules.receiverCopied(
+                "inquiry",
+                copy + mapOf("received_by_user_id" to null, "reclassified_from_grievance" to id.toString()),
+                marked = true
+            )
+        )
+        // el vínculo de otro objeto no cuenta: una consulta no se reclasifica desde otra consulta
+        assertEquals(false, AttentionRules.receiverCopied("inquiry", copy + ("reclassified_from_inquiry" to id.toString()), marked = true))
+    }
+
     // las tablas nombran transiciones por texto: si el modelo renombra una, la regla dejaría de vigilarla en silencio
     @Test
     fun `cada transicion de las reglas existe en su workflow`() {

@@ -192,19 +192,39 @@ class WorkflowMatrixApiTest : F4ApiTest() {
     }
 
     // una transición como la aplica el portal: accept de WF-K por su comando, que crea el compromiso en draft con los valores
-    // que revisa la persona (CommandTransitionGuard rechaza la API genérica); las demás, por la API genérica
+    // que revisa la persona (CommandTransitionGuard rechaza la API genérica); las reclasificaciones de F4 por el suyo, cuando el
+    // registro está en su estado de origen (fuera de él, el comando elegiría la transición de otro estado: la API genérica
+    // responde 409 antes de las guardas); las demás, por la API genérica
     private fun perform(
         workflow: Workflow,
         id: String,
         rule: Transition,
         who: Account
     ): Response {
+        if (rule.name.startsWith("close_reclassified") && state(workflow.objectName, id) == rule.from) return reclassify(workflow, id, who)
         if (workflow.key(rule) != "commitment_candidate.accept") return transition(workflow.objectName, id, rule.name, who.token, TEXT)
         val reviewed = mapOf("code" to uniqueName("COM-"), "title" to "Mejora del canal de riego", "amount" to 15000, "currency" to "PEN")
         return exchange(
             "POST",
             "/api/sgspe/commitment-candidates/$id/accept",
             mapOf("attributes" to reviewed),
+            who.token,
+            ifMatch(workflow.objectName, id, who.token) + withReason(TEXT)
+        )
+    }
+
+    // la reclasificación de una QCS a otro tipo (POST /api/sgspe/{tipo}/{id}/reclassify), con el código que pide el registro nuevo
+    private fun reclassify(
+        workflow: Workflow,
+        id: String,
+        who: Account
+    ): Response {
+        val target = if (workflow.objectName == "inquiry") "stakeholder_request" else "inquiry"
+        val path = mapOf("grievance" to "grievances", "inquiry" to "inquiries", "stakeholder_request" to "stakeholder-requests").getValue(workflow.objectName)
+        return exchange(
+            "POST",
+            "/api/sgspe/$path/$id/reclassify",
+            mapOf("targetType" to target, "attributes" to mapOf("code" to uniqueName("RC-"))),
             who.token,
             ifMatch(workflow.objectName, id, who.token) + withReason(TEXT)
         )
@@ -398,25 +418,20 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest.
         // las de F3 ya no se difieren (plan 3.2): approve_direct corre en un proyecto sin aprobación interna, prepare registra la
         // entrega que pide register_fulfillment y perform aplica accept por su comando. las de F4 que llegan con sus comandos
-        // (CommandTransitionGuard, planes 4.2a y 4.2b) y lo que solo se alcanza por ellos: las reclasificaciones de WF-E1,
-        // WF-E2 y WF-E3, accept y close_accepted de WF-E3 (y close_unfulfilled, que sale de `accepted`), y assess de WF-F
-        // (y todo lo que sale de `assessed`, `mitigating` y `monitoring`); sus casos los escriben GrievanceWorkflowApiTest,
-        // InquiryWorkflowApiTest, StakeholderRequestWorkflowApiTest y SocialRiskWorkflowApiTest, que también los quitan de aquí
+        // (CommandTransitionGuard, planes 4.2a y 4.2b) y lo que solo se alcanza por ellos: accept y close_accepted de WF-E3 (y
+        // close_unfulfilled, que sale de `accepted`), y assess de WF-F (y todo lo que sale de `assessed`, `mitigating` y
+        // `monitoring`); sus casos los escriben StakeholderRequestWorkflowApiTest y SocialRiskWorkflowApiTest, que también los
+        // quitan de aquí. las reclasificaciones de WF-E1, WF-E2 y WF-E3 ya no se difieren (plan 4.2a): perform las aplica por
+        // su comando
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
                 "area_of_influence.supersede",
-                "grievance.close_reclassified_received",
-                "grievance.close_reclassified_acknowledged",
-                "grievance.close_reclassified_in_assessment",
-                "inquiry.close_reclassified",
                 "stakeholder_request.accept",
                 "stakeholder_request.close_accepted",
                 "stakeholder_request.close_unfulfilled",
-                "stakeholder_request.close_reclassified_received",
-                "stakeholder_request.close_reclassified_under_evaluation",
                 "social_risk.assess",
                 "social_risk.decide_mitigation",
                 "social_risk.decide_monitoring",

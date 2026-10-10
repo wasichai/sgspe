@@ -8,7 +8,8 @@ import wasichai.core.data.RecordWrite
 
 // las transiciones de comando solo llegan desde su endpoint, que escribe varios registros en una transacción y lleva la
 // marca SgspeWrite (workflows.md, «Transiciones de comando»). por la API genérica de workflow, sin la marca: 403, como la
-// puerta cerrada de un objeto apiOnly. las de F3 y F4 las agregan sus fases a COMMANDS
+// puerta cerrada de un objeto apiOnly. las de F3 y F4 las agregan sus fases a COMMANDS (assess de WF-F, con su endpoint, en el
+// plan 4.2b)
 @Component
 @Order(GuardOrder.COMMAND)
 class CommandTransitionGuard : RuleGuard() {
@@ -37,7 +38,20 @@ class CommandTransitionGuard : RuleGuard() {
                         "approve" to "POST /api/sgspe/areas-of-influence/{id}/approve",
                         "supersede" to "POST /api/sgspe/areas-of-influence/{id}/approve"
                     ),
-                "commitment_candidate" to mapOf("accept" to "POST /api/sgspe/commitment-candidates/{id}/accept")
+                "commitment_candidate" to mapOf("accept" to "POST /api/sgspe/commitment-candidates/{id}/accept"),
+                // F4: las reclasificaciones de WF-E1, WF-E2 y WF-E3 (plan 4.2a)
+                "grievance" to
+                    mapOf(
+                        "close_reclassified_received" to "POST /api/sgspe/grievances/{id}/reclassify",
+                        "close_reclassified_acknowledged" to "POST /api/sgspe/grievances/{id}/reclassify",
+                        "close_reclassified_in_assessment" to "POST /api/sgspe/grievances/{id}/reclassify"
+                    ),
+                "inquiry" to mapOf("close_reclassified" to "POST /api/sgspe/inquiries/{id}/reclassify"),
+                "stakeholder_request" to
+                    mapOf(
+                        "close_reclassified_received" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify",
+                        "close_reclassified_under_evaluation" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify"
+                    )
             )
     }
 }
