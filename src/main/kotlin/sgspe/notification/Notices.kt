@@ -98,6 +98,12 @@ object NoticeTexts {
         id: String
     ): String = Values.text(project["name"]) ?: Values.text(project["code"]) ?: id
 
+    // F4: un riesgo cuya revisión sube su nivel a ALTO o CRITICO (RiskNoticeListener). `label` es «Riesgo <código>»
+    fun riskEscalated(
+        label: String,
+        level: String
+    ): Pair<String, String> = "Riesgo escalado a $level: $label" to "La última revisión dejó el riesgo en nivel $level: decida su tratamiento."
+
     fun taskOverdue(
         label: String,
         due: LocalDate,
@@ -159,6 +165,9 @@ class Notices(
         const val WARNINGS = "sgspe.warnings"
         const val APPROVALS = "sgspe.approvals"
         const val DEADLINES = "sgspe.deadlines"
+
+        // F4: los avisos de nivel de riesgo (RiskNoticeListener)
+        const val RISKS = "sgspe.risks"
 
         // el borrador de un aviso a personas concretas, con su enlace al registro (la bandeja lo quita a quien no lee el objeto)
         fun draft(
