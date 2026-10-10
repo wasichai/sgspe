@@ -1043,6 +1043,11 @@ stateDiagram-v2
 - **Origen de las alertas:** las crea en `detected` `WarningRulesJob` (JOB-04, con los «Tipos de regla de JOB-04») o una
   persona. `ai_detected` indica que la señal la detectó la IA, pero la IA no escribe la alerta ni aplica transiciones:
   la registra una persona (RQ-AI-001, RQ-AI-003). Ningún tipo de sugerencia de IA crea alertas.
+- **Campos de la plataforma:** `early_warning_rule`, `detected_at` y `generator_key` solo los escribe la plataforma
+  (`GeneratorKeyGuard`): una persona que los fija, cambia o vacía, también con un `PUT` que los omite, recibe `403
+  PLATFORM_ONLY` (`GENERATOR_KEY_PLATFORM_ONLY` en la clave), y reenviarlos tal como se leyeron pasa. Una alerta manual
+  nace sin regla y SGSPE le pone `detected_at` con la hora de su alta (`WarningDetectedAt`, como quien la crea y con la
+  marca): así nadie silencia una regla de JOB-04 ni la libera de `HAS_DEPENDENTS` con una alerta propia.
 - **Decisión humana (RN-EWS-001):** `WarningWriteGuard` rechaza `confirm` y `dismiss` sin usuario (plataforma o automatización)
   o con una cuenta de servicio, aunque tenga el rol. `WorkflowService` ya exige un usuario; la guarda cierra el paso a las
   cuentas de servicio (RQ-SEC-014) [WAS-ADR-0043]. Como doble llave, la guarda exige además la acción declarada
@@ -1411,6 +1416,11 @@ Reglas de SGSPE:
 | AUT-11 | `aut-11-critical-risk-task` | `social_risk` | `RECORD_UPDATED` | `risk_level` `CHANGED`; `risk_level` `EQUALS` CRITICO | `CREATE_RECORD` `task`: "Revisar el riesgo crítico {{code}}", `social_risk` = `{{id}}`, `project` = `{{project}}`, responsable `{{owner_user_id}}` y `{{owner_user_email}}` (exigido en `assess`) | F4 | RF-RSK-003 |
 | AUT-12 | `aut-12-issue-certificate` (opcional, por configuración) | `deliverable` | `STATE_ENTERED` `issued` | — | `GENERATE_DOCUMENT` tipo «Constancia»: constancia de emisión con correlativo y entrada `ISSUE` en el historial | F8 | RQ-REP-029 [WAS-ADR-0023] |
 
+AUT-11 es la primera automatización condicionada a un campo derivado. El `PUT` de wasichai deja vacío lo que el cuerpo
+no trae y `DerivedFieldsKeeper` repone los derivados; esa reposición no es un cambio para las automatizaciones
+(`RestoreAwareAutomationDispatcher` no evalúa su eco), así que un `PUT` de un riesgo ya CRITICO no crea otra tarea
+(ronda branchfix de 4.2b).
+
 Los tipos de documento («Acta de entrega», «Minuta de reunión»…) son los del catálogo "Tipo de documento administrativo" de
 §10 del análisis. Se versionan en `model/document-types/<objeto>.json` (una lista con los tipos del objeto: `name`,
 `label`, `prefix` y `template`, el árbol de nodos del editor de wasichai-documents) y `apply.py --workflows` los aplica
@@ -1493,7 +1503,7 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 
 | ID | Trabajo (paquete) | Frecuencia | Qué escribe | Qué nunca hace | Fuente | Fase |
 |---|---|---|---|---|---|---|
-| JOB-01 | `DeadlineJob` (`sgspe.deadline`) | Cada hora (ASM-006) | `deadline_status` de `commitment`, QCS y `task`; `validity_status` de `agreement`; `review_status` de `social_risk`, y `next_review_date` si cambia su cadencia (`review_every_days` o, sin ella, `risk_review_days` del proyecto); tareas de escalamiento (`escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`, de compromisos y, desde F4, de quejas y consultas, sin asignado ni fecha; la del nivel 2 de una QCS confidencial, `escalation:<objeto>:<huella>:<fecha del plazo>:2`, con título y descripción genéricos y vinculada solo al proyecto) y, desde F4, de revisión de riesgos (`risk_review:<id>:<next_review_date>`, asignada al responsable del riesgo, con fecha `next_review_date` y título «Revisar el riesgo <código>», al pasar a POR REVISAR o REVISION VENCIDA, ASM-099); los avisos de plazo los publica `DeadlineNotices`, una fuente de wasichai-notifications que lee lo que este trabajo escribe, así que llegan a lo sumo una hora después | Cambiar `workflow_state`: un compromiso vencido sigue en `in_progress` o en `blocked` | RN-WFL-001, RF-WFL-004, RN-RSK-001, ASM-006, ASM-030, ASM-070 | F3 (compromisos, acuerdos, tareas), F4 (QCS, riesgos) |
+| JOB-01 | `DeadlineJob` (`sgspe.deadline`) | Cada hora (ASM-006) | `deadline_status` de `commitment`, QCS y `task`; `validity_status` de `agreement`; `review_status` de `social_risk`, y `next_review_date` si cambia su cadencia (`review_every_days` o, sin ella, `risk_review_days` del proyecto); tareas de escalamiento (`escalation:<objeto>:<id>:<fecha del plazo>:<nivel>`, de compromisos y, desde F4, de quejas y consultas, sin asignado ni fecha; la del nivel 2 de una QCS confidencial, `escalation:<objeto>:<huella>:<fecha del plazo>:2`, con título y descripción genéricos y vinculada solo al proyecto) y, desde F4, de revisión de riesgos (`risk_review:<id>:<next_review_date>`, asignada al responsable del riesgo, con fecha `next_review_date` y título «Revisar el riesgo <código>», al pasar a POR REVISAR o REVISION VENCIDA, ASM-099; no escala como tarea vencida, porque la revisión vencida ya avisa por `risk_escalated`, y la revisión registrada la deja hecha); los avisos de plazo los publica `DeadlineNotices`, una fuente de wasichai-notifications que lee lo que este trabajo escribe, así que llegan a lo sumo una hora después | Cambiar `workflow_state`: un compromiso vencido sigue en `in_progress` o en `blocked` | RN-WFL-001, RF-WFL-004, RN-RSK-001, ASM-006, ASM-030, ASM-070 | F3 (compromisos, acuerdos, tareas), F4 (QCS, riesgos) |
 | JOB-02 | `DerivedFieldsJob` (`sgspe.common`) | Cada hora sobre los registros fuente cambiados desde la corrida anterior (por `updated_at`) y una vez al día sobre todos | Los campos derivados de §7.4 del modelo de dominio que mantienen listeners o que no tienen otro escritor: `executed_social_amount`, `other_currency_items_count`, `calculated_area_ha`, conteos de asistentes, `formalized`, `requires_senior_approval` (los vínculos de solicitantes no llegan a los listeners: la vuelta diaria los recoge), `total_amount`, `total_budget` y los plazos de QCS que falten | Escribir campos no derivados | Modelo de dominio §7.4, §7.5 | F2 |
 | JOB-03 | `StakeholderFollowUpJob` (`sgspe.stakeholder`) | Una vez al día, configurable (ASM-022): sus parámetros se miden en días | `last_contact_date`; la regla de primer contacto de `relationship_status` (SIN CONTACTO → CONTACTO ESTABLECIDO); desde F3, tareas de evaluación periódica (`stakeholder_review_days`, clave `stakeholder_review:<id>:<fecha>`) y de inactividad (`inactivity_days`, clave `stakeholder_inactivity:<id>:<fecha de referencia>`, la del último contacto o, sin contacto, la del alta) | Mover WF-B o cambiar `relationship_status` fuera de la regla de primer contacto | RF-STK-010, RF-STK-014, ASM-022, ASM-032 | F2 |
 | JOB-04 | `WarningRulesJob` (`sgspe.warning`) | Cada hora, configurable (ASM-006), como los plazos, para que una alerta no espere un día | `early_warning` en `detected` cuando una regla habilitada alcanza su umbral (`threshold`) en su ventana (`window_days`), según «Tipos de regla de JOB-04»: por proyecto en `active` o `suspended`, con las reglas del proyecto y, de cada tipo que el proyecto no tiene, las del tenant; sin otra alerta si hay una abierta (fuera de `dismissed` y `closed`) de la misma regla y proyecto (y riesgo, en NIVEL DE RIESGO) o una detectada (`detected_at`) dentro de la ventana de `window_days` días; con `generator_key` `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, único, y el motivo `alerta por regla (JOB-04 WarningRulesJob)` | Confirmar o descartar una alerta (RN-EWS-001); aplicar transiciones; escribir datos personales, texto libre de otros registros o valores de campos restringidos | RF-EWS-004, ASM-097 | F4 |
@@ -1523,7 +1533,10 @@ en curso todavía no tienen un registro que los apunte.
 5. la alerta nace en `detected` con `title` «<nombre de la regla>: <tipo>», `trigger_description` con el conteo, el
    umbral y la ventana, `severity` de la regla (MEDIO si está vacía), `detected_at` ahora, `early_warning_rule`,
    `project`, `ai_detected` falso y `generator_key` `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, cuyo
-   único frena una carrera entre réplicas, como en las tareas de los trabajos;
+   único frena una carrera entre réplicas, como en las tareas de los trabajos. `early_warning_rule`, `detected_at` y
+   `generator_key` solo los escribe la plataforma (`GeneratorKeyGuard`, `403 PLATFORM_ONLY` y
+   `GENERATOR_KEY_PLATFORM_ONLY`): el silencio y la protección de una regla con alertas confían en ellos, y una alerta
+   manual nace sin regla y con la hora de su alta, que pone SGSPE;
 6. una regla que falla en un proyecto se registra y no detiene a las demás reglas ni a los demás proyectos; al final de
    la vuelta, la organización se marca fallida.
 
@@ -1612,7 +1625,7 @@ prefijo de la clave de cada aviso.
 | Plazo de QCS próximo a incumplirse (queja: RF-NTF-001; consulta: RF-WFL-004) | `qcs_deadline` | `DeadlineNotices` | `deadline_status` de una queja o una consulta en POR VENCER o en VENCIDO (nivel 0: acuse, respuesta o resolución); luego, los niveles 1 y 2 de atraso | Nivel 0: el responsable o, sin responsable, los roles de la transición que sigue; nivel 1: los de `verify` de WF-E1; nivel 2: los de `approve_senior` de WF-D, porque WF-E no tiene aprobación superior; en una QCS confidencial, solo los que la verían (ASM-102). Una tarea de escalamiento en los niveles 1 y 2 | `qcs_deadline:<objeto>:<id>:<fecha del plazo>:<POR VENCER o nivel>`; se resuelve cuando la situación deja de ser cierta |
 | Riesgo escalado por nivel (RF-NTF-001) | `risk_escalated` | `RiskNoticeListener` (F4) | Una revisión no residual sube `risk_level` a ALTO o CRITICO (de un nivel menor, o de ALTO a CRITICO) | El responsable del riesgo y los roles de la transición de tratamiento que sigue | `risk_escalated:<id>:<nivel de riesgo>:<assessment_date>`; se resuelve con la revisión siguiente o el cierre del riesgo |
 | Riesgo con revisión vencida (RF-NTF-001, RF-WFL-004) | `risk_escalated` | `DeadlineNotices` (F4) | `review_status` REVISION VENCIDA (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0, el responsable; nivel 1, los roles de la transición de tratamiento que sigue; nivel 2, los de `approve_senior` de WF-D | `risk_escalated:<id>:<nivel>:<next_review_date>`; se resuelve con la revisión que mueve `next_review_date` |
-| Tarea vencida (RF-NTF-001) | `task_overdue` | `DeadlineNotices` | `deadline_status` de una tarea pasa a VENCIDO (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0: el asignado; nivel 1, o una tarea sin asignado: los roles de la transición de verificación o de revisión del registro vinculado; nivel 2: los de `approve_senior` de WF-D. Sin asignado ni registro vinculado, nadie hasta el nivel 2 (ASM-094) | `task_overdue:<id>:<due_date>:<nivel>`, como el compromiso |
+| Tarea vencida (RF-NTF-001) | `task_overdue` | `DeadlineNotices` | `deadline_status` de una tarea pasa a VENCIDO (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0: el asignado; nivel 1, o una tarea sin asignado: los roles de la transición de verificación o de revisión del registro vinculado; nivel 2: los de `approve_senior` de WF-D. Sin asignado ni registro vinculado, nadie hasta el nivel 2 (ASM-094). La tarea de revisión de un riesgo (`risk_review:*`) no entra: su atraso avisa por `risk_escalated` | `task_overdue:<id>:<due_date>:<nivel>`, como el compromiso |
 | Alerta nueva (RF-NTF-001) | `warning_new` | `WarningNoticeListener` (F4) | Alta de `early_warning`, también la que crea JOB-04 como la plataforma | El responsable de la alerta, si lo tiene, y los roles de `start_triage` | `warning_new:<id>`; se resuelve con `start_triage` |
 | QCS confidencial en el nivel 2 (RF-WFL-004) | `qcs_confidential_overdue` | `DeadlineNotices` (F4) | Nivel 2 de `qcs_deadline` de una QCS confidencial | Los asignados con un rol de `approve_senior` de WF-D que no la verían (los que sí la ven reciben `qcs_deadline`) (ASM-102) | `qcs_confidential_overdue:<proyecto>:<huella>`, donde `<huella>` son los 16 primeros dígitos hexadecimales del SHA-256 de `<objeto>:<id>:<fecha del plazo>`: un aviso por QCS y plazo sin su id, tipo ni fecha; se resuelve cuando la QCS deja el nivel 2 o el estado con plazo |
 
@@ -1705,7 +1718,6 @@ dominio §7.2):
 | `commitment` | `verify` (WF-D) | `COMMITMENT_MANAGER`, `SOCIAL_MANAGER` |
 | `grievance`, `inquiry` | `verify` (WF-E1) | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` |
 | `stakeholder_request` | `start_evaluation` (WF-E3) | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` |
-| `social_risk` | `decide_mitigation` (WF-F) | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` |
 | `early_warning` | `confirm` (WF-J) | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` |
 | `engagement` | `approve_minutes` (WF-C) | `SOCIAL_MANAGER` |
 | `agreement` | `activate` (WF-I) | `SOCIAL_MANAGER`, `PROJECT_MANAGER` |
@@ -1751,7 +1763,7 @@ la columna "Se calcula en" y los deja vacíos en los demás, así VENCIDO siempr
 | `stakeholder_request` | `deadline_status` | Ninguna en el MVP: `response_due_date` y `deadline_status` quedan vacíos mientras GAP-005 no fije un plazo de solicitudes (ASM-100) | Ninguno | Todos | — | — |
 | `task` | `deadline_status` | `due_date` | `open`, `in_progress`, `blocked` | `done`, `cancelled` | `due_soon_days`, `escalation_first_days`, `escalation_second_days` | Nivel 1: roles de la transición de verificación o de revisión del registro vinculado; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |
 | `agreement` | `validity_status` | `expiry_date` | `active`, `suspended` | `draft`, `in_negotiation`, `concluded`, `terminated`, `cancelled` | `due_soon_days`, como umbral de POR VENCER | — |
-| `social_risk` | `review_status` | `next_review_date` | `assessed`, `mitigating`, `monitoring` | `identified`, `closed` | `risk_review_days` (RN-RSK-001), `escalation_first_days`, `escalation_second_days` | Tarea de revisión `risk_review:<id>:<next_review_date>` para el responsable, con fecha `next_review_date` (ASM-099), y aviso de riesgo escalado; nivel 1: roles de la transición de tratamiento que sigue; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |
+| `social_risk` | `review_status` | `next_review_date` | `assessed`, `mitigating`, `monitoring` | `identified`, `closed` | `risk_review_days` (RN-RSK-001), `escalation_first_days`, `escalation_second_days` | Tarea de revisión `risk_review:<id>:<next_review_date>` para el responsable, con fecha `next_review_date` (ASM-099), que no escala como tarea vencida y que la revisión registrada deja hecha, y aviso de riesgo escalado; nivel 1: roles de la transición de tratamiento que sigue; nivel 2: roles de `approve_senior` de WF-D (ASM-030, ASM-070) |
 
 ## Pruebas
 
@@ -1827,7 +1839,9 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
   regla; una regla del tenant crea una alerta por proyecto; ningún texto de la alerta lleva datos personales ni valores
   restringidos; la alerta creada por JOB-04 dispara AUT-09 y `warning_new`.
 - **Revisiones de riesgo (ASM-099):** JOB-01 crea una sola tarea `risk_review:<id>:<next_review_date>` por fecha,
-  asignada al responsable; la escritura de `risk_level` del endpoint de revisiones dispara AUT-11.
+  asignada al responsable; la revisión siguiente la deja hecha y, vencida, no suma `task_overdue` a `risk_escalated`;
+  la escritura de `risk_level` del endpoint de revisiones dispara AUT-11, y un `PUT` que omite los derivados de un
+  riesgo ya CRITICO no la vuelve a disparar (la reposición de `DerivedFieldsKeeper` no es un cambio).
 - **Listeners:** un fallo de `CommitmentDerivationsListener`, también en `reopen_execution`, o de
   `RequestClosureListener` revierte la transición; un aviso mal formado de `ApprovalNoticeListener` no aborta la
   transición; un alta por la API genérica con un listener de derivados que falla queda guardada y JOB-02 la corrige.

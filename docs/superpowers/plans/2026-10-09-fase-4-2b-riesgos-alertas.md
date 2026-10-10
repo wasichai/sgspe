@@ -149,6 +149,9 @@ tarea dueña del código:
 | 16 | `social_risk.review_every_days` no tenía rango, y `RiskLevels.cadence` caía en silencio a `risk_review_days` con un valor menor que 1 | Decisión del usuario (2026-10-09): `RiskWriteGuard` rechaza con `400 OUT_OF_RANGE` sobre `review_every_days` un valor que no sea un entero de 1 a 365, en el alta y en todo cambio de su valor, como la cadencia del proyecto (`ProjectParameters`); vacío sigue valiendo `risk_review_days` del proyecto, y un valor que la escritura no cambia no se juzga. `RiskLevels.cadence` ya no cae en silencio: usa el valor guardado o, vacío, el del proyecto. La ficha de `database-model.md` lo dice desde el plan 4.0 y `api.md` §3.3 en la Tarea 16 (Tareas 1, 2 y 4) |
 | 17 | KPI-ENG-06 cuenta grupos de interés de las reuniones de monitoreo, y una interacción los vincula de más de una forma | Decisión del usuario (2026-10-09): en el MVP los cuenta por el vínculo `engagement_stakeholder` de cada interacción (`DashboardData.stakeholdersOf`) (Tarea 13) |
 | 18 | Una regla de alerta del tenant (sin `project`) no dice en qué proyectos se evalúa | Decisión del usuario (2026-10-09): alerta en cada proyecto `active` o `suspended` que no tenga una regla propia del mismo tipo, con su propia alerta y su propio silencio (`WarningRulesJob.ACTIVE`) (Tarea 12) |
+| 19 | Revisión de toda la rama, I-1: la tarea `risk_review` de JOB-01 lleva fecha y entraba en la cadena de «tarea vencida»: duplicaba `risk_escalated` en cada nivel y seguía escalando después de la revisión | Decisión del usuario (R-I1, ronda branchfix): `TASK_REFERENCE` ya no lleva `social_risk` y `DeadlineNotices` salta las tareas `risk_review:*` (`DeadlineNoticePlan.escalatesAsTask`), así que la revisión vencida avisa solo por `risk_escalated`; `early_warning → confirm` se queda (la tarea de AUT-09 nace sin fecha). El endpoint de revisiones deja hechas, en su transacción y como quien revisa, las tareas de revisión abiertas del riesgo (`RiskReviewTasks`) |
+| 20 | Revisión de toda la rama, I-2: un `PUT` de un riesgo CRITICO deja vacío `risk_level`, `DerivedFieldsKeeper` lo repone y ese vacío → CRITICO disparaba AUT-11 otra vez | Decisión del usuario (R-I2, ronda branchfix): reponer un derivado igual al guardado no es un cambio. La reposición corre con `DerivedRestore`, y `RestoreAwareAutomationDispatcher`, que reemplaza al despachador de la autoconfiguración de wasichai-automation (`@ConditionalOnMissingBean`), no evalúa su eco; AUT-11 sigue en el modelo y el contrato no cambia |
+| 21 | Revisión de toda la rama, I-3: `early_warning.early_warning_rule` y `detected_at` se escribían por la API genérica, y el silencio de JOB-04 y `PRESERVED` confían en ellos | Decisión del usuario (R-I3, ronda branchfix): son de la plataforma, como `generator_key`: `403 PLATFORM_ONLY` sobre el campo (también con un `PUT` que los omite; reenviarlos tal como se leyeron pasa), con la tabla `PlatformOnlyFields` de `GeneratorKeyGuard`. `detected_at` deja de ser obligatorio en el modelo y `WarningDetectedAt` le pone la hora del alta a una alerta manual, como quien la crea y con la marca |
 
 ## Lo que este plan toma de los planes 4.0, 4.1 y 4.2a
 
@@ -190,13 +193,17 @@ Lo que el portal consume de este plan, además de lo de 4.2a (contrato completo 
   HUMAN_DECISION_REQUIRED` y `403 ACTION_REQUIRED` (`record`), `400 REASON_REQUIRED` en `dismiss`; de WF-M: `400
   FIELD_REQUIRED` (`immediate_response`, `consequences`). Todas en la consulta en seco.
 - Reglas de alerta: `400 OUT_OF_RANGE` (`threshold`, `window_days`); borrar una con alertas: `409 HAS_DEPENDENTS`
-  (`early_warning.early_warning_rule`). `early_warning.generator_key` por la API: `403 GENERATOR_KEY_PLATFORM_ONLY`.
+  (`early_warning.early_warning_rule`). `early_warning.generator_key` por la API: `403 GENERATOR_KEY_PLATFORM_ONLY`;
+  `early_warning.early_warning_rule` y `detected_at`: `403 PLATFORM_ONLY` sobre el campo si una persona los fija,
+  cambia o vacía, también con un `PUT` que los omite (decisión 21). El formulario de alertas no los ofrece y reenvía en
+  el `PUT` lo que leyó; una alerta manual nace sin regla y con la hora de su alta.
 - Cadencia propia de un riesgo: `400 OUT_OF_RANGE` (`review_every_days`) si no es un entero de 1 a 365, al crear o al
   cambiarla por la API genérica; vacía vale `risk_review_days` del proyecto (decisión 16).
 - Avisos en la bandeja: `risk_escalated:<riesgo>:<nivel>:<fecha>` (fuente `sgspe.risks`, `ACTION`, enlace al riesgo);
   `risk_escalated:<riesgo>:<0|1|2>:<next_review_date>` (fuente `sgspe.deadlines`); `warning_new:<alerta>` (fuente
   `sgspe.warnings`, `ACTION`, enlace a la alerta). Tareas: `risk_review:<riesgo>:<fecha>` (asignada al responsable, con
-  fecha) y las de AUT-09 y AUT-11.
+  fecha; vencida no suma `task_overdue`, y la revisión siguiente la deja hecha, decisión 19) y las de AUT-09 y AUT-11
+  (un `PUT` de un riesgo ya CRITICO no crea otra, decisión 20).
 - `GET /api/sgspe/dashboards/risks` → los cinco KPI-RSK en el orden de `dashboards.md` §5.8 (02, 01, 03, 04, 05), sin
   `confidentialHidden`. Formas: KPI-RSK-02 con los desgloses `matrix` y `residual` (25 filas `{ key: "P-I", probability,
   impact, value, level? }`, `level` solo con un proyecto) y `assessment` (`SIN EVALUAR`); KPI-RSK-03 con `locality`,
