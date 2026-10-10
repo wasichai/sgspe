@@ -1748,7 +1748,9 @@ externa por túnel, porque Docker es remoto.
 - ningún objeto con workflow es `appendOnly`;
 - las transiciones que nombran las guardas, los listeners y los endpoints existen (por ejemplo, `close_accepted` y `issue`);
 - las automatizaciones nombran estados y transiciones que existen, sus `CREATE_RECORD` apuntan a objetos que existen y ninguna
-  escribe un campo derivado; una tarea que crea lleva su proyecto y un solo origen;
+  escribe un campo derivado; una tarea que crea lleva su proyecto y un solo origen; desde F4, cada condición compara su
+  campo con un valor que el campo admite (una opción de su ENUM, `true` o `false`, un número o un estado del workflow),
+  porque wasichai compara el texto tal cual y una automatización con otro valor se saltaría siempre (`apply.py`);
 - las automatizaciones y los tipos de documento son los de la tabla de su fase, salvo los que esperan una brecha («F3,
   tras UPS-23» o «F4, tras UPS-23»), y ningún tipo de documento se declara sobre un objeto con campos restringidos ni
   nombra una tabla relacionada de uno (`security.md` §11.4);
