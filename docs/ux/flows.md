@@ -189,7 +189,8 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 | 6 | S36 | `acknowledge` (motivo) | Mientras UPS-23 siga abierta, AUT-06 no emite el cargo: se imprime fuera de SGSPE y, firmado, se sube con "Subir cargo firmado" como evidencia FORMULARIO (ASM-098); `deadline_status` pasa a medir la resolución |
 | 7 | S36 | `assess` (motivo): categoría, severidad y riesgo que alimenta | M2O `social_risk`; si se repite un patrón, se abre un riesgo (flujo 14) |
 
-- **Resultado:** queja `in_assessment`, con su cargo firmado como evidencia, su riesgo vinculado y su plazo de resolución corriendo.
+- **Resultado:** queja `in_assessment`, con su cargo firmado como evidencia, su riesgo vinculado y su plazo de
+  resolución corriendo.
 - **Variantes:** si resulta ser una consulta o una solicitud, `POST /api/sgspe/grievances/{id}/reclassify` crea el registro
   nuevo con la misma fecha de recepción (ASM-072); el desistimiento y el rechazo cierran con motivo.
 
