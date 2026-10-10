@@ -91,6 +91,19 @@ class CrossGuardsTest {
     }
 
     @Test
+    fun `una tarea sin origen solo pasa con la clave del escalamiento confidencial`() {
+        val group = ExactlyOneGuard.GROUPS.getValue("task").single()
+        val key = "escalation:grievance:0123456789abcdef:2026-10-13:2"
+        assertNull(ExactlyOneGuard.violation("task", group, mapOf("project" to "p-1", "generator_key" to key)))
+        assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("generator_key" to "escalation:grievance:g-1:2026-10-13:2"))?.code)
+        assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("project" to "p-1"))?.code)
+        assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("task", group, mapOf("generator_key" to key, "grievance" to "g-1", "inquiry" to "c-1"))?.code)
+        assertNull(ExactlyOneGuard.violation("task", group, mapOf("generator_key" to key, "grievance" to "g-1")))
+        // la excepción es solo de task
+        assertEquals("EXACTLY_ONE", ExactlyOneGuard.violation("delivery", listOf("commitment"), mapOf("generator_key" to key))?.code)
+    }
+
+    @Test
     fun `un hallazgo se vuelve la excepcion de su estado con el codigo en errors 0`() {
         val bad = Finding("X", "m", "f", status = HttpStatus.BAD_REQUEST).toCodedException()
         assertEquals(400, bad.status.value())

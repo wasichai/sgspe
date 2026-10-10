@@ -2,6 +2,7 @@ package sgspe.notification
 
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import sgspe.common.Values
 import wasichai.notifications.Audience
 import wasichai.notifications.NotificationDraft
 import wasichai.notifications.NotificationKind
@@ -43,6 +44,40 @@ object NoticeTexts {
         } else {
             "Compromiso vencido, escalamiento $level: $label" to "Venció el ${due.format(DATE)} y sigue abierto: revise con su responsable."
         }
+
+    // F4: el plazo de una QCS (ASM-100, ASM-102). `label` es «Queja <código>» o «Consulta <código>»: el tipo y el código, nunca
+    // la descripción, la persona ni otro texto libre
+    fun qcsDueSoon(
+        label: String,
+        due: LocalDate
+    ): Pair<String, String> = "Plazo por vencer: $label" to "Vence el ${due.format(DATE)}."
+
+    fun qcsOverdue(
+        label: String,
+        due: LocalDate,
+        level: Int
+    ): Pair<String, String> =
+        if (level == 0) {
+            "Plazo vencido: $label" to "Venció el ${due.format(DATE)}."
+        } else {
+            "Plazo vencido, escalamiento $level: $label" to "Venció el ${due.format(DATE)} y sigue sin atender."
+        }
+
+    // el aviso genérico del nivel 2 de una QCS confidencial a quien no la ve (ASM-102): fijo salvo el nombre del proyecto, sin
+    // código, título, tipo, fecha, nivel, categoría ni enlace al registro
+    fun qcsConfidentialOverdue(project: String): Pair<String, String> =
+        "QCS confidencial fuera de plazo" to "Una QCS confidencial del proyecto $project superó su plazo. Pida el detalle al equipo de quejas."
+
+    // el título y la descripción de la tarea de escalamiento del nivel 2 de una QCS confidencial (JOB-01): fijos salvo el
+    // nombre del proyecto, como el aviso genérico
+    fun qcsConfidentialEscalation(project: String): Pair<String, String> =
+        "QCS confidencial vencida en $project" to "Una QCS confidencial superó su plazo. Pida el detalle al equipo de quejas."
+
+    // cómo nombran el aviso y la tarea genéricos al proyecto: su nombre, su código o, sin ellos, su id
+    fun projectName(
+        project: Map<String, Any?>,
+        id: String
+    ): String = Values.text(project["name"]) ?: Values.text(project["code"]) ?: id
 
     fun taskOverdue(
         label: String,
