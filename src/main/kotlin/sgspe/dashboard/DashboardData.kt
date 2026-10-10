@@ -500,6 +500,70 @@ class DashboardData(
         )
     }
 
+    // ---- riesgos (F4) ----
+
+    // los riesgos activos (todos salvo closed, dashboards.md §3.2) de los proyectos, filtrados por territorio y ámbito como los
+    // compromisos (su localidad o su comunidad)
+    suspend fun risks(): List<RiskRow> =
+        cached("risks") {
+            if (filters.projects.isEmpty()) return@cached emptyList<RiskRow>()
+            val territories = engagementTerritories()
+            val active = Criteria.inState(setOf("identified", "assessed", "mitigating", "monitoring"))
+            read("social_risk", criteria = listOf(Criteria.anyOf("project", filters.projects), active))
+                .filter { r ->
+                    val locality = Values.text(r.attributes["locality"])
+                    val community = Values.text(r.attributes["community"])
+                    territories.all { t -> (locality != null && locality in t.localities) || (community != null && community in t.communities) }
+                }.map {
+                    val a = it.attributes
+
+                    fun int(name: String): Int? = Values.decimal(a[name])?.toInt()
+                    RiskRow(
+                        it.id,
+                        Values.text(a["project"]),
+                        Values.text(a["code"]),
+                        Values.text(a["category"]),
+                        int("probability"),
+                        int("impact"),
+                        Values.text(a["risk_level"]),
+                        int("residual_probability"),
+                        int("residual_impact"),
+                        Values.text(a["residual_level"]),
+                        Values.text(a["locality"]),
+                        Values.text(a["community"]),
+                        Values.text(a["area_of_influence"])
+                    )
+                }
+        }
+
+    // las revisiones de esos riesgos (KPI-RSK-04)
+    suspend fun riskPoints(risks: Collection<String>): List<RiskPoint> =
+        readIn("risk_assessment", "social_risk", risks).mapNotNull { r ->
+            val a = r.attributes
+            RiskPoint(
+                Values.text(a["social_risk"]) ?: return@mapNotNull null,
+                Values.text(a["assessment_date"])?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@mapNotNull null,
+                Values.bool(a["residual"]) == true,
+                Values.text(a["risk_level"]),
+                Values.text(a["trend"]),
+                r.createdAt?.toEpochMilli() ?: 0
+            )
+        }
+
+    // las medidas de mitigación de esos riesgos (KPI-RSK-05)
+    suspend fun measures(risks: Collection<String>): List<MeasureRow> =
+        readIn("mitigation_measure", "social_risk", risks).mapNotNull { m ->
+            val a = m.attributes
+            MeasureRow(
+                m.id,
+                Values.text(a["social_risk"]) ?: return@mapNotNull null,
+                Values.text(a["description"]),
+                Values.text(a["owner_user_email"]),
+                Values.text(a["planned_date"])?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                Values.bool(a["completed"]) == true
+            )
+        }
+
     // la moneda de la campaña pedida (PEN si la campaña no la trae, RNF-I18N-002); null si no se pidió una campaña o si la
     // pedida no existe o no se lee: quien llama lo distingue por filters.explorationCampaign
     suspend fun campaignCurrency(): String? {
