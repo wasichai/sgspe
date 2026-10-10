@@ -1,9 +1,7 @@
 package sgspe.attention
 
-import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -15,8 +13,6 @@ import org.springframework.web.server.ServerWebExchange
 import sgspe.common.Attention
 import sgspe.common.Callers
 import sgspe.common.CommandAnswer
-import sgspe.common.ConfidentialRelease
-import sgspe.common.Criteria
 import sgspe.common.Finding
 import sgspe.common.Idempotency
 import sgspe.common.IdempotencyKey
@@ -34,11 +30,7 @@ import sgspe.common.toCodedException
 import wasichai.core.common.Actions
 import wasichai.core.common.ValidationException
 import wasichai.core.data.ChangeReason
-import wasichai.core.data.RecordChange
-import wasichai.core.data.RecordChangeKind
-import wasichai.core.data.RecordChangeListener
 import wasichai.core.data.RecordResponse
-import wasichai.core.platform.ChangeOrigin
 import java.util.UUID
 
 data class RequestAcceptance(
@@ -103,47 +95,6 @@ class Acceptances(
         const val COMMITMENT = "commitment"
         const val ACCEPT = "accept"
         const val UNDER_EVALUATION = "under_evaluation"
-    }
-}
-
-// RequestClosureListener (RN-GRV-001, ASM-068, workflows.md WF-E3): en la transacción de `close` de WF-D aplica close_accepted
-// (transición de comando, con la marca) a la solicitud aceptada que originó el compromiso, con el motivo «RN-GRV-001:
-// compromiso <código> cerrado»; si no puede, lanza y el cierre se revierte. es una acción del sistema, no de quien cierra: la
-// solicitud puede ser confidencial y quien cierra no leerla (decisión 4 del plan 4.2a). wasichai no deja ser la plataforma
-// dentro de una petición (RecordService.asPlatform lanza) ni aplicar una transición sin usuario, así que corre como quien
-// cierra, pero dentro de ConfidentialRelease, con el que ConfidentialAttentionScope admite además las solicitudes de este
-// compromiso, y solo ellas, mientras dura el bloque; y con el origen SOURCE en la auditoría (ChangeOrigin), que distingue el
-// cierre automático de uno a mano
-@Component
-@Order(130)
-class RequestClosureListener(
-    private val records: Records
-) : RecordChangeListener {
-    override suspend fun recordChanged(change: RecordChange) {
-        if (change.objectName != Acceptances.COMMITMENT || change.kind != RecordChangeKind.TRANSITIONED || change.transition != CLOSE) return
-        val code = Values.text((change.after ?: change.before).orEmpty()["code"]) ?: change.recordId.toString()
-        ConfidentialRelease.within(Attention.REQUEST, AttentionRules.CREATED_COMMITMENT, change.recordId) {
-            ChangeOrigin.within(SOURCE) {
-                val requests =
-                    records.all(
-                        Attention.REQUEST,
-                        filters = mapOf(AttentionRules.CREATED_COMMITMENT to change.recordId.toString()),
-                        criteria = listOf(Criteria.inState(listOf(ACCEPTED)))
-                    )
-                for (request in requests) {
-                    records.transition(Attention.REQUEST, UUID.fromString(request.id), CLOSE_ACCEPTED, "RN-GRV-001: compromiso $code cerrado")
-                }
-            }
-        }
-    }
-
-    companion object {
-        const val CLOSE = "close"
-        const val ACCEPTED = "accepted"
-        const val CLOSE_ACCEPTED = "close_accepted"
-
-        // el origen de sus escrituras en la auditoría (WAS-ADR-0050): el cierre automático, no una acción de quien cierra
-        const val SOURCE = "listener:request-closure"
     }
 }
 

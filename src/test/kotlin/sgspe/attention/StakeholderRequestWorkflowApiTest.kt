@@ -147,6 +147,28 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
     }
 
+    // la liberación abre solo las solicitudes del compromiso que se cierra: otra confidencial aceptada, con otro compromiso,
+    // sigue en accepted y oculta para quien cerró el primero
+    @Test
+    fun `cerrar un compromiso no toca ni muestra la solicitud confidencial de otro`() {
+        val officer = member("COMMUNITY_RELATIONS_OFFICER")
+        val id = stakeholderRequest(testProject(), officer)
+        val other = stakeholderRequest(testProject(), officer)
+        for (request in listOf(id, other)) {
+            move("stakeholder_request", request, "start_evaluation", grievances.token, "evaluación")
+            assertEquals(HttpStatus.CREATED, accept(request).status)
+        }
+        val commitment = linkApprovedCommitment(id, mapOf("confidential" to true))
+        linkApprovedCommitment(other, mapOf("confidential" to true))
+        val verifier = member("COMMITMENT_MANAGER")
+        val path = "/api/objects/stakeholder_request/records/$other"
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
+        closeCommitment(commitment, verifier)
+        assertEquals("closed", state("stakeholder_request", id))
+        assertEquals("accepted", state("stakeholder_request", other))
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
+    }
+
     @Test
     fun `close_unfulfilled exige el compromiso cancelado`() {
         val id = underEvaluation()
