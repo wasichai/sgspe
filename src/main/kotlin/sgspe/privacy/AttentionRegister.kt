@@ -210,10 +210,24 @@ class AttentionRegister(
                                 .keys
                                 .mapNotNull { Values.text(line.attributes[it]) }
                         }
-                    if ("$source.code" in readable) names(source, pointing, "code").toList() else emptyList()
+                    if ("$source.code" in readable) originalCodes(source, pointing, readable, internal).toList() else emptyList()
                 }.toMap() + (if ("commitment.code" in readable) names("commitment", ids("created_commitment"), "code") else emptyMap())
         return AttentionContext(readable, stakeholderNames, people, places, topics, codes)
     }
+
+    // los códigos de los originales de una reclasificación. en EXTERNO solo los que pasan su mismo filtro (marca legible y no
+    // puesta): el código de un original confidencial no sale ni en «Reclasificada de», y su celda queda vacía
+    private suspend fun originalCodes(
+        source: String,
+        ids: Collection<String>,
+        readable: Set<String>,
+        internal: Boolean
+    ): Map<String, String> =
+        readIds(source, ids)
+            .mapNotNull { r ->
+                val shown = internal || ("$source.${Attention.CONFIDENTIAL}" in readable && !Attention.isConfidential(r.attributes))
+                Values.text(r.attributes["code"])?.let { r.id to (if (shown) it else "") }
+            }.toMap()
 
     private suspend fun personNames(
         ids: Collection<String>,

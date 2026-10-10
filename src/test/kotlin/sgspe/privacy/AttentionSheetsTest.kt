@@ -87,6 +87,22 @@ class AttentionSheetsTest {
         assertTrue(NOT_AVAILABLE in cells(AttentionSheets.records("grievance", listOf(grievance), blind, Disclosure.INTERNO)))
     }
 
+    // «Reclasificada de»: el código del original; vacío si no se muestra (en EXTERNO, un original confidencial), y «no
+    // disponible» si quien exporta no lee los vínculos de reclasificación
+    @Test
+    fun `Reclasificada de trae el codigo, vacio si se reserva y no disponible si el vinculo no se lee`() {
+        val reclassified = grievance.copy(attributes = grievance.attributes + ("reclassified_from_inquiry" to "c1"))
+
+        fun cell(context: AttentionContext): Any? {
+            val sheet = AttentionSheets.records("grievance", listOf(reclassified), context, Disclosure.EXTERNO)
+            return sheet.rows.first()[sheet.header.indexOf("Reclasificada de")]
+        }
+        assertEquals("CO-1", cell(AttentionContext(all, codes = mapOf("c1" to "CO-1"))))
+        assertEquals("", cell(AttentionContext(all, codes = mapOf("c1" to ""))))
+        assertEquals(NOT_AVAILABLE, cell(AttentionContext(all - "grievance.reclassified_from_inquiry", codes = mapOf("c1" to "CO-1"))))
+        assertTrue("grievance.reclassified_from_request" in AttentionSheets.REQUIRES)
+    }
+
     @Test
     fun `PUBLICO cuenta planteamientos sobre la grilla con reservado y dice si incluye confidenciales`() {
         val original = Raised("inquiry", "c1", "closed", mapOf("channel" to "CARTA"))

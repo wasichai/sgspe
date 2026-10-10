@@ -15,7 +15,8 @@ import java.time.format.DateTimeFormatter
 
 // lo que las hojas de attention-register necesitan además de las QCS, ya leído como quien exporta. `readable` son los
 // objeto.campo que puede leer (Readability); los mapas solo traen lo que puede leer, así que lo que falta sale «no disponible».
-// `codes` da el código de los registros a los que apuntan reclassified_from_* y created_commitment, por id
+// `codes` da el código de los registros a los que apuntan reclassified_from_* y created_commitment, por id; un código vacío es
+// un original que no se muestra (en EXTERNO, uno confidencial o cuya marca no se lee) y deja la celda vacía
 class AttentionContext(
     val readable: Set<String>,
     val stakeholders: Map<String, String> = emptyMap(),
@@ -97,7 +98,7 @@ object AttentionSheets {
                 Attention.GRIEVANCE -> GRIEVANCE_FIELDS
                 Attention.INQUIRY -> INQUIRY_FIELDS
                 else -> REQUEST_FIELDS
-            }
+            } + Attention.RECLASSIFIED_FROM.getValue(type).keys
 
     // los objeto.campo que leen las hojas
     val REQUIRES: List<String> =
@@ -222,6 +223,7 @@ object AttentionSheets {
         context: AttentionContext
     ): Any {
         val links = Attention.RECLASSIFIED_FROM.getValue(type)
+        if (links.keys.any { !context.canRead("$type.$it") }) return NOT_AVAILABLE
         val id = links.keys.firstNotNullOfOrNull { Values.text(a[it]) } ?: return ""
         return context.codes[id] ?: NOT_AVAILABLE
     }
