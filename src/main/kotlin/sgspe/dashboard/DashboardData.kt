@@ -447,7 +447,8 @@ class DashboardData(
     ): AttentionRow {
         val a = record.attributes
 
-        fun date(name: String): LocalDate? = Values.text(a[name])?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        // estricta como commitmentRow: una fecha DATE mal formada es un dato corrupto que lanza, no una QCS que sale callada
+        fun date(name: String): LocalDate? = Values.text(a[name])?.let(LocalDate::parse)
         return AttentionRow(
             type,
             record.id,

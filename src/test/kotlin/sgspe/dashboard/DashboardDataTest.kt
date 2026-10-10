@@ -10,6 +10,7 @@ import sgspe.common.Records
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordResponse
 import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import java.util.UUID
 
 // los topes de lectura de los tableros y los filtros que cada KPI ignora (dashboards.md §3.1 y §6.2), sin base
@@ -166,5 +167,24 @@ class DashboardDataTest {
         val error = assertThrows<WasichaiException> { runBlocking { data.commitments(campaign = false, owner = false) } }
         assertEquals(400, error.status.value())
         assertEquals("TOO_MANY_RECORDS", error.violations.single().message)
+    }
+
+    // una QCS con una fecha mal formada no sale callada de KPI-GRV-03, 04, 05 y 10: la lectura lanza, como la de compromisos
+    // (son campos DATE que wasichai valida, así que es un dato corrupto)
+    @Test
+    fun `una QCS con una fecha mal formada lanza en vez de salir del KPI`() {
+        val row = mock(RecordResponse::class.java)
+        org.mockito.Mockito
+            .`when`(row.id)
+            .thenReturn(UUID.randomUUID().toString())
+        org.mockito.Mockito
+            .`when`(row.state)
+            .thenReturn("resolved")
+        org.mockito.Mockito
+            .`when`(row.attributes)
+            .thenReturn(mapOf("received_at" to "2026-01-05T15:00:00Z", "resolved_date" to "no-es-fecha"))
+        val records = mock(Records::class.java) { call -> if (call.method.name == "all") listOf(row) else null }
+        val data = DashboardData(records, filters(), { true }, TODAY)
+        assertThrows<DateTimeParseException> { runBlocking { data.attention() } }
     }
 }
