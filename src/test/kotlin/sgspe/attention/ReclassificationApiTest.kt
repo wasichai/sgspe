@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F4ApiTest
 import sgspe.common.IdempotencyKey
+import java.util.UUID
 
 // la reclasificación de una QCS (RF-GRV-007, ASM-072, api.md §4.6): crea el registro del tipo nuevo con los campos comunes y la
 // fecha de recepción del primero de la cadena, lo vincula y cierra el original con su transición de comando y el motivo;
@@ -157,8 +158,29 @@ class ReclassificationApiTest : F4ApiTest() {
         val successor = tree(response.body)["created"]["id"].asString()
         val emptied = edit("inquiry", successor, mapOf("reclassified_from_grievance" to null), token, withReason())
         assertEquals(HttpStatus.FORBIDDEN, emptied.status, emptied.body)
+        assertEquals("COMMAND_ONLY", code(emptied))
         assertEquals(listOf("reclassified_from_grievance"), problemFields(emptied.body))
         assertEquals(HttpStatus.OK, edit("inquiry", successor, emptyMap(), token, withReason()).status)
         assertEquals(original, record("inquiry", successor)["attributes"]["reclassified_from_grievance"].asString())
+    }
+
+    // la marca del comando deja pasar los vínculos de solo comando: por eso `attributes` no los admite. una solicitud nacida
+    // de una reclasificación no apunta a un compromiso que no creó (created_commitment lo escribe solo la aceptación)
+    @Test
+    fun `la reclasificacion no deja fijar created_commitment ni reclassified_from en attributes`() {
+        val id = grievance(testProject())
+        for (field in listOf("created_commitment", "reclassified_from_inquiry")) {
+            val response =
+                reclassify(
+                    "grievances",
+                    "grievance",
+                    id,
+                    "stakeholder_request",
+                    attributes = mapOf("code" to uniqueName("RC-"), field to UUID.randomUUID().toString())
+                )
+            assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
+            assertEquals(listOf("attributes.$field"), problemFields(response.body))
+        }
+        assertEquals("received", state("grievance", id))
     }
 }

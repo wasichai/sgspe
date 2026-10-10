@@ -64,7 +64,8 @@ class Referrals(
             throw Finding("INVALID_TARGET", "target es grievance, inquiry o stakeholder_request", TARGET, status = HttpStatus.BAD_REQUEST).toCodedException()
         }
         val attributes = StrictBody.objectOf(body, "attributes")
-        StrictBody.requireAttributes(catalog, target, attributes, FIXED + Attention.RECLASSIFIED_FROM.getValue(target).keys)
+        // los vínculos de solo comando (AttentionRules.COMMAND_FIELDS) tampoco: la marca del comando los dejaría pasar
+        StrictBody.requireAttributes(catalog, target, attributes, FIXED + AttentionRules.COMMAND_FIELDS.getValue(target))
         if (reason.isNullOrBlank()) throw ValidationException("Derivar una pregunta exige un motivo", "reason", "envíe la cabecera X-Change-Reason")
         val user = callers.require()
         permissions.require(user, "Derivar una pregunta", Actions.UPDATE to QUESTION, Actions.CREATE to target)

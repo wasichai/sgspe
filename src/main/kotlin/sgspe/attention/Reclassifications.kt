@@ -99,9 +99,10 @@ class Reclassifications(
     }
 
     // lo que una reclasificación fija y `attributes` no cambia: la recepción, el proyecto, quien recibió (siempre la copia del
-    // original, que AttentionWriteGuard no juzga como receptor ajeno) y los vínculos de reclasificación
+    // original, que AttentionWriteGuard no juzga como receptor ajeno) y los vínculos de solo comando (AttentionRules.COMMAND_FIELDS:
+    // reclassified_from_* y, en una solicitud, created_commitment, que solo escribe la aceptación)
     private fun fixed(target: String): Set<String> =
-        setOf(Attention.RECEIVED_AT, "project", Attention.RECEIVER, "received_by_user_email") + Attention.RECLASSIFIED_FROM.getValue(target).keys
+        setOf(Attention.RECEIVED_AT, "project", Attention.RECEIVER, "received_by_user_email") + AttentionRules.COMMAND_FIELDS.getValue(target)
 
     companion object {
         const val TARGET = "targetType"
