@@ -1,6 +1,7 @@
 package sgspe.common
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -67,5 +68,13 @@ class DependentsDeleteGuardTest {
         assertTrue(real.requiredDependents("project").any { it.first == "stakeholder" })
         assertTrue(real.requiredDependents("study").none { it.first == "locality_profile" })
         assertTrue(("commitment" to "agreement_clause") in real.guardedDependents("agreement_clause"))
+    }
+
+    // ASM-108: el detalle no nombra el objeto dependiente, su proyecto ni cuántos hay
+    @Test
+    fun `el detalle del 409 no nombra al dependiente`() {
+        val message = DependentsDeleteGuard.message("engagement_plan")
+        assertEquals("No se puede borrar engagement_plan: otros registros todavía dependen de él", message)
+        assertFalse(message.contains("planned_activity"))
     }
 }
