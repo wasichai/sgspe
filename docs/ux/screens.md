@@ -2,11 +2,11 @@
 
 Fichas de implementación de las pantallas del portal (`sgspe-ui`). Cubren el inventario completo de
 [`ux-architecture.md`](ux-architecture.md) §9: la **etapa 2** (proyectos y Project 360, territorio, grupos de interés,
-relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33), la **parte 3a** (quejas, consultas y solicitudes; riesgos y
-alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a S48 y la ficha de incidente) y la **parte 3b**
-(tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27, S34, S38, S49 a S55), y S56
-(gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7). La búsqueda
-global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
+relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33), la **parte 3a** (quejas, consultas y solicitudes;
+riesgos y alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a S48, S57 a S61 y la ficha de
+incidente) y la **parte 3b** (tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27,
+S34, S49 a S55 y S62, el tablero de riesgos), y S56 (gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7).
+La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
 
 - **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>; **lienzo de la etapa 3:**
   <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>. Los dos son privados y se comparten desde su menú. Cada ficha nombra
@@ -830,6 +830,11 @@ AgreementDetailPage
 Lienzo de la etapa 3, página 11. Tres objetos con ciclos distintos (WF-E1, WF-E2, WF-E3; ASM-011) que la lista une para
 atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
 
+- **Registro reservado (ASM-095).** Una QCS confidencial que la persona no lee no aparece en las listas, los tableros ni
+  los reportes. Un vínculo a ella desde otra pantalla (tarea, evidencia, compromiso, pregunta de reunión) muestra
+  «Registro reservado», sin enlace ni datos, y los tableros y el reporte avisan cuando la cifra excluye confidenciales
+  (`confidentialHidden`).
+
 ### S35 · Lista unificada de QCS
 
 - **Ruta y lienzo:** `/projects/:projectId/attention` (y `/attention` entre proyectos) · hoja `QCS-Lista` · F4.
@@ -849,7 +854,8 @@ atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
 - **Permisos:** la persona que plantea una QCS es un campo restringido (`security.md` §7.9): solo SMG, CRO y GVM la ven.
 - **Responsive:** por debajo de `lg` la tabla pasa a tarjetas con tipo, título, plazo y estado; los indicadores, a una fila
   desplazable.
-- **Relacionadas y navegación:** S36 por fila; S37; el tablero de QCS (S34, etapa 3b); la capa LYR-20 en el mapa.
+- **Relacionadas y navegación:** S36 (queja) o S57 (consulta y solicitud) por fila; S37; el tablero de QCS (S34, etapa
+  3b); la capa LYR-20 en el mapa.
 
 ```text
 AttentionListPage
@@ -862,26 +868,31 @@ AttentionListPage
 
 - **Ruta y lienzo:** `/projects/:projectId/attention/new?type=grievance|inquiry|request` · hoja `QCS-Registrar` · F4.
 - **Propósito:** registrar en un solo paso lo que se planteó, por el canal que llegó, sin decidir todavía su tratamiento.
-- **Roles:** CRO y GVM crean los tres objetos.
+- **Roles:** CRO y GVM crean los tres objetos. Es la única entrada de QCS: no hay formulario público (ASM-104, UPS-25),
+  y un contratista reporta a través del equipo social con el canal CONTRATISTA (ASM-043).
 - **Acciones:** primaria "Registrar queja" (o consulta, o solicitud); secundaria "Cancelar".
-- **Disposición y componentes:** elección del tipo con su definición y sus plazos; "Cómo llegó y quién la plantea" (canal,
-  fecha de recepción, interacción o pregunta de origen, anonimato, confidencialidad, grupo de interés, persona, lugar); "Qué
-  plantea" (descripción, categoría, severidad en la queja, prioridad, responsable); adjuntos con tipo y clasificación de
-  evidencia; a la derecha, "Qué pasará al registrar" con el código, el estado y los plazos calculados.
-- **Datos y API:** `POST` genérico del objeto; plazos derivados desde `received_at` con los parámetros del proyecto (ASM-005);
-  adjuntos con `POST /api/sgspe/evidence` (IK, CR por ser destinos `requiresReason`). AUT-02 crea la tarea de acusar recibo.
+- **Disposición y componentes:** elección del tipo con su definición y sus plazos; "Cómo llegó y quién la plantea"
+  (canal, fecha de recepción, interacción o pregunta de origen, anonimato, confidencialidad, grupo de interés, persona,
+  lugar); "Qué plantea" (descripción, categoría, severidad en la queja, prioridad, responsable); adjuntos con tipo y
+  clasificación de evidencia; a la derecha, "Qué pasará al registrar" con el código, el estado y los plazos calculados.
+  El interruptor «Confidencial» explica quién podrá leerla (gestión de quejas, su responsable, quien la recibe y, si es
+  grave, quien aprueba) y deja a quien registra como quien la recibió (`received_by_user_id`, ASM-095).
+- **Datos y API:** `POST` genérico del objeto; plazos derivados desde `received_at` con los parámetros del proyecto
+  (ASM-005): el plazo de acuse lo calcula el backend en días hábiles con los feriados configurados (ASM-096), y la ficha
+  lo muestra al registrar; adjuntos con `POST /api/sgspe/evidence` (IK, CR por ser destinos `requiresReason`). AUT-02
+  crea la tarea de acusar recibo.
 - **Estados:** anónima oculta persona y grupo de interés; severidad ALTA o CRITICA advierte que la resolución la aprueba otra
   persona (ASM-036). La IA no actúa en el formulario: sus sugerencias (AI-07, AI-08) llegan después, en S36 (F7).
 - **Permisos:** la persona que plantea es campo restringido; los adjuntos siguen RF-DOC-003.
 - **Responsive:** en teléfono, una sola pantalla para el relacionista: tipo, canal, lugar del dispositivo, descripción y foto;
   el resto lo completa quien gestiona QCS. Sin conexión entra en la cola de campo de la etapa 3b.
 - **Relacionadas y navegación:** se llega desde S35, desde una interacción (S23) o desde una pregunta pendiente de reunión;
-  al registrar se abre S36.
+  al registrar se abre S36 o S57.
 
 ```text
 AttentionCreatePage
 ├── TypePicker
-├── IntakeSection (ChannelField · OriginPicker · AnonymityToggle · StakeholderPicker · PlacePicker)
+├── IntakeSection (ChannelField · OriginPicker · AnonymityToggle · ConfidentialToggle · StakeholderPicker · PlacePicker)
 ├── ContentSection (DescriptionField · CategoryField · SeverityField · PriorityField · OwnerField)
 ├── EvidenceDropzone
 └── WhatHappensPanel
@@ -894,17 +905,21 @@ AttentionCreatePage
 - **Roles:** GVM acusa, evalúa, investiga, atiende, resuelve y cierra; CRO acusa y registra desistimiento; APR resuelve las
   ALTA y CRITICA (`resolve_high_severity`, `APPROVE`); GVM y SMG verifican.
 - **Acciones:** la primaria es la transición siguiente del estado; secundarias "Rechazar…", "Registrar desistimiento…",
-  "Reclasificar…", "Reabrir…" y "Crear compromiso desde esta queja".
+  "Reclasificar…", "Reabrir…", "Subir cargo firmado" y "Crear compromiso desde esta queja", que abre S30 con
+  `origin_grievance` y el proyecto de la queja ya puestos (alta genérica del compromiso en `draft`).
 - **Disposición y componentes:** encabezado con estado, severidad, situación de plazo, categoría, canal y responsable;
   camino de estados (investigación y verificación aparecen solo si se usan); panel de la acción con motivo obligatorio;
   el caso, la persona (restringida), acuse y plazo con su escalamiento, resolución y respuesta; a la derecha "De dónde viene",
   "Qué alimenta" (riesgo vinculado), la tarjeta de IA y "Plazos y escalamiento".
 - **Datos y API:** genérica con `transitions`; `POST /api/sgspe/transition-checks`; `POST
   /api/sgspe/grievances/{id}/reclassify` (ASM-072); M2O `social_risk` e `incident`; `ai_suggestion` DUPLICADO (AI-07) y de
-  clasificación (AI-08). AUT-06 emite el cargo de queja al acusar recibo.
-- **Estados:** con `policy_high_severity_requires_approver` activo, GVM no ve "Resolver" en una ALTA o CRITICA y se explica
-  que la tiene aprobación; sin conformidad del reclamante se puede reabrir; aceptar un duplicado rechaza la más nueva con
-  `duplicate_of` y respuesta.
+  clasificación (AI-08). El cargo de queja no se emite mientras UPS-23 siga abierta (ASM-098): "Subir cargo firmado" lo
+  sube con `POST /api/sgspe/evidence` como evidencia FORMULARIO vinculada a la queja, con clasificación DATOS PERSONALES
+  por defecto.
+- **Estados:** con `policy_high_severity_requires_approver` activo, GVM no ve "Resolver" en una ALTA o CRITICA y se
+  explica que la tiene aprobación, y APR la encuentra en S48 (`approval_pending`, ASM-102); una queja confidencial
+  muestra quién puede leerla; sin conformidad del reclamante se puede reabrir; aceptar un duplicado rechaza la más nueva
+  con `duplicate_of` y respuesta.
 - **Permisos:** la persona que plantea es restringida; la hoja alterna "Gestión de QCS" y "Aprobación" para mostrar la
   segregación.
 - **Responsive:** el panel lateral baja debajo del caso; la acción queda fija al pie.
@@ -920,7 +935,7 @@ GrievancePage
 └── SidePanel (OriginTrail · FeedsRiskCard · AiSuggestionCard · EscalationNote)
 ```
 
-### S36 · Ficha de consulta y ficha de solicitud
+### S57 · Ficha de consulta y ficha de solicitud
 
 - **Ruta y lienzo:** `/projects/:projectId/inquiries/:id` y `/projects/:projectId/requests/:id` · hoja
   `QCS-Consulta-Solicitud` · F4; aceptar como aporte desde F5.
@@ -928,12 +943,15 @@ GrievancePage
   declinar una solicitud.
 - **Roles:** CRO y GVM responden y derivan consultas; las solicitudes las evalúan y aceptan los roles de WF-E3; aceptar como
   compromiso lo hacen SMG y CMM desde F4 (`security.md` §7.5).
-- **Acciones:** consulta: "Responder", "Derivar a otra entidad…", "Reclasificar…". Solicitud: "Aceptar y crear el
-  compromiso" (o el aporte), "Declinar con respuesta…", "Reclasificar…".
+- **Acciones:** consulta: "Responder", "Derivar a otra entidad…", "Reclasificar…", "Subir carta firmada". Solicitud:
+  "Aceptar y crear el compromiso" (el aporte, desde F5), "Declinar con respuesta…", "Reclasificar…", "Subir carta
+  firmada".
 - **Disposición y componentes:** encabezado y camino de estados; origen (pregunta de reunión o carta); respuesta con
   "Usar respuesta alineada" (mensajes del proyecto); en la solicitud, "Aceptar: ¿qué se crea?" con las dos opciones.
 - **Datos y API:** transiciones de WF-E2 y WF-E3; `POST /api/sgspe/stakeholder-requests/{id}/accept` (crea `commitment` en
-  `draft` o `social_contribution` en `requested`); reclasificación por su endpoint. AUT-07 y AUT-08 emiten las cartas.
+  `draft` o, desde F5, `social_contribution` en `requested`); reclasificación por su endpoint. Las cartas no se emiten
+  mientras UPS-23 siga abierta (ASM-098): "Subir carta firmada" la sube como evidencia CARTA vinculada a la QCS, con
+  clasificación DATOS PERSONALES por defecto.
 - **Estados:** una consulta con fecha de comunicación cuenta como absuelta (KPI-GRV-07); la solicitud aceptada se cierra sola
   al cerrarse su compromiso o su aporte (ASM-068) y se cierra a mano "sin ejecución" si aquel se cancela.
 - **Permisos:** como S36 queja.
@@ -956,8 +974,8 @@ alerta (RN-EWS-001).
 
 ### S38 y S39 · Registro y matriz de riesgos
 
-- **Ruta y lienzo:** `/projects/:projectId/risks/register` · hoja `Rsk-Registro` (interactiva) · F4. El tablero de riesgos
-  (S38 completo, con tendencia) llega en la etapa 3b.
+- **Ruta y lienzo:** `/projects/:projectId/risks/register` · hoja `Rsk-Registro` (interactiva) · F4. El tablero de
+  riesgos (S62, con tendencia) llega en la etapa 3b.
 - **Propósito:** ¿qué riesgos hay, de qué nivel y cuáles necesitan revisión? Elegir una celda del mapa de calor filtra la
   tabla.
 - **Roles:** lectura para todos con READ sobre `social_risk`; SRM crea y evalúa; SMG decide el tratamiento y exporta.
@@ -983,7 +1001,11 @@ RiskRegisterPage
 - **Ruta y lienzo:** `/projects/:projectId/risks/:riskId` · hoja `Rsk-Ficha` · F4.
 - **Propósito:** ver el nivel vigente, cómo llegó ahí y qué se hace para bajarlo.
 - **Roles:** SRM evalúa, decide, agrega medidas y cierra; SMG decide el tratamiento y cierra; el resto lee.
-- **Acciones:** primaria "Nueva revisión"; secundarias "Pasar a monitoreo", "Volver a mitigar", "Cerrar…", "+ Medida".
+- **Acciones:** primaria "Nueva revisión"; secundarias "Pasar a monitoreo", "Volver a mitigar", "Cerrar…", "+ Medida",
+  "+ Impacto potencial" (S61).
+- **Medidas de mitigación:** "+ Medida" abre un panel dentro de S40 con descripción, responsable, fecha prevista y
+  `completed`; SRM las crea, cambia y borra por la API genérica, y decidir mitigar o volver a mitigar exige al menos una
+  con responsable (`409 MEASURE_OWNER_REQUIRED`, RN-RSK-003). Una medida atrasada se marca en la lista.
 - **Disposición y componentes:** encabezado con estado, nivel, P × I y tendencia, lugar, responsable y próxima revisión;
   camino de estados; gráfico de revisiones con su comentario; medidas de mitigación con responsable, fecha y avance;
   controles actuales, su suficiencia y fuentes de monitoreo; fuente del riesgo; a la derecha "Lo alimentan" (QCS y alertas),
@@ -1012,7 +1034,8 @@ RiskPage
 - **Propósito:** decidir en el triaje si la alerta es real, con las señales que la dispararon a la vista.
 - **Roles:** SRM y SMG confirman y descartan (`CONFIRM_ALERT`); CRO lee, inicia el triaje y la respuesta; nunca la
   plataforma, una regla, la IA ni una cuenta de servicio (RN-EWS-001).
-- **Acciones:** en triaje, "Confirmar" (con vínculo opcional al riesgo) y "Descartar…" (motivo obligatorio); luego "Iniciar
+- **Acciones:** en triaje, "Confirmar" (con vínculo opcional al riesgo), "Descartar…" (motivo obligatorio) y "Vincular
+  señal…", que guarda `early_warning_signal.early_warning` en una señal del mismo proyecto (S59); luego "Iniciar
   respuesta", "Resolver", "Cerrar".
 - **Disposición y componentes:** encabezado con la regla que la creó; camino de estados; señales con fuente, fecha y texto;
   panel de decisión; regla y su umbral; nota de IA; capa del mapa.
@@ -1056,6 +1079,94 @@ IncidentPage
 └── SidePanel (GeneratedLinks · SamePlaceOpenRecords · EvidenceList)
 ```
 
+### S58 · Menciones en medios
+
+- **Ruta y lienzo:** `/projects/:projectId/risks/mentions` y `/projects/:projectId/risks/mentions/:id` · sin hoja propia
+  (sigue la anatomía de la ficha de incidente) · F4.
+- **Propósito:** registrar a mano lo que dicen los medios del proyecto, con su tono, para los indicadores y las reglas
+  de alerta.
+- **Roles:** CRO y SRM crean y cambian; el resto lee.
+- **Acciones:** primaria "Registrar mención"; secundarias "Guardar" y "Registrar señal desde esta mención" (S59).
+- **Disposición y componentes:** lista con fecha, medio, titular y tono; la ficha con medio (organización o texto),
+  fecha de publicación, titular, resumen, enlace, tema, tono y "Informa sobre un compromiso cumplido" con el compromiso.
+- **Datos y API:** genérica sobre `media_mention`; KPI-ENG-07 y KPI-ENG-08; la regla MENCIONES NEGATIVAS de JOB-04.
+- **Estados:** el enlace se muestra como texto con su dominio y se abre en otra pestaña; el servidor nunca lo descarga
+  (ASM-050).
+- **Permisos:** sin campos restringidos propios.
+- **Responsive:** la lista pasa a tarjetas con fecha, titular y tono.
+- **Relacionadas y navegación:** el compromiso (S29), la señal (S59), el centro de alerta (S41).
+
+```text
+MediaMentionPage
+├── MentionList (MentionRow · ToneBadge)
+└── MentionForm (OutletField · HeadlineField · ToneField · CommitmentPicker · UrlField)
+```
+
+### S59 · Señales de alerta
+
+- **Ruta y lienzo:** `/projects/:projectId/risks/signals` y `/projects/:projectId/risks/signals/:id` · sin hoja propia ·
+  F4.
+- **Propósito:** registrar a mano lo que puede anticipar un conflicto, con su fuente, para que una persona lo lleve a
+  una alerta o una regla lo cuente.
+- **Roles:** CRO y SRM crean y cambian; quien hace el triaje la vincula a la alerta desde S41.
+- **Acciones:** primaria "Registrar señal"; secundarias "Guardar" y "Abrir la alerta" si tiene una.
+- **Disposición y componentes:** lista con fecha, fuente, lugar y alerta; la ficha con fuente, fecha de recepción,
+  descripción, cómo llegó, lugar y los vínculos a mención, incidente y alerta.
+- **Datos y API:** genérica sobre `early_warning_signal`; la regla CONTEO DE SEÑALES de JOB-04; los vínculos del mismo
+  proyecto (`409 PROJECT_MISMATCH`).
+- **Estados:** una señal sin alerta se marca "Sin alerta".
+- **Permisos:** sin campos restringidos propios; el texto no lleva nombres de personas (RQ-SEC-010).
+- **Responsive:** la lista pasa a tarjetas.
+- **Relacionadas y navegación:** la mención (S58), el incidente, la alerta (S41).
+
+```text
+SignalPage
+├── SignalList (SignalRow · SourceBadge)
+└── SignalForm (SourceField · DescriptionField · PlacePicker · MentionPicker · IncidentPicker)
+```
+
+### S60 · Reglas de alerta
+
+- **Ruta y lienzo:** `/risks/rules` (las del tenant) y `/projects/:projectId/risks/rules` · sin hoja propia · F4.
+- **Propósito:** configurar qué dispara una alerta: el tipo de regla, su umbral y su ventana.
+- **Roles:** SRM crea, cambia, desactiva y borra; el resto lee.
+- **Acciones:** primaria "Nueva regla"; secundarias "Desactivar" y "Borrar" (una regla con alertas no se borra: se
+  desactiva).
+- **Disposición y componentes:** lista con nombre, tipo, umbral, ventana, severidad, alcance (tenant o proyecto) y
+  estado; el formulario explica, para el tipo elegido, qué cuenta, qué significa el umbral y qué ventana usa
+  (`workflows.md`, «Tipos de regla de JOB-04»), y que una regla del proyecto reemplaza a la del tenant del mismo tipo.
+- **Datos y API:** genérica sobre `early_warning_rule`; `threshold` entero y `window_days` de 1 a 365
+  (`400 OUT_OF_RANGE`); `409 HAS_DEPENDENTS` al borrar una con alertas.
+- **Estados:** sin CAMBIO DE POSTURA en el MVP (ASM-097); una regla desactivada no se evalúa.
+- **Permisos:** solo SRM escribe.
+- **Responsive:** la lista pasa a tarjetas; el formulario, a una columna.
+- **Relacionadas y navegación:** el centro de alerta (S41) filtra por regla.
+
+```text
+WarningRulesPage
+├── RuleList (RuleRow · ScopeBadge)
+└── RuleForm (RuleKindField · ThresholdField · WindowField · SeverityField · KindExplanation)
+```
+
+### S61 · Impactos potenciales
+
+- **Ruta y lienzo:** `/projects/:projectId/risks/impacts` y el panel "Impactos" de S40 · sin hoja propia · F4.
+- **Propósito:** registrar qué actividad puede causar qué impacto, de qué tipo, naturaleza y signo, y a qué riesgo
+  alimenta.
+- **Roles:** SRM crea, cambia y borra; el resto lee.
+- **Acciones:** primaria "+ Impacto potencial"; secundarias "Guardar" y "Borrar".
+- **Disposición y componentes:** tabla con actividad, tipo, naturaleza, signo, descripción y riesgo.
+- **Datos y API:** genérica sobre `potential_impact`; el riesgo del mismo proyecto.
+- **Estados:** un impacto sin riesgo se marca "Sin riesgo vinculado".
+- **Permisos:** solo SRM escribe.
+- **Responsive:** la tabla pasa a tarjetas.
+- **Relacionadas y navegación:** el riesgo (S40).
+
+```text
+PotentialImpactsPage
+└── ImpactTable (ImpactRow · ImpactForm)
+```
+
 ## 10. Programas e inversión
 
 Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se suman entre monedas (ASM-063).
@@ -1076,7 +1187,7 @@ Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se s
   es otra cifra (ASM-063). Los programas no pertenecen a una campaña y no cuentan para el tope.
 - **Permisos:** sin campos restringidos propios.
 - **Responsive:** los indicadores se apilan; las tablas pasan a tarjetas.
-- **Relacionadas y navegación:** S43, S44; solicitud de origen (S36); tablero de inversión (etapa 3b).
+- **Relacionadas y navegación:** S43, S44; solicitud de origen (S57); tablero de inversión (etapa 3b).
 
 ```text
 InvestmentPage
@@ -1127,8 +1238,8 @@ ProgramPage
   (P5); con sinergia, falta de acuerdo vigente bloquea (P6); apartarse de los lineamientos exige justificación (P3).
 - **Permisos:** las fotos de la entrega con personas son DATOS PERSONALES.
 - **Responsive:** "Antes de aprobar" sube antes de los ítems en teléfono.
-- **Relacionadas y navegación:** solicitud de origen (S36), bandeja de aprobaciones (S48); al cerrar, la solicitud se cierra
-  sola (ASM-068).
+- **Relacionadas y navegación:** solicitud de origen (S57), bandeja de aprobaciones (S48); al cerrar, la solicitud se
+  cierra sola (ASM-068).
 
 ```text
 ContributionPage
@@ -1260,7 +1371,7 @@ disponible", nunca cero (RQ-DSH-032). Las cifras salen de `GET /api/sgspe/dashbo
 - **Estados:** sin proyectos asignados, vacío con enlace a Proyectos; un KPI sin permiso, "no disponible".
 - **Permisos:** la postura (`stance`) no llega a los roles que no la leen (`dashboards.md` §8).
 - **Responsive:** "Lo que necesita atención" primero; tiles en dos columnas; la tabla pasa a tarjetas por proyecto.
-- **Relacionadas y navegación:** cada cifra abre su lista filtrada; S27, S34, S38, monitoreo.
+- **Relacionadas y navegación:** cada cifra abre su lista filtrada; S27, S34, S62, monitoreo.
 
 ```text
 ExecutiveReviewPage
@@ -1333,19 +1444,19 @@ AttentionDashboard
 └── TrendLines · ConcentrationMiniMap
 ```
 
-### S38 · Tablero de riesgos
+### S62 · Tablero de riesgos
 
 - **Ruta y lienzo:** `/risks` · hoja `Tab-Riesgos` · F4, F8.
 - **Propósito:** ¿qué puede impedir el proyecto y qué hacemos?
 - **Roles:** lectura para quien lee `social_risk`.
-- **Acciones:** "Ir al registro" (S39); abrir medidas atrasadas.
+- **Acciones:** "Ir al registro" (S38 y S39); abrir medidas atrasadas.
 - **Disposición y componentes:** mapa de calor 5 × 5 con conteo y nivel (KPI-RSK-02); tiles KPI-RSK-01, KPI-RSK-05 y revisiones
   vencidas; barras apiladas por semana KPI-RSK-04; distribución por territorio KPI-RSK-03; medidas atrasadas.
 - **Datos y API:** tablero `risks` (`dashboards.md` §5.8).
 - **Estados:** un riesgo sin revisión no entra al mapa y se dice cuántos hay.
 - **Permisos:** como S51.
 - **Responsive:** el mapa de calor arriba a ancho completo.
-- **Relacionadas y navegación:** S39, S40.
+- **Relacionadas y navegación:** el registro y matriz (S38 y S39), S40.
 
 ```text
 RisksDashboard
@@ -1486,7 +1597,7 @@ AiReviewPage
 - **Estados:** si algo falla, nada cambia.
 - **Permisos:** la persona que plantea sigue restringida.
 - **Responsive:** la tabla pasa a dos tarjetas apiladas.
-- **Relacionadas y navegación:** S36, S52.
+- **Relacionadas y navegación:** S36 o S57, S52.
 
 ```text
 DuplicateReviewPage
@@ -1556,7 +1667,7 @@ LoginPage
 - **Estados:** sin asignaciones de proyecto, bienvenida con el mapa de módulos (F1).
 - **Permisos:** solo lo que el rol lee.
 - **Responsive:** en teléfono, las listas en una columna; el agente de campo entra a S54.
-- **Relacionadas y navegación:** S47, S48, S51, S38, S52.
+- **Relacionadas y navegación:** S47, S48, S51, S62, S52.
 
 ```text
 HomePage
@@ -1766,9 +1877,9 @@ FieldQueuePage
   RN-INV-001 a RN-INV-004, RN-INV-006, RF-DOC-001, RF-DOC-003, RNF-PRIV-004, RF-WFL-001, RF-WFL-002, RF-WFL-004, RN-WFL-001. Parte 3b: RF-DSH-001
   a RF-DSH-010, RQ-DSH-032, RQ-DSH-034, RQ-GIS-014, RQ-GIS-015, RF-AIK-005, RF-AIK-006, RQ-AI-001, RQ-AI-003, RQ-AI-011,
   RQ-AI-012, RF-NTF-001, RF-IAM-001, RF-IAM-002, RQ-SEC-015, RQ-REP-014, RQ-REP-022, RQ-REP-033, RF-FLD-001, RNF-PRIV-004.
-- **Supuestos:** ASM-003, ASM-008, ASM-009, ASM-019, ASM-062, ASM-063, ASM-067, ASM-069, ASM-075, ASM-076, ASM-079, ASM-080.
-  Parte 3a: ASM-004, ASM-005, ASM-011, ASM-030, ASM-036, ASM-068, ASM-070, ASM-071, ASM-072. Parte 3b: ASM-063, ASM-069,
-  ASM-073, ASM-074, ASM-078, ASM-081.
+- **Supuestos:** ASM-003, ASM-008, ASM-009, ASM-019, ASM-062, ASM-063, ASM-067, ASM-069, ASM-075, ASM-076, ASM-079,
+  ASM-080. Parte 3a: ASM-004, ASM-005, ASM-011, ASM-030, ASM-036, ASM-068, ASM-070, ASM-071, ASM-072, ASM-095, ASM-096,
+  ASM-097, ASM-098, ASM-102, ASM-104. Parte 3b: ASM-063, ASM-069, ASM-073, ASM-074, ASM-078, ASM-081.
 - **Documentos:** [workflows.md](../workflows.md) (WF-A, WF-B, WF-C, WF-D, WF-I, WF-K, WF-L, WF-O; en la parte 3a, WF-E1,
   WF-E2, WF-E3, WF-F, WF-G, WF-J, WF-M, WF-N y WF-P), [api.md](../api.md) §2–§4, [security.md](../security.md) §7,
   [dashboards.md](../dashboards.md) §3 y §5, [gis.md](../gis.md), [domain-model.md](../domain-model.md) §6,
