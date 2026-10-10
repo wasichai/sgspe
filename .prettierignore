@@ -13,3 +13,5 @@ build/
 .idea/
 node_modules/
 yarn.lock
+# release-please rewrites the manifest in its own format on every release
+.release-please-manifest.json

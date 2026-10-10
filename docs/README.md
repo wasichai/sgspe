@@ -43,6 +43,7 @@ la raíz del repositorio; su guía de desarrollo está en [`develop/README.md`](
 | [`requirements-traceability.md`](requirements-traceability.md) | Matriz requisito–fuente–módulo–entidad–API–UI–prueba |
 | [`roadmap.md`](roadmap.md) | Fases F0–F8, plan de la Fase 1 y decisiones pendientes del checkpoint |
 | [`develop/README.md`](develop/README.md) | Desarrollo local: base en el VPS, túnel, arranque, modelo y pruebas |
+| [`develop/releasing.md`](develop/releasing.md) | Releases con release-please: versiones, jar adjunto y secreto del repositorio |
 | [`adr/`](adr/README.md) | Decisiones de arquitectura (ADR-0001 a ADR-0026) |
 | [`HISTORY.md`](HISTORY.md) | Historia de cambios |
 | [`superpowers/plans/`](superpowers/plans/2026-10-06-sgspe-fase-0-y-1.md) | Plan aprobado de las fases 0 y 1, y planes ejecutables de las fases 0 y 1 |

@@ -56,5 +56,6 @@ yarn format:check                                                               
 
 - [Índice de la documentación](docs/README.md)
 - [Desarrollo local](docs/develop/README.md)
+- [Releases](docs/develop/releasing.md)
 - [Decisiones de arquitectura](docs/adr/README.md)
 - [Historia de cambios](docs/HISTORY.md)

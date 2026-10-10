@@ -22,6 +22,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   rutas explícitas.
 - Ningún nombre real de persona en nada versionado; usuarios de prueba ficticios `@sgspe.test`.
 - Conventional Commits con asunto en español y cuerpo de 100 columnas como máximo (commitlint con husky).
+- Los releases los corta release-please (`docs/develop/releasing.md`): nunca editar a mano `version=` de `gradle.properties`,
+  `.release-please-manifest.json` ni `CHANGELOG.md`.
 - Ningún código bajo el paquete `wasichai`; nunca `RecordStore`, `PhysicalTableRecordStore`, `AuditService` ni
   `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila, y desde F2 también que
   `scope` y `privacy` solo dependan de `common`, que `findAllOrganizations` no aparezca en ningún archivo y que
