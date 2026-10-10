@@ -30,7 +30,8 @@ class AttentionDashboardApiTest : F4ApiTest() {
     @Test
     fun `el tablero trae los diez KPI-GRV en orden y cuenta una vez la QCS reclasificada`() {
         grievance(testProject())
-        inquiry(testProject(), attributes = mapOf("reclassified_from_grievance" to grievance(testProject())))
+        // el vínculo lo escribe su comando; aquí, como la plataforma, para no cerrar el original
+        platformPatch("inquiry", inquiry(testProject()), mapOf("reclassified_from_grievance" to grievance(testProject())))
         val body = dashboard()
         assertEquals((1..10).map { "KPI-GRV-%02d".format(it) }, body["indicators"].values().map { it["code"].asString() })
         assertEquals(2, received(body))

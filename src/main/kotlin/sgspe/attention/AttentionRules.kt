@@ -38,6 +38,34 @@ object AttentionRules {
     const val DUPLICATE_OF = "duplicate_of"
     const val CREATED_COMMITMENT = "created_commitment"
 
+    // los vínculos que solo escriben los comandos: reclassified_from_* (Reclassifications) y created_commitment de la solicitud
+    // (Acceptances). la regla de conteo (AttentionCounting) saca de los conteos al original que apunta un reclassified_from_*,
+    // y el cierre del compromiso (RequestClosureListener) y close_unfulfilled confían en created_commitment: fijarlos a mano
+    // ocultaría un planteamiento abierto o reapuntaría la solicitud a otro compromiso
+    val COMMAND_FIELDS: Map<String, Set<String>> =
+        Attention.OBJECTS.associateWith { objectName ->
+            Attention.RECLASSIFIED_FROM.getValue(objectName).keys + if (objectName == Attention.REQUEST) setOf(CREATED_COMMITMENT) else emptySet()
+        }
+
+    // una persona (`person`) sin la marca SgspeWrite (`marked`) que fija, cambia o vacía uno de esos vínculos (`changed`, los
+    // campos cuyo valor cambia: reenviar el valor tal como se leyó no es cambiarlo): 403 COMMAND_ONLY sobre el campo. la
+    // plataforma (sin usuario) y los comandos sí los escriben
+    fun commandOnly(
+        objectName: String,
+        changed: Set<String>,
+        person: Boolean,
+        marked: Boolean
+    ): Finding? {
+        if (!person || marked) return null
+        val field = COMMAND_FIELDS[objectName].orEmpty().firstOrNull { it in changed } ?: return null
+        return Finding(
+            "COMMAND_ONLY",
+            "$field lo escribe solo su comando (la reclasificación o la aceptación): no se fija ni se cambia por esta vía",
+            field,
+            status = HttpStatus.FORBIDDEN
+        )
+    }
+
     // los campos de identidad que una QCS anónima no lleva (RF-GRV-001, GAP-005)
     val IDENTITY = listOf("person", "stakeholder")
 

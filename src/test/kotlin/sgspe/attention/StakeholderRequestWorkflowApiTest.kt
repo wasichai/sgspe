@@ -169,6 +169,26 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, verifier.token).status)
     }
 
+    // created_commitment solo lo escribe la aceptación (AttentionCommandFieldsGuard): el cierre del compromiso y
+    // close_unfulfilled confían en él. por la API genérica, reapuntarlo a otro compromiso o vaciarlo es 403 COMMAND_ONLY sobre
+    // el campo; reenviar la solicitud tal como se leyó pasa
+    @Test
+    fun `created_commitment lo escribe solo la aceptacion`() {
+        val id = underEvaluation()
+        val accepted = accept(id)
+        assertEquals(HttpStatus.CREATED, accepted.status, accepted.body)
+        val created = tree(accepted.body)["commitment"]["id"].asString()
+        val other = approvedCommitment(testProject(), member("COMMITMENT_MANAGER"), mapOf("resource_type" to "NO MATERIAL"))
+        for (value in listOf(other, null)) {
+            val refused = edit("stakeholder_request", id, mapOf("created_commitment" to value), token, withReason())
+            assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+            assertEquals("COMMAND_ONLY", code(refused))
+            assertEquals(listOf("created_commitment"), problemFields(refused.body))
+        }
+        assertEquals(HttpStatus.OK, edit("stakeholder_request", id, emptyMap(), token, withReason()).status)
+        assertEquals(created, attributes(id)["created_commitment"].asString())
+    }
+
     @Test
     fun `close_unfulfilled exige el compromiso cancelado`() {
         val id = underEvaluation()
