@@ -24,7 +24,8 @@ import sgspe.common.toCodedException
 @RequestMapping("/api/sgspe/exports")
 class ExportController(
     private val register: StakeholderRegister,
-    private val matrix: CommitmentMatrix
+    private val matrix: CommitmentMatrix,
+    private val attention: AttentionRegister
 ) {
     @PostMapping("/{kind}")
     suspend fun export(
@@ -37,6 +38,7 @@ class ExportController(
             when (kind) {
                 "stakeholder-register" -> register.export(body)
                 "commitment-matrix" -> matrix.export(body)
+                "attention-register" -> attention.export(body)
                 else ->
                     throw Finding(
                         "EXPORT_NOT_FOUND",
