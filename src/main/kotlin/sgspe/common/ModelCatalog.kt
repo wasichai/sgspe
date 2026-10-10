@@ -101,6 +101,20 @@ class ModelCatalog(
             .map { it.path("name").asString() }
             .toSet()
 
+    // las concesiones de roles.json por rol: objeto -> acciones (READ, CREATE, UPDATE, DELETE, `u` y las declaradas). desde F4
+    // deciden, sin literales, quién vería una QCS confidencial (los avisos de ASM-102)
+    val grants: Map<String, Map<String, Set<String>>> =
+        roles.path("roles").values().associate { role ->
+            role.path("name").asString() to
+                role.path("permisos").properties().associate { (objectName, actions) -> objectName to actions.values().map { it.asString() }.toSet() }
+        }
+
+    // los roles que tienen `action` sobre `objectName` en roles.json
+    fun rolesGranting(
+        objectName: String,
+        action: String
+    ): Set<String> = grants.filterValues { action in it[objectName].orEmpty() }.keys
+
     private val transitionsByObject: Map<String, List<Transition>> =
         workflows.mapValues { (_, node) ->
             node.path("definition").path("transitions").values().map { transition ->

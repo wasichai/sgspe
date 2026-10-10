@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import sgspe.common.Attention
 import sgspe.common.Criteria
 import sgspe.common.JobTasks
 import sgspe.common.LIMA
@@ -14,6 +15,8 @@ import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.Values
+import sgspe.notification.ConfidentialReaders
+import sgspe.notification.NoticeTexts
 import wasichai.core.data.RecordResponse
 import wasichai.core.platform.ClusterLock
 import java.time.Clock
@@ -54,7 +57,8 @@ class DeadlineSweep(
 // escribe deadline_status de compromisos, tareas, quejas y consultas y validity_status de acuerdos con los parámetros de su
 // proyecto, solo si cambia (P11) y bajo el candado del registro, con el motivo que nombra al trabajo (P16); crea la tarea de
 // escalamiento de los niveles 1 y 2 de un compromiso, una queja o una consulta vencidos (generator_key, sin asignado ni fecha:
-// la toma uno de los avisados; su título solo lleva el código). nunca aplica transiciones (RN-WFL-001). el día de Lima se lee
+// la toma uno de los avisados; su título solo lleva el código). la del nivel 2 de una QCS confidencial no la delata: su clave
+// lleva la huella en lugar del id, su título y su descripción son genéricos y solo se vincula al proyecto (ASM-102). nunca aplica transiciones (RN-WFL-001). el día de Lima se lee
 // una vez por vuelta: todas las organizaciones se miden con la misma fecha. los avisos de plazo los publica DeadlineNotices,
 // que lee lo que este trabajo escribió
 @Component
@@ -173,7 +177,8 @@ class DeadlineJob(
     // la tarea de cada nivel alcanzado de un registro vencido: una por registro, fecha y nivel. decide con el registro releído
     // bajo el candado de write o, si write no lo tomó, con uno releído ahora: la fila de la lectura inicial puede tener horas en
     // una organización grande, y una reprogramación, un cumplimiento o una respuesta entretanto no deben escalar. el título y la
-    // descripción solo llevan el tipo, el código y la fecha: nunca texto libre ni datos de una QCS confidencial
+    // descripción solo llevan el tipo, el código y la fecha: nunca texto libre. la del nivel 2 de una QCS confidencial la
+    // leen todos los lectores de task del proyecto: lleva la huella en la clave, el texto genérico y ningún vínculo con la QCS
     private suspend fun escalate(
         tracked: Deadlines.Tracked,
         row: RecordResponse,
@@ -185,7 +190,17 @@ class DeadlineJob(
         val record = locked ?: records.find(tracked.objectName, UUID.fromString(row.id)) ?: return 0
         val (due, level) = escalation(tracked, record, today, params) ?: return 0
         val code = Values.text(record.attributes["code"]) ?: record.id
+        val confidential = tracked.objectName in Attention.OBJECTS && Attention.isConfidential(record.attributes)
         return (1..level).count { reached ->
+            if (confidential && reached == 2) {
+                val project = Values.text(record.attributes["project"])
+                val (title, description) = NoticeTexts.qcsConfidentialEscalation(NoticeTexts.projectName(params, project.orEmpty()))
+                return@count tasks.ensure(
+                    confidentialEscalationKey(tracked.objectName, record.id, due),
+                    mapOf("title" to title, "description" to description, "project" to project),
+                    TASK_REASON
+                )
+            }
             tasks.ensure(
                 escalationKey(tracked.objectName, record.id, due, reached),
                 mapOf(
@@ -214,6 +229,13 @@ class DeadlineJob(
             due: LocalDate,
             level: Int
         ): String = "escalation:$objectName:$id:$due:$level"
+
+        // la del nivel 2 de una QCS confidencial: la huella del registro (la del aviso genérico) en lugar de su id
+        fun confidentialEscalationKey(
+            objectName: String,
+            id: String,
+            due: LocalDate
+        ): String = JobTasks.confidentialEscalationKey(objectName, ConfidentialReaders.fingerprint(objectName, id, due), due)
 
         // la de un compromiso (F3)
         fun escalationKey(

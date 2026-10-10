@@ -2,6 +2,7 @@ package sgspe.common
 
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 
 // las tareas que crea un trabajo programado (JOB-01 para el escalamiento, JOB-03 para el seguimiento): una por generator_key,
 // que el modelo declara único (RF-WFL-004), así que repetir la corrida nunca duplica. corre dentro de Records.asPlatform de una
@@ -36,5 +37,19 @@ class JobTasks(
     companion object {
         const val TASK = "task"
         const val GENERATOR_KEY = "generator_key"
+
+        // la tarea de escalamiento del nivel 2 de una QCS confidencial (JOB-01, ASM-102): la clave lleva la huella del registro
+        // (16 dígitos hexadecimales, ConfidentialReaders.fingerprint) en lugar de su id, y la tarea no se vincula a la QCS. es
+        // la única tarea sin origen que admite ExactlyOneGuard; generator_key solo la escribe la plataforma (GeneratorKeyGuard)
+        private val CONFIDENTIAL_ESCALATION =
+            Regex("escalation:(${Attention.OBJECTS.joinToString("|")}):[0-9a-f]{16}:\\d{4}-\\d{2}-\\d{2}:2")
+
+        fun confidentialEscalationKey(
+            objectName: String,
+            fingerprint: String,
+            due: LocalDate
+        ): String = "escalation:$objectName:$fingerprint:$due:2"
+
+        fun isConfidentialEscalation(key: String?): Boolean = key != null && CONFIDENTIAL_ESCALATION.matches(key)
     }
 }
