@@ -126,6 +126,9 @@ class WarningRulesJobApiTest : F4ApiTest() {
 
     @Test
     fun `la regla del proyecto reemplaza a la del tenant y una del tenant alerta en cada proyecto`() {
+        // la regla del tenant, con umbral 1, alcanza también a los demás proyectos activos o suspendidos de la base de pruebas
+        // que tengan un incidente reciente y no una regla propia de INCIDENTES: puede crearles alertas mientras dure la prueba,
+        // y por eso se deshabilita al final. las aserciones solo miran los tres proyectos de la prueba
         val tenant = rule(null, Warnings.INCIDENTS, 1, "Incidentes del tenant")
         try {
             val first = activeProject()
@@ -143,19 +146,37 @@ class WarningRulesJobApiTest : F4ApiTest() {
         }
     }
 
+    // la clave por fecha de Lima frenaría sola una segunda alerta el mismo día: antes de cada vuelta la alerta pasa a la clave
+    // de ayer, para que solo el silencio pueda frenarla
     @Test
     fun `una alerta abierta y luego la ventana silencian la regla`() {
         val project = activeProject()
         rule(project, Warnings.SIGNALS, 1)
         warningSignal(project, attributes = mapOf("received_at" to recent()))
         run()
+        val alert = alerts(project).single()
+        val id = alert["id"].asString()
+        val yesterday = LocalDate.now(LIMA).minusDays(1).toString()
+        platformPatch("early_warning", id, mapOf("generator_key" to alert["attributes"]["generator_key"].asString().replace(today(), yesterday)))
+        // abierta: silencia, detectada hoy o fuera de la ventana
         run()
-        val alert = alerts(project).single()["id"].asString()
+        assertEquals(listOf(id), alerts(project).map { it["id"].asString() })
+        platformPatch("early_warning", id, mapOf("detected_at" to Instant.now().minus(8, ChronoUnit.DAYS).toString()))
+        run()
+        assertEquals(listOf(id), alerts(project).map { it["id"].asString() })
+        // descartada y detectada dentro de la ventana: silencia
+        platformPatch("early_warning", id, mapOf("detected_at" to recent()))
         val triage = member("SOCIAL_RISK_MANAGER", project)
-        move("early_warning", alert, "start_triage", triage.token)
-        move("early_warning", alert, "dismiss", triage.token, "falsa alarma")
+        move("early_warning", id, "start_triage", triage.token)
+        move("early_warning", id, "dismiss", triage.token, "falsa alarma")
         run()
-        assertEquals(1, alerts(project).size)
+        assertEquals(listOf(id), alerts(project).map { it["id"].asString() })
+        // descartada y detectada hace 8 días, fuera de la ventana de 7: la regla vuelve a alertar
+        platformPatch("early_warning", id, mapOf("detected_at" to Instant.now().minus(8, ChronoUnit.DAYS).toString()))
+        run()
+        val second = alerts(project).single { it["id"].asString() != id }
+        assertEquals("detected", second["state"].asString())
+        assertEquals(2, alerts(project).size)
     }
 
     // workflows.md «Listeners»: el alta de JOB-04 como la plataforma llega a AUT-09 y a WarningNoticeListener

@@ -63,7 +63,8 @@ class WarningSweep(
 // misma regla y proyecto (y riesgo) o una detectada dentro de la ventana; la crea en su propia transacción, con su
 // generator_key único (un duplicado de otra réplica cuenta como hecho), así WarningNoticeListener y AUT-09 la ven como un
 // alta. nunca aplica transiciones ni confirma (RN-EWS-001). lee como la plataforma, así que CONTEO DE QCS cuenta también las
-// confidenciales: la alerta solo lleva el número
+// confidenciales: la alerta solo lleva el número. una regla que falla en un proyecto no detiene a las demás; la organización
+// falla al final
 @Component
 class WarningRulesJob(
     private val records: Records,
@@ -84,12 +85,13 @@ class WarningRulesJob(
             WarningSweep(
                 { organizations.having(Warnings.RULE) },
                 { organization, block -> records.asPlatform(organization, SOURCE, block) },
-                { evaluate(now, today) }
+                { organization -> evaluate(organization, now, today) }
             ).run()
         }
     }
 
     private suspend fun evaluate(
+        organization: UUID,
         now: Instant,
         today: LocalDate
     ): Int {
@@ -102,9 +104,22 @@ class WarningRulesJob(
         if (rules.isEmpty()) return 0
         val projects = records.all(PROJECT, criteria = listOf(Criteria.inState(ACTIVE))).map { it.id }
         var created = 0
+        var failed = 0
+        // una regla que falla en un proyecto (un TOO_MANY_RECORDS de MAX_ROWS, un listener del alta) se registra y no detiene a
+        // las demás reglas ni a los demás proyectos; al final la organización falla (como las filas de DeadlineJob)
         for (project in projects) {
-            for (rule in WarningEvaluation.applicable(rules, project)) created += evaluate(rule, project, now, today)
+            for (rule in WarningEvaluation.applicable(rules, project)) {
+                try {
+                    created += evaluate(rule, project, now, today)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failed++
+                    log.error("WarningRulesJob: falló la regla {} en el proyecto {} de la organización {}", rule.id, project, organization, e)
+                }
+            }
         }
+        check(failed == 0) { "fallaron $failed reglas por proyecto en la organización $organization (se crearon $created alertas)" }
         return created
     }
 
@@ -129,7 +144,7 @@ class WarningRulesJob(
         today: LocalDate
     ): Long {
         val start = WarningEvaluation.windowStart(today, rule.windowDays)
-        val from = start.atStartOfDay(LIMA).toInstant()
+        val from = WarningEvaluation.windowFrom(today, rule.windowDays)
         val until = now.plusSeconds(1)
         val inProject = mapOf("project" to project)
         return when (rule.kind) {
@@ -179,8 +194,9 @@ class WarningRulesJob(
         }
     }
 
-    // en silencio: una alerta abierta (fuera de dismissed y closed) de la misma regla y proyecto (y riesgo), o una detectada
-    // dentro de los window_days días de la regla (ASM-097)
+    // en silencio (WarningEvaluation.silences, ASM-097): una alerta abierta (fuera de dismissed y closed) de la misma regla y
+    // proyecto (y riesgo), o una detectada dentro de los window_days días de la regla. lee solo las candidatas, las abiertas y
+    // las detectadas en la ventana: pocas, porque el propio silencio deja a lo sumo una por ventana
     private suspend fun silenced(
         rule: WarningRule,
         project: String,
@@ -190,9 +206,11 @@ class WarningRulesJob(
     ): Boolean {
         val same = mapOf("project" to project, "early_warning_rule" to rule.id) + listOfNotNull(risk?.let { "social_risk" to it })
         val open = catalog.states(Warnings.WARNING) - Warnings.FINISHED
-        if (records.count(Warnings.WARNING, same, listOf(Criteria.inState(open))) > 0) return true
-        val from = WarningEvaluation.windowStart(today, rule.windowDays).atStartOfDay(LIMA).toInstant()
-        return records.count(Warnings.WARNING, same, listOf(Criteria.between("detected_at", from, now.plus(Duration.ofDays(1))))) > 0
+        val from = WarningEvaluation.windowFrom(today, rule.windowDays)
+        val candidates =
+            records.all(Warnings.WARNING, same, listOf(Criteria.inState(open)), max = MAX_ROWS) +
+                records.all(Warnings.WARNING, same, listOf(Criteria.between(DETECTED_AT, from, now.plus(Duration.ofDays(1)))), max = MAX_ROWS)
+        return candidates.any { WarningEvaluation.silences(it.state, WarningEvaluation.instant(it.attributes[DETECTED_AT]), from) }
     }
 
     companion object {
@@ -206,6 +224,7 @@ class WarningRulesJob(
         const val COMMITMENT = "commitment"
         const val OVERDUE = "VENCIDO"
         const val NEGATIVE = "NEGATIVO"
+        const val DETECTED_AT = "detected_at"
 
         // los proyectos que se vigilan y los compromisos con plazo en curso (los estados de JOB-01, Commitments.PENDING)
         val ACTIVE: Set<String> = setOf("active", "suspended")

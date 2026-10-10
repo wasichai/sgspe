@@ -1,8 +1,10 @@
 package sgspe.warning
 
+import sgspe.common.LIMA
 import sgspe.common.Values
 import java.time.Instant
 import java.time.LocalDate
+import java.time.OffsetDateTime
 
 // una regla de alerta habilitada como la evalúa JOB-04 (especificación de F4 §4, ASM-097): `project` vacío es una regla del
 // tenant; window_days vacío vale 7; severity vacía, MEDIO
@@ -73,6 +75,23 @@ object WarningEvaluation {
         today: LocalDate,
         days: Long
     ): LocalDate = today.minusDays(days - 1)
+
+    // el primer instante de la ventana: las 00:00 de Lima de su primer día. lo usan los eventos y el silencio (decisión 8)
+    fun windowFrom(
+        today: LocalDate,
+        days: Long
+    ): Instant = windowStart(today, days).atStartOfDay(LIMA).toInstant()
+
+    // el silencio de una regla (ASM-097): una alerta de la misma regla y proyecto (y riesgo) la silencia si sigue abierta
+    // (fuera de dismissed y closed), detectada cuando sea, o si se detectó desde `from`, el inicio de la ventana de la regla
+    fun silences(
+        state: String?,
+        detectedAt: Instant?,
+        from: Instant
+    ): Boolean = state !in Warnings.FINISHED || (detectedAt != null && !detectedAt.isBefore(from))
+
+    // un DATETIME leído (texto ISO-8601 con zona, Z u offset); null si falta o no se entiende
+    fun instant(value: Any?): Instant? = Values.text(value)?.let { runCatching { OffsetDateTime.parse(it).toInstant() }.getOrNull() }
 
     // dispara cuando el valor medido alcanza el umbral
     fun fires(
