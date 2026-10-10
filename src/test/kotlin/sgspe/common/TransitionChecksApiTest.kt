@@ -122,8 +122,18 @@ class TransitionChecksApiTest : DomainApiTest() {
 
     @Test
     fun `quien no esta asignado al proyecto recibe NOT_ASSIGNED entre los bloqueos`() {
+        // desde 4.4 quien no lee el proyecto recibe 404 (ASM-108); NOT_ASSIGNED queda para quien lo lee sin estar asignado:
+        // PROJECT_ADMIN, que tiene READ_ALL_PROJECTS
         val project = projectWithCrs()
-        val stranger = userWithRole("PROJECT_MANAGER")
+        val unreadable =
+            exchange(
+                "POST",
+                "/api/sgspe/transition-checks",
+                mapOf("object" to "project", "recordId" to project, "transition" to "submit_for_review"),
+                userWithRole("PROJECT_MANAGER").token
+            )
+        assertEquals(HttpStatus.NOT_FOUND, unreadable.status, unreadable.body)
+        val stranger = userWithRole("PROJECT_ADMIN")
         val check =
             tree(
                 send(
