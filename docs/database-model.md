@@ -223,8 +223,8 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
   cuerpo (RQ-SEC-002) [WAS-ADR-0004] [WAS-ADR-0010].
 - **Alcance por proyecto.** Toda raíz de agregado de un proyecto lleva `project` RELATION, requerido salvo en `evidence`,
   `early_warning_rule`, `indicator_measurement`, `export_log`, `ai_suggestion` y `ai_interaction`; los hijos lo heredan de su
-  raíz (§4.7 del modelo de dominio). `ProjectScopeGuard` acota la escritura con `project_assignment`; la lectura por
-  proyecto espera UPS-01 (RQ-SEC-006, CON-041).
+  raíz (§4.7 del modelo de dominio). `ProjectScopeGuard` acota la escritura con `project_assignment`; la lectura la
+  acota `ProjectReadScope` (ADR-0029; RQ-SEC-006, CON-041).
 - **Concurrencia.** `PUT` reemplaza el registro completo y `version` no tiene columna. El portal envía `updated_at` como
   precondición (RNF-INT-003, ASM-035, UPS-04) y `Idempotency-Key` en sus altas (RNF-INT-002).
 - **Fin de vida.** No hay una columna genérica de borrado lógico [PRM-01 §20]. Un registro termina en un estado de cierre de
@@ -744,7 +744,7 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** `APPROVE`.
+- **Acciones declaradas:** `APPROVE`, `READ_ALL_PROJECTS`.
 - **Workflow:** WF-A.
 - **Fase:** F2 · Release 1 (MVP).
 - `FieldChangeReasonGuard` exige motivo al cambiar `stage` o `exploration_phase` (RN-PRJ-001); `ProjectWriteGuard`

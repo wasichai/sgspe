@@ -913,7 +913,7 @@ class NewTenantTests(unittest.TestCase):
             quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login]),
         ]
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
-        self.assertIn("done: 332 created, 21 updated, 0 skipped", runs[0][1])
+        self.assertIn("done: 333 created, 21 updated, 0 skipped", runs[0][1])
         self.assertIn("done: 15 created, 0 updated, 0 skipped", runs[1][1])
         self.assertIn("done: 15 workflows (15 created, 0 updated, 0 skipped), 2 document types (2 created, 0 updated, "
                       "0 skipped), 6 automations (6 created, 0 updated, 0 skipped)", runs[2][1])
@@ -924,13 +924,13 @@ class NewTenantTests(unittest.TestCase):
                  quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login]),
                  quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])]
         self.assertEqual([code for code, _, _ in again], [0, 0, 0], again)
-        self.assertIn("done: 0 created, 0 updated, 332 skipped", again[0][1])
+        self.assertIn("done: 0 created, 0 updated, 333 skipped", again[0][1])
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1][1])
         self.assertIn("done: 15 workflows (0 created, 0 updated, 15 skipped), 2 document types (0 created, 0 updated, "
                       "2 skipped), 6 automations (0 created, 0 updated, 6 skipped)", again[2][1])
 
     def test_a_tenant_of_f3_moves_to_f4_adding_only_what_f4_brings(self):
-        # Review Focus 1: el modelo de F3 sale de model.json con las fases de las fichas (232 creados y 15 conjuntos, como
+        # Review Focus 1: el modelo de F3 sale de model.json con las fases de las fichas (233 creados y 15 conjuntos, como
         # el aprovisionamiento de F3); subirlo a F4 agrega 12 objetos, 8 campos de project, referred_at de
         # engagement_question, 9 acciones y 79 relaciones, pone los únicos e índices de 6 objetos nuevos y no toca nada
         # de F3
@@ -940,11 +940,11 @@ class NewTenantTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             f3 = quiet(apply.main, ["--model", write_model(folder, phase_subset(load(MODEL_PATH), "F3")), *login])
         self.assertEqual(f3[0], 0, f3)
-        self.assertIn("done: 232 created, 15 updated, 0 skipped", f3[1])
+        self.assertIn("done: 233 created, 15 updated, 0 skipped", f3[1])
         core.requests.clear()
         f4 = quiet(apply.main, ["--model", MODEL_PATH, *login])
         self.assertEqual(f4[0], 0, f4)
-        self.assertIn("done: 109 created, 6 updated, 230 skipped", f4[1])
+        self.assertIn("done: 109 created, 6 updated, 231 skipped", f4[1])
         touched = {p.split("/")[3] for m, p, _, _ in core.requests if m == "PUT" and p.startswith("/api/objects/")}
         self.assertEqual(touched, {"grievance", "inquiry", "stakeholder_request", "social_risk", "risk_assessment",
                                    "incident"})
@@ -961,13 +961,13 @@ class NewTenantTests(unittest.TestCase):
         login = ["--core", core.base_url, "--email", "admin-tenant@sgspe.test", "--password", "clave-del-tenant"]
         with tempfile.TemporaryDirectory() as folder:
             f2 = quiet(apply.main, ["--model", write_model(folder, phase_subset(load(MODEL_PATH), "F2")), *login])
-        self.assertIn("done: 168 created, 11 updated, 0 skipped", f2[1])
+        self.assertIn("done: 169 created, 11 updated, 0 skipped", f2[1])
         f4 = quiet(apply.main, ["--model", MODEL_PATH, *login])
         self.assertEqual(f4[0], 0, f4)
-        self.assertIn("done: 188 created, 10 updated, 166 skipped", f4[1])
+        self.assertIn("done: 188 created, 10 updated, 167 skipped", f4[1])
         again = quiet(apply.main, ["--model", MODEL_PATH, *login])
         self.assertEqual(again[0], 0, again)
-        self.assertIn("done: 0 created, 0 updated, 332 skipped", again[1])
+        self.assertIn("done: 0 created, 0 updated, 333 skipped", again[1])
 
 
 def phase_subset(model, phase):

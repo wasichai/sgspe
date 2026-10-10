@@ -23,7 +23,7 @@ class CardsTests(unittest.TestCase):
 
     def test_la_ficha_de_project(self):
         card = self.cards["project"]
-        self.assertEqual((card.label, card.phase, card.workflow, card.actions), ("Proyecto", "F2", "WF-A", ["APPROVE"]))
+        self.assertEqual((card.label, card.phase, card.workflow, card.actions), ("Proyecto", "F2", "WF-A", ["APPROVE", "READ_ALL_PROJECTS"]))
         self.assertTrue(card.description.startswith("Proyecto extractivo (o prospecto)"))
         fields = {f["name"]: f for f in card.fields}
         self.assertEqual((fields["code"]["type"], fields["code"]["required"], fields["code"]["unique"]), ("TEXT", True, True))
@@ -100,7 +100,7 @@ class SecurityTests(unittest.TestCase):
 
     def test_celdas_de_la_matriz(self):
         matrix = design_docs.matrix()
-        self.assertEqual(matrix["project"]["PROJECT_ADMIN"], ["READ", "CREATE", "UPDATE", "APPROVE"])
+        self.assertEqual(matrix["project"]["PROJECT_ADMIN"], ["READ", "CREATE", "UPDATE", "APPROVE", "READ_ALL_PROJECTS"])
         self.assertEqual(matrix["project"]["GIS_ANALYST"], ["READ", "u"])
         self.assertEqual(matrix["area_of_influence"]["PROJECT_MANAGER"], ["READ", "u", "APPROVE"])
         self.assertEqual(matrix["engagement_participant"]["FIELD_AGENT"], ["READ", "CREATE", "UPDATE", "DELETE"])
