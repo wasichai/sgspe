@@ -376,14 +376,19 @@ def workflow_transitions(letter, obj=None):
     Fails (ValueError) when the section, its table or a cell does not have the expected shape, so a changed document
     cannot make a test compare against less than the document says. The cell "Los mismos de `x`" takes the roles of x;
     the cell "Roles <adjective>" takes the roles of the section's bullet "- **Roles <adjective>:**". A section with one
-    table per object (WF-K) needs `obj`: the table that follows its "**Objeto:** `obj`" line.
+    table per object (WF-K) needs `obj`: the table that follows its "**Objeto:** `obj`" line. A letter with a number
+    (WF-E1, WF-E2, WF-E3) is a "### WF-E1 ·" subsection of its letter's section, and ends at the next heading of its
+    level or above; "E" alone is the whole section, with its three tables, so it needs `obj`.
     """
     lines = read("workflows.md").splitlines()
-    heading = f"## WF-{letter} ·"
-    starts = [i for i, line in enumerate(lines) if line.startswith(heading)]
+    heading = re.compile(rf"^(##|###) WF-{re.escape(letter)} ·")
+    starts = [i for i, line in enumerate(lines) if heading.match(line)]
     if len(starts) != 1:
-        raise ValueError(f"workflows.md has {len(starts)} sections that start with {heading!r}, expected 1")
-    end = next((i for i in range(starts[0] + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+        raise ValueError(f"workflows.md has {len(starts)} sections that start with 'WF-{letter} ·', expected 1")
+    # a "## " section ends at the next "## "; a "### " subsection also at the next "### "
+    level = heading.match(lines[starts[0]]).group(1)
+    stops = ("## ",) if level == "##" else ("## ", "### ")
+    end = next((i for i in range(starts[0] + 1, len(lines)) if lines[i].startswith(stops)), len(lines))
     start = starts[0]
     if obj is not None:
         subjects = [i for i in range(start, end) if SUBJECT.match(lines[i]) and SUBJECT.match(lines[i]).group(1) == obj]
