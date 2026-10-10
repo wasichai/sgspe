@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.0.0](https://github.com/wasichai/sgspe/compare/v0.10.0...v1.0.0) (2026-10-10)
+
+
+### Features
+
+* acción declarada READ_ALL_PROJECTS para AUDITOR y PROJECT_ADMIN ([c48ebfb](https://github.com/wasichai/sgspe/commit/c48ebfbcad8be4c9e1cae8612f3358b111ab7239))
+* alta y subida de fase de tenants por script ([7e5476a](https://github.com/wasichai/sgspe/commit/7e5476ad577305ca8e8e47592539d81c46d7b57b))
+* clasificación de los objetos para el alcance de lectura ([467cd24](https://github.com/wasichai/sgspe/commit/467cd24b6beda8c43feca41e163f344ccb91a2a5))
+* condición SQL del alcance de lectura por proyecto ([eb97cc1](https://github.com/wasichai/sgspe/commit/eb97cc1e410ed43e89e1878c7eebf4a786bf91a8))
+* duración por organización en los barridos de los trabajos ([42822c8](https://github.com/wasichai/sgspe/commit/42822c8b801e81df795adef207ad73056581cf30))
+* el 409 HAS_DEPENDENTS no nombra al dependiente en su detalle ([8d45a27](https://github.com/wasichai/sgspe/commit/8d45a279277909854a17552610805bee374669bb))
+* el alta de tenants separada de su administración en producción ([650bceb](https://github.com/wasichai/sgspe/commit/650bceba7d0289da14a485615a104820ae65174a))
+* fase 4, plan 4.4a: alcance de lectura por proyecto y varios clientes ([8d5b172](https://github.com/wasichai/sgspe/commit/8d5b172bb3044a01cbb0d81571509374f32c1f88))
+* feriados nacionales de 2027 ([1dbe8a5](https://github.com/wasichai/sgspe/commit/1dbe8a52fb3eb6c39b0c9217a6d63d55a0454bdc))
+* feriados nacionales de 2027 ([1a09bc8](https://github.com/wasichai/sgspe/commit/1a09bc8ae43609eebd1018ef5da32826dd2751de))
+* los documentos emitidos respetan el alcance de lectura ([1650b4a](https://github.com/wasichai/sgspe/commit/1650b4a42530fcd548024c90a299484bfbf47bdb))
+* ProjectReach decide mis proyectos o todos ([63b6af1](https://github.com/wasichai/sgspe/commit/63b6af156a50ac6edd83cf85c874038df1061517))
+* ProjectReadScope acota la lectura por proyecto ([931c50b](https://github.com/wasichai/sgspe/commit/931c50b7bec4534896cf5189c536ca180123a15f))
+* tableros, reporte y exportaciones con ProjectReach ([a238eec](https://github.com/wasichai/sgspe/commit/a238eecf270280a900a230076915ada9fd725866))
+
+
+### Bug Fixes
+
+* **scope:** el filtro de documentos vigila también HEAD ([065d625](https://github.com/wasichai/sgspe/commit/065d625282cdeba1fdbba938a15f454404aa4eb9))
+
+
+### Performance Improvements
+
+* RequestMemo para toda petición de /api ([05f5d93](https://github.com/wasichai/sgspe/commit/05f5d93a121d13a814c1d812bd4e59c8ff4a3e68))
+
+
+### Documentation
+
+* el release 1.0.0 cierra la Release 1 (MVP) ([527b81b](https://github.com/wasichai/sgspe/commit/527b81bb5f46d1d2a4aaaa04c6750222371d3907))
+
 ## 0.10.0 (2026-10-10)
 
 
