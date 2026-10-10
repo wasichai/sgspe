@@ -13,6 +13,7 @@ import sgspe.notification.ConfidentialReaders
 import sgspe.notification.NoticeTexts
 import sgspe.notification.Notices
 import sgspe.risk.RiskReview
+import sgspe.risk.RiskReviewTasks
 import sgspe.risk.Risks
 import sgspe.scope.Assignment
 import sgspe.scope.Assignments
@@ -54,7 +55,9 @@ data class PlannedNotice(
 // 1; los de approve_senior de WF-D en el nivel 2. cada nivel alcanzado sigue abierto mientras dure el atraso
 object DeadlineNoticePlan {
     // la transición de referencia del nivel 1 de una tarea, por su registro vinculado (workflows.md); F4 suma las QCS (verify
-    // de WF-E1, como el nivel 1 de sus plazos), los riesgos (decide_mitigation de WF-F) y las alertas (confirm de WF-J)
+    // de WF-E1, como el nivel 1 de sus plazos) y las alertas (confirm de WF-J; la tarea de AUT-09 nace sin fecha). los riesgos
+    // no: su revisión vencida avisa por risk_escalated (DeadlineNoticePlan.risk), y la tarea de revisión de JOB-01 queda
+    // fuera de esta cadena (escalatesAsTask; ronda branchfix de 4.2b, R-I1)
     val TASK_REFERENCE =
         linkedMapOf(
             Commitments.COMMITMENT to (Commitments.COMMITMENT to "verify"),
@@ -64,9 +67,16 @@ object DeadlineNoticePlan {
             Attention.GRIEVANCE to (Attention.GRIEVANCE to "verify"),
             Attention.INQUIRY to (Attention.GRIEVANCE to "verify"),
             Attention.REQUEST to (Attention.GRIEVANCE to "verify"),
-            Risks.SOCIAL_RISK to (Risks.SOCIAL_RISK to "decide_mitigation"),
             "early_warning" to ("early_warning" to "confirm")
         )
+
+    // si una tarea vencida avisa por la cadena de «tarea vencida» (task_overdue): todas menos la de revisión de un riesgo, que
+    // ya escala por risk_escalated con los mismos niveles y plazos; con las dos, cada nivel recibiría dos avisos por lo mismo
+    fun escalatesAsTask(generatorKey: String?): Boolean = !RiskReviewTasks.isReviewTask(generatorKey)
+
+    // la próxima revisión de un riesgo (un DATE AAAA-MM-DD); null si falta o está mal formada: esa fila se salta, nunca rompe los
+    // avisos de toda la organización
+    fun reviewDate(raw: Any?): LocalDate? = Values.text(raw)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
     // la transición que sigue en cada estado con plazo de una QCS: sus roles reciben el nivel 0 de una QCS sin responsable
     val QCS_NEXT: Map<String, Map<String, String>> =
@@ -327,7 +337,7 @@ class DeadlineNotices(
             }
         }
         for (row in risks) {
-            val due = Values.text(row.attributes[Risks.NEXT_REVIEW])?.let(LocalDate::parse) ?: continue
+            val due = DeadlineNoticePlan.reviewDate(row.attributes[Risks.NEXT_REVIEW]) ?: continue
             val params = params(Values.text(row.attributes["project"]) ?: continue)
             val plan =
                 DeadlineNoticePlan.risk(
@@ -343,6 +353,7 @@ class DeadlineNotices(
         // las QCS confidenciales a las que apunta una tarea: su aviso de vencida también se filtra (ASM-102)
         val linkedQcs = linkedConfidential(tasks)
         for (row in tasks) {
+            if (!DeadlineNoticePlan.escalatesAsTask(Values.text(row.attributes[RiskReviewTasks.GENERATOR_KEY]))) continue
             val due = Values.text(row.attributes["due_date"])?.let(LocalDate::parse) ?: continue
             val params = params(Values.text(row.attributes["project"]) ?: continue)
             val linked = DeadlineNoticePlan.TASK_REFERENCE.keys.firstOrNull { Values.text(row.attributes[it]) != null }
@@ -377,7 +388,12 @@ class DeadlineNotices(
         try {
             records
                 .all(Risks.SOCIAL_RISK, filters = mapOf(Risks.REVIEW_STATUS to RiskReview.OVERDUE), criteria = listOf(Criteria.inState(Risks.REVIEWED)))
-                .filter { RiskReview.status(Values.text(it.attributes[Risks.NEXT_REVIEW])?.let(LocalDate::parse), today) == RiskReview.OVERDUE }
+                .filter { row ->
+                    val raw = row.attributes[Risks.NEXT_REVIEW]
+                    val next = DeadlineNoticePlan.reviewDate(raw)
+                    if (next == null && Values.text(raw) != null) log.warn("DeadlineNotices: social_risk {} con next_review_date mal formada; se salta", row.id)
+                    next != null && RiskReview.status(next, today) == RiskReview.OVERDUE
+                }
         } catch (_: NotFoundException) {
             emptyList()
         }

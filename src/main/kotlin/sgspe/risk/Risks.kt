@@ -41,6 +41,34 @@ object Risks {
     val ESCALATED: Set<String> = setOf("ALTO", "CRITICO")
 }
 
+// la tarea de revisión de un riesgo (ASM-099): JOB-01 la crea con la clave risk_review:<riesgo>:<next_review_date> y la
+// revisión la cierra (api.md §4.7). no entra en la cadena de «tarea vencida»: la revisión vencida avisa por risk_escalated
+// (DeadlineNoticePlan.escalatesAsTask). `closing`, las transiciones de WF-N que llevan a done desde cada estado abierto
+object RiskReviewTasks {
+    const val TASK = "task"
+    const val GENERATOR_KEY = "generator_key"
+    private const val PREFIX = "risk_review:"
+
+    // los estados abiertos de una tarea (Deadlines.TASK_OPEN) y lo que la lleva a done desde cada uno
+    val OPEN: Set<String> = setOf("open", "in_progress", "blocked")
+    private val CLOSING: Map<String, List<String>> =
+        mapOf("open" to listOf("complete_open"), "in_progress" to listOf("complete"), "blocked" to listOf("unblock", "complete"))
+
+    fun key(
+        risk: String,
+        next: String
+    ): String = "$PREFIX$risk:$next"
+
+    fun isReviewTask(key: String?): Boolean = key != null && key.startsWith(PREFIX)
+
+    fun belongsTo(
+        key: String?,
+        risk: String
+    ): Boolean = key != null && key.startsWith("$PREFIX$risk:")
+
+    fun closing(state: String?): List<String> = CLOSING[state].orEmpty()
+}
+
 // los umbrales de nivel de un proyecto (ASM-004, RN-RSK-002): el puntaje mínimo de MEDIO, ALTO y CRITICO
 data class RiskThresholds(
     val medium: Long,

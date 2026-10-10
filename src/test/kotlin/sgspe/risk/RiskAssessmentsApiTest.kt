@@ -142,4 +142,34 @@ class RiskAssessmentsApiTest : F4ApiTest() {
         val critical = tasks.single { it["attributes"]["title"].asString() == "Revisar el riesgo crítico $code" }
         assertEquals(owner.id, critical["attributes"]["assignee_user_id"].asString())
     }
+
+    // ronda branchfix de 4.2b (R-I2): un PUT sin los derivados, como el del portal, deja vacío risk_level y DerivedFieldsKeeper
+    // lo repone; esa reposición no es un cambio a CRITICO, así que no crea otra tarea de AUT-11. las corridas de una escritura
+    // se insertan en su misma transacción: al responder el PUT ya están todas
+    @Test
+    fun `un PUT de un riesgo ya CRITICO que omite los derivados no vuelve a disparar AUT-11`() {
+        val owner = member("SOCIAL_RISK_MANAGER")
+        val risk = socialRisk(testProject(), owner = owner)
+        assertEquals(HttpStatus.CREATED, assess(risk, review(5, 4, "2026-01-05")).status)
+        assertEquals("SUCCEEDED", awaitRun("social_risk", "aut-11-critical-risk-task", risk)["status"].asString())
+        val current = attributesOf(record("social_risk", risk, reviewer.token)) - derivedFields("social_risk")
+        val put =
+            exchange(
+                "PUT",
+                "/api/objects/social_risk/records/$risk",
+                mapOf("attributes" to current + ("title" to "Expectativas de empleo local y compras")),
+                reviewer.token,
+                withReason("título más preciso")
+            )
+        assertEquals(HttpStatus.OK, put.status, put.body)
+        assertEquals("CRITICO", record("social_risk", risk)["attributes"]["risk_level"].asString())
+        val runs =
+            tree(send("GET", "/api/objects/social_risk/automations/aut-11-critical-risk-task/runs?limit=50", null, HttpStatus.OK))
+                .values()
+                .filter { it["recordId"]?.asString() == risk && it["status"].asString() != "SKIPPED" }
+        assertEquals(1, runs.size, runs.toString())
+        val code = record("social_risk", risk)["attributes"]["code"].asString()
+        val tasks = tree(send("GET", "/api/objects/task/records?social_risk=$risk", null, HttpStatus.OK))["content"].values()
+        assertEquals(1, tasks.count { it["attributes"]["title"].asString() == "Revisar el riesgo crítico $code" })
+    }
 }

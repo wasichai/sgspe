@@ -19,6 +19,7 @@ import sgspe.notification.ConfidentialReaders
 import sgspe.notification.NoticeTexts
 import sgspe.risk.RiskLevels
 import sgspe.risk.RiskReview
+import sgspe.risk.RiskReviewTasks
 import sgspe.risk.Risks
 import wasichai.core.data.RecordResponse
 import wasichai.core.platform.ClusterLock
@@ -308,7 +309,7 @@ class DeadlineJob(
         fun reviewKey(
             risk: String,
             next: String
-        ): String = "risk_review:$risk:$next"
+        ): String = RiskReviewTasks.key(risk, next)
 
         fun escalationKey(
             objectName: String,

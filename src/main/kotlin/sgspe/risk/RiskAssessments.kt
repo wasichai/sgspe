@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ServerWebExchange
 import sgspe.common.Callers
 import sgspe.common.CommandAnswer
+import sgspe.common.Criteria
 import sgspe.common.Finding
 import sgspe.common.Idempotency
 import sgspe.common.IdempotencyKey
@@ -195,8 +196,9 @@ object AssessmentPlanner {
 // las revisiones de riesgo (api.md §4.7, RF-RSK-001, ASM-099): en una transacción y bajo el candado del riesgo, valida, calcula
 // puntaje, nivel y tendencia, crea la risk_assessment (appendOnly y apiOnly: este endpoint es su única vía) con quien revisa,
 // escribe los valores vigentes o los residuales, next_review_date (última revisión + cadencia) y review_status con la marca, y
-// en la primera revisión aplica assess, una transición de comando. todo como quien llama, con el motivo de la petición. la
-// escritura de risk_level dispara AUT-11 (CRITICO) y la revisión, RiskNoticeListener (ALTO o CRITICO)
+// en la primera revisión aplica assess, una transición de comando, y cierra las tareas de revisión abiertas del riesgo. todo
+// como quien llama, con el motivo de la petición. la escritura de risk_level dispara AUT-11 (CRITICO) y la revisión,
+// RiskNoticeListener (ALTO o CRITICO)
 @Service
 class RiskAssessments(
     private val records: Records,
@@ -253,7 +255,28 @@ class RiskAssessments(
             val changed = changes.filter { (name, value) -> !Values.same(value, risk.attributes[name]) }
             if (changed.isNotEmpty()) records.patch(Risks.SOCIAL_RISK, riskId, changed, reason)
             if (first) records.transition(Risks.SOCIAL_RISK, riskId, Risks.ASSESS, reason)
+            closeReviewTasks(riskId, reason)
             RiskAssessmentResult(assessment, records.get(Risks.SOCIAL_RISK, riskId))
+        }
+    }
+
+    // la revisión hecha cierra las tareas de revisión abiertas del riesgo (risk_review:<riesgo>:*, de JOB-01): como quien
+    // revisa, con la marca y el motivo de la petición, en la misma transacción. si quien revisa no pudiera cerrarlas, el 403
+    // revierte la revisión entera; los roles que revisan (CREATE de risk_assessment) tienen UPDATE de task y las transiciones
+    // de WF-N que llevan a done
+    private suspend fun closeReviewTasks(
+        riskId: UUID,
+        reason: String
+    ) {
+        val open =
+            records
+                .all(
+                    RiskReviewTasks.TASK,
+                    filters = mapOf(Risks.SOCIAL_RISK to riskId.toString()),
+                    criteria = listOf(Criteria.inState(RiskReviewTasks.OPEN))
+                ).filter { RiskReviewTasks.belongsTo(Values.text(it.attributes[RiskReviewTasks.GENERATOR_KEY]), riskId.toString()) }
+        for (task in open) {
+            for (transition in RiskReviewTasks.closing(task.state)) records.transition(RiskReviewTasks.TASK, UUID.fromString(task.id), transition, reason)
         }
     }
 

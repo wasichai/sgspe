@@ -45,12 +45,17 @@ class WarningRulesJobApiTest : F4ApiTest() {
 
     private fun descriptions(project: String): Set<String> = alerts(project).map { it["attributes"]["trigger_description"].asString() }.toSet()
 
+    // la regla de un proyecto la crea un gestor de riesgos asignado a ese proyecto (ProjectScopeGuard: sin asignación vigente,
+    // 403 NOT_ASSIGNED); la del tenant, el gestor de la clase
     private fun rule(
         project: String?,
         kind: String,
         threshold: Int,
         name: String = "Regla $kind"
-    ): String = warningRule(project, manager, mapOf("rule_kind" to kind, "threshold" to threshold, "name" to name))
+    ): String {
+        val creator = project?.let { member("SOCIAL_RISK_MANAGER", it) } ?: manager
+        return warningRule(project, creator, mapOf("rule_kind" to kind, "threshold" to threshold, "name" to name))
+    }
 
     @Test
     fun `cada tipo por eventos dispara al alcanzar el umbral y no con uno menos`() {
