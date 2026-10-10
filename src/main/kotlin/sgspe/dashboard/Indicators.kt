@@ -1,5 +1,6 @@
 package sgspe.dashboard
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonValue
 import sgspe.common.Values
 import java.math.BigDecimal
@@ -83,7 +84,10 @@ data class IndicatorValue(
     val missingFields: List<String>? = null,
     val warnings: List<String>? = null,
     // los filtros pedidos que este indicador no aplica (ruling P27): community en los KPI-STK, explorationCampaign en F2
-    val ignoredFilters: List<String>? = null
+    val ignoredFilters: List<String>? = null,
+    // F4: true si quien mira no ve las QCS confidenciales y el indicador las lee (dashboards.md §8); un booleano, nunca el
+    // número de excluidas. null en los demás
+    val confidentialHidden: Boolean? = null
 ) {
     @JsonValue
     fun json(): Map<String, Any?> {
@@ -98,7 +102,8 @@ data class IndicatorValue(
             "unavailableReason" to unavailableReason,
             "missingFields" to missingFields,
             "warnings" to warnings,
-            "ignoredFilters" to ignoredFilters
+            "ignoredFilters" to ignoredFilters,
+            "confidentialHidden" to confidentialHidden
         ).forEach { (key, item) -> if (item != null) out[key] = item }
         return out
     }
@@ -115,7 +120,9 @@ data class DashboardResponse(
     val dashboard: String,
     val filters: Map<String, Any?>,
     val computedAt: String,
-    val indicators: List<IndicatorValue>
+    val indicators: List<IndicatorValue>,
+    // F4: en el tablero attention, true si quien mira no ve las QCS confidenciales (dashboards.md §8); no viaja en los demás
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val confidentialHidden: Boolean? = null
 )
 
 // los números de los indicadores: cada cifra se redondea una sola vez, desde los conteos o los valores sin redondear de su

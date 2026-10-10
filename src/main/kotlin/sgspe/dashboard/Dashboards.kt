@@ -13,6 +13,7 @@ import sgspe.common.Callers
 import sgspe.common.Finding
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
+import sgspe.common.Permissions
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
@@ -29,7 +30,8 @@ import java.util.UUID
 // usa; si no, sale no disponible con la razón (OBJECT_NOT_READABLE si falta READ sobre un objeto, FIELD_NOT_READABLE si
 // falta un campo) y los campos que faltan, nunca cero (RQ-DSH-032). KPI-STK-03 exige un solo proyecto
 // (SINGLE_PROJECT_REQUIRED). nada se guarda en el servidor (§6.8). los errores llevan su código en errors[0].message (P15):
-// 404 DASHBOARD_NOT_FOUND e INDICATOR_NOT_FOUND, 400 INVALID_BREAKDOWN y TOO_MANY_RECORDS (Records.all con tope)
+// 404 DASHBOARD_NOT_FOUND e INDICATOR_NOT_FOUND, 400 INVALID_BREAKDOWN y TOO_MANY_RECORDS (Records.all con tope). desde F4, el
+// tablero attention, cada KPI-GRV y KPI-ENG-05 llevan confidentialHidden si quien mira no ve las QCS confidenciales
 @Service
 class Dashboards(
     private val records: Records,
@@ -37,7 +39,8 @@ class Dashboards(
     private val callers: Callers,
     private val assignments: Assignments,
     private val catalog: ModelCatalog,
-    private val clock: Clock
+    private val clock: Clock,
+    private val permissions: Permissions
 ) {
     suspend fun catalog(): List<CatalogEntry> {
         callers.require()
@@ -56,7 +59,9 @@ class Dashboards(
         val filters = filters(params, DashboardFilters.COMMON, today)
         val readable = Readability(metadata)
         val data = DashboardData(records, filters, readable::canRead, today)
-        return DashboardResponse(name, filters.echo(), clock.instant().toString(), codes.map { evaluate(Kpis.BY_CODE.getValue(it), data, readable) })
+        val hidden = hidden()
+        val indicators = codes.map { mark(evaluate(Kpis.BY_CODE.getValue(it), data, readable), hidden) }
+        return DashboardResponse(name, filters.echo(), clock.instant().toString(), indicators, if (name == Kpis.ATTENTION) hidden else null)
     }
 
     suspend fun indicator(
@@ -67,7 +72,8 @@ class Dashboards(
         val today = today()
         val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN, today)
         val readable = Readability(metadata)
-        val value = evaluate(kpi, DashboardData(records, filters, readable::canRead, today), readable)
+        val value =
+            mark(evaluate(kpi, DashboardData(records, filters, readable::canRead, today), readable), if (Kpis.confidentialSensitive(code)) hidden() else false)
         val by = filters.breakdown ?: return value
         if (!value.available) return value
         val offered = value.breakdowns.orEmpty().map { it.by }
@@ -103,6 +109,15 @@ class Dashboards(
         val ignored = Kpis.ignoredFilters(kpi, data.filters)
         return result.toValue(kpi.code, kpi.label, kpi.unit).copy(ignoredFilters = ignored.ifEmpty { null })
     }
+
+    // si a quien mira se le ocultan QCS confidenciales (Permissions.confidentialHidden)
+    private suspend fun hidden(): Boolean = permissions.confidentialHidden(callers.require())
+
+    // la marca en un indicador que lee QCS, solo si es cierta (los demás no la llevan)
+    private fun mark(
+        value: IndicatorValue,
+        hidden: Boolean
+    ): IndicatorValue = if (hidden && Kpis.confidentialSensitive(value.code)) value.copy(confidentialHidden = true) else value
 
     // hoy en Lima, del reloj de la aplicación: una sola vez por petición
     private fun today(): LocalDate = LocalDate.now(clock.withZone(LIMA))
