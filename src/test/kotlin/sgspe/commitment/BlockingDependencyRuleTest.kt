@@ -9,6 +9,7 @@ import org.springframework.beans.factory.ObjectProvider
 import sgspe.common.Callers
 import sgspe.common.DerivedVersions
 import sgspe.common.ModelCatalog
+import sgspe.common.NotReadable
 import sgspe.common.Records
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordChangeKind

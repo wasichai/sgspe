@@ -8,10 +8,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
-import sgspe.commitment.NotReadable
 import sgspe.common.Callers
 import sgspe.common.DerivedVersions
 import sgspe.common.ModelCatalog
+import sgspe.common.NotReadable
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.Transactions

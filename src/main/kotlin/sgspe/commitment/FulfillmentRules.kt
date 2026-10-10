@@ -4,11 +4,13 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import sgspe.common.Callers
 import sgspe.common.Finding
+import sgspe.common.NotReadable
 import sgspe.common.Permissions
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.Values
+import sgspe.common.readAs
 import wasichai.core.data.RecordWrite
 import wasichai.core.metadata.MetadataService
 import java.util.UUID

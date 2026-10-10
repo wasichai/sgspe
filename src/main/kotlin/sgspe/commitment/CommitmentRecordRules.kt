@@ -3,6 +3,7 @@ package sgspe.commitment
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import sgspe.common.Finding
+import sgspe.common.NotReadable
 import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Transactions
@@ -10,6 +11,8 @@ import sgspe.common.Values
 import sgspe.common.WriteMark
 import sgspe.common.WriteView
 import sgspe.common.isLink
+import sgspe.common.readAs
+import sgspe.common.readable
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import java.util.UUID

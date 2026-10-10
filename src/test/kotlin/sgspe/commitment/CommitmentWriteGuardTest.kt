@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.common.Finding
+import sgspe.common.NotReadable
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
