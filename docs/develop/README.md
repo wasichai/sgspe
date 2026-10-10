@@ -1,7 +1,8 @@
 # Desarrollo local
 
 Cómo preparar, iniciar y probar `sgspe` en una máquina de desarrollo. La descripción del proyecto está en el
-[README principal](../../README.md) y el diseño en [`docs/`](../README.md).
+[README principal](../../README.md) y el diseño en [`docs/`](../README.md). Cómo se versiona y se publica un release está en
+[`releasing.md`](releasing.md).
 
 ## 1. Requisitos
 

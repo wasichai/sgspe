@@ -3,6 +3,19 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-10 — Releases con GitHub Actions
+
+`sgspe` suma el soporte de releases de wasichai ([`develop/releasing.md`](develop/releasing.md)), sin cambiar el código de la
+aplicación.
+
+- **Versión y changelog.** `release-please.yml` abre el PR de release a partir de los commits convencionales de `main`;
+  al mezclarlo crea el tag `vX.Y.Z` y el GitHub Release. La versión vive en `gradle.properties` y parte de `0.0.0`.
+- **Jar del release.** `publish.yml` compila el `bootJar` con la versión del tag y lo adjunta al release como
+  `sgspe-X.Y.Z.jar`. A diferencia de wasichai, que publica librerías Maven, `sgspe` es una aplicación; el despliegue
+  sigue pendiente de GAP-022.
+- **Pendiente del usuario.** El secreto `RELEASE_PLEASE_TOKEN`, para que el PR de release dispare la CI y el release
+  dispare `publish.yml`.
+
 ## 2026-10-09 — Plan 4.0: los documentos de F4
 
 Los documentos de diseño quedan al día con la especificación de F4
