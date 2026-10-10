@@ -73,7 +73,7 @@ class WarningRulesJobApiTest : F4ApiTest() {
         val original = grievance(project, attributes = mapOf("received_at" to recent()))
         // un planteamiento reclasificado cuenta una vez (AttentionCounting): la consulta nace del comando de reclasificación
         // (reclassified_from_* es COMMAND_ONLY por la API genérica) y conserva la recepción de la queja
-        val grievances = member("GRIEVANCE_MANAGER")
+        val grievances = member("GRIEVANCE_MANAGER", project)
         move("grievance", original, "acknowledge", grievances.token, "acuse")
         exchange(
             "POST",
