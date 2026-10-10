@@ -15,8 +15,9 @@ class RolesApiTest : SgspeApiTest() {
 
     @Test
     fun `api roles muestra los 15 roles declarados y ADMIN, con su etiqueta y sin ownRecordsOnly`() {
-        val roles = tree(send("GET", "/api/roles", null, HttpStatus.OK))
-        assertEquals(declared.keys + "ADMIN", roles.values().map { it["name"].asString() }.toSet())
+        // ProjectReadScopeApiTest crea roles PRUEBA_* por la API y no los borra: no son parte de lo declarado
+        val roles = tree(send("GET", "/api/roles", null, HttpStatus.OK)).values().filterNot { it["name"].asString().startsWith("PRUEBA_") }
+        assertEquals(declared.keys + "ADMIN", roles.map { it["name"].asString() }.toSet())
         for (role in roles) {
             val name = role["name"].asString()
             if (name != "ADMIN") assertEquals(declared.getValue(name), role["label"].asString(), name)

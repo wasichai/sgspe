@@ -176,8 +176,6 @@ class ProjectReadScopeApiTest : F4ApiTest() {
 
     @Test
     fun `una asignacion vencida deja de dar alcance pero la persona la sigue leyendo`() {
-        // un compañero con asignación vigente a A
-        assertTrue(officer.id.isNotEmpty())
         val expired = userWithRole("COMMUNITY_RELATIONS_OFFICER")
         val assignment = assignWith(expired, a, "COMMUNITY_RELATIONS_OFFICER", mapOf("start_date" to "2020-01-01", "end_date" to "2020-12-31"))
         assertEquals(HttpStatus.NOT_FOUND, status("GET", "/api/objects/project/records/$a", expired))
@@ -191,8 +189,12 @@ class ProjectReadScopeApiTest : F4ApiTest() {
         val theirs = stakeholder(b)
         val auditor = userWithRole("AUDITOR")
         assertEquals(HttpStatus.OK, status("GET", "/api/objects/stakeholder/records/$theirs", auditor))
-        assertEquals(setOf(a, b), ids(listed("project", auditor)) intersect setOf(a, b))
-        assertEquals(setOf(a, b), ids(listed("project", userWithRole("PROJECT_ADMIN"))) intersect setOf(a, b))
+        // por el detalle, no por la lista: en un tenant con cientos de proyectos a y b pueden quedar fuera de la primera página
+        val admin = userWithRole("PROJECT_ADMIN")
+        for (project in listOf(a, b)) {
+            assertEquals(HttpStatus.OK, status("GET", "/api/objects/project/records/$project", auditor), project)
+            assertEquals(HttpStatus.OK, status("GET", "/api/objects/project/records/$project", admin), project)
+        }
         assertEquals(HttpStatus.OK, exchange("GET", "/api/objects/stakeholder/records/$theirs").status)
         // GET /api/auth/me/permissions lista la acción declarada en objects.project (WAS-ADR-0042): el portal la usa (4.4b)
         for ((role, expected) in listOf("AUDITOR" to true, "PROJECT_ADMIN" to true, "ANALYST" to false, "SOCIAL_MANAGER" to false)) {
