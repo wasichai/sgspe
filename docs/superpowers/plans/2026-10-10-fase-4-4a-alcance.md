@@ -148,6 +148,7 @@ tarea dueña del código:
 | 16 | `ExportProjects` leía con tope (`sgspe.exports.max-rows`) | `ProjectReach.assigned` lee sin tope: son las asignaciones de una sola persona |
 | 17 | §3.5 pone en `test_model.py` las reglas «quien crea proyectos tiene `READ_ALL_PROJECTS`» y «solo sobre `project`» | Van en `test_apply_roles.py` (`RolesJsonTests`), donde se prueba `roles.json`; `test_model.py` ya compara las acciones de `model.json` con las fichas de `database-model.md`, y `apply_roles.validate` ya rechaza una acción declarada sobre otro objeto |
 | 18 | Un objeto creado fuera de `model.json` (`createObject` en las pruebas, `/admin`) no está en `ProjectScope` | `ReadGroup.UNCLASSIFIED`: nadie que no sea `ADMIN` lo lee (falla cerrado, con una advertencia por lectura). Las pruebas que crean objetos propios los leen como `ADMIN` o `AUDITOR`, o esperan el `403` por permiso, que llega antes (`RolesApiTest`, `ErrorContractApiTest`, `TenantIsolationApiTest`); el PR lo señala |
+| 19 | La especificación (§4, riesgo 5) pide aplicar los roles antes que el backend para no cortar la lectura de `AUDITOR` y `PROJECT_ADMIN` | El usuario decidió (2026-10-10) partir de una base vacía: no hay datos que migrar ni orden de despliegue que cuidar. La Tarea 17 recrea el tenant de desarrollo desde cero. La «migración» de la Tarea 13 no es de datos: es el código de las pruebas de integración que hoy usan personas sin asignación, y sigue siendo necesaria |
 
 ## Lo que este plan toma de la especificación y de la evaluación
 
@@ -5307,18 +5308,19 @@ MSG
 
 **Solo el coordinador principal**: exige base, túnel y el tenant de desarrollo. Ningún subagente la ejecuta.
 
-- [ ] **Paso 1: El tenant de desarrollo, antes del backend nuevo (coordinador)**
+- [ ] **Paso 1: El tenant de desarrollo desde una base vacía (coordinador)**
 
-Con el backend de `main` todavía corriendo contra la base de desarrollo, desde la rama:
+Decisión del usuario (2026-10-10, decisión 19): no hay datos que conservar, así que no se migra nada ni importa el orden
+de despliegue. Con el backend detenido, el coordinador vacía la base de desarrollo `sgspe` (no `sgspe_test`), arranca el
+backend de la rama (`docs/develop/README.md` §4; la semilla de desarrollo crea el admin) y aprovisiona desde cero en el
+orden de `CLAUDE.md`:
 
 ```bash
 cd ~/IdeaProjects/sgspe/model
-python3 apply.py                 # "done: 1 created, … updated, … skipped": la acción READ_ALL_PROJECTS
-python3 apply_roles.py           # AUDITOR y PROJECT_ADMIN reciben la acción: "2 updated"
-python3 apply.py --workflows     # sin cambios
+python3 apply.py && python3 apply_roles.py && python3 apply.py --workflows && python3 load_ubigeo.py
 ```
 
-Después se reinicia el backend desde la rama (`docs/develop/README.md` §4) y se comprueba:
+Y comprueba:
 
 ```bash
 TOKEN=$(curl -s localhost:8094/api/auth/login -H 'Content-Type: application/json' \
@@ -5330,8 +5332,9 @@ for r in json.load(sys.stdin):
         print(r["name"], sorted({p.get("objectName") or "*" for p in r.get("permissions", []) if p["action"]=="READ_ALL_PROJECTS"}))'
 ```
 
-Esperado: `AUDITOR ['project']` y `PROJECT_ADMIN ['project']`. Si el backend nuevo se arranca antes que los roles,
-`AUDITOR` y `PROJECT_ADMIN` dejan de leer los proyectos sin asignación hasta que corre `apply_roles.py` (riesgo 5).
+Esperado: `AUDITOR ['project']` y `PROJECT_ADMIN ['project']`; una segunda corrida de los tres primeros scripts
+responde todo `skipped`. El bucket de MinIO de desarrollo se vacía también, porque las evidencias de la base anterior
+quedan huérfanas.
 
 - [ ] **Paso 2: El volumen de la medición en `sgspe_test` (coordinador)**
 
