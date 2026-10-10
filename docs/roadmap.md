@@ -328,10 +328,10 @@ pistas de arriba o en las fases siguientes:
 | Roles con permisos desde F4 | `GRIEVANCE_MANAGER`, `SOCIAL_RISK_MANAGER` |
 | KPIs | KPI-GRV-01, KPI-GRV-02, KPI-GRV-03, KPI-GRV-04, KPI-GRV-05, KPI-GRV-06, KPI-GRV-07, KPI-GRV-08, KPI-GRV-09, KPI-GRV-10, KPI-RSK-01, KPI-RSK-02, KPI-RSK-03, KPI-RSK-04, KPI-RSK-05, KPI-ENG-06, KPI-ENG-07, KPI-ENG-08; tableros `attention` y `risks`; datos de KPI-EXE-02 |
 | Entregables | Exportaciones `attention-register` y `risk-register` en INTERNO, EXTERNO y PUBLICO (ASM-101); «Cargo de queja» y «Carta de respuesta» cuando se resuelva UPS-23 (hasta entonces se entregan en papel y, firmados, se suben como evidencia FORMULARIO o CARTA, ASM-098); datos de T1 §9.3, §9.3.1 y §9.3.2 y de T2 (incidente y riesgo reputacional) |
-| Definición de terminado | La general, más: `GrievanceWorkflowApiTest`, `InquiryWorkflowApiTest`, `StakeholderRequestWorkflowApiTest`, `SocialRiskWorkflowApiTest`, `EarlyWarningWorkflowApiTest`, `IncidentWorkflowApiTest`; `ConfidentialAttentionScopeTest` y `ConfidentialAttentionApiTest`; `BusinessDaysTest` y `QcsDueDatesApiTest`; `AttentionDashboardApiTest` y `RisksDashboardApiTest`; `AttentionRegisterApiTest` y `RiskRegisterApiTest`; cuentas de servicio que no confirman ni descartan alertas (RN-EWS-001); el tenant de desarrollo actualizado de F2 a F4 y MinIO comprobado; UPS-01 decidida antes de la producción con varios proyectos; cierre de la Release 1 (MVP) |
+| Definición de terminado | La general, más: `GrievanceWorkflowApiTest`, `InquiryWorkflowApiTest`, `StakeholderRequestWorkflowApiTest`, `SocialRiskWorkflowApiTest`, `EarlyWarningWorkflowApiTest`, `IncidentWorkflowApiTest`; `ConfidentialAttentionScopeTest` y `ConfidentialAttentionApiTest`; `BusinessDaysTest` y `QcsDueDatesApiTest`; `AttentionDashboardApiTest` y `RisksDashboardApiTest`; `AttentionRegisterApiTest` y `RiskRegisterApiTest`; cuentas de servicio que no confirman ni descartan alertas (RN-EWS-001); el tenant de desarrollo actualizado de F2 a F4 y MinIO comprobado; UPS-01 decidida antes de la producción con varios proyectos; cierre de la Release 1 (MVP); plan 4.4: `ProjectReadScopeApiTest`, `SeparateProvisioningApiTest` y las columnas «otro proyecto» y «no asignado» de las matrices en verde; el cierre de la Release 1 exige 4.4a y 4.4b integrados, el tenant de desarrollo con `READ_ALL_PROJECTS`, la medición de la especificación 4.4 §3.10 anotada aquí y la siembra de `MANAGE_TENANTS` documentada |
 | Riesgos | Plazos y escalas por defecto sin norma (GAP-004, GAP-005); el vínculo `stakeholder` de una QCS no confidencial sigue sin restringir ([Seguridad §11.3](security.md#113-minimización)); el alcance de las QCS confidenciales en las escrituras y en la respuesta de un alta, que prueba la primera tarea de integración del plan 4.2a; un año sin feriados configurados cuenta de lunes a viernes (ASM-096); doce objetos más alargan el aprovisionamiento y la matriz de permisos por el túnel; canal de contratistas por el equipo social (GAP-020, ASM-043) |
 | IDs abiertos | Condicionan: GAP-004, GAP-005, GAP-020, GAP-023, GAP-024; UPS-01, UPS-23, UPS-25, UPS-26, UPS-27; ASM-004, ASM-005, ASM-011, ASM-036, ASM-043, ASM-072, ASM-095 a ASM-104 |
-| Estado | Diseño en `docs/superpowers/specs/2026-10-09-fase-4-design.md`; planes 4.0 (documentos), 4.1 (modelo), 4.2a (QCS), 4.2b (riesgos y alertas) y 4.3 (portal, con sgspe#14) |
+| Estado | Diseño en `docs/superpowers/specs/2026-10-09-fase-4-design.md`; planes 4.0 (documentos), 4.1 (modelo), 4.2a (QCS), 4.2b (riesgos y alertas), 4.3 (portal, con sgspe#14) y 4.4 (alcance de lectura por proyecto y varios clientes: 4.4a backend en `docs/superpowers/plans/2026-10-10-fase-4-4a-alcance.md`, 4.4b portal; especificación `docs/superpowers/specs/2026-10-10-alcance-por-proyecto-design.md`) |
 
 ## F5 · Programas e inversión social
 
@@ -347,7 +347,7 @@ pistas de arriba o en las fases siguientes:
 | Roles con permisos desde F5 | `SOCIAL_INVESTMENT_MANAGER` |
 | KPIs | KPI-INV-01, KPI-INV-02, KPI-INV-03, KPI-INV-04; tablero `investment` |
 | Entregables | Documento «Acta de recepción»; datos de la sección "Apoyo entregado" de T2 |
-| Definición de terminado | La general, más: `SocialProgramWorkflowApiTest`, `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest` que cierra la solicitud al cerrar su aporte |
+| Definición de terminado | La general, más: `SocialProgramWorkflowApiTest`, `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest` que cierra la solicitud al cerrar su aporte; objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`) |
 | Riesgos | Estructura real de los programas desconocida (GAP-007); montos en otra moneda que no se suman (ASM-063) |
 | IDs abiertos | Condicionan: GAP-006, GAP-007, GAP-032; ASM-019, ASM-063, ASM-068 |
 
@@ -364,7 +364,7 @@ pistas de arriba o en las fases siguientes:
 | Portal | Territorio: mapa territorial y ficha contextual |
 | KPIs | KPI-TER-01, KPI-TER-02, KPI-TER-03, KPI-TER-04; tablero `territory` |
 | Entregables | Estilos y publicación en GeoServer; capas del Anexo 1 de DOC-01, que usará el mapa de T1 en F8 |
-| Definición de terminado | La general, más: las pruebas de [SIG §9](gis.md#9-pruebas) de F6 (proxy WMS, compuerta de permisos, componentes × predios, sugerencia de miembros, mapa base); las de seguridad de F6 (proxy WMS, importaciones) |
+| Definición de terminado | La general, más: las pruebas de [SIG §9](gis.md#9-pruebas) de F6 (proxy WMS, compuerta de permisos, componentes × predios, sugerencia de miembros, mapa base); las de seguridad de F6 (proxy WMS, importaciones); objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`) |
 | Riesgos | GeoServer lee la base sin los permisos de la aplicación (CON-054); mapa base fijo en `MapView` (UPS-13); licencias de cartografía (GAP-011) |
 | IDs abiertos | Condicionan: GAP-011, GAP-012; UPS-01 (filtro de features por proyecto), UPS-13; ASM-038, ASM-048, ASM-056, ASM-057, ASM-064 |
 
@@ -381,7 +381,7 @@ pistas de arriba o en las fases siguientes:
 | Portal | Asistente y bandeja de revisión por proyecto |
 | KPIs | Ninguno nuevo; el resumen ejecutivo de AI-04 lee los KPIs existentes |
 | Entregables | Resumen ejecutivo asistido; los borradores de sección esperan a `deliverable_section` en F8 (RQ-AI-012) |
-| Definición de terminado | La general, más: `AiSuggestionWorkflowApiTest`; las suites de [IA §15](ai-architecture.md#15-pruebas) con FakeModel, StubModel y MockModel, sin llamadas reales al LLM (RQ-AI-007); la prueba de seguridad de IA de [Seguridad §14](security.md#14-pruebas-de-seguridad) |
+| Definición de terminado | La general, más: `AiSuggestionWorkflowApiTest`; las suites de [IA §15](ai-architecture.md#15-pruebas) con FakeModel, StubModel y MockModel, sin llamadas reales al LLM (RQ-AI-007); la prueba de seguridad de IA de [Seguridad §14](security.md#14-pruebas-de-seguridad); objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`) |
 | Riesgos | AI-05 envía al proveedor, sin seudonimizar, lo que la persona puede leer (UPS-14); la seudonimización es un esfuerzo razonable, no una garantía; inyección de instrucciones en documentos; catálogo de modelos de Embabel |
 | IDs abiertos | Bloquean: GAP-015 (proveedor y residencia de datos). Condicionan: GAP-013; UPS-14; ASM-015, ASM-052, ASM-053 |
 
@@ -398,7 +398,7 @@ pistas de arriba o en las fases siguientes:
 | Portal | Dashboard consolidado y Reportes (entregables) |
 | KPIs | KPI-EXE-01, KPI-EXE-02, KPI-EXE-03; KPI-COM-11 en el tablero ejecutivo; los trece indicadores de la Tabla 9.5 en el tablero `monitoring` |
 | Entregables | T2 y T1 completos; la sección "Cobertura de entregables por fase" detalla de dónde sale cada capítulo |
-| Definición de terminado | La general, más: `DeliverableWorkflowApiTest`; un borrador de sección de IA se adopta solo por decisión humana y queda en `ai_assisted_sections` de la versión emitida; las pruebas de [Entregables §13.3](deliverables.md#133-pruebas) (lectura del DOCX, PDF con PDFBox, guardas, almacenamiento y la suite lenta de GetMap y 100 páginas); las de seguridad de salidas, descargas y plantillas Word; tableros y entregables dan las mismas cifras (RQ-DSH-034) |
+| Definición de terminado | La general, más: `DeliverableWorkflowApiTest`; un borrador de sección de IA se adopta solo por decisión humana y queda en `ai_assisted_sections` de la versión emitida; las pruebas de [Entregables §13.3](deliverables.md#133-pruebas) (lectura del DOCX, PDF con PDFBox, guardas, almacenamiento y la suite lenta de GetMap y 100 páginas); las de seguridad de salidas, descargas y plantillas Word; tableros y entregables dan las mismas cifras (RQ-DSH-034); objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`) |
 | Riesgos | Fidelidad de LibreOffice y licencias de fuentes; GeoServer como dependencia para emitir mapas; tiempos de Gotenberg en documentos largos; datos personales en la narrativa o en fotos |
 | IDs abiertos | Condicionan: GAP-001, GAP-009, GAP-010, GAP-011, GAP-014, GAP-018; ASM-014, ASM-026, ASM-027, ASM-028, ASM-037, ASM-038, ASM-042, ASM-055, ASM-061 |
 
@@ -464,10 +464,10 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | F1 | UPS-02, UPS-03, UPS-05 |
 | F2 | UPS-04, UPS-06, UPS-08, UPS-15, UPS-16 |
 | F3 | UPS-23, UPS-24 |
-| F4 | UPS-27 |
+| F4 | UPS-27, UPS-28 |
 | F7 | UPS-14 |
 | Antes de producción | UPS-09, UPS-13, UPS-17; UPS-01 antes de la producción con varios proyectos (crítica) |
-| Operación multicliente | UPS-10 |
+| Operación multicliente | UPS-10 (resuelta con wasichai 0.6.0, ASM-109) |
 | Endurecimiento | UPS-12 |
 | Después del MVP (candidatas, sin issue hasta la aprobación del usuario) | UPS-25, UPS-26 |
 
@@ -560,7 +560,7 @@ antes de la fase que condicionan:
 
 | # | Riesgo | Impacto | Mitigación | IDs |
 |---|---|---|---|---|
-| 1 | La extensión de alcance por proyecto no llega antes de la producción con varios proyectos | Un usuario lee proyectos que no le corresponden | Opción A en el MVP; UPS-01 antes de operar varios proyectos; adaptador en `sgspe.scope` | CON-041, GAP-025, UPS-01 |
+| 1 | La extensión de alcance por proyecto no llega antes de la producción con varios proyectos | Un usuario lee proyectos que no le corresponden | Mitigado en el plan 4.4: `ProjectReadScope` sobre el SPI `RecordReadScope` de wasichai 0.6.0 (ADR-0029); territorio y región siguen sin fuente | CON-041, GAP-025, UPS-01, ASM-106 |
 | 2 | wasichai en versiones 0.x con líneas de backend (0.3.2) y frontend (0.5.0) independientes | Cambios de contrato | Versiones exactas, actualizadas juntas; pruebas de contrato de F1 | RNF-MNT-001 |
 | 3 | Acoplamiento a detalles de la plataforma: tablas físicas y enumeración de tenants | Una actualización rompe consultas o trabajos | Resolución de tablas por la metadata; enumeración aislada en `sgspe.common` | UPS-17, RQ-DSH-031 |
 | 4 | Deriva del modelo por ediciones en `/admin` | Producción distinta del repositorio, sin auditoría | `apply.py` y `apply_roles.py` resincronizan; el repositorio es la fuente de verdad | GAP-030, UPS-02 |

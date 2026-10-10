@@ -309,6 +309,8 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | GeoServer | — | — | Servidor de mapas WMS; en SGSPE nunca es público | [WAS-ADR-0006] | — | — |
 | Gotenberg | — | — | Servicio que convierte DOCX a PDF con LibreOffice (ASM-014) | [USR-01] | — | — |
 | Brecha upstream | UPS | — | Capacidad que falta en wasichai y se propone a sus mantenedores (§18.2 del análisis) | [USR-03] | — | gap (pregunta al usuario) |
+| Alcance de lectura por proyecto | `ProjectReadScope` | project-scoped read | Regla por la que una persona lee los registros de los proyectos a los que está asignada (y los maestros del tenant); quien tiene `READ_ALL_PROJECTS` lee todos (ASM-106) | [PRM-01 §7] | alcance por proyecto | permiso por objeto; registros propios |
+| Maestro del tenant | `ProjectScope.TENANT` | tenant master data | Objeto que no pertenece a un proyecto y comparten todos los proyectos de un cliente: territorio, actores, línea base y temas (ASM-107) | ADR-0029 | maestro | raíz de proyecto |
 
 ## Distinciones obligatorias
 

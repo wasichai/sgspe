@@ -105,6 +105,11 @@ directamente y se salta los permisos de la aplicación, así que solo publica lo
 | Confidencial | Información técnica de la empresa: sondajes, plataformas, campamento, predios de la empresa | GeoJSON por API, con permisos | No se publica | En línea |
 | Datos personales | Predios con titulares o partida; ubicaciones que pueden identificar a una persona (QCS, entregas) | GeoJSON por API con permisos de campo; nunca puntos de personas | No se publica | En línea, sin atributos personales y según el nivel de divulgación (RQ-REP-014) |
 
+Desde el plan 4.4, las capas que sirve la API (LYR-01 a LYR-16 y LYR-20) heredan el alcance de lectura por proyecto
+(`security.md` §9.7): se leen como quien mira, así que un objeto de un proyecto que no lee no sale. GeoServer no lo
+aplica: ningún objeto de `ProjectScope` (`project`, sus raíces ni sus hijos) se publica, solo maestros de
+`ProjectScope.TENANT` sin campos restringidos (`security.md` §10.2).
+
 ### 2.2 Capas `LYR-NN`
 
 El catálogo une las capas que pide el prompt para el mapa [PRM-01 §15], las de RQ-GIS-001 y las diez de la leyenda del Anexo 1

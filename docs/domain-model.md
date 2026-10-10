@@ -232,8 +232,11 @@ decisiones de nombres del usuario [USR-09]. `database-model.md` las detalla para
   (`administrative_unit`, `locality`, `community`, `community_sector`,
   `land_parcel`, `land_right`, `environmental_feature`, `mining_concession`), los actores (`person`, `organization`,
   `contact_method`, `position`, `actor_relationship`) y la línea base sin proyecto son del tenant.
-- La escritura en objetos de proyecto la acota una guarda por asignación (`ProjectScopeGuard`, `sgspe.scope`); la lectura por
-  proyecto requiere la extensión upstream UPS-01 (RQ-SEC-006, CON-041, GAP-025).
+- La escritura en objetos de proyecto la acota una guarda por asignación (`ProjectScopeGuard`, `sgspe.scope`) y, desde el
+  plan 4.4, la lectura `ProjectReadScope` (ASM-106, `security.md` §9.7). `ProjectScope` clasifica cada objeto en un solo
+  grupo: `project`; `project_assignment`; las 31 raíces con `project` (`evidence`, `early_warning_rule` y `export_log` con
+  `project` opcional); los 19 hijos, por su padre (`delivery` y `locality_profile` con padre opcional); y los 20 maestros del
+  tenant (`TENANT`), compartidos entre los proyectos (ASM-107). Un objeto nuevo se clasifica en su fase.
 
 ### 4.8 Workflows
 
@@ -980,7 +983,7 @@ Réplica del catálogo de acciones declaradas de `security.md` (§5.3), que es l
 
 | Objeto | Acciones declaradas | Qué habilitan |
 |---|---|---|
-| `project` | `APPROVE` | Llevar el proyecto a `active` (WF-A) |
+| `project` | `APPROVE`, `READ_ALL_PROJECTS` | Llevar el proyecto a `active` (WF-A); leer todos los proyectos sin asignación (ASM-106) |
 | `area_of_influence` | `APPROVE` | Aprobar una versión (WF-O) |
 | `stakeholder` | `EXPORT` | Exportar el registro de grupos de interés |
 | `engagement`, `engagement_participant`, `field_visit`, `field_observation` | `EDIT_ANY` | Cambiar, transicionar, vincular o borrar registros ajenos; sin ella, `EditAnyGuard` lo rechaza. Agregar participantes u observaciones a una interacción o visita ajena no la exige (ASM-069) |
