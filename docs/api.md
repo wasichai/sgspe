@@ -1127,8 +1127,10 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
   libre, la persona, quien recibió y el responsable, y exige `checklistConfirmed`; PUBLICO cuenta planteamientos
   (`AttentionCounting`) sobre la grilla completa con la marca `reservado` (ASM-088), sin totales, territorio ni grupo de
   interés, y su hoja «Notas» dice si el conteo incluye las confidenciales.
-- **Tope.** `sgspe.exports.max-rows` por conjunto y 2 000 registros cuyos vínculos se leen uno por uno, con 200 por
-  registro (`400 TOO_MANY_RECORDS` sobre `filters.project`).
+- **Tope.** `sgspe.exports.max-rows` (20 000 por defecto) por conjunto: las QCS de los tipos pedidos, juntas, y los
+  registros que nombran sus vínculos (grupos de interés, personas, organizaciones, localidades, comunidades, temas,
+  compromisos y originales reclasificados), que se leen por id en tramos de 500, nunca uno por uno. Pasarse es `400
+  TOO_MANY_RECORDS` sobre `filters.project`; no hay tope por registro.
 - **Errores.** Los de `stakeholder-register`; `export_log` lleva `object_name` `grievance,inquiry,stakeholder_request` y
   `row_count` cuenta planteamientos.
 

@@ -8,7 +8,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 0.6.0 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
-  `deadline` y `notification`.
+  `deadline` y `notification` y, desde F4, `attention`.
 - `model/`: `model.json` (los 72 objetos de F2 a F4), `roles.json`, `workflows/` (los 15 de F2 a F4: WF-A, WF-B, WF-C,
   WF-L, WF-O, WF-D, WF-I, WF-K, WF-N, WF-E1, WF-E2, WF-E3, WF-F, WF-J y WF-M), `document-types/`, `automations/` y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
@@ -71,7 +71,10 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Evidencias sobre wasichai-files, descarga con `DOWNLOAD_RESTRICTED` | `src/main/kotlin/sgspe/evidence/` |
 | Tope de apoyo social (`SupportPolicyGuard`) | `src/main/kotlin/sgspe/investment/` |
 | JOB-01 y los avisos de plazo (`DeadlineNotices`) | `src/main/kotlin/sgspe/deadline/` |
-| Avisos sobre wasichai-notifications (`Notices`, `ApprovalNoticeListener`) | `src/main/kotlin/sgspe/notification/` |
+| Avisos sobre wasichai-notifications (`Notices`, `ApprovalNoticeListener`, `GraveGrievanceNoticeListener`, `ConfidentialReaders`) | `src/main/kotlin/sgspe/notification/` |
+| QCS: `AttentionWriteGuard`, plazos y fechas, reclasificación, aceptación, derivación, `RequestClosureListener`, reporte unificado | `src/main/kotlin/sgspe/attention/` |
+| Días hábiles (`HolidayCalendar`, `BusinessDays`, feriados en `sgspe.calendar.holidays`), `Attention` y `AttentionCounting`, `NotReadable` y `readAs`, `ConfidentialRelease` (solo para `RequestClosureListener`) | `src/main/kotlin/sgspe/common/`, `src/main/resources/application.yml` |
+| QCS confidenciales (`ConfidentialAttentionScope`, un `RecordReadScope` que honra `ConfidentialRelease`) y la regla «mismo proyecto» (`ProjectLinks`, `ProjectLinkGuard`) | `src/main/kotlin/sgspe/scope/` |
 | Base de las pruebas de integración del plan 3.2 (sobre `F3ApiTest`: evidencias y compromisos de los comandos) y de las de `Idempotency-Key` sin el modelo de F3 | `src/test/kotlin/sgspe/F3DomainApiTest.kt`, `src/test/kotlin/sgspe/common/AssessmentCommandApiTest.kt` |
 | Base de las pruebas de integración de F2 | `src/test/kotlin/sgspe/DomainApiTest.kt` |
 | Límites de las importaciones: tamaño, filas, plazo `IMPORT_TIMEOUT` y concurrencia | `src/test/kotlin/sgspe/territory/ImportTimeoutApiTest.kt`, `ImportLimitsApiTest.kt` |

@@ -330,7 +330,7 @@ pistas de arriba o en las fases siguientes:
 | Entregables | Exportaciones `attention-register` y `risk-register` en INTERNO, EXTERNO y PUBLICO (ASM-101); «Cargo de queja» y «Carta de respuesta» cuando se resuelva UPS-23 (hasta entonces se entregan en papel y, firmados, se suben como evidencia FORMULARIO o CARTA, ASM-098); datos de T1 §9.3, §9.3.1 y §9.3.2 y de T2 (incidente y riesgo reputacional) |
 | Definición de terminado | La general, más: `GrievanceWorkflowApiTest`, `InquiryWorkflowApiTest`, `StakeholderRequestWorkflowApiTest`, `SocialRiskWorkflowApiTest`, `EarlyWarningWorkflowApiTest`, `IncidentWorkflowApiTest`; `ConfidentialAttentionScopeTest` y `ConfidentialAttentionApiTest`; `BusinessDaysTest` y `QcsDueDatesApiTest`; `AttentionDashboardApiTest` y `RisksDashboardApiTest`; `AttentionRegisterApiTest` y `RiskRegisterApiTest`; cuentas de servicio que no confirman ni descartan alertas (RN-EWS-001); el tenant de desarrollo actualizado de F2 a F4 y MinIO comprobado; UPS-01 decidida antes de la producción con varios proyectos; cierre de la Release 1 (MVP) |
 | Riesgos | Plazos y escalas por defecto sin norma (GAP-004, GAP-005); el vínculo `stakeholder` de una QCS no confidencial sigue sin restringir ([Seguridad §11.3](security.md#113-minimización)); el alcance de las QCS confidenciales en las escrituras y en la respuesta de un alta, que prueba la primera tarea de integración del plan 4.2a; un año sin feriados configurados cuenta de lunes a viernes (ASM-096); doce objetos más alargan el aprovisionamiento y la matriz de permisos por el túnel; canal de contratistas por el equipo social (GAP-020, ASM-043) |
-| IDs abiertos | Condicionan: GAP-004, GAP-005, GAP-020, GAP-023, GAP-024; UPS-01, UPS-23, UPS-25, UPS-26; ASM-004, ASM-005, ASM-011, ASM-036, ASM-043, ASM-072, ASM-095 a ASM-104 |
+| IDs abiertos | Condicionan: GAP-004, GAP-005, GAP-020, GAP-023, GAP-024; UPS-01, UPS-23, UPS-25, UPS-26, UPS-27; ASM-004, ASM-005, ASM-011, ASM-036, ASM-043, ASM-072, ASM-095 a ASM-104 |
 | Estado | Diseño en `docs/superpowers/specs/2026-10-09-fase-4-design.md`; planes 4.0 (documentos), 4.1 (modelo), 4.2a (QCS), 4.2b (riesgos y alertas) y 4.3 (portal, con sgspe#14) |
 
 ## F5 · Programas e inversión social
@@ -464,6 +464,7 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | F1 | UPS-02, UPS-03, UPS-05 |
 | F2 | UPS-04, UPS-06, UPS-08, UPS-15, UPS-16 |
 | F3 | UPS-23, UPS-24 |
+| F4 | UPS-27 |
 | F7 | UPS-14 |
 | Antes de producción | UPS-09, UPS-13, UPS-17; UPS-01 antes de la producción con varios proyectos (crítica) |
 | Operación multicliente | UPS-10 |
