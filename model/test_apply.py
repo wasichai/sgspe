@@ -730,6 +730,42 @@ class DefinitionsPassTests(ApplyTestCase):
         self.refused("WEBHOOK is not used", "NOTIFY is not used: sgspe.notification tells people by project assignment",
                      automation=automation)
 
+    def test_a_condition_value_the_field_can_never_hold_is_refused(self):
+        # wasichai compara el valor de una condición como texto, o como número si los dos lados lo son
+        # (AutomationRules.same): AUT-11 compara risk_level con CRITICO, y un «Critico» o un «CRÍTICO» harían que la
+        # automatización se salte en cada corrida sin un error
+        model = copy.deepcopy(FIXTURE_MODEL)
+        model["objects"][0]["fields"].append({"name": "active", "label": "Vigente", "type": "BOOLEAN"})
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["conditions"] = [
+            {"field": "zone_type", "operator": "EQUALS", "value": "Directa"},
+            {"field": "zone_type", "operator": "NOT_EQUALS", "value": "LEJANA"},
+            {"field": "area_ha", "operator": "GREATER_THAN", "value": "diez"},
+            {"field": "active", "operator": "EQUALS", "value": "sí"},
+            {"field": "state", "operator": "EQUALS", "value": "archived"}]
+        code, out, err = self.run_with("--validate-only", automation=automation, model=model)
+        self.assertEqual(code, 2, out + err)
+        for text in ("zone_type EQUALS 'Directa' is not an option of zone_type",
+                     "zone_type NOT_EQUALS 'LEJANA' is not an option of zone_type",
+                     "area_ha GREATER_THAN takes a number, not 'diez'", "active EQUALS takes true or false, not 'sí'",
+                     "state EQUALS names 'archived', which is not a state of zone"):
+            self.assertIn(text, out + err)
+        self.assertEqual(self.core.requests, [])
+
+    def test_a_condition_value_the_field_holds_is_valid(self):
+        model = copy.deepcopy(FIXTURE_MODEL)
+        model["objects"][0]["fields"].append({"name": "active", "label": "Vigente", "type": "BOOLEAN"})
+        automation = copy.deepcopy(ZONE_CLOSED)
+        automation["definition"]["conditions"] = [
+            {"field": "zone_type", "operator": "EQUALS", "value": "INDIRECTA"},
+            {"field": "zone_type", "operator": "CHANGED"},
+            {"field": "area_ha", "operator": "LESS_THAN", "value": "10.5"},
+            {"field": "active", "operator": "NOT_EQUALS", "value": "false"},
+            {"field": "code", "operator": "CONTAINS", "value": "Z-"},
+            {"field": "state", "operator": "NOT_EQUALS", "value": "draft"}]
+        code, out, err = self.run_with("--validate-only", automation=automation, model=model)
+        self.assertEqual(code, 0, out + err)
+
     def test_a_prefix_or_an_automation_name_used_twice_is_refused(self):
         with tempfile.TemporaryDirectory() as folder:
             path = write_model(folder, FIXTURE_MODEL)
