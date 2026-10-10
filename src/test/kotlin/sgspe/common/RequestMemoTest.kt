@@ -39,4 +39,60 @@ class RequestMemoTest {
         }
         assertEquals(2, calls)
     }
+
+    @Test
+    fun `el memo de la peticion guarda lo de quien llama y no lo de un comando`() {
+        var caller = 0
+        var command = 0
+        runBlocking {
+            RequestMemo.forRequest {
+                repeat(3) {
+                    RequestMemo.rememberForRequest<Boolean>("permisos") {
+                        caller++
+                        true
+                    }
+                    // lo que un comando no cambia pero una petición sí puede cambiar: sin un comando abierto, cada vez
+                    RequestMemo.remember<Boolean>("asignacion") {
+                        command++
+                        true
+                    }
+                }
+                // un comando dentro de la petición: su memo dura lo que el comando y ve el de la petición
+                RequestMemo.within {
+                    repeat(2) {
+                        RequestMemo.remember<Boolean>("asignacion") {
+                            command++
+                            true
+                        }
+                        RequestMemo.rememberForRequest<Boolean>("permisos") {
+                            caller++
+                            true
+                        }
+                    }
+                }
+            }
+        }
+        assertEquals(1, caller)
+        assertEquals(4, command)
+    }
+
+    @Test
+    fun `sin memo de la peticion, lo de quien llama se guarda en el del comando`() {
+        var calls = 0
+        runBlocking {
+            RequestMemo.within {
+                repeat(3) {
+                    RequestMemo.rememberForRequest<Boolean>("permisos") {
+                        calls++
+                        true
+                    }
+                }
+            }
+            RequestMemo.rememberForRequest<Boolean>("permisos") {
+                calls++
+                true
+            }
+        }
+        assertEquals(2, calls)
+    }
 }

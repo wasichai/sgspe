@@ -18,9 +18,10 @@ class ProjectReach(
     private val permissions: Permissions,
     private val clock: Clock
 ) {
-    // si quien llama lee todos los proyectos del tenant. dentro de un comando que abrió RequestMemo se pregunta una sola vez
+    // si quien llama lee todos los proyectos del tenant. se pregunta una sola vez por petición de /api (RequestMemoFilter) o
+    // dentro de un comando que abrió RequestMemo
     suspend fun readsAll(user: AuthenticatedUser): Boolean =
-        user.isAdmin || RequestMemo.remember(MEMO to user.userId) { permissions.has(user, READ_ALL_PROJECTS, PROJECT) }
+        user.isAdmin || RequestMemo.rememberForRequest(MEMO to user.userId) { permissions.has(user, READ_ALL_PROJECTS, PROJECT) }
 
     // las asignaciones vigentes de quien llama (Validity.inForce, hoy en Lima), sin repetidos. se leen como quien llama: el
     // alcance le deja ver las suyas aunque estén vencidas (ASM-106). sin READ sobre project_assignment, ninguna
