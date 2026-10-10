@@ -452,7 +452,7 @@
         "network_node": ["READ"],
         "engagement": ["READ"],
         "engagement_participant": ["READ"],
-        "engagement_question": ["READ"],
+        "engagement_question": ["READ", "u"],
         "field_visit": ["READ"],
         "field_observation": ["READ"],
         "engagement_plan": ["READ"],

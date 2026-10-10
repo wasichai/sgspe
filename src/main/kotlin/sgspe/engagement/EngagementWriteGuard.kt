@@ -20,7 +20,7 @@ import java.math.BigDecimal
 // las guardas de WF-C y de la lista de asistentes (workflows.md, domain-model §7.2): fecha programada para programar,
 // realización con al menos un asistente, minuta para el acta, motivo de cancelación, cierre sin preguntas pendientes
 // (RN-ENG-005) y cierre sin acta solo para los tipos que no la exigen (RN-ENG-004, ASM-033). desde F4, una pregunta
-// derivada a una QCS también cuenta como atendida; ese paso lo agrega la derivación.
+// derivada a una QCS (referred_at, que escribe la derivación) también cuenta como atendida, sin leer la QCS.
 // los asistentes y las preguntas se leen como quien llama, en seco y al escribir por igual: no se puede usar asPlatform
 // dentro de una petición. quien no puede leerlos no puede verificar la condición, y es un 403 que lo dice (como las partes
 // de ProjectWriteGuard) y no un falso verde
@@ -167,7 +167,9 @@ class EngagementWriteGuard(
         // cancelled: lo que cuenta como una interacción que ocurrió (seguimiento de actores y tableros)
         val HELD_STATES = setOf("held", "minutes_drafted", "minutes_in_review", "minutes_approved", "closed")
 
-        // atendida: respondida en el lugar o con su respuesta posterior (answered_at)
-        fun answered(question: Map<String, Any?>): Boolean = Values.bool(question["answered_on_site"]) == true || Values.text(question["answered_at"]) != null
+        // atendida: respondida en el lugar, con su respuesta posterior (answered_at) o, desde F4, derivada a una QCS (referred_at)
+        fun answered(question: Map<String, Any?>): Boolean =
+            Values.bool(question["answered_on_site"]) == true || Values.text(question["answered_at"]) != null ||
+                Values.text(question["referred_at"]) != null
     }
 }

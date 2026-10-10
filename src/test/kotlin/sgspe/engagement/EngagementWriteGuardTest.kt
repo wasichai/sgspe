@@ -13,6 +13,8 @@ class EngagementWriteGuardTest {
         assertFalse(EngagementWriteGuard.answered(mapOf("answered_on_site" to false, "answered_at" to "  ")))
         assertTrue(EngagementWriteGuard.answered(mapOf("answered_on_site" to true)))
         assertTrue(EngagementWriteGuard.answered(mapOf("answered_at" to "2026-05-13T15:00:00Z")))
+        // F4: derivada a una QCS
+        assertTrue(EngagementWriteGuard.answered(mapOf("referred_at" to "2026-05-13T15:00:00Z")))
     }
 
     @Test

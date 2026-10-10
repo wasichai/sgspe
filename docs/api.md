@@ -685,7 +685,7 @@ de esa interacción como escritura derivada [domain-model §7.2, §7.5].
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
-| `POST` | `/api/sgspe/engagement-questions/{id}/referral` | Deriva una pregunta pendiente a una consulta, una solicitud o una queja, creada y vinculada (`origin_question`) en un solo comando | CREATE sobre el objeto destino; READ sobre `engagement_question` | `{ target, attributes }` con `target` igual a `inquiry`, `stakeholder_request` o `grievance` → `201 { question, created }` | `IK`, `CR` | F4 |
+| `POST` | `/api/sgspe/engagement-questions/{id}/referral` | Deriva una pregunta pendiente a una consulta, una solicitud o una queja, creada y vinculada (`origin_question`) en un solo comando | CREATE sobre el objeto destino; READ y UPDATE sobre `engagement_question`, porque escribe `referred_at` como quien deriva: `COMMUNITY_RELATIONS_OFFICER` con su CRU y `GRIEVANCE_MANAGER` con `u`, que solo le deja escribir los derivados (`security.md` §7.4) | `{ target, attributes }` con `target` igual a `inquiry`, `stakeholder_request` o `grievance` → `201 { question, created }` | `IK`, `CR` | F4 |
 
 - **Derivación (F4).** En una transacción, crea la QCS de `target` con `attributes` (sujetos a `AttentionWriteGuard`)
   más `origin_question`, `origin_engagement` (la interacción de la pregunta), el `project` de la interacción, `channel`
