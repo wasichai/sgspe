@@ -57,7 +57,8 @@ class ArchitectureTest {
         // y una de cada paquete de F3
         val f3 = listOf("Idempotency.kt", "Evidences.kt", "CommitmentWriteGuard.kt", "AgreementWriteGuard.kt", "DeadlineJob.kt", "Notices.kt")
         assertTrue(names.containsAll(f3), "$names")
-        // y las de F4 que cruzan paquetes: attention, el alcance de las confidenciales, el calendario y los avisos
+        // y las de F4 que cruzan paquetes: attention, el alcance de las confidenciales, el calendario, los avisos y la exportación
+        // attention-register (AttentionRegister.kt)
         val f4 = listOf("AttentionWriteGuard.kt", "ConfidentialAttentionScope.kt", "BusinessDays.kt", "ConfidentialReaders.kt", "AttentionRegister.kt")
         assertTrue(names.containsAll(f4), "$names")
         val testNames = sources(test).map { it.name }

@@ -471,7 +471,8 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | Endurecimiento | UPS-12 |
 | Después del MVP (candidatas, sin issue hasta la aprobación del usuario) | UPS-25, UPS-26 |
 
-Los issues se abrieron el 2026-10-07, tras el checkpoint:
+Los issues de UPS-01 a UPS-18 se abrieron el 2026-10-07, tras el checkpoint; los de UPS-24 y UPS-27, después, cuando
+se detectó cada brecha:
 
 | Brecha | Issue |
 |---|---|
