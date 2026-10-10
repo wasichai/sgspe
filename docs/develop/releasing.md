@@ -33,7 +33,7 @@ Mientras la versión sea 0.x, un `feat` sube el menor, un `fix` sube el parche y
   aplica `bump-minor-pre-major` y el primer PR de release, que recoge todo el historial de `main`, propone `1.0.0`.
 - Para fijar una versión, un commit que llegue a `main` lleva en el pie `Release-As: X.Y.Z`. Vale una vez: release-please
   actualiza el PR de release abierto y los siguientes vuelven a calcularse por los commits. El primer release se fijó así
-  en `0.10.0`; `1.0.0` queda para cerrar el MVP (Release 1 del [roadmap](../roadmap.md)).
+  en `0.10.0`, y `1.0.0`, el que cierra el MVP (Release 1 del [roadmap](../roadmap.md)), también.
 - Nada de esto se edita a mano: ni `version=` en `gradle.properties`, ni `.release-please-manifest.json`, ni
   `CHANGELOG.md`. El PR de release es el único que los toca.
 
