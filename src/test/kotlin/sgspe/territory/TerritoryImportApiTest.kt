@@ -351,8 +351,10 @@ class TerritoryImportApiTest : DomainApiTest() {
         assertEquals("project", tree(response.text)["errors"][0]["field"].asString())
         val ring = "[[[-78.60,-7.90],[-78.59,-7.90],[-78.59,-7.89],[-78.60,-7.89],[-78.60,-7.90]]]"
         val parcel = "predios.geojson" to feature("""{"code":"TST-PRD-9","tenure_type":"POSESION"}""", """{"type":"Polygon","coordinates":$ring}""")
+        // un predio es del tenant, pero la vista previa lee el CRS de trabajo del proyecto, que quien no es del equipo no lee
+        // desde 4.4: 404 (ASM-108)
         val tenantLevel = preview(project, parcel, outsider.token, target = "land_parcel", sourceCrs = "EPSG 4326", columns = null)
-        assertEquals(HttpStatus.OK, tenantLevel.status, tenantLevel.text)
+        assertEquals(HttpStatus.NOT_FOUND, tenantLevel.status, tenantLevel.text)
         // una concesión se vincula al proyecto al confirmar: su vista previa también exige la asignación
         val concession =
             "concesiones.geojson" to feature("""{"code":"TST-CON-9","name":"Concesión Ejemplo Nueve"}""", """{"type":"Polygon","coordinates":$ring}""")

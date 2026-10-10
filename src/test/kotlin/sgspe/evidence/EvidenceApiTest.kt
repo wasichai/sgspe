@@ -267,9 +267,9 @@ class EvidenceApiTest : F3DomainApiTest() {
     }
 
     // la comprobación del archivo en uso es de la base y no de quien llama (EvidenceWriteGuard no lee con Records): una
-    // evidencia de un proyecto del que quien sube ya no es miembro sigue teniendo el archivo. hoy la lectura es de todo el
-    // tenant (CON-041, opción A): perder la asignación no quita la lectura, y la prueba lo deja dicho; con UPS-01 esa lectura
-    // será un 4xx y la prueba cubrirá también la evidencia que quien llama no lee
+    // evidencia de un proyecto del que quien sube ya no es miembro sigue teniendo el archivo. desde 4.4 la lectura es por
+    // proyecto (ASM-106): perder la asignación quita la lectura (404), y la prueba cubre también la evidencia que quien
+    // llama no lee
     @Test
     fun `un archivo adjunto a una evidencia de un proyecto del que quien llama ya no es miembro tampoco se adjunta a otra`() {
         val first = testProject()
@@ -284,7 +284,8 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals(HttpStatus.OK, edit("project_assignment", assignment, mapOf("active" to false)).status)
         val id = tree(created.body)["id"].asString()
         val read = exchange("GET", "/api/objects/evidence/records/$id", null, agent.token)
-        assertEquals(HttpStatus.OK, read.status, "la lectura ya no es de todo el tenant (UPS-01): exija aquí un 4xx")
+        // desde 4.4 la lectura es por proyecto (ASM-106): quien ya no es miembro no la lee
+        assertEquals(HttpStatus.NOT_FOUND, read.status, read.body)
         val again = createEvidence(attributes + ("project" to second), token = agent.token)
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("EVIDENCE_FILE_IN_USE", code(again))

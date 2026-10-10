@@ -196,7 +196,7 @@ class ProjectComponentsApiTest : DomainApiTest() {
     }
 
     @Test
-    fun `sin permiso o sin asignacion es 403 antes de cualquier cuenta de PostGIS`() {
+    fun `sin permiso o sin asignacion se rechaza antes de cualquier cuenta de PostGIS`() {
         val project = projectWithCrs()
         val analyst = member("GIS_ANALYST", project)
         val component = tree(register(project, analyst.token, point(-78.2, -7.9), "TST-403-1").body)["component"]
@@ -204,16 +204,21 @@ class ProjectComponentsApiTest : DomainApiTest() {
         val footprint = mapOf("footprint" to bowTie)
         val readOnly = userWithRole("READ_ONLY")
         val outsider = member("GIS_ANALYST", projectWithCrs())
-        for ((who, account) in listOf("sin permiso" to readOnly, "sin asignación" to outsider)) {
+        // el alta pide la asignación antes de leer nada (403 para los dos); el cambio lee el componente: quien no es del equipo no
+        // lo lee desde 4.4 y recibe 404 (ASM-108), quien no tiene UPDATE sigue con 403
+        for ((who, account, onChange) in listOf(
+            Triple("sin permiso", readOnly, HttpStatus.FORBIDDEN),
+            Triple("sin asignación", outsider, HttpStatus.NOT_FOUND)
+        )) {
             val created = registerOf(project, account.token, footprint, "TST-403-2", "PLATAFORMA")
             assertEquals(HttpStatus.FORBIDDEN, created.status, "$who: ${created.body}")
             val changed =
                 patch("/api/sgspe/project-components/$id", mapOf("attributes" to mapOf("component_status" to "EJECUTADO")), account.token, ifMatch(id))
-            assertEquals(HttpStatus.FORBIDDEN, changed.status, "$who: ${changed.body}")
-            // un PATCH que no cambia nada tampoco depende de los datos: sigue siendo 403
+            assertEquals(onChange, changed.status, "$who: ${changed.body}")
+            // un PATCH que no cambia nada tampoco depende de los datos
             val unchanged =
                 patch("/api/sgspe/project-components/$id", mapOf("attributes" to mapOf("component_type" to "PLATAFORMA")), account.token, ifMatch(id))
-            assertEquals(HttpStatus.FORBIDDEN, unchanged.status, "$who: ${unchanged.body}")
+            assertEquals(onChange, unchanged.status, "$who: ${unchanged.body}")
         }
         // con permiso y asignación, el mismo lazo sí llega a PostGIS y es un 400
         assertEquals(HttpStatus.BAD_REQUEST, registerOf(project, analyst.token, footprint, "TST-403-2", "PLATAFORMA").status)
