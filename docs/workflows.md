@@ -1532,8 +1532,8 @@ otros registros ni valores de campos restringidos.
 
 Reglas comunes:
 
-- `threshold` es un número entero; un valor vacío o con parte fraccionaria se rechaza (`WarningWriteGuard`, `400 OUT_OF_RANGE`),
-  igual que `window_days` fuera de 1 a 365. `window_days` vacío vale 7.
+- `threshold` es un número entero; un valor vacío o con parte fraccionaria se rechaza (`WarningWriteGuard`,
+  `400 OUT_OF_RANGE`), igual que `window_days` fuera de 1 a 365. `window_days` vacío vale 7.
 - La ventana de los tipos por eventos son los `window_days` días de Lima que terminan hoy: desde el inicio del día
   `hoy − window_days + 1` hasta ahora.
 - En todos los tipos, `window_days` es también el silencio tras una alerta de la misma regla y proyecto (y riesgo, en

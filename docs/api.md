@@ -1149,8 +1149,8 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
   contadas en la «Matriz»; PUBLICO con conteos de riesgos activos sobre la grilla completa y `SmallCells`.
 - **Tope.** `sgspe.exports.max-rows` (20 000 por defecto) por conjunto: los riesgos, y sus revisiones, medidas,
   impactos y registros vinculados, que se leen por id en tramos de 500. Los grupos de interés de cada riesgo (un vínculo
-  M2M) se leen riesgo por riesgo, con un tope de 2 000 riesgos (en INTERNO y EXTERNO) y de 200 vínculos por riesgo.
-  Pasarse es `400 TOO_MANY_RECORDS` sobre `filters.project`.
+  M2M) se leen riesgo por riesgo, con un tope de 2 000 riesgos que rige solo en INTERNO y EXTERNO (PUBLICO cuenta y no
+  lee vínculos) y de 200 vínculos por riesgo. Pasarse es `400 TOO_MANY_RECORDS` sobre `filters.project`.
 - **Errores.** Los de `stakeholder-register`; `export_log` lleva `object_name` `social_risk` y `row_count` cuenta
   riesgos.
 
