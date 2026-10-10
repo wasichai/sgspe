@@ -177,12 +177,16 @@ class WorkflowMatrixApiTest : F4ApiTest() {
 
     // lo que una transición pide antes de aplicarse y la API genérica no da: register_fulfillment de WF-D exige una entrega con
     // conformidad y, en un compromiso MATERIAL, su acta de entrega y su foto (D9), que el admin registra con el comando de
-    // entregas del plan 3.2
+    // entregas del plan 3.2; close_unfulfilled de WF-E3, el compromiso creado al aceptar ya cancelado (plan 4.2a)
     private fun prepare(
         workflow: Workflow,
         id: String,
         rule: Transition
     ) {
+        if (workflow.key(rule) == "stakeholder_request.close_unfulfilled" && state(workflow.objectName, id) == rule.from) {
+            move("commitment", record(workflow.objectName, id)["attributes"]["created_commitment"].asString(), "cancel_draft", reason = TEXT)
+            return
+        }
         if (workflow.key(rule) != "commitment.register_fulfillment") return
         val evidence = listOf(evidence(testProject(), "ACTA DE ENTREGA"), evidence(testProject(), "FOTO", "PUBLICA"))
         val attributes = mapOf("delivery_date" to "2026-10-01", "conformity_given" to true, "conformity_by" to "Junta directiva")
@@ -202,6 +206,7 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         who: Account
     ): Response {
         if (rule.name.startsWith("close_reclassified") && state(workflow.objectName, id) == rule.from) return reclassify(workflow, id, who)
+        if (workflow.key(rule) == "stakeholder_request.accept") return accept(id, who)
         if (workflow.key(rule) != "commitment_candidate.accept") return transition(workflow.objectName, id, rule.name, who.token, TEXT)
         val reviewed = mapOf("code" to uniqueName("COM-"), "title" to "Mejora del canal de riego", "amount" to 15000, "currency" to "PEN")
         return exchange(
@@ -229,6 +234,24 @@ class WorkflowMatrixApiTest : F4ApiTest() {
             ifMatch(workflow.objectName, id, who.token) + withReason(TEXT)
         )
     }
+
+    // la aceptación de una solicitud (POST /api/sgspe/stakeholder-requests/{id}/accept): su respuesta y el compromiso en draft
+    private fun accept(
+        id: String,
+        who: Account
+    ): Response =
+        exchange(
+            "POST",
+            "/api/sgspe/stakeholder-requests/$id/accept",
+            mapOf(
+                "creates" to "commitment",
+                "response" to "Se atenderá con un compromiso.",
+                "respondedAt" to "2026-10-08T15:00:00Z",
+                "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego")
+            ),
+            who.token,
+            ifMatch("stakeholder_request", id, who.token) + withReason(TEXT)
+        )
 
     // quien crea el registro de la prueba: el propio rol si puede crearlo (RU: FIELD_AGENT solo cambia lo que creó), si no el
     // primero de los que llevan el objeto. quien aprueba un compromiso nunca lo creó (D4): sus roles no tienen CREATE
@@ -417,21 +440,18 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
         // cuatro los escriben StakeholderAssessmentApiTest, StakeholderWorkflowGuardsApiTest y AreaOfInfluenceWorkflowGuardsApiTest.
         // las de F3 ya no se difieren (plan 3.2): approve_direct corre en un proyecto sin aprobación interna, prepare registra la
-        // entrega que pide register_fulfillment y perform aplica accept por su comando. las de F4 que llegan con sus comandos
-        // (CommandTransitionGuard, planes 4.2a y 4.2b) y lo que solo se alcanza por ellos: accept y close_accepted de WF-E3 (y
-        // close_unfulfilled, que sale de `accepted`), y assess de WF-F (y todo lo que sale de `assessed`, `mitigating` y
-        // `monitoring`); sus casos los escriben StakeholderRequestWorkflowApiTest y SocialRiskWorkflowApiTest, que también los
-        // quitan de aquí. las reclasificaciones de WF-E1, WF-E2 y WF-E3 ya no se difieren (plan 4.2a): perform las aplica por
-        // su comando
+        // entrega que pide register_fulfillment y perform aplica accept por su comando. de F4 se difieren close_accepted de WF-E3,
+        // que solo aplica RequestClosureListener al cerrar el compromiso (sus casos, en StakeholderRequestWorkflowApiTest), y
+        // assess de WF-F con todo lo que sale de `assessed`, `mitigating` y `monitoring` (plan 4.2b, SocialRiskWorkflowApiTest).
+        // las reclasificaciones de WF-E1, WF-E2 y WF-E3 y accept de WF-E3 ya no se difieren (plan 4.2a): perform las aplica por
+        // su comando y prepare cancela el compromiso que pide close_unfulfilled
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
                 "stakeholder.retire_assessed",
                 "area_of_influence.approve",
                 "area_of_influence.supersede",
-                "stakeholder_request.accept",
                 "stakeholder_request.close_accepted",
-                "stakeholder_request.close_unfulfilled",
                 "social_risk.assess",
                 "social_risk.decide_mitigation",
                 "social_risk.decide_monitoring",

@@ -61,4 +61,19 @@ class ConfidentialAttentionScopeTest {
         assertEquals("false", condition("grievance", columns = columns - "received_by_user_id").first)
         assertEquals("false", condition("grievance", approve = true, columns = columns + ("severity" to null)).first)
     }
+
+    // ConfidentialRelease (decisión 4 del plan 4.2a): suma los registros cuyo campo vale el enlazado; sin la columna, nada
+    @Test
+    fun `una liberacion del sistema suma los registros de su campo`() {
+        val bound = mutableListOf<Any>()
+        val commitment = UUID.fromString("00000000-0000-0000-0000-00000000000c")
+        val text =
+            ConfidentialCondition.released("\"confidential\" IS NOT TRUE", "\"created_commitment\"", commitment) { value ->
+                bound += value
+                ":c${bound.size - 1}"
+            }
+        assertEquals("(\"confidential\" IS NOT TRUE) OR \"created_commitment\" = :c0", text)
+        assertEquals(listOf<Any>(commitment), bound)
+        assertEquals("false", ConfidentialCondition.released("false", null, commitment) { ":x" })
+    }
 }

@@ -118,6 +118,18 @@ class ArchitectureTest {
         assertEquals(emptyList<String>(), offenders(outside, TENANT_DIRECTORY))
     }
 
+    // la liberación del alcance de las QCS confidenciales (decisión 4 del plan 4.2a) es de una sola regla del sistema: common la
+    // define, ConfidentialAttentionScope la honra y solo RequestClosureListener (attention/Acceptances.kt) la abre
+    @Test
+    fun `solo RequestClosureListener libera el alcance de las confidenciales`() {
+        val allowed = listOf("/sgspe/common/ConfidentialRelease.kt", "/sgspe/scope/ConfidentialAttentionScope.kt", "/sgspe/attention/Acceptances.kt")
+        val outside = sources(main).filterNot { file -> allowed.any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(outside, CONFIDENTIAL_RELEASE))
+        assertTrue(flags(CONFIDENTIAL_RELEASE, "ConfidentialRelease.within(\"grievance\", \"owner_user_id\", id) { x() }"))
+        assertFalse(flags(CONFIDENTIAL_RELEASE, "// ConfidentialRelease solo en RequestClosureListener"))
+        assertFalse(flags(CONFIDENTIAL_RELEASE, "class ConfidentialAttentionScope"))
+    }
+
     @Test
     fun `observability no depende de otros paquetes de sgspe`() {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
@@ -240,6 +252,7 @@ class ArchitectureTest {
         private val NOT_COMMON_IMPORT = Regex("""^\s*import\s+sgspe\.(?!common\.)""")
         private val ORGANIZATIONS = Regex("""\bfindAllOrganizations\b""")
         private val TENANT_DIRECTORY = Regex("""\bTenantDirectory\b""")
+        private val CONFIDENTIAL_RELEASE = Regex("""\bConfidentialRelease\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
