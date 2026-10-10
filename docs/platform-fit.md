@@ -425,7 +425,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-21 Buscar un usuario por correo dentro de una organización | F2 | `UserReferenceGuard` consulta la tabla `users` de la metadata por organización y correo | `sgspe.common` | La consulta propia |
 | UPS-22 Una transacción de la petición en la API genérica | F2 | `TerritoryWriteGuard` y la aprobación de un área toman el mismo candado, que estrecha la ventana sin cerrarla | `sgspe.territory` | La ventana entre la guarda y la escritura |
 | UPS-23 Un documento emitido que congele solo lo que nombra la plantilla o aplique los permisos de campo | F3 | Los tipos de documento solo se declaran sobre objetos sin campos restringidos (ASM-090); el acta firmada se sube como evidencia ACTA DE ENTREGA | `model/document-types/`, `test_model.py` | La regla de `test_model.py`; llegan el «Acta de entrega» (AUT-03) y el «Acta de recepción» (AUT-04) |
-| UPS-24 Un enganche de lectura para el descriptor de un campo `FILE` | F3 | El portal sube una evidencia restringida con un nombre neutro y reserva el nombre a quien la descarga; el nombre de una evidencia subida antes o por la API queda visible a sus lectores (ASM-093) | `sgspe-ui` | El nombre neutro del portal: el backend oculta `name` a quien no descarga la evidencia |
+| UPS-24 Un enganche de lectura para el descriptor de un campo `FILE` | F3 | Resuelta en wasichai 1.0.0 (WAS-ADR-065, wasichai/wasichai#102) y adoptada el 2026-10-11: `EvidenceFileReadPolicy` entrega el descriptor de una evidencia restringida sin `name` ni `sha256` a quien no tiene `DOWNLOAD_RESTRICTED`; el portal conserva el nombre neutro como defensa adicional (ASM-093) | `sgspe.evidence`; `sgspe-ui` | Nada |
 
 ### 4.2 Otras diferencias con la plataforma ya registradas
 
@@ -468,7 +468,7 @@ dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar
 | UPS-18 | 0.6.0: `Idempotency-Key` en el alta de la API genérica [WAS-ADR-0058] | Adoptada en F3 (decisión D3) en el alta genérica; los comandos de `/api/sgspe/**` usan la tabla fija `idempotency_key` con el mismo contrato (ASM-065) | Retirar `idempotency_key` cuando la plataforma ofrezca la clave a las rutas de una app |
 | UPS-21 | 0.4.0: `UserDirectory.idsByEmail` por organización (solo usuarios habilitados) | Disponible, sin uso | `UserReferenceGuard` puede usarlo si un usuario deshabilitado deja de valer como referencia |
 | UPS-20, UPS-22 | Sin cambios: la columna de una relación obligatoria sigue con `ON DELETE SET NULL`, y la API genérica no abre una transacción de la petición | Siguen las mitigaciones | — |
-| UPS-23, UPS-24 | Sin cambios: wasichai-documents congela el registro entero, y wasichai-files devuelve el descriptor de un campo `FILE` a todo lector del registro | Siguen las mitigaciones (ASM-090, ASM-093) | — |
+| UPS-23 | Sin cambios: wasichai-documents congela el registro entero | Siguen las mitigaciones (ASM-090) | — |
 
 UPS-08, UPS-13 y UPS-19 son de wasichai-ui y se evalúan con la actualización de `@wasichai/*` en `sgspe-ui`.
 
@@ -476,6 +476,15 @@ Además, sin relación con una brecha: `updated_at` toma la hora de cada sentenc
 escrituras de una misma transacción ya no comparten `updatedAt`; cada respuesta de un registro lleva `ETag`; y la
 plataforma suma `RecordService.createAll`, la acción `NOTIFY` de las automatizaciones y las unidades organizacionales
 (`/api/org-units`), que SGSPE no usa.
+
+### 4.4 Lo que trae wasichai 1.0.0
+
+El 2026-10-11 el backend pasa de wasichai 0.6.0 a 1.0.0, sin cambios incompatibles.
+
+| Brecha | Qué trae wasichai | Estado en SGSPE | Para adoptarla |
+|---|---|---|---|
+| UPS-24 | 1.0.0: SPI `FileDescriptorReadPolicy`, que decide qué campos del descriptor de un `FILE` lee cada persona, aplicado en el registro, la lista, los vínculos, las escrituras, la historia y `/api/audit` [WAS-ADR-065] | Adoptada: `EvidenceFileReadPolicy` oculta `name` y `sha256` de una evidencia restringida a quien no tiene `DOWNLOAD_RESTRICTED` (ASM-093) | Nada |
+| — | 1.0.0: zona horaria opcional de los campos `DATETIME` (wasichai/wasichai#92 y #101) | Disponible, sin adoptar | Una decisión aparte sobre los campos `DATETIME` del modelo |
 
 ## 5. Patrones de srtm y caja que se reutilizan
 

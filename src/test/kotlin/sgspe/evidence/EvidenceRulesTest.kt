@@ -49,6 +49,17 @@ class EvidenceRulesTest {
         assertFalse(EvidenceRules.downloadRestricted(mapOf("classification" to "PUBLICA")))
     }
 
+    // UPS-24: quien no descarga una evidencia restringida lee su descriptor sin el nombre original ni la huella
+    @Test
+    fun `el descriptor reservado conserva el id, el tipo y el tamano y quita el nombre y la huella`() {
+        val full = descriptor + mapOf("contentType" to "application/pdf", "size" to 2048L)
+        assertEquals(
+            mapOf("id" to "11111111-1111-1111-1111-111111111111", "contentType" to "application/pdf", "size" to 2048L),
+            EvidenceRules.reserved(full)
+        )
+        assertEquals(EvidenceRules.reserved(full), EvidenceRules.reserved(EvidenceRules.reserved(full)))
+    }
+
     @Test
     fun `cada vinculo es evidence_ mas el objeto, y lo descriptivo nunca incluye el archivo`() {
         assertEquals("evidence_delivery", EvidenceRules.linkRelationship("delivery"))

@@ -436,7 +436,7 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
   `file`), con el tope y los tipos del campo `evidence.file` (`wasichai.files.max-bytes`, 20 MB, el mismo tope de Spring
   por parte, así que pasarse es siempre `400` `FILE_TOO_LARGE` sobre `file`), el tipo detectado por sus bytes y el
   SHA-256 calculado en el servidor (WAS-ADR-0061). El descriptor del archivo (`{ id, name, contentType, size, sha256 }`)
-  lo lee todo lector del registro, también el nombre original (UPS-24, ASM-093).
+  lo lee todo lector del registro, salvo en una evidencia restringida (ver abajo).
 - La escritura de la confirmación no está bajo `timeout`: corre después, dentro del candado y de una sola transacción,
   que retienen una conexión del pool hasta el commit. Su cota es `max-rows`: cada fila son unas pocas escrituras con sus
   guardas (del orden de milisegundos con la base local, una estimación sin medir), así que una hoja de 10 000 filas
@@ -880,11 +880,12 @@ wasichai (§2).
 
 - Un reintento repite solo el segundo paso, con la misma `Idempotency-Key` y el mismo `file`: el archivo no se vuelve a
   subir.
-- **El nombre del archivo lo lee todo lector.** El descriptor (`{ id, name, contentType, size, sha256 }`) viaja en el
-  registro, su historial y la lista a todo rol con READ sobre `evidence`, también el de una evidencia CONFIDENCIAL o de
-  DATOS PERSONALES, cuya descarga exige `DOWNLOAD_RESTRICTED`: wasichai-files no ofrece cómo ocultarlo (UPS-24). Por eso
-  el portal sube una evidencia restringida con un nombre neutro (`evidencia-<aaaammdd-hhmmss>.<ext>`) y le muestra
-  «Archivo reservado» a quien no la descarga; quien sube por la API debe hacer lo mismo (ASM-093).
+- **El descriptor de una evidencia restringida llega sin nombre ni huella.** Si la evidencia es CONFIDENCIAL o de DATOS
+  PERSONALES, o le falta la clasificación, quien no tiene `DOWNLOAD_RESTRICTED` sobre `evidence` lee el descriptor del
+  campo `file` como `{ id, contentType, size }`, sin `name` ni `sha256` (`EvidenceFileReadPolicy`, UPS-24, ASM-093). Rige
+  en el registro, la lista, los vínculos (related), las respuestas de escritura, la historia y `/api/audit`; ADMIN lo lee
+  entero. La respuesta de la subida (`201`, aún sin registro) no cambia. El portal sigue subiendo las restringidas con un
+  nombre neutro (`evidencia-<aaaammdd-hhmmss>.<ext>`) como defensa adicional.
 - **Límite conocido:** el alta acepta `replaces` e `import_batch_id` de cualquier persona con CREATE: nada comprueba que
   la evidencia reemplazada sea de quien sube ni que la importación exista (ASM-060). Después del alta no cambian
   (`409 EVIDENCE_IMMUTABLE`).

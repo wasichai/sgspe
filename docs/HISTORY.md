@@ -3,13 +3,28 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-11 — UPS-24: el descriptor de una evidencia restringida sin nombre ni huella
+
+El backend adopta la política de lectura de wasichai 1.0.0 y oculta el nombre y la huella del archivo de una evidencia
+restringida, que hasta ahora solo reservaba el portal.
+
+- **Política.** `EvidenceFileReadPolicy` implementa `FileDescriptorReadPolicy` (WAS-ADR-065): si la evidencia es
+  CONFIDENCIAL o de DATOS PERSONALES, o le falta la clasificación (falla cerrado, como la descarga), quien no tiene
+  `DOWNLOAD_RESTRICTED` sobre `evidence` lee el descriptor del campo `file` sin `name` ni `sha256`. ADMIN lo lee entero.
+- **Alcance.** La plataforma la aplica en el registro, la lista, los vínculos, las respuestas de escritura, la historia
+  y `/api/audit`; la respuesta de la subida (201, sin registro aún) no cambia. La acción se pregunta una vez por
+  petición (`RequestMemo`). Vale también para las evidencias subidas antes o por la API.
+- **Pruebas.** `EvidenceDescriptorApiTest` (integración) y `EvidenceRulesTest` (unitaria).
+- **Documentos.** UPS-24 pasa a resuelta y ASM-093 se reescribe: ya no hay riesgo aceptado del nombre visible; el nombre
+  neutro del portal queda como defensa adicional.
+
 ## 2026-10-11 — wasichai 1.0.0
 
 Antes del release 1.0.0 de SGSPE, el backend pasa de wasichai 0.6.0 a 1.0.0 y `sgspe-ui` de `@wasichai/*` 0.6.0 a 1.0.0.
 Ninguna de las dos trae cambios incompatibles. La 1.0.0 de wasichai suma la zona horaria opcional de los campos
 `DATETIME` (wasichai/wasichai#92 y #101) y una política de lectura de los descriptores de los campos `FILE`
 (wasichai/wasichai#102), el enganche que pedía UPS-24 para ocultar la huella SHA-256 de una evidencia restringida
-también en el backend. Las dos quedan disponibles, sin adoptarlas; el portal ya reserva la huella desde el plan 4.3.
+también en el backend. La zona horaria queda disponible, sin adoptarla; la política de lectura se adopta en la entrada siguiente (UPS-24).
 
 ## 2026-10-10 — Releases con GitHub Actions
 

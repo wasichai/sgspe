@@ -310,8 +310,8 @@ pistas de arriba o en las fases siguientes:
 | KPIs | KPI-COM-01, KPI-COM-02, KPI-COM-03, KPI-COM-04, KPI-COM-05, KPI-COM-06, KPI-COM-07, KPI-COM-08, KPI-COM-09, KPI-COM-10, KPI-COM-11 (serie); tablero `commitments`; los datos del tope que usará KPI-INV-01 |
 | Entregables | Exportación `commitment-matrix` sin el documento de identidad de los solicitantes (RQ-REP-022, CON-014); documentos emitidos «Minuta de reunión» y «Lista de asistentes» (RQ-REP-029), y «Acta de entrega» cuando se resuelva UPS-23 (hasta entonces, el acta firmada es una evidencia ACTA DE ENTREGA); datos de T1 §9.3.1.2 y de las conclusiones de T2 (acuerdos) |
 | Definición de terminado | La general, más: `CommitmentWorkflowApiTest`, `AgreementWorkflowApiTest`, `CommitmentCandidateWorkflowApiTest`, `TaskWorkflowApiTest`; pruebas de trabajos, listeners, automatizaciones y destinatarios de [Workflows, Pruebas](workflows.md#pruebas); descargas de evidencias restringidas con `DOWNLOAD_RESTRICTED` (ASM-071); `FileStoreContractTest` (almacén local y S3 contra MinIO); `AutomationsApiTest` (AUT-01, AUT-05 y AUT-10) |
-| Riesgos | Escalamientos sin asignaciones que coincidan (el aviso no se crea y queda una advertencia en el log); el nivel 2 reutiliza `approve_senior` de WF-D; la descarga nativa de un campo `FILE` no conoce la clasificación (SGSPE la reemplaza para `evidence`); un documento emitido congela el registro entero sin permisos de campo (UPS-23), así que los tipos de documento solo se declaran sobre objetos sin campos restringidos y el «Acta de entrega» espera (ASM-090); el nombre del archivo de una evidencia restringida lo lee todo lector de `evidence`, y el portal la sube con un nombre neutro (UPS-24, ASM-093) |
-| IDs abiertos | Condicionan: GAP-001 (RF-AGR-003), GAP-006, GAP-014, GAP-016, GAP-017, GAP-021, GAP-022; UPS-23, UPS-24; ASM-008, ASM-009, ASM-023, ASM-030, ASM-063, ASM-067, ASM-070, ASM-089, ASM-090, ASM-093, ASM-094 |
+| Riesgos | Escalamientos sin asignaciones que coincidan (el aviso no se crea y queda una advertencia en el log); el nivel 2 reutiliza `approve_senior` de WF-D; la descarga nativa de un campo `FILE` no conoce la clasificación (SGSPE la reemplaza para `evidence`); un documento emitido congela el registro entero sin permisos de campo (UPS-23), así que los tipos de documento solo se declaran sobre objetos sin campos restringidos y el «Acta de entrega» espera (ASM-090); el descriptor de una evidencia restringida se lee sin nombre ni huella salvo con `DOWNLOAD_RESTRICTED` (`EvidenceFileReadPolicy`, UPS-24 resuelta en wasichai 1.0.0, ASM-093) |
+| IDs abiertos | Condicionan: GAP-001 (RF-AGR-003), GAP-006, GAP-014, GAP-016, GAP-017, GAP-021, GAP-022; UPS-23; ASM-008, ASM-009, ASM-023, ASM-030, ASM-063, ASM-067, ASM-070, ASM-089, ASM-090, ASM-094 |
 | Estado | Modelo, backend y portal integrados en `main` (planes 3.1 y 3.2, wasichai/sgspe#13; plan 3.3, wasichai/sgspe-ui#5); pendientes: actualizar el tenant de desarrollo de F2 a F3 y comprobar MinIO (necesitan el túnel; F4 los incluye en su definición de terminado) y el original de cada importación como evidencia (ASM-060), que pasa a F6 |
 
 ## F4 · Quejas, consultas y solicitudes, riesgos y alertas
@@ -463,7 +463,7 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 |---|---|
 | F1 | UPS-02, UPS-03, UPS-05 |
 | F2 | UPS-04, UPS-06, UPS-08, UPS-15, UPS-16 |
-| F3 | UPS-23, UPS-24 |
+| F3 | UPS-23 (UPS-24, resuelta en wasichai 1.0.0) |
 | F4 | UPS-27, UPS-28 |
 | F7 | UPS-14 |
 | Antes de producción | UPS-09, UPS-13, UPS-17; UPS-01 solo para territorio y región (proyectos, resuelto en el plan 4.4, ADR-0029) |
@@ -494,7 +494,7 @@ se detectó cada brecha:
 | UPS-16 | [wasichai#61](https://github.com/wasichai/wasichai/issues/61) |
 | UPS-17 | [wasichai#62](https://github.com/wasichai/wasichai/issues/62) |
 | UPS-18 | [wasichai#63](https://github.com/wasichai/wasichai/issues/63) |
-| UPS-24 | [wasichai#90](https://github.com/wasichai/wasichai/issues/90) |
+| UPS-24 | [wasichai#90](https://github.com/wasichai/wasichai/issues/90), cerrado por [wasichai#102](https://github.com/wasichai/wasichai/pull/102) (1.0.0) |
 | UPS-27 | [wasichai-ui#46](https://github.com/wasichai/wasichai-ui/issues/46) |
 
 ## Decisiones pendientes para el checkpoint
