@@ -7,9 +7,10 @@ import sgspe.common.JobTasks
 // que una guarda reserva a la plataforma
 object SampleFields {
     // los campos que solo escribe la plataforma (sin usuario): una persona que los fija recibe 403. el modelo no los marca, así
-    // que la lista vive aquí y SampleFieldsTest exige que existan. hoy, generator_key de task (GeneratorKeyGuard): es único en
-    // el modelo, así que la regla genérica lo mandaría
-    val PLATFORM_ONLY: Map<String, Set<String>> = mapOf(JobTasks.TASK to setOf(JobTasks.GENERATOR_KEY))
+    // que la lista vive aquí y SampleFieldsTest exige que existan. hoy, generator_key de task y, desde F4, el de early_warning,
+    // que solo escribe JOB-04 (GeneratorKeyGuard, plan 4.2b): son únicos en el modelo, así que la regla genérica los mandaría
+    val PLATFORM_ONLY: Map<String, Set<String>> =
+        mapOf(JobTasks.TASK to setOf(JobTasks.GENERATOR_KEY), "early_warning" to setOf(JobTasks.GENERATOR_KEY))
 
     // `field`, una entrada de "fields" de model.json
     fun skipped(
