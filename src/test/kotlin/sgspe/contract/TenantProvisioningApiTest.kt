@@ -8,17 +8,19 @@ import sgspe.SgspeApiTest
 import java.io.File
 
 // security.md §4.1 y §14 «Alta de un tenant»: los scripts reales sobre un tenant nuevo, en orden, sin errores e
-// idempotentes, con el modelo, los roles, los workflows, los tipos de documento y las automatizaciones de F4
+// idempotentes, con el modelo, los roles, los workflows, los tipos de documento y las automatizaciones de F5
 class TenantProvisioningApiTest : SgspeApiTest() {
     @Test
     fun `un tenant nuevo se prepara con apply, apply_roles y apply workflows en ese orden`() {
         val admin = provisionTenant()
 
-        // F4: 72 objetos, 23 acciones declaradas (con READ_ALL_PROJECTS, ADR-0029) y 238 relaciones; 21 objetos reciben en
-        // la fase 3 los únicos y los índices que nombran el campo de una relación
+        // F5: 82 objetos, 26 acciones declaradas y 272 relaciones; 25 objetos reciben en la fase 3 los únicos y los índices que
+        // nombran el campo de una relación, y delivery.social_contribution su único (Decisión 1 del plan 5.1: wasichai acepta
+        // el unique: true del campo de una relación opcional)
         val model = runScript(listOf("model/apply.py"), admin)
         assertEquals(0, model.exit, model.output)
-        assertTrue(model.output.contains("done: 333 created, 21 updated, 0 skipped"), model.output)
+        assertTrue(model.output.contains("done: 380 created, 26 updated, 0 skipped"), model.output)
+        assertTrue(model.output.contains("update field delivery.social_contribution (unique)"), model.output)
         val roles = runScript(listOf("model/apply_roles.py"), admin)
         assertEquals(0, roles.exit, roles.output)
         assertTrue(roles.output.contains("done: 15 created, 0 updated, 0 skipped"), roles.output)
@@ -26,7 +28,7 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         assertEquals(0, workflows.exit, workflows.output)
         assertTrue(
             workflows.output.contains(
-                "done: 15 workflows (15 created, 0 updated, 0 skipped), 2 document types (2 created, 0 updated, 0 skipped), " +
+                "done: 17 workflows (17 created, 0 updated, 0 skipped), 2 document types (2 created, 0 updated, 0 skipped), " +
                     "6 automations (6 created, 0 updated, 0 skipped)"
             ),
             workflows.output
@@ -34,7 +36,7 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         // los tres pasos son idempotentes contra wasichai de verdad (database-model.md §24)
         val modelAgain = runScript(listOf("model/apply.py"), admin)
         assertEquals(0, modelAgain.exit, modelAgain.output)
-        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 333 skipped"), modelAgain.output)
+        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 380 skipped"), modelAgain.output)
         val again = runScript(listOf("model/apply_roles.py"), admin)
         assertEquals(0, again.exit, again.output)
         assertTrue(again.output.contains("done: 0 created, 0 updated, 15 skipped"), again.output)
@@ -42,7 +44,7 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         assertEquals(0, workflowsAgain.exit, workflowsAgain.output)
         assertTrue(
             workflowsAgain.output.contains(
-                "done: 15 workflows (0 created, 0 updated, 15 skipped), 2 document types (0 created, 0 updated, 2 skipped), " +
+                "done: 17 workflows (0 created, 0 updated, 17 skipped), 2 document types (0 created, 0 updated, 2 skipped), " +
                     "6 automations (0 created, 0 updated, 6 skipped)"
             ),
             workflowsAgain.output
