@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import wasichai.core.common.NotFoundException
+import wasichai.core.metadata.CustomField
+import wasichai.core.metadata.CustomObject
+import wasichai.core.metadata.FieldType
 import wasichai.core.metadata.ObjectDefinition
 import java.util.UUID
 
@@ -43,5 +46,25 @@ class TenantModelTest {
         assertEquals(Attention.OBJECTS.size + 1, asked)
         runBlocking { RequestMemo.forRequest { model.has(organization, Attention.REQUEST) } }
         assertEquals(Attention.OBJECTS.size + 2, asked)
+    }
+
+    // un tenant que no tiene el modelo de F6 tiene community sin code: la importación no ofrece ese destino
+    @Test
+    fun `un campo se pregunta en la definicion de la organizacion`() {
+        fun field(name: String) =
+            CustomField(UUID.randomUUID(), UUID.randomUUID(), name, name, FieldType.TEXT, name, false, false, null, null, 0, null, null, emptyMap(), true, true)
+        val f5: ObjectDefinitions =
+            mock(ObjectDefinitions::class.java) { invocation ->
+                if (invocation.method.name != "current") return@mock null
+                ObjectDefinition(
+                    CustomObject(UUID.randomUUID(), organization, "community", "community", "community", null, true, "community_tbl", null, null),
+                    listOf(field("name"), field("territory"))
+                )
+            }
+        val model = TenantModel(f5)
+        runBlocking {
+            assertTrue(model.hasField(organization, "community", "name"))
+            assertFalse(model.hasField(organization, "community", "code"))
+        }
     }
 }

@@ -19,6 +19,7 @@ import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.RequestMemo
+import sgspe.common.TenantModel
 import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.common.toCodedException
@@ -180,6 +181,12 @@ internal object ImportRules {
     const val APPLY = "APPLY"
     const val DISCARD = "DISCARD"
 
+    // los atributos sin los que no se crea un registro del destino, en orden
+    fun missingRequired(
+        required: Set<String>,
+        attributes: Map<String, Any?>
+    ): List<String> = required.filter { attributes[it] == null }.sorted()
+
     // cada valor numérico de un destino tiene un rango finito; fuera de él la fila se rechaza nombrando el campo. los
     // ángulos en grados; la cota en m s. n. m. (del fondo de un tajo a más que la cumbre más alta del Perú); el área
     // registral no pasa la superficie del Perú (unos 128,5 millones de ha)
@@ -321,8 +328,9 @@ class ComponentVersions(
 
 // la importación de coordenadas y geometrías con CRS de origen, vista previa y confirmación (gis.md §4, ADR-0019,
 // api.md §4.2, RQ-GIS-003, RQ-GIS-007, RQ-GIS-008, RQ-GIS-010). no deja estado en el servidor: la confirmación vuelve a
-// mandar el mismo archivo y los mismos campos con el SHA-256 de la vista previa, y se repite toda la validación. tres
-// destinos: project_component (puntos de XLSX o CSV, y GeoJSON), land_parcel y mining_concession (GeoJSON). un código
+// mandar el mismo archivo y los mismos campos con el SHA-256 de la vista previa, y se repite toda la validación. cinco
+// destinos: project_component (puntos de XLSX o CSV, y GeoJSON), land_parcel, mining_concession y, desde F6, community y
+// environmental_feature (reconciliados por code como las concesiones; una fila sin code se rechaza). un código
 // nuevo se crea; uno sin desplazamiento queda igual (o se actualizan sus datos); uno desplazado es una versión nueva del
 // componente, o una actualización del predio o la concesión. nunca una sobrescritura silenciosa.
 // todo se escribe como quien importa (con su permiso, su alcance y la marca de Records), nunca como la plataforma.
@@ -342,7 +350,8 @@ class TerritoryImports(
     private val versions: ComponentVersions,
     private val properties: ImportProperties,
     private val gdal: GdalReader,
-    private val tools: GdalTools
+    private val tools: GdalTools,
+    private val tenantModel: TenantModel
 ) {
     private val gate = ImportGate(properties.maxConcurrent, properties.timeout)
 
@@ -440,7 +449,8 @@ class TerritoryImports(
                         versions.first(context.project, row.attributes + origin, reason, geometries)
                     } else {
                         // el área va con la marca: AreaListener omite estas escrituras (Areas.FIELD, P11)
-                        records.create(target, row.attributes + origin + listOfNotNull(row.areaHa?.let { Areas.FIELD to it }).toMap(), reason, geometries)
+                        val area = if (context.target.writesArea) listOfNotNull(row.areaHa?.let { Areas.FIELD to it }).toMap() else emptyMap()
+                        records.create(target, row.attributes + origin + area, reason, geometries)
                     }
                 if (target == CONCESSION) records.link("project", context.project, PROJECT_CONCESSION, UUID.fromString(record.id), reason)
             }
@@ -449,7 +459,13 @@ class TerritoryImports(
                 val id = UUID.fromString(existing!!.id)
                 val changes = row.attributes.filter { (name, value) -> !Values.same(existing.attributes[name], value) }
                 val area =
-                    if (target != COMPONENT && !Values.same(existing.attributes[Areas.FIELD], row.areaHa)) mapOf(Areas.FIELD to row.areaHa) else emptyMap()
+                    if (context.target.writesArea &&
+                        !Values.same(existing.attributes[Areas.FIELD], row.areaHa)
+                    ) {
+                        mapOf(Areas.FIELD to row.areaHa)
+                    } else {
+                        emptyMap()
+                    }
                 if (changes.isNotEmpty() || area.isNotEmpty() || !candidate.sameShape) {
                     records.patch(target, id, changes + origin + area, reason, if (candidate.sameShape) emptyMap() else geometries)
                 }
@@ -463,7 +479,13 @@ class TerritoryImports(
         // campo por tipo GeoJSON: el de los componentes depende de la geometría; los demás tienen uno solo
         val fields: Map<String, Pair<String, String>>,
         val attributes: List<String>,
-        val tables: Boolean
+        val tables: Boolean,
+        // lo que una fila debe traer (columna elegida o valor fijo del formulario); si no, se rechaza nombrándolo
+        val required: Set<String> = emptySet(),
+        // calculated_area_ha se escribe con la marca en la transacción (Areas.GEOMETRY): predios, concesiones y comunidades
+        val writesArea: Boolean = !tables,
+        // el destino llega con el modelo de F6 (code y los campos de origen): una organización sin él no lo tiene
+        val sinceF6: Boolean = false
     )
 
     private class Context(
@@ -537,6 +559,9 @@ class TerritoryImports(
         val grants = mutableListOf(Actions.CREATE to target.name, Actions.UPDATE to target.name)
         if (target.name == CONCESSION) grants += Actions.UPDATE to "project"
         permissions.require(user, "Importar ${target.name}", *grants.toTypedArray())
+        if (target.sinceF6 && !tenantModel.hasField(user.organizationId, target.name, "code")) {
+            throw ValidationException("Destino inválido", "target", "${target.name} se importa con el modelo de F6, que esta organización todavía no tiene")
+        }
         // los componentes se escriben bajo el alcance del proyecto: sin asignación vigente, 403 NOT_ASSIGNED ya aquí y no tras
         // analizar el archivo entero con PostGIS. los predios y las concesiones son del tenant y no pasan por el alcance
         // componentes y concesiones escriben en el proyecto (la concesión se vincula a él): asignación antes de leer
@@ -767,6 +792,10 @@ class TerritoryImports(
                 out[name] = value
             }
         }
+        for (name in ImportRules.missingRequired(target.required, out)) {
+            invalid += InvalidRow(row.row, name, "es obligatorio: elija su columna o un valor fijo")
+            ok = false
+        }
         if (!ok) return null
         // una hoja sin tipo de componente es la de sondajes de DOC-03 (gis.md §9): el portal mapea solo sus columnas
         if (target.name == COMPONENT && out["component_type"] == null) out["component_type"] = DEFAULT_COMPONENT_TYPE
@@ -907,6 +936,8 @@ class TerritoryImports(
 
         const val PARCEL = "land_parcel"
         const val CONCESSION = "mining_concession"
+        const val COMMUNITY = "community"
+        const val FEATURE = "environmental_feature"
         const val PROJECT_CONCESSION = "project_concession"
         const val CREATE = "CREATE"
         const val UNCHANGED = "UNCHANGED"
@@ -945,7 +976,26 @@ class TerritoryImports(
                         tables = true
                     ),
                 PARCEL to Target(PARCEL, mapOf("Polygon" to ("boundary" to "Polygon")), listOf("tenure_type", "registered_area_ha"), tables = false),
-                CONCESSION to Target(CONCESSION, mapOf("Polygon" to ("boundary" to "MultiPolygon")), listOf("name", "registered_area_ha"), tables = false)
+                CONCESSION to Target(CONCESSION, mapOf("Polygon" to ("boundary" to "MultiPolygon")), listOf("name", "registered_area_ha"), tables = false),
+                COMMUNITY to
+                    Target(
+                        COMMUNITY,
+                        mapOf("Polygon" to ("territory" to "MultiPolygon")),
+                        listOf("name"),
+                        tables = false,
+                        required = setOf("name"),
+                        sinceF6 = true
+                    ),
+                FEATURE to
+                    Target(
+                        FEATURE,
+                        mapOf("Polygon" to ("boundary" to "MultiPolygon")),
+                        listOf("name", "feature_type"),
+                        tables = false,
+                        required = setOf("name", "feature_type"),
+                        writesArea = false,
+                        sinceF6 = true
+                    )
             )
     }
 }

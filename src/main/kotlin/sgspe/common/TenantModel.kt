@@ -33,6 +33,14 @@ class TenantModel(
         objectNames: Collection<String>
     ): List<String> = objectNames.filter { has(organizationId, it) }
 
+    // si la organización tiene el campo (un campo nuevo de una fase, como community.code de F6): la definición de la petición,
+    // sin mirar los permisos de quien llama
+    suspend fun hasField(
+        organizationId: UUID,
+        objectName: String,
+        field: String
+    ): Boolean = has(organizationId, objectName) && definitions.current(organizationId, objectName).fields.any { it.name == field }
+
     companion object {
         private const val MEMO = "tenant-model"
     }

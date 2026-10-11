@@ -192,4 +192,88 @@ class GdalImportApiTest : DomainApiTest() {
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.text)
         assertEquals(listOf("file"), problemFields(response.text))
     }
+
+    // especificación de F6 §3.4: comunidades por código desde un GeoPackage (alta, actualización con cambio de área y distancia
+    // de Hausdorff, fila sin código rechazada) y desde un KMZ
+    @Test
+    fun `comunidades por codigo desde un GeoPackage y un KMZ`() {
+        val project = projectWithCrs()
+        val analyst = member("GIS_ANALYST", project)
+        val code = uniqueName("COM")
+        val first =
+            GdalFixtures.collection(
+                listOf(
+                    mapOf("codigo" to code, "nombre" to "Comunidad Ejemplo") to GdalFixtures.utmSquare(776_000.0, 9_126_500.0, 300.0),
+                    mapOf("codigo" to null, "nombre" to "Comunidad sin código") to GdalFixtures.utmSquare(777_000.0, 9_126_500.0, 300.0)
+                )
+            )
+        val columns = """{"code": "codigo", "name": "nombre"}"""
+        val gpkg = GdalFixtures.geopackage(dir, "comunidades-1", linkedMapOf("comunidades" to first), 32717)
+        val body = tree(preview(project, gpkg, "community", analyst.token, sourceCrs = "EPSG 32717", columns = columns).text)
+        assertEquals(1, body["valid"].asInt())
+        assertEquals("code", body["invalid"][0]["field"].asString())
+        val created = confirm(body, project, gpkg, "community", analyst.token, sourceCrs = "EPSG 32717", columns = columns)
+        assertEquals(1, tree(created.text)["created"].asInt(), created.text)
+        val community = tree(send("GET", "/api/objects/community/records?code=$code", null, HttpStatus.OK))["content"][0]["attributes"]
+        assertEquals(9.0, community["calculated_area_ha"].asDouble(), 0.01)
+        assertEquals("EPSG 32717", community["source_crs"].asString())
+
+        val moved =
+            GdalFixtures.collection(
+                listOf(mapOf("codigo" to code, "nombre" to "Comunidad Ejemplo") to GdalFixtures.utmSquare(776_000.0, 9_126_500.0, 400.0))
+            )
+        val second = GdalFixtures.geopackage(dir, "comunidades-2", linkedMapOf("comunidades" to moved), 32717)
+        val diff = tree(preview(project, second, "community", analyst.token, sourceCrs = "EPSG 32717", columns = columns).text)
+        val update = diff["differences"][0]
+        assertEquals("UPDATE", update["outcome"].asString())
+        assertEquals(9.0, update["areaHaBefore"].asDouble(), 0.01)
+        assertEquals(16.0, update["areaHaAfter"].asDouble(), 0.01)
+        assertTrue(update["distanceM"].asDouble() > 100, update.toString())
+        assertEquals(1, tree(confirm(diff, project, second, "community", analyst.token, sourceCrs = "EPSG 32717", columns = columns).text)["updated"].asInt())
+
+        val kmzCode = uniqueName("COMKMZ")
+        val kml =
+            GdalFixtures.collection(
+                listOf(mapOf("Name" to kmzCode, "Description" to "Comunidad Ejemplo") to GdalFixtures.lonLatSquare(-78.48, -7.88, 0.002))
+            )
+        val kmz = GdalFixtures.kmz(dir, "comunidades", kml)
+        val kmzColumns = """{"code": "Name", "name": "Description"}"""
+        val kmzBody = tree(preview(project, kmz, "community", analyst.token, columns = kmzColumns).text)
+        assertEquals(1, tree(confirm(kmzBody, project, kmz, "community", analyst.token, columns = kmzColumns).text)["created"].asInt())
+    }
+
+    // un elemento ambiental exige su tipo: desde una FileGDB con un valor fijo del formulario; sin tipo, la fila se rechaza
+    @Test
+    fun `elementos ambientales desde una FileGDB con el tipo fijo`() {
+        val project = projectWithCrs()
+        val analyst = member("GIS_ANALYST", project)
+        val code = uniqueName("AMB")
+        val features =
+            GdalFixtures.collection(
+                listOf(mapOf("codigo" to code, "nombre" to "Fuente de agua Ejemplo") to GdalFixtures.utmSquare(776_000.0, 9_127_000.0, 200.0))
+            )
+        val zip = GdalFixtures.fileGdbZip(dir, "elementos", features, 32717)
+        val withoutType =
+            tree(
+                preview(
+                    project,
+                    zip,
+                    "environmental_feature",
+                    analyst.token,
+                    sourceCrs = "EPSG 32717",
+                    columns = """{"code": "codigo", "name": "nombre"}"""
+                ).text
+            )
+        assertEquals("feature_type", withoutType["invalid"][0]["field"].asString())
+        val columns = """{"code": "codigo", "name": "nombre", "featureType": "=FUENTE DE AGUA"}"""
+        val body = tree(preview(project, zip, "environmental_feature", analyst.token, sourceCrs = "EPSG 32717", columns = columns).text)
+        assertEquals(1, body["valid"].asInt())
+        assertEquals(
+            1,
+            tree(confirm(body, project, zip, "environmental_feature", analyst.token, sourceCrs = "EPSG 32717", columns = columns).text)["created"].asInt()
+        )
+        val feature = tree(send("GET", "/api/objects/environmental_feature/records?code=$code", null, HttpStatus.OK))["content"][0]
+        assertEquals("FUENTE DE AGUA", feature["attributes"]["feature_type"].asString())
+        assertEquals("MultiPolygon", feature["geometries"]["boundary"]["type"].asString())
+    }
 }

@@ -266,4 +266,12 @@ class TerritoryImportsTest {
             for (sheet in book) for (row in sheet) for (cell in row) assertTrue(cell.cellType != org.apache.poi.ss.usermodel.CellType.FORMULA)
         }
     }
+
+    // especificación de F6 §3.4: el alta de una comunidad o de un elemento ambiental por importación lleva el nombre y, el
+    // elemento, su tipo (columna elegida o valor fijo); sin ellos la fila se rechaza nombrando el campo
+    @Test
+    fun `los atributos obligatorios de un destino que faltan se nombran en orden`() {
+        assertEquals(emptyList<String>(), ImportRules.missingRequired(setOf("name"), mapOf("code" to "COM-01", "name" to "Comunidad Ejemplo")))
+        assertEquals(listOf("feature_type", "name"), ImportRules.missingRequired(setOf("name", "feature_type"), mapOf("code" to "AMB-01", "name" to null)))
+    }
 }
