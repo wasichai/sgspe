@@ -4,10 +4,13 @@ Stdlib only. What it reads, and from where:
 
 - docs/database-model.md, the cards (§6 to §21): per object its label, description, fields (type, required, unique,
   derived, restricted, default, phase), relationships (type, field, target, required, phase), flags, uniques, declared
-  indexes, declared actions, the media types of a FILE field, workflow and phase; §4, the key of each ENUM catalog;
+  indexes, declared actions (and the phase of one written "`EXPORT` (desde F6)"), the media types of a FILE field,
+  workflow and phase; §4, the key of each ENUM catalog;
 - docs/requirements-analysis.md §10, the options of each catalog, in order, without the "(propuesto)" notes;
-- docs/security.md §7.1 (the phase of each role), §7.2 to §7.8 (the matrix) and §7.9 (the restricted fields);
-- docs/domain-model.md §7.3, the states of each workflow.
+- docs/security.md §7.1 (the phase of each role), §7.2 to §7.8 (the matrix), §7.9 (the restricted fields) and §9.7 (the
+  masters of ProjectScope.TENANT);
+- docs/domain-model.md §7.3, the states of each workflow;
+- docs/gis.md §2.2, the layers whose sensitivity is "Pública" and the object.field each one draws.
 
 A phase is "F2", "F3"... and compares as text, which works from F1 to F8.
 """
@@ -20,6 +23,8 @@ DOCS = os.path.join(os.path.dirname(HERE), "docs")
 TICK = re.compile(r"`([^`]+)`")
 PARENS = re.compile(r"\s*\([^()]*\)")
 FROM_PHASE = re.compile(r"[Dd]esde (F\d)")
+# "`EXPORT` (desde F6)" in a card's "Acciones declaradas": the action and the phase it arrives in
+ACTION = re.compile(r"`([A-Z][A-Z0-9_]*)`(?:\s*\(?[Dd]esde (F\d)\)?)?")
 DEFAULT = re.compile(r"Por defecto: ([^.]+)\.")
 SEPARATOR = re.compile(r"^\|\s*:?-{3,}")
 DATA_ROW = re.compile(r"^\| `[a-z_0-9]+` \|")
@@ -74,6 +79,7 @@ class Card:
         self.indexed = []  # field names with indexed: true
         self.indexes = []  # lists of field names
         self.actions = []
+        self.action_phases = {}  # action -> the phase its "(desde Fn)" names; the others arrive with the card
         self.workflow = None
         self.phase = None
         self.exactly_one = []  # lists of relation field names
@@ -173,6 +179,8 @@ def cards():
                     elif part.startswith("`indexes`"):
                         card.indexes = _sets(part)
                 card.actions = [a for a in ticks(bullets.get("Acciones declaradas", "")) if a.isupper()]
+                card.action_phases = {m.group(1): m.group(2) for m in ACTION.finditer(bullets.get("Acciones declaradas", ""))
+                                      if m.group(2)}
                 workflow = re.match(r"(WF-[A-Z0-9]+)", bullets.get("Workflow", ""))
                 card.workflow = workflow.group(1) if workflow else None
                 phase = re.match(r"(F\d)", bullets.get("Fase", ""))
@@ -208,6 +216,11 @@ def field_phase(card, field):
 def relationship_phase(all_cards, card, rel):
     """A relationship arrives when both ends exist, or later if its note says so."""
     return max(card.phase, all_cards[rel["target"]].phase, rel["phase"] or "F0")
+
+
+def action_phase(card, action):
+    """A declared action arrives with its card, or later if the card writes "(desde Fn)" after it (EXPORT from F6)."""
+    return max(card.phase, card.action_phases.get(action) or card.phase)
 
 
 def enum_keys():
@@ -508,4 +521,45 @@ def document_types():
     if in_document != len(result):
         raise ValueError(f"workflows.md has {in_document} document type rows, but {len(result)} read "
                          f"(a blank line inside the table?)")
+    return result
+
+
+def tenant_objects():
+    """The masters of ProjectScope.TENANT that security.md §9.7 lists in its "Maestros del tenant" bullet, in order."""
+    lines = read("security.md").splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith("### 9.7 ")), None)
+    if start is None:
+        raise ValueError("security.md has no §9.7")
+    bullets = _bullets(lines, start + 1)
+    key = next((k for k in bullets if k.startswith("Maestros del tenant")), None)
+    if key is None:
+        raise ValueError("security.md §9.7 has no 'Maestros del tenant' bullet")
+    names = [name for name in ticks(bullets[key]) if re.fullmatch(r"[a-z][a-z0-9_]*", name)]
+    if not names:
+        raise ValueError("the 'Maestros del tenant' bullet of security.md §9.7 names no object")
+    return names
+
+
+# ---------------------------------------------------------------------------
+# gis.md §2.2: the public layers
+# ---------------------------------------------------------------------------
+
+def public_layers():
+    """{LYR-NN: [(object, field)]} of the layers of gis.md §2.2 whose sensitivity is "Pública", in table order: the only
+    ones GeoServer publishes (security.md §10.2)."""
+    lines = read("gis.md").splitlines()
+    start = next((i for i, line in enumerate(lines) if line.startswith("| ID | Capa | Objeto.campo |")), None)
+    if start is None:
+        raise ValueError("gis.md has no layer table (a renamed header?)")
+    header = [c.strip() for c in lines[start].strip().strip("|").split("|")]
+    if "Objeto.campo" not in header or "Sensibilidad" not in header:
+        raise ValueError(f"the layer table of gis.md lacks the Objeto.campo or Sensibilidad column: {header}")
+    fields, sensitivity = header.index("Objeto.campo"), header.index("Sensibilidad")
+    result = {}
+    for cells in table_rows(lines, start):
+        if len(cells) != len(header):
+            raise ValueError(f"layer row {cells[0]!r} has {len(cells)} cells for {len(header)} columns")
+        if cells[sensitivity].startswith("Pública"):
+            result[cells[0]] = [tuple(t.split(".", 1)) for t in ticks(cells[fields])
+                                if re.fullmatch(r"[a-z_]+\.[a-z_]+", t)]
     return result

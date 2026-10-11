@@ -751,7 +751,7 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** `APPROVE`, `READ_ALL_PROJECTS`; desde F6, EXPORT.
+- **Acciones declaradas:** `APPROVE`, `READ_ALL_PROJECTS`, `EXPORT` (desde F6).
 - **Workflow:** WF-A.
 - **Fase:** F2 · Release 1 (MVP).
 - `FieldChangeReasonGuard` exige motivo al cambiar `stage` o `exploration_phase` (RN-PRJ-001); `ProjectWriteGuard`
@@ -887,7 +887,7 @@ ASM-064.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
 - **Índices declarados:** `indexed` en `import_batch_id`.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -943,7 +943,7 @@ carga un script idempotente. Tabla física `app_data.administrative_unit__<org8>
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `ubigeo_code`.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -974,7 +974,7 @@ estado de reconocimiento. Tabla física `app_data.locality__<org8>`. Requisitos:
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `populated_center_code`.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -1018,9 +1018,9 @@ Desde F6 se importa con CRS de origen y se reconcilia por `code`.
 | `evidence_community` | MANY_TO_MANY | — | `evidence` | — | Inversa; se define en `evidence`; desde F3 |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
-- **Únicos:** ninguno hasta F5; desde F6, `code`.
-- **Índices declarados:** ninguno hasta F5; desde F6, `import_batch_id`.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Únicos:** `unique` en `code`.
+- **Índices declarados:** `indexed` en `import_batch_id`.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -1043,7 +1043,7 @@ caseríos. Tabla física `app_data.community_sector__<org8>`. Requisitos: RF-TER
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `uniqueConstraints` (`community`, `name`).
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -1070,7 +1070,7 @@ ASM-039, CON-025.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `uniqueConstraints` (`project`, `area_type`, `version_number`).
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** `APPROVE`; desde F6, EXPORT.
+- **Acciones declaradas:** `APPROVE`, `EXPORT` (desde F6).
 - **Workflow:** WF-O.
 - **Fase:** F2 · Release 1 (MVP).
 - Aprobar una versión nueva reemplaza a la anterior con el endpoint de aprobación y `CommandTransitionGuard`;
@@ -1142,7 +1142,7 @@ RF-TER-006, RQ-GIS-003, RQ-GIS-008, RQ-GIS-010, CON-023, CON-024, ASM-060.
 - **Flags:** `appendOnly` no · `apiOnly` sí · `requiresReason` no.
 - **Únicos:** `uniqueConstraints` (`project`, `code`, `version_number`).
 - **Índices declarados:** `indexed` en `import_batch_id`.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 - Es `apiOnly` porque un código repetido con coordenadas distintas crea una versión y nunca sobrescribe, y esa regla
@@ -1176,7 +1176,7 @@ RF-TER-006, RQ-GIS-003, RQ-GIS-008, RQ-GIS-010, CON-023, CON-024, ASM-060.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
 - **Índices declarados:** `indexed` en `import_batch_id`.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 - Los predios con titulares nunca se publican en GeoServer (RQ-SEC-011).
@@ -1234,9 +1234,9 @@ reconcilia por `code`.
 | `env_feature_administrative_unit` | MANY_TO_ONE | `administrative_unit` | `administrative_unit` | no | — |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
-- **Únicos:** ninguno hasta F5; desde F6, `code`.
-- **Índices declarados:** ninguno hasta F5; desde F6, `import_batch_id`.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Únicos:** `unique` en `code`.
+- **Índices declarados:** `indexed` en `import_batch_id`.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -3969,7 +3969,7 @@ confiabilidad. Tabla física `app_data.locality_profile__<org8>`. Requisitos: RF
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** ninguno.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -3992,7 +3992,7 @@ confiabilidad. Tabla física `app_data.locality_profile__<org8>`. Requisitos: RF
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** ninguno.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -4017,7 +4017,7 @@ de transporte. Tabla física `app_data.road_access__<org8>`. Requisitos: RF-LBS-
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** ninguno.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna; desde F6, EXPORT.
+- **Acciones declaradas:** `EXPORT` (desde F6).
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 

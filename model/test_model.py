@@ -104,7 +104,8 @@ class ModelAgainstCardsTests(unittest.TestCase):
             card = self.cards[name]
             self.assertEqual(obj.get("uniqueConstraints", []), card.unique_constraints, name)
             self.assertEqual(obj.get("indexes", []), card.indexes, name)
-            self.assertEqual([a["name"] for a in obj.get("actions", [])], card.actions, name)
+            self.assertEqual([a["name"] for a in obj.get("actions", [])],
+                             [a for a in card.actions if design_docs.action_phase(card, a) <= PHASE], name)
             # "`unique` en `x`" de la ficha: un campo con unique: true o, si x es el campo de una relación (delivery desde
             # F5), la relación con unique: true, que apply.py pone en la fase 3 (wasichai no admite un uniqueConstraints de
             # un solo campo)

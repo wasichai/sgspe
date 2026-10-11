@@ -23,7 +23,7 @@ class CardsTests(unittest.TestCase):
 
     def test_la_ficha_de_project(self):
         card = self.cards["project"]
-        self.assertEqual((card.label, card.phase, card.workflow, card.actions), ("Proyecto", "F2", "WF-A", ["APPROVE", "READ_ALL_PROJECTS"]))
+        self.assertEqual((card.label, card.phase, card.workflow, card.actions), ("Proyecto", "F2", "WF-A", ["APPROVE", "READ_ALL_PROJECTS", "EXPORT"]))
         self.assertTrue(card.description.startswith("Proyecto extractivo (o prospecto)"))
         fields = {f["name"]: f for f in card.fields}
         self.assertEqual((fields["code"]["type"], fields["code"]["required"], fields["code"]["unique"]), ("TEXT", True, True))
@@ -355,40 +355,56 @@ class F5CardsTests(unittest.TestCase):
         self.assertEqual(matrix["social_contribution"]["SOCIAL_MANAGER"][-1], "APPROVE_OVER_CAP")
 
 
-# el plan 6.0 suma a los documentos lo que el plan 6.1 lleva al modelo; hasta entonces, lo que el modelo de F5 compara
-# va en prosa con su fase (plan 6.0, decisión 1)
-F6_EXPORTABLE = ("administrative_unit", "locality", "road_access", "community", "community_sector", "mining_concession",
-                 "environmental_feature", "project", "project_component", "area_of_influence", "land_parcel", "school",
-                 "health_facility")
-F6_FIELDS = (("code", "TEXT", True), ("source_crs", "ENUM", False), ("source_reference", "TEXT", False),
-             ("import_batch_id", "UUID", False))
+# §3.5 de la especificación de F6: los objetos de LYR-01 a LYR-16 que se exportan (land_right nunca)
+EXPORTABLE = ("administrative_unit", "locality", "road_access", "community", "community_sector", "mining_concession",
+              "environmental_feature", "project", "project_component", "area_of_influence", "land_parcel", "school",
+              "health_facility")
 
 
-class F6PlanZeroTests(unittest.TestCase):
-    def test_las_fichas_de_f6_traen_lo_que_suma_el_plan_6_0(self):
-        cards = design_docs.cards()
+class F6DocsTests(unittest.TestCase):
+    """Lo que el plan 6.0 suma a los documentos y el plan 6.1 lleva al modelo (§3.3 y §4 de la especificación de F6)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cards = design_docs.cards()
+
+    def test_las_capas_publicas_de_gis_md(self):
+        self.assertEqual(design_docs.public_layers(), {
+            "LYR-01": [("administrative_unit", "boundary")],
+            "LYR-02": [("locality", "location"), ("locality", "boundary")],
+            "LYR-03": [("locality", "location")],
+            "LYR-04": [("road_access", "trace")],
+            "LYR-05": [("community", "territory")],
+            "LYR-07": [("mining_concession", "boundary")],
+            "LYR-16": [("school", "location"), ("health_facility", "location")],
+        })
+
+    def test_los_maestros_del_tenant_de_security_9_7(self):
+        self.assertEqual(sorted(design_docs.tenant_objects()), sorted([
+            "administrative_unit", "locality", "community", "community_sector", "mining_concession", "land_parcel",
+            "land_right", "environmental_feature", "person", "organization", "contact_method", "position",
+            "actor_relationship", "school", "health_facility", "road_access", "festivity", "state_program",
+            "local_conflict", "topic"]))
+
+    def test_la_fase_de_una_accion_declarada(self):
+        project = self.cards["project"]
+        self.assertEqual([design_docs.action_phase(project, a) for a in project.actions], ["F2", "F2", "F6"])
+        # EXPORT de stakeholder es de su ficha (F2), no de F6
+        self.assertEqual(design_docs.action_phase(self.cards["stakeholder"], "EXPORT"), "F2")
+        f6 = sorted(name for name, card in self.cards.items()
+                    if "EXPORT" in card.actions and design_docs.action_phase(card, "EXPORT") == "F6")
+        self.assertEqual(f6, sorted(EXPORTABLE))
+
+    def test_codigo_y_campos_de_origen_de_comunidad_y_elemento_ambiental_llegan_en_f6(self):
         for name in ("community", "environmental_feature"):
-            card = cards[name]
-            fields = {field["name"]: field for field in card.fields}
-            for field, ftype, unique in F6_FIELDS:
-                self.assertIn(field, fields, f"{name}.{field}")
-                self.assertEqual(fields[field]["type"], ftype, f"{name}.{field}")
+            card = self.cards[name]
+            fields = {f["name"]: f for f in card.fields}
+            for field in ("code", "source_crs", "source_reference", "import_batch_id"):
                 self.assertEqual(design_docs.field_phase(card, fields[field]), "F6", f"{name}.{field}")
-                self.assertEqual(fields[field]["unique"], unique, f"{name}.{field}")
-            self.assertEqual(fields["source_crs"]["enum"], "source_crs")
-            # en prosa hasta el plan 6.1: el modelo de F5 no tiene code ni import_batch_id
-            self.assertEqual((card.unique, card.indexed), ([], []), name)
-        text = design_docs.read("database-model.md")
-        for name in F6_EXPORTABLE:
-            self.assertNotIn("EXPORT", cards[name].actions, name)
-            block = text.split(f"### `{name}`\n", 1)[1].split("\n### ", 1)[0]
-            line = next(l for l in block.splitlines() if l.startswith("- **Acciones declaradas:** "))
-            self.assertTrue(line.endswith("; desde F6, EXPORT."), line)
-        for name in ("community", "environmental_feature"):
-            block = text.split(f"### `{name}`\n", 1)[1].split("\n### ", 1)[0]
-            self.assertIn("- **Únicos:** ninguno hasta F5; desde F6, `code`.", block)
-            self.assertIn("- **Índices declarados:** ninguno hasta F5; desde F6, `import_batch_id`.", block)
-        self.assertNotIn("EXPORT", cards["land_right"].actions)
+            code = fields["code"]
+            self.assertEqual((code["type"], code["unique"], code["required"]), ("TEXT", True, False), name)
+            self.assertEqual((fields["source_crs"]["type"], fields["source_crs"]["enum"]), ("ENUM", "source_crs"), name)
+            self.assertEqual(card.unique, ["code"], name)
 
 
 class BrokenDocsTests(unittest.TestCase):
@@ -566,6 +582,29 @@ class BrokenDocsTests(unittest.TestCase):
     def test_una_letra_de_permiso_desconocida_falla(self):
         with self.assertRaises(ValueError):
             design_docs._grants("RX")
+
+    def test_sin_los_maestros_del_tenant_o_sin_la_columna_de_sensibilidad_el_lector_falla(self):
+        design_docs.tenant_objects()  # la copia sin tocar se lee
+        design_docs.public_layers()
+
+        def drop_bullet(lines):
+            start = self.index(lines, "- **Maestros del tenant")
+            end = start + 1
+            while lines[end].startswith("  "):
+                end += 1
+            del lines[start:end]
+
+        self.edit("security.md", drop_bullet)
+        with self.assertRaises(ValueError):
+            design_docs.tenant_objects()
+
+        def rename_column(lines):
+            i = self.index(lines, "| ID | Capa | Objeto.campo |")
+            lines[i] = lines[i].replace("| Sensibilidad |", "| Sensibilidades |")
+
+        self.edit("gis.md", rename_column)
+        with self.assertRaises(ValueError):
+            design_docs.public_layers()
 
 
 if __name__ == "__main__":
