@@ -3,14 +3,16 @@
 
 1. Con las credenciales del operador (una persona del rol que tiene MANAGE_TENANTS en la organización operadora, nunca una
    cuenta de servicio), llama POST /api/organizations con el nombre, el slug y el primer administrador.
-2. Con las credenciales del administrador nuevo corre, en este orden, apply.py, apply_roles.py, apply.py --workflows y
-   load_ubigeo.py (tenant_steps.py).
+2. Con las credenciales del administrador nuevo corre, en este orden, apply.py, apply_roles.py, apply.py --workflows,
+   load_ubigeo.py y publish_layers.py (tenant_steps.py). publish_layers.py toma las credenciales de GeoServer del entorno
+   (WASICHAI_GIS_GEOSERVER_URL, _USERNAME y _PASSWORD); un despliegue sin GeoServer lo omite con --skip-layers.
 3. Termina recordando que el cliente debe cambiar la contraseña inicial de su administrador.
 
 Las contraseñas llegan por variable de entorno (SGSPE_OPERATOR_PASSWORD y SGSPE_TENANT_ADMIN_PASSWORD) o por consola, nunca
 por argumento ni archivo, y no se imprimen.
 
 Correr: python3 provision_tenant.py --core URL --operator-email E --name N --slug S --admin-email A [--admin-name D]
+        [--skip-layers]
 Salida: 0 si va bien; 1 si core rechaza el alta o falla un paso (lo nombra); 2 si faltan datos.
 """
 import argparse
@@ -33,6 +35,7 @@ def _parse_args(argv):
     p.add_argument("--slug", required=True)
     p.add_argument("--admin-email", required=True)
     p.add_argument("--admin-name", default="Administración del tenant")
+    p.add_argument("--skip-layers", action="store_true", help="sin publish_layers.py: un despliegue sin GeoServer")
     return p.parse_args(argv)
 
 
@@ -71,7 +74,8 @@ def main(argv=None, steps=tenant_steps.STEPS, ask=getpass.getpass):
         print(f"error: el alta del tenant {args.slug} falló: {e.status}", file=sys.stderr)
         return 1
     print(f"tenant {args.slug} creado; se aprovisiona como {args.admin_email}", flush=True)
-    failed = tenant_steps.run_steps(args.core, args.admin_email, admin_password, steps)
+    failed = tenant_steps.run_steps(args.core, args.admin_email, admin_password,
+                                    tenant_steps.selected(steps, args.skip_layers))
     if failed:
         print(f"error: el tenant {args.slug} quedó a medias: falló {failed}; corrija y corra upgrade_tenants.py", file=sys.stderr)
         return 1

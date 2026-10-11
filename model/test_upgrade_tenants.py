@@ -32,27 +32,37 @@ class UpgradeTenantsTests(unittest.TestCase):
         return handle.name
 
     def steps(self, failing=None):
-        """Los cuatro pasos; `failing` es (correo, paso) que responde 1."""
+        """Los cinco pasos; `failing` es (correo, paso) que responde 1."""
         def make(name):
             def run(argv):
                 email = argv[argv.index("--email") + 1]
                 self.calls.append((email, name))
                 return 1 if failing == (email, name) else 0
             return (name, run)
-        return tuple(make(n) for n in ("apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py"))
+        return tuple(make(n) for n in ("apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py",
+                                       "publish_layers.py"))
 
-    def run_cli(self, path, steps):
+    def run_cli(self, path, steps, extra=()):
         out, err = io.StringIO(), io.StringIO()
         with mock.patch.dict(os.environ, SECRETS, clear=False), redirect_stdout(out), redirect_stderr(err):
-            code = upgrade_tenants.main(["--inventory", path, "--core", "http://127.0.0.1:9"], steps=steps, ask=lambda p: "")
+            code = upgrade_tenants.main(["--inventory", path, "--core", "http://127.0.0.1:9", *extra], steps=steps,
+                                        ask=lambda p: "")
         return code, out.getvalue(), err.getvalue()
 
     def test_recorre_cada_tenant_con_su_administrador_y_en_orden(self):
         code, out, err = self.run_cli(self.inventory(), self.steps())
         self.assertEqual(code, 0, err)
+        self.assertEqual(len(self.calls), 15)
+        self.assertEqual([n for e, n in self.calls[:5]],
+                         ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "publish_layers.py"])
+        self.assertEqual([e for e, _ in self.calls[::5]], [t["adminEmail"] for t in INVENTORY["tenants"]])
+        self.assertIn("resumen: 3 de 3 tenants al día", out)
+
+    def test_sin_geoserver_cada_tenant_sube_sin_publicar_las_capas(self):
+        code, out, err = self.run_cli(self.inventory(), self.steps(), extra=("--skip-layers",))
+        self.assertEqual(code, 0, err)
         self.assertEqual(len(self.calls), 12)
-        self.assertEqual([n for e, n in self.calls[:4]], ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py"])
-        self.assertEqual([e for e, _ in self.calls[::4]], [t["adminEmail"] for t in INVENTORY["tenants"]])
+        self.assertNotIn("publish_layers.py", {n for _, n in self.calls})
         self.assertIn("resumen: 3 de 3 tenants al día", out)
 
     def test_un_tenant_que_falla_no_detiene_a_los_demas_y_el_resumen_lo_nombra(self):
