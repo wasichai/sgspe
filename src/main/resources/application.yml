@@ -99,6 +99,12 @@ sgspe:
     layers:
       # tope de elementos por capa de GET /api/sgspe/territory/layers/{layer} (LayersProperties)
       max-features: 5000
+    wms:
+      # el proxy WMS (WmsProxy, security.md §10.2): plazo de GeoServer, tope de una imagen en memoria (bytes) y cuánto vale la
+      # lista de capas publicadas que da la REST de GeoServer
+      timeout: 5s
+      max-bytes: 16777216
+      published-ttl: 60s
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000
