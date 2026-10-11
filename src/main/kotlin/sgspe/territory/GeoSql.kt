@@ -123,6 +123,29 @@ class GeoSql(
         return null
     }
 
+    // la reparación propuesta (RQ-GIS-011, gis.md §4.3): ST_MakeValid y, de lo que quede, solo las partes de la dimensión del
+    // campo (1 puntos, 2 líneas, 3 polígonos; ST_CollectionExtract). null si no queda nada. no escribe: la persona la acepta
+    @Suppress("UNCHECKED_CAST")
+    suspend fun repair(
+        geojson: Map<String, Any?>,
+        dimension: Int
+    ): Map<String, Any?>? {
+        val out =
+            guarded {
+                db
+                    .sql(
+                        "SELECT CASE WHEN ST_IsEmpty(r) THEN NULL ELSE ST_AsGeoJSON(r, 9) END AS out " +
+                            "FROM (SELECT ST_CollectionExtract(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:g), 4326)), :dim) AS r) s"
+                    ).bind("g", json(geojson))
+                    .bind("dim", dimension)
+                    .map { row, _ -> Optional.ofNullable(row.get("out", String::class.java)) }
+                    .one()
+                    .awaitSingleOrNull()
+                    ?.orElse(null)
+            } ?: return null
+        return JSON.readValue(out, Map::class.java) as Map<String, Any?>
+    }
+
     // área plana en ha, redondeada a dos decimales (RQ-GIS-009, ASM-057); null para puntos y líneas. `srid` debe ser una
     // zona de trabajo (32717 a 32719): nunca se mide un área sobre grados
     suspend fun areaHa(
