@@ -56,4 +56,12 @@ class SupportCapTest {
         // P45: el ejecutado sin moneda no se suma ni se supone PEN: se cuenta como de otra moneda
         assertEquals(2, result["other_currency_items_count"])
     }
+
+    // elección 6 de F5: el tope no distingue de qué objeto viene un monto comprometido; compromisos y aportes suman igual
+    @Test
+    fun `un aporte y un compromiso comprometidos suman igual contra el tope`() {
+        val committed = listOf(approved("400"), approved("300"))
+        assertTrue(SupportCap.evaluate(BigDecimal("1000"), "PEN", approved("400"), committed).exceeded)
+        assertFalse(SupportCap.evaluate(BigDecimal("1000"), "PEN", approved("300"), committed).exceeded)
+    }
 }

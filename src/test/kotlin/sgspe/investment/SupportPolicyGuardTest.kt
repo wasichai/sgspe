@@ -14,6 +14,7 @@ import sgspe.common.ModelCatalog
 import sgspe.common.NotReadable
 import sgspe.common.Permissions
 import sgspe.common.Records
+import sgspe.common.TenantModel
 import sgspe.common.Transactions
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.NotFoundException
@@ -58,19 +59,23 @@ class SupportPolicyGuardTest {
     @Suppress("UNCHECKED_CAST")
     private fun <T : Any> provider(value: T?): ObjectProvider<T> = mock(ObjectProvider::class.java) { value } as ObjectProvider<T>
 
+    private val records =
+        Records(
+            provider(service),
+            provider<RelatedRecordService>(null),
+            provider<WorkflowService>(null),
+            mock(MetadataService::class.java),
+            mock(Callers::class.java),
+            mock(ModelCatalog::class.java),
+            mock(DerivedVersions::class.java)
+        )
+
+    // un tenant sin el modelo de F5: lo comprometido son solo los compromisos de `committed`
+    private val tenant = TenantModel(mock(MetadataService::class.java) { throw NotFoundException("sin el modelo de F5") })
+
     private val guard =
         SupportPolicyGuard(
-            Records(
-                provider(service),
-                provider<RelatedRecordService>(null),
-                provider<WorkflowService>(null),
-                mock(MetadataService::class.java),
-                mock(Callers::class.java),
-                mock(ModelCatalog::class.java),
-                mock(DerivedVersions::class.java)
-            ),
-            mock(Callers::class.java),
-            mock(Permissions::class.java),
+            CampaignCap(records, mock(Callers::class.java), mock(Permissions::class.java), CampaignCommitted(records, tenant)),
             mock(Transactions::class.java)
         )
 
