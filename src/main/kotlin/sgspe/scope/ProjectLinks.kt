@@ -40,6 +40,19 @@ object ProjectLinks {
         tenantCapable: Set<String>
     ): List<String> = mismatches(project, targets.filterValues { (target, owner) -> owner != null || target !in tenantCapable }.mapValues { it.value.second })
 
+    // el proyecto de un registro de `target` con sus `attributes`: el suyo en una raíz; en un hijo, el de la raíz a la que llega
+    // su padre presente, leyendo cada salto con `read` (que lanza NotReadable si quien escribe no lo lee). null sin padre o
+    // sin proyecto
+    suspend fun projectOf(
+        target: String,
+        attributes: Map<String, Any?>,
+        read: suspend (String, UUID) -> Map<String, Any?>
+    ): UUID? {
+        if (target !in ProjectScope.CHILDREN) return Records.uuid(attributes[ProjectScope.PROJECT])
+        val (field, _) = ProjectScope.parentOf(target, attributes) ?: return null
+        return ProjectScope.projectOf(target, field, Records.uuid(attributes[field])!!, read)
+    }
+
     // los campos de `fields` que una escritura de `objectName` deja vinculados a otro proyecto. se juzga un alta, un vínculo que
     // cambia y todos los vínculos si cambia el proyecto del registro; ni una transición, ni un vínculo M2M, ni un registro sin
     // proyecto. lee como quien escribe: un destino que no se lee es NotReadable
@@ -64,14 +77,11 @@ object ProjectLinks {
     }
 }
 
-// el proyecto del registro `id` de `target` (un objeto con alcance de proyecto) leído como quien escribe: el suyo si es una raíz,
-// el de su padre si es un hijo (agreement_clause, engagement_question). un destino que no se lee es NotReadable
+// el proyecto del registro `id` de `target` (un objeto con alcance de proyecto) leído como quien escribe: el suyo si es una
+// raíz; si es un hijo, el de la raíz a la que llega su padre presente por la cadena (agreement_clause, engagement_question y,
+// desde F5, la medición por su indicador y la entrega por su compromiso o su aporte). un destino o un salto que no se lee es
+// NotReadable
 suspend fun Records.linkedProject(
     target: String,
     id: UUID
-): UUID? {
-    val record = readable(target, id)
-    val child = ProjectScope.CHILDREN[target] ?: return Records.uuid(record.attributes["project"])
-    val parent = Records.uuid(record.attributes[child.first]) ?: return null
-    return Records.uuid(readable(child.second, parent).attributes["project"])
-}
+): UUID? = ProjectLinks.projectOf(target, readable(target, id).attributes) { name, parent -> readable(name, parent).attributes }

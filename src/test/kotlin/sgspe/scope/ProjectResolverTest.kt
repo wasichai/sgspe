@@ -19,8 +19,15 @@ class ProjectResolverTest {
     // las relaciones obligatorias: todas menos export_log.project y locality_profile.study
     private val required = { objectName: String, field: String -> !(objectName == "export_log" || (objectName == "locality_profile" && field == "study")) }
 
-    // el plan `plan` es de `mine`; `orphanPlan` ya no tiene proyecto
-    private val parentProject: suspend (String, UUID) -> UUID? = { _, id -> if (id == plan) mine else null }
+    // los registros que el resolver lee al subir la cadena: el plan `plan` es de `mine`; `orphanPlan` ya no tiene proyecto;
+    // cualquier otro no existe o quien escribe no lo lee
+    private val read: suspend (String, UUID) -> Map<String, Any?>? = { _, id ->
+        when (id) {
+            plan -> mapOf("project" to mine.toString())
+            orphanPlan -> mapOf("project" to null)
+            else -> null
+        }
+    }
 
     private fun write(
         objectName: String,
@@ -32,7 +39,7 @@ class ProjectResolverTest {
     private fun resolve(
         change: RecordWrite,
         after: Map<String, Any?>
-    ) = runBlocking { ProjectResolver.resolve(change, after, required, parentProject) }
+    ) = runBlocking { ProjectResolver.resolve(change, after, required, read) }
 
     @Test
     fun `una raiz da el proyecto de antes y el de despues`() {
