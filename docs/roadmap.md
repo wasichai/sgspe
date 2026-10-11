@@ -337,19 +337,20 @@ pistas de arriba o en las fases siguientes:
 
 | Elemento | Contenido |
 |---|---|
-| Alcance | Aportes sociales con ítems, comprobante y entrega con acta, foto y comprobante [DOC-02 p.3–p.4]; programas sociales, iniciativas, grupos de beneficiarios, presupuesto, indicadores, mediciones e hitos; consolidación de la ejecución frente a topes y presupuestos (ASM-063); cierre de la solicitud al cerrar su aporte (ASM-068) |
+| Alcance | Aportes sociales con ítems por tipo cargados antes de aprobar, tema, comprobante y una sola entrega con acta, foto y comprobante [DOC-02 p.3–p.4] (ASM-110, ASM-111); lineamientos de apoyo evaluados al aprobar con los temas priorizados del proyecto (ASM-112); programas sociales, iniciativas, grupos de beneficiarios, presupuesto por año con el ejecutado registrado a mano (ASM-113), indicadores con línea base y meta, mediciones inmutables e hitos; consolidación de lo comprometido y lo ejecutado frente a topes y presupuestos (ASM-063); aceptación de una solicitud como aporte y cierre de la solicitud al cerrar su aporte (ASM-068, ASM-117); alcance por proyecto de hijos de hijos y de la entrega con dos padres (ASM-114) |
 | Objetos (10) | BC-10: `social_contribution`, `contribution_item`, `receipt`, `social_program`, `social_initiative`, `beneficiary_group`, `program_budget`, `program_indicator`, `program_measurement`, `program_milestone` |
 | Starters y capacidades | Ninguno nuevo |
-| Código SGSPE | `sgspe.investment` completo: `InvestmentWriteGuard`, `ContributionTotalsListener`, entrega de aportes y recalculadores de montos; `RequestClosureListener` también al cerrar un aporte |
-| Endpoints | `POST /api/sgspe/social-contributions/{id}/deliveries`; `POST /api/sgspe/stakeholder-requests/{id}/accept` como aporte; tablero `investment` |
-| Workflows | WF-G (`social_program`), WF-P (`social_contribution`); automatización AUT-04 |
-| Portal | Programas sociales (con los aportes) |
+| Código SGSPE | `sgspe.investment` completo: `InvestmentWriteGuard` (P1 a P9 de WF-P, G1 a G4 de WF-G, ítems y términos congelados, entrega única), `ContributionCapRule` y `ContributionGuidelines`, `SupportCap` y `CampaignCommitted` (también en `SupportPolicyGuard`), `ContributionDeliveries`, `ContributionTotalsListener`, `ProgramTotalsListener` y sus recalculadores. `sgspe.scope`: `ProjectScope` con cadenas y padres alternativos, `ProjectReadCondition`, `ProjectResolver`, `ProjectLinks` y `ProjectLinkGuard` con BC-10 y los orígenes de la tarea. `sgspe.attention`: aceptación como aporte, `created_contribution` como campo de comando, `RequestClosureListener` en `close` de WF-P y `close_unfulfilled` con el aporte. `sgspe.notification`: avisos de aprobación de WF-G y del alta del aporte. `sgspe.dashboard`: `InvestmentKpis`. `sgspe.common`: montos y conteos de F5 (ASM-118) y orígenes de tareas |
+| Endpoints | `POST /api/sgspe/social-contributions/{id}/deliveries`; `PATCH /api/sgspe/deliveries/{id}` también para la entrega de un aporte; `POST /api/sgspe/stakeholder-requests/{id}/accept` como aporte; tablero `investment` |
+| Workflows | WF-G (`social_program`), WF-P (`social_contribution`); WF-E3 y WF-N suman `SOCIAL_INVESTMENT_MANAGER`; AUT-04 cuando se resuelva UPS-23 (ASM-116) |
+| Portal | Programas sociales (con los aportes): S42, S43 y S44; S57 acepta como aporte; S11 con los temas priorizados; S48 con las aprobaciones de programas y aportes; tablero de inversión social |
 | Roles con permisos desde F5 | `SOCIAL_INVESTMENT_MANAGER` |
 | KPIs | KPI-INV-01, KPI-INV-02, KPI-INV-03, KPI-INV-04; tablero `investment` |
-| Entregables | Documento «Acta de recepción»; datos de la sección "Apoyo entregado" de T2 |
-| Definición de terminado | La general, más: `SocialProgramWorkflowApiTest`, `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest` que cierra la solicitud al cerrar su aporte; objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`); `delivery` con dos padres: se lee por el alcance de su `commitment` o de su `social_contribution`, nunca «sin padre, todos», con `ProjectReadCondition` y la regla de los hijos con padre opcional de `ArchitectureTest` actualizadas (security.md §9.7) |
-| Riesgos | Estructura real de los programas desconocida (GAP-007); montos en otra moneda que no se suman (ASM-063) |
-| IDs abiertos | Condicionan: GAP-006, GAP-007, GAP-032; ASM-019, ASM-063, ASM-068 |
+| Entregables | Datos de la sección «Apoyo entregado» de T2; el «Acta de recepción» cuando se resuelva UPS-23 (hasta entonces, el acta firmada se sube como evidencia ACTA DE RECEPCION, ASM-116) |
+| Definición de terminado | La general, más: `SocialProgramWorkflowApiTest`, `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest` que cierra la solicitud al cerrar su aporte; los objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`); `delivery` con dos padres, leída por el padre que tenga, nunca «sin padre, todos», y `program_measurement` por la cadena de su indicador (`ProjectReadScopeApiTest`, security.md §9.7); las columnas «otro proyecto» y «no asignado» de `PermissionMatrixApiTest` y `WorkflowMatrixApiTest` en verde con los diez objetos y la entrega de un aporte; `InvestmentDashboardApiTest`; la medición de las subconsultas anotada en «Estado»; el tenant de desarrollo en F5 (`upgrade_tenants.py`) |
+| Riesgos | Estructura real de los programas y de sus indicadores desconocida (GAP-007, GAP-032); montos en otra moneda que no se suman (ASM-063); AUT-04 pospuesta mientras UPS-23 siga abierta (ASM-116); costo de las subconsultas anidadas y de la disyunción de `delivery` (lo decide la medición de la especificación de F5 §7, con la reescritura `UNION ALL` como respaldo); un único sobre una relación opcional de `delivery` que wasichai quizá no admita (queda la regla con candado); diez objetos más alargan el aprovisionamiento y la matriz de permisos por el túnel |
+| IDs abiertos | Condicionan: GAP-006, GAP-007, GAP-032, GAP-033; UPS-23; ASM-019, ASM-063, ASM-068, ASM-110 a ASM-119 |
+| Estado | Diseñada: especificación `docs/superpowers/specs/2026-10-11-fase-5-design.md` y documentos al día (plan 5.0). Quedan los planes 5.1 (modelo y alcance), 5.2a (aportes), 5.2b (programas y tablero) y 5.3 (portal); al cerrar, se anotan aquí la medición de las subconsultas y el tenant de desarrollo en F5 |
 
 ## F6 · SIG avanzado
 
@@ -465,6 +466,7 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | F2 | UPS-04, UPS-06, UPS-08, UPS-15, UPS-16 |
 | F3 | UPS-23 (UPS-24, resuelta en wasichai 1.0.0) |
 | F4 | UPS-27, UPS-28 |
+| F5 | UPS-23 (AUT-04, ASM-116) |
 | F7 | UPS-14 |
 | Antes de producción | UPS-09, UPS-13, UPS-17; UPS-01 solo para territorio y región (proyectos, resuelto en el plan 4.4, ADR-0029) |
 | Operación multicliente | UPS-10 (resuelta con wasichai 0.6.0, ASM-109) |
@@ -555,6 +557,7 @@ antes de la fase que condicionan:
 | GAP-030 | El modelo se cambia solo desde el repositorio | F1 |
 | GAP-031 | No se auditan lecturas; sí exportaciones, emisiones y descargas | F1 |
 | GAP-032 | Indicadores de programa con línea base y meta | F5 |
+| GAP-033 | La prioridad de los aportes se mide solo por tema; los caseríos sin beneficio laboral no se evalúan (ASM-112) | F5 |
 
 ## Registro de riesgos
 
