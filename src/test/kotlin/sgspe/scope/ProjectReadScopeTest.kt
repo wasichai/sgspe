@@ -11,6 +11,7 @@ import org.springframework.beans.factory.ObjectProvider
 import sgspe.common.Callers
 import sgspe.common.DerivedVersions
 import sgspe.common.ModelCatalog
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Permissions
 import sgspe.common.ProjectReach
 import sgspe.common.Records
@@ -27,6 +28,7 @@ import wasichai.core.metadata.ObjectDefinition
 import wasichai.core.platform.WasichaiSchemas
 import wasichai.workflow.WorkflowService
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
@@ -56,7 +58,7 @@ class ProjectReadScopeTest {
 
     // ProjectReach con la respuesta fija (o la falla) de readsAll
     private fun reach(readsAll: () -> Boolean) =
-        object : ProjectReach(records, Permissions(mock(CurrentUser::class.java), mock(MetadataService::class.java)), clock) {
+        object : ProjectReach(records, Permissions(mock(CurrentUser::class.java), mock(ObjectDefinitions::class.java)), clock) {
             override suspend fun readsAll(user: AuthenticatedUser): Boolean = readsAll()
         }
 
@@ -229,5 +231,24 @@ class ProjectReadScopeTest {
     @Test
     fun `un objeto sin clasificar no admite ningun registro`() {
         assertEquals("false", condition(scope(), definition("indicator_measurement", "project")))
+    }
+
+    // la caché del esquema: dos lecturas seguidas piden las definiciones del alcance una sola vez, y una definición vieja (un
+    // project_assignment a medio aplicar, sin end_date) sigue sin admitir ningún registro mientras dura en la caché
+    @Test
+    fun `con ObjectDefinitions las definiciones del alcance se piden una vez y una vieja falla cerrado`() {
+        val partial =
+            Definitions(
+                mapOf(
+                    "project_assignment" to definition("project_assignment", "project", "member_user_id", "active", "start_date"),
+                    "stakeholder" to definition("stakeholder", "project")
+                )
+            )
+        val cache = ObjectDefinitions(partial::load, Duration.ofSeconds(30), 100) { 0L }
+        val scope = ProjectReadScope(reach { false }, catalog, schemas, clock) { org, name -> cache.recent(org, name) }
+        val assessment = definition("stakeholder_assessment", "stakeholder")
+        assertEquals("false", condition(scope, assessment))
+        assertEquals("false", condition(scope, assessment))
+        assertEquals(listOf("project_assignment", "stakeholder"), partial.asked)
     }
 }
