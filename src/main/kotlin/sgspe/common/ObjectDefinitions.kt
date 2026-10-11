@@ -14,7 +14,8 @@ import java.util.concurrent.atomic.AtomicLong
 // MetadataService.loadDefinition consulta custom_objects y custom_fields cada vez, y la medición del plan 5.2b vio la mitad
 // de las consultas de una lista de una analista en definiciones que SGSPE volvía a cargar. dos lecturas:
 // - current: de la base una vez por petición de /api (RequestMemo.rememberForRequest; ninguna petición de SGSPE cambia el
-//   modelo: lo cambian las de /api/metadata de wasichai, que no pasan por SGSPE después). fuera de una petición, cada vez.
+//   modelo: lo cambian las de /api/metadata de wasichai, que no pasan por SGSPE después). fuera de una petición, una vez
+//   dentro de un RequestMemo.within (un trabajo, una prueba) y, sin memo, cada vez.
 //   la usan las guardas, WriteView, TenantModel y los comandos: un campo nuevo invisible les dejaría pasar una escritura
 // - recent: además, entre peticiones, a lo sumo `ttl` (sgspe.metadata.definition-ttl), por organización y objeto. solo
 //   donde una definición vieja falla cerrado (ProjectReadScope, Permissions.has; security.md §9.7): tras un apply.py le
@@ -70,7 +71,9 @@ class ObjectDefinitions internal constructor(
         val key = Key(organizationId, name)
         entries[key]?.let { entry -> if (ticker() - entry.loadedAt < ttl.toNanos()) return entry.definition }
         missed.incrementAndGet()
-        val definition = current(organizationId, name)
+        // de la base y no del memo de la petición: en una petición larga, la definición de su comienzo puede tener ya más de
+        // `ttl`, y lo guardado vale para las demás
+        val definition = load(organizationId, name)
         keep(key, definition)
         return definition
     }

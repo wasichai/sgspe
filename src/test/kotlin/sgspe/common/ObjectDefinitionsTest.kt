@@ -80,6 +80,21 @@ class ObjectDefinitionsTest {
         assertEquals(2L, definitions.misses())
     }
 
+    // una petición larga (la confirmación de una importación) no deja en la caché la definición que cargó al empezar: la
+    // entrada vencida se recarga de la base, así que lo guardado nunca tiene más de `ttl`
+    @Test
+    fun `una entrada vencida se recarga de la base aunque la peticion ya tenga la suya`() {
+        val definitions = definitions()
+        runBlocking {
+            RequestMemo.forRequest {
+                val first = definitions.recent(organization, "commitment")
+                advance(31)
+                assertNotSame(first, definitions.recent(organization, "commitment"))
+            }
+        }
+        assertEquals(2, asked.size)
+    }
+
     @Test
     fun `una ausencia no se guarda - el objeto que aparece se ve en la peticion siguiente`() {
         absent += "social_contribution"
