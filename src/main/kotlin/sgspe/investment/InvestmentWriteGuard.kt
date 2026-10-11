@@ -11,9 +11,10 @@ import sgspe.common.RuleGuard
 import sgspe.common.toCodedException
 import wasichai.core.data.RecordWrite
 
-// una familia de reglas de InvestmentWriteGuard (especificación de F5 §3.3 a §3.6): las del registro (aporte, ítems y
-// entrega), las de aprobación (P1 a P7 y P9), la de la entrega (P8) y, desde el plan 5.2b, las de programas. como
-// CommitmentRule: no es una WriteRule, la consulta en seco las corre a través de la guarda, una sola vez
+// una familia de reglas de InvestmentWriteGuard (especificación de F5 §3.3 a §3.6): las del registro (aporte, ítems,
+// entrega y, desde el plan 5.2b, comprobante), las de aprobación (P1 a P7 y P9), la de la entrega (P8) y, desde el plan
+// 5.2b, las de programas. como CommitmentRule: no es una WriteRule, la consulta en seco las corre a través de la guarda,
+// una sola vez
 //
 // ORDEN (§3.3, «Orden»): cada regla declara su `order` y la guarda las corre de menor a mayor; la escritura se detiene en el
 // primer hallazgo que bloquea, así que una regla posterior no hace sus lecturas ni toma su candado si una anterior ya

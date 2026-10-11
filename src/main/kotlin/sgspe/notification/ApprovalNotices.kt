@@ -33,13 +33,14 @@ data class ApprovalStep(
     val direct: List<String> = emptyList()
 )
 
-// el aviso «aprobación pendiente» (RF-NTF-001): al enviar un proyecto, un acta o un compromiso a aprobación y al registrar un aporte (F5), un aviso ACTION
-// para los asignados vigentes al proyecto cuyo role_name está entre los roles de la transición de aprobación que sigue
-// (ASM-070), salvo quien envió y las cuentas de servicio (Assignments.recipients). los roles salen de model/workflows, nunca
-// de un literal (RQ-SEC-005). un compromiso que exige nivel superior (RN-ENG-002) avisa solo a los roles de approve_senior,
-// con la regla evaluada en el momento. cualquier transición que sale del estado pendiente resuelve el aviso: la bandeja
-// muestra lo que sigue siendo cierto. corre en la transacción de la transición, como quien la aplica; si no puede leer las
-// asignaciones, o no hay destinatarios, lo registra y la transición sigue (workflows.md, «Sin coincidencias»)
+// el aviso «aprobación pendiente» (RF-NTF-001): al enviar un proyecto, un acta, un compromiso o un programa (F5) a
+// aprobación y al registrar un aporte (F5), un aviso ACTION para los asignados vigentes al proyecto cuyo role_name está
+// entre los roles de la transición de aprobación que sigue (ASM-070), salvo quien envió y las cuentas de servicio
+// (Assignments.recipients). los roles salen de model/workflows, nunca de un literal (RQ-SEC-005). un compromiso que exige
+// nivel superior (RN-ENG-002) avisa solo a los roles de approve_senior, con la regla evaluada en el momento. cualquier
+// transición que sale del estado pendiente resuelve el aviso: la bandeja muestra lo que sigue siendo cierto. corre en la
+// transacción de la transición, como quien la aplica; si no puede leer las asignaciones, o no hay destinatarios, lo registra
+// y la transición sigue (workflows.md, «Sin coincidencias»)
 @Component
 @Order(200)
 class ApprovalNoticeListener(

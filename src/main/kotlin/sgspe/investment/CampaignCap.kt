@@ -77,8 +77,8 @@ class CampaignCommitted(
     companion object {
         const val CAMPAIGN = "exploration_campaign"
 
-        // el conjunto «comprometido» de los aportes (dashboards.md §3.2): el mismo que Contributions.COMMITTED, con el nombre
-        // que usa KPI-INV-01 (plan 5.2b)
+        // el conjunto «comprometido» de los aportes (dashboards.md §3.2): el mismo que Contributions.COMMITTED, que es el que
+        // lee KPI-INV-01 (DashboardData.committedOf)
         val CONTRIBUTION_STATES: Set<String> = Contributions.COMMITTED
 
         // los registros comprometidos de cada objeto que se leen al aprobar

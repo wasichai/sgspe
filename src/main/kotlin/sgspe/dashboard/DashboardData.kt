@@ -68,16 +68,17 @@ class DashboardData(
         objectName: String,
         field: String?,
         ids: Collection<String>,
-        equal: Map<String, String> = emptyMap()
+        equal: Map<String, String> = emptyMap(),
+        criteria: List<RecordCriterion> = emptyList()
     ): List<RecordResponse> {
         val out = mutableListOf<RecordResponse>()
         for (chunk in ids.distinct().map(UUID::fromString).chunked(CHUNK)) {
             val remaining = maxRows - out.size
             out +=
                 if (field == null) {
-                    read(objectName, equal, ids = chunk, max = remaining)
+                    read(objectName, equal, criteria, ids = chunk, max = remaining)
                 } else {
-                    read(objectName, equal, listOf(Criteria.anyOf(field, chunk)), max = remaining)
+                    read(objectName, equal, criteria + Criteria.anyOf(field, chunk), max = remaining)
                 }
         }
         return out
@@ -640,21 +641,22 @@ class DashboardData(
         }
 
     // lo comprometido de esas campañas con las definiciones de CampaignCommitted (decisión 4 del plan 5.2b): los compromisos en
-    // Commitments.COMMITTED con su amount y los aportes en Contributions.COMMITTED con su total_amount
+    // Commitments.COMMITTED con su amount y los aportes en Contributions.COMMITTED con su total_amount. el estado va en la
+    // lectura, como en CampaignCommitted: los borradores y los anulados no cuentan para el tope de filas
     suspend fun committedOf(campaigns: Collection<String>): List<CommittedAmount> {
-        fun of(
-            rows: List<RecordResponse>,
+        suspend fun of(
+            objectName: String,
             states: Set<String>,
             field: String
-        ) = rows.filter { it.state in states }.map {
+        ) = readIn(objectName, "exploration_campaign", campaigns, criteria = listOf(Criteria.inState(states))).map {
             CommittedAmount(
                 Values.text(it.attributes["exploration_campaign"]).orEmpty(),
                 Values.decimal(it.attributes[field]),
                 Values.text(it.attributes["currency"])
             )
         }
-        return of(readIn(Commitments.COMMITMENT, "exploration_campaign", campaigns), Commitments.COMMITTED, "amount") +
-            of(readIn(Contributions.CONTRIBUTION, "exploration_campaign", campaigns), Contributions.COMMITTED, "total_amount")
+        return of(Commitments.COMMITMENT, Commitments.COMMITTED, "amount") +
+            of(Contributions.CONTRIBUTION, Contributions.COMMITTED, "total_amount")
     }
 
     // los programas de los proyectos; con `program`, solo el pedido (KPI-INV-02 y 04; KPI-INV-03 no lo aplica)
