@@ -12,10 +12,10 @@ import wasichai.core.identity.AuthenticatedUser
 import wasichai.core.identity.CurrentUser
 import wasichai.core.metadata.CustomObject
 import wasichai.core.metadata.ObjectDefinition
-import java.time.Duration
 import java.util.UUID
 
-// Permissions.has toma el id del objeto de la caché reciente: dos preguntas sobre el mismo objeto cargan su definición una vez
+// Permissions.has toma el id del objeto de la definición de la petición: dos preguntas sobre el mismo objeto cargan su
+// definición una vez
 class PermissionsTest {
     private val organization = UUID.randomUUID()
     private val user = AuthenticatedUser(UUID.randomUUID(), organization, "persona@sgspe.test", listOf("ANALYST"), null)
@@ -42,12 +42,14 @@ class PermissionsTest {
 
     @Test
     fun `dos preguntas sobre el mismo objeto cargan su definicion una vez`() {
-        val permissions = Permissions(currentUser("project"), ObjectDefinitions(::load, Duration.ofSeconds(30), 100) { 0L })
+        val permissions = Permissions(currentUser("project"), ObjectDefinitions(::load))
         runBlocking {
-            assertTrue(permissions.has(user, Actions.READ, "project"))
-            assertTrue(permissions.has(user, Actions.READ, "project"))
-            assertFalse(permissions.has(user, Actions.READ, "stakeholder"))
-            assertFalse(permissions.has(user, Actions.READ, "stakeholder"))
+            RequestMemo.forRequest {
+                assertTrue(permissions.has(user, Actions.READ, "project"))
+                assertTrue(permissions.has(user, Actions.READ, "project"))
+                assertFalse(permissions.has(user, Actions.READ, "stakeholder"))
+                assertFalse(permissions.has(user, Actions.READ, "stakeholder"))
+            }
         }
         assertEquals(listOf("project", "stakeholder"), loaded)
     }

@@ -25,7 +25,8 @@ import java.util.UUID
 // no se acotan y no cuestan consultas; quien tiene READ_ALL_PROJECTS sobre project (ProjectReach) lee todo. se compone por
 // AND con ConfidentialAttentionScope (§9.6). falla cerrado: un objeto sin clasificar, una definición sin sus columnas, o una
 // consulta de permisos o de definiciones que falla, no admiten ningún registro, con una advertencia sin datos del registro
-// las definiciones de la condición salen de la caché del esquema (ObjectDefinitions.recent, security.md §9.7)
+// las definiciones de la condición salen del memo de la petición sobre la caché de wasichai (ObjectDefinitions.current,
+// security.md §9.7)
 @Component
 class ProjectReadScope internal constructor(
     private val reach: ProjectReach,
@@ -41,7 +42,7 @@ class ProjectReadScope internal constructor(
         catalog: ModelCatalog,
         schemas: WasichaiSchemas,
         clock: Clock
-    ) : this(reach, catalog, schemas, clock, { organization, name -> definitions.recent(organization, name) })
+    ) : this(reach, catalog, schemas, clock, { organization, name -> definitions.current(organization, name) })
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -78,9 +79,9 @@ class ProjectReadScope internal constructor(
 
     // las tablas y columnas del grupo, de la definición del objeto leído (la de wasichai, de esta lectura), de la de
     // project_assignment y, en un hijo, de las de cada salto de la cadena de cada padre posible. estas salen de
-    // ObjectDefinitions.recent (hasta sgspe.metadata.definition-ttl atrás; wasichai no las guarda): una vieja tras un
-    // apply.py solo deja la condición incompleta o acotada por menos padres, nunca más registros. si una relación es
-    // opcional lo dice el modelo, nunca una lista aparte
+    // ObjectDefinitions.current (la de la petición; wasichai la guarda hasta wasichai.metadata.cache.ttl y, en otro nodo,
+    // puede llegar con ese atraso): una vieja tras un apply.py solo deja la condición incompleta o acotada por menos
+    // padres, nunca más registros. si una relación es opcional lo dice el modelo, nunca una lista aparte
     private suspend fun columns(
         organization: UUID,
         objectName: String,

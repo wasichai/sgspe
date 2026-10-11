@@ -15,6 +15,7 @@ import sgspe.common.ObjectDefinitions
 import sgspe.common.Permissions
 import sgspe.common.ProjectReach
 import sgspe.common.Records
+import sgspe.common.RequestMemo
 import wasichai.core.common.NotFoundException
 import wasichai.core.data.RecordService
 import wasichai.core.data.RelatedRecordService
@@ -28,7 +29,6 @@ import wasichai.core.metadata.ObjectDefinition
 import wasichai.core.platform.WasichaiSchemas
 import wasichai.workflow.WorkflowService
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
@@ -114,7 +114,13 @@ class ProjectReadScopeTest {
     private fun condition(
         scope: ProjectReadScope,
         definition: ObjectDefinition
-    ): String? = runBlocking { scope.criterion(caller, definition) }?.condition(definition) { ":p" }
+    ): String? = runBlocking { conditionOf(scope, definition) }
+
+    // dentro de una corrutina (un RequestMemo.forRequest)
+    private suspend fun conditionOf(
+        scope: ProjectReadScope,
+        definition: ObjectDefinition
+    ): String? = scope.criterion(caller, definition)?.condition(definition) { ":p" }
 
     @Test
     fun `un maestro del tenant no se acota ni consulta nada`() {
@@ -233,10 +239,11 @@ class ProjectReadScopeTest {
         assertEquals("false", condition(scope(), definition("indicator_measurement", "project")))
     }
 
-    // la caché del esquema: dos lecturas seguidas piden las definiciones del alcance una sola vez, y una definición vieja (un
-    // project_assignment a medio aplicar, sin end_date) sigue sin admitir ningún registro mientras dura en la caché
+    // el memo de definiciones (plan corto de wasichai 1.1.0): dentro de una petición, dos lecturas piden las definiciones del
+    // alcance una sola vez, y una definición vieja (un project_assignment a medio aplicar, sin end_date) no admite ningún
+    // registro
     @Test
-    fun `con ObjectDefinitions las definiciones del alcance se piden una vez y una vieja falla cerrado`() {
+    fun `con ObjectDefinitions las definiciones del alcance se piden una vez por peticion y una vieja falla cerrado`() {
         val partial =
             Definitions(
                 mapOf(
@@ -244,24 +251,31 @@ class ProjectReadScopeTest {
                     "stakeholder" to definition("stakeholder", "project")
                 )
             )
-        val cache = ObjectDefinitions(partial::load, Duration.ofSeconds(30), 100) { 0L }
-        val scope = ProjectReadScope(reach { false }, catalog, schemas, clock) { org, name -> cache.recent(org, name) }
+        val memo = ObjectDefinitions(partial::load)
+        val scope = ProjectReadScope(reach { false }, catalog, schemas, clock) { org, name -> memo.current(org, name) }
         val assessment = definition("stakeholder_assessment", "stakeholder")
-        assertEquals("false", condition(scope, assessment))
-        assertEquals("false", condition(scope, assessment))
+        runBlocking {
+            RequestMemo.forRequest {
+                assertEquals("false", conditionOf(scope, assessment))
+                assertEquals("false", conditionOf(scope, assessment))
+            }
+        }
         assertEquals(listOf("project_assignment", "stakeholder"), partial.asked)
     }
 
-    // el constructor @Autowired: dos lecturas seguidas cargan cada definición del alcance una sola vez (por recent)
+    // el constructor @Autowired: dentro de una petición, dos lecturas cargan cada definición del alcance una sola vez
     @Test
-    fun `el constructor de Spring pide las definiciones por la cache una sola vez`() {
+    fun `el constructor de Spring pide las definiciones por el memo de la peticion`() {
         val counter = Definitions(mapOf("project_assignment" to assignment, "study" to definition("study", "project")))
-        val cache = ObjectDefinitions(counter::load, Duration.ofSeconds(30), 100) { 0L }
-        val scope = ProjectReadScope(reach { false }, cache, catalog, schemas, clock)
+        val scope = ProjectReadScope(reach { false }, ObjectDefinitions(counter::load), catalog, schemas, clock)
         val child = definition("locality_profile", "study")
-        val first = condition(scope, child)!!
-        assertTrue(first.startsWith("\"study\" IS NULL OR \"study\" IN (SELECT t1.\"id\""), first)
-        assertEquals(first, condition(scope, child))
+        runBlocking {
+            RequestMemo.forRequest {
+                val first = conditionOf(scope, child)!!
+                assertTrue(first.startsWith("\"study\" IS NULL OR \"study\" IN (SELECT t1.\"id\""), first)
+                assertEquals(first, conditionOf(scope, child))
+            }
+        }
         assertEquals(listOf("project_assignment", "study"), counter.asked)
     }
 }
