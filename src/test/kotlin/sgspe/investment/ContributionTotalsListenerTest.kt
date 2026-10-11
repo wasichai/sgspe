@@ -16,9 +16,10 @@ class ContributionTotalsListenerTest {
     private val contribution = UUID.randomUUID()
     private val patches = mutableListOf<Map<*, *>>()
     private var stored: Map<String, Any?> = mapOf("total_amount" to 100)
+    private var state = Contributions.REQUESTED
 
     private fun response(attributes: Map<String, Any?>) =
-        RecordResponse(id = contribution.toString(), createdAt = null, updatedAt = null, attributes = attributes)
+        RecordResponse(id = contribution.toString(), createdAt = null, updatedAt = null, attributes = attributes, state = state)
 
     private val records: Records =
         mock(Records::class.java) { call ->
@@ -67,5 +68,16 @@ class ContributionTotalsListenerTest {
         run(change(Contributions.CONTRIBUTION, RecordChangeKind.TRANSITIONED, "register_procurement"))
         run(change(Contributions.CONTRIBUTION, RecordChangeKind.UPDATED))
         assertEquals(0, patches.size)
+    }
+
+    // decisión 1 del plan 5.2a: un ítem que se cuela tras la aprobación queda visible, pero el total aprobado no se mueve;
+    // la aprobación sí escribe el total
+    @Test
+    fun `un item de un aporte fuera de requested no mueve el total aprobado`() {
+        state = "approved"
+        run(change(Contributions.ITEM, RecordChangeKind.CREATED))
+        assertEquals(0, patches.size)
+        run(change(Contributions.CONTRIBUTION, RecordChangeKind.TRANSITIONED, "approve"))
+        assertEquals(1, patches.size)
     }
 }
