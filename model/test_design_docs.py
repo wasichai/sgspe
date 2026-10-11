@@ -101,8 +101,8 @@ class SecurityTests(unittest.TestCase):
     def test_celdas_de_la_matriz(self):
         matrix = design_docs.matrix()
         self.assertEqual(matrix["project"]["PROJECT_ADMIN"], ["READ", "CREATE", "UPDATE", "APPROVE", "READ_ALL_PROJECTS"])
-        self.assertEqual(matrix["project"]["GIS_ANALYST"], ["READ", "u"])
-        self.assertEqual(matrix["area_of_influence"]["PROJECT_MANAGER"], ["READ", "u", "APPROVE"])
+        self.assertEqual(matrix["project"]["GIS_ANALYST"], ["READ", "u", "EXPORT"])
+        self.assertEqual(matrix["area_of_influence"]["PROJECT_MANAGER"], ["READ", "u", "APPROVE", "EXPORT"])
         self.assertEqual(matrix["engagement_participant"]["FIELD_AGENT"], ["READ", "CREATE", "UPDATE", "DELETE"])
         self.assertEqual(matrix["person"]["PROJECT_ADMIN"], [])
         self.assertEqual(matrix["export_log"]["SOCIAL_MANAGER"], ["READ", "CREATE"])

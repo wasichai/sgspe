@@ -618,21 +618,21 @@ Criterios con que se armó:
 
 | Objeto | PAD | PMG | SMG | CRO | SHM | CMM | GVM | SRM | SIM | GAN | FAG | APR | ANL | RDO |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `project` | CRU `APPROVE` `READ_ALL_PROJECTS` | RU | R | R | R | R | R | R | R | Ru | R | R | R | R |
+| `project` | CRU `APPROVE` `READ_ALL_PROJECTS` | RU `EXPORT` | R `EXPORT` | R | R | R | R | R | R | Ru `EXPORT` | R | R | R | R |
 | `project_party` | CRUD | CRUD | R | R | R | R | R | R | R | R | — | R | R | R |
 | `exploration_campaign` | CRU | CRU | R | R | R | R | R | R | R | R | R | R | R | R |
 | `project_assignment` | CRUD | R | R | R | R | R | R | R | R | R | R | R | R | R |
-| `mining_concession` | CRU | R | R | R | R | R | R | R | R | CRU | — | R | R | R |
-| `administrative_unit` | R | R | R | R | R | R | R | R | R | R | R | R | R | R |
-| `locality` | R | R | R | CRU | R | R | R | R | R | CRU | R | R | R | R |
-| `community` | R | R | RU | CRU | R | R | R | R | R | CRU | R | R | R | R |
-| `community_sector` | R | R | R | CRUD | R | R | R | R | R | CRUD | R | R | R | R |
-| `area_of_influence` | R | Ru `APPROVE` | CRU `APPROVE` | R | R | R | R | R | R | CRU | R | R | R | R |
+| `mining_concession` | CRU | R `EXPORT` | R `EXPORT` | R | R | R | R | R | R | CRU `EXPORT` | — | R | R | R |
+| `administrative_unit` | R | R `EXPORT` | R `EXPORT` | R | R | R | R | R | R | R `EXPORT` | R | R | R | R |
+| `locality` | R | R `EXPORT` | R `EXPORT` | CRU | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
+| `community` | R | R `EXPORT` | RU `EXPORT` | CRU | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
+| `community_sector` | R | R `EXPORT` | R `EXPORT` | CRUD | R | R | R | R | R | CRUD `EXPORT` | R | R | R | R |
+| `area_of_influence` | R | Ru `APPROVE` `EXPORT` | CRU `APPROVE` `EXPORT` | R | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
 | `area_of_influence_member` | R | R | CRUD | R | R | R | R | R | R | CRUD | R | R | R | R |
-| `project_component` | R | R | R | R | R | R | R | R | R | CRU | R | R | R | R |
-| `land_parcel` | R | R | Ru | Ru | R | R | R | R | R | CRU | — | R | R | R |
+| `project_component` | R | R `EXPORT` | R `EXPORT` | R | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
+| `land_parcel` | R | R `EXPORT` | Ru `EXPORT` | Ru | R | R | R | R | R | CRU `EXPORT` | — | R | R | R |
 | `land_right` | R | R | R | R | R | R | R | R | R | CRUD | — | R | R | R |
-| `environmental_feature` | R | R | R | CRU | R | R | R | R | R | CRU | R | R | R | R |
+| `environmental_feature` | R | R `EXPORT` | R `EXPORT` | CRU | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
 
 - `administrative_unit` y `topic` son catálogos (BC-20): los carga un script o el `ADMIN` desde `/admin` (RF-TER-001).
 - `u` de `GIS_ANALYST` sobre `project` sirve para vincular concesiones (`project_concession`); el de `SOCIAL_MANAGER` y
@@ -678,9 +678,9 @@ Criterios con que se armó:
 | `study` | — | R | CRU | R | CRU | R | R | R | R | R | R | R | R | R |
 | `study_instrument` | — | R | CRUD | R | CRUD | R | R | R | R | R | R | R | R | R |
 | `locality_profile` | — | R | CRU | CRU | CRU | R | R | R | R | R | R | R | R | R |
-| `school` | — | R | R | CRUD | R | R | R | R | R | CRU | R | R | R | R |
-| `health_facility` | — | R | R | CRUD | R | R | R | R | R | CRU | R | R | R | R |
-| `road_access` | — | R | R | CRUD | R | R | R | R | R | CRU | R | R | R | R |
+| `school` | — | R `EXPORT` | R `EXPORT` | CRUD | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
+| `health_facility` | — | R `EXPORT` | R `EXPORT` | CRUD | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
+| `road_access` | — | R `EXPORT` | R `EXPORT` | CRUD | R | R | R | R | R | CRU `EXPORT` | R | R | R | R |
 | `festivity` | — | R | R | CRUD | R | R | R | R | R | R | R | R | R | R |
 | `state_program` | — | R | R | CRU | R | R | R | R | R | R | R | R | R | R |
 | `local_conflict` | — | R | R | CRU | R | R | R | R | R | R | R | R | R | R |
@@ -808,7 +808,7 @@ Criterios con que se armó:
 | `deliverable` | — | R `EXPORT` | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | R | R | R | R | — | R | R `EXPORT` | R |
 | `deliverable_section` | — | R | CRUD | CRU | CRU | R | R | R | R | R | — | R | CRU | R |
 | `deliverable_version` | — | R | CR | R | CR | R | R | R | R | R | — | R | R | R |
-| `export_log` | — | C | CR | — | C | C | C | C | — | — | — | — | C | — |
+| `export_log` | — | C | CR | — | C | C | C | C | — | C | — | — | C | — |
 | `ai_interaction` | — | — | CR | CR | CR | CR | CR | CR | — | — | — | — | CR | — |
 | `ai_suggestion` | — | — | CRU | CRU | CRU | CRU | CRU | CRU | — | — | — | — | — | — |
 
