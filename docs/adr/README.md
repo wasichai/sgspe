@@ -29,11 +29,11 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 | [0012](0012-estados-temporales-materializados.md) | Estados temporales materializados por trabajos programados | Aceptado | 2026-10-07 | 0013, 0016, 0039, 0041 |
 | [0013](0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Propuesto (se acepta en F8) | 2026-10-07 | 0023, 0038, 0039, 0040, 0042 |
 | [0014](0014-almacenamiento-de-objetos.md) | Evidencias y entregables en almacenamiento de objetos | Aceptado | 2026-10-09 | 0040, 0041, 0042, 0061 |
-| [0015](0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Propuesto (se acepta en F6) | 2026-10-07 | 0006, 0027, 0039 |
+| [0015](0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Aceptado en parte (F6: GeoServer interno, estilos SLD y proxy WMS; los mapas de informe por GetMap siguen para F8 con su spike) | 2026-10-11 | 0006, 0027, 0039 |
 | [0016](0016-kpis-en-vivo-y-echarts.md) | KPIs calculados en vivo y ECharts como librería de gráficos | Propuesto (se acepta en F2) | 2026-10-07 | 0003, 0020, 0028, 0034, 0035, 0036, 0038 |
 | [0017](0017-datos-personales-y-anonimizacion.md) | Datos personales y anonimización | Aceptado | 2026-10-07 | 0023, 0039, 0042 |
 | [0018](0018-notificaciones.md) | Notificaciones en la aplicación y abstracción del correo | Aceptado | 2026-10-09 | 0016, 0026, 0038, 0039, 0043, 0046, 0047, 0060 |
-| [0019](0019-importacion-geoespacial-con-reconciliacion.md) | Importación geoespacial con preparación y reconciliación | Propuesto (se acepta en F2) | 2026-10-07 | 0007, 0019, 0038, 0040 |
+| [0019](0019-importacion-geoespacial-con-reconciliacion.md) | Importación geoespacial con preparación y reconciliación | Aceptado | 2026-10-07 | 0007, 0019, 0038, 0040 |
 | [0020](0020-autenticacion-jwt-endurecida.md) | Autenticación con el JWT de wasichai, endurecida | Aceptado | 2026-10-07 | 0010, 0031, 0043 |
 | [0021](0021-reglas-de-workflow.md) | Reglas de workflow: metadata, guardas y motivo | Aceptado | 2026-10-07 | 0013, 0016, 0018, 0040, 0041, 0042 |
 | [0022](0022-qcs-en-tres-objetos.md) | Quejas, consultas y solicitudes en tres objetos | Aceptado | 2026-10-07 | 0013, 0040 |

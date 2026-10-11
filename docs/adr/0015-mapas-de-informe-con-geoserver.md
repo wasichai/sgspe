@@ -2,7 +2,17 @@
 
 ## Estado
 
-Propuesto · 2026-10-07 · se acepta al iniciar F6
+Aceptado en parte · 2026-10-11 (F6): GeoServer interno, estilos SLD y proxy WMS; los mapas de informe por GetMap siguen
+para F8 con su spike
+
+### Nota de F6 (2026-10-11)
+
+- F6 acepta la mitad de la decisión que sirve al portal: GeoServer solo en la red interna, los estilos SLD y el proxy
+  WMS autenticado, que publica solo maestros del tenant sin campos restringidos y entrega solo imágenes (ASM-121).
+- El WFS autenticado para analistas queda pospuesto (ASM-120): las exportaciones geográficas cubren el trabajo con
+  archivos.
+- Los mapas de informe por GetMap, con capas sensibles en línea y decoraciones, siguen propuestos para F8; su spike
+  ([gis.md §7.3](../gis.md)) se hace antes de aceptarlos.
 
 ## Contexto
 

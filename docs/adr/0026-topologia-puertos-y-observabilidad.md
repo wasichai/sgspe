@@ -63,6 +63,12 @@ Aceptado en parte (en F1: puertos, correlation id, logs ECS y health checks; top
   los servicios de apoyo se agregan en la fase que los usa, y el pico técnico de F1 los levanta solo para probar la ruta de
   entregables.
 - Las credenciales de GitHub Packages van en variables de entorno, nunca en el repositorio.
+- **Desde F6 (2026-10-11), GeoServer en la topología:** servicio `geoserver` (`sgspe-geoserver`), solo en loopback del
+  VPS en el puerto **8095** (`SGSPE_GEOSERVER_PORT`, contenedor 8080), sin CORS y nunca alcanzable por el navegador;
+  solo el backend lo llama, por el proxy WMS y por `publish_layers.py` (ASM-121).
+- Puertos ya tomados en el entorno compartido, que no se reutilizan: 8094 (backend), 5182 (interfaz), 5435 (PostGIS),
+  9095 y 9096 (MinIO y su consola), 1029 y 8029 (Mailpit y su web), 3094 y 8194 (picos) y 8098 (medición de F5); del
+  8081 al 8086 son de otras apps del mismo Docker.
 
 **Aceptado en F1: observabilidad** ([architecture.md §12](../architecture.md), [api.md §3.8](../api.md)):
 
