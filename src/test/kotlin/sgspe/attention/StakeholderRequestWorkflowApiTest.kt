@@ -320,6 +320,54 @@ class StakeholderRequestWorkflowApiTest : ContributionApiTest() {
         assertEquals(listOf("created_contribution"), problemFields(refused.body))
     }
 
+    // ---- F5: el cierre del aporte cierra la solicitud (RN-GRV-001, §3.7 de la especificación de F5) ----
+
+    // lleva el aporte creado al aceptar hasta closed: un ítem, la aprobación de un APPROVER, la adquisición, la entrega con
+    // sus tres evidencias (P8), register_delivery y close por `closer`
+    private fun closeContribution(
+        contribution: String,
+        closer: Account
+    ) {
+        assertEquals(HttpStatus.CREATED, itemFor(contribution).status)
+        move("social_contribution", contribution, "approve", member("APPROVER").token, "aprobación")
+        move("social_contribution", contribution, "register_procurement", reason = "compra")
+        val captured = captureDelivery(contribution, evidence = deliveryEvidence())
+        assertEquals(HttpStatus.CREATED, captured.status, captured.body)
+        move("social_contribution", contribution, "register_delivery", reason = "entregado")
+        move("social_contribution", contribution, "close", closer.token, "cerrado")
+    }
+
+    private fun closingByContribution(id: String): JsonNode {
+        val history = tree(send("GET", "/api/objects/stakeholder_request/records/$id/history", null, HttpStatus.OK))
+        return history.values().firstOrNull { it["reason"]?.asString()?.startsWith("RN-GRV-001: aporte") == true }
+            ?: error("sin la entrada del cierre automático por el aporte: $history")
+    }
+
+    @Test
+    fun `cerrar el aporte creado cierra la solicitud, como accion del sistema y con el motivo`() {
+        val id = underEvaluation()
+        val contribution = tree(acceptAsContribution(id, member("SOCIAL_INVESTMENT_MANAGER")).body)["contribution"]["id"].asString()
+        closeContribution(contribution, member("SOCIAL_MANAGER"))
+        assertEquals("closed", state("social_contribution", contribution))
+        assertEquals("closed", state("stakeholder_request", id))
+        assertEquals(RequestClosureListener.SOURCE, closingByContribution(id)["source"].asString())
+    }
+
+    // decisión 4 del plan 4.2a con el aporte: el cierre automático no depende de que quien cierra el aporte lea la solicitud
+    @Test
+    fun `una solicitud confidencial se cierra con su aporte aunque quien lo cierra no la lea`() {
+        val id = stakeholderRequest(testProject(), member("COMMUNITY_RELATIONS_OFFICER"))
+        move("stakeholder_request", id, "start_evaluation", grievances.token, "evaluación")
+        val contribution = tree(acceptAsContribution(id, member("SOCIAL_INVESTMENT_MANAGER")).body)["contribution"]["id"].asString()
+        platformPatch("stakeholder_request", id, mapOf("confidential" to true))
+        val closer = member("SOCIAL_INVESTMENT_MANAGER")
+        val path = "/api/objects/stakeholder_request/records/$id"
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, closer.token).status)
+        closeContribution(contribution, closer)
+        assertEquals("closed", state("stakeholder_request", id))
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", path, null, closer.token).status)
+    }
+
     companion object {
         // el monto y la moneda que model.json exige a todo compromiso (como F3ApiTest)
         private val AMOUNT = mapOf("amount" to 15000, "currency" to "PEN")
