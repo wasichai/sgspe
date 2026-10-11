@@ -58,16 +58,54 @@ class ProjectReadConditionTest {
     }
 
     @Test
-    fun `un hijo se lee por el proyecto de su padre y, con padre opcional, tambien sin padre`() {
-        val parent = ParentColumns("\"data\".\"commitment_tbl\"", "\"project\"")
-        val child = "\"commitment\" IN (SELECT t.\"id\" FROM \"data\".\"commitment_tbl\" t WHERE t.organization_id = :c0 AND t.\"project\" IN (${mine(1)}))"
-        val (text, bound) = condition(ReadGroup.CHILD, ReadColumns("\"commitment\"", assignments, parent = parent))
+    fun `un hijo se lee por el proyecto de su padre y, con un unico padre opcional, tambien sin padre`() {
+        val path = ParentPath("\"study\"", listOf(Hop("\"data\".\"study_tbl\"", "\"project\"")))
+        val child = "\"study\" IN (SELECT t1.\"id\" FROM \"data\".\"study_tbl\" t1 WHERE t1.organization_id = :c0 AND t1.\"project\" IN (${mine(1)}))"
+        val (text, bound) = condition(ReadGroup.CHILD, ReadColumns(null, assignments, parents = listOf(path)))
         assertEquals(child, text)
         assertEquals(listOf<Any>(organization, organization, user, today, today), bound)
         assertEquals(
-            "\"commitment\" IS NULL OR $child",
-            condition(ReadGroup.CHILD, ReadColumns("\"commitment\"", assignments, optional = true, parent = parent)).first
+            "\"study\" IS NULL OR $child",
+            condition(ReadGroup.CHILD, ReadColumns(null, assignments, optional = true, parents = listOf(path))).first
         )
+    }
+
+    // ASM-114: un nieto (program_measurement → program_indicator → social_program) anida una subconsulta por salto, cada
+    // una con su alias, y la organización va enlazada en cada salto
+    @Test
+    fun `un nieto se lee por su cadena, una subconsulta por salto`() {
+        val path =
+            ParentPath(
+                "\"program_indicator\"",
+                listOf(Hop("\"data\".\"pi_tbl\"", "\"social_program\""), Hop("\"data\".\"sp_tbl\"", "\"project\""))
+            )
+        val (text, bound) = condition(ReadGroup.CHILD, ReadColumns(null, assignments, parents = listOf(path)))
+        assertEquals(
+            "\"program_indicator\" IN (SELECT t1.\"id\" FROM \"data\".\"pi_tbl\" t1 WHERE t1.organization_id = :c0 AND " +
+                "t1.\"social_program\" IN (SELECT t2.\"id\" FROM \"data\".\"sp_tbl\" t2 WHERE t2.organization_id = :c1 AND " +
+                "t2.\"project\" IN (${mine(2)})))",
+            text
+        )
+        assertEquals(listOf<Any>(organization, organization, organization, user, today, today), bound)
+    }
+
+    // ASM-114: un hijo con dos padres (delivery) es la disyunción, cada término entre paréntesis; un NULL no cumple ningún
+    // término, así que la entrega huérfana no la lee nadie (salvo ADMIN y READ_ALL_PROJECTS, que no pasan por aquí)
+    @Test
+    fun `un hijo con dos padres se lee por el que tenga, y sin ninguno no lo lee nadie`() {
+        val commitment = ParentPath("\"commitment\"", listOf(Hop("\"data\".\"commitment_tbl\"", "\"project\"")))
+        val contribution = ParentPath("\"social_contribution\"", listOf(Hop("\"data\".\"sc_tbl\"", "\"project\"")))
+        val (text, _) = condition(ReadGroup.CHILD, ReadColumns(null, assignments, parents = listOf(commitment, contribution)))
+        assertEquals(
+            "(\"commitment\" IN (SELECT t1.\"id\" FROM \"data\".\"commitment_tbl\" t1 WHERE t1.organization_id = :c0 AND " +
+                "t1.\"project\" IN (${mine(1)}))) OR (\"social_contribution\" IN (SELECT t1.\"id\" FROM \"data\".\"sc_tbl\" t1 " +
+                "WHERE t1.organization_id = :c5 AND t1.\"project\" IN (${mine(6)})))",
+            text
+        )
+        // ningún padre admite el vacío («mis proyectos» sí lleva sus propios IS NULL de vigencia)
+        assertEquals(false, text!!.contains("\"commitment\" IS NULL") || text.contains("\"social_contribution\" IS NULL"))
+        // con varios padres, la forma «sin padre, del tenant» no vale: falla cerrada
+        assertEquals("false", condition(ReadGroup.CHILD, ReadColumns(null, assignments, optional = true, parents = listOf(commitment, contribution))).first)
     }
 
     @Test
@@ -81,7 +119,12 @@ class ProjectReadConditionTest {
         assertEquals("false", condition(ReadGroup.ROOT, ReadColumns(null, assignments)).first)
         assertEquals("false", condition(ReadGroup.ROOT, ReadColumns("\"project\"", null)).first)
         assertEquals("false", condition(ReadGroup.ASSIGNMENT, ReadColumns("\"project\"", assignments)).first)
-        assertEquals("false", condition(ReadGroup.CHILD, ReadColumns("\"commitment\"", assignments)).first)
+        assertEquals("false", condition(ReadGroup.CHILD, ReadColumns(null, assignments)).first)
+        // a un salto de la cadena le falta su columna, o al hijo la del padre
+        val broken = ParentPath("\"program_indicator\"", listOf(Hop("\"data\".\"pi_tbl\"", null), Hop("\"data\".\"sp_tbl\"", "\"project\"")))
+        assertEquals("false", condition(ReadGroup.CHILD, ReadColumns(null, assignments, parents = listOf(broken))).first)
+        val noColumn = ParentPath(null, listOf(Hop("\"data\".\"study_tbl\"", "\"project\"")))
+        assertEquals("false", condition(ReadGroup.CHILD, ReadColumns(null, assignments, parents = listOf(noColumn))).first)
         assertEquals("false", condition(ReadGroup.PROJECT, ReadColumns(ProjectReadCondition.ID_COLUMN, null)).first)
     }
 

@@ -16,7 +16,7 @@ class ProjectScopeF4Test {
     private val project = UUID.randomUUID()
     private val risk = UUID.randomUUID()
     private val catalog = ModelCatalog.fromClasspath()
-    private val parentProject: suspend (String, UUID) -> UUID? = { _, id -> if (id == risk) project else null }
+    private val read: suspend (String, UUID) -> Map<String, Any?>? = { _, id -> if (id == risk) mapOf("project" to project.toString()) else null }
 
     private fun resolve(
         objectName: String,
@@ -35,13 +35,13 @@ class ProjectScopeF4Test {
                 null,
                 null
             )
-        ProjectResolver.resolve(write, before, catalog::isRequiredRelation, parentProject)
+        ProjectResolver.resolve(write, before, catalog::isRequiredRelation, read)
     }
 
     @Test
     fun `cada objeto de F4 tiene alcance`() {
         for (name in ProjectLinkGuard.OBJECTS - setOf("risk_assessment", "mitigation_measure")) assertTrue(name in ProjectScope.ROOTS, name)
-        for (name in listOf("risk_assessment", "mitigation_measure")) assertEquals("social_risk" to "social_risk", ProjectScope.CHILDREN[name], name)
+        for (name in listOf("risk_assessment", "mitigation_measure")) assertEquals(listOf("social_risk" to "social_risk"), ProjectScope.CHILDREN[name], name)
     }
 
     @Test

@@ -29,15 +29,18 @@ class AmountFieldsGuard(
     companion object {
         // los montos que alguien escribe: el modelo no marca qué DECIMAL es dinero (también hay índices, áreas, coordenadas y
         // cantidades), así que la lista vive aquí y AmountFieldsGuardTest exige que cada uno exista, sea DECIMAL y no sea
-        // derivado. los derivados (executed_amount, executed_social_amount) los escribe solo la plataforma. los montos de F4 en
-        // adelante (receipt.amount, contribution_item.line_amount, program_budget.allocated_amount y executed_amount) los
-        // agrega su fase
+        // derivado. los derivados (executed_amount, executed_social_amount, total_amount, total_budget) los escribe solo la
+        // plataforma. desde F5 (elección 11, ASM-118), los montos de los ítems, del comprobante y de los presupuestos; las
+        // fases siguientes agregan los suyos
         val FIELDS: Map<String, Set<String>> =
             mapOf(
                 "exploration_campaign" to setOf("social_support_cap"),
                 "commitment" to setOf("amount"),
                 "delivery" to setOf("delivered_amount"),
-                "agreement" to setOf("amount")
+                "agreement" to setOf("amount"),
+                "contribution_item" to setOf("line_amount", "unit_cost"),
+                "receipt" to setOf("amount"),
+                "program_budget" to setOf("allocated_amount", "executed_amount")
             )
 
         // los DECIMAL no derivados del modelo que no son dinero, con su motivo. AmountFieldsGuardTest exige que cada DECIMAL no
@@ -66,7 +69,11 @@ class AmountFieldsGuard(
                 "commitment.quantity" to "cantidad de lo comprometido en su unidad (metros, sacos), no dinero",
                 "commitment_candidate.confidence" to "confianza de la extracción, de 0 a 1",
                 "locality_profile.members_per_family" to "promedio de miembros por familia",
-                "early_warning_rule.threshold" to "umbral de una regla de alerta: un conteo o un puntaje entero, no dinero"
+                "early_warning_rule.threshold" to "umbral de una regla de alerta: un conteo o un puntaje entero, no dinero",
+                "contribution_item.quantity" to "cantidad del ítem en su unidad, informativa: no se compara con line_amount",
+                "program_indicator.baseline_value" to "valor de línea base del indicador, en su unidad",
+                "program_indicator.target_value" to "meta del indicador, en su unidad",
+                "program_measurement.measured_value" to "valor medido del indicador, en su unidad"
             )
 
         // pura, para las pruebas unitarias: un hallazgo por monto de `objectName` que cambia y no pasa Amounts.parse

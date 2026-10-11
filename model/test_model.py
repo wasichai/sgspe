@@ -15,7 +15,7 @@ import unittest
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F4"
+PHASE = "F5"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -39,7 +39,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         catalog = design_docs.matrix()
         wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 72)
+        self.assertEqual(len(wanted), 82)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -105,8 +105,15 @@ class ModelAgainstCardsTests(unittest.TestCase):
             self.assertEqual(obj.get("uniqueConstraints", []), card.unique_constraints, name)
             self.assertEqual(obj.get("indexes", []), card.indexes, name)
             self.assertEqual([a["name"] for a in obj.get("actions", [])], card.actions, name)
+            # "`unique` en `x`" de la ficha: un campo con unique: true o, si x es el campo de una relación (delivery desde
+            # F5), la relación con unique: true, que apply.py pone en la fase 3 (wasichai no admite un uniqueConstraints de
+            # un solo campo)
+            relations = {r["fieldName"]: r for r in self.model["relationships"] if r["source"] == name and r.get("fieldName")}
             for field in card.unique:
-                self.assertTrue(next(f for f in obj["fields"] if f["name"] == field).get("unique"), f"{name}.{field}")
+                holder = relations.get(field) or next(f for f in obj["fields"] if f["name"] == field)
+                self.assertIs(holder.get("unique"), True, f"{name}.{field}")
+            for field, rel in relations.items():
+                self.assertEqual(rel.get("unique", False), field in card.unique, f"{name}.{field}")
 
     def test_los_enum_son_los_catalogos_del_analisis_y_solo_los_usados(self):
         catalogs = design_docs.catalogs()
@@ -210,7 +217,8 @@ class WorkflowTests(unittest.TestCase):
         # AgreementWriteGuard, los listeners y los destinatarios por rol (verify y approve_senior), filas de F2 y F3; desde
         # F4, las de AttentionWriteGuard, RiskWriteGuard y WarningWriteGuard, los comandos de reclasificación, aceptación
         # y revisiones, RequestClosureListener, QcsTransitionDatesListener y los avisos (verify de WF-E1,
-        # resolve_high_severity, start_triage y las de tratamiento de WF-F)
+        # resolve_high_severity, start_triage y las de tratamiento de WF-F); desde F5, las de InvestmentWriteGuard (P1 a P9 y
+        # G1 a G4), los avisos de WF-G y WF-P, TransitionReasonGuard y RequestClosureListener (close de WF-P)
         named = {
             "project": {"approve", "resume", "return_to_draft", "suspend", "cancel_draft", "cancel_in_review"},
             "stakeholder": {"profile", "assess", "retire_identified", "retire_profiled", "retire_assessed", "reinstate"},
@@ -237,6 +245,10 @@ class WorkflowTests(unittest.TestCase):
                             "close_identified", "close_assessed", "close_mitigating", "close_monitoring"},
             "early_warning": {"start_triage", "confirm", "dismiss"},
             "incident": {"close"},
+            "social_program": {"submit", "return_to_draft", "approve", "plan_direct", "close", "suspend",
+                               "cancel_draft", "cancel_pending_approval", "cancel_planned", "cancel_suspended"},
+            "social_contribution": {"approve", "approve_direct", "reject", "register_procurement", "register_delivery",
+                                    "close", "cancel_approved", "cancel_procured"},
         }
         for obj, names in named.items():
             have = {t["name"] for t in self.workflows[obj]["definition"]["transitions"]}
@@ -315,10 +327,12 @@ class AutomationsAndDocumentTypesTests(unittest.TestCase):
         wanted = sorted((a["object"], a["name"]) for a in doc if a["after"] is None)
         got = sorted((obj, a["name"]) for obj, items in self.automations.items() for a in items)
         self.assertEqual(got, wanted)
-        # AUT-03 (y AUT-04 desde F5) esperan a UPS-23: el acta congelaría los receptores de delivery; AUT-06, AUT-07 y
-        # AUT-08 también, porque el cargo y las cartas congelarían la persona de la QCS (workflows.md, decisión 3 de F4)
+        # AUT-03 y AUT-04 esperan a UPS-23: las actas de entrega y de recepción congelarían los receptores de delivery;
+        # AUT-06, AUT-07 y AUT-08 también, porque el cargo y las cartas congelarían la persona de la QCS (workflows.md,
+        # decisión 3 de F4; §2.2 de la especificación de F5)
         waiting = {a["id"]: a["after"] for a in doc if a["after"]}
-        self.assertEqual(waiting, {"AUT-03": "UPS-23", "AUT-06": "UPS-23", "AUT-07": "UPS-23", "AUT-08": "UPS-23"})
+        self.assertEqual(waiting, {"AUT-03": "UPS-23", "AUT-04": "UPS-23", "AUT-06": "UPS-23", "AUT-07": "UPS-23",
+                                   "AUT-08": "UPS-23"})
         self.assertEqual(wanted, [("commitment", "aut-01-commitment-execution-task"),
                                   ("early_warning", "aut-09-warning-triage-task"),
                                   ("engagement", "aut-05-meeting-minutes"), ("engagement", "aut-10-engagement-reschedule-task"),
@@ -393,6 +407,8 @@ class AutomationsAndDocumentTypesTests(unittest.TestCase):
     def test_el_objeto_del_acta_de_entrega_tiene_campos_restringidos(self):
         # lo que espera UPS-23: si delivery dejara de restringir campos, el acta de entrega podría volver a F3
         self.assertTrue(self.has_restricted("delivery"))
+        # AUT-04 (acta de recepción del aporte) también es de delivery: espera a UPS-23 con AUT-03
+        self.assertNotIn("delivery", self.automations)
 
     def test_las_qcs_restringen_su_persona_y_no_tienen_tipos_de_documento(self):
         # lo que espera UPS-23 en F4 (decisión 3): el cargo de queja y las cartas de respuesta congelarían la persona que
@@ -400,6 +416,55 @@ class AutomationsAndDocumentTypesTests(unittest.TestCase):
         for obj in ("grievance", "inquiry", "stakeholder_request"):
             self.assertTrue(self.has_restricted(obj), obj)
             self.assertNotIn(obj, self.types, obj)
+
+
+class InvestmentModelTests(unittest.TestCase):
+    """Lo que el modelo de F5 suma para las decisiones 1 a 3 de la especificación de F5 (§4.1)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model = load("model.json")
+        cls.objects = {o["name"]: o for o in cls.model["objects"]}
+        cls.relationships = {r["name"]: r for r in cls.model["relationships"]}
+
+    def field(self, obj, name):
+        return next(f for f in self.objects[obj]["fields"] if f["name"] == name)
+
+    def test_item_kind_tiene_sus_cuatro_valores_y_es_obligatorio_en_el_item(self):
+        # decisión 3: los lineamientos se evalúan por tipo de ítem (ContributionGuidelines, plan 5.2a)
+        self.assertEqual(self.model["enums"]["item_kind"], ["BIEN", "SERVICIO", "DINERO", "MANO DE OBRA"])
+        kind = self.field("contribution_item", "item_kind")
+        self.assertEqual((kind["type"], kind["enum"], kind.get("required")), ("ENUM", "item_kind", True))
+
+    def test_una_sola_entrega_por_aporte_y_las_de_compromisos_no_chocan(self):
+        # decisión 2: único sobre la relación opcional; las entregas de compromisos lo llevan vacío y un UNIQUE de
+        # PostgreSQL no compara los NULL
+        rel = self.relationships["delivery_social_contribution"]
+        self.assertEqual((rel["source"], rel["fieldName"], rel["target"], rel.get("unique"), rel.get("required", False)),
+                         ("delivery", "social_contribution", "social_contribution", True, False))
+        self.assertNotIn("uniqueConstraints", self.objects["delivery"])
+
+    def test_el_tema_del_aporte_y_los_temas_priorizados_del_proyecto(self):
+        topic = self.relationships["contribution_topic"]
+        self.assertEqual((topic["source"], topic["fieldName"], topic["target"]), ("social_contribution", "topic", "topic"))
+        priority = self.relationships["project_priority_topic"]
+        self.assertEqual((priority.get("type"), priority["source"], priority["target"]), ("MANY_TO_MANY", "project", "topic"))
+
+    def test_los_vinculos_de_f5_en_objetos_anteriores(self):
+        wanted = {"request_created_contribution": ("stakeholder_request", "created_contribution", "social_contribution"),
+                  "task_social_program": ("task", "social_program", "social_program"),
+                  "delivery_social_contribution": ("delivery", "social_contribution", "social_contribution")}
+        for name, (source, field, target) in wanted.items():
+            rel = self.relationships[name]
+            self.assertEqual((rel["source"], rel["fieldName"], rel["target"]), (source, field, target), name)
+        for name in ("evidence_social_contribution", "evidence_social_program"):
+            self.assertEqual((self.relationships[name].get("type"), self.relationships[name]["source"]),
+                             ("MANY_TO_MANY", "evidence"), name)
+
+    def test_las_mediciones_son_inmutables_y_unicas_por_periodo(self):
+        measurement = self.objects["program_measurement"]
+        self.assertIs(measurement.get("appendOnly"), True)
+        self.assertEqual(measurement["uniqueConstraints"], [["program_indicator", "period_start_date"]])
 
 
 if __name__ == "__main__":

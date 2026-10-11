@@ -1,10 +1,14 @@
 package sgspe.scope
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import sgspe.common.ModelCatalog
+import sgspe.common.NotReadable
 import java.util.UUID
 
 // P54 y la regla «mismo proyecto» de F4: un registro solo referencia registros de su proyecto; los campos salen del modelo,
@@ -77,5 +81,46 @@ class ProjectLinksTest {
             assertTrue(relationship!!.source in ProjectLinkGuard.OBJECTS, name)
         }
         assertEquals(emptySet<String>(), ProjectLinkGuard.OBJECTS - catalog.objects.keys)
+    }
+
+    // el proyecto de un destino (linkedProject, sin base): el suyo en una raíz; en un hijo, el de la raíz a la que llega su
+    // padre presente, leído como quien escribe (un salto que no se lee es NotReadable); sin padre, ninguno
+    @Test
+    fun `el proyecto de un destino hijo sube por su padre, y un salto ilegible es NotReadable`() {
+        val clause = UUID.randomUUID()
+        val agreement = UUID.randomUUID()
+        val read: suspend (String, UUID) -> Map<String, Any?> = { name, id ->
+            if (id == agreement) mapOf("project" to a.toString()) else throw NotReadable(name)
+        }
+        runBlocking {
+            assertEquals(a, ProjectLinks.projectOf("agreement_clause", mapOf("agreement" to agreement.toString()), read))
+            assertEquals(b, ProjectLinks.projectOf("agreement", mapOf("project" to b.toString()), read))
+            assertNull(ProjectLinks.projectOf("agreement_clause", mapOf("agreement" to null), read))
+        }
+        assertThrows<NotReadable> { runBlocking { ProjectLinks.projectOf("agreement_clause", mapOf("agreement" to clause.toString()), read) } }
+    }
+
+    // Review Focus 4: la medición sube por su indicador; la entrega, por el padre que tenga; un salto ilegible es NotReadable
+    @Test
+    fun `el proyecto de un destino de F5 sube la cadena desde el padre que tenga`() {
+        val indicator = UUID.randomUUID()
+        val program = UUID.randomUUID()
+        val contribution = UUID.randomUUID()
+        val read: suspend (String, UUID) -> Map<String, Any?> = { name, id ->
+            when (id) {
+                indicator -> mapOf("social_program" to program.toString())
+                program -> mapOf("project" to a.toString())
+                contribution -> mapOf("project" to b.toString())
+                else -> throw NotReadable(name)
+            }
+        }
+        runBlocking {
+            assertEquals(a, ProjectLinks.projectOf("program_measurement", mapOf("program_indicator" to indicator.toString()), read))
+            assertEquals(b, ProjectLinks.projectOf("delivery", mapOf("commitment" to null, "social_contribution" to contribution.toString()), read))
+            assertNull(ProjectLinks.projectOf("delivery", mapOf("commitment" to null, "social_contribution" to null), read))
+        }
+        assertThrows<NotReadable> {
+            runBlocking { ProjectLinks.projectOf("program_measurement", mapOf("program_indicator" to UUID.randomUUID().toString()), read) }
+        }
     }
 }

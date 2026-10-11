@@ -1,0 +1,34 @@
+{
+  "name": "wf-p-social_contribution",
+  "label": "Aporte social",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "requested", "label": "Solicitado", "type": "INITIAL" },
+      { "name": "approved", "label": "Aprobado", "type": "INTERMEDIATE" },
+      { "name": "procured", "label": "Adquirido", "type": "INTERMEDIATE" },
+      { "name": "delivered", "label": "Entregado", "type": "INTERMEDIATE" },
+      { "name": "closed", "label": "Cerrado", "type": "FINAL" },
+      { "name": "rejected", "label": "Rechazado", "type": "FINAL" },
+      { "name": "cancelled", "label": "Anulado", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "approve", "label": "Aprobar", "from": "requested", "to": "approved",
+        "roles": ["APPROVER", "SOCIAL_MANAGER"] },
+      { "name": "approve_direct", "label": "Aprobar sin revisión interna", "from": "requested", "to": "approved",
+        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
+      { "name": "reject", "label": "Rechazar", "from": "requested", "to": "rejected",
+        "roles": ["APPROVER", "SOCIAL_MANAGER"] },
+      { "name": "register_procurement", "label": "Registrar adquisición", "from": "approved", "to": "procured",
+        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
+      { "name": "register_delivery", "label": "Registrar entrega", "from": "procured", "to": "delivered",
+        "roles": ["SOCIAL_INVESTMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
+      { "name": "close", "label": "Cerrar", "from": "delivered", "to": "closed",
+        "roles": ["SOCIAL_INVESTMENT_MANAGER", "SOCIAL_MANAGER"] },
+      { "name": "cancel_approved", "label": "Anular", "from": "approved", "to": "cancelled",
+        "roles": ["APPROVER", "SOCIAL_MANAGER"] },
+      { "name": "cancel_procured", "label": "Anular", "from": "procured", "to": "cancelled",
+        "roles": ["APPROVER", "SOCIAL_MANAGER"] }
+    ]
+  }
+}

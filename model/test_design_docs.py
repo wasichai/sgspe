@@ -289,6 +289,8 @@ class F4WorkflowsTests(unittest.TestCase):
 
 
 class F5CardsTests(unittest.TestCase):
+    """Lo que el plan 5.0 suma a los documentos y el plan 5.1 lleva al modelo (§4 de la especificación de F5)."""
+
     def test_las_fichas_de_f5_traen_lo_que_suma_el_plan_5_0(self):
         cards = design_docs.cards()
         # decisión 3 (ASM-112): el tipo de cada ítem es lo que leen los lineamientos al aprobar
@@ -307,6 +309,50 @@ class F5CardsTests(unittest.TestCase):
         # ASM-116: el acta de recepción espera a UPS-23, como el acta de entrega
         aut04 = next(a for a in design_docs.automations() if a["id"] == "AUT-04")
         self.assertEqual((aut04["object"], aut04["phase"], aut04["after"]), ("delivery", "F5", "UPS-23"))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cards = design_docs.cards()
+
+    def test_las_fichas_de_bc_10_traen_lo_que_suma_el_plan_5_0(self):
+        kind = next(f for f in self.cards["contribution_item"].fields if f["name"] == "item_kind")
+        self.assertEqual((kind["type"], kind["enum"], kind["required"]), ("ENUM", "item_kind", True))
+        self.assertEqual(design_docs.catalogs()["item_kind"], ["BIEN", "SERVICIO", "DINERO", "MANO DE OBRA"])
+        topic = next(r for r in self.cards["social_contribution"].relationships if r["name"] == "contribution_topic")
+        self.assertEqual((topic["type"], topic["field"], topic["target"], topic["required"]),
+                         ("MANY_TO_ONE", "topic", "topic", False))
+        priority = next(r for r in self.cards["project"].relationships if r["name"] == "project_priority_topic")
+        self.assertEqual((priority["type"], priority["target"]), ("MANY_TO_MANY", "topic"))
+        self.assertEqual(design_docs.relationship_phase(self.cards, self.cards["project"], priority), "F5")
+        self.assertEqual([c for c in self.cards if self.cards[c].phase == "F5"],
+                         ["social_contribution", "contribution_item", "receipt", "social_program", "social_initiative",
+                          "beneficiary_group", "program_budget", "program_indicator", "program_measurement",
+                          "program_milestone"])
+
+    def test_el_unico_de_la_entrega_es_unique_en_su_relacion_con_el_aporte(self):
+        # wasichai 1.0.0 rechaza un uniqueConstraints de un solo campo (FieldSets.normalize, al menos dos) y apply.py
+        # también: el único de delivery.social_contribution irá como «`unique` en», y apply.py lo pone en la relación.
+        # el plan 5.0 lo dejó como texto «desde F5»; con el modelo de F5 (plan 5.1, Tarea 3) es la forma leída
+        delivery = self.cards["delivery"]
+        self.assertEqual((delivery.unique, delivery.unique_constraints), (["social_contribution"], []))
+        self.assertEqual(delivery.exactly_one, [["commitment", "social_contribution"]])
+
+    def test_wf_g_y_wf_p_y_los_roles_de_f5_en_wf_e3(self):
+        self.assertEqual([len(design_docs.workflow_transitions(letter)) for letter in ("G", "P")], [14, 8])
+        request = {t["name"]: t for t in design_docs.workflow_transitions("E3", "stakeholder_request")}
+        for name in ("accept", "close_accepted"):
+            self.assertIn("SOCIAL_INVESTMENT_MANAGER", request[name]["roles"], name)
+
+    def test_la_matriz_corrige_los_permisos_que_no_cerraban(self):
+        # elección 15 de la especificación de F5 y §3.1 (temas priorizados)
+        matrix = design_docs.matrix()
+        for role in ("SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_INVESTMENT_MANAGER"):
+            self.assertEqual(matrix["contribution_item"][role], ["READ", "CREATE", "UPDATE", "DELETE"], role)
+        self.assertEqual(matrix["receipt"]["COMMUNITY_RELATIONS_OFFICER"], ["READ", "CREATE", "UPDATE"])
+        # u sobre topic para PROJECT_ADMIN y PROJECT_MANAGER llega a la celda con el modelo de F5 (plan 5.1, Tarea 3)
+        for role in ("PROJECT_ADMIN", "PROJECT_MANAGER"):
+            self.assertIn("u", matrix["topic"][role], role)
+        self.assertEqual(matrix["social_contribution"]["SOCIAL_MANAGER"][-1], "APPROVE_OVER_CAP")
 
 
 class BrokenDocsTests(unittest.TestCase):

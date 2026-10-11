@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import sgspe.common.ExactlyOneGuard
 import sgspe.scope.ProjectScope
 import tools.jackson.databind.json.JsonMapper
 import java.io.File
@@ -171,10 +172,10 @@ class ArchitectureTest {
         assertFalse(flags(DERIVED_RESTORE_NEW, "// DerivedRestore(objeto, id) solo en el keeper"))
     }
 
-    // el alcance de lectura por proyecto (ASM-106, security.md §9.7): cada objeto de model.json está en un solo grupo de
-    // ProjectScope, todo objeto con la relación `project` es una raíz (o project_assignment) y el padre de cada hijo es una raíz
-    // por el campo que dice CHILDREN. así una fase nueva (F5 a F8) no agrega un objeto sin clasificarlo: ProjectReadScope no
-    // admitiría ningún registro suyo
+    // el alcance de lectura por proyecto (ASM-106, ASM-114, security.md §9.7). regla 1: cada objeto de model.json está en un
+    // solo grupo de ProjectScope y ProjectScope no nombra objetos ausentes; regla 2: los objetos con la relación `project`
+    // son exactamente las raíces y project_assignment. así una fase nueva no agrega un objeto sin clasificarlo:
+    // ProjectReadScope no admitiría ningún registro suyo
     @Test
     fun `cada objeto del modelo esta clasificado en ProjectScope`() {
         val model = JsonMapper.builder().build().readTree(File("model/model.json"))
@@ -193,60 +194,142 @@ class ArchitectureTest {
         }
         val named = ProjectScope.ROOTS + ProjectScope.CHILDREN.keys + ProjectScope.TENANT
         assertEquals(emptySet<String>(), named - objects.toSet(), "ProjectScope nombra objetos que model.json no tiene")
-        // (objeto, campo, destino) de cada relación con campo
-        val relations =
-            model["relationships"].values().mapNotNull { rel ->
-                val field = rel["fieldName"]?.takeUnless { it.isNull }?.asString() ?: return@mapNotNull null
-                Triple(rel["source"].asString(), field, rel["target"].asString())
-            }
-        val withProject = relations.filter { (_, field, target) -> field == "project" && target == "project" }.map { it.first }.toSet()
+        val withProject = modelRelations().filter { it.field == "project" && it.target == "project" }.map { it.source }.toSet()
         assertEquals(ProjectScope.ROOTS + ProjectScope.ASSIGNMENT, withProject)
-        for ((child, link) in ProjectScope.CHILDREN) {
-            val (field, parent) = link
-            assertTrue(parent in ProjectScope.ROOTS, "$child: su padre $parent no es una raíz")
-            assertTrue(Triple(child, field, parent) in relations, "$child.$field no apunta a $parent")
+    }
+
+    // regla 3: cada padre posible (campo, objeto) de un hijo es una relación (hijo, campo, objeto) del modelo, y el padre es una
+    // raíz o un hijo
+    @Test
+    fun `cada padre posible de un hijo es una relacion del modelo hacia una raiz o un hijo`() {
+        val relations = modelRelations().map { Triple(it.source, it.field, it.target) }.toSet()
+        for ((child, parents) in ProjectScope.CHILDREN) {
+            assertTrue(parents.isNotEmpty(), "$child no tiene padres")
+            for ((field, parent) in parents) {
+                assertTrue(Triple(child, field, parent) in relations, "$child.$field no apunta a $parent")
+                assertTrue(parent in ProjectScope.ROOTS || parent in ProjectScope.CHILDREN, "$child: su padre $parent no es una raíz ni un hijo")
+            }
         }
     }
 
-    // un hijo cuya relación con el padre no es obligatoria se lee en todo el tenant cuando no tiene padre ("<padre> IS NULL OR …"
-    // de ProjectReadCondition). la lista es fija: si un hijo nuevo tiene padre opcional, o uno de estos gana otra relación de
-    // padre (en F5, delivery.social_contribution, domain-model.md), esta prueba obliga a revisar CHILDREN y la condición para
-    // que el registro sin el padre de CHILDREN se acote por su otro padre y nunca quede abierto (security.md §9.7)
+    // regla 4: desde cada hijo, toda cadena llega a una raíz en a lo sumo MAX_HOPS saltos y ningún objeto es su propio ancestro:
+    // ProjectReadCondition anida una subconsulta por salto
     @Test
-    fun `los hijos con padre opcional son exactamente los revisados`() {
-        val model = JsonMapper.builder().build().readTree(File("model/model.json"))
-        val optional =
-            model["relationships"]
-                .values()
-                .filter { rel ->
-                    val link = ProjectScope.CHILDREN[rel["source"].asString()]
-                    link != null && rel["fieldName"]?.takeUnless { it.isNull }?.asString() == link.first && rel["required"]?.asBoolean() != true
-                }.map { it["source"].asString() }
-                .toSet()
+    fun `cada cadena llega a una raiz en a lo sumo dos saltos y sin ciclos`() {
+        for ((child, parents) in ProjectScope.CHILDREN) {
+            for ((field, _) in parents) {
+                val chain = ProjectScope.chain(child, field)
+                assertTrue(chain.isNotEmpty() && chain.size <= ProjectScope.MAX_HOPS, "$child.$field: $chain")
+                assertTrue(chain.last().second in ProjectScope.ROOTS, "$child.$field no llega a una raíz: $chain")
+                val visited = listOf(child) + chain.map { it.second }
+                assertEquals(visited.size, visited.toSet().size, "$child.$field pasa dos veces por un objeto: $visited")
+            }
+        }
         assertEquals(
-            setOf("delivery", "locality_profile"),
-            optional,
-            "los hijos con padre opcional se leen en todo el tenant cuando no lo tienen: revise ProjectScope.CHILDREN, " +
-                "ProjectReadCondition y security.md §9.7 antes de cambiar esta lista"
-        )
-        // ninguno de ellos tiene otra relación hacia un objeto acotado por proyecto: un segundo padre (delivery.social_contribution
-        // desde F5) dejaría abiertos sus registros sin el padre de CHILDREN
-        val scoped = ProjectScope.ROOTS + ProjectScope.CHILDREN.keys + ProjectScope.PROJECT
-        val otherParents =
-            model["relationships"]
-                .values()
-                .filter { rel ->
-                    val source = rel["source"].asString()
-                    source in optional && rel["fieldName"]?.takeUnless { it.isNull }?.asString() != ProjectScope.CHILDREN.getValue(source).first &&
-                        rel["target"].asString() in scoped
-                }.map { "${it["source"].asString()}.${it["fieldName"]?.asString()}" }
-        assertEquals(
-            emptyList<String>(),
-            otherParents,
-            "un hijo con padre opcional ganó otra relación hacia un objeto de proyecto: acótelo también por ella en " +
-                "ProjectReadCondition (nunca «sin padre, todos») y actualice esta prueba"
+            listOf("program_indicator" to "program_indicator", "social_program" to "social_program"),
+            ProjectScope.chain("program_measurement", "program_indicator")
         )
     }
+
+    // regla 5: un hijo que es padre de otro tiene un solo padre posible, con relación obligatoria: la cadena de su hijo es una
+    // sola y nunca pasa por un registro sin padre
+    @Test
+    fun `un hijo que es padre de otro tiene un solo padre obligatorio`() {
+        val required = modelRelations().filter { it.required }.map { it.source to it.field }.toSet()
+        val intermediate =
+            ProjectScope.CHILDREN.values
+                .flatten()
+                .map { it.second }
+                .filter { it in ProjectScope.CHILDREN }
+                .toSet()
+        assertEquals(setOf("program_indicator"), intermediate)
+        for (name in intermediate) {
+            val parents = ProjectScope.CHILDREN.getValue(name)
+            assertEquals(1, parents.size, "$name tiene varios padres y es padre de otro hijo")
+            assertTrue(name to parents.single().first in required, "$name.${parents.single().first} no es obligatoria")
+        }
+    }
+
+    // regla 6: un hijo con varios padres los tiene todos opcionales, forman exactamente un grupo de ExactlyOneGuard y no tiene
+    // otra relación hacia un objeto de proyecto: un registro sin ninguno es huérfano y nadie lo lee salvo ADMIN y
+    // READ_ALL_PROJECTS (nunca «sin padre, todos», security.md §9.7)
+    @Test
+    fun `un hijo con varios padres los tiene opcionales, en un grupo de exactamente uno y sin otro vinculo de proyecto`() {
+        val relations = modelRelations()
+        val several = ProjectScope.CHILDREN.filterValues { it.size > 1 }
+        assertEquals(setOf("delivery"), several.keys)
+        for ((child, parents) in several) {
+            val fields = parents.map { it.first }
+            val own = relations.filter { it.source == child && it.field != null }
+            assertTrue(own.filter { it.field in fields }.none { it.required }, "$child: uno de sus padres es obligatorio")
+            assertTrue(
+                ExactlyOneGuard.GROUPS[child].orEmpty().any { it.toSet() == fields.toSet() },
+                "$child: sus padres no forman un grupo de ExactlyOneGuard"
+            )
+            val others = own.filter { it.field !in fields && it.target in scoped() }.map { "$child.${it.field}" }
+            assertEquals(emptyList<String>(), others, "$child tiene otro vínculo hacia un objeto de proyecto: acótelo como padre")
+        }
+    }
+
+    // regla 7: un hijo con un único padre opcional se lee en todo el tenant cuando no lo tiene ("<padre> IS NULL OR …" de
+    // ProjectReadCondition). la lista es fija: un hijo nuevo con padre opcional, o uno de estos con otra relación hacia un
+    // objeto de proyecto, obliga a revisar ProjectScope.CHILDREN, ProjectReadCondition y security.md §9.7
+    @Test
+    fun `los hijos con un unico padre opcional son exactamente los revisados`() {
+        val relations = modelRelations()
+        val optional =
+            ProjectScope.CHILDREN
+                .filter { (child, parents) -> parents.size == 1 && relations.none { it.source == child && it.field == parents.single().first && it.required } }
+                .keys
+        assertEquals(
+            setOf("locality_profile"),
+            optional,
+            "los hijos con un único padre opcional se leen en todo el tenant cuando no lo tienen: revise ProjectScope.CHILDREN, " +
+                "ProjectReadCondition y security.md §9.7 antes de cambiar esta lista"
+        )
+        val others =
+            relations
+                .filter {
+                    it.source in optional && it.field != null && it.field !=
+                        ProjectScope.CHILDREN
+                            .getValue(it.source)
+                            .single()
+                            .first
+                }.filter { it.target in scoped() }
+                .map { "${it.source}.${it.field}" }
+        assertEquals(
+            emptyList<String>(),
+            others,
+            "un hijo con un único padre opcional ganó otra relación hacia un objeto de proyecto: hágala otro padre posible " +
+                "(nunca «sin padre, todos») y actualice esta prueba"
+        )
+    }
+
+    // las relaciones de model.json: (objeto, campo, destino, obligatoria); una MANY_TO_MANY no tiene campo
+    private data class ModelRelation(
+        val source: String,
+        val field: String?,
+        val target: String,
+        val required: Boolean
+    )
+
+    private fun modelRelations(): List<ModelRelation> =
+        JsonMapper
+            .builder()
+            .build()
+            .readTree(File("model/model.json"))["relationships"]
+            .values()
+            .map { rel ->
+                ModelRelation(
+                    rel["source"].asString(),
+                    rel["fieldName"]?.takeUnless { it.isNull }?.asString(),
+                    rel["target"].asString(),
+                    rel["required"]?.asBoolean() == true
+                )
+            }
+
+    // los objetos acotados por proyecto
+    private fun scoped(): Set<String> = ProjectScope.ROOTS + ProjectScope.CHILDREN.keys + ProjectScope.PROJECT
 
     // la condición del alcance por proyecto la arma solo ProjectReadScope, y «lee todos los proyectos» lo preguntan solo common y
     // scope: los demás paquetes usan mine, assigned o reaches de ProjectReach (elección 6 de la especificación 4.4)
