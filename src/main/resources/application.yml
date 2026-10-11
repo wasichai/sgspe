@@ -125,6 +125,12 @@ sgspe:
     # cuánto se guardan los saltos de versión de las escrituras de derivados (sgspe.derived_version, ADR-0027, ASM-091):
     # una versión leída hace más que esto, seguida de derivados, es 412. JOB-08 purga los vencidos
     derived-versions-retention: 7d
+  metadata:
+    # la caché del esquema (ObjectDefinitions.recent): cuánto vale una definición de objeto entre peticiones para el
+    # alcance de lectura y los permisos (security.md §9.7). 0s la apaga y deja solo el memo por petición
+    definition-ttl: 30s
+    # el tope de definiciones guardadas (organización y objeto)
+    definition-max-entries: 1000
   stakeholder:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
