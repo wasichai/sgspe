@@ -63,11 +63,17 @@ object Kpis {
     // los KPI-STK ignoran además community: stakeholder no tiene comunidad (ruling P27)
     private val STAKEHOLDER_IGNORES: Set<String> = IGNORED_IN_F2 + "community"
 
-    // los filtros pedidos que el indicador ignora, en el orden de DashboardFilters.COMMON; vacío si ninguno
+    // los filtros pedidos que el indicador ignora, en el orden de DashboardFilters.COMMON y después INVESTMENT; vacío si ninguno
     fun ignoredFilters(
         indicator: Indicator,
         filters: DashboardFilters
-    ): List<String> = DashboardFilters.COMMON.filter { it in indicator.ignores && it in filters.given() }
+    ): List<String> = (DashboardFilters.COMMON + DashboardFilters.INVESTMENT).filter { it in indicator.ignores && it in filters.given() }
+
+    // los filtros que, además de los comunes, aceptan los indicadores `codes`: program y year si alguno es un KPI-INV (decisión 2
+    // del plan 5.2b); ninguno en los demás, así que en otro tablero o KPI son 422
+    fun extraFilters(codes: Collection<String>): Set<String> = if (codes.any { it.startsWith(INVESTMENT_PREFIX) }) DashboardFilters.INVESTMENT else emptySet()
+
+    private const val INVESTMENT_PREFIX = "KPI-INV-"
 
     // los tableros de F2 y sus zonas, en el orden de dashboards.md §5.3 y §5.4
     val DASHBOARDS: Map<String, List<String>> =
