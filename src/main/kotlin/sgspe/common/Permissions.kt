@@ -5,7 +5,6 @@ import wasichai.core.common.Actions
 import wasichai.core.common.ForbiddenException
 import wasichai.core.identity.AuthenticatedUser
 import wasichai.core.identity.CurrentUser
-import wasichai.core.metadata.MetadataService
 
 // los permisos de objeto y las acciones declaradas de wasichai comprobados antes de la primera escritura, diciendo lo
 // que falta (api.md §3.9, como Permisos de caja-backend@dc9e391). después RecordService los vuelve a comprobar en cada
@@ -13,7 +12,7 @@ import wasichai.core.metadata.MetadataService
 @Component
 class Permissions(
     private val currentUser: CurrentUser,
-    private val metadata: MetadataService
+    private val definitions: ObjectDefinitions
 ) {
     // 403 si falta alguna (acción a objeto): «<what> exige <lo que falta>»
     suspend fun require(
@@ -27,13 +26,16 @@ class Permissions(
         }
     }
 
+    // la consulta de permisos de wasichai, cada vez (o una vez por petición donde quien llama la memoriza); el id del objeto
+    // sale de la caché reciente (ObjectDefinitions.recent): un objeto borrado y vuelto a crear tiene otro id y ningún
+    // permiso propio, así que una entrada vieja solo puede negar
     suspend fun has(
         user: AuthenticatedUser,
         action: String,
         objectName: String
     ): Boolean =
         try {
-            currentUser.requirePermission(user, action, metadata.loadDefinition(user.organizationId, objectName).obj.id)
+            currentUser.requirePermission(user, action, definitions.recent(user.organizationId, objectName).obj.id)
             true
         } catch (_: ForbiddenException) {
             false

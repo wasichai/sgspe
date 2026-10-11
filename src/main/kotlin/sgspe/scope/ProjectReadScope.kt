@@ -6,11 +6,11 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
+import sgspe.common.ObjectDefinitions
 import sgspe.common.ProjectReach
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordReadScope
 import wasichai.core.identity.AuthenticatedUser
-import wasichai.core.metadata.MetadataService
 import wasichai.core.metadata.ObjectDefinition
 import wasichai.core.platform.SqlIdentifier
 import wasichai.core.platform.WasichaiSchemas
@@ -25,6 +25,7 @@ import java.util.UUID
 // no se acotan y no cuestan consultas; quien tiene READ_ALL_PROJECTS sobre project (ProjectReach) lee todo. se compone por
 // AND con ConfidentialAttentionScope (§9.6). falla cerrado: un objeto sin clasificar, una definición sin sus columnas, o una
 // consulta de permisos o de definiciones que falla, no admiten ningún registro, con una advertencia sin datos del registro
+// las definiciones de la condición salen de la caché del esquema (ObjectDefinitions.recent, security.md §9.7)
 @Component
 class ProjectReadScope internal constructor(
     private val reach: ProjectReach,
@@ -36,11 +37,11 @@ class ProjectReadScope internal constructor(
     @Autowired
     constructor(
         reach: ProjectReach,
-        metadata: MetadataService,
+        definitions: ObjectDefinitions,
         catalog: ModelCatalog,
         schemas: WasichaiSchemas,
         clock: Clock
-    ) : this(reach, catalog, schemas, clock, { organization, name -> metadata.loadDefinition(organization, name) })
+    ) : this(reach, catalog, schemas, clock, { organization, name -> definitions.recent(organization, name) })
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -75,9 +76,11 @@ class ProjectReadScope internal constructor(
         }
     }
 
-    // las tablas y columnas del grupo, de la definición del objeto leído, de la de project_assignment y, en un hijo, de las de
-    // cada salto de la cadena de cada padre posible (wasichai las tiene en caché); si una relación es opcional lo dice el
-    // modelo, nunca una lista aparte
+    // las tablas y columnas del grupo, de la definición del objeto leído (la de wasichai, de esta lectura), de la de
+    // project_assignment y, en un hijo, de las de cada salto de la cadena de cada padre posible. estas salen de
+    // ObjectDefinitions.recent (hasta sgspe.metadata.definition-ttl atrás; wasichai no las guarda): una vieja tras un
+    // apply.py solo deja la condición incompleta o acotada por menos padres, nunca más registros. si una relación es
+    // opcional lo dice el modelo, nunca una lista aparte
     private suspend fun columns(
         organization: UUID,
         objectName: String,
