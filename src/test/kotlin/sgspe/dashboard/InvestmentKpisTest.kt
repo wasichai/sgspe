@@ -97,7 +97,8 @@ class InvestmentKpisTest {
 
     @Test
     fun `KPI-INV-02 da el avance por programa, anio y moneda y la cifra solo en PEN`() {
-        val programs = listOf(ProgramRow("g1", "p1", "PRG-1", "Programa Ejemplo", "PEN", "executing"), ProgramRow("g2", "p1", "PRG-2", "Otro programa", "PEN"))
+        val programs =
+            listOf(ProgramRow("g1", "p1", "PRG-1", "Programa Ejemplo", "PEN", "executing"), ProgramRow("g2", "p1", "PRG-2", "Otro programa", "PEN", "planned"))
         val budgets =
             listOf(
                 BudgetRow("g1", 2026, amount("1000"), amount("250"), "PEN"),
@@ -140,7 +141,7 @@ class InvestmentKpisTest {
                 DeliveryRow("s2", LocalDate.parse("2026-11-02"), null),
                 DeliveryRow("s3", LocalDate.parse("2026-10-12"), null)
             )
-        val programs = listOf(ProgramRow("g1", "p1", "PRG-1", "Programa Ejemplo", "PEN"))
+        val programs = listOf(ProgramRow("g1", "p1", "PRG-1", "Programa Ejemplo", "PEN", "closed"))
         val budgets = listOf(BudgetRow("g1", 2026, amount("1000"), amount("250"), "PEN"), BudgetRow("g1", 2025, amount("800"), amount("800"), "PEN"))
         val campaigns = listOf(CampaignRow("c1", "p1", "Campaña A", amount("10000"), "PEN", null, 0))
         val codes = mapOf("p1" to "PRY-1")
@@ -194,7 +195,11 @@ class InvestmentKpisTest {
 
     @Test
     fun `KPI-INV-04 da tres bloques de beneficiarios sin sumarlos`() {
-        val programs = listOf(ProgramRow("g1", "p1", "PRG-1", "Programa Ejemplo", "PEN"), ProgramRow("g2", "p1", "PRG-2", "Otro programa", "PEN"))
+        val programs =
+            listOf(
+                ProgramRow("g1", "p1", "PRG-1", "Programa Ejemplo", "PEN", "executing"),
+                ProgramRow("g2", "p1", "PRG-2", "Otro programa", "PEN", "monitoring")
+            )
         val groups = listOf(GroupRow("g1", 100, 40), GroupRow("g1", 50, null), GroupRow("g2", null, 5), GroupRow("gx", 1000, 1000))
         val contributions =
             listOf(
@@ -219,5 +224,48 @@ class InvestmentKpisTest {
         val g1 = rows(result, "program").first { it["key"] == "g1" }
         assertEquals(150L, g1["target"])
         assertEquals(40L, g1["reached"])
+    }
+
+    // decisión del usuario del 2026-10-11: los KPI-INV cuentan un programa solo desde «Planificado» de WF-G
+    @Test
+    fun `KPI-INV-02 a 04 cuentan un programa solo desde Planificado`() {
+        val counted = listOf("planned", "executing", "monitoring", "evaluation", "suspended", "closed")
+        val left = listOf("draft", "pending_approval", "cancelled", "rejected", null)
+        assertEquals(counted.toSet(), InvestmentKpis.COUNTED_PROGRAM_STATES)
+        val programs = (counted + left).mapIndexed { i, state -> ProgramRow("g$i", "p1", "PRG-$i", "Programa $state", "PEN", state) }
+        val budgets = programs.map { BudgetRow(it.id, 2026, amount("100"), amount("10"), "PEN") }
+        val groups = programs.map { GroupRow(it.id, 10, 1) }
+        val inPlay = programs.filter { it.state in counted }.map { it.id }
+        val progress = InvestmentKpis.programs(programs, budgets, null)
+        assertEquals(inPlay, rows(progress, "program").map { it["program"] })
+        same("600", progress.denominator)
+        same("60", progress.numerator)
+        val executed =
+            InvestmentKpis.executed(
+                emptyList(),
+                emptyList(),
+                emptyList(),
+                emptyList(),
+                programs,
+                budgets,
+                emptyList(),
+                LocalDate.parse("2026-10-01"),
+                LocalDate.parse("2026-10-31"),
+                true,
+                emptyMap()
+            )
+        same("60", executed.value)
+        same("600", rows(executed, "project").single()["budget"])
+        val beneficiaries = InvestmentKpis.beneficiaries(programs, groups, emptyList(), emptyList())
+        assertEquals(6L, beneficiaries.value)
+        assertEquals(inPlay, rows(beneficiaries, "program").map { it["key"] })
+        // un programa en draft, pending_approval o cancelled, solo, da conjuntos vacíos
+        for (state in listOf("draft", "pending_approval", "cancelled")) {
+            val one = listOf(ProgramRow("gx", "p1", "PRG-X", "Programa X", "PEN", state))
+            val alone = listOf(BudgetRow("gx", 2026, amount("100"), amount("10"), "PEN"))
+            assertNull(InvestmentKpis.programs(one, alone, null).value, state)
+            assertTrue(rows(InvestmentKpis.programs(one, alone, null), "program").isEmpty(), state)
+            assertEquals(0L, InvestmentKpis.beneficiaries(one, listOf(GroupRow("gx", 10, 1)), emptyList(), emptyList()).value, state)
+        }
     }
 }

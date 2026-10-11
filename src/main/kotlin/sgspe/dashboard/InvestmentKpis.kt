@@ -25,8 +25,8 @@ data class CommittedAmount(
     val currency: String?
 )
 
-// `state`: el estado de WF-G, informativo. los KPI-INV cuentan los programas en cualquier estado de WF-G y el backend no oculta
-// ninguno; el portal lo usa para distinguir (marcar) los programas por aprobar en las filas de KPI-INV-02 (S43, plan 5.3)
+// `state`: el estado de WF-G. los KPI-INV cuentan un programa solo en InvestmentKpis.COUNTED_PROGRAM_STATES (desde
+// «Planificado»); DashboardData ya los lee filtrados y las funciones puras vuelven a filtrar. sale en las filas de KPI-INV-02
 data class ProgramRow(
     val id: String,
     val project: String?,
@@ -80,6 +80,14 @@ object InvestmentKpis {
     val EXECUTED: Set<String> = Contributions.EXECUTED
 
     private val SOURCES = listOf(COMMITMENTS, CONTRIBUTIONS, PROGRAMS)
+
+    // decisión del usuario del 2026-10-11: un programa social cuenta en KPI-INV-02 a 04 (sus presupuestos y sus grupos de
+    // beneficiarios) solo desde «Planificado» de WF-G (model/workflows/social_program.json). quedan fuera draft,
+    // pending_approval, cancelled y cualquier otro estado. DashboardData lo aplica en la lectura con Criteria.inState
+    val COUNTED_PROGRAM_STATES: Set<String> = setOf("planned", "executing", "monitoring", "evaluation", "suspended", "closed")
+
+    // los programas que cuentan, por su id
+    private fun counted(programs: List<ProgramRow>): Map<String, ProgramRow> = programs.filter { it.state in COUNTED_PROGRAM_STATES }.associateBy { it.id }
 
     // un monto de una fuente en un proyecto
     private data class Amount(
@@ -135,7 +143,7 @@ object InvestmentKpis {
         budgets: List<BudgetRow>,
         year: Int?
     ): IndicatorResult {
-        val byId = programs.associateBy { it.id }
+        val byId = counted(programs)
         val chosen = budgets.filter { it.program in byId && it.currency != null && (year == null || it.year == year) }
         val rows =
             chosen
@@ -198,7 +206,7 @@ object InvestmentKpis {
         for (s in contributions.filter { it.state in EXECUTED && it.id in delivered }) {
             done += Amount(s.project.orEmpty(), CONTRIBUTIONS, s.total, s.currency)
         }
-        val byProgram = programs.associateBy { it.id }
+        val byProgram = counted(programs)
         val years = start.year..end.year
         val inYears = if (withPrograms) budgets.filter { it.program in byProgram && it.year != null && it.year in years } else emptyList()
         for (b in inYears) done += Amount(byProgram[b.program]?.project.orEmpty(), PROGRAMS, b.executed, b.currency)
@@ -265,7 +273,7 @@ object InvestmentKpis {
         contributions: List<ContributionRow>,
         commitments: List<CommitmentRow>
     ): IndicatorResult {
-        val byId = programs.associateBy { it.id }
+        val byId = counted(programs)
         val own = groups.filter { it.program in byId }
         val rows =
             own
