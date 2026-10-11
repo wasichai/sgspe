@@ -17,11 +17,13 @@ object Contributions {
     const val CONTRIBUTION = "social_contribution"
     const val ITEM = "contribution_item"
     const val DELIVERY = "delivery"
+    const val RECEIPT = "receipt"
     const val TOPIC = "topic"
     const val PRIORITY_TOPICS = "project_priority_topic"
     const val PARENT_TOPIC = "parent_topic"
 
     const val REQUESTED = "requested"
+    const val APPROVED = "approved"
     const val PROCURED = "procured"
     const val APPROVE = "approve"
     const val APPROVE_DIRECT = "approve_direct"
@@ -33,7 +35,7 @@ object Contributions {
     val CANCELS: Set<String> = setOf("cancel_approved", "cancel_procured")
 
     // comprometido (decisión 1, dashboards.md §3.2): lo que cuenta para el tope de la campaña
-    val COMMITTED: Set<String> = setOf("approved", PROCURED, "delivered", "closed")
+    val COMMITTED: Set<String> = setOf(APPROVED, PROCURED, "delivered", "closed")
 
     // ejecutado (ASM-063): desde la entrega
     val EXECUTED: Set<String> = setOf("delivered", "closed")

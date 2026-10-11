@@ -19,6 +19,23 @@ class ContributionDeliveryTest {
         }
     }
 
+    // decisión del usuario del 2026-10-11: el comprobante cambia antes de la entrega y queda fijo desde delivered
+    @Test
+    fun `el comprobante cambia antes de delivered y queda fijo desde delivered`() {
+        for (state in listOf("requested", "approved", "procured")) {
+            assertNull(ContributionDelivery.receiptFrozen(state), state)
+        }
+        for (state in listOf("delivered", "closed", "rejected", "cancelled", null)) {
+            val finding = ContributionDelivery.receiptFrozen(state)
+            assertEquals(
+                Triple("DELIVERY_FROZEN", "social_contribution", HttpStatus.CONFLICT),
+                finding?.let { Triple(it.code, it.field, it.status) },
+                "$state"
+            )
+            assertTrue("comprobante" in finding!!.message, finding.message)
+        }
+    }
+
     @Test
     fun `una segunda entrega y el monto entregado tienen su codigo y su campo`() {
         assertEquals(

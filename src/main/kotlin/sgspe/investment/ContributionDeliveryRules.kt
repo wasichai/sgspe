@@ -42,6 +42,22 @@ object ContributionDelivery {
             )
         }
 
+    // los estados de WF-P en que el comprobante de un aporte todavía cambia: antes de la entrega
+    val RECEIPT_OPEN: Set<String> = setOf(Contributions.REQUESTED, Contributions.APPROVED, Contributions.PROCURED)
+
+    // el comprobante de un aporte (alta, cambio o baja) queda fijo desde delivered y en los estados finales, con el mismo
+    // código y el mismo criterio que la entrega congelada (decisión del usuario del 2026-10-11)
+    fun receiptFrozen(state: String?): Finding? =
+        if (state in RECEIPT_OPEN) {
+            null
+        } else {
+            Finding(
+                "DELIVERY_FROZEN",
+                "El comprobante de un aporte solo cambia antes de su entrega; este está en ${state ?: "ningún estado"} (decisión del usuario del 2026-10-11)",
+                Contributions.CONTRIBUTION
+            )
+        }
+
     fun amountNotAllowed(field: String = AMOUNT): Finding =
         Finding(
             "FIELD_NOT_ALLOWED",
@@ -133,6 +149,41 @@ class ContributionDeliveryRecordRules(
         readAs(Contributions.DELIVERY) {
             records.count(Contributions.DELIVERY, filters = mapOf(Contributions.CONTRIBUTION to contribution.toString()))
         } > 0
+
+    private suspend fun stateOf(contribution: UUID): String? = records.readable(Contributions.CONTRIBUTION, contribution).state
+}
+
+// InvestmentWriteGuard, el comprobante de un aporte por cualquier puerta (decisión del usuario del 2026-10-11): un alta, un
+// cambio o una baja de receipt con su aporte en delivered o después (closed, rejected, cancelled) es DELIVERY_FROZEN sobre
+// social_contribution. un cambio que mueve el comprobante a otro aporte se juzga contra los dos, en orden ascendente del UUID
+// como texto (Transactions). el estado se lee como quien escribe (sin lectura, NotReadable) y, al escribir, con el candado del
+// aporte, el mismo de la entrega, de register_delivery y de las anulaciones; la consulta en seco no lo toma
+@Component
+class ContributionReceiptRule(
+    private val records: Records,
+    private val view: WriteView,
+    private val transactions: Transactions
+) : InvestmentRule {
+    override val order = InvestmentRuleOrder.RECORD + 2
+
+    override suspend fun findings(
+        change: RecordWrite,
+        dryRun: Boolean
+    ): List<Finding> {
+        if (change.objectName != Contributions.RECEIPT) return emptyList()
+        val before = Records.uuid(change.before?.get(Contributions.CONTRIBUTION))
+        val contributions =
+            when (change.kind) {
+                RecordChangeKind.CREATED -> listOfNotNull(Records.uuid(view.after(change)[Contributions.CONTRIBUTION]))
+                RecordChangeKind.UPDATED -> listOfNotNull(before, Records.uuid(view.after(change)[Contributions.CONTRIBUTION]))
+                RecordChangeKind.DELETED -> listOfNotNull(before)
+                else -> return emptyList()
+            }.distinct().sortedBy { it.toString() }
+        return contributions.mapNotNull { id ->
+            val state = if (dryRun) stateOf(id) else transactions.locked(Contributions.lock(id)) { stateOf(id) }
+            ContributionDelivery.receiptFrozen(state)
+        }
+    }
 
     private suspend fun stateOf(contribution: UUID): String? = records.readable(Contributions.CONTRIBUTION, contribution).state
 }

@@ -1442,6 +1442,10 @@ regla que no puede leer lo que necesita rechaza (`403 OBJECT_NOT_READABLE`): nun
   la entrega o el alta o la baja de un vínculo `evidence_delivery` es `409 DELIVERY_FROZEN` sobre
   `social_contribution`; `delivered_amount` informado es `400 FIELD_NOT_ALLOWED`. La regla de compromisos
   (`DELIVERY_FROZEN` sobre `commitment`, `sgspe.commitment`) solo mira las entregas con `commitment`.
+- **Comprobante congelado (decisión del usuario del 2026-10-11):** el `receipt` también se congela desde `delivered`: su
+  alta, su cambio o su baja con el aporte en `delivered`, `closed`, `rejected` o `cancelled` es `409 DELIVERY_FROZEN`
+  sobre `social_contribution`; un cambio que lo mueve a otro aporte se juzga contra los dos. La regla toma el candado
+  del aporte, y antes de la entrega (`requested`, `approved`, `procured`) el comprobante cambia libremente.
 
 `POST /api/sgspe/social-contributions/{id}/deliveries` solo captura datos, con el aporte en `procured`: crea la única
 `delivery` y sus vínculos de evidencia en una transacción, sin cambiar el estado. El cambio de estado es la transición
