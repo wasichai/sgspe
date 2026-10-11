@@ -11,11 +11,11 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.springframework.http.HttpStatus
-import sgspe.F4ApiTest
+import sgspe.F5ApiTest
 import sgspe.engagement.EngagementWriteGuard
 import java.io.File
 
-// la matriz de los quince workflows de F2 a F4 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
+// la matriz de los diecisiete workflows de F2 a F5 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
 // rol de su lista la aplica desde su estado de origen y el registro queda en el destino, (2) un rol fuera de la lista que
 // tiene UPDATE (o `u`) sobre el objeto recibe 403 y el listado le dice `requires role ...`, y (3) desde un estado que no es
 // el de origen responde 409 con el registro sin cambios. las expectativas salen de esos mismos JSON, así que un cambio de
@@ -26,8 +26,9 @@ import java.io.File
 // piden las guardas de 2.2 y 3.2 (como `activatable()` y `profileable()` de WF-A y WF-B; `close_light` usa un tipo no
 // formal, ver LIGHT_CLOSE_TYPE; los compromisos traen D1, D2 y una aprobación de otra persona, D4; los acuerdos son
 // convenios firmados y vigentes; los candidatos, apiOnly, los crea la plataforma; las QCS, los riesgos, los incidentes y las
-// alertas traen lo que piden las guardas de 4.2a y 4.2b, con F4ApiTest)
-class WorkflowMatrixApiTest : F4ApiTest() {
+// alertas traen lo que piden las guardas de 4.2a y 4.2b, con F4ApiTest; los aportes y los programas, lo que pedirán las de
+// 5.2a y 5.2b, con F5ApiTest, y los registra siempre quien los lleva, porque quien los aprueba no los registró: P5 y G2)
+class WorkflowMatrixApiTest : F5ApiTest() {
     private data class Transition(
         val name: String,
         val from: String,
@@ -152,6 +153,9 @@ class WorkflowMatrixApiTest : F4ApiTest() {
                 )
             "early_warning" -> earlyWarning(testProject(), actor(workflow, creatorRole, null))
             "incident" -> incident(testProject(), actor(workflow, creatorRole, null))
+            // F5: el aporte con su ítem (P9) y el programa, registrados por quien los lleva (creatorFor)
+            "social_contribution" -> socialContribution(testProject(), actor(workflow, creatorRole, null))
+            "social_program" -> socialProgram(testProject(), actor(workflow, creatorRole, null))
             else -> error("sin registro de prueba para ${workflow.objectName}")
         }
 
@@ -304,11 +308,18 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         )
 
     // quien crea el registro de la prueba: el propio rol si puede crearlo (RU: FIELD_AGENT solo cambia lo que creó), si no el
-    // primero de los que llevan el objeto. quien aprueba un compromiso nunca lo creó (D4): sus roles no tienen CREATE
+    // primero de los que llevan el objeto. quien aprueba un compromiso nunca lo creó (D4): sus roles no tienen CREATE. un
+    // aporte o un programa (SEGREGATED) lo registra siempre quien lo lleva: SOCIAL_MANAGER crea aportes y también los aprueba,
+    // y P5 (plan 5.2a) le respondería 403 si aprobara el que registró
     private fun creatorFor(
         workflow: Workflow,
         role: String
-    ): String = if ("CREATE" in Model.roles.getValue(role)[workflow.objectName].orEmpty()) role else workflow.drivers.first()
+    ): String =
+        when {
+            workflow.objectName in SEGREGATED -> workflow.drivers.first()
+            "CREATE" in Model.roles.getValue(role)[workflow.objectName].orEmpty() -> role
+            else -> workflow.drivers.first()
+        }
 
     // `close_light` cierra sin acta solo un tipo no formal (RN-ENG-004, EngagementWriteGuard.lightClose de 2.2: con la política
     // por defecto un tipo formal responde 409); las demás transiciones usan REUNION, un tipo formal
@@ -375,7 +386,7 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         val objectName = workflow.objectName
         val type = engagementTypeFor(workflow, rule)
         val allowed =
-            rule.roles.map { role ->
+            rule.roles.filter { "${workflow.key(rule)}:$it" !in ROLE_DEFERRED }.map { role ->
                 dynamicTest("$role aplica ${rule.name}: ${rule.from} pasa a ${rule.to}") {
                     val id = recordAt(workflow, rule.from, creatorFor(workflow, role), type, rule)
                     val response = perform(workflow, id, rule, actor(workflow, role, id))
@@ -442,6 +453,12 @@ class WorkflowMatrixApiTest : F4ApiTest() {
             val (objectName, name) = key.split(".")
             assertTrue(WORKFLOWS.getValue(objectName).transitions.any { it.name == name }, "$key no existe en model/workflows/$objectName.json")
         }
+        // un caso diferido por rol nombra una transición y un rol de su lista
+        for (key in ROLE_DEFERRED) {
+            val (transition, role) = key.split(":")
+            val (objectName, name) = transition.split(".")
+            assertTrue(WORKFLOWS.getValue(objectName).transitions.any { it.name == name && role in it.roles }, "$key no está en model/workflows")
+        }
     }
 
     @Test
@@ -460,7 +477,7 @@ class WorkflowMatrixApiTest : F4ApiTest() {
     }
 
     @Test
-    fun `los quince workflows de model estan en la matriz`() {
+    fun `los diecisiete workflows de model estan en la matriz`() {
         val files = File("model/workflows").listFiles { file -> file.extension == "json" }!!.map { it.nameWithoutExtension }.toSet()
         assertEquals(files, WORKFLOWS.keys)
     }
@@ -496,7 +513,7 @@ class WorkflowMatrixApiTest : F4ApiTest() {
         private const val LIGHT_CLOSE_TYPE = "CONTACTO CARA A CARA"
 
         // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2, WF-D 17, WF-I 10, WF-K 3,
-        // WF-N 8, WF-E1 22, WF-E2 5, WF-E3 8, WF-F 9, WF-J 6, WF-M 3)
+        // WF-N 8, WF-E1 22, WF-E2 5, WF-E3 8, WF-F 9, WF-J 6, WF-M 3, WF-G 14, WF-P 8)
         private val WORKFLOW_TRANSITIONS =
             mapOf(
                 "project" to 9,
@@ -513,8 +530,19 @@ class WorkflowMatrixApiTest : F4ApiTest() {
                 "stakeholder_request" to 8,
                 "social_risk" to 9,
                 "early_warning" to 6,
-                "incident" to 3
+                "incident" to 3,
+                "social_program" to 14,
+                "social_contribution" to 8
             )
+
+        // los casos «rol de la lista aplica la transición» que esperan a otro plan: SOCIAL_INVESTMENT_MANAGER acepta una solicitud
+        // como aporte (creates = social_contribution), que llega con el plan 5.2a; como compromiso le respondería 403, porque no
+        // crea compromisos (§2.2 de la especificación de F5). el plan 5.2a saca esta clave cuando perform acepte como aporte
+        val ROLE_DEFERRED = setOf("stakeholder_request.accept:SOCIAL_INVESTMENT_MANAGER")
+
+        // los objetos cuya aprobación exige que quien aprueba no los haya registrado (P5 de WF-P y G2 de WF-G): los registra
+        // siempre el primero de DRIVERS (creatorFor)
+        val SEGREGATED = setOf("social_contribution", "social_program")
 
         // lo que el plan 2.2 convierte en comando y la API genérica rechaza (CommandTransitionGuard: `assess` de WF-B, `approve`
         // y `supersede` de WF-O) y lo que solo se alcanza por ellos: `retire_assessed` sale de `assessed`. los casos de estas
@@ -558,7 +586,11 @@ class WorkflowMatrixApiTest : F4ApiTest() {
                 "stakeholder_request" to listOf("GRIEVANCE_MANAGER", "SOCIAL_MANAGER"),
                 "social_risk" to listOf("SOCIAL_RISK_MANAGER"),
                 "early_warning" to listOf("SOCIAL_RISK_MANAGER"),
-                "incident" to listOf("SOCIAL_RISK_MANAGER")
+                "incident" to listOf("SOCIAL_RISK_MANAGER"),
+                // F5: SIM registra y lleva el programa; SOCIAL_MANAGER lo evalúa, suspende y cierra; APPROVER lo aprueba
+                "social_program" to listOf("SOCIAL_INVESTMENT_MANAGER", "SOCIAL_MANAGER", "APPROVER"),
+                // SIM registra, adquiere, entrega y cierra el aporte; APPROVER lo aprueba (no lo registró, P5)
+                "social_contribution" to listOf("SOCIAL_INVESTMENT_MANAGER", "APPROVER", "SOCIAL_MANAGER")
             )
 
         private val WORKFLOWS: Map<String, Workflow> = DRIVERS.keys.associateWith(::load)
