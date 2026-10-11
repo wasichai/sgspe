@@ -49,6 +49,31 @@ SYMBOLIZERS = {"POINT": "PointSymbolizer", "MULTIPOINT": "PointSymbolizer", "LIN
                "MULTILINESTRING": "LineSymbolizer", "POLYGON": "PolygonSymbolizer", "MULTIPOLYGON": "PolygonSymbolizer"}
 
 
+def redacted(url):
+    """scheme://host[:port]/path de una URL, sin usuario, contraseña, consulta ni fragmento: es lo único que se imprime."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+        host = parts.hostname or ""
+        port = f":{parts.port}" if parts.port else ""
+        return f"{parts.scheme}://{host}{port}{parts.path}"
+    except ValueError:
+        return "(URL no válida)"
+
+
+def url_problem(url):
+    """Por qué una URL de GeoServer no sirve (sin repetirla), o None. Nunca lleva usuario ni contraseña."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+        parts.port  # noqa: B018  (valida el puerto)
+    except ValueError:
+        return "no es una URL válida"
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return "debe ser http:// o https:// con servidor"
+    if parts.username is not None or parts.password is not None:
+        return "no puede llevar usuario ni contraseña: van en WASICHAI_GIS_GEOSERVER_USERNAME y _PASSWORD"
+    return None
+
+
 class PublishError(Exception):
     """Core o GeoServer rechazaron una llamada o no respondieron. El mensaje nunca lleva credenciales."""
 
@@ -101,6 +126,9 @@ def validate(layers, model, roles, palette, styles_dir):
             continue
         layer, name, geometry, style, label = (entry["layer"], entry["object"], entry["geometry"], entry["style"],
                                                entry.get("label"))
+        if not all(isinstance(v, str) for v in (name, geometry)) or not (label is None or isinstance(label, str)):
+            errors.append(f"{where}: object, geometry y label deben ser texto")
+            continue
         where = f"{where} ({layer} {name}.{geometry})"
         if not isinstance(layer, str) or not LAYER_ID.fullmatch(layer):
             errors.append(f"{where}: layer debe ser un id LYR-NN de gis.md §2.2")
@@ -115,8 +143,8 @@ def validate(layers, model, roles, palette, styles_dir):
             errors.append(f"{where}: {name} tiene campos restringidos (roles.json); GeoServer los publicaría sin permisos")
         fields = {f["name"]: f for f in obj["fields"]}
         field = fields.get(geometry)
-        if field is None or field["type"] != "GEOMETRY":
-            errors.append(f"{where}: {geometry} no es una geometría de {name}")
+        if field is None or field.get("type") != "GEOMETRY" or field.get("geometryType") not in SYMBOLIZERS:
+            errors.append(f"{where}: {geometry} no es una geometría de {name} con geometryType")
             continue
         if label is not None and fields.get(label, {}).get("type") != "TEXT":
             errors.append(f"{where}: la etiqueta {label} debe ser un campo TEXT de {name}")
@@ -189,14 +217,16 @@ class GeoServer:
         if body is not None:
             headers["Content-Type"] = SLD_TYPE
             data = body.encode("utf-8")
-        request = urllib.request.Request(self.base_url + path, data=data, method=method, headers=headers)
         try:
+            request = urllib.request.Request(self.base_url + path, data=data, method=method, headers=headers)
             with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
                 return response.status, response.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             return e.code, e.read().decode("utf-8", errors="replace")
         except (urllib.error.URLError, OSError) as e:
-            raise PublishError(f"GeoServer no responde en {self.base_url}: {getattr(e, 'reason', e)}") from None
+            raise PublishError(f"GeoServer no responde en {redacted(self.base_url)}: {getattr(e, 'reason', e)}") from None
+        except ValueError:
+            raise PublishError(f"GeoServer: la URL {redacted(self.base_url)} no es válida") from None
 
     @staticmethod
     def _refused(what, status, text):
@@ -227,7 +257,9 @@ class GeoServer:
 
 def publish(client, layers, dry_run):
     """Publica por core las capas de `layers` que faltan. Devuelve (publicadas, omitidas)."""
-    status = client.get("/api/gis/layers") or []
+    status = client.get("/api/gis/layers")
+    if status is None:
+        raise PublishError("el core no tiene GET /api/gis/layers (404): le falta wasichai-gis")
     known = {(s["objectName"], s["geometryName"]): s for s in status}
     wanted = pairs(layers)
     missing = [f"{name}.{geometry}" for name, geometry in wanted if (name, geometry) not in known]
@@ -278,8 +310,18 @@ def load_styles(geoserver, layers, styles_dir, dry_run):
     return created, updated, skipped
 
 
+class _QuietParser(argparse.ArgumentParser):
+    """Un argumento rechazado puede ser una contraseña puesta por error: el mensaje no lo repite."""
+
+    def parse_args(self, args=None, namespace=None):
+        parsed, extra = self.parse_known_args(args, namespace)
+        if extra:
+            self.error("argumentos desconocidos: las credenciales de GeoServer van solo por variables de entorno")
+        return parsed
+
+
 def _parse_args(argv):
-    p = argparse.ArgumentParser(description="Publica las capas públicas de SGSPE en GeoServer y carga sus estilos.")
+    p = _QuietParser(description="Publica las capas públicas de SGSPE en GeoServer y carga sus estilos.")
     p.add_argument("--layers", default=os.path.join(HERE, "layers.json"))
     p.add_argument("--styles", default=os.path.join(HERE, "styles"))
     p.add_argument("--model", default=os.path.join(HERE, "model.json"))
@@ -328,6 +370,10 @@ def main(argv=None):
         missing = ", ".join(name for name, value in zip(GEOSERVER_VARIABLES, settings) if not value)
         print(f"error: faltan {missing}: las credenciales de GeoServer van solo por variables de entorno; un despliegue "
               f"sin GeoServer aprovisiona con --skip-layers", file=sys.stderr)
+        return 2
+    problem = url_problem(settings[0])
+    if problem:
+        print(f"error: WASICHAI_GIS_GEOSERVER_URL {problem}", file=sys.stderr)
         return 2
     client = Client(args.core)
     try:

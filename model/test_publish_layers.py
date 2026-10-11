@@ -207,8 +207,9 @@ class PublishTests(unittest.TestCase):
         self.assertIn("--skip-layers", err)
         self.assertEqual((self.core.requests, self.geoserver.requests), ([], []))
         # nunca por argumento
-        code, _, _ = self.run_cli("--geoserver-password", SECRET)
+        code, out, err = self.run_cli("--geoserver-password", SECRET)
         self.assertEqual(code, 2)
+        self.assertNotIn(SECRET, out + err)
         # con ellas, cada llamada a GeoServer lleva la autenticación básica y la contraseña no sale
         code, out, err = self.run_cli()
         self.assertEqual(code, 0, err)
@@ -243,6 +244,44 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("GeoServer no responde", err)
         self.assertNotIn("Traceback", err)
+
+    def test_una_url_de_geoserver_con_usuario_o_sin_esquema_sale_con_2_sin_filtrar_ni_traza(self):
+        host = self.geoserver.base_url.split("//", 1)[1]
+        for url in (f"http://usuario:{SECRET}@{host}", f"http://usuario:{SECRET}@127.0.0.1:9/geoserver",
+                    f"127.0.0.1:{self.geoserver.port}/geoserver", "ftp://127.0.0.1/geoserver", "http:///geoserver"):
+            with self.subTest(url.replace(SECRET, "***")):
+                code, out, err = self.run_cli(env=self.env(WASICHAI_GIS_GEOSERVER_URL=url))
+                self.assertEqual(code, 2)
+                self.assertIn("WASICHAI_GIS_GEOSERVER_URL", err)
+                self.assertNotIn(SECRET, out + err)
+                self.assertNotIn("Traceback", out + err)
+        self.assertEqual((self.core.requests, self.geoserver.requests), ([], []))
+
+    def test_un_core_sin_wasichai_gis_lo_dice(self):
+        class Missing(FakeCore):
+            def _gis(self, method, path):
+                return 404, {"detail": "not found"}
+
+        core = Missing()
+        self.addCleanup(core.stop)
+        code, _, err = self.run_cli(core=core)
+        self.assertEqual(code, 1)
+        self.assertIn("/api/gis/layers", err)
+        self.assertIn("wasichai-gis", err)
+        self.assertNotIn("apply.py", err)
+
+    def test_un_layers_json_con_tipos_malos_sale_con_2_sin_traza(self):
+        for change in ({"object": 7}, {"label": 3}, {"geometry": ["boundary"]}):
+            with self.subTest(change):
+                bad = copy.deepcopy(LAYERS)
+                bad[0].update(change)
+                self.assertTrue(publish_layers.validate(bad, MODEL, ROLES, PALETTE, STYLES_DIR))
+        model = copy.deepcopy(MODEL)
+        field = next(f for o in model["objects"] if o["name"] == LAYERS[0]["object"] for f in o["fields"]
+                     if f["name"] == LAYERS[0]["geometry"])
+        del field["geometryType"]
+        errors = publish_layers.validate(LAYERS, model, ROLES, PALETTE, STYLES_DIR)
+        self.assertTrue(any("no es una geometría" in e for e in errors), errors)
 
     def test_un_layers_json_invalido_sale_con_2_sin_llamar(self):
         layers = copy.deepcopy(LAYERS)
