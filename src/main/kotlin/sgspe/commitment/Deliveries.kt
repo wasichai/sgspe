@@ -33,10 +33,21 @@ import wasichai.core.data.RecordResponse
 import java.math.BigDecimal
 import java.util.UUID
 
+// lo que responde la corrección de una entrega: la entrega y su padre
+sealed interface CorrectedDelivery {
+    val delivery: RecordResponse
+}
+
 data class DeliveryResult(
-    val delivery: RecordResponse,
+    override val delivery: RecordResponse,
     val commitment: RecordResponse
-)
+) : CorrectedDelivery
+
+// la entrega de un aporte (desde F5): la captura (ContributionDeliveries) y su corrección responden { delivery, contribution }
+data class ContributionDeliveryResult(
+    override val delivery: RecordResponse,
+    val contribution: RecordResponse
+) : CorrectedDelivery
 
 // la entrega de un compromiso (RF-COM-008, api.md §4.5): solo captura datos. en una transacción crea la delivery (apiOnly), la
 // vincula con sus evidencias (evidence_delivery: el acta y las fotos, ya subidas con POST /api/sgspe/evidence) y recalcula
@@ -62,7 +73,7 @@ class CommitmentDeliveries(
         StrictBody.requireOnly(body, setOf("attributes", "geometries", "evidence"))
         val attributes = amount(StrictBody.objectOf(body, "attributes"))
         val geometries = StrictBody.objectOf(body, "geometries")
-        val evidence = evidence(body["evidence"])
+        val evidence = evidenceIds(body["evidence"])
         requireReason(reason)
         val user = callers.require()
         val grants =
@@ -87,32 +98,52 @@ class CommitmentDeliveries(
         return CommandAnswer(HttpStatus.CREATED, result, result.delivery.updatedAt, "/api/objects/${Commitments.DELIVERY}/records/${result.delivery.id}")
     }
 
-    // corrige los datos de una entrega y recalcula el ejecutado de su compromiso; solo escribe lo que cambia. el compromiso de
-    // la entrega no cambia nunca (FIXED): DELIVERY_FROZEN mira el de antes, y moverla la sacaría de uno cumplido
+    // corrige los datos de una entrega; solo escribe lo que cambia. el padre de la entrega no cambia nunca (FIXED). la de un
+    // compromiso recalcula su ejecutado con el candado del compromiso; la de un aporte (desde F5, decisión 7 del plan 5.2a)
+    // toma el candado del aporte, no recalcula nada y responde { delivery, contribution }: sus reglas (DELIVERY_FROZEN sobre
+    // social_contribution, sin delivered_amount) son de InvestmentWriteGuard
     suspend fun patch(
         id: UUID,
         body: Map<String, Any?>,
         reason: String?,
         ifMatch: String?
-    ): DeliveryResult {
+    ): CorrectedDelivery {
         val expected = IfMatch.required(ifMatch)
         StrictBody.requireOnly(body, setOf("attributes", "geometries"))
         val changes = amount(StrictBody.objectOf(body, "attributes"))
         val geometries = StrictBody.objectOf(body, "geometries")
         requireReason(reason)
         val user = callers.require()
-        permissions.require(user, "Corregir una entrega", Actions.UPDATE to Commitments.DELIVERY, Actions.UPDATE to Commitments.COMMITMENT)
         val read = records.get(Commitments.DELIVERY, id)
-        val commitmentId =
-            Records.uuid(read.attributes["commitment"])
-                ?: throw Finding("STATE_MISMATCH", "La entrega no es de un compromiso", "commitment").toCodedException()
+        val commitmentId = Records.uuid(read.attributes["commitment"])
+        if (commitmentId == null) {
+            val contributionId =
+                Records.uuid(read.attributes[Commitments.SOCIAL_CONTRIBUTION])
+                    ?: throw Finding("STATE_MISMATCH", "La entrega no es de un compromiso ni de un aporte", "commitment").toCodedException()
+            permissions.require(user, "Corregir una entrega", Actions.UPDATE to Commitments.DELIVERY, Actions.UPDATE to Commitments.SOCIAL_CONTRIBUTION)
+            return transactions.locked("${Commitments.SOCIAL_CONTRIBUTION}:$contributionId") {
+                ContributionDeliveryResult(correct(id, changes, geometries, reason, expected), records.get(Commitments.SOCIAL_CONTRIBUTION, contributionId))
+            }
+        }
+        permissions.require(user, "Corregir una entrega", Actions.UPDATE to Commitments.DELIVERY, Actions.UPDATE to Commitments.COMMITMENT)
         return transactions.locked(Reschedules.lock(commitmentId)) {
-            val delivery = records.get(Commitments.DELIVERY, id)
-            versions.check(Commitments.DELIVERY, id, expected, delivery.updatedAt, "La entrega")
-            val diff = changes.filter { (field, value) -> !Values.same(delivery.attributes[field], value) }
-            val written = if (diff.isEmpty() && geometries.isEmpty()) delivery else records.patch(Commitments.DELIVERY, id, diff, reason, geometries)
+            val written = correct(id, changes, geometries, reason, expected)
             DeliveryResult(written, refreshExecuted(commitmentId, reason))
         }
+    }
+
+    // la entrega leída dentro del candado, comparada con If-Match y escrita solo si algo cambia
+    private suspend fun correct(
+        id: UUID,
+        changes: Map<String, Any?>,
+        geometries: Map<String, Any?>,
+        reason: String?,
+        expected: java.time.Instant
+    ): RecordResponse {
+        val delivery = records.get(Commitments.DELIVERY, id)
+        versions.check(Commitments.DELIVERY, id, expected, delivery.updatedAt, "La entrega")
+        val diff = changes.filter { (field, value) -> !Values.same(delivery.attributes[field], value) }
+        return if (diff.isEmpty() && geometries.isEmpty()) delivery else records.patch(Commitments.DELIVERY, id, diff, reason, geometries)
     }
 
     // los atributos de la entrega (campos del objeto, ni derivados ni los que fija el comando) con delivered_amount acotado
@@ -142,16 +173,6 @@ class CommitmentDeliveries(
         }
     }
 
-    private fun evidence(raw: Any?): List<UUID> {
-        if (raw == null) return emptyList()
-        val list = raw as? List<*> ?: throw ValidationException("Evidencias inválidas", "evidence", "debe ser una lista de ids de evidence")
-        if (list.size > MAX_EVIDENCE) throw ValidationException("Demasiadas evidencias", "evidence", "a lo sumo $MAX_EVIDENCE por entrega")
-        return list
-            .mapIndexed { index, item ->
-                Records.uuid(item) ?: throw ValidationException("Evidencia inválida", "evidence[$index]", "debe ser el id de una evidence")
-            }.distinct()
-    }
-
     // escribir executed_amount en el compromiso (requiresReason) exige motivo: se pide antes de escribir nada
     private fun requireReason(reason: String?) {
         if (reason.isNullOrBlank()) throw ValidationException("Registrar una entrega exige un motivo", "reason", "envíe la cabecera X-Change-Reason")
@@ -162,9 +183,21 @@ class CommitmentDeliveries(
         const val AMOUNT = "delivered_amount"
         const val EXECUTED = "executed_amount"
 
-        // la relación con su compromiso la fija el comando; la del aporte social llega en F5
+        // el padre de la entrega lo fija el comando: commitment en las de compromisos y social_contribution en las de aportes (F5)
         val FIXED = setOf("commitment", "social_contribution")
         const val MAX_EVIDENCE = 50
+
+        // los ids de evidence de un cuerpo de entrega (también el de la entrega de un aporte): una lista de a lo sumo
+        // MAX_EVIDENCE UUID, sin repetidos
+        fun evidenceIds(raw: Any?): List<UUID> {
+            if (raw == null) return emptyList()
+            val list = raw as? List<*> ?: throw ValidationException("Evidencias inválidas", "evidence", "debe ser una lista de ids de evidence")
+            if (list.size > MAX_EVIDENCE) throw ValidationException("Demasiadas evidencias", "evidence", "a lo sumo $MAX_EVIDENCE por entrega")
+            return list
+                .mapIndexed { index, item ->
+                    Records.uuid(item) ?: throw ValidationException("Evidencia inválida", "evidence[$index]", "debe ser el id de una evidence")
+                }.distinct()
+        }
 
         // las entregas de un compromiso que se suman como mucho
         const val MAX_DELIVERIES = 1000
@@ -196,7 +229,7 @@ class DeliveryController(
         @RequestHeader(name = ChangeReason.HEADER, required = false) reason: String?,
         @RequestHeader(name = IfMatch.HEADER, required = false) ifMatch: String?,
         exchange: ServerWebExchange
-    ): ResponseEntity<DeliveryResult> {
+    ): ResponseEntity<Any> {
         StrictQuery.requireOnly(exchange.request.queryParams, emptySet())
         val result = deliveries.patch(id, body, ChangeReason.fromHeader(reason), ifMatch)
         return ResponseEntity.ok().eTag("\"${result.delivery.updatedAt}\"").body(result)

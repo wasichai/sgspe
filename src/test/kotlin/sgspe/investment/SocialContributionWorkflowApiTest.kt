@@ -1,10 +1,12 @@
 package sgspe.investment
 
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.ContributionApiTest
+import sgspe.common.IdempotencyKey
 
 // WF-P (workflows.md, especificación de F5 §3.3 a §3.5, §5): las reglas de InvestmentWriteGuard por la API genérica, por la
 // consulta en seco y por el comando de entrega. cada tarea del plan 5.2a suma sus casos al final
@@ -255,5 +257,101 @@ class SocialContributionWorkflowApiTest : ContributionApiTest() {
         assertTrue(check["warnings"].values().any { it["code"].asString() == "SUPPORT_CAP_EXCEEDED" }, check.toString())
         move("social_contribution", id, "approve", approver.token, "aprobación")
         assertEquals(0, java.math.BigDecimal("600").compareTo(record("social_contribution", id)["attributes"]["total_amount"].decimalValue()))
+    }
+
+    // ---- Tarea 9: la entrega del aporte ----
+
+    private fun deliveriesOf(contribution: String): Int =
+        tree(send("GET", "/api/objects/delivery/records?social_contribution=$contribution", null, HttpStatus.OK))["totalElements"].asInt()
+
+    @Test
+    fun `capturar la entrega fuera de procured es STATE_MISMATCH y en procured no cambia el estado`() {
+        val project = testProject()
+        val approved = approvedWithItems(project)
+        val early = captureDelivery(approved, evidence = deliveryEvidence(project))
+        assertEquals(HttpStatus.CONFLICT, early.status, early.body)
+        assertEquals("STATE_MISMATCH", code(early))
+        assertEquals(listOf("record"), problemFields(early.body))
+        assertEquals(0, deliveriesOf(approved))
+        val id = procuredWithItems(project)
+        val evidence = deliveryEvidence(project)
+        val captured = captureDelivery(id, evidence = evidence)
+        assertEquals(HttpStatus.CREATED, captured.status, captured.body)
+        val body = tree(captured.body)
+        assertEquals("procured", body["contribution"]["state"].asString())
+        assertEquals(id, body["delivery"]["attributes"]["social_contribution"].asString())
+        val delivery = body["delivery"]["id"].asString()
+        val linked =
+            tree(send("GET", "/api/objects/delivery/records/$delivery/related/evidence_delivery", null, HttpStatus.OK))["content"]
+                .values()
+                .map { it["id"].asString() }
+                .toSet()
+        assertEquals(evidence.toSet(), linked)
+    }
+
+    @Test
+    fun `una segunda entrega es DELIVERY_EXISTS y delivered_amount no se admite`() {
+        val id = procuredWithItems()
+        val amount = captureDelivery(id, mapOf("delivered_amount" to 100))
+        assertEquals(HttpStatus.BAD_REQUEST, amount.status, amount.body)
+        assertEquals("FIELD_NOT_ALLOWED", code(amount))
+        assertEquals(listOf("attributes.delivered_amount"), problemFields(amount.body))
+        assertEquals(HttpStatus.CREATED, captureDelivery(id).status)
+        val second = captureDelivery(id)
+        assertEquals(HttpStatus.CONFLICT, second.status, second.body)
+        assertEquals("DELIVERY_EXISTS", code(second))
+        assertEquals(listOf("social_contribution"), problemFields(second.body))
+        assertEquals(1, deliveriesOf(id))
+    }
+
+    // Review Focus 2: el portal reintenta con la misma clave tras perder la red
+    @Test
+    fun `un reenvio de la captura con la misma clave devuelve la misma respuesta y deja una sola entrega`() {
+        val id = procuredWithItems()
+        val headers = ifMatch("social_contribution", id) + withReason("entrega") + (IdempotencyKey.HEADER to uniqueName("en-"))
+        val first = captureDelivery(id, headers = headers)
+        assertEquals(HttpStatus.CREATED, first.status, first.body)
+        val again = captureDelivery(id, headers = headers)
+        assertEquals(HttpStatus.CREATED, again.status, again.body)
+        assertEquals("true", again.headers.getFirst("Idempotent-Replayed"))
+        assertArrayEquals(first.body.toByteArray(), again.body.toByteArray())
+        assertEquals(1, deliveriesOf(id))
+    }
+
+    @Test
+    fun `la captura exige If-Match del aporte`() {
+        val id = procuredWithItems()
+        assertEquals(HttpStatus.PRECONDITION_REQUIRED, captureDelivery(id, headers = withReason("entrega")).status)
+        assertEquals(0, deliveriesOf(id))
+    }
+
+    @Test
+    fun `la entrega se corrige en procured y queda congelada al anular el aporte`() {
+        val project = testProject()
+        val id = procuredWithItems(project)
+        val foto = evidence(project, "FOTO")
+        val delivery = tree(captureDelivery(id, evidence = listOf(foto)).body)["delivery"]["id"].asString()
+        val fixed =
+            patch(
+                "/api/sgspe/deliveries/$delivery",
+                mapOf("attributes" to mapOf("place" to "Local comunal")),
+                token,
+                ifMatch("delivery", delivery) + withReason()
+            )
+        assertEquals(HttpStatus.OK, fixed.status, fixed.body)
+        assertEquals(id, tree(fixed.body)["contribution"]["id"].asString())
+        assertEquals("Local comunal", tree(fixed.body)["delivery"]["attributes"]["place"].asString())
+        move("social_contribution", id, "cancel_procured", member("APPROVER", project).token, "se anula")
+        val frozen =
+            patch(
+                "/api/sgspe/deliveries/$delivery",
+                mapOf("attributes" to mapOf("place" to "Otro local")),
+                token,
+                ifMatch("delivery", delivery) + withReason()
+            )
+        assertEquals(HttpStatus.CONFLICT, frozen.status, frozen.body)
+        assertEquals("DELIVERY_FROZEN", code(frozen))
+        assertEquals(listOf("social_contribution"), problemFields(frozen.body))
+        assertEquals("DELIVERY_FROZEN", code(exchange("DELETE", "/api/sgspe/evidence/$foto/links/delivery/$delivery", null, token)))
     }
 }
