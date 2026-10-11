@@ -27,7 +27,10 @@ data class DashboardFilters(
     val scope: String?,
     val breakdown: String?,
     // F3: el responsable de un compromiso (owner_user_id), en los KPI-COM que lo aceptan (dashboards.md §4.4)
-    val owner: UUID? = null
+    val owner: UUID? = null,
+    // F5: el programa y el año presupuestal, solo en el tablero investment y en los KPI-INV (INVESTMENT, decisión 2 del plan 5.2b)
+    val program: UUID? = null,
+    val year: Int? = null
 ) {
     // lo que la respuesta devuelve en `filters`: los proyectos efectivos y los filtros que vinieron
     fun echo(): Map<String, Any?> =
@@ -41,7 +44,9 @@ data class DashboardFilters(
             "areaOfInfluence" to areaOfInfluence?.toString(),
             "explorationCampaign" to explorationCampaign?.toString(),
             "scope" to scope,
-            "owner" to owner?.toString()
+            "owner" to owner?.toString(),
+            "program" to program?.toString(),
+            "year" to year
         ).filterValues { it != null }
 
     // los filtros comunes que vinieron (sin los periodos, que siempre tienen valor, ni project, que siempre se aplica)
@@ -53,7 +58,9 @@ data class DashboardFilters(
             areaOfInfluence?.let { "areaOfInfluence" },
             explorationCampaign?.let { "explorationCampaign" },
             scope?.let { "scope" },
-            owner?.let { "owner" }
+            owner?.let { "owner" },
+            program?.let { "program" },
+            year?.let { "year" }
         ).toSet()
 
     companion object {
@@ -70,6 +77,13 @@ data class DashboardFilters(
                 "scope",
                 "owner"
             )
+
+        // F5: los filtros que solo aceptan el tablero investment y los KPI-INV (Kpis.extraFilters); en otro, 422
+        val INVESTMENT: Set<String> = setOf("program", "year")
+
+        // el año presupuestal, como program_budget.budget_year (ProgramRules)
+        const val MIN_YEAR = 2000
+        const val MAX_YEAR = 2100
 
         fun parse(
             params: MultiValueMap<String, String>,
@@ -108,6 +122,14 @@ data class DashboardFilters(
             val scope = params.getFirst("scope")
             val scopes = catalog.enumValues("stakeholder_scope")
             if (scope != null && scopes.isNotEmpty() && scope !in scopes) violations += FieldViolation("scope", "debe ser uno de ${scopes.joinToString(", ")}")
+            val year =
+                params.getFirst("year")?.let { raw ->
+                    raw.trim().toIntOrNull()?.takeIf { it in MIN_YEAR..MAX_YEAR }
+                        ?: run {
+                            violations += FieldViolation("year", "debe ser un año entero de $MIN_YEAR a $MAX_YEAR")
+                            null
+                        }
+                }
             val pending =
                 Pending(
                     projects,
@@ -121,6 +143,8 @@ data class DashboardFilters(
                     scope,
                     params.getFirst("breakdown"),
                     uuid("owner"),
+                    uuid("program"),
+                    year,
                     defaultProjects
                 )
             if (violations.isNotEmpty()) throw ValidationException("Filtro inválido", violations)
@@ -141,6 +165,8 @@ data class DashboardFilters(
         private val scope: String?,
         private val breakdown: String?,
         private val owner: UUID?,
+        private val program: UUID?,
+        private val year: Int?,
         private val defaults: suspend () -> List<UUID>
     ) {
         suspend fun resolve(): DashboardFilters =
@@ -155,7 +181,9 @@ data class DashboardFilters(
                 explorationCampaign,
                 scope,
                 breakdown,
-                owner
+                owner,
+                program,
+                year
             )
     }
 }
