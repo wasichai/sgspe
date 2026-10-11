@@ -205,4 +205,55 @@ class SocialContributionWorkflowApiTest : ContributionApiTest() {
         assertTrue(check["allowed"].asBoolean(), check.toString())
         move("social_contribution", id, "approve", approver.token, "aprobación")
     }
+
+    // ---- Tarea 7: P1 ----
+
+    @Test
+    fun `con un tope que bloquea approve por APPROVER se rechaza, por SOCIAL_MANAGER pasa y approve_direct se rechaza`() {
+        val project = project(mapOf("policy_internal_approval" to false))
+        val over = mapOf("exploration_campaign" to cappedCampaign(project, 500))
+        val id = requestedContribution(project, items = listOf(400 to "BIEN", 200 to "SERVICIO"), attributes = over)
+        val refused = transition("social_contribution", id, "approve", member("APPROVER", project).token, "aprobación")
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("SUPPORT_CAP_EXCEEDED", code(refused))
+        assertEquals(listOf("exploration_campaign"), problemFields(refused.body))
+        assertEquals(HttpStatus.OK, transition("social_contribution", id, "approve", member("SOCIAL_MANAGER", project).token, "sobre el tope").status)
+        val direct = requestedContribution(project, items = listOf(100 to "BIEN"), attributes = over)
+        val refusedDirect = transition("social_contribution", direct, "approve_direct", registrar(project).token, "aprobación directa")
+        assertEquals(HttpStatus.CONFLICT, refusedDirect.status, refusedDirect.body)
+        assertEquals("SUPPORT_CAP_EXCEEDED", code(refusedDirect))
+    }
+
+    @Test
+    fun `el tope cuenta un compromiso comprometido y otro aporte aprobado de la misma campana`() {
+        val project = testProject()
+        val campaign = mapOf("exploration_campaign" to cappedCampaign(project, 1000))
+        approvedCommitment(project, attributes = campaign + ("amount" to 400), start = false)
+        approvedWithItems(project, items = listOf(300 to "BIEN"), attributes = campaign)
+        val approver = member("APPROVER", project)
+        val over = requestedContribution(project, items = listOf(400 to "BIEN"), attributes = campaign)
+        assertEquals("SUPPORT_CAP_EXCEEDED", code(transition("social_contribution", over, "approve", approver.token, "aprobación")))
+        val fits = requestedContribution(project, items = listOf(300 to "BIEN"), attributes = campaign)
+        move("social_contribution", fits, "approve", approver.token, "aprobación")
+    }
+
+    // Review Focus 1: el monto que se juzga es el de los ítems, aunque el total guardado diga otra cosa
+    @Test
+    fun `el tope suma los items leidos en la transaccion, no el total guardado`() {
+        val project = testProject()
+        val id = requestedContribution(project, items = listOf(600 to "BIEN"), attributes = mapOf("exploration_campaign" to cappedCampaign(project, 500)))
+        platformPatch("social_contribution", id, mapOf("total_amount" to 0))
+        assertEquals("SUPPORT_CAP_EXCEEDED", code(transition("social_contribution", id, "approve", member("APPROVER", project).token, "aprobación")))
+    }
+
+    @Test
+    fun `con la politica apagada el tope superado es una advertencia y lo aprobado queda escrito`() {
+        val project = project(mapOf("policy_cap_blocks_approval" to false))
+        val id = requestedContribution(project, items = listOf(600 to "BIEN"), attributes = mapOf("exploration_campaign" to cappedCampaign(project, 500)))
+        val approver = member("APPROVER", project)
+        val check = dryRun(id, "approve", approver)
+        assertTrue(check["warnings"].values().any { it["code"].asString() == "SUPPORT_CAP_EXCEEDED" }, check.toString())
+        move("social_contribution", id, "approve", approver.token, "aprobación")
+        assertEquals(0, java.math.BigDecimal("600").compareTo(record("social_contribution", id)["attributes"]["total_amount"].decimalValue()))
+    }
 }
