@@ -14,7 +14,7 @@ Cómo preparar, iniciar y probar `sgspe` en una máquina de desarrollo. La descr
 | Node y Yarn | Node 26 o superior, Yarn 1 | commitlint, husky y prettier; la interfaz es `../sgspe-ui` |
 | GitHub CLI | con el alcance `read:packages` | el token de GitHub Packages |
 
-Las librerías de wasichai (`wasichai:wasichai-bom:1.1.0` y sus starters) se descargan de GitHub Packages, que pide un
+Las librerías de wasichai (`wasichai:wasichai-bom:1.2.0` y sus starters) se descargan de GitHub Packages, que pide un
 token aunque sea para leer. El token nunca se escribe en un archivo del repositorio: se antepone a cada comando de Gradle.
 
 ```bash
