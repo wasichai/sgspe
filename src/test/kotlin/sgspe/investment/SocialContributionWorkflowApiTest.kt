@@ -142,4 +142,67 @@ class SocialContributionWorkflowApiTest : ContributionApiTest() {
         assertEquals("SYNERGY_AGREEMENT_REQUIRED", code(approve(mapOf("agreement" to expired))))
         assertEquals(HttpStatus.OK, approve(mapOf("agreement" to liveAgreement(project))).status)
     }
+
+    // ---- Tarea 5: P2 y P3 ----
+
+    private fun topic(parent: String? = null): String =
+        createRecord(
+            "topic",
+            mapOf("code" to uniqueName("TEM-"), "name" to "Tema de prueba", "active" to true) + listOfNotNull(parent?.let { "parent_topic" to it })
+        )
+
+    // un proyecto con `topic` priorizado (project_priority_topic, RF-INV-002)
+    private fun prioritizing(topic: String): String {
+        val project = project()
+        val linked = linkWithReason("project", project, "project_priority_topic", topic)
+        assertEquals(HttpStatus.NO_CONTENT, linked.status, linked.body)
+        return project
+    }
+
+    @Test
+    fun `mano de obra y dinero en una donacion bloquean sin justificacion y pasan con ella`() {
+        val project = testProject()
+        val approver = member("APPROVER", project)
+        val labor = requestedContribution(project, items = listOf(200 to "MANO DE OBRA"))
+        val refused = transition("social_contribution", labor, "approve", approver.token, "aprobación")
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("PAID_LABOR", code(refused))
+        assertEquals(listOf("contribution_item"), problemFields(refused.body))
+        val money = requestedContribution(project, items = listOf(500 to "DINERO"), attributes = mapOf("contribution_type" to "DONACION"))
+        assertEquals("MONETARY_DONATION", code(transition("social_contribution", money, "approve", approver.token, "aprobación")))
+        val justified =
+            requestedContribution(
+                project,
+                items = listOf(200 to "MANO DE OBRA"),
+                attributes =
+                    mapOf("guideline_deviation_justification" to "Faena comunal.")
+            )
+        val warnings = dryRun(justified, "approve", approver)["warnings"].values().map { it["code"].asString() }
+        assertTrue("PAID_LABOR" in warnings, warnings.toString())
+        move("social_contribution", justified, "approve", approver.token, "aprobación")
+    }
+
+    @Test
+    fun `un tema fuera de las prioridades es PRIORITY_NOT_MET y uno que desciende de una prioridad pasa`() {
+        val education = topic()
+        val project = prioritizing(education)
+        val approver = member("APPROVER", project)
+        val outside = requestedContribution(project, attributes = mapOf("topic" to topic()))
+        val refused = transition("social_contribution", outside, "approve", approver.token, "aprobación")
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("PRIORITY_NOT_MET", code(refused))
+        assertEquals(listOf("topic"), problemFields(refused.body))
+        val inside = requestedContribution(project, attributes = mapOf("topic" to topic(parent = topic(parent = education))))
+        move("social_contribution", inside, "approve", approver.token, "aprobación")
+    }
+
+    @Test
+    fun `un proyecto sin temas priorizados solo advierte PRIORITIES_NOT_CONFIGURED`() {
+        val id = requestedContribution()
+        val approver = member("APPROVER")
+        val check = dryRun(id, "approve", approver)
+        assertTrue(check["warnings"].values().any { it["code"].asString() == "PRIORITIES_NOT_CONFIGURED" }, check.toString())
+        assertTrue(check["allowed"].asBoolean(), check.toString())
+        move("social_contribution", id, "approve", approver.token, "aprobación")
+    }
 }
