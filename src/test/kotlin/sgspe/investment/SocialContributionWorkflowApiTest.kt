@@ -1,11 +1,15 @@
 package sgspe.investment
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import sgspe.ContributionApiTest
+import sgspe.common.DerivedFieldsJob
 import sgspe.common.IdempotencyKey
 
 // WF-P (workflows.md, especificación de F5 §3.3 a §3.5, §5): las reglas de InvestmentWriteGuard por la API genérica, por la
@@ -353,5 +357,85 @@ class SocialContributionWorkflowApiTest : ContributionApiTest() {
         assertEquals("DELIVERY_FROZEN", code(frozen))
         assertEquals(listOf("social_contribution"), problemFields(frozen.body))
         assertEquals("DELIVERY_FROZEN", code(exchange("DELETE", "/api/sgspe/evidence/$foto/links/delivery/$delivery", null, token)))
+    }
+
+    // ---- Tarea 10: P8 ----
+
+    @Autowired
+    private lateinit var job: DerivedFieldsJob
+
+    private fun linkTo(
+        delivery: String,
+        evidence: String
+    ): Response = exchange("POST", "/api/sgspe/evidence/$evidence/links", mapOf("object" to "delivery", "recordId" to delivery), token)
+
+    @Test
+    fun `register_delivery exige la entrega con conformidad`() {
+        val project = testProject()
+        val id = procuredWithItems(project)
+        val none = transition("social_contribution", id, "register_delivery", token, "entregado")
+        assertEquals(HttpStatus.CONFLICT, none.status, none.body)
+        assertEquals("DELIVERY_REQUIRED", code(none))
+        assertEquals(listOf("delivery"), problemFields(none.body))
+        val delivery = tree(captureDelivery(id, mapOf("conformity_given" to false), deliveryEvidence(project)).body)["delivery"]["id"].asString()
+        assertEquals("DELIVERY_REQUIRED", code(transition("social_contribution", id, "register_delivery", token, "entregado")))
+        val given =
+            patch(
+                "/api/sgspe/deliveries/$delivery",
+                mapOf("attributes" to mapOf("conformity_given" to true)),
+                token,
+                ifMatch("delivery", delivery) + withReason()
+            )
+        assertEquals(HttpStatus.OK, given.status, given.body)
+        move("social_contribution", id, "register_delivery", reason = "entregado")
+        assertEquals("delivered", state("social_contribution", id))
+    }
+
+    @Test
+    fun `register_delivery sin acta de recepcion, sin foto o sin comprobante es EVIDENCE_REQUIRED`() {
+        val project = testProject()
+        val all = listOf("ACTA DE RECEPCION", "FOTO", "COMPROBANTE")
+        for (absent in all) {
+            val id = procuredWithItems(project)
+            val delivery = tree(captureDelivery(id, evidence = deliveryEvidence(project, all - absent)).body)["delivery"]["id"].asString()
+            val refused = transition("social_contribution", id, "register_delivery", token, "entregado")
+            assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+            assertEquals("EVIDENCE_REQUIRED", code(refused), absent)
+            assertEquals(listOf("evidence_delivery"), problemFields(refused.body))
+            assertEquals(HttpStatus.NO_CONTENT, linkTo(delivery, evidence(project, absent)).status, absent)
+            move("social_contribution", id, "register_delivery", reason = "entregado")
+        }
+    }
+
+    @Test
+    fun `la entrega y sus vinculos de evidencia no cambian desde delivered`() {
+        val project = testProject()
+        val id = procuredWithItems(project)
+        val attached = deliveryEvidence(project)
+        val delivery = tree(captureDelivery(id, evidence = attached).body)["delivery"]["id"].asString()
+        move("social_contribution", id, "register_delivery", reason = "entregado")
+        val frozen =
+            patch(
+                "/api/sgspe/deliveries/$delivery",
+                mapOf("attributes" to mapOf("place" to "Otro local")),
+                token,
+                ifMatch("delivery", delivery) + withReason()
+            )
+        assertEquals("DELIVERY_FROZEN", code(frozen))
+        assertEquals("DELIVERY_FROZEN", code(exchange("DELETE", "/api/sgspe/evidence/${attached.first()}/links/delivery/$delivery", null, token)))
+        assertEquals("DELIVERY_FROZEN", code(linkTo(delivery, evidence(project, "FOTO"))))
+    }
+
+    // ASM-063 y elección 12: el aporte entregado cuenta como ejecutado de su campaña, con su total_amount
+    @Test
+    fun `JOB-02 suma el aporte entregado al ejecutado de la campana`() {
+        val project = testProject()
+        val campaign = cappedCampaign(project, 10_000)
+        val id = procuredWithItems(project, attributes = mapOf("exploration_campaign" to campaign))
+        assertEquals(HttpStatus.CREATED, captureDelivery(id, evidence = deliveryEvidence(project)).status)
+        move("social_contribution", id, "register_delivery", reason = "entregado")
+        assertNotNull(runBlocking { job.runOnce(full = true) }, "otro nodo o la programación tenía el candado")
+        val executed = record("exploration_campaign", campaign)["attributes"]["executed_social_amount"].decimalValue()
+        assertEquals(0, java.math.BigDecimal("300").compareTo(executed))
     }
 }

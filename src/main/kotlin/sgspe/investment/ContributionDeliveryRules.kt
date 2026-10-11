@@ -2,7 +2,9 @@ package sgspe.investment
 
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
+import sgspe.commitment.Fulfillment
 import sgspe.common.Finding
+import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.Transactions
 import sgspe.common.Values
@@ -12,6 +14,7 @@ import sgspe.common.readAs
 import sgspe.common.readable
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
+import wasichai.core.metadata.MetadataService
 import java.util.UUID
 
 // las reglas de la entrega de un aporte, puras (especificación de F5 §3.5, decisión 2, ASM-111)
@@ -46,6 +49,32 @@ object ContributionDelivery {
             field,
             status = HttpStatus.BAD_REQUEST
         )
+
+    // P8: la evidencia mínima de la entrega de un aporte [DOC-02 p.4], del proyecto del aporte
+    val REQUIRED_TYPES: List<String> = listOf("ACTA DE RECEPCION", "FOTO", "COMPROBANTE")
+
+    // las evidencias de la entrega que P8 lee como mucho (las lecturas M2M son acotadas): más es un 400 TOO_MANY_RECORDS
+    const val MAX_EVIDENCE = 500
+
+    fun missing(types: Set<String>): List<String> = REQUIRED_TYPES.filter { it !in types }
+
+    // P8 sobre la única entrega del aporte (null si no tiene): con conformidad y quiénes la dieron, y las tres evidencias
+    fun registration(delivery: Fulfillment.DeliveryEvidence?): Finding? {
+        if (delivery == null || !Fulfillment.conforms(delivery)) {
+            return Finding(
+                "DELIVERY_REQUIRED",
+                "Registrar la entrega exige la entrega del aporte con conformidad del grupo de interés y quiénes la dieron (P8)",
+                Contributions.DELIVERY
+            )
+        }
+        val missing = missing(delivery.evidenceTypes)
+        if (missing.isEmpty()) return null
+        return Finding(
+            "EVIDENCE_REQUIRED",
+            "A la entrega le falta evidencia vinculada del proyecto del aporte: ${missing.joinToString(", ")} (P8)",
+            EVIDENCE_DELIVERY
+        )
+    }
 }
 
 // InvestmentWriteGuard, la entrega de un aporte por cualquier puerta (§3.5): el alta de una segunda entrega del mismo aporte
@@ -106,4 +135,61 @@ class ContributionDeliveryRecordRules(
         } > 0
 
     private suspend fun stateOf(contribution: UUID): String? = records.readable(Contributions.CONTRIBUTION, contribution).state
+}
+
+// P8 de WF-P (§3.3): register_delivery con la entrega del aporte, su conformidad y sus tres evidencias del proyecto del aporte
+// (Fulfillment.countedTypes: una evidencia de otro proyecto o sin proyecto no cuenta). lee la entrega y sus evidencias como
+// quien aplica la transición: sin lectura, OBJECT_NOT_READABLE; sin lectura de conformity_by (restringido), FIELD_NOT_READABLE.
+// el candado del aporte ya lo tomó ContributionLockRule, así que la entrega no cambia mientras se juzga
+@Component
+class ContributionDeliveryRule(
+    private val records: Records,
+    private val metadata: MetadataService
+) : InvestmentRule {
+    override val order = InvestmentRuleOrder.DELIVERY
+
+    override suspend fun findings(
+        change: RecordWrite,
+        dryRun: Boolean
+    ): List<Finding> {
+        val id = ContributionApproval.target(change, setOf(Contributions.REGISTER_DELIVERY)) ?: return emptyList()
+        val delivery =
+            readAs(Contributions.DELIVERY) {
+                records.all(
+                    Contributions.DELIVERY,
+                    filters = mapOf(Contributions.CONTRIBUTION to id.toString()),
+                    max = 1,
+                    field = Contributions.DELIVERY
+                )
+            }.firstOrNull() ?: return listOfNotNull(ContributionDelivery.registration(null))
+        if (!Readability(metadata).canRead("${Contributions.DELIVERY}.${ContributionDelivery.CONFORMITY_BY}")) {
+            return listOf(
+                Finding(
+                    "FIELD_NOT_READABLE",
+                    "Registrar la entrega exige leer quiénes dieron la conformidad de la entrega",
+                    "${Contributions.DELIVERY}.${ContributionDelivery.CONFORMITY_BY}",
+                    status = HttpStatus.FORBIDDEN
+                )
+            )
+        }
+        val row =
+            Fulfillment.DeliveryEvidence(
+                Values.bool(delivery.attributes["conformity_given"]) == true,
+                Values.text(delivery.attributes[ContributionDelivery.CONFORMITY_BY]),
+                emptySet()
+            )
+        if (!Fulfillment.conforms(row)) return listOfNotNull(ContributionDelivery.registration(row))
+        val evidence =
+            readAs(ContributionDeliveries.EVIDENCE) {
+                records.related(
+                    Contributions.DELIVERY,
+                    UUID.fromString(delivery.id),
+                    ContributionDelivery.EVIDENCE_DELIVERY,
+                    max = ContributionDelivery.MAX_EVIDENCE,
+                    field = ContributionDelivery.EVIDENCE_DELIVERY
+                )
+            }
+        val counted = row.copy(evidenceTypes = Fulfillment.countedTypes(Records.uuid(change.before.orEmpty()["project"]), evidence.map { it.attributes }))
+        return listOfNotNull(ContributionDelivery.registration(counted))
+    }
 }
