@@ -191,8 +191,10 @@ object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 ```
 
 - El script de arranque de temas de `index.html` es el único script en línea y se autoriza por su hash.
-- MapLibre necesita `worker-src blob:`; el mapa base se configura por organización (ASM-048, UPS-13) y su dominio entra en
-  `img-src` y `connect-src`.
+- MapLibre necesita `worker-src blob:`; el mapa base se configura por organización (ASM-048, ASM-125; UPS-13 está
+  resuelta
+  en `@wasichai/gis` 1.0.0) y el host del estilo que devuelve `GET /api/sgspe/map/settings` entra en `img-src` y
+  `connect-src`.
 - Los mapas WMS llegan por el proxy WMS del mismo origen (§10), así que no hace falta abrir GeoServer en la política.
 
 ### 3.3 Cuentas de servicio
@@ -261,8 +263,10 @@ Procedimiento operativo (GAP-026):
    nombra un rol que la organización no tiene.
 5. Los scripts idempotentes cargan los catálogos de referencia: el ubigeo del INEI en `administrative_unit`
    (RF-TER-001), los temas en `topic` y, desde F8, los indicadores en `indicator` (ASM-020, `database-model.md` §25).
-6. Desde F6, `model/publish_layers.py` publica en GeoServer solo las capas no sensibles, con un token de `ADMIN` y de forma
-   idempotente, y carga los estilos SLD con las credenciales del despliegue (§10.2).
+6. Desde F6, `model/publish_layers.py` publica en GeoServer solo las capas de `model/layers.json`, con un token de
+   `ADMIN`
+   y de forma idempotente, y carga los estilos SLD con las credenciales del despliegue (§10.2). Se omite con
+   `--skip-layers` en un despliegue sin GeoServer.
 7. El administrador crea los usuarios y les asigna roles; desde F2, `PROJECT_ADMIN` registra las `project_assignment`,
    cada una con su `role_name` (RF-PRJ-005, ASM-070).
 8. Se verifica con `apply.py --validate-only`, `apply_roles.py --dry-run` y la prueba de aislamiento de tenants (§14);
@@ -271,7 +275,7 @@ Procedimiento operativo (GAP-026):
 
 Desde el plan 4.4 (ASM-109), el paso 1 lo da la persona del operador que tiene `MANAGE_TENANTS`
 (`wasichai.organizations.separate-provisioning` está encendido en producción; el `ADMIN` de un cliente recibe `403` en
-`POST /api/organizations` y `DELETE /api/organizations/current`), y los pasos 1 a 5 los corre
+`POST /api/organizations` y `DELETE /api/organizations/current`), y los pasos 1 a 6 los corre
 `model/provision_tenant.py`; una subida de fase los repite en cada tenant con `model/upgrade_tenants.py` sobre un
 inventario que no se versiona. La siembra de `MANAGE_TENANTS` y el uso de los scripts están en `docs/develop/README.md`
 §5.
@@ -320,7 +324,7 @@ declaración quita sus concesiones [WAS-ADR-0042]. Este es el catálogo definiti
 | `APPROVE` | `project`, `area_of_influence`, `commitment`, `social_contribution`, `social_program`, `deliverable`, `grievance` | Aprobar por segunda persona: llevar el registro a `active` (WF-A), `approved` (WF-O, WF-D, WF-P, WF-H) o `planned` (WF-G), y resolver una queja de severidad ALTA o CRITICA. No la exigen los desvíos por política sin aprobación interna (ASM-008) | Guarda de cada paquete en esas transiciones (`ProjectWriteGuard`, `CommitmentWriteGuard`, `InvestmentWriteGuard`, `DeliverableWriteGuard`, `AttentionWriteGuard`) y el endpoint `POST /api/sgspe/areas-of-influence/{id}/approve` | `project`: `PROJECT_ADMIN`. `area_of_influence`: `SOCIAL_MANAGER`, `PROJECT_MANAGER`. `commitment`: `APPROVER`, `PROJECT_MANAGER`. `social_contribution`: `APPROVER`, `SOCIAL_MANAGER`. `social_program` y `grievance`: `APPROVER`. `deliverable`: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | RF-WFL-002, RN-GRV-002, ASM-008, ASM-036, ASM-067 |
 | `VERIFY` | `commitment` | Llegar a `verified` | `CommitmentWriteGuard`, junto con la segregación de funciones | `COMMITMENT_MANAGER`, `SOCIAL_MANAGER` | RN-COM-005, ASM-008 |
 | `ISSUE` | `deliverable` | Emitir una versión | `POST /api/sgspe/deliverables/{id}/issue` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | RQ-REP-026 |
-| `EXPORT` | `stakeholder`, `commitment`, `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `deliverable` y, en F6, cada objeto de una capa `LYR-NN` (`gis.md` §2.2) que se exporte por `POST /api/sgspe/territory/exports` | Exportar a XLSX y, en F6, a formatos GIS; en `deliverable`, descargar las versiones EXTERNO y PUBLICO | Endpoints de exportación de `sgspe.privacy` y `sgspe.territory` y de descarga de `sgspe.deliverable`, que además escriben `export_log` | Ver la matriz; las concesiones de F6, en §7.8 | RQ-REP-022, RQ-GIS-018, RQ-AUD-011 |
+| `EXPORT` | `stakeholder`, `commitment`, `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `deliverable` y, desde F6, los 13 objetos de las capas LYR-01 a LYR-16 (`gis.md` §2.2 y §4.6) que se exportan por `POST /api/sgspe/territory/exports` (§7.8) | Exportar a XLSX y, en F6, a formatos GIS; en `deliverable`, descargar las versiones EXTERNO y PUBLICO | Endpoints de exportación de `sgspe.privacy` y `sgspe.territory` y de descarga de `sgspe.deliverable`, que además escriben `export_log` | Ver la matriz; las concesiones de F6, en §7.8 | RQ-REP-022, RQ-GIS-018, RQ-AUD-011 |
 | `GENERATE` | `deliverable` | Pedir un borrador | `POST /api/sgspe/deliverables/{id}/drafts` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | RQ-REP-021 |
 | `CONFIRM_ALERT` | `early_warning` | Llevar una alerta a `confirmed` o `dismissed` | `WarningWriteGuard`, que además rechaza a las cuentas de servicio | `SOCIAL_RISK_MANAGER`, `SOCIAL_MANAGER` | RN-EWS-001 |
 | `APPROVE_OVER_CAP` | `commitment`, `social_contribution` | Aprobar aunque se supere el tope de apoyo social de la campaña cuando `policy_cap_blocks_approval` bloquea | `SupportPolicyGuard` hacia `approved` | `commitment`: `PROJECT_MANAGER`, en `approve_senior` de WF-D. `social_contribution`: `SOCIAL_MANAGER`, en `approve` de WF-P | RN-INV-003, GAP-006, ASM-067 |
@@ -344,7 +348,7 @@ Las mismas acciones, por objeto, para replicarlas en el modelo:
 | `social_contribution` | `APPROVE`, `APPROVE_OVER_CAP` |
 | `evidence` | `DOWNLOAD_RESTRICTED`, `EDIT_ANY` |
 | `deliverable` | `APPROVE`, `GENERATE`, `ISSUE`, `EXPORT`, `DOWNLOAD_RESTRICTED` |
-| Cada objeto de una capa `LYR-NN` que se exporte en F6 (`gis.md` §2.2 y §4.6) | `EXPORT` |
+| Desde F6, `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`, `mining_concession`, `environmental_feature`, `project`, `project_component`, `area_of_influence`, `land_parcel`, `school` y `health_facility` (`gis.md` §2.2 y §4.6; nunca `land_right`) | `EXPORT` |
 
 - **Doble llave en las decisiones.** Los roles de cada transición de aprobación, verificación o confirmación de alerta están
   en la metadata del workflow (`workflows.md`), y la guarda del paquete exige además `APPROVE`, `VERIFY` o
@@ -823,10 +827,17 @@ Criterios con que se armó:
   otro formato responde 404. El modelo congelado (`model.json`) nunca se sirve por la API en el MVP: es interno, para
   volver a generar y comprobar hashes. Si algún día se sirviera, exigiría READ y `DOWNLOAD_RESTRICTED` en todos los
   niveles, porque contiene datos que el archivo de cada nivel omite.
-- En F6, los objetos de las capas `LYR-NN` que se exporten (`gis.md` §2.2 y §4.6) declaran `EXPORT`. Por defecto la
-  reciben `GIS_ANALYST`, sobre los maestros del territorio y los componentes del proyecto (LYR-01 a LYR-16), con CREATE
-  sobre `export_log`, y los roles que ya exportan un objeto, también en formatos GIS. Las tablas de esta sección no
-  muestran esas concesiones de F6, que se fijan con la matriz de esa fase.
+- `EXPORT` de las capas territoriales (F6, `POST /api/sgspe/territory/exports`; `gis.md` §2.2 y §4.6). Desde F6, estos
+  13
+  objetos declaran `EXPORT`: `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`,
+  `mining_concession`, `environmental_feature`, `project`, `project_component`, `area_of_influence`, `land_parcel`,
+  `school` y `health_facility` (nunca `land_right`). La reciben sobre
+  los 13: `GIS_ANALYST` (por defecto, y gana CREATE sobre `export_log`), `SOCIAL_MANAGER` (ya exporta los objetos de F2
+  a
+  F4 y administra las áreas de influencia) y `PROJECT_MANAGER` (ya crea filas de `export_log` y exporta entregables).
+  `AUDITOR`, `ANALYST` y los demás roles no tienen `EXPORT` territorial. Además de `EXPORT`, cada exportación exige
+  READ sobre el objeto, CREATE sobre `export_log` y la divulgación por capa de ASM-124 (§11.4). Las celdas de §7.2 y
+  §7.4 los muestran desde que el modelo de F6 está aplicado (plan 6.1); hasta entonces las tablas no cambian.
 - Reglas de la IA sobre los datos restringidos (`ai-architecture.md` §12.2):
   - pedir una corrida (`POST /api/sgspe/ai/runs`) o una pregunta documental (AI-06, `POST /api/sgspe/ai/knowledge/questions`)
     exige poder leer los nombres de `person` (fila de nombres de §7.9), porque la seudonimización y la re-identificación
@@ -1157,6 +1168,11 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 | Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
 | Los 20 maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`) | Siempre (ASM-107) |
 
+- **Maestros del tenant (`ProjectScope.TENANT`):** `administrative_unit`, `locality`, `community`, `community_sector`,
+  `mining_concession`, `land_parcel`, `land_right`, `environmental_feature`, `person`, `organization`, `contact_method`,
+  `position`, `actor_relationship`, `school`, `health_facility`, `road_access`, `festivity`, `state_program`,
+  `local_conflict`, `topic`. Son los únicos objetos que GeoServer puede publicar, y solo si no tienen campos
+  restringidos (§10.2).
 - **Exentos:** `ADMIN` (wasichai) y quien tiene la acción declarada `READ_ALL_PROJECTS` sobre `project` (`AUDITOR` y
   `PROJECT_ADMIN`). `ProjectReach` (`sgspe.common`) lo decide también para los tableros, el reporte y las exportaciones.
 - **SQL puro:** «mis proyectos» es una subconsulta sobre la tabla de `project_assignment`, con valores enlazados; leerla
@@ -1225,21 +1241,30 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 
 1. **Nunca público.** GeoServer vive en la red interna, sin ruta pública; su consola y su API REST se alcanzan solo desde
    la red de la aplicación, con credenciales del despliegue y nunca con las de desarrollo (RQ-SEC-011, ASM-038).
-2. **Proxy autenticado** en `sgspe.territory` (`GET /api/sgspe/territory/wms`; RQ-SEC-011, RQ-GIS-012):
-   - exige el JWT de la sesión;
-   - la capa pedida debe estar en la lista blanca del tenant del token, y como el nombre de la capa lleva la tabla física
-     del tenant, la lista impide pedir capas de otro tenant;
-   - el usuario debe tener READ sobre el objeto de la capa;
-   - deja pasar `GetMap` y `GetLegendGraphic`; responde un `GetCapabilities` propio, armado con la lista blanca, nunca el de
-     GeoServer;
-   - rechaza `GetFeatureInfo`, WCS, WPS, la API REST y los parámetros `SLD` y `SLD_BODY`, que permitirían nombrar otras
-     capas, y los filtros que vengan del navegador; aplica solo los filtros fijos de cada capa;
-   - limita el tamaño de imagen y la tasa de peticiones.
+2. **Proxy autenticado** en `sgspe.territory` (`WmsProxy`, `GET /api/sgspe/territory/wms`; RQ-SEC-011, RQ-GIS-012,
+   ASM-121):
+   - exige el token de wasichai (`401` sin él);
+   - la capa pedida debe estar en la lista blanca: las capas publicadas de la organización del token que están en
+     `model/layers.json`, con el nombre `<tabla física>__<columna>`. La lista de capas publicadas sale de la REST de
+     GeoServer con una caché de 60 s, y como el nombre lleva la tabla física del tenant, impide pedir capas de otro
+     tenant;
+   - el usuario debe tener READ sobre el objeto de cada capa (`403` si no);
+   - solo deja pasar `GetMap`, `GetLegendGraphic` y `GetCapabilities`, y este último lo arma SGSPE con la lista blanca:
+     nunca es el de GeoServer;
+   - los parámetros van en una lista blanca, sin distinguir mayúsculas y cada uno una sola vez; `STYLES` admite solo los
+     de `layers.json`, `FORMAT` solo `image/png` o `image/jpeg`, y `WIDTH` y `HEIGHT` hasta 2048;
+   - lo demás se rechaza con `422 WMS_REQUEST_NOT_ALLOWED` o `WMS_PARAMETER_NOT_ALLOWED`: `GetFeatureInfo`,
+     `DescribeLayer`, WCS, WPS, la API REST, los parámetros `SLD` y `SLD_BODY` y los filtros que vengan del navegador;
+     aplica solo los estilos y filtros fijos de cada capa;
+   - GeoServer caído, vencido (`sgspe.territory.wms.timeout`, 5 s) o que no responde una imagen, `503
+     GEOSERVER_UNAVAILABLE`;
+   - solo copia el `Content-Type` y agrega `Cache-Control: private, max-age=300`. El límite de peticiones por persona va
+     en el proxy inverso.
 3. **Solo capas públicas en GeoServer.** Se publican únicamente las capas que cualquier usuario del tenant puede ver: datos
    oficiales o registrales sin datos personales y de objetos sin campos restringidos (§7.9). Las publica
    `model/publish_layers.py`, al aprovisionar y en cada actualización de F6, con `POST /api/gis/layers/{object}/{geometry}`
-   y un token de `ADMIN`, solo para la lista de capas no sensibles; en el mismo paso carga los estilos SLD con las
-   credenciales del despliegue. SGSPE no tiene un endpoint propio para publicar. Nunca se publican las capas
+   y un token de `ADMIN`, solo para la lista de capas de `model/layers.json`; en el mismo paso carga los estilos SLD con
+   las credenciales del despliegue. SGSPE no tiene un endpoint propio para publicar. Nunca se publican las capas
    internas, confidenciales o con datos personales que clasifica `gis.md`, como áreas de influencia, componentes, predios,
    grupos de interés, QCS, compromisos, incidentes, alertas, evidencias y observaciones de campo (RQ-SEC-011). Esas capas
    se sirven como GeoJSON autenticado por la API de wasichai o `/api/sgspe/territory/**`, que aplican permisos
@@ -1247,15 +1272,26 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 4. **Mapas de informe** (F8): el trabajador de entregables pide `GetMap` por la red interna. Usa las capas públicas por
    nombre y envía las demás en línea dentro de la petición, después de leerlas con `RecordService` y aplicarles el nivel de
    divulgación, así que ninguna capa sensible se publica (RQ-REP-030, ASM-038).
-5. **WFS para analistas** (F6, RQ-GIS-018): por el mismo proxy, solo sobre capas de la lista blanca y para quien tiene
-   `EXPORT` sobre el objeto; cada extracción se registra en `export_log`.
+5. **WFS para analistas:** pospuesto (ASM-120). F6 no lo sirve; las exportaciones geográficas de LYR-01 a LYR-16
+   cubren el trabajo con archivos (ASM-124).
 6. **Datastore de solo lectura:** GeoServer se conecta a la base con un rol que solo puede leer. wasichai configura el
    usuario de ese datastore por separado [WAS-DOC modules/gis.md].
 7. **Sin servidores de teselas vectoriales** que lean la base en el MVP (RQ-GIS-012).
 8. **Ningún objeto de proyecto.** GeoServer lee la base con sus credenciales, sin permisos ni alcance (WAS-ADR-0048):
    solo publica maestros de `ProjectScope.TENANT` sin campos restringidos; ningún `project`, raíz ni hijo de
-   `ProjectScope`. `publish_layers.py` (F6) lo comprueba contra la misma clasificación y `test_model.py` lo prueba
-   (ASM-106).
+   `ProjectScope`. `publish_layers.py` publica solo lo de `model/layers.json`, que `test_model.py` y `ArchitectureTest`
+   exigen formado por maestros TENANT sin campos restringidos (§9.7, ASM-106, ASM-121). Las credenciales de GeoServer
+   van solo por variables de entorno, y el datastore se conecta con el rol de solo lectura `sgspe_geoserver`.
+9. **GDAL en las importaciones** (F6, ASM-127): `ogrinfo` y `ogr2ogr` 3.8 o superior, solo con los drivers
+   `ESRI Shapefile`, `KML`, `GPKG`, `OpenFileGDB` y `GPX` (el KMZ lo descomprime SGSPE), con un entorno de proceso
+   limpio,
+   sin red, argumentos fijos y rutas del espacio de trabajo. Un ZIP no puede traer rutas con `../` ni más de
+   `sgspe.territory.import.max-entries` entradas o `max-inflated-bytes` descomprimidos.
+10. **SQL propio:** `SpatialGate` es la única vía de lectura que cruza tablas del tenant (ASM-122). Compone los
+    `RecordReadScope` registrados y revisa READ y la legibilidad de cada objeto y campo. `ArchitectureTest` exige que,
+    en
+    `sgspe.territory`, solo `SpatialGate` y los escritores `TerritoryImports`, `Areas`, `ProjectComponents` y `GeoSql`
+    usen `DatabaseClient`.
 
 El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.md` con estas reglas.
 
@@ -1540,7 +1576,10 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | `ConfidentialAttentionScopeTest` | La condición de `ConfidentialAttentionScope` por caso (con `READ_CONFIDENTIAL`, responsable, quien la recibió, `APPROVE` en una queja grave, otro rol), con valores enlazados, y que falla cerrado sin las columnas o sin la consulta de permisos | Unitaria | F4 | RQ-SEC-010, ASM-095 |
 | `ConfidentialReleaseTest` | Dentro de `ConfidentialRelease`, `ConfidentialAttentionScope` admite además las solicitudes cuyo `created_commitment` es el compromiso que se cierra, y solo ellas; fuera del bloque, nada cambia; `ArchitectureTest` vigila que solo `RequestClosureListener` lo use | Unitaria | F4 | RF-GRV-001, RN-GRV-001, RQ-SEC-004 |
 | `ConfidentialAttentionApiTest` | Un relacionista que no es responsable ni la recibió no ve una QCS confidencial en lista, detalle, historial, relacionados ni transiciones; el responsable, quien la recibió, el gestor de quejas y el `ADMIN` sí; el aprobador solo la grave; el tablero la excluye con `confidentialHidden`; EXTERNO la excluye también para el gestor; un aviso con datos no llega a quien no la ve y el aviso genérico del nivel 2 no lleva código, título ni enlace; quitar la marca sin la acción responde `403` | Integración | F4 | RQ-SEC-010, RQ-SEC-004, ASM-095, ASM-102 |
-| Proxy WMS | Sin token responde 401; una capa de otro tenant, fuera de la lista o de un objeto que el usuario no lee se rechaza; el `GetCapabilities` propio lista solo las capas de la lista blanca del tenant; `GetFeatureInfo`, `SLD` y `SLD_BODY` se rechazan | Integración | F6 | RQ-SEC-011 |
+| Proxy WMS (`WmsProxyApiTest`) | Sin token responde 401; una capa de otro tenant, fuera de la lista o de un objeto que el usuario no lee se rechaza; el `GetCapabilities` propio lista solo las capas de la lista blanca del tenant; `GetFeatureInfo`, `SLD` y `SLD_BODY`, un parámetro repetido o desconocido y un `FORMAT` o un tamaño fuera de la lista blanca responden `422`; GeoServer caído o vencido responde `503 GEOSERVER_UNAVAILABLE` | Integración | F6 | RQ-SEC-011 |
+| Importaciones GDAL (`GdalImportApiTest`) | Un ZIP con `../` o con demasiadas entradas se rechaza; con GDAL ausente o de versión menor la importación responde el error del contrato y las demás siguen; el KMZ lo descomprime SGSPE | Integración | F6 | RQ-SEC-020, RQ-GIS-018 |
+| Exportaciones territoriales (`TerritoryExportsApiTest`) | Sin `EXPORT` o sin READ sobre el objeto responde `403`; la divulgación por capa de ASM-124 (PUBLICO, EXTERNO e INTERNO) y `land_right` nunca; cada exportación deja un `export_log` | Integración | F6 | RQ-GIS-018, RQ-AUD-011 |
+| Consultas espaciales (`SpatialGateApiTest`, `SpatialGateScopeParityTest`) | `SpatialGate` aplica el alcance, `READ` y los campos restringidos a cada objeto que cruza; sus resultados coinciden con los de la lectura por `RecordService` bajo los mismos `RecordReadScope` | Integración | F6 | RQ-SEC-006, RQ-GIS-017 |
 | Salidas | Una exportación y un entregable EXTERNO generados con fixtures no contienen nombres ni fotos sin consentimiento; ninguna exportación, de ningún nivel, contiene el documento de identidad; cada exportación deja un `export_log` | Integración | F2–F8 | RQ-REP-014, RQ-AUD-011, RF-COM-001 |
 | Descargas | Un borrador siempre lleva la marca BORRADOR y antes de emitir no hay descarga sin ella; borradores y versiones INTERNO exigen `DOWNLOAD_RESTRICTED`, y las EXTERNO y PUBLICO, `EXPORT`; toda descarga de un archivo de entregable, de cualquier nivel, deja un `export_log`; los borradores y las versiones EXTERNO y PUBLICO se sirven solo en PDF y el modelo congelado nunca se sirve; una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` para descargarla, también a quien la subió y también por la ruta nativa de wasichai-files (`EvidenceApiTest`), y para bajar su clasificación | Integración | F3, F8 | RF-DOC-003, RQ-REP-021, RQ-AUD-011, ASM-071 |
 | IA | El modelo falso recibe el texto sin nombres; instrucciones inyectadas en un documento no producen escrituras; la IA nace desactivada; una corrida o una pregunta documental de quien no lee los nombres de `person` responde 403; una sugerencia guarda referencias y marcadores, también en su cita; la API genérica solo devuelve marcadores; la interfaz los muestra resueltos solo a quien lee el campo, y la cita solo a quien puede descargar la evidencia fuente | Unitaria e integración | F7 | RQ-AI-009, RQ-AI-011, RQ-AI-007, RF-DOC-003 |
@@ -1566,5 +1605,5 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Autoridad sobre montos | GAP-006 | Quién aprueba según el monto y quién supera el tope de la campaña | Un nivel de aprobación más `APPROVE_OVER_CAP`: `PROJECT_MANAGER` en los compromisos y `SOCIAL_MANAGER` en los aportes (§5.3) |
 | TTL de producción | RQ-SEC-001 | Duración del token | `PT4H`, fijado por `application-prod.yml` como tope provisional de F1; el despliegue puede cambiarlo, siempre por debajo de 8 horas (§3.2) |
 | Transporte del token | CON-056 | Cookie HttpOnly u OIDC | Propuestas a futuro, fuera del MVP (§3.4) |
-| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-13, UPS-14, UPS-23; UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
+| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-14, UPS-23 (UPS-13, resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0); UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
 | Nombre y huella del archivo de una evidencia restringida | UPS-24, ASM-093 | ¿Se acepta que su nombre lo lean todos los lectores de `evidence` hasta UPS-24, o se renombra en el servidor y se pierde el original? | Resuelta en wasichai 1.0.0: `EvidenceFileReadPolicy` oculta `name` y `sha256` a quien no descarga; el nombre neutro del portal queda como defensa adicional (§11.6) |
