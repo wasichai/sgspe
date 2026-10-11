@@ -9,12 +9,14 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import sgspe.common.Criteria
 import sgspe.common.Finding
+import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.Values
 import sgspe.common.toCodedException
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordResponse
+import wasichai.core.metadata.MetadataService
 import java.util.UUID
 
 // la parte territorial de la ficha contextual (api.md §4, dashboards.md §5.9): sgspe.territory solo aporta la identificación,
@@ -25,6 +27,7 @@ import java.util.UUID
 @Service
 class TerritoryCards(
     private val records: Records,
+    private val metadata: MetadataService,
     private val limits: TerritoryQueryProperties
 ) {
     suspend fun locality(
@@ -34,23 +37,34 @@ class TerritoryCards(
         val locality = records.find(TerritoryNames.LOCALITY, id) ?: throw notFound("LOCALITY_NOT_FOUND", "La localidad")
         val geometries = Records.geometriesOf(locality)
         val unavailable = mutableListOf<String>()
+        val readability = Readability(metadata)
+        val missing = readability.missing(LOCALITY_PATHS + UNIT_PATHS + COMMUNITY_TERRITORY).toMutableList()
         val shape = geometries["boundary"] ?: geometries["location"]
+        val computable =
+            CardReadability.communitiesComputable(
+                boundary = readability.canRead("locality.boundary"),
+                location = readability.canRead("locality.location"),
+                territory = readability.canRead("community.territory")
+            )
+        if (!computable) missing += TerritoryNames.COMMUNITY
         val communities =
             guarded(TerritoryNames.COMMUNITY, unavailable) {
-                if (shape == null) {
+                if (shape == null || !computable) {
                     emptyList()
                 } else {
                     val inside = ZoneCriterion.of(emptyList(), listOf("territory"), Zone(emptyMap(), shape))
                     records.all(TerritoryNames.COMMUNITY, criteria = listOf(inside), max = limits.maxRows).sortedWith(BY_NAME).map(::brief)
                 }
             }
+        val unit = unitOf(locality, unavailable)
+        val areas = areas(TerritoryNames.LOCALITY, id, project, unavailable, readability, missing, "locality")
         return linkedMapOf(
             "locality" to locality,
             "geometry" to mapOf("location" to geometries["location"], "boundary" to geometries["boundary"]),
-            "administrativeUnit" to unitOf(locality, unavailable),
+            "administrativeUnit" to unit,
             "communities" to communities,
-            "areasOfInfluence" to areas(TerritoryNames.LOCALITY, id, project, unavailable),
-            "unavailable" to unavailable
+            "areasOfInfluence" to areas,
+            "unavailable" to CardReadability.collapse(missing + unavailable)
         )
     }
 
@@ -60,6 +74,8 @@ class TerritoryCards(
     ): Map<String, Any?> {
         val community = records.find(TerritoryNames.COMMUNITY, id) ?: throw notFound("COMMUNITY_NOT_FOUND", "La comunidad")
         val unavailable = mutableListOf<String>()
+        val readability = Readability(metadata)
+        val missing = readability.missing(listOf("community.territory", "community.administrative_unit") + UNIT_PATHS).toMutableList()
         val sectors =
             guarded(TerritoryNames.SECTOR, unavailable) {
                 records
@@ -67,13 +83,15 @@ class TerritoryCards(
                     .sortedWith(BY_NAME)
                     .map(::brief)
             }
+        val unit = unitOf(community, unavailable)
+        val areas = areas(TerritoryNames.COMMUNITY, id, project, unavailable, readability, missing, "community")
         return linkedMapOf(
             "community" to community,
             "geometry" to mapOf("territory" to Records.geometriesOf(community)["territory"]),
-            "administrativeUnit" to unitOf(community, unavailable),
+            "administrativeUnit" to unit,
             "sectors" to sectors,
-            "areasOfInfluence" to areas(TerritoryNames.COMMUNITY, id, project, unavailable),
-            "unavailable" to unavailable
+            "areasOfInfluence" to areas,
+            "unavailable" to CardReadability.collapse(missing + unavailable)
         )
     }
 
@@ -92,8 +110,22 @@ class TerritoryCards(
         field: String,
         id: UUID,
         project: UUID?,
-        unavailable: MutableList<String>
+        unavailable: MutableList<String>,
+        readability: Readability,
+        missing: MutableList<String>,
+        memberField: String
     ): List<Map<String, Any?>> {
+        missing +=
+            readability.missing(
+                listOf(
+                    "area_of_influence_member.$memberField",
+                    "area_of_influence_member.area_of_influence",
+                    "area_of_influence_member.member_condition",
+                    "area_of_influence.project",
+                    "area_of_influence.area_type",
+                    "area_of_influence.version_number"
+                )
+            )
         val members =
             guarded(TerritoryNames.MEMBER, unavailable) {
                 records.all(TerritoryNames.MEMBER, criteria = listOf(Criteria.anyOf(field, listOf(id))), max = limits.maxRows)
@@ -117,7 +149,7 @@ class TerritoryCards(
                     "project" to Values.text(area.attributes["project"]),
                     "areaType" to Values.text(area.attributes["area_type"]),
                     "versionNumber" to Values.decimal(area.attributes["version_number"])?.toInt(),
-                    "memberCondition" to conditions[UUID.fromString(area.id)]
+                    "memberCondition" to conditions[Records.uuid(area.id)]
                 )
             }
     }
@@ -143,8 +175,34 @@ class TerritoryCards(
 
     companion object {
         private const val APPROVED = "approved"
+        private val LOCALITY_PATHS = listOf("locality.location", "locality.boundary", "locality.administrative_unit")
+        private val AREA_PATHS =
+            listOf(
+                "area_of_influence_member.area_of_influence",
+                "area_of_influence_member.member_condition",
+                "area_of_influence.project",
+                "area_of_influence.area_type",
+                "area_of_influence.version_number"
+            )
+        private val UNIT_PATHS = listOf("administrative_unit.name", "administrative_unit.level")
+        private val COMMUNITY_TERRITORY = listOf("community.territory")
         private val BY_NAME = compareBy<RecordResponse>({ Values.text(it.attributes["name"]) }, { it.id })
     }
+}
+
+// qué se lista en `unavailable` (puro, probado aparte): un objeto ilegible se nombra solo, sin sus campos
+object CardReadability {
+    fun collapse(paths: List<String>): List<String> {
+        val objects = paths.filterNot { '.' in it }.toSet()
+        return paths.filter { '.' !in it || it.substringBefore('.') !in objects }.distinct()
+    }
+
+    // las comunidades que contienen a la localidad se calculan con su límite o su punto contra el territorio de la comunidad
+    fun communitiesComputable(
+        boundary: Boolean,
+        location: Boolean,
+        territory: Boolean
+    ): Boolean = territory && (boundary || location)
 }
 
 // api.md §4 (F6)
@@ -159,7 +217,7 @@ class TerritoryCardsController(
         request: ServerHttpRequest
     ): Map<String, Any?> {
         StrictQuery.requireOnly(request.queryParams, setOf("project"))
-        return cards.locality(id, QueryParams.uuids("project", request.queryParams["project"]).firstOrNull())
+        return cards.locality(id, project(request))
     }
 
     @GetMapping("/communities/{id}/card")
@@ -168,6 +226,12 @@ class TerritoryCardsController(
         request: ServerHttpRequest
     ): Map<String, Any?> {
         StrictQuery.requireOnly(request.queryParams, setOf("project"))
-        return cards.community(id, QueryParams.uuids("project", request.queryParams["project"]).firstOrNull())
+        return cards.community(id, project(request))
+    }
+
+    private fun project(request: ServerHttpRequest): UUID? {
+        val given = QueryParams.uuids("project", request.queryParams["project"])
+        if (given.size > 1) throw QueryParams.invalid("project", "no puede repetirse")
+        return given.firstOrNull()
     }
 }
