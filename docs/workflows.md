@@ -126,7 +126,9 @@ los objetos, campos, estados y mecanismos vienen del [modelo de dominio](domain-
     (`sgspe.scope`) la limita a quien está asignado al proyecto (RQ-SEC-006); la lectura por proyecto la acota
     `ProjectReadScope` (ADR-0029, CON-041). Desde F4, las QCS confidenciales tienen su propio alcance de lectura
     (`ConfidentialAttentionScope`, ASM-095, `security.md` §9.6), y `ProjectLinkGuard` (`sgspe.scope`) rechaza con
-    `409 PROJECT_MISMATCH` toda relación de un objeto de F4 hacia un registro de otro proyecto. Ningún rol usa
+    `409 PROJECT_MISMATCH` toda relación de un objeto de F4 o de F5 hacia un registro de otro proyecto, y desde F5
+    también los orígenes de una tarea; una cadena de hijos y la entrega con dos padres se leen por el proyecto de su
+    raíz (ASM-114). Ningún rol usa
     `own_records_only` (ASM-069). `FIELD_AGENT` puede agregar participantes u observaciones a cualquier interacción o
     visita que pueda leer, y solo cambia, borra o mueve lo que creó (RQ-SEC-008):
     - en `engagement`, `engagement_participant`, `field_visit`, `field_observation` y `evidence`, `EditAnyGuard`
@@ -156,7 +158,7 @@ aplica la transición como la persona que lo invoca: esa persona necesita el rol
 |---|---|---|---|---|
 | `assess` | WF-B | `POST /api/sgspe/stakeholders/{id}/assessments` | La evaluación (`stakeholder_assessment`) y los valores vigentes del grupo de interés | RF-STK-005 |
 | `close_reclassified` y `close_reclassified_*` | WF-E1, WF-E2, WF-E3 | `POST /api/sgspe/grievances/{id}/reclassify` y sus pares de `inquiry` y `stakeholder_request` | La QCS del otro tipo con su vínculo `reclassified_from_*` | RF-GRV-007 |
-| `accept` | WF-E3 | `POST /api/sgspe/stakeholder-requests/{id}/accept` | El compromiso en `draft` (o, desde F5, el aporte) y su vínculo | RF-GRV-004 |
+| `accept` | WF-E3 | `POST /api/sgspe/stakeholder-requests/{id}/accept` | El compromiso en `draft` o, desde F5, el aporte en `requested` (ASM-117), y su vínculo | RF-GRV-004 |
 | `close_accepted` | WF-E3 | `RequestClosureListener`, al cerrar el compromiso o, desde F5, el aporte | El cierre de la solicitud aceptada | RN-GRV-001, ASM-068 |
 | `assess` | WF-F | `POST /api/sgspe/social-risks/{id}/assessments`, en la primera revisión | La `risk_assessment`, los valores vigentes y `next_review_date` del riesgo | RF-RSK-001, ASM-099 |
 | `issue` | WF-H | `POST /api/sgspe/deliverables/{id}/issue` | La `deliverable_version`, `current_version`, `current_revision` y el `export_log` | RQ-REP-026, RQ-REP-017 |
@@ -301,7 +303,7 @@ Ejemplo completo: WF-D. Las guardas, el motivo y los efectos no viven en el JSON
 | WF-M | `incident` | F4 | 4 | 3 | — | Opcional | `WarningWriteGuard` |
 | WF-N | `task` | F3 | 5 | 8 | — | `TransitionReasonGuard` | — |
 | WF-O | `area_of_influence` | F2 | 3 | 2 | `approve`, `supersede` | Opcional | `TerritoryWriteGuard` (`sgspe.territory`) |
-| WF-P | `social_contribution` | F5 | 7 | 8 | — | `requiresReason` | `SupportPolicyGuard`, `InvestmentWriteGuard` |
+| WF-P | `social_contribution` | F5 | 7 | 8 | — | `requiresReason` | `InvestmentWriteGuard` (`sgspe.investment`), con `ContributionCapRule` y `ContributionGuidelines` |
 
 Las automatizaciones llegan en F3 con el starter de automatización y el objeto `task`; los documentos emitidos, con el starter
 de documentos (diseño de la Fase 1). Antes de F3, los workflows de F2 funcionan sin automatizaciones.
@@ -786,8 +788,8 @@ stateDiagram-v2
     dentro del listener;
   - **marca de escritura:** `CommandTransitionGuard` solo admite `close_accepted` con la marca `SgspeWrite`, que el listener
     pone al llamar; así nadie cierra a mano una solicitud aceptada por la API genérica;
-  - el listener pasa el motivo (`RN-GRV-001: compromiso <código> cerrado`), porque `stakeholder_request` es
-    `requiresReason`;
+  - el listener pasa el motivo (`RN-GRV-001: compromiso <código> cerrado` o `RN-GRV-001: aporte <código> cerrado`),
+    porque `stakeholder_request` es `requiresReason`;
   - `security.md` concede `READ` y `UPDATE` sobre `stakeholder_request` a los roles de `close` de WF-D y de WF-P. Si quien
     cierra el compromiso o el aporte no puede cerrar la solicitud, el listener falla y el cierre se revierte (modelo de
     dominio §7.5). `FIELD_AGENT` no tiene ninguna de esas transiciones.
@@ -800,8 +802,13 @@ stateDiagram-v2
     `rejected` o `cancelled`, y con `response` informada. Sin ella, la solicitud quedaría abierta para siempre.
 
   Se revierte cerrando solo por el compromiso, como dice RN-GRV-001, y dejando el resto a mano.
-- **Fase de cada rol.** `SOCIAL_INVESTMENT_MANAGER` entra en `accept` y `close_accepted` desde F5, cuando recibe
-  permisos (`security.md` §7.1), como en WF-N: en F4, `model/workflows/stakeholder_request.json` no lo lleva.
+- **Fase de cada rol.** `SOCIAL_INVESTMENT_MANAGER` está en `accept` y `close_accepted` desde su fase, F5, cuando recibe
+  permisos (`security.md` §7.1), como en WF-N: un tenant con el modelo de F4 no lo lleva en
+  `model/workflows/stakeholder_request.json`.
+- **Aceptar como aporte (ASM-117).** El endpoint de aceptación con `creates` igual a `social_contribution` exige además
+  CREATE sobre `social_contribution`: `SOCIAL_MANAGER` y `SOCIAL_INVESTMENT_MANAGER` lo tienen y `COMMITMENT_MANAGER`
+  no, así que este acepta solo como compromiso (`403`). El aporte nace en `requested` y lo «registró» quien aceptó, que
+  no lo aprueba (P5 de WF-P).
 
 ```mermaid
 stateDiagram-v2
@@ -820,11 +827,11 @@ stateDiagram-v2
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
 | `start_evaluation` (Evaluar) | `received` | `under_evaluation` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | RF-GRV-004 |
-| `accept` (Aceptar) | `under_evaluation` | `accepted` | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` (desde F5) | `CommandTransitionGuard`: solo desde el endpoint de aceptación, que crea el compromiso en `draft` (o, desde F5, el aporte en `requested`) y guarda `created_commitment` o `created_contribution`; `created_commitment` no se escribe por otra vía (`AttentionCommandFieldsGuard`, `api.md` §3.3). `AttentionWriteGuard`: `response` y `responded_at` de la solicitud informados, porque la aceptación es la respuesta y el cierre que sigue es automático | Obligatorio (`requiresReason`) | El compromiso nuevo sigue WF-D, con su aprobación; el aporte, WF-P. Con `responded_at`, la solicitud cuenta como absuelta | [DOC-01 §9.3.1.2] medio de solicitud (RF-GRV-004) |
+| `accept` (Aceptar) | `under_evaluation` | `accepted` | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de aceptación, que crea el compromiso en `draft` o el aporte en `requested` (con CREATE sobre `social_contribution`, ASM-117) y guarda `created_commitment` o `created_contribution`; ninguno de los dos se escribe por otra vía (`AttentionCommandFieldsGuard`, `403 COMMAND_ONLY`, `api.md` §3.3). `AttentionWriteGuard`: `response` y `responded_at` de la solicitud informados, porque la aceptación es la respuesta y el cierre que sigue es automático | Obligatorio (`requiresReason`) | El compromiso nuevo sigue WF-D, con su aprobación; el aporte, WF-P, con el aviso de aprobación del alta. Con `responded_at`, la solicitud cuenta como absuelta | [DOC-01 §9.3.1.2] medio de solicitud (RF-GRV-004) |
 | `decline` (Declinar) | `under_evaluation` | `declined` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: `response` informada (RF-GRV-004), p. ej. por RN-INV-001 | Obligatorio (`requiresReason`) | AUT-08 (tras UPS-23): «Carta de respuesta» si llegó por CARTA DE SOLICITUD; hasta entonces, la carta firmada se sube como evidencia CARTA (ASM-098) | RF-GRV-004 |
 | `close_declined` (Cerrar) | `declined` | `closed` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: `responded_at` informado | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 §9.3.1.2] cierre de la solicitud |
-| `close_accepted` (Cerrar por cierre del compromiso o del aporte) | `accepted` | `closed` | `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` (desde F5) | `CommandTransitionGuard`: solo desde `RequestClosureListener` | Obligatorio (`requiresReason`); lo pasa el listener | `closed_date` | [DOC-01 §9.3.1.2] (RN-GRV-001, ASM-068) |
-| `close_unfulfilled` (Cerrar sin ejecución) | `accepted` | `closed` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: el compromiso creado está en `cancelled`, o el aporte en `rejected` o `cancelled`; `response` informada | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 §9.3.1.2] (ASM-068) |
+| `close_accepted` (Cerrar por cierre del compromiso o del aporte) | `accepted` | `closed` | `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` | `CommandTransitionGuard`: solo desde `RequestClosureListener` | Obligatorio (`requiresReason`); lo pasa el listener | `closed_date` | [DOC-01 §9.3.1.2] (RN-GRV-001, ASM-068) |
+| `close_unfulfilled` (Cerrar sin ejecución) | `accepted` | `closed` | `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER` | `AttentionWriteGuard`: el compromiso creado está en `cancelled`, o el aporte en `rejected` o `cancelled`; si no, `409 STATE_MISMATCH` sobre `created_commitment` o `created_contribution`; `response` informada | Obligatorio (`requiresReason`) | `closed_date` | [DOC-01 §9.3.1.2] (ASM-068) |
 | `close_reclassified_received` (Cerrar por reclasificación) | `received` | `closed` | `GRIEVANCE_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de reclasificación | Obligatorio (`requiresReason`) | Crea la queja o la consulta con `reclassified_from_request`; `closed_date` | RF-GRV-007 |
 | `close_reclassified_under_evaluation` (Cerrar por reclasificación) | `under_evaluation` | `closed` | `GRIEVANCE_MANAGER` | Ídem | Obligatorio (`requiresReason`) | Ídem | Ídem |
 
@@ -887,7 +894,7 @@ del endpoint (F4).
   `executing` (En ejecución), `monitoring` (En monitoreo), `evaluation` (En evaluación), `suspended` (Suspendido), `closed`
   (Cerrado, final), `cancelled` (Cancelado, final).
 - **Fase:** F5. Sin `requiresReason`.
-- **Requisitos:** RF-INV-003, RN-INV-004, ASM-008, GAP-007, GAP-032.
+- **Requisitos:** RF-INV-003, RN-INV-004, ASM-008, ASM-113, ASM-115, ASM-118, GAP-007, GAP-032.
 - **Validación contra las fuentes:**
   - ciclo del prompt Draft → Approval → Planned → Executing → Monitoring → Evaluation → Closed [PRM-01 §8]; "Approval" es
     `pending_approval` más la transición `approve`;
@@ -919,10 +926,10 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `submit` (Enviar a aprobación) | `draft` | `pending_approval` | `SOCIAL_INVESTMENT_MANAGER` | — | Opcional | Aviso de aprobación pendiente | [PRM-01 §8] Approval |
+| `submit` (Enviar a aprobación) | `draft` | `pending_approval` | `SOCIAL_INVESTMENT_MANAGER` | — | Opcional | Aviso `approval_pending` a los roles de `approve` (`ApprovalNoticeListener`), que se resuelve al salir de `pending_approval` | [PRM-01 §8] Approval |
 | `return_to_draft` (Devolver) | `pending_approval` | `draft` | `APPROVER` | — | Obligatorio (`TransitionReasonGuard`) | — | [PRM] |
-| `approve` (Aprobar) | `pending_approval` | `planned` | `APPROVER` | `InvestmentWriteGuard`: la acción declarada `APPROVE` (RF-WFL-002); quien aprueba no registró el programa (ASM-008); acuerdo de sinergia con el socio vigente, según `policy_synergy_requires_agreement` (RN-INV-004) | Opcional | — | [DOC-01 §9.3.1.2] sinergias en un acuerdo formal |
-| `plan_direct` (Planificar sin aprobación interna) | `draft` | `planned` | `SOCIAL_INVESTMENT_MANAGER` | `InvestmentWriteGuard`: solo con `policy_internal_approval` en falso (ASM-008); el acuerdo de sinergia (RN-INV-004) | Opcional | — | ASM-008 |
+| `approve` (Aprobar) | `pending_approval` | `planned` | `APPROVER` | `InvestmentWriteGuard`: G1 (`APPROVE`), G2 (segregación) y G3 (sinergia) | Opcional | — | [DOC-01 §9.3.1.2] sinergias en un acuerdo formal |
+| `plan_direct` (Planificar sin aprobación interna) | `draft` | `planned` | `SOCIAL_INVESTMENT_MANAGER` | `InvestmentWriteGuard`: G4 (sin aprobación interna) y G3; sin G1 ni G2 | Opcional | — | ASM-008 |
 | `start_execution` (Iniciar ejecución) | `planned` | `executing` | `SOCIAL_INVESTMENT_MANAGER` | — | Opcional | — | [PRM-01 §8] Executing |
 | `start_monitoring` (Pasar a monitoreo) | `executing` | `monitoring` | `SOCIAL_INVESTMENT_MANAGER` | — | Opcional | — | [PRM-01 §8] Monitoring |
 | `start_evaluation` (Evaluar) | `monitoring` | `evaluation` | `SOCIAL_INVESTMENT_MANAGER`, `SOCIAL_MANAGER` | — | Opcional | — | [PRM-01 §8] Evaluation (GAP-032) |
@@ -933,6 +940,28 @@ stateDiagram-v2
 | `cancel_pending_approval` (Cancelar) | `pending_approval` | `cancelled` | `SOCIAL_MANAGER`, `APPROVER` | — | Obligatorio (`TransitionReasonGuard`) | — | Ídem |
 | `cancel_planned` (Cancelar) | `planned` | `cancelled` | `SOCIAL_MANAGER`, `APPROVER` | — | Obligatorio (`TransitionReasonGuard`) | — | Ídem |
 | `cancel_suspended` (Cancelar) | `suspended` | `cancelled` | `SOCIAL_MANAGER`, `APPROVER` | — | Obligatorio (`TransitionReasonGuard`) | — | Ídem |
+
+Reglas de las guardas de WF-G, citadas por número en la tabla y en las pruebas (`InvestmentWriteGuard`,
+`sgspe.investment`):
+
+- **G1. Doble llave:** la acción declarada `APPROVE` sobre `social_program` (RF-WFL-002); sin ella,
+  `403 ACTION_REQUIRED` sobre `record`.
+- **G2. Segregación:** quien aprueba no registró el programa (`created_by`, ASM-008); si no,
+  `403 SEGREGATION_OF_DUTIES` sobre `record`.
+- **G3. Sinergia** (RN-INV-004, ASM-115): con `partner_organization` informado y `policy_synergy_requires_agreement`
+  activa, `agreement` informado, en `active`, con `validity_status` distinto de VENCIDO y con un `agreement_party` cuya
+  `organization` es el socio; si no, `409 SYNERGY_AGREEMENT_REQUIRED` sobre `agreement`. El acuerdo es del mismo
+  proyecto (`ProjectLinkGuard`).
+- **G4. Sin aprobación interna:** solo con `policy_internal_approval` en falso (ASM-008); si no,
+  `409 INTERNAL_APPROVAL_REQUIRED` sobre `project`.
+
+**Reglas de los hijos del programa**, en la misma guarda: `beneficiary_group.social_initiative` es del mismo programa
+(`409 PROGRAM_MISMATCH` sobre `social_initiative`); la fecha final de una medición, un programa o una iniciativa no es
+anterior a la inicial, `budget_year` va de 2000 a 2100 y `target_count` y `reached_count` son enteros no negativos
+(`400 OUT_OF_RANGE`, ASM-118). `SOCIAL_INVESTMENT_MANAGER` borra iniciativas, grupos, indicadores e hitos; un indicador
+con mediciones no se borra (`409` de wasichai sin código, `AppendOnlyReferences`), y una medición (`appendOnly`) no se
+corrige: se registra otra de otro periodo. `ProgramTotalsListener` mantiene `total_budget` en la moneda del programa
+(ASM-113); el ejecutado se registra a mano en cada presupuesto. Los hitos no tienen plazo ni escalamiento: JOB-01 no los mide.
 
 ## WF-H · Entregable
 
@@ -1315,7 +1344,9 @@ stateDiagram-v2
   `closed` (Cerrado, final), `rejected` (Rechazado, final), `cancelled` (Anulado, final).
 - **Fase:** F5; el tope por campaña y los lineamientos existen desde F3 (RF-INV-002). `requiresReason`.
 - **Requisitos:** RF-INV-001, RN-INV-001, RN-INV-002, RN-INV-003, RN-INV-004, RN-INV-005, RN-INV-006, ASM-008, ASM-063,
-  CON-021, CON-022.
+  ASM-110, ASM-111, ASM-112, ASM-116, ASM-117, ASM-118, ASM-119, CON-021, CON-022, GAP-033.
+- **Monto que se aprueba:** la suma de `line_amount` de los ítems, que se cargan en `requested`; tras aprobar, los ítems
+  y los términos aprobados quedan congelados y un cambio es otro aporte (ASM-110).
 - **Monto ejecutado:** el `total_amount` de un aporte cuenta como ejecutado desde `delivered`, también en `closed` (ASM-063);
   lo suma JOB-02 en la campaña.
 - **Validación contra las fuentes:** DOC-02 registra la compra, la entrega con acta de recepción, la foto y el comprobante
@@ -1339,34 +1370,81 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `approve` (Aprobar) | `requested` | `approved` | `APPROVER`, `SOCIAL_MANAGER` | `SupportPolicyGuard`: P1 (tope de la campaña), P2 (mano de obra y donaciones) y P3 (lineamientos). `InvestmentWriteGuard`: P4 (`APPROVE`), P5 (segregación) y P6 (sinergia) | Obligatorio (`requiresReason`) | — | [DOC-01 §9.3.1.2] lineamientos; [DOC-02 p.3–p.4] |
-| `approve_direct` (Aprobar sin revisión interna) | `requested` | `approved` | `SOCIAL_INVESTMENT_MANAGER` | `SupportPolicyGuard`: P1, P2 y P3; `SOCIAL_INVESTMENT_MANAGER` no tiene `APPROVE_OVER_CAP`, así que un aporte que supera un tope que bloquea lo aprueba `approve`, por `SOCIAL_MANAGER`. `InvestmentWriteGuard`: P7 (sin aprobación interna) y P6; sin P4 ni P5 | Obligatorio (`requiresReason`) | — | ASM-008 |
-| `reject` (Rechazar) | `requested` | `rejected` | `APPROVER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | [DOC-01 §9.3.1.2] |
-| `register_procurement` (Registrar adquisición) | `approved` | `procured` | `SOCIAL_INVESTMENT_MANAGER` | `InvestmentWriteGuard`: al menos un `contribution_item` | Obligatorio (`requiresReason`) | `ContributionTotalsListener` mantiene `total_amount` con cada ítem | [DOC-02 p.4] compra |
-| `register_delivery` (Registrar entrega) | `procured` | `delivered` | `SOCIAL_INVESTMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | `InvestmentWriteGuard`: P8 (entrega con conformidad, acta de recepción, foto y comprobante) | Obligatorio (`requiresReason`) | Es la transición humana que sigue a la captura de la entrega, que no cambia el estado; el aporte cuenta como ejecutado (ASM-063) | [DOC-02 p.4] (RF-INV-001) |
-| `close` (Cerrar) | `delivered` | `closed` | `SOCIAL_INVESTMENT_MANAGER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | Desde F5, `RequestClosureListener` aplica `close_accepted` a la solicitud que lo originó, en la transacción (ASM-068) | [DOC-02 p.4] |
+| `approve` (Aprobar) | `requested` | `approved` | `APPROVER`, `SOCIAL_MANAGER` | `InvestmentWriteGuard`: P9 (ítems y tipo de aporte), P4 (`APPROVE`), P5 (segregación), P6 (sinergia), P2 y P3 (lineamientos, `ContributionGuidelines`) y P1 (tope de la campaña, `ContributionCapRule`) | Obligatorio (`requiresReason`) | `ContributionTotalsListener` escribe el `total_amount` aprobado; se resuelve el aviso `approval_pending` del alta | [DOC-01 §9.3.1.2] lineamientos; [DOC-02 p.3–p.4] |
+| `approve_direct` (Aprobar sin revisión interna) | `requested` | `approved` | `SOCIAL_INVESTMENT_MANAGER` | `InvestmentWriteGuard`: P7 (sin aprobación interna), P9, P6, P2 y P3 y P1; sin P4 ni P5. `SOCIAL_INVESTMENT_MANAGER` no tiene `APPROVE_OVER_CAP`, así que un aporte que supera un tope que bloquea lo aprueba `approve`, por `SOCIAL_MANAGER` (ASM-119) | Obligatorio (`requiresReason`) | Como `approve` | ASM-008 |
+| `reject` (Rechazar) | `requested` | `rejected` | `APPROVER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | Se resuelve el aviso `approval_pending` del alta | [DOC-01 §9.3.1.2] |
+| `register_procurement` (Registrar adquisición) | `approved` | `procured` | `SOCIAL_INVESTMENT_MANAGER` | — (los ítems los exigió la aprobación, P9, y quedaron congelados, ASM-110) | Obligatorio (`requiresReason`) | — | [DOC-02 p.4] compra |
+| `register_delivery` (Registrar entrega) | `procured` | `delivered` | `SOCIAL_INVESTMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | `InvestmentWriteGuard`: P8 (la única entrega, con conformidad y las evidencias ACTA DE RECEPCION, FOTO y COMPROBANTE), con el candado del aporte | Obligatorio (`requiresReason`) | Es la transición humana que sigue a la captura de la entrega, que no cambia el estado; el aporte cuenta como ejecutado (ASM-063) y la entrega queda congelada (ASM-111) | [DOC-02 p.4] (RF-INV-001) |
+| `close` (Cerrar) | `delivered` | `closed` | `SOCIAL_INVESTMENT_MANAGER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | `RequestClosureListener` aplica `close_accepted` a la solicitud que lo originó, en la transacción (ASM-068, ASM-117) | [DOC-02 p.4] |
 | `cancel_approved` (Anular) | `approved` | `cancelled` | `APPROVER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | Estado `cancelled` del análisis §11 |
 | `cancel_procured` (Anular) | `procured` | `cancelled` | `APPROVER`, `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | Ídem |
 
-Reglas de las guardas de WF-P, citadas por número en la tabla y en las pruebas:
+Reglas de las guardas de WF-P, citadas por número en la tabla y en las pruebas. Todas son de `InvestmentWriteGuard`
+(`sgspe.investment`), que usa dos piezas del mismo paquete: `ContributionCapRule` (P1), con `SupportCap` y
+`CampaignCommitted`, como `SupportPolicyGuard` en los compromisos, y la función pura `ContributionGuidelines` (P2 y P3).
 
-- **P1. Tope de la campaña** (`SupportPolicyGuard`): la regla D7 de WF-D, sobre los mismos montos aprobados de la campaña;
-  con la política que bloquea, solo lo supera quien tiene `APPROVE_OVER_CAP` sobre `social_contribution`, que tiene
-  `SOCIAL_MANAGER` (RN-INV-003, GAP-006, RQ-SEC-004, ASM-063).
-- **P2. Mano de obra y donaciones:** no se financia mano de obra, y las donaciones son no monetarias (RN-INV-001,
-  RN-INV-002).
-- **P3. Lineamientos:** `guideline_deviation_justification` informado si el aporte se aparta de los lineamientos del
-  proyecto (RN-INV-006).
-- **P4. Doble llave:** la acción declarada `APPROVE` sobre `social_contribution` (RF-WFL-002).
-- **P5. Segregación:** quien aprueba no registró el aporte (ASM-008).
-- **P6. Sinergia:** un acuerdo vigente si `has_institutional_synergy` es verdadero (RN-INV-004).
-- **P7. Sin aprobación interna:** solo con `policy_internal_approval` en falso (ASM-008).
-- **P8. Entrega con conformidad y evidencia:** una `delivery` del aporte con `conformity_given` verdadero y `conformity_by`
-  informado, vinculada a evidencias ACTA DE RECEPCION, FOTO y COMPROBANTE [DOC-02 p.4].
+- **P1. Tope de la campaña** (`ContributionCapRule`, ASM-110, ASM-119): la regla D7 de WF-D sobre el aporte. El
+  candidato es la suma de `line_amount` de sus ítems, leída en la transacción y nunca del `total_amount` guardado, en la
+  moneda del aporte; lo comprometido de la campaña (`CampaignCommitted`) suma los compromisos en `approved`,
+  `in_progress`, `blocked`, `fulfilled`, `verified` o `closed` y los aportes en `approved`, `procured`, `delivered` o
+  `closed`, sin el que se aprueba. Con `policy_cap_blocks_approval` activa, superarlo es `409 SUPPORT_CAP_EXCEEDED` (o
+  `CAP_DATA_INVALID` si un monto guardado no es válido) sobre `exploration_campaign`, salvo para quien tiene
+  `APPROVE_OVER_CAP` sobre `social_contribution` (`SOCIAL_MANAGER`), que recibe la advertencia; con la política en
+  falso, siempre advertencia. Un monto en otra moneda o una campaña sin moneda dan `CAP_OTHER_CURRENCY`, siempre
+  advertencia. Un aporte sin campaña o una campaña sin tope no se juzgan (RN-INV-003, GAP-006, RQ-SEC-004, ASM-063).
+- **P2 y P3. Lineamientos** (`ContributionGuidelines`, ASM-112), con cada política activa del proyecto: `PAID_LABOR`
+  (`policy_no_paid_labor`: algún ítem MANO DE OBRA) y `MONETARY_DONATION` (`policy_non_monetary_donations`: una
+  DONACION con algún ítem DINERO), sobre `contribution_item`, y `PRIORITY_NOT_MET` (`policy_priority_warning`: el
+  proyecto tiene temas priorizados y el aporte no tiene `topic` o su tema no es priorizado ni desciende de uno), sobre
+  `topic`. Cada incumplimiento es `409` si `guideline_deviation_justification` está vacía y advertencia si está
+  informada: la justificación cubre todos a la vez (RN-INV-006). Un proyecto sin temas priorizados no evalúa la
+  prioridad y advierte `PRIORITIES_NOT_CONFIGURED` (`topic`), que nunca exige justificación. «Caseríos sin beneficio
+  laboral» no se evalúa (GAP-033). Una política apagada no se evalúa (RN-INV-001, RN-INV-002, RN-INV-005).
+- **P4. Doble llave:** la acción declarada `APPROVE` sobre `social_contribution` (RF-WFL-002); sin ella,
+  `403 ACTION_REQUIRED` sobre `record`.
+- **P5. Segregación:** quien aprueba no es `created_by` del aporte, quien lo registró o quien aceptó la solicitud que lo
+  creó (ASM-008, ASM-117), como D4; si no, `403 SEGREGATION_OF_DUTIES` sobre `record`.
+- **P6. Sinergia** (RN-INV-004, ASM-112): con `has_institutional_synergy` verdadero y
+  `policy_synergy_requires_agreement` activa, un `agreement` en `active` y con `validity_status` distinto de VENCIDO;
+  si no, `409 SYNERGY_AGREEMENT_REQUIRED` sobre `agreement`, también con justificación. No es un lineamiento que se
+  justifique, y el aporte no tiene socio que deba ser parte (G3 de WF-G sí lo exige). El acuerdo es del mismo proyecto
+  (`ProjectLinkGuard`).
+- **P7. Sin aprobación interna:** solo con `policy_internal_approval` en falso (ASM-008); si no,
+  `409 INTERNAL_APPROVAL_REQUIRED` sobre `project`.
+- **P8. Entrega con conformidad y evidencia** [DOC-02 p.4] (ASM-111, ASM-116): la única `delivery` del aporte, con
+  `conformity_given` verdadero y `conformity_by` informado, vinculada a al menos una evidencia ACTA DE RECEPCION, una
+  FOTO y un COMPROBANTE del proyecto del aporte. Sin la entrega o sin la conformidad, `409 DELIVERY_REQUIRED` sobre
+  `delivery`; si quien la aplica no lee `conformity_by`, `403 FIELD_NOT_READABLE` sobre `delivery.conformity_by`
+  (como D9 de WF-D); sin las evidencias, `409 EVIDENCE_REQUIRED` sobre `evidence_delivery`. Toma el candado del aporte.
+- **P9. Ítems al aprobar** (ASM-110, ASM-112): al menos un `contribution_item` (`409 ITEMS_REQUIRED` sobre
+  `contribution_item`) y `contribution_type` informado (`400 FIELD_REQUIRED`).
 
-`POST /api/sgspe/social-contributions/{id}/deliveries` solo captura datos: crea la `delivery` y sus vínculos de evidencia en
-una transacción, y AUT-04 emite el acta de recepción. El cambio de estado es la transición humana `register_delivery`
-(modelo de dominio §7.2).
+**Orden y candados.** Una aprobación toma primero el candado del aporte (`social_contribution:<id>`), el mismo de las
+escrituras de sus ítems y de su entrega, así un ítem no se cuela entre la suma y la transición; después corren P7
+(`approve_direct`), P9, P4 y P5 (`approve`), P6, P2 y P3 y al final P1, la única que toma el candado de la campaña
+(`exploration_campaign:<id>`). El orden de los candados es siempre aporte y después campaña. La escritura se detiene en
+el primer bloqueo; la consulta en seco (`transition-checks`) los junta todos, en ese orden y sin tomar candados. Una
+regla que no puede leer lo que necesita rechaza (`403 OBJECT_NOT_READABLE`): nunca deja pasar.
+
+**Otras reglas de `InvestmentWriteGuard` sobre el aporte:**
+
+- **Ítems congelados (ASM-110):** el alta, el cambio o la baja de un `contribution_item` cuyo aporte no está en
+  `requested`, o el cambio del `social_contribution` de un ítem en cualquier estado, es `409 ITEMS_FROZEN` sobre
+  `social_contribution`; la regla toma el candado del aporte.
+- **Términos aprobados (ASM-110):** fuera de `requested`, un cambio de `currency`, `contribution_type`, `topic`,
+  `exploration_campaign`, `has_institutional_synergy`, `agreement`, `guideline_deviation_justification` o `project` es
+  `409 CONTRIBUTION_FROZEN` sobre el campo.
+- **Conteos (ASM-118):** `beneficiaries_count` negativo o no entero es `400 OUT_OF_RANGE`.
+- **Entrega (ASM-111):** una segunda entrega del aporte es `409 DELIVERY_EXISTS` sobre `social_contribution` (la guarda
+  toma el candado del aporte; el único del modelo es la última barrera); con el aporte fuera de `procured`, un cambio de
+  la entrega o el alta o la baja de un vínculo `evidence_delivery` es `409 DELIVERY_FROZEN` sobre
+  `social_contribution`; `delivered_amount` informado es `400 FIELD_NOT_ALLOWED`. La regla de compromisos
+  (`DELIVERY_FROZEN` sobre `commitment`, `sgspe.commitment`) solo mira las entregas con `commitment`.
+
+`POST /api/sgspe/social-contributions/{id}/deliveries` solo captura datos, con el aporte en `procured`: crea la única
+`delivery` y sus vínculos de evidencia en una transacción, sin cambiar el estado. El cambio de estado es la transición
+humana `register_delivery` (modelo de dominio §7.2). El «Acta de recepción» (AUT-04) espera a UPS-23: el acta se
+imprime fuera de SGSPE, se firma en la entrega y se sube como evidencia ACTA DE RECEPCION (ASM-116).
 
 ## Automatizaciones
 
@@ -1587,14 +1665,15 @@ su relación con los workflows.
 | `QcsDueDatesListener` (`sgspe.attention`) | Alta de `grievance`, `inquiry` o `stakeholder_request` | Ninguna | `ack_due_date` (días hábiles con `BusinessDays`, ASM-096) y `resolution_due_date` de la queja y `response_due_date` de la consulta, del mismo registro, con la marca; la solicitud no tiene plazo en el MVP (ASM-100) | Solo si el alta llega por un endpoint con transacción | No falla el alta; JOB-02 completa | Quien registra QCS necesita `UPDATE` sobre el objeto, con motivo |
 | `AttendanceCountsListener` (`sgspe.engagement`) | Alta, cambio o baja de `engagement_participant` | Ninguna | Conteos de asistentes de la `engagement` | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre `engagement`. `FIELD_AGENT` puede agregar participantes a cualquier interacción que pueda leer y solo cambia o borra los que creó (`EditAnyGuard`, ASM-069); la escritura derivada de los conteos lleva la marca `SgspeWrite`, así que `EditAnyGuard` no la frena, tampoco en una interacción ajena |
 | `AreaListener` (`sgspe.territory`) | Cambio por la API genérica de `area_of_influence`, `community`, `land_parcel` o `mining_concession` | Ninguna | `calculated_area_ha` del mismo registro | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre ese objeto |
-| `ContributionTotalsListener` (`sgspe.investment`) | Alta, cambio o baja de `contribution_item` | Ninguna (alimenta `register_procurement`) | `total_amount` de la `social_contribution` | Ídem | No falla; JOB-02 recalcula | `UPDATE` sobre `social_contribution`, con motivo |
+| `ContributionTotalsListener` (`sgspe.investment`) | Alta, cambio o baja de `contribution_item`; `approve` y `approve_direct` de WF-P (ASM-110) | `approve` y `approve_direct`, en las que escribe el total aprobado | `total_amount` de la `social_contribution`, con la marca y solo si cambia | En las transiciones, sí; en un ítem, solo si llega por un endpoint con transacción | No falla; JOB-02 recalcula | `UPDATE` sobre `social_contribution`, con motivo: lo tienen quienes cargan ítems (`SOCIAL_INVESTMENT_MANAGER`, `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`) y quienes aprueban (`APPROVER`, con `u`) |
+| `ProgramTotalsListener` (`sgspe.investment`, F5) | Alta, cambio o baja de `program_budget` | Ninguna | `total_budget` del `social_program`: suma de `allocated_amount` en la moneda del programa (ASM-113), con la marca y solo si cambia | Solo si la escritura llega por un endpoint con transacción | No falla; JOB-02 recalcula | `UPDATE` sobre `social_program`, que tiene `SOCIAL_INVESTMENT_MANAGER`, el único que escribe presupuestos |
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | Alta o cambio del origen de un `commitment`; transiciones a `fulfilled`, `closed` y `cancelled`, y `reopen_execution` | `register_fulfillment`, `reopen_execution`, `close` y las `cancel_*` de WF-D | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date` del mismo compromiso; en `reopen_execution` vacía `fulfilled_date` | Sí en las transiciones | En el alta o el cambio, no falla; en una transición, la revierte | Los roles de esas transiciones necesitan `UPDATE` con motivo sobre `commitment`; `FIELD_AGENT` no tiene esas transiciones |
 | `GraveGrievanceNoticeListener` (`sgspe.notification`, F4) | Una queja ALTA o CRITICA que entra en `in_action` con `policy_high_severity_requires_approver` activo, un cambio de `severity` en `in_action` que la sube a ALTA o CRITICA (publica) o la pasa de ALTA o CRITICA a una severidad no grave (resuelve) y toda transición que sale de `in_action`, que también lo resuelve (ASM-102) | `start_action`, `start_action_after_investigation`, `resolve`, `resolve_high_severity` y `withdraw_in_action` de WF-E1 | El módulo wasichai-notifications, en la fuente `sgspe.approvals` con la clave `approval_pending:grievance:<id>`, en la transacción de la escritura | Sí | Como `ApprovalNoticeListener`; si quien escribe no lee el proyecto o las asignaciones, se registra y la escritura sigue | Lee el proyecto y `project_assignment` como quien escribe; los destinatarios de una queja confidencial se filtran por quien la vería (`ConfidentialReaders`, regla 7 de «Destinatarios por rol») |
 | `ConfidentialTasksListener` (`sgspe.attention`, F4, D-1) | Alta de una `grievance` confidencial; cambio de una QCS de no confidencial a confidencial | Ninguna | `task`, como quien escribe y con la marca: en el alta, la tarea de acuse genérica `ack:grievance:<huella>` (sin vínculo, solo `project`); en la marca posterior, las tareas automáticas abiertas vinculadas a la QCS (escalamiento de JOB-01 y acuse de AUT-02) pasan a la clave de huella, el título y la descripción genéricos y sin vínculo; las cerradas no se tocan, y si la genérica de destino ya existe la vieja queda como está, con una advertencia sin datos de la QCS | Sí: corre en la transacción de la escritura | Lanza: el alta o la marca se revierten | Quien registra o marca una QCS tiene `READ`, `CREATE` y `UPDATE` sobre `task` (`model/roles.json`) |
 | `QcsTransitionDatesListener` (`sgspe.attention`) | Transiciones de una QCS a `resolved` o a un estado final (`closed` y, en la queja, `rejected` y `withdrawn`), y la reapertura de una queja | `resolve`, `resolve_high_severity`, `reopen`, las de cierre de WF-E1, WF-E2 y WF-E3, y `reject_*` y `withdraw_*` de WF-E1 | `resolved_date` (queja) y `closed_date` del mismo registro, en todo estado final | Sí | La transición se revierte | Los roles de esas transiciones ya tienen `UPDATE` sobre el objeto, con motivo |
 | `RequestClosureListener` (`sgspe.attention`) | Transición de un `commitment` a `closed` y, desde F5, de un `social_contribution` a `closed` (ASM-068) | `close` de WF-D y, desde F5, `close` de WF-P | Aplica `close_accepted` a la `stakeholder_request` que originó el registro, con la marca y con motivo, como acción del sistema: corre como quien cierra (wasichai no deja ser la plataforma en una petición ni aplicar una transición sin usuario), dentro de `ConfidentialRelease`, así que cierra también una solicitud confidencial que quien cierra no lee, y la auditoría lleva el origen `listener:request-closure` (plan 4.2a, decisión 4) | Sí | Revierte el cierre del compromiso o del aporte | Los roles de `close` de WF-D y de WF-P tienen `READ` y `UPDATE` sobre `stakeholder_request` y figuran en `close_accepted` |
 | `DeadlineStatusListener` (`sgspe.deadline`) | Cambio de `due_date` de un `commitment` (desde `approved`, solo la reprogramación) | Ninguna | `deadline_status` del mismo compromiso, con la misma regla de JOB-01 y con la marca | Sí: corre en la transacción de la reprogramación | Una regla que rechaza la escritura se registra y la reprogramación sigue (JOB-01 corrige a la hora); un fallo de la base revierte la reprogramación | Quien reprograma ya tiene `UPDATE` sobre `commitment`, con motivo |
-| `ApprovalNoticeListener` (`sgspe.notification`) | Envío a aprobación (`submit_for_review` de WF-A, `submit_minutes` de WF-C, `submit` de WF-D) y toda transición que sale del estado pendiente | Las mismas | El módulo wasichai-notifications (`Notifications.publish` y `resolve`), en la transacción de la transición | Sí | Un aviso mal formado se registra y la transición sigue; un fallo de la base al guardarlo revierte la transición; sin asignaciones que coincidan, una advertencia en el log | Lee `project_assignment` como quien envió, así que todo rol que envía a aprobación tiene `READ` sobre ella (`security.md`). Si quien envía un compromiso no puede leer lo que decide el nivel (D5), el aviso va a los roles de `approve` y de `approve_senior` |
+| `ApprovalNoticeListener` (`sgspe.notification`) | Envío a aprobación (`submit_for_review` de WF-A, `submit_minutes` de WF-C, `submit` de WF-D y, desde F5, `submit` de WF-G) y toda transición que sale del estado pendiente; desde F5, también el alta de un `social_contribution` (modo «al crear» de `ApprovalStep`), cuyo aviso se resuelve al salir de `requested` | Las mismas; el alta del aporte no es una transición | El módulo wasichai-notifications (`Notifications.publish` y `resolve`), en la transacción de la transición | Sí | Un aviso mal formado se registra y la transición sigue; un fallo de la base al guardarlo revierte la transición; sin asignaciones que coincidan, una advertencia en el log | Lee `project_assignment` como quien envió, así que todo rol que envía a aprobación tiene `READ` sobre ella (`security.md`). Si quien envía un compromiso no puede leer lo que decide el nivel (D5), el aviso va a los roles de `approve` y de `approve_senior` |
 | `RiskNoticeListener` (`sgspe.notification`) | Revisión no residual que sube `risk_level` a ALTO o CRITICO (de un nivel menor, o de ALTO a CRITICO), en la transacción del endpoint de revisiones | Ninguna (la primera revisión aplica `assess` en la misma transacción) | El módulo wasichai-notifications: publica `risk_escalated` del nivel y resuelve el anterior del mismo riesgo | Sí: corre en la transacción del endpoint | Un aviso mal formado se registra y la revisión sigue; un fallo de la base al guardarlo revierte la revisión; sin asignaciones que coincidan, una advertencia en el log | Lee `project_assignment` como quien revisa, que tiene `READ` sobre ella |
 | `WarningNoticeListener` (`sgspe.notification`) | Alta de `early_warning`, por una persona o por JOB-04 como la plataforma; `start_triage` resuelve el aviso | `start_triage` | El módulo wasichai-notifications: publica `warning_new` y lo resuelve | Solo si el alta llega por un endpoint con transacción o por JOB-04, que crea la alerta en la suya | Un aviso mal formado se registra y el alta sigue | Lee `project_assignment` como quien crea la alerta; en las de JOB-04, como la plataforma |
 
@@ -1618,12 +1697,13 @@ compromiso deja de estar vencido). Un aviso de aprobación es `ACTION`; uno por 
 escalamiento, `ACTION`. Quién recibe cada aviso lo fija «Destinatarios por rol».
 
 En F3 llegan `approval_pending` (WF-A, WF-C y WF-D), `commitment_due_soon`, `commitment_overdue` y `task_overdue`; los
-de QCS, riesgos y alertas llegan en F4 con sus objetos. La columna `notification_type` de la tabla siguiente es el
+de QCS, riesgos y alertas llegan en F4 con sus objetos, y los de aprobación de programas y aportes, en F5, en la fuente
+`sgspe.approvals`. La columna `notification_type` de la tabla siguiente es el
 prefijo de la clave de cada aviso.
 
 | Aviso | `notification_type` | Origen | Disparador | Destinatarios | Clave |
 |---|---|---|---|---|---|
-| Aprobación pendiente (RF-NTF-001) | `approval_pending` | `ApprovalNoticeListener` (WF-G, WF-H y `social_contribution` suman su paso a `ApprovalNoticeListener.STEPS` en su fase); el de una queja grave, `GraveGrievanceNoticeListener` (F4) | WF-A `submit_for_review`; WF-C `submit_minutes`; WF-D `submit`; WF-G `submit`; WF-H `submit_for_review` y `resubmit`; alta de `social_contribution` en `requested`; desde F4, `start_action` o `start_action_after_investigation` de una queja ALTA o CRITICA con `policy_high_severity_requires_approver` activo, o un cambio de `severity` a ALTA o CRITICA en `in_action` (ASM-102) | Los roles de la transición de aprobación que sigue; en la queja, los de `resolve_high_severity` | `approval_pending:<objeto>:<id>`: volver a enviar reabre el mismo aviso; el de una queja se resuelve al salir de `in_action` o si la severidad deja de ser ALTA o CRITICA |
+| Aprobación pendiente (RF-NTF-001) | `approval_pending` | `ApprovalNoticeListener` (WF-G y el alta de `social_contribution` suman su paso a `ApprovalNoticeListener.STEPS` en F5, este con el modo «al crear» de `ApprovalStep`; WF-H, en F8); el de una queja grave, `GraveGrievanceNoticeListener` (F4) | WF-A `submit_for_review`; WF-C `submit_minutes`; WF-D `submit`; WF-G `submit`; WF-H `submit_for_review` y `resubmit`; alta de `social_contribution` en `requested`; desde F4, `start_action` o `start_action_after_investigation` de una queja ALTA o CRITICA con `policy_high_severity_requires_approver` activo, o un cambio de `severity` a ALTA o CRITICA en `in_action` (ASM-102) | Los roles de la transición de aprobación que sigue; en la queja, los de `resolve_high_severity` | `approval_pending:<objeto>:<id>`: volver a enviar reabre el mismo aviso; el de una queja se resuelve al salir de `in_action` o si la severidad deja de ser ALTA o CRITICA; el de un aporte, al salir de `requested` (llega al alta, antes de los ítems: quien aprueba ve el total al abrirlo, y la aprobación sin ítems responde `409 ITEMS_REQUIRED`) |
 | Compromiso por vencer (RF-NTF-001) | `commitment_due_soon` | `DeadlineNotices` | `deadline_status` pasa a POR VENCER (`due_soon_days`, ASM-006) | El responsable (`owner_user_id`) | `commitment_due_soon:<id>:<due_date>` |
 | Compromiso vencido (RF-NTF-001, RF-WFL-004) | `commitment_overdue` | `DeadlineNotices` | `deadline_status` pasa a VENCIDO (nivel 0); luego, a los `escalation_first_days` (nivel 1) y `escalation_second_days` (nivel 2) días de atraso | Nivel 0: el responsable; nivel 1: los roles de `verify`; nivel 2: los de `approve_senior` (ASM-030, ASM-070). Una tarea de escalamiento en los niveles 1 y 2 | `commitment_overdue:<id>:<due_date>:<nivel>`: un aviso por nivel alcanzado, todos abiertos mientras dure el atraso |
 | Plazo de QCS próximo a incumplirse (queja: RF-NTF-001; consulta: RF-WFL-004) | `qcs_deadline` | `DeadlineNotices` | `deadline_status` de una queja o una consulta en POR VENCER o en VENCIDO (nivel 0: acuse, respuesta o resolución); luego, los niveles 1 y 2 de atraso | Nivel 0: el responsable o, sin responsable, los roles de la transición que sigue; nivel 1: los de `verify` de WF-E1; nivel 2: los de `approve_senior` de WF-D, porque WF-E no tiene aprobación superior; en una QCS confidencial, solo los que la verían (ASM-102). Una tarea de escalamiento en los niveles 1 y 2 | `qcs_deadline:<objeto>:<id>:<fecha del plazo>:<POR VENCER o nivel>`; se resuelve cuando la situación deja de ser cierta |
@@ -1634,7 +1714,9 @@ prefijo de la clave de cada aviso.
 | QCS confidencial en el nivel 2 (RF-WFL-004) | `qcs_confidential_overdue` | `DeadlineNotices` (F4) | Nivel 2 de `qcs_deadline` de una QCS confidencial | Los asignados con un rol de `approve_senior` de WF-D que no la verían (los que sí la ven reciben `qcs_deadline`) (ASM-102) | `qcs_confidential_overdue:<proyecto>:<huella>`, donde `<huella>` son los 16 primeros dígitos hexadecimales del SHA-256 de `<objeto>:<id>:<fecha del plazo>`: un aviso por QCS y plazo sin su id, tipo ni fecha; se resuelve cuando la QCS deja el nivel 2 o el estado con plazo |
 
 Los textos de los avisos (`NoticeTexts`) llevan el código, el tipo y la fecha; nunca descripción, persona ni texto
-libre. El de `qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto
+libre. El de un programa lleva su código y su nombre, y el de un aporte, su código y su tipo; nunca propósito,
+condiciones ni receptor. F5 no agrega avisos de plazo: los hitos de programa no escalan. El de
+`qcs_confidential_overdue` es fijo salvo el nombre del proyecto: «Una QCS confidencial del proyecto
 <proyecto> superó su plazo. Pida el detalle al equipo de quejas.» No lleva código, título, tipo, fecha, nivel, categoría
 ni enlace al registro, y es `ACTION`. Las tareas automáticas de una QCS confidencial tampoco la delatan, porque las leen
 todos los lectores de `task` del proyecto (D-1): las de escalamiento de los niveles 1 y 2 llevan la clave
@@ -1797,7 +1879,8 @@ externa por túnel, porque Docker es remoto.
   campo con un valor que el campo admite (una opción de su ENUM, `true` o `false`, un número o un estado del workflow),
   porque wasichai compara el texto tal cual y una automatización con otro valor se saltaría siempre (`apply.py`);
 - las automatizaciones y los tipos de documento son los de la tabla de su fase, salvo los que esperan una brecha («F3,
-  tras UPS-23» o «F4, tras UPS-23»), y ningún tipo de documento se declara sobre un objeto con campos restringidos ni
+  tras UPS-23», «F4, tras UPS-23» o «F5, tras UPS-23», como AUT-04), y ningún tipo de documento se declara sobre un
+  objeto con campos restringidos ni
   nombra una tabla relacionada de uno (`security.md` §11.4);
 - un campo derivado se reconoce por la clave `"derived": true` de su definición en `model/model.json`, que solo leen las
   herramientas de SGSPE. Nunca se marca con `editable: false`, porque el almacén de wasichai omite esos campos en toda
@@ -1822,9 +1905,9 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 | WF-D | `CommitmentWorkflowApiTest` | `submit` sin cada campo de D1 o sin responsable (D2) → rechazada; sin `execution_time` → permitida; vaciar `due_date` u `owner_user_id` en `pending_approval` y aplicar `approve` → rechazada (D1, D2); `approve` por quien registró (D4) → rechazada; compromiso de MESA DE DIALOGO: `approve` rechazada (D5), `approve_senior` permitida; tope superado según la política (D7); con un tope que bloquea, `approve_direct` → rechazada, y el mismo compromiso por `submit` y `approve_senior` → permitido; `approve_direct` con la aprobación interna activa (D8) → rechazada; registrar la entrega no cambia el estado; `register_fulfillment` (D9): MATERIAL sin FOTO → rechazada, NO MATERIAL con conformidad, `conformity_by` y una CARTA → permitida, NO MATERIAL sin `conformity_by` → rechazada; con una dependencia bloqueante (D10) → rechazada; `reopen_execution` vacía `fulfilled_date`; cada `cancel_*` escribe `cancelled_date`; `verify` por el responsable (D11) → rechazada; `close` cierra la solicitud en la misma transacción; si el rol no puede cerrar la solicitud, el compromiso sigue en `verified` |
 | WF-E1 | `GrievanceWorkflowApiTest` | `resolve` de una queja ALTA por `GRIEVANCE_MANAGER` → rechazada y `resolve_high_severity` por `APPROVER` → permitida; `resolve` escribe `resolved_date` y `reopen` lo vacía; `reopen` con conformidad → rechazada; `reject_*` sin `responded_at` → rechazada; `reject_*` y `withdraw_*` escriben `closed_date`; la reclasificación cierra el original, con `closed_date` y sin `responded_at`, y crea el registro nuevo con su vínculo y el `received_at` del primer registro de la cadena, del que salen sus plazos (ASM-072) |
 | WF-E2 | `InquiryWorkflowApiTest` | `answer` sin respuesta → rechazada; `close_referred` sin `responded_at` → rechazada; AUT-07 solo con CARTA |
-| WF-E3 | `StakeholderRequestWorkflowApiTest` | `accept` por la API genérica → rechazada; `accept` sin `response` o sin `responded_at` → rechazada; el endpoint crea el compromiso en `draft`; `close_accepted` por la API genérica → rechazada; el listener la cierra con motivo; desde F5, cerrar el aporte también la cierra; `close_unfulfilled` solo con el compromiso o el aporte cancelado o rechazado |
+| WF-E3 | `StakeholderRequestWorkflowApiTest` | `accept` por la API genérica → rechazada; `accept` sin `response` o sin `responded_at` → rechazada; el endpoint crea el compromiso en `draft`; `close_accepted` por la API genérica → rechazada; el listener la cierra con motivo; `close_unfulfilled` solo con el compromiso cancelado. Desde F5 (ASM-117): aceptar como aporte por `SOCIAL_INVESTMENT_MANAGER` crea el aporte en `requested` con `created_contribution`; por `COMMITMENT_MANAGER` → `403`; `created_contribution` por la API genérica → `403 COMMAND_ONLY`; cerrar el aporte cierra la solicitud en la misma transacción, también una confidencial; `close_unfulfilled` con el aporte rechazado → permitida, con el aporte aprobado → `409` |
 | WF-F | `SocialRiskWorkflowApiTest` | La primera revisión aplica `assess`; `decide_mitigation` sin medida con responsable → rechazada; pasar a monitoreo sin revisión residual → rechazada; cerrar sin `close_reason` → rechazada |
-| WF-G | `SocialProgramWorkflowApiTest` | `approve` sin acuerdo de sinergia (política activa) o por quien registró → rechazada; `plan_direct` con la política activa → rechazada |
+| WF-G | `SocialProgramWorkflowApiTest` | `approve` sin acuerdo de sinergia con socio (política activa, G3) → `409`; con acuerdo vencido o sin el socio como parte → `409`; por quien registró (G2) → `403`; `plan_direct` con la política de aprobación interna activa (G4) → `409`; `suspend` y los `cancel_*` sin motivo → `400`; `total_budget` solo suma la moneda del programa; un grupo de beneficiarios con una iniciativa de otro programa → `409 PROGRAM_MISMATCH` |
 | WF-H | `DeliverableWorkflowApiTest` | `approve` con borrador que no está LISTO o con una sección cambiada después → rechazada; `issue` por la API genérica → rechazada; una sección cambiada después de `approve` → el endpoint de emisión responde 409 y `return_to_draft` devuelve el entregable; el endpoint crea la versión, que responde 409 a todo cambio; `start_revision` conserva las versiones; solo los roles con `GENERATE`, `APPROVE` o `ISSUE` piden borradores, aprueban o emiten |
 | WF-I | `AgreementWorkflowApiTest` | Activar una SERVIDUMBRE sin predios o una AUTORIZACION DE ASAMBLEA sin la interacción de asamblea → rechazada; vencer no cambia el estado, solo `validity_status` |
 | WF-J | `EarlyWarningWorkflowApiTest` | Una cuenta de servicio con el rol no confirma ni descarta; una persona sin `CONFIRM_ALERT` tampoco; una persona con la acción sí; JOB-04 solo crea alertas en `detected` |
@@ -1834,7 +1917,16 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 | WF-M | `IncidentWorkflowApiTest` | `close` sin respuesta inmediata o sin consecuencias → rechazada |
 | WF-N | `TaskWorkflowApiTest` | Cancelar sin motivo → 400; las tareas de un trabajo no se duplican; una persona no fija, cambia ni vacía `generator_key` → 403 |
 | WF-O | `AreaOfInfluenceWorkflowApiTest` | `approve` por la API genérica → rechazada; el endpoint aprueba la nueva y reemplaza la anterior en una transacción; los miembros de una versión aprobada no cambian |
-| WF-P | `SocialContributionWorkflowApiTest` | `approve` por `APPROVER` o `SOCIAL_MANAGER`; con un tope que bloquea (P1), `approve` por `APPROVER`, que no tiene `APPROVE_OVER_CAP` → rechazada, `approve` por `SOCIAL_MANAGER` → permitida y `approve_direct` → rechazada; aporte con sinergia sin acuerdo (P6) → rechazado; registrar la entrega no cambia el estado; `register_delivery` sin entrega con conformidad, acta, foto o comprobante (P8) → rechazada |
+| WF-P | `SocialContributionWorkflowApiTest` | `approve` por `APPROVER` y por `SOCIAL_MANAGER`; sin ítems (P9) → `409`; sin `contribution_type` → `400`; ítem nuevo o cambiado después de aprobar → `409 ITEMS_FROZEN`; cambiar la moneda o la campaña después de aprobar → `409 CONTRIBUTION_FROZEN`; con un tope que bloquea (P1): `approve` por `APPROVER` → `409`, por `SOCIAL_MANAGER` → permitido, `approve_direct` → `409`; el tope cuenta un compromiso comprometido y otro aporte aprobado de la misma campaña; MANO DE OBRA, DINERO en DONACION y tema no priorizado: sin justificación → `409` con el código de cada uno, con justificación → permitido con advertencias; aporte con sinergia sin acuerdo, con acuerdo fuera de `active` o VENCIDO (P6) → `409 SYNERGY_AGREEMENT_REQUIRED` también con justificación, y con acuerdo vigente → permitido; aprobar por quien registró (P5) → `403`; `approve_direct` con la aprobación interna activa (P7) → `409`; capturar la entrega fuera de `procured` → `409`; una segunda entrega → `409 DELIVERY_EXISTS`; `delivered_amount` informado → `400`; registrar la entrega no cambia el estado; `register_delivery` sin conformidad, sin acta, sin foto o sin comprobante (P8) → `409`; la entrega y sus vínculos de evidencia no cambian desde `delivered`; `close` cierra la solicitud de origen |
+
+Las de F5 parten de la base `F5ApiTest` (sobre `F4ApiTest`): aportes con ítems, una campaña con tope, un acuerdo
+vigente, una entrega con sus tres evidencias y programas con presupuesto, listos para las guardas. Además:
+`InvestmentDashboardApiTest` (KPI-INV-01 a 04 con montos en dos monedas; un proyecto ajeno da conjuntos vacíos);
+`ProjectReadScopeApiTest` con los casos de ASM-114 (la entrega del compromiso y la del aporte, y las mediciones, se leen
+por su proyecto; una entrega huérfana no la lee nadie salvo `ADMIN` y `READ_ALL_PROJECTS`); las columnas «otro
+proyecto» y «no asignado» de `PermissionMatrixApiTest` y `WorkflowMatrixApiTest` con los diez objetos de BC-10; y las
+unitarias `ContributionGuidelinesTest`, `SupportCapTest` con aportes, `CampaignCommittedTest`,
+`ProjectReadConditionTest`, `ProjectResolverTest` y `AmountFieldsGuardTest`.
 
 ### Pruebas de trabajos, listeners y automatizaciones
 
