@@ -5,15 +5,16 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
-import sgspe.F4ApiTest
+import sgspe.ContributionApiTest
 import sgspe.common.IdempotencyKey
 import tools.jackson.databind.JsonNode
 
 // WF-E3 (workflows.md, api.md §4.6, RN-GRV-001, ASM-068): aceptar es responder y crear el compromiso en draft, por su comando;
 // la API genérica no acepta ni cierra por el compromiso (COMMAND_ONLY); el cierre del compromiso cierra la solicitud
 // (RequestClosureListener, una acción del sistema con su origen y el motivo), también una confidencial que quien cierra no
-// lee; close_unfulfilled exige el compromiso cancelado; declinar exige la respuesta
-class StakeholderRequestWorkflowApiTest : F4ApiTest() {
+// lee; close_unfulfilled exige el compromiso cancelado; declinar exige la respuesta; desde F5, aceptar crea también un aporte
+// (creates = social_contribution), que cierra la solicitud al cerrarse
+class StakeholderRequestWorkflowApiTest : ContributionApiTest() {
     private val manager by lazy { member("SOCIAL_MANAGER") }
     private val grievances by lazy { member("GRIEVANCE_MANAGER") }
 
@@ -98,12 +99,12 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
     }
 
     @Test
-    fun `un aporte social, una solicitud fuera de evaluacion o sin respuesta no se aceptan`() {
+    fun `un destino que no es compromiso ni aporte, una solicitud fuera de evaluacion o sin respuesta no se aceptan`() {
         val id = underEvaluation(mapOf("response" to null, "responded_at" to null))
-        val contribution = accept(id, mapOf("creates" to "social_contribution", "response" to "x", "respondedAt" to "2026-10-08T15:00:00Z"))
-        assertEquals(HttpStatus.BAD_REQUEST, contribution.status, contribution.body)
-        assertEquals("INVALID_TARGET", code(contribution))
-        assertEquals(listOf("creates"), problemFields(contribution.body))
+        val other = accept(id, mapOf("creates" to "agreement", "response" to "x", "respondedAt" to "2026-10-08T15:00:00Z"))
+        assertEquals(HttpStatus.BAD_REQUEST, other.status, other.body)
+        assertEquals("INVALID_TARGET", code(other))
+        assertEquals(listOf("creates"), problemFields(other.body))
         val silent = accept(id, mapOf("creates" to "commitment", "attributes" to mapOf("code" to uniqueName("COM-"), "title" to "Sin respuesta") + AMOUNT))
         assertEquals(HttpStatus.BAD_REQUEST, silent.status, silent.body)
         assertEquals("FIELD_REQUIRED", code(silent))
@@ -251,6 +252,72 @@ class StakeholderRequestWorkflowApiTest : F4ApiTest() {
         val response = transition("stakeholder_request", id, "decline", grievances.token, "no procede")
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
         assertEquals(listOf("response"), problemFields(response.body))
+    }
+
+    // ---- F5: la aceptación como aporte (§3.7 de la especificación de F5) ----
+
+    private fun acceptAsContribution(
+        id: String,
+        account: Account
+    ): Response =
+        accept(
+            id,
+            mapOf(
+                "creates" to "social_contribution",
+                "response" to "Se atenderá con un aporte de útiles escolares.",
+                "respondedAt" to "2026-10-08T15:00:00Z",
+                "attributes" to contributionAttributes(testProject()) - "project"
+            ),
+            account
+        )
+
+    @Test
+    fun `aceptar como aporte crea el aporte en requested con created_contribution`() {
+        val id = underEvaluation()
+        val response = acceptAsContribution(id, member("SOCIAL_INVESTMENT_MANAGER"))
+        assertEquals(HttpStatus.CREATED, response.status, response.body)
+        val body = tree(response.body)
+        val contribution = body["contribution"]["id"].asString()
+        assertEquals("accepted", body["request"]["state"].asString())
+        assertEquals("requested", body["contribution"]["state"].asString())
+        assertEquals(contribution, body["request"]["attributes"]["created_contribution"].asString())
+        assertEquals(testProject(), body["contribution"]["attributes"]["project"].asString())
+        assertTrue(response.headers.getFirst("Location")!!.endsWith("/api/objects/social_contribution/records/$contribution"))
+    }
+
+    // §2.2: COMMITMENT_MANAGER tiene el rol de accept pero no CREATE sobre social_contribution
+    @Test
+    fun `COMMITMENT_MANAGER no acepta una solicitud como aporte`() {
+        val id = underEvaluation()
+        val refused = acceptAsContribution(id, member("COMMITMENT_MANAGER"))
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("under_evaluation", state("stakeholder_request", id))
+    }
+
+    @Test
+    fun `created_contribution lo escribe solo la aceptacion`() {
+        val id = underEvaluation()
+        val refused = edit("stakeholder_request", id, mapOf("created_contribution" to requestedContribution()), token, withReason())
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("COMMAND_ONLY", code(refused))
+        assertEquals(listOf("created_contribution"), problemFields(refused.body))
+    }
+
+    @Test
+    fun `close_unfulfilled con el aporte rechazado pasa y con el aporte aprobado es STATE_MISMATCH`() {
+        val investment = member("SOCIAL_INVESTMENT_MANAGER")
+        val rejected = underEvaluation()
+        val first = tree(acceptAsContribution(rejected, investment).body)["contribution"]["id"].asString()
+        move("social_contribution", first, "reject", member("APPROVER").token, "no procede")
+        move("stakeholder_request", rejected, "close_unfulfilled", grievances.token, "sin ejecución")
+        val approved = underEvaluation()
+        val second = tree(acceptAsContribution(approved, investment).body)["contribution"]["id"].asString()
+        assertEquals(HttpStatus.CREATED, itemFor(second).status)
+        move("social_contribution", second, "approve", member("APPROVER").token, "aprobación")
+        val refused = transition("stakeholder_request", approved, "close_unfulfilled", grievances.token, "sin ejecución")
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("STATE_MISMATCH", code(refused))
+        assertEquals(listOf("created_contribution"), problemFields(refused.body))
     }
 
     companion object {

@@ -37,14 +37,17 @@ object AttentionRules {
     const val CONFORMITY = "complainant_conformity_given"
     const val DUPLICATE_OF = "duplicate_of"
     const val CREATED_COMMITMENT = "created_commitment"
+    const val CREATED_CONTRIBUTION = "created_contribution"
 
-    // los vínculos que solo escriben los comandos: reclassified_from_* (Reclassifications) y created_commitment de la solicitud
-    // (Acceptances). la regla de conteo (AttentionCounting) saca de los conteos al original que apunta un reclassified_from_*,
-    // y el cierre del compromiso (RequestClosureListener) y close_unfulfilled confían en created_commitment: fijarlos a mano
-    // ocultaría un planteamiento abierto o reapuntaría la solicitud a otro compromiso
+    // los vínculos que solo escriben los comandos: reclassified_from_* (Reclassifications) y created_commitment y, desde F5,
+    // created_contribution de la solicitud (Acceptances). la regla de conteo (AttentionCounting) saca de los conteos al
+    // original que apunta un reclassified_from_*, y el cierre del compromiso (RequestClosureListener) y close_unfulfilled
+    // confían en created_commitment: fijarlos a mano ocultaría un planteamiento abierto o reapuntaría la solicitud a otro
+    // compromiso
     val COMMAND_FIELDS: Map<String, Set<String>> =
         Attention.OBJECTS.associateWith { objectName ->
-            Attention.RECLASSIFIED_FROM.getValue(objectName).keys + if (objectName == Attention.REQUEST) setOf(CREATED_COMMITMENT) else emptySet()
+            Attention.RECLASSIFIED_FROM.getValue(objectName).keys +
+                if (objectName == Attention.REQUEST) setOf(CREATED_COMMITMENT, CREATED_CONTRIBUTION) else emptySet()
         }
 
     // una persona (`person`) sin la marca SgspeWrite (`marked`) que fija, cambia o vacía uno de esos vínculos (`changed`, los
