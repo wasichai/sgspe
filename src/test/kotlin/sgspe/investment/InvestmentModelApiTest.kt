@@ -109,9 +109,16 @@ class InvestmentModelApiTest : F5ApiTest() {
         assertEquals(1, tree(send("GET", "/api/objects/project/records/$project/related/project_priority_topic", null, HttpStatus.OK))["totalElements"].asInt())
         val themed = socialContribution(project, attributes = mapOf("topic" to topic))
         assertEquals(topic, record("social_contribution", themed)["attributes"]["topic"].asString())
-        // una tarea con un programa de origen (ExactlyOneGuard) y una solicitud que nombra el aporte creado
+        // una tarea con un programa de origen (ExactlyOneGuard). created_contribution existe en el tenant, pero es campo de
+        // comando desde el plan 5.2a: lo escribe la aceptación como aporte (StakeholderRequestWorkflowApiTest); aquí, como la
+        // plataforma (COMMAND_ONLY solo juzga a las personas), para ver que la solicitud guarda el vínculo
         createRecord("task", mapOf("project" to project, "title" to "Preparar la evaluación del programa", "social_program" to program))
-        val request = stakeholderRequest(project, attributes = mapOf("created_contribution" to contribution))
+        assertTrue(
+            "created_contribution" in
+                tree(send("GET", "/api/metadata/objects/stakeholder_request/fields", null, HttpStatus.OK)).values().map { it["name"].asString() }
+        )
+        val request = stakeholderRequest(project)
+        platformPatch("stakeholder_request", request, mapOf("created_contribution" to contribution), "vínculo de prueba como la plataforma")
         assertEquals(contribution, record("stakeholder_request", request)["attributes"]["created_contribution"].asString())
     }
 

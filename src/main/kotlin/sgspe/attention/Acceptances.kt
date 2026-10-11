@@ -39,10 +39,16 @@ data class RequestAcceptance(
     val commitment: RecordResponse
 )
 
+// desde F5 (§3.7 de la especificación de F5): la aceptación que crea un aporte social
+data class ContributionAcceptance(
+    val request: RecordResponse,
+    val contribution: RecordResponse
+)
+
 // la aceptación de una solicitud (RF-GRV-004, api.md §4.6): aceptar es responderla. en una transacción escribe response y
-// responded_at en la solicitud, crea el compromiso en draft con `attributes` (sigue WF-D, con su aprobación), guarda
-// created_commitment y aplica accept, la transición de comando de WF-E3, con el motivo de la petición. el aporte social
-// (creates igual a social_contribution) llega en F5: hoy es 400 INVALID_TARGET. todo como quien llama
+// responded_at en la solicitud, crea el compromiso en draft o, desde F5, el aporte en requested con `attributes` (siguen WF-D
+// o WF-P, con su aprobación), guarda created_commitment o created_contribution y aplica accept, la transición de comando de
+// WF-E3, con el motivo de la petición. todo como quien llama
 @Service
 class Acceptances(
     private val records: Records,
@@ -60,41 +66,47 @@ class Acceptances(
     ): CommandAnswer {
         val expected = IfMatch.required(ifMatch)
         StrictBody.requireOnly(body, setOf(CREATES, "response", RESPONDED_AT, "attributes"))
-        if (Values.text(body[CREATES]) != COMMITMENT) {
+        val creates = Values.text(body[CREATES])
+        if (creates != COMMITMENT && creates != CONTRIBUTION) {
             throw Finding(
                 "INVALID_TARGET",
-                "Una solicitud aceptada crea un compromiso (creates igual a commitment); el aporte social llega en F5",
+                "Una solicitud aceptada crea un compromiso o un aporte social (creates igual a commitment o social_contribution)",
                 CREATES,
                 status = HttpStatus.BAD_REQUEST
             ).toCodedException()
         }
         val attributes = StrictBody.objectOf(body, "attributes")
-        StrictBody.requireAttributes(catalog, COMMITMENT, attributes, setOf("project"))
+        StrictBody.requireAttributes(catalog, creates, attributes, setOf("project"))
         if (reason.isNullOrBlank()) throw ValidationException("Aceptar una solicitud exige un motivo", "reason", "envíe la cabecera X-Change-Reason")
         val user = callers.require()
-        permissions.require(user, "Aceptar una solicitud", Actions.UPDATE to Attention.REQUEST, Actions.CREATE to COMMITMENT)
+        permissions.require(user, "Aceptar una solicitud", Actions.UPDATE to Attention.REQUEST, Actions.CREATE to creates)
         TransitionRoles.require(catalog, user, Attention.REQUEST, listOf(ACCEPT))
-        val result =
+        val field = if (creates == COMMITMENT) AttentionRules.CREATED_COMMITMENT else AttentionRules.CREATED_CONTRIBUTION
+        val (answer, accepted, created) =
             transactions.locked("${Attention.REQUEST}:$id") {
                 val request = records.get(Attention.REQUEST, id)
                 versions.check(Attention.REQUEST, id, expected, request.updatedAt, "La solicitud")
                 if (request.state != UNDER_EVALUATION) {
                     throw Finding("STATE_MISMATCH", "Solo se acepta una solicitud en evaluación; esta está en ${request.state}", "record").toCodedException()
                 }
-                // la respuesta primero: AttentionWriteGuard exige response y responded_at para aplicar accept
-                // un respondedAt mal formado lo rechaza la validación de wasichai sobre responded_at: el 400 nombra la propiedad del
-                // cuerpo
+                // la respuesta primero: AttentionWriteGuard exige response y responded_at para aplicar accept. un respondedAt mal
+                // formado lo rechaza la validación de wasichai sobre responded_at: el 400 nombra la propiedad del cuerpo
                 try {
                     records.patch(Attention.REQUEST, id, mapOf("response" to body["response"], Attention.RESPONDED_AT to body[RESPONDED_AT]), reason)
                 } catch (e: ValidationException) {
                     throw bodyFields(e)
                 }
-                val commitment = records.create(COMMITMENT, attributes + ("project" to request.attributes["project"]), reason)
-                records.patch(Attention.REQUEST, id, mapOf(AttentionRules.CREATED_COMMITMENT to commitment.id), reason)
+                // el compromiso nace en draft y el aporte en requested; quien acepta es su created_by (P5 de WF-P, D4 de WF-D)
+                val record = records.create(creates, attributes + ("project" to request.attributes["project"]), reason)
+                records.patch(Attention.REQUEST, id, mapOf(field to record.id), reason)
                 records.transition(Attention.REQUEST, id, ACCEPT, reason)
-                RequestAcceptance(records.get(Attention.REQUEST, id), records.get(COMMITMENT, UUID.fromString(commitment.id)))
+                val acceptedRequest = records.get(Attention.REQUEST, id)
+                val createdRecord = records.get(creates, UUID.fromString(record.id))
+                val answer: Any =
+                    if (creates == COMMITMENT) RequestAcceptance(acceptedRequest, createdRecord) else ContributionAcceptance(acceptedRequest, createdRecord)
+                Triple(answer, acceptedRequest, createdRecord)
             }
-        return CommandAnswer(HttpStatus.CREATED, result, result.request.updatedAt, "/api/objects/$COMMITMENT/records/${result.commitment.id}")
+        return CommandAnswer(HttpStatus.CREATED, answer, accepted.updatedAt, "/api/objects/$creates/records/${created.id}")
     }
 
     companion object {
@@ -110,6 +122,7 @@ class Acceptances(
             )
 
         const val COMMITMENT = "commitment"
+        const val CONTRIBUTION = "social_contribution"
         const val ACCEPT = "accept"
         const val UNDER_EVALUATION = "under_evaluation"
     }
