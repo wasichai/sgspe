@@ -2177,9 +2177,8 @@ evidencias. Tabla física `app_data.delivery__<org8>`. Requisitos: RF-COM-008, R
 
 - **Exactamente uno de:** (`commitment`, `social_contribution`), con `ExactlyOneGuard`.
 - **Flags:** `appendOnly` no · `apiOnly` sí · `requiresReason` no.
-- **Únicos:** ninguno en F3 y F4; desde F5, uno sobre `social_contribution` (ASM-111), que las entregas de compromisos
-  dejan vacío y no choca; si wasichai no lo admite sobre una relación opcional, queda solo la regla con candado de
-  `InvestmentWriteGuard`.
+- **Únicos:** `unique` en `social_contribution` (desde F5, ASM-111; wasichai no admite un único compuesto de un solo
+  campo; las entregas de compromisos lo llevan vacío y no chocan).
 - **Índices declarados:** ninguno.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.

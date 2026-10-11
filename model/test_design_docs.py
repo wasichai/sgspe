@@ -332,9 +332,9 @@ class F5CardsTests(unittest.TestCase):
     def test_el_unico_de_la_entrega_es_unique_en_su_relacion_con_el_aporte(self):
         # wasichai 1.0.0 rechaza un uniqueConstraints de un solo campo (FieldSets.normalize, al menos dos) y apply.py
         # también: el único de delivery.social_contribution irá como «`unique` en», y apply.py lo pone en la relación.
-        # el plan 5.0 lo deja como texto «desde F5» (el modelo de F4 no lo tiene); la Tarea 3 lo pasa a la forma leída
+        # el plan 5.0 lo dejó como texto «desde F5»; con el modelo de F5 (plan 5.1, Tarea 3) es la forma leída
         delivery = self.cards["delivery"]
-        self.assertEqual((delivery.unique, delivery.unique_constraints), ([], []))
+        self.assertEqual((delivery.unique, delivery.unique_constraints), (["social_contribution"], []))
         self.assertEqual(delivery.exactly_one, [["commitment", "social_contribution"]])
 
     def test_wf_g_y_wf_p_y_los_roles_de_f5_en_wf_e3(self):
@@ -349,9 +349,9 @@ class F5CardsTests(unittest.TestCase):
         for role in ("SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_INVESTMENT_MANAGER"):
             self.assertEqual(matrix["contribution_item"][role], ["READ", "CREATE", "UPDATE", "DELETE"], role)
         self.assertEqual(matrix["receipt"]["COMMUNITY_RELATIONS_OFFICER"], ["READ", "CREATE", "UPDATE"])
-        # u sobre topic para PROJECT_ADMIN y PROJECT_MANAGER llega a la celda con el modelo de F5 (Tarea 3)
+        # u sobre topic para PROJECT_ADMIN y PROJECT_MANAGER llega a la celda con el modelo de F5 (plan 5.1, Tarea 3)
         for role in ("PROJECT_ADMIN", "PROJECT_MANAGER"):
-            self.assertNotIn("u", matrix["topic"][role], role)
+            self.assertIn("u", matrix["topic"][role], role)
         self.assertEqual(matrix["social_contribution"]["SOCIAL_MANAGER"][-1], "APPROVE_OVER_CAP")
 
 

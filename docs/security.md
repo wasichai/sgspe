@@ -684,7 +684,7 @@ Criterios con que se armó:
 | `local_conflict` | — | R | R | CRU | R | R | R | R | R | R | R | R | R | R |
 | `perception` | — | R | R | CRU | CRUD | R | R | R | R | R | R | R | R | R |
 | `key_theme` | — | R | CRU | R | CRU | R | R | R | R | R | R | R | R | R |
-| `topic` | R | R | R | Ru | Ru | R | R | R | R | R | Ru | R | R | R |
+| `topic` | Ru | Ru | R | Ru | Ru | R | R | R | R | R | Ru | R | R | R |
 
 - El `u` de `COMMUNITY_RELATIONS_OFFICER`, `STAKEHOLDER_MANAGER` y `FIELD_AGENT` sobre `topic` sirve para vincular temas
   a las interacciones (`engagement_topic`); el de `FIELD_AGENT` sobre `stakeholder`, para vincular grupos de interés.
@@ -794,8 +794,7 @@ Criterios con que se armó:
   un indicador con mediciones no se borra (`409` de wasichai sin código, porque `program_measurement` es `appendOnly`).
 - Desde F5, `PROJECT_ADMIN` y `PROJECT_MANAGER`, que editan las políticas del proyecto, vinculan sus temas priorizados
   (`project_priority_topic`, ASM-112): el vínculo exige UPDATE sobre `project` y sobre `topic` (§5.6), así que pasan de
-  R a `Ru` sobre `topic`. Como la matriz no lleva fase por celda y `topic` es de F2, la celda de §7.4 cambia junto con
-  `model/roles.json` al aplicar el modelo de F5.
+  R a `Ru` sobre `topic`.
 
 ### 7.8 BC-15 Reportes, tableros y entregables (F2–F8) y BC-18 IA y conocimiento (F7)
 
