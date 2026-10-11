@@ -123,6 +123,11 @@ subconsultas califican siempre las suyas):
 | Hijo de padre opcional | `delivery` (`commitment`), `locality_profile` (`study`) | `"<padre>" IS NULL OR` lo anterior |
 | Maestro del tenant | Los 20 de `ProjectScope.TENANT` (§3.5) | `null` |
 
+> **Nota de F5 (2026-10-11, ASM-114).** Desde F5 un hijo puede tener por padre a otro hijo (a lo sumo dos saltos) y
+> varios padres posibles: la condición de un hijo es la disyunción, por padre posible, de la forma «Hijo» con una
+> subconsulta anidada por salto, y «Hijo de padre opcional» queda solo para `locality_profile`. La referencia es la
+> especificación de F5 (§3.2) y `security.md` §9.7.
+
 Si la raíz o el padre es opcional sale del catálogo (`ModelCatalog.isRequiredRelation`), como en `ProjectResolver`,
 nunca de una lista aparte. Un objeto que no está en ningún grupo devuelve `NOTHING` (falla cerrado); `ArchitectureTest`
 impide que eso llegue a `main` (§3.5).
@@ -199,7 +204,8 @@ leyendo el documento.
 - `project_assignment` sigue en `EXEMPT` para la escritura y tiene su propio caso en la lectura (§3.1).
 - **Regla nueva de `ArchitectureTest`**: todo objeto de `model/model.json` está en exactamente uno de `project`,
   `project_assignment`, `ROOTS`, `CHILDREN` o `TENANT`; todo objeto con una relación `project` está en `ROOTS` (o es
-  `project_assignment`); el padre de cada hijo es una raíz. Así una fase nueva (F5 a F8) no puede agregar un objeto sin
+  `project_assignment`); el padre de cada hijo es una raíz (desde F5, una raíz o un hijo cuya cadena llega a una raíz
+  en a lo sumo dos saltos, ASM-114). Así una fase nueva (F5 a F8) no puede agregar un objeto sin
   clasificarlo: `indicator_measurement`, `ai_suggestion` y `ai_interaction` entran como raíces opcionales.
 - **Otra regla**: solo `ProjectReadScope` construye un `ProjectReadCondition`, y solo `sgspe.common` y `sgspe.scope`
   llaman a `ProjectReach.readsAll`.

@@ -58,7 +58,9 @@ Todos los tableros comparten una fila de filtros sobre todos sus gráficos (RQ-D
 | Periodo | `periodStart`, `periodEnd` | Fechas en America/Lima; por defecto, el mes en curso. Las series mensuales cubren los 12 meses que terminan en `periodEnd` | RNF-I18N-002 |
 | Territorio | `locality`, `community`, `administrativeUnit`, `areaOfInfluence` | Por las relaciones `locality` y `community` de cada objeto. Una localidad incluye sus sectores (`parent_locality`); una unidad administrativa, sus localidades y unidades hijas; un área de influencia, los miembros de su versión `approved`. `stakeholder` no tiene `community`: los KPI-STK no aplican ese filtro y lo informan en `ignoredFilters`, nunca con un cero | RF-TER-002, RF-TER-005 |
 | Ámbito | `scope` | En los indicadores de grupos de interés y de participantes, por `stakeholder_scope` o `participant_scope`. En los demás, AIDS y AIIS se traducen a las localidades y comunidades miembros del área de influencia aprobada de ese tipo; REGIONAL y NACIONAL solo filtran grupos de interés | RQ-DSH-001, ASM-040 |
-| Campaña | `explorationCampaign` | Solo en compromisos e inversión social: desde F3 la aplican KPI-COM-01 a KPI-COM-05 y KPI-COM-10. Los demás indicadores la aceptan, no la aplican y lo informan en `ignoredFilters` | RF-PRJ-004 |
+| Campaña | `explorationCampaign` | Solo en compromisos e inversión social: desde F3 la aplican KPI-COM-01 a KPI-COM-05 y KPI-COM-10, y desde F5 KPI-INV-01. Los demás indicadores la aceptan, no la aplican y lo informan en `ignoredFilters` | RF-PRJ-004 |
+| Programa | `program` | Desde F5, solo en el tablero `investment` y en los KPI-INV: un `social_program` (UUID; `400` si no lo es); lo aplican KPI-INV-02 y el bloque de programas de KPI-INV-04; los demás KPI-INV lo informan en `ignoredFilters`. En otro tablero o indicador es un parámetro desconocido (`422`) | RF-INV-003 |
+| Año | `year` | Desde F5, solo en el tablero `investment` y en los KPI-INV: el año presupuestal (`program_budget.budget_year`), un entero de 2000 a 2100 (`400` si no); lo aplica KPI-INV-02; los demás KPI-INV lo informan en `ignoredFilters`. En otro tablero o indicador, `422` | RF-INV-004, ASM-113 |
 | Responsable | `owner` | Por `owner_user_id` del compromiso, en KPI-COM-03, KPI-COM-04, KPI-COM-06 y KPI-COM-09; los demás indicadores lo declaran en `ignoredFilters` | RQ-DSH-019 |
 
 Lo "local" de la Tabla 9.5 corresponde a AIDS más AIIS: el ámbito del grupo de interés y el ámbito de acción son datos distintos
@@ -78,11 +80,12 @@ borrador o un compromiso pendiente de aprobación no tiene plazo en curso. Adem�
 | `commitment` | abierto | Todos salvo `closed` y `cancelled` | KPI-COM-02 |
 | `commitment` | pendiente de cumplimiento | `approved`, `in_progress`, `blocked`: los estados en que JOB-01 calcula `deadline_status` | KPI-COM-03, KPI-COM-04; KPI-COM-11 aproxima el pasado con ellos |
 | `commitment` | cumplido | `fulfilled`, `verified`, `closed`: los únicos en que se lee `fulfilled_date` | KPI-COM-05, KPI-COM-09 |
-| `commitment` | comprometido | `approved`, `in_progress`, `blocked`, `fulfilled`, `verified`, `closed`: los montos aprobados de ASM-063 | KPI-COM-10, KPI-INV-03 |
+| `commitment` | comprometido | `approved`, `in_progress`, `blocked`, `fulfilled`, `verified`, `closed`: los montos aprobados de ASM-063 | KPI-COM-10, KPI-INV-01, KPI-INV-03; P1 de WF-P y D7 de WF-D (`CampaignCommitted`) |
 | `grievance` | abierta | Todos salvo `closed`, `rejected` y `withdrawn`; el plazo corre en `received`, `acknowledged`, `in_assessment`, `in_investigation` e `in_action` | KPI-GRV |
 | `inquiry`, `stakeholder_request` | abierta | Todos salvo `closed`; el plazo corre en `received` (consulta) y en `received` y `under_evaluation` (solicitud) | KPI-GRV |
 | `social_risk` | activo | Todos salvo `closed` | KPI-RSK |
 | `early_warning` | activa | `detected`, `in_triage`, `confirmed`, `responding` | KPI-EXE-02 |
+| `social_contribution` | comprometido | `approved`, `procured`, `delivered`, `closed`: los aportes aprobados y no anulados, cuyo `total_amount` cuenta para el tope de la campaña (ASM-110) | KPI-INV-01; P1 de WF-P y D7 de WF-D (`CampaignCommitted`) |
 | `social_contribution` | ejecutado | `delivered`, `closed` (ASM-063) | KPI-INV-03, KPI-INV-04 |
 | `area_of_influence` | vigente | `approved` | KPI-TER |
 
@@ -227,10 +230,10 @@ respuesta de cada KPI-GRV y del tablero `attention` lo dice con `confidentialHid
 
 | ID | Indicador | Definición | Fórmula | Fuente | Filtros y desgloses | Requisitos | Actualización | Fase |
 |---|---|---|---|---|---|---|---|---|
-| KPI-INV-01 | Ejecución de la campaña frente a su tope | Cuánto del tope de apoyo social de cada campaña ya se ejecutó | `executed_social_amount` ÷ `social_support_cap` por campaña, en la moneda de la campaña; `other_currency_items_count` se muestra como advertencia (ASM-063) | `exploration_campaign.social_support_cap`, `currency`, `executed_social_amount`, `other_currency_items_count` | Proyecto, campaña | RQ-DSH-030, RF-INV-004, RN-INV-003 | Vivo (derivado) | F5 (datos desde F3) |
-| KPI-INV-02 | Ejecución de programas frente a presupuesto | Avance presupuestal de los programas sociales | Por programa, año y moneda: suma de `program_budget.executed_amount` ÷ suma de `allocated_amount` | `program_budget.budget_year`, `allocated_amount`, `executed_amount`, `currency`; `social_program` | Proyecto, programa, año | RQ-DSH-030, RF-INV-003 | Vivo | F5 |
+| KPI-INV-01 | Ejecución de la campaña frente a su tope | Cuánto del tope de apoyo social de cada campaña ya se comprometió y cuánto se ejecutó | Por campaña, en su moneda: lo comprometido (compromisos y aportes comprometidos de §3.2, con `CampaignCommitted`, la misma lectura de P1 y D7) y lo ejecutado (`executed_social_amount`) frente a `social_support_cap`; son cifras distintas (ASM-063, ASM-110). `other_currency_items_count` y los montos comprometidos en otra moneda se muestran como advertencia (`otherCurrencyCount` y `committedOtherCurrencyCount`) | `exploration_campaign.social_support_cap`, `currency`, `executed_social_amount`, `other_currency_items_count`; `commitment.amount`, `currency`; `social_contribution.total_amount`, `currency` | Proyecto, campaña | RQ-DSH-030, RF-INV-004, RN-INV-003 | Vivo (derivado y lectura de lo comprometido) | F5 (datos desde F3) |
+| KPI-INV-02 | Ejecución de programas frente a presupuesto | Avance presupuestal de los programas sociales | Por programa, año y moneda: suma de `program_budget.executed_amount` ÷ suma de `allocated_amount`; el ejecutado se registra a mano por año (ASM-113) y las monedas no se convierten | `program_budget.budget_year`, `allocated_amount`, `executed_amount`, `currency`; `social_program` | Proyecto, programa, año | RQ-DSH-030, RF-INV-003 | Vivo | F5 |
 | KPI-INV-03 | Inversión social ejecutada | Inversión social ejecutada frente a lo presupuestado y a los topes | Por proyecto y moneda, ejecutado = `executed_amount` de los compromisos + `total_amount` de los aportes ejecutados (§3.2) + `executed_amount` de `program_budget` (ASM-063); frente al presupuesto (suma de `allocated_amount`) y a los topes de las campañas (suma de `social_support_cap`). PEN por defecto y otras monedas como advertencia. Con periodo, los compromisos suman el `delivered_amount` de sus entregas del periodo, los aportes cuentan si su entrega cae en el periodo y los programas, por los años presupuestales que lo cruzan | `commitment.executed_amount`, `currency`; `delivery.delivery_date`, `delivered_amount`; `social_contribution.total_amount`, `currency`, `workflow_state`; `program_budget.budget_year`, `allocated_amount`, `executed_amount`; `exploration_campaign.social_support_cap` | Proyecto, periodo, territorio | RQ-DSH-030, RQ-DSH-002, RF-INV-004, ASM-063 | Vivo | F5 |
-| KPI-INV-04 | Beneficiarios | Población alcanzada por la inversión social | Por programa: suma de `reached_count` frente a suma de `target_count` de sus `beneficiary_group`. Aparte, `beneficiaries_count` de los aportes ejecutados y de los compromisos cumplidos. Las fuentes no se suman entre sí, porque una misma persona puede estar en varias | `beneficiary_group.target_count`, `reached_count`, `locality`; `social_contribution.beneficiaries_count`; `commitment.beneficiaries_count` | Proyecto, territorio | RQ-DSH-030 | Vivo | F5 |
+| KPI-INV-04 | Beneficiarios | Población alcanzada por la inversión social | Tres bloques que no se suman, porque una misma persona puede estar en varias fuentes: por programa, suma de `reached_count` frente a suma de `target_count` de sus `beneficiary_group`; los aportes ejecutados (§3.2), suma de `beneficiaries_count`; y los compromisos cumplidos, suma de `beneficiaries_count` | `beneficiary_group.target_count`, `reached_count`, `locality`; `social_contribution.beneficiaries_count`; `commitment.beneficiaries_count` | Proyecto, programa, territorio | RQ-DSH-030 | Vivo | F5 |
 
 ### 4.8 Territorio (`KPI-TER`)
 
@@ -413,10 +416,14 @@ flowchart LR
 
 | Zona | Contenido | Forma |
 |---|---|---|
-| Campañas | KPI-INV-01 | Un medidor por campaña frente a su tope, con la advertencia de otras monedas |
+| Campañas | KPI-INV-01 | Un medidor por campaña frente a su tope, con la marca de lo comprometido y la de lo ejecutado y la advertencia de otras monedas |
 | Programas | KPI-INV-02 | Barras por programa y año |
 | Consolidado | KPI-INV-03 | Tile por moneda y desglose por fuente: compromisos, aportes y programas |
-| Beneficiarios | KPI-INV-04 | Tabla por programa y fuente |
+| Beneficiarios | KPI-INV-04 | Tres bloques sin sumar: por programa (meta y alcanzados), aportes ejecutados y compromisos cumplidos |
+
+El tablero es interno y no aplica celdas pequeñas. Filtros: `project`, `explorationCampaign`, `program`, `year`,
+`periodStart`, `periodEnd` y `locality` (§3.1); lee como quien llama y hereda el alcance (`InvestmentKpis`, §7). Prueba:
+`InvestmentDashboardApiTest`.
 
 ## 6. Arquitectura de consultas
 
@@ -484,7 +491,8 @@ parámetro desconocido (ASM-054, RNF-INT-004) y `X-Correlation-Id` (RQ-AUD-006).
 | `POST /api/sgspe/indicators/{id}/measurements` | Cierre de periodo (F8): congela una medición oficial (§7.2 del modelo de dominio); responde 409 para los indicadores que nunca se congelan (§10) | Modelo de dominio §7.2, `api.md` |
 
 Parámetros de consulta (§3.1), como los fija `api.md`: `project` (repetible), `periodStart`, `periodEnd`, `locality`,
-`community`, `administrativeUnit`, `areaOfInfluence`, `explorationCampaign` y `scope`. Reglas:
+`community`, `administrativeUnit`, `areaOfInfluence`, `explorationCampaign` y `scope` y, desde F5 y solo en
+`investment` y los KPI-INV, `program` y `year`. Reglas:
 
 - El tablero `project` y KPI-STK-03 exigen un solo `project`.
 - KPI-RSK-02 acepta varios proyectos, pero solo con uno muestra el nivel de cada celda (§4.6).
@@ -651,7 +659,7 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
 | F2 | KPI-STK, KPI-ENG-01, KPI-ENG-02, KPI-ENG-03, KPI-ENG-04 y KPI-ENG-05; tableros de grupos de interés y de relacionamiento; primer uso de ECharts; mapa básico del proyecto | RQ-DSH-004, RQ-DSH-005, RQ-DSH-006, RQ-DSH-007, RQ-DSH-008, RQ-DSH-009, RQ-DSH-010, RQ-DSH-011, RQ-DSH-012, RQ-DSH-013, RQ-DSH-014, RQ-DSH-035, RQ-GIS-014 |
 | F3 | KPI-COM; tablero de compromisos | RQ-DSH-018, RQ-DSH-019, RQ-DSH-020, RQ-DSH-021 |
 | F4 | KPI-GRV, KPI-RSK, KPI-ENG-06, KPI-ENG-07 y KPI-ENG-08; tableros de QCS y de riesgos | RQ-DSH-015, RQ-DSH-016, RQ-DSH-017, RQ-DSH-022, RQ-DSH-023, RQ-DSH-024, RQ-DSH-025, RQ-DSH-026, RQ-DSH-027 |
-| F5 | KPI-INV; tablero de inversión social. KPI-INV-01 usa los topes de campaña, que existen desde F3 (RF-INV-002) | RQ-DSH-030 |
+| F5 | KPI-INV; tablero de inversión social. KPI-INV-01 usa los topes de campaña, que existen desde F3 (RF-INV-002), y lo comprometido de compromisos y aportes (ASM-110) | RQ-DSH-030 |
 | F6 | KPI-TER; tablero territorial con su ficha | RQ-DSH-029, RQ-GIS-005, RQ-GIS-014 |
 | F7 | El resumen ejecutivo de IA lee estos KPI (AI-04) | RF-AIK-004 |
 | F8 | KPI-EXE; tableros ejecutivo, de proyecto y de monitoreo; consolidación de todos los tableros; catálogo `indicator` y cierres de periodo; entregables con el mismo código | RQ-DSH-002, RQ-DSH-003, RQ-DSH-034, RQ-DSH-037 |

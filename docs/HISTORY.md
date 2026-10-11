@@ -3,6 +3,29 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-11 — Plan 5.0: los documentos de F5
+
+Los documentos de diseño quedan al día con la especificación de F5
+(`docs/superpowers/specs/2026-10-11-fase-5-design.md`) antes de tocar el modelo y el código. Las decisiones están en
+[Requisitos](requirements-analysis.md) (ASM-110 a ASM-119 y GAP-033; 538 IDs).
+
+- **Aportes.** Los ítems, con su tipo (`item_kind`), se cargan antes de aprobar y su suma es lo que se aprueba y se
+  compara con el tope, que cuenta lo comprometido de compromisos y aportes; ítems y términos aprobados quedan
+  congelados; una sola entrega por aporte, con acta de recepción, foto y comprobante. WF-P se reescribe con P1 a P9
+  (P9, los ítems al aprobar; P6, la sinergia, fuera de los lineamientos que se justifican), su orden y sus candados.
+- **Lineamientos.** Mano de obra, donaciones monetarias y tema fuera de los temas priorizados del proyecto
+  (`project_priority_topic`) se evalúan solos al aprobar y se justifican juntos; los caseríos sin beneficio laboral
+  esperan su dato (GAP-033).
+- **Programas.** WF-G gana G1 a G4 (sinergia con el socio como parte del acuerdo, ASM-115), las reglas de los hijos y
+  `total_budget` en la moneda del programa; el ejecutado se registra a mano por año (ASM-113).
+- **Alcance por proyecto.** Cadenas de hijos (`program_measurement`) y padres alternativos (`delivery`, por su
+  compromiso o su aporte, nunca «sin padre, todos»): 33 raíces y 27 hijos desde F5 (ASM-114, `security.md` §9.7).
+- **Huecos cerrados.** C1 a C15 de la especificación: entre ellos, AUT-04 y el «Acta de recepción» tras UPS-23 (el acta
+  firmada es una evidencia), los permisos que no cerraban (SMG y CRO cargan ítems, CRO comprobantes y
+  `COMMITMENT_MANAGER` acepta solo como compromiso) y la autoridad del tope distinta por objeto (ASM-119).
+- **Lo que espera al modelo de F5.** El único de `delivery.social_contribution` y `u` sobre `topic` para
+  `PROJECT_ADMIN` y `PROJECT_MANAGER` quedan como texto hasta que el plan 5.1 los lleve a `model.json` y `roles.json`.
+
 ## 2026-10-11 — UPS-24: el descriptor de una evidencia restringida sin nombre ni huella
 
 El backend adopta la política de lectura de wasichai 1.0.0 y oculta el nombre y la huella del archivo de una evidencia
