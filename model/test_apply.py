@@ -144,6 +144,45 @@ class F2ValidationTests(unittest.TestCase):
                                 for e in errors), errors)
 
 
+class RelationshipUniqueTests(unittest.TestCase):
+    """F5: una sola entrega por aporte (decisión 2 de la especificación de F5). wasichai 1.0.0 rechaza un
+    uniqueConstraints de un solo campo (FieldSets: «make a single field unique with unique: true»): el único sobre una
+    relación opcional es el `unique: true` de su campo, que apply.py pone en la fase 3, cuando la relación existe."""
+
+    def unique_fixture(self):
+        model = copy.deepcopy(F2_FIXTURE_MODEL)
+        model["relationships"][1]["unique"] = True  # zone_parent_zone: opcional, como delivery.social_contribution
+        return model
+
+    def test_a_one_field_unique_constraint_is_refused_and_unique_true_on_a_relationship_is_valid(self):
+        self.assertEqual(apply.validate(self.unique_fixture()), [])
+        model = copy.deepcopy(F2_FIXTURE_MODEL)
+        model["objects"][1]["uniqueConstraints"] = [["parent_zone"]]
+        self.assertTrue(any("uniqueConstraints ['parent_zone'] needs at least 2 fields (one field is unique: true)" in e
+                            for e in apply.validate(model)), apply.validate(model))
+
+    def test_the_unique_of_a_relationship_field_is_put_in_phase_3_once(self):
+        core = FakeCore()
+        self.addCleanup(core.stop)
+        login = ["--core", core.base_url, "--email", "admin@wasichai.local", "--password", "admin"]
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, self.unique_fixture())
+            code, out, err = quiet(apply.main, ["--model", path, *login])
+            self.assertEqual(code, 0, err)
+            self.assertIn("update field zone.parent_zone (unique)", out)
+            puts = [(p, b) for m, p, _, b in core.requests if m == "PUT" and p.endswith("/fields/parent_zone")]
+            self.assertEqual(puts, [("/api/metadata/objects/zone/fields/parent_zone", {"unique": True})])
+            # the relationship goes first: the field the PUT names only exists once it is created
+            writes = [p for m, p, _, _ in core.requests if m in ("POST", "PUT")]
+            self.assertLess(writes.index("/api/relationships"),
+                            writes.index("/api/metadata/objects/zone/fields/parent_zone"))
+            core.requests.clear()
+            code, out, err = quiet(apply.main, ["--model", path, *login])
+            self.assertEqual(code, 0, err)
+            self.assertNotIn("(unique)", out)
+            self.assertEqual([p for m, p, _, _ in core.requests if m == "PUT" and p.endswith("/fields/parent_zone")], [])
+
+
 class ApplyTestCase(unittest.TestCase):
     def setUp(self):
         self.core = FakeCore()
