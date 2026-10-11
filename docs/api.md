@@ -245,7 +245,8 @@ Las exportaciones (§4.13) responden `400` `INVALID_DISCLOSURE_LEVEL` (`disclosu
 vigente), `404` `EXPORT_NOT_FOUND` (`kind`) y `409` `CATALOGUE_UNAVAILABLE` (el campo cuyo catálogo está vacío, en `PUBLICO`). El detalle
 está en §4.13.
 Los endpoints de F6 (§4.2 y §4.11) usan la misma forma. Las consultas espaciales responden `400` `OUT_OF_RANGE` (el
-parámetro: `bufferM`, `distanceKm`, `limit`, `periodStart`, `periodEnd`, `lon`, `lat`, `page` o `size`; ASM-126),
+parámetro: `bufferM`, `distanceKm`, `limit`, `periodStart`, `periodEnd`, `lon`, `lat`, `page` o `size`; ASM-126; en
+`data-quality`, un `page` o un `size` que no es un número también es `OUT_OF_RANGE`, no `INVALID_VALUE`),
 `INVALID_VALUE` (el parámetro que no se puede leer: un número, una fecha o un UUID mal escritos, o `lon` o `lat` que
 faltan), `INVALID_OF` (`of`), `PERIOD_NOT_APPLICABLE` (`periodStart`: `stakeholder` y `social_risk` no tienen fecha) y
 `TOO_MANY_RECORDS` (una cifra que no puede salir parcial, o más de `max-related` registros relacionados, sobre el
@@ -558,9 +559,13 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
   `concession-territories`, `sensitive-distances`, `nearby-conflicts`, `concentration` y `data-quality`) componen los
   alcances de lectura de wasichai (`ProjectReadScope`, `ConfidentialAttentionScope`) y revisan READ sobre cada objeto y
   campo que usan. Sin READ sobre el objeto principal, `403`.
-- Toda respuesta de la compuerta lleva `available` y, si falta leer un objeto o un campo secundario, `missingFields`
-  (`objeto.campo`). `available: false` quiere decir «lista incompleta»: trae lo que sí se leyó, nunca un cero
-  (RQ-DSH-032). Las listas llevan `truncated`.
+- `data-quality` es la excepción a las dos reglas que siguen: responde una página
+  `{ check, content, page, size, hasNext }` sin `available`, `missingFields` ni `truncated`, se pagina con `page` y
+  `size` (no con `limit`) y deja fuera los objetos que quien llama no lee con todos los campos de la revisión, o
+  responde `403` si pidió uno de ellos en `object`.
+- Toda otra respuesta de la compuerta lleva `available` y, si falta leer un objeto o un campo secundario,
+  `missingFields` (`objeto.campo`). `available: false` quiere decir «lista incompleta»: trae lo que sí se leyó, nunca un
+  cero (RQ-DSH-032). Las listas llevan `truncated`.
 - `limit` es opcional, de 1 a `max-rows` (5 000, que es también el valor por defecto); más filas que `limit` se recortan
   con `truncated: true`, como las capas de F2. Las lecturas que dan cifras (`summary`, KPI-TER-04) no se recortan: más
   de `max-rows` es `400 TOO_MANY_RECORDS`.
@@ -1111,9 +1116,9 @@ sin error. La excepción es el tablero `territory` (F6), que exige `project`.
     tiene valor propio: sale disponible con `value: null` y un desglose `by: "components"` con una fila por componente,
     en este orden: `KPI-STK-02`, `KPI-ENG-01`, `KPI-COM-02`, `KPI-COM-03`, `KPI-GRV-02`, `KPI-RSK-01`, `programs`,
     `KPI-INV-03` y `lastActivity`. La fila de un KPI es su indicador entero más `key` (su código); `programs` y
-    `lastActivity` llevan `key`, `available`, `value` y, si faltan, `unavailableReason` y `missingFields`. Cada fila está
-    disponible o no por su cuenta. KPI-ENG-01 cuenta, sin periodo pedido, los últimos 90 días (de hoy menos 89 días a
-    hoy, en Lima), y con `periodStart` o `periodEnd`, el periodo pedido. Con `community`, KPI-STK-02 lo informa en
+    `lastActivity` llevan `key`, `available`, `value` y, si faltan, `unavailableReason` y `missingFields`. Cada fila
+    está disponible o no por su cuenta. KPI-ENG-01 cuenta, sin periodo pedido, los últimos 90 días (de hoy menos 89 días
+    a hoy, en Lima), y con `periodStart` o `periodEnd`, el periodo pedido. Con `community`, KPI-STK-02 lo informa en
     `ignoredFilters`. Sin `locality` ni `community`, KPI-TER-01 sale no disponible con `TERRITORY_REQUIRED`.
   - KPI-TER-02 (`ha`): la suma de `calculated_area_ha` de la versión `approved` de cada tipo de área, con el desglose
     `area`. KPI-TER-03 (`miembros`): los miembros de las versiones aprobadas, con los desgloses `areaType`, `memberType`
