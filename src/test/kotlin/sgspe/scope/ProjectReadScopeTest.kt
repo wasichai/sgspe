@@ -138,12 +138,20 @@ class ProjectReadScopeTest {
     }
 
     @Test
-    fun `un hijo se acota por la tabla de su padre y la relacion opcional admite el vacio`() {
+    fun `un hijo de un unico padre opcional se acota por la tabla de su padre y admite el vacio`() {
+        val definitions = Definitions(mapOf("project_assignment" to assignment, "study" to definition("study", "project")))
+        val text = condition(scope(definitions = definitions), definition("locality_profile", "study"))!!
+        assertTrue(text.startsWith("\"study\" IS NULL OR \"study\" IN (SELECT t1.\"id\" FROM \"data\".\"study_tbl\" t1"), text)
+        assertEquals(listOf("project_assignment", "study"), definitions.asked)
+    }
+
+    @Test
+    fun `un hijo de un padre obligatorio no admite el vacio`() {
         val definitions =
-            Definitions(mapOf("project_assignment" to assignment, "commitment" to definition("commitment", "project")))
-        val text = condition(scope(definitions = definitions), definition("delivery", "commitment"))!!
-        assertTrue(text.startsWith("\"commitment\" IS NULL OR \"commitment\" IN (SELECT t.\"id\" FROM \"data\".\"commitment_tbl\" t"), text)
-        assertEquals(listOf("project_assignment", "commitment"), definitions.asked)
+            Definitions(mapOf("project_assignment" to assignment, "agreement" to definition("agreement", "project")))
+        val text = condition(scope(definitions = definitions), definition("agreement_clause", "agreement"))!!
+        assertTrue(text.startsWith("\"agreement\" IN (SELECT t1.\"id\" FROM \"data\".\"agreement_tbl\" t1"), text)
+        assertEquals(listOf("project_assignment", "agreement"), definitions.asked)
     }
 
     @Test

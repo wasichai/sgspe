@@ -75,8 +75,9 @@ class ProjectReadScope internal constructor(
         }
     }
 
-    // las tablas y columnas del grupo, de la definición del objeto leído, de la de project_assignment y, en un hijo, de la de su
-    // padre (wasichai las tiene en caché); si una relación es opcional lo dice el modelo, nunca una lista aparte
+    // las tablas y columnas del grupo, de la definición del objeto leído, de la de project_assignment y, en un hijo, de las de
+    // cada salto de la cadena de cada padre posible (wasichai las tiene en caché); si una relación es opcional lo dice el
+    // modelo, nunca una lista aparte
     private suspend fun columns(
         organization: UUID,
         objectName: String,
@@ -90,16 +91,39 @@ class ProjectReadScope internal constructor(
             ReadGroup.ROOT ->
                 ReadColumns(column(definition, PROJECT_FIELD), assignments, optional = !catalog.isRequiredRelation(objectName, PROJECT_FIELD))
             ReadGroup.CHILD -> {
-                val (field, parentName) = ProjectScope.CHILDREN.getValue(objectName)
-                val parent = load(organization, parentName)
+                val parents = ProjectScope.CHILDREN.getValue(objectName)
+                val several = parents.size > 1
+                val paths =
+                    parents.mapNotNull { (field, _) ->
+                        val column = column(definition, field)
+                        // con varios padres, uno cuya columna el objeto no tiene es una relación que el tenant todavía no tiene (un
+                        // tenant de F4 no tiene delivery.social_contribution): ningún registro lo trae y se acota por los demás.
+                        // con un único padre, la columna faltante deja la condición incompleta (falla cerrado)
+                        if (column == null && several) null else ParentPath(column, hops(organization, objectName, field))
+                    }
                 ReadColumns(
-                    column(definition, field),
+                    null,
                     assignments,
-                    optional = !catalog.isRequiredRelation(objectName, field),
-                    parent = column(parent, PROJECT_FIELD)?.let { ParentColumns(schemas.dataTable(parent.obj.physicalTable), it) }
+                    optional = !several && !catalog.isRequiredRelation(objectName, parents.single().first),
+                    parents = paths
                 )
             }
             else -> ReadColumns(null, assignments)
+        }
+    }
+
+    // la tabla de cada salto de la cadena de `child` por `field` y su columna hacia el salto siguiente (en la raíz, `project`);
+    // una cadena que no llega a una raíz da una lista vacía y la condición queda incompleta
+    private suspend fun hops(
+        organization: UUID,
+        child: String,
+        field: String
+    ): List<Hop> {
+        val chain = ProjectScope.chain(child, field)
+        return chain.mapIndexed { index, (_, parent) ->
+            val definition = load(organization, parent)
+            val next = if (index == chain.lastIndex) PROJECT_FIELD else chain[index + 1].first
+            Hop(schemas.dataTable(definition.obj.physicalTable), column(definition, next))
         }
     }
 

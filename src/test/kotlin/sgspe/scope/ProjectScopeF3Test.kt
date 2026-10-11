@@ -18,7 +18,9 @@ class ProjectScopeF3Test {
 
     // las relaciones obligatorias de F3: todas menos evidence.project y delivery.commitment (exactamente uno, desde F5 con el aporte)
     private val required = { objectName: String, field: String -> !(objectName == "evidence" || (objectName == "delivery" && field == "commitment")) }
-    private val parentProject: suspend (String, UUID) -> UUID? = { _, id -> if (id == commitment || id == agreement) project else null }
+    private val read: suspend (String, UUID) -> Map<String, Any?>? = { _, id ->
+        if (id == commitment || id == agreement) mapOf("project" to project.toString()) else null
+    }
 
     private fun write(
         objectName: String,
@@ -28,15 +30,17 @@ class ProjectScopeF3Test {
     private fun resolve(
         objectName: String,
         before: Map<String, Any?>
-    ) = runBlocking { ProjectResolver.resolve(write(objectName, before), before, required, parentProject) }
+    ) = runBlocking { ProjectResolver.resolve(write(objectName, before), before, required, read) }
 
     @Test
     fun `cada objeto de F3 tiene alcance`() {
         for (name in listOf("commitment", "commitment_candidate", "agreement", "task", "evidence")) assertTrue(name in ProjectScope.ROOTS, name)
-        for (name in listOf("commitment_action", "commitment_milestone", "commitment_reschedule", "commitment_dependency", "delivery")) {
-            assertEquals("commitment" to "commitment", ProjectScope.CHILDREN[name], name)
+        for (name in listOf("commitment_action", "commitment_milestone", "commitment_reschedule", "commitment_dependency")) {
+            assertEquals(listOf("commitment" to "commitment"), ProjectScope.CHILDREN[name], name)
         }
-        for (name in listOf("agreement_party", "agreement_clause")) assertEquals("agreement" to "agreement", ProjectScope.CHILDREN[name], name)
+        // la entrega es primero de su compromiso; desde F5 también puede ser de un aporte (ProjectScopeF5Test)
+        assertEquals("commitment" to "commitment", ProjectScope.CHILDREN.getValue("delivery").first())
+        for (name in listOf("agreement_party", "agreement_clause")) assertEquals(listOf("agreement" to "agreement"), ProjectScope.CHILDREN[name], name)
     }
 
     @Test

@@ -56,7 +56,7 @@ class AssignmentTest {
         assertTrue(ProjectScope.covers("engagement_participant"))
         assertFalse(ProjectScope.covers("locality"))
         assertFalse(ProjectScope.covers("person"))
-        assertEquals("engagement" to "engagement", ProjectScope.CHILDREN["engagement_question"])
+        assertEquals(listOf("engagement" to "engagement"), ProjectScope.CHILDREN["engagement_question"])
         assertTrue("project_assignment" in ProjectScope.EXEMPT)
     }
 
