@@ -25,7 +25,9 @@ data class CommitmentRow(
     val deadlineStatus: String?,
     val amount: BigDecimal?,
     val currency: String?,
-    val executed: BigDecimal?
+    val executed: BigDecimal?,
+    // F5: los beneficiarios del compromiso (KPI-INV-04); los KPI-COM no lo leen
+    val beneficiaries: Long? = null
 )
 
 // una reprogramación: la fecha anterior, la nueva y el día (en Lima) en que se registró. `sequence` es el orden real de
