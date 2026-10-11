@@ -1,9 +1,11 @@
 package sgspe.territory
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.buffer.DataBuffer
 import org.springframework.http.HttpHeaders
@@ -68,6 +70,7 @@ class TerritoryExports(
     private val geo: GeoSql,
     private val writer: GdalWriter,
     private val gdal: GdalProperties,
+    private val tools: GdalTools,
     private val clock: Clock,
     @Value("\${sgspe.exports.max-rows:20000}") private val maxRows: Int
 ) {
@@ -93,6 +96,10 @@ class TerritoryExports(
                 ?: throw bad("INVALID_FORMAT", "El formato es ${GeoExportFormat.entries.joinToString(", ") { it.key }}", "format")
         val coordinates = body["coordinates"] ?: LATLON
         if (coordinates != UTM && coordinates != LATLON) throw bad("INVALID_COORDINATES", "coordinates es UTM o LATLON", "coordinates")
+        // geojson y kml salen siempre en 4326: pedir UTM con ellos entregaría otro CRS en silencio
+        if (coordinates == UTM && (format == GeoExportFormat.GEOJSON || format == GeoExportFormat.KML)) {
+            throw bad("INVALID_COORDINATES", "geojson y kml salen siempre en LATLON (EPSG 4326); para UTM use gpkg, shp, csv o xlsx", "coordinates")
+        }
         val disclosure =
             Disclosure.parse(body["disclosureLevel"])
                 ?: throw bad("INVALID_DISCLOSURE_LEVEL", "El nivel de divulgación debe ser INTERNO, EXTERNO o PUBLICO", "disclosureLevel")
@@ -101,30 +108,26 @@ class TerritoryExports(
         }
         val filters = StrictBody.objectOf(body, "filters")
         StrictBody.requireOnly(filters, FILTERS, "filters.")
-        val requested =
-            buildMap {
-                texts(
-                    filters["componentType"],
-                    "filters.componentType",
-                    objectName,
-                    ExportDisclosure.COMPONENT,
-                    "component_type"
-                )?.let { put("component_type", it) }
-                texts(filters["tenureType"], "filters.tenureType", objectName, ExportDisclosure.PARCEL, "tenure_type")?.let { put("tenure_type", it) }
-            }
+        val component = texts(filters["componentType"], "filters.componentType", objectName, ExportDisclosure.COMPONENT, "component_type")
+        val tenure = texts(filters["tenureType"], "filters.tenureType", objectName, ExportDisclosure.PARCEL, "tenure_type")
+        val requested = listOfNotNull(component?.let { "component_type" to it }, tenure?.let { "tenure_type" to it }).toMap()
         val fixed = ExportDisclosure.check(objectName, disclosure, requested)
         val geometry = geometryOf(objectName, body["geometry"])
+        requireGdal(format)
         val requestedProjects = uuids(filters["project"])
-        val projects = scope.resolve(user, requestedProjects)
+        // los proyectos solo acotan los objetos que tienen proyecto; para los demás, ni la lectura ni export_log los llevan
+        val projects = scope.resolve(user, requestedProjects)?.takeIf { objectName in PROJECT_FILTERED }
         val utm = if (coordinates == UTM) workingSrid(requestedProjects) else null
         val rows = read(objectName, geometry, fixed, projects)
         val readability = Readability(metadata)
         val candidates = columnsOf(objectName).filter { readability.canRead("$objectName.$it") }
-        val columns = ExportDisclosure.columns(objectName, disclosure, candidates)
+        val allowed = ExportDisclosure.columns(objectName, disclosure, candidates + STATE)
+        val columns = allowed - STATE
+        val withState = STATE in allowed
         val filename = "${objectName.replace('_', '-')}-${disclosure.name.lowercase()}.${format.extension}"
         val export = withContext(Dispatchers.IO) { ExportFile.create(filename, clock.instant(), entry = "capa.${format.extension}") }
         try {
-            write(format, export.file.toPath(), objectName, geometry, rows, columns, utm)
+            write(format, export.file.toPath(), objectName, geometry, rows, columns, withState, utm)
             val description = description(objectName, geometry, format, coordinates.toString(), projects, fixed, disclosure)
             log.export(user, objectName, format.key.uppercase(), disclosure, description, rows.size, projects?.singleOrNull())
             return Export(export, format)
@@ -182,6 +185,7 @@ class TerritoryExports(
         geometry: String,
         rows: List<RecordResponse>,
         columns: List<String>,
+        withState: Boolean,
         utm: Int?
     ) {
         val shapes = rows.map { Records.geometriesOf(it)[geometry]!! }
@@ -219,7 +223,8 @@ class TerritoryExports(
             else -> {
                 val features =
                     rows.mapIndexed { i, record ->
-                        val properties = columns.associateWith { record.attributes[it] } + listOfNotNull(record.state?.let { "workflow_state" to it })
+                        val properties =
+                            columns.associateWith { record.attributes[it] } + listOfNotNull(record.state?.takeIf { withState }?.let { STATE to it })
                         mapOf("type" to "Feature", "id" to record.id, "geometry" to shapes[i], "properties" to properties)
                     }
                 val collection = mapOf("type" to "FeatureCollection", "features" to features)
@@ -242,23 +247,16 @@ class TerritoryExports(
         val source = out.resolveSibling("fuente.geojson")
         try {
             withContext(Dispatchers.IO) { JSON.writeValue(source.toFile(), collection) }
-            writer.writeWithin(format, source, objectName, utm, out, gdal.timeout)
-        } catch (_: TimeoutCancellationException) {
-            throw Finding(
-                "EXPORT_TIMEOUT",
-                "La exportación tardó más de ${gdal.timeout.seconds} s",
-                "format",
-                status = HttpStatus.SERVICE_UNAVAILABLE
-            ).toCodedException()
-        } catch (e: IllegalStateException) {
-            throw gdalFailure(e)
-        } catch (e: IllegalArgumentException) {
-            throw gdalFailure(e)
-        } catch (e: IOException) {
-            throw gdalFailure(e)
+            guardGdal(gdal.timeout.seconds) { writer.writeWithin(format, source, objectName, utm, out, gdal.timeout) }
         } finally {
             withContext(NonCancellable + Dispatchers.IO) { Files.deleteIfExists(source) }
         }
+    }
+
+    // GDAL escribe en la capa `format`: sin GDAL o sin el driver es 422 FORMAT_UNAVAILABLE sobre format, antes de leer filas
+    private suspend fun requireGdal(format: GeoExportFormat) {
+        val driver = format.driver ?: return
+        if (!withContext(Dispatchers.IO) { tools.status().supports(driver) }) throw GdalCommand.formatUnavailable(format.key, "format")
     }
 
     // ---- el cuerpo ----
@@ -340,15 +338,42 @@ class TerritoryExports(
     ) = Finding(code, message, field, status = HttpStatus.BAD_REQUEST).toCodedException()
 
     companion object {
-        // un fallo de GDAL al escribir no sale como 500 ni con rutas ni salida del proceso: el detalle queda en el servidor
-        fun gdalFailure(cause: Exception): WasichaiException =
-            Finding(
-                "EXPORT_FAILED",
-                "No se pudo escribir el archivo; pruebe otro formato (gpkg)",
-                "format",
-                status = HttpStatus.SERVICE_UNAVAILABLE
-            ).toCodedException()
+        private val LOG = LoggerFactory.getLogger(TerritoryExports::class.java)
 
+        // el plazo vencido es 503 EXPORT_TIMEOUT; la cancelación de quien llama (cierra la conexión) sigue su camino, aunque
+        // CancellationException sea un IllegalStateException; un fallo determinista de GDAL es 500 EXPORT_FAILED sin detalles
+        // (rutas ni salida del proceso): la causa queda en el registro del servidor
+        internal suspend fun <T> guardGdal(
+            seconds: Long,
+            block: suspend () -> T
+        ): T =
+            try {
+                block()
+            } catch (_: TimeoutCancellationException) {
+                throw Finding(
+                    "EXPORT_TIMEOUT",
+                    "La exportación tardó más de $seconds s",
+                    "format",
+                    status = HttpStatus.SERVICE_UNAVAILABLE
+                ).toCodedException()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IllegalStateException) {
+                throw gdalFailure(e)
+            } catch (e: IllegalArgumentException) {
+                throw gdalFailure(e)
+            } catch (e: IOException) {
+                throw gdalFailure(e)
+            }
+
+        fun gdalFailure(cause: Exception): WasichaiException {
+            LOG.warn("Falló la escritura de una exportación geográfica con GDAL", cause)
+            return Finding("EXPORT_FAILED", "No se pudo generar el archivo de la exportación", "format", status = HttpStatus.INTERNAL_SERVER_ERROR)
+                .toCodedException()
+        }
+
+        private const val STATE = "workflow_state"
+        private val PROJECT_FILTERED = setOf(ExportDisclosure.COMPONENT, "area_of_influence", "project", "mining_concession")
         const val EXPORT = "EXPORT"
         const val UTM = "UTM"
         const val LATLON = "LATLON"

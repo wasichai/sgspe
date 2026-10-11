@@ -101,11 +101,14 @@ object GdalCommand {
 
     fun drivers(output: String): Set<String> = DRIVER.findAll(output).map { it.groupValues[1].trim() }.toSet()
 
-    fun formatUnavailable(format: String): WasichaiException =
+    fun formatUnavailable(
+        format: String,
+        field: String = "file"
+    ): WasichaiException =
         Finding(
             "FORMAT_UNAVAILABLE",
             "Este servidor no puede leer ni escribir $format: falta GDAL o su driver",
-            "file",
+            field,
             status = HttpStatus.valueOf(422)
         ).toCodedException()
 
