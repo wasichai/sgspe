@@ -62,7 +62,7 @@ class Dashboards(
         val readable = Readability(metadata)
         val data = DashboardData(records, filters, readable::canRead, today)
         val hidden = hidden()
-        val indicators = codes.map { mark(evaluate(Kpis.BY_CODE.getValue(it), data, readable), hidden) }
+        val indicators = codes.map { mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(it), data), hidden) }
         return DashboardResponse(name, filters.echo(), clock.instant().toString(), indicators, if (name == Kpis.ATTENTION) hidden else null)
     }
 
@@ -75,7 +75,10 @@ class Dashboards(
         val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN + Kpis.extraFilters(listOf(code)), today)
         val readable = Readability(metadata)
         val value =
-            mark(evaluate(kpi, DashboardData(records, filters, readable::canRead, today), readable), if (Kpis.confidentialSensitive(code)) hidden() else false)
+            mark(
+                KpiEvaluation.evaluate(kpi, DashboardData(records, filters, readable::canRead, today)),
+                if (Kpis.confidentialSensitive(code)) hidden() else false
+            )
         val by = filters.breakdown ?: return value
         if (!value.available) return value
         val offered = value.breakdowns.orEmpty().map { it.by }
@@ -84,32 +87,6 @@ class Dashboards(
             throw Finding("INVALID_BREAKDOWN", "Desglose inválido: $hint", BREAKDOWN, status = HttpStatus.BAD_REQUEST).toCodedException()
         }
         return value.copy(breakdowns = value.breakdowns.orEmpty().filter { it.by == by })
-    }
-
-    // la disponibilidad primero (permisos, un solo proyecto) y después el cálculo; los filtros que el KPI ignora van en
-    // ignoredFilters, disponible o no (ruling P27: nunca un cero silencioso por un filtro que no aplica)
-    private suspend fun evaluate(
-        kpi: Indicator,
-        data: DashboardData,
-        readable: Readability
-    ): IndicatorValue {
-        val missing = readable.missing(kpi.requires)
-        val result =
-            when {
-                missing.isNotEmpty() -> {
-                    val reason =
-                        if (missing.any { readable.objectMissing(it) }) UnavailableReason.OBJECT_NOT_READABLE else UnavailableReason.FIELD_NOT_READABLE
-                    IndicatorResult.unavailable(reason, missing)
-                }
-                kpi.singleProject && data.filters.projects.size != 1 ->
-                    IndicatorResult.unavailable(
-                        UnavailableReason.SINGLE_PROJECT_REQUIRED,
-                        listOf("project")
-                    )
-                else -> kpi.compute(data)
-            }
-        val ignored = Kpis.ignoredFilters(kpi, data.filters)
-        return result.toValue(kpi.code, kpi.label, kpi.unit).copy(ignoredFilters = ignored.ifEmpty { null })
     }
 
     // si a quien mira se le ocultan QCS confidenciales (Permissions.confidentialHidden)
