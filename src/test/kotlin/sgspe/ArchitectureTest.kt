@@ -189,6 +189,27 @@ class ArchitectureTest {
         assertFalse(flags(LOAD_DEFINITION, "// MetadataService.loadDefinition no tiene caché"))
     }
 
+    // la compuerta de SQL propio (especificación de F6 §3.1, ASM-122): dentro de sgspe.territory solo SpatialGate y los
+    // escritores que ya existían tocan DatabaseClient; fuera de territory, solo los que ya lo usaban. y solo SpatialGate pide
+    // los alcances de lectura de wasichai (RecordReadScopes): nadie más arma SQL que cruce tablas del tenant
+    @Test
+    fun `solo SpatialGate y los escritores de territorio usan DatabaseClient`() {
+        val territory = listOf("SpatialGate.kt", "GeoSql.kt", "TerritoryImports.kt", "Areas.kt", "ProjectComponents.kt").map { "/sgspe/territory/$it" }
+        val elsewhere =
+            listOf(
+                "/sgspe/common/DependentsDeleteGuard.kt",
+                "/sgspe/common/DerivedVersions.kt",
+                "/sgspe/common/Idempotency.kt",
+                "/sgspe/common/UserReferenceGuard.kt",
+                "/sgspe/evidence/EvidenceWriteGuard.kt"
+            )
+        val others = sources(main).filterNot { file -> (territory + elsewhere).any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, DATABASE_CLIENT))
+        val gate = "/sgspe/territory/SpatialGate.kt"
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(gate) })
+        assertEquals(emptyList<String>(), offenders(sources(main).filterNot { it.invariantSeparatorsPath.endsWith(gate) }, READ_SCOPES))
+    }
+
     // el alcance de lectura por proyecto (ASM-106, ASM-114, security.md §9.7). regla 1: cada objeto de model.json está en un
     // solo grupo de ProjectScope y ProjectScope no nombra objetos ausentes; regla 2: los objetos con la relación `project`
     // son exactamente las raíces y project_assignment. así una fase nueva no agrega un objeto sin clasificarlo:
@@ -474,6 +495,12 @@ class ArchitectureTest {
         assertTrue(isCommon(File("src/main/kotlin/sgspe/common/Records.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/risk/Risks.kt")))
         assertFalse(isCommon(File("src/main/kotlin/sgspe/commonplace/Risks.kt")))
+        assertTrue(DATABASE_CLIENT.containsMatchIn("    private val db: DatabaseClient,"))
+        assertTrue(DATABASE_CLIENT.containsMatchIn("import org.springframework.r2dbc.core.DatabaseClient"))
+        assertFalse(DATABASE_CLIENT.containsMatchIn("class DatabaseGateRunnerFake"))
+        assertFalse(flags(DATABASE_CLIENT, "// sin DatabaseClient: por SpatialGate"))
+        assertTrue(READ_SCOPES.containsMatchIn("        readScopes: RecordReadScopes,"))
+        assertFalse(READ_SCOPES.containsMatchIn("class ProjectReadScope : RecordReadScope"))
     }
 
     // el nombre de un bean de estereotipo es el nombre simple de su clase con la inicial en minúscula: dos clases con el mismo
@@ -518,6 +545,8 @@ class ArchitectureTest {
         private val READ_CONDITION = Regex("""\bProjectReadCondition\b""")
         private val READS_ALL = Regex("""\.\s*readsAll\s*\(""")
         private val LOAD_DEFINITION = Regex("""\bloadDefinition(ById)?\b""")
+        private val DATABASE_CLIENT = Regex("""\bDatabaseClient\b""")
+        private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
