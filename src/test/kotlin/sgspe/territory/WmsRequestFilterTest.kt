@@ -139,4 +139,51 @@ class WmsRequestFilterTest {
         assertTrue(xml.contains("LYR-01 &lt;límites&gt;"))
         assertFalse(xml.contains(concessions.name))
     }
+
+    private fun with(
+        name: String,
+        vararg values: String
+    ) = getMap().toMutableMap().also { it[name] = values.toList() }
+
+    @Test
+    fun `el BBOX se reenvia canonico y lo que no es decimal llano se rechaza`() {
+        val ok = WmsRequestFilter.parse(with("BBOX", "1, 2,3,4\r\n")) as WmsCall.Image
+        assertEquals("1.0,2.0,3.0,4.0", WmsRequestFilter.authorize(ok, whitelist)["BBOX"])
+        for (bad in listOf("0x1p3,2,3,4", "1d,2,3,4", "1,2,3,4\u0000", "NaN,2,3,4", "1,2,3", "3,2,1,4")) {
+            val e = assertThrows<WasichaiException> { WmsRequestFilter.parse(with("BBOX", bad)) }
+            assertEquals("BBOX", e.violations.single().field)
+        }
+    }
+
+    @Test
+    fun `capas repetidas se quitan con su estilo y no pueden ser mas que la lista`() {
+        val dup = with("LAYERS", "${units.name},${units.name}").also { it["STYLES"] = listOf("sgspe-lyr-01,sgspe-lyr-01") }
+        val forward = WmsRequestFilter.authorize(WmsRequestFilter.parse(dup) as WmsCall.Image, whitelist)
+        assertEquals(units.name, forward["LAYERS"])
+        val many = with("LAYERS", (1..4).joinToString(",") { "x$it" })
+        val e = assertThrows<WasichaiException> { WmsRequestFilter.authorize(WmsRequestFilter.parse(many) as WmsCall.Image, whitelist) }
+        assertEquals(422 to "WMS_PARAMETER_NOT_ALLOWED", code(e))
+    }
+
+    @Test
+    fun `el campo del error se acota y no lleva controles`() {
+        val e = assertThrows<WasichaiException> { WmsRequestFilter.parse(getMap("a\nb".repeat(40) to "x")) }
+        val field = e.violations.single().field!!
+        assertTrue(field.length <= 64 && field.none { it.isISOControl() })
+    }
+
+    @Test
+    fun `capa con espacio de trabajo es 403, estilo de otra capa es 422, SRS con CRS es 422 y faltan LAYERS o BBOX`() {
+        val ws = with("LAYERS", "sgspe:${units.name}")
+        assertThrows<ForbiddenException> { WmsRequestFilter.authorize(WmsRequestFilter.parse(ws) as WmsCall.Image, whitelist) }
+        val two = with("LAYERS", "${units.name},${concessions.name}").also { it["STYLES"] = listOf("sgspe-lyr-07,sgspe-lyr-01") }
+        val e = assertThrows<WasichaiException> { WmsRequestFilter.authorize(WmsRequestFilter.parse(two) as WmsCall.Image, whitelist) }
+        assertEquals(422 to "WMS_PARAMETER_NOT_ALLOWED", code(e))
+        val both = assertThrows<WasichaiException> { WmsRequestFilter.parse(getMap("SRS" to "EPSG:3857")) }
+        assertEquals(422 to "WMS_PARAMETER_NOT_ALLOWED", code(both))
+        for (name in listOf("LAYERS", "BBOX")) {
+            val missing = assertThrows<WasichaiException> { WmsRequestFilter.parse(getMap().filterKeys { it != name }) }
+            assertEquals(name, missing.violations.single().field)
+        }
+    }
 }

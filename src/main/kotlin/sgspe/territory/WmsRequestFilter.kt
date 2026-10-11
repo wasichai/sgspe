@@ -43,6 +43,7 @@ object WmsRequestFilter {
     private val FORMATS = setOf("image/png", "image/jpeg")
     private val VERSIONS = setOf("1.0.0", "1.1.1", "1.3.0")
     private val SYSTEMS = setOf("EPSG:3857", "EPSG:4326")
+    private val PLAIN = Regex("""-?\d+(\.\d+)?([eE][-+]?\d+)?""")
     private val BOOLEANS = setOf("TRUE", "FALSE")
 
     fun parse(query: Map<String, List<String>>): WmsCall {
@@ -70,16 +71,18 @@ object WmsRequestFilter {
         val styles = params["STYLES"]?.takeIf { it.isNotEmpty() }?.split(',')?.map(String::trim)
         if (styles != null && styles.size != layers.size) throw parameter("STYLES", "un estilo por capa")
         val system = system(params)
-        bbox(params["BBOX"] ?: throw missing("BBOX"))
+        val box = bbox(params["BBOX"] ?: throw missing("BBOX"))
         val out = linkedMapOf("SERVICE" to "WMS", "VERSION" to (params["VERSION"] ?: "1.3.0"), "REQUEST" to GET_MAP)
         out[system.first] = system.second
-        out["BBOX"] = params.getValue("BBOX")
+        out["BBOX"] = box
         out["WIDTH"] = size(params, "WIDTH", required = true)!!
         out["HEIGHT"] = size(params, "HEIGHT", required = true)!!
         out["FORMAT"] = format(params, required = true)!!
         flag(params, "TRANSPARENT")?.let { out["TRANSPARENT"] = it }
         flag(params, "TILED")?.let { out["TILED"] = it }
-        return WmsCall.Image(GET_MAP, layers, styles, out)
+        // capas repetidas: se queda la primera con su estilo
+        val keep = layers.indices.filter { layers.indexOf(layers[it]) == it }
+        return WmsCall.Image(GET_MAP, keep.map { layers[it] }, styles?.let { s -> keep.map { s[it] } }, out)
     }
 
     private fun legend(params: Map<String, String>): WmsCall.Image {
@@ -98,6 +101,7 @@ object WmsRequestFilter {
         call: WmsCall.Image,
         whitelist: Map<String, WmsLayer>
     ): Map<String, String> {
+        if (call.layers.size > whitelist.size) throw parameter(if (call.request == GET_MAP) "LAYERS" else "LAYER", "más capas que las disponibles")
         val layers = call.layers.map { whitelist[it] ?: throw ForbiddenException("La capa pedida no está disponible para su organización o no puede leerla") }
         val styles =
             layers.mapIndexed { i, layer ->
@@ -125,11 +129,14 @@ object WmsRequestFilter {
         return key to value.uppercase()
     }
 
-    private fun bbox(raw: String) {
-        val parts = raw.split(',').map { it.trim().toDoubleOrNull() }
-        if (parts.size != 4 || parts.any { it == null || !it.isFinite() } || parts[0]!! >= parts[2]!! || parts[1]!! >= parts[3]!!) {
+    // solo decimales llanos (sin espacios, sufijos ni hexadecimales); se reenvía la forma canónica de los números
+    private fun bbox(raw: String): String {
+        val parts = raw.trim().split(',').map { it.trim() }
+        val numbers = parts.map { if (PLAIN.matches(it)) it.toDoubleOrNull() else null }
+        if (numbers.size != 4 || numbers.any { it == null || !it.isFinite() } || numbers[0]!! >= numbers[2]!! || numbers[1]!! >= numbers[3]!!) {
             throw ValidationException("BBOX inválido", "BBOX", "cuatro números minX,minY,maxX,maxY con el mínimo menor que el máximo")
         }
+        return numbers.joinToString(",")
     }
 
     private fun size(
@@ -165,7 +172,10 @@ object WmsRequestFilter {
         field: String,
         reason: String
     ): WasichaiException =
-        Finding("WMS_PARAMETER_NOT_ALLOWED", "Parámetro WMS no admitido: $reason", field, status = HttpStatus.valueOf(422)).toCodedException()
+        Finding("WMS_PARAMETER_NOT_ALLOWED", "Parámetro WMS no admitido: $reason", safe(field), status = HttpStatus.valueOf(422)).toCodedException()
+
+    // el campo del 422 puede venir del cliente: 64 caracteres y sin controles
+    private fun safe(field: String): String = field.take(64).map { if (it.isISOControl()) '?' else it }.joinToString("")
 
     private fun request(
         field: String,
