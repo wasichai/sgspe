@@ -62,4 +62,84 @@ class SocialContributionWorkflowApiTest : ContributionApiTest() {
         assertEquals("OUT_OF_RANGE", code(refused))
         assertEquals(listOf("beneficiaries_count"), problemFields(refused.body))
     }
+
+    // ---- Tarea 4: P4, P5, P6, P7 y P9 ----
+
+    @Test
+    fun `aprueban APPROVER y SOCIAL_MANAGER, pero no quien registro el aporte`() {
+        val project = testProject()
+        for (role in listOf("APPROVER", "SOCIAL_MANAGER")) {
+            val id = requestedContribution(project)
+            move("social_contribution", id, "approve", member(role, project).token, "aprobación")
+            assertEquals("approved", state("social_contribution", id), role)
+        }
+        val manager = member("SOCIAL_MANAGER", project)
+        val own = requestedContribution(project, creator = manager)
+        val refused = transition("social_contribution", own, "approve", manager.token, "aprobación")
+        assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+        assertEquals("SEGREGATION_OF_DUTIES", code(refused))
+        assertEquals(listOf("record"), problemFields(refused.body))
+        assertEquals(HttpStatus.OK, transition("social_contribution", own, "approve", member("SOCIAL_MANAGER", project).token, "aprobación").status)
+    }
+
+    // decisión 13 del plan 5.2a: los dos roles de approve tienen APPROVE, así que P4 se ve en la consulta en seco
+    @Test
+    fun `sin la accion APPROVE la consulta en seco da ACTION_REQUIRED`() {
+        val id = requestedContribution()
+        val check = dryRun(id, "approve", member("SOCIAL_INVESTMENT_MANAGER"))
+        assertTrue(check["blocking"].values().any { it["code"].asString() == "ACTION_REQUIRED" && it["field"].asString() == "record" }, check.toString())
+    }
+
+    @Test
+    fun `sin items es ITEMS_REQUIRED y sin contribution_type es FIELD_REQUIRED`() {
+        val project = testProject()
+        val approver = member("APPROVER", project)
+        val empty = requestedContribution(project, items = emptyList())
+        val noItems = transition("social_contribution", empty, "approve", approver.token, "aprobación")
+        assertEquals(HttpStatus.CONFLICT, noItems.status, noItems.body)
+        assertEquals("ITEMS_REQUIRED", code(noItems))
+        assertEquals(listOf("contribution_item"), problemFields(noItems.body))
+        val untyped = requestedContribution(project, attributes = mapOf("contribution_type" to null))
+        val noType = transition("social_contribution", untyped, "approve", approver.token, "aprobación")
+        assertEquals(HttpStatus.BAD_REQUEST, noType.status, noType.body)
+        assertEquals("FIELD_REQUIRED", code(noType))
+        assertEquals(listOf("contribution_type"), problemFields(noType.body))
+        assertEquals("requested", state("social_contribution", empty))
+    }
+
+    @Test
+    fun `approve_direct con la aprobacion interna activa es INTERNAL_APPROVAL_REQUIRED`() {
+        val strict = testProject()
+        val id = requestedContribution(strict)
+        val refused = transition("social_contribution", id, "approve_direct", registrar(strict).token, "aprobación directa")
+        assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+        assertEquals("INTERNAL_APPROVAL_REQUIRED", code(refused))
+        assertEquals(listOf("project"), problemFields(refused.body))
+        val relaxed = project(mapOf("policy_internal_approval" to false))
+        val direct = requestedContribution(relaxed)
+        move("social_contribution", direct, "approve_direct", registrar(relaxed).token, "aprobación directa")
+        assertEquals("approved", state("social_contribution", direct))
+    }
+
+    // elección 9: la sinergia no es un lineamiento, así que la justificación no la cubre
+    @Test
+    fun `una sinergia exige un acuerdo vigente, tambien con justificacion`() {
+        val project = testProject()
+        val approver = member("APPROVER", project)
+
+        fun approve(extra: Map<String, Any?>): Response {
+            val attributes =
+                mapOf("has_institutional_synergy" to true, "guideline_deviation_justification" to "Convenio en trámite con la municipalidad.") + extra
+            return transition("social_contribution", requestedContribution(project, attributes = attributes), "approve", approver.token, "aprobación")
+        }
+        for (extra in listOf(emptyMap(), mapOf("agreement" to agreement(project)))) {
+            val refused = approve(extra)
+            assertEquals(HttpStatus.CONFLICT, refused.status, refused.body)
+            assertEquals("SYNERGY_AGREEMENT_REQUIRED", code(refused))
+            assertEquals(listOf("agreement"), problemFields(refused.body))
+        }
+        val expired = liveAgreement(project).also { platformPatch("agreement", it, mapOf("validity_status" to "VENCIDO")) }
+        assertEquals("SYNERGY_AGREEMENT_REQUIRED", code(approve(mapOf("agreement" to expired))))
+        assertEquals(HttpStatus.OK, approve(mapOf("agreement" to liveAgreement(project))).status)
+    }
 }
