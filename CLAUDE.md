@@ -5,7 +5,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 
 ## Qué hay aquí
 
-- Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 1.0.0 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
+- Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 1.1.0 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
   `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning`.
