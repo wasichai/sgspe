@@ -16,7 +16,9 @@ import wasichai.core.platform.ClusterLock
 // el orden acordado: varias claves del mismo tipo en una transacción van por id ascendente (el texto del UUID, que es el orden
 // de PostgreSQL). hoy pasa con commitment:<id> y, desde F5, social_contribution:<id>: el alta de una evidencia con vínculos a
 // entregas de varios padres toma el candado de cada uno al vincular (DELIVERY_FROZEN), y por eso vincula en
-// EvidenceRules.lockOrder, por la clave completa del candado
+// EvidenceRules.lockOrder, por la clave completa del candado. también con social_contribution:<id> cuando un comprobante
+// cambia de aporte (ContributionReceiptRule toma los dos) y con social_program:<id> cuando un presupuesto cambia de programa
+// (ProgramTotalsListener recalcula los dos)
 @Component
 class Transactions(
     private val operator: TransactionalOperator,

@@ -25,7 +25,8 @@ data class CommittedAmount(
     val currency: String?
 )
 
-// `state`: el estado de WF-G, para que el portal no muestre ejecución de un programa por aprobar (S43, plan 5.3)
+// `state`: el estado de WF-G, informativo. los KPI-INV cuentan los programas en cualquier estado de WF-G y el backend no oculta
+// ninguno; el portal lo usa para distinguir (marcar) los programas por aprobar en las filas de KPI-INV-02 (S43, plan 5.3)
 data class ProgramRow(
     val id: String,
     val project: String?,

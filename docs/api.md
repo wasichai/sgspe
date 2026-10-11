@@ -252,12 +252,12 @@ evidencia con un objeto `requiresReason`), `INVALID_NUMBER` y `OUT_OF_RANGE` (`a
 más de 15 dígitos enteros, de más de 4 decimales o negativo), `DUPLICATE_NOT_FOUND` y `DUPLICATE_OTHER_PROJECT`
 (`duplicateOf`); `403` `PERSON_REQUIRED` (una cuenta de servicio no decide sobre un candidato), `ROLE_REQUIRED` (falta
 el rol de `accept` o de `mark_duplicate`) y `ACTION_REQUIRED` (`classification`: descargar una evidencia restringida sin
-`DOWNLOAD_RESTRICTED`); y `409` `STATE_MISMATCH` (`state`; `commitment` si la entrega no es de un compromiso). El motivo
-que falta en una reprogramación, una entrega, una aceptación o un duplicado es un `400` de validación sobre `reason`,
-con texto libre. Una evidencia de `evidence[]` que no existe en el alta de una entrega responde el `404` de wasichai,
-sin código, y no escribe nada. La idempotencia (§3.5) responde `400` de validación sobre `Idempotency-Key` (mal
-formada), `409` `IDEMPOTENCY_IN_FLIGHT` con `Retry-After: 1` y `422` `IDEMPOTENCY_KEY_REUSED`, los dos con `field`
-`Idempotency-Key`.
+`DOWNLOAD_RESTRICTED`); y `409` `STATE_MISMATCH` (`state`; `commitment` si la entrega que se corrige no es de un
+compromiso ni de un aporte). El motivo que falta en una reprogramación, una entrega, una aceptación o un duplicado es un
+`400` de validación sobre `reason`, con texto libre. Una evidencia de `evidence[]` que no existe en el alta de una
+entrega responde el `404` de wasichai, sin código, y no escribe nada. La idempotencia (§3.5) responde `400` de
+validación sobre `Idempotency-Key` (mal formada), `409` `IDEMPOTENCY_IN_FLIGHT` con `Retry-After: 1` y `422`
+`IDEMPOTENCY_KEY_REUSED`, los dos con `field` `Idempotency-Key`.
 
 **Comportamiento fijado de wasichai 0.3.2.** Dos respuestas no son las que describe la tabla de arriba; las pruebas de
 contrato las fijan para que un cambio de wasichai avise:
@@ -1022,7 +1022,10 @@ sin error.
   informa por campaña el tope, la moneda, lo comprometido (`CampaignCommitted`), lo ejecutado
   (`executed_social_amount`) y los conteos en otra moneda; KPI-INV-02, por programa, año y moneda, lo asignado y lo ejecutado
   registrado; KPI-INV-03, por proyecto y moneda, lo ejecutado por fuente frente a presupuesto y topes; KPI-INV-04, tres
-  bloques que no se suman. Es interno y no aplica celdas pequeñas.
+  bloques que no se suman. Los programas cuentan en KPI-INV-02 a 04 en cualquier estado de WF-G (también `draft`,
+  `pending_approval` y `cancelled`): el backend no oculta ninguno. El `state` de cada fila de KPI-INV-02 es informativo,
+  para que el portal distinga (marque) los programas por aprobar sin quitarlos de la cifra. Es interno y no aplica
+  celdas pequeñas.
 
 | `{dashboard}` | Tablero | Requisito | Desde |
 |---|---|---|---|
