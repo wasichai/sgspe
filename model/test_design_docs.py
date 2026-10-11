@@ -148,8 +148,8 @@ class TotalsTests(unittest.TestCase):
         f3_rels = [r for c in cards.values() if c.phase <= "F3" for r in c.relationships
                    if design_docs.relationship_phase(cards, c, r) == "F3" and not r["inverse"]]
         self.assertEqual((len(f3_fields), len(f3_rels)), (114, 46))
-        # 78 claves en §4; las 45 de F2 son las de los campos ENUM que llegan en F2
-        self.assertEqual(len(design_docs.enum_keys()), 78)
+        # 79 claves en §4 (item_kind desde el plan 5.0); las 45 de F2 son las de los campos ENUM que llegan en F2
+        self.assertEqual(len(design_docs.enum_keys()), 79)
         self.assertEqual(len({f["enum"] for f in fields if f["type"] == "ENUM"}), 45)
         self.assertTrue(all(c.phase for c in cards.values()))
         self.assertTrue(all(c.fields for c in cards.values()))
@@ -286,6 +286,27 @@ class F4WorkflowsTests(unittest.TestCase):
         self.assertEqual((cards["risk_assessment"].flags["appendOnly"], cards["risk_assessment"].flags["apiOnly"]), (True, True))
         self.assertNotIn("CAMBIO DE POSTURA", design_docs.catalogs()["warning_rule_kind"])
         self.assertEqual(len(design_docs.catalogs()["warning_rule_kind"]), 6)
+
+
+class F5CardsTests(unittest.TestCase):
+    def test_las_fichas_de_f5_traen_lo_que_suma_el_plan_5_0(self):
+        cards = design_docs.cards()
+        # decisión 3 (ASM-112): el tipo de cada ítem es lo que leen los lineamientos al aprobar
+        kind = next(f for f in cards["contribution_item"].fields if f["name"] == "item_kind")
+        self.assertEqual((kind["type"], kind["enum"], kind["required"]), ("ENUM", "item_kind", True))
+        self.assertEqual(design_docs.catalogs()["item_kind"], ["BIEN", "SERVICIO", "DINERO", "MANO DE OBRA"])
+        topic = next(r for r in cards["social_contribution"].relationships if r["name"] == "contribution_topic")
+        self.assertEqual((topic["type"], topic["field"], topic["target"], topic["required"]),
+                         ("MANY_TO_ONE", "topic", "topic", False))
+        # la M2M de los temas priorizados llega en F5 aunque project y topic sean de F2
+        priority = next(r for r in cards["project"].relationships if r["name"] == "project_priority_topic")
+        self.assertEqual((priority["type"], priority["target"], priority["inverse"]), ("MANY_TO_MANY", "topic", False))
+        self.assertEqual(design_docs.relationship_phase(cards, cards["project"], priority), "F5")
+        inverse = next(r for r in cards["topic"].relationships if r["name"] == "project_priority_topic")
+        self.assertTrue(inverse["inverse"])
+        # ASM-116: el acta de recepción espera a UPS-23, como el acta de entrega
+        aut04 = next(a for a in design_docs.automations() if a["id"] == "AUT-04")
+        self.assertEqual((aut04["object"], aut04["phase"], aut04["after"]), ("delivery", "F5", "UPS-23"))
 
 
 class BrokenDocsTests(unittest.TestCase):
