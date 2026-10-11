@@ -563,7 +563,9 @@ Reglas de las guardas de WF-D, citadas por número en la tabla y en las pruebas:
   si un compromiso ofrece puestos (ASM-089); la tabla la conserva para cuando exista el dato.
 - **D7. Tope de la campaña** (`SupportPolicyGuard`): la suma de los montos aprobados de la campaña en su moneda, más el que
   se aprueba, contra el tope. Bloquea o advierte según `policy_cap_blocks_approval`; con la política que bloquea, solo lo
-  supera quien tiene `APPROVE_OVER_CAP`, la acción que prevé GAP-006 (RN-INV-003, RQ-SEC-004, ASM-063).
+  supera quien tiene `APPROVE_OVER_CAP`, la acción que prevé GAP-006 (RN-INV-003, RQ-SEC-004, ASM-063). Desde F5, lo
+  comprometido de la campaña (`CampaignCommitted`, `dashboards.md` §3.2) suma también los aportes en `approved`,
+  `procured`, `delivered` o `closed` (ASM-110).
   - La aprobación toma el candado de la campaña en su transacción: dos aprobaciones simultáneas de la misma campaña no
     pasan el tope juntas.
   - Un monto en otra moneda que la de la campaña no se suma y se advierte. Una campaña sin moneda nunca bloquea: el tope
