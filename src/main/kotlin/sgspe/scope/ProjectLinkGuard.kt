@@ -18,7 +18,9 @@ import wasichai.core.data.RecordWrite
 // incident_stakeholder deben quedar en el proyecto del registro; si no, 409 PROJECT_MISMATCH sobre el campo o la relación. una
 // regla de alerta del tenant (sin proyecto) no discrepa. lee los destinos como quien escribe: uno que no lee es 403
 // OBJECT_NOT_READABLE. compromisos y candidatos usan la misma pieza desde sus reglas (ProjectLinkRule, CandidateLinkRule), así
-// que commitment.origin_grievance y commitment.social_risk se juzgan allí
+// que commitment.origin_grievance y commitment.social_risk se juzgan allí. una escritura sin usuario (una automatización, que
+// corre sin sesión, o la plataforma) no se juzga: las tareas de AUT-NN copian el proyecto de su origen, y leerlo sin sesión
+// fallaría (como EditAnyGuard y AttentionCommandFieldsGuard, la plataforma es de confianza)
 @Component
 @Order(GuardOrder.DOMAIN)
 class ProjectLinkGuard(
@@ -30,7 +32,7 @@ class ProjectLinkGuard(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
-        if (change.objectName !in OBJECTS) return emptyList()
+        if (change.objectName !in OBJECTS || change.userId == null) return emptyList()
         return try {
             if (change.isLink()) links(change) else fields(change)
         } catch (e: NotReadable) {
