@@ -251,4 +251,17 @@ class ProjectReadScopeTest {
         assertEquals("false", condition(scope, assessment))
         assertEquals(listOf("project_assignment", "stakeholder"), partial.asked)
     }
+
+    // el constructor @Autowired: dos lecturas seguidas cargan cada definición del alcance una sola vez (por recent)
+    @Test
+    fun `el constructor de Spring pide las definiciones por la cache una sola vez`() {
+        val counter = Definitions(mapOf("project_assignment" to assignment, "study" to definition("study", "project")))
+        val cache = ObjectDefinitions(counter::load, Duration.ofSeconds(30), 100) { 0L }
+        val scope = ProjectReadScope(reach { false }, cache, catalog, schemas, clock)
+        val child = definition("locality_profile", "study")
+        val first = condition(scope, child)!!
+        assertTrue(first.startsWith("\"study\" IS NULL OR \"study\" IN (SELECT t1.\"id\""), first)
+        assertEquals(first, condition(scope, child))
+        assertEquals(listOf("project_assignment", "study"), counter.asked)
+    }
 }

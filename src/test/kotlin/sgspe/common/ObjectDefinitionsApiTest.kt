@@ -1,6 +1,7 @@
 package sgspe.common
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -21,6 +22,8 @@ class ObjectDefinitionsApiTest : F4ApiTest() {
         val assessments = "/api/objects/stakeholder_assessment/records?size=50"
         // la primera calienta la caché: project, project_assignment y stakeholder
         send("GET", assessments, null, HttpStatus.OK, analyst.token)
+        // la caché quedó caliente; las tres listas corren muy por debajo del ttl de 30 s
+        assertTrue(definitions.size > 0)
         val before = definitions.misses()
         send("GET", assessments, null, HttpStatus.OK, analyst.token)
         send("GET", "/api/objects/stakeholder/records?size=1", null, HttpStatus.OK, analyst.token)
