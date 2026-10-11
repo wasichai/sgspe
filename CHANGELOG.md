@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/wasichai/sgspe/compare/v1.0.0...v1.1.0) (2026-10-10)
+
+
+### Features
+
+* el descriptor de una evidencia restringida sale sin nombre ni huella (UPS-24) ([94f654a](https://github.com/wasichai/sgspe/commit/94f654a3eadb52a30bb4cdacab1a8f1743021e4d))
+* el descriptor de una evidencia restringida sale sin nombre ni huella (UPS-24) ([3b52898](https://github.com/wasichai/sgspe/commit/3b528982e608e6c685a7967cd9bbff6a799b62d7))
+
 ## [1.0.0](https://github.com/wasichai/sgspe/compare/v0.10.0...v1.0.0) (2026-10-10)
 
 
