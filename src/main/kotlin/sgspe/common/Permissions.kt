@@ -26,16 +26,16 @@ class Permissions(
         }
     }
 
-    // la consulta de permisos de wasichai, cada vez (o una vez por petición donde quien llama la memoriza); el id del objeto
-    // sale de la caché reciente (ObjectDefinitions.recent): un objeto borrado y vuelto a crear tiene otro id y ningún
-    // permiso propio, así que una entrada vieja solo puede negar
+    // la consulta de permisos de wasichai, que la memoriza por petición (RoleQueries.objectAccess, wasichai 1.1.0); el id
+    // del objeto sale de la definición de la petición (ObjectDefinitions.current): un objeto borrado y vuelto a crear tiene
+    // otro id y ningún permiso propio, así que una definición vieja solo puede negar
     suspend fun has(
         user: AuthenticatedUser,
         action: String,
         objectName: String
     ): Boolean =
         try {
-            currentUser.requirePermission(user, action, definitions.recent(user.organizationId, objectName).obj.id)
+            currentUser.requirePermission(user, action, definitions.current(user.organizationId, objectName).obj.id)
             true
         } catch (_: ForbiddenException) {
             false

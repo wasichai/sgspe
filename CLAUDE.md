@@ -5,7 +5,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 
 ## Qué hay aquí
 
-- Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 1.0.0 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
+- Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 1.1.0 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
   `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning`.
@@ -64,7 +64,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 |---|---|
 | App | `src/main/kotlin/sgspe/SgspeApplication.kt`, `src/main/resources/application*.yml` |
 | Correlación y línea de acceso | `src/main/kotlin/sgspe/observability/` |
-| Marca de escritura, `Records`, Lima, 422, catálogo del modelo, reglas y guardas transversales, `If-Match`, consulta en seco, `Positions`, `Readability`, `RequestMemo` (también el memo del comando que `RequestMemoFilter` abre en las escrituras de `/api/sgspe/`), la caché del esquema (`ObjectDefinitions`: `current` por petición, `recent` hasta 30 s para el alcance y los permisos), JOB-02 | `src/main/kotlin/sgspe/common/` |
+| Marca de escritura, `Records`, Lima, 422, catálogo del modelo, reglas y guardas transversales, `If-Match`, consulta en seco, `Positions`, `Readability`, `RequestMemo` (también el memo del comando que `RequestMemoFilter` abre en las escrituras de `/api/sgspe/`), el memo de definiciones por petición (`ObjectDefinitions.current`, sobre la caché de wasichai 1.1.0, `wasichai.metadata.cache.ttl` 30 s), JOB-02 | `src/main/kotlin/sgspe/common/` |
 | Alcance por proyecto, asignaciones, destinatarios por rol, `EDIT_ANY`, WF-A | `src/main/kotlin/sgspe/scope/` |
 | Evaluaciones, índices y grupo, prioridad, WF-B, JOB-03 | `src/main/kotlin/sgspe/stakeholder/` |
 | WF-C, conteos de asistentes | `src/main/kotlin/sgspe/engagement/` |

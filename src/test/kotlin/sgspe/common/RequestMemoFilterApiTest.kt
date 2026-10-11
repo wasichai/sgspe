@@ -11,7 +11,7 @@ import wasichai.core.identity.AuthenticatedUser
 // RequestMemoFilter (especificación 4.4 §3.10, Tarea 17 del plan 4.4a): dentro de una petición de /api, la exención del alcance
 // (ProjectReach.readsAll, la acción READ_ALL_PROJECTS sobre project) se pregunta una sola vez aunque wasichai pida el
 // RecordReadScope para cada objeto y lectura, y otra petición vuelve a preguntar. en lugar de contar consultas en el log de SQL
-// (frágil: depende del formato del log, de la caché del esquema de SGSPE y de lo que corra en paralelo) se espía el bean
+// (frágil: depende del formato del log, de la caché de definiciones de wasichai y de lo que corra en paralelo) se espía el bean
 // Permissions y se cuentan sus preguntas READ_ALL_PROJECTS de la persona de la prueba: es exactamente lo que el memo ahorra
 class RequestMemoFilterApiTest : F4ApiTest() {
     @MockitoSpyBean

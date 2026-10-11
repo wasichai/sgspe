@@ -173,7 +173,7 @@ class ArchitectureTest {
     }
 
     // la caché del esquema (plan corto del 2026-10-11): las definiciones de objeto se cargan solo por ObjectDefinitions (memo
-    // por petición y caché reciente). Records conserva la suya en el camino de la plataforma: los trabajos de fondo corren
+    // por petición sobre la caché de wasichai 1.1.0). Records conserva la suya en el camino de la plataforma: los trabajos de fondo corren
     // fuera de una petición, donde el memo no aplica. vigila MetadataService.loadDefinition y loadDefinitionById, las cargas
     // sin permisos; definitionOf y listDefinitions miran los permisos de quien llama y quedan fuera
     @Test
