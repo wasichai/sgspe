@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono
 import sgspe.common.Callers
 import sgspe.common.Finding
 import sgspe.common.ModelCatalog
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.toCodedException
@@ -30,7 +31,6 @@ import wasichai.core.common.NotFoundException
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
-import wasichai.core.metadata.MetadataService
 import wasichai.documents.DocumentService
 import java.net.URI
 import java.util.Optional
@@ -62,7 +62,7 @@ class IssueAccessByScope(
     private val catalog: ModelCatalog,
     private val callers: Callers,
     private val permissions: Permissions,
-    private val metadata: MetadataService,
+    private val definitions: ObjectDefinitions,
     private val records: Records,
     private val resolver: ProjectResolver,
     private val assignments: Assignments
@@ -71,7 +71,7 @@ class IssueAccessByScope(
         val user = callers.userOrNull() ?: return null
         val objectId =
             try {
-                metadata.loadDefinition(user.organizationId, target.objectName).obj.id
+                definitions.current(user.organizationId, target.objectName).obj.id
             } catch (_: NotFoundException) {
                 return null
             }

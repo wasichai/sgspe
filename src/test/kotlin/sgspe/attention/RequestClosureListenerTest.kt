@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
 import sgspe.common.Attention
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Records
 import sgspe.common.TenantModel
 import wasichai.core.common.NotFoundException
 import wasichai.core.data.RecordChange
 import wasichai.core.data.RecordChangeKind
-import wasichai.core.metadata.MetadataService
 import wasichai.core.metadata.ObjectDefinition
 import java.util.UUID
 
@@ -29,8 +29,8 @@ class RequestClosureListenerTest {
 
     private fun model(withF4: Boolean): TenantModel =
         TenantModel(
-            mock(MetadataService::class.java) { invocation ->
-                if (invocation.method.name != "loadDefinition") return@mock null
+            mock(ObjectDefinitions::class.java) { invocation ->
+                if (invocation.method.name != "current") return@mock null
                 if (!withF4 && invocation.arguments[1] in Attention.OBJECTS) throw NotFoundException("sin ${invocation.arguments[1]}")
                 mock(ObjectDefinition::class.java)
             }

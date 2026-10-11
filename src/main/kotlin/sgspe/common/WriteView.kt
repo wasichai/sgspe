@@ -6,7 +6,6 @@ import wasichai.core.data.RecordWrite
 import wasichai.core.identity.AccessPolicy
 import wasichai.core.identity.CurrentUser
 import wasichai.core.identity.FieldAccess
-import wasichai.core.metadata.MetadataService
 
 // cómo queda un registro después de una escritura que una guarda está por dejar pasar. el PUT de wasichai reemplaza el
 // registro: cada campo que el escritor puede escribir toma lo que manda, y uno que falta queda vacío; los que sus roles
@@ -14,7 +13,7 @@ import wasichai.core.metadata.MetadataService
 // una transición, un vínculo o una baja no cambian ningún campo
 @Component
 class WriteView(
-    private val metadata: MetadataService,
+    private val definitions: ObjectDefinitions,
     private val access: AccessPolicy,
     private val currentUser: CurrentUser
 ) {
@@ -24,7 +23,7 @@ class WriteView(
             change.kind == RecordChangeKind.CREATED -> change.attributes.orEmpty()
             change.kind != RecordChangeKind.UPDATED || change.isLink() -> before
             else -> {
-                val definition = metadata.loadDefinition(change.organizationId, change.objectName)
+                val definition = definitions.current(change.organizationId, change.objectName)
                 val fieldAccess = fieldAccess(change)
                 val attributes = change.attributes.orEmpty()
                 definition.fields

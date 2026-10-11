@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component
 import wasichai.core.common.NotFoundException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
-import wasichai.core.metadata.MetadataService
 import wasichai.core.platform.SqlIdentifier
 import wasichai.core.platform.WasichaiSchemas
 import java.util.UUID
@@ -30,7 +29,7 @@ import java.util.UUID
 @Order(GuardOrder.DEPENDENTS)
 class DependentsDeleteGuard(
     private val catalog: ModelCatalog,
-    private val metadata: MetadataService,
+    private val definitions: ObjectDefinitions,
     private val schemas: WasichaiSchemas,
     private val db: DatabaseClient
 ) : RuleGuard() {
@@ -71,7 +70,7 @@ class DependentsDeleteGuard(
     ): Boolean {
         val definition =
             try {
-                metadata.loadDefinition(change.organizationId, source)
+                definitions.current(change.organizationId, source)
             } catch (_: NotFoundException) {
                 return false
             }
