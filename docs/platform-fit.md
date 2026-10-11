@@ -370,7 +370,7 @@ el plan de implementación y la validación de consistencia. El paso 14 (empezar
 | BC | Metadata (objetos y flags) | Workflow | Automatización y documentos | GIS | Guardas, listeners y trabajos | Código propio | Desde |
 |---|---|---|---|---|---|---|---|
 | BC-01 Proyectos | `project`, `project_party`, `exploration_campaign`, `project_assignment`, `mining_concession` | WF-A | — | Ubicación y área de interés del proyecto; polígono de concesión | `ProjectWriteGuard`, `ProjectScopeGuard`, `FieldChangeReasonGuard` | `sgspe.scope`, `sgspe.common` | F2 |
-| BC-02 Territorio y SIG | Objetos del territorio; `project_component` `apiOnly` | WF-O | — | GEOMETRY, `bbox`, features, capas no sensibles en GeoServer (proxy WMS de SGSPE), `basemap` de `gisModule` (UPS-13), `MAP`; GDAL para importar y exportar | `TerritoryWriteGuard`, `ExactlyOneGuard`, `AreaListener`, `DerivedFieldsJob`; desde F6, `SpatialGate`, `WmsProxy`, `MapSettings`, `GdalReader` | `sgspe.territory` | F2, F6 |
+| BC-02 Territorio y SIG | Objetos del territorio; `project_component` `apiOnly` | WF-O | — | GEOMETRY, `bbox`, features, capas no sensibles en GeoServer (proxy WMS de SGSPE), `basemap` de `gisModule` (UPS-13, resuelta), `MAP`; GDAL para importar y exportar | `TerritoryWriteGuard`, `ExactlyOneGuard`, `AreaListener`, `DerivedFieldsJob`; desde F6, `SpatialGate`, `WmsProxy`, `MapSettings`, `GdalReader` | `sgspe.territory` | F2, F6 |
 | BC-03 Grupos de interés | Actores, cargos, grupos de interés; `stakeholder_assessment` `appendOnly`, `apiOnly` y `requiresReason` | WF-B | Ficha de grupo de interés (documento emitido) | Por relación territorial, nunca puntos de personas | `StakeholderWriteGuard`, `StakeholderFollowUpJob` | `sgspe.stakeholder` | F2 |
 | BC-04 Relacionamiento | `engagement` y sus hijos, plan, mensajes, alianzas, visitas | WF-C, WF-L | Minuta y lista de asistentes (documentos emitidos) | Ubicación de interacciones y observaciones | `EngagementWriteGuard`, `AttendanceCountsListener` | `sgspe.engagement` | F2 |
 | BC-05 Compromisos | `commitment` `requiresReason`; `commitment_reschedule` `appendOnly` y `apiOnly`; `delivery` y `commitment_candidate` `apiOnly` | WF-D, WF-K | Tarea al aprobar; acta de entrega al crear la entrega, tras UPS-23 | Ubicación del compromiso | `CommitmentWriteGuard`, `SupportPolicyGuard`, `CommitmentDerivationsListener`, `DeadlineJob` | `sgspe.commitment` | F3 |
@@ -472,7 +472,8 @@ dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar
 | UPS-20, UPS-22 | Sin cambios: la columna de una relación obligatoria sigue con `ON DELETE SET NULL`, y la API genérica no abre una transacción de la petición | Siguen las mitigaciones | — |
 | UPS-23 | Sin cambios: wasichai-documents congela el registro entero | Siguen las mitigaciones (ASM-090) | — |
 
-UPS-08 y UPS-19 son de wasichai-ui y se evalúan con la actualización de `@wasichai/*` en `sgspe-ui`; UPS-13, de wasichai-ui, está resuelta (ASM-125).
+UPS-13 está resuelta (ASM-125). UPS-08 y UPS-19 son de wasichai-ui y se evalúan con la actualización de
+`@wasichai/*` en `sgspe-ui`.
 
 Además, sin relación con una brecha: `updated_at` toma la hora de cada sentencia (`clock_timestamp()`), así que dos
 escrituras de una misma transacción ya no comparten `updatedAt`; cada respuesta de un registro lleva `ETag`; y la
