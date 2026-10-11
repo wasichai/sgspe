@@ -191,10 +191,9 @@ object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 ```
 
 - El script de arranque de temas de `index.html` es el único script en línea y se autoriza por su hash.
-- MapLibre necesita `worker-src blob:`; el mapa base se configura por organización (ASM-048, ASM-125; UPS-13 está
-  resuelta
-  en `@wasichai/gis` 1.0.0) y el host del estilo que devuelve `GET /api/sgspe/map/settings` entra en `img-src` y
-  `connect-src`.
+- MapLibre necesita `worker-src blob:`; el mapa base se configura por organización (ASM-048, ASM-125; UPS-13 resuelta
+  en `@wasichai/gis` 1.0.0) y el host del estilo que devuelve `GET /api/sgspe/map/settings` entra en `img-src`
+  y `connect-src`.
 - Los mapas WMS llegan por el proxy WMS del mismo origen (§10), así que no hace falta abrir GeoServer en la política.
 
 ### 3.3 Cuentas de servicio
@@ -264,8 +263,7 @@ Procedimiento operativo (GAP-026):
 5. Los scripts idempotentes cargan los catálogos de referencia: el ubigeo del INEI en `administrative_unit`
    (RF-TER-001), los temas en `topic` y, desde F8, los indicadores en `indicator` (ASM-020, `database-model.md` §25).
 6. Desde F6, `model/publish_layers.py` publica en GeoServer solo las capas de `model/layers.json`, con un token de
-   `ADMIN`
-   y de forma idempotente, y carga los estilos SLD con las credenciales del despliegue (§10.2). Se omite con
+   `ADMIN` y de forma idempotente, y carga los estilos SLD con las credenciales del despliegue (§10.2). Se omite con
    `--skip-layers` en un despliegue sin GeoServer.
 7. El administrador crea los usuarios y les asigna roles; desde F2, `PROJECT_ADMIN` registra las `project_assignment`,
    cada una con su `role_name` (RF-PRJ-005, ASM-070).
@@ -828,16 +826,14 @@ Criterios con que se armó:
   volver a generar y comprobar hashes. Si algún día se sirviera, exigiría READ y `DOWNLOAD_RESTRICTED` en todos los
   niveles, porque contiene datos que el archivo de cada nivel omite.
 - `EXPORT` de las capas territoriales (F6, `POST /api/sgspe/territory/exports`; `gis.md` §2.2 y §4.6). Desde F6, estos
-  13
-  objetos declaran `EXPORT`: `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`,
+  13 objetos declaran `EXPORT`: `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`,
   `mining_concession`, `environmental_feature`, `project`, `project_component`, `area_of_influence`, `land_parcel`,
-  `school` y `health_facility` (nunca `land_right`). La reciben sobre
-  los 13: `GIS_ANALYST` (por defecto, y gana CREATE sobre `export_log`), `SOCIAL_MANAGER` (ya exporta los objetos de F2
-  a
-  F4 y administra las áreas de influencia) y `PROJECT_MANAGER` (ya crea filas de `export_log` y exporta entregables).
-  `AUDITOR`, `ANALYST` y los demás roles no tienen `EXPORT` territorial. Además de `EXPORT`, cada exportación exige
-  READ sobre el objeto, CREATE sobre `export_log` y la divulgación por capa de ASM-124 (§11.4). Las celdas de §7.2 y
-  §7.4 los muestran desde que el modelo de F6 está aplicado (plan 6.1); hasta entonces las tablas no cambian.
+  `school` y `health_facility` (nunca `land_right`). La reciben sobre los 13: `GIS_ANALYST` (por defecto, y gana CREATE
+  sobre `export_log`), `SOCIAL_MANAGER` (ya exporta los objetos de F2 a F4 y administra las áreas de influencia) y
+  `PROJECT_MANAGER` (ya crea filas de `export_log` y exporta entregables). `AUDITOR`, `ANALYST` y los demás roles no
+  tienen `EXPORT` territorial. Además de `EXPORT`, cada exportación exige READ sobre el objeto, CREATE sobre
+  `export_log` y la divulgación por capa de ASM-124 (§11.4). Las celdas de §7.2, §7.4 y §7.8 los muestran desde que el
+  modelo de F6 está aplicado (plan 6.1); hasta entonces las tablas no cambian.
 - Reglas de la IA sobre los datos restringidos (`ai-architecture.md` §12.2):
   - pedir una corrida (`POST /api/sgspe/ai/runs`) o una pregunta documental (AI-06, `POST /api/sgspe/ai/knowledge/questions`)
     exige poder leer los nombres de `person` (fila de nombres de §7.9), porque la seudonimización y la re-identificación
@@ -1284,14 +1280,12 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
    van solo por variables de entorno, y el datastore se conecta con el rol de solo lectura `sgspe_geoserver`.
 9. **GDAL en las importaciones** (F6, ASM-127): `ogrinfo` y `ogr2ogr` 3.8 o superior, solo con los drivers
    `ESRI Shapefile`, `KML`, `GPKG`, `OpenFileGDB` y `GPX` (el KMZ lo descomprime SGSPE), con un entorno de proceso
-   limpio,
-   sin red, argumentos fijos y rutas del espacio de trabajo. Un ZIP no puede traer rutas con `../` ni más de
+   limpio, sin red, argumentos fijos y rutas del espacio de trabajo. Un ZIP no puede traer rutas con `../` ni más de
    `sgspe.territory.import.max-entries` entradas o `max-inflated-bytes` descomprimidos.
 10. **SQL propio:** `SpatialGate` es la única vía de lectura que cruza tablas del tenant (ASM-122). Compone los
     `RecordReadScope` registrados y revisa READ y la legibilidad de cada objeto y campo. `ArchitectureTest` exige que,
-    en
-    `sgspe.territory`, solo `SpatialGate` y los escritores `TerritoryImports`, `Areas`, `ProjectComponents` y `GeoSql`
-    usen `DatabaseClient`.
+    en `sgspe.territory`, solo `SpatialGate` y los escritores `TerritoryImports`, `Areas`, `ProjectComponents` y
+    `GeoSql` usen `DatabaseClient`.
 
 El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.md` con estas reglas.
 

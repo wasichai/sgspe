@@ -410,8 +410,8 @@ sequenceDiagram
 
 | Nivel | Objetos permitidos | Qué se quita |
 |---|---|---|
-| PUBLICO | Los de las capas públicas: LYR-01 a LYR-05, LYR-07 y LYR-16 | Lo que la regla de PUBLICO ya quita |
-| EXTERNO | Los anteriores, `community_sector`, `environmental_feature`, `project` (ubicación y área de interés), los accesos de `project_component` (`component_type` ACCESO), `area_of_influence` y los `land_parcel` de `tenure_type` PROPIEDAD, POSESION o COMUNAL | `registry_record` de los predios y lo que quita EXTERNO; exige `checklistConfirmed`, la lista de verificación de las demás exportaciones |
+| PUBLICO | Los de las capas públicas: LYR-01 a LYR-05, LYR-07 y LYR-16 | Lo mismo que EXTERNO, más lo que la regla de PUBLICO ya quita |
+| EXTERNO | Los anteriores, `community_sector`, `environmental_feature`, `project` (ubicación y área de interés), los accesos de `project_component` (`component_type` ACCESO), `area_of_influence` y los `land_parcel` de `tenure_type` PROPIEDAD, POSESION o COMUNAL | Fuera de INTERNO: `land_parcel.registry_record`, los cuatro campos registrales de `community` (`legal_entity_record`, `property_record`, `parent_record`, `title_reference`), `source_reference` e `import_batch_id`; `project` sale solo con `code` y `name`; EXTERNO exige `checklistConfirmed`, la lista de verificación de las demás exportaciones |
 | INTERNO | Todos los objetos de la lista, también sondajes, plataformas y campamento y los predios de la empresa | Nada más allá de los permisos de campo |
 
 - El WFS autenticado para analistas, que serviría las capas públicas por el mismo proxy que el WMS, queda pospuesto
@@ -660,9 +660,9 @@ parámetro desconocido, `422`.
 | LYR-16 | `school` | `location` | `sgspe-lyr-16-school` | — |
 | LYR-16 | `health_facility` | `location` | `sgspe-lyr-16-health` | — |
 
-- El nombre de la capa en GeoServer lo da wasichai: `<tabla física>__<columna>`, en el workspace `sgspe`, con el endpoint
-  `POST /api/gis/layers/{object}/{geometry}`, que crea la tabla virtual JDBC con `id`, los campos simples y esa geometría
-  [WAS-DOC api/rest.md]. El datastore usa el rol de solo lectura `sgspe_geoserver`.
+- El nombre de la capa en GeoServer lo da wasichai: `<tabla física>__<columna>`, en el workspace `sgspe`, con el
+  endpoint `POST /api/gis/layers/{object}/{geometry}`, que crea la tabla virtual JDBC con `id`, los campos simples y esa
+  geometría [WAS-DOC api/rest.md]. El datastore usa el rol de solo lectura `sgspe_geoserver`.
 - **Publicación con `model/publish_layers.py`.** Es un script de Python con la biblioteca estándar, con el patrón de `apply.py`,
   y SGSPE no tiene un endpoint propio para esto:
   - recorre `model/layers.json` y, para cada capa que falte, llama a `POST /api/gis/layers/{object}/{geometry}` con un

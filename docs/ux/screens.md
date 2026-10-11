@@ -1590,7 +1590,8 @@ RisksDashboard
   proyecto (`400 PROJECT_REQUIRED`) y suma KPI-TER-01 con `locality` o `community`; las cifras de la ficha salen de
   `sgspe.dashboard`, no del mapa.
 - **Estados:** sin proyecto, la pantalla pide elegirlo y no consulta; sin lugar, los tiles de KPI-TER-02 a 04 sin ficha
-  (KPI-TER-01 sale `TERRITORY_REQUIRED`); la línea de posturas de la ficha dice "no disponible" a quien no lee `stance`.
+  (el tablero omite KPI-TER-01 sin lugar, y solo `GET …/indicators/KPI-TER-01` responde `TERRITORY_REQUIRED`); la línea
+  de posturas de la ficha dice "no disponible" a quien no lee `stance`.
 - **Permisos:** sin puntos de personas: los grupos de interés se agregan por lugar (RQ-GIS-015).
 - **Responsive:** mapa a pantalla completa con la ficha como hoja inferior.
 - **Relacionadas y navegación:** S13, S14, S12 (el mapa de `/territory`) y S63; las cifras abren listas filtradas por

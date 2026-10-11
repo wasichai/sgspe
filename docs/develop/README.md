@@ -84,8 +84,8 @@ docker compose exec postgis createdb -U sgspe sgspe_test   # una sola vez: la ba
 ### GeoServer
 
 Desde F6 el compose trae el servicio `geoserver` (`docker.osgeo.org/geoserver:3.0.1`, contenedor `sgspe-geoserver`,
-volumen `geoserver-data`, sin CORS): en el VPS escucha en `127.0.0.1:8095` (`SGSPE_GEOSERVER_PORT`, contenedor 8080) y se
-alcanza por el túnel `ssh -fN -L 8095:localhost:8095 "$SGSPE_VPS"`. Credenciales de desarrollo: `sgspe` /
+volumen `geoserver-data`, sin CORS): en el VPS escucha en `127.0.0.1:8095` (`SGSPE_GEOSERVER_PORT`, contenedor 8080) y
+se alcanza por el túnel `ssh -fN -L 8095:localhost:8095 "$SGSPE_VPS"`. Credenciales de desarrollo: `sgspe` /
 `sgspe-geoserver`. El workspace es `sgspe` y el datastore `sgspe-postgis` apunta a `postgis:5432/sgspe` con el rol de
 solo lectura `sgspe_geoserver`, que se crea una vez en la base de desarrollo (`security.md` §10.2, regla 6):
 
@@ -157,14 +157,14 @@ python3 apply.py                        # objetos, acciones, relaciones e índic
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
 python3 apply.py --workflows            # 17 workflows, 2 tipos de documento y 6 automatizaciones de F5
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
-python3 publish_layers.py               # desde F6: las capas públicas en GeoServer (omitible con --skip-layers en upgrade_tenants.py)
+python3 publish_layers.py               # desde F6: capas públicas en GeoServer (upgrade_tenants.py: --skip-layers)
 python3 -m unittest -v                  # las pruebas de los scripts, contra un core falso, y del modelo contra docs/
 ```
 
 - `roles.json` es la fuente de verdad: volver a correr `apply_roles.py` deshace lo editado a mano en `/admin`.
 - `SUPER_ADMIN` y `ORGANIZATION_ADMIN` no se declaran: son el `ADMIN` de wasichai (`mappedToAdmin`).
-- Un tenant nuevo se prepara con `POST /api/organizations` y después estos cuatro pasos, con el administrador del tenant.
-  Los cuatro son idempotentes: una subida de fase los repite. Desde el plan 4.4 lo hacen dos scripts (ASM-109):
+- Un tenant nuevo se prepara con `POST /api/organizations` y después estos cinco pasos, con el administrador del tenant.
+  Los cinco son idempotentes: una subida de fase los repite. Desde el plan 4.4 lo hacen dos scripts (ASM-109):
 
   ```bash
   # alta: como la persona del operador con MANAGE_TENANTS; las contraseñas, por variable o por consola

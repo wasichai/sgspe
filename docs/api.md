@@ -226,24 +226,24 @@ asignación vigente al proyecto), `409` `STATE_MISMATCH` (`field`: `state`; la v
 desconocido es `422` y una propiedad desconocida del cuerpo, `400`.
 `POST /api/sgspe/territory/imports` y su confirmación (§4.2) responden `400` `FILE_TOO_LARGE` (el archivo pasa de
 `sgspe.territory.import.max-bytes`) e `IMPORT_TIMEOUT` (la lectura y la validación pasan de `timeout`), los dos con `field`
-`file` y sin escribir nada; `400` `FORMAT_NOT_SUPPORTED` (`file`: un predio o una concesión desde una hoja), `400`
-`SHA256_MISMATCH` (`sha256`: el archivo no es el de la vista previa), `409` `IMPORT_CONFLICT` (`file`: lo registrado con
-un código del archivo cambió entre el análisis de la confirmación y su candado, por ejemplo otra confirmación del mismo
-archivo; no se escribe nada y se vuelve a previsualizar) y `503` `IMPORT_BUSY` (`file`: ya corren `max-concurrent`
-importaciones y no se liberó un lugar dentro del plazo). Los límites del multipart de Spring (§3.10) son `400` con `field`
-`multipart`, que designa la petición entera y no es el nombre de ninguna parte: `PART_TOO_LARGE` (un campo de texto pasa de
-1 MB o los encabezados de una parte pasan de 10 KB) e `INVALID_MULTIPART` (más partes que `max-parts` o un cuerpo que no se
-puede leer); solo el tope de disco de la parte de archivo es `FILE_TOO_LARGE`, sobre `file`. Las demás respuestas `400` (una parte que falta, se repite o no
-existe, un CRS fuera del catálogo, una decisión mal formada o sobre una fila que no es válida) son de validación, con
-texto libre, y un parámetro de consulta es `422`. Una fila que PostGIS no puede transformar ni validar no es un error de
-la petición: va a `invalid[]` con el motivo `geometría inválida: …` en español.
-Los tableros y sus indicadores (§4.11) responden `404` `DASHBOARD_NOT_FOUND` e `INDICATOR_NOT_FOUND`, `400`
-`INVALID_BREAKDOWN` y `400` `TOO_MANY_RECORDS`; el detalle está en §4.11.
-Las exportaciones (§4.13) responden `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`), `CHECKLIST_REQUIRED`
-(`checklistConfirmed`: EXTERNO sin la lista de verificación), `INVALID_FILTER` (`filters.<filtro>`) y `TOO_MANY_RECORDS`
-(`filters.project`, no `project` como los tableros); `403` `NOT_ASSIGNED` (`filters.project`: un solo proyecto sin asignación
-vigente), `404` `EXPORT_NOT_FOUND` (`kind`) y `409` `CATALOGUE_UNAVAILABLE` (el campo cuyo catálogo está vacío, en `PUBLICO`). El detalle
-está en §4.13.
+`file` y sin escribir nada; `400` `FORMAT_NOT_SUPPORTED` (`file`: un predio, una concesión, una comunidad o un rasgo
+ambiental desde una hoja), `400` `SHA256_MISMATCH` (`sha256`: el archivo no es el de la vista previa), `409`
+`IMPORT_CONFLICT` (`file`: lo registrado con un código del archivo cambió entre el análisis de la confirmación y su
+candado, por ejemplo otra confirmación del mismo archivo; no se escribe nada y se vuelve a previsualizar) y `503`
+`IMPORT_BUSY` (`file`: ya corren `max-concurrent` importaciones y no se liberó un lugar dentro del plazo). Los límites
+del multipart de Spring (§3.10) son `400` con `field` `multipart`, que designa la petición entera y no es el nombre de
+ninguna parte: `PART_TOO_LARGE` (un campo de texto pasa de 1 MB o los encabezados de una parte pasan de 10 KB) e
+`INVALID_MULTIPART` (más partes que `max-parts` o un cuerpo que no se puede leer); solo el tope de disco de la parte de
+archivo es `FILE_TOO_LARGE`, sobre `file`. Las demás respuestas `400` (una parte que falta, se repite o no existe, un
+CRS fuera del catálogo, una decisión mal formada o sobre una fila que no es válida) son de validación, con texto libre,
+y un parámetro de consulta es `422`. Una fila que PostGIS no puede transformar ni validar no es un error de la petición:
+va a `invalid[]` con el motivo `geometría inválida: …` en español. Los tableros y sus indicadores (§4.11) responden
+`404` `DASHBOARD_NOT_FOUND` e `INDICATOR_NOT_FOUND`, `400` `INVALID_BREAKDOWN` y `400` `TOO_MANY_RECORDS`; el detalle
+está en §4.11. Las exportaciones (§4.13) responden `400` `INVALID_DISCLOSURE_LEVEL` (`disclosureLevel`),
+`CHECKLIST_REQUIRED` (`checklistConfirmed`: EXTERNO sin la lista de verificación), `INVALID_FILTER` (`filters.<filtro>`)
+y `TOO_MANY_RECORDS` (`filters.project`, no `project` como los tableros); `403` `NOT_ASSIGNED` (`filters.project`: un
+solo proyecto sin asignación vigente), `404` `EXPORT_NOT_FOUND` (`kind`) y `409` `CATALOGUE_UNAVAILABLE` (el campo cuyo
+catálogo está vacío, en `PUBLICO`). El detalle está en §4.13.
 Los endpoints de F6 (§4.2 y §4.11) usan la misma forma. Las consultas espaciales responden `400` `OUT_OF_RANGE` (el
 parámetro: `bufferM`, `distanceKm`, `limit`, `periodStart`, `periodEnd`, `lon`, `lat`, `page` o `size`; ASM-126; en
 `data-quality`, un `page` o un `size` que no es un número también es `OUT_OF_RANGE`, no `INVALID_VALUE`),
@@ -1102,13 +1102,13 @@ sin error. La excepción es el tablero `territory` (F6), que exige `project`.
   `program` y `year` (`dashboards.md` §3.1; en otro tablero o indicador son `422`); un filtro desconocido es `422`. La
   cifra titular de KPI-INV-01 a 03 va en PEN (`dashboards.md` §3.3) y cada desglose lleva su moneda. KPI-INV-01
   informa por campaña el tope, la moneda, lo comprometido (`CampaignCommitted`), lo ejecutado
-  (`executed_social_amount`) y los conteos en otra moneda; KPI-INV-02, por programa, año y moneda, lo asignado y lo ejecutado
-  registrado; KPI-INV-03, por proyecto y moneda, lo ejecutado por fuente frente a presupuesto y topes; KPI-INV-04, tres
-  bloques que no se suman. Los programas cuentan en KPI-INV-02 a 04 solo desde «Planificado» de WF-G (`planned`,
-  `executing`, `monitoring`, `evaluation`, `suspended` y `closed`; decisión del usuario, 2026-10-11): sus presupuestos y
-  sus grupos de beneficiarios en `draft`, `pending_approval`, `cancelled` o cualquier otro estado no se leen, y un
-  `program` que apunta a uno de ellos da conjuntos vacíos, no un error. Cada fila de KPI-INV-02 lleva el `state` del
-  programa. Es interno y no aplica celdas pequeñas.
+(`executed_social_amount`) y los conteos en otra moneda; KPI-INV-02, por programa, año y moneda, lo asignado y lo
+ejecutado registrado; KPI-INV-03, por proyecto y moneda, lo ejecutado por fuente frente a presupuesto y topes;
+KPI-INV-04, tres bloques que no se suman. Los programas cuentan en KPI-INV-02 a 04 solo desde «Planificado» de WF-G
+(`planned`, `executing`, `monitoring`, `evaluation`, `suspended` y `closed`; decisión del usuario, 2026-10-11): sus
+presupuestos y sus grupos de beneficiarios en `draft`, `pending_approval`, `cancelled` o cualquier otro estado no se
+leen, y un `program` que apunta a uno de ellos da conjuntos vacíos, no un error. Cada fila de KPI-INV-02 lleva el
+  `state` del programa. Es interno y no aplica celdas pequeñas.
 - El tablero `territory` (F6, `dashboards.md` §4.8) exige `project`: sin él, `400 PROJECT_REQUIRED` (`project`). Trae
   KPI-TER-02 a KPI-TER-04 y, con `locality` o `community`, KPI-TER-01 primero. La dependencia va de `sgspe.dashboard` a
   `sgspe.territory` (KPI-TER-04), nunca al revés.

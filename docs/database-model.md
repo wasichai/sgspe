@@ -460,13 +460,14 @@ Aplican §4.1 del modelo de dominio:
 - Las acciones declaradas se declaran en `actions` del objeto y se conceden en `roles.json`. El catálogo definitivo es el de
   RQ-SEC-004: `APPROVE`, `VERIFY`, `ISSUE`, `EXPORT`, `GENERATE`, `CONFIRM_ALERT`, `APPROVE_OVER_CAP`, `DOWNLOAD_RESTRICTED`
   y `EDIT_ANY` [WAS-ADR-0042].
-- La fuente de qué objeto declara cuál es la tabla por objeto de `security.md` §5.3; §8.1.1 del modelo de dominio la replica
-  y cada ficha la copia en su línea "Acciones declaradas". Qué rol recibe cada acción está solo en `security.md`. En F6,
-  cada objeto con exportación GIS declara además `EXPORT` (RQ-GIS-018, ASM-124): `administrative_unit`, `locality`,
-  `road_access`, `community`, `community_sector`, `mining_concession`, `environmental_feature`, `project`,
-  `project_component`, `area_of_influence`, `land_parcel`, `school` y `health_facility`; `land_right` y `stakeholder` no.
-  Hasta que el plan 6.1 lo lleve a `model/model.json`, las fichas lo escriben en prosa («; desde F6, EXPORT.»), igual que
-  el único `code` y el índice `import_batch_id` de `community` y `environmental_feature`.
+- La fuente de qué objeto declara cuál es la tabla por objeto de `security.md` §5.3; §8.1.1 del modelo de dominio la
+  replica y cada ficha la copia en su línea "Acciones declaradas". Qué rol recibe cada acción está solo en
+  `security.md`. En F6, cada objeto con exportación GIS declara además `EXPORT` (RQ-GIS-018, ASM-124):
+  `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`, `mining_concession`,
+  `environmental_feature`, `project`, `project_component`, `area_of_influence`, `land_parcel`, `school` y
+  `health_facility`; `land_right` y `stakeholder` no. Desde F6 cada uno declara `EXPORT`; mientras el modelo aplicado
+  sea el de F5, la ficha lo dice en prosa, igual que el único `code` y el índice `import_batch_id` de `community` y
+  `environmental_feature`.
 - `EDIT_ANY` no concede una transición, que la dan los roles del workflow. `EditAnyGuard` rechaza a quien no la tiene sobre
   el objeto cambiar, transicionar, vincular o borrar registros ajenos, los que creó otra persona (`created_by`), y decide con
   el permiso, nunca con el nombre del rol (RQ-SEC-005, ASM-069; `security.md` §5.5).
