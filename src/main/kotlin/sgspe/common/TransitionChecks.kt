@@ -9,7 +9,6 @@ import wasichai.core.common.NotFoundException
 import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
-import wasichai.core.metadata.MetadataService
 import java.util.UUID
 
 // un hallazgo de la consulta en seco, con la forma que fija el portal (Fase 2.3): code, message y field, que es null si el
@@ -35,7 +34,7 @@ data class TransitionCheck(
 class TransitionChecksController(
     private val rules: List<WriteRule>,
     private val records: Records,
-    private val metadata: MetadataService,
+    private val definitions: ObjectDefinitions,
     private val catalog: ModelCatalog,
     private val callers: Callers
 ) {
@@ -58,7 +57,7 @@ class TransitionChecksController(
             RecordWrite(
                 organizationId = user.organizationId,
                 userId = user.userId,
-                objectId = metadata.loadDefinition(user.organizationId, objectName).obj.id,
+                objectId = definitions.current(user.organizationId, objectName).obj.id,
                 objectName = objectName,
                 recordId = UUID.fromString(record.id),
                 kind = RecordChangeKind.TRANSITIONED,

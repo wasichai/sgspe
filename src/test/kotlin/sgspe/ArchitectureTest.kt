@@ -172,6 +172,22 @@ class ArchitectureTest {
         assertFalse(flags(DERIVED_RESTORE_NEW, "// DerivedRestore(objeto, id) solo en el keeper"))
     }
 
+    // la caché del esquema (plan corto del 2026-10-11): las definiciones de objeto se cargan solo por ObjectDefinitions (memo
+    // por petición y caché reciente). Records conserva la suya en el camino de la plataforma: los trabajos de fondo corren
+    // fuera de una petición, donde el memo no aplica
+    @Test
+    fun `solo ObjectDefinitions carga definiciones de objeto`() {
+        val allowed = listOf("/sgspe/common/ObjectDefinitions.kt", "/sgspe/common/Records.kt")
+        val others = sources(main).filterNot { file -> allowed.any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, LOAD_DEFINITION))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(allowed.first()) })
+        assertTrue(flags(LOAD_DEFINITION, "metadata.loadDefinition(organizationId, name)"))
+        assertTrue(flags(LOAD_DEFINITION, "metadata.loadDefinitionById(organizationId, id)"))
+        assertTrue(flags(LOAD_DEFINITION, "val load = metadata::loadDefinition"))
+        assertFalse(flags(LOAD_DEFINITION, "definitions.current(organizationId, name)"))
+        assertFalse(flags(LOAD_DEFINITION, "// MetadataService.loadDefinition no tiene caché"))
+    }
+
     // el alcance de lectura por proyecto (ASM-106, ASM-114, security.md §9.7). regla 1: cada objeto de model.json está en un
     // solo grupo de ProjectScope y ProjectScope no nombra objetos ausentes; regla 2: los objetos con la relación `project`
     // son exactamente las raíces y project_assignment. así una fase nueva no agrega un objeto sin clasificarlo:
@@ -476,6 +492,7 @@ class ArchitectureTest {
         private val DERIVED_RESTORE_NEW = Regex("""\bDerivedRestore\s*\(""")
         private val READ_CONDITION = Regex("""\bProjectReadCondition\b""")
         private val READS_ALL = Regex("""\.\s*readsAll\s*\(""")
+        private val LOAD_DEFINITION = Regex("""\bloadDefinition(ById)?\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")

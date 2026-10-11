@@ -16,7 +16,10 @@ import kotlin.coroutines.CoroutineContext
 // - el de una petición de /api (`forRequest`, que abre RequestMemoFilter, y `rememberForRequest`): solo lo que ninguna
 //   petición cambia, los permisos de quien llama (ProjectReach.readsAll, ConfidentialAttentionScope), que wasichai pide en
 //   cada RecordReadScope, una vez por objeto y lectura (plan 4.4a, Tarea 17), y EvidenceFileReadPolicy, una vez por
-//   evidencia restringida de una lista (UPS-24). los permisos se cambian por /api/roles, que no
+//   evidencia restringida de una lista (UPS-24).
+//   también las definiciones de objeto (ObjectDefinitions.current) y lo que TenantModel responde: ninguna petición de SGSPE
+//   cambia el modelo, lo cambian las de /api/metadata de wasichai, que no pasan por SGSPE después.
+//   los permisos se cambian por /api/roles, que no
 //   lee registros después en la misma petición, y un permiso cambiado vale desde la petición siguiente. lo que una petición
 //   sí puede escribir (asignaciones, solicitantes) nunca va al memo de la petición: un comando que escribe varios registros
 //   sigue usando el suyo

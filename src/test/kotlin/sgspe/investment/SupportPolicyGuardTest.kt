@@ -12,6 +12,7 @@ import sgspe.common.Callers
 import sgspe.common.DerivedVersions
 import sgspe.common.ModelCatalog
 import sgspe.common.NotReadable
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.TenantModel
@@ -71,7 +72,7 @@ class SupportPolicyGuardTest {
         )
 
     // un tenant sin el modelo de F5: lo comprometido son solo los compromisos de `committed`
-    private val tenant = TenantModel(mock(MetadataService::class.java) { throw NotFoundException("sin el modelo de F5") })
+    private val tenant = TenantModel(mock(ObjectDefinitions::class.java) { throw NotFoundException("sin el modelo de F5") })
 
     private val guard =
         SupportPolicyGuard(

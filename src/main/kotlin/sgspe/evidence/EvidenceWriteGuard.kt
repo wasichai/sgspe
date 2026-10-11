@@ -10,6 +10,7 @@ import sgspe.common.Callers
 import sgspe.common.Finding
 import sgspe.common.GuardOrder
 import sgspe.common.NotReadable
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.RuleGuard
@@ -21,7 +22,6 @@ import sgspe.common.readAs
 import sgspe.common.readable
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
-import wasichai.core.metadata.MetadataService
 import wasichai.core.platform.SqlIdentifier
 import wasichai.core.platform.WasichaiSchemas
 import java.util.UUID
@@ -42,7 +42,7 @@ class EvidenceWriteGuard(
     private val callers: Callers,
     private val permissions: Permissions,
     private val transactions: Transactions,
-    private val metadata: MetadataService,
+    private val definitions: ObjectDefinitions,
     private val schemas: WasichaiSchemas,
     private val db: DatabaseClient,
     private val records: Records,
@@ -175,7 +175,7 @@ class EvidenceWriteGuard(
         change: RecordWrite,
         fileId: UUID
     ): Boolean {
-        val definition = metadata.loadDefinition(change.organizationId, EvidenceRules.EVIDENCE)
+        val definition = definitions.current(change.organizationId, EvidenceRules.EVIDENCE)
         val column = definition.fields.first { it.name == EvidenceRules.FILE }.columnName
         val table = schemas.dataTable(definition.obj.physicalTable)
         return db
