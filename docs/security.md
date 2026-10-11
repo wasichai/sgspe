@@ -688,6 +688,7 @@ Criterios con que se armó:
 
 - El `u` de `COMMUNITY_RELATIONS_OFFICER`, `STAKEHOLDER_MANAGER` y `FIELD_AGENT` sobre `topic` sirve para vincular temas
   a las interacciones (`engagement_topic`); el de `FIELD_AGENT` sobre `stakeholder`, para vincular grupos de interés.
+  El de `PROJECT_ADMIN` y `PROJECT_MANAGER`, desde F5, sirve para vincular los temas priorizados del proyecto (§7.7).
 - `FIELD_AGENT` captura interacciones y visitas, y agrega participantes, preguntas y observaciones a cualquier interacción
   o visita que puede leer; sin `EDIT_ANY`, `EditAnyGuard` limita a lo que creó sus cambios y sus bajas (ASM-069). Sus
   preguntas se registran con su respuesta en el lugar o la responde después otro rol del equipo.
