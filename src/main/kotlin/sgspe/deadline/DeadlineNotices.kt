@@ -68,7 +68,9 @@ object DeadlineNoticePlan {
             Attention.INQUIRY to (Attention.GRIEVANCE to "verify"),
             Attention.REQUEST to (Attention.GRIEVANCE to "verify"),
             Risks.SOCIAL_RISK to (Risks.SOCIAL_RISK to "decide_mitigation"),
-            "early_warning" to ("early_warning" to "confirm")
+            "early_warning" to ("early_warning" to "confirm"),
+            // F5: una tarea de un programa escala a quien lo cierra (workflows.md, «Plazos y escalamiento»)
+            "social_program" to ("social_program" to "close")
         )
 
     // si una tarea vencida avisa por la cadena de «tarea vencida» (task_overdue): todas menos la de revisión de un riesgo, que

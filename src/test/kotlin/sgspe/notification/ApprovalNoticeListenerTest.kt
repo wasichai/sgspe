@@ -126,4 +126,43 @@ class ApprovalNoticeListenerTest {
         assertEquals(listOf("approve", "approve_direct"), asked)
         assertEquals("APO-001 · DONACION", ApprovalNoticeListener.label("social_contribution", created.after!!))
     }
+
+    // especificación de F5 §3.8: el envío de un programa (submit de WF-G) avisa a los roles de approve, y el texto nombra el
+    // programa por su código y su nombre, nunca por su descripción
+    @Test
+    fun `enviar un programa avisa a los roles de approve y se nombra por codigo y nombre`() {
+        val asked = mutableListOf<String>()
+        val assignments =
+            mock(Assignments::class.java) { call: InvocationOnMock ->
+                if (call.method.name == "recipients") {
+                    asked += call.arguments[2] as String
+                    emptyList<Any>()
+                } else {
+                    null
+                }
+            }
+        val listener =
+            ApprovalNoticeListener(mock(Notices::class.java), assignments, catalog, mock(SeniorApprovalReader::class.java), mock(Records::class.java))
+        val change =
+            RecordChange(
+                organizationId = UUID.randomUUID(),
+                userId = UUID.randomUUID(),
+                objectId = UUID.randomUUID(),
+                objectName = "social_program",
+                recordId = UUID.randomUUID(),
+                kind = RecordChangeKind.TRANSITIONED,
+                after = mapOf("project" to UUID.randomUUID().toString(), "code" to "PRG-1", "name" to "Programa Ejemplo"),
+                transition = "submit"
+            )
+        runBlocking { listener.recordChanged(change) }
+        assertEquals(listOf("approve"), asked)
+        assertEquals(
+            "PRG-1 · Programa Ejemplo",
+            ApprovalNoticeListener.label("social_program", mapOf("code" to "PRG-1", "name" to "Programa Ejemplo", "description" to "no va"))
+        )
+        assertEquals(
+            "Programa por aprobar: PRG-1 · Programa Ejemplo" to "El programa social espera su aprobación.",
+            NoticeTexts.approvalPending("social_program", "PRG-1 · Programa Ejemplo")
+        )
+    }
 }
