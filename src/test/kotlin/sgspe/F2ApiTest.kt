@@ -247,14 +247,16 @@ abstract class F2ApiTest : SgspeApiTest() {
 
         // valores que la regla genérica no puede dar: un rol declarado (AssignmentRoleGuard, plan 2.2), un cargo sin persona,
         // que solo puede estar VACANTE o PREVISTO (StakeholderWriteGuard, RF-STK-002), un candidato a compromiso que
-        // registra una persona (RF-COM-010: la IA llega en F7) y el umbral de una regla de alerta, opcional en el modelo pero
-        // exigido en el alta (WarningWriteGuard, plan 4.2b: 400 OUT_OF_RANGE sin él)
+        // registra una persona (RF-COM-010: la IA llega en F7), el umbral de una regla de alerta, opcional en el modelo pero
+        // exigido en el alta (WarningWriteGuard, plan 4.2b: 400 OUT_OF_RANGE sin él) y el año de un presupuesto de programa,
+        // que el plan 5.2b acota de 2000 a 2100 (cada presupuesto mínimo cuelga de su propio programa: no repite el único)
         val FIXED =
             mapOf(
                 "project_assignment" to mapOf("role_name" to "READ_ONLY", "active" to true),
                 "position" to mapOf("position_status" to "VACANTE"),
                 "commitment_candidate" to mapOf("ai_generated" to false),
-                "early_warning_rule" to mapOf("threshold" to 3)
+                "early_warning_rule" to mapOf("threshold" to 3),
+                "program_budget" to mapOf("budget_year" to 2026)
             )
     }
 }
