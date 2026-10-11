@@ -355,6 +355,42 @@ class F5CardsTests(unittest.TestCase):
         self.assertEqual(matrix["social_contribution"]["SOCIAL_MANAGER"][-1], "APPROVE_OVER_CAP")
 
 
+# el plan 6.0 suma a los documentos lo que el plan 6.1 lleva al modelo; hasta entonces, lo que el modelo de F5 compara
+# va en prosa con su fase (plan 6.0, decisión 1)
+F6_EXPORTABLE = ("administrative_unit", "locality", "road_access", "community", "community_sector", "mining_concession",
+                 "environmental_feature", "project", "project_component", "area_of_influence", "land_parcel", "school",
+                 "health_facility")
+F6_FIELDS = (("code", "TEXT", True), ("source_crs", "ENUM", False), ("source_reference", "TEXT", False),
+             ("import_batch_id", "UUID", False))
+
+
+class F6PlanZeroTests(unittest.TestCase):
+    def test_las_fichas_de_f6_traen_lo_que_suma_el_plan_6_0(self):
+        cards = design_docs.cards()
+        for name in ("community", "environmental_feature"):
+            card = cards[name]
+            fields = {field["name"]: field for field in card.fields}
+            for field, ftype, unique in F6_FIELDS:
+                self.assertIn(field, fields, f"{name}.{field}")
+                self.assertEqual(fields[field]["type"], ftype, f"{name}.{field}")
+                self.assertEqual(design_docs.field_phase(card, fields[field]), "F6", f"{name}.{field}")
+                self.assertEqual(fields[field]["unique"], unique, f"{name}.{field}")
+            self.assertEqual(fields["source_crs"]["enum"], "source_crs")
+            # en prosa hasta el plan 6.1: el modelo de F5 no tiene code ni import_batch_id
+            self.assertEqual((card.unique, card.indexed), ([], []), name)
+        text = design_docs.read("database-model.md")
+        for name in F6_EXPORTABLE:
+            self.assertNotIn("EXPORT", cards[name].actions, name)
+            block = text.split(f"### `{name}`\n", 1)[1].split("\n### ", 1)[0]
+            line = next(l for l in block.splitlines() if l.startswith("- **Acciones declaradas:** "))
+            self.assertTrue(line.endswith("; desde F6, EXPORT."), line)
+        for name in ("community", "environmental_feature"):
+            block = text.split(f"### `{name}`\n", 1)[1].split("\n### ", 1)[0]
+            self.assertIn("- **Únicos:** ninguno hasta F5; desde F6, `code`.", block)
+            self.assertIn("- **Índices declarados:** ninguno hasta F5; desde F6, `import_batch_id`.", block)
+        self.assertNotIn("EXPORT", cards["land_right"].actions)
+
+
 class BrokenDocsTests(unittest.TestCase):
     """El lector falla, no devuelve de menos, cuando una tabla de un documento cambia de forma."""
 

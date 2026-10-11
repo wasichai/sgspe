@@ -3,6 +3,24 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-11 — Plan 6.0: los documentos de F6
+
+Los documentos de diseño quedan al día con la especificación de F6
+(`docs/superpowers/specs/2026-10-11-fase-6-design.md`) antes de tocar el modelo y el código. Las decisiones están en
+[Requisitos](requirements-analysis.md) (ASM-120 a ASM-127; 548 IDs).
+
+- **Consultas.** `SpatialGate` es la única puerta de SQL propio y aplica el alcance de lectura; la zona viaja como
+  parámetro (`ZoneCriterion`) y las consultas tienen límites propios de tamaño y de tiempo.
+- **GeoServer.** Capas públicas de alcance `TENANT`, un proxy WMS de solo imágenes con lista blanca de peticiones, el
+  puerto 8095 en loopback con rol de solo lectura y WFS pospuesto.
+- **Mapa base.** Se fija por organización; UPS-13 queda resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0.
+- **Importación y exportación.** GDAL lee Shapefile, KML, KMZ, GeoPackage, FileGDB y GPX; la importación suma los
+  destinos `community` y `environmental_feature`, y la exportación aplica la divulgación por capa.
+- **Calidad y pantallas.** La pantalla de calidad de datos (S63) y el tablero territorial con KPI-TER.
+- **Huecos cerrados.** C1 a C9 de la especificación.
+- **Lo que espera al modelo de F6.** Las acciones, los únicos, los índices y las celdas de `EXPORT` quedan como prosa
+  hasta que el plan 6.1 los lleve a `model.json` y `roles.json`.
+
 ## 2026-10-11 — wasichai 1.1.0: UPS-29 resuelta y sin caché propia de definiciones
 
 El backend pasa a wasichai 1.1.0 (wasichai/wasichai#106, WAS-ADR-066), que guarda las definiciones de objeto por nodo y

@@ -43,7 +43,7 @@ set -a; source develop/.env; set +a
 | `SGSPE_PG_PORT` | `5435` | puerto que publica `compose.yml` en `127.0.0.1` |
 | `WASICHAI_JWT_SECRET` | valor de desarrollo | firma de los tokens; 32 bytes o más; en producción, obligatorio y sin valor por defecto |
 | `WASICHAI_SEED_DEV` | `true` | crea `admin@wasichai.local` / `admin`; producción lo apaga, y con el perfil `prod` `true` impide el arranque (`ProdGuard`) |
-| `WASICHAI_GIS_GEOSERVER_ENABLED` | `false` | integración con GeoServer (F6, ADR-0015); apagada, `/api/gis/layers` lista las capas con `published=false`; encenderla exige un GeoServer en `localhost:8081` |
+| `WASICHAI_GIS_GEOSERVER_ENABLED` | `false` | integración con GeoServer (F6, ADR-0015); apagada, `/api/gis/layers` lista las capas con `published=false`; encenderla exige el GeoServer del compose, en `localhost:8095` (sección «GeoServer») |
 | `WASICHAI_CORE` | `http://localhost:8094` | URL de los scripts de `model/` |
 | `WASICHAI_EMAIL` / `WASICHAI_PASSWORD` | el administrador de desarrollo | login de esos scripts |
 | `WASICHAI_TEST_DB_*` | comentadas | pruebas de integración contra la base externa (sección 6) |
@@ -81,6 +81,47 @@ docker compose exec postgis createdb -U sgspe sgspe_test   # una sola vez: la ba
   entregarlos. GeoServer llega en F6 y Gotenberg en F8.
 - Empezar de cero: `docker compose down -v` borra el volumen y todos los datos.
 
+### GeoServer
+
+Desde F6 el compose trae el servicio `geoserver` (`docker.osgeo.org/geoserver:3.0.1`, contenedor `sgspe-geoserver`,
+volumen `geoserver-data`, sin CORS): en el VPS escucha en `127.0.0.1:8095` (`SGSPE_GEOSERVER_PORT`, contenedor 8080) y
+se alcanza por el túnel `ssh -fN -L 8095:localhost:8095 "$SGSPE_VPS"`. Credenciales de desarrollo: `sgspe` /
+`sgspe-geoserver`. El workspace es `sgspe` y el datastore `sgspe-postgis` apunta a `postgis:5432/sgspe` con el rol de
+solo lectura `sgspe_geoserver`, que se crea una vez en la base de desarrollo (`security.md` §10.2, regla 6):
+
+```bash
+docker exec -i sgspe-postgis psql -U sgspe -d sgspe -v ON_ERROR_STOP=1 <<'SQL'
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sgspe_geoserver') THEN
+    CREATE ROLE sgspe_geoserver LOGIN PASSWORD 'sgspe-geoserver-lectura';
+  END IF;
+END $$;
+GRANT CONNECT ON DATABASE sgspe TO sgspe_geoserver;
+GRANT USAGE ON SCHEMA app_data, public TO sgspe_geoserver;
+GRANT SELECT ON ALL TABLES IN SCHEMA app_data TO sgspe_geoserver;
+ALTER DEFAULT PRIVILEGES FOR ROLE sgspe IN SCHEMA app_data GRANT SELECT ON TABLES TO sgspe_geoserver;
+SQL
+```
+
+| Variable | Ejemplo | Uso |
+|---|---|---|
+| `WASICHAI_GIS_GEOSERVER_ENABLED` | `false` | enciende la integración; con ella, las capas públicas se publican y el proxy WMS responde |
+| `WASICHAI_GIS_GEOSERVER_URL` | `http://localhost:8095/geoserver` | la URL de GeoServer, por el túnel |
+| `WASICHAI_GIS_GEOSERVER_USERNAME` / `_PASSWORD` | `sgspe` / `sgspe-geoserver` | credenciales de la REST de GeoServer |
+| `WASICHAI_GIS_GEOSERVER_DATASTORE_HOST` / `_PORT` / `_DATABASE` | `postgis` / `5432` / `sgspe` | la base que lee el datastore, vista desde el contenedor |
+| `WASICHAI_GIS_GEOSERVER_DATASTORE_USERNAME` / `_PASSWORD` | `sgspe_geoserver` / `sgspe-geoserver-lectura` | el rol de solo lectura |
+
+Las capas públicas se publican con `publish_layers.py`, después de `load_ubigeo.py` (sección 5).
+
+### GDAL
+
+La importación y la exportación de Shapefile, KML, KMZ, GeoPackage, FileGDB y GPX usan `ogrinfo` y `ogr2ogr` 3.8 o
+superior (3.13.3 en la máquina de desarrollo, en `/opt/homebrew/bin`). `SGSPE_GDAL_PATH` fija la carpeta de los
+ejecutables cuando no están en el `PATH`. Sin GDAL, o sin el driver del formato, esos formatos responden
+`422 FORMAT_UNAVAILABLE`; XLSX, CSV y GeoJSON siguen funcionando.
+
+El mapa base de desarrollo sale de `SGSPE_MAP_BASE_STYLE_URL` (por defecto `https://demotiles.maplibre.org/style.json`).
+
 ## 4. Iniciar el backend
 
 ```bash
@@ -116,13 +157,14 @@ python3 apply.py                        # objetos, acciones, relaciones e índic
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
 python3 apply.py --workflows            # 17 workflows, 2 tipos de documento y 6 automatizaciones de F5
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
+python3 publish_layers.py               # desde F6: capas públicas en GeoServer (upgrade_tenants.py: --skip-layers)
 python3 -m unittest -v                  # las pruebas de los scripts, contra un core falso, y del modelo contra docs/
 ```
 
 - `roles.json` es la fuente de verdad: volver a correr `apply_roles.py` deshace lo editado a mano en `/admin`.
 - `SUPER_ADMIN` y `ORGANIZATION_ADMIN` no se declaran: son el `ADMIN` de wasichai (`mappedToAdmin`).
-- Un tenant nuevo se prepara con `POST /api/organizations` y después estos cuatro pasos, con el administrador del tenant.
-  Los cuatro son idempotentes: una subida de fase los repite. Desde el plan 4.4 lo hacen dos scripts (ASM-109):
+- Un tenant nuevo se prepara con `POST /api/organizations` y después estos cinco pasos, con el administrador del tenant.
+  Los cinco son idempotentes: una subida de fase los repite. Desde el plan 4.4 lo hacen dos scripts (ASM-109):
 
   ```bash
   # alta: como la persona del operador con MANAGE_TENANTS; las contraseñas, por variable o por consola

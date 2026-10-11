@@ -6,7 +6,7 @@
 > que falla, los cambios, la comprobación y las pruebas del modelo en verde, commit.
 
 **Goal:** Dejar `docs/` al día con la especificación de F6 antes de tocar el modelo y el código: los IDs nuevos (ASM-120
-a ASM-127) con los totales de §20.1 (547) y UPS-13 resuelta; las contradicciones C1 a C9 cerradas en cada documento; el
+a ASM-127) con los totales de §20.1 (548) y UPS-13 resuelta; las contradicciones C1 a C9 cerradas en cada documento; el
 contrato completo de los endpoints de F6 tal como lo fijaron los planes 6.2a y 6.2b; GeoServer, el proxy WMS, el mapa base,
 GDAL, las exportaciones y la calidad descritos en `gis.md`, `security.md`, `architecture.md` y los ADR; las pantallas S09,
 S10, S12 a S15, S63 y el tablero territorial; y el roadmap, la trazabilidad, la historia, `docs/develop/README.md` y
@@ -36,7 +36,7 @@ con el portal»; plan 6.3 «Ajustes tras el plan 6.0» y sus decisiones 7 a 21.
   la especificación y los planes de F6 integrados (PR sgspe#41). Las tareas paralelas (grupo 1 de «Orden y paralelismo»)
   trabajan cada una en su worktree desde la rama ya con la Tarea 1, y se integran con `git merge --no-ff`.
 - **El diseño manda.** `docs/` es la fuente de verdad y `docs/requirements-analysis.md` el único lugar donde se definen
-  IDs: ASM-120 a ASM-127 los define la Tarea 1 y las demás solo los citan. Ningún GAP, CON ni UPS nuevo (UPS-30 queda
+  IDs: ASM-120 a ASM-127 los define la Tarea 1 y las demás solo los citan. Ningún GAP, CON ni UPS nuevo (UPS-31 queda
   libre).
 - **El modelo de F5 sigue en verde.** `test_model.py` (con `PHASE = "F5"`) compara las fichas, los únicos, los índices y
   las acciones con `model/model.json`, y `test_apply_roles.py` compara cada celda de la matriz con `model/roles.json`. Las
@@ -74,7 +74,7 @@ con el portal»; plan 6.3 «Ajustes tras el plan 6.0» y sus decisiones 7 a 21.
    `ux/screens.md` deben dar las mismas raíces, campos y códigos que «Interfaces con el portal» de 6.2a y 6.2b, porque
    6.2a, 6.2b, 6.2c y 6.3 copian de documentos distintos. Prueba: la comprobación cruzada de códigos y raíces del Paso 1
    de la Tarea 9.
-3. **IDs y totales.** §20.1 suma 547 (ASM 127), cada ASM nuevo se define una vez y lo cita al menos otro documento, y
+3. **IDs y totales.** §20.1 suma 548 (ASM 127), cada ASM nuevo se define una vez y lo cita al menos otro documento, y
    UPS-13 dice «Resuelta» en todas partes (análisis, `gis.md`, `platform-fit.md`, `roadmap.md`, `security.md`,
    trazabilidad). Pruebas: la comprobación de la Tarea 1 y el conteo del Paso 1 de la Tarea 9.
 4. **El WFS pospuesto en todas partes.** Ningún documento vigente promete `GET /api/sgspe/territory/wfs` en F6: `api.md`,
@@ -159,7 +159,7 @@ Lo que este plan deja para los siguientes (todos parten de `main` con 6.0 integr
 
 **Interfaces:**
 - Consume: la especificación §6 (tabla de IDs) y las decisiones 4 y 10 de este plan.
-- Produce: ASM-120 a ASM-127, que citan las Tareas 2 a 8; UPS-13 resuelta; §20.1 con 547.
+- Produce: ASM-120 a ASM-127, que citan las Tareas 2 a 8; UPS-13 resuelta; §20.1 con 548.
 
 - [ ] **Paso 1: La comprobación falla**
 
@@ -174,8 +174,8 @@ for n in range(120, 128):
 if not re.search(r'^\| `ASM` \| 127 \|$', text, re.M):
     bad.append('§20.1: ASM no es 127')
 total = re.search(r'^\| Total \| (\d+) \|$', text, re.M)
-if not total or total.group(1) != '547':
-    bad.append(f'§20.1: el total no es 547 ({total and total.group(1)})')
+if not total or total.group(1) != '548':
+    bad.append(f'§20.1: el total no es 548 ({total and total.group(1)})')
 ups13 = next((l for l in text.splitlines() if l.startswith('| UPS-13 |')), '')
 if 'Resuelta' not in ups13 or 'wasichai-ui#38' not in ups13:
     bad.append('UPS-13 no está resuelta con wasichai-ui#38')
@@ -223,7 +223,7 @@ Afecta a», una línea cada una):
 - **RQ-GIS-003** y **P-03**: los destinos `community.territory` y `environmental_feature.boundary` desde F6 (ASM-123).
 - **§10, catálogo «CRS de origen»**: la columna de objetos suma `community` y `environmental_feature` (desde F6); los
   valores no cambian (`EPSG 32717 · … · EPSG 4326`).
-- **§20.1**: `ASM` de 119 a 127 y el total de 539 a 547. Si §20.4 (u otra sección) repite los totales por familia,
+- **§20.1**: `ASM` de 119 a 127 y el total de 540 a 548. Si §20.4 (u otra sección) repite los totales por familia,
   actualizarla igual.
 
 - [ ] **Paso 4: Verificar y commit**
@@ -236,7 +236,7 @@ git commit -F - <<'MSG'
 docs: IDs de la fase 6 (ASM-120 a ASM-127) y UPS-13 resuelta
 
 WFS pospuesto, capas publicadas, compuerta espacial, destinos de importación nuevos, exportaciones por
-capa, mapa base por organización, límites de las consultas y GDAL; §20.1 pasa a 547 IDs.
+capa, mapa base por organización, límites de las consultas y GDAL; §20.1 pasa a 548 IDs.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM
@@ -1027,7 +1027,7 @@ máquina de desarrollo, en `/opt/homebrew/bin`), `SGSPE_GDAL_PATH`, y que sin GD
 
 En `docs/HISTORY.md`, antes de `## 2026-10-11 — Plan 5.0: los documentos de F5`, una entrada
 `## 2026-10-11 — Plan 6.0: los documentos de F6` con el estilo de la del plan 5.0: un párrafo (los documentos quedan al
-día con `docs/superpowers/specs/2026-10-11-fase-6-design.md`; ASM-120 a ASM-127; 547 IDs) y viñetas: **Consultas**
+día con `docs/superpowers/specs/2026-10-11-fase-6-design.md`; ASM-120 a ASM-127; 548 IDs) y viñetas: **Consultas**
 (`SpatialGate`, zona como parámetro, límites), **GeoServer** (capas públicas TENANT, proxy de solo imágenes, 8095, WFS
 pospuesto), **Mapa base** (por organización, UPS-13 resuelta), **Importación y exportación** (GDAL, destinos nuevos,
 divulgación por capa), **Calidad y pantallas** (S63, tablero territorial), **Huecos cerrados** (C1 a C9), **Lo que
@@ -1121,7 +1121,7 @@ cd ~/IdeaProjects/sgspe && git push -u origin docs/fase-6-0-documentos
 gh pr create --base main --title "docs: fase 6, plan 6.0: documentos de F6" --body-file - <<'MSG'
 ## Qué trae
 
-- ASM-120 a ASM-127; §20.1 suma 547 IDs; UPS-13 resuelta con wasichai-ui#38. Ninguna brecha nueva.
+- ASM-120 a ASM-127; §20.1 suma 548 IDs; UPS-13 resuelta con wasichai-ui#38. Ninguna brecha nueva.
 - Consultas espaciales con `SpatialGate` y los 13 endpoints con su contrato (`available`, `missingFields`,
   `truncated`), KPI-TER y el tablero `territory`, que exige proyecto.
 - GeoServer en loopback (8095) con capas públicas TENANT, estilos y paleta, y un proxy WMS de solo imágenes; el WFS,
@@ -1163,7 +1163,7 @@ MSG
 
 | Punto de §6 | Dónde |
 |---|---|
-| ASM-120 a ASM-127; UPS-13 resuelta; §20.1 (547) | Tarea 1 |
+| ASM-120 a ASM-127; UPS-13 resuelta; §20.1 (548) | Tarea 1 |
 | C1 · WFS en F6: `roadmap.md`, `api.md`, `gis.md` §4.6 y §10, RQ-GIS-018 | Tareas 7, 4, 5 y 1 (y `security.md` §10.2, Tarea 3) |
 | C2 · Importación con CRS a MULTIPOLYGON: `domain-model.md`, `database-model.md`, `gis.md` §4.1 | Tareas 2 y 5 |
 | C3 · Ficha contextual: `dashboards.md` §4.8, `TERRITORY_REQUIRED`, `ignoredFilters` | Tarea 6 |

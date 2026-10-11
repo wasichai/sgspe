@@ -2,7 +2,15 @@
 
 ## Estado
 
-Propuesto · 2026-10-07 · se acepta al iniciar F2
+Aceptado · 2026-10-07 · en uso desde F2
+
+### Nota de F6 (2026-10-11)
+
+- La decisión no cambia: F6 la extiende sin tocar la reconciliación. Suma dos destinos con CRS de origen,
+  `community.territory` y `environmental_feature.boundary`, que se reconcilian por `code` como `mining_concession`
+  (ASM-123).
+- Suma también los formatos de GDAL (Shapefile, KML, KMZ, GeoPackage, FileGDB y GPX), con un lector acotado y un CRS
+  detectado que es solo una propuesta que la persona confirma (ASM-127).
 
 ## Contexto
 

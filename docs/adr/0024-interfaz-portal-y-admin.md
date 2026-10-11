@@ -88,7 +88,8 @@ Aceptado · 2026-10-07
 
 ### Seguimiento
 
-- Abiertos: UPS-06, UPS-08, UPS-13 (mapa base en `MapView`), GAP-030, ASM-020.
+- Abiertos: UPS-06, UPS-08, GAP-030, ASM-020. UPS-13 (mapa base en `MapView`) está resuelta con wasichai-ui#38 y la
+  adopta ASM-125.
 - Aceptado desde F1; cada fase agrega sus pantallas.
 - Riesgo abierto: el fallback de SPA y la CSP del proxy de producción dependen de GAP-022 (ADR-0026).
 - Pruebas ([architecture.md §13](../architecture.md)): Vitest, Testing Library y `mockFetch` para componentes, navegación por
@@ -98,7 +99,7 @@ Aceptado · 2026-10-07
 ## Referencias
 
 - Requisitos: RF-IAM-001, RF-IAM-002, RNF-USA-001, RNF-I18N-001, RNF-MNT-001, RNF-MNT-005, RNF-TST-001, RQ-AUD-002; CON-051;
-  UPS-06, UPS-08, UPS-13; GAP-022, GAP-030; ASM-020, ASM-066.
+  UPS-06, UPS-08, UPS-13 (resuelta); GAP-022, GAP-030; ASM-020, ASM-066, ASM-125.
 - Documentos: [architecture.md §4, §9, §11 y §13](../architecture.md), [platform-fit.md §2.11 y §6](../platform-fit.md),
   [security.md §3.1 y §4.1](../security.md).
 - ADR de SGSPE: ADR-0007, ADR-0008, ADR-0009, ADR-0010, ADR-0016, ADR-0020, ADR-0026.

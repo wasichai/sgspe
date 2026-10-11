@@ -159,7 +159,7 @@ flowchart TB
 | Proxy inverso | Servidor HTTP del entorno | TLS, CSP, límite de tasa en `/api/auth/login` y `/api/auth/token`, archivos estáticos con fallback de SPA (incluido `/admin/*`) y reenvío de `/api/**` y `/actuator/health/**` | F1 | RQ-SEC-001, RQ-SEC-015, ASM-049 |
 | App SGSPE | Kotlin 2.4.20, JDK 25, Spring Boot 4.1.1 WebFlux, wasichai 1.1.0 | API genérica de wasichai, API propia `/api/sgspe/**`, guardas, listeners y trabajos programados; un solo `app.jar` | F1 | RNF-MNT-001, RNF-INT-004 |
 | PostgreSQL con PostGIS | PostgreSQL 18, PostGIS 3.6 (`postgis/postgis:18-3.6`) | Esquema de metadata `wasichai`, esquema de datos `app_data` (una tabla por objeto y organización) y esquema `sgspe` de tablas fijas | F1 | [WAS-ADR-0002] [WAS-ADR-0004] CON-052 |
-| GeoServer | GeoServer, red interna | Capas de referencia no sensibles por WMS (vía el proxy autenticado de `sgspe.territory`) y mapas de informe por GetMap | F6, F8 | RQ-SEC-011, RQ-REP-030, ASM-038 [WAS-ADR-0006] |
+| GeoServer | `docker.osgeo.org/geoserver:3.0.1`, red interna (en desarrollo, solo en el loopback, puerto 8095) | Capas de referencia no sensibles por WMS (vía el proxy autenticado de `sgspe.territory`) y mapas de informe por GetMap | F6, F8 | RQ-SEC-011, RQ-REP-030, ASM-038 [WAS-ADR-0006] |
 | Gotenberg | `gotenberg/gotenberg:8-libreoffice` | Convierte a PDF el DOCX que arma el trabajador de generación, que es el único que lo llama: con marca de agua en los borradores y en PDF/A-2b en las versiones candidatas que se emiten. En INTERNO se entregan el DOCX y el PDF; en EXTERNO y PUBLICO el DOCX es solo un paso intermedio y se entrega solo el PDF | F8 | ASM-014, RQ-REP-001 |
 | Almacenamiento de objetos | Compatible con S3 (MinIO solo en desarrollo), el `FileStore` de wasichai-files | Los archivos de las evidencias (campo `FILE`, ADR-0014); desde F8, los entregables. En F2 las cargas de importación usan una carpeta temporal | F3 | ASM-013, ASM-060, RF-DOC-001, RQ-SEC-020, GAP-022 [WAS-ADR-0061] |
 | Servidor SMTP | Configurable; servidor de prueba en desarrollo | Correos del canal `email` de wasichai-notifications | F3 | RF-NTF-001, GAP-021 |
@@ -206,8 +206,8 @@ metadata no alcanza para lo que contiene; ninguno es un controlador por objeto (
 | `sgspe.deadline` | `DeadlineJob`: situaciones derivadas de plazo y vigencia (revisión de riesgos en F4), tareas de escalamiento; la fuente de avisos de plazo `DeadlineNotices`; `DeadlineStatusListener` (la situación al reprogramar) | BC-13 | F3–F4 |
 | `sgspe.notification` | Destinatarios por asignación, con el filtro de las QCS confidenciales (ASM-102), y textos de los avisos sobre wasichai-notifications; `ApprovalNoticeListener`; desde F4, `RiskNoticeListener` y `WarningNoticeListener` | BC-14 | F3–F4 |
 | `sgspe.evidence` | Alta, cambio y vínculos de evidencias sobre el campo `FILE` de wasichai-files; la descarga con `DOWNLOAD_RESTRICTED` por las dos rutas; `EvidenceWriteGuard` | BC-12 | F3 |
-| `sgspe.territory` | Importación con CRS y reconciliación, área en hectáreas, consultas espaciales con compuerta de permisos, sugerencias de miembros, la parte territorial de la ficha (geometría, relaciones y filtros espaciales), proxies WMS y WFS, `TerritoryWriteGuard`, `AreaListener` | BC-02 | F2 (análisis en F6) |
-| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); conteos con `RecordService`; cierre de periodo | BC-15 | F2–F8 |
+| `sgspe.territory` | Importación con CRS y reconciliación, área en hectáreas, `TerritoryWriteGuard`, `AreaListener`; desde F6, `SpatialGate` (la única vía de SQL de lectura que cruza tablas del tenant, ASM-122), `ZoneCriterion` y las consultas espaciales, sugerencias de miembros, la parte territorial de la ficha (geometría, relaciones y filtros espaciales), `WmsProxy` (el proxy WMS de GeoServer, ASM-121), `MapSettings` (mapa base por organización, ASM-125), `GdalReader` y `GdalWriter` (formatos de ASM-127), `TerritoryExports` (ASM-124), `GeometryChecks` y `DataQuality`; el WFS se pospone (ASM-120) | BC-02 | F2 (análisis en F6) |
+| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); desde F6, `TerritoryKpis` (KPI-TER-01 a KPI-TER-04 y el tablero `territory`, sobre `SpatialGate`); conteos con `RecordService`; cierre de periodo | BC-15 | F2–F8 |
 | `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación, emisión, `DeliverableWriteGuard`, paso de retención de borradores de JOB-08 | BC-15 | F8 |
 | `sgspe.ai` | Agentes Embabel, seudonimización, registro de `ai_interaction`, creación de `ai_suggestion` y `commitment_candidate`, aceptación, indexación documental (JOB-07) y RAG sobre `knowledge_chunk`; el asistente de wasichai-agent se llama en proceso y un filtro cierra `/api/agent/ask` por HTTP (`ai-architecture.md`) | BC-18 | F7 |
 | `sgspe.privacy` | Niveles de divulgación como transformación del modelo, enmascaramiento, menciones de personas como referencias, exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 |
@@ -269,6 +269,10 @@ flowchart BT
   asignaciones de `sgspe.scope`, y `sgspe.deadline` publica con `sgspe.notification`. `sgspe.commitment` no depende de
   ninguno de los tres. `ArchitectureTest` clasifica cada paquete como de dominio o no y vigila que `sgspe.scope` y
   `sgspe.privacy` solo dependan de `sgspe.common`.
+- Desde F6, `sgspe.dashboard` (`TerritoryKpis`) depende de `sgspe.territory`, nunca al revés. En `sgspe.territory` solo
+  `SpatialGate` y los escritores que ya existen (`TerritoryImports`, `Areas`, `ProjectComponents` y `GeoSql`) usan
+  `DatabaseClient`; `ArchitectureTest` lo vigila, y así ninguna consulta que cruza tablas se salta el alcance
+  (ASM-122).
 - Las reglas que miran otro contexto (por ejemplo, el tope de apoyo de `sgspe.investment` al aprobar un compromiso) viven
   como guardas del paquete dueño de la regla; wasichai las reúne todas, así que el paquete que escribe no las importa
   [WAS-ADR-0040].
@@ -651,7 +655,7 @@ flowchart LR
 | Revocación, límite de intentos y contraseñas | `wasichai.security.jwt.revocation`, `wasichai.security.login.*` y `wasichai.security.password.*` encendidos; valores en [Seguridad §3.2](security.md#32-endurecimiento-de-sgspe) | RQ-SEC-015 (UPS-09) [WAS-ADR-0059] |
 | Cabeceras de reenvío | `server.forward-headers-strategy: framework`. **Condición obligatoria del despliegue:** el proxy inverso sobrescribe, nunca agrega, `X-Forwarded-For` y `X-Forwarded-Proto` con lo que él mismo ve; si los reenvía tal como llegan, un cliente falsifica su dirección y evade el límite de intentos de login, que cuenta por `remoteAddress`. El servicio de aplicación no debe ser alcanzable sin pasar por el proxy | ADR-0026, RQ-SEC-015 |
 | Logs | JSON estructurado (ECS), sin datos personales | RNF-OBS-001, RQ-SEC-010 |
-| GeoServer | `wasichai.gis.geoserver.*` hacia el servicio interno; su datastore apunta a la base vista desde su red | [WAS-DOC modules/gis.md] |
+| GeoServer | `wasichai.gis.geoserver.*` hacia el servicio interno; su datastore usa el usuario de solo lectura `sgspe_geoserver` sobre la base vista desde su red, nunca el de la aplicación; no es público | [WAS-DOC modules/gis.md] |
 | IA | Desactivada por defecto; se activa por organización | RQ-AI-009, ASM-015 |
 | Feriados | `sgspe.calendar.holidays` con la lista de feriados nacionales de cada año, que operación agrega cuando se publica la oficial en El Peruano (desde F4, 2026 y 2027; `develop/README.md` §4 dice cómo). Un año sin lista cuenta de lunes a viernes y se advierte en el log, también al arrancar si falta el año en curso; una fecha que no es de su año o repetida impide arrancar | RNF-I18N-002, ASM-096 |
 
@@ -673,6 +677,13 @@ flowchart LR
 - Las credenciales de GitHub Packages para descargar wasichai van en variables de entorno, nunca en archivos del
   repositorio; los paquetes Maven son públicos y los npm son internos, así que la CI de `sgspe-ui` necesita un token de
   lectura de paquetes.
+- Desde F6, el `compose.yml` suma GeoServer solo en el loopback del VPS, en el puerto 8095 (`SGSPE_GEOSERVER_PORT`; el
+  contenedor escucha en 8080), con un datastore que usa `sgspe_geoserver`; nunca se publica. `gdal-bin` 3.8 o superior
+  (`ogrinfo` y `ogr2ogr`) debe estar en los trabajos de integración de la CI y en el equipo de desarrollo (ASM-127).
+  Un backend de F6 sin GeoServer funciona y el proxy WMS responde `503`; sin GDAL, la importación de esos formatos
+  responde `422 FORMAT_UNAVAILABLE`.
+- Orden de despliegue de F6: modelo y roles (`apply.py` → `apply_roles.py` → `apply.py --workflows`), después
+  `model/publish_layers.py` con GeoServer arriba.
 - Los fixtures y los datos semilla usan nombres ficticios y topónimos reales (RQ-SEC-018).
 
 ## 12. Observabilidad
