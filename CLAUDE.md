@@ -29,11 +29,10 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   `scope` y `privacy` solo dependan de `common`, que `findAllOrganizations` no aparezca en ningún archivo y que
   `TenantDirectory` solo viva en `common/Organizations.kt`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
-  Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` (workflows, tipos de documento y
-  automatizaciones) → `load_ubigeo.py`. Por el
-  túnel, los tres primeros pasos con el modelo de F2 tardan de 5 a 8 minutos, y la suite de integración completa, de
-  30 minutos a más de una hora (la matriz de permisos, entre 11 y 58 minutos según la carga del túnel,
-  aprovisionamiento incluido).
+  Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` (workflows, tipos de documento
+  y automatizaciones) → `load_ubigeo.py`. Por el túnel, los tres primeros pasos tardan varios minutos y más con cada
+  fase (más de 10 con el modelo de F5), y la suite de integración completa, de 30 minutos a más de una hora (la matriz
+  de permisos, entre 11 y 58 minutos según la carga del túnel, aprovisionamiento incluido).
 - Gradle: `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …`. El token nunca va a un archivo.
 - Docker es remoto: las pruebas de integración corren en la CI o con `WASICHAI_TEST_DB_*` contra `sgspe_test` por el túnel
   del puerto 5435 (`docs/develop/README.md` §6).
@@ -74,7 +73,10 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Compromisos: `CommitmentWriteGuard` y sus reglas, reprogramaciones, entregas, candidatos, derivados | `src/main/kotlin/sgspe/commitment/` |
 | Acuerdos (`AgreementWriteGuard`) | `src/main/kotlin/sgspe/agreement/` |
 | Evidencias sobre wasichai-files, descarga con `DOWNLOAD_RESTRICTED`, descriptor sin nombre ni huella (`EvidenceFileReadPolicy`, UPS-24) | `src/main/kotlin/sgspe/evidence/` |
-| Inversión social: tope de apoyo (`SupportPolicyGuard` y, desde F5, `ContributionCapRule`, con `SupportCap` y `CampaignCommitted`), `InvestmentWriteGuard` (WF-P y WF-G), `ContributionGuidelines`, entrega de aportes (`ContributionDeliveries`), `ContributionTotalsListener` y `ProgramTotalsListener` | `src/main/kotlin/sgspe/investment/` |
+| Inversión social: tope de apoyo (`SupportPolicyGuard` y, desde F5, `ContributionCapRule`, con `SupportCap` y `CampaignCommitted`), `InvestmentWriteGuard` (WF-P y WF-G), `ContributionGuidelines`, entrega de aportes (`ContributionDeliveries`), `ContributionTotalsListener` y `ProgramTotalsListener`; comprobante del aporte congelado desde `delivered` (`ContributionReceiptRule`) | `src/main/kotlin/sgspe/investment/` |
+| Programas sociales: nombres y reglas de WF-G (`Programs`, `ProgramRules`), G1 a G4 (`ProgramApprovalRule`), reglas de los hijos (`ProgramDataRule`), `total_budget` (`ProgramTotalsListener`, `ProgramTotalsRecalculator`) | `src/main/kotlin/sgspe/investment/` |
+| KPI-INV y el tablero `investment` (`InvestmentKpis`, filtros `program` y `year`) | `src/main/kotlin/sgspe/dashboard/` |
+| Base de las pruebas de integración del plan 5.2b (programas con sus hijos, acuerdos vigentes con partes, aportes hasta entregados) | `src/test/kotlin/sgspe/F5ProgramApiTest.kt` |
 | JOB-01 y los avisos de plazo (`DeadlineNotices`), también la revisión de los riesgos y su tarea `risk_review` | `src/main/kotlin/sgspe/deadline/` |
 | Avisos sobre wasichai-notifications (`Notices`, `ApprovalNoticeListener`, `GraveGrievanceNoticeListener`, `ConfidentialReaders`, `RiskNoticeListener`, `WarningNoticeListener`) | `src/main/kotlin/sgspe/notification/` |
 | Riesgos: niveles y revisión (`Risks.kt`), `RiskWriteGuard`, el endpoint de revisiones (`RiskAssessments`) | `src/main/kotlin/sgspe/risk/` |
