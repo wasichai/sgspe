@@ -36,7 +36,12 @@ object ProjectParameters {
             "policy_internal_approval" to true,
             "policy_cap_blocks_approval" to true,
             // F4: una queja ALTA o CRITICA la resuelve quien tiene APPROVE sobre grievance (RN-GRV-002)
-            "policy_high_severity_requires_approver" to true
+            "policy_high_severity_requires_approver" to true,
+            // F5: los lineamientos de apoyo de los aportes (RN-INV-001, RN-INV-002, RN-INV-005) y la sinergia (RN-INV-004)
+            "policy_no_paid_labor" to true,
+            "policy_non_monetary_donations" to true,
+            "policy_synergy_requires_agreement" to true,
+            "policy_priority_warning" to true
         )
 
     // F4: los plazos y la cadencia van de 1 a 365 días; los umbrales de nivel de riesgo, de 1 a 25 y crecientes (ASM-004)

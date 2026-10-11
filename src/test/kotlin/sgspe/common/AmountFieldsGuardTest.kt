@@ -108,4 +108,18 @@ class AmountFieldsGuardTest {
             "cada uno lleva su motivo"
         )
     }
+
+    // elección 11 de la especificación de F5: los montos de BC-10 con las cotas de Amounts; cantidades y valores de indicador no
+    @Test
+    fun `los montos de F5 se juzgan y las cantidades y los valores de indicador no`() {
+        assertEquals(listOf("line_amount" to "OUT_OF_RANGE"), codes("contribution_item", mapOf("line_amount" to -1)))
+        assertEquals(listOf("unit_cost" to "INVALID_NUMBER"), codes("contribution_item", mapOf("unit_cost" to "barato")))
+        assertEquals(listOf("amount" to "OUT_OF_RANGE"), codes("receipt", mapOf("amount" to "10.12345")))
+        assertEquals(
+            listOf("allocated_amount" to "OUT_OF_RANGE", "executed_amount" to "OUT_OF_RANGE"),
+            codes("program_budget", mapOf("allocated_amount" to -5, "executed_amount" to -1))
+        )
+        assertEquals(emptyList<Pair<String?, String>>(), codes("contribution_item", mapOf("quantity" to "1.123456", "line_amount" to "1500.50")))
+        assertEquals(emptyList<Pair<String?, String>>(), codes("program_measurement", mapOf("measured_value" to -3)))
+    }
 }
