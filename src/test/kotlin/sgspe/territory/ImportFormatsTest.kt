@@ -66,7 +66,7 @@ class ImportFormatsTest {
 
     @Test
     fun `una entrada con punto punto o absoluta es 400 y no escribe fuera de la carpeta`() {
-        for (entry in listOf("../fuera.txt", "archivo/../../fuera.txt", "/etc/fuera.txt")) {
+        for (entry in listOf("../fuera.txt", "archivo/../../fuera.txt", "/etc/fuera.txt", "a\\..\\fuera.txt", "C:\\fuera.txt", "C:fuera.txt")) {
             val bad = zip("malo-${entry.hashCode()}.zip", mapOf(entry to "x".toByteArray()))
             ImportWorkspace.create().use { workspace ->
                 assertEquals(
@@ -119,5 +119,41 @@ class ImportFormatsTest {
             val two = ImportArchives.extract(zip("dos.zip", shapefile + ("otros.shp" to byteArrayOf(1))), workspace, "dos", 10, 1_000)
             assertThrows<ValidationException> { ImportArchives.shapefile(two) }
         }
+    }
+
+    @Test
+    fun `un ZIP dañado o con entradas que chocan es 400 y no 500`() {
+        val good = zip("buena.zip", mapOf("datos.bin" to ByteArray(2000) { (it % 7).toByte() }))
+        val bytes = good.readBytes()
+        val corrupt = File(dir, "corrupta.zip")
+        val at = bytes.indexOf(0x50.toByte()) + 40
+        corrupt.writeBytes(bytes.copyOf().also { for (i in at until at + 30) it[i] = 0x55 })
+        val clash = zip("choque.zip", linkedMapOf("a" to byteArrayOf(1), "a/b.shp" to byteArrayOf(2)))
+        val clash2 = zip("choque2.zip", linkedMapOf("a/" to byteArrayOf(), "a" to byteArrayOf(2)))
+        val dup = zip("dup.zip", linkedMapOf("A.txt" to byteArrayOf(1), "a.txt" to byteArrayOf(2)))
+        ImportWorkspace.create().use { workspace ->
+            for (bad in listOf(corrupt, clash, clash2, dup)) {
+                assertEquals(
+                    "file",
+                    assertThrows<ValidationException> {
+                        ImportArchives.extract(bad, workspace, "x-${bad.name}", 10, 1_000_000)
+                    }.violations.single().field,
+                    bad.name
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `los archivos de Finder no cuentan al detectar ni al elegir el shp`() {
+        val finder = shapefile + mapOf("__MACOSX/._predios.shp" to byteArrayOf(9), "__MACOSX/._predios.dbf" to byteArrayOf(9))
+        val file = zip("finder.zip", finder)
+        assertEquals(ImportFormat.SHP, ImportFormat.detect("predios.zip", file, 10))
+        ImportWorkspace.create().use { workspace ->
+            val root = ImportArchives.extract(file, workspace, "f", 10, 1_000)
+            assertEquals("predios.shp", ImportArchives.shapefile(root).fileName.toString())
+        }
+        val onlyJunk = zip("basura.zip", mapOf("__MACOSX/datos.gdb/x" to byteArrayOf(1), "leeme.txt" to byteArrayOf(1)))
+        assertThrows<ValidationException> { ImportFormat.detect("basura.zip", onlyJunk, 10) }
     }
 }

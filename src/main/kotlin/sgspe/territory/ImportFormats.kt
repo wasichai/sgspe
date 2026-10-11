@@ -60,7 +60,7 @@ enum class ImportFormat(
             file: File,
             maxEntries: Int
         ): ImportFormat {
-            val names = ImportArchives.names(file, maxEntries).map { it.lowercase() }
+            val names = ImportArchives.names(file, maxEntries).filterNot(ImportArchives::junk).map { it.lowercase() }
             val shp = names.any { it.endsWith(".shp") }
             val gdb = names.any { name -> name.split('/').dropLast(1).any { it.endsWith(".gdb") } }
             return when {
@@ -79,6 +79,10 @@ enum class ImportFormat(
 // se escribe con FileOutputStream (su canal no se cierra con la interrupción del hilo) y se atiende la interrupción cada tanto
 object ImportArchives {
     private const val BUFFER = 64 * 1024
+    private val DRIVE = Regex("^[A-Za-z]:")
+
+    // lo que añade el Finder de macOS: la carpeta __MACOSX y los archivos ._* (no son datos del cliente)
+    fun junk(name: String): Boolean = name.split('/').any { it == "__MACOSX" || it.startsWith("._") }
 
     fun names(
         zip: File,
@@ -102,30 +106,38 @@ object ImportArchives {
         open(zip).use { archive ->
             if (archive.size() > maxEntries) throw tooManyEntries(maxEntries)
             val buffer = ByteArray(BUFFER)
+            val seen = HashSet<String>()
             for (entry in archive.entries()) {
                 val name = entry.name
-                // una entrada absoluta o con un tramo .. no se descomprime aunque, normalizada, cayera dentro de la carpeta
-                if (name.startsWith("/") || name.startsWith("\\") || name.split('/', '\\').any { it == ".." }) throw outside()
+                // una entrada absoluta, con letra de unidad, con \ o con un tramo .. no se descomprime aunque, normalizada, cayera dentro
+                if (name.startsWith("/") || name.contains('\\') || DRIVE.containsMatchIn(name) || name.split('/').any { it == ".." }) throw outside()
+                if (junk(name)) continue
+                if (!seen.add(name.lowercase())) throw ValidationException("Archivo inválido", "file", "el ZIP repite una entrada")
                 val target = workspace.resolveEntry("$folder/$name")
                 if (!target.startsWith(root)) throw outside()
                 if (entry.isDirectory) {
                     Files.createDirectories(target)
                     continue
                 }
-                Files.createDirectories(target.parent)
-                archive.getInputStream(entry).use { input ->
-                    FileOutputStream(target.toFile()).use { out ->
-                        while (true) {
-                            if (Thread.interrupted()) throw InterruptedException("importación cancelada")
-                            val read = input.read(buffer)
-                            if (read < 0) break
-                            total += read
-                            if (total > maxBytes) {
-                                throw ValidationException("Archivo demasiado grande", "file", "el ZIP descomprimido pasa del máximo de $maxBytes bytes")
+                try {
+                    Files.createDirectories(target.parent)
+                    archive.getInputStream(entry).use { input ->
+                        FileOutputStream(target.toFile()).use { out ->
+                            while (true) {
+                                if (Thread.interrupted()) throw InterruptedException("importación cancelada")
+                                val read = input.read(buffer)
+                                if (read < 0) break
+                                total += read
+                                if (total > maxBytes) {
+                                    throw ValidationException("Archivo demasiado grande", "file", "el ZIP descomprimido pasa del máximo de $maxBytes bytes")
+                                }
+                                out.write(buffer, 0, read)
                             }
-                            out.write(buffer, 0, read)
                         }
                     }
+                } catch (_: IOException) {
+                    // datos dañados, o una entrada que choca con otra (archivo y carpeta con el mismo nombre)
+                    throw ValidationException("Archivo inválido", "file", "el ZIP está dañado o sus entradas se contradicen")
                 }
             }
         }
@@ -140,7 +152,7 @@ object ImportArchives {
     ): Path {
         val found =
             Files.walk(root).use { paths ->
-                paths.filter { it != root && it.name.lowercase().endsWith(suffix) && it.isDirectory() == directory }.toList()
+                paths.filter { it != root && !junk(it.name) && it.name.lowercase().endsWith(suffix) && it.isDirectory() == directory }.toList()
             }
         return when (found.size) {
             1 -> found.single()
