@@ -213,7 +213,8 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Término (ES) | Identificador | Concepto del prompt (EN) | Definición | Fuente | Variantes / sinónimos | No confundir con |
 |---|---|---|---|---|---|---|
 | Aporte social | `social_contribution` | — | Apoyo puntual (catálogo "Tipo de aporte" de §10) entregado con acta de recepción, foto y comprobante, con propósito, condiciones y pagador declarados | [DOC-02 p.3–p.4] [DOC-01 §9.3.1.2] | apoyo, donación | compromiso (obligación asumida); programa social |
-| Ítem del aporte | `contribution_item` | — | Bien o servicio que compone un aporte, con cantidad y costo | [DOC-02 p.4] | — | ítem de un compromiso |
+| Ítem del aporte | `contribution_item` | — | Bien, servicio, dinero o mano de obra que compone un aporte, con su tipo, cantidad y monto (`line_amount`, el que cuenta, ASM-110) | [DOC-02 p.4] | — | ítem de un compromiso |
+| Tipo de ítem del aporte | `contribution_item.item_kind` | — | BIEN, SERVICIO, DINERO o MANO DE OBRA; lo leen los lineamientos de apoyo al aprobar (ASM-112) | [DOC-01 Tabla 9.2] [DOC-02 p.4] | — | tipo de aporte (`contribution_type`) |
 | Comprobante | `receipt` | — | Documento de pago del gasto (catálogo "Tipo de comprobante" de §10), con emisor y a nombre de quién se emitió | [DOC-02 p.4] | boleta de venta | evidencia (el archivo escaneado del comprobante) |
 | Pagador | campo de `social_contribution` | — | Organización que paga el aporte, por ejemplo el titular de las concesiones (CON-022) | [DOC-02 p.4, p.6] | a nombre de | receptor del aporte |
 | Programa social | `social_program` | SocialProgram | Programa de inversión social de la empresa, con socios, presupuesto, beneficiarios, indicadores e hitos | [PRM-01 §5] [DOC-01 §9.2] | programa | programa estatal (`state_program`) |
@@ -225,6 +226,9 @@ Incluye el proyecto, que es el ancla del análisis territorial, y la línea base
 | Hito de programa | `program_milestone` | ProgramMilestone | Fecha o logro previsto de un programa | [PRM-01 §5] | — | hito de compromiso |
 | Sinergia | `agreement` con `social_program` o `social_contribution` | — | Contribución a proyectos de instituciones reconocidas, formalizada en un acuerdo (RN-INV-004) | [DOC-01 §9.3.1.2] | — | alianza estratégica |
 | Lineamiento de apoyo | política del proyecto | — | Regla configurable de compromisos y aportes: empleo limitado y rotativo, no pagar mano de obra, donaciones no monetarias, temas priorizados, tope por campaña | [DOC-01 Tabla 9.2, §9.3.1.2] | directriz, política | regla dura del sistema |
+| Comprometido (monto) | conjunto de estados de `commitment` y `social_contribution` | — | Lo aprobado y no anulado de una campaña: compromisos de `approved` a `closed` y aportes en `approved`, `procured`, `delivered` o `closed`, en la moneda de la campaña; es lo que se compara con el tope (ASM-110) | [DOC-01 §9.3.1.2] | monto aprobado | ejecutado (lo entregado, ASM-063) |
+| Tema priorizado | `project_priority_topic` (M2M de `project` con `topic`) | — | Tema del catálogo que el proyecto prioriza para sus aportes; un tema cuenta si es priorizado o desciende de uno (RN-INV-005, ASM-112) | [DOC-01 Tabla 9.2, §9.3.1.2] | prioridad | tema clave (`key_theme`) |
+| Desviación de lineamientos | `guideline_deviation_justification` de `social_contribution` | — | Justificación con la que se aprueba un aporte que incumple uno o más lineamientos (mano de obra, donación monetaria o tema no priorizado); cubre todos a la vez y no cubre la sinergia sin acuerdo, que bloquea (RN-INV-006, ASM-112) | [DOC-01 §9.3.1.2] | justificación | sinergia sin acuerdo (P6) |
 
 ## Evidencias y entregables
 
