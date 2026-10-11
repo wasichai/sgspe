@@ -20,7 +20,8 @@ import java.util.UUID
 // de los ítems del aporte, escrito como quien escribe, con la marca y solo si cambia. con cada alta, cambio o baja de un ítem
 // (el total solo informa mientras el aporte está en requested: si falla, se registra y JOB-02 lo corrige) y en approve y
 // approve_direct, en la transacción de la transición: si falla, lanza y la aprobación se revierte, así lo aprobado queda
-// escrito (decisión 2 del plan 5.2a)
+// escrito (decisión 2 del plan 5.2a). un ítem solo mueve el total de un aporte en requested: uno que se cuela tras la
+// aprobación (decisión 1) queda visible, pero el total aprobado, que suman el tope y el ejecutado, no se mueve
 @Component
 @Order(125)
 class ContributionTotalsListener(
@@ -36,7 +37,7 @@ class ContributionTotalsListener(
                     .distinct()
             for (id in contributions) {
                 try {
-                    refresh(id)
+                    refresh(id, requestedOnly = true)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -46,12 +47,16 @@ class ContributionTotalsListener(
             return
         }
         if (change.objectName == Contributions.CONTRIBUTION && change.kind == RecordChangeKind.TRANSITIONED && change.transition in Contributions.APPROVALS) {
-            refresh(change.recordId)
+            refresh(change.recordId, requestedOnly = false)
         }
     }
 
-    private suspend fun refresh(id: UUID) {
+    private suspend fun refresh(
+        id: UUID,
+        requestedOnly: Boolean
+    ) {
         val current = records.find(Contributions.CONTRIBUTION, id) ?: return
+        if (requestedOnly && current.state != Contributions.REQUESTED) return
         val total = ContributionData.total(records.itemsOf(id).map { it.attributes })
         if (!Values.same(current.attributes[Contributions.TOTAL], total)) {
             records.patch(Contributions.CONTRIBUTION, id, mapOf(Contributions.TOTAL to total), REASON)

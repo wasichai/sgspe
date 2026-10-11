@@ -41,9 +41,9 @@ object AttentionRules {
 
     // los vínculos que solo escriben los comandos: reclassified_from_* (Reclassifications) y created_commitment y, desde F5,
     // created_contribution de la solicitud (Acceptances). la regla de conteo (AttentionCounting) saca de los conteos al
-    // original que apunta un reclassified_from_*, y el cierre del compromiso (RequestClosureListener) y close_unfulfilled
-    // confían en created_commitment: fijarlos a mano ocultaría un planteamiento abierto o reapuntaría la solicitud a otro
-    // compromiso
+    // original que apunta un reclassified_from_*, y el cierre del compromiso o del aporte (RequestClosureListener) y
+    // close_unfulfilled confían en created_commitment y created_contribution: fijarlos a mano ocultaría un planteamiento
+    // abierto o reapuntaría la solicitud a otro compromiso o aporte
     val COMMAND_FIELDS: Map<String, Set<String>> =
         Attention.OBJECTS.associateWith { objectName ->
             Attention.RECLASSIFIED_FROM.getValue(objectName).keys +
