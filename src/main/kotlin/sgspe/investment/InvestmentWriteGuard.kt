@@ -82,8 +82,8 @@ class InvestmentWriteGuard(
         }
 
     companion object {
-        // los objetos de aportes; delivery, por sus entregas de aportes (las reglas miran social_contribution). el plan 5.2b
-        // suma los de programas
-        val OBJECTS: Set<String> = setOf(Contributions.CONTRIBUTION, Contributions.ITEM, Contributions.DELIVERY)
+        // los objetos de aportes; delivery, por sus entregas de aportes (las reglas miran social_contribution); y, desde el plan
+        // 5.2b, el programa y sus hijos (ProgramApprovalRule y ProgramDataRule)
+        val OBJECTS: Set<String> = setOf(Contributions.CONTRIBUTION, Contributions.ITEM, Contributions.DELIVERY) + Programs.OBJECTS
     }
 }
