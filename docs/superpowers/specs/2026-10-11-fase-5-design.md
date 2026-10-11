@@ -176,8 +176,9 @@ inversión (T2 la consume en F8); un tipo de cambio para sumar monedas (ASM-063)
 - **Motivo de transición.** WF-P es `requiresReason`; WF-G ya está en `TransitionReasonGuard.REQUIRED`.
 - **Idempotencia.** El endpoint de entrega de aportes honra `Idempotency-Key`; la aceptación ya lo hace.
 - **Bajas.** `DependentsDeleteGuard` lo cubre con el catálogo. `SOCIAL_INVESTMENT_MANAGER` borra iniciativas, grupos de
-  beneficiarios, indicadores e hitos; un indicador con mediciones responde `409 HAS_DEPENDENTS`. Un ítem se borra solo
-  en `requested` (§3.3).
+  beneficiarios, indicadores e hitos; un indicador con mediciones no se borra: como `program_measurement` es
+  `appendOnly`, wasichai rechaza antes la baja con un `409` sin código (`AppendOnlyReferences`), no `HAS_DEPENDENTS`.
+  Un ítem se borra solo en `requested` (§3.3).
 
 ### 3.2 Alcance por proyecto: cadenas y padres alternativos
 
@@ -239,8 +240,8 @@ salto como quien escribe; un salto que no se lee es `NotReadable`.
 **Pruebas.** `ProjectReadConditionTest` suma la cadena de dos saltos, la disyunción, la entrega huérfana (no admite) y
 la columna faltante en un salto (`NOTHING`). `ProjectResolverTest` y la prueba de `linkedProject` suman la cadena y los
 dos padres. `ProjectReadScopeApiTest` (5.2b) suma: una persona asignada a A lee la entrega del compromiso y la del
-aporte de A, no las de B; lee las mediciones de A y no las de B; una entrega huérfana no la lee; `PROJECT_ADMIN` lee
-todas.
+aporte de A, no las de B; lee las mediciones de A y no las de B; una entrega huérfana no la lee; `AUDITOR` (READ sobre
+todo y `READ_ALL_PROJECTS`) lee todas. `PROJECT_ADMIN` no tiene READ sobre `delivery`.
 
 ### 3.3 Aportes: objetos y WF-P
 
@@ -250,8 +251,10 @@ todas.
   `total_amount` sigue derivado.
 - `contribution_item`: campo nuevo `item_kind` (ENUM `item_kind`: BIEN · SERVICIO · DINERO · MANO DE OBRA, obligatorio).
   `line_amount` es el monto que cuenta; `quantity` y `unit_cost` son informativos y no se comparan con él.
-- `delivery`: único (`social_contribution`) en `uniqueConstraints` (las entregas de compromisos lo llevan vacío y no
-  chocan). Si wasichai no admite el único sobre una relación opcional, queda la regla con candado de §3.5.
+- `delivery`: único sobre `social_contribution`, declarado como `"unique": true` en la relación
+  `delivery_social_contribution` (wasichai 1.0.0 rechaza un `uniqueConstraints` de un solo campo; las entregas de
+  compromisos lo llevan vacío y no chocan, porque un `UNIQUE` no compara los `NULL`). Si wasichai no lo aplicara, queda
+  la regla con candado de §3.5.
 - `stakeholder_request.created_contribution` (ya diseñado «desde F5»); `task.social_program`; las M2M
   `evidence_social_contribution` y `evidence_social_program`; la M2M `project_priority_topic`.
 
@@ -267,7 +270,7 @@ reglas P1 a P9:
 | P5 · Segregación | `approve` | `InvestmentWriteGuard` | `403 SEGREGATION_OF_DUTIES` sobre `record` si quien aprueba es `created_by` del aporte (quien lo registró o quien aceptó la solicitud que lo creó), como D4 |
 | P6 · Sinergia | `approve`, `approve_direct` | `InvestmentWriteGuard`, fuera de `ContributionGuidelines` (elección 9) | Con `has_institutional_synergy` verdadero y `policy_synergy_requires_agreement` activa: `409 SYNERGY_AGREEMENT_REQUIRED` sobre `agreement` si el aporte no tiene acuerdo, o no está en `active`, o su `validity_status` es VENCIDO; la justificación no lo cubre |
 | P7 · Sin aprobación interna | `approve_direct` | `InvestmentWriteGuard` | `409 INTERNAL_APPROVAL_REQUIRED` sobre `project` con `policy_internal_approval` activa |
-| P8 · Entrega con conformidad y evidencia | `register_delivery` | `InvestmentWriteGuard`, con el candado del aporte | `409 DELIVERY_REQUIRED` sobre `delivery` sin la entrega, sin `conformity_given` verdadero o sin `conformity_by`; `403 FIELD_NOT_READABLE` sobre `conformity_by` si quien la aplica no lo lee; `409 EVIDENCE_REQUIRED` sobre `evidence_delivery` sin al menos una ACTA DE RECEPCION, una FOTO y un COMPROBANTE del proyecto del aporte vinculados a la entrega |
+| P8 · Entrega con conformidad y evidencia | `register_delivery` | `InvestmentWriteGuard`, con el candado del aporte | `409 DELIVERY_REQUIRED` sobre `delivery` sin la entrega, sin `conformity_given` verdadero o sin `conformity_by`; `403 FIELD_NOT_READABLE` sobre `delivery.conformity_by` si quien la aplica no lo lee; `409 EVIDENCE_REQUIRED` sobre `evidence_delivery` sin al menos una ACTA DE RECEPCION, una FOTO y un COMPROBANTE del proyecto del aporte vinculados a la entrega |
 | P9 · Ítems al aprobar | `approve`, `approve_direct` | `InvestmentWriteGuard` | `409 ITEMS_REQUIRED` sobre `contribution_item` sin ítems; `400 FIELD_REQUIRED` sobre `contribution_type` vacío |
 
 **Orden.** En una aprobación: P7, P9, P4 y P5, P6, P2/P3 y al final P1, la única que toma el candado de la campaña.
@@ -330,8 +333,8 @@ y `X-Change-Reason`. En una transacción y con el candado del aporte:
 
 1. el aporte está en `procured`; si no, `409 STATE_MISMATCH` sobre `record`;
 2. no tiene entrega; si no, `409 DELIVERY_EXISTS` sobre `social_contribution`;
-3. `attributes` sin `delivered_amount` (`400 FIELD_NOT_ALLOWED`), sin `commitment` ni `social_contribution` (los fija el
-   comando);
+3. `attributes` sin `delivered_amount` (`400 FIELD_NOT_ALLOWED` sobre `attributes.delivered_amount`), sin `commitment`
+   ni `social_contribution` (los fija el comando);
 4. crea la `delivery` con `social_contribution` y vincula cada evidencia (`EvidenceWriteGuard` exige el proyecto del
    aporte);
 5. no cambia el estado: `register_delivery` es la transición humana que sigue (P8).
@@ -415,7 +418,9 @@ no escalan.
 
 `InvestmentKpis` (`sgspe.dashboard`) con el marco de F3 (`Kpis`, `Indicators`, `Dashboards`, `DashboardData`,
 `DashboardFilters`) y `ProjectReach` para los proyectos por defecto. Lee como quien llama: hereda el alcance. Filtros:
-`project`, `campaign`, `program`, `year`, `periodStart`, `periodEnd` y `locality`; un filtro desconocido es `422`.
+`project`, `explorationCampaign` (el filtro común de campaña, `api.md` §4.11), `program`, `year`, `periodStart`,
+`periodEnd` y `locality`; `program` y `year` solo los acepta el tablero `investment` y los KPI-INV, y un filtro
+desconocido es `422`. La cifra titular y la forma de cada desglose las fija el plan 5.2b («Interfaces con el portal»).
 
 | KPI | Respuesta | Notas |
 |---|---|---|
@@ -458,7 +463,7 @@ con estas correcciones de §7.7 (elección 15):
 |---|---|---|---|---|
 | `contribution_item` | R → CRUD | R → CRUD | CRUD | Quien registra el aporte carga sus ítems antes de aprobar (decisión 1); fuera de `requested` los congela la guarda |
 | `receipt` | R | R → CRU | CRU | `COMMUNITY_RELATIONS_OFFICER` registra la entrega y puede cargar el comprobante con ella |
-| Hijos de `social_program` | R | R | CRUD (CR en mediciones) | Un solo dueño de los datos del programa; SMG conduce el ciclo con RU sobre `social_program` |
+| Hijos de `social_program` | R | R | CRUD (CRU en presupuestos, CR en mediciones) | Un solo dueño de los datos del programa; SMG conduce el ciclo con RU sobre `social_program` |
 
 `PROJECT_ADMIN` y `PROJECT_MANAGER` reciben `u` sobre `topic` si no lo tienen, para vincular los temas priorizados.
 `test_apply_roles.py` comprueba que quien crea `social_contribution` crea `contribution_item`, que `APPROVE_OVER_CAP`
@@ -558,16 +563,16 @@ evidencias y programas con presupuesto, listos para las guardas.
 
 | Plan | Rama | Depende de | Tareas principales | Estimado |
 |---|---|---|---|---|
-| 5.0 · Documentos | `docs/fase-5-documentos` desde `main` | Esta especificación | Los cambios de §6 por documento; IDs ASM-110 a ASM-119 y GAP-033; `check_traceability.py` en verde; PR | ~10 tareas |
-| 5.1 · Modelo y alcance | `feat/fase-5-1-modelo` desde `main` con 5.0 | 5.0 | `design_docs.py` lee lo nuevo; `model.json` (§4.1); WF-G, WF-P y los roles de WF-E3 y WF-N; `roles.json` (§4.2); `test_model.py` y `test_apply_roles.py`; `ProjectScope` con padres alternativos y cadenas, `ProjectReadCondition`, `ProjectReadScope`, `ProjectResolver`, `linkedProject` y sus unitarias; `ExactlyOneGuard` de `delivery`; `ArchitectureTest` (§3.2); base `F5ApiTest`; `WorkflowMatrixApiTest`; PR | ~14 tareas |
-| 5.2a · Aportes | `feat/fase-5-2a-aportes` desde `main` con 5.1 | 5.1 | `AmountFieldsGuard`; `ExactlyOneGuard` de `task` y `ProjectLinkGuard`; `CampaignCommitted` y `SupportPolicyGuard`; `ContributionCapRule`; `InvestmentWriteGuard` (ítems y términos congelados, P4, P5, P7, P9); `ContributionGuidelines` y temas priorizados; entrega de aportes y sus reglas; P8; `ContributionTotalsListener` y recalculadores (incluido el ejecutado de la campaña); aceptación como aporte, campo de comando y `close_unfulfilled`; `RequestClosureListener`; avisos de WF-P; `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest`; PR | ~17 tareas |
+| 5.0 · Documentos | `docs/fase-5-0-documentos` desde `main` | Esta especificación | Los cambios de §6 por documento; IDs ASM-110 a ASM-119 y GAP-033; `check_traceability.py` en verde; PR | ~10 tareas |
+| 5.1 · Modelo y alcance | `feat/fase-5-1-modelo` desde `main` con 5.0 | 5.0 | `design_docs.py` lee lo nuevo; `model.json` (§4.1); WF-G, WF-P y los roles de WF-E3 y WF-N; `roles.json` (§4.2); `test_model.py` y `test_apply_roles.py`; `ProjectScope` con padres alternativos y cadenas, `ProjectReadCondition`, `ProjectReadScope`, `ProjectResolver`, `linkedProject` y sus unitarias; `ExactlyOneGuard` de `delivery` y de `task`; `AmountFieldsGuard` (listas de la elección 11: sus pruebas fallan en cuanto el modelo entra a `main`); `ArchitectureTest` (§3.2); base `F5ApiTest`; `WorkflowMatrixApiTest`; PR | ~14 tareas |
+| 5.2a · Aportes | `feat/fase-5-2a-aportes` desde `main` con 5.1 | 5.1 | Comprobar `AmountFieldsGuard` y `ExactlyOneGuard` de `task` (los deja 5.1) y probar los montos por la API; `ProjectLinkGuard`; `CampaignCommitted` y `SupportPolicyGuard`; `ContributionCapRule`; `InvestmentWriteGuard` (ítems y términos congelados, P4, P5, P7, P9); `ContributionGuidelines` y temas priorizados; entrega de aportes y sus reglas; P8; `ContributionTotalsListener` y recalculadores (incluido el ejecutado de la campaña); aceptación como aporte, campo de comando y `close_unfulfilled`; `RequestClosureListener`; avisos de WF-P; `SocialContributionWorkflowApiTest` y el caso de `StakeholderRequestWorkflowApiTest`; PR | ~17 tareas |
 | 5.2b · Programas y tablero | `feat/fase-5-2b-programas` desde `main` con 5.2a | 5.2a (guarda, avisos, `CampaignCommitted`) | WF-G (G1 a G4) y las reglas de los hijos; `ProgramTotalsListener` y su recalculador; avisos de WF-G; `InvestmentKpis` y tablero `investment`; `ProjectReadScopeApiTest` de §3.2; columnas «otro proyecto» y «no asignado» de las matrices; medición de las subconsultas; actualizar el tenant de desarrollo a F5 (coordinador, por el túnel); suite completa; PR | ~13 tareas |
 | 5.3 · Portal | `feat/fase-5-3-portal` en `sgspe-ui` | 5.2a para aportes y la aceptación; 5.2b para programas y tablero | S42; S44 (ítems en `requested`, «Antes de aprobar» con `transition-checks`, justificación, captura de la entrega con sus tres evidencias, «Subir acta de recepción firmada»); S43 (presupuesto por año y moneda con el ejecutado, indicadores y mediciones, iniciativas, hitos, beneficiarios, convenio); S57 «Aceptar y crear el aporte» solo con CREATE sobre `social_contribution`; S11 temas priorizados; S48 aprobaciones de programas y aportes; tablero de inversión; navegación y permisos; pruebas con Vitest; PR | ~12 tareas |
 
 **¿Se divide 5.2?** Sí: un solo 5.2 tendría unas 30 tareas. La frontera sigue la de F4: 5.2a trae lo que comparten los
 dos (la guarda, el tope y los avisos) y todo lo de aportes; 5.2b parte de 5.2a integrada. No se paralelizan: comparten
-`sgspe_sdd_test` y el coordinador corre las integraciones una tras otra. El portal empieza S44 y S57 cuando 5.2a está en
-`main`.
+`sgspe_sdd_test` y el coordinador corre las integraciones una tras otra. El portal puede escribirse en paralelo contra la
+API documentada (sus pruebas simulan la API) o empezar tras 5.2b; su PR se integra cuando 5.2a y 5.2b están en `main`.
 
 **Medición (5.2b), como el plan 4.4.** Con «Proyecto Ejemplo A» y «Proyecto Ejemplo B» y un volumen representativo en
 `sgspe_test` (10 proyectos, 500 programas, 5 000 indicadores, 50 000 mediciones; 20 000 compromisos, 5 000 aportes y
