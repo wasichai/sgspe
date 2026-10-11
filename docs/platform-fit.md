@@ -370,7 +370,7 @@ el plan de implementación y la validación de consistencia. El paso 14 (empezar
 | BC | Metadata (objetos y flags) | Workflow | Automatización y documentos | GIS | Guardas, listeners y trabajos | Código propio | Desde |
 |---|---|---|---|---|---|---|---|
 | BC-01 Proyectos | `project`, `project_party`, `exploration_campaign`, `project_assignment`, `mining_concession` | WF-A | — | Ubicación y área de interés del proyecto; polígono de concesión | `ProjectWriteGuard`, `ProjectScopeGuard`, `FieldChangeReasonGuard` | `sgspe.scope`, `sgspe.common` | F2 |
-| BC-02 Territorio y SIG | Objetos del territorio; `project_component` `apiOnly` | WF-O | — | GEOMETRY, `bbox`, features, capas no sensibles en GeoServer, `MAP` | `TerritoryWriteGuard`, `ExactlyOneGuard`, `AreaListener`, `DerivedFieldsJob` | `sgspe.territory` | F2, F6 |
+| BC-02 Territorio y SIG | Objetos del territorio; `project_component` `apiOnly` | WF-O | — | GEOMETRY, `bbox`, features, capas no sensibles en GeoServer (proxy WMS de SGSPE), `basemap` de `gisModule` (UPS-13), `MAP`; GDAL para importar y exportar | `TerritoryWriteGuard`, `ExactlyOneGuard`, `AreaListener`, `DerivedFieldsJob`; desde F6, `SpatialGate`, `WmsProxy`, `MapSettings`, `GdalReader` | `sgspe.territory` | F2, F6 |
 | BC-03 Grupos de interés | Actores, cargos, grupos de interés; `stakeholder_assessment` `appendOnly`, `apiOnly` y `requiresReason` | WF-B | Ficha de grupo de interés (documento emitido) | Por relación territorial, nunca puntos de personas | `StakeholderWriteGuard`, `StakeholderFollowUpJob` | `sgspe.stakeholder` | F2 |
 | BC-04 Relacionamiento | `engagement` y sus hijos, plan, mensajes, alianzas, visitas | WF-C, WF-L | Minuta y lista de asistentes (documentos emitidos) | Ubicación de interacciones y observaciones | `EngagementWriteGuard`, `AttendanceCountsListener` | `sgspe.engagement` | F2 |
 | BC-05 Compromisos | `commitment` `requiresReason`; `commitment_reschedule` `appendOnly` y `apiOnly`; `delivery` y `commitment_candidate` `apiOnly` | WF-D, WF-K | Tarea al aprobar; acta de entrega al crear la entrega, tras UPS-23 | Ubicación del compromiso | `CommitmentWriteGuard`, `SupportPolicyGuard`, `CommitmentDerivationsListener`, `DeadlineJob` | `sgspe.commitment` | F3 |
@@ -414,7 +414,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-10 Provisión de tenants separada de la administración de la organización | Operación multicliente | `SUPER_ADMIN` y `ORGANIZATION_ADMIN` como `ADMIN` | `model/roles.json` | El mapeo de los dos roles |
 | UPS-11 Módulo de notificaciones | F3–F4 | Resuelta: wasichai-notifications (ADR-0018); SGSPE decide destinatarios y textos (ASM-012) | `sgspe.notification` | Nada |
 | UPS-12 Inmutabilidad de `audit_log` en la base | Endurecimiento | Ningún código de SGSPE escribe en la auditoría | Prueba de arquitectura | — |
-| UPS-13 Mapa base configurable en `MapView` de `@wasichai/gis` | Antes de producción | El mapa territorial del portal aplica su propio estilo configurable (ASM-048); la CSP de producción no admite las teselas de OpenStreetMap, así que los mapas de edición con `MapView` se ven sin mapa base | `sgspe-ui` y la CSP del proxy | Los mapas de edición recuperan el mapa base, con el estilo del portal |
+| UPS-13 Mapa base configurable en `MapView` de `@wasichai/gis` | Antes de producción | Resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0: `gisModule` y `MapView` aceptan `basemap` e `initialView`. SGSPE la adopta en F6 (ASM-125): `GET /api/sgspe/map/settings` devuelve el mapa base de la organización y el portal lo aplica | `sgspe-ui` y la CSP del proxy | Nada |
 | UPS-14 Puntos de extensión de wasichai-agent: seudonimizar los resultados de las herramientas, activarse por organización e informar los tokens | F7 | AI-05 solo en organizaciones con la IA activada, con el proveedor decidido (GAP-015) y para roles sin lectura de los campos restringidos (hoy, `ANALYST`); `POST /api/agent/ask` cerrado por HTTP | `sgspe.ai` | Las restricciones de AI-05 y el filtro que cierra `/api/agent/ask` |
 | UPS-15 `defaultValue` se guarda pero no se aplica | F2 | El código de SGSPE aplica los valores por defecto: el portal los propone al crear y el código que lee un parámetro vacío usa el mismo valor (ASM-019) | `sgspe-ui` y `sgspe.common` | Los valores por defecto escritos en el código |
 | UPS-16 Lectura de las autorrelaciones desde el lado destino | F2 | Los registros que apuntan a uno se leen filtrando la lista por el campo, por ejemplo `?parent_locality=<id>` | `sgspe-ui` | El filtro del portal |
@@ -472,7 +472,7 @@ dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar
 | UPS-20, UPS-22 | Sin cambios: la columna de una relación obligatoria sigue con `ON DELETE SET NULL`, y la API genérica no abre una transacción de la petición | Siguen las mitigaciones | — |
 | UPS-23 | Sin cambios: wasichai-documents congela el registro entero | Siguen las mitigaciones (ASM-090) | — |
 
-UPS-08, UPS-13 y UPS-19 son de wasichai-ui y se evalúan con la actualización de `@wasichai/*` en `sgspe-ui`.
+UPS-08 y UPS-19 son de wasichai-ui y se evalúan con la actualización de `@wasichai/*` en `sgspe-ui`; UPS-13, de wasichai-ui, está resuelta (ASM-125).
 
 Además, sin relación con una brecha: `updated_at` toma la hora de cada sentencia (`clock_timestamp()`), así que dos
 escrituras de una misma transacción ya no comparten `updatedAt`; cada respuesta de un registro lleva `ETag`; y la
@@ -547,7 +547,7 @@ actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 | AWS SDK v2 (S3) | 2.55.10 (`software.amazon.awssdk:bom`), el cliente asíncrono que usa wasichai-files | F3 | ASM-013 |
 | PDFBox | 3, solo en pruebas | F8 | RQ-REP-017 |
 | ECharts | 6 | F2 | RQ-DSH-035, ASM-046 |
-| GDAL (`gdal-bin` en la imagen del backend) | Por fijar en F6 | F6 | RQ-GIS-018, ASM-056 |
+| GDAL (`gdal-bin`: `ogrinfo` y `ogr2ogr`, en la CI y en el desarrollo) | 3.8 o superior | F6 | RQ-GIS-018, ASM-056, ASM-127 |
 | Gotenberg | `gotenberg/gotenberg:8-libreoffice` | F8 (pico técnico en F1) | ASM-014 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1` | F6 | ASM-038 |
 | MinIO | `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` y `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`, solo en desarrollo y en las pruebas, por su licencia AGPL | F3 | ASM-013, GAP-022 |

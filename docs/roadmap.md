@@ -356,18 +356,18 @@ pistas de arriba o en las fases siguientes:
 
 | Elemento | Contenido |
 |---|---|
-| Alcance | Consultas espaciales; mapa territorial con capas temáticas, calor y ficha contextual; GeoServer con estilos y proxies WMS y WFS autenticados; mapa base por organización; importación con GDAL (Shapefile, KML/KMZ, GeoPackage, FileGDB y GPX); exportaciones geográficas; listado de calidad; sugerencias de miembros de áreas de influencia [PRM-01 §6, §15] (ASM-056) |
-| Objetos | Ninguno nuevo; cada objeto de una capa que se exporte declara `EXPORT` |
-| Starters y capacidades | GeoServer (`docker.osgeo.org/geoserver:3.0.1`) en la red interna, nunca público; GDAL en la imagen del backend; `model/publish_layers.py` publica solo capas no sensibles y carga los estilos SLD |
-| Código SGSPE | Análisis espacial, proxies WMS y WFS y validación de geometrías en `sgspe.territory`; KPI-TER en `sgspe.dashboard` |
-| Endpoints | `GET /api/sgspe/areas-of-influence/{id}/member-suggestions`; `GET /api/sgspe/areas-of-influence/{id}/summary`; `GET /api/sgspe/territory/locate`; `GET /api/sgspe/territory/localities/{id}/card`; `GET /api/sgspe/territory/communities/{id}/card`; `GET /api/sgspe/territory/concentration`; `GET /api/sgspe/territory/data-quality`; `GET /api/sgspe/territory/projects/{id}/buffer-localities`; `GET /api/sgspe/territory/projects/{id}/component-communal-land`; `GET /api/sgspe/territory/projects/{id}/component-parcels`; `GET /api/sgspe/territory/projects/{id}/concession-territories`; `GET /api/sgspe/territory/projects/{id}/nearby-conflicts`; `GET /api/sgspe/territory/projects/{id}/sensitive-distances`; `GET /api/sgspe/territory/zones/{zoneObject}/{id}/records`; `GET /api/sgspe/territory/wms`; `GET /api/sgspe/territory/wfs`; `POST /api/sgspe/territory/exports`; `POST /api/sgspe/territory/geometry-checks`; formatos GDAL en `POST /api/sgspe/territory/imports`; tablero `territory` |
+| Alcance | Consultas espaciales con `SpatialGate` (ASM-122); mapa territorial con capas temáticas, las capas de gestión LYR-17 a LYR-24 (plan 6.2c), calor y ficha contextual; GeoServer con estilos y proxy WMS autenticado de las capas públicas (ASM-121); mapa base por organización (ASM-125); importación con GDAL (Shapefile, KML/KMZ, GeoPackage, FileGDB y GPX, ASM-127) y destinos `community.territory` y `environmental_feature.boundary` (ASM-123); exportaciones geográficas (ASM-124); listado de calidad; sugerencias de miembros de áreas de influencia [PRM-01 §6, §15] (ASM-056). El WFS autenticado se pospone (ASM-120) |
+| Objetos | Ninguno nuevo; `code` y los campos de origen (`source_crs`, `source_reference`, `import_batch_id`) en `community` y `environmental_feature` (ASM-123); `EXPORT` en los 13 objetos de las capas que se exportan (ASM-124) |
+| Starters y capacidades | GeoServer (`docker.osgeo.org/geoserver:3.0.1`) en la red interna, en desarrollo solo en el loopback (puerto 8095), nunca público; `gdal-bin` 3.8 o superior en los trabajos de integración de la CI y en el desarrollo (ASM-127); `model/publish_layers.py` publica solo las capas no sensibles de `model/layers.json` y carga los estilos SLD y la paleta |
+| Código SGSPE | `SpatialGate`, `ZoneCriterion` y las consultas espaciales, `WmsProxy`, `MapSettings`, `GdalReader` y `GdalWriter`, `TerritoryExports`, `GeometryChecks` y `DataQuality` en `sgspe.territory`; `TerritoryKpis` (KPI-TER) en `sgspe.dashboard` |
+| Endpoints | `GET /api/sgspe/areas-of-influence/{id}/member-suggestions`; `GET /api/sgspe/areas-of-influence/{id}/summary`; `GET /api/sgspe/territory/locate`; `GET /api/sgspe/territory/localities/{id}/card`; `GET /api/sgspe/territory/communities/{id}/card`; `GET /api/sgspe/territory/concentration`; `GET /api/sgspe/territory/data-quality`; `GET /api/sgspe/territory/projects/{id}/buffer-localities`; `GET /api/sgspe/territory/projects/{id}/component-communal-land`; `GET /api/sgspe/territory/projects/{id}/component-parcels`; `GET /api/sgspe/territory/projects/{id}/concession-territories`; `GET /api/sgspe/territory/projects/{id}/nearby-conflicts`; `GET /api/sgspe/territory/projects/{id}/sensitive-distances`; `GET /api/sgspe/territory/zones/{zoneObject}/{id}/records`; `GET /api/sgspe/territory/wms`; `GET /api/sgspe/map/settings`; `GET /api/sgspe/territory/imports/formats`; `POST /api/sgspe/territory/exports`; `POST /api/sgspe/territory/geometry-checks`; formatos GDAL en `POST /api/sgspe/territory/imports`; tablero `territory` |
 | Workflows | Ninguno nuevo |
 | Portal | Territorio: mapa territorial y ficha contextual |
 | KPIs | KPI-TER-01, KPI-TER-02, KPI-TER-03, KPI-TER-04; tablero `territory` |
 | Entregables | Estilos y publicación en GeoServer; capas del Anexo 1 de DOC-01, que usará el mapa de T1 en F8 |
-| Definición de terminado | La general, más: las pruebas de [SIG §9](gis.md#9-pruebas) de F6 (proxy WMS, compuerta de permisos, componentes × predios, sugerencia de miembros, mapa base); las de seguridad de F6 (proxy WMS, importaciones); objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`) |
-| Riesgos | GeoServer lee la base sin los permisos de la aplicación (CON-054); mapa base fijo en `MapView` (UPS-13); licencias de cartografía (GAP-011) |
-| IDs abiertos | Condicionan: GAP-011, GAP-012; UPS-01 (territorio y región), UPS-13; ASM-038, ASM-048, ASM-056, ASM-057, ASM-064 |
+| Definición de terminado | La general, más: las pruebas de [SIG §9](gis.md#9-pruebas) de F6 (proxy WMS, compuerta de permisos, componentes × predios, sugerencia de miembros, mapa base) y las de la clase de cada plan; las de seguridad de F6 (proxy WMS, importaciones); objetos nuevos clasificados en `ProjectScope` y `ArchitectureTest` con la regla de `SpatialGate` (`DatabaseClient` en `sgspe.territory` solo ahí y en los escritores existentes); las capas publicadas en el tenant de desarrollo y vistas en el mapa por el proxy; la medición de las consultas de la compuerta anotada en «Estado»; el tenant `demo` en F6; al cerrar la fase, la release 2.0.0 |
+| Riesgos | GeoServer lee la base sin los permisos de la aplicación (CON-054), acotado a capas de maestros sin campos restringidos (ASM-121); GDAL como dependencia nativa, con versión mínima y `422 FORMAT_UNAVAILABLE` (ASM-127); costo de las subconsultas con alcance en los cruces espaciales (ASM-122); paridad de `SpatialGate` con wasichai; etiqueta de la imagen de GeoServer; GAP-011 y GAP-012 abiertas (mapa base, fuentes, licencias y formatos reales) |
+| IDs abiertos | Condicionan: GAP-011, GAP-012; UPS-01 (territorio y región); ASM-038, ASM-048, ASM-056, ASM-057, ASM-064, ASM-120, ASM-121, ASM-122, ASM-123, ASM-124, ASM-125, ASM-126, ASM-127. UPS-13 está resuelta con wasichai-ui#38 (ASM-125) |
 
 ## F7 · IA
 
@@ -468,7 +468,7 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | F4 | UPS-27, UPS-28 |
 | F5 | UPS-23 (AUT-04, ASM-116) |
 | F7 | UPS-14 |
-| Antes de producción | UPS-09, UPS-13, UPS-17; UPS-01 solo para territorio y región (proyectos, resuelto en el plan 4.4, ADR-0029) |
+| Antes de producción | UPS-09, UPS-17 (UPS-13, resuelta en `@wasichai/gis` 1.0.0); UPS-01 solo para territorio y región (proyectos, resuelto en el plan 4.4, ADR-0029) |
 | Operación multicliente | UPS-10 (resuelta con wasichai 0.6.0, ASM-109) |
 | Endurecimiento | UPS-12 |
 | Después del MVP (candidatas, sin issue hasta la aprobación del usuario) | UPS-25, UPS-26 |
@@ -490,7 +490,7 @@ se detectó cada brecha:
 | UPS-10 | [wasichai#56](https://github.com/wasichai/wasichai/issues/56) |
 | UPS-11 | [wasichai#57](https://github.com/wasichai/wasichai/issues/57) |
 | UPS-12 | [wasichai#58](https://github.com/wasichai/wasichai/issues/58) |
-| UPS-13 | [wasichai-ui#38](https://github.com/wasichai/wasichai-ui/issues/38) |
+| UPS-13 | [wasichai-ui#38](https://github.com/wasichai/wasichai-ui/issues/38) (resuelta en `@wasichai/gis` 1.0.0) |
 | UPS-14 | [wasichai#59](https://github.com/wasichai/wasichai/issues/59) |
 | UPS-15 | [wasichai#60](https://github.com/wasichai/wasichai/issues/60) |
 | UPS-16 | [wasichai#61](https://github.com/wasichai/wasichai/issues/61) |
@@ -582,7 +582,7 @@ antes de la fase que condicionan:
 | 17 | Trabajos horarios sobre todos los tenants sin volúmenes conocidos | Vueltas largas | Procesar solo lo cambiado; medir antes de optimizar | GAP-027 |
 | 18 | Coordenadas de origen sin CRS ni datum, o distintas entre fuentes | Geometrías desplazadas o versiones duplicadas | CRS de origen obligatorio y reconciliación con reporte de diferencias | CON-023, CON-024, GAP-012 |
 | 19 | Renombrar valores ENUM después de cargar datos | Migración de datos | Decidir CON-050 en el checkpoint; script de migración | CON-050, ASM-025 |
-| 20 | Mapa base fijo en `MapView` | Mapas de edición sin mapa base en producción | Mapa territorial propio con mapa base configurable | UPS-13, ASM-048 |
+| 20 | Mapa base fijo en `MapView` | Mapas de edición sin mapa base en producción | Resuelto: UPS-13 se cerró con wasichai-ui#38 y `@wasichai/gis` 1.0.0; el portal aplica el mapa base por organización en F6 (ASM-125) | UPS-13, ASM-048, ASM-125 |
 | 21 | Sin normativa de datos personales ni de participación | Obligaciones legales no modeladas | Políticas configurables; ninguna regla presentada como ley | GAP-001, ASM-037 |
 | 22 | Licencia AGPL de MinIO | Restricción en producción | MinIO solo en desarrollo; cualquier almacenamiento compatible con S3 en producción | GAP-022 |
 | 23 | Inconsistencias entre los catorce documentos y los 26 ADR escritos en paralelo | Decisiones contradictorias en F1 | Fuente de verdad fijada en la Ola 1; verificadores automáticos y revisión de la Tarea 7 | RNF-MNT-009 |
