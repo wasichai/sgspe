@@ -1164,14 +1164,14 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 - **Falla cerrado:** un objeto sin clasificar en `ProjectScope`, una definición sin sus columnas o un error al consultar
   permisos o definiciones no admiten ningún registro. `ArchitectureTest` exige que todo objeto de `model.json` esté en
   un solo grupo.
-- **Definiciones en caché (plan corto de la caché del esquema):** las tablas y columnas de la condición salen de
-  `ObjectDefinitions.recent` (`sgspe.common`): definiciones de objeto de hasta `sgspe.metadata.definition-ttl` (30 s)
-  atrás, por organización y objeto, con un tope de entradas; wasichai 1.0.0 no las guarda ni avisa sus cambios. Una
-  definición vieja tras `apply.py` solo puede dejar la condición incompleta, acotarla por menos padres o hacer fallar el
-  SQL: durante a lo sumo 30 s tras subir un tenant de fase una persona ve menos registros, nunca más. Una ausencia nunca
-  se guarda entre peticiones. `Permissions.has` toma de ahí solo el id del objeto. Las guardas, `WriteView`, `TenantModel`
-  y los comandos leen la definición de la petición (`ObjectDefinitions.current`), sin caché entre peticiones, y los
-  permisos nunca se guardan entre peticiones. `0s` apaga la caché. `ArchitectureTest` exige que solo `ObjectDefinitions`
+- **Definiciones en caché (planes cortos de la caché del esquema y de wasichai 1.1.0):** las tablas y columnas de la
+  condición salen de `ObjectDefinitions.current` (`sgspe.common`), un memo por petición sobre la caché de definiciones de
+  wasichai 1.1.0 (`wasichai.metadata.cache.ttl`, 30 s; ADR-066 de wasichai). En el nodo que recibe un cambio del modelo,
+  la petición siguiente ya lo ve; en otro nodo, a lo sumo el ttl después (D49 de wasichai). Una definición vieja tras
+  `apply.py` solo puede dejar la condición incompleta, acotarla por menos padres o hacer fallar el SQL: una persona ve
+  menos registros, nunca más. Ninguna ausencia se guarda. Las guardas, `WriteView`, `TenantModel` y los comandos leen la
+  misma definición de la petición, y los permisos nunca se guardan entre peticiones (wasichai memoriza lo que los roles
+  dicen de un objeto solo por petición). `0s` lee siempre de la base. `ArchitectureTest` exige que solo `ObjectDefinitions`
   (y `Records` en el camino de la plataforma) llame a `MetadataService.loadDefinition`.
 - **Hijos con padre opcional:** un hijo con un único padre opcional, sin él, se lee en todo el tenant.
   `ArchitectureTest` fija la lista exacta (hasta F4, `delivery` y `locality_profile`; desde F5, solo

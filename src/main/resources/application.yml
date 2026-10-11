@@ -30,6 +30,11 @@ wasichai:
     name: ${WASICHAI_DB_NAME:sgspe}
     username: ${WASICHAI_DB_USERNAME:sgspe}
     password: ${WASICHAI_DB_PASSWORD:sgspe}
+  metadata:
+    cache:
+      # cuánto guarda cada nodo una definición de objeto (ADR-066 de wasichai). en el mismo nodo un cambio del modelo la
+      # borra al instante; este valor es la ventana en otro nodo, la de security.md §9.7. 0s lee siempre de la base
+      ttl: 30s
   gis:
     geoserver:
       # GeoServer es de la F6 (ADR-0015): apagado, /api/gis/layers lista las capas con published=false en vez de llamarlo
@@ -125,12 +130,6 @@ sgspe:
     # cuánto se guardan los saltos de versión de las escrituras de derivados (sgspe.derived_version, ADR-0027, ASM-091):
     # una versión leída hace más que esto, seguida de derivados, es 412. JOB-08 purga los vencidos
     derived-versions-retention: 7d
-  metadata:
-    # la caché del esquema (ObjectDefinitions.recent): cuánto vale una definición de objeto entre peticiones para el
-    # alcance de lectura y los permisos (security.md §9.7). 0s la apaga y deja solo el memo por petición
-    definition-ttl: 30s
-    # el tope de definiciones guardadas (organización y objeto)
-    definition-max-entries: 1000
   stakeholder:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
