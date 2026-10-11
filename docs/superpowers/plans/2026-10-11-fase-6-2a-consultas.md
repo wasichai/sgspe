@@ -6061,7 +6061,7 @@ El plan 6.0 escribió los endpoints de F6 y los códigos nuevos. Comprobar:
 ```bash
 cd ~/IdeaProjects/sgspe
 for c in OUT_OF_RANGE INVALID_OF ZONE_NOT_FOUND PERIOD_NOT_APPLICABLE WORKING_CRS_REQUIRED PROJECT_REQUIRED TERRITORY_REQUIRED; do
-  printf '%s %s\n' "$c" "$(grep -c "$c" docs/api.md docs/dashboards.md | paste -sd' ')"
+  printf '%s %s\n' "$c" "$(grep -c "$c" docs/api.md docs/dashboards.md | paste -sd' ' -)"
 done
 grep -n "missingFields\|truncated" docs/api.md | grep -c "territory"
 ```
