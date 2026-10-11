@@ -3,6 +3,23 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-11 — wasichai 1.1.0: UPS-29 resuelta y sin caché propia de definiciones
+
+El backend pasa a wasichai 1.1.0 (wasichai/wasichai#106, WAS-ADR-066), que guarda las definiciones de objeto por nodo y
+lee lo que los roles de quien llama dicen de un objeto una vez por petición (plan corto `2026-10-11-wasichai-1-1`).
+
+- **Sin caché propia.** `ObjectDefinitions` queda como memo por petición (`current`); se retira `recent` (30 s entre
+  peticiones), que se apilaba sobre la caché de wasichai sin enterarse de sus invalidaciones, y las claves
+  `sgspe.metadata.definition-ttl` y `definition-max-entries`. `ProjectReadScope` y `Permissions.has` leen con `current`.
+- **TTL.** `wasichai.metadata.cache.ttl: 30s`, la ventana que `security.md` §9.7 ya aceptaba: en el nodo que recibe un
+  cambio del modelo, la petición siguiente lo ve; en otro, a lo sumo 30 s después. Con los 5 s por omisión, la primera
+  lista tras una pausa volvía a cargar las definiciones (14 a 16 consultas).
+- **Medición local** (PostgreSQL 16 con PostGIS, sin túnel): la lista de una analista, de 9 a 10 consultas a 5 a 6 (admin,
+  de 5 a 6 a 3 a 4); `transition-checks`, de 25 a 11; el alta de una entrega con tres evidencias, de 178 a 81.
+- **Lo que queda.** UPS-30 (wasichai/wasichai#108): workflows, relaciones, campos `FILE`, destino de una relación,
+  reglas de notificación y automatizaciones que wasichai lee en cada operación (31 de las 81 consultas del alta); y,
+  del lado de SGSPE, el memo de las lecturas de registro (19).
+
 ## 2026-10-11 — Plan 5.0: los documentos de F5
 
 Los documentos de diseño quedan al día con la especificación de F5
