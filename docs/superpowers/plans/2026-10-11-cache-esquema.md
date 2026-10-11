@@ -1468,6 +1468,9 @@ integra en `main` como los PR de F5. Un rojo se diagnostica con superpowers:syst
 
 ## Anexo A: issue propuesto para wasichai (no abrir sin la aprobación del usuario)
 
+> Abierto como wasichai/wasichai#105 el 2026-10-11, con la aprobación del usuario y las cifras de la Tarea 4; registrado
+> como UPS-29 en `docs/requirements-analysis.md` y `docs/platform-fit.md`.
+
 Cuánto del costo es de cada uno, con las cifras de este plan: en una lista de una analista, antes, unas 9 de 18 a 20
 consultas son de SGSPE (8 de definiciones y 1 de permisos) y unas 9 a 10 de wasichai (2 de la definición del objeto, 3 de
 rol, 1 del estado del workflow, 2 de datos y la sesión). Después de este plan, SGSPE pone 1 y wasichai las mismas 9 a 10:
