@@ -1022,10 +1022,11 @@ sin error.
   informa por campaña el tope, la moneda, lo comprometido (`CampaignCommitted`), lo ejecutado
   (`executed_social_amount`) y los conteos en otra moneda; KPI-INV-02, por programa, año y moneda, lo asignado y lo ejecutado
   registrado; KPI-INV-03, por proyecto y moneda, lo ejecutado por fuente frente a presupuesto y topes; KPI-INV-04, tres
-  bloques que no se suman. Los programas cuentan en KPI-INV-02 a 04 en cualquier estado de WF-G (también `draft`,
-  `pending_approval` y `cancelled`): el backend no oculta ninguno. El `state` de cada fila de KPI-INV-02 es informativo,
-  para que el portal distinga (marque) los programas por aprobar sin quitarlos de la cifra. Es interno y no aplica
-  celdas pequeñas.
+  bloques que no se suman. Los programas cuentan en KPI-INV-02 a 04 solo desde «Planificado» de WF-G (`planned`,
+  `executing`, `monitoring`, `evaluation`, `suspended` y `closed`; decisión del usuario, 2026-10-11): sus presupuestos y
+  sus grupos de beneficiarios en `draft`, `pending_approval`, `cancelled` o cualquier otro estado no se leen, y un
+  `program` que apunta a uno de ellos da conjuntos vacíos, no un error. Cada fila de KPI-INV-02 lleva el `state` del
+  programa. Es interno y no aplica celdas pequeñas.
 
 | `{dashboard}` | Tablero | Requisito | Desde |
 |---|---|---|---|

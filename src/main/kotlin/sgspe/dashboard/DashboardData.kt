@@ -659,12 +659,15 @@ class DashboardData(
             of(Contributions.CONTRIBUTION, Contributions.COMMITTED, "total_amount")
     }
 
-    // los programas de los proyectos; con `program`, solo el pedido (KPI-INV-02 y 04; KPI-INV-03 no lo aplica)
+    // los programas de los proyectos que cuentan en los KPI-INV: solo en InvestmentKpis.COUNTED_PROGRAM_STATES, desde
+    // «Planificado» (decisión del usuario del 2026-10-11), con el estado en la lectura como committedOf. con `program`, solo el
+    // pedido (KPI-INV-02 y 04; KPI-INV-03 no lo aplica): si está fuera de esos estados no se lee y el resultado es vacío
     suspend fun programs(program: Boolean): List<ProgramRow> =
         cached("programs:$program") {
             if (filters.projects.isEmpty()) return@cached emptyList<ProgramRow>()
             val ids = if (program) filters.program?.let { listOf(it) } else null
-            read(Programs.PROGRAM, criteria = listOf(Criteria.anyOf("project", filters.projects)), ids = ids).map {
+            val criteria = listOf(Criteria.inState(InvestmentKpis.COUNTED_PROGRAM_STATES), Criteria.anyOf("project", filters.projects))
+            read(Programs.PROGRAM, criteria = criteria, ids = ids).map {
                 val a = it.attributes
                 ProgramRow(it.id, Values.text(a["project"]), Values.text(a["code"]), Values.text(a["name"]), Values.text(a["currency"]), it.state)
             }
