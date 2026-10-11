@@ -68,6 +68,29 @@ class ProdProfileTest {
         assertEquals("\${WASICHAI_FILES_S3_BUCKET:}", value("wasichai.files.s3.bucket"))
     }
 
+    // ADR-0015 y security.md §10.2 (regla 1): GeoServer en producción solo con las credenciales y los hosts del despliegue,
+    // nunca los de desarrollo de application.yml ni los por defecto de wasichai. apagado si el despliegue no lo enciende: un
+    // backend sin GeoServer funciona y el proxy WMS responde 503 (§7 de la especificación de F6)
+    @Test
+    fun `GeoServer no hereda credenciales ni hosts de desarrollo`() {
+        assertEquals("\${WASICHAI_GIS_GEOSERVER_ENABLED:false}", value("wasichai.gis.geoserver.enabled"))
+        val byVariable =
+            mapOf(
+                "url" to "URL",
+                "username" to "USERNAME",
+                "password" to "PASSWORD",
+                "datastore.host" to "DATASTORE_HOST",
+                "datastore.database" to "DATASTORE_DATABASE",
+                "datastore.username" to "DATASTORE_USERNAME",
+                "datastore.password" to "DATASTORE_PASSWORD"
+            )
+        for ((name, variable) in byVariable) {
+            assertEquals("\${WASICHAI_GIS_GEOSERVER_$variable:}", value("wasichai.gis.geoserver.$name"), name)
+        }
+        assertEquals("\${WASICHAI_GIS_GEOSERVER_DATASTORE_PORT:5432}", value("wasichai.gis.geoserver.datastore.port"))
+        assertEquals("sgspe", value("wasichai.gis.geoserver.workspace"))
+    }
+
     // UPS-09 (WAS-ADR-0059): revocación de tokens, límite de intentos de login y política de contraseñas, apagados por
     // defecto en wasichai y encendidos aquí. se ligan a las clases reales de wasichai (con el mismo prefijo que ellas), así una
     // propiedad mal escrita falla en lugar de ignorarse. security.md §3.2 documenta los valores

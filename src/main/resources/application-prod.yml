@@ -48,6 +48,24 @@ wasichai:
       bucket: ${WASICHAI_FILES_S3_BUCKET:}
       endpoint: ${WASICHAI_FILES_S3_ENDPOINT:}
       path-style-access: ${WASICHAI_FILES_S3_PATH_STYLE_ACCESS:false}
+  gis:
+    geoserver:
+      # ADR-0015 y security.md §10.2: GeoServer en la red interna, con las credenciales y los hosts del despliegue, nunca
+      # los de desarrollo ni los de wasichai (admin/geoserver). apagado si el despliegue no lo enciende: el backend funciona
+      # sin GeoServer y el proxy WMS responde 503. ProdProfileTest lo fija
+      enabled: ${WASICHAI_GIS_GEOSERVER_ENABLED:false}
+      url: ${WASICHAI_GIS_GEOSERVER_URL:}
+      username: ${WASICHAI_GIS_GEOSERVER_USERNAME:}
+      password: ${WASICHAI_GIS_GEOSERVER_PASSWORD:}
+      workspace: sgspe
+      datastore:
+        # el rol de solo lectura del despliegue (security.md §10.2, regla 6)
+        name: sgspe-postgis
+        host: ${WASICHAI_GIS_GEOSERVER_DATASTORE_HOST:}
+        port: ${WASICHAI_GIS_GEOSERVER_DATASTORE_PORT:5432}
+        database: ${WASICHAI_GIS_GEOSERVER_DATASTORE_DATABASE:}
+        username: ${WASICHAI_GIS_GEOSERVER_DATASTORE_USERNAME:}
+        password: ${WASICHAI_GIS_GEOSERVER_DATASTORE_PASSWORD:}
 
 spring:
   mail:
