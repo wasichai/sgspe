@@ -11,6 +11,7 @@ import sgspe.common.Records
 import sgspe.common.RuleGuard
 import sgspe.common.WriteView
 import sgspe.common.isLink
+import wasichai.core.common.UnauthorizedException
 import wasichai.core.data.RecordWrite
 
 // la regla «mismo proyecto» de los objetos de F4, de BC-10 y de las tareas (workflows.md, regla 10; api.md §3.3): una relación hacia un registro con
@@ -18,9 +19,9 @@ import wasichai.core.data.RecordWrite
 // incident_stakeholder deben quedar en el proyecto del registro; si no, 409 PROJECT_MISMATCH sobre el campo o la relación. una
 // regla de alerta del tenant (sin proyecto) no discrepa. lee los destinos como quien escribe: uno que no lee es 403
 // OBJECT_NOT_READABLE. compromisos y candidatos usan la misma pieza desde sus reglas (ProjectLinkRule, CandidateLinkRule), así
-// que commitment.origin_grievance y commitment.social_risk se juzgan allí. una escritura sin usuario (una automatización, que
-// corre sin sesión, o la plataforma) no se juzga: las tareas de AUT-NN copian el proyecto de su origen, y leerlo sin sesión
-// fallaría (como EditAnyGuard y AttentionCommandFieldsGuard, la plataforma es de confianza)
+// que commitment.origin_grievance y commitment.social_risk se juzgan allí. una automatización de wasichai corre sin sesión:
+// leer sin sesión es UnauthorizedException y entonces la regla no se juzga (las tareas de AUT-NN copian el proyecto de su
+// origen); la plataforma (asPlatform) sí lee y se juzga
 @Component
 @Order(GuardOrder.DOMAIN)
 class ProjectLinkGuard(
@@ -32,9 +33,11 @@ class ProjectLinkGuard(
         change: RecordWrite,
         dryRun: Boolean
     ): List<Finding> {
-        if (change.objectName !in OBJECTS || change.userId == null) return emptyList()
+        if (change.objectName !in OBJECTS) return emptyList()
         return try {
             if (change.isLink()) links(change) else fields(change)
+        } catch (_: UnauthorizedException) {
+            emptyList()
         } catch (e: NotReadable) {
             listOf(
                 Finding(
