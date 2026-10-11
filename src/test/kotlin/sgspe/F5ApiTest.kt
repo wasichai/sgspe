@@ -92,7 +92,7 @@ abstract class F5ApiTest : F4ApiTest() {
                 "delivery",
                 mapOf(
                     "social_contribution" to contribution,
-                    "delivery_date" to "2026-10-20",
+                    "delivery_date" to "2026-10-05",
                     "place" to "Local comunal",
                     "delivered_items" to "50 juegos de útiles escolares",
                     "recipients" to "Junta directiva de la Asociación Ejemplo",

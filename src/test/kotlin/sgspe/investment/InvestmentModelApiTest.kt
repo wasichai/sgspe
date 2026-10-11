@@ -3,8 +3,10 @@ package sgspe.investment
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import sgspe.F5ApiTest
+import wasichai.core.common.WasichaiException
 
 // el modelo de F5 contra wasichai de verdad (plan 5.1): el único de la entrega sobre su relación opcional (decisión 2 de la
 // especificación de F5, Decisión 1 del plan), el tipo obligatorio del ítem, las mediciones inmutables y únicas por periodo,
@@ -18,15 +20,18 @@ class InvestmentModelApiTest : F5ApiTest() {
         assertEquals(true, fields.getValue("social_contribution")["unique"].asBoolean())
         val contribution = approvedContribution(project, procure = true)
         contributionDelivery(contribution, project, evidenceTypes = emptyList())
+        // desde el plan 5.2a la rechaza antes InvestmentWriteGuard (DELIVERY_EXISTS, con el candado del aporte) por cualquier
+        // puerta, también como la plataforma: el único del modelo queda como la última barrera. el rechazo es por la unicidad,
+        // no por otra regla de la entrega
         val second =
-            runCatching {
+            assertThrows<WasichaiException> {
                 platformCreate(
                     "delivery",
-                    mapOf("social_contribution" to contribution, "delivery_date" to "2026-10-21", "conformity_given" to true),
+                    mapOf("social_contribution" to contribution, "delivery_date" to "2026-10-06", "conformity_given" to true),
                     "segunda entrega de prueba"
                 )
             }
-        assertTrue(second.isFailure, "la base aceptó una segunda entrega del mismo aporte")
+        assertEquals(listOf("social_contribution" to "DELIVERY_EXISTS"), second.violations.map { it.field to it.message }, second.message)
         val page = tree(send("GET", "/api/objects/delivery/records?social_contribution=$contribution", null, HttpStatus.OK))
         assertEquals(1, page["totalElements"].asInt())
         // dos entregas de un compromiso llevan social_contribution vacío: un UNIQUE de PostgreSQL no compara los NULL
