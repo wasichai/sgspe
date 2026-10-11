@@ -1,0 +1,11 @@
+[
+  {"layer": "LYR-01", "object": "administrative_unit", "geometry": "boundary", "style": "sgspe-lyr-01", "label": "name"},
+  {"layer": "LYR-02", "object": "locality", "geometry": "location", "style": "sgspe-lyr-02-location", "label": "name"},
+  {"layer": "LYR-02", "object": "locality", "geometry": "boundary", "style": "sgspe-lyr-02-boundary", "label": "name"},
+  {"layer": "LYR-03", "object": "locality", "geometry": "location", "style": "sgspe-lyr-03", "label": "name"},
+  {"layer": "LYR-04", "object": "road_access", "geometry": "trace", "style": "sgspe-lyr-04"},
+  {"layer": "LYR-05", "object": "community", "geometry": "territory", "style": "sgspe-lyr-05", "label": "name"},
+  {"layer": "LYR-07", "object": "mining_concession", "geometry": "boundary", "style": "sgspe-lyr-07", "label": "code"},
+  {"layer": "LYR-16", "object": "school", "geometry": "location", "style": "sgspe-lyr-16-school"},
+  {"layer": "LYR-16", "object": "health_facility", "geometry": "location", "style": "sgspe-lyr-16-health"}
+]

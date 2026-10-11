@@ -507,5 +507,56 @@ class TerritoryF6Tests(unittest.TestCase):
         self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
 
 
+class PublicLayersTests(unittest.TestCase):
+    """security.md §10.2 (reglas 3 y 8), gis.md §2.2 y §7 y §2.2 de la especificación de F6: GeoServer lee la base con
+    sus credenciales, sin permisos ni alcance, así que model/layers.json solo publica las capas públicas, de maestros del
+    tenant con una geometría declarada y sin campos restringidos (ASM-121)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.layers = load("layers.json")
+        cls.objects = {o["name"]: o for o in load("model.json")["objects"]}
+        cls.cards = design_docs.cards()
+        cls.roles = load("roles.json")
+
+    def test_son_las_capas_publicas_de_gis_md(self):
+        wanted = sorted((layer, obj, field) for layer, pairs in design_docs.public_layers().items() for obj, field in pairs)
+        self.assertEqual(sorted((e["layer"], e["object"], e["geometry"]) for e in self.layers), wanted)
+
+    def test_cada_capa_es_un_maestro_del_tenant(self):
+        tenant = set(design_docs.tenant_objects())
+        for entry in self.layers:
+            self.assertIn(entry["object"], tenant, entry["style"])
+
+    def test_cada_capa_tiene_su_geometria_declarada(self):
+        for entry in self.layers:
+            field = next((f for f in self.objects[entry["object"]]["fields"] if f["name"] == entry["geometry"]), None)
+            self.assertIsNotNone(field, entry["style"])
+            self.assertEqual(field["type"], "GEOMETRY", entry["style"])
+            self.assertTrue(field.get("geometryType"), entry["style"])
+
+    def test_ninguna_capa_tiene_campos_restringidos(self):
+        restricted = {e["object"] for e in self.roles["restrictedFields"]}
+        for entry in self.layers:
+            card = self.cards[entry["object"]]
+            self.assertNotIn(entry["object"], restricted, entry["style"])
+            self.assertEqual([f["name"] for f in card.fields if f["restricted"]], [], entry["style"])
+            self.assertEqual([r["name"] for r in card.relationships if r["restricted"] and not r["inverse"]], [],
+                             entry["style"])
+
+    def test_los_nombres_de_distritos_localidades_y_comunidades_llevan_regla_de_texto(self):
+        # gis.md §7.2: los nombres que muestran el Anexo 1 y el mapa de DOC-02 son reglas de texto de los SLD
+        for entry in self.layers:
+            if entry["layer"] in ("LYR-01", "LYR-02", "LYR-03", "LYR-05"):
+                self.assertEqual(entry.get("label"), "name", entry["style"])
+
+    def test_cada_estilo_tiene_su_sld_y_sus_colores(self):
+        palette = load(os.path.join("styles", "palette.json"))["styles"]
+        self.assertEqual(sorted(palette), sorted(e["style"] for e in self.layers))
+        for entry in self.layers:
+            self.assertTrue(os.path.isfile(os.path.join(HERE, "styles", f"{entry['style']}.sld")), entry["style"])
+            self.assertEqual(palette[entry["style"]]["layer"], entry["layer"], entry["style"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,14 @@
+{
+  "description": "Colores de las capas públicas de SGSPE (gis.md §7.2): los usan los SLD de model/styles y, copiados en sgspe-ui como src/portal/mapa/paleta.json, las capas del portal. Cada SLD usa exactamente los colores no nulos de su estilo (publish_layers.py lo valida).",
+  "styles": {
+    "sgspe-lyr-01": {"layer": "LYR-01", "stroke": "#5f5a6b", "strokeWidth": 1.2, "strokeDasharray": [6, 3], "fill": null, "fillOpacity": 0, "label": "#3d3a45", "halo": "#ffffff"},
+    "sgspe-lyr-02-location": {"layer": "LYR-02", "mark": "circle", "size": 7, "fill": "#b8452e", "stroke": "#ffffff", "strokeWidth": 1, "label": "#3a2a24", "halo": "#ffffff"},
+    "sgspe-lyr-02-boundary": {"layer": "LYR-02", "stroke": "#b8452e", "strokeWidth": 1, "fill": "#b8452e", "fillOpacity": 0.08, "label": "#3a2a24", "halo": "#ffffff"},
+    "sgspe-lyr-03": {"layer": "LYR-03", "mark": "square", "size": 10, "fill": "#7a1f12", "stroke": "#ffffff", "strokeWidth": 1, "label": "#2b1a14", "halo": "#ffffff"},
+    "sgspe-lyr-04": {"layer": "LYR-04", "stroke": "#8c6d46", "strokeWidth": 1.6, "fill": null, "label": null, "halo": null},
+    "sgspe-lyr-05": {"layer": "LYR-05", "stroke": "#3f7d3a", "strokeWidth": 1.4, "fill": "#3f7d3a", "fillOpacity": 0.12, "label": "#24461f", "halo": "#ffffff"},
+    "sgspe-lyr-07": {"layer": "LYR-07", "stroke": "#9a6a00", "strokeWidth": 1.2, "strokeDasharray": [4, 2], "fill": "#d9a400", "fillOpacity": 0.08, "label": "#5b3f00", "halo": "#ffffff"},
+    "sgspe-lyr-16-school": {"layer": "LYR-16", "mark": "triangle", "size": 9, "fill": "#2f5d9a", "stroke": "#ffffff", "strokeWidth": 1, "label": null, "halo": null},
+    "sgspe-lyr-16-health": {"layer": "LYR-16", "mark": "cross", "size": 9, "fill": "#b0234a", "stroke": "#ffffff", "strokeWidth": 1, "label": null, "halo": null}
+  }
+}
