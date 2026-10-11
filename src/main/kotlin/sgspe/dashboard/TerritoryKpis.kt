@@ -31,6 +31,7 @@ data class LandRow(
 object TerritoryKpis {
     const val NONE = "SIN DATO"
     const val COMPONENTS = "components"
+    const val COMPANY_LAND = "PROPIEDAD DE LA EMPRESA"
 
     // la suma de calculated_area_ha de las áreas aprobadas, con dos decimales; las que no la tienen no se suman y se advierte
     fun surface(areas: List<AreaRow>): IndicatorResult {
@@ -63,8 +64,10 @@ object TerritoryKpis {
         )
     }
 
-    // los componentes distintos que cruzan tierra de terceros; un componente cuenta una vez por tierra y una vez por tipo
-    fun componentsOnLand(rows: List<LandRow>): IndicatorResult {
+    // los componentes distintos que cruzan tierra de terceros (comunal, propiedad o posesión): los predios PROPIEDAD DE LA
+    // EMPRESA no cuentan, igual que en el resumen del área. un componente cuenta una vez por tierra y una vez por tipo
+    fun componentsOnLand(all: List<LandRow>): IndicatorResult {
+        val rows = all.filter { it.land != COMPANY_LAND }
         val components = rows.distinctBy { it.component }
         return IndicatorResult(
             components.size,

@@ -73,7 +73,10 @@ class TerritoryKpisTest {
                     LandRow("c1", "PLATAFORMA", "PROPIEDAD"),
                     LandRow("c1", "PLATAFORMA", "POSESION"),
                     LandRow("c1", "PLATAFORMA", "PROPIEDAD"),
-                    LandRow("c2", "ACCESO", "TERRITORIO COMUNAL")
+                    LandRow("c2", "ACCESO", "TERRITORIO COMUNAL"),
+                    // la tierra de la empresa no es de terceros: ni suma ni desglosa
+                    LandRow("c3", "VIA", "PROPIEDAD DE LA EMPRESA"),
+                    LandRow("c1", "PLATAFORMA", "PROPIEDAD DE LA EMPRESA")
                 )
             )
         assertEquals(2, result.value)
