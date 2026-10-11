@@ -1307,6 +1307,7 @@ Capacidades que wasichai 0.3.2 no ofrece. Los issues upstream se abren solo con 
 | UPS-27 | Que `DynamicForm` de `@wasichai/core` use un huso fijo (America/Lima) en los campos `DATETIME`, en lugar del huso del navegador | En las ediciones genéricas, un navegador con otro huso muestra y guarda la hora de Lima corrida (por ejemplo, `received_at` de una QCS), y con ella sus plazos | El portal convierte la hora de Lima en sus propias pantallas; en las ediciones genéricas rige el huso del navegador, un riesgo aceptado. Pedida en wasichai/wasichai-ui#46 | F4 | RNF-I18N-002 |
 | UPS-28 | Candidata: que wasichai-documents aplique `RecordReadScope` en `GET /api/objects/{objeto}/records/{id}/documents`, `GET /api/documents/{id}` y en la emisión, y no devuelva el `snapshot` de un registro fuera del alcance | Sin ella, el documento emitido de un registro de otro proyecto se lee por su ruta | `IssueDocumentFilter` (`sgspe.scope`) lee el registro como quien llama y responde `404` si no lo lee (ADR-0029); sin issue hasta la aprobación del usuario | F4 (plan 4.4) | RQ-SEC-006 |
 | UPS-29 | Que `MetadataService` guarde las definiciones de objeto (invalidadas por sus propias escrituras, con un TTL corto o una versión del modelo para varios nodos, sin guardar ausencias), que las consultas de rol (`hasPermission`, `fieldAccess`, `ownRecordsOnly`) se memoricen por petición y que un evento avise los cambios del modelo. Abierta como wasichai/wasichai#105 el 2026-10-11 | Quien no es `ADMIN` paga en cada operación la definición del objeto y tres consultas de rol, repetidas dentro de una misma petición: una lista de una analista cuesta 10 consultas frente a las 6 a 7 del admin, y el alta de una entrega con tres evidencias, 188 (de 7,5 a 8,7 s por el túnel) | `ObjectDefinitions` (`sgspe.common`): memo por petición y caché de 30 s solo para el alcance de lectura y los permisos, donde una definición vieja falla cerrado (`security.md` §9.7); `RequestMemoFilter` abre el memo del comando en las escrituras de `/api/sgspe/` | Antes de producción | RNF-PERF-001 |
+| UPS-30 | Que wasichai responda desde la caché de definiciones (o una con las mismas reglas de invalidación) las lecturas del modelo que todavía hace en cada operación: workflows por objeto, relación y objeto por nombre al vincular (`RelatedRecordService`), los campos `FILE` de un objeto (`StoredFileRepository`), la definición del destino de una relación (`RelationTargets`), y las reglas de notificación y automatizaciones del objeto. Abierta como wasichai/wasichai#108 el 2026-10-11 | Con wasichai 1.1.0, el alta de una entrega con tres evidencias cuesta 81 consultas y 31 son de modelo sin caché (15 de `workflows`); toda lista, también la del admin, lee el workflow del objeto | Ninguna en SGSPE: son lecturas internas de wasichai (medición del plan corto `2026-10-11-wasichai-1-1`) | Antes de producción | RNF-PERF-001 |
 
 ## 19. Assumptions
 
@@ -1492,9 +1493,9 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `RQ-AI` | 13 |
 | `CON` | 60 |
 | `GAP` | 33 |
-| `UPS` | 29 |
+| `UPS` | 30 |
 | `ASM` | 119 |
-| Total | 539 |
+| Total | 540 |
 
 ### 20.2 Requisitos por bounded context
 
@@ -1631,6 +1632,7 @@ Observaciones:
 - Los IDs de F4 (ASM-095 a ASM-104 y UPS-25 a UPS-27) no retiran ninguno: ASM-098 amplía ASM-090, y ASM-095 reemplaza
   la respuesta del checkpoint «sin restringir en el MVP» sobre la protección de quien plantea una QCS.
 - El ID del plan corto de la caché del esquema (UPS-29) no retira ninguno.
+- El ID del plan corto de wasichai 1.1.0 (UPS-30) no retira ninguno.
 - Los IDs de F5 (ASM-110 a ASM-119 y GAP-033) no retiran ninguno: ASM-113 refuerza ASM-063, ASM-114 amplía ASM-106
   (que desde F5 ya no lee en todo el tenant una entrega sin compromiso), ASM-116 amplía ASM-090 y ASM-118 amplía
   ASM-092.
