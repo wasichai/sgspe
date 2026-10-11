@@ -9,8 +9,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
   `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning`.
-- `model/`: `model.json` (los 72 objetos de F2 a F4), `roles.json`, `workflows/` (los 15 de F2 a F4: WF-A, WF-B, WF-C,
-  WF-L, WF-O, WF-D, WF-I, WF-K, WF-N, WF-E1, WF-E2, WF-E3, WF-F, WF-J y WF-M), `document-types/`, `automations/` y los
+- `model/`: `model.json` (los 82 objetos de F2 a F5), `roles.json`, `workflows/` (los 17 de F2 a F5: WF-A, WF-B, WF-C,
+  WF-L, WF-O, WF-D, WF-I, WF-K, WF-N, WF-E1, WF-E2, WF-E3, WF-F, WF-J, WF-M, WF-G y WF-P), `document-types/`, `automations/` y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
   los documentos para las pruebas del modelo.
 - `docs/`: análisis, diseño, ADR, trazabilidad, roadmap y planes. La interfaz vive en `../sgspe-ui`.
@@ -82,7 +82,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | QCS: `AttentionWriteGuard`, plazos y fechas, reclasificación, aceptación, derivación, `RequestClosureListener`, reporte unificado | `src/main/kotlin/sgspe/attention/` |
 | Días hábiles (`HolidayCalendar`, `BusinessDays`, feriados en `sgspe.calendar.holidays`), `Attention` y `AttentionCounting`, `NotReadable` y `readAs`, `ConfidentialRelease` (solo para `RequestClosureListener`) | `src/main/kotlin/sgspe/common/`, `src/main/resources/application.yml` |
 | QCS confidenciales (`ConfidentialAttentionScope`, un `RecordReadScope` que honra `ConfidentialRelease`) y la regla «mismo proyecto» (`ProjectLinks`, `ProjectLinkGuard`) | `src/main/kotlin/sgspe/scope/` |
-| Alcance de lectura por proyecto (`ProjectReadScope`, su condición pura `ProjectReadCondition`, la clasificación `ProjectScope.TENANT` y `readGroup`), documentos emitidos (`IssueDocumentFilter`, `DocumentReadByScope`) | `src/main/kotlin/sgspe/scope/` |
+| Alcance de lectura por proyecto (`ProjectReadScope`, su condición pura `ProjectReadCondition`, la clasificación `ProjectScope.TENANT` y `readGroup`; desde F5, cadenas de hijos y padres alternativos: `ProjectScope.chain`, `parentOf` y `projectOf`), documentos emitidos (`IssueDocumentFilter`, `DocumentReadByScope`) | `src/main/kotlin/sgspe/scope/` |
 | «Mis proyectos» o todos (`ProjectReach`, acción `READ_ALL_PROJECTS`), duración por organización de los trabajos (`SweepTiming`) | `src/main/kotlin/sgspe/common/` |
 | Alta y subida de fase por tenant (`provision_tenant.py`, `upgrade_tenants.py`, `tenant_steps.py`; inventario con la forma de `tenants.example.json`, sin versionar) | `model/` |
 | Base de las pruebas de integración del plan 3.2 (sobre `F3ApiTest`: evidencias y compromisos de los comandos) y de las de `Idempotency-Key` sin el modelo de F3 | `src/test/kotlin/sgspe/F3DomainApiTest.kt`, `src/test/kotlin/sgspe/common/AssessmentCommandApiTest.kt` |
@@ -92,6 +92,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Base de las pruebas de F2 (registros mínimos, asignaciones, transiciones) | `src/test/kotlin/sgspe/F2ApiTest.kt` |
 | Base de las pruebas de F3 del modelo (compromisos, acuerdos y tareas listos para sus guardas, altas apiOnly como la plataforma, espera de automatizaciones) | `src/test/kotlin/sgspe/F3ApiTest.kt` |
 | Base de las pruebas de F4 (QCS, riesgos, incidentes, menciones, señales, reglas y alertas listos para las guardas de 4.2; revisiones de riesgo y derivados como la plataforma) | `src/test/kotlin/sgspe/F4ApiTest.kt` |
+| Base de las pruebas de F5 (aportes con ítems, aprobados y adquiridos, su entrega con acta, foto y comprobante, campañas, acuerdos vigentes, temas priorizados y programas con sus datos, listos para las guardas de 5.2) | `src/test/kotlin/sgspe/F5ApiTest.kt` |
 | Tipos de documento y automatizaciones (AUT-NN) | `model/document-types/`, `model/automations/`; `src/test/kotlin/sgspe/workflow/AutomationsApiTest.kt` |
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
 | Modelo frente a los documentos | `model/test_model.py`, `model/design_docs.py` |
