@@ -208,13 +208,17 @@ AreaOfInfluencePage
 - **Ruta y lienzo:** `/projects/:projectId/settings` · hoja `P360-Equipo` · F2 (tope de campaña en uso desde F3).
 - **Propósito:** quién trabaja en el proyecto y con qué rol, las campañas con su tope, las partes y concesiones, y los
   parámetros y políticas que gobiernan las reglas.
-- **Roles:** lectura de todos. Asignaciones: PAD. Partes y campañas: PAD, PMG. Concesiones: PAD, GAN. Parámetros: PAD, PMG.
+- **Roles:** lectura de todos. Asignaciones: PAD. Partes y campañas: PAD, PMG. Concesiones: PAD, GAN. Parámetros y,
+  desde F5, temas priorizados para aportes: PAD, PMG.
 - **Acciones:** primaria según la pestaña ("Asignar persona", "Nueva campaña"); secundarias editar y terminar una asignación.
 - **Disposición y componentes:** `Tabs` (Equipo, Campañas, Partes y concesiones, Parámetros y políticas); `DataTable` de
   asignaciones con rol, periodo y estado; campañas con `ProgressBar` del tope y aviso de montos en otra moneda (ASM-063);
-  parámetros agrupados por módulo con la marca "por defecto" o "cambiado".
+  parámetros agrupados por módulo con la marca "por defecto" o "cambiado"; desde F5, en "Parámetros y políticas", la
+  lista "Temas priorizados para aportes" (`project_priority_topic`, ASM-112), que vincula y desvincula temas del
+  catálogo y avisa que, sin temas, la prioridad de los aportes no se evalúa.
 - **Datos y API:** genérica `project_assignment`, `exploration_campaign`, `project_party`, `project_concession` y `project`
-  (campos de parámetros).
+  (campos de parámetros); desde F5, el vínculo `project_priority_topic`
+  (`/api/objects/project/records/{id}/related/project_priority_topic`).
 - **Estados:** una asignación vencida se marca y no da acceso de escritura (RQ-SEC-006).
 - **Permisos:** quien no puede escribir ve todo en solo lectura.
 - **Responsive:** cada pestaña en una columna.
@@ -226,7 +230,7 @@ ProjectSettingsPage
 │   ├── TeamTab (DataTable<Assignment>)
 │   ├── CampaignsTab (CampaignCapCard × n)
 │   ├── PartiesTab (DataTable<Party> · DataTable<Concession>)
-│   └── PoliciesTab (PolicyGroup × n)
+│   └── PoliciesTab (PolicyGroup × n · PriorityTopicsList)
 └── AssignmentDrawer
 ```
 
@@ -947,12 +951,14 @@ GrievancePage
 - **Propósito:** la misma anatomía que la queja con su propio ciclo: responder o derivar una consulta; evaluar y aceptar o
   declinar una solicitud.
 - **Roles:** CRO y GVM responden y derivan consultas; las solicitudes las evalúan y aceptan los roles de WF-E3; aceptar como
-  compromiso lo hacen SMG y CMM desde F4 (`security.md` §7.5).
+  compromiso lo hacen SMG y CMM desde F4 (`security.md` §7.5), y como aporte, desde F5, SMG y SIM, que tienen CREATE
+  sobre `social_contribution`; CMM solo acepta como compromiso (ASM-117).
 - **Acciones:** consulta: "Responder", "Derivar a otra entidad…", "Reclasificar…", "Subir carta firmada". Solicitud:
   "Aceptar y crear el compromiso" (el aporte, desde F5), "Declinar con respuesta…", "Reclasificar…", "Subir carta
   firmada".
 - **Disposición y componentes:** encabezado y camino de estados; origen (pregunta de reunión o carta); respuesta con
-  "Usar respuesta alineada" (mensajes del proyecto); en la solicitud, "Aceptar: ¿qué se crea?" con las dos opciones.
+  "Usar respuesta alineada" (mensajes del proyecto); en la solicitud, "Aceptar: ¿qué se crea?" con las dos opciones;
+  "Aporte" solo aparece a quien tiene CREATE sobre `social_contribution`.
 - **Datos y API:** transiciones de WF-E2 y WF-E3; `POST /api/sgspe/stakeholder-requests/{id}/accept` (crea `commitment` en
   `draft` o, desde F5, `social_contribution` en `requested`); reclasificación por su endpoint. Las cartas no se emiten
   mientras UPS-23 siga abierta (ASM-098): "Subir carta firmada" la sube como evidencia CARTA vinculada a la QCS, con
@@ -1180,16 +1186,17 @@ Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se s
 
 - **Ruta y lienzo:** `/projects/:projectId/programs` (programas y aportes en una vista) · hoja `Inv-Lista` · F5; tope desde F3.
 - **Propósito:** ¿cuánto del tope de la campaña queda, cómo avanzan los programas y qué aportes están en curso?
-- **Roles:** SIM y SMG crean y llevan; CRO registra aportes; APR lee y aprueba; el resto lee.
+- **Roles:** SIM crea y lleva los programas, y SMG conduce su evaluación, suspensión y cierre; SMG, CRO y SIM registran
+  aportes; APR y SMG aprueban; el resto lee.
 - **Acciones:** primaria "Nuevo aporte"; secundaria "Nuevo programa".
-- **Disposición y componentes:** tres indicadores: tope de la campaña (aprobados frente al tope y ejecutado, con advertencia
-  de otra moneda), presupuesto de programas ejecutado, beneficiarios; tabla de programas (socio, estado, presupuesto del año,
-  ejecutado, beneficiarios, indicadores con medición); tabla de aportes de la campaña (tipo, quién recibe, estado, monto,
-  origen).
+- **Disposición y componentes:** tres indicadores: tope de la campaña (comprometido frente al tope y ejecutado, con
+  advertencia de otra moneda), presupuesto de programas ejecutado, beneficiarios; tabla de programas (socio, estado,
+  presupuesto del año, ejecutado, beneficiarios, indicadores con medición); tabla de aportes de la campaña (tipo, tema,
+  quién recibe, estado, total de los ítems, origen).
 - **Datos y API:** genérica sobre `social_program`, `program_budget`, `beneficiary_group` y `social_contribution`;
   KPI-INV-01, KPI-INV-02 y KPI-INV-04; `exploration_campaign.executed_social_amount` y `other_currency_items_count`.
-- **Estados:** el tope se verifica al aprobar contra los montos aprobados de compromisos y aportes de la campaña; lo ejecutado
-  es otra cifra (ASM-063). Los programas no pertenecen a una campaña y no cuentan para el tope.
+- **Estados:** el tope se verifica al aprobar contra lo comprometido de compromisos y aportes de la campaña (ASM-110);
+  lo ejecutado es otra cifra (ASM-063). Los programas no pertenecen a una campaña y no cuentan para el tope.
 - **Permisos:** sin campos restringidos propios.
 - **Responsive:** los indicadores se apilan; las tablas pasan a tarjetas.
 - **Relacionadas y navegación:** S43, S44; solicitud de origen (S57); tablero de inversión (etapa 3b).
@@ -1205,16 +1212,22 @@ InvestmentPage
 
 - **Ruta y lienzo:** `/projects/:projectId/programs/:programId` · hoja `Inv-Programa` · F5.
 - **Propósito:** seguir presupuesto, indicadores, hitos y beneficiarios de un programa con su socio y su convenio.
-- **Roles:** SIM crea, envía y registra mediciones; APR aprueba (SoD); SMG actualiza.
+- **Roles:** SIM crea y envía el programa y es el único dueño de sus datos (presupuesto y ejecutado, indicadores,
+  mediciones, iniciativas, hitos y beneficiarios); APR aprueba (G1 y G2); SMG conduce la evaluación, la suspensión y el
+  cierre, con RU sobre el programa y solo lectura de sus hijos (`security.md` §7.7).
 - **Acciones:** primaria "Registrar medición"; secundarias "Pasar a monitoreo", "Suspender…" y las transiciones de WF-G del
   estado.
 - **Disposición y componentes:** encabezado con estado, socio, convenio de sinergia y aprobación; camino de estados;
-  presupuesto por año y moneda; indicadores con línea base, meta y última medición con su evidencia; iniciativas e hitos; a la
-  derecha grupos beneficiarios (meta y alcanzados), territorio y trazabilidad.
+  presupuesto por año y moneda, con el ejecutado que SIM registra a mano (ASM-113) y los de otra moneda aparte;
+  indicadores con línea base, meta y última medición con su evidencia; iniciativas e hitos; a la derecha grupos
+  beneficiarios (meta y alcanzados), territorio y trazabilidad.
 - **Datos y API:** genérica sobre `social_program`, `program_budget`, `program_indicator`, `program_measurement`
   (`appendOnly`), `program_milestone`, `social_initiative` y `beneficiary_group`.
-- **Estados:** un indicador sin mediciones se marca; el total del programa se deriva de sus presupuestos, por moneda.
-- **Permisos:** las mediciones no se editan ni se borran.
+- **Estados:** un indicador sin mediciones se marca; el total del programa (`total_budget`) suma solo los presupuestos
+  en su moneda (ASM-113); con socio y la política activa, "Aprobar" y "Planificar" piden un convenio de sinergia vigente
+  con el socio como parte (G3, ASM-115).
+- **Permisos:** las mediciones no se editan ni se borran; un indicador con mediciones no se borra; SMG ve los datos del
+  programa en solo lectura.
 - **Responsive:** el panel lateral baja; las tablas pasan a tarjetas.
 - **Relacionadas y navegación:** convenio (S33), evidencias (S45, S46), tareas (S47).
 
@@ -1228,29 +1241,43 @@ ProgramPage
 ### S44 · Aporte social
 
 - **Ruta y lienzo:** `/projects/:projectId/contributions/:contributionId` · hoja `Inv-Aporte` · F5.
-- **Propósito:** aprobar, adquirir y entregar un aporte puntual con las políticas a la vista.
-- **Roles:** SMG, CRO y SIM registran; APR y SMG aprueban (`approve`); SIM aprueba sin revisión interna si la política lo
-  permite (`approve_direct`); SIM registra la adquisición; SIM y CRO registran la entrega.
-- **Acciones:** en `requested`, "Aprobar…" y "Rechazar…"; luego "Registrar adquisición", "Registrar entrega", "Cerrar",
-  "Anular…"; todas con motivo.
-- **Disposición y componentes:** encabezado con estado, tipo, campaña y quién registró; camino de estados; "Para qué y para
-  quién" (propósito, ocasión o festividad, quién recibe, localidad, condiciones, beneficiarios); ítems con total derivado;
-  entrega con sus cuatro requisitos; a la derecha "Antes de aprobar" con P1 a P6 y trazabilidad.
-- **Datos y API:** genérica sobre `social_contribution`, `contribution_item` y `receipt`; `POST
-  /api/sgspe/social-contributions/{id}/deliveries` captura la entrega (AUT-04 emite el acta de recepción) y luego
-  `register_delivery` (P8).
-- **Estados:** si supera el tope que bloquea, "Aprobar" solo aparece para SMG (`APPROVE_OVER_CAP`); quien registró no aprueba
-  (P5); con sinergia, falta de acuerdo vigente bloquea (P6); apartarse de los lineamientos exige justificación (P3).
-- **Permisos:** las fotos de la entrega con personas son DATOS PERSONALES.
+- **Propósito:** registrar, aprobar, adquirir y entregar un aporte puntual con los lineamientos y el tope a la vista.
+- **Roles:** SMG, CRO y SIM registran el aporte y cargan sus ítems; APR y SMG aprueban (`approve`); SIM aprueba sin
+  revisión interna si la política lo permite (`approve_direct`); SIM registra la adquisición; SIM y CRO registran la
+  entrega.
+- **Acciones:** en `requested`, "Agregar ítem", "Aprobar…" y "Rechazar…"; luego "Registrar adquisición", "Registrar
+  entrega" (una vez), "Subir acta de recepción firmada", "Cerrar" y "Anular…"; todas las transiciones con motivo.
+- **Disposición y componentes:** encabezado con estado, tipo, tema, campaña y quién registró; camino de estados; "Para
+  qué y para quién" (propósito, ocasión o festividad, quién recibe, localidad, condiciones, beneficiarios); ítems con su
+  tipo (BIEN, SERVICIO, DINERO o MANO DE OBRA) y el total que se aprobará, editables solo en `requested`; la entrega con
+  sus requisitos (conformidad, quiénes la dieron, acta de recepción, foto y comprobante); a la derecha "Antes de
+  aprobar" y trazabilidad.
+- **"Antes de aprobar":** `POST /api/sgspe/transition-checks` lista P1 a P9 con su estado: el tope de la campaña (P1,
+  con lo comprometido y la advertencia de otra moneda), cada lineamiento incumplido (`PAID_LABOR`, `MONETARY_DONATION`,
+  `PRIORITY_NOT_MET`) o la advertencia `PRIORITIES_NOT_CONFIGURED`, la sinergia (P6, `SYNERGY_AGREEMENT_REQUIRED`) y
+  los ítems y el tipo de aporte (P9, `ITEMS_REQUIRED`). Si algún lineamiento se incumple, pide
+  `guideline_deviation_justification`, que los cubre a todos; la sinergia no se justifica.
+- **Datos y API:** genérica sobre `social_contribution`, `contribution_item` y `receipt`;
+  `POST /api/sgspe/social-contributions/{id}/deliveries` captura la única entrega en `procured`, con sus evidencias, y
+  luego `register_delivery` (P8). El "Acta de recepción" no se emite mientras UPS-23 siga abierta (ASM-116): "Subir acta
+  de recepción firmada" la sube como evidencia ACTA DE RECEPCION vinculada a la entrega, con clasificación DATOS
+  PERSONALES por defecto.
+- **Estados:** si supera un tope que bloquea, "Aprobar" solo aparece para SMG (`APPROVE_OVER_CAP`, ASM-119); quien
+  registró el aporte o aceptó la solicitud que lo creó no lo aprueba (P5); fuera de `requested`, los ítems y los
+  términos aprobados son de solo lectura (`ITEMS_FROZEN`, `CONTRIBUTION_FROZEN`, ASM-110); "Registrar entrega" se
+  ofrece una vez, solo en `procured`, y después muestra la entrega, que no cambia desde `delivered` (ASM-111).
+- **Permisos:** las fotos de la entrega con personas y el acta firmada son DATOS PERSONALES; `recipients` y
+  `conformity_by` son restringidos (`security.md` §7.9).
 - **Responsive:** "Antes de aprobar" sube antes de los ítems en teléfono.
 - **Relacionadas y navegación:** solicitud de origen (S57), bandeja de aprobaciones (S48); al cerrar, la solicitud se
-  cierra sola (ASM-068).
+  cierra sola (ASM-068, ASM-117).
 
 ```text
 ContributionPage
 ├── RecordHeader · StatePath
-├── PurposeSection · ItemTable · DeliveryRequirements
-└── SidePanel (PolicyChecklist P1–P6 · TraceList)
+├── PurposeSection · ItemTable (ItemKindSelect · TotalToApprove)
+├── DeliverySection (DeliveryRequirements · SignedReceiptUpload)
+└── SidePanel (PolicyChecklist P1–P9 · JustificationField · TraceList)
 ```
 
 ## 11. Documentos, tareas y aprobaciones
@@ -1341,7 +1368,8 @@ MyTasksPage
   antigüedad con registro, qué se decide, monto en su moneda, espera y "¿Puedes decidir?" con la razón; tarjetas de
   escalamiento con niveles 0, 1 y 2.
 - **Datos y API:** las aprobaciones son transiciones, no objetos (`domain-model.md` §6.13): la bandeja consulta los registros
-  en estados de aprobación cuyas transiciones el rol tiene, más los avisos `approval_pending`; los escalamientos vienen de
+  en estados de aprobación cuyas transiciones el rol tiene, más los avisos `approval_pending` (desde F5, también los de
+  `submit` de WF-G y los del alta de un aporte, que llegan antes de sus ítems); los escalamientos vienen de
   JOB-01 (avisos y tareas por nivel, ASM-030, ASM-070).
 - **Estados:** la razón por la que no se puede decidir (tope, nivel superior, segregación) se muestra siempre.
 - **Permisos:** se comprueban otra vez al confirmar (`transition-checks`).
@@ -1497,10 +1525,11 @@ TerritoryDashboard
 - **Propósito:** ¿cuánto invertimos frente a lo previsto y a quién llega?
 - **Roles:** lectura para quien lee BC-10.
 - **Acciones:** "Ir a programas y aportes" (S42).
-- **Disposición y componentes:** un medidor por campaña frente a su tope (KPI-INV-01), con la marca de lo aprobado y la
-  advertencia de otra moneda; barras por programa y año (KPI-INV-02); consolidado por moneda y fuente (KPI-INV-03);
-  beneficiarios por fuente (KPI-INV-04).
-- **Datos y API:** tablero `investment` (`dashboards.md` §5.10); montos según ASM-063.
+- **Disposición y componentes:** un medidor por campaña frente a su tope (KPI-INV-01), con la marca de lo comprometido
+  y la de lo ejecutado y la advertencia de otra moneda; barras por programa y año (KPI-INV-02); consolidado por moneda
+  y fuente (KPI-INV-03); beneficiarios en tres bloques que no se suman (KPI-INV-04).
+- **Datos y API:** tablero `investment` (`dashboards.md` §5.10), con los filtros de proyecto, campaña, programa, año,
+  periodo y localidad; montos según ASM-063 y ASM-113.
 - **Estados:** un programa por aprobar no muestra ejecución.
 - **Permisos:** como S51.
 - **Responsive:** medidores apilados.
