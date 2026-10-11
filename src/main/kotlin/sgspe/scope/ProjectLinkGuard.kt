@@ -13,7 +13,7 @@ import sgspe.common.WriteView
 import sgspe.common.isLink
 import wasichai.core.data.RecordWrite
 
-// la regla «mismo proyecto» de los objetos de F4 (workflows.md, regla 10; api.md §3.3): una relación hacia un registro con
+// la regla «mismo proyecto» de los objetos de F4, de BC-10 y de las tareas (workflows.md, regla 10; api.md §3.3): una relación hacia un registro con
 // alcance de proyecto (los campos salen del catálogo, ProjectLinks.fieldsOf) y los vínculos social_risk_stakeholder e
 // incident_stakeholder deben quedar en el proyecto del registro; si no, 409 PROJECT_MISMATCH sobre el campo o la relación. una
 // regla de alerta del tenant (sin proyecto) no discrepa. lee los destinos como quien escribe: uno que no lee es 403
@@ -76,9 +76,13 @@ class ProjectLinkGuard(
     ) = Finding("PROJECT_MISMATCH", "El registro vinculado en $field es de otro proyecto: un registro de $objectName solo referencia lo de su proyecto", field)
 
     companion object {
-        // los objetos de F4 (BC-07, BC-08 y BC-09)
+        // los objetos de F4 (BC-07, BC-08 y BC-09) y, desde F5 (elección 5), el aporte, el programa y la tarea, cuyos orígenes
+        // hasta F4 no se juzgaban
         val OBJECTS: Set<String> =
             setOf(
+                "social_contribution",
+                "social_program",
+                "task",
                 "grievance",
                 "inquiry",
                 "stakeholder_request",
