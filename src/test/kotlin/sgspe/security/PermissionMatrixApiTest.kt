@@ -181,6 +181,88 @@ class PermissionMatrixApiTest : F2ApiTest() {
         assertEquals(emptyList<String>(), failures, "$role:\n${failures.joinToString("\n")}")
     }
 
+    // la columna «otro proyecto» de los hijos de BC-10 (especificación de F5 §5): un hijo cuyo padre (o abuelo, en
+    // program_measurement) es de un proyecto al que el rol no está asignado no se lee (404) y su alta con ese padre es el 400 de
+    // wasichai sobre el campo del padre (ASM-108); quien lee todos los proyectos lo lee (200) y no da de alta en él sin
+    // asignación (403). la entrega de un aporte (apiOnly) la prueba ProjectReadScopeApiTest
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("roles")
+    fun `ningun rol lee ni da de alta un hijo de BC-10 de un proyecto al que no esta asignado`(role: String) {
+        val account = member(role)
+        val grants = Model.roles.getValue(role)
+        val readsTenant = grants["*"]?.contains("READ") == true
+        val readsAll = "READ_ALL_PROJECTS" in grants["project"].orEmpty()
+        val other = SHARED.shared.getOrPut(OTHER) { Fixture(project(), emptyMap()) }.id
+        val failures = mutableListOf<String>()
+
+        fun expect(
+            what: String,
+            wanted: HttpStatus,
+            response: Response,
+            field: String? = null
+        ) {
+            if (response.status != wanted) {
+                failures += "$what: $wanted esperado, ${response.status} ${response.body.take(300)}"
+            } else if (field != null && field !in problemFields(response.body)) {
+                failures += "$what: el error no nombra $field: ${response.body.take(300)}"
+            }
+        }
+        for (name in BC10_CHILDREN) {
+            val (field, parent) = ProjectScope.CHILDREN.getValue(name).first()
+            val actions = grants[name].orEmpty()
+            val records = "/api/objects/$name/records"
+            if ("READ" in actions || readsTenant) {
+                val foreign =
+                    try {
+                        foreign(name, other)
+                    } catch (e: Throwable) {
+                        failures += "$name: no se pudo armar el registro del otro proyecto, ${e.message?.take(300)}"
+                        null
+                    }
+                if (foreign != null) {
+                    expect(
+                        "$name READ (otro proyecto)",
+                        if (readsAll) HttpStatus.OK else HttpStatus.NOT_FOUND,
+                        exchange("GET", "$records/${foreign.id}", token = account.token)
+                    )
+                }
+            }
+            if ("CREATE" in actions) {
+                val parentRecord =
+                    try {
+                        foreign(parent, other)
+                    } catch (e: Throwable) {
+                        failures += "$name: no se pudo armar el padre del otro proyecto, ${e.message?.take(300)}"
+                        null
+                    }
+                if (parentRecord != null) {
+                    val created = exchange("POST", records, mapOf("attributes" to sample(name) + (field to parentRecord.id)), account.token)
+                    if (readsAll) {
+                        expect("$name CREATE (otro proyecto)", HttpStatus.FORBIDDEN, created)
+                    } else {
+                        expect("$name CREATE (otro proyecto)", HttpStatus.BAD_REQUEST, created, field)
+                    }
+                }
+            }
+        }
+        assertEquals(emptyList<String>(), failures, "$role:\n${failures.joinToString("\n")}")
+    }
+
+    // el registro mínimo de `name` en el otro proyecto, compartido entre los roles: una raíz con ese `project`; un hijo, colgado
+    // del registro de su primer padre en el otro proyecto (program_measurement sube dos saltos)
+    private fun foreign(
+        name: String,
+        other: String
+    ): Fixture =
+        SHARED.shared.getOrPut("$OTHER:$name") {
+            if (name in ProjectScope.ROOTS) {
+                fixture(name, mapOf("project" to other))
+            } else {
+                val (field, parent) = ProjectScope.CHILDREN.getValue(name).first()
+                fixture(name, mapOf(field to foreign(parent, other).id))
+            }
+        }
+
     private fun problemFields(body: String): List<String> =
         runCatching { tree(body)["errors"].values().map { it["field"].asString() } }.getOrDefault(emptyList())
 
@@ -201,6 +283,19 @@ class PermissionMatrixApiTest : F2ApiTest() {
     companion object {
         private const val PROJECT = "\u0000project"
         private const val OTHER = "\u0000other"
+
+        // los hijos de BC-10 (especificación de F5 §2.3, elección 4): por social_contribution, social_program o program_indicator
+        private val BC10_CHILDREN =
+            listOf(
+                "contribution_item",
+                "receipt",
+                "social_initiative",
+                "beneficiary_group",
+                "program_budget",
+                "program_indicator",
+                "program_measurement",
+                "program_milestone"
+            )
 
         // las raíces con `project` obligatorio cuyo registro mínimo solo nombra maestros del tenant: se pueden armar en otro
         // proyecto sin un padre de ese proyecto (ProjectScope, ASM-106)
