@@ -15,7 +15,8 @@ corta entre peticiones solo donde una definición vieja falla cerrado, y medir e
 `sgspe.metadata.definition-ttl` (30 s), por organización y objeto, sin guardar ausencias y con un tope de entradas.
 `ProjectReadScope` y `Permissions.has` (que solo usa el id del objeto) leen con `recent`; las guardas, `WriteView`,
 `TenantModel` y los comandos, con `current`. Los permisos nunca se guardan entre peticiones. `ArchitectureTest` fija la
-regla.
+regla. Además (Tarea 6), `RequestMemoFilter` abre el memo de un comando en las escrituras de `/api/sgspe/`, y
+`Assignments.isAssigned` lee `project_assignment` una vez por usuario y proyecto en cada comando, nunca entre peticiones.
 
 **Tech Stack:** Kotlin 2.4.20, Spring Boot 4.1.1 WebFlux con corrutinas, JDK 25, Gradle 9.8.0, `wasichai-bom` 1.0.0 (sin
 starters ni dependencias nuevas: `ConcurrentHashMap` y `System.nanoTime`, sin Caffeine), JUnit 5 y Mockito con
@@ -42,7 +43,8 @@ y el plan 5.2b (Tarea 13, la base de medición).
 - **Falla cerrado.** Una definición vieja nunca abre registros: `recent` solo se usa donde una definición vieja deja la
   condición incompleta (`NOTHING`), acota por menos padres, produce un SQL que falla o niega un permiso. Ninguna ausencia
   (`NotFoundException`) se guarda entre peticiones.
-- **Permisos.** Nunca se guardan entre peticiones: cambian al instante por `/api/roles`. Dentro de una petición siguen el
+- **Permisos y asignaciones.** Nunca se guardan entre peticiones: cambian al instante por `/api/roles` y
+  `/api/objects/project_assignment`. Una asignación vive a lo sumo lo que un comando (Tarea 6). Dentro de una petición siguen el
   memo que ya tienen (`ProjectReach.readsAll`, `ConfidentialAttentionScope`, `EvidenceFileReadPolicy`).
 - **Configuración.** `sgspe.metadata.definition-ttl: 30s` (`0s` apaga la caché entre peticiones y deja el memo por
   petición) y `sgspe.metadata.definition-max-entries: 1000`, en `src/main/resources/application.yml`.
@@ -53,6 +55,7 @@ y el plan 5.2b (Tarea 13, la base de medición).
 - **Integración.** Las clases `*ApiTest` necesitan PostgreSQL: **corren en la CI del PR** y, si se quiere antes, las corre el
   coordinador, nunca el implementador ni un subagente. El implementador compila (`build` compila también las de
   integración) y entrega la tarea marcada «integración pendiente» con las clases de su último paso.
+- **Orden de las tareas.** 1, 2, 3, 6 (agregada con la aprobación del usuario), 4 y 5.
 - **Base, túnel, Docker y tenant de desarrollo.** Solo el coordinador principal los toca (Tarea 4).
 - **Commits.** Conventional Commits con asunto en español; cuerpo de 100 columnas como máximo; al final, tras una línea en
   blanco, `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>` y
@@ -94,6 +97,9 @@ dueña del código:
    la apaga sin quitar el memo por petición. Prueba: `ObjectDefinitionsTest` «con ttl cero no guarda entre peticiones,
    pero sí dentro de una» (Tarea 1). Un permiso cambiado vale desde la petición siguiente: lo sigue fijando
    `RequestMemoFilterApiTest` (sin cambios).
+6. **Una asignación quitada en medio de un trabajo.** El memo de un comando no puede durar más que el comando: la asignación
+   que se quita por `/api/objects/project_assignment` deja de valer desde la petición siguiente. Pruebas:
+   `RequestMemoFilterTest` «dos comandos no comparten la asignacion» y `AssignmentMemoApiTest` (Tarea 6).
 
 ---
 
@@ -142,14 +148,13 @@ a confirmar con la Tarea 4 (Paso 3):
 | 4 lecturas del comando (`get` del aporte dos veces, `count` de entregas, `get` de la entrega) | unas 45 | wasichai carga la definición leída en cada una (2) y sus 3 consultas de rol; el alcance, `project_assignment` (2) y, en `delivery`, la cadena de dos padres (4) | unas 29 |
 | Alta de la entrega (wasichai, `Records.writableFields` con `definitionOf`, guardas, listeners de totales y avisos) | 50 a 70 | `WriteView.after`, `TenantModel`, el alcance de cada lectura de una guarda | 8 a 12 menos |
 | 3 vínculos `evidence_delivery` (wasichai carga las dos definiciones, el permiso y lee los dos extremos con el alcance) | unas 60 | por vínculo: definiciones de `evidence` y `delivery` (4), alcance de `delivery` (6) y de `evidence` (2) | unas 24 menos |
-| `ProjectScopeGuard` en el alta y en los dos extremos de cada vínculo (7 veces): `ProjectResolver` lee el aporte y `Assignments.isAssigned` lista `project_assignment` como quien escribe | unas 90 | `isAssigned` usa `RequestMemo.remember`, que solo vale dentro de un `RequestMemo.within`, y el comando no lo abre: cada vez es una lista completa (7 a 10 consultas) | unas 14 menos (solo definiciones) |
-| **Total** | **260 a 320 (unos 10 a 13 s por el túnel)** | | **unas 90 a 110 menos (≈ 35 %, 3,5 a 4 s)** |
+| `ProjectScopeGuard` en el alta y en los dos extremos de cada vínculo (7 veces): `ProjectResolver` lee el aporte y `Assignments.isAssigned` lista `project_assignment` como quien escribe | unas 90 | `isAssigned` usa `RequestMemo.remember`, que solo vale dentro de un `RequestMemo.within`, y el comando no lo abre: cada vez es una lista completa (7 a 10 consultas) | unas 70 menos (definiciones, y con la Tarea 6 una sola lista de asignaciones) |
+| **Total** | **260 a 320 (unos 10 a 13 s por el túnel)** | | **unas 145 a 165 menos (≈ 55 %, 5 a 6 s)** |
 
 Lo que queda después de este plan: unas 100 consultas de wasichai por operación (definición del objeto y las tres de rol
-en cada `get`, `list`, `create` y `link`, anexo A) y unas 60 de las listas repetidas de `isAssigned`. Lo segundo es de
-SGSPE y barato (abrir `RequestMemo.within` en `ContributionDeliveries`, `CommitmentDeliveries` y `Evidences`, como la
-confirmación de una importación), pero no es la caché del esquema: queda fuera de este plan (decisión 8) y la Tarea 5 lo
-anota en el backlog con las cifras de la Tarea 4. `transition-checks` (1,5 a 3,5 s) corre las mismas reglas en seco y gana
+en cada `get`, `list`, `create` y `link`, anexo A). Las unas 60 de las listas repetidas de `isAssigned` las quita la Tarea 6
+(decisión 8): `RequestMemoFilter` abre el memo del comando en las escrituras de `/api/sgspe/`, como la confirmación de una
+importación abre el suyo. `transition-checks` (1,5 a 3,5 s) corre las mismas reglas en seco y gana
 lo mismo por petición: las definiciones de las guardas una vez y los permisos sin su definición.
 
 ### Decisiones de este plan
@@ -163,7 +168,7 @@ lo mismo por petición: las definiciones de las guardas una vez y los permisos s
 | 5 | ¿Ausencias? | **Nunca se guardan entre peticiones.** `TenantModel.has` memoriza su respuesta (también el «no está») solo por petición, como un permiso |
 | 6 | ¿Permisos de `ProjectReach.readsAll`? | **Sin cambios en su memo.** Ya se pregunta una vez por petición (`RequestMemoFilter`, plan 4.4a, Tarea 17; `RequestMemoFilterApiTest` lo fija) y nunca se guarda entre peticiones: los permisos cambian al instante. Lo que baja es el costo de cada pregunta, de 3 consultas a 1, porque la definición de `project` sale de `recent` |
 | 7 | ¿Caffeine o la caché de Spring? | **Ninguna.** Spring Boot 4.1.1 no trae Caffeine, y `spring-boot-starter-cache` con `ConcurrentMapCache` no tiene TTL; una dependencia nueva para unas 60 líneas no se justifica. `ObjectDefinitions` usa un `ConcurrentHashMap` con la hora de carga de `System.nanoTime`, como `TokenRevocation` de wasichai. No usa el `Clock` de SGSPE: las pruebas de integración lo fijan (`Clock.fixed`) y la caché nunca vencería |
-| 8 | ¿Se arregla aquí la repetición de `Assignments.isAssigned` en los comandos de entregas y evidencias? | **No.** No es la caché del esquema, y su efecto se mide mejor con las cifras de la Tarea 4. La Tarea 5 lo anota en el backlog del roadmap con lo que ahorraría |
+| 8 | ¿Se arregla aquí la repetición de `Assignments.isAssigned` en los comandos de entregas y evidencias? | **Sí, en la Tarea 6** (el usuario la aprobó con el plan, 2026-10-11; antes iba al backlog). No es la caché del esquema, pero es barata y es la mayor repetición propia del alta de una entrega: `RequestMemoFilter` abre el memo de un comando (`RequestMemo.within`) en toda escritura de `/api/sgspe/`, y `isAssigned` lee una vez por usuario y proyecto. Nunca entre peticiones, como los permisos |
 | 9 | `Records.writableFields` (camino de la plataforma) también llama a `loadDefinition` | **Se exceptúa en `ArchitectureTest`.** Corre en los trabajos de fondo, fuera de una petición, donde el memo no aplica; cambiar el constructor de `Records` tocaría diez pruebas sin ganar nada medible |
 | 10 | ¿Comentarios falsos? | `ProjectReadScope` («wasichai las tiene en caché») y `RequestMemoFilterApiTest` («la caché de definiciones de wasichai») se corrigen (Tareas 2 y 3) |
 
@@ -184,6 +189,8 @@ lo mismo por petición: las definiciones de las guardas una vez y los permisos s
 | `src/main/kotlin/sgspe/evidence/EvidenceWriteGuard.kt`, `src/main/kotlin/sgspe/scope/IssueDocumentFilter.kt` | 3 | `current` |
 | `src/test/kotlin/sgspe/ArchitectureTest.kt` | 3 | «solo ObjectDefinitions carga definiciones de objeto» |
 | `src/test/kotlin/sgspe/common/TenantModelTest.kt`, `attention/RequestClosureListenerTest.kt`, `investment/CampaignCommittedTest.kt`, `investment/SupportPolicyGuardTest.kt`, `evidence/EvidenceWriteGuardTenantTest.kt`, `common/RequestMemoFilterApiTest.kt` | 3 | los dobles pasan a `ObjectDefinitions`; comentario corregido |
+| `src/main/kotlin/sgspe/common/RequestMemoFilter.kt`, `RequestMemo.kt`, `src/main/kotlin/sgspe/scope/Assignments.kt` | 6 | el memo del comando en las escrituras de `/api/sgspe/`; comentarios |
+| `src/test/kotlin/sgspe/common/RequestMemoFilterTest.kt`, `src/test/kotlin/sgspe/scope/AssignmentMemoApiTest.kt` (nuevo) | 6 | el memo del comando por ruta y método; una lectura de asignaciones por comando |
 | `docs/security.md`, `docs/roadmap.md`, `CLAUDE.md` | 5 | §9.7, cifras antes y después, backlog, tabla «Dónde está cada cosa» |
 
 ---
@@ -960,6 +967,306 @@ Expected: `BUILD SUCCESSFUL`. Integración pendiente (CI del PR, suite completa)
 
 ---
 
+### Tarea 6: Los comandos de SGSPE leen las asignaciones una vez por usuario y proyecto
+
+Agregada al plan con su aprobación (2026-10-11); se ejecuta después de la Tarea 3 y antes de la 4, sobre
+`perf/cache-esquema` con las Tareas 1 a 3 integradas. Se numera 6 para no renumerar las demás.
+
+**Files:**
+- Modify: `src/main/kotlin/sgspe/common/RequestMemoFilter.kt` (el memo del comando en `/api/sgspe/`; comentario)
+- Modify: `src/main/kotlin/sgspe/common/RequestMemo.kt` (comentario del memo de un comando)
+- Modify: `src/main/kotlin/sgspe/scope/Assignments.kt` (comentario de `isAssigned`)
+- Modify: `src/test/kotlin/sgspe/common/RequestMemoFilterTest.kt`
+- Create: `src/test/kotlin/sgspe/scope/AssignmentMemoApiTest.kt`
+
+**Interfaces:**
+- Consumes: `RequestMemo.within(block)` y `RequestMemo.remember(key, compute)` (sin cambios); `Assignments.isAssigned(userId:
+  UUID, project: UUID): Boolean`, que ya memoriza con `RequestMemo.remember("project_assignment:<usuario>:<proyecto>")`;
+  `ProjectScopeGuard`, que la pregunta en cada alta, cambio, transición y vínculo de un objeto con proyecto (sin cambios).
+- Produces: `RequestMemoFilter` abre, además del memo de la petición, el memo de un comando (`RequestMemo.within`) en toda
+  petición `POST`, `PUT`, `PATCH` o `DELETE` bajo `/api/sgspe/`. Ninguna firma pública cambia.
+
+**Contexto.** `ProjectScopeGuard` (vía `Assignments.isAssigned`) relee `project_assignment` en cada juicio: en el alta de
+una entrega con tres evidencias lo hace unas 7 veces (el alta y los dos extremos de cada vínculo `evidence_delivery`), unas
+60 consultas, porque los comandos de `/api/sgspe/**` (`ContributionDeliveries`, `CommitmentDeliveries`, `Evidences`,
+`Acceptances`, `Referrals`, `Reclassifications`, `Reschedules`, `Candidates`, `RiskAssessments`, `Assessments`, …) no abren
+`RequestMemo.within` (solo la confirmación de una importación lo hace). `RequestMemo.remember` sin memo de comando calcula
+cada vez, y el memo de la petición (`rememberForRequest`) no admite asignaciones (una petición de `/api/objects` sí las
+escribe). La solución es la de la API genérica: el filtro que ya abre el memo de la petición abre también el de un comando
+en las escrituras de `/api/sgspe/`. Es seguro porque ningún comando de `/api/sgspe/` escribe `project_assignment`,
+`contribution_item` ni `commitment_stakeholder` (lo único que hoy guarda ese memo: `isAssigned`, `Records.itemsOf`,
+`Records.stakeholdersOf`; comprobado con `grep -rn "records\.\(create\|update\|link\|unlink\|delete\)(" src/main/kotlin`), y
+las guardas que juntan reglas (`CommitmentWriteGuard`, `InvestmentWriteGuard`) abren el suyo, que tapa al del comando. Una
+asignación nunca se guarda entre peticiones: el memo vive lo que el comando. Las lecturas (`GET`) y la API genérica no
+cambian: la segunda escribe un registro por petición.
+
+- [ ] **Paso 1: Rama**
+
+```bash
+cd ~/IdeaProjects/sgspe && git switch perf/cache-esquema && git switch -c ce/t6
+```
+
+- [ ] **Paso 2: Las pruebas que fallan**
+
+`src/test/kotlin/sgspe/common/RequestMemoFilterTest.kt` queda:
+
+```kotlin
+package sgspe.common
+
+import kotlinx.coroutines.reactor.mono
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.springframework.http.HttpMethod
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest
+import org.springframework.mock.web.server.MockServerWebExchange
+import org.springframework.web.server.CoWebFilter
+import org.springframework.web.server.WebFilterChain
+import java.util.UUID
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
+
+// RequestMemoFilter: toda petición de /api abre su propio memo, que llega al controlador por el contexto de la corrutina (como
+// lo pasa Spring a un controlador suspend); fuera de /api no hay memo. un comando de SGSPE (una escritura bajo /api/sgspe/)
+// abre además el memo del comando, donde Assignments.isAssigned guarda la asignación de quien escribe
+class RequestMemoFilterTest {
+    // cuántas veces se calcula una pregunta hecha tres veces por el controlador de una petición `method` a `path`: la de quien
+    // llama (rememberForRequest, los permisos) o, con `command`, la de un comando (remember, la asignación de quien escribe)
+    private fun computed(
+        path: String,
+        method: HttpMethod = HttpMethod.GET,
+        command: Boolean = false
+    ): Int {
+        var calls = 0
+        val compute: suspend () -> Boolean = {
+            calls++
+            true
+        }
+        val exchange = MockServerWebExchange.from(MockServerHttpRequest.method(method, path))
+        val chain =
+            WebFilterChain { forwarded ->
+                val context = forwarded.getAttribute<CoroutineContext>(CoWebFilter.COROUTINE_CONTEXT_ATTRIBUTE) ?: EmptyCoroutineContext
+                mono(context) {
+                    repeat(3) {
+                        if (command) RequestMemo.remember("asignacion", compute) else RequestMemo.rememberForRequest("permisos", compute)
+                    }
+                }.then()
+            }
+        RequestMemoFilter().filter(exchange, chain).block()
+        return calls
+    }
+
+    @Test
+    fun `una peticion de api pregunta una vez`() {
+        assertEquals(1, computed("/api/objects/stakeholder_assessment/records?size=50"))
+        assertEquals(1, computed("/api/sgspe/evidence", HttpMethod.POST))
+    }
+
+    @Test
+    fun `dos peticiones no comparten el memo`() {
+        assertEquals(2, computed("/api/sgspe/dashboards/indicators") + computed("/api/sgspe/dashboards/indicators"))
+    }
+
+    @Test
+    fun `fuera de api no hay memo`() {
+        assertEquals(3, computed("/actuator/health"))
+        assertEquals(3, computed("/apix/otra"))
+    }
+
+    // el alta de una entrega con tres evidencias preguntaba unas 7 veces si quien escribe está asignado al proyecto
+    @Test
+    fun `un comando de SGSPE abre el memo del comando, y una lectura o la API generica no`() {
+        val id = UUID.randomUUID()
+        assertEquals(1, computed("/api/sgspe/social-contributions/$id/deliveries", HttpMethod.POST, command = true))
+        assertEquals(1, computed("/api/sgspe/deliveries/$id", HttpMethod.PATCH, command = true))
+        assertEquals(1, computed("/api/sgspe/evidence/$id/links/delivery/$id", HttpMethod.DELETE, command = true))
+        assertEquals(3, computed("/api/sgspe/dashboards/indicators", command = true))
+        assertEquals(3, computed("/api/objects/project_assignment/records", HttpMethod.POST, command = true))
+        assertEquals(3, computed("/actuator/health", HttpMethod.POST, command = true))
+    }
+
+    // una asignación nunca pasa de un comando a otro: cambia al instante por /api/objects/project_assignment
+    @Test
+    fun `dos comandos no comparten la asignacion`() {
+        val path = "/api/sgspe/evidence"
+        assertEquals(2, computed(path, HttpMethod.POST, command = true) + computed(path, HttpMethod.POST, command = true))
+    }
+}
+```
+
+`src/test/kotlin/sgspe/scope/AssignmentMemoApiTest.kt`:
+
+```kotlin
+package sgspe.scope
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito
+import org.springframework.http.HttpStatus
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+import sgspe.F5ApiTest
+import sgspe.common.Records
+
+// el memo del comando (plan corto de la caché del esquema, Tarea 6): un comando de /api/sgspe lee las asignaciones de quien
+// escribe una vez por proyecto aunque ProjectScopeGuard pregunte en el alta y en los dos extremos de cada vínculo, y otro
+// comando vuelve a leerlas (nada pasa de una petición a otra). en lugar de contar consultas en el log de SQL se espía Records y
+// se cuentan sus lecturas de project_assignment filtradas por quien escribe (Assignments.isAssigned), como
+// RequestMemoFilterApiTest cuenta las preguntas de permisos
+class AssignmentMemoApiTest : F5ApiTest() {
+    @MockitoSpyBean
+    private lateinit var records: Records
+
+    // las lecturas de project_assignment de `account` desde la última limpieza
+    private fun assignmentReads(account: Account): Int =
+        Mockito.mockingDetails(records).invocations.count { call ->
+            call.method.name == "all" &&
+                call.arguments[0] == Assignments.OBJECT &&
+                (call.arguments[1] as? Map<*, *>)?.get("member_user_id") == account.id
+        }
+
+    @Test
+    fun `el alta de una entrega con tres evidencias lee las asignaciones de quien la captura una vez`() {
+        val project = testProject()
+        val manager = member("SOCIAL_INVESTMENT_MANAGER", project)
+        val contribution = approvedContribution(project, manager, procure = true)
+        val evidence = listOf("ACTA DE RECEPCION", "FOTO", "COMPROBANTE").map { evidence(project, it, account = manager) }
+        val headers = ifMatch("social_contribution", contribution, manager.token) + withReason("entrega")
+        val body =
+            mapOf(
+                "attributes" to mapOf("delivery_date" to "2026-10-01", "conformity_given" to true, "conformity_by" to "Junta directiva de la escuela"),
+                "evidence" to evidence
+            )
+        Mockito.clearInvocations(records)
+        val captured = exchange("POST", "/api/sgspe/social-contributions/$contribution/deliveries", body, manager.token, headers)
+        assertEquals(HttpStatus.CREATED, captured.status, captured.body)
+        assertEquals(1, assignmentReads(manager))
+        // otro comando vuelve a leerlas: el memo dura lo que el comando
+        val file = stagedFile("evidence", "file", manager)
+        Mockito.clearInvocations(records)
+        val other =
+            createEvidence(mapOf("file" to file, "evidence_type" to "FOTO", "classification" to "INTERNA", "project" to project), token = manager.token)
+        assertEquals(HttpStatus.CREATED, other.status, other.body)
+        assertEquals(1, assignmentReads(manager))
+    }
+}
+```
+
+- [ ] **Paso 3: Correr la unitaria y ver que falla**
+
+Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.common.RequestMemoFilterTest'`
+Expected: FAIL en `un comando de SGSPE abre el memo del comando, y una lectura o la API generica no` («expected: <1> but
+was: <3>»: sin el memo del comando, cada pregunta se calcula); las otras cuatro pasan. `AssignmentMemoApiTest` compila
+(`compileTestKotlin`) y fallaría en la CI con unas 7 lecturas (integración pendiente).
+
+- [ ] **Paso 4: La implementación**
+
+`src/main/kotlin/sgspe/common/RequestMemoFilter.kt` queda:
+
+```kotlin
+package sgspe.common
+
+import org.springframework.core.annotation.Order
+import org.springframework.http.HttpMethod
+import org.springframework.stereotype.Component
+import org.springframework.web.server.CoWebFilter
+import org.springframework.web.server.CoWebFilterChain
+import org.springframework.web.server.ServerWebExchange
+
+// abre el memo de la petición (RequestMemo.forRequest) para toda petición de /api (especificación 4.4 §3.10; la medición de la
+// Tarea 17 del plan 4.4a lo pidió: una lista de 50 evaluaciones como ANALYST tardaba el doble que como ADMIN por las preguntas
+// de permisos, no por el SQL del alcance). la pregunta de permisos de ProjectReach.readsAll y ConfidentialAttentionScope se
+// hace una vez por petición y no una vez por objeto y lectura. CoWebFilter pasa el contexto de la corrutina al controlador
+// (COROUTINE_CONTEXT_ATTRIBUTE de Spring), así que el memo llega a RecordService y a los RecordReadScope. el memo de la
+// petición solo guarda lo que una petición no cambia, los permisos de quien llama (RequestMemo explica por qué).
+// un comando de SGSPE (POST, PUT, PATCH o DELETE bajo /api/sgspe/) abre además el memo del comando (RequestMemo.within; plan
+// de la caché del esquema, Tarea 6): ProjectScopeGuard pregunta Assignments.isAssigned en el alta y en cada vínculo, y el alta
+// de una entrega con tres evidencias leía project_assignment unas 7 veces. vale porque ningún comando de /api/sgspe escribe
+// asignaciones, ítems de aporte ni solicitantes de un compromiso (lo que guarda ese memo). la API genérica escribe un registro
+// por petición y no lo abre. cada petición abre memos nuevos: nada pasa de una a otra
+@Component
+@Order(RequestMemoFilter.ORDER)
+class RequestMemoFilter : CoWebFilter() {
+    override suspend fun filter(
+        exchange: ServerWebExchange,
+        chain: CoWebFilterChain
+    ) {
+        val path =
+            exchange.request.path
+                .pathWithinApplication()
+                .value()
+        if (!path.startsWith("/api/")) return chain.filter(exchange)
+        if (path.startsWith(COMMANDS) && exchange.request.method in WRITES) {
+            RequestMemo.forRequest { RequestMemo.within { chain.filter(exchange) } }
+        } else {
+            RequestMemo.forRequest { chain.filter(exchange) }
+        }
+    }
+
+    companion object {
+        // después de la cadena de seguridad (-100) y del filtro de documentos (IssueDocumentFilter, -99): quien llama ya está
+        // autenticado. common no conoce scope, por eso el número
+        const val ORDER = -98
+
+        // los comandos de SGSPE: sus escrituras abren el memo del comando
+        private const val COMMANDS = "/api/sgspe/"
+        private val WRITES = setOf(HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE)
+    }
+}
+```
+
+`src/main/kotlin/sgspe/common/RequestMemo.kt`: en el comentario de la clase, reemplace las cuatro líneas de la primera viñeta
+(de «// - el de un comando (`within` y `remember`): la confirmación de una importación crea cientos de componentes, y» a
+«SgspeWrite). solo para datos que el comando no cambia: sus asignaciones, los solicitantes de un compromiso») por:
+
+```kotlin
+// - el de un comando (`within` y `remember`): RequestMemoFilter lo abre en cada comando de SGSPE (POST, PUT, PATCH o DELETE
+//   bajo /api/sgspe/; plan de la caché del esquema, Tarea 6), y la confirmación de una importación y las guardas que juntan
+//   reglas abren el suyo, que tapa al de afuera. ProjectScopeGuard pregunta en cada alta, cambio y vínculo si quien escribe
+//   está asignado al proyecto (el alta de una entrega con tres evidencias, unas 7 veces; una importación, cientos), y
+//   RecordService llama a las guardas en la corrutina del comando (como la marca SgspeWrite). solo para datos que el comando
+//   no cambia: sus asignaciones, los ítems de un aporte, los solicitantes de un compromiso (ningún comando los escribe)
+```
+
+`src/main/kotlin/sgspe/scope/Assignments.kt`: el comentario de `isAssigned` (las dos líneas que empiezan con «si el usuario
+tiene una asignación vigente al proyecto») pasa a:
+
+```kotlin
+    // si el usuario tiene una asignación vigente al proyecto. dentro del memo de un comando (RequestMemoFilter lo abre en cada
+    // comando de /api/sgspe; la confirmación de una importación, el suyo) se lee una vez por usuario y proyecto, no una vez
+    // por registro escrito o vinculado. nunca entre peticiones: una asignación cambia al instante por /api/objects
+```
+
+- [ ] **Paso 5: Correr la unitaria y ver que pasa**
+
+Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.common.RequestMemoFilterTest' --tests 'sgspe.common.RequestMemoTest'`
+Expected: PASS, 9 pruebas.
+
+- [ ] **Paso 6: Build y commit**
+
+```bash
+cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
+git add src/main/kotlin/sgspe/common/RequestMemoFilter.kt src/main/kotlin/sgspe/common/RequestMemo.kt \
+  src/main/kotlin/sgspe/scope/Assignments.kt src/test/kotlin/sgspe/common/RequestMemoFilterTest.kt \
+  src/test/kotlin/sgspe/scope/AssignmentMemoApiTest.kt
+git commit -m "$(cat <<'EOF'
+perf(common): los comandos de SGSPE leen las asignaciones una vez por petición
+
+RequestMemoFilter abre el memo del comando en las escrituras de /api/sgspe/: ProjectScopeGuard
+lee project_assignment una vez por usuario y proyecto, no en el alta y en cada vínculo (unas 7
+veces en el alta de una entrega con tres evidencias). Nada pasa de una petición a otra.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
+EOF
+)"
+git switch perf/cache-esquema && git merge --no-ff ce/t6 -m "chore: integra la tarea 6 del plan de la caché del esquema"
+```
+
+Expected: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.scope.AssignmentMemoApiTest`,
+`sgspe.common.RequestMemoFilterApiTest`, `sgspe.ContributionApiTest` y sus subclases, `sgspe.commitment.DeliveryApiTest`,
+`sgspe.evidence.EvidenceApiTest`, `sgspe.territory.ImportLimitsApiTest` (CI del PR o el coordinador).
+
+---
+
 ### Tarea 4: Medición antes y después por el túnel (coordinador)
 
 **Files:**
@@ -967,7 +1274,7 @@ Expected: `BUILD SUCCESSFUL`. Integración pendiente (CI del PR, suite completa)
   `docs/roadmap.md`.
 
 **Interfaces:**
-- Consumes: las Tareas 1 a 3 integradas en `perf/cache-esquema`; `main` en `06a47f2` o posterior (el «antes»); la base
+- Consumes: las Tareas 1, 2, 3 y 6 integradas en `perf/cache-esquema`; `main` en `06a47f2` o posterior (el «antes»); la base
   `sgspe_medicion5` de la medición de 5.2b (si ya no existe, se recrea con los Pasos 2 y 3 de la Tarea 13 del plan 5.2b en
   una base nueva), con `analista-medicion@sgspe.test` (`ANALYST`) e `inversion-medicion@sgspe.test`
   (`SOCIAL_INVESTMENT_MANAGER`) asignadas a «Proyecto Ejemplo A».
@@ -1043,10 +1350,10 @@ medir "$TOKEN_INVERSION" POST "/api/sgspe/social-contributions/$APORTE/deliverie
 con `entrega.json` = los atributos de la entrega del Paso 2 de la Tarea 13 de 5.2b y `"evidence": [<las tres>]`.
 
 Se anota: tiempo, consultas totales y el desglose (`custom_objects`, `my_roles`, `own_records_only`, `permissions`, el resto).
-Esperado después: al menos un 30 % menos de consultas que antes (el diagnóstico estima de 260-320 a 160-220). Con el log del
-«después», el coordinador cuenta además cuántas listas de `project_assignment` hace el POST (`grep -c` del nombre de su
-tabla física en las consultas de datos): es la repetición de `Assignments.isAssigned` de la decisión 8, que va al backlog
-con su cifra.
+Esperado después: al menos un 40 % menos de consultas que antes (el diagnóstico estima de 260-320 a 110-160). Con los logs
+del «antes» y del «después», el coordinador cuenta además cuántas listas de `project_assignment` hace el POST (`grep -c` del
+nombre de su tabla física en las consultas de datos): la repetición de `Assignments.isAssigned` de la decisión 8, que la
+Tarea 6 deja en una lista por usuario y proyecto.
 
 - [ ] **Paso 4: Las cifras**
 
@@ -1063,10 +1370,10 @@ sin su aprobación.
 - Modify: `docs/security.md` (§9.7, después de la viñeta «Falla cerrado»)
 - Modify: `docs/roadmap.md` (fila «Estado» de F5)
 - Modify: `CLAUDE.md` (tabla «Dónde está cada cosa»)
-- Add: `docs/superpowers/plans/2026-10-11-cache-esquema.md` (este plan, con sus casillas marcadas)
+- Modify: `docs/superpowers/plans/2026-10-11-cache-esquema.md` (este plan, versionado en el primer commit de la rama, con sus casillas marcadas)
 
 **Interfaces:**
-- Consumes: las Tareas 1 a 3 integradas; las cifras de la Tarea 4 (`$TMPDIR/sgspe-cache-esquema-medicion.txt`).
+- Consumes: las Tareas 1, 2, 3 y 6 integradas; las cifras de la Tarea 4 (`$TMPDIR/sgspe-cache-esquema-medicion.txt`).
 - Produces: la rama `perf/cache-esquema` con su PR en verde e integrada en `main`.
 
 - [ ] **Paso 1: `docs/security.md` §9.7**
@@ -1092,10 +1399,10 @@ esquema (plan corto `2026-10-11-cache-esquema`) y queda el plan 5.3 (portal)», 
 cifras de la Tarea 4: «Medición de la caché del esquema (<fecha>): una lista de 50 mediciones o entregas como analista,
 de <n> a <n> consultas y de <t> a <t> ms (el admin, <n> consultas y <t> ms; la diferencia que queda son las tres consultas
 de rol de wasichai y la de `READ_ALL_PROJECTS`); `transition-checks`, de <t> a <t> s; el alta de una entrega con tres
-evidencias, de <n> a <n> consultas y de <t> a <t> s. Quedan en el backlog la repetición de `Assignments.isAssigned` en los
-comandos de entregas y evidencias (<n> listas de `project_assignment` por alta: un `RequestMemo.within` en el comando) y,
-upstream, la caché de definiciones y el memo de las consultas de rol de wasichai (<issue si el usuario lo aprobó, o
-«propuesto, sin abrir»>)». Cada `<…>` es una cifra o un dato de `$TMPDIR/sgspe-cache-esquema-medicion.txt`; ninguno queda
+evidencias, de <n> a <n> consultas y de <t> a <t> s, con la repetición de `Assignments.isAssigned` resuelta (de <n> listas
+de `project_assignment` por alta a una: `RequestMemoFilter` abre el memo del comando en las escrituras de `/api/sgspe/`).
+Queda en el backlog, upstream, la caché de definiciones y el memo de las consultas de rol de wasichai (<issue si el usuario
+lo aprobó, o «propuesto, sin abrir»>)». Cada `<…>` es una cifra o un dato de `$TMPDIR/sgspe-cache-esquema-medicion.txt`; ninguno queda
 sin llenar.
 
 - [ ] **Paso 3: `CLAUDE.md`**
@@ -1122,7 +1429,8 @@ git commit -m "$(cat <<'EOF'
 docs: la caché del esquema en security.md, el roadmap y CLAUDE.md
 
 security.md §9.7 dice de dónde salen las definiciones del alcance y por qué una vieja falla
-cerrado; el roadmap anota la medición antes y después y lo que queda en el backlog.
+cerrado; el roadmap anota la medición antes y después, las asignaciones leídas una vez por
+comando y lo que queda en el backlog.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_017MAgYcNauGp6cC3ekX1h7U
@@ -1139,6 +1447,9 @@ Plan corto `docs/superpowers/plans/2026-10-11-cache-esquema.md`.
   peticiones.
 - Las guardas, `WriteView`, `TenantModel` y los comandos leen con `current`; `ArchitectureTest` exige que solo
   `ObjectDefinitions` (y `Records` para la plataforma) llame a `loadDefinition`.
+- `RequestMemoFilter` abre el memo de un comando en las escrituras de `/api/sgspe/`: `Assignments.isAssigned` lee
+  `project_assignment` una vez por usuario y proyecto en cada comando (antes, en el alta y en cada vínculo), nunca entre
+  peticiones.
 - Medición por el túnel en `docs/roadmap.md` (fila F5).
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -1149,7 +1460,8 @@ EOF
 ```
 
 Expected: el PR creado. Se espera la CI en verde (unitarias, integración completa con `ObjectDefinitionsApiTest`,
-`RequestMemoFilterApiTest`, `ProjectReadScopeApiTest`, `PermissionMatrixApiTest` y las de evidencias e inversión) y se
+`RequestMemoFilterApiTest`, `ProjectReadScopeApiTest`, `AssignmentMemoApiTest`, `PermissionMatrixApiTest` y las de
+evidencias e inversión) y se
 integra en `main` como los PR de F5. Un rojo se diagnostica con superpowers:systematic-debugging antes de tocar código.
 
 ---
