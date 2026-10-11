@@ -50,6 +50,9 @@ class GdalTools(
 
     fun status(): GdalStatus = probed
 
+    // el plazo de una exportación con GDAL (sgspe.territory.gdal.timeout)
+    val timeout: Duration get() = properties.timeout
+
     fun require(
         driver: String,
         format: String
