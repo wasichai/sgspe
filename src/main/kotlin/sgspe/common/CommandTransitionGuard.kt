@@ -51,7 +51,7 @@ class CommandTransitionGuard : RuleGuard() {
                         "close_reclassified_received" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify",
                         "close_reclassified_under_evaluation" to "POST /api/sgspe/stakeholder-requests/{id}/reclassify",
                         "accept" to "POST /api/sgspe/stakeholder-requests/{id}/accept",
-                        "close_accepted" to "el cierre del compromiso creado (RequestClosureListener)"
+                        "close_accepted" to "el cierre del compromiso o del aporte creado (RequestClosureListener)"
                     ),
                 // F4: la primera revisión de un riesgo (plan 4.2b)
                 "social_risk" to mapOf("assess" to "POST /api/sgspe/social-risks/{id}/assessments")
