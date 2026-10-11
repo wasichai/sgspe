@@ -74,7 +74,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Compromisos: `CommitmentWriteGuard` y sus reglas, reprogramaciones, entregas, candidatos, derivados | `src/main/kotlin/sgspe/commitment/` |
 | Acuerdos (`AgreementWriteGuard`) | `src/main/kotlin/sgspe/agreement/` |
 | Evidencias sobre wasichai-files, descarga con `DOWNLOAD_RESTRICTED`, descriptor sin nombre ni huella (`EvidenceFileReadPolicy`, UPS-24) | `src/main/kotlin/sgspe/evidence/` |
-| Tope de apoyo social (`SupportPolicyGuard`) | `src/main/kotlin/sgspe/investment/` |
+| Inversión social: tope de apoyo (`SupportPolicyGuard` y, desde F5, `ContributionCapRule`, con `SupportCap` y `CampaignCommitted`), `InvestmentWriteGuard` (WF-P y WF-G), `ContributionGuidelines`, entrega de aportes (`ContributionDeliveries`), `ContributionTotalsListener` y `ProgramTotalsListener` | `src/main/kotlin/sgspe/investment/` |
 | JOB-01 y los avisos de plazo (`DeadlineNotices`), también la revisión de los riesgos y su tarea `risk_review` | `src/main/kotlin/sgspe/deadline/` |
 | Avisos sobre wasichai-notifications (`Notices`, `ApprovalNoticeListener`, `GraveGrievanceNoticeListener`, `ConfidentialReaders`, `RiskNoticeListener`, `WarningNoticeListener`) | `src/main/kotlin/sgspe/notification/` |
 | Riesgos: niveles y revisión (`Risks.kt`), `RiskWriteGuard`, el endpoint de revisiones (`RiskAssessments`) | `src/main/kotlin/sgspe/risk/` |
