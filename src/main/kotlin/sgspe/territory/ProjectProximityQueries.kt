@@ -9,11 +9,13 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import sgspe.common.Finding
+import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.Values
 import sgspe.common.toCodedException
 import wasichai.core.common.ForbiddenException
+import wasichai.core.metadata.MetadataService
 import java.math.BigDecimal
 import java.util.UUID
 
@@ -39,6 +41,7 @@ class ProjectProximityQueries(
     private val gate: SpatialGate,
     private val frames: ProjectFrames,
     private val records: Records,
+    private val metadata: MetadataService,
     private val limits: TerritoryQueryProperties
 ) {
     suspend fun concessionTerritories(
@@ -127,7 +130,10 @@ class ProjectProximityQueries(
                         row.get("id", UUID::class.java)!! to row.get("distance_m", BigDecimal::class.java)!!
                     }
             ) {
-                is GateOutcome.Rows -> outcome.rows.toMap()
+                is GateOutcome.Rows -> {
+                    if (outcome.rows.size > limits.maxRows) throw Records.tooMany(TerritoryNames.LOCALITY, limits.maxRows, "distanceKm")
+                    outcome.rows.toMap()
+                }
                 is GateOutcome.Unavailable -> {
                     parts.missing(*outcome.missingFields.toTypedArray())
                     null
@@ -145,6 +151,8 @@ class ProjectProximityQueries(
         parts: SpatialParts<Nearby>
     ): List<Nearby> {
         if (distances.isEmpty()) return emptyList()
+        val unreadable = Readability(metadata).missing(listOf("$CONFLICT.title"))
+        if (unreadable.isNotEmpty()) parts.missing(*unreadable.toTypedArray())
         val active =
             try {
                 records.all(CONFLICT, filters = mapOf("conflict_status" to "ACTIVO"), max = limits.maxRelated, field = "distanceKm")
@@ -248,16 +256,23 @@ class ProjectProximityQueries(
             return "ST_Transform($alias.${t.column(l, "location")}, 4326), ST_PointOnSurface(ST_Transform($alias.${t.column(l, "boundary")}, 4326))"
         }
 
-        // que `place` (en 4326) esté a menos de `meters` de la referencia: prefiltro con la envolvente en grados y medida en UTM
-        private fun near(
+        // que la columna desnuda `column` (de SRID `columnSrid`) caiga en la envolvente de la referencia ampliada en grados: así
+        // el índice GIST de la columna sirve al prefiltro
+        private fun envelope(
+            column: String,
+            columnSrid: Int,
+            bind: (Any) -> String,
+            meters: BigDecimal
+        ): String = "$column && ST_Transform(ST_Expand(ref.g, ${bind(SpatialSql.degrees(meters))}), $columnSrid)"
+
+        private fun within(
             place: String,
             bind: (Any) -> String,
             srid: String,
             meters: BigDecimal
-        ): String =
-            "$place && ST_Expand(ref.g, ${bind(SpatialSql.degrees(meters))}) " +
-                "AND ST_DWithin(ST_Transform($place, $srid), ST_Transform(ref.g, $srid), ${bind(meters.toDouble())})"
+        ): String = "ST_DWithin(ST_Transform($place, $srid), ST_Transform(ref.g, $srid), ${bind(meters.toDouble())})"
 
+        // los eventos con ubicación propia, y los que no la tienen por la ubicación (o un punto del límite) de su localidad
         internal fun eventSql(
             t: GateTables,
             bind: (Any) -> String,
@@ -267,14 +282,25 @@ class ProjectProximityQueries(
             objectName: String,
             label: String
         ): String {
+            val l = TerritoryNames.LOCALITY
             val srid = bind(frame.srid)
-            val place = "COALESCE(ST_Transform(e.${t.column(objectName, "location")}, 4326), ${localityPoint(t, "l")})"
+            val own = "ST_Transform(e.${t.column(objectName, "location")}, 4326)"
+            val viaLocality = "COALESCE(${localityPoint(t, "l")})"
+            val head = "e.${t.column(objectName, SpatialGate.ID)} AS id, e.${t.column(objectName, label)}::text AS label"
             return reference(t, bind, frame.id) +
-                "SELECT CAST(${bind(objectName)} AS text) AS object, e.${t.column(objectName, SpatialGate.ID)} AS id, " +
-                "e.${t.column(objectName, label)}::text AS label, ${SpatialSql.distanceM(place, "ref.g", srid)} AS distance_m " +
-                "FROM ${t.table(objectName)} e LEFT JOIN ${t.table(TerritoryNames.LOCALITY)} l " +
-                "ON l.${t.column(TerritoryNames.LOCALITY, SpatialGate.ID)} = e.${t.column(objectName, "locality")} CROSS JOIN ref " +
-                "WHERE ${near(place, bind, srid, meters)} ORDER BY distance_m LIMIT ${bind(limit + 1)}"
+                "SELECT object, id, label, distance_m FROM (" +
+                "SELECT CAST(${bind(objectName)} AS text) AS object, $head, ${SpatialSql.distanceM(own, "ref.g", srid)} AS distance_m " +
+                "FROM ${t.table(objectName)} e CROSS JOIN ref WHERE " +
+                "${envelope("e.${t.column(objectName, "location")}", t.srid(objectName, "location"), bind, meters)} AND ${within(own, bind, srid, meters)} " +
+                "UNION ALL " +
+                "SELECT CAST(${bind(objectName)} AS text) AS object, $head, ${SpatialSql.distanceM(viaLocality, "ref.g", srid)} AS distance_m " +
+                "FROM ${t.table(
+                    objectName
+                )} e JOIN ${t.table(l)} l ON l.${t.column(l, SpatialGate.ID)} = e.${t.column(objectName, "locality")} CROSS JOIN ref " +
+                "WHERE e.${t.column(objectName, "location")} IS NULL AND " +
+                "(${envelope("l.${t.column(l, "location")}", t.srid(l, "location"), bind, meters)} OR " +
+                "${envelope("l.${t.column(l, "boundary")}", t.srid(l, "boundary"), bind, meters)}) AND ${within(viaLocality, bind, srid, meters)}" +
+                ") u ORDER BY distance_m, id LIMIT ${bind(limit + 1)}"
         }
 
         internal fun localitySql(
@@ -284,11 +310,15 @@ class ProjectProximityQueries(
             meters: BigDecimal,
             limit: Int
         ): String {
+            val l = TerritoryNames.LOCALITY
             val srid = bind(frame.srid)
             val place = "COALESCE(${localityPoint(t, "l")})"
             return reference(t, bind, frame.id) +
-                "SELECT l.${t.column(TerritoryNames.LOCALITY, SpatialGate.ID)} AS id, ${SpatialSql.distanceM(place, "ref.g", srid)} AS distance_m " +
-                "FROM ${t.table(TerritoryNames.LOCALITY)} l CROSS JOIN ref WHERE ${near(place, bind, srid, meters)} LIMIT ${bind(limit + 1)}"
+                "SELECT l.${t.column(l, SpatialGate.ID)} AS id, ${SpatialSql.distanceM(place, "ref.g", srid)} AS distance_m " +
+                "FROM ${t.table(l)} l CROSS JOIN ref WHERE " +
+                "(${envelope("l.${t.column(l, "location")}", t.srid(l, "location"), bind, meters)} OR " +
+                "${envelope("l.${t.column(l, "boundary")}", t.srid(l, "boundary"), bind, meters)}) AND ${within(place, bind, srid, meters)} " +
+                "ORDER BY distance_m, id LIMIT ${bind(limit + 1)}"
         }
 
         internal fun sensitiveSql(
@@ -303,15 +333,20 @@ class ProjectProximityQueries(
             val srid = bind(frame.srid)
             val component = SpatialSql.firstOf(TerritoryNames.COMPONENT_GEOMETRIES.map { "c.${t.column(c, it)}" }, 4326)
             val feature = SpatialSql.firstOf(FEATURE_GEOMETRIES.map { "f.${t.column(f, it)}" }, 4326)
+            val degrees = bind(SpatialSql.degrees(meters))
+            val bare =
+                FEATURE_GEOMETRIES.joinToString(" OR ") { g ->
+                    "f.${t.column(f, g)} && ST_Transform(ST_Expand($component, $degrees), ${t.srid(f, g)})"
+                }
             return "SELECT c.${t.column(c, SpatialGate.ID)} AS component, c.${t.column(c, "code")}::text AS component_code, " +
                 "c.${t.column(c, "component_type")}::text AS component_type, f.${t.column(f, SpatialGate.ID)} AS feature, " +
                 "f.${t.column(f, "name")}::text AS feature_name, f.${t.column(f, "feature_type")}::text AS feature_type, " +
                 "${SpatialSql.distanceM(component, feature, srid)} AS distance_m " +
                 "FROM ${t.table(c)} c JOIN ${t.table(f)} f ON f.${t.column(f, "feature_type")} = ANY(${bind(SENSITIVE.toTypedArray())}) " +
-                "AND $feature && ST_Expand($component, ${bind(SpatialSql.degrees(meters))}) " +
+                "AND ($bare) " +
                 "AND ST_DWithin(ST_Transform($component, $srid), ST_Transform($feature, $srid), ${bind(meters.toDouble())}) " +
                 "WHERE c.${t.column(c, "project")} = ${bind(frame.id)} AND c.${t.column(c, "superseded")} IS NOT TRUE " +
-                "ORDER BY distance_m, 2, 5 LIMIT ${bind(limit + 1)}"
+                "ORDER BY distance_m, 2, 5, 1, 4 LIMIT ${bind(limit + 1)}"
         }
 
         internal fun concessionSql(
@@ -332,7 +367,7 @@ class ProjectProximityQueries(
                 "k.${t.column(k, "name")}::text AS concession_name, x.${t.column(x, SpatialGate.ID)} AS id, x.${t.column(x, "name")}::text AS name, " +
                 "$kind AS kind, ${SpatialSql.zoneAreaHa(piece)} AS area_ha " +
                 "FROM ${t.table(k)} k JOIN ${t.table(x)} x ON ($crossing) " +
-                "WHERE k.${t.column(k, SpatialGate.ID)} = ANY(${bind(concessions.toTypedArray())}) LIMIT ${bind(limit + 1)}"
+                "WHERE k.${t.column(k, SpatialGate.ID)} = ANY(${bind(concessions.toTypedArray())}) ORDER BY 2, 3, 1, 5, 4 LIMIT ${bind(limit + 1)}"
         }
     }
 }
