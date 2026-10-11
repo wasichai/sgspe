@@ -12,6 +12,7 @@ import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Values
 import sgspe.common.readable
+import sgspe.investment.Programs
 import sgspe.scope.Assignments
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordChange
@@ -166,7 +167,9 @@ class ApprovalNoticeListener(
                 ApprovalStep(PROJECT, "submit_for_review", "in_review", listOf("approve")),
                 ApprovalStep("engagement", "submit_minutes", "minutes_in_review", listOf("approve_minutes")),
                 ApprovalStep(Commitments.COMMITMENT, "submit", "pending_approval", listOf("approve", SENIOR)),
-                ApprovalStep(CONTRIBUTION, null, "requested", listOf("approve"), direct = listOf("approve_direct"))
+                ApprovalStep(CONTRIBUTION, null, "requested", listOf("approve"), direct = listOf("approve_direct")),
+                // F5: WF-G (especificación §3.8): al enviar, para los roles de approve; se resuelve al salir de pending_approval
+                ApprovalStep(Programs.PROGRAM, Programs.SUBMIT, Programs.PENDING, listOf(Programs.APPROVE))
             )
 
         // una clave por registro: volver a enviarlo reabre el mismo aviso (es noticia otra vez, WAS-ADR-0060)
@@ -181,7 +184,7 @@ class ApprovalNoticeListener(
             attributes: Map<String, Any?>
         ): String =
             when (objectName) {
-                PROJECT -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["name"]))
+                PROJECT, Programs.PROGRAM -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["name"]))
                 Commitments.COMMITMENT -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["title"]))
                 CONTRIBUTION -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["contribution_type"]))
                 else -> listOfNotNull(Values.text(attributes["title"]))

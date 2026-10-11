@@ -33,6 +33,7 @@ object NoticeTexts {
             "project" -> "Proyecto por revisar: $label" to "El proyecto espera su revisión para pasar a vigente."
             "engagement" -> "Acta por aprobar: $label" to "El acta de la interacción espera su aprobación."
             "commitment" -> "Compromiso por aprobar: $label" to "El compromiso espera su aprobación."
+            "social_program" -> "Programa por aprobar: $label" to "El programa social espera su aprobación."
             "social_contribution" -> "Aporte por aprobar: $label" to "El aporte espera su aprobación: revise sus ítems y los lineamientos."
             else -> "Aprobación pendiente: $label" to "El registro espera su aprobación."
         }
