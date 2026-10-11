@@ -62,7 +62,7 @@ GeoServer y los mapas de informe, la calidad de los datos y las pruebas. Cumple 
 | Importación | Ninguna (srtm importaba fuera de línea con ogr2ogr) | XLSX, CSV y GeoJSON con CRS de origen y reconciliación en F2; GDAL en F6 (§4) |
 | Publicación | Una capa de GeoServer por geometría de objeto, `<tabla física>__<columna>`, sobre una tabla virtual JDBC [WAS-DOC api/rest.md] | Solo capas públicas, estilos SLD y proxy WMS autenticado (§6.2, §7) |
 | Interfaz | `MapView`, `GeometryField` (terra-draw), componente de página `MAP` y `wmsTileUrl` [WAS-DOC modules/gis.md] | Mapa territorial con control de capas, leyenda, filtros, calor y ficha contextual (§6.5) |
-| Mapa base | `MapView` fija las teselas públicas de OpenStreetMap (UPS-13) | Mapa base configurable (§6.4) |
+| Mapa base | `MapView` de 0.5.0 fija las teselas públicas de OpenStreetMap; UPS-13, resuelta en `@wasichai/gis` 1.0.0, trae `basemap` | Mapa base por organización con `GET /api/sgspe/map/settings` (§6.4, ASM-125) |
 | Validez | La API valida el tipo declarado [WAS-DOC gis/geometry.md]; las guardas no ven geometrías [WAS-ADR-0040] | Validación en los endpoints propios y listado de calidad (§8) |
 | Auditoría | Registra "geometry updated", nunca coordenadas [WAS-DOC modules/gis.md] | Datos de origen de cada importación (RQ-AUD-013, §4.5) |
 | MULTI* | La API acepta MULTI*; la interfaz no los dibuja [WAS-DOC gis/geometry.md] | Se aceptan por API e importación (RQ-GIS-020, CON-060) |
@@ -262,10 +262,12 @@ SELECT round((ST_Area(boundary::geography) / 10000)::numeric, 2) AS geodesic_are
 |---|---|---|---|
 | F2 | XLSX o CSV de puntos con código, este, norte y, si vienen, tipo de perforación ("Hole Type", que va a `drill_type`), cota, azimut e inclinación, como las tablas de DOC-03; o con latitud y longitud | Apache POI (XLSX) y lector CSV | RQ-GIS-003, ASM-056 [DOC-03] |
 | F2 | GeoJSON de puntos, líneas y polígonos, MULTI* incluidos. Hacia un campo POLYGON, un MultiPolygon de una sola parte se convierte en Polygon; hacia uno MULTIPOLYGON, un Polygon se envuelve como MultiPolygon de una parte, porque la API exige el tipo declarado [WAS-DOC gis/geometry.md] | PostGIS | RQ-GIS-003, RQ-GIS-020, ASM-056 |
-| F6 | Shapefile (en ZIP), KML y KMZ, GeoPackage, FileGDB (en ZIP) y GPX | GDAL (`ogr2ogr`) instalado en la imagen del backend | RQ-GIS-018, ASM-056 |
+| F6 | Shapefile (en ZIP), KML y KMZ, GeoPackage, FileGDB (en ZIP) y GPX | `GdalReader`: `ogrinfo` y `ogr2ogr` 3.8 o superior, con los drivers `ESRI Shapefile`, `KML`, `GPKG`, `OpenFileGDB` y `GPX` | RQ-GIS-018, ASM-056, ASM-127 |
 
 Toda importación corre en una carpeta temporal con límites de tamaño y tiempo y con control de rutas dentro de los ZIP
-(RQ-SEC-020, ASM-050). La importa un rol con permiso de escritura en el objeto destino, como `GIS_ANALYST` [DOC-03]; los permisos
+(RQ-SEC-020, ASM-050). En F6 los límites suman `sgspe.territory.import.max-entries` (1000 entradas por ZIP) y
+`max-inflated-bytes` (209715200, 200 MiB descomprimidos). La importa un rol con permiso de escritura en el objeto
+destino, como `GIS_ANALYST` [DOC-03]; los permisos
 por rol están en `security.md`.
 
 **Objeto destino y vía de carga.** La importación con CRS de origen tiene tres destinos, los que guardan los datos de origen de
@@ -278,13 +280,30 @@ ASM-060. Las demás geometrías se cargan por otras vías, y las MULTIPOLYGON ne
 | `mining_concession.boundary` | MULTIPOLYGON | Importación | `source_crs`, `source_reference` e `import_batch_id` (ASM-060) |
 | `land_parcel.boundary` | POLYGON | Importación, o dibujo en el mapa por la API genérica | Los de ASM-060 si se importa |
 | `administrative_unit.boundary` | MULTIPOLYGON | Script idempotente del ubigeo, con los límites en GeoJSON por la API genérica (RF-TER-001, ASM-016) | La fuente del script |
-| `community.territory`, `project.interest_area`, `area_of_influence.boundary` y `environmental_feature.boundary` | MULTIPOLYGON | GeoJSON en EPSG:4326 por la API genérica o por `/admin`, preparado antes en un SIG externo; un Polygon se envuelve como MultiPolygon | Ninguno: estos objetos no tienen campos de origen |
+| `community.territory` y `environmental_feature.boundary` | MULTIPOLYGON | Desde F6, importación con CRS de origen (ASM-123); antes, GeoJSON en EPSG:4326 por la API genérica o por `/admin` | Desde F6, `source_crs`, `source_reference`, `import_batch_id` y `code` (ASM-123) |
+| `project.interest_area` y `area_of_influence.boundary` | MULTIPOLYGON | GeoJSON en EPSG:4326 por la API genérica o por `/admin`, preparado antes en un SIG externo; un Polygon se envuelve como MultiPolygon | Ninguno: estos objetos no tienen campos de origen |
 | `locality.location` y `.boundary` | POINT, POLYGON | Dibujo en el mapa; la carga masiva de centros poblados (propuesto), con un script como el del ubigeo por la API genérica | — |
 | Demás campos de una sola parte: `community_sector.boundary`, `environmental_feature.location` y `.trace`, `road_access.trace`, `project.location`, `school.location`, `health_facility.location`, `field_visit.route` y el `location` de los registros de gestión | POINT, LINESTRING, POLYGON | Dibujo en el mapa del portal o en `GeometryField`, o GeoJSON por la API genérica | — |
 | `evidence.location` | POINT | La propone `sgspe.evidence` desde el EXIF del archivo, o se marca a mano | — |
 
-Llevar la importación con CRS de origen a los objetos MULTIPOLYGON sin campos de origen exigiría agregarlos primero al modelo de
-dominio (regla de cambio de su §1); queda como propuesta para F6, cuando llega GDAL.
+Llevar la importación con CRS de origen a un objeto sin campos de origen exigía agregarlos primero al modelo de dominio
+(regla de cambio de su §1): F6 los agrega a `community` y `environmental_feature` (ASM-123). `project.interest_area` y
+`area_of_influence.boundary` siguen sin ellos y se cargan como GeoJSON.
+
+**Formatos de GDAL (F6, ASM-127).** `GdalReader` hace tres cosas, siempre con argumentos fijos y rutas de la
+carpeta temporal:
+
+- `ogrinfo -json -so` lista las capas con su tipo de geometría, su cantidad de elementos y su CRS. Si el archivo tiene
+  más de una capa con elementos y no vino `layer`, la respuesta es `400 LAYER_REQUIRED` con la lista de capas.
+- `ogr2ogr -f GeoJSON` convierte la capa elegida **sin reproyectar**, y ese GeoJSON entra al flujo de F2 con el CRS de
+  origen confirmado. El KMZ lo descomprime SGSPE, con los controles de ZIP de F2, y GDAL lee su `doc.kml`.
+- El CRS que GDAL detecta (`detectedCrs`, un EPSG del catálogo "CRS de origen" o `null`) es solo una propuesta: la
+  persona lo confirma con `sourceCrs`, igual que en F2 (CON-024). KML, KMZ y GPX son siempre EPSG 4326.
+
+Sin GDAL en el servidor, esos formatos responden `422 FORMAT_UNAVAILABLE` y `GET /api/sgspe/territory/imports/formats`
+dice cuáles hay. La configuración está en `sgspe.territory.gdal.path` (el ejecutable), `min-version` (`3.8`) y
+`timeout`, además de `IMPORT_TIMEOUT` y la concurrencia de F2. El proceso corre sin red y con un entorno limpio, y se
+mata al vencer el plazo.
 
 ### 4.2 Vista previa y confirmación
 
@@ -335,7 +354,7 @@ sequenceDiagram
 | Zona y región | El punto o el centroide cae en la zona UTM del CRS declarado y dentro de la envolvente del Perú (configurable) | Fila marcada; exige confirmación explícita (RQ-GIS-007) |
 | Ejes | Latitud y longitud invertidas, o este y norte invertidos, se detectan por sus rangos | Fila marcada con la sugerencia de corrección |
 | Duplicados | Un código repetido en el mismo archivo | Fila rechazada |
-| Código | Obligatorio para componentes, predios y concesiones; es la clave de la reconciliación | Fila rechazada |
+| Código | Obligatorio para componentes, predios, concesiones y, desde F6, comunidades y elementos ambientales; es la clave de la reconciliación | Fila rechazada |
 
 ### 4.4 Reconciliación
 
@@ -356,6 +375,11 @@ sequenceDiagram
 - **Predios y concesiones.** `land_parcel` y `mining_concession` no tienen versiones: un mismo `code` con otra geometría es una
   actualización con motivo `importación <id>`, y el reporte muestra el cambio de área y el desplazamiento máximo (distancia de
   Hausdorff en el CRS de cálculo). Desde F3 el archivo original queda como `evidence` (ASM-060).
+- **Comunidades y elementos ambientales (F6, ASM-123).** `community` y `environmental_feature` se reconcilian por
+  `code`, igual que `mining_concession`, nunca por nombre: dos comunidades pueden llamarse igual. Una fila sin `code` se
+  rechaza, y las comunidades ya registradas sin código se completan a mano antes de importar. El alta por importación
+  lleva solo `code`, el nombre y la geometría; lo demás se completa en la ficha. `environmental_feature` exige además
+  `feature_type`, de una columna o de un valor fijo del formulario.
 - **El reporte de diferencias** lista código, coordenadas anteriores y nuevas en el `working_crs`, distancia en metros y acción. Se
   puede descargar como XLSX desde la vista previa.
 - **Tolerancia.** El umbral de 1 cm para "sin cambio" es un valor por defecto propuesto y configurable: absorbe el ruido numérico
@@ -372,11 +396,26 @@ sequenceDiagram
 
 ### 4.6 Exportaciones (F6)
 
-- Formatos: GeoJSON; CSV y XLSX con este y norte en el `working_crs` y con latitud y longitud; KML, Shapefile y GeoPackage con GDAL
-  (RQ-GIS-018, ASM-056).
-- Toda exportación exige la acción declarada `EXPORT` sobre el objeto, aplica el nivel de divulgación como las exportaciones XLSX
-  (RQ-REP-022, RQ-REP-014) y queda en `export_log` (RQ-AUD-011).
-- Un WFS autenticado e interno para analistas sirve solo capas públicas, por el mismo proxy que el WMS (RQ-GIS-018, RQ-SEC-011).
+- `POST /api/sgspe/territory/exports` exporta solo los objetos de LYR-01 a LYR-16 (ASM-124); otro objeto responde `400
+  OBJECT_NOT_EXPORTABLE` y las capas de gestión (LYR-17 a LYR-24) no salen como archivo geográfico.
+- Formatos: `geojson` y `kml` en 4326; `gpkg` y `shp` (ZIP con `.cpg` en UTF-8) en el CRS elegido con `coordinates`
+  (`UTM`, el `working_crs` del proyecto filtrado, o `LATLON`); `csv` y `xlsx` con este y norte, latitud y longitud, y
+  `wkt` en líneas y polígonos (RQ-GIS-018, ASM-056). GDAL escribe `kml`, `gpkg` y `shp` desde un GeoJSON temporal.
+- Toda exportación exige la acción declarada `EXPORT` y READ sobre el objeto y CREATE sobre `export_log`, antes de leer
+  nada; lee como quien exporta, aplica el nivel de divulgación como las exportaciones XLSX (RQ-REP-022, RQ-REP-014),
+  deja su fila en `export_log` antes de entregar el archivo (RQ-AUD-011) y respeta el tope
+  `sgspe.exports.max-rows` (ASM-124).
+- **Divulgación por capa.** Un objeto o filtro fuera del nivel elegido responde `403 DISCLOSURE_NOT_ALLOWED`;
+  `land_right` nunca se exporta.
+
+| Nivel | Objetos permitidos | Qué se quita |
+|---|---|---|
+| PUBLICO | Los de las capas públicas: LYR-01 a LYR-05, LYR-07 y LYR-16 | Lo mismo que EXTERNO, más lo que la regla de PUBLICO ya quita |
+| EXTERNO | Los anteriores, `community_sector`, `environmental_feature`, `project` (ubicación y área de interés), los accesos de `project_component` (`component_type` ACCESO), `area_of_influence` y los `land_parcel` de `tenure_type` PROPIEDAD, POSESION o COMUNAL | Fuera de INTERNO: `land_parcel.registry_record`, los cuatro campos registrales de `community` (`legal_entity_record`, `property_record`, `parent_record`, `title_reference`), `source_reference` e `import_batch_id`; `project` sale solo con `code` y `name`; EXTERNO exige `checklistConfirmed`, la lista de verificación de las demás exportaciones |
+| INTERNO | Todos los objetos de la lista, también sondajes, plataformas y campamento y los predios de la empresa | Nada más allá de los permisos de campo |
+
+- El WFS autenticado para analistas, que serviría las capas públicas por el mismo proxy que el WMS, queda pospuesto
+  (ASM-120): una fase posterior lo suma con la misma lista blanca, `EXPORT` y la divulgación de esta tabla.
 
 ## 5. Consultas espaciales
 
@@ -416,6 +455,22 @@ El prompt pide soportar intersects, contains, within, distance, buffer, nearest 
     los permisos de campo del usuario. Si un campo necesario no es legible, el resultado dice "no disponible", nunca cero
     (RQ-DSH-032).
   - Nombres de tabla y columna salen de la metadata y se citan; los valores van enlazados; nunca escribe.
+- **`SpatialGate` y `ZoneCriterion` (F6, ASM-122).** `SpatialGate`, en `sgspe.territory`, es la única clase que ejecuta
+  SQL de lectura que cruza tablas del tenant.
+  - Recibe los objetos y campos que usa la consulta y los revisa con `Readability`: sin READ sobre el objeto principal,
+    403; sin READ sobre uno secundario, el componente sale con `available: false` y `missingFields`, nunca cero
+    (RQ-DSH-032).
+  - Cada tabla entra como subconsulta filtrada por la organización y por la condición de cada `RecordReadScope`
+    registrado (hoy `ProjectReadScope` y `ConfidentialAttentionScope`), que se omiten para ADMIN y la plataforma como en
+    wasichai; así un alcance nuevo no se deja fuera. `SpatialGateScopeParityTest` exige los mismos ids que `Records`.
+  - Devuelve ids y medidas: los titulares y los demás atributos personales se leen después por `Records`, con los
+    permisos de campo de quien llama.
+  - `ZoneCriterion` resuelve el patrón (a): la zona (`locality`, `community`, `administrative_unit` o
+    `area_of_influence`) se lee antes por `Records` como quien llama y su geometría viaja como parámetro, nunca como
+    subconsulta a otra tabla.
+  - `ArchitectureTest` fija que, dentro de `sgspe.territory`, solo `SpatialGate` y los escritores existentes
+    (`TerritoryImports`, `Areas`, `ProjectComponents`, `GeoSql`) usan `DatabaseClient`, y que nadie fuera de ese paquete
+    lo agrega.
 
 ```mermaid
 flowchart LR
@@ -430,8 +485,8 @@ flowchart LR
 
 ### 5.3 Casos de uso
 
-Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El endpoint de cada consulta y su contrato están en
-`api.md`; todos tienen una prueba con geometrías sintéticas (RQ-GIS-002, RQ-GIS-021).
+Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El contrato de cada endpoint está en `api.md`;
+todos tienen una prueba con geometrías sintéticas (RQ-GIS-002, RQ-GIS-021).
 
 | # | Caso | Fuente | Patrón | Cómo se resuelve | Fase |
 |---|---|---|---|---|---|
@@ -451,6 +506,29 @@ Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El en
 | 14 | Localidades dentro de un buffer de componentes | [DOC-01 §4.1] | (a) | `ST_DWithin` en el `working_crs`; insumo para los criterios del AIDS, solo como sugerencia | F6 |
 | 15 | Tamaño del área de influencia | [DOC-03] [DOC-01 §4] | (b) | Área plana en ha, localidades por tipo de área y componentes que cruzan tierras comunales o privadas (RQ-DSH-029; KPI-TER-02, KPI-TER-03 y KPI-TER-04 de `dashboards.md`) | F6 |
 | 16 | Punto pulsado en el mapa | [PRM-01 §15] | (a) | Punto en polígono: propone `administrative_unit`, `locality` y `community` en los formularios; la persona confirma | F6 |
+
+Todos son `GET` que no escriben, bajo `/api/sgspe/`:
+
+| Caso | Endpoint |
+|---|---|
+| 1, 9 | `areas-of-influence/{id}/member-suggestions` |
+| 15 | `areas-of-influence/{id}/summary` |
+| 2, 3, 5 | `territory/zones/{zoneObject}/{id}/records?of=` |
+| 4, 6 | `territory/concentration` |
+| 7 | `territory/projects/{id}/nearby-conflicts` |
+| 8 | La capa LYR-23 de `layers/{layer}` y KPI-INV-03 con el filtro de territorio |
+| 10 | `territory/projects/{id}/component-parcels` |
+| 11 | `territory/projects/{id}/component-communal-land` |
+| 12 | `territory/projects/{id}/concession-territories` |
+| 13 | `territory/projects/{id}/sensitive-distances` |
+| 14 | `territory/projects/{id}/buffer-localities` |
+| 16 | `territory/locate` |
+| Ficha (§6.5) | `territory/localities/{id}/card` y `territory/communities/{id}/card` |
+
+**Límites (ASM-126).** `sgspe.territory.queries.*` acota cada consulta: `bufferM` de 1 a 20 000 m (500 por defecto),
+`distanceKm` de 0.1 a 50 km (5 por defecto), `limit` hasta 5 000 filas (con `truncated`), periodo de `concentration`
+hasta 5 años (12 meses por defecto) y hasta 200 registros relacionados por fila. Fuera de rango, `400 OUT_OF_RANGE`; un
+parámetro desconocido, `422`.
 
 ### 5.4 Índices y rendimiento
 
@@ -481,8 +559,9 @@ Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El en
   - exige el token de wasichai; MapLibre lo agrega a las peticiones de teselas con `transformRequest`;
   - acepta solo las capas de la lista blanca del tenant del token: los nombres `<tabla física>__<columna>` de sus capas públicas,
     resueltos por metadata [WAS-DOC api/rest.md], y solo si el usuario tiene READ sobre el objeto de cada capa;
-  - deja pasar GetMap y GetLegendGraphic; arma un GetCapabilities propio con la lista blanca; rechaza GetFeatureInfo y los
-    parámetros `SLD` y `SLD_BODY`, que permitirían nombrar otras capas;
+  - deja pasar GetMap y GetLegendGraphic; arma un GetCapabilities propio con la lista blanca; rechaza GetFeatureInfo,
+    DescribeLayer y los parámetros `SLD`, `SLD_BODY`, `CQL_FILTER` y `FILTER`, que permitirían nombrar otras capas o
+    leer atributos (ASM-121);
   - aplica filtros fijos por capa si los hubiera, y la caché de teselas de GeoServer (GeoWebCache) para lo público.
 - Las teselas usan EPSG:3857, como arma `wmsTileUrl` [WAS-DOC modules/gis.md].
 - wasichai no llama a GeoServer en la ruta de una petición y funciona con GeoServer detenido [WAS-ADR-0006]. El proxy de SGSPE es
@@ -498,24 +577,29 @@ Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El en
 
 ### 6.4 Mapa base
 
-- El mapa base es configurable y nunca usa las teselas públicas de OpenStreetMap en producción, cuya política de uso no lo admite
-  (RQ-GIS-013, ASM-048). La cartografía base y sus licencias siguen abiertas en GAP-011.
+- El mapa base es configurable por organización y nunca usa las teselas públicas de OpenStreetMap en producción, cuya
+  política de uso no lo admite (RQ-GIS-013, ASM-048). La cartografía base y sus licencias siguen abiertas en GAP-011.
 - Opciones: un proveedor licenciado por URL de estilo, o un extracto PMTiles del Perú autoalojado, con su licencia y atribución,
   que además funciona sin conexión externa.
-- Librerías como srtm-ui (ASM-085): MapLibre GL 6.10.0 y `@wasichai/gis` 0.5.0 para el mapa y terra-draw 1.33.0 con
+- Librerías como srtm-ui (ASM-085): MapLibre GL 6.10.0 y `@wasichai/gis` para el mapa, y terra-draw 1.33.0 con
   `terra-draw-maplibre-gl-adapter` 1.4.1 para dibujar geometrías. En desarrollo, el mapa base son las teselas ráster de
-  OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`) con la atribución «© OpenStreetMap contributors» visible,
-  como el mapa de lotes de srtm-ui; en producción se usa solo el estilo configurado. Si no hay uno, el mapa muestra las capas
-  del proyecto sobre un fondo neutro con el aviso «Sin mapa base», sin volver a OpenStreetMap. El panel de capas ofrece los
-  fondos configurados y «Sin fondo»; la atribución del proveedor siempre se ve (`docs/ux/design-system.md` §5,
-  `MapAttribution`; lienzo de la etapa 3, página 24).
-- La configuración es de la aplicación (`application.yml` por despliegue): en F2, `sgspe.map.base-style-url`; en F6, además, un
-  mapa `sgspe.map.base-style-url-by-organization`, que mantiene el operador como `sgspe.ai.enabled-organizations`, para el valor
-  por organización que pide RQ-GIS-013; `MapView` sigue esperando UPS-13. En desarrollo puede usarse un estilo de prueba.
-- `MapView` de `@wasichai/gis` 0.5.0 fija las teselas de OpenStreetMap, y lo heredan `GeometryField` y el componente `MAP` que
-  SGSPE reutiliza: es la brecha upstream UPS-13, un mapa base configurable en `MapView`. Mientras no exista, la CSP del proxy de
-  producción no permite el dominio de teselas de OpenStreetMap, y esos mapas de edición se ven sin mapa base; el mapa territorial
-  del portal no usa `MapView` para el fondo y sí aplica su estilo configurable (ASM-048).
+  OpenStreetMap con la atribución «© OpenStreetMap contributors» visible, como el mapa de lotes de srtm-ui; en
+  producción se usa solo el estilo configurado.
+- **Configuración (F6, ASM-125).** `sgspe.map.base-style-url` es el estilo por defecto;
+  `sgspe.map.base-style-url-by-organization` (slug → URL), el de cada organización, que mantiene el operador como
+  `sgspe.ai.enabled-organizations`; y `sgspe.map.attribution`, la atribución por URL. `GET /api/sgspe/map/settings`
+  (autenticado) devuelve `{ basemap, attribution }` para la organización de quien llama, con `basemap` en la forma
+  `BasemapSpec` de `@wasichai/gis`: `{ type: 'style', url }` o `{ type: 'none' }` si no hay estilo.
+- **En el portal.** UPS-13, resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0, hizo que `gisModule` y `MapView`
+  acepten `basemap`. El portal pasa el valor a `gisModule({ basemap })` después del login, y a sus mapas propios (S10,
+  S24 y el dibujo) por la prop `basemap`, en lugar de la variable de build de F2; así `GeometryField` y el componente
+  `MAP` también lo heredan.
+- Si no hay estilo, el mapa muestra las capas del proyecto sobre un fondo neutro con el aviso «Sin mapa base», sin
+  volver a OpenStreetMap. «Sin fondo» va sobre el propio mapa, junto a ese aviso, porque S10, S24 y el dibujo no tienen
+  panel de capas; la atribución del proveedor siempre se ve (`docs/ux/design-system.md` §5, `MapAttribution`; lienzo de
+  la etapa 3, página 24).
+- La CSP de producción permite el host del estilo configurado y no el dominio de teselas de OpenStreetMap; una prueba
+  exige que `application-prod.yml` no lo contenga (RQ-GIS-013).
 
 ### 6.5 Mapa territorial del portal y ficha contextual
 
@@ -553,30 +637,63 @@ Los nueve casos del prompt [PRM-01 §6] y los que salen de los documentos. El en
 
 ### 7.1 Qué se publica
 
-- GeoServer publica servicios OGC desde la misma base; wasichai lo deja opcional [WAS-ADR-0006] [WAS-ADR-0027]. En SGSPE es
-  necesario donde se emiten mapas de informe y nunca es público (ASM-038).
-- Se publican solo las capas públicas de §2.2, una capa por geometría de objeto, con el endpoint de wasichai
-  `POST /api/gis/layers/{object}/{geometry}`, que crea la tabla virtual JDBC con `id`, los campos simples y esa geometría
-  [WAS-DOC api/rest.md]. Las capas internas, confidenciales y con datos personales no se publican nunca (RQ-SEC-011).
+- GeoServer publica servicios OGC desde la misma base; wasichai lo deja opcional [WAS-ADR-0006] [WAS-ADR-0027]. En SGSPE
+  nunca es público (ASM-038), y desde F6 corre en la red interna con `docker.osgeo.org/geoserver:3.0.1`, en loopback en
+  el puerto 8095 (ADR-0026).
+- Se publican solo los maestros de `ProjectScope.TENANT` sin campos restringidos, listados en `model/layers.json`
+  (ASM-121): las capas públicas LYR-01, LYR-02, LYR-03, LYR-04, LYR-05, LYR-07 y LYR-16 de §2.2. Las capas internas,
+  confidenciales y con datos personales no se publican nunca (RQ-SEC-011).
+- **`model/layers.json`.** También va en el jar como `model/layers.json`. Es una lista de `{ layer, object, geometry,
+  style, label? }` con una entrada por estilo (9) y una capa de GeoServer por geometría de objeto (8): LYR-03 comparte
+  la capa `locality.location` con LYR-02 y se distingue por su estilo, con filtro de `locality_type` CIUDAD. `label` es
+  el campo TEXT que rotula el SLD.
+
+| Capa | Objeto | Geometría | Estilo | Etiqueta |
+|---|---|---|---|---|
+| LYR-01 | `administrative_unit` | `boundary` | `sgspe-lyr-01` | `name` |
+| LYR-02 | `locality` | `location` | `sgspe-lyr-02-location` | `name` |
+| LYR-02 | `locality` | `boundary` | `sgspe-lyr-02-boundary` | `name` |
+| LYR-03 | `locality` | `location` | `sgspe-lyr-03` | `name` |
+| LYR-04 | `road_access` | `trace` | `sgspe-lyr-04` | — |
+| LYR-05 | `community` | `territory` | `sgspe-lyr-05` | `name` |
+| LYR-07 | `mining_concession` | `boundary` | `sgspe-lyr-07` | `code` |
+| LYR-16 | `school` | `location` | `sgspe-lyr-16-school` | — |
+| LYR-16 | `health_facility` | `location` | `sgspe-lyr-16-health` | — |
+
+- El nombre de la capa en GeoServer lo da wasichai: `<tabla física>__<columna>`, en el workspace `sgspe`, con el
+  endpoint `POST /api/gis/layers/{object}/{geometry}`, que crea la tabla virtual JDBC con `id`, los campos simples y esa
+  geometría [WAS-DOC api/rest.md]. El datastore usa el rol de solo lectura `sgspe_geoserver`.
 - **Publicación con `model/publish_layers.py`.** Es un script de Python con la biblioteca estándar, con el patrón de `apply.py`,
   y SGSPE no tiene un endpoint propio para esto:
-  - recorre la lista de capas públicas de §2.2 y, para cada una que falte, llama a `POST /api/gis/layers/{object}/{geometry}`
-    con un token de `ADMIN` de la organización;
-  - es idempotente, porque antes consulta `GET /api/gis/layers` y no repite lo ya publicado;
-  - corre al aprovisionar cada organización y en cada actualización de F6;
-  - en el mismo paso carga o actualiza en GeoServer, con su API REST y las credenciales del despliegue, los estilos SLD de §7.2.
-    Son únicos por despliegue: el proxy WMS y el trabajador de entregables los piden por nombre (`STYLES`), así que no hace falta
+  - recorre `model/layers.json` y, para cada capa que falte, llama a `POST /api/gis/layers/{object}/{geometry}` con un
+    token de `ADMIN` de la organización; una geometría que el tenant no tiene detiene todo antes del primer `POST`;
+  - es idempotente, porque antes consulta `GET /api/gis/layers` y no repite lo ya publicado; tiene `--dry-run` y
+    `--validate-only`, que además comprueba que cada capa sea un maestro del tenant sin campos restringidos;
+  - toma las credenciales de GeoServer del entorno (`WASICHAI_GIS_GEOSERVER_URL`, `WASICHAI_GIS_GEOSERVER_USERNAME` y
+    `WASICHAI_GIS_GEOSERVER_PASSWORD`), nunca de un archivo;
+  - corre como último paso al aprovisionar cada organización y en cada subida de fase, y se omite con `--skip-layers` si
+    el despliegue no tiene GeoServer;
+  - en el mismo paso carga o actualiza en GeoServer, con su API REST, los estilos SLD de §7.2. Son únicos por
+    despliegue: el proxy WMS y el trabajador de entregables los piden por nombre (`STYLES`), así que no hace falta
     asignarlos a cada capa.
+- **Proxy WMS (`WmsProxy`, `GET /api/sgspe/territory/wms`).** Entrega solo imágenes (ASM-121): `GetMap`,
+  `GetLegendGraphic` y un `GetCapabilities` armado con la lista blanca, sin reenviarlo a GeoServer; nunca
+  `GetFeatureInfo`, `DescribeLayer`, filtros ni SLD del cliente. La lista blanca son las capas publicadas de la
+  organización que están en `layers.json`, y cada una exige READ sobre su objeto. Si GeoServer cae o no responde a
+  tiempo, `503 GEOSERVER_UNAVAILABLE`.
 
 ### 7.2 Estilos y paleta compartida
 
-- Los estilos son archivos SLD en los recursos de SGSPE y sirven igual para el WMS del portal, para los mapas de informe y para los
-  analistas que usan QGIS.
-- Los colores salen de un JSON de paleta que también importan las capas MapLibre del portal: se comparte la paleta, no el lenguaje
-  de estilos. La extensión MBStyle de GeoServer puede evaluarse más adelante.
+- Hay un archivo SLD 1.0.0 por estilo de `layers.json` en `model/styles/<estilo>.sld`, con `UserStyle/Name` igual al
+  estilo; sirven igual para el WMS del portal, para los mapas de informe y para los analistas que usan QGIS.
+- Los colores salen de `model/styles/palette.json`, que también leen las capas MapLibre del portal: se comparte la
+  paleta, no el lenguaje de estilos. Tiene la forma `{ description, styles: { <estilo>: { layer, stroke, fill, label,
+  halo, … } } }`, y el portal la copia byte a byte en `src/portal/mapa/paleta.json`, con una prueba en su CI que compara
+  ambos archivos. La extensión MBStyle de GeoServer puede evaluarse más adelante.
 - **Etiquetas.** Los nombres de localidades, centros poblados, comunidades, distritos y provincias que muestran el Anexo 1 y el
-  mapa de DOC-02 son reglas de texto de los SLD, con la prioridad y el control de solapes de GeoServer [DOC-01 Anexo 1]
-  [DOC-02 p.5]. En las capas que viajan en línea, el texto de la etiqueta va como atributo de cada elemento.
+  mapa de DOC-02 son reglas de texto de los SLD según la clave `label` de `layers.json`, con la prioridad y el control
+  de solapes de GeoServer [DOC-01 Anexo 1] [DOC-02 p.5]. En las capas que viajan en línea, el texto de la etiqueta va
+  como atributo de cada elemento.
 - **Curvas de nivel.** Las de la captura de DOC-03 quedan fuera de alcance: son cartografía base, que sigue abierta en GAP-011
   [DOC-03].
 
@@ -641,16 +758,19 @@ Las guardas de escritura de wasichai no reciben geometrías [WAS-ADR-0040], así
 - **En los endpoints de `sgspe.territory`** (importación, componentes y la validación que pide el portal antes de guardar): tipo,
   validez con su motivo (`ST_IsValidReason`), reparación solo con consentimiento y mostrando el cambio de área, normalización de
   MultiPolygon de una sola parte y control de zona y región.
+  El portal lo llama con `POST /api/sgspe/territory/geometry-checks` (`{ geometry, object, field, project? }`), que no
+  escribe y exige READ sobre el objeto.
 - **En un listado de calidad (F6)** para lo que entra por la API genérica o `/admin`, que solo valida el tipo
-  [WAS-DOC gis/geometry.md]:
+  [WAS-DOC gis/geometry.md]. Es `GET /api/sgspe/territory/data-quality?check=&object=&project=`, que pagina por
+  `SpatialGate` las cinco revisiones, y su pantalla es S63 (`/territory/quality`):
 
-| Revisión | Qué detecta |
+| Revisión (`check`) | Qué detecta |
 |---|---|
-| Geometrías inválidas | `ST_IsValid` falso, con su motivo |
-| Fuera de zona o región | Centroide fuera de la zona del `working_crs` o fuera de la envolvente del Perú |
-| Áreas desactualizadas | `calculated_area_ha` vacío o distinto del recálculo |
-| Sin relación territorial | QCS, compromisos, riesgos o incidentes sin `locality`, `community` ni ubicación |
-| Localidades y comunidades sin geometría | No se pueden dibujar ni servir para ubicar por relación los registros que dependen de ellas, entre ellos los miembros de un área de influencia (RQ-GIS-015) |
+| `INVALID` | Geometrías inválidas: `ST_IsValid` falso, con su motivo |
+| `OUT_OF_ZONE` | Fuera de zona o región: centroide fuera de la zona del `working_crs` o fuera de la envolvente del Perú |
+| `STALE_AREA` | Áreas desactualizadas: `calculated_area_ha` vacío o distinto del recálculo |
+| `NO_TERRITORY` | Sin relación territorial: QCS, compromisos, riesgos o incidentes sin `locality`, `community` ni ubicación |
+| `NO_GEOMETRY` | Localidades y comunidades sin geometría: no se pueden dibujar ni servir para ubicar por relación los registros que dependen de ellas, entre ellos los miembros de un área de influencia (RQ-GIS-015) |
 
 ## 9. Pruebas
 
@@ -675,7 +795,14 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 | Proxy WMS | Sin token, 401; capa de otro tenant o no pública, 403; sin READ sobre el objeto de la capa, 403; `SLD_BODY`, rechazado; GetCapabilities solo con la lista blanca | RQ-SEC-011 |
 | SRID desde la metadata | Un objeto de prueba con SRID 32718 funciona igual que uno en 4326 | RQ-GIS-022 |
 | Área derivada | Cambiar la geometría por la API genérica recalcula `calculated_area_ha`; si el listener falla, `DerivedFieldsJob` lo corrige | RQ-GIS-009 |
-| Mapa base | La configuración de producción no permite el dominio de teselas de OpenStreetMap | RQ-GIS-013 |
+| Compuerta y alcance (`SpatialGateApiTest`, `SpatialGateScopeParityTest`) | Sin READ sobre `land_parcel`, 403; titular ilegible, "no disponible"; predio de un proyecto no asignado, ausente; QCS confidencial fuera del conteo de quien no la lee; mismos ids que `Records` para ANALYST, ADMIN y sin asignación | ASM-122, RQ-GIS-017 |
+| Consultas espaciales (`SpatialQueriesApiTest`) | Los 13 endpoints de §5.3; sugerencias que no escriben; buffer con y sin localidades; vecino más cercano ordenado; límites fuera de rango, 400 | ASM-126, RQ-GIS-002 |
+| Proxy WMS de F6 (`WmsProxyApiTest`) | GeoServer de imitación; `SLD_BODY`, `CQL_FILTER` y GetFeatureInfo, 422; formato o tamaño fuera de la lista, 422; GeoServer caído, 503 | ASM-121, RQ-SEC-011 |
+| Mapa base (`MapSettingsApiTest`, `MapSettingsProdTest`) | Estilo por organización y por defecto; sin estilo, `{ type: 'none' }`; producción sin OpenStreetMap | ASM-125, RQ-GIS-013 |
+| Importación con GDAL (`GdalImportApiTest`, `GdalCommandTest`) | Un fixture sintético por formato; `LAYER_REQUIRED`; CRS detectado propuesto pero exigido; ZIP con `../` rechazado; sin GDAL, `FORMAT_UNAVAILABLE`; destinos `community` y `environmental_feature` con alta, actualización por código y fila sin código rechazada | ASM-123, ASM-127 |
+| Exportaciones (`TerritoryExportsApiTest`, `ExportDisclosureTest`) | Cada formato abre y trae los registros; predios en EXTERNO sin `registry_record`; sondajes en EXTERNO, 403; sin `EXPORT`, 403; fila de `export_log`; tope de filas | ASM-124 |
+| Calidad (`GeometryChecksApiTest`, `DataQualityApiTest`) | Lazo inválido con su motivo y reparación con cambio de área; MultiPolygon de una parte normalizado; fuera de zona; las cinco revisiones | RQ-GIS-011 |
+| Modelo (`test_model.py`, `test_publish_layers.py`) | Capas de `layers.json` de `ProjectScope.TENANT`, con geometría declarada y sin campos restringidos; campos nuevos de F6 | ASM-121, ASM-123 |
 | GetMap (suite lenta, etiquetada) | Con capas públicas y elementos en línea en EPSG:32717, el PNG se decodifica y el área de la leyenda no está vacía; sin comparar píxel a píxel | RQ-REP-030 |
 
 ## 10. Fases
@@ -687,7 +814,7 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 | F3 | Evidencias geolocalizadas (LYR-24); archivo original de cada importación como `evidence` |
 | F4 | QCS, riesgos, incidentes y alertas con ubicación (datos de LYR-20, LYR-21 y LYR-22) |
 | F5 | Inversión social con ubicación (datos de LYR-23) |
-| F6 | SIG avanzado: consultas espaciales, mapa territorial con capas temáticas, calor y ficha; GeoServer con estilos, `model/publish_layers.py` y proxy WMS; mapa base por organización; GDAL; exportaciones; listado de calidad |
+| F6 | SIG avanzado: `SpatialGate` y consultas espaciales; mapa territorial con capas temáticas (LYR-17 a LYR-24), calor y ficha; GeoServer 3.0.1 en loopback (8095) con `model/layers.json`, estilos, `model/publish_layers.py` y proxy WMS; mapa base por organización; GDAL; exportaciones de LYR-01 a LYR-16; revisión de geometrías y listado de calidad. El WFS queda pospuesto (ASM-120) |
 | F8 | Mapas de informe en los entregables, entre ellos el del Anexo 1 y el mapa de ubicación de T2 |
 
 ## 11. Decisiones, supuestos y pendientes
@@ -696,12 +823,15 @@ integración corren en CI con Testcontainers o contra una base externa por túne
   GeoServer GetMap), ADR-0019 (Importación geoespacial con preparación y reconciliación) y ADR-0006 (Autorización por roles y
   alcance por proyecto, para la compuerta de §5.2).
 - **Supuestos que este documento aplica:** ASM-002, ASM-016, ASM-038, ASM-048, ASM-050, ASM-051, ASM-056, ASM-057, ASM-060,
-  ASM-062, ASM-063, ASM-064 y ASM-069.
+  ASM-062, ASM-063, ASM-064 y ASM-069; en F6, ASM-120 a ASM-127.
 - **Pendientes:**
   - GAP-011: cartografía base, fuentes oficiales y licencias, y disponibilidad de GeoServer en producción.
   - GAP-012: formatos, volúmenes, CRS y datum reales de los datos que se cargarán.
   - GAP-019: a qué proyecto pertenece DOC-03; sus datos solo sirven como ejemplo de formato (CON-026).
   - CON-041 y GAP-025: alcance de lectura por proyecto en las features y en las consultas. Decidido el 2026-10-10
     (ADR-0029): `ProjectReadScope` en la lectura y `project_assignment` en la escritura. La compuerta de §5.2 lo sigue.
-  - UPS-13: mapa base configurable en `MapView` de `@wasichai/gis` (§6.4).
+  - UPS-13: resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0; SGSPE la adopta en F6 (§6.4, ASM-125).
+  - El WFS autenticado para analistas, pospuesto (ASM-120, §4.6).
+  - Riesgo aceptado de F6: GAP-011 y GAP-012 siguen abiertas, así que la cartografía base, las fuentes y los formatos
+    reales pueden pedir ajustes a las capas publicadas y a los lectores de GDAL.
   - El spike de ADR-0015 (elementos en línea, decoraciones y grilla).

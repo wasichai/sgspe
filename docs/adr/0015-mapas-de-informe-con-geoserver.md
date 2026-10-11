@@ -2,7 +2,17 @@
 
 ## Estado
 
-Propuesto · 2026-10-07 · se acepta al iniciar F6
+Aceptado en parte · 2026-10-11 (F6): GeoServer interno, estilos SLD y proxy WMS; los mapas de informe por GetMap siguen
+para F8 con su spike
+
+### Nota de F6 (2026-10-11)
+
+- F6 acepta la mitad de la decisión que sirve al portal: GeoServer solo en la red interna, los estilos SLD y el proxy
+  WMS autenticado, que publica solo maestros del tenant sin campos restringidos y entrega solo imágenes (ASM-121).
+- El WFS autenticado para analistas queda pospuesto (ASM-120): las exportaciones geográficas cubren el trabajo con
+  archivos.
+- Los mapas de informe por GetMap, con capas sensibles en línea y decoraciones, siguen propuestos para F8; su spike
+  ([gis.md §7.3](../gis.md)) se hace antes de aceptarlos.
 
 ## Contexto
 
@@ -87,7 +97,7 @@ Los mapas de informe salen de GeoServer con GetMap, estilos SLD y decoraciones, 
   EPSG:32717 a 32719, decoraciones y grilla. Si falla, se cambia el generador sin cambiar el modelo de datos (ASM-038).
 - Se acepta al iniciar F6, cuando llegan GeoServer, `publish_layers.py`, los estilos y el proxy WMS; los mapas de informe
   se usan en F8 (RQ-REP-030).
-- Abiertos: GAP-011, GAP-022, UPS-13 (mapa base de `MapView`, solo para el portal).
+- Abiertos: GAP-011, GAP-022. UPS-13 (mapa base de `MapView`) está resuelta con wasichai-ui#38 y la adopta ASM-125.
 - Pruebas: GetMap en la suite lenta (el PNG se decodifica y la leyenda no está vacía) y el proxy WMS de
   [gis.md §9](../gis.md); el criterio 7 de [deliverables.md §13.2](../deliverables.md).
 - **Resultado del spike de F1 (2026-10-07).** GeoServer 3.0.1 con capas en línea por `SLD_BODY`: M1 EPSG:32717 PASS,
@@ -106,7 +116,7 @@ Los mapas de informe salen de GeoServer con GetMap, estilos SLD y decoraciones, 
 ## Referencias
 
 - Requisitos: RQ-REP-008, RQ-REP-014, RQ-REP-019, RQ-REP-030, RQ-GIS-012, RQ-GIS-019, RQ-SEC-010, RQ-SEC-011, CON-054,
-  ASM-038, GAP-011, GAP-022, UPS-13.
+  ASM-038, ASM-125, GAP-011, GAP-022, UPS-13 (resuelta).
 - Documentos: [gis.md §1.4, §2, §6.2, §7, §9 y §11](../gis.md), [deliverables.md §7.8 y §9.2](../deliverables.md),
   [architecture.md §5.4, §10 y §14](../architecture.md), [security.md §10](../security.md).
 - wasichai: `WAS-ADR-0006` (GeoServer as publisher, not as the core), `WAS-ADR-0027` (GIS is optional, and the API is
