@@ -105,6 +105,12 @@ sgspe:
       timeout: 5s
       max-bytes: 16777216
       published-ttl: 60s
+    gdal:
+      # GDAL de la importación y las exportaciones de F6 (ASM-127): la carpeta de ogrinfo y ogr2ogr (vacía: el PATH), la
+      # versión mínima y el plazo de una exportación. sin GDAL, esos formatos responden 422 FORMAT_UNAVAILABLE
+      path: ${SGSPE_GDAL_PATH:}
+      min-version: '3.8'
+      timeout: 60s
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000
