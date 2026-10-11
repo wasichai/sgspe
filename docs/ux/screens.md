@@ -1265,7 +1265,9 @@ ProgramPage
 - **Estados:** si supera un tope que bloquea, "Aprobar" solo aparece para SMG (`APPROVE_OVER_CAP`, ASM-119); quien
   registró el aporte o aceptó la solicitud que lo creó no lo aprueba (P5); fuera de `requested`, los ítems y los
   términos aprobados son de solo lectura (`ITEMS_FROZEN`, `CONTRIBUTION_FROZEN`, ASM-110); "Registrar entrega" se
-  ofrece una vez, solo en `procured`, y después muestra la entrega, que no cambia desde `delivered` (ASM-111).
+  ofrece una vez, solo en `procured`, y después muestra la entrega, que no cambia desde `delivered` (ASM-111). Los
+  comprobantes (`receipt`) se cargan antes de "Registrar entrega": tampoco se crean, cambian ni borran desde `delivered`
+  ni en `closed`, `rejected` o `cancelled` (`409 DELIVERY_FROZEN` sobre `social_contribution`).
 - **Permisos:** las fotos de la entrega con personas y el acta firmada son DATOS PERSONALES; `recipients` y
   `conformity_by` son restringidos (`security.md` §7.9).
 - **Responsive:** "Antes de aprobar" sube antes de los ítems en teléfono.

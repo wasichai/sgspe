@@ -73,8 +73,9 @@ class Assignments(
             .mapNotNull { Assignment.of(it.id, it.attributes) }
             .filter { it.project == project }
 
-    // si el usuario tiene una asignación vigente al proyecto. dentro de un comando que abrió RequestMemo (la confirmación de
-    // una importación) se lee una vez por usuario y proyecto, no una vez por registro escrito
+    // si el usuario tiene una asignación vigente al proyecto. dentro del memo de un comando (RequestMemoFilter lo abre en cada
+    // comando de /api/sgspe; la confirmación de una importación, el suyo) se lee una vez por usuario y proyecto, no una vez
+    // por registro escrito o vinculado. nunca entre peticiones: una asignación cambia al instante por /api/objects
     suspend fun isAssigned(
         userId: UUID,
         project: UUID

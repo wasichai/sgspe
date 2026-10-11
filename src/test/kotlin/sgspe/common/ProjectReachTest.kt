@@ -73,7 +73,7 @@ class ProjectReachTest {
     // Permissions con la respuesta fija de has; cuenta las preguntas
     private class Held(
         private val holds: Boolean
-    ) : Permissions(mock(CurrentUser::class.java), mock(MetadataService::class.java)) {
+    ) : Permissions(mock(CurrentUser::class.java), mock(ObjectDefinitions::class.java)) {
         var asked = 0
 
         override suspend fun has(

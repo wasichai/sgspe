@@ -7,6 +7,7 @@ import org.mockito.Mockito.mock
 import org.springframework.r2dbc.core.DatabaseClient
 import sgspe.common.Attention
 import sgspe.common.Callers
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.TenantModel
@@ -16,7 +17,6 @@ import wasichai.core.common.NotFoundException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.identity.AuthenticatedUser
-import wasichai.core.metadata.MetadataService
 import wasichai.core.metadata.ObjectDefinition
 import wasichai.core.platform.WasichaiSchemas
 import java.util.UUID
@@ -44,14 +44,14 @@ class EvidenceWriteGuardTenantTest {
             callers = mock(Callers::class.java) { invocation -> if (invocation.method.name == "userOrNull") user else null },
             permissions = mock(Permissions::class.java) { invocation -> invocation.method.name == "has" },
             transactions = mock(Transactions::class.java),
-            metadata = mock(MetadataService::class.java),
+            definitions = mock(ObjectDefinitions::class.java),
             schemas = mock(WasichaiSchemas::class.java),
             db = mock(DatabaseClient::class.java),
             records = records,
             tenant =
                 TenantModel(
-                    mock(MetadataService::class.java) { invocation ->
-                        if (invocation.method.name != "loadDefinition") return@mock null
+                    mock(ObjectDefinitions::class.java) { invocation ->
+                        if (invocation.method.name != "current") return@mock null
                         if (!withF4 && invocation.arguments[1] in Attention.OBJECTS) throw NotFoundException("sin ${invocation.arguments[1]}")
                         mock(ObjectDefinition::class.java)
                     }

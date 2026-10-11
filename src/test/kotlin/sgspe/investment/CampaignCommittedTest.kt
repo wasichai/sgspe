@@ -4,11 +4,11 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Records
 import sgspe.common.TenantModel
 import wasichai.core.common.NotFoundException
 import wasichai.core.data.RecordResponse
-import wasichai.core.metadata.MetadataService
 import wasichai.core.metadata.ObjectDefinition
 import java.math.BigDecimal
 import java.util.UUID
@@ -50,8 +50,8 @@ class CampaignCommittedTest {
 
     private fun tenant(withF5: Boolean): TenantModel =
         TenantModel(
-            mock(MetadataService::class.java) { call ->
-                if (call.method.name != "loadDefinition") return@mock null
+            mock(ObjectDefinitions::class.java) { call ->
+                if (call.method.name != "current") return@mock null
                 if (!withF5 && call.arguments[1] == "social_contribution") throw NotFoundException("sin el modelo de F5")
                 mock(ObjectDefinition::class.java)
             }

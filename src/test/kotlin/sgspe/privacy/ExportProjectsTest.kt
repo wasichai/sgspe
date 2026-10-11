@@ -11,6 +11,7 @@ import org.springframework.beans.factory.ObjectProvider
 import sgspe.common.Callers
 import sgspe.common.DerivedVersions
 import sgspe.common.ModelCatalog
+import sgspe.common.ObjectDefinitions
 import sgspe.common.Permissions
 import sgspe.common.ProjectReach
 import sgspe.common.Records
@@ -50,7 +51,7 @@ class ExportProjectsTest {
         readsAll: Boolean,
         assigned: List<UUID>
     ) = ExportProjects(
-        object : ProjectReach(records, Permissions(mock(CurrentUser::class.java), mock(MetadataService::class.java)), Clock.systemUTC()) {
+        object : ProjectReach(records, Permissions(mock(CurrentUser::class.java), mock(ObjectDefinitions::class.java)), Clock.systemUTC()) {
             override suspend fun readsAll(user: AuthenticatedUser): Boolean {
                 delay(1)
                 return readsAll
