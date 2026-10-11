@@ -61,4 +61,26 @@ class RequestClosureListenerTest {
         runBlocking { RequestClosureListener(records, model(withF4 = true)).recordChanged(close) }
         assertEquals(listOf(Attention.REQUEST), reads)
     }
+
+    // F5 (§3.7): el cierre de un aporte busca las solicitudes aceptadas que lo crearon, por created_contribution
+    @Test
+    fun `cerrar un aporte busca las solicitudes aceptadas por created_contribution`() {
+        val filters = mutableListOf<Map<*, *>>()
+        val capturing: Records =
+            mock(Records::class.java) { invocation ->
+                if (invocation.method.name != "all") error("lectura inesperada: ${invocation.method.name}")
+                filters += invocation.arguments[1] as Map<*, *>
+                emptyList<Any>()
+            }
+        val contribution = close.copy(objectName = Acceptances.CONTRIBUTION)
+        runBlocking { RequestClosureListener(capturing, model(withF4 = true)).recordChanged(contribution) }
+        assertEquals(listOf(mapOf(AttentionRules.CREATED_CONTRIBUTION to contribution.recordId.toString())), filters)
+    }
+
+    @Test
+    fun `otra transicion u otro objeto no buscan solicitudes`() {
+        runBlocking { RequestClosureListener(records, model(withF4 = true)).recordChanged(close.copy(transition = "register_delivery")) }
+        runBlocking { RequestClosureListener(records, model(withF4 = true)).recordChanged(close.copy(objectName = "agreement")) }
+        assertEquals(emptyList<String>(), reads)
+    }
 }
