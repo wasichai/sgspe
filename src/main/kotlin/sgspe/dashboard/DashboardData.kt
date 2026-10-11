@@ -2,6 +2,7 @@ package sgspe.dashboard
 
 import org.slf4j.LoggerFactory
 import sgspe.attention.QcsDueDates
+import sgspe.commitment.Commitments
 import sgspe.common.Attention
 import sgspe.common.Criteria
 import sgspe.common.LIMA
@@ -11,6 +12,8 @@ import sgspe.common.Records
 import sgspe.common.Values
 import sgspe.engagement.AttendanceCounts
 import sgspe.engagement.EngagementWriteGuard
+import sgspe.investment.Contributions
+import sgspe.investment.Programs
 import sgspe.stakeholder.FollowUp
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordResponse
@@ -65,16 +68,17 @@ class DashboardData(
         objectName: String,
         field: String?,
         ids: Collection<String>,
-        equal: Map<String, String> = emptyMap()
+        equal: Map<String, String> = emptyMap(),
+        criteria: List<RecordCriterion> = emptyList()
     ): List<RecordResponse> {
         val out = mutableListOf<RecordResponse>()
         for (chunk in ids.distinct().map(UUID::fromString).chunked(CHUNK)) {
             val remaining = maxRows - out.size
             out +=
                 if (field == null) {
-                    read(objectName, equal, ids = chunk, max = remaining)
+                    read(objectName, equal, criteria, ids = chunk, max = remaining)
                 } else {
-                    read(objectName, equal, listOf(Criteria.anyOf(field, chunk)), max = remaining)
+                    read(objectName, equal, criteria + Criteria.anyOf(field, chunk), max = remaining)
                 }
         }
         return out
@@ -417,7 +421,8 @@ class DashboardData(
             Values.text(a["deadline_status"]),
             Values.decimal(a["amount"]),
             Values.text(a["currency"]),
-            Values.decimal(a["executed_amount"])
+            Values.decimal(a["executed_amount"]),
+            Values.decimal(a["beneficiaries_count"])?.toLong()
         )
     }
 
@@ -606,6 +611,128 @@ class DashboardData(
         val projects = projectRecords().associate { it.id to ProjectParameters.integer(it.attributes, "meetings_per_month_target") }
         return EngagementKpis.monthlyTargets(EngagementKpis.targetMonths(filters.periodStart, filters.periodEnd), projects, plans)
     }
+
+    // ---- inversión social (F5, dashboards.md §4.7, especificación de F5 §3.9) ----
+
+    // las localidades del filtro locality con sus sectores; vacío si no vino. los KPI-INV aplican solo locality de los filtros de
+    // territorio (decisión 5 del plan 5.2b) y declaran los demás en ignoredFilters
+    suspend fun investmentLocalities(): Set<String> =
+        cached("investmentLocalities") { filters.locality?.let { withSectors(setOf(it.toString())) } ?: emptySet() }
+
+    private suspend fun inLocality(locality: String?): Boolean = filters.locality == null || (locality != null && locality in investmentLocalities())
+
+    // las campañas de los proyectos; con `campaign`, solo la pedida en explorationCampaign (KPI-INV-01; KPI-INV-03 no la aplica)
+    suspend fun investmentCampaigns(campaign: Boolean): List<CampaignRow> =
+        cached("investmentCampaigns:$campaign") {
+            if (filters.projects.isEmpty()) return@cached emptyList<CampaignRow>()
+            val ids = if (campaign) filters.explorationCampaign?.let { listOf(it) } else null
+            read("exploration_campaign", criteria = listOf(Criteria.anyOf("project", filters.projects)), ids = ids).map {
+                val a = it.attributes
+                CampaignRow(
+                    it.id,
+                    Values.text(a["project"]),
+                    Values.text(a["name"]),
+                    Values.decimal(a["social_support_cap"]),
+                    Values.text(a["currency"]),
+                    Values.decimal(a["executed_social_amount"]),
+                    Values.decimal(a["other_currency_items_count"])?.toInt() ?: 0
+                )
+            }
+        }
+
+    // lo comprometido de esas campañas con las definiciones de CampaignCommitted (decisión 4 del plan 5.2b): los compromisos en
+    // Commitments.COMMITTED con su amount y los aportes en Contributions.COMMITTED con su total_amount. el estado va en la
+    // lectura, como en CampaignCommitted: los borradores y los anulados no cuentan para el tope de filas
+    suspend fun committedOf(campaigns: Collection<String>): List<CommittedAmount> {
+        suspend fun of(
+            objectName: String,
+            states: Set<String>,
+            field: String
+        ) = readIn(objectName, "exploration_campaign", campaigns, criteria = listOf(Criteria.inState(states))).map {
+            CommittedAmount(
+                Values.text(it.attributes["exploration_campaign"]).orEmpty(),
+                Values.decimal(it.attributes[field]),
+                Values.text(it.attributes["currency"])
+            )
+        }
+        return of(Commitments.COMMITMENT, Commitments.COMMITTED, "amount") +
+            of(Contributions.CONTRIBUTION, Contributions.COMMITTED, "total_amount")
+    }
+
+    // los programas de los proyectos; con `program`, solo el pedido (KPI-INV-02 y 04; KPI-INV-03 no lo aplica)
+    suspend fun programs(program: Boolean): List<ProgramRow> =
+        cached("programs:$program") {
+            if (filters.projects.isEmpty()) return@cached emptyList<ProgramRow>()
+            val ids = if (program) filters.program?.let { listOf(it) } else null
+            read(Programs.PROGRAM, criteria = listOf(Criteria.anyOf("project", filters.projects)), ids = ids).map {
+                val a = it.attributes
+                ProgramRow(it.id, Values.text(a["project"]), Values.text(a["code"]), Values.text(a["name"]), Values.text(a["currency"]), it.state)
+            }
+        }
+
+    suspend fun budgetsOf(programs: Collection<String>): List<BudgetRow> =
+        readIn(Programs.BUDGET, Programs.PROGRAM, programs).map {
+            val a = it.attributes
+            BudgetRow(
+                Values.text(a[Programs.PROGRAM]).orEmpty(),
+                Values.decimal(a[Programs.YEAR])?.toInt(),
+                Values.decimal(a[Programs.ALLOCATED]),
+                Values.decimal(a["executed_amount"]),
+                Values.text(a[Programs.CURRENCY])
+            )
+        }
+
+    // los grupos de beneficiarios de esos programas, por su localidad si vino el filtro
+    suspend fun groupsOf(programs: Collection<String>): List<GroupRow> =
+        readIn(Programs.GROUP, Programs.PROGRAM, programs)
+            .filter { inLocality(Values.text(it.attributes["locality"])) }
+            .map {
+                val a = it.attributes
+                GroupRow(Values.text(a[Programs.PROGRAM]).orEmpty(), Values.decimal(a["target_count"])?.toLong(), Values.decimal(a["reached_count"])?.toLong())
+            }
+
+    // los aportes de los proyectos, por su localidad si vino el filtro (todos sus estados: cada KPI decide)
+    suspend fun investmentContributions(): List<ContributionRow> =
+        cached("investmentContributions") {
+            if (filters.projects.isEmpty()) return@cached emptyList<ContributionRow>()
+            read(Contributions.CONTRIBUTION, criteria = listOf(Criteria.anyOf("project", filters.projects)))
+                .filter { inLocality(Values.text(it.attributes["locality"])) }
+                .map {
+                    val a = it.attributes
+                    ContributionRow(
+                        it.id,
+                        Values.text(a["project"]),
+                        it.state,
+                        Values.decimal(a["total_amount"]),
+                        Values.text(a["currency"]),
+                        Values.decimal(a["beneficiaries_count"])?.toLong()
+                    )
+                }
+        }
+
+    // los compromisos de los proyectos, solo por su localidad: los KPI-INV no aplican los demás filtros de territorio, el ámbito,
+    // la campaña ni el responsable
+    suspend fun investmentCommitments(): List<CommitmentRow> =
+        cached("investmentCommitments") {
+            if (filters.projects.isEmpty()) return@cached emptyList<CommitmentRow>()
+            read(Commitments.COMMITMENT, criteria = listOf(Criteria.anyOf("project", filters.projects)))
+                .filter { inLocality(Values.text(it.attributes["locality"])) }
+                .map { commitmentRow(it) }
+        }
+
+    // las entregas de `parents` por su campo `field` (commitment o social_contribution)
+    suspend fun deliveriesOf(
+        field: String,
+        parents: Collection<String>
+    ): List<DeliveryRow> =
+        readIn(Commitments.DELIVERY, field, parents).map {
+            val a = it.attributes
+            DeliveryRow(
+                Values.text(a[field]).orEmpty(),
+                Values.text(a["delivery_date"])?.let { d -> runCatching { LocalDate.parse(d) }.getOrNull() },
+                Values.decimal(a["delivered_amount"])
+            )
+        }
 
     companion object {
         const val CHUNK = 500

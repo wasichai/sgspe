@@ -12,6 +12,7 @@ import sgspe.common.ProjectParameters
 import sgspe.common.Records
 import sgspe.common.Values
 import sgspe.common.readable
+import sgspe.investment.Programs
 import sgspe.scope.Assignments
 import wasichai.core.common.ForbiddenException
 import wasichai.core.data.RecordChange
@@ -32,13 +33,14 @@ data class ApprovalStep(
     val direct: List<String> = emptyList()
 )
 
-// el aviso «aprobación pendiente» (RF-NTF-001): al enviar un proyecto, un acta o un compromiso a aprobación y al registrar un aporte (F5), un aviso ACTION
-// para los asignados vigentes al proyecto cuyo role_name está entre los roles de la transición de aprobación que sigue
-// (ASM-070), salvo quien envió y las cuentas de servicio (Assignments.recipients). los roles salen de model/workflows, nunca
-// de un literal (RQ-SEC-005). un compromiso que exige nivel superior (RN-ENG-002) avisa solo a los roles de approve_senior,
-// con la regla evaluada en el momento. cualquier transición que sale del estado pendiente resuelve el aviso: la bandeja
-// muestra lo que sigue siendo cierto. corre en la transacción de la transición, como quien la aplica; si no puede leer las
-// asignaciones, o no hay destinatarios, lo registra y la transición sigue (workflows.md, «Sin coincidencias»)
+// el aviso «aprobación pendiente» (RF-NTF-001): al enviar un proyecto, un acta, un compromiso o un programa (F5) a
+// aprobación y al registrar un aporte (F5), un aviso ACTION para los asignados vigentes al proyecto cuyo role_name está
+// entre los roles de la transición de aprobación que sigue (ASM-070), salvo quien envió y las cuentas de servicio
+// (Assignments.recipients). los roles salen de model/workflows, nunca de un literal (RQ-SEC-005). un compromiso que exige
+// nivel superior (RN-ENG-002) avisa solo a los roles de approve_senior, con la regla evaluada en el momento. cualquier
+// transición que sale del estado pendiente resuelve el aviso: la bandeja muestra lo que sigue siendo cierto. corre en la
+// transacción de la transición, como quien la aplica; si no puede leer las asignaciones, o no hay destinatarios, lo registra
+// y la transición sigue (workflows.md, «Sin coincidencias»)
 @Component
 @Order(200)
 class ApprovalNoticeListener(
@@ -166,7 +168,9 @@ class ApprovalNoticeListener(
                 ApprovalStep(PROJECT, "submit_for_review", "in_review", listOf("approve")),
                 ApprovalStep("engagement", "submit_minutes", "minutes_in_review", listOf("approve_minutes")),
                 ApprovalStep(Commitments.COMMITMENT, "submit", "pending_approval", listOf("approve", SENIOR)),
-                ApprovalStep(CONTRIBUTION, null, "requested", listOf("approve"), direct = listOf("approve_direct"))
+                ApprovalStep(CONTRIBUTION, null, "requested", listOf("approve"), direct = listOf("approve_direct")),
+                // F5: WF-G (especificación §3.8): al enviar, para los roles de approve; se resuelve al salir de pending_approval
+                ApprovalStep(Programs.PROGRAM, Programs.SUBMIT, Programs.PENDING, listOf(Programs.APPROVE))
             )
 
         // una clave por registro: volver a enviarlo reabre el mismo aviso (es noticia otra vez, WAS-ADR-0060)
@@ -181,7 +185,7 @@ class ApprovalNoticeListener(
             attributes: Map<String, Any?>
         ): String =
             when (objectName) {
-                PROJECT -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["name"]))
+                PROJECT, Programs.PROGRAM -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["name"]))
                 Commitments.COMMITMENT -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["title"]))
                 CONTRIBUTION -> listOfNotNull(Values.text(attributes["code"]), Values.text(attributes["contribution_type"]))
                 else -> listOfNotNull(Values.text(attributes["title"]))

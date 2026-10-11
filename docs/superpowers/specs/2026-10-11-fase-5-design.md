@@ -350,6 +350,7 @@ ningún ejecutado y no cambia `social_contribution` (ya es fijo). Las reglas de 
 |---|---|---|
 | Una sola entrega | Alta de una `delivery` con `social_contribution` que ya tiene una (la guarda toma el candado del aporte; el único del modelo es la última barrera) | `409 DELIVERY_EXISTS` sobre `social_contribution` |
 | Entrega congelada | Cambio de la entrega, o alta o baja de un vínculo `evidence_delivery`, con el aporte fuera de `procured` | `409 DELIVERY_FROZEN` sobre `social_contribution` |
+| Comprobante congelado | `receipt`: alta, cambio o baja con el aporte en `delivered` o después (`closed`, `rejected`, `cancelled`); un cambio de aporte se juzga contra los dos; decisión del usuario del 2026-10-11 | `409 DELIVERY_FROZEN` sobre `social_contribution` |
 | Sin monto entregado | `delivered_amount` informado en una entrega de aporte | `400 FIELD_NOT_ALLOWED` sobre `delivered_amount` |
 
 `sgspe.commitment` no depende de `sgspe.investment`: el `PATCH` es genérico sobre la entrega y su regla de compromisos

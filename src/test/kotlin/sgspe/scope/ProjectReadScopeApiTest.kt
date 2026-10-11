@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
-import sgspe.F4ApiTest
+import sgspe.F5ProgramApiTest
 import tools.jackson.databind.JsonNode
 
 // el alcance de lectura por proyecto en las rutas de wasichai y de sgspe (ASM-106, ASM-108, security.md §9.7 y §14): con dos
@@ -12,8 +12,10 @@ import tools.jackson.databind.JsonNode
 // detalle, relacionados, historial, auditoría, transiciones, features, archivos, documentos, indicadores, exportaciones y
 // capas; no da de alta ni vincula hacia B; una asignación vencida deja de dar alcance pero se sigue leyendo; AUDITOR,
 // PROJECT_ADMIN y ADMIN leen los dos; una cuenta de servicio asignada a A, solo A; y una QCS confidencial de A no la ve un gestor
-// de quejas de B aunque tenga READ_CONFIDENTIAL. ConfidentialRelease dentro de A lo prueba StakeholderRequestWorkflowApiTest
-class ProjectReadScopeApiTest : F4ApiTest() {
+// de quejas de B aunque tenga READ_CONFIDENTIAL. ConfidentialRelease dentro de A lo prueba StakeholderRequestWorkflowApiTest.
+// desde F5 (especificación §3.2): las mediciones (nietas de social_program) y las entregas con dos padres (commitment o
+// social_contribution) se leen por el padre que tienen, nunca «sin padre, todos»
+class ProjectReadScopeApiTest : F5ProgramApiTest() {
     private val a by lazy {
         createWith(
             "project",
@@ -272,5 +274,47 @@ class ProjectReadScopeApiTest : F4ApiTest() {
         assertEquals(1, log["row_count"].asInt())
         assertTrue(log["project"] == null || log["project"].isNull)
         assertTrue(log["filters_description"].asString().contains(b), log.toString())
+    }
+
+    // una entrega como la plataforma (delivery es apiOnly; ExactlyOneGuard pide uno de sus dos padres)
+    private fun deliveryOf(
+        field: String,
+        parent: String
+    ): String = platformCreate("delivery", mapOf(field to parent, "delivery_date" to "2026-10-10", "conformity_given" to true))
+
+    @Test
+    fun `quien es de A lee las entregas de compromisos y de aportes de A y no las de B, y una huerfana solo quien lee todo`() {
+        val investorA = member("SOCIAL_INVESTMENT_MANAGER", a)
+        val investorB = member("SOCIAL_INVESTMENT_MANAGER", b)
+        val mine = setOf(deliveryOf("commitment", commitment(a)), deliveryOf("social_contribution", registerContribution(a, investorA)))
+        val theirs = setOf(deliveryOf("commitment", commitment(b)), deliveryOf("social_contribution", registerContribution(b, investorB)))
+        // la huérfana: su compromiso en borrador se borra y wasichai deja la relación vacía (decisión 15 del plan 5.2b)
+        val doomed = commitment(a)
+        val orphan = deliveryOf("commitment", doomed)
+        assertEquals(HttpStatus.NO_CONTENT, exchange("DELETE", "/api/objects/commitment/records/$doomed", null, token, withReason("borrado de prueba")).status)
+        val everything = mine + theirs + orphan
+        assertEquals(mine, ids(listed("delivery", officer)) intersect everything)
+        for (id in theirs + orphan) {
+            assertEquals(HttpStatus.NOT_FOUND, status("GET", "/api/objects/delivery/records/$id", officer), id)
+        }
+        for (id in mine) assertEquals(HttpStatus.OK, status("GET", "/api/objects/delivery/records/$id", officer), id)
+        // decisión 10 del plan 5.2b: AUDITOR lee todo (`*` READ y READ_ALL_PROJECTS), también la huérfana. por el detalle, no
+        // por la lista: con todo el tenant, las entregas de otras clases pueden dejar estas fuera de la primera página
+        val auditor = userWithRole("AUDITOR")
+        for (id in everything) assertEquals(HttpStatus.OK, status("GET", "/api/objects/delivery/records/$id", auditor), id)
+    }
+
+    @Test
+    fun `quien es de A lee las mediciones de A y no las de B`() {
+        val investorA = member("SOCIAL_INVESTMENT_MANAGER", a)
+        val investorB = member("SOCIAL_INVESTMENT_MANAGER", b)
+        val mine = programMeasurement(programIndicator(socialProgram(a, investorA), investorA), creator = investorA)
+        val theirs = programMeasurement(programIndicator(socialProgram(b, investorB), investorB), creator = investorB)
+        assertEquals(setOf(mine), ids(listed("program_measurement", officer)) intersect setOf(mine, theirs))
+        assertEquals(HttpStatus.NOT_FOUND, status("GET", "/api/objects/program_measurement/records/$theirs", officer))
+        assertEquals(HttpStatus.OK, status("GET", "/api/objects/program_measurement/records/$mine", officer))
+        // AUDITOR por el detalle, como en las entregas
+        val auditor = userWithRole("AUDITOR")
+        for (id in listOf(mine, theirs)) assertEquals(HttpStatus.OK, status("GET", "/api/objects/program_measurement/records/$id", auditor), id)
     }
 }

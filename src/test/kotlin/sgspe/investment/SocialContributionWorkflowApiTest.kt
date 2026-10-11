@@ -438,4 +438,43 @@ class SocialContributionWorkflowApiTest : ContributionApiTest() {
         val executed = record("exploration_campaign", campaign)["attributes"]["executed_social_amount"].decimalValue()
         assertEquals(0, java.math.BigDecimal("300").compareTo(executed))
     }
+
+    // ---- tarea extra del plan 5.2b: el comprobante congelado desde delivered (decisión del usuario del 2026-10-11) ----
+
+    private fun receiptFor(
+        contribution: String,
+        amount: Any = 300
+    ): Response =
+        exchange(
+            "POST",
+            "/api/objects/receipt/records",
+            mapOf("attributes" to mapOf("social_contribution" to contribution, "receipt_type" to "BOLETA DE VENTA", "amount" to amount, "currency" to "PEN")),
+            token
+        )
+
+    @Test
+    fun `el comprobante se registra antes de la entrega y desde delivered no se crea, cambia, mueve ni borra`() {
+        val project = testProject()
+        val id = procuredWithItems(project)
+        val receipt = receiptFor(id)
+        assertEquals(HttpStatus.CREATED, receipt.status, receipt.body)
+        val receiptId = idOf(receipt)
+        val other = procuredWithItems(project)
+        val loose = receiptFor(other)
+        assertEquals(HttpStatus.CREATED, loose.status, loose.body)
+        assertEquals(HttpStatus.CREATED, captureDelivery(id, evidence = deliveryEvidence(project)).status)
+        move("social_contribution", id, "register_delivery", reason = "entregado")
+        val refused =
+            listOf(
+                receiptFor(id, 50),
+                edit("receipt", receiptId, mapOf("amount" to 320)),
+                edit("receipt", idOf(loose), mapOf("social_contribution" to id)),
+                exchange("DELETE", "/api/objects/receipt/records/$receiptId", null, token)
+            )
+        for (response in refused) {
+            assertEquals(HttpStatus.CONFLICT, response.status, response.body)
+            assertEquals("DELIVERY_FROZEN", code(response))
+            assertEquals(listOf("social_contribution"), problemFields(response.body))
+        }
+    }
 }

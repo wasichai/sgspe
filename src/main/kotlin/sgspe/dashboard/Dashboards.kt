@@ -58,7 +58,7 @@ class Dashboards(
             Kpis.DASHBOARDS[name]
                 ?: throw notFound("DASHBOARD_NOT_FOUND", "El tablero $name no existe o no está disponible en esta fase", "dashboard")
         val today = today()
-        val filters = filters(params, DashboardFilters.COMMON, today)
+        val filters = filters(params, DashboardFilters.COMMON + Kpis.extraFilters(codes), today)
         val readable = Readability(metadata)
         val data = DashboardData(records, filters, readable::canRead, today)
         val hidden = hidden()
@@ -72,7 +72,7 @@ class Dashboards(
     ): IndicatorValue {
         val kpi = Kpis.BY_CODE[code] ?: throw notFound("INDICATOR_NOT_FOUND", "El indicador $code no existe o no está disponible en esta fase", "code")
         val today = today()
-        val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN, today)
+        val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN + Kpis.extraFilters(listOf(code)), today)
         val readable = Readability(metadata)
         val value =
             mark(evaluate(kpi, DashboardData(records, filters, readable::canRead, today), readable), if (Kpis.confidentialSensitive(code)) hidden() else false)

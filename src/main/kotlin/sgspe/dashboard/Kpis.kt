@@ -4,6 +4,8 @@ import sgspe.common.Attention
 import sgspe.common.ProjectParameters
 import sgspe.common.Values
 import sgspe.engagement.AttendanceCounts
+import sgspe.investment.Contributions
+import sgspe.investment.Programs
 import sgspe.risk.RiskLevels
 
 // un KPI de dashboards.md §4. requires: "objeto.campo" que lee; si alguno no es legible para quien llama, el indicador
@@ -47,6 +49,7 @@ object Kpis {
     const val COMMITMENTS = "commitments"
     const val ATTENTION = "attention"
     const val RISKS = "risks"
+    const val INVESTMENT = "investment"
 
     // los indicadores que leen QCS y que, a quien no ve las confidenciales, se lo dicen con confidentialHidden (dashboards.md §8,
     // ASM-095): los KPI-GRV y KPI-ENG-05, que cuenta como atendida una pregunta derivada a una QCS
@@ -63,11 +66,17 @@ object Kpis {
     // los KPI-STK ignoran además community: stakeholder no tiene comunidad (ruling P27)
     private val STAKEHOLDER_IGNORES: Set<String> = IGNORED_IN_F2 + "community"
 
-    // los filtros pedidos que el indicador ignora, en el orden de DashboardFilters.COMMON; vacío si ninguno
+    // los filtros pedidos que el indicador ignora, en el orden de DashboardFilters.COMMON y después INVESTMENT; vacío si ninguno
     fun ignoredFilters(
         indicator: Indicator,
         filters: DashboardFilters
-    ): List<String> = DashboardFilters.COMMON.filter { it in indicator.ignores && it in filters.given() }
+    ): List<String> = (DashboardFilters.COMMON + DashboardFilters.INVESTMENT).filter { it in indicator.ignores && it in filters.given() }
+
+    // los filtros que, además de los comunes, aceptan los indicadores `codes`: program y year si alguno es un KPI-INV (decisión 2
+    // del plan 5.2b); ninguno en los demás, así que en otro tablero o KPI son 422
+    fun extraFilters(codes: Collection<String>): Set<String> = if (codes.any { it.startsWith(INVESTMENT_PREFIX) }) DashboardFilters.INVESTMENT else emptySet()
+
+    private const val INVESTMENT_PREFIX = "KPI-INV-"
 
     // los tableros de F2 y sus zonas, en el orden de dashboards.md §5.3 y §5.4
     val DASHBOARDS: Map<String, List<String>> =
@@ -92,7 +101,25 @@ object Kpis {
             // dashboards.md §5.7: flujo, absueltas, desgloses, tendencia y tiempos
             ATTENTION to (1..10).map { "KPI-GRV-%02d".format(it) },
             // dashboards.md §5.8: mapa de calor, riesgos altos, distribución, evolución y mitigación
-            RISKS to listOf("KPI-RSK-02", "KPI-RSK-01", "KPI-RSK-03", "KPI-RSK-04", "KPI-RSK-05")
+            RISKS to listOf("KPI-RSK-02", "KPI-RSK-01", "KPI-RSK-03", "KPI-RSK-04", "KPI-RSK-05"),
+            // dashboards.md §5.10: campañas, programas, consolidado y beneficiarios
+            INVESTMENT to listOf("KPI-INV-01", "KPI-INV-02", "KPI-INV-03", "KPI-INV-04")
+        )
+
+    // F5: los KPI-INV aplican de los filtros de territorio solo locality (decisión 5 del plan 5.2b); ninguno aplica el ámbito
+    // ni el responsable de un compromiso. cada uno suma lo que su fila de dashboards.md §4.7 no aplica
+    private val INV_IGNORES: Set<String> = setOf("administrativeUnit", "community", "areaOfInfluence", "scope", "owner")
+
+    // lo que leen todos los KPI-INV de los programas
+    private val PROGRAM =
+        listOf("${Programs.PROGRAM}.project", "${Programs.PROGRAM}.code", "${Programs.PROGRAM}.name", "${Programs.PROGRAM}.currency")
+    private val BUDGET =
+        listOf(
+            "${Programs.BUDGET}.social_program",
+            "${Programs.BUDGET}.budget_year",
+            "${Programs.BUDGET}.allocated_amount",
+            "${Programs.BUDGET}.executed_amount",
+            "${Programs.BUDGET}.currency"
         )
 
     // los KPI-RSK aplican el territorio y el ámbito por la localidad o la comunidad del riesgo; la campaña y el responsable no
@@ -603,6 +630,108 @@ object Kpis {
             ) { data ->
                 val rows = data.risks()
                 RiskKpis.mitigation(data.measures(rows.map { it.id }), rows.associate { it.id to it.code }, data.today)
+            },
+            // ---- F5: inversión social (dashboards.md §4.7, especificación de F5 §3.9); leen como quien mira ----
+            Kpi(
+                "KPI-INV-01",
+                "Ejecución de la campaña frente a su tope",
+                INVESTMENT,
+                "%",
+                listOf(
+                    "exploration_campaign.project",
+                    "exploration_campaign.name",
+                    "exploration_campaign.social_support_cap",
+                    "exploration_campaign.currency",
+                    "exploration_campaign.executed_social_amount",
+                    "exploration_campaign.other_currency_items_count",
+                    "commitment.exploration_campaign",
+                    "commitment.amount",
+                    "commitment.currency",
+                    "social_contribution.exploration_campaign",
+                    "social_contribution.total_amount",
+                    "social_contribution.currency"
+                ),
+                ignores = INV_IGNORES + setOf("locality", "program", "year")
+            ) { data ->
+                val campaigns = data.investmentCampaigns(campaign = true)
+                InvestmentKpis.campaigns(campaigns, data.committedOf(campaigns.map { it.id }))
+            },
+            Kpi(
+                "KPI-INV-02",
+                "Ejecución de programas frente a presupuesto",
+                INVESTMENT,
+                "%",
+                PROGRAM + BUDGET,
+                ignores = INV_IGNORES + setOf("locality", "explorationCampaign")
+            ) { data ->
+                val programs = data.programs(program = true)
+                InvestmentKpis.programs(programs, data.budgetsOf(programs.map { it.id }), data.filters.year)
+            },
+            Kpi(
+                "KPI-INV-03",
+                "Inversión social ejecutada",
+                INVESTMENT,
+                "monto",
+                PROGRAM + BUDGET +
+                    listOf(
+                        "commitment.project",
+                        "commitment.locality",
+                        "commitment.currency",
+                        "delivery.commitment",
+                        "delivery.social_contribution",
+                        "delivery.delivery_date",
+                        "delivery.delivered_amount",
+                        "social_contribution.project",
+                        "social_contribution.locality",
+                        "social_contribution.total_amount",
+                        "social_contribution.currency",
+                        "exploration_campaign.project",
+                        "exploration_campaign.social_support_cap",
+                        "exploration_campaign.currency",
+                        "project.code"
+                    ),
+                ignores = INV_IGNORES + setOf("explorationCampaign", "program", "year")
+            ) { data ->
+                val commitments = data.investmentCommitments()
+                val contributions = data.investmentContributions()
+                val withPrograms = data.filters.locality == null
+                val programs = if (withPrograms) data.programs(program = false) else emptyList()
+                InvestmentKpis.executed(
+                    commitments,
+                    data.deliveriesOf("commitment", commitments.map { it.id }),
+                    contributions,
+                    data.deliveriesOf(Contributions.CONTRIBUTION, contributions.map { it.id }),
+                    programs,
+                    data.budgetsOf(programs.map { it.id }),
+                    data.investmentCampaigns(campaign = false),
+                    data.filters.periodStart,
+                    data.filters.periodEnd,
+                    withPrograms,
+                    data.names("project", data.filters.projects.map { it.toString() }, "code")
+                )
+            },
+            Kpi(
+                "KPI-INV-04",
+                "Beneficiarios",
+                INVESTMENT,
+                "beneficiarios",
+                PROGRAM +
+                    listOf(
+                        "beneficiary_group.social_program",
+                        "beneficiary_group.target_count",
+                        "beneficiary_group.reached_count",
+                        "beneficiary_group.locality",
+                        "social_contribution.project",
+                        "social_contribution.locality",
+                        "social_contribution.beneficiaries_count",
+                        "commitment.project",
+                        "commitment.locality",
+                        "commitment.beneficiaries_count"
+                    ),
+                ignores = INV_IGNORES + setOf("explorationCampaign", "year")
+            ) { data ->
+                val programs = data.programs(program = true)
+                InvestmentKpis.beneficiaries(programs, data.groupsOf(programs.map { it.id }), data.investmentContributions(), data.investmentCommitments())
             }
         )
 
