@@ -67,6 +67,12 @@ wasichai:
         username: ${WASICHAI_GIS_GEOSERVER_DATASTORE_USERNAME:}
         password: ${WASICHAI_GIS_GEOSERVER_DATASTORE_PASSWORD:}
 
+sgspe:
+  map:
+    # el estilo lo nombra el despliegue (GAP-011); sin él, «Sin mapa base». el mapa por organización y la atribución los
+    # agrega el operador en su configuración adicional (SPRING_CONFIG_ADDITIONAL_LOCATION). MapSettingsProdTest lo fija
+    base-style-url: ${SGSPE_MAP_BASE_STYLE_URL:}
+
 spring:
   mail:
     # el servidor SMTP lo nombra el despliegue (el de desarrollo es Mailpit en localhost); ProdGuard lo exige con el correo

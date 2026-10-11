@@ -102,6 +102,14 @@ sgspe:
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000
+  map:
+    # el mapa base (gis.md §6.4, RQ-GIS-013, MapSettings): un estilo de MapLibre por URL. en desarrollo, el de demostración de
+    # MapLibre; por organización, el slug como clave; la atribución, por URL de estilo entre corchetes. nunca las teselas de
+    # OpenStreetMap (su política de uso no lo admite)
+    base-style-url: ${SGSPE_MAP_BASE_STYLE_URL:https://demotiles.maplibre.org/style.json}
+    base-style-url-by-organization: {}
+    attribution:
+      '[https://demotiles.maplibre.org/style.json]': MapLibre
   calendar:
     # feriados nacionales por año (ASM-096, HolidayCalendar): el acuse de una queja cuenta días hábiles. un año se agrega
     # cuando se publica su lista oficial en El Peruano (D. Leg. 713 y sus modificatorias), con su clave entre comillas y
