@@ -45,6 +45,16 @@ class InvestmentDashboardApiTest : F5ProgramApiTest() {
         node: JsonNode?
     ) = assertEquals(0, BigDecimal(expected).compareTo(node!!.decimalValue()), "$node")
 
+    // los KPI-INV cuentan un programa solo desde «Planificado» (decisión del usuario del 2026-10-11): plan_direct lo lleva ahí
+    // en un proyecto sin aprobación interna
+    private fun planned(
+        program: String,
+        planner: Account
+    ): String {
+        move("social_program", program, "plan_direct", planner.token)
+        return program
+    }
+
     @Test
     fun `el tablero trae los cuatro KPI-INV en orden y el catalogo los da disponibles`() {
         val body = dashboard("project=${projectWithoutInternalApproval()}&$period")
@@ -82,7 +92,11 @@ class InvestmentDashboardApiTest : F5ProgramApiTest() {
         val program = socialProgram(project, investor)
         programBudget(program, 2026, 1000, executed = 250, creator = investor)
         programBudget(program, 2027, 400, "USD", executed = 100, creator = investor)
-        socialProgram(project, investor).also { programBudget(it, 2026, 3000, executed = 750, creator = investor) }
+        planned(program, investor)
+        socialProgram(project, investor).also {
+            programBudget(it, 2026, 3000, executed = 750, creator = investor)
+            planned(it, investor)
+        }
         val all = indicator(dashboard("project=$project&$period"), "KPI-INV-02")
         same("25.0", all["value"])
         assertEquals(3, rows(all, "program").size)
@@ -115,6 +129,7 @@ class InvestmentDashboardApiTest : F5ProgramApiTest() {
         val program = socialProgram(project, investor)
         programBudget(program, 2026, 1000, executed = 250, creator = investor)
         beneficiaryGroup(program, creator = investor, attributes = mapOf("target_count" to 100, "reached_count" to 40))
+        planned(program, investor)
         val body = dashboard("project=$project&$period")
         val executed = indicator(body, "KPI-INV-03")
         same("2950", executed["value"])
@@ -152,6 +167,7 @@ class InvestmentDashboardApiTest : F5ProgramApiTest() {
         val program = socialProgram(theirs, investor)
         programBudget(program, 2026, 1000, executed = 250, creator = investor)
         beneficiaryGroup(program, creator = investor, attributes = mapOf("target_count" to 100, "reached_count" to 40))
+        planned(program, investor)
         registerApprovedContribution(theirs, investor)
         val outsider = member("SOCIAL_INVESTMENT_MANAGER", mine)
         val body = dashboard("project=$theirs&$period", outsider.token)
@@ -163,6 +179,39 @@ class InvestmentDashboardApiTest : F5ProgramApiTest() {
         }
         same("0", indicator(body, "KPI-INV-03")["value"])
         assertEquals(0, indicator(body, "KPI-INV-04")["value"].asInt())
+    }
+
+    @Test
+    fun `KPI-INV-02 a 04 no cuentan los programas en draft, pending_approval ni cancelled`() {
+        val project = projectWithoutInternalApproval()
+        val investor = member("SOCIAL_INVESTMENT_MANAGER", project)
+        val approver = member("APPROVER", project)
+
+        fun program(): String =
+            socialProgram(project, investor).also {
+                programBudget(it, 2026, 1000, executed = 100, creator = investor)
+                beneficiaryGroup(it, creator = investor, attributes = mapOf("target_count" to 10, "reached_count" to 1))
+            }
+        val draft = program()
+        val pending = program().also { move("social_program", it, "submit", investor.token) }
+        program().also { move("social_program", it, "cancel_draft", approver.token, "programa de prueba descartado") }
+        val running = planned(program(), investor).also { move("social_program", it, "start_execution", investor.token) }
+        val body = dashboard("project=$project&$period")
+        val progress = indicator(body, "KPI-INV-02")
+        assertEquals(listOf("$running:2026:PEN"), rows(progress, "program").map { it["key"].asString() })
+        same("10.0", progress["value"])
+        same("100", indicator(body, "KPI-INV-03")["value"])
+        val beneficiaries = indicator(body, "KPI-INV-04")
+        assertEquals(1, beneficiaries["value"].asInt())
+        assertEquals(listOf(running), rows(beneficiaries, "program").map { it["key"].asString() })
+        // el filtro program sobre un programa que no cuenta da conjuntos vacíos, no un error
+        for (excluded in listOf(draft, pending)) {
+            val one = dashboard("project=$project&$period&program=$excluded")
+            assertTrue(indicator(one, "KPI-INV-02")["value"].isNull, excluded)
+            assertTrue(rows(indicator(one, "KPI-INV-02"), "program").isEmpty(), excluded)
+            assertEquals(0, indicator(one, "KPI-INV-04")["value"].asInt(), excluded)
+            assertTrue(rows(indicator(one, "KPI-INV-04"), "program").isEmpty(), excluded)
+        }
     }
 
     // la entrada 5 del Review Focus

@@ -430,6 +430,9 @@ desconocido es `422`. La cifra titular y la forma de cada desglose las fija el p
 | KPI-INV-03 | Por proyecto y moneda: ejecutado por fuente (compromisos, aportes en `delivered` o `closed`, presupuestos de programas) frente a presupuesto y topes, con el periodo de `dashboards.md` §4.7 (el aporte cuenta si su entrega cae en el periodo) | Otras monedas como advertencia |
 | KPI-INV-04 | Tres bloques sin sumar: por programa (meta y alcanzados de sus grupos), aportes ejecutados (`beneficiaries_count`) y compromisos cumplidos (`beneficiaries_count`) | Una persona puede estar en varias fuentes |
 
+KPI-INV-02 a 04 cuentan los programas desde «Planificado» (decisión del usuario, 2026-10-11): sus presupuestos y
+grupos en `draft`, `pending_approval` o `cancelled` no suman.
+
 `dashboards.md` §3.2 suma el conjunto «comprometido» de `social_contribution` (`approved`, `procured`, `delivered`,
 `closed`). El tablero es interno y no aplica celdas pequeñas. Prueba: `InvestmentDashboardApiTest`.
 
