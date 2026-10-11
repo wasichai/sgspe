@@ -491,12 +491,16 @@ parámetro desconocido (ASM-054, RNF-INT-004) y `X-Correlation-Id` (RQ-AUD-006).
 | `POST /api/sgspe/indicators/{id}/measurements` | Cierre de periodo (F8): congela una medición oficial (§7.2 del modelo de dominio); responde 409 para los indicadores que nunca se congelan (§10) | Modelo de dominio §7.2, `api.md` |
 
 Parámetros de consulta (§3.1), como los fija `api.md`: `project` (repetible), `periodStart`, `periodEnd`, `locality`,
-`community`, `administrativeUnit`, `areaOfInfluence`, `explorationCampaign` y `scope` y, desde F5 y solo en
-`investment` y los KPI-INV, `program` y `year`. Reglas:
+`community`, `administrativeUnit`, `areaOfInfluence`, `explorationCampaign`, `scope` y `owner`; desde F5, en el tablero
+`investment` y en los KPI-INV, también `program` y `year`. Reglas:
 
 - El tablero `project` y KPI-STK-03 exigen un solo `project`.
 - KPI-RSK-02 acepta varios proyectos, pero solo con uno muestra el nivel de cada celda (§4.6).
 - El tablero `territory` (no el parámetro de territorio) exige `locality` o `community` para KPI-TER-01.
+- Los KPI-INV aplican de los filtros de territorio solo `locality`, con sus sectores; KPI-INV-03 no suma los
+  presupuestos de programas cuando viene, porque no tienen territorio, y lo advierte. La cifra titular de KPI-INV-01 a
+  03 va en PEN (§3.3); la de KPI-INV-04 son los alcanzados de los programas, y los aportes y compromisos van aparte en
+  su desglose `source`.
 
 Las propiedades van en camelCase (`unavailableReason`) y las constantes de la API en inglés UPPER_SNAKE (`FIELD_NOT_READABLE`),
 como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestra la interfaz. Ejemplo de respuesta:
