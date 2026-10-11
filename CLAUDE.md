@@ -62,7 +62,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 |---|---|
 | App | `src/main/kotlin/sgspe/SgspeApplication.kt`, `src/main/resources/application*.yml` |
 | Correlación y línea de acceso | `src/main/kotlin/sgspe/observability/` |
-| Marca de escritura, `Records`, Lima, 422, catálogo del modelo, reglas y guardas transversales, `If-Match`, consulta en seco, `Positions`, `Readability`, `RequestMemo`, JOB-02 | `src/main/kotlin/sgspe/common/` |
+| Marca de escritura, `Records`, Lima, 422, catálogo del modelo, reglas y guardas transversales, `If-Match`, consulta en seco, `Positions`, `Readability`, `RequestMemo` (también el memo del comando que `RequestMemoFilter` abre en las escrituras de `/api/sgspe/`), la caché del esquema (`ObjectDefinitions`: `current` por petición, `recent` hasta 30 s para el alcance y los permisos), JOB-02 | `src/main/kotlin/sgspe/common/` |
 | Alcance por proyecto, asignaciones, destinatarios por rol, `EDIT_ANY`, WF-A | `src/main/kotlin/sgspe/scope/` |
 | Evaluaciones, índices y grupo, prioridad, WF-B, JOB-03 | `src/main/kotlin/sgspe/stakeholder/` |
 | WF-C, conteos de asistentes | `src/main/kotlin/sgspe/engagement/` |

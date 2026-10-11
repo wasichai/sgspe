@@ -1,7 +1,7 @@
 # SGSPE · Plan corto: la caché del esquema que lee el alcance de lectura por proyecto
 
 > **Para agentes:** SUB-SKILL OBLIGATORIA: usar superpowers:subagent-driven-development (recomendada) o
-> superpowers:executing-plans para ejecutar este plan tarea por tarea. Los pasos usan casillas (`- [ ]`) para el
+> superpowers:executing-plans para ejecutar este plan tarea por tarea. Los pasos usan casillas (`- [x]`) para el
 > seguimiento. Cada tarea de código sigue superpowers:test-driven-development: prueba que falla, implementación mínima,
 > prueba en verde, commit.
 
@@ -215,7 +215,7 @@ lo mismo por petición: las definiciones de las guardas una vez y los permisos s
   - `internal val size: Int` (entradas guardadas) e `internal fun misses(): Long` (cargas que hizo `recent` por no tener
     una entrada vigente), solo para las pruebas.
 
-- [ ] **Paso 1: Rama y punto de partida**
+- [x] **Paso 1: Rama y punto de partida**
 
 ```bash
 cd ~/IdeaProjects/sgspe && git fetch origin && git switch main && git pull --ff-only
@@ -225,7 +225,7 @@ git switch -c perf/cache-esquema && git switch -c ce/t1
 
 Esperado: «5.2b integrado» y las dos ramas creadas.
 
-- [ ] **Paso 2: La prueba que falla**
+- [x] **Paso 2: La prueba que falla**
 
 `src/test/kotlin/sgspe/common/ObjectDefinitionsTest.kt`:
 
@@ -361,12 +361,12 @@ class ObjectDefinitionsTest {
 }
 ```
 
-- [ ] **Paso 3: Correrla y ver que falla**
+- [x] **Paso 3: Correrla y ver que falla**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.common.ObjectDefinitionsTest'`
 Expected: FAIL de compilación, «Unresolved reference 'ObjectDefinitions'».
 
-- [ ] **Paso 4: La implementación mínima**
+- [x] **Paso 4: La implementación mínima**
 
 `src/main/kotlin/sgspe/common/ObjectDefinitions.kt`:
 
@@ -478,12 +478,12 @@ En `src/main/resources/application.yml`, dentro de `sgspe:`, después del bloque
     definition-max-entries: 1000
 ```
 
-- [ ] **Paso 5: Correrla y ver que pasa**
+- [x] **Paso 5: Correrla y ver que pasa**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.common.ObjectDefinitionsTest'`
 Expected: PASS, 7 pruebas.
 
-- [ ] **Paso 6: Build y commit**
+- [x] **Paso 6: Build y commit**
 
 ```bash
 cd ~/IdeaProjects/sgspe && yarn format && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
@@ -523,13 +523,13 @@ Expected: `BUILD SUCCESSFUL` (si `ktlintFormat` reescribe algo, se incluye en el
   ObjectDefinitions, catalog: ModelCatalog, schemas: WasichaiSchemas, clock: Clock)` (el constructor `internal` con la
   función `load` no cambia).
 
-- [ ] **Paso 1: Rama**
+- [x] **Paso 1: Rama**
 
 ```bash
 cd ~/IdeaProjects/sgspe && git switch perf/cache-esquema && git switch -c ce/t2
 ```
 
-- [ ] **Paso 2: Las pruebas que fallan**
+- [x] **Paso 2: Las pruebas que fallan**
 
 En `src/test/kotlin/sgspe/scope/ProjectReadScopeTest.kt`, agregue los imports `sgspe.common.ObjectDefinitions` y
 `java.time.Duration` (en orden alfabético con los demás) y esta prueba al final de la clase (antes de la llave que la cierra):
@@ -597,13 +597,13 @@ class ObjectDefinitionsApiTest : F4ApiTest() {
 }
 ```
 
-- [ ] **Paso 3: Correr las unitarias y ver que fallan**
+- [x] **Paso 3: Correr las unitarias y ver que fallan**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.scope.ProjectReadScopeTest' --tests 'sgspe.common.ProjectReachTest' --tests 'sgspe.privacy.ExportProjectsTest'`
 Expected: FAIL de compilación: `Permissions` espera un `MetadataService` y recibe un `ObjectDefinitions` («Argument type
 mismatch»).
 
-- [ ] **Paso 4: La implementación**
+- [x] **Paso 4: La implementación**
 
 `src/main/kotlin/sgspe/common/Permissions.kt`: quite `import wasichai.core.metadata.MetadataService`, cambie el constructor
 y `has`:
@@ -664,12 +664,12 @@ después de ella una línea:
 // las definiciones de la condición salen de la caché del esquema (ObjectDefinitions.recent, security.md §9.7)
 ```
 
-- [ ] **Paso 5: Correr las unitarias y ver que pasan**
+- [x] **Paso 5: Correr las unitarias y ver que pasan**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.scope.ProjectReadScopeTest' --tests 'sgspe.common.ProjectReachTest' --tests 'sgspe.privacy.ExportProjectsTest'`
 Expected: PASS, con la prueba nueva de `ProjectReadScopeTest`.
 
-- [ ] **Paso 6: Build y commit**
+- [x] **Paso 6: Build y commit**
 
 ```bash
 cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
@@ -717,13 +717,13 @@ Expected: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.common.ObjectDefini
   `TransitionChecksController(rules, records, definitions, catalog, callers)`, `IssueAccessByScope(catalog, callers,
   permissions, definitions, records, resolver, assignments)`.
 
-- [ ] **Paso 1: Rama**
+- [x] **Paso 1: Rama**
 
 ```bash
 cd ~/IdeaProjects/sgspe && git switch perf/cache-esquema && git switch -c ce/t3
 ```
 
-- [ ] **Paso 2: Las pruebas que fallan**
+- [x] **Paso 2: Las pruebas que fallan**
 
 En `src/test/kotlin/sgspe/ArchitectureTest.kt`, después de la prueba `solo DerivedFieldsKeeper construye un DerivedRestore`:
 
@@ -824,14 +824,14 @@ En `src/test/kotlin/sgspe/common/RequestMemoFilterApiTest.kt`, en el comentario 
 del log, de la caché de definiciones de wasichai y de lo que corra en paralelo)» pasa a «(frágil: depende del formato del
 log, de la caché del esquema de SGSPE y de lo que corra en paralelo)».
 
-- [ ] **Paso 3: Correrlas y ver que fallan**
+- [x] **Paso 3: Correrlas y ver que fallan**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.ArchitectureTest' --tests 'sgspe.common.TenantModelTest'`
 Expected: FAIL de compilación de las pruebas: `TenantModel(...)` espera un `MetadataService` y recibe un
 `ObjectDefinitions` («Argument type mismatch»). La prueba nueva de `ArchitectureTest` fallaría además por sí sola con los
 seis archivos de `src/main` que el Paso 4 migra.
 
-- [ ] **Paso 4: La implementación**
+- [x] **Paso 4: La implementación**
 
 `src/main/kotlin/sgspe/common/TenantModel.kt` queda:
 
@@ -930,12 +930,12 @@ cd ~/IdeaProjects/sgspe && grep -rn "loadDefinition" src/main/kotlin | grep -v "
 
 Expected: solo líneas de comentario (o nada).
 
-- [ ] **Paso 5: Correrlas y ver que pasan**
+- [x] **Paso 5: Correrlas y ver que pasan**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.ArchitectureTest' --tests 'sgspe.common.TenantModelTest' --tests 'sgspe.attention.RequestClosureListenerTest' --tests 'sgspe.investment.CampaignCommittedTest' --tests 'sgspe.investment.SupportPolicyGuardTest' --tests 'sgspe.evidence.EvidenceWriteGuardTenantTest'`
 Expected: PASS.
 
-- [ ] **Paso 6: Build y commit**
+- [x] **Paso 6: Build y commit**
 
 ```bash
 cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
@@ -1000,13 +1000,13 @@ las guardas que juntan reglas (`CommitmentWriteGuard`, `InvestmentWriteGuard`) a
 asignación nunca se guarda entre peticiones: el memo vive lo que el comando. Las lecturas (`GET`) y la API genérica no
 cambian: la segunda escribe un registro por petición.
 
-- [ ] **Paso 1: Rama**
+- [x] **Paso 1: Rama**
 
 ```bash
 cd ~/IdeaProjects/sgspe && git switch perf/cache-esquema && git switch -c ce/t6
 ```
 
-- [ ] **Paso 2: Las pruebas que fallan**
+- [x] **Paso 2: Las pruebas que fallan**
 
 `src/test/kotlin/sgspe/common/RequestMemoFilterTest.kt` queda:
 
@@ -1150,14 +1150,14 @@ class AssignmentMemoApiTest : F5ApiTest() {
 }
 ```
 
-- [ ] **Paso 3: Correr la unitaria y ver que falla**
+- [x] **Paso 3: Correr la unitaria y ver que falla**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.common.RequestMemoFilterTest'`
 Expected: FAIL en `un comando de SGSPE abre el memo del comando, y una lectura o la API generica no` («expected: <1> but
 was: <3>»: sin el memo del comando, cada pregunta se calcula); las otras cuatro pasan. `AssignmentMemoApiTest` compila
 (`compileTestKotlin`) y fallaría en la CI con unas 7 lecturas (integración pendiente).
 
-- [ ] **Paso 4: La implementación**
+- [x] **Paso 4: La implementación**
 
 `src/main/kotlin/sgspe/common/RequestMemoFilter.kt` queda:
 
@@ -1235,12 +1235,12 @@ tiene una asignación vigente al proyecto») pasa a:
     // por registro escrito o vinculado. nunca entre peticiones: una asignación cambia al instante por /api/objects
 ```
 
-- [ ] **Paso 5: Correr la unitaria y ver que pasa**
+- [x] **Paso 5: Correr la unitaria y ver que pasa**
 
 Run: `cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.common.RequestMemoFilterTest' --tests 'sgspe.common.RequestMemoTest'`
 Expected: PASS, 9 pruebas.
 
-- [ ] **Paso 6: Build y commit**
+- [x] **Paso 6: Build y commit**
 
 ```bash
 cd ~/IdeaProjects/sgspe && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
@@ -1283,7 +1283,7 @@ Expected: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.scope.AssignmentMem
 
 **Solo el coordinador principal**: exige base, túnel y backend local. Ningún subagente la ejecuta.
 
-- [ ] **Paso 1: El backend con el log de SQL**
+- [x] **Paso 1: El backend con el log de SQL**
 
 Con el túnel abierto (puerto 5435), en un worktree de `main` para el «antes» y en el de `perf/cache-esquema` para el
 «después» (uno a la vez, en el puerto 8094), en segundo plano:
@@ -1313,7 +1313,7 @@ medir() { # $1 token, $2 método, $3 ruta, $4 archivo con el cuerpo (opcional), 
 
 Los tokens, con `POST /api/auth/login` como en la Tarea 13 de 5.2b (la contraseña nunca va a un archivo).
 
-- [ ] **Paso 2: Las listas y `transition-checks`, antes y después**
+- [x] **Paso 2: Las listas y `transition-checks`, antes y después**
 
 Como `analista-medicion` y como el admin, cada una tres veces seguidas (se anota la segunda y la tercera: la primera calienta
 la caché):
@@ -1334,7 +1334,7 @@ y en la segunda y la tercera no aparece ningún par `custom_objects`/`custom_fie
 petición); el tiempo de la analista baja en unos 0,3 s por lista. Si no se cumple, se diagnostica con el desglose antes
 de seguir (superpowers:systematic-debugging) y no se pasa a la Tarea 5.
 
-- [ ] **Paso 3: El alta de una entrega con tres evidencias, antes y después (diagnóstico del POST de 14 s)**
+- [x] **Paso 3: El alta de una entrega con tres evidencias, antes y después (diagnóstico del POST de 14 s)**
 
 Como `inversion-medicion`, para cada medición (antes y después) un aporte nuevo en `procured` sin entrega, con los pasos
 del Paso 2 de la Tarea 13 de 5.2b (alta con un ítem BIEN, `approve_direct`, `register_procurement`), y tres evidencias del
@@ -1355,7 +1355,7 @@ del «antes» y del «después», el coordinador cuenta además cuántas listas 
 nombre de su tabla física en las consultas de datos): la repetición de `Assignments.isAssigned` de la decisión 8, que la
 Tarea 6 deja en una lista por usuario y proyecto.
 
-- [ ] **Paso 4: Las cifras**
+- [x] **Paso 4: Las cifras**
 
 En `$TMPDIR/sgspe-cache-esquema-medicion.txt`, una tabla con: petición, perfil, consultas antes, consultas después, tiempo
 antes, tiempo después; el desglose del POST; y la parte de wasichai que queda (definición del objeto y consultas de rol por
@@ -1376,7 +1376,7 @@ sin su aprobación.
 - Consumes: las Tareas 1, 2, 3 y 6 integradas; las cifras de la Tarea 4 (`$TMPDIR/sgspe-cache-esquema-medicion.txt`).
 - Produces: la rama `perf/cache-esquema` con su PR en verde e integrada en `main`.
 
-- [ ] **Paso 1: `docs/security.md` §9.7**
+- [x] **Paso 1: `docs/security.md` §9.7**
 
 Después de la viñeta que empieza con «**Falla cerrado:** un objeto sin clasificar en `ProjectScope`…», agregue:
 
@@ -1392,7 +1392,7 @@ Después de la viñeta que empieza con «**Falla cerrado:** un objeto sin clasif
   (y `Records` en el camino de la plataforma) llame a `MetadataService.loadDefinition`.
 ```
 
-- [ ] **Paso 2: `docs/roadmap.md`, fila «Estado» de F5**
+- [x] **Paso 2: `docs/roadmap.md`, fila «Estado» de F5**
 
 Reemplace «quedan la caché del esquema (un plan corto, antes de F6) y el plan 5.3 (portal)» por «integrada la caché del
 esquema (plan corto `2026-10-11-cache-esquema`) y queda el plan 5.3 (portal)», y agregue al final de la celda, con las
@@ -1405,13 +1405,13 @@ Queda en el backlog, upstream, la caché de definiciones y el memo de las consul
 lo aprobó, o «propuesto, sin abrir»>)». Cada `<…>` es una cifra o un dato de `$TMPDIR/sgspe-cache-esquema-medicion.txt`; ninguno queda
 sin llenar.
 
-- [ ] **Paso 3: `CLAUDE.md`**
+- [x] **Paso 3: `CLAUDE.md`**
 
 En la fila de la tabla «Dónde está cada cosa» que empieza con «Marca de escritura, `Records`, Lima, 422, catálogo del
 modelo…», agregue «, la caché del esquema (`ObjectDefinitions`: `current` por petición, `recent` hasta 30 s para el alcance y
 los permisos)» después de «`RequestMemo`».
 
-- [ ] **Paso 4: Verificación local**
+- [x] **Paso 4: Verificación local**
 
 ```bash
 cd ~/IdeaProjects/sgspe && yarn format && yarn format:check && python3 tools/check_traceability.py
@@ -1420,7 +1420,7 @@ GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew kt
 
 Expected: formato y trazabilidad sin errores, `BUILD SUCCESSFUL`.
 
-- [ ] **Paso 5: Commit, push y PR**
+- [x] **Paso 5: Commit, push y PR**
 
 ```bash
 cd ~/IdeaProjects/sgspe && git switch perf/cache-esquema
