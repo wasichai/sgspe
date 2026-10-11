@@ -50,7 +50,8 @@ class ImportChoiceRequired(
 @Component
 class GdalReader(
     private val tools: GdalTools,
-    private val properties: ImportProperties
+    private val properties: ImportProperties,
+    private val maxListingBytes: Long = MAX_LISTING_BYTES
 ) {
     fun read(
         format: ImportFormat,
@@ -58,7 +59,7 @@ class GdalReader(
         workspace: ImportWorkspace,
         layer: String?
     ): GdalSource {
-        val driver = format.driver ?: error("$format no se lee con GDAL")
+        val driver = format.driver?.takeIf { it in DRIVERS } ?: error("$format no se lee con GDAL")
         val status = tools.require(driver, format.key)
         val source =
             when (format) {
@@ -70,6 +71,9 @@ class GdalReader(
         val listing = workspace.resolveEntry("gdal-${UUID.randomUUID()}.json")
         if (tools.run(GdalCommand.info(status.ogrinfo!!, driver, source), workspace.dir, listing) != 0) {
             throw ValidationException("Archivo inválido", "file", "GDAL no pudo leer el archivo como ${format.key.uppercase()}")
+        }
+        if (Files.size(listing) > maxListingBytes) {
+            throw ValidationException("Archivo inválido", "file", "el archivo tiene demasiadas capas o campos para listarlos")
         }
         val layers =
             try {
@@ -104,4 +108,10 @@ class GdalReader(
         upload: File,
         workspace: ImportWorkspace
     ) = ImportArchives.extract(upload, workspace, "archivo", properties.maxEntries, properties.maxInflatedBytes)
+
+    companion object {
+        // la lista blanca de drivers (ASM-127): nunca LIBKML, que sigue enlaces
+        private val DRIVERS = setOf("ESRI Shapefile", "KML", "GPKG", "OpenFileGDB", "GPX")
+        private const val MAX_LISTING_BYTES = 4L * 1024 * 1024
+    }
 }

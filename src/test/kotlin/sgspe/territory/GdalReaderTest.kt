@@ -138,4 +138,14 @@ class GdalReaderTest {
             assertNull(Files.list(workspace.dir).use { list -> list.filter { it.fileName.toString().endsWith(".geojson") }.findFirst().orElse(null) })
         }
     }
+
+    @Test
+    fun `un listado de capas demasiado grande es 400 sobre file`() {
+        val gpkg = GdalFixtures.geopackage(dir, "listado", mapOf("predios" to parcels), 32717)
+        val small = GdalReader(GdalTools(GdalProperties(path = GdalFixtures.requireGdal().toString())), ImportProperties(), maxListingBytes = 10)
+        ImportWorkspace.create().use { workspace ->
+            val e = assertThrows<ValidationException> { small.read(ImportFormat.GPKG, upload(workspace, gpkg), workspace, null) }
+            assertEquals("file", e.violations.single().field)
+        }
+    }
 }
