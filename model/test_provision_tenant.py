@@ -69,6 +69,13 @@ class ProvisionTenantTests(unittest.TestCase):
         self.assertEqual([n for n, _ in tenant_steps.selected(tenant_steps.STEPS, True)], names[:-1])
         self.assertEqual(tenant_steps.selected(tenant_steps.STEPS, False), tenant_steps.STEPS)
 
+    def test_el_aviso_de_fallo_repite_skip_layers_si_se_uso(self):
+        code, _, err = self.run_cli(self.steps("apply_roles.py"), extra=("--skip-layers",))
+        self.assertEqual(code, 1)
+        self.assertIn("upgrade_tenants.py --skip-layers", err)
+        _, _, err = self.run_cli(self.steps("apply_roles.py"))
+        self.assertNotIn("--skip-layers", err)
+
     def test_ninguna_contrasena_sale_en_la_salida(self):
         for failing in (None, "apply_roles.py"):
             self.calls.clear()

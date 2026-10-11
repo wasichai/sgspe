@@ -77,7 +77,8 @@ def main(argv=None, steps=tenant_steps.STEPS, ask=getpass.getpass):
     failed = tenant_steps.run_steps(args.core, args.admin_email, admin_password,
                                     tenant_steps.selected(steps, args.skip_layers))
     if failed:
-        print(f"error: el tenant {args.slug} quedó a medias: falló {failed}; corrija y corra upgrade_tenants.py", file=sys.stderr)
+        layers = " --skip-layers" if args.skip_layers else ""
+        print(f"error: el tenant {args.slug} quedó a medias: falló {failed}; corrija y corra upgrade_tenants.py{layers}", file=sys.stderr)
         return 1
     print(f"listo: el administrador {args.admin_email} debe cambiar la contraseña inicial en su primer acceso "
           "(security.md §4.1)")

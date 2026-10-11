@@ -21,6 +21,7 @@ válidos, o si faltan las variables de GeoServer.
 """
 import argparse
 import base64
+import http.client
 import json
 import os
 import re
@@ -225,7 +226,7 @@ class GeoServer:
             return e.code, e.read().decode("utf-8", errors="replace")
         except (urllib.error.URLError, OSError) as e:
             raise PublishError(f"GeoServer no responde en {redacted(self.base_url)}: {getattr(e, 'reason', e)}") from None
-        except ValueError:
+        except (ValueError, http.client.InvalidURL):
             raise PublishError(f"GeoServer: la URL {redacted(self.base_url)} no es válida") from None
 
     @staticmethod
@@ -365,7 +366,9 @@ def main(argv=None):
     if args.validate_only:
         print(f"valid: {len(pairs(layers))} layers, {len(layers)} styles")
         return 0
-    settings = tuple((os.environ.get(name) or "").strip() for name in GEOSERVER_VARIABLES)
+    # solo la URL y el usuario se recortan: una contraseña puede llevar espacios
+    settings = tuple(os.environ.get(name) or "" for name in GEOSERVER_VARIABLES)
+    settings = tuple(v if name.endswith("PASSWORD") else v.strip() for name, v in zip(GEOSERVER_VARIABLES, settings))
     if not all(settings):
         missing = ", ".join(name for name, value in zip(GEOSERVER_VARIABLES, settings) if not value)
         print(f"error: faltan {missing}: las credenciales de GeoServer van solo por variables de entorno; un despliegue "

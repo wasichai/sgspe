@@ -227,7 +227,7 @@ class PublishTests(unittest.TestCase):
         code, _, err = self.run_cli(core=core)
         self.assertEqual(code, 1)
         self.assertIn("community.territory", err)
-        self.assertIn("503", err)
+        self.assertIn("502", err)
         self.assertEqual(self.geoserver.writes(), [])
 
     def test_un_tenant_sin_la_geometria_falla_antes_de_publicar(self):
@@ -256,6 +256,18 @@ class PublishTests(unittest.TestCase):
                 self.assertNotIn(SECRET, out + err)
                 self.assertNotIn("Traceback", out + err)
         self.assertEqual((self.core.requests, self.geoserver.requests), ([], []))
+
+    def test_una_url_con_caracter_de_control_sale_con_1_sin_traza(self):
+        url = self.geoserver.base_url + "/geo\x01server"
+        code, out, err = self.run_cli(env=self.env(WASICHAI_GIS_GEOSERVER_URL=url))
+        self.assertIn(code, (1, 2))
+        self.assertNotIn("Traceback", out + err)
+        self.assertNotIn(SECRET, out + err)
+
+    def test_la_contrasena_de_geoserver_no_se_recorta(self):
+        code, _, err = self.run_cli(env=self.env(WASICHAI_GIS_GEOSERVER_PASSWORD=" " + SECRET + " "))
+        self.assertEqual(code, 1)
+        self.assertIn("401", err)
 
     def test_un_core_sin_wasichai_gis_lo_dice(self):
         class Missing(FakeCore):

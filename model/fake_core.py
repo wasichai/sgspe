@@ -111,7 +111,7 @@ class FakeCore:
         self.organizations = []  # the bodies of POST /api/organizations
         # wasichai-gis: (objeto, geometría) -> publicada; lo que GET /api/gis/layers lista. un dict fija capas ya publicadas
         self.gis_layers = dict(gis_layers) if isinstance(gis_layers, dict) else {tuple(p): False for p in gis_layers}
-        self.fail_on_publish = fail_on_publish  # objeto -> su POST /api/gis/layers/... responde 503 (GeoServer apagado)
+        self.fail_on_publish = fail_on_publish  # objeto -> su POST /api/gis/layers/... responde 502 (GeoServer apagado, BAD_GATEWAY)
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -307,7 +307,7 @@ class FakeCore:
             if pair not in self.gis_layers:
                 return 400, {"detail": f"Unknown geometry '{pair[1]}'"}
             if self.fail_on_publish == pair[0]:
-                return 503, {"detail": "GeoServer integration is disabled"}
+                return 502, {"detail": "GeoServer integration is disabled"}
             self.gis_layers[pair] = True
             return 200, status(pair, True)
         return 404, {"detail": "not found"}
