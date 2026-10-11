@@ -405,6 +405,14 @@ Sin campo hasta que se respondan sus gaps:
   original se guarda como `evidence` con el mismo `import_batch_id`, y en él quedan las coordenadas originales de los
   polígonos. La auditoría lleva el motivo `importación <id>` (RQ-GIS-008, RQ-AUD-013, ASM-051). Es una decisión reversible:
   en F6 un ADR puede agregar un objeto de importación, y los registros ya traen su `import_batch_id` para enlazarse.
+- **ASSUMPTION (ASM-123):** desde F6 `community` y `environmental_feature` se importan como los demás maestros del
+  territorio. Suman cuatro campos «Desde F6»: `code` (único; sin código no se importa), `source_crs`, `source_reference`
+  e `import_batch_id`, y la importación los reconcilia por `code`.
+- **ASSUMPTION (ASM-124):** desde F6 los 13 objetos con exportación GIS (`administrative_unit`, `locality`, `road_access`,
+  `community`, `community_sector`, `mining_concession`, `environmental_feature`, `project`, `project_component`,
+  `area_of_influence`, `land_parcel`, `school` y `health_facility`) declaran la acción `EXPORT`.
+- **ASSUMPTION (ASM-122):** en `sgspe.territory`, `SpatialGate` es la única vía de SQL de lectura que cruza tablas del tenant:
+  compone los `RecordReadScope` registrados como subconsultas filtradas.
 - `project_component` es `apiOnly` porque un mismo código con coordenadas distintas crea una versión nueva y nunca sobrescribe
   en silencio, y esa regla depende de la geometría, que las guardas no ven (RQ-GIS-010, RQ-GIS-011) [WAS-ADR-0040].
 

@@ -462,7 +462,11 @@ Aplican §4.1 del modelo de dominio:
   y `EDIT_ANY` [WAS-ADR-0042].
 - La fuente de qué objeto declara cuál es la tabla por objeto de `security.md` §5.3; §8.1.1 del modelo de dominio la replica
   y cada ficha la copia en su línea "Acciones declaradas". Qué rol recibe cada acción está solo en `security.md`. En F6,
-  cada objeto con exportación GIS declara además `EXPORT` (RQ-GIS-018).
+  cada objeto con exportación GIS declara además `EXPORT` (RQ-GIS-018, ASM-124): `administrative_unit`, `locality`,
+  `road_access`, `community`, `community_sector`, `mining_concession`, `environmental_feature`, `project`,
+  `project_component`, `area_of_influence`, `land_parcel`, `school` y `health_facility`; `land_right` y `stakeholder` no.
+  Hasta que el plan 6.1 lo lleve a `model/model.json`, las fichas lo escriben en prosa («; desde F6, EXPORT.»), igual que
+  el único `code` y el índice `import_batch_id` de `community` y `environmental_feature`.
 - `EDIT_ANY` no concede una transición, que la dan los roles del workflow. `EditAnyGuard` rechaza a quien no la tiene sobre
   el objeto cambiar, transicionar, vincular o borrar registros ajenos, los que creó otra persona (`created_by`), y decide con
   el permiso, nunca con el nombre del rol (RQ-SEC-005, ASM-069; `security.md` §5.5).
@@ -510,7 +514,7 @@ decir, de §6 del modelo de dominio.
 | Estado de la campaña | `campaign_status` | `exploration_campaign.campaign_status` |
 | Rol de la parte | `party_role` | `project_party.party_role` |
 | CRS de trabajo (`working_crs`) | `working_crs` | `project.working_crs` |
-| CRS de origen | `source_crs` | `mining_concession.source_crs`, `project_component.source_crs`, `land_parcel.source_crs` |
+| CRS de origen | `source_crs` | `mining_concession.source_crs`, `project_component.source_crs`, `land_parcel.source_crs`, desde F6 `community.source_crs` y `environmental_feature.source_crs` |
 | Tipo de interacción | `engagement_type` | `engagement.engagement_type` |
 | Tipo de recurso | `resource_type` | `commitment.resource_type` |
 | Medio de solicitud | `request_medium` | `commitment.request_medium`, `stakeholder_request.request_medium` |
@@ -746,7 +750,7 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** `APPROVE`, `READ_ALL_PROJECTS`.
+- **Acciones declaradas:** `APPROVE`, `READ_ALL_PROJECTS`; desde F6, EXPORT.
 - **Workflow:** WF-A.
 - **Fase:** F2 · Release 1 (MVP).
 - `FieldChangeReasonGuard` exige motivo al cambiar `stage` o `exploration_phase` (RN-PRJ-001); `ProjectWriteGuard`
@@ -882,7 +886,7 @@ ASM-064.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
 - **Índices declarados:** `indexed` en `import_batch_id`.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -938,7 +942,7 @@ carga un script idempotente. Tabla física `app_data.administrative_unit__<org8>
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `ubigeo_code`.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -969,7 +973,7 @@ estado de reconocimiento. Tabla física `app_data.locality__<org8>`. Requisitos:
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `populated_center_code`.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -977,11 +981,16 @@ estado de reconocimiento. Tabla física `app_data.locality__<org8>`. Requisitos:
 
 **Comunidad campesina o nativa** (BC-02). Colectivo con personería, territorio comunal inscrito, junta directiva y
 sectores; como actor participa mediante la `organization` que lo representa (RN-STK-008). Tabla física
-`app_data.community__<org8>`. Requisitos: RF-TER-003, RQ-REP-025, CON-013, CON-017, CON-018, ASM-018, ASM-064.
+`app_data.community__<org8>`. Requisitos: RF-TER-003, RQ-REP-025, CON-013, CON-017, CON-018, ASM-018, ASM-064, ASM-123.
+Desde F6 se importa con CRS de origen y se reconcilia por `code`.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `name` | TEXT | sí | — | Nombre de la comunidad. | RF-TER-003 |
+| `code` | TEXT | no | sí | Código que lo identifica en las importaciones; sin código no se importa (ASM-123). Desde F6. | ASM-123 |
+| `source_crs` | ENUM `source_crs` | no | — | CRS en que vino la geometría importada. Desde F6. | RQ-GIS-008 |
+| `source_reference` | TEXT | no | — | Fuente de origen (archivo, capa o registro público). Desde F6. | RQ-GIS-008 |
+| `import_batch_id` | UUID | no | — | Importación que lo creó o cambió (ASM-060). Desde F6. | ASM-060 |
 | `alternative_names` | TEXT | no | — | Nombres alternativos. | RF-TER-003 |
 | `community_type` | ENUM `community_type` | no | — | Comunidad campesina o nativa. | RF-TER-003 |
 | `legal_entity_record` | TEXT | no | — | Partida de la personería jurídica (los números nunca van a artefactos versionados). | CON-017 |
@@ -1008,9 +1017,9 @@ sectores; como actor participa mediante la `organization` que lo representa (RN-
 | `evidence_community` | MANY_TO_MANY | — | `evidence` | — | Inversa; se define en `evidence`; desde F3 |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
-- **Únicos:** ninguno.
-- **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Únicos:** ninguno hasta F5; desde F6, `code`.
+- **Índices declarados:** ninguno hasta F5; desde F6, `import_batch_id`.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -1033,7 +1042,7 @@ caseríos. Tabla física `app_data.community_sector__<org8>`. Requisitos: RF-TER
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `uniqueConstraints` (`community`, `name`).
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -1060,7 +1069,7 @@ ASM-039, CON-025.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `uniqueConstraints` (`project`, `area_type`, `version_number`).
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** `APPROVE`.
+- **Acciones declaradas:** `APPROVE`; desde F6, EXPORT.
 - **Workflow:** WF-O.
 - **Fase:** F2 · Release 1 (MVP).
 - Aprobar una versión nueva reemplaza a la anterior con el endpoint de aprobación y `CommandTransitionGuard`;
@@ -1132,7 +1141,7 @@ RF-TER-006, RQ-GIS-003, RQ-GIS-008, RQ-GIS-010, CON-023, CON-024, ASM-060.
 - **Flags:** `appendOnly` no · `apiOnly` sí · `requiresReason` no.
 - **Únicos:** `uniqueConstraints` (`project`, `code`, `version_number`).
 - **Índices declarados:** `indexed` en `import_batch_id`.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 - Es `apiOnly` porque un código repetido con coordenadas distintas crea una versión y nunca sobrescribe, y esa regla
@@ -1166,7 +1175,7 @@ RF-TER-006, RQ-GIS-003, RQ-GIS-008, RQ-GIS-010, CON-023, CON-024, ASM-060.
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
 - **Índices declarados:** `indexed` en `import_batch_id`.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 - Los predios con titulares nunca se publican en GeoServer (RQ-SEC-011).
@@ -1201,11 +1210,16 @@ con vigencia. Tabla física `app_data.land_right__<org8>`. Requisitos: RF-TER-00
 
 **Elemento ambiental** (BC-02). Lugar ambiental o culturalmente sensible (zona de protección, fuente de agua,
 microcuenca, cerro, sitio sagrado, resto arqueológico) con su base legal. Tabla física
-`app_data.environmental_feature__<org8>`. Requisitos: RF-TER-008.
+`app_data.environmental_feature__<org8>`. Requisitos: RF-TER-008, ASM-123. Desde F6 se importa con CRS de origen y se
+reconcilia por `code`.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `name` | TEXT | sí | — | Nombre. | RF-TER-008 |
+| `code` | TEXT | no | sí | Código que lo identifica en las importaciones; sin código no se importa (ASM-123). Desde F6. | ASM-123 |
+| `source_crs` | ENUM `source_crs` | no | — | CRS en que vino la geometría importada. Desde F6. | RQ-GIS-008 |
+| `source_reference` | TEXT | no | — | Fuente de origen (archivo, capa o registro público). Desde F6. | RQ-GIS-008 |
+| `import_batch_id` | UUID | no | — | Importación que lo creó o cambió (ASM-060). Desde F6. | ASM-060 |
 | `feature_type` | ENUM `environmental_feature_type` | no | — | Tipo de elemento ambiental. | RF-TER-008 |
 | `legal_basis` | TEXT | no | — | Base legal de la declaración. | RF-TER-008 |
 | `declaring_authority` | TEXT | no | — | Autoridad que lo declaró. | RF-TER-008 |
@@ -1219,9 +1233,9 @@ microcuenca, cerro, sitio sagrado, resto arqueológico) con su base legal. Tabla
 | `env_feature_administrative_unit` | MANY_TO_ONE | `administrative_unit` | `administrative_unit` | no | — |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
-- **Únicos:** ninguno.
-- **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Únicos:** ninguno hasta F5; desde F6, `code`.
+- **Índices declarados:** ninguno hasta F5; desde F6, `import_batch_id`.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -3954,7 +3968,7 @@ confiabilidad. Tabla física `app_data.locality_profile__<org8>`. Requisitos: RF
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** ninguno.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -3977,7 +3991,7 @@ confiabilidad. Tabla física `app_data.locality_profile__<org8>`. Requisitos: RF
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** ninguno.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
@@ -4002,7 +4016,7 @@ de transporte. Tabla física `app_data.road_access__<org8>`. Requisitos: RF-LBS-
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** ninguno.
 - **Índices declarados:** ninguno.
-- **Acciones declaradas:** ninguna.
+- **Acciones declaradas:** ninguna; desde F6, EXPORT.
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 
