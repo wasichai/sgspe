@@ -96,6 +96,9 @@ sgspe:
       max-rows: 10000
       timeout: 60s
       max-concurrent: 4
+      # un ZIP de F6 (Shapefile, FileGDB, KMZ): entradas y bytes descomprimidos (200 MB) como máximo
+      max-entries: 1000
+      max-inflated-bytes: 209715200
     layers:
       # tope de elementos por capa de GET /api/sgspe/territory/layers/{layer} (LayersProperties)
       max-features: 5000

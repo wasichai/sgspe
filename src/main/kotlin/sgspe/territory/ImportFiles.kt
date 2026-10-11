@@ -48,7 +48,10 @@ data class ImportProperties(
     val minLongitude: Double = -81.4,
     val maxLongitude: Double = -68.6,
     val minLatitude: Double = -18.4,
-    val maxLatitude: Double = 0.1
+    val maxLatitude: Double = 0.1,
+    // un ZIP de F6 (Shapefile, FileGDB, KMZ): cuántas entradas y cuántos bytes descomprimidos en total (RQ-SEC-020)
+    val maxEntries: Int = 1_000,
+    val maxInflatedBytes: Long = 200L * 1024 * 1024
 )
 
 // una fila del archivo: su número (el de la hoja o la posición del feature), sus valores por encabezado y, en GeoJSON, su
