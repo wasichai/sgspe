@@ -1,7 +1,9 @@
 package sgspe.territory
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -139,13 +141,58 @@ class GdalReaderTest {
         }
     }
 
+    private fun wide(columns: Int): String =
+        GdalFixtures.collection(
+            listOf((1..columns).associate { "campo_$it" to null as Any? } to GdalFixtures.utmSquare(776_000.0, 9_126_000.0, 100.0))
+        )
+
     @Test
     fun `un listado de capas demasiado grande es 400 sobre file`() {
         val gpkg = GdalFixtures.geopackage(dir, "listado", mapOf("predios" to parcels), 32717)
-        val small = GdalReader(GdalTools(GdalProperties(path = GdalFixtures.requireGdal().toString())), ImportProperties(), maxListingBytes = 10)
         ImportWorkspace.create().use { workspace ->
-            val e = assertThrows<ValidationException> { small.read(ImportFormat.GPKG, upload(workspace, gpkg), workspace, null) }
+            val e =
+                assertThrows<ValidationException> {
+                    reader(
+                        ImportProperties(maxListingBytes = 10)
+                    ).read(ImportFormat.GPKG, upload(workspace, gpkg), workspace, null)
+                }
             assertEquals("file", e.violations.single().field)
         }
+    }
+
+    @Test
+    fun `una capa con demasiados campos o nombres largos es 400 sobre file sin convertirla`() {
+        val gpkg = GdalFixtures.geopackage(dir, "ancha", mapOf("predios" to wide(30)), 32717)
+        ImportWorkspace.create().use { workspace ->
+            val file = upload(workspace, gpkg)
+            listOf(ImportProperties(maxFields = 10), ImportProperties(maxFieldNameBytes = 50)).forEach { limits ->
+                val e = assertThrows<ValidationException> { reader(limits).read(ImportFormat.GPKG, file, workspace, null) }
+                assertEquals("file", e.violations.single().field)
+            }
+            assertNull(Files.list(workspace.dir).use { list -> list.filter { it.fileName.toString().endsWith(".geojson") }.findFirst().orElse(null) })
+            // dentro de los topes se lee
+            assertEquals("predios", reader().read(ImportFormat.GPKG, file, workspace, null).layer.name)
+        }
+    }
+
+    @Test
+    fun `un GeoJSON de salida que pasa del maximo de bytes es 400 sobre file y no queda en el workspace`() {
+        val gpkg = GdalFixtures.geopackage(dir, "bytes", mapOf("predios" to parcels), 32717)
+        ImportWorkspace.create().use { workspace ->
+            val e =
+                assertThrows<ValidationException> {
+                    reader(
+                        ImportProperties(maxGeojsonBytes = 50)
+                    ).read(ImportFormat.GPKG, upload(workspace, gpkg), workspace, null)
+                }
+            assertEquals("file", e.violations.single().field)
+            assertNull(Files.list(workspace.dir).use { list -> list.filter { it.fileName.toString().endsWith(".geojson") }.findFirst().orElse(null) })
+        }
+    }
+
+    @Test
+    fun `todo formato con driver se lee con un driver de la lista blanca`() {
+        ImportFormat.entries.filter { it.gdal }.forEach { assertTrue(it.driver in GdalReader.DRIVERS, "${it.key}: ${it.driver}") }
+        assertFalse(GdalReader.DRIVERS.any { it.startsWith("LIBKML") })
     }
 }

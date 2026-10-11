@@ -16,7 +16,10 @@ data class SourceLayer(
     val name: String,
     val geometryType: String?,
     val featureCount: Long?,
-    val detectedCrs: String?
+    val detectedCrs: String?,
+    // cuántos campos tiene y cuántos bytes ocupan sus nombres: el tamaño del GeoJSON crece con ambos, no solo con -limit
+    val fieldCount: Int = 0,
+    val fieldNameBytes: Long = 0
 )
 
 // los comandos de GDAL (ASM-127, especificación de F6 §3.4): argumentos fijos más rutas absolutas del workspace o de la
@@ -127,11 +130,22 @@ object GdalInfo {
         JSON.readTree(json).path("layers").values().map { layer ->
             val geometry = layer.path("geometryFields").values().firstOrNull()
             val count = layer.path("featureCount")
+            val fields = layer.path("fields").values().toList()
             SourceLayer(
                 name = layer.path("name").asString(),
                 geometryType = geometry?.path("type")?.takeIf { it.isString }?.asString(),
                 featureCount = if (count.isNumber) count.asLong() else null,
-                detectedCrs = geometry?.let { epsg(it.path("coordinateSystem")) }?.takeIf(Crs::isCatalogued)?.let(Crs::value)
+                detectedCrs = geometry?.let { epsg(it.path("coordinateSystem")) }?.takeIf(Crs::isCatalogued)?.let(Crs::value),
+                fieldCount = fields.size,
+                fieldNameBytes =
+                    fields.sumOf {
+                        it
+                            .path("name")
+                            .asString()
+                            .toByteArray(Charsets.UTF_8)
+                            .size
+                            .toLong()
+                    }
             )
         }
 

@@ -50,8 +50,7 @@ class ImportChoiceRequired(
 @Component
 class GdalReader(
     private val tools: GdalTools,
-    private val properties: ImportProperties,
-    private val maxListingBytes: Long = MAX_LISTING_BYTES
+    private val properties: ImportProperties
 ) {
     fun read(
         format: ImportFormat,
@@ -72,7 +71,7 @@ class GdalReader(
         if (tools.run(GdalCommand.info(status.ogrinfo!!, driver, source), workspace.dir, listing) != 0) {
             throw ValidationException("Archivo inválido", "file", "GDAL no pudo leer el archivo como ${format.key.uppercase()}")
         }
-        if (Files.size(listing) > maxListingBytes) {
+        if (Files.size(listing) > properties.maxListingBytes) {
             throw ValidationException("Archivo inválido", "file", "el archivo tiene demasiadas capas o campos para listarlos")
         }
         val layers =
@@ -90,17 +89,21 @@ class GdalReader(
                 layers.size == 1 -> layers.single()
                 else -> throw ImportChoiceRequired.layer(layers)
             }
-        chosen.featureCount?.let {
-            if (it >
-                properties.maxRows
-            ) {
-                throw ValidationException("Archivo demasiado grande", "file", "la capa tiene $it elementos; el máximo es ${properties.maxRows}")
-            }
+        val count = chosen.featureCount
+        if (count != null && count > properties.maxRows) {
+            throw ValidationException("Archivo demasiado grande", "file", "la capa tiene $count elementos; el máximo es ${properties.maxRows}")
+        }
+        if (chosen.fieldCount > properties.maxFields || chosen.fieldNameBytes > properties.maxFieldNameBytes) {
+            throw ValidationException("Archivo demasiado grande", "file", "la capa tiene demasiados campos o nombres de campo demasiado largos")
         }
         val target = workspace.resolveEntry("gdal-${UUID.randomUUID()}.geojson")
         val log = workspace.resolveEntry("gdal-${UUID.randomUUID()}.out")
         val exit = tools.run(GdalCommand.toGeoJson(status.ogr2ogr!!, driver, source, chosen.name, target, properties.maxRows + 1), workspace.dir, log)
         if (exit != 0 || !Files.exists(target)) throw ValidationException("Archivo inválido", "file", "GDAL no pudo convertir la capa elegida")
+        if (Files.size(target) > properties.maxGeojsonBytes) {
+            Files.deleteIfExists(target)
+            throw ValidationException("Archivo demasiado grande", "file", "la capa convertida pasa del máximo de ${properties.maxGeojsonBytes} bytes")
+        }
         return GdalSource(target.toFile(), chosen, layers)
     }
 
@@ -111,7 +114,6 @@ class GdalReader(
 
     companion object {
         // la lista blanca de drivers (ASM-127): nunca LIBKML, que sigue enlaces
-        private val DRIVERS = setOf("ESRI Shapefile", "KML", "GPKG", "OpenFileGDB", "GPX")
-        private const val MAX_LISTING_BYTES = 4L * 1024 * 1024
+        internal val DRIVERS = setOf("ESRI Shapefile", "KML", "GPKG", "OpenFileGDB", "GPX")
     }
 }
