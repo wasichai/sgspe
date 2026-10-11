@@ -58,6 +58,10 @@ class QueryParamsTest {
         assertEquals("OUT_OF_RANGE" to "periodEnd", failure { QueryParams.period("2021-01-01", "2026-01-01", today, limits) })
         assertEquals("OUT_OF_RANGE" to "periodStart", failure { QueryParams.period("2026-10-02", "2026-10-01", today, limits) })
         assertEquals("INVALID_VALUE" to "periodStart", failure { QueryParams.period("01/10/2026", null, today, limits) })
+        // una fecha extrema no desborda en un 500
+        assertEquals("OUT_OF_RANGE" to "periodEnd", failure { QueryParams.period(null, "+999999999-12-31", today, limits) })
+        assertEquals("OUT_OF_RANGE" to "periodEnd", failure { QueryParams.period("+999999998-01-01", "+999999999-12-31", today, limits) })
+        assertEquals("OUT_OF_RANGE" to "periodEnd", failure { QueryParams.period(null, "-999999999-01-01", today, limits) })
     }
 
     @Test

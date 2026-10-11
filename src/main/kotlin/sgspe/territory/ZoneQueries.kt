@@ -1,5 +1,6 @@
 package sgspe.territory
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import org.springframework.http.HttpStatus
 import org.springframework.http.server.reactive.ServerHttpRequest
 import org.springframework.stereotype.Service
@@ -131,6 +132,7 @@ data class ZoneRecords(
     val totalElements: Long?,
     val totalPages: Int?,
     val available: Boolean,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL)
     val missingFields: List<String>? = null
 ) {
     constructor(result: PageResponse<RecordResponse>, missing: List<String>) :

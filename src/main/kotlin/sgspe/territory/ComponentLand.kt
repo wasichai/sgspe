@@ -70,13 +70,17 @@ class ComponentLand(
             val boundary = "p.${t.column(TerritoryNames.PARCEL, "boundary")}"
             return "$head, CAST(${bind(COMMUNAL)} AS text) AS land, m.${t.column(TerritoryNames.COMMUNITY, SpatialGate.ID)} AS land_id " +
                 "FROM ${t.table(c)} c JOIN ${t.table(TerritoryNames.COMMUNITY)} m " +
-                "ON ST_Intersects(${shape(t.srid(TerritoryNames.COMMUNITY, "territory"))}, $territory) WHERE ${vigentes()} " +
+                "ON (ST_Intersects(${shape(
+                    t.srid(TerritoryNames.COMMUNITY, "territory")
+                )}, $territory) AND NOT ST_Touches(${shape(t.srid(TerritoryNames.COMMUNITY, "territory"))}, $territory)) WHERE ${vigentes()} " +
                 "UNION ALL $head, p.${t.column(
                     TerritoryNames.PARCEL,
                     "tenure_type"
                 )}::text AS land, p.${t.column(TerritoryNames.PARCEL, SpatialGate.ID)} AS land_id " +
                 "FROM ${t.table(c)} c JOIN ${t.table(TerritoryNames.PARCEL)} p " +
-                "ON ST_Intersects(${shape(t.srid(TerritoryNames.PARCEL, "boundary"))}, $boundary) WHERE ${vigentes()} " +
+                "ON (ST_Intersects(${shape(
+                    t.srid(TerritoryNames.PARCEL, "boundary")
+                )}, $boundary) AND NOT ST_Touches(${shape(t.srid(TerritoryNames.PARCEL, "boundary"))}, $boundary)) WHERE ${vigentes()} " +
                 "LIMIT ${bind(limit + 1)}"
         }
     }

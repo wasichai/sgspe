@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import sgspe.engagement.EngagementWriteGuard
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -47,6 +48,19 @@ class ConcentrationSqlTest {
         assertEquals(OffsetDateTime.parse("2026-10-01T05:00Z"), values[0])
         assertEquals(OffsetDateTime.parse("2026-11-01T05:00Z"), values[1])
         assertEquals(101, values.last())
+    }
+
+    @Test
+    fun `las interacciones solo cuentan en los estados realizados`() {
+        val values = mutableListOf<Any>()
+        val sql =
+            TerritoryAggregates.concentrationSql(tables, { value ->
+                values += value
+                ":g${values.size - 1}"
+            }, "engagement", "held_at", emptyList(), Period(LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-31")), 100)
+        assertTrue(sql.contains("AND e.\"workflow_state\" = ANY(:g2)"), sql)
+        assertEquals(EngagementWriteGuard.HELD_STATES, (values[2] as Array<*>).toSet())
+        assertFalse(render(emptyList()).first.contains("workflow_state"))
     }
 
     @Test

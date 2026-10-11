@@ -60,7 +60,8 @@ object ZoneCriterion {
     fun of(
         relations: List<String>,
         geometries: List<String>,
-        zone: Zone
+        zone: Zone,
+        excludeTouching: Boolean = false
     ): RecordCriterion =
         RecordCriterion { definition, bind ->
             val terms = mutableListOf<String>()
@@ -75,10 +76,15 @@ object ZoneCriterion {
                 for (field in geometries) {
                     val found = definition.fields.firstOrNull { it.name == field } ?: continue
                     val srid = found.srid ?: continue
+                    val column = SqlIdentifier.quote(found.columnName)
+                    val reference = "ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(${bind(json(geometry))}), 4326), $srid)"
                     terms +=
-                        "ST_Intersects(${SqlIdentifier.quote(
-                            found.columnName
-                        )}, ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(${bind(json(geometry))}), 4326), $srid))"
+                        if (excludeTouching) {
+                            // una geometría que solo toca el borde de la referencia no está dentro de ella
+                            "(ST_Intersects($column, $reference) AND NOT ST_Touches($column, $reference))"
+                        } else {
+                            "ST_Intersects($column, $reference)"
+                        }
                 }
             }
             if (terms.isEmpty()) NOTHING else terms.joinToString(" OR ")

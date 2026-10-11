@@ -31,8 +31,9 @@ class ComponentLandSqlTest {
                 values += value
                 ":g${values.size - 1}"
             }, listOf(UUID.randomUUID()), 10)
-        assertTrue(sql.contains("FROM <project_component> c JOIN <community> m ON ST_Intersects(COALESCE(ST_Transform(c.\"footprint\", 4326), "), sql)
-        assertTrue(sql.contains("FROM <project_component> c JOIN <land_parcel> p ON ST_Intersects(COALESCE(ST_Transform(c.\"footprint\", 32718), "), sql)
+        assertTrue(sql.contains("FROM <project_component> c JOIN <community> m ON (ST_Intersects(COALESCE(ST_Transform(c.\"footprint\", 4326), "), sql)
+        assertTrue(sql.contains("FROM <project_component> c JOIN <land_parcel> p ON (ST_Intersects(COALESCE(ST_Transform(c.\"footprint\", 32718), "), sql)
+        assertEquals(2, Regex("AND NOT ST_Touches\\(").findAll(sql).count(), sql)
         assertTrue(sql.contains("c.\"superseded\" IS NOT TRUE"), sql)
         assertTrue(sql.contains(" UNION ALL "), sql)
         assertTrue(sql.endsWith("LIMIT :g${values.size - 1}"), sql)

@@ -14,6 +14,7 @@ import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.Values
 import sgspe.common.toCodedException
+import sgspe.engagement.EngagementWriteGuard
 import tools.jackson.databind.json.JsonMapper
 import wasichai.core.metadata.MetadataService
 import java.math.BigDecimal
@@ -62,7 +63,7 @@ class TerritoryAggregates(
                     "id" to row.get("zone", UUID::class.java).toString(),
                     "name" to row.get("name", String::class.java),
                     "point" to row.get("point", String::class.java)?.let { JSON.readValue(it, Map::class.java) },
-                    "count" to row.get("n", java.lang.Long::class.java)?.toLong()
+                    "count" to row.get("n", Long::class.javaObjectType)
                 )
             }
         )
@@ -177,13 +178,22 @@ class TerritoryAggregates(
             val from = bind(OffsetDateTime.ofInstant(period.from(), ZoneOffset.UTC))
             val until = bind(OffsetDateTime.ofInstant(period.until(), ZoneOffset.UTC))
             val project = if (projects.isEmpty()) "" else " AND e.${t.column(of, "project")} = ANY(${bind(projects.toTypedArray())})"
+            // como KPI-ENG, una interacción cuenta cuando se realizó (EngagementWriteGuard.HELD_STATES)
+            val held =
+                if (of ==
+                    "engagement"
+                ) {
+                    " AND e.${t.column(of, SpatialGate.STATE)} = ANY(${bind(EngagementWriteGuard.HELD_STATES.sorted().toTypedArray())})"
+                } else {
+                    ""
+                }
             val point =
                 "COALESCE(ST_Transform(l.${t.column(l, "location")}, 4326), ST_PointOnSurface(ST_Transform(l.${t.column(l, "boundary")}, 4326)), " +
                     "ST_PointOnSurface(ST_Transform(m.${t.column(m, "territory")}, 4326)))"
             return "SELECT k.kind AS kind, k.zone AS zone, k.n AS n, COALESCE(l.${t.column(l, "name")}, m.${t.column(m, "name")})::text AS name, " +
                 "ST_AsGeoJSON($point, 9) AS point FROM (" +
                 "SELECT CASE WHEN $locality IS NOT NULL THEN 'locality' ELSE 'community' END AS kind, COALESCE($locality, $community) AS zone, count(*) AS n " +
-                "FROM ${t.table(of)} e WHERE $date >= $from AND $date < $until$project " +
+                "FROM ${t.table(of)} e WHERE $date >= $from AND $date < $until$project$held " +
                 "AND ($locality IS NOT NULL OR $community IS NOT NULL) GROUP BY 1, 2) k " +
                 "LEFT JOIN ${t.table(l)} l ON k.kind = 'locality' AND l.${t.column(l, SpatialGate.ID)} = k.zone " +
                 "LEFT JOIN ${t.table(m)} m ON k.kind = 'community' AND m.${t.column(m, SpatialGate.ID)} = k.zone " +

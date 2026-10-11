@@ -13,6 +13,8 @@ import sgspe.common.StrictQuery
 import sgspe.common.Values
 import wasichai.core.metadata.MetadataService
 import java.math.BigDecimal
+import java.time.Clock
+import java.time.LocalDate
 import java.util.UUID
 
 // un componente que cruza un predio o un territorio comunal, con la longitud de su trazo o el área de su huella dentro de él,
@@ -37,7 +39,8 @@ class ProjectLandQueries(
     private val frames: ProjectFrames,
     private val records: Records,
     private val metadata: MetadataService,
-    private val limits: TerritoryQueryProperties
+    private val limits: TerritoryQueryProperties,
+    private val clock: Clock
 ) {
     suspend fun parcels(
         projectId: UUID,
@@ -102,10 +105,11 @@ class ProjectLandQueries(
         return rights
             .groupBy { UUID.fromString(Values.text(it.attributes["land_parcel"])) }
             .mapValues { (_, list) ->
-                list.flatMap { right ->
-                    listOfNotNull(
-                        Values.text(right.attributes["holder_person"])?.let { mapOf("object" to "person", "id" to it, "name" to people[it]) },
-                        Values.text(right.attributes["holder_organization"])?.let { mapOf("object" to "organization", "id" to it, "name" to organizations[it]) }
+                currentHolders(list, LocalDate.now(clock)).map { (kind, id) ->
+                    mapOf(
+                        "object" to kind,
+                        "id" to id,
+                        "name" to (if (kind == "person") people else organizations)[id]
                     )
                 }
             }
@@ -149,7 +153,22 @@ class ProjectLandQueries(
             GateRead(TerritoryNames.COMPONENT, setOf("code", "component_type", "project", "superseded") + TerritoryNames.COMPONENT_GEOMETRIES, principal = true)
         val PARCEL_READS = listOf(COMPONENT_READ, GateRead(TerritoryNames.PARCEL, setOf("code", "tenure_type", "boundary"), principal = true))
         val COMMUNAL_READS = listOf(COMPONENT_READ, GateRead(TerritoryNames.COMMUNITY, setOf("name", "territory"), principal = true))
-        private val HOLDER_FIELDS = listOf("land_right.land_parcel", "land_right.holder_person", "land_right.holder_organization")
+        private val HOLDER_FIELDS = listOf("land_right.land_parcel", "land_right.holder_person", "land_right.holder_organization", "land_right.end_date")
+
+        // los titulares vigentes de un predio: los derechos sin end_date o con end_date de hoy en adelante (hoy en Lima), cada
+        // persona u organización una sola vez. devuelve (objeto, id)
+        internal fun currentHolders(
+            rights: List<wasichai.core.data.RecordResponse>,
+            today: LocalDate
+        ): List<Pair<String, String>> =
+            rights
+                .filter { right -> Values.text(right.attributes["end_date"])?.let { LocalDate.parse(it) >= today } ?: true }
+                .flatMap { right ->
+                    listOfNotNull(
+                        Values.text(right.attributes["holder_person"])?.let { "person" to it },
+                        Values.text(right.attributes["holder_organization"])?.let { "organization" to it }
+                    )
+                }.distinct()
 
         // los componentes vigentes del proyecto que cruzan `geometry` de `land`, con la longitud del trazo y el área de la huella
         // dentro de ella en el working_crs; `kind` es la columna que se devuelve como land_kind (la tenencia), o ninguna
@@ -175,7 +194,7 @@ class ProjectLandQueries(
                 "x.${t.column(land, code)}::text AS land_code, $kindColumn AS land_kind, " +
                 "CASE WHEN $trace IS NOT NULL THEN ${SpatialSql.lengthM(trace, target, srid)} END AS length_m, " +
                 "CASE WHEN $footprint IS NOT NULL THEN ${SpatialSql.areaHa(footprint, target, srid)} END AS area_ha " +
-                "FROM ${t.table(c)} c JOIN ${t.table(land)} x ON ST_Intersects($shape, $target) " +
+                "FROM ${t.table(c)} c JOIN ${t.table(land)} x ON (ST_Intersects($shape, $target) AND NOT ST_Touches($shape, $target)) " +
                 "WHERE c.${t.column(c, "project")} = ${bind(frame.id)} AND c.${t.column(c, "superseded")} IS NOT TRUE " +
                 "ORDER BY 2, 5, 1, 4 LIMIT ${bind(limit + 1)}"
         }

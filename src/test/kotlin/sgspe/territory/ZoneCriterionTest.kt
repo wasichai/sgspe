@@ -86,6 +86,15 @@ class ZoneCriterionTest {
     }
 
     @Test
+    fun `excluir los bordes agrega NOT ST_Touches a la interseccion`() {
+        val (sql, values) =
+            render(ZoneCriterion.of(emptyList(), listOf("location"), Zone(emptyMap(), square), excludeTouching = true), definition("location" to 32718))
+        val ref = "ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:c0), 4326), 32718)"
+        assertEquals("(ST_Intersects(\"c_location\", $ref) AND NOT ST_Touches(\"c_location\", $ref))", sql)
+        assertEquals(1, values.size)
+    }
+
+    @Test
     fun `una zona sin geometria filtra solo por relacion`() {
         val zone = Zone(mapOf("locality" to setOf(locality)), null)
         val (sql, _) = render(ZoneCriterion.of(listOf("locality"), listOf("location"), zone), definition("locality" to null, "location" to 4326))

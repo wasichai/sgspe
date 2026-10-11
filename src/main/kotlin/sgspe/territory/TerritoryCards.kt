@@ -52,7 +52,7 @@ class TerritoryCards(
                 if (shape == null || !computable) {
                     emptyList()
                 } else {
-                    val inside = ZoneCriterion.of(emptyList(), listOf("territory"), Zone(emptyMap(), shape))
+                    val inside = ZoneCriterion.of(emptyList(), listOf("territory"), Zone(emptyMap(), shape), excludeTouching = true)
                     records.all(TerritoryNames.COMMUNITY, criteria = listOf(inside), max = limits.maxRows).sortedWith(BY_NAME).map(::brief)
                 }
             }
@@ -176,14 +176,6 @@ class TerritoryCards(
     companion object {
         private const val APPROVED = "approved"
         private val LOCALITY_PATHS = listOf("locality.location", "locality.boundary", "locality.administrative_unit")
-        private val AREA_PATHS =
-            listOf(
-                "area_of_influence_member.area_of_influence",
-                "area_of_influence_member.member_condition",
-                "area_of_influence.project",
-                "area_of_influence.area_type",
-                "area_of_influence.version_number"
-            )
         private val UNIT_PATHS = listOf("administrative_unit.name", "administrative_unit.level")
         private val COMMUNITY_TERRITORY = listOf("community.territory")
         private val BY_NAME = compareBy<RecordResponse>({ Values.text(it.attributes["name"]) }, { it.id })

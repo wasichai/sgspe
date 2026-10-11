@@ -123,6 +123,8 @@ class MemberSuggestions(
             } else {
                 val project = projectId?.let { records.find(TerritoryNames.PROJECT, it) }
                 parts.missing(*readability.missing(listOf("${TerritoryNames.PROJECT}.interest_area") + componentFields()).toTypedArray())
+                // sin proyecto legible no hay con qué cruzar: no se presenta una lista vacía como completa
+                if (project == null) parts.missing("${TerritoryNames.AREA}.project")
                 project?.let { references.projectAndComponents(it) }
             }
         if (reference == null) return parts.response("suggestions", emptyList())

@@ -62,7 +62,12 @@ class ProximitySqlTest {
         val sql = ProjectProximityQueries.concessionSql(tables, Bound()::bind, listOf(UUID.randomUUID()), ProjectProximityQueries.TERRITORIES.first(), 10)
         assertTrue(sql.contains("IN (32717, 32718, 32719)"), sql)
         assertTrue(sql.contains("ORDER BY 2, 3, 1, 5, 4"), sql)
-        assertTrue(sql.contains("JOIN <community> x ON (ST_Intersects(ST_Transform(k.\"boundary\", 4326), x.\"territory\"))"), sql)
+        assertTrue(
+            sql.contains(
+                "JOIN <community> x ON ((ST_Intersects(ST_Transform(k.\"boundary\", 4326), x.\"territory\") AND NOT ST_Touches(ST_Transform(k.\"boundary\", 4326), x.\"territory\")))"
+            ),
+            sql
+        )
     }
 
     @Test

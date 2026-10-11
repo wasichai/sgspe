@@ -10,6 +10,7 @@ import sgspe.common.toCodedException
 import wasichai.core.common.PageRequest
 import wasichai.core.common.WasichaiException
 import java.math.BigDecimal
+import java.time.DateTimeException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
@@ -88,13 +89,21 @@ object QueryParams {
         limits: TerritoryQueryProperties
     ): Period {
         val to = end?.let { date(PERIOD_END, it) } ?: today
-        val from = start?.let { date(PERIOD_START, it) } ?: to.minusYears(1).plusDays(1)
+        // una fecha extrema (+999999999-12-31) desborda la aritmética de fechas: 400 en su campo, no 500
+        val from =
+            start?.let { date(PERIOD_START, it) } ?: try {
+                to.minusYears(1).plusDays(1)
+            } catch (_: DateTimeException) {
+                throw outOfRange(PERIOD_END, "fecha fuera del rango admitido")
+            }
         if (from.isAfter(to)) throw outOfRange(PERIOD_START, "no puede ser posterior a periodEnd")
-        if (!to.isBefore(
-                from.plusYears(limits.maxPeriodYears.toLong())
-            )
-        ) {
-            throw outOfRange(PERIOD_END, "el periodo no puede pasar de ${limits.maxPeriodYears} años")
+        try {
+            to.plusDays(1)
+            if (!to.isBefore(from.plusYears(limits.maxPeriodYears.toLong()))) {
+                throw outOfRange(PERIOD_END, "el periodo no puede pasar de ${limits.maxPeriodYears} años")
+            }
+        } catch (_: DateTimeException) {
+            throw outOfRange(PERIOD_END, "fecha fuera del rango admitido")
         }
         return Period(from, to)
     }

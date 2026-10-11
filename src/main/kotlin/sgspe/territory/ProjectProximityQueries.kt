@@ -151,7 +151,13 @@ class ProjectProximityQueries(
         parts: SpatialParts<Nearby>
     ): List<Nearby> {
         if (distances.isEmpty()) return emptyList()
-        val unreadable = Readability(metadata).missing(listOf("$CONFLICT.title"))
+        val readability = Readability(metadata)
+        // si no se lee el objeto, se nombra solo el objeto, no además su título
+        if (readability.objectMissing("$CONFLICT.title")) {
+            parts.missing(CONFLICT)
+            return emptyList()
+        }
+        val unreadable = readability.missing(listOf("$CONFLICT.title"))
         if (unreadable.isNotEmpty()) parts.missing(*unreadable.toTypedArray())
         val active =
             try {
@@ -359,7 +365,15 @@ class ProjectProximityQueries(
             val k = TerritoryNames.CONCESSION
             val x = target.objectName
             val boundary = "k.${t.column(k, "boundary")}"
-            val crossing = target.geometries.joinToString(" OR ") { g -> "ST_Intersects(ST_Transform($boundary, ${t.srid(x, g)}), x.${t.column(x, g)})" }
+            val crossing =
+                target.geometries.joinToString(
+                    " OR "
+                ) { g ->
+                    "(ST_Intersects(ST_Transform($boundary, ${t.srid(
+                        x,
+                        g
+                    )}), x.${t.column(x, g)}) AND NOT ST_Touches(ST_Transform($boundary, ${t.srid(x, g)}), x.${t.column(x, g)}))"
+                }
             val shape = SpatialSql.firstOf(target.geometries.map { "x.${t.column(x, it)}" }, 4326)
             val piece = "ST_Intersection(ST_Transform($boundary, 4326), $shape)"
             val kind = target.kind?.let { "x.${t.column(x, it)}::text" } ?: "NULL::text"
