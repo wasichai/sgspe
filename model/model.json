@@ -81,7 +81,7 @@
       "label": "Proyecto",
       "pluralLabel": "Proyectos",
       "description": "Proyecto extractivo (o prospecto) con su etapa, su fase de exploración, su CRS de trabajo y los parámetros y políticas que configuran las reglas de DOC-01 (ASM-019).",
-      "actions": [{"name": "APPROVE", "label": "Aprobar"}, {"name": "READ_ALL_PROJECTS", "label": "Leer todos los proyectos"}],
+      "actions": [{"name": "APPROVE", "label": "Aprobar"}, {"name": "READ_ALL_PROJECTS", "label": "Leer todos los proyectos"}, {"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "code", "label": "Código del proyecto", "type": "TEXT", "required": true, "unique": true, "description": "Código del proyecto."},
         {"name": "name", "label": "Nombre del proyecto o prospecto", "type": "TEXT", "required": true, "description": "Nombre del proyecto o prospecto."},
@@ -178,6 +178,7 @@
       "label": "Concesión minera",
       "pluralLabel": "Concesiones mineras",
       "description": "Derecho minero con código, titular, CRS de origen y polígono, vinculado a uno o más proyectos.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "code", "label": "Código del derecho minero", "type": "TEXT", "required": true, "unique": true, "description": "Código del derecho minero."},
         {"name": "name", "label": "Nombre de la concesión", "type": "TEXT", "description": "Nombre de la concesión."},
@@ -194,6 +195,7 @@
       "label": "Unidad administrativa",
       "pluralLabel": "Unidades administrativas",
       "description": "Departamento, provincia o distrito del ubigeo del INEI; objeto catálogo (BC-20) que carga un script idempotente.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "ubigeo_code", "label": "Código ubigeo del INEI", "type": "TEXT", "required": true, "unique": true, "description": "Código ubigeo del INEI."},
         {"name": "name", "label": "Nombre oficial", "type": "TEXT", "required": true, "description": "Nombre oficial."},
@@ -206,6 +208,7 @@
       "label": "Localidad",
       "pluralLabel": "Localidades",
       "description": "Asentamiento humano (caserío, sector, centro poblado, anexo o ciudad) con localidad padre y estado de reconocimiento.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "name", "label": "Nombre de la localidad", "type": "TEXT", "required": true, "description": "Nombre de la localidad."},
         {"name": "alternative_names", "label": "Grafías y nombres alternativos", "type": "TEXT", "description": "Grafías y nombres alternativos."},
@@ -222,8 +225,13 @@
       "label": "Comunidad campesina o nativa",
       "pluralLabel": "Comunidades campesinas o nativas",
       "description": "Colectivo con personería, territorio comunal inscrito, junta directiva y sectores; como actor participa mediante la organization que lo representa (RN-STK-008).",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "name", "label": "Nombre de la comunidad", "type": "TEXT", "required": true, "description": "Nombre de la comunidad."},
+        {"name": "code", "label": "Código", "type": "TEXT", "unique": true, "description": "Código que lo identifica en las importaciones; sin código no se importa (ASM-123). Desde F6."},
+        {"name": "source_crs", "label": "CRS en que vino la geometría importada", "type": "ENUM", "enum": "source_crs", "description": "CRS en que vino la geometría importada. Desde F6."},
+        {"name": "source_reference", "label": "Fuente de origen", "type": "TEXT", "description": "Fuente de origen (archivo, capa o registro público). Desde F6."},
+        {"name": "import_batch_id", "label": "Importación que lo creó o cambió", "type": "UUID", "indexed": true, "description": "Importación que lo creó o cambió (ASM-060). Desde F6."},
         {"name": "alternative_names", "label": "Nombres alternativos", "type": "TEXT", "description": "Nombres alternativos."},
         {"name": "community_type", "label": "Tipo de comunidad", "type": "ENUM", "enum": "community_type", "description": "Comunidad campesina o nativa."},
         {"name": "legal_entity_record", "label": "Partida de la personería jurídica", "type": "TEXT", "description": "Partida de la personería jurídica (los números nunca van a artefactos versionados)."},
@@ -251,6 +259,7 @@
       "pluralLabel": "Sectores comunales",
       "description": "División de una comunidad con delegados ante la asamblea; coincide solo en parte con caseríos.",
       "uniqueConstraints": [["community", "name"]],
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "name", "label": "Nombre del sector", "type": "TEXT", "required": true, "description": "Nombre del sector."},
         {"name": "delegates_count", "label": "Delegados ante la asamblea comunal", "type": "INTEGER", "description": "Delegados ante la asamblea comunal."},
@@ -263,7 +272,7 @@
       "pluralLabel": "Áreas de influencia",
       "description": "Construcción analítica y versionada de un proyecto: tipo, criterios, miembros curados y geometría opcional.",
       "uniqueConstraints": [["project", "area_type", "version_number"]],
-      "actions": [{"name": "APPROVE", "label": "Aprobar"}],
+      "actions": [{"name": "APPROVE", "label": "Aprobar"}, {"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "area_type", "label": "Tipo de área", "type": "ENUM", "enum": "area_of_influence_type", "required": true, "description": "Tipo de área (ASM-039)."},
         {"name": "version_number", "label": "Versión del área para el proyecto y el tipo", "type": "INTEGER", "required": true, "description": "Versión del área para el proyecto y el tipo."},
@@ -294,6 +303,7 @@
       "description": "Elemento físico del proyecto (sondaje, plataforma, acceso, campamento, captación) con sus coordenadas de origen y sus versiones.",
       "apiOnly": true,
       "uniqueConstraints": [["project", "code", "version_number"]],
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "code", "label": "Código del componente", "type": "TEXT", "required": true, "description": "Código del componente (por ejemplo, el código de un sondaje)."},
         {"name": "component_type", "label": "Tipo de componente", "type": "ENUM", "enum": "component_type", "required": true, "description": "Tipo de componente."},
@@ -320,6 +330,7 @@
       "label": "Predio",
       "pluralLabel": "Predios",
       "description": "Unidad de tierra con su tenencia, su partida (restringida) y su polígono.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "code", "label": "Código del predio", "type": "TEXT", "required": true, "unique": true, "description": "Código del predio."},
         {"name": "tenure_type", "label": "Tenencia del predio", "type": "ENUM", "enum": "tenure_type", "description": "Tenencia del predio."},
@@ -349,8 +360,13 @@
       "label": "Elemento ambiental",
       "pluralLabel": "Elementos ambientales",
       "description": "Lugar ambiental o culturalmente sensible (zona de protección, fuente de agua, microcuenca, cerro, sitio sagrado, resto arqueológico) con su base legal.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "code", "label": "Código", "type": "TEXT", "unique": true, "description": "Código que lo identifica en las importaciones; sin código no se importa (ASM-123). Desde F6."},
+        {"name": "source_crs", "label": "CRS en que vino la geometría importada", "type": "ENUM", "enum": "source_crs", "description": "CRS en que vino la geometría importada. Desde F6."},
+        {"name": "source_reference", "label": "Fuente de origen", "type": "TEXT", "description": "Fuente de origen (archivo, capa o registro público). Desde F6."},
+        {"name": "import_batch_id", "label": "Importación que lo creó o cambió", "type": "UUID", "indexed": true, "description": "Importación que lo creó o cambió (ASM-060). Desde F6."},
         {"name": "feature_type", "label": "Tipo de elemento ambiental", "type": "ENUM", "enum": "environmental_feature_type", "description": "Tipo de elemento ambiental."},
         {"name": "legal_basis", "label": "Base legal de la declaración", "type": "TEXT", "description": "Base legal de la declaración."},
         {"name": "declaring_authority", "label": "Autoridad que lo declaró", "type": "TEXT", "description": "Autoridad que lo declaró."},
@@ -1406,6 +1422,7 @@
       "label": "Institución educativa",
       "pluralLabel": "Instituciones educativas",
       "description": "Institución de nivel inicial, primario o secundario de una localidad.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
         {"name": "education_level", "label": "Nivel educativo", "type": "TEXT", "description": "Nivel educativo."},
@@ -1418,6 +1435,7 @@
       "label": "Establecimiento de salud",
       "pluralLabel": "Establecimientos de salud",
       "description": "Puesto o centro de salud de una localidad.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
         {"name": "facility_type", "label": "Tipo de establecimiento", "type": "TEXT", "description": "Tipo de establecimiento."},
@@ -1430,6 +1448,7 @@
       "label": "Vía de acceso",
       "pluralLabel": "Vías de acceso",
       "description": "Trocha carrozable o camino de herradura que conecta localidades, con su estado y sus medios de transporte.",
+      "actions": [{"name": "EXPORT", "label": "Exportar"}],
       "fields": [
         {"name": "road_type", "label": "Tipo de vía", "type": "TEXT", "description": "Tipo de vía."},
         {"name": "road_condition", "label": "Estado de la vía", "type": "TEXT", "description": "Estado de la vía."},

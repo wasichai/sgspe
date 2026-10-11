@@ -14,12 +14,12 @@ class TenantProvisioningApiTest : SgspeApiTest() {
     fun `un tenant nuevo se prepara con apply, apply_roles y apply workflows en ese orden`() {
         val admin = provisionTenant()
 
-        // F5: 82 objetos, 26 acciones declaradas y 272 relaciones; 25 objetos reciben en la fase 3 los únicos y los índices que
-        // nombran el campo de una relación, y delivery.social_contribution su único (Decisión 1 del plan 5.1: wasichai acepta
-        // el unique: true del campo de una relación opcional)
+        // F6: 82 objetos, 39 acciones declaradas (13 EXPORT de las capas territoriales) y 272 relaciones; 25 objetos reciben
+        // en la fase 3 los únicos y los índices que nombran el campo de una relación, y delivery.social_contribution su
+        // único (Decisión 1 del plan 5.1: wasichai acepta el unique: true del campo de una relación opcional)
         val model = runScript(listOf("model/apply.py"), admin)
         assertEquals(0, model.exit, model.output)
-        assertTrue(model.output.contains("done: 380 created, 26 updated, 0 skipped"), model.output)
+        assertTrue(model.output.contains("done: 393 created, 26 updated, 0 skipped"), model.output)
         assertTrue(model.output.contains("update field delivery.social_contribution (unique)"), model.output)
         val roles = runScript(listOf("model/apply_roles.py"), admin)
         assertEquals(0, roles.exit, roles.output)
@@ -36,7 +36,7 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         // los tres pasos son idempotentes contra wasichai de verdad (database-model.md §24)
         val modelAgain = runScript(listOf("model/apply.py"), admin)
         assertEquals(0, modelAgain.exit, modelAgain.output)
-        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 380 skipped"), modelAgain.output)
+        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 393 skipped"), modelAgain.output)
         val again = runScript(listOf("model/apply_roles.py"), admin)
         assertEquals(0, again.exit, again.output)
         assertTrue(again.output.contains("done: 0 created, 0 updated, 15 skipped"), again.output)

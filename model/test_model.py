@@ -15,7 +15,7 @@ import unittest
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F5"
+PHASE = "F6"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -466,6 +466,45 @@ class InvestmentModelTests(unittest.TestCase):
         measurement = self.objects["program_measurement"]
         self.assertIs(measurement.get("appendOnly"), True)
         self.assertEqual(measurement["uniqueConstraints"], [["program_indicator", "period_start_date"]])
+
+
+# §3.5 de la especificación de F6: los objetos de LYR-01 a LYR-16 que se exportan (land_right nunca, ASM-124)
+EXPORTABLE = ("administrative_unit", "locality", "road_access", "community", "community_sector", "mining_concession",
+              "environmental_feature", "project", "project_component", "area_of_influence", "land_parcel", "school",
+              "health_facility")
+ORIGIN_FIELDS = ("code", "source_crs", "source_reference", "import_batch_id")
+
+
+class TerritoryF6Tests(unittest.TestCase):
+    """§3.4 y §4.1 de la especificación de F6: los destinos nuevos de la importación llevan código y campos de origen, y
+    los objetos de las capas territoriales declaran EXPORT. Ningún objeto ni relación nuevos."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model = load("model.json")
+        cls.objects = {o["name"]: o for o in cls.model["objects"]}
+
+    def test_comunidad_y_elemento_ambiental_traen_codigo_unico_opcional_y_campos_de_origen(self):
+        for name in ("community", "environmental_feature"):
+            fields = {f["name"]: f for f in self.objects[name]["fields"]}
+            code = fields["code"]
+            self.assertEqual((code["type"], code.get("unique", False), code.get("required", False)), ("TEXT", True, False),
+                             name)
+            self.assertEqual((fields["source_crs"]["type"], fields["source_crs"]["enum"]), ("ENUM", "source_crs"), name)
+            self.assertEqual(fields["source_reference"]["type"], "TEXT", name)
+            self.assertEqual(fields["import_batch_id"]["type"], "UUID", name)
+            # como mining_concession, el destino que ya se reconcilia por código (gis.md §4.4)
+            self.assertEqual([f for f in ORIGIN_FIELDS if f not in fields], [], name)
+
+    def test_las_capas_territoriales_declaran_export_y_land_right_no(self):
+        for name in EXPORTABLE:
+            self.assertIn({"name": "EXPORT", "label": "Exportar"}, self.objects[name].get("actions", []), name)
+        self.assertNotIn("EXPORT", [a["name"] for a in self.objects["land_right"].get("actions", [])])
+
+    def test_f6_no_trae_objetos_ni_relaciones(self):
+        self.assertEqual(len(self.objects), 82)
+        self.assertEqual(len(self.model["relationships"]), 272)
+        self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
 
 
 if __name__ == "__main__":
