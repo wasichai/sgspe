@@ -27,7 +27,9 @@ import java.io.File
 // formal, ver LIGHT_CLOSE_TYPE; los compromisos traen D1, D2 y una aprobación de otra persona, D4; los acuerdos son
 // convenios firmados y vigentes; los candidatos, apiOnly, los crea la plataforma; las QCS, los riesgos, los incidentes y las
 // alertas traen lo que piden las guardas de 4.2a y 4.2b, con F4ApiTest; los aportes y los programas, lo que pedirán las de
-// 5.2a y 5.2b, con F5ApiTest, y los registra siempre quien los lleva, porque quien los aprueba no los registró: P5 y G2)
+// 5.2a y 5.2b, con F5ApiTest, y los registra siempre quien los lleva, porque quien los aprueba no los registró: P5 y G2;
+// los aportes de WF-P traen un ítem y su tipo, los registra una cuenta que no los aprueba y su entrega lleva las tres
+// evidencias (plan 5.2a))
 class WorkflowMatrixApiTest : F5ApiTest() {
     private data class Transition(
         val name: String,
@@ -153,7 +155,8 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                 )
             "early_warning" -> earlyWarning(testProject(), actor(workflow, creatorRole, null))
             "incident" -> incident(testProject(), actor(workflow, creatorRole, null))
-            // F5: el aporte con su ítem (P9) y el programa, registrados por quien los lleva (creatorFor)
+            // F5: el aporte con su ítem BIEN y su contribution_type (P9, socialContribution de F5ApiTest) y el programa, registrados
+            // por quien los lleva (creatorFor: SOCIAL_INVESTMENT_MANAGER, que nunca aplica approve, así que P5 no lo detiene)
             "social_contribution" -> socialContribution(testProject(), actor(workflow, creatorRole, null))
             "social_program" -> socialProgram(testProject(), actor(workflow, creatorRole, null))
             else -> error("sin registro de prueba para ${workflow.objectName}")
@@ -182,7 +185,8 @@ class WorkflowMatrixApiTest : F5ApiTest() {
     // lo que una transición pide antes de aplicarse y la API genérica no da: register_fulfillment de WF-D exige una entrega con
     // conformidad y, en un compromiso MATERIAL, su acta de entrega y su foto (D9), que el admin registra con el comando de
     // entregas del plan 3.2; close_unfulfilled de WF-E3, el compromiso creado al aceptar ya cancelado (plan 4.2a); y en WF-F
-    // (plan 4.2b) la decisión de tratamiento, una medida con responsable y una revisión residual (RiskWriteGuard)
+    // (plan 4.2b) la decisión de tratamiento, una medida con responsable y una revisión residual (RiskWriteGuard); en WF-P (plan
+// 5.2a), la entrega del aporte con sus tres evidencias (P8)
     private fun prepare(
         workflow: Workflow,
         id: String,
@@ -193,7 +197,29 @@ class WorkflowMatrixApiTest : F5ApiTest() {
             return
         }
         if (workflow.key(rule) == "stakeholder_request.close_unfulfilled" && state(workflow.objectName, id) == rule.from) {
-            move("commitment", record(workflow.objectName, id)["attributes"]["created_commitment"].asString(), "cancel_draft", reason = TEXT)
+            val attributes = record(workflow.objectName, id)["attributes"]
+            val contribution = attributes["created_contribution"]?.takeUnless { it.isNull }?.asString()
+            if (contribution != null) {
+                move("social_contribution", contribution, "reject", reason = TEXT)
+            } else {
+                move("commitment", attributes["created_commitment"].asString(), "cancel_draft", reason = TEXT)
+            }
+            return
+        }
+        // P8 (plan 5.2a): la entrega del aporte con conformidad y sus tres evidencias del proyecto, por el comando de entrega
+        // (contributionDelivery de F5ApiTest la escribe como la plataforma, no por POST .../deliveries)
+        if (workflow.key(rule) == "social_contribution.register_delivery" && state(workflow.objectName, id) == rule.from) {
+            val evidence = listOf("ACTA DE RECEPCION", "FOTO", "COMPROBANTE").map { evidence(testProject(), it) }
+            val attributes = mapOf("delivery_date" to "2026-10-01", "conformity_given" to true, "conformity_by" to "Junta directiva")
+            val delivery =
+                exchange(
+                    "POST",
+                    "/api/sgspe/social-contributions/$id/deliveries",
+                    mapOf("attributes" to attributes, "evidence" to evidence),
+                    token,
+                    ifMatch("social_contribution", id) + withReason(TEXT)
+                )
+            assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
             return
         }
         if (workflow.key(rule) != "commitment.register_fulfillment") return
@@ -283,29 +309,41 @@ class WorkflowMatrixApiTest : F5ApiTest() {
         )
     }
 
-    // la aceptación de una solicitud (POST /api/sgspe/stakeholder-requests/{id}/accept): su respuesta y el compromiso en draft
+    // la aceptación de una solicitud (POST /api/sgspe/stakeholder-requests/{id}/accept): su respuesta y lo que crea quien
+    // acepta, según sus permisos (§2.2 de la especificación de F5): el compromiso en draft o, a quien no crea compromisos
+    // (SOCIAL_INVESTMENT_MANAGER), el aporte en requested
     private fun accept(
         id: String,
         who: Account
-    ): Response =
-        exchange(
+    ): Response {
+        val role = accounts.entries.first { it.value == who }.key
+        val commitment = "CREATE" in Model.roles.getValue(role)["commitment"].orEmpty()
+        val attributes =
+            if (commitment) {
+                mapOf("code" to uniqueName("COM-"), "title" to "Materiales para el canal de riego", "amount" to 15000, "currency" to "PEN")
+            } else {
+                mapOf(
+                    "code" to uniqueName("APO-"),
+                    "contribution_type" to "APOYO EN ESPECIE",
+                    "declared_purpose" to "Útiles para la escuela.",
+                    "conditions" to "Con acta de recepción.",
+                    "currency" to "PEN",
+                    "payer_organization" to organization()
+                )
+            }
+        return exchange(
             "POST",
             "/api/sgspe/stakeholder-requests/$id/accept",
             mapOf(
-                "creates" to "commitment",
-                "response" to "Se atenderá con un compromiso.",
+                "creates" to if (commitment) "commitment" else "social_contribution",
+                "response" to "Se atenderá con lo que se crea.",
                 "respondedAt" to "2026-10-08T15:00:00Z",
-                "attributes" to
-                    mapOf(
-                        "code" to uniqueName("COM-"),
-                        "title" to "Materiales para el canal de riego",
-                        "amount" to 15000,
-                        "currency" to "PEN"
-                    )
+                "attributes" to attributes
             ),
             who.token,
             ifMatch("stakeholder_request", id, who.token) + withReason(TEXT)
         )
+    }
 
     // quien crea el registro de la prueba: el propio rol si puede crearlo (RU: FIELD_AGENT solo cambia lo que creó), si no el
     // primero de los que llevan el objeto. quien aprueba un compromiso nunca lo creó (D4): sus roles no tienen CREATE. un
@@ -535,10 +573,9 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                 "social_contribution" to 8
             )
 
-        // los casos «rol de la lista aplica la transición» que esperan a otro plan: SOCIAL_INVESTMENT_MANAGER acepta una solicitud
-        // como aporte (creates = social_contribution), que llega con el plan 5.2a; como compromiso le respondería 403, porque no
-        // crea compromisos (§2.2 de la especificación de F5). el plan 5.2a saca esta clave cuando perform acepte como aporte
-        val ROLE_DEFERRED = setOf("stakeholder_request.accept:SOCIAL_INVESTMENT_MANAGER")
+        // los casos «rol de la lista aplica la transición» que esperan a otro plan: ninguno desde el plan 5.2a, que trae la
+        // aceptación como aporte (accept elige creates = social_contribution para quien no crea compromisos)
+        val ROLE_DEFERRED = emptySet<String>()
 
         // los objetos cuya aprobación exige que quien aprueba no los haya registrado (P5 de WF-P y G2 de WF-G): los registra
         // siempre el primero de DRIVERS (creatorFor)

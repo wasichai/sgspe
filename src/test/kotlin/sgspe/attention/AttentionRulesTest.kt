@@ -186,4 +186,20 @@ class AttentionRulesTest {
         assertEquals(emptyList<Pair<String, String>>(), named.filter { (o, t) -> catalog.transition(o, t) == null })
         assertTrue(AttentionWriteGuard.POLICY in catalog.objectOrNull("project")!!.fields)
     }
+
+    // F5 (§3.7 de la especificación de F5): created_contribution también lo escribe solo la aceptación
+    @Test
+    fun `created_contribution es un campo de comando de la solicitud`() {
+        assertEquals(
+            setOf("created_commitment", "created_contribution"),
+            AttentionRules.COMMAND_FIELDS
+                .getValue("stakeholder_request")
+                .filter { it.startsWith("created_") }
+                .toSet()
+        )
+        assertEquals(
+            "COMMAND_ONLY" to "created_contribution",
+            AttentionRules.commandOnly("stakeholder_request", setOf("created_contribution"), person = true, marked = false)?.let { it.code to it.field }
+        )
+    }
 }

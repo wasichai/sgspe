@@ -25,9 +25,10 @@ import wasichai.core.data.RecordWrite
 // otros registros como quien escribe: la confidencialidad (READ_CONFIDENTIAL, ASM-095; desde D-3, marcar confidencial una QCS
 // existente lo hace su receptor, su responsable o quien tiene READ_CONFIDENTIAL), la queja grave
 // (policy_high_severity_requires_approver del proyecto, RN-GRV-002), la doble llave de resolve_high_severity (APPROVE) y el
-// cierre sin ejecución (close_unfulfilled con el compromiso cancelado). una escritura sin usuario (la plataforma, una
-// automatización) no tiene permisos que comprobar; el alta de la reclasificación copia el receptor del original y no lo
-// juzga (AttentionRules.receiverCopied). lo que no se puede leer es 403 OBJECT_NOT_READABLE, nunca un pase
+// cierre sin ejecución (close_unfulfilled con el compromiso cancelado o, desde F5, el aporte rechazado o anulado). una
+// escritura sin usuario (la plataforma, una automatización) no tiene permisos que comprobar; el alta de la reclasificación
+// copia el receptor del original y no lo juzga (AttentionRules.receiverCopied). lo que no se puede leer es 403
+// OBJECT_NOT_READABLE, nunca un pase
 @Component
 @Order(GuardOrder.DOMAIN)
 class AttentionWriteGuard(
@@ -117,18 +118,34 @@ class AttentionWriteGuard(
         ) {
             findings += Finding("ACTION_REQUIRED", "Resolver una queja grave exige la acción APPROVE sobre grievance", status = HttpStatus.FORBIDDEN)
         }
-        if (change.objectName == Attention.REQUEST && name == AttentionRules.CLOSE_UNFULFILLED) {
-            val commitment = Records.uuid(record[AttentionRules.CREATED_COMMITMENT])?.let { records.readable(COMMITMENT, it) }
-            if (commitment?.state != CANCELLED) {
-                findings +=
-                    Finding(
-                        "STATE_MISMATCH",
-                        "close_unfulfilled cierra una solicitud cuyo compromiso está cancelado; el suyo está en ${commitment?.state ?: "ninguno"}",
-                        AttentionRules.CREATED_COMMITMENT
-                    )
-            }
-        }
+        if (change.objectName == Attention.REQUEST && name == AttentionRules.CLOSE_UNFULFILLED) findings += unfulfilled(record)
         return findings
+    }
+
+    // close_unfulfilled (ASM-068; §3.7 de la especificación de F5): con el aporte creado, si lo hay, en rejected o cancelled; si
+    // no, con el compromiso creado cancelado. un tenant sin el modelo de F5 no tiene created_contribution: juzga el compromiso
+    private suspend fun unfulfilled(record: Map<String, Any?>): List<Finding> {
+        val contribution = Records.uuid(record[AttentionRules.CREATED_CONTRIBUTION])
+        if (contribution != null) {
+            val state = records.readable(CONTRIBUTION, contribution).state
+            if (state in CONTRIBUTION_UNFULFILLED) return emptyList()
+            return listOf(
+                Finding(
+                    "STATE_MISMATCH",
+                    "close_unfulfilled cierra una solicitud cuyo aporte está rechazado o anulado; el suyo está en ${state ?: "ninguno"}",
+                    AttentionRules.CREATED_CONTRIBUTION
+                )
+            )
+        }
+        val commitment = Records.uuid(record[AttentionRules.CREATED_COMMITMENT])?.let { records.readable(COMMITMENT, it) }
+        if (commitment?.state == CANCELLED) return emptyList()
+        return listOf(
+            Finding(
+                "STATE_MISMATCH",
+                "close_unfulfilled cierra una solicitud cuyo compromiso está cancelado; el suyo está en ${commitment?.state ?: "ninguno"}",
+                AttentionRules.CREATED_COMMITMENT
+            )
+        )
     }
 
     // las acciones de quien escribe; sin usuario identificable, no las tiene (falla cerrada)
@@ -144,5 +161,9 @@ class AttentionWriteGuard(
         const val POLICY = "policy_high_severity_requires_approver"
         const val COMMITMENT = "commitment"
         const val CANCELLED = "cancelled"
+        const val CONTRIBUTION = "social_contribution"
+
+        // el aporte que no se ejecutará: rechazado o anulado (WF-P)
+        val CONTRIBUTION_UNFULFILLED = setOf("rejected", "cancelled")
     }
 }

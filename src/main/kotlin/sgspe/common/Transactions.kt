@@ -14,8 +14,9 @@ import wasichai.core.platform.ClusterLock
 // interbloquearse (PostgreSQL corta uno con 40P01, un 500); y quien espera el candado retiene una conexión del pool, así
 // que no conviene dejar `locked` envolviendo trabajo lento.
 // el orden acordado: varias claves del mismo tipo en una transacción van por id ascendente (el texto del UUID, que es el orden
-// de PostgreSQL). hoy solo pasa con commitment:<id>: el alta de una evidencia con vínculos a entregas de varios compromisos
-// toma el candado de cada uno al vincular (DELIVERY_FROZEN), y por eso vincula en EvidenceRules.lockOrder
+// de PostgreSQL). hoy pasa con commitment:<id> y, desde F5, social_contribution:<id>: el alta de una evidencia con vínculos a
+// entregas de varios padres toma el candado de cada uno al vincular (DELIVERY_FROZEN), y por eso vincula en
+// EvidenceRules.lockOrder, por la clave completa del candado
 @Component
 class Transactions(
     private val operator: TransactionalOperator,

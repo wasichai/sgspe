@@ -3,8 +3,10 @@ package sgspe.investment
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
 import sgspe.F5ApiTest
+import wasichai.core.common.WasichaiException
 
 // el modelo de F5 contra wasichai de verdad (plan 5.1): el único de la entrega sobre su relación opcional (decisión 2 de la
 // especificación de F5, Decisión 1 del plan), el tipo obligatorio del ítem, las mediciones inmutables y únicas por periodo,
@@ -18,15 +20,18 @@ class InvestmentModelApiTest : F5ApiTest() {
         assertEquals(true, fields.getValue("social_contribution")["unique"].asBoolean())
         val contribution = approvedContribution(project, procure = true)
         contributionDelivery(contribution, project, evidenceTypes = emptyList())
+        // desde el plan 5.2a la rechaza antes InvestmentWriteGuard (DELIVERY_EXISTS, con el candado del aporte) por cualquier
+        // puerta, también como la plataforma: el único del modelo queda como la última barrera. el rechazo es por la unicidad,
+        // no por otra regla de la entrega
         val second =
-            runCatching {
+            assertThrows<WasichaiException> {
                 platformCreate(
                     "delivery",
-                    mapOf("social_contribution" to contribution, "delivery_date" to "2026-10-21", "conformity_given" to true),
+                    mapOf("social_contribution" to contribution, "delivery_date" to "2026-10-06", "conformity_given" to true),
                     "segunda entrega de prueba"
                 )
             }
-        assertTrue(second.isFailure, "la base aceptó una segunda entrega del mismo aporte")
+        assertEquals(listOf("social_contribution" to "DELIVERY_EXISTS"), second.violations.map { it.field to it.message }, second.message)
         val page = tree(send("GET", "/api/objects/delivery/records?social_contribution=$contribution", null, HttpStatus.OK))
         assertEquals(1, page["totalElements"].asInt())
         // dos entregas de un compromiso llevan social_contribution vacío: un UNIQUE de PostgreSQL no compara los NULL
@@ -109,9 +114,16 @@ class InvestmentModelApiTest : F5ApiTest() {
         assertEquals(1, tree(send("GET", "/api/objects/project/records/$project/related/project_priority_topic", null, HttpStatus.OK))["totalElements"].asInt())
         val themed = socialContribution(project, attributes = mapOf("topic" to topic))
         assertEquals(topic, record("social_contribution", themed)["attributes"]["topic"].asString())
-        // una tarea con un programa de origen (ExactlyOneGuard) y una solicitud que nombra el aporte creado
+        // una tarea con un programa de origen (ExactlyOneGuard). created_contribution existe en el tenant, pero es campo de
+        // comando desde el plan 5.2a: lo escribe la aceptación como aporte (StakeholderRequestWorkflowApiTest); aquí, como la
+        // plataforma (COMMAND_ONLY solo juzga a las personas), para ver que la solicitud guarda el vínculo
         createRecord("task", mapOf("project" to project, "title" to "Preparar la evaluación del programa", "social_program" to program))
-        val request = stakeholderRequest(project, attributes = mapOf("created_contribution" to contribution))
+        assertTrue(
+            "created_contribution" in
+                tree(send("GET", "/api/metadata/objects/stakeholder_request/fields", null, HttpStatus.OK)).values().map { it["name"].asString() }
+        )
+        val request = stakeholderRequest(project)
+        platformPatch("stakeholder_request", request, mapOf("created_contribution" to contribution), "vínculo de prueba como la plataforma")
         assertEquals(contribution, record("stakeholder_request", request)["attributes"]["created_contribution"].asString())
     }
 

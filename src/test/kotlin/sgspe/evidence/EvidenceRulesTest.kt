@@ -67,10 +67,11 @@ class EvidenceRulesTest {
         assertTrue(EvidenceRules.CLASSIFICATION in EvidenceRules.DESCRIPTIVE)
     }
 
-    // vincular una entrega toma commitment:<id> hasta el fin de la transacción (DELIVERY_FROZEN): el alta vincula las entregas
-    // por el id ascendente de su compromiso, así dos altas con los mismos compromisos en orden inverso no se interbloquean
+    // vincular una entrega toma el candado de su padre hasta el fin de la transacción (DELIVERY_FROZEN): commitment:<id> o, desde
+    // F5, social_contribution:<id>. el alta vincula las entregas por la clave ascendente de ese candado y, dentro de una, por su
+    // id, así dos altas con los mismos padres en orden inverso no se interbloquean (decisión 6 del plan 5.2a)
     @Test
-    fun `el alta vincula las entregas por el id ascendente de su compromiso, despues de lo que no toma candado`() {
+    fun `el alta vincula las entregas por la clave del candado de su padre, despues de lo que no toma candado`() {
         val low = UUID.fromString("00000000-0000-0000-0000-00000000000a")
         val high = UUID.fromString("f0000000-0000-0000-0000-000000000000")
         val d1 = EvidenceLink("delivery", UUID.fromString("90000000-0000-0000-0000-000000000001"))
@@ -78,14 +79,26 @@ class EvidenceRulesTest {
         val d3 = EvidenceLink("delivery", UUID.fromString("50000000-0000-0000-0000-000000000003"))
         val unknown = EvidenceLink("delivery", UUID.fromString("20000000-0000-0000-0000-000000000004"))
         val engagement = EvidenceLink("engagement", UUID.fromString("30000000-0000-0000-0000-000000000005"))
-        val commitments = mapOf(d1.recordId to low, d2.recordId to high, d3.recordId to low)
-        val expected = listOf(unknown, engagement, d3, d1, d2)
-        assertEquals(expected, EvidenceRules.lockOrder(listOf(d2, unknown, d1, engagement, d3), commitments))
+        val ofContribution = EvidenceLink("delivery", UUID.fromString("00000000-0000-0000-0000-000000000006"))
+        val locks =
+            mapOf(
+                d1.recordId to "commitment:$low",
+                d2.recordId to "commitment:$high",
+                d3.recordId to "commitment:$low",
+                ofContribution.recordId to "social_contribution:$low"
+            )
+        val expected = listOf(unknown, engagement, d3, d1, d2, ofContribution)
+        assertEquals(expected, EvidenceRules.lockOrder(listOf(ofContribution, d2, unknown, d1, engagement, d3), locks))
         // el orden pedido no importa: la misma lista en orden inverso da el mismo orden de candados
-        assertEquals(
-            listOf(d3, d1, d2),
-            EvidenceRules.lockOrder(listOf(d1, d3, d2), commitments)
-        )
-        assertEquals(EvidenceRules.lockOrder(listOf(d2, d1), commitments), EvidenceRules.lockOrder(listOf(d1, d2), commitments))
+        assertEquals(listOf(d3, d1, d2), EvidenceRules.lockOrder(listOf(d1, d3, d2), locks))
+        assertEquals(EvidenceRules.lockOrder(listOf(d2, d1), locks), EvidenceRules.lockOrder(listOf(d1, d2), locks))
+    }
+
+    @Test
+    fun `el candado de una entrega es el de su compromiso o el de su aporte`() {
+        val id = UUID.randomUUID()
+        assertEquals("commitment:$id", EvidenceRules.deliveryLock(mapOf("commitment" to id.toString())))
+        assertEquals("social_contribution:$id", EvidenceRules.deliveryLock(mapOf("social_contribution" to id.toString())))
+        assertEquals(null, EvidenceRules.deliveryLock(emptyMap()))
     }
 }

@@ -1,5 +1,6 @@
 package sgspe.evidence
 
+import sgspe.common.Records
 import sgspe.common.Values
 import java.util.UUID
 
@@ -65,16 +66,22 @@ object EvidenceRules {
 
     const val DELIVERY = "delivery"
 
-    // el orden en que el alta vincula (Transactions, «el orden acordado»): vincular una entrega toma el candado de su
-    // compromiso (DELIVERY_FROZEN) hasta el fin de la transacción, así que dos altas con entregas de los mismos compromisos en
-    // orden inverso se interbloquearían. primero va lo que no toma candado, en el orden pedido (los demás vínculos y una
-    // entrega sin compromiso conocido, cuyo vínculo falla por su cuenta), y después las entregas por el id ascendente de su
-    // compromiso y, dentro de uno, por el suyo. `commitments`: el compromiso de cada entrega pedida, por su id
+    // la clave del candado del padre de una entrega (Transactions, «el orden acordado»): el compromiso (DELIVERY_FROZEN de WF-D)
+    // o, desde F5, el aporte (DELIVERY_FROZEN de WF-P). null sin padre. los nombres son literales: sgspe.evidence no depende de
+    // sgspe.commitment ni de sgspe.investment
+    fun deliveryLock(attributes: Map<String, Any?>): String? =
+        Records.uuid(attributes["commitment"])?.let { "commitment:$it" }
+            ?: Records.uuid(attributes["social_contribution"])?.let { "social_contribution:$it" }
+
+    // el orden en que el alta vincula: vincular una entrega toma el candado de su padre hasta el fin de la transacción, así que
+    // dos altas con entregas de los mismos padres en orden inverso se interbloquearían. primero va lo que no toma candado, en el
+    // orden pedido (los demás vínculos y una entrega sin padre conocido, cuyo vínculo falla por su cuenta), y después las
+    // entregas por la clave ascendente del candado de su padre y, dentro de una, por su id. `locks`: esa clave, por entrega
     fun lockOrder(
         links: List<EvidenceLink>,
-        commitments: Map<UUID, UUID>
+        locks: Map<UUID, String>
     ): List<EvidenceLink> {
-        val (locking, free) = links.partition { it.objectName == DELIVERY && it.recordId in commitments }
-        return free + locking.sortedWith(compareBy({ commitments.getValue(it.recordId).toString() }, { it.recordId.toString() }))
+        val (locking, free) = links.partition { it.objectName == DELIVERY && it.recordId in locks }
+        return free + locking.sortedWith(compareBy({ locks.getValue(it.recordId) }, { it.recordId.toString() }))
     }
 }
