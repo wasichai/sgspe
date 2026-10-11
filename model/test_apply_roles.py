@@ -321,6 +321,35 @@ class RolesJsonTests(unittest.TestCase):
             for field in obj["fields"]:
                 self.assertNotIn("editable", field, f"{obj['name']}.{field['name']}")
 
+    TERRITORIAL = {"administrative_unit", "locality", "road_access", "community", "community_sector", "mining_concession",
+                   "environmental_feature", "project", "project_component", "area_of_influence", "land_parcel", "school",
+                   "health_facility"}
+
+    def test_las_capas_territoriales_las_exportan_quien_ya_exporta_o_administra_territorio(self):
+        # §3.5 y §4.2 de la especificación de F6 (decisión 4, ASM-124; Decisión 2 del plan 6.1): GIS_ANALYST (security.md
+        # §7.8), SOCIAL_MANAGER y PROJECT_MANAGER exportan los 13 objetos; land_right nunca; AUDITOR sin EXPORT. si el plan
+        # 6.0 fijó otra lista en security.md §7, esta prueba sigue a la matriz
+        holders = {name: {obj for obj, actions in role["permisos"].items()
+                          if obj in self.TERRITORIAL | {"land_right"} and "EXPORT" in actions}
+                   for name, role in self.roles.items()}
+        self.assertEqual({name for name, objs in holders.items() if objs},
+                         {"PROJECT_MANAGER", "SOCIAL_MANAGER", "GIS_ANALYST"})
+        for name in ("PROJECT_MANAGER", "SOCIAL_MANAGER", "GIS_ANALYST"):
+            self.assertEqual(holders[name], self.TERRITORIAL, name)
+        self.assertEqual(self.roles["AUDITOR"]["permisos"], {"*": ["READ"], "project": ["READ_ALL_PROJECTS"]})
+
+    def test_quien_exporta_algun_objeto_crea_su_fila_de_export_log(self):
+        # security.md §7.8: toda exportación deja su fila de export_log como quien exporta (RQ-AUD-011)
+        for name, role in self.roles.items():
+            if any("EXPORT" in actions for actions in role["permisos"].values()):
+                self.assertIn("CREATE", role["permisos"].get("export_log", []), name)
+
+    def test_quien_exporta_un_objeto_lo_lee(self):
+        for name, role in self.roles.items():
+            for obj, actions in role["permisos"].items():
+                if "EXPORT" in actions:
+                    self.assertIn("READ", actions, f"{name} {obj}")
+
 
 class ValidationTests(unittest.TestCase):
     def setUp(self):
@@ -695,6 +724,32 @@ class ApplyRolesTests(ApplyRolesTestCase):
                 self.assertIn(name, err)
                 self.assertNotIn("Traceback", err)
         self.assertEqual(self.core.requests, [])
+
+    def test_un_tenant_de_f5_suma_export_a_tres_roles(self):
+        # el tenant demo sube a F6: apply.py declara EXPORT y apply_roles.py reemplaza los permisos de PMG, SMG y GAN.
+        # test_apply se importa aquí, no arriba: en el espacio de nombres del módulo, unittest correría sus pruebas dos veces
+        import apply
+        import test_apply
+        login = ["--core", self.core.base_url, "--email", "admin@wasichai.local", "--password", "admin"]
+        with tempfile.TemporaryDirectory() as folder:
+            f5_model = test_apply.write_model(folder, test_apply.phase_subset(load(MODEL_PATH), "F5"))
+            roles = load(ROLES_PATH)
+            for role in roles["roles"]:
+                role["permisos"] = {obj: [a for a in actions if not (a == "EXPORT" and obj in RolesJsonTests.TERRITORIAL)]
+                                    for obj, actions in role["permisos"].items()}
+                if role["name"] == "GIS_ANALYST":
+                    role["permisos"].pop("export_log")
+            f5_roles = os.path.join(folder, "roles.json")
+            with open(f5_roles, "w", encoding="utf-8") as f:
+                json.dump(roles, f, ensure_ascii=False)
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", f5_model, *login])[0], 0)
+            self.assertEqual(self.run_cli(roles_path=f5_roles, model_path=f5_model)[0], 0)
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", MODEL_PATH, *login])[0], 0)
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        self.assertIn("done: 0 created, 3 updated, 12 skipped", out)
+        self.assertEqual(sorted(line.split()[2] for line in out.splitlines() if line.startswith("update role")),
+                         ["GIS_ANALYST", "PROJECT_MANAGER", "SOCIAL_MANAGER"])
 
 
 if __name__ == "__main__":

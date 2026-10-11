@@ -4,6 +4,8 @@ Copied from caja-backend@dc9e391 (model/fake_core.py); roles carry ownRecordsOnl
 From F2 it keeps an object's indexes beside its uniqueConstraints and stores one workflow per object, refusing one that
 names a role it lacks, as wasichai does. From F3 it keeps document types and automations by object and name, answers
 them with the null keys and the ids wasichai adds, and refuses a GENERATE_DOCUMENT naming a type the object lacks.
+From F6 it answers wasichai-gis: GET /api/gis/layers lists the geometries it was given and POST
+/api/gis/layers/{object}/{geometry} publishes one.
 Test helper only.
 """
 import json
@@ -16,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 OBJECT = re.compile(r"^/api/objects/([a-z0-9_]+)$")
 RECORDS = re.compile(r"^/api/objects/([a-z0-9_]+)/records$")
 RECORD = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)$")
+GIS_LAYER = re.compile(r"^/api/gis/layers/([a-z0-9_]+)/([a-z0-9_]+)$")
 ACTIONS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/actions$")
 FIELD = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields/([a-z0-9_]+)$")
 FIELDS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields$")
@@ -83,7 +86,8 @@ class FakeCore:
     def __init__(self, existing_objects=(), existing_relationships=(), fail_on_post_object=None,
                  fail_put=False, fail_put_status=500, login_response=None, fail_on_record=None, existing_fields=None,
                  fail_on_update=None, fail_on_delete=None, fail_on_role=None, object_flags=None, fail_put_object=None,
-                 existing_actions=(), refuse_organizations=False):
+                 existing_actions=(), refuse_organizations=False,
+                 gis_layers=(), fail_on_publish=None):
         self.existing_objects = set(existing_objects)
         self.existing_fields = existing_fields or {}  # object name -> list of {"name", "enumOptions"?}
         self.existing_relationships = set(existing_relationships)
@@ -105,6 +109,9 @@ class FakeCore:
         self.automations = {}  # object name -> {automation name -> {label, enabled, definition}}
         self.refuse_organizations = refuse_organizations  # POST /api/organizations answers 403 (sin MANAGE_TENANTS)
         self.organizations = []  # the bodies of POST /api/organizations
+        # wasichai-gis: (objeto, geometría) -> publicada; lo que GET /api/gis/layers lista. un dict fija capas ya publicadas
+        self.gis_layers = dict(gis_layers) if isinstance(gis_layers, dict) else {tuple(p): False for p in gis_layers}
+        self.fail_on_publish = fail_on_publish  # objeto -> su POST /api/gis/layers/... responde 502 (GeoServer apagado, BAD_GATEWAY)
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -284,8 +291,31 @@ class FakeCore:
             rules[rule_name] = {k: body[k] for k in ("label", "enabled", "definition")}
         return 200, answer(rule_name)
 
+    def _gis(self, method, path):
+        """GET /api/gis/layers y POST /api/gis/layers/{objeto}/{geometría} como wasichai-gis: la capa se llama
+        <tabla física>__<columna>; publicar una ya publicada es idempotente; una geometría que el tenant no tiene es 400."""
+        def status(pair, published):
+            name, geometry = pair
+            return {"objectName": name, "geometryName": geometry, "label": name, "layerName": f"{name}__0a1b2c3d__{geometry}",
+                    "geometryType": "GEOMETRY", "srid": 4326, "published": published, "wms": "", "wfs": ""}
+
+        if path == "/api/gis/layers" and method == "GET":
+            return 200, [status(pair, published) for pair, published in self.gis_layers.items()]
+        match = GIS_LAYER.match(path)
+        if match and method == "POST":
+            pair = match.groups()
+            if pair not in self.gis_layers:
+                return 400, {"detail": f"Unknown geometry '{pair[1]}'"}
+            if self.fail_on_publish == pair[0]:
+                return 502, {"detail": "GeoServer integration is disabled"}
+            self.gis_layers[pair] = True
+            return 200, status(pair, True)
+        return 404, {"detail": "not found"}
+
     def _script(self, method, full_path, body):
         path, _, query = full_path.partition("?")
+        if path.startswith("/api/gis/"):
+            return self._gis(method, path)
         if path == "/api/roles" or path.startswith("/api/roles/"):
             return self._roles(method, path, body)
         if path == "/api/auth/login" and method == "POST":

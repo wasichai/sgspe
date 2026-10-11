@@ -2,7 +2,7 @@ name: sgspe
 
 services:
   # postgis desde F1: instalar wasichai-gis en F2 solo crea la extensión, sin migrar datos (architecture.md §5.1).
-  # los servicios de apoyo llegan con su fase: S3 (MinIO) y SMTP de prueba (Mailpit) en F3, GeoServer en F6 y Gotenberg
+  # los servicios de apoyo llegan con su fase: S3 (MinIO) y SMTP de prueba (Mailpit) en F3, GeoServer en F6 (abajo) y Gotenberg
   # en F8
   postgis:
     image: postgis/postgis:18-3.6
@@ -73,7 +73,34 @@ services:
       # los correos sobreviven a un reinicio del contenedor, en el volumen con nombre
       MP_DATABASE: /data/mailpit.db
 
+  # F6 (ADR-0015, security.md §10): publica las capas públicas de model/layers.json desde la misma base. nunca público:
+  # solo loopback del VPS y sin CORS, porque el navegador nunca llega aquí (el portal pide las imágenes al proxy WMS de
+  # SGSPE). lee PostGIS por la red del compose (postgis:5432) con el rol de solo lectura sgspe_geoserver (regla 6), que se
+  # crea una vez; las capas y los estilos los publica model/publish_layers.py. la imagen no registra cuerpos de petición
+  geoserver:
+    image: docker.osgeo.org/geoserver:3.0.1
+    container_name: sgspe-geoserver
+    depends_on:
+      postgis:
+        condition: service_healthy
+    environment:
+      # solo para este GeoServer local: la app y publish_layers.py los leen como WASICHAI_GIS_GEOSERVER_USERNAME y
+      # WASICHAI_GIS_GEOSERVER_PASSWORD (develop/example.env)
+      GEOSERVER_ADMIN_USER: sgspe
+      GEOSERVER_ADMIN_PASSWORD: sgspe-geoserver
+      SKIP_DEMO_DATA: 'true'
+      INSTALL_EXTENSIONS: 'false'
+      # el navegador nunca habla con GeoServer (gis.md §6.2)
+      CORS_ENABLED: 'false'
+    ports:
+      # 8095: libre frente a las otras apps del entorno (8081 es el GeoServer de otras apps, 8082 a 8086 son de otras
+      # apps; ADR-0026). solo loopback, por túnel (ssh -fN -L 8095:localhost:8095 "$SGSPE_VPS")
+      - '127.0.0.1:${SGSPE_GEOSERVER_PORT:-8095}:8080'
+    volumes:
+      - geoserver-data:/opt/geoserver_data
+
 volumes:
   postgis-data:
   minio-data:
   mailpit-data:
+  geoserver-data:

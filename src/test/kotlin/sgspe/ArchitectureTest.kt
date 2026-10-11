@@ -322,6 +322,30 @@ class ArchitectureTest {
         )
     }
 
+    // security.md §10.2 (reglas 3 y 8) y ASM-121: GeoServer lee la base con sus credenciales, sin permisos ni alcance, así que
+    // model/layers.json solo nombra maestros de ProjectScope.TENANT sin campos restringidos en model/roles.json.
+    // publish_layers.py lo valida con la partición del modelo y test_model.py contra security.md §9.7; esta regla, contra el
+    // código que aplica el alcance
+    @Test
+    fun `las capas que publica GeoServer son maestros del tenant sin campos restringidos`() {
+        val json = JsonMapper.builder().build()
+        val layers =
+            json
+                .readTree(File("model/layers.json"))
+                .values()
+                .map { it["object"].asString() }
+                .toSet()
+        assertTrue(layers.isNotEmpty(), "model/layers.json no nombra ninguna capa")
+        assertEquals(emptySet<String>(), layers - ProjectScope.TENANT, "capas de objetos de proyecto: GeoServer no aplica el alcance")
+        val restricted =
+            json
+                .readTree(File("model/roles.json"))["restrictedFields"]
+                .values()
+                .map { it["object"].asString() }
+                .toSet()
+        assertEquals(emptySet<String>(), layers.intersect(restricted), "capas con campos restringidos: GeoServer no aplica permisos de campo")
+    }
+
     // las relaciones de model.json: (objeto, campo, destino, obligatoria); una MANY_TO_MANY no tiene campo
     private data class ModelRelation(
         val source: String,

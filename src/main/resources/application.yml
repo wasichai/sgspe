@@ -37,8 +37,24 @@ wasichai:
       ttl: 30s
   gis:
     geoserver:
-      # GeoServer es de la F6 (ADR-0015): apagado, /api/gis/layers lista las capas con published=false en vez de llamarlo
+      # GeoServer de F6 (ADR-0015, compose.yml). apagado por defecto: /api/gis/layers lista las capas con published=false
+      # sin llamarlo. encendido, wasichai publica por la API REST de GeoServer (POST /api/gis/layers, que llama
+      # model/publish_layers.py) en el GeoServer del compose, por el túnel del puerto 8095. las credenciales de desarrollo
+      # son las del compose; producción no tiene valores por defecto (application-prod.yml)
       enabled: ${WASICHAI_GIS_GEOSERVER_ENABLED:false}
+      url: ${WASICHAI_GIS_GEOSERVER_URL:http://localhost:8095/geoserver}
+      username: ${WASICHAI_GIS_GEOSERVER_USERNAME:sgspe}
+      password: ${WASICHAI_GIS_GEOSERVER_PASSWORD:sgspe-geoserver}
+      workspace: sgspe
+      datastore:
+        # cómo llega GeoServer (no la app) a PostGIS: por la red del compose (postgis:5432), con el rol de solo lectura
+        # sgspe_geoserver (security.md §10.2, regla 6), que se crea una vez en la base (docs/develop/README.md)
+        name: sgspe-postgis
+        host: ${WASICHAI_GIS_GEOSERVER_DATASTORE_HOST:postgis}
+        port: ${WASICHAI_GIS_GEOSERVER_DATASTORE_PORT:5432}
+        database: ${WASICHAI_GIS_GEOSERVER_DATASTORE_DATABASE:sgspe}
+        username: ${WASICHAI_GIS_GEOSERVER_DATASTORE_USERNAME:sgspe_geoserver}
+        password: ${WASICHAI_GIS_GEOSERVER_DATASTORE_PASSWORD:sgspe-geoserver-lectura}
   seed:
     # admin@wasichai.local / admin. solo para desarrollo: application-prod.yml lo apaga
     dev: ${WASICHAI_SEED_DEV:true}

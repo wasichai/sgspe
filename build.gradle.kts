@@ -58,11 +58,12 @@ ktlint {
     version.set("1.7.1")
 }
 
-// el modelo, los roles y los workflows viajan dentro del jar como configuración (ModelCatalog): las guardas leen de ahí
-// los campos derivados, los roles declarados y los roles de cada transición, nunca de literales en el código (ASM-070)
+// el modelo, los roles, los workflows y las capas públicas viajan dentro del jar como configuración (ModelCatalog; desde F6
+// la lista blanca del proxy WMS lee model/layers.json): las guardas leen de ahí los campos derivados, los roles declarados y
+// los roles de cada transición, nunca de literales en el código (ASM-070)
 tasks.named<ProcessResources>("processResources") {
     from("model") {
-        include("model.json", "roles.json", "workflows/*.json")
+        include("model.json", "roles.json", "layers.json", "workflows/*.json")
         into("model")
     }
 }
@@ -72,10 +73,10 @@ tasks.named<Test>("test") {
     useJUnitPlatform {
         excludeTags("integration")
     }
-    // ArchitectureTest lee las fuentes y model/roles.json: un cambio en ellos vuelve a correr las pruebas
+    // ArchitectureTest lee las fuentes, model/roles.json y model/layers.json: un cambio en ellos vuelve a correr las pruebas
     inputs.dir("src/main/kotlin")
-    // files, no file: tolera que roles.json no exista; file falla en Gradle 9.8 si el archivo falta
-    inputs.files("model/roles.json")
+    // files, no file: tolera que el archivo no exista; file falla en Gradle 9.8 si el archivo falta
+    inputs.files("model/roles.json", "model/layers.json")
     // la programación de los trabajos (DerivedFieldsSchedule) no corre en las pruebas: competiría por el candado de clúster
     // con runOnce y recorrería los tenants de la base compartida. las pruebas de un trabajo llaman a runOnce
     systemProperty("sgspe.jobs.enabled", "false")

@@ -15,7 +15,7 @@ import unittest
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F5"
+PHASE = "F6"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -104,7 +104,8 @@ class ModelAgainstCardsTests(unittest.TestCase):
             card = self.cards[name]
             self.assertEqual(obj.get("uniqueConstraints", []), card.unique_constraints, name)
             self.assertEqual(obj.get("indexes", []), card.indexes, name)
-            self.assertEqual([a["name"] for a in obj.get("actions", [])], card.actions, name)
+            self.assertEqual([a["name"] for a in obj.get("actions", [])],
+                             [a for a in card.actions if design_docs.action_phase(card, a) <= PHASE], name)
             # "`unique` en `x`" de la ficha: un campo con unique: true o, si x es el campo de una relación (delivery desde
             # F5), la relación con unique: true, que apply.py pone en la fase 3 (wasichai no admite un uniqueConstraints de
             # un solo campo)
@@ -465,6 +466,96 @@ class InvestmentModelTests(unittest.TestCase):
         measurement = self.objects["program_measurement"]
         self.assertIs(measurement.get("appendOnly"), True)
         self.assertEqual(measurement["uniqueConstraints"], [["program_indicator", "period_start_date"]])
+
+
+# §3.5 de la especificación de F6: los objetos de LYR-01 a LYR-16 que se exportan (land_right nunca, ASM-124)
+EXPORTABLE = ("administrative_unit", "locality", "road_access", "community", "community_sector", "mining_concession",
+              "environmental_feature", "project", "project_component", "area_of_influence", "land_parcel", "school",
+              "health_facility")
+ORIGIN_FIELDS = ("code", "source_crs", "source_reference", "import_batch_id")
+
+
+class TerritoryF6Tests(unittest.TestCase):
+    """§3.4 y §4.1 de la especificación de F6: los destinos nuevos de la importación llevan código y campos de origen, y
+    los objetos de las capas territoriales declaran EXPORT. Ningún objeto ni relación nuevos."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model = load("model.json")
+        cls.objects = {o["name"]: o for o in cls.model["objects"]}
+
+    def test_comunidad_y_elemento_ambiental_traen_codigo_unico_opcional_y_campos_de_origen(self):
+        for name in ("community", "environmental_feature"):
+            fields = {f["name"]: f for f in self.objects[name]["fields"]}
+            code = fields["code"]
+            self.assertEqual((code["type"], code.get("unique", False), code.get("required", False)), ("TEXT", True, False),
+                             name)
+            self.assertEqual((fields["source_crs"]["type"], fields["source_crs"]["enum"]), ("ENUM", "source_crs"), name)
+            self.assertEqual(fields["source_reference"]["type"], "TEXT", name)
+            self.assertEqual(fields["import_batch_id"]["type"], "UUID", name)
+            # como mining_concession, el destino que ya se reconcilia por código (gis.md §4.4)
+            self.assertEqual([f for f in ORIGIN_FIELDS if f not in fields], [], name)
+
+    def test_las_capas_territoriales_declaran_export_y_land_right_no(self):
+        for name in EXPORTABLE:
+            self.assertIn({"name": "EXPORT", "label": "Exportar"}, self.objects[name].get("actions", []), name)
+        self.assertNotIn("EXPORT", [a["name"] for a in self.objects["land_right"].get("actions", [])])
+
+    def test_f6_no_trae_objetos_ni_relaciones(self):
+        self.assertEqual(len(self.objects), 82)
+        self.assertEqual(len(self.model["relationships"]), 272)
+        self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
+
+
+class PublicLayersTests(unittest.TestCase):
+    """security.md §10.2 (reglas 3 y 8), gis.md §2.2 y §7 y §2.2 de la especificación de F6: GeoServer lee la base con
+    sus credenciales, sin permisos ni alcance, así que model/layers.json solo publica las capas públicas, de maestros del
+    tenant con una geometría declarada y sin campos restringidos (ASM-121)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.layers = load("layers.json")
+        cls.objects = {o["name"]: o for o in load("model.json")["objects"]}
+        cls.cards = design_docs.cards()
+        cls.roles = load("roles.json")
+
+    def test_son_las_capas_publicas_de_gis_md(self):
+        wanted = sorted((layer, obj, field) for layer, pairs in design_docs.public_layers().items() for obj, field in pairs)
+        self.assertEqual(sorted((e["layer"], e["object"], e["geometry"]) for e in self.layers), wanted)
+
+    def test_cada_capa_es_un_maestro_del_tenant(self):
+        tenant = set(design_docs.tenant_objects())
+        for entry in self.layers:
+            self.assertIn(entry["object"], tenant, entry["style"])
+
+    def test_cada_capa_tiene_su_geometria_declarada(self):
+        for entry in self.layers:
+            field = next((f for f in self.objects[entry["object"]]["fields"] if f["name"] == entry["geometry"]), None)
+            self.assertIsNotNone(field, entry["style"])
+            self.assertEqual(field["type"], "GEOMETRY", entry["style"])
+            self.assertTrue(field.get("geometryType"), entry["style"])
+
+    def test_ninguna_capa_tiene_campos_restringidos(self):
+        restricted = {e["object"] for e in self.roles["restrictedFields"]}
+        for entry in self.layers:
+            card = self.cards[entry["object"]]
+            self.assertNotIn(entry["object"], restricted, entry["style"])
+            self.assertEqual([f["name"] for f in card.fields if f["restricted"]], [], entry["style"])
+            self.assertEqual([r["name"] for r in card.relationships if r["restricted"] and not r["inverse"]], [],
+                             entry["style"])
+
+    def test_los_nombres_de_distritos_localidades_y_comunidades_llevan_regla_de_texto(self):
+        # gis.md §7.2: los nombres que muestran el Anexo 1 y el mapa de DOC-02 son reglas de texto de los SLD
+        for entry in self.layers:
+            if entry["layer"] in ("LYR-01", "LYR-02", "LYR-03", "LYR-05"):
+                self.assertEqual(entry.get("label"), "name", entry["style"])
+
+    def test_cada_estilo_tiene_su_sld_y_sus_colores(self):
+        palette = load(os.path.join("styles", "palette.json"))["styles"]
+        self.assertEqual(sorted(palette), sorted(e["style"] for e in self.layers))
+        for entry in self.layers:
+            self.assertTrue(os.path.isfile(os.path.join(HERE, "styles", f"{entry['style']}.sld")), entry["style"])
+            self.assertEqual(palette[entry["style"]]["layer"], entry["layer"], entry["style"])
 
 
 if __name__ == "__main__":

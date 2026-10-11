@@ -953,7 +953,7 @@ class NewTenantTests(unittest.TestCase):
             quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login]),
         ]
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
-        self.assertIn("done: 380 created, 26 updated, 0 skipped", runs[0][1])
+        self.assertIn("done: 393 created, 26 updated, 0 skipped", runs[0][1])
         self.assertIn("update field delivery.social_contribution (unique)", runs[0][1])
         self.assertIn("done: 15 created, 0 updated, 0 skipped", runs[1][1])
         self.assertIn("done: 17 workflows (17 created, 0 updated, 0 skipped), 2 document types (2 created, 0 updated, "
@@ -965,7 +965,7 @@ class NewTenantTests(unittest.TestCase):
                  quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login]),
                  quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])]
         self.assertEqual([code for code, _, _ in again], [0, 0, 0], again)
-        self.assertIn("done: 0 created, 0 updated, 380 skipped", again[0][1])
+        self.assertIn("done: 0 created, 0 updated, 393 skipped", again[0][1])
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1][1])
         self.assertIn("done: 17 workflows (0 created, 0 updated, 17 skipped), 2 document types (0 created, 0 updated, "
                       "2 skipped), 6 automations (0 created, 0 updated, 6 skipped)", again[2][1])
@@ -983,7 +983,8 @@ class NewTenantTests(unittest.TestCase):
         self.assertEqual(f4[0], 0, f4)
         self.assertIn("done: 333 created, 21 updated, 0 skipped", f4[1])
         core.requests.clear()
-        f5 = quiet(apply.main, ["--model", MODEL_PATH, *login])
+        with tempfile.TemporaryDirectory() as folder:
+            f5 = quiet(apply.main, ["--model", write_model(folder, phase_subset(load(MODEL_PATH), "F5")), *login])
         self.assertEqual(f5[0], 0, f5)
         self.assertIn("done: 47 created, 5 updated, 333 skipped", f5[1])
         touched = {p.split("/")[3] for m, p, _, _ in core.requests if m == "PUT" and p.startswith("/api/objects/")}
@@ -991,20 +992,51 @@ class NewTenantTests(unittest.TestCase):
         self.assertEqual([line for line in f5[1].splitlines() if line.startswith("add    field")], [])
         self.assertIn("update field delivery.social_contribution (unique)", f5[1])
 
-    def test_a_tenant_of_f2_moves_to_f5_in_one_run_and_a_second_run_changes_nothing(self):
-        # el tenant de desarrollo sigue en F2 (roadmap, «Estado» de F3): sube de una vez, sin pasar por F3
+    def test_a_tenant_of_f2_moves_to_f6_in_one_run_and_a_second_run_changes_nothing(self):
+        # un tenant que quedó en F2 sube de una vez, sin pasar por F3 a F5
         core = FakeCore()
         self.addCleanup(core.stop)
         login = ["--core", core.base_url, "--email", "admin-tenant@sgspe.test", "--password", "clave-del-tenant"]
         with tempfile.TemporaryDirectory() as folder:
             f2 = quiet(apply.main, ["--model", write_model(folder, phase_subset(load(MODEL_PATH), "F2")), *login])
         self.assertIn("done: 169 created, 11 updated, 0 skipped", f2[1])
-        f5 = quiet(apply.main, ["--model", MODEL_PATH, *login])
-        self.assertEqual(f5[0], 0, f5)
-        self.assertIn("done: 235 created, 15 updated, 167 skipped", f5[1])
+        f6 = quiet(apply.main, ["--model", MODEL_PATH, *login])
+        self.assertEqual(f6[0], 0, f6)
+        self.assertIn("done: 256 created, 15 updated, 165 skipped", f6[1])
         again = quiet(apply.main, ["--model", MODEL_PATH, *login])
         self.assertEqual(again[0], 0, again)
-        self.assertIn("done: 0 created, 0 updated, 380 skipped", again[1])
+        self.assertIn("done: 0 created, 0 updated, 393 skipped", again[1])
+
+    def test_a_tenant_of_f5_moves_to_f6_adding_only_its_fields_and_export(self):
+        # Review Focus 1 del plan 6.1: el tenant demo sube de F5 a F6 con 4 campos en community y 4 en
+        # environmental_feature y EXPORT en los 13 objetos de las capas territoriales; ningún objeto, relación, único de
+        # varios campos ni índice nuevo, así que ningún PUT sobre un objeto (los PUT de «requerido» de las relaciones se
+        # repiten en cada corrida y no cuentan)
+        core = FakeCore()
+        self.addCleanup(core.stop)
+        login = ["--core", core.base_url, "--email", "admin-tenant@sgspe.test", "--password", "clave-del-tenant"]
+        with tempfile.TemporaryDirectory() as folder:
+            f5 = quiet(apply.main, ["--model", write_model(folder, phase_subset(load(MODEL_PATH), "F5")), *login])
+        self.assertEqual(f5[0], 0, f5)
+        self.assertIn("done: 380 created, 26 updated, 0 skipped", f5[1])
+        core.requests.clear()
+        f6 = quiet(apply.main, ["--model", MODEL_PATH, *login])
+        self.assertEqual(f6[0], 0, f6)
+        self.assertIn("done: 21 created, 0 updated, 378 skipped", f6[1])
+        added = sorted(line.split()[2] for line in f6[1].splitlines() if line.startswith("add    field"))
+        self.assertEqual(added, sorted(f"{o}.{f}" for o in ("community", "environmental_feature")
+                                       for f in ("code", "source_crs", "source_reference", "import_batch_id")))
+        declared = sorted(line.split()[2] for line in f6[1].splitlines() if line.startswith("create action"))
+        exportable = ("administrative_unit", "locality", "road_access", "community", "community_sector",
+                      "mining_concession", "environmental_feature", "project", "project_component", "area_of_influence",
+                      "land_parcel", "school", "health_facility")
+        self.assertEqual(declared, sorted(f"{o}.EXPORT" for o in exportable))
+        self.assertEqual([p for m, p, _, _ in core.requests if m == "PUT" and p.startswith("/api/objects/")], [])
+        # el código es único desde que llega: la columna nueva solo tiene NULL, que PostgreSQL no compara
+        stored = {f["name"]: f for f in core.existing_fields["community"]}
+        self.assertIs(stored["code"]["unique"], True)
+        again = quiet(apply.main, ["--model", MODEL_PATH, *login])
+        self.assertIn("done: 0 created, 0 updated, 393 skipped", again[1])
 
 
 def phase_subset(model, phase):
@@ -1018,7 +1050,14 @@ def phase_subset(model, phase):
         if card.phase > phase:
             continue
         phases = {f["name"]: design_docs.field_phase(card, f) for f in card.fields}
-        objects.append({**obj, "fields": [f for f in obj["fields"] if phases[f["name"]] <= phase]})
+        trimmed = {**obj, "fields": [f for f in obj["fields"] if phases[f["name"]] <= phase]}
+        # una acción con «(desde Fn)» en la ficha (EXPORT de F6) no estaba en las fases anteriores
+        actions = [a for a in obj.get("actions", []) if design_docs.action_phase(card, a["name"]) <= phase]
+        if actions:
+            trimmed["actions"] = actions
+        else:
+            trimmed.pop("actions", None)
+        objects.append(trimmed)
     names = {o["name"] for o in objects}
     relationships = [r for r in model["relationships"] if r["source"] in names and r["target"] in names
                      and design_docs.relationship_phase(cards, cards[r["source"]],

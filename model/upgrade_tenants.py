@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Sube de fase cada tenant de un inventario: repite en cada uno los pasos 2 a 5 de security.md §4.1 (ASM-109).
+"""Sube de fase cada tenant de un inventario: repite en cada uno los pasos 2 a 6 de security.md §4.1 (ASM-109).
 
 wasichai no lista organizaciones, así que el inventario es del operador: un JSON que no se versiona, con la forma de
 tenants.example.json ({"tenants": [{"slug": ..., "adminEmail": ...}]}). La contraseña del administrador de cada tenant llega
 por la variable SGSPE_TENANT_PASSWORD_<SLUG> (el slug en mayúsculas, con guiones como guiones bajos) o por consola; nunca por
 argumento ni archivo, y no se imprime. Un tenant que falla se informa y no detiene a los demás.
 
-Correr: python3 upgrade_tenants.py --inventory RUTA [--core URL]
+Correr: python3 upgrade_tenants.py --inventory RUTA [--core URL] [--skip-layers]
 Salida: 0 si todos terminaron; 1 si alguno falló (el resumen dice qué paso en cuál); 2 si el inventario no es válido.
 """
 import argparse
@@ -25,6 +25,7 @@ def _parse_args(argv):
     p = argparse.ArgumentParser(description="Sube de fase cada tenant de un inventario.")
     p.add_argument("--inventory", required=True)
     p.add_argument("--core", default=os.environ.get("WASICHAI_CORE", "http://localhost:8094"))
+    p.add_argument("--skip-layers", action="store_true", help="sin publish_layers.py: un despliegue sin GeoServer")
     return p.parse_args(argv)
 
 
@@ -64,6 +65,7 @@ def main(argv=None, steps=tenant_steps.STEPS, ask=getpass.getpass):
         for e in errors:
             print(f"error: {e}", file=sys.stderr)
         return 2
+    steps = tenant_steps.selected(steps, args.skip_layers)
     failures = []
     for slug, email in tenants:
         password = os.environ.get(password_variable(slug)) or ask(f"Contraseña de {email} ({slug}): ")
