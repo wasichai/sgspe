@@ -19,6 +19,7 @@ import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
+import sgspe.territory.ComponentLand
 import wasichai.core.common.ForbiddenException
 import wasichai.core.metadata.MetadataService
 import java.time.Clock
@@ -42,7 +43,8 @@ class Dashboards(
     private val reach: ProjectReach,
     private val catalog: ModelCatalog,
     private val clock: Clock,
-    private val permissions: Permissions
+    private val permissions: Permissions,
+    private val componentLand: ComponentLand
 ) {
     suspend fun catalog(): List<CatalogEntry> {
         callers.require()
@@ -57,12 +59,18 @@ class Dashboards(
         val codes =
             Kpis.DASHBOARDS[name]
                 ?: throw notFound("DASHBOARD_NOT_FOUND", "El tablero $name no existe o no está disponible en esta fase", "dashboard")
+        // el tablero territorial exige el proyecto (especificación de F6 §3.2): sus cifras son de un proyecto, no del tenant
+        if (name == Kpis.TERRITORY && params["project"].isNullOrEmpty()) {
+            throw Finding("PROJECT_REQUIRED", "El tablero territorial exige al menos un project", "project", status = HttpStatus.BAD_REQUEST).toCodedException()
+        }
         val today = today()
         val filters = filters(params, DashboardFilters.COMMON + Kpis.extraFilters(codes), today)
         val readable = Readability(metadata)
-        val data = DashboardData(records, filters, readable::canRead, today)
+        val data = DashboardData(records, filters, readable::canRead, today, componentLand = componentLand)
         val hidden = hidden()
-        val indicators = codes.map { mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(it), data), hidden) }
+        // con locality o community, la ficha (KPI-TER-01) va primero
+        val shown = if (name == Kpis.TERRITORY && (filters.locality != null || filters.community != null)) listOf(TerritorySummary.CODE) + codes else codes
+        val indicators = shown.map { mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(it), data), hidden) }
         return DashboardResponse(name, filters.echo(), clock.instant().toString(), indicators, if (name == Kpis.ATTENTION) hidden else null)
     }
 
@@ -76,7 +84,7 @@ class Dashboards(
         val readable = Readability(metadata)
         val value =
             mark(
-                KpiEvaluation.evaluate(kpi, DashboardData(records, filters, readable::canRead, today)),
+                KpiEvaluation.evaluate(kpi, DashboardData(records, filters, readable::canRead, today, componentLand = componentLand)),
                 if (Kpis.confidentialSensitive(code)) hidden() else false
             )
         val by = filters.breakdown ?: return value

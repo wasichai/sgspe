@@ -15,8 +15,13 @@ import sgspe.engagement.EngagementWriteGuard
 import sgspe.investment.Contributions
 import sgspe.investment.Programs
 import sgspe.stakeholder.FollowUp
+import sgspe.territory.ComponentLand
+import sgspe.territory.GateOutcome
+import wasichai.core.common.PageRequest
 import wasichai.core.data.RecordCriterion
+import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordResponse
+import wasichai.core.platform.SqlIdentifier
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
@@ -41,7 +46,10 @@ class DashboardData(
     // caer al fin del periodo
     val today: LocalDate,
     private val maxRows: Int = MAX_ROWS,
-    private val maxRelated: Int = MAX_RELATED
+    private val maxRelated: Int = MAX_RELATED,
+    // F6: la consulta de KPI-TER-04 detrás de la compuerta de sgspe.territory; Dashboards la inyecta y las pruebas sin base la
+    // dejan en null
+    private val componentLand: ComponentLand? = null
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
@@ -737,8 +745,107 @@ class DashboardData(
             )
         }
 
+    // ---- territorio (F6: KPI-TER) ----
+
+    // otra lectura con otros filtros y los mismos permisos, topes y fuentes: las filas de KPI-TER-01 (el periodo de 90 días y
+    // sin los filtros que la ficha no aplica)
+    fun with(filters: DashboardFilters): DashboardData = DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand)
+
+    // si un registro con esa localidad o comunidad cae en todos los filtros de territorio pedidos
+    suspend fun inTerritory(
+        locality: String?,
+        community: String?
+    ): Boolean = territories().all { t -> (locality != null && locality in t.localities) || (community != null && community in t.communities) }
+
+    // las versiones aprobadas de las áreas de influencia de los proyectos (KPI-TER-02 y 03)
+    suspend fun approvedAreas(): List<AreaRow> =
+        cached("approvedAreas") {
+            if (filters.projects.isEmpty()) return@cached emptyList<AreaRow>()
+            read(AREA, criteria = listOf(Criteria.inState(setOf(APPROVED)), Criteria.anyOf("project", filters.projects))).map {
+                val a = it.attributes
+                AreaRow(
+                    it.id,
+                    Values.text(a["project"]),
+                    Values.text(a["area_type"]),
+                    Values.decimal(a["version_number"])?.toInt(),
+                    Values.decimal(a["calculated_area_ha"])
+                )
+            }
+        }
+
+    // los miembros de esas áreas, con la relación que tienen llena y su condición
+    suspend fun areaMembers(areas: Collection<String>): List<MemberRow> =
+        readIn(MEMBER, AREA, areas).map {
+            val a = it.attributes
+            MemberRow(Values.text(a[AREA]).orEmpty(), MEMBER_TYPES.firstOrNull { field -> Values.text(a[field]) != null }, Values.text(a["member_condition"]))
+        }
+
+    // los componentes vigentes de los proyectos sobre territorio comunal o predios (KPI-TER-04), por la compuerta de
+    // sgspe.territory (ComponentLand): quien no puede leer algo de la consulta la recibe no disponible
+    suspend fun landCrossings(): GateOutcome<LandRow> {
+        val source = componentLand ?: error("DashboardData sin ComponentLand: Dashboards lo inyecta para KPI-TER-04")
+        return when (val outcome = source.rows(filters.projects)) {
+            is GateOutcome.Rows -> GateOutcome.Rows(outcome.rows.map { LandRow(it.component.toString(), it.componentType, it.land) })
+            is GateOutcome.Unavailable -> outcome
+        }
+    }
+
+    // los programas de los proyectos (en los estados que cuentan) con una iniciativa en el territorio pedido (por su localidad
+    // o su comunidad) o un grupo de beneficiarios (por su localidad): la fila programs de KPI-TER-01 (dashboards.md §4.8)
+    suspend fun programsInTerritory(): List<ProgramRow> {
+        val programs = programs(program = false)
+        if (programs.isEmpty()) return emptyList()
+        val ids = programs.map { it.id }
+        val initiatives =
+            readIn(Programs.INITIATIVE, Programs.PROGRAM, ids).filter {
+                inTerritory(Values.text(it.attributes["locality"]), Values.text(it.attributes["community"]))
+            }
+        val groups = readIn(Programs.GROUP, Programs.PROGRAM, ids).filter { inTerritory(Values.text(it.attributes["locality"]), null) }
+        val chosen = (initiatives + groups).mapNotNull { Values.text(it.attributes[Programs.PROGRAM]) }.toSet()
+        return programs.filter { it.id in chosen }
+    }
+
+    // el held_at más reciente de las interacciones realizadas de los proyectos en el territorio pedido, de cualquier fecha: una
+    // sola fila, ordenada en la base (la fila lastActivity de KPI-TER-01)
+    suspend fun lastHeld(): LocalDate? {
+        if (filters.projects.isEmpty()) return null
+        val criteria =
+            listOf(
+                Criteria.anyOf("project", filters.projects),
+                Criteria.inState(EngagementWriteGuard.HELD_STATES),
+                Criteria.filled("held_at"),
+                territoryCriterion(territories())
+            )
+        val page = records.page("engagement", RecordQuery(page = PageRequest.of(0, 1), sort = "held_at", descending = true, criteria = criteria, count = false))
+        return page.content.firstOrNull()?.let { FollowUp.dateOf(it.attributes["held_at"]) }
+    }
+
+    // el registro nombra, en cada filtro de territorio, una de sus localidades o de sus comunidades; sin filtros, todos. un
+    // campo que quien mira no lee no filtra, y sin ninguno no pasa nada (como los demás criterios)
+    private fun territoryCriterion(territories: List<Territory>): RecordCriterion =
+        RecordCriterion { definition, bind ->
+            fun column(field: String): String? = definition.fields.firstOrNull { it.name == field }?.let { SqlIdentifier.quote(it.columnName) }
+            val locality = column("locality")
+            val community = column("community")
+            if (territories.isEmpty()) {
+                "TRUE"
+            } else {
+                territories.joinToString(" AND ") { t ->
+                    val terms =
+                        listOfNotNull(
+                            locality?.takeIf { t.localities.isNotEmpty() }?.let { "$it = ANY(${bind(t.localities.map(UUID::fromString).toTypedArray())})" },
+                            community?.takeIf { t.communities.isNotEmpty() }?.let { "$it = ANY(${bind(t.communities.map(UUID::fromString).toTypedArray())})" }
+                        )
+                    if (terms.isEmpty()) "FALSE" else "(${terms.joinToString(" OR ")})"
+                }
+            }
+        }
+
     companion object {
         const val CHUNK = 500
+        private const val AREA = "area_of_influence"
+        private const val MEMBER = "area_of_influence_member"
+        private val MEMBER_TYPES = listOf("locality", "community", "administrative_unit")
 
         // el tope de filas de un conjunto y de interacciones cuyas M2M se leen una a una, en serie (dashboards.md §6.2;
         // sin requisito de volumen hasta GAP-027). 200 lecturas de related son unos segundos por el túnel y menos de uno
