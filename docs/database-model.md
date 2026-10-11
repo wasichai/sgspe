@@ -537,6 +537,7 @@ decir, de §6 del modelo de dominio.
 | Tipo de regla de alerta | `warning_rule_kind` | `early_warning_rule.rule_kind` |
 | Severidad de alerta | `warning_severity` | `early_warning_rule.severity`, `early_warning.severity` |
 | Tipo de aporte | `contribution_type` | `social_contribution.contribution_type` |
+| Tipo de ítem del aporte | `item_kind` | `contribution_item.item_kind` |
 | Tipo de comprobante | `receipt_type` | `receipt.receipt_type` |
 | Tipo de evidencia | `evidence_type` | `evidence.evidence_type` |
 | Clasificación de evidencia | `evidence_classification` | `evidence.classification` |
@@ -740,6 +741,7 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
 | `project_concession` | MANY_TO_MANY | — | `mining_concession` | — | Concesiones del proyecto |
+| `project_priority_topic` | MANY_TO_MANY | — | `topic` | — | Temas priorizados para aportes (RN-INV-005, ASM-112); desde F5 |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
@@ -755,6 +757,11 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
   (`grievance_ack_days`, `inquiry_response_days`, `grievance_resolution_days`, `risk_review_days`) menor que 1 o mayor
   que 365, y umbrales de riesgo fuera de 1 a 25 o que no crezcan estrictamente (`risk_medium_min_score` <
   `risk_high_min_score` < `risk_critical_min_score`).
+- Desde F5, los temas priorizados para aportes son el vínculo `project_priority_topic` (RF-INV-002, ASM-112): lo
+  escriben quienes editan las políticas del proyecto (`PROJECT_ADMIN`, `PROJECT_MANAGER`), con UPDATE sobre `project` y
+  `u` sobre `topic` (`security.md` §7.7); un tema cuenta si es priorizado o desciende de uno (`parent_topic`, hasta 10
+  niveles). Sin temas priorizados, la prioridad de RN-INV-005 no se evalúa y se advierte. `topic` es un maestro del
+  tenant: no hay regla «mismo proyecto».
 
 ### `project_party`
 
@@ -2170,7 +2177,9 @@ evidencias. Tabla física `app_data.delivery__<org8>`. Requisitos: RF-COM-008, R
 
 - **Exactamente uno de:** (`commitment`, `social_contribution`), con `ExactlyOneGuard`.
 - **Flags:** `appendOnly` no · `apiOnly` sí · `requiresReason` no.
-- **Únicos:** ninguno.
+- **Únicos:** ninguno en F3 y F4; desde F5, uno sobre `social_contribution` (ASM-111), que las entregas de compromisos
+  dejan vacío y no choca; si wasichai no lo admite sobre una relación opcional, queda solo la regla con candado de
+  `InvestmentWriteGuard`.
 - **Índices declarados:** ninguno.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
@@ -2184,6 +2193,13 @@ evidencias. Tabla física `app_data.delivery__<org8>`. Requisitos: RF-COM-008, R
 - La entrega de un compromiso en `fulfilled`, `verified`, `closed` o `cancelled` no cambia ni gana o pierde evidencias
   (`409` `DELIVERY_FROZEN` sobre `commitment`); su `commitment` no cambia nunca. En la matriz de compromisos EXTERNO,
   `place` se generaliza a la localidad del compromiso (`deliverables.md` §9.1).
+- Desde F5, la entrega de un aporte (ASM-111): una por aporte (`409 DELIVERY_EXISTS`), capturada solo con el aporte en
+  `procured`, sin `delivered_amount` (`400 FIELD_NOT_ALLOWED`); desde `delivered` y en `cancelled` no cambia ni gana o
+  pierde evidencias (`409 DELIVERY_FROZEN` sobre `social_contribution`), y su `social_contribution` no cambia nunca. El
+  «Acta de recepción» (AUT-04) espera a UPS-23: el acta firmada es una evidencia ACTA DE RECEPCION (ASM-116).
+- Desde F5, `delivery` es un hijo con dos padres posibles, de los que lleva exactamente uno: se lee por el proyecto del
+  compromiso o del aporte que tiene, nunca «sin padre, todos»; una entrega sin ninguno de los dos solo la leen `ADMIN`
+  y quien tiene `READ_ALL_PROJECTS` (ASM-114, `security.md` §9.7).
 
 ### `commitment_candidate`
 
@@ -2558,6 +2574,8 @@ Requisitos: RF-GRV-001, RF-GRV-003, RF-GRV-007.
 - Al cerrar el compromiso creado y, desde F5, el aporte creado, `RequestClosureListener` cierra la solicitud
   (RN-GRV-001, ASM-068). Si el compromiso o el aporte se cancela o se rechaza, la solicitud se cierra a mano con
   `close_unfulfilled`.
+- `created_commitment` y, desde F5, `created_contribution` solo los escribe la aceptación: una persona que los fija,
+  cambia o vacía por la API genérica recibe `403 COMMAND_ONLY` (`AttentionCommandFieldsGuard`, ASM-117).
 
 ## 13. BC-08 Riesgos sociales
 
@@ -2913,7 +2931,10 @@ física `app_data.early_warning_rule__<org8>`. Requisitos: RF-EWS-004.
 
 Aportes puntuales con acta, foto y comprobante [DOC-02 p.3–p.4] y programas sociales con presupuesto, beneficiarios,
 indicadores e hitos (RF-INV-001, RF-INV-003). Los lineamientos de apoyo son políticas de `project` desde F3 (RF-INV-002,
-ASM-019).
+ASM-019); desde F5, la aprobación de un aporte los evalúa con el tipo de cada ítem (`item_kind`), el tema del aporte
+(`topic`) y los temas priorizados del proyecto (`project_priority_topic`, ASM-112). Los hijos de BC-10 heredan el
+proyecto de su raíz (`social_contribution` o `social_program`); `program_measurement`, por la cadena de su indicador
+(ASM-114).
 
 ```mermaid
 erDiagram
@@ -2926,6 +2947,7 @@ erDiagram
     social_contribution }o..o| festivity : "festivity"
     social_contribution }o..o| commitment : "commitment"
     social_contribution }o..o| agreement : "agreement"
+    social_contribution }o..o| topic : "topic"
     contribution_item }o--|| social_contribution : "social_contribution"
     receipt }o--|| social_contribution : "social_contribution"
     receipt }o..o| organization : "issued_to_organization"
@@ -2956,15 +2978,15 @@ CON-022.
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `code` | TEXT | sí | compuesto | Código del aporte en el proyecto. | RF-INV-001 |
-| `contribution_type` | ENUM `contribution_type` | no | — | Tipo de aporte. | RF-INV-001 |
+| `contribution_type` | ENUM `contribution_type` | no | — | Tipo de aporte; se exige al aprobar (P9, ASM-112). | RF-INV-001 |
 | `occasion` | TEXT | no | — | Ocasión (por ejemplo, un aniversario escolar). | RF-INV-001 |
 | `declared_purpose` | LONG_TEXT | sí | — | Propósito declarado. | RN-INV-006 |
 | `conditions` | LONG_TEXT | sí | — | Condiciones declaradas. | RN-INV-006 |
-| `total_amount` | DECIMAL | no | — | (derivado) Suma de `line_amount` de sus ítems. | RF-INV-001 |
+| `total_amount` | DECIMAL | no | — | (derivado) Suma de `line_amount` de sus ítems: el monto que se aprueba y se compara con el tope de la campaña (ASM-110). | RF-INV-001 |
 | `currency` | ENUM `currency` | sí | — | Moneda del aporte y de sus ítems. Por defecto: PEN. | RNF-I18N-002 |
-| `beneficiaries_count` | INTEGER | no | — | Beneficiarios. | RF-INV-001 |
-| `has_institutional_synergy` | BOOLEAN | no | — | Forma parte de una sinergia institucional. | RN-INV-004 |
-| `guideline_deviation_justification` | LONG_TEXT | no | — | Justificación cuando se aparta de los lineamientos. | RN-INV-006 |
+| `beneficiaries_count` | INTEGER | no | — | Beneficiarios; entero no negativo (ASM-118). | RF-INV-001 |
+| `has_institutional_synergy` | BOOLEAN | no | — | Forma parte de una sinergia institucional; con la política activa, exige un acuerdo vigente al aprobar (P6). | RN-INV-004 |
+| `guideline_deviation_justification` | LONG_TEXT | no | — | Justificación cuando se aparta de los lineamientos; cubre todos los incumplidos (ASM-112). | RN-INV-006 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
@@ -2977,6 +2999,7 @@ CON-022.
 | `contribution_festivity` | MANY_TO_ONE | `festivity` | `festivity` | no | — |
 | `contribution_commitment` | MANY_TO_ONE | `commitment` | `commitment` | no | — |
 | `contribution_agreement` | MANY_TO_ONE | `agreement` | `agreement` | no | Acuerdo de sinergia |
+| `contribution_topic` | MANY_TO_ONE | `topic` | `topic` | no | Tema del aporte, para la prioridad (RN-INV-005, ASM-112) |
 | `evidence_social_contribution` | MANY_TO_MANY | — | `evidence` | — | Inversa; se define en `evidence` |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` sí.
@@ -2985,20 +3008,32 @@ CON-022.
 - **Acciones declaradas:** `APPROVE`, `APPROVE_OVER_CAP`.
 - **Workflow:** WF-P.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
-- `ContributionTotalsListener` y `DerivedFieldsJob` recalculan `total_amount` desde cero (RF-INV-001).
+- `ContributionTotalsListener` mantiene `total_amount` con cada alta, cambio o baja de un ítem y lo vuelve a escribir en
+  `approve` y `approve_direct`, así lo aprobado queda escrito; `DerivedFieldsJob` lo recalcula desde cero (RF-INV-001,
+  ASM-110).
+- La aprobación (P1 a P9 de WF-P, `workflows.md`) exige ítems y `contribution_type`, evalúa los lineamientos con
+  `item_kind`, `topic` y los temas priorizados del proyecto, y compara la suma de los ítems, leída en la transacción,
+  con el tope de la campaña (ASM-110, ASM-112). Fuera de `requested` no cambian `currency`, `contribution_type`,
+  `topic`, `exploration_campaign`, `has_institutional_synergy`, `agreement`, `guideline_deviation_justification` ni
+  `project` (`409 CONTRIBUTION_FROZEN`).
+- Un aporte tiene a lo sumo una `delivery` (ASM-111). `stakeholder_request.created_contribution` apunta al aporte que
+  creó la aceptación de una solicitud, que cuenta como quien lo registró (ASM-117).
+- Las relaciones hacia `exploration_campaign`, `stakeholder`, `commitment` y `agreement` son del mismo proyecto
+  (`409 PROJECT_MISMATCH`, `ProjectLinkGuard`); `topic` es un maestro del tenant.
 
 ### `contribution_item`
 
-**Ítem del aporte** (BC-10). Bien o servicio que compone un aporte, con cantidad y costo. Tabla física
-`app_data.contribution_item__<org8>`. Requisitos: RF-INV-001.
+**Ítem del aporte** (BC-10). Bien, servicio, dinero o mano de obra que compone un aporte, con su tipo, cantidad y monto.
+Tabla física `app_data.contribution_item__<org8>`. Requisitos: RF-INV-001, RN-INV-001, RN-INV-002, ASM-110, ASM-112.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `description` | TEXT | sí | — | Bien o servicio. | RF-INV-001 |
-| `quantity` | DECIMAL | no | — | Cantidad. | RF-INV-001 |
+| `item_kind` | ENUM `item_kind` | sí | — | Tipo de ítem; lo leen los lineamientos al aprobar (ASM-112). | RN-INV-001 |
+| `quantity` | DECIMAL | no | — | Cantidad; informativa, no se compara con `line_amount`. | RF-INV-001 |
 | `unit` | TEXT | no | — | Unidad. | RF-INV-001 |
-| `unit_cost` | DECIMAL | no | — | Costo unitario. | RF-INV-001 |
-| `line_amount` | DECIMAL | sí | — | Monto de la línea, en la moneda del aporte. | RF-INV-001 |
+| `unit_cost` | DECIMAL | no | — | Costo unitario; informativo. | RF-INV-001 |
+| `line_amount` | DECIMAL | sí | — | Monto de la línea, en la moneda del aporte; es el que cuenta (ASM-110). | RF-INV-001 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
@@ -3010,6 +3045,9 @@ CON-022.
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- Fuera de `requested` del aporte, un ítem no se crea, cambia ni borra, y su `social_contribution` no cambia nunca
+  (`409 ITEMS_FROZEN` sobre `social_contribution`, ASM-110); la regla toma el candado del aporte. `line_amount` y
+  `unit_cost` son montos (ASM-092, ASM-118); `quantity` no lo es.
 
 ### `receipt`
 
@@ -3037,6 +3075,8 @@ COMPROBANTE. Tabla física `app_data.receipt__<org8>`. Requisitos: RF-INV-001, C
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- Opcional: `register_delivery` (P8) exige la evidencia COMPROBANTE, no el `receipt`, y ninguna regla compara `amount`
+  con el `total_amount` del aporte (ASM-116). `amount` es un monto (ASM-092, ASM-118).
 
 ### `social_program`
 
@@ -3050,7 +3090,7 @@ indicadores e hitos. Tabla física `app_data.social_program__<org8>`. Requisitos
 | `description` | LONG_TEXT | no | — | Descripción. | RF-INV-003 |
 | `start_date` | DATE | no | — | Inicio. | RF-INV-003 |
 | `end_date` | DATE | no | — | Fin. | RF-INV-003 |
-| `total_budget` | DECIMAL | no | — | (derivado) Suma de `allocated_amount` de sus presupuestos. | RF-INV-003 |
+| `total_budget` | DECIMAL | no | — | (derivado) Suma de `allocated_amount` de sus presupuestos en la moneda del programa; sin moneda del programa, vacío (ASM-113). | RF-INV-003 |
 | `currency` | ENUM `currency` | no | — | Moneda. Por defecto: PEN. | RNF-I18N-002 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
@@ -3067,6 +3107,12 @@ indicadores e hitos. Tabla física `app_data.social_program__<org8>`. Requisitos
 - **Acciones declaradas:** `APPROVE`.
 - **Workflow:** WF-G.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- `ProgramTotalsListener` mantiene `total_budget` con cada alta, cambio o baja de un `program_budget`, y
+  `DerivedFieldsJob` lo recalcula (ASM-113). El ejecutado del programa no se deriva: es el `executed_amount` de cada
+  presupuesto, registrado a mano.
+- Con `partner_organization` y `policy_synergy_requires_agreement` activa, `approve` y `plan_direct` exigen un acuerdo
+  en `active`, no VENCIDO y con el socio como parte (G3, ASM-115). `end_date` no es anterior a `start_date`
+  (`400 OUT_OF_RANGE`). `agreement` es del mismo proyecto (`409 PROJECT_MISMATCH`).
 
 ### `social_initiative`
 
@@ -3094,6 +3140,7 @@ indicadores e hitos. Tabla física `app_data.social_program__<org8>`. Requisitos
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- `end_date` no es anterior a `start_date` (`400 OUT_OF_RANGE`, ASM-118).
 
 ### `beneficiary_group`
 
@@ -3119,6 +3166,8 @@ indicadores e hitos. Tabla física `app_data.social_program__<org8>`. Requisitos
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- `social_initiative`, si se informa, es del mismo programa (`409 PROGRAM_MISMATCH` sobre `social_initiative`);
+  `target_count` y `reached_count` son enteros no negativos (`400 OUT_OF_RANGE`, ASM-118).
 
 ### `program_budget`
 
@@ -3142,6 +3191,8 @@ indicadores e hitos. Tabla física `app_data.social_program__<org8>`. Requisitos
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- `budget_year` va de 2000 a 2100 (`400 OUT_OF_RANGE`); `allocated_amount` y `executed_amount` son montos (ASM-092,
+  ASM-118). El ejecutado se registra a mano por año y moneda (ASM-113).
 
 ### `program_indicator`
 
@@ -3167,6 +3218,9 @@ Tabla física `app_data.program_indicator__<org8>`. Requisitos: RF-INV-003, GAP-
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- Un indicador con mediciones no se borra: `program_measurement` es `appendOnly` y wasichai rechaza la baja con un `409`
+  sin código (`AppendOnlyReferences`), no `HAS_DEPENDENTS`. `baseline_value` y `target_value` no son dinero
+  (ASM-118).
 
 ### `program_measurement`
 
@@ -3190,6 +3244,9 @@ Tabla física `app_data.program_indicator__<org8>`. Requisitos: RF-INV-003, GAP-
 - **Acciones declaradas:** ninguna.
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
+- Hijo de un hijo: se lee por el proyecto del programa de su indicador, sin copiar `project` (ASM-114). Una medición no
+  se corrige: se registra otra de otro periodo; la del mismo periodo no se repite (único). `period_end_date` no es
+  anterior a `period_start_date` (`400 OUT_OF_RANGE`, ASM-118).
 
 ### `program_milestone`
 
@@ -3386,6 +3443,8 @@ ASM-022, ASM-030.
 - La tarea de escalamiento del nivel 2 de una QCS confidencial es la única sin origen, para no delatarla:
   `ExactlyOneGuard` la admite solo con una `generator_key` de la forma
   `escalation:<objeto>:<huella>:<fecha del plazo>:2` (`workflows.md`, «Avisos»).
+- Desde F5, `social_program` entra en el grupo de «Exactamente uno de» y `ProjectLinkGuard` juzga los orígenes de una
+  tarea: cada uno es del proyecto de la tarea (`409 PROJECT_MISMATCH` sobre el campo).
 
 ## 18. BC-14 Notificaciones
 
@@ -4087,6 +4146,7 @@ Tabla física `app_data.key_theme__<org8>`. Requisitos: RF-LBS-008 [DOC-01 §8, 
 |---|---|---|---|---|---|
 | `topic_parent_topic` | MANY_TO_ONE | `parent_topic` | `topic` | no | Tema padre |
 | `engagement_topic` | MANY_TO_MANY | — | `engagement` | — | Inversa; se define en `engagement` |
+| `project_priority_topic` | MANY_TO_MANY | — | `project` | — | Inversa; se define en `project` |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `unique` en `code`.
