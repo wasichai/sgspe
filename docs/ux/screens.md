@@ -6,6 +6,7 @@ relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33), la **parte 3a**
 riesgos y alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a S48, S57 a S61 y la ficha de
 incidente) y la **parte 3b** (tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27,
 S34, S49 a S55 y S62, el tablero de riesgos), y S56 (gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7).
+S63 (calidad de datos, F6) se suma en el plan 6.0.
 La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
 
 - **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>; **lienzo de la etapa 3:**
@@ -157,6 +158,14 @@ ProjectOverviewPage
   en capas sensibles; `DataTable` sincronizada por pestañas (componentes, miembros del área vigente, predios).
 - **Datos y API:** `GET /api/sgspe/territory/layers/{layer}?project=&bbox=` (capas `LYR-NN` de `gis.md`); genérica
   `GET /api/gis/objects/{object}/features` para capas temáticas básicas (F2); tablas por la API genérica con `?project=`.
+  F6: las capas públicas por WMS a través del proxy (como en S12) y el panel «Análisis» con `component-parcels`,
+  `component-communal-land`, `sensitive-distances`, `buffer-localities`, `concession-territories` y `nearby-conflicts`
+  de `/api/sgspe/territory/projects/{id}/` (`api.md` §4).
+- **Análisis (F6):** panel «Análisis» con seis tablas: predios afectados (con los titulares solo si la persona los lee;
+  si no, «no disponible» con el campo que falta), territorio comunal, elementos sensibles cercanos, localidades en un
+  buffer (con un control de metros), territorios de las concesiones y conflictos cercanos. Cada fila selecciona su
+  registro en el mapa y resalta su geometría; una tabla incompleta dice «no disponible» y no muestra ceros.
+- **Exportar (F6):** el diálogo de exportación de S12 también sale aquí (objeto, formato, coordenadas y nivel; ver S12).
 - **Estados:** sin geometrías, el mapa muestra el área de interés del proyecto y un `EmptyState` sobre la tabla; capa sin
   permiso con candado y su razón.
 - **Permisos:** los grupos de interés solo salen agregados por localidad, nunca como puntos de personas (LYR-17); titulares de
@@ -170,7 +179,9 @@ ProjectMapPage
 ├── MapToolbar (FilterBar · Capturar PNG · Importar)
 ├── MapView (Map · CoordinateBar · Legend)
 ├── MapLayerControl
-└── SyncedTable (Tabs: Componentes · Miembros del AIDS · Predios)
+├── SyncedTable (Tabs: Componentes · Miembros del AIDS · Predios)
+├── AnalysisPanel (seis tablas · BufferMetersControl)
+└── ExportDialog
 ```
 
 ### S10 · Área de influencia
@@ -186,6 +197,12 @@ ProjectMapPage
   aprobación con reglas y "Qué pasará".
 - **Datos y API:** genérica `area_of_influence` y `area_of_influence_member`; aprobar con
   `POST /api/sgspe/areas-of-influence/{id}/approve` (IM, CR opcional); F6: `GET …/summary` y `GET …/member-suggestions`.
+- **Sugerencias del cálculo (F6):** el panel «Sugerencias del cálculo» llama a `member-suggestions` (con `bufferM` si la
+  persona fija una distancia; sin ella, solo las que intersecan) y las muestra una a la vez, con la relación (interseca
+  o dentro del buffer) y «Ya es miembro» cuando corresponde. «Aceptar» crea el miembro con `spatially_suggested: true` y
+  la condición PROVISIONAL por defecto; «Descartar» no escribe nada. Nada se escribe sin «Aceptar». El resumen
+  (superficie, localidades por tipo y componentes sobre tierras comunales o privadas) sale de `summary`; una cifra que
+  falta dice «no disponible».
 - **Estados:** una versión `approved` o `superseded` es de solo lectura en sus miembros (`TerritoryWriteGuard`); sin miembros,
   "Aprobar" sale deshabilitado con la razón; `409` si otra versión se aprobó mientras tanto.
 - **Permisos:** GAN prepara pero no aprueba.
@@ -238,26 +255,44 @@ ProjectSettingsPage
 
 ### S12 · Mapa territorial
 
-- **Ruta y lienzo:** `/territory` (con `?project=`) · hoja `Ter-Mapa` (interactiva) · F2 (capas básicas y selección); F6
-  (ficha contextual con KPI-TER-01, mapa de calor, WMS).
+- **Ruta y lienzo:** `/territory` (con `?project=` y `?selected=locality:<id>`) · hoja `Ter-Mapa` (interactiva) · F2
+  (capas básicas y selección); F6 (ficha contextual con KPI-TER-01, mapa de calor, WMS, exportación). El modo tablero
+  está en `/territory/dashboard` (Tablero territorial) y la calidad de datos en `/territory/quality` (S63).
 - **Propósito:** entender qué pasa en cada lugar y pasar del lugar a sus registros sin perder el contexto.
 - **Roles:** lectura de todos; capas y cifras según permisos.
-- **Acciones:** primaria "Abrir la ficha" del lugar seleccionado; secundarias "Filtrar el proyecto por este lugar" (fija el
-  chip de territorio), "Mapa de calor de QCS" (F6, con QCS desde F4), "Capturar PNG", "Importar" (GAN).
+- **Acciones:** primaria "Abrir la ficha" del lugar seleccionado; secundarias "Filtrar el proyecto por este lugar" (fija
+  el chip de territorio), "Mapa de calor" (F6, con la concentración de interacciones, QCS, solicitudes, incidentes y
+  señales), "Exportar" (F6), "Capturar PNG", "Importar" (GAN).
 - **Disposición y componentes:** filtros (proyecto, periodo, capas); `Map` con lugares seleccionables (conteo de grupos de
   interés por localidad); panel lateral de ficha contextual con seis cifras, barra de posturas y última actividad; lista de
   lugares visibles (alternativa de teclado); tabla de registros del lugar debajo del mapa.
+- **Capas (F6):** el control las agrupa en Referencia, Proyecto, Tenencia y Gestión. Las públicas (las que GeoServer
+  publica) salen por WMS a través del proxy de SGSPE y el resto por GeoJSON (`layers/{layer}`); si el proxy responde
+  `503`, las capas WMS vuelven al GeoJSON con un aviso y el botón «Reintentar». Gestión lista las capas LYR-17 a LYR-24
+  de `gis.md` (una capa que el backend aún no sirve se oculta) y el calor (`concentration`). La leyenda usa la paleta
+  compartida (`gis.md` §7.2).
+- **Ficha contextual (F6):** al elegir una localidad o una comunidad muestra la parte territorial (`…/card`: unidad
+  administrativa, comunidades o sectores, áreas de influencia), las cifras de KPI-TER-01 (cada componente con su «no
+  disponible» y la razón si falta) y los registros de la zona (`zones/…/records?of=`, por tipo de registro y periodo),
+  con «Ver resumen» hacia S13 o S14. Sin proyecto o sin permiso sobre un componente, solo esa parte
+  dice «no disponible».
 - **Datos y API:** capas con `GET /api/sgspe/territory/layers/{layer}`; ficha contextual con
   `GET /api/sgspe/territory/localities/{id}/card` o `…/communities/{id}/card` (F6) más
   `GET /api/sgspe/dashboards/indicators/KPI-TER-01?locality=` o `?community=`; registros del lugar con
   `GET /api/sgspe/territory/zones/{zoneObject}/{id}/records?of=` (F6); mapa de calor con
-  `GET /api/sgspe/territory/concentration?of=grievance` (F6). En F2, la selección abre directamente S13 o S14.
+  `GET /api/sgspe/territory/concentration?of=` (F6; `engagement`, `grievance`, `inquiry`, `stakeholder_request`,
+  `incident` o `early_warning_signal`). En F2, la selección abre directamente S13 o S14. El mapa base sale de
+  `GET /map/settings`; las capas WMS, del proxy `/api/sgspe/territory/wms` (`api.md` §4).
 - **Estados:** sin selección, el panel invita a elegir un lugar; una cifra sin permiso dice "no disponible".
 - **Permisos:** la barra de posturas solo para SMG y SHM; los grupos de interés siempre agregados (LYR-17).
 - **Mapa base (ASM-085):** MapLibre GL y `@wasichai/gis` como srtm-ui; terra-draw para dibujar. En desarrollo, teselas
-  ráster de OpenStreetMap con su atribución; en producción, el estilo configurado, y sin él solo las capas del proyecto con
-  el aviso «Sin mapa base». El selector de fondo va en el panel de capas («Sin fondo» siempre disponible) y la atribución
-  (`MapAttribution`) siempre visible. Hoja `Mapa-Base` del lienzo de la etapa 3, página 24.
+  ráster de OpenStreetMap con su atribución; en producción, el estilo configurado, y sin él solo las capas del proyecto
+  con el aviso «Sin mapa base». El mapa base de F6 viene de `/map/settings`. «Sin fondo» va sobre el propio mapa, junto
+  al aviso «Sin mapa base», y no en el panel de capas, porque S10, S24 y el dibujo no tienen panel de capas; la
+  atribución (`MapAttribution`) siempre es visible. Hoja `Mapa-Base` del lienzo de la etapa 3, página 24.
+- **Exportar (F6):** el diálogo (también en S09) pide objeto, formato, sistema de coordenadas y nivel de divulgación, y
+  ofrece solo los niveles que permite la capa (`gis.md` §6); EXTERNO exige marcar su casilla de confirmación. Sin la
+  acción `EXPORT` sobre el objeto, el botón no sale. Las capas de gestión (LYR-17 a LYR-24) no se exportan como archivo.
 - **Responsive:** en teléfono la ficha contextual es una hoja inferior que se expande.
 - **Relacionadas y navegación:** "Filtrar el proyecto por este lugar" lleva a S16 o S08 con `?territory=`; el rastro anota
   "Mapa territorial".
@@ -268,7 +303,8 @@ TerritoryMapPage
 ├── TerritoryMap (Map · PlaceMarkers · Legend)
 ├── ContextCard (KpiCard × 6 · StanceBar · Button "Abrir la ficha")
 ├── VisiblePlacesNav
-└── ZoneRecordsTable
+├── ZoneRecordsTable
+└── ExportDialog
 ```
 
 ### S13 · Ficha de comunidad
@@ -288,6 +324,9 @@ TerritoryMapPage
   de interés del lugar con la regla de inclusión de `dashboards.md` §3.1.
 - **Estados:** `registry_records_unverified` muestra la marca "PARTIDAS POR VERIFICAR" con su explicación; área calculada
   junto a la inscrita (RQ-GIS-009).
+- **Edición de la geometría (F6):** el territorio (`community.territory`) se edita con `GeometryField` y, antes de
+  guardar, `geometry-checks` muestra el motivo de cada defecto y la reparación propuesta; la persona decide, y se guarda
+  por la API genérica.
 - **Permisos:** postura de los grupos de interés solo para SMG y SHM; las áreas de proyectos sin acceso no se listan.
 - **Responsive:** los bloques laterales bajan debajo del resumen.
 - **Relacionadas y navegación:** grupos de interés → S17; localidades → S14; áreas → S10; actor representante → S18.
@@ -317,6 +356,8 @@ CommunityDetailPage
 - **Datos y API:** genérica `locality`, `locality_profile?locality=` (ordenado por `data_date`), `school`, `health_facility`,
   `road_access`, `festivity`, `state_program_locality`, `local_conflict_locality`, `perception` (por estudio).
 - **Estados:** una cifra ausente en el perfil anterior dice "no disponible en <fecha>", nunca cero.
+- **Edición de la geometría (F6):** `locality.location` y `locality.boundary` se editan con `GeometryField` y, antes de
+  guardar, `geometry-checks` muestra el motivo de cada defecto y la reparación propuesta; la persona decide.
 - **Permisos:** `religion` y `electoral_process` solo para SMG y SHM; los demás ven "Restringido".
 - **Responsive:** cifras en dos columnas; bloques apilados.
 - **Relacionadas y navegación:** las festividades aparecen en S21; la comunidad padre abre S13.
@@ -352,6 +393,10 @@ LocalityDetailPage
   archivo, `sha256` y `decisions[]`. Con `Accept` de XLSX, el reporte de diferencias.
 - **Estados:** sin CRS de origen no se avanza (RQ-GIS-007, CON-024); "Nada se ha escrito todavía" hasta confirmar; si el
   archivo cambió, la confirmación se rechaza y se vuelve al paso 3.
+- **Formatos y destinos (F6):** los formatos salen de `GET /api/sgspe/territory/imports/formats` y el portal elige el
+  lector por la extensión del archivo; si el archivo trae varias capas, el paso 1 pide cuál (`LAYER_REQUIRED` trae la
+  lista). «Usar el CRS del archivo» solo propone el CRS que declara el archivo: la persona lo confirma o lo cambia. Los
+  destinos suman comunidad (`community.territory`) y elemento ambiental (`environmental_feature`) a los de F2.
 - **Permisos:** sin CREATE y UPDATE sobre el destino, el destino no se ofrece.
 - **Responsive:** asistente de escritorio; en tableta, el mapa pasa debajo de la tabla.
 - **Relacionadas y navegación:** al confirmar, vuelve a S09 con las capas recién importadas resaltadas.
@@ -365,6 +410,35 @@ GeoImportWizard
 ├── DecisionsTable (DataTable con Select por fila)
 ├── CrsCheckCallout
 └── ConfirmPanel (conteos · reglas · Confirmar)
+```
+
+### S63 · Calidad de datos
+
+- **Ruta y lienzo:** `/territory/quality` · sin hoja (plan 6.0) · F6.
+- **Propósito:** encontrar los registros con datos geográficos dudosos o faltantes y llegar a corregirlos.
+- **Roles:** quien lee el objeto listado y los campos de la revisión (`SpatialGate`, ASM-122); en la práctica GAN y SMG.
+  La sección Territorio guarda la ruta de esta pantalla.
+- **Acciones:** primaria abrir el registro de una fila; secundarias cambiar de revisión, filtrar por objeto y
+  por proyecto.
+- **Disposición y componentes:** una pestaña por revisión: `INVALID` (geometría inválida), `OUT_OF_ZONE` (fuera de la
+  zona UTM esperada), `STALE_AREA` (área guardada distinta de la calculada), `NO_TERRITORY` (QCS, compromisos, riesgos e
+  incidentes sin localidad, comunidad ni ubicación) y `NO_GEOMETRY` (localidades y comunidades sin geometría); filtros
+  de objeto y de proyecto; lista paginada con objeto, nombre, campo y detalle, y un enlace a la ficha de cada registro.
+- **Datos y API:** `GET /api/sgspe/territory/data-quality?check=&object=&project=&page=&size=` (`api.md` §4); `check` es
+  obligatorio y una revisión por pedido.
+- **Estados:** lista vacía, «Sin hallazgos en esta revisión»; un objeto que la persona no lee no se ofrece en el filtro;
+  un objeto sin ficha se lista sin enlace.
+- **Permisos:** solo salen los objetos que la persona lee con todos los campos de la revisión.
+- **Responsive:** las pestañas pasan a un `Select` y las filas a tarjetas.
+- **Relacionadas y navegación:** cada fila abre la ficha del registro (S13, S14, el mapa del proyecto S09 para un
+  componente, o la de su objeto); S12 enlaza aquí y al tablero.
+
+```text
+DataQualityPage
+├── EntityTabs (INVALID · OUT_OF_ZONE · STALE_AREA · NO_TERRITORY · NO_GEOMETRY)
+├── FilterBar (objeto · proyecto)
+├── FindingsTable (DataTable paginada con enlace a la ficha)
+└── Pagination
 ```
 
 ## 5. Grupos de interés
@@ -586,6 +660,10 @@ EngagementDetailPage
   grupos de interés precargados.
 - **Estados:** `represented_people_count` menor que 1 marca el campo (lo rechaza `EngagementWriteGuard`); sin conexión no se
   guarda (el modo sin conexión no está en el MVP, Q5).
+- **Lugar (F6):** en el paso 2, un clic en el mapa marca el punto y llama a `GET /api/sgspe/territory/locate?lon=&lat=`,
+  que propone unidad administrativa, localidad y comunidad; la persona elige «Usar» para cada una y nada se fija solo.
+  En el formulario rápido de campo el punto es el del teléfono y se propone lo mismo. Lo que no puede leer sale
+  «no disponible».
 - **Permisos:** FAG solo cambia después lo que registró.
 - **Responsive:** el modo rápido es la versión de teléfono.
 - **Relacionadas y navegación:** al guardar abre S23; el territorio sale del chip de contexto.
@@ -1502,17 +1580,21 @@ RisksDashboard
 
 ### Tablero territorial
 
-- **Ruta y lienzo:** `/territory` con el panel de estadísticas (S12 en modo tablero) · hoja `Tab-Territorial` · F6, F8.
+- **Ruta y lienzo:** `/territory/dashboard` (S12 en modo tablero; exige `?project=`) · hoja `Tab-Territorial` · F6, F8.
 - **Propósito:** ¿qué ocurre en cada lugar?
 - **Roles:** lectura para quien lee el territorio del proyecto.
-- **Acciones:** elegir una localidad o comunidad; capas; "Capturar PNG".
-- **Disposición y componentes:** mapa con capas y paleta compartida (RQ-GIS-014); ficha contextual con KPI-TER-01; tiles
-  KPI-TER-02, KPI-TER-03 y KPI-TER-04.
-- **Datos y API:** tablero `territory` (`dashboards.md` §5.9); las cifras de la ficha salen de `sgspe.dashboard`, no del mapa.
-- **Estados:** la línea de posturas de la ficha dice "no disponible" a quien no lee `stance`.
+- **Acciones:** elegir un proyecto y, si se quiere, una localidad o comunidad; capas; "Capturar PNG".
+- **Disposición y componentes:** mapa con capas y paleta compartida (RQ-GIS-014); ficha contextual con KPI-TER-01 (solo
+  con localidad o comunidad); tiles KPI-TER-02, KPI-TER-03 y KPI-TER-04.
+- **Datos y API:** tablero `territory` (`dashboards.md` §5.9): `GET /api/sgspe/dashboards/territory?project=` exige el
+  proyecto (`400 PROJECT_REQUIRED`) y suma KPI-TER-01 con `locality` o `community`; las cifras de la ficha salen de
+  `sgspe.dashboard`, no del mapa.
+- **Estados:** sin proyecto, la pantalla pide elegirlo y no consulta; sin lugar, los tiles de KPI-TER-02 a 04 sin ficha
+  (KPI-TER-01 sale `TERRITORY_REQUIRED`); la línea de posturas de la ficha dice "no disponible" a quien no lee `stance`.
 - **Permisos:** sin puntos de personas: los grupos de interés se agregan por lugar (RQ-GIS-015).
 - **Responsive:** mapa a pantalla completa con la ficha como hoja inferior.
-- **Relacionadas y navegación:** S13, S14; las cifras abren listas filtradas por el lugar.
+- **Relacionadas y navegación:** S13, S14, S12 (el mapa de `/territory`) y S63; las cifras abren listas filtradas por
+  el lugar.
 
 ```text
 TerritoryDashboard

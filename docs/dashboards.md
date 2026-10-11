@@ -239,10 +239,10 @@ respuesta de cada KPI-GRV y del tablero `attention` lo dice con `confidentialHid
 
 | ID | Indicador | Definición | Fórmula | Fuente | Filtros y desgloses | Requisitos | Actualización | Fase |
 |---|---|---|---|---|---|---|---|---|
-| KPI-TER-01 | Resumen de una localidad o comunidad | Las cifras de la ficha contextual del mapa | No tiene un valor propio: reúne estas cifras con el filtro del territorio elegido. Son grupos de interés vigentes por postura (KPI-STK-02); interacciones realizadas en los últimos 90 días, configurable (KPI-ENG-01); compromisos abiertos y vencidos (KPI-COM-02, KPI-COM-03); QCS abiertas (KPI-GRV-02); riesgos altos (KPI-RSK-01); programas con iniciativas o grupos de beneficiarios en el territorio; inversión ejecutada (KPI-INV-03); y la última actividad, el `held_at` más reciente de las interacciones realizadas (§3.2). La respuesta trae cada componente con su propio `available`, y con `unavailableReason` y `missingFields` cuando falta (§8): los que son KPI, con su `code`; los dos sin código, con su clave, `programs` y `lastActivity`. Así quien no lee `stance` solo pierde KPI-STK-02, y quien no lee `social_program` solo pierde `programs` | Las relaciones `locality` y `community` de cada objeto; `social_initiative.locality`, `community`; `beneficiary_group.locality`; `engagement.held_at` | Territorio (obligatorio), proyecto | RQ-GIS-005, RF-DSH-006 | Vivo | F6 |
-| KPI-TER-02 | Superficie del área de influencia | Tamaño de cada área de influencia vigente | `calculated_area_ha` de la versión `approved` de cada tipo de área del proyecto: área plana en el CRS de trabajo (RQ-GIS-009, ASM-057) | `area_of_influence.area_type`, `version_number`, `calculated_area_ha`, `workflow_state` | Proyecto | RQ-DSH-029 | Vivo (derivado) | F6 |
-| KPI-TER-03 | Miembros por tipo de área | Localidades, comunidades y unidades administrativas de cada área vigente | Número de `area_of_influence_member` de la versión aprobada, por `area_type`, tipo de miembro y `member_condition` | `area_of_influence_member.locality`, `community`, `administrative_unit`, `member_condition`; `area_of_influence.area_type` | Proyecto | RQ-DSH-029, RF-TER-005 | Vivo | F6 |
-| KPI-TER-04 | Componentes sobre tierras comunales o privadas | Componentes del proyecto que cruzan territorio comunal o predios | Número de `project_component` vigentes (`superseded` falso) cuya geometría interseca `community.territory` o `land_parcel.boundary`, por `tenure_type`. Lo calcula una consulta espacial de `sgspe.territory` detrás de su compuerta de permisos (RQ-GIS-017) | `project_component.location`, `trace`, `footprint`, `superseded`, `component_type`; `community.territory`; `land_parcel.boundary`, `tenure_type` | Proyecto; desglose por `component_type` | RQ-DSH-029, RQ-GIS-002 | Vivo | F6 |
+| KPI-TER-01 | Resumen de una localidad o comunidad | Las cifras de la ficha contextual del mapa | No tiene un valor propio: reúne estas cifras con el filtro del territorio elegido. Son grupos de interés vigentes por postura (KPI-STK-02); interacciones realizadas en los últimos 90 días, configurable (KPI-ENG-01); compromisos abiertos y vencidos (KPI-COM-02, KPI-COM-03); QCS abiertas (KPI-GRV-02); riesgos altos (KPI-RSK-01); programas con iniciativas o grupos de beneficiarios en el territorio; inversión ejecutada (KPI-INV-03); y la última actividad, el `held_at` más reciente de las interacciones realizadas (§3.2). La respuesta trae cada componente con su propio `available`, y con `unavailableReason` y `missingFields` cuando falta (§8): los que son KPI, con su `code`; los dos sin código, con su clave, `programs` y `lastActivity`. Así quien no lee `stance` solo pierde KPI-STK-02, y quien no lee `social_program` solo pierde `programs`. KPI-TER-01 sale con `value: null` y sus cifras en el desglose `by: "components"`, una fila por componente en el orden de arriba (`KPI-STK-02`, `KPI-ENG-01`, `KPI-COM-02`, `KPI-COM-03`, `KPI-GRV-02`, `KPI-RSK-01`, `programs`, `KPI-INV-03` y `lastActivity`), cada una con `available` y, si falta, `unavailableReason` y `missingFields`. Exige `locality` o `community`: sin ellos responde `available: false`, `unavailableReason: TERRITORY_REQUIRED` y `missingFields: ["locality", "community"]`, nunca un cero. Con `community`, KPI-STK-02 no aplica el filtro (`stakeholder` no tiene `community`) y lo informa en `ignoredFilters`. Sin periodo pedido, KPI-ENG-01 cuenta los últimos 90 días | Las relaciones `locality` y `community` de cada objeto; `social_initiative.locality`, `community`; `beneficiary_group.locality`; `engagement.held_at` | Territorio (`locality` o `community`, obligatorio), proyecto, periodo | RQ-GIS-005, RQ-DSH-032, RF-DSH-006 | Vivo | F6 |
+| KPI-TER-02 | Superficie del área de influencia | Tamaño de cada área de influencia vigente | `calculated_area_ha` de la versión `approved` de cada tipo de área del proyecto: área plana en el CRS de trabajo (RQ-GIS-009, ASM-057) | `area_of_influence.area_type`, `version_number`, `calculated_area_ha`, `workflow_state` | Proyecto (los demás filtros, en `ignoredFilters`); desglose `area` (unidad `ha`) | RQ-DSH-029 | Vivo (derivado) | F6 |
+| KPI-TER-03 | Miembros por tipo de área | Localidades, comunidades y unidades administrativas de cada área vigente | Número de `area_of_influence_member` de la versión aprobada, por `area_type`, tipo de miembro y `member_condition` | `area_of_influence_member.locality`, `community`, `administrative_unit`, `member_condition`; `area_of_influence.area_type` | Proyecto (los demás filtros, en `ignoredFilters`); desgloses `areaType`, `memberType` y `memberCondition` (unidad `miembros`) | RQ-DSH-029, RF-TER-005 | Vivo | F6 |
+| KPI-TER-04 | Componentes sobre tierras comunales o privadas | Componentes del proyecto que cruzan territorio comunal o predios | Número de `project_component` vigentes (`superseded` falso) cuya geometría interseca `community.territory` o `land_parcel.boundary`, por `tenure_type`. Lo calcula una consulta espacial de `sgspe.territory` detrás de su compuerta de permisos (RQ-GIS-017) | `project_component.location`, `trace`, `footprint`, `superseded`, `component_type`; `community.territory`; `land_parcel.boundary`, `tenure_type` | Proyecto (los demás filtros, en `ignoredFilters`); desgloses `tenureType` (con `TERRITORIO COMUNAL`) y `componentType` (unidad `componentes`) | RQ-DSH-029, RQ-GIS-002 | Vivo | F6 |
 
 ### 4.9 Cobertura de la Tabla 9.5 y del prompt
 
@@ -405,6 +405,10 @@ modelo de dominio). Así las cifras de la ficha coinciden con las de los demás 
 un paquete de dominio, no depende de `sgspe.dashboard`: la dependencia va de `sgspe.dashboard` hacia `sgspe.territory`. El
 contrato de la ficha está en `api.md`.
 
+`GET /api/sgspe/dashboards/territory` exige `project` (`400 PROJECT_REQUIRED`): reúne KPI-TER-02 a KPI-TER-04 y, con
+`locality` o `community`, KPI-TER-01 primero. La ruta del portal es `/territory/dashboard`;
+el mapa vive en `/territory`.
+
 ```mermaid
 flowchart LR
     MAP["Mapa del portal"] -->|"clic en una localidad o comunidad"| DSH["sgspe.dashboard: KPI-TER-01 con filtro de territorio"]
@@ -496,7 +500,11 @@ Parámetros de consulta (§3.1), como los fija `api.md`: `project` (repetible), 
 
 - El tablero `project` y KPI-STK-03 exigen un solo `project`.
 - KPI-RSK-02 acepta varios proyectos, pero solo con uno muestra el nivel de cada celda (§4.6).
-- El tablero `territory` (no el parámetro de territorio) exige `locality` o `community` para KPI-TER-01.
+- El tablero `territory` exige un `project` (`400 PROJECT_REQUIRED`) y no usa «mis proyectos» por defecto. Con
+  `locality` o `community` suma KPI-TER-01 al principio; sin ellos, el tablero trae KPI-TER-02 a KPI-TER-04. KPI-TER-01
+  solo, por `GET /api/sgspe/dashboards/indicators/KPI-TER-01`, sin territorio responde `available: false` con
+  `TERRITORY_REQUIRED` (§8). KPI-TER-02 a KPI-TER-04 filtran solo por `project` y declaran los
+  demás filtros en `ignoredFilters`.
 - Los KPI-INV aplican de los filtros de territorio solo `locality`, con sus sectores; KPI-INV-03 no suma los
   presupuestos de programas cuando viene, porque no tienen territorio, y lo advierte. La cifra titular de KPI-INV-01 a
   03 va en PEN (§3.3); la de KPI-INV-04 son los alcanzados de los programas, y los aportes y compromisos van aparte en
@@ -546,6 +554,11 @@ como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestr
   (`MetadataService.definitionOf`, la misma vista que usan la interfaz y el agente) [WAS-ADR-0014] [WAS-ADR-0020].
 - **Nunca cero.** Si falta un permiso, el KPI responde `available: false` y la interfaz muestra "no disponible" (RQ-DSH-032).
   `RecordService` omite en silencio los campos que la persona no puede leer: sin el chequeo, un conteo podría salir en cero.
+- **Territorio obligatorio (F6).** KPI-TER-01 sin `locality` ni `community` responde `available: false` con
+  `unavailableReason: TERRITORY_REQUIRED` y `missingFields: ["locality", "community"]`; la interfaz pide elegir un lugar
+  y no muestra cifras. Es una razón distinta de `FIELD_NOT_READABLE`: no falta un permiso, falta el lugar (RQ-DSH-032).
+  Dentro de KPI-TER-01, cada fila de `components` lleva su propio `available`, con su `unavailableReason` y sus
+  `missingFields`, así que lo que la persona no lee deja de salir solo en su fila.
 - **Postura, un dato sensible.** Los KPI que leen `stance` solo dan cifras a los roles que pueden leer ese campo: hoy
   `SOCIAL_MANAGER` y `STAKEHOLDER_MANAGER`, además de `ADMIN` (`security.md`, RQ-SEC-010, GAP-024).
   - Son KPI-STK-02, KPI-STK-05 y KPI-STK-06, la parte de posturas de KPI-TER-01 y la postura en el detalle de los puntos de

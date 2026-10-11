@@ -145,7 +145,7 @@ Rutas técnicas en inglés y kebab-case (ADR-0009, ASM-075). La columna "En el p
 |---|---|---|---|
 | Dashboard | `/` (inicio por rol), `/dashboards/monitoring` | `/overview` (Resumen) | F1 bienvenida; F8 consolidado |
 | Proyectos | `/projects`, `/projects/new` | `/overview`, `/map`, `/areas/:areaId`, `/settings`, `/activity` | F2 |
-| Territorio | `/territory`, `/territory/communities/:id`, `/territory/localities/:id`, `/territory/admin-units/:id`, `/territory/imports/:id` | `/map` | F2; F6 mapa territorial y ficha |
+| Territorio | `/territory`, `/territory/dashboard`, `/territory/quality`, `/territory/communities/:id`, `/territory/localities/:id`, `/territory/admin-units/:id`, `/territory/imports/:id` | `/map` | F2; F6 mapa territorial, ficha, tablero y calidad de datos |
 | Grupos de interés | `/stakeholders`, `/actors/:actorId` | `/stakeholders`, `/stakeholders/matrix`, `/stakeholders/:stakeholderId` | F2 |
 | Relacionamiento | `/engagements`, `/engagements/calendar`, `/field-visits` | `/engagements`, `/engagements/calendar`, `/engagements/:engagementId`, `/engagements/new`, `/engagements/:engagementId/minutes`, `/field-visits/:visitId` | F2 |
 | Compromisos | `/commitments`, `/commitments/dashboard`, `/agreements` | `/commitments` (con la vista `?view=candidates`), `/commitments/:commitmentId`, `/commitments/new`, `/agreements`, `/agreements/:agreementId` | F3 |
@@ -323,7 +323,7 @@ El lienzo trae un prototipo navegable de este recorrido ("Hilo de contexto"):
 
 ## 9. Inventario de pantallas
 
-Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083), más S57 a S62 de la Fase 4 (plan 4.0): la ficha de consulta y solicitud, que compartía S36 con la queja, las de menciones, señales, reglas e impactos, y el tablero de riesgos, que compartía S38 con el registro y matriz. "Etapa" es la etapa de diseño en que se dibujan; "Fase",
+Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083), más S57 a S62 de la Fase 4 (plan 4.0): la ficha de consulta y solicitud, que compartía S36 con la queja, las de menciones, señales, reglas e impactos, y el tablero de riesgos, que compartía S38 con el registro y matriz. S63, la calidad de datos de Territorio, se suma en la Fase 6 (plan 6.0). "Etapa" es la etapa de diseño en que se dibujan; "Fase",
 cuándo llega el módulo. La ficha de handoff de cada pantalla (ruta, roles, datos, API, estados, permisos, árbol de componentes)
 está en [`screens.md`](screens.md), completa desde la etapa 3.
 
@@ -391,6 +391,7 @@ está en [`screens.md`](screens.md), completa desde la etapa 3.
 | S60 | Reglas de alerta | `/risks/rules`, `/projects/:projectId/risks/rules` | F4 | Plan 4.0, sin hoja |
 | S61 | Impactos potenciales | `/projects/:projectId/risks/impacts` | F4 | Plan 4.0, sin hoja |
 | S62 | Tablero de riesgos | `/risks` | F4, F8 | E3 |
+| S63 | Calidad de datos | `/territory/quality` | F6 | Plan 6.0, sin hoja |
 
 Absorbidas o movidas respecto de PRM-02: "Project Detail" y "Project Dashboard" son el Resumen de Project 360; "Early Warning
 Center" vive en Riesgos; "Grievance Dashboard" es el tablero de QCS; "Approval Center" es Tareas › Aprobaciones. Agregadas por
