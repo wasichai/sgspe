@@ -53,6 +53,22 @@ class ProgramTotalsListenerTest {
         assertEquals(setOf(p1, p2), changed(Programs.BUDGET, RecordChangeKind.UPDATED, budget(p1), budget(p2)).toSet())
     }
 
+    // la regla de candados de Transactions.kt: dos social_program:<id> en una transacción van por el texto del UUID
+    // ascendente, así dos movimientos cruzados no se interbloquean
+    @Test
+    fun `mover un presupuesto toma los programas en orden ascendente`() {
+        val low = UUID.fromString("00000000-0000-0000-0000-000000000001")
+        val high = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
+        assertEquals(listOf(low, high), changed(Programs.BUDGET, RecordChangeKind.UPDATED, budget(high), budget(low)))
+        assertEquals(listOf(low, high), changed(Programs.BUDGET, RecordChangeKind.UPDATED, budget(low), budget(high)))
+    }
+
+    @Test
+    fun `la baja de un programa no recalcula nada`() {
+        val program = mapOf<String, Any?>("currency" to "PEN", "name" to "Programa Ejemplo")
+        assertEquals(emptyList<UUID>(), changed(Programs.PROGRAM, RecordChangeKind.DELETED, program, null, p1))
+    }
+
     @Test
     fun `un cambio del ejecutado no recalcula nada`() {
         assertEquals(emptyList<UUID>(), changed(Programs.BUDGET, RecordChangeKind.UPDATED, budget(p1), budget(p1) + ("executed_amount" to 400)))

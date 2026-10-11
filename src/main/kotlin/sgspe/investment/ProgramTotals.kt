@@ -89,9 +89,11 @@ class ProgramTotalsWriter(
 
 // ProgramTotalsListener (especificación de F5 §3.6, decisión 6 del plan 5.2b): al crear, cambiar o borrar un presupuesto
 // recalcula su programa (los dos, si cambió de programa); al crear un programa o cambiar su moneda, ese programa. corre como
-// quien escribió, dentro de la petición; si no puede, lo registra y la escritura sigue: JOB-02 corrige el valor en la hora
+// quien escribió, dentro de la petición; si no puede, lo registra y la escritura sigue: JOB-02 corrige el valor en la hora.
+// los programas se recorren por el texto de su UUID ascendente (la regla de candados de Transactions): dos presupuestos que se
+// mueven a la vez en sentidos cruzados toman social_program:<id> en el mismo orden y no se interbloquean
 @Component
-@Order(110)
+@Order(115)
 class ProgramTotalsListener(
     private val writer: ProgramTotalsWriter
 ) : RecordChangeListener {
@@ -99,6 +101,7 @@ class ProgramTotalsListener(
 
     override suspend fun recordChanged(change: RecordChange) {
         if (change.kind == RecordChangeKind.TRANSITIONED) return
+        if (change.objectName == Programs.PROGRAM && change.kind == RecordChangeKind.DELETED) return
         val programs =
             when (change.objectName) {
                 Programs.BUDGET ->
@@ -109,13 +112,13 @@ class ProgramTotalsListener(
                     }
                 Programs.PROGRAM ->
                     if (change.kind == RecordChangeKind.CREATED || !Values.same(change.before?.get(Programs.CURRENCY), change.after?.get(Programs.CURRENCY))) {
-                        if (change.kind == RecordChangeKind.DELETED) emptySet() else setOf(change.recordId)
+                        setOf(change.recordId)
                     } else {
                         emptySet()
                     }
                 else -> emptySet()
             }
-        for (program in programs) {
+        for (program in programs.sortedBy { it.toString() }) {
             try {
                 writer.refresh(program, ProgramTotalsWriter.REASON)
             } catch (e: CancellationException) {
@@ -128,7 +131,8 @@ class ProgramTotalsListener(
 }
 
 // el recalculador de JOB-02 para total_budget: los programas cuyos presupuestos o cuya moneda cambiaron desde la vuelta anterior,
-// o todos en la vuelta diaria (un presupuesto borrado solo lo ve la vuelta diaria)
+// o todos en la vuelta diaria. la vuelta incremental solo ve el programa actual de cada presupuesto: el de un presupuesto
+// borrado y el de origen de uno que cambió de programa, si el listener falló, solo los corrige la vuelta diaria
 @Component
 class ProgramTotalsRecalculator(
     private val records: Records,
