@@ -52,6 +52,10 @@ alcance por proyecto de ADR-0006
   las propias (aun vencidas) y las de mis proyectos; las 31 raíces con `project`, por él (las tres opcionales, también sin
   él); los 19 hijos, por el proyecto de su padre (los dos de padre opcional, también sin él); los 20 maestros del tenant
   (`ProjectScope.TENANT`), sin restricción. Valores enlazados, nombres de la definición.
+- **Desde F5 (ASM-114, nota del 2026-10-11).** Un hijo puede tener por padre a otro hijo (a lo sumo dos saltos, sin
+  ciclos: `program_measurement`) o varios padres posibles (`delivery`: `commitment` o `social_contribution`), y se lee
+  por el padre que tiene, nunca «sin padre, todos»; quedan 33 raíces y 27 hijos, y el único hijo con padre opcional es
+  `locality_profile` (`security.md` §9.7). La decisión de este ADR no cambia: es su extensión a BC-10.
 - **Exención sin literales.** La acción declarada `READ_ALL_PROJECTS` sobre `project` exime; en `roles.json`, solo
   `AUDITOR` y `PROJECT_ADMIN` (confirmado por el usuario el 2026-10-10). `ANALYST`, `SOCIAL_MANAGER`, `GIS_ANALYST` y
   `READ_ONLY` leen sus proyectos. `ProjectReach` (`sgspe.common`) es la única pieza que decide «mis proyectos» o todos, para

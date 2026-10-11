@@ -357,7 +357,8 @@ Las mismas acciones, por objeto, para replicarlas en el modelo:
   `resolve_high_severity`, de `APPROVER`. Ninguna compara nombres de rol en el código (RQ-SEC-005).
 - Superar el tope de la campaña es otra regla: lo permite `APPROVE_OVER_CAP` en la transición de aprobación (GAP-006). En
   `commitment` la tiene `PROJECT_MANAGER` y la usa en `approve_senior` (ASM-067); en `social_contribution` la tiene
-  `SOCIAL_MANAGER` y la usa en `approve` de WF-P. Quien tiene la acción necesita también un rol de esa transición.
+  `SOCIAL_MANAGER` y la usa en `approve` de WF-P: la diferencia entre los dos objetos es aceptada (ASM-119). Quien
+  tiene la acción necesita también un rol de esa transición.
 
 ### 5.4 Permisos de campo
 
@@ -575,12 +576,12 @@ lee sus proyectos. El territorio y la región siguen sin fuente de datos (UPS-01
 | PAD | `PROJECT_ADMIN` | F2 | Proyectos, partes, campañas, asignaciones y concesiones |
 | PMG | `PROJECT_MANAGER` | F2 | Proyecto y campañas; aprobaciones de nivel superior y por encima del tope en compromisos, y de áreas de influencia; acuerdos |
 | SMG | `SOCIAL_MANAGER` | F2 | Plan, mensajes, alianzas, áreas de influencia, evaluaciones, acuerdos, compromisos, solicitudes, riesgos, aportes (también por encima del tope), programas y entregables |
-| CRO | `COMMUNITY_RELATIONS_OFFICER` | F2 | Territorio, actores, interacciones, compromisos, recepción de QCS, incidentes, entregas de aportes y secciones de entregables |
+| CRO | `COMMUNITY_RELATIONS_OFFICER` | F2 | Territorio, actores, interacciones, compromisos, recepción de QCS, incidentes, aportes con sus ítems, comprobantes y entregas, y secciones de entregables |
 | SHM | `STAKEHOLDER_MANAGER` | F2 | Actores, grupos de interés, evaluaciones, línea base y entregables (preparar, aprobar y emitir) |
 | CMM | `COMMITMENT_MANAGER` | F3 | Compromisos, entregas y verificación |
 | GVM | `GRIEVANCE_MANAGER` | F4 | Quejas, consultas y solicitudes |
 | SRM | `SOCIAL_RISK_MANAGER` | F4 | Riesgos, incidentes, señales y alertas |
-| SIM | `SOCIAL_INVESTMENT_MANAGER` | F5 | Aportes y programas sociales |
+| SIM | `SOCIAL_INVESTMENT_MANAGER` | F5 | Aportes y programas sociales; único dueño de los datos de los programas |
 | GAN | `GIS_ANALYST` | F2 | Maestros del territorio, importaciones y áreas de influencia |
 | FAG | `FIELD_AGENT` | F2 | Interacciones, participantes, preguntas, visitas, observaciones y evidencias, y solo cambia lo que creó |
 | APR | `APPROVER` | F3 | Aprobaciones de compromisos, aportes y programas, y resolución de quejas graves |
@@ -748,7 +749,8 @@ Criterios con que se armó:
 - `APPROVER` resuelve las quejas de severidad ALTA o CRITICA (RN-GRV-002, ASM-036).
 - El UPDATE de `COMMITMENT_MANAGER` y `SOCIAL_MANAGER` sobre `stakeholder_request` es el que exigen la aceptación de
   solicitudes y `RequestClosureListener` al cerrar un compromiso (§8.1); `SOCIAL_INVESTMENT_MANAGER` lo usa desde F5 para
-  aceptar solicitudes de aporte.
+  aceptar solicitudes como aporte, que exige además CREATE sobre `social_contribution`: `COMMITMENT_MANAGER` no lo
+  tiene y acepta solo como compromiso (ASM-117).
 - Las alertas las crean una persona o `WarningRulesJob` (JOB-04) en `detected`; confirmarlas o descartarlas es siempre
   humano (RN-EWS-001).
 - CREATE sobre las QCS es solo de `COMMUNITY_RELATIONS_OFFICER` y `GRIEVANCE_MANAGER`: solo el equipo social registra
@@ -764,8 +766,8 @@ Criterios con que se armó:
 | Objeto | PAD | PMG | SMG | CRO | SHM | CMM | GVM | SRM | SIM | GAN | FAG | APR | ANL | RDO |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `social_contribution` | — | R | CRU `APPROVE` `APPROVE_OVER_CAP` | CRU | R | R | R | R | CRU | R | — | Ru `APPROVE` | R | R |
-| `contribution_item` | — | R | R | R | R | R | R | R | CRUD | R | — | R | R | R |
-| `receipt` | — | R | R | R | R | R | R | R | CRU | R | — | R | R | R |
+| `contribution_item` | — | R | CRUD | CRUD | R | R | R | R | CRUD | R | — | R | R | R |
+| `receipt` | — | R | R | CRU | R | R | R | R | CRU | R | — | R | R | R |
 | `social_program` | — | R | RU | R | R | R | R | R | CRU | R | — | Ru `APPROVE` | R | R |
 | `social_initiative` | — | R | R | R | R | R | R | R | CRUD | R | — | R | R | R |
 | `beneficiary_group` | — | R | R | R | R | R | R | R | CRUD | R | — | R | R | R |
@@ -774,11 +776,26 @@ Criterios con que se armó:
 | `program_measurement` | — | R | R | R | R | R | R | R | CR | R | — | R | R | R |
 | `program_milestone` | — | R | R | R | R | R | R | R | CRUD | R | — | R | R | R |
 
-- `COMMUNITY_RELATIONS_OFFICER` registra pedidos de apoyo y sus entregas; `SOCIAL_MANAGER` y `SOCIAL_INVESTMENT_MANAGER`
-  crean el aporte al aceptar una solicitud.
+- Registran el aporte, con sus ítems antes de aprobar, `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` y
+  `SOCIAL_INVESTMENT_MANAGER` (CRUD sobre `contribution_item`); fuera de `requested`, `InvestmentWriteGuard` congela los
+  ítems (ASM-110). `COMMUNITY_RELATIONS_OFFICER` y `SOCIAL_INVESTMENT_MANAGER` registran la entrega y su comprobante
+  (CRU sobre `delivery` y `receipt`).
+- Crean el aporte al aceptar una solicitud `SOCIAL_MANAGER` y `SOCIAL_INVESTMENT_MANAGER`, que tienen CREATE sobre
+  `social_contribution`; `COMMITMENT_MANAGER`, que tiene `accept` pero no ese CREATE, acepta solo como compromiso
+  (`403`, ASM-117).
 - Aprueban los aportes `APPROVER` y `SOCIAL_MANAGER`; si el aporte supera el tope de la campaña y la política bloquea,
-  hace falta `APPROVE_OVER_CAP`, que tiene `SOCIAL_MANAGER` (GAP-006).
-- El tope de apoyo social por campaña lo verifica `SupportPolicyGuard` desde F3 (RN-INV-003, RF-INV-002).
+  hace falta `APPROVE_OVER_CAP`, que tiene `SOCIAL_MANAGER` (GAP-006). En compromisos la tiene `PROJECT_MANAGER`: la
+  diferencia es aceptada (ASM-119).
+- El tope de apoyo social por campaña lo verifica `SupportPolicyGuard` desde F3 (RN-INV-003, RF-INV-002) y, desde F5,
+  `ContributionCapRule` en los aportes, con lo comprometido de los dos objetos (ASM-110).
+- En los programas, `SOCIAL_MANAGER` conserva RU sobre `social_program` y R sobre sus hijos: conduce la evaluación, la
+  suspensión y el cierre. Los datos del programa (presupuesto y ejecutado, indicadores, mediciones, iniciativas, hitos y
+  beneficiarios) tienen un solo dueño, `SOCIAL_INVESTMENT_MANAGER`, que borra iniciativas, grupos, indicadores e hitos;
+  un indicador con mediciones no se borra (`409` de wasichai sin código, porque `program_measurement` es `appendOnly`).
+- Desde F5, `PROJECT_ADMIN` y `PROJECT_MANAGER`, que editan las políticas del proyecto, vinculan sus temas priorizados
+  (`project_priority_topic`, ASM-112): el vínculo exige UPDATE sobre `project` y sobre `topic` (§5.6), así que pasan de
+  R a `Ru` sobre `topic`. Como la matriz no lleva fase por celda y `topic` es de F2, la celda de §7.4 cambia junto con
+  `model/roles.json` al aplicar el modelo de F5.
 
 ### 7.8 BC-15 Reportes, tableros y entregables (F2–F8) y BC-18 IA y conocimiento (F7)
 
@@ -901,12 +918,13 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `QcsDueDatesListener` (`sgspe.attention`) | Los `*_due_date` de la misma QCS | UPDATE sobre la QCS, con motivo | `GRIEVANCE_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | Ambos tienen CRU sobre `grievance`, `inquiry` y `stakeholder_request` | Solo lee las QCS; no las escribe |
 | `AttendanceCountsListener` (`sgspe.engagement`) | Conteos de asistentes de `engagement` | UPDATE sobre `engagement` | `COMMUNITY_RELATIONS_OFFICER`, `STAKEHOLDER_MANAGER`, `FIELD_AGENT` | Los tres tienen U sobre `engagement` | Agrega participantes a cualquier interacción que lee, y el listener actualiza los conteos de la interacción ajena: escritura derivada con la marca, que `EditAnyGuard` no frena (ASM-069) |
 | `AreaListener` (`sgspe.territory`) | `calculated_area_ha` del mismo registro | UPDATE sobre ese objeto | `GIS_ANALYST`; `SOCIAL_MANAGER` (`area_of_influence`, `community` y vínculos de `land_parcel`); `COMMUNITY_RELATIONS_OFFICER` (`community` y vínculos de `land_parcel`); `PROJECT_ADMIN` (`mining_concession`) | Todos tienen U o `u`, y en `u` los derivados siguen escribibles | No escribe esos objetos |
-| `ContributionTotalsListener` (`sgspe.investment`) | `total_amount` de `social_contribution` | UPDATE sobre `social_contribution`, con motivo | `SOCIAL_INVESTMENT_MANAGER` | CRU sobre `social_contribution` | — |
+| `ContributionTotalsListener` (`sgspe.investment`) | `total_amount` de `social_contribution`, con cada ítem y en `approve` y `approve_direct` (ASM-110) | UPDATE sobre `social_contribution`, con motivo | Ítems: `SOCIAL_INVESTMENT_MANAGER`, `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`; aprobación: `APPROVER`, `SOCIAL_MANAGER`, `SOCIAL_INVESTMENT_MANAGER` | CRU sobre `social_contribution`; `APPROVER` tiene `u`, y bajo `u` el derivado sigue escribible | Sin permisos sobre BC-10 |
+| `ProgramTotalsListener` (`sgspe.investment`) | `total_budget` de `social_program` (ASM-113) | UPDATE sobre `social_program` | `SOCIAL_INVESTMENT_MANAGER`, el único que escribe presupuestos | CRU sobre `social_program` | Sin permisos sobre BC-10 |
 | `CommitmentDerivationsListener` (`sgspe.commitment`) | `requires_senior_approval`, `fulfilled_date`, `closed_date` y `cancelled_date`; borra `fulfilled_date` en `reopen_execution` | UPDATE sobre `commitment`, con motivo | Alta y origen: `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `SOCIAL_MANAGER`; `register_fulfillment`: esos tres; `reopen_execution` y `close`: `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`; `cancel_draft`: `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `SOCIAL_MANAGER`; las otras cuatro `cancel_*`: `APPROVER`, `PROJECT_MANAGER` | U o `u` sobre `commitment`: `APPROVER` y `PROJECT_MANAGER` tienen `u`, y bajo `u` las fechas derivadas siguen escribibles | No tiene permisos sobre `commitment` |
 | `QcsTransitionDatesListener` (`sgspe.attention`) | `resolved_date` (queja) y `closed_date` de la misma QCS, en la transacción de la transición; si falla, la transición se revierte | UPDATE sobre la QCS, con motivo | `resolve`, `reopen`, los cierres de quejas y consultas, y `reject_*` y `withdraw_*` de la queja: `GRIEVANCE_MANAGER`; `withdraw_*`: también `COMMUNITY_RELATIONS_OFFICER`; `resolve_high_severity`: `APPROVER`; `close` de consulta: también `COMMUNITY_RELATIONS_OFFICER`; cierres de solicitudes: `GRIEVANCE_MANAGER`, `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y `SOCIAL_INVESTMENT_MANAGER` | Todos tienen U o `u` sobre su QCS; `APPROVER` tiene `u` sobre `grievance` | No aplica transiciones de QCS |
 | `RequestClosureListener` (`sgspe.attention`) | Transición a `closed` de la `stakeholder_request` que originó el compromiso o, desde F5, el aporte (ASM-068) | UPDATE sobre `stakeholder_request`, un rol de esa transición de WF-E3 y motivo | `COMMITMENT_MANAGER` y `SOCIAL_MANAGER`, que cierran compromisos; `SOCIAL_INVESTMENT_MANAGER` y `SOCIAL_MANAGER`, que cierran aportes | UPDATE sobre `stakeholder_request`; `workflows.md` les da esa transición (`close_accepted`) | No cierra compromisos ni aportes |
 | `DeadlineStatusListener` (`sgspe.deadline`) | `deadline_status` del compromiso que se reprograma, en la transacción de la reprogramación | UPDATE sobre `commitment`, con motivo | `COMMITMENT_MANAGER`, que reprograma | CRU sobre `commitment` | No reprograma |
-| `ApprovalNoticeListener` (`sgspe.notification`) | El módulo wasichai-notifications (`publish` y `resolve`), en la transacción de la transición; no escribe registros de wasichai | Lee `project_assignment` como quien envía, para resolver los destinatarios (ASM-070) | Los de las transiciones de envío: `submit_for_review` de WF-A, `submit_minutes` de WF-C y `submit` de WF-D | Todo rol que aplica transiciones lee `project_assignment` (§7.2); los avisos de plazo de `DeadlineNotices` los resuelve la plataforma | No envía a aprobación |
+| `ApprovalNoticeListener` (`sgspe.notification`) | El módulo wasichai-notifications (`publish` y `resolve`), en la transacción de la transición; no escribe registros de wasichai | Lee `project_assignment` como quien envía, para resolver los destinatarios (ASM-070) | Los de las transiciones de envío: `submit_for_review` de WF-A, `submit_minutes` de WF-C, `submit` de WF-D y, desde F5, `submit` de WF-G (`SOCIAL_INVESTMENT_MANAGER`); desde F5, también quienes crean un `social_contribution` (`SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`, `SOCIAL_INVESTMENT_MANAGER`), por la API genérica o al aceptar una solicitud | Todo rol que aplica transiciones lee `project_assignment` (§7.2); los avisos de plazo de `DeadlineNotices` los resuelve la plataforma | No envía a aprobación |
 
 - Si un listener de derivados no puede escribir, registra el error y `DerivedFieldsJob` corrige el valor en la hora
   siguiente; si falla un listener sobre una transición, la transición se revierte (domain-model §7.5).
@@ -925,15 +943,15 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `POST /api/sgspe/territory/imports`, su confirmación y `POST /api/sgspe/project-components` (`sgspe.territory`) | Crea, versiona o actualiza el objeto destino (`project_component`, `land_parcel` o `mining_concession`); guardar el archivo original como `evidence` (ASM-060) sigue pendiente | CREATE y UPDATE sobre el objeto destino | `GIS_ANALYST` (los tres destinos); `PROJECT_ADMIN` (`mining_concession`) | F2 |
 | `POST /api/sgspe/commitments/{id}/reschedules` (`sgspe.commitment`) | Crea `commitment_reschedule` y cambia `due_date`; `DeadlineStatusListener` recalcula `deadline_status` | CREATE `commitment_reschedule`; UPDATE `commitment` | `COMMITMENT_MANAGER` | F3 |
 | `POST /api/sgspe/commitments/{id}/deliveries` (`sgspe.commitment`) | Solo captura datos: crea la `delivery`, la vincula con sus evidencias y actualiza `executed_amount`; el cumplimiento es después la transición humana `register_fulfillment` | CREATE `delivery`; UPDATE `commitment` y `evidence` | `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F3 |
-| `PATCH /api/sgspe/deliveries/{id}` (`sgspe.commitment`) | Corrige la entrega y recalcula `executed_amount`; nunca la de un compromiso cumplido o cancelado | UPDATE `delivery` y `commitment` | `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F3 |
+| `PATCH /api/sgspe/deliveries/{id}` (`sgspe.commitment`) | Corrige la entrega y recalcula `executed_amount`; nunca la de un compromiso cumplido o cancelado. Desde F5 corrige también la de un aporte en `procured`, sin recalcular ningún ejecutado (ASM-111) | UPDATE `delivery` y, en la de un compromiso, `commitment` | `COMMITMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`; desde F5, también `SOCIAL_INVESTMENT_MANAGER` | F3 |
 | `POST /api/sgspe/commitment-candidates`, `.../{id}/accept` y `.../{id}/duplicate` (`sgspe.commitment`) | Registra un candidato; al aceptarlo crea el compromiso en `draft` y lo vincula; al marcarlo como duplicado escribe `duplicate_of` | CREATE `commitment_candidate`; para aceptar, UPDATE `commitment_candidate`, CREATE `commitment` y el rol de `accept`; para el duplicado, UPDATE y el rol de `mark_duplicate`. Decide una persona: una cuenta de servicio recibe `403` aunque tenga el rol (RQ-AI-003) | `COMMUNITY_RELATIONS_OFFICER`, `COMMITMENT_MANAGER`, `SOCIAL_MANAGER`, para registrar y para aceptar | F3 |
 | `POST /api/sgspe/evidence`, `GET /api/sgspe/evidence/{id}/content` y la ruta nativa de descarga de `evidence` (`sgspe.evidence`) | Registra la evidencia con el archivo que la misma persona subió por wasichai-files (que calcula el SHA-256) y la vincula; la descarga según su clasificación, por las dos rutas | CREATE `evidence` (también para subir el archivo); UPDATE `evidence` y del destino para vincular; `DOWNLOAD_RESTRICTED` para descargar CONFIDENCIAL y DATOS PERSONALES, o si quien llama no lee la clasificación | Los que tienen CRU sobre `evidence` | F3 |
 | `PATCH /api/sgspe/evidence/{id}` (`sgspe.evidence`) | Cambia los datos descriptivos, nunca el archivo | UPDATE `evidence`; `EDIT_ANY` si la subió otra persona; `DOWNLOAD_RESTRICTED` para bajar la clasificación de una CONFIDENCIAL o DATOS PERSONALES (`EvidenceWriteGuard`, ASM-071) | Los que tienen CRU sobre `evidence` | F3 |
-| `POST /api/sgspe/stakeholder-requests/{id}/accept` (`sgspe.attention`) | Aplica `accepted` y crea el compromiso en `draft` o, desde F5, el aporte | UPDATE `stakeholder_request` y rol de la transición; CREATE `commitment` o, desde F5, `social_contribution` | `SOCIAL_MANAGER`, `COMMITMENT_MANAGER` y, desde F5, `SOCIAL_INVESTMENT_MANAGER` | F4 |
+| `POST /api/sgspe/stakeholder-requests/{id}/accept` (`sgspe.attention`) | Aplica `accepted` y crea el compromiso en `draft` o, desde F5, el aporte en `requested` | UPDATE `stakeholder_request` y rol de la transición; CREATE del objeto que crea, `commitment` o, desde F5, `social_contribution` | Como compromiso: `SOCIAL_MANAGER`, `COMMITMENT_MANAGER`. Como aporte, desde F5: `SOCIAL_MANAGER`, `SOCIAL_INVESTMENT_MANAGER`; `COMMITMENT_MANAGER`, sin CREATE sobre `social_contribution`, recibe `403` (ASM-117) | F4 |
 | `POST /api/sgspe/grievances/{id}/reclassify` y sus pares (`sgspe.attention`) | Crea el registro de destino y conserva el vínculo con el original | CREATE del destino; UPDATE del origen | `GRIEVANCE_MANAGER` | F4 |
 | `POST /api/sgspe/engagement-questions/{id}/referral` (`sgspe.attention`) | Crea la QCS con `origin_question` | CREATE de la QCS; UPDATE (`U` o `u`) sobre `engagement_question`, porque escribe `referred_at` | `COMMUNITY_RELATIONS_OFFICER`, `GRIEVANCE_MANAGER` | F4 |
 | `POST /api/sgspe/social-risks/{id}/assessments` (`sgspe.risk`) | Crea `risk_assessment`, actualiza los valores vigentes de `social_risk` y, en la primera revisión, aplica `assessed` | CREATE `risk_assessment`; UPDATE `social_risk`; rol de la transición | `SOCIAL_RISK_MANAGER` | F4 |
-| `POST /api/sgspe/social-contributions/{id}/deliveries` (`sgspe.investment`) | Solo captura datos: crea la entrega del aporte y vincula acta, foto y comprobante; llevar el aporte a `delivered` es después la transición humana de entrega de WF-P | CREATE `delivery`; UPDATE `social_contribution` y `evidence` | `SOCIAL_INVESTMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F5 |
+| `POST /api/sgspe/social-contributions/{id}/deliveries` (`sgspe.investment`) | Solo captura datos, con el aporte en `procured`: crea su única entrega y vincula las evidencias ACTA DE RECEPCION, FOTO y COMPROBANTE; llevar el aporte a `delivered` es después la transición humana `register_delivery` (ASM-111) | CREATE `delivery`; UPDATE `social_contribution` y `evidence` | `SOCIAL_INVESTMENT_MANAGER`, `COMMUNITY_RELATIONS_OFFICER` | F5 |
 | Exportaciones XLSX (`sgspe.privacy`) | Lee con `RecordService` como el usuario y crea `export_log` | READ del objeto; `EXPORT`; CREATE `export_log` | Ver la matriz | F2–F4 |
 | `POST /api/sgspe/deliverables/{id}/drafts` (`sgspe.deliverable`) | Escribe `generation_requested_at` | UPDATE `deliverable`; `GENERATE` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | F8 |
 | `POST /api/sgspe/deliverables/{id}/issue` (`sgspe.deliverable`) | Aplica `issued`, crea la `deliverable_version`, apunta a ella y registra la emisión | UPDATE `deliverable`; CREATE `deliverable_version` y `export_log`; `ISSUE` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | F8 |
@@ -1135,8 +1153,8 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 |---|---|
 | `project` | Está entre «mis proyectos»: los de sus asignaciones vigentes (`active` y, si las tiene, hoy en Lima entre `start_date` y `end_date`) |
 | `project_assignment` | Es suya (aunque esté vencida) o es de uno de mis proyectos |
-| Las 31 raíces de `ProjectScope.ROOTS` | Su `project` es de mis proyectos; `evidence`, `early_warning_rule` y `export_log` sin `project`, siempre |
-| Los 19 hijos de `ProjectScope.CHILDREN` | Su padre es de mis proyectos; `delivery` sin compromiso y `locality_profile` sin estudio, siempre |
+| Las raíces de `ProjectScope.ROOTS` (31 hasta F4; 33 desde F5, con `social_contribution` y `social_program`) | Su `project` es de mis proyectos; `evidence`, `early_warning_rule` y `export_log` sin `project`, siempre |
+| Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
 | Los 20 maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`) | Siempre (ASM-107) |
 
 - **Exentos:** `ADMIN` (wasichai) y quien tiene la acción declarada `READ_ALL_PROJECTS` sobre `project` (`AUDITOR` y
@@ -1146,10 +1164,32 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 - **Falla cerrado:** un objeto sin clasificar en `ProjectScope`, una definición sin sus columnas o un error al consultar
   permisos o definiciones no admiten ningún registro. `ArchitectureTest` exige que todo objeto de `model.json` esté en
   un solo grupo.
-- **Hijos con padre opcional:** un hijo sin su padre se lee en todo el tenant. `ArchitectureTest` fija la lista exacta
-  (`delivery` y `locality_profile`) y exige que ninguno tenga otra relación hacia un objeto de proyecto. Cuando F5 dé a
-  `delivery` su segundo padre (`social_contribution`), la entrega se acota por el padre que tenga, nunca «sin padre,
-  todos».
+- **Hijos con padre opcional:** un hijo con un único padre opcional, sin él, se lee en todo el tenant.
+  `ArchitectureTest` fija la lista exacta (hasta F4, `delivery` y `locality_profile`; desde F5, solo
+  `locality_profile`) y exige que ninguno tenga otra relación hacia un objeto de proyecto.
+- **Cadenas y padres alternativos (desde F5, ASM-114):** `ProjectScope.CHILDREN` da, por hijo, sus padres posibles en
+  orden, como pares (campo RELATION, objeto padre); `ProjectScope.chain(child, field)` da los saltos hasta la raíz y
+  `ProjectScope.parentOf(record)`, el padre presente. Un padre puede ser a su vez un hijo si la cadena llega a una raíz
+  en a lo sumo dos saltos y sin ciclos (`program_measurement` → `program_indicator` → `social_program`): la condición
+  anida una subconsulta por salto, con un alias por salto (`t1`, `t2`), valores enlazados y los nombres de tabla y
+  columna de la definición. Un hijo con varios padres (`delivery`: `commitment` o `social_contribution`, exactamente uno
+  por `ExactlyOneGuard`) se lee por la disyunción de un término por padre posible, cada uno entre paréntesis; un `NULL`
+  en el campo de un término no lo cumple, así que una entrega huérfana (los dos vacíos, por el `ON DELETE SET NULL` de
+  wasichai) solo la leen `ADMIN` y quien tiene `READ_ALL_PROJECTS`. Una definición de la cadena sin la columna de su
+  salto o sin `project` no admite ningún registro (falla cerrado). `ReadColumns.parent` pasa a `parents`, una lista de
+  `ParentPath` con la columna del hijo y los saltos (tabla y columna de cada uno) hasta la columna `project` de la raíz.
+  `ProjectResolver` (escritura) toma el padre presente antes y después y sube la misma cadena leyendo como quien
+  escribe: un registro existente con varios padres posibles y ninguno es `unresolved`, y un alta sin ninguno la rechaza
+  antes `ExactlyOneGuard` (`400 EXACTLY_ONE`). `ProjectLinks.linkedProject` (vínculos) sube la cadena igual; un salto
+  que no se lee es `NotReadable`.
+- **`ArchitectureTest` desde F5:** (1) todo objeto de `model.json` está en un solo grupo y `ProjectScope` no nombra
+  objetos ausentes; (2) los objetos con relación `project` son exactamente `ROOTS` más `project_assignment`; (3) cada
+  padre posible `(f, P)` de un hijo es una relación `(hijo, f, P)` del modelo, con `P` en `ROOTS` o en `CHILDREN`; (4)
+  desde cada hijo, toda cadena llega a una raíz en a lo sumo dos saltos y ningún objeto es su propio ancestro; (5) un
+  hijo que es padre de otro (`program_indicator`) tiene un solo padre posible, con relación obligatoria; (6) un hijo con
+  varios padres tiene todas esas relaciones opcionales, que forman exactamente un grupo de `ExactlyOneGuard` de ese
+  objeto, y no tiene otra relación hacia un objeto de proyecto (hoy, solo `delivery`); (7) los hijos con un único padre
+  opcional son exactamente `locality_profile`, sin otra relación hacia un objeto de proyecto.
 - **Documentos emitidos:** wasichai-documents solo pide READ sobre el objeto (UPS-28); `IssueDocumentFilter` lee el
   registro del documento como quien llama en `GET .../records/{id}/documents` y `GET /api/documents/{id}` (y en su
   `HEAD`, que WebFlux sirve con los mismos `@GetMapping`) y responde `404` si no lo lee.
