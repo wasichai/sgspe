@@ -11,6 +11,10 @@ object Commitments {
     const val STAKEHOLDERS = "commitment_stakeholder"
     const val EVIDENCE_DELIVERY = "evidence_delivery"
 
+    // el otro padre de una entrega desde F5 (sgspe.commitment no depende de sgspe.investment): la corrección de una entrega de
+    // aporte toma su candado, social_contribution:<id>, el mismo que Contributions.lock
+    const val SOCIAL_CONTRIBUTION = "social_contribution"
+
     // donde JOB-01 calcula deadline_status: pendiente de cumplimiento
     val PENDING = setOf("approved", "in_progress", "blocked")
 

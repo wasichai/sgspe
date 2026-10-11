@@ -71,7 +71,7 @@ class Evidences(
             transactions.run {
                 val created = records.create(EvidenceRules.EVIDENCE, attributes, reason, geometries)
                 val id = UUID.fromString(created.id)
-                EvidenceRules.lockOrder(links, commitmentsOf(links)).forEach {
+                EvidenceRules.lockOrder(links, locksOf(links)).forEach {
                     records.link(EvidenceRules.EVIDENCE, id, EvidenceRules.linkRelationship(it.objectName), it.recordId, reason)
                 }
                 created
@@ -134,14 +134,14 @@ class Evidences(
         transactions.run { records.unlink(EvidenceRules.EVIDENCE, id, EvidenceRules.linkRelationship(target.objectName), target.recordId, reason) }
     }
 
-    // el compromiso de cada entrega pedida, leído como quien llama (su compromiso no cambia nunca, CommitmentDeliveries.FIXED); una
-    // entrega que no existe o no se lee queda fuera y su vínculo falla al escribirse. a lo sumo MAX_LINKS lecturas
-    private suspend fun commitmentsOf(links: List<EvidenceLink>): Map<UUID, UUID> =
+    // la clave del candado del padre de cada entrega pedida, leída como quien llama (su padre no cambia nunca); una entrega que no
+    // existe o no se lee queda fuera y su vínculo falla al escribirse. a lo sumo MAX_LINKS lecturas
+    private suspend fun locksOf(links: List<EvidenceLink>): Map<UUID, String> =
         links
             .filter { it.objectName == EvidenceRules.DELIVERY }
             .mapNotNull { link ->
                 records.find(EvidenceRules.DELIVERY, link.recordId)?.let { delivery ->
-                    Records.uuid(delivery.attributes["commitment"])?.let { link.recordId to it }
+                    EvidenceRules.deliveryLock(delivery.attributes)?.let { link.recordId to it }
                 }
             }.toMap()
 
