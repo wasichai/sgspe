@@ -112,9 +112,9 @@ El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre
 ```bash
 cd model
 python3 apply.py --validate-only        # el modelo, los workflows, los tipos de documento y las automatizaciones (sin servidor)
-python3 apply.py                        # objetos, acciones, relaciones e índices. En F4: "done: 333 created, 21 updated, 0 skipped"
+python3 apply.py                        # objetos, acciones, relaciones e índices. En F5: "done: 380 created, 26 updated, 0 skipped"
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
-python3 apply.py --workflows            # 15 workflows, 2 tipos de documento y 6 automatizaciones de F4
+python3 apply.py --workflows            # 17 workflows, 2 tipos de documento y 6 automatizaciones de F5
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
 python3 -m unittest -v                  # las pruebas de los scripts, contra un core falso, y del modelo contra docs/
 ```
@@ -193,7 +193,7 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
    `--rerun` evita que la caché de Gradle devuelva un verde viejo. Detalles en
    `wasichai/docs/development/getting-started.md#integration-tests`.
 
-   La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 72 objetos y por el túnel tarda
+   La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 82 objetos y por el túnel tarda
    entre 11 y 58 minutos según la carga del túnel (una corrida de Gradle midió 57 min 40 s), con el aprovisionamiento del
    tenant incluido. Para depurar
    un cambio de `model/roles.json`, recórtala a unos roles con `-Dmatrix.roles=FIELD_AGENT,GIS_ANALYST` (separados por
