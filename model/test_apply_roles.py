@@ -1,4 +1,4 @@
-"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F4).
+"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F5).
 
 Desde F2, roles.json se contrasta con la matriz de security.md §7.2 a §7.8 y con los campos restringidos de §7.9, que
 lee design_docs.py.
@@ -100,17 +100,15 @@ class RolesJsonTests(unittest.TestCase):
                       if max(phases[name], cards[obj].phase) <= phase and matrix[obj][name]}
             self.assertEqual(role["permisos"], wanted, name)
 
-    def test_los_roles_de_una_fase_posterior_siguen_sin_permisos(self):
-        # la fase del modelo es la de su objeto más tardío: F4 desde el plan 4.1, así que solo SOCIAL_INVESTMENT_MANAGER
-        # (F5) sigue con {}
+    def test_desde_f5_todos_los_roles_tienen_permisos(self):
+        # la fase del modelo es la de su objeto más tardío: F5 desde el plan 5.1, y SOCIAL_INVESTMENT_MANAGER (F5), el
+        # último rol en recibir permisos (security.md §7.1), deja de tener {}
         phases, _ = design_docs.role_phases()
         cards = design_docs.cards()
         phase = max(cards[o["name"]].phase for o in load(MODEL_PATH)["objects"])
-        self.assertEqual(phase, "F4")
-        later = sorted(name for name in self.roles if name != "AUDITOR" and phases[name] > phase)
-        self.assertEqual(later, ["SOCIAL_INVESTMENT_MANAGER"])
-        for name in later:
-            self.assertEqual(self.roles[name]["permisos"], {}, name)
+        self.assertEqual(phase, "F5")
+        self.assertEqual(sorted(name for name in self.roles if name != "AUDITOR" and phases[name] > phase), [])
+        self.assertEqual([name for name, role in self.roles.items() if not role["permisos"]], [])
 
     def test_los_campos_restringidos_son_los_de_security_7_9_para_los_objetos_del_modelo(self):
         objects = {o["name"] for o in load(MODEL_PATH)["objects"]}
@@ -155,13 +153,16 @@ class RolesJsonTests(unittest.TestCase):
     def test_los_roles_de_cada_aprobacion_son_exactamente_los_que_tienen_approve(self):
         # security.md §5.3, «Doble llave en las decisiones»: en WF-D, approve (APPROVER) y approve_senior
         # (PROJECT_MANAGER) son las dos aprobaciones, y verify la verificación (D3, D11); en WF-E1, resolve_high_severity
-        # resuelve las quejas graves (RN-GRV-002), y en WF-J confirm y dismiss deciden la alerta (RN-EWS-001)
+        # resuelve las quejas graves (RN-GRV-002), y en WF-J confirm y dismiss deciden la alerta (RN-EWS-001); desde F5,
+        # approve de WF-G (G1) y de WF-P (P4)
         for obj, transitions, action in (("project", ("approve",), "APPROVE"), ("area_of_influence", ("approve",), "APPROVE"),
                                          ("area_of_influence", ("supersede",), "APPROVE"),
                                          ("commitment", ("approve", "approve_senior"), "APPROVE"),
                                          ("commitment", ("verify",), "VERIFY"),
                                          ("grievance", ("resolve_high_severity",), "APPROVE"),
-                                         ("early_warning", ("confirm", "dismiss"), "CONFIRM_ALERT")):
+                                         ("early_warning", ("confirm", "dismiss"), "CONFIRM_ALERT"),
+                                         ("social_program", ("approve",), "APPROVE"),
+                                         ("social_contribution", ("approve",), "APPROVE")):
             workflow = load(os.path.join(HERE, "workflows", f"{obj}.json"))
             roles = {r for t in workflow["definition"]["transitions"] if t["name"] in transitions for r in t["roles"]}
             holders = {name for name, role in self.roles.items() if action in role["permisos"].get(obj, [])}
@@ -175,22 +176,25 @@ class RolesJsonTests(unittest.TestCase):
         self.assertEqual(holders, {("GRIEVANCE_MANAGER", "grievance"), ("GRIEVANCE_MANAGER", "inquiry"),
                                    ("GRIEVANCE_MANAGER", "stakeholder_request")})
 
-    def test_quien_cierra_un_compromiso_cierra_su_solicitud(self):
-        # workflows.md, WF-E3: RequestClosureListener aplica close_accepted como quien aplica close de WF-D, que necesita
-        # su rol en close_accepted y READ y UPDATE sobre stakeholder_request; si no, el cierre del compromiso se revierte
-        commitment = load(os.path.join(HERE, "workflows", "commitment.json"))
+    def test_quien_cierra_un_compromiso_o_un_aporte_cierra_su_solicitud(self):
+        # workflows.md, WF-E3: RequestClosureListener aplica close_accepted como quien aplica close de WF-D o, desde F5,
+        # de WF-P, que necesita su rol en close_accepted y READ y UPDATE sobre stakeholder_request; si no, el cierre del
+        # compromiso o del aporte se revierte
         request = load(os.path.join(HERE, "workflows", "stakeholder_request.json"))
-        closers = next(set(t["roles"]) for t in commitment["definition"]["transitions"] if t["name"] == "close")
         accepted = next(set(t["roles"]) for t in request["definition"]["transitions"] if t["name"] == "close_accepted")
-        self.assertLessEqual(closers, accepted)
-        for name in closers:
-            self.assertLessEqual({"READ", "UPDATE"}, set(self.roles[name]["permisos"]["stakeholder_request"]), name)
+        for obj in ("commitment", "social_contribution"):
+            workflow = load(os.path.join(HERE, "workflows", f"{obj}.json"))
+            closers = next(set(t["roles"]) for t in workflow["definition"]["transitions"] if t["name"] == "close")
+            self.assertLessEqual(closers, accepted, obj)
+            for name in closers:
+                self.assertLessEqual({"READ", "UPDATE"}, set(self.roles[name]["permisos"]["stakeholder_request"]),
+                                     (obj, name))
 
-    def test_los_roles_de_cada_comando_de_f4_crean_lo_que_el_comando_escribe(self):
-        # security.md §8.2: un endpoint de comando exige los permisos de todo lo que escribe. accept de WF-E3 crea el
-        # compromiso en draft; las reclasificaciones crean la QCS del otro tipo; assess de WF-F crea la revisión
-        writes = {("stakeholder_request", "accept"): ["commitment"],
-                  ("grievance", "close_reclassified_received"): ["inquiry", "stakeholder_request"],
+    def test_los_roles_de_cada_comando_crean_lo_que_el_comando_escribe(self):
+        # security.md §8.2: un endpoint de comando exige los permisos de todo lo que escribe. las reclasificaciones crean
+        # la QCS del otro tipo; assess de WF-F crea la revisión. accept de WF-E3 crea el compromiso o, desde F5, el aporte:
+        # lo mira test_quien_acepta_una_solicitud_crea_un_compromiso_o_un_aporte
+        writes = {("grievance", "close_reclassified_received"): ["inquiry", "stakeholder_request"],
                   ("inquiry", "close_reclassified"): ["grievance", "stakeholder_request"],
                   ("stakeholder_request", "close_reclassified_received"): ["grievance", "inquiry"],
                   ("social_risk", "assess"): ["risk_assessment"]}
@@ -200,6 +204,57 @@ class RolesJsonTests(unittest.TestCase):
             for role in roles:
                 for target in created:
                     self.assertIn("CREATE", self.roles[role]["permisos"].get(target, []), (obj, name, role, target))
+
+    def test_quien_acepta_una_solicitud_crea_un_compromiso_o_un_aporte(self):
+        # §2.2 y §4.2 de la especificación de F5: cada rol de accept crea al menos uno de los dos (COMMITMENT_MANAGER, solo
+        # el compromiso: aceptar como aporte le responde 403, coherente), y quien crea el aporte actualiza la solicitud
+        workflow = load(os.path.join(HERE, "workflows", "stakeholder_request.json"))
+        roles = next(t["roles"] for t in workflow["definition"]["transitions"] if t["name"] == "accept")
+        for role in roles:
+            grants = self.roles[role]["permisos"]
+            creates = {obj for obj in ("commitment", "social_contribution") if "CREATE" in grants.get(obj, [])}
+            self.assertTrue(creates, role)
+            if "social_contribution" in creates:
+                self.assertIn("UPDATE", grants["stakeholder_request"], role)
+        self.assertNotIn("CREATE", self.roles["COMMITMENT_MANAGER"]["permisos"]["social_contribution"])
+
+    def test_quien_registra_un_aporte_carga_sus_items(self):
+        # decisión 1 de F5: los ítems se cargan en requested, antes de aprobar; quien crea el aporte crea, cambia y borra
+        # sus ítems (elección 15: SOCIAL_MANAGER y COMMUNITY_RELATIONS_OFFICER pasan de R a CRUD)
+        for name, role in self.roles.items():
+            if "CREATE" in role["permisos"].get("social_contribution", []):
+                self.assertEqual(set(role["permisos"]["contribution_item"]), {"READ", "CREATE", "UPDATE", "DELETE"}, name)
+
+    def test_solo_social_manager_supera_el_tope_de_un_aporte(self):
+        # §2.2 de la especificación de F5 (ASM-119): APPROVE_OVER_CAP sobre social_contribution solo lo tiene
+        # SOCIAL_MANAGER, un rol de approve de WF-P; approve_direct (SOCIAL_INVESTMENT_MANAGER) no lo supera
+        holders = {name for name, role in self.roles.items()
+                   if "APPROVE_OVER_CAP" in role["permisos"].get("social_contribution", [])}
+        self.assertEqual(holders, {"SOCIAL_MANAGER"})
+        workflow = load(os.path.join(HERE, "workflows", "social_contribution.json"))
+        roles = {t["name"]: set(t["roles"]) for t in workflow["definition"]["transitions"]}
+        self.assertLessEqual(holders, roles["approve"])
+        self.assertEqual(holders & roles["approve_direct"], set())
+
+    def test_los_datos_del_programa_tienen_un_solo_dueno(self):
+        # elección 15 de F5: SOCIAL_INVESTMENT_MANAGER escribe los hijos de social_program; SOCIAL_MANAGER conduce el
+        # ciclo con RU sobre el programa y solo lee sus hijos
+        children = ("social_initiative", "beneficiary_group", "program_budget", "program_indicator", "program_measurement",
+                    "program_milestone")
+        for obj in children:
+            writers = {name for name, role in self.roles.items()
+                       if {"CREATE", "UPDATE", "u", "DELETE"} & set(role["permisos"].get(obj, []))}
+            self.assertEqual(writers, {"SOCIAL_INVESTMENT_MANAGER"}, obj)
+        self.assertEqual(self.roles["SOCIAL_MANAGER"]["permisos"]["social_program"], ["READ", "UPDATE"])
+        self.assertEqual(self.roles["SOCIAL_INVESTMENT_MANAGER"]["permisos"]["program_measurement"], ["READ", "CREATE"])
+
+    def test_quien_edita_las_politicas_del_proyecto_vincula_los_temas_priorizados(self):
+        # §3.1 de la especificación de F5 y security.md §5.6: vincular project_priority_topic pide UPDATE sobre project y
+        # `u` sobre topic
+        for name in ("PROJECT_ADMIN", "PROJECT_MANAGER"):
+            grants = self.roles[name]["permisos"]
+            self.assertIn("UPDATE", grants["project"], name)
+            self.assertIn("u", grants["topic"], name)
 
     def test_quien_supera_el_tope_tiene_la_aprobacion_superior(self):
         # workflows.md, WF-D (D7): APPROVE_OVER_CAP solo sirve con una transición de aprobación; en commitment la tiene
@@ -302,8 +357,8 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("MANAGE_METADATA" in e for e in errors), errors)
 
     def test_un_objeto_que_el_modelo_no_tiene_se_rechaza(self):
-        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"social_contribution": ["READ"]}))
-        self.assertTrue(any("object 'social_contribution' is not in model.json" in e for e in errors), errors)
+        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"ai_suggestion": ["READ"]}))
+        self.assertTrue(any("object 'ai_suggestion' is not in model.json" in e for e in errors), errors)
 
     def test_una_accion_declarada_solo_vale_sobre_su_objeto(self):
         def only(permisos):
@@ -314,11 +369,11 @@ class ValidationTests(unittest.TestCase):
 
     def test_restricted_fields_nombra_objetos_campos_y_lectores_que_existen(self):
         errors = self.mutate(lambda r: r["restrictedFields"].extend([
-            {"object": "social_contribution", "fields": ["description"], "readers": []},
+            {"object": "ai_suggestion", "fields": ["description"], "readers": []},
             {"object": "person", "fields": ["nickname"], "readers": ["SOCIAL_MANAGER"]},
             {"object": "topic", "fields": ["code"], "readers": ["INTRUSO"]},
             {"object": "stakeholder", "fields": ["stance"], "readers": ["SOCIAL_MANAGER"]}]))
-        self.assertTrue(any("object 'social_contribution' is not in model.json" in e for e in errors), errors)
+        self.assertTrue(any("object 'ai_suggestion' is not in model.json" in e for e in errors), errors)
         self.assertTrue(any("'nickname' is not a field of person" in e for e in errors), errors)
         self.assertTrue(any("reader 'INTRUSO' of topic is not a declared role" in e for e in errors), errors)
         self.assertTrue(any("stakeholder.stance is listed twice" in e for e in errors), errors)
@@ -533,14 +588,14 @@ class ApplyRolesTests(ApplyRolesTestCase):
 
     def test_un_roles_json_invalido_no_llama_a_core(self):
         roles = load(ROLES_PATH)
-        roles["roles"][0]["permisos"]["social_contribution"] = ["READ"]
+        roles["roles"][0]["permisos"]["ai_suggestion"] = ["READ"]
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "roles.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(roles, f)
             code, out, err = self.run_cli(roles_path=path)
         self.assertEqual(code, 2)
-        self.assertIn("social_contribution", out)
+        self.assertIn("ai_suggestion", out)
         self.assertEqual(self.core.requests, [])
 
     def test_un_roles_json_mal_formado_sale_con_2_y_sin_traza(self):

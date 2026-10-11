@@ -99,4 +99,28 @@ class ProjectLinksTest {
         }
         assertThrows<NotReadable> { runBlocking { ProjectLinks.projectOf("agreement_clause", mapOf("agreement" to clause.toString()), read) } }
     }
+
+    // Review Focus 4: la medición sube por su indicador; la entrega, por el padre que tenga; un salto ilegible es NotReadable
+    @Test
+    fun `el proyecto de un destino de F5 sube la cadena desde el padre que tenga`() {
+        val indicator = UUID.randomUUID()
+        val program = UUID.randomUUID()
+        val contribution = UUID.randomUUID()
+        val read: suspend (String, UUID) -> Map<String, Any?> = { name, id ->
+            when (id) {
+                indicator -> mapOf("social_program" to program.toString())
+                program -> mapOf("project" to a.toString())
+                contribution -> mapOf("project" to b.toString())
+                else -> throw NotReadable(name)
+            }
+        }
+        runBlocking {
+            assertEquals(a, ProjectLinks.projectOf("program_measurement", mapOf("program_indicator" to indicator.toString()), read))
+            assertEquals(b, ProjectLinks.projectOf("delivery", mapOf("commitment" to null, "social_contribution" to contribution.toString()), read))
+            assertNull(ProjectLinks.projectOf("delivery", mapOf("commitment" to null, "social_contribution" to null), read))
+        }
+        assertThrows<NotReadable> {
+            runBlocking { ProjectLinks.projectOf("program_measurement", mapOf("program_indicator" to UUID.randomUUID().toString()), read) }
+        }
+    }
 }

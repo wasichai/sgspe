@@ -2,6 +2,7 @@ package sgspe.scope
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -162,6 +163,67 @@ class ProjectReadScopeTest {
         assertEquals("false", condition(scope(), definition("stakeholder", "name")))
         val partial = Definitions(mapOf("project_assignment" to definition("project_assignment", "project", "member_user_id", "active")))
         assertEquals("false", condition(scope(definitions = partial), definition("stakeholder", "project")))
+    }
+
+    // ASM-114: la entrega con dos padres, sin «IS NULL OR»
+    @Test
+    fun `una entrega se acota por sus dos padres, sin el vacio`() {
+        val definitions =
+            Definitions(
+                mapOf(
+                    "project_assignment" to assignment,
+                    "commitment" to definition("commitment", "project"),
+                    "social_contribution" to definition("social_contribution", "project")
+                )
+            )
+        val text = condition(scope(definitions = definitions), definition("delivery", "commitment", "social_contribution"))!!
+        assertTrue(text.startsWith("(\"commitment\" IN (SELECT t1.\"id\" FROM \"data\".\"commitment_tbl\" t1"), text)
+        assertTrue(text.contains(") OR (\"social_contribution\" IN (SELECT t1.\"id\" FROM \"data\".\"social_contribution_tbl\" t1"), text)
+        // sin el «IS NULL OR» de un único padre opcional; «mis proyectos» lleva los suyos sobre las fechas de la asignación
+        assertFalse(text.contains("\"commitment\" IS NULL") || text.contains("\"social_contribution\" IS NULL"), text)
+        assertEquals(listOf("project_assignment", "commitment", "social_contribution"), definitions.asked)
+    }
+
+    // Review Focus 1: la entrega de un tenant de F4 no tiene la columna social_contribution ni existe el objeto: se lee por su
+    // compromiso, sin pedir la definición que falta
+    @Test
+    fun `en un tenant sin el modelo de F5 la entrega se acota solo por su compromiso`() {
+        val definitions = Definitions(mapOf("project_assignment" to assignment, "commitment" to definition("commitment", "project")))
+        val text = condition(scope(definitions = definitions), definition("delivery", "commitment"))!!
+        assertTrue(text.startsWith("\"commitment\" IN (SELECT t1.\"id\" FROM \"data\".\"commitment_tbl\" t1"), text)
+        assertFalse(text.contains("\"commitment\" IS NULL"), text)
+        assertEquals(listOf("project_assignment", "commitment"), definitions.asked)
+    }
+
+    // ASM-114 y Review Focus 4: el nieto sube por su indicador; a un salto le falta su columna y no se admite ningún registro
+    @Test
+    fun `una medicion se acota por su indicador y el programa de su indicador`() {
+        val definitions =
+            Definitions(
+                mapOf(
+                    "project_assignment" to assignment,
+                    "program_indicator" to definition("program_indicator", "social_program"),
+                    "social_program" to definition("social_program", "project")
+                )
+            )
+        val text = condition(scope(definitions = definitions), definition("program_measurement", "program_indicator"))!!
+        assertTrue(
+            text.startsWith(
+                "\"program_indicator\" IN (SELECT t1.\"id\" FROM \"data\".\"program_indicator_tbl\" t1 WHERE t1.organization_id = :p " +
+                    "AND t1.\"social_program\" IN (SELECT t2.\"id\" FROM \"data\".\"social_program_tbl\" t2"
+            ),
+            text
+        )
+        assertEquals(listOf("project_assignment", "program_indicator", "social_program"), definitions.asked)
+        val broken =
+            Definitions(
+                mapOf(
+                    "project_assignment" to assignment,
+                    "program_indicator" to definition("program_indicator", "name"),
+                    "social_program" to definition("social_program", "project")
+                )
+            )
+        assertEquals("false", condition(scope(definitions = broken), definition("program_measurement", "program_indicator")))
     }
 
     @Test

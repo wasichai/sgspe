@@ -74,14 +74,17 @@ class AmountFieldsGuardTest {
                 "exploration_campaign" to setOf("social_support_cap"),
                 "commitment" to setOf("amount"),
                 "delivery" to setOf("delivered_amount"),
-                "agreement" to setOf("amount")
+                "agreement" to setOf("amount"),
+                "contribution_item" to setOf("line_amount", "unit_cost"),
+                "receipt" to setOf("amount"),
+                "program_budget" to setOf("allocated_amount", "executed_amount")
             ),
             AmountFieldsGuard.FIELDS
         )
     }
 
     // la completitud: cada DECIMAL no derivado del modelo es un monto (FIELDS) o está en NOT_MONEY con su motivo. un DECIMAL
-    // nuevo (los montos de F4: receipt.amount, contribution_item.line_amount, program_budget.*) hace fallar esta prueba hasta
+    // nuevo (los de F5 los clasificó el plan 5.1, elección 11) hace fallar esta prueba hasta
     // que alguien lo clasifique, así un monto no entra al modelo sin cotas
     @Test
     fun `todo DECIMAL no derivado del modelo es un monto de FIELDS o esta en NOT_MONEY con su motivo`() {

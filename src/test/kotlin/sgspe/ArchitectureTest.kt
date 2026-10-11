@@ -225,6 +225,10 @@ class ArchitectureTest {
                 assertEquals(visited.size, visited.toSet().size, "$child.$field pasa dos veces por un objeto: $visited")
             }
         }
+        assertEquals(
+            listOf("program_indicator" to "program_indicator", "social_program" to "social_program"),
+            ProjectScope.chain("program_measurement", "program_indicator")
+        )
     }
 
     // regla 5: un hijo que es padre de otro tiene un solo padre posible, con relación obligatoria: la cadena de su hijo es una
@@ -238,7 +242,7 @@ class ArchitectureTest {
                 .map { it.second }
                 .filter { it in ProjectScope.CHILDREN }
                 .toSet()
-        assertEquals(emptySet<String>(), intermediate)
+        assertEquals(setOf("program_indicator"), intermediate)
         for (name in intermediate) {
             val parents = ProjectScope.CHILDREN.getValue(name)
             assertEquals(1, parents.size, "$name tiene varios padres y es padre de otro hijo")
@@ -253,7 +257,7 @@ class ArchitectureTest {
     fun `un hijo con varios padres los tiene opcionales, en un grupo de exactamente uno y sin otro vinculo de proyecto`() {
         val relations = modelRelations()
         val several = ProjectScope.CHILDREN.filterValues { it.size > 1 }
-        assertEquals(emptySet<String>(), several.keys)
+        assertEquals(setOf("delivery"), several.keys)
         for ((child, parents) in several) {
             val fields = parents.map { it.first }
             val own = relations.filter { it.source == child && it.field != null }
@@ -278,7 +282,7 @@ class ArchitectureTest {
                 .filter { (child, parents) -> parents.size == 1 && relations.none { it.source == child && it.field == parents.single().first && it.required } }
                 .keys
         assertEquals(
-            setOf("delivery", "locality_profile"),
+            setOf("locality_profile"),
             optional,
             "los hijos con un único padre opcional se leen en todo el tenant cuando no lo tienen: revise ProjectScope.CHILDREN, " +
                 "ProjectReadCondition y security.md §9.7 antes de cambiar esta lista"

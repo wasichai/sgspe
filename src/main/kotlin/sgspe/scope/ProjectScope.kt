@@ -48,7 +48,10 @@ object ProjectScope {
             "media_mention",
             "early_warning_signal",
             "early_warning_rule",
-            "early_warning"
+            "early_warning",
+            // F5: aportes y programas (BC-10)
+            "social_contribution",
+            "social_program"
         )
 
     // hijo -> sus padres posibles, en orden: (campo RELATION, objeto padre). el padre es una raíz o un hijo con un único padre
@@ -69,11 +72,22 @@ object ProjectScope {
             "commitment_milestone" to listOf("commitment" to "commitment"),
             "commitment_reschedule" to listOf("commitment" to "commitment"),
             "commitment_dependency" to listOf("commitment" to "commitment"),
-            "delivery" to listOf("commitment" to "commitment"),
+            // desde F5, la entrega de un compromiso o de un aporte: exactamente uno (ExactlyOneGuard), leída por el que tenga
+            "delivery" to listOf("commitment" to "commitment", "social_contribution" to "social_contribution"),
             "agreement_party" to listOf("agreement" to "agreement"),
             "agreement_clause" to listOf("agreement" to "agreement"),
             "risk_assessment" to listOf("social_risk" to "social_risk"),
-            "mitigation_measure" to listOf("social_risk" to "social_risk")
+            "mitigation_measure" to listOf("social_risk" to "social_risk"),
+            // F5: los ítems y los comprobantes por su aporte; los datos del programa por su programa, y las mediciones por su
+            // indicador, que cuelga del programa (dos saltos)
+            "contribution_item" to listOf("social_contribution" to "social_contribution"),
+            "receipt" to listOf("social_contribution" to "social_contribution"),
+            "social_initiative" to listOf("social_program" to "social_program"),
+            "beneficiary_group" to listOf("social_program" to "social_program"),
+            "program_budget" to listOf("social_program" to "social_program"),
+            "program_indicator" to listOf("social_program" to "social_program"),
+            "program_measurement" to listOf("program_indicator" to "program_indicator"),
+            "program_milestone" to listOf("social_program" to "social_program")
         )
 
     // los saltos de una cadena, como mucho: ProjectReadCondition anida una subconsulta por salto (elección 1 de F5)

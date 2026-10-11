@@ -14,6 +14,7 @@
     "component_status": ["PROGRAMADO", "EN EJECUCION", "EJECUTADO", "CANCELADO", "CERRADO"],
     "component_type": ["SONDAJE", "PLATAFORMA", "ACCESO", "CAMPAMENTO", "CAPTACION"],
     "contact_channel": ["TELEFONO", "CORREO ELECTRONICO", "MENSAJERIA", "DIRECCION", "OTRO"],
+    "contribution_type": ["DONACION", "APOYO EN ESPECIE"],
     "currency": ["PEN", "USD"],
     "data_reliability": ["REFERENCIAL", "VERIFICADO"],
     "deadline_status": ["AL DIA", "POR VENCER", "VENCIDO"],
@@ -32,6 +33,7 @@
     "information_priority": ["MUY ALTA", "ALTA", "MEDIA"],
     "instrument_type": ["ENTREVISTA SEMIESTRUCTURADA", "FICHA DE OBSERVACION LOCAL", "ENCUESTA"],
     "interview_status": ["ENTREVISTADO", "SE NEGO", "NO UBICADO", "NO PROGRAMADO"],
+    "item_kind": ["BIEN", "SERVICIO", "DINERO", "MANO DE OBRA"],
     "local_conflict_status": ["ACTIVO", "RESUELTO"],
     "local_conflict_type": ["AGUA", "LIMITES", "TERRENOS", "SEPARACION", "OTRO"],
     "locality_type": ["CASERIO", "SECTOR", "CENTRO POBLADO", "ANEXO", "CIUDAD"],
@@ -50,6 +52,7 @@
     "project_type": ["MINERIA", "HIDROCARBUROS", "ENERGIA", "OTRO"],
     "qcs_category": ["AGUA Y MEDIO AMBIENTE", "EMPLEO", "TIERRAS", "VIAS Y TRANSITO", "APOYO SOCIAL", "COMPROMISOS", "INFORMACION DEL PROYECTO", "CONDUCTA DEL PERSONAL", "OTRO"],
     "qcs_channel": ["PRESENCIAL", "CARTA", "REUNION", "TELEFONO", "CORREO", "CONTRATISTA", "OTRO"],
+    "receipt_type": ["BOLETA DE VENTA", "FACTURA", "RECIBO"],
     "recognition_status": ["RECONOCIDO", "EN TRAMITE", "NO RECONOCIDO", "EN SEPARACION"],
     "relationship_status": ["SIN CONTACTO", "CONTACTO ESTABLECIDO", "RELACION ACTIVA", "RELACION DETERIORADA", "INACTIVA"],
     "request_medium": ["CARTA DE SOLICITUD", "ACUERDO EN REUNION"],
@@ -1141,6 +1144,151 @@
       ]
     },
     {
+      "name": "social_contribution",
+      "label": "Aporte social",
+      "pluralLabel": "Aportes sociales",
+      "description": "Apoyo puntual (donación o apoyo en especie) entregado con acta de recepción, foto y comprobante, con propósito, condiciones y pagador declarados.",
+      "requiresReason": true,
+      "uniqueConstraints": [["project", "code"]],
+      "actions": [{"name": "APPROVE", "label": "Aprobar"}, {"name": "APPROVE_OVER_CAP", "label": "Aprobar sobre el tope"}],
+      "fields": [
+        {"name": "code", "label": "Código del aporte", "type": "TEXT", "required": true, "description": "Código del aporte en el proyecto."},
+        {"name": "contribution_type", "label": "Tipo de aporte", "type": "ENUM", "enum": "contribution_type", "description": "Tipo de aporte; se exige al aprobar (P9, ASM-112)."},
+        {"name": "occasion", "label": "Ocasión", "type": "TEXT", "description": "Ocasión (por ejemplo, un aniversario escolar)."},
+        {"name": "declared_purpose", "label": "Propósito declarado", "type": "LONG_TEXT", "required": true, "description": "Propósito declarado."},
+        {"name": "conditions", "label": "Condiciones declaradas", "type": "LONG_TEXT", "required": true, "description": "Condiciones declaradas."},
+        {"name": "total_amount", "label": "Monto total", "type": "DECIMAL", "derived": true, "description": "(derivado) Suma de line_amount de sus ítems: el monto que se aprueba y se compara con el tope de la campaña (ASM-110)."},
+        {"name": "currency", "label": "Moneda", "type": "ENUM", "enum": "currency", "required": true, "defaultValue": "PEN", "description": "Moneda del aporte y de sus ítems. Por defecto: PEN."},
+        {"name": "beneficiaries_count", "label": "Beneficiarios", "type": "INTEGER", "description": "Beneficiarios; entero no negativo (ASM-118)."},
+        {"name": "has_institutional_synergy", "label": "Sinergia institucional", "type": "BOOLEAN", "description": "Forma parte de una sinergia institucional; con la política activa, exige un acuerdo vigente al aprobar (P6)."},
+        {"name": "guideline_deviation_justification", "label": "Justificación de la desviación", "type": "LONG_TEXT", "description": "Justificación cuando se aparta de los lineamientos; cubre todos los incumplidos (ASM-112)."}
+      ]
+    },
+    {
+      "name": "contribution_item",
+      "label": "Ítem del aporte",
+      "pluralLabel": "Ítems del aporte",
+      "description": "Bien, servicio, dinero o mano de obra que compone un aporte, con su tipo, cantidad y monto.",
+      "fields": [
+        {"name": "description", "label": "Bien o servicio", "type": "TEXT", "required": true, "description": "Bien o servicio."},
+        {"name": "item_kind", "label": "Tipo de ítem", "type": "ENUM", "enum": "item_kind", "required": true, "description": "Tipo de ítem; lo leen los lineamientos al aprobar (ASM-112)."},
+        {"name": "quantity", "label": "Cantidad", "type": "DECIMAL", "description": "Cantidad; informativa, no se compara con line_amount."},
+        {"name": "unit", "label": "Unidad", "type": "TEXT", "description": "Unidad."},
+        {"name": "unit_cost", "label": "Costo unitario", "type": "DECIMAL", "description": "Costo unitario; informativo."},
+        {"name": "line_amount", "label": "Monto de la línea", "type": "DECIMAL", "required": true, "description": "Monto de la línea, en la moneda del aporte; es el que cuenta (ASM-110)."}
+      ]
+    },
+    {
+      "name": "receipt",
+      "label": "Comprobante",
+      "pluralLabel": "Comprobantes",
+      "description": "Datos estructurados del documento de pago de un aporte; el escaneo es una evidence de tipo COMPROBANTE.",
+      "fields": [
+        {"name": "receipt_type", "label": "Tipo de comprobante", "type": "ENUM", "enum": "receipt_type", "description": "Tipo de comprobante."},
+        {"name": "receipt_number", "label": "Número", "type": "TEXT", "description": "Número (nunca en artefactos versionados)."},
+        {"name": "issuer_name", "label": "Emisor", "type": "TEXT", "description": "Emisor."},
+        {"name": "issued_to_name", "label": "Emitido a nombre de", "type": "TEXT", "description": "A nombre de quién se emitió."},
+        {"name": "issue_date", "label": "Fecha de emisión", "type": "DATE", "description": "Fecha de emisión."},
+        {"name": "amount", "label": "Monto", "type": "DECIMAL", "required": true, "description": "Monto."},
+        {"name": "currency", "label": "Moneda", "type": "ENUM", "enum": "currency", "required": true, "defaultValue": "PEN", "description": "Moneda. Por defecto: PEN."}
+      ]
+    },
+    {
+      "name": "social_program",
+      "label": "Programa social",
+      "pluralLabel": "Programas sociales",
+      "description": "Programa de inversión social de la empresa, con socios, presupuesto, beneficiarios, indicadores e hitos.",
+      "uniqueConstraints": [["project", "code"]],
+      "actions": [{"name": "APPROVE", "label": "Aprobar"}],
+      "fields": [
+        {"name": "code", "label": "Código del programa", "type": "TEXT", "required": true, "description": "Código del programa en el proyecto."},
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "start_date", "label": "Inicio", "type": "DATE", "description": "Inicio."},
+        {"name": "end_date", "label": "Fin", "type": "DATE", "description": "Fin."},
+        {"name": "total_budget", "label": "Presupuesto total", "type": "DECIMAL", "derived": true, "description": "(derivado) Suma de allocated_amount de sus presupuestos en la moneda del programa; sin moneda del programa, vacío (ASM-113)."},
+        {"name": "currency", "label": "Moneda", "type": "ENUM", "enum": "currency", "defaultValue": "PEN", "description": "Moneda. Por defecto: PEN."}
+      ]
+    },
+    {
+      "name": "social_initiative",
+      "label": "Iniciativa social",
+      "pluralLabel": "Iniciativas sociales",
+      "description": "Proyecto concreto dentro de un programa.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "start_date", "label": "Inicio", "type": "DATE", "description": "Inicio."},
+        {"name": "end_date", "label": "Fin", "type": "DATE", "description": "Fin."},
+        {"name": "location", "label": "Ubicación", "type": "GEOMETRY", "geometryType": "POINT", "srid": 4326, "dimension": 2, "description": "Ubicación."}
+      ]
+    },
+    {
+      "name": "beneficiary_group",
+      "label": "Grupo de beneficiarios",
+      "pluralLabel": "Grupos de beneficiarios",
+      "description": "Población objetivo de un programa o de una iniciativa.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "description", "label": "Descripción", "type": "LONG_TEXT", "description": "Descripción."},
+        {"name": "target_count", "label": "Beneficiarios previstos", "type": "INTEGER", "description": "Beneficiarios previstos."},
+        {"name": "reached_count", "label": "Beneficiarios alcanzados", "type": "INTEGER", "description": "Beneficiarios alcanzados."}
+      ]
+    },
+    {
+      "name": "program_budget",
+      "label": "Presupuesto del programa",
+      "pluralLabel": "Presupuestos del programa",
+      "description": "Monto asignado y ejecutado de un programa por año.",
+      "uniqueConstraints": [["social_program", "budget_year"]],
+      "fields": [
+        {"name": "budget_year", "label": "Año", "type": "INTEGER", "required": true, "description": "Año."},
+        {"name": "allocated_amount", "label": "Monto asignado", "type": "DECIMAL", "required": true, "description": "Monto asignado."},
+        {"name": "executed_amount", "label": "Monto ejecutado registrado", "type": "DECIMAL", "description": "Monto ejecutado registrado (ASM-063)."},
+        {"name": "currency", "label": "Moneda", "type": "ENUM", "enum": "currency", "required": true, "defaultValue": "PEN", "description": "Moneda. Por defecto: PEN."}
+      ]
+    },
+    {
+      "name": "program_indicator",
+      "label": "Indicador de programa",
+      "pluralLabel": "Indicadores de programa",
+      "description": "Indicador de resultado o de impacto de un programa, con línea base y meta (GAP-032).",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "definition", "label": "Definición", "type": "LONG_TEXT", "description": "Definición."},
+        {"name": "unit", "label": "Unidad", "type": "TEXT", "description": "Unidad."},
+        {"name": "baseline_value", "label": "Valor de línea base", "type": "DECIMAL", "description": "Valor de línea base."},
+        {"name": "target_value", "label": "Meta", "type": "DECIMAL", "description": "Meta."},
+        {"name": "frequency", "label": "Frecuencia de medición", "type": "TEXT", "description": "Frecuencia de medición."}
+      ]
+    },
+    {
+      "name": "program_measurement",
+      "label": "Medición de programa",
+      "pluralLabel": "Mediciones de programa",
+      "description": "Valor periódico e inmutable de un indicador de programa.",
+      "appendOnly": true,
+      "uniqueConstraints": [["program_indicator", "period_start_date"]],
+      "fields": [
+        {"name": "period_start_date", "label": "Inicio del periodo", "type": "DATE", "required": true, "description": "Inicio del periodo."},
+        {"name": "period_end_date", "label": "Fin del periodo", "type": "DATE", "required": true, "description": "Fin del periodo."},
+        {"name": "measured_value", "label": "Valor medido", "type": "DECIMAL", "required": true, "description": "Valor medido."},
+        {"name": "notes", "label": "Notas", "type": "LONG_TEXT", "description": "Notas."}
+      ]
+    },
+    {
+      "name": "program_milestone",
+      "label": "Hito de programa",
+      "pluralLabel": "Hitos de programa",
+      "description": "Fecha o logro previsto de un programa.",
+      "fields": [
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "planned_date", "label": "Fecha prevista", "type": "DATE", "description": "Fecha prevista."},
+        {"name": "reached_date", "label": "Fecha alcanzada", "type": "DATE", "description": "Fecha en que se alcanzó."},
+        {"name": "notes", "label": "Notas", "type": "LONG_TEXT", "description": "Notas."}
+      ]
+    },
+    {
       "name": "evidence",
       "label": "Evidencia",
       "pluralLabel": "Evidencias",
@@ -1368,6 +1516,7 @@
   ],
   "relationships": [
     {"name": "project_concession", "type": "MANY_TO_MANY", "label": "Concesiones", "inverseLabel": "Proyectos", "source": "project", "target": "mining_concession"},
+    {"name": "project_priority_topic", "type": "MANY_TO_MANY", "label": "Temas priorizados para aportes", "inverseLabel": "Proyectos", "source": "project", "target": "topic"},
     {"name": "project_party_project", "label": "Proyecto", "inverseLabel": "Partes del proyecto", "source": "project_party", "target": "project", "fieldName": "project", "required": true},
     {"name": "project_party_organization", "label": "Organización", "inverseLabel": "Partes del proyecto", "source": "project_party", "target": "organization", "fieldName": "organization", "required": true},
     {"name": "exploration_campaign_project", "label": "Proyecto", "inverseLabel": "Campañas de exploración", "source": "exploration_campaign", "target": "project", "fieldName": "project", "required": true},
@@ -1474,6 +1623,7 @@
     {"name": "commitment_dependency_commitment", "label": "Compromiso que depende", "inverseLabel": "Dependencias entre compromisos", "source": "commitment_dependency", "target": "commitment", "fieldName": "commitment", "required": true},
     {"name": "commitment_dependency_depends_on", "label": "Compromiso del que depende", "inverseLabel": "Dependencias entre compromisos", "source": "commitment_dependency", "target": "commitment", "fieldName": "depends_on", "required": true},
     {"name": "delivery_commitment", "label": "Compromiso", "inverseLabel": "Entregas", "source": "delivery", "target": "commitment", "fieldName": "commitment"},
+    {"name": "delivery_social_contribution", "label": "Aporte social", "inverseLabel": "Entregas", "source": "delivery", "target": "social_contribution", "fieldName": "social_contribution", "unique": true},
     {"name": "candidate_project", "label": "Proyecto", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "project", "fieldName": "project", "required": true},
     {"name": "candidate_engagement", "label": "Interacción de origen", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "engagement", "fieldName": "engagement"},
     {"name": "candidate_source_evidence", "label": "Documento de origen", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "evidence", "fieldName": "source_evidence"},
@@ -1519,6 +1669,7 @@
     {"name": "request_origin_engagement", "label": "Interacción de origen", "inverseLabel": "Solicitudes", "source": "stakeholder_request", "target": "engagement", "fieldName": "origin_engagement"},
     {"name": "request_origin_question", "label": "Pregunta de reunión que la originó", "inverseLabel": "Solicitudes", "source": "stakeholder_request", "target": "engagement_question", "fieldName": "origin_question"},
     {"name": "request_created_commitment", "label": "Compromiso creado al aceptar", "inverseLabel": "Solicitudes", "source": "stakeholder_request", "target": "commitment", "fieldName": "created_commitment"},
+    {"name": "request_created_contribution", "label": "Aporte creado al aceptar", "inverseLabel": "Solicitudes", "source": "stakeholder_request", "target": "social_contribution", "fieldName": "created_contribution"},
     {"name": "request_reclassified_from_grievance", "label": "Queja reclasificada", "inverseLabel": "Solicitudes", "source": "stakeholder_request", "target": "grievance", "fieldName": "reclassified_from_grievance"},
     {"name": "request_reclassified_from_inquiry", "label": "Consulta reclasificada", "inverseLabel": "Solicitudes", "source": "stakeholder_request", "target": "inquiry", "fieldName": "reclassified_from_inquiry"},
     {"name": "social_risk_project", "label": "Proyecto", "inverseLabel": "Riesgos sociales", "source": "social_risk", "target": "project", "fieldName": "project", "required": true},
@@ -1553,6 +1704,34 @@
     {"name": "early_warning_locality", "label": "Localidad", "inverseLabel": "Alertas tempranas", "source": "early_warning", "target": "locality", "fieldName": "locality"},
     {"name": "early_warning_community", "label": "Comunidad campesina o nativa", "inverseLabel": "Alertas tempranas", "source": "early_warning", "target": "community", "fieldName": "community"},
     {"name": "early_warning_social_risk", "label": "Riesgo al que alimenta", "inverseLabel": "Alertas tempranas", "source": "early_warning", "target": "social_risk", "fieldName": "social_risk"},
+    {"name": "contribution_project", "label": "Proyecto", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "project", "fieldName": "project", "required": true},
+    {"name": "contribution_exploration_campaign", "label": "Campaña de exploración", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "exploration_campaign", "fieldName": "exploration_campaign"},
+    {"name": "contribution_payer_organization", "label": "Pagador", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "organization", "fieldName": "payer_organization", "required": true},
+    {"name": "contribution_recipient_organization", "label": "Receptor", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "organization", "fieldName": "recipient_organization"},
+    {"name": "contribution_stakeholder", "label": "Grupo de interés", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "stakeholder", "fieldName": "stakeholder"},
+    {"name": "contribution_locality", "label": "Localidad", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "locality", "fieldName": "locality"},
+    {"name": "contribution_festivity", "label": "Festividad", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "festivity", "fieldName": "festivity"},
+    {"name": "contribution_commitment", "label": "Compromiso", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "commitment", "fieldName": "commitment"},
+    {"name": "contribution_agreement", "label": "Acuerdo de sinergia", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "agreement", "fieldName": "agreement"},
+    {"name": "contribution_topic", "label": "Tema", "inverseLabel": "Aportes sociales", "source": "social_contribution", "target": "topic", "fieldName": "topic"},
+    {"name": "contrib_item_social_contribution", "label": "Aporte social", "inverseLabel": "Ítems del aporte", "source": "contribution_item", "target": "social_contribution", "fieldName": "social_contribution", "required": true},
+    {"name": "receipt_social_contribution", "label": "Aporte social", "inverseLabel": "Comprobantes", "source": "receipt", "target": "social_contribution", "fieldName": "social_contribution", "required": true},
+    {"name": "receipt_issued_to_organization", "label": "Emitido a nombre de", "inverseLabel": "Comprobantes", "source": "receipt", "target": "organization", "fieldName": "issued_to_organization"},
+    {"name": "social_program_project", "label": "Proyecto", "inverseLabel": "Programas sociales", "source": "social_program", "target": "project", "fieldName": "project", "required": true},
+    {"name": "social_program_topic", "label": "Tema", "inverseLabel": "Programas sociales", "source": "social_program", "target": "topic", "fieldName": "topic"},
+    {"name": "social_program_partner_organization", "label": "Socio", "inverseLabel": "Programas sociales", "source": "social_program", "target": "organization", "fieldName": "partner_organization"},
+    {"name": "social_program_agreement", "label": "Acuerdo de sinergia", "inverseLabel": "Programas sociales", "source": "social_program", "target": "agreement", "fieldName": "agreement"},
+    {"name": "initiative_social_program", "label": "Programa social", "inverseLabel": "Iniciativas sociales", "source": "social_initiative", "target": "social_program", "fieldName": "social_program", "required": true},
+    {"name": "initiative_locality", "label": "Localidad", "inverseLabel": "Iniciativas sociales", "source": "social_initiative", "target": "locality", "fieldName": "locality"},
+    {"name": "initiative_community", "label": "Comunidad campesina o nativa", "inverseLabel": "Iniciativas sociales", "source": "social_initiative", "target": "community", "fieldName": "community"},
+    {"name": "initiative_counterpart_organization", "label": "Contraparte", "inverseLabel": "Iniciativas sociales", "source": "social_initiative", "target": "organization", "fieldName": "counterpart_organization"},
+    {"name": "beneficiary_group_social_program", "label": "Programa social", "inverseLabel": "Grupos de beneficiarios", "source": "beneficiary_group", "target": "social_program", "fieldName": "social_program", "required": true},
+    {"name": "beneficiary_group_social_initiative", "label": "Iniciativa social", "inverseLabel": "Grupos de beneficiarios", "source": "beneficiary_group", "target": "social_initiative", "fieldName": "social_initiative"},
+    {"name": "beneficiary_group_locality", "label": "Localidad", "inverseLabel": "Grupos de beneficiarios", "source": "beneficiary_group", "target": "locality", "fieldName": "locality"},
+    {"name": "program_budget_social_program", "label": "Programa social", "inverseLabel": "Presupuestos del programa", "source": "program_budget", "target": "social_program", "fieldName": "social_program", "required": true},
+    {"name": "program_indicator_social_program", "label": "Programa social", "inverseLabel": "Indicadores de programa", "source": "program_indicator", "target": "social_program", "fieldName": "social_program", "required": true},
+    {"name": "prog_measurement_program_indicator", "label": "Indicador de programa", "inverseLabel": "Mediciones de programa", "source": "program_measurement", "target": "program_indicator", "fieldName": "program_indicator", "required": true},
+    {"name": "program_milestone_social_program", "label": "Programa social", "inverseLabel": "Hitos de programa", "source": "program_milestone", "target": "social_program", "fieldName": "social_program", "required": true},
     {"name": "evidence_project", "label": "Proyecto", "inverseLabel": "Evidencias", "source": "evidence", "target": "project", "fieldName": "project"},
     {"name": "evidence_replaces", "label": "Reemplaza a", "inverseLabel": "Evidencias", "source": "evidence", "target": "evidence", "fieldName": "replaces"},
     {"name": "evidence_community", "type": "MANY_TO_MANY", "label": "Comunidades campesinas o nativas", "inverseLabel": "Evidencias", "source": "evidence", "target": "community"},
@@ -1570,6 +1749,8 @@
     {"name": "evidence_social_risk", "type": "MANY_TO_MANY", "label": "Riesgos sociales", "inverseLabel": "Evidencias", "source": "evidence", "target": "social_risk"},
     {"name": "evidence_incident", "type": "MANY_TO_MANY", "label": "Incidentes", "inverseLabel": "Evidencias", "source": "evidence", "target": "incident"},
     {"name": "evidence_media_mention", "type": "MANY_TO_MANY", "label": "Menciones en medios", "inverseLabel": "Evidencias", "source": "evidence", "target": "media_mention"},
+    {"name": "evidence_social_contribution", "type": "MANY_TO_MANY", "label": "Aportes sociales", "inverseLabel": "Evidencias", "source": "evidence", "target": "social_contribution"},
+    {"name": "evidence_social_program", "type": "MANY_TO_MANY", "label": "Programas sociales", "inverseLabel": "Evidencias", "source": "evidence", "target": "social_program"},
     {"name": "evidence_study", "type": "MANY_TO_MANY", "label": "Estudios o diagnósticos", "inverseLabel": "Evidencias", "source": "evidence", "target": "study"},
     {"name": "task_project", "label": "Proyecto", "inverseLabel": "Tareas", "source": "task", "target": "project", "fieldName": "project", "required": true},
     {"name": "task_commitment", "label": "Compromiso", "inverseLabel": "Tareas", "source": "task", "target": "commitment", "fieldName": "commitment"},
@@ -1580,6 +1761,7 @@
     {"name": "task_early_warning", "label": "Alerta temprana", "inverseLabel": "Tareas", "source": "task", "target": "early_warning", "fieldName": "early_warning"},
     {"name": "task_engagement", "label": "Interacción", "inverseLabel": "Tareas", "source": "task", "target": "engagement", "fieldName": "engagement"},
     {"name": "task_agreement", "label": "Acuerdo", "inverseLabel": "Tareas", "source": "task", "target": "agreement", "fieldName": "agreement"},
+    {"name": "task_social_program", "label": "Programa social", "inverseLabel": "Tareas", "source": "task", "target": "social_program", "fieldName": "social_program"},
     {"name": "task_stakeholder", "label": "Grupo de interés", "inverseLabel": "Tareas", "source": "task", "target": "stakeholder", "fieldName": "stakeholder"},
     {"name": "export_log_project", "label": "Proyecto", "inverseLabel": "Registros de exportación", "source": "export_log", "target": "project", "fieldName": "project"},
     {"name": "study_project", "label": "Proyecto", "inverseLabel": "Estudios o diagnósticos", "source": "study", "target": "project", "fieldName": "project", "required": true},
