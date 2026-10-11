@@ -3075,7 +3075,9 @@ COMPROBANTE. Tabla física `app_data.receipt__<org8>`. Requisitos: RF-INV-001, C
 - **Workflow:** ninguno.
 - **Fase:** F5 · Release 2 (Fase 2 de producto).
 - Opcional: `register_delivery` (P8) exige la evidencia COMPROBANTE, no el `receipt`, y ninguna regla compara `amount`
-  con el `total_amount` del aporte (ASM-116). `amount` es un monto (ASM-092, ASM-118).
+  con el `total_amount` del aporte (ASM-116). `amount` es un monto (ASM-092, ASM-118). El comprobante no se crea, cambia
+  ni borra con el aporte en `delivered` o después (`closed`, `rejected`, `cancelled`): `409 DELIVERY_FROZEN` sobre
+  `social_contribution` (decisión del usuario del 2026-10-11).
 
 ### `social_program`
 
