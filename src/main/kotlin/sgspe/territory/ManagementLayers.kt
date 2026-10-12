@@ -1,18 +1,17 @@
 package sgspe.territory
 
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
-import sgspe.common.Finding
 import sgspe.common.ModelCatalog
 import sgspe.common.Readability
 import sgspe.common.Records
-import sgspe.common.toCodedException
+import sgspe.investment.Contributions
 import tools.jackson.databind.json.JsonMapper
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.PageRequest
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordRow
 import wasichai.core.metadata.MetadataService
+import java.math.BigDecimal
 import java.util.UUID
 
 // las capas de gestión LYR-17 a LYR-24 de GET /api/sgspe/territory/layers/{layer} (gis.md §2.2 y §2.4, plan 6.2c). cada fuente
@@ -43,11 +42,6 @@ class ManagementLayers(
         for (objectName in layer.objects) {
             if (!readable.canRead(objectName)) throw ForbiddenException("La capa ${layer.id} exige permiso de lectura sobre $objectName")
         }
-        if (layer.aggregate == LayerAggregate.CONTRIBUTIONS_BY_CURRENCY) {
-            // los aportes de LYR-23 llegan con la Tarea 5 del plan 6.2c
-            throw Finding("LAYER_NOT_FOUND", "La capa ${layer.id} no está disponible todavía", "layer", status = HttpStatus.NOT_FOUND)
-                .toCodedException()
-        }
         val parts = SpatialParts<Map<String, Any?>>()
         val notApplied = linkedSetOf<String>()
         for (source in layer.sources) {
@@ -57,13 +51,20 @@ class ManagementLayers(
             if (remaining <= 0) break
             parts.add(placed(layer.id, source, projects, box, period?.takeIf { source.period != null }, remaining))
         }
-        if (layer.aggregate == LayerAggregate.STAKEHOLDERS_BY_STANCE) {
-            // los grupos de interés no tienen fecha
-            if (period != null) notApplied += LocalityAggregateSql.STAKEHOLDER
-            val byStance = readable.canRead("${LocalityAggregateSql.STAKEHOLDER}.${LocalityAggregateSql.STANCE}")
-            if (!byStance) parts.missing("${LocalityAggregateSql.STAKEHOLDER}.${LocalityAggregateSql.STANCE}")
-            val remaining = maxFeatures + 1 - parts.rows.size
-            if (remaining > 0) parts.add(stakeholders(layer.id, projects, box, remaining, byStance))
+        when (layer.aggregate) {
+            null -> Unit
+            LayerAggregate.STAKEHOLDERS_BY_STANCE -> {
+                // los grupos de interés no tienen fecha
+                if (period != null) notApplied += LocalityAggregateSql.STAKEHOLDER
+                val byStance = readable.canRead("${LocalityAggregateSql.STAKEHOLDER}.${LocalityAggregateSql.STANCE}")
+                if (!byStance) parts.missing("${LocalityAggregateSql.STAKEHOLDER}.${LocalityAggregateSql.STANCE}")
+                val remaining = maxFeatures + 1 - parts.rows.size
+                if (remaining > 0) parts.add(stakeholders(layer.id, projects, box, remaining, byStance))
+            }
+            LayerAggregate.CONTRIBUTIONS_BY_CURRENCY -> {
+                val remaining = maxFeatures + 1 - parts.rows.size
+                if (remaining > 0) parts.add(contributions(layer.id, projects, box, period, remaining))
+            }
         }
         return collection(parts, notApplied)
     }
@@ -169,6 +170,38 @@ class ManagementLayers(
                 "total" to counts.sumOf { it.second },
                 "byStance" to if (byStance) counts.associate { (stance, n) -> (stance ?: LocalityAggregateSql.NO_STANCE) to n } else null
             )
+        }
+    }
+
+    // los aportes de LYR-23: un elemento por localidad con una fila por moneda (cuántos y cuánto); con periodo, la compuerta lee
+    // también las entregas para acotarlos
+    private suspend fun contributions(
+        layer: String,
+        projects: List<UUID>,
+        box: LayerBox?,
+        period: Period?,
+        limit: Int
+    ): GateOutcome<Map<String, Any?>> {
+        val fields = linkedSetOf(TerritoryNames.LOCALITY, "currency", "total_amount")
+        if (projects.isNotEmpty()) fields += "project"
+        val reads =
+            listOfNotNull(
+                GateRead(Contributions.CONTRIBUTION, fields, principal = true),
+                LocalityAggregateSql.LOCALITY_READ,
+                period?.let { GateRead(Contributions.DELIVERY, setOf(Contributions.CONTRIBUTION, "delivery_date")) }
+            )
+        val outcome =
+            gate.select(reads, { bind -> LocalityAggregateSql.contributions(this, bind, projects, period, box, limit) }) { row ->
+                LocalityAggregateSql.row(row) { r ->
+                    mapOf(
+                        "currency" to r.get("currency", String::class.java),
+                        "n" to r.get("n", Long::class.javaObjectType),
+                        "amount" to r.get("amount", BigDecimal::class.java)
+                    )
+                }
+            }
+        return localityFeatures(layer, Contributions.CONTRIBUTION, outcome) { rows ->
+            mapOf("contributions" to rows.map { mapOf("currency" to it.values["currency"], "count" to it.values["n"], "totalAmount" to it.values["amount"]) })
         }
     }
 

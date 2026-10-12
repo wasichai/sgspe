@@ -1,6 +1,7 @@
 package sgspe.territory
 
 import io.r2dbc.spi.Readable
+import sgspe.investment.Contributions
 import java.util.UUID
 
 // una fila de un agregado por localidad: la localidad, su nombre y tipo, la geometría que dio su punto (location o boundary),
@@ -16,7 +17,7 @@ data class LocalityRow(
 
 // los agregados por localidad de las capas de gestión (patrón b de gis.md §5.2, por SpatialGate): `inner` cuenta o suma en la
 // tabla del objeto y agrupa por su localidad (zone), sin nombrar nunca un registro. aquí se le pone el punto de la localidad
-// (su ubicación o un punto sobre su límite), se recorta por el recuadro y se cortan las localidades en `limit`, así que las
+// (su ubicación o un punto sobre su límite; una geometría vacía cuenta como nula), se recorta por el recuadro y se cortan las localidades en `limit`, así que las
 // cifras de cada localidad quedan enteras. una localidad sin geometría no sale. puro
 object LocalityAggregateSql {
     const val STAKEHOLDER = "stakeholder"
@@ -37,8 +38,9 @@ object LocalityAggregateSql {
         limit: Int
     ): String {
         val l = TerritoryNames.LOCALITY
-        val location = "l.${t.column(l, "location")}"
-        val boundary = "l.${t.column(l, "boundary")}"
+        // una geometría vacía (no nula) cae como una nula, como en PlacedSql
+        val location = PlacedSql.nonEmpty("l.${t.column(l, "location")}")
+        val boundary = PlacedSql.nonEmpty("l.${t.column(l, "boundary")}")
         val zones =
             "SELECT l.${t.column(l, SpatialGate.ID)} AS zone, l.${t.column(l, "name")}::text AS name, " +
                 "l.${t.column(l, "locality_type")}::text AS locality_type, " +
@@ -68,6 +70,32 @@ object LocalityAggregateSql {
         val project = if (projects.isEmpty()) "" else " AND s.${t.column(s, "project")} = ANY(${bind(projects.toTypedArray())})"
         val inner = "SELECT $locality AS zone, $stance AS stance, count(*) AS n FROM ${t.table(s)} s WHERE $locality IS NOT NULL$project GROUP BY 1, 2"
         return wrap(t, bind, inner, listOf(STANCE, "n"), box, limit)
+    }
+
+    // los aportes de LYR-23: los ejecutados (delivered y closed, ASM-063, dashboards.md §3.2) por localidad y moneda, sin
+    // mezclar monedas; con periodo, los que tienen su entrega en él (como KPI-INV-03)
+    fun contributions(
+        t: GateTables,
+        bind: (Any) -> String,
+        projects: List<UUID>,
+        period: Period?,
+        box: LayerBox?,
+        limit: Int
+    ): String {
+        val c = Contributions.CONTRIBUTION
+        val d = Contributions.DELIVERY
+        val locality = "c.${t.column(c, TerritoryNames.LOCALITY)}"
+        val terms = mutableListOf("$locality IS NOT NULL", "c.${t.column(c, SpatialGate.STATE)} = ANY(${bind(Contributions.EXECUTED.sorted().toTypedArray())})")
+        if (projects.isNotEmpty()) terms += "c.${t.column(c, "project")} = ANY(${bind(projects.toTypedArray())})"
+        if (period != null) {
+            val date = "d.${t.column(d, "delivery_date")}"
+            terms += "EXISTS (SELECT 1 FROM ${t.table(d)} d WHERE d.${t.column(d, c)} = c.${t.column(c, SpatialGate.ID)} " +
+                "AND $date >= ${bind(period.start)} AND $date <= ${bind(period.end)})"
+        }
+        val inner =
+            "SELECT $locality AS zone, c.${t.column(c, "currency")}::text AS currency, count(*) AS n, sum(c.${t.column(c, "total_amount")}) AS amount " +
+                "FROM ${t.table(c)} c WHERE ${terms.joinToString(" AND ")} GROUP BY 1, 2"
+        return wrap(t, bind, inner, listOf("currency", "n", "amount"), box, limit)
     }
 
     fun row(
