@@ -105,8 +105,8 @@ directamente y se salta los permisos de la aplicación, así que solo publica lo
 | Confidencial | Información técnica de la empresa: sondajes, plataformas, campamento, predios de la empresa | GeoJSON por API, con permisos | No se publica | En línea |
 | Datos personales | Predios con titulares o partida; ubicaciones que pueden identificar a una persona (QCS, entregas) | GeoJSON por API con permisos de campo; nunca puntos de personas | No se publica | En línea, sin atributos personales y según el nivel de divulgación (RQ-REP-014) |
 
-Desde el plan 4.4, las capas que sirve la API (LYR-01 a LYR-16 y LYR-20) heredan el alcance de lectura por proyecto
-(`security.md` §9.7): se leen como quien mira, así que un objeto de un proyecto que no lee no sale. GeoServer no lo
+Las capas que sirve la API (LYR-01 a LYR-16 desde F2 y, desde el plan 6.2c, las de gestión LYR-17 a LYR-24) heredan el
+alcance de lectura por proyecto (desde el plan 4.4) (`security.md` §9.7): se leen como quien mira, así que un objeto de un proyecto que no lee no sale. GeoServer no lo
 aplica: ningún objeto de `ProjectScope` (`project`, sus raíces ni sus hijos) se publica, solo maestros de
 `ProjectScope.TENANT` sin campos restringidos (`security.md` §10.2).
 
@@ -801,6 +801,7 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 | Mapa base (`MapSettingsApiTest`, `MapSettingsProdTest`) | Estilo por organización y por defecto; sin estilo, `{ type: 'none' }`; producción sin OpenStreetMap | ASM-125, RQ-GIS-013 |
 | Importación con GDAL (`GdalImportApiTest`, `GdalCommandTest`) | Un fixture sintético por formato; `LAYER_REQUIRED`; CRS detectado propuesto pero exigido; ZIP con `../` rechazado; sin GDAL, `FORMAT_UNAVAILABLE`; destinos `community` y `environmental_feature` con alta, actualización por código y fila sin código rechazada | ASM-123, ASM-127 |
 | Exportaciones (`TerritoryExportsApiTest`, `ExportDisclosureTest`) | Cada formato abre y trae los registros; predios en EXTERNO sin `registry_record`; sondajes en EXTERNO, 403; sin `EXPORT`, 403; fila de `export_log`; tope de filas | ASM-124 |
+| Capas de gestión (`ManagementLayersApiTest`, `StakeholderLayerApiTest`, `InvestmentLayerApiTest`, `EvidenceLayerApiTest`, `ManagementLayersCapApiTest`, `PlacedSqlTest`, `LocalityAggregateSqlTest`) | Cada registro en su geometría o en el punto de su localidad, comunidad o área, y sin nada que dibujar no sale; QCS confidencial solo para quien la lee; grupos de interés por postura sin una persona y solo el total sin leer la postura; aportes ejecutados por localidad y moneda; evidencias sin el descriptor del archivo; periodo por la fecha de cada fuente y `periodNotApplied`; tope compartido | RQ-GIS-001, RQ-GIS-015, ASM-063, ASM-095 |
 | Calidad (`GeometryChecksApiTest`, `DataQualityApiTest`) | Lazo inválido con su motivo y reparación con cambio de área; MultiPolygon de una parte normalizado; fuera de zona; las cinco revisiones | RQ-GIS-011 |
 | Modelo (`test_model.py`, `test_publish_layers.py`) | Capas de `layers.json` de `ProjectScope.TENANT`, con geometría declarada y sin campos restringidos; campos nuevos de F6 | ASM-121, ASM-123 |
 | GetMap (suite lenta, etiquetada) | Con capas públicas y elementos en línea en EPSG:32717, el PNG se decodifica y el área de la leyenda no está vacía; sin comparar píxel a píxel | RQ-REP-030 |

@@ -68,7 +68,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Alcance por proyecto, asignaciones, destinatarios por rol, `EDIT_ANY`, WF-A | `src/main/kotlin/sgspe/scope/` |
 | Evaluaciones, índices y grupo, prioridad, WF-B, JOB-03 | `src/main/kotlin/sgspe/stakeholder/` |
 | WF-C, conteos de asistentes | `src/main/kotlin/sgspe/engagement/` |
-| CRS, área oficial, áreas de influencia, importaciones, componentes, capas LYR-01 a LYR-16 (`sgspe.territory.import.*`, `sgspe.territory.layers.*`) | `src/main/kotlin/sgspe/territory/` |
+| CRS, área oficial, áreas de influencia, importaciones, componentes, capas LYR-01 a LYR-16 y, desde el plan 6.2c, las de gestión LYR-17 a LYR-24 (`ManagementLayerCatalog`, `PlacedSql`, `LocalityAggregateSql`, `ManagementLayers`) (`sgspe.territory.import.*`, `sgspe.territory.layers.*`) | `src/main/kotlin/sgspe/territory/` |
 | Consultas espaciales: `SpatialGate` (la única puerta de SQL propio, con `RecordReadScopes`), `ZoneCriterion` y `TerritoryZones`, límites `sgspe.territory.queries.*` (`TerritoryQueryProperties`, `QueryParams`), medidas (`SpatialSql`), los 13 endpoints (`ZoneQueries`, `MemberSuggestions`, `ProjectLandQueries`, `ProjectProximityQueries`, `TerritoryAggregates`, `TerritoryCards`) y `ComponentLand` | `src/main/kotlin/sgspe/territory/` |
 | KPI-TER y el tablero `territory` (`TerritoryKpis`, `TerritorySummary`, `KpiEvaluation`) | `src/main/kotlin/sgspe/dashboard/` |
 | Base de las pruebas de integración del plan 6.2a (geometrías en metros desde el origen sintético, áreas y miembros) | `src/test/kotlin/sgspe/F6QueryApiTest.kt` |
