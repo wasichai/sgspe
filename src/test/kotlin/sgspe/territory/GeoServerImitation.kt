@@ -11,8 +11,9 @@ import java.util.concurrent.Executors
 // un GeoServer de imitación para WmsProxyApiTest con el HttpServer del JDK (ninguna dependencia nueva, ninguna red): responde
 // la REST que usa GeoServerClient de wasichai (el datastore y la lista de featuretypes) y el WMS del workspace con un PNG de
 // 1×1. `published` son los nombres que dice tener publicados; `down` responde 503 a todo; `delayMillis` demora cada respuesta
-// (el plazo del proxy); `wmsContentType` cambia el tipo del WMS (un ServiceException real llega como XML con 200). cada
-// respuesta lleva SECRET_HEADER, que el proxy nunca debe copiar
+// (el plazo del proxy); `wmsDown` y `wmsDelayMillis` hacen lo mismo solo con /wms, para que la REST conteste y el proxy
+// llegue a pedir la imagen; `wmsContentType` cambia el tipo del WMS (un ServiceException real llega como XML con 200).
+// cada respuesta lleva SECRET_HEADER, que el proxy nunca debe copiar
 class GeoServerImitation private constructor(
     private val server: HttpServer
 ) : AutoCloseable {
@@ -27,6 +28,12 @@ class GeoServerImitation private constructor(
     var delayMillis = 0L
 
     @Volatile
+    var wmsDown = false
+
+    @Volatile
+    var wmsDelayMillis = 0L
+
+    @Volatile
     var wmsContentType = "image/png"
 
     fun reset() {
@@ -34,6 +41,8 @@ class GeoServerImitation private constructor(
         wmsQueries.clear()
         down = false
         delayMillis = 0
+        wmsDown = false
+        wmsDelayMillis = 0
         wmsContentType = "image/png"
     }
 
@@ -47,6 +56,11 @@ class GeoServerImitation private constructor(
                 path.contains("/rest/workspaces/") && path.contains("/datastores/") -> respond(exchange, 200, "application/json", "{}".toByteArray())
                 path.endsWith("/wms") -> {
                     wmsQueries += exchange.requestURI.rawQuery.orEmpty()
+                    if (wmsDelayMillis > 0) Thread.sleep(wmsDelayMillis)
+                    if (wmsDown) {
+                        respond(exchange, 503, "text/plain", "caído".toByteArray())
+                        return
+                    }
                     val body = if (wmsContentType.startsWith("image/")) PNG else "<ServiceException>tabla t_secreta</ServiceException>".toByteArray()
                     respond(exchange, 200, wmsContentType, body)
                 }

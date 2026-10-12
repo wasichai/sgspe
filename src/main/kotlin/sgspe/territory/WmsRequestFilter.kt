@@ -95,13 +95,13 @@ object WmsRequestFilter {
         return WmsCall.Image(GET_LEGEND, listOf(layer), params["STYLE"]?.trim()?.ifEmpty { null }?.let(::listOf), out)
     }
 
-    // las capas en la lista blanca (si no, 403: otro tenant, no publicada o sin READ) y cada estilo, uno de los de la capa en
-    // layers.json o vacío (el primero)
+    // las capas en la lista blanca (si no, 403: otro tenant, no publicada o sin READ; también con la lista vacía) y cada
+    // estilo, uno de los de la capa en layers.json o vacío (el primero). la lista blanca acota la cantidad: las capas pedidas
+    // van sin repetir (parse), así que las que pasan nunca son más que ella
     fun authorize(
         call: WmsCall.Image,
         whitelist: Map<String, WmsLayer>
     ): Map<String, String> {
-        if (call.layers.size > whitelist.size) throw parameter(if (call.request == GET_MAP) "LAYERS" else "LAYER", "más capas que las disponibles")
         val layers = call.layers.map { whitelist[it] ?: throw ForbiddenException("La capa pedida no está disponible para su organización o no puede leerla") }
         val styles =
             layers.mapIndexed { i, layer ->

@@ -170,6 +170,25 @@ class WmsProxyApiTest : DomainApiTest() {
     }
 
     @Test
+    fun `el WMS de GeoServer caido o lento con la REST arriba es 503 al pedir la imagen`() {
+        val units = layerName("administrative_unit", "boundary")
+        geoserver.published += units
+        geoserver.wmsDown = true
+        val down = wms(getMap(units))
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, down.status, down.text)
+        assertEquals("GEOSERVER_UNAVAILABLE", code(down))
+        assertEquals(1, geoserver.wmsQueries.size, "la lista blanca pasó y el proxy pidió la imagen")
+        geoserver.wmsDown = false
+        geoserver.wmsDelayMillis = 3000
+        val started = System.nanoTime()
+        val slow = wms(getMap(units))
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, slow.status)
+        assertEquals("GEOSERVER_UNAVAILABLE", code(slow))
+        assertEquals(2, geoserver.wmsQueries.size)
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 2900, "el plazo del proxy es 1 s")
+    }
+
+    @Test
     fun `una respuesta que no es imagen es 503`() {
         val units = layerName("administrative_unit", "boundary")
         geoserver.published += units

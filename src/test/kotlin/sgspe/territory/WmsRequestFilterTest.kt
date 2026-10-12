@@ -156,13 +156,19 @@ class WmsRequestFilterTest {
     }
 
     @Test
-    fun `capas repetidas se quitan con su estilo y no pueden ser mas que la lista`() {
+    fun `capas repetidas se quitan con su estilo y las que no estan en la lista son 403 antes de contarlas`() {
         val dup = with("LAYERS", "${units.name},${units.name}").also { it["STYLES"] = listOf("sgspe-lyr-01,sgspe-lyr-01") }
         val forward = WmsRequestFilter.authorize(WmsRequestFilter.parse(dup) as WmsCall.Image, whitelist)
         assertEquals(units.name, forward["LAYERS"])
         val many = with("LAYERS", (1..4).joinToString(",") { "x$it" })
-        val e = assertThrows<WasichaiException> { WmsRequestFilter.authorize(WmsRequestFilter.parse(many) as WmsCall.Image, whitelist) }
-        assertEquals(422 to "WMS_PARAMETER_NOT_ALLOWED", code(e))
+        assertThrows<ForbiddenException> { WmsRequestFilter.authorize(WmsRequestFilter.parse(many) as WmsCall.Image, whitelist) }
+    }
+
+    @Test
+    fun `con la lista blanca vacia toda capa es 403`() {
+        assertThrows<ForbiddenException> { WmsRequestFilter.authorize(WmsRequestFilter.parse(getMap()) as WmsCall.Image, emptyMap()) }
+        val legend = WmsRequestFilter.parse(query("SERVICE" to "WMS", "REQUEST" to "GetLegendGraphic", "LAYER" to units.name, "FORMAT" to "image/png"))
+        assertThrows<ForbiddenException> { WmsRequestFilter.authorize(legend as WmsCall.Image, emptyMap()) }
     }
 
     @Test

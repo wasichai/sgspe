@@ -1,11 +1,12 @@
 package sgspe.territory
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.withTimeoutOrNull
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -16,7 +17,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.WebClientException
 import org.springframework.web.reactive.function.client.awaitBody
 import org.springframework.web.reactive.function.client.awaitExchangeOrNull
 import org.springframework.web.util.UriComponentsBuilder
@@ -30,7 +30,6 @@ import tools.jackson.databind.json.JsonMapper
 import wasichai.core.common.Actions
 import wasichai.core.common.WasichaiException
 import wasichai.gis.GeoServerClient
-import wasichai.gis.GeoServerException
 import wasichai.gis.GeoServerLayers
 import wasichai.gis.GeoServerProperties
 import wasichai.gis.GeoServerUrls
@@ -151,10 +150,14 @@ class WmsProxy(
                         }
                     }
                 }
-            } catch (_: WebClientException) {
-                null
-            } catch (_: DataBufferLimitException) {
-                // una imagen más grande que sgspe.territory.wms.max-bytes: no se sirve a medias
+            } catch (e: CancellationException) {
+                // quien llama cerró la conexión: la cancelación sigue su camino (el plazo vencido ya es null)
+                throw e
+            } catch (e: Exception) {
+                // cualquier otro fallo al hablar con GeoServer o al leer su respuesta (WebClientException, una imagen más grande
+                // que sgspe.territory.wms.max-bytes, una conexión cortada a medias…) es el mismo «no disponible»: nunca un 500
+                // ni una imagen a medias; la causa queda en el registro del servidor
+                LOG.warn("GeoServer no respondió una imagen WMS: {}", e.javaClass.simpleName)
                 null
             }
         return result ?: throw unavailable()
@@ -167,8 +170,12 @@ class WmsProxy(
         val names =
             try {
                 withTimeoutOrNull(properties.timeout.toMillis()) { geoserver.publishedLayerNames() }
-            } catch (_: GeoServerException) {
-                // GeoServerClient vuelve 502 toda falla de transporte o de estado: para el mapa es el mismo «no disponible»
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // GeoServerClient vuelve 502 (GeoServerException) toda falla de transporte o de estado, y una respuesta que no
+                // se puede leer es otra excepción: para el mapa, el mismo «no disponible»
+                LOG.warn("GeoServer no respondió la lista de capas publicadas: {}", e.javaClass.simpleName)
                 null
             } ?: throw unavailable()
         published = Published(names, now)
@@ -184,6 +191,7 @@ class WmsProxy(
         ).toCodedException()
 
     companion object {
+        private val LOG = LoggerFactory.getLogger(WmsProxy::class.java)
         private val IMAGES = listOf(MediaType.IMAGE_PNG, MediaType.IMAGE_JPEG)
     }
 }
