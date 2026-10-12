@@ -78,4 +78,20 @@ class SpatialAggregatesApiTest : F6QueryApiTest() {
         assertEquals(1, body["componentsOnCommunalLand"].asInt())
         assertEquals("AREA_NOT_FOUND", failing("/api/sgspe/areas-of-influence/${UUID.randomUUID()}/summary", HttpStatus.NOT_FOUND))
     }
+
+    @Test
+    fun `concentration dice confidentialHidden a quien no lee las QCS confidenciales, y solo con QCS`() {
+        val project = runBlocking { utmProject() }
+        val place = runBlocking { locality("Caserío Ejemplo", at(0.0, -82_000.0)) }
+        runBlocking { confidentialGrievance(project, place) }
+        grievance(project.toString(), attributes = mapOf("locality" to place.toString()))
+        val officer = member("COMMUNITY_RELATIONS_OFFICER", project.toString())
+        val forOfficer = get("/api/sgspe/territory/concentration?of=grievance&project=$project&$october", officer.token)
+        assertTrue(forOfficer["confidentialHidden"].asBoolean())
+        assertEquals(1, forOfficer["cells"].values().single()["count"].asInt())
+        val forManager = get("/api/sgspe/territory/concentration?of=grievance&project=$project&$october", member("GRIEVANCE_MANAGER", project.toString()).token)
+        assertTrue(absent(forManager["confidentialHidden"]))
+        assertEquals(2, forManager["cells"].values().single()["count"].asInt())
+        assertTrue(absent(get("/api/sgspe/territory/concentration?of=incident&project=$project&$october", officer.token)["confidentialHidden"]))
+    }
 }

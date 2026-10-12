@@ -41,4 +41,32 @@ class TerritoryDashboardTest {
         assertEquals(listOf("locality", "community"), value.missingFields)
         verifyNoInteractions(records)
     }
+
+    // H5: KPI-TER-02 a 04 no usan el periodo; si vino periodStart o periodEnd lo declaran, y el mes por defecto no
+    @Test
+    fun `KPI-TER-02 a 04 declaran el periodo pedido en ignoredFilters y KPI-TER-01 no`() {
+        val place = UUID.randomUUID()
+
+        fun filters(periodGiven: Boolean) =
+            DashboardFilters(
+                listOf(UUID.randomUUID()),
+                LocalDate.parse("2026-10-01"),
+                LocalDate.parse("2026-10-31"),
+                null,
+                place,
+                null,
+                null,
+                null,
+                null,
+                null,
+                periodGiven = periodGiven
+            )
+        for (code in listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04")) {
+            assertEquals(listOf("periodStart", "periodEnd", "locality"), Kpis.ignoredFilters(Kpis.BY_CODE.getValue(code), filters(true)), code)
+            assertEquals(listOf("locality"), Kpis.ignoredFilters(Kpis.BY_CODE.getValue(code), filters(false)), code)
+        }
+        assertTrue("periodStart" !in Kpis.ignoredFilters(Kpis.BY_CODE.getValue(TerritorySummary.CODE), filters(true)))
+        // ningún otro indicador declara el periodo: su respuesta no cambia
+        assertTrue(Kpis.ALL.filterNot { it.code in setOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04") }.none { "periodStart" in it.ignores })
+    }
 }
