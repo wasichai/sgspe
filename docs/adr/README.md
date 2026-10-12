@@ -17,9 +17,9 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 |---|---|---|---|---|
 | [0001](0001-construir-sobre-wasichai.md) | Construir SGSPE sobre wasichai | Aceptado | 2026-10-07 | 0001, 0003, 0004, 0024, 0025, 0032 |
 | [0002](0002-geometrias-en-srid-4326-y-crs-de-trabajo.md) | Geometrías en SRID 4326 con CRS de trabajo por proyecto | Aceptado | 2026-10-07 | 0002, 0007, 0019, 0027 |
-| [0003](0003-abstraccion-de-ia.md) | Abstracción de IA sobre wasichai-agent | Propuesto (se acepta en F7) | 2026-10-07 | 0014, 0015, 0031 |
+| [0003](0003-abstraccion-de-ia.md) | Abstracción de IA sobre wasichai-agent | Aceptado | 2026-10-12 | 0014, 0015, 0031, 0056 |
 | [0004](0004-la-sugerencia-de-ia-no-es-un-comando.md) | La sugerencia de IA no es un comando de dominio | Propuesto (se acepta en F3) | 2026-10-07 | 0014, 0038, 0040 |
-| [0005](0005-rag-y-pgvector.md) | RAG en F7 y pgvector solo con justificación medida | Propuesto (se acepta en F7) | 2026-10-07 | 0002, 0026, 0039 |
+| [0005](0005-rag-y-pgvector.md) | RAG en F7 y pgvector solo con justificación medida | Aceptado en parte (F7: la etapa 1, con `knowledge_chunk` y búsqueda de texto completo; pgvector, la etapa 2, sigue sujeto a sus criterios) | 2026-10-12 | 0002, 0026, 0039 |
 | [0006](0006-autorizacion-y-alcance-por-proyecto.md) | Autorización por roles y alcance por proyecto | Aceptado; el alcance por proyecto, sustituido por ADR-0029 | 2026-10-07 | 0004, 0010, 0020, 0025, 0040, 0042 |
 | [0007](0007-el-modelo-como-codigo.md) | El modelo como código en `model/` | Aceptado | 2026-10-07 | 0003, 0004, 0026, 0039, 0040 |
 | [0008](0008-codigo-propio-y-api-del-portal.md) | Código propio solo donde la metadata no alcanza, y API del portal | Aceptado | 2026-10-07 | 0003, 0025, 0038, 0039, 0040 |
