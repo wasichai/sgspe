@@ -10,8 +10,9 @@ import sgspe.common.IfMatch
 import tools.jackson.databind.JsonNode
 
 // GET /api/sgspe/territory/layers/{layer} en F2 (RQ-GIS-001, RQ-GIS-012): las capas básicas como GeoJSON con los permisos
-// de quien mira, acotadas por proyecto y bbox; la versión vigente de los componentes; 404 una capa de F6; 422 un parámetro
-// desconocido; 403 sin READ sobre el objeto de la capa; y ningún campo restringido en las propiedades de un elemento
+// de quien mira, acotadas por proyecto y bbox; la versión vigente de los componentes; 404 una capa fuera del catálogo; 422
+// un parámetro desconocido; 403 sin READ sobre el objeto de la capa; y ningún campo restringido en las propiedades de un
+// elemento
 class TerritoryLayersApiTest : DomainApiTest() {
     @Test
     fun `LYR-10 trae los sondajes vigentes del proyecto y bbox acota`() {
@@ -44,9 +45,9 @@ class TerritoryLayersApiTest : DomainApiTest() {
     }
 
     @Test
-    fun `una capa de F6 es 404, un parametro desconocido 422 y sin READ 403`() {
+    fun `una capa fuera del catalogo es 404, un parametro desconocido 422 y sin READ 403`() {
         val project = projectWithCrs()
-        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", "/api/sgspe/territory/layers/LYR-17").status)
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", "/api/sgspe/territory/layers/LYR-25").status)
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, exchange("GET", "/api/sgspe/territory/layers/LYR-01?proyecto=$project").status)
         val projectAdmin = member("PROJECT_ADMIN", project)
         assertEquals(HttpStatus.FORBIDDEN, exchange("GET", "/api/sgspe/territory/layers/LYR-16", token = projectAdmin.token).status)
@@ -89,6 +90,9 @@ class TerritoryLayersApiTest : DomainApiTest() {
     fun `periodStart y periodEnd se aceptan, un bbox o un proyecto mal escritos son 400 y LYR-16 junta escuelas y establecimientos`() {
         val ok = exchange("GET", "/api/sgspe/territory/layers/LYR-01?periodStart=2026-01-01&periodEnd=2026-12-31")
         assertEquals(HttpStatus.OK, ok.status, ok.body)
+        // LYR-01 no tiene fecha: el periodo no la acota y lo dice (H5); sin periodo no hay marca
+        assertEquals(listOf("administrative_unit"), tree(ok.body)["periodNotApplied"].values().map { it.asString() })
+        assertTrue(tree(send("GET", "/api/sgspe/territory/layers/LYR-01?bbox=-70.1,-10.1,-69.9,-9.9", null, HttpStatus.OK))["periodNotApplied"] == null)
         assertEquals(HttpStatus.BAD_REQUEST, exchange("GET", "/api/sgspe/territory/layers/LYR-01?bbox=1,2").status)
         assertEquals(HttpStatus.BAD_REQUEST, exchange("GET", "/api/sgspe/territory/layers/LYR-01?project=no-es-un-uuid").status)
 
@@ -193,6 +197,8 @@ class TerritoryLayersApiTest : DomainApiTest() {
         assertEquals(aiis, members.getValue(community)["properties"]["area_of_influence"].asString())
         // el polígono de la versión aprobada sale; el del borrador y el de la reemplazada no
         assertEquals(listOf(aids), featuresOf(layer, "area_of_influence").map { it["properties"]["__id"].asString() })
+        // el estado del workflow viaja en __state (api.md): Records.rows solo lo trae si se pide
+        assertEquals("approved", featuresOf(layer, "area_of_influence").single()["properties"]["__state"].asString())
         assertFalse(layer.toString().contains(stale) || layer.toString().contains(draftOnly), layer.toString())
 
         // bbox acota los miembros por la geometría que se dibuja
