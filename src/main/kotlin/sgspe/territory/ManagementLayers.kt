@@ -1,7 +1,10 @@
 package sgspe.territory
 
 import org.springframework.stereotype.Service
+import sgspe.common.Attention
+import sgspe.common.Callers
 import sgspe.common.ModelCatalog
+import sgspe.common.Permissions
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.evidence.EvidenceRules
@@ -29,6 +32,8 @@ class ManagementLayers(
     private val records: Records,
     private val metadata: MetadataService,
     private val catalog: ModelCatalog,
+    private val permissions: Permissions,
+    private val callers: Callers,
     properties: LayersProperties
 ) {
     private val maxFeatures = properties.maxFeatures
@@ -67,17 +72,22 @@ class ManagementLayers(
                 if (remaining > 0) parts.add(contributions(layer.id, projects, box, period, remaining))
             }
         }
-        return collection(parts, notApplied)
+        // H2: una capa que lee QCS (LYR-20) dice si a quien mira se le ocultan las confidenciales
+        val read = layer.sources.map { it.objectName }
+        val hidden = read.any { it in Attention.OBJECTS } && permissions.confidentialHidden(callers.require())
+        return collection(parts, notApplied, TerritoryAggregates.confidentialFlag(read, hidden))
     }
 
     private fun collection(
         parts: SpatialParts<Map<String, Any?>>,
-        notApplied: Set<String>
+        notApplied: Set<String>,
+        flag: Map<String, Any?>
     ): Map<String, Any?> {
         val features = parts.rows
         val out = linkedMapOf<String, Any?>("type" to "FeatureCollection")
         out += parts.response("features", features.take(maxFeatures), truncated = features.size > maxFeatures)
         if (notApplied.isNotEmpty()) out["periodNotApplied"] = notApplied.toList()
+        out += flag
         return out
     }
 

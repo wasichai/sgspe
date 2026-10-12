@@ -70,4 +70,14 @@ class ConcentrationSqlTest {
         assertTrue(sql.contains("AND e.\"project\" = ANY(:g2)"), sql)
         assertEquals(listOf(project), (values[2] as Array<*>).toList())
     }
+
+    // H2 (dashboards.md §8): la marca solo va si se lee alguna QCS y a quien llama se le ocultan las confidenciales; un
+    // booleano, nunca el número de excluidas
+    @Test
+    fun `la marca de confidenciales ocultas solo va con QCS y si se ocultan`() {
+        assertEquals(mapOf("confidentialHidden" to true), TerritoryAggregates.confidentialFlag(listOf("grievance"), true))
+        assertEquals(mapOf("confidentialHidden" to true), TerritoryAggregates.confidentialFlag(listOf("grievance", "inquiry", "stakeholder_request"), true))
+        assertEquals(emptyMap<String, Any?>(), TerritoryAggregates.confidentialFlag(listOf("grievance"), false))
+        assertEquals(emptyMap<String, Any?>(), TerritoryAggregates.confidentialFlag(listOf("incident", "early_warning_signal"), true))
+    }
 }

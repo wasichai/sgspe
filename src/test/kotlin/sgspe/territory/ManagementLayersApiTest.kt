@@ -207,4 +207,13 @@ class ManagementLayersApiTest : F6QueryApiTest() {
         assertEquals("LAYER_NOT_FOUND", failing("/api/sgspe/territory/layers/LYR-25", HttpStatus.NOT_FOUND))
         assertEquals(HttpStatus.valueOf(422), exchange("GET", "/api/sgspe/territory/layers/LYR-19?periodo=2026").status)
     }
+
+    @Test
+    fun `LYR-20 dice confidentialHidden a quien no lee las QCS confidenciales y una capa sin QCS no lo lleva`() {
+        val project = runBlocking { utmProject() }
+        val officer = member("COMMUNITY_RELATIONS_OFFICER", project.toString())
+        assertTrue(layer("LYR-20", "project=$project", officer.token)["confidentialHidden"].asBoolean())
+        assertTrue(absent(layer("LYR-20", "project=$project", member("GRIEVANCE_MANAGER", project.toString()).token)["confidentialHidden"]))
+        assertTrue(absent(layer("LYR-19", "project=$project", officer.token)["confidentialHidden"]))
+    }
 }
