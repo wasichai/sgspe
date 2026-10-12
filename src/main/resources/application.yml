@@ -99,6 +99,19 @@ sgspe:
     layers:
       # tope de elementos por capa de GET /api/sgspe/territory/layers/{layer} (LayersProperties)
       max-features: 5000
+    queries:
+      # límites de las consultas espaciales (especificación de F6 §3.1, ASM-126; TerritoryQueryProperties). fuera de rango,
+      # 400 OUT_OF_RANGE. max-rows es el tope de filas de una consulta de la compuerta (limit), max-related el de conflictos
+      # que nearby-conflicts lee con sus localidades
+      min-buffer-m: 1
+      max-buffer-m: 20000
+      default-buffer-m: 500
+      min-distance-km: 0.1
+      max-distance-km: 50
+      default-distance-km: 5
+      max-rows: 5000
+      max-period-years: 5
+      max-related: 200
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000

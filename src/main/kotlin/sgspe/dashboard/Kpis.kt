@@ -7,6 +7,7 @@ import sgspe.engagement.AttendanceCounts
 import sgspe.investment.Contributions
 import sgspe.investment.Programs
 import sgspe.risk.RiskLevels
+import sgspe.territory.GateOutcome
 
 // un KPI de dashboards.md §4. requires: "objeto.campo" que lee; si alguno no es legible para quien llama, el indicador
 // sale no disponible. dashboard: el tablero que lo muestra en su fase; null si solo se consulta por su detalle (§11)
@@ -50,10 +51,11 @@ object Kpis {
     const val ATTENTION = "attention"
     const val RISKS = "risks"
     const val INVESTMENT = "investment"
+    const val TERRITORY = "territory"
 
     // los indicadores que leen QCS y que, a quien no ve las confidenciales, se lo dicen con confidentialHidden (dashboards.md §8,
     // ASM-095): los KPI-GRV y KPI-ENG-05, que cuenta como atendida una pregunta derivada a una QCS
-    fun confidentialSensitive(code: String): Boolean = code.startsWith("KPI-GRV-") || code == "KPI-ENG-05"
+    fun confidentialSensitive(code: String): Boolean = code.startsWith("KPI-GRV-") || code == "KPI-ENG-05" || code == TerritorySummary.CODE
 
     // los KPI de F2 no aplican explorationCampaign (dashboards.md §3.1: solo compromisos e inversión social) ni owner, el
     // responsable de un compromiso que llega en F3
@@ -103,7 +105,27 @@ object Kpis {
             // dashboards.md §5.8: mapa de calor, riesgos altos, distribución, evolución y mitigación
             RISKS to listOf("KPI-RSK-02", "KPI-RSK-01", "KPI-RSK-03", "KPI-RSK-04", "KPI-RSK-05"),
             // dashboards.md §5.10: campañas, programas, consolidado y beneficiarios
-            INVESTMENT to listOf("KPI-INV-01", "KPI-INV-02", "KPI-INV-03", "KPI-INV-04")
+            INVESTMENT to listOf("KPI-INV-01", "KPI-INV-02", "KPI-INV-03", "KPI-INV-04"),
+            // dashboards.md §5.9: las estadísticas del tablero territorial; KPI-TER-01 lo agrega Dashboards con locality o
+            // community (es la ficha)
+            TERRITORY to listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04")
+        )
+
+    // F6: KPI-TER-02 a 04 se filtran solo por proyecto (dashboards.md §4.8); los demás filtros comunes los declaran ignorados
+    private val TERRITORY_IGNORES: Set<String> =
+        setOf("administrativeUnit", "locality", "community", "areaOfInfluence", "explorationCampaign", "scope", "owner")
+    private val AREA = listOf("area_of_influence.project", "area_of_influence.area_type", "area_of_influence.version_number")
+    private val LAND =
+        listOf(
+            "project_component.project",
+            "project_component.component_type",
+            "project_component.superseded",
+            "project_component.location",
+            "project_component.trace",
+            "project_component.footprint",
+            "community.territory",
+            "land_parcel.tenure_type",
+            "land_parcel.boundary"
         )
 
     // F5: los KPI-INV aplican de los filtros de territorio solo locality (decisión 5 del plan 5.2b); ninguno aplica el ámbito
@@ -732,6 +754,44 @@ object Kpis {
             ) { data ->
                 val programs = data.programs(program = true)
                 InvestmentKpis.beneficiaries(programs, data.groupsOf(programs.map { it.id }), data.investmentContributions(), data.investmentCommitments())
+            },
+            // F6: el territorio (dashboards.md §4.8). KPI-TER-01 no lee nada por sí mismo: cada fila comprueba lo suyo
+            Kpi(TerritorySummary.CODE, "Resumen de una localidad o comunidad", TERRITORY, "cifras", emptyList(), ignores = TerritorySummary.IGNORES) {
+                TerritorySummary.summary(it, BY_CODE)
+            },
+            Kpi(
+                "KPI-TER-02",
+                "Superficie del área de influencia",
+                TERRITORY,
+                "ha",
+                AREA + "area_of_influence.calculated_area_ha",
+                ignores = TERRITORY_IGNORES
+            ) {
+                TerritoryKpis.surface(it.approvedAreas())
+            },
+            Kpi(
+                "KPI-TER-03",
+                "Miembros por tipo de área",
+                TERRITORY,
+                "miembros",
+                AREA +
+                    listOf(
+                        "area_of_influence_member.area_of_influence",
+                        "area_of_influence_member.locality",
+                        "area_of_influence_member.community",
+                        "area_of_influence_member.administrative_unit",
+                        "area_of_influence_member.member_condition"
+                    ),
+                ignores = TERRITORY_IGNORES
+            ) { data ->
+                val areas = data.approvedAreas()
+                TerritoryKpis.members(areas, data.areaMembers(areas.map { it.id }))
+            },
+            Kpi("KPI-TER-04", "Componentes sobre tierras comunales o privadas", TERRITORY, "componentes", LAND, ignores = TERRITORY_IGNORES) { data ->
+                when (val outcome = data.landCrossings()) {
+                    is GateOutcome.Rows -> TerritoryKpis.componentsOnLand(outcome.rows)
+                    is GateOutcome.Unavailable -> IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, outcome.missingFields)
+                }
             }
         )
 

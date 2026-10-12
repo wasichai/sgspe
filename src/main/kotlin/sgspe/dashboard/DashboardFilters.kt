@@ -30,7 +30,9 @@ data class DashboardFilters(
     val owner: UUID? = null,
     // F5: el programa y el año presupuestal, solo en el tablero investment y en los KPI-INV (INVESTMENT, decisión 2 del plan 5.2b)
     val program: UUID? = null,
-    val year: Int? = null
+    val year: Int? = null,
+    // F6: si vino periodStart o periodEnd. sin periodo pedido, KPI-TER-01 cuenta las interacciones de los últimos 90 días
+    val periodGiven: Boolean = false
 ) {
     // lo que la respuesta devuelve en `filters`: los proyectos efectivos y los filtros que vinieron
     fun echo(): Map<String, Any?> =
@@ -145,6 +147,7 @@ data class DashboardFilters(
                     uuid("owner"),
                     uuid("program"),
                     year,
+                    params.getFirst("periodStart") != null || params.getFirst("periodEnd") != null,
                     defaultProjects
                 )
             if (violations.isNotEmpty()) throw ValidationException("Filtro inválido", violations)
@@ -167,6 +170,7 @@ data class DashboardFilters(
         private val owner: UUID?,
         private val program: UUID?,
         private val year: Int?,
+        private val periodGiven: Boolean,
         private val defaults: suspend () -> List<UUID>
     ) {
         suspend fun resolve(): DashboardFilters =
@@ -183,7 +187,8 @@ data class DashboardFilters(
                 breakdown,
                 owner,
                 program,
-                year
+                year,
+                periodGiven
             )
     }
 }

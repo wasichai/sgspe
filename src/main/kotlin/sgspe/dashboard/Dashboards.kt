@@ -19,6 +19,7 @@ import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
+import sgspe.territory.ComponentLand
 import wasichai.core.common.ForbiddenException
 import wasichai.core.metadata.MetadataService
 import java.time.Clock
@@ -42,7 +43,8 @@ class Dashboards(
     private val reach: ProjectReach,
     private val catalog: ModelCatalog,
     private val clock: Clock,
-    private val permissions: Permissions
+    private val permissions: Permissions,
+    private val componentLand: ComponentLand
 ) {
     suspend fun catalog(): List<CatalogEntry> {
         callers.require()
@@ -57,12 +59,18 @@ class Dashboards(
         val codes =
             Kpis.DASHBOARDS[name]
                 ?: throw notFound("DASHBOARD_NOT_FOUND", "El tablero $name no existe o no está disponible en esta fase", "dashboard")
+        // el tablero territorial exige el proyecto (especificación de F6 §3.2): sus cifras son de un proyecto, no del tenant
+        if (name == Kpis.TERRITORY && params["project"].isNullOrEmpty()) {
+            throw Finding("PROJECT_REQUIRED", "El tablero territorial exige al menos un project", "project", status = HttpStatus.BAD_REQUEST).toCodedException()
+        }
         val today = today()
         val filters = filters(params, DashboardFilters.COMMON + Kpis.extraFilters(codes), today)
         val readable = Readability(metadata)
-        val data = DashboardData(records, filters, readable::canRead, today)
+        val data = DashboardData(records, filters, readable::canRead, today, componentLand = componentLand)
         val hidden = hidden()
-        val indicators = codes.map { mark(evaluate(Kpis.BY_CODE.getValue(it), data, readable), hidden) }
+        // con locality o community, la ficha (KPI-TER-01) va primero
+        val shown = if (name == Kpis.TERRITORY && (filters.locality != null || filters.community != null)) listOf(TerritorySummary.CODE) + codes else codes
+        val indicators = shown.map { mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(it), data), hidden) }
         return DashboardResponse(name, filters.echo(), clock.instant().toString(), indicators, if (name == Kpis.ATTENTION) hidden else null)
     }
 
@@ -75,7 +83,10 @@ class Dashboards(
         val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN + Kpis.extraFilters(listOf(code)), today)
         val readable = Readability(metadata)
         val value =
-            mark(evaluate(kpi, DashboardData(records, filters, readable::canRead, today), readable), if (Kpis.confidentialSensitive(code)) hidden() else false)
+            mark(
+                KpiEvaluation.evaluate(kpi, DashboardData(records, filters, readable::canRead, today, componentLand = componentLand)),
+                if (Kpis.confidentialSensitive(code)) hidden() else false
+            )
         val by = filters.breakdown ?: return value
         if (!value.available) return value
         val offered = value.breakdowns.orEmpty().map { it.by }
@@ -84,32 +95,6 @@ class Dashboards(
             throw Finding("INVALID_BREAKDOWN", "Desglose inválido: $hint", BREAKDOWN, status = HttpStatus.BAD_REQUEST).toCodedException()
         }
         return value.copy(breakdowns = value.breakdowns.orEmpty().filter { it.by == by })
-    }
-
-    // la disponibilidad primero (permisos, un solo proyecto) y después el cálculo; los filtros que el KPI ignora van en
-    // ignoredFilters, disponible o no (ruling P27: nunca un cero silencioso por un filtro que no aplica)
-    private suspend fun evaluate(
-        kpi: Indicator,
-        data: DashboardData,
-        readable: Readability
-    ): IndicatorValue {
-        val missing = readable.missing(kpi.requires)
-        val result =
-            when {
-                missing.isNotEmpty() -> {
-                    val reason =
-                        if (missing.any { readable.objectMissing(it) }) UnavailableReason.OBJECT_NOT_READABLE else UnavailableReason.FIELD_NOT_READABLE
-                    IndicatorResult.unavailable(reason, missing)
-                }
-                kpi.singleProject && data.filters.projects.size != 1 ->
-                    IndicatorResult.unavailable(
-                        UnavailableReason.SINGLE_PROJECT_REQUIRED,
-                        listOf("project")
-                    )
-                else -> kpi.compute(data)
-            }
-        val ignored = Kpis.ignoredFilters(kpi, data.filters)
-        return result.toValue(kpi.code, kpi.label, kpi.unit).copy(ignoredFilters = ignored.ifEmpty { null })
     }
 
     // si a quien mira se le ocultan QCS confidenciales (Permissions.confidentialHidden)

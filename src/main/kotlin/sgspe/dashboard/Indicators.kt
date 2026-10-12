@@ -18,6 +18,9 @@ object UnavailableReason {
     const val OBJECT_NOT_READABLE = "OBJECT_NOT_READABLE"
     const val FIELD_NOT_READABLE = "FIELD_NOT_READABLE"
     const val SINGLE_PROJECT_REQUIRED = "SINGLE_PROJECT_REQUIRED"
+
+    // F6: KPI-TER-01 sin locality ni community (dashboards.md §4.8)
+    const val TERRITORY_REQUIRED = "TERRITORY_REQUIRED"
 }
 
 // lo que calcula un indicador: el valor, su numerador y denominador si es un porcentaje, sus desgloses y su serie mensual.
