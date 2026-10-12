@@ -41,6 +41,9 @@ class PlacedSqlTest {
 
     private val commitment = source("LYR-19", "commitment")
 
+    // una columna de geometría con su guarda de vacío (PlacedSql.nonEmpty)
+    private fun some(column: String) = "CASE WHEN ST_IsEmpty($column) THEN NULL ELSE $column END"
+
     private fun render(
         source: PlacedSource,
         projects: List<UUID> = emptyList(),
@@ -63,15 +66,37 @@ class PlacedSqlTest {
         assertTrue(sql.contains("LEFT JOIN <locality> r0 ON r0.\"id\" = e.\"locality\" LEFT JOIN <community> r1 ON r1.\"id\" = e.\"community\""), sql)
         assertTrue(
             sql.contains(
-                "COALESCE(ST_Transform(e.\"location\", 4326), COALESCE(ST_Transform(r0.\"location\", 4326), " +
-                    "ST_PointOnSurface(ST_Transform(r0.\"boundary\", 4326))), COALESCE(ST_PointOnSurface(ST_Transform(r1.\"territory\", 4326)))) AS g"
+                "COALESCE(ST_Transform(${some("e.\"location\"")}, 4326), COALESCE(ST_Transform(${some("r0.\"location\"")}, 4326), " +
+                    "ST_PointOnSurface(ST_Transform(${some("r0.\"boundary\"")}, 4326))), " +
+                    "COALESCE(ST_PointOnSurface(ST_Transform(${some("r1.\"territory\"")}, 4326)))) AS g"
             ),
             sql
         )
-        assertTrue(sql.contains("CASE WHEN ST_Transform(e.\"location\", 4326) IS NOT NULL THEN 'own' WHEN"), sql)
+        assertTrue(sql.contains("CASE WHEN ST_Transform(${some("e.\"location\"")}, 4326) IS NOT NULL THEN 'own' WHEN"), sql)
         assertTrue(sql.contains("THEN 'community' END AS kind"), sql)
-        assertTrue(sql.contains("CASE WHEN ST_Transform(e.\"location\", 4326) IS NOT NULL THEN NULL::uuid WHEN"), sql)
+        assertTrue(sql.contains("CASE WHEN ST_Transform(${some("e.\"location\"")}, 4326) IS NOT NULL THEN NULL::uuid WHEN"), sql)
         assertTrue(sql.contains("THEN r1.\"id\" END AS target"), sql)
+    }
+
+    @Test
+    fun `una geometria vacia cae como una nula al siguiente destino`() {
+        // un EMPTY no es NULL: sin esta guarda el registro se quedaría con un punto vacío en vez de caer a su localidad
+        assertEquals("CASE WHEN ST_IsEmpty(e.\"location\") THEN NULL ELSE e.\"location\" END", PlacedSql.nonEmpty("e.\"location\""))
+        val (sql, _) = render(commitment)
+        for (column in listOf("e.\"location\"", "r0.\"location\"", "r0.\"boundary\"", "r1.\"territory\"")) {
+            assertTrue(sql.contains(some(column)), column)
+            // ninguna geometría se usa sin su guarda
+            assertFalse(sql.contains("ST_Transform($column,"), column)
+        }
+    }
+
+    @Test
+    fun `LYR-21 cae, sin localidad ni comunidad con geometria, al limite de su area de influencia`() {
+        val (sql, _) = render(source("LYR-21", "social_risk"))
+        assertTrue(sql.contains("LEFT JOIN <area_of_influence> r2 ON r2.\"id\" = e.\"area_of_influence\""), sql)
+        assertTrue(sql.contains("COALESCE(ST_PointOnSurface(ST_Transform(${some("r2.\"boundary\"")}, 4326)))) AS g"), sql)
+        assertTrue(sql.contains("THEN 'area_of_influence' END AS kind"), sql)
+        assertTrue(sql.contains("THEN r2.\"id\" END AS target"), sql)
     }
 
     @Test
@@ -84,7 +109,7 @@ class PlacedSqlTest {
         // una fuente sin relaciones solo se dibuja con su geometría
         val (route, _) = render(source("LYR-18", "field_visit"))
         assertFalse(route.contains("LEFT JOIN"), route)
-        assertTrue(route.contains("CASE WHEN ST_Transform(e.\"route\", 4326) IS NOT NULL THEN 'own' END AS kind"), route)
+        assertTrue(route.contains("CASE WHEN ST_Transform(${some("e.\"route\"")}, 4326) IS NOT NULL THEN 'own' END AS kind"), route)
     }
 
     @Test
@@ -98,9 +123,12 @@ class PlacedSqlTest {
         val (agreed, agreedValues) = render(commitment, period = october)
         assertTrue(agreed.contains("WHERE e.\"agreed_date\" >= :g0 AND e.\"agreed_date\" <= :g1"), agreed)
         assertEquals(listOf<Any>(LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-31")), agreedValues.take(2))
-        // una fuente sin fecha no recibe periodo: ManagementLayers no se lo pasa (periodNotApplied)
-        val (risk, _) = render(source("LYR-21", "social_risk"))
-        assertFalse(risk.contains("e.\"social_risk\" WHERE"), risk)
+        // una fuente sin fecha no se acota aunque reciba un periodo: no hay condición de fecha y solo se enlaza el límite
+        val (risk, riskValues) = render(source("LYR-21", "social_risk"), period = october, limit = 9)
+        assertFalse(risk.contains("WHERE e."), risk)
+        assertEquals(listOf<Any>(9), riskValues)
+        val riskFields = PlacedSql.reads(source("LYR-21", "social_risk"), emptyList(), october)[0].fields
+        assertEquals(setOf("location", "locality", "community", "area_of_influence"), riskFields)
     }
 
     @Test
