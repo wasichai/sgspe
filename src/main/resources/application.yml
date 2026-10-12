@@ -99,11 +99,11 @@ sgspe:
       # un ZIP de F6 (Shapefile, FileGDB, KMZ): entradas y bytes descomprimidos (200 MB) como máximo
       max-entries: 1000
       max-inflated-bytes: 209715200
-      # la lectura con GDAL: listado de ogrinfo (4 MB), campos de la capa y sus nombres (bytes), GeoJSON de salida (200 MB)
+      # la lectura con GDAL: listado de ogrinfo (4 MB), campos de la capa y sus nombres (bytes), GeoJSON de salida (64 MB)
       max-listing-bytes: 4194304
       max-fields: 200
       max-field-name-bytes: 16384
-      max-geojson-bytes: 209715200
+      max-geojson-bytes: 67108864
     layers:
       # tope de elementos por capa de GET /api/sgspe/territory/layers/{layer} (LayersProperties)
       max-features: 5000

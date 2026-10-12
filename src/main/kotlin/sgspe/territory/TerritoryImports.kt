@@ -181,11 +181,27 @@ internal object ImportRules {
     const val APPLY = "APPLY"
     const val DISCARD = "DISCARD"
 
-    // los atributos sin los que no se crea un registro del destino, en orden
+    // los atributos sin los que no se crea un registro del destino, en orden. uno que la fila trajo con un valor inválido ya
+    // se rechazó con su motivo (`rejected`): no se repite como «es obligatorio»
     fun missingRequired(
         required: Set<String>,
-        attributes: Map<String, Any?>
-    ): List<String> = required.filter { attributes[it] == null }.sorted()
+        attributes: Map<String, Any?>,
+        rejected: Set<String> = emptySet()
+    ): List<String> = required.filter { attributes[it] == null && it !in rejected }.sorted()
+
+    // los destinos que llegan con el modelo de F6 (community.code, environmental_feature.code y los campos de origen)
+    val SINCE_F6: Set<String> = setOf("community", "environmental_feature")
+
+    // un destino de F6 en una organización que todavía no tiene su modelo (sin `code`): 400 sobre target, antes de leer el
+    // archivo, y no un error al escribir
+    fun requireModel(
+        target: String,
+        hasCode: Boolean
+    ) {
+        if (target in SINCE_F6 && !hasCode) {
+            throw ValidationException("Destino inválido", "target", "$target se importa con el modelo de F6, que esta organización todavía no tiene")
+        }
+    }
 
     // cada valor numérico de un destino tiene un rango finito; fuera de él la fila se rechaza nombrando el campo. los
     // ángulos en grados; la cota en m s. n. m. (del fondo de un tajo a más que la cumbre más alta del Perú); el área
@@ -483,9 +499,7 @@ class TerritoryImports(
         // lo que una fila debe traer (columna elegida o valor fijo del formulario); si no, se rechaza nombrándolo
         val required: Set<String> = emptySet(),
         // calculated_area_ha se escribe con la marca en la transacción (Areas.GEOMETRY): predios, concesiones y comunidades
-        val writesArea: Boolean = !tables,
-        // el destino llega con el modelo de F6 (code y los campos de origen): una organización sin él no lo tiene
-        val sinceF6: Boolean = false
+        val writesArea: Boolean = !tables
     )
 
     private class Context(
@@ -559,9 +573,7 @@ class TerritoryImports(
         val grants = mutableListOf(Actions.CREATE to target.name, Actions.UPDATE to target.name)
         if (target.name == CONCESSION) grants += Actions.UPDATE to "project"
         permissions.require(user, "Importar ${target.name}", *grants.toTypedArray())
-        if (target.sinceF6 && !tenantModel.hasField(user.organizationId, target.name, "code")) {
-            throw ValidationException("Destino inválido", "target", "${target.name} se importa con el modelo de F6, que esta organización todavía no tiene")
-        }
+        if (target.name in ImportRules.SINCE_F6) ImportRules.requireModel(target.name, tenantModel.hasField(user.organizationId, target.name, "code"))
         // los componentes se escriben bajo el alcance del proyecto: sin asignación vigente, 403 NOT_ASSIGNED ya aquí y no tras
         // analizar el archivo entero con PostGIS. los predios y las concesiones son del tenant y no pasan por el alcance
         // componentes y concesiones escriben en el proyecto (la concesión se vincula a él): asignación antes de leer
@@ -765,6 +777,7 @@ class TerritoryImports(
         invalid: MutableList<InvalidRow>
     ): Map<String, Any?>? {
         val out = mutableMapOf<String, Any?>("code" to columns.value(row, "code"))
+        val rejected = mutableSetOf<String>()
         var ok = true
         for (name in target.attributes) {
             val raw = columns.value(row, SOURCE_COLUMNS[name] ?: name) ?: continue
@@ -787,12 +800,13 @@ class TerritoryImports(
             }
             if (issue != null) {
                 invalid += InvalidRow(row.row, name, issue)
+                rejected += name
                 ok = false
             } else {
                 out[name] = value
             }
         }
-        for (name in ImportRules.missingRequired(target.required, out)) {
+        for (name in ImportRules.missingRequired(target.required, out, rejected)) {
             invalid += InvalidRow(row.row, name, "es obligatorio: elija su columna o un valor fijo")
             ok = false
         }
@@ -983,8 +997,7 @@ class TerritoryImports(
                         mapOf("Polygon" to ("territory" to "MultiPolygon")),
                         listOf("name"),
                         tables = false,
-                        required = setOf("name"),
-                        sinceF6 = true
+                        required = setOf("name")
                     ),
                 FEATURE to
                     Target(
@@ -993,8 +1006,7 @@ class TerritoryImports(
                         listOf("name", "feature_type"),
                         tables = false,
                         required = setOf("name", "feature_type"),
-                        writesArea = false,
-                        sinceF6 = true
+                        writesArea = false
                     )
             )
     }

@@ -42,8 +42,9 @@ import java.util.UUID
 // las dos rutas de la importación (api.md §4.2). multipart: `file` y los campos `target`, `project`, `sourceCrs` y
 // `columns`; la confirmación vuelve a mandar todo eso y agrega `sha256` y `decisions` (un json [{row, action}], action
 // APPLY o DISCARD): el servidor no guarda nada entre las dos. una parte desconocida o repetida es un 400 y un parámetro de
-// consulta, un 422. desde F6, la parte `layer` (la capa elegida de un archivo de varias) y los formatos de GDAL. el archivo se escribe en la carpeta temporal contando bytes: al pasar el máximo, 400 FILE_TOO_LARGE y la
-// carpeta se borra. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
+// consulta, un 422. desde F6, la parte `layer` (la capa elegida de un archivo de varias) y los formatos de GDAL. el
+// archivo se escribe en la carpeta temporal contando bytes: al pasar el máximo, 400 FILE_TOO_LARGE y la carpeta se
+// borra. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
 @RestController
 @RequestMapping("/api/sgspe/territory/imports")
 class ImportController(
@@ -87,8 +88,6 @@ class ImportController(
         }
     }
 
-    // las partes del multipart, una por nombre. Spring guarda en disco la parte de archivo antes de entregarla; sus topes
-    // (spring.webflux.multipart.*, application.yml) son 400 con código (ImportUpload.multipartError), no 500
     // GET /api/sgspe/territory/imports/formats (api.md §4.2): qué formatos lee este servidor; los de GDAL, solo si hay GDAL de
     // la versión mínima con su driver (ASM-127). status() corre ogrinfo la primera vez: va en el despachador de E/S
     @GetMapping("/formats")
@@ -113,6 +112,8 @@ class ImportController(
     @ExceptionHandler(ImportChoiceRequired::class)
     fun choiceRequired(e: ImportChoiceRequired): ProblemDetail = problems.handleWasichai(e).apply { setProperty("layers", e.layers) }
 
+    // las partes del multipart, una por nombre. Spring guarda en disco la parte de archivo antes de entregarla; sus topes
+    // (spring.webflux.multipart.*, application.yml) son 400 con código (ImportUpload.multipartError), no 500
     private suspend fun parts(
         exchange: ServerWebExchange,
         allowed: Set<String>

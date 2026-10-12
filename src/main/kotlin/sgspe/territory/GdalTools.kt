@@ -80,6 +80,7 @@ class GdalTools(
         } catch (e: InterruptedException) {
             process.descendants().forEach { it.destroyForcibly() }
             process.destroyForcibly()
+            reap(process)
             throw e
         }
     }
@@ -104,20 +105,10 @@ class GdalTools(
         return GdalStatus(false, version, emptySet(), null, null, reason)
     }
 
-    private fun locate(): Path? {
-        val candidates =
-            if (properties.path.isBlank()) {
-                System
-                    .getenv("PATH")
-                    .orEmpty()
-                    .split(File.pathSeparator)
-                    .filter { it.isNotBlank() }
-                    .map { Path.of(it) }
-            } else {
-                listOf(Path.of(properties.path))
-            }
-        return candidates.firstOrNull { Files.isExecutable(it.resolve("ogrinfo")) && Files.isExecutable(it.resolve("ogr2ogr")) }
-    }
+    private fun locate(): Path? =
+        candidates(properties.path, System.getenv("PATH")).firstOrNull {
+            Files.isExecutable(it.resolve("ogrinfo")) && Files.isExecutable(it.resolve("ogr2ogr"))
+        }
 
     // la salida de un comando corto (la versión, los drivers), con 10 s de plazo
     private fun capture(command: List<String>): String? {
@@ -129,6 +120,7 @@ class GdalTools(
             val process = builder.start()
             if (!process.waitFor(10, TimeUnit.SECONDS)) {
                 process.destroyForcibly()
+                reap(process)
                 null
             } else if (process.exitValue() == 0) {
                 Files.readString(out)
@@ -139,6 +131,37 @@ class GdalTools(
             null
         } finally {
             Files.deleteIfExists(out)
+        }
+    }
+
+    companion object {
+        // dónde se buscan ogrinfo y ogr2ogr: la carpeta configurada o las del PATH, siempre absolutas y normalizadas. una
+        // entrada relativa del PATH (vacía, «.» o «bin») dependería de la carpeta de trabajo del proceso: se ignora
+        internal fun candidates(
+            configured: String,
+            pathEnv: String?
+        ): List<Path> =
+            if (configured.isBlank()) {
+                pathEnv
+                    .orEmpty()
+                    .split(File.pathSeparator)
+                    .filter { it.isNotBlank() }
+                    .map { Path.of(it) }
+                    .filter { it.isAbsolute }
+                    .map { it.normalize() }
+                    .distinct()
+            } else {
+                listOf(Path.of(configured).toAbsolutePath().normalize())
+            }
+
+        // tras destroyForcibly, se espera hasta 2 s a que el proceso termine de verdad (no queda un zombi ni archivos abiertos
+        // en el workspace que se va a borrar); si el hilo ya venía interrumpido, se conserva la marca
+        internal fun reap(process: Process) {
+            try {
+                process.waitFor(2, TimeUnit.SECONDS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
         }
     }
 }

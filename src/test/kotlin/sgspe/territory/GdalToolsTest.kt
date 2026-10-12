@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import wasichai.core.common.WasichaiException
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -39,5 +40,26 @@ class GdalToolsTest {
         val out = dir.resolve("version.out")
         assertEquals(0, tools.run(listOf(status.ogrinfo.toString(), "--version"), dir, out))
         assertTrue(Files.readString(out).startsWith("GDAL "))
+    }
+
+    @Test
+    fun `del PATH solo cuentan las carpetas absolutas, normalizadas y sin repetir`() {
+        val sep = File.pathSeparator
+        val path = listOf("", ".", "bin", "/opt/gdal/../gdal/bin", "/usr/bin/", "/opt/gdal/bin", "./tools").joinToString(sep)
+        assertEquals(listOf(Path.of("/opt/gdal/bin"), Path.of("/usr/bin")), GdalTools.candidates("", path))
+        assertEquals(emptyList<Path>(), GdalTools.candidates("", null))
+        // la carpeta configurada se vuelve absoluta y normalizada
+        val configured = GdalTools.candidates("gdal/../gdal/bin", path).single()
+        assertTrue(configured.isAbsolute)
+        assertEquals(configured.normalize(), configured)
+        assertTrue(configured.endsWith(Path.of("gdal", "bin")))
+    }
+
+    @Test
+    fun `reap espera a que el proceso muerto termine`() {
+        val process = ProcessBuilder("sleep", "30").start()
+        process.destroyForcibly()
+        GdalTools.reap(process)
+        assertFalse(process.isAlive)
     }
 }

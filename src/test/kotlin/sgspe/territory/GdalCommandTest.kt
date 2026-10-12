@@ -168,6 +168,13 @@ class GdalCommandTest {
     }
 
     @Test
+    fun `layers en el JSON solo con nombre, tipo, cantidad y CRS detectado`() {
+        val layer = SourceLayer("comunidades", "Polygon", 2, "EPSG 32717", fieldCount = 7, fieldNameBytes = 120)
+        val tree = json.readTree(json.writeValueAsString(layer))
+        assertEquals(setOf("name", "geometryType", "featureCount", "detectedCrs"), tree.propertyNames().toSet())
+    }
+
+    @Test
     fun `el CRS detectado sale de projjson o del ID final del WKT, y fuera del catalogo es null`() {
         fun epsg(cs: String) = GdalInfo.epsg(json.readTree(cs))
         assertEquals(32718, epsg("""{"wkt":"PROJCRS[\"WGS 84 / UTM zone 18S\",BASEGEOGCRS[\"WGS 84\",ID[\"EPSG\",4326]],ID[\"EPSG\",32718]]"}"""))

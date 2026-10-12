@@ -53,11 +53,11 @@ data class ImportProperties(
     val maxEntries: Int = 1_000,
     val maxInflatedBytes: Long = 200L * 1024 * 1024,
     // la lectura con GDAL: el listado de ogrinfo, los campos de la capa elegida y el GeoJSON que sale de ogr2ogr (el -limit
-    // acota los elementos, no los bytes)
+    // acota los elementos, no los bytes; 64 MB, porque ImportReaders.geojson guarda todas sus filas en memoria)
     val maxListingBytes: Long = 4L * 1024 * 1024,
     val maxFields: Int = 200,
     val maxFieldNameBytes: Long = 16_384,
-    val maxGeojsonBytes: Long = 200L * 1024 * 1024
+    val maxGeojsonBytes: Long = 64L * 1024 * 1024
 )
 
 // una fila del archivo: su número (el de la hoja o la posición del feature), sus valores por encabezado y, en GeoJSON, su

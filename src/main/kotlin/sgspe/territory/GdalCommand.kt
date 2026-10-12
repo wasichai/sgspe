@@ -1,5 +1,6 @@
 package sgspe.territory
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.springframework.http.HttpStatus
 import sgspe.common.Finding
 import sgspe.common.toCodedException
@@ -17,9 +18,10 @@ data class SourceLayer(
     val geometryType: String?,
     val featureCount: Long?,
     val detectedCrs: String?,
-    // cuántos campos tiene y cuántos bytes ocupan sus nombres: el tamaño del GeoJSON crece con ambos, no solo con -limit
-    val fieldCount: Int = 0,
-    val fieldNameBytes: Long = 0
+    // cuántos campos tiene y cuántos bytes ocupan sus nombres: el tamaño del GeoJSON crece con ambos, no solo con -limit. son
+    // para los topes de GdalReader y no salen en layers[] (LAYER_REQUIRED, api.md §4.2)
+    @get:JsonIgnore val fieldCount: Int = 0,
+    @get:JsonIgnore val fieldNameBytes: Long = 0
 )
 
 // los comandos de GDAL (ASM-127, especificación de F6 §3.4): argumentos fijos más rutas absolutas del workspace o de la
