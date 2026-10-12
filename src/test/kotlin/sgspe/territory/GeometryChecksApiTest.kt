@@ -83,8 +83,9 @@ class GeometryChecksApiTest : DomainApiTest() {
 
     @Test
     fun `sin READ es 403, un campo que no es geometria es 400 y una propiedad desconocida tambien`() {
-        val auditor = userWithRole("AUDITOR")
-        assertEquals(HttpStatus.FORBIDDEN, check(mapOf("geometry" to bowtie, "object" to "land_parcel", "field" to "boundary"), auditor.token).status)
+        // AUDITOR lee todo el tenant; FIELD_AGENT no lee predios
+        val fieldAgent = userWithRole("FIELD_AGENT")
+        assertEquals(HttpStatus.FORBIDDEN, check(mapOf("geometry" to bowtie, "object" to "land_parcel", "field" to "boundary"), fieldAgent.token).status)
         val code = check(mapOf("geometry" to bowtie, "object" to "land_parcel", "field" to "code"))
         assertEquals(HttpStatus.BAD_REQUEST, code.status)
         assertEquals(listOf("field"), problemFields(code.body))

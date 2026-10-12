@@ -89,7 +89,8 @@ class DataQualityApiTest : F6ApiTest() {
         assertEquals(HttpStatus.BAD_REQUEST, exchange("GET", "/api/sgspe/territory/data-quality?check=OTRO").status)
         assertEquals(HttpStatus.BAD_REQUEST, exchange("GET", "/api/sgspe/territory/data-quality?check=INVALID&object=land_right").status)
         assertEquals(HttpStatus.valueOf(422), exchange("GET", "/api/sgspe/territory/data-quality?check=INVALID&orden=id").status)
-        val auditor = userWithRole("AUDITOR")
-        assertEquals(HttpStatus.FORBIDDEN, exchange("GET", "/api/sgspe/territory/data-quality?check=INVALID&object=land_parcel", null, auditor.token).status)
+        // AUDITOR lee todo el tenant; FIELD_AGENT no lee predios
+        val fieldAgent = userWithRole("FIELD_AGENT")
+        assertEquals(HttpStatus.FORBIDDEN, exchange("GET", "/api/sgspe/territory/data-quality?check=INVALID&object=land_parcel", null, fieldAgent.token).status)
     }
 }
