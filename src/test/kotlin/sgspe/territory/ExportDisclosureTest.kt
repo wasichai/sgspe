@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import sgspe.common.ModelCatalog
 import sgspe.privacy.Disclosure
 import wasichai.core.common.WasichaiException
 
@@ -38,6 +39,18 @@ class ExportDisclosureTest {
         assertEquals(
             mapOf("tenure_type" to setOf("PROPIEDAD", "POSESION", "COMUNAL")),
             ExportDisclosure.check("land_parcel", Disclosure.EXTERNO, emptyMap())
+        )
+    }
+
+    @Test
+    fun `EXTERNO con un filtro vacio aplica el filtro fijo`() {
+        assertEquals(
+            mapOf("component_type" to setOf("ACCESO")),
+            ExportDisclosure.check("project_component", Disclosure.EXTERNO, mapOf("component_type" to emptySet()))
+        )
+        assertEquals(
+            mapOf("tenure_type" to setOf("PROPIEDAD", "POSESION", "COMUNAL")),
+            ExportDisclosure.check("land_parcel", Disclosure.EXTERNO, mapOf("tenure_type" to emptySet()))
         )
     }
 
@@ -79,5 +92,167 @@ class ExportDisclosureTest {
             listOf("code", "name"),
             ExportDisclosure.columns("project", Disclosure.EXTERNO, listOf("code", "name", "description", "working_crs", "policy_no_paid_labor"))
         )
+    }
+
+    // los campos no geométricos (y las relaciones MANY_TO_ONE) que una exportación puede sacar de cada capa, según
+    // model/model.json: un campo nuevo en una capa exportable rompe esta prueba y obliga a decidir su nivel de divulgación
+    // (ExportDisclosure.columns) antes de que salga en un archivo
+    @Test
+    fun `los campos exportables de cada capa estan fijados`() {
+        val catalog = ModelCatalog.fromClasspath()
+        assertEquals(EXPORTED_FIELDS.keys, ExportDisclosure.EXPORTABLE)
+        for ((objectName, fields) in EXPORTED_FIELDS) {
+            assertEquals(fields, TerritoryExports.columnsOf(catalog, objectName).toSet(), objectName)
+        }
+    }
+
+    private companion object {
+        val EXPORTED_FIELDS: Map<String, Set<String>> =
+            mapOf(
+                "administrative_unit" to setOf("ubigeo_code", "name", "level", "parent_unit"),
+                "locality" to
+                    setOf(
+                        "name",
+                        "alternative_names",
+                        "locality_type",
+                        "populated_center_code",
+                        "recognition_status",
+                        "history",
+                        "parent_locality",
+                        "administrative_unit"
+                    ),
+                "road_access" to setOf("road_type", "road_condition", "transport_means", "travel_time", "locality", "connects_to"),
+                "community" to
+                    setOf(
+                        "name",
+                        "code",
+                        "source_crs",
+                        "source_reference",
+                        "import_batch_id",
+                        "alternative_names",
+                        "community_type",
+                        "legal_entity_record",
+                        "property_record",
+                        "parent_record",
+                        "independized",
+                        "title_reference",
+                        "title_issuer_as_written",
+                        "title_issuer_normalized",
+                        "registered_area_ha",
+                        "calculated_area_ha",
+                        "registry_records_unverified",
+                        "recognized_as_indigenous",
+                        "indigenous_people",
+                        "organic_status",
+                        "board_registered",
+                        "registered_members_count",
+                        "has_member_roll",
+                        "administrative_unit"
+                    ),
+                "mining_concession" to
+                    setOf(
+                        "code",
+                        "name",
+                        "source_crs",
+                        "source_reference",
+                        "import_batch_id",
+                        "registered_area_ha",
+                        "calculated_area_ha",
+                        "holder_organization"
+                    ),
+                "school" to setOf("name", "education_level", "school_status", "locality"),
+                "health_facility" to setOf("name", "facility_type", "facility_status", "locality"),
+                "community_sector" to setOf("name", "delegates_count", "community"),
+                "environmental_feature" to
+                    setOf(
+                        "name",
+                        "code",
+                        "source_crs",
+                        "source_reference",
+                        "import_batch_id",
+                        "feature_type",
+                        "legal_basis",
+                        "declaring_authority",
+                        "declaration_date",
+                        "administrative_unit"
+                    ),
+                "project" to
+                    setOf(
+                        "code",
+                        "name",
+                        "description",
+                        "project_type",
+                        "stage",
+                        "exploration_phase",
+                        "start_date",
+                        "end_date",
+                        "working_crs",
+                        "interest_threshold",
+                        "power_threshold",
+                        "stakeholder_review_days",
+                        "inactivity_days",
+                        "meetings_per_month_target",
+                        "policy_workshop_commitments_blocked",
+                        "policy_senior_approval_for_dialogue",
+                        "policy_minutes_only_formal_types",
+                        "policy_internal_approval",
+                        "policy_activation_preconditions",
+                        "policy_local_jobs_direct_area_only",
+                        "local_jobs_min",
+                        "local_jobs_max",
+                        "policy_no_jobs_in_easements",
+                        "due_soon_days",
+                        "escalation_first_days",
+                        "escalation_second_days",
+                        "grievance_ack_days",
+                        "inquiry_response_days",
+                        "grievance_resolution_days",
+                        "policy_high_severity_requires_approver",
+                        "risk_review_days",
+                        "risk_medium_min_score",
+                        "risk_high_min_score",
+                        "risk_critical_min_score",
+                        "policy_cap_blocks_approval",
+                        "policy_no_paid_labor",
+                        "policy_non_monetary_donations",
+                        "policy_synergy_requires_agreement",
+                        "policy_priority_warning"
+                    ),
+                "project_component" to
+                    setOf(
+                        "code",
+                        "component_type",
+                        "drill_type",
+                        "component_status",
+                        "version_number",
+                        "superseded",
+                        "source_crs",
+                        "source_easting",
+                        "source_northing",
+                        "source_elevation",
+                        "azimuth",
+                        "dip",
+                        "depth_m",
+                        "source_reference",
+                        "import_batch_id",
+                        "project",
+                        "exploration_campaign",
+                        "previous_version"
+                    ),
+                "area_of_influence" to setOf("area_type", "version_number", "criteria", "defined_date", "calculated_area_ha", "project", "study"),
+                "land_parcel" to
+                    setOf(
+                        "code",
+                        "tenure_type",
+                        "registry_record",
+                        "registered_area_ha",
+                        "calculated_area_ha",
+                        "source_crs",
+                        "source_reference",
+                        "import_batch_id",
+                        "community",
+                        "locality"
+                    )
+            )
     }
 }

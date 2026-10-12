@@ -55,7 +55,8 @@ object ExportDisclosure {
         if (level != Disclosure.EXTERNO) return requested
         val out = LinkedHashMap(requested)
         for ((field, allowed) in EXTERNAL_FIXED[objectName].orEmpty()) {
-            val asked = requested[field]
+            // un filtro vacío ([]) cuenta como ausente: se aplica el fijo, nunca «sin filtro»
+            val asked = requested[field]?.ifEmpty { null }
             if (asked != null && !allowed.containsAll(asked)) {
                 throw notAllowed("En EXTERNO, $objectName solo sale con ${allowed.joinToString(", ")}", FILTER_FIELDS.getValue(field))
             }

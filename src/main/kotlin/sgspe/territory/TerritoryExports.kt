@@ -44,6 +44,7 @@ import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordResponse
 import wasichai.core.metadata.MetadataService
+import wasichai.core.platform.SqlIdentifier
 import java.io.IOException
 import java.math.BigDecimal
 import java.nio.file.Files
@@ -55,9 +56,10 @@ import java.util.UUID
 // LYR-01 a LYR-16 con una de sus geometrías, en geojson y kml (4326), gpkg y shp (UTM del proyecto filtrado o 4326) o csv y
 // xlsx (latitud, longitud, este y norte del punto o del centroide y WKT). antes de leer nada exige READ y EXPORT sobre el
 // objeto y CREATE sobre export_log; lee por Records como quien exporta (permisos de campo, alcance de proyecto) con el tope
-// sgspe.exports.max-rows; aplica la divulgación por capa (ExportDisclosure) y deja su fila de export_log antes de entregar el
-// archivo, como CommitmentMatrix. los proyectos siguen ExportProjects. una exportación no crea registros de negocio: sin
-// Idempotency-Key (api.md §3.5)
+// sgspe.exports.max-rows; entrega la capa como se ve (los filtros de origen de Layers, en todos los niveles), aplica la
+// divulgación por capa (ExportDisclosure) y deja su fila de export_log antes de entregar el archivo, como CommitmentMatrix.
+// los proyectos siguen ExportProjects, salvo las concesiones (projectsFor). una exportación no crea registros de negocio:
+// sin Idempotency-Key (api.md §3.5)
 @Service
 class TerritoryExports(
     private val records: Records,
@@ -77,6 +79,12 @@ class TerritoryExports(
     class Export(
         val file: ExportFile,
         val format: GeoExportFormat
+    )
+
+    // los filtros de origen de la capa que una exportación aplica siempre (layerFilters)
+    internal data class LayerFilters(
+        val excludeSuperseded: Boolean,
+        val states: Set<String>?
     )
 
     suspend fun export(body: Map<String, Any?>): Export {
@@ -115,12 +123,12 @@ class TerritoryExports(
         val geometry = geometryOf(objectName, body["geometry"])
         requireGdal(format)
         val requestedProjects = uuids(filters["project"])
-        // los proyectos solo acotan los objetos que tienen proyecto; para los demás, ni la lectura ni export_log los llevan
-        val projects = scope.resolve(user, requestedProjects)?.takeIf { objectName in PROJECT_FILTERED }
+        // filters.project se valida siempre (NOT_ASSIGNED), aunque el objeto no se acote por proyecto
+        val projects = projectsFor(objectName, requestedProjects, scope.resolve(user, requestedProjects))
         val utm = if (coordinates == UTM) workingSrid(requestedProjects) else null
         val rows = read(objectName, geometry, fixed, projects)
         val readability = Readability(metadata)
-        val candidates = columnsOf(objectName).filter { readability.canRead("$objectName.$it") }
+        val candidates = columnsOf(catalog, objectName).filter { readability.canRead("$objectName.$it") }
         val allowed = ExportDisclosure.columns(objectName, disclosure, candidates + STATE)
         val columns = allowed - STATE
         val withState = STATE in allowed
@@ -147,12 +155,15 @@ class TerritoryExports(
     ): List<RecordResponse> {
         val criteria = mutableListOf<RecordCriterion>(Criteria.filled(geometry))
         fixed.forEach { (field, values) -> criteria += Criteria.textIn(field, values) }
+        val source = layerFilters(objectName)
+        source.states?.let { criteria += Criteria.inState(it) }
+        if (source.excludeSuperseded) criteria += notTrue(SUPERSEDED)
         var ids: List<UUID>? = null
         if (projects != null) {
             when (objectName) {
                 ExportDisclosure.COMPONENT, "area_of_influence" -> criteria += Criteria.anyOf("project", projects)
                 "project" -> ids = projects
-                "mining_concession" ->
+                CONCESSION ->
                     ids =
                         projects.flatMap { records.related("project", it, "project_concession") }.mapNotNull { Records.uuid(it.id) }.distinct()
             }
@@ -163,6 +174,13 @@ class TerritoryExports(
                 null
         }
     }
+
+    // el campo no es verdadero (falso o vacío). como en Layers, si quien exporta no puede leerlo no se sabe qué está
+    // reemplazado: no sale nada (falla cerrado) en vez de un 400 que nombre un campo que no ve
+    private fun notTrue(field: String): RecordCriterion =
+        RecordCriterion { definition, _ ->
+            Layers.condition(definition.fields.firstOrNull { it.name == field }?.let { SqlIdentifier.quote(it.columnName) }) { "$it IS NOT TRUE" }
+        }
 
     private suspend fun workingSrid(requested: List<UUID>): Int {
         val project =
@@ -261,14 +279,6 @@ class TerritoryExports(
 
     // ---- el cuerpo ----
 
-    // los campos del objeto (sin las geometrías) y sus relaciones MANY_TO_ONE, en el orden del modelo
-    private fun columnsOf(objectName: String): List<String> =
-        catalog
-            .objectOrNull(objectName)!!
-            .fields.values
-            .filter { it.type != "GEOMETRY" }
-            .map { it.name } + catalog.manyToOneFields(objectName).map { it.first }
-
     private fun geometryOf(
         objectName: String,
         raw: Any?
@@ -296,7 +306,8 @@ class TerritoryExports(
         val values = (raw as? List<*> ?: listOf(raw)).map { it as? String ?: throw bad("INVALID_FILTER", "El filtro $field es una lista de textos", field) }
         val known = catalog.enumOf(owner, enumField)
         values.firstOrNull { it !in known }?.let { throw bad("INVALID_FILTER", "El filtro $field admite ${known.joinToString(", ")}", field) }
-        return values.toSet()
+        // una lista vacía es un filtro ausente (en EXTERNO, el fijo del objeto), no «ningún valor»
+        return values.toSet().ifEmpty { null }
     }
 
     private fun uuids(raw: Any?): List<UUID> {
@@ -372,8 +383,51 @@ class TerritoryExports(
                 .toCodedException()
         }
 
+        // los campos del objeto (sin las geometrías) y sus relaciones MANY_TO_ONE, en el orden del modelo. ExportDisclosureTest
+        // fija este conjunto por objeto: un campo nuevo obliga a decidir su nivel de divulgación
+        internal fun columnsOf(
+            catalog: ModelCatalog,
+            objectName: String
+        ): List<String> =
+            catalog
+                .objectOrNull(objectName)!!
+                .fields.values
+                .filter { it.type != "GEOMETRY" }
+                .map { it.name } + catalog.manyToOneFields(objectName).map { it.first }
+
+        // los filtros de origen de la capa del objeto (Layers.CATALOG) que la exportación aplica en todos los niveles, para
+        // entregar la capa como se ve: los componentes vigentes (superseded no verdadero, LYR-10 a LYR-12) y las áreas de
+        // influencia aprobadas (LYR-13). un objeto de varias capas los lleva solo si todas sus capas los llevan
+        internal fun layerFilters(objectName: String): LayerFilters {
+            val sources =
+                Layers.CATALOG.values
+                    .flatMap { it.sources }
+                    .filter { it.objectName == objectName }
+            val states = sources.map { it.states }
+            return LayerFilters(
+                excludeSuperseded = sources.isNotEmpty() && sources.all { it.excludeSuperseded },
+                states = if (states.isNotEmpty() && states.all { it != null }) states.flatMap { it!! }.toSet() else null
+            )
+        }
+
+        // con qué proyectos se acota la lectura (y export_log): un objeto sin proyecto, con ninguno; las concesiones, maestro
+        // del tenant (LYR-07), solo con los de filters.project y sin ellos todas las que quien exporta lee, como la capa; los
+        // demás, los de ExportProjects (los pedidos o, sin ellos, los proyectos de quien exporta)
+        internal fun projectsFor(
+            objectName: String,
+            requested: List<UUID>,
+            resolved: List<UUID>?
+        ): List<UUID>? =
+            when (objectName) {
+                CONCESSION -> requested.ifEmpty { null }
+                in PROJECT_FILTERED -> resolved
+                else -> null
+            }
+
         private const val STATE = "workflow_state"
-        private val PROJECT_FILTERED = setOf(ExportDisclosure.COMPONENT, "area_of_influence", "project", "mining_concession")
+        private const val SUPERSEDED = "superseded"
+        private const val CONCESSION = "mining_concession"
+        private val PROJECT_FILTERED = setOf(ExportDisclosure.COMPONENT, "area_of_influence", "project", CONCESSION)
         const val EXPORT = "EXPORT"
         const val UTM = "UTM"
         const val LATLON = "LATLON"
