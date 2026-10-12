@@ -660,7 +660,8 @@ permisos (RQ-GIS-017); las geometrías salen en GeoJSON EPSG:4326 y las áreas, 
   PERSONALES o sin clasificación legible: la descarga exige `DOWNLOAD_RESTRICTED`). Las fechas del periodo son `held_at`, el
   tramo `actual_start_date` a `actual_end_date` de las visitas, `observed_at`, `agreed_date`, `received_at`, `occurred_at`,
   `detected_at`, el tramo `start_date` a `end_date` de las iniciativas, `delivery_date` y `captured_at`; un tramo cuenta si
-  cruza el periodo. Se leen como quien pide, con sus alcances: una QCS confidencial solo sale a quien la lee, y LYR-20
+  cruza el periodo; con periodo, una visita sin `actual_start_date` o una iniciativa sin `start_date` no sale. Con solo
+  `periodEnd`, el periodo son los 12 meses que terminan en esa fecha; con solo `periodStart`, llega hasta hoy. Se leen como quien pide, con sus alcances: una QCS confidencial solo sale a quien la lee, y LYR-20
   lleva `confidentialHidden: true` cuando a quien pide se le ocultan (`dashboards.md` §8). Comparten el
   tope de 5000 elementos con `truncated`. Sin READ sobre un objeto de la capa o sobre los destinos de sus relaciones, `403`.
   No se exportan (ASM-124).

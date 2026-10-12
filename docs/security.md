@@ -1140,10 +1140,15 @@ Una QCS sin `confidential` verdadero la ven todos los que tienen READ, como hast
 - **Trabajos.** JOB-01, JOB-02, JOB-04 y `DeadlineNotices` leen como la plataforma, sin el alcance: lo que producen se
   filtra en la salida (avisos, ASM-102) o es agregado (conteos de JOB-04).
 - **Indicadores, reporte y exportaciones.** Leen como quien llama y excluyen lo que no ve. El tablero `attention`, cada
-  KPI-GRV, KPI-ENG-05 y el reporte unificado llevan `confidentialHidden: true` cuando quien llama no es `ADMIN` ni tiene
+  KPI-GRV, KPI-ENG-05, el reporte unificado y, desde el plan 6.2c, `concentration` con `of` en una QCS y la capa LYR-20 llevan
+  `confidentialHidden: true` cuando quien llama no es `ADMIN` ni tiene
   `READ_CONFIDENTIAL` sobre los tres objetos; nunca el número de excluidas. EXTERNO excluye toda QCS confidencial,
   también para `GRIEVANCE_MANAGER` (§11.4).
 - **Capa LYR-20.** Lee como quien llama: hereda el alcance (`gis.md` §2.2).
+- **Capa LYR-24 (residual aceptado).** Dibuja la ubicación de una evidencia a quien lee `evidence`, aunque sea CONFIDENCIAL
+  o DATOS PERSONALES (también la vinculada a una QCS confidencial), igual que la API genérica: el descriptor del archivo no
+  sale y la descarga sigue exigiendo `DOWNLOAD_RESTRICTED`. Lo mismo vale para el punto exacto de una QCS en LYR-20 y de
+  una entrega en LYR-23 para quien las lee; la generalización a la localidad queda para los mapas de informe de F8.
 
 Las decisiones D-1, D-2 y D-3 del usuario del 2026-10-10 (tareas genéricas, riesgo aceptado de las evidencias y quién
 marca una QCS existente) extienden [ADR-0028](adr/0028-qcs-confidenciales-con-recordreadscope.md) sin cambiarlo: el
