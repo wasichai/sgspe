@@ -63,4 +63,15 @@ class ExportFileTest {
     fun `un directorio temporal que no existe no rompe el barrido`() {
         ExportFile.sweep(Path.of("/no/existe/sgspe"), now)
     }
+
+    // las exportaciones geográficas (F6) escriben otros formatos: el archivo dentro de la carpeta privada lleva su extensión
+    @Test
+    fun `el archivo de dentro puede tener otro nombre`(
+        @TempDir root: Path
+    ) {
+        val export = ExportFile.create("predios-interno.gpkg", Instant.parse("2026-10-11T12:00:00Z"), root, entry = "capa.gpkg")
+        assertEquals("capa.gpkg", export.file.name)
+        assertEquals("predios-interno.gpkg", export.filename)
+        export.discard()
+    }
 }

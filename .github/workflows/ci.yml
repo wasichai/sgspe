@@ -31,6 +31,18 @@ jobs:
           distribution: temurin
           java-version: '25'
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # GDAL de la importación y las exportaciones de F6 (ASM-127): ogrinfo y ogr2ogr de gdal-bin, versión mínima 3.8 y los
+      # drivers de la lista blanca. las unitarias de GDAL fallan sin él en la CI (GdalFixtures.requireGdal)
+      - name: GDAL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends gdal-bin
+          ogrinfo --version
+          set -- $(ogrinfo --version | sed -E 's/^GDAL ([0-9]+)\.([0-9]+).*/\1 \2/')
+          if [ "$1" -lt 3 ] || { [ "$1" -eq 3 ] && [ "$2" -lt 8 ]; }; then echo "GDAL $1.$2 es menor que 3.8"; exit 1; fi
+          for driver in 'ESRI Shapefile' KML GPKG OpenFileGDB GPX GeoJSON; do
+            ogrinfo --formats | grep -q "^  $driver -" || { echo "falta el driver $driver"; exit 1; }
+          done
       - name: Build
         run: ./gradlew build --no-daemon
       - name: Upload test reports
@@ -57,6 +69,18 @@ jobs:
           distribution: temurin
           java-version: '25'
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # GDAL de la importación y las exportaciones de F6 (ASM-127): ogrinfo y ogr2ogr de gdal-bin, versión mínima 3.8 y los
+      # drivers de la lista blanca. las unitarias de GDAL fallan sin él en la CI (GdalFixtures.requireGdal)
+      - name: GDAL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends gdal-bin
+          ogrinfo --version
+          set -- $(ogrinfo --version | sed -E 's/^GDAL ([0-9]+)\.([0-9]+).*/\1 \2/')
+          if [ "$1" -lt 3 ] || { [ "$1" -eq 3 ] && [ "$2" -lt 8 ]; }; then echo "GDAL $1.$2 es menor que 3.8"; exit 1; fi
+          for driver in 'ESRI Shapefile' KML GPKG OpenFileGDB GPX GeoJSON; do
+            ogrinfo --formats | grep -q "^  $driver -" || { echo "falta el driver $driver"; exit 1; }
+          done
       # SgspeApiTest provisions with model/*.py: the runner's python 3 (>= 3.11, stdlib only)
       - run: python3 --version
       # github runners have a local docker daemon: testcontainers starts postgis/postgis:18-3.6. no WASICHAI_TEST_DB_*

@@ -11,10 +11,13 @@ import org.springframework.core.io.buffer.DataBuffer
 import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.http.codec.multipart.FilePart
 import org.springframework.http.codec.multipart.FormFieldPart
 import org.springframework.http.codec.multipart.Part
+import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestHeader
@@ -26,6 +29,7 @@ import sgspe.common.StrictQuery
 import sgspe.common.UploadLimits
 import sgspe.common.safeCell
 import tools.jackson.databind.json.JsonMapper
+import wasichai.core.common.GlobalExceptionHandler
 import wasichai.core.common.ValidationException
 import wasichai.core.common.WasichaiException
 import java.io.ByteArrayOutputStream
@@ -38,13 +42,16 @@ import java.util.UUID
 // las dos rutas de la importación (api.md §4.2). multipart: `file` y los campos `target`, `project`, `sourceCrs` y
 // `columns`; la confirmación vuelve a mandar todo eso y agrega `sha256` y `decisions` (un json [{row, action}], action
 // APPLY o DISCARD): el servidor no guarda nada entre las dos. una parte desconocida o repetida es un 400 y un parámetro de
-// consulta, un 422. el archivo se escribe en la carpeta temporal contando bytes: al pasar el máximo, 400 FILE_TOO_LARGE y la
-// carpeta se borra. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
+// consulta, un 422. desde F6, la parte `layer` (la capa elegida de un archivo de varias) y los formatos de GDAL. el
+// archivo se escribe en la carpeta temporal contando bytes: al pasar el máximo, 400 FILE_TOO_LARGE y la carpeta se
+// borra. Idempotency-Key se acepta y se ignora en F2 (api.md §3.5)
 @RestController
 @RequestMapping("/api/sgspe/territory/imports")
 class ImportController(
     private val imports: TerritoryImports,
-    private val properties: ImportProperties
+    private val properties: ImportProperties,
+    private val tools: GdalTools,
+    private val problems: GlobalExceptionHandler
 ) {
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     suspend fun preview(
@@ -80,6 +87,30 @@ class ImportController(
             imports.confirm(importBatchId, request(parts, workspace), field(parts, "sha256"), decisions)
         }
     }
+
+    // GET /api/sgspe/territory/imports/formats (api.md §4.2): qué formatos lee este servidor; los de GDAL, solo si hay GDAL de
+    // la versión mínima con su driver (ASM-127). status() corre ogrinfo la primera vez: va en el despachador de E/S
+    @GetMapping("/formats")
+    suspend fun formats(exchange: ServerWebExchange): Map<String, Any> {
+        StrictQuery.requireOnly(exchange.request.queryParams, emptySet())
+        val status = withContext(Dispatchers.IO) { tools.status() }
+        return mapOf(
+            "formats" to
+                ImportFormat.entries.map {
+                    mapOf(
+                        "format" to it.key,
+                        "available" to (it.driver?.let(status::supports) ?: true),
+                        "multiLayer" to it.multiLayer,
+                        "crsFromFile" to it.crsFromFile
+                    )
+                }
+        )
+    }
+
+    // LAYER_REQUIRED y el CRS de origen que falta en un formato de GDAL: el problem+json de wasichai más las capas del archivo
+    // con su CRS detectado, para que el portal ofrezca elegir y proponga el CRS (especificación de F6 §2.2.6)
+    @ExceptionHandler(ImportChoiceRequired::class)
+    fun choiceRequired(e: ImportChoiceRequired): ProblemDetail = problems.handleWasichai(e).apply { setProperty("layers", e.layers) }
 
     // las partes del multipart, una por nombre. Spring guarda en disco la parte de archivo antes de entregarla; sus topes
     // (spring.webflux.multipart.*, application.yml) son 400 con código (ImportUpload.multipartError), no 500
@@ -120,7 +151,9 @@ class ImportController(
             columns = field(parts, "columns"),
             file = stored,
             filename = filename,
-            sha256 = sha256
+            sha256 = sha256,
+            layer = field(parts, "layer")?.take(MAX_FILENAME),
+            workspace = workspace
         )
     }
 
@@ -153,7 +186,7 @@ class ImportController(
         const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         private const val MAX_FILENAME = 200
         private val JSON: JsonMapper = JsonMapper.builder().build()
-        val PREVIEW_PARTS = setOf("file", "target", "project", "sourceCrs", "columns")
+        val PREVIEW_PARTS = setOf("file", "target", "project", "sourceCrs", "columns", "layer")
         val CONFIRM_PARTS = PREVIEW_PARTS + setOf("sha256", "decisions")
     }
 }

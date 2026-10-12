@@ -43,15 +43,17 @@ class ExportFile(
         private val PRIVATE_DIRECTORY = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
         private val PRIVATE_FILE = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))
 
-        // barre las carpetas viejas y crea un archivo vacío dentro de una carpeta nueva solo de quien corre el servidor
+        // barre las carpetas viejas y crea un archivo vacío dentro de una carpeta nueva solo de quien corre el servidor. `entry`
+        // es el nombre del archivo dentro de la carpeta: el XLSX de siempre o, en las exportaciones geográficas, su formato
         fun create(
             filename: String,
             now: Instant,
-            root: Path = Path.of(System.getProperty("java.io.tmpdir"))
+            root: Path = Path.of(System.getProperty("java.io.tmpdir")),
+            entry: String = "registro.xlsx"
         ): ExportFile {
             sweep(root, now)
             val directory = Files.createTempDirectory(root, PREFIX, PRIVATE_DIRECTORY)
-            return ExportFile(Files.createFile(directory.resolve("registro.xlsx"), PRIVATE_FILE).toFile(), filename)
+            return ExportFile(Files.createFile(directory.resolve(entry), PRIVATE_FILE).toFile(), filename)
         }
 
         // borra las carpetas sgspe-export-* de `root` modificadas hace más de MAX_AGE, con lo que tengan dentro. un error al

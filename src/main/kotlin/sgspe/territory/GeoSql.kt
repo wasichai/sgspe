@@ -1,6 +1,7 @@
 package sgspe.territory
 
 import io.r2dbc.spi.R2dbcException
+import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.stereotype.Component
@@ -26,6 +27,19 @@ class InvalidGeometryException(
 data class UtmPoint(
     val easting: BigDecimal,
     val northing: BigDecimal
+)
+
+// las coordenadas de un registro exportado (especificación de F6 §3.5): latitud y longitud del punto o del centroide, su este
+// y norte en `srid` (el working_crs pedido o la zona UTM del centroide, ASM-064; null fuera de las zonas de trabajo) y el WKT
+// de líneas y polígonos en grados y en ese UTM
+data class ExportPoint(
+    val latitude: BigDecimal?,
+    val longitude: BigDecimal?,
+    val srid: Int?,
+    val easting: BigDecimal?,
+    val northing: BigDecimal?,
+    val wkt: String?,
+    val wktUtm: String?
 )
 
 // las cuentas geométricas de sgspe.territory con PostGIS, sobre GeoJSON y sin tocar ninguna tabla: transformar desde el
@@ -107,6 +121,29 @@ class GeoSql(
             return geometry("SELECT ST_AsGeoJSON(ST_GeometryN(ST_SetSRID(ST_GeomFromGeoJSON(:g), :srid), 1), 9) AS out", geojson, Crs.WGS84)
         }
         return null
+    }
+
+    // la reparación propuesta (RQ-GIS-011, gis.md §4.3): ST_MakeValid y, de lo que quede, solo las partes de la dimensión del
+    // campo (1 puntos, 2 líneas, 3 polígonos; ST_CollectionExtract). null si no queda nada. no escribe: la persona la acepta
+    @Suppress("UNCHECKED_CAST")
+    suspend fun repair(
+        geojson: Map<String, Any?>,
+        dimension: Int
+    ): Map<String, Any?>? {
+        val out =
+            guarded {
+                db
+                    .sql(
+                        "SELECT CASE WHEN ST_IsEmpty(r) THEN NULL ELSE ST_AsGeoJSON(r, 9) END AS out " +
+                            "FROM (SELECT ST_CollectionExtract(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(:g), 4326)), :dim) AS r) s"
+                    ).bind("g", json(geojson))
+                    .bind("dim", dimension)
+                    .map { row, _ -> Optional.ofNullable(row.get("out", String::class.java)) }
+                    .one()
+                    .awaitSingleOrNull()
+                    ?.orElse(null)
+            } ?: return null
+        return JSON.readValue(out, Map::class.java) as Map<String, Any?>
     }
 
     // área plana en ha, redondeada a dos decimales (RQ-GIS-009, ASM-057); null para puntos y líneas. `srid` debe ser una
@@ -195,6 +232,56 @@ class GeoSql(
         }
     }
 
+    // las coordenadas de varias geometrías EPSG:4326 en una consulta por tramo (sin una consulta por registro). `srid` es la
+    // zona de trabajo pedida; null, la zona del centroide de cada una. el orden de salida es el de entrada
+    suspend fun exportPoints(
+        geometries: List<Map<String, Any?>>,
+        srid: Int?
+    ): List<ExportPoint> {
+        srid?.let(::requireWorkingZone)
+        val out = ArrayList<ExportPoint>(geometries.size)
+        for (chunk in geometries.chunked(EXPORT_CHUNK)) {
+            out +=
+                guarded {
+                    db
+                        .sql(
+                            """
+                            SELECT n, round(ST_Y(c)::numeric, 9) AS lat, round(ST_X(c)::numeric, 9) AS lon,
+                              CASE WHEN z IN (32717, 32718, 32719) THEN z END AS z,
+                              CASE WHEN z IN (32717, 32718, 32719) THEN round(ST_X(ST_Transform(c, z))::numeric, 3) END AS e,
+                              CASE WHEN z IN (32717, 32718, 32719) THEN round(ST_Y(ST_Transform(c, z))::numeric, 3) END AS nn,
+                              CASE WHEN ST_Dimension(g) > 0 THEN ST_AsText(g, 9) END AS wkt,
+                              CASE WHEN ST_Dimension(g) > 0 AND z IN (32717, 32718, 32719) THEN ST_AsText(ST_Transform(g, z), 3) END AS wkt_utm
+                            FROM (
+                              SELECT n, g, c,
+                                CASE WHEN :srid > 0 THEN :srid WHEN ST_Y(c) <= 0 THEN 32700 + floor((ST_X(c) + 180) / 6)::int + 1 ELSE 0 END AS z
+                              FROM (
+                                SELECT t.n, ST_SetSRID(ST_GeomFromGeoJSON(t.g), 4326) AS g, ST_Centroid(ST_SetSRID(ST_GeomFromGeoJSON(t.g), 4326)) AS c
+                                FROM unnest(CAST(:gs AS text[])) WITH ORDINALITY AS t(g, n)
+                              ) s
+                            ) s2
+                            ORDER BY n
+                            """.trimIndent()
+                        ).bind("gs", chunk.map(::json).toTypedArray())
+                        .bind("srid", srid ?: 0)
+                        .map { row, _ ->
+                            ExportPoint(
+                                latitude = row.get("lat", BigDecimal::class.java),
+                                longitude = row.get("lon", BigDecimal::class.java),
+                                srid = (row.get("z") as Number?)?.toInt(),
+                                easting = row.get("e", BigDecimal::class.java),
+                                northing = row.get("nn", BigDecimal::class.java),
+                                wkt = row.get("wkt", String::class.java),
+                                wktUtm = row.get("wkt_utm", String::class.java)
+                            )
+                        }.all()
+                        .collectList()
+                        .awaitSingle()
+                }
+        }
+        return out
+    }
+
     private suspend fun geometry(
         sql: String,
         geojson: Map<String, Any?>,
@@ -228,6 +315,7 @@ class GeoSql(
     companion object {
         private val JSON: JsonMapper = JsonMapper.builder().build()
         private const val EMPTY = "geometría vacía"
+        private const val EXPORT_CHUNK = 500
 
         // origen de una transformación: cualquier SRID del catálogo (4326, UTM o PSAD56)
         fun requireCatalogued(srid: Int) = require(Crs.isCatalogued(srid)) { "SRID $srid fuera del catálogo de CRS" }

@@ -266,4 +266,35 @@ class TerritoryImportsTest {
             for (sheet in book) for (row in sheet) for (cell in row) assertTrue(cell.cellType != org.apache.poi.ss.usermodel.CellType.FORMULA)
         }
     }
+
+    // especificación de F6 §3.4: el alta de una comunidad o de un elemento ambiental por importación lleva el nombre y, el
+    // elemento, su tipo (columna elegida o valor fijo); sin ellos la fila se rechaza nombrando el campo
+    @Test
+    fun `los atributos obligatorios de un destino que faltan se nombran en orden`() {
+        assertEquals(emptyList<String>(), ImportRules.missingRequired(setOf("name"), mapOf("code" to "COM-01", "name" to "Comunidad Ejemplo")))
+        assertEquals(listOf("feature_type", "name"), ImportRules.missingRequired(setOf("name", "feature_type"), mapOf("code" to "AMB-01", "name" to null)))
+    }
+
+    // un ENUM inválido ya se rechazó con «valor inválido»: no se repite como «es obligatorio»
+    @Test
+    fun `un obligatorio rechazado por su valor no se nombra otra vez como faltante`() {
+        assertEquals(
+            listOf("name"),
+            ImportRules.missingRequired(setOf("name", "feature_type"), mapOf("code" to "AMB-01"), rejected = setOf("feature_type"))
+        )
+    }
+
+    // un tenant de F5 no tiene community.code ni environmental_feature.code: pedir esos destinos es 400 sobre target
+    @Test
+    fun `un tenant de F5 que pide community o environmental_feature es 400 en target`() {
+        for (target in listOf("community", "environmental_feature")) {
+            val e = assertThrows(WasichaiException::class.java) { ImportRules.requireModel(target, hasCode = false) }
+            assertEquals(HttpStatus.BAD_REQUEST, e.status)
+            assertEquals("target", e.violations.single().field)
+            ImportRules.requireModel(target, hasCode = true)
+        }
+        // los destinos de F2 no dependen del modelo de F6
+        ImportRules.requireModel("land_parcel", hasCode = false)
+        assertEquals(setOf("community", "environmental_feature"), ImportRules.SINCE_F6)
+    }
 }

@@ -19,6 +19,7 @@ import sgspe.common.ModelCatalog
 import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.RequestMemo
+import sgspe.common.TenantModel
 import sgspe.common.Transactions
 import sgspe.common.Values
 import sgspe.common.toCodedException
@@ -75,7 +76,11 @@ data class ImportPreview(
     val valid: Int,
     val invalid: List<InvalidRow>,
     val differences: List<Difference>,
-    val outOfZone: List<OutOfZoneRow>
+    val outOfZone: List<OutOfZoneRow>,
+    // desde F6: el formato, la capa leída y su CRS detectado, una propuesta (CON-024)
+    val format: String = ImportFormat.CSV.key,
+    val layer: String? = null,
+    val detectedCrs: String? = null
 )
 
 data class ImportConfirmation(
@@ -87,7 +92,8 @@ data class ImportConfirmation(
     val evidenceId: UUID?
 )
 
-// lo que llega en las partes del multipart, ya leído
+// lo que llega en las partes del multipart, ya leído. desde F6, la capa elegida y la carpeta temporal donde GDAL descomprime y
+// convierte (la crea y la borra ImportController)
 class ImportRequest(
     val target: String?,
     val project: String?,
@@ -95,7 +101,9 @@ class ImportRequest(
     val columns: String?,
     val file: File,
     val filename: String,
-    val sha256: String
+    val sha256: String,
+    val layer: String? = null,
+    val workspace: ImportWorkspace? = null
 )
 
 // la decisión de una fila al confirmar (la forma que fija la Fase 2.3): APPLY aplica la acción propuesta y DISCARD
@@ -172,6 +180,28 @@ class ImportGate internal constructor(
 internal object ImportRules {
     const val APPLY = "APPLY"
     const val DISCARD = "DISCARD"
+
+    // los atributos sin los que no se crea un registro del destino, en orden. uno que la fila trajo con un valor inválido ya
+    // se rechazó con su motivo (`rejected`): no se repite como «es obligatorio»
+    fun missingRequired(
+        required: Set<String>,
+        attributes: Map<String, Any?>,
+        rejected: Set<String> = emptySet()
+    ): List<String> = required.filter { attributes[it] == null && it !in rejected }.sorted()
+
+    // los destinos que llegan con el modelo de F6 (community.code, environmental_feature.code y los campos de origen)
+    val SINCE_F6: Set<String> = setOf("community", "environmental_feature")
+
+    // un destino de F6 en una organización que todavía no tiene su modelo (sin `code`): 400 sobre target, antes de leer el
+    // archivo, y no un error al escribir
+    fun requireModel(
+        target: String,
+        hasCode: Boolean
+    ) {
+        if (target in SINCE_F6 && !hasCode) {
+            throw ValidationException("Destino inválido", "target", "$target se importa con el modelo de F6, que esta organización todavía no tiene")
+        }
+    }
 
     // cada valor numérico de un destino tiene un rango finito; fuera de él la fila se rechaza nombrando el campo. los
     // ángulos en grados; la cota en m s. n. m. (del fondo de un tajo a más que la cumbre más alta del Perú); el área
@@ -314,8 +344,9 @@ class ComponentVersions(
 
 // la importación de coordenadas y geometrías con CRS de origen, vista previa y confirmación (gis.md §4, ADR-0019,
 // api.md §4.2, RQ-GIS-003, RQ-GIS-007, RQ-GIS-008, RQ-GIS-010). no deja estado en el servidor: la confirmación vuelve a
-// mandar el mismo archivo y los mismos campos con el SHA-256 de la vista previa, y se repite toda la validación. tres
-// destinos: project_component (puntos de XLSX o CSV, y GeoJSON), land_parcel y mining_concession (GeoJSON). un código
+// mandar el mismo archivo y los mismos campos con el SHA-256 de la vista previa, y se repite toda la validación. cinco
+// destinos: project_component (puntos de XLSX o CSV, y GeoJSON), land_parcel, mining_concession y, desde F6, community y
+// environmental_feature (reconciliados por code como las concesiones; una fila sin code se rechaza). un código
 // nuevo se crea; uno sin desplazamiento queda igual (o se actualizan sus datos); uno desplazado es una versión nueva del
 // componente, o una actualización del predio o la concesión. nunca una sobrescritura silenciosa.
 // todo se escribe como quien importa (con su permiso, su alcance y la marca de Records), nunca como la plataforma.
@@ -333,25 +364,34 @@ class TerritoryImports(
     private val callers: Callers,
     private val assignments: Assignments,
     private val versions: ComponentVersions,
-    private val properties: ImportProperties
+    private val properties: ImportProperties,
+    private val gdal: GdalReader,
+    private val tools: GdalTools,
+    private val tenantModel: TenantModel
 ) {
     private val gate = ImportGate(properties.maxConcurrent, properties.timeout)
 
     suspend fun preview(request: ImportRequest): ImportPreview =
         gate.admit {
-            val context = prepare(request)
-            val analysis = gate.timed { reconcile(context, analyze(context)) }
-            ImportPreview(
-                importBatchId = UUID.randomUUID(),
-                sha256 = request.sha256,
-                target = context.target.name,
-                sourceCrs = Crs.value(context.sourceSrid),
-                rows = analysis.rows,
-                valid = analysis.candidates.size,
-                invalid = analysis.invalid,
-                differences = analysis.candidates.map { it.difference },
-                outOfZone = analysis.candidates.mapNotNull { c -> c.parsed.outOfZone?.let { OutOfZoneRow(c.parsed.row, c.parsed.code, it) } }
-            )
+            val prepared = prepare(request)
+            gate.timed {
+                val context = open(prepared)
+                val analysis = reconcile(context, analyze(context))
+                ImportPreview(
+                    importBatchId = UUID.randomUUID(),
+                    sha256 = request.sha256,
+                    target = context.target.name,
+                    sourceCrs = Crs.value(context.sourceSrid),
+                    rows = analysis.rows,
+                    valid = analysis.candidates.size,
+                    invalid = analysis.invalid,
+                    differences = analysis.candidates.map { it.difference },
+                    outOfZone = analysis.candidates.mapNotNull { c -> c.parsed.outOfZone?.let { OutOfZoneRow(c.parsed.row, c.parsed.code, it) } },
+                    format = context.format.key,
+                    layer = context.layer?.name,
+                    detectedCrs = context.layer?.detectedCrs
+                )
+            }
         }
 
     suspend fun confirm(
@@ -366,8 +406,8 @@ class TerritoryImports(
         }
         ImportRules.checkShape(decisions)
         return gate.admit {
-            val context = prepare(request)
-            val analysis = gate.timed { reconcile(context, analyze(context)) }
+            val prepared = prepare(request)
+            val (context, analysis) = gate.timed { open(prepared).let { it to reconcile(it, analyze(it)) } }
             val applied = ImportRules.decide(analysis.candidates.associate { it.parsed.row to (it.parsed.outOfZone != null) }, decisions)
             val reason = "importación $batchId"
             transactions.locked(lockKey(context)) {
@@ -412,7 +452,7 @@ class TerritoryImports(
         val origin =
             mapOf(
                 "source_crs" to Crs.value(context.sourceSrid),
-                "source_reference" to "${context.filename}, fila ${row.row}",
+                "source_reference" to "${context.filename}${context.layer?.let { ", capa ${it.name}" }.orEmpty()}, fila ${row.row}",
                 "import_batch_id" to batchId.toString()
             )
         val geometries = mapOf(row.field to row.geometry)
@@ -425,7 +465,8 @@ class TerritoryImports(
                         versions.first(context.project, row.attributes + origin, reason, geometries)
                     } else {
                         // el área va con la marca: AreaListener omite estas escrituras (Areas.FIELD, P11)
-                        records.create(target, row.attributes + origin + listOfNotNull(row.areaHa?.let { Areas.FIELD to it }).toMap(), reason, geometries)
+                        val area = if (context.target.writesArea) listOfNotNull(row.areaHa?.let { Areas.FIELD to it }).toMap() else emptyMap()
+                        records.create(target, row.attributes + origin + area, reason, geometries)
                     }
                 if (target == CONCESSION) records.link("project", context.project, PROJECT_CONCESSION, UUID.fromString(record.id), reason)
             }
@@ -434,7 +475,13 @@ class TerritoryImports(
                 val id = UUID.fromString(existing!!.id)
                 val changes = row.attributes.filter { (name, value) -> !Values.same(existing.attributes[name], value) }
                 val area =
-                    if (target != COMPONENT && !Values.same(existing.attributes[Areas.FIELD], row.areaHa)) mapOf(Areas.FIELD to row.areaHa) else emptyMap()
+                    if (context.target.writesArea &&
+                        !Values.same(existing.attributes[Areas.FIELD], row.areaHa)
+                    ) {
+                        mapOf(Areas.FIELD to row.areaHa)
+                    } else {
+                        emptyMap()
+                    }
                 if (changes.isNotEmpty() || area.isNotEmpty() || !candidate.sameShape) {
                     records.patch(target, id, changes + origin + area, reason, if (candidate.sameShape) emptyMap() else geometries)
                 }
@@ -448,7 +495,11 @@ class TerritoryImports(
         // campo por tipo GeoJSON: el de los componentes depende de la geometría; los demás tienen uno solo
         val fields: Map<String, Pair<String, String>>,
         val attributes: List<String>,
-        val tables: Boolean
+        val tables: Boolean,
+        // lo que una fila debe traer (columna elegida o valor fijo del formulario); si no, se rechaza nombrándolo
+        val required: Set<String> = emptySet(),
+        // calculated_area_ha se escribe con la marca en la transacción (Areas.GEOMETRY): predios, concesiones y comunidades
+        val writesArea: Boolean = !tables
     )
 
     private class Context(
@@ -457,8 +508,23 @@ class TerritoryImports(
         val sourceSrid: Int,
         val workingSrid: Int?,
         val columns: ColumnMapping,
+        // el archivo que se lee: el subido (F2) o el GeoJSON de la capa elegida (GDAL, en su CRS de origen)
         val file: File,
         val filename: String,
+        val organization: UUID,
+        val format: ImportFormat,
+        val layer: SourceLayer?
+    )
+
+    // lo que se revisa antes de leer el archivo: destino, proyecto, permisos, formato, CRS pedido y GDAL
+    private class Prepared(
+        val target: Target,
+        val project: UUID,
+        val requestedSrid: Int?,
+        val workingSrid: Int?,
+        val columns: ColumnMapping,
+        val format: ImportFormat,
+        val request: ImportRequest,
         val organization: UUID
     )
 
@@ -496,48 +562,82 @@ class TerritoryImports(
     )
 
     // los campos, los permisos y el proyecto; nada del archivo todavía
-    private suspend fun prepare(request: ImportRequest): Context {
+    private suspend fun prepare(request: ImportRequest): Prepared {
         val target =
             TARGETS[request.target] ?: throw ValidationException("Destino inválido", "target", "debe ser uno de ${TARGETS.keys.joinToString(", ")}")
         val project = Records.uuid(request.project) ?: throw ValidationException("Falta el proyecto", "project", "debe ser el id de un proyecto")
         val catalogued = catalog.enumValues(SOURCE_CRS)
-        // no hay CRS por defecto silencioso (CON-024): falta o no es del catálogo, 400
-        val sourceSrid =
-            request.sourceCrs?.takeIf { it in catalogued }?.let(Crs::srid)
-                ?: throw ValidationException(
-                    "CRS de origen inválido",
-                    "sourceCrs",
-                    "es obligatorio y sale del catálogo «CRS de origen»: ${catalogued.joinToString(", ")}"
-                )
+        // un valor fuera del catálogo es siempre 400 (CON-024); que falte se decide con el formato
+        val requestedSrid = request.sourceCrs?.let { value -> value.takeIf { it in catalogued }?.let(Crs::srid) ?: throw invalidCrs(catalogued) }
         val user = callers.require()
         val grants = mutableListOf(Actions.CREATE to target.name, Actions.UPDATE to target.name)
         if (target.name == CONCESSION) grants += Actions.UPDATE to "project"
         permissions.require(user, "Importar ${target.name}", *grants.toTypedArray())
+        if (target.name in ImportRules.SINCE_F6) ImportRules.requireModel(target.name, tenantModel.hasField(user.organizationId, target.name, "code"))
         // los componentes se escriben bajo el alcance del proyecto: sin asignación vigente, 403 NOT_ASSIGNED ya aquí y no tras
         // analizar el archivo entero con PostGIS. los predios y las concesiones son del tenant y no pasan por el alcance
         // componentes y concesiones escriben en el proyecto (la concesión se vincula a él): asignación antes de leer
         if (target.tables || target.name == CONCESSION) assignments.requireAssigned(user, project)
+        val format = ImportGate.blocking { ImportFormat.detect(request.filename, request.file, properties.maxEntries) }
+        // F2 exige el CRS ya aquí; GDAL lo pide después de listar las capas, para proponer el detectado; KML, KMZ y GPX están
+        // siempre en EPSG 4326
+        if (requestedSrid == null && !format.gdal) throw invalidCrs(catalogued)
+        format.fixedSrid?.let { fixed ->
+            if (requestedSrid != null && requestedSrid != fixed) {
+                throw ValidationException("CRS de origen inválido", "sourceCrs", "un archivo ${format.key.uppercase()} está siempre en ${Crs.value(fixed)}")
+            }
+        }
+        format.driver?.let { driver -> ImportGate.blocking { tools.require(driver, format.key) } }
         val projectRecord = records.get("project", project)
         // solo una zona de trabajo: GeoSql mide en ellas y nada más (P19)
         val workingSrid = Crs.srid(Values.text(projectRecord.attributes["working_crs"]))?.takeIf(Crs::isWorkingZone)
+        return Prepared(target, project, requestedSrid, workingSrid, ColumnMapping.parse(request.columns), format, request, user.organizationId)
+    }
+
+    private fun invalidCrs(catalogued: List<String>) =
+        ValidationException("CRS de origen inválido", "sourceCrs", "es obligatorio y sale del catálogo «CRS de origen»: ${catalogued.joinToString(", ")}")
+
+    // el archivo listo para leer y el CRS de origen resuelto: el subido (F2) o el GeoJSON que GDAL sacó de la capa elegida. un
+    // formato de GDAL sin sourceCrs es 400 con las capas y su CRS detectado (ImportChoiceRequired); KML, KMZ y GPX, 4326
+    private suspend fun open(prepared: Prepared): Context {
+        val request = prepared.request
+        val source =
+            if (prepared.format.gdal) {
+                val workspace = request.workspace ?: error("una importación con GDAL necesita su carpeta temporal")
+                ImportGate.blocking { gdal.read(prepared.format, request.file, workspace, request.layer) }
+            } else {
+                null
+            }
+        val sourceSrid =
+            prepared.format.fixedSrid ?: prepared.requestedSrid
+                ?: throw ImportChoiceRequired.sourceCrs(source?.layers.orEmpty(), catalog.enumValues(SOURCE_CRS))
         return Context(
-            target,
-            project,
+            prepared.target,
+            prepared.project,
             sourceSrid,
-            workingSrid,
-            ColumnMapping.parse(request.columns),
-            request.file,
+            prepared.workingSrid,
+            prepared.columns,
+            source?.geojson ?: request.file,
             request.filename,
-            user.organizationId
+            prepared.organization,
+            prepared.format,
+            source?.layer
         )
     }
 
     // el archivo, fila por fila: código, duplicados, geometría, atributos, validez y lo que se mide de ella
     private suspend fun analyze(context: Context): Rows {
         // POI y la lectura del archivo bloquean: en el despachador de E/S, interrumpibles si vence el plazo
-        val rows = ImportGate.blocking { ImportReaders.read(context.file, context.filename, properties.maxRows) }
+        val rows =
+            ImportGate.blocking {
+                if (context.format.gdal) {
+                    ImportReaders.geojson(context.file, properties.maxRows)
+                } else {
+                    ImportReaders.read(context.file, context.filename, properties.maxRows)
+                }
+            }
         if (!context.target.tables && rows.any { it.geometry == null }) {
-            throw importError("FORMAT_NOT_SUPPORTED", "file", "Un predio o una concesión necesita un polígono: importe GeoJSON")
+            throw importError("FORMAT_NOT_SUPPORTED", "file", "Este destino necesita un polígono: importe GeoJSON, Shapefile, KML, KMZ, GeoPackage o FileGDB")
         }
         val invalid = mutableListOf<InvalidRow>()
         val parsed = mutableListOf<ParsedRow>()
@@ -677,6 +777,7 @@ class TerritoryImports(
         invalid: MutableList<InvalidRow>
     ): Map<String, Any?>? {
         val out = mutableMapOf<String, Any?>("code" to columns.value(row, "code"))
+        val rejected = mutableSetOf<String>()
         var ok = true
         for (name in target.attributes) {
             val raw = columns.value(row, SOURCE_COLUMNS[name] ?: name) ?: continue
@@ -699,10 +800,15 @@ class TerritoryImports(
             }
             if (issue != null) {
                 invalid += InvalidRow(row.row, name, issue)
+                rejected += name
                 ok = false
             } else {
                 out[name] = value
             }
+        }
+        for (name in ImportRules.missingRequired(target.required, out, rejected)) {
+            invalid += InvalidRow(row.row, name, "es obligatorio: elija su columna o un valor fijo")
+            ok = false
         }
         if (!ok) return null
         // una hoja sin tipo de componente es la de sondajes de DOC-03 (gis.md §9): el portal mapea solo sus columnas
@@ -844,6 +950,8 @@ class TerritoryImports(
 
         const val PARCEL = "land_parcel"
         const val CONCESSION = "mining_concession"
+        const val COMMUNITY = "community"
+        const val FEATURE = "environmental_feature"
         const val PROJECT_CONCESSION = "project_concession"
         const val CREATE = "CREATE"
         const val UNCHANGED = "UNCHANGED"
@@ -882,7 +990,24 @@ class TerritoryImports(
                         tables = true
                     ),
                 PARCEL to Target(PARCEL, mapOf("Polygon" to ("boundary" to "Polygon")), listOf("tenure_type", "registered_area_ha"), tables = false),
-                CONCESSION to Target(CONCESSION, mapOf("Polygon" to ("boundary" to "MultiPolygon")), listOf("name", "registered_area_ha"), tables = false)
+                CONCESSION to Target(CONCESSION, mapOf("Polygon" to ("boundary" to "MultiPolygon")), listOf("name", "registered_area_ha"), tables = false),
+                COMMUNITY to
+                    Target(
+                        COMMUNITY,
+                        mapOf("Polygon" to ("territory" to "MultiPolygon")),
+                        listOf("name"),
+                        tables = false,
+                        required = setOf("name")
+                    ),
+                FEATURE to
+                    Target(
+                        FEATURE,
+                        mapOf("Polygon" to ("boundary" to "MultiPolygon")),
+                        listOf("name", "feature_type"),
+                        tables = false,
+                        required = setOf("name", "feature_type"),
+                        writesArea = false
+                    )
             )
     }
 }
