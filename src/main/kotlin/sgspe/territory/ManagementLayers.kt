@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service
 import sgspe.common.ModelCatalog
 import sgspe.common.Readability
 import sgspe.common.Records
+import sgspe.evidence.EvidenceRules
 import sgspe.investment.Contributions
 import tools.jackson.databind.json.JsonMapper
 import wasichai.core.common.ForbiddenException
@@ -240,12 +241,18 @@ class ManagementLayers(
                 )
         }
 
-    // los atributos que quien llama lee, tal como los da Records. `source` lo usa LYR-24 (Tarea 6 del plan 6.2c)
-    @Suppress("UNUSED_PARAMETER")
+    // los atributos que quien llama lee, tal como los da Records. una evidencia no lleva el descriptor de su archivo (la
+    // descarga pasa por EvidenceContent con DOWNLOAD_RESTRICTED, RF-DOC-003) y sí si su descarga está restringida:
+    // CONFIDENCIAL, DATOS PERSONALES o sin clasificación legible (EvidenceRules.downloadRestricted, falla cerrado)
     private fun properties(
         source: PlacedSource,
         row: RecordRow
-    ): Map<String, Any?> = row.attributes
+    ): Map<String, Any?> =
+        if (source.objectName == EvidenceRules.EVIDENCE) {
+            row.attributes - EvidenceRules.FILE + ("__downloadRestricted" to EvidenceRules.downloadRestricted(row.attributes))
+        } else {
+            row.attributes
+        }
 
     companion object {
         val JSON: JsonMapper = JsonMapper.builder().build()
