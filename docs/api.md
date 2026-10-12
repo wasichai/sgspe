@@ -48,7 +48,7 @@ El contrato completo está en la documentación de wasichai:
 | Auditoría | `GET /api/audit`, `GET /api/objects/{object}/records/{id}/history` | `AUDITOR` consulta todo el tenant; las fichas del portal muestran el historial de cada registro (RQ-AUD-005) | F1, F2 |
 | Vistas, formularios y páginas | `/api/objects/{object}/views/**`, `/forms/**`, `/pages/**` | Listas y fichas configuradas por metadata, en `/admin` y en el portal | F2 |
 | Automatizaciones | `/api/objects/{object}/automations/**`, `GET /api/automation-runs` | Reglas aplicadas desde `model/`; el registro de ejecuciones explica por qué cambió un registro | F3 |
-| Asistente | `GET /api/agent/status`, `POST /api/agent/ask` | AI-05, de solo lectura y como el usuario (RF-AIK-005). `sgspe.ai` lo llama en proceso desde `POST /api/sgspe/ai/assistant/questions` (§4.14); por HTTP, un filtro de `sgspe.ai` responde `403`, para que toda pregunta pase por la activación por organización y quede registrada, mientras wasichai-agent no tenga sus puntos de extensión (UPS-14, `ai-architecture.md`) | F7 |
+| Asistente | `GET /api/agent/status`, `POST /api/agent/ask` | AI-05, de solo lectura y como el usuario (RF-AIK-005). `sgspe.ai` lo llama en proceso desde `POST /api/sgspe/ai/assistant/questions` (§4.14); por HTTP, `AgentHttpGate` de `sgspe.ai` responde `403` a `POST /api/agent/ask`, para que toda pregunta pase por la activación por organización, la seudonimización y el registro; `GET /api/agent/status` queda abierto y dice `enabled=false` a quien no puede usarlo (`AiAgentAccess`, ASM-130, `ai-architecture.md` §8) | F7 |
 
 Lo que SGSPE agrega o restringe sobre la API genérica, con guardas y filtros propios:
 
@@ -124,8 +124,8 @@ Además:
 Los errores usan `application/problem+json` según RFC 9457, que reemplaza a RFC 7807 con el mismo formato: `type`, `title`,
 `status`, `detail`, `instance` y `errors[]` con `field` y `message` (RNF-INT-001) [WAS-DOC api/rest.md]. Los produce el manejador
 de wasichai: el código propio lanza las excepciones de la plataforma (`ValidationException`, `ConflictException`,
-`ForbiddenException`, `NotFoundException`) o subclases propias de `WasichaiException` para `412`, `422`, `428` y `503`
-[WAS-ADR-0040].
+`ForbiddenException`, `NotFoundException`) o subclases propias de `WasichaiException` para `412`, `422`, `428`, `502`
+y `503` [WAS-ADR-0040].
 
 | Estado | Cuándo en `/api/sgspe/**` |
 |---|---|
@@ -139,10 +139,11 @@ de wasichai: el código propio lanza las excepciones de la plataforma (`Validati
 | `404` | El registro no existe o es de otra organización; ruta de un módulo no instalado; desde F6, la zona, el proyecto, el área, la localidad o la comunidad de una consulta espacial que no existe o que quien llama no lee (`ZONE_NOT_FOUND`, `PROJECT_NOT_FOUND`, `AREA_NOT_FOUND`, `LOCALITY_NOT_FOUND`, `COMMUNITY_NOT_FOUND`) |
 | `409` | Estado incompatible (transición desde otro estado, objeto `appendOnly`, regla que depende de otros registros, borrado de un registro con dependientes: `HAS_DEPENDENTS`), valor único repetido o una petición con la misma `Idempotency-Key` todavía en curso (`IDEMPOTENCY_IN_FLIGHT`, §3.5); desde F6, una consulta que mide en metros sobre un proyecto sin CRS de trabajo (`WORKING_CRS_REQUIRED`) |
 | `412` | `If-Match` no coincide con el `updatedAt` actual (§3.6) |
-| `422` | Parámetro de consulta desconocido (ASM-054); la misma `Idempotency-Key` con otra petición (`IDEMPOTENCY_KEY_REUSED`, §3.5); desde F6, un formato de GDAL en un servidor sin GDAL o sin su driver (`FORMAT_UNAVAILABLE`, ASM-127) y una petición o un parámetro WMS fuera de la lista blanca (`WMS_REQUEST_NOT_ALLOWED`, `WMS_PARAMETER_NOT_ALLOWED`, ASM-121) |
+| `422` | Parámetro de consulta desconocido (ASM-054); la misma `Idempotency-Key` con otra petición (`IDEMPOTENCY_KEY_REUSED`, §3.5); desde F6, un formato de GDAL en un servidor sin GDAL o sin su driver (`FORMAT_UNAVAILABLE`, ASM-127) y una petición o un parámetro WMS fuera de la lista blanca (`WMS_REQUEST_NOT_ALLOWED`, `WMS_PARAMETER_NOT_ALLOWED`, ASM-121); desde F7, una fuente de IA cuyo texto pasa el tamaño de `sgspe.ai.limits` (`AI_INPUT_TOO_LARGE`, ASM-131) o que no tiene texto que extraer, como un PDF escaneado (`AI_NO_TEXT`, ASM-132) |
 | `428` | Falta `If-Match` en un comando que lo exige (§3.6) |
 | `500` | Error interno, sin detalles en la respuesta (la causa queda en el registro del servidor); desde F6, una exportación geográfica que GDAL no pudo escribir (`EXPORT_FAILED`) |
-| `503` | En los endpoints de IA que llaman a un modelo (§4.14): la IA no está activada para la organización o su proveedor no responde, como el asistente de wasichai sin clave [WAS-DOC api/rest.md]; y en una importación cuando ya corren tantas como permite `sgspe.territory.import.max-concurrent` (`IMPORT_BUSY`, §4.2); desde F6, GeoServer caído o vencido en el proxy WMS (`GEOSERVER_UNAVAILABLE`) y una exportación geográfica que pasa del plazo de GDAL (`EXPORT_TIMEOUT`) |
+| `502` | Desde F7, una corrida de IA que se queda sin margen de tokens o de acciones y no guarda sugerencias ni candidatos (`AI_RUN_TRUNCATED`, ASM-131) |
+| `503` | En los endpoints de IA que llaman a un modelo (§4.14): la IA no está activada para la organización o no hay proveedor (`AI_UNAVAILABLE`, desde F7, ASM-128), como el asistente de wasichai sin clave [WAS-DOC api/rest.md]; y en una importación cuando ya corren tantas como permite `sgspe.territory.import.max-concurrent` (`IMPORT_BUSY`, §4.2); desde F6, GeoServer caído o vencido en el proxy WMS (`GEOSERVER_UNAVAILABLE`) y una exportación geográfica que pasa del plazo de GDAL (`EXPORT_TIMEOUT`) |
 
 - Un `detail` nunca lleva datos personales ni el valor que repitió un único; los logs tampoco (RQ-SEC-010).
 - La respuesta de error también lleva `X-Correlation-Id`, que el usuario puede citar al pedir ayuda (RQ-AUD-006).
@@ -262,6 +263,13 @@ parámetro) y `503` `GEOSERVER_UNAVAILABLE` (`wms`); la exportación geográfica
 `DISCLOSURE_NOT_ALLOWED` (`disclosureLevel`, `filters.componentType` o `filters.tenureType`), `422`
 `FORMAT_UNAVAILABLE` (`format`, no `file` como en la importación), `500` `EXPORT_FAILED` (`format`) y `503`
 `EXPORT_TIMEOUT` (`format`), además de los códigos de las exportaciones de F2. El detalle está en §4.2.
+
+Los endpoints de F7 (§4.14) usan la misma forma. `runs`, `assistant/questions` y `knowledge/questions` responden
+`503` `AI_UNAVAILABLE` (`organization` si la organización no tiene la IA activada, `provider` si no hay
+proveedor; ASM-128). `runs` responde además `422` `AI_INPUT_TOO_LARGE` (`target`: el texto de la fuente pasa el tamaño
+de `sgspe.ai.limits`, antes de llamar al modelo; ASM-131), `422` `AI_NO_TEXT` (`target`: un PDF sin texto o un formato
+que no es PDF ni DOCX; ASM-132) y `502` `AI_RUN_TRUNCATED` (`useCase`: la corrida se quedó sin margen de tokens o de
+acciones y no guardó sugerencias ni candidatos; ASM-131). El detalle está en §4.14.
 
 Los comandos de F3 (§4.5 y §4.9) responden además `400` `SAME_DUE_DATE` (`attributes.new_due_date`), `FIELD_REQUIRED`
 (`attributes.<campo>`, o `due_date` si el compromiso no tiene fecha que reprogramar), `FIELD_NOT_EDITABLE`
@@ -1375,23 +1383,29 @@ quedan en `export_log` (RQ-REP-022, RQ-AUD-011).
 ### 4.14 BC-18 IA y conocimiento
 
 Paquete `sgspe.ai`, desde F7. Ningún endpoint de IA escribe datos de dominio: guarda `ai_interaction` y sugerencias o
-candidatos, y solo la aceptación de una persona ejecuta el comando (RQ-AI-001, RQ-AI-003). Si la IA no está activada para la
-organización o su proveedor no responde, los tres endpoints que llaman a un modelo (`runs`, `assistant/questions` y
-`knowledge/questions`) responden `503` (RQ-AI-009, ASM-015); `GET /api/sgspe/ai/status` lo informa, y aceptar una sugerencia
-o un candidato ya guardado sigue funcionando sin proveedor. Usar la IA exige poder crear `ai_interaction` y el objeto de
-salida. Los casos, la seudonimización y los flujos los detalla `ai-architecture.md`.
+candidatos, y solo la aceptación de una persona ejecuta el comando (RQ-AI-001, RQ-AI-003). Si la IA no está activada
+para la organización o su proveedor no responde, los tres endpoints que llaman a un modelo (`runs`,
+`assistant/questions` y `knowledge/questions`) responden `503 AI_UNAVAILABLE` (RQ-AI-009, ASM-015, ASM-128); `GET
+/api/sgspe/ai/status` lo informa, y aceptar una sugerencia o un candidato ya guardado sigue funcionando sin proveedor.
+Usar la IA exige poder crear `ai_interaction` y el objeto de salida. Los casos, la seudonimización y los flujos los
+detalla `ai-architecture.md`.
 
 | Método | Ruta | Propósito | Permiso o acción declarada | Cuerpo y respuesta | Encabezados | Fase |
 |---|---|---|---|---|---|---|
 | `GET` | `/api/sgspe/ai/status` | Si la organización tiene la IA activada, si el proveedor está disponible y qué casos se ofrecen | Autenticado | → `200 { enabled, providerAvailable, useCases[] }` | — | F7 |
 | `POST` | `/api/sgspe/ai/runs` | Ejecuta un caso de IA (AI-01, AI-02, AI-03, AI-04, AI-07 o AI-08) sobre una fuente, con texto seudonimizado, y guarda sus sugerencias o candidatos; los borradores de sección de AI-04 llegan en F8, con `deliverable_section` (RQ-AI-012) | READ sobre la fuente; CREATE sobre `ai_interaction` y sobre `ai_suggestion` o `commitment_candidate`; READ de los nombres de `person`, que la seudonimización necesita (si no, `403` antes de llamar al modelo) | `{ useCase, target: { object, recordId } }` → `201 { interaction, suggestions[], candidates[] }` | `IK` | F7 |
-| `POST` | `/api/sgspe/ai/assistant/questions` | AI-05: pregunta al asistente de solo lectura de wasichai-agent, como la persona que pregunta, y registra la interacción. Mientras no exista UPS-14, se ofrece solo a roles sin acceso a campos restringidos (hoy, `ANALYST`), una decisión del checkpoint (`security.md` §15) | CREATE sobre `ai_interaction` | `{ question }` → `200 { answer, steps[], truncated, interaction }` | — | F7 |
+| `POST` | `/api/sgspe/ai/assistant/questions` | AI-05: pregunta al asistente de solo lectura de wasichai-agent, como la persona que pregunta, con los resultados de sus herramientas seudonimizados y los campos restringidos enmascarados, y registra la interacción con sus tokens; la respuesta vuelve con los marcadores restaurados, salvo los de los campos restringidos (ASM-130, `ai-architecture.md` §8) | CREATE sobre `ai_interaction` (sin él, `403`); no exige leer los nombres de `person` | `{ question }` → `200 { answer, steps[], truncated, interaction }` | — | F7 |
 | `POST` | `/api/sgspe/ai/knowledge/questions` | AI-06: responde con citas sobre los documentos que quien pregunta puede leer; sin fragmento que pase los filtros, dice que no hay evidencia | CREATE sobre `ai_interaction`; READ sobre `evidence` y, para fragmentos de evidencias CONFIDENCIAL o DATOS PERSONALES, `DOWNLOAD_RESTRICTED`; READ de los nombres de `person` (si no, `403` antes de llamar al modelo) | `{ question, project }` → `200 { answer, citations[]: { evidenceId, chunkIndex, quote }, interaction }` | — | F7 |
 | `POST` | `/api/sgspe/ai-suggestions/{id}/accept` | Acepta una sugerencia: ejecuta el comando de dominio con la autorización de quien acepta y lleva la sugerencia a `accepted`. Solo ejecuta lo que permite la lista cerrada de `ai-architecture.md` §4.2 (tipo, objeto destino y campo o comando); todo lo demás, y todo campo derivado u objeto `apiOnly`, se rechaza | UPDATE sobre `ai_suggestion`, el permiso del comando que ejecuta y el rol de la transición de WF-K a `accepted` | `{ attributes }` con los valores revisados → `200 { suggestion, result }` | `IK`, `IM`, `CR` | F7 |
 
 Los candidatos a compromiso que produce la IA se aceptan o se marcan como duplicados con los endpoints de §4.5. Rechazar una
 sugerencia o un candidato, o marcar como duplicada una sugerencia, son transiciones de la API genérica, siempre humanas
 (RQ-AI-015).
+
+**Errores.** Además de los de §3.3, los tres endpoints que llaman a un modelo responden `503 AI_UNAVAILABLE` sin
+activación o sin proveedor, y `runs` responde `422 AI_INPUT_TOO_LARGE`, `422 AI_NO_TEXT` y `502 AI_RUN_TRUNCATED` con
+los campos de §3.3 (ASM-128, ASM-131, ASM-132). Ninguno de esos errores guarda una sugerencia o un candidato; la
+`ai_interaction` de cada llamada hecha queda registrada.
 
 **Las salidas de la IA solo llevan marcadores.** `suggested_value` y `evidence_quote` de `ai_suggestion`, y `proposed_text`,
 `evidence_quote` y `beneficiaries_text` de `commitment_candidate`, se guardan seudonimizados: una persona registrada queda
