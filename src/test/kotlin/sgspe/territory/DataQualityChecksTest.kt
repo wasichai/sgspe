@@ -54,6 +54,35 @@ class DataQualityChecksTest {
     }
 
     @Test
+    fun `con project solo entran los objetos que tienen proyecto`() {
+        val kept = DataQualityChecks.objects(QualityCheck.INVALID).filter(DataQualityChecks::hasProject)
+        assertEquals(
+            listOf("project", "project_component", "area_of_influence", "grievance", "inquiry", "stakeholder_request", "commitment", "social_risk", "incident"),
+            kept
+        )
+        assertTrue(DataQualityChecks.objects(QualityCheck.NO_GEOMETRY).none(DataQualityChecks::hasProject))
+        assertEquals(listOf("area_of_influence"), DataQualityChecks.objects(QualityCheck.STALE_AREA).filter(DataQualityChecks::hasProject))
+        // si llegara un objeto del tenant con project, su parte del UNION no devuelve filas sin filtrar
+        val sql = DataQualityChecks.sql(tables, bind, QualityCheck.INVALID, listOf("land_parcel"), UUID.randomUUID(), envelope, 51, 0)
+        assertTrue(sql.contains("NOT ST_IsValid(t.\"c_boundary\") AND FALSE"), sql)
+    }
+
+    @Test
+    fun `lo que compara con la zona del proyecto exige leer project working_crs`() {
+        assertEquals(
+            listOf("code", "location", "trace", "footprint", "project").map { "project_component.$it" } + "project.working_crs",
+            DataQualityChecks.required(QualityCheck.OUT_OF_ZONE, "project_component", byProject = false)
+        )
+        assertTrue("project.working_crs" in DataQualityChecks.required(QualityCheck.STALE_AREA, "area_of_influence", byProject = false))
+        assertFalse("project.working_crs" in DataQualityChecks.required(QualityCheck.OUT_OF_ZONE, "locality", byProject = false))
+        assertFalse("project.working_crs" in DataQualityChecks.required(QualityCheck.STALE_AREA, "community", byProject = false))
+        assertFalse("project.working_crs" in DataQualityChecks.required(QualityCheck.INVALID, "project_component", byProject = true))
+        // el proyecto mismo lee su working_crs como campo propio
+        assertTrue("project.working_crs" in DataQualityChecks.required(QualityCheck.OUT_OF_ZONE, "project", byProject = false))
+        assertFalse(DataQualityChecks.needsProjectCrs(QualityCheck.OUT_OF_ZONE, "project"))
+    }
+
+    @Test
     fun `el SQL de geometrias invalidas usa las tablas de la compuerta y enlaza todo`() {
         val project = UUID.randomUUID()
         val sql = DataQualityChecks.sql(tables, bind, QualityCheck.INVALID, listOf("land_parcel", "grievance"), project, envelope, 51, 50)

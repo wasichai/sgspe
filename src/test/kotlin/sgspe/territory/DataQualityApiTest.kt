@@ -46,6 +46,9 @@ class DataQualityApiTest : F6ApiTest() {
         assertEquals("land_parcel", found["object"].asString())
         assertEquals("boundary", found["field"].asString())
         assertEquals("autointersección", found["detail"].asString())
+        // con project, los predios (del tenant, sin proyecto) se omiten
+        val project = runBlocking { utmProject() }
+        assertTrue(all("INVALID", "&object=land_parcel&project=$project").isEmpty())
     }
 
     @Test

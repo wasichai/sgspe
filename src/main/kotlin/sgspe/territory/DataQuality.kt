@@ -57,6 +57,7 @@ data class QualityPage(
 // registro y campo; varias tablas en un solo UNION ALL ordenado por objeto, id y campo
 object DataQualityChecks {
     private const val PROJECT = "project"
+    const val WORKING_CRS = "working_crs"
     private const val AREA_OF_INFLUENCE = "area_of_influence"
     val MANAGEMENT = listOf("grievance", "inquiry", "stakeholder_request", "commitment", "social_risk", "incident")
 
@@ -95,6 +96,16 @@ object DataQualityChecks {
             QualityCheck.NO_GEOMETRY -> WITHOUT_GEOMETRY.keys.toList()
         }
 
+    // con project, solo entran los objetos que tienen proyecto y el proyecto mismo: los del tenant (predios, comunidades,
+    // concesiones…) no pertenecen a uno y se omiten, no salen sin filtrar
+    fun hasProject(objectName: String): Boolean = objectName in BY_PROJECT || objectName == PROJECT
+
+    // la revisión del objeto compara con el working_crs de su proyecto (unido como p): sin leer project.working_crs se omite
+    fun needsProjectCrs(
+        check: QualityCheck,
+        objectName: String
+    ): Boolean = (check == QualityCheck.OUT_OF_ZONE && objectName in BY_PROJECT) || (check == QualityCheck.STALE_AREA && objectName == AREA_OF_INFLUENCE)
+
     fun fields(
         check: QualityCheck,
         objectName: String,
@@ -107,7 +118,7 @@ object DataQualityChecks {
                 QualityCheck.OUT_OF_ZONE -> {
                     addAll(GEOMETRIES.getValue(objectName))
                     if (objectName in BY_PROJECT) add(PROJECT)
-                    if (objectName == PROJECT) add("working_crs")
+                    if (objectName == PROJECT) add(WORKING_CRS)
                 }
                 QualityCheck.STALE_AREA -> {
                     add(Areas.GEOMETRY.getValue(objectName))
@@ -120,10 +131,21 @@ object DataQualityChecks {
             if (byProject && objectName in BY_PROJECT) add(PROJECT)
         }
 
+    // lo que quien llama debe leer para que el objeto entre en la revisión, como objeto.campo: los campos de la revisión y,
+    // si compara con la zona de su proyecto, project.working_crs
+    fun required(
+        check: QualityCheck,
+        objectName: String,
+        byProject: Boolean
+    ): List<String> {
+        val own = fields(check, objectName, byProject).map { "$objectName.$it" }
+        return if (needsProjectCrs(check, objectName)) own + "$PROJECT.$WORKING_CRS" else own
+    }
+
     fun needsProject(
         check: QualityCheck,
         objects: List<String>
-    ): Boolean = (check == QualityCheck.OUT_OF_ZONE && objects.any { it in BY_PROJECT }) || (check == QualityCheck.STALE_AREA && AREA_OF_INFLUENCE in objects)
+    ): Boolean = objects.any { needsProjectCrs(check, it) }
 
     fun sql(
         tables: GateTables,
@@ -195,7 +217,8 @@ object DataQualityChecks {
             project == null -> ""
             objectName in BY_PROJECT -> " AND t.${tables.column(objectName, PROJECT)} = ${bind(project)}"
             objectName == PROJECT -> " AND t.id = ${bind(project)}"
-            else -> ""
+            // DataQuality no los pide con project (hasProject); si llegaran, ninguna fila sin filtrar
+            else -> " AND FALSE"
         }
 
     // el SRID del working_crs («EPSG 32717» -> 32717) del proyecto unido como p, o del proyecto mismo
@@ -206,8 +229,8 @@ object DataQualityChecks {
         when (objectName) {
             in BY_PROJECT ->
                 "LEFT JOIN ${tables.table(PROJECT)} p ON p.id = t.${tables.column(objectName, PROJECT)}" to
-                    "CAST(substring(p.${tables.column(PROJECT, "working_crs")} FROM '[0-9]+') AS int)"
-            PROJECT -> "" to "CAST(substring(t.${tables.column(PROJECT, "working_crs")} FROM '[0-9]+') AS int)"
+                    "CAST(substring(p.${tables.column(PROJECT, WORKING_CRS)} FROM '[0-9]+') AS int)"
+            PROJECT -> "" to "CAST(substring(t.${tables.column(PROJECT, WORKING_CRS)} FROM '[0-9]+') AS int)"
             else -> "" to "CAST(NULL AS int)"
         }
 
@@ -287,7 +310,8 @@ object DataQualityChecks {
 }
 
 // GET /api/sgspe/territory/data-quality: una revisión por página, por SpatialGate, solo con los objetos que la organización
-// tiene (TenantModel) y que quien llama lee con todos los campos de la revisión; un objeto pedido que no lee es 403
+// tiene (TenantModel) y que quien llama lee con todos los campos de la revisión (y project.working_crs si la revisión lo
+// usa); un objeto pedido que no lee es 403. con project, solo los objetos que tienen proyecto (hasProject)
 @Service
 class DataQuality(
     private val gate: SpatialGate,
@@ -309,18 +333,19 @@ class DataQuality(
             throw ValidationException("Objeto inválido", "object", "la revisión ${check.name} cubre ${candidates.joinToString(", ")}")
         }
         val byProject = project != null
-        val present = tenantModel.present(user.organizationId, objectName?.let(::listOf) ?: candidates)
+        val asked = (objectName?.let(::listOf) ?: candidates).filter { !byProject || DataQualityChecks.hasProject(it) }
+        val present = tenantModel.present(user.organizationId, asked)
         val readability = Readability(metadata)
-        val readable = present.filter { o -> DataQualityChecks.fields(check, o, byProject).all { readability.canRead("$o.$it") } }
-        if (objectName != null && objectName !in readable) {
+        val readable = present.filter { o -> DataQualityChecks.required(check, o, byProject).all { readability.canRead(it) } }
+        if (objectName != null && objectName in asked && objectName !in readable) {
             throw ForbiddenException(
-                "La revisión ${check.name} de $objectName exige leer ${DataQualityChecks.fields(check, objectName, byProject).joinToString(", ")}"
+                "La revisión ${check.name} de $objectName exige leer ${DataQualityChecks.required(check, objectName, byProject).joinToString(", ")}"
             )
         }
         if (readable.isEmpty()) return QualityPage(check.name, emptyList(), page, size, false)
         val reads =
             readable.map { GateRead(it, DataQualityChecks.fields(check, it, byProject), principal = true) } +
-                listOfNotNull(GateRead("project", setOf("working_crs")).takeIf { DataQualityChecks.needsProject(check, readable) })
+                listOfNotNull(GateRead("project", setOf(DataQualityChecks.WORKING_CRS)).takeIf { DataQualityChecks.needsProject(check, readable) })
         val outcome =
             gate.select(reads, { bind -> DataQualityChecks.sql(this, bind, check, readable, project, properties, size + 1, page * size) }) { row ->
                 QualityRaw(
