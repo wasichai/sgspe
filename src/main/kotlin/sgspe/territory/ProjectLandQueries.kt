@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import sgspe.common.Criteria
+import sgspe.common.LIMA
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
@@ -105,7 +106,7 @@ class ProjectLandQueries(
         return rights
             .groupBy { UUID.fromString(Values.text(it.attributes["land_parcel"])) }
             .mapValues { (_, list) ->
-                currentHolders(list, LocalDate.now(clock)).map { (kind, id) ->
+                currentHolders(list, today(clock)).map { (kind, id) ->
                     mapOf(
                         "object" to kind,
                         "id" to id,
@@ -157,6 +158,9 @@ class ProjectLandQueries(
 
         // los titulares vigentes de un predio: los derechos sin end_date o con end_date de hoy en adelante (hoy en Lima), cada
         // persona u organización una sola vez. devuelve (objeto, id)
+        // hoy en Lima, como en las demás consultas: a las 20:00 de Lima ya es mañana en UTC
+        internal fun today(clock: Clock): LocalDate = LocalDate.now(clock.withZone(LIMA))
+
         internal fun currentHolders(
             rights: List<wasichai.core.data.RecordResponse>,
             today: LocalDate

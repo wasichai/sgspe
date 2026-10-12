@@ -40,4 +40,10 @@ class ComponentLandSqlTest {
         assertEquals(11, values.last())
         assertTrue(ComponentLand.COMMUNAL in values)
     }
+
+    @Test
+    fun `un predio sin tenencia sale como SIN TENENCIA y no como nulo`() {
+        assertEquals("SIN TENENCIA", ComponentLand.tenureOf(null))
+        assertEquals("PROPIEDAD", ComponentLand.tenureOf("PROPIEDAD"))
+    }
 }

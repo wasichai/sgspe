@@ -3,7 +3,10 @@ package sgspe.territory
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import wasichai.core.data.RecordResponse
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 // los titulares de un predio son los derechos vigentes hoy en Lima, sin repetidos (ruling de la ola final del plan 6.2a)
 class CurrentHoldersTest {
@@ -30,5 +33,11 @@ class CurrentHoldersTest {
                 today
             )
         assertEquals(listOf("person" to "p1", "organization" to "o1", "person" to "p3"), holders)
+    }
+
+    @Test
+    fun `hoy es la fecha de Lima aunque en UTC ya sea el dia siguiente`() {
+        val clock = Clock.fixed(Instant.parse("2026-10-12T03:00:00Z"), ZoneOffset.UTC)
+        assertEquals(LocalDate.parse("2026-10-11"), ProjectLandQueries.today(clock))
     }
 }

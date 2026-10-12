@@ -31,7 +31,7 @@ class ComponentLand(
                     row.get("component", UUID::class.java)!!,
                     row.get("project", UUID::class.java)!!,
                     row.get("component_type", String::class.java),
-                    row.get("land", String::class.java)!!,
+                    tenureOf(row.get("land", String::class.java)),
                     row.get("land_id", UUID::class.java)!!
                 )
             }
@@ -41,6 +41,10 @@ class ComponentLand(
 
     companion object {
         const val COMMUNAL = "TERRITORIO COMUNAL"
+        const val NO_TENURE = "SIN TENENCIA"
+
+        // tenure_type no es requerido: un predio sin tenencia se cuenta aparte, no revienta (ni es comunal ni privado)
+        internal fun tenureOf(raw: String?): String = raw ?: NO_TENURE
 
         private val COMPONENT_FIELDS = setOf("project", "component_type", "superseded") + TerritoryNames.COMPONENT_GEOMETRIES
 

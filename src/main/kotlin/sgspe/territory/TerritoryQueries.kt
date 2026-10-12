@@ -147,6 +147,9 @@ object QueryParams {
             LocalDate.parse(raw.trim())
         } catch (_: DateTimeParseException) {
             throw invalid(name, "debe ser una fecha AAAA-MM-DD")
+        }.also {
+            // fuera de 1900 a 9999 la fecha no cabe en un timestamptz: 400 en su campo, no un 500 desde SQL
+            if (it.year !in MIN_YEAR..MAX_YEAR) throw outOfRange(name, "el año debe estar entre $MIN_YEAR y $MAX_YEAR")
         }
 
     fun invalid(
@@ -159,6 +162,8 @@ object QueryParams {
         message: String
     ): WasichaiException = Finding("OUT_OF_RANGE", "$name fuera de rango: $message", name, status = HttpStatus.BAD_REQUEST).toCodedException()
 
+    private const val MIN_YEAR = 1900
+    private const val MAX_YEAR = 9999
     private const val BUFFER = "bufferM"
     private const val DISTANCE = "distanceKm"
     private const val LIMIT = "limit"

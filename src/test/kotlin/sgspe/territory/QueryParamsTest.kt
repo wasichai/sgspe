@@ -79,4 +79,11 @@ class QueryParamsTest {
         assertEquals("INVALID_VALUE" to "project", failure { QueryParams.uuids("project", listOf("no-es-uuid")) })
         assertEquals(emptyList<Any>(), QueryParams.uuids("project", null))
     }
+
+    @Test
+    fun `un anio fuera de 1900 a 9999 es OUT_OF_RANGE en su campo`() {
+        assertEquals("OUT_OF_RANGE" to "periodStart", failure { QueryParams.period("1899-12-31", "1900-06-01", today, limits) })
+        assertEquals("OUT_OF_RANGE" to "periodEnd", failure { QueryParams.period(null, "+10000-01-01", today, limits) })
+        assertEquals("OUT_OF_RANGE" to "periodStart", failure { QueryParams.period("-0001-01-01", null, today, limits) })
+    }
 }
