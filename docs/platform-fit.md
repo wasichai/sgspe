@@ -73,7 +73,7 @@ estados copiados del [índice de ADR](adr/README.md).
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
 | Java o Kotlin según el repositorio | Sustituido | Kotlin 2.4.20 sobre JDK 25, como wasichai y caja | WAS-ADR-0024; WAS-DOC guides/build-your-app.md | ADR-0001 | CON-039 | RNF-MNT-001 |
-| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 1.1.0 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
+| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 1.2.0 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
 | Spring Web | Sustituido | Spring WebFlux reactivo; la E/S bloqueante del código propio va a `Dispatchers.IO` | WAS-DOC architecture/overview.md | ADR-0001 | CON-039 | RNF-MNT-005 |
 | Spring Security | Plataforma | Servidor de recursos OAuth2 de WebFlux que valida el JWT HS256 de wasichai; la cadena de core va en `@Order(0)` | WAS-ADR-0010; WAS-DOC security/authentication.md | ADR-0020 | CON-056 | RQ-SEC-001 |
 | Spring Data JPA e Hibernate | Sustituido | Prohibidos: SQL por `DatabaseClient`, registros dinámicos por `RecordService`, una tabla física por objeto | WAS-ADR-0003; WAS-ADR-0004; WAS-DOC architecture/overview.md | ADR-0001, ADR-0008 | CON-039 | RNF-MNT-005 |
@@ -427,7 +427,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-23 Un documento emitido que congele solo lo que nombra la plantilla o aplique los permisos de campo | F3 | Los tipos de documento solo se declaran sobre objetos sin campos restringidos (ASM-090); el acta firmada se sube como evidencia ACTA DE ENTREGA | `model/document-types/`, `test_model.py` | La regla de `test_model.py`; llegan el «Acta de entrega» (AUT-03) y el «Acta de recepción» (AUT-04) |
 | UPS-24 Un enganche de lectura para el descriptor de un campo `FILE` | F3 | Resuelta en wasichai 1.0.0 (WAS-ADR-065, wasichai/wasichai#102) y adoptada el 2026-10-11: `EvidenceFileReadPolicy` entrega el descriptor de una evidencia restringida sin `name` ni `sha256` a quien no tiene `DOWNLOAD_RESTRICTED`; el portal conserva el nombre neutro como defensa adicional (ASM-093) | `sgspe.evidence`; `sgspe-ui` | Nada |
 | UPS-29 Caché de las definiciones de objeto y memo por petición de las consultas de rol (wasichai/wasichai#105) | Antes de producción | Resuelta en wasichai 1.1.0 y adoptada el 2026-10-11: `ObjectDefinitions` queda como memo por petición sobre la caché de wasichai (`wasichai.metadata.cache.ttl` 30 s, `security.md` §9.7); el memo del comando guarda las asignaciones de quien escribe (`RequestMemoFilter`) | `sgspe.common` | Nada |
-| UPS-30 Lecturas del modelo fuera de la caché de definiciones: workflows, relaciones, campos `FILE`, destino de una relación, reglas de notificación y automatizaciones (wasichai/wasichai#108) | Antes de producción | Ninguna: son lecturas internas de wasichai | — | Nada: llega con la versión de wasichai que lo resuelva |
+| UPS-30 Lecturas del modelo fuera de la caché de definiciones: workflows, relaciones, campos `FILE`, destino de una relación, reglas de notificación y automatizaciones (wasichai/wasichai#108) | Antes de producción | Resuelta en wasichai 1.2.0 y adoptada el 2026-10-11: wasichai las responde desde la caché de definiciones (`wasichai.metadata.cache.ttl` 30 s) | — | Nada |
 
 ### 4.2 Otras diferencias con la plataforma ya registradas
 
@@ -498,6 +498,15 @@ El 2026-10-11 el backend pasa de wasichai 1.0.0 a 1.1.0, sin cambios incompatibl
 | UPS-29 | 1.1.0: caché de definiciones por nodo (`wasichai.metadata.cache.ttl`), borrada al cambiar el modelo, y lo que los roles de quien llama dicen de un objeto en una consulta por petición (`RoleQueries.objectAccess`) [WAS-ADR-066] | Adoptada: `ObjectDefinitions` solo memoriza por petición, se retira `ObjectDefinitions.recent` y el ttl de wasichai queda en 30 s (`security.md` §9.7) | Nada |
 | — | 1.1.0: puerto `MetadataChangeListener`, avisado después de cada cambio del modelo [WAS-ADR-066] | Disponible, sin uso: SGSPE ya no guarda nada derivado del modelo entre peticiones | — |
 | UPS-30 | Sin cambios en 1.1.0: workflows, relaciones, campos `FILE`, destino de una relación, reglas de notificación y automatizaciones se leen en cada operación (wasichai/wasichai#108) | Sin mitigación en SGSPE | Llega con la versión de wasichai que lo resuelva |
+
+### 4.6 Lo que trae wasichai 1.2.0
+
+El 2026-10-11 el backend pasa de wasichai 1.1.0 a 1.2.0, sin cambios incompatibles ni de código en SGSPE.
+
+| Brecha | Qué trae wasichai | Estado en SGSPE tras la actualización | Para adoptarla |
+|---|---|---|---|
+| UPS-30 | 1.2.0: workflows, automatizaciones, reglas de notificación, relaciones por nombre, campos `FILE` y el destino de una relación salen de la caché de definiciones, con su misma invalidación [WAS-ADR-067] | Adoptada: nada que cambiar; el alta de una entrega con tres evidencias baja de 81 a 48 a 52 consultas | Nada |
+| — | 1.2.0: un workflow, una automatización o una regla cambiados llegan a otro nodo dentro de `wasichai.metadata.cache.ttl` (D50 de wasichai) | Aceptado con el mismo ttl de 30 s que el modelo (`security.md` §9.7) | — |
 
 ## 5. Patrones de srtm y caja que se reutilizan
 

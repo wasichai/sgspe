@@ -3,6 +3,20 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-11 — wasichai 1.2.0: UPS-30 resuelta
+
+El backend pasa a wasichai 1.2.0 (wasichai/wasichai#109, WAS-ADR-067), que responde desde la caché de definiciones lo
+que antes leía en cada operación: workflows, automatizaciones, reglas de notificación, relaciones por nombre, campos
+`FILE` y el destino de una relación. Sin cambios de código en SGSPE.
+
+- **Medición local** (PostgreSQL 16 con PostGIS, sin túnel): el alta de una entrega con tres evidencias, de 81 a 48 a 52
+  consultas (de 178 con wasichai 1.0.0); la lista de una analista, de 5 a 6 a 4 a 5, y la del admin, de 3 a 4 a 2 a 3;
+  `transition-checks`, de 11 a 7 a 9.
+- **Varios nodos.** Un workflow, una automatización o una regla cambiados llegan a otro nodo dentro de
+  `wasichai.metadata.cache.ttl` (30 s), como el modelo (D50 de wasichai).
+- **Lo que queda.** Del lado de SGSPE, el memo de las lecturas de registro por petición (el aporte, la entrega y las
+  evidencias se releen en el alta).
+
 ## 2026-10-11 — Plan 6.0: los documentos de F6
 
 Los documentos de diseño quedan al día con la especificación de F6
