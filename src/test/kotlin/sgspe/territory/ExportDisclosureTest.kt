@@ -100,7 +100,9 @@ class ExportDisclosureTest {
     @Test
     fun `los campos exportables de cada capa estan fijados`() {
         val catalog = ModelCatalog.fromClasspath()
-        assertEquals(EXPORTED_FIELDS.keys, ExportDisclosure.EXPORTABLE)
+        // "project" no va aquí: fuera de INTERNO solo salen code y name (PROJECT_OUTSIDE), así que un campo nuevo
+        // de project no exige una decisión de divulgación
+        assertEquals(EXPORTED_FIELDS.keys, ExportDisclosure.EXPORTABLE - "project")
         for ((objectName, fields) in EXPORTED_FIELDS) {
             assertEquals(fields, TerritoryExports.columnsOf(catalog, objectName).toSet(), objectName)
         }
@@ -175,48 +177,6 @@ class ExportDisclosureTest {
                         "declaring_authority",
                         "declaration_date",
                         "administrative_unit"
-                    ),
-                "project" to
-                    setOf(
-                        "code",
-                        "name",
-                        "description",
-                        "project_type",
-                        "stage",
-                        "exploration_phase",
-                        "start_date",
-                        "end_date",
-                        "working_crs",
-                        "interest_threshold",
-                        "power_threshold",
-                        "stakeholder_review_days",
-                        "inactivity_days",
-                        "meetings_per_month_target",
-                        "policy_workshop_commitments_blocked",
-                        "policy_senior_approval_for_dialogue",
-                        "policy_minutes_only_formal_types",
-                        "policy_internal_approval",
-                        "policy_activation_preconditions",
-                        "policy_local_jobs_direct_area_only",
-                        "local_jobs_min",
-                        "local_jobs_max",
-                        "policy_no_jobs_in_easements",
-                        "due_soon_days",
-                        "escalation_first_days",
-                        "escalation_second_days",
-                        "grievance_ack_days",
-                        "inquiry_response_days",
-                        "grievance_resolution_days",
-                        "policy_high_severity_requires_approver",
-                        "risk_review_days",
-                        "risk_medium_min_score",
-                        "risk_high_min_score",
-                        "risk_critical_min_score",
-                        "policy_cap_blocks_approval",
-                        "policy_no_paid_labor",
-                        "policy_non_monetary_donations",
-                        "policy_synergy_requires_agreement",
-                        "policy_priority_warning"
                     ),
                 "project_component" to
                     setOf(
