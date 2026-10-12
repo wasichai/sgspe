@@ -6,9 +6,12 @@ import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RestController
+import sgspe.common.Attention
+import sgspe.common.Callers
 import sgspe.common.Criteria
 import sgspe.common.Finding
 import sgspe.common.LIMA
+import sgspe.common.Permissions
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
@@ -37,7 +40,9 @@ class TerritoryAggregates(
     private val records: Records,
     private val metadata: MetadataService,
     private val componentLand: ComponentLand,
-    private val limits: TerritoryQueryProperties
+    private val limits: TerritoryQueryProperties,
+    private val permissions: Permissions,
+    private val callers: Callers
 ) {
     suspend fun concentration(
         of: String?,
@@ -67,8 +72,12 @@ class TerritoryAggregates(
                 )
             }
         )
+        // H2: como los KPI-GRV (dashboards.md §8), a quien no ve las QCS confidenciales se le dice que la cifra puede no
+        // incluirlas
+        val hidden = of in Attention.OBJECTS && permissions.confidentialHidden(callers.require())
         return linkedMapOf<String, Any?>("of" to of, "periodStart" to period.start.toString(), "periodEnd" to period.end.toString()) +
-            parts.response("cells", parts.rows.take(limit), truncated = parts.rows.size > limit)
+            parts.response("cells", parts.rows.take(limit), truncated = parts.rows.size > limit) +
+            confidentialFlag(listOf(of), hidden)
     }
 
     suspend fun summary(areaId: UUID): Map<String, Any?> {
@@ -143,6 +152,13 @@ class TerritoryAggregates(
     }
 
     companion object {
+        // la marca de las QCS confidenciales ocultas (dashboards.md §8, security.md §9.6): solo si `objects` lee alguna QCS y a
+        // quien llama se le ocultan; un booleano, nunca el número de excluidas. lo demás no la lleva, como los indicadores
+        fun confidentialFlag(
+            objects: Collection<String>,
+            hidden: Boolean
+        ): Map<String, Any?> = if (hidden && objects.any { it in Attention.OBJECTS }) mapOf("confidentialHidden" to true) else emptyMap()
+
         private val JSON: JsonMapper = JsonMapper.builder().build()
         private const val NONE = "SIN DATO"
         private const val COMMUNAL_PARCEL = "COMUNAL"

@@ -68,11 +68,17 @@ object Kpis {
     // los KPI-STK ignoran además community: stakeholder no tiene comunidad (ruling P27)
     private val STAKEHOLDER_IGNORES: Set<String> = IGNORED_IN_F2 + "community"
 
-    // los filtros pedidos que el indicador ignora, en el orden de DashboardFilters.COMMON y después INVESTMENT; vacío si ninguno
+    // los filtros pedidos que el indicador ignora, en el orden de DashboardFilters.COMMON y después INVESTMENT; vacío si ninguno.
+    // el periodo cuenta como pedido solo si vino periodStart o periodEnd (periodGiven): el mes en curso por defecto no se declara
     fun ignoredFilters(
         indicator: Indicator,
         filters: DashboardFilters
-    ): List<String> = (DashboardFilters.COMMON + DashboardFilters.INVESTMENT).filter { it in indicator.ignores && it in filters.given() }
+    ): List<String> {
+        val given = if (filters.periodGiven) filters.given() + PERIOD else filters.given()
+        return (DashboardFilters.COMMON + DashboardFilters.INVESTMENT).filter { it in indicator.ignores && it in given }
+    }
+
+    private val PERIOD: Set<String> = setOf("periodStart", "periodEnd")
 
     // los filtros que, además de los comunes, aceptan los indicadores `codes`: program y year si alguno es un KPI-INV (decisión 2
     // del plan 5.2b); ninguno en los demás, así que en otro tablero o KPI son 422
@@ -111,9 +117,10 @@ object Kpis {
             TERRITORY to listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04")
         )
 
-    // F6: KPI-TER-02 a 04 se filtran solo por proyecto (dashboards.md §4.8); los demás filtros comunes los declaran ignorados
+    // F6: KPI-TER-02 a 04 se filtran solo por proyecto (dashboards.md §4.8); los demás filtros comunes, el periodo incluido
+    // (H5 del plan 6.2c), los declaran ignorados
     private val TERRITORY_IGNORES: Set<String> =
-        setOf("administrativeUnit", "locality", "community", "areaOfInfluence", "explorationCampaign", "scope", "owner")
+        setOf("periodStart", "periodEnd", "administrativeUnit", "locality", "community", "areaOfInfluence", "explorationCampaign", "scope", "owner")
     private val AREA = listOf("area_of_influence.project", "area_of_influence.area_type", "area_of_influence.version_number")
     private val LAND =
         listOf(

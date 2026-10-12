@@ -504,7 +504,7 @@ Parámetros de consulta (§3.1), como los fija `api.md`: `project` (repetible), 
   `locality` o `community` suma KPI-TER-01 al principio; sin ellos, el tablero trae KPI-TER-02 a KPI-TER-04. KPI-TER-01
   solo, por `GET /api/sgspe/dashboards/indicators/KPI-TER-01`, sin territorio responde `available: false` con
   `TERRITORY_REQUIRED` (§8). KPI-TER-02 a KPI-TER-04 filtran solo por `project` y declaran los
-  demás filtros en `ignoredFilters`.
+  demás filtros en `ignoredFilters`, el periodo incluido cuando vino `periodStart` o `periodEnd`.
 - Los KPI-INV aplican de los filtros de territorio solo `locality`, con sus sectores; KPI-INV-03 no suma los
   presupuestos de programas cuando viene, porque no tienen territorio, y lo advierte. La cifra titular de KPI-INV-01 a
   03 va en PEN (§3.3); la de KPI-INV-04 son los alcanzados de los programas, y los aportes y compromisos van aparte en
@@ -574,6 +574,7 @@ como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestr
   `referred_at` de la pregunta). Su respuesta, y la de KPI-ENG-05, lleva `confidentialHidden:
   true` cuando quien llama no es `ADMIN` ni tiene `READ_CONFIDENTIAL` sobre los tres objetos: un booleano, nunca el
   número de excluidas, y la interfaz avisa que la cifra puede no incluirlas.
+  Desde F6 llevan la misma marca `GET /api/sgspe/territory/concentration` con `of` en una QCS y la capa LYR-20 (plan 6.2c).
 - **Celdas pequeñas.** Los tableros son internos y no aplican `SmallCells`: la supresión de celdas de menos de 5 rige
   solo en las salidas PUBLICO (ASM-088). Un desglose de KPI-GRV-08 por grupo de interés o canal muestra lo que quien
   llama ya puede leer registro por registro.

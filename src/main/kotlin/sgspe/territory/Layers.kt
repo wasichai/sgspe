@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import sgspe.common.Criteria
 import sgspe.common.Finding
+import sgspe.common.LIMA
+import sgspe.common.ModelCatalog
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
@@ -25,6 +27,8 @@ import wasichai.core.data.RecordRow
 import wasichai.core.metadata.ObjectDefinition
 import wasichai.core.platform.SqlIdentifier
 import wasichai.gis.BboxQuery
+import java.time.Clock
+import java.time.LocalDate
 import java.util.UUID
 
 // una capa del catálogo de gis.md §2.2: de qué objeto y geometría sale, con qué filtro fijo y si se acota por proyecto
@@ -69,8 +73,9 @@ class LayersConfiguration
 // la lectura es acotada: un tope de maxFeatures elementos por capa (`truncated` dice si había más) y bbox en SQL. se lee
 // por páginas de PageRequest.MAX_SIZE ordenadas por id, todas del mismo tamaño porque wasichai desplaza page * size; el
 // tope se aplica al final con take. project acota las capas de proyecto y en las demás se ignora (gis.md §3.3: no
-// pertenecen a un solo proyecto); sin él se ve todo el tenant (alcance opción A). periodStart y periodEnd se aceptan para
-// las capas temáticas de F6 y no filtran estas capas, que no tienen fecha. los errores llevan su código en
+// pertenecen a un solo proyecto); sin él se ve todo el tenant (alcance opción A). periodStart y periodEnd se validan
+// (QueryParams.period) y no filtran estas capas, que no tienen fecha; las capas de gestión LYR-17 a LYR-24 las arma
+// ManagementLayers (plan 6.2c). el estado (__state) se pide solo para los objetos con workflow. los errores llevan su código en
 // errors[0].message (P15). un campo de filtro que quien llama no puede leer deja la capa vacía (falla cerrado), no es un 400.
 // LYR-13 trae además los miembros (area_of_influence_member) de las áreas aprobadas, dibujados con la geometría de su
 // localidad (el límite y, si no hay, la ubicación) o de su comunidad (el territorio), aunque el área no tenga polígono
@@ -81,23 +86,30 @@ class LayersConfiguration
 @Service
 class Layers(
     private val records: Records,
-    properties: LayersProperties
+    properties: LayersProperties,
+    private val management: ManagementLayers,
+    private val catalog: ModelCatalog
 ) {
     private val maxFeatures = properties.maxFeatures
 
     suspend fun features(
         layer: String,
         projects: List<UUID>,
-        bbox: String?
+        bbox: String?,
+        period: Period? = null
     ): Map<String, Any?> {
-        val definition =
-            CATALOG[layer]
-                ?: throw Finding(
-                    "LAYER_NOT_FOUND",
-                    "La capa $layer no existe o no está disponible en esta fase",
-                    "layer",
-                    status = HttpStatus.NOT_FOUND
-                ).toCodedException()
+        val definition = CATALOG[layer]
+        if (definition == null) {
+            val managed =
+                ManagementLayerCatalog.CATALOG[layer]
+                    ?: throw Finding(
+                        "LAYER_NOT_FOUND",
+                        "La capa $layer no existe o no está disponible en esta fase",
+                        "layer",
+                        status = HttpStatus.NOT_FOUND
+                    ).toCodedException()
+            return management.features(managed, projects, LayerBox.of(bbox?.let(::normalizeBbox)), period)
+        }
         val box = bbox?.let(::normalizeBbox)
         val features = mutableListOf<Map<String, Any?>>()
         // se pide uno más del tope para saber si hubo más
@@ -111,7 +123,13 @@ class Layers(
         }
         if (definition.withMembers) features += members(definition.id, projects, box, maxFeatures + 1 - features.size)
         val truncated = features.size > maxFeatures
-        return mapOf("type" to "FeatureCollection", "features" to features.take(maxFeatures), "truncated" to truncated)
+        val out = linkedMapOf<String, Any?>("type" to "FeatureCollection", "features" to features.take(maxFeatures), "truncated" to truncated)
+        // las capas de F2 no tienen fecha: un periodo pedido no las acota y lo dicen (H5, decisión 7 del plan 6.2c)
+        if (period != null) {
+            out["periodNotApplied"] =
+                (definition.sources.map { it.objectName } + listOfNotNull(TerritoryWriteGuard.MEMBER.takeIf { definition.withMembers })).distinct()
+        }
+        return out
     }
 
     // los ids de las concesiones de los proyectos pedidos, como los ve quien llama. un proyecto que no existe o que no puede
@@ -178,7 +196,14 @@ class Layers(
             val (_, rows) =
                 records.rows(
                     objectName,
-                    RecordQuery(page = PageRequest.of(page, PageRequest.MAX_SIZE), sort = "id", ids = ids, criteria = criteria, count = false)
+                    RecordQuery(
+                        page = PageRequest.of(page, PageRequest.MAX_SIZE),
+                        sort = "id",
+                        ids = ids,
+                        criteria = criteria,
+                        count = false,
+                        withState = objectName in catalog.workflowObjects
+                    )
                 )
             for (row in rows) {
                 @Suppress("UNCHECKED_CAST")
@@ -362,7 +387,9 @@ class Layers(
 @RestController
 @RequestMapping("/api/sgspe/territory/layers")
 class LayersController(
-    private val layers: Layers
+    private val layers: Layers,
+    private val limits: TerritoryQueryProperties,
+    private val clock: Clock
 ) {
     @GetMapping("/{layer}")
     suspend fun layer(
@@ -385,6 +412,9 @@ class LayersController(
                 status = HttpStatus.BAD_REQUEST
             ).toCodedException()
         }
-        return layers.features(layer, projects, params.getFirst("bbox"))
+        val start = params.getFirst("periodStart")
+        val end = params.getFirst("periodEnd")
+        val period = if (start == null && end == null) null else QueryParams.period(start, end, LocalDate.now(clock.withZone(LIMA)), limits)
+        return layers.features(layer, projects, params.getFirst("bbox"), period)
     }
 }

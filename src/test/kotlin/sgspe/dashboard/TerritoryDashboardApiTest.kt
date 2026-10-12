@@ -134,5 +134,11 @@ class TerritoryDashboardApiTest : F6QueryApiTest() {
         val withPlace = get("/api/sgspe/dashboards/territory?project=$project&locality=$place")
         assertEquals(listOf("KPI-TER-01", "KPI-TER-02", "KPI-TER-03", "KPI-TER-04"), withPlace["indicators"].values().map { it["code"].asString() })
         assertEquals(listOf("locality"), indicator(withPlace, "KPI-TER-04")["ignoredFilters"].values().map { it.asString() })
+        // H5: el periodo pedido no cambia KPI-TER-02 a 04 y lo declaran
+        val withPeriod = get("/api/sgspe/dashboards/territory?project=$project&periodStart=2026-10-01&periodEnd=2026-10-31")
+        for (code in listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04")) {
+            assertEquals(listOf("periodStart", "periodEnd"), indicator(withPeriod, code)["ignoredFilters"].values().map { it.asString() }, code)
+        }
+        assertEquals(land["value"].asInt(), indicator(withPeriod, "KPI-TER-04")["value"].asInt())
     }
 }
