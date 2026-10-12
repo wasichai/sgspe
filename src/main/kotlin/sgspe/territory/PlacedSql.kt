@@ -75,15 +75,15 @@ object PlacedSql {
         // (tipo, id del destino, geometría en 4326), en el orden en que se prueban
         val candidates = mutableListOf<Triple<String, String, String>>()
         val joins = StringBuilder()
-        source.geometry?.let { candidates += Triple(OWN, "NULL::uuid", "ST_Transform(e.${t.column(o, it)}, 4326)") }
+        source.geometry?.let { candidates += Triple(OWN, "NULL::uuid", "ST_Transform(${nonEmpty("e.${t.column(o, it)}")}, 4326)") }
         source.relations.forEachIndexed { i, relation ->
             val target = Placements.BY_RELATION.getValue(relation)
             val n = target.objectName
             val alias = "r$i"
             joins.append(" LEFT JOIN ${t.table(n)} $alias ON $alias.${t.column(n, SpatialGate.ID)} = e.${t.column(o, relation)}")
             val shapes =
-                target.points.map { "ST_Transform($alias.${t.column(n, it)}, 4326)" } +
-                    target.surfaces.map { "ST_PointOnSurface(ST_Transform($alias.${t.column(n, it)}, 4326))" }
+                target.points.map { "ST_Transform(${nonEmpty("$alias.${t.column(n, it)}")}, 4326)" } +
+                    target.surfaces.map { "ST_PointOnSurface(ST_Transform(${nonEmpty("$alias.${t.column(n, it)}")}, 4326))" }
             candidates += Triple(relation, "$alias.${t.column(n, SpatialGate.ID)}", "COALESCE(${shapes.joinToString(", ")})")
         }
         require(candidates.isNotEmpty()) { "la fuente $o no tiene nada que dibujar" }
@@ -99,6 +99,10 @@ object PlacedSql {
         return "SELECT x.id AS id, x.kind AS kind, x.target AS target, ST_AsGeoJSON(x.g, 9) AS geometry FROM ($inner) x " +
             "WHERE ${outer.joinToString(" AND ")} ORDER BY x.id LIMIT ${bind(limit)}"
     }
+
+    // una geometría vacía (EMPTY no es NULL) cuenta como ausente, así que el registro cae al destino siguiente en vez de
+    // dibujarse en un punto vacío
+    internal fun nonEmpty(column: String): String = "CASE WHEN ST_IsEmpty($column) THEN NULL ELSE $column END"
 
     // la condición del periodo sobre la fecha de la fuente (decisión 7 del plan)
     internal fun periodCondition(
