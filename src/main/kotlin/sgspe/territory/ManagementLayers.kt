@@ -43,8 +43,8 @@ class ManagementLayers(
         for (objectName in layer.objects) {
             if (!readable.canRead(objectName)) throw ForbiddenException("La capa ${layer.id} exige permiso de lectura sobre $objectName")
         }
-        if (layer.aggregate != null) {
-            // los agregados (LYR-17 y los aportes de LYR-23) llegan con las Tareas 4 y 5 del plan 6.2c
+        if (layer.aggregate == LayerAggregate.CONTRIBUTIONS_BY_CURRENCY) {
+            // los aportes de LYR-23 llegan con la Tarea 5 del plan 6.2c
             throw Finding("LAYER_NOT_FOUND", "La capa ${layer.id} no está disponible todavía", "layer", status = HttpStatus.NOT_FOUND)
                 .toCodedException()
         }
@@ -56,6 +56,14 @@ class ManagementLayers(
             val remaining = maxFeatures + 1 - parts.rows.size
             if (remaining <= 0) break
             parts.add(placed(layer.id, source, projects, box, period?.takeIf { source.period != null }, remaining))
+        }
+        if (layer.aggregate == LayerAggregate.STAKEHOLDERS_BY_STANCE) {
+            // los grupos de interés no tienen fecha
+            if (period != null) notApplied += LocalityAggregateSql.STAKEHOLDER
+            val byStance = readable.canRead("${LocalityAggregateSql.STAKEHOLDER}.${LocalityAggregateSql.STANCE}")
+            if (!byStance) parts.missing("${LocalityAggregateSql.STAKEHOLDER}.${LocalityAggregateSql.STANCE}")
+            val remaining = maxFeatures + 1 - parts.rows.size
+            if (remaining > 0) parts.add(stakeholders(layer.id, projects, box, remaining, byStance))
         }
         return collection(parts, notApplied)
     }
@@ -135,6 +143,69 @@ class ManagementLayers(
             "properties" to properties(source, row) + extra
         )
     }
+
+    // LYR-17: un elemento por localidad con el total de sus grupos de interés y, si quien llama lee la postura, el conteo por
+    // postura (SIN DATO para la vacía); nunca el id ni el punto de un grupo de interés (RQ-GIS-015)
+    private suspend fun stakeholders(
+        layer: String,
+        projects: List<UUID>,
+        box: LayerBox?,
+        limit: Int,
+        byStance: Boolean
+    ): GateOutcome<Map<String, Any?>> {
+        val fields = linkedSetOf(TerritoryNames.LOCALITY)
+        if (byStance) fields += LocalityAggregateSql.STANCE
+        if (projects.isNotEmpty()) fields += "project"
+        val reads = listOf(GateRead(LocalityAggregateSql.STAKEHOLDER, fields, principal = true), LocalityAggregateSql.LOCALITY_READ)
+        val outcome =
+            gate.select(reads, { bind -> LocalityAggregateSql.stakeholders(this, bind, projects, byStance, box, limit) }) { row ->
+                LocalityAggregateSql.row(row) { r ->
+                    mapOf(LocalityAggregateSql.STANCE to r.get("stance", String::class.java), "n" to r.get("n", Long::class.javaObjectType))
+                }
+            }
+        return localityFeatures(layer, LocalityAggregateSql.STAKEHOLDER, outcome) { rows ->
+            val counts = rows.map { (it.values[LocalityAggregateSql.STANCE] as String?) to (it.values["n"] as Long) }
+            mapOf(
+                "total" to counts.sumOf { it.second },
+                "byStance" to if (byStance) counts.associate { (stance, n) -> (stance ?: LocalityAggregateSql.NO_STANCE) to n } else null
+            )
+        }
+    }
+
+    // un elemento por localidad (las filas llegan ordenadas por localidad): el punto de la localidad, su nombre y tipo, y las
+    // cifras que arma `figures` con sus filas
+    private fun localityFeatures(
+        layer: String,
+        aggregate: String,
+        outcome: GateOutcome<LocalityRow>,
+        figures: (List<LocalityRow>) -> Map<String, Any?>
+    ): GateOutcome<Map<String, Any?>> =
+        when (outcome) {
+            is GateOutcome.Unavailable -> outcome
+            is GateOutcome.Rows ->
+                GateOutcome.Rows(
+                    outcome.rows.groupBy { it.zone }.values.map { rows ->
+                        val first = rows.first()
+                        val properties =
+                            linkedMapOf<String, Any?>(
+                                "__layer" to layer,
+                                "__object" to TerritoryNames.LOCALITY,
+                                "__id" to first.zone.toString(),
+                                "__state" to null,
+                                "__aggregate" to aggregate,
+                                "name" to first.name,
+                                "locality_type" to first.localityType
+                            )
+                        properties += figures(rows)
+                        mapOf(
+                            "type" to "Feature",
+                            "id" to "${first.zone}:${first.field}",
+                            "geometry" to JSON.readValue(first.geometry, Map::class.java),
+                            "properties" to properties
+                        )
+                    }
+                )
+        }
 
     // los atributos que quien llama lee, tal como los da Records. `source` lo usa LYR-24 (Tarea 6 del plan 6.2c)
     @Suppress("UNUSED_PARAMETER")
