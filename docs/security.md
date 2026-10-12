@@ -121,7 +121,7 @@ E (elevación de privilegios).
 | 12 | I | Titulares y partidas de predios expuestos en un mapa, una exportación o un entregable | `registry_record` y `holder_person` bajo permiso de campo; predios nunca publicados en GeoServer; nivel EXTERNO sin titulares (§7.9, §10, §11.4) | — |
 | 13 | I | Exposición de líderes, redes comunitarias y territorio de comunidades indígenas | Nombres y documentos bajo permiso de campo, citas por cargo, redes nunca publicadas como capa (§10, §11) | GAP-001 |
 | 14 | I | Exportaciones, entregables o documentos emitidos con nombres, DNI o fotos sin consentimiento | Niveles de divulgación, `export_log`, plantillas sin campos restringidos (§11.4) | GAP-014 |
-| 15 | I | Datos personales enviados al proveedor de LLM | IA desactivada por defecto, seudonimización en los agentes propios y asistente solo para roles sin campos restringidos (§11.5) | GAP-015 |
+| 15 | I | Datos personales enviados al proveedor de LLM | IA desactivada por defecto y activada por organización (ASM-128); seudonimización antes de cada llamada, también de los resultados de las herramientas de AI-05, con los campos restringidos enmascarados siempre (§11.5, ASM-130) | GAP-015 (resuelta) |
 | 16 | I | Datos personales en logs, avisos o artefactos versionados | Logs sin datos personales, avisos sin valores restringidos y búsqueda de nombres antes de cada commit (§11.6, §12) | — |
 | 17 | D | Ráfagas contra el login, el token, las importaciones, la generación de entregables o los mapas | Límites en el proxy; importaciones con límites de tamaño y tiempo (RQ-SEC-020); generación asíncrona (RQ-REP-021) | GAP-027 |
 | 18 | E | Un administrador de la organización se concede cualquier permiso | `ORGANIZATION_ADMIN` es `ADMIN` por diseño; pocos administradores; roles solo desde el repositorio (§6.2) | UPS-02, UPS-10 |
@@ -901,7 +901,8 @@ en la tercera columna, una entrada de campo sin lectura ni escritura. `ADMIN` lo
 No tienen permisos porque corren como la plataforma, con `ClusterLock` y un motivo que nombra al trabajo, y solo
 escriben campos derivados o crean registros nuevos (domain-model §8.3) [WAS-ADR-0039]: `DeadlineJob` (JOB-01),
 `DerivedFieldsJob` (JOB-02), `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), `DeliverableGenerationJob`
-(JOB-05) y `KnowledgeIndexJob` (JOB-07), que crea `ai_interaction` y escribe la tabla fija `knowledge_chunk`.
+(JOB-05) y `KnowledgeIndexJob` (JOB-07), que escribe la tabla fija `knowledge_chunk` y solo crearía `ai_interaction` al
+llamar a un modelo, lo que en F7 no hace (`ai-architecture.md` §13.2).
 JOB-08 (`RetentionJob`) borra, desde F3, las claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de
 `derived_version` con SQL propio (ASM-065, ASM-091) y, desde F8, los archivos de borradores
 sin referencia en el almacenamiento de objetos, nunca lo que referencia una `deliverable_version` o `draft_storage_key`;
@@ -1424,17 +1425,25 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
 
 ### 11.5 IA
 
-- La IA viene desactivada y se activa por organización (ASM-015, RQ-AI-009). El proveedor y la residencia de los datos
-  se deciden en GAP-015.
+- La IA viene desactivada y se activa por organización con la lista `sgspe.ai.enabled-organizations` del despliegue
+  (ASM-015, ASM-128, RQ-AI-009). El proveedor es la API de Anthropic (GAP-015, decisión del usuario del 2026-10-12): los
+  datos seudonimizados se procesan fuera del Perú, una consecuencia aceptada (`ai-architecture.md` §11).
 - Los agentes propios de `sgspe.ai` seudonimizan todo texto antes de llamar al LLM: nombres, documentos y contactos se
   reemplazan por marcadores (RQ-AI-009). Pedirles una corrida exige leer los nombres de `person`. Lo que se guarda lleva
   referencias o marcadores, que la interfaz re-identifica al mostrar solo para quien puede leer el campo, y la cita de la
   fuente solo la ve quien puede descargar la evidencia (§7.8).
 - El asistente de wasichai-agent (AI-05) actúa como el usuario que pregunta, así que se aplican sus permisos y su
-  visibilidad de campos, y no tiene herramientas de escritura [WAS-ADR-0014]. Pero no tiene dónde seudonimizar lo que leen
-  sus herramientas (UPS-14). Mientras tanto se ofrece solo en organizaciones con la IA activada y a roles sin acceso a
-  ningún campo restringido de §7.9 que puedan registrar la `ai_interaction`: hoy, solo `ANALYST`. `READ_ONLY`, `AUDITOR`
-  y `PROJECT_ADMIN` tampoco leen campos restringidos, pero no tienen CREATE sobre `ai_interaction`.
+  visibilidad de campos, y no tiene herramientas de escritura [WAS-ADR-0014]. Con los puntos de extensión de
+  wasichai-agent (UPS-14, resuelta en WAS-ADR-0056) se ofrece a todo rol con CREATE sobre `ai_interaction` en una
+  organización activada (`AiAgentAccess`, ASM-130): hoy `SOCIAL_MANAGER`, `COMMUNITY_RELATIONS_OFFICER`,
+  `STAKEHOLDER_MANAGER`, `COMMITMENT_MANAGER`, `GRIEVANCE_MANAGER`, `SOCIAL_RISK_MANAGER` y `ANALYST` (§7.8);
+  `READ_ONLY`, `AUDITOR`, `PROJECT_ADMIN` y los demás roles sin ese permiso no lo usan. Los resultados de sus
+  herramientas pasan por el `Pseudonymizer` con la tabla de equivalencias de la pregunta, el valor de todo campo
+  restringido de §7.9 se reemplaza siempre por su marcador tipado (`RestrictedFields`) y la respuesta se restaura sin
+  esos campos; sin tabla, el filtro falla cerrado y nada sale hacia el modelo. A diferencia de los agentes propios,
+  AI-05 no exige leer los nombres de `person`: su diccionario es el de quien pregunta, y un nombre escrito en un texto
+  libre que no está registrado como `person` puede llegar al proveedor (RQ-REP-033). `POST /api/agent/ask` sigue cerrado
+  por HTTP.
 - Los secretos nunca se guardan ni se registran (RQ-AI-006).
 - La recuperación de fragmentos (`knowledge_chunk`, F7) se filtra por tenant, proyecto, clasificación y permisos del
   usuario, con la misma regla de clasificación que la descarga de evidencias (RQ-AI-008, RF-DOC-003).
@@ -1581,7 +1590,8 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | Consultas espaciales (`SpatialGateApiTest`, `SpatialGateScopeParityTest`) | `SpatialGate` aplica el alcance, `READ` y los campos restringidos a cada objeto que cruza; sus resultados coinciden con los de la lectura por `RecordService` bajo los mismos `RecordReadScope` | Integración | F6 | RQ-SEC-006, RQ-GIS-017 |
 | Salidas | Una exportación y un entregable EXTERNO generados con fixtures no contienen nombres ni fotos sin consentimiento; ninguna exportación, de ningún nivel, contiene el documento de identidad; cada exportación deja un `export_log` | Integración | F2–F8 | RQ-REP-014, RQ-AUD-011, RF-COM-001 |
 | Descargas | Un borrador siempre lleva la marca BORRADOR y antes de emitir no hay descarga sin ella; borradores y versiones INTERNO exigen `DOWNLOAD_RESTRICTED`, y las EXTERNO y PUBLICO, `EXPORT`; toda descarga de un archivo de entregable, de cualquier nivel, deja un `export_log`; los borradores y las versiones EXTERNO y PUBLICO se sirven solo en PDF y el modelo congelado nunca se sirve; una evidencia CONFIDENCIAL o DATOS PERSONALES exige `DOWNLOAD_RESTRICTED` para descargarla, también a quien la subió y también por la ruta nativa de wasichai-files (`EvidenceApiTest`), y para bajar su clasificación | Integración | F3, F8 | RF-DOC-003, RQ-REP-021, RQ-AUD-011, ASM-071 |
-| IA | El modelo falso recibe el texto sin nombres; instrucciones inyectadas en un documento no producen escrituras; la IA nace desactivada; una corrida o una pregunta documental de quien no lee los nombres de `person` responde 403; una sugerencia guarda referencias y marcadores, también en su cita; la API genérica solo devuelve marcadores; la interfaz los muestra resueltos solo a quien lee el campo, y la cita solo a quien puede descargar la evidencia fuente | Unitaria e integración | F7 | RQ-AI-009, RQ-AI-011, RQ-AI-007, RF-DOC-003 |
+| IA | El modelo falso recibe el texto sin nombres; instrucciones inyectadas en un documento no producen escrituras; la IA nace desactivada, y sin activación o sin clave `runs`, `assistant/questions` y `knowledge/questions` responden `503 AI_UNAVAILABLE`; una corrida o una pregunta documental de quien no lee los nombres de `person` responde 403; una sugerencia guarda referencias y marcadores, también en su cita; la API genérica solo devuelve marcadores; la interfaz los muestra resueltos solo a quien lee el campo, y la cita solo a quien puede descargar la evidencia fuente | Unitaria e integración | F7 | RQ-AI-009, RQ-AI-011, RQ-AI-007, RF-DOC-003 |
+| Asistente AI-05 | Con `ScriptedLlmOperations`: el modelo recibe los resultados de las herramientas seudonimizados y con los campos restringidos de §7.9 enmascarados (`RestrictedFields` coincide con §7.9); la respuesta vuelve restaurada, salvo esos campos; sin tabla de equivalencias el filtro falla cerrado y nada sale hacia el modelo; la `ai_interaction` queda con modelo y tokens, también en una corrida truncada. De integración: en una organización sin IA, `assistant/questions` responde `503 AI_UNAVAILABLE`, y a un rol sin CREATE sobre `ai_interaction`, `403`; los dos leen `enabled=false` en `GET /api/agent/status`; `POST /api/agent/ask` por HTTP responde 403 | Unitaria e integración | F7 | RF-AIK-005, RF-AIK-009, RQ-AI-009, RQ-SEC-010, ASM-130 |
 | Importaciones | ZIP con rutas fuera de su carpeta, archivo demasiado grande y tiempo excedido | Integración | F2, F6 | RQ-SEC-020 |
 | Plantillas Word | Una plantilla con macros o fuentes desconocidas se rechaza | Unitaria | F8 | RQ-SEC-019 |
 | Nombres reales | La verificación de §12 da cero coincidencias antes de cada commit | Local | F0–F8 | RQ-SEC-018 |
@@ -1599,10 +1609,10 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Protección de quien plantea una QCS | GAP-005, GAP-024, ASM-095 | ¿Se restringe el vínculo `stakeholder` de las QCS a los roles que leen su `person`? | Decidido el 2026-10-09: una QCS confidencial solo la leen quienes fija §9.6 (`RecordReadScope`, ADR-0028); el vínculo `stakeholder` de una QCS no confidencial sigue sin restringir (§11.3) |
 | Normativa | GAP-001 | Qué obligaciones de la Ley 29733 se modelan | Ninguna se presenta como obligación legal (§11.1) |
 | Retención y consentimiento | GAP-014 | Plazos y forma del consentimiento | Consentimiento por foto y por medio de contacto (§11.6) |
-| Proveedor de IA | GAP-015 | Proveedor y residencia de datos | IA desactivada (§11.5) |
-| Asistente AI-05 | UPS-14, RF-AIK-005 | Hasta UPS-14, wasichai-agent no seudonimiza: ¿se acepta ofrecer AI-05 solo a roles sin acceso a campos restringidos, o se amplía aceptando que el proveedor reciba esos datos? | Solo `ANALYST` (§11.5) |
+| Proveedor de IA | GAP-015 | Decidido el 2026-10-12: la API de Anthropic, con seudonimización antes de cada llamada; los datos seudonimizados se procesan fuera del Perú | IA desactivada por defecto y activada por la lista del despliegue (§11.5, ASM-128) |
+| Asistente AI-05 | UPS-14, RF-AIK-005 | Decidido el 2026-10-12: UPS-14 está resuelta y AI-05 se ofrece seudonimizado a todo rol con CREATE sobre `ai_interaction` | Los roles con CREATE sobre `ai_interaction` de §7.8, con los campos restringidos enmascarados (§11.5, ASM-130) |
 | Autoridad sobre montos | GAP-006 | Quién aprueba según el monto y quién supera el tope de la campaña | Un nivel de aprobación más `APPROVE_OVER_CAP`: `PROJECT_MANAGER` en los compromisos y `SOCIAL_MANAGER` en los aportes (§5.3) |
 | TTL de producción | RQ-SEC-001 | Duración del token | `PT4H`, fijado por `application-prod.yml` como tope provisional de F1; el despliegue puede cambiarlo, siempre por debajo de 8 horas (§3.2) |
 | Transporte del token | CON-056 | Cookie HttpOnly u OIDC | Propuestas a futuro, fuera del MVP (§3.4) |
-| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-14, UPS-23 (UPS-13, resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0); UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
+| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-23 (UPS-13, resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0; UPS-14, resuelta en wasichai con WAS-ADR-0056 y adoptada en F7); UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
 | Nombre y huella del archivo de una evidencia restringida | UPS-24, ASM-093 | ¿Se acepta que su nombre lo lean todos los lectores de `evidence` hasta UPS-24, o se renombra en el servidor y se pierde el original? | Resuelta en wasichai 1.0.0: `EvidenceFileReadPolicy` oculta `name` y `sha256` a quien no descarga; el nombre neutro del portal queda como defensa adicional (§11.6) |
