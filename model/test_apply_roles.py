@@ -1,4 +1,4 @@
-"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F5).
+"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F7).
 
 Desde F2, roles.json se contrasta con la matriz de security.md §7.2 a §7.8 y con los campos restringidos de §7.9, que
 lee design_docs.py.
@@ -101,12 +101,12 @@ class RolesJsonTests(unittest.TestCase):
             self.assertEqual(role["permisos"], wanted, name)
 
     def test_desde_f5_todos_los_roles_tienen_permisos(self):
-        # la fase del modelo es la de su objeto más tardío: F5 desde el plan 5.1, y SOCIAL_INVESTMENT_MANAGER (F5), el
-        # último rol en recibir permisos (security.md §7.1), deja de tener {}
+        # la fase del modelo es la de su objeto más tardío: F7 desde el plan 7.1; SOCIAL_INVESTMENT_MANAGER (F5) fue el
+        # último rol en recibir permisos (security.md §7.1)
         phases, _ = design_docs.role_phases()
         cards = design_docs.cards()
         phase = max(cards[o["name"]].phase for o in load(MODEL_PATH)["objects"])
-        self.assertEqual(phase, "F5")
+        self.assertEqual(phase, "F7")
         self.assertEqual(sorted(name for name in self.roles if name != "AUDITOR" and phases[name] > phase), [])
         self.assertEqual([name for name, role in self.roles.items() if not role["permisos"]], [])
 
@@ -301,6 +301,34 @@ class RolesJsonTests(unittest.TestCase):
                     for field in required.get(obj, ()):
                         self.assertNotIn((obj, field), denied, (name, obj, field))
 
+    def test_ningun_rol_crea_sugerencias_de_ia_sin_leer_los_nombres_de_person(self):
+        # security.md §7.8 y §14: runs y knowledge/questions exigen leer los nombres de person (la seudonimización y la
+        # re-identificación los necesitan), así que solo crean ai_suggestion los roles de la fila de nombres de §7.9
+        names = next(e["readers"] for e in self.file["restrictedFields"]
+                     if e["object"] == "person" and "given_names" in e["fields"])
+        creators = {name for name, role in self.roles.items() if "CREATE" in role["permisos"].get("ai_suggestion", [])}
+        self.assertTrue(creators)
+        self.assertEqual(sorted(creators - set(names)), [])
+        for name in creators:
+            self.assertIn("READ", self.roles[name]["permisos"].get("person", []), name)
+
+    def test_quien_crea_sugerencias_de_ia_crea_su_interaccion(self):
+        # ai-architecture.md §9.1: usar la IA exige poder crear ai_interaction y el objeto de salida; la sugerencia cuelga
+        # de su interacción (relación obligatoria)
+        for name, role in self.roles.items():
+            if "CREATE" in role["permisos"].get("ai_suggestion", []):
+                self.assertTrue({"READ", "CREATE"} <= set(role["permisos"].get("ai_interaction", [])), name)
+
+    def test_la_cita_de_la_ia_la_leen_exactamente_quienes_descargan_evidencias_restringidas(self):
+        # security.md §7.9: evidence_quote de ai_suggestion y de commitment_candidate, para los roles con
+        # DOWNLOAD_RESTRICTED sobre evidence
+        downloaders = sorted(name for name, role in self.roles.items()
+                             if "DOWNLOAD_RESTRICTED" in role["permisos"].get("evidence", []))
+        for obj in ("ai_suggestion", "commitment_candidate"):
+            readers = next(e["readers"] for e in self.file["restrictedFields"]
+                           if e["object"] == obj and "evidence_quote" in e["fields"])
+            self.assertEqual(sorted(readers), downloaders, obj)
+
     def test_ningun_rol_lleva_own_records_only(self):
         for name, role in self.roles.items():
             self.assertNotIn("ownRecordsOnly", role, name)
@@ -386,8 +414,8 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("MANAGE_METADATA" in e for e in errors), errors)
 
     def test_un_objeto_que_el_modelo_no_tiene_se_rechaza(self):
-        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"ai_suggestion": ["READ"]}))
-        self.assertTrue(any("object 'ai_suggestion' is not in model.json" in e for e in errors), errors)
+        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"deliverable": ["READ"]}))
+        self.assertTrue(any("object 'deliverable' is not in model.json" in e for e in errors), errors)
 
     def test_una_accion_declarada_solo_vale_sobre_su_objeto(self):
         def only(permisos):
@@ -398,11 +426,11 @@ class ValidationTests(unittest.TestCase):
 
     def test_restricted_fields_nombra_objetos_campos_y_lectores_que_existen(self):
         errors = self.mutate(lambda r: r["restrictedFields"].extend([
-            {"object": "ai_suggestion", "fields": ["description"], "readers": []},
+            {"object": "deliverable", "fields": ["description"], "readers": []},
             {"object": "person", "fields": ["nickname"], "readers": ["SOCIAL_MANAGER"]},
             {"object": "topic", "fields": ["code"], "readers": ["INTRUSO"]},
             {"object": "stakeholder", "fields": ["stance"], "readers": ["SOCIAL_MANAGER"]}]))
-        self.assertTrue(any("object 'ai_suggestion' is not in model.json" in e for e in errors), errors)
+        self.assertTrue(any("object 'deliverable' is not in model.json" in e for e in errors), errors)
         self.assertTrue(any("'nickname' is not a field of person" in e for e in errors), errors)
         self.assertTrue(any("reader 'INTRUSO' of topic is not a declared role" in e for e in errors), errors)
         self.assertTrue(any("stakeholder.stance is listed twice" in e for e in errors), errors)
@@ -617,14 +645,14 @@ class ApplyRolesTests(ApplyRolesTestCase):
 
     def test_un_roles_json_invalido_no_llama_a_core(self):
         roles = load(ROLES_PATH)
-        roles["roles"][0]["permisos"]["ai_suggestion"] = ["READ"]
+        roles["roles"][0]["permisos"]["deliverable"] = ["READ"]
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "roles.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(roles, f)
             code, out, err = self.run_cli(roles_path=path)
         self.assertEqual(code, 2)
-        self.assertIn("ai_suggestion", out)
+        self.assertIn("deliverable", out)
         self.assertEqual(self.core.requests, [])
 
     def test_un_roles_json_mal_formado_sale_con_2_y_sin_traza(self):
@@ -733,7 +761,7 @@ class ApplyRolesTests(ApplyRolesTestCase):
         login = ["--core", self.core.base_url, "--email", "admin@wasichai.local", "--password", "admin"]
         with tempfile.TemporaryDirectory() as folder:
             f5_model = test_apply.write_model(folder, test_apply.phase_subset(load(MODEL_PATH), "F5"))
-            roles = load(ROLES_PATH)
+            roles = phase_roles(load(ROLES_PATH), load(f5_model))
             for role in roles["roles"]:
                 role["permisos"] = {obj: [a for a in actions if not (a == "EXPORT" and obj in RolesJsonTests.TERRITORIAL)]
                                     for obj, actions in role["permisos"].items()}
@@ -744,12 +772,50 @@ class ApplyRolesTests(ApplyRolesTestCase):
                 json.dump(roles, f, ensure_ascii=False)
             self.assertEqual(test_apply.quiet(apply.main, ["--model", f5_model, *login])[0], 0)
             self.assertEqual(self.run_cli(roles_path=f5_roles, model_path=f5_model)[0], 0)
-            self.assertEqual(test_apply.quiet(apply.main, ["--model", MODEL_PATH, *login])[0], 0)
-        code, out, err = self.run_cli()
+            f6_model = test_apply.write_model(folder, test_apply.phase_subset(load(MODEL_PATH), "F6"))
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", f6_model, *login])[0], 0)
+            f6_roles = os.path.join(folder, "roles-f6.json")
+            with open(f6_roles, "w", encoding="utf-8") as f:
+                json.dump(phase_roles(load(ROLES_PATH), load(f6_model)), f, ensure_ascii=False)
+            code, out, err = self.run_cli(roles_path=f6_roles, model_path=f6_model)
         self.assertEqual(code, 0, err)
         self.assertIn("done: 0 created, 3 updated, 12 skipped", out)
         self.assertEqual(sorted(line.split()[2] for line in out.splitlines() if line.startswith("update role")),
                          ["GIS_ANALYST", "PROJECT_MANAGER", "SOCIAL_MANAGER"])
+
+    def test_un_tenant_de_f6_suma_la_ia(self):
+        # el tenant demo sube a F7 (plan 7.1): apply.py crea ai_suggestion y ai_interaction y apply_roles.py da sus
+        # permisos a los seis roles que la usan y a ANALYST (ai_interaction, para el asistente), y restringe la cita de la
+        # sugerencia a todo rol que no la lee (security.md §7.9): cambian todos menos SOCIAL_INVESTMENT_MANAGER y
+        # GIS_ANALYST, que la leen y no tienen permisos sobre los objetos de la IA
+        import apply
+        import test_apply
+        login = ["--core", self.core.base_url, "--email", "admin@wasichai.local", "--password", "admin"]
+        with tempfile.TemporaryDirectory() as folder:
+            f6_model = test_apply.write_model(folder, test_apply.phase_subset(load(MODEL_PATH), "F6"))
+            f6_roles = os.path.join(folder, "roles.json")
+            with open(f6_roles, "w", encoding="utf-8") as f:
+                json.dump(phase_roles(load(ROLES_PATH), load(f6_model)), f, ensure_ascii=False)
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", f6_model, *login])[0], 0)
+            self.assertEqual(self.run_cli(roles_path=f6_roles, model_path=f6_model)[0], 0)
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", MODEL_PATH, *login])[0], 0)
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        self.assertIn("done: 0 created, 13 updated, 2 skipped", out)
+        self.assertEqual(sorted(line.split()[2] for line in out.splitlines() if line.startswith("skip   role")),
+                         ["GIS_ANALYST", "SOCIAL_INVESTMENT_MANAGER"])
+        again = self.run_cli()
+        self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
+
+
+def phase_roles(roles, model):
+    """roles.json as it was for `model`: without the permissions and restricted fields of objects the model lacks."""
+    names = {o["name"] for o in model["objects"]}
+    trimmed = copy.deepcopy(roles)
+    for role in trimmed["roles"]:
+        role["permisos"] = {obj: actions for obj, actions in role["permisos"].items() if obj == "*" or obj in names}
+    trimmed["restrictedFields"] = [e for e in trimmed["restrictedFields"] if e["object"] in names]
+    return trimmed
 
 
 if __name__ == "__main__":

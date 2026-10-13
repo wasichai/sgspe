@@ -1,0 +1,24 @@
+{
+  "name": "wf-k-ai_suggestion",
+  "label": "Sugerencia de IA",
+  "enabled": true,
+  "definition": {
+    "states": [
+      { "name": "proposed", "label": "Propuesto", "type": "INITIAL" },
+      { "name": "accepted", "label": "Aceptado", "type": "FINAL" },
+      { "name": "rejected", "label": "Rechazado", "type": "FINAL" },
+      { "name": "duplicate", "label": "Duplicado", "type": "FINAL" }
+    ],
+    "transitions": [
+      { "name": "accept", "label": "Aceptar", "from": "proposed", "to": "accepted",
+        "roles": ["SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER",
+                  "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER"] },
+      { "name": "reject", "label": "Rechazar", "from": "proposed", "to": "rejected",
+        "roles": ["SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER",
+                  "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER"] },
+      { "name": "mark_duplicate", "label": "Marcar como duplicado", "from": "proposed", "to": "duplicate",
+        "roles": ["SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER",
+                  "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER"] }
+    ]
+  }
+}
