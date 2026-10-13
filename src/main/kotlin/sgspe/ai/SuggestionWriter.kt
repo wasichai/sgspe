@@ -24,9 +24,9 @@ data class Written(
 // objetos se aplican (CandidateLinkRule y ProjectLinkGuard: «mismo proyecto», también para su ai_interaction). antes de cada
 // sugerencia vuelve a leer el destino como la persona (§6.18 del modelo de dominio): uno que no existe o no se lee, o que es de
 // otro proyecto que la sugerencia, no se guarda; y una sugerencia que repite una propuesta igual (mismo tipo, destino y valor) no se
-// guarda otra vez. `write` guarda una corrida entera en una transacción y deja fuera esas; `suggestion` guarda una sola (la usa
-// AI-07, plan 7.2c) y las rechaza: 403 OBJECT_NOT_READABLE o 409 PROJECT_MISMATCH sobre target_record_id, y la repetida vuelve tal
-// como está. nunca escribe un dato de dominio: solo los dos objetos de salida
+// guarda otra vez. `write` guarda una corrida entera en una transacción y deja fuera esas (también AI-07, plan 7.2c);
+// `suggestion` guarda una sola y las rechaza: 403 OBJECT_NOT_READABLE o 409 PROJECT_MISMATCH sobre target_record_id, y la
+// repetida vuelve tal como está. nunca escribe un dato de dominio: solo los dos objetos de salida
 @Component
 class SuggestionWriter(
     private val records: Records,

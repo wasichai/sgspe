@@ -19,7 +19,7 @@ texto con `TextExtraction` de 7.2b. AI-06 filtra en este orden: tenant, proyecto
 (`websearch_to_tsquery('spanish')`, `ts_rank_cd`) y relectura de las evidencias como la persona; sin fragmento no llama
 al modelo; con fragmentos, `ModelCalls` (7.2a) seudonimiza y registra la `ai_interaction`, y solo vuelven las citas que
 aparecen en su fragmento. AI-07 arma pares deterministas, el modelo compara solo esos y `SuggestionWriter` (7.2b) guarda
-una sugerencia por par.
+una sugerencia por par, toda la corrida en una transacción.
 
 **Tech Stack:** Kotlin 2.4.20, Spring Boot 4.1.1 (WebFlux con corrutinas, R2DBC `DatabaseClient`), JDK 25, Gradle 9.8.0,
 `wasichai-bom` 1.2.0 (wasichai-core, wasichai-files, wasichai-agent con Embabel 1.5.3); PostgreSQL 18 con texto completo
@@ -4366,6 +4366,12 @@ git switch feat/fase-7-2c-conocimiento && git merge --no-ff f72c/t9 -m "Merge br
   `SuggestionWriter.suggestion(SuggestionDraft)`; `Permissions.has`; el `JsonMapper` de la aplicación.
 - Produces: `DuplicateUseCase` (bean `AiUseCaseOffer` de `AI-07`, `decide(serviceAccount, canCreate, readsNames)`),
   `DuplicateRun` (bean `AiRunCase` de `AI-07`).
+- Implementado (ronda de revisión 1): `DuplicateRun` extiende `RequiredCase` de 7.2b, que es a la vez `AiRunCase` y
+  `AiUseCaseOffer`: los requisitos son los de `RunRequirements` (los mismos 403 que los demás casos, también
+  `FIELD_NOT_READABLE` sobre los nombres de person) y lo validado se guarda con `SuggestionWriter.write` en una
+  transacción (un destino ilegible o de otro proyecto queda fuera; los veredictos que no valen cuentan en `discarded`).
+  No hay `DuplicateUseCase` ni `DuplicateUseCaseTest`; `DuplicateDetection.detect` recibe el diccionario y el
+  `RunBudget` de la corrida. El código de los Pasos 2 y 4 queda como estaba planeado.
 
 - [ ] **Paso 1: La rama y el contrato comprobado**
 

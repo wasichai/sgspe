@@ -14,7 +14,8 @@ import java.util.UUID
 // AI-07 por POST /api/sgspe/ai/runs contra wasichai de verdad (ai-architecture.md §4.1 y §4.2, especificación de F7 §3.5), con la
 // clave falsa y RecordingLlm delante del proveedor (el contexto de AiRunsApiTest): las reglas arman el par, el modelo lo compara
 // sin ver nombres y queda una ai_suggestion DUPLICADO en proposed con {other_record_id, reasons[]}; una segunda corrida no vuelve a
-// proponer el par ni llama al modelo; quien no lee los nombres de person recibe 403
+// proponer el par ni llama al modelo; quien no crea sugerencias (ANALYST) recibe 403 sin
+// llamar al modelo (ningún rol de roles.json crea sugerencias sin leer los nombres de person)
 @TestPropertySource(
     properties = [
         "wasichai.agent.api-key=sk-ant-clave-de-prueba",
@@ -130,7 +131,7 @@ class DuplicateRunApiTest : F7ApiTest() {
     }
 
     @Test
-    fun `quien no lee los nombres de person recibe 403 sin llamar al modelo`() {
+    fun `quien no crea sugerencias recibe 403 sin llamar al modelo`() {
         val project = project()
         grievances(project)
         llm.fresh()
