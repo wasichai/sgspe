@@ -21,7 +21,8 @@ import java.util.zip.ZipInputStream
 @Component
 class TextExtraction {
     /**
-     * El texto del archivo, acotado: más de [maxChars] caracteres, más de [MAX_PAGES] páginas o un DOCX que se infla más allá de
+     * El texto del archivo, acotado: más de [maxChars] caracteres (el sgspe.ai.limits.input-chars configurado, que pasa siempre
+     * quien llama), más de [MAX_PAGES] páginas o un DOCX que se infla más allá de
      * [MAX_INFLATED] es 422 AI_INPUT_TOO_LARGE sobre target (nunca se trunca). Trabaja con CPU y con E/S bloqueante: quien la llame
      * desde código reactivo (Tareas 7 y 9, JOB-07) debe hacerlo en Dispatchers.IO.
      */
@@ -29,7 +30,7 @@ class TextExtraction {
         bytes: ByteArray,
         contentType: String,
         fileName: String? = null,
-        maxChars: Int = AiLimits().inputChars
+        maxChars: Int
     ): String {
         val raw =
             when {

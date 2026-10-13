@@ -8,6 +8,7 @@ import sgspe.common.Finding
 import sgspe.common.GuardOrder
 import sgspe.common.Permissions
 import sgspe.common.RuleGuard
+import sgspe.common.ServiceAccounts
 import sgspe.common.Values
 import sgspe.common.WriteView
 import sgspe.common.isLink
@@ -42,7 +43,7 @@ object WarningGuardRules {
             else -> emptyList()
         }
 
-    fun isServiceAccount(user: AuthenticatedUser): Boolean = user.serviceAccount != null || user.email.endsWith(Warnings.SERVICE_ACCOUNT_DOMAIN)
+    fun isServiceAccount(user: AuthenticatedUser): Boolean = ServiceAccounts.isServiceAccount(user)
 
     // cerrar un incidente exige su respuesta inmediata y sus consecuencias (RF-EWS-001)
     fun incidentClose(record: Map<String, Any?>): List<Finding> =

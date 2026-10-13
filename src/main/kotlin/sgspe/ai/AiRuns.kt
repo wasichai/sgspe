@@ -40,7 +40,7 @@ data class RunRequest(
 // después el caso (AiRunCase) lee la fuente como la persona (404, 403 ACTION_REQUIRED, 422 AI_NO_TEXT o AI_INPUT_TOO_LARGE),
 // corre su agente con el diccionario de nombres de quien pide y el tope de llamadas (502 AI_RUN_TRUNCATED) y guarda lo validado en
 // una transacción (SuggestionWriter). la IA nunca escribe un dato de dominio. cada llamada hecha queda en su ai_interaction, también si la corrida
-// falla después (P6); un error antes de llamar no deja ninguna. el log solo lleva los ids de las ai_interaction
+// falla después (P6); un error antes de llamar no deja ninguna. el log solo lleva conteos y los ids de las ai_interaction
 @Service
 class AiRuns(
     private val callers: Callers,
@@ -60,10 +60,11 @@ class AiRuns(
         val result = case.run(user, request.target)
         val interactions = result.interactions.map { it.toString() }
         LOG.info(
-            "{} guardó {} sugerencias y {} candidatos; ai_interaction {}",
+            "{} guardó {} sugerencias y {} candidatos y descartó {} propuestas; ai_interaction {}",
             case.useCase,
             result.suggestions.size,
             result.candidates.size,
+            result.discarded,
             interactions.joinToString(",")
         )
         return CommandAnswer(HttpStatus.CREATED, RunAnswer(result.interaction?.toString(), interactions, result.suggestions, result.candidates))
@@ -95,12 +96,14 @@ class AiRuns(
 }
 
 // api.md §4.14: la corrida honra Idempotency-Key (RNF-INT-002). con clave corre dentro de la transacción de la clave; sus
-// ai_interaction se escriben aparte (Transactions.independent) y quedan aunque la corrida falle
+// ai_interaction se escriben aparte (Transactions.independent) y quedan aunque la corrida falle. a lo más
+// sgspe.ai.limits.max-concurrent-runs a la vez por instancia (RunGate)
 @RestController
 @RequestMapping("/api/sgspe/ai/runs")
 class AiRunsController(
     private val runs: AiRuns,
-    private val idempotency: Idempotency
+    private val idempotency: Idempotency,
+    private val gate: RunGate
 ) {
     @PostMapping
     suspend fun run(
@@ -109,6 +112,7 @@ class AiRunsController(
         exchange: ServerWebExchange
     ): ResponseEntity<ByteArray> {
         StrictQuery.requireOnly(exchange.request.queryParams, emptySet())
-        return idempotency.respond(key, "POST", exchange.request.path.value(), body) { runs.run(body) }
+        // el tope va antes de la clave: con el tope lleno no se abre su transacción ni se toma una conexión (503 AI_BUSY)
+        return gate.admit { idempotency.respond(key, "POST", exchange.request.path.value(), body) { runs.run(body) } }
     }
 }

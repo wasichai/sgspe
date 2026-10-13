@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component
 import sgspe.common.Finding
 import sgspe.common.Permissions
 import sgspe.common.Readability
+import sgspe.common.ServiceAccounts
 import sgspe.common.toCodedException
 import wasichai.core.common.Actions
 import wasichai.core.common.ForbiddenException
@@ -16,12 +17,13 @@ import wasichai.core.metadata.MetadataService
 import java.util.UUID
 
 // lo que devuelve un caso: la ai_interaction de su primera llamada (null si no llamó al modelo), lo que guardó, como lo devuelve la
-// API genérica, y las ai_interaction de todas sus llamadas
+// API genérica, las ai_interaction de todas sus llamadas y cuántas propuestas descartó la validación (solo el conteo, para el log)
 data class RunResult(
     val interaction: UUID?,
     val suggestions: List<RecordResponse>,
     val candidates: List<RecordResponse>,
-    val interactions: List<UUID> = listOfNotNull(interaction)
+    val interactions: List<UUID> = listOfNotNull(interaction),
+    val discarded: Int = 0
 )
 
 // un caso de POST /api/sgspe/ai/runs (especificación de F7 §3.4), el punto de extensión de AiRuns: un bean por caso, elegido por
@@ -56,7 +58,7 @@ class RunRequirements(
         outputs: List<String>,
         source: String
     ): WasichaiException? {
-        if (user.serviceAccount != null) return AiErrors.personRequired()
+        if (ServiceAccounts.isServiceAccount(user)) return AiErrors.personRequired()
         val names = Readability(metadata)
         return decide(
             serviceAccount = false,
@@ -131,7 +133,7 @@ abstract class RequiredCase(
     ): RunResult {
         val proposals = propose(target, names.readable(), RunBudget(properties.limits.actions), user)
         val written = writer.write(useCase, proposals)
-        return RunResult(proposals.interactions.firstOrNull(), written.suggestions, written.candidates, proposals.interactions)
+        return RunResult(proposals.interactions.firstOrNull(), written.suggestions, written.candidates, proposals.interactions, proposals.discarded)
     }
 
     protected abstract suspend fun propose(

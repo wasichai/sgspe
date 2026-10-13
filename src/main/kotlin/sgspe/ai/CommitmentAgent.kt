@@ -45,7 +45,13 @@ class CommitmentAgent(
                 val confidence = Proposals.confidence(commitment.confidence) ?: return@mapNotNull null
                 if (!CitationCheck.found(commitment.quote, text)) return@mapNotNull null
                 val wording = commitment.text.trim().ifEmpty { return@mapNotNull null }
-                if (!known.add(Proposals.folded(table.restore(wording)))) return@mapNotNull null
+                // lo conocido trae los compromisos con los nombres reales y los candidatos con el marcador estable que se guardó
+                // ([PERSONA:<id>]): la propuesta se compara de las dos formas, y las dos quedan conocidas
+                val restored = Proposals.folded(table.restore(wording))
+                val stable = Proposals.folded(table.stable(wording))
+                if (restored in known || stable in known) return@mapNotNull null
+                known += restored
+                known += stable
                 CandidateDraft(
                     project = project,
                     proposedText = table.stable(wording),

@@ -1,9 +1,14 @@
 package sgspe.ai
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
 import org.springframework.http.HttpStatus
+import sgspe.common.Callers
+import wasichai.core.data.RecordChangeKind
+import wasichai.core.data.RecordWrite
 import wasichai.core.identity.AuthenticatedUser
 import java.util.UUID
 
@@ -30,5 +35,26 @@ class SuggestionDecisionGuardTest {
     @Test
     fun `sin usuario no se juzga`() {
         assertTrue(SuggestionDecisionGuard.decide(null).isEmpty())
+    }
+
+    @Test
+    fun `una escritura de la plataforma no se juzga aunque la peticion sea de una cuenta de servicio`() {
+        val service = AuthenticatedUser(UUID.randomUUID(), UUID.randomUUID(), "integracion@sgspe.test", listOf("SOCIAL_MANAGER"), "integracion")
+        val guard = SuggestionDecisionGuard(mock(Callers::class.java) { service })
+        val change =
+            RecordWrite(
+                UUID.randomUUID(),
+                null,
+                UUID.randomUUID(),
+                SuggestionWriter.SUGGESTION,
+                UUID.randomUUID(),
+                RecordChangeKind.TRANSITIONED,
+                null,
+                null,
+                "reject"
+            )
+        assertTrue(runBlocking { guard.findings(change, dryRun = false) }.isEmpty())
+        val asService = change.copy(userId = service.userId)
+        assertEquals("PERSON_REQUIRED", runBlocking { guard.findings(asService, dryRun = false) }.single().code)
     }
 }

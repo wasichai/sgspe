@@ -13,6 +13,7 @@ import sgspe.dashboard.Dashboards
 import sgspe.dashboard.IndicatorValue
 import sgspe.dashboard.Kpis
 import sgspe.evidence.EvidenceContent
+import wasichai.core.common.NotFoundException
 import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordResponse
 import java.util.UUID
@@ -33,7 +34,13 @@ class RunSources(
     // vinculados que se leen (los destinos de las extracciones de tema, lugar, fecha y cláusula)
     suspend fun evidenceText(id: UUID): RunSource {
         val record = records.get(EVIDENCE, id)
-        val download = evidence.open(id)
+        // un 404 de la descarga cuando el registro sí se lee es una evidencia sin archivo: no tiene texto que leer
+        val download =
+            try {
+                evidence.open(id)
+            } catch (_: NotFoundException) {
+                throw AiErrors.noText()
+            }
         val limit = properties.limits.fileBytes
         if (download.file.sizeBytes > limit) throw AiErrors.fileTooLarge(limit)
         val bytes =
@@ -49,7 +56,7 @@ class RunSources(
             }
         val text =
             withContext(Dispatchers.IO) {
-                extraction.extract(bytes, download.file.contentType, download.file.fileName, properties.limits.inputChars)
+                extraction.extract(bytes, download.file.contentType, download.file.fileName, maxChars = properties.limits.inputChars)
             }
         return RunSource(
             objectName = EVIDENCE,
@@ -128,7 +135,8 @@ class RunSources(
     }
 
     // AI-04: el proyecto y los indicadores de sus tableros del mes en curso de Lima (el periodo por defecto de los tableros), con
-    // los permisos de quien pide: un indicador que no puede ver llega como «no disponible» (dashboards.md §8). el tablero
+    // los permisos de quien pide: un indicador que no puede ver llega como «no disponible» (dashboards.md §8), y un tablero que
+    // no se puede leer, como una línea «no disponible» (nunca se calla: el modelo no lo confunde con cero). el tablero
     // territorial queda fuera: exige CRS de trabajo y sus cifras son de geometrías, no de gestión
     suspend fun projectSummary(id: UUID): RunSource {
         val record = records.get(PROJECT, id)
@@ -141,7 +149,7 @@ class RunSources(
                     try {
                         dashboards.dashboard(name, params)
                     } catch (_: WasichaiException) {
-                        return@flatMap emptyList()
+                        return@flatMap listOf(unavailableBoard(name))
                     }
                 period = period ?: "${board.filters["periodStart"]} a ${board.filters["periodEnd"]}"
                 board.indicators.map { indicatorLine(it) }
@@ -237,6 +245,8 @@ class RunSources(
                 fields.mapNotNull { (field, marker) -> Values.text(row.attributes[field])?.let { RestrictedValue(marker, it) } }
             }
         }
+
+        fun unavailableBoard(name: String): String = "- Tablero $name: no disponible"
 
         // «- KPI-COM-03 Compromisos vencidos: 4 %» o «no disponible»
         fun indicatorLine(value: IndicatorValue): String =

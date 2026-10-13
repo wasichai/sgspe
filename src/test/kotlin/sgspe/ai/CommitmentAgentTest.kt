@@ -78,6 +78,16 @@ class CommitmentAgentTest {
     }
 
     @Test
+    fun `una segunda corrida no repite el candidato que nombra a una persona registrada`() {
+        // la primera corrida guardó los candidatos con el marcador estable ([PERSONA:<id>]), no con el nombre restaurado
+        val first = runBlocking { agent(FakeModel { output }).run(RunFixtures.minutes(), RunFixtures.NAMES, RunBudget(8)) }
+        val stored = FakeLookups(texts = first.candidates.map { Proposals.folded(it.proposedText) }.toSet())
+        val again = CommitmentAgent(RunFixtures.calls(FakeModel { output }, log), stored, RunFixtures.properties())
+        val second = runBlocking { again.run(RunFixtures.minutes(), RunFixtures.NAMES, RunBudget(8)) }
+        assertEquals(listOf("Construir el reservorio de la Comunidad Ejemplo"), second.candidates.map { it.proposedText })
+    }
+
+    @Test
     fun `el tope de propuestas por llamada descarta el resto`() {
         val capped = CommitmentAgent(RunFixtures.calls(FakeModel { output }, log), known, RunFixtures.properties(proposals = 1))
         val result = runBlocking { capped.run(RunFixtures.minutes(), RunFixtures.NAMES, RunBudget(8)) }

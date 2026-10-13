@@ -21,6 +21,9 @@ import java.util.zip.ZipOutputStream
 class TextExtractionTest {
     private val extraction = TextExtraction()
 
+    // el tope de application.yml (ASM-131): quien llama pasa siempre el configurado
+    private val limit = AiLimits().inputChars
+
     private fun noText(block: () -> Unit) {
         val refused = assertThrows<WasichaiException> { block() }
         assertEquals(422, refused.status.value())
@@ -29,7 +32,7 @@ class TextExtractionTest {
 
     @Test
     fun `un PDF con texto se lee con sus tildes`() {
-        val text = extraction.extract(TestDocuments.pdf("Acta de la asamblea", "Se acordó reparar el canal."), "application/pdf", "acta.pdf")
+        val text = extraction.extract(TestDocuments.pdf("Acta de la asamblea", "Se acordó reparar el canal."), "application/pdf", "acta.pdf", maxChars = limit)
         assertTrue("Acta de la asamblea" in text, text)
         assertTrue("Se acordó reparar el canal." in text, text)
     }
@@ -40,35 +43,36 @@ class TextExtractionTest {
             extraction.extract(
                 TestDocuments.docx("Convenio marco", "Cláusula 5: el proyecto contratará un vigía."),
                 TextExtraction.DOCX,
-                "convenio.docx"
+                "convenio.docx",
+                maxChars = limit
             )
         assertEquals("Convenio marco\nCláusula 5: el proyecto contratará un vigía.", text)
     }
 
     @Test
     fun `el formato lo deciden los bytes, no el nombre`() {
-        val text = extraction.extract(TestDocuments.pdf("Informe mensual"), "application/octet-stream", "informe.docx")
+        val text = extraction.extract(TestDocuments.pdf("Informe mensual"), "application/octet-stream", "informe.docx", maxChars = limit)
         assertTrue("Informe mensual" in text, text)
-        noText { extraction.extract("no soy un PDF".toByteArray(), "application/pdf", "acta.pdf") }
+        noText { extraction.extract("no soy un PDF".toByteArray(), "application/pdf", "acta.pdf", maxChars = limit) }
     }
 
     // JOB-07 (plan 7.2c) la llama solo con los bytes y el tipo del archivo
     @Test
     fun `sin nombre de archivo, un DOCX se reconoce por su tipo`() {
-        assertEquals("Informe mensual", extraction.extract(TestDocuments.docx("Informe mensual"), TextExtraction.DOCX))
+        assertEquals("Informe mensual", extraction.extract(TestDocuments.docx("Informe mensual"), TextExtraction.DOCX, maxChars = limit))
     }
 
     @Test
     fun `un PDF sin capa de texto es AI_NO_TEXT`() {
-        noText { extraction.extract(TestDocuments.scannedPdf(), "application/pdf", "escaneado.pdf") }
+        noText { extraction.extract(TestDocuments.scannedPdf(), "application/pdf", "escaneado.pdf", maxChars = limit) }
     }
 
     @Test
     fun `un PDF roto, un ZIP que no es Word y una imagen son AI_NO_TEXT`() {
-        noText { extraction.extract("%PDF-1.4\n%archivo de prueba de sgspe\n".toByteArray(), "application/pdf", "prueba.pdf") }
-        noText { extraction.extract(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x00), TextExtraction.DOCX, "roto.docx") }
-        noText { extraction.extract(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x00), "application/zip", "fotos.zip") }
-        noText { extraction.extract(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()), "image/jpeg", "foto.jpg") }
+        noText { extraction.extract("%PDF-1.4\n%archivo de prueba de sgspe\n".toByteArray(), "application/pdf", "prueba.pdf", maxChars = limit) }
+        noText { extraction.extract(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x00), TextExtraction.DOCX, "roto.docx", maxChars = limit) }
+        noText { extraction.extract(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x00), "application/zip", "fotos.zip", maxChars = limit) }
+        noText { extraction.extract(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()), "image/jpeg", "foto.jpg", maxChars = limit) }
     }
 
     @Test
@@ -111,7 +115,7 @@ class TextExtractionTest {
                 document.protect(policy)
                 ByteArrayOutputStream().also { document.save(it) }.toByteArray()
             }
-        noText { extraction.extract(encrypted, "application/pdf", "reservada.pdf") }
+        noText { extraction.extract(encrypted, "application/pdf", "reservada.pdf", maxChars = limit) }
     }
 
     @Test
@@ -123,7 +127,7 @@ class TextExtractionTest {
                 |<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>hola &x;</w:t></w:r></w:p></w:body></w:document>
                 """.trimMargin()
             val bytes = rewrite(TestDocuments.docx("base"), "word/document.xml", xml.toByteArray())
-            val result = runCatching { extraction.extract(bytes, TextExtraction.DOCX, "xxe.docx") }
+            val result = runCatching { extraction.extract(bytes, TextExtraction.DOCX, "xxe.docx", maxChars = limit) }
             assertFalse(result.getOrDefault("").contains("SECRETO-XXE"), result.toString())
         } finally {
             Files.deleteIfExists(secret)
@@ -134,7 +138,7 @@ class TextExtractionTest {
     fun `una bomba de compresion en un DOCX se rechaza`() {
         val bomb = rewrite(TestDocuments.docx("base"), "word/document.xml", ByteArray(60 * 1024 * 1024))
         assertTrue(bomb.size < 200_000, "la bomba pesa ${bomb.size}")
-        tooLarge { extraction.extract(bomb, TextExtraction.DOCX, "bomba.docx") }
+        tooLarge { extraction.extract(bomb, TextExtraction.DOCX, "bomba.docx", maxChars = limit) }
     }
 
     @Test
@@ -157,6 +161,6 @@ class TextExtractionTest {
                 }
                 ByteArrayOutputStream().also { document.save(it) }.toByteArray()
             }
-        tooLarge { extraction.extract(many, "application/pdf", "paginas.pdf") }
+        tooLarge { extraction.extract(many, "application/pdf", "paginas.pdf", maxChars = limit) }
     }
 }
