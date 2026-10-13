@@ -196,8 +196,8 @@ sgspe:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
   jobs:
-    # trabajos de fondo (JOB-01 DeadlineJob, JOB-02 DerivedFieldsJob, JOB-03 StakeholderFollowUpJob y JOB-08 RetentionJob).
-    # false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
+    # trabajos de fondo (JOB-01 DeadlineJob, JOB-02 DerivedFieldsJob, JOB-03 StakeholderFollowUpJob, JOB-07 KnowledgeIndexJob
+    # y JOB-08 RetentionJob). false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
     enabled: ${SGSPE_JOBS_ENABLED:true}
     derived-fields:
       # cron de Spring (segundos primero), en America/Lima
@@ -216,6 +216,11 @@ sgspe:
       # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl) y los saltos de
       # derivados vencidos (sgspe.concurrency.derived-versions-retention)
       cron: '0 15 4 * * *'
+    knowledge-index:
+      # JOB-07 (ASM-006): cada 30 minutos lo cambiado y una vez al día todo, solo en las organizaciones con la IA activada
+      cron: '0 */30 * * * *'
+      # a las 03:15, no a las 03:00: así no coincide con la vuelta de los 30 minutos, que tomaría el candado
+      daily-cron: '0 15 3 * * *'
   ai:
     # la IA viene apagada (ASM-015, ASM-128): los slugs de las organizaciones que la usan, separados por comas, los fija el operador
     # del despliegue junto con ANTHROPIC_API_KEY. activar o desactivar una organización pide redesplegar
@@ -239,6 +244,8 @@ sgspe:
       ai-03: '1'
       ai-04: '1'
       ai-05: '1'
+      ai-06: '1'
+      ai-07: '1'
       ai-08: '1'
     limits:
       # ASM-131: caracteres de la fuente de una corrida, tokens de salida de una llamada, llamadas al modelo de una corrida,
@@ -253,6 +260,21 @@ sgspe:
       # con Idempotency-Key retiene hasta dos conexiones del pool de R2DBC mientras llama al modelo: el pool necesita más de
       # 2 × este valor para que las corridas no dejen sin conexiones al resto de la API
       max-concurrent-runs: 3
+    knowledge:
+      # el RAG de F7 (ai-architecture.md §13, ADR-0005 etapa 1; KnowledgeProperties): fragmentos de unos 1 500 caracteres con
+      # 200 de solape; el texto (caracteres) y el archivo (bytes) que JOB-07 indexa de una evidencia; los fragmentos que la
+      # búsqueda pide a la base antes de releer las evidencias y los que llegan al modelo
+      chunk-chars: 1500
+      overlap-chars: 200
+      max-chars: 500000
+      max-bytes: 20971520
+      candidates: 25
+      results: 5
+    duplicates:
+      # AI-07 (DuplicateProperties): registros de un objeto que una corrida lee (más es 400 TOO_MANY_RECORDS) y pares que
+      # llegan al modelo
+      max-records: 2000
+      max-pairs: 20
 
 embabel:
   agent:

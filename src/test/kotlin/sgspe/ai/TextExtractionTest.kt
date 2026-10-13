@@ -163,4 +163,22 @@ class TextExtractionTest {
             }
         tooLarge { extraction.extract(many, "application/pdf", "paginas.pdf", maxChars = limit) }
     }
+
+    @Test
+    fun `con truncate un texto largo se corta en el tope y sin truncate sigue lanzando`() {
+        val longLines = Array(40) { "x".repeat(90) }
+        for ((bytes, type) in listOf(TestDocuments.pdf(*longLines) to "application/pdf", TestDocuments.docx(*longLines) to TextExtraction.DOCX)) {
+            val text = extraction.extract(bytes, type, maxChars = 500, truncate = true)
+            assertEquals(500, text.length)
+            assertTrue(text.startsWith("xxxx"), text)
+            tooLarge { extraction.extract(bytes, type, maxChars = 500) }
+        }
+    }
+
+    @Test
+    fun `con truncate el corte no parte un par sustituto`() {
+        val bytes = TestDocuments.docx("x".repeat(499) + "😀😀")
+        val text = extraction.extract(bytes, TextExtraction.DOCX, maxChars = 500, truncate = true)
+        assertEquals("x".repeat(499), text)
+    }
 }

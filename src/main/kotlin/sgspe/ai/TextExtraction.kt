@@ -23,24 +23,30 @@ class TextExtraction {
     /**
      * El texto del archivo, acotado: más de [maxChars] caracteres (el sgspe.ai.limits.input-chars configurado, que pasa siempre
      * quien llama), más de [MAX_PAGES] páginas o un DOCX que se infla más allá de
-     * [MAX_INFLATED] es 422 AI_INPUT_TOO_LARGE sobre target (nunca se trunca). Trabaja con CPU y con E/S bloqueante: quien la llame
-     * desde código reactivo (Tareas 7 y 9, JOB-07) debe hacerlo en Dispatchers.IO.
+     * [MAX_INFLATED] es 422 AI_INPUT_TOO_LARGE sobre target (nunca se trunca). Con [truncate] (solo JOB-07, que indexa el comienzo
+     * de un documento largo) el texto que pasa [maxChars] o [MAX_PAGES] páginas se corta en el tope, sin partir un par sustituto,
+     * y se devuelve, sin lanzar; una bomba de inflado de un DOCX sigue siendo 422. Trabaja con CPU y con E/S bloqueante: quien
+     * la llame desde código reactivo (Tareas 7 y 9, JOB-07) debe hacerlo en Dispatchers.IO.
      */
     fun extract(
         bytes: ByteArray,
         contentType: String,
         fileName: String? = null,
-        maxChars: Int
+        maxChars: Int,
+        truncate: Boolean = false
     ): String {
         val raw =
             when {
-                bytes.startsWith(PDF_MAGIC) -> pdf(bytes, maxChars)
-                bytes.startsWith(ZIP_MAGIC) && docx(contentType, fileName) -> word(bytes, maxChars)
+                bytes.startsWith(PDF_MAGIC) -> pdf(bytes, maxChars, truncate)
+                bytes.startsWith(ZIP_MAGIC) && docx(contentType, fileName) -> word(bytes, maxChars, truncate)
                 else -> null
             } ?: throw AiErrors.noText()
         val text = normalize(raw)
         if (text.isBlank()) throw AiErrors.noText()
-        if (text.length > maxChars) throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
+        if (text.length > maxChars) {
+            if (truncate) return Segmenter.prefix(text, maxChars)
+            throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
+        }
         return text
     }
 
@@ -95,24 +101,29 @@ class TextExtraction {
 
         private fun pdf(
             bytes: ByteArray,
-            maxChars: Int
+            maxChars: Int,
+            truncate: Boolean
         ): String? {
             var tooLarge = false
+            val writer = CappedWriter(maxChars)
             val text =
                 try {
                     Loader.loadPDF(bytes, "", null, null, IOUtils.createTempFileOnlyStreamCache()).use { document ->
-                        if (document.numberOfPages > MAX_PAGES) {
+                        if (document.numberOfPages > MAX_PAGES && !truncate) {
                             tooLarge = true
                             null
                         } else {
-                            val writer = CappedWriter(maxChars)
-                            PDFTextStripper().writeText(document, writer)
+                            PDFTextStripper().apply { if (truncate) endPage = MAX_PAGES }.writeText(document, writer)
                             writer.toString()
                         }
                     }
                 } catch (_: TooLarge) {
-                    tooLarge = true
-                    null
+                    if (truncate) {
+                        writer.toString()
+                    } else {
+                        tooLarge = true
+                        null
+                    }
                 } catch (_: Exception) {
                     null
                 }
@@ -141,7 +152,8 @@ class TextExtraction {
 
         private fun word(
             bytes: ByteArray,
-            maxChars: Int
+            maxChars: Int,
+            truncate: Boolean
         ): String? {
             val safe =
                 try {
@@ -151,13 +163,15 @@ class TextExtraction {
                 }
             if (!safe) throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
             var tooLarge = false
+            val partial = StringBuilder()
             val text =
                 try {
                     XWPFDocument(ByteArrayInputStream(bytes)).use { document ->
-                        val out = StringBuilder()
+                        val out = partial
 
                         fun add(line: String) {
                             if (out.length + line.length > maxChars * 2) {
+                                if (truncate) throw TooLarge()
                                 tooLarge = true
                                 throw TooLarge()
                             }
@@ -172,7 +186,7 @@ class TextExtraction {
                         out.toString()
                     }
                 } catch (_: TooLarge) {
-                    null
+                    if (truncate) partial.toString() else null
                 } catch (_: Exception) {
                     null
                 }

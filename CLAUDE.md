@@ -28,7 +28,9 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Ningún código bajo el paquete `wasichai`; nunca `RecordStore`, `PhysicalTableRecordStore`, `AuditService` ni
   `ObjectSchemaManager`; ningún literal de rol en `src/main/kotlin`. `ArchitectureTest` lo vigila, y desde F2 también que
   `scope` y `privacy` solo dependan de `common`, que `findAllOrganizations` no aparezca en ningún archivo y que
-  `TenantDirectory` solo viva en `common/Organizations.kt`.
+  `TenantDirectory` solo viva en `common/Organizations.kt`, y desde F7 que
+  `knowledge_chunk` solo lo toque `KnowledgeChunks` y que `StoredFileRepository` y `FileStore` solo los use
+  `EvidenceFiles`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
   Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` (workflows, tipos de documento
   y automatizaciones) → `load_ubigeo.py` → `load_indicators.py` (desde F8, plan 8.2a) → `publish_layers.py` (omitible
@@ -110,7 +112,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Base de las pruebas de F5 (aportes con ítems, aprobados y adquiridos, su entrega con acta, foto y comprobante, campañas, acuerdos vigentes, temas priorizados y programas con sus datos, listos para las guardas de 5.2) | `src/test/kotlin/sgspe/F5ApiTest.kt` |
 | Activación y estado de la IA (`AiProperties`, `AiActivation`, `AiErrors`, `AiStatus`, `AiUseCaseOffer`), seudonimización (`Pseudonymizer`, `PseudonymTable`, `NameDictionary`, `PersonNames`, `RestrictedFields`), registro (`Interactions`), prompts versionados (`Prompts`, `<id>/<versión>.md` y `manifest.json`), el puerto `StructuredModel` (`EmbabelStructuredModel`, `ModelCalls`) | `src/main/kotlin/sgspe/ai/`, `src/main/resources/sgspe/ai/prompts/` |
 | Asistente AI-05 sobre wasichai-agent (`AssistantQuestions`, `AssistantRun` y `QuestionAuthentication`, `AiAgentAccess`, `PseudonymizingResultFilter` con `ToolResults`, `RestoringAnswerFilter`, `InteractionRunListener`, `AgentHttpGate`) | `src/main/kotlin/sgspe/ai/` |
-| Tabla fija del RAG (`sgspe.knowledge_chunk`, migración `sgspe_ai`, `KnowledgeMigration`) | `src/main/kotlin/sgspe/ai/`, `src/main/resources/db/sgspe/ai/` |
+| RAG de AI-06: la tabla fija `sgspe.knowledge_chunk` (migración `sgspe_ai`, `KnowledgeMigration`) y su única puerta de SQL (`KnowledgeChunks`, `KnowledgeSql`), la segmentación (`Segmenter`), JOB-07 (`KnowledgeSweep`, `KnowledgeIndexJob`, `KnowledgeEvidences`, `EvidenceFiles`, `EvidenceText`), la recuperación con permisos (`KnowledgeSearch`, `KnowledgeFilter`) y la pregunta (`KnowledgeQuestions`, `KnowledgeAnswers`, `KnowledgeUseCase`, `NameAccess`) | `src/main/kotlin/sgspe/ai/`, `src/main/resources/db/sgspe/ai/` |
+| Duplicados AI-07: reglas (`DuplicateCandidates`), lectura, pares y modelo (`DuplicateDetection`, `DuplicateRecords`), corrida (`DuplicateRun`) | `src/main/kotlin/sgspe/ai/` |
 | Casos con sugerencias (plan 7.2b): `POST /api/sgspe/ai/runs` (`AiRuns`, con el tope de corridas a la vez `RunGate`), un `AiRunCase` por caso, sobre la base `RequiredCase` (`ExtractionCase`, `MinutesCase`, `CommitmentCase`, `SummaryCase`, `ClassificationCase`) con `RunRequirements`, las fuentes (`RunSources`, `TextExtraction` con PDFBox y POI), los agentes (`ExtractionAgent`, `CommitmentAgent`, `DraftAgents`, `ClassificationAgent`) y su validación (`CitationCheck`, `Proposals`, `RunLookups`), `SuggestionWriter` | `src/main/kotlin/sgspe/ai/` |
 | Aceptación de sugerencias (`SuggestionAcceptance` con la lista cerrada `AllowList`) y `SuggestionDecisionGuard` (una persona decide WF-K) | `src/main/kotlin/sgspe/ai/` |
 | Dobles de las corridas (`FakeLookups`, `RunFixtures`, `TestDocuments`) y las pruebas de inyección (`InjectionTest`) | `src/test/kotlin/sgspe/ai/` |
