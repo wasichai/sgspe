@@ -64,11 +64,13 @@ data class DuplicateProposal(
     fun suggestedValue(json: JsonMapper): String = json.writeValueAsString(mapOf("other_record_id" to otherRecordId.toString(), "reasons" to reasons))
 }
 
-// lo que dejó una detección: las propuestas, la ai_interaction de su llamada (null si no hubo pares y no se llamó) y el modelo
+// lo que dejó una detección: las propuestas, la ai_interaction de su llamada (null si no hubo pares y no se llamó), el modelo y
+// cuántos veredictos de duplicado descartó la validación (un par que no existe, una confianza fuera de 0 a 1, un par repetido)
 data class DuplicateFindings(
     val proposals: List<DuplicateProposal>,
     val interaction: UUID?,
-    val model: String
+    val model: String,
+    val discarded: Int = 0
 )
 
 // los registros de AI-07 desde lo que lee la persona, puros: un objeto de wasichai a DuplicateRecord, y los pares y veredictos
@@ -221,16 +223,20 @@ object DuplicateRecords {
 // AI-07 sin escribir nada (ai-architecture.md §4.1, especificación de F7 §3.5): lee como la persona los registros del destino,
 // arma los pares con DuplicateCandidates (sin los ya vinculados ni los ya propuestos), y solo si hay pares llama al modelo, que
 // los compara, seudonimizados con el diccionario de quien pide; la salida se valida y vuelve como propuestas. la escritura de
-// las sugerencias es de DuplicateRun (Tarea 10), con SuggestionWriter de 7.2b
+// las sugerencias es de DuplicateRun (Tarea 10), con SuggestionWriter.write de 7.2b
 @Component
 class DuplicateDetection(
     private val records: Records,
     private val calls: ModelCalls,
-    private val names: PersonNames,
     private val properties: DuplicateProperties,
     private val ai: AiProperties
 ) {
-    suspend fun detect(target: DuplicateTarget): DuplicateFindings {
+    // `names`, el diccionario de quien pide; `budget`, el tope de llamadas de la corrida (gasta una antes de llamar)
+    suspend fun detect(
+        target: DuplicateTarget,
+        names: NameDictionary,
+        budget: RunBudget
+    ): DuplicateFindings {
         val (project, read) = read(target)
         val known = known(read)
         val all = DuplicateCandidates.pairs(read, Int.MAX_VALUE, known)
@@ -246,19 +252,22 @@ class DuplicateDetection(
             ).take(properties.maxPairs)
         val model = ai.modelFor(USE_CASE)
         if (pairs.isEmpty()) return DuplicateFindings(emptyList(), null, model)
+        budget.spend()
         val result =
             calls.call(
                 ModelCall(
                     useCase = USE_CASE,
                     variables = mapOf(PAIRS to DuplicateRecords.render(pairs)),
-                    names = names.readable(),
+                    names = names,
                     outputClass = DuplicateVerdicts::class.java,
                     inputReference = "${target.objectName}:${target.recordId}",
                     project = project,
                     summary = { output: DuplicateVerdicts -> "${pairs.size} pares comparados; ${output.pairs.count { it.duplicate }} posibles duplicados" }
                 )
             )
-        return DuplicateFindings(DuplicateRecords.proposals(pairs, result.output.pairs, project) { result.table.stable(it) }, result.interaction, model)
+        val proposals = DuplicateRecords.proposals(pairs, result.output.pairs, project) { result.table.stable(it) }
+        val discarded = (result.output.pairs.count { it.duplicate } - proposals.size).coerceAtLeast(0)
+        return DuplicateFindings(proposals, result.interaction, model, discarded)
     }
 
     // el proyecto de la corrida y los registros que compara, como la persona. un proyecto: sus QCS, compromisos y grupos de interés

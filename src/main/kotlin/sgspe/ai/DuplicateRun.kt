@@ -1,109 +1,58 @@
 package sgspe.ai
 
 import org.springframework.stereotype.Component
-import sgspe.common.Permissions
-import sgspe.common.ServiceAccounts
 import tools.jackson.databind.json.JsonMapper
-import wasichai.core.common.Actions
-import wasichai.core.common.ForbiddenException
-import wasichai.core.common.NotFoundException
-import wasichai.core.common.WasichaiException
 import wasichai.core.identity.AuthenticatedUser
+import java.util.UUID
 
-// AI-07, los posibles duplicados (ai-architecture.md §4.1, api.md §4.14): una persona (no una cuenta de servicio) con CREATE sobre
-// ai_interaction y sobre ai_suggestion y la lectura de los nombres de person. ningún nombre de rol: decide el permiso
-@Component
-class DuplicateUseCase(
-    private val permissions: Permissions,
-    private val names: NameAccess
-) : AiUseCaseOffer {
-    override val useCase: String = DuplicateDetection.USE_CASE
-
-    override suspend fun offered(user: AuthenticatedUser): Boolean = check(user) == null
-
-    // 403 si no puede pedirlo: PERSON_REQUIRED a una cuenta de servicio, o lo que le falta
-    suspend fun require(user: AuthenticatedUser) {
-        check(user)?.let { throw it }
-    }
-
-    private suspend fun check(user: AuthenticatedUser): WasichaiException? =
-        decide(
-            ServiceAccounts.isServiceAccount(user),
-            has(user, Interactions.OBJECT) && has(user, DuplicateDetection.SUGGESTION),
-            names.readable()
-        )
-
-    // un objeto que el tenant todavía no tiene (sin el modelo de F7) no da permiso
-    private suspend fun has(
-        user: AuthenticatedUser,
-        objectName: String
-    ): Boolean =
-        try {
-            permissions.has(user, Actions.CREATE, objectName)
-        } catch (_: NotFoundException) {
-            false
-        }
-
-    companion object {
-        fun decide(
-            serviceAccount: Boolean,
-            canCreate: Boolean,
-            readsNames: Boolean
-        ): WasichaiException? =
-            when {
-                serviceAccount -> AiErrors.personRequired()
-                !canCreate -> ForbiddenException("Buscar duplicados exige permiso de creación sobre ai_interaction y ai_suggestion")
-                !readsNames -> ForbiddenException("Buscar duplicados exige leer los nombres de person: la seudonimización los necesita")
-                else -> null
-            }
-    }
-}
-
-// AI-07 como caso de POST /api/sgspe/ai/runs (plan 7.2b): sobre un proyecto o un registro de los objetos que compara,
-// DuplicateDetection arma los pares, el modelo los compara y SuggestionWriter guarda una ai_suggestion DUPLICADO por par en proposed
-// (WF-K), como la persona y con la marca, con suggested_value {other_record_id, reasons[]}. lo que exige de quien pide va en
-// `require`, antes que el proveedor (AiRuns). sin pares no llama al modelo y no guarda nada (interaction null). nunca fusiona ni
-// vincula: la aceptación de una persona decide (RQ-AI-015)
+// AI-07 como caso de POST /api/sgspe/ai/runs (plan 7.2b, ai-architecture.md §4.1, api.md §4.14): sobre un proyecto o un registro de
+// los objetos que compara, DuplicateDetection arma los pares, el modelo los compara y SuggestionWriter guarda, en una transacción
+// como los demás casos, una ai_suggestion DUPLICADO por par en proposed (WF-K), como la persona y con la marca, con
+// suggested_value {other_record_id, reasons[]}; un destino que la persona no lee o de otro proyecto, o una propuesta repetida, queda
+// fuera. lo que exige de quien pide es lo de RunRequirements (una persona, CREATE sobre ai_interaction y ai_suggestion, READ sobre
+// el objeto pedido y los nombres de person), antes que el proveedor, y decide también si GET /ai/status lo ofrece. sin pares no
+// llama al modelo y no guarda nada (interaction null). nunca fusiona ni vincula: la aceptación de una persona decide (RQ-AI-015)
 @Component
 class DuplicateRun(
+    requirements: RunRequirements,
+    names: PersonNames,
+    writer: SuggestionWriter,
+    properties: AiProperties,
     private val detection: DuplicateDetection,
-    private val writer: SuggestionWriter,
-    private val offer: DuplicateUseCase,
     private val json: JsonMapper
-) : AiRunCase {
+) : RequiredCase(requirements, names, writer, properties) {
     override val useCase: String = DuplicateDetection.USE_CASE
-
     override val objects: Set<String> = DuplicateCandidates.OBJECTS + DuplicateRecords.PROJECT
+    override val outputs = listOf(SuggestionWriter.SUGGESTION)
 
-    override suspend fun require(
-        user: AuthenticatedUser,
-        target: RunTarget
-    ) {
-        offer.require(user)
+    override suspend fun propose(
+        target: RunTarget,
+        names: NameDictionary,
+        budget: RunBudget,
+        user: AuthenticatedUser
+    ): RunProposals {
+        val findings = detection.detect(DuplicateTarget(target.objectName, target.recordId), names, budget)
+        val interaction = findings.interaction ?: return RunProposals()
+        return RunProposals(
+            suggestions = findings.proposals.map { draft(it, findings.model, interaction) },
+            interactions = listOf(interaction),
+            discarded = findings.discarded
+        )
     }
 
-    override suspend fun run(
-        user: AuthenticatedUser,
-        target: RunTarget
-    ): RunResult {
-        val findings = detection.detect(DuplicateTarget(target.objectName, target.recordId))
-        val interaction = findings.interaction ?: return RunResult(null, emptyList(), emptyList())
-        val written =
-            findings.proposals.map { proposal ->
-                writer.suggestion(
-                    SuggestionDraft(
-                        kind = DuplicateDetection.KIND,
-                        targetObject = proposal.objectName,
-                        targetRecordId = proposal.targetRecordId,
-                        suggestedValue = proposal.suggestedValue(json),
-                        evidenceQuote = null,
-                        confidence = proposal.confidence,
-                        model = findings.model,
-                        project = proposal.project,
-                        interaction = interaction
-                    )
-                )
-            }
-        return RunResult(interaction, written, emptyList())
-    }
+    private fun draft(
+        proposal: DuplicateProposal,
+        model: String,
+        interaction: UUID
+    ) = SuggestionDraft(
+        kind = DuplicateDetection.KIND,
+        targetObject = proposal.objectName,
+        targetRecordId = proposal.targetRecordId,
+        suggestedValue = proposal.suggestedValue(json),
+        evidenceQuote = null,
+        confidence = proposal.confidence,
+        model = model,
+        project = proposal.project,
+        interaction = interaction
+    )
 }
