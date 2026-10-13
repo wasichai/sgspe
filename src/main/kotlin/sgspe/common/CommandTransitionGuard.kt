@@ -8,7 +8,7 @@ import wasichai.core.data.RecordWrite
 
 // las transiciones de comando solo llegan desde su endpoint, que escribe varios registros en una transacción y lleva la
 // marca SgspeWrite (workflows.md, «Transiciones de comando»). por la API genérica de workflow, sin la marca: 403, como la
-// puerta cerrada de un objeto apiOnly. las de F3 y F4 las agregan sus fases a COMMANDS
+// puerta cerrada de un objeto apiOnly. las de F3, F4 y F7 las agregan sus fases a COMMANDS
 @Component
 @Order(GuardOrder.COMMAND)
 class CommandTransitionGuard : RuleGuard() {
@@ -38,6 +38,9 @@ class CommandTransitionGuard : RuleGuard() {
                         "supersede" to "POST /api/sgspe/areas-of-influence/{id}/approve"
                     ),
                 "commitment_candidate" to mapOf("accept" to "POST /api/sgspe/commitment-candidates/{id}/accept"),
+                // F7: aceptar una sugerencia ejecuta el comando de dominio de su fila de ai-architecture.md §4.2. el endpoint
+                // es del plan 7.2b; desde que WF-K existe (plan 7.1), la API genérica no la acepta
+                "ai_suggestion" to mapOf("accept" to "POST /api/sgspe/ai-suggestions/{id}/accept"),
                 // F4: las reclasificaciones de WF-E1, WF-E2 y WF-E3 (plan 4.2a)
                 "grievance" to
                     mapOf(

@@ -9,8 +9,9 @@ import org.junit.jupiter.api.Test
 class GuardTablesCatalogTest {
     private val catalog = ModelCatalog.fromClasspath()
 
-    // objetos de las tablas que model.json aún no declara; la prueba exige que sigan sin declararse (si no, ya se verifican)
-    private val notYetModeled = setOf("ai_suggestion")
+    // objetos de las tablas que model.json aún no declara; la prueba exige que sigan sin declararse (si no, ya se verifican).
+    // vacía desde el plan 7.1: ai_suggestion entró al modelo y sus transiciones se verifican
+    private val notYetModeled = emptySet<String>()
 
     @Test
     fun `los objetos pendientes siguen sin estar en el modelo`() {

@@ -78,6 +78,20 @@ class CrossGuardsTest {
         }
     }
 
+    // Review Focus 1 del plan 7.1: apiOnly no rechaza transiciones, así que accept de WF-K de una sugerencia por la API
+    // genérica la llevaría a accepted sin ejecutar ningún comando. desde que existe el workflow, solo con la marca
+    @Test
+    fun `aceptar una sugerencia de IA solo llega por su comando`() {
+        runBlocking {
+            val guard = CommandTransitionGuard()
+            val refused = assertThrows<RuleException> { guard.beforeWrite(transition("ai_suggestion", "accept")) }
+            assertEquals(403, refused.status.value())
+            assertEquals("COMMAND_ONLY", refused.violations.single().message)
+            withContext(SgspeWrite) { guard.beforeWrite(transition("ai_suggestion", "accept")) }
+            guard.beforeWrite(transition("ai_suggestion", "reject"))
+        }
+    }
+
     @Test
     fun `exactamente uno de`() {
         val group = listOf("person", "organization")
