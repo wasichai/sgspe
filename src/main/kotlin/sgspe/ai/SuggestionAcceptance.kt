@@ -99,7 +99,7 @@ class SuggestionAcceptance(
                         ).toCodedException()
                 StrictBody.requireOnly(attributes, AllowList.BODY_KEYS.getValue(row), "$ATTRIBUTES.")
                 AllowList.misplaced(row, attributes)?.let { throw fieldNotAllowed(it) }
-                attributes.forEach { (key, value) -> if (hasMarker(value)) throw markerFound(key) }
+                attributes.forEach { (key, value) -> markerPath(key, value)?.let { throw markerFound(it) } }
                 val context =
                     Context(
                         user,
@@ -107,6 +107,7 @@ class SuggestionAcceptance(
                         Records.uuid(stored["target_record_id"]),
                         Records.uuid(stored["project"]),
                         attributes,
+                        Proposals.parse(Values.text(stored["suggested_value"])).orEmpty(),
                         "IA aceptada (ai_suggestion $id): $reason"
                     )
                 val (result, stakeholder) = execute(row, context)
@@ -122,8 +123,18 @@ class SuggestionAcceptance(
         val targetId: UUID?,
         val project: UUID?,
         val attributes: Map<String, Any?>,
+        val proposed: Map<String, Any?>,
         val reason: String
     ) {
+        // el campo de una clasificación, un lugar o una fecha es el que propuso la IA: quien acepta corrige el valor, no el campo
+        // (§4.2, «único campo»; la aceptación no audita un cambio que la IA no propuso, RQ-AUD-012). omitirlo usa el guardado
+        fun proposedField(): String {
+            val stored = Values.text(proposed["field"]) ?: throw fieldNotAllowed("field")
+            val sent = text("field")
+            if (sent != null && sent != stored) throw fieldNotAllowed("field")
+            return stored
+        }
+
         // un valor de texto es un escalar: una lista o un objeto no se escribe como su toString
         fun text(key: String): String? =
             when (val value = attributes[key]) {
@@ -158,7 +169,7 @@ class SuggestionAcceptance(
 
     // CLASIFICACION: category, priority o topic de una QCS; topic de una pregunta; tone o topic de una mención
     private suspend fun classification(c: Context): RecordResponse {
-        val field = c.requireText("field")
+        val field = c.proposedField()
         if (field !in AllowList.CLASSIFICATION_FIELDS.getValue(c.target)) throw fieldNotAllowed("field")
         val value = c.requireText("value")
         if (field == TOPIC) {
@@ -180,7 +191,7 @@ class SuggestionAcceptance(
 
     // EXTRACCION de un lugar: locality o community de la interacción, con un registro que se lee
     private suspend fun place(c: Context): RecordResponse {
-        val field = c.requireText("field")
+        val field = c.proposedField()
         if (field !in AllowList.PLACE_FIELDS) throw fieldNotAllowed("field")
         val place = readableId(field, c.requireText("value"), "value")
         return update(c, mapOf(field to place.toString()))
@@ -188,7 +199,7 @@ class SuggestionAcceptance(
 
     // EXTRACCION de una fecha del acuerdo, con su motivo (requiresReason)
     private suspend fun date(c: Context): RecordResponse {
-        val field = c.requireText("field")
+        val field = c.proposedField()
         if (field !in AllowList.DATE_FIELDS) throw fieldNotAllowed("field")
         val date = Proposals.date(c.text("value")) ?: throw invalidValue("value")
         return update(c, mapOf(field to date.toString()))
@@ -213,12 +224,28 @@ class SuggestionAcceptance(
 
     // EXTRACCION de un actor: el existente que nombra target_record_id (sin cambiarlo; name, organization_type y locality no se
     // escriben) o uno nuevo con CREATE sobre su objeto; y, si se pide, su grupo de interés del proyecto en identified, con CREATE
-    // sobre stakeholder
+    // sobre stakeholder. la forma del grupo pedido, su tipo, el proyecto y el permiso se comprueban antes de escribir nada; el tipo
+    // contra el catálogo, después del actor (si falla, la transacción revierte también al actor)
     private suspend fun actor(
         c: Context,
         objectName: String,
         create: suspend () -> RecordResponse
     ): Pair<RecordResponse, RecordResponse?> {
+        val type = c.attributes["stakeholder"]?.let { requestedType(it) }
+        val project =
+            if (type == null) {
+                null
+            } else {
+                val project =
+                    c.project ?: throw Finding(
+                        "PROJECT_REQUIRED",
+                        "El grupo de interés es de un proyecto: la sugerencia no lo tiene",
+                        "$ATTRIBUTES.stakeholder",
+                        status = HttpStatus.BAD_REQUEST
+                    ).toCodedException()
+                permissions.require(c.user, "Registrar el grupo de interés", Actions.CREATE to STAKEHOLDER)
+                project
+            }
         val actor =
             c.targetId?.let {
                 try {
@@ -227,25 +254,23 @@ class SuggestionAcceptance(
                     throw notReadable(objectName)
                 }
             } ?: create()
-        val group = c.attributes["stakeholder"] ?: return actor to null
-        val type = Values.text((group as? Map<*, *>)?.get("stakeholder_type"))
-        if (group !is Map<*, *> || group.keys.any { it != "stakeholder_type" }) throw invalidValue("stakeholder")
-        if (type != null && type !in catalog.enumOf(STAKEHOLDER, "stakeholder_type")) throw invalidValue("stakeholder.stakeholder_type")
-        val project =
-            c.project ?: throw Finding(
-                "PROJECT_REQUIRED",
-                "El grupo de interés es de un proyecto: la sugerencia no lo tiene",
-                "$ATTRIBUTES.stakeholder",
-                status = HttpStatus.BAD_REQUEST
-            ).toCodedException()
-        permissions.require(c.user, "Registrar el grupo de interés", Actions.CREATE to STAKEHOLDER)
+        if (type == null || project == null) return actor to null
+        if (type !in catalog.enumOf(STAKEHOLDER, "stakeholder_type")) throw invalidValue("stakeholder.stakeholder_type")
         val stakeholder =
             records.create(
                 STAKEHOLDER,
-                mapOf("project" to project.toString(), objectName to actor.id, "stakeholder_type" to type).filterValues { it != null },
+                mapOf("project" to project.toString(), objectName to actor.id, "stakeholder_type" to type),
                 c.reason
             )
         return actor to stakeholder
+    }
+
+    // el grupo de interés pedido: un objeto con solo stakeholder_type, de texto y obligatorio
+    private fun requestedType(group: Any): String {
+        if (group !is Map<*, *> || group.keys.any { it != "stakeholder_type" }) throw invalidValue("stakeholder")
+        val type = group["stakeholder_type"]
+        if (type is Map<*, *> || type is Collection<*>) throw invalidValue("stakeholder.stakeholder_type")
+        return Values.text(type) ?: throw fieldRequired("stakeholder.stakeholder_type")
     }
 
     private suspend fun organization(c: Context): RecordResponse {
@@ -297,7 +322,12 @@ class SuggestionAcceptance(
         val other = other(c)
         val grievance = records.get(c.target, targetId(c))
         if (Values.text(other.attributes["project"]) != Values.text(grievance.attributes["project"])) {
-            throw Finding("PROJECT_MISMATCH", "La queja que lo cubre debe ser del mismo proyecto", "$ATTRIBUTES.other_record_id").toCodedException()
+            throw Finding(
+                "PROJECT_MISMATCH",
+                "La queja que lo cubre debe ser del mismo proyecto",
+                "$ATTRIBUTES.other_record_id",
+                status = HttpStatus.CONFLICT
+            ).toCodedException()
         }
         val response = c.text("response") ?: return update(c, mapOf("duplicate_of" to other.id))
         val reject =
@@ -392,13 +422,17 @@ class SuggestionAcceptance(
         fun fieldRequired(key: String) =
             Finding("FIELD_REQUIRED", "Falta un valor obligatorio", "$ATTRIBUTES.$key", status = HttpStatus.BAD_REQUEST).toCodedException()
 
-        // también dentro de una lista o un objeto: ningún marcador pasa escondido en un valor compuesto
-        fun hasMarker(value: Any?): Boolean =
+        // la ruta del primer marcador en `value`, también dentro de una lista o un objeto (ningún marcador pasa escondido en un
+        // valor compuesto), o null
+        fun markerPath(
+            path: String,
+            value: Any?
+        ): String? =
             when (value) {
-                is String -> AllowList.hasMarker(value)
-                is Map<*, *> -> value.values.any { hasMarker(it) }
-                is Collection<*> -> value.any { hasMarker(it) }
-                else -> false
+                is String -> path.takeIf { AllowList.hasMarker(value) }
+                is Map<*, *> -> value.entries.firstNotNullOfOrNull { (key, inner) -> markerPath("$path.$key", inner) }
+                is Collection<*> -> path.takeIf { value.any { markerPath(path, it) != null } }
+                else -> null
             }
 
         fun markerFound(key: String) =
