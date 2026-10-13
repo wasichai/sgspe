@@ -1,5 +1,6 @@
 package sgspe.ai
 
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
@@ -16,7 +17,8 @@ import java.util.UUID
 
 // los límites del RAG de F7 (ai-architecture.md §13, decisiones 3 y 6 del plan 7.2c): el tamaño y el solape de los fragmentos,
 // el texto que JOB-07 indexa de una evidencia y los bytes del archivo que lee, cuántos fragmentos pide la búsqueda a la base
-// antes de releer las evidencias y cuántos llegan al modelo
+// antes de releer las evidencias y cuántos llegan al modelo. se validan al arrancar: una configuración imposible falla de
+// inmediato, no en cada vuelta de JOB-07 (el solape, menor que la mitad del fragmento, como lo exige Segmenter)
 @ConfigurationProperties("sgspe.ai.knowledge")
 data class KnowledgeProperties(
     val chunkChars: Int = Segmenter.SIZE,
@@ -25,7 +27,18 @@ data class KnowledgeProperties(
     val maxBytes: Long = 20L * 1024 * 1024,
     val candidates: Int = 25,
     val results: Int = 5
-)
+) {
+    init {
+        require(chunkChars > 0) { "sgspe.ai.knowledge.chunk-chars debe ser mayor que 0 ($chunkChars)" }
+        require(overlapChars >= 0 && overlapChars < chunkChars / 2) {
+            "sgspe.ai.knowledge.overlap-chars debe estar entre 0 y la mitad de chunk-chars ($overlapChars, $chunkChars)"
+        }
+        require(maxChars >= chunkChars) { "sgspe.ai.knowledge.max-chars no puede ser menor que chunk-chars ($maxChars, $chunkChars)" }
+        require(maxBytes > 0) { "sgspe.ai.knowledge.max-bytes debe ser mayor que 0 ($maxBytes)" }
+        require(results >= 1) { "sgspe.ai.knowledge.results debe ser al menos 1 ($results)" }
+        require(candidates >= results) { "sgspe.ai.knowledge.candidates no puede ser menor que results ($candidates, $results)" }
+    }
+}
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(KnowledgeProperties::class)
@@ -80,6 +93,8 @@ class KnowledgeSearch(
     private val chunks: KnowledgeChunks,
     private val properties: KnowledgeProperties
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     suspend fun search(
         user: AuthenticatedUser,
         project: UUID,
@@ -107,7 +122,9 @@ class KnowledgeSearch(
                 .all(EvidenceRules.EVIDENCE, criteria = listOf(Criteria.anyOf(REPLACES, ids)))
                 .mapNotNull { Records.uuid(it.attributes[REPLACES]) }
                 .toSet()
-        } catch (_: ValidationException) {
+        } catch (e: ValidationException) {
+            // solo la clase: el mensaje podría nombrar el campo o el valor
+            log.debug("KnowledgeSearch: no se leyó replaces de las evidencias candidatas ({})", e.javaClass.name)
             emptySet()
         }
 

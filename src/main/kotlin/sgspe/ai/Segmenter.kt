@@ -5,7 +5,7 @@ import java.text.Normalizer
 // el texto de una evidencia en fragmentos para el RAG (ai-architecture.md §13.2, especificación de F7 §3.5): de unos `size`
 // caracteres con `overlap` de solape, cortados donde termina un párrafo, una oración o al menos una palabra, nunca en medio de
 // una salvo que no haya otro lugar. el texto se normaliza antes (NFC, sin espacios repetidos ni más de una línea en blanco), así
-// que el mismo documento da siempre los mismos fragmentos. Kotlin puro
+// que el mismo documento da siempre los mismos fragmentos. un corte nunca parte un par sustituto. Kotlin puro
 object Segmenter {
     const val SIZE = 1_500
     const val OVERLAP = 200
@@ -24,6 +24,19 @@ object Segmenter {
             .lines()
             .joinToString("\n") { it.trim() }
             .trim()
+
+    // los primeros `max` caracteres, sin partir un par sustituto (un emoji, una letra fuera del plano básico): uno menos si el
+    // corte cae entre sus dos mitades
+    fun prefix(
+        text: String,
+        max: Int
+    ): String = if (text.length <= max) text else text.substring(0, boundary(text, max))
+
+    // `index`, o uno antes si cae entre las dos mitades de un par sustituto
+    fun boundary(
+        text: CharSequence,
+        index: Int
+    ): Int = if (index in 1 until text.length && text[index - 1].isHighSurrogate() && text[index].isLowSurrogate()) index - 1 else index
 
     fun segments(
         text: String,
@@ -62,7 +75,7 @@ object Segmenter {
         window.lastIndexOf("\n\n").takeIf { it >= 0 }?.let { return from + it + 2 }
         SENTENCE_END.findAll(window).lastOrNull()?.let { return from + it.range.last + 1 }
         window.indexOfLast { it.isWhitespace() }.takeIf { it >= 0 }?.let { return from + it + 1 }
-        return limit
+        return boundary(text, limit)
     }
 
     // el comienzo del fragmento siguiente: el solape empieza en una palabra entera, sin pasar el corte anterior
@@ -72,7 +85,7 @@ object Segmenter {
         end: Int
     ): Int {
         if (candidate == 0 || text[candidate - 1].isWhitespace()) return candidate
-        val space = (candidate until end).firstOrNull { text[it].isWhitespace() } ?: return candidate
+        val space = (candidate until end).firstOrNull { text[it].isWhitespace() } ?: return boundary(text, candidate)
         return space + 1
     }
 }

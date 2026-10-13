@@ -19,18 +19,20 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
-// el texto de un archivo para JOB-07; null si no tiene (sin OCR en F7, ASM-132)
+// el texto de un archivo para JOB-07; NoText si no tiene (sin OCR en F7, ASM-132)
 fun interface DocumentText {
     suspend fun text(
         bytes: ByteArray,
         contentType: String
-    ): String?
+    ): CorpusText
 }
 
-// DocumentText sobre TextExtraction de 7.2b (PDF con texto y DOCX, con PDFBox y POI): su 422 AI_NO_TEXT (un PDF escaneado, otro
-// formato) es «sin texto», y un archivo que no se deja leer (un PDF dañado) también, con una advertencia que solo nombra la clase
-// del error: un archivo malo no debe tumbar la vuelta de su organización cada vez. la extracción bloquea: corre en Dispatchers.IO.
-// un documento largo se indexa por su comienzo (truncate = true, hasta maxChars); no es un error. es el único archivo de 7.2c que llama a TextExtraction
+// DocumentText sobre TextExtraction de 7.2b (PDF con texto y DOCX, con PDFBox y POI): su 422 AI_NO_TEXT (un PDF escaneado, dañado
+// o cifrado, otro formato) es «sin texto», y su 422 AI_INPUT_TOO_LARGE (una bomba de inflado de un DOCX) también, con una
+// advertencia que solo nombra la clase del error: el archivo es inmutable (ASM-013) y leerlo otra vez da lo mismo. cualquier otro
+// error es «no disponible»: la vuelta siguiente lo vuelve a intentar, sin tumbar la de su organización. la extracción bloquea:
+// corre en Dispatchers.IO. un documento largo se indexa por su comienzo (truncate = true, hasta maxChars); no es un error. es el
+// único archivo de 7.2c que llama a TextExtraction
 @Component
 class EvidenceText(
     private val extraction: TextExtraction,
@@ -41,23 +43,34 @@ class EvidenceText(
     override suspend fun text(
         bytes: ByteArray,
         contentType: String
-    ): String? =
+    ): CorpusText =
         withContext(Dispatchers.IO) {
             try {
-                extraction.extract(bytes, contentType, maxChars = properties.maxChars, truncate = true)
+                CorpusText.Text(extraction.extract(bytes, contentType, maxChars = properties.maxChars, truncate = true))
             } catch (e: WasichaiException) {
-                if (e.violations.none { it.message == NO_TEXT }) log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo ({})", e.javaClass.name)
-                null
+                val codes = e.violations.map { it.message }
+                when {
+                    NO_TEXT in codes -> CorpusText.NoText
+                    TOO_LARGE in codes -> {
+                        log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo ({})", e.javaClass.name)
+                        CorpusText.NoText
+                    }
+                    else -> {
+                        log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo por ahora ({})", e.javaClass.name)
+                        CorpusText.Unavailable
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo ({})", e.javaClass.name)
-                null
+                log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo por ahora ({})", e.javaClass.name)
+                CorpusText.Unavailable
             }
         }
 
     companion object {
         const val NO_TEXT = "AI_NO_TEXT"
+        const val TOO_LARGE = "AI_INPUT_TOO_LARGE"
     }
 }
 
@@ -93,10 +106,13 @@ class KnowledgeEvidences(
     override suspend fun text(
         organizationId: UUID,
         evidence: IndexableEvidence
-    ): String? {
-        val file = evidence.file ?: return null
-        val stored = files.read(organizationId, file, properties.maxBytes) ?: return null
-        return documents.text(stored.bytes, stored.contentType)
+    ): CorpusText {
+        val file = evidence.file ?: return CorpusText.NoText
+        return when (val read = files.read(organizationId, file, properties.maxBytes)) {
+            is FileRead.Found -> documents.text(read.file.bytes, read.file.contentType)
+            FileRead.TooLarge -> CorpusText.NoText
+            FileRead.Missing -> CorpusText.Unavailable
+        }
     }
 
     companion object {

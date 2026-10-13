@@ -18,6 +18,18 @@ class StoredBytes(
     val bytes: ByteArray
 )
 
+// lo que dio leer el archivo de una evidencia: sus bytes; más grande que el tope (definitivo: el archivo es inmutable, ASM-013); o
+// que falta (su fila en stored_files o su objeto en el almacén): quizá pasajero, JOB-07 lo vuelve a intentar
+sealed interface FileRead {
+    data class Found(
+        val file: StoredBytes
+    ) : FileRead
+
+    data object TooLarge : FileRead
+
+    data object Missing : FileRead
+}
+
 // los bytes del archivo de una evidencia para JOB-07, como la plataforma (decisión 5 del plan 7.2c): FileService.open de
 // wasichai-files 1.2.0 exige una persona, así que el trabajo lee la fila de stored_files de su organización y el almacén, como
 // StoredFileCleanup. el id sale del campo FILE de la evidencia que el trabajo leyó; nunca de una petición. a lo sumo `maxBytes` en
@@ -29,29 +41,29 @@ class EvidenceFiles(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // null si el archivo no existe en la organización, su objeto falta en el almacén (una advertencia con solo el id) o pasa
-    // `maxBytes`; un error de E/S pasajero sí se propaga
+    // Missing si el archivo no existe en la organización o su objeto falta en el almacén (una advertencia con solo el id);
+    // TooLarge si pasa `maxBytes`; un error de E/S pasajero sí se propaga
     suspend fun read(
         organizationId: UUID,
         fileId: UUID,
         maxBytes: Long
-    ): StoredBytes? {
-        val file = files.find(organizationId, fileId) ?: return null
-        if (file.sizeBytes > maxBytes) return null
+    ): FileRead {
+        val file = files.find(organizationId, fileId) ?: return FileRead.Missing
+        if (file.sizeBytes > maxBytes) return FileRead.TooLarge
         val joined =
             try {
                 DataBufferUtils.join(store.open(file.objectKey), maxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()).awaitSingle()
             } catch (_: DataBufferLimitException) {
-                return null
+                return FileRead.TooLarge
             } catch (e: Exception) {
                 if (!missing(e)) throw e
                 log.warn("KnowledgeIndexJob: falta en el almacén el archivo {} de la organización {}", fileId, organizationId)
-                return null
+                return FileRead.Missing
             }
         try {
             val bytes = ByteArray(joined.readableByteCount())
             joined.read(bytes)
-            return StoredBytes(file.contentType, bytes)
+            return FileRead.Found(StoredBytes(file.contentType, bytes))
         } finally {
             DataBufferUtils.release(joined)
         }

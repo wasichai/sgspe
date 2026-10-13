@@ -26,21 +26,26 @@ class KnowledgeSweepTest {
         val reads = mutableListOf<UUID>()
         val sinces = mutableListOf<Instant?>()
         var failing: UUID? = null
+        val unavailable = mutableSetOf<UUID>()
+
+        // las que una vuelta desde una hora ya no lista (no cambiaron desde la anterior)
+        val unchanged = mutableSetOf<UUID>()
 
         override suspend fun changed(
             organizationId: UUID,
             since: Instant?
-        ): List<IndexableEvidence> = evidences[organizationId].orEmpty().also { sinces += since }
+        ): List<IndexableEvidence> = evidences[organizationId].orEmpty().filter { since == null || it.id !in unchanged }.also { sinces += since }
 
         override suspend fun replaced(organizationId: UUID): Set<UUID> = evidences[organizationId].orEmpty().mapNotNull { it.replaces }.toSet()
 
         override suspend fun text(
             organizationId: UUID,
             evidence: IndexableEvidence
-        ): String? {
+        ): CorpusText {
             reads += evidence.id
             if (evidence.id == failing) error("lectura fallida")
-            return texts[evidence.id]
+            if (evidence.id in unavailable) return CorpusText.Unavailable
+            return texts[evidence.id]?.let { CorpusText.Text(it) } ?: CorpusText.NoText
         }
     }
 
@@ -216,5 +221,46 @@ class KnowledgeSweepTest {
         store.chunks[org to id(1)] = Triple(project, "INTERNA", listOf("sigue"))
         assertEquals(KnowledgeTally(), runBlocking { sweep().run(full = true) })
         assertTrue(org to id(1) in store.chunks)
+    }
+
+    @Test
+    fun `una evidencia no disponible no se recuerda como sin texto y se vuelve a leer en la vuelta siguiente`() {
+        evidence(1)
+        corpus.unavailable += id(1)
+        corpus.texts[id(1)] = "El acta de la asamblea."
+        val sweep = sweep()
+        assertEquals(KnowledgeTally(unavailable = 1), runBlocking { sweep.run(full = false) })
+        // la vuelta avanza: la evidencia queda pendiente aunque la lista desde la anterior ya no la traiga
+        assertTrue(sweep.lastRun != null)
+        corpus.unchanged += id(1)
+        corpus.unavailable.clear()
+        now = Instant.parse("2026-10-13T15:30:00Z")
+        assertEquals(KnowledgeTally(indexed = 1), runBlocking { sweep.run(full = false) })
+        assertTrue(org to id(1) in store.chunks)
+        assertEquals(listOf(id(1), id(1)), corpus.reads)
+    }
+
+    @Test
+    fun `una evidencia pendiente que ya no existe no se vuelve a leer en la vuelta completa`() {
+        evidence(1)
+        evidence(2)
+        corpus.texts[id(1)] = "texto"
+        corpus.unavailable += id(2)
+        val sweep = sweep()
+        runBlocking { sweep.run(full = false) }
+        corpus.evidences.getValue(org).removeIf { it.id == id(2) }
+        corpus.reads.clear()
+        assertEquals(KnowledgeTally(), runBlocking { sweep.run(full = true) })
+        assertEquals(KnowledgeTally(), runBlocking { sweep.run(full = false) })
+        assertEquals(emptyList<UUID>(), corpus.reads)
+    }
+
+    @Test
+    fun `el texto acotado a maxChars no parte un par sustituto`() {
+        evidence(1)
+        corpus.texts[id(1)] = "abcd😀"
+        val sweep = KnowledgeSweep(corpus, store, { listOf(org) }, { _, block -> block() }, clock, chunkChars = 100, overlapChars = 10, maxChars = 5)
+        runBlocking { sweep.run(full = false) }
+        assertEquals(listOf("abcd"), store.chunks.getValue(org to id(1)).third)
     }
 }

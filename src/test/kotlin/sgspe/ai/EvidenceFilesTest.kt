@@ -8,7 +8,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -69,33 +68,38 @@ class EvidenceFilesTest {
     fun `lee los bytes y el tipo`() {
         val bytes = "hola".toByteArray()
         val read = runBlocking { EvidenceFiles(files(stored(4)), store { content(bytes) }).read(organization, fileId, 100) }
-        assertEquals("application/pdf", read!!.contentType)
-        assertArrayEquals(bytes, read.bytes)
+        read as FileRead.Found
+        assertEquals("application/pdf", read.file.contentType)
+        assertArrayEquals(bytes, read.file.bytes)
     }
 
     @Test
-    fun `un archivo que no esta registrado o cuyo tamano pasa el tope no se lee`() {
+    fun `un archivo cuyo tamano pasa el tope no se lee y es definitivo`() {
         var opened = false
         val open = {
             opened = true
             content(ByteArray(1))
         }
         val reader = EvidenceFiles(files(stored(101)), store(open))
-        assertNull(runBlocking { reader.read(organization, fileId, 100) })
+        assertEquals(FileRead.TooLarge, runBlocking { reader.read(organization, fileId, 100) })
         assertTrue(!opened)
-        assertNull(runBlocking { EvidenceFiles(files(null), store { content(ByteArray(1)) }).read(organization, fileId, 100) })
+    }
+
+    @Test
+    fun `un archivo que no esta registrado falta, y se vuelve a intentar`() {
+        assertEquals(FileRead.Missing, runBlocking { EvidenceFiles(files(null), store { content(ByteArray(1)) }).read(organization, fileId, 100) })
     }
 
     @Test
     fun `si los bytes pasan el tope al leerlos tampoco se lee`() {
         val reader = EvidenceFiles(files(stored(5)), store { content(ByteArray(500)) })
-        assertNull(runBlocking { reader.read(organization, fileId, 100) })
+        assertEquals(FileRead.TooLarge, runBlocking { reader.read(organization, fileId, 100) })
     }
 
     @Test
-    fun `un objeto que falta en el almacen es sin texto, con el id en la advertencia`() {
+    fun `un objeto que falta en el almacen falta, con el id en la advertencia`() {
         val reader = EvidenceFiles(files(stored(5)), store { Flux.error(NoSuchFileException("k")) })
-        assertNull(runBlocking { reader.read(organization, fileId, 100) })
+        assertEquals(FileRead.Missing, runBlocking { reader.read(organization, fileId, 100) })
         assertEquals(1, lines.list.size)
         assertTrue(fileId.toString() in lines.list.single().formattedMessage)
         assertNotNull(lines.list.single())
@@ -105,5 +109,22 @@ class EvidenceFilesTest {
     fun `un error de E S pasajero se propaga`() {
         val reader = EvidenceFiles(files(stored(5)), store { Flux.error(java.io.IOException("red")) })
         assertThrows(java.io.IOException::class.java) { runBlocking { reader.read(organization, fileId, 100) } }
+    }
+
+    // el texto de una evidencia para JOB-07 (KnowledgeEvidences): sin archivo o con uno más grande que el tope, sin texto
+    // definitivo; un archivo que falta, no disponible por ahora (la vuelta siguiente lo vuelve a intentar)
+    @Test
+    fun `el corpus distingue sin texto de no disponible`() {
+        val evidence = IndexableEvidence(UUID.randomUUID(), null, "INTERNA", null, fileId)
+        val documents = DocumentText { bytes, _ -> CorpusText.Text(String(bytes)) }
+
+        fun corpus(files: EvidenceFiles) = KnowledgeEvidences(mock(sgspe.common.Records::class.java), files, documents, KnowledgeProperties(maxBytes = 100))
+        val found = corpus(EvidenceFiles(files(stored(4)), store { content("hola".toByteArray()) }))
+        assertEquals(CorpusText.Text("hola"), runBlocking { found.text(organization, evidence) })
+        assertEquals(CorpusText.NoText, runBlocking { found.text(organization, evidence.copy(file = null)) })
+        val large = corpus(EvidenceFiles(files(stored(101)), store { content(ByteArray(1)) }))
+        assertEquals(CorpusText.NoText, runBlocking { large.text(organization, evidence) })
+        val missing = corpus(EvidenceFiles(files(null), store { content(ByteArray(1)) }))
+        assertEquals(CorpusText.Unavailable, runBlocking { missing.text(organization, evidence) })
     }
 }

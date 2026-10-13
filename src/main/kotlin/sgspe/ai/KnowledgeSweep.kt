@@ -19,6 +19,19 @@ data class IndexableEvidence(
     val file: UUID? = null
 )
 
+// el texto de una evidencia para JOB-07: su texto; sin texto, confirmado (sin archivo, más grande que el tope, AI_NO_TEXT o un
+// texto en blanco: el archivo es inmutable, ASM-013, así que no se vuelve a leer en este proceso); o no disponible por ahora
+// (falta el archivo o su objeto, un error inesperado al extraer): se vuelve a intentar en la vuelta siguiente
+sealed interface CorpusText {
+    data class Text(
+        val value: String
+    ) : CorpusText
+
+    data object NoText : CorpusText
+
+    data object Unavailable : CorpusText
+}
+
 // de dónde lee JOB-07 (ai-architecture.md §13.2): KnowledgeEvidences en la app (plan 7.2c, Tarea 9), un doble en las pruebas.
 // corre dentro de Records.asPlatform de la organización
 interface KnowledgeCorpus {
@@ -31,31 +44,40 @@ interface KnowledgeCorpus {
     // las que otra evidencia reemplaza (replaces): sus fragmentos dejan de recuperarse y se borran
     suspend fun replaced(organizationId: UUID): Set<UUID>
 
-    // el texto de su archivo; null si no tiene (un PDF escaneado, una imagen, otro formato: sin OCR en F7, ASM-132)
+    // el texto de su archivo; NoText si no tiene (un PDF escaneado, una imagen, otro formato: sin OCR en F7, ASM-132)
     suspend fun text(
         organizationId: UUID,
         evidence: IndexableEvidence
-    ): String?
+    ): CorpusText
 }
 
-// lo que hizo una vuelta: evidencias indexadas, resincronizadas (proyecto o clasificación), fragmentos borrados y evidencias
-// sin texto
+// lo que hizo una vuelta: evidencias indexadas, resincronizadas (proyecto o clasificación), fragmentos borrados, evidencias
+// sin texto y evidencias cuyo texto no estuvo disponible (quedan para la vuelta siguiente)
 data class KnowledgeTally(
     val indexed: Int = 0,
     val resynced: Int = 0,
     val deleted: Long = 0,
-    val withoutText: Int = 0
+    val withoutText: Int = 0,
+    val unavailable: Int = 0
 ) {
     operator fun plus(other: KnowledgeTally): KnowledgeTally =
-        KnowledgeTally(indexed + other.indexed, resynced + other.resynced, deleted + other.deleted, withoutText + other.withoutText)
+        KnowledgeTally(
+            indexed + other.indexed,
+            resynced + other.resynced,
+            deleted + other.deleted,
+            withoutText + other.withoutText,
+            unavailable + other.unavailable
+        )
 }
 
 // la vuelta de JOB-07 sin candado ni base, para probarla con dobles (como DerivedSweep de JOB-02). por organización: borra los
 // fragmentos de las evidencias reemplazadas; en la vuelta completa, también los de las que ya no existen; indexa las evidencias
 // cambiadas que no tienen fragmentos y resincroniza el proyecto y la clasificación de las que sí (el archivo de una evidencia es
-// inmutable, ASM-013: su texto no cambia). una evidencia sin texto se recuerda en este proceso y no se vuelve a leer. una que
-// falla no detiene a las demás, pero la organización cuenta como fallida: `lastRun` no avanza y la vuelta siguiente vuelve a mirar. nunca
-// llama a un modelo, así que no deja ai_interaction (F7)
+// inmutable, ASM-013: su texto no cambia). una evidencia sin texto se recuerda en este proceso y no se vuelve a leer; una cuyo
+// texto no estuvo disponible queda pendiente en este proceso y la vuelta siguiente la vuelve a leer aunque ya no la liste (la
+// completa lista todas: deja las que ya no existen). una que falla no detiene a las demás, pero la organización cuenta como
+// fallida: `lastRun` no avanza y la vuelta siguiente vuelve a mirar. nunca llama a un modelo, así que no deja ai_interaction
+// (F7). los registros de error llevan solo ids y la clase de la excepción: nunca su mensaje, que podría traer un pedazo del texto
 class KnowledgeSweep(
     private val corpus: KnowledgeCorpus,
     private val store: ChunkStore,
@@ -70,6 +92,9 @@ class KnowledgeSweep(
 
     // las evidencias sin texto que este proceso ya leyó, por organización
     private val withoutText = ConcurrentHashMap.newKeySet<Pair<UUID, UUID>>()
+
+    // las evidencias cuyo texto no estuvo disponible, por organización: la vuelta siguiente las vuelve a leer
+    private val pending = ConcurrentHashMap<Pair<UUID, UUID>, IndexableEvidence>()
 
     @Volatile
     var lastRun: Instant? = null
@@ -88,7 +113,7 @@ class KnowledgeSweep(
                 throw e
             } catch (e: Exception) {
                 failed = true
-                log.error("KnowledgeIndexJob: falló la organización {}", organization, e)
+                log.error("KnowledgeIndexJob: falló la organización {} ({})", organization, e.javaClass.name)
             }
         }
         if (!failed) lastRun = started
@@ -100,7 +125,16 @@ class KnowledgeSweep(
         organizationId: UUID,
         since: Instant?
     ): KnowledgeTally {
-        val evidences = corpus.changed(organizationId, since)
+        val listed = corpus.changed(organizationId, since)
+        // las pendientes de la vuelta anterior: la completa ya lista todas las que existen, y la parcial las suma
+        val retry = pending.keys.filter { it.first == organizationId }.mapNotNull { pending.remove(it) }
+        val evidences =
+            if (since == null) {
+                listed
+            } else {
+                val ids = listed.map { it.id }.toSet()
+                listed + retry.filter { it.id !in ids }
+            }
         val replaced = corpus.replaced(organizationId)
         val indexed = store.indexed(organizationId)
         var deleted = store.delete(organizationId, replaced.filter { it in indexed })
@@ -124,7 +158,7 @@ class KnowledgeSweep(
             } catch (e: Exception) {
                 failures += evidence.id
                 // solo el id: ni el título, ni el nombre del archivo, ni un pedazo del texto
-                log.error("KnowledgeIndexJob: falló la evidencia {} de la organización {}", evidence.id, organizationId, e)
+                log.error("KnowledgeIndexJob: falló la evidencia {} de la organización {} ({})", evidence.id, organizationId, e.javaClass.name)
             }
         }
         check(failures.isEmpty()) { "KnowledgeIndexJob falló en ${failures.size} evidencias de la organización $organizationId" }
@@ -145,12 +179,20 @@ class KnowledgeSweep(
         }
         val key = organizationId to evidence.id
         if (key in withoutText) return KnowledgeTally()
-        val text = corpus.text(organizationId, evidence)
+        val text =
+            when (val read = corpus.text(organizationId, evidence)) {
+                is CorpusText.Text -> read.value
+                CorpusText.NoText -> null
+                CorpusText.Unavailable -> {
+                    pending[key] = evidence
+                    return KnowledgeTally(unavailable = 1)
+                }
+            }
         val bounded =
             text?.let {
-                // el corpus real ya trunca; esto cubre a cualquier otro que no lo haga
+                // el corpus real ya trunca; esto cubre a cualquier otro que no lo haga, sin partir un par sustituto
                 if (it.length > maxChars) log.warn("KnowledgeIndexJob: la evidencia {} pasa {} caracteres; se indexa el comienzo", evidence.id, maxChars)
-                it.take(maxChars)
+                Segmenter.prefix(it, maxChars)
             }
         val segments = bounded?.let { Segmenter.segments(it, chunkChars, overlapChars) }.orEmpty()
         if (segments.isEmpty()) {
