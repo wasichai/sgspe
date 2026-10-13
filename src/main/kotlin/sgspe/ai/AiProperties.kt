@@ -16,8 +16,9 @@ data class AiProperties(
     val prompts: Map<String, String> = emptyMap(),
     val limits: AiLimits = AiLimits()
 ) {
-    // la IA está activada para la organización de ese slug; con la lista vacía, para nadie (la IA viene apagada, ASM-015)
-    fun enabled(slug: String?): Boolean = !slug.isNullOrBlank() && enabledOrganizations.any { it.trim() == slug }
+    // la IA está activada para la organización de ese slug, sin distinguir mayúsculas; con la lista vacía, para nadie (la IA viene
+    // apagada, ASM-015)
+    fun enabled(slug: String?): Boolean = !slug.isNullOrBlank() && enabledOrganizations.any { it.trim().equals(slug, ignoreCase = true) }
 
     fun modelFor(useCase: String): String = models[key(useCase)] ?: error("sgspe.ai.models.${key(useCase)} no está configurado")
 

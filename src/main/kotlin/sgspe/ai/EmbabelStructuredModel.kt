@@ -34,17 +34,20 @@ class EmbabelStructuredModel(
             platform: AgentPlatform,
             request: ModelRequest<T>
         ): ModelResult<T> {
-            val process = platform.createAgentProcess(PLACEHOLDER, ProcessOptions(budget = Budget(actions = 1)), emptyMap())
-            val output =
+            // crear el proceso también va dentro: si falla, es UNAVAILABLE como cualquier otra falla y ModelCalls registra la llamada
+            var started: AgentProcess? = null
+            val (process, output) =
                 try {
+                    val created = platform.createAgentProcess(PLACEHOLDER, ProcessOptions(budget = Budget(actions = 1)), emptyMap())
+                    started = created
                     val runner =
-                        ExecutingOperationContext(NAME, process)
+                        ExecutingOperationContext(NAME, created)
                             .ai()
                             .withLlm(LlmOptions.withModel(request.model).withMaxTokens(request.maxOutputTokens))
-                    (request.system?.let { runner.withSystemPrompt(it) } ?: runner).createObject(request.prompt.text, request.outputClass)
+                    created to (request.system?.let { runner.withSystemPrompt(it) } ?: runner).createObject(request.prompt.text, request.outputClass)
                 } catch (e: Exception) {
                     val truncated = generateSequence<Throwable>(e) { it.cause }.any { it is MaxIterationsExceededException }
-                    throw failure(if (truncated) StructuredModelException.Reason.TRUNCATED else StructuredModelException.Reason.UNAVAILABLE, process, e)
+                    throw failure(if (truncated) StructuredModelException.Reason.TRUNCATED else StructuredModelException.Reason.UNAVAILABLE, started, e)
                 }
             val calls = process.llmInvocations
             return ModelResult(
@@ -61,10 +64,10 @@ class EmbabelStructuredModel(
 
         private fun failure(
             reason: StructuredModelException.Reason,
-            process: AgentProcess,
+            process: AgentProcess?,
             cause: Exception
         ): StructuredModelException {
-            val calls = process.llmInvocations
+            val calls = process?.llmInvocations.orEmpty()
             return StructuredModelException(
                 reason,
                 calls.takeIf { it.isNotEmpty() }?.sumOf { it.usage.promptTokens ?: 0 },

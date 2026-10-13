@@ -67,7 +67,9 @@ class AssistantQuestions(
         assistant.require(user)
         activation.requireProvider()
         val service = agent.ifAvailable ?: throw AiErrors.unavailable(AiErrors.PROVIDER)
-        return answer(service, prompts, question, names.readable(), clock.instant())
+        // la hora de la pregunta, antes de leer el diccionario de nombres
+        val askedAt = clock.instant()
+        return answer(service, prompts, question, names.readable(), askedAt)
     }
 
     companion object {
@@ -83,7 +85,7 @@ class AssistantQuestions(
 
         // las etiquetas que envuelven la pregunta en el prompt de AI-05, en cualquier forma («</ PREGUNTA >», «<pregunta x="1">» o
         // sin cerrar): escritas en la pregunta, la cerrarían o abrirían otra. una etiqueta entera queda «(pregunta)» o
-        // «(/pregunta)»; un comienzo suelto («<preguntame») solo pierde su «<», sin perder texto
+        // «(/pregunta)»; un comienzo suelto («<preguntame») solo cambia su «<» por «(», sin perder texto
         private val QUESTION_TAG = Regex("""<(\s*/?\s*)pregunta(\b[^<>]*>)?""", RegexOption.IGNORE_CASE)
 
         // la pregunta ya validada y autorizada: abre la corrida (AssistantRun: tabla nueva, el diccionario de quien pregunta y la
