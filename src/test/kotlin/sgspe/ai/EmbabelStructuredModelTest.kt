@@ -5,6 +5,7 @@ import com.embabel.agent.spi.loop.MaxIterationsExceededException
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.support.StaticListableBeanFactory
@@ -49,6 +50,9 @@ class EmbabelStructuredModelTest {
         assertEquals(StructuredModelException.Reason.UNAVAILABLE, failure.reason)
         assertEquals(RecordingLlm.INPUT, failure.inputTokens)
         assertFalse("Texto" in failure.message.orEmpty())
+        assertNull(failure.cause)
+        assertEquals(IllegalStateException::class.java.name, failure.causeType)
+        assertFalse("Texto" in failure.causeType.orEmpty())
     }
 
     @Test
@@ -57,5 +61,8 @@ class EmbabelStructuredModelTest {
         llm.failure = MaxIterationsExceededException(20)
         val failure = assertThrows<StructuredModelException> { EmbabelStructuredModel.call(RecordingLlm.platform(llm), request()) }
         assertEquals(StructuredModelException.Reason.TRUNCATED, failure.reason)
+        assertEquals(RecordingLlm.INPUT, failure.inputTokens)
+        assertEquals(RecordingLlm.OUTPUT, failure.outputTokens)
+        assertNull(failure.cause)
     }
 }

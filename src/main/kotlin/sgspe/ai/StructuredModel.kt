@@ -32,7 +32,8 @@ class StructuredModelException(
     val reason: Reason,
     val inputTokens: Int? = null,
     val outputTokens: Int? = null,
-    cause: Throwable? = null
-) : RuntimeException(reason.name, cause) {
+    // solo la clase de la excepción original: su mensaje puede traer texto del prompt o de la respuesta, y no se guarda como causa
+    val causeType: String? = null
+) : RuntimeException(reason.name, null) {
     enum class Reason { UNAVAILABLE, TRUNCATED }
 }
