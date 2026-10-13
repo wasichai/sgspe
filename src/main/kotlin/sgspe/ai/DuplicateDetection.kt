@@ -13,7 +13,9 @@ import sgspe.common.Values
 import tools.jackson.databind.json.JsonMapper
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.NotFoundException
+import wasichai.core.common.PageRequest
 import wasichai.core.common.ValidationException
+import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordResponse
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -328,9 +330,10 @@ class DuplicateDetection(
 
     // los pares ya propuestos como DUPLICADO, en cualquier estado, sobre los registros de la corrida: no se vuelven a proponer. el
     // destino de una sugerencia es siempre uno de los dos del par, así que basta leer las que apuntan a los registros leídos, y
-    // la lectura es acotada: hasta KNOWN_PER_RECORD sugerencias por cada uno de max-records registros de su objeto (si no, 400
-    // TOO_MANY_RECORDS sobre target, como los registros). quien no tiene READ sobre ai_suggestion no ve ninguna, y known() no le
-    // quita nada: el modelo puede volver a comparar un par ya propuesto, pero SuggestionWriter igual descarta la repetición exacta
+    // la lectura es acotada: las más nuevas (created_at descendente), hasta KNOWN_PER_RECORD por cada uno de max-records
+    // registros de su objeto. es lo mejor posible: el historial acumulado nunca es un 400, y un par propuesto hace mucho puede
+    // volver al modelo. quien no tiene READ sobre ai_suggestion no ve ninguna, y known() no le quita nada. en los dos casos
+    // SuggestionWriter igual descarta la repetición exacta
     private suspend fun known(read: List<DuplicateRecord>): Set<Set<UUID>> =
         read
             .groupBy({ it.objectName }, { it.id })
@@ -345,18 +348,33 @@ class DuplicateDetection(
     private suspend fun suggestions(
         objectName: String,
         ids: List<UUID>
-    ): List<RecordResponse> =
+    ): List<RecordResponse> {
+        val cap = (properties.maxRecords.toLong() * KNOWN_PER_RECORD).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val rows = mutableListOf<RecordResponse>()
+        var cursor: String? = null
         try {
-            records.all(
-                SUGGESTION,
-                filters = mapOf("suggestion_kind" to KIND, "target_object" to objectName),
-                criteria = listOf(Criteria.anyOf("target_record_id", ids.distinct())),
-                max = (properties.maxRecords.toLong() * KNOWN_PER_RECORD).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                field = TARGET
-            )
+            do {
+                val page =
+                    records.page(
+                        SUGGESTION,
+                        RecordQuery(
+                            page = PageRequest.of(0, minOf(PageRequest.MAX_SIZE, cap - rows.size)),
+                            sort = CREATED_AT,
+                            descending = true,
+                            filters = mapOf("suggestion_kind" to KIND, "target_object" to objectName),
+                            criteria = listOf(Criteria.anyOf("target_record_id", ids.distinct())),
+                            count = false,
+                            after = cursor
+                        )
+                    )
+                rows += page.content
+                cursor = page.nextCursor
+            } while (cursor != null && rows.size < cap)
         } catch (_: ForbiddenException) {
-            emptyList()
+            return emptyList()
         }
+        return rows.take(cap)
+    }
 
     companion object {
         const val USE_CASE = "AI-07"
@@ -367,6 +385,7 @@ class DuplicateDetection(
 
         // las sugerencias DUPLICADO que known() lee, por registro que se compara
         const val KNOWN_PER_RECORD = 5
+        private const val CREATED_AT = "created_at"
         private val JSON: JsonMapper = JsonMapper.builder().build()
 
         // other_record_id de un suggested_value DUPLICADO; null si no se puede leer

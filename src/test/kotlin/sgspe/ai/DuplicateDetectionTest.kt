@@ -3,6 +3,7 @@ package sgspe.ai
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
@@ -26,9 +27,9 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 // la lectura de AI-07 sobre un RecordService de prueba (ai-architecture.md §4.1, decisión 11 del plan 7.2c): dos quejas iguales
-// del mismo proyecto. las sugerencias ya propuestas se leen por target_record_id de los registros leídos, con un tope de
-// KNOWN_PER_RECORD por cada uno de max-records; pasar el tope con los registros que se comparan es 400 TOO_MANY_RECORDS sobre target; los veredictos que no valen
-// se cuentan como descartados
+// del mismo proyecto. las sugerencias ya propuestas se leen por target_record_id de los registros leídos, las más nuevas
+// hasta un tope de KNOWN_PER_RECORD por cada uno de max-records, sin 400; pasar el tope con los registros que se comparan es
+// 400 TOO_MANY_RECORDS sobre target; los veredictos que no valen se cuentan como descartados
 class DuplicateDetectionTest {
     private val project = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
     private val first = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -79,7 +80,8 @@ class DuplicateDetectionTest {
                     "list" -> {
                         val query = invocation.arguments[1] as RecordQuery
                         queries += objectName to query
-                        val rows = if (objectName == DuplicateDetection.SUGGESTION) suggestions else grievances
+                        // a lo más una página del tamaño pedido, en el orden de la lista
+                        val rows = (if (objectName == DuplicateDetection.SUGGESTION) suggestions else grievances).take(query.page.size)
                         PageResponse.of(rows, 0, rows.size, null, null)
                     }
                     else -> null
@@ -133,10 +135,24 @@ class DuplicateDetectionTest {
     }
 
     @Test
-    fun `mas sugerencias DUPLICADO que su tope tambien es 400 TOO_MANY_RECORDS sobre target, sin llamar al modelo`() {
-        val many = (1..2 * DuplicateDetection.KNOWN_PER_RECORD + 1).map { suggestion(UUID.randomUUID(), UUID.randomUUID()) }
-        val error = assertThrows<WasichaiException> { detect(detection(records(many), unreachable, maxRecords = 2)) }
-        assertEquals("TOO_MANY_RECORDS" to "target", error.violations.single().let { it.message to it.field })
+    fun `con mas sugerencias DUPLICADO que su tope se leen las mas nuevas hasta el tope, sin 400`() {
+        // max-records 2: tope de 2 x KNOWN_PER_RECORD; la del par es la más nueva (el doble devuelve en el orden pedido)
+        val cap = 2 * DuplicateDetection.KNOWN_PER_RECORD
+        val many = listOf(suggestion(second, first)) + (1..cap).map { suggestion(UUID.randomUUID(), UUID.randomUUID()) }
+        val findings = detect(detection(records(many), unreachable, maxRecords = 2))
+        assertNull(findings.interaction)
+        val read = queries.filter { it.first == DuplicateDetection.SUGGESTION }.map { it.second }
+        assertTrue(read.all { it.sort == "created_at" && it.descending }, "$read")
+        assertEquals(cap, read.sumOf { it.page.size })
+    }
+
+    @Test
+    fun `una sugerencia DUPLICADO mas vieja que el tope no se lee y el par vuelve al modelo`() {
+        val cap = 2 * DuplicateDetection.KNOWN_PER_RECORD
+        val many = (1..cap).map { suggestion(UUID.randomUUID(), UUID.randomUUID()) } + suggestion(second, first)
+        val verdicts = DuplicateVerdicts(listOf(DuplicateVerdict(1, true, 0.9)))
+        val findings = detect(detection(records(many), FakeModel { verdicts }, maxRecords = 2))
+        assertEquals(listOf(second to first), findings.proposals.map { it.targetRecordId to it.otherRecordId })
     }
 
     @Test
