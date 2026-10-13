@@ -58,6 +58,21 @@ class PseudonymizerTest {
         assertEquals(text, run(text))
     }
 
+    // una marca de tiempo con fracción (el createdAt de un registro) no es un teléfono ni un documento: «07.924087» parecía un fijo
+    // y se llevaba [TELEFONO_1], y el teléfono real de la respuesta se restauraba con la hora
+    @Test
+    fun `las marcas de tiempo con fraccion quedan como estan`() {
+        for (text in listOf(
+            "creado 2026-10-13T11:23:07.924087Z",
+            "creado 2026-10-13T11:23:07.924087-05:00",
+            "creado 2026-10-13T11:23:09.912345678Z",
+            "creado 2026-10-13 11:23:01.40123456+0000"
+        )) {
+            assertEquals(text, run(text))
+        }
+        assertEquals("[TELEFONO_1] el 2026-10-13T11:23:07.924087Z", run("987654321 el 2026-10-13T11:23:07.924087Z"))
+    }
+
     @Test
     fun `un valor restringido conocido sale con su marcador tipado sin numero`() {
         val restricted = listOf(RestrictedValue(Marker.PERSONA, "Rosa Ccori Ejemplo"), RestrictedValue(Marker.PERSONA, "Flores"))

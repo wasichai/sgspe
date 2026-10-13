@@ -154,11 +154,15 @@ class NameDictionary(
 // preferencia: los valores restringidos conocidos (los de la llamada y los que la tabla ya reservó) con su marcador tipado sin
 // número; los correos, los teléfonos y los documentos de identidad por su formato, y las personas del diccionario, con un marcador
 // de la llamada que guarda `table`, numerado en el orden del texto. los UUID quedan intactos: son los ids con que el modelo pide un
-// registro. nunca lanza con el texto en el mensaje. solo para texto libre: nunca se le pasa un JSON entero (sus números,
-// como un monto o un conteo, se tomarían por documentos o teléfonos); quien lo use sobre resultados de herramientas lo hace por
-// cada valor de texto
+// registro, y también las fechas y horas ISO 8601. nunca lanza con el texto en el mensaje. solo para texto libre: nunca se le pasa
+// un JSON entero (sus números, como un monto o un conteo, se tomarían por documentos o teléfonos); quien lo use sobre resultados de
+// herramientas lo hace por cada valor de texto
 object Pseudonymizer {
     private val UUID_SPAN = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
+
+    // una fecha y hora ISO 8601 (el createdAt de un registro): su fracción de segundo («07.924087») parecería un fijo o un documento
+    private val TIMESTAMP_SPAN =
+        Regex("""(?<!\d)\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:[.,]\d{1,9})?)?(?:Z|[+-]\d{2}(?::?\d{2})?)?(?!\d)""")
 
     // el largo del dominio al principio de `segment` (letras, dígitos, guiones y puntos): etiquetas no vacías y, al final, un punto
     // y dos letras o más. a mano y sin recursión: un dominio con miles de etiquetas no desborda la pila. 0 si no hay dominio
@@ -231,6 +235,7 @@ object Pseudonymizer {
         val text = PseudonymTable.MARKER.replace(Folding.nfc(input)) { "(${it.value.substring(1, it.value.length - 1)})" }
         val taken = java.util.TreeMap<Int, Int>()
         UUID_SPAN.findAll(text).forEach { taken[it.range.first] = it.range.last }
+        TIMESTAMP_SPAN.findAll(text).forEach { taken[it.range.first] = it.range.last }
         val folded = Folding.fold(text)
         val foldedWords = Folding.words(folded)
         val candidates = mutableListOf<Candidate>()
