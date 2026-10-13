@@ -235,7 +235,8 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
   `sgspe.ai`; una prueba de arquitectura lo verifica (§8.2 del modelo de dominio).
 - El servidor fija los límites de cada corrida (`sgspe.ai.limits.*`, ASM-131): tamaño del texto de entrada (200 000
   caracteres por defecto), tokens de salida y acciones por corrida. Embabel limita además a 20 las vueltas de
-  herramientas [WAS-ADR-0015]. Una entrada más grande responde `422 AI_INPUT_TOO_LARGE` antes de llamar al modelo, y una
+  herramientas [WAS-ADR-0015], y no reintenta una acción fallida dentro de la petición
+  (`embabel.agent.platform.action-qos.default.max-attempts: 1`, plan 7.2a). Una entrada más grande responde `422 AI_INPUT_TOO_LARGE` antes de llamar al modelo, y una
   corrida que se queda sin margen responde `502 AI_RUN_TRUNCATED`: ninguna de las dos guarda sugerencias ni candidatos,
   y la `ai_interaction` de cada llamada hecha queda registrada (P6).
 - La llamada al modelo pasa por un puerto propio, `StructuredModel`: recibe el prompt ya seudonimizado, la versión del
@@ -285,18 +286,23 @@ Los ejemplos del prompt ("¿Qué compromisos están vencidos en la Comunidad X?"
 extensión de wasichai-agent, que resuelven UPS-14 (WAS-ADR-0056; en wasichai 1.2.0) (ASM-130):
 
 1. La pantalla de asistente del portal pregunta por `POST /api/sgspe/ai/assistant/questions`. `AssistantQuestions`
-   comprueba que la organización tenga la IA activada (§12.1), abre una tabla de equivalencias nueva (`PseudonymTable`)
-   para la pregunta y la pone en el contexto de la corrutina, llama en proceso a `AgentService.ask` en ese
-   mismo contexto y devuelve la respuesta ya restaurada, con sus pasos y la marca de truncado.
+   comprueba que la organización tenga la IA activada (§12.1), abre la pregunta (`AssistantRun`: una tabla de
+   equivalencias nueva, `PseudonymTable`, y el diccionario de nombres de quien pregunta), seudonimiza la pregunta, la
+   arma con el prompt versionado de AI-05 (§10) y llama en proceso a `AgentService.ask` con la pregunta en la
+   autenticación del contexto de Reactor (`QuestionAuthentication`): wasichai-agent corre las herramientas y los
+   filtros con un contexto nuevo que solo lleva la autenticación que capturó, así que un elemento del contexto de la
+   corrutina no llegaría (plan 7.2a). Devuelve la respuesta ya restaurada, con sus pasos también restaurados y la marca
+   de truncado; la respuesta de una corrida truncada, en español.
 2. **`AiAgentAccess`** (`AgentAccessPolicy`) responde `Denied` si la organización no está activada o si la persona no
    tiene CREATE sobre `ai_interaction`. El alcance lo da el permiso, no una lista de roles ni un literal de rol: con la
    matriz de `security.md` §7.8 quedan fuera, entre otros, `READ_ONLY`, `AUDITOR` y `PROJECT_ADMIN`. Así
    `GET /api/agent/status` también dice `enabled=false` a quien no puede usarlo.
 3. **`PseudonymizingResultFilter`** (`AgentResultFilter`) seudonimiza cada resultado de herramienta y el resumen de cada
-   paso con la tabla de la pregunta y, para el objeto que la herramienta leyó (`input.objectName` o el `object` del
-   registro), reemplaza el valor de todo campo restringido de RQ-SEC-010 por su marcador tipado. La lista de campos
+   paso con la tabla de la pregunta y, para el objeto que la herramienta leyó (el `relatedObject` o el `object` del
+   resultado o, si no trae ninguno, el `object` de la entrada), reemplaza el valor de todo campo restringido de
+   RQ-SEC-010 por su marcador tipado. La lista de campos
    restringidos sale de una sola fuente, `RestrictedFields`, la misma de los agentes propios, y una prueba la compara
-   con `security.md` §7.9. El texto que no es JSON solo se seudonimiza. Sin tabla en el contexto, el filtro falla
+   con `security.md` §7.9. El texto que no es JSON solo se seudonimiza. Sin pregunta en curso, el filtro falla
    cerrado: lanza y nada sale hacia el modelo.
 4. **`RestoringAnswerFilter`** (`AgentAnswerFilter`) restaura los marcadores de la respuesta final con la tabla de la
    pregunta. Los de los campos restringidos enmascarados no se restauran: su marcador queda en la respuesta. La tabla no
@@ -483,6 +489,11 @@ propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto q
   - la cita (`evidence_quote`) solo se muestra, y se re-identifica, a quien además puede abrir la fuente: descargar la
     `evidence` (RF-DOC-003) o, si la fuente es la minuta, leer `minutes` de la `engagement`. La oculta además un permiso de
     campo, también en la API genérica, a los roles sin `DOWNLOAD_RESTRICTED` sobre `evidence` (`security.md` §7.9).
+- **Endurecimiento.** El `Pseudonymizer` reconoce también las variantes parciales de un nombre registrado y los
+  nombres con apóstrofo o guion. Los valores restringidos se buscan como secuencias de palabras y dentro de formatos más largos, con
+  marcadores que nunca se restauran. El texto de entrada con forma de marcador se neutraliza, todo se normaliza a NFC y
+  las etiquetas `<pregunta>` de la pregunta se neutralizan. `ToolResults` falla cerrado ante un JSON ilegible y deja los
+  decimales tal cual; la restauración nunca devuelve un valor reservado.
 - **Aceptación.** Escribe los valores que la persona revisó (§4.2): un actor nuevo solo lleva nombre si quien acepta puede
   escribirlo, y el responsable de un compromiso lo elige quien acepta.
 - Las opiniones políticas, la religión, el proceso electoral y la postura de una persona no forman parte de las herramientas de
