@@ -115,7 +115,7 @@ flowchart LR
 | Destinatarios de entregables | Reciben fuera del sistema los archivos emitidos: DOCX y PDF del nivel INTERNO, y solo PDF de EXTERNO y PUBLICO; el nivel de divulgación decide qué datos personales salen | [USR-01] RQ-REP-014 |
 | Fuentes de datos públicos | Ubigeo del INEI cargado por script; coordenadas y cartografía importadas con su CRS de origen | RF-TER-001, RQ-GIS-003, ASM-016, GAP-011 |
 | Servidor SMTP | Envío de notificaciones por correo, con reintentos | RF-NTF-001, GAP-021 |
-| Proveedor de LLM | IA de F7, intercambiable y desactivada por defecto | RQ-AI-005, RQ-AI-009, GAP-015 |
+| Proveedor de LLM | IA de F7: la API de Anthropic (GAP-015), intercambiable por configuración de Embabel y desactivada por defecto | RQ-AI-005, RQ-AI-009, GAP-015, ASM-128 |
 
 Las integraciones de sistema a sistema (por ejemplo, un canal de contratistas) usarían cuentas de servicio de wasichai; hoy no
 hay ninguna y los contratistas reportan a través del equipo social (RQ-SEC-014, ASM-043, GAP-020) [WAS-ADR-0043].
@@ -641,7 +641,8 @@ flowchart LR
 - **Almacenamiento de objetos:** cualquier servicio compatible con S3 en producción; MinIO solo en desarrollo, por su licencia
   AGPL. Las versiones emitidas pueden ir con bloqueo WORM opcional (RQ-REP-027, ASM-028).
 - **Salidas a Internet:** SMTP y, desde F7, el proveedor de LLM, con texto seudonimizado y sin secretos registrados
-  (RQ-AI-009). La residencia de datos queda en GAP-015.
+  (RQ-AI-009). El proveedor es la API de Anthropic (GAP-015): los datos seudonimizados se procesan fuera del Perú, una
+  consecuencia aceptada (`ai-architecture.md` §11).
 - **Respaldos:** de la base y del almacenamiento de objetos, según la política que fije GAP-022.
 
 ### 10.2 Configuración de producción
@@ -742,7 +743,7 @@ cambió qué y por qué (RQ-AUD-014).
 | 12 | Datos personales en artefactos versionados o en logs | Incumple USR-07 | Verificación local contra una lista de nombres fuera del repositorio; logs sin datos personales | RQ-SEC-018, RQ-SEC-010 |
 | 13 | Trabajos horarios sobre todos los tenants sin volúmenes conocidos | Vueltas largas | Medir antes de optimizar; procesar solo lo cambiado | GAP-027, RQ-DSH-031 |
 | 14 | Licencia de MinIO (AGPL) y disponibilidad de su imagen | Restricción de uso en producción | Cualquier almacenamiento compatible con S3 en producción | GAP-022 |
-| 15 | El catálogo de modelos de Embabel 1.5.2 no conoce los modelos más nuevos | Capacidad de IA menor | Proveedor configurable; revisar al llegar a F7 | [WAS-ADR-0015] GAP-015 |
+| 15 | El catálogo de modelos de Embabel 1.5.3 no conoce los modelos Claude 5 | Calidad menor en la extracción | Modelo configurable por caso; se cambia por configuración cuando el catálogo los sume | [WAS-ADR-0015] ASM-129 |
 | 16 | La API genérica no abre una transacción por petición: una guarda que lee otro registro (el estado de la versión del área de influencia) lo hace bajo un candado que se suelta al volver, y la escritura ocurre después | Ventana de milisegundos en las dos direcciones: un miembro entra en una versión recién aprobada, o sale de una aprobada y la deja sin miembros (RN-TER-003); lo mismo vale para un cambio de la identidad de un borrador (proyecto, tipo o número de versión) que se confirma justo después de que la aprobación tomó el candado | `TerritoryWriteGuard` y la aprobación toman el mismo candado `area_of_influence:<id>`, lo que estrecha la ventana sin cerrarla; las aprobaciones las hace una persona y son escasas. Se cierra con una transacción de petición en la plataforma | UPS-22, RN-TER-003, [WAS-ADR-0038] |
 | 17 | La geometría `boundary` de una versión aprobada del área de influencia no se congela: las guardas de wasichai no ven geometrías (`RecordWrite` solo trae atributos) | Editar `boundary` por la API genérica recalcula el área oficial (`calculated_area_ha`) y con ella KPI-TER-02, sin que haya una versión nueva | Se acepta en F2: `boundary` solo sugiere miembros (RN-TER-004) y la pertenencia, que es lo que se aprueba, sí está congelada: `FROZEN_MEMBERS` congela los miembros y `FROZEN_AREA` la identidad de la versión (proyecto, tipo y número), no los miembros ni el polígono; queda el historial de auditoría. Se cierra si la plataforma deja que una guarda vea las geometrías | [WAS-ADR-0040], RN-TER-003, RN-TER-004, KPI-TER-02 |
 

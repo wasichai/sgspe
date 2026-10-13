@@ -114,8 +114,8 @@ Aceptado en parte (en F1: puertos, correlation id, logs ECS y health checks; top
 
 ### Seguimiento
 
-- Abiertos: GAP-022 (destino, almacenamiento y respaldos), GAP-027, GAP-011 (GeoServer en producción), GAP-015 (proveedor y
-  residencia de datos), UPS-03, ASM-059.
+- Abiertos: GAP-022 (destino, almacenamiento y respaldos), GAP-027, GAP-011 (GeoServer en producción), UPS-03, ASM-059.
+  GAP-015 quedó resuelta el 2026-10-12 (la API de Anthropic, `ai-architecture.md` §11).
 - La parte aceptada rige desde F1; la topología de producción se acepta o se reemplaza al responder GAP-022.
 - Pruebas: `ObservabilityApiTest` (identificador también en un `401`) y `ProdProfileTest` ([security.md §14](../security.md));
   la prueba de humo de F1 (arranque, login, roles y `/admin`; ASM-066).

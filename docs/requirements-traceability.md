@@ -54,12 +54,13 @@ Convenciones:
 | Hueco | Le falta algo que ningún documento define: una prueba o el lugar de un dato. §7.1 dice qué necesita (tipo «Hueco») |
 | Fuera del MVP | Todas sus fases son posteriores a Release 1 (F5 a F8, ASM-044); el diseño existe, pero no entra en el MVP |
 
-Una fila puede llevar varios estados, separados por punto y coma. Cuatro decisiones del checkpoint no tienen GAP ni CON
-propio y por eso no aparecen como Decisión pendiente: ofrecer AI-05 solo a roles sin acceso a campos restringidos
-mientras falte UPS-14 (`security.md` §15), que RF-AIK-005 muestra como Upstream (UPS-14); contar los plazos desde la
-primera recepción al reclasificar una QCS (ASM-072), que RF-GRV-007 muestra como Diseñado; reutilizar `approve_senior`
-de WF-D en el nivel 2 de escalamiento (ASM-030), que RF-WFL-004 muestra como Upstream (UPS-17); y el reparto en releases
-(ASM-044), que fija el estado «Fuera del MVP». El checkpoint aceptó los valores por defecto de GAP-004 y GAP-005, y F4
+Una fila puede llevar varios estados, separados por punto y coma. Tres decisiones del checkpoint no tienen GAP ni CON
+propio y por eso no aparecen como Decisión pendiente: contar los plazos desde la primera recepción al reclasificar una
+QCS (ASM-072), que RF-GRV-007 muestra como Diseñado; reutilizar `approve_senior` de WF-D en el nivel 2 de escalamiento
+(ASM-030), que RF-WFL-004 muestra como Upstream (UPS-17); y el reparto en releases (ASM-044), que fija el estado «Fuera
+del MVP». La cuarta, ofrecer AI-05 solo a roles sin acceso a campos restringidos mientras faltara UPS-14 (ya resuelta),
+la reemplazó la decisión del usuario del 2026-10-12 (ASM-130): RF-AIK-005, RF-AIK-009 y RQ-AI-009 pasan a Diseñado. El
+checkpoint aceptó los valores por defecto de GAP-004 y GAP-005, y F4
 se diseñó con ellos: sus filas de F4 (RF-GRV-001, RF-GRV-006, RF-RSK-001 y RN-RSK-002) pasan a Diseñado.
 
 ## 2. Requisitos funcionales (RF)
@@ -263,11 +264,11 @@ Las 114 RF de `requirements-analysis.md` §6, en su orden. §6.18 (AUD) no tiene
 | RF-AIK-002 | [PRM-01 §9] [ARQ-02] | BC-18 · `sgspe.ai` (agentes Embabel) | `ai_suggestion`, `engagement` | `POST /api/sgspe/ai/runs`; `POST /api/sgspe/ai-suggestions/{id}/accept` | Portal › bandeja de revisión; Relacionamiento: ficha de `engagement` | `AiSuggestionWorkflowApiTest` | F7 | Diseñado; Fuera del MVP |
 | RF-AIK-003 | [PRM-01 §9] [ARQ-02] | BC-18 · `sgspe.ai` (agentes Embabel); `sgspe.commitment` (aceptación) | `commitment_candidate`, `ai_interaction` | `POST /api/sgspe/ai/runs`; `POST /api/sgspe/commitment-candidates/{id}/accept` | Portal › bandeja de revisión | `CommitmentCandidateWorkflowApiTest`; `ai-architecture.md` §15 «Del agente, con StubModel» | F7 | Diseñado; Fuera del MVP |
 | RF-AIK-004 | [PRM-01 §9] [USR-01] | BC-18 · `sgspe.ai` (agentes Embabel); `sgspe.dashboard` (indicadores) | `ai_suggestion`, `project`, `deliverable_section` (desde F8) | `POST /api/sgspe/ai/runs`; `POST /api/sgspe/ai-suggestions/{id}/accept` | Portal › ficha del proyecto y editor de secciones (desde F8) (`ai-architecture.md` §9.3) | `AiSuggestionWorkflowApiTest`; `deliverables.md` §13.2, criterio 20 | F7 | Diseñado; Fuera del MVP |
-| RF-AIK-005 | [PRM-01 §9] [WAS-ADR-0014] | BC-18 · `sgspe.ai` (llamada en proceso al asistente de wasichai-agent) | `ai_interaction` | `POST /api/sgspe/ai/assistant/questions`; `GET /api/sgspe/ai/status` | Portal › pantalla del asistente (`architecture.md` §9.3) | `ai-architecture.md` §15 «De integración»; `security.md` §14 «IA» | F7 | Upstream (UPS-14); Fuera del MVP |
+| RF-AIK-005 | [PRM-01 §9] [WAS-ADR-0014] | BC-18 · `sgspe.ai` (llamada en proceso al asistente de wasichai-agent con `AiAgentAccess`, `PseudonymizingResultFilter`, `RestoringAnswerFilter`, `InteractionRunListener` y `AgentHttpGate`; ASM-130) | `ai_interaction` | `POST /api/sgspe/ai/assistant/questions`; `GET /api/sgspe/ai/status` | Portal › pantalla del asistente (`architecture.md` §9.3) | `ai-architecture.md` §15 «Del agente» y «De integración»; `security.md` §14 «IA» y «Asistente AI-05» | F7 | Diseñado; Fuera del MVP |
 | RF-AIK-006 | [PRM-01 §9] | BC-18 · `sgspe.ai` (agentes Embabel) (JOB-07, RAG) | `ai_interaction`, `evidence`; tabla fija `knowledge_chunk` | `POST /api/sgspe/ai/knowledge/questions` | Portal › Documentos: preguntas sobre documentos (propuesto) | `ai-architecture.md` §15 «De seguridad»; `workflows.md` §Pruebas «Trabajos» | F7 | Diseñado; Fuera del MVP |
 | RF-AIK-007 | [PRM-01 §9] | BC-18 · `sgspe.ai` (agentes Embabel) (reglas deterministas y agente) | `ai_suggestion`, `grievance`, `organization` | `POST /api/sgspe/ai/runs`; `POST /api/sgspe/ai-suggestions/{id}/accept` | Portal › bandeja de revisión | `AiSuggestionWorkflowApiTest` | F7 | Diseñado; Fuera del MVP |
 | RF-AIK-008 | [PRM-01 §9] | BC-18 · `sgspe.ai` (agentes Embabel) | `ai_suggestion`, `grievance`, `inquiry`, `stakeholder_request`, `engagement_question`, `media_mention` | `POST /api/sgspe/ai/runs`; `POST /api/sgspe/ai-suggestions/{id}/accept` | Portal › bandeja de revisión | `AiSuggestionWorkflowApiTest` | F7 | Diseñado; Fuera del MVP |
-| RF-AIK-009 | [PRM-01 §10] | BC-18 · `sgspe.ai` (registro de interacciones) | `ai_interaction` | `POST /api/sgspe/ai/runs`; `POST /api/sgspe/ai/assistant/questions`; `POST /api/sgspe/ai/knowledge/questions` | `/admin` (lectura de `ai_interaction`) (propuesto) | `ai-architecture.md` §15 «De integración»; `AuditApiTest` | F7 | Upstream (UPS-14); Fuera del MVP |
+| RF-AIK-009 | [PRM-01 §10] | BC-18 · `sgspe.ai` (registro de interacciones) | `ai_interaction` | `POST /api/sgspe/ai/runs`; `POST /api/sgspe/ai/assistant/questions`; `POST /api/sgspe/ai/knowledge/questions` | `/admin` (lectura de `ai_interaction`) (propuesto) | `ai-architecture.md` §15 «De integración»; `AuditApiTest` | F7 | Diseñado; Fuera del MVP |
 
 ### 2.19 Catálogos (CAT)
 
@@ -448,7 +449,7 @@ Fuente de las filas: `requirements-analysis.md` §16.
 | RQ-AI-006 | [PRM-01 §10] | BC-18 · `sgspe.ai` (prompts versionados) | `ai_interaction` | `POST /api/sgspe/ai/runs` | — | `ai-architecture.md` §15 «Unitarias» | F7 | Diseñado; Fuera del MVP |
 | RQ-AI-007 | [PRM-01 §21] [WAS-ADR-0015] | BC-18 · `sgspe.ai` (FakeModel, StubModel, MockModel) | — | — | — | `ai-architecture.md` §15 «Unitarias»; `ai-architecture.md` §15 «Del agente, con StubModel» | F7 | Diseñado; Fuera del MVP |
 | RQ-AI-008 | [PRM-01 §9, §20] [ARQ-03] | BC-18 · `sgspe.ai` (JOB-07 y recuperación) | tabla fija `knowledge_chunk`; `evidence` | `POST /api/sgspe/ai/knowledge/questions` | Portal › Documentos: preguntas sobre documentos (propuesto) | `ai-architecture.md` §15 «De seguridad» | F7 | Diseñado; Fuera del MVP |
-| RQ-AI-009 | [PRM-01 §10] [USR-07] | BC-18 · `sgspe.ai` (seudonimización, activación por organización) | `ai_interaction`, `person` | `GET /api/sgspe/ai/status`; `POST /api/sgspe/ai/runs` | — | `security.md` §14 «IA»; `test_apply_roles.py` | F7 | Upstream (UPS-14); Fuera del MVP |
+| RQ-AI-009 | [PRM-01 §10] [USR-07] | BC-18 · `sgspe.ai` (seudonimización, también de los resultados de las herramientas de AI-05; activación por la lista del despliegue, ASM-128) | `ai_interaction`, `person` | `GET /api/sgspe/ai/status`; `POST /api/sgspe/ai/runs`; `POST /api/sgspe/ai/assistant/questions` | — | `security.md` §14 «IA» y «Asistente AI-05»; `test_apply_roles.py` | F7 | Diseñado; Fuera del MVP |
 | RQ-AI-011 | [PRM-01 §26] | BC-18 · `sgspe.ai` (herramientas de solo lectura) | — | `POST /api/sgspe/ai/runs` | — | `ai-architecture.md` §15 «De inyección»; `security.md` §14 «IA» | F7 | Diseñado; Fuera del MVP |
 | RQ-AI-012 | [PRM-01 §9] [USR-01] | BC-15 · `sgspe.deliverable` (`DeliverableWriteGuard`); `sgspe.ai` | `deliverable_section`, `deliverable_version`, `ai_suggestion` | `POST /api/sgspe/ai-suggestions/{id}/accept`; `/api/objects/deliverable_section/records` | Portal › Reportes: editor de secciones | `deliverables.md` §13.2, criterio 20; `DeliverableWorkflowApiTest` | F8 | Diseñado; Fuera del MVP |
 | RQ-AI-013 | [PRM-01 §9] | BC-18 · `sgspe.ai` (herramientas de los agentes) | `stakeholder`, `commitment`, `project`, `evidence` | `POST /api/sgspe/ai/runs` | — | `ai-architecture.md` §15 «De seguridad» | F7 | Diseñado; Fuera del MVP |

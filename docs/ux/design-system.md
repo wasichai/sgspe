@@ -340,7 +340,7 @@ o se compone en el portal.
 | ContextBar, TerritoryChip | Contexto de proyecto y territorio | Chip quitable | `nav` "Contexto" | portal |
 | TraceabilityPanel | Origen y consecuencias de un registro | Dos bloques navegables | Encabezados reales | portal |
 | AiSuggestionCard, AiSummary, AiAnswer | Propuestas, resúmenes y respuestas de IA | Con evidencia, confianza, modelo y fuentes; estado "no disponible" | Marca de procedencia en el nombre accesible | portal |
-| AssistantPanel | Asistente global y contextual (S05) | Modos datos y documentos; "no disponible" con razón y alternativa; organización sin IA | `complementary` con encabezado; la respuesta se anuncia con `role="status"` | portal |
+| AssistantPanel | Asistente global y contextual (S05) | Modos datos y documentos; "no disponible" con la razón; organización sin IA | `complementary` con encabezado; la respuesta se anuncia con `role="status"` | portal |
 | Citation, SourceCard | Fuentes de una respuesta de AI-06 | Llamada numerada; cita literal; clasificación; "fuente restringida" | La llamada enlaza a su fuente; la cita en `blockquote` | portal |
 | ConnectionIndicator | Estado de conexión en el móvil | En línea, sin señal, enviando, conflicto, sesión vencida | Texto además del color; `role="status"` al cambiar | portal |
 | SyncQueueItem, ConflictResolver | Cola local y conflictos de campo (ASM-081) | Por enviar, enviando, enviado, conflicto, error; versión de la oficina frente a la del teléfono | Cada estado con texto; dos salidas explícitas | portal |
@@ -436,7 +436,7 @@ EntityDetailPage
 | Campo o cifra restringidos | Candado y "no disponible", nunca vacío ni cero (RQ-DSH-032) |
 | Sesión vencida (401) | Volver a ingresar sin perder el borrador (WAS-ADR-0031) |
 | Módulo no instalado (404) | "Esta sección llega en una próxima fase", sin error técnico (ADR-0024) |
-| IA no disponible | Por rol (UPS-14), por organización o por falla del proveedor, con la razón |
+| IA no disponible | Por rol (sin CREATE sobre `ai_interaction`, ASM-130), por organización o por falla del proveedor (`503 AI_UNAVAILABLE`), con la razón |
 
 ### 6.6 Auditoría legible
 

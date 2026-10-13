@@ -91,7 +91,7 @@ Donde choca con la Fase 0, la interfaz sigue a la Fase 0:
 | Executive | Usuario principal | No es uno de los 17 roles | Persona con lectura e inicio propio (ASM-074) |
 | Cambio masivo de fecha | Acción masiva | La fecha de un compromiso aprobado solo cambia con una reprogramación (RF-COM-003) | No hay cambio masivo de fecha; se reprograma por compromiso |
 | Evidencia al crear un compromiso | Paso 5 del formulario | La evidencia se exige al registrar el cumplimiento (RN-COM-001) | El formulario de alta no pide evidencia (design-system §6.3) |
-| Asistente para todos | Global y contextual | AI-05 solo para `ANALYST` hasta UPS-14 (checkpoint) | Estado "no disponible para tu rol" diseñado; resúmenes y propuestas revisables sí disponibles |
+| Asistente para todos | Global y contextual | AI-05 para todo rol que pueda registrar `ai_interaction`, seudonimizado (ASM-130) | Estado "no disponible para tu rol" diseñado para los demás (`READ_ONLY`, `AUDITOR`, `PROJECT_ADMIN`); resúmenes y propuestas revisables sí disponibles |
 | Sincronización móvil | "Sync" | Captura sin conexión fuera del MVP (ASM-021, GAP-008) | El usuario decidió diseñarla (ASM-081): cola local, sincronización y conflictos visibles; se implementa después del MVP |
 | Idioma | Etiquetas en inglés | Interfaz en español es-PE con inglés; ENUM en MAYÚSCULAS españolas (RNF-I18N-001, ADR-0009) | El usuario pidió español, inglés y quechua (ASM-084): español por defecto, valores de ENUM traducidos en el portal por clave; `/admin`, metadata y entregables en español; rutas técnicas en inglés (ASM-075) |
 | Montos | "Social investment" | Por moneda, nunca sumadas; PEN por defecto (ASM-063) | Cada total con su moneda; lo de otra moneda, como advertencia |
@@ -117,7 +117,7 @@ los atajos de creación.
 | Aprobador (`APPROVER`) | ¿Qué espera mi aprobación y cumple las reglas? | Aprobaciones | Aprobar con segregación de funciones; resolver quejas de severidad alta |
 | Ejecutivo (`READ_ONLY` o `ANALYST`, ASM-074) | ¿Qué cambió, qué es crítico, dónde y quién lo atiende? | Revisión de 5 minutos | Solo lectura y exportación |
 | Auditor (`AUDITOR`) | ¿Quién cambió qué, cuándo y por qué? | Actividad y auditoría | Lectura de todo el tenant |
-| Analista (`ANALYST`) | ¿Qué dicen los datos del periodo? | Reportes | Único rol con el asistente de preguntas hasta UPS-14 |
+| Analista (`ANALYST`) | ¿Qué dicen los datos del periodo? | Reportes | Usa "Preguntar a los datos" (AI-05, ASM-130), no "Preguntar a los documentos", porque no lee los nombres de `person` |
 | Administración (`PROJECT_ADMIN`, `ORGANIZATION_ADMIN`) | ¿Quién trabaja en qué proyecto y con qué permisos? | Proyectos | Alta y aprobación de proyectos, equipos por asignación; usuarios y roles en `/admin` |
 
 `READ_ONLY` usa el inicio del rol al que acompaña; `SUPER_ADMIN` opera la plataforma y no ve datos de los tenants
@@ -238,9 +238,11 @@ alerta nueva. Cada aviso lleva a la ficha con el contexto puesto y se marca como
 ### 7.5 El asistente de IA en la navegación
 
 No es una sección (ASM-073). El botón "Preguntar" de la barra superior abre el asistente global; dentro de una ficha, el botón
-"Explicar" o "Preguntar sobre…" abre el mismo panel con el registro como contexto. Hasta UPS-14, las preguntas libres solo están
-disponibles para `ANALYST` (RF-AIK-005); el resto ve el estado "no disponible para tu rol" con la razón, y sigue viendo los
-resúmenes y las propuestas revisables. El panel tiene dos modos: "Preguntar a los datos" (AI-05) y "Preguntar a los documentos"
+"Explicar" o "Preguntar sobre…" abre el mismo panel con el registro como contexto. Las preguntas a los
+datos (AI-05) están disponibles para todo rol que pueda registrar `ai_interaction` (RF-AIK-005, ASM-130), y las
+preguntas a los documentos (AI-06), para quien además lee los nombres de `person`; el resto ve el estado "no disponible
+para tu rol" con la razón, y sigue viendo los resúmenes y las propuestas revisables. El panel tiene dos modos:
+"Preguntar a los datos" (AI-05) y "Preguntar a los documentos"
 (AI-06, con citas y nunca sin fuente); su diseño está en [`screens.md`](screens.md) S05 y el recorrido, en el flujo 18.
 
 ## 8. Hilo de contexto y trazabilidad

@@ -3,6 +3,21 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-13 — Plan 7.0: los documentos de F7
+
+Los documentos de diseño quedan al día con la especificación de F7
+(`docs/superpowers/specs/2026-10-12-fase-7-design.md`) antes de tocar el modelo y el código. Las decisiones están en
+[Requisitos](requirements-analysis.md) (ASM-128 a ASM-132; 553 IDs).
+
+- **Proveedor.** La API de Anthropic (GAP-015 resuelta); los datos seudonimizados se procesan fuera del Perú, una
+  consecuencia aceptada. La IA se activa por organización con la lista del despliegue (ASM-128) y el modelo es
+  configurable por caso (ASM-129).
+- **Asistente.** UPS-14 queda resuelta (WAS-ADR-0056): AI-05 se ofrece a todo rol con CREATE sobre `ai_interaction`,
+  con los resultados de las herramientas seudonimizados, los campos restringidos enmascarados y tokens (ASM-130).
+- **Corridas.** Límites del servidor con `AI_INPUT_TOO_LARGE` y `AI_RUN_TRUNCATED` (ASM-131); extracción de PDF y DOCX
+  sin OCR, con `AI_NO_TEXT` (ASM-132); `AI_UNAVAILABLE` sin activación o sin proveedor.
+- **ADR.** ADR-0003 aceptado y ADR-0005 aceptado en su etapa 1; Embabel 1.5.3 en todos los documentos.
+
 ## 2026-10-11 — wasichai 1.2.0: UPS-30 resuelta
 
 El backend pasa a wasichai 1.2.0 (wasichai/wasichai#109, WAS-ADR-067), que responde desde la caché de definiciones lo

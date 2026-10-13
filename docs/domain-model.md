@@ -306,7 +306,7 @@ del prompt [PRM-01 §24] [USR-05]; los indicadores de cada módulo aparecen cuan
 | BC-15 | Reportes, tableros y entregables | Reporting / BI | Se amplía con entregables DOCX y PDF [USR-01] y con el catálogo de indicadores; tableros por módulo desde F2 y consolidados en F8 | Release 3 (consolidado); exportaciones e indicadores por módulo desde Release 1 | F8 (indicadores F2–F6; exportaciones F2–F4) | `sgspe.dashboard` (indicadores), `sgspe.deliverable` (DOCX primero, PDF, emisión), `sgspe.privacy` (divulgación, exportaciones) |
 | BC-16 | Identidad y acceso | Identity / Access Control | Lo provee wasichai (JWT, roles, permisos por objeto, campo y acción) [USR-06]; SGSPE agrega `project_assignment`; el alcance de lectura por proyecto es `ProjectReadScope` (ADR-0029, CON-041) | Release 1 (MVP) | F1 (asignaciones en F2) | `sgspe.scope` |
 | BC-17 | Auditoría | Audit | Lo provee wasichai (`audit_log` con motivo) [WAS-ADR-0040] [WAS-ADR-0041]; SGSPE agrega `export_log` y el identificador de correlación; brechas UPS-02, UPS-03, UPS-05 y UPS-12 (CON-057) | Release 1 (MVP) | F1 (`export_log` en F2) | `sgspe.privacy` (registro de exportaciones), `sgspe.observability` (correlación, ASM-034) |
-| BC-18 | IA y conocimiento | AI / Knowledge | Asistente de solo lectura de wasichai-agent para AI-05, que hasta UPS-14 solo se ofrece a roles sin acceso a campos restringidos (hoy `ANALYST`, decisión pendiente de `security.md` §15), y agentes propios que solo producen sugerencias; RAG diferido (CON-035, CON-044) | Release 3 | F7 | `sgspe.ai` (agentes, seudonimización, registro de interacciones, RAG) |
+| BC-18 | IA y conocimiento | AI / Knowledge | Asistente de solo lectura de wasichai-agent para AI-05, con los resultados de sus herramientas seudonimizados y los campos restringidos enmascarados, para todo rol con CREATE sobre `ai_interaction` (ASM-130), y agentes propios que solo producen sugerencias; RAG diferido (CON-035, CON-044) | Release 3 | F7 | `sgspe.ai` (agentes, seudonimización, registro de interacciones, RAG) |
 | BC-19 | Línea base social | — (nuevo) | Nuevo: DOC-01 dedica sus capítulos 3, 5, 7.1 y 8 al estudio, el contexto socioeconómico, las percepciones y los temas clave (ASM-045) | Release 1 (MVP) | F2 | Ninguno (metadata) |
 | BC-20 | Catálogos | — (nuevo, de soporte) | Nuevo: ENUM compartidos y objetos catálogo (`topic`, `administrative_unit`, `indicator`) para un vocabulario único (RF-CAT-001) | Release 1 (MVP) | F2 | Ninguno; carga del ubigeo con script Python idempotente (RF-TER-001) |
 
@@ -1071,9 +1071,10 @@ de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-00
   `sgspe.warning`, alertas en su estado inicial. Nunca aplican una transición ni vinculan o desvinculan registros
   (RN-WFL-001, CON-043). Son, con la numeración de `workflows.md`: `DeadlineJob` (JOB-01), `DerivedFieldsJob` (JOB-02),
   `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), el trabajador de generación de entregables (JOB-05), la
-  indexación para RAG (JOB-07, F7), que crea registros de `ai_interaction` y escribe la tabla fija `knowledge_chunk`, y
-  la retención (JOB-08), que desde F3 borra con SQL propio, sin `asPlatform`, las claves vencidas de la tabla fija
-  `idempotency_key` y los saltos vencidos de `derived_version` (ASM-065, ASM-091, RNF-INT-002) y desde F8 lee
+  indexación para RAG (JOB-07, F7), que escribe la tabla fija `knowledge_chunk` y solo crearía `ai_interaction` al
+  llamar a un modelo, lo que en F7 no hace, y la retención (JOB-08), que desde F3 borra con SQL propio, sin `asPlatform`, las
+  claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de `derived_version` (ASM-065, ASM-091,
+  RNF-INT-002) y desde F8 lee
   `deliverable` y `deliverable_version` y borra archivos de borradores sin referencia, sin escribir registros de
   wasichai. Para recorrer las organizaciones usan `TenantDirectory`, la forma soportada de listar los tenants desde
   wasichai 0.5.0 (UPS-17). La excepción son las migraciones de datos de `database-model.md` §24 sobre un objeto

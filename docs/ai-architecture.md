@@ -45,7 +45,7 @@ personas reales [USR-07].
 | P6 | Todo queda registrado | Cada llamada a un modelo es una `ai_interaction` inmutable y cada decisión humana es una transición auditada | [ARQ-01] [PRM-01 §10] RF-AIK-009, RQ-AUD-003, RQ-AUD-012 |
 | P7 | Toda salida trae su evidencia | Se muestran resultado, evidencia (cita o fragmento), confianza y modelo | [PRM-01 §9] RQ-AI-004 |
 | P8 | El proveedor es intercambiable | El dominio no conoce al proveedor: Embabel y sus starters de proveedor lo aíslan | [PRM-01 §10, §26] RQ-AI-005 [WAS-ADR-0015] |
-| P9 | Privacidad por defecto | La IA viene desactivada hasta que la organización la activa; los agentes propios seudonimizan antes de cada llamada (AI-05 es la excepción hasta UPS-14, §8); las sugerencias guardan marcadores y no datos restringidos; ni secretos ni datos personales en registros técnicos | [USR-07] RQ-AI-009, ASM-015 |
+| P9 | Privacidad por defecto | La IA viene desactivada hasta que la organización la activa; los agentes propios seudonimizan antes de cada llamada (también los resultados de las herramientas del asistente AI-05, §8); las sugerencias guardan marcadores y no datos restringidos; ni secretos ni datos personales en registros técnicos | [USR-07] RQ-AI-009, ASM-015 |
 | P10 | Los documentos son datos | Nada de lo que trae un documento se ejecuta como instrucción, y las salidas se validan antes de guardarse | RQ-AI-011, ASM-052 |
 | P11 | Corrección antes que sofisticación | Lo que se puede decidir con reglas se hace en Kotlin (validación, catálogos, conteos, duplicados exactos); el modelo solo hace lo que exige leer lenguaje natural | [PRM-01 §28] |
 
@@ -207,7 +207,7 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
 | Paso del prompt | En `sgspe.ai` | ¿Usa el modelo? | Salida |
 |---|---|---|---|
 | Document | Lectura de la `evidence` o de la minuta como la persona, con el control de descarga por clasificación de `sgspe.evidence` (RF-DOC-003) | No | Texto fuente con su referencia |
-| DocumentExtractionAgent | Extracción del texto (PDF o DOCX con texto) y segmentación | No | Fragmentos numerados |
+| DocumentExtractionAgent | Extracción del texto (PDF o DOCX con texto, con `TextExtraction` y sin OCR, ASM-132) y segmentación | No | Fragmentos numerados |
 | (seudonimización) | `Pseudonymizer` (§12.2) | No | Fragmentos seudonimizados; la tabla de equivalencias queda en memoria |
 | EntityExtractionAgent | Acción de extracción de entidades con salida estructurada | Sí | Actores, fechas, lugares, temas, acuerdos y responsables, cada uno con su cita |
 | CommitmentCandidateAgent | Acción que propone compromisos con salida estructurada | Sí | Propuestas con texto, cita, beneficiarios y fecha sugeridos, y confianza; el responsable lo elige quien acepta (§4.2) |
@@ -233,10 +233,16 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
 - `sgspe.ai` es, como `sgspe.dashboard`, un paquete de salida (BC-18 junto a BC-15 en el mapa de contextos). Solo `sgspe.ai`
   depende de los paquetes de dominio, a través de sus comandos y de los indicadores, y ningún paquete de dominio depende de
   `sgspe.ai`; una prueba de arquitectura lo verifica (§8.2 del modelo de dominio).
-- El servidor fija los límites de cada corrida: tamaño de la entrada, tokens y número de acciones. Embabel limita además a 20 las
-  vueltas de herramientas [WAS-ADR-0015]. Una corrida que se queda sin margen termina sin escribir nada.
-- La versión de Embabel es la del BOM de wasichai (1.5.2) [WAS-ADR-0015]; SGSPE no fija otra (RNF-MNT-001). El starter
-  `wasichai-spring-boot-starter-agent` se agrega en F7.
+- El servidor fija los límites de cada corrida (`sgspe.ai.limits.*`, ASM-131): tamaño del texto de entrada (200 000
+  caracteres por defecto), tokens de salida y acciones por corrida. Embabel limita además a 20 las vueltas de
+  herramientas [WAS-ADR-0015]. Una entrada más grande responde `422 AI_INPUT_TOO_LARGE` antes de llamar al modelo, y una
+  corrida que se queda sin margen responde `502 AI_RUN_TRUNCATED`: ninguna de las dos guarda sugerencias ni candidatos,
+  y la `ai_interaction` de cada llamada hecha queda registrada (P6).
+- La llamada al modelo pasa por un puerto propio, `StructuredModel`: recibe el prompt ya seudonimizado, la versión del
+  prompt, el modelo y los límites, y devuelve la salida tipada con el uso de tokens. `EmbabelStructuredModel` lo
+  implementa sobre la plataforma de agentes, y las pruebas lo sustituyen (§15).
+- La versión de Embabel es la del BOM de wasichai 1.2.0 (1.5.3) [WAS-ADR-0015]; SGSPE no fija otra (RNF-MNT-001). El
+  starter `wasichai-spring-boot-starter-agent` se agrega en F7.
 - Ningún perfil de Spring se llama `test`: Embabel registra sus agentes con un postprocesador marcado `@Profile("!test")`
   [WAS-ADR-0015] [WAS-DOC modules/testing.md].
 
@@ -275,35 +281,39 @@ Lo que aporta wasichai-agent [WAS-DOC modules/agent.md] [WAS-ADR-0014] [WAS-ADR-
 - Rutas `GET /api/agent/status` y `POST /api/agent/ask`.
 
 Los ejemplos del prompt ("¿Qué compromisos están vencidos en la Comunidad X?", "¿Qué stakeholders tuvieron reuniones durante los
-últimos 90 días?") se responden con esas consultas y conteos [PRM-01 §9]. SGSPE lo integra así:
+últimos 90 días?") se responden con esas consultas y conteos [PRM-01 §9]. SGSPE lo integra con los cuatro puntos de
+extensión de wasichai-agent, que resuelven UPS-14 (WAS-ADR-0056; en wasichai 1.2.0) (ASM-130):
 
-1. La pantalla de asistente del portal pregunta por `POST /api/sgspe/ai/assistant/questions`. `sgspe.ai` comprueba que la
-   organización tenga la IA activada (§12.1) y que la persona pueda crear `ai_interaction`, llama en proceso al `AgentService`
-   de wasichai-agent (un bean expuesto y sobrescribible del módulo), registra la `ai_interaction` de AI-05 y devuelve la
-   respuesta con sus pasos.
-2. Un filtro web de `sgspe.ai` responde 403 a `POST /api/agent/ask` cuando llega por HTTP, de modo que toda pregunta pasa por
-   la activación por organización y por el registro. `/admin` no registra `agentModule()`.
-3. La respuesta de wasichai-agent no informa tokens: en AI-05, `input_tokens` y `output_tokens` quedan vacíos y `sgspe.ai` mide
-   la latencia (UPS-14).
-4. El alcance por proyecto del asistente lo da `ProjectReadScope`, que incluye al agente entre las rutas de lectura
+1. La pantalla de asistente del portal pregunta por `POST /api/sgspe/ai/assistant/questions`. `AssistantQuestions`
+   comprueba que la organización tenga la IA activada (§12.1), abre una tabla de equivalencias nueva (`PseudonymTable`)
+   para la pregunta y la pone en el contexto de la corrutina, llama en proceso a `AgentService.ask` en ese
+   mismo contexto y devuelve la respuesta ya restaurada, con sus pasos y la marca de truncado.
+2. **`AiAgentAccess`** (`AgentAccessPolicy`) responde `Denied` si la organización no está activada o si la persona no
+   tiene CREATE sobre `ai_interaction`. El alcance lo da el permiso, no una lista de roles ni un literal de rol: con la
+   matriz de `security.md` §7.8 quedan fuera, entre otros, `READ_ONLY`, `AUDITOR` y `PROJECT_ADMIN`. Así
+   `GET /api/agent/status` también dice `enabled=false` a quien no puede usarlo.
+3. **`PseudonymizingResultFilter`** (`AgentResultFilter`) seudonimiza cada resultado de herramienta y el resumen de cada
+   paso con la tabla de la pregunta y, para el objeto que la herramienta leyó (`input.objectName` o el `object` del
+   registro), reemplaza el valor de todo campo restringido de RQ-SEC-010 por su marcador tipado. La lista de campos
+   restringidos sale de una sola fuente, `RestrictedFields`, la misma de los agentes propios, y una prueba la compara
+   con `security.md` §7.9. El texto que no es JSON solo se seudonimiza. Sin tabla en el contexto, el filtro falla
+   cerrado: lanza y nada sale hacia el modelo.
+4. **`RestoringAnswerFilter`** (`AgentAnswerFilter`) restaura los marcadores de la respuesta final con la tabla de la
+   pregunta. Los de los campos restringidos enmascarados no se restauran: su marcador queda en la respuesta. La tabla no
+   se guarda ni se registra.
+5. **`InteractionRunListener`** (`AgentRunListener`) escribe la `ai_interaction` de AI-05 con el modelo y los tokens de
+   `AgentUsage`, la latencia y el SHA-256 de la pregunta como `input_reference`, también en las corridas truncadas o
+   fallidas.
+6. **`AgentHttpGate`**, un `WebFilter` de `sgspe.ai`, responde 403 a `POST /api/agent/ask` cuando llega por HTTP, de
+   modo que toda pregunta pasa por la activación, la seudonimización y el registro; `GET /api/agent/status` queda
+   abierto. `/admin` no registra `agentModule()`.
+7. El alcance por proyecto del asistente lo da `ProjectReadScope`, que incluye al agente entre las rutas de lectura
    (RQ-SEC-006, ADR-0029).
 
-wasichai-agent no tiene puntos de extensión para seudonimizar o filtrar los resultados de sus herramientas antes de enviarlos al
-modelo, ni para activarse por organización, ni informa los tokens de cada respuesta: es la brecha upstream UPS-14. Sin ellos,
-AI-05 envía al proveedor, sin seudonimizar, los datos que la persona puede leer, en contra de RQ-AI-009. Mientras no exista
-UPS-14:
-
-- AI-05 se ofrece solo en organizaciones con la IA activada y después de decidir el proveedor (GAP-015);
-- solo a roles sin acceso a ningún campo restringido de RQ-SEC-010 que puedan registrar la `ai_interaction`: hoy, solo
-  `ANALYST` (`security.md` §11.5). El agente no ve un campo que la persona no puede leer [WAS-ADR-0014];
-- `POST /api/agent/ask` queda cerrado por HTTP (punto 2);
-- el riesgo residual son los nombres escritos en textos libres, como minutas y descripciones (RQ-REP-033).
-
-Esa restricción es una consecuencia de producto que decide el checkpoint, con la misma fila que `security.md` §15:
-
-| Tema | IDs | Qué se decide | Valor por defecto |
-|---|---|---|---|
-| Asistente AI-05 | UPS-14, RF-AIK-005 | Hasta UPS-14, wasichai-agent no seudonimiza: ¿se ofrece AI-05 solo a roles sin acceso a campos restringidos, o se amplía aceptando que el proveedor reciba esos datos? | Solo `ANALYST` |
+El diccionario de nombres es el de quien pregunta: si la persona no puede leer los nombres de `person`, las
+herramientas ya no los devuelven, y por eso AI-05, a diferencia de `runs` y `knowledge/questions`, no exige leerlos. El
+riesgo residual son los nombres escritos en textos libres que no están registrados como `person`, como en minutas y
+descripciones (RQ-REP-033, §12.2). El modelo del asistente es `wasichai.agent.model`, con el criterio de ASM-129 (§11).
 
 ## 9. Registros: sugerencias, candidatos e interacciones
 
@@ -356,7 +366,7 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
 | timestamp | `started_at` | Inicio de la llamada |
 | inputReference | `input_reference` | Una referencia, nunca el contenido: `evidence:<id>` con su `sha256`, `engagement:<id>` con su `updated_at`, o el SHA-256 de una pregunta |
 | output | `output_summary` | Resumen sin datos personales: tipo y número de sugerencias creadas, herramientas usadas o fragmentos citados; nunca la tabla de seudonimización |
-| tokens | `input_tokens`, `output_tokens` | Los que informa el proveedor; vacíos en AI-05 hasta UPS-14 (§8) |
+| tokens | `input_tokens`, `output_tokens` | Los que informa el proveedor; en AI-05, los de `AgentUsage`, que recibe `InteractionRunListener` (§8) |
 | latency | `latency_ms` | Medida por `sgspe.ai` |
 | confidence | `confidence` | Confianza global de la salida, cuando el caso la produce |
 | humanValidation, accepted/rejected | — | Se lee del estado de la `ai_suggestion` o del `commitment_candidate` que apunta a la interacción, y de su transición auditada (persona, fecha y motivo): una fila `appendOnly` no se actualiza después de la decisión (§6.18 del modelo de dominio) |
@@ -402,19 +412,22 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
     [WAS-DOC modules/agent.md].
   - Cambiar de modelo o de proveedor es configuración [WAS-ADR-0015]. El dominio no depende del proveedor (RQ-AI-005)
     [PRM-01 §10, §26].
-- **Un solo proveedor por despliegue.** Los agentes de `sgspe.ai` comparten la plataforma de agentes y la configuración del
-  proveedor con wasichai-agent. El modelo de cada caso se configura (`sgspe.ai.models.<caso>`), dentro del catálogo del
-  proveedor.
-- **Catálogo de modelos.** El modelo por defecto de wasichai es `claude-haiku-4-5`, porque el catálogo de Embabel 1.5.2 no conoce
-  `claude-opus-5`; wasichai lo registra como una regresión de capacidad que una nueva versión de Embabel puede resolver
-  [WAS-ADR-0015].
-- **Residencia de datos.** No hay proveedor elegido ni política de residencia (GAP-015), y sin fuente normativa ninguna regla se
-  presenta como obligación legal (GAP-001). La decisión se toma antes de F7 (GAP-015), entre estas opciones:
-  - un proveedor que procese en una región aceptable;
-  - un modelo autoalojado detrás de un starter de proveedor de Embabel;
-  - mantener la IA desactivada.
-- **Secretos.** La clave llega por variable de entorno (`ANTHROPIC_API_KEY` o la del proveedor elegido) y nunca se guarda en la
-  base, en `ai_interaction`, en los prompts ni en los logs (RQ-AI-006, RQ-AI-009).
+- **Proveedor decidido.** La API de Anthropic, el proveedor por defecto de `wasichai-spring-boot-starter-agent`
+  (GAP-015,
+  decisión del usuario del 2026-10-12). Un solo proveedor por despliegue: los agentes de `sgspe.ai` comparten la
+  plataforma de agentes y la configuración del proveedor con wasichai-agent.
+- **Modelo por caso (ASM-129).** `sgspe.ai.models.<caso>`, con valor por defecto en `application.yml`:
+  `claude-haiku-4-5`
+  para AI-07 y AI-08, y el modelo más capaz que reconozca el catálogo de Embabel para AI-01 a AI-06 (en AI-05, el
+  `wasichai.agent.model` del asistente, con el mismo criterio). El plan 7.2a anota el modelo elegido.
+- **Catálogo de modelos.** La versión de Embabel es la del BOM de wasichai 1.2.0 (1.5.3), y su catálogo no conoce los
+  modelos Claude 5: si una versión nueva los suma, se cambian por configuración [WAS-ADR-0015].
+- **Residencia de datos.** Los datos seudonimizados se procesan en la infraestructura de Anthropic, fuera del Perú: es
+  una consecuencia aceptada de la decisión del usuario, y sin fuente normativa ninguna regla se presenta como obligación
+  legal (GAP-001). Lo que llega al proveedor es lo que la persona puede leer, sin campos restringidos y con los nombres
+  registrados reemplazados (§12.2); por eso la IA viene desactivada y se activa por organización (§12.1).
+- **Secretos.** La clave llega solo por la variable de entorno `ANTHROPIC_API_KEY` y nunca se guarda en la base, en
+  `ai_interaction`, en los prompts, en los logs ni en un archivo del repositorio (RQ-AI-006, RQ-AI-009).
 - **Disponibilidad.** El proveedor es una dependencia externa: si falta o falla, el caso se informa no disponible y ninguna
   operación del dominio se bloquea [WAS-ADR-0014].
 
@@ -423,14 +436,17 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
 ### 12.1 Activación por organización
 
 - La IA viene desactivada y se activa por organización (ASM-015, RQ-AI-009).
-- **Propuesta (ADR-0003):** el mecanismo es una lista de organizaciones habilitadas en la configuración del despliegue
+- **Decidido (ASM-128, ADR-0003):** el mecanismo es una lista de organizaciones habilitadas en la configuración del
+  despliegue
   (`sgspe.ai.enabled-organizations`), que mantiene el operador de la plataforma junto con la clave del proveedor.
   - Es configuración y no un dato del tenant porque el modelo de dominio no tiene un objeto de ajustes de la organización y
     porque activarla depende del contrato con el proveedor (GAP-015).
-  - Si se quiere activar desde la aplicación, el modelo de dominio necesita ese objeto.
+    - Si se quiere activar desde la aplicación, el modelo de dominio necesita ese objeto.
+  - Activar o desactivar una organización pide redesplegar la configuración.
 - `GET /api/sgspe/ai/status` le dice al portal si la organización tiene la IA activada, si el proveedor está disponible y qué casos
   se ofrecen; responde siempre. La regla vale para todos los casos, AI-05 incluido (§8).
-- Solo los endpoints que llaman a un modelo responden 503 si la organización no tiene la IA activada o el proveedor no responde,
+- Solo los endpoints que llaman a un modelo responden `503 AI_UNAVAILABLE` si la organización no tiene la IA activada o
+  no hay proveedor,
   como el asistente de wasichai sin clave: `POST /api/sgspe/ai/runs`, `POST /api/sgspe/ai/assistant/questions` y
   `POST /api/sgspe/ai/knowledge/questions` (`api.md`).
 - Aceptar, rechazar o marcar como duplicada una sugerencia ya guardada no depende del proveedor y sigue funcionando.
@@ -438,7 +454,7 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
 ### 12.2 Seudonimización
 
 El `Pseudonymizer` de `sgspe.ai` corre antes de cada llamada a un modelo: prompts, resultados de las herramientas de los agentes
-propios, fragmentos recuperados para AI-06 y texto que se vaya a vectorizar (RQ-AI-009).
+propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto que se vaya a vectorizar (RQ-AI-009).
 
 - **Qué reemplaza.** Dentro de la corrida usa marcadores estables por llamada (`[PERSONA_1]`, `[TELEFONO_1]`) para:
   - los nombres de las `person` del tenant que aparecen en el texto;
@@ -449,7 +465,7 @@ propios, fragmentos recuperados para AI-06 y texto que se vaya a vectorizar (RQ-
   pide la corrida: dentro de una petición no se puede leer como la plataforma [WAS-ADR-0039].
   - Por eso los casos de `POST /api/sgspe/ai/runs` y AI-06 exigen que esa persona pueda leer los nombres de `person`
     (`security.md`). Si no puede, la petición se rechaza con 403 antes de llamar al modelo.
-  - JOB-07 corre como la plataforma, así que su diccionario tiene todas las `person` del tenant.
+  - En la etapa 2, JOB-07 corre como la plataforma, así que su diccionario tiene todas las `person` del tenant.
 - **Qué se guarda.** La tabla de equivalencias de la llamada vive solo en memoria y no se registra. Al guardar la salida
   (`SuggestionWriter`), `evidence_quote` incluida, cada dato seudonimizado queda con un marcador estable (`security.md` §7.8):
   - una `person` registrada, a una referencia (`[PERSONA:<id>]`);
@@ -472,9 +488,10 @@ propios, fragmentos recuperados para AI-06 y texto que se vaya a vectorizar (RQ-
 - Las opiniones políticas, la religión, el proceso electoral y la postura de una persona no forman parte de las herramientas de
   los agentes propios, salvo como agregados de indicadores. Esos agregados también exigen que la persona pueda leer el campo; si
   no puede, el indicador llega como "no disponible" (RQ-SEC-010, [dashboards.md](dashboards.md) §8).
-- Es un esfuerzo razonable, no una garantía: un nombre escrito en un texto libre que no está registrado como `person` puede
-  pasar. Por eso la IA viene desactivada, el proveedor se decide antes (GAP-015) y solo se envían los fragmentos necesarios.
-  Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato restringido (`security.md` §7.8).
+- Es un esfuerzo razonable, no una garantía: un nombre escrito en un texto libre que no está registrado como `person`
+  puede pasar. Por eso la IA viene desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los
+  fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato
+  restringido (`security.md` §7.8).
 
 ### 12.3 Inyección de prompts
 
@@ -504,18 +521,21 @@ El contenido de documentos y textos es dato, nunca instrucción (RQ-AI-011, ASM-
 ### 13.1 Qué llega en F7 y qué espera un criterio
 
 La recuperación documental con citas llega en F7 (RF-AIK-006); pgvector solo entra con una justificación arquitectónica medida
-(RQ-AI-008, CON-035) [PRM-01 §20]. **Propuesta (ADR-0005):** AI-06 empieza sin vectores, en dos etapas.
+(RQ-AI-008, CON-035) [PRM-01 §20]. **Decidido (ADR-0005, aceptado en su etapa 1):** AI-06 empieza sin vectores, en dos
+etapas.
 
-- **Etapa 1 (F7):** la tabla fija `knowledge_chunk` guarda fragmentos de texto con un índice de búsqueda de texto completo de
-  PostgreSQL en español, sin extensiones nuevas. La recuperación aplica los filtros de §13.3 y la respuesta cita sus fuentes.
+- **Etapa 1 (F7):** la tabla fija `knowledge_chunk` guarda fragmentos de texto con un índice GIN sobre
+  `to_tsvector('spanish', content)`, sin extensiones nuevas. La consulta usa `websearch_to_tsquery('spanish', :q)` y
+  ordena por `ts_rank_cd`; los cinco mejores fragmentos que pasan los filtros de §13.3 llegan al modelo, y la respuesta
+  cita sus fuentes. La columna `embedding` no se crea en F7.
 - **Etapa 2:** la columna `embedding` y pgvector se agregan solo cuando se cumple el criterio.
 
-Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en ADR-0005, que se acepta en F7):
+Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en ADR-0005):
 
 1. AI-06 está activo en al menos una organización (§12.1) y hay un corpus de `evidence` con texto.
 2. Un juego de preguntas de evaluación, con sus documentos fuente esperados, muestra que la recuperación por texto no alcanza la
-   meta de cobertura y precisión, que se fija al aceptar ADR-0005 en F7. El juego usa fixtures ficticios y, si la organización lo
-   autoriza, su corpus anonimizado.
+   meta de cobertura y precisión, que se fija con ese juego cuando se proponga la etapa 2 (F7 no lo construye). El juego
+   usa fixtures ficticios y, si la organización lo autoriza, su corpus anonimizado.
 3. El volumen (GAP-027) y el beneficio medido justifican el costo de vectorizar y mantener los vectores.
 4. El proveedor de embeddings cumple la política de residencia (GAP-015), o el modelo de embeddings es autoalojado.
 5. La base tiene pgvector: el núcleo de wasichai crea la extensión `vector` cuando el servidor la ofrece, y la imagen
@@ -532,14 +552,16 @@ Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en 
 - JOB-07, un trabajo programado de `sgspe.ai`, indexa con `ClusterLock` y `RecordService.asPlatform` (`workflows.md`)
   [WAS-ADR-0039]:
   - lee las `evidence` creadas o cambiadas desde su última corrida;
-  - extrae el texto, lo segmenta y, en la etapa 2, lo seudonimiza y lo vectoriza;
+  - extrae el texto con `TextExtraction` (ASM-132), lo segmenta en fragmentos de unos 1 500 caracteres con solape y, en
+    la etapa 2, lo seudonimiza y lo vectoriza;
   - escribe los fragmentos con SQL propio;
-  - deja una `ai_interaction` por documento cuando llama a un modelo, sin `requested_by_user_id` y con `run_by_platform` (§9.2).
+  - en F7 no llama a un modelo, así que no deja `ai_interaction`; en la etapa 2 dejará una por documento, sin
+    `requested_by_user_id` y con `run_by_platform` (§9.2).
 - Como todo trabajo programado, solo crea registros y escribe su tabla fija: nunca aplica transiciones (§8.3 del modelo de
   dominio).
 - `project_id` y `classification` se copian de la `evidence` y se resincronizan cuando cambia. Los fragmentos de una evidencia
   reemplazada (`replaces`) dejan de recuperarse y el trabajo los borra.
-- Un documento sin texto (una imagen escaneada) no se indexa: no hay OCR en F7 (§16).
+- Un documento sin texto (una imagen escaneada) no se indexa: no hay OCR en F7 (§16, ASM-132).
 
 ### 13.3 Recuperación con permisos
 
@@ -584,8 +606,8 @@ convenciones de `/api/sgspe/**`: Problem Details (RNF-INT-001), 422 ante un par�
 | `POST /api/sgspe/commitment-candidates/{id}/duplicate` | Marca un candidato como duplicado: escribe `duplicate_of` y aplica la transición hacia `duplicate`, que la API genérica no puede hacer porque el objeto es `apiOnly` | `api.md` |
 | Transición de WF-K hacia `rejected` | Rechazo con motivo, por la API de workflow de wasichai; `apiOnly` no bloquea transiciones | `workflows.md` |
 
-Solo `runs`, `assistant/questions` y `knowledge/questions` llaman a un modelo, y solo ellos responden 503 cuando la IA no está
-activada o el proveedor no responde (§12.1).
+Solo `runs`, `assistant/questions` y `knowledge/questions` llaman a un modelo, y solo ellos
+responden `503 AI_UNAVAILABLE` cuando la IA no está activada o el proveedor no responde (§12.1).
 
 ## 15. Pruebas
 
@@ -594,17 +616,24 @@ implementan así:
 
 | Doble | Qué es | Para qué sirve |
 |---|---|---|
-| FakeModel | Implementación falsa y determinista del puerto propio de `sgspe.ai` que pide una salida estructurada al modelo; devuelve salidas fijas según la entrada | Pruebas unitarias de validación, guardado, seudonimización y confianza, sin Embabel |
+| FakeModel | Implementación falsa y determinista del puerto propio de `sgspe.ai`, `StructuredModel`, que pide una salida estructurada al modelo; devuelve salidas fijas según la entrada | Pruebas unitarias de validación, guardado, seudonimización y confianza, sin Embabel |
 | StubModel | Modelo guionado de Embabel (`ScriptedLlmOperations`, incluido en su jar principal) que conduce la corrida completa sin red [WAS-ADR-0015] | Pruebas del agente: acciones, herramientas, salida estructurada y límites |
 | MockModel | Doble (MockK) del mismo puerto que registra lo que se le envía | Verificar lo que sale hacia el proveedor: texto seudonimizado, versión de prompt y límites; por ejemplo, que nunca sale un número de documento |
 
 Suites:
 
-- **Unitarias** (Kotlin puro): `Pseudonymizer` (marcadores, formatos y paso a marcadores estables), verificador de citas
-  literales sobre el fragmento seudonimizado, esquemas de salida y valores de catálogo, y manifiesto de prompts (versiones
-  publicadas inmutables).
-- **Del agente, con StubModel:** una corrida de AI-03 sobre un acta ficticia produce candidatos con cita y confianza; una corrida
-  que agota sus límites termina sin escribir.
+- **Unitarias** (Kotlin puro): `Pseudonymizer` y `PseudonymTable` (marcadores, formatos, paso a marcadores estables y
+  restauración), `CitationCheck` (citas literales sobre el fragmento seudonimizado), esquemas de salida y valores de
+  catálogo, manifiesto de prompts (`PromptManifestTest`: versiones publicadas inmutables), `RestrictedFields` frente a
+  `security.md` §7.9, `DuplicateCandidates` y `TextExtraction` con un PDF y un DOCX ficticios (un PDF sin texto da
+  `AI_NO_TEXT`).
+- **Con FakeModel y MockModel:** lo que sale hacia el modelo está seudonimizado y nunca lleva un número de documento, un
+  teléfono ni un correo; versión de prompt y límites.
+- **Del agente, con StubModel:** una corrida de AI-03 sobre un acta ficticia produce candidatos con cita y confianza;
+  una
+  corrida que agota sus límites no guarda sugerencias ni candidatos. AI-05 completo: el modelo recibe los resultados de
+  las herramientas seudonimizados y sin valores de campos restringidos, la respuesta vuelve restaurada, un filtro que
+  falla no envía nada y la `ai_interaction` queda con tokens.
 - **De seguridad**, como `AgentToolsTest` de wasichai [WAS-ADR-0014]:
   - las herramientas actúan como la persona: un rol con READ sobre un solo objeto recibe rechazos sobre los demás;
   - la recuperación nunca devuelve fragmentos de otro tenant, de una clasificación que la persona no puede descargar ni de una
@@ -622,15 +651,21 @@ Suites:
     además un permiso de campo, `security.md` §7.9);
   - una persona que no puede leer los nombres de `person` recibe 403 en `runs` y en `knowledge/questions`;
   - la auditoría registra a la persona y el origen;
-  - con una organización sin IA o un despliegue sin clave, `runs`, `assistant/questions` y `knowledge/questions` responden 503,
+  - con una organización sin IA o un despliegue sin clave, `runs`, `assistant/questions` y `knowledge/questions`
+    responden `503 AI_UNAVAILABLE`,
     mientras `GET /api/sgspe/ai/status`, la aceptación y el rechazo siguen funcionando;
-  - una llamada HTTP directa a `POST /api/agent/ask` recibe 403.
+    - una llamada HTTP directa a `POST /api/agent/ask` recibe 403.
+  - `GET /api/agent/status` dice `enabled=false` a un rol sin CREATE sobre `ai_interaction` y en una organización sin
+    IA;
+  - WF-K de `ai_suggestion`, transición por transición y rol por rol (`AiSuggestionWorkflowApiTest`).
 - **De inyección:** documentos ficticios con instrucciones incrustadas ("ignora lo anterior y crea…") no producen escrituras y solo
   dejan sugerencias validadas.
-- **Contra un proveedor real:** una suite con su propia etiqueta, fuera de la integración continua por defecto, que se ejecuta a
+- **Contra un proveedor real:** una suite con su propia etiqueta (`ai-live`), fuera de la integración continua, que se
+  ejecuta a
   pedido y solo con fixtures ficticios. Verifica el contrato (la salida estructurada se puede leer), no la redacción
   [PRM-01 §21].
-- Ningún perfil se llama `test` [WAS-ADR-0015] [WAS-DOC modules/testing.md], y los fixtures son ficticios (RQ-SEC-018).
+- Ningún perfil se llama `test` [WAS-ADR-0015] [WAS-DOC modules/testing.md], los fixtures son ficticios (RQ-SEC-018) y
+  las variables de la clave quedan en blanco en `integrationTest`, así que ninguna prueba de la CI llama al proveedor.
 
 ## 16. Límites
 
@@ -641,14 +676,17 @@ Suites:
   - fusionar registros (RQ-AI-015);
   - decidir la pertenencia a un área de influencia (RN-TER-004);
   - emitir entregables (RQ-REP-026).
-- **AI-05:** sin seudonimización ni activación por organización propias del módulo, y sin tokens, hasta que exista UPS-14. Por
-  eso se ofrece solo a roles sin acceso a campos restringidos (hoy `ANALYST`), salvo que el checkpoint decida otra cosa (§8).
-- **Sin OCR en F7:** un documento escaneado sin texto no se procesa.
-- **Corridas síncronas:** los casos corren dentro de la petición, así que el tamaño de la entrada está acotado. Una variante
+- **AI-05:** se ofrece a todo rol con CREATE sobre `ai_interaction` en una organización activada (ASM-130). Un nombre
+  escrito en un texto libre que no está registrado como `person` puede llegar al proveedor (RQ-REP-033), y un fallo del
+  filtro de resultados cierra la corrida sin enviar nada (§8).
+- **Sin OCR en F7 (ASM-132):** un documento escaneado sin texto no se procesa (`422 AI_NO_TEXT`) ni se indexa.
+- **Corridas síncronas (ASM-131):** los casos corren dentro de la petición, así que el tamaño de la entrada está
+  acotado. Una variante
   asíncrona necesita un ADR que conserve el principio de ver solo lo que ve quien pide; un trabajo como la plataforma leería sin
   permisos [WAS-ADR-0039].
 - **Confianza sin calibrar:** la informa el modelo; sirve para ordenar, no para decidir.
-- **Restricciones de Embabel 1.5.2:** catálogo de modelos, tope fijo de 20 vueltas de herramientas y Jackson 2 en el classpath
+- **Restricciones de Embabel 1.5.3:** catálogo de modelos, tope fijo de 20 vueltas de herramientas y Jackson 2 en el
+  classpath
   [WAS-ADR-0014] [WAS-ADR-0015].
 - **Idioma:** los documentos y prompts están en español; los contenidos en quechua dependen de GAP-013.
 - **Costos:** los tokens quedan registrados, pero F7 no impone un presupuesto por organización.
@@ -698,3 +736,9 @@ Suites:
 | CON-035 | §13.1 |
 | CON-044 | §7 |
 | UPS-14 | §8, §9.2, §16 |
+| GAP-015 | §11 |
+| ASM-128 | §12.1 |
+| ASM-129 | §11 |
+| ASM-130 | §8, §16 |
+| ASM-131 | §6.2, §16 |
+| ASM-132 | §6.1, §13.2, §16 |

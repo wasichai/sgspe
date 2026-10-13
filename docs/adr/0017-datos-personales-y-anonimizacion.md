@@ -70,9 +70,10 @@ Se adopta la tercera opción, dentro de una política de cinco piezas ([security
    (RQ-DSH-032, ADR-0016).
 4. **Fuera de los datos de negocio.** Los logs no llevan datos personales y la línea de acceso omite la cadena de consulta;
    los avisos nombran el registro y el evento, nunca valores restringidos; GeoServer no registra los cuerpos de GetMap
-   (ADR-0015). La IA se activa por organización. Los agentes propios de `sgspe.ai` seudonimizan antes de llamar al
-   modelo (RQ-AI-009, ADR-0004); el asistente AI-05 de wasichai-agent no lo hace hasta UPS-14, y por eso solo se ofrece a
-   roles sin acceso a campos restringidos, hoy `ANALYST` ([security.md §11.5 y §15](../security.md), ADR-0003).
+   (ADR-0015). La IA se activa por organización. Los agentes propios de `sgspe.ai` y el asistente AI-05 seudonimizan
+   antes de llamar al modelo (RQ-AI-009, ADR-0004); en AI-05, los resultados de las herramientas pasan por el
+   `Pseudonymizer` y los campos restringidos se enmascaran siempre (UPS-14 resuelta, ASM-130,
+   [security.md §11.5](../security.md), ADR-0003).
 5. **Artefactos versionados sin datos reales** (RQ-SEC-018): ningún nombre real, DNI, teléfono, número de partida ni dato de
    comprobante en documentos, semillas, fixtures, pruebas, prompts ni ejemplos. Se usan cargos y nombres claramente
    ficticios ("Persona Ejemplo 1"), correos `@sgspe.test` y topónimos reales. Antes de cada commit, una búsqueda local
@@ -100,8 +101,8 @@ Se adopta la tercera opción, dentro de una política de cinco piezas ([security
 ### Seguimiento
 
 - Abiertos: GAP-001, GAP-014, GAP-022, GAP-024, GAP-031, CON-041 y la restricción del vínculo `stakeholder` de las QCS,
-  que decide el checkpoint ([security.md §15](../security.md)). UPS-14: mientras no exista, AI-05 no seudonimiza y por eso
-  solo se ofrece a roles sin acceso a campos restringidos (`security.md` §15).
+  que decide el checkpoint ([security.md §15](../security.md)). UPS-14 quedó resuelta (WAS-ADR-0056): desde F7, AI-05
+  seudonimiza los resultados de sus herramientas (ASM-130).
 - Rige desde F0 para los artefactos versionados, F2 para permisos de campo y exportaciones, F3 para evidencias y F8 para
   entregables.
 - Pruebas: "Permisos de campo", "Salidas", "Descargas", "IA" y "Nombres reales" de [security.md §14](../security.md);
@@ -109,9 +110,9 @@ Se adopta la tercera opción, dentro de una política de cinco piezas ([security
 
 ## Referencias
 
-- Requisitos: RQ-SEC-010, RQ-SEC-018, RQ-REP-014, RQ-REP-022, RQ-REP-026, RQ-REP-033, RQ-AUD-011, RQ-AI-009, RQ-GIS-015,
-  RQ-DSH-032, RNF-PRIV-004, RF-COM-001, CON-014, CON-041, ASM-018, ASM-037, GAP-001, GAP-014, GAP-022, GAP-024, GAP-031,
-  UPS-14.
+- Requisitos: RQ-SEC-010, RQ-SEC-018, RQ-REP-014, RQ-REP-022, RQ-REP-026, RQ-REP-033, RQ-AUD-011, RQ-AI-009,
+  RQ-GIS-015, RQ-DSH-032, RNF-PRIV-004, RF-COM-001, CON-014, CON-041, ASM-018, ASM-037, GAP-001, GAP-014, GAP-022,
+  GAP-024, GAP-031, UPS-14, ASM-130.
 - Documentos: [security.md §7.8, §7.9, §11, §12, §14 y §15](../security.md), [deliverables.md §2, §9 y §10](../deliverables.md),
   [domain-model.md §4.9](../domain-model.md), [database-model.md §25 y §26](../database-model.md),
   [requirements-analysis.md §14](../requirements-analysis.md).
