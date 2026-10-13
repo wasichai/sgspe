@@ -229,15 +229,14 @@ class RunSources(
         // los tableros de gestión que resume AI-04
         val SUMMARY_DASHBOARDS = listOf(Kpis.STAKEHOLDERS, Kpis.ENGAGEMENT, Kpis.COMMITMENTS, Kpis.ATTENTION, Kpis.RISKS, Kpis.INVESTMENT)
 
-        // los nombres, teléfonos y correos de los asistentes: salen con su marcador sin número y nunca se restauran
-        fun restricted(participants: List<RecordResponse>): List<RestrictedValue> =
-            participants.flatMap { row ->
-                listOfNotNull(
-                    Values.text(row.attributes["participant_name"])?.let { RestrictedValue(Marker.PERSONA, it) },
-                    Values.text(row.attributes["phone"])?.let { RestrictedValue(Marker.TELEFONO, it) },
-                    Values.text(row.attributes["email"])?.let { RestrictedValue(Marker.CORREO, it) }
-                )
+        // los nombres, teléfonos y correos de los asistentes: salen con su marcador sin número y nunca se restauran; los campos y
+        // sus marcadores son los de RestrictedFields (una sola fuente)
+        fun restricted(participants: List<RecordResponse>): List<RestrictedValue> {
+            val fields = RestrictedFields.of("engagement_participant")
+            return participants.flatMap { row ->
+                fields.mapNotNull { (field, marker) -> Values.text(row.attributes[field])?.let { RestrictedValue(marker, it) } }
             }
+        }
 
         // «- KPI-COM-03 Compromisos vencidos: 4 %» o «no disponible»
         fun indicatorLine(value: IndicatorValue): String =
