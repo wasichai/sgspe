@@ -6,7 +6,7 @@ relacionamiento, compromisos y acuerdos: S06 a S26 y S28 a S33), la **parte 3a**
 riesgos y alerta temprana; programas e inversión; documentos, tareas y aprobaciones: S35 a S48, S57 a S61 y la ficha de
 incidente) y la **parte 3b** (tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27,
 S34, S49 a S55 y S62, el tablero de riesgos), y S56 (gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7).
-S63 (calidad de datos, F6) se suma en el plan 6.0.
+S63 (calidad de datos, F6) se suma en el plan 6.0, y S64 (plantillas de entregables, F8), en el plan 8.0.
 La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
 
 - **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>; **lienzo de la etapa 3:**
@@ -1481,8 +1481,10 @@ disponible", nunca cero (RQ-DSH-032). Las cifras salen de `GET /api/sgspe/dashbo
 - **Disposición y componentes:** "Lo que necesita atención hoy" (lista ordenada por regla fija, no por IA); tiles de
   KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-EXE-02 y KPI-ENG-01; un tile de postura "no disponible";
   medidor de KPI-INV-03 por moneda; tres líneas de KPI-EXE-03; tabla por proyecto.
-- **Datos y API:** tablero `executive` (`dashboards.md` §5.1).
-- **Estados:** sin proyectos asignados, vacío con enlace a Proyectos; un KPI sin permiso, "no disponible".
+- **Datos y API:** tablero `executive` (`dashboards.md` §5.1, `api.md` §4.11): las tiles, KPI-INV-03 por moneda,
+  KPI-EXE-03 y `byProject[]`.
+- **Estados:** sin proyectos asignados, vacío con enlace a Proyectos; un KPI sin permiso, "no disponible"; más de 25
+  proyectos, `400 TOO_MANY_RECORDS`: «acote los filtros».
 - **Permisos:** la postura (`stance`) no llega a los roles que no la leen (`dashboards.md` §8).
 - **Responsive:** "Lo que necesita atención" primero; tiles en dos columnas; la tabla pasa a tarjetas por proyecto.
 - **Relacionadas y navegación:** cada cifra abre su lista filtrada; S27, S34, S62, monitoreo.
@@ -1500,10 +1502,15 @@ ExecutiveReviewPage
 - **Ruta y lienzo:** `/dashboards/monitoring` (sección Dashboard) · hoja `Tab-Monitoreo` (interactiva: periodo y rol) · F8.
 - **Propósito:** ¿cómo van los 13 indicadores del plan de relaciones comunitarias en el periodo?
 - **Roles:** lectura para quien lee al menos uno de sus KPI.
-- **Acciones:** elegir periodo; abrir el detalle de un indicador.
+- **Acciones:** elegir periodo; abrir el detalle de un indicador; «Cerrar periodo» para quien tiene CREATE sobre
+  `indicator_measurement`, un diálogo con el periodo y el proyecto o todo el tenant que explica el `409
+  INDICATOR_NOT_CLOSABLE` con su razón, el `400 PERIOD_NOT_ENDED` y el `409 MEASUREMENT_EXISTS`; «Catálogo de
+  indicadores», la lista de `indicator` con edición de `target_value` y `frequency` para quien tiene UPDATE.
 - **Disposición y componentes:** aviso de periodo (cerrado: cifra oficial; en curso: cifra viva); tabla con número, indicador,
-  valor, meta, desglose, medio de verificación y tipo de entregable (`dashboards.md` §4.9 y §5.5).
-- **Datos y API:** tablero `monitoring`; un periodo cerrado lee `indicator_measurement` (`dashboards.md` §10).
+  valor, meta y su origen (`targetSource`), cifra oficial marcada cuando el pedido coincide con la medición, desglose,
+  medio de verificación y tipo de entregable (`dashboards.md` §4.9 y §5.5).
+- **Datos y API:** tablero `monitoring` (cada fila con `official`); `POST
+  /api/sgspe/indicators/{id}/measurements` para cerrar; `indicator` por la API genérica (`dashboards.md` §10).
 - **Estados:** #2 y #3 leen la postura: "no disponible" a quien no la lee, también con el periodo cerrado.
 - **Permisos:** como S51.
 - **Responsive:** la tabla pasa a tarjetas por indicador.
@@ -1823,15 +1830,18 @@ NotificationBell (NotificationMenu)
 - **Ruta y lienzo:** `/reports` y `/projects/:projectId/reports` · hoja `Rep-Reportes` · F2–F4 exportaciones; F8 entregables.
 - **Propósito:** generar un entregable o exportar datos al nivel de divulgación correcto.
 - **Roles:** entregables: SMG y SHM (`GENERATE`, `APPROVE`, `ISSUE`); exportaciones: los roles con `EXPORT` sobre cada objeto.
-- **Acciones:** "Nuevo entregable"; elegir exportación, nivel y confirmar la lista de verificación; "Exportar".
+- **Acciones:** "Nuevo entregable" (tipo, código, título, periodo, corte, alcance según el tipo, organizaciones y
+  plantilla); elegir exportación, nivel y confirmar la lista de verificación; "Exportar"; "Plantillas" (S64, solo
+  `ADMIN`).
 - **Disposición y componentes:** tabla de entregables (tipo, corte, estado, borrador, revisión, niveles); exportación con
   opciones, nivel de divulgación y lista de verificación EXTERNO; explicación de los niveles.
-- **Datos y API:** `deliverable`; exportaciones XLSX de `deliverables.md` §10, con fila en `export_log`.
+- **Datos y API:** `deliverable`; `GET /api/sgspe/deliverable-templates` para elegir la plantilla; exportaciones XLSX de
+  `deliverables.md` §10, con fila en `export_log`.
 - **Estados:** "Exportar" queda deshabilitado con la razón hasta confirmar la lista EXTERNO.
 - **Permisos:** la exportación lee como la persona: lo que no lee sale "no disponible"; el documento de identidad nunca se
   exporta.
 - **Responsive:** la tabla pasa a tarjetas.
-- **Relacionadas y navegación:** S50.
+- **Relacionadas y navegación:** S50, S64.
 
 ```text
 ReportsPage
@@ -1844,15 +1854,24 @@ ReportsPage
 - **Ruta y lienzo:** `/reports/deliverables/:deliverableId` · hoja `Rep-Entregable` · F8.
 - **Propósito:** revisar, aprobar y emitir un entregable sabiendo que se emite exactamente lo revisado.
 - **Roles:** SMG y SHM en las transiciones de WF-H; `DOWNLOAD_RESTRICTED` para ver borradores.
-- **Acciones:** según el estado: "Enviar a revisión", "Observar…", "Aprobar…", "Emitir…", "Generar otro borrador", "Nueva
-  revisión…".
-- **Disposición y componentes:** encabezado con estado y niveles; camino de WF-H; secciones con su origen (humana, calculada,
-  asistida por IA); borrador con estado de generación, vistas por nivel y SHA-256 de la candidata; "Al emitir".
-- **Datos y API:** `POST /api/sgspe/deliverables/{id}/drafts`; `GET …/draft/content`; `POST …/issue` (motivo y lista
-  EXTERNO).
-- **Estados:** EN COLA, EN PROCESO, LISTO, FALLIDO; una sección editada después del borrador bloquea la aprobación y la
-  emisión (`409` con las secciones).
-- **Permisos:** la versión candidata no se descarga; los borradores llevan marca BORRADOR.
+- **Acciones:** según el estado: "Enviar a revisión", "Observar…", "Aprobar…", "Emitir…",
+  "Generar otro borrador", "Nueva revisión…"; en cada sección, "Sugerir con IA" (AI-04, solo en las que el tipo marca con IA) y "Usar…" con
+  motivo.
+- **Disposición y componentes:** encabezado con estado y niveles; camino de WF-H; editor de sección con tiptap y su
+  extensión de Markdown, con un selector de menciones que inserta `[[person:<id>]]`, `[[position:<id>]]` o
+  `[[stakeholder:<id>]]` y la sugerencia de IA al lado; secciones con su insignia de origen (humana, calculada,
+  asistida por IA); panel del borrador con su estado, la letra, los avisos (`draft_warnings`), el PDF de cada nivel en
+  `PdfDialog` y el SHA-256 de cada candidata; "Al emitir", con la lista de verificación EXTERNO; versiones emitidas
+  con sus descargas y la constancia de emisión.
+- **Datos y API:** `POST /api/sgspe/deliverables/{id}/drafts`; `GET …/draft` cada 5 s mientras está pendiente;
+  `GET …/draft/content`; transiciones de WF-H con motivo, y "Aprobar" con el `draftModelSha256` en el motivo;
+  `POST …/issue` (motivo, `draftModelSha256` y la lista EXTERNO); `GET …/versions/{n}/content`;
+  `POST /api/sgspe/ai/runs` (AI-04) y `POST /api/sgspe/ai-suggestions/{id}/accept`.
+- **Estados:** EN COLA, EN PROCESO, LISTO, FALLIDO (con su código); un mapa fallido (`MAP_FAILED`) deja el borrador
+  LISTO pero bloquea la emisión; una sección editada después del borrador bloquea el envío, la aprobación y la
+  emisión (`409 SECTIONS_CHANGED`, con las secciones); otro modelo, `409 MODEL_MISMATCH`; sin la lista, `400
+  CHECKLIST_REQUIRED`; una sección asistida no vuelve a humana (`422 AI_ORIGIN_LOCKED`).
+- **Permisos:** la versión candidata no se descarga; los borradores llevan marca BORRADOR; EXTERNO, solo en PDF.
 - **Responsive:** el panel del borrador baja.
 - **Relacionadas y navegación:** el editor de una sección (con AI-04), S49.
 
@@ -1860,7 +1879,9 @@ ReportsPage
 DeliverablePage
 ├── RecordHeader · StatePath
 ├── SectionList (SectionRow · OriginBadge)
-└── DraftPanel (GenerationStatus · DraftLinks · CandidateHash) · IssueNotes
+├── SectionEditor (MarkdownEditor · MentionPicker · AiSuggestionPanel)
+├── DraftPanel (GenerationStatus · DraftWarnings · DraftLinks · CandidateHash) · IssueDialog (ExternalChecklist)
+└── VersionList (VersionDownloads · IssueCertificate)
 ```
 
 ### S53 · Administración
@@ -1868,19 +1889,47 @@ DeliverablePage
 - **Ruta y lienzo:** sección Administración del portal, con enlace a `/admin` · hoja `Adm-Admin` · F1.
 - **Propósito:** saber qué se administra en el portal (con motivo y reglas) y qué en la consola de la plataforma.
 - **Roles:** PAD y la administración de la organización.
-- **Acciones:** enlaces a Proyectos, Equipo y parámetros (S11), reglas de alerta; "Abrir la consola" (`/admin`, otra pestaña).
+- **Acciones:** enlaces a Proyectos, Equipo y parámetros (S11), reglas de alerta, plantillas de entregables (S64,
+  desde F8); "Abrir la consola" (`/admin`, otra pestaña).
 - **Disposición y componentes:** dos columnas (portal y consola) y "Cuidados".
 - **Datos y API:** ninguna propia; `/admin` es `WasichaiApp` (`architecture.md` §9.1).
 - **Estados:** la sección no aparece para quien no administra.
 - **Permisos:** `/admin` no pide motivo todavía (UPS-08): las escrituras críticas se hacen en el portal; lo editado a mano en el
   modelo se pierde al reaplicar (GAP-030).
 - **Responsive:** columnas apiladas.
-- **Relacionadas y navegación:** S06, S11.
+- **Relacionadas y navegación:** S06, S11, S64.
 
 ```text
 AdminLandingPage
 ├── PortalAdminLinks · ConsoleAdminLinks
 └── AdminCautions
+```
+
+### S64 · Plantillas de entregables
+
+- **Ruta y lienzo:** `/reports/templates`, enlazada desde Administración (S53) y desde Reportes (S49) · sin hoja
+  (plan 8.0) · F8.
+- **Propósito:** subir la plantilla Word de la organización y ver qué plantilla rige cada clave.
+- **Roles:** solo `ADMIN`, que tiene `MANAGE_METADATA` sobre `deliverable`; los demás roles que leen `deliverable` ven
+  las plantillas en el selector de S49.
+- **Acciones:** primaria "Subir plantilla" (archivo .dotx o .docx de hasta 20 MB, clave y nombre); secundaria
+  descargar una plantilla.
+- **Disposición y componentes:** lista con la plantilla más reciente de cada clave (clave, nombre, SHA-256, fecha y
+  avisos); el diálogo de subida muestra las violaciones de `422 TEMPLATE_INVALID` o los avisos de una subida aceptada;
+  un texto fijo con los marcadores admitidos, los estilos requeridos y las fuentes permitidas (Carlito, Caladea,
+  Liberation Sans y Liberation Serif).
+- **Datos y API:** `GET /api/sgspe/deliverable-templates`; `POST /api/sgspe/deliverable-templates` (multipart, con
+  `Idempotency-Key`); la descarga, por la ruta nativa de wasichai-files.
+- **Estados:** sin plantillas, «rige la plantilla base de SGSPE»; una subida rechazada lista cada violación; una
+  plantilla nueva con una clave existente reemplaza a la anterior solo para los borradores siguientes.
+- **Permisos:** la sección no aparece para quien no administra; una plantilla no se edita ni se borra.
+- **Responsive:** la lista pasa a tarjetas.
+- **Relacionadas y navegación:** S53, S49.
+
+```text
+DeliverableTemplatesPage
+├── TemplateList (TemplateRow · TemplateWarnings)
+└── TemplateUploadDialog (FileDrop · ViolationList)
 ```
 
 ### S56 · Gestionar vistas
