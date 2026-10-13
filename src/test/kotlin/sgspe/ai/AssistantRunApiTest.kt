@@ -25,7 +25,9 @@ import wasichai.agent.AgentService
         "wasichai.agent.api-key=sk-ant-clave-de-prueba",
         "embabel.agent.platform.models.anthropic.api-key=sk-ant-clave-de-prueba",
         "spring.ai.anthropic.api-key=sk-ant-clave-de-prueba",
-        "sgspe.ai.enabled-organizations=demo"
+        "sgspe.ai.enabled-organizations=demo",
+        // la misma lista que AiRunsApiTest, para compartir un solo contexto de Spring (AI-05 no lee archivos)
+        "sgspe.ai.limits.file-bytes=65536"
     ]
 )
 @Import(RecordingLlm.Config::class)
