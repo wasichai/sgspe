@@ -3,6 +3,7 @@ package sgspe.ai
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import java.util.PriorityQueue
 import java.util.UUID
 
 // un registro que AI-07 compara, como lo lee quien pide la corrida (ai-architecture.md §4.1): los nombres de una persona (sus
@@ -11,6 +12,8 @@ import java.util.UUID
 data class DuplicateRecord(
     val objectName: String,
     val id: UUID,
+    // una persona trae un solo nombre completo (nombres y apellidos juntos); una organización, el suyo y sus alternative_names, el
+    // principal primero (SAME_NAME compara los principales; ALTERNATIVE_NAME, los demás)
     val names: List<String> = emptyList(),
     val text: String? = null,
     val project: UUID? = null,
@@ -62,6 +65,7 @@ object DuplicateCandidates {
     private const val MIN_SHARED_TEXT_WORDS = 3
     private const val MIN_TEXT_WORD = 4
     private const val SUPPORT = 0.1
+    private const val INITIAL_HEAP = 64
 
     // las palabras que no distinguen un pedido de otro
     private val STOPWORDS =
@@ -70,11 +74,14 @@ object DuplicateCandidates {
                 "ellas nuestra nuestro nuestros nuestras sus unos unas solicita solicitan pide piden pidio pidieron senor senora sres comunidad"
         ).split(" ").toSet()
 
+    // las partículas de los nombres, que no distinguen a nadie («Juan de la Cruz» = «Juan Cruz»)
+    private val PARTICLES = setOf("de", "del", "la", "las", "los", "y", "e", "van", "von")
+
     // las palabras plegadas de un texto (minúsculas, sin tildes)
     fun words(text: String): List<String> = Folding.words(Folding.fold(Folding.nfc(text))).map { it.value }
 
-    // un nombre normalizado: sus palabras plegadas, ordenadas («Ejemplo, Ana» = «ANA EJEMPLO»)
-    fun normalizedName(name: String): String = words(name).sorted().joinToString(" ")
+    // un nombre normalizado: sus palabras plegadas, sin partículas y ordenadas («Ejemplo, Ana» = «ANA EJEMPLO»)
+    fun normalizedName(name: String): String = words(name).filter { it !in PARTICLES }.sorted().joinToString(" ")
 
     // las palabras de un texto que cuentan para compararlo: de cuatro letras o más y que no son vacías
     fun significant(text: String): Set<String> = words(text).filter { it.length >= MIN_TEXT_WORD && it !in STOPWORDS }.toSet()
@@ -89,23 +96,46 @@ object DuplicateCandidates {
         max: Int,
         known: Set<Set<UUID>> = emptySet()
     ): List<DuplicatePair> {
-        val out = mutableListOf<DuplicatePair>()
+        if (max <= 0) return emptyList()
+        // los `max` mejores pares: un montículo acotado cuyo tope es el peor de los guardados
+        val best = PriorityQueue<DuplicatePair>(max.coerceAtMost(INITIAL_HEAP) + 1, ORDER.reversed())
         for ((objectName, group) in records.filter { it.objectName in OBJECTS }.distinctBy { it.objectName to it.id }.groupBy { it.objectName }) {
-            val sorted = group.sortedWith(compareBy<DuplicateRecord>({ it.createdAt ?: Instant.MAX }, { it.id.toString() }))
-            val prepared = sorted.map { Prepared(it) }
-            for (i in prepared.indices) {
-                for (j in i + 1 until prepared.size) {
-                    val (a, b) = prepared[i].record to prepared[j].record
-                    if (a.duplicateOf == b.id || b.duplicateOf == a.id || setOf(a.id, b.id) in known) continue
-                    val pair = if (objectName in NAMED) named(prepared[i], prepared[j]) else textual(prepared[i], prepared[j])
-                    pair?.let { out += it }
+            val prepared = group.sortedWith(compareBy<DuplicateRecord>({ it.createdAt ?: Instant.MAX }, { it.id.toString() })).map { Prepared(it) }
+            val named = objectName in NAMED
+            // se agrupa por proyecto (los grupos de interés y los textos solo se comparan dentro de uno) y, dentro, por palabra
+            val blocks = prepared.indices.groupBy { if (named && objectName != "stakeholder") null else prepared[it].record.project }
+            for ((project, members) in blocks) {
+                if (!named && project == null) continue
+                val index = HashMap<String, MutableList<Int>>()
+                for (i in members) {
+                    val keys = if (named) prepared[i].nameWords.flatten().toSet() else prepared[i].text
+                    val candidates = LinkedHashMap<Int, Int>()
+                    for (key in keys) {
+                        val bucket = index.getOrPut(key) { mutableListOf() }
+                        for (j in bucket) candidates.merge(j, 1, Int::plus)
+                        bucket += i
+                    }
+                    for (j in candidates.keys) {
+                        val (a, b) = prepared[j].record to prepared[i].record
+                        if (a.duplicateOf == b.id || b.duplicateOf == a.id || setOf(a.id, b.id) in known) continue
+                        val pair = if (named) named(prepared[j], prepared[i]) else textual(prepared[j], prepared[i])
+                        if (pair == null) continue
+                        if (best.size < max) {
+                            best += pair
+                        } else if (ORDER.compare(pair, best.peek()) < 0) {
+                            best.poll()
+                            best += pair
+                        }
+                    }
                 }
             }
         }
-        return out
-            .sortedWith(compareByDescending<DuplicatePair> { it.score }.thenBy { it.first.id.toString() }.thenBy { it.second.id.toString() })
-            .take(max)
+        return best.sortedWith(ORDER)
     }
+
+    // el orden de los pares: por puntaje y, a igual puntaje, por los ids
+    private val ORDER =
+        compareByDescending<DuplicatePair> { it.score }.thenBy { it.first.id.toString() }.thenBy { it.second.id.toString() }
 
     // las formas comparables de un registro, calculadas una vez
     private class Prepared(

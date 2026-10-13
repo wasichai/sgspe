@@ -133,4 +133,32 @@ class DuplicateCandidatesTest {
         assertEquals(id(1) to id(2), pairs.first().first.id to pairs.first().second.id)
         assertTrue(pairs.zipWithNext().all { (x, y) -> x.score >= y.score })
     }
+
+    @Test
+    fun `las particulas de los nombres no cuentan`() {
+        val a = DuplicateCandidates.pairs(listOf(person(1, "Juan de la Cruz"), person(2, "Cruz, Juan")), 20).single()
+        assertEquals(listOf(DuplicateReason.SAME_NAME), a.reasons)
+        val b = DuplicateCandidates.pairs(listOf(person(3, "Ana María de Ejemplo"), person(4, "Ana Ejemplo")), 20).single()
+        assertEquals(listOf(DuplicateReason.SIMILAR_NAME), b.reasons)
+    }
+
+    @Test
+    fun `con el tope, el mismo conjunto sea cual sea el orden de entrada`() {
+        val people = (1..12).map { person(it, if (it % 2 == 0) "Ana Ejemplo" else "Rosa Ccori", if (it <= 4) locality else null) }
+        val expected = DuplicateCandidates.pairs(people, 4).map { it.first.id to it.second.id }
+        repeat(5) { seed ->
+            assertEquals(expected, DuplicateCandidates.pairs(people.shuffled(java.util.Random(seed.toLong())), 4).map { it.first.id to it.second.id })
+        }
+    }
+
+    @Test
+    fun `dos mil registros se comparan en poco tiempo`() {
+        val people = (1..1000).map { person(it, "Nombre$it Apellido$it") }
+        val grievances = (1001..2000).map { grievance(it, "Reclamo$it distinto$it asunto$it particular$it unico$it") }
+        val start = System.nanoTime()
+        val pairs = DuplicateCandidates.pairs(people + grievances, 20)
+        val millis = (System.nanoTime() - start) / 1_000_000
+        assertEquals(0, pairs.size)
+        assertTrue(millis < 2000, "tardó $millis ms")
+    }
 }
