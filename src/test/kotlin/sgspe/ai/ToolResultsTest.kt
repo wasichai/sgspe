@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.util.UUID
 
 // lo que sale hacia el modelo de cada herramienta de wasichai-agent 1.2.0 (ASM-130, ai-architecture.md §8): los campos
@@ -117,6 +118,16 @@ class ToolResultsTest {
         assertEquals("""{"description":"[DOCUMENTO]"}""", screen(mapOf("object" to "engagement"), """{"description":"40123456"}""", table))
     }
 
+    // un valor visto primero en texto libre (numerado) y después como campo restringido no vuelve en la respuesta
+    @Test
+    fun `lo que luego resulta restringido no se restaura`() {
+        val table = PseudonymTable()
+        val first = screen(mapOf("object" to "engagement"), """{"attributes":{"description":"Llamar al 964 123 456"}}""", table)
+        assertEquals("""{"attributes":{"description":"Llamar al [TELEFONO_1]"}}""", first)
+        screen(mapOf("object" to "engagement"), """{"relatedObject":"engagement_participant","records":[{"attributes":{"phone":"964123456"}}]}""", table)
+        assertEquals("Llamar al [TELEFONO]", table.restore("Llamar al [TELEFONO_1]"))
+    }
+
     @Test
     fun `los numeros del json no se toman por documentos ni telefonos`() {
         val out = screen(mapOf("object" to "investment"), """{"object":"investment","total":40123456,"records":[{"attributes":{"amount":987654321}}]}""")
@@ -136,6 +147,24 @@ class ToolResultsTest {
         assertEquals("""{"error":"Missing permission READ"}""", screen(mapOf("object" to "person"), """{"error":"Missing permission READ"}"""))
         assertEquals("person record $id", screen(mapOf("object" to "person", "id" to id), "person record $id"))
         assertEquals("refused: [PERSONA_1] no existe", screen(emptyMap(), "refused: Ana Ejemplo no existe"))
-        assertEquals("{no es json [PERSONA_1]", screen(emptyMap(), "{no es json Ana Ejemplo"))
+    }
+
+    // un texto con forma de json que no se puede leer no se envía: sin leerlo no se sabe qué campo es restringido (falla cerrado)
+    @Test
+    fun `un texto con forma de json que no se puede leer no sale y no dice el dato`() {
+        val broken = assertThrows<IllegalStateException> { screen(emptyMap(), "{no es json Ana Ejemplo") }
+        assertFalse("Ana" in broken.message.orEmpty() || broken.cause != null, broken.message)
+        val deep =
+            "[".repeat(1200) +
+                """{"relatedObject":"engagement_participant","records":[{"attributes":{"participant_name":"Rosa Ccori Ejemplo"}}]}""" +
+                "]".repeat(1200)
+        val failure = assertThrows<IllegalStateException> { screen(mapOf("object" to "engagement"), deep) }
+        assertFalse("Rosa" in failure.message.orEmpty(), failure.message)
+    }
+
+    @Test
+    fun `los decimales pasan tal cual`() {
+        val text = """{"object":"investment","records":[{"attributes":{"amount":10000000.00,"ratio":0.80,"count":3}}]}"""
+        assertEquals(text, screen(mapOf("object" to "investment"), text))
     }
 }
