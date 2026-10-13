@@ -108,7 +108,9 @@ AI-05 usa el asistente de solo lectura de wasichai-agent; los demás casos son a
 
 Las sugerencias se aceptan con `POST /api/sgspe/ai-suggestions/{id}/accept` (paquete `sgspe.ai`) y los candidatos con
 `POST /api/sgspe/commitment-candidates/{id}/accept` (paquete `sgspe.commitment`), los dos fijados por el modelo de dominio
-(§7.2). La petición lleva los valores que la persona revisó, que puede corregir, y el motivo.
+(§7.2). La petición lleva los valores que la persona revisó, que puede corregir, y el motivo. Corrige valores, no campos: en
+CLASIFICACION, lugar y fecha el campo es el que propuso la IA (`400 FIELD_NOT_ALLOWED` si cambia), para que la aceptación no
+audite un cambio que la IA no propuso (RQ-AUD-012).
 
 La tabla es la **lista permitida**, y es cerrada: cada fila fija un tipo de salida, el objeto destino (`target_object`), el
 único campo o comando que la aceptación puede ejecutar, lo que se exige a quien acepta y la forma de `suggested_value`. Aceptar
@@ -130,7 +132,7 @@ pasa a `accepted` solo cuando una persona lo usa en una `deliverable_section` (F
 | CLASIFICACION | `grievance`, `inquiry`, `stakeholder_request` | `category`, `priority` o `topic` | UPDATE sobre el objeto, con motivo (`requiresReason`) | `{"field": "category", "value": "AGUA Y MEDIO AMBIENTE"}` |
 | CLASIFICACION | `engagement_question` | `topic` | UPDATE sobre `engagement_question` | `{"field": "topic", "value": "<id>"}` |
 | CLASIFICACION | `media_mention` | `tone` o `topic` | UPDATE sobre `media_mention` | `{"field": "tone", "value": "NEGATIVO"}` |
-| DUPLICADO | `grievance` | `duplicate_of`; si quien acepta escribe la respuesta a quien la planteó, además `response`, `responded_at` y la transición de rechazo de su estado (WF-E1): queda rechazada como duplicado | UPDATE sobre `grievance`, con motivo; con respuesta, el rol de ese rechazo | `{"other_record_id": "<id>", "reasons": ["…"]}` |
+| DUPLICADO | `grievance` | `duplicate_of`; si quien acepta escribe la respuesta a quien la planteó, además `response`, `responded_at` y la transición de rechazo de su estado (WF-E1): queda rechazada como duplicado; si desde su estado ya no hay rechazo, `409 STATE_MISMATCH` sobre `attributes.response` y nada se escribe | UPDATE sobre `grievance`, con motivo; con respuesta, el rol de ese rechazo | `{"other_record_id": "<id>", "reasons": ["…"]}` |
 | DUPLICADO | `organization` | Agrega el nombre del otro registro a `alternative_names` del que se conserva | UPDATE sobre `organization` | Igual que el anterior |
 | DUPLICADO | `person`, `stakeholder`, `commitment`, `inquiry`, `stakeholder_request` | Ninguno: no tienen vínculo de duplicado, así que solo se registra la decisión, y la persona corrige con las operaciones normales (p. ej. cancela con motivo el compromiso repetido) | El rol de la transición hacia `accepted` | Igual que el anterior |
 

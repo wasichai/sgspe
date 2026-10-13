@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import sgspe.F7ApiTest
+import sgspe.common.IdempotencyKey
 import sgspe.common.IfMatch
 import tools.jackson.databind.JsonNode
 
@@ -252,6 +253,74 @@ class SuggestionAcceptanceApiTest : F7ApiTest() {
         assertEquals(HttpStatus.PRECONDITION_FAILED, stale.status, stale.body)
         move("ai_suggestion", id, "reject", cro.token, "no corresponde")
         refused(acceptSuggestion(cro, id, mapOf("field" to "category", "value" to "EMPLEO")), HttpStatus.CONFLICT, "STATE_MISMATCH", "state")
+    }
+
+    // quien acepta corrige el valor, no el campo: el campo es el que propuso la IA (§4.2, RQ-AUD-012)
+    @Test
+    fun `una clasificacion no cambia de campo`() {
+        val grievance = grievance(testProject())
+        val id = suggestion("CLASIFICACION", "grievance" to grievance, """{"field":"category","value":"EMPLEO"}""")
+        refused(acceptSuggestion(cro, id, mapOf("field" to "priority", "value" to "ALTA")), HttpStatus.BAD_REQUEST, "FIELD_NOT_ALLOWED", "attributes.field")
+        assertEquals("proposed", state("ai_suggestion", id))
+        // sin field, el guardado
+        accepted(acceptSuggestion(cro, id, mapOf("value" to "TIERRAS")))
+        assertEquals("TIERRAS", record("grievance", grievance)["attributes"]["category"].asString())
+    }
+
+    @Test
+    fun `un valor compuesto se rechaza y el grupo de interes pide su tipo antes de escribir`() {
+        val engagement = engagement(testProject())
+        val draft = suggestion("BORRADOR DE ACTA", "engagement" to engagement, "## Acta")
+        refused(acceptSuggestion(cro, draft, mapOf("minutes" to listOf("## Acta"))), HttpStatus.BAD_REQUEST, "INVALID_VALUE", "attributes.minutes")
+        val name = uniqueName("Junta Sin Tipo ")
+        val actor = suggestion("EXTRACCION", null, """{"item":"actor","kind":"organization","name":"Junta"}""", "organization")
+        val organization = mapOf("item" to "actor", "kind" to "organization", "name" to name)
+        refused(
+            acceptSuggestion(cro, actor, organization + ("stakeholder" to emptyMap<String, Any?>())),
+            HttpStatus.BAD_REQUEST,
+            "FIELD_REQUIRED",
+            "attributes.stakeholder.stakeholder_type"
+        )
+        refused(
+            acceptSuggestion(cro, actor, organization + ("stakeholder" to mapOf("stakeholder_type" to "[PERSONA]"))),
+            HttpStatus.BAD_REQUEST,
+            "PSEUDONYM_NOT_ALLOWED",
+            "attributes.stakeholder.stakeholder_type"
+        )
+        val found = send("GET", "/api/objects/organization/records?name=${java.net.URLEncoder.encode(name, Charsets.UTF_8)}", null, HttpStatus.OK)
+        assertEquals(0, tree(found)["content"].size())
+        assertEquals("proposed", state("ai_suggestion", actor))
+    }
+
+    @Test
+    fun `un duplicado de queja de otro proyecto no se acepta`() {
+        val other = project()
+        val manager = member("GRIEVANCE_MANAGER")
+        assign(manager, other, "GRIEVANCE_MANAGER")
+        val elsewhere = grievance(other)
+        val id = suggestion("DUPLICADO", "grievance" to grievance(testProject()), """{"other_record_id":"$elsewhere"}""")
+        refused(acceptSuggestion(manager, id, mapOf("other_record_id" to elsewhere)), HttpStatus.CONFLICT, "PROJECT_MISMATCH", "attributes.other_record_id")
+        assertEquals("proposed", state("ai_suggestion", id))
+    }
+
+    // Idempotency-Key: el reenvío devuelve la misma respuesta, marcada como reenvío, y escribe una sola vez
+    @Test
+    fun `un reenvio con la misma clave no vuelve a escribir`() {
+        val grievance = grievance(testProject())
+        val id = suggestion("CLASIFICACION", "grievance" to grievance, """{"field":"category","value":"EMPLEO"}""")
+        val headers =
+            mapOf(IfMatch.HEADER to "\"${record("ai_suggestion", id)["updatedAt"].asString()}\"", IdempotencyKey.HEADER to uniqueName("acepta-")) +
+                withReason("revisada una vez")
+        val body = mapOf("attributes" to mapOf("field" to "category", "value" to "EMPLEO"))
+        val path = "/api/sgspe/ai-suggestions/$id/accept"
+        val first = exchange("POST", path, body, cro.token, headers)
+        accepted(first)
+        val second = exchange("POST", path, body, cro.token, headers)
+        assertEquals(HttpStatus.OK, second.status, second.body)
+        assertEquals(tree(first.body), tree(second.body))
+        assertEquals("true", second.headers.getFirst(IdempotencyKey.REPLAYED))
+        val history = tree(send("GET", "/api/objects/grievance/records/$grievance/history", null, HttpStatus.OK)).values()
+        assertEquals(1, history.count { it["reason"]?.asString() == "IA aceptada (ai_suggestion $id): revisada una vez" }, history.toString())
     }
 
     private fun refusedNoReason(id: String) {
