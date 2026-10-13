@@ -412,6 +412,19 @@ class ArchitectureTest {
         assertFalse(flags(READS_ALL, "val projects = reach.mine(user)"))
     }
 
+    // el asistente de wasichai y Embabel son de sgspe.ai (especificación de F7 §3.3, ai-architecture.md §6.2): ningún otro
+    // paquete importa wasichai.agent ni com.embabel
+    @Test
+    fun `solo sgspe ai usa el modulo de agente y Embabel`() {
+        val outside = sources(main).filterNot { it.invariantSeparatorsPath.contains("/sgspe/ai/") }
+        assertTrue(outside.isNotEmpty())
+        assertEquals(emptyList<String>(), offenders(outside, AGENT_IMPORT))
+        assertTrue(flags(AGENT_IMPORT, "import wasichai.agent.AgentService"))
+        assertTrue(flags(AGENT_IMPORT, "import com.embabel.agent.core.AgentPlatform"))
+        assertFalse(flags(AGENT_IMPORT, "import wasichai.core.data.RecordService"))
+        assertFalse(flags(AGENT_IMPORT, "// wasichai.agent no se importa fuera de sgspe.ai"))
+    }
+
     @Test
     fun `observability no depende de otros paquetes de sgspe`() {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
@@ -549,6 +562,7 @@ class ArchitectureTest {
         private val LOAD_DEFINITION = Regex("""\bloadDefinition(ById)?\b""")
         private val DATABASE_CLIENT = Regex("""\bDatabaseClient\b""")
         private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
+        private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
