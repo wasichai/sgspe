@@ -19,6 +19,7 @@ import sgspe.common.Permissions
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.toCodedException
+import wasichai.files.FileDownload
 import wasichai.files.FileService
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -39,19 +40,7 @@ class EvidenceContent(
         id: UUID,
         field: String
     ): ResponseEntity<Flux<DataBuffer>> {
-        val user = callers.require()
-        val evidence = records.get(EvidenceRules.EVIDENCE, id)
-        if (EvidenceRules.downloadRestricted(evidence.attributes) &&
-            !permissions.has(user, EvidenceRules.DOWNLOAD_RESTRICTED, EvidenceRules.EVIDENCE)
-        ) {
-            throw Finding(
-                "ACTION_REQUIRED",
-                "Descargar una evidencia CONFIDENCIAL o DATOS PERSONALES exige la acción DOWNLOAD_RESTRICTED sobre evidence",
-                EvidenceRules.CLASSIFICATION,
-                status = HttpStatus.FORBIDDEN
-            ).toCodedException()
-        }
-        val download = files.open(EvidenceRules.EVIDENCE, id, field)
+        val download = open(id, field)
         val file = download.file
         return ResponseEntity
             .ok()
@@ -68,6 +57,28 @@ class EvidenceContent(
                     .toString()
             ).header(NOSNIFF, "nosniff")
             .body(download.content)
+    }
+
+    // el archivo de la evidencia con la misma comprobación que su descarga: READ como quien llama (404 si no la lee) y, si es
+    // CONFIDENCIAL o DATOS PERSONALES, DOWNLOAD_RESTRICTED (403 ACTION_REQUIRED). desde F7 también lo lee la IA (sgspe.ai, plan
+    // 7.2b) antes de extraer el texto de AI-01 y AI-03: la IA ve solo lo que quien pide puede descargar (RF-DOC-003)
+    suspend fun open(
+        id: UUID,
+        field: String = EvidenceRules.FILE
+    ): FileDownload {
+        val user = callers.require()
+        val evidence = records.get(EvidenceRules.EVIDENCE, id)
+        if (EvidenceRules.downloadRestricted(evidence.attributes) &&
+            !permissions.has(user, EvidenceRules.DOWNLOAD_RESTRICTED, EvidenceRules.EVIDENCE)
+        ) {
+            throw Finding(
+                "ACTION_REQUIRED",
+                "Descargar una evidencia CONFIDENCIAL o DATOS PERSONALES exige la acción DOWNLOAD_RESTRICTED sobre evidence",
+                EvidenceRules.CLASSIFICATION,
+                status = HttpStatus.FORBIDDEN
+            ).toCodedException()
+        }
+        return files.open(EvidenceRules.EVIDENCE, id, field)
     }
 
     companion object {

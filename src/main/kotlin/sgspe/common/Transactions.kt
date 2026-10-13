@@ -1,8 +1,11 @@
 package sgspe.common
 
 import org.springframework.stereotype.Component
+import org.springframework.transaction.ReactiveTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
+import org.springframework.transaction.support.DefaultTransactionDefinition
 import wasichai.core.platform.ClusterLock
 
 // una transacción de la base alrededor de un comando (architecture.md §6.2): RecordService no abre ninguna pero se une a
@@ -18,13 +21,22 @@ import wasichai.core.platform.ClusterLock
 // entregas de varios padres toma el candado de cada uno al vincular (DELIVERY_FROZEN), y por eso vincula en
 // EvidenceRules.lockOrder, por la clave completa del candado. también con social_contribution:<id> cuando un comprobante
 // cambia de aporte (ContributionReceiptRule toma los dos) y con social_program:<id> cuando un presupuesto cambia de programa
-// (ProgramTotalsListener recalcula los dos)
+// (ProgramTotalsListener recalcula los dos).
+// desde F7, `independent` corre el bloque en una transacción propia (REQUIRES_NEW) que se confirma aunque la de afuera se
+// revierta: la ai_interaction de una llamada hecha queda registrada aunque la corrida falle dentro de la transacción de su
+// Idempotency-Key (ai-architecture.md §6.2, P6; decisión 3 del plan 7.2b). toma otra conexión del pool mientras dura
 @Component
 class Transactions(
     private val operator: TransactionalOperator,
-    private val locks: ClusterLock
+    private val locks: ClusterLock,
+    manager: ReactiveTransactionManager
 ) {
+    private val requiresNew =
+        TransactionalOperator.create(manager, DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_REQUIRES_NEW))
+
     suspend fun <T> run(block: suspend () -> T): T = operator.executeAndAwait { block() }
+
+    suspend fun <T> independent(block: suspend () -> T): T = requiresNew.executeAndAwait { block() }
 
     suspend fun <T> locked(
         key: String,

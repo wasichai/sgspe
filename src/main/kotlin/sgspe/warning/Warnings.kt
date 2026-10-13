@@ -29,7 +29,4 @@ object Warnings {
     const val DEFAULT_WINDOW = 7L
     const val MAX_WINDOW = 365L
     const val MAX_SCORE = 25L
-
-    // la marca de una cuenta de servicio en su correo de respaldo (WAS-ADR-0043)
-    const val SERVICE_ACCOUNT_DOMAIN = "@service-accounts.invalid"
 }

@@ -47,9 +47,20 @@ class AiPropertiesTest {
     }
 
     @Test
-    fun `la version del prompt del asistente y los limites de ASM-131`() {
-        assertEquals("1", properties.promptVersion("AI-05"))
-        assertEquals(AiLimits(inputChars = 200_000, outputTokens = 8_192, actions = 8, questionChars = 4_000), properties.limits)
+    fun `la version del prompt de cada caso y los limites de ASM-131`() {
+        for (case in listOf("AI-01", "AI-02", "AI-03", "AI-04", "AI-05", "AI-08")) assertEquals("1", properties.promptVersion(case), case)
+        assertEquals(
+            AiLimits(
+                inputChars = 200_000,
+                outputTokens = 8_192,
+                actions = 8,
+                questionChars = 4_000,
+                fileBytes = 26_214_400,
+                proposals = 50,
+                maxConcurrentRuns = 3
+            ),
+            properties.limits
+        )
     }
 
     @Test

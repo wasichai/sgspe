@@ -9,6 +9,7 @@ import org.mockito.Mockito.mock
 import org.springframework.http.HttpStatus
 import sgspe.common.Callers
 import sgspe.common.Records
+import sgspe.common.Transactions
 import wasichai.core.common.WasichaiException
 import wasichai.core.identity.AuthenticatedUser
 import java.math.BigDecimal
@@ -74,7 +75,7 @@ class InteractionsTest {
     fun `una cuenta de servicio no registra llamadas y es PERSON_REQUIRED`() {
         val service = AuthenticatedUser(UUID.randomUUID(), UUID.randomUUID(), "servicio@sgspe.test", emptyList(), "integracion")
         val records = mock(Records::class.java) { throw AssertionError("una cuenta de servicio no escribe ai_interaction") }
-        val interactions = Interactions(records, mock(Callers::class.java) { service }, AiProperties())
+        val interactions = Interactions(records, mock(Callers::class.java) { service }, AiProperties(), mock(Transactions::class.java))
         val refused = assertThrows<WasichaiException> { runBlocking { interactions.record(entry) } }
         assertEquals(HttpStatus.FORBIDDEN, refused.status)
         assertEquals("PERSON_REQUIRED", refused.violations.single().message)

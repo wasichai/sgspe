@@ -19,7 +19,9 @@ import sgspe.common.IfMatch
 import sgspe.common.ModelCatalog
 import sgspe.common.NotReadable
 import sgspe.common.Permissions
+import sgspe.common.PseudonymMarkers
 import sgspe.common.Records
+import sgspe.common.ServiceAccounts
 import sgspe.common.StrictBody
 import sgspe.common.StrictQuery
 import sgspe.common.Transactions
@@ -79,6 +81,9 @@ class Candidates(
         StrictBody.requireOnly(body, setOf("attributes"))
         val attributes = StrictBody.objectOf(body, "attributes")
         StrictBody.requireAttributes(catalog, Commitments.COMMITMENT, attributes, setOf("project"))
+        // un candidato de la IA guarda marcadores estables ([PERSONA:<id>]); quien acepta los reemplaza por los valores reales:
+        // ningún marcador llega al compromiso (ai-architecture.md §4.2, 400 PSEUDONYM_NOT_ALLOWED sobre attributes.<ruta>)
+        PseudonymMarkers.requireNone(attributes)
         if (reason.isNullOrBlank()) throw ValidationException("Aceptar un candidato exige un motivo", "reason", "envíe la cabecera X-Change-Reason")
         val user = requirePerson(callers.require())
         permissions.require(user, "Aceptar un candidato", Actions.UPDATE to Commitments.CANDIDATE, Actions.CREATE to Commitments.COMMITMENT)
@@ -169,7 +174,7 @@ class Candidates(
 
         // solo una persona decide sobre un candidato (RQ-AI-003): una cuenta de servicio nunca, tenga el rol que tenga
         internal fun requirePerson(user: AuthenticatedUser): AuthenticatedUser {
-            if (user.serviceAccount != null) {
+            if (ServiceAccounts.isServiceAccount(user)) {
                 throw Finding(
                     "PERSON_REQUIRED",
                     "Solo una persona acepta o descarta un candidato a compromiso; una cuenta de servicio no",

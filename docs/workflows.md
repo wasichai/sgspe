@@ -298,7 +298,7 @@ Ejemplo completo: WF-D. Las guardas, el motivo y los efectos no viven en el JSON
 | WF-I | `agreement` | F3 | 7 | 10 | — | `requiresReason` | `AgreementWriteGuard` (`sgspe.agreement`) |
 | WF-J | `early_warning` | F4 | 7 | 6 | — | `TransitionReasonGuard` | `WarningWriteGuard` (`sgspe.warning`) |
 | WF-K | `commitment_candidate` | F3 (IA en F7) | 4 | 3 | `accept` | `TransitionReasonGuard` | `CommitmentWriteGuard` |
-| WF-K | `ai_suggestion` | F7 | 4 | 3 | `accept` | `TransitionReasonGuard` | — (solo `CommandTransitionGuard`) |
+| WF-K | `ai_suggestion` | F7 | 4 | 3 | `accept` | `TransitionReasonGuard` | `SuggestionDecisionGuard` (una persona decide) |
 | WF-L | `field_visit` | F2 | 5 | 4 | — | `TransitionReasonGuard` | — |
 | WF-M | `incident` | F4 | 4 | 3 | — | Opcional | `WarningWriteGuard` |
 | WF-N | `task` | F3 | 5 | 8 | — | `TransitionReasonGuard` | — |
@@ -1169,6 +1169,8 @@ stateDiagram-v2
 - **Fase:** F7.
 - **Requisitos:** RF-AIK-001, RF-AIK-002, RF-AIK-004, RF-AIK-007, RF-AIK-008, RQ-AI-001, RQ-AI-003, RQ-AI-012, RQ-AI-015,
   RQ-AUD-012.
+- **Decide una persona:** una cuenta de servicio recibe `403 PERSON_REQUIRED` en las tres transiciones, aunque tenga el rol
+  (`SuggestionDecisionGuard`, plan 7.2b).
 - **Roles:** la sugerencia apunta a un registro de cualquier contexto (`target_object`, `target_record_id`), así que los roles
   son la unión de los roles de dominio. El endpoint de aceptación verifica además que la persona pueda leer y escribir el
   registro destino (modelo de dominio §6.18).
@@ -1921,7 +1923,7 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 | WF-I | `AgreementWorkflowApiTest` | Activar una SERVIDUMBRE sin predios o una AUTORIZACION DE ASAMBLEA sin la interacción de asamblea → rechazada; vencer no cambia el estado, solo `validity_status` |
 | WF-J | `EarlyWarningWorkflowApiTest` | Una cuenta de servicio con el rol no confirma ni descarta; una persona sin `CONFIRM_ALERT` tampoco; una persona con la acción sí; JOB-04 solo crea alertas en `detected` |
 | WF-K (candidatos) | `CommitmentCandidateWorkflowApiTest` | `accept` por la API genérica → rechazada; el endpoint, por una persona, crea el compromiso; una cuenta de servicio → rechazada; `mark_duplicate` sin `duplicate_of` → rechazada |
-| WF-K (sugerencias) | `AiSuggestionWorkflowApiTest` | `accept` por la API genérica → rechazada; el endpoint, por una persona, ejecuta el comando; una cuenta de servicio → rechazada; `mark_duplicate` sin motivo → 400; con motivo → `duplicate`, sin cambios en el registro destino |
+| WF-K (sugerencias) | `AiSuggestionWorkflowApiTest` | `accept` por la API genérica → rechazada; el endpoint, por una persona, ejecuta el comando; una cuenta de servicio → rechazada, también en `reject` y `mark_duplicate`; `mark_duplicate` sin motivo → 400; con motivo → `duplicate`, sin cambios en el registro destino |
 | WF-L | `FieldVisitWorkflowApiTest` | `FIELD_AGENT`, sin `EDIT_ANY`, solo mueve sus visitas (`EditAnyGuard`); `cancel` sin motivo → 400 |
 | WF-M | `IncidentWorkflowApiTest` | `close` sin respuesta inmediata o sin consecuencias → rechazada |
 | WF-N | `TaskWorkflowApiTest` | Cancelar sin motivo → 400; las tareas de un trabajo no se duplican; una persona no fija, cambia ni vacía `generator_key` → 403 |
