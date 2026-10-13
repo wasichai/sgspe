@@ -267,7 +267,11 @@ parámetro) y `503` `GEOSERVER_UNAVAILABLE` (`wms`); la exportación geográfica
 
 Los endpoints de F7 (§4.14) usan la misma forma. `runs`, `assistant/questions` y `knowledge/questions` responden
 `503` `AI_UNAVAILABLE` (`organization` si la organización no tiene la IA activada, `provider` si no hay
-proveedor configurado o no responde; ASM-128). `runs` responde además `422` `AI_INPUT_TOO_LARGE` (`target`: el texto de la fuente pasa el tamaño
+proveedor configurado o no responde; ASM-128). `assistant/questions` responde además `422` `AI_INPUT_TOO_LARGE`
+(`question`: la pregunta pasa `sgspe.ai.limits.question-chars`) y `403` `PERSON_REQUIRED` a una cuenta de
+servicio, y `500` si el filtro de resultados del asistente falla cerrado (no
+sale ningún dato hacia el modelo). `runs`
+responde además `422` `AI_INPUT_TOO_LARGE` (`target`: el texto de la fuente pasa el tamaño
 de `sgspe.ai.limits`, antes de llamar al modelo; ASM-131), `422` `AI_NO_TEXT` (`target`: un PDF sin texto o un formato
 que no es PDF ni DOCX; ASM-132) y `502` `AI_RUN_TRUNCATED` (`useCase`: la corrida se quedó sin margen de tokens o de
 acciones y no guardó sugerencias ni candidatos; ASM-131). El detalle está en §4.14.
@@ -1451,7 +1455,7 @@ detalla `ai-architecture.md`.
 |---|---|---|---|---|---|---|
 | `GET` | `/api/sgspe/ai/status` | Si la organización tiene la IA activada, si el proveedor está disponible y qué casos se ofrecen | Autenticado | → `200 { enabled, providerAvailable, useCases[] }` | — | F7 |
 | `POST` | `/api/sgspe/ai/runs` | Ejecuta un caso de IA (AI-01, AI-02, AI-03, AI-04, AI-07 o AI-08) sobre una fuente, con texto seudonimizado, y guarda sus sugerencias o candidatos; desde F8, AI-04 redacta borradores de sección sobre `{ object: "deliverable_section", recordId }`: exige además READ sobre la sección y que el tipo la marque con IA (`422 SECTION_NOT_ASSISTED`), y lee como la persona, seudonimizados, los registros que el tipo declara para esa sección y los KPI del periodo, nunca el modelo congelado (RQ-AI-012) | READ sobre la fuente; CREATE sobre `ai_interaction` y sobre `ai_suggestion` o `commitment_candidate`; READ de los nombres de `person`, que la seudonimización necesita (si no, `403` antes de llamar al modelo) | `{ useCase, target: { object, recordId } }` → `201 { interaction, suggestions[], candidates[] }` | `IK` | F7 |
-| `POST` | `/api/sgspe/ai/assistant/questions` | AI-05: pregunta al asistente de solo lectura de wasichai-agent, como la persona que pregunta, con los resultados de sus herramientas seudonimizados y los campos restringidos enmascarados, y registra la interacción con sus tokens; la respuesta vuelve con los marcadores restaurados, salvo los de los campos restringidos (ASM-130, `ai-architecture.md` §8) | CREATE sobre `ai_interaction` (sin él, `403`); no exige leer los nombres de `person` | `{ question }` → `200 { answer, steps[], truncated, interaction }` | — | F7 |
+| `POST` | `/api/sgspe/ai/assistant/questions` | AI-05: pregunta al asistente de solo lectura de wasichai-agent, como la persona que pregunta, con los resultados de sus herramientas seudonimizados y los campos restringidos enmascarados, y registra la interacción con sus tokens; la respuesta vuelve con los marcadores restaurados, salvo los de los campos restringidos (ASM-130, `ai-architecture.md` §8) | CREATE sobre `ai_interaction` (sin él, `403`; a una cuenta de servicio, `403 PERSON_REQUIRED`); no exige leer los nombres de `person` | `{ question }`, hasta `sgspe.ai.limits.question-chars` (4 000 caracteres; si no, `422 AI_INPUT_TOO_LARGE`; `500` si el filtro de resultados falla cerrado y no envía datos) → `200 { answer, steps[], truncated, interaction }`, con los pasos restaurados e `interaction`, el id de su `ai_interaction` | — | F7 |
 | `POST` | `/api/sgspe/ai/knowledge/questions` | AI-06: responde con citas sobre los documentos que quien pregunta puede leer; sin fragmento que pase los filtros, dice que no hay evidencia | CREATE sobre `ai_interaction`; READ sobre `evidence` y, para fragmentos de evidencias CONFIDENCIAL o DATOS PERSONALES, `DOWNLOAD_RESTRICTED`; READ de los nombres de `person` (si no, `403` antes de llamar al modelo) | `{ question, project }` → `200 { answer, citations[]: { evidenceId, chunkIndex, quote }, interaction }` | — | F7 |
 | `POST` | `/api/sgspe/ai-suggestions/{id}/accept` | Acepta una sugerencia: ejecuta el comando de dominio con la autorización de quien acepta y lleva la sugerencia a `accepted`. Solo ejecuta lo que permite la lista cerrada de `ai-architecture.md` §4.2 (tipo, objeto destino y campo o comando); todo lo demás, y todo campo derivado u objeto `apiOnly`, se rechaza; desde F8, una BORRADOR DE SECCION (o una RESUMEN EJECUTIVO copiada a una sección) escribe `content`, `content_origin` ASISTIDO POR IA y `ai_suggestion` con `DeliverableSections.adopt`, en la transacción de WF-K hacia `accepted`, y convierte `[PERSONA:<id>]` en `[[person:<id>]]` (un `[PERSONA]` sin id, `422 UNRESOLVED_PSEUDONYM`; ASM-137) | UPDATE sobre `ai_suggestion`, el permiso del comando que ejecuta y el rol de la transición de WF-K a `accepted` | `{ attributes }` con los valores revisados → `200 { suggestion, result }` | `IK`, `IM`, `CR` | F7 |
 
@@ -1460,7 +1464,8 @@ sugerencia o un candidato, o marcar como duplicada una sugerencia, son transicio
 (RQ-AI-015).
 
 **Errores.** Además de los de §3.3, los tres endpoints que llaman a un modelo responden `503 AI_UNAVAILABLE` sin
-activación o sin proveedor, y `runs` responde `422 AI_INPUT_TOO_LARGE`, `422 AI_NO_TEXT` y `502 AI_RUN_TRUNCATED` con
+activación o sin proveedor, `assistant/questions` responde `422 AI_INPUT_TOO_LARGE` (`question`) y `500` si su
+filtro falla cerrado, y `runs` responde `422 AI_INPUT_TOO_LARGE`, `422 AI_NO_TEXT` y `502 AI_RUN_TRUNCATED` con
 los campos de §3.3 (ASM-128, ASM-131, ASM-132). Ninguno de esos errores guarda una sugerencia o un candidato; la
 `ai_interaction` de cada llamada hecha queda registrada.
 

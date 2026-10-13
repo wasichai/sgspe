@@ -46,6 +46,11 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   La descarga de un campo `FILE` con datos restringidos pasa por SGSPE (`EvidenceContent`), e `IssuedDocumentsPrivacyTest`
   vigila la regla de los documentos del lado de la aplicación. El descriptor de una evidencia restringida sale sin
   nombre ni huella a quien no tiene `DOWNLOAD_RESTRICTED` (`EvidenceFileReadPolicy`).
+- IA (F7): la clave del proveedor solo por `ANTHROPIC_API_KEY` en el entorno, nunca en un archivo (tampoco en
+  `develop/.env`); la IA se activa por organización con `SGSPE_AI_ENABLED_ORGANIZATIONS` (slugs). Ninguna prueba llama al
+  proveedor: las variables de la clave quedan en blanco en `test` e `integrationTest`, y la única clase con clave
+  (`AssistantRunApiTest`) la pone falsa, con `RecordingLlm` delante. Solo `sgspe.ai` importa `wasichai.agent` y
+  `com.embabel`; los logs nunca llevan una pregunta, un prompt ni una respuesta.
 
 ## Comandos
 
@@ -103,8 +108,11 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Base de las pruebas de F3 del modelo (compromisos, acuerdos y tareas listos para sus guardas, altas apiOnly como la plataforma, espera de automatizaciones) | `src/test/kotlin/sgspe/F3ApiTest.kt` |
 | Base de las pruebas de F4 (QCS, riesgos, incidentes, menciones, señales, reglas y alertas listos para las guardas de 4.2; revisiones de riesgo y derivados como la plataforma) | `src/test/kotlin/sgspe/F4ApiTest.kt` |
 | Base de las pruebas de F5 (aportes con ítems, aprobados y adquiridos, su entrega con acta, foto y comprobante, campañas, acuerdos vigentes, temas priorizados y programas con sus datos, listos para las guardas de 5.2) | `src/test/kotlin/sgspe/F5ApiTest.kt` |
-| Tabla fija del RAG (`sgspe.knowledge_chunk`, migración `sgspe_ai`, `KnowledgeMigration`); desde el plan 7.2a, el resto de `sgspe.ai` | `src/main/kotlin/sgspe/ai/`, `src/main/resources/db/sgspe/ai/` |
-| Base de las pruebas de F7 (interacciones, sugerencias y candidatos de IA como la plataforma, listos para 7.2a a 7.2c) | `src/test/kotlin/sgspe/F7ApiTest.kt` |
+| Activación y estado de la IA (`AiProperties`, `AiActivation`, `AiErrors`, `AiStatus`, `AiUseCaseOffer`), seudonimización (`Pseudonymizer`, `PseudonymTable`, `NameDictionary`, `PersonNames`, `RestrictedFields`), registro (`Interactions`), prompts versionados (`Prompts`, `<id>/<versión>.md` y `manifest.json`), el puerto `StructuredModel` (`EmbabelStructuredModel`, `ModelCalls`) | `src/main/kotlin/sgspe/ai/`, `src/main/resources/sgspe/ai/prompts/` |
+| Asistente AI-05 sobre wasichai-agent (`AssistantQuestions`, `AssistantRun` y `QuestionAuthentication`, `AiAgentAccess`, `PseudonymizingResultFilter` con `ToolResults`, `RestoringAnswerFilter`, `InteractionRunListener`, `AgentHttpGate`) | `src/main/kotlin/sgspe/ai/` |
+| Tabla fija del RAG (`sgspe.knowledge_chunk`, migración `sgspe_ai`, `KnowledgeMigration`) | `src/main/kotlin/sgspe/ai/`, `src/main/resources/db/sgspe/ai/` |
+| Modelo guionado de las pruebas de IA (`RecordingLlm`, sobre `ScriptedLlmOperations` de Embabel), dobles del puerto (`FakeModel`, `MockModel`, `FailingModel`), `RecordedInteractions` y `TestCallers` | `src/test/kotlin/sgspe/ai/` |
+| Base de las pruebas de F7 (interacciones, sugerencias y candidatos de IA como la plataforma, listos para 7.2a a 7.2c; desde 7.2a, `asUser` para llamar a un servicio como la persona) | `src/test/kotlin/sgspe/F7ApiTest.kt` |
 | Desde F8: indicadores (`model/indicators.json`, `model/load_indicators.py`), cierre de periodo (`IndicatorMeasurements`, `IndicatorWriteGuard`), `KpiReader`, KPI-EXE y los tableros `executive`, `project` y `monitoring` (`ExecutiveKpis`, `Dashboards`, `MonitoringTable`) | `model/`, `src/main/kotlin/sgspe/dashboard/` |
 | Desde F8: el modelo del informe (`ReportModel`, `CanonicalJson`) y su divulgación por nivel (`ReportDisclosure`) | `src/main/kotlin/sgspe/privacy/` |
 | Desde F8: entregables: tipos (`FieldReportType`, `SocialDiagnosisType`), JOB-05 (`DeliverableGenerationJob`), DOCX (`DocxWriter`), PDF (`PdfConverter`, `GotenbergConverter`; Gotenberg en 8096, solo loopback), mapas de informe (`ReportMaps`, `GetMapRequest`, `MapComposer`), plantillas (`TemplateValidator`, `DeliverableTemplates`), archivos y descargas (`DeliverableFiles`, `DeliverableContent`), emisión (`DeliverableIssue`), `DeliverableWriteGuard` y secciones (`DeliverableSections`) | `src/main/kotlin/sgspe/deliverable/` |

@@ -47,6 +47,8 @@ set -a; source develop/.env; set +a
 | `WASICHAI_CORE` | `http://localhost:8094` | URL de los scripts de `model/` |
 | `WASICHAI_EMAIL` / `WASICHAI_PASSWORD` | el administrador de desarrollo | login de esos scripts |
 | `WASICHAI_TEST_DB_*` | comentadas | pruebas de integración contra la base externa (sección 6) |
+| `SGSPE_AI_ENABLED_ORGANIZATIONS` | vacía | slugs, separados por comas, de las organizaciones con la IA activada (F7, ASM-128); vacía, nadie |
+| `ANTHROPIC_API_KEY` | nunca en un archivo | la clave del proveedor de IA (F7, GAP-015): solo exportada en el shell que arranca el servidor, nunca en `develop/.env`; sin ella la IA responde `503 AI_UNAVAILABLE` y el resto funciona |
 | `WASICHAI_FILES_STORE` | `local` | dónde guarda wasichai-files los archivos de `evidence.file` (ADR-0014): `local` en `WASICHAI_FILES_LOCAL_PATH` (`build/wasichai-files`), o `s3` en el MinIO de `compose.yml`; el perfil `prod` exige `s3` (`ProdGuard`) |
 | `WASICHAI_FILES_S3_BUCKET` / `_ENDPOINT` | `sgspe-evidencias` / `http://localhost:9095` | el bucket y la URL del MinIO de desarrollo; en producción, sin valor por defecto |
 | `WASICHAI_FILES_S3_ACCESS_KEY` / `_SECRET_KEY` | sin valor por defecto | con `WASICHAI_FILES_STORE=s3` contra el MinIO local, cópielas de `develop/example.env` a `develop/.env`; sin ninguna de las dos, el SDK usa su cadena de credenciales (un rol IAM en producción), y con una sola `ProdGuard` impide el arranque |
