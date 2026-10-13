@@ -33,10 +33,13 @@ data class KnowledgeResponse(
 
 // las citas de AI-06, puras (ai-architecture.md §6.1 y §13.3): los fragmentos van numerados entre etiquetas <fragmento> que su
 // contenido no puede abrir ni cerrar, y una cita vale solo si su fragmento existe y su pedazo aparece tal cual, salvo espacios,
-// en el fragmento seudonimizado que recibió el modelo. así no hay fuente inventada
+// en el fragmento seudonimizado que recibió el modelo, y si dice algo: al menos MIN_QUOTE caracteres y MIN_QUOTE_WORDS palabras
+// (una cita como «de» aparece en cualquier fragmento). así no hay fuente inventada ni trivial
 object KnowledgeCitations {
     const val MAX = 10
-    private const val MAX_QUOTE = 1_000
+    const val MAX_QUOTE = 1_000
+    const val MIN_QUOTE = 15
+    const val MIN_QUOTE_WORDS = 3
     private val TAG = Regex("""<(\s*/?\s*)(fragmento|pregunta)""", RegexOption.IGNORE_CASE)
     private val FRAGMENT = Regex("""<fragmento n="(\d+)">\n(.*?)\n</fragmento>""", RegexOption.DOT_MATCHES_ALL)
     private val SPACE = Regex("""\s+""")
@@ -59,13 +62,15 @@ object KnowledgeCitations {
         quotes
             .asSequence()
             .map { it.copy(quote = it.quote.trim()) }
-            .filter { it.quote.isNotEmpty() && it.quote.length <= MAX_QUOTE }
+            .filter { it.quote.length <= MAX_QUOTE && substantial(compact(it.quote)) }
             .filter { quote -> sent[quote.fragment]?.let { compact(it).contains(compact(quote.quote)) } == true }
             .distinctBy { it.fragment to compact(it.quote) }
             .take(MAX)
             .toList()
 
     private fun compact(text: String): String = text.replace(SPACE, " ").trim()
+
+    private fun substantial(quote: String): Boolean = quote.length >= MIN_QUOTE && quote.split(' ').size >= MIN_QUOTE_WORDS
 }
 
 // la respuesta de AI-06 con su llamada (ai-architecture.md §13.3, pasos 5 a 7): la pregunta y los fragmentos se seudonimizan con

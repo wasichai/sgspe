@@ -123,4 +123,34 @@ class KnowledgeAnswersTest {
     fun `sin fragmentos no hay llamada`() {
         assertEquals(KnowledgeResponse(KnowledgeAnswers.NO_EVIDENCE, emptyList(), null), KnowledgeAnswers.noEvidence())
     }
+
+    @Test
+    fun `una cita trivial no respalda la respuesta`() {
+        for (quote in listOf("de", "el canal", "canal de riego", "asamblea, [PERSONA_1]")) {
+            val (response, _) = ask(KnowledgeAnswer("Ana pidió reparar el canal.", listOf(KnowledgeQuote(1, quote))))
+            assertEquals(KnowledgeAnswers.UNSUPPORTED, response.answer, quote)
+            assertEquals(emptyList<KnowledgeCitation>(), response.citations, quote)
+        }
+        val (response, _) = ask(KnowledgeAnswer("Ana pidió reparar el canal.", listOf(KnowledgeQuote(1, "pidió reparar el canal"))))
+        assertEquals(1, response.citations.size)
+    }
+
+    @Test
+    fun `una respuesta en blanco con una cita que vale no es respuesta`() {
+        val (response, _) = ask(KnowledgeAnswer("  ", listOf(KnowledgeQuote(2, "el canal quedó reparado en marzo"))))
+        assertEquals(KnowledgeAnswers.UNSUPPORTED, response.answer)
+        assertEquals(emptyList<KnowledgeCitation>(), response.citations)
+    }
+
+    @Test
+    fun `a lo mas MAX citas, y una cita mas larga que el tope se descarta`() {
+        val words = (1..400).joinToString(" ") { "palabra$it" }
+        val sent = mapOf(1 to words)
+        val quotes = (1..15).map { KnowledgeQuote(1, (it..it + 2).joinToString(" ") { n -> "palabra$n" }) }
+        assertEquals(quotes.take(KnowledgeCitations.MAX), KnowledgeCitations.valid(quotes, sent))
+        val long = words.take(1_001).trim()
+        val atMost = words.take(1_000).trim()
+        assertEquals(1_001, long.length)
+        assertEquals(listOf(atMost), KnowledgeCitations.valid(listOf(KnowledgeQuote(1, long), KnowledgeQuote(1, atMost)), sent).map { it.quote })
+    }
 }
