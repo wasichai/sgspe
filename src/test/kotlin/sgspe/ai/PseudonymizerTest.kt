@@ -87,4 +87,74 @@ class PseudonymizerTest {
         assertFalse(Pseudonymizer.distinctive("12345678-1234-4234-8234-123456789012"))
         assertFalse(Pseudonymizer.distinctive("  "))
     }
+
+    private val compound =
+        NameDictionary(
+            listOf(
+                KnownPerson(bruno, "Bruno José", "Quispe Ejemplo"),
+                KnownPerson(ana, "Ana María", "Ejemplo Ccori"),
+                KnownPerson(null, "Q'orianka", "Mamani-Ejemplo")
+            )
+        )
+
+    private fun runWith(
+        dictionary: NameDictionary,
+        text: String,
+        restricted: List<RestrictedValue> = emptyList()
+    ): String = Pseudonymizer.pseudonymize(text, dictionary, PseudonymTable(), restricted)
+
+    @Test
+    fun `un nombre parcial tambien se enmascara`() {
+        assertEquals("[PERSONA_1], [PERSONA_1] y [PERSONA_1]", runWith(compound, "Bruno Quispe, Quispe Ejemplo y Bruno José Quispe Ejemplo"))
+        assertEquals("[PERSONA_1] y [PERSONA_1]", runWith(compound, "Ana Ejemplo y Ejemplo Ccori"))
+    }
+
+    @Test
+    fun `un nombre con apostrofo o guion se reconoce completo y parcial`() {
+        assertEquals(
+            "[PERSONA_1], [PERSONA_1], [PERSONA_1] y [PERSONA_1]",
+            runWith(compound, "Q'orianka Mamani-Ejemplo, Q’orianka Mamani, Mamani-Ejemplo Q'orianka y Q'orianka Mamani Ejemplo")
+        )
+    }
+
+    @Test
+    fun `un valor restringido se reconoce con otros espacios, saltos y orden`() {
+        val restricted = listOf(RestrictedValue(Marker.PERSONA, "Rosa Ccori Ejemplo"))
+        for (text in listOf("Rosa  Ccori Ejemplo", "rosa\nccori ejemplo", "Rosa\u00A0Ccori\u00A0Ejemplo", "Ccori Ejemplo, Rosa")) {
+            assertEquals("Firmó [PERSONA].", runWith(NameDictionary.EMPTY, "Firmó $text.", restricted), text)
+        }
+    }
+
+    @Test
+    fun `un correo restringido se sigue enmascarando tal cual`() {
+        val restricted = listOf(RestrictedValue(Marker.CORREO, "rosa@sgspe.test"))
+        assertEquals("Escribir a [CORREO].", runWith(NameDictionary.EMPTY, "Escribir a ROSA@sgspe.test.", restricted))
+    }
+
+    @Test
+    fun `una lista de documentos y un documento con prefijo pegado se enmascaran`() {
+        assertEquals("DNI: [DOCUMENTO_1],[DOCUMENTO_2]", run("DNI: 40123456,40123457"))
+        assertEquals("DNI[DOCUMENTO_1]", run("DNI40123456"))
+        assertEquals("monto 40123456.50 y 40123456,5", run("monto 40123456.50 y 40123456,5"))
+    }
+
+    @Test
+    fun `un marcador escrito en el texto no se confunde con uno generado`() {
+        val table = PseudonymTable()
+        val out = Pseudonymizer.pseudonymize("[PERSONA_1] dijo algo; Ana Ejemplo llamó", names, table)
+        assertEquals("(PERSONA_1) dijo algo; [PERSONA_1] llamó", out)
+        assertEquals("(PERSONA_1) dijo algo; Ana Ejemplo llamó", table.restore(out))
+        assertEquals("(PERSONA_1) dijo algo; [PERSONA:$ana] llamó", table.stable(out))
+    }
+
+    @Test
+    fun `un nombre descompuesto se reconoce`() {
+        assertEquals("[PERSONA_1] y [PERSONA_1]", run("A\u0301na Ejemplo y Ana\u0301 Ejemplo"))
+    }
+
+    @Test
+    fun `mas formas de telefono`() {
+        assertEquals("[TELEFONO_1]", run("+51 1 234 5678"))
+        assertEquals("[TELEFONO_1] y [TELEFONO_2]", run("987 65 43 21 y 9876-54321"))
+    }
 }

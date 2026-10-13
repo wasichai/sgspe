@@ -1,5 +1,6 @@
 package sgspe.ai
 
+import java.text.Normalizer
 import java.util.UUID
 
 // los tipos de dato personal o restringido que la IA nunca ve en claro (ai-architecture.md §12.2, security.md §7.8 y §7.9).
@@ -18,7 +19,7 @@ enum class Marker {
     val reserved: String get() = "[$name]"
 }
 
-// una persona del diccionario de nombres: una person con sus nombres, como la lee quien pide (o todas, en JOB-07)
+// una persona del diccionario de nombres: una persona con sus nombres, como la lee quien pide (o todas, en JOB-07)
 data class KnownPerson(
     val id: UUID?,
     val givenNames: String?,
@@ -46,7 +47,7 @@ internal object Folding {
     fun fold(text: String): String {
         val out = CharArray(text.length)
         for (i in text.indices) {
-            val c = text[i].lowercaseChar()
+            val c = text[i].lowercaseChar().let { if (it == '’') '\'' else it }
             val at = FROM.indexOf(c)
             out[i] = if (at >= 0) TO[at] else c
         }
@@ -55,6 +56,29 @@ internal object Folding {
 
     // las palabras (letras y dígitos) con su posición
     fun words(text: String): List<MatchResult> = WORD.findAll(text).toList()
+
+    // la forma compuesta (NFC): «Á» escrita como «A» más el acento suelto es la misma letra que «Á»
+    fun nfc(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFC)
+
+    // `name` (palabras plegadas) empieza en la palabra `start` de `words` (las de `folded`), separadas como en un nombre
+    fun fits(
+        folded: String,
+        words: List<MatchResult>,
+        start: Int,
+        name: List<String>
+    ): Boolean {
+        if (start + name.size > words.size) return false
+        for (k in name.indices) {
+            if (words[start + k].value != name[k]) return false
+            if (k > 0 && !separator(folded.substring(words[start + k - 1].range.last + 1, words[start + k].range.first))) return false
+        }
+        return true
+    }
+
+    // entre dos palabras de un nombre: espacios (también saltos de línea y espacios duros) y a lo sumo una coma («Ejemplo, Ana»),
+    // o un solo apóstrofo o guion pegado a las dos palabras («Q'orianka», «Mamani-Ejemplo»)
+    private fun separator(gap: String): Boolean =
+        gap == "'" || gap == "-" || (gap.isNotEmpty() && gap.all { it.isWhitespace() || it == ',' } && gap.count { it == ',' } <= 1)
 }
 
 // el diccionario de nombres de una llamada, por palabras plegadas: «Ana Ejemplo», «ANA EJEMPLO», «Ejemplo, Ana» y «Ána Éjemplo»
@@ -77,11 +101,12 @@ class NameDictionary(
     // las personas nombradas en el texto, sin solaparse: en cada posición, el nombre más largo
     fun matches(text: String): List<Pair<IntRange, KnownPerson>> {
         if (byFirst.isEmpty()) return emptyList()
-        val words = Folding.words(Folding.fold(text))
+        val folded = Folding.fold(text)
+        val words = Folding.words(folded)
         val found = mutableListOf<Pair<IntRange, KnownPerson>>()
         var i = 0
         while (i < words.size) {
-            val entry = byFirst[words[i].value]?.firstOrNull { fits(text, words, i, it.words) }
+            val entry = byFirst[words[i].value]?.firstOrNull { Folding.fits(folded, words, i, it.words) }
             if (entry == null) {
                 i++
                 continue
@@ -93,31 +118,26 @@ class NameDictionary(
         return found
     }
 
-    private fun fits(
-        text: String,
-        words: List<MatchResult>,
-        start: Int,
-        name: List<String>
-    ): Boolean {
-        if (start + name.size > words.size) return false
-        for (k in name.indices) {
-            if (words[start + k].value != name[k]) return false
-            if (k > 0 && !separator(text.substring(words[start + k - 1].range.last + 1, words[start + k].range.first))) return false
-        }
-        return true
-    }
-
     companion object {
         val EMPTY = NameDictionary(emptyList())
 
-        // entre dos palabras de un nombre: espacios y a lo sumo una coma («Ejemplo, Ana»)
-        private fun separator(gap: String): Boolean = gap.isNotEmpty() && gap.all { it.isWhitespace() || it == ',' } && gap.count { it == ',' } <= 1
-
+        // las formas en que se nombra a una persona, siempre de dos palabras o más: nombres y apellidos completos o con solo el primero
+        // de cada uno, en los dos órdenes, y los dos apellidos solos. un apellido compuesto («Mamani-Ejemplo») cuenta como dos palabras
         private fun variants(person: KnownPerson): List<List<String>> {
-            val given = Folding.words(Folding.fold(person.givenNames.orEmpty())).map { it.value }
-            val surnames = Folding.words(Folding.fold(person.surnames.orEmpty())).map { it.value }
+            val given = Folding.words(Folding.fold(Folding.nfc(person.givenNames.orEmpty()))).map { it.value }
+            val surnames = Folding.words(Folding.fold(Folding.nfc(person.surnames.orEmpty()))).map { it.value }
             if (given.isEmpty() || surnames.isEmpty()) return emptyList()
-            return listOf(given + surnames, surnames + given).distinct()
+            val names = listOf(given, given.take(1)).distinct()
+            val last = listOf(surnames, surnames.take(1)).distinct()
+            val forms = mutableListOf<List<String>>()
+            for (a in names) {
+                for (b in last) {
+                    forms += a + b
+                    forms += b + a
+                }
+            }
+            if (surnames.size >= 2) forms += surnames
+            return forms.filter { it.size >= 2 }.distinct()
         }
     }
 }
@@ -126,19 +146,27 @@ class NameDictionary(
 // preferencia: los valores restringidos conocidos (los de la llamada y los que la tabla ya reservó) con su marcador tipado sin
 // número; los correos, los teléfonos y los documentos de identidad por su formato, y las personas del diccionario, con un marcador
 // de la llamada que guarda `table`, numerado en el orden del texto. los UUID quedan intactos: son los ids con que el modelo pide un
-// registro. nunca lanza con el texto en el mensaje
+// registro. nunca lanza con el texto en el mensaje. solo para texto libre: nunca se le pasa un JSON entero (sus números,
+// como un monto o un conteo, se tomarían por documentos o teléfonos); quien lo use sobre resultados de herramientas lo hace por
+// cada valor de texto
 object Pseudonymizer {
     private val UUID_SPAN = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
     private val EMAIL = Regex("""[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}""")
 
-    // un celular del Perú (9 dígitos que empiezan con 9, con o sin +51) o un fijo con su código de ciudad
+    // un celular del Perú (9 dígitos que empiezan con 9, con o sin +51, agrupados 3-3-3, 3-2-2-2 o 4-5) o un fijo con su código de
+    // ciudad (con 0 o con +51)
     private val PHONE =
         Regex(
-            """(?<![\p{L}\p{N}+])(?:\+?51[\s.-]?)?9\d{2}[\s.-]?\d{3}[\s.-]?\d{3}(?!\d)|(?<![\p{L}\p{N}+])\(?0\d{1,2}\)?[\s.-]?\d{3}[\s.-]?\d{3,4}(?!\d)"""
+            """(?<![\p{L}\p{N}+])(?:\+?51[\s.-]?)?9(?:\d{2}[\s.-]?\d{3}[\s.-]?\d{3}|\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}|\d{3}[\s.-]?\d{5})(?!\d)""" +
+                """|(?<![\p{L}\p{N}+])\(?0\d{1,2}\)?[\s.-]?\d{3}[\s.-]?\d{3,4}(?!\d)""" +
+                """|(?<![\p{L}\p{N}+])\+51[\s.-]?\(?\d{1,2}\)?[\s.-]?\d{3}[\s.-]?\d{3,4}(?!\d)"""
         )
 
     // un RUC de persona natural (10…, 15… o 17…, 11 dígitos) o un DNI (8 dígitos), nunca dentro de otra cifra ni de un monto
-    private val DOCUMENT = Regex("""(?<![\p{L}\p{N}.,])(?:(?:10|15|17)\d{9}|\d{8})(?![\p{L}\p{N}]|[.,]\d)""")
+    // lo que lo precede o sigue no es otra cifra ni la parte decimal de un monto («40123456.50»); una lista («40123456,40123457») y
+    // un prefijo pegado («DNI40123456») sí se enmascaran
+    private val DOCUMENT =
+        Regex("""(?<!\p{N})(?<!(?<!\p{N})\d{1,3}[.,])(?:(?:10|15|17)\d{9}|\d{8})(?!\p{N})(?![.,]\d{1,2}(?!\d))""")
 
     private class Candidate(
         val range: IntRange,
@@ -147,17 +175,23 @@ object Pseudonymizer {
     )
 
     fun pseudonymize(
-        text: String,
+        input: String,
         names: NameDictionary,
         table: PseudonymTable,
         restricted: Collection<RestrictedValue> = emptyList()
     ): String {
-        if (text.isEmpty()) return text
+        if (input.isEmpty()) return input
+        // un marcador escrito en el texto («[PERSONA_1]») dejaría de distinguirse de los que se generan: restaurar o guardar le
+        // atribuiría el texto a una persona registrada. se vuelve inofensivo antes de cualquier reemplazo
+        val text = PseudonymTable.MARKER.replace(Folding.nfc(input)) { "(${it.value.substring(1, it.value.length - 1)})" }
         val protected = UUID_SPAN.findAll(text).map { it.range }.toList()
         val folded = Folding.fold(text)
+        val foldedWords = Folding.words(folded)
         val candidates = mutableListOf<Candidate>()
         for (value in (restricted + table.reserved()).filter { distinctive(it.value) }) {
-            for (range in occurrences(folded, Folding.fold(value.value.trim()))) candidates += Candidate(range, 0) { value.kind.reserved }
+            val needle = Folding.fold(Folding.nfc(value.value).trim())
+            val ranges = occurrences(folded, needle) + wordSequences(folded, foldedWords, needle)
+            for (range in ranges) candidates += Candidate(range, 0) { value.kind.reserved }
         }
         EMAIL.findAll(text).forEach { m -> candidates += Candidate(m.range, 1) { it.mark(Marker.CORREO, m.value) } }
         PHONE.findAll(text).forEach { m -> candidates += Candidate(m.range, 2) { it.mark(Marker.TELEFONO, m.value) } }
@@ -187,6 +221,25 @@ object Pseudonymizer {
         val text = value.trim()
         if (text.isEmpty() || UUID_SPAN.matches(text)) return false
         return text.count { it.isDigit() } >= 6 || '@' in text || Folding.words(text).size >= 2
+    }
+
+    // las apariciones de las palabras de `needle` (plegado) como un nombre: con otros espacios, saltos de línea o una coma, y con el
+    // primer nombre al final («Ccori Ejemplo, Rosa»). un valor con cifras se busca solo tal cual
+    private fun wordSequences(
+        folded: String,
+        words: List<MatchResult>,
+        needle: String
+    ): List<IntRange> {
+        val parts = Folding.words(needle).map { it.value }
+        if (parts.size < 2) return emptyList()
+        val forms = if (parts.any { part -> part.any { it.isDigit() } }) listOf(parts) else parts.indices.map { parts.drop(it) + parts.take(it) }
+        val found = mutableListOf<IntRange>()
+        for (form in forms) {
+            for (i in words.indices) {
+                if (Folding.fits(folded, words, i, form)) found += words[i].range.first..words[i + form.size - 1].range.last
+            }
+        }
+        return found
     }
 
     // las apariciones de `needle` (plegado) en `folded` que no empiezan ni terminan dentro de una palabra

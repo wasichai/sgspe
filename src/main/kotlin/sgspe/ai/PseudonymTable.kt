@@ -26,7 +26,7 @@ class PseudonymTable {
         value: String,
         personId: UUID? = null
     ): String {
-        val key = if (personId != null) "${kind.name}:$personId" else "${kind.name}:${Folding.fold(value.trim())}"
+        val key = if (personId != null) "${kind.name}:$personId" else "${kind.name}:${Folding.fold(Folding.nfc(value).trim())}"
         byKey[key]?.let { return it.marker }
         val number = (counters[kind] ?: 0) + 1
         counters[kind] = number
@@ -64,6 +64,6 @@ class PseudonymTable {
     override fun toString(): String = "PseudonymTable(${byMarker.size} marcadores)"
 
     companion object {
-        private val MARKER = Regex("""\[(PERSONA|DOCUMENTO|TELEFONO|CORREO|CONTACTO|DATO_SENSIBLE|CITA)_\d+]""")
+        internal val MARKER = Regex("""\[(PERSONA|DOCUMENTO|TELEFONO|CORREO|CONTACTO|DATO_SENSIBLE|CITA)_\d+]""")
     }
 }
