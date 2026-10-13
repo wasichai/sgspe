@@ -436,7 +436,7 @@ EntityDetailPage
 | Campo o cifra restringidos | Candado y "no disponible", nunca vacío ni cero (RQ-DSH-032) |
 | Sesión vencida (401) | Volver a ingresar sin perder el borrador (WAS-ADR-0031) |
 | Módulo no instalado (404) | "Esta sección llega en una próxima fase", sin error técnico (ADR-0024) |
-| IA no disponible | Por rol (UPS-14), por organización o por falla del proveedor, con la razón |
+| IA no disponible | Por rol (sin CREATE sobre `ai_interaction`, ASM-130), por organización o por falla del proveedor (`503 AI_UNAVAILABLE`), con la razón |
 
 ### 6.6 Auditoría legible
 

@@ -281,14 +281,15 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 
 ## Flujo 18 · Preguntar a la IA
 
-- **Actor:** quien tenga la IA activada en su organización; "preguntar a los datos" (AI-05) solo `ANALYST` hasta UPS-14.
+- **Actor:** quien tenga la IA activada en su organización y pueda registrar `ai_interaction` (ASM-130); "preguntar a
+  los documentos" (AI-06) exige además leer los nombres de `person`.
 - **Disparador:** una duda sobre los datos o los documentos del proyecto, desde la barra superior o desde una ficha.
 - **Diagrama:** hoja `Flujos-IA` del lienzo de la etapa 3, página 20.
 
 | # | Pantalla | Acción | Regla o resultado |
 |---|---|---|---|
 | 1 | S05 | Abrir el asistente | Contextual: lleva el registro abierto y el contexto de proyecto y territorio (ASM-073, ASM-075) |
-| 2 | S05 | `GET /api/sgspe/ai/status` | Sin IA activada, proveedor caído o rol sin AI-05: se muestra la razón y la alternativa (preguntar a los documentos) |
+| 2 | S05 | `GET /api/sgspe/ai/status` | Sin IA activada o sin proveedor (`503 AI_UNAVAILABLE`), o un rol que no puede registrar `ai_interaction`: se muestra la razón; quien no lee los nombres de `person` solo ve "Preguntar a los datos" |
 | 3 | S05 | Elegir modo y preguntar | AI-05: `POST /api/sgspe/ai/assistant/questions`; AI-06: `POST /api/sgspe/ai/knowledge/questions` |
 | 4 | — | El servicio lee como la persona | Permisos, alcance y, en AI-06, solo clasificaciones descargables (RF-DOC-003) |
 | 5 | — | Seudonimiza y llama al modelo | AI-06 y los agentes propios reemplazan nombres por marcadores (RQ-AI-009); una cita que no aparece literal se descarta |

@@ -1476,7 +1476,8 @@ disponible", nunca cero (RQ-DSH-032). Las cifras salen de `GET /api/sgspe/dashbo
 - **Propósito:** ¿qué cambió, qué es crítico, dónde y quién lo atiende? Leerlo en cinco minutos.
 - **Roles:** el ejecutivo (`READ_ONLY` o `ANALYST`); también SMG y PMG como vista. Lectura.
 - **Acciones:** primaria abrir lo que necesita atención; secundarias filtros de periodo y proyectos, "Monitoreo de la Tabla
-  9.5" y el asistente (solo `ANALYST`, ASM-073).
+  9.5" y el asistente (si el
+  ejecutivo es `ANALYST`, que puede registrar `ai_interaction`; ASM-073, ASM-130).
 - **Disposición y componentes:** "Lo que necesita atención hoy" (lista ordenada por regla fija, no por IA); tiles de
   KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-EXE-02 y KPI-ENG-01; un tile de postura "no disponible";
   medidor de KPI-INV-03 por moneda; tres líneas de KPI-EXE-03; tabla por proyecto.
@@ -1637,8 +1638,8 @@ procedencia de `design-system.md` §4.4 y se muestra como texto, nunca como HTML
 - **Ruta y lienzo:** panel lateral global (barra superior) y contextual (desde una ficha) · hoja `IA-Panel` (interactiva:
   rol y estado de la organización) · F7.
 - **Propósito:** preguntar a los datos o a los documentos sin salir de lo que se está haciendo.
-- **Roles:** "Preguntar a los datos" (AI-05) solo `ANALYST` hasta UPS-14 (`ai-architecture.md` §8); "Preguntar a los
-  documentos" (AI-06) a los roles que pueden registrar `ai_interaction`.
+- **Roles:** "Preguntar a los datos" (AI-05) a los roles que pueden registrar `ai_interaction` (`ai-architecture.md` §8,
+  ASM-130); "Preguntar a los documentos" (AI-06) a esos roles si además leen los nombres de `person`.
 - **Acciones:** "Preguntar"; cambiar de modo; abrir un registro o una fuente citada; cerrar.
 - **Disposición y componentes:** encabezado con el chip de contexto (proyecto y territorio, ASM-075); pestañas de modo;
   conversación con la pregunta y la respuesta (`AiAnswer`) con enlaces y "Cómo lo obtuvo"; campo de pregunta con la nota de
