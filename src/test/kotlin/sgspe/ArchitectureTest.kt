@@ -425,6 +425,18 @@ class ArchitectureTest {
         assertFalse(flags(AGENT_IMPORT, "// wasichai.agent no se importa fuera de sgspe.ai"))
     }
 
+    // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
+    // AssistantRun.kt pone otra autenticación en el contexto de Reactor
+    @Test
+    fun `solo AssistantRun cambia la autenticacion del contexto`() {
+        val run = "/sgspe/ai/AssistantRun.kt"
+        val others = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(run) }
+        assertEquals(emptyList<String>(), offenders(others, WITH_AUTHENTICATION))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(run) })
+        assertTrue(flags(WITH_AUTHENTICATION, "ReactiveSecurityContextHolder.withAuthentication(tagged)"))
+        assertFalse(flags(WITH_AUTHENTICATION, "// withAuthentication solo en AssistantRun"))
+    }
+
     @Test
     fun `observability no depende de otros paquetes de sgspe`() {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
@@ -563,6 +575,7 @@ class ArchitectureTest {
         private val DATABASE_CLIENT = Regex("""\bDatabaseClient\b""")
         private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
+        private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
