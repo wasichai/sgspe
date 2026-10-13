@@ -82,9 +82,11 @@ class ProjectLinkGuard(
 
     companion object {
         // los objetos de F4 (BC-07, BC-08 y BC-09) y, desde F5 (elección 5), el aporte, el programa y la tarea, cuyos orígenes
-        // hasta F4 no se juzgaban
+        // hasta F4 no se juzgaban. desde F7 (plan 7.2b), la sugerencia de IA: su ai_interaction es de su proyecto (una del tenant
+        // no discrepa); su registro destino, que no es una relación, lo comprueba SuggestionWriter
         val OBJECTS: Set<String> =
             setOf(
+                "ai_suggestion",
                 "social_contribution",
                 "social_program",
                 "task",
