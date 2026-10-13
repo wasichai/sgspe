@@ -91,14 +91,17 @@ class SgspeSmokeTest : WasichaiIntegrationTest() {
                 .expectStatus()
                 .isOk
         }
-        // agent llega en F7: hoy su ruta no existe
+        // agent desde F7: sin clave del proveedor (las pruebas la dejan en blanco) responde enabled=false
         client
             .get()
             .uri("/api/agent/status")
             .header(HttpHeaders.AUTHORIZATION, token)
             .exchange()
             .expectStatus()
-            .isNotFound
+            .isOk
+            .expectBody()
+            .jsonPath("$.enabled")
+            .isEqualTo(false)
     }
 
     @Test
