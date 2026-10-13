@@ -230,7 +230,8 @@ class F3WorkflowsTests(unittest.TestCase):
                           ("attendance-list", "LA", "engagement", "F3", None),
                           ("grievance-receipt", "CQ", "grievance", "F4", "UPS-23"),
                           ("inquiry-answer-letter", "CC", "inquiry", "F4", "UPS-23"),
-                          ("request-answer-letter", "CS", "stakeholder_request", "F4", "UPS-23")])
+                          ("request-answer-letter", "CS", "stakeholder_request", "F4", "UPS-23"),
+                          ("deliverable-issue-certificate", "CE", "deliverable", "F8", None)])
 
     def test_indexed_e_indexes_en_las_otras_tres_fichas(self):
         cards = design_docs.cards()
