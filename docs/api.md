@@ -266,7 +266,7 @@ parámetro) y `503` `GEOSERVER_UNAVAILABLE` (`wms`); la exportación geográfica
 
 Los endpoints de F7 (§4.14) usan la misma forma. `runs`, `assistant/questions` y `knowledge/questions` responden
 `503` `AI_UNAVAILABLE` (`organization` si la organización no tiene la IA activada, `provider` si no hay
-proveedor; ASM-128). `runs` responde además `422` `AI_INPUT_TOO_LARGE` (`target`: el texto de la fuente pasa el tamaño
+proveedor configurado o no responde; ASM-128). `runs` responde además `422` `AI_INPUT_TOO_LARGE` (`target`: el texto de la fuente pasa el tamaño
 de `sgspe.ai.limits`, antes de llamar al modelo; ASM-131), `422` `AI_NO_TEXT` (`target`: un PDF sin texto o un formato
 que no es PDF ni DOCX; ASM-132) y `502` `AI_RUN_TRUNCATED` (`useCase`: la corrida se quedó sin margen de tokens o de
 acciones y no guardó sugerencias ni candidatos; ASM-131). El detalle está en §4.14.

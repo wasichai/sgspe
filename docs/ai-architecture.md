@@ -295,9 +295,9 @@ extensión de wasichai-agent, que resuelven UPS-14 (WAS-ADR-0056; en wasichai 1.
 3. **`PseudonymizingResultFilter`** (`AgentResultFilter`) seudonimiza cada resultado de herramienta y el resumen de cada
    paso con la tabla de la pregunta y, para el objeto que la herramienta leyó (`input.objectName` o el `object` del
    registro), reemplaza el valor de todo campo restringido de RQ-SEC-010 por su marcador tipado. La lista de campos
-   restringidos sale de una sola fuente, `RestrictedFields`, la misma de los agentes propios, y una prueba la
-   compara con `security.md` §7.9. El texto que no es JSON solo se seudonimiza. Sin tabla en el contexto, el filtro falla cerrado:
-   lanza y nada sale hacia el modelo.
+   restringidos sale de una sola fuente, `RestrictedFields`, la misma de los agentes propios, y una prueba la compara
+   con `security.md` §7.9. El texto que no es JSON solo se seudonimiza. Sin tabla en el contexto, el filtro falla
+   cerrado: lanza y nada sale hacia el modelo.
 4. **`RestoringAnswerFilter`** (`AgentAnswerFilter`) restaura los marcadores de la respuesta final con la tabla de la
    pregunta. Los de los campos restringidos enmascarados no se restauran: su marcador queda en la respuesta. La tabla no
    se guarda ni se registra.
@@ -465,7 +465,7 @@ propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto q
   pide la corrida: dentro de una petición no se puede leer como la plataforma [WAS-ADR-0039].
   - Por eso los casos de `POST /api/sgspe/ai/runs` y AI-06 exigen que esa persona pueda leer los nombres de `person`
     (`security.md`). Si no puede, la petición se rechaza con 403 antes de llamar al modelo.
-  - JOB-07 corre como la plataforma, así que su diccionario tiene todas las `person` del tenant.
+  - En la etapa 2, JOB-07 corre como la plataforma, así que su diccionario tiene todas las `person` del tenant.
 - **Qué se guarda.** La tabla de equivalencias de la llamada vive solo en memoria y no se registra. Al guardar la salida
   (`SuggestionWriter`), `evidence_quote` incluida, cada dato seudonimizado queda con un marcador estable (`security.md` §7.8):
   - una `person` registrada, a una referencia (`[PERSONA:<id>]`);
@@ -488,9 +488,10 @@ propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto q
 - Las opiniones políticas, la religión, el proceso electoral y la postura de una persona no forman parte de las herramientas de
   los agentes propios, salvo como agregados de indicadores. Esos agregados también exigen que la persona pueda leer el campo; si
   no puede, el indicador llega como "no disponible" (RQ-SEC-010, [dashboards.md](dashboards.md) §8).
-- Es un esfuerzo razonable, no una garantía: un nombre escrito en un texto libre que no está registrado como `person` puede
-  pasar. Por eso la IA viene desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los
-  fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato restringido (`security.md` §7.8).
+- Es un esfuerzo razonable, no una garantía: un nombre escrito en un texto libre que no está registrado como `person`
+  puede pasar. Por eso la IA viene desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los
+  fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato
+  restringido (`security.md` §7.8).
 
 ### 12.3 Inyección de prompts
 

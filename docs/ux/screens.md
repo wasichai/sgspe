@@ -1646,8 +1646,8 @@ procedencia de `design-system.md` §4.4 y se muestra como texto, nunca como HTML
   solo lectura.
 - **Datos y API:** `GET /api/sgspe/ai/status`; `POST /api/sgspe/ai/assistant/questions` (AI-05);
   `POST /api/sgspe/ai/knowledge/questions` (AI-06). Cada pregunta queda en `ai_interaction`.
-- **Estados:** organización sin IA (lo dice, y la bandeja sigue funcionando); "no disponible para tu rol" con la razón y la
-  alternativa; proveedor caído (`503`) con reintento.
+- **Estados:** organización sin IA (lo dice, y la bandeja sigue funcionando); "no disponible para tu rol" con la razón; sin
+  proveedor o con el proveedor caído (`503 AI_UNAVAILABLE`, `provider`) con reintento.
 - **Permisos:** el asistente lee como la persona; nunca escribe.
 - **Responsive:** en teléfono, a pantalla completa.
 - **Relacionadas y navegación:** S52; los enlaces de la respuesta abren la ficha con el contexto. Flujo 18.

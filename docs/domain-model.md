@@ -1071,8 +1071,8 @@ de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-00
   `sgspe.warning`, alertas en su estado inicial. Nunca aplican una transición ni vinculan o desvinculan registros
   (RN-WFL-001, CON-043). Son, con la numeración de `workflows.md`: `DeadlineJob` (JOB-01), `DerivedFieldsJob` (JOB-02),
   `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), el trabajador de generación de entregables (JOB-05), la
-  indexación para RAG (JOB-07, F7), que escribe la tabla fija `knowledge_chunk` y solo crearía `ai_interaction` al llamar
-  a un modelo, lo que en F7 no hace, y la retención (JOB-08), que desde F3 borra con SQL propio, sin `asPlatform`, las
+  indexación para RAG (JOB-07, F7), que escribe la tabla fija `knowledge_chunk` y solo crearía `ai_interaction` al
+  llamar a un modelo, lo que en F7 no hace, y la retención (JOB-08), que desde F3 borra con SQL propio, sin `asPlatform`, las
   claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de `derived_version` (ASM-065, ASM-091,
   RNF-INT-002) y desde F8 lee
   `deliverable` y `deliverable_version` y borra archivos de borradores sin referencia, sin escribir registros de
