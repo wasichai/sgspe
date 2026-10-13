@@ -76,6 +76,8 @@ class ArchitectureTest {
         assertTrue(names.containsAll(f4), "$names")
         // y la primera de sgspe.ai (F7, plan 7.1): un paquete de salida que ningún paquete de dominio importa
         assertTrue("KnowledgeMigration.kt" in names, "$names")
+        // y las de 7.2a: la seudonimización, el asistente y su compuerta
+        assertTrue(names.containsAll(listOf("Pseudonymizer.kt", "AssistantQuestions.kt", "AgentHttpGate.kt")), "$names")
         val testNames = sources(test).map { it.name }
         assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
     }

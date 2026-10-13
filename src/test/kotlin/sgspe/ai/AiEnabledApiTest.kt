@@ -37,4 +37,22 @@ class AiEnabledApiTest : F7ApiTest() {
         assertFalse(body["enabled"].asBoolean())
         assertEquals(emptyList<String>(), body["useCases"].values().map { it.asString() })
     }
+
+    @Test
+    fun `sin proveedor la pregunta responde 503 provider, y 403 a quien no crea interacciones`() {
+        val path = "/api/sgspe/ai/assistant/questions"
+        val cro = member("COMMUNITY_RELATIONS_OFFICER")
+        val unavailable = exchange("POST", path, mapOf("question" to "¿Cuántas reuniones hubo?"), cro.token)
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, unavailable.status, unavailable.body)
+        assertEquals("AI_UNAVAILABLE", code(unavailable))
+        assertEquals(listOf("provider"), problemFields(unavailable.body))
+        val reader = member("READ_ONLY")
+        val forbidden = exchange("POST", path, mapOf("question" to "¿Cuántas reuniones hubo?"), reader.token)
+        assertEquals(HttpStatus.FORBIDDEN, forbidden.status, forbidden.body)
+        assertTrue("ai_interaction" in tree(forbidden.body)["detail"].asString(), forbidden.body)
+        val other = provisionTenant()
+        val elsewhere = exchange("POST", path, mapOf("question" to "¿Cuántas reuniones hubo?"), other.token)
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, elsewhere.status, elsewhere.body)
+        assertEquals(listOf("organization"), problemFields(elsewhere.body))
+    }
 }
