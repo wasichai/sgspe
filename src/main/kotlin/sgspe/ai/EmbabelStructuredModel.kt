@@ -42,10 +42,9 @@ class EmbabelStructuredModel(
                             .ai()
                             .withLlm(LlmOptions.withModel(request.model).withMaxTokens(request.maxOutputTokens))
                     (request.system?.let { runner.withSystemPrompt(it) } ?: runner).createObject(request.prompt.text, request.outputClass)
-                } catch (e: MaxIterationsExceededException) {
-                    throw failure(StructuredModelException.Reason.TRUNCATED, process, e)
                 } catch (e: Exception) {
-                    throw failure(StructuredModelException.Reason.UNAVAILABLE, process, e)
+                    val truncated = generateSequence<Throwable>(e) { it.cause }.any { it is MaxIterationsExceededException }
+                    throw failure(if (truncated) StructuredModelException.Reason.TRUNCATED else StructuredModelException.Reason.UNAVAILABLE, process, e)
                 }
             val calls = process.llmInvocations
             return ModelResult(
@@ -70,7 +69,7 @@ class EmbabelStructuredModel(
                 reason,
                 calls.takeIf { it.isNotEmpty() }?.sumOf { it.usage.promptTokens ?: 0 },
                 calls.takeIf { it.isNotEmpty() }?.sumOf { it.usage.completionTokens ?: 0 },
-                cause
+                cause::class.java.name
             )
         }
     }
