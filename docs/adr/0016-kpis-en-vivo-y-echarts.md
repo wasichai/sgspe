@@ -2,7 +2,8 @@
 
 ## Estado
 
-Propuesto · 2026-10-07 · se acepta al iniciar F2
+Aceptado · 2026-10-13 · en uso desde F2 (los KPI y ECharts de cada módulo); F8 lo completa con KPI-EXE, los tableros
+consolidados, `KpiReader` y el cierre de periodo (ASM-136)
 
 ## Contexto
 
@@ -69,8 +70,10 @@ Propuesto · 2026-10-07 · se acepta al iniciar F2
   (RQ-DSH-032). Los de postura solo dan cifras a quien lee `stance` (GAP-024).
 - Caché solo en la interfaz, 60 segundos; el servidor no guarda resultados en el MVP.
 - **Cifras oficiales opcionales** (opcional, llega en F8, ASM-042). El catálogo `indicator` documenta cada KPI; cerrar
-  un periodo congela la cifra en `indicator_measurement` (`appendOnly`, `apiOnly`), que responde 409 para los KPI de
-  postura (KPI-STK-02, KPI-STK-05 y KPI-STK-06) y para KPI-TER-01 (RQ-DSH-037).
+  un periodo congela la cifra en `indicator_measurement` (`appendOnly`, `apiOnly`), que guarda una cifra completa o
+  ninguna: `409 INDICATOR_NOT_CLOSABLE` para los KPI de postura (KPI-STK-02, KPI-STK-05 y KPI-STK-06), los que no tienen
+  valor escalar (KPI-TER-01, KPI-EXE-03), los que quien cierra no tiene disponibles y los que salen con
+  `confidentialHidden` (RQ-DSH-037, ASM-136). Las metas iniciales son las de DOC-01, editables en `indicator`.
 - Endpoints: `GET /api/sgspe/dashboards/{dashboard}`, `GET /api/sgspe/dashboards/indicators/{code}`,
   `GET /api/sgspe/dashboards/indicators` y `POST /api/sgspe/indicators/{id}/measurements` ([api.md §4.11](../api.md)).
 
@@ -102,17 +105,18 @@ Propuesto · 2026-10-07 · se acepta al iniciar F2
 
 ### Seguimiento
 
-- Se acepta al iniciar F2, con los primeros KPI de grupos de interés y relacionamiento y el primer uso de ECharts; cada
-  módulo trae los suyos y F8 los consolida (RQ-DSH-036).
-- Abiertos: GAP-027, GAP-018 (metas y frecuencias), GAP-024, CON-041, UPS-01.
+- Rige desde F2, con los primeros KPI de grupos de interés y relacionamiento y el primer uso de ECharts; cada módulo
+  trae los suyos y F8 los consolida (RQ-DSH-036) y suma `KpiReader`, para que los entregables lean los mismos KPI como
+  la plataforma (`DashboardDeliverableParityTest`).
+- Abiertos: GAP-027, GAP-024, CON-041, UPS-01. GAP-018 quedó resuelta con los valores de DOC-01 (ASM-136).
 - Antes de F2 se valida la paleta (contraste y daltonismo, en claro y oscuro).
 - Pruebas: unitarias de las funciones puras de agregación; de integración de los endpoints con permisos de campo
   ("no disponible"); y el criterio 19 de [deliverables.md §13.2](../deliverables.md) (cifras iguales a las del tablero).
 
 ## Referencias
 
-- Requisitos: RQ-DSH-001, RQ-DSH-031, RQ-DSH-032, RQ-DSH-034, RQ-DSH-035, RQ-DSH-036, RQ-DSH-037, RQ-GIS-014, RQ-GIS-017,
-  RQ-REP-031, CON-041, ASM-042, ASM-046, ASM-047, GAP-018, GAP-024, GAP-027, UPS-01.
+- Requisitos: RQ-DSH-001, RQ-DSH-031, RQ-DSH-032, RQ-DSH-034, RQ-DSH-035, RQ-DSH-036, RQ-DSH-037, RQ-GIS-014,
+  RQ-GIS-017, RQ-REP-031, CON-041, ASM-042, ASM-046, ASM-047, ASM-136, GAP-018, GAP-024, GAP-027, UPS-01.
 - Documentos: [dashboards.md §2, §3, §6, §7, §8, §9, §10 y §11](../dashboards.md), [api.md §4.11](../api.md),
   [architecture.md §9 y §14](../architecture.md), [platform-fit.md §2.12 y §6](../platform-fit.md),
   [security.md §7.8 y §7.9](../security.md).

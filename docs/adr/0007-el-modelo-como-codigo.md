@@ -15,8 +15,8 @@ Aceptado · 2026-10-07
   `apply_roles.py`, en Python con solo la biblioteca estándar [USR-03] (RNF-MNT-002).
 - wasichai no audita los cambios de metadata, usuarios ni roles (UPS-02); no se sabe si se permitirá editar la metadata
   en `/admin` en producción (GAP-030); guarda `defaultValue` pero no lo aplica (UPS-15).
-- SGSPE tiene 89 objetos, workflows, roles, vistas, formularios, páginas, tipos de documento y automatizaciones que llegan
-  por fase, y cuatro tablas fijas que no son Custom Objects.
+- SGSPE tiene 90 objetos, workflows, roles, vistas, formularios, páginas, tipos de documento y automatizaciones que
+  llegan por fase, y cuatro tablas fijas que no son Custom Objects.
 
 ## Opciones consideradas
 
