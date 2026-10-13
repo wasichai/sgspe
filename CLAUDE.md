@@ -8,9 +8,10 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 - Backend de SGSPE en la raíz: Spring Boot 4.1.1 WebFlux sobre wasichai 1.2.0 (`wasichai-bom`), Kotlin 2.4.20, JDK 25,
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
-  `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning`.
-- `model/`: `model.json` (los 82 objetos de F2 a F5), `roles.json`, `workflows/` (los 17 de F2 a F5: WF-A, WF-B, WF-C,
-  WF-L, WF-O, WF-D, WF-I, WF-K, WF-N, WF-E1, WF-E2, WF-E3, WF-F, WF-J, WF-M, WF-G y WF-P), `document-types/`, `automations/` y los
+  `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning` y, desde F7, `ai`.
+- `model/`: `model.json` (los 84 objetos de F2 a F7), `roles.json`, `workflows/` (los 18 de F2 a
+  F7: WF-A, WF-B, WF-C, WF-L, WF-O, WF-D, WF-I, WF-K (de candidatos y, desde F7, de sugerencias de IA), WF-N, WF-E1,
+  WF-E2, WF-E3, WF-F, WF-J, WF-M, WF-G y WF-P), `document-types/`, `automations/` y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `load_ubigeo.py` y `design_docs.py`, que lee
   los documentos para las pruebas del modelo.
 - `docs/`: análisis, diseño, ADR, trazabilidad, roadmap y planes. La interfaz vive en `../sgspe-ui`.
@@ -102,6 +103,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Base de las pruebas de F3 del modelo (compromisos, acuerdos y tareas listos para sus guardas, altas apiOnly como la plataforma, espera de automatizaciones) | `src/test/kotlin/sgspe/F3ApiTest.kt` |
 | Base de las pruebas de F4 (QCS, riesgos, incidentes, menciones, señales, reglas y alertas listos para las guardas de 4.2; revisiones de riesgo y derivados como la plataforma) | `src/test/kotlin/sgspe/F4ApiTest.kt` |
 | Base de las pruebas de F5 (aportes con ítems, aprobados y adquiridos, su entrega con acta, foto y comprobante, campañas, acuerdos vigentes, temas priorizados y programas con sus datos, listos para las guardas de 5.2) | `src/test/kotlin/sgspe/F5ApiTest.kt` |
+| Tabla fija del RAG (`sgspe.knowledge_chunk`, migración `sgspe_ai`, `KnowledgeMigration`); desde el plan 7.2a, el resto de `sgspe.ai` | `src/main/kotlin/sgspe/ai/`, `src/main/resources/db/sgspe/ai/` |
+| Base de las pruebas de F7 (interacciones, sugerencias y candidatos de IA como la plataforma, listos para 7.2a a 7.2c) | `src/test/kotlin/sgspe/F7ApiTest.kt` |
 | Tipos de documento y automatizaciones (AUT-NN) | `model/document-types/`, `model/automations/`; `src/test/kotlin/sgspe/workflow/AutomationsApiTest.kt` |
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
 | Modelo frente a los documentos | `model/test_model.py`, `model/design_docs.py` |
