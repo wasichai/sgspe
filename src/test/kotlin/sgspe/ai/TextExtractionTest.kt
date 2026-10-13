@@ -1,10 +1,20 @@
 package sgspe.ai
 
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import wasichai.core.common.WasichaiException
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 // el texto de una evidencia con PDFBox y POI, sin OCR (ai-architecture.md §15, ASM-132): un PDF con texto y un DOCX ficticios se
 // leen; un PDF sin capa de texto, un archivo roto o de otro formato es 422 AI_NO_TEXT sobre target
@@ -64,5 +74,89 @@ class TextExtractionTest {
     @Test
     fun `el texto sale normalizado`() {
         assertEquals("uno\n\ndos\ttres", TextExtraction.normalize("uno  \r\n\r\n\r\n\u0000dos\ttres\u0007  "))
+    }
+
+    private fun tooLarge(block: () -> Unit) {
+        val refused = assertThrows<WasichaiException> { block() }
+        assertEquals(422, refused.status.value())
+        assertEquals("target" to "AI_INPUT_TOO_LARGE", refused.violations.single().let { it.field to it.message })
+    }
+
+    // reescribe una parte del DOCX con otro contenido
+    private fun rewrite(
+        docx: ByteArray,
+        part: String,
+        content: ByteArray
+    ): ByteArray {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            ZipInputStream(ByteArrayInputStream(docx)).use { input ->
+                generateSequence { input.nextEntry }.forEach { entry ->
+                    zip.putNextEntry(ZipEntry(entry.name))
+                    zip.write(if (entry.name == part) content else input.readBytes())
+                    zip.closeEntry()
+                }
+            }
+        }
+        return out.toByteArray()
+    }
+
+    @Test
+    fun `un PDF cifrado con clave es AI_NO_TEXT`() {
+        val plain = TestDocuments.pdf("Acta reservada")
+        val encrypted =
+            org.apache.pdfbox.Loader.loadPDF(plain).use { document ->
+                val policy = StandardProtectionPolicy("duena", "clave", AccessPermission())
+                policy.encryptionKeyLength = 128
+                document.protect(policy)
+                ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+            }
+        noText { extraction.extract(encrypted, "application/pdf", "reservada.pdf") }
+    }
+
+    @Test
+    fun `un DOCX con una entidad externa no la expande`() {
+        val secret = Files.createTempFile("sgspe-xxe", ".txt").also { Files.writeString(it, "SECRETO-XXE") }
+        try {
+            val xml =
+                """<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE d [<!ENTITY x SYSTEM "${secret.toUri()}">]>
+                |<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>hola &x;</w:t></w:r></w:p></w:body></w:document>
+                """.trimMargin()
+            val bytes = rewrite(TestDocuments.docx("base"), "word/document.xml", xml.toByteArray())
+            val result = runCatching { extraction.extract(bytes, TextExtraction.DOCX, "xxe.docx") }
+            assertFalse(result.getOrDefault("").contains("SECRETO-XXE"), result.toString())
+        } finally {
+            Files.deleteIfExists(secret)
+        }
+    }
+
+    @Test
+    fun `una bomba de compresion en un DOCX se rechaza`() {
+        val bomb = rewrite(TestDocuments.docx("base"), "word/document.xml", ByteArray(60 * 1024 * 1024))
+        assertTrue(bomb.size < 200_000, "la bomba pesa ${bomb.size}")
+        tooLarge { extraction.extract(bomb, TextExtraction.DOCX, "bomba.docx") }
+    }
+
+    @Test
+    fun `un PDF o un DOCX con mas texto que el tope es AI_INPUT_TOO_LARGE`() {
+        val longLines = Array(40) { "x".repeat(90) }
+        tooLarge { extraction.extract(TestDocuments.pdf(*longLines), "application/pdf", "largo.pdf", maxChars = 500) }
+        tooLarge { extraction.extract(TestDocuments.docx(*longLines), TextExtraction.DOCX, "largo.docx", maxChars = 500) }
+        assertTrue(extraction.extract(TestDocuments.pdf("corto"), "application/pdf", maxChars = 500).isNotEmpty())
+    }
+
+    @Test
+    fun `un PDF con demasiadas paginas es AI_INPUT_TOO_LARGE`() {
+        val many =
+            PDDocument().use { document ->
+                repeat(TextExtraction.MAX_PAGES + 1) {
+                    document.addPage(
+                        org.apache.pdfbox.pdmodel
+                            .PDPage()
+                    )
+                }
+                ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+            }
+        tooLarge { extraction.extract(many, "application/pdf", "paginas.pdf") }
     }
 }
