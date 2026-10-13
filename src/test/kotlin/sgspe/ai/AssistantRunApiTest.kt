@@ -14,7 +14,6 @@ import org.springframework.test.context.TestPropertySource
 import sgspe.F7ApiTest
 import wasichai.agent.AgentFilterException
 import wasichai.agent.AgentService
-import java.net.URLEncoder
 
 // AI-05 contra wasichai de verdad (especificación de F7 §5, security.md §14 «Asistente AI-05»): con una clave falsa que nunca se usa
 // (RecordingLlm, el modelo guionado, está delante del proveedor) y la IA activada para la organización sembrada (slug demo). una
@@ -132,8 +131,8 @@ class AssistantRunApiTest : F7ApiTest() {
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.status, response.body)
         assertEquals("AI_UNAVAILABLE", code(response))
         assertEquals(listOf("provider"), problemFields(response.body))
-        val email = URLEncoder.encode(cro.email, Charsets.UTF_8)
-        val logged = tree(send("GET", "/api/objects/ai_interaction/records?requested_by_user_email=$email", null, HttpStatus.OK))["content"].values()
+        // el correo va tal cual: WebTestClient codifica la plantilla, y un %40 previo llegaría como %2540
+        val logged = tree(send("GET", "/api/objects/ai_interaction/records?requested_by_user_email=${cro.email}", null, HttpStatus.OK))["content"].values()
         assertEquals(1, logged.size)
         assertTrue(logged.single()["attributes"]["output_summary"].asString().startsWith("Corrida fallida"))
     }
