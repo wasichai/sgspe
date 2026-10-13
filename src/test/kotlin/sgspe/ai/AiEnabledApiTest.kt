@@ -21,7 +21,8 @@ class AiEnabledApiTest : F7ApiTest() {
         val body = status(cro.token)
         assertTrue(body["enabled"].asBoolean())
         assertFalse(body["providerAvailable"].asBoolean())
-        assertEquals(listOf("AI-05"), body["useCases"].values().map { it.asString() })
+        // cada plan de F7 suma sus casos (7.2b, 7.2c): aquí, los que ya se ofrecen a este rol
+        assertTrue(body["useCases"].values().map { it.asString() }.containsAll(listOf("AI-05", "AI-06")), body.toString())
     }
 
     @Test
