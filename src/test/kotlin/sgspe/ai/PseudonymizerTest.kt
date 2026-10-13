@@ -187,6 +187,22 @@ class PseudonymizerTest {
         }
     }
 
+    // una palabra de solo letras para el número n: los valores largos de la prueba de tiempo parecen texto, sin cifras
+    private fun letters(n: Int): String = generateSequence(n) { if (it >= 26) it / 26 - 1 else null }.map { 'a' + it % 26 }.joinToString("").reversed()
+
+    @Test
+    fun `muchos restringidos largos reservados no hacen lento el texto que sigue`() {
+        val table = PseudonymTable()
+        val values = (0 until 150).map { v -> (0 until 80).joinToString(" ") { w -> "dato" + letters(v * 80 + w) } }
+        values.forEach { table.reserve(Marker.DATO_SENSIBLE, it) }
+        val texts = (0 until 1500).map { "la nota ${letters(it)} del caso sigue abierta sin otra novedad" }
+        val start = System.nanoTime()
+        texts.forEach { Pseudonymizer.pseudonymize(it, names, table) }
+        val seconds = (System.nanoTime() - start) / 1e9
+        assertTrue(seconds < 1.0, "$seconds s")
+        assertEquals("antes [DATO_SENSIBLE] después", Pseudonymizer.pseudonymize("antes ${values[77]} después", names, table))
+    }
+
     @Test
     fun `los correos por la arroba`() {
         assertEquals("[CORREO_1], [CORREO_2] y a@b o @x.com", run("a.b@sgspe.test, c@d.org y a@b o @x.com"))

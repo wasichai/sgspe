@@ -19,6 +19,7 @@ class PseudonymTable {
     private val byMarker = HashMap<String, Entry>()
     private val counters = EnumMap<Marker, Int>(Marker::class.java)
     private val reservedValues = LinkedHashMap<String, RestrictedValue>()
+    private val needles = mutableListOf<Pseudonymizer.Needle>()
 
     @Synchronized
     fun mark(
@@ -42,8 +43,17 @@ class PseudonymTable {
         kind: Marker,
         value: String
     ) {
-        if (Pseudonymizer.distinctive(value)) reservedValues.putIfAbsent(Folding.fold(value.trim()), RestrictedValue(kind, value.trim()))
+        val restricted = RestrictedValue(kind, value.trim())
+        val needle = Pseudonymizer.needle(restricted) ?: return
+        val key = Folding.fold(value.trim())
+        if (key in reservedValues) return
+        reservedValues[key] = restricted
+        needles += needle
     }
+
+    // los reservados preparados para buscarlos, en el orden en que se reservaron: se preparan una vez, no en cada texto que sigue
+    @Synchronized
+    internal fun needles(): List<Pseudonymizer.Needle> = needles.toList()
 
     @Synchronized
     fun reserved(): List<RestrictedValue> = reservedValues.values.toList()
