@@ -48,9 +48,23 @@ class PseudonymTable {
     @Synchronized
     fun reserved(): List<RestrictedValue> = reservedValues.values.toList()
 
-    // la respuesta de AI-05: cada marcador de la llamada vuelve a su valor; los reservados y los que la tabla no conoce quedan
+    // la respuesta de AI-05: cada marcador de la llamada vuelve a su valor; los reservados y los que la tabla no conoce quedan. un
+    // valor numerado que después resultó restringido (visto primero en texto libre y luego en su campo) no vuelve: queda su
+    // marcador sin número
     @Synchronized
-    fun restore(text: String): String = MARKER.replace(text) { byMarker[it.value]?.value ?: it.value }
+    fun restore(text: String): String =
+        MARKER.replace(text) { match ->
+            val entry = byMarker[match.value] ?: return@replace match.value
+            if (restricted(entry.value)) "[${match.groupValues[1]}]" else entry.value
+        }
+
+    // el valor contiene uno reservado, comparados sin tildes, mayúsculas, espacios ni signos (un teléfono con o sin espacios ni +51)
+    private fun restricted(value: String): Boolean {
+        val key = compact(value)
+        return reservedValues.values.any { reserved -> compact(reserved.value).let { it.isNotEmpty() && it in key } }
+    }
+
+    private fun compact(value: String): String = Folding.fold(Folding.nfc(value)).filter { it.isLetterOrDigit() || it == '@' }
 
     // lo que se guarda (7.2b): una persona registrada a [PERSONA:<id>]; las demás, y lo detectado por formato, a su marcador sin
     // número ni valor ([PERSONA], [DOCUMENTO], [TELEFONO], [CORREO])

@@ -1,6 +1,8 @@
 package sgspe.ai
 
 import tools.jackson.core.JacksonException
+import tools.jackson.core.StreamWriteFeature
+import tools.jackson.databind.DeserializationFeature
 import tools.jackson.databind.json.JsonMapper
 
 // lo que una herramienta del asistente devuelve, como sale hacia el modelo (ai-architecture.md §8, ASM-130): el valor de cada campo
@@ -9,10 +11,18 @@ import tools.jackson.databind.json.JsonMapper
 // count_records, record_history…) o, si no trae ninguno, el object de la entrada (get_record) (decisión 2 del plan 7.2a). se
 // enmascaran los atributos de un registro y el antes y el después de un cambio del historial. un valor restringido que se distingue
 // queda reservado en la tabla y se enmascara también en el texto libre que siga. un texto que no es un objeto ni una lista json (el
-// resumen de un paso, un error) solo se seudonimiza. los números, los booleanos y las claves no se tocan
+// resumen de un paso, un error) solo se seudonimiza; uno que lo parece y no se puede leer (mal formado, demasiado anidado) lanza:
+// sin leerlo no se sabe qué campo es restringido, y wasichai cierra la corrida sin enviar nada. los números (los decimales como
+// BigDecimal, que se escriben como llegaron), los booleanos y las claves no se tocan: las claves son nombres de campo o de sección
+// de las formas de wasichai 1.2.0, no datos
 object ToolResults {
     private const val ATTRIBUTES = "attributes"
-    private val json = JsonMapper.builder().build()
+    private val json =
+        JsonMapper
+            .builder()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
+            .build()
 
     fun screen(
         input: Map<String, Any?>,
@@ -39,7 +49,8 @@ object ToolResults {
         return try {
             json.readValue(text, Any::class.java)
         } catch (_: JacksonException) {
-            null
+            // sin la causa: el mensaje de Jackson cita el texto
+            throw IllegalStateException("un resultado de herramienta con forma de JSON que no se puede leer: no se envía nada")
         }
     }
 
@@ -88,6 +99,7 @@ object ToolResults {
             else -> emptyList()
         }
 
+    // solo los valores de texto; las claves son nombres de campo o de sección (wasichai 1.2.0), no datos
     private fun pseudonymized(
         node: Any?,
         names: NameDictionary,
