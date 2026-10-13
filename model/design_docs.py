@@ -5,7 +5,8 @@ Stdlib only. What it reads, and from where:
 - docs/database-model.md, the cards (§6 to §21): per object its label, description, fields (type, required, unique,
   derived, restricted, default, phase), relationships (type, field, target, required, phase), flags, uniques, declared
   indexes, declared actions (and the phase of one written "`EXPORT` (desde F6)"), the media types of a FILE field,
-  workflow and phase; §4, the key of each ENUM catalog;
+  workflow and phase; §4, the key of each ENUM catalog; and, of a fixed table of the sgspe schema (knowledge_chunk, F7),
+  its columns with their PostgreSQL type, its primary key, its uniques, its indexes and its full-text index;
 - docs/requirements-analysis.md §10, the options of each catalog, in order, without the "(propuesto)" notes;
 - docs/security.md §7.1 (the phase of each role), §7.2 to §7.8 (the matrix), §7.9 (the restricted fields) and §9.7 (the
   masters of ProjectScope.TENANT);
@@ -207,6 +208,36 @@ def cards():
         found[card.name] = card
         i = j
     return found
+
+
+# "GIN de texto completo sobre `to_tsvector('spanish', content)`" in the Índices bullet of a fixed table
+FULL_TEXT = re.compile(r"GIN de texto completo sobre `to_tsvector\('(\w+)', (\w+)\)`")
+
+
+def fixed_table(name):
+    """A fixed table of the sgspe schema from its card (database-model.md §2.3 and §20): {"columns": [(name, type,
+    required)], "primary_key": [...], "uniques": [[...]], "indexes": [[...]], "full_text": (configuration, column)}. Its
+    Únicos bullet reads "clave primaria `id`; (`a`, `b`)" and its Índices bullet "(`a`, `b`); GIN de texto completo sobre
+    `to_tsvector('spanish', content)`". Fails if the card is an object's or a bullet lost its shape."""
+    lines = read("database-model.md").splitlines()
+    card = cards().get(name)
+    if card is None:
+        raise ValueError(f"database-model.md has no card for {name}")
+    start = next(i for i, line in enumerate(lines) if line == f"### `{name}`")
+    end = next((k for k in range(start + 1, len(lines)) if lines[k].startswith("#")), len(lines))
+    bullets = _bullets(lines, next(k for k in range(start, end) if lines[k].startswith("- **")))
+    uniques, indexes = bullets.get("Únicos", ""), bullets.get("Índices", "")
+    if not uniques.startswith("clave primaria") or not indexes:
+        raise ValueError(f"card {name}: not a fixed table (no 'clave primaria' in Únicos or no Índices bullet)")
+    primary, _, rest = uniques.partition(";")
+    full_text = FULL_TEXT.search(indexes)
+    return {
+        "columns": [(f["name"], f["type"], f["required"]) for f in card.fields],
+        "primary_key": ticks(primary),
+        "uniques": _sets(rest),
+        "indexes": _sets(FULL_TEXT.sub("", indexes)),
+        "full_text": full_text.groups() if full_text else None,
+    }
 
 
 def field_phase(card, field):
