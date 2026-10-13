@@ -82,7 +82,12 @@ class KnowledgeSearchApiTest : F7ApiTest() {
         val manager = member("PROJECT_MANAGER")
         assertEquals(listOf(evidence), found(manager))
         val raised =
-            patch("/api/sgspe/evidence/$evidence", mapOf("attributes" to mapOf("classification" to "DATOS PERSONALES")), token, ifMatch("evidence", evidence))
+            patch(
+                "/api/sgspe/evidence/$evidence",
+                mapOf("attributes" to mapOf("classification" to "DATOS PERSONALES")),
+                token,
+                ifMatch("evidence", evidence) + withReason("reclasificación de prueba")
+            )
         assertEquals(HttpStatus.OK, raised.status, raised.body)
         assertEquals(emptyList<String>(), found(manager))
     }
