@@ -13,4 +13,11 @@ class Organizations(
     private val tenants: TenantDirectory
 ) {
     suspend fun having(objectName: String): List<UUID> = tenants.organizationsWithObject(objectName).map { it.id }
+
+    // las que tienen el objeto y cuyo slug admite `enabled`: JOB-07 recorre solo las que activaron la IA (ai-architecture.md
+    // §12.1, workflows.md JOB-07), y el slug solo lo da TenantDirectory
+    suspend fun having(
+        objectName: String,
+        enabled: (String) -> Boolean
+    ): List<UUID> = tenants.organizationsWithObject(objectName).filter { enabled(it.slug) }.map { it.id }
 }

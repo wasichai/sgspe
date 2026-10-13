@@ -229,6 +229,20 @@ class ArchitectureTest {
         assertFalse(flags(KNOWLEDGE_TABLE, "class KnowledgeChunks("))
     }
 
+    // los bytes de un archivo sin pasar por FileService (que exige una persona) son solo de JOB-07, como la plataforma (decisión 5
+    // del plan 7.2c): solo EvidenceFiles usa StoredFileRepository y FileStore de wasichai-files
+    @Test
+    fun `solo EvidenceFiles lee archivos sin FileService`() {
+        val reader = "/sgspe/ai/EvidenceFiles.kt"
+        val others = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(reader) }
+        assertEquals(emptyList<String>(), offenders(others, STORED_FILES))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(reader) })
+        assertTrue(flags(STORED_FILES, "import wasichai.files.StoredFileRepository"))
+        assertTrue(flags(STORED_FILES, "    private val store: FileStore"))
+        assertFalse(flags(STORED_FILES, "import wasichai.files.FileService"))
+        assertFalse(flags(STORED_FILES, "// FileStore solo en EvidenceFiles"))
+    }
+
     // el alcance de lectura por proyecto (ASM-106, ASM-114, security.md §9.7). regla 1: cada objeto de model.json está en un
     // solo grupo de ProjectScope y ProjectScope no nombra objetos ausentes; regla 2: los objetos con la relación `project`
     // son exactamente las raíces y project_assignment. así una fase nueva no agrega un objeto sin clasificarlo:
@@ -593,6 +607,7 @@ class ArchitectureTest {
         private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
+        private val STORED_FILES = Regex("""\b(StoredFileRepository|FileStore)\b""")
         private val KNOWLEDGE_TABLE = Regex("""\bknowledge_chunk\b|\bKnowledgeMigration\.TABLE\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
