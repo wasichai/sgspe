@@ -1,2 +1,4 @@
 *.bat text eol=crlf
 gradlew text eol=lf
+src/main/resources/sgspe/ai/prompts/** text eol=lf
+src/test/resources/sgspe/ai/prompts/** text eol=lf
