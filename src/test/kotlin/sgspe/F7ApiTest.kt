@@ -90,7 +90,7 @@ abstract class F7ApiTest : F6ApiTest() {
         attributes: Map<String, Any?>
     ): RecordResponse =
         runBlocking {
-            platformService.asPlatform(organizationId()) {
+            platformRecords.asPlatform(organizationId()) {
                 platformRecords.patch(objectName, UUID.fromString(id), attributes, "cambio de prueba como la plataforma")
             }
         }
@@ -100,7 +100,7 @@ abstract class F7ApiTest : F6ApiTest() {
         id: String
     ) {
         runBlocking {
-            platformService.asPlatform(organizationId()) { platformRecords.delete(objectName, UUID.fromString(id), "baja de prueba como la plataforma") }
+            platformRecords.asPlatform(organizationId()) { platformRecords.delete(objectName, UUID.fromString(id), "baja de prueba como la plataforma") }
         }
     }
 
