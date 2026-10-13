@@ -100,8 +100,17 @@ object Proposals {
     fun confidence(value: Double?): BigDecimal? =
         value?.takeIf { it.isFinite() && it in 0.0..1.0 }?.let { BigDecimal.valueOf(it).setScale(2, RoundingMode.HALF_UP) }
 
-    // un texto Markdown sin HTML (ai-architecture.md §4.2): las etiquetas se quitan; en blanco, null
-    fun markdown(text: String?): String? = text?.let { HTML_TAG.replace(it, "") }?.trim()?.ifEmpty { null }
+    // un texto Markdown sin HTML (ai-architecture.md §4.2): las etiquetas se quitan hasta que no cambie nada, porque quitar una
+    // puede juntar otra (`<<b>script>` queda `<script>`); en blanco, null
+    fun markdown(text: String?): String? {
+        var current = text ?: return null
+        while (true) {
+            val next = HTML_TAG.replace(current, "")
+            if (next == current) break
+            current = next
+        }
+        return current.trim().ifEmpty { null }
+    }
 
     // la fecha ISO que propuso el modelo, o null si no es una fecha
     fun date(value: String?): LocalDate? = value?.trim()?.let { runCatching { LocalDate.parse(it) }.getOrNull() }

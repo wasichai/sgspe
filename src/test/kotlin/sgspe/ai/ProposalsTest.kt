@@ -34,6 +34,14 @@ class ProposalsTest {
     }
 
     @Test
+    fun `quitar el HTML es idempotente, una etiqueta no se reconstruye al quitar otra`() {
+        assertEquals("alert(1)", Proposals.markdown("<<b>script>alert(1)<</b>/script>"))
+        assertEquals("x", Proposals.markdown("<<<b>i>b>x"))
+        val once = Proposals.markdown("<<b>script>alert(1)<</b>/script>")
+        assertEquals(once, Proposals.markdown(once))
+    }
+
+    @Test
     fun `una fecha ISO o nada`() {
         assertEquals(LocalDate.of(2026, 11, 30), Proposals.date(" 2026-11-30 "))
         assertNull(Proposals.date("30 de noviembre"))
