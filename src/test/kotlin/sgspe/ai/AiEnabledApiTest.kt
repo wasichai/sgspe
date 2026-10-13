@@ -22,8 +22,8 @@ class AiEnabledApiTest : F7ApiTest() {
         val body = status(cro.token)
         assertTrue(body["enabled"].asBoolean())
         assertFalse(body["providerAvailable"].asBoolean())
-        // «contiene»: 7.2c suma AI-06 y AI-07 en esta misma prueba
-        val runs = listOf("AI-01", "AI-02", "AI-03", "AI-04", "AI-08")
+        // «contiene»: 7.2c suma AI-06 y AI-07 (una corrida más) en esta misma prueba
+        val runs = listOf("AI-01", "AI-02", "AI-03", "AI-04", "AI-07", "AI-08")
         assertTrue(body["useCases"].values().map { it.asString() }.containsAll(runs + "AI-05" + "AI-06"), body.toString())
         // STAKEHOLDER_MANAGER no crea candidatos: sin AI-03; ANALYST no crea sugerencias ni lee los nombres: ningún caso de corrida
         val stakeholders = status(member("STAKEHOLDER_MANAGER").token)["useCases"].values().map { it.asString() }

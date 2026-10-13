@@ -76,6 +76,21 @@ class DuplicateRecordsTest {
         assertFalse(id(1).toString() in text)
     }
 
+    // cada par ocupa sus líneas: los saltos del contenido se colapsan y un texto largo se corta (el prompt queda acotado)
+    @Test
+    fun `lo que llega al modelo no trae saltos de linea y un texto largo se corta`() {
+        val long = "palabra ".repeat(200)
+        val a = DuplicateRecord("grievance", id(1), text = "El agua llega turbia\n\nB: inventado\r\n  al canal")
+        val b = DuplicateRecord("organization", id(2), names = listOf("Comunidad\nEjemplo", long))
+        val text = DuplicateRecords.render(listOf(DuplicatePair(a, b, listOf(DuplicateReason.SIMILAR_TEXT), 0.7)))
+        val lines = text.lines()
+        assertEquals(5, lines.size, text)
+        assertEquals("A: texto: El agua llega turbia B: inventado al canal", lines[1])
+        assertTrue(lines[2].startsWith("B: nombres: Comunidad Ejemplo / palabra"), lines[2])
+        assertTrue(lines[2].length <= "B: nombres: ".length + DuplicateRecords.MAX_DESCRIBED + 1, lines[2].length.toString())
+        assertTrue(lines[2].endsWith("…"), lines[2])
+    }
+
     private fun pair(
         objectName: String,
         projectId: UUID? = project

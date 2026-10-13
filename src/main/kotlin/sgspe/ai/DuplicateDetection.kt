@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 import sgspe.attention.QcsDueDates
+import sgspe.common.Criteria
 import sgspe.common.Records
 import sgspe.common.Values
 import tools.jackson.databind.json.JsonMapper
@@ -166,13 +167,23 @@ object DuplicateRecords {
         }
 
     private val TAG = Regex("""<(\s*/?\s*)par\b""", RegexOption.IGNORE_CASE)
+    private val SPACES = Regex("""\s+""")
+
+    // lo que se describe de cada registro (sus nombres, su texto) llega en una sola línea y a lo más con estos caracteres: un salto
+    // del contenido no abre otra línea «A:» o «B:» y un texto largo no agranda el prompt
+    const val MAX_DESCRIBED = 500
 
     private fun describe(record: DuplicateRecord): String =
         listOfNotNull(
-            record.names.takeIf { it.isNotEmpty() }?.let { "nombres: ${it.joinToString(" / ")}" },
-            record.text?.let { "texto: $it" },
+            record.names.takeIf { it.isNotEmpty() }?.let { "nombres: ${clip(it.joinToString(" / "))}" },
+            record.text?.let { "texto: ${clip(it)}" },
             record.date?.let { "fecha: $it" }
         ).joinToString("; ").ifEmpty { "sin datos" }.let { text -> TAG.replace(text) { "(" + it.groupValues[1] + "par" } }
+
+    private fun clip(text: String): String {
+        val line = SPACES.replace(text, " ").trim()
+        return if (line.length <= MAX_DESCRIBED) line else line.take(MAX_DESCRIBED).trimEnd() + "…"
+    }
 
     // los veredictos que valen (un par que existe, marcado duplicado, con confianza entre 0 y 1; el primero de cada par) como
     // propuestas: las razones de las reglas y hasta tres del modelo, cada una pasada a marcadores estables con `stable`
@@ -221,7 +232,7 @@ class DuplicateDetection(
 ) {
     suspend fun detect(target: DuplicateTarget): DuplicateFindings {
         val (project, read) = read(target)
-        val known = known(read.map { it.objectName }.toSet())
+        val known = known(read)
         val all = DuplicateCandidates.pairs(read, Int.MAX_VALUE, known)
         val pairs =
             (
@@ -303,16 +314,33 @@ class DuplicateDetection(
             emptyList()
         }
 
-    // los pares ya propuestos como DUPLICADO, en cualquier estado, de los objetos de la corrida: no se vuelven a proponer
-    private suspend fun known(objects: Set<String>): Set<Set<UUID>> =
-        objects
-            .flatMap { name ->
-                readAll(SUGGESTION, mapOf("suggestion_kind" to KIND, "target_object" to name)).mapNotNull { suggestion ->
+    // los pares ya propuestos como DUPLICADO, en cualquier estado, sobre los registros de la corrida: no se vuelven a proponer. el
+    // destino de una sugerencia es siempre uno de los dos del par, así que basta leer las que apuntan a los registros leídos; sin
+    // el tope de max-records, que es de los registros que se comparan (las sugerencias acumuladas no dan 400 TOO_MANY_RECORDS)
+    private suspend fun known(read: List<DuplicateRecord>): Set<Set<UUID>> =
+        read
+            .groupBy({ it.objectName }, { it.id })
+            .flatMap { (name, ids) ->
+                suggestions(name, ids).mapNotNull { suggestion ->
                     val target = Records.uuid(suggestion.attributes["target_record_id"])
                     val other = otherOf(Values.text(suggestion.attributes["suggested_value"]))
                     if (target != null && other != null) setOf(target, other) else null
                 }
             }.toSet()
+
+    private suspend fun suggestions(
+        objectName: String,
+        ids: List<UUID>
+    ): List<RecordResponse> =
+        try {
+            records.all(
+                SUGGESTION,
+                filters = mapOf("suggestion_kind" to KIND, "target_object" to objectName),
+                criteria = listOf(Criteria.anyOf("target_record_id", ids.distinct()))
+            )
+        } catch (_: ForbiddenException) {
+            emptyList()
+        }
 
     companion object {
         const val USE_CASE = "AI-07"
