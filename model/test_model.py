@@ -10,6 +10,7 @@ Correr: cd model && python3 -m unittest -v test_model
 """
 import json
 import os
+import re
 import unittest
 
 import design_docs
@@ -570,6 +571,60 @@ class AiModelTests(unittest.TestCase):
         restricted = {(e["object"], f) for e in self.roles["restrictedFields"] for f in e["fields"]
                       if e["object"] in ("ai_suggestion", "ai_interaction", "commitment_candidate")}
         self.assertEqual(restricted, {("ai_suggestion", "evidence_quote"), ("commitment_candidate", "evidence_quote")})
+
+
+# la migración de la tabla fija de sgspe.ai (database-model.md §2.3: sgspe_ai, en classpath:db/sgspe/ai)
+KNOWLEDGE_SQL = os.path.join(os.path.dirname(HERE), "src", "main", "resources", "db", "sgspe", "ai", "V1__knowledge_chunk.sql")
+
+
+def sql_table(text, table):
+    """{"columns": [(name, type, not_null)], "constraints": [...], "indexes": [...], "code": text} of `CREATE TABLE table
+    (...)` and its `CREATE INDEX ... ON table ...` in a migration; "code" is the migration without its comments."""
+    text = "\n".join(line.split("--")[0] for line in text.splitlines())
+    body = re.search(rf"CREATE TABLE {re.escape(table)} \((.*?)\n\);", text, re.S).group(1)
+    columns, constraints = [], []
+    for line in (part.strip().rstrip(",") for part in body.split("\n")):
+        if not line:
+            continue
+        if line.startswith("CONSTRAINT"):
+            constraints.append(line)
+        else:
+            name, kind = line.split()[:2]
+            columns.append((name, kind, "NOT NULL" in line))
+    indexes = re.findall(rf"CREATE INDEX \w+ ON {re.escape(table)} (.*?);", text)
+    return {"columns": columns, "constraints": constraints, "indexes": indexes, "code": text}
+
+
+class FixedTablesTests(unittest.TestCase):
+    """§4 de la especificación de F7 y ai-architecture.md §13.2: la migración de knowledge_chunk es la ficha de
+    database-model.md §20 sin la columna embedding (etapa 2 de ADR-0005, CON-035), con su clave, su único, su índice
+    compuesto y el GIN de texto completo en español, y sin claves foráneas entre esquemas (§2.3)."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(KNOWLEDGE_SQL, encoding="utf-8") as f:
+            cls.sql = sql_table(f.read(), "sgspe.knowledge_chunk")
+        cls.card = design_docs.fixed_table("knowledge_chunk")
+
+    def test_las_columnas_son_las_de_la_ficha_sin_embedding(self):
+        wanted = [c for c in self.card["columns"] if c[0] != "embedding"]
+        self.assertEqual(self.sql["columns"], wanted)
+        self.assertNotIn("embedding", self.sql["code"])
+        self.assertNotIn("vector", self.sql["code"].replace("tsvector", ""))
+
+    def test_clave_unico_e_indices_de_la_ficha(self):
+        constraints = " ".join(self.sql["constraints"])
+        self.assertIn(f"PRIMARY KEY ({', '.join(self.card['primary_key'])})", constraints)
+        for columns in self.card["uniques"]:
+            self.assertIn(f"UNIQUE ({', '.join(columns)})", constraints)
+        for columns in self.card["indexes"]:
+            self.assertIn(f"({', '.join(columns)})", self.sql["indexes"])
+        configuration, column = self.card["full_text"]
+        self.assertIn(f"USING gin (to_tsvector('{configuration}', {column}))", self.sql["indexes"])
+
+    def test_sin_claves_foraneas_y_el_esquema_si_falta(self):
+        self.assertNotIn("REFERENCES", self.sql["code"])
+        self.assertIn("CREATE SCHEMA IF NOT EXISTS sgspe;", self.sql["code"])
 
 
 class PublicLayersTests(unittest.TestCase):

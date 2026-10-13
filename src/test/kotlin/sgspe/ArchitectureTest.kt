@@ -74,6 +74,8 @@ class ArchitectureTest {
                 "RiskRegister.kt"
             )
         assertTrue(names.containsAll(f4), "$names")
+        // y la primera de sgspe.ai (F7, plan 7.1): un paquete de salida que ningún paquete de dominio importa
+        assertTrue("KnowledgeMigration.kt" in names, "$names")
         val testNames = sources(test).map { it.name }
         assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
     }
