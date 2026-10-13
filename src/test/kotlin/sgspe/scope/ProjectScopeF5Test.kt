@@ -56,7 +56,7 @@ class ProjectScopeF5Test {
         }
         assertEquals(listOf("program_indicator" to "program_indicator"), ProjectScope.CHILDREN["program_measurement"])
         assertEquals(listOf("commitment" to "commitment", "social_contribution" to "social_contribution"), ProjectScope.CHILDREN["delivery"])
-        assertEquals(33, ProjectScope.ROOTS.size)
+        assertEquals(33, (ProjectScope.ROOTS - setOf("ai_suggestion", "ai_interaction")).size)
         assertEquals(27, ProjectScope.CHILDREN.size)
     }
 

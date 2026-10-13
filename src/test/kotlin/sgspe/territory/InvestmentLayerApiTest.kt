@@ -5,24 +5,15 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import sgspe.F6QueryApiTest
-import sgspe.common.Records
 import tools.jackson.databind.JsonNode
-import wasichai.core.data.RecordService
 import java.util.UUID
 import kotlin.random.Random
 
 // LYR-23 (gis.md §2.2 y §5.3 caso 8, ASM-063): las iniciativas y las entregas como registros, y los aportes ejecutados sumados
 // por localidad y por moneda, sin mezclarlas; con periodo, los aportes entregados en él y las iniciativas que lo cruzan
 class InvestmentLayerApiTest : F6QueryApiTest() {
-    @Autowired
-    private lateinit var platformRecords: Records
-
-    @Autowired
-    private lateinit var platformService: RecordService
-
     private fun band(): Double = -(100_000.0 + Random.nextInt(0, 800) * 1_000.0)
 
     // una entrega de un compromiso con su ubicación, como la plataforma (delivery es apiOnly)

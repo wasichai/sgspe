@@ -41,9 +41,10 @@ class CandidateRules : CommitmentRule {
 
 // P54 sobre el candidato, pura: sus vínculos son de su proyecto, porque aceptarlo crea un compromiso que hereda la interacción
 // de origen (ProjectLinkRule la juzga en el alta del compromiso) y duplicate_of y created_commitment son compromisos del mismo
-// proyecto. una evidencia puede ser del tenant (project opcional, ProjectScope): sin proyecto no es de otro
+// proyecto. una evidencia puede ser del tenant (project opcional, ProjectScope): sin proyecto no es de otro. desde F7, también
+// la llamada a la IA que lo produjo (Decisión 2 del plan 7.1)
 object CandidateLinks {
-    val TENANT_CAPABLE = setOf("evidence")
+    val TENANT_CAPABLE = setOf("evidence", "ai_interaction")
 
     // los campos RELATION del candidato cuyo destino tiene alcance de proyecto, del modelo; `project` es el propio alcance
     fun fields(catalog: ModelCatalog): List<Pair<String, String>> = ProjectLinks.fieldsOf(catalog, Commitments.CANDIDATE)

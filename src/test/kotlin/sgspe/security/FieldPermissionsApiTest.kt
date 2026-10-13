@@ -191,6 +191,42 @@ class FieldPermissionsApiTest : F3ApiTest() {
         assertEquals("[PERSONA_1] pidió el canal", record("commitment_candidate", candidate, manager)["evidence_quote"].asString())
     }
 
+    // Review Focus 3 del plan 7.1: la cita de una sugerencia puede venir de un acta CONFIDENCIAL. los seis roles que leen las
+    // sugerencias descargan evidencias restringidas y la leen; AUDITOR lee todo el tenant y no ve los campos restringidos
+    // (security.md §7.1 y §7.9). las dos son apiOnly: las crea la plataforma, como lo hará SuggestionWriter (plan 7.2b)
+    @Test
+    fun `la cita de una sugerencia de IA solo la ven quienes descargan evidencias restringidas`() {
+        val interaction =
+            platformCreate(
+                "ai_interaction",
+                mapOf(
+                    "project" to testProject(),
+                    "use_case" to "AI-08",
+                    "provider" to "anthropic",
+                    "model" to "modelo-de-prueba",
+                    "prompt_version" to "ai-08@1",
+                    "started_at" to "2026-10-13T15:00:00Z"
+                )
+            )
+        val suggestion =
+            platformCreate(
+                "ai_suggestion",
+                mapOf(
+                    "project" to testProject(),
+                    "suggestion_kind" to "CLASIFICACION",
+                    "suggested_value" to "AMBIENTAL",
+                    "evidence_quote" to "[PERSONA] dijo que el agua del canal llega turbia",
+                    "model" to "modelo-de-prueba",
+                    "ai_interaction" to interaction
+                )
+            )
+        val forAuditor = record("ai_suggestion", suggestion, userWithRole("AUDITOR"))
+        assertFalse(forAuditor.has("evidence_quote"), forAuditor.toString())
+        assertEquals("AMBIENTAL", forAuditor["suggested_value"].asString())
+        val forManager = record("ai_suggestion", suggestion, member("SOCIAL_RISK_MANAGER"))
+        assertEquals("[PERSONA] dijo que el agua del canal llega turbia", forManager["evidence_quote"].asString())
+    }
+
     @Test
     fun `con dos roles gana el mas permisivo`() {
         // security.md §5.4: un usuario con FIELD_AGENT y STAKEHOLDER_MANAGER lee la postura que FIELD_AGENT solo no lee,
@@ -330,15 +366,16 @@ class FieldPermissionsApiTest : F3ApiTest() {
         }
         assertTrue(failures.isEmpty(), failures.joinToString("\n"))
         // la partición queda fija: se saltan `stakeholder.stance` (derivado), `stakeholder_assessment` (apiOnly), cuyos valores
-        // prueba el plan 2.2, y `delivery` y `commitment_candidate` (apiOnly), que cubre la prueba de los receptores y la
-        // cita; las otras 11 entradas de roles.json se cubren (desde F4, la persona de las tres QCS). una entrada nueva que
-        // se salte, o una que deje de cubrirse, rompe esta prueba en vez de pasar en silencio
+        // prueba el plan 2.2, y `delivery`, `commitment_candidate` y, desde F7, `ai_suggestion` (apiOnly), que cubren la prueba
+        // de los receptores y las de las citas; las otras 11 entradas de roles.json se cubren (desde F4, la persona de las tres
+        // QCS). una entrada nueva que se salte, o una que deje de cubrirse, rompe esta prueba en vez de pasar en silencio
         assertEquals(
             setOf(
                 "stakeholder.stance",
                 "stakeholder_assessment.stance,stance_reasons,concerns,expectations",
                 "delivery.recipients,conformity_by",
-                "commitment_candidate.evidence_quote"
+                "commitment_candidate.evidence_quote",
+                "ai_suggestion.evidence_quote"
             ),
             skipped.keys,
             "entradas saltadas: $skipped"
