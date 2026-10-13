@@ -1,36 +1,15 @@
 package sgspe
 
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
-import sgspe.common.Records
 import tools.jackson.databind.JsonNode
-import wasichai.core.data.RecordService
-import java.util.UUID
 
 // la base de las pruebas de integración de F3 (plan 3.1; el plan 3.2 la usa para las suyas): lo de DomainApiTest más los
 // registros de compromisos, acuerdos y tareas que ya cumplen las guardas de 3.2 (D1 y D2 de WF-D, la de AgreementWriteGuard
-// para llegar a `active`, un único origen de la tarea), las altas de los objetos apiOnly como la plataforma (delivery,
-// commitment_candidate, commitment_reschedule: sus endpoints son del plan 3.2) y la espera de una automatización, que
-// corre fuera de la petición (WAS-ADR-0016)
+// para llegar a `active`, un único origen de la tarea), las altas de los objetos apiOnly como la plataforma
+// (`platformCreate`, en `F2ApiTest` desde el plan 7.1) y la espera de una automatización, que corre fuera de la petición
+// (WAS-ADR-0016)
 abstract class F3ApiTest : DomainApiTest() {
-    @Autowired
-    private lateinit var records: Records
-
-    @Autowired
-    private lateinit var recordService: RecordService
-
-    protected fun organizationId(): UUID = UUID.fromString(me()["organizationId"].asString())
-
-    // un registro escrito como la plataforma, con la marca SgspeWrite y su motivo, como lo harán los endpoints de 3.2: la
-    // única vía de alta de un objeto apiOnly en estas pruebas (nunca un campo FILE: la plataforma no adjunta archivos)
-    protected fun platformCreate(
-        objectName: String,
-        attributes: Map<String, Any?>,
-        reason: String = "alta de prueba como la plataforma"
-    ): String = runBlocking { recordService.asPlatform(organizationId()) { records.create(objectName, attributes, reason) } }.id.toString()
-
     // los campos que WF-D exige para salir de draft y para aprobar (D1, D2), con un verificador distinto del responsable (D11)
     protected fun commitmentAttributes(
         project: String,

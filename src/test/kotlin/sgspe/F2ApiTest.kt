@@ -1,12 +1,17 @@
 package sgspe
 
+import kotlinx.coroutines.runBlocking
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.web.reactive.function.BodyInserters
+import sgspe.common.Records
 import tools.jackson.databind.JsonNode
+import wasichai.core.data.RecordService
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 // la base de las pruebas de integración de F2 (plan 2.1): registros mínimos válidos de los objetos de model/model.json
@@ -22,6 +27,23 @@ abstract class F2ApiTest : SgspeApiTest() {
 
     private var ownProject: String? = null
     private val adminFixtures = mutableMapOf<String, Fixture>()
+
+    @Autowired
+    protected lateinit var platformRecords: Records
+
+    @Autowired
+    protected lateinit var platformService: RecordService
+
+    protected fun organizationId(): UUID = UUID.fromString(me()["organizationId"].asString())
+
+    // un registro escrito como la plataforma, con la marca SgspeWrite y su motivo, como lo hacen los endpoints de sgspe: la
+    // única vía de alta de un objeto apiOnly en estas pruebas (nunca un campo FILE: la plataforma no adjunta archivos). vive
+    // aquí desde el plan 7.1, porque el registro mínimo de ai_suggestion necesita su ai_interaction, que es apiOnly
+    protected fun platformCreate(
+        objectName: String,
+        attributes: Map<String, Any?>,
+        reason: String = "alta de prueba como la plataforma"
+    ): String = runBlocking { platformService.asPlatform(organizationId()) { platformRecords.create(objectName, attributes, reason) } }.id.toString()
 
     // el proyecto de la prueba: todo registro de proyecto que arma cuelga de él. JUnit crea una instancia por @Test, pero
     // un @TestFactory comparte la suya entre todas sus pruebas dinámicas (WorkflowMatrixApiTest usa un solo proyecto y las
@@ -126,7 +148,13 @@ abstract class F2ApiTest : SgspeApiTest() {
             val fieldName = rel["fieldName"] as String? ?: continue
             if (rel["source"] != objectName || !(rel["required"] == true || fieldName in chosen)) continue
             val target = rel["target"] as String
-            attributes[fieldName] = if (target == "project") testProject() else fixture(target).id
+            attributes[fieldName] =
+                when {
+                    target == "project" -> testProject()
+                    // desde F7, ai_suggestion cuelga de su ai_interaction, que es apiOnly: la crea la plataforma
+                    Model.objects.getValue(target)["apiOnly"] == true -> platformCreate(target, sample(target))
+                    else -> fixture(target).id
+                }
         }
         return attributes
     }
