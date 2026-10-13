@@ -88,7 +88,7 @@ estados copiados del [índice de ADR](adr/README.md).
 | Actuator | Plataforma | Viene en el starter; `/actuator/health/**` es público | WAS-DOC modules/core.md | ADR-0026 | — | RNF-OBS-001 |
 | Spring AI | Sustituido | Embabel dentro de wasichai-agent, neutral al proveedor | WAS-ADR-0015; WAS-ADR-0031 | ADR-0003 | CON-039 | RQ-AI-005 |
 | Embabel | Plataforma + SGSPE | Runtime del asistente de wasichai y de los agentes propios de `sgspe.ai` (F7) | WAS-ADR-0015 | ADR-0004 | — | RQ-AI-014 |
-| Abstracción de LLM | Plataforma | El proveedor es configuración de Embabel; Anthropic por defecto | WAS-ADR-0015; WAS-DOC modules/agent.md | ADR-0003 | GAP-015 | RQ-AI-005 |
+| Abstracción de LLM | Plataforma | El proveedor es configuración de Embabel; Anthropic por defecto y elegido para SGSPE (GAP-015, resuelta el 2026-10-12) | WAS-ADR-0015; WAS-DOC modules/agent.md | ADR-0003 | — | RQ-AI-005 |
 | Embeddings, RAG y búsqueda semántica | Diferido | F7, con pgvector solo si una medición lo justifica; la migración de core crea la extensión `vector` cuando el servidor la trae | WAS-ADR-0002; WAS-ADR-0026 | ADR-0005 | CON-035 | RQ-AI-008, RF-AIK-006 |
 | Tool calling | Plataforma + SGSPE | Herramientas de solo lectura del asistente; los agentes propios también solo leen | WAS-ADR-0014 | ADR-0004 | CON-044 | RQ-AI-011, RQ-AI-013 |
 | Salidas estructuradas | SGSPE | Los agentes devuelven datos estructurados que el código de SGSPE guarda como `ai_suggestion` o `commitment_candidate` (F7) | WAS-ADR-0015 | ADR-0004 | — | RQ-AI-001 |
@@ -177,7 +177,7 @@ Los workflows que el prompt no tiene (WF-H a WF-P) siguen las mismas reglas [req
 | AI-02 borrador de acta | Diferido | Sugerencia de tipo BORRADOR DE ACTA para la minuta de la interacción (F7) | WAS-ADR-0015 | ADR-0004 | — | RF-AIK-002 |
 | AI-03 posibles compromisos, con validación humana | Diferido | `commitment_candidate` con evidencia y confianza; solo una persona lo acepta (F7; el alta humana existe desde F3) | WAS-ADR-0015 | ADR-0004 | — | RF-AIK-003, RF-COM-010 |
 | AI-04 resumen ejecutivo | Diferido | Sugerencias de resumen (F7) y de secciones de entregable (F8, cuando existe `deliverable_section`), que una persona copia o edita | WAS-ADR-0015 | ADR-0004 | — | RF-AIK-004, RQ-AI-012 |
-| AI-05 preguntas sobre los datos del sistema | Plataforma + SGSPE | Asistente de solo lectura de wasichai-agent, como el usuario que pregunta, llamado en proceso por `sgspe.ai`, que verifica la activación por organización y registra la interacción (F7). Mientras no exista UPS-14, solo en organizaciones con la IA activada y para roles sin lectura de los campos restringidos (hoy, `ANALYST`), una decisión del checkpoint (`security.md` §15) | WAS-ADR-0014 | ADR-0003 | UPS-14 | RF-AIK-005, RQ-AI-009 |
+| AI-05 preguntas sobre los datos del sistema | Plataforma + SGSPE | Asistente de solo lectura de wasichai-agent, como el usuario que pregunta, llamado en proceso por `sgspe.ai`, que verifica la activación por organización y registra la interacción con tokens (F7). Con los puntos de extensión de wasichai-agent, los resultados de las herramientas se seudonimizan, los campos restringidos se enmascaran y la respuesta se restaura; se ofrece a todo rol con CREATE sobre `ai_interaction` (ASM-130) | WAS-ADR-0014; WAS-ADR-0056 | ADR-0003 | — (UPS-14, resuelta) | RF-AIK-005, RQ-AI-009 |
 | AI-06 RAG documental | Diferido | Fragmentos con citas, filtrados por tenant, proyecto, clasificación y permisos (F7) | WAS-ADR-0002 | ADR-0005 | CON-035 | RF-AIK-006, RQ-AI-008 |
 | AI-07 detección de duplicados | Diferido | Propone fusiones o vínculos y nunca fusiona sola (F7) | WAS-ADR-0015 | ADR-0004 | — | RF-AIK-007, RQ-AI-015 |
 | AI-08 clasificación asistida con resultado, evidencia, confianza y modelo | Diferido | Sugerencias de clasificación con su evidencia y su modelo (F7) | WAS-ADR-0015 | ADR-0004 | — | RF-AIK-008, RQ-AI-004 |
@@ -190,7 +190,7 @@ Los workflows que el prompt no tiene (WF-H a WF-P) siguen las mismas reglas [req
 
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
-| Cambiar entre Anthropic, OpenAI u otros sin reescribir el dominio | Plataforma | El proveedor es un starter de Embabel; Anthropic viene por defecto y se puede excluir | WAS-ADR-0015; WAS-ADR-0031 | ADR-0003 | GAP-015 | RQ-AI-005 |
+| Cambiar entre Anthropic, OpenAI u otros sin reescribir el dominio | Plataforma | El proveedor es un starter de Embabel; Anthropic viene por defecto, es el elegido para SGSPE (GAP-015) y se puede excluir | WAS-ADR-0015; WAS-ADR-0031 | ADR-0003 | — | RQ-AI-005 |
 | Guardar la metadata de cada interacción (proveedor, modelo, versión de prompt, tokens, latencia, confianza, validación) | SGSPE | `ai_interaction` append-only; la validación humana y el resultado se leen de la sugerencia | WAS-ADR-0040 | ADR-0003 | — | RF-AIK-009, RQ-AUD-003 |
 | Nunca almacenar secretos | SGSPE | Las claves llegan por variables de entorno y no se guardan ni se registran | WAS-DOC modules/agent.md | ADR-0003 | — | RQ-AI-006, RQ-AI-009 |
 | Versionar prompts | SGSPE | Prompts en el repositorio, referenciados en cada `ai_interaction` | — | ADR-0003 | — | RQ-AI-006 |
@@ -415,7 +415,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-11 Módulo de notificaciones | F3–F4 | Resuelta: wasichai-notifications (ADR-0018); SGSPE decide destinatarios y textos (ASM-012) | `sgspe.notification` | Nada |
 | UPS-12 Inmutabilidad de `audit_log` en la base | Endurecimiento | Ningún código de SGSPE escribe en la auditoría | Prueba de arquitectura | — |
 | UPS-13 Mapa base configurable en `MapView` de `@wasichai/gis` | Antes de producción | Resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0: `gisModule` y `MapView` aceptan `basemap` e `initialView`. SGSPE la adopta en F6 (ASM-125): `GET /api/sgspe/map/settings` devuelve el mapa base de la organización y el portal lo aplica | `sgspe-ui` y la CSP del proxy | Nada |
-| UPS-14 Puntos de extensión de wasichai-agent: seudonimizar los resultados de las herramientas, activarse por organización e informar los tokens | F7 | AI-05 solo en organizaciones con la IA activada, con el proveedor decidido (GAP-015) y para roles sin lectura de los campos restringidos (hoy, `ANALYST`); `POST /api/agent/ask` cerrado por HTTP | `sgspe.ai` | Las restricciones de AI-05 y el filtro que cierra `/api/agent/ask` |
+| UPS-14 Puntos de extensión de wasichai-agent: seudonimizar los resultados de las herramientas, activarse por organización e informar los tokens | F7 | Resuelta en wasichai (WAS-ADR-0056, wasichai/wasichai#59) y adoptada en F7 (ASM-130): `AiAgentAccess`, `PseudonymizingResultFilter`, `RestoringAnswerFilter` e `InteractionRunListener` implementan los cuatro puntos de extensión; AI-05 para todo rol con CREATE sobre `ai_interaction` | `sgspe.ai` | Nada: `AgentHttpGate` sigue cerrando `POST /api/agent/ask` por HTTP para que toda pregunta pase por `sgspe.ai` |
 | UPS-15 `defaultValue` se guarda pero no se aplica | F2 | El código de SGSPE aplica los valores por defecto: el portal los propone al crear y el código que lee un parámetro vacío usa el mismo valor (ASM-019) | `sgspe-ui` y `sgspe.common` | Los valores por defecto escritos en el código |
 | UPS-16 Lectura de las autorrelaciones desde el lado destino | F2 | Los registros que apuntan a uno se leen filtrando la lista por el campo, por ejemplo `?parent_locality=<id>` | `sgspe-ui` | El filtro del portal |
 | UPS-17 Forma soportada de listar los tenants desde un trabajo en segundo plano | Antes de producción | `TenantDirectory.organizationsWithObject` [WAS-ADR-0057], aislado en `Organizations` | `sgspe.common` | Nada |
@@ -463,7 +463,7 @@ dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar
 | UPS-10 | 0.5.0: acción `MANAGE_TENANTS` y `wasichai.organizations.separate-provisioning` [WAS-ADR-0055] | Disponible, sin uso (por defecto, como antes) | Separar `SUPER_ADMIN` de `ORGANIZATION_ADMIN` en `model/roles.json` |
 | UPS-11 | 0.4.0 y 0.6.0: módulo `wasichai-notifications`, con bandeja, SSE, canales de entrega y preferencias [WAS-ADR-0046] [WAS-ADR-0060] | Adoptada en F3 (decisión D2): bandeja, correo y fuentes del módulo; SGSPE publica a personas resueltas por las asignaciones (ADR-0018) | Nada |
 | UPS-12 | 0.5.0: `audit_log` de solo inserción en la base, por disparadores; la purga, solo con `wasichai.audit.purge-role` [WAS-ADR-0054] | Resuelta por la actualización (migración `V13`) | Nada |
-| UPS-14 | 0.6.0: filtro de los resultados de las herramientas, activación por quien llama y tokens por respuesta en wasichai-agent [WAS-ADR-0056] | Disponible, sin uso | Diseño de AI-05 en F7 |
+| UPS-14 | 0.6.0: filtro de los resultados de las herramientas, activación por quien llama y tokens por respuesta en wasichai-agent [WAS-ADR-0056] | Resuelta y adoptada en F7 (ASM-130) con los cuatro puntos de extensión de wasichai 1.2.0 | Nada |
 | UPS-15 | 0.5.0: un alta que omite un campo recibe su `defaultValue` | Resuelta para las altas; el código que lee un parámetro vacío (ASM-019) se queda para los valores borrados | Nada para las altas |
 | UPS-16 | 0.5.0: `direction=forward\|inverse` en los relacionados de una autorrelación | Disponible, sin uso | El portal deja el filtro por campo |
 | UPS-17 | 0.5.0: `TenantDirectory.organizationsWithObject` para los trabajos de fondo [WAS-ADR-0057]; `findAllOrganizations` queda obsoleto | Adoptada: `Organizations.having` usa `TenantDirectory.organizationsWithObject`; `ArchitectureTest` rechaza `findAllOrganizations` en todo el código y `TenantDirectory` fuera de `Organizations` | Nada |
@@ -552,7 +552,7 @@ actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 | JDK (toolchain de Gradle) | 25 | F1 | WAS-DOC guides/build-your-app.md |
 | Gradle (wrapper de caja) | 9.8.0 | F1 | caja-backend |
 | PostgreSQL y PostGIS | 18 y 3.6 (`postgis/postgis:18-3.6`) | F1 | WAS-DOC modules/gis.md |
-| Embabel | 1.5.2, a través de wasichai-agent | F7 | WAS-ADR-0015 |
+| Embabel | 1.5.3, a través de wasichai-agent (BOM de wasichai 1.2.0) | F7 | WAS-ADR-0015 |
 | `maplibre-gl` | 6.10.0, la que fija `@wasichai/gis` | F2 | WAS-DOC modules/gis.md; RQ-GIS-014 |
 | React y React DOM | 19.3.0 | F1 | caja-ui |
 | React Router | 8.4.0 | F1 | caja-ui |
@@ -565,7 +565,7 @@ actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 | Apache POI (`poi-ooxml`) | 5.4 o superior (incluye la corrección de CVE-2025-31672) | F2 (exportaciones XLSX) | RQ-REP-022, ASM-014 |
 | commonmark-java con tablas GFM | Por fijar en F8 | F8 | ASM-014 |
 | AWS SDK v2 (S3) | 2.55.10 (`software.amazon.awssdk:bom`), el cliente asíncrono que usa wasichai-files | F3 | ASM-013 |
-| PDFBox | 3, solo en pruebas | F8 | RQ-REP-017 |
+| PDFBox | 3, en `main` desde F7 (extracción de texto, ASM-132) y en las pruebas de F8 | F7 | RQ-REP-017, ASM-132 |
 | ECharts | 6 | F2 | RQ-DSH-035, ASM-046 |
 | GDAL (`gdal-bin`: `ogrinfo` y `ogr2ogr`, en la CI y en el desarrollo) | 3.8 o superior | F6 | RQ-GIS-018, ASM-056, ASM-127 |
 | Gotenberg | `gotenberg/gotenberg:8-libreoffice` | F8 (pico técnico en F1) | ASM-014 |
