@@ -191,4 +191,42 @@ class PseudonymizerTest {
     fun `los correos por la arroba`() {
         assertEquals("[CORREO_1], [CORREO_2] y a@b o @x.com", run("a.b@sgspe.test, c@d.org y a@b o @x.com"))
     }
+
+    private fun restrictedRun(
+        kind: Marker,
+        value: String,
+        text: String
+    ): String = runWith(NameDictionary.EMPTY, text, listOf(RestrictedValue(kind, value)))
+
+    @Test
+    fun `un restringido dentro de un formato mas ancho sale sin numero`() {
+        assertEquals("[DOCUMENTO]", restrictedRun(Marker.DOCUMENTO, "40123456", "10401234567"))
+        for (text in listOf("51987654321", "+51 987 654 321", "+51987654321", "987-654-321")) {
+            assertEquals("[TELEFONO]", restrictedRun(Marker.TELEFONO, "987654321", text), text)
+        }
+        for (text in listOf("987654321", "987-654-321", "+51 987 654 321")) {
+            assertEquals("[TELEFONO]", restrictedRun(Marker.TELEFONO, "+51 987 654 321", text), text)
+        }
+        assertEquals("[CORREO]", restrictedRun(Marker.CORREO, "ana@sgspe.test", "xana@sgspe.test"))
+    }
+
+    @Test
+    fun `una persona del diccionario cuyo nombre incluye un restringido sale sin numero`() {
+        val table = PseudonymTable()
+        val restricted = listOf(RestrictedValue(Marker.PERSONA, "Ana Ejemplo"))
+        val out = Pseudonymizer.pseudonymize("Ana Ejemplo y Bruno José Quispe Ejemplo", names, table, restricted)
+        assertEquals("[PERSONA] y [PERSONA_1]", out)
+        assertFalse("Ana" in table.restore(out))
+        val wide = NameDictionary(listOf(KnownPerson(null, "Ana", "Ejemplo Ccori")))
+        val out2 = Pseudonymizer.pseudonymize("Ana Ejemplo Ccori", wide, table, listOf(RestrictedValue(Marker.PERSONA, "Ana Ejemplo")))
+        assertEquals("[PERSONA]", out2)
+    }
+
+    @Test
+    fun `un dominio con miles de etiquetas no desborda la pila`() {
+        val text = "a@" + "b.".repeat(5000) + "pe y c@d.org"
+        val start = System.nanoTime()
+        assertEquals("[CORREO_1] y [CORREO_2]", run(text))
+        assertTrue((System.nanoTime() - start) / 1e9 < 2.0)
+    }
 }
