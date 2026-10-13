@@ -265,6 +265,9 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
   mientras llama al modelo y toma otra por cada `ai_interaction` (transacción propia), así que el pool de R2DBC de la
   instancia debe tener más de dos conexiones por corrida permitida (más de 6 con el valor por defecto) además de las que
   necesita el resto de la API; subir el tope pide subir el pool (plan 7.2b).
+  `POST /api/sgspe/ai/knowledge/questions` (AI-06) no pasa por `RunGate`: no abre una transacción de `Idempotency-Key`
+  ni retiene una conexión mientras llama al modelo (solo la `ai_interaction`, en su transacción propia), así que no
+  compite por el pool como las corridas (plan 7.2c).
 - La llamada al modelo pasa por un puerto propio, `StructuredModel`: recibe el prompt ya seudonimizado, la versión del
   prompt, el modelo y los límites, y devuelve la salida tipada con el uso de tokens. `EmbabelStructuredModel` lo
   implementa sobre la plataforma de agentes, y las pruebas lo sustituyen (§15).
@@ -591,8 +594,9 @@ Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en 
   - cada 30 minutos lee las `evidence` creadas o cambiadas desde su última vuelta buena (con dos minutos de traslape),
     y una vez al día, a las 03:15 de Lima, todas; la primera vuelta de cada proceso también lee todas;
   - lee los bytes del archivo como la plataforma (`EvidenceFiles`: la fila de `stored_files` de la organización y el
-    almacén, porque `FileService` de wasichai-files exige una persona), a lo sumo 20 MB; si el objeto falta en el
-    almacén, la evidencia queda sin texto;
+    almacén, porque `FileService` de wasichai-files exige una persona), a lo sumo 20 MB; un archivo más grande queda sin
+    texto, y uno cuya fila o cuyo objeto falta, o cuya extracción falla de forma inesperada, queda pendiente: la vuelta
+    siguiente del proceso lo vuelve a leer;
   - extrae el texto con `TextExtraction` (ASM-132), lo segmenta en fragmentos de 1 500 caracteres con 200 de solape
     (`Segmenter`) y, en la etapa 2, lo seudonimizará y lo vectorizará; un documento largo se indexa truncado a
     `sgspe.ai.knowledge.max-chars` (500 000 caracteres), no se descarta;
@@ -605,9 +609,10 @@ Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en 
   evidencia es inmutable (ASM-013), una evidencia ya indexada nunca se vuelve a leer. Los fragmentos de una evidencia
   reemplazada (`replaces`) dejan de recuperarse y el trabajo los borra; la vuelta diaria borra también los de las
   evidencias que ya no existen.
-- Un documento sin texto (una imagen escaneada) o que no se deja leer (un PDF dañado) no se indexa: no hay OCR en F7
-  (§16, ASM-132). El proceso lo recuerda y no lo vuelve a leer; una evidencia que falla no detiene a las demás, y su
-  organización vuelve a mirar desde la última vuelta buena.
+- Un documento sin texto (una imagen escaneada) o que no se deja leer (un PDF dañado, `422 AI_NO_TEXT`) no se indexa: no
+  hay OCR en F7 (§16, ASM-132). El proceso lo recuerda y no lo vuelve a leer; uno no disponible por ahora no se recuerda
+  así. Una evidencia que falla no detiene a las demás, y su organización vuelve a mirar desde la última vuelta buena.
+  Los registros del trabajo llevan solo identificadores y la clase de la excepción, nunca su mensaje.
 
 ### 13.3 Recuperación con permisos
 
@@ -636,8 +641,9 @@ flowchart LR
 5. Los fragmentos se seudonimizan antes de llegar al modelo (§12.2).
 6. La respuesta cita cada fuente: la `evidence` y la posición del fragmento, con el pedazo citado (el portal muestra
    el título y el enlace). Una cita vale solo si aparece, salvo espacios, en el fragmento seudonimizado que recibió el
-   modelo; sin una que valga, la respuesta dice que no encontró una cita que la respalde. Si ningún fragmento pasa los
-   filtros, la respuesta dice que no hay evidencia sin llamar al modelo (`citations: []`); nunca responde sin fuente.
+   modelo y si dice algo (al menos 15 caracteres y tres palabras: «de» aparece en cualquier fragmento); sin una que
+   valga, la respuesta dice que no encontró una cita que la respalde. Si ningún fragmento pasa los filtros, la
+   respuesta dice que no hay evidencia sin llamar al modelo (`citations: []`); nunca responde sin fuente.
    La respuesta y las citas vuelven con marcadores estables (§12.2), que el portal re-identifica.
 7. La llamada queda en una `ai_interaction` de AI-06.
 
