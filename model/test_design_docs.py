@@ -407,6 +407,43 @@ class F6DocsTests(unittest.TestCase):
             self.assertEqual(card.unique, ["code"], name)
 
 
+class F7DocsTests(unittest.TestCase):
+    """Lo que el plan 7.0 deja en los documentos y el plan 7.1 lleva al modelo y a la migración (§4 de la especificación de
+    F7)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cards = design_docs.cards()
+
+    def test_las_fichas_de_bc_18_son_de_f7(self):
+        for name in ("ai_suggestion", "ai_interaction", "knowledge_chunk"):
+            self.assertEqual(self.cards[name].phase, "F7", name)
+        self.assertEqual(self.cards["ai_suggestion"].workflow, "WF-K")
+        self.assertEqual(self.cards["ai_suggestion"].indexed, ["target_record_id"])
+        candidate = {r["name"]: r for r in self.cards["commitment_candidate"].relationships}
+        self.assertEqual(design_docs.relationship_phase(self.cards, self.cards["commitment_candidate"],
+                                                        candidate["candidate_ai_interaction"]), "F7")
+        self.assertEqual(design_docs.relationship_phase(self.cards, self.cards["commitment_candidate"],
+                                                        candidate["candidate_source_evidence"]), "F3")
+
+    def test_la_tabla_fija_knowledge_chunk(self):
+        table = design_docs.fixed_table("knowledge_chunk")
+        self.assertEqual(table["columns"], [
+            ("id", "uuid", True), ("organization_id", "uuid", True), ("project_id", "uuid", False),
+            ("evidence_id", "uuid", True), ("chunk_index", "integer", True), ("classification", "text", True),
+            ("content", "text", True), ("embedding", "vector", False), ("created_at", "timestamptz", True)])
+        self.assertEqual(table["primary_key"], ["id"])
+        self.assertEqual(table["uniques"], [["organization_id", "evidence_id", "chunk_index"]])
+        self.assertEqual(table["indexes"], [["organization_id", "project_id", "classification"]])
+        self.assertEqual(table["full_text"], ("spanish", "content"))
+
+    def test_un_objeto_no_es_una_tabla_fija(self):
+        with self.assertRaises(ValueError):
+            design_docs.fixed_table("ai_suggestion")
+        with self.assertRaises(ValueError):
+            design_docs.fixed_table("no_existe")
+
+
 class BrokenDocsTests(unittest.TestCase):
     """El lector falla, no devuelve de menos, cuando una tabla de un documento cambia de forma."""
 
