@@ -573,8 +573,8 @@ class WorkflowMatrixApiTest : F5ApiTest() {
         private const val FORMAL_TYPE = "REUNION"
         private const val LIGHT_CLOSE_TYPE = "CONTACTO CARA A CARA"
 
-        // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2, WF-D 17, WF-I 10, WF-K 3 y 3,
-        // WF-N 8, WF-E1 22, WF-E2 5, WF-E3 8, WF-F 9, WF-J 6, WF-M 3, WF-G 14, WF-P 8)
+        // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2, WF-D 17, WF-I 10, WF-K 3 de candidatos y 3 de
+        // sugerencias, WF-N 8, WF-E1 22, WF-E2 5, WF-E3 8, WF-F 9, WF-J 6, WF-M 3, WF-G 14, WF-P 8)
         private val WORKFLOW_TRANSITIONS =
             mapOf(
                 "project" to 9,

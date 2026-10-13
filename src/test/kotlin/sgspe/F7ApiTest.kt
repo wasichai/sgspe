@@ -31,7 +31,7 @@ abstract class F7ApiTest : F6ApiTest() {
                 "input_tokens" to 1200,
                 "output_tokens" to 300,
                 "latency_ms" to 2400,
-                "requested_by_user_id" to requester?.id,
+                "requested_by_user_id" to requester?.id?.ifBlank { null },
                 "requested_by_user_email" to requester?.email
             ).filterValues { it != null }
         )
@@ -91,7 +91,7 @@ abstract class F7ApiTest : F6ApiTest() {
     ): RecordResponse =
         runBlocking {
             platformService.asPlatform(organizationId()) {
-                platformRecords.update(objectName, UUID.fromString(id), attributes, "cambio de prueba como la plataforma")
+                platformRecords.patch(objectName, UUID.fromString(id), attributes, "cambio de prueba como la plataforma")
             }
         }
 

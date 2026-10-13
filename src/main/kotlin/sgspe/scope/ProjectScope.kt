@@ -231,8 +231,9 @@ class ProjectResolver(
             if (name in ProjectScope.ROOTS) {
                 val beforeId = Records.uuid(change.before?.get(ProjectScope.PROJECT))
                 val afterId = Records.uuid(after[ProjectScope.PROJECT])
-                // `project` es obligatorio salvo en export_log, evidence y early_warning_rule: solo ahí vacío es válido. lo
-                // que la escritura deja vacío no es de alcance: lo rechaza wasichai con su 400 «is required»
+                // `project` es obligatorio salvo en las raíces que pueden ser del tenant (export_log, evidence,
+                // early_warning_rule, ai_suggestion, ai_interaction): solo ahí vacío es válido. lo que la escritura deja
+                // vacío no es de alcance: lo rechaza wasichai con su 400 «is required»
                 val unresolved = required(name, ProjectScope.PROJECT) && !created && beforeId == null
                 return Resolution(ProjectScope.PROJECT, setOfNotNull(beforeId, afterId), unresolved)
             }
