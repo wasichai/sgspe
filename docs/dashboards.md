@@ -246,8 +246,9 @@ respuesta de cada KPI-GRV y del tablero `attention` lo dice con `confidentialHid
 
 ### 4.9 Cobertura de la Tabla 9.5 y del prompt
 
-Los 13 indicadores de la Tabla 9.5 de DOC-01, con su medio de verificación y el tipo de entregable que lo produce (RQ-REP-002,
-ASM-026):
+Los 13 indicadores de la Tabla 9.5 de DOC-01, con su medio de verificación y el tipo de entregable que lo produciría
+(RQ-REP-002, ASM-026). T3 a T10 siguen probables y fuera de F8: en F8 la tabla completa la imprime T1 en 9.3.1
+(`deliverables.md` §5) y la muestra el tablero `monitoring` (§5.5):
 
 | # | Indicador de la Tabla 9.5 | KPI | Requisito | Medio de verificación [DOC-01 Tabla 9.5] | Entregable | Fase |
 |---|---|---|---|---|---|---|
@@ -307,9 +308,14 @@ gobierna todos los gráficos.
 | Tendencia | KPI-EXE-03 | Tres gráficos de línea pequeños, uno por medida |
 | Por proyecto | Las mismas cifras, una fila por proyecto | Tabla |
 
+- Las tiles salen de `ExecutiveKpis` y de las mismas funciones de cada módulo; la tabla por proyecto (`byProject[]`)
+  calcula cada fila con esas funciones y admite hasta `sgspe.dashboards.executive.max-projects` (25) proyectos: más es
+  `400 TOO_MANY_RECORDS` sobre `project` (`api.md` §4.11). KPI-EXE-03 no tiene valor escalar: son tres series de 12
+  meses.
+
 ### 5.2 Proyecto (RF-DSH-002)
 
-Exige un solo `project`.
+Exige un solo `project` (`400 PROJECT_REQUIRED`); el mapa lo arma el portal con las capas de F6.
 
 | Zona | Contenido | Forma |
 |---|---|---|
@@ -352,12 +358,17 @@ Reglas de la matriz interés × poder:
 
 ### 5.5 Monitoreo de la Tabla 9.5 (RF-DSH-008)
 
-- Una tabla con los 13 indicadores de §4.9, en su orden, con el valor del periodo, la meta (§10), el desglose por sexo, ámbito e
-  institución donde la Tabla 9.5 lo pide y el medio de verificación.
+- Una tabla con los 13 indicadores de §4.9, en su orden (`MonitoringTable`), con el valor del periodo, la meta y su
+  origen (`targetSource`: `PROJECT`, `CATALOG` o `NONE`, §10), el desglose por sexo, ámbito e institución donde la Tabla
+  9.5 lo pide y el medio de verificación.
 - Cada fila abre el detalle de su KPI.
-- Si el periodo está cerrado, la tabla muestra la cifra oficial de `indicator_measurement` y lo indica (§10). Antes de mostrarla
-  se aplica el mismo chequeo de campos de §8: #2 y #3 dicen "no disponible" a quien no puede leer `stance`, también con el
-  periodo cerrado.
+- Si el periodo está cerrado, cada fila trae además la cifra oficial de `indicator_measurement` (`official`: medición,
+  instante de cierre y valor) y la tabla lo indica (§10). La cifra oficial se muestra solo cuando el pedido coincide con
+  la medición: mismo proyecto o todo el tenant, mismo periodo y sin filtros de territorio. Antes de mostrarla se aplica
+  el mismo chequeo de campos de §8: #2 y #3 dicen "no disponible" a quien no puede leer `stance`, también con el periodo
+  cerrado.
+- Quien tiene CREATE sobre `indicator_measurement` ve «Cerrar periodo» (§10). Un tenant que todavía no tiene el modelo
+  de F8 (`TenantModel` sin `indicator`) ve el tablero sin metas ni cifras oficiales.
 
 ### 5.6 Compromisos (RF-DSH-003)
 
@@ -651,23 +662,39 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
 
 - **Catálogo.** Cada KPI tiene un registro `indicator` (objeto catálogo de BC-20) con su ID como `code` y con `name`,
   `definition`, `formula` (el texto de §4), `disaggregation`, `target_value`, `frequency`, `verification_means` y
-  `source_reference` (RQ-DSH-037). Se carga en F8 con un script idempotente desde este catálogo.
+  `source_reference` (RQ-DSH-037). Se carga en F8 con
+  `model/load_indicators.py` (biblioteca estándar, con el patrón de `load_ubigeo.py`, `--dry-run` y `--validate-only`)
+  desde `model/indicators.json`, después de `load_ubigeo.py` en el aprovisionamiento, en `provision_tenant.py` y en
+  `upgrade_tenants.py`: crea los que faltan y actualiza los textos de documentación, nunca `target_value` ni `frequency`
+  de uno existente (ASM-136). `IndicatorWriteGuard` rechaza cambiar `code`.
 - **Cálculo y documentación.** El cálculo vive en el código de `sgspe.dashboard`; el registro documenta el KPI y guarda su meta.
 - **Metas.** Cuando hay un parámetro del proyecto, manda el parámetro (p. ej. `meetings_per_month_target`, RN-ENG-003); si no, se
-  usa `target_value`. Las metas y frecuencias de los indicadores siguen GAP-018: por defecto, los valores de DOC-01 (dos
-  reuniones al mes, evaluación mensual y revisión semanal).
-- **Cierre de periodo.** Es opcional y llega en F8 (ASM-042). `POST /api/sgspe/indicators/{id}/measurements` crea una
-  `indicator_measurement` (`appendOnly` y `apiOnly`) con el valor, el numerador, el denominador y el desglose en Markdown. Hay una
-  sola por indicador, proyecto (o todo el tenant) y periodo, con una guarda para el proyecto vacío (§7.2 del modelo de dominio).
-- **Lo que no se cierra.** Para estos indicadores, `POST /api/sgspe/indicators/{id}/measurements` responde 409 (`api.md`):
-  - KPI-STK-02, KPI-STK-05 y KPI-STK-06, que leen `stance`. `indicator_measurement` no tiene campos restringidos y lo leen
-    roles sin acceso a la postura, así que una cifra congelada se leería por la API genérica (`security.md` §7.9);
-  - KPI-TER-01, que no tiene un valor propio (§4.8).
+  usa `target_value`; si no, «sin meta». La respuesta lo dice en `targetSource` (`PROJECT`, `CATALOG` o `NONE`). Las
+  metas y frecuencias iniciales son las de DOC-01 (GAP-018, resuelta): KPI-ENG-02, dos reuniones al mes; las
+  evaluaciones de grupos de interés, mensuales; las revisiones de riesgo, semanales; los indicadores de la Tabla 9.5,
+  mensuales; los demás, sin meta. Se editan en el catálogo.
+- **Cierre de periodo.** Es opcional y llega en F8 (ASM-042, ASM-136). `POST /api/sgspe/indicators/{id}/measurements`
+  calcula el KPI como quien cierra, con su `KpiReader`, y crea una `indicator_measurement` (`appendOnly` y `apiOnly`)
+  con el valor, el numerador, el denominador y el desglose principal en Markdown. Hay una sola por indicador, proyecto
+  (o todo el tenant) y periodo, con una guarda para el proyecto vacío (§7.2 del modelo de dominio; si ya existe,
+  `409 MEASUREMENT_EXISTS`); el periodo tiene que haber terminado (`400 PERIOD_NOT_ENDED`), y cerrar todo el tenant
+  exige `READ_ALL_PROJECTS` o `ADMIN`.
+- **Lo que no se cierra.** Una cifra oficial es completa o no existe (ASM-136): el cierre responde
+  `409 INDICATOR_NOT_CLOSABLE` con su razón (`api.md` §4.11):
+  - `STANCE`: KPI-STK-02, KPI-STK-05 y KPI-STK-06, que leen `stance`. `indicator_measurement` no tiene campos
+    restringidos y lo leen roles sin acceso a la postura, así que una cifra congelada se leería por la API genérica
+    (`security.md` §7.9);
+  - `NO_SCALAR_VALUE`: KPI-TER-01, que no tiene un valor propio (§4.8), KPI-EXE-03 y los que solo dan series;
+  - `UNAVAILABLE`: quien cierra no tiene el KPI disponible (§8);
+  - `CONFIDENTIAL_HIDDEN`: el KPI sale con `confidentialHidden` para quien cierra; por eso los KPI de QCS los cierra
+    en la práctica `ADMIN`.
 
   Publicar los de postura agregados a más roles es la opción que `security.md` §7.9 deja al checkpoint (ASM-042). Además,
   `sgspe.dashboard` aplica el chequeo de §8 antes de mostrar cualquier cifra oficial.
 - **Cifra viva y cifra oficial.** La cifra cerrada es la oficial de ese periodo; la viva puede cambiar si llegan registros
-  tardíos. La interfaz dice cuál muestra. No hay tablas de instantáneas (RQ-DSH-031).
+  tardíos. La interfaz dice cuál muestra, y
+  la oficial se muestra solo cuando el pedido coincide con la medición (§5.5). No hay tablas de instantáneas
+  (RQ-DSH-031).
 
 ## 11. Fases
 
@@ -680,7 +707,7 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
 | F5 | KPI-INV; tablero de inversión social. KPI-INV-01 usa los topes de campaña, que existen desde F3 (RF-INV-002), y lo comprometido de compromisos y aportes (ASM-110) | RQ-DSH-030 |
 | F6 | KPI-TER; tablero territorial con su ficha | RQ-DSH-029, RQ-GIS-005, RQ-GIS-014 |
 | F7 | El resumen ejecutivo de IA lee estos KPI (AI-04) | RF-AIK-004 |
-| F8 | KPI-EXE; tableros ejecutivo, de proyecto y de monitoreo; consolidación de todos los tableros; catálogo `indicator` y cierres de periodo; entregables con el mismo código | RQ-DSH-002, RQ-DSH-003, RQ-DSH-034, RQ-DSH-037 |
+| F8 | KPI-EXE; tableros ejecutivo, de proyecto y de monitoreo; consolidación de todos los tableros; catálogo `indicator` con las metas de DOC-01 y cierres de periodo; `KpiReader`, para que los entregables usen el mismo código como la plataforma | RQ-DSH-002, RQ-DSH-003, RQ-DSH-034, RQ-DSH-037 |
 
 Los indicadores de cada módulo llegan con su módulo y se consolidan en F8 (RQ-DSH-036) [USR-05]. RQ-DSH-001, RQ-DSH-031 y
 RQ-DSH-032 rigen desde F2 para todos.
@@ -688,8 +715,11 @@ RQ-DSH-032 rigen desde F2 para todos.
 - KPI-STK-04, KPI-STK-05 y KPI-STK-07 (F2) y KPI-ENG-06, KPI-ENG-07 y KPI-ENG-08 (F4) no tienen zona en un tablero de su
   fase: desde su fase se consultan con `GET /api/sgspe/dashboards/indicators/{code}` (detalle del KPI) y tienen pantalla en el
   tablero de monitoreo de F8 (§5.5).
-- Prueba: el `<Tablero>DashboardApiTest` de cada fase verifica que `GET /api/sgspe/dashboards/indicators` informa disponibles
-  los KPI del módulo desde su fase (RQ-DSH-036). En F2 los dos tableros y sus permisos se prueban juntos en `DashboardsApiTest`.
+- Prueba: el `<Tablero>DashboardApiTest` de cada fase verifica que `GET /api/sgspe/dashboards/indicators` informa
+  disponibles los KPI del módulo desde su fase (RQ-DSH-036). En F2 los dos tableros y sus permisos se prueban juntos en
+  `DashboardsApiTest`. En F8, `ExecutiveDashboardApiTest`, `ProjectDashboardApiTest`, `MonitoringDashboardApiTest`,
+  `IndicatorMeasurementsApiTest` y `DashboardDeliverableParityTest`, que compara las cifras de un `ADMIN` por el
+  endpoint con las del lector de la plataforma (RQ-DSH-034).
 
 ## 12. Fechas de transición que usan los indicadores
 
