@@ -174,4 +174,11 @@ class TextExtractionTest {
             tooLarge { extraction.extract(bytes, type, maxChars = 500) }
         }
     }
+
+    @Test
+    fun `con truncate el corte no parte un par sustituto`() {
+        val bytes = TestDocuments.docx("x".repeat(499) + "😀😀")
+        val text = extraction.extract(bytes, TextExtraction.DOCX, maxChars = 500, truncate = true)
+        assertEquals("x".repeat(499), text)
+    }
 }

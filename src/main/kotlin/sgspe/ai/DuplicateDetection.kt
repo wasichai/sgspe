@@ -1,5 +1,7 @@
 package sgspe.ai
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
@@ -239,7 +241,8 @@ class DuplicateDetection(
     ): DuplicateFindings {
         val (project, read) = read(target)
         val known = known(read)
-        val all = DuplicateCandidates.pairs(read, Int.MAX_VALUE, known)
+        // las reglas son CPU pura sobre hasta max-records registros por objeto: fuera del hilo del reactor
+        val all = withContext(Dispatchers.Default) { DuplicateCandidates.pairs(read, Int.MAX_VALUE, known) }
         val pairs =
             (
                 if (target.objectName ==
@@ -324,8 +327,10 @@ class DuplicateDetection(
         }
 
     // los pares ya propuestos como DUPLICADO, en cualquier estado, sobre los registros de la corrida: no se vuelven a proponer. el
-    // destino de una sugerencia es siempre uno de los dos del par, así que basta leer las que apuntan a los registros leídos; sin
-    // el tope de max-records, que es de los registros que se comparan (las sugerencias acumuladas no dan 400 TOO_MANY_RECORDS)
+    // destino de una sugerencia es siempre uno de los dos del par, así que basta leer las que apuntan a los registros leídos, y
+    // la lectura es acotada: hasta KNOWN_PER_RECORD sugerencias por cada uno de max-records registros de su objeto (si no, 400
+    // TOO_MANY_RECORDS sobre target, como los registros). quien no tiene READ sobre ai_suggestion no ve ninguna, y known() no le
+    // quita nada: el modelo puede volver a comparar un par ya propuesto, pero SuggestionWriter igual descarta la repetición exacta
     private suspend fun known(read: List<DuplicateRecord>): Set<Set<UUID>> =
         read
             .groupBy({ it.objectName }, { it.id })
@@ -345,7 +350,9 @@ class DuplicateDetection(
             records.all(
                 SUGGESTION,
                 filters = mapOf("suggestion_kind" to KIND, "target_object" to objectName),
-                criteria = listOf(Criteria.anyOf("target_record_id", ids.distinct()))
+                criteria = listOf(Criteria.anyOf("target_record_id", ids.distinct())),
+                max = (properties.maxRecords.toLong() * KNOWN_PER_RECORD).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                field = TARGET
             )
         } catch (_: ForbiddenException) {
             emptyList()
@@ -357,6 +364,9 @@ class DuplicateDetection(
         const val TARGET = "target"
         const val SUGGESTION = "ai_suggestion"
         const val KIND = "DUPLICADO"
+
+        // las sugerencias DUPLICADO que known() lee, por registro que se compara
+        const val KNOWN_PER_RECORD = 5
         private val JSON: JsonMapper = JsonMapper.builder().build()
 
         // other_record_id de un suggested_value DUPLICADO; null si no se puede leer

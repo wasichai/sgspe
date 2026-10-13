@@ -69,4 +69,31 @@ class SegmenterTest {
         val segments = Segmenter.segments(words)
         for (i in 1..900) assertTrue(segments.any { "palabra$i " in "$it " }, "falta palabra$i")
     }
+
+    // ninguna mitad suelta de un par sustituto (un emoji, una letra fuera del plano básico)
+    private fun wellFormed(text: String): Boolean =
+        text.indices.all { i ->
+            val c = text[i]
+            when {
+                c.isHighSurrogate() -> i + 1 < text.length && text[i + 1].isLowSurrogate()
+                c.isLowSurrogate() -> i > 0 && text[i - 1].isHighSurrogate()
+                else -> true
+            }
+        }
+
+    @Test
+    fun `un corte en el limite no parte un par sustituto`() {
+        for ((size, overlap) in listOf(101 to 10, 100 to 11, 51 to 7)) {
+            val segments = Segmenter.segments("😀".repeat(300), size, overlap)
+            assertTrue(segments.all { wellFormed(it) && it.length <= size }, "$size/$overlap")
+            assertTrue(segments.size > 1 && "😀".repeat(300).endsWith(segments.last()), "$size/$overlap")
+        }
+    }
+
+    @Test
+    fun `el comienzo de un texto acotado no parte un par sustituto`() {
+        assertEquals("ab", Segmenter.prefix("ab😀c", 3))
+        assertEquals("ab😀", Segmenter.prefix("ab😀c", 4))
+        assertEquals("ab", Segmenter.prefix("ab", 5))
+    }
 }

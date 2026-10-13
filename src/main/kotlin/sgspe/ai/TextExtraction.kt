@@ -24,9 +24,9 @@ class TextExtraction {
      * El texto del archivo, acotado: más de [maxChars] caracteres (el sgspe.ai.limits.input-chars configurado, que pasa siempre
      * quien llama), más de [MAX_PAGES] páginas o un DOCX que se infla más allá de
      * [MAX_INFLATED] es 422 AI_INPUT_TOO_LARGE sobre target (nunca se trunca). Con [truncate] (solo JOB-07, que indexa el comienzo
-     * de un documento largo) el texto que pasa [maxChars] o [MAX_PAGES] páginas se corta en el tope y se devuelve, sin lanzar; una
-     * bomba de inflado de un DOCX sigue siendo 422. Trabaja con CPU y con E/S bloqueante: quien la llame
-     * desde código reactivo (Tareas 7 y 9, JOB-07) debe hacerlo en Dispatchers.IO.
+     * de un documento largo) el texto que pasa [maxChars] o [MAX_PAGES] páginas se corta en el tope, sin partir un par sustituto,
+     * y se devuelve, sin lanzar; una bomba de inflado de un DOCX sigue siendo 422. Trabaja con CPU y con E/S bloqueante: quien
+     * la llame desde código reactivo (Tareas 7 y 9, JOB-07) debe hacerlo en Dispatchers.IO.
      */
     fun extract(
         bytes: ByteArray,
@@ -44,7 +44,7 @@ class TextExtraction {
         val text = normalize(raw)
         if (text.isBlank()) throw AiErrors.noText()
         if (text.length > maxChars) {
-            if (truncate) return text.take(maxChars)
+            if (truncate) return Segmenter.prefix(text, maxChars)
             throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
         }
         return text
