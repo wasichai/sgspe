@@ -1,0 +1,163 @@
+package sgspe.ai
+
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Component
+import sgspe.common.Criteria
+import sgspe.common.Organizations
+import sgspe.common.Records
+import sgspe.common.Values
+import sgspe.evidence.EvidenceRules
+import wasichai.core.common.WasichaiException
+import wasichai.core.platform.ClusterLock
+import java.time.Clock
+import java.time.Instant
+import java.util.UUID
+
+// el texto de un archivo para JOB-07; null si no tiene (sin OCR en F7, ASM-132)
+fun interface DocumentText {
+    suspend fun text(
+        bytes: ByteArray,
+        contentType: String
+    ): String?
+}
+
+// DocumentText sobre TextExtraction de 7.2b (PDF con texto y DOCX, con PDFBox y POI): su 422 AI_NO_TEXT (un PDF escaneado, otro
+// formato) es «sin texto», y un archivo que no se deja leer (un PDF dañado) también, con una advertencia que solo nombra la clase
+// del error: un archivo malo no debe tumbar la vuelta de su organización cada vez. la extracción bloquea: corre en Dispatchers.IO.
+// es el único archivo de 7.2c que llama a TextExtraction
+@Component
+class EvidenceText(
+    private val extraction: TextExtraction,
+    private val properties: KnowledgeProperties
+) : DocumentText {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    override suspend fun text(
+        bytes: ByteArray,
+        contentType: String
+    ): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                extraction.extract(bytes, contentType, maxChars = properties.maxChars)
+            } catch (e: WasichaiException) {
+                if (e.violations.none { it.message == NO_TEXT }) log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo ({})", e.javaClass.name)
+                null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo ({})", e.javaClass.name)
+                null
+            }
+        }
+
+    companion object {
+        const val NO_TEXT = "AI_NO_TEXT"
+    }
+}
+
+// las evidencias de una organización para JOB-07, con Records dentro de su asPlatform (WAS-ADR-0039): las cambiadas desde una
+// hora (Criteria.updatedSince) o todas, las reemplazadas y el texto de un archivo
+@Component
+class KnowledgeEvidences(
+    private val records: Records,
+    private val files: EvidenceFiles,
+    private val documents: DocumentText,
+    private val properties: KnowledgeProperties
+) : KnowledgeCorpus {
+    override suspend fun changed(
+        organizationId: UUID,
+        since: Instant?
+    ): List<IndexableEvidence> =
+        records.all(EvidenceRules.EVIDENCE, criteria = listOfNotNull(since?.let { Criteria.updatedSince(it) })).map { evidence ->
+            IndexableEvidence(
+                UUID.fromString(evidence.id),
+                Records.uuid(evidence.attributes[PROJECT]),
+                Values.text(evidence.attributes[EvidenceRules.CLASSIFICATION]),
+                Records.uuid(evidence.attributes[REPLACES]),
+                Records.uuid(EvidenceRules.fileId(evidence.attributes[EvidenceRules.FILE]))
+            )
+        }
+
+    override suspend fun replaced(organizationId: UUID): Set<UUID> =
+        records
+            .all(EvidenceRules.EVIDENCE, criteria = listOf(Criteria.filled(REPLACES)))
+            .mapNotNull { Records.uuid(it.attributes[REPLACES]) }
+            .toSet()
+
+    override suspend fun text(
+        organizationId: UUID,
+        evidence: IndexableEvidence
+    ): String? {
+        val file = evidence.file ?: return null
+        val stored = files.read(organizationId, file, properties.maxBytes) ?: return null
+        return documents.text(stored.bytes, stored.contentType)
+    }
+
+    companion object {
+        private const val PROJECT = "project"
+        private const val REPLACES = "replaces"
+    }
+}
+
+// JOB-07 KnowledgeIndexJob (workflows.md, ai-architecture.md §13.2): una sola réplica por vuelta (ClusterLock.tryLock), solo
+// las organizaciones con evidence que activaron la IA (sgspe.ai.enabled-organizations), cada una dentro de Records.asPlatform.
+// escribe solo la tabla fija knowledge_chunk (KnowledgeChunks); nunca escribe registros de wasichai, nunca aplica transiciones
+// y, en F7, nunca llama a un modelo, así que no deja ai_interaction. la vuelta periódica mira lo cambiado desde la anterior; la
+// diaria, todo (y borra los fragmentos de las evidencias que ya no existen)
+@Component
+class KnowledgeIndexJob(
+    corpus: KnowledgeEvidences,
+    chunks: KnowledgeChunks,
+    organizations: Organizations,
+    ai: AiProperties,
+    records: Records,
+    private val locks: ClusterLock,
+    clock: Clock,
+    properties: KnowledgeProperties
+) {
+    private val sweep =
+        KnowledgeSweep(
+            corpus,
+            chunks,
+            { organizations.having(EvidenceRules.EVIDENCE) { ai.enabled(it) } },
+            { organization, block -> records.asPlatform(organization, block) },
+            clock,
+            properties.chunkChars,
+            properties.overlapChars,
+            properties.maxChars
+        )
+
+    // lo hecho; null si otra réplica tenía el candado
+    suspend fun runOnce(full: Boolean): KnowledgeTally? {
+        val lease = locks.tryLock(LOCK) ?: return null
+        return lease.use { sweep.run(full) }
+    }
+
+    companion object {
+        const val LOCK = "sgspe.knowledge-index"
+    }
+}
+
+// el reloj de JOB-07, en la zona de Lima; sgspe.jobs.enabled=false lo apaga (las pruebas llaman a runOnce)
+@Component
+@EnableScheduling
+@ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
+class KnowledgeIndexSchedule(
+    private val job: KnowledgeIndexJob
+) {
+    @Scheduled(cron = "\${sgspe.jobs.knowledge-index.cron:0 */30 * * * *}", zone = "America/Lima")
+    suspend fun periodic() {
+        job.runOnce(full = false)
+    }
+
+    @Scheduled(cron = "\${sgspe.jobs.knowledge-index.daily-cron:0 0 3 * * *}", zone = "America/Lima")
+    suspend fun daily() {
+        job.runOnce(full = true)
+    }
+}

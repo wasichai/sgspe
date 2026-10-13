@@ -196,8 +196,8 @@ sgspe:
     # días en que dos evaluaciones con posturas distintas avisan STANCE_DIVERGENCE (CON-006)
     stance-divergence-days: 30
   jobs:
-    # trabajos de fondo (JOB-01 DeadlineJob, JOB-02 DerivedFieldsJob, JOB-03 StakeholderFollowUpJob y JOB-08 RetentionJob).
-    # false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
+    # trabajos de fondo (JOB-01 DeadlineJob, JOB-02 DerivedFieldsJob, JOB-03 StakeholderFollowUpJob, JOB-07 KnowledgeIndexJob
+    # y JOB-08 RetentionJob). false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
     enabled: ${SGSPE_JOBS_ENABLED:true}
     derived-fields:
       # cron de Spring (segundos primero), en America/Lima
@@ -216,6 +216,10 @@ sgspe:
       # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl) y los saltos de
       # derivados vencidos (sgspe.concurrency.derived-versions-retention)
       cron: '0 15 4 * * *'
+    knowledge-index:
+      # JOB-07 (ASM-006): cada 30 minutos lo cambiado y una vez al día todo, solo en las organizaciones con la IA activada
+      cron: '0 */30 * * * *'
+      daily-cron: '0 0 3 * * *'
   ai:
     # la IA viene apagada (ASM-015, ASM-128): los slugs de las organizaciones que la usan, separados por comas, los fija el operador
     # del despliegue junto con ANTHROPIC_API_KEY. activar o desactivar una organización pide redesplegar
