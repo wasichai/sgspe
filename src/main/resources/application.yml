@@ -219,7 +219,8 @@ sgspe:
     knowledge-index:
       # JOB-07 (ASM-006): cada 30 minutos lo cambiado y una vez al día todo, solo en las organizaciones con la IA activada
       cron: '0 */30 * * * *'
-      daily-cron: '0 0 3 * * *'
+      # a las 03:15, no a las 03:00: así no coincide con la vuelta de los 30 minutos, que tomaría el candado
+      daily-cron: '0 15 3 * * *'
   ai:
     # la IA viene apagada (ASM-015, ASM-128): los slugs de las organizaciones que la usan, separados por comas, los fija el operador
     # del despliegue junto con ANTHROPIC_API_KEY. activar o desactivar una organización pide redesplegar

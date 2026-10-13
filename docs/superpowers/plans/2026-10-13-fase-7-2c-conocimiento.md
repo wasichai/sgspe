@@ -185,7 +185,7 @@ tarea dueña del código:
 | 12 | Cada caso es un bean `AiUseCaseOffer` (decisión 9 de 7.2a); `AiEnabledApiTest` de 7.2a espera exactamente `["AI-05"]` | `KnowledgeUseCase` (AI-06) llega con su endpoint (Tarea 6) y `DuplicateUseCase` (AI-07) con su corrida (Tarea 10), nunca antes. La prueba de 7.2a pasa a «contiene AI-05 y AI-06» (y AI-07 en la Tarea 10) para que cada plan sume los suyos |
 | 13 | ASM-132: sin OCR, un PDF sin texto no se indexa; `TextExtraction` de 7.2b responde `422 AI_NO_TEXT` | `EvidenceText` toma `AI_NO_TEXT` como «sin texto», y también cualquier otra falla de lectura (un PDF dañado), con una advertencia que solo nombra la clase del error: un archivo malo no debe tumbar la vuelta de su organización cada vez (Tarea 9) |
 | 14 | 7.2b y 7.2c tocan los mismos archivos de configuración y de pruebas | Conflictos esperados al rebasar sobre 7.2b: `prompts/manifest.json` y `sgspe.ai.prompts` en `application.yml` (se quedan todas las entradas, ordenadas por caso), `AiEnabledApiTest` (se queda la forma «contiene» con todos los casos de los dos planes) y la lista de `DatabaseClient` de `ArchitectureTest` (se quedan todas las rutas). Se resuelven a mano en la Tarea 9, Paso 1 |
-| 15 | `workflows.md` JOB-07: «periódica y configurable (ASM-006)» | Cada 30 minutos sobre lo cambiado (`sgspe.jobs.knowledge-index.cron`) y a las 03:00 de Lima sobre todo (`daily-cron`), apagado con `sgspe.jobs.enabled=false` como los demás (Tarea 9); `workflows.md` lo anota (Tarea 11) |
+| 15 | `workflows.md` JOB-07: «periódica y configurable (ASM-006)» | Cada 30 minutos sobre lo cambiado (`sgspe.jobs.knowledge-index.cron`) y a las 03:15 de Lima sobre todo (no a las 03:00, que coincide con la vuelta de los 30 minutos) (`daily-cron`), apagado con `sgspe.jobs.enabled=false` como los demás (Tarea 9); `workflows.md` lo anota (Tarea 11) |
 
 ## Interfaces con 7.2b
 
@@ -240,7 +240,7 @@ ese `when`, que llama a `DuplicateRun.run`, y deja `DuplicateRun` sin implementa
 - `sgspe.ai.prompts.ai-06: '1'` (Tarea 5) y `ai-07: '1'` (Tarea 8).
 - `sgspe.ai.knowledge.{chunk-chars: 1500, overlap-chars: 200, max-chars: 500000, max-bytes: 20971520, candidates: 25,
   results: 5}` (Tarea 4); `sgspe.ai.duplicates.{max-records: 2000, max-pairs: 20}` (Tarea 8).
-- `sgspe.jobs.knowledge-index.{cron: '0 */30 * * * *', daily-cron: '0 0 3 * * *'}` (Tarea 9).
+- `sgspe.jobs.knowledge-index.{cron: '0 */30 * * * *', daily-cron: '0 15 3 * * *'}` (Tarea 9).
 
 ### Kotlin (producción, todo en `sgspe.ai` salvo `Organizations`)
 
@@ -4131,7 +4131,7 @@ class KnowledgeIndexSchedule(
         job.runOnce(full = false)
     }
 
-    @Scheduled(cron = "\${sgspe.jobs.knowledge-index.daily-cron:0 0 3 * * *}", zone = "America/Lima")
+    @Scheduled(cron = "\${sgspe.jobs.knowledge-index.daily-cron:0 15 3 * * *}", zone = "America/Lima")
     suspend fun daily() {
         job.runOnce(full = true)
     }
@@ -4152,7 +4152,7 @@ y, después del bloque `retention`:
     knowledge-index:
       # JOB-07 (ASM-006): cada 30 minutos lo cambiado y una vez al día todo, solo en las organizaciones con la IA activada
       cron: '0 */30 * * * *'
-      daily-cron: '0 0 3 * * *'
+      daily-cron: '0 15 3 * * *'
 ```
 
 - [ ] **Paso 5: En verde**
@@ -4820,7 +4820,7 @@ un objeto, `400 TOO_MANY_RECORDS` sobre `target`».
 - [ ] **Paso 5: `docs/workflows.md`, `docs/security.md` y `docs/roadmap.md`**
 
 En la fila de JOB-07 de «Trabajos programados», en la celda «Frecuencia», reemplazar «Periódica y configurable
-(ASM-006)» por «Periódica y configurable (ASM-006): cada 30 minutos lo cambiado y a las 03:00 de Lima todo
+(ASM-006)» por «Periódica y configurable (ASM-006): cada 30 minutos lo cambiado y a las 03:15 de Lima todo
 (`sgspe.jobs.knowledge-index.*`)».
 
 En `security.md` §14, en la fila «IA», después de «una corrida o una pregunta documental de quien no lee los nombres de
