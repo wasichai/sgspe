@@ -103,6 +103,16 @@ AI-05 usa el asistente de solo lectura de wasichai-agent; los demás casos son a
   postura de un grupo de interés, que sale de sus evaluaciones (CON-031, RF-STK-005).
 - Ningún caso propone un valor para un campo derivado (§4.6 del modelo de dominio): `stakeholder.stance`, por ejemplo, solo
   cambia con una evaluación nueva.
+- AI-07 compara solo registros del mismo objeto: personas, organizaciones y grupos de interés por un nombre
+  normalizado igual (sin tildes, mayúsculas ni orden de palabras), un nombre alternativo o nombres parecidos; QCS y
+  compromisos dentro de su proyecto por textos parecidos, con fecha cercana y la misma localidad
+  (`DuplicateCandidates`). No vuelve a proponer un par ya vinculado ni uno ya propuesto, y manda al modelo a lo sumo
+  20 pares, con los nombres de las personas como marcadores: el modelo juzga con lo demás y con las razones de las
+  reglas. El destino de la sugerencia es el registro que la aceptación tocaría: en una organización, la más antigua,
+  que recibe el nombre de la otra; en los demás, la más nueva (una queja recibe `duplicate_of` hacia la original).
+  Guarda todos los pares en una sola transacción (`SuggestionWriter.write`) y exige lo mismo que los demás casos
+  (`RunRequirements`: los mismos 403). Sin pares no llama al modelo y no deja interacción. Con más de
+  `sgspe.ai.duplicates.max-records` registros de un objeto, responde `400 TOO_MANY_RECORDS`.
 
 ### 4.2 Qué ejecuta cada aceptación
 
@@ -576,19 +586,28 @@ Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en 
   `chunk_index`, `classification`, `content`, `embedding` (etapa 2) y `created_at`.
 - El corpus son las `evidence` con texto: actas, convenios, informes, estudios, documentos internos y demás evidencias
   (RF-AIK-006).
-- JOB-07, un trabajo programado de `sgspe.ai`, indexa con `ClusterLock` y `RecordService.asPlatform` (`workflows.md`)
-  [WAS-ADR-0039]:
-  - lee las `evidence` creadas o cambiadas desde su última corrida;
-  - extrae el texto con `TextExtraction` (ASM-132), lo segmenta en fragmentos de unos 1 500 caracteres con solape y, en
-    la etapa 2, lo seudonimiza y lo vectoriza;
-  - escribe los fragmentos con SQL propio;
+- JOB-07 (`KnowledgeIndexJob`), un trabajo programado de `sgspe.ai`, indexa con `ClusterLock` y
+  `RecordService.asPlatform` (`workflows.md`) [WAS-ADR-0039], solo en las organizaciones que activaron la IA (§12.1):
+  - cada 30 minutos lee las `evidence` creadas o cambiadas desde su última vuelta buena (con dos minutos de traslape),
+    y una vez al día, a las 03:15 de Lima, todas; la primera vuelta de cada proceso también lee todas;
+  - lee los bytes del archivo como la plataforma (`EvidenceFiles`: la fila de `stored_files` de la organización y el
+    almacén, porque `FileService` de wasichai-files exige una persona), a lo sumo 20 MB; si el objeto falta en el
+    almacén, la evidencia queda sin texto;
+  - extrae el texto con `TextExtraction` (ASM-132), lo segmenta en fragmentos de 1 500 caracteres con 200 de solape
+    (`Segmenter`) y, en la etapa 2, lo seudonimizará y lo vectorizará; un documento largo se indexa truncado a
+    `sgspe.ai.knowledge.max-chars` (500 000 caracteres), no se descarta;
+  - escribe los fragmentos con SQL propio, solo por `KnowledgeChunks` (`ArchitectureTest`);
   - en F7 no llama a un modelo, así que no deja `ai_interaction`; en la etapa 2 dejará una por documento, sin
     `requested_by_user_id` y con `run_by_platform` (§9.2).
 - Como todo trabajo programado, solo crea registros y escribe su tabla fija: nunca aplica transiciones (§8.3 del modelo de
   dominio).
-- `project_id` y `classification` se copian de la `evidence` y se resincronizan cuando cambia. Los fragmentos de una evidencia
-  reemplazada (`replaces`) dejan de recuperarse y el trabajo los borra.
-- Un documento sin texto (una imagen escaneada) no se indexa: no hay OCR en F7 (§16, ASM-132).
+- `project_id` y `classification` se copian de la `evidence` y se resincronizan cuando cambia; como el archivo de una
+  evidencia es inmutable (ASM-013), una evidencia ya indexada nunca se vuelve a leer. Los fragmentos de una evidencia
+  reemplazada (`replaces`) dejan de recuperarse y el trabajo los borra; la vuelta diaria borra también los de las
+  evidencias que ya no existen.
+- Un documento sin texto (una imagen escaneada) o que no se deja leer (un PDF dañado) no se indexa: no hay OCR en F7
+  (§16, ASM-132). El proceso lo recuerda y no lo vuelve a leer; una evidencia que falla no detiene a las demás, y su
+  organización vuelve a mirar desde la última vuelta buena.
 
 ### 13.3 Recuperación con permisos
 
@@ -605,14 +624,21 @@ flowchart LR
 ```
 
 1. Tenant: solo filas con el `organization_id` del token (RQ-SEC-002).
-2. Proyecto: los proyectos del alcance de la persona, `ProjectReadScope` (RQ-SEC-006, ADR-0029).
+2. Proyecto: el de la pregunta (`project`), que la persona tiene que poder leer con `ProjectReadScope` (si no, 404),
+   más los documentos del tenant, sin proyecto (RQ-SEC-006, ADR-0029).
 3. Clasificación: solo las clasificaciones que la persona puede descargar (RF-DOC-003).
-4. Las `evidence` de los fragmentos candidatos se releen con `RecordService` como la persona (filtro por identificadores), y se
-   descarta todo fragmento cuya evidencia no vuelve. Así se respetan el permiso READ sobre `evidence` y el alcance futuro, con el
-   mismo motor de permisos de la plataforma [WAS-ADR-0014].
+4. Las `evidence` de los 25 fragmentos más relevantes se releen con `RecordService` como la persona (filtro por
+   identificadores), y se descarta todo fragmento cuya evidencia no vuelve, la que con la clasificación que la persona
+   lee hoy no puede descargar (si no la lee, cuenta como restringida), la que ya es de otro proyecto y la que otra
+   evidencia que la persona lee reemplaza. Así se respetan el permiso READ sobre `evidence` y el alcance futuro, con
+   el mismo motor de permisos de la plataforma [WAS-ADR-0014], aunque JOB-07 todavía no haya resincronizado. Pasan los
+   cinco primeros. Si la persona no puede leer el objeto `evidence`, responde 403.
 5. Los fragmentos se seudonimizan antes de llegar al modelo (§12.2).
-6. La respuesta cita cada fuente: título y enlace de la `evidence` y el fragmento usado. Si ningún fragmento pasa los filtros, la
-   respuesta dice que no hay evidencia; nunca responde sin fuente.
+6. La respuesta cita cada fuente: la `evidence` y la posición del fragmento, con el pedazo citado (el portal muestra
+   el título y el enlace). Una cita vale solo si aparece, salvo espacios, en el fragmento seudonimizado que recibió el
+   modelo; sin una que valga, la respuesta dice que no encontró una cita que la respalde. Si ningún fragmento pasa los
+   filtros, la respuesta dice que no hay evidencia sin llamar al modelo (`citations: []`); nunca responde sin fuente.
+   La respuesta y las citas vuelven con marcadores estables (§12.2), que el portal re-identifica.
 7. La llamada queda en una `ai_interaction` de AI-06.
 
 ## 14. Endpoints
