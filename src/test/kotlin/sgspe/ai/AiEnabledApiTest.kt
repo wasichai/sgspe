@@ -47,7 +47,8 @@ class AiEnabledApiTest : F7ApiTest() {
             tree(
                 send(
                     "GET",
-                    "/api/objects/ai_interaction/records?requested_by_user_email=${java.net.URLEncoder.encode(cro.email, Charsets.UTF_8)}",
+                    // send codifica la consulta: el correo va sin codificar
+                    "/api/objects/ai_interaction/records?requested_by_user_email=${cro.email}",
                     null,
                     HttpStatus.OK
                 )

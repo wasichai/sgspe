@@ -12,7 +12,6 @@ import org.springframework.test.context.TestPropertySource
 import sgspe.F7ApiTest
 import sgspe.common.IdempotencyKey
 import tools.jackson.databind.JsonNode
-import java.net.URLEncoder
 import java.util.UUID
 
 // POST /api/sgspe/ai/runs contra wasichai de verdad (especificación de F7 §3.4 y §5, ai-architecture.md §15): con una clave falsa
@@ -36,15 +35,32 @@ class AiRunsApiTest : F7ApiTest() {
 
     private val cro by lazy { member("COMMUNITY_RELATIONS_OFFICER") }
 
-    private val minutes =
+    private fun minutes(surname: String) =
         "Acta de la asamblea de la Comunidad Ejemplo.\n" +
-            "Ana Ejemplo (DNI 40123456, celular 987654321) pidió reparar el canal de riego del sector bajo.\n" +
+            "Ana $surname (DNI 40123456, celular 987654321) pidió reparar el canal de riego del sector bajo.\n" +
             "La empresa se compromete a reparar el canal de riego antes del 30 de noviembre de 2026."
 
-    // una persona registrada y una interacción del proyecto de la prueba con su acta
-    private fun scene(): Pair<String, String> {
-        val person = createRecord("person", mapOf("given_names" to "Ana", "surnames" to "Ejemplo", "sex" to "FEMENINO", "id_document_number" to "40123456"))
-        return person to engagement(testProject(), attributes = mapOf("minutes" to minutes))
+    private val minutes = minutes("Ejemplo")
+
+    private data class Scene(
+        val person: String,
+        val engagement: String,
+        val minutes: String
+    )
+
+    // una persona registrada y una interacción del proyecto de la prueba con su acta. la base es compartida: el apellido es único
+    // en cada llamada (solo letras, como un nombre) para que el diccionario de nombres no encuentre homónimos de otras pruebas
+    private fun scene(): Scene {
+        val surname =
+            "Ejemplo" +
+                (1..8)
+                    .map { ('A'..'Z').random() }
+                    .joinToString("")
+                    .lowercase()
+                    .replaceFirstChar { it.uppercase() }
+        val person = createRecord("person", mapOf("given_names" to "Ana", "surnames" to surname, "sex" to "FEMENINO", "id_document_number" to "40123456"))
+        val text = minutes(surname)
+        return Scene(person, engagement(testProject(), attributes = mapOf("minutes" to text)), text)
     }
 
     private fun body(response: Response): JsonNode {
@@ -53,8 +69,10 @@ class AiRunsApiTest : F7ApiTest() {
     }
 
     private fun interactions(account: Account): List<JsonNode> {
-        val email = URLEncoder.encode(account.email, Charsets.UTF_8)
-        return tree(send("GET", "/api/objects/ai_interaction/records?requested_by_user_email=$email", null, HttpStatus.OK))["content"].values().toList()
+        // send codifica la consulta: el correo va sin codificar (codificado dos veces es un 400 «is not an email»)
+        return tree(send("GET", "/api/objects/ai_interaction/records?requested_by_user_email=${account.email}", null, HttpStatus.OK))["content"]
+            .values()
+            .toList()
     }
 
     @Test
@@ -100,11 +118,11 @@ class AiRunsApiTest : F7ApiTest() {
 
     @Test
     fun `AI-01 sobre un PDF con texto vinculado a la interaccion deja extracciones y candidatos en dos llamadas`() {
-        val (person, engagement) = scene()
+        val (person, engagement, text) = scene()
         val evidence =
             textEvidence(
                 testProject(),
-                TestDocuments.pdf(*minutes.lines().toTypedArray()),
+                TestDocuments.pdf(*text.lines().toTypedArray()),
                 "acta.pdf",
                 links =
                     listOf(
@@ -163,7 +181,12 @@ class AiRunsApiTest : F7ApiTest() {
 
     @Test
     fun `AI-08 sobre una queja propone categoria con su cita`() {
-        val grievance = grievance(testProject(), attributes = mapOf("description" to "La junta denuncia que el agua del canal llega turbia."))
+        val grievance =
+            grievance(
+                testProject(),
+                // otra categoría que la de F4ApiTest: la propuesta igual al valor vigente se descarta (bien)
+                attributes = mapOf("description" to "La junta denuncia que el agua del canal llega turbia.", "category" to "OTRO")
+            )
         llm.fresh().returnObject(
             ClassificationOutput(listOf(ProposedClassification("category", "AGUA Y MEDIO AMBIENTE", "el agua del canal llega turbia", 0.9)))
         )
@@ -175,7 +198,12 @@ class AiRunsApiTest : F7ApiTest() {
 
     @Test
     fun `una corrida que se repite propone lo mismo una sola vez`() {
-        val grievance = grievance(testProject(), attributes = mapOf("description" to "La junta denuncia que el agua del canal llega turbia."))
+        val grievance =
+            grievance(
+                testProject(),
+                // otra categoría que la de F4ApiTest: la propuesta igual al valor vigente se descarta (bien)
+                attributes = mapOf("description" to "La junta denuncia que el agua del canal llega turbia.", "category" to "OTRO")
+            )
         val output = ClassificationOutput(listOf(ProposedClassification("category", "AGUA Y MEDIO AMBIENTE", "el agua del canal llega turbia", 0.9)))
         llm.fresh().returnObject(output)
         assertEquals(1, body(aiRun(cro, "AI-08", "grievance", grievance))["suggestions"].size())
