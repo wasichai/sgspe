@@ -25,9 +25,14 @@ data class ModelCallResult<T : Any>(
     val output: T,
     // la tabla de la llamada: 7.2b pasa la salida a marcadores estables con ella antes de guardar
     val table: PseudonymTable,
-    // el prompt tal como salió: CitationCheck (7.2b) busca la cita en su texto
+    // el prompt tal como salió
     val sent: RenderedPrompt,
-    val interaction: UUID
+    val interaction: UUID,
+    // cada variable del prompt ya seudonimizada, tal como la recibió el modelo: CitationCheck busca la cita en la de la fuente y no
+    // en el prompt entero, que también lleva las instrucciones (decisión 6 del plan 7.2b)
+    val inputs: Map<String, String> = emptyMap(),
+    // el modelo que informó el proveedor: el `model` de la sugerencia (RQ-AI-004)
+    val model: String = ""
 )
 
 // la llamada de un caso a su modelo (ai-architecture.md §6.1, §6.2 y §9.2), la base de cada agente de 7.2b: la entrada pasa el
@@ -47,7 +52,8 @@ class ModelCalls(
         val limit = properties.limits.inputChars
         if (call.variables.values.sumOf { it.length } > limit) throw AiErrors.inputTooLarge(call.inputField, limit)
         val table = PseudonymTable()
-        val sent = prompts.render(call.useCase, call.variables.mapValues { (_, text) -> Pseudonymizer.pseudonymize(text, call.names, table, call.restricted) })
+        val inputs = call.variables.mapValues { (_, text) -> Pseudonymizer.pseudonymize(text, call.names, table, call.restricted) }
+        val sent = prompts.render(call.useCase, inputs)
         val modelName = properties.modelFor(call.useCase)
         val started = clock.instant()
         val result =
@@ -58,7 +64,7 @@ class ModelCalls(
                 throw if (e.reason == StructuredModelException.Reason.TRUNCATED) AiErrors.truncated() else AiErrors.unavailable(AiErrors.PROVIDER)
             }
         val interaction = record(call, sent, result.model, started, result.inputTokens, result.outputTokens, call.summary(result.output))
-        return ModelCallResult(result.output, table, sent, interaction)
+        return ModelCallResult(result.output, table, sent, interaction, inputs, result.model)
     }
 
     private suspend fun record(

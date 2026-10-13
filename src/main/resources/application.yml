@@ -234,14 +234,21 @@ sgspe:
       ai-08: claude-haiku-4-5
     # la versión en uso del prompt de cada caso (ai-architecture.md §10): volver atrás es cambiar este número
     prompts:
+      ai-01: '1'
+      ai-02: '1'
+      ai-03: '1'
+      ai-04: '1'
       ai-05: '1'
+      ai-08: '1'
     limits:
-      # ASM-131: caracteres de la fuente de una corrida, tokens de salida de una llamada, acciones de un agente (7.2b) y
-      # caracteres de una pregunta al asistente
+      # ASM-131: caracteres de la fuente de una corrida, tokens de salida de una llamada, llamadas al modelo de una corrida,
+      # caracteres de una pregunta al asistente, bytes del archivo de una evidencia (25 MiB) y propuestas por llamada
       input-chars: 200000
       output-tokens: 8192
       actions: 8
       question-chars: 4000
+      file-bytes: 26214400
+      proposals: 50
 
 embabel:
   agent:
