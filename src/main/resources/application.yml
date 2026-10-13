@@ -78,6 +78,11 @@ wasichai:
       # rige la cadena de credenciales del SDK
       # MinIO pide URL con la ruta del bucket; AWS S3 acepta las dos
       path-style-access: ${WASICHAI_FILES_S3_PATH_STYLE_ACCESS:true}
+  agent:
+    # el asistente de solo lectura (AI-05, ai-architecture.md §8). la clave llega solo por ANTHROPIC_API_KEY, que lee EmbabelGate;
+    # sin ella Embabel queda fuera y /api/sgspe/ai/** responde 503 AI_UNAVAILABLE. el modelo es el más capaz del catálogo de
+    # Embabel 1.5.3, que no conoce los Claude 5 (ASM-129): cuando los sume, se cambia aquí
+    model: claude-opus-4-8
   notifications:
     # D2 (ADR-0018, WAS-ADR-0046 y 0060): bandeja, SSE y correo. el día de las reglas de fecha empieza en Lima
     zone: America/Lima
@@ -211,6 +216,42 @@ sgspe:
       # JOB-08, una vez al día: borra las claves de idempotencia vencidas (wasichai.idempotency.ttl) y los saltos de
       # derivados vencidos (sgspe.concurrency.derived-versions-retention)
       cron: '0 15 4 * * *'
+  ai:
+    # la IA viene apagada (ASM-015, ASM-128): los slugs de las organizaciones que la usan, separados por comas, los fija el operador
+    # del despliegue junto con ANTHROPIC_API_KEY. activar o desactivar una organización pide redesplegar
+    enabled-organizations: ${SGSPE_AI_ENABLED_ORGANIZATIONS:}
+    # lo que queda en ai_interaction.provider (GAP-015)
+    provider: anthropic
+    # el modelo de cada caso (ASM-129): el más capaz del catálogo de Embabel 1.5.3 de AI-01 a AI-06 y Haiku 4.5 en AI-07 y AI-08.
+    # AI-05 usa wasichai.agent.model
+    models:
+      ai-01: claude-opus-4-8
+      ai-02: claude-opus-4-8
+      ai-03: claude-opus-4-8
+      ai-04: claude-opus-4-8
+      ai-06: claude-opus-4-8
+      ai-07: claude-haiku-4-5
+      ai-08: claude-haiku-4-5
+    # la versión en uso del prompt de cada caso (ai-architecture.md §10): volver atrás es cambiar este número
+    prompts:
+      ai-05: '1'
+    limits:
+      # ASM-131: caracteres de la fuente de una corrida, tokens de salida de una llamada, acciones de un agente (7.2b) y
+      # caracteres de una pregunta al asistente
+      input-chars: 200000
+      output-tokens: 8192
+      actions: 8
+      question-chars: 4000
+
+embabel:
+  agent:
+    platform:
+      action-qos:
+        default:
+          # ASM-131: una corrida corre dentro de la petición y tiene que terminar en un tiempo acotado. Embabel reintenta una
+          # acción fallida hasta 5 veces con esperas de 10 s a 60 s (unos 3 minutos); aquí no se reintenta: una corrida sin
+          # margen responde truncada y un filtro que falla, 500, en el acto (decisión 18 del plan 7.2a)
+          max-attempts: 1
 
 management:
   endpoint:
@@ -222,3 +263,10 @@ management:
     mail:
       # el SMTP es un canal de entrega con reintentos (wasichai-notifications): si no responde, la app sigue sana
       enabled: false
+
+logging:
+  level:
+    # los logs nunca llevan prompts, fragmentos ni respuestas (RQ-SEC-010, ai-architecture.md §12.4): de Embabel y de Spring AI,
+    # solo avisos y errores
+    com.embabel: WARN
+    org.springframework.ai: WARN

@@ -76,6 +76,8 @@ class ArchitectureTest {
         assertTrue(names.containsAll(f4), "$names")
         // y la primera de sgspe.ai (F7, plan 7.1): un paquete de salida que ningún paquete de dominio importa
         assertTrue("KnowledgeMigration.kt" in names, "$names")
+        // y las de 7.2a: la seudonimización, el asistente y su compuerta
+        assertTrue(names.containsAll(listOf("Pseudonymizer.kt", "AssistantQuestions.kt", "AgentHttpGate.kt")), "$names")
         val testNames = sources(test).map { it.name }
         assertTrue("ArchitectureTest.kt" in testNames, "$testNames")
     }
@@ -412,6 +414,31 @@ class ArchitectureTest {
         assertFalse(flags(READS_ALL, "val projects = reach.mine(user)"))
     }
 
+    // el asistente de wasichai y Embabel son de sgspe.ai (especificación de F7 §3.3, ai-architecture.md §6.2): ningún otro
+    // paquete importa wasichai.agent ni com.embabel
+    @Test
+    fun `solo sgspe ai usa el modulo de agente y Embabel`() {
+        val outside = sources(main).filterNot { it.invariantSeparatorsPath.contains("/sgspe/ai/") }
+        assertTrue(outside.isNotEmpty())
+        assertEquals(emptyList<String>(), offenders(outside, AGENT_IMPORT))
+        assertTrue(flags(AGENT_IMPORT, "import wasichai.agent.AgentService"))
+        assertTrue(flags(AGENT_IMPORT, "import com.embabel.agent.core.AgentPlatform"))
+        assertFalse(flags(AGENT_IMPORT, "import wasichai.core.data.RecordService"))
+        assertFalse(flags(AGENT_IMPORT, "// wasichai.agent no se importa fuera de sgspe.ai"))
+    }
+
+    // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
+    // AssistantRun.kt pone otra autenticación en el contexto de Reactor
+    @Test
+    fun `solo AssistantRun cambia la autenticacion del contexto`() {
+        val run = "/sgspe/ai/AssistantRun.kt"
+        val others = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(run) }
+        assertEquals(emptyList<String>(), offenders(others, WITH_AUTHENTICATION))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(run) })
+        assertTrue(flags(WITH_AUTHENTICATION, "ReactiveSecurityContextHolder.withAuthentication(tagged)"))
+        assertFalse(flags(WITH_AUTHENTICATION, "// withAuthentication solo en AssistantRun"))
+    }
+
     @Test
     fun `observability no depende de otros paquetes de sgspe`() {
         assertEquals(emptyList<String>(), offenders(sources(File(main, "sgspe/observability")), OTHER_SGSPE_IMPORT))
@@ -549,6 +576,8 @@ class ArchitectureTest {
         private val LOAD_DEFINITION = Regex("""\bloadDefinition(ById)?\b""")
         private val DATABASE_CLIENT = Regex("""\bDatabaseClient\b""")
         private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
+        private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
+        private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")

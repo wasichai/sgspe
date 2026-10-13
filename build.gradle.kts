@@ -28,6 +28,10 @@ dependencies {
     implementation("wasichai:wasichai-spring-boot-starter-documents")
     implementation("wasichai:wasichai-spring-boot-starter-files")
     implementation("wasichai:wasichai-spring-boot-starter-notifications")
+    // F7: el asistente de solo lectura (AI-05, ai-architecture.md §8) y la plataforma de agentes de Embabel 1.5.3 por el BOM de
+    // wasichai 1.2.0, con Anthropic como proveedor (GAP-015). sin ANTHROPIC_API_KEY, EmbabelGate deja fuera a Embabel, la app
+    // arranca igual y la IA responde 503 AI_UNAVAILABLE (ASM-128)
+    implementation("wasichai:wasichai-spring-boot-starter-agent")
     // wasichai.files.store=s3 (MinIO en desarrollo, ADR-0014): el cliente asíncrono del AWS SDK v2, alineado por su BOM
     implementation(platform("software.amazon.awssdk:bom:2.55.10"))
     implementation("software.amazon.awssdk:s3")
@@ -80,6 +84,7 @@ tasks.named<Test>("test") {
     // la programación de los trabajos (DerivedFieldsSchedule) no corre en las pruebas: competiría por el candado de clúster
     // con runOnce y recorrería los tenants de la base compartida. las pruebas de un trabajo llaman a runOnce
     systemProperty("sgspe.jobs.enabled", "false")
+    withoutProviderKey()
     // un shell con develop/.env cargado trae estas variables: ProdStartupTest prueba el perfil prod con sus propios valores y
     // una variable de entorno gana a lo que él fija, así que el JVM de las pruebas no las ve
     val fromEnvFile =
@@ -103,6 +108,7 @@ tasks.register<Test>("integrationTest") {
     // sin programación de trabajos: una vuelta programada con el candado de clúster haría que runOnce devolviera null
     systemProperty("sgspe.jobs.enabled", "false")
     integrationDefaults()
+    withoutProviderKey()
     // -Dmatrix.roles=FIELD_AGENT,GIS_ANALYST recorta la matriz de permisos a esos roles (PermissionMatrixApiTest)
     System.getProperty("matrix.roles")?.let { systemProperty("matrix.roles", it) }
     // la app registra en stdout; stderr lleva solo lo que una prueba reporta
@@ -131,6 +137,19 @@ fun Test.integrationDefaults() {
     systemProperty("wasichai.files.cleanup.interval", "0s")
     systemProperty("wasichai.notifications.tick", "0s")
     systemProperty("wasichai.notifications.email.enabled", "false")
+}
+
+// ninguna prueba llama al proveedor (RQ-AI-007, ai-architecture.md §15): toda forma de la clave que EmbabelGate o el enlace
+// relajado de Spring pueden leer queda en blanco, como en las suites de wasichai 1.2.0. la única prueba con plataforma de agentes
+// (AssistantRunApiTest) pone una clave falsa con @TestPropertySource y el modelo guionado RecordingLlm delante
+fun Test.withoutProviderKey() {
+    listOf(
+        "ANTHROPIC_API_KEY",
+        "WASICHAI_AGENT_API_KEY",
+        "WASICHAI_AGENT_APIKEY",
+        "EMBABEL_AGENT_PLATFORM_MODELS_ANTHROPIC_API_KEY",
+        "SPRING_AI_ANTHROPIC_API_KEY"
+    ).forEach { environment(it, "") }
 }
 
 // un jar ejecutable con nombre fijo
