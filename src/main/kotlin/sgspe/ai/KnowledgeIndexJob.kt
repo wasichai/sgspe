@@ -30,7 +30,7 @@ fun interface DocumentText {
 // DocumentText sobre TextExtraction de 7.2b (PDF con texto y DOCX, con PDFBox y POI): su 422 AI_NO_TEXT (un PDF escaneado, otro
 // formato) es «sin texto», y un archivo que no se deja leer (un PDF dañado) también, con una advertencia que solo nombra la clase
 // del error: un archivo malo no debe tumbar la vuelta de su organización cada vez. la extracción bloquea: corre en Dispatchers.IO.
-// es el único archivo de 7.2c que llama a TextExtraction
+// un documento largo se indexa por su comienzo (truncate = true, hasta maxChars); no es un error. es el único archivo de 7.2c que llama a TextExtraction
 @Component
 class EvidenceText(
     private val extraction: TextExtraction,
@@ -44,7 +44,7 @@ class EvidenceText(
     ): String? =
         withContext(Dispatchers.IO) {
             try {
-                extraction.extract(bytes, contentType, maxChars = properties.maxChars)
+                extraction.extract(bytes, contentType, maxChars = properties.maxChars, truncate = true)
             } catch (e: WasichaiException) {
                 if (e.violations.none { it.message == NO_TEXT }) log.warn("KnowledgeIndexJob: no se extrajo el texto de un archivo ({})", e.javaClass.name)
                 null
@@ -156,7 +156,7 @@ class KnowledgeIndexSchedule(
         job.runOnce(full = false)
     }
 
-    @Scheduled(cron = "\${sgspe.jobs.knowledge-index.daily-cron:0 0 3 * * *}", zone = "America/Lima")
+    @Scheduled(cron = "\${sgspe.jobs.knowledge-index.daily-cron:0 15 3 * * *}", zone = "America/Lima")
     suspend fun daily() {
         job.runOnce(full = true)
     }

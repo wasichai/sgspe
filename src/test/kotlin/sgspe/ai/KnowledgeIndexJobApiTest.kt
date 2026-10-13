@@ -103,7 +103,7 @@ class KnowledgeIndexJobApiTest : F7ApiTest() {
     }
 
     @Test
-    fun `una clasificacion que cambia se resincroniza sin volver a leer el archivo`() {
+    fun `una clasificacion que cambia se resincroniza en la vuelta siguiente`() {
         val acta = evidenceWith(staged(pdf("Se pidió un $word."), "acta.pdf"))
         sweep(full = true)
         val raised = patch("/api/sgspe/evidence/$acta", mapOf("attributes" to mapOf("classification" to "CONFIDENCIAL")), token, ifMatch("evidence", acta))

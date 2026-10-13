@@ -148,6 +148,7 @@ class KnowledgeSweep(
         val text = corpus.text(organizationId, evidence)
         val bounded =
             text?.let {
+                // el corpus real ya trunca; esto cubre a cualquier otro que no lo haga
                 if (it.length > maxChars) log.warn("KnowledgeIndexJob: la evidencia {} pasa {} caracteres; se indexa el comienzo", evidence.id, maxChars)
                 it.take(maxChars)
             }
