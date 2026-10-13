@@ -2,10 +2,18 @@ package sgspe
 
 import kotlinx.coroutines.reactor.asCoroutineContext
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.security.core.context.ReactiveSecurityContextHolder
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
+import org.springframework.web.reactive.function.BodyInserters
+import sgspe.common.IdempotencyKey
+import sgspe.common.IfMatch
 import wasichai.core.data.RecordResponse
 import java.util.UUID
 
@@ -121,6 +129,90 @@ abstract class F7ApiTest : F6ApiTest() {
     ): T {
         val jwt = jwtDecoder.decode(account.token.removePrefix("Bearer ")).block()!!
         return runBlocking(ReactiveSecurityContextHolder.withAuthentication(JwtAuthenticationToken(jwt)).asCoroutineContext()) { block() }
+    }
+
+    // ---- plan 7.2b: corridas y aceptaciones ----
+
+    // una evidencia con el archivo `bytes` (un PDF o un DOCX de TestDocuments), subida y registrada por `account` (el admin si es
+    // null), con sus vínculos ({object, recordId}); su id. wasichai-files reconoce el tipo por los primeros bytes
+    protected fun textEvidence(
+        project: String?,
+        bytes: ByteArray,
+        fileName: String,
+        type: String = "ACTA",
+        classification: String = "INTERNA",
+        account: Account? = null,
+        links: List<Map<String, String>> = emptyList()
+    ): String {
+        val parts = MultipartBodyBuilder().apply { part("file", bytes).filename(fileName) }.build()
+        val staged =
+            client
+                .post()
+                .uri("/api/objects/evidence/files/file")
+                .header(HttpHeaders.AUTHORIZATION, account?.token ?: token)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(parts))
+                .exchange()
+                .expectStatus()
+                .isCreated
+                .expectBody(String::class.java)
+                .returnResult()
+                .responseBody!!
+        val attributes =
+            mapOf("file" to tree(staged)["id"].asString(), "evidence_type" to type, "classification" to classification) +
+                listOfNotNull(project?.let { "project" to it })
+        val response = createEvidence(attributes, links, account?.token ?: token)
+        assertEquals(HttpStatus.CREATED, response.status, response.body)
+        return tree(response.body)["id"].asString()
+    }
+
+    // POST /api/sgspe/ai/runs como `account`, con Idempotency-Key si se da
+    protected fun aiRun(
+        account: Account,
+        useCase: String,
+        objectName: String,
+        recordId: String,
+        key: String? = null
+    ): Response =
+        exchange(
+            "POST",
+            "/api/sgspe/ai/runs",
+            mapOf("useCase" to useCase, "target" to mapOf("object" to objectName, "recordId" to recordId)),
+            account.token,
+            key?.let { mapOf(IdempotencyKey.HEADER to it) }.orEmpty()
+        )
+
+    // POST /api/sgspe/ai-suggestions/{id}/accept como `account`, con el If-Match de la sugerencia leída y el motivo
+    protected fun acceptSuggestion(
+        account: Account,
+        id: String,
+        attributes: Map<String, Any?>,
+        reason: String? = "revisada en la bandeja",
+        headers: Map<String, String> = emptyMap()
+    ): Response {
+        val etag = mapOf(IfMatch.HEADER to "\"${record("ai_suggestion", id)["updatedAt"].asString()}\"")
+        val motive = reason?.let { withReason(it) }.orEmpty()
+        return exchange("POST", "/api/sgspe/ai-suggestions/$id/accept", mapOf("attributes" to attributes), account.token, etag + motive + headers)
+    }
+
+    // una cuenta de servicio con `role`, asignada al proyecto de la prueba (como EarlyWarningWorkflowApiTest)
+    protected fun serviceAccount(role: String): Account {
+        val created = tree(send("POST", "/api/service-accounts", mapOf("name" to uniqueName("cuenta-"), "roles" to listOf(role)), HttpStatus.CREATED))
+        val issued =
+            tree(
+                send(
+                    "POST",
+                    "/api/auth/token",
+                    mapOf("clientId" to created["clientId"].asString(), "clientSecret" to created["clientSecret"].asString()),
+                    HttpStatus.OK,
+                    token = null
+                )
+            )
+        val bearer = "Bearer ${issued["token"].asString()}"
+        val me = me(bearer)
+        val account = Account(bearer, me["email"].asString(), me["userId"].asString())
+        assign(account, testProject(), role)
+        return account
     }
 
     companion object {

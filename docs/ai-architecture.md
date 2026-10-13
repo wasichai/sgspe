@@ -108,7 +108,9 @@ AI-05 usa el asistente de solo lectura de wasichai-agent; los demás casos son a
 
 Las sugerencias se aceptan con `POST /api/sgspe/ai-suggestions/{id}/accept` (paquete `sgspe.ai`) y los candidatos con
 `POST /api/sgspe/commitment-candidates/{id}/accept` (paquete `sgspe.commitment`), los dos fijados por el modelo de dominio
-(§7.2). La petición lleva los valores que la persona revisó, que puede corregir, y el motivo.
+(§7.2). La petición lleva los valores que la persona revisó, que puede corregir, y el motivo. Corrige valores, no campos: en
+CLASIFICACION, lugar y fecha el campo es el que propuso la IA (`400 FIELD_NOT_ALLOWED` si cambia), para que la aceptación no
+audite un cambio que la IA no propuso (RQ-AUD-012).
 
 La tabla es la **lista permitida**, y es cerrada: cada fila fija un tipo de salida, el objeto destino (`target_object`), el
 único campo o comando que la aceptación puede ejecutar, lo que se exige a quien acepta y la forma de `suggested_value`. Aceptar
@@ -118,7 +120,7 @@ pasa a `accepted` solo cuando una persona lo usa en una `deliverable_section` (F
 | Salida | `target_object` | Campo o comando permitido | Lo que exige a quien acepta | Forma de `suggested_value` |
 |---|---|---|---|---|
 | `commitment_candidate` (de IA o humano) | El propio candidato | Crea el `commitment` en `draft` con los valores revisados y lo vincula en `created_commitment` | CREATE sobre `commitment` y el rol de la transición hacia `accepted` | Los campos del candidato: `proposed_text`, `beneficiaries_text`, `suggested_owner_user_email`, `suggested_due_date`. En un candidato de IA, `suggested_owner_user_email` va vacío, porque el modelo solo ve `[CORREO]` (§12.2): quien acepta elige al responsable (`owner_user_id`, `owner_user_email` del compromiso) |
-| EXTRACCION de un actor: organización | `organization` | Crea la `organization` (`name`, `organization_type`, `locality`) o usa la existente que nombra `target_record_id`. Si quien acepta lo pide, crea además su `stakeholder` del proyecto en `identified` (`stakeholder_type`) | CREATE sobre `organization` al crearla; CREATE sobre `stakeholder` si pide el grupo de interés | `{"item": "actor", "kind": "organization", "name": "…", "organization_type": "…", "locality": "<id>", "stakeholder": {"stakeholder_type": "…"}}`; `stakeholder` es opcional |
+| EXTRACCION de un actor: organización | `organization` | Crea la `organization` (`name`, `organization_type`, `locality`) o usa la existente que nombra `target_record_id`, sin cambiarla. Si quien acepta lo pide, crea además su `stakeholder` del proyecto en `identified` (`stakeholder_type`) | CREATE sobre `organization` al crearla; CREATE sobre `stakeholder` si pide el grupo de interés | `{"item": "actor", "kind": "organization", "name": "…", "organization_type": "…", "locality": "<id>", "stakeholder": {"stakeholder_type": "…"}}`; `stakeholder` es opcional |
 | EXTRACCION de un actor: persona | `person` | Crea la `person` (`given_names`, `surnames`, `sex`, `residence_locality`) o usa la existente que nombra `target_record_id`. Si quien acepta lo pide, crea además su `stakeholder` del proyecto en `identified` (`stakeholder_type`). Los nombres y el sexo los escribe quien acepta: la sugerencia solo guarda el marcador | CREATE sobre `person` y escritura de `given_names` y `surnames` (restringidos, `security.md` §7.9) al crearla; CREATE sobre `stakeholder` si pide el grupo de interés | `{"item": "actor", "kind": "person", "name": "[PERSONA]", "residence_locality": "<id>", "stakeholder": {"stakeholder_type": "…"}}`; una persona registrada lleva `"name": "[PERSONA:<id>]"` (§12.2); `stakeholder` es opcional |
 | EXTRACCION de un tema | `engagement` | Vincula un `topic` existente por la M2M `engagement_topic` | UPDATE sobre `engagement` | `{"item": "topic", "topic": "<id>"}` |
 | EXTRACCION de un lugar | `engagement` | `locality` o `community`, que apuntan a un registro existente | UPDATE sobre `engagement` | `{"item": "place", "field": "locality", "value": "<id>"}` |
@@ -130,7 +132,7 @@ pasa a `accepted` solo cuando una persona lo usa en una `deliverable_section` (F
 | CLASIFICACION | `grievance`, `inquiry`, `stakeholder_request` | `category`, `priority` o `topic` | UPDATE sobre el objeto, con motivo (`requiresReason`) | `{"field": "category", "value": "AGUA Y MEDIO AMBIENTE"}` |
 | CLASIFICACION | `engagement_question` | `topic` | UPDATE sobre `engagement_question` | `{"field": "topic", "value": "<id>"}` |
 | CLASIFICACION | `media_mention` | `tone` o `topic` | UPDATE sobre `media_mention` | `{"field": "tone", "value": "NEGATIVO"}` |
-| DUPLICADO | `grievance` | `duplicate_of` | UPDATE sobre `grievance`, con motivo | `{"other_record_id": "<id>", "reasons": ["…"]}` |
+| DUPLICADO | `grievance` | `duplicate_of`; si quien acepta escribe la respuesta a quien la planteó, además `response`, `responded_at` y la transición de rechazo de su estado (WF-E1): queda rechazada como duplicado; si desde su estado ya no hay rechazo, `409 STATE_MISMATCH` sobre `attributes.response` y nada se escribe | UPDATE sobre `grievance`, con motivo; con respuesta, el rol de ese rechazo | `{"other_record_id": "<id>", "reasons": ["…"]}` |
 | DUPLICADO | `organization` | Agrega el nombre del otro registro a `alternative_names` del que se conserva | UPDATE sobre `organization` | Igual que el anterior |
 | DUPLICADO | `person`, `stakeholder`, `commitment`, `inquiry`, `stakeholder_request` | Ninguno: no tienen vínculo de duplicado, así que solo se registra la decisión, y la persona corrige con las operaciones normales (p. ej. cancela con motivo el compromiso repetido) | El rol de la transición hacia `accepted` | Igual que el anterior |
 
@@ -157,6 +159,10 @@ Reglas de toda aceptación:
   destino. RQ-AI-003 admite también una acción declarada; no hace falta mientras el rol de la transición separe a quien acepta.
 - Rechazar es la transición de WF-K hacia `rejected`, con motivo (RQ-AUD-002). Ninguna sugerencia se acepta sola, cualquiera sea
   su confianza.
+- La petición lleva `attributes` con la forma de `suggested_value` de su fila; un valor que conserva un marcador se rechaza
+  (`400 PSEUDONYM_NOT_ALLOWED`), y toda aceptación pide motivo (plan 7.2b).
+- Una cuenta de servicio no acepta, rechaza ni marca duplicada una sugerencia, aunque tenga el rol (`SuggestionDecisionGuard`,
+  `403 PERSON_REQUIRED`).
 
 ## 5. Flujo del acta al compromiso (ARQ-02)
 
@@ -207,7 +213,7 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
 | Paso del prompt | En `sgspe.ai` | ¿Usa el modelo? | Salida |
 |---|---|---|---|
 | Document | Lectura de la `evidence` o de la minuta como la persona, con el control de descarga por clasificación de `sgspe.evidence` (RF-DOC-003) | No | Texto fuente con su referencia |
-| DocumentExtractionAgent | Extracción del texto (PDF o DOCX con texto, con `TextExtraction` y sin OCR, ASM-132) y segmentación | No | Fragmentos numerados |
+| DocumentExtractionAgent | Extracción del texto (PDF o DOCX con texto, con `TextExtraction` y sin OCR, ASM-132) y normalización | No | El texto de la fuente; en F7, un solo fragmento por corrida en un bloque `<fuente>`, que `sgspe.ai.limits.input-chars` acota (la segmentación en fragmentos es de JOB-07, §13.2) |
 | (seudonimización) | `Pseudonymizer` (§12.2) | No | Fragmentos seudonimizados; la tabla de equivalencias queda en memoria |
 | EntityExtractionAgent | Acción de extracción de entidades con salida estructurada | Sí | Actores, fechas, lugares, temas, acuerdos y responsables, cada uno con su cita |
 | CommitmentCandidateAgent | Acción que propone compromisos con salida estructurada | Sí | Propuestas con texto, cita, beneficiarios y fecha sugeridos, y confianza; el responsable lo elige quien acepta (§4.2) |
@@ -234,12 +240,21 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
   depende de los paquetes de dominio, a través de sus comandos y de los indicadores, y ningún paquete de dominio depende de
   `sgspe.ai`; una prueba de arquitectura lo verifica (§8.2 del modelo de dominio).
 - El servidor fija los límites de cada corrida (`sgspe.ai.limits.*`, ASM-131): tamaño del texto de entrada (200 000
-  caracteres por defecto), tokens de salida y acciones por corrida. Embabel limita además a 20 las vueltas de
+  caracteres por defecto), tokens de salida, acciones (llamadas al modelo) por corrida y, desde el plan 7.2b, bytes
+  del archivo de una evidencia (25 MiB) y propuestas por llamada (50). Embabel limita además a 20 las vueltas de
   herramientas [WAS-ADR-0015], y no reintenta una acción fallida dentro de la petición
   (`embabel.agent.platform.action-qos.default.max-attempts: 1`, plan 7.2a). Una entrada más grande responde
   `422 AI_INPUT_TOO_LARGE` antes de llamar al modelo, y una corrida que se queda sin margen responde
   `502 AI_RUN_TRUNCATED`: ninguna de las dos guarda sugerencias ni candidatos, y la `ai_interaction` de cada llamada
-  hecha queda registrada (P6).
+  hecha queda registrada (P6). Una salida que el modelo cortó por el tope de tokens no se lee como su clase y también es
+  `502 AI_RUN_TRUNCATED`; la `ai_interaction` se escribe en una transacción propia, así que queda aunque la corrida se
+  revierta en la transacción de su `Idempotency-Key` (plan 7.2b).
+- Cada instancia corre a lo más `sgspe.ai.limits.max-concurrent-runs` corridas a la vez (3 por defecto, `RunGate`); una más
+  responde en el acto `503 AI_BUSY` con `Retry-After`, sin esperar un lugar, antes de abrir la transacción de su
+  `Idempotency-Key` y sin registrar una `ai_interaction`. Una corrida con clave retiene la conexión de esa transacción
+  mientras llama al modelo y toma otra por cada `ai_interaction` (transacción propia), así que el pool de R2DBC de la
+  instancia debe tener más de dos conexiones por corrida permitida (más de 6 con el valor por defecto) además de las que
+  necesita el resto de la API; subir el tope pide subir el pool (plan 7.2b).
 - La llamada al modelo pasa por un puerto propio, `StructuredModel`: recibe el prompt ya seudonimizado, la versión del
   prompt, el modelo y los límites, y devuelve la salida tipada con el uso de tokens. `EmbabelStructuredModel` lo
   implementa sobre la plataforma de agentes, y las pruebas lo sustituyen (§15).
@@ -371,7 +386,7 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
 | model | `model`, `model_version` | Modelo usado y su versión, si el proveedor la informa |
 | promptVersion | `prompt_version` | `<id>@<versión>` del prompt (§10) |
 | timestamp | `started_at` | Inicio de la llamada |
-| inputReference | `input_reference` | Una referencia, nunca el contenido: `evidence:<id>` con su `sha256`, `engagement:<id>` con su `updated_at`, o el SHA-256 de una pregunta |
+| inputReference | `input_reference` | Una referencia, nunca el contenido: `evidence:<id> sha256:<huella>`, `<objeto>:<id> updated_at:<instante>` (AI-04 suma ` periodo:<inicio>/<fin>`), o el SHA-256 de una pregunta |
 | output | `output_summary` | Resumen sin datos personales: tipo y número de sugerencias creadas, herramientas usadas o fragmentos citados; nunca la tabla de seudonimización |
 | tokens | `input_tokens`, `output_tokens` | Los que informa el proveedor; en AI-05, los de `AgentUsage`, que recibe `InteractionRunListener` (§8) |
 | latency | `latency_ms` | Medida por `sgspe.ai` |

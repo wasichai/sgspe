@@ -15,14 +15,45 @@ import tools.jackson.databind.JsonNode
 class AiEnabledApiTest : F7ApiTest() {
     private fun status(token: String): JsonNode = tree(send("GET", "/api/sgspe/ai/status", null, HttpStatus.OK, token))
 
+    // desde 7.2b, cada caso de las corridas se ofrece a quien cumple sus requisitos (decisión 10 del plan 7.2b)
     @Test
-    fun `quien crea interacciones ve el asistente aunque no haya proveedor`() {
+    fun `cada persona ve los casos que sus permisos le dejan usar, aunque no haya proveedor`() {
         val cro = member("COMMUNITY_RELATIONS_OFFICER")
         val body = status(cro.token)
         assertTrue(body["enabled"].asBoolean())
         assertFalse(body["providerAvailable"].asBoolean())
-        // cada plan de F7 suma sus casos (7.2b, 7.2c): aquí, los que ya se ofrecen a este rol
-        assertTrue(body["useCases"].values().map { it.asString() }.containsAll(listOf("AI-05", "AI-06")), body.toString())
+        // «contiene»: 7.2c suma AI-06 y AI-07 en esta misma prueba
+        val runs = listOf("AI-01", "AI-02", "AI-03", "AI-04", "AI-08")
+        assertTrue(body["useCases"].values().map { it.asString() }.containsAll(runs + "AI-05" + "AI-06"), body.toString())
+        // STAKEHOLDER_MANAGER no crea candidatos: sin AI-03; ANALYST no crea sugerencias ni lee los nombres: ningún caso de corrida
+        val stakeholders = status(member("STAKEHOLDER_MANAGER").token)["useCases"].values().map { it.asString() }
+        assertTrue(stakeholders.containsAll(runs - "AI-03") && "AI-03" !in stakeholders, stakeholders.toString())
+        val analyst = status(member("ANALYST").token)["useCases"].values().map { it.asString() }
+        assertTrue("AI-05" in analyst && analyst.none { it in runs }, analyst.toString())
+    }
+
+    // el orden de AiRuns (decisión 4 del plan 7.2b): sin proveedor, 503 provider a quien puede pedir la corrida y 403 a quien no
+    @Test
+    fun `sin proveedor la corrida responde 503 provider, y 403 a quien no puede pedirla`() {
+        val engagement = engagement(testProject(), attributes = mapOf("minutes" to "Se acordó reparar el canal de riego."))
+        val cro = member("COMMUNITY_RELATIONS_OFFICER")
+        val unavailable = aiRun(cro, "AI-03", "engagement", engagement)
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, unavailable.status, unavailable.body)
+        assertEquals("AI_UNAVAILABLE", code(unavailable))
+        assertEquals(listOf("provider"), problemFields(unavailable.body))
+        assertEquals(HttpStatus.FORBIDDEN, aiRun(member("ANALYST"), "AI-03", "engagement", engagement).status)
+        // sin llamada no hay ai_interaction
+        val logged =
+            tree(
+                send(
+                    "GET",
+                    // send codifica la consulta: el correo va sin codificar
+                    "/api/objects/ai_interaction/records?requested_by_user_email=${cro.email}",
+                    null,
+                    HttpStatus.OK
+                )
+            )
+        assertEquals(0, logged["content"].size())
     }
 
     @Test

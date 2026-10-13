@@ -6,6 +6,7 @@ import com.embabel.agent.core.AgentPlatform
 import com.embabel.agent.core.AgentProcess
 import com.embabel.agent.core.Budget
 import com.embabel.agent.core.ProcessOptions
+import com.embabel.agent.core.support.InvalidLlmReturnFormatException
 import com.embabel.agent.spi.loop.MaxIterationsExceededException
 import com.embabel.common.ai.model.LlmOptions
 import kotlinx.coroutines.Dispatchers
@@ -46,8 +47,7 @@ class EmbabelStructuredModel(
                             .withLlm(LlmOptions.withModel(request.model).withMaxTokens(request.maxOutputTokens))
                     created to (request.system?.let { runner.withSystemPrompt(it) } ?: runner).createObject(request.prompt.text, request.outputClass)
                 } catch (e: Exception) {
-                    val truncated = generateSequence<Throwable>(e) { it.cause }.any { it is MaxIterationsExceededException }
-                    throw failure(if (truncated) StructuredModelException.Reason.TRUNCATED else StructuredModelException.Reason.UNAVAILABLE, started, e)
+                    throw failure(if (truncated(e)) StructuredModelException.Reason.TRUNCATED else StructuredModelException.Reason.UNAVAILABLE, started, e)
                 }
             val calls = process.llmInvocations
             return ModelResult(
@@ -61,6 +61,12 @@ class EmbabelStructuredModel(
                 calls.takeIf { it.isNotEmpty() }?.sumOf { it.usage.completionTokens ?: 0 }
             )
         }
+
+        // sin margen (502 AI_RUN_TRUNCATED, ASM-131): las vueltas de herramientas se acabaron, o la salida no se pudo leer como su
+        // clase, que es lo que deja un corte por el tope de tokens de salida (el JSON queda a medias y Embabel lo informa como
+        // InvalidLlmReturnFormatException; decisión 2 del plan 7.2b). lo demás es un proveedor que falló (503)
+        fun truncated(e: Throwable): Boolean =
+            generateSequence(e) { it.cause }.any { it is MaxIterationsExceededException || it is InvalidLlmReturnFormatException }
 
         private fun failure(
             reason: StructuredModelException.Reason,

@@ -50,6 +50,42 @@ class RestrictedFieldsTest {
         assertEquals(pairs, listed())
     }
 
+    // el marcador de cada campo de §7.9, uno por uno (los 24 de hoy): un campo nuevo sin su marcador rompe esta prueba, y uno que
+    // cambia de marcador también. beneficiaries_detail es PERSONA: nombre, sexo y edad de beneficiarios (security.md §7.9)
+    @Test
+    fun `el marcador de cada campo restringido`() {
+        val expected =
+            mapOf(
+                "stakeholder.stance" to Marker.DATO_SENSIBLE,
+                "stakeholder_assessment.stance" to Marker.DATO_SENSIBLE,
+                "stakeholder_assessment.stance_reasons" to Marker.DATO_SENSIBLE,
+                "stakeholder_assessment.concerns" to Marker.DATO_SENSIBLE,
+                "stakeholder_assessment.expectations" to Marker.DATO_SENSIBLE,
+                "locality_profile.religion" to Marker.DATO_SENSIBLE,
+                "locality_profile.electoral_process" to Marker.DATO_SENSIBLE,
+                "person.id_document_number" to Marker.DOCUMENTO,
+                "person.given_names" to Marker.PERSONA,
+                "person.surnames" to Marker.PERSONA,
+                "contact_method.contact_value" to Marker.CONTACTO,
+                "engagement_participant.participant_name" to Marker.PERSONA,
+                "engagement_participant.phone" to Marker.TELEFONO,
+                "engagement_participant.email" to Marker.CORREO,
+                "commitment.beneficiaries_detail" to Marker.PERSONA,
+                "delivery.recipients" to Marker.PERSONA,
+                "delivery.conformity_by" to Marker.PERSONA,
+                "land_parcel.registry_record" to Marker.DOCUMENTO,
+                "land_right.holder_person" to Marker.PERSONA,
+                "grievance.person" to Marker.PERSONA,
+                "inquiry.person" to Marker.PERSONA,
+                "stakeholder_request.person" to Marker.PERSONA,
+                "ai_suggestion.evidence_quote" to Marker.CITA,
+                "commitment_candidate.evidence_quote" to Marker.CITA
+            )
+        val actual = RestrictedFields.FIELDS.flatMap { (obj, fields) -> fields.map { (field, marker) -> "$obj.$field" to marker } }.toMap()
+        assertEquals(expected, actual)
+        assertEquals(documented().size, expected.size)
+    }
+
     @Test
     fun `cada campo tiene su marcador tipado`() {
         assertEquals(Marker.DOCUMENTO, RestrictedFields.of("person")["id_document_number"])

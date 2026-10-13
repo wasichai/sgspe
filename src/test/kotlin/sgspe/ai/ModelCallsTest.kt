@@ -122,4 +122,15 @@ class ModelCallsTest {
         assertEquals("useCase" to "AI_RUN_TRUNCATED", failure.violations.single().let { it.field to it.message })
         assertEquals("Llamada truncada: sin margen de tokens o de acciones", log.entries.single().outputSummary)
     }
+
+    // CitationCheck busca la cita en la variable de la fuente tal como la recibió el modelo, no en el prompt entero (decisión 6 del
+    // plan 7.2b); la sugerencia guarda el modelo que informó el proveedor
+    @Test
+    fun `cada variable vuelve seudonimizada, con el modelo que respondio`() {
+        val result = runBlocking { calls(fixed).call(call()) }
+        val text = result.inputs.getValue("text")
+        assertTrue(text.startsWith("[PERSONA_1] (DNI [DOCUMENTO_1], celular [TELEFONO_1], [CORREO_1])"), text)
+        assertTrue(text in result.sent.text)
+        assertEquals("modelo-de-prueba", result.model)
+    }
 }

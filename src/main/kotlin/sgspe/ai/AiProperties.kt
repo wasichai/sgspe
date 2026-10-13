@@ -2,6 +2,7 @@ package sgspe.ai
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 // la configuración de la IA del despliegue (ai-architecture.md §6.2, §10, §11 y §12.1): las organizaciones con la IA activada
@@ -31,14 +32,24 @@ data class AiProperties(
 }
 
 // ASM-131: caracteres de la fuente de una corrida (422 AI_INPUT_TOO_LARGE antes de llamar), tokens de salida de una llamada,
-// acciones de un agente (los de 7.2b) y caracteres de una pregunta al asistente
+// llamadas al modelo de una corrida (los agentes de 7.2b; pasarlas es 502 AI_RUN_TRUNCATED), caracteres de una pregunta al
+// asistente y, desde 7.2b, bytes del archivo de una evidencia que se lee (más, 422 AI_INPUT_TOO_LARGE) y propuestas que una
+// llamada puede dejar (las demás se descartan: la respuesta de runs cabe en el tope de Idempotency-Key). maxConcurrentRuns es el
+// tope de corridas a la vez por instancia (RunGate): cada una con Idempotency-Key retiene una conexión del pool mientras llama al
+// modelo y toma otra por cada ai_interaction
 data class AiLimits(
     val inputChars: Int = 200_000,
     val outputTokens: Int = 8_192,
     val actions: Int = 8,
-    val questionChars: Int = 4_000
+    val questionChars: Int = 4_000,
+    val fileBytes: Int = 26_214_400,
+    val proposals: Int = 50,
+    val maxConcurrentRuns: Int = 3
 )
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AiProperties::class)
-class AiConfiguration
+class AiConfiguration {
+    @Bean
+    fun runGate(properties: AiProperties): RunGate = RunGate(properties.limits.maxConcurrentRuns)
+}
