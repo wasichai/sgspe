@@ -328,9 +328,10 @@ El lienzo trae un prototipo navegable de este recorrido ("Hilo de contexto"):
 Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se suma con las vistas compartidas, ASM-083),
 más S57 a S62 de la Fase 4 (plan 4.0): la ficha de consulta y solicitud, que compartía S36 con la queja, las de
 menciones, señales, reglas e impactos, y el tablero de riesgos, que compartía S38 con el registro y matriz. S63, la
-calidad de datos de Territorio, se suma en la Fase 6 (plan 6.0). "Etapa" es la etapa de diseño en que se dibujan;
-"Fase", cuándo llega el módulo. La ficha de handoff de cada pantalla (ruta, roles, datos, API, estados, permisos, árbol
-de componentes) está en [`screens.md`](screens.md), completa desde la etapa 3.
+calidad de datos de Territorio, se suma en la Fase 6 (plan 6.0), y S64, las plantillas de entregables, en la Fase 8
+(plan 8.0). "Etapa" es la etapa de diseño en que se dibujan; "Fase", cuándo llega el módulo. La ficha de handoff de cada
+pantalla (ruta, roles, datos, API, estados, permisos, árbol de componentes) está en [`screens.md`](screens.md), completa
+desde la etapa 3.
 
 | ID | Pantalla | Ruta | Fase | Etapa |
 |---|---|---|---|---|
@@ -397,6 +398,7 @@ de componentes) está en [`screens.md`](screens.md), completa desde la etapa 3.
 | S61 | Impactos potenciales | `/projects/:projectId/risks/impacts` | F4 | Plan 4.0, sin hoja |
 | S62 | Tablero de riesgos | `/risks` | F4, F8 | E3 |
 | S63 | Calidad de datos | `/territory/quality` | F6 | Plan 6.0, sin hoja |
+| S64 | Plantillas de entregables | `/reports/templates` | F8 | Plan 8.0, sin hoja |
 
 Absorbidas o movidas respecto de PRM-02: "Project Detail" y "Project Dashboard" son el Resumen de Project 360; "Early Warning
 Center" vive en Riesgos; "Grievance Dashboard" es el tablero de QCS; "Approval Center" es Tareas › Aprobaciones. Agregadas por

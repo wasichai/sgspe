@@ -31,16 +31,16 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   `TenantDirectory` solo viva en `common/Organizations.kt`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
   Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` (workflows, tipos de documento
-  y automatizaciones) → `load_ubigeo.py` → `publish_layers.py` (omitible con `--skip-layers` si el despliegue no tiene
-  GeoServer). Por el túnel, los tres primeros pasos tardan varios minutos y más con cada fase (más de 10 con el modelo
-  de F5), y la suite de integración completa, de 30 minutos a más de una hora (la matriz de permisos, entre 11 y 58
-  minutos según la carga del túnel, aprovisionamiento incluido).
+  y automatizaciones) → `load_ubigeo.py` → `load_indicators.py` (desde F8, plan 8.2a) → `publish_layers.py` (omitible
+  con `--skip-layers` si el despliegue no tiene GeoServer). Por el túnel, los tres primeros pasos tardan varios minutos
+  y más con cada fase (más de 10 con el modelo de F5), y la suite de integración completa, de 30 minutos a más de una
+  hora (la matriz de permisos, entre 11 y 58 minutos según la carga del túnel, aprovisionamiento incluido).
 - Gradle: `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …`. El token nunca va a un archivo.
 - Docker es remoto: las pruebas de integración corren en la CI o con `WASICHAI_TEST_DB_*` contra `sgspe_test` por el túnel
   del puerto 5435 (`docs/develop/README.md` §6).
 - TDD: la prueba primero. `./gradlew ktlintFormat` antes de `build`; `yarn format` antes de commitear yaml o json.
 - Puertos: backend 8094, interfaz 5182, PostGIS 5435; en desarrollo, MinIO 9095 (consola 9096) y Mailpit 1029 (web 8029).
-- GeoServer 8095 (solo loopback, por el túnel).
+- GeoServer 8095 y, desde F8, Gotenberg 8096 (solo loopback, por el túnel).
 - Archivos: `evidence.file` es un campo `FILE` de wasichai-files (D1, ADR-0014); un documento emitido congela el registro
   entero (UPS-23): ningún tipo de documento sobre un objeto con campos restringidos.
   La descarga de un campo `FILE` con datos restringidos pasa por SGSPE (`EvidenceContent`), e `IssuedDocumentsPrivacyTest`
@@ -105,6 +105,9 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Base de las pruebas de F5 (aportes con ítems, aprobados y adquiridos, su entrega con acta, foto y comprobante, campañas, acuerdos vigentes, temas priorizados y programas con sus datos, listos para las guardas de 5.2) | `src/test/kotlin/sgspe/F5ApiTest.kt` |
 | Tabla fija del RAG (`sgspe.knowledge_chunk`, migración `sgspe_ai`, `KnowledgeMigration`); desde el plan 7.2a, el resto de `sgspe.ai` | `src/main/kotlin/sgspe/ai/`, `src/main/resources/db/sgspe/ai/` |
 | Base de las pruebas de F7 (interacciones, sugerencias y candidatos de IA como la plataforma, listos para 7.2a a 7.2c) | `src/test/kotlin/sgspe/F7ApiTest.kt` |
+| Desde F8: indicadores (`model/indicators.json`, `model/load_indicators.py`), cierre de periodo (`IndicatorMeasurements`, `IndicatorWriteGuard`), `KpiReader`, KPI-EXE y los tableros `executive`, `project` y `monitoring` (`ExecutiveKpis`, `Dashboards`, `MonitoringTable`) | `model/`, `src/main/kotlin/sgspe/dashboard/` |
+| Desde F8: el modelo del informe (`ReportModel`, `CanonicalJson`) y su divulgación por nivel (`ReportDisclosure`) | `src/main/kotlin/sgspe/privacy/` |
+| Desde F8: entregables: tipos (`FieldReportType`, `SocialDiagnosisType`), JOB-05 (`DeliverableGenerationJob`), DOCX (`DocxWriter`), PDF (`PdfConverter`, `GotenbergConverter`; Gotenberg en 8096, solo loopback), mapas de informe (`ReportMaps`, `GetMapRequest`, `MapComposer`), plantillas (`TemplateValidator`, `DeliverableTemplates`), archivos y descargas (`DeliverableFiles`, `DeliverableContent`), emisión (`DeliverableIssue`), `DeliverableWriteGuard` y secciones (`DeliverableSections`) | `src/main/kotlin/sgspe/deliverable/` |
 | Tipos de documento y automatizaciones (AUT-NN) | `model/document-types/`, `model/automations/`; `src/test/kotlin/sgspe/workflow/AutomationsApiTest.kt` |
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
 | Modelo frente a los documentos | `model/test_model.py`, `model/design_docs.py` |

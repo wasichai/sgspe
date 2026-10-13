@@ -699,44 +699,55 @@ parámetro desconocido, `422`.
 
 ### 7.3 Cómo se hace un mapa de informe
 
-Los mapas de los entregables salen de GeoServer con GetMap, estilos SLD y decoraciones, en el `working_crs` del proyecto
-(RQ-REP-008, RQ-REP-030, ASM-038). La anatomía de cada mapa por entregable está en [entregables](deliverables.md).
+Los mapas de los entregables salen de GeoServer con un `ogc:GetMap` por POST XML y estilos SLD, en el `working_crs` del
+proyecto; las decoraciones las dibuja SGSPE (RQ-REP-008, RQ-REP-030, ASM-038, ASM-134). Los arma JOB-05 con
+`ReportMaps`, un puerto con un doble para las pruebas, nunca una petición. La anatomía de cada mapa por entregable está
+en [entregables](deliverables.md).
 
-1. **Encuadre.** Cada mapa del tipo de entregable declara su regla de encuadre; por defecto se toma la envolvente del área de
-   influencia aprobada (o, si no hay, del área de interés del proyecto) en el `working_crs`, con un margen del 10 %, y se ajusta a
-   la escala estándar siguiente (1:10 000, 1:25 000, 1:50 000 o 1:100 000) para un marco de 16 × 12 cm a 300 dpi (unos
-   1890 × 1417 píxeles). Margen, escalas, marco y resolución son valores por defecto propuestos, configurables por tipo de
-   entregable.
-2. **Capas públicas** por nombre, con los estilos SLD.
-3. **Capas no públicas en línea.** El trabajador de entregables lee esas geometrías con `RecordService`, aplica el nivel de
-   divulgación (sin titulares, sin partida, puntos de vivienda generalizados a la localidad en EXTERNO) y las envía dentro de la
-   petición GetMap como capas de usuario con elementos en línea (InlineFeature de SLD, por POST). Así ninguna capa sensible se
-   publica en GeoServer (RQ-SEC-011, ASM-038).
-4. **Decoraciones.** Un diseño de decoración de GeoServer dibuja leyenda, barra de escala, escala numérica, flecha de norte y el
-   texto de fuente (`Fuente: Elaboración <organización autora>`, RQ-REP-019). La grilla UTM con sus etiquetas en el marco la dibuja
-   el compositor de SGSPE sobre la imagen, porque conoce la extensión y el CRS; si el spike encuentra una opción de GeoServer
-   equivalente, se usa esa (RQ-GIS-019).
-5. **Resultado.** Una imagen PNG con su SHA-256, que el modelo del entregable congela (§7.3 de [entregables](deliverables.md)) y que
-   se inserta como figura numerada con título y fuente (RQ-REP-007).
+1. **Encuadre** en el `working_crs` del proyecto (sin él, pedir el borrador responde `422
+   DELIVERABLE_PARAMETERS_MISSING`): T2 portada, el territorio comunal más la ubicación del proyecto; T2 predio, el
+   territorio comunal; T1 áreas, el área de influencia directa y la indirecta aprobadas; T1 Anexo 1, el área de interés
+   y las concesiones del proyecto. Margen de 10 % y la escala estándar siguiente (1:10 000, 1:25 000, 1:50 000 o
+   1:100 000) para el marco del tipo (16 × 12 cm, o 24 × 16 cm horizontal en el Anexo 1) a 300 dpi.
+2. **Capas** (§2.2): las publicadas, por nombre (`<tabla física>__<columna>` de la organización) y con su estilo SLD;
+   las demás, leídas con `Records` como la plataforma, transformadas por nivel (en EXTERNO, la divulgación por capa de
+   ASM-124: sin LYR-10, LYR-11 ni LYR-15, y los predios sin titulares ni partida) y enviadas en línea. T2 portada:
+   LYR-05, 07, 02, 04, 01 y los ríos de LYR-08; T2 predio: LYR-05, 07, 02, 04, 01 y 06; T1 áreas: LYR-13, 02, 10, 05 y
+   01; T1 Anexo 1: LYR-10, 02, 03, 04, 09, 07, 05, 14, 15 y 01. Las concesiones del proyecto van en línea con estilo
+   propio. Así ninguna capa sensible se publica en GeoServer (RQ-SEC-011, ASM-038).
+3. **Petición.** `GetMapRequest` arma un `ogc:GetMap` con un `StyledLayerDescriptor`: las capas publicadas por nombre y
+   las demás como `UserLayer` con `InlineFeature` (GML con `srsName="http://www.opengis.net/gml/srs/epsg.xml#<srid>"`,
+   como exigió el spike), fondo blanco, PNG y 300 dpi (8.2c comprueba cómo toma la resolución el POST XML; si no la
+   toma, el SLD en línea escala grosores y textos). Las geometrías en línea se simplifican a medio píxel, y un mapa con
+   más de 5 000 elementos falla con `MAP_TOO_MANY_FEATURES`. Va con `WebClient` a `wasichai.gis.geoserver.url`, con el
+   plazo `sgspe.deliverable.maps.timeout` (30 s).
+4. **Composición.** GeoServer devuelve solo el cuerpo del mapa. `MapComposer` (Java 2D sin pantalla, con Liberation Sans
+   de los recursos y su licencia OFL) lo pone en un lienzo con marco, grilla UTM con etiquetas en el borde (formato
+   es-PE, «9,245,000 N»), leyenda de las capas presentes (con «Capas omitidas por nivel de divulgación» cuando EXTERNO
+   quitó alguna), barra y escala numérica, norte de cuadrícula, el CRS (por ejemplo, «WGS 84 / UTM zona 17S») y
+   `Fuente: Elaboración <organización autora>` (RQ-REP-019, RQ-GIS-019), con los colores de `model/styles/palette.json`,
+   que el build copia a los recursos. Ningún diseño de decoración vive en GeoServer.
+5. **Resultado.** Un PNG con `pHYs` de 300 dpi y su SHA-256, que va en base64 al modelo congelado del entregable (§7.3
+   de [entregables](deliverables.md)) y se inserta como figura numerada con título y fuente (RQ-REP-007).
 
 ```mermaid
 sequenceDiagram
-    participant W as Trabajador de entregables
-    participant R as RecordService
+    participant W as JOB-05 (ReportMaps)
+    participant R as Records como la plataforma
     participant G as GeoServer interno
-    participant S as Almacenamiento de objetos
-    W->>R: Lee área de influencia, componentes y predios del proyecto
-    W->>W: Aplica el nivel de divulgación y calcula encuadre y escala en el CRS de trabajo
-    W->>G: GetMap por POST con capas públicas, capas en línea y diseño de decoración
-    G-->>W: PNG a 300 dpi con leyenda, escala, norte y fuente
-    W->>W: Dibuja la grilla UTM y calcula el SHA-256
-    W->>S: Guarda la imagen con el borrador
+    participant C as MapComposer
+    W->>R: Lee las geometrías de las capas no publicadas
+    W->>W: Aplica el nivel de divulgación, el encuadre y la escala en el CRS de trabajo
+    W->>G: ogc:GetMap por POST XML con capas publicadas y capas en línea
+    G-->>W: Cuerpo del mapa en PNG a 300 dpi
+    W->>C: Marco, grilla UTM, leyenda, escala, norte, CRS y fuente
+    C-->>W: PNG con su SHA-256, que va al modelo congelado
 ```
 
-- El spike técnico de ADR-0015 confirma, antes de F8, que GeoServer acepta los elementos en línea con leyenda en EPSG:32717 a
-  32719 y que las decoraciones bastan. Si no, la alternativa registrada en ASM-038 es cambiar el generador de mapas (por ejemplo,
-  una capa interna de GeoServer con una vista SQL limitada a geometría y atributos no sensibles, fuera de la lista blanca del
-  proxy, o QGIS Server), sin cambiar el modelo de datos.
+- El spike de F1 (ADR-0015) confirmó que GeoServer acepta los elementos en línea en EPSG:32717 a 32719 con `srsName` de
+  URL, y 300 polígonos por POST XML en menos de 0,5 s; mostró también que la decoración `legend` queda vacía con capas
+  en línea y que `scaleline` usa otro dpi: por eso SGSPE dibuja todas las decoraciones (ASM-134). Si GeoServer deja de
+  bastar, la alternativa de ASM-038 sigue siendo otro generador de mapas, sin cambiar el modelo de datos.
 - Los mapas de informe no usan mapa base en línea en el MVP: usan capas vectoriales de referencia, como el mapa de DOC-02
   [DOC-02 p.5]. Una ortofoto o un sombreado por proyecto pueden agregarse después (GAP-011).
 
@@ -744,7 +755,9 @@ sequenceDiagram
 
 - Generar entregables es trabajo en segundo plano, así que llamar a GeoServer ahí respeta WAS-ADR-0006 (nunca en la ruta de una
   petición) [WAS-ADR-0039].
-- Si un mapa falla, el borrador muestra un aviso de "mapa no disponible" en su lugar y la emisión se bloquea (RQ-REP-030, ASM-038).
+- Si un mapa falla (GeoServer caído, el plazo vencido o más de 5 000 elementos), su bloque queda como aviso `MAP_FAILED`
+  ("mapa no disponible"), el borrador sale LISTO con el aviso y la emisión responde `409 MAP_FAILED` (RQ-REP-030,
+  ASM-038, ASM-134).
 - GeoServer es una dependencia de despliegue donde se emiten mapas; sin él, el resto de SGSPE funciona (GAP-011).
 - **Sin registro de cuerpos de petición.** El GetMap por POST lleva en línea geometrías confidenciales y, en INTERNO, ubicaciones
   que pueden identificar a personas. Por eso el despliegue de GeoServer no registra los cuerpos de las peticiones ni guarda esas
@@ -804,7 +817,7 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 | Capas de gestión (`ManagementLayersApiTest`, `StakeholderLayerApiTest`, `InvestmentLayerApiTest`, `EvidenceLayerApiTest`, `ManagementLayersCapApiTest`, `PlacedSqlTest`, `LocalityAggregateSqlTest`) | Cada registro en su geometría o en el punto de su localidad, comunidad o área, y sin nada que dibujar no sale; QCS confidencial solo para quien la lee; grupos de interés por postura sin una persona y solo el total sin leer la postura; aportes ejecutados por localidad y moneda; evidencias sin el descriptor del archivo; periodo por la fecha de cada fuente y `periodNotApplied`; tope compartido | RQ-GIS-001, RQ-GIS-015, ASM-063, ASM-095 |
 | Calidad (`GeometryChecksApiTest`, `DataQualityApiTest`) | Lazo inválido con su motivo y reparación con cambio de área; MultiPolygon de una parte normalizado; fuera de zona; las cinco revisiones | RQ-GIS-011 |
 | Modelo (`test_model.py`, `test_publish_layers.py`) | Capas de `layers.json` de `ProjectScope.TENANT`, con geometría declarada y sin campos restringidos; campos nuevos de F6 | ASM-121, ASM-123 |
-| GetMap (suite lenta, etiquetada) | Con capas públicas y elementos en línea en EPSG:32717, el PNG se decodifica y el área de la leyenda no está vacía; sin comparar píxel a píxel | RQ-REP-030 |
+| GetMap (suite lenta, `slowTest`) | Con capas publicadas y elementos en línea en EPSG:32717, por POST XML contra un GeoServer real, el PNG se decodifica y la leyenda que dibuja `MapComposer` tiene píxeles, sin comparar píxel a píxel. Unitarias: `MapFramingTest` (escala estándar), `MapComposerTest` (grilla, barra y leyenda no vacía) y `GetMapRequestTest` (SLD en línea, `srsName`, nada sensible en EXTERNO) | RQ-REP-030 |
 
 ## 10. Fases
 

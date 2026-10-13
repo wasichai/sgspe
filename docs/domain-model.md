@@ -14,7 +14,7 @@ definen solo en el análisis y aquí solo se citan; los valores de los catálogo
   de las entidades sugeridas [PRM-01 §0, §4, §5].
 - Fija, para el resto de la documentación:
   - los bounded contexts BC-01 a BC-20, con su decisión frente al prompt, su release y su fase (§5);
-  - los 89 objetos del catálogo canónico, con sus campos clave, tipos de wasichai, relaciones, flags y workflow (§6);
+  - los 90 objetos del catálogo canónico, con sus campos clave, tipos de wasichai, relaciones, flags y workflow (§6);
   - los agregados, sus invariantes y el mecanismo de cada una: metadata, `RecordWriteGuard`, endpoint `/api/sgspe/**`,
     trabajo programado o listener (§7);
   - los nombres de los estados de cada workflow, sin el detalle de sus transiciones (§7.3);
@@ -229,9 +229,10 @@ decisiones de nombres del usuario [USR-09]. `database-model.md` las detalla para
 - Toda raíz de agregado que pertenece a un proyecto lleva `project` RELATION, requerido salvo en los objetos que también
   pueden ser del tenant (`evidence`, `early_warning_rule`, `indicator_measurement`, `export_log`, `ai_suggestion`,
   `ai_interaction`). Los objetos hijos heredan el proyecto de su raíz y no lo repiten. Los maestros del territorio
-  (`administrative_unit`, `locality`, `community`, `community_sector`,
-  `land_parcel`, `land_right`, `environmental_feature`, `mining_concession`), los actores (`person`, `organization`,
-  `contact_method`, `position`, `actor_relationship`) y la línea base sin proyecto son del tenant.
+  (`administrative_unit`, `locality`, `community`, `community_sector`, `land_parcel`, `land_right`,
+  `environmental_feature`, `mining_concession`), los actores (`person`, `organization`, `contact_method`, `position`,
+  `actor_relationship`) y la línea base sin proyecto son del tenant, como desde F8 el catálogo `indicator` y las
+  plantillas `deliverable_template`.
 - La escritura en objetos de proyecto la acota una guarda por asignación (`ProjectScopeGuard`, `sgspe.scope`) y, desde el
   plan 4.4, la lectura `ProjectReadScope` (ASM-106, `security.md` §9.7). `ProjectScope` clasifica cada objeto en un solo
   grupo: `project`; `project_assignment`; las raíces con `project` (31 hasta F4, 33 desde F5, con `social_contribution`
@@ -320,8 +321,8 @@ Notas:
 
 ## 6. Catálogo de objetos
 
-Catálogo canónico de los 89 Custom Objects de SGSPE, agrupados por bounded context. Son los únicos nombres válidos de objeto;
-los equivalentes del prompt están en §9.2 del análisis y en el glosario.
+Catálogo canónico de los 90 Custom Objects de SGSPE, agrupados por bounded context. Son los únicos nombres válidos de
+objeto; los equivalentes del prompt están en §9.2 del análisis y en el glosario.
 
 ### 6.0 Cómo leer las tablas
 
@@ -635,24 +636,32 @@ asignaciones (ASM-070). Requisitos: RF-NTF-001, RN-NTF-001, GAP-021.
 |---|---|---|---|---|---|
 | `indicator` | `code` TEXT (el ID KPI que define `dashboards.md`); `name` TEXT; `definition`, `formula`, `verification_means` LONG_TEXT; `disaggregation` TEXT; `target_value` DECIMAL; `frequency` TEXT; `source_reference` TEXT | — | único `code`; objeto catálogo (BC-20) | — | RQ-DSH-037, GAP-018 |
 | `indicator_measurement` | `period_start_date`, `period_end_date` DATE; `measured_value`, `numerator`, `denominator` DECIMAL; `breakdown` LONG_TEXT (desagregación en Markdown); `closed_by_user_id` UUID; `closed_by_user_email` EMAIL | M2O `indicator` (requerido); M2O `project` | `appendOnly`; `apiOnly`; único (`indicator`, `project`, `period_start_date`), más una guarda para `project` vacío, porque los NULL son distintos | — | RQ-DSH-037, ASM-042 |
-| `deliverable` | `document_code` TEXT; `title` TEXT; `deliverable_type` ENUM (Tipo de entregable); `period_start_date`, `period_end_date`, `cutoff_date` DATE; `template_key` TEXT; `generation_requested_at` DATETIME (derivado); `draft_generation_status` ENUM (Estado de generación del borrador; derivado); `draft_generated_at` DATETIME (derivado: instante en que se congeló el modelo); `draft_model_sha256`, `draft_storage_key` TEXT (derivado); `current_revision` TEXT (derivado) | M2O `project`; alcance: M2O `area_of_influence`, M2O `community`, M2O `locality`; M2O `study`; M2O `prepared_for_organization` → `organization` (cliente); M2O `prepared_by_organization` → `organization` (autora); M2O `current_version` → `deliverable_version` (derivado) | `requiresReason`; único `document_code` | WF-H | RF-REP-001, RF-REP-002, RQ-REP-002, RQ-REP-003, RQ-REP-013, RQ-REP-015, RQ-REP-016, RQ-REP-021, ASM-027, ASM-061 |
+| `deliverable` | `document_code` TEXT; `title` TEXT; `deliverable_type` ENUM (Tipo de entregable; no cambia después del alta); `period_start_date`, `period_end_date`, `cutoff_date` DATE; `template_key` TEXT; `generation_requested_at` DATETIME (derivado); `draft_generation_status` ENUM (Estado de generación del borrador; derivado); `draft_generated_at` DATETIME (derivado: instante en que se congeló el modelo); `draft_model_sha256`, `draft_revision` TEXT (derivado); `draft_warnings` LONG_TEXT (derivado: códigos de aviso, sin datos personales); `draft_model`, `draft_internal_docx`, `draft_internal_pdf`, `draft_external_pdf`, `draft_candidate_internal_docx`, `draft_candidate_internal_pdf`, `draft_candidate_external_pdf` FILE (derivado, hasta 64 MB; ASM-133); `current_revision` TEXT (derivado) | M2O `project`; alcance: M2O `area_of_influence`, M2O `community`, M2O `locality`; M2O `study`; M2O `prepared_for_organization` → `organization` (cliente); M2O `prepared_by_organization` → `organization` (autora); M2O `current_version` → `deliverable_version` (derivado) | `requiresReason`; único `document_code` | WF-H | RF-REP-001, RF-REP-002, RQ-REP-002, RQ-REP-003, RQ-REP-013, RQ-REP-015, RQ-REP-016, RQ-REP-021, ASM-027, ASM-061, ASM-133 |
 | `deliverable_section` | `section_key` TEXT; `title` TEXT; `sort_order` INTEGER; `section_kind` ENUM (Tipo de sección de entregable); `content` LONG_TEXT (Markdown); `content_origin` ENUM (Origen del contenido); `reviewed` BOOLEAN | M2O `deliverable` (requerido); M2O `ai_suggestion` (F8) | único (`deliverable`, `section_key`) | — | RQ-REP-011, RQ-REP-032, RQ-REP-033, RQ-AI-012 |
-| `deliverable_version` | `version_number` INTEGER; `revision` TEXT; `issued_at` DATETIME; `issued_by_user_id` UUID; `issued_by_user_email` EMAIL; `disclosure_level` ENUM (Nivel de divulgación); `pdf_storage_key`, `model_storage_key` TEXT; `pdf_sha256`, `model_sha256`, `template_sha256` TEXT; `docx_storage_key`, `docx_sha256` TEXT (vacíos en una versión derivada solo PDF, EXTERNO o PUBLICO); `ai_assisted_sections` LONG_TEXT | M2O `deliverable` (requerido); M2O `derived_from` → `deliverable_version` | `appendOnly`; `apiOnly`; único (`deliverable`, `version_number`) | — | RQ-REP-001, RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012 |
-| `export_log` | `exported_at` DATETIME; `exporter_user_id` UUID; `exporter_user_email` EMAIL; `export_kind` TEXT (exportación, emisión o descarga); `object_name` TEXT; `file_format` TEXT; `disclosure_level` ENUM (Nivel de divulgación); `filters_description` LONG_TEXT; `row_count` INTEGER | M2O `project`; M2O `deliverable` (descarga de un borrador); M2O `deliverable_version` (emisión o descarga de una versión) | `appendOnly`; `apiOnly` | — | RQ-AUD-011, RQ-REP-014, RQ-REP-022 |
+| `deliverable_version` | `version_number` INTEGER; `revision` TEXT; `issued_at` DATETIME; `issued_by_user_id` UUID; `issued_by_user_email` EMAIL; `disclosure_level` ENUM (Nivel de divulgación); `docx`, `pdf`, `model` FILE (hasta 64 MB; `docx` vacío fuera de INTERNO y `model` vacío en la versión derivada, que toma el de su base; ASM-133); `pdf_sha256`, `model_sha256`, `template_sha256` TEXT y `docx_sha256` TEXT (vacío fuera de INTERNO), iguales a los descriptores de sus archivos; `ai_assisted_sections` LONG_TEXT | M2O `deliverable` (requerido); M2O `derived_from` → `deliverable_version` | `appendOnly`; `apiOnly`; único (`deliverable`, `version_number`) | — | RQ-REP-001, RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012, ASM-133 |
+| `deliverable_template` | `template_key` TEXT (requerido); `name` TEXT; `file` FILE (requerido; .dotx o .docx, hasta 20 MB); `validation_warnings` LONG_TEXT | — | `apiOnly` (solo lo crea `POST /api/sgspe/deliverable-templates` después de validar); `appendOnly` (una plantilla no se edita ni se borra: otra con la misma `template_key` la reemplaza para los borradores siguientes); de todo el tenant | — | RQ-REP-019, RQ-SEC-019, ASM-135 |
+| `export_log` | `exported_at` DATETIME; `exporter_user_id` UUID; `exporter_user_email` EMAIL; `export_kind` TEXT (EXPORTACION, EMISION o DESCARGA); `object_name` TEXT; `file_format` TEXT; `disclosure_level` ENUM (Nivel de divulgación); `filters_description` LONG_TEXT; `row_count` INTEGER | M2O `project`; M2O `deliverable` (descarga de un borrador); M2O `deliverable_version` (emisión o descarga de una versión) | `appendOnly`; `apiOnly` | — | RQ-AUD-011, RQ-REP-014, RQ-REP-022 |
 
-- El modelo congelado de una versión (`model_storage_key`, `model_sha256`) es interno: en el MVP la API nunca lo sirve; solo
-  se usa para volver a generar y para verificar hashes. Los borradores y las versiones EXTERNO y PUBLICO se sirven solo en
-  PDF (RQ-REP-014, RQ-REP-026).
-- **ASSUMPTION (ASM-061):** los borradores no son registros. El último borrador de cada entregable se describe en los campos
-  derivados `draft_*`, que solo escribe el trabajador de generación; el endpoint que pide un borrador solo escribe
-  `generation_requested_at` (§8.3). Los archivos de los borradores se purgan según ASM-028. Lo emitido es una fila inmutable de
-  `deliverable_version` con los hashes del DOCX, del PDF y del modelo congelado (RQ-REP-017, RQ-REP-026, ASM-014). Es una
-  decisión reversible: en F8 un ADR puede agregar un objeto de generación con un registro por borrador.
+- El modelo congelado (`draft_model` del borrador y `model` de la versión, con su `model_sha256`) es interno: la API
+  nunca lo sirve, tampoco por la ruta nativa de wasichai-files (`404`); solo se usa para volver a generar y para
+  verificar hashes. Los borradores y las versiones EXTERNO se sirven solo en PDF (RQ-REP-014, RQ-REP-026).
+- **ASSUMPTION (ASM-061):** los borradores no son registros. El último borrador de cada entregable se describe en los
+  campos derivados `draft_*`, que solo escribe el trabajador de generación; el endpoint que pide un borrador solo
+  escribe `generation_requested_at` (§8.3). Los archivos del borrador son siete campos `FILE` derivados, y uno nuevo
+  reemplaza al anterior: solo se conserva el último (ASM-028, ASM-133). Lo emitido es una fila inmutable de
+  `deliverable_version` con sus archivos `FILE` y los hashes del DOCX, del PDF y del modelo congelado (RQ-REP-017,
+  RQ-REP-026, ASM-014). Es una decisión reversible: un ADR puede agregar un objeto de generación con un registro por
+  borrador.
 - El ciclo de relaciones `deliverable.current_version` → `deliverable_version` → `deliverable` es intencional: las claves
   foráneas de RELATION son `ON DELETE SET NULL`, y como `deliverable_version` es `appendOnly`, un entregable con versiones
   emitidas no se puede borrar [WAS-DOC domain/metadata-model.md] [WAS-ADR-0040].
-- Los indicadores se calculan en vivo; `indicator_measurement` solo congela cifras oficiales al cerrar un periodo (ASM-042,
-  RQ-DSH-031).
+- **`deliverable_template`** (ASM-135): `deliverable.template_key` sigue siendo TEXT; el borrador toma la plantilla
+  más reciente de esa clave y congela su id y su SHA-256 en el modelo. Con un campo `FILE`, la plantilla reutiliza el
+  almacenamiento, el SHA-256, el historial, los permisos, la limpieza y la descarga de wasichai-files, sin migración,
+  SQL propio ni purga. Una plantilla vieja no se retira: solo deja de elegirse. Sin `template_key` rige la base de
+  SGSPE.
+- Los indicadores se calculan en vivo; `indicator_measurement` solo congela cifras oficiales al cerrar un periodo, y
+  solo una cifra completa (ASM-042, ASM-136, RQ-DSH-031).
 
 ### 6.16 BC-16 Identidad y acceso
 
@@ -842,14 +851,14 @@ mantienen listeners (§7.5).
 | `evidence` | Una foto de personas sin consentimiento no sale en una salida EXTERNO | RNF-PRIV-004, RQ-REP-014 | `sgspe.privacy` al ensamblar exportaciones y entregables |
 | `task` | Tiene un único origen (salvo la tarea de escalamiento del nivel 2 de una QCS confidencial, que no se vincula a ella) y su vencimiento es derivado | RF-WFL-001, RN-WFL-001 | `ExactlyOneGuard` y `DeadlineJob` |
 | `task` | Las tareas que crea un trabajo no se duplican | RF-WFL-004 | Metadata (único `generator_key`) |
-| `deliverable` (+ `deliverable_section`, `deliverable_version`) | Solo se emite un entregable aprobado, desde el modelo congelado de su borrador aprobado y sin secciones cambiadas después de congelarlo | RQ-REP-015, RQ-REP-026 | Endpoint `POST /api/sgspe/deliverables/{id}/issue` (lleva a `issued`, crea una `deliverable_version` por nivel y apunta el entregable a la base, en una transacción) y `CommandTransitionGuard`. El endpoint repite el control de la aprobación (`deliverables.md` §8.4): si alguna `deliverable_section` tiene `updated_at` posterior a `draft_generated_at`, responde 409 con las secciones cambiadas y no emite; luego una persona aplica `return_to_draft` de WF-H, con motivo, y pide un borrador nuevo |
-| `deliverable` | No se aprueba si el borrador no está LISTO o si una `deliverable_section` tiene `updated_at` posterior a `draft_generated_at`, el instante en que se congeló el modelo; los `draft_*` que lee solo los escribe el trabajador de generación | RQ-REP-015, RQ-REP-026, ASM-061 | Guarda `DeliverableWriteGuard` (`sgspe.deliverable`) hacia `approved` |
-| `deliverable_version` | Una versión INTERNO emitida lleva DOCX y PDF; una versión derivada EXTERNO o PUBLICO puede ser solo PDF | RQ-REP-001, RQ-REP-014 | `DeliverableWriteGuard` al crear la versión: exige `docx_storage_key` y `docx_sha256` si `disclosure_level` es INTERNO |
+| `deliverable` (+ `deliverable_section`, `deliverable_version`) | Solo se emite un entregable aprobado, desde el modelo congelado de su borrador aprobado y sin secciones cambiadas después de congelarlo | RQ-REP-015, RQ-REP-026 | Endpoint `POST /api/sgspe/deliverables/{id}/issue` (sube como la persona una copia de cada candidata y, en una transacción, crea la `deliverable_version` INTERNO y la EXTERNO, apunta el entregable a la base, escribe `export_log` y aplica `issued` al final, para que AUT-12 vea el registro completo) y `CommandTransitionGuard`. El endpoint repite el control de la aprobación (`deliverables.md` §8.4): si alguna `deliverable_section` tiene `updated_at` posterior a `draft_generated_at`, responde `409 SECTIONS_CHANGED` con las secciones cambiadas y no emite; luego una persona aplica `return_to_draft` de WF-H, con motivo, y pide un borrador nuevo |
+| `deliverable` | No se envía a revisión ni se aprueba si el borrador no está LISTO o si una `deliverable_section` tiene `updated_at` posterior a `draft_generated_at`, el instante en que se congeló el modelo; los `draft_*` que lee solo los escribe el trabajador de generación; `deliverable_type` no cambia después del alta | RQ-REP-015, RQ-REP-026, ASM-061 | Guarda `DeliverableWriteGuard` (`sgspe.deliverable`) hacia `in_review` y `approved` (`409 SECTIONS_CHANGED`) y en el cambio de `deliverable_type` |
+| `deliverable_version` | Una versión INTERNO emitida lleva DOCX y PDF; la derivada EXTERNO es solo PDF; cada `*_sha256` es el de su archivo | RQ-REP-001, RQ-REP-014, ASM-133 | `DeliverableWriteGuard` al crear la versión: exige el `FILE` `docx` y `docx_sha256` si `disclosure_level` es INTERNO, y compara cada `*_sha256` con el descriptor de su archivo |
 | `deliverable_version` | Lo emitido es inmutable y lleva los hashes del PDF y del modelo, y del DOCX cuando existe | RQ-REP-017 | Metadata (`appendOnly`, `apiOnly`) |
-| `deliverable_section` | El texto que sugiere la IA solo se usa si una persona lo copia o lo edita con motivo | RQ-AI-012 | `DeliverableWriteGuard` (exige `reason` cuando `content_origin` indica IA) |
+| `deliverable_section` | El texto que sugiere la IA solo se usa si una persona lo adopta con motivo, y una sección asistida no vuelve a HUMANO en la misma revisión | RQ-AI-012, ASM-137 | `DeliverableWriteGuard` (exige `reason` cuando `content_origin` indica IA; `422 AI_ORIGIN_LOCKED`) |
 | `deliverable`, `export_log` | Los niveles de divulgación se aplican al modelo antes de generar, y queda registrada cada exportación, cada emisión y cada descarga de archivos de entregables (borradores y versiones, en todos los niveles) | RQ-REP-014, RQ-AUD-011 | `sgspe.privacy` y los endpoints de exportación, emisión y descarga, que escriben `export_log` |
-| `indicator` (+ `indicator_measurement`) | Las cifras oficiales de un periodo son inmutables y solo nacen al cerrarlo; un indicador que nunca se congela no se cierra | RQ-DSH-037, ASM-042 | `appendOnly`, `apiOnly` y endpoint `POST /api/sgspe/indicators/{id}/measurements`, que responde 409 para los indicadores que nunca se congelan (`dashboards.md` §10): KPI-STK-02, KPI-STK-05 y KPI-STK-06, que leen posturas, y KPI-TER-01, que no tiene un valor propio |
-| `indicator_measurement` | Una medición por indicador, proyecto (o todo el tenant) y periodo | RQ-DSH-037 | Único compuesto más una guarda del endpoint de cierre para `project` vacío, porque los NULL son distintos [WAS-ADR-0037] |
+| `indicator` (+ `indicator_measurement`) | Las cifras oficiales de un periodo son inmutables, completas y solo nacen al cerrarlo; un indicador que nunca se congela no se cierra | RQ-DSH-037, ASM-042, ASM-136 | `appendOnly`, `apiOnly` y endpoint `POST /api/sgspe/indicators/{id}/measurements` (`IndicatorMeasurements`), que responde `409 INDICATOR_NOT_CLOSABLE` con su razón (`dashboards.md` §10): `STANCE` (KPI-STK-02, KPI-STK-05 y KPI-STK-06), `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que solo dan series), `UNAVAILABLE` y `CONFIDENTIAL_HIDDEN`; con el periodo abierto, `400 PERIOD_NOT_ENDED`. `IndicatorWriteGuard` rechaza cambiar `code` |
+| `indicator_measurement` | Una medición por indicador, proyecto (o todo el tenant) y periodo; el tenant entero lo cierra solo quien lee todos los proyectos | RQ-DSH-037, ASM-136 | Único compuesto más una guarda del endpoint de cierre para `project` vacío, porque los NULL son distintos [WAS-ADR-0037] (`409 MEASUREMENT_EXISTS`); sin `project`, el endpoint exige `READ_ALL_PROJECTS` o `ADMIN` (`403 ACTION_REQUIRED`) |
 | `indicator` | Si falta permiso para leer un campo, el indicador dice "no disponible", nunca cero | RQ-DSH-032 | `sgspe.dashboard` |
 | `ai_suggestion`, `commitment_candidate` | Ningún agente escribe datos de dominio; una persona acepta y el comando corre con su autorización | RQ-AI-001, RQ-AI-003, RQ-AUD-012 | `apiOnly`, endpoint `POST /api/sgspe/ai-suggestions/{id}/accept` y `CommandTransitionGuard`; wasichai-agent es de solo lectura [WAS-ADR-0014] |
 | `ai_interaction` | Toda llamada a un modelo queda registrada y no cambia | RF-AIK-009, RQ-AI-006 | Metadata (`appendOnly`, `apiOnly`) |
@@ -930,7 +939,7 @@ los campos no editables en toda escritura, también en las de la plataforma, as�
 | `social_contribution.total_amount` | Suma de `line_amount` de sus ítems; se escribe también en `approve` y `approve_direct`, así lo aprobado queda escrito (ASM-110) | `ContributionTotalsListener`; `DerivedFieldsJob` | RF-INV-001, ASM-110 |
 | `social_program.total_budget` | Suma de `allocated_amount` de sus `program_budget` en la moneda del programa; sin moneda del programa, vacío (ASM-113) | `ProgramTotalsListener`; `DerivedFieldsJob` | RF-INV-003, ASM-113 |
 | `deliverable.generation_requested_at` | Momento del último pedido de borrador | Endpoint `POST /api/sgspe/deliverables/{id}/drafts`, como el usuario | RQ-REP-021 |
-| `draft_generation_status`, `draft_generated_at`, `draft_model_sha256` y `draft_storage_key` de `deliverable` | Estado, instante de congelamiento, SHA-256 del modelo y clave del último borrador. `draft_generated_at` es el instante en que el trabajador congela el modelo del informe al empezar a generar, no el de término. Un pedido está pendiente si `generation_requested_at` es posterior a `draft_generated_at` o este está vacío. El estado pasa a EN COLA cuando el trabajador toma un pedido pendiente, a EN PROCESO al congelar el modelo y a LISTO o FALLIDO al terminar | El trabajador de generación de `sgspe.deliverable`, como la plataforma | RQ-REP-021, ASM-061 |
+| `draft_generation_status`, `draft_generated_at`, `draft_model_sha256`, `draft_revision`, `draft_warnings` y los siete campos `FILE` `draft_*` de `deliverable` | Estado, instante de congelamiento, SHA-256 del modelo, letra de revisión, avisos y archivos del último borrador. `draft_generated_at` es el instante en que el trabajador congela el modelo del informe al empezar a generar, no el de término. Un pedido está pendiente si `generation_requested_at` es posterior a `draft_generated_at` o este está vacío, y uno que sigue EN COLA o EN PROCESO hace más de `sgspe.deliverable.generation.stale-after` se vuelve a tomar. El estado pasa a EN COLA cuando el trabajador toma un pedido pendiente, a EN PROCESO al congelar el modelo y a LISTO (con los siete archivos, en la misma escritura) o FALLIDO al terminar | El trabajador de generación de `sgspe.deliverable` (JOB-05), como la plataforma (adjuntar archivos espera UPS-31) | RQ-REP-021, ASM-061, ASM-133 |
 | `ai_interaction.run_by_platform` | Verdadero cuando la llamada la hizo un trabajo como la plataforma, sin usuario que la pida (`requested_by_user_id` vacío) | El código de `sgspe.ai` al registrar la interacción, que es `appendOnly` | RF-AIK-009 |
 | `deliverable.current_version`, `deliverable.current_revision` | La última `deliverable_version` emitida y su revisión | Endpoint de emisión, en su transacción | RQ-REP-026 |
 
@@ -988,7 +997,7 @@ Regla: metadata primero; código Kotlin propio solo donde la metadata no alcanza
 Versionada en `model/*.json` y `model/roles.json`, aplicada de forma idempotente con `apply.py` y `apply_roles.py`
 (RNF-MNT-002, CON-052):
 
-- los 89 objetos, sus campos, ENUM, relaciones MANY_TO_ONE y MANY_TO_MANY, `required`, `unique`, `uniqueConstraints`,
+- los 90 objetos, sus campos, ENUM, relaciones MANY_TO_ONE y MANY_TO_MANY, `required`, `unique`, `uniqueConstraints`,
   `indexes`, `defaultValue` y los flags `appendOnly`, `apiOnly` y `requiresReason` [WAS-ADR-0036] [WAS-ADR-0037]
   [WAS-ADR-0040] [WAS-ADR-0041];
 - los workflows de §7.3: estados, transiciones y roles [WAS-ADR-0013] [WAS-ADR-0018];
@@ -1045,10 +1054,10 @@ además `EXPORT` (RQ-GIS-018).
 | `sgspe.notification` | Destinatarios por `project_assignment.role_name` y la definición del workflow (ASM-070), con el filtro de las QCS confidenciales (ASM-102), y textos de los avisos; `ApprovalNoticeListener` (desde F5, con WF-G y el alta del aporte); desde F4, `RiskNoticeListener` y `WarningNoticeListener`; publica en wasichai-notifications | BC-14 | F3–F4 | El módulo guarda, entrega y purga los avisos; SGSPE decide quién y qué (ASM-012) |
 | `sgspe.evidence` | Alta, cambio y vínculos sobre el campo `FILE` de wasichai-files; descarga con `DOWNLOAD_RESTRICTED` por las dos rutas; `EvidenceWriteGuard` | BC-12 | F3 | El campo `FILE` no conoce la clasificación (UPS-07 resuelta, ADR-0014) |
 | `sgspe.territory` | Importación con CRS y reconciliación; área en hectáreas en el `working_crs` del proyecto o, si el registro no pertenece a un solo proyecto, en la zona UTM del centroide (ASM-064); consultas espaciales con compuerta de permisos; sugerencias de miembros; geometría y filtros espaciales de la ficha territorial, cuyas cifras calcula `sgspe.dashboard` (KPI-TER-01); proxy WMS; `TerritoryWriteGuard`; `AreaListener` y su recalculador | BC-02 | F2 (análisis en F6) | `RecordService` solo filtra por `bbox` y las guardas no ven geometrías (RQ-GIS-011, RQ-GIS-017) |
-| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`; las cifras de la ficha territorial (KPI-TER-01, RQ-GIS-005); conteos con `RecordService` y agregación en Kotlin; cierre de periodo | BC-15 | F2–F8 | Agregaciones entre objetos sin vistas materializadas (RQ-DSH-031, RQ-DSH-034) |
-| `sgspe.deliverable` | Una clase por tipo de entregable; ensamblado del modelo; DOCX con Apache POI; PDF con Gotenberg; mapas con GeoServer GetMap; endpoint que pide borradores; trabajador de generación, que escribe los `draft_*` como la plataforma (ASM-061); emisión; `DeliverableWriteGuard`; paso de retención de borradores de JOB-08 | BC-15 | F8 | wasichai-documents no genera DOCX ni PDF en el servidor (CON-045, ASM-014) |
+| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`; las cifras de la ficha territorial (KPI-TER-01, RQ-GIS-005); conteos con `RecordService` y agregación en Kotlin; desde F8, KPI-EXE (`ExecutiveKpis`), los tableros `executive`, `project` y `monitoring` (`Dashboards`, `MonitoringTable`), el cierre de periodo (`IndicatorMeasurements`) y `KpiReader`, el lector explícito con el que el ensamblado de entregables llama a los mismos KPI como la plataforma | BC-15 | F2–F8 | Agregaciones entre objetos sin vistas materializadas (RQ-DSH-031, RQ-DSH-034) |
+| `sgspe.deliverable` | Una clase por tipo (`FieldReportType`, `SocialDiagnosisType`); ensamblado del modelo; DOCX con Apache POI (`DocxWriter`); PDF con Gotenberg (`PdfConverter`, `GotenbergConverter`); mapas con GeoServer GetMap (`ReportMaps`, `GetMapRequest`, `MapComposer`); plantillas (`TemplateValidator`, `DeliverableTemplates`); endpoint que pide borradores; trabajador de generación (`DeliverableGenerationJob`), que escribe los `draft_*` como la plataforma (ASM-061, ASM-133); archivos y descargas (`DeliverableFiles`, `DeliverableContent`); emisión (`DeliverableIssue`); `DeliverableWriteGuard`; adopción de secciones de IA (`DeliverableSections`) | BC-15 | F8 | wasichai-documents no genera DOCX ni PDF en el servidor (CON-045, ASM-014) |
 | `sgspe.ai` | Agentes Embabel; seudonimización; registro de `ai_interaction`; creación de `ai_suggestion` y `commitment_candidate`; aceptación; RAG sobre `knowledge_chunk` | BC-18 | F7 | El asistente de wasichai es de solo lectura (CON-044, RQ-AI-001) |
-| `sgspe.privacy` | Niveles de divulgación como transformación del modelo; enmascaramiento; menciones de personas como referencias; exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 | Anonimización y registro de salidas (RQ-REP-014, RQ-REP-033, RQ-AUD-011) |
+| `sgspe.privacy` | Niveles de divulgación como transformación del modelo (`ReportModel`, `CanonicalJson` y `ReportDisclosure`, que siguen dependiendo solo de `sgspe.common`); enmascaramiento; menciones de personas como referencias; exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 | Anonimización y registro de salidas (RQ-REP-014, RQ-REP-033, RQ-AUD-011) |
 
 Reglas para todo el código propio:
 
@@ -1073,15 +1082,14 @@ de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-00
   (RN-WFL-001, CON-043). Son, con la numeración de `workflows.md`: `DeadlineJob` (JOB-01), `DerivedFieldsJob` (JOB-02),
   `StakeholderFollowUpJob` (JOB-03), `WarningRulesJob` (JOB-04), el trabajador de generación de entregables (JOB-05), la
   indexación para RAG (JOB-07, F7), que escribe la tabla fija `knowledge_chunk` y solo crearía `ai_interaction` al
-  llamar a un modelo, lo que en F7 no hace, y la retención (JOB-08), que desde F3 borra con SQL propio, sin `asPlatform`, las
-  claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de `derived_version` (ASM-065, ASM-091,
-  RNF-INT-002) y desde F8 lee
-  `deliverable` y `deliverable_version` y borra archivos de borradores sin referencia, sin escribir registros de
-  wasichai. Para recorrer las organizaciones usan `TenantDirectory`, la forma soportada de listar los tenants desde
-  wasichai 0.5.0 (UPS-17). La excepción son las migraciones de datos de `database-model.md` §24 sobre un objeto
-  `apiOnly`: corren en proceso, dentro del paquete dueño del objeto, y escriben campos no derivados como la plataforma,
-  con un motivo que nombra la migración (ASM-051) y con las guardas activas [WAS-ADR-0039] [WAS-ADR-0041]. Tampoco
-  aplican transiciones.
+  llamar a un modelo, lo que en F7 no hace, y la retención (JOB-08), que desde F3 borra con SQL propio, sin
+  `asPlatform`, las claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de `derived_version`
+  (ASM-065, ASM-091, RNF-INT-002), sin escribir registros de wasichai; en F8 no gana un paso de entregables, porque los
+  archivos reemplazados de un borrador los borra `StoredFileCleanup` de wasichai-files (ASM-133). Para recorrer las
+  organizaciones usan `TenantDirectory`, la forma soportada de listar los tenants desde wasichai 0.5.0 (UPS-17). La
+  excepción son las migraciones de datos de `database-model.md` §24 sobre un objeto `apiOnly`: corren en proceso, dentro
+  del paquete dueño del objeto, y escriben campos no derivados como la plataforma, con un motivo que nombra la migración
+  (ASM-051) y con las guardas activas [WAS-ADR-0039] [WAS-ADR-0041]. Tampoco aplican transiciones.
 - **Todo cambio de estado automático ocurre en la petición de una persona**, como listener que corre con su identidad. Sobre
   una transición, el listener es atómico con ella porque `WorkflowService.apply` es transaccional [WAS-ADR-0038]; por la API
   genérica no lo sería (§7.1, §7.5). El caso del MVP es RN-GRV-001: al cerrar un compromiso (y desde F5 un aporte, ASM-068),
@@ -1089,11 +1097,13 @@ de una petición, con o sin token [WAS-DOC guides/build-your-app.md] [WAS-ADR-00
   `workflows.md` da a esa transición de WF-E3 roles compatibles con el cierre de WF-D y de WF-P y la protege con
   `CommandTransitionGuard`. Si el compromiso o el aporte se cancela o se rechaza, la solicitud se cierra a mano con
   `close_unfulfilled`.
-- **Borradores de entregable:** el endpoint `POST /api/sgspe/deliverables/{id}/drafts` escribe solo `generation_requested_at`,
-  como el usuario y con la marca. El trabajador de `sgspe.deliverable` toma los pedidos pendientes con `ClusterLock` y escribe
-  los `draft_*` como la plataforma: marca EN COLA al tomar el pedido; EN PROCESO al congelar el modelo, instante que guarda en
-  `draft_generated_at`; y LISTO o FALLIDO al terminar (ASM-061). Así nadie puede marcar un borrador como LISTO por la API
-  genérica, y la guarda de aprobación puede confiar en esos campos (RQ-REP-026).
+- **Borradores de entregable:** el endpoint `POST /api/sgspe/deliverables/{id}/drafts` escribe solo
+  `generation_requested_at`, como el usuario y con la marca. El trabajador de `sgspe.deliverable` toma los pedidos
+  pendientes con `ClusterLock` y escribe los `draft_*` como la plataforma: marca EN COLA al tomar el pedido; EN PROCESO
+  al congelar el modelo, instante que guarda en `draft_generated_at`; y LISTO o FALLIDO al terminar, con los siete
+  archivos del borrador adjuntos en la misma escritura de la plataforma (ASM-061, ASM-133; adjuntar como la plataforma
+  espera UPS-31). Así nadie puede marcar un borrador como LISTO por la API genérica, y la guarda de aprobación puede
+  confiar en esos campos (RQ-REP-026).
 - **Un trabajo nunca decide por una persona:** las reglas de alerta crean alertas en `detected`, y confirmarlas o descartarlas
   sigue siendo humano (RN-EWS-001).
 
@@ -1619,6 +1629,11 @@ classDiagram
         <<appendOnly>>
         ENUM disclosure_level
         TEXT export_kind
+    }
+    class deliverable_template {
+        <<appendOnly>>
+        TEXT template_key
+        FILE file
     }
     class ai_interaction {
         <<appendOnly>>

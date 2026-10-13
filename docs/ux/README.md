@@ -70,7 +70,7 @@ etapa 1.
 | 15 Flujos | Flujos 12 y 13 (queja) · Flujos 14 y 15 (riesgo y mitigación), en carriles por rol |
 | 16 Tableros | Revisión ejecutiva de 5 minutos (S51) · Monitoreo de la Tabla 9.5, interactiva · Compromisos (S27) · QCS (S34) · Riesgos (S62) · Territorial · Inversión social |
 | 17 Capa de IA | Panel del asistente, interactiva (S05) · Respuesta con citas (AI-06) · Bandeja de revisión (S52) · Posible duplicado (AI-07) · Resumen ejecutivo y borrador de sección (AI-04) |
-| 18 Inicio y transversales | Login (S01) · Inicio por rol, interactiva (S02) · Avisos (S04) · Reportes y exportaciones (S49) · Entregable por secciones (S50) · Administración (S53) |
+| 18 Inicio y transversales | Login (S01) · Inicio por rol, interactiva (S02) · Avisos (S04) · Reportes y exportaciones (S49) · Entregable por secciones (S50) · Administración (S53) · Plantillas de entregables (S64) |
 | 19 Campo sin conexión | Mis tareas y visita (S54) · Interacción, observación y foto (S55) · Estado de conexión y cola · Sincronización y conflictos |
 | 20 Flujos y handoff | Flujo 18 (preguntar a la IA) · Flujo de campo (sincronización) · Mapa de rutas y árbol de módulos del frontend |
 | 21 Shell responsive | Shell en tableta (panel de navegación) · Shell en teléfono (barra inferior por rol, «Más» y pantallas de escritorio) |

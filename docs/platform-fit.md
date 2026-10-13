@@ -51,10 +51,10 @@ estados copiados del [índice de ADR](adr/README.md).
 | [ADR-0010](adr/0010-repositorios-sgspe-y-sgspe-ui.md) | Repositorios `sgspe` y `sgspe-ui` | Aceptado |
 | [ADR-0011](adr/0011-auditoria.md) | Auditoría sobre el `audit_log` de wasichai | Aceptado |
 | [ADR-0012](adr/0012-estados-temporales-materializados.md) | Estados temporales materializados por trabajos programados | Aceptado |
-| [ADR-0013](adr/0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Propuesto (se acepta en F8) |
+| [ADR-0013](adr/0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Aceptado (F8) |
 | [ADR-0014](adr/0014-almacenamiento-de-objetos.md) | Evidencias y entregables en almacenamiento de objetos | Aceptado |
-| [ADR-0015](adr/0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Propuesto (se acepta en F6) |
-| [ADR-0016](adr/0016-kpis-en-vivo-y-echarts.md) | KPIs calculados en vivo y ECharts como librería de gráficos | Propuesto (se acepta en F2) |
+| [ADR-0015](adr/0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Aceptado (F6 y F8) |
+| [ADR-0016](adr/0016-kpis-en-vivo-y-echarts.md) | KPIs calculados en vivo y ECharts como librería de gráficos | Aceptado (en uso desde F2) |
 | [ADR-0017](adr/0017-datos-personales-y-anonimizacion.md) | Datos personales y anonimización | Aceptado |
 | [ADR-0018](adr/0018-notificaciones.md) | Notificaciones en la aplicación y abstracción del correo | Aceptado |
 | [ADR-0019](adr/0019-importacion-geoespacial-con-reconciliacion.md) | Importación geoespacial con preparación y reconciliación | Propuesto (se acepta en F2) |
@@ -119,7 +119,7 @@ estados copiados del [índice de ADR](adr/README.md).
 
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
-| Modelo de dominio explícito, validado contra los documentos | SGSPE | 89 objetos con campos, agregados, invariantes y el mecanismo de cada una [domain-model §6, §7] | WAS-ADR-0003 | ADR-0023 | — | — |
+| Modelo de dominio explícito, validado contra los documentos | SGSPE | 90 objetos con campos, agregados, invariantes y el mecanismo de cada una [domain-model §6, §7] | WAS-ADR-0003 | ADR-0023 | — | — |
 | Las entidades sugeridas son un punto de partida | SGSPE | Destino de cada entidad del prompt [requirements-analysis §9.2] | — | ADR-0022, ADR-0023 | CON-031, CON-033, CON-038 | — |
 | Estado `OVERDUE` almacenado en el compromiso | Sustituido | `deadline_status` derivado por un trabajo programado | WAS-ADR-0013; WAS-ADR-0039 | ADR-0012 | CON-028 | RN-WFL-001 |
 | Sin tabla genérica de contactos | SGSPE | `contact_method` de una persona u organización, con consentimiento | — | ADR-0023 | — | RF-STK-001, RNF-PRIV-004 |
@@ -428,6 +428,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-24 Un enganche de lectura para el descriptor de un campo `FILE` | F3 | Resuelta en wasichai 1.0.0 (WAS-ADR-065, wasichai/wasichai#102) y adoptada el 2026-10-11: `EvidenceFileReadPolicy` entrega el descriptor de una evidencia restringida sin `name` ni `sha256` a quien no tiene `DOWNLOAD_RESTRICTED`; el portal conserva el nombre neutro como defensa adicional (ASM-093) | `sgspe.evidence`; `sgspe-ui` | Nada |
 | UPS-29 Caché de las definiciones de objeto y memo por petición de las consultas de rol (wasichai/wasichai#105) | Antes de producción | Resuelta en wasichai 1.1.0 y adoptada el 2026-10-11: `ObjectDefinitions` queda como memo por petición sobre la caché de wasichai (`wasichai.metadata.cache.ttl` 30 s, `security.md` §9.7); el memo del comando guarda las asignaciones de quien escribe (`RequestMemoFilter`) | `sgspe.common` | Nada |
 | UPS-30 Lecturas del modelo fuera de la caché de definiciones: workflows, relaciones, campos `FILE`, destino de una relación, reglas de notificación y automatizaciones (wasichai/wasichai#108) | Antes de producción | Resuelta en wasichai 1.2.0 y adoptada el 2026-10-11: wasichai las responde desde la caché de definiciones (`wasichai.metadata.cache.ttl` 30 s) | — | Nada |
+| UPS-31 Que la plataforma suba, adjunte y abra archivos de wasichai-files dentro de `asPlatform` (wasichai/wasichai#111) | F8 | El plan 8.2b avanza todo lo que no adjunta archivos; JOB-05 lee las fotos con `FileStore.open` y comprueba su SHA-256; si no llega, el borrador usa claves propias en el `FileStore` y un paso de JOB-08 (ASM-133) | `sgspe.deliverable` | La lectura directa del `FileStore` y, si se usó, el respaldo de claves propias |
 
 ### 4.2 Otras diferencias con la plataforma ya registradas
 
@@ -515,14 +516,14 @@ de GIS, importación y emisión, sin copiar los rodeos que 0.3.x ya no necesita 
 
 | Patrón | Origen | Uso en SGSPE | Cambio respecto del origen | Fuente |
 |---|---|---|---|---|
-| `model/model.json` más `apply.py` (con `core_client.py`, `fake_core.py` y sus pruebas): aplicación idempotente por REST, `--validate-only` y `--dry-run` | caja | El modelo de los 89 objetos, sus ENUM, acciones declaradas, relaciones, flags, índices y únicos compuestos | URL por defecto en el puerto 8094; desde F2, geometrías e índices declarados como en el `apply.py` de srtm; un segundo pase, `apply.py --workflows`, aplica después de `apply_roles.py` los workflows, tipos de documento, automatizaciones y vistas, formularios y páginas, cada uno desde su fase, porque wasichai rechaza un workflow con roles inexistentes; `test_apply.py` cubre un tenant nuevo ([Arquitectura §5.4](architecture.md#54-modelo-como-código-model)) | RNF-MNT-002, CON-052 |
+| `model/model.json` más `apply.py` (con `core_client.py`, `fake_core.py` y sus pruebas): aplicación idempotente por REST, `--validate-only` y `--dry-run` | caja | El modelo de los 90 objetos, sus ENUM, acciones declaradas, relaciones, flags, índices y únicos compuestos | URL por defecto en el puerto 8094; desde F2, geometrías e índices declarados como en el `apply.py` de srtm; un segundo pase, `apply.py --workflows`, aplica después de `apply_roles.py` los workflows, tipos de documento, automatizaciones y vistas, formularios y páginas, cada uno desde su fase, porque wasichai rechaza un workflow con roles inexistentes; `test_apply.py` cubre un tenant nuevo ([Arquitectura §5.4](architecture.md#54-modelo-como-código-model)) | RNF-MNT-002, CON-052 |
 | `model/roles.json` más `apply_roles.py` | caja | 15 roles declarados con etiqueta en español; `roles.json` es la fuente de verdad | Acciones declaradas por rol (incluida `EDIT_ANY`) y ningún `ownRecordsOnly`; la clave `"*"` como permiso de todo el tenant y una lista `mappedToAdmin` para los dos roles que son `ADMIN` | RQ-SEC-003, ASM-024, ASM-069 |
 | API del portal `/api/<app>/**` con `RecordService` en proceso, como el usuario que llama | caja (`/api/caja/**`), srtm (`/api/srtm/**`) | `/api/sgspe/**` para comandos y consultas | Recursos en inglés (USR-09) | RNF-INT-004, CON-048 |
 | Marca de escritura propia (`EscrituraDeCaja`, `EscrituraDeSrtm`) y su guarda | caja, srtm | `SgspeWrite` con `DerivedFieldsGuard` y `CommandTransitionGuard` | Nombre en inglés | [domain-model §4.5] RQ-AUD-004 |
 | Envoltura de `RecordService` para el código propio (`Registros`) | srtm, caja | Lecturas y escrituras tipadas del código propio, con la marca | En `sgspe.common` | [domain-model §8.2] |
 | Resolución de la tabla física por la metadata (`TablasCore`) | srtm | Solo SQL de agregación de solo lectura detrás de una compuerta de permisos | srtm escribía directo en las tablas porque 0.2.0 no tenía `asPlatform`; SGSPE nunca escribe así | RQ-GIS-017, RQ-DSH-031 [WAS-ADR-0039] |
-| Puerto de almacenamiento (`AlmacenEmision`, con implementaciones local y S3, claves relativas, descarga en streaming y prueba de contrato) | srtm | Archivos de los entregables, si el plan de F8 no usa el `FileStore` de wasichai-files; las evidencias usan el campo `FILE` desde F3 (ADR-0014) | Sin el decorador `AlmacenGuardado` ni `IdentidadEmision`, rodeos de 0.2.0 | ASM-013, ASM-014 |
-| Trabajos de generación con candado y retención de borradores (`EmisionMasiva`, `RetencionEmision`) | srtm | Trabajador de borradores de entregables | Sin lotes: un pedido por entregable (ASM-061) | RQ-REP-021, RQ-REP-027 |
+| Puerto de almacenamiento (`AlmacenEmision`, con implementaciones local y S3, claves relativas, descarga en streaming y prueba de contrato) | srtm | No se usa: los entregables usan campos `FILE` de wasichai-files desde F8, como las evidencias desde F3 (ADR-0014, ASM-133); queda como el respaldo de UPS-31 para el borrador | Sin el decorador `AlmacenGuardado` ni `IdentidadEmision`, rodeos de 0.2.0 | ASM-013, ASM-014 |
+| Trabajos de generación con candado y retención de borradores (`EmisionMasiva`, `RetencionEmision`) | srtm | Trabajador de borradores de entregables | Sin lotes: un pedido por entregable (ASM-061); sin retención propia, que hace la limpieza de wasichai-files (ASM-133) | RQ-REP-021, RQ-REP-027 |
 | `Idempotency-Key` generada por acción del usuario y repetida en cada reintento | caja (cobros) | Comandos de `/api/sgspe/**` marcados `IK` | El contrato de la cabecera nativa de wasichai (WAS-ADR-0058): de 1 a 128 caracteres, la respuesta guardada byte por byte con `Idempotent-Replayed: true`, `422` con otra petición y `409` con `Retry-After` en curso; la clave y la respuesta se guardan aparte del registro, en la tabla fija `idempotency_key`, no en un campo del registro como el recibo de caja ([API §3.5](api.md#35-idempotencia-idempotency-key)) | RNF-INT-002, ASM-065 |
 | Candados por entidad sobre los candados consultivos de PostgreSQL (`Candados`) | caja, srtm | `ClusterLock.withXactLock` para precondiciones y correlativos | — | [WAS-ADR-0039] |
 | Parámetro de consulta desconocido como 422 que lo nombra | srtm | Toda la API propia | — | ASM-054 |
@@ -562,13 +563,13 @@ actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 | TypeScript | 7.0.2 | F1 | caja-ui |
 | Tailwind CSS | 4.3.3 | F1 | caja-ui |
 | Node y Yarn | Node 26 o superior; Yarn 1 (`yarn.lock` v1) | F1 | WAS-DOC guides/build-your-app.md (Node); caja-ui (Yarn) |
-| Apache POI (`poi-ooxml`) | 5.4 o superior (incluye la corrección de CVE-2025-31672) | F2 (exportaciones XLSX) | RQ-REP-022, ASM-014 |
-| commonmark-java con tablas GFM | Por fijar en F8 | F8 | ASM-014 |
+| Apache POI (`poi-ooxml`) | 5.5.1 (incluye la corrección de CVE-2025-31672) | F2 (exportaciones XLSX); F8 (DOCX y gráficos con XDDF) | RQ-REP-022, ASM-014 |
+| commonmark-java con tablas GFM | La versión exacta que fije el plan 8.2b | F8 | ASM-014 |
 | AWS SDK v2 (S3) | 2.55.10 (`software.amazon.awssdk:bom`), el cliente asíncrono que usa wasichai-files | F3 | ASM-013 |
-| PDFBox | 3, en `main` desde F7 (extracción de texto, ASM-132) y en las pruebas de F8 | F7 | RQ-REP-017, ASM-132 |
+| PDFBox | 3, en `main` desde F7 (extracción de texto, ASM-132); en F8 verifica cada PDF generado | F7 | RQ-REP-017, ASM-132 |
 | ECharts | 6 | F2 | RQ-DSH-035, ASM-046 |
 | GDAL (`gdal-bin`: `ogrinfo` y `ogr2ogr`, en la CI y en el desarrollo) | 3.8 o superior | F6 | RQ-GIS-018, ASM-056, ASM-127 |
-| Gotenberg | `gotenberg/gotenberg:8-libreoffice` | F8 (pico técnico en F1) | ASM-014 |
+| Gotenberg | `gotenberg/gotenberg:8-libreoffice`, que el plan 8.2c fija en la etiqueta 8.x exacta publicada; puerto 8096 en el loopback | F8 (pico técnico en F1) | ASM-014 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1` | F6 | ASM-038 |
 | MinIO | `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` y `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`, solo en desarrollo y en las pruebas, por su licencia AGPL | F3 | ASM-013, GAP-022 |
 | Mailpit (SMTP de prueba) | `axllent/mailpit:v1.31.2`, solo en desarrollo | F3 | GAP-021 |

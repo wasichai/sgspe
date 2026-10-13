@@ -4381,9 +4381,10 @@ Casos previstos:
   que el arranque falla si falta (RQ-SEC-016) [WAS-DOC modules/core.md].
 - **Desarrollo.** La semilla de wasichai crea la organización de demostración y el usuario `admin@wasichai.local`; solo existe
   con `wasichai.seed.dev=true` [WAS-DOC modules/core.md].
-- **Catálogos de referencia, en todo entorno.** El ubigeo del INEI en `administrative_unit`, desde el archivo público y con un
-  script idempotente (RF-TER-001, ASM-016); el catálogo de temas en `topic`; y, desde F8, el catálogo de indicadores en
-  `indicator`, con scripts idempotentes o desde `/admin` (ASM-020). Son datos públicos o de configuración, no datos
+- **Catálogos de referencia, en todo entorno.** El ubigeo del INEI en `administrative_unit`, desde el archivo público y
+  con un script idempotente (RF-TER-001, ASM-016); el catálogo de temas en `topic`; y, desde F8, el catálogo de
+  indicadores en `indicator`, con `model/load_indicators.py` desde `model/indicators.json`, que crea los que faltan y
+  nunca sobrescribe `target_value` ni `frequency` (ASM-020, ASM-136). Son datos públicos o de configuración, no datos
   personales.
 - **Fixtures de pruebas y demostraciones.**
   - Solo personas ficticias ("Persona Ejemplo 1", "Persona Ejemplo 2") y correos `@sgspe.test`; topónimos e instituciones
@@ -4407,8 +4408,9 @@ decisión registrada permite.
 | Objetos de historia (`appendOnly`) | `app_data` | Nunca se editan ni se borran | RQ-AUD-003 [WAS-ADR-0040] |
 | Auditoría | `audit_log` (metadatos) | SGSPE nunca la purga; su inmutabilidad en la base espera UPS-12 | RQ-AUD-010 |
 | Archivos de evidencia | Almacenamiento de objetos | Inmutables; una corrección es una evidencia nueva que reemplaza a la anterior, que se conserva | RF-DOC-001, ASM-013 |
-| Borradores de entregable | Almacenamiento de objetos | Se conservan los últimos N y se purgan los demás; `deliverable` apunta solo al último | RQ-REP-027, ASM-028, ASM-061 |
-| Versiones emitidas | `deliverable_version` y almacenamiento | Siempre, con WORM opcional | RQ-REP-017, RQ-REP-027 |
+| Borradores de entregable | Siete campos `FILE` derivados de `deliverable`, en wasichai-files | Solo el último: un borrador nuevo reemplaza los siete archivos y `StoredFileCleanup` borra los bytes reemplazados pasado `wasichai.files.cleanup.delay` (24 h); el historial conserva los descriptores | RQ-REP-027, ASM-028, ASM-061, ASM-133 |
+| Versiones emitidas | `deliverable_version`, con sus campos `FILE` en wasichai-files | Siempre, sin bloqueo WORM en F8 | RQ-REP-017, RQ-REP-027, ASM-133 |
+| Plantillas de entregable | `deliverable_template`, con su campo `FILE` | Siempre (`appendOnly`); una plantilla nueva con la misma clave solo deja de elegir la anterior | RQ-REP-019, ASM-135 |
 | Exportaciones e interacciones con IA | `export_log`, `ai_interaction` | Siempre (append-only) | RQ-AUD-011, RQ-AUD-012 |
 | Avisos y envíos | Tablas de wasichai-notifications | El módulo purga los avisos resueltos o vencidos después de `wasichai.notifications.retention` (90 días); los envíos se van con su aviso | RF-NTF-001, ADR-0018 |
 | Claves de idempotencia | `sgspe.idempotency_key` | JOB-08 borra cada día las más antiguas que `wasichai.idempotency.ttl` (24 h por defecto), el mismo plazo de la cabecera nativa; guardan la respuesta de la primera petición, acotada, para reenviarla; esa respuesta puede llevar datos que quien llamó podía leer y por eso expira con el plazo; nunca guardan el cuerpo de la petición, solo su SHA-256 | ASM-065, RNF-INT-002 |
@@ -4429,7 +4431,7 @@ decisión registrada permite.
 | Campo FILE | `evidence` y el almacenamiento propio hasta que exista; después, migración | UPS-07, ASM-013 |
 | Retención y consentimiento | Plazos de purga de datos personales y de notificaciones | GAP-014, RNF-PRIV-004 |
 | pgvector | La columna `embedding` de `knowledge_chunk` solo con una medición que lo justifique | RQ-AI-008, CON-035 |
-| Lotes de importación y borradores como objetos | Hoy son campos (`import_batch_id`, `draft_*`); un ADR en F6 o F8 puede volverlos objetos | ASM-060, ASM-061 |
+| Lotes de importación y borradores como objetos | Siguen siendo campos (`import_batch_id`, `draft_*`); F8 deja los borradores en siete campos `FILE` derivados y conserva solo el último (ASM-133); un ADR posterior puede volverlos objetos | ASM-060, ASM-061, ASM-133 |
 | Volúmenes | Los índices declarados se amplían con mediciones | GAP-027 |
 | Valores por defecto en la plataforma | Mientras wasichai no aplique `defaultValue`, el código de SGSPE aplica los de `project` (§3.6) | UPS-15, ASM-019 |
 | Autorrelaciones desde el destino | Mientras falte, los registros que apuntan a uno se leen filtrando por el campo (§2.6) | UPS-16 |

@@ -3,6 +3,27 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-13 — Plan 8.0: los documentos de F8
+
+Los documentos de diseño quedan al día con la especificación de F8
+(`docs/superpowers/specs/2026-10-13-fase-8-design.md`) antes de tocar el modelo y el código. Las decisiones están en
+[Requisitos](requirements-analysis.md) (ASM-133 a ASM-138 y UPS-31; 560 IDs).
+
+- **Alcance.** Solo T2 y T1, T2 primero; T3 a T10 y PUBLICO quedan fuera de F8 (ASM-026). La release 3.0.0 se corta al
+  cerrar F8.
+- **Archivos.** Los entregables viven en wasichai-files: el último borrador en siete campos `FILE` derivados, lo emitido
+  en `deliverable_version` y las plantillas en el objeto nuevo `deliverable_template` (ASM-133); JOB-08 no gana un paso
+  de borradores. Que la plataforma adjunte archivos es UPS-31, abierta como wasichai/wasichai#111.
+- **Plantillas y mapas.** Plantillas Word por organización con marcadores fijos, estilos requeridos y fuentes
+  permitidas (ASM-135, GAP-010 resuelta); mapas por GetMap con POST XML y las decoraciones dibujadas por SGSPE
+  (ASM-134).
+- **Indicadores.** Cierre de periodo con una cifra completa o ninguna y metas de DOC-01 editables (ASM-136, GAP-018
+  resuelta); tableros `executive`, `project` y `monitoring` con `KpiReader`.
+- **Emisión.** WF-H con `MODEL_MISMATCH`, `MAP_FAILED` y `SECTIONS_CHANGED`; AUT-12 activa con la «Constancia de
+  emisión»; menciones `[[…:<id>]]` y el cerrojo de la asistencia de IA (ASM-137); topes de 64 MB y 20 MB (ASM-138).
+- **ADR.** ADR-0013, ADR-0015 y ADR-0016 aceptados; ADR-0014 con los entregables en wasichai-files; Gotenberg en el
+  puerto 8096 (ADR-0026).
+
 ## 2026-10-13 — Plan 7.0: los documentos de F7
 
 Los documentos de diseño quedan al día con la especificación de F7

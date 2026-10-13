@@ -3,7 +3,8 @@
 ## Estado
 
 Aceptado · 2026-10-09 · decisión D1 del usuario: las evidencias usan el campo `FILE` de wasichai-files (UPS-07,
-WAS-ADR-0061); los entregables de F8 (`FileStore` del mismo módulo o puerto propio) se deciden con su plan
+WAS-ADR-0061). Ampliado el 2026-10-13 (F8, decisión del usuario): los entregables también usan campos `FILE` de
+wasichai-files, con el objeto `deliverable_template` para las plantillas (ASM-133)
 
 ## Contexto
 
@@ -65,12 +66,19 @@ bytes (ASM-013). Desde wasichai 0.6.0 la plataforma lo ofrece (UPS-07, WAS-ADR-0
 - **Importaciones.** Desde F6, con los formatos de GDAL, el archivo original de una importación se guarda como `evidence`
   con su `import_batch_id` (ASM-060, ADR-0019); hasta entonces la importación lee de una carpeta temporal con límites
   (RQ-SEC-020).
-- **Entregables.** Sus borradores, versiones y plantillas no son campos de un registro: en F8 usan un `FileStore` del mismo
-  módulo o un puerto propio en `sgspe.deliverable`, que se decide con su plan; las claves y los SHA-256 siguen en
-  `deliverable_version` (ADR-0013).
+- **Entregables (desde F8, ASM-133).** También son campos `FILE` de wasichai-files: el último borrador, en siete campos
+  derivados de `deliverable` (el modelo congelado, los borradores con marca y las candidatas), que sube y adjunta JOB-05
+  como la plataforma (UPS-31) y que uno nuevo reemplaza; lo emitido, en `docx`, `pdf` y `model` de
+  `deliverable_version`, que sube quien emite copiando las candidatas; las plantillas, en `file` del objeto
+  `deliverable_template` (`apiOnly`, `appendOnly`). Los `*_sha256` siguen en `deliverable_version`, y
+  `DeliverableWriteGuard` los compara con los descriptores (ADR-0013). SGSPE atiende las rutas nativas de archivos de
+  los tres objetos, como las de `evidence`: las descargas con sus comprobaciones y su `export_log`, las candidatas y los
+  modelos con `404` y la subida con `403 FILE_WRITE_NOT_ALLOWED`. Si UPS-31 no llega, el respaldo es solo para el
+  borrador: claves propias en el `FileStore` y un paso de JOB-08.
 - **Retención.** Las evidencias no se purgan; un archivo que deja de nombrar un registro lo borra la limpieza de
-  wasichai-files (`wasichai.files.cleanup.*`). JOB-08 conserva los N últimos borradores de cada entregable desde F8
-  (RQ-REP-027, ASM-028) ([database-model.md §26](../database-model.md)).
+  wasichai-files (`wasichai.files.cleanup.*`), y también los bytes de un borrador reemplazado, así que de cada
+  entregable queda solo el último borrador y todo lo emitido; JOB-08 no tiene paso de entregables (RQ-REP-027, ASM-028,
+  ASM-133) ([database-model.md §26](../database-model.md)).
 - **Baja de un tenant.** `stored_files` no tiene clave foránea a la organización: la limpieza del módulo borra los archivos de
   un tenant borrado (WAS-ADR-0061).
 
@@ -86,22 +94,24 @@ bytes (ASM-013). Desde wasichai 0.6.0 la plataforma lo ofrece (UPS-07, WAS-ADR-0
 
 ### Negativas y riesgos
 
-- La descarga nativa no conoce la clasificación: SGSPE la reemplaza para `evidence`. Un objeto nuevo con un campo `FILE` y
-  datos restringidos necesitará lo mismo.
-- El archivo se sostiene en memoria mientras se valida (`wasichai.files.max-bytes`, 20 MB en SGSPE).
+- La descarga nativa no conoce la clasificación: SGSPE la reemplaza para `evidence`. Un objeto nuevo con un campo `FILE`
+  y datos restringidos necesitará lo mismo; desde F8 SGSPE la reemplaza también para `deliverable` y
+  `deliverable_version`.
+- El archivo se sostiene en memoria mientras se valida (`wasichai.files.max-bytes`: desde F8, 64 MB para lo que sube el
+  servidor; lo que sube el navegador sigue topado en 20 MB por parte, ASM-138).
 - El almacenamiento de objetos contiene datos personales: su cifrado, su respaldo y su retención dependen del despliegue
   (GAP-022, GAP-014) ([security.md §11.6](../security.md)).
 
 ### Seguimiento
 
-- Abiertos: GAP-014, GAP-022, GAP-026. UPS-07 queda resuelta por wasichai 0.6.0.
+- Abiertos: GAP-014, GAP-022, GAP-026 y UPS-31 (wasichai/wasichai#111). UPS-07 queda resuelta por wasichai 0.6.0.
 - Pruebas: `EvidenceApiTest` (alta, inmutabilidad, reclasificación y las dos rutas de descarga); la de "Descargas" de
-  [security.md §14](../security.md).
+  [security.md §14](../security.md); desde F8, `DeliverableDraftsApiTest` y `DeliverableDownloadsApiTest`.
 
 ## Referencias
 
 - Requisitos: RF-DOC-001, RF-DOC-003, RNF-PRIV-004, RNF-MNT-005, RQ-REP-017, RQ-REP-027, RQ-SEC-020, CON-046, ASM-013,
-  ASM-028, ASM-050, ASM-060, ASM-069, ASM-071, UPS-07, GAP-014, GAP-022, GAP-026, GAP-028.
+  ASM-028, ASM-050, ASM-060, ASM-069, ASM-071, ASM-133, ASM-138, UPS-07, UPS-31, GAP-014, GAP-022, GAP-026, GAP-028.
 - Documentos: [deliverables.md §11](../deliverables.md), [domain-model.md §6.12](../domain-model.md),
   [database-model.md §16, §24 y §26](../database-model.md), [api.md §3.10 y §4.9](../api.md),
   [architecture.md §4 y §10](../architecture.md), [platform-fit.md §4.1 y §5](../platform-fit.md).

@@ -161,7 +161,7 @@ aplica la transición como la persona que lo invoca: esa persona necesita el rol
 | `accept` | WF-E3 | `POST /api/sgspe/stakeholder-requests/{id}/accept` | El compromiso en `draft` o, desde F5, el aporte en `requested` (ASM-117), y su vínculo | RF-GRV-004 |
 | `close_accepted` | WF-E3 | `RequestClosureListener`, al cerrar el compromiso o, desde F5, el aporte | El cierre de la solicitud aceptada | RN-GRV-001, ASM-068 |
 | `assess` | WF-F | `POST /api/sgspe/social-risks/{id}/assessments`, en la primera revisión | La `risk_assessment`, los valores vigentes y `next_review_date` del riesgo | RF-RSK-001, ASM-099 |
-| `issue` | WF-H | `POST /api/sgspe/deliverables/{id}/issue` | La `deliverable_version`, `current_version`, `current_revision` y el `export_log` | RQ-REP-026, RQ-REP-017 |
+| `issue` | WF-H | `POST /api/sgspe/deliverables/{id}/issue` | Las `deliverable_version` INTERNO y EXTERNO, `current_version`, `current_revision` y el `export_log`; la transición, al final | RQ-REP-026, RQ-REP-017 |
 | `accept` | WF-K (`commitment_candidate`) | `POST /api/sgspe/commitment-candidates/{id}/accept` | El compromiso en `draft` y `created_commitment` | RF-COM-010, RQ-AI-003 |
 | `accept` | WF-K (`ai_suggestion`) | `POST /api/sgspe/ai-suggestions/{id}/accept` | El comando de dominio que la sugerencia propone | RQ-AI-001, RQ-AI-003 |
 | `approve`, `supersede` | WF-O | `POST /api/sgspe/areas-of-influence/{id}/approve` | La versión nueva en `approved` y la anterior del mismo tipo en `superseded` | RN-TER-003 |
@@ -972,10 +972,11 @@ corrige: se registra otra de otro periodo. `ProgramTotalsListener` mantiene `tot
 - **Estados:** `draft` (Borrador, inicial), `in_review` (En revisión), `observed` (Observado), `approved` (Aprobado),
   `issued` (Emitido; una revisión nueva vuelve a `draft`), `voided` (Anulado, final).
 - **Fase:** F8. `requiresReason`: toda transición lleva motivo.
-- **Requisitos:** RQ-REP-015, RQ-REP-017, RQ-REP-021, RQ-REP-026, RQ-REP-027, RQ-AI-012, ASM-061.
+- **Requisitos:** RQ-REP-015, RQ-REP-017, RQ-REP-021, RQ-REP-026, RQ-REP-027, RQ-AI-012, ASM-061, ASM-133.
 - **Generar un borrador no es una transición:** `POST /api/sgspe/deliverables/{id}/drafts`, con la acción declarada
-  `GENERATE`, escribe `generation_requested_at`, y el trabajador de generación (JOB-05) escribe los `draft_*` como la
-  plataforma (ASM-061). Así nadie puede marcar un borrador como LISTO por la API genérica.
+  `GENERATE`, solo en `draft` u `observed` y con los parámetros del tipo, escribe `generation_requested_at`, y el
+  trabajador de generación (JOB-05) escribe los `draft_*`, con sus siete archivos, como la plataforma (ASM-061,
+  ASM-133). Así nadie puede marcar un borrador como LISTO por la API genérica.
 - **Preparan y revisan:** solo los roles que leen los campos sensibles que un entregable incluye (GAP-024),
   `SOCIAL_MANAGER` y `STAKEHOLDER_MANAGER`: preparan, observan, aprueban y emiten; anular queda en `SOCIAL_MANAGER`.
   `GENERATE`, `APPROVE` e `ISSUE` sobre `deliverable` se conceden solo a esos roles (RQ-SEC-004). RQ-REP-015 no pide que
@@ -1005,12 +1006,12 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `submit_for_review` (Enviar a revisión) | `draft` | `in_review` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: el último borrador está LISTO y ninguna `deliverable_section` cambió después de `draft_generated_at` | Obligatorio (`requiresReason`) | Aviso de aprobación pendiente | RQ-REP-015, RQ-REP-021 |
+| `submit_for_review` (Enviar a revisión) | `draft` | `in_review` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: el último borrador está LISTO y ninguna `deliverable_section` cambió después de `draft_generated_at` (`409 SECTIONS_CHANGED`) | Obligatorio (`requiresReason`) | Aviso de aprobación pendiente | RQ-REP-015, RQ-REP-021 |
 | `observe` (Observar) | `in_review` | `observed` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | — | Obligatorio (`requiresReason`); el motivo es la observación | — | RQ-REP-015 |
 | `resubmit` (Reenviar a revisión) | `observed` | `in_review` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: la misma de `submit_for_review`, que obliga a regenerar después de corregir | Obligatorio (`requiresReason`) | Aviso de aprobación pendiente | Ídem |
 | `approve` (Aprobar) | `in_review` | `approved` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: la acción declarada `APPROVE` (RF-WFL-002); borrador LISTO y ninguna sección cambiada después de congelar el modelo (RQ-REP-026, ASM-061) | Obligatorio (`requiresReason`) | — | RQ-REP-015, RQ-REP-026 |
 | `return_to_draft` (Devolver a borrador) | `approved` | `draft` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | — | Obligatorio (`requiresReason`) | — | RQ-REP-015 |
-| `issue` (Emitir) | `approved` | `issued` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de emisión, que además exige la acción declarada `ISSUE` y repite el control de secciones de `approve`: si alguna `deliverable_section` cambió después de `draft_generated_at`, responde 409 con las secciones cambiadas, y la persona aplica `return_to_draft` (`deliverables.md` §8.4) | Obligatorio (`requiresReason`) | En la misma transacción: `deliverable_version` (inmutable, con SHA-256), `current_version`, `current_revision` y `export_log` (RQ-REP-017, RQ-AUD-011); AUT-12, opcional | RQ-REP-026 [WAS-ADR-0023] |
+| `issue` (Emitir) | `approved` | `issued` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `CommandTransitionGuard`: solo desde el endpoint de emisión, que además exige la acción declarada `ISSUE`, el mismo `draft_model_sha256` (`409 MODEL_MISMATCH`), ningún mapa fallido (`409 MAP_FAILED`) y, si el tipo prepara EXTERNO, la lista de verificación (`400 CHECKLIST_REQUIRED`), y repite el control de secciones de `approve`: si alguna `deliverable_section` cambió después de `draft_generated_at`, responde `409 SECTIONS_CHANGED` con las secciones cambiadas, y la persona aplica `return_to_draft` (`deliverables.md` §8.4) | Obligatorio (`requiresReason`) | En la misma transacción, antes de la transición: las `deliverable_version` INTERNO y EXTERNO (inmutables, con sus archivos y SHA-256), `current_version`, `current_revision` y `export_log` (RQ-REP-017, RQ-AUD-011); la transición va al final y dispara AUT-12, la constancia de emisión con su correlativo | RQ-REP-026 [WAS-ADR-0023] |
 | `start_revision` (Nueva revisión) | `issued` | `draft` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | — | Obligatorio (`requiresReason`) | Las versiones emitidas se conservan en `deliverable_version` | RQ-REP-016, RQ-REP-027 |
 | `void_draft` (Anular) | `draft` | `voided` | `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | Estado `voided` del análisis §11 |
 | `void_in_review` (Anular) | `in_review` | `voided` | `SOCIAL_MANAGER` | — | Obligatorio (`requiresReason`) | — | Ídem |
@@ -1502,7 +1503,7 @@ Reglas de SGSPE:
 | AUT-09 | `aut-09-warning-triage-task` | `early_warning` | `RECORD_CREATED` | — | `CREATE_RECORD` `task`: "Triaje de la alerta {{title}}", `early_warning` = `{{id}}`, `project` = `{{project}}` | F4 | RF-EWS-004 |
 | AUT-10 | `aut-10-engagement-reschedule-task` | `engagement` | `STATE_ENTERED` `cancelled` | — | `CREATE_RECORD` `task`: "Reprogramar o reemplazar la interacción {{title}}", `engagement` = `{{id}}`, `project` = `{{project}}` | F3 | RF-ENG-006 [DOC-02 p.2] |
 | AUT-11 | `aut-11-critical-risk-task` | `social_risk` | `RECORD_UPDATED` | `risk_level` `CHANGED`; `risk_level` `EQUALS` CRITICO | `CREATE_RECORD` `task`: "Revisar el riesgo crítico {{code}}", `social_risk` = `{{id}}`, `project` = `{{project}}`, responsable `{{owner_user_id}}` y `{{owner_user_email}}` (exigido en `assess`) | F4 | RF-RSK-003 |
-| AUT-12 | `aut-12-issue-certificate` (opcional, por configuración) | `deliverable` | `STATE_ENTERED` `issued` | — | `GENERATE_DOCUMENT` tipo «Constancia»: constancia de emisión con correlativo y entrada `ISSUE` en el historial | F8 | RQ-REP-029 [WAS-ADR-0023] |
+| AUT-12 | `aut-12-issue-certificate` | `deliverable` | `STATE_ENTERED` `issued` | — | `GENERATE_DOCUMENT` tipo «Constancia de emisión» (`deliverable-issue-certificate`), con su correlativo; activa (decisión del usuario del 2026-10-13) | F8 | RQ-REP-029 [WAS-ADR-0023] |
 
 AUT-11 es la primera automatización condicionada a un campo derivado. El `PUT` de wasichai deja vacío lo que el cuerpo
 no trae y `DerivedFieldsKeeper` repone los derivados; esa reposición no es un cambio para las automatizaciones
@@ -1532,6 +1533,7 @@ SGSPE, se entregan en papel y, firmados, se suben como evidencia FORMULARIO o CA
 | Cargo de queja | `grievance-receipt` | `CQ` | `grievance` | F4, tras UPS-23 | Código, fecha y hora de recepción, canal, categoría y plazo de acuse; espacios para el nombre y la firma de quien plantea y de quien recibe |
 | Carta de respuesta | `inquiry-answer-letter` | `CC` | `inquiry` | F4, tras UPS-23 | Código, fecha de recepción, respuesta y fecha de respuesta; espacio para el nombre y la firma de quien recibe |
 | Carta de respuesta | `request-answer-letter` | `CS` | `stakeholder_request` | F4, tras UPS-23 | Código, fecha de recepción, recurso pedido, respuesta y fecha de respuesta; espacio para el nombre y la firma de quien recibe |
+| Constancia de emisión | `deliverable-issue-certificate` | `CE` | `deliverable` | F8 | Código, título, tipo, revisión, fecha de emisión, quién emitió y los SHA-256 de las versiones INTERNO y EXTERNO; `deliverable` y `deliverable_version` no tienen campos restringidos, así que cumple la regla de UPS-23 |
 
 `model/automations/<objeto>.json` es una lista con las automatizaciones del objeto, cada una en el formato de wasichai.
 Ejemplo: AUT-01 (`POST /api/objects/commitment/automations`).
@@ -1569,13 +1571,13 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 - **Una sola réplica:** `ClusterLock.tryLock` con una clave del paquete (`sgspe.deadline`), con `@Scheduled` o con un
   sondeo continuo (JOB-05). JOB-05 toma además, al procesar cada pedido, un candado por entregable (`deliverable:<id>`),
   para que dos réplicas nunca generen el mismo borrador (`deliverables.md` §8.2).
-- **Registros de wasichai como la plataforma:** JOB-01 a JOB-05, JOB-07 y el paso de borradores de JOB-08 los leen o los
-  escriben con `RecordService.asPlatform(organizationId)`, una organización por vez. Para recorrer las organizaciones
-  usan `Organizations` (`sgspe.common`), que envuelve `TenantDirectory` (UPS-17, [WAS-ADR-0057]); desde F4, JOB-01 y
-  JOB-04 recorren solo las organizaciones que tienen el objeto que miden (`Organizations.having`), así un tenant que
-  todavía no tiene el modelo de F4 sigue con F3. JOB-01, JOB-02, JOB-03 y JOB-04 escriben con `asPlatform(organización,
-  source = "job:…")` (UPS-03). JOB-07 solo recorre la lista de organizaciones con la IA activada (`ai-architecture.md`
-  §12.1).
+- **Registros de wasichai como la plataforma:** JOB-01 a JOB-05 y JOB-07 los leen o los escriben con
+  `RecordService.asPlatform(organizationId)`, una organización por vez. Para recorrer las organizaciones usan
+  `Organizations` (`sgspe.common`), que envuelve `TenantDirectory` (UPS-17, [WAS-ADR-0057]); desde F4, JOB-01 y JOB-04
+  recorren solo las organizaciones que tienen el objeto que miden (`Organizations.having`), así un tenant que todavía no
+  tiene el modelo de F4 sigue con F3; JOB-05 recorre del mismo modo `Organizations.having("deliverable")`, y un tenant
+  sin el modelo de F8 sigue con F7. JOB-01, JOB-02, JOB-03 y JOB-04 escriben con `asPlatform(organización, source =
+  "job:…")` (UPS-03). JOB-07 solo recorre la lista de organizaciones con la IA activada (`ai-architecture.md` §12.1).
 - **Tablas fijas con SQL propio, sin `asPlatform`:** JOB-07 escribe `knowledge_chunk`, y JOB-08 borra las claves
   vencidas de `idempotency_key` y los saltos vencidos de `derived_version`.
 - **La fuente de avisos de plazo** (`DeadlineNotices`, `sgspe.deadline`) no es un trabajo propio: la llama cada hora el
@@ -1585,9 +1587,9 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
   auditoría y el motivo se lo dice a quien lee el historial [WAS-ADR-0041] (ASM-051).
 - **Idempotencia:** recalculan desde cero, así que repetir una corrida no cambia el resultado; las tareas que crean llevan
   `generator_key`.
-- **Nunca aplican transiciones ni vinculan registros:** solo escriben campos derivados y crean registros nuevos (RN-WFL-001,
-  CON-043). JOB-08 no escribe registros de wasichai: solo borra claves vencidas de `idempotency_key`, saltos vencidos de
-  `derived_version` y archivos que nada referencia.
+- **Nunca aplican transiciones ni vinculan registros:** solo escriben campos derivados y crean registros nuevos
+  (RN-WFL-001, CON-043). JOB-08 no escribe registros de wasichai: solo borra claves vencidas de `idempotency_key` y
+  saltos vencidos de `derived_version`; los archivos sin referencia los borra `StoredFileCleanup` de wasichai-files.
 
 | ID | Trabajo (paquete) | Frecuencia | Qué escribe | Qué nunca hace | Fuente | Fase |
 |---|---|---|---|---|---|---|
@@ -1595,13 +1597,12 @@ Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 | JOB-02 | `DerivedFieldsJob` (`sgspe.common`) | Cada hora sobre los registros fuente cambiados desde la corrida anterior (por `updated_at`) y una vez al día sobre todos | Los campos derivados de §7.4 del modelo de dominio que mantienen listeners o que no tienen otro escritor: `executed_social_amount`, `other_currency_items_count`, `calculated_area_ha`, conteos de asistentes, `formalized`, `requires_senior_approval` (los vínculos de solicitantes no llegan a los listeners: la vuelta diaria los recoge), `total_amount`, `total_budget` y los plazos de QCS que falten | Escribir campos no derivados | Modelo de dominio §7.4, §7.5 | F2 |
 | JOB-03 | `StakeholderFollowUpJob` (`sgspe.stakeholder`) | Una vez al día, configurable (ASM-022): sus parámetros se miden en días | `last_contact_date`; la regla de primer contacto de `relationship_status` (SIN CONTACTO → CONTACTO ESTABLECIDO); desde F3, tareas de evaluación periódica (`stakeholder_review_days`, clave `stakeholder_review:<id>:<fecha>`) y de inactividad (`inactivity_days`, clave `stakeholder_inactivity:<id>:<fecha de referencia>`, la del último contacto o, sin contacto, la del alta) | Mover WF-B o cambiar `relationship_status` fuera de la regla de primer contacto | RF-STK-010, RF-STK-014, ASM-022, ASM-032 | F2 |
 | JOB-04 | `WarningRulesJob` (`sgspe.warning`) | Cada hora, configurable (ASM-006), como los plazos, para que una alerta no espere un día | `early_warning` en `detected` cuando una regla habilitada alcanza su umbral (`threshold`) en su ventana (`window_days`), según «Tipos de regla de JOB-04»: por proyecto en `active` o `suspended`, con las reglas del proyecto y, de cada tipo que el proyecto no tiene, las del tenant; sin otra alerta si hay una abierta (fuera de `dismissed` y `closed`) de la misma regla y proyecto (y riesgo, en NIVEL DE RIESGO) o una detectada (`detected_at`) dentro de la ventana de `window_days` días; con `generator_key` `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, único, y el motivo `alerta por regla (JOB-04 WarningRulesJob)` | Confirmar o descartar una alerta (RN-EWS-001); aplicar transiciones; escribir datos personales, texto libre de otros registros o valores de campos restringidos | RF-EWS-004, ASM-097 | F4 |
-| JOB-05 | `DeliverableGenerationJob` (`sgspe.deliverable`): el trabajador de generación de entregables | Continuo: toma los pedidos pendientes (`generation_requested_at` posterior a `draft_generated_at`, o este vacío) | `draft_generation_status` (EN COLA, EN PROCESO, LISTO o FALLIDO), `draft_generated_at` (al congelar el modelo), `draft_model_sha256`, `draft_storage_key` | Aplicar `approve` o `issue`; escribir secciones | RQ-REP-021, ASM-061 | F8 |
+| JOB-05 | `DeliverableGenerationJob` (`sgspe.deliverable`): el trabajador de generación de entregables | Sondeo cada `sgspe.deliverable.generation.poll` (5 s): toma los pedidos pendientes de los entregables en `draft` u `observed` (`generation_requested_at` posterior a `draft_generated_at`, o este vacío) y retoma los que siguen EN COLA o EN PROCESO hace más de `sgspe.deliverable.generation.stale-after` (15 min) | `draft_generation_status` (EN COLA, EN PROCESO, LISTO o FALLIDO), `draft_generated_at` (al congelar el modelo), `draft_model_sha256`, `draft_revision`, `draft_warnings` y los siete campos `FILE` del borrador, adjuntos con LISTO en una sola escritura (ASM-133, UPS-31) | Aplicar `approve` o `issue`; escribir secciones; ser llamado desde una petición | RQ-REP-021, ASM-061, ASM-133 | F8 |
 | JOB-07 | `KnowledgeIndexJob` (`sgspe.ai`, `ai-architecture.md` §13.2): indexación documental para RAG | Periódica y configurable (ASM-006), solo en las organizaciones que activaron la IA (RQ-AI-009, ASM-015) | Fragmentos en la tabla fija `knowledge_chunk`, con SQL propio, de las `evidence` creadas o cambiadas desde la corrida anterior; copia su proyecto y su clasificación, borra los fragmentos de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo, como la plataforma | Aplicar transiciones; indexar documentos sin texto (sin OCR en F7) | RF-AIK-006, RQ-AI-008 | F7 |
-| JOB-08 | `RetentionJob` (`sgspe.common`): retención, con un paso por paquete | Una vez al día, configurable | Ningún registro de wasichai. Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065) y las de `derived_version` anteriores a `sgspe.concurrency.derived-versions-retention`, 7 días (ASM-091, ADR-0027). Desde F8, el paso de `sgspe.deliverable` borra en el almacenamiento de objetos, de cada entregable, las carpetas `drafts/<instante>/` salvo las N más recientes y la que apunta `draft_storage_key`, y los archivos que ningún registro referencia, como los de una emisión fallida (`deliverables.md` §8.4, §11) | Borrar lo que referencia una `deliverable_version` o `draft_storage_key`; escribir registros; aplicar transiciones | RQ-REP-027, RNF-INT-002, RNF-INT-003, ASM-028, ASM-061, ASM-065, ASM-091 | F3 (claves y saltos de derivados), F8 (borradores) |
+| JOB-08 | `RetentionJob` (`sgspe.common`): retención, con un paso por paquete | Una vez al día, configurable | Ningún registro de wasichai. Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065) y las de `derived_version` anteriores a `sgspe.concurrency.derived-versions-retention`, 7 días (ASM-091, ADR-0027). En F8 no gana un paso de entregables: los archivos reemplazados de un borrador y las subidas de una emisión fallida los borra `StoredFileCleanup` de wasichai-files (ASM-133, `deliverables.md` §11) | Escribir registros; aplicar transiciones | RNF-INT-002, RNF-INT-003, ASM-065, ASM-091 | F3 |
 
-JOB-08 corre una vez al día, como fija `architecture.md`, y además del número N de borradores (ASM-028) usa un margen
-configurable: solo borra archivos sin referencia más antiguos que ese margen, porque los de una generación o una emisión
-en curso todavía no tienen un registro que los apunte.
+JOB-08 corre una vez al día, como fija `architecture.md`. Si UPS-31 no llega, el respaldo de ASM-133 le suma en F8 un
+paso de borradores, con un margen configurable para no borrar los archivos de una generación en curso.
 
 ### Tipos de regla de JOB-04
 
@@ -1916,7 +1917,7 @@ Base común (`SgspeApiTest`, que aplica el modelo y los roles). Para cada transi
 | WF-E3 | `StakeholderRequestWorkflowApiTest` | `accept` por la API genérica → rechazada; `accept` sin `response` o sin `responded_at` → rechazada; el endpoint crea el compromiso en `draft`; `close_accepted` por la API genérica → rechazada; el listener la cierra con motivo; `close_unfulfilled` solo con el compromiso cancelado. Desde F5 (ASM-117): aceptar como aporte por `SOCIAL_INVESTMENT_MANAGER` crea el aporte en `requested` con `created_contribution`; por `COMMITMENT_MANAGER` → `403`; `created_contribution` por la API genérica → `403 COMMAND_ONLY`; cerrar el aporte cierra la solicitud en la misma transacción, también una confidencial; `close_unfulfilled` con el aporte rechazado → permitida, con el aporte aprobado → `409` |
 | WF-F | `SocialRiskWorkflowApiTest` | La primera revisión aplica `assess`; `decide_mitigation` sin medida con responsable → rechazada; pasar a monitoreo sin revisión residual → rechazada; cerrar sin `close_reason` → rechazada |
 | WF-G | `SocialProgramWorkflowApiTest` | `approve` sin acuerdo de sinergia con socio (política activa, G3) → `409`; con acuerdo vencido o sin el socio como parte → `409`; por quien registró (G2) → `403`; `plan_direct` con la política de aprobación interna activa (G4) → `409`; `suspend` y los `cancel_*` sin motivo → `400`; `total_budget` solo suma la moneda del programa; un grupo de beneficiarios con una iniciativa de otro programa → `409 PROGRAM_MISMATCH` |
-| WF-H | `DeliverableWorkflowApiTest` | `approve` con borrador que no está LISTO o con una sección cambiada después → rechazada; `issue` por la API genérica → rechazada; una sección cambiada después de `approve` → el endpoint de emisión responde 409 y `return_to_draft` devuelve el entregable; el endpoint crea la versión, que responde 409 a todo cambio; `start_revision` conserva las versiones; solo los roles con `GENERATE`, `APPROVE` o `ISSUE` piden borradores, aprueban o emiten |
+| WF-H | `DeliverableWorkflowApiTest` | `approve` con borrador que no está LISTO o con una sección cambiada después → rechazada; `issue` por la API genérica → rechazada; una sección cambiada después de `approve` → el endpoint de emisión responde `409 SECTIONS_CHANGED` y `return_to_draft` devuelve el entregable; `issue` con otro `draftModelSha256` → `409 MODEL_MISMATCH`, con un mapa fallido → `409 MAP_FAILED` y sin la lista de verificación EXTERNO → `400 CHECKLIST_REQUIRED`; el endpoint crea las dos versiones, que responden 409 a todo cambio, y AUT-12 la constancia de emisión con su correlativo; `start_revision` conserva las versiones; solo los roles con `GENERATE`, `APPROVE` o `ISSUE` piden borradores, aprueban o emiten |
 | WF-I | `AgreementWorkflowApiTest` | Activar una SERVIDUMBRE sin predios o una AUTORIZACION DE ASAMBLEA sin la interacción de asamblea → rechazada; vencer no cambia el estado, solo `validity_status` |
 | WF-J | `EarlyWarningWorkflowApiTest` | Una cuenta de servicio con el rol no confirma ni descarta; una persona sin `CONFIRM_ALERT` tampoco; una persona con la acción sí; JOB-04 solo crea alertas en `detected` |
 | WF-K (candidatos) | `CommitmentCandidateWorkflowApiTest` | `accept` por la API genérica → rechazada; el endpoint, por una persona, crea el compromiso; una cuenta de servicio → rechazada; `mark_duplicate` sin `duplicate_of` → rechazada |
@@ -1942,8 +1943,8 @@ unitarias `ContributionGuidelinesTest`, `SupportCapTest` con aportes, `CampaignC
   antes y después); los derivados son los esperados con fixtures ficticios; repetir la corrida no crea tareas nuevas; el
   motivo nombra al trabajo; las tareas de seguimiento de JOB-03 tienen las claves `stakeholder_review:<id>:<fecha>` y
   `stakeholder_inactivity:<id>:<fecha de referencia>`. JOB-08 borra solo las claves de `idempotency_key` y los saltos de
-  `derived_version` más antiguos que su plazo, y nunca borra un archivo que referencia una `deliverable_version` o
-  `draft_storage_key`, ni uno sin referencia más reciente que el margen.
+  `derived_version` más antiguos que su plazo. JOB-05 deja LISTO con los siete archivos o FALLIDO con su código, retoma
+  un pedido viejo y nunca corre en una petición (`DeliverableDraftsApiTest`).
 - **JOB-04 (ASM-097):** cada tipo de regla dispara con el valor medido igual al umbral y no con uno menos; la regla del
   proyecto reemplaza a la del tenant del mismo tipo; una alerta abierta, o creada dentro de `window_days`, silencia la
   regla; una regla del tenant crea una alerta por proyecto; ningún texto de la alerta lleva datos personales ni valores
@@ -1991,4 +1992,5 @@ unitarias `ContributionGuidelinesTest`, `SupportCapTest` con aportes, `CampaignC
   `responded_at`, que exigen las transiciones que comunican una respuesta; `reopen_execution` vacía `fulfilled_date`, que solo
   existe en `fulfilled`, `verified` y `closed`; `deadline_status` se calcula solo en los estados de "Plazos y escalamiento";
   `resolved_date` y `closed_date` de QCS y `cancelled_date` de `commitment` salen de las transiciones.
-- **`deliverables.md`:** WF-H, el trabajador de generación (JOB-05) y la retención de borradores (JOB-08, desde F8).
+- **`deliverables.md`:** WF-H, el trabajador de generación (JOB-05), la emisión con AUT-12 y el almacenamiento en
+  wasichai-files, sin paso de borradores en JOB-08 (ASM-133).

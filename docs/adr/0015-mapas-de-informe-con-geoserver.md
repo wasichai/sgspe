@@ -2,8 +2,8 @@
 
 ## Estado
 
-Aceptado en parte · 2026-10-11 (F6): GeoServer interno, estilos SLD y proxy WMS; los mapas de informe por GetMap siguen
-para F8 con su spike
+Aceptado · 2026-10-13 (F8). En F6 (2026-10-11) se aceptó la mitad que sirve al portal; F8 acepta los mapas de informe
+con el resultado del spike de F1: GetMap por POST XML con SLD en línea y las decoraciones dibujadas por SGSPE (ASM-134).
 
 ### Nota de F6 (2026-10-11)
 
@@ -13,6 +13,17 @@ para F8 con su spike
   archivos.
 - Los mapas de informe por GetMap, con capas sensibles en línea y decoraciones, siguen propuestos para F8; su spike
   ([gis.md §7.3](../gis.md)) se hace antes de aceptarlos.
+
+### Nota de F8 (2026-10-13)
+
+- F8 acepta los mapas de informe por GetMap con dos cambios que salen del spike de F1 (decisión del usuario del
+  2026-10-13, ASM-134): la petición va siempre por POST XML (`ogc:GetMap` con un `StyledLayerDescriptor`: las capas
+  publicadas por nombre y las demás como `UserLayer` con `InlineFeature`, GML con `srsName` de URL), sin el límite de
+  largo de una URL; y GeoServer dibuja solo el cuerpo del mapa: marco, grilla UTM, leyenda, barra y escala numérica,
+  norte de cuadrícula, CRS y fuente los dibuja SGSPE (`MapComposer`), porque la decoración `legend` queda vacía con
+  capas en línea y `scaleline` usa otro dpi.
+- En EXTERNO rige la divulgación por capa de las exportaciones geográficas (ASM-124); un mapa con más de 5 000 elementos
+  en línea falla (`MAP_TOO_MANY_FEATURES`) y bloquea la emisión (`409 MAP_FAILED`).
 
 ## Contexto
 
@@ -48,8 +59,8 @@ para F8 con su spike
 
 ## Decisión
 
-Los mapas de informe salen de GeoServer con GetMap, estilos SLD y decoraciones, en el `working_crs` del proyecto
-(RQ-REP-030, ASM-038) ([gis.md §7](../gis.md)):
+Los mapas de informe salen de GeoServer con GetMap y estilos SLD, en el `working_crs` del proyecto, con las decoraciones
+dibujadas por SGSPE (RQ-REP-030, ASM-038, ASM-134) ([gis.md §7](../gis.md)):
 
 - **GeoServer nunca es público.** Vive en la red interna (topología en ADR-0026) y el proxy inverso no tiene ruta hacia
   él. La app solo lo llama desde el trabajo en segundo plano y desde el proxy WMS autenticado de `sgspe.territory`, que
@@ -61,16 +72,16 @@ Los mapas de informe salen de GeoServer con GetMap, estilos SLD y decoraciones, 
 - **Una paleta compartida.** Los SLD toman sus colores de un JSON de paleta que también usan las capas MapLibre del
   portal; las etiquetas de localidades y distritos son reglas de texto de los SLD ([gis.md §7.2](../gis.md)).
 - **Cómo se arma un mapa** (JOB-05, ADR-0013):
-  1. encuadre por regla del tipo: por defecto, la envolvente del área de influencia aprobada con 10 % de margen, ajustada a
-     la escala estándar siguiente para un marco de 16 × 12 cm a 300 dpi (valores propuestos y configurables);
+  1. encuadre por regla del tipo ([gis.md §7.3](../gis.md)), con 10 % de margen, ajustado a la escala estándar siguiente
+     para el marco del tipo (16 × 12 cm, o 24 × 16 cm en el Anexo 1 de T1) a 300 dpi;
   2. capas públicas por nombre con sus estilos;
   3. capas no públicas leídas con `RecordService`, transformadas por el nivel de divulgación (ADR-0017) y enviadas en
-     línea por POST;
-  4. leyenda, escala, norte y fuente con un diseño de decoración de GeoServer; la grilla UTM la dibuja SGSPE sobre la
-     imagen;
+     línea por POST XML (`GetMapRequest`), con las geometrías simplificadas a medio píxel y un tope de 5 000 elementos;
+  4. GeoServer devuelve solo el cuerpo del mapa; marco, grilla UTM, leyenda, barra y escala numérica, norte de
+     cuadrícula, CRS y fuente los dibuja SGSPE con `MapComposer` y la paleta compartida (ASM-134);
   5. un PNG con su SHA-256, congelado en el modelo del entregable: volver a generar una versión emitida no vuelve a pedirlo.
-- **Fallas.** Si un mapa falla, el borrador muestra un aviso en su lugar y la emisión se bloquea (RQ-REP-030). Sin
-  GeoServer el resto de SGSPE funciona.
+- **Fallas.** Si un mapa falla, el borrador muestra el aviso `MAP_FAILED` en su lugar y la emisión responde
+  `409 MAP_FAILED` (RQ-REP-030). Sin GeoServer el resto de SGSPE funciona.
 - **Sin rastro de lo sensible.** El GeoServer del despliegue no registra los cuerpos de las peticiones ni guarda en caché
   esas imágenes; la caché de teselas es solo para el WMS público (RQ-SEC-010).
 - **Sin mapa base en línea** en los mapas de informe del MVP: capas vectoriales de referencia, como el mapa de DOC-02
@@ -93,12 +104,13 @@ Los mapas de informe salen de GeoServer con GetMap, estilos SLD y decoraciones, 
 
 ### Seguimiento
 
-- **Spike técnico, recomendado al inicio de F1 si el checkpoint lo aprueba:** elementos en línea con leyenda en
-  EPSG:32717 a 32719, decoraciones y grilla. Si falla, se cambia el generador sin cambiar el modelo de datos (ASM-038).
-- Se acepta al iniciar F6, cuando llegan GeoServer, `publish_layers.py`, los estilos y el proxy WMS; los mapas de informe
-  se usan en F8 (RQ-REP-030).
+- **Spike técnico de F1:** hecho el 2026-10-07 (el resultado, abajo); F8 adopta su alternativa: SGSPE dibuja la leyenda,
+  la escala y el resto de las decoraciones (ASM-134).
+- Aceptado en parte en F6 (GeoServer, `publish_layers.py`, los estilos y el proxy WMS) y entero en F8 (2026-10-13), con
+  los mapas de informe (RQ-REP-030), que implementa el plan 8.2c.
 - Abiertos: GAP-011, GAP-022. UPS-13 (mapa base de `MapView`) está resuelta con wasichai-ui#38 y la adopta ASM-125.
-- Pruebas: GetMap en la suite lenta (el PNG se decodifica y la leyenda no está vacía) y el proxy WMS de
+- Pruebas: `MapFramingTest`, `MapComposerTest` y `GetMapRequestTest`; GetMap contra un GeoServer real en la suite lenta
+  (`slowTest`: el PNG se decodifica y la leyenda que dibuja `MapComposer` tiene píxeles) y el proxy WMS de
   [gis.md §9](../gis.md); el criterio 7 de [deliverables.md §13.2](../deliverables.md).
 - **Resultado del spike de F1 (2026-10-07).** GeoServer 3.0.1 con capas en línea por `SLD_BODY`: M1 EPSG:32717 PASS,
   EPSG:32718 PASS, EPSG:32719 PASS (PNG de 1890 × 1417, centro #3366CC, de 0,15 a 1,2 s), siempre que el polígono en
@@ -112,11 +124,12 @@ Los mapas de informe salen de GeoServer con GetMap, estilos SLD y decoraciones, 
   139 KB, menos de 0,5 s). La grilla UTM la sigue dibujando SGSPE. Consecuencia: M3 falla, así que se anota como
   pendiente de F6 la alternativa de ASM-038 (otro generador de mapas, o que SGSPE dibuje la leyenda de las capas en
   línea y la barra de escala como ya dibuja la grilla); ADR-0015 no cambia (según la regla de decisión del plan de F1).
+  F8 eligió la segunda alternativa (ASM-134).
 
 ## Referencias
 
 - Requisitos: RQ-REP-008, RQ-REP-014, RQ-REP-019, RQ-REP-030, RQ-GIS-012, RQ-GIS-019, RQ-SEC-010, RQ-SEC-011, CON-054,
-  ASM-038, ASM-125, GAP-011, GAP-022, UPS-13 (resuelta).
+  ASM-038, ASM-124, ASM-125, ASM-134, GAP-011, GAP-022, UPS-13 (resuelta).
 - Documentos: [gis.md §1.4, §2, §6.2, §7, §9 y §11](../gis.md), [deliverables.md §7.8 y §9.2](../deliverables.md),
   [architecture.md §5.4, §10 y §14](../architecture.md), [security.md §10](../security.md).
 - wasichai: `WAS-ADR-0006` (GeoServer as publisher, not as the core), `WAS-ADR-0027` (GIS is optional, and the API is
