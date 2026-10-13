@@ -87,7 +87,8 @@ Las de este plan:
 - **Errores.** Todo 400, 403, 404 o 409 propio lleva su código en `errors[0].message` y el campo en `errors[0].field`
   (`Finding.toCodedException`), con los estados de `api.md` §3.3: `400 PROJECT_REQUIRED` y `400 TOO_MANY_RECORDS`
   (`project`), `409 INDICATOR_NOT_CLOSABLE` (`indicator`, con el miembro `reason` del cuerpo: `STANCE`,
-  `NO_SCALAR_VALUE`, `UNAVAILABLE` o `CONFIDENTIAL_HIDDEN`), `400 PERIOD_NOT_ENDED` (`attributes.period_end_date`),
+  `NO_SCALAR_VALUE`, `UNAVAILABLE` o `NOT_PERIOD_BOUND`; decisiones 25 y 27), `400 PERIOD_NOT_ENDED`
+  (`attributes.period_end_date`),
   `409 MEASUREMENT_EXISTS` (`attributes.period_start_date`), `403 ACTION_REQUIRED` (`project`) y `400 FIELD_NOT_EDITABLE`
   (`code`). Un parámetro o una propiedad desconocidos son `422` y `400` como siempre (`StrictQuery`, `StrictBody`).
 - **Datos de prueba.** Ficticios: correos `@sgspe.test`, «Proyecto Ejemplo A», «Comunidad Ejemplo», «Persona Ejemplo 1»,
@@ -144,34 +145,42 @@ tarea dueña del código:
 1. **El lector de la plataforma dentro de una petición.** Un endpoint (este o uno de 8.2b) que pase
    `KpiReader.Platform` mientras atiende a una persona le daría la postura, las QCS confidenciales y los proyectos que no
    tiene asignados. Se espera que `KpiReaders.platform(...)` y `KpiReaders.reading(...)` con la plataforma lancen
-   `IllegalStateException` si hay un usuario en el contexto, sin leer nada, y que ninguna otra pieza de
-   `sgspe.dashboard` llame a `asPlatform`. Pruebas: `KpiReadersTest` «la plataforma no se usa con una persona en el
-   contexto» (Tarea 3) y `ArchitectureTest` «solo KpiReaders lee como la plataforma en sgspe.dashboard» (Tarea 11).
+   `IllegalStateException` si hay un usuario en el contexto, sin leer nada; que el lector de una persona solo valga para
+   la persona que llama; que `SpatialGate.selectAsPlatform` también falle con un usuario; y que ninguna otra pieza de
+   `sgspe.dashboard` llame a `asPlatform` ni otra que `ComponentLand` a `selectAsPlatform`. Pruebas: `KpiReadersTest` «la
+   plataforma no se usa con una persona en el contexto» y «el lector de una persona solo es la persona del contexto»,
+   `SpatialGateTest` «selectAsPlatform con una persona en el contexto falla sin correr nada» (Tarea 3) y `ArchitectureTest`
+   «solo KpiReaders lee como la plataforma en sgspe dashboard» y «solo ComponentLand usa selectAsPlatform y solo
+   DashboardData le pasa la plataforma» (Tarea 11).
 2. **Volver a correr `load_indicators.py` en un tenant que ya editó sus metas** (la subida de fase de cada tenant lo
    corre). Se espera que una meta cambiada o borrada y una frecuencia cambiada o borrada por el cliente sigan igual
    aunque la documentación de `dashboards.md` cambie, que un indicador agregado por el cliente no se borre y que una
    segunda corrida no escriba. Pruebas: `test_load_indicators.LoadTests` «una meta o una frecuencia editada por el
    cliente no se toca ni cuando cambian los textos», «un indicador que el cliente agregó no se borra» y «la segunda
    corrida no escribe nada» (Tarea 1).
-3. **Una cifra oficial mostrada fuera de su medición o a quien no lee la postura.** La medición del proyecto A de
-   septiembre no debe salir en el tablero de A con un filtro de localidad, ni en el de A y B, ni en el de octubre, ni la
-   del tenant en el tablero de un rol que solo ve sus proyectos; y #2 y #3 dicen «no disponible» a quien no lee `stance`
-   aunque el periodo esté cerrado. Pruebas: `MonitoringTableTest` «la cifra oficial casa solo con el mismo alcance,
-   periodo y sin otros filtros» y «sin el KPI disponible no hay cifra oficial» (Tarea 7) y `MonitoringDashboardApiTest`
+3. **Una cifra oficial mostrada fuera de su medición, a quien no lee la postura o con QCS confidenciales.** La medición
+   del proyecto A de septiembre no debe salir en el tablero de A con un filtro de localidad, ni en el de A y B, ni en el de
+   octubre, ni la del tenant en el tablero de un rol que solo ve sus proyectos; #2 y #3 dicen «no disponible» a quien no
+   lee `stance` aunque el periodo esté cerrado; la cifra oficial de un KPI de QCS nunca cuenta las confidenciales ni se
+   muestra a quien se le ocultan. Pruebas: `MonitoringTableTest` «la cifra oficial casa solo con el mismo alcance,
+   periodo y sin otros filtros» y «sin el KPI disponible no hay cifra oficial» (Tarea 7), `IndicatorMeasurementsApiTest`
+   «las QCS confidenciales nunca entran en la cifra oficial» (Tarea 10) y `MonitoringDashboardApiTest`
    «la cifra oficial sale solo con el pedido de su medición» y «#2 y #3 no disponibles sin stance, también cerrados»
    (Tarea 8).
 4. **Dos cierres del mismo periodo, o un cierre de todo el tenant por quien no lo lee entero.** La unicidad compuesta no
    ve dos mediciones del tenant (los NULL son distintos, WAS-ADR-0037), y dos peticiones simultáneas podrían pasar la
    comprobación a la vez. Se espera `409 MEASUREMENT_EXISTS` en la segunda, por proyecto y por tenant, una sola
-   medición guardada, y `403 ACTION_REQUIRED` para quien no tiene `READ_ALL_PROJECTS` ni es `ADMIN`. Pruebas:
-   `IndicatorMeasurementsApiTest` «un periodo se cierra una vez por proyecto y una vez para el tenant» y «todo el tenant
-   exige leer todos los proyectos y cerrar exige CREATE» (Tarea 10).
+   medición guardada (también con la misma `Idempotency-Key`, que devuelve la primera respuesta), y `403
+   ACTION_REQUIRED` para todo el tenant a quien no es administrador (decisión 10). Pruebas: `IndicatorMeasurementsApiTest`
+   «un periodo se cierra una vez por proyecto y una vez para el tenant» y «todo el tenant exige ser administrador y
+   cerrar exige CREATE» (Tarea 10).
 5. **Un tablero `executive` con muchos proyectos, sin proyectos o en un tenant sin el modelo de F8.** Se espera `400
-   TOO_MANY_RECORDS` sobre `project` con más de `sgspe.dashboards.executive.max-projects` (también por «mis proyectos»
-   por defecto), un tablero vacío y sin error sin proyectos, y que `monitoring` en un tenant de F7 (sin `indicator`) o
-   ante quien no lee el catálogo responda sin metas ni cifras oficiales en vez de un 500. Pruebas:
-   `ExecutiveDashboardApiTest` «más proyectos que el tope es 400 TOO_MANY_RECORDS sobre project» y «sin proyectos las
-   tiles salen en cero y byProject vacío» (Tarea 5), `MonitoringTableTest` «sin catálogo, sin metas ni cifras oficiales»
+   TOO_MANY_RECORDS` sobre `project` con más proyectos pedidos que `sgspe.dashboards.executive.max-projects`, las tiles
+   sin `byProject[]` y con `byProjectOmitted: true` si los proyectos por defecto pasan el tope (decisión 24), un tablero
+   vacío y sin error sin proyectos, y que `monitoring` en un tenant de F7 (sin `indicator`) o ante quien no lee el
+   catálogo responda sin metas ni cifras oficiales en vez de un 500. Pruebas: `ExecutiveDashboardApiTest` «más proyectos
+   pedidos que el tope es 400 TOO_MANY_RECORDS sobre project», «con más proyectos por defecto que el tope salen las tiles
+   sin byProject» y «sin proyectos las tiles salen en cero y byProject vacío» (Tarea 5), `MonitoringTableTest` «sin catálogo, sin metas ni cifras oficiales»
    (Tarea 7) y `MonitoringDashboardApiTest` «sin leer el catálogo el tablero sale sin metas ni cifras oficiales» (Tarea 8).
 
 ---
@@ -181,29 +190,37 @@ tarea dueña del código:
 | # | Hallazgo | Decisión |
 |---|---|---|
 | 1 | §2.2.1 adelanta `indicator` e `indicator_measurement` (F8 en sus fichas) a este plan, pero `test_model.py` compara el modelo con las fichas hasta `PHASE` y exige «nada de una fase posterior»; poner `PHASE = "F8"` exigiría también los entregables, que son de 8.1 | `PHASE` sigue en `"F7"` y `test_model.py` gana `EARLY = {"indicator": "F8", "indicator_measurement": "F8"}` con `limit(name)`: esos dos objetos se comparan hasta su fase, los demás hasta `PHASE`. 8.1 borra `EARLY` al poner `PHASE = "F8"` (Tarea 1) |
-| 2 | `NO_SCALAR_VALUE` cubre «KPI-TER-01, KPI-EXE-03 y los que solo dan series», sin lista de esos últimos; varios KPI de serie (KPI-STK-08, KPI-COM-11, KPI-GRV-09, KPI-RSK-04) sí traen un valor del último mes | La razón sale de dos lados: la lista fija `Kpis.NO_SCALAR` (KPI-TER-01 y KPI-EXE-03) y, después de calcular, un `value` nulo (un porcentaje sin denominador, una serie sin escalar). Los KPI de serie con valor se cierran con ese valor (Tarea 9) |
-| 3 | «Manda el parámetro del proyecto cuando existe; si no, `target_value`» (§3.1), pero KPI-ENG-02 ya calcula su meta del periodo con el parámetro y, si está vacío, con el valor por defecto de ASM-019 (2), y `target_value` es mensual | #5 (KPI-ENG-02): con el parámetro del proyecto o un plan con meta en algún mes del periodo, la meta es el `denominator` de KPI-ENG-02 y el origen `PROJECT`; si no, `target_value` × meses que toca el periodo × proyectos, origen `CATALOG`; sin ella, `NONE`. Las demás filas: `target_value` tal cual (`CATALOG`) o `NONE`. Con el catálogo inicial (2) las dos cifras coinciden; si el cliente edita la meta del catálogo, el detalle de KPI-ENG-02 sigue con el valor por defecto de ASM-019, y el monitoreo sigue al catálogo (Tarea 7) |
-| 4 | «Sin filtros de territorio» para la cifra oficial; los demás filtros (`scope`, `explorationCampaign`, `owner`, `program`, `year`) también recortan la cifra | La cifra oficial sale solo si el pedido no trae ningún filtro fuera de `project` y el periodo (`DashboardFilters.given()` vacío), el periodo es exactamente el de la medición y el alcance coincide: un solo `project` pedido para una medición de ese proyecto, o ningún `project` pedido por quien lee todos los proyectos (el lector de la plataforma o `ProjectReach.mine(user) == null`) para una del tenant (Tarea 7) |
+| 2 | `NO_SCALAR_VALUE` cubre «KPI-TER-01, KPI-EXE-03 y los que solo dan series», sin lista de esos últimos; varios KPI de serie (KPI-STK-08, KPI-COM-11, KPI-GRV-09, KPI-RSK-04) sí traen un valor del último mes | La razón sale de dos lados: la lista fija `Closability.NO_SCALAR` (KPI-TER-01 y KPI-EXE-03) y, después de calcular, un `value` nulo (un porcentaje sin denominador, una serie sin escalar). Los KPI de serie con valor se cierran con ese valor. **Aceptado por el coordinador (R3)** (Tarea 9) |
+| 3 | «Manda el parámetro del proyecto cuando existe; si no, `target_value`» (§3.1), pero KPI-ENG-02 ya calcula su meta del periodo con el parámetro y, si está vacío, con el valor por defecto de ASM-019 (2), y `target_value` es mensual | **Regla del coordinador (R1): una sola fuente.** La meta mensual de KPI-ENG-02 es la del plan vigente o la del proyecto y, sin ellas, el `target_value` de KPI-ENG-02 del catálogo (null: sin meta), en todo tablero y en el detalle del KPI; un tenant sin el catálogo o con el catálogo sin cargar usa el valor por defecto de ASM-019 (2), el mismo que carga DOC-01; quien no lee `indicator.target_value` recibe KPI-ENG-02 no disponible. La meta de #5 en `monitoring` es el denominador de KPI-ENG-02, con origen `PROJECT` (un proyecto del filtro o un plan define la suya), `CATALOG` o `NONE`; las demás filas, `target_value` tal cual o `NONE` (Tareas 7 y 8) |
+| 4 | «Sin filtros de territorio» para la cifra oficial; los demás filtros (`scope`, `explorationCampaign`, `owner`, `program`, `year`) también recortan la cifra | La cifra oficial sale solo si el pedido no trae ningún filtro fuera de `project` y el periodo (`DashboardFilters.given()` vacío), el periodo es exactamente el de la medición y el alcance coincide: un solo `project` pedido (leído como UUID y sin repetir) para una medición de ese proyecto, o ningún `project` pedido por quien lee todos los proyectos (el lector de la plataforma o `ProjectReach.mine(user) == null`) para una del tenant (Tarea 7) |
 | 5 | §3.1 dice que cada fila de `monitoring` lleva valor, desgloses y meta, sin fijar la forma; la respuesta de los tableros es `DashboardResponse` con `indicators[]` | `monitoring` responde `DashboardResponse` con `indicators[]` (los 13 KPI en el orden de §4.9, con sus desgloses y su disponibilidad, como todo tablero) y `rows[]` en el mismo orden: `{ number, code, label, verificationMeans, deliverable, available, value, target, targetSource, official }`. `official` es `{ measurement, closedAt, value }` o `null` (Tareas 7 y 8; Tarea 12 lo escribe en `api.md`) |
 | 6 | `byProject[]` es «una fila por proyecto con las mismas cifras», sin forma | `{ project, code, name, indicators[] }`, con los 8 KPI de las tiles con valor (KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-ENG-01, KPI-EXE-02 y KPI-INV-03), sin desgloses ni series; cada fila calcula con las mismas funciones sobre el filtro de ese proyecto (Tarea 5) |
 | 7 | KPI-EXE-03 son «tres series», y `IndicatorResult` lleva una sola serie | Una serie de 12 filas `{ period, engagements, grievancesReceived, grievancesClosed, overdueCommitments }` y `value: null`. Lee QCS, así que lleva `confidentialHidden` como los KPI-GRV. Las quejas se cuentan con la regla de reclasificación de las tres QCS y después se filtran a `grievance` (`AttentionKpis.counted`), para que un original reclasificado a consulta no cuente (Tarea 4) |
 | 8 | ASM-136: «las evaluaciones de grupos de interés, mensuales; las revisiones de riesgo, semanales», sin decir qué KPI son; `frequency` es TEXT | Mensual: los 13 de la Tabla 9.5 y KPI-STK-01, 02, 03 y 08 (los que leen las evaluaciones); Semanal: KPI-RSK-01 a 05; los demás sin frecuencia. El texto es `Mensual` o `Semanal`. Solo KPI-ENG-02 trae meta (2) (Tarea 1) |
 | 9 | El catálogo debe tener «cada KPI de `dashboards.md` §4» con sus textos | `model/indicators.json` se genera una vez con `$SCRATCH/gen_indicators_json.py` desde las filas de §4 (nombre sin «#n», definición, fórmula, «Filtros y desgloses» como `disaggregation`) y §4.9 (medio de verificación y número): 53 indicadores. `test_load_indicators.py` exige que sigan siendo los de §4 en su orden (Tarea 1) |
-| 10 | El cierre de todo el tenant exige `READ_ALL_PROJECTS` o `ADMIN`, pero `ArchitectureTest` prohíbe `readsAll` fuera de `common` y `scope` | Se pregunta `ProjectReach.mine(user) == null`, que es lo mismo (Tarea 10). Con los roles de hoy solo `SOCIAL_MANAGER` tiene CREATE sobre `indicator_measurement` y no tiene `READ_ALL_PROJECTS`: todo el tenant lo cierra, en la práctica, `ADMIN` (como la consecuencia 5 de la especificación para los KPI de QCS) |
+| 10 | El cierre de todo el tenant exige `READ_ALL_PROJECTS` o `ADMIN`, pero `ArchitectureTest` prohíbe `readsAll` fuera de `common` y `scope` | **Regla del coordinador (R2): por ahora, solo el administrador** (`user.isAdmin`, sin nombrar el rol en el código): más conservador que «`READ_ALL_PROJECTS` o `ADMIN`» de los documentos, que la Tarea 12 ajusta. Con los roles de hoy da lo mismo: solo `SOCIAL_MANAGER` tiene CREATE sobre `indicator_measurement` y no tiene `READ_ALL_PROJECTS`. La cifra oficial del tenant en `monitoring` sigue casando con quien lee todos los proyectos (`ProjectReach.mine(user) == null`) (Tarea 10) |
 | 11 | `indicator_measurement` es raíz con `project` opcional (`ProjectScope.ROOTS`) e `indicator` es maestro del tenant (§4.2 de la especificación); `security.md` §9.7 no los nombra | `ProjectScope.ROOTS` suma `indicator_measurement` (36 raíces) y `ProjectScope.TENANT` suma `indicator`; `security.md` §9.7 cambia en el mismo commit que `model.json` (la fila de las raíces y «Maestros del tenant», que lee `design_docs.py`), como pidió el plan 8.0 (Tarea 1) |
-| 12 | `SpatialGate` lee siempre como la persona del token («fuera de una petición es el 401»), y KPI-TER-04 lo usa: con el lector de la plataforma, §2.2.16 pide «`SpatialGate` no pide alcances» | `SpatialGate.selectAsPlatform(organizationId, reads, sql, map)`: sin permisos de persona ni alcances ni dueño, con la organización enlazada; un objeto o campo que el tenant no tiene es no disponible. `ComponentLand.rows(projects, platform)` la usa cuando `DashboardData` trae la organización de la plataforma (Tarea 3) |
+| 12 | `SpatialGate` lee siempre como la persona del token («fuera de una petición es el 401»), y KPI-TER-04 lo usa: con el lector de la plataforma, §2.2.16 pide «`SpatialGate` no pide alcances» | `SpatialGate.selectAsPlatform(organizationId, reads, sql, map)`: sin permisos de persona ni alcances ni dueño, con la organización enlazada; un objeto o campo que el tenant no tiene es no disponible; falla con un usuario en el contexto. `ComponentLand.rows(projects, platform)` la usa cuando `DashboardData` trae la organización de la plataforma, y `ArchitectureTest` deja `selectAsPlatform` solo a `ComponentLand` y la plataforma en `rows(...)` solo a `DashboardData` (Tareas 3 y 11) |
 | 13 | `INDICATOR_NOT_CLOSABLE` lleva «el miembro `reason` del cuerpo» y `Finding` solo da `errors[]` | `IndicatorNotClosable` (una `WasichaiException` con `errors[0]` = `indicator`/`INDICATOR_NOT_CLOSABLE`) y un `@ExceptionHandler` del controlador que agrega `reason` al problem+json, como `ImportChoiceRequired` agrega `layers` (Tarea 10) |
 | 14 | Un `indicator` creado por el cliente con un código que `Kpis` no calcula | El cierre responde `409 INDICATOR_NOT_CLOSABLE` con `UNAVAILABLE`: no hay cifra que congelar. El tablero `monitoring` no lo muestra (sus filas son las 13 de §4.9) (Tarea 10) |
 | 15 | El periodo «tiene que haber terminado» | Termina antes de hoy en Lima: `period_end_date` < hoy. Un periodo con inicio posterior al fin es `400 OUT_OF_RANGE` (`attributes.period_start_date`); una fecha ilegible, `400 INVALID_VALUE`; una que falta, `400 FIELD_REQUIRED` (Tarea 10) |
 | 16 | `GET /api/sgspe/dashboards/indicators` «ubica KPI-STK-04, 05 y 07 y KPI-ENG-06, 07 y 08 en `monitoring`», y `DashboardsApiTest` y `EngagementKpisF4Test` exigen hoy `dashboard: null` | Su `dashboard` pasa a `monitoring` y KPI-EXE a `executive`; las dos pruebas cambian en la Tarea 4 y la Tarea 8 |
-| 17 | La base de pruebas `F8IndicatorsApiTest` va «sobre `F6ApiTest`» y los tableros necesitan el catálogo cargado | La base corre `model/load_indicators.py` una vez por JVM contra la app de la prueba (como el aprovisionamiento de `SgspeApiTest`), y trae `activeProject`, `indicatorId`, `get`, `closePeriod` y `lastMonth` (Tarea 2) |
-| 18 | La medición del tablero `executive` («10 proyectos en `sgspe_perf`, p95 bajo 3 s») es de §7 | Paso del coordinador en la Tarea 13, con permiso del usuario para tocar `sgspe_perf`; el resultado va al cuerpo del PR y a `roadmap.md` F8 «Estado» en un commit aparte |
+| 17 | La base de pruebas `F8IndicatorsApiTest` va «sobre `F6ApiTest`» y los tableros necesitan el catálogo cargado | La base corre `model/load_indicators.py` una vez por JVM contra la app de la prueba (como el aprovisionamiento de `SgspeApiTest`), y trae `activeProject`, `indicatorId`, `get`, `closePeriod`, `lastMonth` y `uniqueMonth` (un mes que sale de `uniqueName`, para las mediciones del tenant; los códigos propios de prueba también salen de `uniqueName`) (Tarea 2) |
+| 18 | La medición del tablero `executive` («10 proyectos en `sgspe_perf`, p95 bajo 3 s») es de §7 | **Regla del coordinador (R9):** paso del coordinador en la Tarea 13, que primero pide permiso al usuario para tocar `sgspe_perf`; el resultado va al cuerpo del PR y a `roadmap.md` F8 «Estado» en un commit aparte |
+| 19 | Crítico 1 de la revisión: con el lector de la plataforma, las lecturas MANY_TO_MANY de `DashboardData.relatedOf` (contactos de KPI-STK-04, 05 y 07; temas; grupos de interés de KPI-ENG-06) van por `Records.related`, que exige un usuario | Con la plataforma, `relatedOf` lee por `Records.relatedAsPlatform` (WAS-ADR-0039) y convierte cada fila con `toResponse()`, con el mismo tope de interacciones; `DashboardDataPlatformTest` con `Records` simulado (Tarea 3) |
+| 20 | El cierre calculaba el KPI dentro del candado | Se calcula antes; el candado cubre solo la comprobación de la medición repetida y el alta (Tarea 10) |
+| 21 | Un `KpiReader.Person` de otra persona daría sus permisos a quien llama | `KpiReaders.reading` exige que la persona del lector sea la del contexto (`userId`); el cierre toma su lector de `KpiReaders.person()` (Tareas 3 y 10) |
+| 22 | ASM-136: «las evaluaciones de grupos de interés, mensuales» | **Regla del coordinador (R8):** son KPI-STK-01, 02, 03 y 08 (decisión 8) |
+| 23 | Convención con 8.1 (el coordinador): 8.2a se mezcla primero | 8.2a deja `EARLY` y `limit()` con `PHASE = "F7"`; cada prueba de fase cuenta solo lo suyo (`AiModelTests` suma acciones de los objetos hasta F7; `IndicatorModelTests` sus dos objetos y sus dos relaciones; `ProjectScopeF5Test` y `ProjectScopeF7Test` restan `indicator_measurement`) y los totales absolutos viven en `ModelAgainstCardsTests`, `test_apply.ModelOfF7Tests` y `ProjectScopeF8Test`; `security.md` §9.7 deja «y, desde F8, `indicator`.» para que 8.1 sume ahí (Tarea 1) |
+| 24 | Más de 25 proyectos en `executive` | **Regla del coordinador (R6):** pedir más proyectos que el tope es `400 TOO_MANY_RECORDS`; tenerlos por defecto («mis proyectos» o todos) da las tiles sin `byProject[]` y con `byProjectOmitted: true` (Tarea 5; `api.md` en la Tarea 12) |
+| 25 | QCS confidenciales y cifra oficial (`CONFIDENTIAL_HIDDEN` de ASM-136) | **Regla del coordinador (R4):** el cierre calcula siempre los KPI que leen QCS sin las confidenciales, también para quien las ve, así que la cifra oficial nunca revela cuántas se excluyen y `CONFIDENTIAL_HIDDEN` deja de ser una razón (la Tarea 12 lo quita de los documentos); además, `monitoring` no muestra la cifra oficial de una fila de QCS a quien se le ocultan (`MonitoringTable.official`) (Tareas 7, 9, 10 y 12) |
+| 26 | El desglose principal congelado puede nombrar registros (KPI-STK-03 lista grupos de interés; KPI-COM-07, responsables por correo) y la medición la lee cualquiera con READ | **Regla del coordinador (R5):** solo se congela un desglose agregado; uno por registro (`Closability.RECORD_LEVEL`: `stakeholder`, `engagement`, `overdue`, `owner`, `risk`) no, y la medición lleva solo el valor (Tarea 9) |
+| 27 | Un KPI que no depende del periodo (abiertos, de plazo, de matriz, acumulados) daría la foto de hoy como cifra de un periodo viejo | **Regla del coordinador (R7):** `Closability.PERIODLESS` solo se cierra para el periodo vigente, que este plan fija como el que termina en el mes pasado o en el actual (antes de hoy); un periodo anterior es `409 INDICATOR_NOT_CLOSABLE` con `reason` `NOT_PERIOD_BOUND`. Si el coordinador quiere otra ventana, cambia solo esa condición de `Closability.before` (Tareas 9, 10 y 12) |
 
 ## Interfaces con los otros planes de F8
 
-Este plan va después del 8.0 y en paralelo con F7 (ya integrada) y con 8.3; 8.1 lo rebasa o lo rebasa este (los dos
-tocan `model.json`, `roles.json` y `test_model.py`: el segundo en mezclar corre la suite de Python y ajusta las cuentas),
-y 8.2b parte de los dos integrados en `main`. Si un nombre de aquí y uno de los documentos difieren, gana el documento y
+Este plan va después del 8.0 y en paralelo con F7 (ya integrada) y con 8.3; se mezcla antes que 8.1, que se rebasa sobre
+él (los dos tocan `model.json`, `roles.json` y `test_model.py`), y 8.2b parte de los dos integrados en `main`. Si un nombre de aquí y uno de los documentos difieren, gana el documento y
 se corrige este plan.
 
 ### El modelo (`model/`)
@@ -222,7 +239,8 @@ se corrige este plan.
 - `model/indicators.json` (`{"indicators": [53 elementos]}`) y `model/load_indicators.py`
   (`read_catalog(path)`, `load(client, items)`, `main(argv)`; salida `done: <c> created, <u> updated, <s> skipped`),
   paso `load_indicators.py` de `tenant_steps.STEPS`, entre `load_ubigeo.py` y `publish_layers.py`.
-- `test_model.EARLY`: 8.1 la borra al poner `PHASE = "F8"`.
+- `test_model.EARLY` y `limit()`: 8.2a se mezcla antes que 8.1 (convención del coordinador, decisión 23); 8.1 decide si los
+  borra al poner `PHASE = "F8"`.
 
 ### Kotlin (lo que consume 8.2b y 8.2c)
 
@@ -231,16 +249,21 @@ se corrige este plan.
 - `sgspe.dashboard.KpiReaders` (`@Component`): `suspend fun person(): KpiReader.Person`; `suspend fun
   platform(organizationId: UUID): KpiReader.Platform` (falla con `IllegalStateException` dentro de una petición);
   `suspend fun <T> reading(reader: KpiReader, block: suspend (KpiContext) -> T): T` (con la plataforma, dentro de
-  `Records.asPlatform`).
+  `Records.asPlatform` y fuera de una petición; con una persona, solo la del contexto).
 - `sgspe.dashboard.KpiContext`: `reader`, `readable: suspend (String) -> Boolean`, `confidentialHidden: Boolean`,
   `tenantWide: Boolean`, `platform: UUID?`, `suspend fun defaultProjects(): List<UUID>`.
 - `sgspe.dashboard.Dashboards`: `suspend fun dashboard(name: String, params: MultiValueMap<String, String>, reader:
   KpiReader? = null): DashboardResponse` (sin lector, la persona: `RunSources` de F7 no cambia); `suspend fun
   indicator(code: String, params: MultiValueMap<String, String>, reader: KpiReader? = null): IndicatorValue`;
-  `suspend fun value(code: String, projects: List<UUID>?, start: LocalDate, end: LocalDate, reader: KpiReader):
-  IndicatorValue` (sin `projects`, los proyectos por defecto del lector). T1 (8.2c, 9.3.1) pide
+  `suspend fun value(code: String, projects: List<UUID>?, start: LocalDate, end: LocalDate, reader: KpiReader,
+  excludeConfidential: Boolean = false): IndicatorValue` (sin `projects`, los proyectos por defecto del lector; con
+  `excludeConfidential`, sin las QCS confidenciales, como el cierre). T1 (8.2c, 9.3.1) pide
   `dashboard("monitoring", params, readers.platform(org))` y lee `rows[]` con su `official`.
-- `DashboardResponse` suma `byProject: List<ProjectFigures>?` y `rows: List<MonitoringRow>?` (no viajan si son nulos).
+- `DashboardResponse` suma `byProject: List<ProjectFigures>?`, `byProjectOmitted: Boolean?` y `rows:
+  List<MonitoringRow>?` (no viajan si son nulos). `DashboardData` suma, al final y opcionales, `platform: UUID?`,
+  `hasCatalog: Boolean` y `excludeConfidential: Boolean`; `AttentionRow` suma `confidential: Boolean = false`.
+- `Closability.before(code, period, today)`, `after(value)`, `breakdown(value)`, `PERIODLESS`, `RECORD_LEVEL`; las razones
+  de `INDICATOR_NOT_CLOSABLE` son `STANCE`, `NO_SCALAR_VALUE`, `UNAVAILABLE` y `NOT_PERIOD_BOUND`.
 - `sgspe.dashboard.MonitoringTable.ROWS: List<MonitoringSpec>` (`number`, `code`, `label`, `verificationMeans`,
   `deliverable`), `ExecutiveKpis.TILES` y `ExecutiveKpis.BY_PROJECT`.
 - `DashboardFilters.of(projects: List<UUID>, start: LocalDate, end: LocalDate): DashboardFilters`.
@@ -255,7 +278,7 @@ se corrige este plan.
   Map<String, Any?> = emptyMap()): String`,
   `indicatorId(code: String): String`, `get(path: String, token: String = this.token): JsonNode`,
   `closePeriod(indicator: String, project: String?, start: LocalDate, end: LocalDate, token: String = this.token,
-  key: String? = null): Response`, `lastMonth(): Pair<LocalDate, LocalDate>`, `pastMonth(): Pair<LocalDate, LocalDate>`. 8.1 crea `F8ApiTest : F7ApiTest()` aparte;
+  key: String? = null): Response`, `lastMonth(): Pair<LocalDate, LocalDate>`, `uniqueMonth(): Pair<LocalDate, LocalDate>`. 8.1 crea `F8ApiTest : F7ApiTest()` aparte;
   8.2b puede subir estas ayudas si las necesita.
 
 ## Mapa de archivos
@@ -307,7 +330,8 @@ Tarea 9 ────────────────────────
 - Modify: `docs/security.md` (§9.7: la fila de las raíces y «Maestros del tenant»)
 - Modify: `src/main/kotlin/sgspe/scope/ProjectScope.kt`, `src/main/kotlin/sgspe/common/AmountFieldsGuard.kt`
 - Create: `src/test/kotlin/sgspe/scope/ProjectScopeF8Test.kt`
-- Modify: `src/test/kotlin/sgspe/scope/ProjectScopeF7Test.kt`, `src/test/kotlin/sgspe/contract/TenantProvisioningApiTest.kt`
+- Modify: `src/test/kotlin/sgspe/scope/ProjectScopeF5Test.kt`, `src/test/kotlin/sgspe/scope/ProjectScopeF7Test.kt`,
+  `src/test/kotlin/sgspe/contract/TenantProvisioningApiTest.kt`
 
 **Interfaces:**
 - Consumes: nada de otras tareas.
@@ -369,15 +393,17 @@ def limit(name):
 
 ```python
     def test_f7_trae_dos_objetos_y_cuatro_relaciones(self):
-        # lo que había hasta F7, por las fases de las fichas: 8.2a suma los indicadores (IndicatorModelTests)
+        # lo que había hasta F7, por las fases de las fichas: cada fase cuenta solo lo suyo (8.2a suma los indicadores en
+        # IndicatorModelTests; los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF7Tests)
         cards = design_docs.cards()
-        self.assertEqual(len([n for n in self.objects if cards[n].phase <= "F7"]), 84)
+        upto = [o for o in self.model["objects"] if cards[o["name"]].phase <= "F7"]
+        self.assertEqual(len(upto), 84)
         relationships = [r for r in self.model["relationships"]
                          if design_docs.relationship_phase(cards, cards[r["source"]],
                                                            next(x for x in cards[r["source"]].relationships
                                                                 if x["name"] == r["name"])) <= "F7"]
         self.assertEqual(len(relationships), 276)
-        self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
+        self.assertEqual(sum(len(o.get("actions", [])) for o in upto), 39)
 ```
 
 4. Antes de `# la migración de la tabla fija de sgspe.ai`, agregar:
@@ -395,10 +421,11 @@ class IndicatorModelTests(unittest.TestCase):
         cls.relationships = {r["name"]: r for r in cls.model["relationships"]}
         cls.roles = load("roles.json")
 
-    def test_el_modelo_trae_86_objetos_y_278_relaciones(self):
-        self.assertEqual(len(self.objects), 86)
-        self.assertEqual(len(self.model["relationships"]), 278)
+    def test_trae_sus_dos_objetos_y_sus_dos_relaciones(self):
+        # solo lo suyo: los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF7Tests
         self.assertEqual([n for n in self.objects if n.startswith("indicator")], ["indicator", "indicator_measurement"])
+        own = sorted(r["name"] for r in self.model["relationships"] if r["source"] == "indicator_measurement")
+        self.assertEqual(own, ["indicator_measurement_indicator", "indicator_measurement_project"])
 
     def test_el_catalogo_es_editable_y_la_medicion_inmutable_y_solo_por_su_endpoint(self):
         indicator, measurement = self.objects["indicator"], self.objects["indicator_measurement"]
@@ -700,9 +727,13 @@ En `docs/security.md`, en la fila de `ProjectScope.ROOTS` de la tabla de §9.7, 
 `early_warning_rule`, `export_log` y, desde F7, `ai_suggestion` y `ai_interaction` sin `project`, siempre |` pasa a
 `35 desde F7, con `ai_suggestion` y `ai_interaction`; 36 desde F8, con `indicator_measurement`) | Su `project` es de mis
 proyectos; `evidence`, `early_warning_rule`, `export_log`, desde F7, `ai_suggestion` y `ai_interaction` y, desde F8,
-`indicator_measurement` sin `project`, siempre |` (la fila sigue en una sola línea). En el bullet «Maestros del tenant»,
+`indicator_measurement` sin `project`, siempre |` (la fila sigue en una sola línea). La fila siguiente, `| Los 20 maestros de
+`ProjectScope.TENANT` (territorio, actores, línea base, `topic`) | Siempre (ASM-107) |`, pasa a `| Los maestros de
+`ProjectScope.TENANT` (territorio, actores, línea base, `topic`; 20 hasta F7; desde F8, también `indicator`) | Siempre
+(ASM-107) |`. En el bullet «Maestros del tenant»,
 `` `local_conflict`, `topic`. Son los únicos objetos `` pasa a `` `local_conflict`, `topic` y, desde F8, `indicator`. Son
-los únicos objetos ``, reenvolviendo el bullet a 120 columnas.
+los únicos objetos ``, reenvolviendo el bullet a 120 columnas; la frase queda «… y, desde F8, `indicator`.» para que 8.1
+sume ahí `deliverable_template`.
 
 - [ ] **Paso 6: Verlas pasar y commit**
 
@@ -1258,9 +1289,12 @@ class ProjectScopeF8Test {
 }
 ```
 
-En `src/test/kotlin/sgspe/scope/ProjectScopeF7Test.kt`: el comentario termina en «…con proyecto, se acotan por él.
-desde F7, 35 raíces y 27 hijos; desde 8.2a, 36 raíces (ProjectScopeF8Test)» y `assertEquals(35,
-ProjectScope.ROOTS.size)` pasa a `assertEquals(36, ProjectScope.ROOTS.size)`.
+Cada prueba de fase cuenta solo lo suyo y la última (`ProjectScopeF8Test`) tiene el total absoluto. En
+`src/test/kotlin/sgspe/scope/ProjectScopeF7Test.kt`, el comentario termina en «…con proyecto, se acotan por él. desde F7,
+35 raíces y 27 hijos (8.2a suma indicator_measurement: ProjectScopeF8Test)» y `assertEquals(35, ProjectScope.ROOTS.size)`
+pasa a `assertEquals(35, (ProjectScope.ROOTS - setOf("indicator_measurement")).size)`. En
+`src/test/kotlin/sgspe/scope/ProjectScopeF5Test.kt` (~l. 59), `setOf("ai_suggestion", "ai_interaction")` pasa a
+`setOf("ai_suggestion", "ai_interaction", "indicator_measurement")`, así sigue en 33.
 
 En `src/test/kotlin/sgspe/contract/TenantProvisioningApiTest.kt`: el comentario de clase dice «…con el modelo, los
 roles, los workflows, los tipos de documento, las automatizaciones y el catálogo de indicadores de F8»; el comentario del
@@ -1327,6 +1361,7 @@ Esperado: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.contract.TenantProv
 ```bash
 cd $REPO && git add src/main/kotlin/sgspe/scope/ProjectScope.kt src/main/kotlin/sgspe/common/AmountFieldsGuard.kt \
   src/test/kotlin/sgspe/scope/ProjectScopeF8Test.kt src/test/kotlin/sgspe/scope/ProjectScopeF7Test.kt \
+  src/test/kotlin/sgspe/scope/ProjectScopeF5Test.kt \
   src/test/kotlin/sgspe/contract/TenantProvisioningApiTest.kt
 git commit -m "feat: los indicadores clasificados en ProjectScope" -m "indicator es maestro del tenant e indicator_measurement raíz con project opcional; sus DECIMAL
 no son dinero; el alta de un tenant contra wasichai carga el catálogo.
@@ -1482,7 +1517,6 @@ import sgspe.common.LIMA
 import tools.jackson.databind.JsonNode
 import java.time.LocalDate
 import java.time.YearMonth
-import kotlin.random.Random
 
 // la base de las pruebas de integración del plan 8.2a (especificación de F8 §5): lo de F6ApiTest más el catálogo de
 // indicadores cargado una vez por JVM con model/load_indicators.py (como el aprovisionamiento de SgspeApiTest), un proyecto
@@ -1529,10 +1563,11 @@ abstract class F8IndicatorsApiTest : F6ApiTest() {
         return month.atDay(1) to month.atEndOfMonth()
     }
 
-    // un mes ya terminado al azar entre 1950 y 2019: las mediciones del tenant (sin project) no chocan entre clases ni entre
-    // corridas sobre la misma base, porque el único compuesto no compara los NULL (WAS-ADR-0037) y el cierre sí
-    protected fun pastMonth(): Pair<LocalDate, LocalDate> {
-        val month = YearMonth.of(1950 + Random.nextInt(70), 1 + Random.nextInt(12))
+    // un mes ya terminado que sale de uniqueName (un UUID): uno de los 108 000 meses de los años 1000 a 9999, así que dos
+    // llamadas, dos clases o dos corridas sobre la misma base no repiten mes en la práctica. las mediciones del tenant (sin
+    // project) lo necesitan: el único compuesto no compara los NULL (WAS-ADR-0037) y el cierre sí
+    protected fun uniqueMonth(): Pair<LocalDate, LocalDate> {
+        val month = YearMonth.of(1000, 1).plusMonths(Math.floorMod(uniqueName("mes").hashCode(), MONTHS).toLong())
         return month.atDay(1) to month.atEndOfMonth()
     }
 
@@ -1554,6 +1589,7 @@ abstract class F8IndicatorsApiTest : F6ApiTest() {
         )
 
     companion object {
+        private const val MONTHS = 108_000
         private val CATALOG_LOCK = Any()
 
         @Volatile
@@ -1678,20 +1714,25 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t2 -m "Merge branch
 - Create: `src/main/kotlin/sgspe/dashboard/KpiReader.kt`
 - Modify: `src/main/kotlin/sgspe/dashboard/Dashboards.kt`, `src/main/kotlin/sgspe/dashboard/DashboardData.kt`,
   `src/main/kotlin/sgspe/territory/SpatialGate.kt`, `src/main/kotlin/sgspe/territory/ComponentLand.kt`
-- Test: `src/test/kotlin/sgspe/dashboard/KpiReadersTest.kt` (nuevo), `src/test/kotlin/sgspe/territory/SpatialGateTest.kt`
+- Test: `src/test/kotlin/sgspe/dashboard/KpiReadersTest.kt` (nuevo), `src/test/kotlin/sgspe/dashboard/DashboardDataPlatformTest.kt`
+  (nuevo), `src/test/kotlin/sgspe/territory/SpatialGateTest.kt`
 
 **Interfaces:**
-- Consumes: `Records`, `Readability`, `ObjectDefinitions`, `Permissions.confidentialHidden`, `ProjectReach.mine`,
-  `Callers` (`sgspe.common`).
+- Consumes: `Records` (también `relatedAsPlatform`), `Readability`, `ObjectDefinitions`, `Permissions.confidentialHidden`,
+  `ProjectReach.mine`, `Callers` (`sgspe.common`).
 - Produces: `KpiReader`, `KpiContext`, `KpiReaders` y `Dashboards.dashboard/indicator/value` como los fija «Interfaces»;
-  `DashboardData(…, platform: UUID? = null)` (último parámetro, opcional: las unitarias que ya la arman no cambian);
-  `SpatialGate.selectAsPlatform` y `ComponentLand.rows(projects, platform)`.
+  `DashboardData(…, platform: UUID? = null)` (último parámetro, opcional: las unitarias que ya la arman no cambian), que
+  con la plataforma lee las relaciones MANY_TO_MANY por `Records.relatedAsPlatform`; `SpatialGate.selectAsPlatform` (falla
+  con un usuario en el contexto) y `ComponentLand.rows(projects, platform)`.
 
 El comportamiento de los tableros de F2 a F6 no cambia: con la persona, `KpiReaders` arma exactamente lo que hoy arma
 `Dashboards` (Readability, `Permissions.confidentialHidden`, «mis proyectos» de `ProjectReach` o todos los que lee). La
 diferencia es que ahora el lector se nombra, y la plataforma tiene su contexto: lee todo campo que el tenant tiene, sin
 `confidentialHidden`, con todos los proyectos por defecto, dentro de `Records.asPlatform`, y nunca con una persona en el
-contexto (Review Focus 1).
+contexto (Review Focus 1). Tres lecturas no pasan por `RecordService.list` y necesitan su vía de plataforma: las relaciones
+MANY_TO_MANY de `DashboardData.relatedOf` (`Records.related` exige un usuario; con la plataforma va
+`Records.relatedAsPlatform`, con el mismo tope de interacciones), la compuerta de KPI-TER-04 (`selectAsPlatform`) y el
+lector de la persona, que tiene que ser la persona del contexto (decisión 21).
 
 - [ ] **Paso 1: La rama**
 
@@ -1810,6 +1851,15 @@ class KpiReadersTest {
     }
 
     @Test
+    fun `el lector de una persona solo es la persona del contexto`() {
+        val other = KpiReader.Person(AuthenticatedUser(UUID.randomUUID(), organization, "otra@sgspe.test", listOf("SOCIAL_MANAGER")))
+        var ran = false
+        assertThrows<IllegalStateException> { runBlocking { readers(person).reading(other) { ran = true } } }
+        assertThrows<IllegalStateException> { runBlocking { readers(null).reading(other) { ran = true } } }
+        assertFalse(ran)
+    }
+
+    @Test
     fun `la plataforma no se usa con una persona en el contexto`() {
         val readers = readers(person)
         assertThrows<IllegalStateException> { runBlocking { readers.platform(organization) } }
@@ -1827,7 +1877,7 @@ En `src/test/kotlin/sgspe/territory/SpatialGateTest.kt`, al final de la clase:
     // especificación de F8 §2.2.16: con el lector de la plataforma, la compuerta no pide permisos de persona ni alcances ni
     // dueño; un objeto o campo que el tenant no tiene es no disponible, sin correr nada
     @Test
-    fun `la plataforma no pide alcances y lo que el tenant no tiene es no disponible`() {
+    fun `selectAsPlatform no pide permisos ni alcances y lo que el tenant no tiene es no disponible`() {
         val captured = Captured()
         val scope = RecordCriterion { _, _ -> "c_code = 'x'" }
         val gate = gate(emptySet(), captured, scope = scope, owner = UUID.randomUUID())
@@ -1842,7 +1892,21 @@ En `src/test/kotlin/sgspe/territory/SpatialGateTest.kt`, al final de la clase:
             runBlocking { gate(emptySet()).selectAsPlatform(organization, listOf(GateRead("parcel", setOf("religion"))), { "SELECT 1" }) { it } }
         assertEquals(GateOutcome.Unavailable(listOf("parcel.religion")), missing)
     }
+
+    // decisión 12: la vía de la plataforma nunca corre con una persona en el contexto
+    @Test
+    fun `selectAsPlatform con una persona en el contexto falla sin correr nada`() {
+        val captured = Captured()
+        val gate = gate(all, captured, userOrNull = { analyst })
+        assertThrows<IllegalStateException> {
+            runBlocking { gate.selectAsPlatform(organization, listOf(GateRead("parcel", setOf("code"))), { "SELECT 1" }) { it } }
+        }
+        assertNull(captured.sql)
+    }
 ```
+
+y la ayuda `gate(...)` de la prueba suma el parámetro `userOrNull: suspend () -> AuthenticatedUser? = { null }`, que pasa
+como último argumento del constructor de `SpatialGate`.
 
 (`assertFalse`, `assertTrue` y `RecordCriterion` se importan si faltan; `GateOutcome.Unavailable` es una `data class`
 sin parámetro de tipo, así que se compara por igualdad.)
@@ -1961,6 +2025,8 @@ class KpiReaders internal constructor(
     ): T =
         when (reader) {
             is KpiReader.Person -> {
+                // decisión 21: el lector de una persona solo vale para la persona que llama (nadie calcula como otro)
+                check(userOrNull()?.userId == reader.user.userId) { "El lector de una persona solo vale para la persona que llama" }
                 val readsAll = mine(reader.user) == null
                 block(KpiContext(reader, readability(), hidden(reader.user), readsAll) { mine(reader.user) ?: allProjects() })
             }
@@ -2004,8 +2070,10 @@ class KpiReaders internal constructor(
 
 En `src/main/kotlin/sgspe/territory/SpatialGate.kt`, el comentario de la clase suma al final «Con el lector de la
 plataforma de los KPI (especificación de F8 §2.2.16), selectAsPlatform: sin permisos de persona, sin alcances ni dueño, con
-la organización enlazada; solo fuera de una petición (KpiReaders lo comprueba).» Dentro de la clase, después de
-`select(...)`:
+la organización enlazada; solo fuera de una petición: lo comprueba aquí y lo llama solo ComponentLand (ArchitectureTest).»
+El constructor interno suma, al final, `private val userOrNull: suspend () -> AuthenticatedUser? = { null }`, y el
+constructor `@Autowired` lo pasa como `{ callers.userOrNull() }` (último argumento de `this(...)`). Dentro de la clase,
+después de `select(...)`:
 
 ```kotlin
     // la misma consulta como la plataforma de `organizationId`: lo que el tenant no tiene (objeto o campo) es no disponible
@@ -2015,6 +2083,7 @@ la organización enlazada; solo fuera de una petición (KpiReaders lo comprueba)
         sql: GateTables.(bind: (Any) -> String) -> String,
         map: (Readable) -> T
     ): GateOutcome<T> {
+        check(userOrNull() == null) { "SpatialGate.selectAsPlatform no corre dentro de una petición" }
         val declared = reads.groupBy { it.objectName }.mapValues { (_, list) -> list.flatMap { it.fields }.toSet() }
         val definitions = mutableMapOf<String, ObjectDefinition>()
         val missing = mutableListOf<String>()
@@ -2049,7 +2118,7 @@ En `src/main/kotlin/sgspe/territory/ComponentLand.kt`, `rows` gana el parámetro
         platform: UUID? = null
     ): GateOutcome<ComponentLandRow> {
         if (projects.isEmpty()) return GateOutcome.Rows(emptyList())
-        val sql: GateTables.((Any) -> String) -> String = { bind -> sql(this, bind, projects, limits.maxRows) }
+        val query: GateTables.((Any) -> String) -> String = { bind -> sql(this, bind, projects, limits.maxRows) }
         val map: (Readable) -> ComponentLandRow = { row ->
             ComponentLandRow(
                 row.get("component", UUID::class.java)!!,
@@ -2059,7 +2128,7 @@ En `src/main/kotlin/sgspe/territory/ComponentLand.kt`, `rows` gana el parámetro
                 row.get("land_id", UUID::class.java)!!
             )
         }
-        val outcome = if (platform == null) gate.select(READS, sql, map) else gate.selectAsPlatform(platform, READS, sql, map)
+        val outcome = if (platform == null) gate.select(READS, query, map) else gate.selectAsPlatform(platform, READS, query, map)
         if (outcome is GateOutcome.Rows && outcome.rows.size > limits.maxRows) throw Records.tooMany(TerritoryNames.COMPONENT, limits.maxRows)
         return outcome
     }
@@ -2076,8 +2145,98 @@ En `src/main/kotlin/sgspe/dashboard/DashboardData.kt`: el constructor gana, desp
     private val platform: UUID? = null
 ```
 
-`with(filters)` pasa a `DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform)` y,
-en `landCrossings()`, `source.rows(filters.projects)` pasa a `source.rows(filters.projects, platform)`.
+`with(filters)` pasa a `DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform)`;
+en `landCrossings()`, `source.rows(filters.projects)` pasa a `source.rows(filters.projects, platform)`; y `relatedOf` lee
+como la plataforma cuando la trae (`Records.related` exige un usuario):
+
+```kotlin
+    // los registros del otro lado de una M2M de cada interacción: una lectura por interacción, hasta maxRelated. con el
+    // lector de la plataforma, por Records.relatedAsPlatform (sin usuario, WAS-ADR-0039), con el mismo tope
+    private suspend fun relatedOf(
+        engagements: Collection<String>,
+        relationship: String
+    ): Map<String, List<RecordResponse>> {
+        if (engagements.size > maxRelated) throw Records.tooMany("engagement", maxRelated)
+        return engagements.associateWith { id ->
+            val engagement = UUID.fromString(id)
+            if (platform == null) {
+                records.related("engagement", engagement, relationship)
+            } else {
+                records.relatedAsPlatform(platform, "engagement", engagement, relationship).map { it.toResponse() }
+            }
+        }
+    }
+```
+
+(`wasichai.core.data.toResponse` se importa.) Crear `src/test/kotlin/sgspe/dashboard/DashboardDataPlatformTest.kt`:
+
+```kotlin
+package sgspe.dashboard
+
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito.mock
+import sgspe.common.Records
+import wasichai.core.common.WasichaiException
+import wasichai.core.data.RecordRow
+import java.time.LocalDate
+import java.util.UUID
+
+// Crítico 1 de la revisión del plan 8.2a: con el lector de la plataforma, las relaciones MANY_TO_MANY se leen por
+// Records.relatedAsPlatform (Records.related exige un usuario) y el tope de interacciones sigue igual; con la persona, por
+// Records.related
+class DashboardDataPlatformTest {
+    private val organization = UUID.randomUUID()
+    private val engagement = UUID.randomUUID()
+    private val stakeholder = UUID.randomUUID()
+    private val calls = mutableListOf<String>()
+
+    private val records: Records =
+        mock(Records::class.java) { call ->
+            calls += call.method.name
+            when (call.method.name) {
+                "relatedAsPlatform" -> listOf(RecordRow(stakeholder, null, null, emptyMap()))
+                "related" -> emptyList<Any>()
+                else -> null
+            }
+        }
+
+    private fun data(
+        platform: UUID?,
+        maxRelated: Int = 200
+    ) = DashboardData(
+        records,
+        DashboardFilters.of(listOf(UUID.randomUUID()), LocalDate.parse("2026-09-01"), LocalDate.parse("2026-09-30")),
+        { true },
+        LocalDate.parse("2026-10-13"),
+        maxRelated = maxRelated,
+        platform = platform
+    )
+
+    @Test
+    fun `la plataforma lee las M2M sin usuario y la persona con el suyo`() {
+        val linked = runBlocking { data(organization).stakeholdersOf(listOf(engagement.toString())) }
+        assertEquals(mapOf(engagement.toString() to listOf(stakeholder.toString())), linked)
+        assertEquals(listOf("relatedAsPlatform"), calls)
+        calls.clear()
+        runBlocking { data(null).stakeholdersOf(listOf(engagement.toString())) }
+        assertEquals(listOf("related"), calls.filter { it.startsWith("related") })
+    }
+
+    @Test
+    fun `el tope de interacciones vale tambien para la plataforma`() {
+        assertThrows<WasichaiException> {
+            runBlocking { data(organization, maxRelated = 1).stakeholdersOf(listOf(UUID.randomUUID().toString(), UUID.randomUUID().toString())) }
+        }
+        assertEquals(emptyList<String>(), calls.filter { it.startsWith("related") })
+    }
+}
+```
+
+(Mockito, con su motor inline por defecto, simula la clase final `Records` y responde a las funciones `suspend` con el
+valor; si `related` llega con otro nombre por el puente de corrutinas, se compara con `startsWith`.)
 
 - [ ] **Paso 5: `Dashboards` calcula con el contexto del lector**
 
@@ -2258,7 +2417,8 @@ pendiente (regresión): `sgspe.dashboard.DashboardsApiTest`, `sgspe.dashboard.Te
 cd $REPO && git add src/main/kotlin/sgspe/dashboard/KpiReader.kt src/main/kotlin/sgspe/dashboard/Dashboards.kt \
   src/main/kotlin/sgspe/dashboard/DashboardData.kt src/main/kotlin/sgspe/dashboard/DashboardFilters.kt \
   src/main/kotlin/sgspe/territory/SpatialGate.kt src/main/kotlin/sgspe/territory/ComponentLand.kt \
-  src/test/kotlin/sgspe/dashboard/KpiReadersTest.kt src/test/kotlin/sgspe/territory/SpatialGateTest.kt
+  src/test/kotlin/sgspe/dashboard/KpiReadersTest.kt src/test/kotlin/sgspe/dashboard/DashboardDataPlatformTest.kt \
+  src/test/kotlin/sgspe/territory/SpatialGateTest.kt
 git commit -m "feat: KpiReader, los KPI leen como la persona o como la plataforma" -m "KpiReaders arma el contexto de cada lector; la plataforma solo fuera de una petición y dentro de
 asPlatform. SpatialGate gana selectAsPlatform para KPI-TER-04 (especificación de F8 §2.2.16).
 
@@ -2647,8 +2807,10 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t4 -m "Merge branch
 - Consumes: `ExecutiveKpis.TILES` y `BY_PROJECT`, `Kpis.EXECUTIVE` (Tarea 4); `KpiReaders`, `Dashboards` (Tarea 3);
   `Records.tooMany`; `F8IndicatorsApiTest` (Tarea 2).
 - Produces: `GET /api/sgspe/dashboards/executive`; `ProjectFigures(project: String, code: String?, name: String?,
-  indicators: List<IndicatorValue>)`; `DashboardResponse.byProject`; `DashboardsProperties`
-  (`sgspe.dashboards.executive.max-projects`, 25).
+  indicators: List<IndicatorValue>)`; `DashboardResponse.byProject` y `DashboardResponse.byProjectOmitted`;
+  `DashboardsProperties` (`sgspe.dashboards.executive.max-projects`, 25). Con más proyectos pedidos que el tope, `400
+  TOO_MANY_RECORDS`; con más proyectos por defecto («mis proyectos» o todos), las tiles sin `byProject[]` y
+  `byProjectOmitted: true` (decisión 24).
 
 - [ ] **Paso 1: La rama**
 
@@ -2674,7 +2836,12 @@ class DashboardsPropertiesTest {
     fun `el tope por defecto es 25, el de application yml tambien, y no puede ser menor que 1`() {
         assertEquals(25, DashboardsProperties().executive.maxProjects)
         val yml = File("src/main/resources/application.yml").readText()
-        assertEquals(true, Regex("""dashboards:\s+executive:\s+max-projects: 25""").containsMatchIn(yml), "falta sgspe.dashboards.executive.max-projects")
+        // entre executive: y max-projects va la línea de comentario de application.yml
+        assertEquals(
+            true,
+            Regex("""dashboards:\s+executive:\s+(#[^\n]*\n\s*)*max-projects: 25""").containsMatchIn(yml),
+            "falta sgspe.dashboards.executive.max-projects"
+        )
         assertThrows<IllegalArgumentException> { DashboardsProperties.Executive(maxProjects = 0) }
     }
 }
@@ -2754,14 +2921,24 @@ class ExecutiveDashboardApiTest : F8IndicatorsApiTest() {
         assertEquals("Proyecto Ejemplo A", rows.getValue(busy)["name"].asString())
     }
 
-    // Review Focus 5
+    // Review Focus 5 (decisión 24): pedir más proyectos que el tope es un 400; tenerlos por defecto no
     @Test
-    fun `mas proyectos que el tope es 400 TOO_MANY_RECORDS sobre project`() {
+    fun `mas proyectos pedidos que el tope es 400 TOO_MANY_RECORDS sobre project`() {
         val query = (1..26).joinToString("&") { "project=${UUID.randomUUID()}" }
         val response = exchange("GET", "/api/sgspe/dashboards/executive?$query")
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
         assertEquals("TOO_MANY_RECORDS", code(response))
         assertEquals(listOf("project"), problemFields(response.body))
+    }
+
+    @Test
+    fun `con mas proyectos por defecto que el tope salen las tiles sin byProject`() {
+        // el admin lee todos los proyectos del tenant de pruebas: más de 25 después de unas pocas clases; se asegura creando
+        repeat(26) { project() }
+        val body = get("/api/sgspe/dashboards/executive?periodStart=2026-09-01&periodEnd=2026-09-30")
+        assertEquals(ExecutiveKpis.TILES, body["indicators"].values().map { it["code"].asString() })
+        assertEquals(true, body["byProjectOmitted"].asBoolean())
+        assertEquals(false, body.has("byProject"))
     }
 
     @Test
@@ -2802,7 +2979,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
 
 // los límites de los tableros consolidados (especificación de F8 §2.2.16): la tabla por proyecto del tablero executive calcula
-// cada fila con las mismas funciones, así que admite hasta max-projects proyectos; más es 400 TOO_MANY_RECORDS sobre project
+// cada fila con las mismas funciones, así que admite hasta max-projects proyectos; más proyectos pedidos es 400
+// TOO_MANY_RECORDS sobre project, y más por defecto omite la tabla (byProjectOmitted, decisión 24 del plan 8.2a)
 @ConfigurationProperties("sgspe.dashboards")
 data class DashboardsProperties(
     val executive: Executive = Executive()
@@ -2851,8 +3029,10 @@ data class DashboardResponse(
     val indicators: List<IndicatorValue>,
     // F4: en el tablero attention, true si quien mira no ve las QCS confidenciales (dashboards.md §8); no viaja en los demás
     @get:JsonInclude(JsonInclude.Include.NON_NULL) val confidentialHidden: Boolean? = null,
-    // F8: la tabla por proyecto del tablero executive; no viaja en los demás
-    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProject: List<ProjectFigures>? = null
+    // F8: la tabla por proyecto del tablero executive; no viaja en los demás ni cuando se omite
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProject: List<ProjectFigures>? = null,
+    // F8: true si el tablero executive omitió la tabla porque los proyectos por defecto pasan el tope (decisión 24)
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProjectOmitted: Boolean? = null
 )
 ```
 
@@ -2872,23 +3052,27 @@ En `src/main/kotlin/sgspe/dashboard/Dashboards.kt`:
 2. Dentro de `dashboard(...)`, en el bloque `readers.reading(...)`, después de `val filters = …`:
 
 ```kotlin
-            // la tabla por proyecto calcula una fila por proyecto: más que el tope es 400, también por «mis proyectos»
-            if (name == Kpis.EXECUTIVE && filters.projects.size > properties.executive.maxProjects) {
-                throw Records.tooMany("project", properties.executive.maxProjects)
+            // la tabla por proyecto calcula una fila por proyecto: pedir más que el tope es 400; tenerlos por defecto («mis
+            // proyectos» o todos) da las tiles y omite la tabla (decisión 24)
+            val max = properties.executive.maxProjects
+            if (name == Kpis.EXECUTIVE && params["project"].orEmpty().isNotEmpty() && filters.projects.size > max) {
+                throw Records.tooMany("project", max)
             }
+            val omitted = name == Kpis.EXECUTIVE && filters.projects.size > max
 ```
 
    y la última expresión del bloque pasa a:
 
 ```kotlin
-            val byProject = if (name == Kpis.EXECUTIVE) byProject(data, ctx.confidentialHidden) else null
+            val byProject = if (name == Kpis.EXECUTIVE && !omitted) byProject(data, ctx.confidentialHidden) else null
             DashboardResponse(
                 name,
                 filters.echo(),
                 clock.instant().toString(),
                 indicators,
                 if (name == Kpis.ATTENTION) ctx.confidentialHidden else null,
-                byProject
+                byProject,
+                if (omitted) true else null
             )
 ```
 
@@ -2932,7 +3116,7 @@ cd $REPO && git add src/main/kotlin/sgspe/dashboard/DashboardsProperties.kt src/
   src/main/kotlin/sgspe/dashboard/Indicators.kt src/main/kotlin/sgspe/dashboard/Kpis.kt src/main/resources/application.yml \
   src/test/kotlin/sgspe/dashboard/DashboardsPropertiesTest.kt src/test/kotlin/sgspe/dashboard/ExecutiveDashboardApiTest.kt
 git commit -m "feat: tablero executive con la tabla por proyecto y su tope" -m "GET /api/sgspe/dashboards/executive: las tiles de §5.1, KPI-INV-03 y KPI-EXE-03, y byProject[]
-con las mismas funciones; más de sgspe.dashboards.executive.max-projects es 400 TOO_MANY_RECORDS.
+con las mismas funciones; pedir más proyectos que el tope es 400, tenerlos por defecto la omite.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM"
@@ -3080,7 +3264,8 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t6 -m "Merge branch
   String?)`, `MeasurementRow(id: String, indicator: String, project: String?, start: LocalDate, end: LocalDate, value:
   BigDecimal?, closedAt: Instant?)`, `Official(measurement: String, closedAt: String?, value: Number?)`,
   `OfficialScope(project: String?, start: LocalDate, end: LocalDate)`, `MonitoringRow` y `MonitoringTable` (`ROWS`,
-  `CODES`, `PROJECT`, `CATALOG`, `NONE`, `scope`, `official`, `target`, `months`, `rows`).
+  `CODES`, `PROJECT`, `CATALOG`, `NONE`, `scope(requested: List<UUID>, filters, tenantWide)`, `official`, `target`,
+  `rows`).
 
 - [ ] **Paso 1: La rama**
 
@@ -3143,17 +3328,18 @@ class MonitoringTableTest {
         assertEquals(doc.map { listOf(it[0].toInt(), it[1], it[2], it[4], it[5]) }, MonitoringTable.ROWS.map { listOf(it.number, it.label, it.code, it.verificationMeans, it.deliverable) })
     }
 
+    // decisión 3 (R1): la meta de #5 es siempre el denominador de KPI-ENG-02, que ya cae al catálogo; aquí solo cambia el origen
     @Test
-    fun `la meta de 5 es la del proyecto si la tiene, si no la del catalogo por mes y proyecto, si no ninguna`() {
+    fun `la meta de 5 es el denominador de KPI-ENG-02 con el origen del proyecto, del catalogo o ninguno`() {
         val meetings = MonitoringTable.ROWS.single { it.code == "KPI-ENG-02" }
         val withTarget = value("KPI-ENG-02", 5, denominator = 6)
         val two = CatalogIndicator("i", "KPI-ENG-02", BigDecimal("2"), null)
-        assertEquals(6 to MonitoringTable.PROJECT, MonitoringTable.target(meetings, withTarget, two, projectDefined = true, months = 3, projects = 1))
-        assertEquals(BigDecimal("12") to MonitoringTable.CATALOG, MonitoringTable.target(meetings, withTarget, two, projectDefined = false, months = 3, projects = 2))
-        assertEquals(null to MonitoringTable.NONE, MonitoringTable.target(meetings, withTarget, two.copy(target = null), projectDefined = false, months = 3, projects = 1))
+        assertEquals(6 to MonitoringTable.PROJECT, MonitoringTable.target(meetings, withTarget, two, projectDefined = true))
+        assertEquals(6 to MonitoringTable.CATALOG, MonitoringTable.target(meetings, withTarget, two, projectDefined = false))
+        assertEquals(null to MonitoringTable.NONE, MonitoringTable.target(meetings, withTarget, two.copy(target = null), projectDefined = false))
+        assertEquals(null to MonitoringTable.NONE, MonitoringTable.target(meetings, value("KPI-ENG-02", available = false), two, projectDefined = false))
         val other = MonitoringTable.ROWS.first()
-        assertEquals(BigDecimal("80") to MonitoringTable.CATALOG, MonitoringTable.target(other, value(other.code), CatalogIndicator("x", other.code, BigDecimal("80"), null), false, 3, 1))
-        assertEquals(3, MonitoringTable.months(LocalDate.parse("2026-07-15"), LocalDate.parse("2026-09-02")))
+        assertEquals(BigDecimal("80") to MonitoringTable.CATALOG, MonitoringTable.target(other, value(other.code), CatalogIndicator("x", other.code, BigDecimal("80"), null), false))
     }
 
     // Review Focus 3
@@ -3163,14 +3349,14 @@ class MonitoringTableTest {
         val ofProject = listOf(measurement(code, project.toString()))
         val ofTenant = listOf(measurement(code, null))
         val indicator = CatalogIndicator("id-$code", code, null, null)
-        val one = MonitoringTable.scope(listOf(project.toString()), filters, tenantWide = false)
+        val one = MonitoringTable.scope(listOf(project), filters, tenantWide = false)
         assertEquals(Official("m-$code-$project-$start", "2026-10-02T15:00:00Z", BigDecimal("7")), MonitoringTable.official(indicator, value(code), ofProject, one))
         // otro periodo, otro alcance, un filtro de territorio, dos proyectos o el tenant sin leerlo entero: ninguna
         assertNull(MonitoringTable.official(indicator, value(code), listOf(measurement(code, project.toString(), start.minusMonths(1), end.minusMonths(1))), one))
         assertNull(MonitoringTable.official(indicator, value(code), ofTenant, one))
-        assertNull(MonitoringTable.scope(listOf(project.toString()), filters.copy(locality = UUID.randomUUID()), tenantWide = true))
-        assertNull(MonitoringTable.scope(listOf(project.toString()), filters.copy(scope = "AIDS"), tenantWide = true))
-        assertNull(MonitoringTable.scope(listOf(project.toString(), UUID.randomUUID().toString()), filters, tenantWide = true))
+        assertNull(MonitoringTable.scope(listOf(project), filters.copy(locality = UUID.randomUUID()), tenantWide = true))
+        assertNull(MonitoringTable.scope(listOf(project), filters.copy(scope = "AIDS"), tenantWide = true))
+        assertNull(MonitoringTable.scope(listOf(project, UUID.randomUUID()), filters, tenantWide = true))
         assertNull(MonitoringTable.scope(emptyList(), filters, tenantWide = false))
         val tenant = MonitoringTable.scope(emptyList(), filters, tenantWide = true)
         assertEquals("m-$code-null-$start", MonitoringTable.official(indicator, value(code), ofTenant, tenant)?.measurement)
@@ -3181,20 +3367,24 @@ class MonitoringTableTest {
     @Test
     fun `sin el KPI disponible no hay cifra oficial`() {
         val code = "KPI-STK-05"
-        val scope = MonitoringTable.scope(listOf(project.toString()), filters, tenantWide = false)
+        val scope = MonitoringTable.scope(listOf(project), filters, tenantWide = false)
         val hidden = value(code, available = false)
         assertNull(MonitoringTable.official(CatalogIndicator("id-$code", code, null, null), hidden, listOf(measurement(code, project.toString())), scope))
-        val rows = MonitoringTable.rows(MonitoringTable.CODES.map { if (it == code) hidden else value(it) }, catalog(), listOf(measurement(code, project.toString())), scope, false, filters)
+        val rows = MonitoringTable.rows(MonitoringTable.CODES.map { if (it == code) hidden else value(it) }, catalog(), listOf(measurement(code, project.toString())), scope, false)
         val row = rows.single { it.code == code }
         assertEquals(false to null, row.available to row.value)
         assertNull(row.official)
+        // revisión 4 (R4): a quien se le ocultan QCS confidenciales, una fila que las lee no muestra la cifra oficial
+        val qcs = "KPI-GRV-07"
+        val hiddenQcs = IndicatorValue(qcs, qcs, true, 50, confidentialHidden = true)
+        assertNull(MonitoringTable.official(CatalogIndicator("id-$qcs", qcs, null, null), hiddenQcs, listOf(measurement(qcs, project.toString())), scope))
     }
 
     // Review Focus 5: un tenant de F7 o quien no lee indicator
     @Test
     fun `sin catalogo, sin metas ni cifras oficiales`() {
-        val scope = MonitoringTable.scope(listOf(project.toString()), filters, tenantWide = false)
-        val rows = MonitoringTable.rows(values, emptyMap(), emptyList(), scope, projectDefined = false, filters = filters)
+        val scope = MonitoringTable.scope(listOf(project), filters, tenantWide = false)
+        val rows = MonitoringTable.rows(values, emptyMap(), emptyList(), scope, projectDefined = false)
         assertEquals((1..13).toList(), rows.map { it.number })
         assertEquals(setOf(MonitoringTable.NONE), rows.map { it.targetSource }.toSet())
         assertEquals(listOf<Official?>(null), rows.map { it.official }.distinct())
@@ -3204,8 +3394,9 @@ class MonitoringTableTest {
     @Test
     fun `el catalogo pone la meta y el medio de verificacion editado`() {
         val edited = catalog("KPI-ENG-02" to BigDecimal("2")) + ("KPI-STK-04" to CatalogIndicator("id-KPI-STK-04", "KPI-STK-04", BigDecimal("30"), "Padrón de contactos"))
-        val rows = MonitoringTable.rows(values, edited, emptyList(), null, projectDefined = false, filters = filters).associateBy { it.code }
-        assertEquals(BigDecimal("2") to MonitoringTable.CATALOG, rows.getValue("KPI-ENG-02").target to rows.getValue("KPI-ENG-02").targetSource)
+        val meetings = MonitoringTable.CODES.map { if (it == "KPI-ENG-02") value(it, 1, denominator = 2) else value(it) }
+        val rows = MonitoringTable.rows(meetings, edited, emptyList(), null, projectDefined = false).associateBy { it.code }
+        assertEquals(2 to MonitoringTable.CATALOG, rows.getValue("KPI-ENG-02").target to rows.getValue("KPI-ENG-02").targetSource)
         assertEquals(BigDecimal("30") to "Padrón de contactos", rows.getValue("KPI-STK-04").target to rows.getValue("KPI-STK-04").verificationMeans)
     }
 }
@@ -3227,7 +3418,7 @@ package sgspe.dashboard
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
-import java.time.YearMonth
+import java.util.UUID
 
 // una fila de la Tabla 9.5 de DOC-01 como la fija dashboards.md §4.9: número, indicador, KPI, medio de verificación y
 // entregable que la produciría
@@ -3346,27 +3537,31 @@ object MonitoringTable {
 
     // a qué medición puede casar el pedido (decisión 4 del plan 8.2a): ningún filtro fuera de project y el periodo; un solo
     // project pedido, o ninguno por quien lee todo el tenant. si no, ninguna cifra oficial
+    // `requested`: los project del pedido ya leídos como UUID (Dashboards los parsea y quita repetidos)
     fun scope(
-        requestedProjects: List<String>,
+        requested: List<UUID>,
         filters: DashboardFilters,
         tenantWide: Boolean
-    ): OfficialScope? =
-        when {
+    ): OfficialScope? {
+        val projects = requested.distinct()
+        return when {
             filters.given().isNotEmpty() -> null
-            requestedProjects.size == 1 -> OfficialScope(requestedProjects.single(), filters.periodStart, filters.periodEnd)
-            requestedProjects.isEmpty() && tenantWide -> OfficialScope(null, filters.periodStart, filters.periodEnd)
+            projects.size == 1 -> OfficialScope(projects.single().toString(), filters.periodStart, filters.periodEnd)
+            projects.isEmpty() && tenantWide -> OfficialScope(null, filters.periodStart, filters.periodEnd)
             else -> null
         }
+    }
 
     // la medición del indicador con el mismo alcance y el mismo periodo, solo si el KPI está disponible para el lector (el
-    // chequeo de dashboards.md §8 antes de mostrar una cifra oficial)
+    // chequeo de dashboards.md §8 antes de mostrar una cifra oficial) y no le oculta QCS confidenciales (decisión 25: la
+    // cifra oficial de un KPI de QCS no se muestra a quien no ve todas)
     fun official(
         indicator: CatalogIndicator?,
         value: IndicatorValue,
         measurements: List<MeasurementRow>,
         scope: OfficialScope?
     ): Official? {
-        if (indicator == null || scope == null || !value.available) return null
+        if (indicator == null || scope == null || !value.available || value.confidentialHidden == true) return null
         val match =
             measurements.firstOrNull {
                 it.indicator == indicator.id && it.project == scope.project && it.start == scope.start && it.end == scope.end
@@ -3374,27 +3569,21 @@ object MonitoringTable {
         return Official(match.id, match.closedAt?.toString(), match.value)
     }
 
-    // los meses de calendario que toca el periodo, los dos extremos incluidos
-    fun months(
-        start: LocalDate,
-        end: LocalDate
-    ): Int = (YearMonth.from(start).until(YearMonth.from(end), java.time.temporal.ChronoUnit.MONTHS) + 1).toInt()
-
-    // la meta de la fila y su origen (decisión 3 del plan 8.2a). #5: la del proyecto (el denominador de KPI-ENG-02) si un
-    // proyecto del filtro o un plan la define; si no, la del catálogo por mes y por proyecto; si no, ninguna. las demás: la
-    // del catálogo tal cual, o ninguna
+    // la meta de la fila y su origen (decisión 3 del plan 8.2a, R1 del coordinador). #5: el denominador de KPI-ENG-02, la
+    // única fuente de la meta (que cae al target_value del catálogo cuando el proyecto no tiene la suya), con origen PROJECT
+    // si un proyecto del filtro o un plan la define, CATALOG si no y el catálogo trae meta, y NONE sin ninguna. las demás:
+    // la del catálogo tal cual, o ninguna
     fun target(
         spec: MonitoringSpec,
         value: IndicatorValue,
         indicator: CatalogIndicator?,
-        projectDefined: Boolean,
-        months: Int,
-        projects: Int
+        projectDefined: Boolean
     ): Pair<Number?, String> =
         when {
-            spec.code == MEETINGS && projectDefined && value.available -> value.denominator to PROJECT
+            spec.code == MEETINGS && !value.available -> null to NONE
+            spec.code == MEETINGS && projectDefined -> value.denominator to PROJECT
             indicator?.target == null -> null to NONE
-            spec.code == MEETINGS -> indicator.target.multiply(BigDecimal(months.toLong() * projects)) to CATALOG
+            spec.code == MEETINGS -> value.denominator to CATALOG
             else -> indicator.target to CATALOG
         }
 
@@ -3405,14 +3594,12 @@ object MonitoringTable {
         catalog: Map<String, CatalogIndicator>,
         measurements: List<MeasurementRow>,
         scope: OfficialScope?,
-        projectDefined: Boolean,
-        filters: DashboardFilters
-    ): List<MonitoringRow> {
-        val months = months(filters.periodStart, filters.periodEnd)
-        return ROWS.map { spec ->
+        projectDefined: Boolean
+    ): List<MonitoringRow> =
+        ROWS.map { spec ->
             val value = values.first { it.code == spec.code }
             val indicator = catalog[spec.code]
-            val (target, source) = target(spec, value, indicator, projectDefined, months, filters.projects.size)
+            val (target, source) = target(spec, value, indicator, projectDefined)
             MonitoringRow(
                 spec.number,
                 spec.code,
@@ -3426,7 +3613,6 @@ object MonitoringTable {
                 official(indicator, value, measurements, scope)
             )
         }
-    }
 }
 ```
 
@@ -3456,17 +3642,25 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t7 -m "Merge branch
 
 **Files:**
 - Modify: `src/main/kotlin/sgspe/dashboard/Dashboards.kt`, `src/main/kotlin/sgspe/dashboard/DashboardData.kt`,
-  `src/main/kotlin/sgspe/dashboard/Kpis.kt`, `src/main/kotlin/sgspe/dashboard/Indicators.kt`
-- Test: `src/test/kotlin/sgspe/dashboard/MonitoringDashboardApiTest.kt` (nuevo),
-  `src/test/kotlin/sgspe/dashboard/DashboardsApiTest.kt`, `src/test/kotlin/sgspe/dashboard/EngagementKpisF4Test.kt`
+  `src/main/kotlin/sgspe/dashboard/Kpis.kt`, `src/main/kotlin/sgspe/dashboard/Indicators.kt`,
+  `src/main/kotlin/sgspe/dashboard/EngagementKpis.kt`
+- Test: `src/test/kotlin/sgspe/dashboard/MonitoringDashboardApiTest.kt` (nuevo), `src/test/kotlin/sgspe/dashboard/MeetingsTargetTest.kt`
+  (nuevo), `src/test/kotlin/sgspe/dashboard/DashboardsApiTest.kt`, `src/test/kotlin/sgspe/dashboard/EngagementKpisF4Test.kt`
 
 **Interfaces:**
 - Consumes: `MonitoringTable` (Tarea 7), `Dashboards` (Tareas 3, 5 y 6), `TenantModel` (`sgspe.common`),
   `F8IndicatorsApiTest` (Tarea 2).
 - Produces: `GET /api/sgspe/dashboards/monitoring` con `rows[]`; `DashboardResponse.rows`;
   `DashboardData.indicatorCatalog()`, `DashboardData.measurements(start: LocalDate)` y
-  `DashboardData.meetingTargetDefined()`; el `dashboard` del catálogo de KPI-STK-04, 05, 07 y KPI-ENG-06, 07 y 08 es
-  `monitoring`.
+  `DashboardData.meetingTargetDefined()`; `DashboardData(…, hasCatalog: Boolean = false)` y la meta por defecto de
+  KPI-ENG-02 leída del catálogo (decisión 3, R1); `EngagementKpis.projectTarget(explicit: Long?, fallback: Long?):
+  Long`; el `dashboard` del catálogo de KPI-STK-04, 05, 07 y KPI-ENG-06, 07 y 08 es `monitoring`.
+
+La meta de KPI-ENG-02 tiene una sola fuente (decisión 3, R1): la del plan vigente o la del proyecto y, sin ellas, el
+`target_value` de KPI-ENG-02 del catálogo, también en el tablero `engagement` y en el detalle del KPI. Un tenant de F7 (sin
+`indicator`) o uno con el catálogo todavía sin cargar sigue con el valor por defecto de ASM-019 (2, `ProjectParameters`),
+que es el mismo que carga DOC-01; un catálogo con la meta vacía es «sin meta» (0 en ese mes); y quien no lee
+`indicator.target_value` recibe KPI-ENG-02 no disponible, nunca con otra meta (dashboards.md §8).
 
 - [ ] **Paso 1: La rama**
 
@@ -3482,6 +3676,25 @@ En `src/test/kotlin/sgspe/dashboard/DashboardsApiTest.kt` (~l. 175-177), las tre
 «desde F8 tienen zona en el tablero de monitoreo (dashboards.md §11)». En
 `src/test/kotlin/sgspe/dashboard/EngagementKpisF4Test.kt` (~l. 97), `assertEquals(null, Kpis.BY_CODE.getValue(code).dashboard,
 code)` pasa a `assertEquals(Kpis.MONITORING, Kpis.BY_CODE.getValue(code).dashboard, code)`.
+
+Crear `src/test/kotlin/sgspe/dashboard/MeetingsTargetTest.kt`:
+
+```kotlin
+package sgspe.dashboard
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+
+// R1 (decisión 3 del plan 8.2a): la meta mensual de un proyecto es la suya y, sin ella, la del catálogo; sin ninguna, 0
+class MeetingsTargetTest {
+    @Test
+    fun `la del proyecto manda, despues la del catalogo y sin ninguna es cero`() {
+        assertEquals(3L, EngagementKpis.projectTarget(3, 2))
+        assertEquals(2L, EngagementKpis.projectTarget(null, 2))
+        assertEquals(0L, EngagementKpis.projectTarget(null, null))
+    }
+}
+```
 
 Crear `src/test/kotlin/sgspe/dashboard/MonitoringDashboardApiTest.kt`:
 
@@ -3567,8 +3780,8 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
         )) {
             assertTrue(board(query).getValue("KPI-COM-08")["official"].isNull, query)
         }
-        // la del tenant (un mes viejo al azar: sin project, solo para quien lee todos los proyectos
-        val (oldStart, oldEnd) = pastMonth()
+        // la del tenant, en un mes propio (uniqueMonth): sin project, solo para quien lee todos los proyectos
+        val (oldStart, oldEnd) = uniqueMonth()
         measurement("KPI-COM-08", null, oldStart, oldEnd, 9)
         assertEquals(9, board(period(oldStart, oldEnd)).getValue("KPI-COM-08")["official"]["value"].asInt())
         val social = member("SOCIAL_MANAGER", project)
@@ -3601,6 +3814,27 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
         val rows = board("project=$project&${period(start, end)}", member("FIELD_AGENT", project).token)
         assertEquals(13, rows.size)
         assertTrue(rows.values.all { it["targetSource"].asString() == "NONE" && it["official"].isNull })
+    }
+
+    // R1: una sola fuente para la meta de KPI-ENG-02; el monitoreo y el tablero de relacionamiento la leen igual
+    @Test
+    fun `la meta de KPI-ENG-02 sin parametro del proyecto sigue al catalogo en los dos tableros`() {
+        val (start, end) = lastMonth()
+        val project = activeProject()
+        val id = indicatorId("KPI-ENG-02")
+        val stored = attributesOf(record("indicator", id))
+        send("PUT", "/api/objects/indicator/records/$id", mapOf("attributes" to stored + ("target_value" to 4)), org.springframework.http.HttpStatus.OK)
+        try {
+            val query = "project=$project&${period(start, end)}"
+            assertEquals(4, board(query).getValue("KPI-ENG-02")["target"].asInt())
+            val engagement = get("/api/sgspe/dashboards/indicators/KPI-ENG-02?$query")
+            assertEquals(4, engagement["denominator"].asInt())
+            // quien no lee indicator.target_value no recibe otra meta: KPI-ENG-02 no disponible
+            val agent = get("/api/sgspe/dashboards/indicators/KPI-ENG-02?$query", member("FIELD_AGENT", project).token)
+            assertFalse(agent["available"].asBoolean())
+        } finally {
+            send("PUT", "/api/objects/indicator/records/$id", mapOf("attributes" to stored), org.springframework.http.HttpStatus.OK)
+        }
     }
 
     @Test
@@ -3684,12 +3918,77 @@ En `src/main/kotlin/sgspe/dashboard/DashboardData.kt`, después de la sección d
 
 (`Criteria.dateBetween` es el criterio de fechas que ya usa `mentions()`.)
 
-- [ ] **Paso 4: El tablero**
-
-En `src/main/kotlin/sgspe/dashboard/Indicators.kt`, `DashboardResponse` suma, después de `byProject`:
+En el mismo archivo, el constructor suma, después de `platform`:
 
 ```kotlin
-    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProject: List<ProjectFigures>? = null,
+    private val platform: UUID? = null,
+    // F8 (R1): si el tenant tiene el catálogo indicator (TenantModel): la meta por defecto de KPI-ENG-02 sale de él
+    private val hasCatalog: Boolean = false
+```
+
+`with(filters)` lo pasa (`DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform,
+hasCatalog)`), y en la sección de relacionamiento, antes de `monthlyTargets()`:
+
+```kotlin
+    private class MeetingsDefault(
+        val target: Long?
+    )
+
+    // R1 (decisión 3 del plan 8.2a): la meta mensual de un proyecto sin la suya. sin el catálogo en el tenant (F7), o con el
+    // catálogo sin el registro de KPI-ENG-02 (todavía no cargado), la de ASM-019 (ProjectParameters, 2); con el registro, su
+    // target_value (null: sin meta)
+    private suspend fun meetingsDefault(): MeetingsDefault =
+        cached("meetingsDefault") {
+            val fallback = ProjectParameters.integer(emptyMap(), "meetings_per_month_target")
+            if (!hasCatalog || !readable("indicator.target_value")) return@cached MeetingsDefault(fallback)
+            val record = read("indicator", mapOf("code" to "KPI-ENG-02")).firstOrNull() ?: return@cached MeetingsDefault(fallback)
+            MeetingsDefault(Values.decimal(record.attributes["target_value"])?.toLong())
+        }
+
+    // si la meta por defecto vive en un catálogo que quien mira no lee: KPI-ENG-02 sale no disponible (nunca con otra meta)
+    suspend fun meetingsDefaultUnreadable(): Boolean = hasCatalog && !readable("indicator.target_value")
+```
+
+y en `monthlyTargets()`, la línea
+`val projects = projectRecords().associate { it.id to ProjectParameters.integer(it.attributes, "meetings_per_month_target") }`
+pasa a:
+
+```kotlin
+        val fallback = meetingsDefault().target
+        val projects =
+            projectRecords().associate {
+                it.id to EngagementKpis.projectTarget(Values.decimal(it.attributes["meetings_per_month_target"])?.toLong(), fallback)
+            }
+```
+
+En `src/main/kotlin/sgspe/dashboard/EngagementKpis.kt`, antes de `monthlyTargets(...)`:
+
+```kotlin
+    // R1 (decisión 3 del plan 8.2a): la meta mensual de un proyecto: la suya o, sin ella, la del catálogo; sin ninguna, 0
+    fun projectTarget(
+        explicit: Long?,
+        fallback: Long?
+    ): Long = explicit ?: fallback ?: 0L
+```
+
+En `src/main/kotlin/sgspe/dashboard/Kpis.kt`, el cálculo de KPI-ENG-02 pasa a:
+
+```kotlin
+            ) { data ->
+                if (data.meetingsDefaultUnreadable()) {
+                    IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, listOf("indicator.target_value"))
+                } else {
+                    EngagementKpis.meetings(data.inPeriod(), data.window(), data.monthlyTargets(), data.filters.periodStart, data.filters.periodEnd)
+                }
+            },
+```
+
+- [ ] **Paso 4: El tablero**
+
+En `src/main/kotlin/sgspe/dashboard/Indicators.kt`, `DashboardResponse` suma, después de `byProjectOmitted`:
+
+```kotlin
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProjectOmitted: Boolean? = null,
     // F8: las 13 filas de la Tabla 9.5 del tablero monitoring (MonitoringTable), en el orden de indicators[]; no viaja en los
     // demás
     @get:JsonInclude(JsonInclude.Include.NON_NULL) val rows: List<MonitoringRow>? = null
@@ -3711,12 +4010,33 @@ En `src/main/kotlin/sgspe/dashboard/Kpis.kt`:
 
 En `src/main/kotlin/sgspe/dashboard/Dashboards.kt`:
 
-1. El constructor suma `private val tenantModel: TenantModel` (de `sgspe.common`).
+1. El constructor suma `private val tenantModel: TenantModel` (de `sgspe.common`), y `data(...)` pasa a `suspend` y le
+   pasa al catálogo si el tenant lo tiene (R1):
+
+```kotlin
+    private suspend fun data(
+        ctx: KpiContext,
+        filters: DashboardFilters,
+        today: LocalDate
+    ): DashboardData =
+        DashboardData(
+            records,
+            filters,
+            ctx.readable,
+            today,
+            componentLand = componentLand,
+            platform = ctx.platform,
+            hasCatalog = tenantModel.has(ctx.reader.organizationId, INDICATOR)
+        )
+```
+
 2. En `dashboard(...)`, la última expresión del bloque de `readers.reading` pasa a:
 
 ```kotlin
-            val byProject = if (name == Kpis.EXECUTIVE) byProject(data, ctx.confidentialHidden) else null
-            val rows = if (name == Kpis.MONITORING) monitoringRows(ctx, data, params["project"].orEmpty(), indicators) else null
+            val byProject = if (name == Kpis.EXECUTIVE && !omitted) byProject(data, ctx.confidentialHidden) else null
+            // los project pedidos como UUID, sin repetir (filters ya los validó): «un solo project» es uno distinto
+            val requested = params["project"].orEmpty().map(UUID::fromString).distinct()
+            val rows = if (name == Kpis.MONITORING) monitoringRows(ctx, data, requested, indicators) else null
             DashboardResponse(
                 name,
                 filters.echo(),
@@ -3724,6 +4044,7 @@ En `src/main/kotlin/sgspe/dashboard/Dashboards.kt`:
                 indicators,
                 if (name == Kpis.ATTENTION) ctx.confidentialHidden else null,
                 byProject,
+                if (omitted) true else null,
                 rows
             )
 ```
@@ -3736,14 +4057,14 @@ En `src/main/kotlin/sgspe/dashboard/Dashboards.kt`:
     private suspend fun monitoringRows(
         ctx: KpiContext,
         data: DashboardData,
-        requestedProjects: List<String>,
+        requestedProjects: List<UUID>,
         values: List<IndicatorValue>
     ): List<MonitoringRow> {
         val withModel = tenantModel.has(ctx.reader.organizationId, INDICATOR)
         val catalog = if (withModel) data.indicatorCatalog() else emptyMap()
         val measurements = if (withModel && catalog.isNotEmpty()) data.measurements(data.filters.periodStart) else emptyList()
         val scope = MonitoringTable.scope(requestedProjects, data.filters, ctx.tenantWide)
-        return MonitoringTable.rows(values, catalog, measurements, scope, data.meetingTargetDefined(), data.filters)
+        return MonitoringTable.rows(values, catalog, measurements, scope, data.meetingTargetDefined())
     }
 ```
 
@@ -3757,11 +4078,14 @@ cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) 
 ```
 
 Esperado: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.dashboard.MonitoringDashboardApiTest`,
-`sgspe.dashboard.DashboardsApiTest`, `sgspe.dashboard.EngagementIndicatorsF4ApiTest`.
+`sgspe.dashboard.DashboardsApiTest`, `sgspe.dashboard.EngagementIndicatorsF4ApiTest` (la meta de KPI-ENG-02 de F2 no
+cambia mientras el catálogo diga 2; si una prueba de F2 lee KPI-ENG-02 con FIELD_AGENT, ahora es no disponible por R1 y
+se ajusta en esta tarea).
 
 ```bash
 cd $REPO && git add src/main/kotlin/sgspe/dashboard/Dashboards.kt src/main/kotlin/sgspe/dashboard/DashboardData.kt \
   src/main/kotlin/sgspe/dashboard/Kpis.kt src/main/kotlin/sgspe/dashboard/Indicators.kt \
+  src/main/kotlin/sgspe/dashboard/EngagementKpis.kt src/test/kotlin/sgspe/dashboard/MeetingsTargetTest.kt \
   src/test/kotlin/sgspe/dashboard/MonitoringDashboardApiTest.kt src/test/kotlin/sgspe/dashboard/DashboardsApiTest.kt \
   src/test/kotlin/sgspe/dashboard/EngagementKpisF4Test.kt
 git commit -m "feat: tablero monitoring con la Tabla 9.5, sus metas y la cifra oficial" -m "GET /api/sgspe/dashboards/monitoring con rows[]: meta y origen, medio de verificación del
@@ -3784,8 +4108,13 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t8 -m "Merge branch
 - Consumes: `Kpis.BY_CODE`, `Kpis.ALL`, `TerritorySummary.CODE`, `ExecutiveKpis.TREND` (Tarea 4), `IndicatorValue`,
   `Breakdown`.
 - Produces: `ClosingPeriod(project: UUID?, start: LocalDate, end: LocalDate)` con `ClosingPeriod.parse(body: Map<String,
-  Any?>)`; `Closability` (`STANCE`, `NO_SCALAR_VALUE`, `UNAVAILABLE`, `CONFIDENTIAL_HIDDEN`, `STANCE_KPIS`, `NO_SCALAR`,
-  `before(code: String): String?`, `after(value: IndicatorValue): String?`, `breakdown(value: IndicatorValue): String?`).
+  Any?>)`; `Closability` (`STANCE`, `NO_SCALAR_VALUE`, `UNAVAILABLE`, `NOT_PERIOD_BOUND`, `STANCE_KPIS`, `NO_SCALAR`,
+  `PERIODLESS`, `RECORD_LEVEL`, `before(code: String, period: ClosingPeriod, today: LocalDate): String?`,
+  `after(value: IndicatorValue): String?`, `breakdown(value: IndicatorValue): String?`).
+
+Las razones siguen las decisiones 2 (R3), 25 (R4: las QCS confidenciales nunca entran en la cifra oficial, así que no hay
+`CONFIDENTIAL_HIDDEN`), 26 (R5: solo se congela un desglose agregado) y 27 (R7: un KPI que no depende del periodo es la
+foto de hoy y solo se cierra para el periodo vigente, el último que terminó: `NOT_PERIOD_BOUND`).
 
 - [ ] **Paso 1: La rama**
 
@@ -3801,30 +4130,50 @@ Crear `src/test/kotlin/sgspe/dashboard/ClosabilityTest.kt`:
 package sgspe.dashboard
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import wasichai.core.common.WasichaiException
 import java.time.LocalDate
+import java.time.YearMonth
 import java.util.UUID
 
 // una cifra oficial es completa o no existe (especificación de F8 §2.2.15, ASM-136): las razones antes y después de calcular,
 // el desglose principal como tabla Markdown y el cuerpo del cierre
 class ClosabilityTest {
+    private val today = LocalDate.parse("2026-10-13")
+    private val september = ClosingPeriod(null, LocalDate.parse("2026-09-01"), LocalDate.parse("2026-09-30"))
+    private val july = ClosingPeriod(null, LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-31"))
+
     @Test
     fun `antes de calcular, la postura, lo que no tiene escalar y lo que Kpis no calcula`() {
-        for (code in listOf("KPI-STK-02", "KPI-STK-05", "KPI-STK-06")) assertEquals(Closability.STANCE, Closability.before(code), code)
-        for (code in listOf("KPI-TER-01", "KPI-EXE-03")) assertEquals(Closability.NO_SCALAR_VALUE, Closability.before(code), code)
-        assertEquals(Closability.UNAVAILABLE, Closability.before("KPI-XYZ-01"))
-        assertNull(Closability.before("KPI-COM-01"))
+        for (code in listOf("KPI-STK-02", "KPI-STK-05", "KPI-STK-06")) assertEquals(Closability.STANCE, Closability.before(code, september, today), code)
+        for (code in listOf("KPI-TER-01", "KPI-EXE-03")) assertEquals(Closability.NO_SCALAR_VALUE, Closability.before(code, september, today), code)
+        assertEquals(Closability.UNAVAILABLE, Closability.before("KPI-XYZ-01", september, today))
+        assertNull(Closability.before("KPI-COM-08", july, today))
         // la lista de postura es exactamente la de los KPI que leen stance (dashboards.md §8)
         assertEquals(Closability.STANCE_KPIS, Kpis.ALL.filter { kpi -> kpi.requires.any { it.endsWith(".stance") } }.map { it.code }.toSet())
     }
 
+    // decisión 27 (R7): la foto de hoy solo vale para el periodo vigente, el último que terminó
     @Test
-    fun `despues de calcular, no disponible, confidencial oculta y sin valor`() {
+    fun `un KPI sin periodo solo se cierra para el periodo vigente`() {
+        assertNull(Closability.before("KPI-COM-02", september, today))
+        assertEquals(Closability.NOT_PERIOD_BOUND, Closability.before("KPI-COM-02", july, today))
+        assertNull(Closability.before("KPI-COM-02", ClosingPeriod(null, LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-12")), today))
+        // los que declaran el periodo como ignorado son de esta lista; los de periodo, no
+        assertTrue(Kpis.ALL.filter { "periodStart" in it.ignores }.all { it.code in Closability.PERIODLESS || it.code in Closability.NO_SCALAR })
+        for (code in listOf("KPI-ENG-01", "KPI-COM-05", "KPI-COM-08", "KPI-GRV-01", "KPI-STK-08")) assertFalse(code in Closability.PERIODLESS, code)
+        assertTrue(Closability.PERIODLESS.all { it in Kpis.BY_CODE })
+    }
+
+    // decisión 25 (R4): la marca confidentialHidden ya no impide cerrar: el cierre calcula sin las confidenciales
+    @Test
+    fun `despues de calcular, no disponible y sin valor`() {
         assertEquals(Closability.UNAVAILABLE, Closability.after(IndicatorValue("KPI-COM-10", "x", false, unavailableReason = "FIELD_NOT_READABLE")))
-        assertEquals(Closability.CONFIDENTIAL_HIDDEN, Closability.after(IndicatorValue("KPI-GRV-01", "x", true, 3, confidentialHidden = true)))
+        assertNull(Closability.after(IndicatorValue("KPI-GRV-01", "x", true, 3, confidentialHidden = true)))
         assertEquals(Closability.NO_SCALAR_VALUE, Closability.after(IndicatorValue("KPI-STK-07", "x", true, null)))
         assertNull(Closability.after(IndicatorValue("KPI-COM-01", "x", true, 0)))
     }
@@ -3845,6 +4194,16 @@ class ClosabilityTest {
             )
         assertEquals("| workflow_state | Valor |\n|---|---|\n| draft | 2 |\n| Etiqueta | 1 |", Closability.breakdown(value))
         assertNull(Closability.breakdown(IndicatorValue("KPI-COM-02", "x", true, 3)))
+    }
+
+    // decisión 26 (R5): un desglose por registro (grupos de interés, interacciones, responsables, riesgos) no se congela
+    @Test
+    fun `un desglose por registro no se congela`() {
+        for (by in Closability.RECORD_LEVEL) {
+            val value = IndicatorValue("KPI-STK-03", "x", true, 2, breakdowns = listOf(Breakdown(by, listOf(mapOf("key" to "id-1", "label" to "Persona Ejemplo 1", "value" to 1)))))
+            assertNull(Closability.breakdown(value), by)
+        }
+        assertEquals(setOf("stakeholder", "engagement", "overdue", "owner", "risk"), Closability.RECORD_LEVEL)
     }
 
     @Test
@@ -3884,6 +4243,7 @@ import sgspe.common.Values
 import sgspe.common.toCodedException
 import wasichai.core.common.ValidationException
 import java.time.LocalDate
+import java.time.YearMonth
 import java.util.UUID
 
 // el periodo que se cierra (api.md §4.11): `{ project, attributes: { period_start_date, period_end_date } }`; sin project, todo
@@ -3933,7 +4293,7 @@ object Closability {
     const val STANCE = "STANCE"
     const val NO_SCALAR_VALUE = "NO_SCALAR_VALUE"
     const val UNAVAILABLE = "UNAVAILABLE"
-    const val CONFIDENTIAL_HIDDEN = "CONFIDENTIAL_HIDDEN"
+    const val NOT_PERIOD_BOUND = "NOT_PERIOD_BOUND"
 
     // los que leen la postura: una cifra congelada la leería cualquiera con READ sobre indicator_measurement (security.md §7.9)
     val STANCE_KPIS: Set<String> = setOf("KPI-STK-02", "KPI-STK-05", "KPI-STK-06")
@@ -3941,29 +4301,50 @@ object Closability {
     // los que nunca tienen un valor escalar
     val NO_SCALAR: Set<String> = setOf(TerritorySummary.CODE, ExecutiveKpis.TREND)
 
-    // la razón por el código, o null si se puede calcular: un código que Kpis no calcula (un indicador propio del cliente) no
-    // tiene cifra que congelar
-    fun before(code: String): String? =
+    // decisión 27 (R7): los KPI que no dependen del periodo pedido (una foto de hoy: conteos de abiertos, de estado, de plazo,
+    // de matriz o de montos acumulados); se cierran solo para el periodo vigente
+    val PERIODLESS: Set<String> =
+        setOf(
+            "KPI-STK-01", "KPI-STK-02", "KPI-STK-03", "KPI-COM-01", "KPI-COM-02", "KPI-COM-03", "KPI-COM-04", "KPI-COM-06",
+            "KPI-COM-07", "KPI-COM-10", "KPI-GRV-02", "KPI-GRV-06", "KPI-RSK-01", "KPI-RSK-02", "KPI-RSK-03", "KPI-RSK-05",
+            "KPI-INV-01", "KPI-INV-02", "KPI-INV-04", "KPI-TER-02", "KPI-TER-03", "KPI-TER-04", ExecutiveKpis.ACTIVE_PROJECTS,
+            ExecutiveKpis.ACTIVE_WARNINGS
+        )
+
+    // decisión 26 (R5): los desgloses que nombran registros (un punto por grupo de interés, una fila por interacción, por
+    // medida atrasada, por responsable o por riesgo): no se congelan en una cifra oficial, que lee cualquiera con READ
+    val RECORD_LEVEL: Set<String> = setOf("stakeholder", "engagement", "overdue", "owner", "risk")
+
+    // la razón por el código y el periodo, o null si se puede calcular: un código que Kpis no calcula (un indicador propio
+    // del cliente) no tiene cifra que congelar; uno sin periodo solo vale para el periodo vigente: el que termina en el mes
+    // pasado o en el actual (antes de hoy, PERIOD_NOT_ENDED ya lo exige)
+    fun before(
+        code: String,
+        period: ClosingPeriod,
+        today: LocalDate
+    ): String? =
         when {
             code !in Kpis.BY_CODE -> UNAVAILABLE
             code in STANCE_KPIS -> STANCE
             code in NO_SCALAR -> NO_SCALAR_VALUE
+            code in PERIODLESS && period.end.isBefore(YearMonth.from(today).minusMonths(1).atDay(1)) -> NOT_PERIOD_BOUND
             else -> null
         }
 
-    // la razón por el KPI calculado, o null si es una cifra completa
+    // la razón por el KPI calculado, o null si es una cifra completa. confidentialHidden no impide cerrar: el cierre calcula
+    // siempre sin las QCS confidenciales (decisión 25, R4)
     fun after(value: IndicatorValue): String? =
         when {
             !value.available -> UNAVAILABLE
-            value.confidentialHidden == true -> CONFIDENTIAL_HIDDEN
             value.value == null -> NO_SCALAR_VALUE
             else -> null
         }
 
     // el primer desglose como tabla Markdown («| <by> | Valor |»), con la etiqueta de cada fila o su clave; null sin desglose
+    // o si es un desglose por registro (RECORD_LEVEL): entonces la medición lleva solo el valor
     fun breakdown(value: IndicatorValue): String? {
         val first = value.breakdowns?.firstOrNull() ?: return null
-        if (first.rows.isEmpty()) return null
+        if (first.rows.isEmpty() || first.by in RECORD_LEVEL) return null
         val lines = first.rows.map { row -> "| ${cell(row["label"] ?: row["key"])} | ${cell(row["value"])} |" }
         return (listOf("| ${cell(first.by)} | Valor |", "|---|---|") + lines).joinToString("\n")
     }
@@ -3984,8 +4365,8 @@ lo trae, así que sale `Etiqueta`.)
 
 ```bash
 cd $REPO && git add src/main/kotlin/sgspe/dashboard/Closability.kt src/test/kotlin/sgspe/dashboard/ClosabilityTest.kt
-git commit -m "feat: las reglas puras del cierre de periodo" -m "Closability decide STANCE, NO_SCALAR_VALUE, UNAVAILABLE y CONFIDENTIAL_HIDDEN antes y después de
-calcular, y arma el desglose en Markdown; ClosingPeriod valida el cuerpo (ASM-136).
+git commit -m "feat: las reglas puras del cierre de periodo" -m "Closability decide STANCE, NO_SCALAR_VALUE, UNAVAILABLE y NOT_PERIOD_BOUND y congela solo
+desgloses agregados en Markdown; ClosingPeriod valida el cuerpo (ASM-136).
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM"
@@ -3998,20 +4379,26 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t9 -m "Merge branch
 
 **Files:**
 - Create: `src/main/kotlin/sgspe/dashboard/IndicatorMeasurements.kt`
-- Test: `src/test/kotlin/sgspe/dashboard/IndicatorMeasurementsApiTest.kt` (nuevo)
+- Modify: `src/main/kotlin/sgspe/dashboard/Dashboards.kt` (`value` con `excludeConfidential`),
+  `src/main/kotlin/sgspe/dashboard/DashboardData.kt`, `src/main/kotlin/sgspe/dashboard/AttentionKpis.kt` (`AttentionRow.confidential`)
+- Test: `src/test/kotlin/sgspe/dashboard/IndicatorMeasurementsApiTest.kt` (nuevo), `src/test/kotlin/sgspe/dashboard/ConfidentialExclusionTest.kt` (nuevo)
 
 **Interfaces:**
-- Consumes: `ClosingPeriod`, `Closability` (Tarea 9); `Dashboards.value`, `KpiReader.Person` (Tarea 3); `Records`,
-  `Transactions.locked`, `Permissions.require`, `ProjectReach.mine`, `Idempotency`, `CommandAnswer`, `IdempotencyKey`,
-  `StrictQuery`, `Callers` (`sgspe.common`); `GlobalExceptionHandler` de wasichai; `F8IndicatorsApiTest` (Tarea 2).
+- Consumes: `ClosingPeriod`, `Closability` (Tarea 9); `Dashboards.value`, `KpiReaders.person` (Tarea 3); `Records`,
+  `Transactions.locked`, `Permissions.require`, `Idempotency`, `CommandAnswer`, `IdempotencyKey`, `StrictQuery`, `Callers`
+  (`sgspe.common`); `GlobalExceptionHandler` de wasichai; `F8IndicatorsApiTest` (Tarea 2).
 - Produces: `POST /api/sgspe/indicators/{id}/measurements` → `201` con la `indicator_measurement`;
-  `IndicatorNotClosable(reason: String, message: String)`.
+  `IndicatorNotClosable(reason: String, message: String)`; `Dashboards.value(code, projects, start, end, reader,
+  excludeConfidential: Boolean = false)`; `DashboardData(…, excludeConfidential: Boolean = false)` y
+  `AttentionRow.confidential` (último campo, falso por defecto: las unitarias que ya la arman no cambian).
 
-El orden de las comprobaciones: el cuerpo (400), CREATE sobre `indicator_measurement` (403), todo el tenant sin leer todos
-los proyectos (`403 ACTION_REQUIRED`), el proyecto y el indicador leídos como quien cierra (404), el periodo terminado
-(`400 PERIOD_NOT_ENDED`), la razón por el código (`409 INDICATOR_NOT_CLOSABLE`) y, bajo el candado
-`indicator_measurement:<indicador>:<proyecto|tenant>:<inicio>`, la medición repetida (`409 MEASUREMENT_EXISTS`), el
-cálculo como quien cierra, la razón por el resultado y el alta. Todo como la persona (Restricciones globales).
+El orden: el cuerpo (400), CREATE sobre `indicator_measurement` (403), todo el tenant sin ser administrador (`403
+ACTION_REQUIRED`, decisión 10, R2), el proyecto y el indicador leídos como quien cierra (404), el periodo terminado (`400
+PERIOD_NOT_ENDED`), la razón por el código y el periodo (`409 INDICATOR_NOT_CLOSABLE`: `STANCE`, `NO_SCALAR_VALUE`,
+`UNAVAILABLE`, `NOT_PERIOD_BOUND`), el cálculo como quien cierra (`KpiReaders.person()`), sin las QCS confidenciales en los
+KPI que las leen (decisión 25, R4), la razón por el resultado y, bajo el candado
+`indicator_measurement:<indicador>:<proyecto|tenant>:<inicio>`, solo la comprobación de la medición repetida (`409
+MEASUREMENT_EXISTS`) y el alta. Todo como la persona (Restricciones globales).
 
 - [ ] **Paso 1: La rama**
 
@@ -4019,13 +4406,94 @@ cálculo como quien cierra, la razón por el resultado y el alta. Todo como la p
 cd $REPO && git switch feat/fase-8-2a-tableros && git switch -c f82a/t10
 ```
 
-- [ ] **Paso 2: La prueba de integración**
+- [ ] **Paso 2: La unitaria de la exclusión, que falla**
+
+Crear `src/test/kotlin/sgspe/dashboard/ConfidentialExclusionTest.kt`:
+
+```kotlin
+package sgspe.dashboard
+
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import sgspe.common.Records
+import wasichai.core.data.RecordResponse
+import java.time.LocalDate
+import java.util.UUID
+
+// decisión 25 (R4): la cifra oficial de un KPI que lee QCS se calcula siempre sin las confidenciales, para que nunca revele
+// cuántas se excluyen a quien la lea; sin la marca, DashboardData las cuenta como siempre (lo que quien mira lee)
+class ConfidentialExclusionTest {
+    private val records: Records =
+        mock(Records::class.java) { call ->
+            if (call.method.name != "all") return@mock null
+            if (call.arguments[0] != "grievance") return@mock emptyList<RecordResponse>()
+            listOf(
+                RecordResponse(UUID.randomUUID().toString(), null, null, mapOf("received_at" to "2026-09-05T15:00:00Z", "confidential" to true), "received"),
+                RecordResponse(UUID.randomUUID().toString(), null, null, mapOf("received_at" to "2026-09-06T15:00:00Z", "confidential" to false), "received")
+            )
+        }
+
+    private fun data(excludeConfidential: Boolean) =
+        DashboardData(
+            records,
+            DashboardFilters.of(listOf(UUID.randomUUID()), LocalDate.parse("2026-09-01"), LocalDate.parse("2026-09-30")),
+            { true },
+            LocalDate.parse("2026-10-13"),
+            excludeConfidential = excludeConfidential
+        )
+
+    @Test
+    fun `con la marca, las QCS confidenciales no se leen para la cifra`() {
+        assertEquals(2, runBlocking { data(false).attention() }.size)
+        val kept = runBlocking { data(true).attention() }
+        assertEquals(listOf(false), kept.map { it.confidential })
+    }
+}
+```
+
+(Si `RecordResponse` pide otros argumentos, se arma como en `ContributionReceiptRuleTest`.)
+
+```bash
+cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.dashboard.ConfidentialExclusionTest'
+```
+
+Esperado: no compila (`excludeConfidential`, `confidential`).
+
+- [ ] **Paso 3: La exclusión**
+
+En `src/main/kotlin/sgspe/dashboard/AttentionKpis.kt`, `AttentionRow` suma al final
+`val confidential: Boolean = false` (después de `reclassified`). En `src/main/kotlin/sgspe/dashboard/DashboardData.kt`:
+el constructor suma, después de `hasCatalog`,
+
+```kotlin
+    private val hasCatalog: Boolean = false,
+    // F8 (decisión 25, R4): el cierre de periodo calcula los KPI de QCS sin las confidenciales, también para quien las ve
+    private val excludeConfidential: Boolean = false
+```
+
+`with(filters)` lo pasa; `attentionRow(...)` suma como último argumento `Values.bool(a[Attention.CONFIDENTIAL]) == true`; y
+en `attention()`, después de `.map { attentionRow(type, it) }`, `.filterNot { excludeConfidential && it.confidential }`.
+
+En `src/main/kotlin/sgspe/dashboard/Dashboards.kt`, `value(...)` suma el parámetro `excludeConfidential: Boolean = false`
+(último) y lo pasa a `DashboardData` (`data(ctx, filters, today(), excludeConfidential)`: `data(...)` gana ese
+parámetro, `false` por defecto, que va a `DashboardData(…, excludeConfidential = excludeConfidential)`).
+
+```bash
+cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.dashboard.*'
+```
+
+Esperado: `BUILD SUCCESSFUL`.
+
+- [ ] **Paso 4: La prueba de integración**
 
 Crear `src/test/kotlin/sgspe/dashboard/IndicatorMeasurementsApiTest.kt`:
 
 ```kotlin
 package sgspe.dashboard
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -4037,9 +4505,10 @@ import java.time.YearMonth
 import java.util.UUID
 
 // el cierre de periodo (api.md §4.11, dashboards.md §10, security.md §14; especificación de F8 §5): una cifra escalar se
-// congela con su numerador, denominador y desglose; 409 INDICATOR_NOT_CLOSABLE con su razón (postura, sin escalar, sin
-// disponibilidad, confidencial oculta); 400 PERIOD_NOT_ENDED; 409 MEASUREMENT_EXISTS por proyecto y por tenant (Review Focus
-// 4); 403 ACTION_REQUIRED para todo el tenant sin leer todos los proyectos; la medición es appendOnly
+// congela con su numerador, denominador y desglose agregado; 409 INDICATOR_NOT_CLOSABLE con su razón (postura, sin escalar,
+// sin disponibilidad, sin periodo fuera del vigente); las QCS confidenciales nunca entran en la cifra; 400 PERIOD_NOT_ENDED;
+// 409 MEASUREMENT_EXISTS por proyecto y por tenant (Review Focus 4); 403 ACTION_REQUIRED para todo el tenant sin ser
+// administrador; la medición es appendOnly
 class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
     private fun reason(response: Response): String = tree(response.body)["reason"].asString()
 
@@ -4080,14 +4549,25 @@ class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
             assertEquals(why, reason(response), code)
         }
         // un indicador propio del cliente, que Kpis no calcula: no hay cifra que congelar
-        val own = createRecord("indicator", mapOf("code" to "KPI-ZZZ-${(10..99).random()}", "name" to "Indicador propio de la Asociación Ejemplo"))
+        val own = createRecord("indicator", mapOf("code" to uniqueName("KPI-CLI-"), "name" to "Indicador propio de la Asociación Ejemplo"))
         assertEquals(Closability.UNAVAILABLE, reason(closePeriod(own, project, start, end)))
-        // SOCIAL_MANAGER no tiene READ_CONFIDENTIAL: KPI-GRV-01 le sale con confidentialHidden (en la práctica lo cierra ADMIN)
-        val social = member("SOCIAL_MANAGER", project)
-        val hidden = closePeriod(indicatorId("KPI-GRV-01"), project, start, end, social.token)
-        assertEquals(HttpStatus.CONFLICT, hidden.status, hidden.body)
-        assertEquals(Closability.CONFIDENTIAL_HIDDEN, reason(hidden))
-        assertEquals(HttpStatus.CREATED, closePeriod(indicatorId("KPI-GRV-01"), project, start, end).status)
+        // decisión 27 (R7): un KPI sin periodo es la foto de hoy y no vale para un periodo de hace dos meses
+        val old = YearMonth.now(LIMA).minusMonths(2)
+        val stale = closePeriod(indicatorId("KPI-COM-02"), project, old.atDay(1), old.atEndOfMonth())
+        assertEquals(HttpStatus.CONFLICT, stale.status, stale.body)
+        assertEquals(Closability.NOT_PERIOD_BOUND, reason(stale))
+    }
+
+    // decisión 25 (R4): la cifra oficial de un KPI de QCS no cuenta las confidenciales, la cierre quien la cierre
+    @Test
+    fun `las QCS confidenciales nunca entran en la cifra oficial`() {
+        val (start, end) = lastMonth()
+        val project = activeProject()
+        grievance(project)
+        runBlocking { confidentialGrievance(UUID.fromString(project), locality("Caserío Ejemplo", null)) }
+        val created = closePeriod(indicatorId("KPI-GRV-02"), project, start, end)
+        assertEquals(HttpStatus.CREATED, created.status, created.body)
+        assertEquals(1, tree(created.body)["attributes"]["measured_value"].asInt())
     }
 
     @Test
@@ -4110,10 +4590,13 @@ class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("MEASUREMENT_EXISTS", code(again))
         assertEquals(listOf("attributes.period_start_date"), problemFields(again.body))
-        val (oldStart, oldEnd) = pastMonth()
+        val (oldStart, oldEnd) = uniqueMonth()
         val tenant = indicatorId("KPI-ENG-01")
-        val first = closePeriod(tenant, null, oldStart, oldEnd, key = "cierre-${UUID.randomUUID()}")
+        val key = uniqueName("cierre-")
+        val first = closePeriod(tenant, null, oldStart, oldEnd, key = key)
         assertEquals(HttpStatus.CREATED, first.status, first.body)
+        // el reenvío con la misma clave devuelve la primera respuesta; sin clave, es la segunda medición
+        assertEquals(first.body, closePeriod(tenant, null, oldStart, oldEnd, key = key).body)
         assertEquals("MEASUREMENT_EXISTS", code(closePeriod(tenant, null, oldStart, oldEnd)))
         val stored =
             get("/api/objects/indicator_measurement/records?indicator=$tenant&size=200")["content"].values().filter {
@@ -4122,23 +4605,30 @@ class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
         assertEquals(1, stored.size)
     }
 
+    // decisión 10 (R2): todo el tenant lo cierra solo un administrador
     @Test
-    fun `todo el tenant exige leer todos los proyectos y cerrar exige CREATE`() {
-        val (start, end) = pastMonth()
+    fun `todo el tenant exige ser administrador y cerrar exige CREATE`() {
+        val (start, end) = uniqueMonth()
         val project = activeProject()
         val social = member("SOCIAL_MANAGER", project)
         val tenant = closePeriod(indicatorId("KPI-ENG-01"), null, start, end, social.token)
         assertEquals(HttpStatus.FORBIDDEN, tenant.status, tenant.body)
         assertEquals("ACTION_REQUIRED", code(tenant))
         assertEquals(listOf("project"), problemFields(tenant.body))
-        val reader = closePeriod(indicatorId("KPI-COM-01"), project, start, end, member("READ_ONLY", project).token)
+        val (last, lastEnd) = lastMonth()
+        val reader = closePeriod(indicatorId("KPI-COM-01"), project, last, lastEnd, member("READ_ONLY", project).token)
         assertEquals(HttpStatus.FORBIDDEN, reader.status, reader.body)
     }
 
     @Test
     fun `un cuerpo con una propiedad desconocida o fechas ilegibles es 400`() {
         val indicator = indicatorId("KPI-COM-01")
-        val unknown = exchange("POST", "/api/sgspe/indicators/$indicator/measurements", mapOf("attributes" to mapOf("period_start_date" to "2026-01-01", "period_end_date" to "2026-01-31"), "note" to "x"))
+        val unknown =
+            exchange(
+                "POST",
+                "/api/sgspe/indicators/$indicator/measurements",
+                mapOf("attributes" to mapOf("period_start_date" to "2026-01-01", "period_end_date" to "2026-01-31"), "note" to "x")
+            )
         assertEquals(HttpStatus.BAD_REQUEST, unknown.status, unknown.body)
         val bad = closePeriod(indicator, activeProject(), LocalDate.parse("2026-02-01"), LocalDate.parse("2026-01-31"))
         assertEquals("OUT_OF_RANGE", code(bad))
@@ -4146,13 +4636,16 @@ class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
 }
 ```
 
+(`confidentialGrievance` y `locality` son de `F6ApiTest`; la queja confidencial la registra un GRIEVANCE_MANAGER
+asignado. KPI-GRV-02 cuenta abiertas, sin periodo: el mes pasado es el periodo vigente.)
+
 ```bash
 cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew compileTestKotlin
 ```
 
-Esperado: compila (la prueba solo usa HTTP); fallaría por `404` en la integración hasta el Paso 3.
+Esperado: compila (la prueba solo usa HTTP); fallaría por `404` en la integración hasta el Paso 5.
 
-- [ ] **Paso 3: El endpoint**
+- [ ] **Paso 5: El endpoint**
 
 Crear `src/main/kotlin/sgspe/dashboard/IndicatorMeasurements.kt`:
 
@@ -4171,7 +4664,6 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ServerWebExchange
-import sgspe.common.Callers
 import sgspe.common.CommandAnswer
 import sgspe.common.Criteria
 import sgspe.common.Finding
@@ -4179,7 +4671,6 @@ import sgspe.common.Idempotency
 import sgspe.common.IdempotencyKey
 import sgspe.common.LIMA
 import sgspe.common.Permissions
-import sgspe.common.ProjectReach
 import sgspe.common.Records
 import sgspe.common.StrictQuery
 import sgspe.common.Transactions
@@ -4195,24 +4686,24 @@ import java.time.LocalDate
 import java.util.UUID
 
 // 409 INDICATOR_NOT_CLOSABLE (api.md §3.3): errors[0] es indicator/INDICATOR_NOT_CLOSABLE y el problem+json suma el miembro
-// `reason` (STANCE, NO_SCALAR_VALUE, UNAVAILABLE o CONFIDENTIAL_HIDDEN), que agrega el controlador
+// `reason` (STANCE, NO_SCALAR_VALUE, UNAVAILABLE o NOT_PERIOD_BOUND), que agrega el controlador
 class IndicatorNotClosable(
     val reason: String,
     message: String
 ) : WasichaiException(HttpStatus.CONFLICT, message, listOf(FieldViolation("indicator", "INDICATOR_NOT_CLOSABLE")))
 
 // el cierre de un periodo (api.md §4.11, dashboards.md §10, ASM-136): congela en indicator_measurement la cifra del KPI
-// calculada como quien cierra, con su KpiReader de persona, o ninguna. todo como la persona, con la marca de escritura de
-// Records; el candado por indicador, alcance e inicio cubre lo que el único compuesto no ve (dos mediciones del tenant, porque
-// los NULL son distintos, WAS-ADR-0037)
+// calculada como quien cierra (KpiReaders.person), o ninguna. los KPI que leen QCS se calculan sin las confidenciales
+// (decisión 25): la cifra oficial nunca revela cuántas se excluyen. todo como la persona, con la marca de escritura de
+// Records; el candado por indicador, alcance e inicio cubre solo la comprobación y el alta, lo que el único compuesto no ve
+// (dos mediciones del tenant, porque los NULL son distintos, WAS-ADR-0037)
 @Service
 class IndicatorMeasurements(
     private val records: Records,
     private val dashboards: Dashboards,
+    private val readers: KpiReaders,
     private val permissions: Permissions,
-    private val reach: ProjectReach,
     private val transactions: Transactions,
-    private val callers: Callers,
     private val clock: Clock
 ) {
     suspend fun close(
@@ -4220,20 +4711,18 @@ class IndicatorMeasurements(
         body: Map<String, Any?>
     ): RecordResponse {
         val period = ClosingPeriod.parse(body)
-        val user = callers.require()
+        val reader = readers.person()
+        val user = reader.user
         permissions.require(user, "Cerrar un periodo", Actions.CREATE to MEASUREMENT)
-        // todo el tenant: solo quien lee todos los proyectos (decisión 10 del plan 8.2a: mine == null, sin readsAll)
-        if (period.project == null && reach.mine(user) != null) {
-            throw Finding(
-                "ACTION_REQUIRED",
-                "Cerrar un periodo de todo el tenant exige leer todos los proyectos (READ_ALL_PROJECTS sobre project) o ser ADMIN",
-                "project",
-                status = HttpStatus.FORBIDDEN
-            ).toCodedException()
+        // todo el tenant: solo un administrador, por ahora (decisión 10, R2)
+        if (period.project == null && !user.isAdmin) {
+            throw Finding("ACTION_REQUIRED", "Cerrar un periodo de todo el tenant exige ser administrador", "project", status = HttpStatus.FORBIDDEN)
+                .toCodedException()
         }
         period.project?.let { records.get("project", it) }
         val code = Values.text(records.get(INDICATOR, indicatorId).attributes["code"]).orEmpty()
-        if (!period.end.isBefore(LocalDate.now(clock.withZone(LIMA)))) {
+        val today = LocalDate.now(clock.withZone(LIMA))
+        if (!period.end.isBefore(today)) {
             throw Finding(
                 "PERIOD_NOT_ENDED",
                 "El periodo termina el ${period.end}: se cierra desde el día siguiente",
@@ -4241,7 +4730,10 @@ class IndicatorMeasurements(
                 status = HttpStatus.BAD_REQUEST
             ).toCodedException()
         }
-        Closability.before(code)?.let { throw notClosable(it, code) }
+        Closability.before(code, period, today)?.let { throw notClosable(it, code) }
+        val value =
+            dashboards.value(code, period.project?.let { listOf(it) }, period.start, period.end, reader, excludeConfidential = Kpis.confidentialSensitive(code))
+        Closability.after(value)?.let { throw notClosable(it, code) }
         return transactions.locked("$MEASUREMENT:$indicatorId:${period.project ?: "tenant"}:${period.start}") {
             if (exists(indicatorId, period)) {
                 throw Finding(
@@ -4250,8 +4742,6 @@ class IndicatorMeasurements(
                     "attributes.period_start_date"
                 ).toCodedException()
             }
-            val value = dashboards.value(code, period.project?.let { listOf(it) }, period.start, period.end, KpiReader.Person(user))
-            Closability.after(value)?.let { throw notClosable(it, code) }
             records.create(
                 MEASUREMENT,
                 mapOf(
@@ -4320,20 +4810,24 @@ class IndicatorMeasurementsController(
 ```
 
 (Si `CommandAnswer.etag` no acepta el tipo de `updatedAt`, se pasa `null`, como hacen los comandos que no exponen
-`ETag`.)
+`ETag`. El mensaje de `ACTION_REQUIRED` dice «administrador», nunca el nombre del rol: `ArchitectureTest` no deja literales
+de rol en `src/main`.)
 
-- [ ] **Paso 4: Build y commit**
+- [ ] **Paso 6: Build y commit**
 
 ```bash
 cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
 ```
 
-Esperado: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.dashboard.IndicatorMeasurementsApiTest`.
+Esperado: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.dashboard.IndicatorMeasurementsApiTest` y, por la exclusión,
+`sgspe.dashboard.AttentionDashboardApiTest`.
 
 ```bash
-cd $REPO && git add src/main/kotlin/sgspe/dashboard/IndicatorMeasurements.kt src/test/kotlin/sgspe/dashboard/IndicatorMeasurementsApiTest.kt
-git commit -m "feat: cierre de periodo con la cifra oficial completa o ninguna" -m "POST /api/sgspe/indicators/{id}/measurements calcula como quien cierra y responde 409
-INDICATOR_NOT_CLOSABLE con reason, 400 PERIOD_NOT_ENDED, 409 MEASUREMENT_EXISTS y 403 ACTION_REQUIRED.
+cd $REPO && git add src/main/kotlin/sgspe/dashboard/IndicatorMeasurements.kt src/main/kotlin/sgspe/dashboard/Dashboards.kt \
+  src/main/kotlin/sgspe/dashboard/DashboardData.kt src/main/kotlin/sgspe/dashboard/AttentionKpis.kt \
+  src/test/kotlin/sgspe/dashboard/ConfidentialExclusionTest.kt src/test/kotlin/sgspe/dashboard/IndicatorMeasurementsApiTest.kt
+git commit -m "feat: cierre de periodo con la cifra oficial completa o ninguna" -m "POST /api/sgspe/indicators/{id}/measurements calcula como quien cierra, sin las QCS confidenciales,
+y responde 409 INDICATOR_NOT_CLOSABLE con reason, PERIOD_NOT_ENDED, MEASUREMENT_EXISTS y 403.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM"
@@ -4350,7 +4844,8 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t10 -m "Merge branc
 **Interfaces:**
 - Consumes: `Dashboards.dashboard(name, params, reader)`, `KpiReaders.platform` (Tarea 3); los tableros de las Tareas 5, 6 y
   8; `F8IndicatorsApiTest`.
-- Produces: la prueba de RQ-DSH-034 que 8.2b reutiliza al ensamblar, y el vigía de `asPlatform` en `sgspe.dashboard`.
+- Produces: la prueba de RQ-DSH-034 que 8.2b reutiliza al ensamblar, y los vigías de `asPlatform` en `sgspe.dashboard` y de
+  `selectAsPlatform` y la organización de la plataforma en `ComponentLand.rows`.
 
 - [ ] **Paso 1: La rama**
 
@@ -4375,9 +4870,29 @@ En `src/test/kotlin/sgspe/ArchitectureTest.kt`, después de `solo sgspe ai usa e
         assertTrue(flags(AS_PLATFORM, "records.asPlatform(organization) { block() }"))
         assertFalse(flags(AS_PLATFORM, "// nunca asPlatform dentro de una petición"))
     }
+
+    // decisión 12: la vía de plataforma de la compuerta solo la llama ComponentLand, y la organización de la plataforma solo
+    // se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro dominio lee SQL propio como la plataforma
+    @Test
+    fun `solo ComponentLand usa selectAsPlatform y solo DashboardData le pasa la plataforma`() {
+        val gate = "/sgspe/territory/SpatialGate.kt"
+        val land = "/sgspe/territory/ComponentLand.kt"
+        val data = "/sgspe/dashboard/DashboardData.kt"
+        assertEquals(emptyList<String>(), offenders(sources(main).filterNot { f -> listOf(gate, land).any { f.invariantSeparatorsPath.endsWith(it) } }, SELECT_AS_PLATFORM))
+        assertEquals(emptyList<String>(), offenders(sources(main).filterNot { f -> listOf(land, data).any { f.invariantSeparatorsPath.endsWith(it) } }, ROWS_WITH_PLATFORM))
+        assertTrue(flags(SELECT_AS_PLATFORM, "gate.selectAsPlatform(platform, READS, query, map)"))
+        assertTrue(flags(ROWS_WITH_PLATFORM, "source.rows(filters.projects, platform)"))
+        assertFalse(flags(ROWS_WITH_PLATFORM, "source.rows(filters.projects)"))
+    }
 ```
 
-y en el `companion object`, junto a las demás expresiones: `private val AS_PLATFORM = Regex("""\basPlatform\s*[({]""")`.
+y en el `companion object`, junto a las demás expresiones:
+
+```kotlin
+        private val AS_PLATFORM = Regex("""\basPlatform\s*[({]""")
+        private val SELECT_AS_PLATFORM = Regex("""\bselectAsPlatform\s*\(""")
+        private val ROWS_WITH_PLATFORM = Regex("""\.rows\([^)]*\bplatform\b""")
+```
 
 ```bash
 cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.ArchitectureTest'
@@ -4439,7 +4954,8 @@ class DashboardDeliverableParityTest : F8IndicatorsApiTest() {
                     val params = LinkedMultiValueMap<String, String>().apply { query.forEach { (k, v) -> addAll(k, v) } }
                     dashboards.dashboard(name, params, readers.platform(organizationId()))
                 }
-            assertEquals(withoutClock(endpoint), withoutClock(JSON.valueToTree(platform)), name)
+            // la respuesta del lector de la plataforma serializada como la del endpoint: a texto JSON y de vuelta a árbol
+            assertEquals(withoutClock(endpoint), withoutClock(tree(JSON.writeValueAsString(platform))), name)
         }
     }
 }
@@ -4458,7 +4974,7 @@ Esperado: `BUILD SUCCESSFUL`. Integración pendiente: `sgspe.dashboard.Dashboard
 ```bash
 cd $REPO && git add src/test/kotlin/sgspe/dashboard/DashboardDeliverableParityTest.kt src/test/kotlin/sgspe/ArchitectureTest.kt
 git commit -m "test: paridad entre el tablero y el lector de la plataforma" -m "RQ-DSH-034: un ADMIN por el endpoint y KpiReader.Platform dan las mismas cifras en siete tableros;
-ArchitectureTest deja asPlatform de sgspe.dashboard solo a KpiReaders.
+ArchitectureTest deja asPlatform a KpiReaders y selectAsPlatform a ComponentLand.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM"
@@ -4467,91 +4983,121 @@ git switch feat/fase-8-2a-tableros && git merge --no-ff f82a/t11 -m "Merge branc
 
 ---
 
-### Tarea 12: Los indicadores y los tableros consolidados en los documentos
+### Tarea 12: Los indicadores, los tableros consolidados y las decisiones del coordinador en los documentos
 
 **Files:**
-- Modify: `docs/api.md` (§4.11), `docs/dashboards.md` (§5.1, §5.5, §10), `docs/database-model.md` (§19, notas de
-  `indicator_measurement`), `docs/roadmap.md` (F8, «Estado»), `docs/requirements-traceability.md`, `CLAUDE.md`,
-  `docs/develop/README.md`
+- Modify: `docs/api.md` (§3.3 y §4.11), `docs/dashboards.md` (§4.3 KPI-ENG-02, §5.1, §5.5, §6, §10), `docs/domain-model.md`
+  (§7.2, filas de `indicator` e `indicator_measurement`), `docs/security.md` (fila del cierre en §11 o §14, ~l. 985),
+  `docs/requirements-analysis.md` (ASM-136), `docs/database-model.md` (§19, notas de `indicator_measurement`),
+  `docs/roadmap.md` (F8, «Estado»), `docs/requirements-traceability.md`, `CLAUDE.md`, `docs/develop/README.md`
 
 **Interfaces:**
-- Consumes: los contratos finales de las Tareas 1 a 11.
-- Produces: los documentos al día para 8.2b, 8.2c y 8.3.
+- Consumes: los contratos finales de las Tareas 1 a 11 y las decisiones 3, 10 y 24 a 27 (R1, R2, R4 a R7).
+- Produces: los documentos al día para 8.2b, 8.2c y 8.3. ASM-136 se ajusta (su texto, no su ID): los IDs siguen
+  definiéndose solo en el análisis.
 
 - [ ] **Paso 1: La rama y una comprobación que falla**
 
 ```bash
 cd $REPO && git switch feat/fase-8-2a-tableros && git switch -c f82a/t12
-python3 - <<'PY'
-def norm(path): return ' '.join(open(path, encoding='utf-8').read().split())
-api, dash, dbm, claude, dev = (norm(p) for p in ('docs/api.md', 'docs/dashboards.md', 'docs/database-model.md', 'CLAUDE.md', 'docs/develop/README.md'))
-need = [(api, 'rows[]'), (api, '{ project, code, name, indicators[] }'), (api, 'targetSource'),
-        (dash, 'decisión 3 del plan 8.2a'), (dash, 'KpiReaders'), (dbm, 'NO_SCALAR_VALUE'), (claude, '86 objetos'),
-        (dev, '86 objetos')]
-missing = [n for d, n in need if n not in d]
-print('\n'.join(missing) or 'ok'); raise SystemExit(1 if missing else 0)
+cat > "$SCRATCH/check_docs_82a.py" <<'PY'
+def norm(path):
+    with open(path, encoding='utf-8') as f:
+        return ' '.join(f.read().split())
+api, dash, dom, sec, ana, dbm, claude, dev = (norm(p) for p in (
+    'docs/api.md', 'docs/dashboards.md', 'docs/domain-model.md', 'docs/security.md', 'docs/requirements-analysis.md',
+    'docs/database-model.md', 'CLAUDE.md', 'docs/develop/README.md'))
+need = [(api, 'rows[]'), (api, '{ project, code, name, indicators[] }'), (api, 'byProjectOmitted'), (api, 'NOT_PERIOD_BOUND'),
+        (dash, 'NOT_PERIOD_BOUND'), (dash, 'byProjectOmitted'), (dash, 'KpiReaders'), (dash, 'sin las QCS confidenciales'),
+        (dash, 'desglose por registro'), (ana, 'NOT_PERIOD_BOUND'), (ana, 'sin las QCS confidenciales'),
+        (dbm, 'NOT_PERIOD_BOUND'), (claude, '86 objetos'), (dev, '86 objetos'), (dev, 'done: 403 created, 27 updated')]
+gone = [(name, doc) for name, doc in (('api.md', api), ('dashboards.md', dash), ('domain-model.md', dom), ('security.md', sec),
+                                      ('requirements-analysis.md', ana)) if 'CONFIDENTIAL_HIDDEN' in doc]
+missing = [n for d, n in need if n not in d] + [f'CONFIDENTIAL_HIDDEN sigue en {n}' for n, _ in gone]
+print('\n'.join(missing) or 'ok')
+raise SystemExit(1 if missing else 0)
 PY
+python3 "$SCRATCH/check_docs_82a.py"
 ```
 
-Esperado: falla y lista lo que falta (`rows[]`, `{ project, code, name, indicators[] }`, `decisión 3 del plan 8.2a`,
-`KpiReaders`, `NO_SCALAR_VALUE` en `database-model.md`, `86 objetos`).
+Esperado: falla y lista lo que falta y los cinco documentos que todavía nombran `CONFIDENTIAL_HIDDEN`.
 
 - [ ] **Paso 2: Los textos**
 
-- `docs/api.md` §4.11, bullet «Los tableros de F8»: `executive` suma «`byProject[]` es `[{ project, code, name,
-  indicators[] }]`, con los 8 KPI con valor de las tiles, sin desgloses ni series»; `monitoring` suma «la respuesta trae
-  `indicators[]` (los 13 KPI en el orden de §4.9, con sus desgloses) y `rows[]` en el mismo orden, cada una `{ number,
-  code, label, verificationMeans, deliverable, available, value, target, targetSource, official }`; la cifra oficial sale
-  solo sin filtros fuera de `project` y el periodo, con el periodo exacto de la medición y un solo `project` (o ninguno,
-  para la del tenant, a quien lee todos los proyectos)». En la fila de `POST /api/sgspe/indicators/{id}/measurements`,
-  agregar al final de la descripción: «Un indicador que SGSPE no calcula (uno propio del cliente) es `UNAVAILABLE`; un
-  periodo con inicio posterior al fin, `400 OUT_OF_RANGE`; una fecha ilegible, `400 INVALID_VALUE`.»
-- `docs/dashboards.md` §5.5: después del bullet de `targetSource`, «La meta de #5 es el denominador de KPI-ENG-02 si un
-  proyecto del filtro o un plan define `meetings_per_month_target` (`PROJECT`); si no, `target_value` × meses que toca el
-  periodo × proyectos (`CATALOG`); si no, ninguna. Las demás filas usan `target_value` tal cual (decisión 3 del plan
-  8.2a).» §10, bullet «Cierre de periodo»: «…con su `KpiReader` (`KpiReaders` arma el contexto de la persona o de la
-  plataforma, que solo se usa fuera de una petición)…». §6 punto 6: «El trabajador de entregables corre como la
-  plataforma con `KpiReader.Platform` [WAS-ADR-0039]…».
-- `docs/database-model.md` §19, ficha de `indicator_measurement`, último bullet: «El endpoint de cierre responde `409
+Cada cambio se envuelve a 120 columnas; las filas de tabla quedan en una línea.
+
+- **R4 (decisión 25), en cinco documentos.** En `docs/api.md` (§3.3, ~l. 282: «`STANCE`, `NO_SCALAR_VALUE`,
+  `UNAVAILABLE` o `CONFIDENTIAL_HIDDEN`»; y la fila del `POST …/measurements` de §4.11), `docs/dashboards.md` §10 (el
+  sub-bullet «`CONFIDENTIAL_HIDDEN`: …»), `docs/domain-model.md` (fila de `indicator`, ~l. 860), `docs/security.md`
+  (~l. 985) y `docs/requirements-analysis.md` (ASM-136), `CONFIDENTIAL_HIDDEN` deja de ser una razón y su lugar lo toma
+  `NOT_PERIOD_BOUND` (R7, abajo). Cada uno suma la frase: «Los KPI que leen QCS se congelan siempre sin las QCS
+  confidenciales, quien sea que cierre: la cifra oficial las excluye y no revela cuántas son; el tablero no la muestra a
+  quien se le ocultan QCS confidenciales.» En dashboards.md §10, el sub-bullet de `CONFIDENTIAL_HIDDEN` se reemplaza por
+  esa frase; en ASM-136 se borra también «Consecuencia aceptada: los KPI de QCS los cierra en la práctica `ADMIN`».
+- **R7 (decisión 27).** En los mismos lugares, la lista de razones suma «`NOT_PERIOD_BOUND` (un KPI que no depende del
+  periodo, la foto de hoy, solo se cierra para el periodo vigente: el que termina en el mes pasado o en el actual)».
+- **R2 (decisión 10).** En `docs/api.md` (fila del `POST …/measurements`: «sin `project` (todo el tenant), además
+  `READ_ALL_PROJECTS` sobre `project` o `ADMIN`»), `docs/dashboards.md` §10 («cerrar todo el tenant exige
+  `READ_ALL_PROJECTS` o `ADMIN`»), `docs/domain-model.md` (fila de `indicator_measurement`), `docs/security.md` (~l. 985)
+  y ASM-136: «todo el tenant lo cierra, por ahora, solo un administrador (`ADMIN`); `READ_ALL_PROJECTS` no basta
+  (decisión conservadora del plan 8.2a)».
+- **R5 (decisión 26).** En `docs/api.md` (fila del `POST …/measurements`) y `docs/dashboards.md` §10: «el desglose
+  principal en Markdown solo si es agregado; un desglose por registro (grupos de interés, interacciones, medidas atrasadas,
+  responsables, riesgos) no se congela y la medición lleva solo el valor».
+- **R1 (decisión 3).** `docs/dashboards.md` §4.3, fórmula de KPI-ENG-02: «…o, si no hay, el del `project` (2 por
+  defecto)…» pasa a «…o, si no hay, el del `project` y, sin él, el `target_value` de KPI-ENG-02 del catálogo `indicator`
+  (2 al cargarlo, DOC-01); un tenant sin el catálogo usa el valor por defecto de ASM-019 (2), y quien no lee
+  `indicator.target_value` recibe el KPI no disponible…». §5.5 suma: «La meta de #5 es el denominador de KPI-ENG-02
+  (`PROJECT` si un proyecto del filtro o un plan define la suya; `CATALOG` si no y el catálogo trae meta; `NONE` sin
+  ninguna). Las demás filas usan `target_value` tal cual. La cifra oficial no se muestra a quien se le ocultan QCS
+  confidenciales en una fila que las lee.»
+- **R6 (decisión 24).** `docs/api.md` §4.11, bullet «Los tableros de F8», `executive`: «`byProject[]` es `[{ project,
+  code, name, indicators[] }]`, con los 8 KPI con valor de las tiles, sin desgloses ni series; pedir más proyectos que
+  `sgspe.dashboards.executive.max-projects` es `400 TOO_MANY_RECORDS`; tenerlos por defecto («mis proyectos» o todos)
+  da las tiles sin `byProject[]` y con `byProjectOmitted: true`». `docs/api.md` §3.3 (~l. 280) dice lo mismo del `400`.
+  `docs/dashboards.md` §5.1, último bullet, igual.
+- **`monitoring`.** `docs/api.md` §4.11: «la respuesta trae `indicators[]` (los 13 KPI en el orden de §4.9, con sus
+  desgloses) y `rows[]` en el mismo orden, cada una `{ number, code, label, verificationMeans, deliverable, available,
+  value, target, targetSource, official }`; la cifra oficial sale solo sin filtros fuera de `project` y el periodo, con el
+  periodo exacto de la medición y un solo `project` (o ninguno, para la del tenant, a quien lee todos los proyectos)».
+- **Lector.** `docs/dashboards.md` §10, bullet «Cierre de periodo»: «…con su `KpiReader` (`KpiReaders` arma el contexto
+  de la persona que llama o de la plataforma, que solo se usa fuera de una petición)…»; §6 punto 6: «El trabajador de
+  entregables corre como la plataforma con `KpiReader.Platform` [WAS-ADR-0039]…».
+- **`docs/database-model.md` §19**, ficha de `indicator_measurement`, último bullet: «El endpoint de cierre responde `409
   INDICATOR_NOT_CLOSABLE` con su razón (`dashboards.md` §10, ASM-136): `STANCE` (KPI-STK-02, KPI-STK-05 y KPI-STK-06),
-  `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que salen sin valor), `UNAVAILABLE` y `CONFIDENTIAL_HIDDEN`.» (Es un
-  bullet de notas: `design_docs.py` no lo lee; la suite del modelo sigue igual.)
-- `docs/roadmap.md` F8 «Estado»: «Plan 8.2a integrado (PR #…): catálogo `indicator` con las metas de DOC-01 y
+  `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que salen sin valor), `UNAVAILABLE` y `NOT_PERIOD_BOUND`.» (Es un bullet
+  de notas: `design_docs.py` no lo lee.)
+- **`docs/roadmap.md` F8 «Estado»**: «Plan 8.2a integrado (PR #…): catálogo `indicator` con las metas de DOC-01 y
   `load_indicators.py`, `KpiReader`, KPI-EXE, tableros `executive`, `project` y `monitoring` y cierre de periodo; la
   medición del tablero `executive` en `sgspe_perf`, pendiente del coordinador (Tarea 13).»
-- `docs/requirements-traceability.md`: las filas de RQ-DSH-002, RQ-DSH-003, RQ-DSH-034, RQ-DSH-037, RF-DSH-001,
+- **`docs/requirements-traceability.md`**: las filas de RQ-DSH-002, RQ-DSH-003, RQ-DSH-034, RQ-DSH-037, RF-DSH-001,
   RF-DSH-002 y RF-DSH-008 suman sus pruebas (`ExecutiveDashboardApiTest`, `ExecutiveKpisTest`, `ProjectDashboardApiTest`,
   `MonitoringDashboardApiTest`, `MonitoringTableTest`, `DashboardDeliverableParityTest`, `IndicatorMeasurementsApiTest`,
   `ClosabilityTest`, `test_load_indicators.py`) y el módulo `sgspe.dashboard`; ninguna fila cambia de estado.
-- `CLAUDE.md`: «`model.json` (los 84 objetos de F2 a F7)» pasa a «`model.json` (los 84 objetos de F2 a F7 y, desde el
-  plan 8.2a, `indicator` e `indicator_measurement`: 86)», y suma «`indicators.json` y `load_indicators.py`» a la lista de
-  scripts; «Dónde está cada cosa» suma la fila «Base de las pruebas de integración del plan 8.2a (catálogo cargado,
-  proyecto activo, cierre, mes pasado y meses viejos al azar) | `src/test/kotlin/sgspe/F8IndicatorsApiTest.kt`» y, en la
-  fila de F8 de indicadores, `KpiReaders`, `Closability` y `DashboardsProperties`.
-- `docs/develop/README.md`: «15 roles por 84 objetos» pasa a «15 roles por 86 objetos», y el orden de aprovisionamiento
-  nombra `load_indicators.py` después de `load_ubigeo.py`.
+- **`CLAUDE.md`**: «`model.json` (los 84 objetos de F2 a F7)» pasa a «`model.json` (86 objetos: los 84 de F2 a F7 e
+  `indicator` e `indicator_measurement`, que adelanta el plan 8.2a)», y la lista de scripts suma `indicators.json` y
+  `load_indicators.py`; «Dónde está cada cosa» suma la fila «Base de las pruebas de integración del plan 8.2a (catálogo
+  cargado, proyecto activo, cierre, mes pasado y meses propios con uniqueMonth) | `src/test/kotlin/sgspe/F8IndicatorsApiTest.kt`»
+  y, en la fila de F8 de indicadores, `KpiReaders`, `Closability` y `DashboardsProperties`.
+- **`docs/develop/README.md`**: «15 roles por 84 objetos» pasa a «15 roles por 86 objetos»; el comentario `En F7: "done:
+  399 created, 26 updated, 0 skipped"` (~l. 178) pasa a `Desde 8.2a (86 objetos): "done: 403 created, 27 updated, 0
+  skipped"`; y el orden de aprovisionamiento nombra `load_indicators.py` después de `load_ubigeo.py`.
 
 - [ ] **Paso 3: Las compuertas y commit**
 
 ```bash
-cd $REPO && python3 - <<'PY'
-def norm(path): return ' '.join(open(path, encoding='utf-8').read().split())
-api, dash, dbm, claude, dev = (norm(p) for p in ('docs/api.md', 'docs/dashboards.md', 'docs/database-model.md', 'CLAUDE.md', 'docs/develop/README.md'))
-need = [(api, 'rows[]'), (api, '{ project, code, name, indicators[] }'), (api, 'targetSource'), (dash, 'decisión 3 del plan 8.2a'),
-        (dash, 'KpiReaders'), (dbm, 'NO_SCALAR_VALUE'), (claude, '86'), (dev, '86 objetos')]
-missing = [n for d, n in need if n not in d]
-print('\n'.join(missing) or 'ok'); raise SystemExit(1 if missing else 0)
-PY
+cd $REPO && python3 "$SCRATCH/check_docs_82a.py"
 cd $REPO/model && python3 -m unittest 2>&1 | tail -1 && cd $REPO && python3 tools/check_traceability.py && yarn -s format:check
 ```
 
-Esperado: `ok`, `OK`, `ok: 298 requisitos, todos con su fila` y `All matched files use Prettier code style!`.
+Esperado: `ok`, `OK`, `ok: 298 requisitos, todos con su fila` y `All matched files use Prettier code style!` (la suite del
+modelo lee `security.md` y `requirements-analysis.md`: una fila rota de ASM-136 la rompería).
 
 ```bash
-cd $REPO && git add docs/api.md docs/dashboards.md docs/database-model.md docs/roadmap.md docs/requirements-traceability.md \
-  CLAUDE.md docs/develop/README.md
-git commit -m "docs: indicadores y tableros consolidados de 8.2a en los documentos" -m "Contratos de executive y monitoring, la meta de #5, KpiReaders, las razones del cierre en la ficha,
-la trazabilidad y las cifras de 86 objetos.
+cd $REPO && git add docs/api.md docs/dashboards.md docs/domain-model.md docs/security.md docs/requirements-analysis.md \
+  docs/database-model.md docs/roadmap.md docs/requirements-traceability.md CLAUDE.md docs/develop/README.md
+git commit -m "docs: indicadores y tableros consolidados de 8.2a en los documentos" -m "Contratos de executive y monitoring, la meta de KPI-ENG-02 desde el catálogo, el cierre sin QCS
+confidenciales, NOT_PERIOD_BOUND, solo administrador para el tenant y 86 objetos.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM"
