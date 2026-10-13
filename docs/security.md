@@ -1487,6 +1487,11 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   código determinista como `ai_suggestion` o `commitment_candidate`, y solo una persona lo acepta, con su propia
   autorización (RQ-AI-001, RQ-AI-003). Cada llamada queda en `ai_interaction` (RF-AIK-009). La salida se muestra como
   texto, nunca como HTML.
+- **Limitación conocida (plan 7.2b):** el texto de una sugerencia o de un candidato que sale de una evidencia CONFIDENCIAL o
+  DATOS PERSONALES (`suggested_value` de `ai_suggestion`; `proposed_text` y `beneficiaries_text` de
+  `commitment_candidate`) lo lee todo rol con READ sobre `ai_suggestion` o `commitment_candidate` en el proyecto, aunque no
+  pueda descargar la evidencia: solo `evidence_quote` tiene permiso de campo (§7.9). Los nombres van como marcadores, pero
+  el resto del texto propuesto resume lo que dice la evidencia.
 - El detalle está en `ai-architecture.md`.
 
 ### 11.6 Logs, avisos, retención y respaldos

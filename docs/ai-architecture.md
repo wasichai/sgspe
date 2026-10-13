@@ -249,6 +249,12 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
   hecha queda registrada (P6). Una salida que el modelo cortó por el tope de tokens no se lee como su clase y también es
   `502 AI_RUN_TRUNCATED`; la `ai_interaction` se escribe en una transacción propia, así que queda aunque la corrida se
   revierta en la transacción de su `Idempotency-Key` (plan 7.2b).
+- Cada instancia corre a lo más `sgspe.ai.limits.max-concurrent-runs` corridas a la vez (3 por defecto, `RunGate`); una más
+  responde en el acto `503 AI_BUSY` con `Retry-After`, sin esperar un lugar, antes de abrir la transacción de su
+  `Idempotency-Key` y sin registrar una `ai_interaction`. Una corrida con clave retiene la conexión de esa transacción
+  mientras llama al modelo y toma otra por cada `ai_interaction` (transacción propia), así que el pool de R2DBC de la
+  instancia debe tener más de dos conexiones por corrida permitida (más de 6 con el valor por defecto) además de las que
+  necesita el resto de la API; subir el tope pide subir el pool (plan 7.2b).
 - La llamada al modelo pasa por un puerto propio, `StructuredModel`: recibe el prompt ya seudonimizado, la versión del
   prompt, el modelo y los límites, y devuelve la salida tipada con el uso de tokens. `EmbabelStructuredModel` lo
   implementa sobre la plataforma de agentes, y las pruebas lo sustituyen (§15).

@@ -20,6 +20,7 @@ import sgspe.common.IfMatch
 import sgspe.common.ModelCatalog
 import sgspe.common.NotReadable
 import sgspe.common.Permissions
+import sgspe.common.PseudonymMarkers
 import sgspe.common.Records
 import sgspe.common.StrictBody
 import sgspe.common.StrictQuery
@@ -99,7 +100,7 @@ class SuggestionAcceptance(
                         ).toCodedException()
                 StrictBody.requireOnly(attributes, AllowList.BODY_KEYS.getValue(row), "$ATTRIBUTES.")
                 AllowList.misplaced(row, attributes)?.let { throw fieldNotAllowed(it) }
-                attributes.forEach { (key, value) -> markerPath(key, value)?.let { throw markerFound(it) } }
+                PseudonymMarkers.requireNone(attributes)
                 val context =
                     Context(
                         user,
@@ -421,27 +422,6 @@ class SuggestionAcceptance(
 
         fun fieldRequired(key: String) =
             Finding("FIELD_REQUIRED", "Falta un valor obligatorio", "$ATTRIBUTES.$key", status = HttpStatus.BAD_REQUEST).toCodedException()
-
-        // la ruta del primer marcador en `value`, también dentro de una lista o un objeto (ningún marcador pasa escondido en un
-        // valor compuesto), o null
-        fun markerPath(
-            path: String,
-            value: Any?
-        ): String? =
-            when (value) {
-                is String -> path.takeIf { AllowList.hasMarker(value) }
-                is Map<*, *> -> value.entries.firstNotNullOfOrNull { (key, inner) -> markerPath("$path.$key", inner) }
-                is Collection<*> -> path.takeIf { value.any { markerPath(path, it) != null } }
-                else -> null
-            }
-
-        fun markerFound(key: String) =
-            Finding(
-                "PSEUDONYM_NOT_ALLOWED",
-                "Reemplace los marcadores ([PERSONA], [DOCUMENTO]…) por los valores reales antes de aceptar",
-                "$ATTRIBUTES.$key",
-                status = HttpStatus.BAD_REQUEST
-            ).toCodedException()
 
         fun notReadable(objectName: String) =
             Finding(

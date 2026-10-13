@@ -1,8 +1,17 @@
 package sgspe.ai
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito.mock
+import sgspe.common.Records
+import sgspe.dashboard.Dashboards
 import sgspe.dashboard.IndicatorValue
+import sgspe.evidence.EvidenceContent
+import wasichai.core.common.NotFoundException
+import wasichai.core.common.WasichaiException
 import wasichai.core.data.RecordResponse
 import java.time.Instant
 
@@ -38,5 +47,44 @@ class RunSourcesTest {
             "- KPI-STK-03 Postura: no disponible",
             RunSources.indicatorLine(IndicatorValue("KPI-STK-03", "Postura", false, unavailableReason = "FIELD_NOT_READABLE"))
         )
+    }
+
+    // un registro que la persona lee; las demás piezas fallan como las de verdad
+    private fun sources(
+        attributes: Map<String, Any?>,
+        evidence: EvidenceContent = mock(EvidenceContent::class.java) { throw AssertionError("no se abre el archivo") },
+        dashboards: Dashboards = mock(Dashboards::class.java) { throw AssertionError("no se leen tableros") }
+    ) = RunSources(
+        mock(Records::class.java) { invocation ->
+            if (invocation.method.name ==
+                "get"
+            ) {
+                RecordResponse(RunFixtures.PROJECT.toString(), Instant.EPOCH, Instant.EPOCH, attributes, null, emptyMap())
+            } else {
+                emptyList<Any>()
+            }
+        },
+        evidence,
+        dashboards,
+        TextExtraction(),
+        RunFixtures.properties()
+    )
+
+    @Test
+    fun `una evidencia sin archivo es 422 AI_NO_TEXT, no el 404 del archivo`() {
+        val noFile = mock(EvidenceContent::class.java) { throw NotFoundException("Archivo no encontrado") }
+        val refused =
+            assertThrows<WasichaiException> {
+                runBlocking { sources(mapOf("project" to RunFixtures.PROJECT.toString()), evidence = noFile).evidenceText(RunFixtures.EVIDENCE) }
+            }
+        assertEquals(422, refused.status.value())
+        assertEquals("target" to "AI_NO_TEXT", refused.violations.single().let { it.field to it.message })
+    }
+
+    @Test
+    fun `un tablero que no se puede leer llega como no disponible, no se calla`() {
+        val failing = mock(Dashboards::class.java) { throw NotFoundException("Tablero no disponible") }
+        val source = runBlocking { sources(mapOf("code" to "P-01", "name" to "Proyecto Ejemplo"), dashboards = failing).projectSummary(RunFixtures.PROJECT) }
+        for (board in RunSources.SUMMARY_DASHBOARDS) assertTrue("- Tablero $board: no disponible" in source.text.lines(), source.text)
     }
 }

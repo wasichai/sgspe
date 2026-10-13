@@ -2,6 +2,7 @@ package sgspe.ai
 
 import org.springframework.stereotype.Component
 import sgspe.common.Permissions
+import sgspe.common.ServiceAccounts
 import wasichai.core.common.Actions
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.NotFoundException
@@ -25,11 +26,11 @@ class AssistantUseCase(
 ) : AiUseCaseOffer {
     override val useCase: String = USE_CASE
 
-    override suspend fun offered(user: AuthenticatedUser): Boolean = decide(user.serviceAccount != null, canCreateInteraction(user)) == null
+    override suspend fun offered(user: AuthenticatedUser): Boolean = decide(ServiceAccounts.isServiceAccount(user), canCreateInteraction(user)) == null
 
     // 403 si no puede preguntar: PERSON_REQUIRED a una cuenta de servicio, o el permiso que le falta
     suspend fun require(user: AuthenticatedUser) {
-        decide(user.serviceAccount != null, canCreateInteraction(user))?.let { throw it }
+        decide(ServiceAccounts.isServiceAccount(user), canCreateInteraction(user))?.let { throw it }
     }
 
     private suspend fun canCreateInteraction(user: AuthenticatedUser): Boolean =

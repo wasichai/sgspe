@@ -3,7 +3,10 @@ package sgspe.ai
 import org.springframework.http.HttpStatus
 import sgspe.common.Finding
 import sgspe.common.toCodedException
+import wasichai.core.common.FieldViolation
+import wasichai.core.common.RetryLaterException
 import wasichai.core.common.WasichaiException
+import java.time.Duration
 
 // los errores de la IA, con su código en errors[0].message y su campo en errors[0].field (api.md §3.3 y §4.14). ningún mensaje
 // lleva un texto de la fuente, de la pregunta ni de la respuesta
@@ -21,6 +24,18 @@ object AiErrors {
             field,
             status = HttpStatus.SERVICE_UNAVAILABLE
         ).toCodedException()
+
+    // 503 con Retry-After: ya corren sgspe.ai.limits.max-concurrent-runs corridas en esta instancia (RunGate); no se espera un
+    // lugar ni se registra una interacción
+    val BUSY_RETRY_AFTER: Duration = Duration.ofSeconds(10)
+
+    fun busy(): WasichaiException =
+        RetryLaterException(
+            "Hay demasiadas corridas de IA en curso: intente de nuevo en unos segundos",
+            BUSY_RETRY_AFTER,
+            listOf(FieldViolation(USE_CASE, "AI_BUSY")),
+            HttpStatus.SERVICE_UNAVAILABLE
+        )
 
     // 422: el texto pasa el tamaño de sgspe.ai.limits, antes de llamar al modelo (ASM-131)
     fun inputTooLarge(

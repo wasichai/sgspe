@@ -249,6 +249,10 @@ sgspe:
       question-chars: 4000
       file-bytes: 26214400
       proposals: 50
+      # corridas (POST /api/sgspe/ai/runs) a la vez por instancia; una más es 503 AI_BUSY con Retry-After (RunGate). cada una
+      # con Idempotency-Key retiene hasta dos conexiones del pool de R2DBC mientras llama al modelo: el pool necesita más de
+      # 2 × este valor para que las corridas no dejen sin conexiones al resto de la API
+      max-concurrent-runs: 3
 
 embabel:
   agent:

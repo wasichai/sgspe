@@ -3,6 +3,7 @@ package sgspe.ai
 import org.springframework.stereotype.Component
 import sgspe.common.Callers
 import sgspe.common.Records
+import sgspe.common.ServiceAccounts
 import sgspe.common.Transactions
 import wasichai.core.identity.AuthenticatedUser
 import java.math.BigDecimal
@@ -47,7 +48,7 @@ class Interactions(
 ) : InteractionLog {
     override suspend fun record(entry: InteractionEntry): UUID {
         val requester = callers.userOrNull()
-        if (requester?.serviceAccount != null) throw AiErrors.personRequired()
+        if (requester != null && ServiceAccounts.isServiceAccount(requester)) throw AiErrors.personRequired()
         val created =
             transactions.independent {
                 records.create(OBJECT, attributes(entry, properties.provider, requester), "registro de la llamada a la IA (${entry.useCase})")

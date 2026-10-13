@@ -69,14 +69,6 @@ class AllowListTest {
     }
 
     @Test
-    fun `un marcador por llamada o estable se reconoce en un valor`() {
-        for (text in listOf("[PERSONA]", "Hola [PERSONA_2]", "[PERSONA:00000000-0000-0000-0000-0000000000a1]", "[DOCUMENTO]", "[CORREO_1]", "[CITA]")) {
-            assertTrue(AllowList.hasMarker(text), text)
-        }
-        for (text in listOf("Ana Ejemplo", "[Persona]", "[PERSONAS]", "(PERSONA_1)")) assertFalse(AllowList.hasMarker(text), text)
-    }
-
-    @Test
     fun `item y kind no cambian de fila`() {
         assertNull(AllowList.misplaced(AcceptRow.PERSON, mapOf("item" to "actor", "kind" to "person")))
         assertNull(AllowList.misplaced(AcceptRow.TOPIC, mapOf("topic" to "t1")))

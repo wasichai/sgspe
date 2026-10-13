@@ -7,6 +7,7 @@ import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
 import sgspe.common.Records
 import sgspe.common.RequestMemo
+import sgspe.common.ServiceAccounts
 import sgspe.common.Validity
 import sgspe.common.Values
 import sgspe.common.toCodedException
@@ -124,7 +125,7 @@ class Assignments(
         val today = today()
         return ofProject(project)
             .filter { it.inForce(today) && it.roleName in roles && it.memberUserId != exclude }
-            .filterNot { it.memberUserEmail.endsWith(SERVICE_ACCOUNT_DOMAIN) }
+            .filterNot { it.memberUserEmail.endsWith(ServiceAccounts.DOMAIN) }
             .map { Recipient(it.memberUserId, it.memberUserEmail) }
             .distinctBy { it.userId }
     }
@@ -134,6 +135,5 @@ class Assignments(
         fun todayIn(clock: Clock): LocalDate = LocalDate.now(clock.withZone(LIMA))
 
         const val OBJECT = "project_assignment"
-        const val SERVICE_ACCOUNT_DOMAIN = "@service-accounts.invalid"
     }
 }

@@ -115,10 +115,4 @@ object AllowList {
             else -> null
         }
     }
-
-    // un marcador de seudonimización, por llamada o estable, escrito en un valor: ningún marcador llega a un registro de dominio
-    // (§4.2, §12.2)
-    private val MARKER = Regex("""\[(PERSONA|DOCUMENTO|TELEFONO|CORREO|CONTACTO|DATO_SENSIBLE|CITA)(_\d+|:[0-9a-fA-F-]{36})?]""")
-
-    fun hasMarker(text: String): Boolean = MARKER.containsMatchIn(text)
 }
