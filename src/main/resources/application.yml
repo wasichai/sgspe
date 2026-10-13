@@ -236,6 +236,7 @@ sgspe:
     prompts:
       ai-05: '1'
       ai-06: '1'
+      ai-07: '1'
     limits:
       # ASM-131: caracteres de la fuente de una corrida, tokens de salida de una llamada, acciones de un agente (7.2b) y
       # caracteres de una pregunta al asistente
@@ -253,6 +254,11 @@ sgspe:
       max-bytes: 20971520
       candidates: 25
       results: 5
+    duplicates:
+      # AI-07 (DuplicateProperties): registros de un objeto que una corrida lee (más es 400 TOO_MANY_RECORDS) y pares que
+      # llegan al modelo
+      max-records: 2000
+      max-pairs: 20
 
 embabel:
   agent:
