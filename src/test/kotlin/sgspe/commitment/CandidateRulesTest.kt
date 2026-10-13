@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.http.HttpStatus
+import sgspe.common.ModelCatalog
 import sgspe.common.RuleException
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
@@ -69,6 +70,20 @@ class CandidateRulesTest {
         assertEquals(listOf("duplicate_of", "created_commitment"), CandidateLinks.mismatches(project, targets))
         assertEquals(listOf("source_evidence"), CandidateLinks.mismatches(project, mapOf("source_evidence" to ("evidence" to other))))
         assertEquals(emptyList<String>(), CandidateLinks.mismatches(null, targets))
+    }
+
+    // desde F7 (Decisión 2 del plan 7.1): la llamada a la IA del candidato sale del catálogo y se juzga; una interacción del
+    // tenant (AI-05, JOB-07) no es de otro proyecto, como una evidencia del tenant
+    @Test
+    fun `una interaccion de IA del tenant o del proyecto pasa y una de otro proyecto no`() {
+        val project = UUID.randomUUID()
+        assertTrue("ai_interaction" to "ai_interaction" in CandidateLinks.fields(ModelCatalog.fromClasspath()))
+        assertEquals(emptyList<String>(), CandidateLinks.mismatches(project, mapOf("ai_interaction" to ("ai_interaction" to null))))
+        assertEquals(emptyList<String>(), CandidateLinks.mismatches(project, mapOf("ai_interaction" to ("ai_interaction" to project))))
+        assertEquals(
+            listOf("ai_interaction"),
+            CandidateLinks.mismatches(project, mapOf("ai_interaction" to ("ai_interaction" to UUID.randomUUID())))
+        )
     }
 
     // RQ-AI-003: solo una persona acepta o descarta un candidato; una cuenta de servicio no, aunque tenga el rol

@@ -73,7 +73,9 @@ class AmountFieldsGuard(
                 "contribution_item.quantity" to "cantidad del ítem en su unidad, informativa: no se compara con line_amount",
                 "program_indicator.baseline_value" to "valor de línea base del indicador, en su unidad",
                 "program_indicator.target_value" to "meta del indicador, en su unidad",
-                "program_measurement.measured_value" to "valor medido del indicador, en su unidad"
+                "program_measurement.measured_value" to "valor medido del indicador, en su unidad",
+                "ai_suggestion.confidence" to "confianza de la sugerencia de la IA, de 0 a 1",
+                "ai_interaction.confidence" to "confianza de la llamada a la IA, de 0 a 1"
             )
 
         // pura, para las pruebas unitarias: un hallazgo por monto de `objectName` que cambia y no pasa Amounts.parse

@@ -235,8 +235,9 @@ decisiones de nombres del usuario [USR-09]. `database-model.md` las detalla para
   plantillas `deliverable_template`.
 - La escritura en objetos de proyecto la acota una guarda por asignación (`ProjectScopeGuard`, `sgspe.scope`) y, desde el
   plan 4.4, la lectura `ProjectReadScope` (ASM-106, `security.md` §9.7). `ProjectScope` clasifica cada objeto en un solo
-  grupo: `project`; `project_assignment`; las raíces con `project` (31 hasta F4 y 33 desde F5, con `social_contribution`
-  y `social_program`; `evidence`, `early_warning_rule` y `export_log` con `project` opcional); los hijos, por sus padres
+  grupo: `project`; `project_assignment`; las raíces con `project` (31 hasta F4, 33 desde F5, con `social_contribution`
+  y `social_program`, y 35 desde F7, con `ai_suggestion` y `ai_interaction`; `evidence`, `early_warning_rule`,
+  `export_log`, `ai_suggestion` y `ai_interaction` con `project` opcional); los hijos, por sus padres
   posibles (19 hasta F4 y 27 desde F5); y los 20 maestros del tenant (`TENANT`), compartidos entre los proyectos
   (ASM-107). Un objeto nuevo se clasifica en su fase.
 - Desde F5 (ASM-114), un hijo puede tener por padre a otro hijo si la cadena llega a una raíz en a lo sumo dos saltos y

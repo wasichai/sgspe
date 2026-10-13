@@ -9,10 +9,10 @@ import java.util.UUID
 
 // a qué proyecto pertenece un registro (domain-model §4.7): las raíces llevan `project`; los hijos lo heredan de su raíz
 // por la cadena de sus padres; `project` es su propio proyecto. los objetos que también pueden ser del tenant (export_log y,
-// desde F3, evidence y, desde F4, early_warning_rule) tienen `project` opcional y solo se acotan cuando lo traen. un hijo
-// puede tener varios padres posibles (exactamente uno, ExactlyOneGuard) y su padre puede ser otro hijo, siempre que la
-// cadena llegue a una raíz en a lo sumo MAX_HOPS saltos (ASM-114; ArchitectureTest). las fases siguientes agregan sus
-// objetos aquí
+// desde F3, evidence, desde F4, early_warning_rule y, desde F7, ai_suggestion y ai_interaction) tienen `project` opcional y
+// solo se acotan cuando lo traen. un hijo puede tener varios padres posibles (exactamente uno, ExactlyOneGuard) y su padre
+// puede ser otro hijo, siempre que la cadena llegue a una raíz en a lo sumo MAX_HOPS saltos (ASM-114; ArchitectureTest). las
+// fases siguientes agregan sus objetos aquí
 object ProjectScope {
     val ROOTS: Set<String> =
         setOf(
@@ -51,7 +51,10 @@ object ProjectScope {
             "early_warning",
             // F5: aportes y programas (BC-10)
             "social_contribution",
-            "social_program"
+            "social_program",
+            // F7: las salidas de la IA y su registro (BC-18), que también pueden ser del tenant (project opcional)
+            "ai_suggestion",
+            "ai_interaction"
         )
 
     // hijo -> sus padres posibles, en orden: (campo RELATION, objeto padre). el padre es una raíz o un hijo con un único padre
@@ -228,8 +231,9 @@ class ProjectResolver(
             if (name in ProjectScope.ROOTS) {
                 val beforeId = Records.uuid(change.before?.get(ProjectScope.PROJECT))
                 val afterId = Records.uuid(after[ProjectScope.PROJECT])
-                // `project` es obligatorio salvo en export_log, evidence y early_warning_rule: solo ahí vacío es válido. lo
-                // que la escritura deja vacío no es de alcance: lo rechaza wasichai con su 400 «is required»
+                // `project` es obligatorio salvo en las raíces que pueden ser del tenant (export_log, evidence,
+                // early_warning_rule, ai_suggestion, ai_interaction): solo ahí vacío es válido. lo que la escritura deja
+                // vacío no es de alcance: lo rechaza wasichai con su 400 «is required»
                 val unresolved = required(name, ProjectScope.PROJECT) && !created && beforeId == null
                 return Resolution(ProjectScope.PROJECT, setOfNotNull(beforeId, afterId), unresolved)
             }

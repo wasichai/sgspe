@@ -4,6 +4,7 @@
     "administrative_level": ["DEPARTAMENTO", "PROVINCIA", "DISTRITO"],
     "affiliation": ["AFILIADA", "LIBRE", "NO RECONOCIDA", "ESCINDIDA", "EMERGENTE"],
     "agreement_type": ["ACTA DE ACUERDOS", "CONVENIO", "PERMISO DE USO DE TERRENO", "SERVIDUMBRE", "AUTORIZACION DE ASAMBLEA", "ALIANZA FORMAL"],
+    "ai_suggestion_kind": ["EXTRACCION", "BORRADOR DE ACTA", "RESUMEN EJECUTIVO", "BORRADOR DE SECCION", "DUPLICADO", "CLASIFICACION"],
     "area_of_influence_type": ["AIDS", "AIIS", "AID AMBIENTAL", "AII AMBIENTAL"],
     "assessment_basis": ["ENTREVISTA", "INFORMACION SECUNDARIA", "INFERIDA", "ENCUESTA"],
     "campaign_activity_type": ["CATEO", "PERFORACION"],
@@ -1361,6 +1362,47 @@
       ]
     },
     {
+      "name": "ai_suggestion",
+      "label": "Sugerencia de IA",
+      "pluralLabel": "Sugerencias de IA",
+      "description": "Resultado de la IA guardado aparte, con evidencia y confianza, que una persona acepta o rechaza.",
+      "apiOnly": true,
+      "fields": [
+        {"name": "suggestion_kind", "label": "Tipo de sugerencia", "type": "ENUM", "enum": "ai_suggestion_kind", "required": true, "description": "Tipo de sugerencia."},
+        {"name": "target_object", "label": "Objeto destino", "type": "TEXT", "description": "Objeto del registro al que se refiere."},
+        {"name": "target_record_id", "label": "Registro destino", "type": "UUID", "indexed": true, "description": "Registro al que se refiere; una guarda verifica que exista y se pueda leer."},
+        {"name": "suggested_value", "label": "Valor sugerido", "type": "LONG_TEXT", "required": true, "description": "Valor o texto sugerido, con la forma que fija su fila de la lista permitida (ai-architecture.md §4.2); lleva marcadores o referencias, nunca valores restringidos (RQ-AI-009)."},
+        {"name": "evidence_quote", "label": "Cita que la sustenta", "type": "LONG_TEXT", "description": "(restringido) Cita o fragmento que la sustenta, seudonimizado: marcadores en lugar de valores restringidos (RQ-AI-009)."},
+        {"name": "confidence", "label": "Confianza", "type": "DECIMAL", "description": "Confianza."},
+        {"name": "model", "label": "Modelo", "type": "TEXT", "required": true, "description": "Modelo que la produjo."}
+      ]
+    },
+    {
+      "name": "ai_interaction",
+      "label": "Interacción con IA",
+      "pluralLabel": "Interacciones con IA",
+      "description": "Registro inmutable de cada llamada a un modelo: proveedor, modelo, versión de prompt, tokens, latencia y confianza.",
+      "appendOnly": true,
+      "apiOnly": true,
+      "fields": [
+        {"name": "use_case", "label": "Caso de IA", "type": "TEXT", "required": true, "description": "Caso de IA, de AI-01 a AI-08."},
+        {"name": "provider", "label": "Proveedor", "type": "TEXT", "required": true, "description": "Proveedor."},
+        {"name": "model", "label": "Modelo", "type": "TEXT", "required": true, "description": "Modelo."},
+        {"name": "model_version", "label": "Versión del modelo", "type": "TEXT", "description": "Versión del modelo."},
+        {"name": "prompt_version", "label": "Versión del prompt", "type": "TEXT", "required": true, "description": "Versión del prompt en el repositorio."},
+        {"name": "started_at", "label": "Momento de la llamada", "type": "DATETIME", "required": true, "description": "Momento de la llamada."},
+        {"name": "input_reference", "label": "Referencia a la entrada", "type": "TEXT", "description": "Referencia a la entrada (registro o documento de origen)."},
+        {"name": "output_summary", "label": "Resumen de la salida", "type": "LONG_TEXT", "description": "Resumen de la salida."},
+        {"name": "input_tokens", "label": "Tokens de entrada", "type": "INTEGER", "description": "Tokens de entrada."},
+        {"name": "output_tokens", "label": "Tokens de salida", "type": "INTEGER", "description": "Tokens de salida."},
+        {"name": "latency_ms", "label": "Latencia en milisegundos", "type": "INTEGER", "description": "Latencia en milisegundos."},
+        {"name": "confidence", "label": "Confianza", "type": "DECIMAL", "description": "Confianza."},
+        {"name": "requested_by_user_id", "label": "Usuario que la pidió", "type": "UUID", "description": "Usuario que la pidió (ASM-023); vacío cuando la llamada la hace un trabajo como la plataforma, como JOB-07."},
+        {"name": "requested_by_user_email", "label": "Correo de quien la pidió", "type": "EMAIL", "description": "Correo de quien la pidió; vacío en una llamada de la plataforma."},
+        {"name": "run_by_platform", "label": "Hecha por la plataforma", "type": "BOOLEAN", "derived": true, "description": "(derivado) Verdadero cuando la llamada la hizo un trabajo como la plataforma, sin usuario que la pida."}
+      ]
+    },
+    {
       "name": "study",
       "label": "Estudio o diagnóstico",
       "pluralLabel": "Estudios o diagnósticos",
@@ -1646,6 +1688,7 @@
     {"name": "candidate_project", "label": "Proyecto", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "project", "fieldName": "project", "required": true},
     {"name": "candidate_engagement", "label": "Interacción de origen", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "engagement", "fieldName": "engagement"},
     {"name": "candidate_source_evidence", "label": "Documento de origen", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "evidence", "fieldName": "source_evidence"},
+    {"name": "candidate_ai_interaction", "label": "Llamada a la IA", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "ai_interaction", "fieldName": "ai_interaction"},
     {"name": "candidate_created_commitment", "label": "Compromiso creado", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "commitment", "fieldName": "created_commitment"},
     {"name": "candidate_duplicate_of", "label": "Duplicado de", "inverseLabel": "Candidatos a compromiso", "source": "commitment_candidate", "target": "commitment", "fieldName": "duplicate_of"},
     {"name": "agreement_project", "label": "Proyecto", "inverseLabel": "Acuerdos", "source": "agreement", "target": "project", "fieldName": "project", "required": true},
@@ -1783,6 +1826,9 @@
     {"name": "task_social_program", "label": "Programa social", "inverseLabel": "Tareas", "source": "task", "target": "social_program", "fieldName": "social_program"},
     {"name": "task_stakeholder", "label": "Grupo de interés", "inverseLabel": "Tareas", "source": "task", "target": "stakeholder", "fieldName": "stakeholder"},
     {"name": "export_log_project", "label": "Proyecto", "inverseLabel": "Registros de exportación", "source": "export_log", "target": "project", "fieldName": "project"},
+    {"name": "ai_suggestion_project", "label": "Proyecto", "inverseLabel": "Sugerencias de IA", "source": "ai_suggestion", "target": "project", "fieldName": "project"},
+    {"name": "ai_suggestion_ai_interaction", "label": "Interacción con IA", "inverseLabel": "Sugerencias de IA", "source": "ai_suggestion", "target": "ai_interaction", "fieldName": "ai_interaction", "required": true},
+    {"name": "ai_interaction_project", "label": "Proyecto", "inverseLabel": "Interacciones con IA", "source": "ai_interaction", "target": "project", "fieldName": "project"},
     {"name": "study_project", "label": "Proyecto", "inverseLabel": "Estudios o diagnósticos", "source": "study", "target": "project", "fieldName": "project", "required": true},
     {"name": "study_author_organization", "label": "Autora", "inverseLabel": "Estudios o diagnósticos", "source": "study", "target": "organization", "fieldName": "author_organization"},
     {"name": "study_client_organization", "label": "Cliente", "inverseLabel": "Estudios o diagnósticos", "source": "study", "target": "organization", "fieldName": "client_organization"},

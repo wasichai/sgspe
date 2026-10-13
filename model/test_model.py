@@ -10,12 +10,13 @@ Correr: cd model && python3 -m unittest -v test_model
 """
 import json
 import os
+import re
 import unittest
 
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F6"
+PHASE = "F7"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -39,7 +40,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         catalog = design_docs.matrix()
         wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 82)
+        self.assertEqual(len(wanted), 84)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -502,9 +503,128 @@ class TerritoryF6Tests(unittest.TestCase):
         self.assertNotIn("EXPORT", [a["name"] for a in self.objects["land_right"].get("actions", [])])
 
     def test_f6_no_trae_objetos_ni_relaciones(self):
-        self.assertEqual(len(self.objects), 82)
-        self.assertEqual(len(self.model["relationships"]), 272)
+        # lo que había hasta F6, por las fases de las fichas: F7 suma sus objetos y relaciones (AiModelTests)
+        cards = design_docs.cards()
+        self.assertEqual(len([n for n in self.objects if cards[n].phase <= "F6"]), 82)
+        relationships = [r for r in self.model["relationships"]
+                         if design_docs.relationship_phase(cards, cards[r["source"]],
+                                                           next(x for x in cards[r["source"]].relationships
+                                                                if x["name"] == r["name"])) <= "F6"]
+        self.assertEqual(len(relationships), 272)
         self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
+
+
+class AiModelTests(unittest.TestCase):
+    """§4 de la especificación de F7: ai_suggestion (apiOnly, WF-K) y ai_interaction (apiOnly y appendOnly), el catálogo
+    «Tipo de sugerencia de IA» y la llamada a la IA de commitment_candidate. Ninguna acción declarada nueva."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model = load("model.json")
+        cls.objects = {o["name"]: o for o in cls.model["objects"]}
+        cls.relationships = {r["name"]: r for r in cls.model["relationships"]}
+        cls.roles = load("roles.json")
+
+    def test_f7_trae_dos_objetos_y_cuatro_relaciones(self):
+        self.assertEqual(len(self.objects), 84)
+        self.assertEqual(len(self.model["relationships"]), 276)
+        self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
+
+    def test_la_sugerencia_es_api_only_y_la_interaccion_ademas_inmutable(self):
+        suggestion, interaction = self.objects["ai_suggestion"], self.objects["ai_interaction"]
+        self.assertEqual((suggestion.get("apiOnly"), suggestion.get("appendOnly", False)), (True, False))
+        self.assertEqual((interaction.get("apiOnly"), interaction.get("appendOnly")), (True, True))
+        # WF-K va solo en la sugerencia: un objeto appendOnly no tiene workflow (WAS-ADR-0040)
+        self.assertTrue(os.path.isfile(os.path.join(HERE, "workflows", "ai_suggestion.json")))
+        self.assertFalse(os.path.isfile(os.path.join(HERE, "workflows", "ai_interaction.json")))
+
+    def test_el_tipo_de_sugerencia_es_el_catalogo_del_analisis(self):
+        self.assertEqual(self.model["enums"]["ai_suggestion_kind"],
+                         ["EXTRACCION", "BORRADOR DE ACTA", "RESUMEN EJECUTIVO", "BORRADOR DE SECCION", "DUPLICADO",
+                          "CLASIFICACION"])
+
+    def test_la_sugerencia_cuelga_de_su_interaccion_y_las_dos_pueden_ser_del_tenant(self):
+        wanted = {"ai_suggestion_ai_interaction": ("ai_suggestion", "ai_interaction", "ai_interaction", True),
+                  "ai_suggestion_project": ("ai_suggestion", "project", "project", False),
+                  "ai_interaction_project": ("ai_interaction", "project", "project", False)}
+        for name, (source, field, target, required) in wanted.items():
+            rel = self.relationships[name]
+            self.assertEqual((rel["source"], rel["fieldName"], rel["target"], rel.get("required", False)),
+                             (source, field, target, required), name)
+
+    def test_el_candidato_apunta_a_su_interaccion_y_a_su_evidencia_de_origen(self):
+        for name, field, target in (("candidate_ai_interaction", "ai_interaction", "ai_interaction"),
+                                    ("candidate_source_evidence", "source_evidence", "evidence")):
+            rel = self.relationships[name]
+            self.assertEqual((rel["source"], rel["fieldName"], rel["target"], rel.get("required", False)),
+                             ("commitment_candidate", field, target, False), name)
+
+    def test_la_interaccion_no_guarda_la_entrada(self):
+        # ai-architecture.md §9.2 y §12: solo la referencia a la entrada; el único texto largo es el resumen de la salida
+        fields = {f["name"]: f for f in self.objects["ai_interaction"]["fields"]}
+        self.assertEqual([n for n, f in fields.items() if f["type"] == "LONG_TEXT"], ["output_summary"])
+        self.assertEqual(fields["input_reference"]["type"], "TEXT")
+        self.assertIs(fields["run_by_platform"].get("derived"), True)
+
+    def test_la_cita_es_el_unico_campo_restringido_de_las_salidas_de_la_ia(self):
+        # security.md §7.9: la cita la leen solo los roles con DOWNLOAD_RESTRICTED sobre evidence
+        restricted = {(e["object"], f) for e in self.roles["restrictedFields"] for f in e["fields"]
+                      if e["object"] in ("ai_suggestion", "ai_interaction", "commitment_candidate")}
+        self.assertEqual(restricted, {("ai_suggestion", "evidence_quote"), ("commitment_candidate", "evidence_quote")})
+
+
+# la migración de la tabla fija de sgspe.ai (database-model.md §2.3: sgspe_ai, en classpath:db/sgspe/ai)
+KNOWLEDGE_SQL = os.path.join(os.path.dirname(HERE), "src", "main", "resources", "db", "sgspe", "ai", "V1__knowledge_chunk.sql")
+
+
+def sql_table(text, table):
+    """{"columns": [(name, type, not_null)], "constraints": [...], "indexes": [...], "code": text} of `CREATE TABLE table
+    (...)` and its `CREATE INDEX ... ON table ...` in a migration; "code" is the migration without its comments."""
+    text = "\n".join(line.split("--")[0] for line in text.splitlines())
+    body = re.search(rf"CREATE TABLE {re.escape(table)} \((.*?)\n\);", text, re.S).group(1)
+    columns, constraints = [], []
+    for line in (part.strip().rstrip(",") for part in body.split("\n")):
+        if not line:
+            continue
+        if line.startswith("CONSTRAINT"):
+            constraints.append(line)
+        else:
+            name, kind = line.split()[:2]
+            columns.append((name, kind, "NOT NULL" in line))
+    indexes = re.findall(rf"CREATE INDEX \w+ ON {re.escape(table)} (.*?);", text)
+    return {"columns": columns, "constraints": constraints, "indexes": indexes, "code": text}
+
+
+class FixedTablesTests(unittest.TestCase):
+    """§4 de la especificación de F7 y ai-architecture.md §13.2: la migración de knowledge_chunk es la ficha de
+    database-model.md §20 sin la columna embedding (etapa 2 de ADR-0005, CON-035), con su clave, su único, su índice
+    compuesto y el GIN de texto completo en español, y sin claves foráneas entre esquemas (§2.3)."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(KNOWLEDGE_SQL, encoding="utf-8") as f:
+            cls.sql = sql_table(f.read(), "sgspe.knowledge_chunk")
+        cls.card = design_docs.fixed_table("knowledge_chunk")
+
+    def test_las_columnas_son_las_de_la_ficha_sin_embedding(self):
+        wanted = [c for c in self.card["columns"] if c[0] != "embedding"]
+        self.assertEqual(self.sql["columns"], wanted)
+        self.assertNotIn("embedding", self.sql["code"])
+        self.assertNotIn("vector", self.sql["code"].replace("tsvector", ""))
+
+    def test_clave_unico_e_indices_de_la_ficha(self):
+        constraints = " ".join(self.sql["constraints"])
+        self.assertIn(f"PRIMARY KEY ({', '.join(self.card['primary_key'])})", constraints)
+        for columns in self.card["uniques"]:
+            self.assertIn(f"UNIQUE ({', '.join(columns)})", constraints)
+        for columns in self.card["indexes"]:
+            self.assertIn(f"({', '.join(columns)})", self.sql["indexes"])
+        configuration, column = self.card["full_text"]
+        self.assertIn(f"USING gin (to_tsvector('{configuration}', {column}))", self.sql["indexes"])
+
+    def test_sin_claves_foraneas_y_el_esquema_si_falta(self):
+        self.assertNotIn("REFERENCES", self.sql["code"])
+        self.assertIn("CREATE SCHEMA IF NOT EXISTS sgspe;", self.sql["code"])
 
 
 class PublicLayersTests(unittest.TestCase):

@@ -67,7 +67,7 @@ class ProjectLinksTest {
 
     @Test
     fun `una regla de alerta del tenant no es de otro proyecto`() {
-        assertEquals(setOf("export_log", "evidence", "early_warning_rule"), ProjectLinks.tenantCapable(catalog))
+        assertEquals(setOf("export_log", "evidence", "early_warning_rule", "ai_suggestion", "ai_interaction"), ProjectLinks.tenantCapable(catalog))
         val targets = mapOf("early_warning_rule" to ("early_warning_rule" to null))
         assertEquals(emptyList<String>(), ProjectLinks.mismatches(a, targets, ProjectLinks.tenantCapable(catalog)))
     }
