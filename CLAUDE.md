@@ -47,8 +47,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   vigila la regla de los documentos del lado de la aplicación. El descriptor de una evidencia restringida sale sin
   nombre ni huella a quien no tiene `DOWNLOAD_RESTRICTED` (`EvidenceFileReadPolicy`).
 - IA (F7): la clave del proveedor solo por `ANTHROPIC_API_KEY` en el entorno, nunca en un archivo (tampoco en
-  `develop/.env`); la IA se activa por organización con `SGSPE_AI_ENABLED_ORGANIZATIONS` (slugs). Ninguna prueba llama al
-  proveedor: las variables de la clave quedan en blanco en `test` e `integrationTest`, y la única clase con clave
+  `develop/.env`); la IA se activa por organización con `SGSPE_AI_ENABLED_ORGANIZATIONS` (slugs). Ninguna prueba llama
+  al proveedor: las variables de la clave quedan en blanco en `test` e `integrationTest`, y la única clase con clave
   (`AssistantRunApiTest`) la pone falsa, con `RecordingLlm` delante. Solo `sgspe.ai` importa `wasichai.agent` y
   `com.embabel`; los logs nunca llevan una pregunta, un prompt ni una respuesta.
 
