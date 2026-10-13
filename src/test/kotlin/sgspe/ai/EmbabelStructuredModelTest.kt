@@ -1,6 +1,7 @@
 package sgspe.ai
 
 import com.embabel.agent.core.AgentPlatform
+import com.embabel.agent.core.support.InvalidLlmReturnFormatException
 import com.embabel.agent.spi.loop.MaxIterationsExceededException
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -75,5 +76,18 @@ class EmbabelStructuredModelTest {
         assertEquals(RecordingLlm.INPUT, failure.inputTokens)
         assertEquals(RecordingLlm.OUTPUT, failure.outputTokens)
         assertNull(failure.cause)
+    }
+
+    // una salida cortada por el tope de tokens de salida queda como JSON a medias: es una corrida sin margen (502), no un proveedor
+    // caído (503) (decisión 2 del plan 7.2b)
+    @Test
+    fun `una salida cortada por el tope de tokens es TRUNCATED`() {
+        llm.script.returnObject(Proposal())
+        llm.failure = InvalidLlmReturnFormatException("{\"text\": \"Reparar el ca", Proposal::class.java, IllegalArgumentException("fin inesperado"))
+        val failure = assertThrows<StructuredModelException> { EmbabelStructuredModel.call(RecordingLlm.platform(llm), request()) }
+        assertEquals(StructuredModelException.Reason.TRUNCATED, failure.reason)
+        assertEquals(RecordingLlm.INPUT, failure.inputTokens)
+        assertNull(failure.cause)
+        assertFalse("Reparar" in failure.message.orEmpty())
     }
 }

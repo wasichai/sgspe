@@ -3,6 +3,7 @@ package sgspe.ai
 import org.springframework.stereotype.Component
 import sgspe.common.Callers
 import sgspe.common.Records
+import sgspe.common.Transactions
 import wasichai.core.identity.AuthenticatedUser
 import java.math.BigDecimal
 import java.time.Instant
@@ -34,17 +35,23 @@ fun interface InteractionLog {
 // una ai_interaction por llamada, escrita con Records (RecordService con la marca SgspeWrite) como la persona que pidió la llamada,
 // o como la plataforma dentro de Records.asPlatform: sin persona, requested_by_* vacíos y run_by_platform verdadero (lo escribe
 // sgspe.ai, que es su único escritor). el objeto es apiOnly y appendOnly: la API genérica no lo escribe y nadie lo cambia después.
-// una cuenta de servicio no pide llamadas a la IA (403 PERSON_REQUIRED, decisión 8 del plan 7.2a)
+// una cuenta de servicio no pide llamadas a la IA (403 PERSON_REQUIRED, decisión 8 del plan 7.2a). desde 7.2b se escribe en una
+// transacción propia (Transactions.independent): una corrida de POST /ai/runs con Idempotency-Key corre en la transacción de la
+// clave, y si falla después de llamar al modelo (502, 503) la llamada hecha queda registrada igual (P6, decisión 3 del plan 7.2b)
 @Component
 class Interactions(
     private val records: Records,
     private val callers: Callers,
-    private val properties: AiProperties
+    private val properties: AiProperties,
+    private val transactions: Transactions
 ) : InteractionLog {
     override suspend fun record(entry: InteractionEntry): UUID {
         val requester = callers.userOrNull()
         if (requester?.serviceAccount != null) throw AiErrors.personRequired()
-        val created = records.create(OBJECT, attributes(entry, properties.provider, requester), "registro de la llamada a la IA (${entry.useCase})")
+        val created =
+            transactions.independent {
+                records.create(OBJECT, attributes(entry, properties.provider, requester), "registro de la llamada a la IA (${entry.useCase})")
+            }
         return UUID.fromString(created.id)
     }
 
