@@ -55,7 +55,7 @@ El boceto ARQ-01 separa tres planos que terminan en la auditoría. En SGSPE cada
 
 | Plano | Qué guarda | Quién escribe | Dónde vive |
 |---|---|---|---|
-| DATA | Hechos y registros del dominio | Personas por la API de wasichai o los endpoints `/api/sgspe/**`; trabajos programados, solo campos derivados y altas (§8.3 del modelo de dominio) | Los 89 objetos del catálogo |
+| DATA | Hechos y registros del dominio | Personas por la API de wasichai o los endpoints `/api/sgspe/**`; trabajos programados, solo campos derivados y altas (§8.3 del modelo de dominio) | Los 90 objetos del catálogo |
 | WORKFLOW | Decisiones humanas | La persona con el rol de la transición, con motivo cuando se exige | `workflow_state` de cada objeto con workflow [WAS-ADR-0013] |
 | AI | Sugerencias automáticas y su registro | El código de `sgspe.ai`, nunca el agente | `ai_suggestion`, `commitment_candidate`, `ai_interaction` |
 | AUDIT | Quién, qué, cuándo, por qué, desde y hacia | wasichai, en cada escritura y transición | `audit_log`, más `export_log` [WAS-ADR-0040] [WAS-ADR-0041] |
@@ -126,7 +126,7 @@ pasa a `accepted` solo cuando una persona lo usa en una `deliverable_section` (F
 | EXTRACCION de un acuerdo | `agreement` | Crea una `agreement_clause` (`clause_number`, `clause_text`, `creates_commitment`) | CREATE sobre `agreement_clause` | `{"item": "clause", "clause_number": "5", "clause_text": "…", "creates_commitment": true}` |
 | BORRADOR DE ACTA | `engagement` | `minutes`; la persona sigue con las transiciones de WF-C | UPDATE sobre `engagement` | Markdown sin HTML |
 | RESUMEN EJECUTIVO | `project` | Ninguno mientras solo informa. Si una persona lo usa en una `deliverable_section`, el comando de BORRADOR DE SECCION | UPDATE sobre `deliverable_section`, al usarlo | Markdown sin HTML |
-| BORRADOR DE SECCION (F8) | `deliverable_section` | `content`, con `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` | UPDATE sobre `deliverable_section`, con motivo (`DeliverableWriteGuard`) | Markdown sin HTML |
+| BORRADOR DE SECCION (F8) | `deliverable_section` | `content`, con `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` (`DeliverableSections.adopt`); convierte `[PERSONA:<id>]` en `[[person:<id>]]` (sin id, `422 UNRESOLVED_PSEUDONYM`) y la sección no vuelve a HUMANO en la revisión (`422 AI_ORIGIN_LOCKED`, ASM-137) | UPDATE sobre `deliverable_section`, con motivo (`DeliverableWriteGuard`) | Markdown sin HTML |
 | CLASIFICACION | `grievance`, `inquiry`, `stakeholder_request` | `category`, `priority` o `topic` | UPDATE sobre el objeto, con motivo (`requiresReason`) | `{"field": "category", "value": "AGUA Y MEDIO AMBIENTE"}` |
 | CLASIFICACION | `engagement_question` | `topic` | UPDATE sobre `engagement_question` | `{"field": "topic", "value": "<id>"}` |
 | CLASIFICACION | `media_mention` | `tone` o `topic` | UPDATE sobre `media_mention` | `{"field": "tone", "value": "NEGATIVO"}` |

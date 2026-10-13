@@ -54,6 +54,8 @@ set -a; source develop/.env; set +a
 | `WASICHAI_NOTIFICATIONS_EMAIL_ENABLED` / `_FROM` | `false` / `avisos@sgspe.test` | el canal de correo de wasichai-notifications (GAP-021), apagado por defecto |
 | `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT` | `localhost` / `1029` | el SMTP de prueba (Mailpit) de `compose.yml`, por el túnel; el perfil `prod` no tiene servidor por defecto y, con el correo encendido, `ProdGuard` exige `SPRING_MAIL_HOST` |
 | `SGSPE_SMTP_PORT` / `SGSPE_MAILPIT_PORT` | `1029` / `8029` | puertos que publica `compose.yml` para el SMTP y la web de Mailpit |
+| `SGSPE_GOTENBERG_PORT` | `8096` | desde F8, el puerto que publica `compose.yml` para Gotenberg en `127.0.0.1` (sección «Gotenberg») |
+| `SGSPE_DELIVERABLE_GOTENBERG_URL` | `http://localhost:8096` | desde F8, la URL de Gotenberg por el túnel (`sgspe.deliverable.gotenberg.url`); sin Gotenberg, los borradores quedan FALLIDO con `PDF_CONVERTER_UNAVAILABLE` |
 | `SGSPE_TEST_S3_ENDPOINT` / `_ACCESS_KEY` / `_SECRET_KEY` | comentadas | el MinIO de `FileStoreContractTest` cuando Testcontainers no alcanza el Docker remoto (sección 6) |
 
 `WASICHAI_DB_*`, `WASICHAI_JWT_SECRET` y `WASICHAI_SEED_DEV` tienen el mismo valor por defecto en
@@ -78,7 +80,8 @@ docker compose exec postgis createdb -U sgspe sgspe_test   # una sola vez: la ba
 - Los servicios de apoyo llegan con su fase. Desde F3: MinIO (`sgspe-minio`, API en 9095 y consola en 9096, usuario
   `sgspe` / `sgspe-minio`) guarda los archivos de las evidencias con `WASICHAI_FILES_STORE=s3`, y Mailpit (`sgspe-mailpit`,
   SMTP en 1029 y web en 8029) recibe los correos de las notificaciones con `WASICHAI_NOTIFICATIONS_EMAIL_ENABLED=true`, sin
-  entregarlos. GeoServer llega en F6 y Gotenberg en F8.
+  entregarlos. GeoServer llega en F6 y Gotenberg en F8 (sección
+  «Gotenberg»).
 - Empezar de cero: `docker compose down -v` borra el volumen y todos los datos.
 
 ### GeoServer
@@ -112,6 +115,23 @@ SQL
 | `WASICHAI_GIS_GEOSERVER_DATASTORE_USERNAME` / `_PASSWORD` | `sgspe_geoserver` / `sgspe-geoserver-lectura` | el rol de solo lectura |
 
 Las capas públicas se publican con `publish_layers.py`, después de `load_ubigeo.py` (sección 5).
+
+### Gotenberg
+
+Desde F8 (plan 8.2c) el compose trae el servicio `gotenberg` (`gotenberg/gotenberg:8-libreoffice`, en la etiqueta 8.x
+exacta que fija 8.2c; contenedor `sgspe-gotenberg`, sin volúmenes, sin webhooks ni descargas remotas): en el VPS escucha
+en `127.0.0.1:8096` (`SGSPE_GOTENBERG_PORT`, contenedor 3000) y se alcanza por el túnel `ssh -fN -L 8096:localhost:8096
+"$SGSPE_VPS"`. Solo lo llama JOB-05 y nunca es público (ADR-0026). El backend lo encuentra con
+`SGSPE_DELIVERABLE_GOTENBERG_URL=http://localhost:8096`; `application-prod.yml` no le da valor por defecto.
+
+Las pruebas que convierten con Gotenberg llevan la etiqueta `gotenberg` y corren en la CI, donde Gotenberg es un
+servicio del trabajo de integración; aquí corren con el túnel abierto y la misma variable. La suite lenta (`slowTest`, a
+pedido, desde 8.2c) pide GetMap a un GeoServer real y genera un T1 de unas 100 páginas con 40 fotos en menos de 180 s:
+
+```bash
+SGSPE_DELIVERABLE_GOTENBERG_URL=http://localhost:8096 WASICHAI_GIS_GEOSERVER_URL=http://localhost:8095/geoserver \
+  GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew slowTest --rerun
+```
 
 ### GDAL
 
@@ -157,6 +177,7 @@ python3 apply.py                        # objetos, acciones, relaciones e índic
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
 python3 apply.py --workflows            # 17 workflows, 2 tipos de documento y 6 automatizaciones de F5
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
+python3 load_indicators.py              # desde F8 (plan 8.2a): el catálogo indicator, sin pisar metas editadas
 python3 publish_layers.py               # desde F6: capas públicas en GeoServer (upgrade_tenants.py: --skip-layers)
 python3 -m unittest -v                  # las pruebas de los scripts, contra un core falso, y del modelo contra docs/
 ```

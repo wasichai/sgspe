@@ -116,9 +116,9 @@ Fuente: [Modelo de dominio §5](domain-model.md#5-bounded-contexts) (ASM-044, AS
 | F5 | 10 | — | `sgspe.investment` completo | WF-G, WF-P | KPI-INV | 4 |
 | F6 | Ninguno | GeoServer y GDAL (no son starters) | Análisis espacial de `sgspe.territory` | — | KPI-TER | 8 |
 | F7 | 2, más la tabla fija `knowledge_chunk` | + `-agent` | `sgspe.ai` | WF-K (sugerencias) | — | 22 |
-| F8 | 5 | Gotenberg (no es starter) | `sgspe.deliverable` | WF-H | KPI-EXE | 41 |
+| F8 | 6 | Gotenberg (no es starter) | `sgspe.deliverable` | WF-H | KPI-EXE | 41 |
 
-- Los objetos nuevos suman los 89 del catálogo canónico; la fase de cada uno está en el índice de fichas del
+- Los objetos nuevos suman los 90 del catálogo canónico; la fase de cada uno está en el índice de fichas del
   [modelo de datos §5](database-model.md#5-cómo-leer-las-fichas).
 - "Requisitos con esa fase" cuenta los RF, RNF y RQ cuya columna Fase del análisis tiene esa sola fase. Otros abarcan varias
   (por ejemplo, RNF-TST-001 y RNF-MNT-003 en F1–F8, o RQ-REP-022 en F2–F4); las RN siguen la fase de su bounded context.
@@ -392,18 +392,19 @@ pistas de arriba o en las fases siguientes:
 
 | Elemento | Contenido |
 |---|---|
-| Alcance | Tableros ejecutivo, de proyecto y de monitoreo de la Tabla 9.5; consolidación de los tableros de módulo; catálogo `indicator` y cierres de periodo; entregables DOCX y PDF, primero T2 y después T1, con WF-H, emisión congelada con SHA-256, niveles de divulgación, plantillas Word por organización y mapas de informe por GetMap; borradores de sección asistidos por IA (AI-04) cuando existe `deliverable_section`, y cada versión emitida lista sus secciones asistidas en `ai_assisted_sections` (RQ-AI-012, RF-AIK-004); T3, T4, T5, T6, T7, T8, T9 y T10 solo si se confirman [USR-01] [USR-02] (ASM-014, ASM-026) |
-| Objetos (5) | BC-15: `indicator`, `indicator_measurement`, `deliverable`, `deliverable_section`, `deliverable_version` |
-| Starters y capacidades | Gotenberg (`gotenberg/gotenberg:8-libreoffice`) solo alcanzable por la app; Apache POI (ya en `main`) y commonmark-java; PDFBox, en `main` desde F7 (ASM-132) y también en las pruebas; GetMap de GeoServer |
-| Código SGSPE | `sgspe.deliverable`: una clase por tipo, ensamblado y congelamiento del modelo, DOCX con POI, PDF con Gotenberg, mapas con GetMap, `DeliverableGenerationJob` (JOB-05), `RetentionJob` (JOB-08), que desde F8 también purga los borradores, emisión y `DeliverableWriteGuard`. `sgspe.dashboard`: consolidación y cierre de periodo. `sgspe.privacy`: niveles de divulgación aplicados al modelo |
-| Endpoints | `POST /api/sgspe/deliverables/{id}/drafts`; `GET /api/sgspe/deliverables/{id}/draft`; `GET /api/sgspe/deliverables/{id}/draft/content`; `POST /api/sgspe/deliverables/{id}/issue`; `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content`; `GET /api/sgspe/deliverable-templates`; `POST /api/sgspe/deliverable-templates`; `POST /api/sgspe/indicators/{id}/measurements`; tableros `executive`, `project` y `monitoring` |
-| Workflows | WF-H (`deliverable`); automatización AUT-12, opcional |
-| Portal | Dashboard consolidado y Reportes (entregables) |
+| Alcance | Tableros ejecutivo (con la tabla por proyecto), de proyecto y de monitoreo de la Tabla 9.5; consolidación de los tableros de módulo; catálogo `indicator` con las metas de DOC-01, editables, y cierre opcional de periodos con una cifra completa o ninguna (ASM-136); entregables DOCX y PDF, primero T2 y después T1, con WF-H, modelo congelado con SHA-256, INTERNO y EXTERNO (EXTERNO solo en PDF y con lista de verificación), plantillas Word por organización (ASM-135), mapas de informe por GetMap con las decoraciones de SGSPE (ASM-134), archivos en wasichai-files (ASM-133) y la constancia de emisión con correlativo (AUT-12); borradores de sección asistidos por IA (AI-04), que solo una persona adopta, y cada versión emitida lista sus secciones asistidas en `ai_assisted_sections` (RQ-AI-012, RF-AIK-004). Fuera de F8: T3 a T10 (ASM-026), un tipo que prepare PUBLICO, reimportar o emitir un DOCX editado fuera del sistema, imágenes de ECharts en los informes, mapa base en los mapas de informe, PDF etiquetado, bloqueo WORM, un historial de borradores, un aviso al terminar un borrador y exportar tableros [USR-01] [USR-02] (ASM-014) |
+| Objetos (6) | BC-15: `indicator`, `indicator_measurement`, `deliverable`, `deliverable_section`, `deliverable_version`, `deliverable_template` |
+| Starters y capacidades | Gotenberg (`gotenberg/gotenberg:8-libreoffice`, que 8.2c fija en la etiqueta 8.x exacta) solo alcanzable por la app: en desarrollo, en el puerto 8096 del loopback del VPS, y en la CI, como servicio del trabajo de integración; Apache POI 5.5.1 (ya en `main`) con XDDF y commonmark-java con tablas GFM; PDFBox, en `main` desde F7 (ASM-132), para verificar los PDF; GetMap de GeoServer por POST XML; wasichai-files para todos los archivos, con la versión de wasichai que resuelva UPS-31 |
+| Código SGSPE | `sgspe.dashboard`: `KpiReader`, KPI-EXE (`ExecutiveKpis`), los tableros (`Dashboards`, `MonitoringTable`) y el cierre (`IndicatorMeasurements`, `IndicatorWriteGuard`). `sgspe.privacy`: `ReportModel`, `CanonicalJson` y `ReportDisclosure`. `sgspe.deliverable`: `DeliverableGenerationJob` (JOB-05), `DocxWriter`, `PdfConverter` con `GotenbergConverter`, `ReportMaps` con `GetMapRequest` y `MapComposer`, `TemplateValidator` y `DeliverableTemplates`, `DeliverableFiles` y `DeliverableContent`, `DeliverableIssue`, `DeliverableWriteGuard`, `DeliverableSections`, `FieldReportType` y `SocialDiagnosisType`. `sgspe.ai`: el agente de AI-04 para las secciones. JOB-08 no gana un paso de entregables (ASM-133). `model/indicators.json` y `model/load_indicators.py` |
+| Endpoints | `POST /api/sgspe/deliverables/{id}/drafts`; `GET /api/sgspe/deliverables/{id}/draft`; `GET /api/sgspe/deliverables/{id}/draft/content`; `POST /api/sgspe/deliverables/{id}/issue`; `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content`; `GET /api/sgspe/deliverable-templates`; `POST /api/sgspe/deliverable-templates`; `POST /api/sgspe/indicators/{id}/measurements`; tableros `executive`, `project` y `monitoring`; las rutas nativas de archivos de `deliverable`, `deliverable_version` y `deliverable_template`, que atiende SGSPE |
+| Workflows | WF-H (`deliverable`); automatización AUT-12, activa, con la «Constancia de emisión» |
+| Portal | S51 con el tablero `executive`; la zona de tablero de S08 con `project`; «Monitoreo de la Tabla 9.5» con el cierre de periodo y el catálogo de indicadores; S49 Reportes y S50 Entregable por secciones, con el editor, las sugerencias de AI-04, los borradores y la emisión; S64 Plantillas de entregables |
 | KPIs | KPI-EXE-01, KPI-EXE-02, KPI-EXE-03; KPI-COM-11 en el tablero ejecutivo; los trece indicadores de la Tabla 9.5 en el tablero `monitoring` |
 | Entregables | T2 y T1 completos; la sección "Cobertura de entregables por fase" detalla de dónde sale cada capítulo |
-| Definición de terminado | La general, más: `DeliverableWorkflowApiTest`; un borrador de sección de IA se adopta solo por decisión humana y queda en `ai_assisted_sections` de la versión emitida; las pruebas de [Entregables §13.3](deliverables.md#133-pruebas) (lectura del DOCX, PDF con PDFBox, guardas, almacenamiento y la suite lenta de GetMap y 100 páginas); las de seguridad de salidas, descargas y plantillas Word; tableros y entregables dan las mismas cifras (RQ-DSH-034); objetos nuevos clasificados en `ProjectScope` (`ArchitectureTest`) |
-| Riesgos | Fidelidad de LibreOffice y licencias de fuentes; GeoServer como dependencia para emitir mapas; tiempos de Gotenberg en documentos largos; datos personales en la narrativa o en fotos |
-| IDs abiertos | Condicionan: GAP-001, GAP-009, GAP-010, GAP-011, GAP-014, GAP-018; ASM-014, ASM-026, ASM-027, ASM-028, ASM-037, ASM-038, ASM-042, ASM-055, ASM-061 |
+| Definición de terminado | La general, más: las pruebas de la especificación §5 y las de [Entregables §13.3](deliverables.md#133-pruebas) (lectura del DOCX, PDF con PDFBox, guardas, almacenamiento y la suite lenta de GetMap y 100 páginas); `DeliverableWorkflowApiTest`; tableros y entregables con las mismas cifras (`DashboardDeliverableParityTest`, RQ-DSH-034); un borrador de sección de IA se adopta solo por decisión humana y queda en `ai_assisted_sections`; las de seguridad de salidas, descargas, plantillas Word y cierre de periodo; los objetos nuevos clasificados en `ProjectScope` y `ArchitectureTest` con las reglas de F8; el tenant `demo` en F8 con una plantilla ficticia; la medición del tablero `executive` con 10 proyectos en `sgspe_perf` (p95 bajo 3 s) y el humo (un T2 y un T1 emitidos en INTERNO y EXTERNO, con la constancia, el PDF/A comprobado y los mapas del GeoServer del VPS, y el portal con el navegador) anotados en «Estado». Al cerrar F8, la release 3.0.0 de sgspe y sgspe-ui (`Release-As: 3.0.0`), con la confirmación del usuario antes de mezclar el PR de release |
+| Riesgos | Fidelidad de LibreOffice (paginación y leyendas, mitigada con `PAGEREF`, `updateIndexes` y la prueba de texto entre DOCX y PDF) y la etiqueta flotante de Gotenberg; licencias de fuentes (solo Carlito, Caladea y Liberation); GeoServer como dependencia para emitir T1 y T2; tiempos y memoria de Gotenberg y de wasichai-files (64 MB, ASM-138); datos personales en la narrativa y en las fotos; UPS-31, que puede tardar (8.2b avanza sin ella y tiene un respaldo); el choque de `model.json` y `roles.json` entre 8.2a y el plan 7.1, que el segundo en mezclar rebasa. Consecuencias aceptadas: solo el último borrador; una plantilla no se edita ni se retira; EXTERNO pierde contenido (fotos sin consentimiento o con el dato vacío, comprobantes, sondajes, plataformas, campamento y predios de la empresa); la lista de verificación sigue siendo humana; los KPI de QCS los cierra `ADMIN`; norte de cuadrícula y sin mapa base |
+| IDs abiertos | Condicionan: GAP-001, GAP-009, GAP-011, GAP-014 (retención), GAP-022; UPS-31; ASM-014, ASM-026, ASM-027, ASM-028, ASM-037, ASM-038, ASM-042, ASM-055, ASM-061, ASM-133 a ASM-138. GAP-010 y GAP-018 están resueltas (ASM-135 y ASM-136) |
+| Estado | En diseño. Especificación `docs/superpowers/specs/2026-10-13-fase-8-design.md`, con las decisiones del usuario del 2026-10-12 y del 2026-10-13, y documentos al día (plan 8.0). Reparto: 8.0 (documentos), 8.1 (modelo de entregables, con el plan 7.1 en `main`), 8.2a (indicadores y tableros consolidados), 8.2b (motor de entregables y T2, con 8.1 y 8.2a; adjuntar archivos espera la versión de wasichai con UPS-31), 8.2c (T1, mapas, PDF y AI-04 de sección, con 8.2b y el plan 7.2b) y 8.3 (portal, en `sgspe-ui`); con 8.0 en `main`, 8.2a y 8.3 van en paralelo con F7. Orden de despliegue: `apply.py` → `apply_roles.py` → `apply.py --workflows` (WF-H, AUT-12 y la constancia) → `load_ubigeo.py` → `load_indicators.py` → `publish_layers.py`, y después el backend con Gotenberg y GeoServer arriba. La release 3.0.0 se corta al cerrar F8 |
 
 ## Cobertura de entregables por fase
 
@@ -453,7 +454,7 @@ los objetos principales de cada capítulo; la lista completa está en el modelo 
 | Matriz de riesgos | `risk-register` | F4 | RQ-REP-022 |
 | Documentos emitidos de un registro | Tipos de wasichai-documents | F3 a F5, con su automatización | RQ-REP-029 |
 | T2 y después T1 | DOCX y PDF | F8 | RF-REP-001, RF-REP-002 |
-| T3, T4, T5, T6, T7, T8, T9 y T10 | Probables, solo si se confirman | F8 (los XLSX de T7 y T8 ya existen en F3 y F4) | RQ-REP-002, ASM-026 |
+| T3, T4, T5, T6, T7, T8, T9 y T10 | Probables, fuera de F8 (ASM-026) | Después de F8, si se confirman (los XLSX de T7 y T8 ya existen en F3 y F4) | RQ-REP-002, ASM-026 |
 
 Todas las salidas aplican el nivel de divulgación y dejan su fila en `export_log` (RQ-REP-014, RQ-AUD-011).
 
@@ -470,13 +471,14 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | F4 | UPS-27, UPS-28 |
 | F5 | UPS-23 (AUT-04, ASM-116) |
 | F7 | Ninguna (UPS-14, resuelta en wasichai con WAS-ADR-0056 y adoptada en F7, ASM-130) |
+| F8 | UPS-31 (abierta como wasichai/wasichai#111; el plan 8.2b sube a la versión que la resuelva) |
 | Antes de producción | UPS-09, UPS-17 (UPS-13, resuelta en `@wasichai/gis` 1.0.0); UPS-01 solo para territorio y región (proyectos, resuelto en el plan 4.4, ADR-0029) |
 | Operación multicliente | UPS-10 (resuelta con wasichai 0.6.0, ASM-109) |
 | Endurecimiento | UPS-12 |
 | Después del MVP (candidatas, sin issue hasta la aprobación del usuario) | UPS-25, UPS-26 |
 
-Los issues de UPS-01 a UPS-18 se abrieron el 2026-10-07, tras el checkpoint; los de UPS-24 y UPS-27, después, cuando
-se detectó cada brecha:
+Los issues de UPS-01 a UPS-18 se abrieron el 2026-10-07, tras el checkpoint; los de UPS-24, UPS-27 y UPS-31, después,
+cuando se detectó cada brecha:
 
 | Brecha | Issue |
 |---|---|
@@ -500,6 +502,7 @@ se detectó cada brecha:
 | UPS-18 | [wasichai#63](https://github.com/wasichai/wasichai/issues/63) |
 | UPS-24 | [wasichai#90](https://github.com/wasichai/wasichai/issues/90), cerrado por [wasichai#102](https://github.com/wasichai/wasichai/pull/102) (1.0.0) |
 | UPS-27 | [wasichai-ui#46](https://github.com/wasichai/wasichai-ui/issues/46) |
+| UPS-31 | [wasichai#111](https://github.com/wasichai/wasichai/issues/111) |
 
 ## Decisiones pendientes para el checkpoint
 
@@ -539,14 +542,14 @@ antes de la fase que condicionan:
 |---|---|---|
 | GAP-007 | El ciclo del prompt (WF-G) | F5 |
 | GAP-008 | Captura sin conexión fuera del MVP; diseñada (ASM-081) | Release 3, sin fase; ADR de sincronización antes de implementarla |
-| GAP-010 | Solo se emite lo que genera el sistema | F8 |
+| GAP-010 | Resuelta el 2026-10-13: plantillas por organización, validadas (ASM-135); solo se emite lo que genera el sistema | F8 |
 | GAP-011 | Capas vectoriales de referencia; GeoServer necesario para emitir mapas | F2, F6, F8 |
 | GAP-012 | XLSX, CSV y GeoJSON en F2 con CRS obligatorio | F2, F6 |
 | GAP-013 | Contenido en español | F1 en adelante |
-| GAP-014 | Consentimiento por foto y por medio de contacto | F3, F8 |
+| GAP-014 | Consentimiento por foto y por medio de contacto, confirmado el 2026-10-13 con falla cerrada en EXTERNO; la retención sigue abierta | F3, F8 |
 | GAP-016 | Fuera de alcance; solo la política RN-COM-002 | F3 |
 | GAP-017 | Acuerdos de tipo permiso o servidumbre, sin libro de pagos | F3 |
-| GAP-018 | Los valores de DOC-01 | F2, F8 |
+| GAP-018 | Resuelta el 2026-10-13: los valores de DOC-01, editables (ASM-136) | F2, F8 |
 | GAP-019 | DOC-03 solo como ejemplo de formato | F2 |
 | GAP-020 | Contratistas a través del equipo social | F4 |
 | GAP-021 | SMTP configurable; servidor de prueba en desarrollo | F3 |
@@ -574,7 +577,7 @@ antes de la fase que condicionan:
 | 7 | Docker de desarrollo remoto | Pruebas de integración lentas o imposibles en local | CI y modo de base externa por túnel | RNF-TST-001 |
 | 8 | Fidelidad DOCX → PDF de LibreOffice y licencias de fuentes | Entregables distintos de DOC-01 | Spike en F1; constructos de Word acotados; Carlito, Caladea y Liberation | ASM-014, ASM-055 |
 | 9 | GeoServer necesario para emitir mapas y sin autenticación propia | Emisión bloqueada si cae; fuga si se expone | Red interna, proxy autenticado con lista blanca, solo capas no sensibles | ASM-038, RQ-SEC-011, CON-054 |
-| 10 | Gotenberg tarda o falla con entregables largos | Borradores fallidos o lentos | Generación en segundo plano, tiempo de espera configurable, fotos reducidas | RQ-REP-021 |
+| 10 | Gotenberg tarda o falla con entregables largos | Borradores fallidos o lentos | Generación en segundo plano, un pedido a la vez con plazo de 180 s, pedidos viejos retomados, fotos reducidas y la suite lenta de 100 páginas | RQ-REP-021, ASM-138 |
 | 11 | Token en `localStorage` y sin revocación | Sesión robada válida hasta que vence | CSP, TTL corto y límite de tasa en el proxy; revocación pedida upstream | RQ-SEC-001, RQ-SEC-015, UPS-09 |
 | 12 | Datos personales en documentos, fixtures, logs o exportaciones | Incumple USR-07 | Verificación de nombres reales antes de cada commit; niveles de divulgación; logs sin datos personales | RQ-SEC-018, RQ-SEC-010, RQ-REP-014 |
 | 13 | La seudonimización no detecta nombres no registrados en textos libres | Datos personales hacia el proveedor de LLM | IA desactivada por defecto y activada por organización (ASM-128), proveedor decidido (GAP-015, la API de Anthropic) y solo los fragmentos necesarios | RQ-AI-009, GAP-015, RQ-REP-033 |
@@ -588,6 +591,7 @@ antes de la fase que condicionan:
 | 21 | Sin normativa de datos personales ni de participación | Obligaciones legales no modeladas | Políticas configurables; ninguna regla presentada como ley | GAP-001, ASM-037 |
 | 22 | Licencia AGPL de MinIO | Restricción en producción | MinIO solo en desarrollo; cualquier almacenamiento compatible con S3 en producción | GAP-022 |
 | 23 | Inconsistencias entre los catorce documentos y los 26 ADR escritos en paralelo | Decisiones contradictorias en F1 | Fuente de verdad fijada en la Ola 1; verificadores automáticos y revisión de la Tarea 7 | RNF-MNT-009 |
+| 24 | UPS-31 tarda o wasichai no la resuelve | JOB-05 no puede adjuntar los archivos del borrador | El plan 8.2b avanza sin adjuntar; respaldo de ASM-133 con claves propias para el borrador y un paso de JOB-08 | UPS-31, ASM-133 |
 
 ## Validación de la Fase 0
 
