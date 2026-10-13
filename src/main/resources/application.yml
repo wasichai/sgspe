@@ -235,6 +235,7 @@ sgspe:
     # la versión en uso del prompt de cada caso (ai-architecture.md §10): volver atrás es cambiar este número
     prompts:
       ai-05: '1'
+      ai-06: '1'
     limits:
       # ASM-131: caracteres de la fuente de una corrida, tokens de salida de una llamada, acciones de un agente (7.2b) y
       # caracteres de una pregunta al asistente
