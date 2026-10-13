@@ -833,7 +833,8 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 | Tiempos o memoria de Gotenberg con documentos largos | Fotos reducidas; un pedido a la vez con plazo de 180 s; pedidos viejos retomados; topes de 64 MB (ASM-138); la suite lenta de 100 páginas |
 | Bytes de DOCX y PDF no deterministas | El hash del modelo congelado es la identidad; los hashes de archivo identifican los artefactos |
 | Datos personales en la narrativa o en fotos | Niveles, menciones como referencias, consentimiento de fotos, lista de verificación y `export_log` |
-| Un consultor edita el DOCX fuera del sistema | Solo se emite lo que genera el sistema y un DOCX emitido nunca se reimporta (GAP-010, resuelta; ASM-135) | | La plataforma no puede adjuntar archivos (UPS-31) | El plan 8.2b avanza sin adjuntar y sube a la versión de wasichai que la resuelva; respaldo de ASM-133 para el borrador |
+| Un consultor edita el DOCX fuera del sistema | Solo se emite lo que genera el sistema y un DOCX emitido nunca se reimporta (GAP-010, resuelta; ASM-135) |
+| La plataforma no puede adjuntar archivos (UPS-31) | El plan 8.2b avanza sin adjuntar y sube a la versión de wasichai que la resuelva; respaldo de ASM-133 para el borrador |
 
 - **ADR de SGSPE:** ADR-0013, ADR-0014, ADR-0015 y ADR-0017.
 - **Supuestos que este documento aplica:** ASM-003, ASM-013, ASM-014, ASM-026, ASM-027, ASM-028, ASM-029, ASM-031,
