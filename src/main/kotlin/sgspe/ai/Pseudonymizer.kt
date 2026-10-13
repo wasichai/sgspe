@@ -159,7 +159,20 @@ class NameDictionary(
 // cada valor de texto
 object Pseudonymizer {
     private val UUID_SPAN = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
-    private val DOMAIN = Regex("""[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}""")
+
+    // el largo del dominio al principio de `segment` (letras, dígitos, guiones y puntos): etiquetas no vacías y, al final, un punto
+    // y dos letras o más. a mano y sin recursión: un dominio con miles de etiquetas no desborda la pila. 0 si no hay dominio
+    private fun domainLength(segment: String): Int {
+        var best = 0
+        for (d in segment.indices) {
+            if (segment[d] != '.') continue
+            if (d == 0 || segment[d - 1] == '.') break
+            var e = d + 1
+            while (e < segment.length && segment[e].isLetter()) e++
+            if (e - d - 1 >= 2) best = e
+        }
+        return best
+    }
 
     private fun localChar(c: Char): Boolean = c.isLetterOrDigit() || c == '.' || c == '_' || c == '%' || c == '+' || c == '-'
 
@@ -174,9 +187,9 @@ object Pseudonymizer {
             while (start > floor && localChar(text[start - 1])) start--
             var end = at + 1
             while (end < text.length && (text[end].isLetterOrDigit() || text[end] == '.' || text[end] == '-')) end++
-            val domain = if (start < at && end > at + 1) DOMAIN.matchAt(text.substring(at + 1, end), 0) else null
-            if (domain != null) {
-                val last = at + domain.value.length
+            val length = if (start < at && end > at + 1) domainLength(text.substring(at + 1, end)) else 0
+            if (length > 0) {
+                val last = at + length
                 found += start..last
                 floor = last + 1
             }
@@ -221,7 +234,7 @@ object Pseudonymizer {
         val folded = Folding.fold(text)
         val foldedWords = Folding.words(folded)
         val candidates = mutableListOf<Candidate>()
-        val known = (restricted + table.reserved()).associate { key(it.value) to it.kind }
+        val known = (restricted + table.reserved()).filter { distinctive(it.value) }.associate { key(it.value) to it.kind }
         for (value in (restricted + table.reserved()).filter { distinctive(it.value) }) {
             val needle = Folding.fold(Folding.nfc(value.value).trim())
             val ranges = occurrences(folded, needle) + wordSequences(folded, foldedWords, needle)
@@ -231,7 +244,9 @@ object Pseudonymizer {
         PHONE.findAll(text).forEach { m -> candidates += Candidate(m.range, 2) { marked(it, known, Marker.TELEFONO, m.value) } }
         DOCUMENT.findAll(text).forEach { m -> candidates += Candidate(m.range, 3) { marked(it, known, Marker.DOCUMENTO, m.value) } }
         names.matches(text).forEach { (range, person) ->
-            candidates += Candidate(range, 4) { it.mark(Marker.PERSONA, person.displayName, person.id) }
+            // si lo incluye un restringido, compite con ellos (prioridad 0) y gana el tramo más largo: no queda ni un apellido suelto
+            val masked = restrictedMarker(known, text.substring(range)) ?: restrictedMarker(known, person.displayName)
+            candidates += Candidate(range, if (masked != null) 0 else 4) { masked ?: it.mark(Marker.PERSONA, person.displayName, person.id) }
         }
         val accepted = mutableListOf<Candidate>()
         val order = compareBy<Candidate>({ it.priority }, { it.range.first }, { -(it.range.last - it.range.first) })
@@ -252,17 +267,33 @@ object Pseudonymizer {
         return out.append(text, at, text.length).toString()
     }
 
-    // la clave de un valor para compararlo con lo hallado por formato: sin tildes ni mayúsculas, espacios ni signos
-    private fun key(value: String): String = Folding.fold(Folding.nfc(value)).filter { it.isLetterOrDigit() || it == '@' }
+    // la clave de un valor para compararlo con lo hallado por formato: sin tildes ni mayúsculas, espacios ni signos, y sin el 51 de
+    // un número con código de país
+    private fun key(value: String): String {
+        val k = Folding.fold(Folding.nfc(value)).filter { it.isLetterOrDigit() || it == '@' }
+        return if (k.length >= 11 && k.startsWith("51") && k.all { it.isDigit() }) k.substring(2) else k
+    }
 
-    // lo hallado por formato que es un valor restringido conocido sale con el marcador tipado sin número, que nadie restaura
-    // («DNI40123456» pegado, que la búsqueda por palabras no ve)
+    // el marcador tipado de un valor restringido conocido que `value` es o contiene (una cifra dentro de un RUC, un teléfono con o
+    // sin código de país, un correo con un prefijo pegado, una persona cuyo nombre lo incluye): sin número, que nadie restaura
+    private fun restrictedMarker(
+        known: Map<String, Marker>,
+        value: String
+    ): String? {
+        if (known.isEmpty()) return null
+        val k = key(value)
+        return known.entries
+            .firstOrNull { it.key.isNotEmpty() && it.key in k }
+            ?.value
+            ?.reserved
+    }
+
     private fun marked(
         table: PseudonymTable,
         known: Map<String, Marker>,
         kind: Marker,
         value: String
-    ): String = known[key(value)]?.reserved ?: table.mark(kind, value)
+    ): String = restrictedMarker(known, value) ?: table.mark(kind, value)
 
     // un valor restringido se busca en el texto libre solo si se distingue: dos palabras o más, seis dígitos o más, o un correo.
     // una palabra sola («Flores») confundiría el texto con un dato, y un UUID es un id, no un dato
