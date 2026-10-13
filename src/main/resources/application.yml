@@ -242,6 +242,16 @@ sgspe:
       output-tokens: 8192
       actions: 8
       question-chars: 4000
+    knowledge:
+      # el RAG de F7 (ai-architecture.md §13, ADR-0005 etapa 1; KnowledgeProperties): fragmentos de unos 1 500 caracteres con
+      # 200 de solape; el texto (caracteres) y el archivo (bytes) que JOB-07 indexa de una evidencia; los fragmentos que la
+      # búsqueda pide a la base antes de releer las evidencias y los que llegan al modelo
+      chunk-chars: 1500
+      overlap-chars: 200
+      max-chars: 500000
+      max-bytes: 20971520
+      candidates: 25
+      results: 5
 
 embabel:
   agent:
