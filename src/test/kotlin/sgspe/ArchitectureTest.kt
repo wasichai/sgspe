@@ -205,13 +205,28 @@ class ArchitectureTest {
                 "/sgspe/common/DerivedVersions.kt",
                 "/sgspe/common/Idempotency.kt",
                 "/sgspe/common/UserReferenceGuard.kt",
-                "/sgspe/evidence/EvidenceWriteGuard.kt"
+                "/sgspe/evidence/EvidenceWriteGuard.kt",
+                "/sgspe/ai/KnowledgeChunks.kt"
             )
         val others = sources(main).filterNot { file -> (territory + elsewhere).any { file.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(others, DATABASE_CLIENT))
         val gate = "/sgspe/territory/SpatialGate.kt"
         assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(gate) })
         assertEquals(emptyList<String>(), offenders(sources(main).filterNot { it.invariantSeparatorsPath.endsWith(gate) }, READ_SCOPES))
+    }
+
+    // knowledge_chunk es de sgspe.ai (ai-architecture.md §13.2, decisión 2 del plan 7.2c): solo su migración la crea y solo
+    // KnowledgeChunks la lee y la escribe, con su SQL constante; nadie más nombra la tabla
+    @Test
+    fun `solo KnowledgeChunks toca knowledge_chunk`() {
+        val allowed = listOf("/sgspe/ai/KnowledgeMigration.kt", "/sgspe/ai/KnowledgeChunks.kt")
+        val others = sources(main).filterNot { file -> allowed.any { file.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, KNOWLEDGE_TABLE))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(allowed.last()) })
+        assertTrue(flags(KNOWLEDGE_TABLE, "db.sql(\"SELECT * FROM sgspe.knowledge_chunk\")"))
+        assertTrue(flags(KNOWLEDGE_TABLE, "private const val TABLE = KnowledgeMigration.TABLE"))
+        assertFalse(flags(KNOWLEDGE_TABLE, "// los fragmentos de knowledge_chunk"))
+        assertFalse(flags(KNOWLEDGE_TABLE, "class KnowledgeChunks("))
     }
 
     // el alcance de lectura por proyecto (ASM-106, ASM-114, security.md §9.7). regla 1: cada objeto de model.json está en un
@@ -578,6 +593,7 @@ class ArchitectureTest {
         private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
+        private val KNOWLEDGE_TABLE = Regex("""\bknowledge_chunk\b|\bKnowledgeMigration\.TABLE\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
         private val DIRECT_WRITE = Regex("""\b(SgspeWrite|RecordService)\b""")
