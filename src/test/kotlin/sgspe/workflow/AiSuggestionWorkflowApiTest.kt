@@ -8,8 +8,8 @@ import sgspe.F7ApiTest
 
 // WF-K de las sugerencias de IA (workflows.md, «WF-K para sugerencias de IA»; RQ-AI-001, RQ-AI-003, RQ-AI-015): una
 // sugerencia es apiOnly, nace en `proposed` y la decide una persona. aceptar es de comando (CommandTransitionGuard): por la
-// API genérica, 403; rechazar y marcar duplicado piden motivo (TransitionReasonGuard) y no cambian el registro destino. la
-// aceptación por POST /api/sgspe/ai-suggestions/{id}/accept y la cuenta de servicio las suma el plan 7.2b
+// API genérica, 403; rechazar y marcar duplicado piden motivo (TransitionReasonGuard) y no cambian el registro destino. desde 7.2b,
+// una cuenta de servicio no decide (SuggestionDecisionGuard); la aceptación por su endpoint la prueba SuggestionAcceptanceApiTest
 class AiSuggestionWorkflowApiTest : F7ApiTest() {
     private val social by lazy { member("SOCIAL_MANAGER") }
     private val risks by lazy { member("SOCIAL_RISK_MANAGER") }
@@ -67,6 +67,19 @@ class AiSuggestionWorkflowApiTest : F7ApiTest() {
         val offered = available("ai_suggestion", id, auditor.token)
         assertEquals(setOf("accept", "reject", "mark_duplicate"), offered.keys)
         assertTrue(offered.values.all { it == (false to "requires permission UPDATE") }, "$offered")
+        assertEquals("proposed", state("ai_suggestion", id))
+    }
+
+    // decisión 9 del plan 7.2b: rechazar y marcar duplicado tampoco los decide una cuenta de servicio, aunque tenga el rol
+    @Test
+    fun `una cuenta de servicio con el rol no rechaza ni marca duplicada`() {
+        val service = serviceAccount("SOCIAL_MANAGER")
+        val id = aiSuggestion(testProject())
+        for (name in listOf("reject", "mark_duplicate")) {
+            val refused = transition("ai_suggestion", id, name, service.token, "decisión automática")
+            assertEquals(HttpStatus.FORBIDDEN, refused.status, refused.body)
+            assertEquals("PERSON_REQUIRED", code(refused))
+        }
         assertEquals("proposed", state("ai_suggestion", id))
     }
 }
