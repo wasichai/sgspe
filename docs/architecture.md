@@ -34,7 +34,7 @@ están en el [índice de ADR](adr/README.md).
 | # | Driver | Fuente | Consecuencia en la arquitectura |
 |---|---|---|---|
 | 1 | Construir sobre wasichai 0.3.2 y `@wasichai/*` 0.5.0, con caja como plantilla | [USR-03] RNF-MNT-001 | Una app Spring Boot con `@WasichaiApplication` y los starters de wasichai; la lista técnica del prompt queda sustituida por la plataforma (CON-039) |
-| 2 | Metadata primero, código propio solo donde la metadata no alcanza | RNF-MNT-002, RNF-MNT-005, CON-040 [WAS-ADR-0003] | Los 89 objetos, sus workflows, roles, vistas y formularios viven en `model/`; el código Kotlin vive en 19 paquetes `sgspe.*` (§5.2) |
+| 2 | Metadata primero, código propio solo donde la metadata no alcanza | RNF-MNT-002, RNF-MNT-005, CON-040 [WAS-ADR-0003] | Los 90 objetos, sus workflows, roles, vistas y formularios viven en `model/`; el código Kotlin vive en 19 paquetes `sgspe.*` (§5.2) |
 | 3 | Monolito modular, sin microservicios | [PRM-01 §3, §26] [WAS-ADR-0001] [WAS-ADR-0024] | Un solo desplegable (`app.jar`), con paquetes por capacidad del dominio y no por capas técnicas genéricas |
 | 4 | Auditabilidad: quién, qué, cuándo, por qué, desde y hacia | [PRM-01 §18] OBJ-10, RQ-AUD-001, RQ-AUD-002, RQ-AUD-014 | Toda escritura pasa por `RecordService`, que escribe su fila de `audit_log` (en la misma transacción cuando quien llama abrió una); los objetos críticos son `requiresReason` y la historia es `appendOnly` |
 | 5 | La IA sugiere y la persona decide | OBJ-09, RQ-AI-001, RQ-AI-003, RN-EWS-001 [ARQ-01] [ARQ-02] | Plano de IA separado (`ai_interaction`, `ai_suggestion`, `commitment_candidate`); aceptar es un comando humano auditado (§7) |
@@ -160,8 +160,8 @@ flowchart TB
 | App SGSPE | Kotlin 2.4.20, JDK 25, Spring Boot 4.1.1 WebFlux, wasichai 1.2.0 | API genérica de wasichai, API propia `/api/sgspe/**`, guardas, listeners y trabajos programados; un solo `app.jar` | F1 | RNF-MNT-001, RNF-INT-004 |
 | PostgreSQL con PostGIS | PostgreSQL 18, PostGIS 3.6 (`postgis/postgis:18-3.6`) | Esquema de metadata `wasichai`, esquema de datos `app_data` (una tabla por objeto y organización) y esquema `sgspe` de tablas fijas | F1 | [WAS-ADR-0002] [WAS-ADR-0004] CON-052 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1`, red interna (en desarrollo, solo en el loopback, puerto 8095) | Capas de referencia no sensibles por WMS (vía el proxy autenticado de `sgspe.territory`) y mapas de informe por GetMap | F6, F8 | RQ-SEC-011, RQ-REP-030, ASM-038 [WAS-ADR-0006] |
-| Gotenberg | `gotenberg/gotenberg:8-libreoffice` | Convierte a PDF el DOCX que arma el trabajador de generación, que es el único que lo llama: con marca de agua en los borradores y en PDF/A-2b en las versiones candidatas que se emiten. En INTERNO se entregan el DOCX y el PDF; en EXTERNO y PUBLICO el DOCX es solo un paso intermedio y se entrega solo el PDF | F8 | ASM-014, RQ-REP-001 |
-| Almacenamiento de objetos | Compatible con S3 (MinIO solo en desarrollo), el `FileStore` de wasichai-files | Los archivos de las evidencias (campo `FILE`, ADR-0014); desde F8, los entregables. En F2 las cargas de importación usan una carpeta temporal | F3 | ASM-013, ASM-060, RF-DOC-001, RQ-SEC-020, GAP-022 [WAS-ADR-0061] |
+| Gotenberg | `gotenberg/gotenberg:8-libreoffice` (8.2c fija la etiqueta 8.x exacta), red interna (en desarrollo, solo en el loopback, puerto 8096) | Convierte a PDF el DOCX que arma el trabajador de generación (JOB-05), que es el único que lo llama, y PDFBox verifica cada PDF: con marca de agua en los borradores y en PDF/A-2b en las versiones candidatas que se emiten. En INTERNO se entregan el DOCX y el PDF; en EXTERNO el DOCX es solo un paso intermedio y se entrega solo el PDF | F8 | ASM-014, RQ-REP-001 |
+| Almacenamiento de objetos | Compatible con S3 (MinIO solo en desarrollo), el `FileStore` de wasichai-files | Los archivos de las evidencias (campo `FILE`, ADR-0014); desde F8, los de los entregables y las plantillas, también campos `FILE` (ASM-133). En F2 las cargas de importación usan una carpeta temporal | F3 | ASM-013, ASM-060, RF-DOC-001, RQ-SEC-020, GAP-022 [WAS-ADR-0061] |
 | Servidor SMTP | Configurable; servidor de prueba en desarrollo | Correos del canal `email` de wasichai-notifications | F3 | RF-NTF-001, GAP-021 |
 | Proveedor de LLM | Embabel (Anthropic por defecto, intercambiable) | Asistente de solo lectura y agentes propios que sugieren | F7 | RQ-AI-005, RQ-AI-014 [WAS-ADR-0015] |
 
@@ -208,7 +208,7 @@ metadata no alcanza para lo que contiene; ninguno es un controlador por objeto (
 | `sgspe.evidence` | Alta, cambio y vínculos de evidencias sobre el campo `FILE` de wasichai-files; la descarga con `DOWNLOAD_RESTRICTED` por las dos rutas; `EvidenceWriteGuard` | BC-12 | F3 |
 | `sgspe.territory` | Importación con CRS y reconciliación, área en hectáreas, `TerritoryWriteGuard`, `AreaListener`; desde F6, `SpatialGate` (la única vía de SQL de lectura que cruza tablas del tenant, ASM-122), `ZoneCriterion` y las consultas espaciales, sugerencias de miembros, la parte territorial de la ficha (geometría, relaciones y filtros espaciales), `WmsProxy` (el proxy WMS de GeoServer, ASM-121), `MapSettings` (mapa base por organización, ASM-125), `GdalReader` y `GdalWriter` (formatos de ASM-127), `TerritoryExports` (ASM-124), `GeometryChecks` y `DataQuality`; el WFS se pospone (ASM-120) | BC-02 | F2 (análisis en F6) |
 | `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); desde F6, `TerritoryKpis` (KPI-TER-01 a KPI-TER-04 y el tablero `territory`, sobre `SpatialGate`); conteos con `RecordService`; cierre de periodo | BC-15 | F2–F8 |
-| `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación, emisión, `DeliverableWriteGuard`, paso de retención de borradores de JOB-08 | BC-15 | F8 |
+| `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación (JOB-05), plantillas, descargas y rutas nativas de archivos, emisión, `DeliverableWriteGuard` y adopción de secciones de IA | BC-15 | F8 |
 | `sgspe.ai` | Agentes Embabel, seudonimización, registro de `ai_interaction`, creación de `ai_suggestion` y `commitment_candidate`, aceptación, indexación documental (JOB-07) y RAG sobre `knowledge_chunk`; el asistente de wasichai-agent se llama en proceso y un filtro cierra `/api/agent/ask` por HTTP (`ai-architecture.md`) | BC-18 | F7 |
 | `sgspe.privacy` | Niveles de divulgación como transformación del modelo, enmascaramiento, menciones de personas como referencias, exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 |
 
@@ -254,8 +254,9 @@ flowchart BT
     AIPKG --> DOM
 ```
 
-- Los paquetes de dominio no dependen de `sgspe.dashboard` ni de `sgspe.deliverable`; una prueba de arquitectura lo
-  verifica (RNF-TST-001) [domain-model §8.2]. Por eso la ficha territorial la arma el portal con dos lecturas: la parte
+- Los paquetes de dominio no dependen de `sgspe.dashboard` ni de `sgspe.deliverable`, y el `WebClient` hacia Gotenberg y
+  GeoServer solo vive en `sgspe.deliverable` (más el proxy WMS de F6); una prueba de arquitectura lo verifica
+  (RNF-TST-001) [domain-model §8.2]. Por eso la ficha territorial la arma el portal con dos lecturas: la parte
   territorial de `sgspe.territory` y las cifras de KPI-TER-01 de `sgspe.dashboard`, las mismas de los tableros (RQ-GIS-005,
   RQ-DSH-034) (`dashboards.md`).
 - `sgspe.ai` depende del dominio y nunca al revés: BC-18 es una capa anticorrupción que entrega sugerencias, y aceptar una
@@ -527,9 +528,9 @@ Brechas de la auditoría de wasichai y cómo se mitigan mientras se resuelven up
 | JOB-02 `DerivedFieldsJob` | `sgspe.common` | Recalcula los campos derivados que mantienen listeners, sobre los registros cambiados desde la última vuelta y una vez al día sobre todos | Cada hora | F2 | [domain-model §7.4, §7.5] |
 | JOB-03 `StakeholderFollowUpJob` | `sgspe.stakeholder` | Tareas de evaluación periódica e inactividad, `last_contact_date` y la regla de primer contacto de `relationship_status` | Diaria, configurable | F2 (tareas desde F3) | RF-STK-010, RF-STK-014, ASM-022 |
 | JOB-04 `WarningRulesJob` | `sgspe.warning` | Evalúa los seis tipos de regla por proyecto, con la regla del proyecto en lugar de la del tenant del mismo tipo, y crea alertas en `detected` con `generator_key`; nunca confirma ni aplica transiciones (`workflows.md`, «Tipos de regla de JOB-04») | Cada hora, configurable | F4 | RF-EWS-004, RN-EWS-001, ASM-006, ASM-097 |
-| JOB-05 Trabajador de generación | `sgspe.deliverable` | Toma los pedidos de borrador pendientes, congela el modelo, pide los mapas por GetMap, genera por nivel de divulgación el borrador y la versión candidata (DOCX y PDF en INTERNO; solo PDF en EXTERNO y PUBLICO) y escribe los campos `draft_*` | Sondeo continuo | F8 | RQ-REP-021, ASM-061 |
+| JOB-05 Trabajador de generación | `sgspe.deliverable` | Toma los pedidos de borrador pendientes, congela el modelo, pide los mapas por GetMap, genera por nivel de divulgación el borrador y la versión candidata (DOCX y PDF en INTERNO; solo PDF en EXTERNO) y sube y adjunta los siete campos `FILE` del borrador con LISTO en una sola escritura (UPS-31); retoma los pedidos viejos | Sondeo cada `sgspe.deliverable.generation.poll` (5 s) | F8 | RQ-REP-021, ASM-061, ASM-133 |
 | JOB-07 Indexación documental | `sgspe.ai` | Divide en fragmentos el texto de las `evidence` creadas o cambiadas desde la vuelta anterior y los guarda en la tabla fija `knowledge_chunk`, con su proyecto y su clasificación; borra los de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo | Periódica y configurable, solo en las organizaciones con la IA activada | F7 | RF-AIK-006, RQ-AI-008 |
-| JOB-08 Retención (`RetentionJob`) | `sgspe.common` | Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065). Desde F8 purga además los archivos de borradores y conserva los N últimos, con un paso que aporta `sgspe.deliverable`, así que `sgspe.common` no depende de `sgspe.deliverable` | Diaria | F3 (claves), F8 (borradores) | RQ-REP-027, ASM-028, RNF-INT-002, ASM-065 |
+| JOB-08 Retención (`RetentionJob`) | `sgspe.common` | Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065). En F8 no gana un paso de entregables: los archivos reemplazados de un borrador los borra `StoredFileCleanup` de wasichai-files (ASM-133) | Diaria | F3 | RNF-INT-002, ASM-065 |
 | `AutomationDrain` | wasichai-automation | Ejecuta las acciones de automatización en cola como la plataforma | Cada segundo | F3 | [WAS-ADR-0016] |
 | Bucle de wasichai-notifications | wasichai-notifications | Corre las fuentes de avisos (`DeadlineNotices`), envía el correo con reintentos y purga los avisos resueltos | Cada 30 s (`wasichai.notifications.tick`) | F3 | [WAS-ADR-0046] [WAS-ADR-0060] |
 
@@ -635,7 +636,10 @@ flowchart LR
   [WAS-ADR-0006]. Los mapas de informe se piden por
   GetMap desde el trabajador de entregables (RQ-REP-030).
 - **Gotenberg** solo es alcanzable por la app y solo lo llama el trabajador de generación, nunca la petición de un usuario;
-  su tiempo de espera de conversión es configurable (ASM-014).
+  su plazo es `sgspe.deliverable.gotenberg.timeout` (180 s), nunca recibe una URL, una ruta ni una opción que venga del
+  cliente y no descarga nada de la red (ASM-014). En desarrollo escucha solo en el loopback del VPS, en el puerto 8096
+  (ADR-0026), y la CI lo levanta como servicio del trabajo de integración, para las pruebas con la etiqueta
+  `gotenberg`.
 - **Réplicas:** varias instancias de la app comparten la base; `ClusterLock` coordina los trabajos, y la cola de
   automatizaciones se reclama con `FOR UPDATE SKIP LOCKED` [WAS-ADR-0039] [WAS-DOC modules/automation.md].
 - **Almacenamiento de objetos:** cualquier servicio compatible con S3 en producción; MinIO solo en desarrollo, por su licencia
@@ -671,9 +675,11 @@ flowchart LR
 
 - Los puertos 8094, 5182 y 5435 se eligieron libres frente a las otras apps de wasichai que corren en el mismo entorno; los
   fija ADR-0026 junto con la topología de cada entorno. Desde F3, el desarrollo publica también MinIO en 9095 (API) y
-  9096 (consola) y Mailpit en 1029 (SMTP) y 8029 (web), en el loopback del VPS y por túnel.
+  9096 (consola) y Mailpit en 1029 (SMTP) y 8029 (web), en el loopback del VPS y por túnel; desde F6, GeoServer en 8095,
+  y desde F8, Gotenberg en 8096.
 - Los servicios de apoyo se agregan al `compose.yml` en la fase que los necesita: almacenamiento S3 (MinIO) y servidor SMTP
-  de prueba (Mailpit) en F3, GeoServer en F6 y Gotenberg en F8; el pico técnico de F1 los levanta solo para probar la ruta de entregables
+  de prueba (Mailpit) en F3, GeoServer en F6 y Gotenberg en F8 (`gotenberg`, `127.0.0.1:${SGSPE_GOTENBERG_PORT:-8096}:3000`,
+  sin volúmenes; también servicio de la CI); el pico técnico de F1 los levanta solo para probar la ruta de entregables
   (ASM-014, ASM-038).
 - Las credenciales de GitHub Packages para descargar wasichai van en variables de entorno, nunca en archivos del
   repositorio; los paquetes Maven son públicos y los npm son internos, así que la CI de `sgspe-ui` necesita un token de
@@ -739,7 +745,7 @@ cambió qué y por qué (RQ-AUD-014).
 | 8 | GeoServer pasa a ser necesario para emitir mapas y su WMS no autentica | Emisión bloqueada si cae; fuga si se expone | Red interna, proxy autenticado con lista blanca, solo capas no sensibles; el borrador muestra un aviso | ASM-038, RQ-SEC-011, RQ-REP-030 |
 | 9 | Token en `localStorage` expuesto a XSS; sin revocación | Sesión robada válida hasta que vence | CSP en el proxy, TTL corto, límite de tasa; revocación pedida upstream | RQ-SEC-001, RQ-SEC-015, UPS-09 |
 | 10 | Docker de desarrollo remoto | Pruebas de integración lentas o imposibles en local | CI y modo de base externa por túnel | [WAS-DOC modules/testing.md] |
-| 11 | Gotenberg tarda o falla con un entregable de unas 100 páginas con fotos | Borradores FALLIDO o lentos | Generación en segundo plano con tiempo de espera configurable y fotos reducidas; la emisión solo copia las versiones candidatas ya generadas | RQ-REP-021, ASM-014 |
+| 11 | Gotenberg tarda o falla con un entregable de unas 100 páginas con fotos | Borradores FALLIDO o lentos | Generación en segundo plano, un pedido a la vez con plazo de 180 s, pedidos viejos retomados y fotos reducidas; la suite lenta de 100 páginas; la emisión solo copia las versiones candidatas ya generadas | RQ-REP-021, ASM-014 |
 | 12 | Datos personales en artefactos versionados o en logs | Incumple USR-07 | Verificación local contra una lista de nombres fuera del repositorio; logs sin datos personales | RQ-SEC-018, RQ-SEC-010 |
 | 13 | Trabajos horarios sobre todos los tenants sin volúmenes conocidos | Vueltas largas | Medir antes de optimizar; procesar solo lo cambiado | GAP-027, RQ-DSH-031 |
 | 14 | Licencia de MinIO (AGPL) y disponibilidad de su imagen | Restricción de uso en producción | Cualquier almacenamiento compatible con S3 en producción | GAP-022 |
