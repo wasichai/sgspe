@@ -57,4 +57,13 @@ class AiPropertiesTest {
         // Embabel reintenta hasta 5 veces con esperas de 10 s a 60 s: una pregunta tardaría minutos en fallar (ASM-131)
         assertEquals("1", environment.getProperty("embabel.agent.platform.action-qos.default.max-attempts"))
     }
+
+    @Test
+    fun `el slug de una organizacion activada no distingue mayusculas`() {
+        val on = AiProperties(enabledOrganizations = listOf(" Demo "))
+        assertTrue(on.enabled("demo"))
+        assertTrue(on.enabled("DEMO"))
+        assertFalse(on.enabled("demo2"))
+        assertFalse(on.enabled(" "))
+    }
 }

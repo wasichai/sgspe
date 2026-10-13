@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito.mock
 import org.springframework.beans.factory.support.StaticListableBeanFactory
 
 // una salida estructurada de las pruebas de la IA
@@ -53,6 +54,16 @@ class EmbabelStructuredModelTest {
         assertNull(failure.cause)
         assertEquals(IllegalStateException::class.java.name, failure.causeType)
         assertFalse("Texto" in failure.causeType.orEmpty())
+    }
+
+    @Test
+    fun `una plataforma que no crea el proceso es UNAVAILABLE, sin su texto`() {
+        val platform = mock(AgentPlatform::class.java) { throw IllegalStateException("sin proceso: Texto con [PERSONA_1]") }
+        val failure = assertThrows<StructuredModelException> { EmbabelStructuredModel.call(platform, request()) }
+        assertEquals(StructuredModelException.Reason.UNAVAILABLE, failure.reason)
+        assertNull(failure.inputTokens)
+        assertFalse("Texto" in failure.message.orEmpty())
+        assertEquals(IllegalStateException::class.java.name, failure.causeType)
     }
 
     @Test

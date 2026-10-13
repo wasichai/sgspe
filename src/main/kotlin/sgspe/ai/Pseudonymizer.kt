@@ -234,11 +234,12 @@ object Pseudonymizer {
         val folded = Folding.fold(text)
         val foldedWords = Folding.words(folded)
         val candidates = mutableListOf<Candidate>()
-        val known = (restricted + table.reserved()).filter { distinctive(it.value) }.associate { key(it.value) to it.kind }
-        for (value in (restricted + table.reserved()).filter { distinctive(it.value) }) {
-            val needle = Folding.fold(Folding.nfc(value.value).trim())
-            val ranges = occurrences(folded, needle) + wordSequences(folded, foldedWords, needle)
-            for (range in ranges) candidates += Candidate(range, 0) { value.kind.reserved }
+        // los de la llamada se preparan aquí; los reservados, una sola vez al reservarlos (PseudonymTable)
+        val needles = restricted.mapNotNull { needle(it) } + table.needles()
+        val known = needles.associate { it.key to it.kind }
+        for (needle in needles) {
+            val ranges = occurrences(folded, needle.folded) + wordSequences(folded, foldedWords, needle.forms)
+            for (range in ranges) candidates += Candidate(range, 0) { needle.kind.reserved }
         }
         emails(text).forEach { r -> candidates += Candidate(r, 1) { marked(it, known, Marker.CORREO, text.substring(r)) } }
         PHONE.findAll(text).forEach { m -> candidates += Candidate(m.range, 2) { marked(it, known, Marker.TELEFONO, m.value) } }
@@ -266,6 +267,33 @@ object Pseudonymizer {
         }
         return out.append(text, at, text.length).toString()
     }
+
+    // un valor restringido listo para buscarlo: plegado, su clave y las formas de sus palabras
+    internal class Needle(
+        val kind: Marker,
+        val folded: String,
+        val key: String,
+        val forms: List<List<String>>
+    )
+
+    // el valor preparado, o null si no se distingue. las palabras van como en un nombre (con otros espacios, saltos de línea o una
+    // coma) y, si parece un nombre (a lo sumo NAME_WORDS palabras y sin cifras), también rotadas, con el primer nombre al final
+    // («Ccori Ejemplo, Rosa»). un texto largo no se rota: sus rotaciones no son un nombre y costarían P² por cada texto que siga
+    internal fun needle(value: RestrictedValue): Needle? {
+        if (!distinctive(value.value)) return null
+        val folded = Folding.fold(Folding.nfc(value.value).trim())
+        val parts = Folding.words(folded).map { it.value }
+        val forms =
+            when {
+                parts.size < 2 -> emptyList()
+                parts.size > NAME_WORDS || parts.any { part -> part.any { it.isDigit() } } -> listOf(parts)
+                else -> parts.indices.map { parts.drop(it) + parts.take(it) }
+            }
+        return Needle(value.kind, folded, key(value.value), forms)
+    }
+
+    // las palabras de un nombre largo: dos nombres y dos apellidos con partículas («María del Carmen de la Cruz Ejemplo»)
+    private const val NAME_WORDS = 7
 
     // la clave de un valor para compararlo con lo hallado por formato: sin tildes ni mayúsculas, espacios ni signos, y sin el 51 de
     // un número con código de país
@@ -303,19 +331,15 @@ object Pseudonymizer {
         return text.count { it.isDigit() } >= 6 || '@' in text || Folding.words(text).size >= 2
     }
 
-    // las apariciones de las palabras de `needle` (plegado) como un nombre: con otros espacios, saltos de línea o una coma, y con el
-    // primer nombre al final («Ccori Ejemplo, Rosa»). un valor con cifras se busca solo tal cual
+    // las apariciones de las formas de un valor restringido (Needle) como un nombre
     private fun wordSequences(
         folded: String,
         words: List<MatchResult>,
-        needle: String
+        forms: List<List<String>>
     ): List<IntRange> {
-        val parts = Folding.words(needle).map { it.value }
-        if (parts.size < 2) return emptyList()
-        val forms = if (parts.any { part -> part.any { it.isDigit() } }) listOf(parts) else parts.indices.map { parts.drop(it) + parts.take(it) }
         val found = mutableListOf<IntRange>()
         for (form in forms) {
-            for (i in words.indices) {
+            for (i in 0..words.size - form.size) {
                 if (Folding.fits(folded, words, i, form)) found += words[i].range.first..words[i + form.size - 1].range.last
             }
         }

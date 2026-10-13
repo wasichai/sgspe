@@ -1,8 +1,15 @@
 package sgspe.ai
 
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito.mock
+import org.springframework.http.HttpStatus
+import sgspe.common.Callers
+import sgspe.common.Records
+import wasichai.core.common.WasichaiException
 import wasichai.core.identity.AuthenticatedUser
 import java.math.BigDecimal
 import java.time.Instant
@@ -61,5 +68,15 @@ class InteractionsTest {
     @Test
     fun `la latencia no pasa de un entero`() {
         assertEquals(Int.MAX_VALUE, Interactions.attributes(entry.copy(latencyMs = Long.MAX_VALUE), "anthropic", null)["latency_ms"])
+    }
+
+    @Test
+    fun `una cuenta de servicio no registra llamadas y es PERSON_REQUIRED`() {
+        val service = AuthenticatedUser(UUID.randomUUID(), UUID.randomUUID(), "servicio@sgspe.test", emptyList(), "integracion")
+        val records = mock(Records::class.java) { throw AssertionError("una cuenta de servicio no escribe ai_interaction") }
+        val interactions = Interactions(records, mock(Callers::class.java) { service }, AiProperties())
+        val refused = assertThrows<WasichaiException> { runBlocking { interactions.record(entry) } }
+        assertEquals(HttpStatus.FORBIDDEN, refused.status)
+        assertEquals("PERSON_REQUIRED", refused.violations.single().message)
     }
 }
