@@ -30,10 +30,10 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   `TenantDirectory` solo viva en `common/Organizations.kt`.
 - Roles solo en `model/roles.json` y modelo solo en `model/model.json`: `/admin` no es fuente de verdad (GAP-030).
   Aprovisionar siempre en el orden `apply.py` → `apply_roles.py` → `apply.py --workflows` (workflows, tipos de documento
-  y automatizaciones) → `load_ubigeo.py` → `load_indicators.py` (desde F8, plan 8.2a) → `publish_layers.py` (omitible con
-  `--skip-layers` si el despliegue no tiene GeoServer). Por el túnel, los tres primeros pasos tardan varios minutos y más
-  con cada fase (más de 10 con el modelo de F5), y la suite de integración completa, de 30 minutos a más de una hora (la matriz de permisos, entre 11 y 58
-  minutos según la carga del túnel, aprovisionamiento incluido).
+  y automatizaciones) → `load_ubigeo.py` → `load_indicators.py` (desde F8, plan 8.2a) → `publish_layers.py` (omitible
+  con `--skip-layers` si el despliegue no tiene GeoServer). Por el túnel, los tres primeros pasos tardan varios minutos
+  y más con cada fase (más de 10 con el modelo de F5), y la suite de integración completa, de 30 minutos a más de una
+  hora (la matriz de permisos, entre 11 y 58 minutos según la carga del túnel, aprovisionamiento incluido).
 - Gradle: `GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew …`. El token nunca va a un archivo.
 - Docker es remoto: las pruebas de integración corren en la CI o con `WASICHAI_TEST_DB_*` contra `sgspe_test` por el túnel
   del puerto 5435 (`docs/develop/README.md` §6).

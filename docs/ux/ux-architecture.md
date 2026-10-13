@@ -329,8 +329,9 @@ Las 38 pantallas de PRM-02 §37, ajustadas a la Fase 0: 56 pantallas (S56 se sum
 más S57 a S62 de la Fase 4 (plan 4.0): la ficha de consulta y solicitud, que compartía S36 con la queja, las de
 menciones, señales, reglas e impactos, y el tablero de riesgos, que compartía S38 con el registro y matriz. S63, la
 calidad de datos de Territorio, se suma en la Fase 6 (plan 6.0), y S64, las plantillas de entregables, en la Fase 8
-(plan 8.0). "Etapa" es la etapa de diseño en que se dibujan; "Fase", cuándo llega el módulo. La ficha de handoff de cada pantalla (ruta, roles, datos, API, estados, permisos, árbol
-de componentes) está en [`screens.md`](screens.md), completa desde la etapa 3.
+(plan 8.0). "Etapa" es la etapa de diseño en que se dibujan; "Fase", cuándo llega el módulo. La ficha de handoff de cada
+pantalla (ruta, roles, datos, API, estados, permisos, árbol de componentes) está en [`screens.md`](screens.md), completa
+desde la etapa 3.
 
 | ID | Pantalla | Ruta | Fase | Etapa |
 |---|---|---|---|---|

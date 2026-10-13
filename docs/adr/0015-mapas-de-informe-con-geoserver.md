@@ -3,7 +3,7 @@
 ## Estado
 
 Aceptado · 2026-10-13 (F8). En F6 (2026-10-11) se aceptó la mitad que sirve al portal; F8 acepta los mapas de informe
-con el resultado del spike de F1: GetMap por POST XML con SLD en línea y las decoraciones dibujadas por SGSPE (ASM-134)
+con el resultado del spike de F1: GetMap por POST XML con SLD en línea y las decoraciones dibujadas por SGSPE (ASM-134).
 
 ### Nota de F6 (2026-10-11)
 

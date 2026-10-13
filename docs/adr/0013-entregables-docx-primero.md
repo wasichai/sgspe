@@ -98,10 +98,9 @@ DOCX primero (ASM-014), en el paquete propio `sgspe.deliverable` ([deliverables.
 
 ### Seguimiento
 
-- **Spike técnico, recomendado al inicio de F1 si el checkpoint lo aprueba:** una plantilla con lo que usa DOC-01,
-  generada con POI y convertida con Gotenberg; verifica números de página, leyendas, fuentes incrustadas y PDF/A. Si
-  falla, un ADR nuevo reemplaza a este sin cambiar el modelo de datos (ASM-014). La alternativa para las leyendas (número
-  literal más PAGEREF) está en [deliverables.md §7.5](../deliverables.md).
+- **Spike técnico de F1:** hecho el 2026-10-07 (el resultado, abajo); E2 falló y F8 adopta la alternativa de las
+  leyendas. La alternativa para las leyendas (número literal más PAGEREF) está en [deliverables.md
+  §7.5](../deliverables.md).
 - Aceptado en F8 (2026-10-13): primero T2 (plan 8.2b) y después T1 (plan 8.2c); T3 a T10 quedan fuera de F8 (ASM-026).
 - Abiertos: GAP-009 (marca y tenant), GAP-022 (despliegue) y UPS-31 (la plataforma adjunta archivos). GAP-010 quedó
   resuelta (ASM-135).

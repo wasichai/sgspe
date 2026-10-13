@@ -677,10 +677,10 @@ flowchart LR
   fija ADR-0026 junto con la topología de cada entorno. Desde F3, el desarrollo publica también MinIO en 9095 (API) y
   9096 (consola) y Mailpit en 1029 (SMTP) y 8029 (web), en el loopback del VPS y por túnel; desde F6, GeoServer en 8095,
   y desde F8, Gotenberg en 8096.
-- Los servicios de apoyo se agregan al `compose.yml` en la fase que los necesita: almacenamiento S3 (MinIO) y servidor SMTP
-  de prueba (Mailpit) en F3, GeoServer en F6 y Gotenberg en F8 (`gotenberg`, `127.0.0.1:${SGSPE_GOTENBERG_PORT:-8096}:3000`,
-  sin volúmenes; también servicio de la CI); el pico técnico de F1 los levanta solo para probar la ruta de entregables
-  (ASM-014, ASM-038).
+- Los servicios de apoyo se agregan al `compose.yml` en la fase que los necesita: almacenamiento S3 (MinIO) y servidor
+  SMTP de prueba (Mailpit) en F3, GeoServer en F6 y Gotenberg en F8 (`gotenberg`,
+  `127.0.0.1:${SGSPE_GOTENBERG_PORT:-8096}:3000`, sin volúmenes; también servicio de la CI); el pico técnico de F1 los
+  levanta solo para probar la ruta de entregables (ASM-014, ASM-038).
 - Las credenciales de GitHub Packages para descargar wasichai van en variables de entorno, nunca en archivos del
   repositorio; los paquetes Maven son públicos y los npm son internos, así que la CI de `sgspe-ui` necesita un token de
   lectura de paquetes.

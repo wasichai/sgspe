@@ -343,11 +343,11 @@ para `sgspe.deliverable.gotenberg.url`.
   inmutable; en `deliverable_version`, DOCX obligatorio en INTERNO y los SHA-256 iguales a los descriptores.
 - **`POST /api/sgspe/deliverables/{id}/issue`** (`ISSUE`, motivo, `Idempotency-Key`, `If-Match`; `{ draftModelSha256,
   checklistConfirmed }`): verifica `approved`, LISTO, el mismo SHA-256 (`409 MODEL_MISMATCH`), ningún mapa fallido (`409
-  MAP_FAILED`), ninguna sección cambiada (`409 SECTIONS_CHANGED`) y la lista confirmada (`422 CHECKLIST_REQUIRED`); sube
-  las candidatas como la persona; y en una transacción con `TransactionalOperator` crea la versión INTERNO y la EXTERNO
-  (`derived_from`, misma `revision`, `ai_assisted_sections` del modelo), escribe `current_version` y `current_revision`,
-  escribe una fila de `export_log` (EMISION) por versión con la confirmación en `filters_description` y aplica `issued`
-  → `201 { deliverable, versions[] }`.
+  MAP_FAILED`), ninguna sección cambiada (`409 SECTIONS_CHANGED`) y la lista confirmada (`400 CHECKLIST_REQUIRED`, como
+  las exportaciones; decisión 4 del plan 8.0); sube las candidatas como la persona; y en una transacción con
+  `TransactionalOperator` crea la versión INTERNO y la EXTERNO (`derived_from`, misma `revision`, `ai_assisted_sections`
+  del modelo), escribe `current_version` y `current_revision`, escribe una fila de `export_log` (EMISION) por versión
+  con la confirmación en `filters_description` y aplica `issued` → `201 { deliverable, versions[] }`.
 - **AUT-12** (`model/automations/deliverable.json`, `enabled: true`): `STATE_ENTERED` `issued` → `GENERATE_DOCUMENT` del
   tipo «Constancia de emisión» (`deliverable-issue-certificate`, prefijo `CE`, en
   `model/document-types/deliverable.json`), que imprime código, título, tipo, revisión, fecha de emisión, quién emitió y

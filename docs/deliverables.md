@@ -230,7 +230,8 @@ Cada clase declara:
 - sus parámetros (RQ-REP-013): T2 exige `project`, `community` y periodo; T1, `project`, `study`, periodo, `cutoff_date`
   y un área de influencia directa aprobada; los dos, el `working_crs` del proyecto. Si falta uno al pedir un borrador,
   la respuesta es `422 DELIVERABLE_PARAMETERS_MISSING`, con un error por campo. `deliverable_type` no cambia después del
-  alta, y un listener crea las secciones del tipo en la transacción del alta, como quien la da de alta;
+  alta (`400 FIELD_NOT_EDITABLE`), y un listener crea las secciones del tipo en la transacción del alta, como quien la
+  da de alta;
 - los niveles de divulgación que prepara (§3, §9), sus mapas (capas y regla de encuadre) y sus recursos estáticos (RQ-REP-023);
 - su versión, que queda en el modelo congelado.
 

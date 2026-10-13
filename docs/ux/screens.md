@@ -1504,7 +1504,8 @@ ExecutiveReviewPage
 - **Roles:** lectura para quien lee al menos uno de sus KPI.
 - **Acciones:** elegir periodo; abrir el detalle de un indicador; «Cerrar periodo» para quien tiene CREATE sobre
   `indicator_measurement`, un diálogo con el periodo y el proyecto o todo el tenant que explica el `409
-  INDICATOR_NOT_CLOSABLE` con su razón, el `400 PERIOD_NOT_ENDED` y el `409 MEASUREMENT_EXISTS`; «Catálogo de
+  INDICATOR_NOT_CLOSABLE` con su razón, el `400 PERIOD_NOT_ENDED` y el `409 MEASUREMENT_EXISTS` y el `403
+  ACTION_REQUIRED` (todo el tenant sin `READ_ALL_PROJECTS` ni `ADMIN`, opción que solo ve quien los tiene); «Catálogo de
   indicadores», la lista de `indicator` con edición de `target_value` y `frequency` para quien tiene UPDATE.
 - **Disposición y componentes:** aviso de periodo (cerrado: cifra oficial; en curso: cifra viva); tabla con número, indicador,
   valor, meta y su origen (`targetSource`), cifra oficial marcada cuando el pedido coincide con la medición, desglose,
@@ -1854,8 +1855,8 @@ ReportsPage
 - **Ruta y lienzo:** `/reports/deliverables/:deliverableId` · hoja `Rep-Entregable` · F8.
 - **Propósito:** revisar, aprobar y emitir un entregable sabiendo que se emite exactamente lo revisado.
 - **Roles:** SMG y SHM en las transiciones de WF-H; `DOWNLOAD_RESTRICTED` para ver borradores.
-- **Acciones:** según el estado: "Enviar a revisión", "Observar…", "Aprobar…", "Emitir…",
-  "Generar otro borrador", "Nueva revisión…"; en cada sección, "Sugerir con IA" (AI-04, solo en las que el tipo marca con IA) y "Usar…" con
+- **Acciones:** según el estado: "Enviar a revisión", "Observar…", "Aprobar…", "Emitir…", "Generar otro borrador",
+  "Nueva revisión…"; en cada sección, "Sugerir con IA" (AI-04, solo en las que el tipo marca con IA) y "Usar…" con
   motivo.
 - **Disposición y componentes:** encabezado con estado y niveles; camino de WF-H; editor de sección con tiptap y su
   extensión de Markdown, con un selector de menciones que inserta `[[person:<id>]]`, `[[position:<id>]]` o

@@ -666,7 +666,7 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
   `model/load_indicators.py` (biblioteca estándar, con el patrón de `load_ubigeo.py`, `--dry-run` y `--validate-only`)
   desde `model/indicators.json`, después de `load_ubigeo.py` en el aprovisionamiento, en `provision_tenant.py` y en
   `upgrade_tenants.py`: crea los que faltan y actualiza los textos de documentación, nunca `target_value` ni `frequency`
-  de uno existente (ASM-136). `IndicatorWriteGuard` rechaza cambiar `code`.
+  de uno existente (ASM-136). `IndicatorWriteGuard` rechaza cambiar `code` (`400 FIELD_NOT_EDITABLE`).
 - **Cálculo y documentación.** El cálculo vive en el código de `sgspe.dashboard`; el registro documenta el KPI y guarda su meta.
 - **Metas.** Cuando hay un parámetro del proyecto, manda el parámetro (p. ej. `meetings_per_month_target`, RN-ENG-003); si no, se
   usa `target_value`; si no, «sin meta». La respuesta lo dice en `targetSource` (`PROJECT`, `CATALOG` o `NONE`). Las

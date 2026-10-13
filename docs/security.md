@@ -823,11 +823,11 @@ Criterios con que se armó:
   sensibles (`SOCIAL_MANAGER` y `STAKEHOLDER_MANAGER`, GAP-024), porque un entregable INTERNO se genera como la plataforma y
   los incluye (§11.4). `COMMUNITY_RELATIONS_OFFICER` y `ANALYST` escriben secciones narrativas. `EXPORT` sobre
   `deliverable` permite descargar las versiones EXTERNO y PUBLICO para llevarlas fuera de la organización.
-- Formatos que se sirven: un borrador o una versión INTERNO, en PDF o DOCX; uno EXTERNO, solo en PDF (ningún tipo de
-  F8 prepara PUBLICO), y pedir otro formato responde 404. El modelo congelado (`draft_model` y `model`) nunca se
-  sirve, tampoco por la ruta nativa de wasichai-files: es interno, para volver a generar y comprobar hashes. Si algún
-  día se sirviera, exigiría READ y `DOWNLOAD_RESTRICTED` en todos los niveles, porque contiene datos que el archivo de
-  cada nivel omite.
+- Formatos que se sirven: un borrador o una versión INTERNO, en PDF o DOCX; uno EXTERNO, solo en PDF (ningún tipo de F8
+  prepara PUBLICO), y pedir su DOCX o el modelo responde 404 (un `format` desconocido, el 422 de validación; `api.md`
+  §4.12). El modelo congelado (`draft_model` y `model`) nunca se sirve, tampoco por la ruta nativa de wasichai-files: es
+  interno, para volver a generar y comprobar hashes. Si algún día se sirviera, exigiría READ y `DOWNLOAD_RESTRICTED` en
+  todos los niveles, porque contiene datos que el archivo de cada nivel omite.
 - `deliverable_template` (desde F8; su fila de la matriz llega con el modelo, en el plan 8.1): la leen los roles que
   leen `deliverable`, por la ruta nativa de wasichai-files; nadie la crea por la API genérica (es `apiOnly`), y `POST
   /api/sgspe/deliverable-templates` exige `MANAGE_METADATA` sobre `deliverable`, que en la práctica tiene solo
