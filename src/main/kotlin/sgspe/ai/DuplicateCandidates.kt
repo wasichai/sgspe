@@ -50,7 +50,10 @@ data class DuplicatePair(
 // tildes ni mayúsculas), por un nombre alternativo o por nombres parecidos; los de QCS y compromisos, dentro del mismo proyecto,
 // por textos parecidos, o algo parecidos con fecha cercana y la misma localidad. un par ya vinculado (duplicate_of) o ya
 // propuesto antes (`known`, en cualquier orden) no vuelve. los pares van por puntaje, hasta `max`, y el modelo compara solo esos.
-// Kotlin puro
+// solo se compara un par que comparte bastantes palabras (MIN_SHARED_NAME_WORDS, o todas las del nombre más corto si tiene
+// menos; MIN_SHARED_TEXT_WORDS en los textos), lo mismo que las reglas exigen: con palabras muy comunes («maria», «quispe»,
+// «agua») el número de comparaciones no crece con el cuadrado de los registros. `onComparison` cuenta las comparaciones (las
+// pruebas). Kotlin puro
 object DuplicateCandidates {
     // los objetos que AI-07 compara; los de nombre y los de texto
     val NAMED = setOf("person", "organization", "stakeholder")
@@ -94,7 +97,8 @@ object DuplicateCandidates {
     fun pairs(
         records: List<DuplicateRecord>,
         max: Int,
-        known: Set<Set<UUID>> = emptySet()
+        known: Set<Set<UUID>> = emptySet(),
+        onComparison: () -> Unit = {}
     ): List<DuplicatePair> {
         if (max <= 0) return emptyList()
         // los `max` mejores pares: un montículo acotado cuyo tope es el peor de los guardados
@@ -115,9 +119,12 @@ object DuplicateCandidates {
                         for (j in bucket) candidates.merge(j, 1, Int::plus)
                         bucket += i
                     }
-                    for (j in candidates.keys) {
+                    for ((j, shared) in candidates) {
+                        val needed = if (named) minOf(MIN_SHARED_NAME_WORDS, prepared[i].shortest, prepared[j].shortest) else MIN_SHARED_TEXT_WORDS
+                        if (shared < needed) continue
                         val (a, b) = prepared[j].record to prepared[i].record
                         if (a.duplicateOf == b.id || b.duplicateOf == a.id || setOf(a.id, b.id) in known) continue
+                        onComparison()
                         val pair = if (named) named(prepared[j], prepared[i]) else textual(prepared[j], prepared[i])
                         if (pair == null) continue
                         if (best.size < max) {
@@ -143,6 +150,9 @@ object DuplicateCandidates {
     ) {
         val names: List<String> = record.names.map { normalizedName(it) }.filter { it.isNotEmpty() }
         val nameWords: List<Set<String>> = names.map { it.split(" ").toSet() }
+
+        // las palabras del nombre más corto: un nombre igual las comparte todas
+        val shortest: Int = nameWords.minOfOrNull { it.size } ?: 0
         val text: Set<String> = significant(record.text.orEmpty())
     }
 

@@ -161,4 +161,32 @@ class DuplicateCandidatesTest {
         assertEquals(0, pairs.size)
         assertTrue(millis < 2000, "tardó $millis ms")
     }
+
+    @Test
+    fun `con palabras muy comunes solo se comparan los pares con bastantes palabras en comun`() {
+        // dos mil personas con «Maria» o «Quispe» y otras palabras distintas, y mil quejas con «agua» y «canal»: ninguna
+        // comparte lo bastante con otra; entre ellas, tres personas y dos quejas que sí
+        val people =
+            (1..2000).map { person(it, if (it % 2 == 0) "Maria Nombre$it Apellido$it" else "Nombre$it Quispe Apellido$it") } +
+                listOf(person(3001, "Maria Rosa Quispe"), person(3002, "Quispe Maria Rosa"), person(3003, "Maria Quispe Ccori"))
+        val grievances =
+            (4001..5000).map { grievance(it, "agua canal reclamo$it distinto$it") } +
+                listOf(grievance(5001, "agua turbia canal riego anexo norte"), grievance(5002, "canal riego anexo norte agua turbia"))
+        var comparisons = 0
+        val start = System.nanoTime()
+        val pairs = DuplicateCandidates.pairs(people + grievances, 20) { comparisons++ }
+        val millis = (System.nanoTime() - start) / 1_000_000
+        // 3001-3002, 3001-3003 y 3002-3003 comparten dos palabras; 5001-5002, seis
+        assertEquals(4, comparisons)
+        assertEquals(setOf(id(3001) to id(3002), id(5001) to id(5002)), pairs.map { it.first.id to it.second.id }.toSet())
+        assertTrue(millis < 2000, "tardó $millis ms")
+    }
+
+    @Test
+    fun `un nombre de una sola palabra se compara con los que la comparten`() {
+        var comparisons = 0
+        val pairs = DuplicateCandidates.pairs(listOf(person(1, "Maria"), person(2, "MARÍA"), person(3, "Maria Quispe")), 20) { comparisons++ }
+        assertEquals(3, comparisons)
+        assertEquals(listOf(id(1) to id(2)), pairs.map { it.first.id to it.second.id })
+    }
 }

@@ -26,8 +26,8 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 // la lectura de AI-07 sobre un RecordService de prueba (ai-architecture.md §4.1, decisión 11 del plan 7.2c): dos quejas iguales
-// del mismo proyecto. las sugerencias ya propuestas se leen por target_record_id de los registros leídos y sin el tope de
-// max-records; pasar el tope con los registros que se comparan es 400 TOO_MANY_RECORDS sobre target; los veredictos que no valen
+// del mismo proyecto. las sugerencias ya propuestas se leen por target_record_id de los registros leídos, con un tope de
+// KNOWN_PER_RECORD por cada uno de max-records; pasar el tope con los registros que se comparan es 400 TOO_MANY_RECORDS sobre target; los veredictos que no valen
 // se cuentan como descartados
 class DuplicateDetectionTest {
     private val project = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
@@ -120,8 +120,9 @@ class DuplicateDetectionTest {
     ) = runBlocking { detection.detect(DuplicateTarget("grievance", second), NameDictionary(emptyList()), budget) }
 
     @Test
-    fun `las sugerencias ya propuestas se leen por target_record_id y sin el tope de max-records`() {
-        // dos registros que comparar (el tope justo) y cinco sugerencias DUPLICADO: una es la del par, ya rechazada
+    fun `las sugerencias ya propuestas se leen por target_record_id, con un tope mayor que el de max-records`() {
+        // dos registros que comparar (el tope justo) y cinco sugerencias DUPLICADO (más que max-records, menos que su tope): una es
+        // la del par, ya rechazada
         val known = listOf(suggestion(second, first)) + (1..4).map { suggestion(UUID.randomUUID(), UUID.randomUUID()) }
         val findings = detect(detection(records(known), unreachable, maxRecords = 2))
         assertNull(findings.interaction)
@@ -129,6 +130,13 @@ class DuplicateDetectionTest {
         val (_, query) = queries.single { it.first == DuplicateDetection.SUGGESTION }
         assertEquals(mapOf("suggestion_kind" to "DUPLICADO", "target_object" to "grievance"), query.filters)
         assertEquals(1, query.criteria.size)
+    }
+
+    @Test
+    fun `mas sugerencias DUPLICADO que su tope tambien es 400 TOO_MANY_RECORDS sobre target, sin llamar al modelo`() {
+        val many = (1..2 * DuplicateDetection.KNOWN_PER_RECORD + 1).map { suggestion(UUID.randomUUID(), UUID.randomUUID()) }
+        val error = assertThrows<WasichaiException> { detect(detection(records(many), unreachable, maxRecords = 2)) }
+        assertEquals("TOO_MANY_RECORDS" to "target", error.violations.single().let { it.message to it.field })
     }
 
     @Test
