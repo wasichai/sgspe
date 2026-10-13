@@ -1,11 +1,16 @@
 package sgspe.ai
 
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.io.IOUtils
 import org.apache.pdfbox.text.PDFTextStripper
-import org.apache.poi.xwpf.extractor.XWPFWordExtractor
 import org.apache.poi.xwpf.usermodel.XWPFDocument
+import org.apache.poi.xwpf.usermodel.XWPFParagraph
+import org.apache.poi.xwpf.usermodel.XWPFTable
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
+import java.io.IOException
+import java.io.Writer
+import java.util.zip.ZipInputStream
 
 // el texto de un archivo de evidencia (ai-architecture.md §6.1, ASM-132): un PDF con capa de texto (PDFBox) o un DOCX (POI), sin
 // OCR. el formato se decide por los primeros bytes («%PDF-» o un ZIP de Word), no por el nombre ni por el tipo que dijo quien lo
@@ -15,24 +20,36 @@ import java.io.ByteArrayInputStream
 // que la llama con los bytes y el tipo del archivo)
 @Component
 class TextExtraction {
+    /**
+     * El texto del archivo, acotado: más de [maxChars] caracteres, más de [MAX_PAGES] páginas o un DOCX que se infla más allá de
+     * [MAX_INFLATED] es 422 AI_INPUT_TOO_LARGE sobre target (nunca se trunca). Trabaja con CPU y con E/S bloqueante: quien la llame
+     * desde código reactivo (Tareas 7 y 9, JOB-07) debe hacerlo en Dispatchers.IO.
+     */
     fun extract(
         bytes: ByteArray,
         contentType: String,
-        fileName: String? = null
+        fileName: String? = null,
+        maxChars: Int = AiLimits().inputChars
     ): String {
         val raw =
             when {
-                bytes.startsWith(PDF_MAGIC) -> pdf(bytes)
-                bytes.startsWith(ZIP_MAGIC) && docx(contentType, fileName) -> word(bytes)
+                bytes.startsWith(PDF_MAGIC) -> pdf(bytes, maxChars)
+                bytes.startsWith(ZIP_MAGIC) && docx(contentType, fileName) -> word(bytes, maxChars)
                 else -> null
             } ?: throw AiErrors.noText()
         val text = normalize(raw)
         if (text.isBlank()) throw AiErrors.noText()
+        if (text.length > maxChars) throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
         return text
     }
 
     companion object {
         const val DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        const val MAX_PAGES = 500
+        const val MAX_INFLATED = 50L * 1024 * 1024
+        private const val MAX_ENTRIES = 1_000
+        private const val MAX_RATIO = 200L
+        private const val RATIO_FLOOR = 1L * 1024 * 1024
         private val PDF_MAGIC = "%PDF-".toByteArray(Charsets.US_ASCII)
         private val ZIP_MAGIC = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
         private val BLANK_LINES = Regex("""\n{3,}""")
@@ -51,19 +68,116 @@ class TextExtraction {
             fileName: String?
         ): Boolean = contentType.substringBefore(';').trim() == DOCX || fileName?.lowercase()?.endsWith(".docx") == true
 
-        private fun pdf(bytes: ByteArray): String? =
-            try {
-                Loader.loadPDF(bytes).use { document -> PDFTextStripper().getText(document) }
-            } catch (_: Exception) {
-                null
+        private class TooLarge : IOException()
+
+        // escribe hasta el tope y corta la extracción en cuanto lo pasa
+        private class CappedWriter(
+            private val max: Int
+        ) : Writer() {
+            private val out = StringBuilder()
+
+            override fun write(
+                cbuf: CharArray,
+                off: Int,
+                len: Int
+            ) {
+                if (out.length + len > max * 2) throw TooLarge()
+                out.append(cbuf, off, len)
             }
 
-        private fun word(bytes: ByteArray): String? =
-            try {
-                XWPFDocument(ByteArrayInputStream(bytes)).use { document -> XWPFWordExtractor(document).use { it.text } }
-            } catch (_: Exception) {
-                null
+            override fun flush() = Unit
+
+            override fun close() = Unit
+
+            override fun toString() = out.toString()
+        }
+
+        private fun pdf(
+            bytes: ByteArray,
+            maxChars: Int
+        ): String? {
+            var tooLarge = false
+            val text =
+                try {
+                    Loader.loadPDF(bytes, "", null, null, IOUtils.createTempFileOnlyStreamCache()).use { document ->
+                        if (document.numberOfPages > MAX_PAGES) {
+                            tooLarge = true
+                            null
+                        } else {
+                            val writer = CappedWriter(maxChars)
+                            PDFTextStripper().writeText(document, writer)
+                            writer.toString()
+                        }
+                    }
+                } catch (_: TooLarge) {
+                    tooLarge = true
+                    null
+                } catch (_: Exception) {
+                    null
+                }
+            if (tooLarge) throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
+            return text
+        }
+
+        // recorre el ZIP sin POI: demasiadas partes, demasiados bytes inflados o una razón de inflado extrema es una bomba
+        private fun inflatesSafely(bytes: ByteArray): Boolean {
+            var total = 0L
+            var entries = 0
+            val buffer = ByteArray(8192)
+            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+                while (zip.nextEntry != null) {
+                    if (++entries > MAX_ENTRIES) return false
+                    while (true) {
+                        val read = zip.read(buffer)
+                        if (read < 0) break
+                        total += read
+                        if (total > MAX_INFLATED || (total > RATIO_FLOOR && total > bytes.size.toLong() * MAX_RATIO)) return false
+                    }
+                }
             }
+            return true
+        }
+
+        private fun word(
+            bytes: ByteArray,
+            maxChars: Int
+        ): String? {
+            val safe =
+                try {
+                    inflatesSafely(bytes)
+                } catch (_: Exception) {
+                    return null
+                }
+            if (!safe) throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
+            var tooLarge = false
+            val text =
+                try {
+                    XWPFDocument(ByteArrayInputStream(bytes)).use { document ->
+                        val out = StringBuilder()
+
+                        fun add(line: String) {
+                            if (out.length + line.length > maxChars * 2) {
+                                tooLarge = true
+                                throw TooLarge()
+                            }
+                            out.append(line).append('\n')
+                        }
+                        document.bodyElements.forEach { element ->
+                            when (element) {
+                                is XWPFParagraph -> add(element.text)
+                                is XWPFTable -> element.rows.forEach { row -> add(row.tableCells.joinToString("\t") { it.text }) }
+                            }
+                        }
+                        out.toString()
+                    }
+                } catch (_: TooLarge) {
+                    null
+                } catch (_: Exception) {
+                    null
+                }
+            if (tooLarge) throw AiErrors.inputTooLarge(AiErrors.TARGET, maxChars)
+            return text
+        }
 
         private fun ByteArray.startsWith(prefix: ByteArray): Boolean = size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
     }
