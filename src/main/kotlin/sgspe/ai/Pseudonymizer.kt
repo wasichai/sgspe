@@ -123,12 +123,20 @@ class NameDictionary(
 
         // las formas en que se nombra a una persona, siempre de dos palabras o más: nombres y apellidos completos o con solo el primero
         // de cada uno, en los dos órdenes, y los dos apellidos solos. un apellido compuesto («Mamani-Ejemplo») cuenta como dos palabras
+        private val PARTICLES = setOf("de", "del", "la", "las", "los", "y", "e")
+
+        // el primer apellido con sus partículas («de la Cruz», «del Carmen»): «Juan de» o «Luz del» no nombran a nadie
+        private fun firstSurname(surnames: List<String>): List<String> {
+            val core = surnames.indexOfFirst { it !in PARTICLES }
+            return if (core < 0) surnames else surnames.take(core + 1)
+        }
+
         private fun variants(person: KnownPerson): List<List<String>> {
             val given = Folding.words(Folding.fold(Folding.nfc(person.givenNames.orEmpty()))).map { it.value }
             val surnames = Folding.words(Folding.fold(Folding.nfc(person.surnames.orEmpty()))).map { it.value }
             if (given.isEmpty() || surnames.isEmpty()) return emptyList()
             val names = listOf(given, given.take(1)).distinct()
-            val last = listOf(surnames, surnames.take(1)).distinct()
+            val last = listOf(surnames, firstSurname(surnames)).distinct()
             val forms = mutableListOf<List<String>>()
             for (a in names) {
                 for (b in last) {
@@ -151,7 +159,31 @@ class NameDictionary(
 // cada valor de texto
 object Pseudonymizer {
     private val UUID_SPAN = Regex("""[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}""")
-    private val EMAIL = Regex("""[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}""")
+    private val DOMAIN = Regex("""[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}""")
+
+    private fun localChar(c: Char): Boolean = c.isLetterOrDigit() || c == '.' || c == '_' || c == '%' || c == '+' || c == '-'
+
+    // los correos, en tiempo lineal: se parte de cada «@» y se ensancha hacia los lados (una expresión que empieza por el usuario
+    // reintenta desde cada posición de un texto largo sin «@»)
+    private fun emails(text: String): List<IntRange> {
+        val found = mutableListOf<IntRange>()
+        var at = text.indexOf('@')
+        var floor = 0
+        while (at >= 0) {
+            var start = at
+            while (start > floor && localChar(text[start - 1])) start--
+            var end = at + 1
+            while (end < text.length && (text[end].isLetterOrDigit() || text[end] == '.' || text[end] == '-')) end++
+            val domain = if (start < at && end > at + 1) DOMAIN.matchAt(text.substring(at + 1, end), 0) else null
+            if (domain != null) {
+                val last = at + domain.value.length
+                found += start..last
+                floor = last + 1
+            }
+            at = text.indexOf('@', at + 1)
+        }
+        return found
+    }
 
     // un celular del Perú (9 dígitos que empiezan con 9, con o sin +51, agrupados 3-3-3, 3-2-2-2 o 4-5) o un fijo con su código de
     // ciudad (con 0 o con +51)
@@ -184,25 +216,30 @@ object Pseudonymizer {
         // un marcador escrito en el texto («[PERSONA_1]») dejaría de distinguirse de los que se generan: restaurar o guardar le
         // atribuiría el texto a una persona registrada. se vuelve inofensivo antes de cualquier reemplazo
         val text = PseudonymTable.MARKER.replace(Folding.nfc(input)) { "(${it.value.substring(1, it.value.length - 1)})" }
-        val protected = UUID_SPAN.findAll(text).map { it.range }.toList()
+        val taken = java.util.TreeMap<Int, Int>()
+        UUID_SPAN.findAll(text).forEach { taken[it.range.first] = it.range.last }
         val folded = Folding.fold(text)
         val foldedWords = Folding.words(folded)
         val candidates = mutableListOf<Candidate>()
+        val known = (restricted + table.reserved()).associate { key(it.value) to it.kind }
         for (value in (restricted + table.reserved()).filter { distinctive(it.value) }) {
             val needle = Folding.fold(Folding.nfc(value.value).trim())
             val ranges = occurrences(folded, needle) + wordSequences(folded, foldedWords, needle)
             for (range in ranges) candidates += Candidate(range, 0) { value.kind.reserved }
         }
-        EMAIL.findAll(text).forEach { m -> candidates += Candidate(m.range, 1) { it.mark(Marker.CORREO, m.value) } }
-        PHONE.findAll(text).forEach { m -> candidates += Candidate(m.range, 2) { it.mark(Marker.TELEFONO, m.value) } }
-        DOCUMENT.findAll(text).forEach { m -> candidates += Candidate(m.range, 3) { it.mark(Marker.DOCUMENTO, m.value) } }
+        emails(text).forEach { r -> candidates += Candidate(r, 1) { marked(it, known, Marker.CORREO, text.substring(r)) } }
+        PHONE.findAll(text).forEach { m -> candidates += Candidate(m.range, 2) { marked(it, known, Marker.TELEFONO, m.value) } }
+        DOCUMENT.findAll(text).forEach { m -> candidates += Candidate(m.range, 3) { marked(it, known, Marker.DOCUMENTO, m.value) } }
         names.matches(text).forEach { (range, person) ->
             candidates += Candidate(range, 4) { it.mark(Marker.PERSONA, person.displayName, person.id) }
         }
         val accepted = mutableListOf<Candidate>()
         val order = compareBy<Candidate>({ it.priority }, { it.range.first }, { -(it.range.last - it.range.first) })
         for (candidate in candidates.sortedWith(order)) {
-            if (protected.any { overlaps(it, candidate.range) } || accepted.any { overlaps(it.range, candidate.range) }) continue
+            // los tramos tomados (ids y reemplazos) no se solapan: basta mirar el último que empieza antes de que acabe este
+            val before = taken.floorEntry(candidate.range.last)
+            if (before != null && before.value >= candidate.range.first) continue
+            taken[candidate.range.first] = candidate.range.last
             accepted += candidate
         }
         if (accepted.isEmpty()) return text
@@ -214,6 +251,18 @@ object Pseudonymizer {
         }
         return out.append(text, at, text.length).toString()
     }
+
+    // la clave de un valor para compararlo con lo hallado por formato: sin tildes ni mayúsculas, espacios ni signos
+    private fun key(value: String): String = Folding.fold(Folding.nfc(value)).filter { it.isLetterOrDigit() || it == '@' }
+
+    // lo hallado por formato que es un valor restringido conocido sale con el marcador tipado sin número, que nadie restaura
+    // («DNI40123456» pegado, que la búsqueda por palabras no ve)
+    private fun marked(
+        table: PseudonymTable,
+        known: Map<String, Marker>,
+        kind: Marker,
+        value: String
+    ): String = known[key(value)]?.reserved ?: table.mark(kind, value)
 
     // un valor restringido se busca en el texto libre solo si se distingue: dos palabras o más, seis dígitos o más, o un correo.
     // una palabra sola («Flores») confundiría el texto con un dato, y un UUID es un id, no un dato
@@ -259,9 +308,4 @@ object Pseudonymizer {
         }
         return found
     }
-
-    private fun overlaps(
-        a: IntRange,
-        b: IntRange
-    ): Boolean = a.first <= b.last && b.first <= a.last
 }

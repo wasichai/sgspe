@@ -157,4 +157,38 @@ class PseudonymizerTest {
         assertEquals("[TELEFONO_1]", run("+51 1 234 5678"))
         assertEquals("[TELEFONO_1] y [TELEFONO_2]", run("987 65 43 21 y 9876-54321"))
     }
+
+    @Test
+    fun `un documento restringido pegado a un prefijo sale sin numero y no se restaura`() {
+        val table = PseudonymTable()
+        val restricted = listOf(RestrictedValue(Marker.DOCUMENTO, "40123456"))
+        val out = Pseudonymizer.pseudonymize("DNI40123456 y DNI 40123456 y otro 40123457", names, table, restricted)
+        assertEquals("DNI[DOCUMENTO] y DNI [DOCUMENTO] y otro [DOCUMENTO_1]", out)
+        assertFalse("40123456" in table.restore(out))
+    }
+
+    @Test
+    fun `una particula sola no nombra a la persona`() {
+        val particles =
+            NameDictionary(listOf(KnownPerson(null, "Juan", "De La Cruz"), KnownPerson(null, "Luz", "Del Carmen Ejemplo")))
+        val text = "Juan de nuevo, la casa de Juan, Luz del día"
+        assertEquals(text, runWith(particles, text))
+        assertEquals("[PERSONA_1] y [PERSONA_2]", runWith(particles, "Juan de la Cruz y Luz del Carmen"))
+    }
+
+    @Test
+    fun `los textos largos se procesan en tiempo lineal`() {
+        for (unit in listOf("9", "1.", "a", "a.", "98765432 ", "a@")) {
+            val text = unit.repeat(200_000 / unit.length)
+            val start = System.nanoTime()
+            run(text)
+            val seconds = (System.nanoTime() - start) / 1e9
+            assertTrue(seconds < 2.0, "$unit: $seconds s")
+        }
+    }
+
+    @Test
+    fun `los correos por la arroba`() {
+        assertEquals("[CORREO_1], [CORREO_2] y a@b o @x.com", run("a.b@sgspe.test, c@d.org y a@b o @x.com"))
+    }
 }
