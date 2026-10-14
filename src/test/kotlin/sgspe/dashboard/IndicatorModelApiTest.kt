@@ -48,6 +48,8 @@ class IndicatorModelApiTest : F8IndicatorsApiTest() {
     @Test
     fun `una medicion no cambia ni se borra, tampoco como la plataforma`() {
         val (start, end) = lastMonth()
+        // quien cierra es un usuario real del tenant: la regla de closed_by lo comprueba también para la plataforma
+        val closer = userWithRole("SOCIAL_MANAGER")
         val measurement =
             platformCreate(
                 "indicator_measurement",
@@ -57,8 +59,8 @@ class IndicatorModelApiTest : F8IndicatorsApiTest() {
                     "period_start_date" to start.toString(),
                     "period_end_date" to end.toString(),
                     "measured_value" to 4,
-                    "closed_by_user_id" to "00000000-0000-0000-0000-000000000001",
-                    "closed_by_user_email" to "gerente-social@sgspe.test"
+                    "closed_by_user_id" to closer.id,
+                    "closed_by_user_email" to closer.email
                 )
             )
         assertEquals(HttpStatus.FORBIDDEN, exchange("DELETE", "/api/objects/indicator_measurement/records/$measurement").status)
