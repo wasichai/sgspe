@@ -200,7 +200,7 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals("NOT_OWN_RECORD", code(foreign))
     }
 
-    // P52: el tope por parte de Spring es el de wasichai.files.max-bytes (20 MB). Spring cuenta solo los bytes del contenido y
+    // P52: el tope por parte de Spring es max-disk-usage-per-part (20 MB; wasichai.files.max-bytes es 64 MB desde F8). Spring cuenta solo los bytes del contenido y
     // rechaza los que pasan el tope: 20 MB exactos entran, y un byte más es 400 FILE_TOO_LARGE sobre file (UploadLimits), con
     // código, nunca un 500 ni el texto libre de wasichai-files
     @Test
@@ -214,6 +214,7 @@ class EvidenceApiTest : F3DomainApiTest() {
         assertEquals(HttpStatus.BAD_REQUEST, over.status, over.text)
         assertEquals(listOf("file"), problemFields(over.text))
         assertEquals("FILE_TOO_LARGE", tree(over.text)["errors"][0]["message"].asString())
+        assertTrue(tree(over.text)["detail"].asString().contains("20 MB"), over.text)
     }
 
     // UploadLimitsAdvice traduce solo un multipart: un cuerpo JSON que pasa spring.codec.max-in-memory-size (256 KB) sigue

@@ -3651,7 +3651,7 @@ física `app_data.deliverable_section__<org8>`. Requisitos: RQ-REP-011, RQ-REP-0
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
 | `deliverable_section_deliverable` | MANY_TO_ONE | `deliverable` | `deliverable` | sí | — |
-| `deliverable_section_ai_suggestion` | MANY_TO_ONE | `ai_suggestion` | `ai_suggestion` | no | Sugerencia de la que parte |
+| `deliverable_section_ai_suggestion` | MANY_TO_ONE | `ai_suggestion` | `ai_suggestion` | no | Sugerencia de la que parte; solo la escribe código de SGSPE, fuera de la regla «mismo proyecto» |
 
 - **Flags:** `appendOnly` no · `apiOnly` no · `requiresReason` no.
 - **Únicos:** `uniqueConstraints` (`deliverable`, `section_key`).
