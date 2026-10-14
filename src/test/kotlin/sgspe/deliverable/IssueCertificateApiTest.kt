@@ -1,6 +1,5 @@
 package sgspe.deliverable
 
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -10,7 +9,7 @@ import java.util.UUID
 
 // AUT-12 contra wasichai de verdad (workflows.md, decisión 8 de F8): al entrar en `issued`, la constancia de emisión con su
 // correlativo CE y la tabla de todas las versiones del entregable con sus SHA-256 (relatedTable, Decisión 11 del plan
-// 8.1). en 8.1 la emisión la hace la prueba como la plataforma, con la marca SgspeWrite que dejará pasar
+// 8.1). en 8.1 la emisión la hace la prueba como el gerente social, con la marca SgspeWrite que dejará pasar
 // CommandTransitionGuard: el endpoint es del plan 8.2b, que mueve este caso a DeliverableIssueApiTest y emite por
 // POST /api/sgspe/deliverables/{id}/issue
 class IssueCertificateApiTest : F8ApiTest() {
@@ -20,9 +19,9 @@ class IssueCertificateApiTest : F8ApiTest() {
         val base = deliverableVersion(id, 1, "INTERNO")
         val derived = deliverableVersion(id, 2, "EXTERNO", derivedFrom = base)
         platformUpdate("deliverable", id, mapOf("current_version" to base, "current_revision" to "0"))
-        runBlocking {
-            platformRecords.asPlatform(organizationId()) { platformRecords.transition("deliverable", UUID.fromString(id), "issue", "emisión de prueba") }
-        }
+        // WorkflowService.apply pide una persona: emite el gerente social con la marca SgspeWrite de Records, como lo hará el
+        // endpoint de 8.2b; el rol de la transición de WF-H se comprueba de verdad
+        asUser(member("SOCIAL_MANAGER")) { platformRecords.transition("deliverable", UUID.fromString(id), "issue", "emisión de prueba") }
         assertEquals("issued", state("deliverable", id))
         assertEquals("SUCCEEDED", awaitRun("deliverable", "aut-12-issue-certificate", id)["status"].asString())
         val documents = tree(send("GET", "/api/objects/deliverable/records/$id/documents", null, HttpStatus.OK)).values()
