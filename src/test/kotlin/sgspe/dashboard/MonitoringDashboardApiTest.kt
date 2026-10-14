@@ -108,15 +108,38 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
         }
     }
 
-    // Review Focus 5: FIELD_AGENT no lee indicator ni indicator_measurement (security.md §7.8)
+    // un rol de prueba creado por la API (no está en roles.json, donde todos leen el catálogo desde R1): lee lo que lee
+    // KPI-ENG-02 pero no indicator ni indicator_measurement, y está asignado al proyecto
+    private fun catalogBlind(project: String): Account {
+        val name = "PRUEBA_" + uniqueName("").uppercase().filter { it.isLetterOrDigit() }
+        send("POST", "/api/roles", mapOf("name" to name, "label" to "Rol de prueba"), HttpStatus.CREATED)
+        val grants = listOf("project", "engagement", "engagement_plan").map { mapOf("objectName" to it, "action" to "READ") }
+        send("PUT", "/api/roles/$name/permissions", mapOf("permissions" to grants), HttpStatus.OK)
+        return userWithRole(name).also { assign(it, project, "READ_ONLY") }
+    }
+
+    // Review Focus 5: sin leer indicator ni indicator_measurement, ni metas ni cifras oficiales
     @Test
     fun `sin leer el catalogo el tablero sale sin metas ni cifras oficiales`() {
         val (start, end) = lastMonth()
         val project = activeProject()
         measurement("KPI-COM-08", project, start, end, 7)
-        val rows = board("project=$project&${period(start, end)}", member("FIELD_AGENT", project).token)
+        val rows = board("project=$project&${period(start, end)}", catalogBlind(project).token)
         assertEquals(13, rows.size)
         assertTrue(rows.values.all { it["targetSource"].asString() == "NONE" && it["official"].isNull })
+    }
+
+    // FIELD_AGENT lee el catálogo pero no las mediciones (security.md §7.8): las metas sí, la cifra oficial no
+    @Test
+    fun `sin leer las mediciones el tablero sale con metas y sin cifras oficiales`() {
+        val (start, end) = lastMonth()
+        val project = activeProject()
+        measurement("KPI-COM-08", project, start, end, 7)
+        val rows = board("project=$project&${period(start, end)}", member("FIELD_AGENT", project).token)
+        assertTrue(rows.values.all { it["official"].isNull })
+        val meetings = rows.getValue("KPI-ENG-02")
+        assertTrue(meetings["available"].asBoolean())
+        assertEquals("CATALOG", meetings["targetSource"].asString())
     }
 
     // R1: una sola fuente para la meta de KPI-ENG-02; el monitoreo y el tablero de relacionamiento la leen igual. edita el
@@ -133,9 +156,17 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
             assertEquals(4, board(query).getValue("KPI-ENG-02")["target"].asInt())
             val engagement = get("/api/sgspe/dashboards/indicators/KPI-ENG-02?$query")
             assertEquals(4, engagement["denominator"].asInt())
-            // quien no lee indicator.target_value no recibe otra meta: KPI-ENG-02 no disponible
+            // FIELD_AGENT lee el catálogo desde R1: la misma meta
             val agent = get("/api/sgspe/dashboards/indicators/KPI-ENG-02?$query", member("FIELD_AGENT", project).token)
-            assertFalse(agent["available"].asBoolean())
+            assertEquals(4, agent["denominator"].asInt())
+            // quien no lee indicator no recibe otra meta: KPI-ENG-02 no disponible, por el objeto que falta, también en el catálogo
+            val blind = catalogBlind(project)
+            val hidden = get("/api/sgspe/dashboards/indicators/KPI-ENG-02?$query", blind.token)
+            assertFalse(hidden["available"].asBoolean())
+            assertEquals("OBJECT_NOT_READABLE", hidden["unavailableReason"].asString())
+            assertEquals(listOf("indicator.target_value"), hidden["missingFields"].values().map { it.asString() })
+            val listed = get("/api/sgspe/dashboards/indicators", blind.token).values().single { it["code"].asString() == "KPI-ENG-02" }
+            assertFalse(listed["available"].asBoolean())
         } finally {
             send("PUT", "/api/objects/indicator/records/$id", mapOf("attributes" to stored), HttpStatus.OK)
         }

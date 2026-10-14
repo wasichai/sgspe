@@ -58,6 +58,10 @@ object Kpis {
     const val PROJECT = "project"
     const val MONITORING = "monitoring"
 
+    // R1 (decisión 3 del plan 8.2a): KPI-ENG-02 y el campo del catálogo con su meta por defecto en un tenant de F8
+    const val MEETINGS = "KPI-ENG-02"
+    const val MEETINGS_TARGET = "indicator.target_value"
+
     // los indicadores que leen QCS y que, a quien no ve las confidenciales, se lo dicen con confidentialHidden (dashboards.md §8,
     // ASM-095): los KPI-GRV y KPI-ENG-05, que cuenta como atendida una pregunta derivada a una QCS
     fun confidentialSensitive(code: String): Boolean =
@@ -348,7 +352,8 @@ object Kpis {
             ) { data ->
                 // R1: la meta por defecto vive en un catálogo que quien mira no lee: no disponible, nunca con otra meta
                 if (data.meetingsDefaultUnreadable()) {
-                    IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, listOf("indicator.target_value"))
+                    val missing = listOf(MEETINGS_TARGET)
+                    IndicatorResult.unavailable(KpiEvaluation.reason(missing, data), missing)
                 } else {
                     EngagementKpis.meetings(data.inPeriod(), data.window(), data.monthlyTargets(), data.filters.periodStart, data.filters.periodEnd)
                 }

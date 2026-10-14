@@ -622,13 +622,13 @@ class DashboardData(
     private suspend fun meetingsDefault(): MeetingsDefault =
         cached("meetingsDefault") {
             val fallback = ProjectParameters.integer(emptyMap(), "meetings_per_month_target")
-            if (!hasCatalog || !readable("indicator.target_value")) return@cached MeetingsDefault(fallback)
-            val record = read("indicator", mapOf("code" to MEETINGS_KPI)).firstOrNull() ?: return@cached MeetingsDefault(fallback)
+            if (!hasCatalog || !readable(Kpis.MEETINGS_TARGET)) return@cached MeetingsDefault(fallback)
+            val record = read("indicator", mapOf("code" to Kpis.MEETINGS)).firstOrNull() ?: return@cached MeetingsDefault(fallback)
             MeetingsDefault(Values.decimal(record.attributes["target_value"])?.toLong())
         }
 
     // si la meta por defecto vive en un catálogo que quien mira no lee: KPI-ENG-02 sale no disponible (nunca con otra meta)
-    suspend fun meetingsDefaultUnreadable(): Boolean = hasCatalog && !readable("indicator.target_value")
+    suspend fun meetingsDefaultUnreadable(): Boolean = hasCatalog && !readable(Kpis.MEETINGS_TARGET)
 
     // la meta de cada mes que pide KPI-ENG-02 (la serie de 12 meses y todos los del periodo), una entrada por mes ya sumada
     // entre los proyectos del filtro (EngagementKpis.monthlyTargets): la del plan vigente en el mes o, si no hay, la del
@@ -902,7 +902,7 @@ class DashboardData(
     // target_value). quien llama comprueba antes que el tenant tenga el objeto (TenantModel)
     suspend fun indicatorCatalog(): Map<String, CatalogIndicator> {
         if (!readable("indicator.code")) return emptyMap()
-        val targets = readable("indicator.target_value")
+        val targets = readable(Kpis.MEETINGS_TARGET)
         val means = readable("indicator.verification_means")
         return read("indicator")
             .mapNotNull { r ->
@@ -955,7 +955,6 @@ class DashboardData(
 
     companion object {
         const val CHUNK = 500
-        private const val MEETINGS_KPI = "KPI-ENG-02"
         private const val AREA = "area_of_influence"
         private const val MEMBER = "area_of_influence_member"
         private val MEMBER_TYPES = listOf("locality", "community", "administrative_unit")
