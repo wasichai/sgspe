@@ -8,18 +8,19 @@ import sgspe.SgspeApiTest
 import java.io.File
 
 // security.md §4.1 y §14 «Alta de un tenant»: los scripts reales sobre un tenant nuevo, en orden, sin errores e
-// idempotentes, con el modelo, los roles, los workflows, los tipos de documento y las automatizaciones de F7
+// idempotentes, con el modelo, los roles, los workflows, los tipos de documento, las automatizaciones y el catálogo
+// de indicadores de F8
 class TenantProvisioningApiTest : SgspeApiTest() {
     @Test
     fun `un tenant nuevo se prepara con apply, apply_roles y apply workflows en ese orden`() {
         val admin = provisionTenant()
 
-        // F7: 84 objetos, 39 acciones declaradas (13 EXPORT de las capas territoriales) y 276 relaciones; 25 objetos reciben
+        // F8 (8.2a): 86 objetos, 39 acciones declaradas (13 EXPORT de las capas territoriales) y 278 relaciones; 26 objetos reciben
         // en la fase 3 los únicos y los índices que nombran el campo de una relación, y delivery.social_contribution su
         // único (Decisión 1 del plan 5.1: wasichai acepta el unique: true del campo de una relación opcional)
         val model = runScript(listOf("model/apply.py"), admin)
         assertEquals(0, model.exit, model.output)
-        assertTrue(model.output.contains("done: 399 created, 26 updated, 0 skipped"), model.output)
+        assertTrue(model.output.contains("done: 403 created, 27 updated, 0 skipped"), model.output)
         assertTrue(model.output.contains("update field delivery.social_contribution (unique)"), model.output)
         val roles = runScript(listOf("model/apply_roles.py"), admin)
         assertEquals(0, roles.exit, roles.output)
@@ -36,7 +37,7 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         // los tres pasos son idempotentes contra wasichai de verdad (database-model.md §24)
         val modelAgain = runScript(listOf("model/apply.py"), admin)
         assertEquals(0, modelAgain.exit, modelAgain.output)
-        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 399 skipped"), modelAgain.output)
+        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 403 skipped"), modelAgain.output)
         val again = runScript(listOf("model/apply_roles.py"), admin)
         assertEquals(0, again.exit, again.output)
         assertTrue(again.output.contains("done: 0 created, 0 updated, 15 skipped"), again.output)
@@ -49,6 +50,13 @@ class TenantProvisioningApiTest : SgspeApiTest() {
             ),
             workflowsAgain.output
         )
+
+        // el catálogo de indicadores (dashboards.md §10, ASM-136): 53 creados y, otra vez, ninguno escrito
+        val indicators = runScript(listOf("model/load_indicators.py"), admin)
+        assertEquals(0, indicators.exit, indicators.output)
+        assertTrue(indicators.output.contains("done: 53 created, 0 updated, 0 skipped"), indicators.output)
+        val indicatorsAgain = runScript(listOf("model/load_indicators.py"), admin)
+        assertTrue(indicatorsAgain.output.contains("done: 0 created, 0 updated, 53 skipped"), indicatorsAgain.output)
 
         val declared =
             JSON
