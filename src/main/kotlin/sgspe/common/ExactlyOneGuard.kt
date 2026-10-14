@@ -36,7 +36,7 @@ class ExactlyOneGuard(
                 "network_node" to listOf(listOf("person", "organization")),
                 // F3; en task, desde F4, los orígenes de QCS, riesgo y alerta y, desde F5, el programa, en el orden de la
                 // ficha; desde F5 una entrega es de un compromiso o de un aporte (sus dos padres en ProjectScope.CHILDREN,
-                // ArchitectureTest). los entregables de F8 los agrega su fase
+                // ArchitectureTest), y desde F8 una tarea puede salir de un entregable
                 "delivery" to listOf(listOf("commitment", "social_contribution")),
                 "agreement_party" to listOf(listOf("organization", "person")),
                 "task" to
@@ -51,7 +51,8 @@ class ExactlyOneGuard(
                             "engagement",
                             "agreement",
                             "social_program",
-                            "stakeholder"
+                            "stakeholder",
+                            "deliverable"
                         )
                     )
             )

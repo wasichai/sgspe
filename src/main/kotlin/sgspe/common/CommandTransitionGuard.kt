@@ -8,7 +8,7 @@ import wasichai.core.data.RecordWrite
 
 // las transiciones de comando solo llegan desde su endpoint, que escribe varios registros en una transacción y lleva la
 // marca SgspeWrite (workflows.md, «Transiciones de comando»). por la API genérica de workflow, sin la marca: 403, como la
-// puerta cerrada de un objeto apiOnly. las de F3, F4 y F7 las agregan sus fases a COMMANDS
+// puerta cerrada de un objeto apiOnly. las de F3, F4, F7 y F8 las agregan sus fases a COMMANDS
 @Component
 @Order(GuardOrder.COMMAND)
 class CommandTransitionGuard : RuleGuard() {
@@ -57,7 +57,10 @@ class CommandTransitionGuard : RuleGuard() {
                         "close_accepted" to "el cierre del compromiso o del aporte creado (RequestClosureListener)"
                     ),
                 // F4: la primera revisión de un riesgo (plan 4.2b)
-                "social_risk" to mapOf("assess" to "POST /api/sgspe/social-risks/{id}/assessments")
+                "social_risk" to mapOf("assess" to "POST /api/sgspe/social-risks/{id}/assessments"),
+                // F8: emitir crea las versiones y aplica issue al final, en una transacción. el endpoint es del plan 8.2b;
+                // desde que WF-H existe (plan 8.1), la API genérica no emite
+                "deliverable" to mapOf("issue" to "POST /api/sgspe/deliverables/{id}/issue")
             )
     }
 }

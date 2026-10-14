@@ -10,12 +10,13 @@ spring:
     port: ${SPRING_MAIL_PORT:1029}
   webflux:
     multipart:
-      # los multipart son la importación (api.md §4.2) y la subida de una evidencia (POST /api/objects/evidence/files/file).
-      # Spring guarda en disco la parte de archivo antes de entregarla: sin tope llenaría el disco antes de que
-      # ImportController o wasichai-files cuenten los bytes. es igual a wasichai.files.max-bytes y a
-      # sgspe.territory.import.max-bytes (20 MB, P52): Spring cuenta solo los bytes del contenido y rechaza los que pasan el
-      # tope, así que un archivo de 20 MB exactos entra; uno más grande lo corta Spring y UploadLimits responde
-      # 400 FILE_TOO_LARGE sobre file, con código, en las dos rutas. si se sube un máximo, se suben los tres
+      # los multipart son la importación (api.md §4.2), la subida de una evidencia (POST /api/objects/evidence/files/file) y,
+      # desde F8, la de una plantilla. Spring guarda en disco la parte de archivo antes de entregarla: sin tope llenaría el
+      # disco antes de que ImportController o wasichai-files cuenten los bytes. es igual a sgspe.territory.import.max-bytes
+      # (20 MB, P52): Spring cuenta solo los bytes del contenido y rechaza los que pasan el tope, así que un archivo de 20 MB
+      # exactos entra; uno más grande lo corta Spring y UploadLimits responde 400 FILE_TOO_LARGE sobre file, con código, en
+      # las dos rutas. desde F8 es menor que wasichai.files.max-bytes (64 MB), a propósito: ese techo es el de lo que sube
+      # el servidor (ASM-138), y todo lo que llega por HTTP sigue en 20 MB
       max-disk-usage-per-part: 20MB
       # la confirmación usa 7 partes y, con GDAL, 8 (layer): 8 acota el disco que una petición puede ocupar (8 × 20 MB)
       max-parts: 8
@@ -66,8 +67,10 @@ wasichai:
     # D1 (ADR-0014, WAS-ADR-0061): el campo FILE de evidence. local guarda en una carpeta (una sola réplica, sin compose);
     # s3 usa el MinIO de compose.yml en desarrollo y un servicio compatible con S3 en producción (application-prod.yml)
     store: ${WASICHAI_FILES_STORE:local}
-    # tope de un archivo, el mismo de las importaciones (RQ-SEC-020) y de max-disk-usage-per-part de Spring (P52)
-    max-bytes: 20MB
+    # techo de un archivo de wasichai-files: desde F8, 64 MB para lo que sube el servidor (los borradores y las versiones de
+    # los entregables, con su maxBytes de 64 MB; ASM-138). lo que sube el navegador sigue topado en 20 MB por
+    # max-disk-usage-per-part de Spring (P52), y deliverable_template.file declara su maxBytes de 20 MB
+    max-bytes: 64MB
     local:
       path: ${WASICHAI_FILES_LOCAL_PATH:build/wasichai-files}
     s3:
