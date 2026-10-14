@@ -16,6 +16,7 @@ import sgspe.common.ModelCatalog
 import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.StrictQuery
+import sgspe.common.TenantModel
 import sgspe.common.toCodedException
 import sgspe.territory.ComponentLand
 import wasichai.core.metadata.MetadataService
@@ -43,7 +44,8 @@ class Dashboards(
     private val clock: Clock,
     private val componentLand: ComponentLand,
     private val readers: KpiReaders,
-    private val properties: DashboardsProperties
+    private val properties: DashboardsProperties,
+    private val tenantModel: TenantModel
 ) {
     suspend fun catalog(): List<CatalogEntry> {
         callers.require()
@@ -82,6 +84,9 @@ class Dashboards(
             val shown = if (name == Kpis.TERRITORY && (filters.locality != null || filters.community != null)) listOf(TerritorySummary.CODE) + codes else codes
             val indicators = shown.map { mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(it), data), ctx.confidentialHidden) }
             val byProject = if (name == Kpis.EXECUTIVE && !omitted) byProject(data, ctx.confidentialHidden) else null
+            // los project pedidos como UUID, sin repetir (filters ya los validó): «un solo project» es uno distinto
+            val requested = params["project"].orEmpty().map(UUID::fromString).distinct()
+            val rows = if (name == Kpis.MONITORING) monitoringRows(ctx, data, requested, indicators) else null
             DashboardResponse(
                 name,
                 filters.echo(),
@@ -89,7 +94,8 @@ class Dashboards(
                 indicators,
                 if (name == Kpis.ATTENTION) ctx.confidentialHidden else null,
                 byProject,
-                if (omitted) true else null
+                if (omitted) true else null,
+                rows
             )
         }
     }
@@ -155,11 +161,36 @@ class Dashboards(
         }
     }
 
-    private fun data(
+    // dashboards.md §5.5: las 13 filas con su meta y su cifra oficial. un tenant sin el modelo de F8 (TenantModel sin
+    // indicator) no lee metas ni mediciones; quien no lee el catálogo, tampoco (DashboardData.indicatorCatalog)
+    private suspend fun monitoringRows(
+        ctx: KpiContext,
+        data: DashboardData,
+        requestedProjects: List<UUID>,
+        values: List<IndicatorValue>
+    ): List<MonitoringRow> {
+        val withModel = tenantModel.has(ctx.reader.organizationId, INDICATOR)
+        val catalog = if (withModel) data.indicatorCatalog() else emptyMap()
+        val measurements = if (withModel && catalog.isNotEmpty()) data.measurements(data.filters.periodStart) else emptyList()
+        val scope = MonitoringTable.scope(requestedProjects, data.filters, ctx.tenantWide)
+        return MonitoringTable.rows(values, catalog, measurements, scope, data.meetingTargetDefined())
+    }
+
+    // R1: con el catálogo indicator en el tenant, la meta por defecto de KPI-ENG-02 sale de él
+    private suspend fun data(
         ctx: KpiContext,
         filters: DashboardFilters,
         today: LocalDate
-    ): DashboardData = DashboardData(records, filters, ctx.readable, today, componentLand = componentLand, platform = ctx.platform)
+    ): DashboardData =
+        DashboardData(
+            records,
+            filters,
+            ctx.readable,
+            today,
+            componentLand = componentLand,
+            platform = ctx.platform,
+            hasCatalog = tenantModel.has(ctx.reader.organizationId, INDICATOR)
+        )
 
     // la marca en un indicador que lee QCS, solo si es cierta (los demás no la llevan)
     private fun mark(
@@ -185,6 +216,7 @@ class Dashboards(
 
     companion object {
         const val BREAKDOWN = "breakdown"
+        const val INDICATOR = "indicator"
     }
 }
 

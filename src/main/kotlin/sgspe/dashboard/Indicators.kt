@@ -138,7 +138,10 @@ data class DashboardResponse(
     // F8: la tabla por proyecto del tablero executive; no viaja en los demás ni cuando se omite
     @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProject: List<ProjectFigures>? = null,
     // F8: true si el tablero executive omitió la tabla porque los proyectos por defecto pasan el tope (decisión 24)
-    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProjectOmitted: Boolean? = null
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProjectOmitted: Boolean? = null,
+    // F8: las 13 filas de la Tabla 9.5 del tablero monitoring (MonitoringTable), en el orden de indicators[]; no viaja en los
+    // demás
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val rows: List<MonitoringRow>? = null
 )
 
 // los números de los indicadores: cada cifra se redondea una sola vez, desde los conteos o los valores sin redondear de su

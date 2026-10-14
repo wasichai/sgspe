@@ -93,8 +93,8 @@ class EngagementKpisF4Test {
     }
 
     @Test
-    fun `los KPI-ENG de F4 no tienen tablero, y los de medios ignoran el territorio`() {
-        for (code in listOf("KPI-ENG-06", "KPI-ENG-07", "KPI-ENG-08")) assertEquals(null, Kpis.BY_CODE.getValue(code).dashboard, code)
+    fun `los KPI-ENG de F4 van al tablero de monitoreo, y los de medios ignoran el territorio`() {
+        for (code in listOf("KPI-ENG-06", "KPI-ENG-07", "KPI-ENG-08")) assertEquals(Kpis.MONITORING, Kpis.BY_CODE.getValue(code).dashboard, code)
         assertEquals(true, "locality" in Kpis.BY_CODE.getValue("KPI-ENG-08").ignores)
         assertEquals(false, "locality" in Kpis.BY_CODE.getValue("KPI-ENG-06").ignores)
         val catalog = ModelCatalog.fromClasspath()

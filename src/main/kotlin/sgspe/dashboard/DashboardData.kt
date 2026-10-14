@@ -54,7 +54,9 @@ class DashboardData(
     private val componentLand: ComponentLand? = null,
     // F8: la organización si lee el lector de la plataforma (KpiContext.platform): KPI-TER-04 va por la vía de la plataforma
     // de la compuerta y las M2M por Records.relatedAsPlatform. null, la persona
-    private val platform: UUID? = null
+    private val platform: UUID? = null,
+    // F8 (R1): si el tenant tiene el catálogo indicator (TenantModel): la meta por defecto de KPI-ENG-02 sale de él
+    private val hasCatalog: Boolean = false
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
@@ -610,9 +612,27 @@ class DashboardData(
 
     suspend fun projectRecords(): List<RecordResponse> = cached("projects") { readIn("project", null, filters.projects.map { it.toString() }) }
 
+    private class MeetingsDefault(
+        val target: Long?
+    )
+
+    // R1 (decisión 3 del plan 8.2a): la meta mensual de un proyecto sin la suya. sin el catálogo en el tenant (F7), o con el
+    // catálogo sin el registro de KPI-ENG-02 (todavía no cargado), la de ASM-019 (ProjectParameters, 2); con el registro, su
+    // target_value (null: sin meta)
+    private suspend fun meetingsDefault(): MeetingsDefault =
+        cached("meetingsDefault") {
+            val fallback = ProjectParameters.integer(emptyMap(), "meetings_per_month_target")
+            if (!hasCatalog || !readable("indicator.target_value")) return@cached MeetingsDefault(fallback)
+            val record = read("indicator", mapOf("code" to MEETINGS_KPI)).firstOrNull() ?: return@cached MeetingsDefault(fallback)
+            MeetingsDefault(Values.decimal(record.attributes["target_value"])?.toLong())
+        }
+
+    // si la meta por defecto vive en un catálogo que quien mira no lee: KPI-ENG-02 sale no disponible (nunca con otra meta)
+    suspend fun meetingsDefaultUnreadable(): Boolean = hasCatalog && !readable("indicator.target_value")
+
     // la meta de cada mes que pide KPI-ENG-02 (la serie de 12 meses y todos los del periodo), una entrada por mes ya sumada
     // entre los proyectos del filtro (EngagementKpis.monthlyTargets): la del plan vigente en el mes o, si no hay, la del
-    // proyecto (2 por defecto, ProjectParameters) (RN-ENG-003)
+    // proyecto o, sin ella, la del catálogo (R1; 2 de ASM-019 sin catálogo) (RN-ENG-003)
     suspend fun monthlyTargets(): List<MonthlyTarget> {
         val plans =
             if (filters.projects.isEmpty()) {
@@ -629,7 +649,11 @@ class DashboardData(
                     )
                 }
             }
-        val projects = projectRecords().associate { it.id to ProjectParameters.integer(it.attributes, "meetings_per_month_target") }
+        val fallback = meetingsDefault().target
+        val projects =
+            projectRecords().associate {
+                it.id to EngagementKpis.projectTarget(Values.decimal(it.attributes["meetings_per_month_target"])?.toLong(), fallback)
+            }
         return EngagementKpis.monthlyTargets(EngagementKpis.targetMonths(filters.periodStart, filters.periodEnd), projects, plans)
     }
 
@@ -762,7 +786,8 @@ class DashboardData(
 
     // otra lectura con otros filtros y los mismos permisos, topes y fuentes: las filas de KPI-TER-01 (el periodo de 90 días y
     // sin los filtros que la ficha no aplica)
-    fun with(filters: DashboardFilters): DashboardData = DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform)
+    fun with(filters: DashboardFilters): DashboardData =
+        DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform, hasCatalog)
 
     // si un registro con esa localidad o comunidad cae en todos los filtros de territorio pedidos
     suspend fun inTerritory(
@@ -871,8 +896,66 @@ class DashboardData(
                 .map { WarningRow(it.id, it.state, Values.text(it.attributes["severity"])) }
         }
 
+    // ---- monitoreo (F8: dashboards.md §5.5 y §10) ----
+
+    // los indicator del tenant por código, como los lee quien mira: vacío si no lee indicator.code (la meta, solo si lee
+    // target_value). quien llama comprueba antes que el tenant tenga el objeto (TenantModel)
+    suspend fun indicatorCatalog(): Map<String, CatalogIndicator> {
+        if (!readable("indicator.code")) return emptyMap()
+        val targets = readable("indicator.target_value")
+        val means = readable("indicator.verification_means")
+        return read("indicator")
+            .mapNotNull { r ->
+                val code = Values.text(r.attributes["code"]) ?: return@mapNotNull null
+                CatalogIndicator(
+                    r.id,
+                    code,
+                    if (targets) Values.decimal(r.attributes["target_value"]) else null,
+                    if (means) Values.text(r.attributes["verification_means"]) else null
+                )
+            }.associateBy { it.code }
+    }
+
+    // las mediciones que empiezan en `start`, como las lee quien mira (las de proyecto, por el alcance; las del tenant, todos
+    // los que leen el objeto); vacío si no lee indicator_measurement
+    suspend fun measurements(start: LocalDate): List<MeasurementRow> {
+        if (!readable("indicator_measurement.measured_value") || !readable("indicator_measurement.period_end_date")) return emptyList()
+        return read("indicator_measurement", criteria = listOf(Criteria.dateBetween("period_start_date", start, start))).mapNotNull { r ->
+            val a = r.attributes
+            MeasurementRow(
+                r.id,
+                Values.text(a["indicator"]) ?: return@mapNotNull null,
+                Values.text(a["project"]),
+                Values.text(a["period_start_date"])?.let(LocalDate::parse) ?: return@mapNotNull null,
+                Values.text(a["period_end_date"])?.let(LocalDate::parse) ?: return@mapNotNull null,
+                Values.decimal(a["measured_value"]),
+                r.createdAt
+            )
+        }
+    }
+
+    // si la meta de reuniones del periodo la define el proyecto (decisión 3 del plan 8.2a): algún proyecto del filtro con
+    // meetings_per_month_target o algún plan con meta vigente en un mes del periodo. sin lectura de esos campos, no
+    suspend fun meetingTargetDefined(): Boolean {
+        if (readable("project.meetings_per_month_target") &&
+            projectRecords().any { Values.decimal(it.attributes["meetings_per_month_target"]) != null }
+        ) {
+            return true
+        }
+        if (filters.projects.isEmpty() || !readable("engagement_plan.meetings_per_month_target")) return false
+        return read("engagement_plan", criteria = listOf(Criteria.anyOf("project", filters.projects))).any { p ->
+            val a = p.attributes
+            val from = Values.text(a["start_date"])?.let(LocalDate::parse)
+            val until = Values.text(a["end_date"])?.let(LocalDate::parse)
+            Values.decimal(a["meetings_per_month_target"]) != null &&
+                (from == null || !from.isAfter(filters.periodEnd)) &&
+                (until == null || !until.isBefore(filters.periodStart))
+        }
+    }
+
     companion object {
         const val CHUNK = 500
+        private const val MEETINGS_KPI = "KPI-ENG-02"
         private const val AREA = "area_of_influence"
         private const val MEMBER = "area_of_influence_member"
         private val MEMBER_TYPES = listOf("locality", "community", "administrative_unit")
