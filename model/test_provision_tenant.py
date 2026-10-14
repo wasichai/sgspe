@@ -1,5 +1,5 @@
 """Pruebas de provision_tenant.py contra un FakeCore (security.md §4.1, ASM-109): el alta del tenant con las credenciales del
-operador, los cinco pasos en orden con las del administrador nuevo, las contraseñas fuera de la salida y un paso que falla.
+operador, los seis pasos en orden con las del administrador nuevo, las contraseñas fuera de la salida y un paso que falla.
 
 Correr: cd model && python3 -m unittest -v test_provision_tenant
 """
@@ -30,7 +30,7 @@ class ProvisionTenantTests(unittest.TestCase):
         return (name, run)
 
     def steps(self, failing=None):
-        names = ("apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "publish_layers.py")
+        names = ("apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "load_indicators.py", "publish_layers.py")
         return tuple(self.step(n, 1 if n == failing else 0) for n in names)
 
     def run_cli(self, steps, env=None, core=None, extra=()):
@@ -42,7 +42,7 @@ class ProvisionTenantTests(unittest.TestCase):
             code = provision_tenant.main(args, steps=steps, ask=lambda prompt: "")
         return code, out.getvalue(), err.getvalue()
 
-    def test_crea_el_tenant_como_el_operador_y_corre_los_cinco_pasos_como_su_administrador(self):
+    def test_crea_el_tenant_como_el_operador_y_corre_los_seis_pasos_como_su_administrador(self):
         code, out, err = self.run_cli(self.steps())
         self.assertEqual(code, 0, err)
         login = [b for m, p, _, b in self.core.requests if p == "/api/auth/login"]
@@ -50,7 +50,7 @@ class ProvisionTenantTests(unittest.TestCase):
         self.assertEqual(self.core.organizations, [{
             "name": "Cliente Ejemplo", "slug": "cliente-ejemplo", "adminEmail": "admin-cliente-ejemplo@sgspe.test",
             "adminPassword": ADMIN_SECRET, "adminDisplayName": "Administración del tenant"}])
-        self.assertEqual([n for n, _ in self.calls], ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "publish_layers.py"])
+        self.assertEqual([n for n, _ in self.calls], ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "load_indicators.py", "publish_layers.py"])
         for _, argv in self.calls:
             self.assertEqual(argv[argv.index("--email") + 1], "admin-cliente-ejemplo@sgspe.test")
             self.assertEqual(argv[argv.index("--password") + 1], ADMIN_SECRET)
@@ -60,10 +60,10 @@ class ProvisionTenantTests(unittest.TestCase):
         # §3.3 de la especificación de F6: un despliegue sin GeoServer aprovisiona igual, sin el último paso
         code, _, err = self.run_cli(self.steps(), extra=("--skip-layers",))
         self.assertEqual(code, 0, err)
-        self.assertEqual([n for n, _ in self.calls], ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py"])
+        self.assertEqual([n for n, _ in self.calls], ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "load_indicators.py"])
 
     def test_los_pasos_reales_terminan_con_la_publicacion_de_las_capas(self):
-        names = ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "publish_layers.py"]
+        names = ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "load_indicators.py", "publish_layers.py"]
         self.assertEqual([n for n, _ in tenant_steps.STEPS], names)
         self.assertEqual(tenant_steps.LAYERS, "publish_layers.py")
         self.assertEqual([n for n, _ in tenant_steps.selected(tenant_steps.STEPS, True)], names[:-1])
