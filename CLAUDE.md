@@ -9,10 +9,9 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
   `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning` y, desde F7, `ai`.
-- `model/`: `model.json` (86 objetos: los 84 de F2 a F7 e `indicator` e `indicator_measurement`, que adelanta el plan
-  8.2a), `roles.json`, `workflows/` (los 18 de F2 a
-  F7: WF-A, WF-B, WF-C, WF-L, WF-O, WF-D, WF-I, WF-K (de candidatos y, desde F7, de sugerencias de IA), WF-N, WF-E1,
-  WF-E2, WF-E3, WF-F, WF-J, WF-M, WF-G y WF-P), `document-types/`, `automations/` y los
+- `model/`: `model.json` (los 90 objetos de F2 a F8), `roles.json`, `workflows/` (los 19 de F2 a
+  F8: WF-A, WF-B, WF-C, WF-L, WF-O, WF-D, WF-I, WF-K (de candidatos y, desde F7, de sugerencias de IA), WF-N, WF-E1,
+  WF-E2, WF-E3, WF-F, WF-J, WF-M, WF-G, WF-P y WF-H), `document-types/`, `automations/` y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `indicators.json`, `load_indicators.py`,
   `load_ubigeo.py` y `design_docs.py`, que lee
   los documentos para las pruebas del modelo.
@@ -122,6 +121,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Modelo guionado de las pruebas de IA (`RecordingLlm`, sobre `ScriptedLlmOperations` de Embabel), dobles del puerto (`FakeModel`, `MockModel`, `FailingModel`), `RecordedInteractions` y `TestCallers` | `src/test/kotlin/sgspe/ai/` |
 | Base de las pruebas de integración del plan 8.2a (catálogo cargado, proyecto activo, cierre, mes pasado y meses propios con uniqueMonth) | `src/test/kotlin/sgspe/F8IndicatorsApiTest.kt` |
 | Base de las pruebas de F7 (interacciones, sugerencias y candidatos de IA como la plataforma, listos para 7.2a a 7.2c; desde 7.2a, `asUser` para llamar a un servicio como la persona) | `src/test/kotlin/sgspe/F7ApiTest.kt` |
+| Base de las pruebas de F8 (entregables, secciones, versiones y plantillas como sus endpoints, con `FileService.stage` como la persona; `approvedDeliverable` y `reportScenario`, el escenario de T2 y T1 para 8.2b y 8.2c) | `src/test/kotlin/sgspe/F8ApiTest.kt` |
 | Desde F8: indicadores (`model/indicators.json`, `model/load_indicators.py`), cierre de periodo (`IndicatorMeasurements`, `IndicatorWriteGuard`, `Closability`), `KpiReader` y `KpiReaders`, `DashboardsProperties`, KPI-EXE y los tableros `executive`, `project` y `monitoring` (`ExecutiveKpis`, `Dashboards`, `MonitoringTable`) | `model/`, `src/main/kotlin/sgspe/dashboard/` |
 | Desde F8: el modelo del informe (`ReportModel`, `CanonicalJson`) y su divulgación por nivel (`ReportDisclosure`) | `src/main/kotlin/sgspe/privacy/` |
 | Desde F8: entregables: tipos (`FieldReportType`, `SocialDiagnosisType`), JOB-05 (`DeliverableGenerationJob`), DOCX (`DocxWriter`), PDF (`PdfConverter`, `GotenbergConverter`; Gotenberg en 8096, solo loopback), mapas de informe (`ReportMaps`, `GetMapRequest`, `MapComposer`), plantillas (`TemplateValidator`, `DeliverableTemplates`), archivos y descargas (`DeliverableFiles`, `DeliverableContent`), emisión (`DeliverableIssue`), `DeliverableWriteGuard` y secciones (`DeliverableSections`) | `src/main/kotlin/sgspe/deliverable/` |
