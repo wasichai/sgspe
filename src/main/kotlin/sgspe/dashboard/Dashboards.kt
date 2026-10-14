@@ -130,18 +130,20 @@ class Dashboards(
     }
 
     // un KPI sobre proyectos y periodo dados, sin otros filtros (el cierre de periodo, el ensamblado de 8.2b): sin `projects`,
-    // los proyectos por defecto del lector (todos, para la plataforma y para quien lee todos los proyectos)
+    // los proyectos por defecto del lector (todos, para la plataforma y para quien lee todos los proyectos); con
+    // `excludeConfidential`, sin las QCS confidenciales, como el cierre (decisión 25, R4)
     suspend fun value(
         code: String,
         projects: List<UUID>?,
         start: LocalDate,
         end: LocalDate,
-        reader: KpiReader
+        reader: KpiReader,
+        excludeConfidential: Boolean = false
     ): IndicatorValue {
         val kpi = Kpis.BY_CODE[code] ?: throw notFound("INDICATOR_NOT_FOUND", "El indicador $code no existe o no está disponible en esta fase", "code")
         return readers.reading(reader) { ctx ->
             val filters = DashboardFilters.of(projects ?: ctx.defaultProjects(), start, end)
-            mark(KpiEvaluation.evaluate(kpi, data(ctx, filters, today())), ctx.confidentialHidden)
+            mark(KpiEvaluation.evaluate(kpi, data(ctx, filters, today(), excludeConfidential)), ctx.confidentialHidden)
         }
     }
 
@@ -186,7 +188,8 @@ class Dashboards(
     private suspend fun data(
         ctx: KpiContext,
         filters: DashboardFilters,
-        today: LocalDate
+        today: LocalDate,
+        excludeConfidential: Boolean = false
     ): DashboardData =
         DashboardData(
             records,
@@ -195,7 +198,8 @@ class Dashboards(
             today,
             componentLand = componentLand,
             platform = ctx.platform,
-            hasCatalog = tenantModel.has(ctx.reader.organizationId, INDICATOR)
+            hasCatalog = tenantModel.has(ctx.reader.organizationId, INDICATOR),
+            excludeConfidential = excludeConfidential
         )
 
     // la marca en un indicador que lee QCS, solo si es cierta (los demás no la llevan)
