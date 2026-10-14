@@ -63,6 +63,10 @@ class Dashboards(
         if (name == Kpis.TERRITORY && params["project"].isNullOrEmpty()) {
             throw Finding("PROJECT_REQUIRED", "El tablero territorial exige al menos un project", "project", status = HttpStatus.BAD_REQUEST).toCodedException()
         }
+        // el tablero de un proyecto (dashboards.md §5.2): exactamente un project pedido, nunca «mis proyectos»
+        if (name == Kpis.PROJECT && params["project"].orEmpty().size != 1) {
+            throw Finding("PROJECT_REQUIRED", "El tablero de proyecto exige un solo project", "project", status = HttpStatus.BAD_REQUEST).toCodedException()
+        }
         return readers.reading(reader ?: readers.person()) { ctx ->
             val today = today()
             val filters = filters(params, DashboardFilters.COMMON + Kpis.extraFilters(codes), today, ctx)

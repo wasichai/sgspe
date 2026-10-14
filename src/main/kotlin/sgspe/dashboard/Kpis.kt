@@ -122,7 +122,28 @@ object Kpis {
             // community (es la ficha)
             TERRITORY to listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04"),
             // F8, dashboards.md §5.1: las tiles, la inversión por moneda y la tendencia
-            EXECUTIVE to ExecutiveKpis.TILES
+            EXECUTIVE to ExecutiveKpis.TILES,
+            // F8, dashboards.md §5.2: paisaje de grupos de interés, relacionamiento, compromisos, QCS, riesgos y programas
+            PROJECT to
+                listOf(
+                    "KPI-STK-01",
+                    "KPI-STK-02",
+                    "KPI-STK-03",
+                    "KPI-ENG-01",
+                    "KPI-ENG-02",
+                    "KPI-COM-02",
+                    "KPI-COM-03",
+                    "KPI-COM-04",
+                    "KPI-COM-06",
+                    "KPI-GRV-01",
+                    "KPI-GRV-02",
+                    "KPI-GRV-06",
+                    "KPI-RSK-01",
+                    "KPI-RSK-02",
+                    "KPI-INV-02",
+                    "KPI-INV-03",
+                    "KPI-INV-04"
+                )
         )
 
     // F6: KPI-TER-02 a 04 se filtran solo por proyecto (dashboards.md §4.8); los demás filtros comunes, el periodo incluido
