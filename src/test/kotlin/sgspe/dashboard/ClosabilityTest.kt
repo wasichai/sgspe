@@ -33,12 +33,29 @@ class ClosabilityTest {
         )
     }
 
-    // decisión 27 (R7): la foto de hoy solo vale para el periodo vigente, el último que terminó
+    // decisión 27 (R7): la foto de hoy solo vale para el periodo vigente: un mes calendario entero, el pasado o el actual
     @Test
     fun `un KPI sin periodo solo se cierra para el periodo vigente`() {
+        fun before(
+            start: String,
+            end: String,
+            on: LocalDate = today
+        ) = Closability.before("KPI-COM-02", ClosingPeriod(null, LocalDate.parse(start), LocalDate.parse(end)), on)
         assertNull(Closability.before("KPI-COM-02", september, today))
         assertEquals(Closability.NOT_PERIOD_BOUND, Closability.before("KPI-COM-02", july, today))
-        assertNull(Closability.before("KPI-COM-02", ClosingPeriod(null, LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-12")), today))
+        assertEquals(Closability.NOT_PERIOD_BOUND, before("2026-08-01", "2026-08-31"))
+        // el mes actual entero es vigente (que no haya terminado lo dice PERIOD_NOT_ENDED); una parte de él, no
+        assertNull(before("2026-10-01", "2026-10-31"))
+        assertEquals(Closability.NOT_PERIOD_BOUND, before("2026-10-01", "2026-10-12"))
+        // el cambio de año: el 10 de enero, diciembre es el mes pasado
+        assertNull(before("2025-12-01", "2025-12-31", LocalDate.parse("2026-01-10")))
+        assertEquals(Closability.NOT_PERIOD_BOUND, before("2025-11-01", "2025-11-30", LocalDate.parse("2026-01-10")))
+        // un tramo de 21 meses que termina en el mes pasado, un inicio a mitad de mes, un fin antes del último día
+        assertEquals(Closability.NOT_PERIOD_BOUND, before("2025-01-01", "2026-09-30"))
+        assertEquals(Closability.NOT_PERIOD_BOUND, before("2026-09-15", "2026-09-30"))
+        assertEquals(Closability.NOT_PERIOD_BOUND, before("2026-09-01", "2026-09-29"))
+        // un KPI del periodo se cierra para cualquier periodo terminado
+        assertNull(Closability.before("KPI-COM-08", ClosingPeriod(null, LocalDate.parse("2025-01-01"), LocalDate.parse("2026-09-30")), today))
         // los que declaran el periodo como ignorado son de esta lista; los de periodo, no
         assertTrue(Kpis.ALL.filter { "periodStart" in it.ignores }.all { it.code in Closability.PERIODLESS || it.code in Closability.NO_SCALAR })
         for (code in listOf("KPI-ENG-01", "KPI-COM-05", "KPI-COM-08", "KPI-GRV-01", "KPI-STK-08")) assertFalse(code in Closability.PERIODLESS, code)
@@ -66,12 +83,19 @@ class ClosabilityTest {
                     listOf(
                         Breakdown(
                             "workflow_state",
-                            listOf(mapOf("key" to "draft", "value" to 2), mapOf("key" to "a|b\nc", "label" to "Etiqueta", "value" to 1))
+                            listOf(
+                                mapOf("key" to "draft", "value" to 2),
+                                mapOf("key" to "a|b\nc", "label" to "Etiqueta", "value" to 1),
+                                mapOf("key" to "x", "label" to "C:\\ruta|a\r\nb\rc", "value" to 4)
+                            )
                         ),
                         Breakdown("otro", listOf(mapOf("key" to "z", "value" to 9)))
                     )
             )
-        assertEquals("| workflow_state | Valor |\n|---|---|\n| draft | 2 |\n| Etiqueta | 1 |", Closability.breakdown(value))
+        assertEquals(
+            "| workflow_state | Valor |\n|---|---|\n| draft | 2 |\n| Etiqueta | 1 |\n| C:\\\\ruta\\|a b c | 4 |",
+            Closability.breakdown(value)
+        )
         assertNull(Closability.breakdown(IndicatorValue("KPI-COM-02", "x", true, 3)))
     }
 
@@ -102,6 +126,9 @@ class ClosabilityTest {
             assertNull(Closability.breakdown(value), by)
         }
         assertEquals(setOf("stakeholder", "engagement", "overdue", "owner", "risk"), Closability.RECORD_LEVEL)
+        // la lista es de permitidos: un desglose que no está en AGGREGATE tampoco se congela
+        val unknown = IndicatorValue("KPI-COM-01", "x", true, 1, breakdowns = listOf(Breakdown("nuevo", listOf(mapOf("key" to "a", "value" to 1)))))
+        assertNull(Closability.breakdown(unknown))
     }
 
     @Test

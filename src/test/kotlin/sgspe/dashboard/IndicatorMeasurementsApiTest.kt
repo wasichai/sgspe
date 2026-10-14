@@ -84,6 +84,12 @@ class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
         assertEquals(HttpStatus.BAD_REQUEST, response.status, response.body)
         assertEquals("PERIOD_NOT_ENDED", code(response))
         assertEquals(listOf("attributes.period_end_date"), problemFields(response.body))
+        // antes que cualquier razón por el código: un KPI de postura con el mes en curso también es PERIOD_NOT_ENDED, y un
+        // periodo que termina hoy en Lima no terminó
+        val stance = closePeriod(indicatorId("KPI-STK-02"), activeProject(), month.atDay(1), month.atEndOfMonth())
+        assertEquals("PERIOD_NOT_ENDED", code(stance), stance.body)
+        val today = LocalDate.now(LIMA)
+        assertEquals("PERIOD_NOT_ENDED", code(closePeriod(indicatorId("KPI-COM-08"), activeProject(), today.minusDays(3), today)))
     }
 
     // Review Focus 4
