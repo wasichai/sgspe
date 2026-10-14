@@ -805,7 +805,7 @@ Criterios con que se armó:
 
 | Objeto | PAD | PMG | SMG | CRO | SHM | CMM | GVM | SRM | SIM | GAN | FAG | APR | ANL | RDO |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `indicator` | — | R | RU | R | R | R | R | R | R | R | — | R | R | R |
+| `indicator` | R | R | RU | R | R | R | R | R | R | R | R | R | R | R |
 | `indicator_measurement` | — | R | CR | R | R | R | R | R | R | R | — | R | R | R |
 | `deliverable` | — | R `EXPORT` | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | R | R | R | R | — | R | R `EXPORT` | R |
 | `deliverable_section` | — | R | CRUD | CRU | CRU | R | R | R | R | R | — | R | CRU | R |

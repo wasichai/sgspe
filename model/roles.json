@@ -24,6 +24,7 @@
         "organization": ["READ"],
         "evidence": ["READ", "CREATE", "UPDATE", "EDIT_ANY"],
         "task": ["READ", "UPDATE"],
+        "indicator": ["READ"],
         "topic": ["READ", "u"]
       }
     },
@@ -889,6 +890,7 @@
         "stakeholder_request": ["READ"],
         "evidence": ["READ", "CREATE", "UPDATE"],
         "task": ["READ", "CREATE", "UPDATE"],
+        "indicator": ["READ"],
         "study": ["READ"],
         "study_instrument": ["READ"],
         "locality_profile": ["READ"],
