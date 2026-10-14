@@ -142,7 +142,8 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
   la aplicación, así que un dato inválido no entra por otro camino [WAS-DOC domain/metadata-model.md].
 - No existen CURRENCY, FORMULA, ROLLUP ni JSON: los montos son DECIMAL más `currency` y los cálculos son campos
   derivados (§3.6) [WAS-DOC domain/metadata-model.md]. `FILE` e `IMAGE` llegan con wasichai-files en F3 (UPS-07
-  resuelta, WAS-ADR-0061): el único campo `FILE` del modelo es `evidence.file` (ASM-013, ADR-0014).
+  resuelta, WAS-ADR-0061): hasta F7, el único campo `FILE` del modelo es `evidence.file` (ASM-013, ADR-0014);
+  desde F8, también los archivos de los entregables y las plantillas (ASM-133).
 - El nombre y el tipo de un campo, y el nombre de un objeto, no cambian: wasichai los rechaza con 400. Cambiar un tipo es un
   campo nuevo más una migración de datos (§24) [WAS-ADR-0017].
 
@@ -659,6 +660,7 @@ decir, de §6 del modelo de dominio.
 | `deliverable` | BC-15 | no | no | sí | WF-H | F8 |
 | `deliverable_section` | BC-15 | no | no | no | — | F8 |
 | `deliverable_version` | BC-15 | sí | sí | no | — | F8 |
+| `deliverable_template` | BC-15 | sí | sí | no | — | F8 |
 | `export_log` | BC-15 | sí | sí | no | — | F2 |
 | `ai_suggestion` | BC-18 | no | sí | no | WF-K | F7 |
 | `ai_interaction` | BC-18 | sí | sí | no | — | F7 |
@@ -3497,6 +3499,9 @@ erDiagram
     export_log }o..o| project : "project"
     export_log }o..o| deliverable : "deliverable"
     export_log }o..o| deliverable_version : "deliverable_version"
+    deliverable_template {
+        string template_key
+    }
 ```
 
 ### `indicator`
@@ -3564,22 +3569,30 @@ todo el tenant (ASM-042). Tabla física `app_data.indicator_measurement__<org8>`
 
 **Entregable** (BC-15). Informe de varias secciones (diagnóstico social, informe de campo) que se genera en DOCX y PDF,
 se revisa, se aprueba y se emite. Tabla física `app_data.deliverable__<org8>`. Requisitos: RF-REP-001, RF-REP-002,
-RQ-REP-002, RQ-REP-003, RQ-REP-013, RQ-REP-015, RQ-REP-016, RQ-REP-021, ASM-027, ASM-061.
+RQ-REP-002, RQ-REP-003, RQ-REP-013, RQ-REP-015, RQ-REP-016, RQ-REP-021, ASM-027, ASM-061, ASM-133.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `document_code` | TEXT | sí | sí | Código del documento (ASM-027). | RQ-REP-016 |
 | `title` | TEXT | sí | — | Título. | RQ-REP-003 |
-| `deliverable_type` | ENUM `deliverable_type` | sí | — | Tipo de entregable; cada tipo es una clase de `sgspe.deliverable`. | RQ-REP-002 |
+| `deliverable_type` | ENUM `deliverable_type` | sí | — | Tipo de entregable; cada tipo es una clase de `sgspe.deliverable` y no cambia después del alta. | RQ-REP-002 |
 | `period_start_date` | DATE | no | — | Inicio del periodo del informe. | RQ-REP-013 |
 | `period_end_date` | DATE | no | — | Fin del periodo del informe. | RQ-REP-013 |
 | `cutoff_date` | DATE | no | — | Fecha de corte de los datos. | RQ-REP-013 |
-| `template_key` | TEXT | no | — | Plantilla Word de la organización. | RQ-REP-019 |
+| `template_key` | TEXT | no | — | Clave de la plantilla Word de la organización; el borrador toma la más reciente de esa clave (ASM-135). | RQ-REP-019 |
 | `generation_requested_at` | DATETIME | no | — | (derivado) Momento del último pedido de borrador. | RQ-REP-021 |
 | `draft_generation_status` | ENUM `draft_generation_status` | no | — | (derivado) Estado de generación del último borrador. | RQ-REP-021 |
 | `draft_generated_at` | DATETIME | no | — | (derivado) Instante en que se congeló el modelo del último borrador. | ASM-061 |
 | `draft_model_sha256` | TEXT | no | — | (derivado) SHA-256 del modelo congelado del último borrador. | ASM-061 |
-| `draft_storage_key` | TEXT | no | — | (derivado) Clave del último borrador en el almacenamiento. | ASM-061 |
+| `draft_revision` | TEXT | no | — | (derivado) Letra de revisión del último borrador. | ASM-133 |
+| `draft_warnings` | LONG_TEXT | no | — | (derivado) Códigos de aviso del último borrador, sin datos personales. | ASM-133 |
+| `draft_model` | FILE | no | — | (derivado) Modelo congelado del último borrador, en JSON canónico; nunca se sirve. | ASM-133 |
+| `draft_internal_docx` | FILE | no | — | (derivado) DOCX INTERNO del último borrador, con la marca BORRADOR. | ASM-133 |
+| `draft_internal_pdf` | FILE | no | — | (derivado) PDF INTERNO del último borrador, con la marca BORRADOR. | ASM-133 |
+| `draft_external_pdf` | FILE | no | — | (derivado) PDF EXTERNO del último borrador, con la marca BORRADOR. | ASM-133 |
+| `draft_candidate_internal_docx` | FILE | no | — | (derivado) DOCX INTERNO sin marca que se copia al emitir; nunca se sirve. | ASM-133 |
+| `draft_candidate_internal_pdf` | FILE | no | — | (derivado) PDF INTERNO sin marca que se copia al emitir; nunca se sirve. | ASM-133 |
+| `draft_candidate_external_pdf` | FILE | no | — | (derivado) PDF EXTERNO sin marca que se copia al emitir; nunca se sirve. | ASM-133 |
 | `current_revision` | TEXT | no | — | (derivado) Revisión de la última versión emitida. | RQ-REP-026 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
@@ -3597,10 +3610,25 @@ RQ-REP-002, RQ-REP-003, RQ-REP-013, RQ-REP-015, RQ-REP-016, RQ-REP-021, ASM-027,
 - **Únicos:** `unique` en `document_code`.
 - **Índices declarados:** ninguno.
 - **Acciones declaradas:** `APPROVE`, `GENERATE`, `ISSUE`, `EXPORT`, `DOWNLOAD_RESTRICTED`.
+- **Tipos de archivo:** `draft_model` admite `text/plain`; `draft_internal_docx` y `draft_candidate_internal_docx`
+  admiten `application/vnd.openxmlformats-officedocument.wordprocessingml.document`; `draft_internal_pdf`,
+  `draft_external_pdf`, `draft_candidate_internal_pdf` y `draft_candidate_external_pdf` admiten `application/pdf`.
+  wasichai-files detecta el tipo por los bytes y el tipo declarado: el modelo congelado se sube declarado como
+  `text/plain` (el JSON canónico es UTF-8, y un `application/json` declarado se detectaría como
+  `application/octet-stream`) y un DOCX, declarado como DOCX (ASM-133).
+- **Tope de archivo:** `draft_model`, `draft_internal_docx`, `draft_internal_pdf`, `draft_external_pdf`,
+  `draft_candidate_internal_docx`, `draft_candidate_internal_pdf` y `draft_candidate_external_pdf`: 67108864 bytes
+  (64 MB, el techo `wasichai.files.max-bytes`; ASM-138).
 - **Workflow:** WF-H.
 - **Fase:** F8 · Release 3 (Fase 3 de producto).
-- Los `draft_*` los escribe solo el trabajador de generación, como la plataforma; el endpoint de borradores solo escribe
-  `generation_requested_at` (ASM-061).
+- Los `draft_*` los escribe solo el trabajador de generación (JOB-05), como la plataforma, en una sola escritura por
+  borrador; el endpoint de borradores solo escribe `generation_requested_at` (ASM-061, ASM-133). Un borrador nuevo
+  reemplaza los siete archivos y `StoredFileCleanup` borra los bytes reemplazados: solo se conserva el último.
+- SGSPE atiende las rutas nativas de archivos de este objeto: los borradores con marca, con las comprobaciones y el
+  `export_log` de `GET /api/sgspe/deliverables/{id}/draft/content`; las candidatas y `draft_model`, `404`; la subida y el
+  reemplazo, `403 FILE_WRITE_NOT_ALLOWED` (ASM-133).
+- `area_of_influence`, `study` y `current_version` son del proyecto del entregable: `ProjectLinkGuard` responde `409
+  PROJECT_MISMATCH` sobre el campo, también a quien lee todos los proyectos (`api.md` §3.3).
 - El ciclo `current_version` → `deliverable_version` → `deliverable` es intencional. Como `deliverable_version` y
   `export_log` son `appendOnly`, no se puede borrar un entregable con versiones emitidas ni uno con un borrador
   descargado, cuyo registro de `export_log` lo apunta por `deliverable` (§2.6) [WAS-ADR-0040].
@@ -3634,9 +3662,9 @@ física `app_data.deliverable_section__<org8>`. Requisitos: RQ-REP-011, RQ-REP-0
 
 ### `deliverable_version`
 
-**Versión de entregable** (BC-15). Emisión inmutable de un entregable con los hashes del DOCX, del PDF y del modelo
-congelado, y su nivel de divulgación. Tabla física `app_data.deliverable_version__<org8>`. Requisitos: RQ-REP-001,
-RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012.
+**Versión de entregable** (BC-15). Emisión inmutable de un entregable con sus archivos, los hashes del DOCX, del PDF y
+del modelo congelado, y su nivel de divulgación. Tabla física `app_data.deliverable_version__<org8>`. Requisitos:
+RQ-REP-001, RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012, ASM-133.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
@@ -3646,13 +3674,13 @@ RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012.
 | `issued_by_user_id` | UUID | sí | — | Usuario que emitió (ASM-023). | RQ-REP-026 |
 | `issued_by_user_email` | EMAIL | sí | — | Correo de quien emitió. | RQ-REP-026 |
 | `disclosure_level` | ENUM `disclosure_level` | sí | — | Nivel de divulgación aplicado al modelo. | RQ-REP-014 |
-| `pdf_storage_key` | TEXT | sí | — | Clave del PDF. | RQ-REP-017 |
-| `model_storage_key` | TEXT | sí | — | Clave del modelo congelado. | RQ-REP-017 |
-| `pdf_sha256` | TEXT | sí | — | SHA-256 del PDF. | RQ-REP-017 |
-| `model_sha256` | TEXT | sí | — | SHA-256 del modelo. | RQ-REP-017 |
+| `docx` | FILE | no | — | DOCX emitido; vacío fuera de INTERNO. | RQ-REP-001 |
+| `pdf` | FILE | sí | — | PDF emitido. | RQ-REP-017 |
+| `model` | FILE | no | — | Modelo congelado; vacío en una versión derivada, que toma el de su base; nunca se sirve. | RQ-REP-017 |
+| `pdf_sha256` | TEXT | sí | — | SHA-256 del PDF, igual al de su archivo. | RQ-REP-017 |
+| `model_sha256` | TEXT | sí | — | SHA-256 del modelo, igual al del archivo de la versión o de su base. | RQ-REP-017 |
 | `template_sha256` | TEXT | sí | — | SHA-256 de la plantilla usada. | RQ-REP-017 |
-| `docx_storage_key` | TEXT | no | — | Clave del DOCX; vacía en una versión derivada solo PDF (EXTERNO o PUBLICO). | RQ-REP-001 |
-| `docx_sha256` | TEXT | no | — | SHA-256 del DOCX; vacío en una versión derivada solo PDF. | RQ-REP-001 |
+| `docx_sha256` | TEXT | no | — | SHA-256 del DOCX, igual al de su archivo; vacío fuera de INTERNO. | RQ-REP-001 |
 | `ai_assisted_sections` | LONG_TEXT | no | — | Secciones que tuvieron asistencia de IA. | RQ-AI-012 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
@@ -3664,12 +3692,51 @@ RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012.
 - **Únicos:** `uniqueConstraints` (`deliverable`, `version_number`).
 - **Índices declarados:** ninguno.
 - **Acciones declaradas:** ninguna.
+- **Tipos de archivo:** `docx` admite `application/vnd.openxmlformats-officedocument.wordprocessingml.document`; `pdf`
+  admite `application/pdf`; `model` admite `text/plain`, como los del borrador que copia (ASM-133).
+- **Tope de archivo:** `docx`, `pdf` y `model`: 67108864 bytes (64 MB; ASM-138).
 - **Workflow:** ninguno.
 - **Fase:** F8 · Release 3 (Fase 3 de producto).
-- La crea `POST /api/sgspe/deliverables/{id}/issue` en la misma transacción que la transición a `issued` (RQ-REP-026).
+- La crea `POST /api/sgspe/deliverables/{id}/issue` en la misma transacción que la transición a `issued`, que va al
+  final (RQ-REP-026): quien emite sube como sí mismo una copia de cada candidata del borrador (`FileService.stage`) y crea
+  la versión con ella, porque un objeto `appendOnly` recibe sus archivos al crearse (ASM-133).
 - Una versión INTERNO emitida lleva DOCX y PDF, porque el PDF se genera desde el DOCX (ASM-014); una versión derivada
-  EXTERNO o PUBLICO puede ser solo PDF. Por eso `docx_storage_key` y `docx_sha256` no son requeridos en la metadata y
-  `DeliverableWriteGuard` los exige al crear una versión INTERNO (RQ-REP-001, RQ-REP-014).
+  EXTERNO solo lleva PDF. Por eso `docx` y `docx_sha256` no son requeridos en la metadata y `DeliverableWriteGuard` los
+  exige al crear una versión INTERNO, y compara cada `*_sha256` con el descriptor de su archivo (RQ-REP-001,
+  RQ-REP-014).
+- SGSPE atiende las rutas nativas de archivos de este objeto con las comprobaciones y el `export_log` de
+  `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content`; `model`, `404`; la subida y el reemplazo,
+  `403 FILE_WRITE_NOT_ALLOWED` (ASM-133).
+
+### `deliverable_template`
+
+**Plantilla de entregable** (BC-15). Plantilla Word (.dotx o .docx) de la organización, validada al subirla: aporta el
+aspecto de los entregables con marcadores fijos, estilos requeridos y fuentes permitidas. Tabla física
+`app_data.deliverable_template__<org8>`. Requisitos: RQ-REP-019, RQ-SEC-019, ASM-135.
+
+| Campo | Tipo | Req. | Único | Descripción | Fuente |
+|---|---|---|---|---|---|
+| `template_key` | TEXT | sí | — | Clave que nombra `deliverable.template_key`; otra plantilla con la misma clave la reemplaza para los borradores siguientes. | RQ-REP-019 |
+| `name` | TEXT | no | — | Nombre para mostrar. | RQ-REP-019 |
+| `file` | FILE | sí | — | Archivo de la plantilla; wasichai-files guarda su nombre, su tipo, su tamaño y su SHA-256, que el borrador congela. | ASM-135 |
+| `validation_warnings` | LONG_TEXT | no | — | Avisos de la validación, como una fuente que solo figura en la tabla de fuentes. | ASM-135 |
+
+Sin relaciones propias.
+
+- **Flags:** `appendOnly` sí · `apiOnly` sí · `requiresReason` no.
+- **Únicos:** ninguno.
+- **Índices declarados:** ninguno.
+- **Acciones declaradas:** ninguna.
+- **Tipos de archivo:** `file` admite `application/vnd.openxmlformats-officedocument.wordprocessingml.document`: el
+  sniffer de wasichai-files reconoce un ZIP de Office solo por el tipo declarado de un DOCX, así que el endpoint sube
+  también un .dotx declarado como DOCX después de validarlo (ASM-135).
+- **Tope de archivo:** `file`: 20971520 bytes (20 MB, el tope de una subida del navegador; ASM-138).
+- **Workflow:** ninguno.
+- **Fase:** F8 · Release 3 (Fase 3 de producto).
+- Solo la crea `POST /api/sgspe/deliverable-templates` después de `TemplateValidator`, como quien sube (ASM-135). No se
+  edita ni se borra: una plantilla vieja solo deja de elegirse. Es de todo el tenant (`ProjectScope.TENANT`), sin campos
+  restringidos; su descarga nativa queda como la de wasichai-files (READ), y la subida y el reemplazo por la ruta nativa
+  responden `403 FILE_WRITE_NOT_ALLOWED` (ASM-133).
 
 ### `export_log`
 
@@ -3682,7 +3749,7 @@ entregable (borradores y versiones, en todo nivel de divulgación): quién, qué
 | `exported_at` | DATETIME | sí | — | Momento de la salida. | RQ-AUD-011 |
 | `exporter_user_id` | UUID | sí | — | Usuario que exporta, emite o descarga (ASM-023). | RQ-AUD-011 |
 | `exporter_user_email` | EMAIL | sí | — | Correo de ese usuario. | RQ-AUD-011 |
-| `export_kind` | TEXT | sí | — | Tipo de salida: exportación, emisión o descarga. | RQ-AUD-011 |
+| `export_kind` | TEXT | sí | — | Tipo de salida: EXPORTACION, EMISION o DESCARGA. | RQ-AUD-011 |
 | `object_name` | TEXT | no | — | Objeto exportado o descargado. | RQ-REP-022 |
 | `file_format` | TEXT | sí | — | Formato del archivo. | RQ-REP-022 |
 | `disclosure_level` | ENUM `disclosure_level` | sí | — | Nivel de divulgación aplicado. | RQ-REP-014 |

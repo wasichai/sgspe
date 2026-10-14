@@ -1535,7 +1535,7 @@ SGSPE, se entregan en papel y, firmados, se suben como evidencia FORMULARIO o CA
 | Cargo de queja | `grievance-receipt` | `CQ` | `grievance` | F4, tras UPS-23 | Código, fecha y hora de recepción, canal, categoría y plazo de acuse; espacios para el nombre y la firma de quien plantea y de quien recibe |
 | Carta de respuesta | `inquiry-answer-letter` | `CC` | `inquiry` | F4, tras UPS-23 | Código, fecha de recepción, respuesta y fecha de respuesta; espacio para el nombre y la firma de quien recibe |
 | Carta de respuesta | `request-answer-letter` | `CS` | `stakeholder_request` | F4, tras UPS-23 | Código, fecha de recepción, recurso pedido, respuesta y fecha de respuesta; espacio para el nombre y la firma de quien recibe |
-| Constancia de emisión | `deliverable-issue-certificate` | `CE` | `deliverable` | F8 | Código, título, tipo, revisión, fecha de emisión, quién emitió y los SHA-256 de las versiones INTERNO y EXTERNO; `deliverable` y `deliverable_version` no tienen campos restringidos, así que cumple la regla de UPS-23 |
+| Constancia de emisión | `deliverable-issue-certificate` | `CE` | `deliverable` | F8 | Código, título, tipo y revisión vigente, y la tabla de todas las versiones del entregable (`relatedTable` de `deliverable_version_deliverable`: wasichai-documents imprime todas sus columnas), cada una con su revisión, nivel, momento, correo de quien emitió y sus SHA-256; desde la segunda revisión lista también las anteriores; `deliverable` y `deliverable_version` no tienen campos restringidos, así que cumple la regla de UPS-23 |
 
 `model/automations/<objeto>.json` es una lista con las automatizaciones del objeto, cada una en el formato de wasichai.
 Ejemplo: AUT-01 (`POST /api/objects/commitment/automations`).
