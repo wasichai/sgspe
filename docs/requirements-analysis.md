@@ -1514,7 +1514,7 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `RQ-AI` | 13 |
 | `CON` | 60 |
 | `GAP` | 33 |
-| `UPS` | 31 |
+| `UPS` | 32 |
 | `ASM` | 138 |
 | Total | 560 |
 
