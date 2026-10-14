@@ -627,12 +627,16 @@ class IndicatorModelTests(unittest.TestCase):
                              ("indicator_measurement", field, target, required), name)
 
     def test_solo_social_manager_edita_el_catalogo_y_cierra_periodos(self):
-        # security.md §7.8: READ para todos menos PROJECT_ADMIN y FIELD_AGENT; ADMIN, además, por ser ADMIN
+        # security.md §7.8: el catálogo, maestro sin datos sensibles, lo leen todos (también PROJECT_ADMIN y FIELD_AGENT, para
+        # la meta de KPI-ENG-02, R1); las mediciones, todos menos PROJECT_ADMIN y FIELD_AGENT; ADMIN, además, por ser ADMIN
         editors = {r["name"] for r in self.roles["roles"] if "UPDATE" in r["permisos"].get("indicator", [])}
         closers = {r["name"] for r in self.roles["roles"] if "CREATE" in r["permisos"].get("indicator_measurement", [])}
         self.assertEqual((editors, closers), ({"SOCIAL_MANAGER"}, {"SOCIAL_MANAGER"}))
         blind = {r["name"] for r in self.roles["roles"] if "indicator" not in r["permisos"] and "*" not in r["permisos"]}
-        self.assertEqual(blind, {"PROJECT_ADMIN", "FIELD_AGENT"})
+        self.assertEqual(blind, set())
+        unmeasured = {r["name"] for r in self.roles["roles"]
+                      if "indicator_measurement" not in r["permisos"] and "*" not in r["permisos"]}
+        self.assertEqual(unmeasured, {"PROJECT_ADMIN", "FIELD_AGENT"})
 
     def test_ningun_campo_restringido(self):
         # indicator_measurement la leen roles sin acceso a la postura: por eso el cierre no congela KPI-STK-02, 05 ni 06

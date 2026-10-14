@@ -1211,8 +1211,8 @@ leen, y un `program` que apunta a uno de ellos da conjuntos vacíos, no un error
     `sgspe.dashboards.executive.max-projects` (25) proyectos, y más es `400 TOO_MANY_RECORDS` (`project`);
   - `project`: exige un solo `project` (`400 PROJECT_REQUIRED`); el mapa lo arma el portal con las capas de F6;
   - `monitoring` (`MonitoringTable`): las 13 filas de `dashboards.md` §4.9 en su orden, cada una con `value`,
-    `target`, `targetSource` (`PROJECT`, `CATALOG` o `NONE`), `verificationMeans`, los desgloses que pide la Tabla 9.5
-    (sexo, ámbito e institución) y `official` (`{ measurement, closedAt, value }` o `null`). La cifra oficial sale
+    `target`, `targetSource` (`PROJECT`, `CATALOG`, `DEFAULT` o `NONE`), `verificationMeans`, los desgloses que pide
+    la Tabla 9.5 (sexo, ámbito e institución) y `official` (`{ measurement, closedAt, value }` o `null`). La cifra oficial sale
     solo cuando el pedido coincide con la medición (mismo proyecto o todo el tenant, mismo periodo, sin filtros de
     territorio), y #2 y #3 dicen «no disponible» a quien no lee `stance`, también con cifra oficial. Un tenant sin el
     modelo de F8 (`TenantModel` sin `indicator`) responde sin metas ni cifras oficiales.

@@ -67,6 +67,14 @@ class MonitoringTableTest {
         assertEquals(6 to MonitoringTable.CATALOG, MonitoringTable.target(meetings, withTarget, two, projectDefined = false))
         assertEquals(null to MonitoringTable.NONE, MonitoringTable.target(meetings, withTarget, two.copy(target = null), projectDefined = false))
         assertEquals(null to MonitoringTable.NONE, MonitoringTable.target(meetings, value("KPI-ENG-02", available = false), two, projectDefined = false))
+        // el catálogo cargado sin el registro de KPI-ENG-02: el KPI usó la meta de ASM-019 y la fila la dice con su origen; sin
+        // catálogo (un tenant de F7 o quien no lo lee), ninguna
+        assertEquals(2 to MonitoringTable.DEFAULT, MonitoringTable.target(meetings, value("KPI-ENG-02", 1, denominator = 2), null, false, catalogLoaded = true))
+        assertEquals(
+            null to MonitoringTable.NONE,
+            MonitoringTable.target(meetings, value("KPI-ENG-02", 1, denominator = 2), null, false, catalogLoaded = false)
+        )
+        assertEquals(6 to MonitoringTable.PROJECT, MonitoringTable.target(meetings, withTarget, null, projectDefined = true, catalogLoaded = true))
         val other = MonitoringTable.ROWS.first()
         assertEquals(
             BigDecimal("80") to MonitoringTable.CATALOG,
@@ -152,5 +160,13 @@ class MonitoringTableTest {
         val rows = MonitoringTable.rows(meetings, edited, emptyList(), null, projectDefined = false).associateBy { it.code }
         assertEquals(2 to MonitoringTable.CATALOG, rows.getValue("KPI-ENG-02").target to rows.getValue("KPI-ENG-02").targetSource)
         assertEquals(BigDecimal("30") to "Padrón de contactos", rows.getValue("KPI-STK-04").target to rows.getValue("KPI-STK-04").verificationMeans)
+    }
+
+    @Test
+    fun `con el catalogo sin KPI-ENG-02 la fila 5 dice la meta de ASM-019`() {
+        val partial = catalog().filterKeys { it != "KPI-ENG-02" }
+        val meetings = MonitoringTable.CODES.map { if (it == "KPI-ENG-02") value(it, 1, denominator = 2) else value(it) }
+        val row = MonitoringTable.rows(meetings, partial, emptyList(), null, projectDefined = false).single { it.code == "KPI-ENG-02" }
+        assertEquals(2 to MonitoringTable.DEFAULT, row.target to row.targetSource)
     }
 }

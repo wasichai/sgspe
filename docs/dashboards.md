@@ -359,8 +359,8 @@ Reglas de la matriz interés × poder:
 ### 5.5 Monitoreo de la Tabla 9.5 (RF-DSH-008)
 
 - Una tabla con los 13 indicadores de §4.9, en su orden (`MonitoringTable`), con el valor del periodo, la meta y su
-  origen (`targetSource`: `PROJECT`, `CATALOG` o `NONE`, §10), el desglose por sexo, ámbito e institución donde la Tabla
-  9.5 lo pide y el medio de verificación.
+  origen (`targetSource`: `PROJECT`, `CATALOG`, `DEFAULT` o `NONE`, §10), el desglose por sexo, ámbito e institución
+  donde la Tabla 9.5 lo pide y el medio de verificación.
 - Cada fila abre el detalle de su KPI.
 - Si el periodo está cerrado, cada fila trae además la cifra oficial de `indicator_measurement` (`official`: medición,
   instante de cierre y valor) y la tabla lo indica (§10). La cifra oficial se muestra solo cuando el pedido coincide con
@@ -669,7 +669,8 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
   de uno existente (ASM-136). `IndicatorWriteGuard` rechaza cambiar `code` (`400 FIELD_NOT_EDITABLE`).
 - **Cálculo y documentación.** El cálculo vive en el código de `sgspe.dashboard`; el registro documenta el KPI y guarda su meta.
 - **Metas.** Cuando hay un parámetro del proyecto, manda el parámetro (p. ej. `meetings_per_month_target`, RN-ENG-003); si no, se
-  usa `target_value`; si no, «sin meta». La respuesta lo dice en `targetSource` (`PROJECT`, `CATALOG` o `NONE`). Las
+  usa `target_value`; si no, «sin meta». La respuesta lo dice en `targetSource` (`PROJECT`, `CATALOG` o `NONE`; para
+  KPI-ENG-02, `DEFAULT` si el catálogo está cargado pero le falta su registro y el KPI usó la meta de ASM-019). Las
   metas y frecuencias iniciales son las de DOC-01 (GAP-018, resuelta): KPI-ENG-02, dos reuniones al mes; las
   evaluaciones de grupos de interés, mensuales; las revisiones de riesgo, semanales; los indicadores de la Tabla 9.5,
   mensuales; los demás, sin meta. Se editan en el catálogo.

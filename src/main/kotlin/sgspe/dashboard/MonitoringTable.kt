@@ -69,7 +69,10 @@ object MonitoringTable {
     const val PROJECT = "PROJECT"
     const val CATALOG = "CATALOG"
     const val NONE = "NONE"
-    private const val MEETINGS = "KPI-ENG-02"
+
+    // #5 con el catálogo cargado pero sin el registro de KPI-ENG-02: la meta de ASM-019 (2) con la que se calculó
+    const val DEFAULT = "DEFAULT"
+    private const val MEETINGS = Kpis.MEETINGS
 
     val ROWS: List<MonitoringSpec> =
         listOf(
@@ -186,17 +189,20 @@ object MonitoringTable {
 
     // la meta de la fila y su origen (decisión 3 del plan 8.2a, R1 del coordinador). #5: el denominador de KPI-ENG-02, la
     // única fuente de la meta (que cae al target_value del catálogo cuando el proyecto no tiene la suya), con origen PROJECT
-    // si un proyecto del filtro o un plan la define, CATALOG si no y el catálogo trae meta, y NONE sin ninguna. las demás:
-    // la del catálogo tal cual, o ninguna
+    // si un proyecto del filtro o un plan la define, CATALOG si no y el catálogo trae meta, DEFAULT si el catálogo está
+    // cargado (`catalogLoaded`) pero le falta el registro de KPI-ENG-02 (el KPI usa entonces la de ASM-019), y NONE sin
+    // ninguna. las demás: la del catálogo tal cual, o ninguna
     fun target(
         spec: MonitoringSpec,
         value: IndicatorValue,
         indicator: CatalogIndicator?,
-        projectDefined: Boolean
+        projectDefined: Boolean,
+        catalogLoaded: Boolean = false
     ): Pair<Number?, String> =
         when {
             spec.code == MEETINGS && !value.available -> null to NONE
             spec.code == MEETINGS && projectDefined -> value.denominator to PROJECT
+            spec.code == MEETINGS && indicator == null && catalogLoaded -> value.denominator to DEFAULT
             indicator?.target == null -> null to NONE
             spec.code == MEETINGS -> value.denominator to CATALOG
             else -> indicator.target to CATALOG
@@ -214,7 +220,7 @@ object MonitoringTable {
         ROWS.map { spec ->
             val value = values.first { it.code == spec.code }
             val indicator = catalog[spec.code]
-            val (target, source) = target(spec, value, indicator, projectDefined)
+            val (target, source) = target(spec, value, indicator, projectDefined, catalog.isNotEmpty())
             MonitoringRow(
                 spec.number,
                 spec.code,

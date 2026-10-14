@@ -813,7 +813,8 @@ class ApplyRolesTests(ApplyRolesTestCase):
 
     def test_un_tenant_de_f7_suma_los_indicadores(self):
         # plan 8.2a: apply_roles.py da READ sobre indicator e indicator_measurement a los doce roles de security.md §7.8 (y
-        # UPDATE y CREATE a SOCIAL_MANAGER); PROJECT_ADMIN, FIELD_AGENT y AUDITOR («*» READ) no cambian
+        # UPDATE y CREATE a SOCIAL_MANAGER) y READ sobre indicator a PROJECT_ADMIN y FIELD_AGENT (la meta de KPI-ENG-02, R1);
+        # AUDITOR («*» READ) no cambia
         import apply
         import test_apply
         login = ["--core", self.core.base_url, "--email", "admin@wasichai.local", "--password", "admin"]
@@ -827,9 +828,9 @@ class ApplyRolesTests(ApplyRolesTestCase):
             self.assertEqual(test_apply.quiet(apply.main, ["--model", MODEL_PATH, *login])[0], 0)
         code, out, err = self.run_cli()
         self.assertEqual(code, 0, err)
-        self.assertIn("done: 0 created, 12 updated, 3 skipped", out)
+        self.assertIn("done: 0 created, 14 updated, 1 skipped", out)
         self.assertEqual(sorted(line.split()[2] for line in out.splitlines() if line.startswith("skip   role")),
-                         ["AUDITOR", "FIELD_AGENT", "PROJECT_ADMIN"])
+                         ["AUDITOR"])
         again = self.run_cli()
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
 

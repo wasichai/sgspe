@@ -47,10 +47,16 @@ class Dashboards(
     private val properties: DashboardsProperties,
     private val tenantModel: TenantModel
 ) {
+    // la disponibilidad de cada KPI para quien llama: en un tenant con el catálogo indicator, KPI-ENG-02 lee además la meta por
+    // defecto del catálogo (R1), igual que al calcularlo
     suspend fun catalog(): List<CatalogEntry> {
-        callers.require()
+        val user = callers.require()
         val readable = Readability(metadata)
-        return Kpis.ALL.map { CatalogEntry(it.code, it.label, it.dashboard, readable.missing(it.requires).isEmpty()) }
+        val withCatalog = tenantModel.has(user.organizationId, INDICATOR)
+        return Kpis.ALL.map {
+            val requires = if (withCatalog && it.code == Kpis.MEETINGS) it.requires + Kpis.MEETINGS_TARGET else it.requires
+            CatalogEntry(it.code, it.label, it.dashboard, readable.missing(requires).isEmpty())
+        }
     }
 
     suspend fun dashboard(
