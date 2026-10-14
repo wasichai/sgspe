@@ -121,7 +121,7 @@ class IndicatorMeasurements(
     private fun notClosable(
         reason: String,
         code: String
-    ) = IndicatorNotClosable(reason, "$code no se cierra ($reason): una cifra oficial es completa o no existe (ASM-136)")
+    ) = IndicatorNotClosable(reason, Closability.message(reason, code))
 
     companion object {
         const val INDICATOR = "indicator"

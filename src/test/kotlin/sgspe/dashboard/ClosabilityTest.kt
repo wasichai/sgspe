@@ -33,6 +33,17 @@ class ClosabilityTest {
         )
     }
 
+    @Test
+    fun `el mensaje de NOT_PERIOD_BOUND dice que vale el mes pasado`() {
+        val message = Closability.message(Closability.NOT_PERIOD_BOUND, "KPI-COM-02")
+        assertTrue(message.startsWith("KPI-COM-02 no se cierra (NOT_PERIOD_BOUND)"), message)
+        assertTrue("el pasado en Lima" in message, message)
+        assertEquals(
+            "KPI-STK-02 no se cierra (STANCE): una cifra oficial es completa o no existe (ASM-136)",
+            Closability.message(Closability.STANCE, "KPI-STK-02")
+        )
+    }
+
     // decisión 27 (R7): la foto de hoy solo vale para el periodo vigente: un mes calendario entero, el pasado o el actual
     @Test
     fun `un KPI sin periodo solo se cierra para el periodo vigente`() {

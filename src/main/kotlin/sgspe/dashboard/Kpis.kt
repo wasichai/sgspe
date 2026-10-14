@@ -67,6 +67,12 @@ object Kpis {
     fun confidentialSensitive(code: String): Boolean =
         code.startsWith("KPI-GRV-") || code == "KPI-ENG-05" || code == TerritorySummary.CODE || code == ExecutiveKpis.TREND
 
+    // R4 a prueba de fallos (decisión 25): lo que el cierre exige además legible en un KPI que lee las QCS, la marca
+    // confidential de los tres objetos; quien no la lee contaría las confidenciales como no confidenciales, así que el KPI
+    // sale no disponible y el cierre lo rechaza (UNAVAILABLE). KPI-ENG-05 no lee QCS: cuenta por referred_at de la pregunta,
+    // igual para todo lector (dashboards.md §4.3)
+    fun closingRequires(code: String): List<String> = if (confidentialSensitive(code) && code != "KPI-ENG-05") qcs(Attention.CONFIDENTIAL) else emptyList()
+
     // los KPI de F2 no aplican explorationCampaign (dashboards.md §3.1: solo compromisos e inversión social) ni owner, el
     // responsable de un compromiso que llega en F3
     val IGNORED_IN_F2: Set<String> = setOf("explorationCampaign", "owner")

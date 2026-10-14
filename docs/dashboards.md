@@ -119,8 +119,9 @@ borrador o un compromiso pendiente de aprobación no tiene plazo en curso. Adem�
 - **Absuelta:** una QCS con `responded_at` (glosario), en cualquier estado. Una queja rechazada o una consulta derivada cuentan si
   se registró la respuesta comunicada.
 - **Riesgo alto:** `risk_level` ALTO o CRITICO, según los umbrales del proyecto (ASM-004, RN-RSK-002).
-- **Parámetros del proyecto:** un parámetro vacío usa su valor por defecto, porque la plataforma no aplica `defaultValue`
-  (UPS-15, ASM-019; los valores en §6.1 del modelo de dominio):
+- **Parámetros del proyecto:** un parámetro vacío usa su valor por defecto, porque la plataforma aplica `defaultValue`
+  solo a un alta que omite el campo, no a uno limpiado ni a uno creado antes de wasichai 0.5.0 (UPS-15, ASM-019; los
+  valores en §6.1 del modelo de dominio):
   - 3 para los umbrales de interés y poder;
   - 2 reuniones al mes;
   - 7 días para "por vencer", y 7 y 15 días para el escalamiento;
@@ -698,9 +699,12 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
     restringidos y lo leen roles sin acceso a la postura, así que una cifra congelada se leería por la API genérica
     (`security.md` §7.9);
   - `NO_SCALAR_VALUE`: KPI-TER-01, que no tiene un valor propio (§4.8), KPI-EXE-03 y los que solo dan series;
-  - `UNAVAILABLE`: quien cierra no tiene el KPI disponible (§8);
+  - `UNAVAILABLE`: quien cierra no tiene el KPI disponible (§8) o, en un KPI que lee QCS (los KPI-GRV), no lee la
+    marca `confidential` de los tres objetos: contaría las confidenciales como no confidenciales. KPI-ENG-05 no depende
+    de quien lee: cuenta por `referred_at` de la pregunta, sin leer la QCS (§4.3);
   - `NOT_PERIOD_BOUND` (un KPI que no depende del periodo, la foto de hoy, solo se cierra para un mes calendario entero,
-    el pasado o el actual en Lima).
+    el pasado o el actual en Lima; en la práctica, el mes pasado, porque el actual aún no terminó y el cierre lo rechaza
+    antes con `400 PERIOD_NOT_ENDED`).
 
   Los KPI que leen QCS se congelan siempre sin las QCS confidenciales, quien sea que cierre: la cifra oficial las
   excluye y no revela cuántas son; el tablero no la muestra a quien se le ocultan QCS confidenciales. El desglose
