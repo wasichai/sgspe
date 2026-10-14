@@ -42,7 +42,8 @@ class Dashboards(
     private val catalog: ModelCatalog,
     private val clock: Clock,
     private val componentLand: ComponentLand,
-    private val readers: KpiReaders
+    private val readers: KpiReaders,
+    private val properties: DashboardsProperties
 ) {
     suspend fun catalog(): List<CatalogEntry> {
         callers.require()
@@ -65,11 +66,27 @@ class Dashboards(
         return readers.reading(reader ?: readers.person()) { ctx ->
             val today = today()
             val filters = filters(params, DashboardFilters.COMMON + Kpis.extraFilters(codes), today, ctx)
+            // la tabla por proyecto calcula una fila por proyecto: pedir más que el tope es 400; tenerlos por defecto («mis
+            // proyectos» o todos) da las tiles y omite la tabla (decisión 24)
+            val max = properties.executive.maxProjects
+            if (name == Kpis.EXECUTIVE && params["project"].orEmpty().isNotEmpty() && filters.projects.size > max) {
+                throw Records.tooMany("project", max)
+            }
+            val omitted = name == Kpis.EXECUTIVE && filters.projects.size > max
             val data = data(ctx, filters, today)
             // con locality o community, la ficha (KPI-TER-01) va primero
             val shown = if (name == Kpis.TERRITORY && (filters.locality != null || filters.community != null)) listOf(TerritorySummary.CODE) + codes else codes
             val indicators = shown.map { mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(it), data), ctx.confidentialHidden) }
-            DashboardResponse(name, filters.echo(), clock.instant().toString(), indicators, if (name == Kpis.ATTENTION) ctx.confidentialHidden else null)
+            val byProject = if (name == Kpis.EXECUTIVE && !omitted) byProject(data, ctx.confidentialHidden) else null
+            DashboardResponse(
+                name,
+                filters.echo(),
+                clock.instant().toString(),
+                indicators,
+                if (name == Kpis.ATTENTION) ctx.confidentialHidden else null,
+                byProject,
+                if (omitted) true else null
+            )
         }
     }
 
@@ -109,6 +126,28 @@ class Dashboards(
         return readers.reading(reader) { ctx ->
             val filters = DashboardFilters.of(projects ?: ctx.defaultProjects(), start, end)
             mark(KpiEvaluation.evaluate(kpi, data(ctx, filters, today())), ctx.confidentialHidden)
+        }
+    }
+
+    // dashboards.md §5.1: una fila por proyecto del filtro con las cifras de ExecutiveKpis.BY_PROJECT, calculadas con las
+    // mismas funciones y los mismos permisos sobre el filtro de ese proyecto (DashboardData.with), sin desgloses ni series
+    private suspend fun byProject(
+        data: DashboardData,
+        hidden: Boolean
+    ): List<ProjectFigures> {
+        val ids = data.filters.projects.map { it.toString() }
+        val codes = data.names("project", ids, "code")
+        val names = data.names("project", ids)
+        return data.filters.projects.map { project ->
+            val one = data.with(data.filters.copy(projects = listOf(project)))
+            ProjectFigures(
+                project.toString(),
+                codes[project.toString()],
+                names[project.toString()],
+                ExecutiveKpis.BY_PROJECT.map { code ->
+                    mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(code), one), hidden).copy(breakdowns = null, series = null)
+                }
+            )
         }
     }
 

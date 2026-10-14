@@ -120,7 +120,9 @@ object Kpis {
             INVESTMENT to listOf("KPI-INV-01", "KPI-INV-02", "KPI-INV-03", "KPI-INV-04"),
             // dashboards.md §5.9: las estadísticas del tablero territorial; KPI-TER-01 lo agrega Dashboards con locality o
             // community (es la ficha)
-            TERRITORY to listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04")
+            TERRITORY to listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04"),
+            // F8, dashboards.md §5.1: las tiles, la inversión por moneda y la tendencia
+            EXECUTIVE to ExecutiveKpis.TILES
         )
 
     // F6: KPI-TER-02 a 04 se filtran solo por proyecto (dashboards.md §4.8); los demás filtros comunes, el periodo incluido
