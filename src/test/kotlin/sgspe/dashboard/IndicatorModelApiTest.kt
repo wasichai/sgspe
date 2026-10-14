@@ -26,14 +26,18 @@ class IndicatorModelApiTest : F8IndicatorsApiTest() {
         val id = indicatorId("KPI-COM-02")
         val stored = attributesOf(record("indicator", id))
         val path = "/api/objects/indicator/records/$id"
-        assertEquals(HttpStatus.OK, exchange("PUT", path, mapOf("attributes" to stored + ("target_value" to 5)), social.token).status)
-        val renamed = exchange("PUT", path, mapOf("attributes" to stored + ("code" to "KPI-COM-99")), social.token)
-        assertEquals(HttpStatus.BAD_REQUEST, renamed.status, renamed.body)
-        assertEquals("FIELD_NOT_EDITABLE", code(renamed))
-        assertEquals("KPI-COM-02", record("indicator", id)["attributes"]["code"].asString())
-        assertEquals(HttpStatus.FORBIDDEN, exchange("PUT", path, mapOf("attributes" to stored), member("READ_ONLY").token).status)
-        // vuelve a su meta (null) para no tocar las demás pruebas de la JVM
-        send("PUT", path, mapOf("attributes" to stored), HttpStatus.OK)
+        try {
+            assertEquals(HttpStatus.OK, exchange("PUT", path, mapOf("attributes" to stored + ("target_value" to 5)), social.token).status)
+            val renamed = exchange("PUT", path, mapOf("attributes" to stored + ("code" to "KPI-COM-99")), social.token)
+            assertEquals(HttpStatus.BAD_REQUEST, renamed.status, renamed.body)
+            assertEquals("FIELD_NOT_EDITABLE", code(renamed))
+            assertEquals("KPI-COM-02", record("indicator", id)["attributes"]["code"].asString())
+            assertEquals(HttpStatus.FORBIDDEN, exchange("PUT", path, mapOf("attributes" to stored), member("READ_ONLY").token).status)
+        } finally {
+            // vuelve a su meta (null) aunque falle una aserción, para no tocar las demás pruebas de la JVM ni las corridas
+            // siguientes sobre una base persistente
+            send("PUT", path, mapOf("attributes" to stored), HttpStatus.OK)
+        }
     }
 
     @Test

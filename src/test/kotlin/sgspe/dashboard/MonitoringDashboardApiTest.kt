@@ -86,8 +86,8 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
         )) {
             assertTrue(board(query).getValue("KPI-COM-08")["official"].isNull, query)
         }
-        // la del tenant, en un mes propio (uniqueMonth): sin project, solo para quien lee todos los proyectos
-        val (oldStart, oldEnd) = uniqueMonth()
+        // la del tenant, en un día propio (uniqueDay): sin project, solo para quien lee todos los proyectos
+        val (oldStart, oldEnd) = uniqueDay()
         measurement("KPI-COM-08", null, oldStart, oldEnd, 9)
         assertEquals(9, board(period(oldStart, oldEnd)).getValue("KPI-COM-08")["official"]["value"].asInt())
         val social = member("SOCIAL_MANAGER", project)

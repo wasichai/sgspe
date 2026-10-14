@@ -103,7 +103,7 @@ class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
         assertEquals(HttpStatus.CONFLICT, again.status, again.body)
         assertEquals("MEASUREMENT_EXISTS", code(again))
         assertEquals(listOf("attributes.period_start_date"), problemFields(again.body))
-        val (oldStart, oldEnd) = uniqueMonth()
+        val (oldStart, oldEnd) = uniqueDay()
         val tenant = indicatorId("KPI-ENG-01")
         val key = uniqueName("cierre-")
         val first = closePeriod(tenant, null, oldStart, oldEnd, key = key)
@@ -121,7 +121,7 @@ class IndicatorMeasurementsApiTest : F8IndicatorsApiTest() {
     // decisión 10 (R2): todo el tenant lo cierra solo un administrador
     @Test
     fun `todo el tenant exige ser administrador y cerrar exige CREATE`() {
-        val (start, end) = uniqueMonth()
+        val (start, end) = uniqueDay()
         val project = activeProject()
         val social = member("SOCIAL_MANAGER", project)
         val tenant = closePeriod(indicatorId("KPI-ENG-01"), null, start, end, social.token)
