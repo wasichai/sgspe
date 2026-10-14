@@ -4,8 +4,8 @@ Stdlib only. What it reads, and from where:
 
 - docs/database-model.md, the cards (§6 to §21): per object its label, description, fields (type, required, unique,
   derived, restricted, default, phase), relationships (type, field, target, required, phase), flags, uniques, declared
-  indexes, declared actions (and the phase of one written "`EXPORT` (desde F6)"), the media types of a FILE field,
-  workflow and phase; §4, the key of each ENUM catalog; and, of a fixed table of the sgspe schema (knowledge_chunk, F7),
+  indexes, declared actions (and the phase of one written "`EXPORT` (desde F6)"), the media types and the byte limit of
+  each FILE field (several per card since F8), workflow and phase; §4, the key of each ENUM catalog; and, of a fixed table of the sgspe schema (knowledge_chunk, F7),
   its columns with their PostgreSQL type, its primary key, its uniques, its indexes and its full-text index;
 - docs/requirements-analysis.md §10, the options of each catalog, in order, without the "(propuesto)" notes;
 - docs/security.md §7.1 (the phase of each role), §7.2 to §7.8 (the matrix), §7.9 (the restricted fields) and §9.7 (the
@@ -31,6 +31,10 @@ SEPARATOR = re.compile(r"^\|\s*:?-{3,}")
 DATA_ROW = re.compile(r"^\| `[a-z_0-9]+` \|")
 # the "; " before the second form of a Únicos or Índices bullet, never the one between two sets of the same form
 BOTH_FORMS = re.compile(r"; (?=`(?:unique|uniqueConstraints|indexed|indexes)`)")
+# "`a` y `b` admiten `application/pdf`" in a card's "Tipos de archivo" bullet, one clause per group of FILE fields
+FILE_TYPES = re.compile(r"((?:`[a-z][a-z0-9_]*`(?:, | y )?)+) admiten? ((?:`[^`\s]+/[^`\s]+`(?:, | y )?)+)")
+# "`a`, `b` y `c`: 67108864 bytes" in a card's "Tope de archivo" bullet, one clause per group of FILE fields
+FILE_LIMIT = re.compile(r"((?:`[a-z][a-z0-9_]*`(?:, | y )?)+): (\d+) bytes")
 
 
 def read(name):
@@ -85,6 +89,7 @@ class Card:
         self.phase = None
         self.exactly_one = []  # lists of relation field names
         self.content_types = {}  # FILE field name -> the media types it takes (contentTypes)
+        self.max_bytes = {}  # FILE field name -> its maxBytes, when the card gives one (since F8)
 
 
 def _bullets(lines, start):
@@ -118,6 +123,19 @@ def _field_type(cell):
 def _sets(text):
     """[['a', 'b'], ['c', 'd']] from "(`a`, `b`); (`c`, `d`)"."""
     return [ticks(group) for group in re.findall(r"\(([^()]*)\)", text) if ticks(group)]
+
+
+def file_clauses(types, limits):
+    """({field: [media types]}, {field: maxBytes}) from the text of a card's "Tipos de archivo" and "Tope de archivo"
+    bullets. One clause per group of FILE fields: "`file` admite `application/pdf`, `image/*` y `text/csv`" or, with
+    several (deliverable, F8), "`a` y `b` admiten `application/pdf`; `c` admite `text/plain`"; and "`a`, `b` y `c`:
+    67108864 bytes". A field without a limit takes the server ceiling (wasichai.files.max-bytes)."""
+    content_types, max_bytes = {}, {}
+    for names, kinds in FILE_TYPES.findall(types):
+        content_types.update({name: ticks(kinds) for name in ticks(names)})
+    for names, limit in FILE_LIMIT.findall(limits):
+        max_bytes.update({name: int(limit) for name in ticks(names)})
+    return content_types, max_bytes
 
 
 def cards():
@@ -187,10 +205,8 @@ def cards():
                 phase = re.match(r"(F\d)", bullets.get("Fase", ""))
                 card.phase = phase.group(1) if phase else None
                 card.exactly_one = _sets(bullets.get("Exactamente uno de", ""))
-                # "`file` admite `application/pdf`, `image/*`…": the FILE field, then its media types
-                types = ticks(bullets.get("Tipos de archivo", ""))
-                if types:
-                    card.content_types = {types[0]: types[1:]}
+                card.content_types, card.max_bytes = file_clauses(bullets.get("Tipos de archivo", ""),
+                                                                  bullets.get("Tope de archivo", ""))
                 break
             j += 1
         # Fail closed: a renamed header, a dropped separator or a blank line inside a table would leave rows out.
@@ -205,6 +221,9 @@ def cards():
         if set(card.content_types) != file_fields:
             raise ValueError(f"card {card.name}: FILE fields {sorted(file_fields)}, but the 'Tipos de archivo' bullet "
                              f"names {sorted(card.content_types)}")
+        if not set(card.max_bytes) <= file_fields:
+            raise ValueError(f"card {card.name}: the 'Tope de archivo' bullet names {sorted(set(card.max_bytes) - file_fields)}, "
+                             f"which are not FILE fields")
         found[card.name] = card
         i = j
     return found
