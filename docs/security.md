@@ -1183,15 +1183,15 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 |---|---|
 | `project` | Está entre «mis proyectos»: los de sus asignaciones vigentes (`active` y, si las tiene, hoy en Lima entre `start_date` y `end_date`) |
 | `project_assignment` | Es suya (aunque esté vencida) o es de uno de mis proyectos |
-| Las raíces de `ProjectScope.ROOTS` (31 hasta F4; 33 desde F5, con `social_contribution` y `social_program`; 35 desde F7, con `ai_suggestion` y `ai_interaction`) | Su `project` es de mis proyectos; `evidence`, `early_warning_rule`, `export_log` y, desde F7, `ai_suggestion` y `ai_interaction` sin `project`, siempre |
+| Las raíces de `ProjectScope.ROOTS` (31 hasta F4; 33 desde F5, con `social_contribution` y `social_program`; 35 desde F7, con `ai_suggestion` y `ai_interaction`; 36 desde F8, con `indicator_measurement`) | Su `project` es de mis proyectos; `evidence`, `early_warning_rule`, `export_log`, desde F7, `ai_suggestion` y `ai_interaction` y, desde F8, `indicator_measurement` sin `project`, siempre |
 | Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
-| Los 20 maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`) | Siempre (ASM-107) |
+| Los maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`; 20 hasta F7; desde F8, también `indicator`) | Siempre (ASM-107) |
 
 - **Maestros del tenant (`ProjectScope.TENANT`):** `administrative_unit`, `locality`, `community`, `community_sector`,
   `mining_concession`, `land_parcel`, `land_right`, `environmental_feature`, `person`, `organization`, `contact_method`,
   `position`, `actor_relationship`, `school`, `health_facility`, `road_access`, `festivity`, `state_program`,
-  `local_conflict`, `topic`. Son los únicos objetos que GeoServer puede publicar, y solo si no tienen campos
-  restringidos (§10.2).
+  `local_conflict`, `topic` y, desde F8, `indicator`. Son los únicos objetos que GeoServer puede publicar, y solo si no
+  tienen campos restringidos (§10.2).
 - **Exentos:** `ADMIN` (wasichai) y quien tiene la acción declarada `READ_ALL_PROJECTS` sobre `project` (`AUDITOR` y
   `PROJECT_ADMIN`). `ProjectReach` (`sgspe.common`) lo decide también para los tableros, el reporte y las exportaciones.
 - **SQL puro:** «mis proyectos» es una subconsulta sobre la tabla de `project_assignment`, con valores enlazados; leerla
