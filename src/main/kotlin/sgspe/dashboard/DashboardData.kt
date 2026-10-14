@@ -21,13 +21,15 @@ import wasichai.core.common.PageRequest
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordResponse
+import wasichai.core.data.toResponse
 import wasichai.core.platform.SqlIdentifier
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
 
-// los conjuntos que leen los indicadores de un pedido, cargados una vez con Records como quien llama (RecordService
-// aplica el tenant y los permisos de objeto y de campo; nunca asPlatform) y agregados en Kotlin (dashboards.md §6). los
+// los conjuntos que leen los indicadores de un pedido, cargados una vez con Records como el lector de los KPI (RecordService
+// aplica el tenant y los permisos de objeto y de campo de la persona; con la plataforma, F8, KpiReaders ya corre todo dentro
+// de asPlatform) y agregados en Kotlin (dashboards.md §6). los
 // filtros de territorio se resuelven a localidades y comunidades: una localidad incluye sus sectores, una unidad
 // administrativa sus localidades y unidades hijas, un área de influencia los miembros de esa versión (dashboards.md §3.1).
 // en los indicadores de grupos de interés el territorio filtra al grupo de interés (su localidad y su área de influencia;
@@ -49,7 +51,10 @@ class DashboardData(
     private val maxRelated: Int = MAX_RELATED,
     // F6: la consulta de KPI-TER-04 detrás de la compuerta de sgspe.territory; Dashboards la inyecta y las pruebas sin base la
     // dejan en null
-    private val componentLand: ComponentLand? = null
+    private val componentLand: ComponentLand? = null,
+    // F8: la organización si lee el lector de la plataforma (KpiContext.platform): KPI-TER-04 va por la vía de la plataforma
+    // de la compuerta y las M2M por Records.relatedAsPlatform. null, la persona
+    private val platform: UUID? = null
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
@@ -92,13 +97,21 @@ class DashboardData(
         return out
     }
 
-    // los registros del otro lado de una M2M de cada interacción: una lectura por interacción, hasta maxRelated
+    // los registros del otro lado de una M2M de cada interacción: una lectura por interacción, hasta maxRelated. con el
+    // lector de la plataforma, por Records.relatedAsPlatform (sin usuario, WAS-ADR-0039), con el mismo tope
     private suspend fun relatedOf(
         engagements: Collection<String>,
         relationship: String
     ): Map<String, List<RecordResponse>> {
         if (engagements.size > maxRelated) throw Records.tooMany("engagement", maxRelated)
-        return engagements.associateWith { records.related("engagement", UUID.fromString(it), relationship) }
+        return engagements.associateWith { id ->
+            val engagement = UUID.fromString(id)
+            if (platform == null) {
+                records.related("engagement", engagement, relationship)
+            } else {
+                records.relatedAsPlatform(platform, "engagement", engagement, relationship).map { it.toResponse() }
+            }
+        }
     }
 
     // ---- territorio ----
@@ -749,7 +762,7 @@ class DashboardData(
 
     // otra lectura con otros filtros y los mismos permisos, topes y fuentes: las filas de KPI-TER-01 (el periodo de 90 días y
     // sin los filtros que la ficha no aplica)
-    fun with(filters: DashboardFilters): DashboardData = DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand)
+    fun with(filters: DashboardFilters): DashboardData = DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform)
 
     // si un registro con esa localidad o comunidad cae en todos los filtros de territorio pedidos
     suspend fun inTerritory(
@@ -784,7 +797,7 @@ class DashboardData(
     // sgspe.territory (ComponentLand): quien no puede leer algo de la consulta la recibe no disponible
     suspend fun landCrossings(): GateOutcome<LandRow> {
         val source = componentLand ?: error("DashboardData sin ComponentLand: Dashboards lo inyecta para KPI-TER-04")
-        return when (val outcome = source.rows(filters.projects)) {
+        return when (val outcome = source.rows(filters.projects, platform)) {
             is GateOutcome.Rows -> GateOutcome.Rows(outcome.rows.map { LandRow(it.component.toString(), it.componentType, it.land) })
             is GateOutcome.Unavailable -> outcome
         }
