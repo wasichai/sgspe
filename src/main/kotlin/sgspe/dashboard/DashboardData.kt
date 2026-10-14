@@ -56,7 +56,9 @@ class DashboardData(
     // de la compuerta y las M2M por Records.relatedAsPlatform. null, la persona
     private val platform: UUID? = null,
     // F8 (R1): si el tenant tiene el catálogo indicator (TenantModel): la meta por defecto de KPI-ENG-02 sale de él
-    private val hasCatalog: Boolean = false
+    private val hasCatalog: Boolean = false,
+    // F8 (decisión 25, R4): el cierre de periodo calcula los KPI de QCS sin las confidenciales, también para quien las ve
+    private val excludeConfidential: Boolean = false
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
@@ -491,6 +493,7 @@ class DashboardData(
                         val community = Values.text(q.attributes["community"])
                         territories.all { t -> (locality != null && locality in t.localities) || (community != null && community in t.communities) }
                     }.map { attentionRow(type, it) }
+                    .filterNot { excludeConfidential && it.confidential }
             }
         }
 
@@ -524,7 +527,8 @@ class DashboardData(
                 .getValue(type)
                 .keys
                 .mapNotNull { field -> Values.text(a[field])?.let { field to it } }
-                .toMap()
+                .toMap(),
+            Attention.isConfidential(a)
         )
     }
 
@@ -787,7 +791,7 @@ class DashboardData(
     // otra lectura con otros filtros y los mismos permisos, topes y fuentes: las filas de KPI-TER-01 (el periodo de 90 días y
     // sin los filtros que la ficha no aplica)
     fun with(filters: DashboardFilters): DashboardData =
-        DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform, hasCatalog)
+        DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform, hasCatalog, excludeConfidential)
 
     // si un registro con esa localidad o comunidad cae en todos los filtros de territorio pedidos
     suspend fun inTerritory(

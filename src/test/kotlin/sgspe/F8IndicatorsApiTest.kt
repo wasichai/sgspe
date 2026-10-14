@@ -53,9 +53,10 @@ abstract class F8IndicatorsApiTest : F6ApiTest() {
         return month.atDay(1) to month.atEndOfMonth()
     }
 
-    // un mes ya terminado que sale de uniqueName (un UUID): uno de los 108 000 meses de los años 1000 a 9999, así que dos
-    // llamadas, dos clases o dos corridas sobre la misma base no repiten mes en la práctica. las mediciones del tenant (sin
-    // project) lo necesitan: el único compuesto no compara los NULL (WAS-ADR-0037) y el cierre sí
+    // un mes ya terminado que sale de uniqueName (un UUID): uno de los 12 000 meses de los años 1000 a 1999, siempre en el
+    // pasado (el cierre exige un periodo terminado, 400 PERIOD_NOT_ENDED), así que dos llamadas, dos clases o dos corridas
+    // sobre la misma base no repiten mes en la práctica. las mediciones del tenant (sin project) lo necesitan: el único
+    // compuesto no compara los NULL (WAS-ADR-0037) y el cierre sí
     protected fun uniqueMonth(): Pair<LocalDate, LocalDate> {
         val month = YearMonth.of(1000, 1).plusMonths(Math.floorMod(uniqueName("mes").hashCode(), MONTHS).toLong())
         return month.atDay(1) to month.atEndOfMonth()
@@ -79,7 +80,7 @@ abstract class F8IndicatorsApiTest : F6ApiTest() {
         )
 
     companion object {
-        private const val MONTHS = 108_000
+        private const val MONTHS = 12_000
         private val CATALOG_LOCK = Any()
 
         @Volatile
