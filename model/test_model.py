@@ -17,6 +17,14 @@ import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PHASE = "F7"
+# §2.2.1 de la especificación de F8: el modelo de los indicadores viaja con el plan 8.2a, antes que los entregables (8.1).
+# 8.1 borra EARLY al poner PHASE = "F8"
+EARLY = {"indicator": "F8", "indicator_measurement": "F8"}
+
+
+def limit(name):
+    """La fase hasta la que se compara un objeto: la suya si se adelanta (EARLY), si no PHASE."""
+    return EARLY.get(name, PHASE)
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -38,9 +46,9 @@ class ModelAgainstCardsTests(unittest.TestCase):
     def test_tiene_exactamente_los_objetos_de_las_fichas_hasta_la_fase(self):
         # las tablas fijas (notification, idempotency_key…) tienen ficha pero no son objetos: no están en la matriz
         catalog = design_docs.matrix()
-        wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
+        wanted = [name for name, card in self.cards.items() if card.phase <= limit(name) and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 84)
+        self.assertEqual(len(wanted), 86)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -54,7 +62,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
     def test_cada_campo_de_la_fase_con_su_tipo_requerido_unico_derivado_e_indice(self):
         for name, obj in self.objects.items():
             card = self.cards[name]
-            wanted = [f for f in card.fields if design_docs.field_phase(card, f) <= PHASE]
+            wanted = [f for f in card.fields if design_docs.field_phase(card, f) <= limit(name)]
             self.assertEqual([f["name"] for f in obj["fields"]], [f["name"] for f in wanted], name)
             for got, doc in zip(obj["fields"], wanted):
                 where = f"{name}.{got['name']}"
@@ -89,7 +97,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         for name in self.objects:
             card = self.cards[name]
             for rel in card.relationships:
-                if not rel["inverse"] and design_docs.relationship_phase(self.cards, card, rel) <= PHASE:
+                if not rel["inverse"] and design_docs.relationship_phase(self.cards, card, rel) <= limit(name):
                     wanted.append((rel["name"], rel["type"], name, rel["target"], rel["field"], rel["required"]))
         got = [(r["name"], r.get("type", "MANY_TO_ONE"), r["source"], r["target"], r.get("fieldName"),
                 r.get("required", False)) for r in self.model["relationships"]]
@@ -106,7 +114,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
             self.assertEqual(obj.get("uniqueConstraints", []), card.unique_constraints, name)
             self.assertEqual(obj.get("indexes", []), card.indexes, name)
             self.assertEqual([a["name"] for a in obj.get("actions", [])],
-                             [a for a in card.actions if design_docs.action_phase(card, a) <= PHASE], name)
+                             [a for a in card.actions if design_docs.action_phase(card, a) <= limit(name)], name)
             # "`unique` en `x`" de la ficha: un campo con unique: true o, si x es el campo de una relación (delivery desde
             # F5), la relación con unique: true, que apply.py pone en la fase 3 (wasichai no admite un uniqueConstraints de
             # un solo campo)
@@ -526,9 +534,17 @@ class AiModelTests(unittest.TestCase):
         cls.roles = load("roles.json")
 
     def test_f7_trae_dos_objetos_y_cuatro_relaciones(self):
-        self.assertEqual(len(self.objects), 84)
-        self.assertEqual(len(self.model["relationships"]), 276)
-        self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
+        # lo que había hasta F7, por las fases de las fichas: cada fase cuenta solo lo suyo (8.2a suma los indicadores en
+        # IndicatorModelTests; los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF7Tests)
+        cards = design_docs.cards()
+        upto = [o for o in self.model["objects"] if cards[o["name"]].phase <= "F7"]
+        self.assertEqual(len(upto), 84)
+        relationships = [r for r in self.model["relationships"]
+                         if design_docs.relationship_phase(cards, cards[r["source"]],
+                                                           next(x for x in cards[r["source"]].relationships
+                                                                if x["name"] == r["name"])) <= "F7"]
+        self.assertEqual(len(relationships), 276)
+        self.assertEqual(sum(len(o.get("actions", [])) for o in upto), 39)
 
     def test_la_sugerencia_es_api_only_y_la_interaccion_ademas_inmutable(self):
         suggestion, interaction = self.objects["ai_suggestion"], self.objects["ai_interaction"]
@@ -571,6 +587,56 @@ class AiModelTests(unittest.TestCase):
         restricted = {(e["object"], f) for e in self.roles["restrictedFields"] for f in e["fields"]
                       if e["object"] in ("ai_suggestion", "ai_interaction", "commitment_candidate")}
         self.assertEqual(restricted, {("ai_suggestion", "evidence_quote"), ("commitment_candidate", "evidence_quote")})
+
+
+class IndicatorModelTests(unittest.TestCase):
+    """§4.1 de la especificación de F8 (plan 8.2a): indicator, catálogo del tenant, e indicator_measurement (apiOnly y
+    appendOnly, con project opcional), sus dos relaciones, los permisos de security.md §7.8 y ninguna acción, workflow ni
+    campo restringido."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model = load("model.json")
+        cls.objects = {o["name"]: o for o in cls.model["objects"]}
+        cls.relationships = {r["name"]: r for r in cls.model["relationships"]}
+        cls.roles = load("roles.json")
+
+    def test_trae_sus_dos_objetos_y_sus_dos_relaciones(self):
+        # solo lo suyo: los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF7Tests
+        self.assertEqual([n for n in self.objects if n.startswith("indicator")], ["indicator", "indicator_measurement"])
+        own = sorted(r["name"] for r in self.model["relationships"] if r["source"] == "indicator_measurement")
+        self.assertEqual(own, ["indicator_measurement_indicator", "indicator_measurement_project"])
+
+    def test_el_catalogo_es_editable_y_la_medicion_inmutable_y_solo_por_su_endpoint(self):
+        indicator, measurement = self.objects["indicator"], self.objects["indicator_measurement"]
+        self.assertEqual((indicator.get("apiOnly", False), indicator.get("appendOnly", False)), (False, False))
+        self.assertEqual((measurement.get("apiOnly"), measurement.get("appendOnly")), (True, True))
+        self.assertEqual(measurement["uniqueConstraints"], [["indicator", "project", "period_start_date"]])
+        code = next(f for f in indicator["fields"] if f["name"] == "code")
+        self.assertEqual((code["type"], code.get("required"), code.get("unique")), ("TEXT", True, True))
+        for name in ("indicator", "indicator_measurement"):
+            self.assertFalse(os.path.isfile(os.path.join(HERE, "workflows", f"{name}.json")), name)
+            self.assertNotIn("actions", self.objects[name], name)
+
+    def test_la_medicion_cuelga_de_su_indicador_y_puede_ser_del_tenant(self):
+        wanted = {"indicator_measurement_indicator": ("indicator", "indicator", True),
+                  "indicator_measurement_project": ("project", "project", False)}
+        for name, (field, target, required) in wanted.items():
+            rel = self.relationships[name]
+            self.assertEqual((rel["source"], rel["fieldName"], rel["target"], rel.get("required", False)),
+                             ("indicator_measurement", field, target, required), name)
+
+    def test_solo_social_manager_edita_el_catalogo_y_cierra_periodos(self):
+        # security.md §7.8: READ para todos menos PROJECT_ADMIN y FIELD_AGENT; ADMIN, además, por ser ADMIN
+        editors = {r["name"] for r in self.roles["roles"] if "UPDATE" in r["permisos"].get("indicator", [])}
+        closers = {r["name"] for r in self.roles["roles"] if "CREATE" in r["permisos"].get("indicator_measurement", [])}
+        self.assertEqual((editors, closers), ({"SOCIAL_MANAGER"}, {"SOCIAL_MANAGER"}))
+        blind = {r["name"] for r in self.roles["roles"] if "indicator" not in r["permisos"] and "*" not in r["permisos"]}
+        self.assertEqual(blind, {"PROJECT_ADMIN", "FIELD_AGENT"})
+
+    def test_ningun_campo_restringido(self):
+        # indicator_measurement la leen roles sin acceso a la postura: por eso el cierre no congela KPI-STK-02, 05 ni 06
+        self.assertEqual([e for e in self.roles["restrictedFields"] if e["object"].startswith("indicator")], [])
 
 
 # la migración de la tabla fija de sgspe.ai (database-model.md §2.3: sgspe_ai, en classpath:db/sgspe/ai)

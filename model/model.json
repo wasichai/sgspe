@@ -1343,6 +1343,42 @@
       ]
     },
     {
+      "name": "indicator",
+      "label": "Indicador",
+      "pluralLabel": "Indicadores",
+      "description": "Indicador de monitoreo o KPI con definición, fórmula, desagregación, meta y frecuencia; objeto catálogo (BC-20).",
+      "fields": [
+        {"name": "code", "label": "Código del KPI", "type": "TEXT", "required": true, "unique": true, "description": "ID del KPI que define dashboards.md."},
+        {"name": "name", "label": "Nombre", "type": "TEXT", "required": true, "description": "Nombre."},
+        {"name": "definition", "label": "Definición", "type": "LONG_TEXT", "description": "Definición."},
+        {"name": "formula", "label": "Fórmula", "type": "LONG_TEXT", "description": "Fórmula."},
+        {"name": "verification_means", "label": "Medio de verificación", "type": "LONG_TEXT", "description": "Medio de verificación."},
+        {"name": "disaggregation", "label": "Desagregación", "type": "TEXT", "description": "Desagregación."},
+        {"name": "target_value", "label": "Meta", "type": "DECIMAL", "description": "Meta (GAP-018)."},
+        {"name": "frequency", "label": "Frecuencia", "type": "TEXT", "description": "Frecuencia."},
+        {"name": "source_reference", "label": "Fuente del indicador", "type": "TEXT", "description": "Fuente del indicador (por ejemplo, la Tabla 9.5 de DOC-01)."}
+      ]
+    },
+    {
+      "name": "indicator_measurement",
+      "label": "Medición de indicador",
+      "pluralLabel": "Mediciones de indicador",
+      "description": "Cifra oficial e inmutable de un indicador en un periodo cerrado, por proyecto o para todo el tenant (ASM-042).",
+      "appendOnly": true,
+      "apiOnly": true,
+      "uniqueConstraints": [["indicator", "project", "period_start_date"]],
+      "fields": [
+        {"name": "period_start_date", "label": "Inicio del periodo", "type": "DATE", "required": true, "description": "Inicio del periodo."},
+        {"name": "period_end_date", "label": "Fin del periodo", "type": "DATE", "required": true, "description": "Fin del periodo."},
+        {"name": "measured_value", "label": "Valor oficial", "type": "DECIMAL", "required": true, "description": "Valor oficial."},
+        {"name": "numerator", "label": "Numerador", "type": "DECIMAL", "description": "Numerador."},
+        {"name": "denominator", "label": "Denominador", "type": "DECIMAL", "description": "Denominador."},
+        {"name": "breakdown", "label": "Desglose", "type": "LONG_TEXT", "description": "Desagregación en Markdown."},
+        {"name": "closed_by_user_id", "label": "Usuario que cerró", "type": "UUID", "required": true, "description": "Usuario que cerró el periodo (ASM-023)."},
+        {"name": "closed_by_user_email", "label": "Correo de quien cerró", "type": "EMAIL", "required": true, "description": "Correo de quien cerró el periodo."}
+      ]
+    },
+    {
       "name": "export_log",
       "label": "Registro de exportación",
       "pluralLabel": "Registros de exportación",
@@ -1825,6 +1861,8 @@
     {"name": "task_agreement", "label": "Acuerdo", "inverseLabel": "Tareas", "source": "task", "target": "agreement", "fieldName": "agreement"},
     {"name": "task_social_program", "label": "Programa social", "inverseLabel": "Tareas", "source": "task", "target": "social_program", "fieldName": "social_program"},
     {"name": "task_stakeholder", "label": "Grupo de interés", "inverseLabel": "Tareas", "source": "task", "target": "stakeholder", "fieldName": "stakeholder"},
+    {"name": "indicator_measurement_indicator", "label": "Indicador", "inverseLabel": "Mediciones de indicador", "source": "indicator_measurement", "target": "indicator", "fieldName": "indicator", "required": true},
+    {"name": "indicator_measurement_project", "label": "Proyecto", "inverseLabel": "Mediciones de indicador", "source": "indicator_measurement", "target": "project", "fieldName": "project"},
     {"name": "export_log_project", "label": "Proyecto", "inverseLabel": "Registros de exportación", "source": "export_log", "target": "project", "fieldName": "project"},
     {"name": "ai_suggestion_project", "label": "Proyecto", "inverseLabel": "Sugerencias de IA", "source": "ai_suggestion", "target": "project", "fieldName": "project"},
     {"name": "ai_suggestion_ai_interaction", "label": "Interacción con IA", "inverseLabel": "Sugerencias de IA", "source": "ai_suggestion", "target": "ai_interaction", "fieldName": "ai_interaction", "required": true},

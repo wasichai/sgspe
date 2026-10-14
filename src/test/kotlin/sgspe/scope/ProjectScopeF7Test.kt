@@ -12,7 +12,7 @@ import java.util.UUID
 
 // la clasificación de BC-18 (§4 de la especificación de F7, domain-model §4.7): la sugerencia y la interacción son raíces con
 // `project` opcional, como export_log, evidence y early_warning_rule: sin proyecto son del tenant y no piden asignación; con
-// proyecto, se acotan por él. desde F7, 35 raíces y 27 hijos
+// proyecto, se acotan por él. desde F7, 35 raíces y 27 hijos (8.2a suma indicator_measurement: ProjectScopeF8Test)
 class ProjectScopeF7Test {
     private val project = UUID.randomUUID()
     private val catalog = ModelCatalog.fromClasspath()
@@ -44,7 +44,7 @@ class ProjectScopeF7Test {
             assertEquals(ReadGroup.ROOT, ProjectScope.readGroup(name), name)
             assertFalse(catalog.isRequiredRelation(name, ProjectScope.PROJECT), name)
         }
-        assertEquals(35, ProjectScope.ROOTS.size)
+        assertEquals(35, (ProjectScope.ROOTS - setOf("indicator_measurement")).size)
         assertEquals(27, ProjectScope.CHILDREN.size)
     }
 

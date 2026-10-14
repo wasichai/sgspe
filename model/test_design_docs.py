@@ -385,7 +385,7 @@ class F6DocsTests(unittest.TestCase):
             "administrative_unit", "locality", "community", "community_sector", "mining_concession", "land_parcel",
             "land_right", "environmental_feature", "person", "organization", "contact_method", "position",
             "actor_relationship", "school", "health_facility", "road_access", "festivity", "state_program",
-            "local_conflict", "topic"]))
+            "local_conflict", "topic", "indicator"]))
 
     def test_la_fase_de_una_accion_declarada(self):
         project = self.cards["project"]

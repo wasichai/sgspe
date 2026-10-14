@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sube de fase cada tenant de un inventario: repite en cada uno los pasos 2 a 6 de security.md §4.1 (ASM-109).
+"""Sube de fase cada tenant de un inventario: repite en cada uno los pasos 2 a 7 de security.md §4.1 (ASM-109).
 
 wasichai no lista organizaciones, así que el inventario es del operador: un JSON que no se versiona, con la forma de
 tenants.example.json ({"tenants": [{"slug": ..., "adminEmail": ...}]}). La contraseña del administrador de cada tenant llega
