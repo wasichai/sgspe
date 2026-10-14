@@ -102,9 +102,12 @@ class KpiReaders internal constructor(
         when (reader) {
             is KpiReader.Person -> {
                 // decisión 21: el lector de una persona solo vale para la persona que llama (nadie calcula como otro)
-                check(userOrNull()?.userId == reader.user.userId) { "El lector de una persona solo vale para la persona que llama" }
-                val readsAll = mine(reader.user) == null
-                block(KpiContext(reader, readability(), hidden(reader.user), readsAll) { mine(reader.user) ?: allProjects() })
+                // con el usuario entero (también sus roles), y lo demás se calcula con el del contexto
+                val caller = userOrNull()
+                check(caller != null && caller == reader.user) { "El lector de una persona solo vale para la persona que llama" }
+                // una sola vez por cálculo: las asignaciones de ProjectReach no van por RequestMemo
+                val mine = mine(caller)
+                block(KpiContext(reader, readability(), hidden(caller), mine == null) { mine ?: allProjects() })
             }
             is KpiReader.Platform -> {
                 outsideRequest()

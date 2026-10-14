@@ -24,6 +24,7 @@ class KpiReadersTest {
     private val mine = listOf(UUID.randomUUID())
     private val all = listOf(UUID.randomUUID(), UUID.randomUUID())
     private val platformRuns = mutableListOf<UUID>()
+    private var mineCalls = 0
 
     private fun definition(
         name: String,
@@ -66,7 +67,10 @@ class KpiReadersTest {
             { { path -> path == "stakeholder" } },
             { _, name -> if (name == "stakeholder") definition("stakeholder", "stance", "influence_group") else throw NotFoundException("no está") },
             { true },
-            { mine },
+            {
+                mineCalls++
+                mine
+            },
             { all }
         )
 
@@ -83,6 +87,8 @@ class KpiReadersTest {
                 assertEquals(mine, ctx.defaultProjects())
             }
         }
+        // las asignaciones se leen una sola vez por cálculo (tenantWide y los proyectos por defecto)
+        assertEquals(1, mineCalls)
         assertEquals(emptyList<UUID>(), platformRuns)
     }
 
@@ -109,6 +115,9 @@ class KpiReadersTest {
         var ran = false
         assertThrows<IllegalStateException> { runBlocking { readers(person).reading(other) { ran = true } } }
         assertThrows<IllegalStateException> { runBlocking { readers(null).reading(other) { ran = true } } }
+        // el mismo userId con otros roles tampoco: el lector se compara con el usuario entero del contexto
+        val promoted = KpiReader.Person(person.copy(roles = listOf("ADMIN")))
+        assertThrows<IllegalStateException> { runBlocking { readers(person).reading(promoted) { ran = true } } }
         assertFalse(ran)
     }
 
