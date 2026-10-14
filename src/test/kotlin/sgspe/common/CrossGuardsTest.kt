@@ -92,6 +92,20 @@ class CrossGuardsTest {
         }
     }
 
+    // Review Focus 3 del plan 8.1: issue de WF-H crea las versiones y el export_log en su endpoint (plan 8.2b); por la API
+    // genérica dejaría un entregable emitido sin versiones. desde que WF-H existe, solo con la marca
+    @Test
+    fun `emitir un entregable solo llega por su comando`() {
+        runBlocking {
+            val guard = CommandTransitionGuard()
+            val refused = assertThrows<RuleException> { guard.beforeWrite(transition("deliverable", "issue", "emisión")) }
+            assertEquals(403, refused.status.value())
+            assertEquals("COMMAND_ONLY", refused.violations.single().message)
+            withContext(SgspeWrite) { guard.beforeWrite(transition("deliverable", "issue", "emisión")) }
+            guard.beforeWrite(transition("deliverable", "approve", "aprobación"))
+        }
+    }
+
     @Test
     fun `exactamente uno de`() {
         val group = listOf("person", "organization")

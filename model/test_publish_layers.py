@@ -15,6 +15,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
+import design_docs
 import publish_layers
 from fake_core import FakeCore
 from fake_geoserver import FakeGeoServer
@@ -64,12 +65,12 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual((len(PAIRS), len(STYLES)), (8, 9))
 
     def test_la_particion_del_modelo_es_la_de_project_scope(self):
-        # Decisión 7 del plan 6.1: lo que no llega a project por sus campos RELATION son los 20 maestros del tenant y,
-        # desde el plan 8.2a, el catálogo indicator (sin geometría: nunca es una capa)
+        # Decisión 7 del plan 6.1: lo que no llega a project por sus campos RELATION son los maestros del tenant de
+        # security.md §9.7 (20 hasta F7; desde F8, también indicator y deliverable_template, sin geometría: nunca son capas)
         names = {o["name"] for o in MODEL["objects"]}
         tenant = names - publish_layers.project_bound(MODEL)
-        self.assertEqual(len(tenant), 21)
-        self.assertIn("indicator", tenant)
+        self.assertEqual(sorted(tenant), sorted(design_docs.tenant_objects()))
+        self.assertEqual(len(tenant), 22)
         self.assertLessEqual({e["object"] for e in LAYERS}, tenant)
 
     def test_un_objeto_de_proyecto_no_se_publica(self):

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "deliverable-issue-certificate",
+    "label": "Constancia de emisión",
+    "prefix": "CE",
+    "template": { "type": "doc", "content": [
+      {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "platformValue", "attrs": {"value": "documentName"}}, {"type": "text", "text": " "}, {"type": "platformValue", "attrs": {"value": "documentNumber"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Código: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "document_code"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Título: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "title"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Tipo: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "deliverable_type"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Revisión emitida: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "current_revision"}}]},
+      {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Versiones emitidas"}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Cada versión con su revisión, su nivel de divulgación, el momento de la emisión, quién la emitió y los SHA-256 de sus archivos."}]},
+      {"type": "relatedTable", "attrs": {"relationship": "deliverable_version_deliverable"}},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Constancia generada el "}, {"type": "platformValue", "attrs": {"value": "today"}}, {"type": "text", "text": "."}]}
+    ] }
+  }
+]

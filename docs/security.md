@@ -566,7 +566,7 @@ lee sus proyectos. El territorio y la región siguen sin fuente de datos (UPS-01
 
 ### 7.1 Cómo leerla
 
-- Hay una tabla por grupo de bounded contexts. Las filas son los 89 objetos del catálogo y las columnas, los 14 roles
+- Hay una tabla por grupo de bounded contexts. Las filas son los 90 objetos del catálogo y las columnas, los 14 roles
   declarados distintos de `AUDITOR`.
 - `AUDITOR` no tiene columna: lee todo el tenant (`*` READ y `READ_ALL_PROJECTS` sobre `project`, §9.7), incluida
   `/api/audit`, no escribe nada y no ve los campos restringidos (§7.9) mientras no se responda GAP-024.
@@ -810,6 +810,7 @@ Criterios con que se armó:
 | `deliverable` | — | R `EXPORT` | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | R | R | R | R | — | R | R `EXPORT` | R |
 | `deliverable_section` | — | R | CRUD | CRU | CRU | R | R | R | R | R | — | R | CRU | R |
 | `deliverable_version` | — | R | CR | R | CR | R | R | R | R | R | — | R | R | R |
+| `deliverable_template` | — | R | R | R | R | R | R | R | R | R | — | R | R | R |
 | `export_log` | — | C | CR | — | C | C | C | C | — | C | — | — | C | — |
 | `ai_interaction` | — | — | CR | CR | CR | CR | CR | CR | — | — | — | — | CR | — |
 | `ai_suggestion` | — | — | CRU | CRU | CRU | CRU | CRU | CRU | — | — | — | — | — | — |
@@ -828,8 +829,8 @@ Criterios con que se armó:
   §4.12). El modelo congelado (`draft_model` y `model`) nunca se sirve, tampoco por la ruta nativa de wasichai-files: es
   interno, para volver a generar y comprobar hashes. Si algún día se sirviera, exigiría READ y `DOWNLOAD_RESTRICTED` en
   todos los niveles, porque contiene datos que el archivo de cada nivel omite.
-- `deliverable_template` (desde F8; su fila de la matriz llega con el modelo, en el plan 8.1): la leen los roles que
-  leen `deliverable`, por la ruta nativa de wasichai-files; nadie la crea por la API genérica (es `apiOnly`), y `POST
+- `deliverable_template` (desde F8, fila de la tabla): la leen los roles que leen `deliverable`, por la ruta nativa
+  de wasichai-files; nadie la crea por la API genérica (es `apiOnly` y `appendOnly`), y `POST
   /api/sgspe/deliverable-templates` exige `MANAGE_METADATA` sobre `deliverable`, que en la práctica tiene solo
   `ADMIN`. Los campos `FILE` de `deliverable`, `deliverable_version` y `deliverable_template` no se suben ni se
   reemplazan por la API genérica (`403 FILE_WRITE_NOT_ALLOWED`, ASM-133).
@@ -1183,16 +1184,16 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 |---|---|
 | `project` | Está entre «mis proyectos»: los de sus asignaciones vigentes (`active` y, si las tiene, hoy en Lima entre `start_date` y `end_date`) |
 | `project_assignment` | Es suya (aunque esté vencida) o es de uno de mis proyectos |
-| Las raíces de `ProjectScope.ROOTS` (31 hasta F4; 33 desde F5, con `social_contribution` y `social_program`; 35 desde F7, con `ai_suggestion` y `ai_interaction`; 36 desde F8, con `indicator_measurement`) | Su `project` es de mis proyectos; `evidence`, `early_warning_rule`, `export_log`, desde F7, `ai_suggestion` y `ai_interaction` y, desde F8, `indicator_measurement` sin `project`, siempre |
-| Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
-| Los maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`; 20 hasta F7; desde F8, también `indicator`) | Siempre (ASM-107) |
+| Las raíces de `ProjectScope.ROOTS` (31 hasta F4; 33 desde F5, con `social_contribution` y `social_program`; 35 desde F7, con `ai_suggestion` y `ai_interaction`; 37 desde F8, con `indicator_measurement` y `deliverable`) | Su `project` es de mis proyectos; `evidence`, `early_warning_rule`, `export_log`, desde F7, `ai_suggestion` y `ai_interaction` y, desde F8, `indicator_measurement` sin `project`, siempre |
+| Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5; 29 desde F8, con `deliverable_section` y `deliverable_version`) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
+| Los maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`; 20 hasta F7; desde F8, también `indicator` y `deliverable_template`) | Siempre (ASM-107) |
 
 - **Maestros del tenant (`ProjectScope.TENANT`):** `administrative_unit`, `locality`, `community`, `community_sector`,
   `mining_concession`, `land_parcel`, `land_right`, `environmental_feature`, `person`, `organization`, `contact_method`,
   `position`, `actor_relationship`, `school`, `health_facility`, `road_access`, `festivity`, `state_program`,
-  `local_conflict`, `topic` y, desde F8, `indicator`. De ellos, GeoServer solo puede publicar los que tienen geometría,
-  y solo si no
-  tienen campos restringidos (§10.2); el último es un maestro sin geometría y nunca es una capa.
+  `local_conflict`, `topic` y, desde F8, `indicator` y `deliverable_template`. De ellos, GeoServer solo
+  puede publicar los que tienen geometría, y solo si no tienen campos restringidos (§10.2); los dos últimos son
+  maestros sin geometría y nunca son una capa.
 - **Exentos:** `ADMIN` (wasichai) y quien tiene la acción declarada `READ_ALL_PROJECTS` sobre `project` (`AUDITOR` y
   `PROJECT_ADMIN`). `ProjectReach` (`sgspe.common`) lo decide también para los tableros, el reporte y las exportaciones.
 - **SQL puro:** «mis proyectos» es una subconsulta sobre la tabla de `project_assignment`, con valores enlazados; leerla
