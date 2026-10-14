@@ -1717,10 +1717,10 @@ AiReviewPage
 - **Ruta y lienzo:** `/projects/:projectId/ai-review/:suggestionId` · hoja `IA-Duplicados` · F7.
 - **Propósito:** decidir si dos registros son el mismo planteamiento, con los campos lado a lado.
 - **Roles:** GVM para QCS (UPDATE con motivo); los roles de cada objeto para los demás pares.
-- **Acciones:** "Es duplicado" o "No es duplicado", con respuesta (en QCS) y motivo; "Confirmar".
+- **Acciones:** "Es duplicado" o "No es duplicado", con respuesta opcional (en QCS) y motivo; "Confirmar".
 - **Disposición y componentes:** tabla comparativa con las coincidencias marcadas; decisión; "Qué pasa al confirmar".
-- **Datos y API:** `POST /api/sgspe/ai-suggestions/{id}/accept`; en una queja escribe `duplicate_of` y la rechaza con respuesta
-  en la misma transacción; en `person`, `stakeholder`, `commitment`, `inquiry` y `stakeholder_request` solo registra la
+- **Datos y API:** `POST /api/sgspe/ai-suggestions/{id}/accept`; en una queja escribe `duplicate_of` y, solo si trae respuesta, la rechaza con ella por WF-E1 en la misma transacción
+  (pide el rol del rechazo; `409 STATE_MISMATCH` sobre `attributes.response` si ya no se puede rechazar); en `person`, `stakeholder`, `commitment`, `inquiry` y `stakeholder_request` solo registra la
   decisión (`ai-architecture.md` §4.2).
 - **Estados:** si algo falla, nada cambia.
 - **Permisos:** la persona que plantea sigue restringida.
