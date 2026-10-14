@@ -3554,8 +3554,9 @@ todo el tenant (ASM-042). Tabla física `app_data.indicator_measurement__<org8>`
 - **Fase:** F8 · Release 3 (Fase 3 de producto).
 - Como los NULL son distintos, el endpoint de cierre impide dos mediciones del tenant (sin `project`) para el mismo
   indicador y periodo [WAS-ADR-0037].
-- El endpoint de cierre responde 409 para los indicadores que nunca se congelan (`dashboards.md` §10): KPI-STK-02,
-  KPI-STK-05 y KPI-STK-06, que leen posturas restringidas, y KPI-TER-01, que no tiene valor propio.
+- El endpoint de cierre responde `409 INDICATOR_NOT_CLOSABLE` con su razón (`dashboards.md` §10, ASM-136): `STANCE`
+  (KPI-STK-02, KPI-STK-05 y KPI-STK-06), `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que salen sin valor),
+  `UNAVAILABLE` y `NOT_PERIOD_BOUND`.
 
 ### `deliverable`
 

@@ -322,10 +322,11 @@ flowchart BT
 - Las migraciones de datos de objetos `apiOnly` no van por REST, que los rechaza: corren en proceso, dentro del paquete
   `sgspe.*` dueño del objeto, como un trabajo que escribe con `RecordService` como la plataforma, con motivo y con las
   guardas activas [WAS-ADR-0040]. Las de objetos `appendOnly` exigen además un ADR explícito.
-- wasichai guarda el `defaultValue` de un campo pero no lo aplica: no crea un DEFAULT de columna, y ni `RecordService` ni la
-  interfaz lo usan (UPS-15). Los valores por defecto de los parámetros y las políticas de `project` (ASM-019) los aplica el
-  código de SGSPE: el portal los propone al crear el registro, y la lectura común de parámetros de `sgspe.common` usa el
-  mismo valor cuando un parámetro está vacío (`database-model.md` §3.6).
+- wasichai guarda el `defaultValue` de un campo y, desde 0.5.0, lo aplica a un alta que omite el campo (UPS-15); no lo
+  aplica
+  a un cambio ni a un `null` explícito, y no crea un DEFAULT de columna. Los valores por defecto de los parámetros y las
+  políticas de `project` (ASM-019) siguen leyéndose en el código de SGSPE: la lectura común de parámetros de
+  `sgspe.common` usa el mismo valor cuando un parámetro está vacío o se limpió (`database-model.md` §3.6).
 
 ### 5.5 Tablas fijas del esquema `sgspe`
 

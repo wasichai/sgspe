@@ -15,6 +15,9 @@ import java.util.UUID
 // el catálogo el tablero sale sin metas ni cifras oficiales (Review Focus 5). las mediciones se crean como la plataforma: el
 // endpoint de cierre llega en la Tarea 10 y tiene su propia prueba
 class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
+    // wasichai aplica el defaultValue (2) a un alta que omite el campo (UPS-15 resuelta en 0.5.0): un proyecto «sin meta propia» la envía en null
+    private fun catalogProject(): String = activeProject(attributes = mapOf("meetings_per_month_target" to null))
+
     private fun board(
         query: String,
         token: String = this.token
@@ -52,7 +55,7 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
     fun `las 13 filas van en su orden con la meta del proyecto o la del catalogo`() {
         val (start, end) = lastMonth()
         val own = activeProject(attributes = mapOf("meetings_per_month_target" to 3))
-        val plain = activeProject()
+        val plain = catalogProject()
         val body = get("/api/sgspe/dashboards/monitoring?project=$own&${period(start, end)}")
         assertEquals(MonitoringTable.CODES, body["indicators"].values().map { it["code"].asString() })
         assertEquals((1..13).toList(), body["rows"].values().map { it["number"].asInt() })
@@ -133,7 +136,7 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
     @Test
     fun `sin leer las mediciones el tablero sale con metas y sin cifras oficiales`() {
         val (start, end) = lastMonth()
-        val project = activeProject()
+        val project = catalogProject()
         measurement("KPI-COM-08", project, start, end, 7)
         val rows = board("project=$project&${period(start, end)}", member("FIELD_AGENT", project).token)
         assertTrue(rows.values.all { it["official"].isNull })
@@ -147,7 +150,7 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
     @Test
     fun `la meta de KPI-ENG-02 sin parametro del proyecto sigue al catalogo en los dos tableros`() {
         val (start, end) = lastMonth()
-        val project = activeProject()
+        val project = catalogProject()
         val id = indicatorId("KPI-ENG-02")
         val stored = attributesOf(record("indicator", id))
         send("PUT", "/api/objects/indicator/records/$id", mapOf("attributes" to stored + ("target_value" to 4)), HttpStatus.OK)
