@@ -854,6 +854,23 @@ class DashboardData(
             }
         }
 
+    // ---- ejecutivos (F8: KPI-EXE, dashboards.md §4.1) ----
+
+    // los proyectos del filtro con su estado, su etapa y su tipo (KPI-EXE-01)
+    suspend fun projectRows(): List<ProjectRow> =
+        projectRecords().map { ProjectRow(it.id, it.state, Values.text(it.attributes["stage"]), Values.text(it.attributes["project_type"])) }
+
+    // las alertas activas de los proyectos en el territorio pedido (KPI-EXE-02): por su localidad o su comunidad, sin el ámbito
+    suspend fun earlyWarnings(): List<WarningRow> =
+        cached("earlyWarnings") {
+            if (filters.projects.isEmpty()) return@cached emptyList<WarningRow>()
+            read(
+                "early_warning",
+                criteria = listOf(Criteria.anyOf("project", filters.projects), Criteria.inState(ExecutiveKpis.ACTIVE_WARNING_STATES))
+            ).filter { inTerritory(Values.text(it.attributes["locality"]), Values.text(it.attributes["community"])) }
+                .map { WarningRow(it.id, it.state, Values.text(it.attributes["severity"])) }
+        }
+
     companion object {
         const val CHUNK = 500
         private const val AREA = "area_of_influence"

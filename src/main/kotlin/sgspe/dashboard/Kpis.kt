@@ -53,9 +53,15 @@ object Kpis {
     const val INVESTMENT = "investment"
     const val TERRITORY = "territory"
 
+    // F8: los tableros consolidados (dashboards.md §5.1, §5.2 y §5.5)
+    const val EXECUTIVE = "executive"
+    const val PROJECT = "project"
+    const val MONITORING = "monitoring"
+
     // los indicadores que leen QCS y que, a quien no ve las confidenciales, se lo dicen con confidentialHidden (dashboards.md §8,
     // ASM-095): los KPI-GRV y KPI-ENG-05, que cuenta como atendida una pregunta derivada a una QCS
-    fun confidentialSensitive(code: String): Boolean = code.startsWith("KPI-GRV-") || code == "KPI-ENG-05" || code == TerritorySummary.CODE
+    fun confidentialSensitive(code: String): Boolean =
+        code.startsWith("KPI-GRV-") || code == "KPI-ENG-05" || code == TerritorySummary.CODE || code == ExecutiveKpis.TREND
 
     // los KPI de F2 no aplican explorationCampaign (dashboards.md §3.1: solo compromisos e inversión social) ni owner, el
     // responsable de un compromiso que llega en F3
@@ -191,6 +197,10 @@ object Kpis {
     private val MEDIA =
         listOf("media_mention.project", "media_mention.published_date", "media_mention.outlet", "media_mention.outlet_name", "media_mention.tone")
     private val MEDIA_IGNORES: Set<String> = IGNORED_IN_F2 + setOf("administrativeUnit", "locality", "community", "areaOfInfluence", "scope")
+
+    // F8: KPI-EXE-01 se filtra solo por proyecto; KPI-EXE-02, por proyecto y territorio (sin ámbito); los dos son conteos de
+    // hoy, así que un periodo pedido se declara ignorado. KPI-EXE-03 aplica proyecto, territorio y ámbito (dashboards.md §4.1)
+    private val EXECUTIVE_WARNING_IGNORES: Set<String> = setOf("periodStart", "periodEnd", "explorationCampaign", "scope", "owner")
 
     val ALL: List<Indicator> =
         listOf(
@@ -799,6 +809,55 @@ object Kpis {
                     is GateOutcome.Rows -> TerritoryKpis.componentsOnLand(outcome.rows)
                     is GateOutcome.Unavailable -> IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, outcome.missingFields)
                 }
+            },
+            // ---- F8: ejecutivos (dashboards.md §4.1) ----
+            Kpi(
+                ExecutiveKpis.ACTIVE_PROJECTS,
+                "Proyectos activos",
+                EXECUTIVE,
+                "proyectos",
+                listOf("project.stage", "project.project_type"),
+                ignores = TERRITORY_IGNORES
+            ) {
+                ExecutiveKpis.activeProjects(it.projectRows())
+            },
+            Kpi(
+                ExecutiveKpis.ACTIVE_WARNINGS,
+                "Alertas activas",
+                EXECUTIVE,
+                "alertas",
+                listOf("early_warning.project", "early_warning.severity", "early_warning.locality", "early_warning.community"),
+                ignores = EXECUTIVE_WARNING_IGNORES
+            ) { ExecutiveKpis.activeWarnings(it.earlyWarnings()) },
+            Kpi(
+                ExecutiveKpis.TREND,
+                "Tendencia mensual",
+                EXECUTIVE,
+                "cifras",
+                (
+                    HELD + QCS + qcs("closed_date") + COMMITMENT +
+                        listOf(
+                            "commitment.agreed_date",
+                            "commitment.due_date",
+                            "commitment.fulfilled_date",
+                            "commitment.cancelled_date",
+                            "commitment_reschedule.previous_due_date",
+                            "commitment_reschedule.new_due_date",
+                            "commitment_reschedule.commitment"
+                        )
+                ).distinct(),
+                ignores = setOf("explorationCampaign", "owner")
+            ) { data ->
+                val commitments = data.commitments(campaign = false, owner = false)
+                val reschedules = data.reschedules(commitments.map { it.id })
+                reschedules.warn(
+                    ExecutiveKpis.trend(
+                        EngagementKpis.held(data.inPeriod(), data.window(), data.filters.periodEnd),
+                        data.attention(),
+                        CommitmentKpis.overdueSeries(commitments, reschedules.rows, data.filters.periodEnd, data.today),
+                        data.filters.periodEnd
+                    )
+                )
             }
         )
 
