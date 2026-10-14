@@ -119,13 +119,29 @@ data class CatalogEntry(
     val available: Boolean
 )
 
+// una fila de la tabla por proyecto del tablero executive (dashboards.md §5.1): las cifras de las tiles con valor, sin
+// desgloses ni series, calculadas con las mismas funciones sobre el filtro de ese proyecto
+data class ProjectFigures(
+    val project: String,
+    val code: String?,
+    val name: String?,
+    val indicators: List<IndicatorValue>
+)
+
 data class DashboardResponse(
     val dashboard: String,
     val filters: Map<String, Any?>,
     val computedAt: String,
     val indicators: List<IndicatorValue>,
     // F4: en el tablero attention, true si quien mira no ve las QCS confidenciales (dashboards.md §8); no viaja en los demás
-    @get:JsonInclude(JsonInclude.Include.NON_NULL) val confidentialHidden: Boolean? = null
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val confidentialHidden: Boolean? = null,
+    // F8: la tabla por proyecto del tablero executive; no viaja en los demás ni cuando se omite
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProject: List<ProjectFigures>? = null,
+    // F8: true si el tablero executive omitió la tabla porque los proyectos por defecto pasan el tope (decisión 24)
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val byProjectOmitted: Boolean? = null,
+    // F8: las 13 filas de la Tabla 9.5 del tablero monitoring (MonitoringTable), en el orden de indicators[]; no viaja en los
+    // demás
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val rows: List<MonitoringRow>? = null
 )
 
 // los números de los indicadores: cada cifra se redondea una sola vez, desde los conteos o los valores sin redondear de su

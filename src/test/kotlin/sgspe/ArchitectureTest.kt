@@ -456,6 +456,51 @@ class ArchitectureTest {
         assertFalse(flags(AGENT_IMPORT, "// wasichai.agent no se importa fuera de sgspe.ai"))
     }
 
+    // especificación de F8 §2.2.16 (Review Focus 1 del plan 8.2a): en sgspe.dashboard solo KpiReaders lee como la plataforma,
+    // y lo hace solo fuera de una petición (KpiReadersTest). un tablero o un endpoint nuevo que llame a asPlatform le daría a
+    // una persona la postura, las QCS confidenciales o los proyectos que no tiene
+    @Test
+    fun `solo KpiReaders lee como la plataforma en sgspe dashboard`() {
+        val reader = "/sgspe/dashboard/KpiReader.kt"
+        val others = sources(File(main, "sgspe/dashboard")).filterNot { it.invariantSeparatorsPath.endsWith(reader) }
+        assertTrue(others.isNotEmpty())
+        assertEquals(emptyList<String>(), offenders(others, AS_PLATFORM))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(reader) })
+        assertTrue(flags(AS_PLATFORM, "records.asPlatform(organization) { block() }"))
+        assertFalse(flags(AS_PLATFORM, "// nunca asPlatform dentro de una petición"))
+    }
+
+    // WAS-ADR-0039: las M2M sin usuario solo las leen DashboardData (con el lector de la plataforma de KpiReaders, JOB-05) y
+    // StakeholderFollowUpJob (JOB-03, fuera de una petición); Records.kt la define. otro llamador le daría a una persona
+    // vínculos que no lee
+    @Test
+    fun `solo DashboardData y StakeholderFollowUpJob leen M2M como la plataforma`() {
+        val allowed = listOf("/sgspe/dashboard/DashboardData.kt", "/sgspe/stakeholder/StakeholderFollowUpJob.kt", "/sgspe/common/Records.kt")
+        val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, RELATED_AS_PLATFORM))
+        assertTrue(allowed.all { path -> sources(main).any { it.invariantSeparatorsPath.endsWith(path) } })
+        assertTrue(flags(RELATED_AS_PLATFORM, "records.relatedAsPlatform(organization, \"engagement\", id, \"engagement_topic\")"))
+        assertFalse(flags(RELATED_AS_PLATFORM, "// las M2M por Records.relatedAsPlatform"))
+        assertFalse(flags(RELATED_AS_PLATFORM, "records.related(\"engagement\", id, \"engagement_topic\")"))
+    }
+
+    // decisión 12: la vía de plataforma de la compuerta solo la llama ComponentLand, y la organización de la plataforma solo
+    // se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro dominio lee SQL propio como la plataforma
+    @Test
+    fun `solo ComponentLand usa selectAsPlatform y solo DashboardData le pasa la plataforma`() {
+        val gate = "/sgspe/territory/SpatialGate.kt"
+        val land = "/sgspe/territory/ComponentLand.kt"
+        val data = "/sgspe/dashboard/DashboardData.kt"
+        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land).any { f.invariantSeparatorsPath.endsWith(it) } }
+        val notLandOrData = sources(main).filterNot { f -> listOf(land, data).any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(notGateOrLand, SELECT_AS_PLATFORM))
+        assertEquals(emptyList<String>(), offenders(notLandOrData, ROWS_WITH_PLATFORM))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(data) })
+        assertTrue(flags(SELECT_AS_PLATFORM, "gate.selectAsPlatform(platform, READS, query, map)"))
+        assertTrue(flags(ROWS_WITH_PLATFORM, "source.rows(filters.projects, platform)"))
+        assertFalse(flags(ROWS_WITH_PLATFORM, "source.rows(filters.projects)"))
+    }
+
     // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
     // AssistantRun.kt pone otra autenticación en el contexto de Reactor
     @Test
@@ -605,6 +650,10 @@ class ArchitectureTest {
         private val LOAD_DEFINITION = Regex("""\bloadDefinition(ById)?\b""")
         private val DATABASE_CLIENT = Regex("""\bDatabaseClient\b""")
         private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
+        private val AS_PLATFORM = Regex("""\basPlatform\s*[({]""")
+        private val RELATED_AS_PLATFORM = Regex("""\brelatedAsPlatform\s*\(""")
+        private val SELECT_AS_PLATFORM = Regex("""\bselectAsPlatform\s*\(""")
+        private val ROWS_WITH_PLATFORM = Regex("""\.rows\([^)]*\bplatform\b""")
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
         private val STORED_FILES = Regex("""\b(StoredFileRepository|FileStore)\b""")

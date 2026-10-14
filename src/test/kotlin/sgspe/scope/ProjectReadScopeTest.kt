@@ -236,7 +236,7 @@ class ProjectReadScopeTest {
 
     @Test
     fun `un objeto sin clasificar no admite ningun registro`() {
-        assertEquals("false", condition(scope(), definition("indicator_measurement", "project")))
+        assertEquals("false", condition(scope(), definition("unclassified_object", "project")))
     }
 
     // el memo de definiciones (plan corto de wasichai 1.1.0): dentro de una petición, dos lecturas piden las definiciones del

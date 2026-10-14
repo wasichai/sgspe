@@ -66,7 +66,12 @@ class TerritoryDashboardTest {
             assertEquals(listOf("locality"), Kpis.ignoredFilters(Kpis.BY_CODE.getValue(code), filters(false)), code)
         }
         assertTrue("periodStart" !in Kpis.ignoredFilters(Kpis.BY_CODE.getValue(TerritorySummary.CODE), filters(true)))
-        // ningún otro indicador declara el periodo: su respuesta no cambia
-        assertTrue(Kpis.ALL.filterNot { it.code in setOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04") }.none { "periodStart" in it.ignores })
+        // ningún otro indicador declara el periodo: su respuesta no cambia (desde F8, también KPI-EXE-01 y 02)
+        assertTrue(
+            Kpis.ALL.filterNot { it.code in setOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04", "KPI-EXE-01", "KPI-EXE-02") }.none {
+                "periodStart" in
+                    it.ignores
+            }
+        )
     }
 }

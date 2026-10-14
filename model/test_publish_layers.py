@@ -64,10 +64,12 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual((len(PAIRS), len(STYLES)), (8, 9))
 
     def test_la_particion_del_modelo_es_la_de_project_scope(self):
-        # Decisión 7 del plan 6.1: lo que no llega a project por sus campos RELATION son los 20 maestros del tenant
+        # Decisión 7 del plan 6.1: lo que no llega a project por sus campos RELATION son los 20 maestros del tenant y,
+        # desde el plan 8.2a, el catálogo indicator (sin geometría: nunca es una capa)
         names = {o["name"] for o in MODEL["objects"]}
         tenant = names - publish_layers.project_bound(MODEL)
-        self.assertEqual(len(tenant), 20)
+        self.assertEqual(len(tenant), 21)
+        self.assertIn("indicator", tenant)
         self.assertLessEqual({e["object"] for e in LAYERS}, tenant)
 
     def test_un_objeto_de_proyecto_no_se_publica(self):

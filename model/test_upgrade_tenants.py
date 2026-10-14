@@ -32,7 +32,7 @@ class UpgradeTenantsTests(unittest.TestCase):
         return handle.name
 
     def steps(self, failing=None):
-        """Los cinco pasos; `failing` es (correo, paso) que responde 1."""
+        """Los seis pasos; `failing` es (correo, paso) que responde 1."""
         def make(name):
             def run(argv):
                 email = argv[argv.index("--email") + 1]
@@ -40,7 +40,7 @@ class UpgradeTenantsTests(unittest.TestCase):
                 return 1 if failing == (email, name) else 0
             return (name, run)
         return tuple(make(n) for n in ("apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py",
-                                       "publish_layers.py"))
+                                       "load_indicators.py", "publish_layers.py"))
 
     def run_cli(self, path, steps, extra=()):
         out, err = io.StringIO(), io.StringIO()
@@ -52,16 +52,17 @@ class UpgradeTenantsTests(unittest.TestCase):
     def test_recorre_cada_tenant_con_su_administrador_y_en_orden(self):
         code, out, err = self.run_cli(self.inventory(), self.steps())
         self.assertEqual(code, 0, err)
-        self.assertEqual(len(self.calls), 15)
-        self.assertEqual([n for e, n in self.calls[:5]],
-                         ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "publish_layers.py"])
-        self.assertEqual([e for e, _ in self.calls[::5]], [t["adminEmail"] for t in INVENTORY["tenants"]])
+        self.assertEqual(len(self.calls), 18)
+        self.assertEqual([n for e, n in self.calls[:6]],
+                         ["apply.py", "apply_roles.py", "apply.py --workflows", "load_ubigeo.py", "load_indicators.py",
+                          "publish_layers.py"])
+        self.assertEqual([e for e, _ in self.calls[::6]], [t["adminEmail"] for t in INVENTORY["tenants"]])
         self.assertIn("resumen: 3 de 3 tenants al día", out)
 
     def test_sin_geoserver_cada_tenant_sube_sin_publicar_las_capas(self):
         code, out, err = self.run_cli(self.inventory(), self.steps(), extra=("--skip-layers",))
         self.assertEqual(code, 0, err)
-        self.assertEqual(len(self.calls), 12)
+        self.assertEqual(len(self.calls), 15)
         self.assertNotIn("publish_layers.py", {n for _, n in self.calls})
         self.assertIn("resumen: 3 de 3 tenants al día", out)
 

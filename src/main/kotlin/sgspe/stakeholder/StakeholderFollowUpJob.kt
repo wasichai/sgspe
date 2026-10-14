@@ -30,8 +30,9 @@ object FollowUp {
     const val CONTACT = "CONTACTO ESTABLECIDO"
 
     // los cambios del grupo de interés: last_contact_date si cambió y, si pasa de vacío a una fecha, la regla de primer
-    // contacto de relationship_status (SIN CONTACTO, o vacío porque wasichai no aplica el valor por defecto, UPS-15, pasa a
-    // CONTACTO ESTABLECIDO). un estado que una persona ya cambió no se toca (ASM-032)
+    // contacto de relationship_status (SIN CONTACTO, o vacío porque wasichai aplica el valor por defecto solo a un alta que
+    // omite el campo, no a un null explícito ni a uno de antes de 0.5.0, UPS-15, pasa a CONTACTO ESTABLECIDO). un estado
+    // que una persona ya cambió no se toca (ASM-032)
     fun changes(
         stakeholder: Map<String, Any?>,
         lastContact: LocalDate?

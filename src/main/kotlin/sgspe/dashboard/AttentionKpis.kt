@@ -29,7 +29,9 @@ data class AttentionRow(
     val community: String?,
     val stakeholder: String?,
     val anonymous: Boolean,
-    val reclassified: Map<String, String> = emptyMap()
+    val reclassified: Map<String, String> = emptyMap(),
+    // F8 (decisión 25, R4): si es confidencial; el cierre de periodo la deja fuera de la cifra oficial
+    val confidential: Boolean = false
 ) {
     fun raised(): Raised = Raised(type, id, state, reclassified)
 

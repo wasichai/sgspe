@@ -11,8 +11,9 @@ object's uniqueConstraints and the `unique: true` of a relationship's field. An 
 (POST .../actions, a 409 is "already there"): roles are granted them next to READ, CREATE, UPDATE and DELETE. From F2 a
 relationship may be MANY_TO_MANY (a join table, no field), point at its own object or close a cycle: every object
 exists before the first relationship, so the order of `objects` does not matter. A field may carry `indexed` and
-`defaultValue` (wasichai keeps it and never applies it, UPS-15), and an object `indexes`; the sets that name a
-relationship's field wait for phase 3, like the uniqueConstraints.
+`defaultValue` (since wasichai 0.5.0 it applies it on create to an omitted field, not on update nor to an explicit
+null; UPS-15), and an object `indexes`; the sets that name a relationship's field wait for phase 3, like the
+uniqueConstraints.
 
 On a Core that already has the model it syncs instead: it adds the fields and the ENUM options model.json has and Core
 lacks, declares the actions of each object, drops the ENUM options it no longer lists and no record uses, relaxes a

@@ -172,9 +172,10 @@ class DashboardsApiTest : DomainApiTest() {
         assertFalse(catalog.getValue("KPI-STK-02")["available"].asBoolean())
         assertTrue(catalog.getValue("KPI-ENG-01")["available"].asBoolean())
         assertEquals("engagement", catalog.getValue("KPI-ENG-01")["dashboard"].asString())
-        assertTrue(catalog.getValue("KPI-STK-04")["dashboard"].isNull)
-        assertTrue(catalog.getValue("KPI-STK-05")["dashboard"].isNull)
-        assertTrue(catalog.getValue("KPI-STK-07")["dashboard"].isNull)
+        // desde F8 tienen zona en el tablero de monitoreo (dashboards.md §11)
+        assertEquals("monitoring", catalog.getValue("KPI-STK-04")["dashboard"].asString())
+        assertEquals("monitoring", catalog.getValue("KPI-STK-05")["dashboard"].asString())
+        assertEquals("monitoring", catalog.getValue("KPI-STK-07")["dashboard"].asString())
     }
 
     // ANALYST y READ_ONLY leen grupos de interés, evaluaciones y cargos pero no los nombres de las personas ni la postura

@@ -278,10 +278,12 @@ acciones y no guardó sugerencias ni candidatos; ASM-131). El detalle está en �
 
 Los endpoints de F8 (§4.11, §4.12 y §4.14) usan la misma forma. Los tableros responden `400` `PROJECT_REQUIRED`
 (`project`: el tablero `project` sin un solo proyecto) y `TOO_MANY_RECORDS` (`project`: más de
-`sgspe.dashboards.executive.max-projects` en `executive`). El cierre de periodo responde `409` `INDICATOR_NOT_CLOSABLE`
-(`indicator`, con el miembro `reason` del cuerpo: `STANCE`, `NO_SCALAR_VALUE`, `UNAVAILABLE` o `CONFIDENTIAL_HIDDEN`;
-ASM-136), `400` `PERIOD_NOT_ENDED` (`attributes.period_end_date`), `409` `MEASUREMENT_EXISTS`
-(`attributes.period_start_date`) y `403` `ACTION_REQUIRED` (`project`: todo el tenant sin `READ_ALL_PROJECTS` ni
+`sgspe.dashboards.executive.max-projects` proyectos pedidos de forma explícita en `executive`). El cierre de periodo
+responde `409` `INDICATOR_NOT_CLOSABLE`
+(`indicator`, con el miembro `reason` del cuerpo: `STANCE`, `NO_SCALAR_VALUE`, `UNAVAILABLE` o `NOT_PERIOD_BOUND`;
+ASM-136), `400` `PERIOD_NOT_ENDED` (`attributes.period_end_date`, que se comprueba antes que cualquier razón), `409`
+`MEASUREMENT_EXISTS`
+(`attributes.period_start_date`) y `403` `ACTION_REQUIRED` (`project`: todo el tenant sin ser
 `ADMIN`). Los entregables responden `422` `DELIVERABLE_PARAMETERS_MISSING` (un error por parámetro: `project`,
 `community`, `study`, `area_of_influence`, `period_start_date`, `period_end_date`, `cutoff_date` o
 `project.working_crs`), `409` `STATE_MISMATCH` (`state`: un borrador fuera de `draft` u `observed`, o una emisión fuera
@@ -1114,7 +1116,7 @@ KPI recibe su lector, `KpiReader`: la persona (tableros, cierre de periodo y AI-
 | `GET` | `/api/sgspe/dashboards/{dashboard}` | Los indicadores de un tablero con los filtros comunes, en una sola llamada por pantalla | READ sobre los objetos de cada indicador; un indicador sin permiso sale con `available: false` | `?project=&periodStart=&periodEnd=&administrativeUnit=&locality=&community=&areaOfInfluence=&explorationCampaign=&scope=&owner=` (desde F5, en `investment`, también `&program=&year=`; en otro tablero, `422`) → `200 { dashboard, filters, computedAt, indicators[] }` | — | Según el tablero |
 | `GET` | `/api/sgspe/dashboards/indicators/{code}` | Un indicador con sus desgloses, su serie mensual y su tabla de datos | Igual | Los mismos filtros (con `owner`) más `breakdown` → `200 { code, label, available, value, numerator, denominator, unit, breakdowns[], series[], unavailableReason, missingFields[], warnings[], ignoredFilters[] }` | — | Según el indicador |
 | `GET` | `/api/sgspe/dashboards/indicators` | Catálogo de indicadores con su disponibilidad para quien llama, para mostrar u ocultar tableros y zonas | Autenticado | → `200 [{ code, label, dashboard, available }]` | — | F2 |
-| `POST` | `/api/sgspe/indicators/{id}/measurements` | Cierra un periodo (`IndicatorMeasurements`): lee el `indicator` como quien llama, calcula el KPI con su `KpiReader` y congela en `indicator_measurement` el valor, el numerador, el denominador y el desglose principal como tabla Markdown. Una cifra completa o ninguna (ASM-136): `409 INDICATOR_NOT_CLOSABLE` con la razón `STANCE` (KPI-STK-02, KPI-STK-05 y KPI-STK-06), `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que solo dan series), `UNAVAILABLE` (quien cierra no lo tiene disponible) o `CONFIDENTIAL_HIDDEN`; `400 PERIOD_NOT_ENDED` si el periodo no terminó; `409 MEASUREMENT_EXISTS` si ya se cerró | CREATE sobre `indicator_measurement`; sin `project` (todo el tenant), además `READ_ALL_PROJECTS` sobre `project` o `ADMIN` (`403 ACTION_REQUIRED`) | `{ project, attributes: { period_start_date, period_end_date } }` → `201` registro | `IK` | F8 |
+| `POST` | `/api/sgspe/indicators/{id}/measurements` | Cierra un periodo (`IndicatorMeasurements`): lee el `indicator` como quien llama, calcula el KPI con su `KpiReader` y congela en `indicator_measurement` el valor, el numerador, el denominador y el desglose principal como tabla Markdown. Una cifra completa o ninguna (ASM-136): `409 INDICATOR_NOT_CLOSABLE` con la razón `STANCE` (KPI-STK-02, KPI-STK-05 y KPI-STK-06), `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que solo dan series), `UNAVAILABLE` (quien cierra no lo tiene disponible o, en un KPI que lee QCS, no lee la marca `confidential` de los tres objetos) o `NOT_PERIOD_BOUND` (un KPI que no depende del periodo, la foto de hoy, solo se cierra para un mes calendario entero, el pasado o el actual en Lima; en la práctica, el mes pasado, porque el actual aún no terminó y el cierre lo rechaza antes con `400 PERIOD_NOT_ENDED`); `400 PERIOD_NOT_ENDED` si el periodo no terminó (se comprueba primero); `409 MEASUREMENT_EXISTS` si ya se cerró. Los KPI que leen QCS se congelan siempre sin las QCS confidenciales, quien sea que cierre: la cifra oficial las excluye y no revela cuántas son; el tablero no la muestra a quien se le ocultan QCS confidenciales. El desglose principal en Markdown solo se congela si es agregado (lista de permitidos de `Closability`); un desglose por registro (grupos de interés, interacciones, medidas atrasadas, responsables, riesgos) no se congela y la medición lleva solo el valor | CREATE sobre `indicator_measurement`; sin `project` (todo el tenant), además `ADMIN` (`403 ACTION_REQUIRED`; `READ_ALL_PROJECTS` no basta, decisión conservadora del plan 8.2a) | `{ project, attributes: { period_start_date, period_end_date } }` → `201` registro | `IK` | F8 |
 
 Sin `project`, los proyectos por defecto son «mis proyectos» de `ProjectReach`: todos los que lee quien lee todos los
 proyectos (`ADMIN` y `READ_ALL_PROJECTS`) y, si no, sus asignaciones vigentes; sin asignaciones, ninguno (la respuesta trae
@@ -1206,15 +1208,20 @@ leen, y un `program` que apunta a uno de ellos da conjuntos vacíos, no un error
     comparte con `summary` (§4.2) y no se recorta (`400 TOO_MANY_RECORDS`).
 - Los tableros de F8 (`dashboards.md` §5.1, §5.2 y §5.5) leen como quien llama, con los filtros comunes:
   - `executive`: las tiles de KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-ENG-01 y KPI-EXE-02
-    (`ExecutiveKpis`), KPI-INV-03 por moneda, KPI-EXE-03 (tres series de 12 meses, sin valor escalar) y `byProject[]`,
-    una fila por proyecto con las mismas cifras, calculadas con las mismas funciones; hasta
-    `sgspe.dashboards.executive.max-projects` (25) proyectos, y más es `400 TOO_MANY_RECORDS` (`project`);
+    (`ExecutiveKpis`), KPI-INV-03 por moneda, KPI-EXE-03 (tres series de 12 meses, sin valor escalar) y `byProject[]`.
+    `byProject[]` es `[{ project, code, name, indicators[] }]`, con los 8 KPI con valor de las tiles, sin desgloses ni
+    series, calculados con las mismas funciones sobre el filtro de cada proyecto. Pedir más proyectos que
+    `sgspe.dashboards.executive.max-projects` (25) es `400 TOO_MANY_RECORDS` (`project`); tenerlos por defecto («mis
+    proyectos» o todos) da las tiles sin `byProject[]` y con `byProjectOmitted: true`;
   - `project`: exige un solo `project` (`400 PROJECT_REQUIRED`); el mapa lo arma el portal con las capas de F6;
-  - `monitoring` (`MonitoringTable`): las 13 filas de `dashboards.md` §4.9 en su orden, cada una con `value`,
-    `target`, `targetSource` (`PROJECT`, `CATALOG` o `NONE`), `verificationMeans`, los desgloses que pide la Tabla 9.5
-    (sexo, ámbito e institución) y `official` (`{ measurement, closedAt, value }` o `null`). La cifra oficial sale
-    solo cuando el pedido coincide con la medición (mismo proyecto o todo el tenant, mismo periodo, sin filtros de
-    territorio), y #2 y #3 dicen «no disponible» a quien no lee `stance`, también con cifra oficial. Un tenant sin el
+  - `monitoring` (`MonitoringTable`): la respuesta trae `indicators[]` (los 13 KPI en el orden de `dashboards.md`
+    §4.9, con sus desgloses: sexo, ámbito e institución donde la Tabla 9.5 los pide) y `rows[]` en el mismo orden,
+    cada una `{ number, code, label, verificationMeans, deliverable, available, value, target, targetSource,
+    official }`. `targetSource` es `PROJECT`, `CATALOG`, `DEFAULT` o `NONE`, y `official`, `{ measurement, closedAt,
+    value }` o `null`. La cifra oficial sale solo sin filtros fuera de `project` y el periodo, con el periodo exacto
+    de la medición y un solo `project` (o ninguno, para la del tenant, a quien lee todos los proyectos); #2 y #3
+    dicen «no disponible» a quien no lee `stance`, también con cifra oficial, y la de una fila de QCS no sale a quien
+    se le ocultan QCS confidenciales. Un tenant sin el
     modelo de F8 (`TenantModel` sin `indicator`) responde sin metas ni cifras oficiales.
 - Desde F8, `GET /api/sgspe/dashboards/indicators` informa disponibles KPI-EXE-01 a KPI-EXE-03 y ubica KPI-STK-04,
   KPI-STK-05, KPI-STK-07, KPI-ENG-06, KPI-ENG-07 y KPI-ENG-08 en `monitoring`.

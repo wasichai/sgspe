@@ -53,9 +53,25 @@ object Kpis {
     const val INVESTMENT = "investment"
     const val TERRITORY = "territory"
 
+    // F8: los tableros consolidados (dashboards.md §5.1, §5.2 y §5.5)
+    const val EXECUTIVE = "executive"
+    const val PROJECT = "project"
+    const val MONITORING = "monitoring"
+
+    // R1 (decisión 3 del plan 8.2a): KPI-ENG-02 y el campo del catálogo con su meta por defecto en un tenant de F8
+    const val MEETINGS = "KPI-ENG-02"
+    const val MEETINGS_TARGET = "indicator.target_value"
+
     // los indicadores que leen QCS y que, a quien no ve las confidenciales, se lo dicen con confidentialHidden (dashboards.md §8,
     // ASM-095): los KPI-GRV y KPI-ENG-05, que cuenta como atendida una pregunta derivada a una QCS
-    fun confidentialSensitive(code: String): Boolean = code.startsWith("KPI-GRV-") || code == "KPI-ENG-05" || code == TerritorySummary.CODE
+    fun confidentialSensitive(code: String): Boolean =
+        code.startsWith("KPI-GRV-") || code == "KPI-ENG-05" || code == TerritorySummary.CODE || code == ExecutiveKpis.TREND
+
+    // R4 a prueba de fallos (decisión 25): lo que el cierre exige además legible en un KPI que lee las QCS, la marca
+    // confidential de los tres objetos; quien no la lee contaría las confidenciales como no confidenciales, así que el KPI
+    // sale no disponible y el cierre lo rechaza (UNAVAILABLE). KPI-ENG-05 no lee QCS: cuenta por referred_at de la pregunta,
+    // igual para todo lector (dashboards.md §4.3)
+    fun closingRequires(code: String): List<String> = if (confidentialSensitive(code) && code != "KPI-ENG-05") qcs(Attention.CONFIDENTIAL) else emptyList()
 
     // los KPI de F2 no aplican explorationCampaign (dashboards.md §3.1: solo compromisos e inversión social) ni owner, el
     // responsable de un compromiso que llega en F3
@@ -114,7 +130,32 @@ object Kpis {
             INVESTMENT to listOf("KPI-INV-01", "KPI-INV-02", "KPI-INV-03", "KPI-INV-04"),
             // dashboards.md §5.9: las estadísticas del tablero territorial; KPI-TER-01 lo agrega Dashboards con locality o
             // community (es la ficha)
-            TERRITORY to listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04")
+            TERRITORY to listOf("KPI-TER-02", "KPI-TER-03", "KPI-TER-04"),
+            // F8, dashboards.md §5.1: las tiles, la inversión por moneda y la tendencia
+            EXECUTIVE to ExecutiveKpis.TILES,
+            // F8, dashboards.md §5.2: paisaje de grupos de interés, relacionamiento, compromisos, QCS, riesgos y programas
+            PROJECT to
+                listOf(
+                    "KPI-STK-01",
+                    "KPI-STK-02",
+                    "KPI-STK-03",
+                    "KPI-ENG-01",
+                    "KPI-ENG-02",
+                    "KPI-COM-02",
+                    "KPI-COM-03",
+                    "KPI-COM-04",
+                    "KPI-COM-06",
+                    "KPI-GRV-01",
+                    "KPI-GRV-02",
+                    "KPI-GRV-06",
+                    "KPI-RSK-01",
+                    "KPI-RSK-02",
+                    "KPI-INV-02",
+                    "KPI-INV-03",
+                    "KPI-INV-04"
+                ),
+            // F8, dashboards.md §5.5: las 13 filas de la Tabla 9.5 en su orden (§4.9)
+            MONITORING to MonitoringTable.CODES
         )
 
     // F6: KPI-TER-02 a 04 se filtran solo por proyecto (dashboards.md §4.8); los demás filtros comunes, el periodo incluido
@@ -192,6 +233,10 @@ object Kpis {
         listOf("media_mention.project", "media_mention.published_date", "media_mention.outlet", "media_mention.outlet_name", "media_mention.tone")
     private val MEDIA_IGNORES: Set<String> = IGNORED_IN_F2 + setOf("administrativeUnit", "locality", "community", "areaOfInfluence", "scope")
 
+    // F8: KPI-EXE-01 se filtra solo por proyecto; KPI-EXE-02, por proyecto y territorio (sin ámbito); los dos son conteos de
+    // hoy, así que un periodo pedido se declara ignorado. KPI-EXE-03 aplica proyecto, territorio y ámbito (dashboards.md §4.1)
+    private val EXECUTIVE_WARNING_IGNORES: Set<String> = setOf("periodStart", "periodEnd", "explorationCampaign", "scope", "owner")
+
     val ALL: List<Indicator> =
         listOf(
             Kpi(
@@ -247,7 +292,7 @@ object Kpis {
             Kpi(
                 "KPI-STK-04",
                 "Grupos de interés contactados",
-                null,
+                MONITORING,
                 "grupos de interés",
                 CONTACT + listOf("person.sex", "position.organization", "position.position_status"),
                 ignores = STAKEHOLDER_IGNORES
@@ -258,7 +303,7 @@ object Kpis {
             Kpi(
                 "KPI-STK-05",
                 "Oposición que aceptó conversar",
-                null,
+                MONITORING,
                 "%",
                 CONTACT + listOf("stakeholder_assessment.stance", "stakeholder_assessment.assessment_date"),
                 ignores = STAKEHOLDER_IGNORES
@@ -289,7 +334,7 @@ object Kpis {
                 )
             },
             // el mismo conjunto de contactos que KPI-STK-04 (DashboardData.contacts): su denominador son los contactados
-            Kpi("KPI-STK-07", "Grupos de interés con más de un contacto", null, "%", CONTACT, ignores = STAKEHOLDER_IGNORES) {
+            Kpi("KPI-STK-07", "Grupos de interés con más de un contacto", MONITORING, "%", CONTACT, ignores = STAKEHOLDER_IGNORES) {
                 StakeholderKpis.repeatedContact(it.contacts())
             },
             Kpi(
@@ -310,7 +355,15 @@ object Kpis {
                 "reuniones",
                 HELD + listOf("engagement_plan.meetings_per_month_target", "project.meetings_per_month_target"),
                 ignores = IGNORED_IN_F2
-            ) { EngagementKpis.meetings(it.inPeriod(), it.window(), it.monthlyTargets(), it.filters.periodStart, it.filters.periodEnd) },
+            ) { data ->
+                // R1: la meta por defecto vive en un catálogo que quien mira no lee: no disponible, nunca con otra meta
+                if (data.meetingsDefaultUnreadable()) {
+                    val missing = listOf(MEETINGS_TARGET)
+                    IndicatorResult.unavailable(KpiEvaluation.reason(missing, data), missing)
+                } else {
+                    EngagementKpis.meetings(data.inPeriod(), data.window(), data.monthlyTargets(), data.filters.periodStart, data.filters.periodEnd)
+                }
+            },
             Kpi(
                 "KPI-ENG-03",
                 "Asistentes por reunión informativa",
@@ -349,11 +402,11 @@ object Kpis {
                 val questions = data.questions(meetings.map { it.id })
                 EngagementKpis.answered(meetings, questions, data.names("topic", questions.mapNotNull { it.topic }))
             },
-            // ---- F4: relacionamiento (dashboards.md §4.3, #11 a #13 de la Tabla 9.5): sin zona en un tablero hasta F8 (§11) ----
+            // ---- F4: relacionamiento (dashboards.md §4.3, #11 a #13 de la Tabla 9.5): en el tablero de monitoreo desde F8 (§11) ----
             Kpi(
                 "KPI-ENG-06",
                 "Monitoreos participativos de agua",
-                null,
+                MONITORING,
                 "monitoreos",
                 HELD + listOf("engagement.title", "stakeholder.project"),
                 ignores = IGNORED_IN_F2
@@ -364,7 +417,7 @@ object Kpis {
             Kpi(
                 "KPI-ENG-07",
                 "Comunicados sobre compromisos cumplidos",
-                null,
+                MONITORING,
                 "menciones",
                 MEDIA + listOf("media_mention.reports_fulfilled_commitment", "organization.name"),
                 ignores = MEDIA_IGNORES
@@ -375,7 +428,7 @@ object Kpis {
             Kpi(
                 "KPI-ENG-08",
                 "Medios con información positiva y negativa",
-                null,
+                MONITORING,
                 "%",
                 MEDIA + listOf("media_mention.topic", "organization.name", "topic.name"),
                 ignores = MEDIA_IGNORES
@@ -799,6 +852,55 @@ object Kpis {
                     is GateOutcome.Rows -> TerritoryKpis.componentsOnLand(outcome.rows)
                     is GateOutcome.Unavailable -> IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, outcome.missingFields)
                 }
+            },
+            // ---- F8: ejecutivos (dashboards.md §4.1) ----
+            Kpi(
+                ExecutiveKpis.ACTIVE_PROJECTS,
+                "Proyectos activos",
+                EXECUTIVE,
+                "proyectos",
+                listOf("project.stage", "project.project_type"),
+                ignores = TERRITORY_IGNORES
+            ) {
+                ExecutiveKpis.activeProjects(it.projectRows())
+            },
+            Kpi(
+                ExecutiveKpis.ACTIVE_WARNINGS,
+                "Alertas activas",
+                EXECUTIVE,
+                "alertas",
+                listOf("early_warning.project", "early_warning.severity", "early_warning.locality", "early_warning.community"),
+                ignores = EXECUTIVE_WARNING_IGNORES
+            ) { ExecutiveKpis.activeWarnings(it.earlyWarnings()) },
+            Kpi(
+                ExecutiveKpis.TREND,
+                "Tendencia mensual",
+                EXECUTIVE,
+                "cifras",
+                (
+                    HELD + QCS + qcs("closed_date") + COMMITMENT +
+                        listOf(
+                            "commitment.agreed_date",
+                            "commitment.due_date",
+                            "commitment.fulfilled_date",
+                            "commitment.cancelled_date",
+                            "commitment_reschedule.previous_due_date",
+                            "commitment_reschedule.new_due_date",
+                            "commitment_reschedule.commitment"
+                        )
+                ).distinct(),
+                ignores = setOf("explorationCampaign", "owner")
+            ) { data ->
+                val commitments = data.commitments(campaign = false, owner = false)
+                val reschedules = data.reschedules(commitments.map { it.id })
+                reschedules.warn(
+                    ExecutiveKpis.trend(
+                        EngagementKpis.held(data.inPeriod(), data.window(), data.filters.periodEnd),
+                        data.attention(),
+                        CommitmentKpis.overdueSeries(commitments, reschedules.rows, data.filters.periodEnd, data.today),
+                        data.filters.periodEnd
+                    )
+                )
             }
         )
 

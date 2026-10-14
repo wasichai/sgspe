@@ -1,5 +1,6 @@
 """Los pasos de security.md §4.1 sobre un tenant, en orden, como su administrador (ASM-109): el modelo, los roles, los
-workflows (con los tipos de documento y las automatizaciones), el ubigeo y, desde F6, las capas públicas de GeoServer.
+workflows (con los tipos de documento y las automatizaciones), el ubigeo, desde F8 el catálogo de indicadores y, desde F6,
+las capas públicas de GeoServer.
 
 Los comparten provision_tenant.py (alta) y upgrade_tenants.py (subida de fase de cada tenant). Cada paso es la función
 main(argv) de su script, llamada en el mismo proceso: la contraseña viaja en argv solo dentro de este proceso, nunca en la
@@ -8,6 +9,7 @@ línea de comandos ni en la salida. publish_layers.py toma las credenciales de G
 """
 import apply
 import apply_roles
+import load_indicators
 import load_ubigeo
 import publish_layers
 
@@ -20,6 +22,7 @@ STEPS = (
     ("apply_roles.py", lambda argv: apply_roles.main(argv)),
     ("apply.py --workflows", lambda argv: apply.main(argv + ["--workflows"])),
     ("load_ubigeo.py", lambda argv: load_ubigeo.main(argv)),
+    ("load_indicators.py", lambda argv: load_indicators.main(argv)),
     (LAYERS, lambda argv: publish_layers.main(argv)),
 )
 

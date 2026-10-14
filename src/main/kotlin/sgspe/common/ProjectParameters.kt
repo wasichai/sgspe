@@ -3,9 +3,10 @@ package sgspe.common
 import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 
-// los parámetros y políticas de `project` con su valor por defecto (database-model.md §6, ASM-019). wasichai guarda
-// defaultValue pero no lo aplica (UPS-15): un parámetro vacío vale lo que dice la ficha, y todo el código de sgspe lo lee
-// aquí para que el tablero, la guarda y el endpoint usen el mismo valor
+// los parámetros y políticas de `project` con su valor por defecto (database-model.md §6, ASM-019). desde 0.5.0
+// wasichai aplica el defaultValue a un alta que omite el campo (UPS-15), no a un cambio ni a un null explícito: un
+// parámetro vacío vale lo que dice la ficha, y todo el código de sgspe lo lee aquí para que el tablero, la guarda y el
+// endpoint usen el mismo valor
 object ProjectParameters {
     private val DECIMALS = mapOf("interest_threshold" to BigDecimal("3"), "power_threshold" to BigDecimal("3"))
     private val INTEGERS =
