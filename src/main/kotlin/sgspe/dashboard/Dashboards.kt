@@ -26,9 +26,14 @@ import java.util.UUID
 // los indicadores de módulo y sus tableros (api.md §4.11, dashboards.md §6 a §8). cada cálculo lleva su lector (especificación
 // de F8 §2.2.16): sin lector, la persona que llama, con sus permisos, su confidentialHidden y «mis proyectos»; con
 // KpiReader.Platform, la plataforma de JOB-05, fuera de una petición (KpiReaders). antes de calcular, cada KPI comprueba que
-// el lector puede leer los objetos y campos que usa; si no, sale no disponible con la razón y los campos que faltan, nunca
-// cero (RQ-DSH-032). nada se guarda en el servidor (§6.8). los errores llevan su código en errors[0].message (P15): 404
-// DASHBOARD_NOT_FOUND e INDICATOR_NOT_FOUND, 400 INVALID_BREAKDOWN, PROJECT_REQUIRED y TOO_MANY_RECORDS
+// el lector puede leer los objetos y campos que usa; si no, sale no disponible con la razón (OBJECT_NOT_READABLE si falta
+// READ sobre un objeto, FIELD_NOT_READABLE si falta un campo) y los campos que faltan, nunca cero (RQ-DSH-032). KPI-STK-03
+// exige un solo proyecto (SINGLE_PROJECT_REQUIRED). nada se guarda en el servidor (§6.8). los errores llevan su código en
+// errors[0].message (P15): 404 DASHBOARD_NOT_FOUND e INDICATOR_NOT_FOUND, 400 INVALID_BREAKDOWN, PROJECT_REQUIRED y
+// TOO_MANY_RECORDS (Records.all con tope). desde F4, el tablero attention, cada KPI-GRV y KPI-ENG-05 llevan
+// confidentialHidden si al lector se le ocultan las QCS confidenciales. desde 4.4, los proyectos por defecto de la persona son
+// «mis proyectos» de ProjectReach (todos los que lee quien lee todo, ninguno si no tiene asignaciones) y un proyecto ajeno
+// pedido da conjuntos vacíos: el alcance de lectura acota las filas (dashboards.md §3.1)
 @Service
 class Dashboards(
     private val records: Records,
