@@ -75,6 +75,8 @@ class MonitoringTableTest {
             MonitoringTable.target(meetings, value("KPI-ENG-02", 1, denominator = 2), null, false, catalogLoaded = false)
         )
         assertEquals(6 to MonitoringTable.PROJECT, MonitoringTable.target(meetings, withTarget, null, projectDefined = true, catalogLoaded = true))
+        // un proyecto que define la meta pero el KPI sin denominador: sin meta que mostrar, NONE (no PROJECT con null)
+        assertEquals(null to MonitoringTable.NONE, MonitoringTable.target(meetings, value("KPI-ENG-02", 1), two, projectDefined = true))
         val other = MonitoringTable.ROWS.first()
         assertEquals(
             BigDecimal("80") to MonitoringTable.CATALOG,

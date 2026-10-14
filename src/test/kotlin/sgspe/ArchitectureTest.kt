@@ -470,6 +470,20 @@ class ArchitectureTest {
         assertFalse(flags(AS_PLATFORM, "// nunca asPlatform dentro de una petición"))
     }
 
+    // WAS-ADR-0039: las M2M sin usuario solo las leen DashboardData (con el lector de la plataforma de KpiReaders, JOB-05) y
+    // StakeholderFollowUpJob (JOB-03, fuera de una petición); Records.kt la define. otro llamador le daría a una persona
+    // vínculos que no lee
+    @Test
+    fun `solo DashboardData y StakeholderFollowUpJob leen M2M como la plataforma`() {
+        val allowed = listOf("/sgspe/dashboard/DashboardData.kt", "/sgspe/stakeholder/StakeholderFollowUpJob.kt", "/sgspe/common/Records.kt")
+        val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, RELATED_AS_PLATFORM))
+        assertTrue(allowed.all { path -> sources(main).any { it.invariantSeparatorsPath.endsWith(path) } })
+        assertTrue(flags(RELATED_AS_PLATFORM, "records.relatedAsPlatform(organization, \"engagement\", id, \"engagement_topic\")"))
+        assertFalse(flags(RELATED_AS_PLATFORM, "// las M2M por Records.relatedAsPlatform"))
+        assertFalse(flags(RELATED_AS_PLATFORM, "records.related(\"engagement\", id, \"engagement_topic\")"))
+    }
+
     // decisión 12: la vía de plataforma de la compuerta solo la llama ComponentLand, y la organización de la plataforma solo
     // se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro dominio lee SQL propio como la plataforma
     @Test
@@ -637,6 +651,7 @@ class ArchitectureTest {
         private val DATABASE_CLIENT = Regex("""\bDatabaseClient\b""")
         private val READ_SCOPES = Regex("""\bRecordReadScopes\b""")
         private val AS_PLATFORM = Regex("""\basPlatform\s*[({]""")
+        private val RELATED_AS_PLATFORM = Regex("""\brelatedAsPlatform\s*\(""")
         private val SELECT_AS_PLATFORM = Regex("""\bselectAsPlatform\s*\(""")
         private val ROWS_WITH_PLATFORM = Regex("""\.rows\([^)]*\bplatform\b""")
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")

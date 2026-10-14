@@ -412,15 +412,16 @@ Aplican §4.1 del modelo de dominio:
     `topic.active` y `engagement_participant.represented_people_count`;
   - en un objeto `appendOnly`, lo que el registro necesita para estar completo, porque no se puede completar después; y en un
     objeto `apiOnly`, lo que siempre escribe el código propio.
-- Un requerido con valor por defecto, como esos interruptores o las monedas en PEN, no se completa solo: como wasichai no
-  aplica `defaultValue` (UPS-15), el portal, los scripts de carga y los endpoints propios envían el valor en cada alta.
+- Un requerido con valor por defecto, como esos interruptores o las monedas en PEN: desde wasichai 0.5.0, un alta que
+  omite el campo recibe el `defaultValue`, pero un `null` explícito no (UPS-15); el portal, los scripts de carga y los
+  endpoints propios siguen enviando el valor en cada alta.
 - Todo lo demás es opcional: la captura en campo es progresiva y los mínimos para avanzar de estado los exige una guarda, no
   un NOT NULL (§7.2 del modelo de dominio). Volver requerido un campo después exige completar antes los datos, porque
   `apply.py` no lo hace (§24); relajarlo es inmediato.
-- **Valor por defecto.** `defaultValue` vive en la metadata. En wasichai 0.3.2 no se traduce a un `DEFAULT` de la columna, ni
-  `RecordService` ni la interfaz lo aplican, y una escritura que omite el campo lo deja vacío (UPS-15). Por eso el portal
-  propone el valor al crear y el código que lee un parámetro vacío de `project` usa el mismo valor por defecto (ASM-019). Las
-  fichas lo indican con "Por defecto".
+- **Valor por defecto.** `defaultValue` vive en la metadata y no se traduce a un `DEFAULT` de la columna. Desde wasichai
+  0.5.0, `RecordService` lo aplica a un alta que omite el campo, no a un cambio ni a un `null` explícito (UPS-15): un
+  parámetro limpiado o creado antes de 0.5.0 queda vacío. Por eso el portal propone el valor al crear y el código que
+  lee un parámetro vacío de `project` usa el mismo valor por defecto (ASM-019). Las fichas lo indican con "Por defecto".
 - **Derivado.** Lo escribe solo el código propio, con la marca `SgspeWrite`; nunca es requerido. Su regla y su escritor están
   en §7.4 del modelo de dominio. Las fichas lo marcan "(derivado)" y `model.json`, con `"derived": true` (§3.1).
 - **Restringido.** Dato personal o sensible protegido por permiso de campo (RQ-SEC-010, GAP-024); los permisos están en
@@ -757,7 +758,8 @@ Requisitos: RF-PRJ-001, RF-PRJ-003, RN-PRJ-001, RQ-GIS-001, RQ-GIS-004, ASM-019,
 - `FieldChangeReasonGuard` exige motivo al cambiar `stage` o `exploration_phase` (RN-PRJ-001); `ProjectWriteGuard`
   aplica la precondición de `active` mientras `policy_activation_preconditions` esté activo (ASM-062).
 - Los parámetros y políticas llegan con el módulo que los usa (columna "Descripción"); `apply.py` agrega cada campo en
-  su fase. Su `defaultValue` lo aplica el código de SGSPE, porque wasichai no lo aplica (§3.6, UPS-15).
+  su fase. wasichai aplica su `defaultValue` al crear un proyecto que omite el campo (desde 0.5.0), y el código de SGSPE
+  lee un parámetro vacío con el mismo valor (§3.6, UPS-15).
 - Los parámetros de F4: `ProjectWriteGuard` rechaza con `400 OUT_OF_RANGE` un plazo o una cadencia
   (`grievance_ack_days`, `inquiry_response_days`, `grievance_resolution_days`, `risk_review_days`) menor que 1 o mayor
   que 365, y umbrales de riesgo fuera de 1 a 25 o que no crezcan estrictamente (`risk_medium_min_score` <
@@ -4288,8 +4290,9 @@ estos saltos (`api.md` §3.6); JOB-08 los purga después de `sgspe.concurrency.d
 - Como crea todos los objetos antes que las relaciones, admite las autorreferencias y los ciclos de §2.6.
 - Lo que el `apply.py` de SGSPE agrega al de caja: GEOMETRY e `indexes` (tomados del de srtm) e `indexed` en F2; relaciones
   MANY_TO_MANY con `type`; autorreferencias y ciclos, que los validadores de caja y de srtm rechazan (exigen que el destino
-  aparezca antes que el origen); `defaultValue`, que wasichai guarda pero no aplica (UPS-15); y el paso `--workflows`. Cada
-  fase agrega solo los objetos, campos, relaciones y definiciones de su fase, según las fichas.
+  aparezca antes que el origen); `defaultValue`, que wasichai aplica a un alta que omite el campo desde 0.5.0
+  (UPS-15); y el paso `--workflows`. Cada fase agrega solo los objetos, campos, relaciones y definiciones de su fase,
+  según las fichas.
 - Desde F3: el tipo `FILE` de wasichai-files (nunca `unique`, con `defaultValue` ni en un índice; `contentTypes` y `maxBytes`
   opcionales, y `wasichai.files.max-bytes` sigue siendo el tope), y en `--workflows` los
   tipos de documento (`model/document-types/<objeto>.json`) y las automatizaciones (`model/automations/<objeto>.json`), cada
@@ -4434,7 +4437,7 @@ decisión registrada permite.
 | pgvector | La columna `embedding` de `knowledge_chunk` solo con una medición que lo justifique | RQ-AI-008, CON-035 |
 | Lotes de importación y borradores como objetos | Siguen siendo campos (`import_batch_id`, `draft_*`); F8 deja los borradores en siete campos `FILE` derivados y conserva solo el último (ASM-133); un ADR posterior puede volverlos objetos | ASM-060, ASM-061, ASM-133 |
 | Volúmenes | Los índices declarados se amplían con mediciones | GAP-027 |
-| Valores por defecto en la plataforma | Mientras wasichai no aplique `defaultValue`, el código de SGSPE aplica los de `project` (§3.6) | UPS-15, ASM-019 |
+| Valores por defecto en la plataforma | wasichai aplica `defaultValue` solo a un alta que omite el campo (desde 0.5.0); mientras no lo aplique a un `null` explícito ni haya `DEFAULT` de columna, el código de SGSPE lee un parámetro vacío de `project` con su valor por defecto (§3.6) | UPS-15, ASM-019 |
 | Autorrelaciones desde el destino | Mientras falte, los registros que apuntan a uno se leen filtrando por el campo (§2.6) | UPS-16 |
 | Idempotencia en la API genérica | Solo las creaciones de `/api/sgspe/**` son idempotentes, con `idempotency_key`; la tabla se retira cuando la plataforma la ofrezca | UPS-18, ASM-065 |
 | Edición de la metadata en `/admin` | Solo el repositorio es fuente de verdad en producción | GAP-030 |

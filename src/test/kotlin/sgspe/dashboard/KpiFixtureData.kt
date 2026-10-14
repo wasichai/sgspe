@@ -138,7 +138,7 @@ class KpiFixtureData(
                     reads += "page $objectName ${written(objectName, query.criteria)}"
                     PageResponse(rows(objectName).take(1), 0, 1, null, null, null)
                 }
-                else -> null
+                else -> error("método no simulado: ${call.method.name}")
             }
         }
 

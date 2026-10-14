@@ -78,7 +78,7 @@ class ExecutiveKpisTest {
     }
 
     @Test
-    fun `KPI-EXE-03 son tres medidas por mes sin valor escalar y una queja reclasificada no cuenta dos veces`() {
+    fun `KPI-EXE-03 son cuatro cifras por mes sin valor escalar y una queja reclasificada no cuenta dos veces`() {
         val held =
             EngagementKpis.held(emptyList(), emptyList(), end).copy(
                 series = EngagementKpis.months(end).map { mapOf("period" to it.toString(), "value" to if (it.toString() == "2026-09") 4 else 0) }

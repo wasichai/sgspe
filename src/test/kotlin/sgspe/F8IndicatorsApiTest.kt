@@ -53,13 +53,15 @@ abstract class F8IndicatorsApiTest : F6ApiTest() {
         return month.atDay(1) to month.atEndOfMonth()
     }
 
-    // un mes ya terminado que sale de uniqueName (un UUID): uno de los 12 000 meses de los años 1000 a 1999, siempre en el
-    // pasado (el cierre exige un periodo terminado, 400 PERIOD_NOT_ENDED), así que dos llamadas, dos clases o dos corridas
-    // sobre la misma base no repiten mes en la práctica. las mediciones del tenant (sin project) lo necesitan: el único
-    // compuesto no compara los NULL (WAS-ADR-0037) y el cierre sí
-    protected fun uniqueMonth(): Pair<LocalDate, LocalDate> {
-        val month = YearMonth.of(1000, 1).plusMonths(Math.floorMod(uniqueName("mes").hashCode(), MONTHS).toLong())
-        return month.atDay(1) to month.atEndOfMonth()
+    // un periodo ya terminado de un solo día que sale de uniqueName (un UUID): uno de los 365 000 días desde el 1 de enero
+    // de 1000, siempre en el pasado (el cierre exige un periodo terminado, 400 PERIOD_NOT_ENDED). solo para los KPI del
+    // periodo (KPI-ENG-01, KPI-COM-08), que se cierran para cualquier periodo terminado; los de PERIODLESS piden el mes
+    // vigente (NOT_PERIOD_BOUND). las mediciones del tenant (sin project) lo necesitan: el único compuesto no compara los
+    // NULL (WAS-ADR-0037) y el cierre sí, así que un periodo repetido en una base persistente sería 409 MEASUREMENT_EXISTS;
+    // con 365 000 días, dos corridas sobre la misma base no lo repiten en la práctica (con 12 000 meses, sí)
+    protected fun uniqueDay(): Pair<LocalDate, LocalDate> {
+        val day = FIRST_DAY.plusDays(Math.floorMod(uniqueName("dia").hashCode(), DAYS).toLong())
+        return day to day
     }
 
     // POST /api/sgspe/indicators/{id}/measurements; sin project, todo el tenant
@@ -80,7 +82,8 @@ abstract class F8IndicatorsApiTest : F6ApiTest() {
         )
 
     companion object {
-        private const val MONTHS = 12_000
+        private const val DAYS = 365_000
+        private val FIRST_DAY: LocalDate = LocalDate.of(1000, 1, 1)
         private val CATALOG_LOCK = Any()
 
         @Volatile

@@ -132,7 +132,8 @@ object Closability {
 
     // la razón por el código y el periodo, o null si se puede calcular: un código que Kpis no calcula (un indicador propio
     // del cliente) no tiene cifra que congelar; uno sin periodo solo vale para el periodo vigente: un mes calendario entero
-    // (del día 1 al último), el pasado o el actual de `today` (hoy en Lima; que haya terminado lo exige PERIOD_NOT_ENDED)
+    // (del día 1 al último), el pasado o el actual de `today` (hoy en Lima). en la práctica, el mes pasado: el actual aún no
+    // terminó y el cierre lo rechaza antes con PERIOD_NOT_ENDED
     fun before(
         code: String,
         period: ClosingPeriod,
@@ -157,7 +158,8 @@ object Closability {
     }
 
     // la razón por el KPI calculado, o null si es una cifra completa. confidentialHidden no impide cerrar: el cierre calcula
-    // siempre sin las QCS confidenciales (decisión 25, R4)
+    // siempre sin las QCS confidenciales (decisión 25, R4), y sin la marca confidential legible el KPI ya llega no disponible
+    // (Kpis.closingRequires). KPI-ENG-05 no depende del lector: cuenta por referred_at, sin leer la QCS (dashboards.md §4.3)
     fun after(value: IndicatorValue): String? =
         when {
             !value.available -> UNAVAILABLE
@@ -172,6 +174,20 @@ object Closability {
         if (first.rows.isEmpty() || first.by !in AGGREGATE) return null
         val lines = first.rows.map { row -> "| ${cell(row["label"] ?: row["key"])} | ${cell(row["value"])} |" }
         return (listOf("| ${cell(first.by)} | Valor |", "|---|---|") + lines).joinToString("\n")
+    }
+
+    // el mensaje del 409 INDICATOR_NOT_CLOSABLE; NOT_PERIOD_BOUND dice qué periodo vale (en la práctica, el mes pasado)
+    fun message(
+        reason: String,
+        code: String
+    ): String {
+        val base = "$code no se cierra ($reason): una cifra oficial es completa o no existe (ASM-136)"
+        return if (reason == NOT_PERIOD_BOUND) {
+            "$base. $code no depende del periodo: solo se cierra para un mes calendario entero, el pasado en Lima " +
+                "(el actual aún no terminó)"
+        } else {
+            base
+        }
     }
 
     // la barra invertida primero (para que la de `\|` no se duplique) y cada salto de línea, \r\n, \r o \n, a un espacio

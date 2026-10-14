@@ -2,13 +2,15 @@ package sgspe.dashboard
 
 // la evaluación de un indicador con los permisos de quien mira (dashboards.md §8): primero la disponibilidad (los objetos y
 // campos que lee, un solo proyecto si lo exige) y después el cálculo; los filtros pedidos que no aplica van en ignoredFilters
-// (ruling P27: nunca un cero silencioso). la usan el tablero, el detalle de un indicador y cada fila de KPI-TER-01
+// (ruling P27: nunca un cero silencioso). la usan el tablero, el detalle de un indicador y cada fila de KPI-TER-01.
+// `also`: lo que un uso pide legible además de lo del KPI (el cierre de periodo, Kpis.closingRequires)
 object KpiEvaluation {
     suspend fun evaluate(
         kpi: Indicator,
-        data: DashboardData
+        data: DashboardData,
+        also: List<String> = emptyList()
     ): IndicatorValue {
-        val missing = kpi.requires.filterNot { data.readable(it) }
+        val missing = (kpi.requires + also).distinct().filterNot { data.readable(it) }
         val result =
             when {
                 missing.isNotEmpty() -> IndicatorResult.unavailable(reason(missing, data), missing)
