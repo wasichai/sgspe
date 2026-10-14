@@ -9,6 +9,7 @@ import sgspe.common.Callers
 import sgspe.common.ObjectDefinitions
 import sgspe.common.Readability
 import wasichai.core.common.ForbiddenException
+import wasichai.core.common.NotFoundException
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordReadScopes
 import wasichai.core.identity.AccessPolicy
@@ -139,7 +140,10 @@ internal class GateSql(
 // 3. SQL: tablas y columnas de ObjectDefinitions.current entrecomilladas, valores enlazados, solo SELECT o WITH, una sentencia.
 // 4. resultado: ids y medidas; los atributos personales se leen después por Records.
 // quien llama es el AuthenticatedUser del token (Callers.require, CurrentUser de wasichai): fuera de una petición es el 401
-// de wasichai, nunca la plataforma. SpatialGateScopeParityTest compara sus filas con las de Records
+// de wasichai, nunca la plataforma. SpatialGateScopeParityTest compara sus filas con las de Records.
+// Con el lector de la plataforma de los KPI (especificación de F8 §2.2.16), selectAsPlatform: sin permisos de persona, sin
+// alcances ni dueño, con la organización enlazada; solo fuera de una petición: lo comprueba aquí y lo llama solo
+// ComponentLand (ArchitectureTest).
 @Component
 class SpatialGate internal constructor(
     private val caller: suspend () -> AuthenticatedUser,
@@ -148,7 +152,8 @@ class SpatialGate internal constructor(
     private val scopes: suspend (AuthenticatedUser, ObjectDefinition) -> List<RecordCriterion>,
     private val owner: suspend (AuthenticatedUser) -> UUID?,
     private val physical: (ObjectDefinition) -> String,
-    private val runner: GateRunner
+    private val runner: GateRunner,
+    private val userOrNull: suspend () -> AuthenticatedUser? = { null }
 ) {
     @Autowired
     constructor(
@@ -166,7 +171,8 @@ class SpatialGate internal constructor(
         { user, definition -> readScopes.criteria(user, definition) },
         { user -> access.ownerFilter(user) },
         { definition -> schemas.dataTable(definition.obj.physicalTable) },
-        DatabaseGateRunner(db)
+        DatabaseGateRunner(db),
+        { callers.userOrNull() }
     )
 
     suspend fun <T : Any> select(
@@ -194,6 +200,36 @@ class SpatialGate internal constructor(
         val definitions = declared.keys.associateWith { definition(user.organizationId, it) }
         val criteria = definitions.mapValues { (_, full) -> scopes(user, full) }
         val tables = GateSql(declared, definitions, criteria, user.organizationId, owner(user), physical)
+        val text = tables.sql(tables::bind)
+        requireReadOnly(text)
+        @Suppress("UNCHECKED_CAST")
+        return GateOutcome.Rows(runner.run(text, tables.bindings, map) as List<T>)
+    }
+
+    // la misma consulta como la plataforma de `organizationId`: lo que el tenant no tiene (objeto o campo) es no disponible
+    suspend fun <T : Any> selectAsPlatform(
+        organizationId: UUID,
+        reads: List<GateRead>,
+        sql: GateTables.(bind: (Any) -> String) -> String,
+        map: (Readable) -> T
+    ): GateOutcome<T> {
+        check(userOrNull() == null) { "SpatialGate.selectAsPlatform no corre dentro de una petición" }
+        val declared = reads.groupBy { it.objectName }.mapValues { (_, list) -> list.flatMap { it.fields }.toSet() }
+        val definitions = mutableMapOf<String, ObjectDefinition>()
+        val missing = mutableListOf<String>()
+        for ((name, fields) in declared) {
+            val loaded =
+                try {
+                    definition(organizationId, name)
+                } catch (_: NotFoundException) {
+                    missing += fields.sorted().map { "$name.$it" }.ifEmpty { listOf(name) }
+                    continue
+                }
+            definitions[name] = loaded
+            missing += fields.filter { field -> loaded.fields.none { it.name == field } }.sorted().map { "$name.$it" }
+        }
+        if (missing.isNotEmpty()) return GateOutcome.Unavailable(missing.distinct().sorted())
+        val tables = GateSql(declared, definitions, definitions.mapValues { emptyList() }, organizationId, null, physical)
         val text = tables.sql(tables::bind)
         requireReadOnly(text)
         @Suppress("UNCHECKED_CAST")

@@ -2,8 +2,10 @@ package sgspe.territory
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import wasichai.core.common.ForbiddenException
@@ -69,7 +71,8 @@ class SpatialGateTest {
         captured: Captured = Captured(),
         scope: RecordCriterion? = null,
         owner: UUID? = null,
-        rows: List<Any> = emptyList()
+        rows: List<Any> = emptyList(),
+        userOrNull: suspend () -> AuthenticatedUser? = { null }
     ) = SpatialGate(
         { analyst },
         { { path -> path in readable } },
@@ -84,7 +87,8 @@ class SpatialGateTest {
             captured.sql = sql
             captured.bindings = bindings
             rows
-        }
+        },
+        userOrNull
     )
 
     private val all = setOf("parcel", "parcel.code", "parcel.registry", "parcel.boundary", "right", "right.parcel", "right.holder")
@@ -178,5 +182,36 @@ class SpatialGateTest {
         }
         val outcome = runBlocking { gate.select(listOf(GateRead("parcel", emptySet(), principal = true)), { "WITH a AS (SELECT 1) SELECT * FROM a" }) { it } }
         assertEquals(GateOutcome.Rows(listOf("fila")), outcome)
+    }
+
+    // especificación de F8 §2.2.16: con el lector de la plataforma, la compuerta no pide permisos de persona ni alcances ni
+    // dueño; un objeto o campo que el tenant no tiene es no disponible, sin correr nada
+    @Test
+    fun `selectAsPlatform no pide permisos ni alcances y lo que el tenant no tiene es no disponible`() {
+        val captured = Captured()
+        val scope = RecordCriterion { _, _ -> "c_code = 'x'" }
+        val gate = gate(emptySet(), captured, scope = scope, owner = UUID.randomUUID())
+        val outcome =
+            runBlocking {
+                gate.selectAsPlatform(organization, listOf(GateRead("parcel", setOf("code"), principal = true)), { "SELECT ${table("parcel")}.x" }) { it }
+            }
+        assertTrue(outcome is GateOutcome.Rows)
+        assertTrue(captured.scoped.isEmpty())
+        assertFalse(captured.sql!!.contains("c_code = 'x'"))
+        assertFalse(captured.sql!!.contains("created_by"))
+        val missing =
+            runBlocking { gate(emptySet()).selectAsPlatform(organization, listOf(GateRead("parcel", setOf("religion"))), { "SELECT 1" }) { it } }
+        assertEquals(GateOutcome.Unavailable(listOf("parcel.religion")), missing)
+    }
+
+    // decisión 12: la vía de la plataforma nunca corre con una persona en el contexto
+    @Test
+    fun `selectAsPlatform con una persona en el contexto falla sin correr nada`() {
+        val captured = Captured()
+        val gate = gate(all, captured, userOrNull = { analyst })
+        assertThrows<IllegalStateException> {
+            runBlocking { gate.selectAsPlatform(organization, listOf(GateRead("parcel", setOf("code"))), { "SELECT 1" }) { it } }
+        }
+        assertNull(captured.sql)
     }
 }
