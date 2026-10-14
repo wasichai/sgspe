@@ -143,7 +143,9 @@ object Kpis {
                     "KPI-INV-02",
                     "KPI-INV-03",
                     "KPI-INV-04"
-                )
+                ),
+            // F8, dashboards.md §5.5: las 13 filas de la Tabla 9.5 en su orden (§4.9)
+            MONITORING to MonitoringTable.CODES
         )
 
     // F6: KPI-TER-02 a 04 se filtran solo por proyecto (dashboards.md §4.8); los demás filtros comunes, el periodo incluido
@@ -280,7 +282,7 @@ object Kpis {
             Kpi(
                 "KPI-STK-04",
                 "Grupos de interés contactados",
-                null,
+                MONITORING,
                 "grupos de interés",
                 CONTACT + listOf("person.sex", "position.organization", "position.position_status"),
                 ignores = STAKEHOLDER_IGNORES
@@ -291,7 +293,7 @@ object Kpis {
             Kpi(
                 "KPI-STK-05",
                 "Oposición que aceptó conversar",
-                null,
+                MONITORING,
                 "%",
                 CONTACT + listOf("stakeholder_assessment.stance", "stakeholder_assessment.assessment_date"),
                 ignores = STAKEHOLDER_IGNORES
@@ -322,7 +324,7 @@ object Kpis {
                 )
             },
             // el mismo conjunto de contactos que KPI-STK-04 (DashboardData.contacts): su denominador son los contactados
-            Kpi("KPI-STK-07", "Grupos de interés con más de un contacto", null, "%", CONTACT, ignores = STAKEHOLDER_IGNORES) {
+            Kpi("KPI-STK-07", "Grupos de interés con más de un contacto", MONITORING, "%", CONTACT, ignores = STAKEHOLDER_IGNORES) {
                 StakeholderKpis.repeatedContact(it.contacts())
             },
             Kpi(
@@ -343,7 +345,14 @@ object Kpis {
                 "reuniones",
                 HELD + listOf("engagement_plan.meetings_per_month_target", "project.meetings_per_month_target"),
                 ignores = IGNORED_IN_F2
-            ) { EngagementKpis.meetings(it.inPeriod(), it.window(), it.monthlyTargets(), it.filters.periodStart, it.filters.periodEnd) },
+            ) { data ->
+                // R1: la meta por defecto vive en un catálogo que quien mira no lee: no disponible, nunca con otra meta
+                if (data.meetingsDefaultUnreadable()) {
+                    IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, listOf("indicator.target_value"))
+                } else {
+                    EngagementKpis.meetings(data.inPeriod(), data.window(), data.monthlyTargets(), data.filters.periodStart, data.filters.periodEnd)
+                }
+            },
             Kpi(
                 "KPI-ENG-03",
                 "Asistentes por reunión informativa",
@@ -382,11 +391,11 @@ object Kpis {
                 val questions = data.questions(meetings.map { it.id })
                 EngagementKpis.answered(meetings, questions, data.names("topic", questions.mapNotNull { it.topic }))
             },
-            // ---- F4: relacionamiento (dashboards.md §4.3, #11 a #13 de la Tabla 9.5): sin zona en un tablero hasta F8 (§11) ----
+            // ---- F4: relacionamiento (dashboards.md §4.3, #11 a #13 de la Tabla 9.5): en el tablero de monitoreo desde F8 (§11) ----
             Kpi(
                 "KPI-ENG-06",
                 "Monitoreos participativos de agua",
-                null,
+                MONITORING,
                 "monitoreos",
                 HELD + listOf("engagement.title", "stakeholder.project"),
                 ignores = IGNORED_IN_F2
@@ -397,7 +406,7 @@ object Kpis {
             Kpi(
                 "KPI-ENG-07",
                 "Comunicados sobre compromisos cumplidos",
-                null,
+                MONITORING,
                 "menciones",
                 MEDIA + listOf("media_mention.reports_fulfilled_commitment", "organization.name"),
                 ignores = MEDIA_IGNORES
@@ -408,7 +417,7 @@ object Kpis {
             Kpi(
                 "KPI-ENG-08",
                 "Medios con información positiva y negativa",
-                null,
+                MONITORING,
                 "%",
                 MEDIA + listOf("media_mention.topic", "organization.name", "topic.name"),
                 ignores = MEDIA_IGNORES
