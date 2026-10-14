@@ -5,8 +5,9 @@ Stdlib only. What it reads, and from where:
 - docs/database-model.md, the cards (§6 to §21): per object its label, description, fields (type, required, unique,
   derived, restricted, default, phase), relationships (type, field, target, required, phase), flags, uniques, declared
   indexes, declared actions (and the phase of one written "`EXPORT` (desde F6)"), the media types and the byte limit of
-  each FILE field (several per card since F8), workflow and phase; §4, the key of each ENUM catalog; and, of a fixed table of the sgspe schema (knowledge_chunk, F7),
-  its columns with their PostgreSQL type, its primary key, its uniques, its indexes and its full-text index;
+  each FILE field (several per card since F8), workflow and phase; §4, the key of each ENUM catalog; and, of a fixed
+  table of the sgspe schema (knowledge_chunk, F7), its columns with their PostgreSQL type, its primary key, its uniques,
+  its indexes and its full-text index;
 - docs/requirements-analysis.md §10, the options of each catalog, in order, without the "(propuesto)" notes;
 - docs/security.md §7.1 (the phase of each role), §7.2 to §7.8 (the matrix), §7.9 (the restricted fields) and §9.7 (the
   masters of ProjectScope.TENANT);

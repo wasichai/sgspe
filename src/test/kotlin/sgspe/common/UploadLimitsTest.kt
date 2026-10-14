@@ -53,6 +53,19 @@ class UploadLimitsTest {
 
     private fun codec() = ContentTooLargeException(DataBufferLimitException("Exceeded limit on max bytes to buffer : 262144"))
 
+    // el tope sale de spring.webflux.multipart.max-disk-usage-per-part, no de wasichai.files.max-bytes (64 MB desde F8)
+    @Test
+    fun `el advice lee el tope por parte del multipart de Spring`() {
+        val value =
+            UploadLimitsAdvice::class.java.declaredConstructors
+                .first()
+                .parameters
+                .mapNotNull { it.getAnnotation(org.springframework.beans.factory.annotation.Value::class.java) }
+                .single()
+                .value
+        assertEquals("\${spring.webflux.multipart.max-disk-usage-per-part:20MB}", value)
+    }
+
     @Test
     fun `un multipart que pasa el tope por parte es 400 FILE_TOO_LARGE con el problem+json de wasichai`() {
         val answer = advice.limit(disk(), request(MediaType.MULTIPART_FORM_DATA)).block()!!
