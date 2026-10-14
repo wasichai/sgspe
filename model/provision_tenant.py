@@ -4,8 +4,9 @@
 1. Con las credenciales del operador (una persona del rol que tiene MANAGE_TENANTS en la organización operadora, nunca una
    cuenta de servicio), llama POST /api/organizations con el nombre, el slug y el primer administrador.
 2. Con las credenciales del administrador nuevo corre, en este orden, apply.py, apply_roles.py, apply.py --workflows,
-   load_ubigeo.py y publish_layers.py (tenant_steps.py). publish_layers.py toma las credenciales de GeoServer del entorno
-   (WASICHAI_GIS_GEOSERVER_URL, _USERNAME y _PASSWORD); un despliegue sin GeoServer lo omite con --skip-layers.
+   load_ubigeo.py, load_indicators.py y publish_layers.py (tenant_steps.py). publish_layers.py toma las credenciales de
+   GeoServer del entorno (WASICHAI_GIS_GEOSERVER_URL, _USERNAME y _PASSWORD); un despliegue sin GeoServer lo omite con
+   --skip-layers.
 3. Termina recordando que el cliente debe cambiar la contraseña inicial de su administrador.
 
 Las contraseñas llegan por variable de entorno (SGSPE_OPERATOR_PASSWORD y SGSPE_TENANT_ADMIN_PASSWORD) o por consola, nunca

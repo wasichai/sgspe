@@ -75,7 +75,11 @@ class AmountFieldsGuard(
                 "program_indicator.target_value" to "meta del indicador, en su unidad",
                 "program_measurement.measured_value" to "valor medido del indicador, en su unidad",
                 "ai_suggestion.confidence" to "confianza de la sugerencia de la IA, de 0 a 1",
-                "ai_interaction.confidence" to "confianza de la llamada a la IA, de 0 a 1"
+                "ai_interaction.confidence" to "confianza de la llamada a la IA, de 0 a 1",
+                "indicator.target_value" to "meta de un KPI en su unidad: un conteo o un porcentaje",
+                "indicator_measurement.measured_value" to "cifra oficial de un KPI en su unidad",
+                "indicator_measurement.numerator" to "numerador de la cifra oficial: un conteo",
+                "indicator_measurement.denominator" to "denominador de la cifra oficial: un conteo o una meta"
             )
 
         // pura, para las pruebas unitarias: un hallazgo por monto de `objectName` que cambia y no pasa Amounts.parse

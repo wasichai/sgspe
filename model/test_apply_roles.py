@@ -101,12 +101,12 @@ class RolesJsonTests(unittest.TestCase):
             self.assertEqual(role["permisos"], wanted, name)
 
     def test_desde_f5_todos_los_roles_tienen_permisos(self):
-        # la fase del modelo es la de su objeto más tardío: F7 desde el plan 7.1; SOCIAL_INVESTMENT_MANAGER (F5) fue el
+        # la fase del modelo es la de su objeto más tardío: F8 desde el plan 8.2a (los indicadores); SOCIAL_INVESTMENT_MANAGER (F5) fue el
         # último rol en recibir permisos (security.md §7.1)
         phases, _ = design_docs.role_phases()
         cards = design_docs.cards()
         phase = max(cards[o["name"]].phase for o in load(MODEL_PATH)["objects"])
-        self.assertEqual(phase, "F7")
+        self.assertEqual(phase, "F8")
         self.assertEqual(sorted(name for name in self.roles if name != "AUDITOR" and phases[name] > phase), [])
         self.assertEqual([name for name, role in self.roles.items() if not role["permisos"]], [])
 
@@ -798,12 +798,39 @@ class ApplyRolesTests(ApplyRolesTestCase):
                 json.dump(phase_roles(load(ROLES_PATH), load(f6_model)), f, ensure_ascii=False)
             self.assertEqual(test_apply.quiet(apply.main, ["--model", f6_model, *login])[0], 0)
             self.assertEqual(self.run_cli(roles_path=f6_roles, model_path=f6_model)[0], 0)
-            self.assertEqual(test_apply.quiet(apply.main, ["--model", MODEL_PATH, *login])[0], 0)
-        code, out, err = self.run_cli()
+            f7_model = test_apply.write_model(folder, test_apply.phase_subset(load(MODEL_PATH), "F7"))
+            f7_roles = os.path.join(folder, "roles-f7.json")
+            with open(f7_roles, "w", encoding="utf-8") as f:
+                json.dump(phase_roles(load(ROLES_PATH), load(f7_model)), f, ensure_ascii=False)
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", f7_model, *login])[0], 0)
+            code, out, err = self.run_cli(roles_path=f7_roles, model_path=f7_model)
+            again = self.run_cli(roles_path=f7_roles, model_path=f7_model)
         self.assertEqual(code, 0, err)
         self.assertIn("done: 0 created, 13 updated, 2 skipped", out)
         self.assertEqual(sorted(line.split()[2] for line in out.splitlines() if line.startswith("skip   role")),
                          ["GIS_ANALYST", "SOCIAL_INVESTMENT_MANAGER"])
+        self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
+
+    def test_un_tenant_de_f7_suma_los_indicadores(self):
+        # plan 8.2a: apply_roles.py da READ sobre indicator e indicator_measurement a los doce roles de security.md §7.8 (y
+        # UPDATE y CREATE a SOCIAL_MANAGER) y READ sobre indicator a PROJECT_ADMIN y FIELD_AGENT (la meta de KPI-ENG-02, R1);
+        # AUDITOR («*» READ) no cambia
+        import apply
+        import test_apply
+        login = ["--core", self.core.base_url, "--email", "admin@wasichai.local", "--password", "admin"]
+        with tempfile.TemporaryDirectory() as folder:
+            f7_model = test_apply.write_model(folder, test_apply.phase_subset(load(MODEL_PATH), "F7"))
+            f7_roles = os.path.join(folder, "roles.json")
+            with open(f7_roles, "w", encoding="utf-8") as f:
+                json.dump(phase_roles(load(ROLES_PATH), load(f7_model)), f, ensure_ascii=False)
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", f7_model, *login])[0], 0)
+            self.assertEqual(self.run_cli(roles_path=f7_roles, model_path=f7_model)[0], 0)
+            self.assertEqual(test_apply.quiet(apply.main, ["--model", MODEL_PATH, *login])[0], 0)
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, err)
+        self.assertIn("done: 0 created, 14 updated, 1 skipped", out)
+        self.assertEqual(sorted(line.split()[2] for line in out.splitlines() if line.startswith("skip   role")),
+                         ["AUDITOR"])
         again = self.run_cli()
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
 

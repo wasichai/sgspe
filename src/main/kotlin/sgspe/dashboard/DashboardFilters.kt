@@ -87,6 +87,13 @@ data class DashboardFilters(
         const val MIN_YEAR = 2000
         const val MAX_YEAR = 2100
 
+        // los filtros de un cálculo sin pedido HTTP (el cierre de periodo, el ensamblado de entregables): proyectos y periodo
+        fun of(
+            projects: List<UUID>,
+            start: LocalDate,
+            end: LocalDate
+        ): DashboardFilters = DashboardFilters(projects.distinct(), start, end, null, null, null, null, null, null, null, periodGiven = true)
+
         fun parse(
             params: MultiValueMap<String, String>,
             allowed: Set<String>,

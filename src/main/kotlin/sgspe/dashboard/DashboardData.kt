@@ -21,13 +21,15 @@ import wasichai.core.common.PageRequest
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordResponse
+import wasichai.core.data.toResponse
 import wasichai.core.platform.SqlIdentifier
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
 
-// los conjuntos que leen los indicadores de un pedido, cargados una vez con Records como quien llama (RecordService
-// aplica el tenant y los permisos de objeto y de campo; nunca asPlatform) y agregados en Kotlin (dashboards.md §6). los
+// los conjuntos que leen los indicadores de un pedido, cargados una vez con Records como el lector de los KPI (RecordService
+// aplica el tenant y los permisos de objeto y de campo de la persona; con la plataforma, F8, KpiReaders ya corre todo dentro
+// de asPlatform) y agregados en Kotlin (dashboards.md §6). los
 // filtros de territorio se resuelven a localidades y comunidades: una localidad incluye sus sectores, una unidad
 // administrativa sus localidades y unidades hijas, un área de influencia los miembros de esa versión (dashboards.md §3.1).
 // en los indicadores de grupos de interés el territorio filtra al grupo de interés (su localidad y su área de influencia;
@@ -49,7 +51,14 @@ class DashboardData(
     private val maxRelated: Int = MAX_RELATED,
     // F6: la consulta de KPI-TER-04 detrás de la compuerta de sgspe.territory; Dashboards la inyecta y las pruebas sin base la
     // dejan en null
-    private val componentLand: ComponentLand? = null
+    private val componentLand: ComponentLand? = null,
+    // F8: la organización si lee el lector de la plataforma (KpiContext.platform): KPI-TER-04 va por la vía de la plataforma
+    // de la compuerta y las M2M por Records.relatedAsPlatform. null, la persona
+    private val platform: UUID? = null,
+    // F8 (R1): si el tenant tiene el catálogo indicator (TenantModel): la meta por defecto de KPI-ENG-02 sale de él
+    private val hasCatalog: Boolean = false,
+    // F8 (decisión 25, R4): el cierre de periodo calcula los KPI de QCS sin las confidenciales, también para quien las ve
+    private val excludeConfidential: Boolean = false
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
@@ -92,13 +101,21 @@ class DashboardData(
         return out
     }
 
-    // los registros del otro lado de una M2M de cada interacción: una lectura por interacción, hasta maxRelated
+    // los registros del otro lado de una M2M de cada interacción: una lectura por interacción, hasta maxRelated. con el
+    // lector de la plataforma, por Records.relatedAsPlatform (sin usuario, WAS-ADR-0039), con el mismo tope
     private suspend fun relatedOf(
         engagements: Collection<String>,
         relationship: String
     ): Map<String, List<RecordResponse>> {
         if (engagements.size > maxRelated) throw Records.tooMany("engagement", maxRelated)
-        return engagements.associateWith { records.related("engagement", UUID.fromString(it), relationship) }
+        return engagements.associateWith { id ->
+            val engagement = UUID.fromString(id)
+            if (platform == null) {
+                records.related("engagement", engagement, relationship)
+            } else {
+                records.relatedAsPlatform(platform, "engagement", engagement, relationship).map { it.toResponse() }
+            }
+        }
     }
 
     // ---- territorio ----
@@ -476,6 +493,7 @@ class DashboardData(
                         val community = Values.text(q.attributes["community"])
                         territories.all { t -> (locality != null && locality in t.localities) || (community != null && community in t.communities) }
                     }.map { attentionRow(type, it) }
+                    .filterNot { excludeConfidential && it.confidential }
             }
         }
 
@@ -509,7 +527,8 @@ class DashboardData(
                 .getValue(type)
                 .keys
                 .mapNotNull { field -> Values.text(a[field])?.let { field to it } }
-                .toMap()
+                .toMap(),
+            Attention.isConfidential(a)
         )
     }
 
@@ -597,9 +616,27 @@ class DashboardData(
 
     suspend fun projectRecords(): List<RecordResponse> = cached("projects") { readIn("project", null, filters.projects.map { it.toString() }) }
 
+    private class MeetingsDefault(
+        val target: Long?
+    )
+
+    // R1 (decisión 3 del plan 8.2a): la meta mensual de un proyecto sin la suya. sin el catálogo en el tenant (F7), o con el
+    // catálogo sin el registro de KPI-ENG-02 (todavía no cargado), la de ASM-019 (ProjectParameters, 2); con el registro, su
+    // target_value (null: sin meta)
+    private suspend fun meetingsDefault(): MeetingsDefault =
+        cached("meetingsDefault") {
+            val fallback = ProjectParameters.integer(emptyMap(), "meetings_per_month_target")
+            if (!hasCatalog || !readable(Kpis.MEETINGS_TARGET)) return@cached MeetingsDefault(fallback)
+            val record = read("indicator", mapOf("code" to Kpis.MEETINGS)).firstOrNull() ?: return@cached MeetingsDefault(fallback)
+            MeetingsDefault(Values.decimal(record.attributes["target_value"])?.toLong())
+        }
+
+    // si la meta por defecto vive en un catálogo que quien mira no lee: KPI-ENG-02 sale no disponible (nunca con otra meta)
+    suspend fun meetingsDefaultUnreadable(): Boolean = hasCatalog && !readable(Kpis.MEETINGS_TARGET)
+
     // la meta de cada mes que pide KPI-ENG-02 (la serie de 12 meses y todos los del periodo), una entrada por mes ya sumada
     // entre los proyectos del filtro (EngagementKpis.monthlyTargets): la del plan vigente en el mes o, si no hay, la del
-    // proyecto (2 por defecto, ProjectParameters) (RN-ENG-003)
+    // proyecto o, sin ella, la del catálogo (R1; 2 de ASM-019 sin catálogo) (RN-ENG-003)
     suspend fun monthlyTargets(): List<MonthlyTarget> {
         val plans =
             if (filters.projects.isEmpty()) {
@@ -616,7 +653,11 @@ class DashboardData(
                     )
                 }
             }
-        val projects = projectRecords().associate { it.id to ProjectParameters.integer(it.attributes, "meetings_per_month_target") }
+        val fallback = meetingsDefault().target
+        val projects =
+            projectRecords().associate {
+                it.id to EngagementKpis.projectTarget(Values.decimal(it.attributes["meetings_per_month_target"])?.toLong(), fallback)
+            }
         return EngagementKpis.monthlyTargets(EngagementKpis.targetMonths(filters.periodStart, filters.periodEnd), projects, plans)
     }
 
@@ -749,7 +790,8 @@ class DashboardData(
 
     // otra lectura con otros filtros y los mismos permisos, topes y fuentes: las filas de KPI-TER-01 (el periodo de 90 días y
     // sin los filtros que la ficha no aplica)
-    fun with(filters: DashboardFilters): DashboardData = DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand)
+    fun with(filters: DashboardFilters): DashboardData =
+        DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform, hasCatalog, excludeConfidential)
 
     // si un registro con esa localidad o comunidad cae en todos los filtros de territorio pedidos
     suspend fun inTerritory(
@@ -784,7 +826,7 @@ class DashboardData(
     // sgspe.territory (ComponentLand): quien no puede leer algo de la consulta la recibe no disponible
     suspend fun landCrossings(): GateOutcome<LandRow> {
         val source = componentLand ?: error("DashboardData sin ComponentLand: Dashboards lo inyecta para KPI-TER-04")
-        return when (val outcome = source.rows(filters.projects)) {
+        return when (val outcome = source.rows(filters.projects, platform)) {
             is GateOutcome.Rows -> GateOutcome.Rows(outcome.rows.map { LandRow(it.component.toString(), it.componentType, it.land) })
             is GateOutcome.Unavailable -> outcome
         }
@@ -840,6 +882,80 @@ class DashboardData(
                 }
             }
         }
+
+    // ---- ejecutivos (F8: KPI-EXE, dashboards.md §4.1) ----
+
+    // los proyectos del filtro con su estado, su etapa y su tipo (KPI-EXE-01)
+    suspend fun projectRows(): List<ProjectRow> =
+        projectRecords().map { ProjectRow(it.id, it.state, Values.text(it.attributes["stage"]), Values.text(it.attributes["project_type"])) }
+
+    // las alertas activas de los proyectos en el territorio pedido (KPI-EXE-02): por su localidad o su comunidad, sin el ámbito
+    suspend fun earlyWarnings(): List<WarningRow> =
+        cached("earlyWarnings") {
+            if (filters.projects.isEmpty()) return@cached emptyList<WarningRow>()
+            read(
+                "early_warning",
+                criteria = listOf(Criteria.anyOf("project", filters.projects), Criteria.inState(ExecutiveKpis.ACTIVE_WARNING_STATES))
+            ).filter { inTerritory(Values.text(it.attributes["locality"]), Values.text(it.attributes["community"])) }
+                .map { WarningRow(it.id, it.state, Values.text(it.attributes["severity"])) }
+        }
+
+    // ---- monitoreo (F8: dashboards.md §5.5 y §10) ----
+
+    // los indicator del tenant por código, como los lee quien mira: vacío si no lee indicator.code (la meta, solo si lee
+    // target_value). quien llama comprueba antes que el tenant tenga el objeto (TenantModel)
+    suspend fun indicatorCatalog(): Map<String, CatalogIndicator> {
+        if (!readable("indicator.code")) return emptyMap()
+        val targets = readable(Kpis.MEETINGS_TARGET)
+        val means = readable("indicator.verification_means")
+        return read("indicator")
+            .mapNotNull { r ->
+                val code = Values.text(r.attributes["code"]) ?: return@mapNotNull null
+                CatalogIndicator(
+                    r.id,
+                    code,
+                    if (targets) Values.decimal(r.attributes["target_value"]) else null,
+                    if (means) Values.text(r.attributes["verification_means"]) else null
+                )
+            }.associateBy { it.code }
+    }
+
+    // las mediciones que empiezan en `start`, como las lee quien mira (las de proyecto, por el alcance; las del tenant, todos
+    // los que leen el objeto); vacío si no lee indicator_measurement
+    suspend fun measurements(start: LocalDate): List<MeasurementRow> {
+        if (!readable("indicator_measurement.measured_value") || !readable("indicator_measurement.period_end_date")) return emptyList()
+        return read("indicator_measurement", criteria = listOf(Criteria.dateBetween("period_start_date", start, start))).mapNotNull { r ->
+            val a = r.attributes
+            MeasurementRow(
+                r.id,
+                Values.text(a["indicator"]) ?: return@mapNotNull null,
+                Values.text(a["project"]),
+                Values.text(a["period_start_date"])?.let(LocalDate::parse) ?: return@mapNotNull null,
+                Values.text(a["period_end_date"])?.let(LocalDate::parse) ?: return@mapNotNull null,
+                Values.decimal(a["measured_value"]),
+                r.createdAt
+            )
+        }
+    }
+
+    // si la meta de reuniones del periodo la define el proyecto (decisión 3 del plan 8.2a): algún proyecto del filtro con
+    // meetings_per_month_target o algún plan con meta vigente en un mes del periodo. sin lectura de esos campos, no
+    suspend fun meetingTargetDefined(): Boolean {
+        if (readable("project.meetings_per_month_target") &&
+            projectRecords().any { Values.decimal(it.attributes["meetings_per_month_target"]) != null }
+        ) {
+            return true
+        }
+        if (filters.projects.isEmpty() || !readable("engagement_plan.meetings_per_month_target")) return false
+        return read("engagement_plan", criteria = listOf(Criteria.anyOf("project", filters.projects))).any { p ->
+            val a = p.attributes
+            val from = Values.text(a["start_date"])?.let(LocalDate::parse)
+            val until = Values.text(a["end_date"])?.let(LocalDate::parse)
+            Values.decimal(a["meetings_per_month_target"]) != null &&
+                (from == null || !from.isAfter(filters.periodEnd)) &&
+                (until == null || !until.isBefore(filters.periodStart))
+        }
+    }
 
     companion object {
         const val CHUNK = 500

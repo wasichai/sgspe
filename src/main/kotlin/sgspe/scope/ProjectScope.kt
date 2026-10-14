@@ -9,8 +9,8 @@ import java.util.UUID
 
 // a qué proyecto pertenece un registro (domain-model §4.7): las raíces llevan `project`; los hijos lo heredan de su raíz
 // por la cadena de sus padres; `project` es su propio proyecto. los objetos que también pueden ser del tenant (export_log y,
-// desde F3, evidence, desde F4, early_warning_rule y, desde F7, ai_suggestion y ai_interaction) tienen `project` opcional y
-// solo se acotan cuando lo traen. un hijo puede tener varios padres posibles (exactamente uno, ExactlyOneGuard) y su padre
+// desde F3, evidence, desde F4, early_warning_rule, desde F7, ai_suggestion y ai_interaction y, desde F8, indicator_measurement) tienen
+// `project` opcional y solo se acotan cuando lo traen. un hijo puede tener varios padres posibles (exactamente uno, ExactlyOneGuard) y su padre
 // puede ser otro hijo, siempre que la cadena llegue a una raíz en a lo sumo MAX_HOPS saltos (ASM-114; ArchitectureTest). las
 // fases siguientes agregan sus objetos aquí
 object ProjectScope {
@@ -54,7 +54,9 @@ object ProjectScope {
             "social_program",
             // F7: las salidas de la IA y su registro (BC-18), que también pueden ser del tenant (project opcional)
             "ai_suggestion",
-            "ai_interaction"
+            "ai_interaction",
+            // F8 (plan 8.2a): la cifra oficial de un periodo, de un proyecto o, sin project, de todo el tenant
+            "indicator_measurement"
         )
 
     // hijo -> sus padres posibles, en orden: (campo RELATION, objeto padre). el padre es una raíz o un hijo con un único padre
@@ -123,7 +125,9 @@ object ProjectScope {
             "festivity",
             "state_program",
             "local_conflict",
-            "topic"
+            "topic",
+            // F8 (plan 8.2a): el catálogo de los KPI con sus metas (dashboards.md §10), compartido por los proyectos
+            "indicator"
         )
 
     fun covers(objectName: String): Boolean = objectName == "project" || objectName in ROOTS || objectName in CHILDREN

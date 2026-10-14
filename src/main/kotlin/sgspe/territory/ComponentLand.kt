@@ -1,5 +1,6 @@
 package sgspe.territory
 
+import io.r2dbc.spi.Readable
 import org.springframework.stereotype.Service
 import sgspe.common.Records
 import java.util.UUID
@@ -23,18 +24,23 @@ class ComponentLand(
     private val gate: SpatialGate,
     private val limits: TerritoryQueryProperties
 ) {
-    suspend fun rows(projects: Collection<UUID>): GateOutcome<ComponentLandRow> {
+    // `platform`: la organización cuando lee el lector de la plataforma de los KPI (DashboardData); null, la persona
+    suspend fun rows(
+        projects: Collection<UUID>,
+        platform: UUID? = null
+    ): GateOutcome<ComponentLandRow> {
         if (projects.isEmpty()) return GateOutcome.Rows(emptyList())
-        val outcome =
-            gate.select(READS, { bind -> sql(this, bind, projects, limits.maxRows) }) { row ->
-                ComponentLandRow(
-                    row.get("component", UUID::class.java)!!,
-                    row.get("project", UUID::class.java)!!,
-                    row.get("component_type", String::class.java),
-                    tenureOf(row.get("land", String::class.java)),
-                    row.get("land_id", UUID::class.java)!!
-                )
-            }
+        val query: GateTables.((Any) -> String) -> String = { bind -> sql(this, bind, projects, limits.maxRows) }
+        val map: (Readable) -> ComponentLandRow = { row ->
+            ComponentLandRow(
+                row.get("component", UUID::class.java)!!,
+                row.get("project", UUID::class.java)!!,
+                row.get("component_type", String::class.java),
+                tenureOf(row.get("land", String::class.java)),
+                row.get("land_id", UUID::class.java)!!
+            )
+        }
+        val outcome = if (platform == null) gate.select(READS, query, map) else gate.selectAsPlatform(platform, READS, query, map)
         if (outcome is GateOutcome.Rows && outcome.rows.size > limits.maxRows) throw Records.tooMany(TerritoryNames.COMPONENT, limits.maxRows)
         return outcome
     }

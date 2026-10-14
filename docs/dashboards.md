@@ -119,8 +119,9 @@ borrador o un compromiso pendiente de aprobación no tiene plazo en curso. Adem�
 - **Absuelta:** una QCS con `responded_at` (glosario), en cualquier estado. Una queja rechazada o una consulta derivada cuentan si
   se registró la respuesta comunicada.
 - **Riesgo alto:** `risk_level` ALTO o CRITICO, según los umbrales del proyecto (ASM-004, RN-RSK-002).
-- **Parámetros del proyecto:** un parámetro vacío usa su valor por defecto, porque la plataforma no aplica `defaultValue`
-  (UPS-15, ASM-019; los valores en §6.1 del modelo de dominio):
+- **Parámetros del proyecto:** un parámetro vacío usa su valor por defecto, porque la plataforma aplica `defaultValue`
+  solo a un alta que omite el campo, no a uno limpiado ni a uno creado antes de wasichai 0.5.0 (UPS-15, ASM-019; los
+  valores en §6.1 del modelo de dominio):
   - 3 para los umbrales de interés y poder;
   - 2 reuniones al mes;
   - 7 días para "por vencer", y 7 y 15 días para el escalamiento;
@@ -173,7 +174,7 @@ qué cortes ofrece; **Actualización**, según §3.4; **Fase**, cuándo aparece 
 | ID | Indicador | Definición | Fórmula | Fuente | Filtros y desgloses | Requisitos | Actualización | Fase |
 |---|---|---|---|---|---|---|---|---|
 | KPI-ENG-01 | Interacciones realizadas | Interacciones con grupos de interés realizadas en el periodo, de cualquier tipo | Número de `engagement` realizadas con `held_at` en el periodo | `engagement.held_at`, `workflow_state`, `engagement_type` | Proyecto, periodo, territorio (`locality`, `community`); desglose por `engagement_type` y por mes | RQ-DSH-002, RQ-DSH-003 | Vivo | F2 |
-| KPI-ENG-02 | #5 Reuniones sostenidas al mes | Reuniones realizadas en cada mes frente a la meta, que DOC-01 sugiere en al menos dos | Por mes, número de reuniones realizadas (§3.3). Meta: `meetings_per_month_target` del `engagement_plan` vigente en el mes (con dos o más vigentes, el de `start_date` más reciente) o, si no hay, el del `project` (2 por defecto); con varios proyectos, la suma. La meta del periodo suma la de cada uno de sus meses, aunque pase de 12; un mes que el periodo cubre en parte cuenta su meta entera | `engagement.engagement_type`, `held_at`, `workflow_state`; `engagement_plan.meetings_per_month_target`, `start_date`, `end_date`; `project.meetings_per_month_target` | Proyecto, periodo, territorio; desglose por tipo | RQ-DSH-011, RN-ENG-003, RF-ENG-007 | Vivo | F2 |
+| KPI-ENG-02 | #5 Reuniones sostenidas al mes | Reuniones realizadas en cada mes frente a la meta, que DOC-01 sugiere en al menos dos | Por mes, número de reuniones realizadas (§3.3). Meta: `meetings_per_month_target` del `engagement_plan` vigente en el mes (con dos o más vigentes, el de `start_date` más reciente) o, si no hay, el del `project` y, sin él, el `target_value` de KPI-ENG-02 del catálogo `indicator` (2 al cargarlo, DOC-01); un tenant sin el catálogo usa el valor por defecto de ASM-019 (2), y quien no lee `indicator.target_value` recibe el KPI no disponible; con varios proyectos, la suma. La meta del periodo suma la de cada uno de sus meses, aunque pase de 12; un mes que el periodo cubre en parte cuenta su meta entera | `engagement.engagement_type`, `held_at`, `workflow_state`; `engagement_plan.meetings_per_month_target`, `start_date`, `end_date`; `project.meetings_per_month_target` | Proyecto, periodo, territorio; desglose por tipo | RQ-DSH-011, RN-ENG-003, RF-ENG-007 | Vivo | F2 |
 | KPI-ENG-03 | #7 Asistentes por reunión informativa | Participantes de cada reunión informativa, su porcentaje por sexo y ámbito y la organización que representan | Por reunión informativa realizada en el periodo: `attendees_total_count`; porcentajes con `attendees_female_count` y `attendees_male_count` y con los conteos por ámbito; organizaciones de sus participantes con `attended` (`organization` o `represented_group`). También el total y el promedio del periodo | `engagement.attendees_total_count`, `attendees_female_count`, `attendees_male_count`, `attendees_direct_area_count`, `attendees_indirect_area_count`, `attendees_regional_count`, `attendees_national_count`; `engagement_participant.organization`, `represented_group`, `attended` | Proyecto, periodo, territorio | RQ-DSH-012, RF-ENG-004 | Vivo (derivado) | F2 |
 | KPI-ENG-04 | #8 Temas consultados | Temas tratados en las reuniones informativas y su frecuencia | Por `topic`: número de reuniones informativas realizadas en el periodo que lo trataron (M2M `engagement_topic`) y número de preguntas de esas reuniones con ese tema (`engagement_question.topic`) | M2M `engagement_topic`; `engagement_question.topic`; `topic.name`, `parent_topic` | Proyecto, periodo, territorio; agrupación por tema padre | RQ-DSH-013, RF-ENG-012 | Vivo | F2 |
 | KPI-ENG-05 | #9 Inquietudes resueltas | Porcentaje de inquietudes resueltas en las reuniones informativas | Preguntas absueltas ÷ preguntas efectuadas [DOC-01 Tabla 9.5], sobre las `engagement_question` de reuniones informativas realizadas en el periodo. Absuelta: `answered_on_site` o con `answered_at`. Desde F4, también una pregunta derivada a una QCS: cuenta por su `referred_at`, que la derivación (`api.md` §4.4) escribe en la pregunta, sin leer la QCS, así que una derivada a una confidencial cuenta igual para todos. La respuesta lleva `confidentialHidden` (§8), como los KPI-GRV | `engagement_question.answered_on_site`, `answered_at`, `referred_at`, `engagement` | Proyecto, periodo, territorio; desglose por tema | RQ-DSH-014, RF-ENG-003, RN-ENG-005 | Vivo | F2 |
@@ -309,8 +310,11 @@ gobierna todos los gráficos.
 | Por proyecto | Las mismas cifras, una fila por proyecto | Tabla |
 
 - Las tiles salen de `ExecutiveKpis` y de las mismas funciones de cada módulo; la tabla por proyecto (`byProject[]`)
-  calcula cada fila con esas funciones y admite hasta `sgspe.dashboards.executive.max-projects` (25) proyectos: más es
-  `400 TOO_MANY_RECORDS` sobre `project` (`api.md` §4.11). KPI-EXE-03 no tiene valor escalar: son tres series de 12
+  calcula cada fila con esas funciones (`[{ project, code, name, indicators[] }]`, los 8 KPI con valor de las tiles, sin
+  desgloses ni series) y admite hasta `sgspe.dashboards.executive.max-projects` (25) proyectos: pedir más es
+  `400 TOO_MANY_RECORDS` sobre `project`, y tenerlos por defecto («mis proyectos» o todos) da las tiles sin
+  `byProject[]` y con `byProjectOmitted: true` (`api.md` §4.11). KPI-EXE-03 no tiene valor escalar: son tres series de
+  12
   meses.
 
 ### 5.2 Proyecto (RF-DSH-002)
@@ -359,14 +363,17 @@ Reglas de la matriz interés × poder:
 ### 5.5 Monitoreo de la Tabla 9.5 (RF-DSH-008)
 
 - Una tabla con los 13 indicadores de §4.9, en su orden (`MonitoringTable`), con el valor del periodo, la meta y su
-  origen (`targetSource`: `PROJECT`, `CATALOG` o `NONE`, §10), el desglose por sexo, ámbito e institución donde la Tabla
-  9.5 lo pide y el medio de verificación.
+  origen (`targetSource`: `PROJECT`, `CATALOG`, `DEFAULT` o `NONE`, §10), el desglose por sexo, ámbito e institución
+  donde la Tabla 9.5 lo pide y el medio de verificación.
 - Cada fila abre el detalle de su KPI.
 - Si el periodo está cerrado, cada fila trae además la cifra oficial de `indicator_measurement` (`official`: medición,
   instante de cierre y valor) y la tabla lo indica (§10). La cifra oficial se muestra solo cuando el pedido coincide con
   la medición: mismo proyecto o todo el tenant, mismo periodo y sin filtros de territorio. Antes de mostrarla se aplica
   el mismo chequeo de campos de §8: #2 y #3 dicen "no disponible" a quien no puede leer `stance`, también con el periodo
-  cerrado.
+  cerrado. La cifra oficial no se muestra a quien se le ocultan QCS confidenciales en una fila que las lee.
+- La meta de #5 es el denominador de KPI-ENG-02 (`PROJECT` si un proyecto del filtro o un plan define la suya;
+  `CATALOG` si no y el catálogo trae meta; `DEFAULT` si el catálogo está cargado pero le falta el registro de
+  KPI-ENG-02 y el KPI usa la meta de ASM-019; `NONE` sin ninguna). Las demás filas usan `target_value` tal cual.
 - Quien tiene CREATE sobre `indicator_measurement` ve «Cerrar periodo» (§10). Un tenant que todavía no tiene el modelo
   de F8 (`TenantModel` sin `indicator`) ve el tablero sin metas ni cifras oficiales.
 
@@ -484,7 +491,8 @@ flowchart LR
    mensuales de grupos de interés, las revisiones semanales de riesgos y las reprogramaciones (RQ-AUD-003).
 6. **Un solo código.** Los KPI son funciones de `sgspe.dashboard` que reciben los filtros y devuelven el resultado; el endpoint,
    el ensamblado de entregables y el resumen de IA las llaman en proceso (RQ-DSH-034). El trabajador de entregables corre como la
-   plataforma [WAS-ADR-0039], así que en un entregable no hay "no disponible": lo que se imprime lo deciden su tipo y su nivel de
+   plataforma con `KpiReader.Platform` [WAS-ADR-0039], así que en un entregable no hay "no disponible": lo que se
+   imprime lo deciden su tipo y su nivel de
    divulgación (RQ-REP-014). Por eso generar, aprobar y emitir un entregable queda en manos de los roles que pueden leer los
    campos sensibles, como la postura (`security.md`, RQ-SEC-010).
 7. **Índices.** Las relaciones y el estado ya tienen índice en wasichai; los campos de fecha y los ENUM que filtran los KPI son
@@ -669,7 +677,11 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
   de uno existente (ASM-136). `IndicatorWriteGuard` rechaza cambiar `code` (`400 FIELD_NOT_EDITABLE`).
 - **Cálculo y documentación.** El cálculo vive en el código de `sgspe.dashboard`; el registro documenta el KPI y guarda su meta.
 - **Metas.** Cuando hay un parámetro del proyecto, manda el parámetro (p. ej. `meetings_per_month_target`, RN-ENG-003); si no, se
-  usa `target_value`; si no, «sin meta». La respuesta lo dice en `targetSource` (`PROJECT`, `CATALOG` o `NONE`). Las
+  usa `target_value`; si no, «sin meta». Un proyecto nuevo guarda 2 como `meetings_per_month_target`, porque wasichai
+  aplica el `defaultValue` al crearlo (UPS-15, desde 0.5.0): la meta del catálogo de KPI-ENG-02 rige solo para los
+  proyectos cuyo parámetro se limpió (o se creó antes de 0.5.0) y para las filas «sin meta» del tablero `monitoring`. La
+  respuesta lo dice en `targetSource` (`PROJECT`, `CATALOG` o `NONE`; para
+  KPI-ENG-02, `DEFAULT` si el catálogo está cargado pero le falta su registro y el KPI usó la meta de ASM-019). Las
   metas y frecuencias iniciales son las de DOC-01 (GAP-018, resuelta): KPI-ENG-02, dos reuniones al mes; las
   evaluaciones de grupos de interés, mensuales; las revisiones de riesgo, semanales; los indicadores de la Tabla 9.5,
   mensuales; los demás, sin meta. Se editan en el catálogo.
@@ -677,17 +689,28 @@ salen del mismo código de KPI (RQ-DSH-034), y su anatomía está en `deliverabl
   calcula el KPI como quien cierra, con su `KpiReader`, y crea una `indicator_measurement` (`appendOnly` y `apiOnly`)
   con el valor, el numerador, el denominador y el desglose principal en Markdown. Hay una sola por indicador, proyecto
   (o todo el tenant) y periodo, con una guarda para el proyecto vacío (§7.2 del modelo de dominio; si ya existe,
-  `409 MEASUREMENT_EXISTS`); el periodo tiene que haber terminado (`400 PERIOD_NOT_ENDED`), y cerrar todo el tenant
-  exige `READ_ALL_PROJECTS` o `ADMIN`.
+  `409 MEASUREMENT_EXISTS`); el periodo tiene que haber terminado (`400 PERIOD_NOT_ENDED`, que se comprueba antes que
+  cualquier razón), y cerrar todo el tenant exige `ADMIN`: `READ_ALL_PROJECTS` no basta, decisión conservadora del plan
+  8.2a. El cálculo usa el `KpiReader` de quien cierra (`KpiReaders` arma el contexto de la persona que llama o de la
+  plataforma, que solo se usa fuera de una petición).
 - **Lo que no se cierra.** Una cifra oficial es completa o no existe (ASM-136): el cierre responde
   `409 INDICATOR_NOT_CLOSABLE` con su razón (`api.md` §4.11):
   - `STANCE`: KPI-STK-02, KPI-STK-05 y KPI-STK-06, que leen `stance`. `indicator_measurement` no tiene campos
     restringidos y lo leen roles sin acceso a la postura, así que una cifra congelada se leería por la API genérica
     (`security.md` §7.9);
   - `NO_SCALAR_VALUE`: KPI-TER-01, que no tiene un valor propio (§4.8), KPI-EXE-03 y los que solo dan series;
-  - `UNAVAILABLE`: quien cierra no tiene el KPI disponible (§8);
-  - `CONFIDENTIAL_HIDDEN`: el KPI sale con `confidentialHidden` para quien cierra; por eso los KPI de QCS los cierra
-    en la práctica `ADMIN`.
+  - `UNAVAILABLE`: quien cierra no tiene el KPI disponible (§8) o, en un KPI que lee QCS (los KPI-GRV), no lee la
+    marca `confidential` de los tres objetos: contaría las confidenciales como no confidenciales. KPI-ENG-05 no depende
+    de quien lee: cuenta por `referred_at` de la pregunta, sin leer la QCS (§4.3);
+  - `NOT_PERIOD_BOUND` (un KPI que no depende del periodo, la foto de hoy, solo se cierra para un mes calendario entero,
+    el pasado o el actual en Lima; en la práctica, el mes pasado, porque el actual aún no terminó y el cierre lo rechaza
+    antes con `400 PERIOD_NOT_ENDED`).
+
+  Los KPI que leen QCS se congelan siempre sin las QCS confidenciales, quien sea que cierre: la cifra oficial las
+  excluye y no revela cuántas son; el tablero no la muestra a quien se le ocultan QCS confidenciales. El desglose
+  principal en Markdown solo se congela si es agregado (lista de
+  permitidos de `Closability`); un desglose por registro (grupos de interés, interacciones, medidas atrasadas,
+  responsables, riesgos) no se congela y la medición lleva solo el valor.
 
   Publicar los de postura agregados a más roles es la opción que `security.md` §7.9 deja al checkpoint (ASM-042). Además,
   `sgspe.dashboard` aplica el chequeo de §8 antes de mostrar cualquier cifra oficial.

@@ -277,6 +277,12 @@ object EngagementKpis {
         return generateSequence(first) { it.plusMonths(1) }.takeWhile { !it.isAfter(last) }.toList()
     }
 
+    // R1 (decisión 3 del plan 8.2a): la meta mensual de un proyecto: la suya o, sin ella, la del catálogo; sin ninguna, 0
+    fun projectTarget(
+        explicit: Long?,
+        fallback: Long?
+    ): Long = explicit ?: fallback ?: 0L
+
     // la meta de cada mes, una entrada por mes ya sumada entre los proyectos (RN-ENG-003): por proyecto, la del plan
     // vigente en el mes (con dos o más, el de start_date más reciente, un plan sin inicio cuenta como el más antiguo, y a
     // igual inicio el de id mayor) o, sin plan, la del proyecto (projectTargets, con su valor por defecto ya aplicado). un
