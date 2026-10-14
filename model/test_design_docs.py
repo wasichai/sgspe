@@ -75,6 +75,29 @@ class CardsTests(unittest.TestCase):
         self.assertTrue(next(r for r in cards["land_right"].relationships if r["field"] == "holder_person")["restricted"])
 
 
+class FileClausesTests(unittest.TestCase):
+    """Plan 8.1: una ficha puede tener varios campos FILE (deliverable tiene siete), cada uno con sus tipos y su tope."""
+
+    def test_un_campo_con_su_lista_de_tipos_como_evidence(self):
+        types, limits = design_docs.file_clauses(
+            "`file` admite `application/pdf`, `image/*`, `text/csv` y `text/plain`, la lista contentTypes del campo", "")
+        self.assertEqual(types, {"file": ["application/pdf", "image/*", "text/csv", "text/plain"]})
+        self.assertEqual(limits, {})
+
+    def test_varios_campos_por_clausula_y_su_tope(self):
+        types, limits = design_docs.file_clauses(
+            "`draft_model` admite `text/plain`; `a_docx` y `b_docx` admiten `application/vnd.x`; `c_pdf`, `d_pdf` y `e_pdf` "
+            "admiten `application/pdf`. wasichai-files detecta el tipo declarado como `text/plain`",
+            "`draft_model`, `a_docx` y `c_pdf`: 67108864 bytes (64 MB); `e_pdf`: 20971520 bytes")
+        self.assertEqual(types, {"draft_model": ["text/plain"], "a_docx": ["application/vnd.x"], "b_docx": ["application/vnd.x"],
+                                 "c_pdf": ["application/pdf"], "d_pdf": ["application/pdf"], "e_pdf": ["application/pdf"]})
+        self.assertEqual(limits, {"draft_model": 67108864, "a_docx": 67108864, "c_pdf": 67108864, "e_pdf": 20971520})
+
+    def test_la_ficha_de_evidence_no_declara_tope(self):
+        card = design_docs.cards()["evidence"]
+        self.assertEqual((len(card.content_types["file"]), card.max_bytes), (8, {}))
+
+
 class CatalogTests(unittest.TestCase):
     def test_las_opciones_salen_del_analisis_sin_notas(self):
         catalogs = design_docs.catalogs()
@@ -610,7 +633,12 @@ class BrokenDocsTests(unittest.TestCase):
             i = self.index(lines, "- **Tipos de archivo:** `file`")
             lines[i] = lines[i].replace("`file`", "`import_batch_id`", 1)
 
-        for name, change in (("FILE field without bullet", no_bullet), ("bullet names a non-FILE field", wrong_field)):
+        def limit_on_a_non_file_field(lines):
+            i = self.index(lines, "- **Tipos de archivo:** `file`")
+            lines.insert(i, "- **Tope de archivo:** `title`: 1024 bytes.")
+
+        for name, change in (("FILE field without bullet", no_bullet), ("bullet names a non-FILE field", wrong_field),
+                             ("limit on a non-FILE field", limit_on_a_non_file_field)):
             with self.subTest(name):
                 self.edit("database-model.md", change)
                 with self.assertRaises(ValueError):
