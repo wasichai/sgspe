@@ -15,7 +15,7 @@ import sgspe.F5ApiTest
 import sgspe.engagement.EngagementWriteGuard
 import java.io.File
 
-// la matriz de los dieciocho workflows de F2 a F7 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
+// la matriz de los diecinueve workflows de F2 a F8 (workflows.md), armada desde model/workflows/*.json: por cada transición, (1) cada
 // rol de su lista la aplica desde su estado de origen y el registro queda en el destino, (2) un rol fuera de la lista que
 // tiene UPDATE (o `u`) sobre el objeto recibe 403 y el listado le dice `requires role ...`, y (3) desde un estado que no es
 // el de origen responde 409 con el registro sin cambios. las expectativas salen de esos mismos JSON, así que un cambio de
@@ -182,6 +182,9 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                             )
                     )
                 )
+            // F8: un entregable en draft, con motivo (requiresReason), registrado por quien lo lleva. 8.2b le suma el borrador
+            // LISTO que DeliverableWriteGuard pedirá para submit_for_review, resubmit y approve
+            "deliverable" -> fixture("deliverable", account = actor(workflow, creatorRole, null)).id
             else -> error("sin registro de prueba para ${workflow.objectName}")
         }
 
@@ -538,7 +541,7 @@ class WorkflowMatrixApiTest : F5ApiTest() {
     }
 
     @Test
-    fun `los dieciocho workflows de model estan en la matriz`() {
+    fun `los diecinueve workflows de model estan en la matriz`() {
         val files = File("model/workflows").listFiles { file -> file.extension == "json" }!!.map { it.nameWithoutExtension }.toSet()
         assertEquals(files, WORKFLOWS.keys)
     }
@@ -574,7 +577,7 @@ class WorkflowMatrixApiTest : F5ApiTest() {
         private const val LIGHT_CLOSE_TYPE = "CONTACTO CARA A CARA"
 
         // las transiciones de cada workflow en workflows.md (WF-A 9, WF-B 6, WF-C 14, WF-L 4, WF-O 2, WF-D 17, WF-I 10, WF-K 3 de candidatos y 3 de
-        // sugerencias, WF-N 8, WF-E1 22, WF-E2 5, WF-E3 8, WF-F 9, WF-J 6, WF-M 3, WF-G 14, WF-P 8)
+        // sugerencias, WF-N 8, WF-E1 22, WF-E2 5, WF-E3 8, WF-F 9, WF-J 6, WF-M 3, WF-G 14, WF-P 8, WF-H 12)
         private val WORKFLOW_TRANSITIONS =
             mapOf(
                 "project" to 9,
@@ -586,6 +589,7 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                 "agreement" to 10,
                 "commitment_candidate" to 3,
                 "ai_suggestion" to 3,
+                "deliverable" to 12,
                 "task" to 8,
                 "grievance" to 22,
                 "inquiry" to 5,
@@ -615,7 +619,9 @@ class WorkflowMatrixApiTest : F5ApiTest() {
         // comando y prepare cancela el compromiso que pide close_unfulfilled; WF-F tampoco (plan 4.2b): perform aplica assess por
         // el endpoint de revisiones y prepare escribe lo que piden mitigar y monitorear. de F7 se difiere accept de WF-K de las
         // sugerencias: CommandTransitionGuard la rechaza por la API genérica y su endpoint (POST
-        // /api/sgspe/ai-suggestions/{id}/accept) es del plan 7.2b, que la saca de aquí
+        // /api/sgspe/ai-suggestions/{id}/accept) es del plan 7.2b, que la saca de aquí. de F8 se difieren issue de WF-H (de
+        // comando: su endpoint, POST /api/sgspe/deliverables/{id}/issue, es del plan 8.2b) y lo que solo sale de `issued`
+        // (start_revision y void_issued): 8.2b las saca de aquí cuando perform emita por el endpoint
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
@@ -623,7 +629,10 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                 "area_of_influence.approve",
                 "area_of_influence.supersede",
                 "stakeholder_request.close_accepted",
-                "ai_suggestion.accept"
+                "ai_suggestion.accept",
+                "deliverable.issue",
+                "deliverable.start_revision",
+                "deliverable.void_issued"
             )
 
         // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held);
@@ -644,6 +653,8 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                 "agreement" to listOf("SOCIAL_MANAGER", "PROJECT_MANAGER"),
                 "commitment_candidate" to listOf("COMMITMENT_MANAGER"),
                 "ai_suggestion" to listOf("SOCIAL_MANAGER"),
+                // F8: SOCIAL_MANAGER lo registra y lo lleva por WF-H (también anula, que STAKEHOLDER_MANAGER no puede)
+                "deliverable" to listOf("SOCIAL_MANAGER"),
                 "task" to listOf("COMMUNITY_RELATIONS_OFFICER"),
                 "grievance" to listOf("GRIEVANCE_MANAGER"),
                 "inquiry" to listOf("GRIEVANCE_MANAGER"),

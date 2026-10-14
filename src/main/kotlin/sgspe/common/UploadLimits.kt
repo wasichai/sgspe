@@ -24,8 +24,8 @@ import java.lang.reflect.Method
 // los topes del multipart de Spring (spring.webflux.multipart.*, application.yml): un 400 con código, nunca el 500 de una
 // DataBufferLimitException sin manejar. los usan la importación (ImportUpload.multipartError, que suma INVALID_MULTIPART y
 // su propio texto) y UploadLimitsAdvice, para la subida preparada de wasichai-files (POST /api/objects/{object}/files/{field},
-// D1). el tope por parte es el mismo que wasichai.files.max-bytes y que sgspe.territory.import.max-bytes (20 MB, P52):
-// cualquier archivo de más llega aquí y responde FILE_TOO_LARGE
+// D1). el tope por parte (max-disk-usage-per-part, 20 MB, P52) es el mismo que sgspe.territory.import.max-bytes y menor que
+// wasichai.files.max-bytes (64 MB, F8): cualquier archivo de más llega aquí y responde FILE_TOO_LARGE
 object UploadLimits {
     const val PART_MESSAGE = "Una parte del formulario es demasiado grande"
 
@@ -93,7 +93,7 @@ object UploadLimits {
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class UploadLimitsAdvice(
     private val handler: GlobalExceptionHandler,
-    @Value("\${wasichai.files.max-bytes:20MB}") maxBytes: DataSize
+    @Value("\${spring.webflux.multipart.max-disk-usage-per-part:20MB}") maxBytes: DataSize
 ) {
     private val maxBytes = maxBytes.toBytes()
     private val wasichai = ExceptionHandlerMethodResolver(ClassUtils.getUserClass(handler))

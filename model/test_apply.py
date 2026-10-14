@@ -43,31 +43,34 @@ def write_model(folder, model):
     return path
 
 
-class ModelOfF7Tests(unittest.TestCase):
-    def test_the_model_has_the_84_objects_of_f7_and_the_two_indicators_and_is_valid(self):
+class ModelOfF8Tests(unittest.TestCase):
+    def test_f8_has_its_90_objects_and_is_valid(self):
+        # los 84 de F7, los dos indicadores (plan 8.2a) y los cuatro de entregables (plan 8.1)
         model = load(MODEL_PATH)
-        self.assertEqual(len(model["objects"]), 86)
+        self.assertEqual(len(model["objects"]), 90)
         self.assertEqual(apply.validate(model), [])
 
-    def test_the_f7_definitions_are_valid(self):
+    def test_the_f8_definitions_are_valid(self):
         workflows, types, automations, errors = apply.load_definitions(HERE, load(MODEL_PATH))
         self.assertEqual(errors, [])
-        self.assertEqual(sorted(name for name, _ in workflows), F7_WORKFLOWS)
-        # ningún tipo de documento ni automatización nuevos: el acta de recepción y AUT-04 esperan a UPS-23 (§2.2 de la
-        # especificación de F5), como el cargo de queja y las cartas de respuesta (decisión 3 de F4)
+        self.assertEqual(sorted(name for name, _ in workflows), F8_WORKFLOWS)
+        # F8 suma la constancia de emisión y AUT-12 (decisión 8 de F8); el acta de recepción y AUT-04 siguen esperando a
+        # UPS-23 (§2.2 de la especificación de F5), como el cargo de queja y las cartas de respuesta (decisión 3 de F4)
         self.assertEqual([(obj, t["name"]) for obj, t in types],
-                         [("engagement", "meeting-minutes"), ("engagement", "attendance-list")])
+                         [("deliverable", "deliverable-issue-certificate"), ("engagement", "meeting-minutes"),
+                          ("engagement", "attendance-list")])
         self.assertEqual([(obj, a["name"]) for obj, a in automations],
                          [("commitment", "aut-01-commitment-execution-task"),
+                          ("deliverable", "aut-12-issue-certificate"),
                           ("early_warning", "aut-09-warning-triage-task"), ("engagement", "aut-05-meeting-minutes"),
                           ("engagement", "aut-10-engagement-reschedule-task"), ("grievance", "aut-02-grievance-ack-task"),
                           ("social_risk", "aut-11-critical-risk-task")])
 
 
-# F6 no trajo workflows; F7 suma WF-K de ai_suggestion
-F7_WORKFLOWS = ["agreement", "ai_suggestion", "area_of_influence", "commitment", "commitment_candidate", "early_warning",
-                "engagement", "field_visit", "grievance", "incident", "inquiry", "project", "social_contribution",
-                "social_program", "social_risk", "stakeholder", "stakeholder_request", "task"]
+# F6 no trajo workflows; F7 suma WF-K de ai_suggestion y F8, WF-H de deliverable
+F8_WORKFLOWS = ["agreement", "ai_suggestion", "area_of_influence", "commitment", "commitment_candidate", "deliverable",
+                "early_warning", "engagement", "field_visit", "grievance", "incident", "inquiry", "project",
+                "social_contribution", "social_program", "social_risk", "stakeholder", "stakeholder_request", "task"]
 
 
 class ValidationTests(unittest.TestCase):
@@ -954,22 +957,23 @@ class NewTenantTests(unittest.TestCase):
             quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login]),
         ]
         self.assertEqual([code for code, _, _ in runs], [0, 0, 0], runs)
-        self.assertIn("done: 403 created, 27 updated, 0 skipped", runs[0][1])
+        self.assertIn("done: 427 created, 29 updated, 0 skipped", runs[0][1])
         self.assertIn("update field delivery.social_contribution (unique)", runs[0][1])
         self.assertIn("done: 15 created, 0 updated, 0 skipped", runs[1][1])
-        self.assertIn("done: 18 workflows (18 created, 0 updated, 0 skipped), 2 document types (2 created, 0 updated, "
-                      "0 skipped), 6 automations (6 created, 0 updated, 0 skipped)", runs[2][1])
+        self.assertIn("done: 19 workflows (19 created, 0 updated, 0 skipped), 3 document types (3 created, 0 updated, "
+                      "0 skipped), 7 automations (7 created, 0 updated, 0 skipped)", runs[2][1])
         self.assertEqual(sorted(core.roles), sorted(r["name"] for r in load(ROLES_PATH)["roles"]))
-        self.assertEqual(sorted(core.workflows), F7_WORKFLOWS)
-        self.assertEqual(sorted(core.automations), ["commitment", "early_warning", "engagement", "grievance", "social_risk"])
+        self.assertEqual(sorted(core.workflows), F8_WORKFLOWS)
+        self.assertEqual(sorted(core.automations),
+                         ["commitment", "deliverable", "early_warning", "engagement", "grievance", "social_risk"])
         again = [quiet(apply.main, ["--model", MODEL_PATH, *login]),
                  quiet(apply_roles.main, ["--roles", ROLES_PATH, "--model", MODEL_PATH, *login]),
                  quiet(apply.main, ["--model", MODEL_PATH, "--workflows", *login])]
         self.assertEqual([code for code, _, _ in again], [0, 0, 0], again)
-        self.assertIn("done: 0 created, 0 updated, 403 skipped", again[0][1])
+        self.assertIn("done: 0 created, 0 updated, 427 skipped", again[0][1])
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1][1])
-        self.assertIn("done: 18 workflows (0 created, 0 updated, 18 skipped), 2 document types (0 created, 0 updated, "
-                      "2 skipped), 6 automations (0 created, 0 updated, 6 skipped)", again[2][1])
+        self.assertIn("done: 19 workflows (0 created, 0 updated, 19 skipped), 3 document types (0 created, 0 updated, "
+                      "3 skipped), 7 automations (0 created, 0 updated, 7 skipped)", again[2][1])
 
     def test_a_tenant_of_f4_moves_to_f5_adding_only_what_f5_brings(self):
         # Review Focus 3: el modelo de F4 sale de model.json con las fases de las fichas (333 creados y 21 conjuntos, como
@@ -1003,10 +1007,10 @@ class NewTenantTests(unittest.TestCase):
         self.assertIn("done: 169 created, 11 updated, 0 skipped", f2[1])
         now = quiet(apply.main, ["--model", MODEL_PATH, *login])
         self.assertEqual(now[0], 0, now)
-        self.assertIn("done: 266 created, 16 updated, 165 skipped", now[1])
+        self.assertIn("done: 290 created, 18 updated, 165 skipped", now[1])
         again = quiet(apply.main, ["--model", MODEL_PATH, *login])
         self.assertEqual(again[0], 0, again)
-        self.assertIn("done: 0 created, 0 updated, 403 skipped", again[1])
+        self.assertIn("done: 0 created, 0 updated, 427 skipped", again[1])
 
     def test_a_tenant_of_f5_moves_to_f6_adding_only_its_fields_and_export(self):
         # Review Focus 1 del plan 6.1: el tenant demo sube de F5 a F6 con 4 campos en community y 4 en
@@ -1068,9 +1072,10 @@ class NewTenantTests(unittest.TestCase):
         self.assertEqual([p for m, p, _, _ in core.requests if m == "PUT" and p.startswith("/api/objects/")], [])
         self.assertIn("done: 0 created, 0 updated, 399 skipped", again[1])
 
-    def test_a_tenant_of_f7_gets_the_indicators_and_nothing_else(self):
-        # §2.2.1 de la especificación de F8 (plan 8.2a): el tenant demo, en F7, suma indicator, indicator_measurement, sus
-        # dos relaciones y el único compuesto de la medición (el PUT de la fase 3, que nombra el campo de una relación);
+    def test_a_tenant_of_f7_moves_to_f8_with_the_indicators_and_the_deliverables(self):
+        # Review Focus 2 del plan 8.1: el tenant demo sube de F7 a F8 con los dos objetos de los indicadores (plan 8.2a) y
+        # los cuatro de entregables, las cinco acciones de deliverable y diecisiete relaciones (las de task y export_log
+        # incluidas); los tres únicos compuestos que nombran el campo de una relación van en la fase 3 (los tres PUT);
         # ningún campo nuevo en un objeto anterior, y una segunda corrida no escribe
         core = FakeCore()
         self.addCleanup(core.stop)
@@ -1082,17 +1087,19 @@ class NewTenantTests(unittest.TestCase):
         core.requests.clear()
         now = quiet(apply.main, ["--model", MODEL_PATH, *login])
         self.assertEqual(now[0], 0, now)
-        self.assertIn("done: 4 created, 1 updated, 399 skipped", now[1])
-        written = [line for line in now[1].splitlines() if line.startswith(("create", "add", "update"))]
-        self.assertEqual(written, ["create object indicator (201)", "create object indicator_measurement (201)",
-                                   "create relationship indicator_measurement_indicator (201)",
-                                   "create relationship indicator_measurement_project (201)",
-                                   'update object indicator_measurement (uniqueConstraints=[["indicator", "project", '
-                                   '"period_start_date"]], indexes=[])'])
+        self.assertIn("done: 28 created, 3 updated, 399 skipped", now[1])
+        self.assertEqual([line for line in now[1].splitlines() if line.startswith("add    field")], [])
+        created = [line.split()[2] for line in now[1].splitlines() if line.startswith("create object")]
+        self.assertEqual(created, ["indicator", "indicator_measurement", "deliverable", "deliverable_section",
+                                   "deliverable_version", "deliverable_template"])
+        actions = [line.split()[2] for line in now[1].splitlines() if line.startswith("create action")]
+        self.assertEqual(actions, [f"deliverable.{a}" for a in ("APPROVE", "GENERATE", "ISSUE", "EXPORT", "DOWNLOAD_RESTRICTED")])
+        self.assertEqual(len([line for line in now[1].splitlines() if line.startswith("create relationship")]), 17)
         self.assertEqual([p for m, p, _, _ in core.requests if m == "PUT" and p.startswith("/api/objects/")],
-                         ["/api/objects/indicator_measurement"])
+                         ["/api/objects/indicator_measurement", "/api/objects/deliverable_section",
+                          "/api/objects/deliverable_version"])
         again = quiet(apply.main, ["--model", MODEL_PATH, *login])
-        self.assertIn("done: 0 created, 0 updated, 403 skipped", again[1])
+        self.assertIn("done: 0 created, 0 updated, 427 skipped", again[1])
 
 
 def phase_subset(model, phase):

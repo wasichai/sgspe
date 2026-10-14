@@ -15,9 +15,9 @@ class CardsTests(unittest.TestCase):
     def setUpClass(cls):
         cls.cards = design_docs.cards()
 
-    def test_lee_las_fichas_de_los_89_objetos_y_las_tablas_fijas(self):
+    def test_lee_las_fichas_de_los_90_objetos_y_las_tablas_fijas(self):
         catalog = design_docs.matrix()
-        self.assertEqual(len(catalog), 89)
+        self.assertEqual(len(catalog), 90)
         self.assertTrue(set(catalog) <= set(self.cards))
         self.assertEqual(sum(1 for name in catalog if self.cards[name].phase == "F2"), 48)
 
@@ -73,6 +73,29 @@ class CardsTests(unittest.TestCase):
         self.assertEqual(design_docs.relationship_phase(cards, cards["strategic_alliance"], alliance["strategic_alliance_organization"]), "F2")
         self.assertTrue(next(r for r in cards["topic"].relationships if r["name"] == "engagement_topic")["inverse"])
         self.assertTrue(next(r for r in cards["land_right"].relationships if r["field"] == "holder_person")["restricted"])
+
+
+class FileClausesTests(unittest.TestCase):
+    """Plan 8.1: una ficha puede tener varios campos FILE (deliverable tiene siete), cada uno con sus tipos y su tope."""
+
+    def test_un_campo_con_su_lista_de_tipos_como_evidence(self):
+        types, limits = design_docs.file_clauses(
+            "`file` admite `application/pdf`, `image/*`, `text/csv` y `text/plain`, la lista contentTypes del campo", "")
+        self.assertEqual(types, {"file": ["application/pdf", "image/*", "text/csv", "text/plain"]})
+        self.assertEqual(limits, {})
+
+    def test_varios_campos_por_clausula_y_su_tope(self):
+        types, limits = design_docs.file_clauses(
+            "`draft_model` admite `text/plain`; `a_docx` y `b_docx` admiten `application/vnd.x`; `c_pdf`, `d_pdf` y `e_pdf` "
+            "admiten `application/pdf`. wasichai-files detecta el tipo declarado como `text/plain`",
+            "`draft_model`, `a_docx` y `c_pdf`: 67108864 bytes (64 MB); `e_pdf`: 20971520 bytes")
+        self.assertEqual(types, {"draft_model": ["text/plain"], "a_docx": ["application/vnd.x"], "b_docx": ["application/vnd.x"],
+                                 "c_pdf": ["application/pdf"], "d_pdf": ["application/pdf"], "e_pdf": ["application/pdf"]})
+        self.assertEqual(limits, {"draft_model": 67108864, "a_docx": 67108864, "c_pdf": 67108864, "e_pdf": 20971520})
+
+    def test_la_ficha_de_evidence_no_declara_tope(self):
+        card = design_docs.cards()["evidence"]
+        self.assertEqual((len(card.content_types["file"]), card.max_bytes), (8, {}))
 
 
 class CatalogTests(unittest.TestCase):
@@ -135,8 +158,8 @@ class TotalsTests(unittest.TestCase):
     def test_totales_de_las_fichas(self):
         cards = self.cards
         # 91 desde F3: las tablas de avisos de §18 se retiraron con la decisión D2 (ASM-012); 92 con la tabla fija
-        # derived_version (ADR-0027)
-        self.assertEqual(len(cards), 92)
+        # derived_version (ADR-0027); 93 con deliverable_template (ASM-135, plan 8.1)
+        self.assertEqual(len(cards), 93)
         f2 = [c for c in cards.values() if c.phase == "F2"]
         fields = [f for c in f2 for f in c.fields if design_docs.field_phase(c, f) == "F2"]
         rels = [r for c in f2 for r in c.relationships
@@ -385,7 +408,7 @@ class F6DocsTests(unittest.TestCase):
             "administrative_unit", "locality", "community", "community_sector", "mining_concession", "land_parcel",
             "land_right", "environmental_feature", "person", "organization", "contact_method", "position",
             "actor_relationship", "school", "health_facility", "road_access", "festivity", "state_program",
-            "local_conflict", "topic", "indicator"]))
+            "local_conflict", "topic", "indicator", "deliverable_template"]))
 
     def test_la_fase_de_una_accion_declarada(self):
         project = self.cards["project"]
@@ -443,6 +466,37 @@ class F7DocsTests(unittest.TestCase):
             design_docs.fixed_table("ai_suggestion")
         with self.assertRaises(ValueError):
             design_docs.fixed_table("no_existe")
+
+
+class F8DocsTests(unittest.TestCase):
+    """Lo que el plan 8.1 lleva a las fichas de §19 (ASM-133, ASM-135, ASM-138): varios campos FILE por ficha, cada uno con
+    sus tipos y su tope."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cards = design_docs.cards()
+
+    def test_el_entregable_tiene_siete_archivos_con_sus_tipos_y_su_tope(self):
+        card = self.cards["deliverable"]
+        files = [f["name"] for f in card.fields if f["type"] == "FILE"]
+        self.assertEqual(len(files), 7)
+        self.assertEqual(set(card.content_types), set(files))
+        self.assertEqual(card.content_types["draft_model"], ["text/plain"])
+        self.assertEqual(card.content_types["draft_candidate_external_pdf"], ["application/pdf"])
+        self.assertEqual(set(card.max_bytes.values()), {67108864})
+        self.assertEqual(set(card.max_bytes), set(files))
+        self.assertNotIn("draft_storage_key", [f["name"] for f in card.fields])
+
+    def test_version_plantilla_y_evidencia(self):
+        version = self.cards["deliverable_version"]
+        self.assertEqual(version.content_types, {
+            "docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+            "pdf": ["application/pdf"], "model": ["text/plain"]})
+        template = self.cards["deliverable_template"]
+        self.assertEqual((template.phase, template.flags["appendOnly"], template.flags["apiOnly"]), ("F8", True, True))
+        self.assertEqual(template.max_bytes, {"file": 20971520})
+        # evidence no declara tope: rige el de Spring por parte (20 MB, ASM-138)
+        self.assertEqual(self.cards["evidence"].max_bytes, {})
 
 
 class BrokenDocsTests(unittest.TestCase):
@@ -610,7 +664,12 @@ class BrokenDocsTests(unittest.TestCase):
             i = self.index(lines, "- **Tipos de archivo:** `file`")
             lines[i] = lines[i].replace("`file`", "`import_batch_id`", 1)
 
-        for name, change in (("FILE field without bullet", no_bullet), ("bullet names a non-FILE field", wrong_field)):
+        def limit_on_a_non_file_field(lines):
+            i = self.index(lines, "- **Tipos de archivo:** `file`")
+            lines.insert(i, "- **Tope de archivo:** `title`: 1024 bytes.")
+
+        for name, change in (("FILE field without bullet", no_bullet), ("bullet names a non-FILE field", wrong_field),
+                             ("limit on a non-FILE field", limit_on_a_non_file_field)):
             with self.subTest(name):
                 self.edit("database-model.md", change)
                 with self.assertRaises(ValueError):

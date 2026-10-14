@@ -175,9 +175,9 @@ El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre
 ```bash
 cd model
 python3 apply.py --validate-only        # el modelo, los workflows, los tipos de documento y las automatizaciones (sin servidor)
-python3 apply.py                        # objetos, acciones, relaciones e índices. Desde 8.2a (86 objetos): "done: 403 created, 27 updated, 0 skipped"
+python3 apply.py                        # objetos, acciones, relaciones e índices. En F8 (90 objetos): "done: 427 created, 29 updated, 0 skipped"
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
-python3 apply.py --workflows            # 18 workflows, 2 tipos de documento y 6 automatizaciones de F7
+python3 apply.py --workflows            # 19 workflows, 3 tipos de documento y 7 automatizaciones de F8
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
 python3 load_indicators.py              # desde F8 (plan 8.2a): el catálogo indicator, sin pisar metas editadas
 python3 publish_layers.py               # desde F6: capas públicas en GeoServer (upgrade_tenants.py: --skip-layers)
@@ -258,7 +258,7 @@ busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
    `--rerun` evita que la caché de Gradle devuelva un verde viejo. Detalles en
    `wasichai/docs/development/getting-started.md#integration-tests`.
 
-   La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 86 objetos y por el túnel tarda
+   La matriz de permisos (`sgspe.security.PermissionMatrixApiTest`) recorre 15 roles por 90 objetos y por el túnel tarda
    entre 11 y 58 minutos según la carga del túnel (una corrida de Gradle midió 57 min 40 s), con el aprovisionamiento del
    tenant incluido. Para depurar
    un cambio de `model/roles.json`, recórtala a unos roles con `-Dmatrix.roles=FIELD_AGENT,GIS_ANALYST` (separados por

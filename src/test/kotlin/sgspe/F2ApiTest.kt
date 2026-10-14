@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
 import org.springframework.web.reactive.function.BodyInserters
+import sgspe.ai.TestDocuments
 import sgspe.common.Records
 import tools.jackson.databind.JsonNode
 import wasichai.core.data.RecordService
@@ -162,13 +163,25 @@ abstract class F2ApiTest : SgspeApiTest() {
     protected fun requiresReason(objectName: String): Boolean = Model.objects.getValue(objectName)["requiresReason"] == true
 
     // una subida preparada para el campo FILE `field` (WAS-ADR-0061), como `account` (el admin si es null): su id, que
-    // adjunta el archivo en el alta de quien lo subió dentro de la mitad de wasichai.files.cleanup.delay
+    // adjunta el archivo en el alta de quien lo subió dentro de la mitad de wasichai.files.cleanup.delay. el contenido es el
+    // que el campo admite (desde F8, plan 8.1): un PDF si admite PDF o no declara tipos; si no, un DOCX
+    // (deliverable_template.file) o un texto (el modelo congelado), declarados con su tipo para el sniffer de wasichai-files
+    @Suppress("UNCHECKED_CAST")
     protected fun stagedFile(
         objectName: String,
         field: String,
         account: Account? = null
     ): String {
-        val parts = MultipartBodyBuilder().apply { part("file", PDF).filename("prueba.pdf") }.build()
+        val types =
+            (Model.objects.getValue(objectName)["fields"] as List<Map<String, Any?>>)
+                .single { it["name"] == field }["contentTypes"] as List<String>?
+        val (bytes, name, type) =
+            when {
+                types == null || "application/pdf" in types -> Triple(PDF, "prueba.pdf", MediaType.APPLICATION_PDF)
+                DOCX in types -> Triple(TestDocuments.docx("Archivo de prueba"), "prueba.docx", MediaType.parseMediaType(DOCX))
+                else -> Triple("{\"prueba\":true}".toByteArray(), "prueba.json", MediaType.TEXT_PLAIN)
+            }
+        val parts = MultipartBodyBuilder().apply { part("file", bytes, type).filename(name) }.build()
         val body =
             client
                 .post()
@@ -256,6 +269,7 @@ abstract class F2ApiTest : SgspeApiTest() {
 
         // un PDF mínimo: wasichai-files reconoce el tipo por su número mágico (application/pdf)
         val PDF: ByteArray = "%PDF-1.4\n%archivo de prueba de sgspe\n".toByteArray()
+        private const val DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
         // el destino que eligen las pruebas en los objetos con "exactamente uno de" (database-model.md, ExactlyOneGuard):
         // la organización, que no tiene campos restringidos; desde F3, el compromiso de una entrega y la interacción de una
