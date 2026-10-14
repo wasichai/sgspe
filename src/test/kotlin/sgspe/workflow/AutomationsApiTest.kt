@@ -239,7 +239,7 @@ class AutomationsApiTest : F4ApiTest() {
     @Test
     fun `las automatizaciones aplicadas son las de model y ninguna se queda sin correr`() {
         val names =
-            listOf("commitment", "engagement", "grievance", "early_warning", "social_risk").flatMap { objectName ->
+            listOf("commitment", "engagement", "grievance", "early_warning", "social_risk", "deliverable").flatMap { objectName ->
                 tree(send("GET", "/api/objects/$objectName/automations", null, HttpStatus.OK)).values().map { it["name"].asString() }
             }
         assertEquals(
@@ -249,7 +249,9 @@ class AutomationsApiTest : F4ApiTest() {
                 "aut-10-engagement-reschedule-task",
                 "aut-02-grievance-ack-task",
                 "aut-09-warning-triage-task",
-                "aut-11-critical-risk-task"
+                "aut-11-critical-risk-task",
+                // F8: la constancia de emisión (IssueCertificateApiTest)
+                "aut-12-issue-certificate"
             ),
             names.toSet()
         )
