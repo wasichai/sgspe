@@ -11,6 +11,7 @@ import java.util.UUID
 // llevan su marca Restricted: solo INTERNO (§3.8, RQ-SEC-010)
 object DiagnosisContext {
     private const val WIDE = 4
+    private const val RESERVED = "Información reservada en esta versión."
 
     suspend fun history(scene: DiagnosisScene): List<Block> {
         val conflicts = linked(scene, "local_conflict", "local_conflict_locality")
@@ -49,7 +50,7 @@ object DiagnosisContext {
                         Cell(value(profile, "reliability"))
                     )
                 }
-            val migration = profiles.mapNotNull { (locality, profile) -> profile?.text("migration")?.let { "**${locality.text("name")}:** $it" } }
+            val migration = profiles.mapNotNull { (locality, profile) -> profile?.text("migration")?.let { "**${DiagnosisScene.or(locality, "name")}:** $it" } }
             listOfNotNull(
                 Block.Heading(3, title),
                 Block.Table(
@@ -208,13 +209,15 @@ object DiagnosisContext {
 
     suspend fun electoral(scene: DiagnosisScene): List<Block> =
         scene.scopes().flatMap { (title, localities) ->
-            listOf<Block>(Block.Heading(3, title)) +
+            val restricted =
                 localities.mapNotNull { locality ->
                     scene.profile(locality)?.text("electoral_process")?.let {
                         scene.keep("proceso_electoral", it)
-                        Block.Paragraph("**${locality.text("name")}:** $it", Mark.restricted("locality_profile.electoral_process"))
+                        Block.Paragraph("**${DiagnosisScene.or(locality, "name")}:** $it", Mark.restricted("locality_profile.electoral_process"))
                     }
                 }
+            // una línea sin marca para que la sección no quede en un título solo (EXTERNO quita los párrafos marcados)
+            listOf<Block>(Block.Heading(3, title)) + restricted + Block.Paragraph(if (restricted.isEmpty()) "$SIN_DATO." else RESERVED)
         }
 
     suspend fun customs(scene: DiagnosisScene): List<Block> =
@@ -223,7 +226,7 @@ object DiagnosisContext {
                 localities.mapNotNull { locality ->
                     scene.profile(locality)?.text("religion")?.let {
                         scene.keep("costumbres", it)
-                        Block.Paragraph("**Religión en ${locality.text("name")}:** $it", Mark.restricted("locality_profile.religion"))
+                        Block.Paragraph("**Religión en ${DiagnosisScene.or(locality, "name")}:** $it", Mark.restricted("locality_profile.religion"))
                     }
                 }
             val festivities =
@@ -237,12 +240,13 @@ object DiagnosisContext {
                         )
                     }
                 }
-            listOf<Block>(Block.Heading(3, title)) + religion +
-                listOfNotNull(
-                    festivities.takeIf { it.isNotEmpty() }?.let {
-                        Block.Table("Costumbres y fechas festivas: $title", listOf("Localidad", "Festividad", "Fecha", "Turnos de coorganización"), it)
-                    }
-                )
+            val table =
+                festivities.takeIf { it.isNotEmpty() }?.let {
+                    Block.Table("Costumbres y fechas festivas: $title", listOf("Localidad", "Festividad", "Fecha", "Turnos de coorganización"), it)
+                }
+            // sin tabla y sin marca visible, una línea fija evita el título solo en EXTERNO
+            val note = if (table == null) listOf(Block.Paragraph(if (religion.isEmpty()) "$SIN_DATO." else RESERVED)) else emptyList()
+            listOf<Block>(Block.Heading(3, title)) + religion + listOfNotNull(table) + note
         }
 
     // una tabla por ámbito con los temas en filas y las localidades en columnas (Tablas 5.2, 5.3 y 5.8)

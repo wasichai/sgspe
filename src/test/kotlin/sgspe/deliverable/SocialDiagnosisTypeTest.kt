@@ -164,4 +164,50 @@ class SocialDiagnosisTypeTest {
                 .any { it[1].text == "Fiesta patronal" }
         )
     }
+
+    @Test
+    fun `una localidad sin nombre sale Sin dato y las secciones restringidas no quedan en un titulo solo`() {
+        val source = T1Source.source()
+        // una localidad del AIDS sin nombre ni perfil: ni «null» ni secciones vacias
+        val nameless = T1Source.id(900)
+        source.add("locality", nameless, null)
+        source.add(
+            "area_of_influence_member",
+            T1Source.id(901),
+            null,
+            "area_of_influence" to T1Source.AIDS,
+            "locality" to nameless,
+            "member_condition" to "INCLUIDO"
+        )
+        source.add(
+            "locality_profile",
+            T1Source.id(902),
+            null,
+            "locality" to nameless,
+            "study" to T1Source.STUDY,
+            "electoral_process" to "Votan por listas.",
+            "migration" to "Ninguna."
+        )
+        val model = assemble(source).model
+        val text =
+            model.sections
+                .flatMap { it.blocks }
+                .filterIsInstance<Block.Paragraph>()
+                .joinToString("\n") { it.markdown }
+        assertTrue("null" !in text, text)
+        assertTrue(model.blocks("proceso_electoral").filterIsInstance<Block.Paragraph>().any { it.markdown.startsWith("**${DiagnosisScene.SIN_DATO}:**") })
+
+        // sin ningun dato restringido: «Sin dato.» sin marca
+        val bare = T1Source.source()
+        bare.rows["locality_profile"]!!.replaceAll { it.copy(attributes = it.attributes - "electoral_process" - "religion") }
+        bare.rows.remove("festivity")
+        val none = assemble(bare).model
+        assertTrue(none.blocks("proceso_electoral").any { it == Block.Paragraph("Sin dato.") })
+        assertTrue(none.blocks("costumbres").any { it == Block.Paragraph("Sin dato.") })
+
+        // EXTERNO: queda una linea sin marca bajo cada titulo
+        val external = ReportDisclosure.apply(assemble(T1Source.source().also { it.rows.remove("festivity") }).model, Disclosure.EXTERNO)
+        assertTrue(external.blocks("proceso_electoral").filterIsInstance<Block.Paragraph>().any { it.markdown == "Información reservada en esta versión." })
+        assertTrue(external.blocks("costumbres").filterIsInstance<Block.Paragraph>().any { it.markdown == "Información reservada en esta versión." })
+    }
 }
