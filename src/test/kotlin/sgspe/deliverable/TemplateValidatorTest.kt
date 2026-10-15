@@ -389,4 +389,52 @@ class TemplateValidatorTest {
             }
         assertEquals(listOf(TemplateFinding(TemplateValidator.MISSING_STYLE, "List Paragraph")), validator.validate(missing, "p.dotx").violations)
     }
+
+    // ronda 3 de la revisión de la Tarea 6
+    private fun fieldCodes(xml: String) = validator.validate(body(xml), "p.dotx").violations.map { it.code }
+
+    private fun begin() = "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r>"
+
+    private fun end() = "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r>"
+
+    private fun instr(text: String) = "<w:r><w:instrText xml:space=\"preserve\">$text</w:instrText></w:r>"
+
+    @Test
+    fun `un campo sin nombre propio no arma otro a partir de campos anidados`() {
+        val forbidden = listOf(TemplateValidator.FIELD_NOT_ALLOWED)
+        // { { REF a } { REF b } \\d }: el campo exterior no tiene nombre
+        val built = "<w:p>" + begin() + instr(" ") + begin() + instr(" REF a ") + end() + begin() + instr(" REF b ") + end() + instr(" \\d ") + end() + "</w:p>"
+        assertEquals(forbidden, fieldCodes(built).distinct())
+        assertEquals(forbidden, fieldCodes("""<w:p><w:fldSimple w:instr=" \d"/></w:p>""").distinct())
+        assertEquals(forbidden, fieldCodes("<w:p>" + begin() + instr("\"\" INCLUDEPICTURE \"http://ejemplo.invalid/a.png\"") + end() + "</w:p>").distinct())
+        assertEquals(forbidden, fieldCodes("<w:p>" + begin() + end() + "</w:p>").distinct())
+        // un campo anidado después del nombre del exterior sigue valiendo
+        val legit = "<w:p>" + begin() + instr(" REF ") + begin() + instr(" SEQ x ") + end() + instr(" \\h ") + end() + "</w:p>"
+        assertEquals(emptyList<TemplateFinding>(), validator.validate(body(legit), "p.dotx").violations)
+    }
+
+    @Test
+    fun `el SVG no se permite`() {
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg"/>"""
+        assertTrue(TemplateValidator.NOT_WORD in codes(variant(mapOf("word/media/a.svg" to svg))))
+        val declared = types("""<Default Extension="svg" ContentType="image/svg+xml"/>""")
+        assertTrue(TemplateValidator.NOT_WORD in codes(variant(mapOf("word/media/a.svg" to "<datos/>"), edit = declared)))
+    }
+
+    @Test
+    fun `los caracteres de formato no esconden una direccion y el texto alternativo no es una direccion`() {
+        val zeroWidth = "\u200B"
+        val vml =
+            part(
+                """<v:imagedata xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" """ +
+                    """o:href="${zeroWidth}http://ejemplo.invalid/x"/>"""
+            )
+        assertTrue(TemplateValidator.EXTERNAL_RELATIONSHIP in codes(variant(mapOf("word/header9.xml" to vml))))
+        val alt =
+            part(
+                """<wp:docPr xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" id="1" name="Logo" """ +
+                    """descr="Logo: municipalidad" title="Escudo: oficial"/>"""
+            )
+        assertEquals(TemplateReport(emptyList(), emptyList()), validator.validate(variant(mapOf("word/header9.xml" to alt)), "p.dotx"))
+    }
 }
