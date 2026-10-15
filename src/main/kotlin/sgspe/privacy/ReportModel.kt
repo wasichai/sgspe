@@ -51,7 +51,10 @@ data class ReportSection(
     val key: String,
     val title: String,
     val kind: String,
-    val blocks: List<Block>
+    val blocks: List<Block>,
+    // el nivel de su título (1 a 3) y el capítulo de sus leyendas («Tabla 5.1»); T2 deja 1 y null (leyendas corridas)
+    val level: Int = 1,
+    val chapter: Int? = null
 )
 
 // la marca de un elemento sensible (especificación de F8 §3.2): Restricted lleva el campo restringido de donde sale, y
@@ -81,7 +84,10 @@ data class Mark(
     JsonSubTypes.Type(Block.Table::class, name = "table"),
     JsonSubTypes.Type(Block.Photos::class, name = "photos"),
     JsonSubTypes.Type(Block.MapFigure::class, name = "map"),
-    JsonSubTypes.Type(Block.SectionBreak::class, name = "section-break")
+    JsonSubTypes.Type(Block.SectionBreak::class, name = "section-break"),
+    JsonSubTypes.Type(Block.Toc::class, name = "toc"),
+    JsonSubTypes.Type(Block.CaptionList::class, name = "caption-list"),
+    JsonSubTypes.Type(Block.LineChart::class, name = "line-chart")
 )
 sealed interface Block {
     // un título dentro de la sección: nivel 2 o 3 (el 1 es el de la sección)
@@ -97,14 +103,16 @@ sealed interface Block {
         val footnotes: List<String> = emptyList()
     ) : Block
 
-    // una tabla con título arriba y fuente abajo (RQ-REP-006); `wide` la pone en una sección horizontal
+    // una tabla con título arriba y fuente abajo (RQ-REP-006); `wide` la pone en una sección horizontal; `figure` la numera
+    // como figura (la matriz 5 × 5 y el cuadrante 2 × 2 de T1 son gráficos nativos hechos de una tabla, deliverables.md §7.9)
     data class Table(
         val title: String,
         val header: List<String>,
         val rows: List<List<Cell>>,
         val source: String? = null,
         val wide: Boolean = false,
-        val mark: Mark? = null
+        val mark: Mark? = null,
+        val figure: Boolean = false
     ) : Block
 
     // fotos de a dos por fila (RQ-REP-010): ids de evidencia de ReportModel.photos
@@ -125,14 +133,45 @@ sealed interface Block {
     data class SectionBreak(
         val landscape: Boolean
     ) : Block
+
+    // el índice (T1, ASM-135): el campo TOC de los títulos de nivel 1 a `levels`; LibreOffice lo llena al convertir
+    // (updateIndexes) y Word al abrir
+    data class Toc(
+        val title: String,
+        val levels: Int = 5
+    ) : Block
+
+    // la lista de tablas o de figuras (`kind` «Tabla» o «Figura», CaptionNumbering): una línea por leyenda del documento con
+    // su página por PAGEREF a su marcador
+    data class CaptionList(
+        val title: String,
+        val kind: String
+    ) : Block
+
+    // un gráfico de líneas nativo de Word (XDDF): categorías y una serie por nombre, los valores como texto decimal o null
+    // (un hueco). la tendencia de 9.3.1.1 de T1 (deliverables.md §7.9)
+    data class LineChart(
+        val title: String,
+        val categories: List<String>,
+        val series: List<ChartSeries>,
+        val source: String? = null
+    ) : Block
 }
 
-// una celda: `colSpan` combina hacia la derecha y `rowSpan` hacia abajo (las celdas cubiertas no se repiten en `rows`)
+// una serie de un gráfico de líneas
+data class ChartSeries(
+    val name: String,
+    val values: List<String?>
+)
+
+// una celda: `colSpan` combina hacia la derecha y `rowSpan` hacia abajo (las celdas cubiertas no se repiten en `rows`);
+// `shade`, su color de fondo RRGGBB (la matriz 5 × 5)
 data class Cell(
     val text: String,
     val colSpan: Int = 1,
     val rowSpan: Int = 1,
-    val mark: Mark? = null
+    val mark: Mark? = null,
+    val shade: String? = null
 )
 
 // lo que hace falta para citar a una persona en cada nivel: el nombre (INTERNO), el cargo y la organización o el código GI-

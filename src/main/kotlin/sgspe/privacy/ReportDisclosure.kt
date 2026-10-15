@@ -86,6 +86,15 @@ object ReportDisclosure {
                     source = block.source?.let { Mentions.resolve(it, people, level) }
                 )
             is Block.SectionBreak -> block
+            // el índice y las listas se arman con los títulos y las leyendas ya transformados
+            is Block.Toc -> block
+            is Block.CaptionList -> block
+            is Block.LineChart ->
+                block.copy(
+                    title = Mentions.resolve(block.title, people, level),
+                    series = block.series.map { it.copy(name = Mentions.resolve(it.name, people, level)) },
+                    source = block.source?.let { Mentions.resolve(it, people, level) }
+                )
         }
     }
 }

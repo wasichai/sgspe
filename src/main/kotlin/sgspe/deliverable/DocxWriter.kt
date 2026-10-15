@@ -91,6 +91,8 @@ class DocxWriter(
                             if (block.landscape != landscape) endSection(doc, landscape)
                             landscape = block.landscape
                         }
+                        // los bloques de T1 los escribe la Tarea 2 del plan 8.2c; ningún tipo los produce todavía
+                        is Block.Toc, is Block.CaptionList, is Block.LineChart -> Unit
                     }
                 }
             }
