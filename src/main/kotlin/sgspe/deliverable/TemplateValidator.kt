@@ -79,7 +79,8 @@ class TemplateValidator(
                 xml[part] =
                     parse(data).also {
                         if (duplicateAttributes(it)) violations += TemplateFinding(NOT_WORD, "una parte repite atributos con el mismo nombre ($part)")
-                        if (root(it) == "svg" || "svg" in declaredType(part, declared).orEmpty()) {
+                        // un elemento svg en cualquier lugar de la parte, no solo como raíz
+                        if (local(it, "svg").isNotEmpty() || "svg" in declaredType(part, declared).orEmpty()) {
                             violations += TemplateFinding(NOT_WORD, "SVG no permitido, use PNG ($part)")
                         }
                     }
@@ -286,8 +287,9 @@ class TemplateValidator(
                 "fldChar" ->
                     when (attribute(e, "fldCharType")) {
                         "begin" -> {
-                            // el campo exterior debe tener su nombre antes de abrir uno anidado
-                            if (open.isNotEmpty() && inInstruction.last() && open.last().isBlank()) {
+                            // el campo exterior debe tener su nombre antes de abrir uno anidado: una comilla o un U+200B no
+                            // son un nombre (fieldName los quita)
+                            if (open.isNotEmpty() && inInstruction.last() && fieldName(open.last().toString()).isEmpty()) {
                                 found += TemplateFinding(FIELD_NOT_ALLOWED, "campo anidado antes del nombre")
                             }
                             open.addLast(StringBuilder())
