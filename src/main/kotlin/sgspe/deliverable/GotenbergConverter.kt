@@ -52,7 +52,8 @@ class GotenbergConverter(
                         .body(BodyInserters.fromMultipartData(form(docx, request)))
                         .awaitExchangeOrNull { response ->
                             val type = response.headers().contentType().orElse(null)
-                            if (response.statusCode().is2xxSuccessful && type != null && MediaType.APPLICATION_PDF.isCompatibleWith(type)) {
+                            // solo application/pdf exacto: un comodín (*/*, application/*) no dice que sea un PDF
+                            if (response.statusCode().is2xxSuccessful && type != null && type.equalsTypeAndSubtype(MediaType.APPLICATION_PDF)) {
                                 response.awaitBody<ByteArray>()
                             } else {
                                 LOG.warn("Gotenberg respondió {} con {}", response.statusCode().value(), type)

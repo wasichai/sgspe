@@ -102,6 +102,20 @@ class GotenbergConverterTest {
         }
     }
 
+    // revisión final de 8.2c, Minor 2: solo application/pdf exacto; un comodín no es un PDF (deliverables.md §8)
+    @Test
+    fun `una respuesta con un tipo comodin es PdfConverterUnavailable`() {
+        val servers = listOf("*/*", "application/*").map { type -> server { reply(it, 200, type, "<html>error</html>".toByteArray()) } }
+        try {
+            val request = PdfRequest(false, "Informe", "ENT-001", "A", null)
+            for (server in servers) {
+                assertThrows<PdfConverterUnavailable> { runBlocking { converter(url(server)).convert(docx, request) } }
+            }
+        } finally {
+            servers.forEach { it.stop(0) }
+        }
+    }
+
     @Test
     fun `el plazo de Gotenberg es positivo y una URL que no es http detiene el arranque`() {
         assertThrows<IllegalArgumentException> { DeliverableProperties.Gotenberg("http://localhost:8096", Duration.ZERO) }
