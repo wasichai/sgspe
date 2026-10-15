@@ -1,7 +1,9 @@
 package sgspe.deliverable
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.reactor.awaitSingleOrNull
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -23,6 +25,7 @@ import java.io.IOException
 import java.util.Base64
 import java.util.UUID
 import javax.imageio.ImageIO
+import kotlin.coroutines.CoroutineContext
 
 // los mapas de informe de producción (especificación de F8 §3.7, gis.md §7.3, plan 8.2c): solo JOB-05 los pide, dentro de su
 // corrida como la plataforma. encuadra en el CRS de trabajo (MapFraming), resuelve las capas del pedido (ReportLayers: las
@@ -36,7 +39,9 @@ import javax.imageio.ImageIO
 class GeoServerReportMaps internal constructor(
     private val data: MapData,
     private val wmsUrl: String?,
-    private val properties: DeliverableProperties
+    private val properties: DeliverableProperties,
+    // donde corre el trabajo bloqueante de cada nivel (ImageIO, Java 2D y el PNG); las pruebas lo observan
+    private val blocking: CoroutineContext = Dispatchers.IO
 ) : ReportMaps {
     @Autowired
     constructor(
@@ -141,10 +146,14 @@ class GeoServerReportMaps internal constructor(
                 }
             }
         }
-        val body = decode(fetch(url, GetMapRequest.xml(frame, srid, resolved)), frame)
+        val bytes = fetch(url, GetMapRequest.xml(frame, srid, resolved))
         val legend = resolved.map { LegendEntry(it.legend, it.style) }.distinctBy { it.label }
-        val png = MapComposer.compose(body, frame, srid, legend, author, omitted)
-        return ReportImage(Base64.getEncoder().encodeToString(png), CanonicalJson.sha256(png), omitted)
+        // tras awaitBody la corrida sigue en el hilo de Reactor Netty que completó la respuesta: decodificar, dibujar y codificar
+        // el PNG (cientos de ms por nivel) van al contexto bloqueante para no retener el event loop de las peticiones
+        return withContext(blocking) {
+            val png = MapComposer.compose(decode(bytes, frame), frame, srid, legend, author, omitted)
+            ReportImage(Base64.getEncoder().encodeToString(png), CanonicalJson.sha256(png), omitted)
+        }
     }
 
     // el cuerpo del GetMap: un 2xx con image/png dentro del plazo. una ServiceException (XML), otro estado, otro tipo, el plazo

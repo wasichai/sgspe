@@ -6,6 +6,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -31,6 +32,7 @@ import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import javax.imageio.ImageIO
+import kotlin.coroutines.CoroutineContext
 
 // especificación de F8 §3.7 y §5 («Mapas»; plan 8.2c, Tarea 8; Review Focus 1 y 3): los mapas reales contra un GeoServer
 // falso (el servidor HTTP del JDK) y unas geometrías falsas. GeoServer no está en la CI (decisión 23)
@@ -172,6 +174,38 @@ class GeoServerReportMapsTest {
         val bytes = Base64.getDecoder().decode(images.internal.pngBase64)
         assertEquals(CanonicalJson.sha256(bytes), images.internal.sha256)
         assertNotNull(ImageIO.read(ByteArrayInputStream(bytes)))
+    }
+
+    // revisión final de 8.2c, Important 1: la decodificación, la composición y el PNG nunca corren en el hilo que completó la
+    // respuesta (el event loop de Reactor Netty), sino en el contexto bloqueante (Dispatchers.IO en producción)
+    @Test
+    fun `la decodificacion y la composicion de cada nivel corren en el contexto bloqueante`() {
+        val rendered = CopyOnWriteArrayList<String>()
+        val pool = Executors.newSingleThreadExecutor { Thread(it, "mapas-bloqueantes") }
+        val blocking =
+            object : CoroutineDispatcher() {
+                override fun dispatch(
+                    context: CoroutineContext,
+                    block: Runnable
+                ) {
+                    pool.execute {
+                        block.run()
+                        rendered += Thread.currentThread().name
+                    }
+                }
+            }
+        val server = server { reply(it, "image/png", png()) }
+        val images =
+            try {
+                runBlocking {
+                    GeoServerReportMaps(FakeData(), url(server), DeliverableProperties(), blocking).draw(UUID.randomUUID(), request)
+                }
+            } finally {
+                server.stop(0)
+                pool.shutdown()
+            }
+        assertFalse(images.failed)
+        assertEquals(2, rendered.size, "un trabajo bloqueante por nivel: $rendered")
     }
 
     @Test

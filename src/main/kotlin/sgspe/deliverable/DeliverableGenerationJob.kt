@@ -64,7 +64,8 @@ class DraftFailure(
 // ReportDisclosure, escribe el DOCX del borrador y el de la candidata, los convierte y verifica cada PDF; y sube los siete
 // archivos con LISTO y los avisos en una sola escritura (DraftFiles). todo error deja FALLIDO con su código. lee y escribe
 // como la plataforma (con el origen job:deliverable-generation), nunca aplica transiciones ni escribe secciones. los logs
-// llevan ids y códigos, nunca contenido
+// llevan ids y códigos, nunca contenido. todo trabajo bloqueante de JOB-05 (POI, Java 2D, ImageIO, PDFBox) corre en
+// Dispatchers.IO, nunca en el event loop de Reactor Netty: generate aquí y cada nivel de mapa en GeoServerReportMaps
 @Component
 class DraftGeneration(
     private val records: Records,
