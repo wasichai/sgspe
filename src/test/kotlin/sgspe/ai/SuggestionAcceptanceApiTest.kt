@@ -330,7 +330,7 @@ class SuggestionAcceptanceApiTest : F7ApiTest() {
     }
 
     @Test
-    fun `un marcador no llega a un registro de dominio y un resumen ejecutivo no se acepta`() {
+    fun `un marcador no llega a un registro de dominio y un resumen ejecutivo pide su seccion`() {
         val engagement = engagement(testProject())
         val draft = suggestion("BORRADOR DE ACTA", "engagement" to engagement, "## Acta\n\n[PERSONA] pidió el canal.")
         refused(
@@ -348,7 +348,8 @@ class SuggestionAcceptanceApiTest : F7ApiTest() {
         )
         assertEquals("proposed", state("ai_suggestion", draft))
         val summary = suggestion("RESUMEN EJECUTIVO", "project" to testProject(), "## Situación general")
-        refused(acceptSuggestion(cro, summary, emptyMap()), HttpStatus.CONFLICT, "SUGGESTION_NOT_ACCEPTABLE", "suggestion_kind")
+        // desde el plan 8.2c un resumen ejecutivo se copia a una sección: sin ella, 400 FIELD_REQUIRED
+        refused(acceptSuggestion(cro, summary, emptyMap()), HttpStatus.BAD_REQUEST, "FIELD_REQUIRED", "attributes.section")
         assertEquals("proposed", state("ai_suggestion", summary))
     }
 
