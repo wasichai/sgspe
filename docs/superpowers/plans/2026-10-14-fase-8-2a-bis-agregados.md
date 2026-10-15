@@ -36,7 +36,9 @@ starters ni dependencias nuevas), R2DBC PostgreSQL por `DatabaseClient` solo den
 (KPI-EXE-03 y la regla de reclasificación de las tres QCS), 12 (`selectAsPlatform`), 24 (R6: tope de 25 proyectos), 25
 (R4: el cierre sin QCS confidenciales) y 18 (R9: la medición es del coordinador). Documentos: `docs/dashboards.md` §3.1
 (territorio y ámbito), §3.2 (estados), §3.3 (regla de conteo de las QCS), §4.1, §5.1, §6 (punto 3, «SQL agregado solo con
-medición»: esta es la medición) y §8 (no disponible, nunca cero); `docs/architecture.md` (la regla de `SpatialGate`,
+medición»: esta es la medición) y §8 (no disponible, nunca cero). La frase de la elección 16 de la especificación (§2.2.16,
+«la tabla por proyecto … calcula cada fila con las mismas funciones») queda reemplazada por la decisión 14 de este plan: el
+usuario eligió «contar en SQL» el 2026-10-14, y cada fila da las mismas cifras desde una consulta agrupada; `docs/architecture.md` (la regla de `SpatialGate`,
 ASM-122, RQ-GIS-017); `docs/api.md` §4.11; RQ-DSH-032 y RQ-DSH-034.
 
 ## Global Constraints
@@ -127,14 +129,15 @@ Las cinco entradas que más pueden morder a quien use esto, cada una con su prue
    subconsulta de `SpatialGate` con la organización y todos los `RecordReadScope` (el de proyecto y el de las QCS
    confidenciales), y que un relacionista de A que pide A y B vea lo mismo que con `Records`. Pruebas: `KpiAggregatesTest`
    «como la persona la tabla lleva su alcance de lectura» (Tarea 3) y `ExecutiveAggregatesParityApiTest` (el relacionista
-   con una queja confidencial en A y B pedido, Tarea 6).
+   de A con una queja confidencial y B pedido: 3 QCS abiertas en las tiles y en la fila de A, 0 en la de B, Tarea 6).
 2. **La plataforma dentro de una petición.** `selectAsPlatform` sin alcances, llamado mientras se atiende a una persona,
    le daría todo el tenant. Se espera que `KpiAggregates` con `platform` falle con `IllegalStateException` sin correr nada
    si hay un usuario en el contexto, que `DashboardData` solo pase la plataforma que trae `KpiContext` y que ninguna otra
    pieza nombre `KpiAggregates`. Pruebas: `KpiAggregatesTest` «como la plataforma no pide alcances y no corre con una
    persona en el contexto» (Tarea 3), `DashboardDataAggregatesTest` «con la plataforma los conteos van por
    selectAsPlatform» (Tarea 4) y `ArchitectureTest` «solo ComponentLand y KpiAggregates usan selectAsPlatform y solo
-   DashboardData les pasa la plataforma» (Tarea 3).
+   DashboardData les pasa la plataforma», que además exige que nadie más que `DashboardData` llame a `select` con la
+   plataforma (Tarea 3).
 3. **Una cifra distinta de la de antes.** La regla de reclasificación de las tres QCS, los meses de Lima de `held_at` y
    `received_at`, el orden de los desgloses y un campo ilegible (que hoy es un atributo ausente) son donde un conteo en
    SQL se aparta en silencio. Se espera que cada función de `AggregateKpis` dé el mismo `IndicatorResult` que su gemela
@@ -143,21 +146,26 @@ Las cinco entradas que más pueden morder a quien use esto, cada una con su prue
    KPI-COM-02 y 03, KPI-RSK-01 y KPI-EXE-02, Tarea 1), `AggregateSqlTest` «las QCS cuentan con la regla de reclasificacion
    de los tres objetos y sin campos ilegibles» y «las interacciones van desde el primer dia del periodo o de la serie hasta
    el fin del periodo en Lima» (Tarea 2), `DashboardDataAggregatesTest` «un campo ilegible no se nombra y uno por el que se
-   filtra es el 400 de Criteria» (Tarea 4) y `ExecutiveAggregatesParityApiTest` (Tarea 6).
+   filtra es el 400 de Criteria» (Tarea 4) y `ExecutiveAggregatesParityApiTest` (las cifras absolutas de los fixtures y un
+   rol de prueba sin `engagement.locality`, `engagement.community` ni `grievance.closed_date`, Tarea 6).
 4. **`byProject[]` distinto de «ese proyecto solo».** Hoy cada fila es el KPI con el filtro de ese proyecto: con el ámbito
    AIDS o AIIS el territorio es el del área de ese proyecto (no el de todos), y una QCS reclasificada desde otro proyecto
    cuenta en la fila de su proyecto. Se espera lo mismo con una sola consulta agrupada por proyecto (`tile`/`own`,
    `gone`/`gone_own`) y que un KPI sin `computeByProject` siga calculándose por proyecto. Pruebas: `AggregateKpisTest` «la
    fila de un proyecto cuenta su reclasificacion solo si el registro nuevo es de ese proyecto» (Tarea 1), `AggregateSqlTest`
    «sin ambito tile y own son TRUE y con AIDS own es el territorio de cada proyecto» (Tarea 2), `KpiEvaluationByProjectTest`
-   (Tarea 5) y `ExecutiveAggregatesParityApiTest` con `scope=AIDS` (Tarea 6).
+   (Tarea 5) y `ExecutiveAggregatesParityApiTest` con `scope=AIDS` y `scope=AIIS` (Tarea 6). Una reclasificación entre
+   proyectos no puede existir hoy (la regla «mismo proyecto», `ProjectLinkGuard`, la rechaza con `409 PROJECT_MISMATCH`):
+   la prueba de integración lo intenta y ajusta su cifra esperada; la unitaria cubre el caso.
 5. **El cierre (R4) y los topes (R6).** El cierre calcula los KPI de QCS sin las confidenciales también para quien las ve;
    un conteo que no aplique `excludeConfidential` congelaría una cifra oficial que las incluye. Se espera
    `confidential IS NOT TRUE` en los tres objetos solo con `excludeConfidential`, la misma cifra que con `Records` en el
    cierre como la plataforma, y que pedir más de 25 proyectos siga siendo `400 TOO_MANY_RECORDS`. Pruebas: `AggregateSqlTest`
    «excludeConfidential deja fuera las confidenciales solo si se lee la marca» (Tarea 2), `DashboardDataAggregatesTest`
    «excludeConfidential deja fuera las QCS confidenciales en los tres objetos» (Tarea 4), el bucle del cierre de
-   `ExecutiveAggregatesParityApiTest` (Tarea 6) y, por regresión, `ExecutiveDashboardApiTest` «más proyectos pedidos que
+   `ExecutiveAggregatesParityApiTest` como el ADMIN (la persona) y como la plataforma, con la cifra del cierre una menos
+   que la del tablero (Tarea 6), `DashboardsAggregatesSwitchTest` (la propiedad en `false` vuelve a `Records` en
+   `dashboard()`, `value()` e `indicator()`, Tarea 5) y, por regresión, `ExecutiveDashboardApiTest` «más proyectos pedidos que
    el tope es 400 TOO_MANY_RECORDS sobre project» (Tarea 8).
 
 ---
@@ -173,11 +181,14 @@ Las cinco entradas que más pueden morder a quien use esto, cada una con su prue
 | 5 | Con el ámbito AIDS o AIIS, el territorio de las tiles es el de las áreas aprobadas de todos los proyectos, y el de la fila de un proyecto en `byProject`, el de las suyas (`DashboardData.with` con ese proyecto) | Cada fila agregada lleva `tile` (pasa el territorio de las tiles) y `own` (pasa el de su proyecto); sin ese ámbito los dos son `TRUE`. `DashboardData.scopeTerritories()` lee las áreas una vez y arma el territorio de cada proyecto con `areaTerritory` (Tareas 2 y 4) |
 | 6 | Los meses y los límites del periodo son de Lima (`held(...)`, `QcsDueDates.receivedDate`, `EngagementKpis.months`) | `held_at` y `received_at` (`timestamptz`) se comparan con medianoche de Lima enlazada como `OffsetDateTime` en UTC (como `Criteria.between`) y su mes es `to_char(… AT TIME ZONE 'America/Lima', 'YYYY-MM')` con la zona enlazada; `closed_date` y `due_date` son `date`. Los meses de las quejas salen solo dentro de los 12 de la serie (fuera, `NULL`), para que el `GROUP BY` no crezca con la historia (Tarea 2) |
 | 7 | `byProject[]` hoy recalcula cada KPI por proyecto con un `DashboardData` nuevo | `Indicator.computeByProject(data)` (por defecto `null`) da la cifra de cada proyecto de una vez desde los mismos conteos cacheados de las tiles (una consulta agrupada por proyecto por KPI); `KpiEvaluation.evaluateByProject` aplica la misma disponibilidad a todas las filas y, si el KPI no la trae, evalúa cada proyecto como antes. `Dashboards.byProject` solo lo usa con los conteos en la base (Tarea 5) |
-| 8 | La paridad exige comparar el camino de hoy con el nuevo sobre los mismos datos | El camino de `Records` se queda: `DashboardData(aggregates = null)` (las pruebas sin base, `KpiFixtureData`, `ConfidentialExclusionTest`) y `sgspe.dashboards.aggregates: false`. `Dashboards.dashboard(…, aggregated)` y `Dashboards.value(…, aggregated)` son `internal` para la prueba de paridad. **Pregunta al usuario**: dejar la propiedad como vuelta atrás o borrarla con el camino viejo cuando la medición pase (Tareas 5 y 8) |
+| 8 | La paridad exige comparar el camino de hoy con el nuevo sobre los mismos datos | El camino de `Records` se queda: `DashboardData(aggregates = null)` (las pruebas sin base, `KpiFixtureData`, `ConfidentialExclusionTest`) y `sgspe.dashboards.aggregates: false`. `Dashboards.dashboard(…, aggregated)`, `Dashboards.value(…, aggregated)` y `Dashboards.indicator(…, aggregated)` son `internal` para la prueba de paridad. La propiedad se lee al arrancar: volver atrás es cambiar la configuración y reiniciar. **Regla del coordinador:** la propiedad y el camino viejo de esos KPI se quedan hasta el cierre de F8; entonces una tarea de limpieza los quita (con `DashboardsAggregatesSwitchTest` y la mitad `false` de la paridad), y la Tarea 8 la anota en `roadmap.md` (Tareas 5 y 8) |
 | 9 | Los KPI movidos también salen en otros tableros | Un KPI es uno solo (`Kpis.BY_CODE`): con los conteos en la base cambian también KPI-GRV-02 en `attention` y `project`, KPI-ENG-01 en `engagement` y `project`, KPI-COM-02 y 03 en `commitments` y `project`, KPI-RSK-01 en `risks` y `project`, la ficha KPI-TER-01 del tablero `territory` (sus filas KPI-ENG-01, KPI-COM-02, KPI-COM-03 y KPI-GRV-02), el detalle de cada uno y el cierre de periodo. `monitoring` no usa ninguno. La prueba de paridad los recorre (Tarea 6) |
 | 10 | `400 TOO_MANY_RECORDS` con 10 proyectos | Los KPI movidos no cargan filas: no hay tope que pasar. Lo que el tablero `executive` todavía lee con `Records` (los proyectos, los seis conjuntos de KPI-INV-03 y los compromisos y reprogramaciones de KPI-EXE-03) conserva el tope de 20 000 filas: con más compromisos que eso el tablero sigue siendo `400` (riesgo 2). R6 no cambia (Tarea 5) |
 | 11 | KPI-ENG-05 y la marca `confidentialHidden` | KPI-ENG-05 no se mueve (no está en el tablero `executive` y no lee QCS: cuenta por `referred_at`, `Kpis.closingRequires`). La marca la sigue poniendo `Dashboards.mark` con `Kpis.confidentialSensitive`, igual con los dos caminos (Tarea 5) |
 | 12 | `dashboards.md` §6 punto 3 deja el SQL agregado «solo si una medición lo justifica» | La medición del 2026-10-14 lo justifica: la Tarea 7 lo anota en §6 (diagrama y punto 3), en `api.md` §4.11, en `architecture.md` y en `CLAUDE.md`; la Tarea 8 anota la medición nueva en `roadmap.md` F8 «Estado» |
+| 14 | La elección 16 de la especificación (§2.2.16) dice que la tabla por proyecto «calcula cada fila con las mismas funciones» | Reemplazada por la elección del usuario («contar en SQL», 2026-10-14): cada fila da las mismas cifras que el filtro de ese proyecto solo, desde una consulta agrupada por proyecto por KPI (o una lectura repartida, en KPI-EXE-01 y KPI-INV-03). La Tarea 7 lo escribe en `dashboards.md` §5.1 y `api.md` §4.11 |
+| 15 | `dashboards.md` §3.3 dice que la regla de reclasificación la cuenta `AttentionCounting` (una función pura) | **Regla del coordinador:** para los KPI movidos la regla tiene además una implementación en SQL (`AggregateSql.attention`), que la prueba de paridad mantiene igual a `AttentionCounting`; la Tarea 7 lo escribe en §3.3 |
+| 16 | Reusar lecturas: las áreas del ámbito y las entradas de KPI-INV-03 | `DashboardData.scopeAreas()` lee las áreas una vez para `scopeTerritory()` y `scopeTerritories()`; `Kpis.InvestmentInputs` arma las entradas de KPI-INV-03 una vez por pedido (`DashboardData.memo`) para las tiles y para `byProject` (Tareas 4 y 5) |
 | 13 | Índices | Ninguno nuevo: con 10 proyectos se leen casi todas las filas del tenant y un barrido de 50 000 quejas es de decenas de ms. Si la medición no pasa, el coordinador mira `EXPLAIN ANALYZE` de cada consulta antes de tocar nada (**decisión del usuario** si hiciera falta un índice declarado en `model.json`) |
 
 ## Mapa de archivos
@@ -186,11 +197,11 @@ Las cinco entradas que más pueden morder a quien use esto, cada una con su prue
 |---|---|---|
 | `src/main/kotlin/sgspe/dashboard/AggregateKpis.kt` (nuevo), `Indicators.kt` (`Numbers.tally`), `EngagementKpis.kt` (`NO_TYPE`), `ExecutiveKpis.kt` (`NO_DATA` público), `src/test/kotlin/sgspe/dashboard/AggregateKpisTest.kt` (nuevo) | 1 | Las cifras desde conteos, puras |
 | `src/main/kotlin/sgspe/dashboard/AggregateSql.kt` (nuevo), `src/test/kotlin/sgspe/dashboard/AggregateSqlTest.kt` (nuevo) | 2 | El SQL de los conteos, puro |
-| `src/main/kotlin/sgspe/dashboard/KpiAggregates.kt` (nuevo), `src/test/kotlin/sgspe/dashboard/KpiAggregatesTest.kt` (nuevo), `src/test/kotlin/sgspe/ArchitectureTest.kt` | 3 | El ejecutor por la compuerta y su vigía |
+| `src/main/kotlin/sgspe/dashboard/KpiAggregates.kt` (nuevo), `src/test/kotlin/sgspe/dashboard/KpiAggregatesTest.kt` (nuevo), `src/test/kotlin/sgspe/ArchitectureTest.kt`, `src/main/kotlin/sgspe/territory/SpatialGate.kt` (comentario) | 3 | El ejecutor por la compuerta y su vigía |
 | `src/main/kotlin/sgspe/dashboard/DashboardData.kt`, `RiskKpis.kt` (`ACTIVE_STATES`), `src/test/kotlin/sgspe/dashboard/DashboardDataAggregatesTest.kt` (nuevo) | 4 | Los conteos de un pedido |
-| `src/main/kotlin/sgspe/dashboard/Kpis.kt`, `KpiEvaluation.kt`, `Dashboards.kt`, `DashboardsProperties.kt`, `src/main/resources/application.yml`, `src/test/kotlin/sgspe/dashboard/KpiEvaluationByProjectTest.kt` (nuevo), `DashboardsPropertiesTest.kt` | 5 | Los KPI, `byProject` y la propiedad |
+| `src/main/kotlin/sgspe/dashboard/Kpis.kt`, `KpiEvaluation.kt`, `Dashboards.kt`, `DashboardsProperties.kt`, `src/main/resources/application.yml`, `src/test/kotlin/sgspe/dashboard/KpiEvaluationByProjectTest.kt` y `DashboardsAggregatesSwitchTest.kt` (nuevos), `DashboardsPropertiesTest.kt` | 5 | Los KPI, `byProject` y la propiedad |
 | `src/test/kotlin/sgspe/dashboard/ExecutiveAggregatesParityApiTest.kt` (nuevo) | 6 | La paridad contra la base |
-| `docs/dashboards.md` (§6), `docs/api.md` (§4.11), `docs/architecture.md`, `CLAUDE.md` | 7 | Documentos |
+| `docs/dashboards.md` (§3.3, §5.1, §6), `docs/api.md` (§4.11), `docs/architecture.md`, `CLAUDE.md` | 7 | Documentos |
 | `docs/roadmap.md` (F8 «Estado») | 8 | Integración, medición y PR (coordinador) |
 
 ## Orden y paralelismo
@@ -1321,7 +1332,7 @@ git switch feat/fase-8-2a-bis-agregados && git merge --no-ff f82abis/t2 -m "Merg
 
 **Files:**
 - Create: `src/main/kotlin/sgspe/dashboard/KpiAggregates.kt`
-- Modify: `src/test/kotlin/sgspe/ArchitectureTest.kt`
+- Modify: `src/test/kotlin/sgspe/ArchitectureTest.kt`, `src/main/kotlin/sgspe/territory/SpatialGate.kt` (comentario)
 - Test: `src/test/kotlin/sgspe/dashboard/KpiAggregatesTest.kt` (nuevo)
 
 **Interfaces:**
@@ -1483,6 +1494,11 @@ En `src/test/kotlin/sgspe/ArchitectureTest.kt`, reemplazar la prueba
         assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(aggregates) })
         assertTrue(flags(KPI_AGGREGATES, "private val aggregates: KpiAggregates"))
         assertFalse(flags(KPI_AGGREGATES, "// los conteos de AggregateSql"))
+        // y solo DashboardData le pasa la organización de la plataforma (KpiContext.platform) a KpiAggregates.select
+        val notData = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(data) }
+        assertEquals(emptyList<String>(), offenders(notData, SELECT_WITH_PLATFORM))
+        assertTrue(flags(SELECT_WITH_PLATFORM, "{ source.select(query, platform) }"))
+        assertFalse(flags(SELECT_WITH_PLATFORM, "gate.select(query.reads, query.sql, query.map)"))
     }
 ```
 
@@ -1490,7 +1506,11 @@ y en el `companion object`, después de `ROWS_WITH_PLATFORM`:
 
 ```kotlin
         private val KPI_AGGREGATES = Regex("""\bKpiAggregates\b""")
+        private val SELECT_WITH_PLATFORM = Regex("""\.select\([^)]*\bplatform\b""")
 ```
+
+(la prueba ya nombra `source.select(query, platform)`, que llega en la Tarea 4: hasta entonces su última parte pasa porque
+nadie llama a `select` con la plataforma; el ejemplo positivo de `flags` lo comprueba desde ya.)
 
 ```bash
 cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.dashboard.KpiAggregatesTest' --tests 'sgspe.ArchitectureTest'
@@ -1530,6 +1550,14 @@ class KpiAggregates(
 }
 ```
 
+En el comentario de cabecera de `src/main/kotlin/sgspe/territory/SpatialGate.kt`, las dos últimas líneas pasan a:
+
+```kotlin
+// alcances ni dueño, con la organización enlazada; solo fuera de una petición: lo comprueba aquí y lo llaman solo
+// ComponentLand y, desde el plan 8.2a-bis, KpiAggregates de sgspe.dashboard, con la organización que le pasa DashboardData
+// (ArchitectureTest). los conteos de los KPI del tablero executive (AggregateSql) también pasan por select.
+```
+
 - [ ] **Paso 4: En verde, build y commit**
 
 ```bash
@@ -1543,7 +1571,7 @@ quitarla.
 
 ```bash
 cd $REPO && git add src/main/kotlin/sgspe/dashboard/KpiAggregates.kt src/test/kotlin/sgspe/dashboard/KpiAggregatesTest.kt \
-  src/test/kotlin/sgspe/ArchitectureTest.kt
+  src/test/kotlin/sgspe/ArchitectureTest.kt src/main/kotlin/sgspe/territory/SpatialGate.kt
 git commit -m "feat: KpiAggregates por la compuerta de SQL propio" -m "Los conteos corren por SpatialGate como la persona, con sus alcances, o por selectAsPlatform fuera
 de una petición; ArchitectureTest suma KpiAggregates a la regla de selectAsPlatform.
 
@@ -1565,7 +1593,8 @@ git switch feat/fase-8-2a-bis-agregados && git merge --no-ff f82abis/t3 -m "Merg
   `cached()`, `read()` (privadas de `DashboardData`), `EngagementWriteGuard.HELD_STATES`, `Commitments.CLOSED` y
   `PENDING`, `Risks.ESCALATED`, `ExecutiveKpis.ACTIVE_WARNING_STATES`.
 - Produces: el parámetro `aggregates: KpiAggregates? = null` (último, opcional) de `DashboardData`, que `with(...)`
-  propaga; `val aggregated: Boolean`; `suspend fun scopeTerritories(): ScopeTerritories?`; `attentionCounts()`,
+  propaga; `val aggregated: Boolean`; `suspend fun scopeTerritories(): ScopeTerritories?`; `suspend fun <T : Any>
+  memo(key, load): T` (un valor por pedido en la caché de `DashboardData`); `attentionCounts()`,
   `heldCounts()`, `openCommitmentCounts()`, `overdueCommitmentCounts()`, `highRiskCounts()`, `warningCounts()` (cada una
   `GateOutcome<…>`, cacheada por pedido); `RiskKpis.ACTIVE_STATES`.
 
@@ -1742,7 +1771,35 @@ En `src/main/kotlin/sgspe/dashboard/DashboardData.kt`:
 ```
 
 3. En `risks()`, `Criteria.inState(setOf("identified", "assessed", "mitigating", "monitoring"))` pasa a
-   `Criteria.inState(RiskKpis.ACTIVE_STATES)`.
+   `Criteria.inState(RiskKpis.ACTIVE_STATES)`. El comentario de cabecera de la clase suma, después de «a la interacción (su
+   localidad o su comunidad).»:
+
+```kotlin
+// desde el plan 8.2a-bis, con `aggregates`, KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03, KPI-RSK-01, KPI-EXE-02 y las series
+// de interacciones y quejas de KPI-EXE-03 no leen filas: cuentan en la base por KpiAggregates (dashboards.md §6.3), con el
+// mismo territorio, ámbito y alcance, y la regla de conteo de §3.3 en el SQL.
+```
+
+   Y `scopeTerritory()` lee las áreas del ámbito una sola vez, en `scopeAreas()`, que también usa `scopeTerritories()`:
+
+```kotlin
+    private suspend fun scopeTerritory(): List<Territory> =
+        cached("scopeTerritory") {
+            if (scopeFilters()) listOf(areaTerritory(scopeAreas().map { it.id })) else emptyList()
+        }
+
+    private fun scopeFilters(): Boolean = filters.scope == AIDS || filters.scope == AIIS
+
+    // las áreas aprobadas del ámbito pedido de los proyectos, leídas una vez (scopeTerritory y scopeTerritories)
+    private suspend fun scopeAreas(): List<RecordResponse> =
+        cached("scopeAreas") {
+            read(
+                "area_of_influence",
+                mapOf("area_type" to filters.scope!!),
+                listOf(Criteria.inState(setOf(APPROVED)), Criteria.anyOf("project", filters.projects))
+            )
+        }
+```
 4. `with(filters)` pasa a:
 
 ```kotlin
@@ -1761,15 +1818,9 @@ En `src/main/kotlin/sgspe/dashboard/DashboardData.kt`:
 
     // el ámbito AIDS o AIIS de las tiles y de cada proyecto (ScopeTerritories); null si el ámbito no filtra
     suspend fun scopeTerritories(): ScopeTerritories? {
-        val scope = filters.scope
-        if (scope != AIDS && scope != AIIS) return null
+        if (!scopeFilters()) return null
         return cached("scopeTerritories") {
-            val areas =
-                read(
-                    "area_of_influence",
-                    mapOf("area_type" to scope),
-                    listOf(Criteria.inState(setOf(APPROVED)), Criteria.anyOf("project", filters.projects))
-                )
+            val areas = scopeAreas()
             ScopeTerritories(
                 scopeTerritory().single(),
                 filters.projects.associateWith { p -> areaTerritory(areas.filter { Values.text(it.attributes["project"]) == p.toString() }.map { it.id }) }
@@ -1886,6 +1937,12 @@ En `src/main/kotlin/sgspe/dashboard/DashboardData.kt`:
         return aggregate(query)
     }
 
+    // un valor calculado una vez por pedido con estos datos (las entradas de KPI-INV-03, que comparten las tiles y byProject)
+    suspend fun <T : Any> memo(
+        key: String,
+        load: suspend () -> T
+    ): T = cached("memo:$key", load)
+
     // ---- monitoreo
 ```
 
@@ -1925,14 +1982,16 @@ git switch feat/fase-8-2a-bis-agregados && git merge --no-ff f82abis/t4 -m "Merg
 - Modify: `src/main/kotlin/sgspe/dashboard/Kpis.kt`, `src/main/kotlin/sgspe/dashboard/KpiEvaluation.kt`,
   `src/main/kotlin/sgspe/dashboard/Dashboards.kt`, `src/main/kotlin/sgspe/dashboard/DashboardsProperties.kt`,
   `src/main/resources/application.yml`, `src/test/kotlin/sgspe/dashboard/DashboardsPropertiesTest.kt`
-- Test: `src/test/kotlin/sgspe/dashboard/KpiEvaluationByProjectTest.kt` (nuevo)
+- Test: `src/test/kotlin/sgspe/dashboard/KpiEvaluationByProjectTest.kt`, `src/test/kotlin/sgspe/dashboard/DashboardsAggregatesSwitchTest.kt`
+  (nuevos)
 
 **Interfaces:**
-- Consumes: los conteos de `DashboardData` (Tarea 4), `AggregateKpis` (Tarea 1), `KpiAggregates` (Tarea 3).
+- Consumes: los conteos y `memo` de `DashboardData` (Tarea 4), `AggregateKpis` (Tarea 1), `KpiAggregates` (Tarea 3).
 - Produces: `Indicator.computeByProject(data): Map<String, IndicatorResult>?` (por defecto `null`) y el parámetro
   `split` de `Kpi` (antes de `block`); `KpiEvaluation.evaluateByProject(kpi, data): Map<String, IndicatorValue>`;
   `DashboardsProperties.aggregates: Boolean = true` (`sgspe.dashboards.aggregates`); `internal suspend fun
-  Dashboards.dashboard(name, params, reader: KpiReader?, aggregated: Boolean)` y `internal suspend fun
+  Dashboards.dashboard(name, params, reader: KpiReader?, aggregated: Boolean)`, `internal suspend fun
+  Dashboards.indicator(code, params, reader: KpiReader?, aggregated: Boolean)` y `internal suspend fun
   Dashboards.value(code, projects, start, end, reader, excludeConfidential: Boolean, aggregated: Boolean)`. Las firmas
   públicas de `Dashboards` no cambian.
 
@@ -2008,6 +2067,144 @@ class KpiEvaluationByProjectTest {
 }
 ```
 
+Crear `src/test/kotlin/sgspe/dashboard/DashboardsAggregatesSwitchTest.kt` (la propiedad decide el camino de `dashboard()`,
+`value()` e `indicator()`, Review Focus 5 y decisión 8):
+
+```kotlin
+package sgspe.dashboard
+
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.springframework.util.LinkedMultiValueMap
+import sgspe.common.Callers
+import sgspe.common.ModelCatalog
+import sgspe.common.ObjectDefinitions
+import sgspe.common.Records
+import sgspe.common.TenantModel
+import sgspe.territory.ComponentLand
+import sgspe.territory.GateRunner
+import sgspe.territory.SpatialGate
+import wasichai.core.common.NotFoundException
+import wasichai.core.metadata.CustomField
+import wasichai.core.metadata.CustomObject
+import wasichai.core.metadata.FieldType
+import wasichai.core.metadata.MetadataService
+import wasichai.core.metadata.ObjectDefinition
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.util.UUID
+
+// plan 8.2a-bis (decisión 8): sgspe.dashboards.aggregates decide el camino de dashboard(), value() e indicator(): en true los
+// KPI movidos cuentan en la base (corre SQL por la compuerta); en false leen filas con Records y la compuerta no corre. la
+// propiedad se lee al arrancar, así que volver atrás es cambiar la configuración y reiniciar
+class DashboardsAggregatesSwitchTest {
+    private val organization = UUID.randomUUID()
+    private val project = UUID.randomUUID()
+    private val catalog = ModelCatalog.fromClasspath()
+    private val sql = mutableListOf<String>()
+    private val reads = mutableListOf<String>()
+
+    private fun definition(objectName: String): ObjectDefinition {
+        val objectId = UUID.randomUUID()
+        val relations = catalog.relationships.filter { it.source == objectName }.mapNotNull { it.fieldName }
+        val fields =
+            catalog.objects[objectName]
+                ?.fields
+                ?.keys
+                .orEmpty() + relations
+        return ObjectDefinition(
+            CustomObject(objectId, organization, objectName, objectName, objectName, null, true, "${objectName}_tbl", null, null),
+            fields.distinct().mapIndexed { i, name ->
+                CustomField(UUID.randomUUID(), objectId, name, name, FieldType.TEXT, "c_$name", false, false, null, null, i, null, null, emptyMap(), true, true)
+            }
+        )
+    }
+
+    // Records simulado: cada lectura de filas vuelve vacía y se anota
+    private val records: Records =
+        mock(Records::class.java) { call ->
+            when (call.method.name) {
+                "all" -> emptyList<Any>().also { reads += call.arguments[0] as String }
+                else -> null
+            }
+        }
+
+    private fun dashboards(aggregates: Boolean): Dashboards {
+        val gate =
+            SpatialGate(
+                { error("sin persona") },
+                { { true } },
+                { _, name -> definition(name) },
+                { _, _ -> emptyList() },
+                { null },
+                { "\"data\".\"${it.obj.physicalTable}\"" },
+                GateRunner { text, _, _ ->
+                    sql += text
+                    emptyList()
+                },
+                { null }
+            )
+        val readers =
+            KpiReaders(
+                { null },
+                { error("sin persona") },
+                { _, block -> block() },
+                { { true } },
+                { _, name -> definition(name) },
+                { false },
+                { null },
+                { listOf(project) }
+            )
+        return Dashboards(
+            records,
+            mock(MetadataService::class.java),
+            mock(Callers::class.java),
+            catalog,
+            Clock.fixed(Instant.parse("2026-10-14T15:00:00Z"), ZoneOffset.UTC),
+            mock(ComponentLand::class.java),
+            readers,
+            DashboardsProperties(aggregates = aggregates),
+            TenantModel(mock(ObjectDefinitions::class.java) { throw NotFoundException("sin el modelo de F8") }),
+            KpiAggregates(gate)
+        )
+    }
+
+    private val params =
+        LinkedMultiValueMap<String, String>().apply {
+            add("project", project.toString())
+            add("periodStart", "2026-09-01")
+            add("periodEnd", "2026-09-30")
+        }
+
+    private fun runAll(dashboards: Dashboards) =
+        runBlocking {
+            val reader = KpiReader.Platform(organization)
+            dashboards.dashboard(Kpis.EXECUTIVE, params, reader)
+            dashboards.value("KPI-GRV-02", listOf(project), LocalDate.parse("2026-09-01"), LocalDate.parse("2026-09-30"), reader)
+            dashboards.indicator("KPI-ENG-01", params, reader)
+        }
+
+    @Test
+    fun `en true los KPI movidos cuentan en la base y no leen sus filas`() {
+        runAll(dashboards(aggregates = true))
+        assertTrue(sql.isNotEmpty())
+        assertTrue(listOf("grievance", "engagement", "social_risk", "early_warning").none { it in reads }, reads.toString())
+    }
+
+    @Test
+    fun `en false todo vuelve a la lectura con Records y la compuerta no corre`() {
+        runAll(dashboards(aggregates = false))
+        assertEquals(emptyList<String>(), sql)
+        assertTrue(listOf("grievance", "engagement", "social_risk", "early_warning").all { it in reads }, reads.toString())
+    }
+}
+```
+
 En `src/test/kotlin/sgspe/dashboard/DashboardsPropertiesTest.kt`, después de la prueba que hay:
 
 ```kotlin
@@ -2022,18 +2219,24 @@ En `src/test/kotlin/sgspe/dashboard/DashboardsPropertiesTest.kt`, después de la
 ```
 
 ```bash
-cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.dashboard.KpiEvaluationByProjectTest' --tests 'sgspe.dashboard.DashboardsPropertiesTest'
+cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew test --tests 'sgspe.dashboard.KpiEvaluationByProjectTest' --tests 'sgspe.dashboard.DashboardsAggregatesSwitchTest' --tests 'sgspe.dashboard.DashboardsPropertiesTest'
 ```
 
-Esperado: falla la compilación (`split`, `evaluateByProject` y `aggregates` no existen).
+Esperado: falla la compilación (`split`, `evaluateByProject`, `aggregates` y el constructor de `Dashboards` con
+`KpiAggregates` no existen).
 
 - [ ] **Paso 3: La propiedad**
 
-`src/main/kotlin/sgspe/dashboard/DashboardsProperties.kt`: el comentario de la clase suma la línea
-`// aggregates (plan 8.2a-bis): los KPI del tablero executive cuentan en la base; en false vuelven a leer filas con Records`
-(la línea anterior termina en `decisión 24 del plan 8.2a).`) y la clase pasa a:
+`src/main/kotlin/sgspe/dashboard/DashboardsProperties.kt`: el comentario de cabecera y la clase pasan a:
 
 ```kotlin
+// los límites de los tableros consolidados (especificación de F8 §2.2.16): la tabla por proyecto del tablero executive calcula
+// cada fila con las mismas funciones, así que admite hasta max-projects proyectos; más proyectos pedidos es 400
+// TOO_MANY_RECORDS sobre project, y más por defecto omite la tabla (byProjectOmitted, decisión 24 del plan 8.2a). desde el
+// plan 8.2a-bis la tabla sale de una consulta agrupada por proyecto por KPI, con las mismas cifras que cada proyecto solo.
+// aggregates (plan 8.2a-bis): los KPI del tablero executive cuentan en la base; en false vuelven a leer filas con Records.
+// se lee al arrancar: volver atrás es cambiar la configuración y reiniciar. vive hasta el cierre de F8, cuando una tarea de
+// limpieza la quita junto con el camino de Records de esos KPI
 @ConfigurationProperties("sgspe.dashboards")
 data class DashboardsProperties(
     val executive: Executive = Executive(),
@@ -2220,14 +2423,19 @@ Y en `ALL`, cada KPI movido (el resto de su definición no cambia):
             ) { data -> if (data.aggregated) counted(data.highRiskCounts(), AggregateKpis::highRisks) else RiskKpis.high(data.risks()) },
 ```
 
-- **KPI-INV-03**: `ignores = INV_IGNORES + setOf("explorationCampaign", "program", "year")` pasa a
+- **KPI-INV-03**: desde `ignores` hasta el final de su cuerpo pasa a (las tiles siguen en `Records`, con las mismas
+  entradas que hoy, ahora armadas una vez por pedido en `InvestmentInputs`):
 
 ```kotlin
                 ignores = INV_IGNORES + setOf("explorationCampaign", "program", "year"),
-                split = { data -> executedByProject(data) }
+                split = { data ->
+                    val inputs = investmentInputs(data)
+                    data.filters.projects
+                        .map { it.toString() }
+                        .associateWith { inputs.executed(data.filters, it) }
+                }
+            ) { data -> investmentInputs(data).executed(data.filters) },
 ```
-
-  (el cálculo de las tiles no cambia: sigue en `Records`).
 - **KPI-EXE-01**: `ignores = TERRITORY_IGNORES` pasa a
 
 ```kotlin
@@ -2267,43 +2475,68 @@ Y en `ALL`, cada KPI movido (el resto de su definición no cambia):
             }
 ```
 
-Y después de `val BY_CODE`, las dos funciones privadas:
+Y después de `val BY_CODE`, las entradas compartidas de KPI-INV-03 y la ayuda de KPI-ENG-01:
 
 ```kotlin
-    // KPI-INV-03 de cada proyecto del filtro con una sola lectura de cada conjunto, repartida por proyecto: lo mismo que leer
-    // cada proyecto solo, porque cada conjunto se filtra por su proyecto (o por el de su padre) y la localidad (plan 8.2a-bis)
-    private suspend fun executedByProject(data: DashboardData): Map<String, IndicatorResult> {
-        val commitments = data.investmentCommitments()
-        val contributions = data.investmentContributions()
-        val withPrograms = data.filters.locality == null
-        val programs = if (withPrograms) data.programs(program = false) else emptyList()
-        val commitmentDeliveries = data.deliveriesOf("commitment", commitments.map { it.id })
-        val contributionDeliveries = data.deliveriesOf(Contributions.CONTRIBUTION, contributions.map { it.id })
-        val budgets = data.budgetsOf(programs.map { it.id })
-        val campaigns = data.investmentCampaigns(campaign = false)
-        val codes = data.names("project", data.filters.projects.map { it.toString() }, "code")
-        return data.filters.projects.map { it.toString() }.associateWith { p ->
-            val own = commitments.filter { it.project == p }
+    // las entradas de KPI-INV-03 leídas una vez por pedido (DashboardData.memo), para las tiles y para byProject: `executed`
+    // con un proyecto reparte cada conjunto por su proyecto (o por el de su padre), lo mismo que leer ese proyecto solo,
+    // porque la localidad no depende del proyecto; los códigos de proyecto solo etiquetan desgloses (plan 8.2a-bis)
+    private class InvestmentInputs(
+        val commitments: List<CommitmentRow>,
+        val commitmentDeliveries: List<DeliveryRow>,
+        val contributions: List<ContributionRow>,
+        val contributionDeliveries: List<DeliveryRow>,
+        val programs: List<ProgramRow>,
+        val budgets: List<BudgetRow>,
+        val campaigns: List<CampaignRow>,
+        val withPrograms: Boolean,
+        val codes: Map<String, String>
+    ) {
+        fun executed(
+            filters: DashboardFilters,
+            project: String? = null
+        ): IndicatorResult {
+            fun mine(owner: String?) = project == null || owner == project
+            val own = commitments.filter { mine(it.project) }
             val ownIds = own.map { it.id }.toSet()
-            val gifts = contributions.filter { it.project == p }
+            val gifts = contributions.filter { mine(it.project) }
             val giftIds = gifts.map { it.id }.toSet()
-            val ownPrograms = programs.filter { it.project == p }
+            val ownPrograms = programs.filter { mine(it.project) }
             val programIds = ownPrograms.map { it.id }.toSet()
-            InvestmentKpis.executed(
+            return InvestmentKpis.executed(
                 own,
                 commitmentDeliveries.filter { it.parent in ownIds },
                 gifts,
                 contributionDeliveries.filter { it.parent in giftIds },
                 ownPrograms,
                 budgets.filter { it.program in programIds },
-                campaigns.filter { it.project == p },
-                data.filters.periodStart,
-                data.filters.periodEnd,
+                campaigns.filter { mine(it.project) },
+                filters.periodStart,
+                filters.periodEnd,
                 withPrograms,
-                codes.filterKeys { it == p }
+                if (project == null) codes else codes.filterKeys { it == project }
             )
         }
     }
+
+    private suspend fun investmentInputs(data: DashboardData): InvestmentInputs =
+        data.memo("investmentInputs") {
+            val commitments = data.investmentCommitments()
+            val contributions = data.investmentContributions()
+            val withPrograms = data.filters.locality == null
+            val programs = if (withPrograms) data.programs(program = false) else emptyList()
+            InvestmentInputs(
+                commitments,
+                data.deliveriesOf("commitment", commitments.map { it.id }),
+                contributions,
+                data.deliveriesOf(Contributions.CONTRIBUTION, contributions.map { it.id }),
+                programs,
+                data.budgetsOf(programs.map { it.id }),
+                data.investmentCampaigns(campaign = false),
+                withPrograms,
+                data.names("project", data.filters.projects.map { it.toString() }, "code")
+            )
+        }
 
     // KPI-ENG-01 (y la serie de interacciones de KPI-EXE-03): desde los conteos de la base o desde las filas
     private suspend fun heldResult(data: DashboardData): IndicatorResult =
@@ -2314,9 +2547,11 @@ Y después de `val BY_CODE`, las dos funciones privadas:
         }
 ```
 
-Notas: con `data.aggregated` falso cada KPI hace exactamente lo de hoy. `executedByProject` reparte por proyecto lo que
-`InvestmentKpis.executed` recibiría con ese proyecto solo (cada conjunto se filtra por su proyecto o por el de su padre, y
-la localidad no depende del proyecto); los códigos de proyecto solo etiquetan desgloses, que `byProject` quita.
+Notas: con `data.aggregated` falso cada KPI hace exactamente lo de hoy (KPI-INV-03 llama a `InvestmentKpis.executed` con
+los mismos argumentos: sin proyecto, `executed` no filtra nada). `InvestmentInputs.executed(filters, p)` reparte por
+proyecto lo que `InvestmentKpis.executed` recibiría con ese proyecto solo (cada conjunto se filtra por su proyecto o por el
+de su padre, y la localidad no depende del proyecto); los códigos de proyecto solo etiquetan desgloses, que `byProject`
+quita. Las entradas viven en `DashboardData.memo` (Tarea 4): las tiles y `byProject` las leen una sola vez.
 
 - [ ] **Paso 6: `Dashboards`**
 
@@ -2343,7 +2578,23 @@ En `src/main/kotlin/sgspe/dashboard/Dashboards.kt`:
 ```
 
    y dentro, `val data = data(ctx, filters, today)` pasa a `val data = data(ctx, filters, today, aggregated = aggregated)`.
-3. En `indicator(...)`, `data(ctx, filters, today)` pasa a `data(ctx, filters, today, aggregated = properties.aggregates)`.
+3. `indicator(...)` público delega en un `internal` igual (para la paridad del detalle con desglose), y dentro
+   `data(ctx, filters, today)` pasa a `data(ctx, filters, today, aggregated = aggregated)`:
+
+```kotlin
+    suspend fun indicator(
+        code: String,
+        params: MultiValueMap<String, String>,
+        reader: KpiReader? = null
+    ): IndicatorValue = indicator(code, params, reader, properties.aggregates)
+
+    internal suspend fun indicator(
+        code: String,
+        params: MultiValueMap<String, String>,
+        reader: KpiReader?,
+        aggregated: Boolean
+    ): IndicatorValue {
+```
 4. `value(...)` público delega en el `internal`:
 
 ```kotlin
@@ -2418,18 +2669,18 @@ cd $REPO && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) 
 cd $REPO && yarn format && GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew ktlintFormat build
 ```
 
-Esperado: `KpiEvaluationByProjectTest` 3 pruebas, `DashboardsPropertiesTest` 2 y todas las unitarias de `sgspe.dashboard`
+Esperado: `KpiEvaluationByProjectTest` 3 pruebas, `DashboardsAggregatesSwitchTest` 2, `DashboardsPropertiesTest` 2 y todas las unitarias de `sgspe.dashboard`
 (las de hoy sin tocar: `DashboardDataTest`, `ClosabilityKpisTest`, `ConfidentialExclusionTest`, `ExecutiveKpisTest`…) en
 verde; `BUILD SUCCESSFUL` con las de integración compiladas. Integración pendiente (Tarea 8):
 `sgspe.dashboard.ExecutiveDashboardApiTest`, `ProjectDashboardApiTest`, `AttentionDashboardApiTest`,
 `CommitmentsDashboardApiTest`, `RisksDashboardApiTest`, `TerritoryDashboardApiTest`, `EngagementIndicatorsF4ApiTest`,
-`IndicatorMeasurementsApiTest`, `DashboardDeliverableParityTest`, `DashboardsApiTest`.
+`IndicatorMeasurementsApiTest`, `DashboardDeliverableParityTest`, `DashboardsApiTest`, `MonitoringDashboardApiTest`.
 
 ```bash
 cd $REPO && git add src/main/kotlin/sgspe/dashboard/Kpis.kt src/main/kotlin/sgspe/dashboard/KpiEvaluation.kt \
   src/main/kotlin/sgspe/dashboard/Dashboards.kt src/main/kotlin/sgspe/dashboard/DashboardsProperties.kt \
   src/main/resources/application.yml src/test/kotlin/sgspe/dashboard/KpiEvaluationByProjectTest.kt \
-  src/test/kotlin/sgspe/dashboard/DashboardsPropertiesTest.kt
+  src/test/kotlin/sgspe/dashboard/DashboardsAggregatesSwitchTest.kt src/test/kotlin/sgspe/dashboard/DashboardsPropertiesTest.kt
 git commit -m "feat: tablero executive y byProject desde los conteos en la base" -m "Siete KPI del tablero executive cuentan en la base y byProject sale de una consulta agrupada por
 proyecto; sgspe.dashboards.aggregates en false vuelve a la lectura con Records.
 
@@ -2469,8 +2720,10 @@ package sgspe.dashboard
 import kotlinx.coroutines.reactor.asCoroutineContext
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpStatus
 import org.springframework.security.core.context.ReactiveSecurityContextHolder
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
@@ -2484,9 +2737,11 @@ import java.util.UUID
 
 // plan 8.2a-bis: los KPI del tablero executive contados en la base dan lo mismo que leyendo filas con Records, en las tiles y
 // en byProject, como el ADMIN, como un relacionista asignado a un solo proyecto (alcance por proyecto y QCS confidencial
-// oculta), como la plataforma, con locality, con el ámbito AIDS (donde las tiles y la fila de cada proyecto usan territorios
-// distintos) y en el cierre sin las confidenciales (R4). también en los tableros project, attention, engagement, commitments,
-// risks y territory (la ficha KPI-TER-01), que comparten esos KPI
+// oculta), como un rol de prueba sin campos de territorio de la interacción ni closed_date de la queja (columnas NULL), como
+// la plataforma, con locality, con los ámbitos AIDS y AIIS (donde las tiles y la fila de cada proyecto usan territorios
+// distintos), en el detalle con desglose y en el cierre sin las confidenciales (R4) como el ADMIN y como la plataforma.
+// también en los tableros project, attention, engagement, commitments, risks y territory (la ficha KPI-TER-01). además de la
+// paridad, las cifras de los fixtures (Review Focus 1, 3, 4 y 5)
 class ExecutiveAggregatesParityApiTest : F6QueryApiTest() {
     @Autowired
     private lateinit var dashboards: Dashboards
@@ -2514,36 +2769,33 @@ class ExecutiveAggregatesParityApiTest : F6QueryApiTest() {
 
     private fun params(query: Map<String, List<String>>) = LinkedMultiValueMap<String, String>().apply { query.forEach { (k, v) -> addAll(k, v) } }
 
-    // el tablero por los dos caminos: como la persona del token o, sin token, como la plataforma (fuera de una petición)
+    // por los dos caminos: como la persona del token o, sin token, como la plataforma (fuera de una petición)
+    private fun both(
+        token: String?,
+        call: suspend (KpiReader, Boolean) -> Any
+    ): JsonNode {
+        fun run(aggregated: Boolean): JsonNode =
+            if (token == null) {
+                json(runBlocking { call(readers.platform(organizationId()), aggregated) })
+            } else {
+                json(asToken(token) { call(readers.person(), aggregated) })
+            }
+        val counted = run(aggregated = true)
+        assertEquals(run(aggregated = false), counted)
+        return counted
+    }
+
     private fun parity(
         name: String,
         query: Map<String, List<String>>,
         token: String?
-    ): JsonNode {
-        fun run(aggregated: Boolean): JsonNode =
-            if (token == null) {
-                json(runBlocking { dashboards.dashboard(name, params(query), readers.platform(organizationId()), aggregated) })
-            } else {
-                json(asToken(token) { dashboards.dashboard(name, params(query), readers.person(), aggregated) })
-            }
-        val counted = run(aggregated = true)
-        assertEquals(run(aggregated = false), counted, "$name $query")
-        return counted
-    }
+    ): JsonNode = both(token) { reader, aggregated -> dashboards.dashboard(name, params(query), reader, aggregated) }
 
-    private fun held(
-        project: String,
-        type: String,
-        day: Int,
-        attributes: Map<String, Any?> = emptyMap(),
-        monthOf: YearMonth = month
-    ) {
-        val officer = member("COMMUNITY_RELATIONS_OFFICER", project)
-        engagement(project, type, officer.token, mapOf("held_at" to "${monthOf.atDay(day)}T15:00:00Z") + attributes).also {
-            participant(it, officer.token)
-            move("engagement", it, "register_held_unplanned", officer.token)
-        }
-    }
+    private fun closing(
+        code: String,
+        projects: List<UUID>,
+        token: String?
+    ): JsonNode = both(token) { reader, aggregated -> dashboards.value(code, projects, start, end, reader, true, aggregated) }
 
     private fun indicator(
         body: JsonNode,
@@ -2560,74 +2812,264 @@ class ExecutiveAggregatesParityApiTest : F6QueryApiTest() {
                 code
         }
 
-    @Test
-    fun `los dos caminos dan las mismas cifras en las tiles, en byProject y en los tableros que comparten los KPI`() {
-        val y = -140_000.0
-        val a = runBlocking { utmProject() }
-        val b = runBlocking { utmProject() }
-        val area = area(a, boundary = rect(0.0, y, 1000.0, y + 1000, multi = true))
-        val place = localityWith("Caserío Ejemplo", location = at(100.0, y + 100))
+    // «Proyecto Ejemplo A» en UTM 17S, sin aprobación interna (los programas pasan a planned con plan_direct) y en active
+    private fun activeUtmProject(attributes: Map<String, Any?> = emptyMap()): UUID {
+        val project =
+            project(
+                mapOf("code" to uniqueName("PRY-UTM-"), "name" to "Proyecto Ejemplo A", "working_crs" to "EPSG 32717", "policy_internal_approval" to false) +
+                    attributes
+            )
+        createRecord("project_party", mapOf("project" to project, "organization" to organization(), "party_role" to "CLIENTE"))
+        val admin = member("PROJECT_ADMIN", project)
+        move("project", project, "submit_for_review", admin.token)
+        move("project", project, "approve", admin.token)
+        return UUID.fromString(project)
+    }
+
+    private fun held(
+        project: UUID,
+        type: String,
+        day: Int,
+        attributes: Map<String, Any?> = emptyMap(),
+        monthOf: YearMonth = month
+    ) {
+        val officer = member("COMMUNITY_RELATIONS_OFFICER", project.toString())
+        engagement(project.toString(), type, officer.token, mapOf("held_at" to "${monthOf.atDay(day)}T15:00:00Z") + attributes).also {
+            participant(it, officer.token)
+            move("engagement", it, "register_held_unplanned", officer.token)
+        }
+    }
+
+    // un área aprobada de `type` del proyecto con `place` como miembro
+    private fun approvedArea(
+        project: UUID,
+        type: String,
+        y: Double,
+        place: UUID
+    ) {
+        val area = area(project, type, boundary = rect(0.0, y, 1000.0, y + 1000, multi = true))
         areaMember(area, "locality", place)
-        approveArea(area, a)
+        approveArea(area, project)
+    }
+
+    // una queja cerrada por WF-E1 (como GrievanceWorkflowApiTest) con closed_date dentro del periodo, como la plataforma
+    private fun closedGrievance(
+        project: UUID,
+        receivedAt: String
+    ): String {
+        val manager = member("GRIEVANCE_MANAGER", project.toString())
+        val id = grievance(project.toString(), attributes = mapOf("received_at" to receivedAt))
+        for (step in listOf("acknowledge", "assess", "start_action", "resolve", "close_resolved")) move("grievance", id, step, manager.token, step)
+        platformPatch("grievance", id, mapOf("closed_date" to start.plusDays(20).toString()))
+        return id
+    }
+
+    // un compromiso en ejecución, vencido (deadline_status lo escribe JOB-01; aquí, como la plataforma) con plazo en el periodo
+    private fun overdueCommitment(project: UUID): String =
+        approvedCommitment(project.toString(), attributes = mapOf("agreed_date" to start.toString(), "due_date" to start.plusDays(9).toString())).also {
+            platformPatch("commitment", it, mapOf("deadline_status" to "VENCIDO"))
+        }
+
+    // un rol de prueba que lee los objetos del tablero pero no la localidad ni la comunidad de la interacción ni el closed_date
+    // de la queja: en el SQL esas columnas salen NULL, como el atributo ausente en Records
+    private fun fieldBlind(vararg projects: UUID): Account {
+        val name = "PRUEBA_" + uniqueName("").uppercase().filter { it.isLetterOrDigit() }
+        send("POST", "/api/roles", mapOf("name" to name, "label" to "Rol de prueba"), HttpStatus.CREATED)
+        val objects =
+            listOf(
+                "project",
+                "engagement",
+                "grievance",
+                "inquiry",
+                "stakeholder_request",
+                "commitment",
+                "commitment_reschedule",
+                "social_risk",
+                "early_warning",
+                "area_of_influence",
+                "area_of_influence_member",
+                "locality",
+                "community",
+                "administrative_unit",
+                "delivery",
+                "social_contribution",
+                "exploration_campaign",
+                "social_program",
+                "program_budget"
+            )
+        send("PUT", "/api/roles/$name/permissions", mapOf("permissions" to objects.map { mapOf("objectName" to it, "action" to "READ") }), HttpStatus.OK)
+        val blind = listOf("engagement" to "locality", "engagement" to "community", "grievance" to "closed_date")
+        send(
+            "PUT",
+            "/api/roles/$name/field-permissions",
+            mapOf("fields" to blind.map { (o, f) -> mapOf("objectName" to o, "fieldName" to f, "read" to false, "write" to false) }),
+            HttpStatus.OK
+        )
+        return userWithRole(name).also { account -> projects.forEach { assign(account, it.toString(), "READ_ONLY") } }
+    }
+
+    @Test
+    fun `los dos caminos dan las mismas cifras y las de los fixtures`() {
+        val a = activeUtmProject()
+        val b = activeUtmProject(mapOf("escalation_first_days" to 3, "escalation_second_days" to 30))
+        val place = localityWith("Caserío Ejemplo", location = at(100.0, -150_000.0 + 100))
+        val other = localityWith("Caserío Ejemplo Dos", location = at(100.0, -152_000.0 + 100))
+        approvedArea(a, "AIDS", -150_000.0, place)
+        approvedArea(b, "AIIS", -152_000.0, other)
         val receivedAt = "${start.plusDays(3)}T15:00:00Z"
-        // interacciones: en el periodo con y sin la localidad del área de A, y una de hace tres meses; B, una en la localidad
-        held(a.toString(), "REUNION", 5, mapOf("locality" to place.toString()))
-        held(a.toString(), "TALLER", 6)
-        held(a.toString(), "REUNION", 7, monthOf = month.minusMonths(3))
-        held(b.toString(), "REUNION", 8, mapOf("locality" to place.toString()))
-        // QCS: una abierta, una confidencial, una consulta que reclasificó una queja (el original no cuenta) y una de B
+        // interacciones: A, dos en el periodo (una en place) y una de hace tres meses; B, una en place y una en other
+        held(a, "REUNION", 5, mapOf("locality" to place.toString()))
+        held(a, "TALLER", 6)
+        held(a, "REUNION", 7, monthOf = month.minusMonths(3))
+        held(b, "REUNION", 8, mapOf("locality" to place.toString()))
+        held(b, "TALLER", 9, mapOf("locality" to other.toString()))
+        // QCS de A: una abierta en place, una confidencial, una consulta que reclasificó una queja de A (el original no cuenta),
+        // una cerrada en el periodo y una que B intenta reclasificar; de B, una queja y una consulta
         val receiver = member("COMMUNITY_RELATIONS_OFFICER", a.toString())
         grievance(a.toString(), receiver, mapOf("received_at" to receivedAt, "locality" to place.toString()))
         grievance(a.toString(), receiver, mapOf("received_at" to receivedAt, "confidential" to true))
         val original = grievance(a.toString(), receiver, mapOf("received_at" to receivedAt))
         platformPatch("inquiry", inquiry(a.toString(), receiver, mapOf("received_at" to receivedAt)), mapOf("reclassified_from_grievance" to original))
+        closedGrievance(a, receivedAt)
+        val crossed = grievance(a.toString(), receiver, mapOf("received_at" to receivedAt))
         grievance(b.toString(), attributes = mapOf("received_at" to receivedAt, "locality" to place.toString()))
-        // un compromiso abierto, un riesgo ALTO y una alerta en cada proyecto
+        val successor = inquiry(b.toString(), attributes = mapOf("received_at" to receivedAt))
+        // la regla «mismo proyecto» (ProjectLinkGuard) rechaza el vínculo entre proyectos (409 PROJECT_MISMATCH): si algún día
+        // pasara, gone (las tiles) y gone_own (la fila de cada proyecto) lo cuentan distinto, y la paridad lo cubre igual
+        val crossLinked = runCatching { platformPatch("inquiry", successor, mapOf("reclassified_from_grievance" to crossed)) }.isSuccess
+        // compromisos: uno abierto en cada proyecto, uno vencido en cada uno (umbrales 7/15 en A y 3/30 en B) y, en A, uno con
+        // una entrega de 700 en el periodo (KPI-INV-03)
         commitment(a.toString())
         commitment(b.toString())
-        platformPatch("social_risk", socialRisk(a.toString()), mapOf("risk_level" to "ALTO"))
+        overdueCommitment(a)
+        overdueCommitment(b)
+        val delivered = approvedCommitment(a.toString(), attributes = mapOf("amount" to 3000))
+        val delivery =
+            exchange(
+                "POST",
+                "/api/sgspe/commitments/$delivered/deliveries",
+                mapOf(
+                    "attributes" to mapOf("delivery_date" to start.plusDays(4).toString(), "conformity_given" to true, "delivered_amount" to 700),
+                    "evidence" to emptyList<String>()
+                ),
+                token,
+                withReason("entrega de prueba")
+            )
+        assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
+        // programas planificados con lo ejecutado del año: 250 en A y 100 en B
+        for ((project, executed) in listOf(a to 250, b to 100)) {
+            val investor = member("SOCIAL_INVESTMENT_MANAGER", project.toString())
+            val program =
+                socialProgram(project.toString(), investor, mapOf("start_date" to "${start.year}-01-01", "end_date" to "${start.year + 1}-12-31"))
+            programBudget(program, start.year, 1000, executed = executed, creator = investor)
+            move("social_program", program, "plan_direct", investor.token)
+        }
+        // riesgos de A: ALTO, CRITICO y BAJO (risk_level lo escribe la plataforma)
+        for (level in listOf("ALTO", "CRITICO", "BAJO")) platformPatch("social_risk", socialRisk(a.toString()), mapOf("risk_level" to level))
         earlyWarning(a.toString())
         earlyWarning(b.toString())
 
         val both = mapOf("project" to listOf(a.toString(), b.toString()), "periodStart" to listOf(start.toString()), "periodEnd" to listOf(end.toString()))
-        val officer = member("COMMUNITY_RELATIONS_OFFICER", a.toString())
-        for (caller in listOf(token, officer.token, null)) {
-            parity(Kpis.EXECUTIVE, both, caller)
-        }
-        parity(Kpis.EXECUTIVE, both + ("locality" to listOf(place.toString())), token)
+        val viewer = member("COMMUNITY_RELATIONS_OFFICER", a.toString())
+        val blind = fieldBlind(a, b)
+
+        // ADMIN: las tiles y las filas
+        val admin = parity(Kpis.EXECUTIVE, both, token)
+        assertEquals(if (crossLinked) 5 else 6, indicator(admin, "KPI-GRV-02")["value"].asInt())
+        assertEquals(4, row(admin, a, "KPI-GRV-02")["value"].asInt())
+        assertEquals(2, row(admin, b, "KPI-GRV-02")["value"].asInt())
+        assertEquals(4, indicator(admin, "KPI-ENG-01")["value"].asInt())
+        assertEquals(2, indicator(admin, "KPI-RSK-01")["value"].asInt())
+        assertEquals(0, row(admin, b, "KPI-RSK-01")["value"].asInt())
+        assertEquals(3, row(admin, a, "KPI-COM-02")["value"].asInt())
+        assertEquals(2, row(admin, b, "KPI-COM-02")["value"].asInt())
+        assertEquals(2, indicator(admin, "KPI-COM-03")["value"].asInt())
+        assertEquals(listOf(1, 1), listOf(a, b).map { row(admin, it, "KPI-COM-03")["value"].asInt() })
+        assertEquals(2, indicator(admin, "KPI-EXE-02")["value"].asInt())
+        assertEquals(2, indicator(admin, "KPI-EXE-01")["value"].asInt())
+        assertEquals(1050.0, indicator(admin, "KPI-INV-03")["value"].asDouble())
+        assertEquals(950.0, row(admin, a, "KPI-INV-03")["value"].asDouble())
+        assertEquals(100.0, row(admin, b, "KPI-INV-03")["value"].asDouble())
+        val trend = indicator(admin, ExecutiveKpis.TREND)["series"].values().last()
+        assertEquals(4, trend["engagements"].asInt())
+        assertEquals(1, trend["grievancesClosed"].asInt())
+
+        // el relacionista de A con B pedido: sin la confidencial y sin nada de B
+        val officer = parity(Kpis.EXECUTIVE, both, viewer.token)
+        assertEquals(3, indicator(officer, "KPI-GRV-02")["value"].asInt())
+        assertEquals(3, row(officer, a, "KPI-GRV-02")["value"].asInt())
+        assertEquals(0, row(officer, b, "KPI-GRV-02")["value"].asInt())
+
+        // el rol sin la localidad de la interacción: con locality=place no casa ninguna; sin closed_date, KPI-EXE-03 no disponible
+        val withPlace = both + ("locality" to listOf(place.toString()))
+        assertEquals(2, indicator(parity(Kpis.EXECUTIVE, withPlace, token), "KPI-ENG-01")["value"].asInt())
+        val blindBoard = parity(Kpis.EXECUTIVE, withPlace, blind.token)
+        assertEquals(0, indicator(blindBoard, "KPI-ENG-01")["value"].asInt())
+        assertFalse(indicator(blindBoard, ExecutiveKpis.TREND)["available"].asBoolean())
+        parity(Kpis.EXECUTIVE, both, blind.token)
+
+        // la plataforma
+        parity(Kpis.EXECUTIVE, both, null)
+        parity(Kpis.EXECUTIVE, withPlace, null)
+
+        // los ámbitos: las tiles miran el territorio de todos los proyectos y cada fila el de su proyecto
         val aids = parity(Kpis.EXECUTIVE, both + ("scope" to listOf("AIDS")), token)
-        // con AIDS, las tiles miran el territorio de los dos proyectos y cada fila el de su proyecto: B no tiene área aprobada
         assertEquals(2, indicator(aids, "KPI-ENG-01")["value"].asInt())
-        assertEquals(1, row(aids, a, "KPI-ENG-01")["value"].asInt())
-        assertEquals(0, row(aids, b, "KPI-ENG-01")["value"].asInt())
+        assertEquals(listOf(1, 0), listOf(a, b).map { row(aids, it, "KPI-ENG-01")["value"].asInt() })
+        val aiis = parity(Kpis.EXECUTIVE, both + ("scope" to listOf("AIIS")), token)
+        assertEquals(1, indicator(aiis, "KPI-ENG-01")["value"].asInt())
+        assertEquals(listOf(0, 1), listOf(a, b).map { row(aiis, it, "KPI-ENG-01")["value"].asInt() })
+
+        // los tableros que comparten los KPI, con un proyecto
         val one = mapOf("project" to listOf(a.toString()), "periodStart" to listOf(start.toString()), "periodEnd" to listOf(end.toString()))
         for (name in listOf(Kpis.PROJECT, Kpis.ATTENTION, Kpis.ENGAGEMENT, Kpis.COMMITMENTS, Kpis.RISKS)) {
             parity(name, one, token)
-            parity(name, one, officer.token)
+            parity(name, one, viewer.token)
         }
         // la ficha de la localidad (KPI-TER-01) reúne KPI-ENG-01, KPI-COM-02, KPI-COM-03 y KPI-GRV-02
         parity(Kpis.TERRITORY, one + ("locality" to listOf(place.toString())), token)
-        // el cierre (R4): sin las confidenciales, también para la plataforma
-        for (code in listOf("KPI-GRV-02", ExecutiveKpis.TREND, "KPI-ENG-01", "KPI-COM-02", "KPI-COM-03", "KPI-RSK-01", ExecutiveKpis.ACTIVE_WARNINGS)) {
-            val reader = runBlocking { readers.platform(organizationId()) }
-            val values =
-                listOf(true, false).map { aggregated ->
-                    json(runBlocking { dashboards.value(code, listOf(a, b), start, end, reader, excludeConfidential = true, aggregated = aggregated) })
-                }
-            assertEquals(values[1], values[0], code)
+        // el detalle con desglose
+        for ((code, by) in listOf("KPI-GRV-02" to "workflow_state", "KPI-ENG-01" to "engagement_type", "KPI-RSK-01" to "category")) {
+            both(token) { reader, aggregated -> dashboards.indicator(code, params(both + ("breakdown" to listOf(by))), reader, aggregated) }
         }
+
+        // el cierre (R4): sin las confidenciales, como el ADMIN (la persona) y como la plataforma
+        for (caller in listOf(token, null)) {
+            for (code in listOf("KPI-GRV-02", ExecutiveKpis.TREND, "KPI-ENG-01", "KPI-COM-02", "KPI-COM-03", "KPI-RSK-01", ExecutiveKpis.ACTIVE_WARNINGS)) {
+                closing(code, listOf(a, b), caller)
+            }
+        }
+        val closed = closing("KPI-GRV-02", listOf(a, b), token)["value"].asInt()
+        assertEquals(indicator(admin, "KPI-GRV-02")["value"].asInt() - 1, closed)
     }
 }
 ```
 
-Qué cubre: dos proyectos UTM, un área AIDS aprobada solo en A con «Caserío Ejemplo» como miembro, interacciones en el
-periodo con y sin esa localidad y una de hace tres meses (la serie), una queja abierta con localidad, una confidencial, una
-consulta que reclasificó una queja (el original no cuenta), una queja de B en la localidad, un compromiso por proyecto, un
-riesgo ALTO y alertas. Compara las respuestas enteras (sin `computedAt`) de `executive` con A y B como el ADMIN, como un
-relacionista de A (alcance y QCS confidencial oculta) y como la plataforma, con `locality` y con `scope=AIDS` (y comprueba
-que ahí las tiles cuentan 2 interacciones y las filas 1 y 0); los tableros `project`, `attention`, `engagement`,
-`commitments`, `risks` y `territory` con locality; y el cierre de los KPI movidos con `excludeConfidential` como la
-plataforma. `DashboardDeliverableParityTest` sigue igual y debe seguir en verde.
+Qué cubre. Fixtures: dos proyectos UTM en `active` sin aprobación interna (B con umbrales de escalamiento 3 y 30); un área
+AIDS aprobada en A con «Caserío Ejemplo» y una AIIS en B con «Caserío Ejemplo Dos»; interacciones en el periodo (dos de A,
+una en el caserío; dos de B, una en cada caserío) y una de A de hace tres meses; QCS de A: una abierta en el caserío, una
+confidencial, una consulta que reclasificó una queja de A (el original no cuenta), una queja cerrada por WF-E1 con
+`closed_date` en el periodo y otra que una consulta de B intenta reclasificar (la regla «mismo proyecto» lo rechaza; si
+pasara, la cifra esperada lo tiene en cuenta); QCS de B: una queja en el caserío y esa consulta; un compromiso abierto y uno
+vencido (`deadline_status` VENCIDO, plazo en el periodo) en cada proyecto y, en A, uno con una entrega de 700 en el
+periodo; un programa planificado con ejecutado del año en cada proyecto (250 y 100); riesgos ALTO, CRITICO y BAJO en A;
+una alerta por proyecto.
+
+Compara las respuestas enteras (sin `computedAt`) por los dos caminos y además fija las cifras: como el ADMIN, KPI-GRV-02
+6 en las tiles (5 si la reclasificación entre proyectos pasara), 4 en la fila de A y 2 en la de B; KPI-ENG-01 4; KPI-RSK-01 2
+(0 en B); KPI-COM-02 3 y 2; KPI-COM-03 2 (1 y 1, con umbrales distintos); KPI-EXE-02 2; KPI-EXE-01 2; KPI-INV-03 1050 (950
+y 100); la serie de KPI-EXE-03 con 4 interacciones y 1 queja cerrada en el mes. Como un relacionista de A con B pedido:
+KPI-GRV-02 3 en las tiles y en A, 0 en B. Con `locality`: KPI-ENG-01 2 para el ADMIN y 0 para el rol de prueba sin la
+localidad de la interacción, que además ve KPI-EXE-03 no disponible (sin `closed_date`). Con AIDS: 2 en las tiles, 1 y 0
+en las filas; con AIIS: 1, 0 y 1. También la plataforma, los tableros `project`, `attention`, `engagement`, `commitments`,
+`risks` y `territory` (con locality), el detalle de KPI-GRV-02, KPI-ENG-01 y KPI-RSK-01 con `breakdown`, y el cierre de los
+KPI movidos con `excludeConfidential` como el ADMIN (la persona) y como la plataforma, con KPI-GRV-02 una menos que en el
+tablero. `DashboardDeliverableParityTest` sigue igual y debe seguir en verde.
+
+Notas para quien implementa: `closedGrievance` sigue WF-E1 como `GrievanceWorkflowApiTest`; si `close_resolved` pide algo
+más en esta versión del modelo (conformidad), se usa `verify` y `close`, y `closed_date` se pone en el periodo como la
+plataforma. `overdueCommitment` crea el compromiso con `agreed_date` y `due_date` del periodo pasado; `deadline_status`
+lo escribe JOB-01 y aquí la plataforma.
 
 - [ ] **Paso 3: Build y commit**
 
@@ -2640,7 +3082,7 @@ Esperado: `BUILD SUCCESSFUL` (la clase compila). Integración pendiente: `sgspe.
 ```bash
 cd $REPO && git add src/test/kotlin/sgspe/dashboard/ExecutiveAggregatesParityApiTest.kt
 git commit -m "test: paridad entre los conteos en la base y la lectura con Records" -m "Las mismas cifras por los dos caminos en executive, byProject, los tableros que comparten esos KPI
-y el cierre, como el ADMIN, un relacionista y la plataforma, con locality y con el ámbito AIDS.
+y el cierre, como el ADMIN, un relacionista, un rol sin campos y la plataforma; cifras fijas.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM"
@@ -2652,7 +3094,7 @@ git switch feat/fase-8-2a-bis-agregados && git merge --no-ff f82abis/t6 -m "Merg
 ### Tarea 7: Los documentos
 
 **Files:**
-- Modify: `docs/dashboards.md` (§6), `docs/api.md` (§4.11), `docs/architecture.md`, `CLAUDE.md`
+- Modify: `docs/dashboards.md` (§3.3, §5.1 y §6), `docs/api.md` (§4.11), `docs/architecture.md`, `CLAUDE.md`
 
 **Interfaces:**
 - Consumes: los nombres de las Tareas 1 a 5. No define IDs (`docs/requirements-analysis.md` no cambia).
@@ -2663,9 +3105,23 @@ git switch feat/fase-8-2a-bis-agregados && git merge --no-ff f82abis/t6 -m "Merg
 cd $REPO && git switch feat/fase-8-2a-bis-agregados && git switch -c f82abis/t7
 ```
 
-- [ ] **Paso 2: `docs/dashboards.md` §6**
+- [ ] **Paso 2: `docs/dashboards.md` §3.3, §5.1 y §6**
 
-En el diagrama, la línea
+En §3.3, la viñeta «Lo cuenta `AttentionCounting` (`sgspe.common`), la misma función pura en el reporte unificado, los
+KPI-GRV, la exportación PUBLICO de `attention-register` y la regla CONTEO DE QCS de JOB-04.» pasa a:
+
+```markdown
+  - Lo cuenta `AttentionCounting` (`sgspe.common`), la misma función pura en el reporte unificado, los KPI-GRV, la
+    exportación PUBLICO de `attention-register` y la regla CONTEO DE QCS de JOB-04. Desde el plan 8.2a-bis, KPI-GRV-02 y
+    las quejas de KPI-EXE-03 la aplican en SQL (`AggregateSql.attention`, §6 punto 3); `ExecutiveAggregatesParityApiTest`
+    la mantiene igual a `AttentionCounting`.
+```
+
+En §5.1, «la tabla por proyecto (`byProject[]`) calcula cada fila con esas funciones» pasa a «la tabla por proyecto
+(`byProject[]`) da en cada fila las mismas cifras que el filtro de ese proyecto solo, desde una consulta agrupada por
+proyecto por KPI (plan 8.2a-bis)».
+
+En §6, en el diagrama, la línea
 `CHK -.->|"solo si una medición lo justifica"| SQL["SQL agregado detrás de la compuerta de permisos"]` pasa a
 `CHK -->|"KPI del tablero executive (medición del 2026-10-14)"| SQL["SQL agregado detrás de la compuerta de permisos"]`.
 
@@ -2712,12 +3168,12 @@ el plan 8.2a-bis, los conteos en SQL del tablero `executive` (`AggregateSql`, `A
 cd $REPO && python3 tools/check_traceability.py && yarn -s format:check && git diff --stat
 ```
 
-Esperado: la trazabilidad en verde, prettier en verde, cuatro archivos.
+Esperado: la trazabilidad en verde, prettier en verde, cuatro archivos (`dashboards.md` con tres cambios).
 
 ```bash
 cd $REPO && git add docs/dashboards.md docs/api.md docs/architecture.md CLAUDE.md
-git commit -m "docs: conteos en SQL de los KPI del tablero executive" -m "dashboards.md §6.3 anota la medición que justifica el SQL agregado y los KPI que cuentan en la base;
-api.md, architecture.md y CLAUDE.md los nombran.
+git commit -m "docs: conteos en SQL de los KPI del tablero executive" -m "dashboards.md anota la medición que justifica el SQL agregado, la regla de §3.3 en SQL y la tabla
+por proyecto; api.md, architecture.md y CLAUDE.md los nombran.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01RmiD2JE3gkHdBNUraZkjgM"
@@ -2754,14 +3210,18 @@ JSON de los dos caminos; no se arregla en esta rama sin su tarea. Si el SQL fall
 Contra `sgspe_perf` (el volumen de la medición del 2026-10-14: 10 proyectos, 50 000 quejas, 20 000 interacciones, 5 000
 incidentes), con el backend de esta rama en el puerto 8098 apuntando a esa base como lo levanta el coordinador, y el
 modelo de F8 ya aplicado allí: 50 peticiones `GET /api/sgspe/dashboards/executive?project=…×10&periodStart=…&periodEnd=…`
-como `ADMIN` con un mes (el pasado) y otras 50 con un año, más una tanda de 50 con `sgspe.dashboards.aggregates=false`
-para comparar. Criterio: p95 bajo 3 s con 10 proyectos (especificación de F8 §7). Anotar p50, p95, máximo, fecha y el
+como `ADMIN` con un mes (el pasado) y otras 50 con un año, y lo mismo como un relacionista
+(`COMMUNITY_RELATIONS_OFFICER`) asignado a los 10 proyectos, sin `READ_CONFIDENTIAL` ni `READ_ALL_PROJECTS` (el camino con
+`ProjectReadScope` y `ConfidentialAttentionScope` en cada tabla); más una tanda de 50 con
+`sgspe.dashboards.aggregates=false` para comparar (cambiar la configuración y reiniciar el backend). Criterio: p95 bajo
+3 s con 10 proyectos para los dos lectores (especificación de F8 §7). Anotar p50, p95, máximo, fecha y el
 número de consultas por petición si se midió. Si no pasa: `EXPLAIN ANALYZE` de cada consulta de `AggregateSql` (el texto
 sale con el log de depuración de `DatabaseClient`) y de vuelta al usuario antes de agregar índices (decisión 13).
 
 El resultado va a `docs/roadmap.md` F8 «Estado» (después de «la medición del tablero `executive` en `sgspe_perf`,
-pendiente del coordinador (Tarea 13)», que pasa a decir el resultado) y al cuerpo del PR, en un commit
-`docs: medición del tablero executive con los conteos en SQL`.
+pendiente del coordinador (Tarea 13)», que pasa a decir el resultado, con los dos lectores) y al cuerpo del PR, en un
+commit `docs: medición del tablero executive con los conteos en SQL`. El mismo commit anota en F8 «Estado» la tarea de
+limpieza del cierre de F8 (decisión 8): quitar `sgspe.dashboards.aggregates` y el camino de `Records` de los KPI movidos.
 
 - [ ] **Paso 4: Push y PR**
 
@@ -2774,14 +3234,15 @@ gh pr create --base main --title "feat: plan 8.2a-bis, KPI del tablero executive
   interacciones y quejas de KPI-EXE-03 cuentan en la base por `SpatialGate`, como la persona o como la plataforma.
 - `byProject[]` desde una consulta agrupada por proyecto por KPI (`Indicator.computeByProject`); KPI-EXE-01 y KPI-INV-03
   reparten una sola lectura.
-- `sgspe.dashboards.aggregates` (por defecto `true`) para volver a la lectura con `Records`.
+- `sgspe.dashboards.aggregates` (por defecto `true`) para volver a la lectura con `Records` (configuración y reinicio),
+  hasta la limpieza del cierre de F8.
 - Sin cambios en la API.
 
 ## Pruebas
 
 Unitarias y build en verde (`AggregateKpisTest`, `AggregateSqlTest`, `KpiAggregatesTest`, `DashboardDataAggregatesTest`,
-`KpiEvaluationByProjectTest`, `ArchitectureTest`); integración: `ExecutiveAggregatesParityApiTest` y la regresión de la
-Tarea 8. Medición en `sgspe_perf` con 10 proyectos: (resultado).
+`KpiEvaluationByProjectTest`, `DashboardsAggregatesSwitchTest`, `ArchitectureTest`); integración: `ExecutiveAggregatesParityApiTest` y la regresión de la
+Tarea 8. Medición en `sgspe_perf` con 10 proyectos, ADMIN y relacionista: (resultado).
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -2810,6 +3271,17 @@ Esperado: el PR abierto y la CI en verde; se mezcla según el flujo autorizado d
    las lecturas de proyectos, inversión y compromisos). Si el p95 no baja de 3 s, la medición lo dirá antes del PR.
 5. **El ámbito AIDS/AIIS** arma el territorio de cada proyecto con `areaTerritory` (unas pocas lecturas por proyecto) solo
    cuando se pide ese ámbito.
+6. **El tablero `engagement`** sigue leyendo filas para KPI-ENG-02 a 05 (`inPeriod()` y `window()`): con 20 000
+   interacciones en 12 meses puede seguir dando `400 TOO_MANY_RECORDS` aunque KPI-ENG-01 ya cuente en la base.
+7. **El orden de los errores** cambia en un caso: los KPI se siguen evaluando en el orden de las tiles, pero un tablero que
+   antes daba `400 TOO_MANY_RECORDS` por `grievance` (KPI-GRV-02) ahora lo da, si acaso, por el primer conjunto que todavía se
+   lee con `Records` y pasa el tope (`commitment` en KPI-EXE-03 o KPI-INV-03), con el mismo código y el mismo campo
+   `project`. Un filtro sobre un campo ilegible sigue siendo el `ValidationException` de `Criteria`, ahora desde
+   `DashboardData.source`.
+8. **La compuerta replica el `WHERE` del almacén de wasichai.** `GateSql` arma cada tabla con la organización, el filtro de
+   dueño y cada `RecordReadScope`, en el orden de `PhysicalTableRecordStore.whereClause`; si wasichai sumara otra condición
+   (p. ej. un borrado lógico), los conteos la perderían. Lo vigila `SpatialGateScopeParityTest` (filas de la compuerta
+   frente a `Records`) y, desde este plan, `ExecutiveAggregatesParityApiTest`.
 
 ## Pruebas
 
@@ -2819,7 +3291,7 @@ Esperado: el PR abierto y la CI en verde; se mezcla según el flujo autorizado d
 | `AggregateSqlTest` | 2 | Unitaria |
 | `KpiAggregatesTest`, `ArchitectureTest` | 3 | Unitaria y escaneo |
 | `DashboardDataAggregatesTest` | 4 | Unitaria |
-| `KpiEvaluationByProjectTest`, `DashboardsPropertiesTest` | 5 | Unitarias |
+| `KpiEvaluationByProjectTest`, `DashboardsAggregatesSwitchTest`, `DashboardsPropertiesTest` | 5 | Unitarias |
 | `ExecutiveAggregatesParityApiTest` | 6 | Integración |
 | Regresión de los tableros, el cierre y `DashboardDeliverableParityTest` | 8 | Integración |
 
@@ -2834,4 +3306,5 @@ Esperado: el PR abierto y la CI en verde; se mezcla según el flujo autorizado d
 | Paridad: unitarias de los constructores de SQL y de las cifras, integración de los dos caminos, `DashboardDeliverableParityTest` | 1, 2, 6, 8 |
 | `excludeConfidential` (R4), KPI-ENG-05, meses de Lima | 2, 4, 5, 6 |
 | Alcance mínimo y tableros que comparten los KPI (decisión 9), sin cambios de API | 5, 6 |
-| Medición en `sgspe_perf` y `roadmap.md` | 8 |
+| Medición en `sgspe_perf` como ADMIN y como relacionista con alcance, y `roadmap.md` | 8 |
+| Revisión del coordinador (I1 a I5, M1 a M8) | 2 a 8 (decisiones 8, 14, 15 y 16; riesgos 6 a 8) |
