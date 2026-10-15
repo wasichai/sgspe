@@ -8,6 +8,7 @@ import org.w3c.dom.Element
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.net.URI
 import java.util.zip.ZipInputStream
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
@@ -27,18 +28,22 @@ data class TemplateReport(
 }
 
 // la validación de una plantilla Word (especificación de F8 §2.2.12 y §3.3, ASM-135, RQ-SEC-019, decisión 21: ninguna plantilla
-// hace que el conversor de PDF lea la red ni archivos). primero el ZIP con límites de entradas y de bytes descomprimidos, sin
-// abrirlo con POI (una bomba no llega a POI). después, por TIPO y por nombre local de elemento, no por carpeta, extensión,
-// prefijo ni versión del namespace (en OPC el papel de una parte lo da su relación; Word y LibreOffice abren un encabezado en
-// `custom/h.dat` o un documento en OOXML Strict igual): toda entrada que no sea un medio `image/*` (el SVG es XML y se lee) se
-// parsea como XML sin DTD ni entidades externas, y si no es XML es NOT_WORD. En cada parte: relaciones (oleObject, package,
-// control, activeXControl, vbaProject, aFChunk y TargetMode="External"), controles de contenido (sdt), objetos (object),
-// controles (control), fragmentos importados (altChunk), cualquier atributo que empiece por http:, https:, file:, ftp: o dos
-// barras invertidas (VML src, o:href) y campos que leen la red o archivos (INCLUDEPICTURE, INCLUDETEXT, LINK, DDE, DDEAUTO,
-// IMPORT, DATABASE, RD), con la instrucción de cada campo complejo juntada entre sus fldChar aunque se parta en varias
-// corridas. Con POI: los marcadores desconocidos. Los estilos requeridos que faltan (por nombre, sin distinguir mayúsculas) se
-// leen de la parte `styles`, y las fuentes fuera de la lista en cualquier parte, en el texto o en el tema que citan, son
-// violaciones; una que solo figura en la tabla de fuentes, un aviso. trabajo bloqueante: quien llama lo corre en Dispatchers.IO
+// hace que el conversor de PDF lea la red ni archivos). Listas cerradas y falla cerrada: nada de lo que el archivo declara de
+// sí mismo (tipo de contenido, extensión, carpeta, prefijo o versión del namespace) decide qué se revisa. primero el ZIP con
+// límites de entradas y de bytes descomprimidos, sin abrirlo con POI (una bomba no llega a POI). después se intenta parsear
+// TODA entrada como XML sin DTD ni entidades externas y, si se puede, se revisa como cualquier parte XML; si no, solo pasa un
+// medio cuyo tipo declarado es de la lista (png, jpeg, gif, bmp, tiff, emf, wmf) y cuyos primeros bytes lo confirman; lo demás
+// es NOT_WORD. Un elemento con dos atributos del mismo nombre local (en cualquier namespace) tampoco es válido, y así leer por
+// nombre local no es ambiguo. En cada parte: relaciones (oleObject, package, control, activeXControl, vbaProject, aFChunk y
+// TargetMode="External"), controles de contenido (sdt), objetos (object), controles (control), fragmentos importados
+// (altChunk), todo atributo que empiece por un esquema (`xxx:`), `//` o `\\` (VML src, o:href; salvo los identificadores de
+// namespace de unos pocos atributos) y los campos, que solo pueden ser de una lista cerrada (PAGE, NUMPAGES, DATE, REF...): la
+// instrucción de cada campo complejo es lo que hay entre su fldChar begin y separate o end (con instrText y delInstrText, con
+// anidamiento), y una instrucción fuera de un campo o un campo sin cerrar es una violación. Con POI: los marcadores
+// desconocidos. Los estilos requeridos que faltan (por nombre, sin distinguir mayúsculas) se leen solo de la parte `styles` que
+// el documento principal relaciona, y las fuentes fuera de la lista en cualquier parte, en el texto o en el tema que citan,
+// son violaciones; una que solo figura en la tabla de fuentes, un aviso. trabajo bloqueante: quien llama lo corre en
+// Dispatchers.IO
 class TemplateValidator(
     private val limits: DeliverableProperties.Templates
 ) {
@@ -65,14 +70,18 @@ class TemplateValidator(
             } catch (_: Exception) {
                 return TemplateReport(violations + TemplateFinding(NOT_WORD, "$CONTENT_TYPES no se puede leer"), warnings)
             }
+        if (duplicateAttributes(contentTypes)) return TemplateReport(violations + TemplateFinding(NOT_WORD, "$CONTENT_TYPES repite atributos"), warnings)
         val declared = declaredTypes(contentTypes)
         val xml = linkedMapOf<String, Document>()
         for ((part, data) in parts) {
-            if (part == CONTENT_TYPES || isMedia(part, declared)) continue
+            if (part == CONTENT_TYPES || part.endsWith("/")) continue
             try {
-                xml[part] = parse(data)
+                xml[part] =
+                    parse(data).also {
+                        if (duplicateAttributes(it)) violations += TemplateFinding(NOT_WORD, "una parte repite atributos con el mismo nombre ($part)")
+                    }
             } catch (_: Exception) {
-                violations += TemplateFinding(NOT_WORD, "una parte no es XML ni un medio permitido ($part)")
+                if (!allowedMedia(part, data, declared)) violations += TemplateFinding(NOT_WORD, "una parte no es XML ni un medio permitido ($part)")
             }
         }
         xml[CONTENT_TYPES] = contentTypes
@@ -89,9 +98,9 @@ class TemplateValidator(
             return TemplateReport(violations + TemplateFinding(NOT_WORD, "POI no puede abrir el documento"), warnings)
         }
         val styleNames =
-            xml.values
-                .filter { root(it) == "styles" }
-                .flatMap { doc -> local(doc, "name").map { e -> attribute(e, "val").lowercase() } }
+            stylesPart(xml)
+                ?.let { doc -> local(doc, "name").map { e -> attribute(e, "val").lowercase() } }
+                .orEmpty()
                 .toSet()
         TemplateStyles.REQUIRED.filter { it.lowercase() !in styleNames }.forEach { violations += TemplateFinding(MISSING_STYLE, it) }
         val fonts = xml.values.flatMap { local(it, "rFonts") }
@@ -131,15 +140,56 @@ class TemplateValidator(
             local(doc, "Override").associate { attribute(it, "PartName").lowercase().removePrefix("/") to attribute(it, "ContentType").lowercase() }
         )
 
-    // un medio permitido es una parte con tipo image/* que no es SVG; todo lo demás se lee como XML
-    private fun isMedia(
+    // un medio solo pasa si su tipo declarado (Override, si no Default) es de la lista cerrada y sus bytes lo confirman
+    private fun allowedMedia(
         part: String,
+        data: ByteArray,
         declared: Declared
     ): Boolean {
-        if (part.endsWith("/")) return true
-        val type = declared.byPart[part.lowercase()] ?: declared.byExtension[part.substringAfterLast('.', "").lowercase()] ?: return false
-        return type.startsWith("image/") && "svg" !in type
+        val type = declared.byPart[part.lowercase()] ?: declared.byExtension[part.substringAfterLast('.', "").lowercase()]
+
+        fun starts(vararg prefix: Int) = data.size >= prefix.size && prefix.indices.all { data[it].toInt() and 0xFF == prefix[it] }
+        return when (type) {
+            "image/png" -> starts(0x89, 0x50, 0x4E, 0x47)
+            "image/jpeg" -> starts(0xFF, 0xD8, 0xFF)
+            "image/gif" -> starts('G'.code, 'I'.code, 'F'.code, '8'.code)
+            "image/bmp" -> starts('B'.code, 'M'.code)
+            "image/tiff" -> starts('I'.code, 'I'.code, '*'.code, 0) || starts('M'.code, 'M'.code, 0, '*'.code)
+            "image/x-emf" -> starts(1, 0, 0, 0) && data.size >= 44 && String(data, 40, 4, Charsets.ISO_8859_1) == " EMF"
+            "image/x-wmf" -> starts(0xD7, 0xCD, 0xC6, 0x9A) || starts(1, 0, 9, 0) || starts(2, 0, 9, 0)
+            else -> false
+        }
     }
+
+    // la parte `styles` que relaciona el documento principal (el destino de la relación officeDocument de _rels/.rels)
+    private fun stylesPart(xml: Map<String, Document>): Document? {
+        fun target(
+            rels: Document?,
+            type: String,
+            base: String
+        ): String? {
+            val rel = rels?.let { local(it, "Relationship") }?.firstOrNull { attribute(it, "Type").substringAfterLast('/') == type } ?: return null
+            return try {
+                URI(base)
+                    .resolve(attribute(rel, "Target"))
+                    .normalize()
+                    .path
+                    .removePrefix("/")
+            } catch (_: Exception) {
+                null
+            }
+        }
+        val main = target(xml["_rels/.rels"], "officeDocument", "/") ?: return null
+        val dir = main.substringBeforeLast('/', "")
+        val relsName = (if (dir.isEmpty()) "" else "$dir/") + "_rels/" + main.substringAfterLast('/') + ".rels"
+        return xml[target(xml[relsName], "styles", "/$main") ?: return null]
+    }
+
+    // dos atributos con el mismo nombre local en un elemento (en cualquier namespace)
+    private fun duplicateAttributes(doc: Document): Boolean =
+        local(doc, "*").any { e ->
+            attributes(e).groupingBy { it.first }.eachCount().any { it.value > 1 }
+        }
 
     // lo que el paquete declara por tipo: macros y VBA en [Content_Types].xml, partes binarias peligrosas por su tipo de
     // relación y cualquier relación externa, en cualquier parte
@@ -183,58 +233,78 @@ class TemplateValidator(
             if (local(doc, "altChunk").isNotEmpty()) found += TemplateFinding(EXTERNAL_CONTENT, "la plantilla importa contenido (altChunk)")
             val addressed =
                 local(doc, "*").any { e ->
-                    attributes(e).any { (attr, value) ->
-                        !(e.localName == "Relationship" && attr == "Type") && attr != "schemaLocation" && ADDRESS.containsMatchIn(value.trim())
+                    (0 until e.attributes.length).map { e.attributes.item(it) }.any { a ->
+                        a.namespaceURI != XMLNS && !(a.namespaceURI == XSI && a.localName == "type") &&
+                            !namespaceIdentifier(e.localName, a.localName ?: a.nodeName) && ADDRESS.containsMatchIn(trimmed(a.nodeValue))
                     }
                 }
             if (addressed) found += TemplateFinding(EXTERNAL_RELATIONSHIP, "la plantilla cita archivos o direcciones externas ($part)")
-            fields(doc).mapNotNull { FIELD.find(it)?.groupValues?.get(1) }.distinct().forEach {
-                found += TemplateFinding(FIELD_NOT_ALLOWED, it)
-            }
+            found += fields(doc)
         }
         return found
     }
 
-    // la instrucción de cada campo: la de los complejos juntada entre su fldChar begin y separate o end (con anidamiento), así se
-    // parta en varias corridas, y la de los simples; sin espacios y en mayúsculas
-    private fun fields(doc: Document): List<String> {
-        val result = mutableListOf<String>()
-        val open = ArrayDeque<StringBuilder>()
-        val inResult = ArrayDeque<Boolean>()
-        val loose = StringBuilder()
+    // los atributos que por definición llevan el identificador de un namespace o de un esquema
+    private fun namespaceIdentifier(
+        element: String,
+        attribute: String
+    ): Boolean =
+        attribute == "schemaLocation" || attribute == "noNamespaceSchemaLocation" ||
+            (element == "Relationship" && attribute == "Type") ||
+            (attribute == "uri" && (element == "graphicData" || element == "schemaRef" || element == "ext"))
 
-        fun flush(builder: StringBuilder) {
-            if (builder.isNotEmpty()) result += builder.toString().filterNot { it.isWhitespace() }.uppercase()
-            builder.setLength(0)
+    private fun trimmed(value: String): String = value.trim { it.isWhitespace() || Character.isSpaceChar(it) }
+
+    // los campos: el nombre de cada uno (el primer elemento de su instrucción, sin comillas ni espacios, en mayúsculas) debe ser
+    // de la lista cerrada. La instrucción de un campo complejo es lo que hay entre su fldChar begin y separate o end, en
+    // instrText y delInstrText, con una pila para los anidados; una instrucción fuera de un campo (o después de separate) y
+    // un campo sin cerrar son violaciones
+    private fun fields(doc: Document): List<TemplateFinding> {
+        val found = mutableListOf<TemplateFinding>()
+        val open = ArrayDeque<StringBuilder>()
+        val inInstruction = ArrayDeque<Boolean>()
+
+        fun check(instruction: String) {
+            val name = fieldName(instruction)
+            if (name.isNotEmpty() && name !in ALLOWED_FIELDS) found += TemplateFinding(FIELD_NOT_ALLOWED, name)
         }
         for (e in local(doc, "*")) {
             when (e.localName) {
-                "fldSimple" -> result += attribute(e, "instr").filterNot { it.isWhitespace() }.uppercase()
+                "fldSimple" -> check(attribute(e, "instr"))
                 "fldChar" ->
                     when (attribute(e, "fldCharType")) {
                         "begin" -> {
-                            flush(loose)
                             open.addLast(StringBuilder())
-                            inResult.addLast(false)
+                            inInstruction.addLast(true)
                         }
                         "separate" ->
-                            if (open.isNotEmpty() && !inResult.last()) {
-                                flush(open.last())
-                                inResult[inResult.lastIndex] = true
+                            if (open.isNotEmpty() && inInstruction.last()) {
+                                check(open.last().toString())
+                                inInstruction[inInstruction.lastIndex] = false
                             }
                         "end" ->
                             if (open.isNotEmpty()) {
-                                flush(open.removeLast())
-                                inResult.removeLast()
+                                if (inInstruction.removeLast()) check(open.last().toString())
+                                open.removeLast()
                             }
                     }
-                "instrText" -> (if (open.isNotEmpty() && !inResult.last()) open.last() else loose).append(e.textContent)
+                "instrText", "delInstrText" ->
+                    if (open.isNotEmpty() && inInstruction.last()) {
+                        open.last().append(e.textContent)
+                    } else {
+                        found += TemplateFinding(FIELD_NOT_ALLOWED, fieldName(e.textContent).ifEmpty { "instrText" })
+                    }
             }
         }
-        open.forEach { flush(it) }
-        flush(loose)
-        return result
+        if (open.isNotEmpty()) found += TemplateFinding(FIELD_NOT_ALLOWED, "campo sin cerrar")
+        return found
     }
+
+    private fun fieldName(instruction: String): String =
+        trimmed(instruction)
+            .trimStart('"', '\u201C', '\u201D')
+            .takeWhile { !(it.isWhitespace() || Character.isSpaceChar(it) || it == '"' || it == '\\' || it == '\u201C' || it == '\u201D') }
+            .uppercase()
 
     // los marcadores del cuerpo (también en tablas), los encabezados y los pies, sobre el texto del párrafo (que ya junta las
     // corridas partidas)
@@ -339,13 +409,36 @@ class TemplateValidator(
         const val TOO_LARGE = "TOO_LARGE"
         private const val BUFFER = 8192
         private const val CONTENT_TYPES = "[Content_Types].xml"
+        private const val XSI = "http://www.w3.org/2001/XMLSchema-instance"
         private const val XMLNS = "http://www.w3.org/2000/xmlns/"
         private val FONT_ATTRIBUTES = listOf("ascii", "hAnsi", "cs", "eastAsia")
 
-        // un valor que apunta a la red o a un archivo
-        private val ADDRESS = Regex("""^(?i:(?:https?|file|ftp):|\\\\)""")
+        // un valor que apunta a la red o a un archivo: un esquema (`http:`, `smb:`, `mhtml:`...), `//` o `\\`
+        private val ADDRESS = Regex("""^(?i:[a-z][a-z0-9+.-]*:|//|\\\\)""")
 
-        // los campos que leen un archivo o la red al actualizarse (instrucción sin espacios y en mayúsculas)
-        private val FIELD = Regex("""^(INCLUDEPICTURE|INCLUDETEXT|LINK|DDEAUTO|DDE|IMPORT|DATABASE|RD)""")
+        // los únicos campos que una plantilla puede traer: de paginación, fecha, propiedades, referencias y tablas de contenido
+        private val ALLOWED_FIELDS =
+            setOf(
+                "PAGE",
+                "NUMPAGES",
+                "SECTIONPAGES",
+                "SECTION",
+                "DATE",
+                "TIME",
+                "CREATEDATE",
+                "SAVEDATE",
+                "PRINTDATE",
+                "TITLE",
+                "SUBJECT",
+                "AUTHOR",
+                "DOCPROPERTY",
+                "STYLEREF",
+                "REF",
+                "PAGEREF",
+                "NOTEREF",
+                "SEQ",
+                "TOC",
+                "TC"
+            )
     }
 }
