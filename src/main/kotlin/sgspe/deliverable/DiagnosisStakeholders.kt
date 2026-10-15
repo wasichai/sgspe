@@ -12,22 +12,42 @@ import sgspe.privacy.RegisterSheets
 // plan 8.2c), los grupos de influencia por código GI- y los temas clave (Tabla 8.1)
 object DiagnosisStakeholders {
     // los ámbitos de las tablas: AIDS, AIIS y el regional y nacional juntos
+    private val NO_SCOPE: List<String> = emptyList()
     private val SCOPES =
         listOf(
             listOf("AIDS") to "área de influencia directa social",
             listOf("AIIS") to "área de influencia indirecta social",
-            listOf("REGIONAL", "NACIONAL") to "ámbito regional y nacional"
+            listOf("REGIONAL", "NACIONAL") to "ámbito regional y nacional",
+            NO_SCOPE to "grupos de interés sin ámbito"
         )
+
+    // las etiquetas del catálogo stakeholder_scope para los ámbitos de las percepciones
+    private val SCOPE_LABELS =
+        mapOf(
+            "AIDS" to DiagnosisScene.AIDS_TITLE,
+            "AIIS" to DiagnosisScene.AIIS_TITLE,
+            "REGIONAL" to "Ámbito regional",
+            "NACIONAL" to "Ámbito nacional"
+        )
+    private const val NO_SCOPE_LABEL = "Sin ámbito"
     private val GROUPS = listOf("ESTRATEGICO", "POLITICO", "PARA MONITOREO", "VULNERABLE")
     private val SUBJECTS = listOf("MINERIA" to "la minería", "PROYECTO" to "el proyecto", "EMPRESA" to "la empresa")
     private const val INTERVIEWED = "ENTREVISTADO"
 
-    private fun scopeOrder(row: SourceRow): Int = SCOPES.indexOfFirst { row.text("stakeholder_scope") in it.first }.let { if (it < 0) SCOPES.size else it }
+    // el ámbito vacío (NO_SCOPE) toma a los que no tienen ámbito o lo tienen fuera del catálogo: ninguno desaparece
+    private val KNOWN = SCOPES.flatMap { it.first }.toSet()
+
+    private fun inScope(
+        row: SourceRow,
+        scopes: List<String>
+    ): Boolean = if (scopes.isEmpty()) row.text("stakeholder_scope") !in KNOWN else row.text("stakeholder_scope") in scopes
+
+    private fun scopeOrder(row: SourceRow): Int = SCOPES.indexOfFirst { inScope(row, it.first) }
 
     suspend fun identification(scene: DiagnosisScene): List<Block> {
         val tables =
             SCOPES.mapNotNull { (scopes, label) ->
-                val rows = scene.stakeholders().filter { it.text("stakeholder_scope") in scopes }
+                val rows = scene.stakeholders().filter { inScope(it, scopes) }
                 if (rows.isEmpty()) {
                     null
                 } else {
@@ -39,7 +59,11 @@ object DiagnosisStakeholders {
                                 if (i == 0) listOf(Cell(type, rowSpan = list.size), actor) else listOf(actor)
                             }
                         }
-                    Block.Table("Grupos de interés del $label", listOf("Tipo de actor", "Actor"), cells)
+                    Block.Table(
+                        if (scopes.isEmpty()) "Grupos de interés sin ámbito" else "Grupos de interés del $label",
+                        listOf("Tipo de actor", "Actor"),
+                        cells
+                    )
                 }
             }
         return listOf<Block>(Block.Paragraph(DiagnosisTexts.text("capitulo-6"))) + tables
@@ -49,7 +73,13 @@ object DiagnosisStakeholders {
         scene.stakeholders().sortedWith(compareBy({ scopeOrder(it) }, { it.text("stakeholder_type").orEmpty() })).flatMap { row ->
             val position = row.ref("person")?.let { scene.people.position(it) }
             val assessment = scene.latestAssessment(row)
-            scene.keep("perfiles", position?.text("career_notes"), row.text("profile_summary"), assessment?.text("stance_reasons"))
+            scene.keep(
+                "perfiles",
+                position?.text("career_notes"),
+                position?.text("election_mechanism"),
+                row.text("profile_summary"),
+                assessment?.text("stance_reasons")
+            )
             val facts =
                 listOfNotNull(
                     position?.text("career_notes")?.let { "**Trayectoria:** $it" },
@@ -71,7 +101,7 @@ object DiagnosisStakeholders {
                 Block.Paragraph(facts.joinToString("\n\n").ifEmpty { "_Sin datos del perfil._" }, footnotes = notes),
                 assessment?.let { a ->
                     val reasons = a.text("stance_reasons")?.let { " **Razones:** $it" }.orEmpty()
-                    Block.Paragraph("**Postura:** ${DiagnosisScene.or(a, "stance")}.$reasons", Mark.restricted("stakeholder_assessment.stance_reasons"))
+                    Block.Paragraph("**Postura:** ${DiagnosisScene.or(a, "stance")}.$reasons", Mark.restricted("stakeholder_assessment.stance"))
                 }
             )
         }
@@ -83,13 +113,13 @@ object DiagnosisStakeholders {
         return SUBJECTS
             .mapIndexed { i, (subject, label) ->
                 val found = rows.filter { it.text("subject") == subject }
-                found.forEach { scene.keep("percepciones", it.text("statement"), it.text("quote")) }
+                found.forEach { scene.keep("percepciones", it.text("statement"), it.text("quote"), it.text("attributed_role")) }
                 val text =
                     if (found.isEmpty()) {
                         "_Sin percepciones registradas._"
                     } else {
-                        found.groupBy { it.text("perception_scope") ?: SIN_DATO }.entries.joinToString("\n\n") { (scope, list) ->
-                            "**$scope**\n\n" +
+                        found.groupBy { it.text("perception_scope") ?: NO_SCOPE_LABEL }.entries.joinToString("\n\n") { (scope, list) ->
+                            "**${SCOPE_LABELS[scope] ?: scope}**\n\n" +
                                 list.joinToString("\n") { p ->
                                     val quote = p.text("quote")?.let { q -> " «$q»" + p.text("attributed_role")?.let { r -> " — $r" }.orEmpty() }.orEmpty()
                                     "- (${p.text("polarity")?.lowercase() ?: "sin polaridad"}) ${DiagnosisScene.or(p, "statement")}$quote"
@@ -106,7 +136,7 @@ object DiagnosisStakeholders {
                 "**umbral de poder:** ${DiagnosisScene.or(scene.project, "power_threshold")}."
         val tables =
             SCOPES.mapNotNull { (scopes, label) ->
-                val entries = scene.stakeholders().filter { it.text("stakeholder_scope") in scopes }.map { it to scene.latestAssessment(it) }
+                val entries = scene.stakeholders().filter { inScope(it, scopes) }.map { it to scene.latestAssessment(it) }
                 if (entries.isEmpty()) {
                     null
                 } else {
@@ -119,7 +149,7 @@ object DiagnosisStakeholders {
                                 val position = row.ref("person")?.let { scene.people.position(it) }
                                 val values =
                                     listOf(
-                                        Cell(scene.people.stakeholder(row)),
+                                        nameCell(scene, row),
                                         Cell(position?.text("position_title") ?: SIN_DATO),
                                         Cell(DiagnosisScene.or(row, "stakeholder_type")),
                                         Cell(assessment?.text("stance") ?: SIN_DATO, mark = Mark.restricted("stakeholder_assessment.stance"))
@@ -128,13 +158,23 @@ object DiagnosisStakeholders {
                             }
                         }
                     Block.Table(
-                        "Clasificación de los grupos de interés del $label",
+                        if (scopes.isEmpty()) "Clasificación de los grupos de interés sin ámbito" else "Clasificación de los grupos de interés del $label",
                         listOf("Grupo de influencia", "Nombre", "Cargo", "Tipo de actor", "Postura"),
                         cells
                     )
                 }
             }
         return listOf<Block>(Block.Paragraph(DiagnosisTexts.text("capitulo-7-2")), Block.Paragraph(thresholds)) + tables
+    }
+
+    // el nombre del grupo de interés: la persona (mención, solo INTERNO) con su marca de nombre, que EXTERNO vacía (Tablas 7.1 a
+    // 7.3, deliverables.md §9.2: ahí el cargo y la organización van en sus propias columnas); una organización va tal cual
+    private suspend fun nameCell(
+        scene: DiagnosisScene,
+        row: SourceRow
+    ): Cell {
+        val text = scene.people.stakeholder(row)
+        return if (row.ref("person") != null) Cell(text, mark = Mark.restricted("person.name")) else Cell(text)
     }
 
     // 7.2.1 a 7.2.3: los grupos de interés de un grupo de influencia por ámbito, por código GI- y cargo (sin nombre)
@@ -145,7 +185,7 @@ object DiagnosisStakeholders {
         val members = scene.stakeholders().filter { (scene.latestAssessment(it)?.text("influence_group") ?: it.text("influence_group")) == group }
         if (members.isEmpty()) return listOf(Block.Paragraph("_Ningún grupo de interés en este grupo de influencia._"))
         return SCOPES.mapNotNull { (scopes, label) ->
-            val list = members.filter { it.text("stakeholder_scope") in scopes }
+            val list = members.filter { inScope(it, scopes) }
             if (list.isEmpty()) {
                 null
             } else {
@@ -167,9 +207,9 @@ object DiagnosisStakeholders {
                 rows.map {
                     listOf(
                         Cell(DiagnosisScene.or(it, "name")),
-                        Cell(it.text("description").orEmpty()),
-                        Cell(it.text("risks").orEmpty()),
-                        Cell(it.text("opportunities").orEmpty())
+                        Cell(DiagnosisScene.or(it, "description")),
+                        Cell(DiagnosisScene.or(it, "risks")),
+                        Cell(DiagnosisScene.or(it, "opportunities"))
                     )
                 }
             )

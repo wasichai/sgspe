@@ -268,16 +268,54 @@ class SocialDiagnosisTypeTest {
         val text =
             external.sections.flatMap { it.blocks }.joinToString("\n") { block ->
                 when (block) {
-                    is Block.Paragraph -> block.markdown
-                    is Block.Table -> block.rows.flatten().joinToString(" ") { it.text }
+                    is Block.Paragraph -> block.markdown + " " + block.footnotes.joinToString(" ")
+                    is Block.Table -> block.title + " " + block.rows.flatten().joinToString(" ") { it.text }
+                    is Block.Heading -> block.text
                     else -> ""
                 }
             }
-        for (forbidden in listOf("Católica", "movimientos locales", "Espera empleo local", "Teme por el agua", "Persona Ejemplo 1")) {
+        for (forbidden in listOf("Católica", "movimientos locales", "Espera empleo local", "Teme por el agua", "Persona Ejemplo 1", "EN CONTRA", "A FAVOR")) {
             assertTrue(forbidden !in text, "$forbidden salió en EXTERNO")
         }
         val row = external.tables("clasificacion")[0].rows.single()
-        assertEquals("Presidente, Junta Directiva Comunal Ejemplo", row[1].text)
+        assertEquals("", row[1].text)
+        assertEquals("Presidente", row[2].text)
         assertEquals("", row[4].text)
+        val names = external.tables("clasificacion").flatMap { t -> t.rows.map { it[it.size - 4].text } }
+        assertTrue(names.all { it.isEmpty() || it.startsWith("GI-") || it == "Municipalidad Distrital Ejemplo" }, "$names")
+        val internal = ReportDisclosure.apply(assemble().model, Disclosure.INTERNO)
+        assertTrue(
+            "Persona Ejemplo 1" in
+                internal
+                    .tables("clasificacion")[0]
+                    .rows
+                    .single()[1]
+                    .text
+        )
+    }
+
+    @Test
+    fun `un grupo de interes sin ambito sale bajo Sin ambito en las tablas y los temas sin dato dicen Sin dato`() {
+        val source = T1Source.source()
+        source.add(
+            "stakeholder",
+            T1Source.id(300),
+            null,
+            "project" to T1Source.PROJECT,
+            "organization" to T1Source.MUNICIPALITY,
+            "influence_group" to "ESTRATEGICO"
+        )
+        source.add("key_theme", T1Source.id(301), null, "project" to T1Source.PROJECT, "study" to T1Source.STUDY, "name" to "Tierra")
+        val model = assemble(source).model
+        assertTrue(model.tables("grupos_interes").any { it.title == "Grupos de interés sin ámbito" })
+        assertTrue(model.tables("clasificacion").any { it.title == "Clasificación de los grupos de interés sin ámbito" })
+        assertTrue(model.blocks("grupos_estrategicos").filterIsInstance<Block.Paragraph>().any { "Grupos de interés sin ámbito" in it.markdown })
+        val tierra =
+            model
+                .tables("temas_clave")
+                .single()
+                .rows
+                .first { it[0].text == "Tierra" }
+        assertEquals(listOf("Sin dato", "Sin dato", "Sin dato"), tierra.drop(1).map { it.text })
     }
 }
