@@ -39,10 +39,14 @@ class DeliverableDoubles {
     class FakeReportMaps : ReportMaps {
         @Volatile var failing = false
 
+        // lo pedido, para comprobar las claves y los encuadres de cada tipo (plan 8.2c)
+        val requests: MutableList<MapRequest> = java.util.Collections.synchronizedList(mutableListOf())
+
         override suspend fun draw(
             organizationId: UUID,
             request: MapRequest
         ): ReportMapImages {
+            requests += request
             if (failing) return ReportMapImages()
             return ReportMapImages(image(255), image(128, omitted = true))
         }

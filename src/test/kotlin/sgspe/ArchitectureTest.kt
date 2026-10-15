@@ -493,11 +493,12 @@ class ArchitectureTest {
         assertFalse(flags(RELATED_AS_PLATFORM, "records.related(\"engagement\", id, \"engagement_topic\")"))
     }
 
-    // decisión 12: la vía de plataforma de la compuerta solo la llaman ComponentLand, KpiAggregates (plan 8.2a-bis) y
-    // ProjectProximityQueries (plan 8.2b, una sola llamada: concessionTerritoriesAsPlatform), y la organización de la plataforma solo se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro
-    // dominio lee SQL propio como la plataforma
+    // decisión 12: la vía de plataforma de la compuerta solo la llaman ComponentLand, KpiAggregates (plan 8.2a-bis),
+    // ProjectProximityQueries (plan 8.2b, una sola llamada: concessionTerritoriesAsPlatform) y ReportMapFeatures (plan 8.2c,
+    // los mapas de informe de JOB-05), y la organización de la plataforma solo se la pasa DashboardData (la que arma
+    // KpiReaders): ningún endpoint ni otro dominio lee SQL propio como la plataforma
     @Test
-    fun `solo ComponentLand, KpiAggregates y ProjectProximityQueries usan selectAsPlatform y solo DashboardData les pasa la plataforma`() {
+    fun `solo ComponentLand, KpiAggregates, ProjectProximityQueries y ReportMapFeatures usan selectAsPlatform y solo DashboardData les pasa la plataforma`() {
         val gate = "/sgspe/territory/SpatialGate.kt"
         val land = "/sgspe/territory/ComponentLand.kt"
         val aggregates = "/sgspe/dashboard/KpiAggregates.kt"
@@ -552,6 +553,19 @@ class ArchitectureTest {
         val others = sources(File(main, "sgspe/deliverable")).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
         assertTrue(others.isNotEmpty())
         assertEquals(emptyList<String>(), offenders(others, AS_PLATFORM))
+    }
+
+    // plan 8.2c (decisión 7): ReportMapFeatures lee como la plataforma, así que solo lo inyecta TerritoryMapData (MapData.kt),
+    // el puerto de GeoServerReportMaps, que solo llama JOB-05; ningún endpoint ni otro dominio lo usa
+    @Test
+    fun `solo MapData usa ReportMapFeatures`() {
+        val allowed = listOf("/sgspe/territory/ReportMapFeatures.kt", "/sgspe/deliverable/MapData.kt")
+        val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, REPORT_MAP_FEATURES))
+        assertTrue(allowed.all { path -> sources(main).any { it.invariantSeparatorsPath.endsWith(path) } })
+        assertTrue(flags(REPORT_MAP_FEATURES, "private val reader: ReportMapFeatures"))
+        assertTrue(flags(REPORT_MAP_FEATURES, "import sgspe.territory.ReportMapFeatures"))
+        assertFalse(flags(REPORT_MAP_FEATURES, "// sus elementos los lee ReportMapFeatures"))
     }
 
     // especificación de F8 §5 («Modelo y arquitectura», plan 8.2c): el WebClient hacia Gotenberg y GeoServer solo en
@@ -725,6 +739,7 @@ class ArchitectureTest {
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
         private val STORED_FILES = Regex("""\b(StoredFileRepository|FileStore)\b""")
         private val WEB_CLIENT = Regex("""\bWebClient\b""")
+        private val REPORT_MAP_FEATURES = Regex("""\bReportMapFeatures\b""")
         private val KNOWLEDGE_TABLE = Regex("""\bknowledge_chunk\b|\bKnowledgeMigration\.TABLE\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo

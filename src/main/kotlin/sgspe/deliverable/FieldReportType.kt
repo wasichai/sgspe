@@ -19,7 +19,8 @@ import java.util.UUID
 // en `reads` (ReportSourcesTest). las personas van como menciones [[person:<id>]] o [[stakeholder:<id>]] y sus datos de cita
 // en ReportModel.people; los números de comprobante y el emisor llevan su marca (EXTERNO los quita); las fotos de la entrega y
 // la del comprobante van por evidencia con su consentimiento. el texto de cada sección se copia al final de sus bloques. los
-// mapas (portada y predio) se piden a ReportMaps; en 8.2b los dibuja un doble y 8.2c trae GeoServer
+// mapas (portada y predio) se piden a ReportMaps (GeoServerReportMaps desde el plan 8.2c) con su encuadre y las concesiones del
+// proyecto
 @Component
 class FieldReportType : DeliverableType {
     override val name: String = NAME
@@ -186,10 +187,31 @@ class FieldReportType : DeliverableType {
                 coverMap = COVER_MAP
             )
         val crs = project.text("working_crs")!!
+        // las concesiones del proyecto van en línea con estilo propio; la fuente del mapa es la organización autora (§3.7)
+        val concessions = source.related(Deliverables.PROJECT, projectId, "project_concession", "mining_concession").map { UUID.fromString(it.id) }
+        val author = preparedBy?.text("name")
         val maps =
             listOf(
-                MapRequest(COVER_MAP, projectId, crs, communityId, listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-08")),
-                MapRequest(LAND_MAP, projectId, crs, communityId, listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-06"))
+                MapRequest(
+                    COVER_MAP,
+                    projectId,
+                    crs,
+                    communityId,
+                    listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-08"),
+                    MapFrameKind.COMMUNITY_AND_PROJECT,
+                    concessions = concessions,
+                    author = author
+                ),
+                MapRequest(
+                    LAND_MAP,
+                    projectId,
+                    crs,
+                    communityId,
+                    listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-06"),
+                    MapFrameKind.COMMUNITY,
+                    concessions = concessions,
+                    author = author
+                )
             )
         val sectionTexts =
             built.associate { section ->
