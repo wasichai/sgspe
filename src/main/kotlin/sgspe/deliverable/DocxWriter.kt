@@ -1,9 +1,9 @@
 package sgspe.deliverable
 
+import org.apache.poi.common.usermodel.PictureType
 import org.apache.poi.openxml4j.opc.OPCPackage
 import org.apache.poi.util.Units
 import org.apache.poi.wp.usermodel.HeaderFooterType
-import org.apache.poi.xwpf.usermodel.Document
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
@@ -13,7 +13,6 @@ import org.apache.poi.xwpf.usermodel.XWPFTable
 import org.apache.poi.xwpf.usermodel.XWPFTableCell
 import org.commonmark.ext.gfm.tables.TableBlock
 import org.commonmark.ext.gfm.tables.TableCell
-import org.commonmark.ext.gfm.tables.TableHead
 import org.commonmark.ext.gfm.tables.TablesExtension
 import org.commonmark.node.BlockQuote
 import org.commonmark.node.BulletList
@@ -342,7 +341,7 @@ class DocxWriter(
             section = section.next
         }
         if (rows.isEmpty()) return
-        val header = (node.firstChild as? TableHead)?.let { rows.first() } ?: rows.first()
+        val header = rows.first()
         grid(doc, styles, header, rows.drop(1).map { r -> r.map { Cell(it) } })
     }
 
@@ -437,7 +436,7 @@ class DocxWriter(
         title: String
     ) {
         val p = paragraph(doc, styles.caption)
-        val id = BigInteger.valueOf((++bookmarks).toLong())
+        val id = BigInteger.valueOf((++styles.lastBookmark).toLong())
         p.ctp.addNewBookmarkStart().apply {
             name = caption.bookmark
             this.id = id
@@ -445,8 +444,6 @@ class DocxWriter(
         p.createRun().setText("${caption.label}. $title")
         p.ctp.addNewBookmarkEnd().id = id
     }
-
-    private var bookmarks = 0
 
     private fun sourceParagraph(
         doc: XWPFDocument,
@@ -505,7 +502,7 @@ class DocxWriter(
         val widthPt = PHOTO_WIDTH_CM * POINTS_PER_CM
         val heightPt = widthPt * resized.height / resized.width
         val run = p.createRun()
-        run.addPicture(ByteArrayInputStream(resized.jpeg), Document.PICTURE_TYPE_JPEG, "foto-${ref.evidence}.jpg", Units.toEMU(widthPt), Units.toEMU(heightPt))
+        run.addPicture(ByteArrayInputStream(resized.jpeg), PictureType.JPEG, "foto-${ref.evidence}.jpg", Units.toEMU(widthPt), Units.toEMU(heightPt))
         alt(run, ref.alt)
     }
 
@@ -540,7 +537,7 @@ class DocxWriter(
         val image = ImageIO.read(ByteArrayInputStream(bytes)) ?: return
         val widthPt = widthCm * POINTS_PER_CM
         val heightPt = widthPt * image.height / image.width
-        run.addPicture(ByteArrayInputStream(bytes), Document.PICTURE_TYPE_PNG, name, Units.toEMU(widthPt), Units.toEMU(heightPt))
+        run.addPicture(ByteArrayInputStream(bytes), PictureType.PNG, name, Units.toEMU(widthPt), Units.toEMU(heightPt))
         alt(run, alt)
     }
 
@@ -590,9 +587,16 @@ class DocxWriter(
 
     // los ids de los estilos de la plantilla por su nombre integrado (TemplateStyles): el validador ya exigió que existan
     // sin distinguir mayúsculas: Word guarda «heading 1» y LibreOffice o Google Docs, «Heading 1» (decisión 7 del plan 8.2b)
+    // también lleva el contador de marcadores de la corrida de write (no es estado del DocxWriter, que JOB-05 comparte entre
+    // generaciones): arranca sobre el mayor id de marcador de la plantilla
     private class StyleIds(
         doc: XWPFDocument
     ) {
+        var lastBookmark: Int =
+            (doc.paragraphs + doc.tables.flatMap { t -> t.rows.flatMap { r -> r.tableCells.flatMap { it.paragraphs } } })
+                .flatMap { it.ctp.bookmarkStartList }
+                .maxOfOrNull { it.id.toInt() } ?: 0
+
         private val byName: Map<String, String> =
             runCatching { doc.style.styleList }
                 .getOrDefault(emptyList())

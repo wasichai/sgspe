@@ -22,7 +22,7 @@ class BaseTemplateTest {
     }
 
     @Test
-    fun `los estilos requeridos se buscan por nombre sin distinguir mayusculas`() {
+    fun `la base trae los estilos requeridos`() {
         val names =
             XWPFDocument(ByteArrayInputStream(BaseTemplate.bytes.let { toDocx(it) }))
                 .style.styleList
