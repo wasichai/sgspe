@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -85,6 +86,24 @@ class DeliverableDraftsApiTest : F8ApiTest() {
         assertEquals(Deliverables.READY, record("deliverable", mapless)["attributes"][Deliverables.STATUS].asString())
         val warnings = draft(mapless)["warnings"].values().map { it["code"].asString() to it["section"]?.asString() }
         assertTrue(Deliverables.MAP_FAILED to "portada" in warnings, "$warnings")
+    }
+
+    // revisión final del plan 8.2b, I3: un StackOverflowError o un OutOfMemoryError del intento no lo dejan EN PROCESO para
+    // siempre: queda FALLIDO con GENERATION_FAILED y la vuelta siguiente no lo retoma
+    @Test
+    fun `un error de la maquina virtual deja FALLIDO con GENERATION_FAILED y no se reintenta`() {
+        for (error in listOf(StackOverflowError(), OutOfMemoryError("doble"))) {
+            val failed = requestedFieldReport()
+            fakePdf.error = error
+            try {
+                generate()
+            } finally {
+                fakePdf.error = null
+            }
+            assertEquals(Deliverables.FAILED, record("deliverable", failed)["attributes"][Deliverables.STATUS].asString())
+            assertEquals(listOf(Deliverables.GENERATION_FAILED), draft(failed)["warnings"].values().map { it["code"].asString() })
+            assertFalse(draft(failed)["pending"].asBoolean())
+        }
     }
 
     @Test

@@ -211,11 +211,21 @@ class DocxWriter(
         text: String,
         footnotes: List<String>
     ) {
-        val root = PARSER.parse(text)
+        // el parser de CommonMark recorre los énfasis anidados de forma recursiva: un anidado de miles de niveles le agota la
+        // pila. entonces la narrativa sale como texto plano, un párrafo por bloque, en lugar de tumbar el intento
+        val root =
+            try {
+                PARSER.parse(text)
+            } catch (_: StackOverflowError) {
+                null
+            }
         var last: XWPFParagraph? = null
-        var node = root.firstChild
+        if (root == null) {
+            text.split(Regex("\\n\\s*\\n")).filter { it.isNotBlank() }.forEach { last = literal(doc, styles, it.trim()) }
+        }
+        var node = root?.firstChild
         while (node != null) {
-            last = markdownBlock(doc, styles, node, null) ?: last
+            last = markdownBlock(doc, styles, node, null, 0) ?: last
             node = node.next
         }
         if (footnotes.isNotEmpty()) {
@@ -228,18 +238,33 @@ class DocxWriter(
         }
     }
 
+    // `depth`, las citas y listas que contienen el nodo: más allá de MAX_DEPTH el contenido sale como un párrafo de texto plano,
+    // así un anidado de miles de niveles no desborda la pila de JOB-05
     private fun markdownBlock(
         doc: XWPFDocument,
         styles: StyleIds,
         node: Node,
-        prefix: String?
+        prefix: String?,
+        depth: Int
+    ): XWPFParagraph? =
+        when {
+            depth > MAX_DEPTH -> plainText(node).takeIf { it.isNotBlank() }?.let { text -> literal(doc, styles, (prefix ?: "") + text) }
+            else -> markdownNode(doc, styles, node, prefix, depth)
+        }
+
+    private fun markdownNode(
+        doc: XWPFDocument,
+        styles: StyleIds,
+        node: Node,
+        prefix: String?,
+        depth: Int
     ): XWPFParagraph? =
         when (node) {
-            is Heading -> paragraph(doc, styles.heading(node.level + 1)).also { inline(it, node, false, false) }
+            is Heading -> paragraph(doc, styles.heading(node.level + 1)).also { inline(it, node, false, false, 0) }
             is Paragraph ->
                 paragraph(doc, if (prefix == null) styles.normal else styles.list).also { p ->
                     prefix?.let { p.createRun().setText(it) }
-                    inline(p, node, false, false)
+                    inline(p, node, false, false, 0)
                 }
             is BulletList, is OrderedList -> {
                 var last: XWPFParagraph? = null
@@ -251,7 +276,7 @@ class DocxWriter(
                         var child = item.firstChild
                         var first = true
                         while (child != null) {
-                            last = markdownBlock(doc, styles, child, if (first) marker else "") ?: last
+                            last = markdownBlock(doc, styles, child, if (first) marker else "", depth + 1) ?: last
                             first = false
                             child = child.next
                         }
@@ -264,7 +289,7 @@ class DocxWriter(
                 var last: XWPFParagraph? = null
                 var child = node.firstChild
                 while (child != null) {
-                    last = markdownBlock(doc, styles, child, prefix) ?: last
+                    last = markdownBlock(doc, styles, child, prefix, depth + 1) ?: last
                     child = child.next
                 }
                 last
@@ -284,25 +309,57 @@ class DocxWriter(
         text: String
     ): XWPFParagraph = paragraph(doc, styles.normal).also { it.createRun().setText(text.trimEnd()) }
 
+    // `depth`, los énfasis y enlaces que contienen el nodo: más allá de MAX_DEPTH, el texto plano con el formato que lleva
     private fun inline(
         p: XWPFParagraph,
         node: Node,
         bold: Boolean,
-        italic: Boolean
+        italic: Boolean,
+        depth: Int
     ) {
         var child = node.firstChild
         while (child != null) {
-            when (child) {
-                is Text -> run(p, child.literal, bold, italic)
-                is Code -> run(p, child.literal, bold, italic)
-                is SoftLineBreak -> run(p, " ", bold, italic)
-                is HardLineBreak -> p.createRun().addBreak()
-                is StrongEmphasis -> inline(p, child, true, italic)
-                is Emphasis -> inline(p, child, bold, true)
-                else -> inline(p, child, bold, italic)
+            when {
+                child is Text -> run(p, child.literal, bold, italic)
+                child is Code -> run(p, child.literal, bold, italic)
+                child is SoftLineBreak -> run(p, " ", bold, italic)
+                child is HardLineBreak -> p.createRun().addBreak()
+                depth >= MAX_DEPTH -> run(p, plainText(child), bold, italic)
+                child is StrongEmphasis -> inline(p, child, true, italic, depth + 1)
+                child is Emphasis -> inline(p, child, bold, true, depth + 1)
+                else -> inline(p, child, bold, italic, depth + 1)
             }
             child = child.next
         }
+    }
+
+    // el texto de un nodo y sus descendientes, en orden y sin recursión: un salto de línea entre bloques, un espacio por cada
+    // salto suave
+    private fun plainText(node: Node): String {
+        val out = StringBuilder()
+        var current: Node? = node.firstChild ?: return ""
+        while (current != null) {
+            when (current) {
+                is Text -> out.append(current.literal)
+                is Code -> out.append(current.literal)
+                is FencedCodeBlock -> out.append(current.literal)
+                is IndentedCodeBlock -> out.append(current.literal)
+                is SoftLineBreak, is HardLineBreak -> out.append(' ')
+            }
+            val down = current.firstChild
+            if (down != null) {
+                current = down
+                continue
+            }
+            while (current != null && current !== node && current.next == null) {
+                if (current is Paragraph || current is Heading) out.append('\n')
+                current = current.parent
+            }
+            if (current == null || current === node) break
+            if (current is Paragraph || current is Heading) out.append('\n')
+            current = current.next
+        }
+        return out.toString().trim()
     }
 
     private fun run(
@@ -494,7 +551,7 @@ class DocxWriter(
     ) {
         val p = cell.paragraphs.firstOrNull() ?: cell.addParagraph()
         p.alignment = ParagraphAlignment.CENTER
-        val resized = bytes?.let { PhotoResize.jpeg(it, photos.maxSide, photos.jpegQuality) }
+        val resized = bytes?.let { PhotoResize.jpeg(it, photos.maxSide, photos.jpegQuality, photos.maxMegapixels) }
         if (resized == null) {
             p.createRun().setText("[Foto no disponible]")
             return
@@ -630,6 +687,10 @@ class DocxWriter(
         private const val COVER_WIDTH_CM = 12.0
         private const val A4_WIDTH = 11906L
         private const val A4_HEIGHT = 16838L
+
+        // las citas, las listas y los énfasis anidados que se escriben con su forma; más adentro, texto plano
+        const val MAX_DEPTH = 32
+
         private val PARSER: Parser = Parser.builder().extensions(listOf(TablesExtension.create())).build()
     }
 }

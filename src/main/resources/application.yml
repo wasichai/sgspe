@@ -155,9 +155,11 @@ sgspe:
     # tope de un archivo que sube el servidor (borradores y versiones): el de wasichai.files.max-bytes (ASM-138)
     max-file-bytes: 67108864
     photos:
-      # las fotos se reducen antes de insertarlas: lado mayor en píxeles y calidad JPEG
+      # las fotos se reducen antes de insertarlas: lado mayor en píxeles y calidad JPEG; una foto de más megapíxeles no se
+      # decodifica y sale como no disponible (la memoria de JOB-05)
       max-side: 2000
       jpeg-quality: 85
+      max-megapixels: 250
     maps:
       # mapas de informe (plan 8.2c): tope de elementos en línea (MAP_TOO_MANY_FEATURES) y plazo de GeoServer
       max-features: 5000
