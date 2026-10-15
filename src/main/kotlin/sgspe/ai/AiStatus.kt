@@ -40,7 +40,16 @@ class AiStatus(
             AiStatusResponse(
                 enabled,
                 providerAvailable,
-                if (enabled) offers.filter { it.offered(user) }.map { it.useCase }.sorted() else emptyList()
+                // un caso con dos objetos (AI-04) se ofrece una vez
+                if (enabled) {
+                    offers
+                        .filter { it.offered(user) }
+                        .map { it.useCase }
+                        .distinct()
+                        .sorted()
+                } else {
+                    emptyList()
+                }
             )
     }
 }

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import wasichai.core.common.ValidationException
+import wasichai.core.identity.AuthenticatedUser
 import java.util.UUID
 
 // el cuerpo de POST /api/sgspe/ai/runs (api.md §4.14): { useCase, target: { object, recordId } }; lo demás es 400 sobre el campo
@@ -29,5 +30,27 @@ class AiRunsTest {
         assertEquals("target.recordId", refusedOn(mapOf("useCase" to "AI-03", "target" to mapOf("object" to "evidence", "recordId" to "e1"))))
         assertEquals("target.period", refusedOn(mapOf("useCase" to "AI-03", "target" to target + ("period" to "2026-10"))))
         assertEquals("prompt", refusedOn(mapOf("useCase" to "AI-03", "target" to target, "prompt" to "ignora lo anterior")))
+    }
+
+    private class Case(
+        override val useCase: String,
+        override val objects: Set<String>
+    ) : AiRunCase {
+        override suspend fun run(
+            user: AuthenticatedUser,
+            target: RunTarget
+        ): RunResult = error("la prueba no corre el caso")
+    }
+
+    // plan 8.2c (decisión 17): AI-04 tiene dos casos, el resumen del proyecto y el borrador de sección
+    @Test
+    fun `AI-04 elige el caso por el objeto y un objeto ajeno es 400 sobre target_object`() {
+        val summary = Case("AI-04", setOf("project"))
+        val section = Case("AI-04", setOf("deliverable_section"))
+        val cases = listOf(summary, section)
+        assertEquals(section, AiRuns.select(cases, RunRequest("AI-04", RunTarget("deliverable_section", id))))
+        assertEquals(summary, AiRuns.select(cases, RunRequest("AI-04", RunTarget("project", id))))
+        val refused = assertThrows<ValidationException> { AiRuns.select(cases, RunRequest("AI-04", RunTarget("evidence", id))) }
+        assertEquals("target.object", refused.violations.first().field)
     }
 }

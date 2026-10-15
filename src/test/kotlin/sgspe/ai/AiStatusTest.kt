@@ -54,4 +54,9 @@ class AiStatusTest {
         assertEquals(HttpStatus.FORBIDDEN, missing.status)
         assertTrue("ai_interaction" in missing.message.orEmpty(), missing.message)
     }
+
+    @Test
+    fun `un caso con dos objetos se ofrece una vez`() {
+        assertEquals(listOf("AI-04"), runBlocking { AiStatus.compose(true, true, user, listOf(offer("AI-04", true), offer("AI-04", true))) }.useCases)
+    }
 }

@@ -46,4 +46,17 @@ class DraftAgentsTest {
         assertEquals(1, result.interactions.size)
         assertEquals("Un borrador de 10 caracteres", log.entries.single().outputSummary)
     }
+
+    // plan 8.2c: AI-04 de sección, con su propio prompt del mismo caso
+    @Test
+    fun `el borrador de seccion apunta a la seccion con su propio prompt`() {
+        val section = RunFixtures.PROJECT
+        val source = RunFixtures.minutes().copy(objectName = "deliverable_section", id = section, inputReference = "deliverable_section:$section")
+        val result = runBlocking { agents(DraftText("## Conclusiones\n\n1. Se identificó la red.", 0.6)).section(source, RunFixtures.NAMES, RunBudget(8)) }
+        val suggestion = result.suggestions.single()
+        assertEquals("BORRADOR DE SECCION", suggestion.kind)
+        assertEquals("deliverable_section" to section, suggestion.targetObject to suggestion.targetRecordId)
+        assertEquals("ai-04-seccion@1", log.entries.single().promptVersion)
+        assertEquals("AI-04", log.entries.single().useCase)
+    }
 }

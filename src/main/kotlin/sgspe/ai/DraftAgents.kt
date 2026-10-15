@@ -4,8 +4,9 @@ import org.springframework.stereotype.Component
 
 // AI-02 y AI-04 (ai-architecture.md §4.1 y §4.2, RF-AIK-002, RF-AIK-004): un texto Markdown sin HTML que una persona copia o edita.
 // una llamada con el prompt en uso del caso; el borrador vacío se descarta y las etiquetas HTML se quitan. AI-02 es una
-// ai_suggestion BORRADOR DE ACTA con destino la interacción; AI-04, una RESUMEN EJECUTIVO con destino el proyecto, que en F7 solo
-// informa y no se acepta. no llevan cita: no extraen un dato, redactan
+// ai_suggestion BORRADOR DE ACTA con destino la interacción; AI-04, una RESUMEN EJECUTIVO con destino el proyecto o, desde el
+// plan 8.2c, una BORRADOR DE SECCION con destino la sección de entregable, con su propio prompt (ai-04-seccion). no llevan
+// cita: no extraen un dato, redactan
 @Component
 class DraftAgents(
     private val calls: ModelCalls
@@ -22,13 +23,20 @@ class DraftAgents(
         budget: RunBudget
     ): RunProposals = draft(SUMMARY_CASE, SUMMARY, "project", source, names, budget)
 
+    suspend fun section(
+        source: RunSource,
+        names: NameDictionary,
+        budget: RunBudget
+    ): RunProposals = draft(SUMMARY_CASE, SECTION, SECTION_TARGET, source, names, budget, SECTION_PROMPT)
+
     private suspend fun draft(
         useCase: String,
         kind: String,
         target: String,
         source: RunSource,
         names: NameDictionary,
-        budget: RunBudget
+        budget: RunBudget,
+        prompt: String = useCase
     ): RunProposals {
         budget.spend()
         val result =
@@ -41,7 +49,8 @@ class DraftAgents(
                     inputReference = source.inputReference,
                     project = source.project,
                     restricted = source.restricted,
-                    summary = { if (it.markdown.isBlank()) "Borrador vacío" else "Un borrador de ${it.markdown.length} caracteres" }
+                    summary = { if (it.markdown.isBlank()) "Borrador vacío" else "Un borrador de ${it.markdown.length} caracteres" },
+                    prompt = prompt
                 )
             )
         val markdown = Proposals.markdown(result.output.markdown) ?: return RunProposals(interactions = listOf(result.interaction), discarded = 1)
@@ -65,6 +74,9 @@ class DraftAgents(
         const val SUMMARY_CASE = "AI-04"
         const val MINUTES = "BORRADOR DE ACTA"
         const val SUMMARY = "RESUMEN EJECUTIVO"
+        const val SECTION = "BORRADOR DE SECCION"
+        const val SECTION_TARGET = "deliverable_section"
+        const val SECTION_PROMPT = "AI-04-SECCION"
         const val TEXT = "text"
     }
 }

@@ -48,11 +48,8 @@ class AiRuns(
     private val cases: List<AiRunCase>
 ) {
     suspend fun run(body: Map<String, Any?>): CommandAnswer {
-        val request = parse(body, cases.map { it.useCase })
-        val case = cases.single { it.useCase == request.useCase }
-        if (request.target.objectName !in case.objects) {
-            throw ValidationException("Cuerpo inválido", "target.object", "${case.useCase} se pide sobre ${case.objects.sorted().joinToString(", ")}")
-        }
+        val request = parse(body, cases.map { it.useCase }.distinct())
+        val case = select(cases, request)
         val user = callers.require()
         activation.requireOrganization()
         case.require(user, request.target)
@@ -74,6 +71,20 @@ class AiRuns(
         private val LOG = LoggerFactory.getLogger(AiRuns::class.java)
         const val USE_CASE = "useCase"
         const val TARGET = "target"
+
+        // el caso del pedido por su useCase y su objeto: AI-04 tiene el resumen del proyecto y el borrador de sección (plan 8.2c)
+        fun select(
+            cases: List<AiRunCase>,
+            request: RunRequest
+        ): AiRunCase {
+            val candidates = cases.filter { it.useCase == request.useCase }
+            return candidates.firstOrNull { request.target.objectName in it.objects }
+                ?: throw ValidationException(
+                    "Cuerpo inválido",
+                    "target.object",
+                    "${request.useCase} se pide sobre ${candidates.flatMap { it.objects }.sorted().joinToString(", ")}"
+                )
+        }
 
         // 400 si el cuerpo trae otra propiedad, si el caso no es uno de las corridas o si el objetivo no es { object, recordId }
         fun parse(

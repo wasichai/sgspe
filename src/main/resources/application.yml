@@ -286,6 +286,8 @@ sgspe:
       ai-02: '1'
       ai-03: '1'
       ai-04: '1'
+      # plan 8.2c: el borrador de sección de AI-04 (otro prompt del mismo caso, con el mismo modelo)
+      ai-04-seccion: '1'
       ai-05: '1'
       ai-06: '1'
       ai-07: '1'

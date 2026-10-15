@@ -9,6 +9,7 @@ import sgspe.dashboard.KpiReaders
 import sgspe.dashboard.Kpis
 import sgspe.dashboard.MonitoringRow
 import sgspe.territory.ProjectProximityQueries
+import wasichai.core.common.WasichaiException
 import java.time.LocalDate
 import java.util.UUID
 
@@ -28,6 +29,69 @@ class ReportSources(
         organizationId: UUID,
         type: DeliverableType
     ): ReportSource = Platform(organizationId, type.reads)
+
+    // las lecturas de AI-04 de sección (especificación de F8 §3.9; decisión 16 del plan 8.2c): como la persona que pide, con
+    // Records y las mismas proyecciones que la plataforma; lo que no lee (un objeto sin READ, un registro fuera de su alcance)
+    // sale vacío, nunca un error, y la Tabla 9.5 la calcula su lector
+    fun person(type: DeliverableType): ReportSource = Person(type.reads)
+
+    private inner class Person(
+        private val reads: Map<String, Set<String>>
+    ) : ReportSource {
+        private fun fields(objectName: String): Set<String> = reads[objectName] ?: throw IllegalStateException("El tipo no declara lecturas de $objectName")
+
+        override suspend fun one(
+            objectName: String,
+            id: UUID
+        ): SourceRow? {
+            val allowed = fields(objectName)
+            return try {
+                records.find(objectName, id)?.let { SourceRow(it.id, it.state, it.attributes.filterKeys { k -> k in allowed }) }
+            } catch (_: WasichaiException) {
+                null
+            }
+        }
+
+        override suspend fun all(
+            objectName: String,
+            filters: Map<String, String>
+        ): List<SourceRow> {
+            val allowed = fields(objectName)
+            return try {
+                records.all(objectName, filters, max = MAX_ROWS).map { SourceRow(it.id, it.state, it.attributes.filterKeys { k -> k in allowed }) }
+            } catch (_: WasichaiException) {
+                emptyList()
+            }
+        }
+
+        override suspend fun related(
+            objectName: String,
+            id: UUID,
+            relationship: String,
+            target: String
+        ): List<SourceRow> {
+            val allowed = fields(target)
+            return try {
+                records.related(objectName, id, relationship, max = MAX_ROWS).map { SourceRow(it.id, it.state, it.attributes.filterKeys { k -> k in allowed }) }
+            } catch (_: WasichaiException) {
+                emptyList()
+            }
+        }
+
+        // la consulta de F6 de la persona pide el proyecto, no las concesiones: AI-04 no la usa (el predio de T2 no es asistido)
+        override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> = emptyList()
+
+        override suspend fun monitoring(
+            project: UUID,
+            start: LocalDate,
+            end: LocalDate
+        ): List<MonitoringRow>? =
+            try {
+                dashboards.dashboard(Kpis.MONITORING, period(project, start, end)).rows
+            } catch (_: WasichaiException) {
+                null
+            }
+    }
 
     private inner class Platform(
         private val organizationId: UUID,

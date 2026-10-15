@@ -18,7 +18,9 @@ data class ModelCall<T : Any>(
     val project: UUID? = null,
     val restricted: List<RestrictedValue> = emptyList(),
     val inputField: String = "target",
-    val summary: (T) -> String
+    val summary: (T) -> String,
+    // el prompt de la llamada: por defecto el del caso; AI-04 de sección usa otro del mismo caso (ai-04-seccion, plan 8.2c)
+    val prompt: String = useCase
 )
 
 data class ModelCallResult<T : Any>(
@@ -53,7 +55,7 @@ class ModelCalls(
         if (call.variables.values.sumOf { it.length } > limit) throw AiErrors.inputTooLarge(call.inputField, limit)
         val table = PseudonymTable()
         val inputs = call.variables.mapValues { (_, text) -> Pseudonymizer.pseudonymize(text, call.names, table, call.restricted) }
-        val sent = prompts.render(call.useCase, inputs)
+        val sent = prompts.render(call.prompt, inputs)
         val modelName = properties.modelFor(call.useCase)
         val started = clock.instant()
         val result =
