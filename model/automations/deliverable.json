@@ -1,0 +1,14 @@
+[
+  {
+    "name": "aut-12-issue-certificate",
+    "label": "Constancia de emisión del entregable",
+    "enabled": true,
+    "definition": {
+      "trigger": { "type": "STATE_ENTERED", "state": "issued" },
+      "conditions": [],
+      "actions": [
+        { "type": "GENERATE_DOCUMENT", "documentType": "deliverable-issue-certificate" }
+      ]
+    }
+  }
+]

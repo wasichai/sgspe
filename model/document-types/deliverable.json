@@ -1,0 +1,15 @@
+[
+  {
+    "name": "deliverable-issue-certificate",
+    "label": "Constancia de emisión",
+    "prefix": "CE",
+    "template": { "type": "doc", "content": [
+      {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "platformValue", "attrs": {"value": "documentName"}}, {"type": "text", "text": " "}, {"type": "platformValue", "attrs": {"value": "documentNumber"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Código: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "document_code"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Título: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "title"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Tipo: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "deliverable_type"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Revisión emitida: ", "marks": [{"type": "bold"}]}, {"type": "objectField", "attrs": {"field": "current_revision"}}]},
+      {"type": "paragraph", "content": [{"type": "text", "text": "Constancia generada el "}, {"type": "platformValue", "attrs": {"value": "today"}}, {"type": "text", "text": "."}]}
+    ] }
+  }
+]

@@ -1,4 +1,4 @@
-"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F7).
+"""Pruebas de roles.json y de apply_roles.py contra un FakeCore (security.md §6.3 y §14, filas de F1 a F8).
 
 Desde F2, roles.json se contrasta con la matriz de security.md §7.2 a §7.8 y con los campos restringidos de §7.9, que
 lee design_docs.py.
@@ -101,7 +101,7 @@ class RolesJsonTests(unittest.TestCase):
             self.assertEqual(role["permisos"], wanted, name)
 
     def test_desde_f5_todos_los_roles_tienen_permisos(self):
-        # la fase del modelo es la de su objeto más tardío: F8 desde el plan 8.2a (los indicadores); SOCIAL_INVESTMENT_MANAGER (F5) fue el
+        # la fase del modelo es la de su objeto más tardío: F8 desde el plan 8.2a; SOCIAL_INVESTMENT_MANAGER (F5) fue el
         # último rol en recibir permisos (security.md §7.1)
         phases, _ = design_docs.role_phases()
         cards = design_docs.cards()
@@ -162,7 +162,9 @@ class RolesJsonTests(unittest.TestCase):
                                          ("grievance", ("resolve_high_severity",), "APPROVE"),
                                          ("early_warning", ("confirm", "dismiss"), "CONFIRM_ALERT"),
                                          ("social_program", ("approve",), "APPROVE"),
-                                         ("social_contribution", ("approve",), "APPROVE")):
+                                         ("social_contribution", ("approve",), "APPROVE"),
+                                         ("deliverable", ("approve",), "APPROVE"),
+                                         ("deliverable", ("issue",), "ISSUE")):
             workflow = load(os.path.join(HERE, "workflows", f"{obj}.json"))
             roles = {r for t in workflow["definition"]["transitions"] if t["name"] in transitions for r in t["roles"]}
             holders = {name for name, role in self.roles.items() if action in role["permisos"].get(obj, [])}
@@ -414,8 +416,9 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(any("MANAGE_METADATA" in e for e in errors), errors)
 
     def test_un_objeto_que_el_modelo_no_tiene_se_rechaza(self):
-        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"deliverable": ["READ"]}))
-        self.assertTrue(any("object 'deliverable' is not in model.json" in e for e in errors), errors)
+        # knowledge_chunk es una tabla fija (F7), nunca un objeto: el ejemplo no envejece cuando el modelo crece
+        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"knowledge_chunk": ["READ"]}))
+        self.assertTrue(any("object 'knowledge_chunk' is not in model.json" in e for e in errors), errors)
 
     def test_una_accion_declarada_solo_vale_sobre_su_objeto(self):
         def only(permisos):
@@ -426,11 +429,11 @@ class ValidationTests(unittest.TestCase):
 
     def test_restricted_fields_nombra_objetos_campos_y_lectores_que_existen(self):
         errors = self.mutate(lambda r: r["restrictedFields"].extend([
-            {"object": "deliverable", "fields": ["description"], "readers": []},
+            {"object": "knowledge_chunk", "fields": ["content"], "readers": []},
             {"object": "person", "fields": ["nickname"], "readers": ["SOCIAL_MANAGER"]},
             {"object": "topic", "fields": ["code"], "readers": ["INTRUSO"]},
             {"object": "stakeholder", "fields": ["stance"], "readers": ["SOCIAL_MANAGER"]}]))
-        self.assertTrue(any("object 'deliverable' is not in model.json" in e for e in errors), errors)
+        self.assertTrue(any("object 'knowledge_chunk' is not in model.json" in e for e in errors), errors)
         self.assertTrue(any("'nickname' is not a field of person" in e for e in errors), errors)
         self.assertTrue(any("reader 'INTRUSO' of topic is not a declared role" in e for e in errors), errors)
         self.assertTrue(any("stakeholder.stance is listed twice" in e for e in errors), errors)
@@ -645,14 +648,14 @@ class ApplyRolesTests(ApplyRolesTestCase):
 
     def test_un_roles_json_invalido_no_llama_a_core(self):
         roles = load(ROLES_PATH)
-        roles["roles"][0]["permisos"]["deliverable"] = ["READ"]
+        roles["roles"][0]["permisos"]["knowledge_chunk"] = ["READ"]
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "roles.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(roles, f)
             code, out, err = self.run_cli(roles_path=path)
         self.assertEqual(code, 2)
-        self.assertIn("deliverable", out)
+        self.assertIn("knowledge_chunk", out)
         self.assertEqual(self.core.requests, [])
 
     def test_un_roles_json_mal_formado_sale_con_2_y_sin_traza(self):
@@ -811,10 +814,10 @@ class ApplyRolesTests(ApplyRolesTestCase):
                          ["GIS_ANALYST", "SOCIAL_INVESTMENT_MANAGER"])
         self.assertIn("done: 0 created, 0 updated, 15 skipped", again[1])
 
-    def test_un_tenant_de_f7_suma_los_indicadores(self):
-        # plan 8.2a: apply_roles.py da READ sobre indicator e indicator_measurement a los doce roles de security.md §7.8 (y
-        # UPDATE y CREATE a SOCIAL_MANAGER) y READ sobre indicator a PROJECT_ADMIN y FIELD_AGENT (la meta de KPI-ENG-02, R1);
-        # AUDITOR («*» READ) no cambia
+    def test_un_tenant_de_f7_suma_los_indicadores_y_los_entregables(self):
+        # Review Focus 2 del plan 8.1: el tenant demo sube de F7 a F8. apply_roles.py da los permisos de security.md §7.8:
+        # los indicadores (plan 8.2a; READ de indicator también a PROJECT_ADMIN y FIELD_AGENT, la meta de KPI-ENG-02) y los
+        # cuatro objetos de entregables a los doce roles que leen deliverable; AUDITOR («*» READ) no cambia
         import apply
         import test_apply
         login = ["--core", self.core.base_url, "--email", "admin@wasichai.local", "--password", "admin"]

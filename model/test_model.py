@@ -16,15 +16,7 @@ import unittest
 import design_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE = "F7"
-# §2.2.1 de la especificación de F8: el modelo de los indicadores viaja con el plan 8.2a, antes que los entregables (8.1).
-# 8.1 borra EARLY al poner PHASE = "F8"
-EARLY = {"indicator": "F8", "indicator_measurement": "F8"}
-
-
-def limit(name):
-    """La fase hasta la que se compara un objeto: la suya si se adelanta (EARLY), si no PHASE."""
-    return EARLY.get(name, PHASE)
+PHASE = "F8"
 # un estado nunca representa un plazo (RN-WFL-001): ninguno de estos nombres puede aparecer
 DEADLINE_WORDS = ("overdue", "expired", "due", "late", "vencid")
 # workflows.md, «Mecánica de wasichai» 4: nunca en una transición
@@ -46,9 +38,9 @@ class ModelAgainstCardsTests(unittest.TestCase):
     def test_tiene_exactamente_los_objetos_de_las_fichas_hasta_la_fase(self):
         # las tablas fijas (notification, idempotency_key…) tienen ficha pero no son objetos: no están en la matriz
         catalog = design_docs.matrix()
-        wanted = [name for name, card in self.cards.items() if card.phase <= limit(name) and name in catalog]
+        wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 86)
+        self.assertEqual(len(wanted), 90)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -62,7 +54,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
     def test_cada_campo_de_la_fase_con_su_tipo_requerido_unico_derivado_e_indice(self):
         for name, obj in self.objects.items():
             card = self.cards[name]
-            wanted = [f for f in card.fields if design_docs.field_phase(card, f) <= limit(name)]
+            wanted = [f for f in card.fields if design_docs.field_phase(card, f) <= PHASE]
             self.assertEqual([f["name"] for f in obj["fields"]], [f["name"] for f in wanted], name)
             for got, doc in zip(obj["fields"], wanted):
                 where = f"{name}.{got['name']}"
@@ -75,6 +67,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
                 self.assertEqual(got.get("indexed", False), got["name"] in card.indexed, where)
                 self.assertEqual(got.get("defaultValue"), doc["default"], where)
                 self.assertEqual(got.get("contentTypes"), card.content_types.get(got["name"]), where)
+                self.assertEqual(got.get("maxBytes"), card.max_bytes.get(got["name"]), where)
                 self.assertTrue(got.get("label"), where)
                 self.assertNotIn("editable", got, where)
 
@@ -97,7 +90,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         for name in self.objects:
             card = self.cards[name]
             for rel in card.relationships:
-                if not rel["inverse"] and design_docs.relationship_phase(self.cards, card, rel) <= limit(name):
+                if not rel["inverse"] and design_docs.relationship_phase(self.cards, card, rel) <= PHASE:
                     wanted.append((rel["name"], rel["type"], name, rel["target"], rel["field"], rel["required"]))
         got = [(r["name"], r.get("type", "MANY_TO_ONE"), r["source"], r["target"], r.get("fieldName"),
                 r.get("required", False)) for r in self.model["relationships"]]
@@ -114,7 +107,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
             self.assertEqual(obj.get("uniqueConstraints", []), card.unique_constraints, name)
             self.assertEqual(obj.get("indexes", []), card.indexes, name)
             self.assertEqual([a["name"] for a in obj.get("actions", [])],
-                             [a for a in card.actions if design_docs.action_phase(card, a) <= limit(name)], name)
+                             [a for a in card.actions if design_docs.action_phase(card, a) <= PHASE], name)
             # "`unique` en `x`" de la ficha: un campo con unique: true o, si x es el campo de una relación (delivery desde
             # F5), la relación con unique: true, que apply.py pone en la fase 3 (wasichai no admite un uniqueConstraints de
             # un solo campo)
@@ -259,6 +252,8 @@ class WorkflowTests(unittest.TestCase):
                                "cancel_draft", "cancel_pending_approval", "cancel_planned", "cancel_suspended"},
             "social_contribution": {"approve", "approve_direct", "reject", "register_procurement", "register_delivery",
                                     "close", "cancel_approved", "cancel_procured"},
+            # F8: DeliverableWriteGuard, la emisión (CommandTransitionGuard) y el aviso de aprobación pendiente de WF-H
+            "deliverable": {"submit_for_review", "resubmit", "approve", "return_to_draft", "issue", "start_revision"},
         }
         for obj, names in named.items():
             have = {t["name"] for t in self.workflows[obj]["definition"]["transitions"]}
@@ -344,6 +339,7 @@ class AutomationsAndDocumentTypesTests(unittest.TestCase):
         self.assertEqual(waiting, {"AUT-03": "UPS-23", "AUT-04": "UPS-23", "AUT-06": "UPS-23", "AUT-07": "UPS-23",
                                    "AUT-08": "UPS-23"})
         self.assertEqual(wanted, [("commitment", "aut-01-commitment-execution-task"),
+                                  ("deliverable", "aut-12-issue-certificate"),
                                   ("early_warning", "aut-09-warning-triage-task"),
                                   ("engagement", "aut-05-meeting-minutes"), ("engagement", "aut-10-engagement-reschedule-task"),
                                   ("grievance", "aut-02-grievance-ack-task"), ("social_risk", "aut-11-critical-risk-task")])
@@ -519,7 +515,7 @@ class TerritoryF6Tests(unittest.TestCase):
                                                            next(x for x in cards[r["source"]].relationships
                                                                 if x["name"] == r["name"])) <= "F6"]
         self.assertEqual(len(relationships), 272)
-        self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"]), 39)
+        self.assertEqual(sum(len(o.get("actions", [])) for o in self.model["objects"] if cards[o["name"]].phase <= "F6"), 39)
 
 
 class AiModelTests(unittest.TestCase):
@@ -535,7 +531,7 @@ class AiModelTests(unittest.TestCase):
 
     def test_f7_trae_dos_objetos_y_cuatro_relaciones(self):
         # lo que había hasta F7, por las fases de las fichas: cada fase cuenta solo lo suyo (8.2a suma los indicadores en
-        # IndicatorModelTests; los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF7Tests)
+        # IndicatorModelTests; los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF8Tests)
         cards = design_docs.cards()
         upto = [o for o in self.model["objects"] if cards[o["name"]].phase <= "F7"]
         self.assertEqual(len(upto), 84)
@@ -602,7 +598,7 @@ class IndicatorModelTests(unittest.TestCase):
         cls.roles = load("roles.json")
 
     def test_trae_sus_dos_objetos_y_sus_dos_relaciones(self):
-        # solo lo suyo: los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF7Tests
+        # solo lo suyo: los totales absolutos viven en ModelAgainstCardsTests y en test_apply.ModelOfF8Tests
         self.assertEqual([n for n in self.objects if n.startswith("indicator")], ["indicator", "indicator_measurement"])
         own = sorted(r["name"] for r in self.model["relationships"] if r["source"] == "indicator_measurement")
         self.assertEqual(own, ["indicator_measurement_indicator", "indicator_measurement_project"])
@@ -641,6 +637,107 @@ class IndicatorModelTests(unittest.TestCase):
     def test_ningun_campo_restringido(self):
         # indicator_measurement la leen roles sin acceso a la postura: por eso el cierre no congela KPI-STK-02, 05 ni 06
         self.assertEqual([e for e in self.roles["restrictedFields"] if e["object"].startswith("indicator")], [])
+
+
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+DRAFT_FILES = ("draft_model", "draft_internal_docx", "draft_internal_pdf", "draft_external_pdf",
+               "draft_candidate_internal_docx", "draft_candidate_internal_pdf", "draft_candidate_external_pdf")
+
+
+class DeliverableModelTests(unittest.TestCase):
+    """§4.2 de la especificación de F8: deliverable con los siete FILE derivados del borrador (ASM-133), deliverable_section,
+    deliverable_version con sus FILE (sin *_storage_key), deliverable_template (apiOnly y appendOnly, ASM-135), los
+    vínculos de export_log y de task, el catálogo «Tipo de entregable» con dos tipos, WF-H, AUT-12 y la constancia."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model = load("model.json")
+        cls.objects = {o["name"]: o for o in cls.model["objects"]}
+        cls.relationships = {r["name"]: r for r in cls.model["relationships"]}
+        cls.roles = load("roles.json")
+
+    def fields(self, name):
+        return {f["name"]: f for f in self.objects[name]["fields"]}
+
+    def test_f8_trae_cuatro_objetos_quince_relaciones_y_cinco_acciones(self):
+        cards = design_docs.cards()
+        # solo lo suyo (los indicadores de 8.2a los cuenta IndicatorModelTests; los totales absolutos viven en
+        # ModelAgainstCardsTests y en test_apply.ModelOfF8Tests)
+        own = [o["name"] for o in self.model["objects"]
+               if cards[o["name"]].phase == "F8" and o["name"].startswith("deliverable")]
+        self.assertEqual(own, ["deliverable", "deliverable_section", "deliverable_version", "deliverable_template"])
+        relationships = [r for r in self.model["relationships"]
+                         if not r["source"].startswith("indicator")
+                         and design_docs.relationship_phase(cards, cards[r["source"]],
+                                                            next(x for x in cards[r["source"]].relationships
+                                                                 if x["name"] == r["name"])) == "F8"]
+        self.assertEqual(len(relationships), 15)
+        self.assertEqual([a["name"] for a in self.objects["deliverable"]["actions"]],
+                         ["APPROVE", "GENERATE", "ISSUE", "EXPORT", "DOWNLOAD_RESTRICTED"])
+
+    def test_el_borrador_son_siete_archivos_derivados_y_ninguna_clave_propia(self):
+        fields = self.fields("deliverable")
+        self.assertEqual([n for n, f in fields.items() if f["type"] == "FILE"], list(DRAFT_FILES))
+        for name in DRAFT_FILES:
+            self.assertIs(fields[name].get("derived"), True, name)
+            self.assertEqual(fields[name]["maxBytes"], 64 * 1024 * 1024, name)
+        self.assertEqual(fields["draft_model"]["contentTypes"], ["text/plain"])
+        self.assertEqual(fields["draft_internal_docx"]["contentTypes"], [DOCX])
+        self.assertEqual(fields["draft_external_pdf"]["contentTypes"], ["application/pdf"])
+        for name in ("draft_revision", "draft_warnings", "generation_requested_at", "current_revision"):
+            self.assertIs(fields[name].get("derived"), True, name)
+        self.assertFalse([n for n in fields if n.endswith("_storage_key")])
+
+    def test_la_version_lleva_sus_archivos_y_sus_hashes(self):
+        fields = self.fields("deliverable_version")
+        files = {n: f.get("required", False) for n, f in fields.items() if f["type"] == "FILE"}
+        self.assertEqual(files, {"docx": False, "pdf": True, "model": False})
+        self.assertFalse([n for n in fields if n.endswith("_storage_key")])
+        for name in ("pdf_sha256", "model_sha256", "template_sha256", "docx_sha256"):
+            self.assertEqual(fields[name]["type"], "TEXT", name)
+        version = self.objects["deliverable_version"]
+        self.assertEqual((version.get("appendOnly"), version.get("apiOnly")), (True, True))
+
+    def test_la_plantilla_es_un_objeto_inmutable_con_su_archivo_docx_de_20_mb(self):
+        template = self.objects["deliverable_template"]
+        self.assertEqual((template.get("appendOnly"), template.get("apiOnly")), (True, True))
+        fields = self.fields("deliverable_template")
+        self.assertEqual((fields["file"]["type"], fields["file"].get("required"), fields["file"]["maxBytes"],
+                          fields["file"]["contentTypes"]), ("FILE", True, 20 * 1024 * 1024, [DOCX]))
+        self.assertIs(fields["template_key"].get("required"), True)
+        self.assertNotIn("uniqueConstraints", template)
+        self.assertEqual([r for r in self.model["relationships"] if "deliverable_template" in (r["source"], r["target"])], [])
+
+    def test_solo_dos_tipos_de_entregable(self):
+        self.assertEqual(self.model["enums"]["deliverable_type"], ["DIAGNOSTICO SOCIAL", "INFORME DE CAMPO Y AVANCE"])
+
+    def test_registro_de_salidas_y_tarea_apuntan_a_los_entregables(self):
+        wanted = {"export_log_deliverable": ("export_log", "deliverable", "deliverable"),
+                  "export_log_deliverable_version": ("export_log", "deliverable_version", "deliverable_version"),
+                  "task_deliverable": ("task", "deliverable", "deliverable")}
+        for name, (source, field, target) in wanted.items():
+            rel = self.relationships[name]
+            self.assertEqual((rel["source"], rel["fieldName"], rel["target"], rel.get("required", False)),
+                             (source, field, target, False), name)
+
+    def test_ningun_objeto_de_entregables_tiene_campos_restringidos(self):
+        # la constancia de AUT-12 congela el registro y sus versiones (UPS-23, security.md §11.4)
+        restricted = {e["object"] for e in self.roles["restrictedFields"]}
+        self.assertEqual(restricted & set(self.objects) & {"deliverable", "deliverable_section", "deliverable_version",
+                                                            "deliverable_template"}, set())
+
+    def test_issue_es_la_unica_transicion_que_crea_versiones(self):
+        # workflows.md, «Transiciones de comando»: issue de WF-H; quienes la aplican crean versiones y filas de export_log
+        workflow = load(os.path.join("workflows", "deliverable.json"))
+        roles = {r["name"]: r["permisos"] for r in self.roles["roles"]}
+        issuers = next(t["roles"] for t in workflow["definition"]["transitions"] if t["name"] == "issue")
+        self.assertEqual(sorted(issuers), ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"])
+        for role in issuers:
+            self.assertIn("ISSUE", roles[role]["deliverable"], role)
+            self.assertIn("CREATE", roles[role]["deliverable_version"], role)
+            self.assertIn("CREATE", roles[role]["export_log"], role)
+        creators = {name for name, grants in roles.items() if "CREATE" in grants.get("deliverable_version", [])}
+        self.assertEqual(creators, set(issuers))
 
 
 # la migración de la tabla fija de sgspe.ai (database-model.md §2.3: sgspe_ai, en classpath:db/sgspe/ai)

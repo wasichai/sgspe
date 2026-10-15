@@ -894,7 +894,7 @@ barras ni paréntesis, como `AL DIA`; la alternativa en inglés queda como decis
 | Clasificación de evidencia | PUBLICA · INTERNA · CONFIDENCIAL · DATOS PERSONALES (propuestos) | `evidence` | [PRM-01 §5] [USR-07] |
 | Tipo de documento administrativo | ACTA DE ENTREGA · ACTA DE RECEPCION · MINUTA DE REUNION · LISTA DE ASISTENTES · CONSTANCIA · CARGO DE QUEJA (tras UPS-23) · CARTA DE RESPUESTA (tras UPS-23) · FICHA DE GRUPO DE INTERES · FICHA DE LOCALIDAD (propuestos los cinco últimos; el cargo y la carta se suben firmados como evidencia mientras UPS-23 siga abierta, ASM-098) | documentos emitidos de wasichai-documents | [DOC-01 §9.3.1.2, Tabla 9.5] [DOC-02 p.4] |
 | Nivel de divulgación | INTERNO · EXTERNO · PUBLICO (propuestos, ASM-037) | `deliverable_version`, `export_log` | [USR-07] |
-| Tipo de entregable | DIAGNOSTICO SOCIAL · INFORME DE CAMPO Y AVANCE (y los probables de ASM-026) | `deliverable` | [USR-01] |
+| Tipo de entregable | DIAGNOSTICO SOCIAL · INFORME DE CAMPO Y AVANCE (los de F8; T3 a T10 siguen probables, ASM-026, y un tipo nuevo se agrega aquí con su clase) | `deliverable` | [USR-01] |
 | Tipo de sección de entregable | NARRATIVA · CALCULADA · MIXTA (propuesto) · ANEXO | `deliverable_section` | [DOC-01 índice, Anexos] [DOC-02] (RQ-REP-011, RQ-REP-012) |
 | Origen del contenido | HUMANO · CALCULADO · ASISTIDO POR IA (propuestos) | `deliverable_section` | [USR-01] [PRM-01 §9] (RQ-AI-012) |
 | Estado de generación del borrador | SIN GENERAR · EN COLA · EN PROCESO · LISTO · FALLIDO (propuestos) | `deliverable` | [USR-01] (RQ-REP-021) |
@@ -1309,6 +1309,7 @@ Capacidades que wasichai 0.3.2 no ofrece. Los issues upstream se abren solo con 
 | UPS-29 | Que `MetadataService` guarde las definiciones de objeto (invalidadas por sus propias escrituras, con un TTL corto o una versión del modelo para varios nodos, sin guardar ausencias), que las consultas de rol (`hasPermission`, `fieldAccess`, `ownRecordsOnly`) se memoricen por petición y que un evento avise los cambios del modelo. Abierta como wasichai/wasichai#105 el 2026-10-11 | Quien no es `ADMIN` paga en cada operación la definición del objeto y tres consultas de rol, repetidas dentro de una misma petición: una lista de una analista cuesta 10 consultas frente a las 6 a 7 del admin, y el alta de una entrega con tres evidencias, 188 (de 7,5 a 8,7 s por el túnel) | Resuelta en wasichai 1.1.0 (wasichai/wasichai#106, ADR-066 de wasichai) y adoptada el 2026-10-11: SGSPE retira `ObjectDefinitions.recent`, deja el memo por petición (`ObjectDefinitions.current`) y fija `wasichai.metadata.cache.ttl: 30s`; `RequestMemoFilter` sigue abriendo el memo del comando en las escrituras de `/api/sgspe/`. Medido en local: la lista de una analista, de 9 a 10 consultas a 5 a 6 (admin, 3 a 4), y el alta de una entrega con tres evidencias, de 178 a 81 | Antes de producción | RNF-PERF-001 |
 | UPS-30 | Que wasichai responda desde la caché de definiciones (o una con las mismas reglas de invalidación) las lecturas del modelo que todavía hace en cada operación: workflows por objeto, relación y objeto por nombre al vincular (`RelatedRecordService`), los campos `FILE` de un objeto (`StoredFileRepository`), la definición del destino de una relación (`RelationTargets`), y las reglas de notificación y automatizaciones del objeto. Abierta como wasichai/wasichai#108 el 2026-10-11 | Con wasichai 1.1.0, el alta de una entrega con tres evidencias cuesta 81 consultas y 31 son de modelo sin caché (15 de `workflows`); toda lista, también la del admin, lee el workflow del objeto | Resuelta en wasichai 1.2.0 (wasichai/wasichai#109, ADR-067 de wasichai) y adoptada el 2026-10-11, sin cambios de código en SGSPE. Medido en local: el alta de una entrega con tres evidencias, de 81 a 48 a 52 consultas; la lista de una analista, de 5 a 6 a 4 a 5 (admin, de 3 a 4 a 2 a 3) | Antes de producción | RNF-PERF-001 |
 | UPS-31 | Que wasichai-files deje a la plataforma, dentro de `asPlatform`, subir (`FileService.stage`) y adjuntar un archivo en la misma escritura de la plataforma (con `created_by` vacío y `StoredFileGuard` aceptando la subida de esa corrida) y abrir uno (`FileService.open`) sin usuario: wasichai-files 1.2.0 dice «Only a person can upload: the platform (`asPlatform`) and automations cannot attach a file». Abierta como wasichai/wasichai#111 el 2026-10-13 | JOB-05 corre como la plataforma: no puede adjuntar los siete archivos del borrador (ASM-133) ni abrir las fotos de las evidencias por wasichai-files | El plan 8.2b avanza todo lo que no adjunta archivos y sube a la versión exacta de wasichai que la publique; mientras tanto, JOB-05 lee las fotos con `FileStore.open("<organización>/<id del archivo>")` y comprueba su SHA-256 contra el descriptor. Si wasichai no la resuelve, el respaldo es solo para el borrador: claves propias en el `FileStore` (`draft_storage_key`) y un paso de borradores en JOB-08; versiones y plantillas no cambian, porque las sube una persona | F8 | RQ-REP-017, RQ-REP-021, RQ-REP-027 |
+| UPS-32 | Que wasichai-documents congele una tabla relacionada (`relatedTable`) cuyas filas traen campos nulos: `RelatedSnapshot.rows` es `List<Map<String, Any?>>` y con jackson-module-kotlin 3 (StrictNullChecks) la lectura de la copia falla con `InvalidNullException` (`Document.kt:13`, `DocumentRepository.kt:143`). Abierta, pendiente de abrir el issue upstream | `deliverable_version` siempre trae campos opcionales vacíos (`docx`, `model`, `model_sha256`, `derived_from`...), así que AUT-12 no puede emitir la constancia de un entregable con la tabla de sus versiones; la CI lo detectó en `IssueCertificateApiTest` | La «Constancia de emisión» se emite sin la tabla de las versiones: código, título, tipo y revisión vigente; las versiones y sus SHA-256 siguen en `deliverable_version` y en la descarga de SGSPE. Cuando wasichai lo arregle, se sube a esa versión y se restaura el `relatedTable` de `deliverable_version_deliverable` en `model/document-types/deliverable.json` | F8 | RQ-REP-029, RQ-REP-027 |
 
 ## 19. Assumptions
 
@@ -1513,9 +1514,9 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `RQ-AI` | 13 |
 | `CON` | 60 |
 | `GAP` | 33 |
-| `UPS` | 31 |
+| `UPS` | 32 |
 | `ASM` | 138 |
-| Total | 560 |
+| Total | 561 |
 
 ### 20.2 Requisitos por bounded context
 
@@ -1660,7 +1661,7 @@ Observaciones:
   ASM-125 adopta UPS-13 ya resuelta.
 - Los IDs de F7 (ASM-128 a ASM-132) no retiran ninguno: ASM-128 fija el mecanismo de activación de ASM-015, y
   ASM-130 adopta UPS-14 ya resuelta.
-- Los IDs de F8 (ASM-133 a ASM-138 y UPS-31) no retiran ninguno: ASM-133 reemplaza la parte de almacenamiento de
+- Los IDs de F8 (ASM-133 a ASM-138, UPS-31 y UPS-32) no retiran ninguno: ASM-133 reemplaza la parte de almacenamiento de
   ASM-061 y deja ASM-028 en un borrador, ASM-134 cambia las decoraciones de ASM-038, ASM-135 detalla ASM-055 y resuelve
   GAP-010, y ASM-136 detalla ASM-042 y resuelve GAP-018.
 - Las nueve decisiones del usuario (USR-01 a USR-09) están desplegadas según §6.0; USR-04 y USR-08 se cumplen en el

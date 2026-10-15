@@ -471,7 +471,7 @@ Los issues upstream se abren solo con la aprobación del checkpoint (GAP-028). F
 | F4 | UPS-27, UPS-28 |
 | F5 | UPS-23 (AUT-04, ASM-116) |
 | F7 | Ninguna (UPS-14, resuelta en wasichai con WAS-ADR-0056 y adoptada en F7, ASM-130) |
-| F8 | UPS-31 (abierta como wasichai/wasichai#111; el plan 8.2b sube a la versión que la resuelva) |
+| F8 | UPS-31 (abierta como wasichai/wasichai#111; el plan 8.2b sube a la versión que la resuelva), UPS-32 (la constancia de AUT-12 sale sin la tabla de versiones hasta que wasichai congele `relatedTable` con campos nulos) |
 | Antes de producción | UPS-09, UPS-17 (UPS-13, resuelta en `@wasichai/gis` 1.0.0); UPS-01 solo para territorio y región (proyectos, resuelto en el plan 4.4, ADR-0029) |
 | Operación multicliente | UPS-10 (resuelta con wasichai 0.6.0, ASM-109) |
 | Endurecimiento | UPS-12 |

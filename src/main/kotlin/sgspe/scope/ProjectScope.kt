@@ -56,7 +56,9 @@ object ProjectScope {
             "ai_suggestion",
             "ai_interaction",
             // F8 (plan 8.2a): la cifra oficial de un periodo, de un proyecto o, sin project, de todo el tenant
-            "indicator_measurement"
+            "indicator_measurement",
+            // F8 (plan 8.1): el entregable (BC-15), con `project` obligatorio
+            "deliverable"
         )
 
     // hijo -> sus padres posibles, en orden: (campo RELATION, objeto padre). el padre es una raíz o un hijo con un único padre
@@ -92,7 +94,10 @@ object ProjectScope {
             "program_budget" to listOf("social_program" to "social_program"),
             "program_indicator" to listOf("social_program" to "social_program"),
             "program_measurement" to listOf("program_indicator" to "program_indicator"),
-            "program_milestone" to listOf("social_program" to "social_program")
+            "program_milestone" to listOf("social_program" to "social_program"),
+            // F8 (plan 8.1): las secciones y las versiones por su entregable
+            "deliverable_section" to listOf("deliverable" to "deliverable"),
+            "deliverable_version" to listOf("deliverable" to "deliverable")
         )
 
     // los saltos de una cadena, como mucho: ProjectReadCondition anida una subconsulta por salto (elección 1 de F5)
@@ -127,7 +132,9 @@ object ProjectScope {
             "local_conflict",
             "topic",
             // F8 (plan 8.2a): el catálogo de los KPI con sus metas (dashboards.md §10), compartido por los proyectos
-            "indicator"
+            "indicator",
+            // F8 (plan 8.1): las plantillas de entregable de la organización (ASM-135), sin proyecto
+            "deliverable_template"
         )
 
     fun covers(objectName: String): Boolean = objectName == "project" || objectName in ROOTS || objectName in CHILDREN
