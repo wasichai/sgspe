@@ -52,11 +52,10 @@ class DeliverableWorkflowApiTest : F8ApiTest() {
         val type = edit("deliverable", id, mapOf("deliverable_type" to SOCIAL_DIAGNOSIS), headers = withReason("cambio"))
         assertEquals(HttpStatus.BAD_REQUEST, type.status, type.body)
         assertEquals(listOf("FIELD_NOT_EDITABLE"), codes(type))
-        val other = deliverable(testProject())
-        val version = deliverableVersion(other)
+        val version = deliverableVersion(id)
         val current = edit("deliverable", id, mapOf("current_version" to version), headers = withReason("cambio"))
         assertEquals(HttpStatus.BAD_REQUEST, current.status, current.body)
-        assertTrue("DERIVED_FIELD" in codes(current) || "PROJECT_MISMATCH" in codes(current), current.body)
+        assertEquals(listOf("DERIVED_FIELD"), codes(current))
     }
 
     @Test
@@ -76,6 +75,23 @@ class DeliverableWorkflowApiTest : F8ApiTest() {
         val deleted = exchange("DELETE", "/api/objects/deliverable_section/records/$section", headers = withReason("baja"))
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, deleted.status, deleted.body)
         assertEquals(listOf("AI_ORIGIN_LOCKED"), codes(deleted))
+    }
+
+    @Test
+    fun `la clave y el entregable de una seccion no cambian, asistida o no`() {
+        val project = testProject()
+        val id = deliverable(project)
+        val assisted = sectionId(id, "estrategias")
+        edit("deliverable_section", assisted, mapOf("content_origin" to "ASISTIDO POR IA", "content" to "Texto adoptado."), headers = withReason("adopción"))
+        val human = sectionId(id, "conclusiones")
+        for (section in listOf(assisted, human)) {
+            val renamed = edit("deliverable_section", section, mapOf("section_key" to uniqueName("otra-")), headers = withReason("cambio"))
+            assertEquals(HttpStatus.BAD_REQUEST, renamed.status, renamed.body)
+            assertEquals(listOf("FIELD_NOT_EDITABLE"), codes(renamed))
+        }
+        val moved = edit("deliverable_section", assisted, mapOf("deliverable" to deliverable(project)), headers = withReason("cambio"))
+        assertEquals(HttpStatus.BAD_REQUEST, moved.status, moved.body)
+        assertEquals(listOf("FIELD_NOT_EDITABLE"), codes(moved))
     }
 
     @Test

@@ -30,7 +30,8 @@ import java.util.UUID
 //   además la acción APPROVE (403 ACTION_REQUIRED)
 // - deliverable_section: con origen ASISTIDO POR IA, toda escritura lleva motivo (400 FIELD_REASON_REQUIRED), y una sección
 //   asistida no vuelve a otro origen ni se borra (422 AI_ORIGIN_LOCKED; decisión 8 del plan 8.2b: el cerrojo dura toda la vida
-//   del entregable)
+//   del entregable); section_key y deliverable no cambian después del alta (400 FIELD_NOT_EDITABLE), o el cambio sacaría la
+//   sección del cerrojo
 // - deliverable_version: una INTERNO trae docx y docx_sha256 (400 FIELD_REQUIRED) y cada *_sha256 es el del descriptor de su
 //   archivo (400 SHA256_MISMATCH); la derivada EXTERNO no trae docx ni model
 @Component
@@ -118,6 +119,19 @@ class DeliverableWriteGuard(
         if (change.kind != RecordChangeKind.CREATED && change.kind != RecordChangeKind.UPDATED) return
         if (change.isLink()) return
         val after = view.after(change)
+        // renombrar la clave o mover la sección a otro entregable sacaría la sección asistida de ai_assisted_sections, como
+        // borrarla y crearla de nuevo: ni la clave ni el entregable cambian después del alta
+        if (change.kind == RecordChangeKind.UPDATED) {
+            val moved = view.changed(change, after)
+            listOf(Deliverables.SECTION_KEY, Deliverables.DELIVERABLE).firstOrNull { it in moved }?.let {
+                throw Finding(
+                    "FIELD_NOT_EDITABLE",
+                    "La clave y el entregable de una sección no cambian después del alta",
+                    it,
+                    status = HttpStatus.BAD_REQUEST
+                ).toCodedException()
+            }
+        }
         val before = change.before.orEmpty()
         val wasAssisted = before[Deliverables.CONTENT_ORIGIN]?.toString() == Deliverables.AI_ASSISTED
         val isAssisted = after[Deliverables.CONTENT_ORIGIN]?.toString() == Deliverables.AI_ASSISTED

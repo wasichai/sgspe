@@ -16,6 +16,7 @@ object Values {
         // un campo FILE: lo guardado puede ser el id y lo reenviado el descriptor { id, name, contentType, size, sha256 } que
         // se leyó (desde F8, plan 8.2b): son el mismo archivo si tienen el mismo id. solo si uno de los dos es un descriptor (un
         // mapa con `id`) y el otro un id o un descriptor; dos mapas cualesquiera se comparan enteros, como antes
+        // (mapa contra mapa se compara con ==: los números dentro de un mapa deben ser del mismo tipo)
         if (x is Map<*, *> || y is Map<*, *>) {
             val fx = fileId(x)
             val fy = fileId(y)
