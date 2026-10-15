@@ -34,11 +34,13 @@ data class DeliverableProperties(
 
     data class Photos(
         val maxSide: Int = 2000,
-        val jpegQuality: Int = 85
+        val jpegQuality: Int = 85,
+        val maxMegapixels: Int = 250
     ) {
         init {
             require(maxSide in 200..8000) { "sgspe.deliverable.photos.max-side debe estar entre 200 y 8000" }
             require(jpegQuality in 10..100) { "sgspe.deliverable.photos.jpeg-quality debe estar entre 10 y 100" }
+            require(maxMegapixels in 1..1000) { "sgspe.deliverable.photos.max-megapixels debe estar entre 1 y 1000" }
         }
     }
 

@@ -17,11 +17,14 @@ import sgspe.privacy.ReportModel
 import sgspe.privacy.ReportSection
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.zip.ZipInputStream
 
 // deliverables.md §7.4 y §7.5: CommonMark con tablas GFM hacia los estilos de la plantilla, sin HTML; celdas combinadas y
 // notas al pie; salto a una sección horizontal y vuelta
 class MarkdownToDocxTest {
-    private fun write(vararg blocks: Block): XWPFDocument {
+    private fun write(vararg blocks: Block): XWPFDocument = XWPFDocument(ByteArrayInputStream(bytes(*blocks)))
+
+    private fun bytes(vararg blocks: Block): ByteArray {
         val meta =
             ReportMeta(
                 "INFORME DE CAMPO Y AVANCE",
@@ -36,9 +39,7 @@ class MarkdownToDocxTest {
                 level = "INTERNO"
             )
         val model = ReportModel(meta, listOf(ReportSection("conclusiones", "Conclusiones", "NARRATIVA", blocks.toList())))
-        return XWPFDocument(
-            ByteArrayInputStream(DocxWriter(DeliverableProperties.Photos()).write(DocxWriter.Input(model, BaseTemplate.bytes, true, null, emptyMap())))
-        )
+        return DocxWriter(DeliverableProperties.Photos()).write(DocxWriter.Input(model, BaseTemplate.bytes, true, null, emptyMap()))
     }
 
     private fun styleName(
@@ -197,5 +198,25 @@ class MarkdownToDocxTest {
         assertTrue(first.isNotEmpty())
         assertEquals(first, ids())
         assertEquals(first.toSet().size, first.size)
+    }
+
+    // revisión final del plan 8.2b, I3: un anidado muy profundo (citas, listas, énfasis) no desborda la pila de JOB-05; más
+    // allá del tope el contenido sale como texto plano
+    @Test
+    fun `un anidado muy profundo no desborda la pila y conserva el texto`() {
+        val depth = 50_000
+        val quotes = "> ".repeat(depth) + "cita del fondo"
+        val lists = "- ".repeat(depth) + "lista del fondo"
+        val emphasis = (1..depth).joinToString(" ") { "*x" } + " énfasis del fondo " + (1..depth).joinToString(" ") { "z*" }
+        val docx = bytes(Block.Paragraph(quotes), Block.Paragraph(lists), Block.Paragraph(emphasis))
+        // el cuerpo, sin POI: tanto texto repetido pasa su tope de compresión (ZipSecureFile), que es de la lectura y no del escritor
+        val text =
+            ZipInputStream(ByteArrayInputStream(docx)).use { zip ->
+                generateSequence { zip.nextEntry }.first { it.name == "word/document.xml" }
+                zip.readAllBytes().toString(Charsets.UTF_8)
+            }
+        assertTrue("cita del fondo" in text)
+        assertTrue("lista del fondo" in text)
+        assertTrue("énfasis del fondo" in text)
     }
 }

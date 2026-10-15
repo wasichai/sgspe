@@ -11,7 +11,9 @@ import javax.imageio.ImageWriteParam
 
 // una foto reducida antes de entrar al DOCX (deliverables.md §7.5, RQ-REP-010): lado mayor de `maxSide` píxeles como máximo
 // y JPEG de calidad `quality` (sgspe.deliverable.photos), sobre fondo blanco si traía transparencia. sin pantalla (Java 2D
-// headless). null si los bytes no son una imagen que ImageIO lea
+// headless). las dimensiones se leen de la cabecera antes de decodificar: por encima de `maxMegapixels` no se decodifica (una
+// foto de 200 MP o una bomba PNG agotarían la memoria de JOB-05), y por debajo se decodifica submuestreada hacia `maxSide`.
+// null si los bytes no son una imagen que ImageIO lea o pasan el tope (la foto sale como no disponible)
 object PhotoResize {
     data class Resized(
         val jpeg: ByteArray,
@@ -22,9 +24,10 @@ object PhotoResize {
     fun jpeg(
         bytes: ByteArray,
         maxSide: Int,
-        quality: Int
+        quality: Int,
+        maxMegapixels: Int
     ): Resized? {
-        val source = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
+        val source = decode(bytes, maxSide, maxMegapixels) ?: return null
         val scale = minOf(1.0, maxSide.toDouble() / maxOf(source.width, source.height))
         val width = maxOf(1, (source.width * scale).toInt())
         val height = maxOf(1, (source.height * scale).toInt())
@@ -54,5 +57,31 @@ object PhotoResize {
             writer.dispose()
         }
         return Resized(out.toByteArray(), width, height)
+    }
+
+    // la imagen submuestreada por un factor entero que deja el lado mayor en maxSide o algo más (el escalado bicúbico termina
+    // el trabajo); null si no hay lector, si la cabecera pasa el tope o si no trae imagen
+    private fun decode(
+        bytes: ByteArray,
+        maxSide: Int,
+        maxMegapixels: Int
+    ): BufferedImage? {
+        val stream = ImageIO.createImageInputStream(ByteArrayInputStream(bytes)) ?: return null
+        stream.use {
+            val readers = ImageIO.getImageReaders(stream)
+            if (!readers.hasNext()) return null
+            val reader = readers.next()
+            try {
+                reader.input = stream
+                val width = reader.getWidth(0).toLong()
+                val height = reader.getHeight(0).toLong()
+                if (width <= 0 || height <= 0 || width * height > maxMegapixels * 1_000_000L) return null
+                val factor = maxOf(1L, maxOf(width, height) / maxSide).toInt()
+                val param = reader.defaultReadParam.apply { setSourceSubsampling(factor, factor, 0, 0) }
+                return reader.read(0, param)
+            } finally {
+                reader.dispose()
+            }
+        }
     }
 }

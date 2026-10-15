@@ -95,29 +95,49 @@ class DraftGeneration(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val code =
-                when (e) {
-                    is DraftFailure -> e.code
-                    is PdfConverterUnavailable -> Deliverables.PDF_CONVERTER_UNAVAILABLE
-                    else -> Deliverables.GENERATION_FAILED
-                }
-            // solo la clase de la excepción: su mensaje puede traer contenido del entregable (Jackson, POI); la traza, en DEBUG
-            if (code == Deliverables.GENERATION_FAILED) log.error("JOB-05: falló el borrador del entregable {} ({})", deliverableId, e.javaClass.name)
-            log.debug("JOB-05: traza del borrador fallido del entregable {}", deliverableId, e)
-            log.warn("JOB-05: borrador FALLIDO del entregable {} con {}", deliverableId, code)
-            platform(organizationId) {
-                records.patch(
-                    Deliverables.DELIVERABLE,
-                    deliverableId,
-                    mapOf(
-                        Deliverables.STATUS to Deliverables.FAILED,
-                        // el intento queda atendido: sin un pedido nuevo, la vuelta siguiente no lo retoma (DraftQueue)
-                        Deliverables.GENERATED_AT to attemptAt.toString(),
-                        Deliverables.WARNINGS to text(listOf(ReportWarning(code, (e as? DraftFailure)?.section)))
-                    ),
-                    Deliverables.JOB_REASON
-                )
+            failed(organizationId, deliverableId, attemptAt, e)
+        } catch (e: StackOverflowError) {
+            // un anidado o un archivo que agota la pila o la memoria: sin esto el pedido quedaría EN PROCESO y se retomaría cada
+            // stale-after para siempre. lo que el intento reservó ya se soltó al desenrollar; si escribir FALLIDO vuelve a
+            // fallar, el Error sube como antes
+            failed(organizationId, deliverableId, attemptAt, e)
+        } catch (e: OutOfMemoryError) {
+            failed(organizationId, deliverableId, attemptAt, e)
+        }
+    }
+
+    // FALLIDO con su código. los logs, solo la clase de la excepción: su mensaje puede traer contenido del entregable (Jackson,
+    // POI); la traza, en DEBUG. un error inesperado (GENERATION_FAILED) va en ERROR; uno con código propio, en WARN
+    private suspend fun failed(
+        organizationId: UUID,
+        deliverableId: UUID,
+        attemptAt: Instant,
+        e: Throwable
+    ) {
+        val code =
+            when (e) {
+                is DraftFailure -> e.code
+                is PdfConverterUnavailable -> Deliverables.PDF_CONVERTER_UNAVAILABLE
+                else -> Deliverables.GENERATION_FAILED
             }
+        if (code == Deliverables.GENERATION_FAILED) {
+            log.error("JOB-05: borrador FALLIDO del entregable {} con {} ({})", deliverableId, code, e.javaClass.name)
+        } else {
+            log.warn("JOB-05: borrador FALLIDO del entregable {} con {}", deliverableId, code)
+        }
+        log.debug("JOB-05: traza del borrador fallido del entregable {}", deliverableId, e)
+        platform(organizationId) {
+            records.patch(
+                Deliverables.DELIVERABLE,
+                deliverableId,
+                mapOf(
+                    Deliverables.STATUS to Deliverables.FAILED,
+                    // el intento queda atendido: sin un pedido nuevo, la vuelta siguiente no lo retoma (DraftQueue)
+                    Deliverables.GENERATED_AT to attemptAt.toString(),
+                    Deliverables.WARNINGS to text(listOf(ReportWarning(code, (e as? DraftFailure)?.section)))
+                ),
+                Deliverables.JOB_REASON
+            )
         }
     }
 
@@ -291,7 +311,8 @@ class DraftGeneration(
 // JOB-05 DeliverableGenerationJob (workflows.md, especificación de F8 §3.3): en una sola réplica (ClusterLock con la clave
 // sgspe.deliverable), por cada organización con entregables (Organizations, con su slug para el esquema de revisiones), lee
 // como la plataforma los entregables en draft u observed y toma los pendientes (DraftQueue), cada uno con su candado
-// sgspe.deliverable:<id> (dos réplicas nunca generan el mismo) y de a uno. una organización que falla no detiene a las demás
+// sgspe.deliverable-generation:<id> (Deliverables.generationLock: dos réplicas nunca generan el mismo) y de a uno. una
+// organización que falla no detiene a las demás
 @Component
 class DeliverableGenerationJob(
     private val records: Records,
@@ -314,7 +335,9 @@ class DeliverableGenerationJob(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    log.error("{}: falló la organización {}", NAME, organization, e)
+                    // solo la clase: el mensaje de una excepción de base o de validación puede traer valores; la traza, en DEBUG
+                    log.error("{}: falló la organización {} ({})", NAME, organization, e.javaClass.name)
+                    log.debug("{}: traza de la organización {}", NAME, organization, e)
                 }
             }
             done
