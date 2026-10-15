@@ -114,6 +114,8 @@ tasks.register<Test>("integrationTest") {
     // desde F8 (plan 8.2c), también las conversiones reales con Gotenberg: la CI lo levanta en el mismo trabajo
     useJUnitPlatform {
         includeTags("integration", "gotenberg")
+        // la suite lenta va solo por slowTest, aunque una clase lleve también integration
+        excludeTags("slow")
     }
     // la imagen del compose desde F1 (architecture.md §5.1); una base externa (WASICHAI_TEST_DB_*) ya la tiene
     systemProperty("wasichai.test.db.image", "postgis/postgis:18-3.6")
@@ -131,6 +133,23 @@ tasks.register<Test>("integrationTest") {
     // vuelve a correr la suite, nunca un verde de caché
     inputs.files(fileTree("model") { include("**/*.py", "**/*.json") })
     shouldRunAfter(tasks.named("test"))
+}
+
+// la suite lenta (especificación de F8 §5, plan 8.2c): GetMap contra un GeoServer real y un T1 de unas 100 páginas con
+// Gotenberg, a pedido (docs/develop/README.md, «Gotenberg»); nunca en build ni en la CI
+tasks.register<Test>("slowTest") {
+    group = "verification"
+    description = "suite lenta: GeoServer y Gotenberg reales"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("slow")
+    }
+    systemProperty("sgspe.jobs.enabled", "false")
+    withoutProviderKey()
+    testLogging {
+        events("standard_error")
+    }
 }
 
 // lo que la integración fija para los módulos de F3, como propiedades del sistema, que ganan a las variables de
