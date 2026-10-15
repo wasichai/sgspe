@@ -4,6 +4,13 @@ import org.apache.poi.common.usermodel.PictureType
 import org.apache.poi.openxml4j.opc.OPCPackage
 import org.apache.poi.util.Units
 import org.apache.poi.wp.usermodel.HeaderFooterType
+import org.apache.poi.xddf.usermodel.chart.AxisCrosses
+import org.apache.poi.xddf.usermodel.chart.AxisPosition
+import org.apache.poi.xddf.usermodel.chart.ChartTypes
+import org.apache.poi.xddf.usermodel.chart.LegendPosition
+import org.apache.poi.xddf.usermodel.chart.MarkerStyle
+import org.apache.poi.xddf.usermodel.chart.XDDFDataSourcesFactory
+import org.apache.poi.xddf.usermodel.chart.XDDFLineChartData
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
@@ -11,6 +18,7 @@ import org.apache.poi.xwpf.usermodel.XWPFRelation
 import org.apache.poi.xwpf.usermodel.XWPFRun
 import org.apache.poi.xwpf.usermodel.XWPFTable
 import org.apache.poi.xwpf.usermodel.XWPFTableCell
+import org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute
 import org.commonmark.ext.gfm.tables.TableBlock
 import org.commonmark.ext.gfm.tables.TableCell
 import org.commonmark.ext.gfm.tables.TablesExtension
@@ -31,6 +39,7 @@ import org.commonmark.node.StrongEmphasis
 import org.commonmark.node.Text
 import org.commonmark.parser.Parser
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STPageOrientation
 import sgspe.privacy.Block
@@ -41,18 +50,20 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.util.Base64
+import java.util.IdentityHashMap
 import javax.imageio.ImageIO
 
 // el DOCX de un nivel sobre la plantilla (especificación de F8 §3.3, deliverables.md §7.5): recibe el modelo ya transformado
 // por ReportDisclosure (no sabe de niveles: solo imprime el que trae meta.level) y los bytes de las fotos. rellena los
 // marcadores fijos de la plantilla normalizando las corridas partidas; recorre la narrativa con commonmark-java y su extensión
 // de tablas GFM hacia los estilos de la plantilla (resueltos por su nombre integrado, TemplateStyles); arma tablas con título
-// arriba, «Fuente:» abajo, encabezado repetido y celdas combinadas; numera las leyendas con número literal y marcador
-// (CaptionNumbering); pone fotos reducidas de a dos por fila en una tabla sin bordes, con texto alternativo; inserta los
-// mapas; pasa a horizontal y vuelve con los saltos de sección; agrega al pie el código, la revisión, el nivel fuera de
-// INTERNO y «Página X de Y» (PAGE y NUMPAGES) y, en el borrador, «BORRADOR» en el encabezado de cada sección. sin HTML: un
-// bloque HTML de la narrativa se ignora. trabajo bloqueante de POI: JOB-05 lo llama en Dispatchers.IO. el índice TOC, las
-// listas de tablas y figuras con PAGEREF y los gráficos nativos son de T1 (plan 8.2c)
+// arriba, «Fuente:» abajo, encabezado repetido, celdas combinadas y sombreadas; numera las leyendas con número literal y
+// marcador (CaptionNumbering, por el capítulo de la sección en T1) en una pasada previa, para que el índice de T1 (campo TOC)
+// y sus listas de tablas y de figuras (PAGEREF) vayan primero; pone fotos reducidas de a dos por fila en una tabla sin
+// bordes, con texto alternativo; inserta los mapas y los gráficos de líneas (XDDF); pasa a horizontal y vuelve con los saltos
+// de sección; agrega al pie el código, la revisión, el nivel fuera de INTERNO y «Página X de Y» (PAGE y NUMPAGES) y, en el
+// borrador, «BORRADOR» en el encabezado de cada sección; y pone título, asunto y palabras clave en las propiedades. sin HTML:
+// un bloque HTML de la narrativa se ignora. trabajo bloqueante de POI: JOB-05 lo llama en Dispatchers.IO
 class DocxWriter(
     private val photos: DeliverableProperties.Photos
 ) {
@@ -75,24 +86,32 @@ class DocxWriter(
             val ownFooter = doc.footerList.any { footer -> FOOTER_MARKERS.any { it in footer.text } }
             fillPlaceholders(doc, placeholders(model, revision), model)
             headerAndFooter(doc, model, revision, input.draft, ownFooter)
-            val captions = CaptionNumbering()
+            properties(doc, model, revision)
+            // las leyendas se numeran antes de escribir: las listas de tablas y de figuras del índice van primero (T1)
+            val captions = captions(model, input)
             var landscape = false
             for (section in model.sections) {
-                paragraph(doc, styles.heading(1)).createRun().setText(section.title)
-                val chapter = input.chapterOf(section.key)
-                for (block in section.blocks) {
+                // un salto como primer bloque se aplica antes del título: el Anexo 1 empieza en su página horizontal
+                val leading = section.blocks.firstOrNull() as? Block.SectionBreak
+                if (leading != null) {
+                    if (leading.landscape != landscape) endSection(doc, landscape)
+                    landscape = leading.landscape
+                }
+                paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
+                for (block in section.blocks.drop(if (leading != null) 1 else 0)) {
                     when (block) {
                         is Block.Heading -> paragraph(doc, styles.heading(block.level)).createRun().setText(block.text)
                         is Block.Paragraph -> markdown(doc, styles, block.markdown, block.footnotes)
-                        is Block.Table -> table(doc, styles, block, captions.next(CaptionNumbering.TABLE, chapter), input.author, landscape)
-                        is Block.Photos -> photoRows(doc, styles, block, model, input, captions.next(CaptionNumbering.FIGURE, chapter))
-                        is Block.MapFigure -> map(doc, styles, block, model, captions.next(CaptionNumbering.FIGURE, chapter), input.author)
+                        is Block.Table -> table(doc, styles, block, captions.of(block), input.author, landscape)
+                        is Block.Photos -> captions.find(block)?.let { photoRows(doc, styles, block, model, input, it) }
+                        is Block.MapFigure -> map(doc, styles, block, model, captions.of(block), input.author)
+                        is Block.LineChart -> lineChart(doc, styles, block, captions.of(block), input.author)
+                        is Block.Toc -> toc(doc, block)
+                        is Block.CaptionList -> captionList(doc, styles, block, captions)
                         is Block.SectionBreak -> {
                             if (block.landscape != landscape) endSection(doc, landscape)
                             landscape = block.landscape
                         }
-                        // los bloques de T1 los escribe la Tarea 2 del plan 8.2c; ningún tipo los produce todavía
-                        is Block.Toc, is Block.CaptionList, is Block.LineChart -> Unit
                     }
                 }
             }
@@ -469,6 +488,7 @@ class DocxWriter(
                     if (rowSpan > 1) pr.addNewVMerge().setVal(if (dr == 0) STMerge.RESTART else STMerge.CONTINUE)
                 }
                 cellText(table.getRow(r + 1).getCell(c), cell.text, bold = false)
+                cell.shade?.let { table.getRow(r + 1).getCell(c).color = it }
                 c += colSpan
             }
         }
@@ -644,6 +664,151 @@ class DocxWriter(
         size.orient = if (landscape) STPageOrientation.LANDSCAPE else STPageOrientation.PORTRAIT
     }
 
+    // las leyendas del documento en su orden, numeradas por capítulo (o corridas sin capítulo), con su título
+    private class Captions {
+        val byBlock = IdentityHashMap<Block, CaptionNumbering.Caption>()
+        val ordered = mutableListOf<Pair<CaptionNumbering.Caption, String>>()
+
+        fun find(block: Block): CaptionNumbering.Caption? = byBlock[block]
+
+        fun of(block: Block): CaptionNumbering.Caption = byBlock[block] ?: error("un bloque con leyenda quedó sin numerar")
+    }
+
+    // la misma regla que el recorrido: una tabla (o una tabla figura), un bloque de fotos con alguna foto del nivel, un mapa y
+    // un gráfico llevan leyenda
+    private fun captions(
+        model: ReportModel,
+        input: Input
+    ): Captions {
+        val out = Captions()
+        val numbering = CaptionNumbering()
+        for (section in model.sections) {
+            val chapter = input.chapterOf(section.key) ?: section.chapter
+            for (block in section.blocks) {
+                val (kind, title) =
+                    when (block) {
+                        is Block.Table -> (if (block.figure) CaptionNumbering.FIGURE else CaptionNumbering.TABLE) to block.title
+                        is Block.Photos -> if (block.evidence.any { it in model.photos }) CaptionNumbering.FIGURE to block.title else continue
+                        is Block.MapFigure -> CaptionNumbering.FIGURE to block.title
+                        is Block.LineChart -> CaptionNumbering.FIGURE to block.title
+                        else -> continue
+                    }
+                val caption = numbering.next(kind, chapter)
+                out.byBlock[block] = caption
+                out.ordered += caption to title
+            }
+        }
+        return out
+    }
+
+    // el índice: el campo TOC complejo, que Word y LibreOffice reconocen; y que Word lo actualice al abrir
+    private fun toc(
+        doc: XWPFDocument,
+        block: Block.Toc
+    ) {
+        listTitle(doc, block.title)
+        complexField(doc.createParagraph(), "TOC \\o \"1-${block.levels}\" \\h \\z \\u", TOC_PLACEHOLDER)
+        doc.enforceUpdateFields()
+    }
+
+    // la lista de tablas o de figuras: «Tabla 5.1. Título», un tabulador y la página por PAGEREF a su marcador
+    private fun captionList(
+        doc: XWPFDocument,
+        styles: StyleIds,
+        block: Block.CaptionList,
+        captions: Captions
+    ) {
+        listTitle(doc, block.title)
+        for ((caption, title) in captions.ordered.filter { it.first.label.startsWith("${block.kind} ") }) {
+            val p = paragraph(doc, styles.normal)
+            p.createRun().setText("${caption.label}. $title")
+            p.createRun().addTab()
+            complexField(p, "PAGEREF ${caption.bookmark} \\h", "1")
+        }
+    }
+
+    private fun listTitle(
+        doc: XWPFDocument,
+        title: String
+    ) {
+        doc.createParagraph().createRun().apply {
+            setText(title)
+            isBold = true
+            fontSize = 14
+        }
+    }
+
+    // un campo complejo (begin, instrucción, separate, resultado, end): el resultado es lo que se ve hasta que se actualiza
+    private fun complexField(
+        p: XWPFParagraph,
+        instruction: String,
+        placeholder: String
+    ) {
+        p
+            .createRun()
+            .ctr
+            .addNewFldChar()
+            .fldCharType = STFldCharType.BEGIN
+        p.createRun().ctr.addNewInstrText().apply {
+            stringValue = " $instruction "
+            space = SpaceAttribute.Space.PRESERVE
+        }
+        p
+            .createRun()
+            .ctr
+            .addNewFldChar()
+            .fldCharType = STFldCharType.SEPARATE
+        p.createRun().setText(placeholder)
+        p
+            .createRun()
+            .ctr
+            .addNewFldChar()
+            .fldCharType = STFldCharType.END
+    }
+
+    // la tendencia (deliverables.md §7.9): un gráfico de líneas nativo con XDDF, con leyenda abajo, editable en Word
+    private fun lineChart(
+        doc: XWPFDocument,
+        styles: StyleIds,
+        block: Block.LineChart,
+        caption: CaptionNumbering.Caption,
+        author: String?
+    ) {
+        captionParagraph(doc, styles, caption, block.title)
+        val p = paragraph(doc, styles.normal)
+        p.alignment = ParagraphAlignment.CENTER
+        val chart = doc.createChart(p.createRun(), Units.toEMU(CHART_WIDTH_CM * POINTS_PER_CM), Units.toEMU(CHART_HEIGHT_CM * POINTS_PER_CM))
+        val bottom = chart.createCategoryAxis(AxisPosition.BOTTOM)
+        val left = chart.createValueAxis(AxisPosition.LEFT)
+        left.crosses = AxisCrosses.AUTO_ZERO
+        val data = chart.createData(ChartTypes.LINE, bottom, left) as XDDFLineChartData
+        val categories = XDDFDataSourcesFactory.fromArray(block.categories.toTypedArray())
+        for (series in block.series) {
+            val values = XDDFDataSourcesFactory.fromArray(series.values.map { it?.toBigDecimalOrNull()?.toDouble() }.toTypedArray())
+            (data.addSeries(categories, values) as XDDFLineChartData.Series).apply {
+                setTitle(series.name, null)
+                setSmooth(false)
+                setMarkerStyle(MarkerStyle.CIRCLE)
+            }
+        }
+        chart.plot(data)
+        chart.orAddLegend.position = LegendPosition.BOTTOM
+        sourceParagraph(doc, styles, block.source, author)
+    }
+
+    // título, asunto y palabras clave del documento (decisión 3 del plan 8.2c): LibreOffice los lleva al PDF y a su XMP, así
+    // Gotenberg no recibe metadatos y PDF/A-2b no pasa por exiftool
+    private fun properties(
+        doc: XWPFDocument,
+        model: ReportModel,
+        revision: String
+    ) {
+        val core = doc.properties.coreProperties
+        core.title = model.meta.title
+        core.setSubjectProperty("${model.meta.code} · Rev. $revision")
+        core.keywords = model.meta.code
+    }
+
     // los ids de los estilos de la plantilla por su nombre integrado (TemplateStyles): el validador ya exigió que existan
     // sin distinguir mayúsculas: Word guarda «heading 1» y LibreOffice o Google Docs, «Heading 1» (decisión 7 del plan 8.2b)
     // también lleva el contador de marcadores de la corrida de write (no es estado del DocxWriter, que JOB-05 comparte entre
@@ -683,6 +848,11 @@ class DocxWriter(
         const val WATERMARK = "BORRADOR"
         private val FOOTER_MARKERS = listOf("{{codigo}}", "{{revision}}")
         const val OMITTED_LAYERS = "Capas omitidas por nivel de divulgación"
+
+        // lo que dice el índice hasta que LibreOffice (updateIndexes) o Word lo actualizan
+        const val TOC_PLACEHOLDER = "El índice se actualiza al convertir a PDF o al abrir el documento"
+        private const val CHART_WIDTH_CM = 15.0
+        private const val CHART_HEIGHT_CM = 8.0
         private const val POINTS_PER_CM = 72.0 / 2.54
         private const val PHOTO_WIDTH_CM = 7.5
         private const val MAP_WIDTH_CM = 16.0

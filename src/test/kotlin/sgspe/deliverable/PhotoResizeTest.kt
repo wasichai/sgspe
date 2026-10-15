@@ -57,4 +57,13 @@ class PhotoResizeTest {
         assertEquals(500, resized.height)
         assertEquals(2000, ImageIO.read(resized.jpeg.inputStream()).width)
     }
+
+    // menor del plan 8.2b: una imagen que ImageIO no termina de leer (cabecera sin datos, PNG cortado) bajo el tope de
+    // megapíxeles sale «[Foto no disponible]» en lugar de tumbar el borrador con GENERATION_FAILED
+    @Test
+    fun `una imagen corrupta bajo el tope sale como no disponible`() {
+        assertNull(PhotoResize.jpeg(pngHeader(100, 100), 2000, 85, 250))
+        val png = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(300, 200, BufferedImage.TYPE_INT_RGB), "png", it) }.toByteArray()
+        assertNull(PhotoResize.jpeg(png.copyOf(png.size / 2), 2000, 85, 250))
+    }
 }

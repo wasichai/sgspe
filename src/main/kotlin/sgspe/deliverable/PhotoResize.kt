@@ -79,6 +79,11 @@ object PhotoResize {
                 val factor = maxOf(1L, maxOf(width, height) / maxSide).toInt()
                 val param = reader.defaultReadParam.apply { setSourceSubsampling(factor, factor, 0, 0) }
                 return reader.read(0, param)
+            } catch (_: java.io.IOException) {
+                // una cabecera sin datos o un archivo cortado: la foto sale como no disponible (menor del plan 8.2b)
+                return null
+            } catch (_: RuntimeException) {
+                return null
             } finally {
                 reader.dispose()
             }
