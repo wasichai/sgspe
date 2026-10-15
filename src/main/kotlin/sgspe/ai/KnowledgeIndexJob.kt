@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component
 import sgspe.common.Criteria
 import sgspe.common.Organizations
 import sgspe.common.Records
+import sgspe.common.StoredFiles
+import sgspe.common.StoredRead
 import sgspe.common.Values
 import sgspe.evidence.EvidenceRules
 import wasichai.core.common.WasichaiException
@@ -79,7 +81,7 @@ class EvidenceText(
 @Component
 class KnowledgeEvidences(
     private val records: Records,
-    private val files: EvidenceFiles,
+    private val files: StoredFiles,
     private val documents: DocumentText,
     private val properties: KnowledgeProperties
 ) : KnowledgeCorpus {
@@ -109,9 +111,9 @@ class KnowledgeEvidences(
     ): CorpusText {
         val file = evidence.file ?: return CorpusText.NoText
         return when (val read = files.read(organizationId, file, properties.maxBytes)) {
-            is FileRead.Found -> documents.text(read.file.bytes, read.file.contentType)
-            FileRead.TooLarge -> CorpusText.NoText
-            FileRead.Missing -> CorpusText.Unavailable
+            is StoredRead.Found -> documents.text(read.file.bytes, read.file.contentType)
+            StoredRead.TooLarge -> CorpusText.NoText
+            StoredRead.Missing -> CorpusText.Unavailable
         }
     }
 

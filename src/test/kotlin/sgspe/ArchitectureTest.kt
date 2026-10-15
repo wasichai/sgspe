@@ -229,18 +229,19 @@ class ArchitectureTest {
         assertFalse(flags(KNOWLEDGE_TABLE, "class KnowledgeChunks("))
     }
 
-    // los bytes de un archivo sin pasar por FileService (que exige una persona) son solo de JOB-07, como la plataforma (decisión 5
-    // del plan 7.2c): solo EvidenceFiles usa StoredFileRepository y FileStore de wasichai-files
+    // los bytes de un archivo sin pasar por FileService (que exige una persona) son solo de los trabajos de fondo, como la
+    // plataforma (decisión 5 del plan 7.2c; desde el plan 8.2b también JOB-05 y DeliverableWriteGuard): solo StoredFiles usa
+    // StoredFileRepository y FileStore de wasichai-files
     @Test
-    fun `solo EvidenceFiles lee archivos sin FileService`() {
-        val reader = "/sgspe/ai/EvidenceFiles.kt"
+    fun `solo StoredFiles lee archivos sin FileService`() {
+        val reader = "/sgspe/common/StoredFiles.kt"
         val others = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(reader) }
         assertEquals(emptyList<String>(), offenders(others, STORED_FILES))
         assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(reader) })
         assertTrue(flags(STORED_FILES, "import wasichai.files.StoredFileRepository"))
         assertTrue(flags(STORED_FILES, "    private val store: FileStore"))
         assertFalse(flags(STORED_FILES, "import wasichai.files.FileService"))
-        assertFalse(flags(STORED_FILES, "// FileStore solo en EvidenceFiles"))
+        assertFalse(flags(STORED_FILES, "// FileStore solo en StoredFiles"))
     }
 
     // el alcance de lectura por proyecto (ASM-106, ASM-114, security.md §9.7). regla 1: cada objeto de model.json está en un
