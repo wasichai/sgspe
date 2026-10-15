@@ -135,7 +135,7 @@ class FieldReportTypeTest {
             "currency" to "PEN",
             "payer_organization" to id(4)
         )
-        s.add("delivery", delivery, null, "social_contribution" to contribution, "delivery_date" to "2026-09-15", "place" to "Caserío Ejemplo")
+        s.add("delivery", delivery, null, "social_contribution" to contribution, "delivery_date" to "2026-09-15", "place" to "Vivienda del lote 7")
         s.add(
             "contribution_item",
             id(14),
@@ -261,21 +261,28 @@ class FieldReportTypeTest {
     }
 
     @Test
-    fun `el modelo va y vuelve y su DOCX EXTERNO no nombra a la persona ni lleva el comprobante`() {
+    fun `el modelo va y vuelve y su DOCX EXTERNO no nombra a la persona, el lugar de la entrega ni lleva el comprobante`() {
         val model = runBlocking { type.assemble(input(), source()) }.model
         val back = CanonicalJson.read(CanonicalJson.bytes(model))
         assertEquals(model, back)
         val external = ReportDisclosure.apply(back, Disclosure.EXTERNO)
         assertEquals(setOf(consented), external.photos.keys)
-        val bytes = DocxWriter(DeliverableProperties.Photos()).write(DocxWriter.Input(external, BaseTemplate.bytes, true, "Asociación Ejemplo", emptyMap()))
-        val text =
-            XWPFDocument(ByteArrayInputStream(bytes)).use { doc ->
-                (doc.paragraphs.map { it.text } + doc.tables.flatMap { t -> t.rows.flatMap { r -> r.tableCells.map { it.text } } }).joinToString("\n")
-            }
+        val text = docxText(external)
         assertFalse("Persona Ejemplo 1" in text, text)
         assertFalse("B001-123" in text || "Ferretería Ejemplo" in text, text)
         assertTrue("Presidente, Asociación Ejemplo" in text, text)
         assertTrue("Tabla 1." in text, text)
+        // el lugar puede ser una vivienda (deliverables.md §9.1): solo en INTERNO; la fecha de la entrega queda
+        assertFalse("Vivienda del lote 7" in text, text)
+        assertTrue("Entrega:" in text, text)
+        assertTrue("Vivienda del lote 7" in docxText(ReportDisclosure.apply(back, Disclosure.INTERNO)))
+    }
+
+    private fun docxText(leveled: sgspe.privacy.ReportModel): String {
+        val bytes = DocxWriter(DeliverableProperties.Photos()).write(DocxWriter.Input(leveled, BaseTemplate.bytes, true, "Asociación Ejemplo", emptyMap()))
+        return XWPFDocument(ByteArrayInputStream(bytes)).use { doc ->
+            (doc.paragraphs.map { it.text } + doc.tables.flatMap { t -> t.rows.flatMap { r -> r.tableCells.map { it.text } } }).joinToString("\n")
+        }
     }
 
     @Test
