@@ -579,7 +579,7 @@ actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 | PDFBox | 3, en `main` desde F7 (extracción de texto, ASM-132); en F8 verifica cada PDF generado | F7 | RQ-REP-017, ASM-132 |
 | ECharts | 6 | F2 | RQ-DSH-035, ASM-046 |
 | GDAL (`gdal-bin`: `ogrinfo` y `ogr2ogr`, en la CI y en el desarrollo) | 3.8 o superior | F6 | RQ-GIS-018, ASM-056, ASM-127 |
-| Gotenberg | `gotenberg/gotenberg:8-libreoffice`, que el plan 8.2c fija en la etiqueta 8.x exacta publicada; puerto 8096 en el loopback | F8 (pico técnico en F1) | ASM-014 |
+| Gotenberg | `gotenberg/gotenberg:8.37.0-libreoffice`, la etiqueta exacta que fijó el plan 8.2c; puerto 8096 en el loopback | F8 (pico técnico en F1) | ASM-014 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1` | F6 | ASM-038 |
 | MinIO | `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` y `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`, solo en desarrollo y en las pruebas, por su licencia AGPL | F3 | ASM-013, GAP-022 |
 | Mailpit (SMTP de prueba) | `axllent/mailpit:v1.31.2`, solo en desarrollo | F3 | GAP-021 |

@@ -120,14 +120,16 @@ Las capas públicas se publican con `publish_layers.py`, después de `load_ubige
 
 ### Gotenberg
 
-Desde F8 (plan 8.2c) el compose trae el servicio `gotenberg` (`gotenberg/gotenberg:8-libreoffice`, en la etiqueta 8.x
-exacta que fija 8.2c; contenedor `sgspe-gotenberg`, sin volúmenes, sin webhooks ni descargas remotas): en el VPS escucha
+Desde F8 (plan 8.2c) el compose trae el servicio `gotenberg` (`gotenberg/gotenberg:8.37.0-libreoffice`, la etiqueta exacta del plan 8.2c, con las banderas
+`--api-timeout=180s --api-disable-download-from=true --webhook-disable=true --pdfengines-disable-routes=true
+--libreoffice-auto-start=true --log-std-format=json`; contenedor `sgspe-gotenberg`, sin volúmenes, sin webhooks ni
+descargas remotas): en el VPS escucha
 en `127.0.0.1:8096` (`SGSPE_GOTENBERG_PORT`, contenedor 3000) y se alcanza por el túnel `ssh -fN -L 8096:localhost:8096
 "$SGSPE_VPS"`. Solo lo llama JOB-05 y nunca es público (ADR-0026). El backend lo encuentra con
 `SGSPE_DELIVERABLE_GOTENBERG_URL=http://localhost:8096`; `application-prod.yml` no le da valor por defecto.
 
-Las pruebas que convierten con Gotenberg llevan la etiqueta `gotenberg` y corren en la CI, donde Gotenberg es un
-servicio del trabajo de integración; aquí corren con el túnel abierto y la misma variable. La suite lenta (`slowTest`, a
+Las pruebas que convierten con Gotenberg llevan la etiqueta `gotenberg` y corren en la CI, donde un paso `docker run` del trabajo de
+integración lo levanta con las mismas banderas (comprobado en la CI el 2026-10-15); aquí corren con el túnel abierto y la misma variable. La suite lenta (`slowTest`, a
 pedido, desde 8.2c) pide GetMap a un GeoServer real y genera un T1 de unas 100 páginas con 40 fotos en menos de 180 s:
 
 ```bash

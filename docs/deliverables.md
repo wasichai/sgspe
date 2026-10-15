@@ -159,6 +159,18 @@ Cómo leer las columnas:
 - El Anexo 3 de DOC-01 menciona el "contexto social relacionado al PRB", resto de otra plantilla: el texto estático del tipo no lo
   reproduce (CON-012). El poder se describe con los tres componentes del Gráfico 10.2 (CON-010).
 - Los rótulos cruzados de DOC-01 (AID y AII) no se copian: el generador usa los tipos canónicos AIDS y AIIS (CON-001).
+- **Secciones de T1** (plan 8.2c, `SocialDiagnosisType`): 46 `section_key` en el orden de esta tabla: `portada`, `indice`,
+  `introduccion`, `objetivos`, `metodologia`, `alcance`, `diseno`, `trabajo_campo`, `areas`, `aids`, `aiis` (con el mapa de
+  áreas al final), `contexto`, `historia`, `poblacion`, `economia`, `servicios`, `educacion_salud`, `vias`, `organizaciones`,
+  `proceso_electoral`, `costumbres`, `grupos_interes`, `perfiles`, `caracterizacion`, `percepciones`, `clasificacion`,
+  `grupos_estrategicos`, `grupos_politicos`, `grupos_monitoreo`, `temas_clave`, `estrategias`, `comunicacion`, `priorizacion`,
+  `mensajes`, `alianzas`, `impactos`, `monitoreo`, `evaluacion_grupos`, `seguimiento_compromisos`, `riesgos`,
+  `gestion_riesgos`, `necesidades`, `anexos`, `anexo_concesiones`, `anexo_instrumentos` y `anexo_metodologia`. El capítulo 5
+  va por tema con un título por ámbito (AIDS, AIIS), así que su numeración (5.1 a 5.9) difiere de la de DOC-01 (CON-015). Las
+  asistidas por IA son `introduccion`, `areas`, `contexto`, `percepciones`, `grupos_estrategicos`, `grupos_politicos`,
+  `grupos_monitoreo`, `estrategias`, `comunicacion` y `necesidades`. La postura de las Tablas 7.1 a 7.3 lleva la marca de
+  restringida: EXTERNO la vacía. Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.»
+  solo en EXTERNO, donde se retuvo contenido restringido (religión y proceso electoral, T1 5.8 y 5.9).
 
 ## 6. Anatomía de T2 (DOC-02, informe de campo y avance)
 
@@ -390,19 +402,21 @@ Cada clase declara:
 ### 7.7 PDF con Gotenberg
 
 - El PDF se convierte desde el mismo DOCX que se entrega, con la ruta LibreOffice de Gotenberg (imagen
-  `gotenberg/gotenberg:8-libreoffice`), en la red interna y nunca expuesta (en desarrollo, solo en el loopback del VPS,
+  `gotenberg/gotenberg:8.37.0-libreoffice`), en la red interna y nunca expuesta (en desarrollo, solo en el loopback del VPS,
   puerto 8096; ADR-0026) (RQ-REP-001, ASM-014). Un solo motor de render evita que el DOCX y el PDF diverjan, el mismo
   argumento de WAS-ADR-0023 para no tener dos renderizadores [WAS-ADR-0023].
 - Opciones que se usan:
   - `updateIndexes` (activo): actualiza índice y listas antes de convertir (RQ-REP-004);
   - `pdfa` con PDF/A-2b en las versiones candidatas, que son las que se emiten (RQ-REP-017);
-  - metadatos del PDF con título, código y revisión, y el id de correlación de la corrida; marcadores desde los títulos;
-    calidad de imagen;
+  - título, código y revisión van en las propiedades del DOCX, que LibreOffice lleva al PDF y a su XMP (a Gotenberg no se
+    le mandan metadatos: reescribirlos después de convertir podría romper PDF/A-2b); el id de la corrida va en la
+    cabecera `Gotenberg-Trace`; marcadores desde los títulos;
   - la marca de agua la dibuja el DOCX (el spike de F1 confirmó «BORRADOR» en cada página); Gotenberg nunca recibe una
     URL, una ruta ni una opción que venga del cliente, y no descarga nada de la red.
 - **Tiempos.** El plazo de conversión es `sgspe.deliverable.gotenberg.timeout` (180 s) para un documento de unas 100
-  páginas con fotos, y JOB-05 procesa un pedido a la vez; sin respuesta, el borrador queda FALLIDO con
-  `PDF_CONVERTER_UNAVAILABLE` (RQ-REP-021).
+  páginas con fotos, y JOB-05 procesa un pedido a la vez; sin respuesta, con un estado que no es 2xx o con
+  algo que no es un PDF, el borrador queda FALLIDO con `PDF_CONVERTER_UNAVAILABLE` (RQ-REP-021). Gotenberg corre con
+  `--api-disable-download-from`, `--webhook-disable` y `--pdfengines-disable-routes` (plan 8.2c).
 - **Spike técnico** (ADR-0013, hecho en F1 el 2026-10-07): el índice, la paginación, la marca BORRADOR, las fuentes
   incrustadas y PDF/A-2b pasaron, y 102 páginas con 40 fotos se convirtieron en 8 s; las leyendas por capítulo con SEQ
   y STYLEREF fallaron, así que se usan número literal, marcador y PAGEREF (§7.5). ADR-0013 quedó aceptado en F8.
@@ -422,8 +436,15 @@ Cada clase declara:
 - En EXTERNO rige la divulgación por capa de las exportaciones geográficas (ASM-124): sin LYR-10, LYR-11 ni LYR-15, y
   los predios sin titulares ni partida; la leyenda dice «Capas omitidas por nivel de divulgación» cuando quitó alguna.
 - Si un mapa falla (GeoServer caído, `sgspe.deliverable.maps.timeout` de 30 s vencido o más de 5 000 elementos en línea,
-  `MAP_TOO_MANY_FEATURES`), su bloque queda como aviso `MAP_FAILED`, el borrador sale LISTO con el aviso y la emisión
-  responde `409 MAP_FAILED` (RQ-REP-030). Los mapas de informe no llevan mapa base (GAP-011).
+  `MAP_TOO_MANY_FEATURES`), su bloque queda como aviso `MAP_FAILED <clave>`, el borrador sale LISTO con el aviso y la emisión
+  responde `409 MAP_FAILED` (RQ-REP-030). La causa va solo a los logs: `SERVICE_EXCEPTION`, `HTTP_<estado>`, `NOT_PNG`,
+  `BAD_IMAGE_SIZE`, `TIMEOUT`, `GEOSERVER_UNAVAILABLE`, `NO_WORKING_CRS`, `MAP_EMPTY`, `MAP_TOO_MANY_FEATURES` y `MAP_ERROR`.
+  Los mapas de EXTERNO usan una lista explícita de capas permitidas (LYR-10, LYR-11 y LYR-15 quedan fuera). Los mapas de
+  informe no llevan mapa base (GAP-011).
+- **Estilos y geometrías** (plan 8.2c). Cada capa del GetMap lleva un `UserStyle` armado desde `model/styles/palette.json` y
+  escalado a 300 dpi (×300/90,7), también las publicadas, que se piden por nombre: el mapa no depende de cómo tome GeoServer
+  la resolución. Las geometrías en línea las lee `ReportMapFeatures` por `SpatialGate` como la plataforma, en GML 2
+  simplificado a medio píxel; los predios nunca llevan atributos y las etiquetas en línea son solo `name` o `code`.
 
 ### 7.9 Gráficos
 
@@ -616,7 +637,7 @@ no haya fuente normativa (GAP-001).
 | Nivel | Para quién | Personas | Fotos | Ubicaciones | Datos restringidos |
 |---|---|---|---|---|---|
 | INTERNO | El equipo de la organización con `DOWNLOAD_RESTRICTED` sobre `deliverable` | Por nombre, como en el registro | Todas | Como en el registro | Los que el tipo incluye; nunca documento de identidad ni teléfono |
-| EXTERNO | Terceros (cliente, autoridades, socios) | Por cargo y organización, o por código | Solo las que no muestran personas identificables o tienen consentimiento; un dato vacío cuenta como identificable sin consentimiento (ASM-037) | Los puntos que pueden ser viviendas (QCS, entregas, observaciones) se generalizan a la localidad | Se omiten religión, proceso electoral, razones de postura de personas y nombres de beneficiarios |
+| EXTERNO | Terceros (cliente, autoridades, socios) | Por cargo y organización, o por código | Solo las que no muestran personas identificables o tienen consentimiento; un dato vacío cuenta como identificable sin consentimiento (ASM-037) | Los puntos que pueden ser viviendas (QCS, observaciones) se generalizan a la localidad; el lugar de una entrega del apoyo se omite (§9.2) | Se omiten religión, proceso electoral, razones de postura de personas y nombres de beneficiarios |
 | PUBLICO | Cualquiera | Ninguna: solo agregados | Ninguna foto de personas | Solo capas públicas y conteos por localidad o distrito | Ninguno |
 
 - **Celdas pequeñas en PUBLICO (ASM-088).** Una salida PUBLICO no revela nada de una sola persona. Cada desglose se arma sobre la
@@ -639,7 +660,7 @@ no haya fuente normativa (GAP-001).
 
 | Elemento | INTERNO | EXTERNO | PUBLICO |
 |---|---|---|---|
-| Tablas 7.1 a 7.3 (nombre, cargo, postura) | Con nombre | Columna de nombre con código o vacía; cargo y organización | Conteos por grupo de influencia y postura |
+| Tablas 7.1 a 7.3 (nombre, cargo, postura) | Con nombre | Columna de nombre vacía en las personas (el cargo y la organización van en sus columnas) y «Postura» vacía; una organización lleva su nombre | Conteos por grupo de influencia y postura |
 | Perfiles por cargo (§6 de T1) | Completos | Sin nombre; sin razones de postura de personas | Se omiten |
 | Citas de percepciones | Atribuidas por cargo (nunca por nombre) | Igual | Sin atribución |
 | Redes y nodos (T2) | Con nombres | Por cargo y papel en la red | Conteos de redes y nodos |

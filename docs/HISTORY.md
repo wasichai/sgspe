@@ -3,6 +3,27 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-15 — Plan 8.2c: T1, mapas de informe, PDF y borradores de sección de IA
+
+Los entregables de F8 quedan completos en el backend: los borradores reales llegan a LISTO.
+
+- **PDF.** `GotenbergConverter` convierte cada DOCX con Gotenberg `8.37.0-libreoffice` (compose y CI, sin descargas
+  remotas ni webhooks), con plazo de 180 s; título, código y revisión van en las propiedades del DOCX. Pruebas
+  `gotenberg` contra el servicio real en la CI.
+- **Mapas de informe.** `GeoServerReportMaps` encuadra en el UTM del proyecto, pide un GetMap por POST XML por nivel
+  (estilos de la paleta a 300 dpi, geometrías en línea leídas por `SpatialGate` como la plataforma, EXTERNO con una
+  lista explícita de capas) y `MapComposer` dibuja marco, grilla, leyenda, escala, norte, CRS y fuente. T2 queda
+  cerrado.
+  Un mapa fallido deja el borrador LISTO con `MAP_FAILED <clave>`; la causa va solo a los logs.
+- **T1 · Diagnóstico social.** `SocialDiagnosisType` con 46 secciones, índice TOC, listas de tablas y figuras con
+  `PAGEREF`, la Tabla 9.5 con el lector de la plataforma, la matriz 5 × 5, el cuadrante 2 × 2 y la tendencia nativa de
+  Word.
+  Pedirlo exige el AIDS aprobado. En EXTERNO, un párrafo `EXTERNAL_ONLY` avisa que se retuvo contenido restringido.
+- **AI-04 de sección.** `POST /api/sgspe/ai/runs` sobre una `deliverable_section` marcada por el tipo redacta una
+  BORRADOR DE SECCION con la sección leída como la persona; la aceptación la adopta (`[PERSONA:<id>]` pasa a una
+  mención) y la sección queda ASISTIDO POR IA para siempre (ASM-137). Una RESUMEN EJECUTIVO también se acepta hacia una sección.
+- **Suite lenta** (`slowTest`, a pedido): GetMap contra GeoServer real y un T1 de unas 100 páginas en menos de 180 s.
+
 ## 2026-10-15 — wasichai 1.3.0: UPS-31 y UPS-32 resueltas
 
 El backend pasa a wasichai 1.3.0 (plan 8.2b), sin cambios incompatibles, con las mismas dependencias de terceros y las
