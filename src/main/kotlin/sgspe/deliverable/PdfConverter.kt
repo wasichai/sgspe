@@ -42,12 +42,13 @@ class UnavailablePdfConverter : PdfConverter {
 }
 
 // la verificación de un PDF con PDFBox (deliverables.md §7.1, §13.3): al menos una página, todas las fuentes (de las páginas y
-// de sus formularios) incrustadas y de
-// la lista (Carlito, Caladea, Liberation Sans, Liberation Serif, sin el prefijo de subconjunto ni el estilo) y, en una
+// de sus formularios) incrustadas y de la lista (Carlito, Caladea, Liberation Sans, Liberation Serif, sin el prefijo de subconjunto ni el estilo) y, en una
 // candidata, la identificación PDF/A-2b en los metadatos XMP. lo que falla son descripciones, sin texto del documento;
 // alguna hace que el borrador quede FALLIDO con PDF_CHECK_FAILED
 object PdfChecks {
     private val ALLOWED = TemplateStyles.FONTS.map { it.replace(" ", "") }
+    private val PART = Regex("""pdfaid:part(?:="2"|>2<)""")
+    private val CONFORMANCE = Regex("""pdfaid:conformance(?:="B"|>B<)""")
 
     fun problems(
         pdf: ByteArray,
@@ -82,6 +83,10 @@ object PdfChecks {
             }
         } catch (_: java.io.IOException) {
             problems += "no es un PDF legible"
+        } catch (_: RuntimeException) {
+            problems += "no es un PDF legible"
+        } catch (_: StackOverflowError) {
+            problems += "no es un PDF legible"
         }
         return problems.distinct()
     }
@@ -99,7 +104,4 @@ object PdfChecks {
             form.resources?.let { collect(it, fonts, seen) }
         }
     }
-
-    private val PART = Regex("""pdfaid:part(?:="2"|>2<)""")
-    private val CONFORMANCE = Regex("""pdfaid:conformance(?:="B"|>B<)""")
 }
