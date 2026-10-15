@@ -6,7 +6,8 @@ import org.apache.poi.xwpf.usermodel.XWPFTable
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import java.io.ByteArrayInputStream
-import java.util.zip.ZipException
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.util.zip.ZipInputStream
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
@@ -25,17 +26,19 @@ data class TemplateReport(
     val valid: Boolean get() = violations.isEmpty()
 }
 
-// la validación de una plantilla Word (especificación de F8 §2.2.12 y §3.3, ASM-135, RQ-SEC-019). primero el ZIP con límites de
-// entradas y de bytes descomprimidos, sin abrirlo con POI (una bomba no llega a POI). después, por TIPO y no por nombre de
-// archivo ni prefijo XML (una plantilla puede guardar un OLE fuera de word/embeddings o declarar el namespace con otro
-// prefijo, y Word y LibreOffice la abren igual): los tipos de contenido de [Content_Types].xml (macros, VBA, OLE, ActiveX), los
-// tipos de relación de cada .rels (oleObject, package, control, activeXControl, vbaProject, aFChunk) y TargetMode="External",
-// y cada parte XML de word/ leída con un parser con namespaces, sin DTD ni entidades externas: controles de contenido (sdt),
-// objetos (object), controles (control), fragmentos importados (altChunk) y campos que leen la red o archivos (INCLUDEPICTURE,
-// INCLUDETEXT, LINK, DDE, DDEAUTO, IMPORT), que en 8.2c LibreOffice podría resolver dentro de Gotenberg. con POI: los marcadores
-// desconocidos y los estilos requeridos que faltan (por nombre, sin distinguir mayúsculas). las fuentes fuera de la lista en un
-// estilo, en el texto o en el tema que citan son violaciones; una que solo figura en la tabla de fuentes, un aviso. trabajo
-// bloqueante: quien llama lo corre en Dispatchers.IO
+// la validación de una plantilla Word (especificación de F8 §2.2.12 y §3.3, ASM-135, RQ-SEC-019, decisión 21: ninguna plantilla
+// hace que el conversor de PDF lea la red ni archivos). primero el ZIP con límites de entradas y de bytes descomprimidos, sin
+// abrirlo con POI (una bomba no llega a POI). después, por TIPO y por nombre local de elemento, no por carpeta, extensión,
+// prefijo ni versión del namespace (en OPC el papel de una parte lo da su relación; Word y LibreOffice abren un encabezado en
+// `custom/h.dat` o un documento en OOXML Strict igual): toda entrada que no sea un medio `image/*` (el SVG es XML y se lee) se
+// parsea como XML sin DTD ni entidades externas, y si no es XML es NOT_WORD. En cada parte: relaciones (oleObject, package,
+// control, activeXControl, vbaProject, aFChunk y TargetMode="External"), controles de contenido (sdt), objetos (object),
+// controles (control), fragmentos importados (altChunk), cualquier atributo que empiece por http:, https:, file:, ftp: o dos
+// barras invertidas (VML src, o:href) y campos que leen la red o archivos (INCLUDEPICTURE, INCLUDETEXT, LINK, DDE, DDEAUTO,
+// IMPORT, DATABASE, RD), con la instrucción de cada campo complejo juntada entre sus fldChar aunque se parta en varias
+// corridas. Con POI: los marcadores desconocidos. Los estilos requeridos que faltan (por nombre, sin distinguir mayúsculas) se
+// leen de la parte `styles`, y las fuentes fuera de la lista en cualquier parte, en el texto o en el tema que citan, son
+// violaciones; una que solo figura en la tabla de fuentes, un aviso. trabajo bloqueante: quien llama lo corre en Dispatchers.IO
 class TemplateValidator(
     private val limits: DeliverableProperties.Templates
 ) {
@@ -55,15 +58,26 @@ class TemplateValidator(
         if (entries.overflow != null) return TemplateReport(violations + TemplateFinding(TOO_LARGE, entries.overflow), warnings)
         val parts = entries.parts
         if ("word/document.xml" !in parts) return TemplateReport(violations + TemplateFinding(NOT_WORD, "falta word/document.xml"), warnings)
-        val xml =
+        val typesData = parts[CONTENT_TYPES] ?: return TemplateReport(violations + TemplateFinding(NOT_WORD, "falta $CONTENT_TYPES"), warnings)
+        val contentTypes =
             try {
-                parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.mapValues { (_, text) -> parse(text) }
+                parse(typesData)
             } catch (_: Exception) {
-                return TemplateReport(violations + TemplateFinding(NOT_WORD, "una parte XML no se puede leer"), warnings)
+                return TemplateReport(violations + TemplateFinding(NOT_WORD, "$CONTENT_TYPES no se puede leer"), warnings)
             }
-        violations += packaging(parts.keys, xml)
-        val word = xml.filterKeys { it.startsWith("word/") && it.endsWith(".xml") }
-        violations += content(word.values)
+        val declared = declaredTypes(contentTypes)
+        val xml = linkedMapOf<String, Document>()
+        for ((part, data) in parts) {
+            if (part == CONTENT_TYPES || isMedia(part, declared)) continue
+            try {
+                xml[part] = parse(data)
+            } catch (_: Exception) {
+                violations += TemplateFinding(NOT_WORD, "una parte no es XML ni un medio permitido ($part)")
+            }
+        }
+        xml[CONTENT_TYPES] = contentTypes
+        violations += packaging(parts.keys, declared, xml)
+        violations += content(xml)
         if (violations.isNotEmpty()) return TemplateReport(violations.distinct(), warnings)
         try {
             XWPFDocument(OPCPackage.open(ByteArrayInputStream(bytes))).use { doc ->
@@ -74,58 +88,82 @@ class TemplateValidator(
         } catch (_: Exception) {
             return TemplateReport(violations + TemplateFinding(NOT_WORD, "POI no puede abrir el documento"), warnings)
         }
-        val styleNames = xml["word/styles.xml"]?.let { elements(it, W, "name").map { e -> e.getAttributeNS(W, "val").lowercase() } }.orEmpty().toSet()
+        val styleNames =
+            xml.values
+                .filter { root(it) == "styles" }
+                .flatMap { doc -> local(doc, "name").map { e -> attribute(e, "val").lowercase() } }
+                .toSet()
         TemplateStyles.REQUIRED.filter { it.lowercase() !in styleNames }.forEach { violations += TemplateFinding(MISSING_STYLE, it) }
-        val fontParts = word.filterKeys { it == "word/styles.xml" || it == "word/document.xml" || HEADER_FOOTER.matches(it) }.values
-        val fonts = fontParts.flatMap { elements(it, W, "rFonts") }
-        val used = fonts.flatMap { e -> FONT_ATTRIBUTES.map { e.getAttributeNS(W, it) } }.filter { it.isNotEmpty() }.toSet()
-        val themed = fonts.any { e -> FONT_ATTRIBUTES.any { e.hasAttributeNS(W, "${it}Theme") } }
+        val fonts = xml.values.flatMap { local(it, "rFonts") }
+        val used = fonts.flatMap { e -> FONT_ATTRIBUTES.map { attribute(e, it) } }.filter { it.isNotEmpty() }.toSet()
+        val themed = fonts.any { e -> attributes(e).any { it.first.endsWith("theme", ignoreCase = true) } }
         val theme =
             if (themed) {
-                xml["word/theme/theme1.xml"]
-                    ?.let {
-                        elements(it, A, "latin").map { e ->
-                            e.getAttribute("typeface")
-                        }
-                    }.orEmpty()
+                xml.values
+                    .filter { root(it) == "theme" }
+                    .flatMap { doc -> local(doc, "latin").map { e -> e.getAttribute("typeface") } }
                     .filter { it.isNotEmpty() }
                     .toSet()
             } else {
                 emptySet()
             }
         (used + theme).filter { it !in TemplateStyles.FONTS }.sorted().forEach { violations += TemplateFinding(FONT_NOT_ALLOWED, it) }
-        val table = xml["word/fontTable.xml"]?.let { elements(it, W, "font").map { e -> e.getAttributeNS(W, "name") } }.orEmpty().toSet()
+        val table =
+            xml.values
+                .filter { root(it) == "fonts" }
+                .flatMap { doc -> local(doc, "font").map { e -> attribute(e, "name") } }
+                .toSet()
         (table - used - theme).filter { it.isNotEmpty() && it !in TemplateStyles.FONTS }.sorted().forEach { warnings += TemplateFinding(FONT_IN_TABLE, it) }
         return TemplateReport(violations.distinct(), warnings)
     }
 
+    // los tipos de contenido declarados, en minúsculas: por extensión (Default) y por parte (Override)
+    private class Declared(
+        val byExtension: Map<String, String>,
+        val byPart: Map<String, String>
+    ) {
+        val all: Collection<String> get() = byExtension.values + byPart.values
+    }
+
+    private fun declaredTypes(doc: Document): Declared =
+        Declared(
+            local(doc, "Default").associate { attribute(it, "Extension").lowercase() to attribute(it, "ContentType").lowercase() },
+            local(doc, "Override").associate { attribute(it, "PartName").lowercase().removePrefix("/") to attribute(it, "ContentType").lowercase() }
+        )
+
+    // un medio permitido es una parte con tipo image/* que no es SVG; todo lo demás se lee como XML
+    private fun isMedia(
+        part: String,
+        declared: Declared
+    ): Boolean {
+        if (part.endsWith("/")) return true
+        val type = declared.byPart[part.lowercase()] ?: declared.byExtension[part.substringAfterLast('.', "").lowercase()] ?: return false
+        return type.startsWith("image/") && "svg" !in type
+    }
+
     // lo que el paquete declara por tipo: macros y VBA en [Content_Types].xml, partes binarias peligrosas por su tipo de
-    // relación y cualquier relación externa
+    // relación y cualquier relación externa, en cualquier parte
     private fun packaging(
         names: Set<String>,
+        declared: Declared,
         xml: Map<String, Document>
     ): List<TemplateFinding> {
         val found = mutableListOf<TemplateFinding>()
-        val types =
-            xml["[Content_Types].xml"]
-                ?.let { doc ->
-                    (elements(doc, CT, "Default") + elements(doc, CT, "Override")).map { it.getAttribute("ContentType").lowercase() }
-                }.orEmpty()
+        val types = declared.all
         if (names.any { it.substringAfterLast('/').equals("vbaProject.bin", ignoreCase = true) } || types.any { "macroenabled" in it || "vbaproject" in it }) {
             found += TemplateFinding(MACROS, "la plantilla trae macros")
         }
         if (types.any { "oleobject" in it || it.endsWith(".package") }) found += TemplateFinding(OLE_OBJECT, "la plantilla trae objetos incrustados")
         if (types.any { "activex" in it }) found += TemplateFinding(ACTIVEX, "la plantilla trae controles ActiveX")
-        for ((part, doc) in xml.filterKeys { it.endsWith(".rels") }) {
-            for (rel in elements(doc, RELS, "Relationship")) {
-                val type = rel.getAttribute("Type").substringAfterLast('/')
-                when (type) {
+        for ((part, doc) in xml) {
+            for (rel in local(doc, "Relationship")) {
+                when (attribute(rel, "Type").substringAfterLast('/')) {
                     "oleObject", "package" -> found += TemplateFinding(OLE_OBJECT, "la plantilla trae objetos incrustados")
                     "control", "activeXControl", "activeXControlBinary" -> found += TemplateFinding(ACTIVEX, "la plantilla trae controles ActiveX")
                     "vbaProject", "wordVbaData" -> found += TemplateFinding(MACROS, "la plantilla trae macros")
                     "aFChunk" -> found += TemplateFinding(EXTERNAL_CONTENT, "la plantilla importa contenido (altChunk)")
                 }
-                if (rel.getAttribute("TargetMode").equals("External", ignoreCase = true)) {
+                if (attribute(rel, "TargetMode").equals("External", ignoreCase = true)) {
                     found += TemplateFinding(EXTERNAL_RELATIONSHIP, "la plantilla cita archivos o direcciones externas ($part)")
                 }
             }
@@ -133,24 +171,69 @@ class TemplateValidator(
         return found
     }
 
-    // lo que el contenido de Word trae, por namespace y no por prefijo
-    private fun content(parts: Collection<Document>): List<TemplateFinding> {
+    // lo que cada parte trae, por nombre local y no por prefijo ni namespace
+    private fun content(parts: Map<String, Document>): List<TemplateFinding> {
         val found = mutableListOf<TemplateFinding>()
-        for (doc in parts) {
-            if (elements(doc, W, "sdt").isNotEmpty()) found += TemplateFinding(CONTENT_CONTROL, "la plantilla trae controles de contenido")
-            if (elements(doc, W, "object").isNotEmpty() ||
-                elements(doc, VML_OFFICE, "OLEObject").isNotEmpty()
-            ) {
+        for ((part, doc) in parts) {
+            if (local(doc, "sdt").isNotEmpty()) found += TemplateFinding(CONTENT_CONTROL, "la plantilla trae controles de contenido")
+            if (local(doc, "object").isNotEmpty() || local(doc, "OLEObject").isNotEmpty()) {
                 found += TemplateFinding(OLE_OBJECT, "la plantilla trae objetos incrustados")
             }
-            if (elements(doc, W, "control").isNotEmpty()) found += TemplateFinding(ACTIVEX, "la plantilla trae controles ActiveX")
-            if (elements(doc, W, "altChunk").isNotEmpty()) found += TemplateFinding(EXTERNAL_CONTENT, "la plantilla importa contenido (altChunk)")
-            val instructions = elements(doc, W, "instrText").map { it.textContent } + elements(doc, W, "fldSimple").map { it.getAttributeNS(W, "instr") }
-            instructions.mapNotNull { FIELD.find(it.trim().uppercase())?.groupValues?.get(1) }.distinct().forEach {
+            if (local(doc, "control").isNotEmpty()) found += TemplateFinding(ACTIVEX, "la plantilla trae controles ActiveX")
+            if (local(doc, "altChunk").isNotEmpty()) found += TemplateFinding(EXTERNAL_CONTENT, "la plantilla importa contenido (altChunk)")
+            val addressed =
+                local(doc, "*").any { e ->
+                    attributes(e).any { (attr, value) ->
+                        !(e.localName == "Relationship" && attr == "Type") && attr != "schemaLocation" && ADDRESS.containsMatchIn(value.trim())
+                    }
+                }
+            if (addressed) found += TemplateFinding(EXTERNAL_RELATIONSHIP, "la plantilla cita archivos o direcciones externas ($part)")
+            fields(doc).mapNotNull { FIELD.find(it)?.groupValues?.get(1) }.distinct().forEach {
                 found += TemplateFinding(FIELD_NOT_ALLOWED, it)
             }
         }
         return found
+    }
+
+    // la instrucción de cada campo: la de los complejos juntada entre su fldChar begin y separate o end (con anidamiento), así se
+    // parta en varias corridas, y la de los simples; sin espacios y en mayúsculas
+    private fun fields(doc: Document): List<String> {
+        val result = mutableListOf<String>()
+        val open = ArrayDeque<StringBuilder>()
+        val inResult = ArrayDeque<Boolean>()
+        val loose = StringBuilder()
+
+        fun flush(builder: StringBuilder) {
+            if (builder.isNotEmpty()) result += builder.toString().filterNot { it.isWhitespace() }.uppercase()
+            builder.setLength(0)
+        }
+        for (e in local(doc, "*")) {
+            when (e.localName) {
+                "fldSimple" -> result += attribute(e, "instr").filterNot { it.isWhitespace() }.uppercase()
+                "fldChar" ->
+                    when (attribute(e, "fldCharType")) {
+                        "begin" -> {
+                            flush(loose)
+                            open.addLast(StringBuilder())
+                            inResult.addLast(false)
+                        }
+                        "separate" ->
+                            if (open.isNotEmpty() && !inResult.last()) {
+                                flush(open.last())
+                                inResult[inResult.lastIndex] = true
+                            }
+                        "end" ->
+                            if (open.isNotEmpty()) {
+                                flush(open.removeLast())
+                                inResult.removeLast()
+                            }
+                    }
+                "instrText" -> (if (open.isNotEmpty() && !inResult.last()) open.last() else loose).append(e.textContent)
+            }
+        }
+        open.forEach { flush(it) }
+        flush(loose)
+        return result
     }
 
     // los marcadores del cuerpo (también en tablas), los encabezados y los pies, sobre el texto del párrafo (que ya junta las
@@ -168,17 +251,31 @@ class TemplateValidator(
         }
     }
 
-    private fun elements(
+    // los elementos por nombre local en cualquier namespace ("*" son todos, en orden del documento)
+    private fun local(
         doc: Document,
-        namespace: String,
         local: String
     ): List<Element> {
-        val list = doc.getElementsByTagNameNS(namespace, local)
+        val list = doc.getElementsByTagNameNS("*", local)
         return (0 until list.length).map { list.item(it) as Element }
     }
 
+    private fun root(doc: Document): String = doc.documentElement.localName.orEmpty()
+
+    // los atributos (nombre local, valor) sin las declaraciones de namespace
+    private fun attributes(e: Element): List<Pair<String, String>> =
+        (0 until e.attributes.length)
+            .map { e.attributes.item(it) }
+            .filter { it.namespaceURI != XMLNS }
+            .map { (it.localName ?: it.nodeName) to it.nodeValue }
+
+    private fun attribute(
+        e: Element,
+        name: String
+    ): String = attributes(e).firstOrNull { it.first == name }?.second.orEmpty()
+
     // un parser sin DTD ni entidades externas (XXE): una plantilla no es de confianza
-    private fun parse(text: String): Document {
+    private fun parse(data: ByteArray): Document {
         val factory =
             DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = true
@@ -187,17 +284,18 @@ class TemplateValidator(
                 setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
                 setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
             }
-        return factory.newDocumentBuilder().parse(ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
+        return factory.newDocumentBuilder().parse(ByteArrayInputStream(data))
     }
 
     private class Entries(
-        val parts: Map<String, String>,
+        val parts: Map<String, ByteArray>,
         val overflow: String?
     )
 
-    // las partes XML y .rels como texto y los nombres de las demás, con los topes de entradas y de bytes descomprimidos
+    // todas las entradas, con los topes de entradas y de bytes descomprimidos; un ZIP roto o truncado, o con un nombre que no
+    // es UTF-8, no es un documento
     private fun entries(bytes: ByteArray): Entries? {
-        val parts = linkedMapOf<String, String>()
+        val parts = linkedMapOf<String, ByteArray>()
         var count = 0
         var inflated = 0L
         try {
@@ -205,19 +303,21 @@ class TemplateValidator(
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     if (++count > limits.maxEntries) return Entries(parts, "más de ${limits.maxEntries} entradas")
-                    val buffer = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArrayOutputStream()
                     val chunk = ByteArray(BUFFER)
                     while (true) {
                         val n = zip.read(chunk)
                         if (n < 0) break
                         inflated += n
                         if (inflated > limits.maxInflatedBytes) return Entries(parts, "más de ${limits.maxInflatedBytes} bytes descomprimidos")
-                        if (entry.name.endsWith(".xml") || entry.name.endsWith(".rels")) buffer.write(chunk, 0, n)
+                        buffer.write(chunk, 0, n)
                     }
-                    parts[entry.name] = buffer.toString(Charsets.UTF_8)
+                    parts[entry.name] = buffer.toByteArray()
                 }
             }
-        } catch (_: ZipException) {
+        } catch (_: IOException) {
+            return null
+        } catch (_: IllegalArgumentException) {
             return null
         }
         return if (parts.isEmpty()) null else Entries(parts, null)
@@ -238,16 +338,14 @@ class TemplateValidator(
         const val NOT_WORD = "NOT_WORD"
         const val TOO_LARGE = "TOO_LARGE"
         private const val BUFFER = 8192
-
-        private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-        private const val A = "http://schemas.openxmlformats.org/drawingml/2006/main"
-        private const val CT = "http://schemas.openxmlformats.org/package/2006/content-types"
-        private const val RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
-        private const val VML_OFFICE = "urn:schemas-microsoft-com:office:office"
+        private const val CONTENT_TYPES = "[Content_Types].xml"
+        private const val XMLNS = "http://www.w3.org/2000/xmlns/"
         private val FONT_ATTRIBUTES = listOf("ascii", "hAnsi", "cs", "eastAsia")
-        private val HEADER_FOOTER = Regex("""word/(header|footer)\d*\.xml""")
 
-        // los campos que leen un archivo o la red al actualizarse
-        private val FIELD = Regex("""^(INCLUDEPICTURE|INCLUDETEXT|LINK|DDEAUTO|DDE|IMPORT)\b""")
+        // un valor que apunta a la red o a un archivo
+        private val ADDRESS = Regex("""^(?i:(?:https?|file|ftp):|\\\\)""")
+
+        // los campos que leen un archivo o la red al actualizarse (instrucción sin espacios y en mayúsculas)
+        private val FIELD = Regex("""^(INCLUDEPICTURE|INCLUDETEXT|LINK|DDEAUTO|DDE|IMPORT|DATABASE|RD)""")
     }
 }
