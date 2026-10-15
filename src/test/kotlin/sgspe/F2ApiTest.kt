@@ -1,16 +1,24 @@
 package sgspe
 
+import kotlinx.coroutines.reactor.asCoroutineContext
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
+import org.springframework.security.core.context.ReactiveSecurityContextHolder
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.web.reactive.function.BodyInserters
+import reactor.core.publisher.Flux
 import sgspe.ai.TestDocuments
 import sgspe.common.Records
 import tools.jackson.databind.JsonNode
 import wasichai.core.data.RecordService
+import wasichai.files.FileService
+import wasichai.files.FileUpload
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,6 +42,23 @@ abstract class F2ApiTest : SgspeApiTest() {
 
     @Autowired
     protected lateinit var platformService: RecordService
+
+    @Autowired
+    private lateinit var jwtDecoder: ReactiveJwtDecoder
+
+    @Autowired
+    private lateinit var fileService: FileService
+
+    // un bloque como `account` fuera de una petición http: el contexto de seguridad de Reactor que llevaría su petición, con su
+    // token decodificado (como asCaller de AgentEmbabelTest de wasichai 1.2.0). así se llama a un servicio de sgspe como la
+    // persona (plan 7.2a; desde el plan 8.2b vive aquí, porque stagedFile lo usa para los archivos de entregables)
+    protected fun <T> asUser(
+        account: Account,
+        block: suspend () -> T
+    ): T {
+        val jwt = jwtDecoder.decode(account.token.removePrefix("Bearer ")).block()!!
+        return runBlocking(ReactiveSecurityContextHolder.withAuthentication(JwtAuthenticationToken(jwt)).asCoroutineContext()) { block() }
+    }
 
     protected fun organizationId(): UUID = UUID.fromString(me()["organizationId"].asString())
 
@@ -181,6 +206,19 @@ abstract class F2ApiTest : SgspeApiTest() {
                 DOCX in types -> Triple(TestDocuments.docx("Archivo de prueba"), "prueba.docx", MediaType.parseMediaType(DOCX))
                 else -> Triple("{\"prueba\":true}".toByteArray(), "prueba.json", MediaType.TEXT_PLAIN)
             }
+        // plan 8.2b: las rutas nativas de subida de los objetos de entregables responden 403 FILE_WRITE_NOT_ALLOWED; su archivo se
+        // sube con FileService.stage como la cuenta (el admin si es null), como lo harán JOB-05, la emisión y las plantillas
+        if (objectName in CLOSED_UPLOADS) {
+            return asUser(account ?: Account(token, "")) {
+                fileService
+                    .stage(
+                        objectName,
+                        field,
+                        FileUpload(name, type.toString(), Flux.just(DefaultDataBufferFactory.sharedInstance.wrap(bytes)))
+                    ).id
+                    .toString()
+            }
+        }
         val parts = MultipartBodyBuilder().apply { part("file", bytes, type).filename(name) }.build()
         val body =
             client
@@ -266,6 +304,9 @@ abstract class F2ApiTest : SgspeApiTest() {
 
     companion object {
         private val SEQUENCE = AtomicInteger()
+
+        // los objetos cuyas rutas nativas de subida cierra SGSPE (plan 8.2b, DeliverableContentController)
+        val CLOSED_UPLOADS = setOf("deliverable", "deliverable_version", "deliverable_template")
 
         // un PDF mínimo: wasichai-files reconoce el tipo por su número mágico (application/pdf)
         val PDF: ByteArray = "%PDF-1.4\n%archivo de prueba de sgspe\n".toByteArray()
