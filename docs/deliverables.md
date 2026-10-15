@@ -230,8 +230,9 @@ Cada clase declara:
 - sus parámetros (RQ-REP-013): T2 exige `project`, `community` y periodo; T1, `project`, `study`, periodo, `cutoff_date`
   y un área de influencia directa aprobada; los dos, el `working_crs` del proyecto. Si falta uno al pedir un borrador,
   la respuesta es `422 DELIVERABLE_PARAMETERS_MISSING`, con un error por campo. `deliverable_type` no cambia después del
-  alta (`400 FIELD_NOT_EDITABLE`), y un listener crea las secciones del tipo en la transacción del alta, como quien la
-  da de alta;
+  alta (`400 FIELD_NOT_EDITABLE`), como tampoco `section_key` ni `deliverable` de una `deliverable_section`; un `PUT` que
+  omite o cambia `current_version` responde `400 DERIVED_FIELD` (solo la emisión la escribe); y un listener crea las
+  secciones del tipo en la transacción del alta, como quien la da de alta;
 - los niveles de divulgación que prepara (§3, §9), sus mapas (capas y regla de encuadre) y sus recursos estáticos (RQ-REP-023);
 - su versión, que queda en el modelo congelado.
 
@@ -281,8 +282,8 @@ Cada clase declara:
   usa si una persona la adopta con motivo: `POST /api/sgspe/ai-suggestions/{id}/accept` escribe `content`,
   `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` con `DeliverableSections.adopt`, y convierte
   `[PERSONA:<id>]` en `[[person:<id>]]` (un `[PERSONA]` sin id responde `422 UNRESOLVED_PSEUDONYM`).
-  `DeliverableWriteGuard` exige el motivo cuando el origen indica IA y no deja volver a HUMANO en la misma revisión
-  (`422 AI_ORIGIN_LOCKED`), así que la versión emitida lista en `ai_assisted_sections` toda sección que tuvo asistencia
+  `DeliverableWriteGuard` exige el motivo cuando el origen indica IA y no deja volver a otro origen ni borrar la sección
+  (`422 AI_ORIGIN_LOCKED`; en F8, en toda la vida del entregable; AI-04 puede acotarlo a la revisión), así que la versión emitida lista en `ai_assisted_sections` toda sección que tuvo asistencia
   (RQ-AI-012, RF-AIK-004, ASM-137). AI-04 solo redacta las secciones que el tipo marca con IA (si no, `422
   SECTION_NOT_ASSISTED`), leyendo como la persona, seudonimizados, los registros que el tipo declara para esa sección y
   los KPI del periodo; nunca el modelo congelado, que se leyó como la plataforma.
@@ -336,17 +337,37 @@ Cada clase declara:
   borrador toma la plantilla más reciente de esa clave y congela su id y su SHA-256 en el modelo, y cada versión
   emitida guarda su `template_sha256` (domain-model §6.15). Una plantilla no se edita ni se borra: subir otra con la
   misma clave la reemplaza para los borradores siguientes. Sin `template_key` rige la base de SGSPE
-  (`src/main/resources/sgspe/deliverable/templates/sgspe-base.dotx`, solo fuentes libres).
+  (`BaseTemplate`, armada en código con POI, solo Liberation Sans y con los mismos bytes en cada armado; la prueba de que
+  es determinista es `BaseTemplateTest`).
 - **Validación al subir** (RQ-SEC-019, ASM-055, ASM-135). `POST /api/sgspe/deliverable-templates` (multipart `file`,
   `templateKey` y `name`, con `Idempotency-Key`) abre el OOXML con límites de entradas y de bytes descomprimidos y
   rechaza con `422 TEMPLATE_INVALID` y `violations[]` `vbaProject.bin`, los tipos con macros (.dotm, .docm), objetos
-  OLE, ActiveX, controles de contenido, relaciones `TargetMode="External"`, marcadores desconocidos, estilos
+  OLE, ActiveX, controles de contenido, `altChunk`, relaciones `TargetMode="External"`, marcadores desconocidos, estilos
   requeridos faltantes (`TemplateStyles`) y fuentes fuera de la lista en un estilo o en el texto; una fuente que solo
-  figura en la tabla de fuentes es un aviso. El tope es el de una subida del navegador, 20 MB (ASM-138). La sube quien
+  figura en la tabla de fuentes es un aviso. La validación es por tipo de contenido, por tipo de relación y por namespace
+  (nada depende del prefijo ni de la extensión que el archivo declara), y falla cerrada:
+  - toda parte se analiza como XML sin DTD, cualquiera sea su tipo declarado o su carpeta; un binario solo se acepta si
+    se declara imagen raster (png, jpeg, gif, bmp, tiff, emf, wmf) y sus bytes mágicos coinciden; SVG no se permite
+    (usar PNG), y lo demás (por ejemplo `printerSettings.bin` o fuentes `.odttf`) es `NOT_WORD`; también lo es un
+    elemento con dos atributos del mismo nombre local;
+  - los campos permitidos son una lista cerrada: PAGE, NUMPAGES, SECTIONPAGES, SECTION, DATE, TIME, CREATEDATE, SAVEDATE,
+    PRINTDATE, TITLE, SUBJECT, AUTHOR, DOCPROPERTY, STYLEREF, REF, PAGEREF, NOTEREF, SEQ, TOC y TC. Cualquier otro
+    (INCLUDEPICTURE, INCLUDETEXT, LINK, DDE, DDEAUTO, IMPORT, MERGEFIELD, DATABASE, RD…), un campo sin nombre, un campo
+    anidado antes del nombre, texto de instrucción fuera de un campo o un campo sin cerrar es `FIELD_NOT_ALLOWED`;
+  - cualquier atributo cuyo valor parezca una dirección (`esquema:`, `//`, `\\`) es `EXTERNAL_RELATIONSHIP`, salvo las
+    declaraciones de namespace, `xsi:schemaLocation` y `noNamespaceSchemaLocation`, `xsi:type`, `Relationship/@Type`,
+    `graphicData/@uri`, `schemaRef/@uri`, `ext/@uri` y el texto alternativo `descr` o `title` de `docPr` y `cNvPr`; toda
+    relación con `TargetMode="External"` lo es también, incluidos los hipervínculos externos de la plantilla;
+  - los estilos requeridos se buscan solo en la parte de estilos del documento principal, y las fuentes se revisan en
+    todas las partes.
+  Los estilos requeridos se nombran por su nombre integrado de Word (`Normal`, `Title`, `heading 1` a `heading 3`,
+  `caption`, `List Paragraph`) y se buscan sin distinguir mayúsculas, porque el id del estilo cambia con el idioma de Word. El tope es el de una subida del navegador, 20 MB (ASM-138). La sube quien
   tiene `MANAGE_METADATA` sobre `deliverable` (en la práctica, `ADMIN`).
 - **Marcadores fijos.** La portada, el encabezado y el pie llevan solo `{{titulo}}`, `{{proyecto}}`,
   `{{preparado_para}}`, `{{suscrito_por}}`, `{{direccion_autora}}`, `{{fecha}}`, `{{codigo}}`, `{{revision}}`,
-  `{{nivel}}` y `{{mapa_portada}}`, sin lenguaje de expresiones: la plantilla aporta el aspecto, no la lógica.
+  `{{nivel}}` y `{{mapa_portada}}`, sin lenguaje de expresiones: la plantilla aporta el aspecto, no la lógica. Un marcador va solo en su párrafo (o con
+  texto plano): `DocxWriter` reescribe el párrafo entero en su primera corrida, así que una imagen, un campo o un formato
+  mixto de ese párrafo se pierde.
 - **Fuentes.** Gotenberg trae fuentes libres con métricas compatibles; las plantillas las usan en lugar de las de Microsoft, que no
   se pueden redistribuir en un contenedor. DOC-01 y DOC-02 usan Calibri y Arial; DOC-01 además Cambria, Century Gothic y Tahoma, y
   DOC-02 Arial Black en el título de la portada [DOC-01] [DOC-02 p.1].
@@ -462,8 +483,12 @@ stateDiagram-v2
   congelar el modelo, EN PROCESO, y guarda ese instante en `draft_generated_at`, con `draft_model_sha256` y
   `draft_revision`; al terminar, sube y adjunta los siete archivos y escribe LISTO y `draft_warnings` en una sola
   escritura de la plataforma, o FALLIDO con su código en `draft_warnings` (catálogo "Estado de generación del
-  borrador"). Nunca aplica transiciones ni escribe secciones (domain-model §8.3). Adjuntar archivos como la plataforma
-  espera UPS-31.
+  borrador"). El intento queda en `draft_generated_at` también si termina FALLIDO (un pedido se atiende una vez), y el
+  FALLIDO posterior a congelar el modelo gasta su letra de revisión. Nunca aplica transiciones ni escribe secciones
+  (domain-model §8.3). Los archivos los adjunta un puerto (`DraftFiles`) que espera UPS-31: en 8.2b, sin conversor real,
+  todo borrador real termina FALLIDO con `PDF_CONVERTER_UNAVAILABLE`; con el de 8.2c y sin UPS-31, con
+  `GENERATION_FAILED`. Los avisos de `draft_warnings` también pueden ser `PDF_CHECK_FAILED` (con el nivel en el lugar
+  de la sección) y `TYPE_NOT_AVAILABLE`, además de `GENERATION_FAILED` y `TEMPLATE_UNAVAILABLE`.
 - **Qué genera.** Desde un mismo modelo congelado y para cada nivel de divulgación que prepara el tipo:
   - el borrador, con la marca "BORRADOR" y la etiqueta de borrador, para revisar (RQ-REP-021): DOCX y PDF en INTERNO, y
     solo PDF en EXTERNO (`draft_internal_docx`, `draft_internal_pdf` y `draft_external_pdf`), en PDF común;
@@ -563,7 +588,7 @@ sequenceDiagram
 | El borrador lo describe solo el trabajador | `DerivedFieldsGuard` rechaza sin la marca las escrituras de `generation_requested_at`, `draft_*`, `current_version` y `current_revision`, y SGSPE atiende la subida nativa de los campos `FILE` de entregables con `403 FILE_WRITE_NOT_ALLOWED` | ASM-061, ASM-133 (domain-model §4.6, §7.4) |
 | Se aprueba lo que se revisó | `DeliverableWriteGuard` hacia `approved` | RQ-REP-015 |
 | Todo cambio tiene motivo | `deliverable` es `requiresReason` | RQ-AUD-002, ASM-058 [WAS-ADR-0041] |
-| El texto de IA lo adopta una persona | `DeliverableWriteGuard` exige motivo cuando `content_origin` indica IA y no deja volver a HUMANO en la misma revisión (`422 AI_ORIGIN_LOCKED`) | RQ-AI-012, ASM-137 |
+| El texto de IA lo adopta una persona | `DeliverableWriteGuard` exige motivo cuando `content_origin` indica IA y no deja volver a otro origen ni borrar la sección, en toda la vida del entregable (`422 AI_ORIGIN_LOCKED`) | RQ-AI-012, ASM-137 |
 | El tipo no cambia | `DeliverableWriteGuard` rechaza cambiar `deliverable_type` después del alta | RQ-REP-002 |
 | La versión INTERNO conserva el DOCX editable | `DeliverableWriteGuard` rechaza crear una `deliverable_version` INTERNO sin el `FILE` `docx` y su `docx_sha256`, o con un `*_sha256` distinto del descriptor de su archivo; la derivada EXTERNO es solo PDF | RQ-REP-001, RQ-REP-014 (domain-model §7.2) |
 | Generar, emitir y descargar son permisos explícitos | Acciones declaradas sobre `deliverable`: `GENERATE`, `ISSUE`, `DOWNLOAD_RESTRICTED` (borradores y versiones INTERNO) y `EXPORT` (versiones EXTERNO y PUBLICO); `EXPORT` sobre cada objeto que se exporta a XLSX o a formatos GIS | RQ-SEC-004 [WAS-ADR-0042] (domain-model §8.1.1) |
@@ -764,7 +789,7 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 - Un proyecto de prueba con topónimos reales y personas, organizaciones privadas y números ficticios ("Persona Ejemplo 1",
   "Asociación Ejemplo"), con datos para todos los capítulos de T1 y todas las secciones de T2 (RQ-SEC-018).
 - Una plantilla Word de prueba en el repositorio, con los estilos requeridos y solo fuentes libres; la base de SGSPE
-  (`sgspe-base.dotx`) la valida `TemplateValidatorTest`.
+  (`BaseTemplate`) la valida `TemplateValidatorTest`.
 
 ### 13.2 Criterios de aceptación
 

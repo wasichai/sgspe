@@ -138,7 +138,7 @@ pasa a `accepted` solo cuando una persona lo usa en una `deliverable_section` (F
 | EXTRACCION de un acuerdo | `agreement` | Crea una `agreement_clause` (`clause_number`, `clause_text`, `creates_commitment`) | CREATE sobre `agreement_clause` | `{"item": "clause", "clause_number": "5", "clause_text": "…", "creates_commitment": true}` |
 | BORRADOR DE ACTA | `engagement` | `minutes`; la persona sigue con las transiciones de WF-C | UPDATE sobre `engagement` | Markdown sin HTML |
 | RESUMEN EJECUTIVO | `project` | Ninguno mientras solo informa. Si una persona lo usa en una `deliverable_section`, el comando de BORRADOR DE SECCION | UPDATE sobre `deliverable_section`, al usarlo | Markdown sin HTML |
-| BORRADOR DE SECCION (F8) | `deliverable_section` | `content`, con `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` (`DeliverableSections.adopt`); convierte `[PERSONA:<id>]` en `[[person:<id>]]` (sin id, `422 UNRESOLVED_PSEUDONYM`) y la sección no vuelve a HUMANO en la revisión (`422 AI_ORIGIN_LOCKED`, ASM-137) | UPDATE sobre `deliverable_section`, con motivo (`DeliverableWriteGuard`) | Markdown sin HTML |
+| BORRADOR DE SECCION (F8) | `deliverable_section` | `content`, con `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` (`DeliverableSections.adopt`); convierte `[PERSONA:<id>]` en `[[person:<id>]]` (sin id, `422 UNRESOLVED_PSEUDONYM`) y la sección no vuelve a otro origen ni se borra en toda la vida del entregable (`422 AI_ORIGIN_LOCKED`, ASM-137, pendiente de confirmación del usuario) | UPDATE sobre `deliverable_section`, con motivo (`DeliverableWriteGuard`) | Markdown sin HTML |
 | CLASIFICACION | `grievance`, `inquiry`, `stakeholder_request` | `category`, `priority` o `topic` | UPDATE sobre el objeto, con motivo (`requiresReason`) | `{"field": "category", "value": "AGUA Y MEDIO AMBIENTE"}` |
 | CLASIFICACION | `engagement_question` | `topic` | UPDATE sobre `engagement_question` | `{"field": "topic", "value": "<id>"}` |
 | CLASIFICACION | `media_mention` | `tone` o `topic` | UPDATE sobre `media_mention` | `{"field": "tone", "value": "NEGATIVO"}` |
@@ -593,7 +593,7 @@ Criterio para introducir pgvector (deben cumplirse todas; la decisión queda en 
   `RecordService.asPlatform` (`workflows.md`) [WAS-ADR-0039], solo en las organizaciones que activaron la IA (§12.1):
   - cada 30 minutos lee las `evidence` creadas o cambiadas desde su última vuelta buena (con dos minutos de traslape),
     y una vez al día, a las 03:15 de Lima, todas; la primera vuelta de cada proceso también lee todas;
-  - lee los bytes del archivo como la plataforma (`EvidenceFiles`: la fila de `stored_files` de la organización y el
+  - lee los bytes del archivo como la plataforma (`StoredFiles`, de `sgspe.common`: la fila de `stored_files` de la organización y el
     almacén, porque `FileService` de wasichai-files exige una persona), a lo sumo 20 MB; un archivo más grande queda sin
     texto, y uno cuya fila o cuyo objeto falta, o cuya extracción falla de forma inesperada, queda pendiente: la vuelta
     siguiente del proceso lo vuelve a leer;
