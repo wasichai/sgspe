@@ -176,7 +176,13 @@ class SuggestionAcceptance(
             AcceptRow.SECTION -> adopt(c, targetId(c), listOf(c.project), requireKnown = false) to null
             // el destino de un resumen ejecutivo es el proyecto: la sección es de él y del de la sugerencia, si lo trae
             AcceptRow.SUMMARY_SECTION ->
-                adopt(c, Records.uuid(c.requireText("section")) ?: throw invalidValue("section"), listOf(c.project, c.targetId), requireKnown = true) to
+                adopt(
+                    c,
+                    Records.uuid(c.requireText("section")) ?: throw invalidValue("section"),
+                    listOf(c.project, c.targetId),
+                    requireKnown = true,
+                    assistedOnly = true
+                ) to
                     null
         }
 
@@ -374,8 +380,9 @@ class SuggestionAcceptance(
         c: Context,
         section: UUID,
         projects: List<UUID?>,
-        requireKnown: Boolean
-    ): RecordResponse = sections.adopt(section, c.attributes["content"], c.suggestion, projects, requireKnown, c.reason)
+        requireKnown: Boolean,
+        assistedOnly: Boolean = false
+    ): RecordResponse = sections.adopt(section, c.attributes["content"], c.suggestion, projects, requireKnown, c.reason, assistedOnly)
 
     // el otro registro del par: del mismo objeto, distinto del destino y que se lee
     private suspend fun other(c: Context): RecordResponse {

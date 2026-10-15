@@ -110,15 +110,17 @@ class DeliverableSections(
     // la adopción de una sugerencia en una sección (especificación de F8 §3.9; ASM-137), dentro de la transacción de WF-K de
     // SuggestionAcceptance y como quien acepta: el texto revisado con sus marcadores convertidos, UPDATE sobre la sección, la
     // sección leída por quien acepta (403 OBJECT_NOT_READABLE) y de los proyectos de la sugerencia (409 PROJECT_MISMATCH,
-    // projectMatches); escribe content, content_origin ASISTIDO POR IA y ai_suggestion con el motivo, y DeliverableWriteGuard
-    // cierra el origen
+    // projectMatches); con `assistedOnly` (un resumen ejecutivo, que elige su sección), solo una que el tipo marca con IA (422
+    // SECTION_NOT_ASSISTED sobre attributes.section). escribe content, content_origin ASISTIDO POR IA y ai_suggestion con el
+    // motivo, y DeliverableWriteGuard cierra el origen
     suspend fun adopt(
         sectionId: UUID,
         content: Any?,
         suggestion: UUID,
         projects: List<UUID?>,
         requireKnown: Boolean,
-        reason: String
+        reason: String,
+        assistedOnly: Boolean = false
     ): RecordResponse {
         val text =
             when (content) {
@@ -140,6 +142,9 @@ class DeliverableSections(
                 ).toCodedException()
             }
         val deliverable = records.get(Deliverables.DELIVERABLE, Records.uuid(section.attributes[Deliverables.DELIVERABLE])!!)
+        if (assistedOnly) {
+            requireAssisted(types, deliverable.attributes[Deliverables.TYPE]?.toString(), section.attributes[Deliverables.SECTION_KEY]?.toString())
+        }
         if (!projectMatches(Records.uuid(deliverable.attributes[Deliverables.PROJECT]), projects, requireKnown)) {
             throw Finding(
                 "PROJECT_MISMATCH",
@@ -196,6 +201,23 @@ class DeliverableSections(
             }
             if (PseudonymMarkers.has(converted)) throw PseudonymMarkers.notAllowed("content")
             return converted
+        }
+
+        // la sección elegida para un resumen ejecutivo: una que el tipo no marca con IA (o de un tipo que no existe) quedaría
+        // ASISTIDA POR IA para siempre (ASM-137) sin admitir IA
+        fun requireAssisted(
+            types: DeliverableTypes,
+            type: String?,
+            key: String?
+        ) {
+            if (types.of(type)?.sections?.any { it.key == key && it.assisted } != true) {
+                throw Finding(
+                    SECTION_NOT_ASSISTED,
+                    "El tipo de entregable no marca esta sección para borradores de IA",
+                    "attributes.section",
+                    status = HttpStatus.UNPROCESSABLE_CONTENT
+                ).toCodedException()
+            }
         }
 
         fun notAssisted(): WasichaiException =

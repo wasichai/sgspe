@@ -51,4 +51,22 @@ class DeliverableSectionsTest {
         assertTrue(DeliverableSections.projectMatches(own, listOf(null), requireKnown = false))
         assertFalse(DeliverableSections.projectMatches(own, listOf(other), requireKnown = false))
     }
+
+    // revisión final de 8.2c, Minor 4: un resumen ejecutivo solo se copia a una sección que el tipo marca con IA; si no, 422
+    // SECTION_NOT_ASSISTED sobre attributes.section antes de escribir (el origen ASISTIDO POR IA no tiene vuelta atrás)
+    @Test
+    fun `un resumen ejecutivo solo se copia a una seccion que el tipo marca con IA`() {
+        val types = DeliverableTypes(listOf(SocialDiagnosisType(), FieldReportType()))
+        DeliverableSections.requireAssisted(types, SocialDiagnosisType.NAME, "introduccion")
+        DeliverableSections.requireAssisted(types, FieldReportType.NAME, "antecedentes")
+        for ((type, key) in listOf(
+            SocialDiagnosisType.NAME to "portada",
+            SocialDiagnosisType.NAME to "indice",
+            FieldReportType.NAME to "apoyo",
+            "OTRO" to "x"
+        )) {
+            val e = assertThrows<WasichaiException> { DeliverableSections.requireAssisted(types, type, key) }
+            assertEquals("SECTION_NOT_ASSISTED" to "attributes.section", e.violations.first().let { it.message to it.field }, "$type $key")
+        }
+    }
 }

@@ -128,7 +128,7 @@ class SectionDraftApiTest : F8ApiTest() {
     }
 
     @Test
-    fun `un resumen ejecutivo se copia a una seccion que se lee y no a la de otro proyecto`() {
+    fun `un resumen ejecutivo se copia a una seccion con IA que se lee y no a la de otro proyecto`() {
         val scenario = reportScenario()
         val manager = member("SOCIAL_MANAGER", scenario.project)
         val summary =
@@ -150,6 +150,14 @@ class SectionDraftApiTest : F8ApiTest() {
         assertEquals(listOf("attributes.section"), problemFields(mismatch.body))
         assertEquals("proposed", state("ai_suggestion", summary))
         assertFalse(record("deliverable_section", elsewhere)["attributes"]["content_origin"].asString() == "ASISTIDO POR IA")
+        // revisión final de 8.2c, Minor 4: una sección que el tipo no marca con IA, 422 SECTION_NOT_ASSISTED, y nada se escribe
+        val plain = sectionId(scenario.fieldReport, "apoyo")
+        val notAssisted = acceptSuggestion(manager, summary, mapOf("section" to plain, "content" to "## Situación general"))
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, notAssisted.status, notAssisted.body)
+        assertEquals("SECTION_NOT_ASSISTED", code(notAssisted))
+        assertEquals(listOf("attributes.section"), problemFields(notAssisted.body))
+        assertEquals("proposed", state("ai_suggestion", summary))
+        assertFalse(record("deliverable_section", plain)["attributes"]["content_origin"].asString() == "ASISTIDO POR IA")
         val section = sectionId(scenario.fieldReport, "antecedentes")
         val copied = acceptSuggestion(manager, summary, mapOf("section" to section, "content" to "## Situación general\n\nSin novedades."))
         assertEquals(HttpStatus.OK, copied.status, copied.body)
