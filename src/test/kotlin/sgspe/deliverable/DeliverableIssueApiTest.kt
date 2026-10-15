@@ -31,8 +31,12 @@ class DeliverableIssueApiTest : F8ApiTest() {
         assertEquals(internal["id"].asString(), external["attributes"]["derived_from"].asString())
         assertTrue(external["attributes"]["docx"].isNull || external["attributes"]["docx"].isMissingNode)
         assertEquals(internal["id"].asString(), record("deliverable", id)["attributes"]["current_version"].asString())
-        val logged = tree(send("GET", "/api/objects/export_log/records?export_kind=EMISION&size=50", null, HttpStatus.OK))["content"].values()
-        assertEquals(2, logged.count { it["attributes"]["deliverable_version"]?.asString() in all.map { v -> v["id"].asString() } })
+        // las filas de quien emitió (la suite comparte la base: la matriz también emite)
+        val logged =
+            tree(send("GET", "/api/objects/export_log/records?export_kind=EMISION&exporter_user_id=${manager.id}&size=50", null, HttpStatus.OK))["content"]
+                .values()
+        assertEquals(all.map { it["id"].asString() }.toSet(), logged.map { it["attributes"]["deliverable_version"].asString() }.toSet())
+        assertEquals(2, logged.size)
         assertEquals("SUCCEEDED", awaitRun("deliverable", "aut-12-issue-certificate", id)["status"].asString())
         val certificate = tree(send("GET", "/api/objects/deliverable/records/$id/documents", null, HttpStatus.OK)).values().single()
         assertTrue(certificate["number"].asString().startsWith("CE-"), "$certificate")
