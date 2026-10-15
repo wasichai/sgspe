@@ -27,14 +27,16 @@ import sgspe.privacy.ExportLog
 import wasichai.core.common.FieldViolation
 import wasichai.core.common.NotFoundException
 import wasichai.core.data.RecordResponse
+import wasichai.files.FileDownload
 import wasichai.files.FileService
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 // las descargas de un entregable (especificación de F8 §3.4, api.md §4.12, security.md §14): leen el registro como quien llama
 // (404 si no lo lee), comprueban la acción (DOWNLOAD_RESTRICTED para un borrador de cualquier nivel y una versión INTERNO;
-// EXPORT para una versión EXTERNO; si no, 403 ACTION_REQUIRED), escriben la fila de export_log (DESCARGA) y transmiten el
-// archivo con FileService.open como quien llama, attachment, nosniff, no-store y ETag igual al SHA-256, como EvidenceContent.
+// EXPORT para una versión EXTERNO; si no, 403 ACTION_REQUIRED), abren el archivo con FileService.open como quien llama,
+// escriben la fila de export_log (DESCARGA, con el SHA-256 de lo servido) y lo transmiten attachment, nosniff, no-store y
+// ETag igual al SHA-256, como EvidenceContent.
 // el DOCX fuera de INTERNO y el modelo son 404 (existen, pero no se sirven), un formato o un nivel desconocido es 422. las
 // candidatas no tienen ruta: nada sin la marca BORRADOR se sirve antes de emitir (RQ-REP-021)
 @Service
@@ -64,17 +66,19 @@ class DeliverableContent(
             }
         require(user, Deliverables.DOWNLOAD_RESTRICTED, "Descargar un borrador")
         if (deliverable.attributes[field] == null) throw notServed()
+        // la fila, después de abrir el archivo (lo que no se abre no sale) y con el SHA-256 de lo que se sirve
+        val download = files.open(Deliverables.DELIVERABLE, id, field)
         exportLog.deliverable(
             user,
             ExportLog.DOWNLOAD,
             chosenLevel,
             chosenFormat,
-            "borrador ${deliverable.attributes[Deliverables.DRAFT_REVISION]} congelado el ${deliverable.attributes[Deliverables.GENERATED_AT]}",
+            draftDescription(deliverable.attributes, download.file.sha256),
             project(deliverable),
             id,
             null
         )
-        return stream(Deliverables.DELIVERABLE, id, field)
+        return stream(download)
     }
 
     suspend fun version(
@@ -122,17 +126,18 @@ class DeliverableContent(
         if (version.attributes[field] == null) throw notServed()
         val deliverableId = UUID.fromString(version.attributes[Deliverables.DELIVERABLE].toString())
         val deliverable = records.get(Deliverables.DELIVERABLE, deliverableId)
+        val download = files.open(Deliverables.VERSION, UUID.fromString(version.id), field)
         exportLog.deliverable(
             user,
             ExportLog.DOWNLOAD,
             level ?: "",
             format,
-            "versión ${version.attributes[Deliverables.VERSION_NUMBER]} (revisión ${version.attributes["revision"]})",
+            "versión ${version.attributes[Deliverables.VERSION_NUMBER]} (revisión ${version.attributes["revision"]}), archivo con SHA-256 ${download.file.sha256}",
             project(deliverable),
             null,
             UUID.fromString(version.id)
         )
-        return stream(Deliverables.VERSION, UUID.fromString(version.id), field)
+        return stream(download)
     }
 
     // la ruta nativa de un campo FILE de deliverable: los borradores, como GET …/draft/content; las candidatas, el modelo y lo
@@ -160,12 +165,7 @@ class DeliverableContent(
 
     private fun project(deliverable: RecordResponse): UUID? = deliverable.attributes[Deliverables.PROJECT]?.toString()?.let { UUID.fromString(it) }
 
-    private suspend fun stream(
-        objectName: String,
-        id: UUID,
-        field: String
-    ): ResponseEntity<Flux<DataBuffer>> {
-        val download = files.open(objectName, id, field)
+    private fun stream(download: FileDownload): ResponseEntity<Flux<DataBuffer>> {
         val file = download.file
         return ResponseEntity
             .ok()
@@ -203,6 +203,22 @@ class DeliverableContent(
         const val DOCX = "docx"
         const val MODEL = "model"
         const val NOSNIFF = "X-Content-Type-Options"
+
+        // la descripción de la fila DESCARGA de un borrador (api.md §4.12): el archivo servido por su SHA-256, que es el ETag.
+        // con LISTO, los archivos son los del último intento; fuera de LISTO (EN COLA, EN PROCESO o FALLIDO) siguen siendo los
+        // del último borrador LISTO, mientras draft_revision y draft_generated_at ya pueden ser los del intento nuevo: la fila
+        // no le atribuye al archivo esa letra
+        fun draftDescription(
+            a: Map<String, Any?>,
+            sha256: String
+        ): String {
+            val status = a[Deliverables.STATUS]?.toString()
+            return if (status == Deliverables.READY) {
+                "borrador ${a[Deliverables.DRAFT_REVISION]} del intento del ${a[Deliverables.GENERATED_AT]}, archivo con SHA-256 $sha256"
+            } else {
+                "último borrador LISTO (el borrador está ahora $status), archivo con SHA-256 $sha256"
+            }
+        }
     }
 }
 
