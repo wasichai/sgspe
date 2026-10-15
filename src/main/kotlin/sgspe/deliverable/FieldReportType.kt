@@ -230,7 +230,7 @@ class FieldReportType : DeliverableType {
                         .mapNotNull { it.text(Deliverables.SECTION_KEY) }
                         .sorted()
             )
-        return Assembled(model, maps, scene.personNames, sectionTexts)
+        return Assembled(model, maps, scene.personNames, sectionTexts, scene.holders)
     }
 
     private fun cover(project: SourceRow): List<Block> =
@@ -251,6 +251,9 @@ class FieldReportType : DeliverableType {
         val people = linkedMapOf<String, MentionTarget>()
         val photos = linkedMapOf<String, PhotoRef>()
         val personNames = linkedSetOf<String>()
+
+        // la persona detrás de cada mención (person, y la titular de un stakeholder o un position), para AI-04 de sección
+        val holders = linkedMapOf<String, UUID>()
         val recordTexts = linkedMapOf<String, MutableList<String>>()
         private val byProject = mapOf(Deliverables.PROJECT to project.toString())
 
@@ -271,6 +274,7 @@ class FieldReportType : DeliverableType {
         // la mención de una persona: su nombre, su cargo vigente con su organización, su código GI- en el proyecto y su localidad
         suspend fun person(id: UUID): String {
             val key = "person:$id"
+            holders[key] = id
             if (key !in people) {
                 val person = source.one("person", id)
                 val name = listOfNotNull(person?.text("given_names"), person?.text("surnames")).joinToString(" ").ifEmpty { "Sin nombre" }
@@ -300,6 +304,7 @@ class FieldReportType : DeliverableType {
                     val row = source.one("stakeholder", id) ?: return
                     val code = RegisterSheets.code(row.id)
                     val holder = row.ref("person")?.let { holder -> person(holder).let { people["person:$holder"] } }
+                    row.ref("person")?.let { holders[key] = it }
                     val organization = organizationName(row.ref("organization"))
                     people[key] =
                         holder?.copy(stakeholderCode = code)
@@ -314,6 +319,7 @@ class FieldReportType : DeliverableType {
                 "position" -> {
                     val row = source.one("position", id) ?: return
                     val holder = row.ref("person")?.let { holder -> person(holder).let { people["person:$holder"] } }
+                    row.ref("person")?.let { holders[key] = it }
                     people[key] =
                         MentionTarget(
                             holder?.name ?: row.text("position_title") ?: "Sin nombre",

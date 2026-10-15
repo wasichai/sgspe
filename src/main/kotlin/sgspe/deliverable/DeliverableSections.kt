@@ -49,10 +49,10 @@ class DeliverableSections(
     private val permissions: Permissions,
     private val clock: Clock
 ) {
-    // `nameable`: si la seudonimización de la corrida reemplaza entero un nombre (SectionText)
+    // `nameable`: si la seudonimización de la corrida reemplaza entero un nombre con la persona de la mención (SectionText)
     suspend fun source(
         sectionId: UUID,
-        nameable: (String) -> Boolean
+        nameable: (String, UUID?) -> Boolean
     ): SectionSource {
         val section = records.get(Deliverables.SECTION, sectionId)
         val deliverableId = Records.uuid(section.attributes[Deliverables.DELIVERABLE]) ?: throw notAssisted()
@@ -102,7 +102,7 @@ class DeliverableSections(
                     ?.toString()
                     ?.take(10)
                     ?.let(LocalDate::parse),
-            text = SectionText.render(blocks, assembled.model.people, nameable),
+            text = SectionText.render(blocks, assembled.model.people, assembled.holders, nameable),
             updatedAt = section.updatedAt?.toString()
         )
     }

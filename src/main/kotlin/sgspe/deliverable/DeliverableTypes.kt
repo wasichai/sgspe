@@ -75,12 +75,15 @@ class AssemblyInput(
 )
 
 // lo que sale del ensamblado: el modelo sin mapas (los pide JOB-05 a ReportMaps), los mapas que pide, los nombres de las
-// personas del proyecto (para PersonalDataScan) y los textos de cada sección que se revisan
+// personas del proyecto (para PersonalDataScan), los textos de cada sección que se revisan y la persona detrás de cada mención
+// (por su token sin corchetes; la de un cargo o un grupo de interés, su titular), que AI-04 de sección compara con el
+// diccionario (SectionText). `holders` no entra al modelo congelado
 class Assembled(
     val model: ReportModel,
     val maps: List<MapRequest>,
     val personNames: Set<String>,
-    val texts: Map<String, List<String>>
+    val texts: Map<String, List<String>>,
+    val holders: Map<String, UUID> = emptyMap()
 )
 
 // la clase de un tipo de entregable (deliverables.md §7.2): sus secciones, sus parámetros, sus lecturas declaradas y el

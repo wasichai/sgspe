@@ -342,15 +342,21 @@ class SectionDraftCase(
                 }
             }.joinToString("\n")
 
-        // un nombre se escribe en la fuente solo si el diccionario de la corrida cubre cada una de sus palabras: así el
-        // Pseudonymizer lo reemplaza entero. una persona de una sola palabra no entra al diccionario y sale con su cita de
-        // EXTERNO (SectionText)
-        fun nameable(names: NameDictionary): (String) -> Boolean =
-            { name ->
+        // un nombre se escribe en la fuente solo si una sola coincidencia del diccionario de la corrida lo cubre entero y es de
+        // la persona de la mención: así el Pseudonymizer lo reemplaza entero y vuelve como [PERSONA:<id>] de esa persona. dos
+        // personas que cubren partes del nombre, un homónimo que el diccionario resuelve a otra, una mención sin persona
+        // conocida o una persona de una sola palabra salen con su cita de EXTERNO (SectionText)
+        fun nameable(names: NameDictionary): (String, UUID?) -> Boolean =
+            { name, person ->
                 val text = Folding.nfc(name)
                 val words = Folding.words(text)
-                val found = names.matches(text).map { it.first }
-                words.isNotEmpty() && words.all { word -> found.any { word.range.first >= it.first && word.range.last <= it.last } }
+                val match = names.matches(text).singleOrNull()
+                person != null &&
+                    words.isNotEmpty() &&
+                    match != null &&
+                    match.second.id == person &&
+                    match.first.first <= words.first().range.first &&
+                    match.first.last >= words.last().range.last
             }
 
         private const val SIN_DATO = "sin dato"

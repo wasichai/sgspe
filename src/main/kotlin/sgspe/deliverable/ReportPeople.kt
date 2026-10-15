@@ -14,6 +14,9 @@ class ReportPeople(
 ) {
     val people = linkedMapOf<String, MentionTarget>()
     val names = linkedSetOf<String>()
+
+    // la persona detrás de cada mención (person, y la titular de un stakeholder o un position), para AI-04 de sección
+    val holders = linkedMapOf<String, UUID>()
     private val byProject = mapOf(Deliverables.PROJECT to project.toString())
 
     suspend fun organizationName(id: UUID?): String? = id?.let { source.one("organization", it)?.text("name") }
@@ -28,6 +31,7 @@ class ReportPeople(
     // la mención de una persona: su token, con sus datos de cita registrados una vez
     suspend fun person(id: UUID): String {
         val key = "person:$id"
+        holders[key] = id
         if (key !in people) {
             val row = source.one("person", id)
             val name = listOfNotNull(row?.text("given_names"), row?.text("surnames")).joinToString(" ").ifEmpty { "Sin nombre" }
@@ -57,6 +61,7 @@ class ReportPeople(
                 val row = source.one("stakeholder", id) ?: return
                 val code = RegisterSheets.code(row.id)
                 val holder = row.ref("person")?.let { person(it).let { _ -> people["person:$it"] } }
+                row.ref("person")?.let { holders[key] = it }
                 val organization = organizationName(row.ref("organization"))
                 people[key] =
                     holder?.copy(stakeholderCode = code)
@@ -65,6 +70,7 @@ class ReportPeople(
             "position" -> {
                 val row = source.one("position", id) ?: return
                 val holder = row.ref("person")?.let { person(it).let { _ -> people["person:$it"] } }
+                row.ref("person")?.let { holders[key] = it }
                 people[key] =
                     MentionTarget(
                         holder?.name ?: row.text("position_title") ?: "Sin nombre",

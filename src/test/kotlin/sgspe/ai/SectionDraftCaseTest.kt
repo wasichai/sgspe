@@ -36,6 +36,8 @@ class SectionDraftCaseTest {
             "person:$wayra" to MentionTarget("Wayra", null, null, null, "Localidad Ejemplo"),
             "position:$position" to MentionTarget("Rosa", "Tesorera", "Asociación Ejemplo")
         )
+    private val holders =
+        mapOf("person:${RunFixtures.ANA}" to RunFixtures.ANA, "person:$rosa" to rosa, "person:$wayra" to wayra, "position:$position" to rosa)
 
     private fun section(text: String) =
         SectionSource(
@@ -59,7 +61,7 @@ class SectionDraftCaseTest {
                 Block.Table("Cargos", listOf("Cargo"), listOf(listOf(Cell("[[position:$position]]")))),
                 Block.Heading(3, "Con [[person:$wayra]]")
             )
-        val text = SectionText.render(blocks, people, SectionDraftCase.nameable(names))
+        val text = SectionText.render(blocks, people, holders, SectionDraftCase.nameable(names))
         assertTrue("Ana Ejemplo" in text, text)
         assertTrue("GI-000000000001" in text && "una persona de Localidad Ejemplo" in text && "Tesorera, Asociación Ejemplo" in text, text)
         val model = MockModel(FakeModel { DraftText("[PERSONA_1] presidió la reunión.", 0.5) })
@@ -92,13 +94,44 @@ class SectionDraftCaseTest {
     @Test
     fun `nombrable solo si el diccionario reemplaza el nombre entero`() {
         val nameable = SectionDraftCase.nameable(names)
-        assertTrue(nameable("Ana Ejemplo"))
+        assertTrue(nameable("Ana Ejemplo", RunFixtures.ANA))
         // sin apellidos: dos palabras se reconocen (revisión final de 8.2c, Important 2); una sola, no
-        assertTrue(nameable("Luz María"))
-        assertFalse(nameable("Rosa"))
-        assertFalse(nameable("Wayra"))
-        assertFalse(nameable("Ana Ejemplo Ccori"))
-        assertFalse(nameable("Sin nombre"))
+        assertTrue(nameable("Luz María", luz))
+        assertFalse(nameable("Rosa", rosa))
+        assertFalse(nameable("Wayra", wayra))
+        assertFalse(nameable("Ana Ejemplo Ccori", RunFixtures.ANA))
+        assertFalse(nameable("Sin nombre", null))
+        // el nombre de otra persona, o sin persona conocida detrás de la mención: la cita de EXTERNO
+        assertFalse(nameable("Ana Ejemplo", luz))
+        assertFalse(nameable("Ana Ejemplo", null))
+    }
+
+    // revisión final de 8.2c, Minor 5: una sola coincidencia del diccionario que cubra el nombre entero y sea de la persona de la
+    // mención. dos personas que cubren partes de un nombre, o un homónimo que el diccionario resuelve a otra, salen con la cita
+    @Test
+    fun `nombrable solo con una coincidencia de la misma persona que cubre el nombre entero`() {
+        val homonym = UUID.fromString("00000000-0000-0000-0000-0000000000b5")
+        val soto = UUID.fromString("00000000-0000-0000-0000-0000000000b6")
+        val dictionary =
+            NameDictionary(
+                listOf(
+                    KnownPerson(RunFixtures.ANA, "Ana", "Ejemplo"),
+                    KnownPerson(soto, "Ruiz", "Soto"),
+                    KnownPerson(homonym, "Ana", "Ejemplo")
+                )
+            )
+        val nameable = SectionDraftCase.nameable(dictionary)
+        assertFalse(nameable("Ana Ejemplo Ruiz Soto", RunFixtures.ANA))
+        assertFalse(nameable("Ana Ejemplo Ruiz Soto", soto))
+        assertTrue(nameable("Ruiz Soto", soto))
+        val winner =
+            dictionary
+                .matches("Ana Ejemplo")
+                .single()
+                .second.id
+        val loser = if (winner == RunFixtures.ANA) homonym else RunFixtures.ANA
+        assertTrue(nameable("Ana Ejemplo", winner))
+        assertFalse(nameable("Ana Ejemplo", loser))
     }
 
     // re-revisión N1: un nombre nunca se funde con las palabras vecinas. «Localidad Ejemplo, Ana Ejemplo» se leería como «Ejemplo,
@@ -110,7 +143,7 @@ class SectionDraftCaseTest {
                 Block.Paragraph("Con [[person:$wayra]], [[person:${RunFixtures.ANA}]] y otros."),
                 Block.Paragraph("[[person:${RunFixtures.ANA}]] presidió la reunión.")
             )
-        val text = SectionText.render(blocks, people, SectionDraftCase.nameable(names))
+        val text = SectionText.render(blocks, people, holders, SectionDraftCase.nameable(names))
         val model = MockModel(FakeModel { DraftText("Sin novedades.", 0.5) })
         val source =
             RunSource(

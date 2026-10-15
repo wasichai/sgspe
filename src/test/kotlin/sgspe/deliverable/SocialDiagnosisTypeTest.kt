@@ -299,6 +299,18 @@ class SocialDiagnosisTypeTest {
         assertEquals(listOf<Block>(Block.Paragraph("Información reservada en esta versión.", Mark.EXTERNAL_ONLY)), external)
     }
 
+    // revisión final de 8.2c, Minor 5: la persona detrás de cada mención (también la titular de un cargo o un grupo de interés)
+    @Test
+    fun `el ensamblado da la persona detras de cada mencion`() {
+        val position = T1Source.id(81)
+        val content = "Con [[person:${T1Source.PERSON}]], [[position:$position]] y [[stakeholder:${T1Source.LEADER}]]."
+        val holders = assemble(content = mapOf("introduccion" to content)).holders
+        val person = UUID.fromString(T1Source.PERSON)
+        assertEquals(person, holders["person:${T1Source.PERSON}"])
+        assertEquals(person, holders["position:$position"])
+        assertEquals(person, holders["stakeholder:${T1Source.LEADER}"])
+    }
+
     @Test
     fun `la guia de perfiles avisa que su narrativa sale en EXTERNO y las solo INTERNO lo dicen`() {
         val guides = type.sections.associate { it.key to it.guide }

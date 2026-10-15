@@ -250,7 +250,7 @@ class SocialDiagnosisType : DeliverableType {
                         .mapNotNull { it.text(Deliverables.SECTION_KEY) }
                         .sorted()
             )
-        return Assembled(model, maps, scene.people.names, sectionTexts)
+        return Assembled(model, maps, scene.people.names, sectionTexts, scene.people.holders)
     }
 
     // los bloques calculados de cada sección; por clave, en el orden de deliverables.md §5
