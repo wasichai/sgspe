@@ -325,7 +325,9 @@ class FieldReportType : DeliverableType {
                     .filter { it.text("incident_type") in BACKGROUND_INCIDENTS }
                     .filter { row -> row.text("occurred_at")?.take(10)?.let { !LocalDate.parse(it).isAfter(cutoff) } ?: false }
                     .sortedBy { it.text("occurred_at") }
-            incidents.forEach { keep("antecedentes", it.text("description"), it.text("immediate_response"), it.text("consequences")) }
+            incidents.forEach {
+                keep("antecedentes", it.text("place"), it.text("description"), it.text("immediate_response"), it.text("consequences"))
+            }
             val stakeholders = source.all("stakeholder", byProject).filter { it.text("relationship_status") != null }
             return listOfNotNull(
                 incidents.takeIf { it.isNotEmpty() }?.let { rows ->
@@ -377,8 +379,8 @@ class FieldReportType : DeliverableType {
                     .all("engagement", byProject + ("community" to community.toString()))
                     .filter { inPeriod(it.text("held_at") ?: it.text("scheduled_at")) }
                     .sortedBy { it.text("held_at") ?: it.text("scheduled_at") }
-            visits.forEach { keep("actividades", it.text("itinerary"), it.text("outcome_summary")) }
-            engagements.forEach { keep("actividades", it.text("results")) }
+            visits.forEach { keep("actividades", it.text("title"), it.text("itinerary"), it.text("outcome_summary")) }
+            engagements.forEach { keep("actividades", it.text("title"), it.text("results"), it.text("cancel_reason")) }
             val title = "Actividades realizadas entre ${ReportFormat.month(start)} y ${ReportFormat.month(end)} de ${end.year}"
             return listOfNotNull(
                 Block.Heading(2, title),
@@ -419,7 +421,7 @@ class FieldReportType : DeliverableType {
                 .all("community_network", byProject + ("community" to community.toString()))
                 .sortedBy { it.text("name") }
                 .flatMap { network ->
-                    keep("redes", network.text("description"))
+                    keep("redes", network.text("name"), network.text("description"))
                     val nodes = source.all("network_node", mapOf("community_network" to network.id))
                     val rows =
                         nodes.map { node ->
@@ -494,10 +496,11 @@ class FieldReportType : DeliverableType {
                         ?.let { contribution to it }
                 }
             return delivered.flatMap { (contribution, delivery) ->
-                keep("apoyo", contribution.text("declared_purpose"), contribution.text("conditions"))
+                keep("apoyo", contribution.text("occasion"), contribution.text("declared_purpose"), contribution.text("conditions"), delivery.text("place"))
                 val payer = organizationName(contribution.ref("payer_organization"))
                 val recipient = organizationName(contribution.ref("recipient_organization"))
                 val items = source.all("contribution_item", mapOf("social_contribution" to contribution.id))
+                items.forEach { keep("apoyo", it.text("description")) }
                 val byKind = items.groupBy { it.text("item_kind").orEmpty() }
                 val receipts = source.all("receipt", mapOf("social_contribution" to contribution.id))
                 val evidence =
@@ -506,6 +509,7 @@ class FieldReportType : DeliverableType {
                             PICTURES
                     }
                 evidence.forEach { row ->
+                    keep("apoyo", row.text("title"))
                     val file = row.attributes["file"] as? Map<*, *>
                     if (file != null) {
                         photos[row.id] =

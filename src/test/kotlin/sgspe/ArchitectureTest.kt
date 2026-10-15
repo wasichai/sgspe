@@ -471,8 +471,9 @@ class ArchitectureTest {
         assertFalse(flags(AS_PLATFORM, "// nunca asPlatform dentro de una petición"))
     }
 
-    // WAS-ADR-0039: las M2M sin usuario solo las leen DashboardData (con el lector de la plataforma de KpiReaders, JOB-05) y
-    // StakeholderFollowUpJob (JOB-03, fuera de una petición); Records.kt la define. otro llamador le daría a una persona
+    // WAS-ADR-0039: las M2M sin usuario solo las leen DashboardData (con el lector de la plataforma de KpiReaders, JOB-05),
+    // StakeholderFollowUpJob (JOB-03, fuera de una petición) y, desde el plan 8.2b, ReportSources (el ensamblado de T2 en
+    // JOB-05); Records.kt la define. otro llamador le daría a una persona
     // vínculos que no lee
     @Test
     fun `solo DashboardData, StakeholderFollowUpJob y ReportSources leen M2M como la plataforma`() {
@@ -492,11 +493,11 @@ class ArchitectureTest {
         assertFalse(flags(RELATED_AS_PLATFORM, "records.related(\"engagement\", id, \"engagement_topic\")"))
     }
 
-    // decisión 12: la vía de plataforma de la compuerta solo la llaman ComponentLand y, desde el plan 8.2a-bis, KpiAggregates,
-    // y la organización de la plataforma solo se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro
+    // decisión 12: la vía de plataforma de la compuerta solo la llaman ComponentLand, KpiAggregates (plan 8.2a-bis) y
+    // ProjectProximityQueries (plan 8.2b, una sola llamada: concessionTerritoriesAsPlatform), y la organización de la plataforma solo se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro
     // dominio lee SQL propio como la plataforma
     @Test
-    fun `solo ComponentLand y KpiAggregates usan selectAsPlatform y solo DashboardData les pasa la plataforma`() {
+    fun `solo ComponentLand, KpiAggregates y ProjectProximityQueries usan selectAsPlatform y solo DashboardData les pasa la plataforma`() {
         val gate = "/sgspe/territory/SpatialGate.kt"
         val land = "/sgspe/territory/ComponentLand.kt"
         val aggregates = "/sgspe/dashboard/KpiAggregates.kt"
@@ -506,6 +507,8 @@ class ArchitectureTest {
         val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land, aggregates, proximity).any { f.invariantSeparatorsPath.endsWith(it) } }
         val notLandOrData = sources(main).filterNot { f -> listOf(land, data).any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(notGateOrLand, SELECT_AS_PLATFORM))
+        val proximityFile = sources(main).single { it.invariantSeparatorsPath.endsWith(proximity) }
+        assertEquals(1, offenders(listOf(proximityFile), SELECT_AS_PLATFORM).size)
         assertEquals(emptyList<String>(), offenders(notLandOrData, ROWS_WITH_PLATFORM))
         assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(data) })
         assertTrue(flags(SELECT_AS_PLATFORM, "gate.selectAsPlatform(platform, READS, query, map)"))
