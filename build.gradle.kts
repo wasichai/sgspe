@@ -74,7 +74,8 @@ ktlint {
 // los roles de cada transición, nunca de literales en el código (ASM-070)
 tasks.named<ProcessResources>("processResources") {
     from("model") {
-        include("model.json", "roles.json", "layers.json", "workflows/*.json")
+        // desde el plan 8.2c, también la paleta: los mapas de informe la usan para sus estilos y su leyenda
+        include("model.json", "roles.json", "layers.json", "workflows/*.json", "styles/palette.json")
         into("model")
     }
 }
@@ -85,6 +86,8 @@ tasks.named<Test>("test") {
     useJUnitPlatform {
         excludeTags("integration", "gotenberg", "slow")
     }
+    // MapComposer dibuja con Java 2D: sin pantalla, también en la máquina de desarrollo
+    systemProperty("java.awt.headless", "true")
     // ArchitectureTest lee las fuentes, model/roles.json y model/layers.json: un cambio en ellos vuelve a correr las pruebas
     inputs.dir("src/main/kotlin")
     // files, no file: tolera que el archivo no exista; file falla en Gradle 9.8 si el archivo falta
