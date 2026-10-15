@@ -1,6 +1,10 @@
 package sgspe.deliverable
 
+import sgspe.common.Criteria
+import sgspe.common.Records
+import java.time.Duration
 import java.time.Instant
+import java.util.UUID
 
 // los nombres de BC-15 que usa más de una clase de sgspe.deliverable (domain-model §6.15, model/model.json): objetos, campos,
 // estados de WF-H, estados del borrador, niveles y formatos
@@ -113,6 +117,19 @@ object Deliverables {
 
     // un instante guardado (generation_requested_at, draft_generated_at), o null si falta o no se entiende
     fun instant(raw: Any?): Instant? = raw?.toString()?.let { runCatching { Instant.parse(it) }.getOrNull() }
+
+    // hay una versión emitida desde `since` (el draft_generated_at de un borrador): como quien llama o como la plataforma
+    suspend fun issuedSince(
+        records: Records,
+        id: UUID,
+        since: Instant,
+        now: Instant
+    ): Boolean =
+        records.count(
+            VERSION,
+            filters = mapOf(DELIVERABLE to id.toString()),
+            criteria = listOf(Criteria.between("issued_at", since, now.plus(Duration.ofDays(1))))
+        ) > 0
 
     // los códigos de aviso del borrador (draft_warnings): uno por línea, `<código>` o `<código> <sección>`
     const val MAP_FAILED = "MAP_FAILED"
