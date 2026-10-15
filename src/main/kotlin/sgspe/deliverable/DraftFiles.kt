@@ -18,9 +18,8 @@ class DraftFile(
 )
 
 // el último paso de JOB-05 (especificación de F8 §3.3, paso 4; ASM-133): sube los siete archivos y los adjunta con LISTO y
-// draft_warnings en una sola escritura. es un puerto porque wasichai-files 1.2.0 no deja a la plataforma subir ni adjuntar
-// (UPS-31, wasichai/wasichai#111): la Tarea 15 del plan 8.2b sube a la versión que lo permite. JOB-05 lo llama fuera de
-// asPlatform: cada implementación pone su propio contexto
+// draft_warnings en una sola escritura. es un puerto (nació mientras UPS-31 seguía abierta, wasichai/wasichai#111) para que
+// las pruebas puedan cambiarlo. JOB-05 lo llama fuera de asPlatform: cada implementación pone su propio contexto
 fun interface DraftFiles {
     suspend fun attach(
         organizationId: UUID,
@@ -31,8 +30,9 @@ fun interface DraftFiles {
 }
 
 // la implementación de producción: dentro de asPlatform, FileService.stage de cada archivo y una sola escritura de derivados
-// (Records.patch, con la marca SgspeWrite) con los ids, LISTO y los avisos. con wasichai 1.2.0, stage exige una persona y
-// falla (el borrador queda FALLIDO con GENERATION_FAILED); con la versión que resuelve UPS-31, la plataforma sube y adjunta
+// (Records.patch, con la marca SgspeWrite) con los ids, LISTO y los avisos. desde wasichai 1.3.0 (UPS-31, WAS-ADR-0068) la
+// plataforma sube sin `created_by` y solo una escritura del mismo bloque asPlatform adjunta lo que subió: el stage y el patch
+// van en el mismo bloque
 @Component
 class PlatformDraftFiles(
     private val records: Records,

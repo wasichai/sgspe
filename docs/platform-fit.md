@@ -73,7 +73,7 @@ estados copiados del [índice de ADR](adr/README.md).
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
 | Java o Kotlin según el repositorio | Sustituido | Kotlin 2.4.20 sobre JDK 25, como wasichai y caja | WAS-ADR-0024; WAS-DOC guides/build-your-app.md | ADR-0001 | CON-039 | RNF-MNT-001 |
-| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 1.2.0 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
+| Spring Boot | Plataforma | Spring Boot 4.1.1, alineado por `wasichai-bom` 1.3.0 | WAS-ADR-0024 | ADR-0001 | — | RNF-MNT-001 |
 | Spring Web | Sustituido | Spring WebFlux reactivo; la E/S bloqueante del código propio va a `Dispatchers.IO` | WAS-DOC architecture/overview.md | ADR-0001 | CON-039 | RNF-MNT-005 |
 | Spring Security | Plataforma | Servidor de recursos OAuth2 de WebFlux que valida el JWT HS256 de wasichai; la cadena de core va en `@Order(0)` | WAS-ADR-0010; WAS-DOC security/authentication.md | ADR-0020 | CON-056 | RQ-SEC-001 |
 | Spring Data JPA e Hibernate | Sustituido | Prohibidos: SQL por `DatabaseClient`, registros dinámicos por `RecordService`, una tabla física por objeto | WAS-ADR-0003; WAS-ADR-0004; WAS-DOC architecture/overview.md | ADR-0001, ADR-0008 | CON-039 | RNF-MNT-005 |
@@ -428,7 +428,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-24 Un enganche de lectura para el descriptor de un campo `FILE` | F3 | Resuelta en wasichai 1.0.0 (WAS-ADR-065, wasichai/wasichai#102) y adoptada el 2026-10-11: `EvidenceFileReadPolicy` entrega el descriptor de una evidencia restringida sin `name` ni `sha256` a quien no tiene `DOWNLOAD_RESTRICTED`; el portal conserva el nombre neutro como defensa adicional (ASM-093) | `sgspe.evidence`; `sgspe-ui` | Nada |
 | UPS-29 Caché de las definiciones de objeto y memo por petición de las consultas de rol (wasichai/wasichai#105) | Antes de producción | Resuelta en wasichai 1.1.0 y adoptada el 2026-10-11: `ObjectDefinitions` queda como memo por petición sobre la caché de wasichai (`wasichai.metadata.cache.ttl` 30 s, `security.md` §9.7); el memo del comando guarda las asignaciones de quien escribe (`RequestMemoFilter`) | `sgspe.common` | Nada |
 | UPS-30 Lecturas del modelo fuera de la caché de definiciones: workflows, relaciones, campos `FILE`, destino de una relación, reglas de notificación y automatizaciones (wasichai/wasichai#108) | Antes de producción | Resuelta en wasichai 1.2.0 y adoptada el 2026-10-11: wasichai las responde desde la caché de definiciones (`wasichai.metadata.cache.ttl` 30 s) | — | Nada |
-| UPS-31 Que la plataforma suba, adjunte y abra archivos de wasichai-files dentro de `asPlatform` (wasichai/wasichai#111) | F8 | El plan 8.2b avanza todo lo que no adjunta archivos; JOB-05 lee las fotos con `FileStore.open` y comprueba su SHA-256; si no llega, el borrador usa claves propias en el `FileStore` y un paso de JOB-08 (ASM-133) | `sgspe.deliverable` | La lectura directa del `FileStore` y, si se usó, el respaldo de claves propias |
+| UPS-31 Que la plataforma suba, adjunte y abra archivos de wasichai-files dentro de `asPlatform` (wasichai/wasichai#111) | F8 | Resuelta en wasichai 1.3.0 (wasichai/wasichai#113, WAS-ADR-068) y adoptada en el plan 8.2b: JOB-05 sube y adjunta el borrador dentro de un solo bloque `asPlatform` (`PlatformDraftFiles`); JOB-05 y JOB-07 siguen leyendo las fotos y las evidencias con `StoredFiles` (`FileStore.open` y su SHA-256) | `sgspe.deliverable`, `sgspe.common` | La lectura directa del `FileStore` en `StoredFiles`, cuando JOB-05 y JOB-07 pasen a `FileService.open` (otro plan) |
 
 ### 4.2 Otras diferencias con la plataforma ya registradas
 
@@ -509,6 +509,16 @@ El 2026-10-11 el backend pasa de wasichai 1.1.0 a 1.2.0, sin cambios incompatibl
 | UPS-30 | 1.2.0: workflows, automatizaciones, reglas de notificación, relaciones por nombre, campos `FILE` y el destino de una relación salen de la caché de definiciones, con su misma invalidación [WAS-ADR-067] | Adoptada: nada que cambiar; el alta de una entrega con tres evidencias baja de 81 a 48 a 52 consultas | Nada |
 | — | 1.2.0: un workflow, una automatización o una regla cambiados llegan a otro nodo dentro de `wasichai.metadata.cache.ttl` (D50 de wasichai) | Aceptado con el mismo ttl de 30 s que el modelo (`security.md` §9.7) | — |
 
+### 4.7 Lo que trae wasichai 1.3.0
+
+El 2026-10-15 (plan 8.2b) el backend pasa de wasichai 1.2.0 a 1.3.0, sin cambios incompatibles, con las mismas
+dependencias de terceros y las mismas rutas HTTP.
+
+| Brecha | Qué trae wasichai | Estado en SGSPE tras la actualización | Para adoptarla |
+|---|---|---|---|
+| UPS-31 | 1.3.0: dentro de `asPlatform`, `FileService.stage` sube sin `created_by` (columna `platform_run` de `stored_files`), solo una escritura del mismo bloque adjunta lo subido, y `FileService.open` lee cualquier archivo de la organización del bloque [WAS-ADR-068] | Adoptada: JOB-05 adjunta el borrador como la plataforma (`PlatformDraftFiles`), y las pruebas de integración dejan el doble que adjuntaba como el admin | `FileService.open` en JOB-05 y JOB-07, en lugar de `StoredFiles` (otro plan) |
+| UPS-32 | 1.3.0: wasichai-documents congela una tabla relacionada cuyas filas traen campos nulos | Adoptada: la «Constancia de emisión» de AUT-12 vuelve a llevar la tabla de las versiones | Nada |
+
 ## 5. Patrones de srtm y caja que se reutilizan
 
 caja (wasichai 0.3.2, `@wasichai/*` 0.5.0) es la plantilla vigente; de srtm (todavía en 0.2.0) se toman sobre todo las piezas
@@ -522,7 +532,7 @@ de GIS, importación y emisión, sin copiar los rodeos que 0.3.x ya no necesita 
 | Marca de escritura propia (`EscrituraDeCaja`, `EscrituraDeSrtm`) y su guarda | caja, srtm | `SgspeWrite` con `DerivedFieldsGuard` y `CommandTransitionGuard` | Nombre en inglés | [domain-model §4.5] RQ-AUD-004 |
 | Envoltura de `RecordService` para el código propio (`Registros`) | srtm, caja | Lecturas y escrituras tipadas del código propio, con la marca | En `sgspe.common` | [domain-model §8.2] |
 | Resolución de la tabla física por la metadata (`TablasCore`) | srtm | Solo SQL de agregación de solo lectura detrás de una compuerta de permisos | srtm escribía directo en las tablas porque 0.2.0 no tenía `asPlatform`; SGSPE nunca escribe así | RQ-GIS-017, RQ-DSH-031 [WAS-ADR-0039] |
-| Puerto de almacenamiento (`AlmacenEmision`, con implementaciones local y S3, claves relativas, descarga en streaming y prueba de contrato) | srtm | No se usa: los entregables usan campos `FILE` de wasichai-files desde F8, como las evidencias desde F3 (ADR-0014, ASM-133); queda como el respaldo de UPS-31 para el borrador | Sin el decorador `AlmacenGuardado` ni `IdentidadEmision`, rodeos de 0.2.0 | ASM-013, ASM-014 |
+| Puerto de almacenamiento (`AlmacenEmision`, con implementaciones local y S3, claves relativas, descarga en streaming y prueba de contrato) | srtm | No se usa: los entregables usan campos `FILE` de wasichai-files desde F8, como las evidencias desde F3 (ADR-0014, ASM-133); tampoco como respaldo del borrador, porque UPS-31 se resolvió en wasichai 1.3.0 | Sin el decorador `AlmacenGuardado` ni `IdentidadEmision`, rodeos de 0.2.0 | ASM-013, ASM-014 |
 | Trabajos de generación con candado y retención de borradores (`EmisionMasiva`, `RetencionEmision`) | srtm | Trabajador de borradores de entregables | Sin lotes: un pedido por entregable (ASM-061); sin retención propia, que hace la limpieza de wasichai-files (ASM-133) | RQ-REP-021, RQ-REP-027 |
 | `Idempotency-Key` generada por acción del usuario y repetida en cada reintento | caja (cobros) | Comandos de `/api/sgspe/**` marcados `IK` | El contrato de la cabecera nativa de wasichai (WAS-ADR-0058): de 1 a 128 caracteres, la respuesta guardada byte por byte con `Idempotent-Replayed: true`, `422` con otra petición y `409` con `Retry-After` en curso; la clave y la respuesta se guardan aparte del registro, en la tabla fija `idempotency_key`, no en un campo del registro como el recibo de caja ([API §3.5](api.md#35-idempotencia-idempotency-key)) | RNF-INT-002, ASM-065 |
 | Candados por entidad sobre los candados consultivos de PostgreSQL (`Candados`) | caja, srtm | `ClusterLock.withXactLock` para precondiciones y correlativos | — | [WAS-ADR-0039] |
@@ -553,7 +563,7 @@ actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 | JDK (toolchain de Gradle) | 25 | F1 | WAS-DOC guides/build-your-app.md |
 | Gradle (wrapper de caja) | 9.8.0 | F1 | caja-backend |
 | PostgreSQL y PostGIS | 18 y 3.6 (`postgis/postgis:18-3.6`) | F1 | WAS-DOC modules/gis.md |
-| Embabel | 1.5.3, a través de wasichai-agent (BOM de wasichai 1.2.0) | F7 | WAS-ADR-0015 |
+| Embabel | 1.5.3, a través de wasichai-agent (BOM de wasichai 1.3.0) | F7 | WAS-ADR-0015 |
 | `maplibre-gl` | 6.10.0, la que fija `@wasichai/gis` | F2 | WAS-DOC modules/gis.md; RQ-GIS-014 |
 | React y React DOM | 19.3.0 | F1 | caja-ui |
 | React Router | 8.4.0 | F1 | caja-ui |

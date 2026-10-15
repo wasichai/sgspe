@@ -11,8 +11,8 @@ import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 // especificación de F8 §3.3 y §3.5, §5 (DeliverableDraftsApiTest), deliverables.md §8.2 y §13.3 («Almacenamiento»): el pedido,
-// JOB-05 de punta a punta contra wasichai real con los dobles de PDF y mapas, y los siete archivos adjuntos por PersonDraftFiles
-// mientras UPS-31 siga abierta (la Tarea 15 los adjunta como la plataforma)
+// JOB-05 de punta a punta contra wasichai real con los dobles de PDF y mapas, y los siete archivos adjuntos como la plataforma
+// (PlatformDraftFiles, UPS-31 resuelta en wasichai 1.3.0)
 class DeliverableDraftsApiTest : F8ApiTest() {
     private fun codes(response: Response): List<String> = tree(response.body)["errors"].values().map { it["message"].asString() }
 

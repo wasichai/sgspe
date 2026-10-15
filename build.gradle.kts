@@ -10,7 +10,7 @@ plugins {
 group = "sgspe"
 description = "sgspe: gestión social para proyectos extractivos sobre wasichai (core, views, forms, pages, gis, workflow)"
 
-val wasichaiVersion = "1.2.0"
+val wasichaiVersion = "1.3.0"
 
 dependencies {
     implementation(platform("wasichai:wasichai-bom:$wasichaiVersion"))
