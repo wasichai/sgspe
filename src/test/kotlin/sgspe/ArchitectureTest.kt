@@ -484,14 +484,16 @@ class ArchitectureTest {
         assertFalse(flags(RELATED_AS_PLATFORM, "records.related(\"engagement\", id, \"engagement_topic\")"))
     }
 
-    // decisión 12: la vía de plataforma de la compuerta solo la llama ComponentLand, y la organización de la plataforma solo
-    // se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro dominio lee SQL propio como la plataforma
+    // decisión 12: la vía de plataforma de la compuerta solo la llaman ComponentLand y, desde el plan 8.2a-bis, KpiAggregates,
+    // y la organización de la plataforma solo se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro
+    // dominio lee SQL propio como la plataforma
     @Test
-    fun `solo ComponentLand usa selectAsPlatform y solo DashboardData le pasa la plataforma`() {
+    fun `solo ComponentLand y KpiAggregates usan selectAsPlatform y solo DashboardData les pasa la plataforma`() {
         val gate = "/sgspe/territory/SpatialGate.kt"
         val land = "/sgspe/territory/ComponentLand.kt"
+        val aggregates = "/sgspe/dashboard/KpiAggregates.kt"
         val data = "/sgspe/dashboard/DashboardData.kt"
-        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land).any { f.invariantSeparatorsPath.endsWith(it) } }
+        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land, aggregates).any { f.invariantSeparatorsPath.endsWith(it) } }
         val notLandOrData = sources(main).filterNot { f -> listOf(land, data).any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(notGateOrLand, SELECT_AS_PLATFORM))
         assertEquals(emptyList<String>(), offenders(notLandOrData, ROWS_WITH_PLATFORM))
@@ -499,6 +501,18 @@ class ArchitectureTest {
         assertTrue(flags(SELECT_AS_PLATFORM, "gate.selectAsPlatform(platform, READS, query, map)"))
         assertTrue(flags(ROWS_WITH_PLATFORM, "source.rows(filters.projects, platform)"))
         assertFalse(flags(ROWS_WITH_PLATFORM, "source.rows(filters.projects)"))
+        // KpiAggregates solo lo usan DashboardData (con KpiContext.platform) y Dashboards (que lo inyecta)
+        val notAggregatesUsers =
+            sources(main).filterNot { f -> listOf(aggregates, data, "/sgspe/dashboard/Dashboards.kt").any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(notAggregatesUsers, KPI_AGGREGATES))
+        assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(aggregates) })
+        assertTrue(flags(KPI_AGGREGATES, "private val aggregates: KpiAggregates"))
+        assertFalse(flags(KPI_AGGREGATES, "// los conteos de AggregateSql"))
+        // y solo DashboardData le pasa la organización de la plataforma (KpiContext.platform) a KpiAggregates.select
+        val notData = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(data) }
+        assertEquals(emptyList<String>(), offenders(notData, SELECT_WITH_PLATFORM))
+        assertTrue(flags(SELECT_WITH_PLATFORM, "{ source.select(query, platform) }"))
+        assertFalse(flags(SELECT_WITH_PLATFORM, "gate.select(query.reads, query.sql, query.map)"))
     }
 
     // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
@@ -654,6 +668,8 @@ class ArchitectureTest {
         private val RELATED_AS_PLATFORM = Regex("""\brelatedAsPlatform\s*\(""")
         private val SELECT_AS_PLATFORM = Regex("""\bselectAsPlatform\s*\(""")
         private val ROWS_WITH_PLATFORM = Regex("""\.rows\([^)]*\bplatform\b""")
+        private val KPI_AGGREGATES = Regex("""\bKpiAggregates\b""")
+        private val SELECT_WITH_PLATFORM = Regex("""\.select\([^)]*\bplatform\b""")
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
         private val STORED_FILES = Regex("""\b(StoredFileRepository|FileStore)\b""")
