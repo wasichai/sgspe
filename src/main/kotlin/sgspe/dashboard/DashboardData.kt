@@ -14,10 +14,13 @@ import sgspe.engagement.AttendanceCounts
 import sgspe.engagement.EngagementWriteGuard
 import sgspe.investment.Contributions
 import sgspe.investment.Programs
+import sgspe.risk.Risks
 import sgspe.stakeholder.FollowUp
 import sgspe.territory.ComponentLand
 import sgspe.territory.GateOutcome
+import sgspe.territory.SpatialGate
 import wasichai.core.common.PageRequest
+import wasichai.core.common.ValidationException
 import wasichai.core.data.RecordCriterion
 import wasichai.core.data.RecordQuery
 import wasichai.core.data.RecordResponse
@@ -35,6 +38,9 @@ import java.util.UUID
 // en los indicadores de grupos de interés el territorio filtra al grupo de interés (su localidad y su área de influencia;
 // stakeholder no tiene comunidad, así que community no lo filtra y el KPI lo dice en ignoredFilters, ruling P27); en los
 // de relacionamiento, a la interacción (su localidad o su comunidad).
+// desde el plan 8.2a-bis, con `aggregates`, KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03, KPI-RSK-01, KPI-EXE-02 y las series
+// de interacciones y quejas de KPI-EXE-03 no leen filas: cuentan en la base por KpiAggregates (dashboards.md §6.3), con el
+// mismo territorio, ámbito y alcance, y la regla de conteo de §3.3 en el SQL.
 // la lectura es acotada (dashboards.md §6.2, conjuntos pequeños): cada conjunto se lee con Records.all hasta maxRows
 // filas, y las relaciones M2M se leen una interacción a la vez hasta maxRelated interacciones. pasarse no recorta la
 // cifra en silencio: es un 400 TOO_MANY_RECORDS que pide acotar los filtros
@@ -58,7 +64,10 @@ class DashboardData(
     // F8 (R1): si el tenant tiene el catálogo indicator (TenantModel): la meta por defecto de KPI-ENG-02 sale de él
     private val hasCatalog: Boolean = false,
     // F8 (decisión 25, R4): el cierre de periodo calcula los KPI de QCS sin las confidenciales, también para quien las ve
-    private val excludeConfidential: Boolean = false
+    private val excludeConfidential: Boolean = false,
+    // plan 8.2a-bis: los conteos en la base de los KPI del tablero executive (KpiAggregates); null, esos KPI leen filas con
+    // Records como antes (las pruebas sin base y la prueba de paridad)
+    private val aggregates: KpiAggregates? = null
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = mutableMapOf<String, Any>()
@@ -178,18 +187,19 @@ class DashboardData(
     // proyectos; REGIONAL y NACIONAL solo filtran grupos de interés (dashboards.md §3.1). null: el ámbito no filtra
     private suspend fun scopeTerritory(): List<Territory> =
         cached("scopeTerritory") {
-            val scope = filters.scope
-            if (scope == AIDS || scope == AIIS) {
-                val areas =
-                    read(
-                        "area_of_influence",
-                        mapOf("area_type" to scope),
-                        listOf(Criteria.inState(setOf(APPROVED)), Criteria.anyOf("project", filters.projects))
-                    ).map { it.id }
-                listOf(areaTerritory(areas))
-            } else {
-                emptyList()
-            }
+            if (scopeFilters()) listOf(areaTerritory(scopeAreas().map { it.id })) else emptyList()
+        }
+
+    private fun scopeFilters(): Boolean = filters.scope == AIDS || filters.scope == AIIS
+
+    // las áreas aprobadas del ámbito pedido de los proyectos, leídas una vez (scopeTerritory y scopeTerritories)
+    private suspend fun scopeAreas(): List<RecordResponse> =
+        cached("scopeAreas") {
+            read(
+                "area_of_influence",
+                mapOf("area_type" to filters.scope!!),
+                listOf(Criteria.inState(setOf(APPROVED)), Criteria.anyOf("project", filters.projects))
+            )
         }
 
     // ---- grupos de interés ----
@@ -540,7 +550,7 @@ class DashboardData(
         cached("risks") {
             if (filters.projects.isEmpty()) return@cached emptyList<RiskRow>()
             val territories = engagementTerritories()
-            val active = Criteria.inState(setOf("identified", "assessed", "mitigating", "monitoring"))
+            val active = Criteria.inState(RiskKpis.ACTIVE_STATES)
             read("social_risk", criteria = listOf(Criteria.anyOf("project", filters.projects), active))
                 .filter { r ->
                     val locality = Values.text(r.attributes["locality"])
@@ -791,7 +801,7 @@ class DashboardData(
     // otra lectura con otros filtros y los mismos permisos, topes y fuentes: las filas de KPI-TER-01 (el periodo de 90 días y
     // sin los filtros que la ficha no aplica)
     fun with(filters: DashboardFilters): DashboardData =
-        DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform, hasCatalog, excludeConfidential)
+        DashboardData(records, filters, readable, today, maxRows, maxRelated, componentLand, platform, hasCatalog, excludeConfidential, aggregates)
 
     // si un registro con esa localidad o comunidad cae en todos los filtros de territorio pedidos
     suspend fun inTerritory(
@@ -899,6 +909,139 @@ class DashboardData(
             ).filter { inTerritory(Values.text(it.attributes["locality"]), Values.text(it.attributes["community"])) }
                 .map { WarningRow(it.id, it.state, Values.text(it.attributes["severity"])) }
         }
+
+    // ---- conteos en la base (plan 8.2a-bis: KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03, KPI-RSK-01, KPI-EXE-02 y
+    // KPI-EXE-03) ----
+
+    // si los KPI del tablero executive cuentan en la base; si no, leen filas como antes
+    val aggregated: Boolean get() = aggregates != null
+
+    // el ámbito AIDS o AIIS de las tiles y de cada proyecto (ScopeTerritories); null si el ámbito no filtra
+    suspend fun scopeTerritories(): ScopeTerritories? {
+        if (!scopeFilters()) return null
+        return cached("scopeTerritories") {
+            val areas = scopeAreas()
+            ScopeTerritories(
+                scopeTerritory().single(),
+                filters.projects.associateWith { p -> areaTerritory(areas.filter { Values.text(it.attributes["project"]) == p.toString() }.map { it.id }) }
+            )
+        }
+    }
+
+    // un objeto de una consulta agregada: los campos de `filtered` se filtran en la base y, como en Criteria, tienen que
+    // leerse (si no, el mismo 400 de un filtro sobre un campo ilegible); de `fields`, solo los legibles salen como columna
+    private suspend fun source(
+        objectName: String,
+        filtered: List<String>,
+        fields: List<String>
+    ): AggregateSource {
+        for (field in filtered) {
+            if (!readable("$objectName.$field")) throw ValidationException("Filtro inválido", field, "no es un campo de $objectName o no puede leerlo")
+        }
+        return AggregateSource(objectName, (filtered + fields.filter { readable("$objectName.$it") }).toSet())
+    }
+
+    private suspend fun aggregateFilter(withScope: Boolean): AggregateFilter =
+        AggregateFilter(filters.projects, territories(), if (withScope) scopeTerritories() else null)
+
+    private suspend fun <T : Any> aggregate(query: AggregateQuery<T>): GateOutcome<T> {
+        val source = aggregates ?: error("DashboardData sin KpiAggregates: Dashboards lo inyecta para los conteos en la base")
+        return cached("aggregate:${query.key}") { source.select(query, platform) }
+    }
+
+    // las QCS de los tres objetos con la regla de conteo, la marca de abiertas y los meses de las quejas (KPI-GRV-02 y
+    // KPI-EXE-03), con el territorio y el ámbito como attention()
+    suspend fun attentionCounts(): GateOutcome<AttentionCount> {
+        if (filters.projects.isEmpty()) return GateOutcome.Rows(emptyList())
+        val sources =
+            Attention.OBJECTS.associateWith { type ->
+                source(
+                    type,
+                    listOf("project"),
+                    listOf("locality", "community", Attention.RECEIVED_AT, "closed_date", Attention.CONFIDENTIAL) +
+                        Attention.RECLASSIFIED_FROM.getValue(type).keys
+                )
+            }
+        return aggregate(AggregateSql.attention(sources, aggregateFilter(withScope = true), EngagementKpis.months(filters.periodEnd), excludeConfidential))
+    }
+
+    // las interacciones realizadas del periodo y de los 12 meses de la serie (KPI-ENG-01 y KPI-EXE-03), como inPeriod() y window()
+    suspend fun heldCounts(): GateOutcome<HeldCount> {
+        if (filters.projects.isEmpty()) return GateOutcome.Rows(emptyList())
+        val source = source("engagement", listOf("project", "held_at"), listOf("engagement_type", "locality", "community"))
+        val windowStart = EngagementKpis.months(filters.periodEnd).first().atDay(1)
+        return aggregate(
+            AggregateSql.held(source, aggregateFilter(withScope = true), EngagementWriteGuard.HELD_STATES, filters.periodStart, filters.periodEnd, windowStart)
+        )
+    }
+
+    // los compromisos abiertos (KPI-COM-02), con la campaña pedida como commitments(campaign = true, owner = false)
+    suspend fun openCommitmentCounts(): GateOutcome<GroupCount> {
+        if (filters.projects.isEmpty()) return GateOutcome.Rows(emptyList())
+        val campaign = filters.explorationCampaign
+        val source = source(Commitments.COMMITMENT, listOfNotNull("project", campaign?.let { "exploration_campaign" }), listOf("locality", "community"))
+        val query =
+            AggregateSql.grouped("openCommitments", source, aggregateFilter(withScope = true), emptyList()) { bind ->
+                val state = source.system(this, SpatialGate.STATE)
+                listOfNotNull(
+                    "($state IS NULL OR $state <> ALL(${bind(Commitments.CLOSED.sorted().toTypedArray())}))",
+                    campaign?.let { "${source.column(this, "exploration_campaign")} = ${bind(it)}" }
+                )
+            }
+        return aggregate(query)
+    }
+
+    // los compromisos pendientes vencidos por proyecto y due_date (KPI-COM-03), con la campaña y el responsable pedidos como
+    // commitments(campaign = true, owner = true)
+    suspend fun overdueCommitmentCounts(): GateOutcome<GroupCount> {
+        if (filters.projects.isEmpty()) return GateOutcome.Rows(emptyList())
+        val campaign = filters.explorationCampaign
+        val owner = filters.owner
+        val filtered = listOfNotNull("project", campaign?.let { "exploration_campaign" }, owner?.let { "owner_user_id" })
+        val source = source(Commitments.COMMITMENT, filtered, listOf("locality", "community", "deadline_status", "due_date"))
+        val query =
+            AggregateSql.grouped("overdueCommitments", source, aggregateFilter(withScope = true), listOf("due_date" to "date")) { bind ->
+                listOfNotNull(
+                    "${source.system(this, SpatialGate.STATE)} = ANY(${bind(Commitments.PENDING.sorted().toTypedArray())})",
+                    source.column(this, "deadline_status")?.let { "CAST($it AS text) = ${bind(CommitmentKpis.OVERDUE)}" } ?: "FALSE",
+                    campaign?.let { "${source.column(this, "exploration_campaign")} = ${bind(it)}" },
+                    owner?.let { "${source.column(this, "owner_user_id")} = ${bind(it)}" }
+                )
+            }
+        return aggregate(query)
+    }
+
+    // los riesgos activos con nivel ALTO o CRITICO por proyecto y categoría (KPI-RSK-01), como risks()
+    suspend fun highRiskCounts(): GateOutcome<GroupCount> {
+        if (filters.projects.isEmpty()) return GateOutcome.Rows(emptyList())
+        val source = source("social_risk", listOf("project"), listOf("locality", "community", "risk_level", "category"))
+        val query =
+            AggregateSql.grouped("highRisks", source, aggregateFilter(withScope = true), listOf("category" to "text")) { bind ->
+                listOf(
+                    "${source.system(this, SpatialGate.STATE)} = ANY(${bind(RiskKpis.ACTIVE_STATES.sorted().toTypedArray())})",
+                    source.column(this, "risk_level")?.let { "CAST($it AS text) = ANY(${bind(Risks.ESCALATED.sorted().toTypedArray())})" } ?: "FALSE"
+                )
+            }
+        return aggregate(query)
+    }
+
+    // las alertas activas por proyecto, severidad y estado (KPI-EXE-02), en el territorio pedido y sin el ámbito, como
+    // earlyWarnings()
+    suspend fun warningCounts(): GateOutcome<GroupCount> {
+        if (filters.projects.isEmpty()) return GateOutcome.Rows(emptyList())
+        val source = source("early_warning", listOf("project"), listOf("locality", "community", "severity"))
+        val query =
+            AggregateSql.grouped("warnings", source, aggregateFilter(withScope = false), listOf("severity" to "text", SpatialGate.STATE to "text")) { bind ->
+                listOf("${source.system(this, SpatialGate.STATE)} = ANY(${bind(ExecutiveKpis.ACTIVE_WARNING_STATES.sorted().toTypedArray())})")
+            }
+        return aggregate(query)
+    }
+
+    // un valor calculado una vez por pedido con estos datos (las entradas de KPI-INV-03, que comparten las tiles y byProject)
+    suspend fun <T : Any> memo(
+        key: String,
+        load: suspend () -> T
+    ): T = cached("memo:$key", load)
 
     // ---- monitoreo (F8: dashboards.md §5.5 y §10) ----
 
