@@ -30,7 +30,9 @@ data class ApprovalStep(
     val submit: String?,
     val pending: String,
     val approvals: List<String>,
-    val direct: List<String> = emptyList()
+    val direct: List<String> = emptyList(),
+    // otros envíos que reabren el mismo aviso (resubmit de WF-H, desde F8)
+    val resubmits: List<String> = emptyList()
 )
 
 // el aviso «aprobación pendiente» (RF-NTF-001): al enviar un proyecto, un acta, un compromiso o un programa (F5) a
@@ -59,7 +61,7 @@ class ApprovalNoticeListener(
             RecordChangeKind.TRANSITIONED -> {
                 val name = change.transition ?: return
                 when {
-                    step.submit != null && name == step.submit -> publish(step, change)
+                    (step.submit != null && name == step.submit) || name in step.resubmits -> publish(step, change)
                     catalog.transition(step.objectName, name)?.from == step.pending ->
                         notices.resolve(change.organizationId, Notices.APPROVALS, key(step, change.recordId))
                 }
@@ -161,6 +163,7 @@ class ApprovalNoticeListener(
         const val PROJECT = "project"
         const val SENIOR = "approve_senior"
         const val CONTRIBUTION = "social_contribution"
+        const val DELIVERABLE = "deliverable"
         const val INTERNAL_APPROVAL = "policy_internal_approval"
 
         val STEPS =
@@ -170,7 +173,9 @@ class ApprovalNoticeListener(
                 ApprovalStep(Commitments.COMMITMENT, "submit", "pending_approval", listOf("approve", SENIOR)),
                 ApprovalStep(CONTRIBUTION, null, "requested", listOf("approve"), direct = listOf("approve_direct")),
                 // F5: WF-G (especificación §3.8): al enviar, para los roles de approve; se resuelve al salir de pending_approval
-                ApprovalStep(Programs.PROGRAM, Programs.SUBMIT, Programs.PENDING, listOf(Programs.APPROVE))
+                ApprovalStep(Programs.PROGRAM, Programs.SUBMIT, Programs.PENDING, listOf(Programs.APPROVE)),
+                // F8: WF-H, enviar y reenviar a revisión avisan a los roles de approve (workflows.md, «Avisos»)
+                ApprovalStep(DELIVERABLE, "submit_for_review", "in_review", listOf("approve"), resubmits = listOf("resubmit"))
             )
 
         // una clave por registro: volver a enviarlo reabre el mismo aviso (es noticia otra vez, WAS-ADR-0060)

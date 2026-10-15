@@ -7,6 +7,10 @@ import org.springframework.http.HttpStatus
 import reactor.core.publisher.Flux
 import sgspe.ai.TestDocuments
 import sgspe.common.IfMatch
+import sgspe.deliverable.Deliverables
+import sgspe.privacy.CanonicalJson
+import sgspe.privacy.ReportMeta
+import sgspe.privacy.ReportModel
 import wasichai.files.FileService
 import wasichai.files.FileUpload
 import java.security.MessageDigest
@@ -48,10 +52,11 @@ abstract class F8ApiTest : F7ApiTest() {
             creator?.token ?: token
         )
 
-    // una sección MIXTA de texto humano; la clave es única en su entregable
+    // una sección MIXTA de texto humano; la clave es única en su entregable. desde el plan 8.2b el alta de un T2 ya crea las del
+    // tipo (sectionId): la clave por defecto es una que el tipo no declara
     protected fun section(
         deliverable: String,
-        key: String = "antecedentes",
+        key: String = uniqueName("anexo-"),
         attributes: Map<String, Any?> = emptyMap(),
         creator: Account? = null
     ): String =
@@ -68,6 +73,16 @@ abstract class F8ApiTest : F7ApiTest() {
             ) + attributes,
             token = creator?.token ?: token
         )
+
+    // la sección `key` que el alta del entregable creó (DeliverableSectionsListener, plan 8.2b): su id
+    protected fun sectionId(
+        deliverable: String,
+        key: String
+    ): String =
+        tree(send("GET", "/api/objects/deliverable_section/records?deliverable=$deliverable&section_key=$key", null, HttpStatus.OK))["content"]
+            .values()
+            .single()["id"]
+            .asString()
 
     // `bytes` subidos para el campo FILE `field` de `objectName` como `account`, declarados `type`: el id de la subida, que
     // solo esa persona adjunta (StoredFileGuard)
@@ -141,15 +156,55 @@ abstract class F8ApiTest : F7ApiTest() {
     }
 
     // el entregable llevado a `approved` por la API genérica (submit_for_review y approve de WF-H, con motivo) por una
-    // gerencia social asignada a su proyecto. en 8.1 ninguna guarda pide el borrador LISTO: 8.2b agrega `readyDraft` aquí
+    // gerencia social asignada a su proyecto, con un borrador LISTO (readyDraft): DeliverableWriteGuard lo pide desde 8.2b
     protected fun approvedDeliverable(
         project: String,
         manager: Account = member("SOCIAL_MANAGER", project)
     ): String {
         val id = deliverable(project, creator = manager)
+        readyDraft(id)
         move("deliverable", id, "submit_for_review", manager.token, "envío de prueba")
         move("deliverable", id, "approve", manager.token, "aprobación de prueba")
         return id
+    }
+
+    // un borrador LISTO sin pasar por JOB-05 (plan 8.2b): los siete archivos subidos y adjuntos por `account` en una escritura de
+    // derivados con la marca, como lo hará la plataforma con UPS-31; el modelo es READY_MODEL. devuelve el SHA-256 del modelo
+    protected fun readyDraft(
+        deliverable: String,
+        account: Account = admin()
+    ): String {
+        val docx = TestDocuments.docx("Informe de campo y avance")
+        val bytes =
+            mapOf(
+                Deliverables.DRAFT_MODEL to Triple(READY_MODEL, "modelo.json", "text/plain"),
+                Deliverables.DRAFT_INTERNAL_DOCX to Triple(docx, "borrador.docx", DOCX),
+                Deliverables.DRAFT_INTERNAL_PDF to Triple(PDF, "borrador.pdf", "application/pdf"),
+                Deliverables.DRAFT_EXTERNAL_PDF to Triple(PDF, "borrador-externo.pdf", "application/pdf"),
+                Deliverables.CANDIDATE_INTERNAL_DOCX to Triple(docx, "candidata.docx", DOCX),
+                Deliverables.CANDIDATE_INTERNAL_PDF to Triple(PDF, "candidata.pdf", "application/pdf"),
+                Deliverables.CANDIDATE_EXTERNAL_PDF to Triple(PDF, "candidata-externa.pdf", "application/pdf")
+            )
+        val ids = bytes.mapValues { (field, file) -> stage(account, "deliverable", field, file.first, file.second, file.third) }
+        val sha = sha256(READY_MODEL)
+        asUser(account) {
+            platformRecords.patch(
+                "deliverable",
+                UUID.fromString(deliverable),
+                ids +
+                    mapOf(
+                        Deliverables.STATUS to Deliverables.READY,
+                        Deliverables.GENERATED_AT to
+                            java.time.Instant
+                                .now()
+                                .toString(),
+                        Deliverables.MODEL_SHA256 to sha,
+                        Deliverables.DRAFT_REVISION to "A"
+                    ),
+                "borrador de prueba"
+            )
+        }
+        return sha
     }
 
     // los datos de un T2 y un T1 de prueba (§5 de la especificación de F8): «Proyecto Ejemplo A» en UTM 17S, «Comunidad Ejemplo»
@@ -279,6 +334,25 @@ abstract class F8ApiTest : F7ApiTest() {
         // el modelo congelado de prueba: JSON canónico (claves ordenadas, sin espacios), en UTF-8
         val MODEL: ByteArray = """{"nivel":"INTERNO","tipo":"INFORME DE CAMPO Y AVANCE","version":1}""".toByteArray()
         private val TEMPLATE: ByteArray = "plantilla base de SGSPE".toByteArray()
+
+        // el modelo de un borrador de prueba (readyDraft): un ReportModel canónico, que la emisión lee (revisión y plantilla)
+        val READY_MODEL: ByteArray =
+            CanonicalJson.bytes(
+                ReportModel(
+                    ReportMeta(
+                        type = FIELD_REPORT,
+                        typeVersion = 1,
+                        code = "ENT-PRUEBA",
+                        title = "Informe de campo y avance",
+                        draftRevision = "A",
+                        issueRevision = "0",
+                        project = "Proyecto Ejemplo A",
+                        dateLabel = "Setiembre, 2026",
+                        templateSha256 = sha256(TEMPLATE)
+                    ),
+                    emptyList()
+                )
+            )
 
         fun sha256(bytes: ByteArray): String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
     }
