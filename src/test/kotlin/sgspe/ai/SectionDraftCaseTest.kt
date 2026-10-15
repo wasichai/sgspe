@@ -19,20 +19,22 @@ class SectionDraftCaseTest {
     private val rosa = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
     private val wayra = UUID.fromString("00000000-0000-0000-0000-0000000000b2")
     private val position = UUID.fromString("00000000-0000-0000-0000-0000000000b3")
+    private val luz = UUID.fromString("00000000-0000-0000-0000-0000000000b4")
     private val names =
         NameDictionary(
             listOf(
                 KnownPerson(RunFixtures.ANA, "Ana", "Ejemplo"),
-                KnownPerson(rosa, "Rosa María", null),
+                KnownPerson(rosa, "Rosa", null),
+                KnownPerson(luz, "Luz María", null),
                 KnownPerson(wayra, "Wayra", null)
             )
         )
     private val people =
         mapOf(
             "person:${RunFixtures.ANA}" to MentionTarget("Ana Ejemplo", "Presidenta", "Comunidad Ejemplo"),
-            "person:$rosa" to MentionTarget("Rosa María", null, null, "GI-000000000001"),
+            "person:$rosa" to MentionTarget("Rosa", null, null, "GI-000000000001"),
             "person:$wayra" to MentionTarget("Wayra", null, null, null, "Localidad Ejemplo"),
-            "position:$position" to MentionTarget("Rosa María", "Tesorera", "Asociación Ejemplo")
+            "position:$position" to MentionTarget("Rosa", "Tesorera", "Asociación Ejemplo")
         )
 
     private fun section(text: String) =
@@ -91,7 +93,9 @@ class SectionDraftCaseTest {
     fun `nombrable solo si el diccionario reemplaza el nombre entero`() {
         val nameable = SectionDraftCase.nameable(names)
         assertTrue(nameable("Ana Ejemplo"))
-        assertFalse(nameable("Rosa María"))
+        // sin apellidos: dos palabras se reconocen (revisión final de 8.2c, Important 2); una sola, no
+        assertTrue(nameable("Luz María"))
+        assertFalse(nameable("Rosa"))
         assertFalse(nameable("Wayra"))
         assertFalse(nameable("Ana Ejemplo Ccori"))
         assertFalse(nameable("Sin nombre"))

@@ -122,7 +122,7 @@ class NameDictionary(
         val EMPTY = NameDictionary(emptyList())
 
         // las formas en que se nombra a una persona, siempre de dos palabras o más: nombres y apellidos completos o con solo el primero
-        // de cada uno, en los dos órdenes, y los dos apellidos solos. un apellido compuesto («Mamani-Ejemplo») cuenta como dos palabras
+        // de cada uno, en los dos órdenes, y los dos apellidos solos; sin nombres o sin apellidos, el componente que hay. un apellido compuesto («Mamani-Ejemplo») cuenta como dos palabras
         private val PARTICLES = setOf("de", "del", "la", "las", "los", "y", "e")
 
         // el primer apellido con sus partículas («de la Cruz», «del Carmen»): «Juan de» o «Luz del» no nombran a nadie
@@ -134,7 +134,9 @@ class NameDictionary(
         private fun variants(person: KnownPerson): List<List<String>> {
             val given = Folding.words(Folding.fold(Folding.nfc(person.givenNames.orEmpty()))).map { it.value }
             val surnames = Folding.words(Folding.fold(Folding.nfc(person.surnames.orEmpty()))).map { it.value }
-            if (given.isEmpty() || surnames.isEmpty()) return emptyList()
+            // falta un componente (los apellidos son opcionales): el otro entero, si tiene dos palabras o más. un nombre de una sola
+            // palabra no se reconoce (ambiguo, ai-architecture.md §12.2)
+            if (given.isEmpty() || surnames.isEmpty()) return listOf(given + surnames).filter { it.size >= 2 }
             val names = listOf(given, given.take(1)).distinct()
             val last = listOf(surnames, firstSurname(surnames)).distinct()
             val forms = mutableListOf<List<String>>()

@@ -44,6 +44,23 @@ class PseudonymizerTest {
         assertEquals("Solo vino Ana con Ejemplo.", run("Solo vino Ana con Ejemplo."))
     }
 
+    // revisión final de 8.2c, Important 2: una persona sin apellidos o sin nombres también se enmascara si lo que tiene es de dos
+    // palabras o más; una sola palabra sigue fuera (ambigua)
+    @Test
+    fun `una persona sin apellidos o sin nombres se enmascara con lo que tiene si son dos palabras o mas`() {
+        val partial =
+            NameDictionary(
+                listOf(
+                    KnownPerson(ana, "Ana María", null),
+                    KnownPerson(bruno, null, "Ejemplo Ruiz"),
+                    KnownPerson(null, "Solo", ""),
+                    KnownPerson(null, "", "Quispe")
+                )
+            )
+        assertEquals("[PERSONA_1] habló con [PERSONA_2].", runWith(partial, "ANA MARÍA habló con Ejemplo Ruiz."))
+        assertEquals("Solo vino Quispe.", runWith(partial, "Solo vino Quispe."))
+    }
+
     @Test
     fun `documento, telefono y correo por su formato`() {
         assertEquals(

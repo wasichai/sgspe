@@ -492,7 +492,9 @@ El `Pseudonymizer` de `sgspe.ai` corre antes de cada llamada a un modelo: prompt
 propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto que se vaya a vectorizar (RQ-AI-009).
 
 - **Qué reemplaza.** Dentro de la corrida usa marcadores estables por llamada (`[PERSONA_1]`, `[TELEFONO_1]`) para:
-  - los nombres de las `person` del tenant que aparecen en el texto;
+  - los nombres de las `person` del tenant que aparecen en el texto. Sin apellidos o sin nombres (los apellidos son
+    opcionales), cuenta el componente registrado si tiene dos palabras o más; un nombre de una sola palabra no se reconoce,
+    porque es ambiguo;
   - los valores de los campos restringidos de RQ-SEC-010: número de documento, teléfono, correo y nombres de participantes y
     beneficiarios;
   - los formatos de documento de identidad, teléfono y correo, aunque no estén registrados.
@@ -529,7 +531,7 @@ propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto q
   los agentes propios, salvo como agregados de indicadores. Esos agregados también exigen que la persona pueda leer el campo; si
   no puede, el indicador llega como "no disponible" (RQ-SEC-010, [dashboards.md](dashboards.md) §8).
 - Es un esfuerzo razonable, no una garantía: un nombre escrito en un texto libre que no está registrado como `person`
-  puede pasar. Por eso la IA viene desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los
+  puede pasar, y también un nombre de una sola palabra («un nombre de una sola palabra no se reconoce»). Por eso la IA viene desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los
   fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato
   restringido (`security.md` §7.8).
 

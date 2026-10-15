@@ -343,8 +343,8 @@ class SectionDraftCase(
             }.joinToString("\n")
 
         // un nombre se escribe en la fuente solo si el diccionario de la corrida cubre cada una de sus palabras: así el
-        // Pseudonymizer lo reemplaza entero. una persona sin apellidos o de una sola palabra no entra al diccionario y sale
-        // con su cita de EXTERNO (SectionText)
+        // Pseudonymizer lo reemplaza entero. una persona de una sola palabra no entra al diccionario y sale con su cita de
+        // EXTERNO (SectionText)
         fun nameable(names: NameDictionary): (String) -> Boolean =
             { name ->
                 val text = Folding.nfc(name)
