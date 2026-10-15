@@ -2,6 +2,7 @@ package sgspe.deliverable
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import sgspe.territory.MapExtent
@@ -100,5 +101,28 @@ class GetMapRequestTest {
         assertEquals(listOf("community.territory", "project.location"), cover.map { "${it.objectName}.${it.geometry}" })
         val areas = ReportLayers.frameRefs(MapRequest("areas", project, "EPSG 32717", null, emptyList(), MapFrameKind.AREAS, areas = listOf(community)))
         assertEquals(listOf("area_of_influence.boundary", "project.location"), areas.map { "${it.objectName}.${it.geometry}" })
+    }
+
+    @Test
+    fun `EXTERNO falla cerrado y una capa fuera de la lista no pasa`() {
+        val novel = ReportLayer.Inline("LYR-99", "Nueva", ReportLayerStyles.INLINE.getValue("LYR-14"), false) { null }
+        assertEquals(emptyList<ReportLayer>(), ReportLayers.external(listOf(novel)))
+        assertEquals(
+            setOf("LYR-10", "LYR-11", "LYR-15"),
+            (1..15).map { "LYR-%02d".format(it) }.filter { it !in ReportLayers.EXTERNAL_CODES && it != "LYR-12" }.toSet()
+        )
+    }
+
+    @Test
+    fun `el GML de un elemento no puede romper el XML`() {
+        for (bad in listOf("<x/>", "<gml:Point/></geometryProperty><label>x", "<gml:Point/><!-- -->", "<gml:Point/><?pi?>")) {
+            assertThrows(IllegalArgumentException::class.java) { MapFeature(bad, null) }
+        }
+    }
+
+    @Test
+    fun `un color de la paleta que no es rrggbb no carga`() {
+        val json = """{"styles":{"x":{"stroke":"red\"/><evil/>"}}}"""
+        assertThrows(IllegalArgumentException::class.java) { ReportLayerStyles.parse(json) }
     }
 }

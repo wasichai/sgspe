@@ -66,15 +66,15 @@ object ReportLayerStyles {
                 name to
                     LayerStyle(
                         shape = shape,
-                        stroke = text(node, "stroke"),
+                        stroke = color(node, "stroke"),
                         strokeWidth = node.path("strokeWidth").asDouble(1.0),
                         dash = node.path("strokeDasharray").values().map { it.asDouble() },
-                        fill = text(node, "fill"),
+                        fill = color(node, "fill"),
                         fillOpacity = node.path("fillOpacity").asDouble(if (shape == Shape.POINT) 1.0 else 0.0),
                         mark = text(node, "mark") ?: "circle",
                         size = node.path("size").asDouble(7.0),
-                        label = text(node, "label"),
-                        halo = text(node, "halo")
+                        label = color(node, "label"),
+                        halo = color(node, "halo")
                     )
             }
     }
@@ -83,4 +83,15 @@ object ReportLayerStyles {
         node: JsonNode,
         field: String
     ): String? = node.path(field).takeIf { !it.isNull && !it.isMissingNode }?.asString()
+
+    private val COLOR = Regex("#[0-9a-fA-F]{6}")
+
+    // los colores van sin escapar al SLD: solo #rrggbb, o el estilo no carga
+    private fun color(
+        node: JsonNode,
+        field: String
+    ): String? =
+        text(node, field)?.also {
+            require(COLOR.matches(it)) { "El color '$it' del campo $field de la paleta no es #rrggbb" }
+        }
 }

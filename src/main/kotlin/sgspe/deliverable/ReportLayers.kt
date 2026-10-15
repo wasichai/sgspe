@@ -187,7 +187,12 @@ object ReportLayers {
         request.layers.flatMap(::of) + listOfNotNull(PROJECT_CONCESSIONS.takeIf { "LYR-07" in request.layers && request.concessions.isNotEmpty() })
 
     // las capas de un mapa EXTERNO: sin las confidenciales (LYR-10, LYR-11 y LYR-15, ASM-124)
-    fun external(layers: List<ReportLayer>): List<ReportLayer> = layers.filterNot { it is ReportLayer.Inline && it.confidential }
+    // falla cerrado: solo pasan las capas de una lista explícita (todas menos LYR-10, LYR-11 y LYR-15); una capa nueva queda
+    // fuera de EXTERNO hasta que alguien la agregue aquí
+    val EXTERNAL_CODES: Set<String> =
+        setOf("LYR-01", "LYR-02", "LYR-03", "LYR-04", "LYR-05", "LYR-06", "LYR-07", "LYR-08", "LYR-09", "LYR-13", "LYR-14")
+
+    fun external(layers: List<ReportLayer>): List<ReportLayer> = layers.filter { it.code in EXTERNAL_CODES && !(it is ReportLayer.Inline && it.confidential) }
 
     // las geometrías que encuadran el mapa (decisión 9 del plan 8.2c)
     fun frameRefs(request: MapRequest): List<GeometryRef> {

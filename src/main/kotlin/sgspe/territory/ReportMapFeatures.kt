@@ -39,8 +39,32 @@ data class MapLayerQuery(
     val currentOnly: Boolean = false
 )
 
-// un elemento en línea: su GML 2 en el CRS de trabajo, con el srsName de URL que pide GeoServer, y su etiqueta
+// un elemento en línea: su GML 2 en el CRS de trabajo, con el srsName de URL que pide GeoServer, y su etiqueta. `gml` se inserta
+// SIN escapar en el GetMap: debe venir solo de ST_AsGML de PostGIS (Tarea 7), nunca de texto de una persona
 data class MapFeature(
     val gml: String,
     val label: String?
-)
+) {
+    init {
+        require(gml.startsWith("<gml:")) { "El GML de un elemento debe empezar por <gml:" }
+        require(FORBIDDEN.none { it in gml }) { "El GML de un elemento no puede cerrar ni abrir otros elementos del GetMap" }
+    }
+
+    private companion object {
+        // lo que sacaría al GML de su geometryProperty o metería otro elemento al SLD
+        val FORBIDDEN =
+            listOf(
+                "<!",
+                "<?",
+                "</geometryProperty",
+                "</gml:_Feature",
+                "</featureMember",
+                "</FeatureCollection",
+                "</InlineFeature",
+                "</UserLayer",
+                "<label",
+                "<UserStyle",
+                "<sld:"
+            )
+    }
+}
