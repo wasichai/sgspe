@@ -11,6 +11,7 @@ import sgspe.privacy.Block
 import sgspe.privacy.Disclosure
 import sgspe.privacy.Mark
 import sgspe.privacy.PersonalDataScan
+import sgspe.privacy.RegisterSheets
 import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportModel
 import sgspe.privacy.ReportWarning
@@ -417,7 +418,7 @@ class SocialDiagnosisTypeTest {
         assertTrue((model.blocks("aiis").first() as Block.Paragraph).markdown.contains("no tiene un área de influencia indirecta social aprobada"))
         assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))
         assertTrue(model.blocks("evaluacion_grupos").single() is Block.Paragraph)
-        assertEquals(listOf(UUID.fromString(T1Source.AIDS)), assembled.maps.single().areas)
+        assertEquals(listOf(UUID.fromString(T1Source.AIDS)), assembled.maps.single { it.key == DiagnosisStudy.AREAS_MAP }.areas)
     }
 
     @Test
@@ -431,5 +432,26 @@ class SocialDiagnosisTypeTest {
         val warnings = PersonalDataScan.scan(assembled.texts, assembled.personNames)
         assertTrue(ReportWarning(PersonalDataScan.CODE, "gestion_riesgos") in warnings, "$warnings")
         assertTrue(ReportWarning(PersonalDataScan.CODE, "mensajes") in warnings, "$warnings")
+    }
+
+    @Test
+    fun `los anexos llevan el mapa horizontal, los instrumentos y el cuadrante de influencia por codigo`() {
+        val assembled = assemble()
+        val model = assembled.model
+        assertEquals(
+            listOf(Block.SectionBreak(true), Block.MapFigure(DiagnosisAnnexes.ANNEX_MAP, "Concesiones del proyecto y su entorno")),
+            model.blocks("anexo_concesiones")
+        )
+        assertEquals(Block.SectionBreak(false), model.blocks("anexo_instrumentos").first())
+        val quadrant = model.tables("anexo_metodologia").single { it.figure }
+        assertEquals(RegisterSheets.code(T1Source.LEADER), quadrant.rows[0][2].text)
+        assertEquals(RegisterSheets.code(T1Source.DISTRICT), quadrant.rows[0][1].text)
+        assertEquals("—", quadrant.rows[1][1].text)
+        val annex = assembled.maps.single { it.key == DiagnosisAnnexes.ANNEX_MAP }
+        assertTrue(annex.landscape)
+        assertEquals(MapFrameKind.INTEREST_AND_CONCESSIONS, annex.frame)
+        assertEquals(listOf(UUID.fromString(T1Source.CONCESSION)), annex.concessions)
+        assertEquals(listOf(DiagnosisStudy.AREAS_MAP, DiagnosisAnnexes.ANNEX_MAP), assembled.maps.map { it.key })
+        assertTrue(model.sections.all { section -> section.key in setOf("portada", "indice") || section.chapter != null })
     }
 }

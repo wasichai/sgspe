@@ -262,8 +262,7 @@ abstract class F8ApiTest : F7ApiTest() {
     // con territorio, un sector, una red con su nodo, un incidente EXPULSION, un aporte en `delivered` con su comprobante y
     // dos fotos de la entrega (una con consentimiento y otra identificable sin el dato), el AIDS aprobado con la comunidad,
     // un estudio con un instrumento y el entregable de cada tipo. todo como el admin, salvo el ciclo del aporte (quien lo
-    // registra, SOCIAL_INVESTMENT_MANAGER, y APPROVER) y la aprobación del área (SOCIAL_MANAGER). las evaluaciones del
-    // estudio que lee T1 las suma el plan 8.2c con SocialDiagnosisType. una foto sin consentimiento se crea sin el campo:
+    // registra, SOCIAL_INVESTMENT_MANAGER, y APPROVER) y la aprobación del área (SOCIAL_MANAGER). desde el plan 8.2c, una localidad del AIDS con su perfil del estudio (capítulo 5 de T1). una foto sin consentimiento se crea sin el campo:
     // wasichai aplica el defaultValue de un campo omitido en el alta (UPS-15 resuelta), y photo_consent_given no tiene uno
     protected fun reportScenario(): ReportScenario {
         val project = project(mapOf("code" to uniqueName("PEA-"), "name" to "Proyecto Ejemplo A", "working_crs" to "EPSG 32717"))
@@ -298,8 +297,21 @@ abstract class F8ApiTest : F7ApiTest() {
                 mapOf("boundary" to SyntheticGeo.multiSquare(SyntheticGeo.ORIGIN.first, SyntheticGeo.ORIGIN.second, 6000.0))
             )
         createRecord("area_of_influence_member", mapOf("area_of_influence" to area, "community" to community, "member_condition" to "INCLUIDO"))
+        // plan 8.2c: una localidad del AIDS con su perfil del estudio, para el capítulo 5 de T1
+        val locality = runBlocking { locality("Caserío Ejemplo Alto", SyntheticGeo.point(SyntheticGeo.ORIGIN.first, SyntheticGeo.ORIGIN.second)) }.toString()
+        createRecord("area_of_influence_member", mapOf("area_of_influence" to area, "locality" to locality, "member_condition" to "INCLUIDO"))
         approveArea(area, project)
         val study = createRecord("study", mapOf("project" to project, "title" to "Diagnóstico social de la Comunidad Ejemplo"))
+        fixture(
+            "locality_profile",
+            mapOf(
+                "locality" to locality,
+                "study" to study,
+                "families_count" to 120,
+                "religion" to "Católica.",
+                "electoral_process" to "Dos movimientos locales."
+            )
+        )
         createRecord("study_instrument", mapOf("study" to study, "instrument_type" to Model.enums.getValue("instrument_type").first()))
         val fieldReport = deliverable(project, FIELD_REPORT, mapOf("community" to community))
         val diagnosis = deliverable(project, SOCIAL_DIAGNOSIS, mapOf("study" to study, "area_of_influence" to area))
@@ -318,7 +330,8 @@ abstract class F8ApiTest : F7ApiTest() {
             area,
             study,
             fieldReport,
-            diagnosis
+            diagnosis,
+            locality
         )
     }
 
@@ -374,7 +387,8 @@ abstract class F8ApiTest : F7ApiTest() {
         val area: String,
         val study: String,
         val fieldReport: String,
-        val socialDiagnosis: String
+        val socialDiagnosis: String,
+        val locality: String
     )
 
     companion object {

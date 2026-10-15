@@ -227,7 +227,7 @@ class SocialDiagnosisType : DeliverableType {
                 templateId = input.templateId,
                 templateSha256 = input.templateSha256
             )
-        val maps = listOfNotNull(DiagnosisStudy.areasMap(scene))
+        val maps = listOfNotNull(DiagnosisStudy.areasMap(scene), DiagnosisAnnexes.annexMap(scene))
         val sectionTexts = built.associate { it.key to (texts[it.key]?.let { text -> listOf(text) }.orEmpty() + scene.recordTexts[it.key].orEmpty()) }
         val model =
             ReportModel(
@@ -243,7 +243,7 @@ class SocialDiagnosisType : DeliverableType {
         return Assembled(model, maps, scene.people.names, sectionTexts)
     }
 
-    // los bloques calculados de cada sección; las Tareas 10 a 13 del plan 8.2c suman los capítulos 5 a 10
+    // los bloques calculados de cada sección; por clave, en el orden de deliverables.md §5
     private suspend fun blocks(
         key: String,
         scene: DiagnosisScene
@@ -290,6 +290,10 @@ class SocialDiagnosisType : DeliverableType {
             "riesgos" -> DiagnosisStrategy.risks(scene)
             "gestion_riesgos" -> DiagnosisStrategy.riskManagement(scene)
             "necesidades" -> DiagnosisStrategy.needs(scene)
+            "anexos" -> DiagnosisAnnexes.annexes()
+            "anexo_concesiones" -> DiagnosisAnnexes.concessions()
+            "anexo_instrumentos" -> DiagnosisAnnexes.instruments(scene)
+            "anexo_metodologia" -> DiagnosisAnnexes.methodology(scene)
             else -> emptyList()
         }
 

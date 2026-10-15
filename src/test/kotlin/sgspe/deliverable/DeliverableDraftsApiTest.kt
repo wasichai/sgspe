@@ -1,12 +1,22 @@
 package sgspe.deliverable
 
+import kotlinx.coroutines.reactive.awaitSingle
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.http.HttpStatus
 import sgspe.F8ApiTest
+import sgspe.privacy.Block
+import sgspe.privacy.CanonicalJson
+import wasichai.files.FileService
+import wasichai.files.StoredFileRepository
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
@@ -15,6 +25,12 @@ import java.util.UUID
 // JOB-05 de punta a punta contra wasichai real con los dobles de PDF y mapas, y los siete archivos adjuntos como la plataforma
 // (PlatformDraftFiles, UPS-31 resuelta en wasichai 1.3.0)
 class DeliverableDraftsApiTest : F8ApiTest() {
+    @Autowired
+    private lateinit var fileService: FileService
+
+    @Autowired
+    private lateinit var storedFiles: StoredFileRepository
+
     private fun codes(response: Response): List<String> = tree(response.body)["errors"].values().map { it["message"].asString() }
 
     private fun draft(id: String) = tree(send("GET", "/api/sgspe/deliverables/$id/draft", null, HttpStatus.OK))
@@ -175,5 +191,69 @@ class DeliverableDraftsApiTest : F8ApiTest() {
         assertEquals(false, draft(id)["pending"].asBoolean())
         generate()
         assertEquals(failed["updatedAt"].asString(), record("deliverable", id)["updatedAt"].asString())
+    }
+
+    // plan 8.2c (Review Focus 3): T1 con los dobles de PDF y mapas, contra wasichai real: la Tabla 9.5 con el lector de la
+    // plataforma, el capítulo 5 con el perfil del escenario y los dos mapas pedidos con su encuadre
+    @Test
+    fun `un T1 sale LISTO con sus secciones, su indice y sus dos mapas pedidos`() {
+        val scenario = reportScenario()
+        assertEquals(HttpStatus.ACCEPTED, requestDraft(scenario.socialDiagnosis).status)
+        generate()
+        val attributes = record("deliverable", scenario.socialDiagnosis)["attributes"]
+        assertEquals(Deliverables.READY, attributes[Deliverables.STATUS].asString(), "$attributes")
+        val bytes =
+            asUser(admin()) {
+                val download = fileService.open(Deliverables.DELIVERABLE, UUID.fromString(scenario.socialDiagnosis), Deliverables.DRAFT_MODEL)
+                val joined = DataBufferUtils.join(download.content).awaitSingle()
+                ByteArray(joined.readableByteCount()).also { joined.read(it) }.also { DataBufferUtils.release(joined) }
+            }
+        val model = CanonicalJson.read(bytes)
+        assertEquals(SocialDiagnosisType().sections.map { it.key }, model.sections.map { it.key })
+        assertTrue(
+            model.sections
+                .single { it.key == "indice" }
+                .blocks
+                .first() is Block.Toc
+        )
+        val population =
+            model.sections
+                .single { it.key == "poblacion" }
+                .blocks
+                .filterIsInstance<Block.Table>()
+                .first()
+        assertEquals(
+            listOf("Caserío Ejemplo Alto", "120"),
+            population.rows
+                .single()
+                .take(2)
+                .map { it.text }
+        )
+        assertEquals(
+            13,
+            model.sections
+                .single { it.key == "monitoreo" }
+                .blocks
+                .filterIsInstance<Block.Table>()
+                .single()
+                .rows.size
+        )
+        val maps = fakeMaps.requests.filter { it.project.toString() == scenario.project }
+        assertEquals(setOf(DiagnosisStudy.AREAS_MAP, DiagnosisAnnexes.ANNEX_MAP), maps.map { it.key }.toSet())
+        assertTrue(maps.single { it.key == DiagnosisAnnexes.ANNEX_MAP }.landscape)
+    }
+
+    // menor del plan 8.2b: lo que sube JOB-05 lo sube la plataforma (UPS-31): sin persona y con la corrida que lo adjuntó
+    @Test
+    fun `los siete archivos del borrador los sube la plataforma, sin persona y con su corrida`() {
+        val id = requestedFieldReport()
+        generate()
+        val attributes = record("deliverable", id)["attributes"]
+        for (field in Deliverables.DRAFT_FILES) {
+            val stored = runBlocking { storedFiles.find(organizationId(), UUID.fromString(attributes[field]["id"].asString())) }
+            assertNotNull(stored, field)
+            assertNull(stored!!.createdBy, field)
+            assertNotNull(stored.platformRun, field)
+        }
     }
 }
