@@ -22,6 +22,33 @@ object KpiEvaluation {
         return result.toValue(kpi.code, kpi.label, kpi.unit).copy(ignoredFilters = ignored.ifEmpty { null })
     }
 
+    // la tabla por proyecto del tablero executive (plan 8.2a-bis): la misma disponibilidad para todas las filas y la cifra de
+    // cada proyecto de Indicator.computeByProject; sin ella, cada proyecto se evalúa aparte con DashboardData.with, como antes.
+    // la clave es el id del proyecto, una por proyecto del filtro
+    suspend fun evaluateByProject(
+        kpi: Indicator,
+        data: DashboardData
+    ): Map<String, IndicatorValue> {
+        val projects = data.filters.projects
+        val missing = kpi.requires.distinct().filterNot { data.readable(it) }
+        val ignored = Kpis.ignoredFilters(kpi, data.filters).ifEmpty { null }
+
+        fun value(result: IndicatorResult) = result.toValue(kpi.code, kpi.label, kpi.unit).copy(ignoredFilters = ignored)
+        if (missing.isNotEmpty()) {
+            val unavailable = value(IndicatorResult.unavailable(reason(missing, data), missing))
+            return projects.associate { it.toString() to unavailable }
+        }
+        val split = if (kpi.singleProject) null else kpi.computeByProject(data)
+        return projects.associate { p ->
+            val key = p.toString()
+            key to
+                (
+                    split?.let { value(it[key] ?: error("${kpi.code} no dio la cifra del proyecto $key")) }
+                        ?: evaluate(kpi, data.with(data.filters.copy(projects = listOf(p))))
+                )
+        }
+    }
+
     // OBJECT_NOT_READABLE si falta READ sobre alguno de los objetos; si no, FIELD_NOT_READABLE
     suspend fun reason(
         missing: List<String>,

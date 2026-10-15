@@ -45,7 +45,8 @@ class Dashboards(
     private val componentLand: ComponentLand,
     private val readers: KpiReaders,
     private val properties: DashboardsProperties,
-    private val tenantModel: TenantModel
+    private val tenantModel: TenantModel,
+    private val aggregates: KpiAggregates
 ) {
     // la disponibilidad de cada KPI para quien llama: en un tenant con el catálogo indicator, KPI-ENG-02 lee además la meta por
     // defecto del catálogo (R1), igual que al calcularlo
@@ -63,6 +64,15 @@ class Dashboards(
         name: String,
         params: MultiValueMap<String, String>,
         reader: KpiReader? = null
+    ): DashboardResponse = dashboard(name, params, reader, properties.aggregates)
+
+    // `aggregated`: los KPI del tablero executive cuentan en la base (KpiAggregates, plan 8.2a-bis) o leen filas con Records
+    // como antes; la prueba de paridad compara los dos caminos
+    internal suspend fun dashboard(
+        name: String,
+        params: MultiValueMap<String, String>,
+        reader: KpiReader?,
+        aggregated: Boolean
     ): DashboardResponse {
         val codes =
             Kpis.DASHBOARDS[name]
@@ -85,7 +95,7 @@ class Dashboards(
                 throw Records.tooMany("project", max)
             }
             val omitted = name == Kpis.EXECUTIVE && filters.projects.size > max
-            val data = data(ctx, filters, today)
+            val data = data(ctx, filters, today, aggregated = aggregated)
             // con locality o community, la ficha (KPI-TER-01) va primero
             val shown = if (name == Kpis.TERRITORY && (filters.locality != null || filters.community != null)) listOf(TerritorySummary.CODE) + codes else codes
             val indicators = shown.map { mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(it), data), ctx.confidentialHidden) }
@@ -110,12 +120,19 @@ class Dashboards(
         code: String,
         params: MultiValueMap<String, String>,
         reader: KpiReader? = null
+    ): IndicatorValue = indicator(code, params, reader, properties.aggregates)
+
+    internal suspend fun indicator(
+        code: String,
+        params: MultiValueMap<String, String>,
+        reader: KpiReader?,
+        aggregated: Boolean
     ): IndicatorValue {
         val kpi = Kpis.BY_CODE[code] ?: throw notFound("INDICATOR_NOT_FOUND", "El indicador $code no existe o no está disponible en esta fase", "code")
         return readers.reading(reader ?: readers.person()) { ctx ->
             val today = today()
             val filters = filters(params, DashboardFilters.COMMON + BREAKDOWN + Kpis.extraFilters(listOf(code)), today, ctx)
-            val value = mark(KpiEvaluation.evaluate(kpi, data(ctx, filters, today)), ctx.confidentialHidden)
+            val value = mark(KpiEvaluation.evaluate(kpi, data(ctx, filters, today, aggregated = aggregated)), ctx.confidentialHidden)
             val by = filters.breakdown
             when {
                 by == null || !value.available -> value
@@ -140,17 +157,28 @@ class Dashboards(
         end: LocalDate,
         reader: KpiReader,
         excludeConfidential: Boolean = false
+    ): IndicatorValue = value(code, projects, start, end, reader, excludeConfidential, properties.aggregates)
+
+    internal suspend fun value(
+        code: String,
+        projects: List<UUID>?,
+        start: LocalDate,
+        end: LocalDate,
+        reader: KpiReader,
+        excludeConfidential: Boolean,
+        aggregated: Boolean
     ): IndicatorValue {
         val kpi = Kpis.BY_CODE[code] ?: throw notFound("INDICATOR_NOT_FOUND", "El indicador $code no existe o no está disponible en esta fase", "code")
         return readers.reading(reader) { ctx ->
             val filters = DashboardFilters.of(projects ?: ctx.defaultProjects(), start, end)
             val also = if (excludeConfidential) Kpis.closingRequires(code) else emptyList()
-            mark(KpiEvaluation.evaluate(kpi, data(ctx, filters, today(), excludeConfidential), also), ctx.confidentialHidden)
+            mark(KpiEvaluation.evaluate(kpi, data(ctx, filters, today(), excludeConfidential, aggregated), also), ctx.confidentialHidden)
         }
     }
 
-    // dashboards.md §5.1: una fila por proyecto del filtro con las cifras de ExecutiveKpis.BY_PROJECT, calculadas con las
-    // mismas funciones y los mismos permisos sobre el filtro de ese proyecto (DashboardData.with), sin desgloses ni series
+    // dashboards.md §5.1: una fila por proyecto del filtro con las cifras de ExecutiveKpis.BY_PROJECT, las mismas que daría el
+    // filtro de ese proyecto solo, sin desgloses ni series. con los conteos en la base, una consulta por KPI agrupada por
+    // proyecto (KpiEvaluation.evaluateByProject, plan 8.2a-bis); sin ellos, cada proyecto con DashboardData.with, como antes
     private suspend fun byProject(
         data: DashboardData,
         hidden: Boolean
@@ -158,14 +186,21 @@ class Dashboards(
         val ids = data.filters.projects.map { it.toString() }
         val codes = data.names("project", ids, "code")
         val names = data.names("project", ids)
+        val split =
+            if (data.aggregated) {
+                ExecutiveKpis.BY_PROJECT.associateWith { KpiEvaluation.evaluateByProject(Kpis.BY_CODE.getValue(it), data) }
+            } else {
+                null
+            }
         return data.filters.projects.map { project ->
-            val one = data.with(data.filters.copy(projects = listOf(project)))
+            val one by lazy { data.with(data.filters.copy(projects = listOf(project))) }
             ProjectFigures(
                 project.toString(),
                 codes[project.toString()],
                 names[project.toString()],
                 ExecutiveKpis.BY_PROJECT.map { code ->
-                    mark(KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(code), one), hidden).copy(breakdowns = null, series = null)
+                    val value = split?.getValue(code)?.getValue(project.toString()) ?: KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(code), one)
+                    mark(value, hidden).copy(breakdowns = null, series = null)
                 }
             )
         }
@@ -191,7 +226,8 @@ class Dashboards(
         ctx: KpiContext,
         filters: DashboardFilters,
         today: LocalDate,
-        excludeConfidential: Boolean = false
+        excludeConfidential: Boolean = false,
+        aggregated: Boolean = properties.aggregates
     ): DashboardData =
         DashboardData(
             records,
@@ -201,7 +237,8 @@ class Dashboards(
             componentLand = componentLand,
             platform = ctx.platform,
             hasCatalog = tenantModel.has(ctx.reader.organizationId, INDICATOR),
-            excludeConfidential = excludeConfidential
+            excludeConfidential = excludeConfidential,
+            aggregates = if (aggregated) aggregates else null
         )
 
     // la marca en un indicador que lee QCS, solo si es cierta (los demás no la llevan)

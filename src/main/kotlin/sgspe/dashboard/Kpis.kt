@@ -23,6 +23,10 @@ interface Indicator {
     val ignores: Set<String> get() = emptySet()
 
     suspend fun compute(data: DashboardData): IndicatorResult
+
+    // plan 8.2a-bis: la cifra de cada proyecto del filtro de una vez (la tabla por proyecto del tablero executive, solo con
+    // los conteos en la base), con el id del proyecto como clave; null, cada proyecto se calcula aparte (DashboardData.with)
+    suspend fun computeByProject(data: DashboardData): Map<String, IndicatorResult>? = null
 }
 
 // un KPI con su cálculo: los de F2 de dashboards.md §4.2 y §4.3 (RQ-DSH-036). cada fase agrega los suyos a ALL
@@ -36,9 +40,13 @@ class Kpi(
     // sin filtros ignorados por defecto: cada KPI declara los suyos (los de F2, abajo); un KPI de compromisos o de inversión de
     // F3 o F5 sí aplica explorationCampaign y no debe heredar que lo ignora
     override val ignores: Set<String> = emptySet(),
+    // plan 8.2a-bis: Indicator.computeByProject; solo los KPI de ExecutiveKpis.BY_PROJECT lo traen
+    private val split: (suspend (DashboardData) -> Map<String, IndicatorResult>)? = null,
     private val block: suspend (DashboardData) -> IndicatorResult
 ) : Indicator {
     override suspend fun compute(data: DashboardData): IndicatorResult = block(data)
+
+    override suspend fun computeByProject(data: DashboardData): Map<String, IndicatorResult>? = split?.invoke(data)
 }
 
 // los KPI de F2 con lo que leen. las funciones de StakeholderKpis y EngagementKpis reciben filas ya leídas como quien
@@ -237,6 +245,31 @@ object Kpis {
     // hoy, así que un periodo pedido se declara ignorado. KPI-EXE-03 aplica proyecto, territorio y ámbito (dashboards.md §4.1)
     private val EXECUTIVE_WARNING_IGNORES: Set<String> = setOf("periodStart", "periodEnd", "explorationCampaign", "scope", "owner")
 
+    // un conteo de la base como resultado: no disponible si la compuerta no deja leer algo (no pasa tras KpiEvaluation, que ya
+    // comprobó lo que el KPI lee, pero nunca un cero)
+    private inline fun <T> counted(
+        outcome: GateOutcome<T>,
+        block: (List<T>) -> IndicatorResult
+    ): IndicatorResult =
+        when (outcome) {
+            is GateOutcome.Rows -> block(outcome.rows)
+            is GateOutcome.Unavailable -> IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, outcome.missingFields)
+        }
+
+    // lo mismo para la tabla por proyecto: no disponible en todas sus filas
+    private inline fun <T> countedByProject(
+        data: DashboardData,
+        outcome: GateOutcome<T>,
+        block: (List<T>, List<String>) -> Map<String, IndicatorResult>
+    ): Map<String, IndicatorResult> {
+        val projects = data.filters.projects.map { it.toString() }
+        return when (outcome) {
+            is GateOutcome.Rows -> block(outcome.rows, projects)
+            is GateOutcome.Unavailable ->
+                projects.associateWith { IndicatorResult.unavailable(UnavailableReason.FIELD_NOT_READABLE, outcome.missingFields) }
+        }
+    }
+
     val ALL: List<Indicator> =
         listOf(
             Kpi(
@@ -345,9 +378,15 @@ object Kpis {
                 listOf("stakeholder_assessment.trust_score", "stakeholder_assessment.assessment_date"),
                 ignores = STAKEHOLDER_IGNORES
             ) { StakeholderKpis.trust(it.stakeholders(), it.assessments(), it.filters.periodEnd) },
-            Kpi("KPI-ENG-01", "Interacciones realizadas", ENGAGEMENT, "interacciones", HELD, ignores = IGNORED_IN_F2) {
-                EngagementKpis.held(it.inPeriod(), it.window(), it.filters.periodEnd)
-            },
+            Kpi(
+                "KPI-ENG-01",
+                "Interacciones realizadas",
+                ENGAGEMENT,
+                "interacciones",
+                HELD,
+                ignores = IGNORED_IN_F2,
+                split = { data -> countedByProject(data, data.heldCounts(), AggregateKpis::heldByProject) }
+            ) { data -> heldResult(data) },
             Kpi(
                 "KPI-ENG-02",
                 "Reuniones sostenidas al mes",
@@ -451,8 +490,20 @@ object Kpis {
             ) {
                 CommitmentKpis.registered(it.commitments(campaign = true, owner = false))
             },
-            Kpi("KPI-COM-02", "Compromisos abiertos", COMMITMENTS, "compromisos", COMMITMENT + CAMPAIGN, ignores = commitmentIgnores("explorationCampaign")) {
-                CommitmentKpis.open(it.commitments(campaign = true, owner = false))
+            Kpi(
+                "KPI-COM-02",
+                "Compromisos abiertos",
+                COMMITMENTS,
+                "compromisos",
+                COMMITMENT + CAMPAIGN,
+                ignores = commitmentIgnores("explorationCampaign"),
+                split = { data -> countedByProject(data, data.openCommitmentCounts(), AggregateKpis::groupedByProject) }
+            ) { data ->
+                if (data.aggregated) {
+                    counted(data.openCommitmentCounts(), AggregateKpis::openCommitments)
+                } else {
+                    CommitmentKpis.open(data.commitments(campaign = true, owner = false))
+                }
             },
             Kpi(
                 "KPI-COM-03",
@@ -460,10 +511,17 @@ object Kpis {
                 COMMITMENTS,
                 "compromisos",
                 PLAZO + listOf(CAMPAIGN, "commitment.owner_user_id", "project.escalation_first_days", "project.escalation_second_days"),
-                ignores = commitmentIgnores("explorationCampaign", "owner")
+                ignores = commitmentIgnores("explorationCampaign", "owner"),
+                split = { data -> countedByProject(data, data.overdueCommitmentCounts(), AggregateKpis::groupedByProject) }
             ) { data ->
                 val escalation = data.escalation()
-                CommitmentKpis.overdue(data.commitments(campaign = true, owner = true), data.today) { escalation[it] ?: Escalation(7, 15) }
+                if (data.aggregated) {
+                    counted(
+                        data.overdueCommitmentCounts()
+                    ) { rows -> AggregateKpis.overdueCommitments(rows, data.today) { escalation[it] ?: Escalation(7, 15) } }
+                } else {
+                    CommitmentKpis.overdue(data.commitments(campaign = true, owner = true), data.today) { escalation[it] ?: Escalation(7, 15) }
+                }
             },
             Kpi(
                 "KPI-COM-04",
@@ -576,7 +634,15 @@ object Kpis {
             Kpi("KPI-GRV-01", "QCS recibidas", ATTENTION, "QCS", QCS + qcs("channel"), ignores = ATTENTION_IGNORES) {
                 AttentionKpis.received(it.attention(), it.filters.periodStart, it.filters.periodEnd)
             },
-            Kpi("KPI-GRV-02", "QCS abiertas", ATTENTION, "QCS", QCS, ignores = ATTENTION_IGNORES) { AttentionKpis.open(it.attention()) },
+            Kpi(
+                "KPI-GRV-02",
+                "QCS abiertas",
+                ATTENTION,
+                "QCS",
+                QCS,
+                ignores = ATTENTION_IGNORES,
+                split = { data -> countedByProject(data, data.attentionCounts(), AggregateKpis::openByProject) }
+            ) { data -> if (data.aggregated) counted(data.attentionCounts(), AggregateKpis::open) else AttentionKpis.open(data.attention()) },
             Kpi(
                 "KPI-GRV-03",
                 "Quejas resueltas",
@@ -629,9 +695,15 @@ object Kpis {
                 ignores = ATTENTION_IGNORES
             ) { AttentionKpis.attentionTime(it.attention(), it.filters.periodStart, it.filters.periodEnd) },
             // ---- F4: riesgos (dashboards.md §4.6); leen como quien mira, los riesgos activos ----
-            Kpi("KPI-RSK-01", "Riesgos altos", RISKS, "riesgos", RISK + listOf("social_risk.risk_level", "social_risk.category"), ignores = RISK_IGNORES) {
-                RiskKpis.high(it.risks())
-            },
+            Kpi(
+                "KPI-RSK-01",
+                "Riesgos altos",
+                RISKS,
+                "riesgos",
+                RISK + listOf("social_risk.risk_level", "social_risk.category"),
+                ignores = RISK_IGNORES,
+                split = { data -> countedByProject(data, data.highRiskCounts(), AggregateKpis::groupedByProject) }
+            ) { data -> if (data.aggregated) counted(data.highRiskCounts(), AggregateKpis::highRisks) else RiskKpis.high(data.risks()) },
             Kpi(
                 "KPI-RSK-02",
                 "Mapa de calor probabilidad × impacto",
@@ -772,26 +844,14 @@ object Kpis {
                         "exploration_campaign.currency",
                         "project.code"
                     ),
-                ignores = INV_IGNORES + setOf("explorationCampaign", "program", "year")
-            ) { data ->
-                val commitments = data.investmentCommitments()
-                val contributions = data.investmentContributions()
-                val withPrograms = data.filters.locality == null
-                val programs = if (withPrograms) data.programs(program = false) else emptyList()
-                InvestmentKpis.executed(
-                    commitments,
-                    data.deliveriesOf("commitment", commitments.map { it.id }),
-                    contributions,
-                    data.deliveriesOf(Contributions.CONTRIBUTION, contributions.map { it.id }),
-                    programs,
-                    data.budgetsOf(programs.map { it.id }),
-                    data.investmentCampaigns(campaign = false),
-                    data.filters.periodStart,
-                    data.filters.periodEnd,
-                    withPrograms,
-                    data.names("project", data.filters.projects.map { it.toString() }, "code")
-                )
-            },
+                ignores = INV_IGNORES + setOf("explorationCampaign", "program", "year"),
+                split = { data ->
+                    val inputs = investmentInputs(data)
+                    data.filters.projects
+                        .map { it.toString() }
+                        .associateWith { inputs.executed(data.filters, it) }
+                }
+            ) { data -> investmentInputs(data).executed(data.filters) },
             Kpi(
                 "KPI-INV-04",
                 "Beneficiarios",
@@ -860,7 +920,13 @@ object Kpis {
                 EXECUTIVE,
                 "proyectos",
                 listOf("project.stage", "project.project_type"),
-                ignores = TERRITORY_IGNORES
+                ignores = TERRITORY_IGNORES,
+                split = { data ->
+                    val rows = data.projectRows()
+                    data.filters.projects
+                        .map { it.toString() }
+                        .associateWith { p -> ExecutiveKpis.activeProjects(rows.filter { it.id == p }) }
+                }
             ) {
                 ExecutiveKpis.activeProjects(it.projectRows())
             },
@@ -870,8 +936,11 @@ object Kpis {
                 EXECUTIVE,
                 "alertas",
                 listOf("early_warning.project", "early_warning.severity", "early_warning.locality", "early_warning.community"),
-                ignores = EXECUTIVE_WARNING_IGNORES
-            ) { ExecutiveKpis.activeWarnings(it.earlyWarnings()) },
+                ignores = EXECUTIVE_WARNING_IGNORES,
+                split = { data -> countedByProject(data, data.warningCounts(), AggregateKpis::groupedByProject) }
+            ) { data ->
+                if (data.aggregated) counted(data.warningCounts(), AggregateKpis::activeWarnings) else ExecutiveKpis.activeWarnings(data.earlyWarnings())
+            },
             Kpi(
                 ExecutiveKpis.TREND,
                 "Tendencia mensual",
@@ -893,18 +962,86 @@ object Kpis {
             ) { data ->
                 val commitments = data.commitments(campaign = false, owner = false)
                 val reschedules = data.reschedules(commitments.map { it.id })
-                reschedules.warn(
-                    ExecutiveKpis.trend(
-                        EngagementKpis.held(data.inPeriod(), data.window(), data.filters.periodEnd),
-                        data.attention(),
-                        CommitmentKpis.overdueSeries(commitments, reschedules.rows, data.filters.periodEnd, data.today),
-                        data.filters.periodEnd
-                    )
-                )
+                val overdue = CommitmentKpis.overdueSeries(commitments, reschedules.rows, data.filters.periodEnd, data.today)
+                val engagements = heldResult(data)
+                when {
+                    !engagements.available -> engagements
+                    data.aggregated ->
+                        counted(data.attentionCounts()) { rows -> reschedules.warn(AggregateKpis.trend(engagements, rows, overdue, data.filters.periodEnd)) }
+                    else -> reschedules.warn(ExecutiveKpis.trend(engagements, data.attention(), overdue, data.filters.periodEnd))
+                }
             }
         )
 
     val BY_CODE: Map<String, Indicator> = ALL.associateBy { it.code }
+
+    // las entradas de KPI-INV-03 leídas una vez por pedido (DashboardData.memo), para las tiles y para byProject: `executed`
+    // con un proyecto reparte cada conjunto por su proyecto (o por el de su padre), lo mismo que leer ese proyecto solo,
+    // porque la localidad no depende del proyecto; los códigos de proyecto solo etiquetan desgloses (plan 8.2a-bis)
+    private class InvestmentInputs(
+        val commitments: List<CommitmentRow>,
+        val commitmentDeliveries: List<DeliveryRow>,
+        val contributions: List<ContributionRow>,
+        val contributionDeliveries: List<DeliveryRow>,
+        val programs: List<ProgramRow>,
+        val budgets: List<BudgetRow>,
+        val campaigns: List<CampaignRow>,
+        val withPrograms: Boolean,
+        val codes: Map<String, String>
+    ) {
+        fun executed(
+            filters: DashboardFilters,
+            project: String? = null
+        ): IndicatorResult {
+            fun mine(owner: String?) = project == null || owner == project
+            val own = commitments.filter { mine(it.project) }
+            val ownIds = own.map { it.id }.toSet()
+            val gifts = contributions.filter { mine(it.project) }
+            val giftIds = gifts.map { it.id }.toSet()
+            val ownPrograms = programs.filter { mine(it.project) }
+            val programIds = ownPrograms.map { it.id }.toSet()
+            return InvestmentKpis.executed(
+                own,
+                commitmentDeliveries.filter { it.parent in ownIds },
+                gifts,
+                contributionDeliveries.filter { it.parent in giftIds },
+                ownPrograms,
+                budgets.filter { it.program in programIds },
+                campaigns.filter { mine(it.project) },
+                filters.periodStart,
+                filters.periodEnd,
+                withPrograms,
+                if (project == null) codes else codes.filterKeys { it == project }
+            )
+        }
+    }
+
+    private suspend fun investmentInputs(data: DashboardData): InvestmentInputs =
+        data.memo("investmentInputs") {
+            val commitments = data.investmentCommitments()
+            val contributions = data.investmentContributions()
+            val withPrograms = data.filters.locality == null
+            val programs = if (withPrograms) data.programs(program = false) else emptyList()
+            InvestmentInputs(
+                commitments,
+                data.deliveriesOf("commitment", commitments.map { it.id }),
+                contributions,
+                data.deliveriesOf(Contributions.CONTRIBUTION, contributions.map { it.id }),
+                programs,
+                data.budgetsOf(programs.map { it.id }),
+                data.investmentCampaigns(campaign = false),
+                withPrograms,
+                data.names("project", data.filters.projects.map { it.toString() }, "code")
+            )
+        }
+
+    // KPI-ENG-01 (y la serie de interacciones de KPI-EXE-03): desde los conteos de la base o desde las filas
+    private suspend fun heldResult(data: DashboardData): IndicatorResult =
+        if (data.aggregated) {
+            counted(data.heldCounts()) { AggregateKpis.held(it, data.filters.periodEnd) }
+        } else {
+            EngagementKpis.held(data.inPeriod(), data.window(), data.filters.periodEnd)
+        }
 }
 
 // las etiquetas y los cortes que necesitan leer actores. el nombre de una persona (stakeholder → person) solo sale si
