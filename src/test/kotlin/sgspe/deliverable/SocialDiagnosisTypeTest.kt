@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import sgspe.privacy.Block
+import sgspe.privacy.Disclosure
+import sgspe.privacy.Mark
+import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportModel
 import java.util.UUID
 
@@ -121,5 +124,44 @@ class SocialDiagnosisTypeTest {
         val row = runBlocking { source.one("project", UUID.fromString(T1Source.PROJECT)) }
         assertEquals(setOf("name"), row!!.attributes.keys)
         assertThrows<IllegalStateException> { runBlocking { source.all("person") } }
+    }
+
+    @Test
+    fun `el capitulo 5 va por tema con un titulo por ambito, localidades en columnas y la matriz con X`() {
+        val model = assemble().model
+        val history = model.blocks("historia")
+        assertEquals(Block.Heading(3, DiagnosisScene.AIDS_TITLE), history[0])
+        assertTrue(history.filterIsInstance<Block.Paragraph>().any { "Linderos con el caserío vecino" in it.markdown && "Caserío Ejemplo Bajo" in it.markdown })
+        val population = model.tables("poblacion").first()
+        assertEquals(listOf("Caserío Ejemplo Alto", "120", "480", "4.00", "10/08/2026", "Trabajo de campo", "ALTA"), population.rows.single().map { it.text })
+        val services = model.tables("servicios")
+        assertEquals(listOf("Servicio", "Caserío Ejemplo Alto"), services[0].header)
+        assertEquals(listOf("Fuente de agua", "Manantial"), services[0].rows.first().map { it.text })
+        assertEquals(listOf("Fuente de agua", DiagnosisScene.SIN_DATO), services[1].rows.first().map { it.text })
+        val matrix = model.tables("organizaciones").first()
+        assertTrue(matrix.rows.any { row -> row.map { it.text } == listOf("Junta Directiva Comunal Ejemplo", "ORGANIZACION COMUNAL", "X") }, "${matrix.rows}")
+        assertTrue(matrix.rows.any { row -> row.map { it.text } == listOf("Programa social del Estado", "Programa del Estado", "X") }, "${matrix.rows}")
+        val roads = model.tables("vias").first()
+        assertEquals(listOf("Caserío Ejemplo Alto", "Trocha", "Caserío Ejemplo Bajo", "Regular", "Combi", "40 min"), roads.rows.single().map { it.text })
+        assertTrue(model.tables("educacion_salud").any { table -> table.rows.any { it[1].text == "I. E. N° 101" } })
+    }
+
+    @Test
+    fun `religion y proceso electoral llevan su marca y EXTERNO los quita`() {
+        val model = assemble().model
+        assertTrue(
+            model.blocks("proceso_electoral").filterIsInstance<Block.Paragraph>().any { it.mark == Mark.restricted("locality_profile.electoral_process") }
+        )
+        assertTrue(model.blocks("costumbres").filterIsInstance<Block.Paragraph>().any { it.mark == Mark.restricted("locality_profile.religion") })
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO)
+        assertTrue(external.blocks("proceso_electoral").filterIsInstance<Block.Paragraph>().none { "movimientos" in it.markdown })
+        assertTrue(external.blocks("costumbres").filterIsInstance<Block.Paragraph>().none { "Católica" in it.markdown })
+        assertTrue(
+            external
+                .tables("costumbres")
+                .single()
+                .rows
+                .any { it[1].text == "Fiesta patronal" }
+        )
     }
 }

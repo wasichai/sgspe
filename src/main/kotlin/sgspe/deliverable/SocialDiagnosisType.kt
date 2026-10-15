@@ -260,6 +260,15 @@ class SocialDiagnosisType : DeliverableType {
             "areas" -> DiagnosisStudy.areasIntro(scene)
             "aids" -> DiagnosisStudy.aids(scene)
             "aiis" -> DiagnosisStudy.aiis(scene)
+            "historia" -> DiagnosisContext.history(scene)
+            "poblacion" -> DiagnosisContext.population(scene)
+            "economia" -> DiagnosisContext.economy(scene)
+            "servicios" -> DiagnosisContext.services(scene)
+            "educacion_salud" -> DiagnosisContext.educationHealth(scene)
+            "vias" -> DiagnosisContext.roads(scene)
+            "organizaciones" -> DiagnosisContext.organizations(scene)
+            "proceso_electoral" -> DiagnosisContext.electoral(scene)
+            "costumbres" -> DiagnosisContext.customs(scene)
             else -> emptyList()
         }
 
