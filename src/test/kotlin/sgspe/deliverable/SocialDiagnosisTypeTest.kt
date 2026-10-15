@@ -69,6 +69,8 @@ class SocialDiagnosisTypeTest {
         assertEquals(listOf("Ámbito", "Localidad", "Entrevistas", "Fichas de observación"), fieldwork.header)
         assertEquals(listOf("AIDS", "Caserío Ejemplo Alto", "1", "0"), fieldwork.rows[0].map { it.text })
         assertEquals(listOf("AIIS", "Caserío Ejemplo Bajo", "0", "1"), fieldwork.rows[1].map { it.text })
+        val dates = (model.blocks("trabajo_campo").first() as Block.Paragraph).markdown
+        assertTrue(dates.endsWith("Visitas de campo en esas fechas:** 1"), dates)
         val aids = model.tables("aids").single()
         assertTrue(aids.rows.any { it[0].text == "Caserío Ejemplo Alto" && it[1].text == "INCLUIDO" }, "${aids.rows}")
         assertTrue(aids.rows.any { it[0].text == "Comunidad Ejemplo" })
@@ -95,5 +97,29 @@ class SocialDiagnosisTypeTest {
         source.rows.getValue("area_of_influence").replaceAll { if (it.id == T1Source.AIDS) it.copy(state = "superseded") else it }
         val failure = assertThrows<DraftFailure> { assemble(source) }
         assertEquals(DeliverableDrafts.PARAMETERS_MISSING to "area_of_influence", failure.code to failure.section)
+    }
+
+    @Test
+    fun `un periodo que falta o no se lee deja FALLIDO con DELIVERABLE_PARAMETERS_MISSING sobre ese campo`() {
+        fun failure(
+            field: String,
+            value: String?
+        ): DraftFailure {
+            val input = T1Source.input()
+            val d = input.deliverable
+            val changed = AssemblyInput(d.copy(attributes = d.attributes + (field to value)), input.sections, null, input.templateSha256, "A", "0", input.today)
+            return assertThrows<DraftFailure> { runBlocking { type.assemble(changed, T1Source.source()) } }
+        }
+        assertEquals(DeliverableDrafts.PARAMETERS_MISSING to "period_end_date", failure("period_end_date", null).let { it.code to it.section })
+        assertEquals(DeliverableDrafts.PARAMETERS_MISSING to "period_start_date", failure("period_start_date", "no es fecha").let { it.code to it.section })
+    }
+
+    @Test
+    fun `la fuente falsa rechaza un objeto no declarado y quita los campos no declarados`() {
+        val source = FakeReportSource(mapOf("project" to setOf("name")))
+        T1Source.source(source)
+        val row = runBlocking { source.one("project", UUID.fromString(T1Source.PROJECT)) }
+        assertEquals(setOf("name"), row!!.attributes.keys)
+        assertThrows<IllegalStateException> { runBlocking { source.all("person") } }
     }
 }

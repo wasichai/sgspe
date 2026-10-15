@@ -52,8 +52,8 @@ data class DraftWarning(
 
 // pedir un borrador y leer su estado (especificación de F8 §3.5, deliverables.md §8.2), como la persona: el pedido exige UPDATE
 // y GENERATE sobre deliverable, procede solo en draft u observed (409 STATE_MISMATCH), con el tipo disponible (422
-// TYPE_NOT_AVAILABLE), en T1 con el AIDS aprobado (422 DELIVERABLE_PARAMETERS_MISSING sobre area_of_influence), sus parámetros (422 DELIVERABLE_PARAMETERS_MISSING, un error por campo) y,
-// si tiene template_key, una plantilla de esa clave (422 TEMPLATE_UNAVAILABLE), y escribe solo generation_requested_at con la
+// TYPE_NOT_AVAILABLE), en T1 con el AIDS aprobado (422 DELIVERABLE_PARAMETERS_MISSING sobre area_of_influence), sus
+// parámetros (422 DELIVERABLE_PARAMETERS_MISSING, un error por campo) y, si tiene template_key, una plantilla de esa clave (422 TEMPLATE_UNAVAILABLE), y escribe solo generation_requested_at con la
 // marca de Records y el motivo; JOB-05 lo toma después. todo dentro del candado de transacción del entregable, que no es el
 // de la generación (Deliverables.generationLock): pedir no espera a que termine un borrador en curso
 @Service

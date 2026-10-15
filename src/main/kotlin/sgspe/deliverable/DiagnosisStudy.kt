@@ -13,6 +13,11 @@ object DiagnosisStudy {
     private const val INTERVIEW = "ENTREVISTA"
     private const val OBSERVATION = "FICHA DE OBSERVACION"
 
+    // solo lo que ocurrió: las interacciones realizadas o con acta o cerradas (WF-C) y las visitas concluidas, total o
+    // parcialmente (WF-L); lo planificado, programado, postergado, en curso o cancelado no cuenta
+    private val HELD = setOf("held", "minutes_drafted", "minutes_in_review", "minutes_approved", "closed")
+    private val DONE_VISIT = setOf("completed", "partial")
+
     fun cover(scene: DiagnosisScene): List<Block> = listOf(Block.Paragraph("Diagnóstico social del proyecto ${scene.project.text("name")}"))
 
     fun index(): List<Block> =
@@ -101,7 +106,7 @@ object DiagnosisStudy {
             study
                 ?.let { scene.source.all("engagement", mapOf("study" to it.id)) }
                 .orEmpty()
-                .filter { it.text("engagement_type") in setOf(INTERVIEW, OBSERVATION) }
+                .filter { it.state in HELD && it.text("engagement_type") in setOf(INTERVIEW, OBSERVATION) }
         val aids = scene.localities(scene.aids).map { it.id }.toSet()
         val aiis = scene.localities(scene.aiis).map { it.id }.toSet()
         val groups = linkedMapOf<String, MutableList<Pair<String, List<SourceRow>>>>()
@@ -133,6 +138,7 @@ object DiagnosisStudy {
         val end = scene.day(study?.text("fieldwork_end_date"))
         val visits =
             scene.source.all("field_visit", scene.byProject).count { visit ->
+                if (visit.state !in DONE_VISIT) return@count false
                 val day = scene.day(visit.text("actual_start_date") ?: visit.text("planned_start_date"))
                 day != null && start != null && end != null && !day.isBefore(start) && !day.isAfter(end)
             }

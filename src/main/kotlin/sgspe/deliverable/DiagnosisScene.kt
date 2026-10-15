@@ -88,6 +88,12 @@ class DiagnosisScene private constructor(
             field: String
         ): String = row?.text(field) ?: SIN_DATO
 
+        // una fecha del entregable, o null si falta o no se puede leer
+        private fun date(
+            row: SourceRow,
+            field: String
+        ): LocalDate? = row.text(field)?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
+
         suspend fun load(
             input: AssemblyInput,
             source: ReportSource
@@ -105,7 +111,8 @@ class DiagnosisScene private constructor(
                     .filter { it.state == APPROVED }
                     .maxByOrNull { (it.attributes["version_number"] as? Number)?.toInt() ?: 0 }
             val study = d.ref("study")?.let { source.one("study", it) }
-            val end = LocalDate.parse(d.text(Deliverables.PERIOD_END)!!.take(10))
+            val start = date(d, Deliverables.PERIOD_START) ?: throw DraftFailure(DeliverableDrafts.PARAMETERS_MISSING, Deliverables.PERIOD_START)
+            val end = date(d, Deliverables.PERIOD_END) ?: throw DraftFailure(DeliverableDrafts.PARAMETERS_MISSING, Deliverables.PERIOD_END)
             return DiagnosisScene(
                 source = source,
                 input = input,
@@ -113,9 +120,9 @@ class DiagnosisScene private constructor(
                 study = study,
                 aids = aids,
                 aiis = aiis,
-                start = LocalDate.parse(d.text(Deliverables.PERIOD_START)!!.take(10)),
+                start = start,
                 end = end,
-                cutoff = d.text(Deliverables.CUTOFF)?.let { LocalDate.parse(it.take(10)) } ?: end,
+                cutoff = date(d, Deliverables.CUTOFF) ?: end,
                 author = d.ref("prepared_by_organization")?.let { source.one("organization", it)?.text("name") }
             )
         }

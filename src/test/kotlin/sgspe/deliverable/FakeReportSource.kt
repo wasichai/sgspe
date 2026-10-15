@@ -4,7 +4,11 @@ import java.util.UUID
 
 // una fuente de prueba sin base para los tipos de entregable (plan 8.2c): filas por objeto, vínculos muchos a muchos por
 // (objeto, id, relación) y lo que se leyó; lee solo lo que tiene, como ReportSources
-open class FakeReportSource : ReportSource {
+// con `reads` hace cumplir lo que el tipo declara, como ReportSources: un objeto no declarado falla y cada fila sale
+// proyectada a los campos declarados (sin `reads`, lee todo)
+open class FakeReportSource(
+    private val reads: Map<String, Set<String>>? = null
+) : ReportSource {
     val rows = mutableMapOf<String, MutableList<SourceRow>>()
     val links = mutableMapOf<Triple<String, String, String>, List<SourceRow>>()
     val read = mutableSetOf<String>()
@@ -29,22 +33,46 @@ open class FakeReportSource : ReportSource {
         links[Triple(objectName, id, relationship)] = ids.mapNotNull { other -> rows[target]?.firstOrNull { it.id == other } }
     }
 
+    private fun fields(objectName: String): Set<String>? =
+        reads?.let { it[objectName] ?: throw IllegalStateException("El tipo no declara lecturas de $objectName") }
+
+    private fun project(
+        objectName: String,
+        row: SourceRow
+    ): SourceRow = fields(objectName)?.let { allowed -> row.copy(attributes = row.attributes.filterKeys { it in allowed }) } ?: row
+
     override suspend fun one(
         objectName: String,
         id: UUID
-    ): SourceRow? = rows[objectName]?.firstOrNull { it.id == id.toString() }.also { read += objectName }
+    ): SourceRow? =
+        rows[objectName]?.firstOrNull { it.id == id.toString() }?.let { project(objectName, it) }.also {
+            fields(objectName)
+            read += objectName
+        }
 
     override suspend fun all(
         objectName: String,
         filters: Map<String, String>
-    ): List<SourceRow> = rows[objectName].orEmpty().filter { row -> filters.all { (k, v) -> row.text(k) == v } }.also { read += objectName }
+    ): List<SourceRow> =
+        rows[objectName]
+            .orEmpty()
+            .filter { row -> filters.all { (k, v) -> row.text(k) == v } }
+            .map { project(objectName, it) }
+            .also {
+                fields(objectName)
+                read += objectName
+            }
 
     override suspend fun related(
         objectName: String,
         id: UUID,
         relationship: String,
         target: String
-    ): List<SourceRow> = links[Triple(objectName, id.toString(), relationship)].orEmpty().also { read += target }
+    ): List<SourceRow> =
+        links[Triple(objectName, id.toString(), relationship)].orEmpty().map { project(target, it) }.also {
+            fields(target)
+            read += target
+        }
 
     override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> = emptyList()
 }

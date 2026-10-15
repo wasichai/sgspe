@@ -28,7 +28,7 @@ object T1Source {
     val DELIVERABLE = id(200)
 
     // los datos en `s` (una subclase de prueba puede responder también la Tabla 9.5, Tarea 12)
-    fun source(s: FakeReportSource = FakeReportSource()): FakeReportSource {
+    fun source(s: FakeReportSource = FakeReportSource(SocialDiagnosisType().reads)): FakeReportSource {
         s.add(
             "project",
             PROJECT,
@@ -225,7 +225,11 @@ object T1Source {
             "held_at" to "2026-08-06T10:00:00Z"
         )
         s.add("engagement", id(72), "held", "project" to PROJECT, "engagement_type" to "REUNION", "held_at" to "2026-09-10T15:00:00Z")
-        s.add("field_visit", id(73), null, "project" to PROJECT, "actual_start_date" to "2026-08-03")
+        s.add("engagement", id(104), "planned", "project" to PROJECT, "study" to STUDY, "locality" to UPPER, "engagement_type" to "ENTREVISTA")
+        s.add("engagement", id(105), "cancelled", "project" to PROJECT, "study" to STUDY, "locality" to LOWER, "engagement_type" to "ENTREVISTA")
+        s.add("field_visit", id(73), "completed", "project" to PROJECT, "actual_start_date" to "2026-08-03")
+        s.add("field_visit", id(106), "planned", "project" to PROJECT, "planned_start_date" to "2026-08-04")
+        s.add("field_visit", id(107), "cancelled", "project" to PROJECT, "planned_start_date" to "2026-08-05")
         s.add(
             "exploration_campaign",
             id(74),
