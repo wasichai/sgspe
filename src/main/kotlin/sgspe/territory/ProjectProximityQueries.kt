@@ -74,6 +74,32 @@ class ProjectProximityQueries(
         return parts.response("rows", sorted.take(limit), truncated = sorted.size > limit)
     }
 
+    // la misma consulta como la plataforma de `organizationId`, con las concesiones ya leídas: la usa solo el ensamblado de
+    // T2 en JOB-05 (ReportSources, fuera de una petición; ArchitectureTest). lo que el tenant no tiene sale vacío
+    suspend fun concessionTerritoriesAsPlatform(
+        organizationId: UUID,
+        concessions: List<UUID>
+    ): List<Map<String, Any?>> {
+        if (concessions.isEmpty()) return emptyList()
+        val rows = mutableListOf<Map<String, Any?>>()
+        for (target in TERRITORIES) {
+            val reads =
+                listOf(
+                    GateRead(TerritoryNames.CONCESSION, setOf("code", "name", "boundary"), principal = true),
+                    GateRead(target.objectName, target.geometries.toSet() + "name" + listOfNotNull(target.kind))
+                )
+            val outcome =
+                gate.selectAsPlatform(organizationId, reads, { bind -> concessionSql(this, bind, concessions, target, limits.maxRows) }) { row ->
+                    territoryRow(row, target)
+                }
+            if (outcome is GateOutcome.Rows) {
+                if (outcome.rows.size > limits.maxRows) throw Records.tooMany(TerritoryNames.CONCESSION, limits.maxRows)
+                rows += outcome.rows
+            }
+        }
+        return rows.sortedWith(compareBy({ (it["concession"] as Map<*, *>)["code"]?.toString() }, { it["object"].toString() }, { it["name"]?.toString() }))
+    }
+
     suspend fun sensitiveDistances(
         projectId: UUID,
         meters: BigDecimal,

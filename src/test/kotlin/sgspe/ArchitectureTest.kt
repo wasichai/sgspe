@@ -475,8 +475,15 @@ class ArchitectureTest {
     // StakeholderFollowUpJob (JOB-03, fuera de una petición); Records.kt la define. otro llamador le daría a una persona
     // vínculos que no lee
     @Test
-    fun `solo DashboardData y StakeholderFollowUpJob leen M2M como la plataforma`() {
-        val allowed = listOf("/sgspe/dashboard/DashboardData.kt", "/sgspe/stakeholder/StakeholderFollowUpJob.kt", "/sgspe/common/Records.kt")
+    fun `solo DashboardData, StakeholderFollowUpJob y ReportSources leen M2M como la plataforma`() {
+        val allowed =
+            listOf(
+                "/sgspe/dashboard/DashboardData.kt",
+                "/sgspe/stakeholder/StakeholderFollowUpJob.kt",
+                "/sgspe/common/Records.kt",
+                // plan 8.2b: el ensamblado de T2 (grupos de interés de un contacto, evidencias de una entrega)
+                "/sgspe/deliverable/ReportSources.kt"
+            )
         val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(others, RELATED_AS_PLATFORM))
         assertTrue(allowed.all { path -> sources(main).any { it.invariantSeparatorsPath.endsWith(path) } })
@@ -493,8 +500,10 @@ class ArchitectureTest {
         val gate = "/sgspe/territory/SpatialGate.kt"
         val land = "/sgspe/territory/ComponentLand.kt"
         val aggregates = "/sgspe/dashboard/KpiAggregates.kt"
+        // plan 8.2b (decisión 3): concesiones sobre territorios como la plataforma, para el predio de T2
+        val proximity = "/sgspe/territory/ProjectProximityQueries.kt"
         val data = "/sgspe/dashboard/DashboardData.kt"
-        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land, aggregates).any { f.invariantSeparatorsPath.endsWith(it) } }
+        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land, aggregates, proximity).any { f.invariantSeparatorsPath.endsWith(it) } }
         val notLandOrData = sources(main).filterNot { f -> listOf(land, data).any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(notGateOrLand, SELECT_AS_PLATFORM))
         assertEquals(emptyList<String>(), offenders(notLandOrData, ROWS_WITH_PLATFORM))
@@ -527,6 +536,16 @@ class ArchitectureTest {
         // límite conocido: el vigía mira línea por línea y no ve una llamada partida por ktlint (`.select(` y `platform` en
         // líneas distintas); hoy ningún archivo lo hace
         assertFalse(flags(SELECT_WITH_PLATFORM, "source.select(\n query,\n platform\n)"))
+    }
+
+    // plan 8.2b (Global Constraints): en sgspe.deliverable solo JOB-05 y su puerto de archivos leen o escriben como la
+    // plataforma; los endpoints (borradores, descargas, emisión, plantillas) corren como la persona
+    @Test
+    fun `en sgspe deliverable solo JOB-05 y DraftFiles usan asPlatform`() {
+        val allowed = listOf("/sgspe/deliverable/DeliverableGenerationJob.kt", "/sgspe/deliverable/DraftFiles.kt")
+        val others = sources(File(main, "sgspe/deliverable")).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertTrue(others.isNotEmpty())
+        assertEquals(emptyList<String>(), offenders(others, AS_PLATFORM))
     }
 
     // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
