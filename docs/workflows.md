@@ -1006,7 +1006,7 @@ stateDiagram-v2
 
 | Transición | De | A | Roles | Guarda | Motivo | Efectos | Validación vs fuentes |
 |---|---|---|---|---|---|---|---|
-| `submit_for_review` (Enviar a revisión) | `draft` | `in_review` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: el último borrador está LISTO y ninguna `deliverable_section` cambió después de `draft_generated_at` (`409 SECTIONS_CHANGED`) | Obligatorio (`requiresReason`) | Aviso de aprobación pendiente | RQ-REP-015, RQ-REP-021 |
+| `submit_for_review` (Enviar a revisión) | `draft` | `in_review` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: el último borrador está LISTO y no se emitió (`409 STATE_MISMATCH`; tras `start_revision` se pide uno nuevo) y ninguna `deliverable_section` cambió después de `draft_generated_at` (`409 SECTIONS_CHANGED`) | Obligatorio (`requiresReason`) | Aviso de aprobación pendiente | RQ-REP-015, RQ-REP-021 |
 | `observe` (Observar) | `in_review` | `observed` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | — | Obligatorio (`requiresReason`); el motivo es la observación | — | RQ-REP-015 |
 | `resubmit` (Reenviar a revisión) | `observed` | `in_review` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: la misma de `submit_for_review`, que obliga a regenerar después de corregir | Obligatorio (`requiresReason`) | Aviso de aprobación pendiente | Ídem |
 | `approve` (Aprobar) | `in_review` | `approved` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | `DeliverableWriteGuard`: la acción declarada `APPROVE` (RF-WFL-002); borrador LISTO y ninguna sección cambiada después de congelar el modelo (RQ-REP-026, ASM-061) | Obligatorio (`requiresReason`) | — | RQ-REP-015, RQ-REP-026 |
@@ -1571,8 +1571,9 @@ Ejemplo: AUT-01 (`POST /api/objects/commitment/automations`).
 Patrón común [WAS-ADR-0039] (modelo de dominio §8.3):
 
 - **Una sola réplica:** `ClusterLock.tryLock` con una clave del paquete (`sgspe.deadline`), con `@Scheduled` o con un
-  sondeo continuo (JOB-05). JOB-05 toma además, al procesar cada pedido, un candado por entregable (`deliverable:<id>`),
-  para que dos réplicas nunca generen el mismo borrador (`deliverables.md` §8.2).
+  sondeo continuo (JOB-05). JOB-05 toma además, al procesar cada pedido, un candado por entregable
+  (`sgspe.deliverable-generation:<id>`, otra clave que la de los comandos), para que dos réplicas nunca generen el mismo
+  borrador (`deliverables.md` §8.2).
 - **Registros de wasichai como la plataforma:** JOB-01 a JOB-05 y JOB-07 los leen o los escriben con
   `RecordService.asPlatform(organizationId)`, una organización por vez. Para recorrer las organizaciones usan
   `Organizations` (`sgspe.common`), que envuelve `TenantDirectory` (UPS-17, [WAS-ADR-0057]); desde F4, JOB-01 y JOB-04
