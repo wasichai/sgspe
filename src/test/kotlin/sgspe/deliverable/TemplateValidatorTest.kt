@@ -23,6 +23,7 @@ class TemplateValidatorTest {
     // la base con sus partes cambiadas: `edit` recibe el nombre y el texto de cada parte XML; `extra`, partes nuevas
     private fun variant(
         extra: Map<String, String> = emptyMap(),
+        bin: Map<String, ByteArray> = emptyMap(),
         edit: (String, String) -> String = { _, text -> text }
     ): ByteArray {
         val out = ByteArrayOutputStream()
@@ -46,6 +47,10 @@ class TemplateValidatorTest {
             extra.forEach { (name, text) ->
                 zip.putNextEntry(ZipEntry(name))
                 zip.write(text.toByteArray())
+            }
+            bin.forEach { (name, data) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(data)
             }
         }
         return out.toByteArray()
@@ -239,5 +244,149 @@ class TemplateValidatorTest {
         val xxe = """<?xml version="1.0"?><!DOCTYPE a [<!ENTITY e SYSTEM "file:///etc/passwd">]><a>&e;</a>"""
         assertTrue(TemplateValidator.NOT_WORD in codes(variant(mapOf("custom/x.xml" to xxe))))
         assertTrue(TemplateValidator.NOT_WORD in codes(BaseTemplate.bytes.copyOf(BaseTemplate.bytes.size / 2)))
+    }
+
+    // ronda 2 de la revisión de la Tarea 6: listas cerradas, falla cerrada
+    private val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0)
+
+    private fun types(add: String): (String, String) -> String =
+        { name, text ->
+            if (name ==
+                "[Content_Types].xml"
+            ) {
+                text.replace("</Types>", "$add</Types>")
+            } else {
+                text
+            }
+        }
+
+    private val includePicture = TemplateFinding(TemplateValidator.FIELD_NOT_ALLOWED, "INCLUDEPICTURE")
+    private val includeInHeader = part(field("INCLUDEPICTURE \"http://ejemplo.invalid/a.png\""))
+
+    @Test
+    fun `el tipo de contenido declarado no esconde una parte XML`() {
+        val asPng = variant(mapOf("word/header1.xml" to includeInHeader), edit = types("""<Override PartName="/word/header1.xml" ContentType="image/png"/>"""))
+        assertEquals(listOf(includePicture), validator.validate(asPng, "p.dotx").violations)
+        val defaultPng =
+            variant(mapOf("word/header1.xml" to includeInHeader)) { name, text ->
+                if (name == "[Content_Types].xml") text.replace("""ContentType="application/xml"""", """ContentType="image/png"""") else text
+            }
+        assertEquals(listOf(includePicture), validator.validate(defaultPng, "p.dotx").violations)
+    }
+
+    @Test
+    fun `un medio solo pasa si su tipo esta permitido y sus bytes lo confirman`() {
+        val png = types("""<Default Extension="png" ContentType="image/png"/>""")
+        assertTrue(TemplateValidator.NOT_WORD in codes(variant(bin = mapOf("word/media/a.png" to "no soy un PNG".toByteArray()), edit = png)))
+        assertTrue(TemplateValidator.NOT_WORD in codes(variant(bin = mapOf("word/media/a.png" to this.png))))
+        assertEquals(emptyList<TemplateFinding>(), validator.validate(variant(bin = mapOf("word/media/a.png" to this.png), edit = png), "p.dotx").violations)
+    }
+
+    @Test
+    fun `un logo en el encabezado y un customXml con schemaRef no son hallazgos`() {
+        val logo =
+            part(
+                """<w:p><w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">""" +
+                    """<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">""" +
+                    """<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"/></a:graphic></wp:inline></w:drawing></w:r></w:p>"""
+            )
+        val header = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/header"
+        val image = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        val withLogo =
+            variant(
+                mapOf(
+                    "word/header1.xml" to logo,
+                    "word/_rels/header1.xml.rels" to
+                        """<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">""" +
+                        """<Relationship Id="rId1" Type="$image" Target="media/logo.png"/></Relationships>"""
+                ),
+                mapOf("word/media/logo.png" to png)
+            ) { name, text ->
+                when (name) {
+                    "[Content_Types].xml" -> text.replace("</Types>", """<Default Extension="png" ContentType="image/png"/></Types>""")
+                    "word/_rels/document.xml.rels" ->
+                        text.replace("</Relationships>", """<Relationship Id="rId9" Type="$header" Target="header1.xml"/></Relationships>""")
+                    else -> text
+                }
+            }
+        assertEquals(TemplateReport(emptyList(), emptyList()), validator.validate(withLogo, "p.dotx"))
+        val ds = "http://schemas.openxmlformats.org/officeDocument/2006/customXml"
+        val custom =
+            variant(
+                mapOf(
+                    "customXml/item1.xml" to "<?xml version=\"1.0\"?><datos/>",
+                    "customXml/itemProps1.xml" to
+                        """<?xml version="1.0"?><ds:datastoreItem xmlns:ds="$ds" ds:itemID="{00000000-0000-0000-0000-000000000000}">""" +
+                        """<ds:schemaRefs><ds:schemaRef ds:uri="http://ejemplo.invalid/esquema"/></ds:schemaRefs></ds:datastoreItem>"""
+                )
+            )
+        assertEquals(TemplateReport(emptyList(), emptyList()), validator.validate(custom, "p.dotx"))
+    }
+
+    @Test
+    fun `los atributos con esquema, dos barras o barras invertidas se rechazan`() {
+        for (value in listOf("smb://servidor/x", "//servidor/x", "mhtml:http://ejemplo.invalid/a", " \u00A0http://ejemplo.invalid/a")) {
+            val vml = part("""<v:imagedata xmlns:v="urn:schemas-microsoft-com:vml" src="$value"/>""")
+            assertTrue(TemplateValidator.EXTERNAL_RELATIONSHIP in codes(variant(mapOf("word/header9.xml" to vml))), value)
+        }
+    }
+
+    @Test
+    fun `dos atributos con el mismo nombre local no son un Word valido`() {
+        val decoy =
+            body("""<w:fldSimple xmlns:A="urn:x" A:instr="PAGE" w:instr="INCLUDEPICTURE &quot;http://ejemplo.invalid/a.png&quot;"/>""")
+        assertTrue(TemplateValidator.NOT_WORD in codes(decoy))
+        val rel =
+            """<Relationship xmlns:A="urn:x" Id="rId95" Type="http://x" Target="http://ejemplo.invalid/a" A:TargetMode="Internal" TargetMode="External"/>"""
+        assertTrue(
+            TemplateValidator.NOT_WORD in
+                codes(variant { name, text -> if (name == "word/_rels/document.xml.rels") text.replace("</Relationships>", "$rel</Relationships>") else text })
+        )
+    }
+
+    @Test
+    fun `solo los campos de la lista cerrada pasan, y cada uno por su cuenta`() {
+        val stray = """<w:p><w:r><w:instrText>INCLUDEPICTURE "http://ejemplo.invalid/a.png"</w:instrText></w:r></w:p>""" + field(" PAGE ")
+        assertEquals(listOf(includePicture), validator.validate(body(stray), "p.dotx").violations)
+        val quoted = body(field("\"INCLUDEPICTURE\" \"http://ejemplo.invalid/a.png\""))
+        assertEquals(listOf(includePicture), validator.validate(quoted, "p.dotx").violations)
+        assertEquals(listOf(includePicture), validator.validate(body(field("\u00A0INCLUDEPICTURE \"x\"")), "p.dotx").violations)
+        val deleted =
+            body(
+                "<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:delInstrText>INCLUDEPICTURE \"x\"</w:delInstrText></w:r>" +
+                    "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>"
+            )
+        assertEquals(listOf(includePicture), validator.validate(deleted, "p.dotx").violations)
+        val nested =
+            body(
+                "<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText> REF </w:instrText></w:r>" +
+                    "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText>INCLUDEPICTURE \"x\"</w:instrText></w:r>" +
+                    "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>"
+            )
+        assertEquals(listOf(includePicture), validator.validate(nested, "p.dotx").violations)
+        val after =
+            body(
+                "<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r>" +
+                    "<w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:instrText>INCLUDEPICTURE \"x\"</w:instrText></w:r>" +
+                    "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>"
+            )
+        assertEquals(listOf(includePicture), validator.validate(after, "p.dotx").violations)
+        assertEquals(
+            listOf(TemplateFinding(TemplateValidator.FIELD_NOT_ALLOWED, "MERGEFIELD")),
+            validator.validate(body(field(" MERGEFIELD x ")), "p.dotx").violations
+        )
+        val unbalanced = body("<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r></w:p>")
+        assertTrue(TemplateValidator.FIELD_NOT_ALLOWED in codes(unbalanced))
+        val footer = part(field(" PAGE ") + field(" NUMPAGES ") + field(" DATE \\@ \"dd/MM/yyyy\" ") + "<w:fldSimple w:instr=\" PAGE \"/>")
+        assertEquals(TemplateReport(emptyList(), emptyList()), validator.validate(variant(mapOf("word/footer1.xml" to footer)), "p.dotx"))
+    }
+
+    @Test
+    fun `los estilos requeridos salen solo de la parte styles del documento principal`() {
+        val missing =
+            variant(mapOf("custom/x.xml" to """<w:styles xmlns:w="$wNs"><w:style><w:name w:val="List Paragraph"/></w:style></w:styles>""")) { name, text ->
+                if (name == "word/styles.xml") text.replace("w:val=\"List Paragraph\"", "w:val=\"Lista\"") else text
+            }
+        assertEquals(listOf(TemplateFinding(TemplateValidator.MISSING_STYLE, "List Paragraph")), validator.validate(missing, "p.dotx").violations)
     }
 }
