@@ -1,12 +1,16 @@
 package sgspe
 
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Import
 import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpStatus
 import reactor.core.publisher.Flux
 import sgspe.ai.TestDocuments
 import sgspe.common.IfMatch
+import sgspe.deliverable.DeliverableDoubles
+import sgspe.deliverable.DeliverableGenerationJob
 import sgspe.deliverable.Deliverables
 import sgspe.privacy.CanonicalJson
 import sgspe.privacy.ReportMeta
@@ -22,10 +26,24 @@ import java.util.UUID
 // apiOnly); deliverable_version y deliverable_template son apiOnly y appendOnly: su archivo lo sube una persona con
 // FileService.stage y el registro lo crea esa misma persona en proceso (asUser), como harán DeliverableIssue y
 // DeliverableTemplates, porque la plataforma todavía no adjunta archivos (UPS-31). reportScenario arma el proyecto y los
-// datos de T2 y T1 (§5 de la especificación de F8). todo ficticio (RQ-SEC-018). las ayudas son bloqueantes
+// datos de T2 y T1 (§5 de la especificación de F8). todo ficticio (RQ-SEC-018). las ayudas son bloqueantes. desde el plan
+// 8.2b, JOB-05 corre con los dobles de DeliverableDoubles (PDF, mapas y adjuntos como el admin, UPS-31): requestDraft y generate
+@Import(DeliverableDoubles.Config::class)
 abstract class F8ApiTest : F7ApiTest() {
     @Autowired
     private lateinit var files: FileService
+
+    @Autowired
+    protected lateinit var generationJob: DeliverableGenerationJob
+
+    @Autowired
+    protected lateinit var fakePdf: DeliverableDoubles.FakePdfConverter
+
+    @Autowired
+    protected lateinit var fakeMaps: DeliverableDoubles.FakeReportMaps
+
+    @Autowired
+    protected lateinit var draftFiles: DeliverableDoubles.PersonDraftFiles
 
     // el admin de la prueba como Account, para subir y crear como él
     protected fun admin(): Account = me().let { Account(token, it["email"].asString(), it["userId"].asString()) }
@@ -205,6 +223,25 @@ abstract class F8ApiTest : F7ApiTest() {
             )
         }
         return sha
+    }
+
+    // pide un borrador por su endpoint (POST …/drafts con motivo) como `account`
+    protected fun requestDraft(
+        deliverable: String,
+        account: Account = admin()
+    ): Response = exchange("POST", "/api/sgspe/deliverables/$deliverable/drafts", null, account.token, withReason("borrador de prueba"))
+
+    // una vuelta de JOB-05; los archivos los adjunta el admin (PersonDraftFiles, UPS-31)
+    protected fun generate(): Int {
+        draftFiles.token = token
+        return runBlocking { generationJob.runOnce() } ?: 0
+    }
+
+    // un T2 listo para pedir su borrador: el escenario de reportScenario con su entregable INFORME DE CAMPO Y AVANCE
+    protected fun requestedFieldReport(scenario: ReportScenario = reportScenario()): String {
+        val response = requestDraft(scenario.fieldReport)
+        assertEquals(HttpStatus.ACCEPTED, response.status, response.body)
+        return scenario.fieldReport
     }
 
     // los datos de un T2 y un T1 de prueba (§5 de la especificación de F8): «Proyecto Ejemplo A» en UTM 17S, «Comunidad Ejemplo»
