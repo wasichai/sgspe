@@ -504,7 +504,10 @@ class ArchitectureTest {
         // plan 8.2b (decisión 3): concesiones sobre territorios como la plataforma, para el predio de T2
         val proximity = "/sgspe/territory/ProjectProximityQueries.kt"
         val data = "/sgspe/dashboard/DashboardData.kt"
-        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land, aggregates, proximity).any { f.invariantSeparatorsPath.endsWith(it) } }
+        // plan 8.2c (decisión 7): las geometrías de los mapas de informe, solo desde JOB-05
+        val mapFeatures = "/sgspe/territory/ReportMapFeatures.kt"
+        val notGateOrLand =
+            sources(main).filterNot { f -> listOf(gate, land, aggregates, proximity, mapFeatures).any { f.invariantSeparatorsPath.endsWith(it) } }
         val notLandOrData = sources(main).filterNot { f -> listOf(land, data).any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(notGateOrLand, SELECT_AS_PLATFORM))
         val proximityFile = sources(main).single { it.invariantSeparatorsPath.endsWith(proximity) }
