@@ -533,9 +533,11 @@ class FieldReportType : DeliverableType {
                             contribution.text("conditions")?.let { "**Condiciones:** $it" },
                             payer?.let { "**Pagador:** $it" },
                             recipient?.let { "**Receptor:** $it" },
-                            "**Entrega:** ${ReportFormat.date(delivery.text("delivery_date"))}${delivery.text("place")?.let { ", $it" }.orEmpty()}"
+                            "**Entrega:** ${ReportFormat.date(delivery.text("delivery_date"))}"
                         ).joinToString("\n\n")
                     ),
+                    // el lugar puede ser una vivienda (deliverables.md §9.1): va en su propio párrafo marcado, que EXTERNO quita
+                    delivery.text("place")?.let { Block.Paragraph("**Lugar de la entrega:** $it", Mark.restricted("delivery.place")) },
                     byKind.takeIf { it.isNotEmpty() }?.let { groups ->
                         Block.Table(
                             "Ítems del aporte por tipo",
