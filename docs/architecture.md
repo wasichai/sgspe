@@ -207,7 +207,7 @@ metadata no alcanza para lo que contiene; ninguno es un controlador por objeto (
 | `sgspe.notification` | Destinatarios por asignación, con el filtro de las QCS confidenciales (ASM-102), y textos de los avisos sobre wasichai-notifications; `ApprovalNoticeListener`; desde F4, `RiskNoticeListener` y `WarningNoticeListener` | BC-14 | F3–F4 |
 | `sgspe.evidence` | Alta, cambio y vínculos de evidencias sobre el campo `FILE` de wasichai-files; la descarga con `DOWNLOAD_RESTRICTED` por las dos rutas; `EvidenceWriteGuard` | BC-12 | F3 |
 | `sgspe.territory` | Importación con CRS y reconciliación, área en hectáreas, `TerritoryWriteGuard`, `AreaListener`; desde F6, `SpatialGate` (la única vía de SQL de lectura que cruza tablas del tenant, ASM-122), `ZoneCriterion` y las consultas espaciales, sugerencias de miembros, la parte territorial de la ficha (geometría, relaciones y filtros espaciales), `WmsProxy` (el proxy WMS de GeoServer, ASM-121), `MapSettings` (mapa base por organización, ASM-125), `GdalReader` y `GdalWriter` (formatos de ASM-127), `TerritoryExports` (ASM-124), `GeometryChecks` y `DataQuality`; el WFS se pospone (ASM-120) | BC-02 | F2 (análisis en F6) |
-| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); desde F6, `TerritoryKpis` (KPI-TER-01 a KPI-TER-04 y el tablero `territory`, sobre `SpatialGate`); conteos con `RecordService`; cierre de periodo | BC-15 | F2–F8 |
+| `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); desde F6, `TerritoryKpis` (KPI-TER-01 a KPI-TER-04 y el tablero `territory`, sobre `SpatialGate`); conteos con `RecordService` y, desde el plan 8.2a-bis, los del tablero `executive` en SQL por `SpatialGate` (`AggregateSql`, `KpiAggregates`); cierre de periodo | BC-15 | F2–F8 |
 | `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación (JOB-05), plantillas, descargas y rutas nativas de archivos, emisión, `DeliverableWriteGuard` y adopción de secciones de IA | BC-15 | F8 |
 | `sgspe.ai` | Agentes Embabel, seudonimización, registro de `ai_interaction`, creación de `ai_suggestion` y `commitment_candidate`, aceptación, indexación documental (JOB-07) y RAG sobre `knowledge_chunk`; el asistente de wasichai-agent se llama en proceso y un filtro cierra `/api/agent/ask` por HTTP (`ai-architecture.md`) | BC-18 | F7 |
 | `sgspe.privacy` | Niveles de divulgación como transformación del modelo, enmascaramiento, menciones de personas como referencias, exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 |
@@ -273,7 +273,8 @@ flowchart BT
 - Desde F6, `sgspe.dashboard` (`TerritoryKpis`) depende de `sgspe.territory`, nunca al revés. En `sgspe.territory` solo
   `SpatialGate` y los escritores que ya existen (`TerritoryImports`, `Areas`, `ProjectComponents` y `GeoSql`) usan
   `DatabaseClient`; `ArchitectureTest` lo vigila, y así ninguna consulta que cruza tablas se salta el alcance
-  (ASM-122).
+  (ASM-122). Desde el plan 8.2a-bis, `KpiAggregates` también consulta por `SpatialGate` (como la persona o, en JOB-05, por
+  `selectAsPlatform`), y solo `DashboardData` y `Dashboards` lo nombran.
 - Las reglas que miran otro contexto (por ejemplo, el tope de apoyo de `sgspe.investment` al aprobar un compromiso) viven
   como guardas del paquete dueño de la regla; wasichai las reúne todas, así que el paquete que escribe no las importa
   [WAS-ADR-0040].

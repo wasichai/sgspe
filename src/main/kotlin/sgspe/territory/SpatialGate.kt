@@ -142,8 +142,9 @@ internal class GateSql(
 // quien llama es el AuthenticatedUser del token (Callers.require, CurrentUser de wasichai): fuera de una petición es el 401
 // de wasichai, nunca la plataforma. SpatialGateScopeParityTest compara sus filas con las de Records.
 // Con el lector de la plataforma de los KPI (especificación de F8 §2.2.16), selectAsPlatform: sin permisos de persona, sin
-// alcances ni dueño, con la organización enlazada; solo fuera de una petición: lo comprueba aquí y lo llama solo
-// ComponentLand (ArchitectureTest).
+// alcances ni dueño, con la organización enlazada; solo fuera de una petición: lo comprueba aquí y lo llaman solo
+// ComponentLand y, desde el plan 8.2a-bis, KpiAggregates de sgspe.dashboard, con la organización que le pasa DashboardData
+// (ArchitectureTest). los conteos de los KPI del tablero executive (AggregateSql) también pasan por select.
 @Component
 class SpatialGate internal constructor(
     private val caller: suspend () -> AuthenticatedUser,

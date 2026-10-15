@@ -25,7 +25,7 @@ object ExecutiveKpis {
     const val ACTIVE_WARNINGS = "KPI-EXE-02"
     const val TREND = "KPI-EXE-03"
     const val ACTIVE = "active"
-    private const val NO_DATA = "SIN DATO"
+    const val NO_DATA = "SIN DATO"
 
     // dashboards.md §3.2: alerta activa
     val ACTIVE_WARNING_STATES: Set<String> = setOf("detected", "in_triage", "confirmed", "responding")

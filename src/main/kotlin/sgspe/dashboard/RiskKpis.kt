@@ -52,6 +52,9 @@ object RiskKpis {
     const val NO_OWNER = "SIN RESPONSABLE"
     const val WEEKS = 12L
 
+    // los estados de un riesgo activo (todos salvo closed, dashboards.md §3.2)
+    val ACTIVE_STATES: Set<String> = setOf("identified", "assessed", "mitigating", "monitoring")
+
     // KPI-RSK-01: riesgos activos de nivel ALTO o CRITICO, por categoría
     fun high(rows: List<RiskRow>): IndicatorResult {
         val high = rows.filter { it.level in Risks.ESCALATED }

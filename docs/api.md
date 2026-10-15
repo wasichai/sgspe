@@ -1161,7 +1161,10 @@ sin error. Las excepciones son el tablero `territory` (F6) y, desde F8, el table
 - La lectura es acotada (`dashboards.md` §6.2): 20 000 filas por conjunto leído y 200 interacciones cuyas relaciones M2M
   (`engagement_stakeholder`, `engagement_topic`) se leen. Pasarse no recorta la cifra: el pedido entero responde `400`
   `TOO_MANY_RECORDS` y hay que acotar los proyectos, el periodo o el territorio. Un `ADMIN` sin filtros puede recibirlo; el
-  portal lo muestra como «acote los filtros».
+  portal lo muestra como «acote los filtros». Desde el plan 8.2a-bis, KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03,
+  KPI-RSK-01, KPI-EXE-02 y las series de interacciones y de quejas de KPI-EXE-03 cuentan en la base (`dashboards.md`
+  §6.3) y no leen filas, así que no dan `TOO_MANY_RECORDS`. El tablero `executive` todavía puede responderlo por la serie de
+  vencidos de KPI-EXE-03 y por KPI-INV-03, que siguen leyendo filas.
 - Errores, con el código en `errors[0].message` y el campo en `errors[0].field` (§3.3): `404` `DASHBOARD_NOT_FOUND`
   (`dashboard`: un tablero que no existe o no está en esta fase); `404` `INDICATOR_NOT_FOUND` (`code`); `400`
   `INVALID_BREAKDOWN` (`breakdown`: un desglose que el indicador no ofrece; sobre un indicador no disponible,
@@ -1211,7 +1214,8 @@ leen, y un `program` que apunta a uno de ellos da conjuntos vacíos, no un error
   - `executive`: las tiles de KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-ENG-01 y KPI-EXE-02
     (`ExecutiveKpis`), KPI-INV-03 por moneda, KPI-EXE-03 (tres series de 12 meses, sin valor escalar) y `byProject[]`.
     `byProject[]` es `[{ project, code, name, indicators[] }]`, con los 8 KPI con valor de las tiles, sin desgloses ni
-    series, calculados con las mismas funciones sobre el filtro de cada proyecto. Pedir más proyectos que
+    series, con las mismas cifras que el filtro de cada proyecto solo (los KPI contados en la base, en una consulta
+    agrupada por proyecto). Pedir más proyectos que
     `sgspe.dashboards.executive.max-projects` (25) es `400 TOO_MANY_RECORDS` (`project`); tenerlos por defecto («mis
     proyectos» o todos) da las tiles sin `byProject[]` y con `byProjectOmitted: true`;
   - `project`: exige un solo `project` (`400 PROJECT_REQUIRED`); el mapa lo arma el portal con las capas de F6;
