@@ -68,6 +68,11 @@ wasichai:
         password: ${WASICHAI_GIS_GEOSERVER_DATASTORE_PASSWORD:}
 
 sgspe:
+  deliverable:
+    gotenberg:
+      # la red interna del despliegue (ADR-0026); sin la variable, sin conversor: los borradores quedan FALLIDO con
+      # PDF_CONVERTER_UNAVAILABLE y el resto funciona (decisión 5 del plan 8.2c). ProdProfileTest lo fija
+      url: ${SGSPE_DELIVERABLE_GOTENBERG_URL:}
   map:
     # el estilo lo nombra el despliegue (GAP-011); sin él, «Sin mapa base». el mapa por organización y la atribución los
     # agrega el operador en su configuración adicional (SPRING_CONFIG_ADDITIONAL_LOCATION). MapSettingsProdTest lo fija

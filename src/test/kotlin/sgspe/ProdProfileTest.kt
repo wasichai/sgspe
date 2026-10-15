@@ -141,4 +141,11 @@ class ProdProfileTest {
             assertFalse(ClassPathResource(name).exists(), name)
         }
     }
+
+    // plan 8.2c (decisión 5): sin la variable, la app arranca sin conversor y los borradores quedan FALLIDO con
+    // PDF_CONVERTER_UNAVAILABLE; nunca la URL de desarrollo
+    @Test
+    fun `Gotenberg no tiene URL por defecto`() {
+        assertEquals("\${SGSPE_DELIVERABLE_GOTENBERG_URL:}", value("sgspe.deliverable.gotenberg.url"))
+    }
 }

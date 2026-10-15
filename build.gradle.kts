@@ -81,8 +81,9 @@ tasks.named<ProcessResources>("processResources") {
 
 // las pruebas unitarias corren siempre; las que necesitan base van por integrationTest
 tasks.named<Test>("test") {
+    // gotenberg: las conversiones reales (en integrationTest, con el servicio de la CI); slow: la suite lenta (slowTest)
     useJUnitPlatform {
-        excludeTags("integration")
+        excludeTags("integration", "gotenberg", "slow")
     }
     // ArchitectureTest lee las fuentes, model/roles.json y model/layers.json: un cambio en ellos vuelve a correr las pruebas
     inputs.dir("src/main/kotlin")
@@ -107,8 +108,9 @@ tasks.register<Test>("integrationTest") {
     description = "pruebas de integración contra PostgreSQL 18 con PostGIS 3.6"
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
+    // desde F8 (plan 8.2c), también las conversiones reales con Gotenberg: la CI lo levanta en el mismo trabajo
     useJUnitPlatform {
-        includeTags("integration")
+        includeTags("integration", "gotenberg")
     }
     // la imagen del compose desde F1 (architecture.md §5.1); una base externa (WASICHAI_TEST_DB_*) ya la tiene
     systemProperty("wasichai.test.db.image", "postgis/postgis:18-3.6")

@@ -7,7 +7,7 @@ import java.time.Duration
 
 // sgspe.deliverable.* (especificación de F8 §2.2.8, §2.2.17, §3.3, §4.2): el sondeo de JOB-05 y cuándo un pedido en curso se
 // vuelve a tomar, el tope de un archivo que sube el servidor (64 MB, ASM-138), las fotos reducidas, el tope de elementos en
-// línea y el plazo de un mapa (los usa 8.2c), las plantillas (20 MB por HTTP, entradas y bytes descomprimidos) y el esquema
+// línea y el plazo de un mapa, Gotenberg (plan 8.2c), las plantillas (20 MB por HTTP, entradas y bytes descomprimidos) y el esquema
 // de revisiones (ASM-027) general y por slug de organización. un valor fuera de rango detiene el arranque
 @ConfigurationProperties("sgspe.deliverable")
 data class DeliverableProperties(
@@ -15,6 +15,7 @@ data class DeliverableProperties(
     val maxFileBytes: Long = 64L * MB,
     val photos: Photos = Photos(),
     val maps: Maps = Maps(),
+    val gotenberg: Gotenberg = Gotenberg(),
     val templates: Templates = Templates(),
     val revisions: Revisions = Revisions()
 ) {
@@ -52,6 +53,23 @@ data class DeliverableProperties(
             require(maxFeatures >= 1) { "sgspe.deliverable.maps.max-features debe ser al menos 1" }
             require(!timeout.isNegative && !timeout.isZero) { "sgspe.deliverable.maps.timeout debe ser positivo" }
         }
+    }
+
+    // el conversor de PDF (especificación de F8 §3.3, plan 8.2c): la URL de Gotenberg (127.0.0.1:8096 por el túnel en
+    // desarrollo; vacía en producción hasta que el despliegue la fije) y el plazo de una conversión. sin URL, cada borrador
+    // queda FALLIDO con PDF_CONVERTER_UNAVAILABLE y el resto de SGSPE funciona
+    data class Gotenberg(
+        val url: String? = null,
+        val timeout: Duration = Duration.ofSeconds(180)
+    ) {
+        init {
+            require(!timeout.isNegative && !timeout.isZero) { "sgspe.deliverable.gotenberg.timeout debe ser positivo" }
+            require(url.isNullOrBlank() || url.trim().startsWith("http://") || url.trim().startsWith("https://")) {
+                "sgspe.deliverable.gotenberg.url debe ser una URL http o https"
+            }
+        }
+
+        val configured: Boolean get() = !url.isNullOrBlank()
     }
 
     data class Templates(

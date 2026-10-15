@@ -551,6 +551,17 @@ class ArchitectureTest {
         assertEquals(emptyList<String>(), offenders(others, AS_PLATFORM))
     }
 
+    // especificación de F8 §5 («Modelo y arquitectura», plan 8.2c): el WebClient hacia Gotenberg y GeoServer solo en
+    // sgspe.deliverable (GotenbergConverter y GeoServerReportMaps), más el proxy WMS de F6
+    @Test
+    fun `solo GotenbergConverter, GeoServerReportMaps y WmsProxy usan WebClient`() {
+        val allowed = listOf("/sgspe/deliverable/GotenbergConverter.kt", "/sgspe/deliverable/GeoServerReportMaps.kt", "/sgspe/territory/WmsProxy.kt")
+        val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, WEB_CLIENT))
+        assertTrue(flags(WEB_CLIENT, "import org.springframework.web.reactive.function.client.WebClient"))
+        assertFalse(flags(WEB_CLIENT, "// el WebClient de GeoServer"))
+    }
+
     // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
     // AssistantRun.kt pone otra autenticación en el contexto de Reactor
     @Test
@@ -710,6 +721,7 @@ class ArchitectureTest {
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
         private val STORED_FILES = Regex("""\b(StoredFileRepository|FileStore)\b""")
+        private val WEB_CLIENT = Regex("""\bWebClient\b""")
         private val KNOWLEDGE_TABLE = Regex("""\bknowledge_chunk\b|\bKnowledgeMigration\.TABLE\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
