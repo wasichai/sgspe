@@ -310,7 +310,7 @@ class WorkflowMatrixApiTest : F8ApiTest() {
     ): Response {
         if (rule.name.startsWith("close_reclassified") && state(workflow.objectName, id) == rule.from) return reclassify(workflow, id, who)
         if (workflow.key(rule) == "stakeholder_request.accept") return accept(id, who)
-        // issue de WF-H por su endpoint (plan 8.2b), desde approved; fuera de él, por la API genérica, que responde 409 o 403
+        // issue de WF-H por su endpoint (plan 8.2b), desde approved; fuera de él, por la API genérica, que responde 409
         if (workflow.key(rule) == "deliverable.issue" && state(workflow.objectName, id) == rule.from) return issue(id, who)
         // assess de WF-F por el endpoint de revisiones, desde identified; fuera de él, por la API genérica, que responde 409
         if (workflow.key(rule) == "social_risk.assess" && state(workflow.objectName, id) == rule.from) return assessRisk(id, who.token)

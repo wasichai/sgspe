@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import kotlinx.coroutines.reactive.awaitSingle
+import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpStatus
@@ -24,6 +25,7 @@ import sgspe.common.Records
 import sgspe.common.StrictBody
 import sgspe.common.StrictQuery
 import sgspe.common.Transactions
+import sgspe.common.UploadLimits
 import sgspe.common.Versions
 import sgspe.common.toCodedException
 import sgspe.privacy.CanonicalJson
@@ -62,6 +64,7 @@ class DeliverableIssue(
     private val guard: DeliverableWriteGuard,
     private val files: FileService,
     private val exportLog: ExportLog,
+    private val properties: DeliverableProperties,
     private val clock: Clock
 ) {
     suspend fun issue(
@@ -84,6 +87,8 @@ class DeliverableIssue(
             Deliverables.ISSUE to Deliverables.DELIVERABLE
         )
         val before = records.get(Deliverables.DELIVERABLE, id)
+        // la misma precondición antes de subir nada (se repite dentro del candado): un If-Match viejo no deja copias huérfanas
+        versions.check(Deliverables.DELIVERABLE, id, expected, before.updatedAt, "El entregable")
         verify(id, before, sha, body[CHECKLIST] == true)
         // las copias, como la persona, antes de la transacción de la emisión (decisión 9 del plan 8.2b)
         val copies = transactions.independent { copies(id) }
@@ -218,7 +223,13 @@ class DeliverableIssue(
             Triple(Deliverables.DRAFT_MODEL, Deliverables.MODEL, Deliverables.MODEL)
         ).associate { (source, target, key) ->
             val download = files.open(Deliverables.DELIVERABLE, id, source)
-            val joined = DataBufferUtils.join(download.content).awaitSingle()
+            // con el tope de los archivos de entregables: más allá, el 400 FILE_TOO_LARGE de las subidas
+            val joined =
+                try {
+                    DataBufferUtils.join(download.content, properties.maxFileBytes.toInt()).awaitSingle()
+                } catch (_: DataBufferLimitException) {
+                    throw UploadLimits.tooLarge(properties.maxFileBytes)
+                }
             val bytes = ByteArray(joined.readableByteCount()).also { joined.read(it) }
             DataBufferUtils.release(joined)
             val staged =
