@@ -228,12 +228,7 @@ class DraftGeneration(
     private suspend fun issuedAfter(
         id: UUID,
         since: Instant
-    ): Boolean =
-        records.count(
-            Deliverables.VERSION,
-            filters = mapOf(Deliverables.DELIVERABLE to id.toString()),
-            criteria = listOf(Criteria.between("issued_at", since, clock.instant().plus(Duration.ofDays(1))))
-        ) > 0
+    ): Boolean = Deliverables.issuedSince(records, id, since, clock.instant())
 
     // paso 3, desde lo congelado y vuelto a leer: la prueba de que draft_model basta para volver a generar (RQ-REP-026)
     private suspend fun generate(

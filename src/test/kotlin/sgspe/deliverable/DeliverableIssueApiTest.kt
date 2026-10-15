@@ -112,6 +112,25 @@ class DeliverableIssueApiTest : F8ApiTest() {
         assertEquals(listOf("aut-12-issue-certificate"), automations)
     }
 
+    // revisión final del plan 8.2b, I1: tras emitir y start_revision, el borrador LISTO ya emitido (el mismo modelo) no vuelve a
+    // enviarse (ni a aprobarse ni a emitirse con la misma revisión); uno nuevo sí
+    @Test
+    fun `tras una revision nueva el borrador ya emitido no vuelve a enviarse y uno nuevo si`() {
+        val project = testProject()
+        val manager = member("SOCIAL_MANAGER", project)
+        val id = approvedDeliverable(project, manager)
+        assertEquals(HttpStatus.CREATED, issue(id, manager).status)
+        move("deliverable", id, "start_revision", manager.token, "revisión 1")
+        val again = transition("deliverable", id, "submit_for_review", manager.token, "envío del mismo borrador")
+        assertEquals(HttpStatus.CONFLICT, again.status, again.body)
+        assertEquals(listOf("STATE_MISMATCH"), codes(again))
+        assertEquals("draft", state("deliverable", id))
+        assertEquals(2, versions(id).size)
+        readyDraft(id)
+        move("deliverable", id, "submit_for_review", manager.token, "envío del borrador nuevo")
+        assertEquals("in_review", state("deliverable", id))
+    }
+
     // current_version es una relación, no un derivado: DerivedFieldsKeeper no la repone, y el PUT de wasichai deja vacío lo que
     // el cuerpo no trae. DeliverableWriteGuard rechaza que un PUT sin la marca la cambie, también omitiéndola; reenviarla tal
     // como se leyó pasa (revisión de la Tarea 10 del plan 8.2b)

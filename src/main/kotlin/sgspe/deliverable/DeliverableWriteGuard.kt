@@ -19,6 +19,7 @@ import wasichai.core.common.FieldViolation
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.data.RecordWriteGuard
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -41,7 +42,8 @@ class DeliverableWriteGuard(
     private val callers: Callers,
     private val permissions: Permissions,
     private val view: WriteView,
-    private val files: StoredFiles
+    private val files: StoredFiles,
+    private val clock: Clock
 ) : RecordWriteGuard {
     override suspend fun beforeWrite(change: RecordWrite) {
         when (change.objectName) {
@@ -104,6 +106,11 @@ class DeliverableWriteGuard(
             throw Finding("STATE_MISMATCH", "El último borrador no está LISTO: pida uno y espere a que termine", "draft").toCodedException()
         }
         val frozen = Deliverables.instant(attributes[Deliverables.GENERATED_AT]) ?: Instant.EPOCH
+        // tras issue y start_revision el borrador sigue LISTO con el modelo ya emitido: volver a revisarlo crearía versiones con
+        // la misma revisión (RQ-REP-016, ASM-027). una emisión posterior al intento pide un borrador nuevo
+        if (Deliverables.issuedSince(records, deliverableId, frozen, clock.instant())) {
+            throw Finding("STATE_MISMATCH", "El último borrador ya se emitió: pida uno nuevo para esta revisión", "draft").toCodedException()
+        }
         val changed =
             records
                 .all(Deliverables.SECTION, mapOf(Deliverables.DELIVERABLE to deliverableId.toString()))
