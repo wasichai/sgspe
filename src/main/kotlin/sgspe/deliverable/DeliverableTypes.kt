@@ -84,6 +84,9 @@ interface DeliverableType {
     // objeto → campos que el ensamblado lee: ReportSource no entrega otros
     val reads: Map<String, Set<String>>
 
+    // T1 exige un AIDS aprobado (§2.2.13; decisión 15 del plan 8.2c): el pedido lo comprueba como la persona
+    val requiresApprovedArea: Boolean get() = false
+
     suspend fun missingParameters(
         deliverable: Map<String, Any?>,
         project: Map<String, Any?>
@@ -95,7 +98,7 @@ interface DeliverableType {
     ): Assembled
 }
 
-// los tipos de F8 por su valor de «Tipo de entregable»: T2 desde el plan 8.2b, T1 desde el 8.2c
+// los tipos de F8 por su valor de «Tipo de entregable»: T2 (FieldReportType, plan 8.2b) y T1 (SocialDiagnosisType, plan 8.2c)
 @Component
 class DeliverableTypes(
     types: List<DeliverableType>

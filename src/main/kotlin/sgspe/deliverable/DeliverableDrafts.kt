@@ -52,7 +52,7 @@ data class DraftWarning(
 
 // pedir un borrador y leer su estado (especificación de F8 §3.5, deliverables.md §8.2), como la persona: el pedido exige UPDATE
 // y GENERATE sobre deliverable, procede solo en draft u observed (409 STATE_MISMATCH), con el tipo disponible (422
-// TYPE_NOT_AVAILABLE: T1 llega con el plan 8.2c), sus parámetros (422 DELIVERABLE_PARAMETERS_MISSING, un error por campo) y,
+// TYPE_NOT_AVAILABLE), en T1 con el AIDS aprobado (422 DELIVERABLE_PARAMETERS_MISSING sobre area_of_influence), sus parámetros (422 DELIVERABLE_PARAMETERS_MISSING, un error por campo) y,
 // si tiene template_key, una plantilla de esa clave (422 TEMPLATE_UNAVAILABLE), y escribe solo generation_requested_at con la
 // marca de Records y el motivo; JOB-05 lo toma después. todo dentro del candado de transacción del entregable, que no es el
 // de la generación (Deliverables.generationLock): pedir no espera a que termine un borrador en curso
@@ -104,6 +104,7 @@ class DeliverableDrafts(
                         missing.map { FieldViolation(it, PARAMETERS_MISSING) }
                     )
                 }
+                if (type.requiresApprovedArea) approvedArea(deliverable)
                 // la plantilla de la clave tiene que existir ya: si no, el borrador fallaría con TEMPLATE_UNAVAILABLE
                 deliverable.attributes[Deliverables.TEMPLATE_KEY]?.toString()?.let { key ->
                     if (records.count(Deliverables.TEMPLATE, filters = mapOf("template_key" to key)) == 0L) {
@@ -120,11 +121,26 @@ class DeliverableDrafts(
         return CommandAnswer(HttpStatus.ACCEPTED, mapOf("deliverable" to updated), updated.updatedAt, "/api/sgspe/deliverables/$id/draft")
     }
 
+    // el AIDS del diagnóstico, leído como quien pide, en approved (decisión 15 del plan 8.2c)
+    private suspend fun approvedArea(deliverable: RecordResponse) {
+        val area = Records.uuid(deliverable.attributes[AREA])?.let { records.find(AREA, it) }
+        if (area == null || area.state != APPROVED_AREA || area.attributes["area_type"]?.toString() != AIDS) {
+            throw RuleException(
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                "El diagnóstico social exige un área de influencia directa social aprobada",
+                listOf(FieldViolation(AREA, PARAMETERS_MISSING))
+            )
+        }
+    }
+
     suspend fun status(id: UUID): DraftStatus = status(records.get(Deliverables.DELIVERABLE, id))
 
     companion object {
         const val PARAMETERS_MISSING = "DELIVERABLE_PARAMETERS_MISSING"
         const val TYPE_NOT_AVAILABLE = "TYPE_NOT_AVAILABLE"
+        private const val AREA = "area_of_influence"
+        private const val APPROVED_AREA = "approved"
+        private const val AIDS = "AIDS"
 
         fun status(deliverable: RecordResponse): DraftStatus {
             val a = deliverable.attributes

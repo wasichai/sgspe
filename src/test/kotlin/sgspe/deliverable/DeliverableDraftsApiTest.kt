@@ -20,20 +20,38 @@ class DeliverableDraftsApiTest : F8ApiTest() {
     private fun draft(id: String) = tree(send("GET", "/api/sgspe/deliverables/$id/draft", null, HttpStatus.OK))
 
     @Test
-    fun `un pedido fuera de draft u observed es 409, sin parametros 422 por campo y un T1 todavia no se genera`() {
+    fun `un pedido fuera de draft u observed es 409 y sin parametros es 422 por campo`() {
         val project = testProject()
         val bare = deliverable(project)
         val missing = requestDraft(bare)
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, missing.status, missing.body)
         assertEquals(setOf("community", "project.working_crs"), tree(missing.body)["errors"].values().map { it["field"].asString() }.toSet())
         assertTrue(codes(missing).all { it == "DELIVERABLE_PARAMETERS_MISSING" })
-        val t1 = requestDraft(deliverable(project, SOCIAL_DIAGNOSIS))
-        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, t1.status, t1.body)
-        assertEquals(listOf("TYPE_NOT_AVAILABLE"), codes(t1))
         val approved = approvedDeliverable(project)
         val late = requestDraft(approved)
         assertEquals(HttpStatus.CONFLICT, late.status, late.body)
         assertEquals(listOf("STATE_MISMATCH"), codes(late))
+    }
+
+    // plan 8.2c (decisión 15; Review Focus 5): T1 se genera desde este plan; exige estudio, AIDS y CRS de trabajo, y el AIDS
+    // aprobado
+    @Test
+    fun `un T1 sin estudio o con un AIDS sin aprobar es 422 por campo`() {
+        val bare = requestDraft(deliverable(testProject(), SOCIAL_DIAGNOSIS))
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, bare.status, bare.body)
+        assertEquals(setOf("study", "area_of_influence", "project.working_crs"), tree(bare.body)["errors"].values().map { it["field"].asString() }.toSet())
+        assertTrue(codes(bare).all { it == "DELIVERABLE_PARAMETERS_MISSING" })
+        val scenario = reportScenario()
+        val draftArea =
+            createWith(
+                "area_of_influence",
+                mapOf("project" to scenario.project, "area_type" to "AIDS", "version_number" to 2),
+                mapOf("boundary" to sgspe.SyntheticGeo.multiSquare(sgspe.SyntheticGeo.ORIGIN.first, sgspe.SyntheticGeo.ORIGIN.second, 5000.0))
+            )
+        val pending = requestDraft(deliverable(scenario.project, SOCIAL_DIAGNOSIS, mapOf("study" to scenario.study, "area_of_influence" to draftArea)))
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, pending.status, pending.body)
+        assertEquals(listOf("area_of_influence"), tree(pending.body)["errors"].values().map { it["field"].asString() })
+        assertEquals(HttpStatus.ACCEPTED, requestDraft(scenario.socialDiagnosis).status)
     }
 
     @Test
