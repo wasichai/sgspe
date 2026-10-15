@@ -1,0 +1,312 @@
+package sgspe.deliverable
+
+import kotlinx.coroutines.runBlocking
+import org.apache.poi.xwpf.usermodel.XWPFDocument
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import sgspe.privacy.Block
+import sgspe.privacy.CanonicalJson
+import sgspe.privacy.Disclosure
+import sgspe.privacy.Mark
+import sgspe.privacy.PhotoRef
+import sgspe.privacy.ReportDisclosure
+import java.io.ByteArrayInputStream
+import java.time.LocalDate
+import java.util.UUID
+
+// especificación de F8 §3.6 y §5 («Tipos»): T2 ensamblado con una fuente falsa (sin base) y leído de vuelta con POI. todo
+// ficticio (RQ-SEC-018)
+class FieldReportTypeTest {
+    private val type = FieldReportType()
+
+    private fun id(n: Int): String = "00000000-0000-0000-0000-%012d".format(n)
+
+    private val project = id(1)
+    private val community = id(2)
+    private val person = id(3)
+    private val contribution = id(10)
+    private val delivery = id(11)
+    private val consented = id(20)
+    private val withoutConsent = id(21)
+    private val receiptImage = id(22)
+
+    // las filas por objeto; `related` por (objeto, id, relación)
+    private inner class FakeSource : ReportSource {
+        val rows = mutableMapOf<String, MutableList<SourceRow>>()
+        val links = mutableMapOf<Triple<String, String, String>, List<SourceRow>>()
+        val read = mutableSetOf<String>()
+
+        fun add(
+            objectName: String,
+            id: String,
+            state: String? = null,
+            vararg attributes: Pair<String, Any?>
+        ) {
+            rows.getOrPut(objectName) { mutableListOf() } += SourceRow(id, state, attributes.toMap())
+        }
+
+        override suspend fun one(
+            objectName: String,
+            id: UUID
+        ): SourceRow? = rows[objectName]?.firstOrNull { it.id == id.toString() }.also { read += objectName }
+
+        override suspend fun all(
+            objectName: String,
+            filters: Map<String, String>
+        ): List<SourceRow> = rows[objectName].orEmpty().filter { row -> filters.all { (k, v) -> row.text(k) == v } }.also { read += objectName }
+
+        override suspend fun related(
+            objectName: String,
+            id: UUID,
+            relationship: String,
+            target: String
+        ): List<SourceRow> = links[Triple(objectName, id.toString(), relationship)].orEmpty().also { read += target }
+
+        override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> =
+            listOf(mapOf("concession" to mapOf("code" to "CM-01"), "object" to "community", "name" to "Comunidad Ejemplo", "areaHa" to "12.5"))
+    }
+
+    private fun source(): FakeSource {
+        val s = FakeSource()
+        s.add("project", project, "active", "code" to "PEA-1", "name" to "Proyecto Ejemplo A", "working_crs" to "EPSG 32717")
+        s.add(
+            "community",
+            community,
+            null,
+            "name" to "Comunidad Ejemplo",
+            "registered_area_ha" to "1500",
+            "calculated_area_ha" to "1480.25",
+            "recognized_as_indigenous" to true
+        )
+        s.add("organization", id(4), null, "name" to "Asociación Ejemplo", "address" to "Av. Ejemplo 123, Cajamarca")
+        s.add("person", person, null, "given_names" to "Persona", "surnames" to "Ejemplo 1")
+        s.add("position", id(5), null, "person" to person, "organization" to id(4), "position_title" to "Presidente", "position_status" to "VIGENTE")
+        s.add("stakeholder", id(6), null, "project" to project, "person" to person, "relationship_status" to "RELACION DETERIORADA")
+        s.add(
+            "incident",
+            id(7),
+            null,
+            "project" to project,
+            "incident_type" to "EXPULSION",
+            "occurred_at" to "2026-08-20T10:00:00Z",
+            "description" to "Ingreso no autorizado."
+        )
+        s.add(
+            "engagement_plan",
+            id(8),
+            null,
+            "project" to project,
+            "name" to "Plan 2026",
+            "strategic_objective" to "Reconstruir la relación.",
+            "action_axes" to "1. Mapeo de actores."
+        )
+        s.add(
+            "engagement",
+            id(9),
+            "cancelled",
+            "project" to project,
+            "community" to community,
+            "engagement_type" to "REUNION",
+            "title" to "Reunión en faena",
+            "scheduled_at" to "2026-09-10T15:00:00Z",
+            "cancel_reason" to "Lluvia"
+        )
+        s.add(
+            "community_network",
+            id(12),
+            null,
+            "project" to project,
+            "community" to community,
+            "name" to "Red del Caserío Ejemplo",
+            "contact_status" to "PENETRADA"
+        )
+        s.add("network_node", id(13), null, "community_network" to id(12), "person" to person, "node_role" to "LIDER")
+        s.add(
+            "social_contribution",
+            contribution,
+            "delivered",
+            "project" to project,
+            "code" to "AP-1",
+            "declared_purpose" to "Faena comunal",
+            "conditions" to "Ninguna",
+            "currency" to "PEN",
+            "payer_organization" to id(4)
+        )
+        s.add("delivery", delivery, null, "social_contribution" to contribution, "delivery_date" to "2026-09-15", "place" to "Caserío Ejemplo")
+        s.add(
+            "contribution_item",
+            id(14),
+            null,
+            "social_contribution" to contribution,
+            "item_kind" to "BIEN",
+            "description" to "Herramientas",
+            "line_amount" to "500"
+        )
+        s.add(
+            "receipt",
+            id(15),
+            null,
+            "social_contribution" to contribution,
+            "receipt_type" to "BOLETA DE VENTA",
+            "receipt_number" to "B001-123",
+            "issuer_name" to "Ferretería Ejemplo",
+            "amount" to "500",
+            "currency" to "PEN"
+        )
+        s.add("community_sector", id(16), null, "community" to community, "name" to "Sector Ejemplo Alto", "delegates_count" to 2)
+        s.add("mining_concession", id(17), null, "code" to "CM-01", "name" to "Concesión Ejemplo", "holder_organization" to id(4))
+
+        fun file(n: Int) = mapOf("id" to id(100 + n), "sha256" to "%064d".format(n))
+        s.links[Triple("delivery", delivery, "evidence_delivery")] =
+            listOf(
+                SourceRow(consented, null, mapOf("evidence_type" to "FOTO", "file" to file(1), "people_identifiable" to true, "photo_consent_given" to true)),
+                SourceRow(withoutConsent, null, mapOf("evidence_type" to "FOTO", "file" to file(2), "people_identifiable" to true)),
+                SourceRow(receiptImage, null, mapOf("evidence_type" to "COMPROBANTE", "file" to file(3)))
+            )
+        s.links[Triple("project", project, "project_concession")] = s.rows.getValue("mining_concession")
+        // las menciones de la narrativa que no salen en otra tabla, y una persona del proyecto que el informe no cita
+        s.add("person", id(40), null, "given_names" to "Persona", "surnames" to "Ejemplo 2")
+        s.add("stakeholder", id(41), null, "project" to project, "person" to id(40))
+        s.add("stakeholder", id(42), null, "project" to project, "organization" to id(4))
+        s.add("person", id(44), null, "given_names" to "Persona", "surnames" to "Ejemplo 3")
+        s.add("position", id(43), null, "person" to id(44), "organization" to id(4), "position_title" to "Tesorero", "position_status" to "CONCLUIDO")
+        s.add("person", id(45), null, "given_names" to "Persona", "surnames" to "Ejemplo 4")
+        s.add("stakeholder", id(46), null, "project" to project, "person" to id(45))
+        return s
+    }
+
+    private fun input(): AssemblyInput =
+        AssemblyInput(
+            deliverable =
+                SourceRow(
+                    id(30),
+                    "draft",
+                    mapOf(
+                        "project" to project,
+                        "community" to community,
+                        "document_code" to "ENT-001",
+                        "title" to "Informe de campo y avance",
+                        "period_start_date" to "2026-09-01",
+                        "period_end_date" to "2026-09-30",
+                        "prepared_by_organization" to id(4)
+                    )
+                ),
+            sections =
+                listOf(
+                    SourceRow(
+                        id(31),
+                        null,
+                        mapOf(
+                            "section_key" to "conclusiones",
+                            "content" to "1. Se identificó la red del caserío.",
+                            "content_origin" to "ASISTIDO POR IA"
+                        )
+                    ),
+                    SourceRow(id(32), null, mapOf("section_key" to "antecedentes", "content" to "El equipo llamó al 987654321.", "content_origin" to "HUMANO")),
+                    SourceRow(
+                        id(33),
+                        null,
+                        mapOf(
+                            "section_key" to "estrategias",
+                            "content" to "Con [[person:${id(40)}]], [[stakeholder:${id(42)}]] y [[position:${id(43)}]].",
+                            "content_origin" to "HUMANO"
+                        )
+                    )
+                ),
+            templateId = null,
+            templateSha256 = "0".repeat(64),
+            draftRevision = "A",
+            issueRevision = "0",
+            today = LocalDate.parse("2026-10-15")
+        )
+
+    @Test
+    fun `las secciones del tipo en su orden, con sus datos y su texto`() {
+        val source = source()
+        val assembled = runBlocking { type.assemble(input(), source) }
+        val model = assembled.model
+        assertEquals(type.sections.map { it.key }, model.sections.map { it.key })
+        assertEquals("Setiembre, 2026", model.meta.dateLabel)
+        assertEquals("Asociación Ejemplo", model.meta.preparedBy)
+        assertEquals(listOf("conclusiones"), model.aiAssistedSections)
+        val conclusions = model.sections.single { it.key == "conclusiones" }.blocks
+        assertEquals(Block.Paragraph("1. Se identificó la red del caserío."), conclusions.single())
+        val activities =
+            model.sections
+                .single { it.key == "actividades" }
+                .blocks
+                .filterIsInstance<Block.Table>()
+                .single()
+        assertEquals("Cancelada: Lluvia", activities.rows.single()[3].text)
+        val receipts =
+            model.sections
+                .single { it.key == "apoyo" }
+                .blocks
+                .filterIsInstance<Block.Table>()
+                .single { it.title == "Comprobantes del aporte" }
+        assertEquals(listOf(null, Mark.REGISTRY, Mark.HOLDER, null, null), receipts.rows.single().map { it.mark })
+        assertEquals(setOf(consented, withoutConsent, receiptImage), model.photos.keys)
+        assertEquals(PhotoRef.RECEIPT, model.photos.getValue(receiptImage).kind)
+        assertEquals(listOf("portada", "predio"), assembled.maps.map { it.key })
+        assertEquals("EPSG 32717", assembled.maps.first().workingCrs)
+        val target = model.people.getValue("person:$person")
+        assertEquals("Persona Ejemplo 1", target.name)
+        assertEquals("Presidente", target.position)
+        assertTrue(target.stakeholderCode!!.startsWith("GI-"))
+        assertTrue("Persona Ejemplo 1" in assembled.personNames)
+        assertTrue("El equipo llamó al 987654321." in assembled.texts.getValue("antecedentes"))
+    }
+
+    @Test
+    fun `el modelo va y vuelve y su DOCX EXTERNO no nombra a la persona ni lleva el comprobante`() {
+        val model = runBlocking { type.assemble(input(), source()) }.model
+        val back = CanonicalJson.read(CanonicalJson.bytes(model))
+        assertEquals(model, back)
+        val external = ReportDisclosure.apply(back, Disclosure.EXTERNO)
+        assertEquals(setOf(consented), external.photos.keys)
+        val bytes = DocxWriter(DeliverableProperties.Photos()).write(DocxWriter.Input(external, BaseTemplate.bytes, true, "Asociación Ejemplo", emptyMap()))
+        val text =
+            XWPFDocument(ByteArrayInputStream(bytes)).use { doc ->
+                (doc.paragraphs.map { it.text } + doc.tables.flatMap { t -> t.rows.flatMap { r -> r.tableCells.map { it.text } } }).joinToString("\n")
+            }
+        assertFalse("Persona Ejemplo 1" in text, text)
+        assertFalse("B001-123" in text || "Ferretería Ejemplo" in text, text)
+        assertTrue("Presidente, Asociación Ejemplo" in text, text)
+        assertTrue("Tabla 1." in text, text)
+    }
+
+    @Test
+    fun `T2 exige comunidad, periodo y el working_crs del proyecto`() {
+        val missing = runBlocking { type.missingParameters(mapOf("project" to project), mapOf("name" to "Proyecto Ejemplo A")) }
+        assertEquals(listOf("community", "period_start_date", "period_end_date", "project.working_crs"), missing)
+        assertEquals(emptyList<String>(), runBlocking { type.missingParameters(input().deliverable.attributes, mapOf("working_crs" to "EPSG 32717")) })
+    }
+
+    @Test
+    fun `solo lee objetos que declara`() {
+        val source = source()
+        runBlocking { type.assemble(input(), source) }
+        assertEquals(emptySet<String>(), source.read - type.reads.keys)
+    }
+
+    @Test
+    fun `las menciones de la narrativa se resuelven por nivel y el aviso busca a todas las personas del proyecto`() {
+        val assembled = runBlocking { type.assemble(input(), source()) }
+
+        fun text(level: Disclosure) =
+            ReportDisclosure
+                .apply(assembled.model, level)
+                .sections
+                .single { it.key == "estrategias" }
+                .blocks
+                .filterIsInstance<Block.Paragraph>()
+                .joinToString { it.markdown }
+        assertTrue("Con Persona Ejemplo 2, Asociación Ejemplo y Persona Ejemplo 3." in text(Disclosure.INTERNO), text(Disclosure.INTERNO))
+        val external = text(Disclosure.EXTERNO)
+        assertFalse("Persona Ejemplo" in external, external)
+        assertTrue("GI-" in external && "Tesorero, Asociación Ejemplo" in external, external)
+        assertTrue("Persona Ejemplo 4" in assembled.personNames)
+    }
+}
