@@ -225,6 +225,21 @@ abstract class F8ApiTest : F7ApiTest() {
         return sha
     }
 
+    // emite por POST /api/sgspe/deliverables/{id}/issue como `account`, con motivo e If-Match
+    protected fun issue(
+        deliverable: String,
+        account: Account,
+        sha: String = record("deliverable", deliverable)["attributes"][Deliverables.MODEL_SHA256].asString(),
+        checklist: Boolean = true
+    ): Response =
+        exchange(
+            "POST",
+            "/api/sgspe/deliverables/$deliverable/issue",
+            mapOf("draftModelSha256" to sha, "checklistConfirmed" to checklist),
+            account.token,
+            mapOf(IfMatch.HEADER to "\"${record("deliverable", deliverable)["updatedAt"].asString()}\"") + withReason("emisión de prueba")
+        )
+
     // pide un borrador por su endpoint (POST …/drafts con motivo) como `account`
     protected fun requestDraft(
         deliverable: String,

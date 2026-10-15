@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.springframework.http.HttpStatus
-import sgspe.F5ApiTest
+import sgspe.F8ApiTest
 import sgspe.engagement.EngagementWriteGuard
 import java.io.File
 
@@ -30,7 +30,7 @@ import java.io.File
 // 5.2a y 5.2b, con F5ApiTest, y los registra siempre quien los lleva, porque quien los aprueba no los registró: P5 y G2;
 // los aportes de WF-P traen un ítem y su tipo, los registra una cuenta que no los aprueba y su entrega lleva las tres
 // evidencias (plan 5.2a))
-class WorkflowMatrixApiTest : F5ApiTest() {
+class WorkflowMatrixApiTest : F8ApiTest() {
     private data class Transition(
         val name: String,
         val from: String,
@@ -182,8 +182,8 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                             )
                     )
                 )
-            // F8: un entregable en draft, con motivo (requiresReason), registrado por quien lo lleva. 8.2b le suma el borrador
-            // LISTO que DeliverableWriteGuard pedirá para submit_for_review, resubmit y approve
+            // F8: un entregable en draft, con motivo (requiresReason), registrado por quien lo lleva; prepare le da el borrador
+            // LISTO que DeliverableWriteGuard pide para submit_for_review, resubmit y approve, y que la emisión copia (plan 8.2b)
             "deliverable" -> fixture("deliverable", account = actor(workflow, creatorRole, null)).id
             else -> error("sin registro de prueba para ${workflow.objectName}")
         }
@@ -248,6 +248,11 @@ class WorkflowMatrixApiTest : F5ApiTest() {
             assertEquals(HttpStatus.CREATED, delivery.status, delivery.body)
             return
         }
+        // F8 (plan 8.2b): DeliverableWriteGuard pide el borrador LISTO para enviar, reenviar y aprobar, y la emisión lo copia
+        if (workflow.objectName == "deliverable" && rule.name in DRAFTED && state(workflow.objectName, id) == rule.from) {
+            readyDraft(id)
+            return
+        }
         if (workflow.key(rule) != "commitment.register_fulfillment") return
         val evidence = listOf(evidence(testProject(), "ACTA DE ENTREGA"), evidence(testProject(), "FOTO", "PUBLICA"))
         val attributes = mapOf("delivery_date" to "2026-10-01", "conformity_given" to true, "conformity_by" to "Junta directiva")
@@ -305,6 +310,8 @@ class WorkflowMatrixApiTest : F5ApiTest() {
     ): Response {
         if (rule.name.startsWith("close_reclassified") && state(workflow.objectName, id) == rule.from) return reclassify(workflow, id, who)
         if (workflow.key(rule) == "stakeholder_request.accept") return accept(id, who)
+        // issue de WF-H por su endpoint (plan 8.2b), desde approved; fuera de él, por la API genérica, que responde 409 o 403
+        if (workflow.key(rule) == "deliverable.issue" && state(workflow.objectName, id) == rule.from) return issue(id, who)
         // assess de WF-F por el endpoint de revisiones, desde identified; fuera de él, por la API genérica, que responde 409
         if (workflow.key(rule) == "social_risk.assess" && state(workflow.objectName, id) == rule.from) return assessRisk(id, who.token)
         if (workflow.key(rule) != "commitment_candidate.accept") return transition(workflow.objectName, id, rule.name, who.token, TEXT)
@@ -619,9 +626,8 @@ class WorkflowMatrixApiTest : F5ApiTest() {
         // comando y prepare cancela el compromiso que pide close_unfulfilled; WF-F tampoco (plan 4.2b): perform aplica assess por
         // el endpoint de revisiones y prepare escribe lo que piden mitigar y monitorear. de F7 se difiere accept de WF-K de las
         // sugerencias: CommandTransitionGuard la rechaza por la API genérica y su endpoint (POST
-        // /api/sgspe/ai-suggestions/{id}/accept) es del plan 7.2b, que la saca de aquí. de F8 se difieren issue de WF-H (de
-        // comando: su endpoint, POST /api/sgspe/deliverables/{id}/issue, es del plan 8.2b) y lo que solo sale de `issued`
-        // (start_revision y void_issued): 8.2b las saca de aquí cuando perform emita por el endpoint
+        // /api/sgspe/ai-suggestions/{id}/accept) es del plan 7.2b, que la saca de aquí. de F8 ya no se difiere nada (plan 8.2b):
+        // prepare da el borrador LISTO (readyDraft) y perform emite por POST /api/sgspe/deliverables/{id}/issue
         val DEFERRED =
             setOf(
                 "stakeholder.assess",
@@ -629,11 +635,11 @@ class WorkflowMatrixApiTest : F5ApiTest() {
                 "area_of_influence.approve",
                 "area_of_influence.supersede",
                 "stakeholder_request.close_accepted",
-                "ai_suggestion.accept",
-                "deliverable.issue",
-                "deliverable.start_revision",
-                "deliverable.void_issued"
+                "ai_suggestion.accept"
             )
+
+        // las transiciones de WF-H que piden el borrador LISTO (DeliverableWriteGuard) o lo copian (la emisión)
+        val DRAFTED = setOf("submit_for_review", "resubmit", "approve", "issue")
 
         // atajos de WF-C que 2.2 guarda con reglas propias: el registro llega a `held` por el ciclo normal (schedule y register_held);
         // approve_direct de WF-D: un compromiso llega a `approved` con submit y approve, la doble llave de D3 y D4; y

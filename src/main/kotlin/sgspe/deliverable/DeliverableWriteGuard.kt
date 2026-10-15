@@ -24,8 +24,8 @@ import java.util.UUID
 
 // las reglas de BC-15 que la API genérica no expresa (especificación de F8 §3.5, deliverables.md §8.6, api.md §4.12):
 // - deliverable: deliverable_type no cambia después del alta (400 FIELD_NOT_EDITABLE); current_version solo la escribe el
-//   código de sgspe con la marca (400 DERIVED_FIELD; la ficha la llama derivada y DerivedFieldsGuard no mira relaciones,
-//   decisión 13 del plan 8.1); submit_for_review, resubmit y approve piden el borrador LISTO (409 STATE_MISMATCH sobre draft)
+//   código de sgspe con la marca (400 DERIVED_FIELD, también si un PUT la omite y la dejaría vacía; la ficha la llama derivada
+//   y DerivedFieldsGuard no mira relaciones, decisión 13 del plan 8.1); submit_for_review, resubmit y approve piden el borrador LISTO (409 STATE_MISMATCH sobre draft)
 //   y ninguna sección con updated_at posterior a draft_generated_at (409 SECTIONS_CHANGED, un error por sección); approve
 //   además la acción APPROVE (403 ACTION_REQUIRED)
 // - deliverable_section: con origen ASISTIDO POR IA, toda escritura lleva motivo (400 FIELD_REASON_REQUIRED), y una sección
@@ -65,8 +65,10 @@ class DeliverableWriteGuard(
                         status = HttpStatus.BAD_REQUEST
                     ).toCodedException()
                 }
-                if (!WriteMark.present() && Deliverables.CURRENT_VERSION in sent &&
-                    !Values.same(ref(sent[Deliverables.CURRENT_VERSION]), ref(before[Deliverables.CURRENT_VERSION]))
+                // también omitida: el PUT de wasichai deja vacía la relación que el cuerpo no trae, y DerivedFieldsKeeper solo
+                // repone derivados; reenviarla tal como se leyó no es cambiarla
+                if (!WriteMark.present() &&
+                    !Values.same(ref(view.after(change)[Deliverables.CURRENT_VERSION]), ref(before[Deliverables.CURRENT_VERSION]))
                 ) {
                     throw Finding(
                         "DERIVED_FIELD",
