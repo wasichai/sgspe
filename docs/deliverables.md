@@ -284,8 +284,8 @@ Cada clase declara:
   `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` con `DeliverableSections.adopt`, y convierte
   `[PERSONA:<id>]` en `[[person:<id>]]` (un `[PERSONA]` sin id responde `422 UNRESOLVED_PSEUDONYM`).
   `DeliverableWriteGuard` exige el motivo cuando el origen indica IA y no deja volver a otro origen ni borrar la sección
-  (`422 AI_ORIGIN_LOCKED`; en F8, en toda la vida del entregable, pendiente de confirmación del usuario; AI-04 puede
-  acotarlo a la revisión), así que la versión emitida lista en `ai_assisted_sections` toda sección que tuvo asistencia
+  (`422 AI_ORIGIN_LOCKED`; en toda la vida del entregable, decisión del usuario del
+  2026-10-15), así que la versión emitida lista en `ai_assisted_sections` toda sección que tuvo asistencia
   (RQ-AI-012, RF-AIK-004, ASM-137). AI-04 solo redacta las secciones que el tipo marca con IA (si no, `422
   SECTION_NOT_ASSISTED`), leyendo como la persona, seudonimizados, los registros que el tipo declara para esa sección y
   los KPI del periodo; nunca el modelo congelado, que se leyó como la plataforma.
@@ -599,7 +599,7 @@ sequenceDiagram
 | El borrador lo describe solo el trabajador | `DerivedFieldsGuard` rechaza sin la marca las escrituras de `generation_requested_at`, `draft_*`, `current_version` y `current_revision`, y SGSPE atiende la subida nativa de los campos `FILE` de entregables con `403 FILE_WRITE_NOT_ALLOWED` | ASM-061, ASM-133 (domain-model §4.6, §7.4) |
 | Se aprueba lo que se revisó | `DeliverableWriteGuard` hacia `approved` | RQ-REP-015 |
 | Todo cambio tiene motivo | `deliverable` es `requiresReason` | RQ-AUD-002, ASM-058 [WAS-ADR-0041] |
-| El texto de IA lo adopta una persona | `DeliverableWriteGuard` exige motivo cuando `content_origin` indica IA y no deja volver a otro origen ni borrar la sección, en toda la vida del entregable (`422 AI_ORIGIN_LOCKED`; pendiente de confirmación del usuario) | RQ-AI-012, ASM-137 |
+| El texto de IA lo adopta una persona | `DeliverableWriteGuard` exige motivo cuando `content_origin` indica IA y no deja volver a otro origen ni borrar la sección, en toda la vida del entregable (`422 AI_ORIGIN_LOCKED`; decisión del usuario del 2026-10-15) | RQ-AI-012, ASM-137 |
 | El tipo no cambia | `DeliverableWriteGuard` rechaza cambiar `deliverable_type` después del alta | RQ-REP-002 |
 | La versión INTERNO conserva el DOCX editable | `DeliverableWriteGuard` rechaza crear una `deliverable_version` INTERNO sin el `FILE` `docx` y su `docx_sha256`, o con un `*_sha256` distinto del descriptor de su archivo; la derivada EXTERNO es solo PDF | RQ-REP-001, RQ-REP-014 (domain-model §7.2) |
 | Generar, emitir y descargar son permisos explícitos | Acciones declaradas sobre `deliverable`: `GENERATE`, `ISSUE`, `DOWNLOAD_RESTRICTED` (borradores y versiones INTERNO) y `EXPORT` (versiones EXTERNO y PUBLICO); `EXPORT` sobre cada objeto que se exporta a XLSX o a formatos GIS | RQ-SEC-004 [WAS-ADR-0042] (domain-model §8.1.1) |
