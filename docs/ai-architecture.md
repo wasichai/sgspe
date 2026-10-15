@@ -531,8 +531,8 @@ propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto q
   los agentes propios, salvo como agregados de indicadores. Esos agregados también exigen que la persona pueda leer el campo; si
   no puede, el indicador llega como "no disponible" (RQ-SEC-010, [dashboards.md](dashboards.md) §8).
 - Es un esfuerzo razonable, no una garantía: un nombre escrito en un texto libre que no está registrado como `person`
-  puede pasar, y también un nombre de una sola palabra («un nombre de una sola palabra no se reconoce»). Por eso la IA viene desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los
-  fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato
+  puede pasar, y un nombre de una sola palabra no se reconoce aunque esté registrado. Por eso la IA viene
+  desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato
   restringido (`security.md` §7.8).
 
 ### 12.3 Inyección de prompts
