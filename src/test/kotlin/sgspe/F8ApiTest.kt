@@ -15,6 +15,7 @@ import sgspe.deliverable.Deliverables
 import sgspe.privacy.CanonicalJson
 import sgspe.privacy.ReportMeta
 import sgspe.privacy.ReportModel
+import wasichai.core.common.WasichaiException
 import wasichai.files.FileService
 import wasichai.files.FileUpload
 import java.security.MessageDigest
@@ -115,6 +116,10 @@ abstract class F8ApiTest : F7ApiTest() {
         asUser(account) {
             files.stage(objectName, field, FileUpload(fileName, type, Flux.just(DefaultDataBufferFactory.sharedInstance.wrap(bytes)))).id.toString()
         }
+
+    // los códigos de una escritura en proceso rechazada (createAs): el `message` de cada violación de la WasichaiException, que
+    // no está en su toString()
+    protected fun codesOf(error: Throwable?): List<String> = (error as? WasichaiException)?.violations.orEmpty().map { it.message }
 
     // un alta en proceso como `account` (Records lleva la marca SgspeWrite): la vía de un objeto apiOnly con archivos
     protected fun createAs(
