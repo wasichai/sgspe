@@ -1,13 +1,21 @@
 package sgspe.deliverable
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import sgspe.privacy.CanonicalJson
 import sgspe.territory.GeometryRef
 import sgspe.territory.MapExtent
@@ -32,7 +40,8 @@ class GeoServerReportMapsTest {
     private val point = """<gml:Point srsName="http://www.opengis.net/gml/srs/epsg.xml#32717"><gml:coordinates>781000,9241000</gml:coordinates></gml:Point>"""
 
     private class FakeData(
-        val drills: Int = 1
+        val drills: Int = 1,
+        val unpublished: Set<String> = emptySet()
     ) : MapData {
         val queries = CopyOnWriteArrayList<MapLayerQuery>()
 
@@ -68,7 +77,7 @@ class GeoServerReportMapsTest {
             objectName: String,
             geometry: String,
             fields: List<String>
-        ): PublishedName = PublishedName("sgspe_${objectName}__$geometry", fields.associateWith { it })
+        ): PublishedName? = PublishedName("sgspe_${objectName}__$geometry", fields.associateWith { it }).takeUnless { objectName in unpublished }
     }
 
     private val bodies = CopyOnWriteArrayList<String>()
@@ -88,15 +97,40 @@ class GeoServerReportMapsTest {
     private fun reply(
         exchange: HttpExchange,
         type: String,
-        bytes: ByteArray
+        bytes: ByteArray,
+        status: Int = 200
     ) {
         exchange.responseHeaders.add("Content-Type", type)
-        exchange.sendResponseHeaders(200, bytes.size.toLong())
+        exchange.sendResponseHeaders(status, bytes.size.toLong())
         exchange.responseBody.write(bytes)
     }
 
-    private fun png(): ByteArray =
-        ByteArrayOutputStream().also { ImageIO.write(BufferedImage(1890, 1417, BufferedImage.TYPE_INT_RGB), "png", it) }.toByteArray()
+    // del tamaño del marco horizontal de 24 × 16 cm a 300 dpi, el del pedido de abajo
+    private fun png(
+        width: Int = MapFraming.px(24.0),
+        height: Int = MapFraming.px(16.0)
+    ): ByteArray = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(width, height, BufferedImage.TYPE_INT_RGB), "png", it) }.toByteArray()
+
+    private val log = LoggerFactory.getLogger(GeoServerReportMaps::class.java) as Logger
+    private val lines = ListAppender<ILoggingEvent>()
+
+    @BeforeEach
+    fun capture() {
+        lines.start()
+        log.addAppender(lines)
+    }
+
+    @AfterEach
+    fun release() {
+        log.detachAppender(lines)
+    }
+
+    // las líneas WARN: solo la clave y el código, sin excepción adjunta
+    private fun warnings(): List<String> =
+        lines.list.filter { it.level == Level.WARN }.map {
+            assertNull(it.throwableProxy, it.formattedMessage)
+            it.formattedMessage
+        }
 
     private fun maps(
         data: MapData,
@@ -178,5 +212,53 @@ class GeoServerReportMapsTest {
         assertFalse("<UserLayer><Name>LYR-06</Name>" in internal, internal)
         assertFalse("<UserLayer><Name>LYR-06</Name>" in external, external)
         assertTrue("<UserLayer><Name>LYR-10</Name>" in internal, internal)
+    }
+
+    @Test
+    fun `cada causa queda en el log con su codigo y solo la clave del mapa`() {
+        val xml = server { reply(it, "application/vnd.ogc.se_xml", "<ServiceExceptionReport/>".toByteArray()) }
+        val error = server { reply(it, "text/plain", "error interno".toByteArray(), status = 500) }
+        val text = server { reply(it, "text/plain", "no es una imagen".toByteArray()) }
+        val small = server { reply(it, "image/png", png(1890, 1417)) }
+        val huge = server { reply(it, "image/png", png(MapFraming.px(24.0) + 1, MapFraming.px(16.0))) }
+        val slow =
+            server {
+                Thread.sleep(2_000)
+                reply(it, "image/png", png())
+            }
+        val closed = server { reply(it, "image/png", png()) }.also { it.stop(0) }
+        val expected =
+            listOf(
+                maps(FakeData(), url(xml)) to "SERVICE_EXCEPTION",
+                maps(FakeData(), url(error)) to "HTTP_500",
+                maps(FakeData(), url(text)) to "NOT_PNG",
+                maps(FakeData(), url(small)) to "BAD_IMAGE_SIZE",
+                maps(FakeData(), url(huge)) to "BAD_IMAGE_SIZE",
+                maps(FakeData(), url(slow), timeout = Duration.ofMillis(300)) to "TIMEOUT",
+                maps(FakeData(), url(closed)) to "GEOSERVER_UNAVAILABLE"
+            )
+        try {
+            for ((reportMaps, code) in expected) {
+                lines.list.clear()
+                assertTrue(runBlocking { reportMaps.draw(UUID.randomUUID(), request) }.failed, code)
+                assertEquals(listOf("JOB-05: el mapa anexo-1 falló con $code"), warnings())
+            }
+        } finally {
+            listOf(xml, error, text, small, huge, slow).forEach { it.stop(0) }
+        }
+    }
+
+    @Test
+    fun `una capa publicada que el modelo no resuelve se omite con un rastro sin datos`() {
+        val server = server { reply(it, "image/png", png()) }
+        val images =
+            try {
+                runBlocking { maps(FakeData(unpublished = setOf("community")), url(server)).draw(UUID.randomUUID(), request) }
+            } finally {
+                server.stop(0)
+            }
+        assertFalse(images.failed)
+        assertFalse("sgspe_community__territory" in bodies.first(), bodies.first())
+        assertEquals(List(2) { "JOB-05: el mapa anexo-1 omite la capa LYR-05, que el modelo del tenant no resuelve" }, warnings())
     }
 }

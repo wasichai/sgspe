@@ -568,6 +568,30 @@ class ArchitectureTest {
         assertFalse(flags(REPORT_MAP_FEATURES, "// sus elementos los lee ReportMapFeatures"))
     }
 
+    // plan 8.2c (Global Constraints): ninguna petición llama a GeoServer por un entregable ni lee sus geometrías como la
+    // plataforma. ReportMaps, GeoServerReportMaps, MapData y TerritoryMapData solo los nombran sus archivos y JOB-05 (el único
+    // que inyecta ReportMaps); los dobles de src/test no cuentan
+    @Test
+    fun `solo JOB-05 y sus archivos usan ReportMaps y MapData`() {
+        val allowed =
+            listOf(
+                "/sgspe/deliverable/ReportMaps.kt",
+                "/sgspe/deliverable/GeoServerReportMaps.kt",
+                "/sgspe/deliverable/MapData.kt",
+                "/sgspe/deliverable/DeliverableGenerationJob.kt"
+            )
+        val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, MAP_PORTS))
+        assertTrue(allowed.all { path -> sources(main).any { it.invariantSeparatorsPath.endsWith(path) } })
+        assertTrue(flags(MAP_PORTS, "private val maps: ReportMaps,"))
+        assertTrue(flags(MAP_PORTS, "private val data: MapData"))
+        assertTrue(flags(MAP_PORTS, "private val geoserver: GeoServerReportMaps"))
+        assertTrue(flags(MAP_PORTS, "val reader = TerritoryMapData(features, definitions)"))
+        assertFalse(flags(MAP_PORTS, "): ReportMapImages = ReportMapImages()"))
+        assertFalse(flags(MAP_PORTS, "val fake = FakeReportMaps()"))
+        assertFalse(flags(MAP_PORTS, "// los pide JOB-05 a ReportMaps"))
+    }
+
     // especificación de F8 §5 («Modelo y arquitectura», plan 8.2c): el WebClient hacia Gotenberg y GeoServer solo en
     // sgspe.deliverable (GotenbergConverter y GeoServerReportMaps), más el proxy WMS de F6
     @Test
@@ -740,6 +764,7 @@ class ArchitectureTest {
         private val STORED_FILES = Regex("""\b(StoredFileRepository|FileStore)\b""")
         private val WEB_CLIENT = Regex("""\bWebClient\b""")
         private val REPORT_MAP_FEATURES = Regex("""\bReportMapFeatures\b""")
+        private val MAP_PORTS = Regex("""\b(ReportMaps|GeoServerReportMaps|MapData|TerritoryMapData)\b""")
         private val KNOWLEDGE_TABLE = Regex("""\bknowledge_chunk\b|\bKnowledgeMigration\.TABLE\b""")
 
         // SgspeWrite y RecordService son nombres propios del proyecto: cualquier mención fuera de common es un hallazgo
