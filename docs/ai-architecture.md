@@ -271,7 +271,7 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
 - La llamada al modelo pasa por un puerto propio, `StructuredModel`: recibe el prompt ya seudonimizado, la versión del
   prompt, el modelo y los límites, y devuelve la salida tipada con el uso de tokens. `EmbabelStructuredModel` lo
   implementa sobre la plataforma de agentes, y las pruebas lo sustituyen (§15).
-- La versión de Embabel es la del BOM de wasichai 1.2.0 (1.5.3) [WAS-ADR-0015]; SGSPE no fija otra (RNF-MNT-001). El
+- La versión de Embabel es la del BOM de wasichai 1.3.0 (1.5.3) [WAS-ADR-0015]; SGSPE no fija otra (RNF-MNT-001). El
   starter `wasichai-spring-boot-starter-agent` se agrega en F7.
 - Ningún perfil de Spring se llama `test`: Embabel registra sus agentes con un postprocesador marcado `@Profile("!test")`
   [WAS-ADR-0015] [WAS-DOC modules/testing.md].
@@ -455,7 +455,7 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
   `claude-haiku-4-5`
   para AI-07 y AI-08, y el modelo más capaz que reconozca el catálogo de Embabel para AI-01 a AI-06 (en AI-05, el
   `wasichai.agent.model` del asistente, con el mismo criterio). El plan 7.2a anota el modelo elegido.
-- **Catálogo de modelos.** La versión de Embabel es la del BOM de wasichai 1.2.0 (1.5.3), y su catálogo no conoce los
+- **Catálogo de modelos.** La versión de Embabel es la del BOM de wasichai 1.3.0 (1.5.3), y su catálogo no conoce los
   modelos Claude 5: si una versión nueva los suma, se cambian por configuración [WAS-ADR-0015].
 - **Residencia de datos.** Los datos seudonimizados se procesan en la infraestructura de Anthropic, fuera del Perú: es
   una consecuencia aceptada de la decisión del usuario, y sin fuente normativa ninguna regla se presenta como obligación

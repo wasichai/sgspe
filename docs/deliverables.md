@@ -485,9 +485,8 @@ stateDiagram-v2
   escritura de la plataforma, o FALLIDO con su código en `draft_warnings` (catálogo "Estado de generación del
   borrador"). El intento queda en `draft_generated_at` también si termina FALLIDO (un pedido se atiende una vez), y el
   FALLIDO posterior a congelar el modelo gasta su letra de revisión. Nunca aplica transiciones ni escribe secciones
-  (domain-model §8.3). Los archivos los adjunta un puerto (`DraftFiles`) que espera UPS-31: en 8.2b, sin conversor real,
-  todo borrador real termina FALLIDO con `PDF_CONVERTER_UNAVAILABLE`; con el de 8.2c y sin UPS-31, con
-  `GENERATION_FAILED`. Los avisos de `draft_warnings` también pueden ser `PDF_CHECK_FAILED` (con el nivel en el lugar
+  (domain-model §8.3). Los archivos los adjunta como la plataforma un puerto (`DraftFiles`; UPS-31, resuelta en
+  wasichai 1.3.0): en 8.2b, sin conversor real, todo borrador real termina FALLIDO con `PDF_CONVERTER_UNAVAILABLE`. Los avisos de `draft_warnings` también pueden ser `PDF_CHECK_FAILED` (con el nivel en el lugar
   de la sección) y `TYPE_NOT_AVAILABLE`, además de `GENERATION_FAILED` y `TEMPLATE_UNAVAILABLE`.
 - **Qué genera.** Desde un mismo modelo congelado y para cada nivel de divulgación que prepara el tipo:
   - el borrador, con la marca "BORRADOR" y la etiqueta de borrador, para revisar (RQ-REP-021): DOCX y PDF en INTERNO, y
@@ -736,7 +735,7 @@ La generación, la revisión y la emisión quedan además en `audit_log` con su 
 | `file` | `deliverable_template` | Plantilla .dotx o .docx | READ, por la ruta nativa de wasichai-files |
 
 - **Quién escribe.** Los siete `draft_*` los sube y los adjunta JOB-05 como la plataforma, en una sola escritura
-  (UPS-31); los de `deliverable_version`, quien emite (§8.4); el de `deliverable_template`, `POST
+  (UPS-31, desde wasichai 1.3.0); los de `deliverable_version`, quien emite (§8.4); el de `deliverable_template`, `POST
   /api/sgspe/deliverable-templates` después de validar. SGSPE atiende las rutas nativas de archivos de los tres objetos,
   como con `evidence` (el segmento literal gana a `{object}`): en `deliverable`, los borradores con las comprobaciones
   de `GET …/draft/content` y su fila de `export_log`, y las candidatas y `draft_model`, `404`; en `deliverable_version`,
@@ -757,7 +756,7 @@ La generación, la revisión y la emisión quedan además en `audit_log` con su 
   archivos en una sola escritura, y `StoredFileCleanup` de wasichai-files borra los bytes reemplazados, y las subidas
   que nadie adjuntó (como las de una emisión fallida, §8.4), pasado `wasichai.files.cleanup.delay` (24 h); el historial
   conserva sus descriptores. Todo lo emitido se conserva, sin bloqueo WORM en F8. JOB-08 no tiene paso de entregables.
-  Si UPS-31 no llega, el respaldo es solo para el borrador: un `draft_storage_key` con su paso en JOB-08 (ASM-133).
+  UPS-31 se resolvió en wasichai 1.3.0: el respaldo de ASM-133 (un `draft_storage_key` con su paso en JOB-08) no se usa.
 
 ## 12. Permisos
 
@@ -860,12 +859,12 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 | Bytes de DOCX y PDF no deterministas | El hash del modelo congelado es la identidad; los hashes de archivo identifican los artefactos |
 | Datos personales en la narrativa o en fotos | Niveles, menciones como referencias, consentimiento de fotos, lista de verificación y `export_log` |
 | Un consultor edita el DOCX fuera del sistema | Solo se emite lo que genera el sistema y un DOCX emitido nunca se reimporta (GAP-010, resuelta; ASM-135) |
-| La plataforma no puede adjuntar archivos (UPS-31) | El plan 8.2b avanza sin adjuntar y sube a la versión de wasichai que la resuelva; respaldo de ASM-133 para el borrador |
+| La plataforma no puede adjuntar archivos (UPS-31) | Resuelta en wasichai 1.3.0 y adoptada en el plan 8.2b: JOB-05 adjunta el borrador como la plataforma; el respaldo de ASM-133 no se usa |
 
 - **ADR de SGSPE:** ADR-0013, ADR-0014, ADR-0015 y ADR-0017.
 - **Supuestos que este documento aplica:** ASM-003, ASM-013, ASM-014, ASM-026, ASM-027, ASM-028, ASM-029, ASM-031,
   ASM-037, ASM-038, ASM-047, ASM-055, ASM-058, ASM-061, ASM-063, ASM-088, ASM-124 y ASM-133 a ASM-138.
 - **Pendientes:** GAP-001 (normativa, en particular la de datos personales), GAP-009 (tenant y marca), GAP-011
   (GeoServer y cartografía), GAP-014 (retención; el consentimiento por foto quedó confirmado) y GAP-022 (despliegue y
-  almacenamiento); UPS-31 (la plataforma adjunta archivos, wasichai/wasichai#111). GAP-010 quedó resuelta (ASM-135), y
+  almacenamiento). UPS-31 (la plataforma adjunta archivos) quedó resuelta en wasichai 1.3.0, GAP-010 (ASM-135) también, y
   T3 a T10 quedan fuera de F8 (ASM-026).

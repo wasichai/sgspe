@@ -31,8 +31,9 @@ sealed interface StoredRead {
     data object Missing : StoredRead
 }
 
-// los bytes y el descriptor de un archivo de wasichai-files para los trabajos de fondo, como la plataforma: FileService de
-// wasichai-files 1.2.0 exige una persona (UPS-31), así que se lee la fila de stored_files de la organización y el almacén, como
+// los bytes y el descriptor de un archivo de wasichai-files para los trabajos de fondo, como la plataforma: escrito cuando
+// FileService exigía una persona (UPS-31, resuelta en wasichai 1.3.0, que ya deja abrir dentro de asPlatform; pasar JOB-05 y
+// JOB-07 a FileService.open es otra tarea), así que se lee la fila de stored_files de la organización y el almacén, como
 // StoredFileCleanup. lo usan JOB-07 (el texto de una evidencia, decisión 5 del plan 7.2c), JOB-05 (las fotos de un entregable,
 // con su SHA-256 comprobado contra el descriptor) y DeliverableWriteGuard (el SHA-256 del archivo de una versión). el id sale
 // de un campo FILE que el código leyó; nunca de una petición. a lo sumo `maxBytes` en memoria: uno más grande no se lee.

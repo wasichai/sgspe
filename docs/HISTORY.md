@@ -3,6 +3,18 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-15 — wasichai 1.3.0: UPS-31 y UPS-32 resueltas
+
+El backend pasa a wasichai 1.3.0 (plan 8.2b), sin cambios incompatibles, con las mismas dependencias de terceros y las
+mismas rutas HTTP.
+
+- **UPS-31** (wasichai/wasichai#113, WAS-ADR-068). La plataforma sube, adjunta y abre archivos dentro de `asPlatform`:
+  JOB-05 sube los siete archivos del borrador y los adjunta con LISTO en una sola escritura del mismo bloque
+  (`PlatformDraftFiles`, sin cambios de código), y las pruebas de integración dejan el doble que adjuntaba como el
+  admin. El respaldo de ASM-133 (`draft_storage_key` y un paso de JOB-08) no se usa.
+- **UPS-32** (wasichai/wasichai#115). wasichai-documents congela tablas relacionadas con celdas nulas: la «Constancia
+  de emisión» de AUT-12 vuelve a llevar la tabla de las versiones con sus SHA-256.
+
 ## 2026-10-13 — Plan 8.0: los documentos de F8
 
 Los documentos de diseño quedan al día con la especificación de F8

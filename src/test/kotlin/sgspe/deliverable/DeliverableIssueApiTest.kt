@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
@@ -41,11 +42,17 @@ class DeliverableIssueApiTest : F8ApiTest() {
         val certificate = tree(send("GET", "/api/objects/deliverable/records/$id/documents", null, HttpStatus.OK)).values().single()
         assertTrue(certificate["number"].asString().startsWith("CE-"), "$certificate")
         assertEquals("VALID", certificate["status"].asString())
-        // sin la tabla de las versiones (UPS-32, decisión 11 del plan 8.1): no se reintroduce hasta que wasichai lo arregle
         val values = certificate["snapshot"]["values"]
         assertEquals(record("deliverable", id)["attributes"]["document_code"].asString(), values["document_code"].asString(), "$certificate")
         assertEquals("0", values["current_revision"].asString())
-        assertTrue(certificate["snapshot"]["related"].isEmpty, "${certificate["snapshot"]["related"]}")
+        // la tabla de las versiones (relatedTable de deliverable_version_deliverable, decisión 11 del plan 8.1), de vuelta con
+        // wasichai 1.3.0, que congela filas con campos nulos (UPS-32): cada versión con el SHA-256 de su PDF
+        val related = certificate["snapshot"]["related"]
+        assertFalse(related.isEmpty, "$certificate")
+        for (version in all) {
+            val sha = version["attributes"]["pdf_sha256"].asString()
+            assertTrue(related.toString().contains(sha), "la constancia no lista la versión ${version["id"]}: $related")
+        }
         // deliverable_version es apiOnly y appendOnly: la API genérica responde 403 antes de mirar appendOnly (api.md §1 y
         // §3.3), como en stakeholder_assessment e indicator_measurement
         val changed = edit("deliverable_version", internal["id"].asString(), mapOf("revision" to "9"))

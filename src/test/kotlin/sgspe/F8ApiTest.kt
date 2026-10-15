@@ -25,10 +25,10 @@ import java.util.UUID
 // la base de las pruebas de integración de F8 (plan 8.1; los planes 8.2b y 8.2c la usan): lo de F7ApiTest más los
 // entregables como los escribirán sus endpoints. deliverable y deliverable_section se crean por la API genérica (no son
 // apiOnly); deliverable_version y deliverable_template son apiOnly y appendOnly: su archivo lo sube una persona con
-// FileService.stage y el registro lo crea esa misma persona en proceso (asUser), como harán DeliverableIssue y
-// DeliverableTemplates, porque la plataforma todavía no adjunta archivos (UPS-31). reportScenario arma el proyecto y los
+// FileService.stage y el registro lo crea esa misma persona en proceso (asUser), como hacen DeliverableIssue y
+// DeliverableTemplates, que escriben como la persona. reportScenario arma el proyecto y los
 // datos de T2 y T1 (§5 de la especificación de F8). todo ficticio (RQ-SEC-018). las ayudas son bloqueantes. desde el plan
-// 8.2b, JOB-05 corre con los dobles de DeliverableDoubles (PDF, mapas y adjuntos como el admin, UPS-31): requestDraft y generate
+// 8.2b, JOB-05 corre con los dobles de DeliverableDoubles (PDF y mapas) y adjunta como la plataforma: requestDraft y generate
 @Import(DeliverableDoubles.Config::class)
 abstract class F8ApiTest : F7ApiTest() {
     @Autowired
@@ -42,9 +42,6 @@ abstract class F8ApiTest : F7ApiTest() {
 
     @Autowired
     protected lateinit var fakeMaps: DeliverableDoubles.FakeReportMaps
-
-    @Autowired
-    protected lateinit var draftFiles: DeliverableDoubles.PersonDraftFiles
 
     // el admin de la prueba como Account, para subir y crear como él
     protected fun admin(): Account = me().let { Account(token, it["email"].asString(), it["userId"].asString()) }
@@ -192,7 +189,7 @@ abstract class F8ApiTest : F7ApiTest() {
     }
 
     // un borrador LISTO sin pasar por JOB-05 (plan 8.2b): los siete archivos subidos y adjuntos por `account` en una escritura de
-    // derivados con la marca, como lo hará la plataforma con UPS-31; el modelo es READY_MODEL. devuelve el SHA-256 del modelo
+    // derivados con la marca, como lo hace la plataforma en JOB-05; el modelo es READY_MODEL. devuelve el SHA-256 del modelo
     protected fun readyDraft(
         deliverable: String,
         account: Account = admin()
@@ -251,11 +248,8 @@ abstract class F8ApiTest : F7ApiTest() {
         account: Account = admin()
     ): Response = exchange("POST", "/api/sgspe/deliverables/$deliverable/drafts", null, account.token, withReason("borrador de prueba"))
 
-    // una vuelta de JOB-05; los archivos los adjunta el admin (PersonDraftFiles, UPS-31)
-    protected fun generate(): Int {
-        draftFiles.token = token
-        return runBlocking { generationJob.runOnce() } ?: 0
-    }
+    // una vuelta de JOB-05; los archivos los sube y adjunta la plataforma (PlatformDraftFiles)
+    protected fun generate(): Int = runBlocking { generationJob.runOnce() } ?: 0
 
     // un T2 listo para pedir su borrador: el escenario de reportScenario con su entregable INFORME DE CAMPO Y AVANCE
     protected fun requestedFieldReport(scenario: ReportScenario = reportScenario()): String {

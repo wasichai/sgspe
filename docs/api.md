@@ -501,7 +501,7 @@ Las acciones declaradas son las del catálogo de RQ-SEC-004, con los objetos que
   emitidas), `ETag` igual al SHA-256 del archivo. Las de evidencias y de entregables (borradores y versiones) son
   siempre `attachment`, con `X-Content-Type-Options: nosniff` y `Cache-Control: no-store`.
 - Los archivos de entregables (§4.12) son campos `FILE` de wasichai-files (ASM-133): los del borrador los sube JOB-05
-  como la plataforma (UPS-31), los de una versión quien emite y el de una plantilla `POST
+  como la plataforma (UPS-31, desde wasichai 1.3.0), los de una versión quien emite y el de una plantilla `POST
   /api/sgspe/deliverable-templates`. Las rutas nativas de archivos de esos objetos las atiende SGSPE.
 - Ninguna URL externa se descarga en el servidor (ASM-050).
 
@@ -1300,7 +1300,7 @@ secciones del tipo en la transacción del alta del entregable.
   `POSSIBLE_PERSONAL_DATA`, `PDF_CHECK_FAILED` (con el nivel INTERNO o EXTERNO en el lugar de la sección),
   `PDF_CONVERTER_UNAVAILABLE`, `FILE_TOO_LARGE`, `TEMPLATE_UNAVAILABLE` (la plantilla de la clave no existe o su archivo
   no se lee), `TYPE_NOT_AVAILABLE` (el tipo ya no está disponible cuando JOB-05 toma el pedido) y `GENERATION_FAILED` (un
-  error inesperado o, con un conversor real y sin UPS-31, la plataforma que no adjunta). `GET …/draft` los devuelve en
+  error inesperado). `GET …/draft` los devuelve en
   `warnings[]` como `{ code, section }`, y `levels[].candidateSha256` es el del PDF candidato de cada nivel.
 - **Un pedido, un intento.** `draft_generated_at` es el instante en que JOB-05 tomó el pedido (el de congelar el modelo,
   si llegó a hacerlo); se escribe también en FALLIDO, así un FALLIDO no se reintenta sin un pedido nuevo. Un intento
