@@ -325,4 +325,60 @@ class ExecutiveAggregatesParityApiTest : F6QueryApiTest() {
         val closed = closing("KPI-GRV-02", listOf(a, b), token)["value"].asInt()
         assertEquals(indicator(admin, "KPI-GRV-02")["value"].asInt() - 1, closed)
     }
+
+    // los filtros que el escenario principal no ejerce (campaña, responsable, comunidad, unidad administrativa) y los bordes del
+    // periodo en Lima (UTC-5): 04:59:59Z del día 1 es del mes anterior y 05:00:00Z ya es del periodo; lo mismo al final. en un
+    // proyecto aparte para no mover las cifras del escenario principal
+    @Test
+    fun `los dos caminos coinciden con los filtros de campana, responsable y comunidad y en los bordes del dia de Lima`() {
+        val c = activeUtmProject()
+        val place = localityWith("Caserío Ejemplo Tres", location = at(100.0, -154_000.0 + 100))
+        approvedArea(c, "AIDS", -154_000.0, place)
+        val community = UUID.fromString(createRecord("community", mapOf("name" to "Comunidad Ejemplo")))
+        val district = unit("DISTRITO", rect(-500.0, -154_500.0, 1500.0, -152_500.0, multi = true))
+        val edges =
+            listOf(
+                "${start}T04:59:59Z",
+                "${start}T05:00:00Z",
+                "${end.plusDays(1)}T04:59:59Z",
+                "${end.plusDays(1)}T05:00:00Z"
+            )
+        // interacciones y quejas justo en los bordes (las del primer y último instante cuentan o no según Lima, no según UTC)
+        edges.forEachIndexed { i, at ->
+            held(
+                c,
+                "REUNION",
+                1,
+                mapOf("held_at" to at) + if (i % 2 == 0) mapOf("community" to community.toString()) else emptyMap()
+            )
+        }
+        val receiver = member("COMMUNITY_RELATIONS_OFFICER", c.toString())
+        edges.forEach { grievance(c.toString(), receiver, mapOf("received_at" to it)) }
+        // compromisos con campaña y responsable (los dos filtros de la base de KPI-COM-02 y KPI-COM-03)
+        val campaign = campaign(c.toString())
+        val owner = userWithRole("COMMITMENT_MANAGER")
+        approvedCommitment(c.toString(), owner, mapOf("exploration_campaign" to campaign))
+        approvedCommitment(
+            c.toString(),
+            owner,
+            mapOf("exploration_campaign" to campaign, "agreed_date" to start.toString(), "due_date" to start.plusDays(9).toString())
+        ).also { platformPatch("commitment", it, mapOf("deadline_status" to "VENCIDO")) }
+        approvedCommitment(c.toString())
+
+        val base = mapOf("project" to listOf(c.toString()), "periodStart" to listOf(start.toString()), "periodEnd" to listOf(end.toString()))
+        val viewer = member("COMMUNITY_RELATIONS_OFFICER", c.toString())
+        for (caller in listOf(token, viewer.token, null)) {
+            parity(Kpis.EXECUTIVE, base, caller)
+            parity(Kpis.EXECUTIVE, base + ("owner" to listOf(owner.id)), caller)
+            parity(Kpis.EXECUTIVE, base + ("explorationCampaign" to listOf(campaign)), caller)
+            parity(Kpis.EXECUTIVE, base + ("owner" to listOf(owner.id)) + ("explorationCampaign" to listOf(campaign)), caller)
+            parity(Kpis.EXECUTIVE, base + ("community" to listOf(community.toString())), caller)
+            parity(Kpis.EXECUTIVE, base + ("administrativeUnit" to listOf(district.toString())), caller)
+            parity(Kpis.COMMITMENTS, base + ("owner" to listOf(owner.id)) + ("explorationCampaign" to listOf(campaign)), caller)
+        }
+        // el borde: las dos de dentro (05:00:00Z del día 1 y 04:59:59Z del día siguiente al fin) y no las de fuera
+        val board = parity(Kpis.EXECUTIVE, base, token)
+        assertEquals(2, indicator(board, "KPI-ENG-01")["value"].asInt())
+        for (caller in listOf(token, null)) closing("KPI-GRV-02", listOf(c), caller)
+    }
 }

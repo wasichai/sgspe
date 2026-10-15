@@ -507,12 +507,25 @@ class ArchitectureTest {
         assertEquals(emptyList<String>(), offenders(notAggregatesUsers, KPI_AGGREGATES))
         assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(aggregates) })
         assertTrue(flags(KPI_AGGREGATES, "private val aggregates: KpiAggregates"))
-        assertFalse(flags(KPI_AGGREGATES, "// los conteos de AggregateSql"))
+        assertFalse(flags(KPI_AGGREGATES, "// los conteos de KpiAggregates"))
+        // la compuerta no se inyecta fuera de territory y KpiAggregates (SpatialGate.ID y SpatialGate.STATE son constantes)
+        val gateUsers =
+            sources(main).filterNot { f ->
+                f.invariantSeparatorsPath.contains("/sgspe/territory/") || f.invariantSeparatorsPath.endsWith(aggregates)
+            }
+        assertEquals(emptyList<String>(), offenders(gateUsers, GATE_USE))
+        assertTrue(flags(GATE_USE, "private val gate: SpatialGate"))
+        assertFalse(flags(GATE_USE, "source.system(this, SpatialGate.STATE)"))
+        assertFalse(flags(GATE_USE, "import sgspe.territory.SpatialGate"))
+        assertFalse(flags(GATE_USE, "// la compuerta SpatialGate"))
         // y solo DashboardData le pasa la organización de la plataforma (KpiContext.platform) a KpiAggregates.select
         val notData = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(data) }
         assertEquals(emptyList<String>(), offenders(notData, SELECT_WITH_PLATFORM))
         assertTrue(flags(SELECT_WITH_PLATFORM, "{ source.select(query, platform) }"))
         assertFalse(flags(SELECT_WITH_PLATFORM, "gate.select(query.reads, query.sql, query.map)"))
+        // límite conocido: el vigía mira línea por línea y no ve una llamada partida por ktlint (`.select(` y `platform` en
+        // líneas distintas); hoy ningún archivo lo hace
+        assertFalse(flags(SELECT_WITH_PLATFORM, "source.select(\n query,\n platform\n)"))
     }
 
     // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
@@ -669,6 +682,7 @@ class ArchitectureTest {
         private val SELECT_AS_PLATFORM = Regex("""\bselectAsPlatform\s*\(""")
         private val ROWS_WITH_PLATFORM = Regex("""\.rows\([^)]*\bplatform\b""")
         private val KPI_AGGREGATES = Regex("""\bKpiAggregates\b""")
+        private val GATE_USE = Regex("""^(?!\s*import\b).*\bSpatialGate\b(?!\.(ID|STATE)\b)""")
         private val SELECT_WITH_PLATFORM = Regex("""\.select\([^)]*\bplatform\b""")
         private val AGENT_IMPORT = Regex("""^\s*import\s+(wasichai\.agent|com\.embabel)\.""")
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")

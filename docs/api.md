@@ -1163,7 +1163,8 @@ sin error. Las excepciones son el tablero `territory` (F6) y, desde F8, el table
   `TOO_MANY_RECORDS` y hay que acotar los proyectos, el periodo o el territorio. Un `ADMIN` sin filtros puede recibirlo; el
   portal lo muestra como «acote los filtros». Desde el plan 8.2a-bis, KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03,
   KPI-RSK-01, KPI-EXE-02 y las series de interacciones y de quejas de KPI-EXE-03 cuentan en la base (`dashboards.md`
-  §6.3) y no leen filas, así que no dan `TOO_MANY_RECORDS`.
+  §6.3) y no leen filas, así que no dan `TOO_MANY_RECORDS`. El tablero `executive` todavía puede responderlo por la serie de
+  vencidos de KPI-EXE-03 y por KPI-INV-03, que siguen leyendo filas.
 - Errores, con el código en `errors[0].message` y el campo en `errors[0].field` (§3.3): `404` `DASHBOARD_NOT_FOUND`
   (`dashboard`: un tablero que no existe o no está en esta fase); `404` `INDICATOR_NOT_FOUND` (`code`); `400`
   `INVALID_BREAKDOWN` (`breakdown`: un desglose que el indicador no ofrece; sobre un indicador no disponible,

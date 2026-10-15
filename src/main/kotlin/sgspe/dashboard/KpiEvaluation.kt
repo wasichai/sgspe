@@ -38,7 +38,7 @@ object KpiEvaluation {
             val unavailable = value(IndicatorResult.unavailable(reason(missing, data), missing))
             return projects.associate { it.toString() to unavailable }
         }
-        val split = if (kpi.singleProject) null else kpi.computeByProject(data)
+        val split = if (kpi.singleProject || !data.aggregated) null else kpi.computeByProject(data)
         return projects.associate { p ->
             val key = p.toString()
             key to
