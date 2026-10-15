@@ -269,6 +269,15 @@ class SocialDiagnosisType : DeliverableType {
             "organizaciones" -> DiagnosisContext.organizations(scene)
             "proceso_electoral" -> DiagnosisContext.electoral(scene)
             "costumbres" -> DiagnosisContext.customs(scene)
+            "grupos_interes" -> DiagnosisStakeholders.identification(scene)
+            "perfiles" -> DiagnosisStakeholders.profiles(scene)
+            "caracterizacion" -> DiagnosisStakeholders.characterization()
+            "percepciones" -> DiagnosisStakeholders.perceptions(scene)
+            "clasificacion" -> DiagnosisStakeholders.classification(scene)
+            "grupos_estrategicos" -> DiagnosisStakeholders.group(scene, "ESTRATEGICO")
+            "grupos_politicos" -> DiagnosisStakeholders.group(scene, "POLITICO")
+            "grupos_monitoreo" -> DiagnosisStakeholders.group(scene, "PARA MONITOREO")
+            "temas_clave" -> DiagnosisStakeholders.keyThemes(scene)
             else -> emptyList()
         }
 

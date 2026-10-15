@@ -231,4 +231,53 @@ class SocialDiagnosisTypeTest {
         assertTrue(external.any { "Información reservada en esta versión." in it })
         assertTrue(external.none { "movimientos" in it })
     }
+
+    @Test
+    fun `los grupos de interes van por ambito y tipo con el actor por cargo, y los perfiles con su nota de entrevista`() {
+        val model = assemble().model
+        val identification = model.tables("grupos_interes")
+        assertEquals(listOf("AUTORIDAD LOCAL", "Presidente, Junta Directiva Comunal Ejemplo"), identification[0].rows.single().map { it.text })
+        assertEquals(listOf("ORGANIZACION SOCIAL DISTRITAL", "Municipalidad Distrital Ejemplo"), identification[1].rows.single().map { it.text })
+        val profiles = model.blocks("perfiles")
+        assertTrue(Block.Heading(3, "Municipalidad Distrital Ejemplo") in profiles, "$profiles")
+        assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { "Estado de la entrevista: SE NEGO." in it.footnotes })
+        val classification = model.tables("clasificacion")
+        assertEquals(
+            listOf("ESTRATEGICO", "[[person:${T1Source.PERSON}]]", "Presidente", "AUTORIDAD LOCAL", "A FAVOR"),
+            classification[0].rows.single().map { it.text }
+        )
+        assertTrue((model.blocks("grupos_politicos").single() as Block.Paragraph).markdown.contains("Municipalidad Distrital Ejemplo"))
+        assertEquals(
+            "Agua",
+            model
+                .tables("temas_clave")
+                .single()
+                .rows
+                .single()[0]
+                .text
+        )
+        val perceptions = model.blocks("percepciones")
+        assertEquals(Block.Heading(3, "7.1.1 Percepciones sobre la minería"), perceptions[0])
+        assertTrue((perceptions[3] as Block.Paragraph).markdown.contains("«Queremos agua limpia» — Dirigente comunal"), "${perceptions[3]}")
+    }
+
+    // Review Focus 1
+    @Test
+    fun `EXTERNO no lleva religion, proceso electoral, razones ni postura de una persona`() {
+        val external = ReportDisclosure.apply(assemble().model, Disclosure.EXTERNO)
+        val text =
+            external.sections.flatMap { it.blocks }.joinToString("\n") { block ->
+                when (block) {
+                    is Block.Paragraph -> block.markdown
+                    is Block.Table -> block.rows.flatten().joinToString(" ") { it.text }
+                    else -> ""
+                }
+            }
+        for (forbidden in listOf("Católica", "movimientos locales", "Espera empleo local", "Teme por el agua", "Persona Ejemplo 1")) {
+            assertTrue(forbidden !in text, "$forbidden salió en EXTERNO")
+        }
+        val row = external.tables("clasificacion")[0].rows.single()
+        assertEquals("Presidente, Junta Directiva Comunal Ejemplo", row[1].text)
+        assertEquals("", row[4].text)
+    }
 }
