@@ -40,7 +40,11 @@ class DeliverableSections(
     private val sources: ReportSources,
     private val clock: Clock
 ) {
-    suspend fun source(sectionId: UUID): SectionSource {
+    // `nameable`: si la seudonimización de la corrida reemplaza entero un nombre (SectionText)
+    suspend fun source(
+        sectionId: UUID,
+        nameable: (String) -> Boolean
+    ): SectionSource {
         val section = records.get(Deliverables.SECTION, sectionId)
         val deliverableId = Records.uuid(section.attributes[Deliverables.DELIVERABLE]) ?: throw notAssisted()
         val deliverable = records.get(Deliverables.DELIVERABLE, deliverableId)
@@ -89,7 +93,7 @@ class DeliverableSections(
                     ?.toString()
                     ?.take(10)
                     ?.let(LocalDate::parse),
-            text = SectionText.render(blocks, assembled.model.people),
+            text = SectionText.render(blocks, assembled.model.people, nameable),
             updatedAt = section.updatedAt?.toString()
         )
     }

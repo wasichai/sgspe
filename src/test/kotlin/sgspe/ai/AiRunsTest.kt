@@ -1,6 +1,7 @@
 package sgspe.ai
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import wasichai.core.common.ValidationException
@@ -52,5 +53,14 @@ class AiRunsTest {
         assertEquals(summary, AiRuns.select(cases, RunRequest("AI-04", RunTarget("project", id))))
         val refused = assertThrows<ValidationException> { AiRuns.select(cases, RunRequest("AI-04", RunTarget("evidence", id))) }
         assertEquals("target.object", refused.violations.first().field)
+    }
+
+    // dos casos del mismo useCase sobre el mismo objeto harían ambigua la elección: AiRuns no arranca
+    @Test
+    fun `dos casos del mismo useCase no comparten un objeto`() {
+        AiRuns.requireDisjoint(listOf(Case("AI-04", setOf("project")), Case("AI-04", setOf("deliverable_section")), Case("AI-01", setOf("project"))))
+        val clash =
+            assertThrows<IllegalStateException> { AiRuns.requireDisjoint(listOf(Case("AI-04", setOf("project")), Case("AI-04", setOf("project", "x")))) }
+        assertTrue("AI-04" in clash.message.orEmpty() && "project" in clash.message.orEmpty(), clash.message)
     }
 }

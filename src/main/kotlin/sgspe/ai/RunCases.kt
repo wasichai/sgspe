@@ -294,26 +294,14 @@ class SectionDraftCase(
         budget: RunBudget,
         user: AuthenticatedUser
     ): RunProposals {
-        val section = sections.source(target.recordId)
+        val section = sections.source(target.recordId, nameable(names))
         val indicators = section.project?.let { indicators(it, section) }.orEmpty()
-        val text =
-            buildList {
-                add("Sección: ${section.title}")
-                add("Guía: ${section.guide}")
-                section.periodStart?.let { add("Periodo: $it a ${section.periodEnd}") }
-                add("Datos de la sección:")
-                add(section.text.ifBlank { "Sin datos calculados." })
-                if (indicators.isNotEmpty()) {
-                    add("Indicadores del periodo:")
-                    addAll(indicators)
-                }
-            }.joinToString("\n")
         val source =
             RunSource(
                 objectName = DraftAgents.SECTION_TARGET,
                 id = target.recordId,
                 project = section.project,
-                text = text,
+                text = text(section, indicators),
                 inputReference = "${DraftAgents.SECTION_TARGET}:${target.recordId} updated_at:${section.updatedAt}"
             )
         return drafts.section(source, names, budget)
@@ -327,12 +315,44 @@ class SectionDraftCase(
     ): List<String> {
         val start = section.periodStart ?: return emptyList()
         val end = section.periodEnd ?: return emptyList()
+        // solo lo que no lee es «no disponible»; el tope de filas y los demás errores se propagan (ReportSources.readable)
         val board =
-            try {
-                dashboards.dashboard(Kpis.MONITORING, ReportSources.period(project, start, end))
-            } catch (_: WasichaiException) {
-                return listOf(RunSources.unavailableBoard(Kpis.MONITORING))
-            }
+            ReportSources.readable(null) { dashboards.dashboard(Kpis.MONITORING, ReportSources.period(project, start, end)) }
+                ?: return listOf(RunSources.unavailableBoard(Kpis.MONITORING))
         return board.indicators.map { RunSources.indicatorLine(it) }
+    }
+
+    companion object {
+        // la fuente de la llamada: título, guía, periodo (un extremo que falta, «sin dato»), datos e indicadores
+        fun text(
+            section: SectionSource,
+            indicators: List<String>
+        ): String =
+            buildList {
+                add("Sección: ${section.title}")
+                add("Guía: ${section.guide}")
+                if (section.periodStart != null || section.periodEnd != null) {
+                    add("Periodo: ${section.periodStart ?: SIN_DATO} a ${section.periodEnd ?: SIN_DATO}")
+                }
+                add("Datos de la sección:")
+                add(section.text.ifBlank { "Sin datos calculados." })
+                if (indicators.isNotEmpty()) {
+                    add("Indicadores del periodo:")
+                    addAll(indicators)
+                }
+            }.joinToString("\n")
+
+        // un nombre se escribe en la fuente solo si el diccionario de la corrida cubre cada una de sus palabras: así el
+        // Pseudonymizer lo reemplaza entero. una persona sin apellidos o de una sola palabra no entra al diccionario y sale
+        // con su cita de EXTERNO (SectionText)
+        fun nameable(names: NameDictionary): (String) -> Boolean =
+            { name ->
+                val text = Folding.nfc(name)
+                val words = Folding.words(text)
+                val found = names.matches(text).map { it.first }
+                words.isNotEmpty() && words.all { word -> found.any { word.range.first >= it.first && word.range.last <= it.last } }
+            }
+
+        private const val SIN_DATO = "sin dato"
     }
 }

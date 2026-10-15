@@ -47,6 +47,10 @@ class AiRuns(
     private val activation: AiActivation,
     private val cases: List<AiRunCase>
 ) {
+    init {
+        requireDisjoint(cases)
+    }
+
     suspend fun run(body: Map<String, Any?>): CommandAnswer {
         val request = parse(body, cases.map { it.useCase }.distinct())
         val case = select(cases, request)
@@ -71,6 +75,14 @@ class AiRuns(
         private val LOG = LoggerFactory.getLogger(AiRuns::class.java)
         const val USE_CASE = "useCase"
         const val TARGET = "target"
+
+        // dos casos del mismo useCase sobre un mismo objeto harían ambigua la elección (select): AiRuns no arranca
+        fun requireDisjoint(cases: List<AiRunCase>) {
+            for ((useCase, same) in cases.groupBy { it.useCase }) {
+                val seen = mutableSetOf<String>()
+                for (objectName in same.flatMap { it.objects }) check(seen.add(objectName)) { "$useCase tiene dos casos sobre $objectName" }
+            }
+        }
 
         // el caso del pedido por su useCase y su objeto: AI-04 tiene el resumen del proyecto y el borrador de sección (plan 8.2c)
         fun select(

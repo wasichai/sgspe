@@ -7,14 +7,24 @@ import sgspe.privacy.Mentions
 
 // lo que AI-04 manda al modelo de una sección (especificación de F8 §3.9; decisión 16 del plan 8.2c): los bloques que el tipo
 // arma para ella como texto con Markdown, sin los bloques ni las celdas marcados (restringidos, titulares, registros, el aviso
-// que solo muestra EXTERNO: no van al modelo), con las menciones por nombre (la seudonimización de ModelCalls las reemplaza
-// por marcadores) y sin fotos, mapas, índices ni saltos
+// que solo muestra EXTERNO: no van al modelo) y sin fotos, mapas, índices ni saltos. una mención sale por nombre solo si
+// `nameable` dice que la seudonimización de la corrida lo reemplaza entero (y vuelve como [PERSONA:<id>]); si no, con la cita
+// de EXTERNO (cargo y organización, código GI- o «una persona de <localidad>»): un nombre nunca llega en claro al proveedor
 object SectionText {
     fun render(
         blocks: List<Block>,
-        people: Map<String, MentionTarget>
+        people: Map<String, MentionTarget>,
+        nameable: (String) -> Boolean
     ): String {
-        fun r(text: String): String = Mentions.resolve(text, people, Disclosure.INTERNO)
+        fun r(text: String): String =
+            Mentions.TOKEN.replace(text) { match ->
+                val target = people["${match.groupValues[1]}:${match.groupValues[2].lowercase()}"]
+                when {
+                    target == null -> Mentions.UNKNOWN
+                    nameable(target.name) -> target.name
+                    else -> Mentions.cite(target, Disclosure.EXTERNO)
+                }
+            }
         val parts =
             blocks.mapNotNull { block ->
                 when (block) {

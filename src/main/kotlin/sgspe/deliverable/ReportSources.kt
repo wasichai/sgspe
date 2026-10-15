@@ -9,7 +9,8 @@ import sgspe.dashboard.KpiReaders
 import sgspe.dashboard.Kpis
 import sgspe.dashboard.MonitoringRow
 import sgspe.territory.ProjectProximityQueries
-import wasichai.core.common.WasichaiException
+import wasichai.core.common.ForbiddenException
+import wasichai.core.common.NotFoundException
 import java.time.LocalDate
 import java.util.UUID
 
@@ -32,7 +33,8 @@ class ReportSources(
 
     // las lecturas de AI-04 de sección (especificación de F8 §3.9; decisión 16 del plan 8.2c): como la persona que pide, con
     // Records y las mismas proyecciones que la plataforma; lo que no lee (un objeto sin READ, un registro fuera de su alcance)
-    // sale vacío, nunca un error, y la Tabla 9.5 la calcula su lector
+    // sale vacío (readable), y la Tabla 9.5 la calcula su lector. el tope de filas (400 TOO_MANY_RECORDS) y cualquier otro
+    // error se propagan: la corrida falla a la vista, nunca redacta con tablas vacías
     fun person(type: DeliverableType): ReportSource = Person(type.reads)
 
     private inner class Person(
@@ -45,11 +47,7 @@ class ReportSources(
             id: UUID
         ): SourceRow? {
             val allowed = fields(objectName)
-            return try {
-                records.find(objectName, id)?.let { SourceRow(it.id, it.state, it.attributes.filterKeys { k -> k in allowed }) }
-            } catch (_: WasichaiException) {
-                null
-            }
+            return readable(null) { records.find(objectName, id)?.let { SourceRow(it.id, it.state, it.attributes.filterKeys { k -> k in allowed }) } }
         }
 
         override suspend fun all(
@@ -57,10 +55,8 @@ class ReportSources(
             filters: Map<String, String>
         ): List<SourceRow> {
             val allowed = fields(objectName)
-            return try {
+            return readable(emptyList()) {
                 records.all(objectName, filters, max = MAX_ROWS).map { SourceRow(it.id, it.state, it.attributes.filterKeys { k -> k in allowed }) }
-            } catch (_: WasichaiException) {
-                emptyList()
             }
         }
 
@@ -71,10 +67,8 @@ class ReportSources(
             target: String
         ): List<SourceRow> {
             val allowed = fields(target)
-            return try {
+            return readable(emptyList()) {
                 records.related(objectName, id, relationship, max = MAX_ROWS).map { SourceRow(it.id, it.state, it.attributes.filterKeys { k -> k in allowed }) }
-            } catch (_: WasichaiException) {
-                emptyList()
             }
         }
 
@@ -85,12 +79,7 @@ class ReportSources(
             project: UUID,
             start: LocalDate,
             end: LocalDate
-        ): List<MonitoringRow>? =
-            try {
-                dashboards.dashboard(Kpis.MONITORING, period(project, start, end)).rows
-            } catch (_: WasichaiException) {
-                null
-            }
+        ): List<MonitoringRow>? = readable(null) { dashboards.dashboard(Kpis.MONITORING, period(project, start, end)).rows }
     }
 
     private inner class Platform(
@@ -153,6 +142,20 @@ class ReportSources(
     }
 
     companion object {
+        // una lectura de la persona: lo que no lee (sin READ sobre el objeto, fuera de su alcance o inexistente) es `empty`, como
+        // en PersonNames; todo lo demás se propaga
+        suspend fun <T> readable(
+            empty: T,
+            read: suspend () -> T
+        ): T =
+            try {
+                read()
+            } catch (_: ForbiddenException) {
+                empty
+            } catch (_: NotFoundException) {
+                empty
+            }
+
         // los parámetros del tablero monitoring para un proyecto y un periodo
         fun period(
             project: UUID,
