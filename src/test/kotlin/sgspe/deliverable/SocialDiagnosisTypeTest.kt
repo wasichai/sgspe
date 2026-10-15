@@ -5,11 +5,14 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import sgspe.dashboard.MonitoringRow
+import sgspe.dashboard.Official
 import sgspe.privacy.Block
 import sgspe.privacy.Disclosure
 import sgspe.privacy.Mark
 import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportModel
+import java.time.LocalDate
 import java.util.UUID
 
 // especificación de F8 §3.8 y §5 («Tipos», SocialDiagnosisTypeTest; plan 8.2c, Tareas 9 a 13): T1 ensamblado con una fuente
@@ -317,5 +320,101 @@ class SocialDiagnosisTypeTest {
                 .rows
                 .first { it[0].text == "Tierra" }
         assertEquals(listOf("Sin dato", "Sin dato", "Sin dato"), tierra.drop(1).map { it.text })
+    }
+
+    // la Tabla 9.5 la calcula ReportSources con el lector de la plataforma; aquí, una fila fija
+    private class MonitoredSource : FakeReportSource() {
+        override suspend fun monitoring(
+            project: UUID,
+            start: LocalDate,
+            end: LocalDate
+        ): List<MonitoringRow> =
+            listOf(
+                MonitoringRow(1, "KPI-ENG-01", "Interacciones del periodo", "Actas", "T1", true, 12, 10, "CATALOG", Official("m1", "2026-10-01T00:00:00Z", 11))
+            )
+    }
+
+    @Test
+    fun `el capitulo 9 lleva la Tabla 9_5 con la cifra oficial, la tendencia, la matriz 5 x 5 y la gestion del riesgo`() {
+        val model = assemble(T1Source.source(MonitoredSource())).model
+        assertEquals(
+            listOf("1", "KPI-ENG-01 Interacciones del periodo", "Actas", "12.00", "10.00", "11.00 (cierre del 01/10/2026)"),
+            model
+                .tables("monitoreo")
+                .single()
+                .rows
+                .single()
+                .map { it.text }
+        )
+        val evaluation = model.blocks("evaluacion_grupos")
+        val months = evaluation.filterIsInstance<Block.Table>().single()
+        assertEquals(listOf("2026-09", "2", "3.00", "0", "100", "100"), months.rows.last().map { it.text })
+        val chart = evaluation.filterIsInstance<Block.LineChart>().single()
+        assertEquals(6, chart.categories.size)
+        assertEquals(
+            "3.00",
+            chart.series
+                .single()
+                .values
+                .last()
+        )
+        val matrix = model.tables("riesgos").single { it.figure }
+        // fila del impacto 4 (la segunda desde arriba), probabilidad 4: el riesgo RS-1, crítico con 16
+        assertEquals("1", matrix.rows[1][4].text)
+        assertEquals("FF7C80", matrix.rows[1][4].shade)
+        assertEquals("C6E0B4", matrix.rows[4][1].shade)
+        val management =
+            model
+                .tables("gestion_riesgos")
+                .single()
+                .rows
+                .single()
+        assertEquals("RS-1 Conflicto por el agua", management[0].text)
+        assertTrue("Monitoreo participativo del agua." in management.last().text)
+        assertTrue(
+            model
+                .tables("seguimiento_compromisos")
+                .first()
+                .rows
+                .any { it.map { c -> c.text } == listOf("fulfilled", "1") }
+        )
+        assertEquals(
+            listOf("MUY ALTA", "ESTRATEGICO", "A FAVOR", "AIDS", "AUTORIDAD LOCAL", "Deciden en la asamblea."),
+            model
+                .tables("priorizacion")
+                .single()
+                .rows
+                .single()
+                .map { it.text }
+        )
+        assertTrue((model.blocks("seguimiento_compromisos").last() as Block.Paragraph).markdown.contains("50,000.00 PEN"))
+        assertTrue(model.tables("necesidades").any { table -> table.rows.any { it[0].text == "Relacionista comunitario" && it[1].text == "2" } })
+    }
+
+    // Review Focus 5
+    @Test
+    fun `sin estudio, sin AIIS, sin perfiles y sin indicadores el T1 se arma con sin dato`() {
+        val source = T1Source.source()
+        source.rows.getValue("area_of_influence").removeIf { it.id == T1Source.AIIS }
+        listOf("locality_profile", "stakeholder_assessment", "perception", "key_theme").forEach { source.rows.remove(it) }
+        val full = T1Source.input()
+        val input =
+            AssemblyInput(
+                full.deliverable.copy(attributes = full.deliverable.attributes - "study"),
+                full.sections,
+                full.templateId,
+                full.templateSha256,
+                full.draftRevision,
+                full.issueRevision,
+                full.today
+            )
+        val assembled = runBlocking { type.assemble(input, source) }
+        val model = assembled.model
+        assertEquals(46, model.sections.size)
+        assertTrue((model.blocks("objetivos").first() as Block.Paragraph).markdown.contains("no registra"))
+        assertTrue((model.blocks("aiis").first() as Block.Paragraph).markdown.contains("no tiene un área de influencia indirecta social aprobada"))
+        assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))
+        assertTrue(model.blocks("evaluacion_grupos").single() is Block.Paragraph)
+        assertEquals(listOf(UUID.fromString(T1Source.AIDS)), assembled.maps.single().areas)
     }
 }

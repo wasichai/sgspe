@@ -278,6 +278,18 @@ class SocialDiagnosisType : DeliverableType {
             "grupos_politicos" -> DiagnosisStakeholders.group(scene, "POLITICO")
             "grupos_monitoreo" -> DiagnosisStakeholders.group(scene, "PARA MONITOREO")
             "temas_clave" -> DiagnosisStakeholders.keyThemes(scene)
+            "estrategias" -> DiagnosisStrategy.strategies(scene)
+            "comunicacion" -> DiagnosisStrategy.communication(scene)
+            "priorizacion" -> DiagnosisStrategy.prioritization(scene)
+            "mensajes" -> DiagnosisStrategy.messages(scene)
+            "alianzas" -> DiagnosisStrategy.alliances(scene)
+            "impactos" -> DiagnosisStrategy.impacts(scene)
+            "monitoreo" -> DiagnosisStrategy.monitoring(scene)
+            "evaluacion_grupos" -> DiagnosisStrategy.evaluation(scene)
+            "seguimiento_compromisos" -> DiagnosisStrategy.commitments(scene)
+            "riesgos" -> DiagnosisStrategy.risks(scene)
+            "gestion_riesgos" -> DiagnosisStrategy.riskManagement(scene)
+            "necesidades" -> DiagnosisStrategy.needs(scene)
             else -> emptyList()
         }
 

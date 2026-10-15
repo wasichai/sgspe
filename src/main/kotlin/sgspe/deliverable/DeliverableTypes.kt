@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import org.springframework.stereotype.Component
+import sgspe.dashboard.MonitoringRow
 import sgspe.privacy.ReportModel
 import java.time.LocalDate
 import java.util.UUID
@@ -52,6 +53,14 @@ interface ReportSource {
 
     // comunidades, sectores y localidades sobre las concesiones dadas (caso 12 de gis.md §5.3), con el área del cruce
     suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>>
+
+    // las 13 filas de la Tabla 9.5 (tablero monitoring) del proyecto en el periodo, con el lector de quien ensambla y la cifra
+    // oficial si el periodo se cerró (especificación de F8 §3.8); null si la fuente no las calcula
+    suspend fun monitoring(
+        project: UUID,
+        start: LocalDate,
+        end: LocalDate
+    ): List<MonitoringRow>? = null
 }
 
 // lo que el tipo recibe para ensamblar: el entregable, sus secciones con su texto, la plantilla congelada y las revisiones

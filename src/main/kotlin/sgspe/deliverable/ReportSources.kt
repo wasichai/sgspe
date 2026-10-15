@@ -1,9 +1,15 @@
 package sgspe.deliverable
 
 import org.springframework.stereotype.Component
+import org.springframework.util.LinkedMultiValueMap
 import sgspe.common.Callers
 import sgspe.common.Records
+import sgspe.dashboard.Dashboards
+import sgspe.dashboard.KpiReaders
+import sgspe.dashboard.Kpis
+import sgspe.dashboard.MonitoringRow
 import sgspe.territory.ProjectProximityQueries
+import java.time.LocalDate
 import java.util.UUID
 
 // las lecturas del ensamblado como la plataforma (especificación de F8 §3.3, paso 2; deliverables.md §7.3): el contenido lo
@@ -14,7 +20,9 @@ import java.util.UUID
 class ReportSources(
     private val records: Records,
     private val callers: Callers,
-    private val proximity: ProjectProximityQueries
+    private val proximity: ProjectProximityQueries,
+    private val dashboards: Dashboards,
+    private val readers: KpiReaders
 ) {
     fun of(
         organizationId: UUID,
@@ -68,9 +76,31 @@ class ReportSources(
 
         override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> =
             proximity.concessionTerritoriesAsPlatform(organizationId, concessions)
+
+        // la Tabla 9.5 con el lector de la plataforma: las mismas funciones que el tablero (RQ-DSH-034, §2.2.16)
+        override suspend fun monitoring(
+            project: UUID,
+            start: LocalDate,
+            end: LocalDate
+        ): List<MonitoringRow>? {
+            check(callers.userOrNull() == null) { "ReportSources lee como la plataforma y no corre dentro de una petición" }
+            return dashboards.dashboard(Kpis.MONITORING, period(project, start, end), readers.platform(organizationId)).rows
+        }
     }
 
     companion object {
+        // los parámetros del tablero monitoring para un proyecto y un periodo
+        fun period(
+            project: UUID,
+            start: LocalDate,
+            end: LocalDate
+        ): LinkedMultiValueMap<String, String> =
+            LinkedMultiValueMap<String, String>().apply {
+                add("project", project.toString())
+                add("periodStart", start.toString())
+                add("periodEnd", end.toString())
+            }
+
         // el tope de filas de un conjunto leído al ensamblar: pasarlo deja el borrador FALLIDO, nunca recortado
         const val MAX_ROWS = 20_000
     }
