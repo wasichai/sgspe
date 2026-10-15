@@ -21,7 +21,7 @@ object DiagnosisStrategy {
         val plans = scene.source.all("engagement_plan", scene.byProject).sortedBy { it.text("name").orEmpty() }
         if (plans.isEmpty()) return listOf(Block.Paragraph("_El proyecto no tiene plan de relacionamiento._"))
         return plans.flatMap { plan ->
-            scene.keep("estrategias", plan.text("strategic_objective"), plan.text("action_axes"))
+            scene.keep("estrategias", plan.text("name"), plan.text("strategic_objective"), plan.text("action_axes"))
             listOfNotNull(
                 Block.Heading(3, DiagnosisScene.or(plan, "name")),
                 plan.text("strategic_objective")?.let { Block.Paragraph("**Meta del periodo.** $it") },
@@ -46,17 +46,9 @@ object DiagnosisStrategy {
             order.flatMap { priority ->
                 val list = grouped.getValue(priority)
                 list.mapIndexed { i, rule ->
+                    scene.keep("priorizacion", rule.text("rationale"))
                     val cells =
-                        listOf("influence_group", "stance", "stakeholder_scope", "stakeholder_type").map {
-                            // la postura es un dato restringido (RQ-SEC-010): EXTERNO la deja en blanco
-                            if (it ==
-                                "stance"
-                            ) {
-                                Cell(DiagnosisScene.or(rule, it), mark = Mark.restricted("stakeholder_assessment.stance"))
-                            } else {
-                                Cell(DiagnosisScene.or(rule, it))
-                            }
-                        } +
+                        listOf("influence_group", "stance", "stakeholder_scope", "stakeholder_type").map { ruleCell(rule, it) } +
                             Cell(rule.text("rationale").orEmpty())
                     if (i == 0) listOf(Cell(priority, rowSpan = list.size)) + cells else cells
                 }
@@ -71,9 +63,23 @@ object DiagnosisStrategy {
         )
     }
 
+    // la postura es un criterio de la regla pero un dato restringido (RQ-SEC-010): EXTERNO la deja en blanco (falla cerrado)
+    private fun ruleCell(
+        rule: SourceRow,
+        field: String
+    ): Cell =
+        if (field ==
+            "stance"
+        ) {
+            Cell(DiagnosisScene.or(rule, field), mark = Mark.restricted("prioritization_rule.stance"))
+        } else {
+            Cell(DiagnosisScene.or(rule, field))
+        }
+
     suspend fun messages(scene: DiagnosisScene): List<Block> =
         table(
             scene,
+            "mensajes",
             "key_message",
             "Mensajes clave",
             listOf(
@@ -87,6 +93,7 @@ object DiagnosisStrategy {
     suspend fun alliances(scene: DiagnosisScene): List<Block> {
         val rows = scene.source.all("strategic_alliance", scene.byProject)
         if (rows.isEmpty()) return listOf(Block.Paragraph("_Sin alianzas registradas._"))
+        rows.forEach { scene.keep("alianzas", it.text("reasons"), it.text("possible_actions")) }
         return listOf(
             Block.Table(
                 "Alianzas estratégicas",
@@ -106,6 +113,7 @@ object DiagnosisStrategy {
     suspend fun impacts(scene: DiagnosisScene): List<Block> =
         table(
             scene,
+            "impactos",
             "potential_impact",
             "Impactos potenciales por tipo de actividad",
             listOf(
@@ -191,6 +199,7 @@ object DiagnosisStrategy {
             }
         val p = scene.project
         val campaigns = scene.source.all("exploration_campaign", scene.byProject)
+        campaigns.forEach { scene.keep("seguimiento_compromisos", it.text("name")) }
         val lines =
             listOf(
                 "- Empleo local solo del área de influencia directa: ${ReportFormat.yesNo(p.attributes["policy_local_jobs_direct_area_only"])}",
@@ -222,7 +231,7 @@ object DiagnosisStrategy {
                 scene.source
                     .all("risk_assessment", mapOf("social_risk" to risk.id))
                     .filter { it.attributes["residual"] != true && scene.upToCutoff(it.text("assessment_date")) }
-                    .maxByOrNull { it.text("assessment_date").orEmpty() } ?: continue
+                    .maxWithOrNull(compareBy<SourceRow>({ it.text("assessment_date").orEmpty() }, { it.id })) ?: continue
             val probability = (latest.attributes["probability"] as? Number)?.toInt() ?: continue
             val impact = (latest.attributes["impact"] as? Number)?.toInt() ?: continue
             if (probability in 1..5 && impact in 1..5) counts[impact - 1][probability - 1]++
@@ -261,7 +270,7 @@ object DiagnosisStrategy {
                     scene.source.all("mitigation_measure", mapOf("social_risk" to risk.id)).joinToString("; ") {
                         DiagnosisScene.or(it, "description") + if (it.attributes["completed"] == true) " (cumplida)" else ""
                     }
-                scene.keep("gestion_riesgos", risk.text("treatment_rationale"), risk.text("current_controls"))
+                scene.keep("gestion_riesgos", risk.text("treatment_rationale"), risk.text("current_controls"), risk.text("monitoring_sources"), measures)
                 listOf(
                     Cell("${DiagnosisScene.or(risk, "code")} ${DiagnosisScene.or(risk, "title")}"),
                     Cell(DiagnosisScene.or(risk, "treatment_decision")),
@@ -300,6 +309,7 @@ object DiagnosisStrategy {
                 .all("project_party", scene.byProject)
                 .filter { it.text("party_role") == "CONTRATISTA" }
                 .mapNotNull { scene.people.organizationName(it.ref("organization")) }
+        activities.forEach { scene.keep("necesidades", it.text("name")) }
         return listOfNotNull(
             Block.Heading(3, "9.4.1 Alineamiento interno"),
             activities.takeIf { it.isNotEmpty() }?.let { list ->
@@ -370,6 +380,7 @@ object DiagnosisStrategy {
 
     private suspend fun table(
         scene: DiagnosisScene,
+        section: String,
         objectName: String,
         title: String,
         columns: List<Pair<String, String>>,
@@ -377,6 +388,7 @@ object DiagnosisStrategy {
     ): List<Block> {
         val rows = scene.source.all(objectName, scene.byProject)
         if (rows.isEmpty()) return listOf(Block.Paragraph("_Sin registros._"))
+        rows.forEach { row -> columns.forEach { (_, field) -> scene.keep(section, row.text(field)) } }
         return listOf(
             Block.Table(
                 title,

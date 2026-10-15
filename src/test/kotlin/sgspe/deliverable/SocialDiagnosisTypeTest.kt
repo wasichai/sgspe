@@ -10,8 +10,10 @@ import sgspe.dashboard.Official
 import sgspe.privacy.Block
 import sgspe.privacy.Disclosure
 import sgspe.privacy.Mark
+import sgspe.privacy.PersonalDataScan
 import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportModel
+import sgspe.privacy.ReportWarning
 import java.time.LocalDate
 import java.util.UUID
 
@@ -416,5 +418,18 @@ class SocialDiagnosisTypeTest {
         assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))
         assertTrue(model.blocks("evaluacion_grupos").single() is Block.Paragraph)
         assertEquals(listOf(UUID.fromString(T1Source.AIDS)), assembled.maps.single().areas)
+    }
+
+    @Test
+    fun `un telefono en un texto libre del capitulo 9 avisa POSSIBLE_PERSONAL_DATA con la clave de la seccion`() {
+        val source = T1Source.source()
+        val measure = source.rows.getValue("mitigation_measure").single()
+        source.rows.getValue("mitigation_measure")[0] = SourceRow(measure.id, measure.state, measure.attributes + ("description" to "Llamar al 987654321."))
+        val message = source.rows.getValue("key_message").single()
+        source.rows.getValue("key_message")[0] = SourceRow(message.id, message.state, message.attributes + ("message" to "Escribir al 12345678."))
+        val assembled = assemble(source)
+        val warnings = PersonalDataScan.scan(assembled.texts, assembled.personNames)
+        assertTrue(ReportWarning(PersonalDataScan.CODE, "gestion_riesgos") in warnings, "$warnings")
+        assertTrue(ReportWarning(PersonalDataScan.CODE, "mensajes") in warnings, "$warnings")
     }
 }
