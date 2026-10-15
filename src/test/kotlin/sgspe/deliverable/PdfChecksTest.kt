@@ -29,6 +29,16 @@ class PdfChecksTest {
         assertTrue(problems.any { it.startsWith("fuente fuera de la lista") }, "$problems")
         assertEquals(listOf("no es un PDF legible"), PdfChecks.problems("hola".toByteArray(), pdfa = false))
     }
+
+    @Test
+    fun `un PDF cortado o con basura tras la cabecera es un problema y no una excepcion`() {
+        val valid = TestPdfs.liberation(pdfa = false)
+        val truncated = valid.copyOf(valid.size / 2)
+        val garbage = "%PDF-1.7\n\u0000\u0001 basura 1 0 obj << /Pages 9 0 R >> endobj".toByteArray()
+        for (bytes in listOf(truncated, garbage)) {
+            assertTrue(PdfChecks.problems(bytes, pdfa = false).isNotEmpty())
+        }
+    }
 }
 
 // PDF de prueba con PDFBox: Liberation Sans viene en el jar de PDFBox (su respaldo de fuentes), con licencia OFL
