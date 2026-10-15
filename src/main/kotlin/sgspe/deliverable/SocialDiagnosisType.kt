@@ -2,6 +2,7 @@ package sgspe.deliverable
 
 import org.springframework.stereotype.Component
 import sgspe.privacy.Block
+import sgspe.privacy.Mark
 import sgspe.privacy.Mentions
 import sgspe.privacy.ReportMeta
 import sgspe.privacy.ReportModel
@@ -12,7 +13,7 @@ import sgspe.privacy.ReportSection
 // 8.2c: el capítulo 5 por tema con un título por ámbito). exige project, study, el AIDS aprobado, el periodo, cutoff_date y el
 // working_crs del proyecto (§2.2.13). lee como la plataforma, solo lo que declara en `reads` (ReportSourcesTest). las
 // personas van como menciones y los datos restringidos con su marca (EXTERNO los quita). el texto de cada sección se copia
-// al final de sus bloques. los mapas (áreas y Anexo 1) se piden a ReportMaps; sin mapa de portada
+// al final de sus bloques (en 5.8 y 5.9, con la marca de su campo: solo INTERNO). los mapas (áreas y Anexo 1) se piden a ReportMaps; sin mapa de portada
 @Component
 class SocialDiagnosisType : DeliverableType {
     override val name: String = NAME
@@ -196,8 +197,17 @@ class SocialDiagnosisType : DeliverableType {
         val texts = input.sections.associate { (it.text(Deliverables.SECTION_KEY) ?: "") to it.text(Deliverables.CONTENT) }
         val built =
             ROWS.map { row ->
-                val narrative = texts[row.key]?.let { listOf(Block.Paragraph(it)) }.orEmpty()
-                ReportSection(row.key, row.title, row.kind, blocks(row.key, scene) + narrative, row.level, row.chapter)
+                val restricted = INTERNAL_ONLY[row.key]
+                val narrative = texts[row.key]?.let { listOf(Block.Paragraph(it, restricted?.let(Mark::restricted))) }.orEmpty()
+                val computed = blocks(row.key, scene)
+                // la narrativa de una sección solo INTERNO sale con la marca del campo: sin otro aviso, EXTERNO dice que se reservó
+                val note =
+                    if (restricted != null && narrative.isNotEmpty() && computed.none { it is Block.Paragraph && it.mark == Mark.EXTERNAL_ONLY }) {
+                        listOf(Block.Paragraph(DiagnosisContext.RESERVED, Mark.EXTERNAL_ONLY))
+                    } else {
+                        emptyList()
+                    }
+                ReportSection(row.key, row.title, row.kind, computed + narrative + note, row.level, row.chapter)
             }
         input.sections
             .flatMap { Mentions.keys(it.text(Deliverables.CONTENT).orEmpty()) }
@@ -304,6 +314,14 @@ class SocialDiagnosisType : DeliverableType {
         private const val NARRATIVE = "NARRATIVA"
         private const val ANNEX = "ANEXO"
 
+        // las secciones cuya narrativa humana es solo INTERNO (deliverables.md §5, filas 5.8 y 5.9), con el campo restringido
+        // de su marca. 5.9 falla cerrado: su narrativa puede hablar de religión, aunque las festividades salgan en EXTERNO
+        private val INTERNAL_ONLY =
+            mapOf(
+                "proceso_electoral" to "locality_profile.electoral_process",
+                "costumbres" to "locality_profile.religion"
+            )
+
         private val ROWS: List<Row> =
             listOf(
                 Row("portada", "Portada", CALCULATED, 1, null, false, "Título con el proyecto, preparado para, suscrito por, mes y año."),
@@ -372,9 +390,17 @@ class SocialDiagnosisType : DeliverableType {
                     2,
                     5,
                     false,
-                    "Preferencias electorales y percepción de la política local (solo INTERNO)."
+                    "Preferencias electorales y percepción de la política local; la narrativa, solo INTERNO."
                 ),
-                Row("costumbres", "5.9 Costumbres y fechas festivas", MIXED, 2, 5, false, "Religión (solo INTERNO) y festividades con sus turnos."),
+                Row(
+                    "costumbres",
+                    "5.9 Costumbres y fechas festivas",
+                    MIXED,
+                    2,
+                    5,
+                    false,
+                    "Religión y festividades con sus turnos; la narrativa, solo INTERNO."
+                ),
                 Row(
                     "grupos_interes",
                     "6. Identificación de grupos de interés",
@@ -384,7 +410,15 @@ class SocialDiagnosisType : DeliverableType {
                     false,
                     "Qué es un grupo de interés y las cuatro posturas; grupos por ámbito y tipo."
                 ),
-                Row("perfiles", "6.1 Perfiles por cargo", MIXED, 2, 6, false, "Trayectoria, elección y periodo, funciones, postura y estado de entrevista."),
+                Row(
+                    "perfiles",
+                    "6.1 Perfiles por cargo",
+                    MIXED,
+                    2,
+                    6,
+                    false,
+                    "Trayectoria, elección y periodo, funciones, postura y estado de entrevista. Esta narrativa sale también en EXTERNO: sin nombres ni razones de postura."
+                ),
                 Row("caracterizacion", "7. Caracterización de los grupos de interés", MIXED, 1, 7, false, "Qué contiene el capítulo."),
                 Row("percepciones", "7.1 Percepciones", MIXED, 2, 7, true, "Percepciones sobre la minería, el proyecto y la empresa, con citas por cargo."),
                 Row("clasificacion", "7.2 Clasificación según interés y poder", MIXED, 2, 7, false, "Método, umbrales y grupos de influencia por ámbito."),

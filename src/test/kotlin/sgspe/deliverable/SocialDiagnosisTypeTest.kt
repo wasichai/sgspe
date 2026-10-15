@@ -238,6 +238,74 @@ class SocialDiagnosisTypeTest {
         assertTrue(external.none { "movimientos" in it })
     }
 
+    // todo el texto visible de una sección: párrafos y notas al pie, títulos, tablas (título, cabecera, celdas y fuente),
+    // mapas, fotos y gráficos
+    private fun ReportModel.text(key: String): String =
+        blocks(key).joinToString("\n") { block ->
+            when (block) {
+                is Block.Paragraph -> block.markdown + " " + block.footnotes.joinToString(" ")
+                is Block.Heading -> block.text
+                is Block.Table ->
+                    listOf(block.title, block.source.orEmpty()).joinToString(" ") + " " + block.header.joinToString(" ") + " " +
+                        block.rows.flatten().joinToString(" ") { it.text }
+                is Block.MapFigure -> block.title + " " + block.source.orEmpty()
+                is Block.Photos -> block.title + " " + block.source.orEmpty()
+                is Block.LineChart -> block.title + " " + block.source.orEmpty() + " " + block.series.joinToString(" ") { it.name }
+                else -> ""
+            }
+        }
+
+    // revisión final de 8.2c, Critical 1: la narrativa humana de una sección solo INTERNO nunca sale en EXTERNO
+    @Test
+    fun `barrida de EXTERNO con narrativa humana en cada seccion quita solo la de las secciones solo INTERNO`() {
+        val narrative = type.sections.associate { it.key to "Narrativa distintiva de ${it.key} QX7." }
+        val model = assemble(content = narrative).model
+        val internal = ReportDisclosure.apply(model, Disclosure.INTERNO)
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO)
+        val internalOnly = setOf("proceso_electoral", "costumbres")
+        for ((key, text) in narrative) {
+            assertTrue(text in internal.text(key), "$key: falta en INTERNO")
+            if (key in internalOnly) {
+                assertTrue(external.sections.none { text in external.text(it.key) }, "$key: salió en EXTERNO")
+            } else {
+                assertTrue(text in external.text(key), "$key: falta en EXTERNO")
+            }
+        }
+    }
+
+    @Test
+    fun `una narrativa solo INTERNO sin datos deja en EXTERNO el aviso de reservado y no Sin dato`() {
+        val bare = T1Source.source()
+        bare.rows["locality_profile"]!!.replaceAll { it.copy(attributes = it.attributes - "electoral_process" - "religion") }
+        bare.rows.remove("festivity")
+        val model = assemble(bare, mapOf("proceso_electoral" to "Opiniones QX7.", "costumbres" to "Creencias QX7.")).model
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO)
+        for (key in listOf("proceso_electoral", "costumbres")) {
+            val paragraphs = external.blocks(key).filterIsInstance<Block.Paragraph>().map { it.markdown }
+            assertTrue("Información reservada en esta versión." in paragraphs, "$key: $paragraphs")
+            assertTrue("Sin dato." !in paragraphs, "$key: $paragraphs")
+            assertTrue(paragraphs.none { "QX7" in it }, "$key: $paragraphs")
+        }
+        val internal = ReportDisclosure.apply(model, Disclosure.INTERNO).blocks("proceso_electoral").filterIsInstance<Block.Paragraph>()
+        assertTrue(internal.any { it.markdown == "Opiniones QX7." } && internal.none { "reservada" in it.markdown }, "$internal")
+    }
+
+    @Test
+    fun `sin localidades una narrativa solo INTERNO tambien deja el aviso de reservado en EXTERNO`() {
+        val source = T1Source.source()
+        source.rows.remove("area_of_influence_member")
+        val model = assemble(source, mapOf("proceso_electoral" to "Opiniones QX7.")).model
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO).blocks("proceso_electoral")
+        assertEquals(listOf<Block>(Block.Paragraph("Información reservada en esta versión.", Mark.EXTERNAL_ONLY)), external)
+    }
+
+    @Test
+    fun `la guia de perfiles avisa que su narrativa sale en EXTERNO y las solo INTERNO lo dicen`() {
+        val guides = type.sections.associate { it.key to it.guide }
+        assertTrue("EXTERNO" in guides.getValue("perfiles") && "nombres" in guides.getValue("perfiles"), guides.getValue("perfiles"))
+        assertEquals(setOf("proceso_electoral", "costumbres"), guides.filterValues { "solo INTERNO" in it }.keys)
+    }
+
     @Test
     fun `los grupos de interes van por ambito y tipo con el actor por cargo, y los perfiles con su nota de entrevista`() {
         val model = assemble().model

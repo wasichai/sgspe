@@ -34,6 +34,9 @@ class DiagnosisScene private constructor(
         recordTexts.getOrPut(section) { mutableListOf() } += values.filterNotNull()
     }
 
+    // si la sección lleva texto humano: en las secciones solo INTERNO, EXTERNO lo quita y pone el aviso de reservado
+    fun hasNarrative(key: String): Boolean = input.sections.any { it.text(Deliverables.SECTION_KEY) == key && it.text(Deliverables.CONTENT) != null }
+
     fun day(raw: String?): LocalDate? =
         raw?.let { text ->
             runCatching { LocalDate.parse(text.take(10)) }.getOrNull() ?: runCatching { OffsetDateTime.parse(text).toLocalDate() }.getOrNull()

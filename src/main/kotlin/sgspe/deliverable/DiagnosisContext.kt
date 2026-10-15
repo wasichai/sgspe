@@ -11,7 +11,7 @@ import java.util.UUID
 // llevan su marca Restricted: solo INTERNO (§3.8, RQ-SEC-010)
 object DiagnosisContext {
     private const val WIDE = 4
-    private const val RESERVED = "Información reservada en esta versión."
+    const val RESERVED = "Información reservada en esta versión."
 
     suspend fun history(scene: DiagnosisScene): List<Block> {
         val conflicts = linked(scene, "local_conflict", "local_conflict_locality")
@@ -217,7 +217,7 @@ object DiagnosisContext {
                     }
                 }
             // una línea sin marca para que la sección no quede en un título solo (EXTERNO quita los párrafos marcados)
-            listOf<Block>(Block.Heading(3, title)) + restricted + reservedNote(restricted.isEmpty())
+            listOf<Block>(Block.Heading(3, title)) + restricted + reservedNote(restricted.isEmpty() && !scene.hasNarrative("proceso_electoral"))
         }
 
     suspend fun customs(scene: DiagnosisScene): List<Block> =
@@ -245,11 +245,11 @@ object DiagnosisContext {
                     Block.Table("Costumbres y fechas festivas: $title", listOf("Localidad", "Festividad", "Fecha", "Turnos de coorganización"), it)
                 }
             // sin tabla y sin marca visible, una línea fija evita el título solo en EXTERNO
-            val note = if (table == null) listOf(reservedNote(religion.isEmpty())) else emptyList()
+            val note = if (table == null) listOf(reservedNote(religion.isEmpty() && !scene.hasNarrative("costumbres"))) else emptyList()
             listOf<Block>(Block.Heading(3, title)) + religion + listOfNotNull(table) + note
         }
 
-    // sin datos, «Sin dato.»; con datos restringidos, el aviso que solo muestra EXTERNO
+    // sin datos ni narrativa, «Sin dato.»; con datos restringidos o la narrativa (solo INTERNO), el aviso que solo muestra EXTERNO
     private fun reservedNote(noData: Boolean): Block.Paragraph = if (noData) Block.Paragraph("$SIN_DATO.") else Block.Paragraph(RESERVED, Mark.EXTERNAL_ONLY)
 
     // una tabla por ámbito con los temas en filas y las localidades en columnas (Tablas 5.2, 5.3 y 5.8)
