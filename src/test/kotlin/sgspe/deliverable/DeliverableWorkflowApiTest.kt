@@ -113,10 +113,10 @@ class DeliverableWorkflowApiTest : F8ApiTest() {
                 "template_sha256" to sha256(MODEL)
             )
         val noDocx = runCatching { createAs(admin(), "deliverable_version", base, "versión") }.exceptionOrNull()
-        assertTrue("FIELD_REQUIRED" in noDocx.toString(), noDocx.toString())
+        assertEquals(listOf("FIELD_REQUIRED"), codesOf(noDocx), noDocx.toString())
         val external = base + mapOf("disclosure_level" to "EXTERNO", "pdf_sha256" to "0".repeat(64))
         val mismatch = runCatching { createAs(admin(), "deliverable_version", external, "versión") }.exceptionOrNull()
-        assertTrue("SHA256_MISMATCH" in mismatch.toString(), mismatch.toString())
+        assertEquals(listOf("SHA256_MISMATCH"), codesOf(mismatch), mismatch.toString())
     }
 
     @Test
