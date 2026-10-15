@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import org.springframework.stereotype.Component
+import sgspe.common.Callers
 import sgspe.common.Records
 import sgspe.territory.ProjectProximityQueries
 import java.util.UUID
@@ -12,6 +13,7 @@ import java.util.UUID
 @Component
 class ReportSources(
     private val records: Records,
+    private val callers: Callers,
     private val proximity: ProjectProximityQueries
 ) {
     fun of(
@@ -57,6 +59,7 @@ class ReportSources(
             relationship: String,
             target: String
         ): List<SourceRow> {
+            check(callers.userOrNull() == null) { "ReportSources lee como la plataforma y no corre dentro de una petición" }
             val allowed = fields(target)
             val rows = records.relatedAsPlatform(organizationId, objectName, id, relationship)
             check(rows.size <= MAX_ROWS) { "La relación $relationship pasa de $MAX_ROWS vínculos" }

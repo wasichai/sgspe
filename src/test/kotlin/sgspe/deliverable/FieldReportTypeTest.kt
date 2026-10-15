@@ -10,6 +10,7 @@ import sgspe.privacy.Block
 import sgspe.privacy.CanonicalJson
 import sgspe.privacy.Disclosure
 import sgspe.privacy.Mark
+import sgspe.privacy.PersonalDataScan
 import sgspe.privacy.PhotoRef
 import sgspe.privacy.ReportDisclosure
 import java.io.ByteArrayInputStream
@@ -308,5 +309,16 @@ class FieldReportTypeTest {
         assertFalse("Persona Ejemplo" in external, external)
         assertTrue("GI-" in external && "Tesorero, Asociación Ejemplo" in external, external)
         assertTrue("Persona Ejemplo 4" in assembled.personNames)
+    }
+
+    @Test
+    fun `el pie de una foto con el nombre de una persona del proyecto da el aviso de datos personales`() {
+        val source = source()
+        val row = source.links.getValue(Triple("delivery", delivery, "evidence_delivery"))
+        source.links[Triple("delivery", delivery, "evidence_delivery")] =
+            row.map { if (it.id == consented) SourceRow(it.id, null, it.attributes + ("title" to "Entrega a Persona Ejemplo 1")) else it }
+        val assembled = runBlocking { type.assemble(input(), source) }
+        val warnings = PersonalDataScan.scan(assembled.texts, assembled.personNames)
+        assertTrue(warnings.any { it.section == "apoyo" }, warnings.toString())
     }
 }
