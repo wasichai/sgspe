@@ -79,6 +79,9 @@ class TemplateValidator(
                 xml[part] =
                     parse(data).also {
                         if (duplicateAttributes(it)) violations += TemplateFinding(NOT_WORD, "una parte repite atributos con el mismo nombre ($part)")
+                        if (root(it) == "svg" || "svg" in declaredType(part, declared).orEmpty()) {
+                            violations += TemplateFinding(NOT_WORD, "SVG no permitido, use PNG ($part)")
+                        }
                     }
             } catch (_: Exception) {
                 if (!allowedMedia(part, data, declared)) violations += TemplateFinding(NOT_WORD, "una parte no es XML ni un medio permitido ($part)")
@@ -140,13 +143,18 @@ class TemplateValidator(
             local(doc, "Override").associate { attribute(it, "PartName").lowercase().removePrefix("/") to attribute(it, "ContentType").lowercase() }
         )
 
+    private fun declaredType(
+        part: String,
+        declared: Declared
+    ): String? = declared.byPart[part.lowercase()] ?: declared.byExtension[part.substringAfterLast('.', "").lowercase()]
+
     // un medio solo pasa si su tipo declarado (Override, si no Default) es de la lista cerrada y sus bytes lo confirman
     private fun allowedMedia(
         part: String,
         data: ByteArray,
         declared: Declared
     ): Boolean {
-        val type = declared.byPart[part.lowercase()] ?: declared.byExtension[part.substringAfterLast('.', "").lowercase()]
+        val type = declaredType(part, declared)
 
         fun starts(vararg prefix: Int) = data.size >= prefix.size && prefix.indices.all { data[it].toInt() and 0xFF == prefix[it] }
         return when (type) {
@@ -249,11 +257,15 @@ class TemplateValidator(
         element: String,
         attribute: String
     ): Boolean =
-        attribute == "schemaLocation" || attribute == "noNamespaceSchemaLocation" ||
+        // el texto alternativo de una imagen es texto humano, no una dirección
+        (attribute == "descr" || attribute == "title") && (element == "docPr" || element == "cNvPr") ||
+            attribute == "schemaLocation" || attribute == "noNamespaceSchemaLocation" ||
             (element == "Relationship" && attribute == "Type") ||
             (attribute == "uri" && (element == "graphicData" || element == "schemaRef" || element == "ext"))
 
-    private fun trimmed(value: String): String = value.trim { it.isWhitespace() || Character.isSpaceChar(it) }
+    // sin espacios, NBSP ni caracteres de formato (U+200B, U+FEFF...) en los extremos
+    private fun trimmed(value: String): String =
+        value.trim { it.isWhitespace() || Character.isSpaceChar(it) || Character.getType(it) == Character.FORMAT.toInt() }
 
     // los campos: el nombre de cada uno (el primer elemento de su instrucción, sin comillas ni espacios, en mayúsculas) debe ser
     // de la lista cerrada. La instrucción de un campo complejo es lo que hay entre su fldChar begin y separate o end, en
@@ -266,7 +278,7 @@ class TemplateValidator(
 
         fun check(instruction: String) {
             val name = fieldName(instruction)
-            if (name.isNotEmpty() && name !in ALLOWED_FIELDS) found += TemplateFinding(FIELD_NOT_ALLOWED, name)
+            if (name !in ALLOWED_FIELDS) found += TemplateFinding(FIELD_NOT_ALLOWED, name.ifEmpty { "campo sin nombre" })
         }
         for (e in local(doc, "*")) {
             when (e.localName) {
@@ -274,6 +286,10 @@ class TemplateValidator(
                 "fldChar" ->
                     when (attribute(e, "fldCharType")) {
                         "begin" -> {
+                            // el campo exterior debe tener su nombre antes de abrir uno anidado
+                            if (open.isNotEmpty() && inInstruction.last() && open.last().isBlank()) {
+                                found += TemplateFinding(FIELD_NOT_ALLOWED, "campo anidado antes del nombre")
+                            }
                             open.addLast(StringBuilder())
                             inInstruction.addLast(true)
                         }
