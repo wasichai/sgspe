@@ -5,7 +5,6 @@ import org.apache.pdfbox.pdmodel.PDResources
 import org.apache.pdfbox.pdmodel.font.PDFont
 import org.apache.pdfbox.pdmodel.font.PDType0Font
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject
-import org.springframework.stereotype.Component
 
 // lo que se pide al convertir un DOCX: PDF/A-2b en las candidatas (las que se emiten) y PDF común en los borradores, con
 // título, código y revisión en los metadatos y el id de correlación de la corrida. nada de esto viene del cliente
@@ -23,22 +22,12 @@ class PdfConverterUnavailable(
 ) : RuntimeException(message)
 
 // el puerto hacia Gotenberg (especificación de F8 §2.2.17, deliverables.md §7.7): solo JOB-05 lo llama, nunca una petición.
-// GotenbergConverter llega con el plan 8.2c; las pruebas usan un doble
+// GotenbergConverter es el de producción (plan 8.2c); las pruebas de integración usan un doble
 fun interface PdfConverter {
     suspend fun convert(
         docx: ByteArray,
         request: PdfRequest
     ): ByteArray
-}
-
-// el conversor de un backend sin Gotenberg (plan 8.2b): todo borrador queda FALLIDO con PDF_CONVERTER_UNAVAILABLE, y el resto
-// de SGSPE funciona (especificación de F8 §7, «Orden de despliegue»). 8.2c lo reemplaza por GotenbergConverter
-@Component
-class UnavailablePdfConverter : PdfConverter {
-    override suspend fun convert(
-        docx: ByteArray,
-        request: PdfRequest
-    ): ByteArray = throw PdfConverterUnavailable("Este despliegue no tiene conversor de PDF")
 }
 
 // la verificación de un PDF con PDFBox (deliverables.md §7.1, §13.3): al menos una página, todas las fuentes (de las páginas y

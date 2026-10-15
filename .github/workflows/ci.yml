@@ -87,8 +87,24 @@ jobs:
       # here, on purpose. pulling up front keeps the pull out of the container startup timeout
       - name: Pull database image
         run: docker pull -q postgis/postgis:18-3.6
+      # F8 (plan 8.2c): Gotenberg con la etiqueta y las banderas de compose.yml, solo en el loopback del runner. un paso y no un
+      # `services:`: los contenedores de servicio de Actions no aceptan los argumentos del comando (decisión 1 del plan)
+      - name: Gotenberg
+        run: |
+          docker run -d --name sgspe-gotenberg -p 127.0.0.1:8096:3000 gotenberg/gotenberg:8.37.0-libreoffice \
+            gotenberg --api-timeout=180s --api-disable-download-from=true --webhook-disable=true \
+            --pdfengines-disable-routes=true --libreoffice-auto-start=true --log-std-format=json
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8096/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs sgspe-gotenberg
+          exit 1
       - name: Integration tests
         run: ./gradlew integrationTest --no-daemon
+        env:
+          # las pruebas con la etiqueta gotenberg fallan en la CI sin esta variable (GotenbergPdfTest)
+          SGSPE_DELIVERABLE_GOTENBERG_URL: http://127.0.0.1:8096
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import org.springframework.stereotype.Component
+import sgspe.dashboard.MonitoringRow
 import sgspe.privacy.ReportModel
 import java.time.LocalDate
 import java.util.UUID
@@ -52,6 +53,14 @@ interface ReportSource {
 
     // comunidades, sectores y localidades sobre las concesiones dadas (caso 12 de gis.md §5.3), con el área del cruce
     suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>>
+
+    // las 13 filas de la Tabla 9.5 (tablero monitoring) del proyecto en el periodo, con el lector de quien ensambla y la cifra
+    // oficial si el periodo se cerró (especificación de F8 §3.8); null si la fuente no las calcula
+    suspend fun monitoring(
+        project: UUID,
+        start: LocalDate,
+        end: LocalDate
+    ): List<MonitoringRow>? = null
 }
 
 // lo que el tipo recibe para ensamblar: el entregable, sus secciones con su texto, la plantilla congelada y las revisiones
@@ -66,12 +75,15 @@ class AssemblyInput(
 )
 
 // lo que sale del ensamblado: el modelo sin mapas (los pide JOB-05 a ReportMaps), los mapas que pide, los nombres de las
-// personas del proyecto (para PersonalDataScan) y los textos de cada sección que se revisan
+// personas del proyecto (para PersonalDataScan), los textos de cada sección que se revisan y la persona detrás de cada mención
+// (por su token sin corchetes; la de un cargo o un grupo de interés, su titular), que AI-04 de sección compara con el
+// diccionario (SectionText). `holders` no entra al modelo congelado
 class Assembled(
     val model: ReportModel,
     val maps: List<MapRequest>,
     val personNames: Set<String>,
-    val texts: Map<String, List<String>>
+    val texts: Map<String, List<String>>,
+    val holders: Map<String, UUID> = emptyMap()
 )
 
 // la clase de un tipo de entregable (deliverables.md §7.2): sus secciones, sus parámetros, sus lecturas declaradas y el
@@ -84,6 +96,9 @@ interface DeliverableType {
     // objeto → campos que el ensamblado lee: ReportSource no entrega otros
     val reads: Map<String, Set<String>>
 
+    // T1 exige un AIDS aprobado (§2.2.13; decisión 15 del plan 8.2c): el pedido lo comprueba como la persona
+    val requiresApprovedArea: Boolean get() = false
+
     suspend fun missingParameters(
         deliverable: Map<String, Any?>,
         project: Map<String, Any?>
@@ -95,7 +110,7 @@ interface DeliverableType {
     ): Assembled
 }
 
-// los tipos de F8 por su valor de «Tipo de entregable»: T2 desde el plan 8.2b, T1 desde el 8.2c
+// los tipos de F8 por su valor de «Tipo de entregable»: T2 (FieldReportType, plan 8.2b) y T1 (SocialDiagnosisType, plan 8.2c)
 @Component
 class DeliverableTypes(
     types: List<DeliverableType>

@@ -99,4 +99,17 @@ class ReportDisclosureTest {
     fun `ningun tipo de F8 prepara PUBLICO`() {
         assertThrows(IllegalArgumentException::class.java) { ReportDisclosure.apply(model, Disclosure.PUBLICO) }
     }
+
+    @Test
+    fun `la nota EXTERNO solo sale en EXTERNO y una marca restringida sigue fuera de EXTERNO`() {
+        val extra = listOf(Block.Paragraph("Aviso reservado", Mark.EXTERNAL_ONLY), Block.Paragraph("Dato sensible", Mark.restricted("x.y")))
+        val withNote = model.copy(sections = model.sections.map { it.copy(blocks = it.blocks + extra) })
+        val external = texts(ReportDisclosure.apply(withNote, Disclosure.EXTERNO))
+        val internal = texts(ReportDisclosure.apply(withNote, Disclosure.INTERNO))
+        assertTrue("Aviso reservado" in external)
+        assertFalse("Dato sensible" in external)
+        assertFalse("Aviso reservado" in internal)
+        assertTrue("Dato sensible" in internal)
+        assertEquals(withNote, CanonicalJson.read(CanonicalJson.bytes(withNote)))
+    }
 }

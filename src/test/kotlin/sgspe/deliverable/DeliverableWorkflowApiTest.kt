@@ -120,15 +120,13 @@ class DeliverableWorkflowApiTest : F8ApiTest() {
     }
 
     @Test
-    fun `el alta de un T2 crea sus secciones y un T1 todavia no`() {
-        val t2 = deliverable(testProject())
-        val keys =
-            tree(send("GET", "/api/objects/deliverable_section/records?deliverable=$t2&size=100", null, HttpStatus.OK))["content"].values().map {
+    fun `el alta de un T2 y de un T1 crea las secciones de cada tipo`() {
+        fun keys(id: String): List<String> =
+            tree(send("GET", "/api/objects/deliverable_section/records?deliverable=$id&size=100", null, HttpStatus.OK))["content"].values().map {
                 it["attributes"]["section_key"].asString()
             }
-        assertEquals(FieldReportType().sections.map { it.key }.sorted(), keys.sorted())
-        val t1 = deliverable(testProject(), SOCIAL_DIAGNOSIS)
-        assertTrue(tree(send("GET", "/api/objects/deliverable_section/records?deliverable=$t1", null, HttpStatus.OK))["content"].isEmpty)
+        assertEquals(FieldReportType().sections.map { it.key }.sorted(), keys(deliverable(testProject())).sorted())
+        assertEquals(SocialDiagnosisType().sections.map { it.key }.sorted(), keys(deliverable(testProject(), SOCIAL_DIAGNOSIS)).sorted())
     }
 
     @Test

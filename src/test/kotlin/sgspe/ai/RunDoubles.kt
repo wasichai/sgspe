@@ -41,7 +41,7 @@ object RunFixtures {
         proposals: Int = 50
     ) = AiProperties(
         models = listOf("ai-01", "ai-02", "ai-03", "ai-04", "ai-08").associateWith { "modelo-de-prueba" },
-        prompts = listOf("ai-01", "ai-02", "ai-03", "ai-04", "ai-08").associateWith { "1" },
+        prompts = listOf("ai-01", "ai-02", "ai-03", "ai-04", "ai-04-seccion", "ai-08").associateWith { "1" },
         limits = AiLimits(actions = actions, proposals = proposals)
     )
 

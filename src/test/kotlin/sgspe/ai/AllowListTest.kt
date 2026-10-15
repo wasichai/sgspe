@@ -51,8 +51,8 @@ class AllowListTest {
                 Triple("EXTRACCION", "commitment", """{"item":"commitment","text":"x"}"""),
                 Triple("DUPLICADO", "evidence", """{"other_record_id":"ev2"}"""),
                 Triple("BORRADOR DE ACTA", "project", "## Acta"),
-                Triple("RESUMEN EJECUTIVO", "project", "## Resumen"),
-                Triple("BORRADOR DE SECCION", "deliverable_section", "## Sección"),
+                Triple("RESUMEN EJECUTIVO", "engagement", "## Resumen"),
+                Triple("BORRADOR DE SECCION", "project", "## Sección"),
                 Triple("OTRO", "grievance", "{}"),
                 Triple("CLASIFICACION", "grievance", "no es JSON")
             )
@@ -75,5 +75,15 @@ class AllowListTest {
         assertNull(AllowList.misplaced(AcceptRow.CLASSIFICATION, mapOf("item" to "lo que sea")))
         assertEquals("kind", AllowList.misplaced(AcceptRow.PERSON, mapOf("item" to "actor", "kind" to "organization")))
         assertEquals("item", AllowList.misplaced(AcceptRow.PLACE, mapOf("item" to "date")))
+    }
+
+    // plan 8.2c (decisión 18): la sección adopta un borrador de sección o un resumen ejecutivo copiado
+    @Test
+    fun `un borrador de seccion y un resumen ejecutivo se adoptan en una seccion`() {
+        assertEquals(AcceptRow.SECTION, AllowList.rowOf("BORRADOR DE SECCION", "deliverable_section", "## Sección"))
+        assertEquals(AcceptRow.SUMMARY_SECTION, AllowList.rowOf("RESUMEN EJECUTIVO", "project", "## Resumen"))
+        assertEquals(setOf("content"), AllowList.BODY_KEYS.getValue(AcceptRow.SECTION))
+        assertEquals(setOf("section", "content"), AllowList.BODY_KEYS.getValue(AcceptRow.SUMMARY_SECTION))
+        assertEquals(setOf(AcceptRow.SECTION, AcceptRow.SUMMARY_SECTION), AllowList.ADOPTIONS)
     }
 }

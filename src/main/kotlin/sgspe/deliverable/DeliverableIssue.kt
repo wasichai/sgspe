@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import kotlinx.coroutines.reactive.awaitSingle
+import org.springframework.core.io.buffer.DataBuffer
 import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.core.io.buffer.DefaultDataBufferFactory
@@ -223,15 +224,7 @@ class DeliverableIssue(
             Triple(Deliverables.DRAFT_MODEL, Deliverables.MODEL, Deliverables.MODEL)
         ).associate { (source, target, key) ->
             val download = files.open(Deliverables.DELIVERABLE, id, source)
-            // con el tope de los archivos de entregables: más allá, el 400 FILE_TOO_LARGE de las subidas
-            val joined =
-                try {
-                    DataBufferUtils.join(download.content, properties.maxFileBytes.toInt()).awaitSingle()
-                } catch (_: DataBufferLimitException) {
-                    throw UploadLimits.tooLarge(properties.maxFileBytes)
-                }
-            val bytes = ByteArray(joined.readableByteCount()).also { joined.read(it) }
-            DataBufferUtils.release(joined)
+            val bytes = capped(download.content, properties.maxFileBytes)
             val staged =
                 files.stage(
                     Deliverables.VERSION,
@@ -246,6 +239,24 @@ class DeliverableIssue(
         const val CHECKLIST = "checklistConfirmed"
         private const val INTERNAL_PDF = "internal_pdf"
         private const val EXTERNAL_PDF = "external_pdf"
+
+        // los bytes de una descarga con el tope de los archivos de entregables: más allá, el 400 FILE_TOO_LARGE de las subidas
+        suspend fun capped(
+            content: Flux<out DataBuffer>,
+            max: Long
+        ): ByteArray {
+            val joined =
+                try {
+                    DataBufferUtils.join(content, max.toInt()).awaitSingle()
+                } catch (_: DataBufferLimitException) {
+                    throw UploadLimits.tooLarge(max)
+                }
+            return try {
+                ByteArray(joined.readableByteCount()).also { joined.read(it) }
+            } finally {
+                DataBufferUtils.release(joined)
+            }
+        }
     }
 }
 

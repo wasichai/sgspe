@@ -8,14 +8,18 @@ import sgspe.common.ModelCatalog
 // especificación de F8 §3.2 y deliverables.md §7.3 (RQ-REP-014): ningún tipo declara leer el documento de identidad, un
 // teléfono ni un correo de una persona, y lo que declara existe en el modelo. ReportSources entrega solo lo declarado
 class ReportSourcesTest {
-    private val types: List<DeliverableType> = listOf(FieldReportType())
+    private val types: List<DeliverableType> = listOf(FieldReportType(), SocialDiagnosisType())
     private val catalog = ModelCatalog.fromClasspath()
     private val forbidden = Regex("document|phone|telefono|celular|email|correo|id_document")
+
+    // la cobertura telefónica de una localidad (5.6 de T1) no es el teléfono de una persona
+    private val allowed = setOf("locality_profile.phone_coverage")
 
     @Test
     fun `ningun tipo declara documento de identidad, telefono ni correo`() {
         for (type in types) {
-            val offenders = type.reads.flatMap { (objectName, fields) -> fields.filter { forbidden.containsMatchIn(it) }.map { "$objectName.$it" } }
+            val offenders =
+                type.reads.flatMap { (objectName, fields) -> fields.filter { forbidden.containsMatchIn(it) }.map { "$objectName.$it" } } - allowed
             assertEquals(emptyList<String>(), offenders, type.name)
         }
     }

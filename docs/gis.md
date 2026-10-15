@@ -717,8 +717,8 @@ en [entregables](deliverables.md).
    propio. Así ninguna capa sensible se publica en GeoServer (RQ-SEC-011, ASM-038).
 3. **Petición.** `GetMapRequest` arma un `ogc:GetMap` con un `StyledLayerDescriptor`: las capas publicadas por nombre y
    las demás como `UserLayer` con `InlineFeature` (GML con `srsName="http://www.opengis.net/gml/srs/epsg.xml#<srid>"`,
-   como exigió el spike), fondo blanco, PNG y 300 dpi (8.2c comprueba cómo toma la resolución el POST XML; si no la
-   toma, el SLD en línea escala grosores y textos). Las geometrías en línea se simplifican a medio píxel, y un mapa con
+   como exigió el spike), fondo blanco, PNG y 300 dpi (cada capa lleva un `UserStyle` de la paleta escalado a 300 dpi,
+   así que no depende de cómo tome GeoServer la resolución; plan 8.2c). Las geometrías en línea se simplifican a medio píxel, y un mapa con
    más de 5 000 elementos falla con `MAP_TOO_MANY_FEATURES`. Va con `WebClient` a `wasichai.gis.geoserver.url`, con el
    plazo `sgspe.deliverable.maps.timeout` (30 s).
 4. **Composición.** GeoServer devuelve solo el cuerpo del mapa. `MapComposer` (Java 2D sin pantalla, con Liberation Sans

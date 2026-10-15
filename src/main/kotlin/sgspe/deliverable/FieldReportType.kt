@@ -19,7 +19,8 @@ import java.util.UUID
 // en `reads` (ReportSourcesTest). las personas van como menciones [[person:<id>]] o [[stakeholder:<id>]] y sus datos de cita
 // en ReportModel.people; los números de comprobante y el emisor llevan su marca (EXTERNO los quita); las fotos de la entrega y
 // la del comprobante van por evidencia con su consentimiento. el texto de cada sección se copia al final de sus bloques. los
-// mapas (portada y predio) se piden a ReportMaps; en 8.2b los dibuja un doble y 8.2c trae GeoServer
+// mapas (portada y predio) se piden a ReportMaps (GeoServerReportMaps desde el plan 8.2c) con su encuadre y las concesiones del
+// proyecto
 @Component
 class FieldReportType : DeliverableType {
     override val name: String = NAME
@@ -186,10 +187,31 @@ class FieldReportType : DeliverableType {
                 coverMap = COVER_MAP
             )
         val crs = project.text("working_crs")!!
+        // las concesiones del proyecto van en línea con estilo propio; la fuente del mapa es la organización autora (§3.7)
+        val concessions = source.related(Deliverables.PROJECT, projectId, "project_concession", "mining_concession").map { UUID.fromString(it.id) }
+        val author = preparedBy?.text("name")
         val maps =
             listOf(
-                MapRequest(COVER_MAP, projectId, crs, communityId, listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-08")),
-                MapRequest(LAND_MAP, projectId, crs, communityId, listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-06"))
+                MapRequest(
+                    COVER_MAP,
+                    projectId,
+                    crs,
+                    communityId,
+                    listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-08"),
+                    MapFrameKind.COMMUNITY_AND_PROJECT,
+                    concessions = concessions,
+                    author = author
+                ),
+                MapRequest(
+                    LAND_MAP,
+                    projectId,
+                    crs,
+                    communityId,
+                    listOf("LYR-05", "LYR-07", "LYR-02", "LYR-04", "LYR-01", "LYR-06"),
+                    MapFrameKind.COMMUNITY,
+                    concessions = concessions,
+                    author = author
+                )
             )
         val sectionTexts =
             built.associate { section ->
@@ -208,7 +230,7 @@ class FieldReportType : DeliverableType {
                         .mapNotNull { it.text(Deliverables.SECTION_KEY) }
                         .sorted()
             )
-        return Assembled(model, maps, scene.personNames, sectionTexts)
+        return Assembled(model, maps, scene.personNames, sectionTexts, scene.holders)
     }
 
     private fun cover(project: SourceRow): List<Block> =
@@ -229,6 +251,9 @@ class FieldReportType : DeliverableType {
         val people = linkedMapOf<String, MentionTarget>()
         val photos = linkedMapOf<String, PhotoRef>()
         val personNames = linkedSetOf<String>()
+
+        // la persona detrás de cada mención (person, y la titular de un stakeholder o un position), para AI-04 de sección
+        val holders = linkedMapOf<String, UUID>()
         val recordTexts = linkedMapOf<String, MutableList<String>>()
         private val byProject = mapOf(Deliverables.PROJECT to project.toString())
 
@@ -249,6 +274,7 @@ class FieldReportType : DeliverableType {
         // la mención de una persona: su nombre, su cargo vigente con su organización, su código GI- en el proyecto y su localidad
         suspend fun person(id: UUID): String {
             val key = "person:$id"
+            holders[key] = id
             if (key !in people) {
                 val person = source.one("person", id)
                 val name = listOfNotNull(person?.text("given_names"), person?.text("surnames")).joinToString(" ").ifEmpty { "Sin nombre" }
@@ -278,6 +304,7 @@ class FieldReportType : DeliverableType {
                     val row = source.one("stakeholder", id) ?: return
                     val code = RegisterSheets.code(row.id)
                     val holder = row.ref("person")?.let { holder -> person(holder).let { people["person:$holder"] } }
+                    row.ref("person")?.let { holders[key] = it }
                     val organization = organizationName(row.ref("organization"))
                     people[key] =
                         holder?.copy(stakeholderCode = code)
@@ -292,6 +319,7 @@ class FieldReportType : DeliverableType {
                 "position" -> {
                     val row = source.one("position", id) ?: return
                     val holder = row.ref("person")?.let { holder -> person(holder).let { people["person:$holder"] } }
+                    row.ref("person")?.let { holders[key] = it }
                     people[key] =
                         MentionTarget(
                             holder?.name ?: row.text("position_title") ?: "Sin nombre",

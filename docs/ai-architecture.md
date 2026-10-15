@@ -138,7 +138,7 @@ pasa a `accepted` solo cuando una persona lo usa en una `deliverable_section` (F
 | EXTRACCION de un acuerdo | `agreement` | Crea una `agreement_clause` (`clause_number`, `clause_text`, `creates_commitment`) | CREATE sobre `agreement_clause` | `{"item": "clause", "clause_number": "5", "clause_text": "…", "creates_commitment": true}` |
 | BORRADOR DE ACTA | `engagement` | `minutes`; la persona sigue con las transiciones de WF-C | UPDATE sobre `engagement` | Markdown sin HTML |
 | RESUMEN EJECUTIVO | `project` | Ninguno mientras solo informa. Si una persona lo usa en una `deliverable_section`, el comando de BORRADOR DE SECCION | UPDATE sobre `deliverable_section`, al usarlo | Markdown sin HTML |
-| BORRADOR DE SECCION (F8) | `deliverable_section` | `content`, con `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` (`DeliverableSections.adopt`); convierte `[PERSONA:<id>]` en `[[person:<id>]]` (sin id, `422 UNRESOLVED_PSEUDONYM`) y la sección no vuelve a otro origen ni se borra en toda la vida del entregable (`422 AI_ORIGIN_LOCKED`, ASM-137) | UPDATE sobre `deliverable_section`, con motivo (`DeliverableWriteGuard`) | Markdown sin HTML |
+| BORRADOR DE SECCION (F8) | `deliverable_section` | `content`, con `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` (`DeliverableSections.adopt`); una RESUMEN EJECUTIVO se acepta con `{ section, content }` y se copia a esa sección (`409 PROJECT_MISMATCH` si la sección no es del proyecto de la sugerencia; `422 SECTION_NOT_ASSISTED` sobre `attributes.section` si el tipo no la marca con IA; sin `section`, `400 FIELD_REQUIRED` sobre `attributes.section`) y una BORRADOR DE SECCION, con `{ content }`; convierte `[PERSONA:<id>]`, también entre «», que se quitan, en `[[person:<id>]]` (`[PERSONA]` o `[PERSONA_n]`, `422 UNRESOLVED_PSEUDONYM`; cualquier otro marcador, `400 PSEUDONYM_NOT_ALLOWED`) y la sección no vuelve a otro origen ni se borra en toda la vida del entregable (`422 AI_ORIGIN_LOCKED`, ASM-137) | UPDATE sobre `deliverable_section`, con motivo (`DeliverableWriteGuard`) | Markdown sin HTML |
 | CLASIFICACION | `grievance`, `inquiry`, `stakeholder_request` | `category`, `priority` o `topic` | UPDATE sobre el objeto, con motivo (`requiresReason`) | `{"field": "category", "value": "AGUA Y MEDIO AMBIENTE"}` |
 | CLASIFICACION | `engagement_question` | `topic` | UPDATE sobre `engagement_question` | `{"field": "topic", "value": "<id>"}` |
 | CLASIFICACION | `media_mention` | `tone` o `topic` | UPDATE sobre `media_mention` | `{"field": "tone", "value": "NEGATIVO"}` |
@@ -492,7 +492,9 @@ El `Pseudonymizer` de `sgspe.ai` corre antes de cada llamada a un modelo: prompt
 propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto que se vaya a vectorizar (RQ-AI-009).
 
 - **Qué reemplaza.** Dentro de la corrida usa marcadores estables por llamada (`[PERSONA_1]`, `[TELEFONO_1]`) para:
-  - los nombres de las `person` del tenant que aparecen en el texto;
+  - los nombres de las `person` del tenant que aparecen en el texto. Sin apellidos o sin nombres (los apellidos son
+    opcionales), cuenta el componente registrado si tiene dos palabras o más; un nombre de una sola palabra no se reconoce,
+    porque es ambiguo;
   - los valores de los campos restringidos de RQ-SEC-010: número de documento, teléfono, correo y nombres de participantes y
     beneficiarios;
   - los formatos de documento de identidad, teléfono y correo, aunque no estén registrados.
@@ -529,8 +531,8 @@ propios y del asistente AI-05 (§8), fragmentos recuperados para AI-06 y texto q
   los agentes propios, salvo como agregados de indicadores. Esos agregados también exigen que la persona pueda leer el campo; si
   no puede, el indicador llega como "no disponible" (RQ-SEC-010, [dashboards.md](dashboards.md) §8).
 - Es un esfuerzo razonable, no una garantía: un nombre escrito en un texto libre que no está registrado como `person`
-  puede pasar. Por eso la IA viene desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los
-  fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato
+  puede pasar, y un nombre de una sola palabra no se reconoce aunque esté registrado. Por eso la IA viene
+  desactivada, el proveedor quedó decidido antes de F7 (GAP-015) y solo se envían los fragmentos necesarios. Además, un marcador guardado no revela el valor, pero sí que en ese lugar había un dato
   restringido (`security.md` §7.8).
 
 ### 12.3 Inyección de prompts

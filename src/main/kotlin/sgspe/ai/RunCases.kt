@@ -7,6 +7,11 @@ import sgspe.common.Permissions
 import sgspe.common.Readability
 import sgspe.common.ServiceAccounts
 import sgspe.common.toCodedException
+import sgspe.dashboard.Dashboards
+import sgspe.dashboard.Kpis
+import sgspe.deliverable.DeliverableSections
+import sgspe.deliverable.ReportSources
+import sgspe.deliverable.SectionSource
 import wasichai.core.common.Actions
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.NotFoundException
@@ -221,7 +226,7 @@ class CommitmentCase(
     }
 }
 
-// AI-04, solo el resumen ejecutivo de un proyecto (F7); los borradores de sección llegan en F8
+// AI-04, el resumen ejecutivo de un proyecto (F7); el borrador de sección es SectionDraftCase (plan 8.2c)
 @Component
 class SummaryCase(
     requirements: RunRequirements,
@@ -263,4 +268,97 @@ class ClassificationCase(
         budget: RunBudget,
         user: AuthenticatedUser
     ): RunProposals = classification.run(sources.classification(target.objectName, target.recordId), names, budget)
+}
+
+// AI-04 sobre una sección de entregable (especificación de F8 §3.9; plan 8.2c): una BORRADOR DE SECCION con la guía de la
+// sección, lo que el tipo arma para ella leído como la persona (DeliverableSections) y los indicadores del tablero monitoring
+// del periodo con su lector, todo seudonimizado por ModelCalls. nunca el modelo congelado. una sección que el tipo no marca
+// con IA, 422 SECTION_NOT_ASSISTED antes de llamar
+@Component
+class SectionDraftCase(
+    requirements: RunRequirements,
+    names: PersonNames,
+    writer: SuggestionWriter,
+    properties: AiProperties,
+    private val sections: DeliverableSections,
+    private val dashboards: Dashboards,
+    private val drafts: DraftAgents
+) : RequiredCase(requirements, names, writer, properties) {
+    override val useCase = DraftAgents.SUMMARY_CASE
+    override val objects = setOf(DraftAgents.SECTION_TARGET)
+    override val outputs = listOf(SuggestionWriter.SUGGESTION)
+
+    override suspend fun propose(
+        target: RunTarget,
+        names: NameDictionary,
+        budget: RunBudget,
+        user: AuthenticatedUser
+    ): RunProposals {
+        val section = sections.source(target.recordId, nameable(names))
+        val indicators = section.project?.let { indicators(it, section) }.orEmpty()
+        val source =
+            RunSource(
+                objectName = DraftAgents.SECTION_TARGET,
+                id = target.recordId,
+                project = section.project,
+                text = text(section, indicators),
+                inputReference = "${DraftAgents.SECTION_TARGET}:${target.recordId} updated_at:${section.updatedAt}"
+            )
+        return drafts.section(source, names, budget)
+    }
+
+    // los indicadores del tablero monitoring del periodo, con los permisos de quien pide: un tablero que no lee, una línea «no
+    // disponible»
+    private suspend fun indicators(
+        project: UUID,
+        section: SectionSource
+    ): List<String> {
+        val start = section.periodStart ?: return emptyList()
+        val end = section.periodEnd ?: return emptyList()
+        // solo lo que no lee es «no disponible»; el tope de filas y los demás errores se propagan (ReportSources.readable)
+        val board =
+            ReportSources.readable(null) { dashboards.dashboard(Kpis.MONITORING, ReportSources.period(project, start, end)) }
+                ?: return listOf(RunSources.unavailableBoard(Kpis.MONITORING))
+        return board.indicators.map { RunSources.indicatorLine(it) }
+    }
+
+    companion object {
+        // la fuente de la llamada: título, guía, periodo (un extremo que falta, «sin dato»), datos e indicadores
+        fun text(
+            section: SectionSource,
+            indicators: List<String>
+        ): String =
+            buildList {
+                add("Sección: ${section.title}")
+                add("Guía: ${section.guide}")
+                if (section.periodStart != null || section.periodEnd != null) {
+                    add("Periodo: ${section.periodStart ?: SIN_DATO} a ${section.periodEnd ?: SIN_DATO}")
+                }
+                add("Datos de la sección:")
+                add(section.text.ifBlank { "Sin datos calculados." })
+                if (indicators.isNotEmpty()) {
+                    add("Indicadores del periodo:")
+                    addAll(indicators)
+                }
+            }.joinToString("\n")
+
+        // un nombre se escribe en la fuente solo si una sola coincidencia del diccionario de la corrida lo cubre entero y es de
+        // la persona de la mención: así el Pseudonymizer lo reemplaza entero y vuelve como [PERSONA:<id>] de esa persona. dos
+        // personas que cubren partes del nombre, un homónimo que el diccionario resuelve a otra, una mención sin persona
+        // conocida o una persona de una sola palabra salen con su cita de EXTERNO (SectionText)
+        fun nameable(names: NameDictionary): (String, UUID?) -> Boolean =
+            { name, person ->
+                val text = Folding.nfc(name)
+                val words = Folding.words(text)
+                val match = names.matches(text).singleOrNull()
+                person != null &&
+                    words.isNotEmpty() &&
+                    match != null &&
+                    match.second.id == person &&
+                    match.first.first <= words.first().range.first &&
+                    match.first.last >= words.last().range.last
+            }
+
+        private const val SIN_DATO = "sin dato"
+    }
 }

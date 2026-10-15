@@ -30,6 +30,7 @@ import sgspe.common.Values
 import sgspe.common.Versions
 import sgspe.common.readable
 import sgspe.common.toCodedException
+import sgspe.deliverable.DeliverableSections
 import wasichai.core.common.Actions
 import wasichai.core.common.ValidationException
 import wasichai.core.data.ChangeReason
@@ -65,6 +66,7 @@ class SuggestionAcceptance(
     private val versions: Versions,
     private val catalog: ModelCatalog,
     private val metadata: MetadataService,
+    private val sections: DeliverableSections,
     private val clock: Clock
 ) {
     suspend fun accept(
@@ -100,7 +102,8 @@ class SuggestionAcceptance(
                         ).toCodedException()
                 StrictBody.requireOnly(attributes, AllowList.BODY_KEYS.getValue(row), "$ATTRIBUTES.")
                 AllowList.misplaced(row, attributes)?.let { throw fieldNotAllowed(it) }
-                PseudonymMarkers.requireNone(attributes)
+                // una adopción en una sección convierte [PERSONA:<id>] y rechaza lo demás (DeliverableSections.markers)
+                if (row !in AllowList.ADOPTIONS) PseudonymMarkers.requireNone(attributes)
                 val context =
                     Context(
                         user,
@@ -109,7 +112,8 @@ class SuggestionAcceptance(
                         Records.uuid(stored["project"]),
                         attributes,
                         Proposals.parse(Values.text(stored["suggested_value"])).orEmpty(),
-                        "IA aceptada (ai_suggestion $id): $reason"
+                        "IA aceptada (ai_suggestion $id): $reason",
+                        id
                     )
                 val (result, stakeholder) = execute(row, context)
                 val accepted = records.transition(SuggestionWriter.SUGGESTION, id, ACCEPT, reason)
@@ -125,7 +129,9 @@ class SuggestionAcceptance(
         val project: UUID?,
         val attributes: Map<String, Any?>,
         val proposed: Map<String, Any?>,
-        val reason: String
+        val reason: String,
+        // la sugerencia que se acepta: el vínculo ai_suggestion de la sección adoptada
+        val suggestion: UUID
     ) {
         // el campo de una clasificación, un lugar o una fecha es el que propuso la IA: quien acepta corrige el valor, no el campo
         // (§4.2, «único campo»; la aceptación no audita un cambio que la IA no propuso, RQ-AUD-012). omitirlo usa el guardado
@@ -166,6 +172,18 @@ class SuggestionAcceptance(
                 other(c)
                 null to null
             }
+            // la sección es el destino: su proyecto, si la sugerencia lo trae
+            AcceptRow.SECTION -> adopt(c, targetId(c), listOf(c.project), requireKnown = false) to null
+            // el destino de un resumen ejecutivo es el proyecto: la sección es de él y del de la sugerencia, si lo trae
+            AcceptRow.SUMMARY_SECTION ->
+                adopt(
+                    c,
+                    Records.uuid(c.requireText("section")) ?: throw invalidValue("section"),
+                    listOf(c.project, c.targetId),
+                    requireKnown = true,
+                    assistedOnly = true
+                ) to
+                    null
         }
 
     // CLASIFICACION: category, priority o topic de una QCS; topic de una pregunta; tone o topic de una mención
@@ -355,6 +373,16 @@ class SuggestionAcceptance(
         if (names.any { Proposals.folded(it) == Proposals.folded(name) }) return kept
         return update(c, mapOf("alternative_names" to (names + name).joinToString("; ")))
     }
+
+    // BORRADOR DE SECCION y RESUMEN EJECUTIVO copiado (especificación de F8 §3.9): el texto revisado, el origen ASISTIDO POR IA y
+    // el vínculo con la sugerencia, como quien acepta y con el motivo «IA aceptada»
+    private suspend fun adopt(
+        c: Context,
+        section: UUID,
+        projects: List<UUID?>,
+        requireKnown: Boolean,
+        assistedOnly: Boolean = false
+    ): RecordResponse = sections.adopt(section, c.attributes["content"], c.suggestion, projects, requireKnown, c.reason, assistedOnly)
 
     // el otro registro del par: del mismo objeto, distinto del destino y que se lee
     private suspend fun other(c: Context): RecordResponse {

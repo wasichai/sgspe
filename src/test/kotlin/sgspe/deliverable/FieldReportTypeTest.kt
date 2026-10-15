@@ -252,6 +252,8 @@ class FieldReportTypeTest {
         assertEquals(PhotoRef.RECEIPT, model.photos.getValue(receiptImage).kind)
         assertEquals(listOf("portada", "predio"), assembled.maps.map { it.key })
         assertEquals("EPSG 32717", assembled.maps.first().workingCrs)
+        assertEquals(MapFrameKind.COMMUNITY_AND_PROJECT to MapFrameKind.COMMUNITY, assembled.maps[0].frame to assembled.maps[1].frame)
+        assertEquals("Asociación Ejemplo", assembled.maps.first().author)
         val target = model.people.getValue("person:$person")
         assertEquals("Persona Ejemplo 1", target.name)
         assertEquals("Presidente", target.position)

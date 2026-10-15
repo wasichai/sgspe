@@ -1,7 +1,7 @@
 package sgspe.ai
 
-// las filas de la lista permitida que se aceptan en F7 (ai-architecture.md §4.2): cada una fija el tipo, el objeto destino y el único
-// campo o comando que la aceptación ejecuta. RESUMEN EJECUTIVO (solo informa) y BORRADOR DE SECCION (F8) no tienen fila
+// las filas de la lista permitida (ai-architecture.md §4.2): cada una fija el tipo, el objeto destino y el único campo o comando
+// que la aceptación ejecuta. desde F8 (plan 8.2c), BORRADOR DE SECCION y RESUMEN EJECUTIVO se adoptan en una sección de entregable
 enum class AcceptRow {
     CLASSIFICATION,
     TOPIC,
@@ -13,7 +13,9 @@ enum class AcceptRow {
     MINUTES,
     GRIEVANCE_DUPLICATE,
     ORGANIZATION_DUPLICATE,
-    DECISION_DUPLICATE
+    DECISION_DUPLICATE,
+    SECTION,
+    SUMMARY_SECTION
 }
 
 // la lista permitida, cerrada y en Kotlin puro (P11): la fila de una sugerencia guardada sale de su tipo, su objeto destino y la
@@ -43,6 +45,9 @@ object AllowList {
         suggestedValue: String?
     ): AcceptRow? {
         if (kind == "BORRADOR DE ACTA") return AcceptRow.MINUTES.takeIf { targetObject == "engagement" }
+        // F8 (plan 8.2c): un borrador de sección se adopta en su sección; un resumen ejecutivo se copia a una sección del proyecto
+        if (kind == "BORRADOR DE SECCION") return AcceptRow.SECTION.takeIf { targetObject == "deliverable_section" }
+        if (kind == "RESUMEN EJECUTIVO") return AcceptRow.SUMMARY_SECTION.takeIf { targetObject == "project" }
         if (kind in MARKDOWN_KINDS) return null
         val value = Proposals.parse(suggestedValue) ?: return null
         return when (kind) {
@@ -91,8 +96,13 @@ object AllowList {
             AcceptRow.MINUTES to setOf("minutes"),
             AcceptRow.GRIEVANCE_DUPLICATE to setOf("other_record_id", "response"),
             AcceptRow.ORGANIZATION_DUPLICATE to setOf("other_record_id"),
-            AcceptRow.DECISION_DUPLICATE to setOf("other_record_id")
+            AcceptRow.DECISION_DUPLICATE to setOf("other_record_id"),
+            AcceptRow.SECTION to setOf("content"),
+            AcceptRow.SUMMARY_SECTION to setOf("section", "content")
         )
+
+    // las filas que adoptan un texto en una sección: DeliverableSections.adopt convierte los marcadores en lugar de rechazarlos
+    val ADOPTIONS: Set<AcceptRow> = setOf(AcceptRow.SECTION, AcceptRow.SUMMARY_SECTION)
 
     // `item` y `kind`, si vienen, son los de la fila: la clave que cambiaría de fila, o null
     fun misplaced(

@@ -64,7 +64,8 @@ class DraftFailure(
 // ReportDisclosure, escribe el DOCX del borrador y el de la candidata, los convierte y verifica cada PDF; y sube los siete
 // archivos con LISTO y los avisos en una sola escritura (DraftFiles). todo error deja FALLIDO con su código. lee y escribe
 // como la plataforma (con el origen job:deliverable-generation), nunca aplica transiciones ni escribe secciones. los logs
-// llevan ids y códigos, nunca contenido
+// llevan ids y códigos, nunca contenido. todo trabajo bloqueante de JOB-05 (POI, Java 2D, ImageIO, PDFBox) corre en
+// Dispatchers.IO, nunca en el event loop de Reactor Netty: generate aquí y cada nivel de mapa en GeoServerReportMaps
 @Component
 class DraftGeneration(
     private val records: Records,
@@ -86,12 +87,20 @@ class DraftGeneration(
         deliverableId: UUID
     ) {
         val attemptAt = clock.instant()
+        // el id de la corrida: va a Gotenberg (Gotenberg-Trace) y a los logs, nunca un dato del entregable
+        val correlation = "job-05-${UUID.randomUUID()}"
         try {
             val frozen = platform(organizationId) { freeze(organizationId, slug, deliverableId, attemptAt) } ?: return
-            val outputs = withContext(Dispatchers.IO) { generate(organizationId, frozen) }
+            val outputs = withContext(Dispatchers.IO) { generate(organizationId, frozen, correlation) }
             val warnings = frozen.model.warnings
             files.attach(organizationId, deliverableId, outputs, mapOf(Deliverables.STATUS to Deliverables.READY, Deliverables.WARNINGS to text(warnings)))
-            log.info("JOB-05: borrador {} LISTO del entregable {} con {} avisos", frozen.model.meta.draftRevision, deliverableId, warnings.size)
+            log.info(
+                "JOB-05: borrador {} LISTO del entregable {} con {} avisos (corrida {})",
+                frozen.model.meta.draftRevision,
+                deliverableId,
+                warnings.size,
+                correlation
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -253,7 +262,8 @@ class DraftGeneration(
     // paso 3, desde lo congelado y vuelto a leer: la prueba de que draft_model basta para volver a generar (RQ-REP-026)
     private suspend fun generate(
         organizationId: UUID,
-        frozen: Frozen
+        frozen: Frozen,
+        correlation: String
     ): List<DraftFile> {
         val model = CanonicalJson.read(frozen.bytes)
         val photos =
@@ -267,8 +277,8 @@ class DraftGeneration(
             val levelPhotos = photos.filterKeys { it in leveled.photos.keys }
             val draft = writer.write(DocxWriter.Input(leveled, frozen.template, true, frozen.author, levelPhotos))
             val candidate = writer.write(DocxWriter.Input(leveled, frozen.template, false, frozen.author, levelPhotos))
-            val draftPdf = pdf(draft, model, level, candidate = false)
-            val candidatePdf = pdf(candidate, model, level, candidate = true)
+            val draftPdf = pdf(draft, model, level, candidate = false, correlation)
+            val candidatePdf = pdf(candidate, model, level, candidate = true, correlation)
             val name = "$code-${level.name.lowercase()}"
             if (level == Disclosure.INTERNO) {
                 out += DraftFile(Deliverables.DRAFT_INTERNAL_DOCX, "$name-borrador.docx", Deliverables.DOCX_TYPE, draft)
@@ -289,10 +299,11 @@ class DraftGeneration(
         docx: ByteArray,
         model: ReportModel,
         level: Disclosure,
-        candidate: Boolean
+        candidate: Boolean,
+        correlation: String
     ): ByteArray {
         val revision = if (candidate) model.meta.issueRevision else model.meta.draftRevision
-        val bytes = pdf.convert(docx, PdfRequest(candidate, model.meta.title, model.meta.code, revision, null))
+        val bytes = pdf.convert(docx, PdfRequest(candidate, model.meta.title, model.meta.code, revision, correlation))
         if (PdfChecks.problems(bytes, candidate).isNotEmpty()) throw DraftFailure(Deliverables.PDF_CHECK_FAILED, level.name)
         return bytes
     }

@@ -47,7 +47,9 @@ data class PromptFile(
             val header = lines.subList(1, end).associate { it.substringBefore(":").trim() to it.substringAfter(":", "").trim() }
             check(header.keys.toList() == KEYS) { "la cabecera del prompt $id@$version declara ${header.keys}; se esperan $KEYS" }
             check(header["id"] == id && header["version"] == version) { "la cabecera del prompt $id@$version no es la de su ruta" }
-            check(AiProperties.key(header.getValue("use_case")) == id) { "el prompt $id@$version es de otro caso" }
+            // un caso puede tener más de un prompt: el suyo (ai-04) y otros con su id de prefijo (ai-04-seccion, plan 8.2c)
+            val case = AiProperties.key(header.getValue("use_case"))
+            check(id == case || id.startsWith("$case-")) { "el prompt $id@$version es de otro caso" }
             check(header["language"] == "es") { "el prompt $id@$version no está en español" }
             check(header.getValue("output").isNotEmpty()) { "el prompt $id@$version no declara su salida" }
             return PromptFile(

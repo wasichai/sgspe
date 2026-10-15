@@ -48,7 +48,10 @@ object ReportDisclosure {
         val external = level == Disclosure.EXTERNO
         return when (block) {
             is Block.Paragraph ->
-                if (external && block.mark != null) {
+                // la nota EXTERNO solo sale en EXTERNO; cualquier otra marca se quita ahí (falla cerrado)
+                if (block.mark?.kind == Mark.EXTERNAL_NOTE && !external) {
+                    null
+                } else if (external && block.mark != null && block.mark.kind != Mark.EXTERNAL_NOTE) {
                     null
                 } else {
                     block.copy(
@@ -86,6 +89,15 @@ object ReportDisclosure {
                     source = block.source?.let { Mentions.resolve(it, people, level) }
                 )
             is Block.SectionBreak -> block
+            // el índice y las listas se arman con los títulos y las leyendas ya transformados
+            is Block.Toc -> block
+            is Block.CaptionList -> block
+            is Block.LineChart ->
+                block.copy(
+                    title = Mentions.resolve(block.title, people, level),
+                    series = block.series.map { it.copy(name = Mentions.resolve(it.name, people, level)) },
+                    source = block.source?.let { Mentions.resolve(it, people, level) }
+                )
         }
     }
 }

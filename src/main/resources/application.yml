@@ -164,6 +164,12 @@ sgspe:
       # mapas de informe (plan 8.2c): tope de elementos en línea (MAP_TOO_MANY_FEATURES) y plazo de GeoServer
       max-features: 5000
       timeout: 30s
+    gotenberg:
+      # plan 8.2c (ADR-0026): Gotenberg en 127.0.0.1:8096 del VPS, por el túnel (ssh -fN -L 8096:localhost:8096); solo lo
+      # llama JOB-05. sin él, los borradores quedan FALLIDO con PDF_CONVERTER_UNAVAILABLE
+      url: ${SGSPE_DELIVERABLE_GOTENBERG_URL:http://localhost:8096}
+      # el plazo de una conversión: un T1 de unas 100 páginas con 40 fotos tarda segundos (spike de ADR-0013)
+      timeout: 180s
     templates:
       # plantillas .dotx o .docx (ASM-135): 20 MB por HTTP, entradas del ZIP y bytes descomprimidos (100 MB)
       max-bytes: 20971520
@@ -280,6 +286,8 @@ sgspe:
       ai-02: '1'
       ai-03: '1'
       ai-04: '1'
+      # plan 8.2c: el borrador de sección de AI-04 (otro prompt del mismo caso, con el mismo modelo)
+      ai-04-seccion: '1'
       ai-05: '1'
       ai-06: '1'
       ai-07: '1'

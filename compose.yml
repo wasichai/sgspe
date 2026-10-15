@@ -99,6 +99,23 @@ services:
     volumes:
       - geoserver-data:/opt/geoserver_data
 
+  # F8 (plan 8.2c, ADR-0026): DOCX a PDF con LibreOffice para JOB-05. nunca público: solo loopback del VPS, por túnel
+  # (ssh -fN -L 8096:localhost:8096 "$SGSPE_VPS"); sin volúmenes, sin webhooks ni descargas remotas. la etiqueta y las
+  # banderas son las de la CI (.github/workflows/ci.yml): una versión nueva de LibreOffice puede mover la paginación
+  gotenberg:
+    image: gotenberg/gotenberg:8.37.0-libreoffice
+    container_name: sgspe-gotenberg
+    command:
+      - gotenberg
+      - --api-timeout=180s
+      - --api-disable-download-from=true
+      - --webhook-disable=true
+      - --pdfengines-disable-routes=true
+      - --libreoffice-auto-start=true
+      - --log-std-format=json
+    ports:
+      - '127.0.0.1:${SGSPE_GOTENBERG_PORT:-8096}:3000'
+
 volumes:
   postgis-data:
   minio-data:
