@@ -408,6 +408,12 @@ class TemplateValidatorTest {
         assertEquals(forbidden, fieldCodes("""<w:p><w:fldSimple w:instr=" \d"/></w:p>""").distinct())
         assertEquals(forbidden, fieldCodes("<w:p>" + begin() + instr("\"\" INCLUDEPICTURE \"http://ejemplo.invalid/a.png\"") + end() + "</w:p>").distinct())
         assertEquals(forbidden, fieldCodes("<w:p>" + begin() + end() + "</w:p>").distinct())
+        // una comilla o un U+200B antes del campo anidado no son un nombre (revisión final del plan 8.2b, M2)
+        val nested = TemplateFinding(TemplateValidator.FIELD_NOT_ALLOWED, "campo anidado antes del nombre")
+        for (fake in listOf("\"", "\u200B", " \" ")) {
+            val hidden = "<w:p>" + begin() + instr(fake) + begin() + instr(" REF a ") + end() + instr(" REF b ") + end() + "</w:p>"
+            assertTrue(nested in validator.validate(body(hidden), "p.dotx").violations, fake)
+        }
         // un campo anidado después del nombre del exterior sigue valiendo
         val legit = "<w:p>" + begin() + instr(" REF ") + begin() + instr(" SEQ x ") + end() + instr(" \\h ") + end() + "</w:p>"
         assertEquals(emptyList<TemplateFinding>(), validator.validate(body(legit), "p.dotx").violations)
@@ -419,6 +425,12 @@ class TemplateValidatorTest {
         assertTrue(TemplateValidator.NOT_WORD in codes(variant(mapOf("word/media/a.svg" to svg))))
         val declared = types("""<Default Extension="svg" ContentType="image/svg+xml"/>""")
         assertTrue(TemplateValidator.NOT_WORD in codes(variant(mapOf("word/media/a.svg" to "<datos/>"), edit = declared)))
+        // también dentro de otra parte XML, no solo como raíz (revisión final del plan 8.2b, M2)
+        val inside = part("""<svg xmlns="http://www.w3.org/2000/svg"/>""")
+        assertTrue(
+            TemplateFinding(TemplateValidator.NOT_WORD, "SVG no permitido, use PNG (word/header9.xml)") in
+                validator.validate(variant(mapOf("word/header9.xml" to inside)), "p.dotx").violations
+        )
     }
 
     @Test
