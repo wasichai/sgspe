@@ -923,7 +923,7 @@ llamar a un modelo, lo que en F7 no hace (`ai-architecture.md` §13.2).
 JOB-08 (`RetentionJob`) borra, desde F3, las claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de
 `derived_version` con SQL propio (ASM-065, ASM-091), sin escribir registros de wasichai; en F8 no gana un paso de
 entregables: los archivos reemplazados de un borrador los borra `StoredFileCleanup` de wasichai-files (ASM-133). JOB-05
-sube y adjunta los archivos del borrador como la plataforma, lo que espera UPS-31, y es el único que llama a Gotenberg y
+sube y adjunta los archivos del borrador como la plataforma (UPS-31, desde wasichai 1.3.0), y es el único que llama a Gotenberg y
 a GeoServer por un entregable. Las automatizaciones de la metadata también actúan como la plataforma, y escribirlas
 exige MANAGE_METADATA, que solo tiene `ADMIN` [WAS-DOC api/rest.md]. Las escrituras de un trabajo llevan además su
 origen en la columna `source` de la auditoría (`job:<nombre>`, WAS-ADR-0050, §13.2). La clave `generator_key` de las
@@ -1658,6 +1658,6 @@ Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; 
 | Autoridad sobre montos | GAP-006 | Quién aprueba según el monto y quién supera el tope de la campaña | Un nivel de aprobación más `APPROVE_OVER_CAP`: `PROJECT_MANAGER` en los compromisos y `SOCIAL_MANAGER` en los aportes (§5.3) |
 | TTL de producción | RQ-SEC-001 | Duración del token | `PT4H`, fijado por `application-prod.yml` como tope provisional de F1; el despliegue puede cambiarlo, siempre por debajo de 8 horas (§3.2) |
 | Transporte del token | CON-056 | Cookie HttpOnly u OIDC | Propuestas a futuro, fuera del MVP (§3.4) |
-| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-23, UPS-31 (abierta como wasichai/wasichai#111, para F8) (UPS-13, resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0; UPS-14, resuelta en wasichai con WAS-ADR-0056 y adoptada en F7); UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
-| Plantillas y archivos de entregables | GAP-010, UPS-31 | Decidido el 2026-10-13: plantillas Word por organización, validadas, y archivos en wasichai-files | ASM-133 y ASM-135; si UPS-31 no llega, el borrador usa claves propias en el `FileStore` y un paso de JOB-08 (§7.10) |
+| Brechas upstream | UPS-01, UPS-02, UPS-03, UPS-05, UPS-06, UPS-08, UPS-09, UPS-10, UPS-12, UPS-23 (UPS-13, resuelta con wasichai-ui#38 en `@wasichai/gis` 1.0.0; UPS-14, resuelta en wasichai con WAS-ADR-0056 y adoptada en F7; UPS-31, resuelta en wasichai 1.3.0 y adoptada en F8); UPS-25 y UPS-26, candidatas posteriores al MVP sin issue | Aprobar la apertura de los issues | Mitigaciones de este documento mientras tanto (GAP-028) |
+| Plantillas y archivos de entregables | GAP-010, UPS-31 | Decidido el 2026-10-13: plantillas Word por organización, validadas, y archivos en wasichai-files | ASM-133 y ASM-135; UPS-31, resuelta en wasichai 1.3.0: JOB-05 adjunta el borrador como la plataforma (§7.10) |
 | Nombre y huella del archivo de una evidencia restringida | UPS-24, ASM-093 | ¿Se acepta que su nombre lo lean todos los lectores de `evidence` hasta UPS-24, o se renombra en el servidor y se pierde el original? | Resuelta en wasichai 1.0.0: `EvidenceFileReadPolicy` oculta `name` y `sha256` a quien no descarga; el nombre neutro del portal queda como defensa adicional (§11.6) |

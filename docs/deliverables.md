@@ -230,8 +230,9 @@ Cada clase declara:
 - sus parámetros (RQ-REP-013): T2 exige `project`, `community` y periodo; T1, `project`, `study`, periodo, `cutoff_date`
   y un área de influencia directa aprobada; los dos, el `working_crs` del proyecto. Si falta uno al pedir un borrador,
   la respuesta es `422 DELIVERABLE_PARAMETERS_MISSING`, con un error por campo. `deliverable_type` no cambia después del
-  alta (`400 FIELD_NOT_EDITABLE`), y un listener crea las secciones del tipo en la transacción del alta, como quien la
-  da de alta;
+  alta (`400 FIELD_NOT_EDITABLE`), como tampoco `section_key` ni `deliverable` de una `deliverable_section`; un `PUT` que
+  omite o cambia `current_version` responde `400 DERIVED_FIELD` (solo la emisión la escribe); y un listener crea las
+  secciones del tipo en la transacción del alta, como quien la da de alta;
 - los niveles de divulgación que prepara (§3, §9), sus mapas (capas y regla de encuadre) y sus recursos estáticos (RQ-REP-023);
 - su versión, que queda en el modelo congelado.
 
@@ -246,8 +247,9 @@ Cada clase declara:
   `Photo(identifiable, consent, kind)`, `ReceiptImage`, `HolderName`, `RegistryNumber`), y su forma canónica es
   `CanonicalJson`: claves ordenadas, UTF-8, sin espacios y DECIMAL como texto. Así un solo archivo, `draft_model`, basta
   para volver a generar.
-- Su SHA-256 es `draft_model_sha256`, y `draft_generated_at` es el instante en que el trabajador congela el modelo al
-  empezar a generar (ASM-061) (domain-model §7.4). Los bytes de un DOCX o un PDF no son deterministas: la identidad de
+- Su SHA-256 es `draft_model_sha256`, y `draft_generated_at` es el instante del intento: el trabajador lo toma al
+  tomar el pedido, antes de leer las secciones, y lo guarda al congelar el modelo o al terminar FALLIDO (ASM-061)
+  (domain-model §7.4). Los bytes de un DOCX o un PDF no son deterministas: la identidad de
   lo emitido es el hash del modelo, y los hashes de archivo identifican los artefactos guardados. El modelo es interno:
   la API no lo sirve (§11); se guarda en `draft_model`, cuyo SHA-256 de archivo es igual a `draft_model_sha256`.
 - **El contenido lo define el tipo, no los permisos de campo de quien genera.** El trabajador lee como la plataforma
@@ -281,8 +283,9 @@ Cada clase declara:
   usa si una persona la adopta con motivo: `POST /api/sgspe/ai-suggestions/{id}/accept` escribe `content`,
   `content_origin` ASISTIDO POR IA y el vínculo `ai_suggestion` con `DeliverableSections.adopt`, y convierte
   `[PERSONA:<id>]` en `[[person:<id>]]` (un `[PERSONA]` sin id responde `422 UNRESOLVED_PSEUDONYM`).
-  `DeliverableWriteGuard` exige el motivo cuando el origen indica IA y no deja volver a HUMANO en la misma revisión
-  (`422 AI_ORIGIN_LOCKED`), así que la versión emitida lista en `ai_assisted_sections` toda sección que tuvo asistencia
+  `DeliverableWriteGuard` exige el motivo cuando el origen indica IA y no deja volver a otro origen ni borrar la sección
+  (`422 AI_ORIGIN_LOCKED`; en F8, en toda la vida del entregable, pendiente de confirmación del usuario; AI-04 puede
+  acotarlo a la revisión), así que la versión emitida lista en `ai_assisted_sections` toda sección que tuvo asistencia
   (RQ-AI-012, RF-AIK-004, ASM-137). AI-04 solo redacta las secciones que el tipo marca con IA (si no, `422
   SECTION_NOT_ASSISTED`), leyendo como la persona, seudonimizados, los registros que el tipo declara para esa sección y
   los KPI del periodo; nunca el modelo congelado, que se leyó como la plataforma.
@@ -317,8 +320,13 @@ Cada clase declara:
   corridas partidas, y recorre el Markdown con commonmark-java y su extensión de tablas GFM hacia los estilos de la
   plantilla.
 - **Tablas.** Título arriba, `Fuente:` abajo, encabezado repetido y celdas combinadas para agrupar (RQ-REP-006).
-- **Fotos.** Se reducen en Kotlin antes de insertarlas (lado mayor de 2000 px como máximo y JPEG de calidad 85, valores por defecto
-  propuestos y configurables), de a dos por fila en una tabla sin bordes, con texto alternativo (RQ-REP-010, RQ-REP-028).
+- **Fotos.** Se reducen en Kotlin antes de insertarlas (lado mayor de 2000 px como máximo y JPEG de calidad 85, valores
+  por defecto propuestos y configurables), de a dos por fila en una tabla sin bordes, con texto alternativo (RQ-REP-010,
+  RQ-REP-028). Las dimensiones se leen de la cabecera antes de decodificar, y la imagen se decodifica submuestreada; una
+  de más de `sgspe.deliverable.photos.max-megapixels` (250) no se decodifica y sale como «[Foto no disponible]».
+- **Narrativa muy anidada.** Más allá de 32 niveles de citas, listas o énfasis anidados, el contenido sale como texto
+  plano, y si el parser de CommonMark agota la pila, la narrativa entera sale como texto plano: un anidado así no tumba
+  el intento.
 - **Gráficos.** Nativos de Word en la primera versión (§7.9).
 - **Encabezado y pie.** Código del documento y revisión; "Página X de Y" con PAGE y NUMPAGES; en las versiones que no son INTERNO,
   también el nivel de divulgación (RQ-REP-016, RQ-REP-024).
@@ -336,17 +344,37 @@ Cada clase declara:
   borrador toma la plantilla más reciente de esa clave y congela su id y su SHA-256 en el modelo, y cada versión
   emitida guarda su `template_sha256` (domain-model §6.15). Una plantilla no se edita ni se borra: subir otra con la
   misma clave la reemplaza para los borradores siguientes. Sin `template_key` rige la base de SGSPE
-  (`src/main/resources/sgspe/deliverable/templates/sgspe-base.dotx`, solo fuentes libres).
+  (`BaseTemplate`, armada en código con POI, solo Liberation Sans y con los mismos bytes en cada armado; la prueba de que
+  es determinista es `BaseTemplateTest`).
 - **Validación al subir** (RQ-SEC-019, ASM-055, ASM-135). `POST /api/sgspe/deliverable-templates` (multipart `file`,
   `templateKey` y `name`, con `Idempotency-Key`) abre el OOXML con límites de entradas y de bytes descomprimidos y
   rechaza con `422 TEMPLATE_INVALID` y `violations[]` `vbaProject.bin`, los tipos con macros (.dotm, .docm), objetos
-  OLE, ActiveX, controles de contenido, relaciones `TargetMode="External"`, marcadores desconocidos, estilos
+  OLE, ActiveX, controles de contenido, `altChunk`, relaciones `TargetMode="External"`, marcadores desconocidos, estilos
   requeridos faltantes (`TemplateStyles`) y fuentes fuera de la lista en un estilo o en el texto; una fuente que solo
-  figura en la tabla de fuentes es un aviso. El tope es el de una subida del navegador, 20 MB (ASM-138). La sube quien
+  figura en la tabla de fuentes es un aviso. La validación es por tipo de contenido, por tipo de relación y por namespace
+  (nada depende del prefijo ni de la extensión que el archivo declara), y falla cerrada:
+  - toda parte se analiza como XML sin DTD, cualquiera sea su tipo declarado o su carpeta; un binario solo se acepta si
+    se declara imagen raster (png, jpeg, gif, bmp, tiff, emf, wmf) y sus bytes mágicos coinciden; SVG no se permite
+    (usar PNG), y lo demás (por ejemplo `printerSettings.bin` o fuentes `.odttf`) es `NOT_WORD`; también lo es un
+    elemento con dos atributos del mismo nombre local;
+  - los campos permitidos son una lista cerrada: PAGE, NUMPAGES, SECTIONPAGES, SECTION, DATE, TIME, CREATEDATE, SAVEDATE,
+    PRINTDATE, TITLE, SUBJECT, AUTHOR, DOCPROPERTY, STYLEREF, REF, PAGEREF, NOTEREF, SEQ, TOC y TC. Cualquier otro
+    (INCLUDEPICTURE, INCLUDETEXT, LINK, DDE, DDEAUTO, IMPORT, MERGEFIELD, DATABASE, RD…), un campo sin nombre, un campo
+    anidado antes del nombre, texto de instrucción fuera de un campo o un campo sin cerrar es `FIELD_NOT_ALLOWED`;
+  - cualquier atributo cuyo valor parezca una dirección (`esquema:`, `//`, `\\`) es `EXTERNAL_RELATIONSHIP`, salvo las
+    declaraciones de namespace, `xsi:schemaLocation` y `noNamespaceSchemaLocation`, `xsi:type`, `Relationship/@Type`,
+    `graphicData/@uri`, `schemaRef/@uri`, `ext/@uri` y el texto alternativo `descr` o `title` de `docPr` y `cNvPr`; toda
+    relación con `TargetMode="External"` lo es también, incluidos los hipervínculos externos de la plantilla;
+  - los estilos requeridos se buscan solo en la parte de estilos del documento principal, y las fuentes se revisan en
+    todas las partes.
+  Los estilos requeridos se nombran por su nombre integrado de Word (`Normal`, `Title`, `heading 1` a `heading 3`,
+  `caption`, `List Paragraph`) y se buscan sin distinguir mayúsculas, porque el id del estilo cambia con el idioma de Word. El tope es el de una subida del navegador, 20 MB (ASM-138). La sube quien
   tiene `MANAGE_METADATA` sobre `deliverable` (en la práctica, `ADMIN`).
 - **Marcadores fijos.** La portada, el encabezado y el pie llevan solo `{{titulo}}`, `{{proyecto}}`,
   `{{preparado_para}}`, `{{suscrito_por}}`, `{{direccion_autora}}`, `{{fecha}}`, `{{codigo}}`, `{{revision}}`,
-  `{{nivel}}` y `{{mapa_portada}}`, sin lenguaje de expresiones: la plantilla aporta el aspecto, no la lógica.
+  `{{nivel}}` y `{{mapa_portada}}`, sin lenguaje de expresiones: la plantilla aporta el aspecto, no la lógica. Un marcador va solo en su párrafo (o con
+  texto plano): `DocxWriter` reescribe el párrafo entero en su primera corrida, así que una imagen, un campo o un formato
+  mixto de ese párrafo se pierde.
 - **Fuentes.** Gotenberg trae fuentes libres con métricas compatibles; las plantillas las usan en lugar de las de Microsoft, que no
   se pueden redistribuir en un contenedor. DOC-01 y DOC-02 usan Calibri y Arial; DOC-01 además Cambria, Century Gothic y Tahoma, y
   DOC-02 Arial Black en el título de la portada [DOC-01] [DOC-02 p.1].
@@ -455,15 +483,21 @@ stateDiagram-v2
 - **Trabajador.** Es JOB-05 de `workflows.md` (`DeliverableGenerationJob`): sondea cada
   `sgspe.deliverable.generation.poll` (5 s) en una sola réplica, con `ClusterLock` y la clave `sgspe.deliverable`,
   recorre `Organizations.having("deliverable")` como la plataforma y, al procesar cada pedido, toma además un candado
-  por entregable (`deliverable:<id>`), para que dos réplicas nunca generen el mismo borrador [WAS-ADR-0039]. Lo
-  pendiente se calcula en Kotlin sobre los entregables en `draft` u `observed`: un pedido está pendiente si
-  `generation_requested_at` es posterior a `draft_generated_at` o este está vacío, y uno que sigue EN COLA o EN PROCESO
-  hace más de `sgspe.deliverable.generation.stale-after` (15 min) se vuelve a tomar. Al tomarlo marca EN COLA; al
-  congelar el modelo, EN PROCESO, y guarda ese instante en `draft_generated_at`, con `draft_model_sha256` y
-  `draft_revision`; al terminar, sube y adjunta los siete archivos y escribe LISTO y `draft_warnings` en una sola
-  escritura de la plataforma, o FALLIDO con su código en `draft_warnings` (catálogo "Estado de generación del
-  borrador"). Nunca aplica transiciones ni escribe secciones (domain-model §8.3). Adjuntar archivos como la plataforma
-  espera UPS-31.
+  por entregable (`sgspe.deliverable-generation:<id>`), para que dos réplicas nunca generen el mismo borrador
+  [WAS-ADR-0039]. Lo pendiente se calcula en Kotlin sobre los entregables en `draft` u `observed`: un pedido está
+  pendiente si `generation_requested_at` es posterior a `draft_generated_at` o este está vacío, y uno que sigue EN COLA
+  o EN PROCESO hace más de `sgspe.deliverable.generation.stale-after` (15 min) se vuelve a tomar. Al tomarlo fija el
+  instante del intento, antes de leer las secciones, y marca EN COLA; al congelar el modelo, EN PROCESO, y guarda ese
+  instante en `draft_generated_at`, con `draft_model_sha256` y `draft_revision`; al terminar, sube y adjunta los siete
+  archivos y escribe LISTO y `draft_warnings` en una sola escritura de la plataforma, o FALLIDO con su código en
+  `draft_warnings` (catálogo "Estado de generación del borrador"). El intento queda en `draft_generated_at` también si
+  termina FALLIDO (un pedido se atiende una vez), y el FALLIDO posterior a congelar el modelo gasta su letra de
+  revisión. Nunca aplica transiciones ni escribe secciones (domain-model §8.3). Los archivos los adjunta como la
+  plataforma un puerto (`DraftFiles`; UPS-31, resuelta en wasichai 1.3.0): en 8.2b, sin conversor real, todo borrador
+  real termina FALLIDO con `PDF_CONVERTER_UNAVAILABLE`. Los avisos de `draft_warnings` también pueden ser
+  `PDF_CHECK_FAILED` (con el nivel en el lugar de la sección) y `TYPE_NOT_AVAILABLE`, además de `GENERATION_FAILED` y
+  `TEMPLATE_UNAVAILABLE`. Un `StackOverflowError` o un `OutOfMemoryError` del intento también deja FALLIDO con
+  `GENERATION_FAILED`, para que no quede EN PROCESO y se retome para siempre.
 - **Qué genera.** Desde un mismo modelo congelado y para cada nivel de divulgación que prepara el tipo:
   - el borrador, con la marca "BORRADOR" y la etiqueta de borrador, para revisar (RQ-REP-021): DOCX y PDF en INTERNO, y
     solo PDF en EXTERNO (`draft_internal_docx`, `draft_internal_pdf` y `draft_external_pdf`), en PDF común;
@@ -489,8 +523,10 @@ stateDiagram-v2
 - **Observar** devuelve el entregable con motivo; se editan las secciones y se pide un borrador nuevo.
 - **Aprobar** exige a la vez uno de los roles de la transición y la acción declarada `APPROVE` sobre `deliverable`, como
   fija WF-H en `workflows.md`. `DeliverableWriteGuard` la rechaza, como a `submit_for_review` y `resubmit`, si el
-  borrador no está LISTO o si alguna `deliverable_section` tiene `updated_at` posterior a `draft_generated_at`
-  (`409 SECTIONS_CHANGED`, con las claves de las secciones) (RQ-REP-015, RQ-REP-026) (domain-model §7.2).
+  borrador no está LISTO, si ya se emitió (hay una `deliverable_version` con `issued_at` posterior a
+  `draft_generated_at`: tras `start_revision` hace falta un borrador nuevo; `409 STATE_MISMATCH`) o si alguna
+  `deliverable_section` tiene `updated_at` posterior a `draft_generated_at` (`409 SECTIONS_CHANGED`, con las claves de
+  las secciones) (RQ-REP-015, RQ-REP-016, RQ-REP-026) (domain-model §7.2).
 - Como no se piden borradores en `in_review`, el borrador aprobado es el que se revisó. El portal escribe su `draft_model_sha256`
   en el motivo de la aprobación, que queda en la auditoría.
 - **Dónde se editan las secciones.** El editor del portal solo permite editar `deliverable_section` en `draft` y `observed`. Una
@@ -501,7 +537,7 @@ stateDiagram-v2
 - `POST /api/sgspe/deliverables/{id}/issue` (`DeliverableIssue`) exige la acción `ISSUE`, motivo, `Idempotency-Key` e
   `If-Match`, con `{ draftModelSha256, checklistConfirmed }`; si el tipo prepara EXTERNO, también la lista de
   verificación confirmada (§9.4; si no, `400 CHECKLIST_REQUIRED`, como en las exportaciones). Verifica:
-  - `approved` y el borrador LISTO (si no, `409 STATE_MISMATCH`) y el mismo `draft_model_sha256` (si no,
+  - `approved` y el borrador LISTO y sin emitir (si no, `409 STATE_MISMATCH`) y el mismo `draft_model_sha256` (si no,
     `409 MODEL_MISMATCH`);
   - que ninguna `deliverable_section` tenga `updated_at` posterior a `draft_generated_at`, el control de la aprobación,
     repetido porque una sección pudo editarse después de aprobar (`409 SECTIONS_CHANGED`);
@@ -563,7 +599,7 @@ sequenceDiagram
 | El borrador lo describe solo el trabajador | `DerivedFieldsGuard` rechaza sin la marca las escrituras de `generation_requested_at`, `draft_*`, `current_version` y `current_revision`, y SGSPE atiende la subida nativa de los campos `FILE` de entregables con `403 FILE_WRITE_NOT_ALLOWED` | ASM-061, ASM-133 (domain-model §4.6, §7.4) |
 | Se aprueba lo que se revisó | `DeliverableWriteGuard` hacia `approved` | RQ-REP-015 |
 | Todo cambio tiene motivo | `deliverable` es `requiresReason` | RQ-AUD-002, ASM-058 [WAS-ADR-0041] |
-| El texto de IA lo adopta una persona | `DeliverableWriteGuard` exige motivo cuando `content_origin` indica IA y no deja volver a HUMANO en la misma revisión (`422 AI_ORIGIN_LOCKED`) | RQ-AI-012, ASM-137 |
+| El texto de IA lo adopta una persona | `DeliverableWriteGuard` exige motivo cuando `content_origin` indica IA y no deja volver a otro origen ni borrar la sección, en toda la vida del entregable (`422 AI_ORIGIN_LOCKED`; pendiente de confirmación del usuario) | RQ-AI-012, ASM-137 |
 | El tipo no cambia | `DeliverableWriteGuard` rechaza cambiar `deliverable_type` después del alta | RQ-REP-002 |
 | La versión INTERNO conserva el DOCX editable | `DeliverableWriteGuard` rechaza crear una `deliverable_version` INTERNO sin el `FILE` `docx` y su `docx_sha256`, o con un `*_sha256` distinto del descriptor de su archivo; la derivada EXTERNO es solo PDF | RQ-REP-001, RQ-REP-014 (domain-model §7.2) |
 | Generar, emitir y descargar son permisos explícitos | Acciones declaradas sobre `deliverable`: `GENERATE`, `ISSUE`, `DOWNLOAD_RESTRICTED` (borradores y versiones INTERNO) y `EXPORT` (versiones EXTERNO y PUBLICO); `EXPORT` sobre cada objeto que se exporta a XLSX o a formatos GIS | RQ-SEC-004 [WAS-ADR-0042] (domain-model §8.1.1) |
@@ -608,6 +644,7 @@ no haya fuente normativa (GAP-001).
 | Citas de percepciones | Atribuidas por cargo (nunca por nombre) | Igual | Sin atribución |
 | Redes y nodos (T2) | Con nombres | Por cargo y papel en la red | Conteos de redes y nodos |
 | Comprobante del apoyo (T2) | Imagen | Datos estructurados del `receipt` sin número ni nombre del emisor | Monto total del aporte |
+| Lugar de una entrega del apoyo (T2) | Como en el registro | Se omite (puede ser una vivienda; el modelo lo lleva en un párrafo marcado); la fecha de la entrega queda | Se omite |
 | Fotos de entregas | Todas | Solo sin personas identificables o con consentimiento; un dato vacío las excluye (RNF-PRIV-004, ASM-037) | Ninguna con personas |
 | Datos registrales de la comunidad | Completos | Completos (son de la comunidad, no de una persona) | Se omiten los números |
 | Mapas | Capas según el tipo | Divulgación por capa de ASM-124: sin LYR-10, LYR-11 ni LYR-15; predios sin titulares ni partida; puntos de vivienda generalizados (ASM-134) | Solo capas públicas y agregados |
@@ -615,7 +652,9 @@ no haya fuente normativa (GAP-001).
 ### 9.3 Menciones de personas
 
 - Las menciones de §7.4 se resuelven por nivel: nombre en INTERNO; cargo y organización, o código `GI-`, en EXTERNO, y
-  sin cargo, «una persona de <localidad>»; texto genérico en PUBLICO (RQ-REP-033, ASM-137).
+  sin cargo, «una persona de <localidad>»; texto genérico en PUBLICO (RQ-REP-033, ASM-137). Se resuelven en todo texto
+  del modelo: párrafos y notas, títulos, celdas, las fuentes de tablas, fotos y mapas, y el texto alternativo de las
+  fotos.
 - El texto propio de los registros (perfiles, historias, resultados de interacciones) pasa por la misma resolución cuando trae
   menciones; si trae nombres tecleados, la lista de verificación los busca.
 
@@ -711,7 +750,7 @@ La generación, la revisión y la emisión quedan además en `audit_log` con su 
 | `file` | `deliverable_template` | Plantilla .dotx o .docx | READ, por la ruta nativa de wasichai-files |
 
 - **Quién escribe.** Los siete `draft_*` los sube y los adjunta JOB-05 como la plataforma, en una sola escritura
-  (UPS-31); los de `deliverable_version`, quien emite (§8.4); el de `deliverable_template`, `POST
+  (UPS-31, desde wasichai 1.3.0); los de `deliverable_version`, quien emite (§8.4); el de `deliverable_template`, `POST
   /api/sgspe/deliverable-templates` después de validar. SGSPE atiende las rutas nativas de archivos de los tres objetos,
   como con `evidence` (el segmento literal gana a `{object}`): en `deliverable`, los borradores con las comprobaciones
   de `GET …/draft/content` y su fila de `export_log`, y las candidatas y `draft_model`, `404`; en `deliverable_version`,
@@ -732,7 +771,7 @@ La generación, la revisión y la emisión quedan además en `audit_log` con su 
   archivos en una sola escritura, y `StoredFileCleanup` de wasichai-files borra los bytes reemplazados, y las subidas
   que nadie adjuntó (como las de una emisión fallida, §8.4), pasado `wasichai.files.cleanup.delay` (24 h); el historial
   conserva sus descriptores. Todo lo emitido se conserva, sin bloqueo WORM en F8. JOB-08 no tiene paso de entregables.
-  Si UPS-31 no llega, el respaldo es solo para el borrador: un `draft_storage_key` con su paso en JOB-08 (ASM-133).
+  UPS-31 se resolvió en wasichai 1.3.0: el respaldo de ASM-133 (un `draft_storage_key` con su paso en JOB-08) no se usa.
 
 ## 12. Permisos
 
@@ -764,7 +803,7 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 - Un proyecto de prueba con topónimos reales y personas, organizaciones privadas y números ficticios ("Persona Ejemplo 1",
   "Asociación Ejemplo"), con datos para todos los capítulos de T1 y todas las secciones de T2 (RQ-SEC-018).
 - Una plantilla Word de prueba en el repositorio, con los estilos requeridos y solo fuentes libres; la base de SGSPE
-  (`sgspe-base.dotx`) la valida `TemplateValidatorTest`.
+  (`BaseTemplate`) la valida `TemplateValidatorTest`.
 
 ### 13.2 Criterios de aceptación
 
@@ -835,12 +874,12 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 | Bytes de DOCX y PDF no deterministas | El hash del modelo congelado es la identidad; los hashes de archivo identifican los artefactos |
 | Datos personales en la narrativa o en fotos | Niveles, menciones como referencias, consentimiento de fotos, lista de verificación y `export_log` |
 | Un consultor edita el DOCX fuera del sistema | Solo se emite lo que genera el sistema y un DOCX emitido nunca se reimporta (GAP-010, resuelta; ASM-135) |
-| La plataforma no puede adjuntar archivos (UPS-31) | El plan 8.2b avanza sin adjuntar y sube a la versión de wasichai que la resuelva; respaldo de ASM-133 para el borrador |
+| La plataforma no puede adjuntar archivos (UPS-31) | Resuelta en wasichai 1.3.0 y adoptada en el plan 8.2b: JOB-05 adjunta el borrador como la plataforma; el respaldo de ASM-133 no se usa |
 
 - **ADR de SGSPE:** ADR-0013, ADR-0014, ADR-0015 y ADR-0017.
 - **Supuestos que este documento aplica:** ASM-003, ASM-013, ASM-014, ASM-026, ASM-027, ASM-028, ASM-029, ASM-031,
   ASM-037, ASM-038, ASM-047, ASM-055, ASM-058, ASM-061, ASM-063, ASM-088, ASM-124 y ASM-133 a ASM-138.
 - **Pendientes:** GAP-001 (normativa, en particular la de datos personales), GAP-009 (tenant y marca), GAP-011
   (GeoServer y cartografía), GAP-014 (retención; el consentimiento por foto quedó confirmado) y GAP-022 (despliegue y
-  almacenamiento); UPS-31 (la plataforma adjunta archivos, wasichai/wasichai#111). GAP-010 quedó resuelta (ASM-135), y
+  almacenamiento). UPS-31 (la plataforma adjunta archivos) quedó resuelta en wasichai 1.3.0, GAP-010 (ASM-135) también, y
   T3 a T10 quedan fuera de F8 (ASM-026).

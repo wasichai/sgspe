@@ -146,6 +146,34 @@ sgspe:
       max-rows: 5000
       max-period-years: 5
       max-related: 200
+  deliverable:
+    # entregables (especificación de F8 §2.2.8, §2.2.17, §3.3; DeliverableProperties)
+    generation:
+      # JOB-05: cada cuánto mira los pedidos pendientes y cuándo vuelve a tomar uno que sigue EN COLA o EN PROCESO
+      poll: 5s
+      stale-after: 15m
+    # tope de un archivo que sube el servidor (borradores y versiones): el de wasichai.files.max-bytes (ASM-138)
+    max-file-bytes: 67108864
+    photos:
+      # las fotos se reducen antes de insertarlas: lado mayor en píxeles y calidad JPEG; una foto de más megapíxeles no se
+      # decodifica y sale como no disponible (la memoria de JOB-05)
+      max-side: 2000
+      jpeg-quality: 85
+      max-megapixels: 250
+    maps:
+      # mapas de informe (plan 8.2c): tope de elementos en línea (MAP_TOO_MANY_FEATURES) y plazo de GeoServer
+      max-features: 5000
+      timeout: 30s
+    templates:
+      # plantillas .dotx o .docx (ASM-135): 20 MB por HTTP, entradas del ZIP y bytes descomprimidos (100 MB)
+      max-bytes: 20971520
+      max-entries: 1000
+      max-inflated-bytes: 104857600
+    revisions:
+      # ASM-027: borradores A, B…; emisiones 0, 1…; por organización, el slug como clave ({ draft-start, issue-start })
+      draft-start: A
+      issue-start: 0
+      by-organization: {}
   exports:
     # tope de filas que una exportación lee de cada conjunto (StakeholderRegister): pasarse es 400 TOO_MANY_RECORDS
     max-rows: 20000

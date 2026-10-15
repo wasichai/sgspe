@@ -1,12 +1,21 @@
 package sgspe
 
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Import
 import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.HttpStatus
 import reactor.core.publisher.Flux
 import sgspe.ai.TestDocuments
 import sgspe.common.IfMatch
+import sgspe.deliverable.DeliverableDoubles
+import sgspe.deliverable.DeliverableGenerationJob
+import sgspe.deliverable.Deliverables
+import sgspe.privacy.CanonicalJson
+import sgspe.privacy.ReportMeta
+import sgspe.privacy.ReportModel
+import wasichai.core.common.WasichaiException
 import wasichai.files.FileService
 import wasichai.files.FileUpload
 import java.security.MessageDigest
@@ -16,12 +25,23 @@ import java.util.UUID
 // la base de las pruebas de integración de F8 (plan 8.1; los planes 8.2b y 8.2c la usan): lo de F7ApiTest más los
 // entregables como los escribirán sus endpoints. deliverable y deliverable_section se crean por la API genérica (no son
 // apiOnly); deliverable_version y deliverable_template son apiOnly y appendOnly: su archivo lo sube una persona con
-// FileService.stage y el registro lo crea esa misma persona en proceso (asUser), como harán DeliverableIssue y
-// DeliverableTemplates, porque la plataforma todavía no adjunta archivos (UPS-31). reportScenario arma el proyecto y los
-// datos de T2 y T1 (§5 de la especificación de F8). todo ficticio (RQ-SEC-018). las ayudas son bloqueantes
+// FileService.stage y el registro lo crea esa misma persona en proceso (asUser), como hacen DeliverableIssue y
+// DeliverableTemplates, que escriben como la persona. reportScenario arma el proyecto y los
+// datos de T2 y T1 (§5 de la especificación de F8). todo ficticio (RQ-SEC-018). las ayudas son bloqueantes. desde el plan
+// 8.2b, JOB-05 corre con los dobles de DeliverableDoubles (PDF y mapas) y adjunta como la plataforma: requestDraft y generate
+@Import(DeliverableDoubles.Config::class)
 abstract class F8ApiTest : F7ApiTest() {
     @Autowired
     private lateinit var files: FileService
+
+    @Autowired
+    protected lateinit var generationJob: DeliverableGenerationJob
+
+    @Autowired
+    protected lateinit var fakePdf: DeliverableDoubles.FakePdfConverter
+
+    @Autowired
+    protected lateinit var fakeMaps: DeliverableDoubles.FakeReportMaps
 
     // el admin de la prueba como Account, para subir y crear como él
     protected fun admin(): Account = me().let { Account(token, it["email"].asString(), it["userId"].asString()) }
@@ -48,10 +68,11 @@ abstract class F8ApiTest : F7ApiTest() {
             creator?.token ?: token
         )
 
-    // una sección MIXTA de texto humano; la clave es única en su entregable
+    // una sección MIXTA de texto humano; la clave es única en su entregable. desde el plan 8.2b el alta de un T2 ya crea las del
+    // tipo (sectionId): la clave por defecto es una que el tipo no declara
     protected fun section(
         deliverable: String,
-        key: String = "antecedentes",
+        key: String = uniqueName("anexo-"),
         attributes: Map<String, Any?> = emptyMap(),
         creator: Account? = null
     ): String =
@@ -69,6 +90,16 @@ abstract class F8ApiTest : F7ApiTest() {
             token = creator?.token ?: token
         )
 
+    // la sección `key` que el alta del entregable creó (DeliverableSectionsListener, plan 8.2b): su id
+    protected fun sectionId(
+        deliverable: String,
+        key: String
+    ): String =
+        tree(send("GET", "/api/objects/deliverable_section/records?deliverable=$deliverable&section_key=$key", null, HttpStatus.OK))["content"]
+            .values()
+            .single()["id"]
+            .asString()
+
     // `bytes` subidos para el campo FILE `field` de `objectName` como `account`, declarados `type`: el id de la subida, que
     // solo esa persona adjunta (StoredFileGuard)
     protected fun stage(
@@ -82,6 +113,10 @@ abstract class F8ApiTest : F7ApiTest() {
         asUser(account) {
             files.stage(objectName, field, FileUpload(fileName, type, Flux.just(DefaultDataBufferFactory.sharedInstance.wrap(bytes)))).id.toString()
         }
+
+    // los códigos de una escritura en proceso rechazada (createAs): el `message` de cada violación de la WasichaiException, que
+    // no está en su toString()
+    protected fun codesOf(error: Throwable?): List<String> = (error as? WasichaiException)?.violations.orEmpty().map { it.message }
 
     // un alta en proceso como `account` (Records lleva la marca SgspeWrite): la vía de un objeto apiOnly con archivos
     protected fun createAs(
@@ -141,15 +176,86 @@ abstract class F8ApiTest : F7ApiTest() {
     }
 
     // el entregable llevado a `approved` por la API genérica (submit_for_review y approve de WF-H, con motivo) por una
-    // gerencia social asignada a su proyecto. en 8.1 ninguna guarda pide el borrador LISTO: 8.2b agrega `readyDraft` aquí
+    // gerencia social asignada a su proyecto, con un borrador LISTO (readyDraft): DeliverableWriteGuard lo pide desde 8.2b
     protected fun approvedDeliverable(
         project: String,
         manager: Account = member("SOCIAL_MANAGER", project)
     ): String {
         val id = deliverable(project, creator = manager)
+        readyDraft(id)
         move("deliverable", id, "submit_for_review", manager.token, "envío de prueba")
         move("deliverable", id, "approve", manager.token, "aprobación de prueba")
         return id
+    }
+
+    // un borrador LISTO sin pasar por JOB-05 (plan 8.2b): los siete archivos subidos y adjuntos por `account` en una escritura de
+    // derivados con la marca, como lo hace la plataforma en JOB-05; el modelo es READY_MODEL. devuelve el SHA-256 del modelo
+    protected fun readyDraft(
+        deliverable: String,
+        account: Account = admin()
+    ): String {
+        val docx = TestDocuments.docx("Informe de campo y avance")
+        val bytes =
+            mapOf(
+                Deliverables.DRAFT_MODEL to Triple(READY_MODEL, "modelo.json", "text/plain"),
+                Deliverables.DRAFT_INTERNAL_DOCX to Triple(docx, "borrador.docx", DOCX),
+                Deliverables.DRAFT_INTERNAL_PDF to Triple(PDF, "borrador.pdf", "application/pdf"),
+                Deliverables.DRAFT_EXTERNAL_PDF to Triple(PDF, "borrador-externo.pdf", "application/pdf"),
+                Deliverables.CANDIDATE_INTERNAL_DOCX to Triple(docx, "candidata.docx", DOCX),
+                Deliverables.CANDIDATE_INTERNAL_PDF to Triple(PDF, "candidata.pdf", "application/pdf"),
+                Deliverables.CANDIDATE_EXTERNAL_PDF to Triple(PDF, "candidata-externa.pdf", "application/pdf")
+            )
+        val ids = bytes.mapValues { (field, file) -> stage(account, "deliverable", field, file.first, file.second, file.third) }
+        val sha = sha256(READY_MODEL)
+        asUser(account) {
+            platformRecords.patch(
+                "deliverable",
+                UUID.fromString(deliverable),
+                ids +
+                    mapOf(
+                        Deliverables.STATUS to Deliverables.READY,
+                        Deliverables.GENERATED_AT to
+                            java.time.Instant
+                                .now()
+                                .toString(),
+                        Deliverables.MODEL_SHA256 to sha,
+                        Deliverables.DRAFT_REVISION to "A"
+                    ),
+                "borrador de prueba"
+            )
+        }
+        return sha
+    }
+
+    // emite por POST /api/sgspe/deliverables/{id}/issue como `account`, con motivo e If-Match
+    protected fun issue(
+        deliverable: String,
+        account: Account,
+        sha: String = record("deliverable", deliverable)["attributes"][Deliverables.MODEL_SHA256].asString(),
+        checklist: Boolean = true
+    ): Response =
+        exchange(
+            "POST",
+            "/api/sgspe/deliverables/$deliverable/issue",
+            mapOf("draftModelSha256" to sha, "checklistConfirmed" to checklist),
+            account.token,
+            mapOf(IfMatch.HEADER to "\"${record("deliverable", deliverable)["updatedAt"].asString()}\"") + withReason("emisión de prueba")
+        )
+
+    // pide un borrador por su endpoint (POST …/drafts con motivo) como `account`
+    protected fun requestDraft(
+        deliverable: String,
+        account: Account = admin()
+    ): Response = exchange("POST", "/api/sgspe/deliverables/$deliverable/drafts", null, account.token, withReason("borrador de prueba"))
+
+    // una vuelta de JOB-05; los archivos los sube y adjunta la plataforma (PlatformDraftFiles)
+    protected fun generate(): Int = runBlocking { generationJob.runOnce() } ?: 0
+
+    // un T2 listo para pedir su borrador: el escenario de reportScenario con su entregable INFORME DE CAMPO Y AVANCE
+    protected fun requestedFieldReport(scenario: ReportScenario = reportScenario()): String {
+        val response = requestDraft(scenario.fieldReport)
+        assertEquals(HttpStatus.ACCEPTED, response.status, response.body)
+        return scenario.fieldReport
     }
 
     // los datos de un T2 y un T1 de prueba (§5 de la especificación de F8): «Proyecto Ejemplo A» en UTM 17S, «Comunidad Ejemplo»
@@ -279,6 +385,25 @@ abstract class F8ApiTest : F7ApiTest() {
         // el modelo congelado de prueba: JSON canónico (claves ordenadas, sin espacios), en UTF-8
         val MODEL: ByteArray = """{"nivel":"INTERNO","tipo":"INFORME DE CAMPO Y AVANCE","version":1}""".toByteArray()
         private val TEMPLATE: ByteArray = "plantilla base de SGSPE".toByteArray()
+
+        // el modelo de un borrador de prueba (readyDraft): un ReportModel canónico, que la emisión lee (revisión y plantilla)
+        val READY_MODEL: ByteArray =
+            CanonicalJson.bytes(
+                ReportModel(
+                    ReportMeta(
+                        type = FIELD_REPORT,
+                        typeVersion = 1,
+                        code = "ENT-PRUEBA",
+                        title = "Informe de campo y avance",
+                        draftRevision = "A",
+                        issueRevision = "0",
+                        project = "Proyecto Ejemplo A",
+                        dateLabel = "Setiembre, 2026",
+                        templateSha256 = sha256(TEMPLATE)
+                    ),
+                    emptyList()
+                )
+            )
 
         fun sha256(bytes: ByteArray): String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
     }

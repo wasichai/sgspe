@@ -13,6 +13,16 @@ object Values {
         val x = blankToNull(a)
         val y = blankToNull(b)
         if (x == null || y == null) return x == null && y == null
+        // un campo FILE: lo guardado puede ser el id y lo reenviado el descriptor { id, name, contentType, size, sha256 } que
+        // se leyó (desde F8, plan 8.2b): son el mismo archivo si tienen el mismo id. solo si uno de los dos es un descriptor (un
+        // mapa con `id`) y el otro un id o un descriptor; dos mapas cualesquiera se comparan enteros, como antes
+        // (mapa contra mapa se compara con ==: los números dentro de un mapa deben ser del mismo tipo)
+        if (x is Map<*, *> || y is Map<*, *>) {
+            val fx = fileId(x)
+            val fy = fileId(y)
+            val descriptor = (x as? Map<*, *>)?.containsKey("id") == true || (y as? Map<*, *>)?.containsKey("id") == true
+            return if (descriptor && fx != null && fy != null) fx == fy else x == y
+        }
         if (x is Number || y is Number) {
             val dx = decimal(x) ?: return false
             val dy = decimal(y) ?: return false
@@ -20,6 +30,9 @@ object Values {
         }
         return x.toString() == y.toString()
     }
+
+    // el id de un descriptor de archivo, o el valor como texto si no es un mapa; null para un mapa sin id
+    private fun fileId(value: Any): String? = if (value is Map<*, *>) value["id"]?.toString() else value.toString()
 
     private fun blankToNull(value: Any?): Any? = if (value is String && value.isBlank()) null else value
 

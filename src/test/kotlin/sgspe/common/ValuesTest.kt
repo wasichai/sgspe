@@ -31,4 +31,18 @@ class ValuesTest {
         assertFalse(Values.same(Double.NaN, Double.NaN))
         assertFalse(Values.same(Double.NaN, null))
     }
+
+    // plan 8.2b: un PUT que reenvía el descriptor de un FILE derivado tal como se leyó no lo cambia (DerivedFieldsGuard)
+    @Test
+    fun `un descriptor de archivo es igual a su id y dos mapas sin id se comparan enteros`() {
+        val id = "5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a"
+        val descriptor = mapOf("id" to id, "name" to "borrador.pdf", "contentType" to "application/pdf", "size" to 10, "sha256" to "a".repeat(64))
+        assertTrue(Values.same(descriptor, id))
+        assertTrue(Values.same(id, descriptor))
+        assertTrue(Values.same(descriptor, descriptor.toMap()))
+        assertFalse(Values.same(descriptor, "11111111-1111-1111-1111-111111111111"))
+        assertTrue(Values.same(mapOf("name" to "x"), mapOf("name" to "x")))
+        assertFalse(Values.same(mapOf("name" to "x"), mapOf("name" to "y")))
+        assertFalse(Values.same(mapOf("name" to "x"), "x"))
+    }
 }

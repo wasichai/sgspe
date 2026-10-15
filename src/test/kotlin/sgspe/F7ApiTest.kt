@@ -1,6 +1,5 @@
 package sgspe
 
-import kotlinx.coroutines.reactor.asCoroutineContext
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.springframework.beans.factory.annotation.Autowired
@@ -8,9 +7,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
-import org.springframework.security.core.context.ReactiveSecurityContextHolder
-import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.web.reactive.function.BodyInserters
 import sgspe.common.IdempotencyKey
 import sgspe.common.IfMatch
@@ -115,20 +111,6 @@ abstract class F7ApiTest : F6ApiTest() {
         runBlocking {
             platformRecords.asPlatform(organizationId()) { platformRecords.delete(objectName, UUID.fromString(id), "baja de prueba como la plataforma") }
         }
-    }
-
-    @Autowired
-    private lateinit var jwtDecoder: ReactiveJwtDecoder
-
-    // un bloque como `account` fuera de una petición http: el contexto de seguridad de Reactor que llevaría su petición, con su
-    // token decodificado (como asCaller de AgentEmbabelTest de wasichai 1.2.0). así se llama a un servicio de sgspe.ai como la
-    // persona (plan 7.2a)
-    protected fun <T> asUser(
-        account: Account,
-        block: suspend () -> T
-    ): T {
-        val jwt = jwtDecoder.decode(account.token.removePrefix("Bearer ")).block()!!
-        return runBlocking(ReactiveSecurityContextHolder.withAuthentication(JwtAuthenticationToken(jwt)).asCoroutineContext()) { block() }
     }
 
     // ---- plan 7.2b: corridas y aceptaciones ----

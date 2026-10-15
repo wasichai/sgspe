@@ -46,8 +46,47 @@ class ExportLog(
         )
     }
 
+    // una emisión o una descarga de un archivo de entregable (desde F8, deliverables.md §9.5): `kind` es EMISION o DESCARGA,
+    // con el entregable (un borrador) o la versión; filters_description dice qué se emitió o descargó (el borrador por su
+    // instante de congelamiento, la versión por su número) y, en la emisión, la confirmación de la lista de verificación
+    suspend fun deliverable(
+        user: AuthenticatedUser,
+        kind: String,
+        level: String,
+        format: String,
+        filters: String,
+        project: UUID?,
+        deliverable: UUID?,
+        version: UUID?
+    ) {
+        val logged = if (project == null || user.isAdmin || project in reach.assigned(user)) project else null
+        records.create(
+            OBJECT,
+            mapOf(
+                "exported_at" to clock.instant().toString(),
+                "exporter_user_id" to user.userId.toString(),
+                "exporter_user_email" to user.email,
+                "export_kind" to kind,
+                "object_name" to DELIVERABLE,
+                "file_format" to format,
+                "disclosure_level" to level,
+                "filters_description" to filters,
+                "row_count" to 1
+            ) +
+                listOfNotNull(
+                    logged?.let { "project" to it.toString() },
+                    deliverable?.let { DELIVERABLE to it.toString() },
+                    version?.let { "deliverable_version" to it.toString() }
+                ),
+            "${kind.lowercase()} de entregable $level"
+        )
+    }
+
     companion object {
         const val OBJECT = "export_log"
         const val EXPORT = "EXPORTACION"
+        const val ISSUE = "EMISION"
+        const val DOWNLOAD = "DESCARGA"
+        private const val DELIVERABLE = "deliverable"
     }
 }

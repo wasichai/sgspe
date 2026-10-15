@@ -229,18 +229,19 @@ class ArchitectureTest {
         assertFalse(flags(KNOWLEDGE_TABLE, "class KnowledgeChunks("))
     }
 
-    // los bytes de un archivo sin pasar por FileService (que exige una persona) son solo de JOB-07, como la plataforma (decisión 5
-    // del plan 7.2c): solo EvidenceFiles usa StoredFileRepository y FileStore de wasichai-files
+    // los bytes de un archivo sin pasar por FileService (que exige una persona) son solo de los trabajos de fondo, como la
+    // plataforma (decisión 5 del plan 7.2c; desde el plan 8.2b también JOB-05 y DeliverableWriteGuard): solo StoredFiles usa
+    // StoredFileRepository y FileStore de wasichai-files
     @Test
-    fun `solo EvidenceFiles lee archivos sin FileService`() {
-        val reader = "/sgspe/ai/EvidenceFiles.kt"
+    fun `solo StoredFiles lee archivos sin FileService`() {
+        val reader = "/sgspe/common/StoredFiles.kt"
         val others = sources(main).filterNot { it.invariantSeparatorsPath.endsWith(reader) }
         assertEquals(emptyList<String>(), offenders(others, STORED_FILES))
         assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(reader) })
         assertTrue(flags(STORED_FILES, "import wasichai.files.StoredFileRepository"))
         assertTrue(flags(STORED_FILES, "    private val store: FileStore"))
         assertFalse(flags(STORED_FILES, "import wasichai.files.FileService"))
-        assertFalse(flags(STORED_FILES, "// FileStore solo en EvidenceFiles"))
+        assertFalse(flags(STORED_FILES, "// FileStore solo en StoredFiles"))
     }
 
     // el alcance de lectura por proyecto (ASM-106, ASM-114, security.md §9.7). regla 1: cada objeto de model.json está en un
@@ -470,12 +471,20 @@ class ArchitectureTest {
         assertFalse(flags(AS_PLATFORM, "// nunca asPlatform dentro de una petición"))
     }
 
-    // WAS-ADR-0039: las M2M sin usuario solo las leen DashboardData (con el lector de la plataforma de KpiReaders, JOB-05) y
-    // StakeholderFollowUpJob (JOB-03, fuera de una petición); Records.kt la define. otro llamador le daría a una persona
+    // WAS-ADR-0039: las M2M sin usuario solo las leen DashboardData (con el lector de la plataforma de KpiReaders, JOB-05),
+    // StakeholderFollowUpJob (JOB-03, fuera de una petición) y, desde el plan 8.2b, ReportSources (el ensamblado de T2 en
+    // JOB-05); Records.kt la define. otro llamador le daría a una persona
     // vínculos que no lee
     @Test
-    fun `solo DashboardData y StakeholderFollowUpJob leen M2M como la plataforma`() {
-        val allowed = listOf("/sgspe/dashboard/DashboardData.kt", "/sgspe/stakeholder/StakeholderFollowUpJob.kt", "/sgspe/common/Records.kt")
+    fun `solo DashboardData, StakeholderFollowUpJob y ReportSources leen M2M como la plataforma`() {
+        val allowed =
+            listOf(
+                "/sgspe/dashboard/DashboardData.kt",
+                "/sgspe/stakeholder/StakeholderFollowUpJob.kt",
+                "/sgspe/common/Records.kt",
+                // plan 8.2b: el ensamblado de T2 (grupos de interés de un contacto, evidencias de una entrega)
+                "/sgspe/deliverable/ReportSources.kt"
+            )
         val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(others, RELATED_AS_PLATFORM))
         assertTrue(allowed.all { path -> sources(main).any { it.invariantSeparatorsPath.endsWith(path) } })
@@ -484,18 +493,22 @@ class ArchitectureTest {
         assertFalse(flags(RELATED_AS_PLATFORM, "records.related(\"engagement\", id, \"engagement_topic\")"))
     }
 
-    // decisión 12: la vía de plataforma de la compuerta solo la llaman ComponentLand y, desde el plan 8.2a-bis, KpiAggregates,
-    // y la organización de la plataforma solo se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro
+    // decisión 12: la vía de plataforma de la compuerta solo la llaman ComponentLand, KpiAggregates (plan 8.2a-bis) y
+    // ProjectProximityQueries (plan 8.2b, una sola llamada: concessionTerritoriesAsPlatform), y la organización de la plataforma solo se la pasa DashboardData (la que arma KpiReaders): ningún endpoint ni otro
     // dominio lee SQL propio como la plataforma
     @Test
-    fun `solo ComponentLand y KpiAggregates usan selectAsPlatform y solo DashboardData les pasa la plataforma`() {
+    fun `solo ComponentLand, KpiAggregates y ProjectProximityQueries usan selectAsPlatform y solo DashboardData les pasa la plataforma`() {
         val gate = "/sgspe/territory/SpatialGate.kt"
         val land = "/sgspe/territory/ComponentLand.kt"
         val aggregates = "/sgspe/dashboard/KpiAggregates.kt"
+        // plan 8.2b (decisión 3): concesiones sobre territorios como la plataforma, para el predio de T2
+        val proximity = "/sgspe/territory/ProjectProximityQueries.kt"
         val data = "/sgspe/dashboard/DashboardData.kt"
-        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land, aggregates).any { f.invariantSeparatorsPath.endsWith(it) } }
+        val notGateOrLand = sources(main).filterNot { f -> listOf(gate, land, aggregates, proximity).any { f.invariantSeparatorsPath.endsWith(it) } }
         val notLandOrData = sources(main).filterNot { f -> listOf(land, data).any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(notGateOrLand, SELECT_AS_PLATFORM))
+        val proximityFile = sources(main).single { it.invariantSeparatorsPath.endsWith(proximity) }
+        assertEquals(1, offenders(listOf(proximityFile), SELECT_AS_PLATFORM).size)
         assertEquals(emptyList<String>(), offenders(notLandOrData, ROWS_WITH_PLATFORM))
         assertTrue(sources(main).any { it.invariantSeparatorsPath.endsWith(data) })
         assertTrue(flags(SELECT_AS_PLATFORM, "gate.selectAsPlatform(platform, READS, query, map)"))
@@ -526,6 +539,16 @@ class ArchitectureTest {
         // límite conocido: el vigía mira línea por línea y no ve una llamada partida por ktlint (`.select(` y `platform` en
         // líneas distintas); hoy ningún archivo lo hace
         assertFalse(flags(SELECT_WITH_PLATFORM, "source.select(\n query,\n platform\n)"))
+    }
+
+    // plan 8.2b (Global Constraints): en sgspe.deliverable solo JOB-05 y su puerto de archivos leen o escriben como la
+    // plataforma; los endpoints (borradores, descargas, emisión, plantillas) corren como la persona
+    @Test
+    fun `en sgspe deliverable solo JOB-05 y DraftFiles usan asPlatform`() {
+        val allowed = listOf("/sgspe/deliverable/DeliverableGenerationJob.kt", "/sgspe/deliverable/DraftFiles.kt")
+        val others = sources(File(main, "sgspe/deliverable")).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertTrue(others.isNotEmpty())
+        assertEquals(emptyList<String>(), offenders(others, AS_PLATFORM))
     }
 
     // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo

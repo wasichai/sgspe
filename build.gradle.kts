@@ -10,7 +10,7 @@ plugins {
 group = "sgspe"
 description = "sgspe: gestión social para proyectos extractivos sobre wasichai (core, views, forms, pages, gis, workflow)"
 
-val wasichaiVersion = "1.2.0"
+val wasichaiVersion = "1.3.0"
 
 dependencies {
     implementation(platform("wasichai:wasichai-bom:$wasichaiVersion"))
@@ -44,6 +44,10 @@ dependencies {
     // F7: el texto de los PDF con capa de texto para AI-01 y AI-03 (TextExtraction, ASM-132; sin OCR); los DOCX los lee POI. F8
     // lo reutiliza para verificar los PDF de los entregables
     implementation("org.apache.pdfbox:pdfbox:3.0.8")
+    // F8: la narrativa de los entregables es CommonMark con tablas GFM (deliverables.md §7.4); DocxWriter la lleva a los estilos
+    // de la plantilla
+    implementation("org.commonmark:commonmark:0.28.0")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:0.28.0")
 
     // WasichaiIntegrationTest; brings spring-boot-starter-test, webflux-test and testcontainers
     testImplementation("wasichai:wasichai-test")
@@ -140,6 +144,10 @@ fun Test.integrationDefaults() {
     systemProperty("wasichai.files.cleanup.interval", "0s")
     systemProperty("wasichai.notifications.tick", "0s")
     systemProperty("wasichai.notifications.email.enabled", "false")
+    // cada contexto de Spring que guarda la caché de las pruebas tiene su pool de R2DBC, y r2dbc-pool nunca baja de
+    // initial-size (wasichai fija 5) ni desaloja en segundo plano: con 20 contextos la suite llegaba al max_connections de
+    // 100 del PostgreSQL de Testcontainers (53300 «too many clients»). con 1, un contexto quieto retiene una conexión
+    systemProperty("spring.r2dbc.pool.initial-size", "1")
 }
 
 // ninguna prueba llama al proveedor (RQ-AI-007, ai-architecture.md §15): toda forma de la clave que EmbabelGate o el enlace
