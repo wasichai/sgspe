@@ -263,6 +263,8 @@ class DeliverableContentController(
         if (exchange.request.method == HttpMethod.HEAD) throw MethodNotAllowedException(HttpMethod.HEAD, setOf(HttpMethod.GET))
     }
 
+    // no suspend: la reflexión de Kotlin no halla la Continuation de un manejador suspend sin parámetros que devuelve Nothing
+    // y Spring respondía 500 en vez del 403
     @PostMapping(
         "/api/objects/deliverable/files/{field}",
         "/api/objects/deliverable_version/files/{field}",
@@ -271,7 +273,7 @@ class DeliverableContentController(
         "/api/objects/deliverable_version/records/{id}/files/{field}",
         "/api/objects/deliverable_template/records/{id}/files/{field}"
     )
-    suspend fun upload(): Nothing =
+    fun upload(): ResponseEntity<Void> =
         throw Finding(
             "FILE_WRITE_NOT_ALLOWED",
             "Los archivos de entregables y plantillas no se suben por la API genérica",

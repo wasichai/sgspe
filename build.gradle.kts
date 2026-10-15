@@ -144,6 +144,10 @@ fun Test.integrationDefaults() {
     systemProperty("wasichai.files.cleanup.interval", "0s")
     systemProperty("wasichai.notifications.tick", "0s")
     systemProperty("wasichai.notifications.email.enabled", "false")
+    // cada contexto de Spring que guarda la caché de las pruebas tiene su pool de R2DBC, y r2dbc-pool nunca baja de
+    // initial-size (wasichai fija 5) ni desaloja en segundo plano: con 20 contextos la suite llegaba al max_connections de
+    // 100 del PostgreSQL de Testcontainers (53300 «too many clients»). con 1, un contexto quieto retiene una conexión
+    systemProperty("spring.r2dbc.pool.initial-size", "1")
 }
 
 // ninguna prueba llama al proveedor (RQ-AI-007, ai-architecture.md §15): toda forma de la clave que EmbabelGate o el enlace

@@ -42,7 +42,10 @@ class DeliverableIssueApiTest : F8ApiTest() {
         assertEquals(record("deliverable", id)["attributes"]["document_code"].asString(), values["document_code"].asString(), "$certificate")
         assertEquals("0", values["current_revision"].asString())
         assertTrue(certificate["snapshot"]["related"].isEmpty, "${certificate["snapshot"]["related"]}")
-        assertEquals(HttpStatus.CONFLICT, edit("deliverable_version", internal["id"].asString(), mapOf("revision" to "9")).status)
+        // deliverable_version es apiOnly y appendOnly: la API genérica responde 403 antes de mirar appendOnly (api.md §1 y
+        // §3.3), como en stakeholder_assessment e indicator_measurement
+        val changed = edit("deliverable_version", internal["id"].asString(), mapOf("revision" to "9"))
+        assertEquals(HttpStatus.FORBIDDEN, changed.status, changed.body)
     }
 
     @Test
