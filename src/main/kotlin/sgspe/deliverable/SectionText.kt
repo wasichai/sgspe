@@ -9,7 +9,9 @@ import sgspe.privacy.Mentions
 // arma para ella como texto con Markdown, sin los bloques ni las celdas marcados (restringidos, titulares, registros, el aviso
 // que solo muestra EXTERNO: no van al modelo) y sin fotos, mapas, índices ni saltos. una mención sale por nombre solo si
 // `nameable` dice que la seudonimización de la corrida lo reemplaza entero (y vuelve como [PERSONA:<id>]); si no, con la cita
-// de EXTERNO (cargo y organización, código GI- o «una persona de <localidad>»): un nombre nunca llega en claro al proveedor
+// de EXTERNO (cargo y organización, código GI- o «una persona de <localidad>»): un nombre nunca llega en claro al proveedor.
+// el nombre va entre comillas angulares: entre dos palabras de un nombre el Pseudonymizer solo admite espacios, una coma, un
+// apóstrofo o un guion, así que «» corta todo tramo y el nombre no se funde con las palabras vecinas («Ejemplo, Ana»)
 object SectionText {
     fun render(
         blocks: List<Block>,
@@ -21,7 +23,7 @@ object SectionText {
                 val target = people["${match.groupValues[1]}:${match.groupValues[2].lowercase()}"]
                 when {
                     target == null -> Mentions.UNKNOWN
-                    nameable(target.name) -> target.name
+                    nameable(target.name) -> "«${target.name}»"
                     else -> Mentions.cite(target, Disclosure.EXTERNO)
                 }
             }

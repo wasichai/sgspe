@@ -96,4 +96,34 @@ class SectionDraftCaseTest {
         assertFalse(nameable("Ana Ejemplo Ccori"))
         assertFalse(nameable("Sin nombre"))
     }
+
+    // re-revisión N1: un nombre nunca se funde con las palabras vecinas. «Localidad Ejemplo, Ana Ejemplo» se leería como «Ejemplo,
+    // Ana» (apellido primero) y dejaría el apellido suelto: el nombre va entre comillas angulares, que cortan todo tramo
+    @Test
+    fun `un nombre no se funde con la cita de al lado ni al comienzo de una frase`() {
+        val blocks =
+            listOf(
+                Block.Paragraph("Con [[person:$wayra]], [[person:${RunFixtures.ANA}]] y otros."),
+                Block.Paragraph("[[person:${RunFixtures.ANA}]] presidió la reunión.")
+            )
+        val text = SectionText.render(blocks, people, SectionDraftCase.nameable(names))
+        val model = MockModel(FakeModel { DraftText("Sin novedades.", 0.5) })
+        val source =
+            RunSource(
+                objectName = DraftAgents.SECTION_TARGET,
+                id = RunFixtures.PROJECT,
+                project = RunFixtures.PROJECT,
+                text = SectionDraftCase.text(section(text), emptyList()),
+                inputReference = "deliverable_section:${RunFixtures.PROJECT}"
+            )
+        runBlocking { DraftAgents(RunFixtures.calls(model)).section(source, names, RunBudget(8)) }
+        val sent =
+            model.sent
+                .single()
+                .prompt.text
+        assertTrue("Con una persona de Localidad Ejemplo, «[PERSONA_1]» y otros." in sent, sent)
+        assertTrue("«[PERSONA_1]» presidió la reunión." in sent, sent)
+        assertFalse("Ana" in sent, sent)
+        assertFalse("[PERSONA_2]" in sent, sent)
+    }
 }

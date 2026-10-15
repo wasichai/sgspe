@@ -39,7 +39,7 @@ class SectionTextTest {
                 always
             )
         assertTrue("### Área de influencia directa social (AIDS)" in text, text)
-        assertTrue("Se conversó con Persona Ejemplo 1." in text, text)
+        assertTrue("Se conversó con «Persona Ejemplo 1»." in text, text)
         assertTrue("católica" !in text && "B001-1" !in text && "Mapa del predio" !in text && "Índice" !in text, text)
         assertTrue("| BOLETA |  |" in text, text)
         assertTrue("Confianza: Promedio 2026-08=3.00, 2026-09=sin dato" in text, text)
@@ -66,9 +66,9 @@ class SectionTextTest {
                 always
             )
         assertFalse("reservó" in text || "Comercial Ejemplo" in text || "Titular Ejemplo" in text || "Titulares" in text, text)
-        assertTrue("**Registro de Persona Ejemplo 1**\n| Emisor | Monto |\n|  | 10.00 |" in text, text)
-        assertTrue("Acuerdo con la comunidad.\nNota: Según Persona Ejemplo 2." in text, text)
-        assertTrue("Confianza de Persona Ejemplo 1: Según Persona Ejemplo 2 2026-08=2.50" in text, text)
+        assertTrue("**Registro de «Persona Ejemplo 1»**\n| Emisor | Monto |\n|  | 10.00 |" in text, text)
+        assertTrue("Acuerdo con la comunidad.\nNota: Según «Persona Ejemplo 2»." in text, text)
+        assertTrue("Confianza de «Persona Ejemplo 1»: Según «Persona Ejemplo 2» 2026-08=2.50" in text, text)
     }
 
     @Test
@@ -78,7 +78,7 @@ class SectionTextTest {
                 listOf(Block.Paragraph("Con [[$person]] y [[$other]]."), Block.Heading(2, "Visita de [[$other]]")),
                 people
             ) { it == "Persona Ejemplo 1" }
-        assertTrue("Con Persona Ejemplo 1 y una persona de Localidad Ejemplo." in text, text)
+        assertTrue("Con «Persona Ejemplo 1» y una persona de Localidad Ejemplo." in text, text)
         assertTrue("## Visita de una persona de Localidad Ejemplo" in text, text)
         assertFalse("Persona Ejemplo 2" in text, text)
         val none = SectionText.render(listOf(Block.Paragraph("Con [[$person]].")), people) { false }
