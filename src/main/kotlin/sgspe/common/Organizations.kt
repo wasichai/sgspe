@@ -14,6 +14,10 @@ class Organizations(
 ) {
     suspend fun having(objectName: String): List<UUID> = tenants.organizationsWithObject(objectName).map { it.id }
 
+    // las que tienen el objeto con su slug: JOB-05 elige el esquema de revisiones de cada una (sgspe.deliverable.revisions,
+    // ASM-027), como el mapa base por slug
+    suspend fun slugs(objectName: String): Map<UUID, String> = tenants.organizationsWithObject(objectName).associate { it.id to it.slug }
+
     // las que tienen el objeto y cuyo slug admite `enabled`: JOB-07 recorre solo las que activaron la IA (ai-architecture.md
     // §12.1, workflows.md JOB-07), y el slug solo lo da TenantDirectory
     suspend fun having(
