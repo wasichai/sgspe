@@ -44,6 +44,27 @@ class DeliverableDownloadsApiTest : F8ApiTest() {
         assertEquals(2, downloads(id))
     }
 
+    // revisión final del plan 8.2b, I4: tras un intento FALLIDO se sirve el último borrador LISTO, y su fila DESCARGA lo dice
+    // con el SHA-256 del archivo servido, sin la letra del intento nuevo
+    @Test
+    fun `tras un intento fallido la fila DESCARGA nombra el archivo servido y no la letra nueva`() {
+        val project = testProject()
+        val id = deliverable(project)
+        readyDraft(id)
+        platformUpdate("deliverable", id, mapOf(Deliverables.STATUS to Deliverables.FAILED, Deliverables.DRAFT_REVISION to "B"))
+        val manager = member("SOCIAL_MANAGER", project)
+        val pdf = exchange("GET", "/api/sgspe/deliverables/$id/draft/content?level=INTERNO&format=pdf", token = manager.token)
+        assertEquals(HttpStatus.OK, pdf.status, pdf.body)
+        val served = pdf.headers.eTag!!.trim('"')
+        val row =
+            tree(send("GET", "/api/objects/export_log/records?deliverable=$id&export_kind=DESCARGA", null, HttpStatus.OK))["content"]
+                .values()
+                .single()
+        val description = row["attributes"]["filters_description"].asString()
+        assertTrue(served in description && "último borrador LISTO" in description, description)
+        assertTrue("borrador B" !in description, description)
+    }
+
     @Test
     fun `candidatas, modelo y DOCX fuera de INTERNO son 404 y un formato desconocido 422`() {
         val id = deliverable(testProject())
