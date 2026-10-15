@@ -50,6 +50,9 @@ class SectionDraftApiTest : F8ApiTest() {
         val script = llm.fresh()
         script.returnObject(DraftText("## Relaciones\n\nSe acordó con [PERSONA_1] la próxima asamblea.", 0.7))
         val run = created(aiRun(manager, "AI-04", "deliverable_section", section))
+        // el modelo recibió la sección, con la persona como marcador por llamada, y nunca su apellido
+        assertTrue(script.promptsReceived.isNotEmpty(), "el modelo no recibió nada")
+        assertTrue(script.promptsReceived.any { "[PERSONA_" in it }, "la persona no salió como marcador")
         for (sent in script.promptsReceived) assertFalse(surname in sent, "el apellido salió hacia el modelo")
         val suggestion = run["suggestions"].values().single()["attributes"]
         assertEquals("BORRADOR DE SECCION", suggestion["suggestion_kind"].asString())

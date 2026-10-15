@@ -109,13 +109,15 @@ class DeliverableSections(
 
     // la adopción de una sugerencia en una sección (especificación de F8 §3.9; ASM-137), dentro de la transacción de WF-K de
     // SuggestionAcceptance y como quien acepta: el texto revisado con sus marcadores convertidos, UPDATE sobre la sección, la
-    // sección leída por quien acepta (403 OBJECT_NOT_READABLE) y del proyecto de la sugerencia (409 PROJECT_MISMATCH); escribe
-    // content, content_origin ASISTIDO POR IA y ai_suggestion con el motivo, y DeliverableWriteGuard cierra el origen
+    // sección leída por quien acepta (403 OBJECT_NOT_READABLE) y de los proyectos de la sugerencia (409 PROJECT_MISMATCH,
+    // projectMatches); escribe content, content_origin ASISTIDO POR IA y ai_suggestion con el motivo, y DeliverableWriteGuard
+    // cierra el origen
     suspend fun adopt(
         sectionId: UUID,
         content: Any?,
         suggestion: UUID,
-        project: UUID?,
+        projects: List<UUID?>,
+        requireKnown: Boolean,
         reason: String
     ): RecordResponse {
         val text =
@@ -137,16 +139,14 @@ class DeliverableSections(
                     status = HttpStatus.FORBIDDEN
                 ).toCodedException()
             }
-        if (project != null) {
-            val deliverable = records.get(Deliverables.DELIVERABLE, Records.uuid(section.attributes[Deliverables.DELIVERABLE])!!)
-            if (Records.uuid(deliverable.attributes[Deliverables.PROJECT]) != project) {
-                throw Finding(
-                    "PROJECT_MISMATCH",
-                    "La sección es de otro proyecto que la sugerencia",
-                    "attributes.section",
-                    status = HttpStatus.CONFLICT
-                ).toCodedException()
-            }
+        val deliverable = records.get(Deliverables.DELIVERABLE, Records.uuid(section.attributes[Deliverables.DELIVERABLE])!!)
+        if (!projectMatches(Records.uuid(deliverable.attributes[Deliverables.PROJECT]), projects, requireKnown)) {
+            throw Finding(
+                "PROJECT_MISMATCH",
+                "La sección es de otro proyecto que la sugerencia",
+                "attributes.section",
+                status = HttpStatus.CONFLICT
+            ).toCodedException()
         }
         return records.patch(
             Deliverables.SECTION,
@@ -164,6 +164,18 @@ class DeliverableSections(
         // con las comillas angulares que SectionText pone alrededor de un nombre, solo si las dos envuelven el marcador
         private val STABLE_PERSON = Regex("""«\[PERSONA:([0-9a-fA-F-]{36})]»|\[PERSONA:([0-9a-fA-F-]{36})]""")
         private val UNRESOLVED_PERSON = Regex("""\[PERSONA(_\d+)?]""")
+
+        // el proyecto de la sección es cada proyecto conocido de la sugerencia (su `project` y, en un resumen ejecutivo, su
+        // destino); con `requireKnown`, ninguno conocido también es 409: la comprobación nunca falla abierta
+        fun projectMatches(
+            sectionProject: UUID?,
+            projects: List<UUID?>,
+            requireKnown: Boolean
+        ): Boolean {
+            val known = projects.filterNotNull()
+            if (known.isEmpty()) return !requireKnown
+            return sectionProject != null && known.all { it == sectionProject }
+        }
 
         // [PERSONA:<id>] → [[person:<id>]] (§2.2.9), sin las «» que lo envuelven; [PERSONA] o [PERSONA_n] sin id, 422
         // UNRESOLVED_PSEUDONYM; cualquier otro marcador, 400 PSEUDONYM_NOT_ALLOWED (decisión 19 del plan 8.2c). nada se

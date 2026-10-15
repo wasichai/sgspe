@@ -172,8 +172,12 @@ class SuggestionAcceptance(
                 other(c)
                 null to null
             }
-            AcceptRow.SECTION -> adopt(c, targetId(c)) to null
-            AcceptRow.SUMMARY_SECTION -> adopt(c, Records.uuid(c.requireText("section")) ?: throw invalidValue("section")) to null
+            // la sección es el destino: su proyecto, si la sugerencia lo trae
+            AcceptRow.SECTION -> adopt(c, targetId(c), listOf(c.project), requireKnown = false) to null
+            // el destino de un resumen ejecutivo es el proyecto: la sección es de él y del de la sugerencia, si lo trae
+            AcceptRow.SUMMARY_SECTION ->
+                adopt(c, Records.uuid(c.requireText("section")) ?: throw invalidValue("section"), listOf(c.project, c.targetId), requireKnown = true) to
+                    null
         }
 
     // CLASIFICACION: category, priority o topic de una QCS; topic de una pregunta; tone o topic de una mención
@@ -368,8 +372,10 @@ class SuggestionAcceptance(
     // el vínculo con la sugerencia, como quien acepta y con el motivo «IA aceptada»
     private suspend fun adopt(
         c: Context,
-        section: UUID
-    ): RecordResponse = sections.adopt(section, c.attributes["content"], c.suggestion, c.project, c.reason)
+        section: UUID,
+        projects: List<UUID?>,
+        requireKnown: Boolean
+    ): RecordResponse = sections.adopt(section, c.attributes["content"], c.suggestion, projects, requireKnown, c.reason)
 
     // el otro registro del par: del mismo objeto, distinto del destino y que se lee
     private suspend fun other(c: Context): RecordResponse {
