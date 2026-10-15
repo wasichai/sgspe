@@ -115,7 +115,9 @@ borrador o un compromiso pendiente de aprobación no tiene plazo en curso. Adem�
     por `reclassified_from_grievance`, `reclassified_from_inquiry` o `reclassified_from_request` no cuentan como
     recibidos, cerrados ni atendidos.
   - Lo cuenta `AttentionCounting` (`sgspe.common`), la misma función pura en el reporte unificado, los KPI-GRV, la
-    exportación PUBLICO de `attention-register` y la regla CONTEO DE QCS de JOB-04.
+    exportación PUBLICO de `attention-register` y la regla CONTEO DE QCS de JOB-04. Desde el plan 8.2a-bis, KPI-GRV-02 y
+    las quejas de KPI-EXE-03 la aplican en SQL (`AggregateSql.attention`, §6 punto 3); `ExecutiveAggregatesParityApiTest`
+    la mantiene igual a `AttentionCounting`.
 - **Absuelta:** una QCS con `responded_at` (glosario), en cualquier estado. Una queja rechazada o una consulta derivada cuentan si
   se registró la respuesta comunicada.
 - **Riesgo alto:** `risk_level` ALTO o CRITICO, según los umbrales del proyecto (ASM-004, RN-RSK-002).
@@ -310,7 +312,8 @@ gobierna todos los gráficos.
 | Por proyecto | Las mismas cifras, una fila por proyecto | Tabla |
 
 - Las tiles salen de `ExecutiveKpis` y de las mismas funciones de cada módulo; la tabla por proyecto (`byProject[]`)
-  calcula cada fila con esas funciones (`[{ project, code, name, indicators[] }]`, los 8 KPI con valor de las tiles, sin
+  da en cada fila las mismas cifras que el filtro de ese proyecto solo, desde una consulta agrupada por proyecto por KPI
+  (plan 8.2a-bis) (`[{ project, code, name, indicators[] }]`, los 8 KPI con valor de las tiles, sin
   desgloses ni series) y admite hasta `sgspe.dashboards.executive.max-projects` (25) proyectos: pedir más es
   `400 TOO_MANY_RECORDS` sobre `project`, y tenerlos por defecto («mis proyectos» o todos) da las tiles sin
   `byProject[]` y con `byProjectOmitted: true` (`api.md` §4.11). KPI-EXE-03 no tiene valor escalar: son tres series de
@@ -457,7 +460,7 @@ flowchart LR
     CHK -->|"permitido"| CNT["Conteos con RecordService"]
     CHK -->|"permitido"| SET["Conjuntos pequeños sin conteo, por cursor"]
     SET --> AGG["Agregación en funciones puras de Kotlin"]
-    CHK -.->|"solo si una medición lo justifica"| SQL["SQL agregado detrás de la compuerta de permisos"]
+    CHK -->|"KPI del tablero executive (medición del 2026-10-14)"| SQL["SQL agregado detrás de la compuerta de permisos"]
     CNT --> RES["Respuesta: valor, desgloses, series y advertencias"]
     AGG --> RES
     SQL --> RES
@@ -479,10 +482,17 @@ flowchart LR
    - Pasarse de un tope no recorta la cifra: el pedido entero responde `400 TOO_MANY_RECORDS` y pide acotar los proyectos, el
      periodo o el territorio (`api.md` §4.11). El costo es que un solo conjunto grande tumba el tablero entero, no solo su KPI;
      un `unavailableReason` por indicador cambiaría el contrato con el portal y queda para cuando GAP-027 dé números.
-3. **SQL agregado solo con medición.** Donde una medición muestre que los dos caminos anteriores no alcanzan (p. ej. la tabla
-   ejecutiva por proyecto o el resumen territorial), se usa SQL de agregación sobre las tablas del propio tenant, resueltas
-   desde la metadata. Va detrás de la misma compuerta de permisos que las consultas espaciales: READ sobre cada objeto, lectura de
-   cada campo usado, registros propios y alcance (RQ-GIS-017). No hay requisito de volumen hasta que se responda GAP-027.
+3. **SQL agregado solo con medición.** Donde una medición muestre que los dos caminos anteriores no alcanzan, se usa SQL de
+   agregación sobre las tablas del propio tenant, resueltas desde la metadata, detrás de la misma compuerta de permisos que
+   las consultas espaciales (`SpatialGate`): READ sobre cada objeto, lectura de cada campo usado, registros propios y
+   alcance (RQ-GIS-017). Un campo que quien mira no lee sale como nulo, igual que en las filas; uno por el que se filtra
+   tiene que leerse. La medición del 2026-10-14 en `sgspe_perf` (10 proyectos, 50 000 quejas, 20 000 interacciones) dio
+   p95 de 8,2 s con un proyecto y `400 TOO_MANY_RECORDS` con diez, así que desde el plan 8.2a-bis cuentan en la base
+   KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03, KPI-RSK-01, KPI-EXE-02 y las series de interacciones y de quejas de
+   KPI-EXE-03 (`AggregateSql`, `KpiAggregates`), en todo tablero que los muestre, en su detalle y en el cierre; la tabla
+   por proyecto sale de una consulta agrupada por proyecto con las mismas cifras que el filtro de cada proyecto solo. La
+   regla de conteo de §3.3 se aplica en la base. KPI-EXE-01, KPI-INV-03 y la serie de vencidos de KPI-EXE-03 siguen en el
+   punto 2. `sgspe.dashboards.aggregates: false` vuelve al punto 2.
 4. **Sin vistas materializadas ni tablas de instantáneas.** El DDL de negocio solo nace de la metadata por
    `ObjectSchemaManager`, y las únicas tablas fijas son `knowledge_chunk`, `idempotency_key` y `derived_version` (§4.10
    del modelo de dominio) [WAS-ADR-0003].
