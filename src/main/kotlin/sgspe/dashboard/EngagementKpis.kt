@@ -43,6 +43,9 @@ data class MonthlyTarget(
 // los KPI-ENG de F2 (dashboards.md §4.3) como funciones puras. las filas llegan ya filtradas a las interacciones realizadas
 // (EngagementWriteGuard.HELD_STATES) y a los permisos de quien llama
 object EngagementKpis {
+    // el tipo de una interacción sin engagement_type en el desglose de KPI-ENG-01
+    const val NO_TYPE = "SIN TIPO"
+
     // los tipos formales (RN-ENG-004), que dashboards.md §3.3 cuenta como reunión (#5): la misma lista de la guarda
     val MEETINGS: Set<String> = EngagementWriteGuard.FORMAL_TYPES
 
@@ -63,7 +66,7 @@ object EngagementKpis {
     ): IndicatorResult =
         IndicatorResult(
             inPeriod.size,
-            breakdowns = listOf(Breakdown("engagement_type", Numbers.counts(inPeriod.map { it.type ?: "SIN TIPO" }))),
+            breakdowns = listOf(Breakdown("engagement_type", Numbers.counts(inPeriod.map { it.type ?: NO_TYPE }))),
             series = months(end).map { month -> mapOf("period" to month.toString(), "value" to window.count { YearMonth.from(it.heldDate) == month }) }
         )
 

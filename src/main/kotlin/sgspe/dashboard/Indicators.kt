@@ -179,4 +179,11 @@ object Numbers {
             .entries
             .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
             .map { mapOf("key" to it.key, "value" to it.value) }
+
+    // lo mismo desde los totales ya contados por clave (los conteos de la base, plan 8.2a-bis): las claves sin cuenta no salen
+    fun tally(totals: Map<String, Int>): List<Map<String, Any?>> =
+        totals.entries
+            .filter { it.value > 0 }
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .map { mapOf("key" to it.key, "value" to it.value) }
 }
