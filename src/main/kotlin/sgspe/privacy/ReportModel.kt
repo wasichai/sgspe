@@ -68,11 +68,15 @@ data class Mark(
         const val RESTRICTED = "RESTRICTED"
         const val HOLDER_NAME = "HOLDER_NAME"
         const val REGISTRY_NUMBER = "REGISTRY_NUMBER"
+        const val EXTERNAL_NOTE = "EXTERNAL_NOTE"
 
         fun restricted(field: String) = Mark(RESTRICTED, field)
 
         val HOLDER = Mark(HOLDER_NAME)
         val REGISTRY = Mark(REGISTRY_NUMBER)
+
+        // un bloque que solo muestra EXTERNO, p. ej. el aviso de que se reservó contenido restringido
+        val EXTERNAL_ONLY = Mark(EXTERNAL_NOTE)
     }
 }
 

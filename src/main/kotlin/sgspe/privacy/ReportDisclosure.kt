@@ -48,7 +48,10 @@ object ReportDisclosure {
         val external = level == Disclosure.EXTERNO
         return when (block) {
             is Block.Paragraph ->
-                if (external && block.mark != null) {
+                // la nota EXTERNO solo sale en EXTERNO; cualquier otra marca se quita ahí (falla cerrado)
+                if (block.mark?.kind == Mark.EXTERNAL_NOTE && !external) {
+                    null
+                } else if (external && block.mark != null && block.mark.kind != Mark.EXTERNAL_NOTE) {
                     null
                 } else {
                     block.copy(

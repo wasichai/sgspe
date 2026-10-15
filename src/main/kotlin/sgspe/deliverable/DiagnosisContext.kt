@@ -217,7 +217,7 @@ object DiagnosisContext {
                     }
                 }
             // una línea sin marca para que la sección no quede en un título solo (EXTERNO quita los párrafos marcados)
-            listOf<Block>(Block.Heading(3, title)) + restricted + Block.Paragraph(if (restricted.isEmpty()) "$SIN_DATO." else RESERVED)
+            listOf<Block>(Block.Heading(3, title)) + restricted + reservedNote(restricted.isEmpty())
         }
 
     suspend fun customs(scene: DiagnosisScene): List<Block> =
@@ -245,9 +245,12 @@ object DiagnosisContext {
                     Block.Table("Costumbres y fechas festivas: $title", listOf("Localidad", "Festividad", "Fecha", "Turnos de coorganización"), it)
                 }
             // sin tabla y sin marca visible, una línea fija evita el título solo en EXTERNO
-            val note = if (table == null) listOf(Block.Paragraph(if (religion.isEmpty()) "$SIN_DATO." else RESERVED)) else emptyList()
+            val note = if (table == null) listOf(reservedNote(religion.isEmpty())) else emptyList()
             listOf<Block>(Block.Heading(3, title)) + religion + listOfNotNull(table) + note
         }
+
+    // sin datos, «Sin dato.»; con datos restringidos, el aviso que solo muestra EXTERNO
+    private fun reservedNote(noData: Boolean): Block.Paragraph = if (noData) Block.Paragraph("$SIN_DATO.") else Block.Paragraph(RESERVED, Mark.EXTERNAL_ONLY)
 
     // una tabla por ámbito con los temas en filas y las localidades en columnas (Tablas 5.2, 5.3 y 5.8)
     private suspend fun columns(

@@ -210,4 +210,25 @@ class SocialDiagnosisTypeTest {
         assertTrue(external.blocks("proceso_electoral").filterIsInstance<Block.Paragraph>().any { it.markdown == "Información reservada en esta versión." })
         assertTrue(external.blocks("costumbres").filterIsInstance<Block.Paragraph>().any { it.markdown == "Información reservada en esta versión." })
     }
+
+    @Test
+    fun `INTERNO no muestra el aviso de contenido reservado y EXTERNO si, sin el texto restringido`() {
+        val model = assemble().model
+        val internal =
+            ReportDisclosure
+                .apply(model, Disclosure.INTERNO)
+                .blocks("proceso_electoral")
+                .filterIsInstance<Block.Paragraph>()
+                .map { it.markdown }
+        assertTrue(internal.any { "movimientos" in it })
+        assertTrue(internal.none { "Información reservada" in it })
+        val external =
+            ReportDisclosure
+                .apply(model, Disclosure.EXTERNO)
+                .blocks("proceso_electoral")
+                .filterIsInstance<Block.Paragraph>()
+                .map { it.markdown }
+        assertTrue(external.any { "Información reservada en esta versión." in it })
+        assertTrue(external.none { "movimientos" in it })
+    }
 }
