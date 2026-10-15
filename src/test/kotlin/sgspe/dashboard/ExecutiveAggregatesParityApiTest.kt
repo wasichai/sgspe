@@ -355,7 +355,7 @@ class ExecutiveAggregatesParityApiTest : F6QueryApiTest() {
         val receiver = member("COMMUNITY_RELATIONS_OFFICER", c.toString())
         edges.forEach { grievance(c.toString(), receiver, mapOf("received_at" to it)) }
         // compromisos con campaña y responsable (los dos filtros de la base de KPI-COM-02 y KPI-COM-03)
-        val campaign = campaign(c.toString())
+        val campaign = campaign(c.toString(), cap = 100_000)
         val owner = userWithRole("COMMITMENT_MANAGER")
         approvedCommitment(c.toString(), owner, mapOf("exploration_campaign" to campaign))
         approvedCommitment(
