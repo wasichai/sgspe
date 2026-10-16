@@ -42,7 +42,7 @@ data class GroupCount(
 )
 
 // los KPI del tablero executive desde los conteos de la base (AggregateSql, plan 8.2a-bis), puros: cada función da lo mismo
-// que su gemela sobre filas (AttentionKpis.open, EngagementKpis.held, CommitmentKpis.open y overdue, RiskKpis.high,
+// que su gemela sobre filas, que queda como referencia de la prueba (AttentionKpis.open, EngagementKpis.held, CommitmentKpis.open y overdue, RiskKpis.high,
 // ExecutiveKpis.activeWarnings y trend) con las filas agrupadas como las agrupa el SQL (AggregateKpisTest). las tiles cuentan
 // las filas con `tile`; la fila de un proyecto en byProject, las suyas con `own`, solo con su valor (sin desgloses ni series)
 object AggregateKpis {

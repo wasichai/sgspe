@@ -5,6 +5,7 @@ import sgspe.common.Records
 import sgspe.territory.ComponentLand
 import sgspe.territory.ComponentLandRow
 import sgspe.territory.GateOutcome
+import sgspe.territory.GateTables
 import tools.jackson.databind.json.JsonMapper
 import wasichai.core.common.PageResponse
 import wasichai.core.data.RecordCriterion
@@ -148,6 +149,33 @@ class KpiFixtureData(
             if (call.method.name != "rows") return@mock null
             reads += "componentLand ${call.arguments[0]}"
             GateOutcome.Rows(listOf(ComponentLandRow(id("project_component", 0), project, "Texto de ejemplo", "TERRITORIO COMUNAL", id("community", 0))))
+        }
+
+    // los conteos en la base (plan 8.2a-bis): la consulta escrita con sus valores enlazados, sin filas
+    private val tables =
+        object : GateTables {
+            override fun table(objectName: String) = "<$objectName>"
+
+            override fun column(
+                objectName: String,
+                field: String
+            ) = "\"$field\""
+
+            override fun srid(
+                objectName: String,
+                field: String
+            ) = 0
+        }
+
+    @Suppress("UNCHECKED_CAST")
+    val aggregates: KpiAggregates =
+        org.mockito.Mockito.mock(KpiAggregates::class.java) { call ->
+            if (call.method.name != "select") return@mock null
+            val query = call.arguments[0] as AggregateQuery<Any>
+            val bound = mutableListOf<Any?>()
+            val sql = query.sql(tables) { value -> "?".also { bound += if (value is Array<*>) value.toList() else value } }
+            reads += "aggregate ${query.key} $sql $bound"
+            GateOutcome.Rows(emptyList<Any>())
         }
 
     companion object {

@@ -23,7 +23,7 @@ object KpiEvaluation {
     }
 
     // la tabla por proyecto del tablero executive (plan 8.2a-bis): la misma disponibilidad para todas las filas y la cifra de
-    // cada proyecto de Indicator.computeByProject; sin ella, cada proyecto se evalúa aparte con DashboardData.with, como antes.
+    // cada proyecto de Indicator.computeByProject; el KPI sin ella evalúa cada proyecto aparte con DashboardData.with.
     // la clave es el id del proyecto, una por proyecto del filtro
     suspend fun evaluateByProject(
         kpi: Indicator,
@@ -38,7 +38,7 @@ object KpiEvaluation {
             val unavailable = value(IndicatorResult.unavailable(reason(missing, data), missing))
             return projects.associate { it.toString() to unavailable }
         }
-        val split = if (kpi.singleProject || !data.aggregated) null else kpi.computeByProject(data)
+        val split = if (kpi.singleProject) null else kpi.computeByProject(data)
         return projects.associate { p ->
             val key = p.toString()
             key to

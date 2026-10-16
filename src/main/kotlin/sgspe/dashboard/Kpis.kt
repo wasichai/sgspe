@@ -498,13 +498,7 @@ object Kpis {
                 COMMITMENT + CAMPAIGN,
                 ignores = commitmentIgnores("explorationCampaign"),
                 split = { data -> countedByProject(data, data.openCommitmentCounts(), AggregateKpis::groupedByProject) }
-            ) { data ->
-                if (data.aggregated) {
-                    counted(data.openCommitmentCounts(), AggregateKpis::openCommitments)
-                } else {
-                    CommitmentKpis.open(data.commitments(campaign = true, owner = false))
-                }
-            },
+            ) { data -> counted(data.openCommitmentCounts(), AggregateKpis::openCommitments) },
             Kpi(
                 "KPI-COM-03",
                 "Compromisos vencidos",
@@ -515,13 +509,9 @@ object Kpis {
                 split = { data -> countedByProject(data, data.overdueCommitmentCounts(), AggregateKpis::groupedByProject) }
             ) { data ->
                 val escalation = data.escalation()
-                if (data.aggregated) {
-                    counted(
-                        data.overdueCommitmentCounts()
-                    ) { rows -> AggregateKpis.overdueCommitments(rows, data.today) { escalation[it] ?: Escalation(7, 15) } }
-                } else {
-                    CommitmentKpis.overdue(data.commitments(campaign = true, owner = true), data.today) { escalation[it] ?: Escalation(7, 15) }
-                }
+                counted(
+                    data.overdueCommitmentCounts()
+                ) { rows -> AggregateKpis.overdueCommitments(rows, data.today) { escalation[it] ?: Escalation(7, 15) } }
             },
             Kpi(
                 "KPI-COM-04",
@@ -642,7 +632,7 @@ object Kpis {
                 QCS,
                 ignores = ATTENTION_IGNORES,
                 split = { data -> countedByProject(data, data.attentionCounts(), AggregateKpis::openByProject) }
-            ) { data -> if (data.aggregated) counted(data.attentionCounts(), AggregateKpis::open) else AttentionKpis.open(data.attention()) },
+            ) { data -> counted(data.attentionCounts(), AggregateKpis::open) },
             Kpi(
                 "KPI-GRV-03",
                 "Quejas resueltas",
@@ -703,7 +693,7 @@ object Kpis {
                 RISK + listOf("social_risk.risk_level", "social_risk.category"),
                 ignores = RISK_IGNORES,
                 split = { data -> countedByProject(data, data.highRiskCounts(), AggregateKpis::groupedByProject) }
-            ) { data -> if (data.aggregated) counted(data.highRiskCounts(), AggregateKpis::highRisks) else RiskKpis.high(data.risks()) },
+            ) { data -> counted(data.highRiskCounts(), AggregateKpis::highRisks) },
             Kpi(
                 "KPI-RSK-02",
                 "Mapa de calor probabilidad × impacto",
@@ -938,9 +928,7 @@ object Kpis {
                 listOf("early_warning.project", "early_warning.severity", "early_warning.locality", "early_warning.community"),
                 ignores = EXECUTIVE_WARNING_IGNORES,
                 split = { data -> countedByProject(data, data.warningCounts(), AggregateKpis::groupedByProject) }
-            ) { data ->
-                if (data.aggregated) counted(data.warningCounts(), AggregateKpis::activeWarnings) else ExecutiveKpis.activeWarnings(data.earlyWarnings())
-            },
+            ) { data -> counted(data.warningCounts(), AggregateKpis::activeWarnings) },
             Kpi(
                 ExecutiveKpis.TREND,
                 "Tendencia mensual",
@@ -964,11 +952,10 @@ object Kpis {
                 val reschedules = data.reschedules(commitments.map { it.id })
                 val overdue = CommitmentKpis.overdueSeries(commitments, reschedules.rows, data.filters.periodEnd, data.today)
                 val engagements = heldResult(data)
-                when {
-                    !engagements.available -> engagements
-                    data.aggregated ->
-                        counted(data.attentionCounts()) { rows -> reschedules.warn(AggregateKpis.trend(engagements, rows, overdue, data.filters.periodEnd)) }
-                    else -> reschedules.warn(ExecutiveKpis.trend(engagements, data.attention(), overdue, data.filters.periodEnd))
+                if (!engagements.available) {
+                    engagements
+                } else {
+                    counted(data.attentionCounts()) { rows -> reschedules.warn(AggregateKpis.trend(engagements, rows, overdue, data.filters.periodEnd)) }
                 }
             }
         )
@@ -1035,13 +1022,8 @@ object Kpis {
             )
         }
 
-    // KPI-ENG-01 (y la serie de interacciones de KPI-EXE-03): desde los conteos de la base o desde las filas
-    private suspend fun heldResult(data: DashboardData): IndicatorResult =
-        if (data.aggregated) {
-            counted(data.heldCounts()) { AggregateKpis.held(it, data.filters.periodEnd) }
-        } else {
-            EngagementKpis.held(data.inPeriod(), data.window(), data.filters.periodEnd)
-        }
+    // KPI-ENG-01 (y la serie de interacciones de KPI-EXE-03): desde los conteos de la base
+    private suspend fun heldResult(data: DashboardData): IndicatorResult = counted(data.heldCounts()) { AggregateKpis.held(it, data.filters.periodEnd) }
 }
 
 // las etiquetas y los cortes que necesitan leer actores. el nombre de una persona (stakeholder → person) solo sale si

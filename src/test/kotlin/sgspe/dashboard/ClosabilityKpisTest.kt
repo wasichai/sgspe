@@ -35,11 +35,14 @@ class ClosabilityKpisTest {
                 DashboardFilters.of(listOf(project), period.first, period.second),
                 { true },
                 today,
-                componentLand = fixture.componentLand
+                componentLand = fixture.componentLand,
+                aggregates = fixture.aggregates
             )
         val value = runBlocking { KpiEvaluation.evaluate(Kpis.BY_CODE.getValue(code), data) }
         return Run(fixture.reads.toList(), value)
     }
+
+    private fun seriesQuery(read: String) = read.startsWith("aggregate attention:")
 
     // lo que congela una medición: el valor, el numerador, el denominador y el desglose
     private fun frozen(value: IndicatorValue) = listOf(value.available, value.value, value.numerator, value.denominator, value.breakdowns)
@@ -49,7 +52,9 @@ class ClosabilityKpisTest {
         for (code in Closability.PERIODLESS) {
             val first = run(code, september)
             val second = run(code, july)
-            assertEquals(first.reads, second.reads, "$code lee según el periodo")
+            // la consulta de las QCS (KPI-GRV-02) es la misma que la de la serie de KPI-EXE-03 y enlaza el periodo solo para los
+            // meses de la serie; la cifra de KPI-GRV-02 no los usa (AggregateKpis.open), y la comparación de la cifra lo dice
+            assertEquals(first.reads.filterNot(::seriesQuery), second.reads.filterNot(::seriesQuery), "$code lee según el periodo")
             assertEquals(frozen(first.value), frozen(second.value), "$code calcula según el periodo")
         }
         // el control: un KPI del periodo sí cambia con el periodo, así que la comparación de arriba distingue

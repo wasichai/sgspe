@@ -38,7 +38,7 @@ import java.util.UUID
 // en los indicadores de grupos de interés el territorio filtra al grupo de interés (su localidad y su área de influencia;
 // stakeholder no tiene comunidad, así que community no lo filtra y el KPI lo dice en ignoredFilters, ruling P27); en los
 // de relacionamiento, a la interacción (su localidad o su comunidad).
-// desde el plan 8.2a-bis, con `aggregates`, KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03, KPI-RSK-01, KPI-EXE-02 y las series
+// desde el plan 8.2a-bis, KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03, KPI-RSK-01, KPI-EXE-02 y las series
 // de interacciones y quejas de KPI-EXE-03 no leen filas: cuentan en la base por KpiAggregates (dashboards.md §6.3), con el
 // mismo territorio, ámbito y alcance, y la regla de conteo de §3.3 en el SQL.
 // la lectura es acotada (dashboards.md §6.2, conjuntos pequeños): cada conjunto se lee con Records.all hasta maxRows
@@ -65,8 +65,8 @@ class DashboardData(
     private val hasCatalog: Boolean = false,
     // F8 (decisión 25, R4): el cierre de periodo calcula los KPI de QCS sin las confidenciales, también para quien las ve
     private val excludeConfidential: Boolean = false,
-    // plan 8.2a-bis: los conteos en la base de los KPI del tablero executive (KpiAggregates); null, esos KPI leen filas con
-    // Records como antes (las pruebas sin base y la prueba de paridad)
+    // plan 8.2a-bis: los conteos en la base de los KPI del tablero executive (KpiAggregates); Dashboards lo inyecta y las
+    // pruebas sin base que no calculan esos KPI lo dejan en null
     private val aggregates: KpiAggregates? = null
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -899,22 +899,8 @@ class DashboardData(
     suspend fun projectRows(): List<ProjectRow> =
         projectRecords().map { ProjectRow(it.id, it.state, Values.text(it.attributes["stage"]), Values.text(it.attributes["project_type"])) }
 
-    // las alertas activas de los proyectos en el territorio pedido (KPI-EXE-02): por su localidad o su comunidad, sin el ámbito
-    suspend fun earlyWarnings(): List<WarningRow> =
-        cached("earlyWarnings") {
-            if (filters.projects.isEmpty()) return@cached emptyList<WarningRow>()
-            read(
-                "early_warning",
-                criteria = listOf(Criteria.anyOf("project", filters.projects), Criteria.inState(ExecutiveKpis.ACTIVE_WARNING_STATES))
-            ).filter { inTerritory(Values.text(it.attributes["locality"]), Values.text(it.attributes["community"])) }
-                .map { WarningRow(it.id, it.state, Values.text(it.attributes["severity"])) }
-        }
-
     // ---- conteos en la base (plan 8.2a-bis: KPI-GRV-02, KPI-ENG-01, KPI-COM-02, KPI-COM-03, KPI-RSK-01, KPI-EXE-02 y
     // KPI-EXE-03) ----
-
-    // si los KPI del tablero executive cuentan en la base; si no, leen filas como antes
-    val aggregated: Boolean get() = aggregates != null
 
     // el ámbito AIDS o AIIS de las tiles y de cada proyecto (ScopeTerritories); null si el ámbito no filtra
     suspend fun scopeTerritories(): ScopeTerritories? {
@@ -1025,8 +1011,8 @@ class DashboardData(
         return aggregate(query)
     }
 
-    // las alertas activas por proyecto, severidad y estado (KPI-EXE-02), en el territorio pedido y sin el ámbito, como
-    // earlyWarnings()
+    // las alertas activas por proyecto, severidad y estado (KPI-EXE-02), en el territorio pedido (por su localidad o su
+    // comunidad) y sin el ámbito
     suspend fun warningCounts(): GateOutcome<GroupCount> {
         if (filters.projects.isEmpty()) return GateOutcome.Rows(emptyList())
         val source = source("early_warning", listOf("project"), listOf("locality", "community", "severity"))
