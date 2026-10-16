@@ -1505,7 +1505,7 @@ ExecutiveReviewPage
 - **Acciones:** elegir periodo; abrir el detalle de un indicador; «Cerrar periodo» para quien tiene CREATE sobre
   `indicator_measurement`, un diálogo con el periodo y el proyecto o todo el tenant que explica el `409
   INDICATOR_NOT_CLOSABLE` con su razón, el `400 PERIOD_NOT_ENDED` y el `409 MEASUREMENT_EXISTS` y el `403
-  ACTION_REQUIRED` (todo el tenant sin `READ_ALL_PROJECTS` ni `ADMIN`, opción que solo ve quien los tiene); «Catálogo de
+  ACTION_REQUIRED` (todo el tenant sin ser `ADMIN`, opción que solo ve el `ADMIN`; `READ_ALL_PROJECTS` no basta); «Catálogo de
   indicadores», la lista de `indicator` con edición de `target_value` y `frequency` para quien tiene UPDATE.
 - **Disposición y componentes:** aviso de periodo (cerrado: cifra oficial; en curso: cifra viva); tabla con número, indicador,
   valor, meta y su origen (`targetSource`), cifra oficial marcada cuando el pedido coincide con la medición, desglose,
