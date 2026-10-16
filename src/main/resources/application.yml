@@ -100,8 +100,6 @@ sgspe:
     executive:
       # especificación de F8 §2.2.16: proyectos de la tabla por proyecto (byProject[]) del tablero executive
       max-projects: 25
-    # plan 8.2a-bis: los KPI del tablero executive cuentan en la base (KpiAggregates); false vuelve a leer filas con Records
-    aggregates: true
   territory:
     import:
       # RQ-SEC-020, ASM-050: tamaño del archivo, filas, plazo de lectura y validación, e importaciones a la vez (ImportProperties)

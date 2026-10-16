@@ -116,8 +116,8 @@ borrador o un compromiso pendiente de aprobación no tiene plazo en curso. Adem�
     recibidos, cerrados ni atendidos.
   - Lo cuenta `AttentionCounting` (`sgspe.common`), la misma función pura en el reporte unificado, los KPI-GRV, la
     exportación PUBLICO de `attention-register` y la regla CONTEO DE QCS de JOB-04. Desde el plan 8.2a-bis, KPI-GRV-02 y
-    las quejas de KPI-EXE-03 la aplican en SQL (`AggregateSql.attention`, §6 punto 3); `ExecutiveAggregatesParityApiTest`
-    la mantiene igual a `AttentionCounting`.
+    las quejas de KPI-EXE-03 la aplican en SQL (`AggregateSql.attention`, §6 punto 3); `ExecutiveAggregatesApiTest` y
+    `AggregateKpisTest` la mantienen igual a `AttentionCounting`.
 - **Absuelta:** una QCS con `responded_at` (glosario), en cualquier estado. Una queja rechazada o una consulta derivada cuentan si
   se registró la respuesta comunicada.
 - **Riesgo alto:** `risk_level` ALTO o CRITICO, según los umbrales del proyecto (ASM-004, RN-RSK-002).
@@ -492,7 +492,7 @@ flowchart LR
    KPI-EXE-03 (`AggregateSql`, `KpiAggregates`), en todo tablero que los muestre, en su detalle y en el cierre; la tabla
    por proyecto sale de una consulta agrupada por proyecto con las mismas cifras que el filtro de cada proyecto solo. La
    regla de conteo de §3.3 se aplica en la base. KPI-EXE-01, KPI-INV-03 y la serie de vencidos de KPI-EXE-03 siguen en el
-   punto 2. `sgspe.dashboards.aggregates: false` vuelve al punto 2.
+   punto 2. Desde el cierre de F8 no hay vuelta al punto 2 para los KPI movidos.
 4. **Sin vistas materializadas ni tablas de instantáneas.** El DDL de negocio solo nace de la metadata por
    `ObjectSchemaManager`, y las únicas tablas fijas son `knowledge_chunk`, `idempotency_key` y `derived_version` (§4.10
    del modelo de dominio) [WAS-ADR-0003].

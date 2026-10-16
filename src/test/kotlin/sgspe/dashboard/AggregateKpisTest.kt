@@ -11,7 +11,7 @@ import kotlin.random.Random
 
 // plan 8.2a-bis: cada KPI desde los conteos de la base da lo mismo que su gemela sobre filas, con filas al azar (semillas fijas)
 // agrupadas como las agrupa AggregateSql (las funciones `group…` de abajo son el GROUP BY en Kotlin). la paridad del SQL con
-// esas agrupaciones la prueba ExecutiveAggregatesParityApiTest contra la base
+// esas agrupaciones la prueban contra la base las cifras de ExecutiveAggregatesApiTest
 class AggregateKpisTest {
     private val end = LocalDate.parse("2026-09-30")
     private val start = LocalDate.parse("2026-09-01")
