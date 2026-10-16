@@ -373,9 +373,11 @@ class ExecutiveAggregatesApiTest : F6QueryApiTest() {
         // el borde: las dos de dentro (05:00:00Z del día 1 y 04:59:59Z del día siguiente al fin) y no las de fuera
         val edge = board(Kpis.EXECUTIVE, base, token)
         assertEquals(2, indicator(edge, "KPI-ENG-01")["value"].asInt())
-        // los tres compromisos abiertos; dos con el responsable y dos con la campaña
+        // los tres compromisos abiertos; KPI-COM-02 ignora el responsable (lo dice en ignoredFilters) y aplica la campaña
         assertEquals(3, indicator(edge, "KPI-COM-02")["value"].asInt())
-        assertEquals(2, indicator(board(Kpis.EXECUTIVE, base + ("owner" to listOf(owner.id)), token), "KPI-COM-02")["value"].asInt())
+        val byOwner = indicator(board(Kpis.EXECUTIVE, base + ("owner" to listOf(owner.id)), token), "KPI-COM-02")
+        assertEquals(3, byOwner["value"].asInt())
+        assertEquals(listOf("owner"), byOwner["ignoredFilters"].values().map { it.asString() })
         assertEquals(2, indicator(board(Kpis.EXECUTIVE, base + ("explorationCampaign" to listOf(campaign)), token), "KPI-COM-02")["value"].asInt())
         for (caller in listOf(token, null)) closing("KPI-GRV-02", listOf(c), caller)
     }
