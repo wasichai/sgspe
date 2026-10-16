@@ -50,10 +50,12 @@ data class OfficialScope(
 
 // una fila del tablero monitoring (decisión 5 del plan 8.2a): su número y su texto de la Tabla 9.5, el medio de verificación
 // (el del catálogo si lo editaron), el entregable, la disponibilidad y el valor del KPI (sus desgloses van en indicators[] del
-// mismo orden), la meta con su origen y la cifra oficial, o null
+// mismo orden), la meta con su origen y la cifra oficial, o null. `indicatorId`: el id del indicator del catálogo con ese
+// código, para que el portal no lo busque (null si el catálogo no lo trae o el lector no lee indicator)
 data class MonitoringRow(
     val number: Int,
     val code: String,
+    val indicatorId: String?,
     val label: String,
     val verificationMeans: String,
     val deliverable: String,
@@ -224,6 +226,7 @@ object MonitoringTable {
             MonitoringRow(
                 spec.number,
                 spec.code,
+                indicator?.id,
                 spec.label,
                 indicator?.verificationMeans?.ifBlank { null } ?: spec.verificationMeans,
                 spec.deliverable,
