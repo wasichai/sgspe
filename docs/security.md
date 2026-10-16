@@ -867,7 +867,8 @@ Criterios con que se armó:
 - Los tableros no tienen permisos propios: cada indicador se calcula con los permisos de quien lo mira y muestra "no
   disponible" si le falta un campo (RQ-DSH-031, RQ-DSH-032). `FIELD_AGENT` no recibe tableros: solo lee el contexto de
   su captura (§5.5). El cierre de periodo calcula como quien cierra y guarda una cifra completa o ninguna (ASM-136): los
-  KPI de QCS los cierra en la práctica `ADMIN`, y cerrar todo el tenant exige `READ_ALL_PROJECTS` o `ADMIN`.
+  KPI de QCS los cierra en la práctica `ADMIN`, y cerrar todo el tenant exige `ADMIN`
+  (`READ_ALL_PROJECTS` no basta, api.md §4.11).
 
 ### 7.9 Campos restringidos
 

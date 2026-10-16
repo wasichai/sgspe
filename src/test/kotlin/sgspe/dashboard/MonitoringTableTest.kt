@@ -151,6 +151,16 @@ class MonitoringTableTest {
         assertEquals(setOf(MonitoringTable.NONE), rows.map { it.targetSource }.toSet())
         assertEquals(listOf<Official?>(null), rows.map { it.official }.distinct())
         assertEquals(MonitoringTable.ROWS.map { it.verificationMeans }, rows.map { it.verificationMeans })
+        assertEquals(listOf<String?>(null), rows.map { it.indicatorId }.distinct())
+    }
+
+    // el id del indicator de cada fila, para que el portal no lo busque por código; null si el catálogo no lo trae
+    @Test
+    fun `cada fila lleva el id de su indicator del catalogo`() {
+        val partial = catalog().filterKeys { it != "KPI-ENG-02" }
+        val rows = MonitoringTable.rows(values, partial, emptyList(), null, projectDefined = false).associateBy { it.code }
+        assertEquals("id-KPI-STK-04", rows.getValue("KPI-STK-04").indicatorId)
+        assertNull(rows.getValue("KPI-ENG-02").indicatorId)
     }
 
     @Test

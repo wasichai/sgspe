@@ -413,7 +413,19 @@ class SocialDiagnosisTypeTest {
             end: LocalDate
         ): List<MonitoringRow> =
             listOf(
-                MonitoringRow(1, "KPI-ENG-01", "Interacciones del periodo", "Actas", "T1", true, 12, 10, "CATALOG", Official("m1", "2026-10-01T00:00:00Z", 11))
+                MonitoringRow(
+                    1,
+                    "KPI-ENG-01",
+                    "id-KPI-ENG-01",
+                    "Interacciones del periodo",
+                    "Actas",
+                    "T1",
+                    true,
+                    12,
+                    10,
+                    "CATALOG",
+                    Official("m1", "2026-10-01T00:00:00Z", 11)
+                )
             )
     }
 

@@ -59,6 +59,7 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
         val body = get("/api/sgspe/dashboards/monitoring?project=$own&${period(start, end)}")
         assertEquals(MonitoringTable.CODES, body["indicators"].values().map { it["code"].asString() })
         assertEquals((1..13).toList(), body["rows"].values().map { it["number"].asInt() })
+        assertEquals(MonitoringTable.CODES.map { indicatorId(it) }, body["rows"].values().map { it["indicatorId"].asString() })
         val meetings = body["rows"].values().single { it["code"].asString() == "KPI-ENG-02" }
         assertEquals(3 to "PROJECT", meetings["target"].asInt() to meetings["targetSource"].asString())
         val catalog = board("project=$plain&${period(start, end)}").getValue("KPI-ENG-02")
@@ -129,7 +130,7 @@ class MonitoringDashboardApiTest : F8IndicatorsApiTest() {
         measurement("KPI-COM-08", project, start, end, 7)
         val rows = board("project=$project&${period(start, end)}", catalogBlind(project).token)
         assertEquals(13, rows.size)
-        assertTrue(rows.values.all { it["targetSource"].asString() == "NONE" && it["official"].isNull })
+        assertTrue(rows.values.all { it["targetSource"].asString() == "NONE" && it["official"].isNull && it["indicatorId"].isNull })
     }
 
     // FIELD_AGENT lee el catálogo pero no las mediciones (security.md §7.8): las metas sí, la cifra oficial no
