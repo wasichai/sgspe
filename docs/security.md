@@ -187,6 +187,7 @@ style-src 'self';
 img-src 'self' data: blob: <proveedor del mapa base>;
 connect-src 'self' <proveedor del mapa base>;
 worker-src 'self' blob:;
+frame-src 'self' blob:;
 font-src 'self';
 object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 ```
@@ -196,6 +197,10 @@ object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   en `@wasichai/gis` 1.0.0) y el host del estilo que devuelve `GET /api/sgspe/map/settings` entra en `img-src`
   y `connect-src`.
 - Los mapas WMS llegan por el proxy WMS del mismo origen (§10), así que no hace falta abrir GeoServer en la política.
+- Desde F8 (plan 8.3), la vista previa del borrador en `PdfDialog` dibuja el PDF en un `iframe` con una URL `blob:`:
+  `frame-src 'self' blob:` es la única apertura. El editor de secciones no inyecta estilos (`injectCSS: false`).
+  El bloqueo de scroll de los diálogos modales de `@wasichai/ui` (Radix, `react-remove-scroll`) inyecta un `<style>`
+  en línea que esta política bloquea; no expone datos y se sigue en wasichai/wasichai-ui#58.
 
 ### 3.3 Cuentas de servicio
 
