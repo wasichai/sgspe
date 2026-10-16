@@ -92,7 +92,7 @@ class SlowSuiteTest {
     fun `un T1 de unas 100 paginas con 40 fotos se convierte en menos de 180 s`() {
         val url = env("SGSPE_DELIVERABLE_GOTENBERG_URL")
         val converter = GotenbergConverter(DeliverableProperties(gotenberg = DeliverableProperties.Gotenberg(url, Duration.ofSeconds(180))))
-        val base = T1Fixtures.model(chapters = 9, paragraphs = 60)
+        val base = T1Fixtures.model(chapters = 9, paragraphs = 520)
         val photos =
             (1..40).associate { n ->
                 val id = "00000000-0000-0000-0000-%012d".format(1_000 + n)
