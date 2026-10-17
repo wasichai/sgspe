@@ -84,7 +84,8 @@ wasichai:
   agent:
     # el asistente de solo lectura (AI-05, ai-architecture.md §8). la clave llega solo por ANTHROPIC_API_KEY, que lee EmbabelGate;
     # sin ella Embabel queda fuera y /api/sgspe/ai/** responde 503 AI_UNAVAILABLE. el modelo es el más capaz del catálogo de
-    # Embabel 1.5.3, que no conoce los Claude 5 (ASM-129): cuando los sume, se cambia aquí
+    # Embabel 1.5.3 (ASM-129). Opus 5.5 y Sonnet 5.5 esperan a que Embabel deje de mandar thinking «disabled»: cuando lo haga,
+    # se suman a models/anthropic-models.yml y se cambia aquí
     model: claude-opus-4-8
   notifications:
     # D2 (ADR-0018, WAS-ADR-0046 y 0060): bandeja, SSE y correo. el día de las reglas de fecha empieza en Lima
@@ -268,16 +269,16 @@ sgspe:
     enabled-organizations: ${SGSPE_AI_ENABLED_ORGANIZATIONS:}
     # lo que queda en ai_interaction.provider (GAP-015)
     provider: anthropic
-    # el modelo de cada caso (ASM-129): el más capaz del catálogo de Embabel 1.5.3 de AI-01 a AI-06 y Haiku 4.5 en AI-07 y AI-08.
-    # AI-05 usa wasichai.agent.model
+    # el modelo de cada caso (ASM-129): el más capaz del catálogo de Embabel 1.5.3 de AI-01 a AI-06 y Haiku 5.5, que SGSPE suma
+    # al catálogo (models/anthropic-models.yml), en AI-07 y AI-08. AI-05 usa wasichai.agent.model
     models:
       ai-01: claude-opus-4-8
       ai-02: claude-opus-4-8
       ai-03: claude-opus-4-8
       ai-04: claude-opus-4-8
       ai-06: claude-opus-4-8
-      ai-07: claude-haiku-4-5
-      ai-08: claude-haiku-4-5
+      ai-07: claude-haiku-5-5
+      ai-08: claude-haiku-5-5
     # la versión en uso del prompt de cada caso (ai-architecture.md §10): volver atrás es cambiar este número
     prompts:
       ai-01: '1'
