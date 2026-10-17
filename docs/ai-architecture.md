@@ -452,11 +452,12 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
   decisión del usuario del 2026-10-12). Un solo proveedor por despliegue: los agentes de `sgspe.ai` comparten la
   plataforma de agentes y la configuración del proveedor con wasichai-agent.
 - **Modelo por caso (ASM-129).** `sgspe.ai.models.<caso>`, con valor por defecto en `application.yml`:
-  `claude-haiku-4-5`
-  para AI-07 y AI-08, y el modelo más capaz que reconozca el catálogo de Embabel para AI-01 a AI-06 (en AI-05, el
+  `claude-haiku-5-5` para AI-07 y AI-08, y el modelo más capaz que reconozca el catálogo de Embabel para AI-01 a AI-06 (en AI-05, el
   `wasichai.agent.model` del asistente, con el mismo criterio). El plan 7.2a anota el modelo elegido.
 - **Catálogo de modelos.** La versión de Embabel es la del BOM de wasichai 1.3.0 (1.5.3), y su catálogo no conoce los
-  modelos Claude 5: si una versión nueva los suma, se cambian por configuración [WAS-ADR-0015].
+  modelos Claude 5 [WAS-ADR-0015]. SGSPE lo reemplaza por `models/anthropic-models.yml`, que va antes en el classpath: los
+  mismos modelos más Claude Haiku 5.5 (`AiPropertiesTest` vigila que conserve los de Embabel). Opus 5.5 y Sonnet 5.5 no
+  entran: Embabel 1.5.3 manda `thinking` «disabled» en cada llamada y esos modelos lo rechazan con 400.
 - **Residencia de datos.** Los datos seudonimizados se procesan en la infraestructura de Anthropic, fuera del Perú: es
   una consecuencia aceptada de la decisión del usuario, y sin fuente normativa ninguna regla se presenta como obligación
   legal (GAP-001). Lo que llega al proveedor es lo que la persona puede leer, sin campos restringidos y con los nombres

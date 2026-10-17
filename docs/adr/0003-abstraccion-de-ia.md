@@ -104,7 +104,7 @@ lista del despliegue para activar la IA (ASM-128) y AI-05 seudonimizado con los 
 ### Negativas y riesgos
 
 - El catálogo de Embabel 1.5.3 no conoce los modelos Claude 5: cada caso usa el más capaz que reconoce, o
-  `claude-haiku-4-5` en AI-07 y AI-08 (ASM-129; [architecture.md §14](../architecture.md), riesgo 15); además, tope de
+  `claude-haiku-5-5`, que SGSPE suma a su copia del catálogo, en AI-07 y AI-08 (ASM-129; [architecture.md §14](../architecture.md), riesgo 15); además, tope de
   20 vueltas de herramientas y Jackson 2 en el classpath ([ai-architecture.md §16](../ai-architecture.md),
   WAS-ADR-0015).
 - Los datos seudonimizados se procesan fuera del Perú (GAP-015); en AI-05 y en los agentes propios, el riesgo residual
