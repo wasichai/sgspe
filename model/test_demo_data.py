@@ -63,3 +63,15 @@ class DemoDataTests(unittest.TestCase):
         assigned = {r["attributes"]["member_user"] for r in self.records("project_assignment")}
         self.assertEqual(len(users), 6)
         self.assertEqual(assigned, users)
+
+    def test_un_perfil_por_localidad_del_estudio(self):
+        profiles = self.records("locality_profile")
+        self.assertEqual({r["attributes"]["locality"] for r in profiles}, {"@" + r["key"] for r in self.records("locality")})
+        self.assertTrue(all(r["attributes"]["study"] == "@study" for r in profiles))
+
+    def test_tablas_del_capitulo_5_con_volumen(self):
+        self.assertGreaterEqual(len(self.records("school")), 20)
+        self.assertGreaterEqual(len(self.records("festivity")), 15)
+        self.assertGreaterEqual(len(self.records("road_access")), 8)
+        local = [r for r in self.records("organization") if "locality" in r["attributes"]]
+        self.assertGreaterEqual(len(local), 50)

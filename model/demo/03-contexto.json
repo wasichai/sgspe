@@ -1,0 +1,2552 @@
+{
+  "collections": [
+    {
+      "object": "locality_profile",
+      "match": [
+        "locality",
+        "study"
+      ],
+      "records": [
+        {
+          "key": "prof-huaylla",
+          "attributes": {
+            "locality": "@loc-huaylla",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas y ficha de observación local, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 62,
+            "members_per_family": 4.1,
+            "population_count": 254,
+            "communal_labor_members_count": 43,
+            "migration": "La migración es sobre todo temporal y de varones jóvenes, que bajan a la costa entre mayo y setiembre para trabajar en la cosecha de frutales. Casi todos regresan antes de las lluvias; los pocos que se han quedado fuera son quienes terminaron la secundaria y buscaron estudios en la capital de la provincia. Las mujeres se quedan al cuidado del rebaño, por lo que durante la temporada seca el caserío parece más vacío de lo que realmente está.",
+            "economic_activities": "La economía descansa en la crianza de alpacas y llamas, cuya fibra se vende a un acopiador que visita el caserío dos veces al año. La carne de llama, el chuño y la lana hilada se intercambian o se venden en la feria del distrito. El ingreso monetario es bajo e irregular, y muchas familias lo completan con el jornal ocasional en obras del municipio.",
+            "livestock": "Alpacas y llamas en las punas altas, ovinos criollos en las laderas y algunas vacas lecheras para el consumo de la casa. Los rebaños se manejan por sectores, con turnos de pastoreo acordados en asamblea.",
+            "water_source": "Manantial de ladera captado en la parte alta del sector Pampa Cruz",
+            "water_treatment": "Cloración manual a cargo de la JASS, de forma irregular",
+            "water_frequency": "Diaria, con cortes en la época seca",
+            "water_fee": "S/ 2 mensuales por familia",
+            "water_system_age_years": 11,
+            "water_problems": "El caudal del manantial baja de agosto a noviembre y en esos meses el servicio se interrumpe por las tardes. Orccohuasi, el sector más alejado, recibe el agua por una tubería vieja que se rompe con las heladas, y las familias deben recoger agua del arroyo mientras se repara. Los dirigentes dicen que la cloración se hace cuando el encargado tiene tiempo y reactivos, y que desde hace un año no se mide el cloro residual.",
+            "electricity": "Red convencional desde 2016; cubre cerca del 80 % de las viviendas, las del sector Orccohuasi usan paneles solares",
+            "sanitation": "Letrinas de hoyo seco en la mayoría de las viviendas; ninguna con red de desagüe",
+            "phone_coverage": "Señal débil de un solo operador, solo en la loma sobre el local comunal",
+            "religion": "La mayoría de las familias es católica y celebra la fiesta de la Virgen de la Candelaria con una misa que oficia un sacerdote itinerante. Hay un pequeño grupo evangélico, de cuatro o cinco familias, que se reúne en una casa del sector Pampa Cruz y que no participa en los cargos de las fiestas, lo cual a veces genera comentarios, aunque sin conflictos abiertos.",
+            "electoral_process": "En las elecciones municipales de 2022 el caserío se repartió casi por mitades entre el Movimiento Independiente Tierra y Futuro, que ganó en el distrito, y la Agrupación Vecinal Pueblo Unido. Los dirigentes cuentan que la campaña fue tranquila y que los candidatos visitaron el caserío una sola vez, en la fiesta patronal. Después de la elección ninguno de los dos movimientos ha vuelto a reunirse con la población.",
+            "crops": "Papa nativa, oca, olluco, haba, cebada y chocho."
+          }
+        },
+        {
+          "key": "prof-quishuar",
+          "attributes": {
+            "locality": "@loc-quishuar",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas y ficha de observación local, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 48,
+            "members_per_family": 3.9,
+            "population_count": 187,
+            "communal_labor_members_count": 34,
+            "migration": "Quishuar pierde población joven de forma lenta pero constante: las chicas suelen irse a trabajar como empleadas del hogar a la capital provincial y los varones a las minas pequeñas de otras provincias. Quien se va deja casi siempre la parcela encargada a un hermano o a un compadre, y vuelve para la faena del canal y para las fiestas. Los dirigentes calculan que en los últimos diez años se marcharon unas quince familias.",
+            "economic_activities": "Los ingresos vienen de la papa nativa que se vende en la feria del distrito y de la venta de lana de ovino. Desde que se abrió el canal de Yanaccocha, algunas familias han agregado cebada y arveja para forraje, lo que les ha dado un respiro frente a los años secos. El trabajo asalariado es escaso y se limita a las obras del municipio.",
+            "livestock": "Ovinos, algunas llamas y vacunos criollos que pastan en la zona compartida con Llamapampa. Las familias más pobres tienen solo unos pocos ovinos y cuyes dentro de la casa.",
+            "water_source": "Canal de riego de Yanaccocha para los cultivos; para consumo, un ojo de agua protegido",
+            "water_treatment": "Sin tratamiento",
+            "water_frequency": "Diaria, por pileta pública",
+            "water_fee": "No se cobra cuota fija; se aporta con faenas",
+            "water_system_age_years": 8,
+            "water_problems": "El agua de consumo sale de una pileta en el centro del caserío, y las casas más alejadas deben cargarla. En verano, cuando las lluvias son intensas, el ojo de agua se enturbia y los niños suelen sufrir diarreas. El canal de Yanaccocha, que da riego a los terrenos, tiene tramos sin revestir donde se pierde casi la mitad del caudal.",
+            "electricity": "Conexión a la red desde 2018 en el centro del caserío; las viviendas dispersas usan velas y baterías",
+            "sanitation": "Letrinas de hoyo seco en menos de la mitad de las viviendas; el resto, campo abierto",
+            "phone_coverage": "Sin señal en la mayor parte del caserío; se llama desde la cumbre del cerro Qaqa",
+            "religion": "Quishuar es mayoritariamente católico y su fiesta principal es la de San Isidro Labrador, que se celebra en mayo, antes de la siembra grande. No hay templo, así que las misas se celebran en el local comunal cuando llega el sacerdote, dos o tres veces al año. Entre las familias de más edad se conservan los pagos a la tierra antes de sembrar, que se hacen sin que nadie los considere incompatibles con la fe católica.",
+            "electoral_process": "En 2022 el caserío votó principalmente por el Frente Cívico Raíces, cuyo candidato a alcalde había nacido en Quishuar y pasó la campaña en el caserío. No ganó la alcaldía, pero los pobladores sienten que obtuvo un resultado digno y que le deben una visita. La Agrupación Vecinal Pueblo Unido tuvo un voto menor.",
+            "crops": "Papa nativa, oca, haba, arveja y cebada."
+          }
+        },
+        {
+          "key": "prof-llamapampa",
+          "attributes": {
+            "locality": "@loc-llamapampa",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas y ficha de observación local, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 96,
+            "members_per_family": 4.2,
+            "population_count": 403,
+            "communal_labor_members_count": 67,
+            "migration": "Llamapampa es el caserío con mayor movimiento de gente de entre los directos. Una parte de los jóvenes se va a estudiar a la capital provincial, y los que vuelven suelen quedarse como docentes o en trabajos del municipio. Otros salen por temporada a las campañas de esquila y a la cosecha en la costa; algunas familias viven medio año en cada lugar, y los dirigentes dicen que eso complica reunir quórum en la asamblea.",
+            "economic_activities": "Su principal fuente de ingreso es la fibra de llama y alpaca que procesa la planta de esquila comunal, de la que se benefician casi todas las familias. La venta de tejidos y de carne de llama en las ferias distritales completa el ingreso. Algunas mujeres tienen pequeños negocios de abarrotes en el centro del caserío, y existe un par de transportistas con camionetas usadas.",
+            "livestock": "Llamas y alpacas como actividad principal, además de ovinos y unos pocos vacunos. El rebaño comunal de llamas de carga, que antes se arrendaba a los arrieros, hoy se utiliza sobre todo para el transporte de la lana hasta el camino.",
+            "water_source": "Captación de un manantial en la quebrada Yanaccocha, con reservorio de concreto",
+            "water_treatment": "Cloración con dosificador instalado en 2019",
+            "water_frequency": "Interdiaria en la época seca; diaria en lluvias",
+            "water_fee": "S/ 3 mensuales por familia",
+            "water_system_age_years": 14,
+            "water_problems": "El sistema se construyó para unas cuarenta familias y hoy atiende a más del doble, por lo que el reservorio se vacía a media tarde. El sector Ccollpa tiene su propio sistema y su comité no aporta a las obras de ampliación, lo que la junta del caserío considera una injusticia. El dosificador de cloro se averió en febrero y se repara con aportes voluntarios.",
+            "electricity": "Red convencional desde 2012; todas las viviendas del centro, parte de las periféricas",
+            "sanitation": "Red de desagüe en el centro con una laguna de oxidación sin mantenimiento; letrinas en el resto",
+            "phone_coverage": "Señal de dos operadores en el centro; las zonas bajas no tienen cobertura",
+            "religion": "El caserío es católico en su mayoría, con una capilla restaurada en 2010 y un sacristán local que dirige los rezos cuando no hay sacerdote. La fiesta patronal de la Virgen de Cocharcas se celebra en setiembre con cargos rotativos entre los sectores. Existe una iglesia evangélica pequeña, con alrededor de veinte fieles, que ha mantenido una relación respetuosa con la capilla.",
+            "electoral_process": "En 2022 se enfrentaron en el caserío el Movimiento Independiente Tierra y Futuro y el Movimiento Wayra Renace, y este último ganó con una ventaja corta. El resultado hizo que la junta del caserío y los representantes de Ccollpa apoyaran a candidatos distintos, lo cual alimentó la tensión por la separación. Después de las elecciones, las dos facciones se acusan mutuamente de haber condicionado el voto con promesas de obras.",
+            "crops": "Papa, oca, cebada, haba, chocho y trigo."
+          }
+        },
+        {
+          "key": "prof-ccollpa",
+          "attributes": {
+            "locality": "@loc-ccollpa",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas y ficha de observación local, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 27,
+            "members_per_family": 3.8,
+            "population_count": 103,
+            "communal_labor_members_count": 19,
+            "migration": "Las familias de Ccollpa casi no migran de forma definitiva, porque su pertenencia al sector depende de conservar los derechos sobre el pastoreo. Los hombres salen un par de meses al año a la zafra o a la construcción en la costa y regresan con algo de dinero para los útiles escolares. Los jóvenes que estudian fuera mantienen su vínculo con el sector y participan de los cargos cuando vuelven en vacaciones.",
+            "economic_activities": "El sector vive de la crianza de ovinos y llamas y de la extracción y venta de sal en bloque, un oficio heredado que los dirigentes quieren formalizar. La venta se hace en las ferias, a un precio bajo, y el transporte lo cubre un comerciante de la zona que se queda con buena parte del margen. El jornal en las obras de Llamapampa casi no se da, por el distanciamiento actual.",
+            "livestock": "Ovinos criollos y llamas en la quebrada baja; las familias de más recursos tienen unas diez alpacas. La sal sirve para suplementar la alimentación de los animales y se intercambia con otros caseríos.",
+            "water_source": "Pequeño manantial captado y conducido por gravedad hasta tres piletas",
+            "water_treatment": "Sin tratamiento",
+            "water_frequency": "Diaria, pero con poco caudal",
+            "water_fee": "S/ 1 mensual y faenas",
+            "water_system_age_years": 9,
+            "water_problems": "El comité de agua del sector administra por su cuenta el sistema, que el propio sector construyó con ayuda de un programa del municipio. El caudal alcanza justo para beber y, en los meses secos, para menos de la mitad de las familias. El comité está en el centro de la disputa con Llamapampa, que reclama el aporte de Ccollpa a las obras comunes.",
+            "electricity": "Sin red; paneles solares domiciliarios entregados por un programa en 2019, que dejaron de funcionar en una de cada tres viviendas",
+            "sanitation": "Letrinas en poco más de la mitad de las viviendas",
+            "phone_coverage": "Sin cobertura; la señal llega solo en la cima, a una hora de camino",
+            "religion": "Todas las familias se declaran católicas y se reúnen en la capilla que construyeron entre ellas. Sus celebraciones principales son el día de la Cruz, en mayo, y un novenario de difuntos en noviembre. Los dirigentes dicen que la capilla propia fue una de las razones por las que sintieron que el sector podía caminar solo.",
+            "electoral_process": "En 2022 votaron mayoritariamente por el Movimiento Wayra Renace, que había prometido acompañar el trámite de separación. Varios dirigentes sostienen que esa promesa no se ha cumplido, pero tampoco han hallado otra opción política con la que dialogar. El sector participa en las elecciones de autoridades locales como parte del caserío de Llamapampa, lo que algunos consideran un reconocimiento pendiente.",
+            "crops": "Papa amarga, oca, cebada y haba."
+          }
+        },
+        {
+          "key": "prof-tambillo",
+          "attributes": {
+            "locality": "@loc-tambillo",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 58,
+            "members_per_family": 4.0,
+            "population_count": 232,
+            "communal_labor_members_count": 41,
+            "migration": "Tambillo envió a muchos de sus jóvenes a la costa cuando cayó el comercio de arrieros, y todavía hay familias enteras con parientes en la ciudad. Hoy la migración es de ida y vuelta: se va en la época seca y se regresa para sembrar. Los dirigentes comentan que las casas del lado del camino antiguo están cerradas la mayor parte del año.",
+            "economic_activities": "La papa y la haba son lo central del ingreso, y el chuño se vende en la feria. Dos familias mantienen una tienda de abarrotes y un horno de pan, y otras cuatro alquilan sus acémilas para llevar productos hasta la carretera. La mejora de la trocha ha traído a comerciantes que compran la cosecha en chacra.",
+            "livestock": "Ovinos, algunos vacunos y burros de carga; los cuyes se crían en la cocina y se venden en las fiestas.",
+            "water_source": "Manantial protegido y tubería hasta una pileta por cada grupo de viviendas",
+            "water_treatment": "Sin tratamiento",
+            "water_frequency": "Diaria",
+            "water_fee": "S/ 2 mensuales",
+            "water_system_age_years": 17,
+            "water_problems": "Parte de la tubería es de la época en que se construyó el sistema y tiene fugas que nadie ha podido ubicar. En la temporada de lluvias el agua llega turbia y varias familias la hierven antes de usarla. La JASS no tiene fondos para renovar la tubería.",
+            "electricity": "Red convencional desde 2014; cobertura de aproximadamente el 75 % de las viviendas",
+            "sanitation": "Letrinas de hoyo seco en la mayoría de las viviendas",
+            "phone_coverage": "Señal regular de un operador en el tambo antiguo",
+            "religion": "Católicos en su gran mayoría. La fiesta de San Santiago, en julio, es la principal, y reúne a los tambillanos que viven fuera. La capilla se alza cerca del viejo tambo y es, para muchos, el único edificio que recuerda el pasado de arrieros.",
+            "electoral_process": "En 2022 el caserío votó por el Movimiento Independiente Tierra y Futuro con amplia mayoría, porque su candidato prometió asfaltar la trocha. Después de la elección, la trocha se mejoró pero sin asfalto, y los pobladores reconocen que es un avance parcial. La Agrupación Vecinal Pueblo Unido casi no hizo campaña en el caserío."
+          }
+        },
+        {
+          "key": "prof-pucara",
+          "attributes": {
+            "locality": "@loc-pucara",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 41,
+            "members_per_family": 3.7,
+            "population_count": 152,
+            "communal_labor_members_count": 29,
+            "migration": "La migración es temporal y su momento depende de la lluvia: en los años malos casi todos los varones bajan a los valles de la costa a trabajar en el campo, y en los buenos se quedan. Algunas mujeres jóvenes se han ido a la ciudad a trabajar en casas y, cuando regresan, traen ideas de negocios que rara vez prosperan. La población ha ido disminuyendo en cada década.",
+            "economic_activities": "Depende del secano y de los andenes: papa, cebada y haba en los buenos años. Los cuyes se venden en las fiestas y son la reserva de dinero de las mujeres. El trabajo temporal en la costa aporta la mayor parte del ingreso monetario anual.",
+            "livestock": "Cuyes en casi todas las viviendas, ovinos y algunas vacas; no hay pastos suficientes para rebaños mayores.",
+            "water_source": "Ojo de agua en la parte alta, con tubería de plástico",
+            "water_treatment": "Sin tratamiento",
+            "water_frequency": "Interdiaria",
+            "water_fee": "Sin cuota fija",
+            "water_system_age_years": 6,
+            "water_problems": "Pucará Chico tiene el agua que llega con menos fuerza de todo el estudio, porque la tubería sube y baja entre las dos quebradas. Los dos sectores discuten por el turno de las piletas; Santa Cruz acusa al otro de quedarse con el caudal de los días lunes. No existe comité formal de agua, y las reparaciones las hacen los vecinos por turno.",
+            "electricity": "Sin red; algunas viviendas con paneles solares comprados por las propias familias",
+            "sanitation": "Letrinas en alrededor del 40 % de las viviendas",
+            "phone_coverage": "Cobertura solo en el sector Santa Cruz",
+            "religion": "Católicos. La Cruz de Mayo es la fiesta más sentida, porque rememora la cruz de madera que dio origen al sector Santa Cruz. La imagen de la cruz se baja una vez al año hasta el local multiusos y se vela durante tres noches.",
+            "electoral_process": "En 2022 el voto se dividió entre sectores: Pucará Chico votó por el Frente Cívico Raíces y Santa Cruz por la Agrupación Vecinal Pueblo Unido. Los dirigentes lo explican por viejas rencillas entre familias. Ninguna de las dos listas ganó en el distrito, y los vecinos esperan que quien gobierne atienda al caserío."
+          }
+        },
+        {
+          "key": "prof-yanama",
+          "attributes": {
+            "locality": "@loc-yanama",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 74,
+            "members_per_family": 4.3,
+            "population_count": 318,
+            "communal_labor_members_count": 52,
+            "migration": "Yanama es un caserío bastante estable: la mayoría de los hijos se queda en el caserío después de la secundaria y se incorpora a las faenas del comité de regantes. Quien migra suele hacerlo para estudiar en el instituto de la capital provincial y a menudo regresa como técnico agropecuario. La migración temporal de varones a la costa es de unos tres meses al año.",
+            "economic_activities": "La agricultura bajo riego es su mayor activo: papa, cebada, trigo y hortalizas para la feria. El vivero escolar vende plantones de especies nativas al municipio. El comité de regantes cobra una cuota que financia el mantenimiento de las acequias y de un pequeño taller de reparación.",
+            "livestock": "Vacunos y ovinos; algunas familias han mejorado su ganado vacuno con reproductores comprados en la feria.",
+            "water_source": "Captación de un manantial y red por gravedad con conexiones domiciliarias",
+            "water_treatment": "Cloración regular con hipoclorador de carga",
+            "water_frequency": "Diaria",
+            "water_fee": "S/ 4 mensuales",
+            "water_system_age_years": 12,
+            "water_problems": "El sistema funciona con relativa regularidad gracias a la organización del comité, pero el reservorio ya no abastece a todas las conexiones en los meses de estiaje. La laguna de cabecera, que alimenta tanto el riego como el agua de consumo, se comparte con Huayrapata por un acuerdo de turnos que ambos respetan con recelo. Los pobladores temen que cualquier actividad en la parte alta pudiera alterar ese equilibrio.",
+            "electricity": "Red convencional desde 2010; cobertura del 90 % de las viviendas",
+            "sanitation": "Letrinas con arrastre hidráulico en una de cada cuatro viviendas, las demás con hoyo seco",
+            "phone_coverage": "Señal regular de dos operadores",
+            "religion": "Es un caserío católico con un salón parroquial pequeño. Cada año se celebra la fiesta de San Juan, en junio, con un pasacalle de jóvenes del colegio y una procesión corta hasta el vivero. No existen iglesias evangélicas, aunque un par de familias asisten a una en el distrito.",
+            "electoral_process": "En 2022 el caserío votó por el Movimiento Wayra Renace, cuyo candidato había sido dirigente del comité de regantes de Yanama. Su derrota local dejó cierta decepción, pero también orgullo por haber presentado un candidato propio. El comité de regantes mantiene buenas relaciones con quien gobierna el distrito, sea del movimiento que sea."
+          }
+        },
+        {
+          "key": "prof-rumichaca",
+          "attributes": {
+            "locality": "@loc-rumichaca",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 36,
+            "members_per_family": 3.6,
+            "population_count": 130,
+            "communal_labor_members_count": 25,
+            "migration": "Rumichaca ha perdido gente de forma continua desde la construcción del puente, porque los jóvenes lo usan para salir del caserío y no regresan. Quienes se quedan, en su mayoría adultos mayores, dependen de las remesas de hijos que viven en la costa. Los dirigentes dicen que cada año se cierra una casa más.",
+            "economic_activities": "La cebada y la crianza de vacunos sostienen una economía pequeña. La venta de leche y de quesos frescos en el distrito es el ingreso más estable. Las remesas de los hijos que migraron representan una parte importante del dinero que circula.",
+            "livestock": "Un hato pequeño de vacunos, con cerca de dos o tres cabezas por familia, y ovinos para la lana.",
+            "water_source": "Manantial en la ladera opuesta a la quebrada, con tubería que cruza el puente",
+            "water_treatment": "Sin tratamiento",
+            "water_frequency": "Diaria, con cortes por crecidas",
+            "water_fee": "S/ 1,50 mensuales",
+            "water_system_age_years": 9,
+            "water_problems": "La tubería de agua cruza la quebrada colgada del puente, por lo que cada vez que sube el río existe el riesgo de que se rompa y deje al caserío sin agua. Eso ya ocurrió en la creciente de 2015 y los vecinos estuvieron diez días sin servicio. Además, la acequia que comparten con Llamapampa Bajo es motivo de roces por la limpieza.",
+            "electricity": "Red convencional desde 2013; el sector Huaraccopata se conectó recién en 2020",
+            "sanitation": "Letrinas en la mitad de las viviendas",
+            "phone_coverage": "Señal débil, depende de la hora del día",
+            "religion": "Católicos, con una devoción especial por el Señor de los Milagros, cuya imagen sacan en procesión el primer domingo de octubre. La capilla está en Rumichaca y los habitantes de Huaraccopata cruzan el puente para asistir a las misas.",
+            "electoral_process": "El caserío votó en 2022 por el Frente Cívico Raíces, aunque con baja participación, pues varios electores no regresaron a votar. Los dirigentes señalan que la población que se quedó es mayor y se interesa poco por la política. El tema que más moviliza es que el puente reciba mantenimiento antes de la próxima temporada de lluvias."
+          }
+        },
+        {
+          "key": "prof-llamapampa-bajo",
+          "attributes": {
+            "locality": "@loc-llamapampa-bajo",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 52,
+            "members_per_family": 4.0,
+            "population_count": 208,
+            "communal_labor_members_count": 36,
+            "migration": "La población de Llamapampa Bajo ha tenido movimiento de entrada, porque algunas familias de Llamapampa se mudan allí en busca de mejores terrenos. Los jóvenes que estudian fuera tienden a volver, aunque con cierto retraso. Las ausencias más largas son de las mujeres que trabajan en la capital provincial como empleadas del hogar.",
+            "economic_activities": "Una economía mixta de pequeñas chacras de papa y cebada y la venta de leche. Los ingresos extra provienen del jornal en Llamapampa, donde se paga mejor que en el propio caserío. Un par de familias elaboran queso y lo venden en el mercado distrital.",
+            "livestock": "Vacunos y ovinos en mezcla, con alguna llama que se conserva por tradición familiar.",
+            "water_source": "Manantial en las terrazas altas del caserío, captado por la propia población",
+            "water_treatment": "Cloración eventual",
+            "water_frequency": "Diaria en lluvias, interdiaria en estiaje",
+            "water_fee": "S/ 2 mensuales",
+            "water_system_age_years": 15,
+            "water_problems": "El sistema fue ampliado sin planos, y hoy nadie sabe con certeza dónde están algunas válvulas. Eso hace que cuando se rompe una tubería se corte el agua de todo el caserío, aunque la falla sea de un solo ramal. El comité intenta levantar un registro, pero no cuenta con los recursos para pagar a un técnico.",
+            "electricity": "Red convencional desde 2015",
+            "sanitation": "Letrinas de hoyo seco en la mayoría de viviendas; cuatro familias con pozo séptico",
+            "phone_coverage": "Señal regular de un operador",
+            "religion": "La religión predominante es la católica. La escuela inicial funciona en un ambiente que la parroquia prestó, y por eso el párroco sigue siendo considerado una autoridad moral del caserío. La fiesta de San Isidro se celebra con una procesión que sale de la iglesia y termina en las chacras.",
+            "electoral_process": "En 2022 votaron por el Movimiento Independiente Tierra y Futuro, movimiento del alcalde que luego ganó. Algunos dirigentes creen que esa elección ayudó a que se atendiera la solicitud de la posta, aunque el expediente sigue sin resolverse. La Agrupación Vecinal Pueblo Unido obtuvo allí menos del 20 % de los votos."
+          }
+        },
+        {
+          "key": "prof-chacapampa",
+          "attributes": {
+            "locality": "@loc-chacapampa",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 83,
+            "members_per_family": 4.4,
+            "population_count": 365,
+            "communal_labor_members_count": 58,
+            "migration": "Chacapampa recibe y envía personas con regularidad. Cada año llegan comerciantes de otros caseríos y se quedan algunos meses, y varios jóvenes salen por temporada hacia la costa para trabajar en la cosecha. Se dice que quien tiene un pariente en Chacapampa tiene casa donde dormir en el camino hacia el distrito.",
+            "economic_activities": "El caserío combina agricultura de maíz y papa, un molino que presta servicio a los vecinos y el comercio de la explanada junto al río durante las fiestas. Cinco familias tienen negocios de abarrotes y dos viajan a la ciudad de la costa a comprar mercadería. La apertura de la trocha ha acrecentado la compra de cosecha en chacra.",
+            "livestock": "Vacunos, ovinos y burros de carga; los pastos altos se manejan por turnos entre las familias.",
+            "water_source": "Río cercano captado por una bocatoma, con una planta rústica de filtración",
+            "water_treatment": "Filtración y cloración desde 2017",
+            "water_frequency": "Diaria",
+            "water_fee": "S/ 3,50 mensuales",
+            "water_system_age_years": 7,
+            "water_problems": "El agua se toma del río y, aguas arriba, el ganado de otros caseríos bebe en la misma corriente. Después de las lluvias la planta no logra filtrar el sedimento y el servicio se corta por tres o cuatro días. Los vecinos temen por la salud de los niños y piden un estudio de calidad del agua.",
+            "electricity": "Red convencional desde 2011; cobertura del 85 % de las viviendas",
+            "sanitation": "Letrinas con arrastre hidráulico en el centro y de hoyo seco en las demás viviendas",
+            "phone_coverage": "Señal de dos operadores en la explanada",
+            "religion": "Se declaran católicos casi todos, y la iglesia sirve también como lugar de reunión de la ronda. En agosto se celebra la fiesta de la Asunción, que dura tres días y coincide con la feria. Existe una iglesia evangélica con unos cuarenta fieles, bastante activa, que ofrece reuniones de oración los sábados.",
+            "electoral_process": "En 2022 el caserío mostró una votación dispersa entre cuatro listas, dato que los dirigentes atribuyen a la presencia de comerciantes de otros lugares. La ronda campesina intentó que los candidatos firmaran un compromiso sobre la trocha, pero solo uno lo hizo, y de ese candidato nunca más se supo. Hay desconfianza hacia las promesas de campaña."
+          }
+        },
+        {
+          "key": "prof-huayrapata",
+          "attributes": {
+            "locality": "@loc-huayrapata",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 67,
+            "members_per_family": 4.1,
+            "population_count": 275,
+            "communal_labor_members_count": 47,
+            "migration": "La migración es moderada y casi toda temporal. Algunos jóvenes se han ido a Yanama o a la capital provincial para trabajar en el comercio, pero la mayoría vuelve porque el caserío ofrece más seguridad en el acceso al agua que otros lugares. El manantial funciona como un ancla: nadie quiere perder sus derechos sobre él.",
+            "economic_activities": "La agricultura bajo riego, con papa, haba y cebada, es el sustento del caserío. Se vende además trucha de un pequeño criadero instalado en 2018 con apoyo del municipio. El comité del manantial cobra una tarifa a los usuarios de otros caseríos, que constituye un ingreso para la organización.",
+            "livestock": "Vacunos, ovinos y cuyes; el criadero de truchas es una actividad nueva en manos de ocho familias.",
+            "water_source": "Manantial permanente de Huayrapata, que abastece también a otros dos caseríos",
+            "water_treatment": "Cloración regular",
+            "water_frequency": "Diaria",
+            "water_fee": "S/ 3 mensuales; S/ 5 para usuarios de otros caseríos",
+            "water_system_age_years": 22,
+            "water_problems": "El manantial está bien conservado, pero la tubería principal tiene más de veinte años y requiere cambios. Los usuarios de otros caseríos piden participar en la decisión de cómo repartir el agua cuando escasea, y Huayrapata no acepta compartir esa decisión. El litigio con Yanama por la laguna sigue pendiente de un reglamento más claro.",
+            "electricity": "Red convencional desde 2009; cobertura casi total",
+            "sanitation": "Letrinas con arrastre hidráulico en casi la mitad de las viviendas",
+            "phone_coverage": "Señal buena de dos operadores",
+            "religion": "El caserío es católico y su fiesta mayor es la de la Santísima Cruz, en mayo. Los mayordomos se escogen por sectores y el cargo se asume con orgullo, aunque con un gasto fuerte. Hay una pequeña comunidad evangélica de cinco familias, sin conflictos con los demás.",
+            "electoral_process": "El caserío votó en 2022 por el Movimiento Wayra Renace, al que muchos vinculan con la defensa de los recursos hídricos. Dos de los dirigentes del comité del manantial figuraron en la lista del movimiento como regidores. Los vecinos de otros caseríos que usan el agua de Huayrapata miran con cautela esa cercanía entre el comité y la política."
+          }
+        },
+        {
+          "key": "prof-santarosa",
+          "attributes": {
+            "locality": "@loc-santarosa",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 138,
+            "members_per_family": 4.2,
+            "population_count": 580,
+            "communal_labor_members_count": 97,
+            "migration": "Santa Rosa de Pallca es el caserío con más migrantes, y el que más mantiene su vínculo con ellos. La asociación de residentes en la costa reúne a varios cientos de personas, entre quienes salieron y sus hijos, y financia obras para el caserío. Cada agosto, la población prácticamente se duplica por la fiesta patronal, y son pocos los que no vuelven aunque sea unos días.",
+            "economic_activities": "La agricultura de maíz, papa y haba es la base, y se vende en la feria del distrito y a intermediarios que llegan en camión. Varias familias reciben dinero regular de parientes en la costa. Hay seis tiendas, un taller de carpintería y dos transportistas.",
+            "livestock": "Vacunos y ovinos, con algunas familias que crían porcinos para la venta en la fiesta.",
+            "water_source": "Río Pallcamayo, con captación y planta de tratamiento",
+            "water_treatment": "Cloración con hipoclorador, mantenido por la JASS",
+            "water_frequency": "Diaria",
+            "water_fee": "S/ 4 mensuales",
+            "water_system_age_years": 10,
+            "water_problems": "Por ser el caserío más poblado, el sistema se queda corto en los meses de mayor demanda, sobre todo en agosto, cuando regresan los migrantes. El río recibe aguas servidas de la parte alta, y la JASS ha pedido al municipio un estudio para ubicar una nueva captación. La población del sector Lucmapata tiene agua solo seis horas por día.",
+            "electricity": "Red convencional desde 2008; cobertura del 95 % de las viviendas",
+            "sanitation": "Red de desagüe en el sector Santa Rosa; letrinas en Pallca y Lucmapata",
+            "phone_coverage": "Señal de dos operadores; internet en la escuela",
+            "religion": "El caserío gira en torno a la imagen de Santa Rosa, y su fiesta de agosto es la mayor de todo el área. La capilla se amplió con fondos de los migrantes y alberga misa mensual. Existe una iglesia evangélica en Lucmapata, con una treintena de fieles, que vive en armonía con la católica.",
+            "electoral_process": "En 2022 el caserío votó por el Movimiento Independiente Tierra y Futuro, que contaba con un candidato nacido en Pallca y residente en la costa. Los migrantes organizaron un viaje en bus para votar en el caserío, lo cual elevó la participación. Los dirigentes reconocen que el pleito con San Isidro de Wayra por la franja de terreno pesó en sus preferencias."
+          }
+        },
+        {
+          "key": "prof-esperanza",
+          "attributes": {
+            "locality": "@loc-esperanza",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 71,
+            "members_per_family": 3.9,
+            "population_count": 277,
+            "communal_labor_members_count": 50,
+            "migration": "Nueva Esperanza se pobló con migrantes internos y mantiene una movilidad alta. Muchas familias tienen miembros que trabajan en el distrito o en la capital provincial y vuelven cada semana. Los jóvenes que terminan la secundaria prefieren quedarse y abrir un negocio antes que salir de nuevo.",
+            "economic_activities": "Combina agricultura de pequeña escala con comercio menor: dos tiendas, una cabina de internet y un servicio de transporte hacia el distrito con una camioneta. Las mujeres venden almuerzos a los viajeros de la trocha. La población depende más del dinero que de la cosecha, y eso la diferencia de sus vecinos.",
+            "livestock": "Pocas cabezas de ganado; porcinos y gallinas para el consumo y la venta menor.",
+            "water_source": "Pozo tubular perforado en 2009 y bombeo a un reservorio",
+            "water_treatment": "Cloración mensual",
+            "water_frequency": "Diaria, entre las 6 y las 18 horas",
+            "water_fee": "S/ 5 mensuales",
+            "water_system_age_years": 13,
+            "water_problems": "La bomba eléctrica funciona solo cuando hay energía, y los cortes del fluido eléctrico dejan sin agua al caserío por horas. El pozo tiene un caudal limitado y su nivel baja cada año, lo que preocupa a la JASS. Las cuotas son más altas que en otros caseríos por el gasto en energía.",
+            "electricity": "Red convencional desde 2006; cobertura total",
+            "sanitation": "Red de desagüe parcial en el centro; letrinas en el resto",
+            "phone_coverage": "Señal buena de dos operadores",
+            "religion": "Aunque la mayoría es católica, el caserío tiene una proporción alta de evangélicos, cerca de una tercera parte, con un templo propio frente a la plaza. Ambas comunidades colaboran en las faenas y en el comité de vaso de leche, y la fiesta patronal se celebra con un programa conjunto de actividades cívicas.",
+            "electoral_process": "En 2022 el caserío votó por el Frente Cívico Raíces, que ofreció impulsar un mercado en la trocha. La candidata fue una mujer de Nueva Esperanza, hecho que el caserío recuerda con orgullo. Después de la elección, el comité de vaso de leche fue la organización que más gestiones hizo ante el municipio."
+          }
+        },
+        {
+          "key": "prof-cruzpata",
+          "attributes": {
+            "locality": "@loc-cruzpata",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 59,
+            "members_per_family": 4.0,
+            "population_count": 236,
+            "communal_labor_members_count": 41,
+            "migration": "Cruzpata retiene a su gente más que los caseríos vecinos, porque la ganadería lechera da ocupación a toda la familia. Los jóvenes salen unos meses para trabajar en la costa, pero casi siempre regresan para la época de lluvias, cuando aumenta la producción de leche. Las mujeres no suelen migrar, pues la quesería es una fuente de ingreso propia.",
+            "economic_activities": "La quesería artesanal, que recibe la leche de unas veinte familias, es el motor del caserío. El queso se vende en las ferias del distrito y a un comprador que llega los sábados. La agricultura es complementaria y se limita a papa y forraje.",
+            "livestock": "Vacunos como base, con algo de ovinos; el hato se maneja en pastos de la ladera norte que se comparten con Antaccasa.",
+            "water_source": "Ojo de agua de Puquio y red por gravedad",
+            "water_treatment": "Sin tratamiento",
+            "water_frequency": "Diaria",
+            "water_fee": "S/ 2 mensuales",
+            "water_system_age_years": 16,
+            "water_problems": "El ojo de agua del sector Puquio da de beber al ganado y también a las personas, de modo que la calidad del agua es un riesgo sanitario. La quesería usa mucha agua y deja residuos que se vierten a una zanja sin tratamiento. Los dirigentes saben del problema y esperan un proyecto de saneamiento.",
+            "electricity": "Red convencional desde 2014",
+            "sanitation": "Letrinas de hoyo seco en la mayoría de las viviendas",
+            "phone_coverage": "Señal regular en el centro",
+            "religion": "Católicos, con una devoción local al Señor de la Exaltación, cuya fiesta tiene misa, procesión y feria de quesos. La capilla fue construida por la propia gente en 1995 y se mantiene con faenas anuales.",
+            "electoral_process": "En 2022 votaron mayoritariamente por el Movimiento Wayra Renace, y esa votación obedeció al compromiso de apoyar la quesería. Los pobladores creen que el municipio no cumplió con esa promesa y que hay que insistir. Quedan pocos que se interesen por la política más allá de su efecto en la quesería."
+          }
+        },
+        {
+          "key": "prof-antaccasa",
+          "attributes": {
+            "locality": "@loc-antaccasa",
+            "study": "@study",
+            "data_date": "2026-04-30",
+            "data_source": "Entrevistas, abril de 2026",
+            "reliability": "REFERENCIAL",
+            "families_count": 33,
+            "members_per_family": 3.6,
+            "population_count": 119,
+            "communal_labor_members_count": 23,
+            "migration": "Antaccasa es un caserío de gente que sale y vuelve. Los varones jóvenes trabajan en la costa durante la época seca y muchos de ellos conocen el trabajo en minas pequeñas, pues algunos fueron peones de prospectores. Las mujeres y los mayores permanecen en el caserío cuidando los rebaños.",
+            "economic_activities": "Pastoreo, venta de lana y trabajo temporal. La falta de reconocimiento impide que el caserío reciba transferencias directas, y por eso muchas obras se canalizan a través de Cruzpata. El ingreso monetario depende casi por completo del jornal en la costa.",
+            "livestock": "Ovinos y llamas, con pocas cabezas de vacuno; los pastos altos se manejan por acuerdo con Cruzpata.",
+            "water_source": "Manantial en la ladera sur, con captación sencilla",
+            "water_treatment": "Sin tratamiento",
+            "water_frequency": "Diaria, con poco caudal en estiaje",
+            "water_fee": "Sin cuota",
+            "water_system_age_years": 5,
+            "water_problems": "Al no estar reconocido como caserío, Antaccasa no figura en los programas de agua y saneamiento, y su sistema fue construido con aportes de los vecinos. El manantial rinde poco en la época seca y las familias recurren a acarrear agua en turriles. La falta de reconocimiento es, para los dirigentes, el origen de todos los demás problemas.",
+            "electricity": "Sin red; paneles solares entregados por el municipio distrital en 2021",
+            "sanitation": "Letrinas en menos de la mitad de las viviendas",
+            "phone_coverage": "Sin cobertura; la señal se capta en la cima del cerro",
+            "religion": "Católicos. Celebran la fiesta de la Virgen de las Nieves, en agosto, con una pequeña procesión por el sector Huancapata. No cuentan con capilla, de modo que la imagen se guarda en la casa del mayordomo del año.",
+            "electoral_process": "En 2022 se dividieron entre el Frente Cívico Raíces y el Movimiento Wayra Renace, con una ligera ventaja del primero. Los dirigentes dicen que apoyarían a cualquier candidato que prometiera el reconocimiento. Por su cercanía con la minería, algunos se interesan en las propuestas sobre empleo local."
+          }
+        }
+      ]
+    },
+    {
+      "object": "school",
+      "match": [
+        "name",
+        "locality"
+      ],
+      "records": [
+        {
+          "key": "sch-huaylla-1",
+          "attributes": {
+            "name": "I.E.I. N.º 30412 Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "education_level": "INICIAL",
+            "school_status": "Operativa, aula multigrado"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -2.95,
+                0.54
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-huaylla-2",
+          "attributes": {
+            "name": "I.E. N.º 30413 Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, multigrado desde 1971"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -2.93,
+                0.52
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-quishuar-1",
+          "attributes": {
+            "name": "I.E.I. N.º 30414 Quishuar",
+            "locality": "@loc-quishuar",
+            "education_level": "INICIAL",
+            "school_status": "Operativa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.46,
+                0.55
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-quishuar-2",
+          "attributes": {
+            "name": "I.E. N.º 30415 Quishuar",
+            "locality": "@loc-quishuar",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.44,
+                0.53
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-quishuar-3",
+          "attributes": {
+            "name": "I.E. Agropecuaria Yanaccocha",
+            "locality": "@loc-quishuar",
+            "education_level": "SECUNDARIA",
+            "school_status": "Operativa, con internado de varones"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.4,
+                0.45
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-llamapampa-1",
+          "attributes": {
+            "name": "I.E.I. N.º 30416 Llamapampa",
+            "locality": "@loc-llamapampa",
+            "education_level": "INICIAL",
+            "school_status": "Operativa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -2.95,
+                2.05
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-llamapampa-2",
+          "attributes": {
+            "name": "I.E. N.º 30417 Llamapampa",
+            "locality": "@loc-llamapampa",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -2.93,
+                2.04
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-llamapampa-3",
+          "attributes": {
+            "name": "I.E. Agropecuaria Llamapampa",
+            "locality": "@loc-llamapampa",
+            "education_level": "SECUNDARIA",
+            "school_status": "Operativa, con cerco perimétrico"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -2.9,
+                2.0
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-ccollpa-1",
+          "attributes": {
+            "name": "I.E. N.º 30418 Ccollpa",
+            "locality": "@loc-ccollpa",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, unidocente"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.45,
+                2.04
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-tambillo-1",
+          "attributes": {
+            "name": "I.E.I. N.º 30419 Tambillo",
+            "locality": "@loc-tambillo",
+            "education_level": "INICIAL",
+            "school_status": "Operativa desde 2005"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.05,
+                -2.46
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-pucara-1",
+          "attributes": {
+            "name": "I.E. N.º 30420 Pucará Chico",
+            "locality": "@loc-pucara",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, multigrado"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.05,
+                -0.96
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-yanama-1",
+          "attributes": {
+            "name": "I.E. N.º 30421 Yanama",
+            "locality": "@loc-yanama",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, con vivero escolar"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.05,
+                0.55
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-rumichaca-1",
+          "attributes": {
+            "name": "I.E. N.º 30422 Rumichaca",
+            "locality": "@loc-rumichaca",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, unidocente"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.55,
+                -2.46
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-llamapampa-bajo-1",
+          "attributes": {
+            "name": "I.E.I. N.º 30423 Llamapampa Bajo",
+            "locality": "@loc-llamapampa-bajo",
+            "education_level": "INICIAL",
+            "school_status": "Operativa en ambiente prestado de la parroquia"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.55,
+                -0.96
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-chacapampa-1",
+          "attributes": {
+            "name": "I.E. N.º 30424 Chacapampa",
+            "locality": "@loc-chacapampa",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.55,
+                0.54
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-huayrapata-1",
+          "attributes": {
+            "name": "I.E. N.º 30425 Huayrapata",
+            "locality": "@loc-huayrapata",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa desde 1990"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                3.05,
+                0.54
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-santarosa-1",
+          "attributes": {
+            "name": "I.E. N.º 30426 Santa Rosa de Pallca",
+            "locality": "@loc-santarosa",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, con aula de cómputo"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                5.55,
+                0.55
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-esperanza-1",
+          "attributes": {
+            "name": "I.E. N.º 30427 Nueva Esperanza",
+            "locality": "@loc-esperanza",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, con internet escolar"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                7.05,
+                0.54
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-cruzpata-1",
+          "attributes": {
+            "name": "I.E. N.º 30428 Cruzpata",
+            "locality": "@loc-cruzpata",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                8.55,
+                0.54
+              ]
+            }
+          }
+        },
+        {
+          "key": "sch-antaccasa-1",
+          "attributes": {
+            "name": "I.E. N.º 30429 Antaccasa",
+            "locality": "@loc-antaccasa",
+            "education_level": "PRIMARIA",
+            "school_status": "Operativa, unidocente; no reconocida como caserío"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                10.05,
+                0.54
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "health_facility",
+      "match": [
+        "name",
+        "locality"
+      ],
+      "records": [
+        {
+          "key": "hf-huaylla",
+          "attributes": {
+            "name": "Puesto de Salud Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "facility_type": "PUESTO DE SALUD",
+            "facility_status": "Operativo; atiende un día por semana"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -2.9,
+                0.45
+              ]
+            }
+          }
+        },
+        {
+          "key": "hf-quishuar",
+          "attributes": {
+            "name": "Botiquín Comunal de Quishuar",
+            "locality": "@loc-quishuar",
+            "facility_type": "BOTIQUIN COMUNAL",
+            "facility_status": "Operativo, a cargo de un promotor de salud voluntario"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.42,
+                0.56
+              ]
+            }
+          }
+        },
+        {
+          "key": "hf-chacapampa",
+          "attributes": {
+            "name": "Puesto de Salud Chacapampa",
+            "locality": "@loc-chacapampa",
+            "facility_type": "PUESTO DE SALUD",
+            "facility_status": "Operativo; atiende tres días por semana"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.6,
+                0.56
+              ]
+            }
+          }
+        },
+        {
+          "key": "hf-santarosa",
+          "attributes": {
+            "name": "Puesto de Salud Santa Rosa de Pallca",
+            "locality": "@loc-santarosa",
+            "facility_type": "PUESTO DE SALUD",
+            "facility_status": "Operativo; con una técnica de enfermería residente"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                5.6,
+                0.57
+              ]
+            }
+          }
+        },
+        {
+          "key": "hf-huayrapata",
+          "attributes": {
+            "name": "Botiquín Comunal de Huayrapata",
+            "locality": "@loc-huayrapata",
+            "facility_type": "BOTIQUIN COMUNAL",
+            "facility_status": "Operativo, sin personal de salud permanente"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                3.08,
+                0.44
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "road_access",
+      "match": [
+        "locality",
+        "connects_to"
+      ],
+      "records": [
+        {
+          "key": "road-huaylla",
+          "attributes": {
+            "locality": "@loc-huaylla",
+            "connects_to": "@loc-quishuar",
+            "road_type": "TROCHA CARROZABLE",
+            "road_condition": "Regular; se interrumpe con las lluvias de febrero",
+            "transport_means": "Camioneta y motocicleta",
+            "travel_time": "30 minutos en vehículo; 1 h 45 min a pie"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  -3.0,
+                  0.5
+                ],
+                [
+                  -2.2,
+                  0.9
+                ],
+                [
+                  -1.5,
+                  0.5
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "road-quishuar",
+          "attributes": {
+            "locality": "@loc-quishuar",
+            "connects_to": "@loc-yanama",
+            "road_type": "TROCHA CARROZABLE",
+            "road_condition": "Buena en estiaje; con derrumbes en lluvias",
+            "transport_means": "Camioneta, motocicleta y acémila",
+            "travel_time": "35 minutos en vehículo"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  -1.5,
+                  0.5
+                ],
+                [
+                  -0.8,
+                  0.2
+                ],
+                [
+                  0.0,
+                  0.5
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "road-llamapampa",
+          "attributes": {
+            "locality": "@loc-llamapampa",
+            "connects_to": "@loc-huaylla",
+            "road_type": "CAMINO DE HERRADURA",
+            "road_condition": "Regular; el tramo bajo es empinado",
+            "transport_means": "A pie y con llamas de carga",
+            "travel_time": "2 horas a pie"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  -3.0,
+                  2.0
+                ],
+                [
+                  -3.4,
+                  1.3
+                ],
+                [
+                  -3.0,
+                  0.5
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "road-ccollpa",
+          "attributes": {
+            "locality": "@loc-ccollpa",
+            "connects_to": "@loc-quishuar",
+            "road_type": "CAMINO DE HERRADURA",
+            "road_condition": "Malo; sendero angosto sobre la quebrada",
+            "transport_means": "A pie y con acémilas",
+            "travel_time": "1 h 20 min a pie"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  -1.5,
+                  2.0
+                ],
+                [
+                  -1.1,
+                  1.3
+                ],
+                [
+                  -1.5,
+                  0.5
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "road-tambillo",
+          "attributes": {
+            "locality": "@loc-tambillo",
+            "connects_to": "@loc-pucara",
+            "road_type": "TROCHA CARROZABLE",
+            "road_condition": "Mejorada el año anterior",
+            "transport_means": "Camioneta, motocicleta y acémila",
+            "travel_time": "25 minutos en vehículo"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  0.0,
+                  -2.5
+                ],
+                [
+                  -0.4,
+                  -1.7
+                ],
+                [
+                  0.0,
+                  -1.0
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "road-rumichaca",
+          "attributes": {
+            "locality": "@loc-rumichaca",
+            "connects_to": "@loc-llamapampa-bajo",
+            "road_type": "CAMINO DE HERRADURA",
+            "road_condition": "Regular; se corta con las crecidas",
+            "transport_means": "A pie y con acémilas",
+            "travel_time": "1 h 30 min a pie"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  1.5,
+                  -2.5
+                ],
+                [
+                  1.0,
+                  -1.8
+                ],
+                [
+                  1.5,
+                  -1.0
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "road-chacapampa",
+          "attributes": {
+            "locality": "@loc-chacapampa",
+            "connects_to": "@loc-huayrapata",
+            "road_type": "TROCHA CARROZABLE",
+            "road_condition": "Buena; abierta en 2016",
+            "transport_means": "Camioneta y motocicleta",
+            "travel_time": "30 minutos en vehículo"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  1.5,
+                  0.5
+                ],
+                [
+                  2.3,
+                  1.0
+                ],
+                [
+                  3.0,
+                  0.5
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "road-esperanza",
+          "attributes": {
+            "locality": "@loc-esperanza",
+            "connects_to": "@loc-santarosa",
+            "road_type": "TROCHA CARROZABLE",
+            "road_condition": "Regular; abierta en 1999",
+            "transport_means": "Camioneta y motocicleta",
+            "travel_time": "40 minutos en vehículo"
+          },
+          "geometries": {
+            "trace": {
+              "line": [
+                [
+                  7.0,
+                  0.5
+                ],
+                [
+                  6.2,
+                  0.2
+                ],
+                [
+                  5.5,
+                  0.5
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "festivity",
+      "match": [
+        "name",
+        "locality"
+      ],
+      "records": [
+        {
+          "key": "fest-huaylla-1",
+          "attributes": {
+            "name": "Aniversario de la escuela de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "date_text": "20 de mayo",
+            "month": 5,
+            "start_day": 20,
+            "end_day": 20,
+            "co_organization_turns": "Cada año la organiza un sector distinto; el orden es Huaylla Alto, Pampa Cruz y Orccohuasi."
+          }
+        },
+        {
+          "key": "fest-huaylla-2",
+          "attributes": {
+            "name": "Fiesta de la Virgen de la Candelaria",
+            "locality": "@loc-huaylla",
+            "date_text": "Del 1 al 3 de febrero",
+            "month": 2,
+            "start_day": 1,
+            "end_day": 3,
+            "co_organization_turns": "La mayordomía rota por familias, con inscripción hasta con cuatro años de anticipación."
+          }
+        },
+        {
+          "key": "fest-huaylla-3",
+          "attributes": {
+            "name": "Carnavales de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "date_text": "Febrero, movible",
+            "month": 2,
+            "start_day": 14,
+            "end_day": 17,
+            "co_organization_turns": "La comparsa la organizan los jóvenes solteros, sector por sector."
+          }
+        },
+        {
+          "key": "fest-quishuar-1",
+          "attributes": {
+            "name": "Fiesta de San Isidro Labrador",
+            "locality": "@loc-quishuar",
+            "date_text": "15 de mayo",
+            "month": 5,
+            "start_day": 15,
+            "end_day": 15,
+            "co_organization_turns": "El cargo lo asume el comité de regantes en forma de convite, con ayuda de los demás."
+          }
+        },
+        {
+          "key": "fest-quishuar-2",
+          "attributes": {
+            "name": "Aniversario del caserío de Quishuar",
+            "locality": "@loc-quishuar",
+            "date_text": "10 de noviembre",
+            "month": 11,
+            "start_day": 10,
+            "end_day": 10,
+            "co_organization_turns": "Lo coordina la junta directiva con la escuela."
+          }
+        },
+        {
+          "key": "fest-llamapampa-1",
+          "attributes": {
+            "name": "Fiesta de la Virgen de Cocharcas",
+            "locality": "@loc-llamapampa",
+            "date_text": "Del 7 al 9 de setiembre",
+            "month": 9,
+            "start_day": 7,
+            "end_day": 9,
+            "co_organization_turns": "Los tres sectores se turnan cada año; en 2026 corresponde al sector bajo."
+          }
+        },
+        {
+          "key": "fest-llamapampa-2",
+          "attributes": {
+            "name": "Aniversario de la escuela de Llamapampa",
+            "locality": "@loc-llamapampa",
+            "date_text": "3 de junio",
+            "month": 6,
+            "start_day": 3,
+            "end_day": 3,
+            "co_organization_turns": "Lo organizan la APAFA y los docentes."
+          }
+        },
+        {
+          "key": "fest-llamapampa-3",
+          "attributes": {
+            "name": "Fiesta de la esquila",
+            "locality": "@loc-llamapampa",
+            "date_text": "Del 20 al 22 de noviembre",
+            "month": 11,
+            "start_day": 20,
+            "end_day": 22,
+            "co_organization_turns": "La planta comunal convida a los productores; la junta designa a la pareja de honor."
+          }
+        },
+        {
+          "key": "fest-ccollpa-1",
+          "attributes": {
+            "name": "Día de la Cruz de Ccollpa",
+            "locality": "@loc-ccollpa",
+            "date_text": "3 de mayo",
+            "month": 5,
+            "start_day": 3,
+            "end_day": 3,
+            "co_organization_turns": "La capilla del sector designa a un mayordomo por sorteo."
+          }
+        },
+        {
+          "key": "fest-ccollpa-2",
+          "attributes": {
+            "name": "Novenario de difuntos",
+            "locality": "@loc-ccollpa",
+            "date_text": "Del 31 de octubre al 2 de noviembre",
+            "month": 10,
+            "start_day": 31,
+            "end_day": 2,
+            "co_organization_turns": "Se organiza por familias, sin turnos formales."
+          }
+        },
+        {
+          "key": "fest-tambillo-1",
+          "attributes": {
+            "name": "Fiesta de Santiago Apóstol",
+            "locality": "@loc-tambillo",
+            "date_text": "Del 24 al 26 de julio",
+            "month": 7,
+            "start_day": 24,
+            "end_day": 26,
+            "co_organization_turns": "Los residentes en la costa financian la banda de música; el mayordomo se escoge entre quienes regresan."
+          }
+        },
+        {
+          "key": "fest-pucara-1",
+          "attributes": {
+            "name": "Fiesta de la Santa Cruz",
+            "locality": "@loc-pucara",
+            "date_text": "Del 2 al 4 de mayo",
+            "month": 5,
+            "start_day": 2,
+            "end_day": 4,
+            "co_organization_turns": "Pucará Chico y Santa Cruz alternan la organización de la velada."
+          }
+        },
+        {
+          "key": "fest-yanama-1",
+          "attributes": {
+            "name": "Fiesta de San Juan Bautista",
+            "locality": "@loc-yanama",
+            "date_text": "Del 23 al 25 de junio",
+            "month": 6,
+            "start_day": 23,
+            "end_day": 25,
+            "co_organization_turns": "Cada año la asume uno de los dos sectores, Yanama o Cochapata."
+          }
+        },
+        {
+          "key": "fest-rumichaca-1",
+          "attributes": {
+            "name": "Procesión del Señor de los Milagros",
+            "locality": "@loc-rumichaca",
+            "date_text": "Primer domingo de octubre",
+            "month": 10,
+            "start_day": 4,
+            "end_day": 4,
+            "co_organization_turns": "La hermandad de varones del caserío organiza el recorrido."
+          }
+        },
+        {
+          "key": "fest-llamapampa-bajo-1",
+          "attributes": {
+            "name": "Fiesta de San Isidro",
+            "locality": "@loc-llamapampa-bajo",
+            "date_text": "15 de mayo",
+            "month": 5,
+            "start_day": 15,
+            "end_day": 15,
+            "co_organization_turns": "El cargo pasa de un sector al otro cada año."
+          }
+        },
+        {
+          "key": "fest-chacapampa-1",
+          "attributes": {
+            "name": "Feria y fiesta de la Asunción",
+            "locality": "@loc-chacapampa",
+            "date_text": "Del 14 al 16 de agosto",
+            "month": 8,
+            "start_day": 14,
+            "end_day": 16,
+            "co_organization_turns": "La ronda campesina se encarga del orden y los comerciantes costean la banda."
+          }
+        },
+        {
+          "key": "fest-huayrapata-1",
+          "attributes": {
+            "name": "Fiesta de la Santísima Cruz",
+            "locality": "@loc-huayrapata",
+            "date_text": "Del 3 al 5 de mayo",
+            "month": 5,
+            "start_day": 3,
+            "end_day": 5,
+            "co_organization_turns": "Los mayordomos se eligen por sectores y el cargo se asume por dos años."
+          }
+        },
+        {
+          "key": "fest-santarosa-1",
+          "attributes": {
+            "name": "Fiesta patronal de Santa Rosa",
+            "locality": "@loc-santarosa",
+            "date_text": "Del 28 al 31 de agosto",
+            "month": 8,
+            "start_day": 28,
+            "end_day": 31,
+            "co_organization_turns": "La asociación de residentes financia buena parte de la fiesta; el cargo principal rota entre los tres sectores."
+          }
+        },
+        {
+          "key": "fest-esperanza-1",
+          "attributes": {
+            "name": "Aniversario de Nueva Esperanza",
+            "locality": "@loc-esperanza",
+            "date_text": "12 de octubre",
+            "month": 10,
+            "start_day": 12,
+            "end_day": 12,
+            "co_organization_turns": "Lo organiza el comité del vaso de leche con la junta directiva."
+          }
+        },
+        {
+          "key": "fest-cruzpata-1",
+          "attributes": {
+            "name": "Fiesta del Señor de la Exaltación",
+            "locality": "@loc-cruzpata",
+            "date_text": "Del 14 al 16 de setiembre",
+            "month": 9,
+            "start_day": 14,
+            "end_day": 16,
+            "co_organization_turns": "El comité de la quesería convida el queso a los visitantes; el cargo lo asume una familia distinta cada año."
+          }
+        },
+        {
+          "key": "fest-antaccasa-1",
+          "attributes": {
+            "name": "Fiesta de la Virgen de las Nieves",
+            "locality": "@loc-antaccasa",
+            "date_text": "5 de agosto",
+            "month": 8,
+            "start_day": 5,
+            "end_day": 5,
+            "co_organization_turns": "La imagen pasa cada año a la casa del mayordomo designado en asamblea."
+          }
+        }
+      ]
+    },
+    {
+      "object": "state_program",
+      "match": [
+        "name"
+      ],
+      "records": [
+        {
+          "key": "prog-juntos",
+          "attributes": {
+            "name": "Juntos",
+            "description": "Programa nacional de transferencias monetarias condicionadas a hogares en pobreza, con corresponsabilidad en salud y educación. En el estudio, los hogares beneficiarios cobran en el distrito cada dos meses."
+          },
+          "links": {
+            "state_program_locality": [
+              "@loc-huaylla",
+              "@loc-quishuar",
+              "@loc-llamapampa",
+              "@loc-ccollpa",
+              "@loc-tambillo",
+              "@loc-pucara",
+              "@loc-rumichaca",
+              "@loc-antaccasa"
+            ]
+          }
+        },
+        {
+          "key": "prog-pension65",
+          "attributes": {
+            "name": "Pensión 65",
+            "description": "Programa nacional de subvención monetaria a adultos mayores en situación de pobreza extrema. Los adultos mayores de las localidades más alejadas cobran con apoyo de un familiar."
+          },
+          "links": {
+            "state_program_locality": [
+              "@loc-huaylla",
+              "@loc-llamapampa",
+              "@loc-yanama",
+              "@loc-chacapampa",
+              "@loc-huayrapata",
+              "@loc-santarosa",
+              "@loc-cruzpata",
+              "@loc-antaccasa"
+            ]
+          }
+        },
+        {
+          "key": "prog-qaliwarma",
+          "attributes": {
+            "name": "Qali Warma",
+            "description": "Programa nacional de alimentación escolar que entrega desayunos y almuerzos en las instituciones educativas públicas. Sus comités de alimentación son la base de la APAFA en varias escuelas."
+          },
+          "links": {
+            "state_program_locality": [
+              "@loc-huaylla",
+              "@loc-quishuar",
+              "@loc-llamapampa",
+              "@loc-ccollpa",
+              "@loc-tambillo",
+              "@loc-pucara",
+              "@loc-yanama",
+              "@loc-rumichaca",
+              "@loc-llamapampa-bajo",
+              "@loc-chacapampa",
+              "@loc-huayrapata",
+              "@loc-santarosa",
+              "@loc-esperanza",
+              "@loc-cruzpata",
+              "@loc-antaccasa"
+            ]
+          }
+        },
+        {
+          "key": "prog-vasoleche",
+          "attributes": {
+            "name": "Vaso de Leche",
+            "description": "Programa municipal de complementación alimentaria con raciones diarias para niños pequeños, gestantes y adultos mayores. Se ejecuta a través de comités locales de madres."
+          },
+          "links": {
+            "state_program_locality": [
+              "@loc-huaylla",
+              "@loc-quishuar",
+              "@loc-llamapampa",
+              "@loc-ccollpa",
+              "@loc-tambillo",
+              "@loc-pucara",
+              "@loc-yanama",
+              "@loc-llamapampa-bajo",
+              "@loc-chacapampa",
+              "@loc-santarosa",
+              "@loc-esperanza",
+              "@loc-cruzpata",
+              "@loc-antaccasa"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "object": "local_conflict",
+      "match": [
+        "title"
+      ],
+      "records": [
+        {
+          "key": "conf-agua",
+          "attributes": {
+            "title": "Disputa por el aporte al sistema de agua entre Llamapampa y Ccollpa",
+            "conflict_type": "AGUA",
+            "conflict_status": "ACTIVO",
+            "disputed_resource": "Manantial y sistema de agua de la quebrada Yanaccocha",
+            "environmental_feature": "@mc-ichu",
+            "description": "La junta de Llamapampa sostiene que el agua de la quebrada es un patrimonio único del caserío y que Ccollpa, al ser parte de su territorio titulado, debe aportar a la ampliación del reservorio. Las familias del sector responden que ya construyeron y pagan su propio sistema, y que no reciben el agua del reservorio principal. El conflicto no ha pasado a mayores, pero en la última faena de limpieza hubo discusiones y un grupo de Ccollpa dejó de asistir a las asambleas del caserío.\n\nAmbas partes piden que cualquier proyecto que toque el agua de la quebrada sea explicado a los dos comités por igual, sin dar a uno la sensación de ser favorecido."
+          },
+          "links": {
+            "local_conflict_locality": [
+              "@loc-llamapampa",
+              "@loc-ccollpa"
+            ]
+          }
+        },
+        {
+          "key": "conf-separacion",
+          "attributes": {
+            "title": "Pedido de separación del sector Ccollpa",
+            "conflict_type": "SEPARACION",
+            "conflict_status": "ACTIVO",
+            "disputed_resource": "Reconocimiento como caserío y reparto de las tierras de pastoreo",
+            "description": "En 2023, los representantes de Ccollpa presentaron ante el municipio distrital la solicitud para ser reconocidos como caserío independiente. El trámite sigue abierto y no hay fecha para la verificación en el terreno. La junta de Llamapampa no se opone en principio, pero exige que antes se defina qué parte de los pastos queda con cada uno.\n\nEl desacuerdo de fondo es cómo repartir los pastos y la planta de esquila, y se expresa en discusiones entre los dirigentes de ambos lados y en la división de los votos en las elecciones de 2022."
+          },
+          "links": {
+            "local_conflict_locality": [
+              "@loc-ccollpa",
+              "@loc-llamapampa"
+            ]
+          }
+        },
+        {
+          "key": "conf-limites",
+          "attributes": {
+            "title": "Linderos entre Yanama y Rumichaca",
+            "conflict_type": "LIMITES",
+            "conflict_status": "ACTIVO",
+            "disputed_resource": "Franja de pastos y camino de acceso sobre la cresta que separa ambas cuencas",
+            "description": "Los dos caseríos discrepan sobre por dónde pasa el límite en la cresta que separa sus pastos: Yanama lo ubica en una hilera de apachetas y Rumichaca, en el camino de herradura. No hay enfrentamientos, pero cada año, durante la época de pastoreo, los dirigentes se reclaman en las reuniones distritales por los animales que cruzan.\n\nLos dos coinciden en que el juez de paz ayudó en otras disputas y han propuesto que él medie, aunque aún no han acordado fecha."
+          },
+          "links": {
+            "local_conflict_locality": [
+              "@loc-yanama",
+              "@loc-rumichaca"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "object": "organization",
+      "match": [
+        "name",
+        "administrative_unit"
+      ],
+      "records": [
+        {
+          "key": "org-federacion-rondas-distrito",
+          "attributes": {
+            "name": "Federación Distrital de Rondas Campesinas de San Juan",
+            "organization_type": "FEDERACION",
+            "territorial_level": "DISTRITAL",
+            "administrative_unit": "@au-distrito",
+            "recognized": true,
+            "members_count": 14,
+            "election_mechanism": "Congreso distrital de delegados de las rondas",
+            "term_years": 2,
+            "achievements": "Reúne a las rondas de la mayoría de los caseríos del distrito y arbitra las disputas entre ellos. Su reconocimiento es requisito para que una ronda nueva sea considerada formal."
+          }
+        },
+        {
+          "key": "org-municipalidad-provincial",
+          "attributes": {
+            "name": "Municipalidad Provincial de Castrovirreyna",
+            "organization_type": "MUNICIPALIDAD",
+            "territorial_level": "PROVINCIAL",
+            "administrative_unit": "@au-provincia",
+            "recognized": true,
+            "election_mechanism": "Elección municipal"
+          }
+        },
+        {
+          "key": "org-gobierno-regional",
+          "attributes": {
+            "name": "Gobierno Regional de Huancavelica",
+            "organization_type": "ENTIDAD DEL ESTADO",
+            "territorial_level": "REGIONAL",
+            "administrative_unit": "@au-departamento",
+            "recognized": true,
+            "election_mechanism": "Elección regional"
+          }
+        },
+        {
+          "key": "org-diocesis",
+          "attributes": {
+            "name": "Diócesis de Wayra",
+            "organization_type": "IGLESIA",
+            "territorial_level": "REGIONAL",
+            "administrative_unit": "@au-departamento",
+            "recognized": true,
+            "election_mechanism": "Designación de la Santa Sede",
+            "achievements": "Atiende por medio de párrocos itinerantes a las capillas de los caseríos del distrito y mantiene el vínculo con las asociaciones de residentes."
+          }
+        }
+      ]
+    },
+    {
+      "object": "organization",
+      "match": [
+        "name",
+        "locality"
+      ],
+      "records": [
+        {
+          "key": "org-ronda-huaylla",
+          "attributes": {
+            "name": "Ronda Campesina de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 58,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Resolvió en asamblea las disputas entre sectores por los turnos de pastoreo y mantiene un libro de actas desde 2003.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-huaylla",
+          "attributes": {
+            "name": "JASS de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 7,
+            "election_mechanism": "Elección en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Mantiene la captación del manantial de Pampa Cruz y cobra la cuota de manera regular."
+          }
+        },
+        {
+          "key": "org-regantes-huaylla",
+          "attributes": {
+            "name": "Comité de Regantes de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "organization_type": "COMITE DE REGANTES",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 31,
+            "election_mechanism": "Elección anual entre los usuarios de las acequias",
+            "term_years": 1,
+            "achievements": "Ordena el riego de las parcelas bajas y organiza la limpieza anual de las acequias."
+          }
+        },
+        {
+          "key": "org-apafa-huaylla",
+          "attributes": {
+            "name": "APAFA de la Institución Educativa de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 34,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Gestionó el techo de calamina de la escuela primaria en 2021."
+          }
+        },
+        {
+          "key": "org-vasoleche-huaylla",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 22,
+            "election_mechanism": "Elección de la junta directiva cada año",
+            "term_years": 1,
+            "achievements": "Reparte la ración diaria a los niños menores de seis años y a las madres gestantes."
+          }
+        },
+        {
+          "key": "org-autodefensa-huaylla",
+          "attributes": {
+            "name": "Comité de Autodefensa de Huaylla Alto",
+            "locality": "@loc-huaylla",
+            "organization_type": "COMITE DE AUTODEFENSA",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 15,
+            "election_mechanism": "Designación por la ronda y la junta directiva",
+            "term_years": 2,
+            "achievements": "Vigila los pastos altos contra el abigeato; su última salida de guardia fue en 2023."
+          }
+        },
+        {
+          "key": "org-ronda-quishuar",
+          "attributes": {
+            "name": "Ronda Campesina de Quishuar",
+            "locality": "@loc-quishuar",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 44,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Patrulla el canal de Yanaccocha en época de siembra y media en los reclamos por pastos con Llamapampa.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-quishuar",
+          "attributes": {
+            "name": "Junta Administradora de Servicios de Saneamiento de Quishuar",
+            "locality": "@loc-quishuar",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 5,
+            "election_mechanism": "Elección de directivos en asamblea comunal",
+            "term_years": 2,
+            "achievements": "Protegió con una cerca el ojo de agua de consumo."
+          }
+        },
+        {
+          "key": "org-regantes-quishuar",
+          "attributes": {
+            "name": "Comité de Regantes del Canal Yanaccocha",
+            "locality": "@loc-quishuar",
+            "organization_type": "COMITE DE REGANTES",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 38,
+            "election_mechanism": "Elección anual en asamblea de usuarios",
+            "term_years": 1,
+            "achievements": "Organiza la faena anual de limpieza y lleva el padrón de usuarios del canal."
+          }
+        },
+        {
+          "key": "org-apafa-quishuar",
+          "attributes": {
+            "name": "APAFA de la Escuela de Quishuar",
+            "locality": "@loc-quishuar",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 27,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Compró el menaje del comedor escolar con aportes de los propios padres."
+          }
+        },
+        {
+          "key": "org-vasoleche-quishuar",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Quishuar",
+            "locality": "@loc-quishuar",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 16,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Mantiene la entrega semanal de avena y leche en el local comunal."
+          }
+        },
+        {
+          "key": "org-ronda-llamapampa",
+          "attributes": {
+            "name": "Ronda Campesina de Llamapampa",
+            "locality": "@loc-llamapampa",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 71,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Asumió el control de la planta de esquila y de los turnos de recojo de fibra; también atiende denuncias vecinales.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-llamapampa",
+          "attributes": {
+            "name": "JASS de Llamapampa",
+            "locality": "@loc-llamapampa",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 9,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Ampliará el reservorio con un expediente que ya se presentó al municipio distrital."
+          }
+        },
+        {
+          "key": "org-regantes-llamapampa",
+          "attributes": {
+            "name": "Comité de Regantes de Llamapampa",
+            "locality": "@loc-llamapampa",
+            "organization_type": "COMITE DE REGANTES",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 52,
+            "election_mechanism": "Elección anual en asamblea de usuarios",
+            "term_years": 1,
+            "achievements": "Reparte los turnos de riego de las terrazas y mantiene el reservorio de agua para la siembra."
+          }
+        },
+        {
+          "key": "org-apafa-llamapampa",
+          "attributes": {
+            "name": "APAFA de la Institución Educativa de Llamapampa",
+            "locality": "@loc-llamapampa",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 63,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Logró el cerco perimétrico del colegio secundario en 2020."
+          }
+        },
+        {
+          "key": "org-vasoleche-llamapampa",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Llamapampa",
+            "locality": "@loc-llamapampa",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 31,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Cuenta con un padrón actualizado cada año y una cocina mejorada."
+          }
+        },
+        {
+          "key": "org-autodefensa-llamapampa",
+          "attributes": {
+            "name": "Comité de Autodefensa de Llamapampa",
+            "locality": "@loc-llamapampa",
+            "organization_type": "COMITE DE AUTODEFENSA",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 24,
+            "election_mechanism": "Designación en asamblea general",
+            "term_years": 2,
+            "achievements": "Organiza las guardias en los corrales de llamas de la zona alta durante las noches de esquila."
+          }
+        },
+        {
+          "key": "org-ronda-ccollpa",
+          "attributes": {
+            "name": "Ronda Campesina del Sector Ccollpa",
+            "locality": "@loc-ccollpa",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 19,
+            "election_mechanism": "Elección en asamblea del sector cada año",
+            "term_years": 1,
+            "achievements": "Se constituyó en 2022 y todavía no cuenta con reconocimiento de la federación distrital.",
+            "affiliation": "EMERGENTE"
+          }
+        },
+        {
+          "key": "org-jass-ccollpa",
+          "attributes": {
+            "name": "Comité de Agua del Sector Ccollpa",
+            "locality": "@loc-ccollpa",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 6,
+            "election_mechanism": "Elección de directivos en asamblea del sector",
+            "term_years": 2,
+            "achievements": "Administra el sistema de agua que el sector construyó con apoyo del municipio y es hoy el centro de la disputa con Llamapampa."
+          }
+        },
+        {
+          "key": "org-apafa-ccollpa",
+          "attributes": {
+            "name": "APAFA de la Escuela de Ccollpa",
+            "locality": "@loc-ccollpa",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 12,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Arregla cada año el techo de la escuela unidocente antes de las lluvias."
+          }
+        },
+        {
+          "key": "org-vasoleche-ccollpa",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Ccollpa",
+            "locality": "@loc-ccollpa",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 9,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Prepara la ración en la casa de una de las socias, porque no hay local propio."
+          }
+        },
+        {
+          "key": "org-ronda-tambillo",
+          "attributes": {
+            "name": "Ronda Campesina de Tambillo",
+            "locality": "@loc-tambillo",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 40,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Medió en la antigua disputa con Rinconada y dejó un acta de conciliación de 1993.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-tambillo",
+          "attributes": {
+            "name": "JASS de Tambillo",
+            "locality": "@loc-tambillo",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 5,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Mantiene dos piletas públicas y pidió al municipio los fondos para renovar la tubería."
+          }
+        },
+        {
+          "key": "org-apafa-tambillo",
+          "attributes": {
+            "name": "APAFA de la Institución Educativa Inicial de Tambillo",
+            "locality": "@loc-tambillo",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 21,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Consiguió el mobiliario del aula inicial en 2022."
+          }
+        },
+        {
+          "key": "org-vasoleche-tambillo",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Tambillo",
+            "locality": "@loc-tambillo",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 14,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Reparte el vaso de leche en el local comunal desde 2008."
+          }
+        },
+        {
+          "key": "org-ronda-pucara",
+          "attributes": {
+            "name": "Ronda Campesina de Pucará Chico",
+            "locality": "@loc-pucara",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 29,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Resuelve los reclamos entre los sectores Pucará Chico y Santa Cruz.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-apafa-pucara",
+          "attributes": {
+            "name": "APAFA de la Escuela de Pucará Chico",
+            "locality": "@loc-pucara",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 18,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Acondicionó un comedor escolar con aportes de los padres."
+          }
+        },
+        {
+          "key": "org-vasoleche-pucara",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Pucará Chico",
+            "locality": "@loc-pucara",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 12,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Distribuye las raciones en dos puntos, uno por cada sector."
+          }
+        },
+        {
+          "key": "org-ronda-yanama",
+          "attributes": {
+            "name": "Ronda Campesina de Yanama",
+            "locality": "@loc-yanama",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 49,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Es una de las más antiguas del área de estudio y custodia el libro de linderos.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-yanama",
+          "attributes": {
+            "name": "JASS de Yanama",
+            "locality": "@loc-yanama",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 8,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Opera un hipoclorador que funciona sin interrupciones desde 2019."
+          }
+        },
+        {
+          "key": "org-regantes-yanama",
+          "attributes": {
+            "name": "Comité de Regantes de Yanama",
+            "locality": "@loc-yanama",
+            "organization_type": "COMITE DE REGANTES",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 66,
+            "election_mechanism": "Elección anual con voto de los usuarios",
+            "term_years": 1,
+            "achievements": "Lleva libros de turnos, multas y asambleas anuales, y es referente para los comités de la zona."
+          }
+        },
+        {
+          "key": "org-apafa-yanama",
+          "attributes": {
+            "name": "APAFA de la Institución Educativa de Yanama",
+            "locality": "@loc-yanama",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 41,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Sostiene el vivero escolar de plantas nativas junto con el comité de regantes."
+          }
+        },
+        {
+          "key": "org-vasoleche-yanama",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Yanama",
+            "locality": "@loc-yanama",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 20,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Alterna el reparto entre los sectores Yanama y Cochapata."
+          }
+        },
+        {
+          "key": "org-ronda-rumichaca",
+          "attributes": {
+            "name": "Ronda Campesina de Rumichaca",
+            "locality": "@loc-rumichaca",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 21,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Controla el paso por el puente durante las crecidas y coordina las faenas de limpieza.",
+            "affiliation": "LIBRE"
+          }
+        },
+        {
+          "key": "org-jass-rumichaca",
+          "attributes": {
+            "name": "JASS de Rumichaca",
+            "locality": "@loc-rumichaca",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 4,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Repara la tubería colgada del puente después de cada creciente."
+          }
+        },
+        {
+          "key": "org-apafa-rumichaca",
+          "attributes": {
+            "name": "APAFA de la Escuela de Rumichaca",
+            "locality": "@loc-rumichaca",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 14,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Gestionó una pasarela segura para los niños del sector Huaraccopata."
+          }
+        },
+        {
+          "key": "org-ronda-llamapampa-bajo",
+          "attributes": {
+            "name": "Ronda Campesina de Llamapampa Bajo",
+            "locality": "@loc-llamapampa-bajo",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 35,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Acordó con Rumichaca una faena conjunta de limpieza de la acequia compartida.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-llamapampa-bajo",
+          "attributes": {
+            "name": "JASS de Llamapampa Bajo",
+            "locality": "@loc-llamapampa-bajo",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 6,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Intenta levantar un registro de válvulas y ramales con apoyo de un técnico voluntario."
+          }
+        },
+        {
+          "key": "org-apafa-llamapampa-bajo",
+          "attributes": {
+            "name": "APAFA de la Institución Educativa Inicial de Llamapampa Bajo",
+            "locality": "@loc-llamapampa-bajo",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 19,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Gestionó con la parroquia el uso del ambiente donde funciona la escuela."
+          }
+        },
+        {
+          "key": "org-vasoleche-llamapampa-bajo",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Llamapampa Bajo",
+            "locality": "@loc-llamapampa-bajo",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 15,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Sirve las raciones en el local parroquial."
+          }
+        },
+        {
+          "key": "org-ronda-chacapampa",
+          "attributes": {
+            "name": "Ronda Campesina de Chacapampa",
+            "locality": "@loc-chacapampa",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 77,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Cuenta con local propio desde 1993 y arbitra disputas entre vecinos y entre caseríos.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-chacapampa",
+          "attributes": {
+            "name": "JASS de Chacapampa",
+            "locality": "@loc-chacapampa",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 7,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Instaló la planta de filtración en 2017 y pidió un estudio de calidad del agua."
+          }
+        },
+        {
+          "key": "org-regantes-chacapampa",
+          "attributes": {
+            "name": "Comité de Regantes de Chacapampa",
+            "locality": "@loc-chacapampa",
+            "organization_type": "COMITE DE REGANTES",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 45,
+            "election_mechanism": "Elección anual en asamblea de usuarios",
+            "term_years": 1,
+            "achievements": "Reparte el agua del río entre las parcelas de maíz de la ribera."
+          }
+        },
+        {
+          "key": "org-apafa-chacapampa",
+          "attributes": {
+            "name": "APAFA de la Institución Educativa de Chacapampa",
+            "locality": "@loc-chacapampa",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 52,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Organizó el comedor escolar y las campañas de útiles."
+          }
+        },
+        {
+          "key": "org-vasoleche-chacapampa",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Chacapampa",
+            "locality": "@loc-chacapampa",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 26,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Reparte las raciones en el local de la ronda."
+          }
+        },
+        {
+          "key": "org-ronda-huayrapata",
+          "attributes": {
+            "name": "Ronda Campesina de Huayrapata",
+            "locality": "@loc-huayrapata",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 47,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Vela por el cuidado del manantial y por la ruta de acceso al criadero de truchas.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-huayrapata",
+          "attributes": {
+            "name": "JASS de Huayrapata",
+            "locality": "@loc-huayrapata",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 8,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Administra el manantial que abastece a tres caseríos y cobra la tarifa a los usuarios externos."
+          }
+        },
+        {
+          "key": "org-regantes-huayrapata",
+          "attributes": {
+            "name": "Comité de Regantes de Huayrapata",
+            "locality": "@loc-huayrapata",
+            "organization_type": "COMITE DE REGANTES",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 40,
+            "election_mechanism": "Elección anual en asamblea de usuarios",
+            "term_years": 1,
+            "achievements": "Concertó con el de Yanama el reparto de turnos de la laguna de cabecera."
+          }
+        },
+        {
+          "key": "org-apafa-huayrapata",
+          "attributes": {
+            "name": "APAFA de la Escuela de Huayrapata",
+            "locality": "@loc-huayrapata",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 30,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Mejoró el comedor y el huerto escolar."
+          }
+        },
+        {
+          "key": "org-ronda-santarosa",
+          "attributes": {
+            "name": "Ronda Campesina de Santa Rosa de Pallca",
+            "locality": "@loc-santarosa",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 92,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Mantiene la vigilancia de las chacras durante las cosechas y la seguridad de la fiesta de agosto.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-santarosa",
+          "attributes": {
+            "name": "JASS de Santa Rosa de Pallca",
+            "locality": "@loc-santarosa",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 9,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Administra la planta de tratamiento y gestiona una nueva captación."
+          }
+        },
+        {
+          "key": "org-regantes-santarosa",
+          "attributes": {
+            "name": "Comité de Regantes de Pallcamayo",
+            "locality": "@loc-santarosa",
+            "organization_type": "COMITE DE REGANTES",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 70,
+            "election_mechanism": "Elección anual en asamblea de usuarios",
+            "term_years": 1,
+            "achievements": "Reparte las aguas del río Pallcamayo entre los tres sectores."
+          }
+        },
+        {
+          "key": "org-apafa-santarosa",
+          "attributes": {
+            "name": "APAFA de la Institución Educativa de Santa Rosa de Pallca",
+            "locality": "@loc-santarosa",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 88,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Con aportes de la asociación de residentes, equipó el aula de cómputo."
+          }
+        },
+        {
+          "key": "org-vasoleche-santarosa",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Santa Rosa de Pallca",
+            "locality": "@loc-santarosa",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 38,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Atiende a los tres sectores desde dos locales."
+          }
+        },
+        {
+          "key": "org-autodefensa-santarosa",
+          "attributes": {
+            "name": "Comité de Autodefensa de Santa Rosa de Pallca",
+            "locality": "@loc-santarosa",
+            "organization_type": "COMITE DE AUTODEFENSA",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 28,
+            "election_mechanism": "Designación en asamblea general",
+            "term_years": 2,
+            "achievements": "Organiza las rondas de vigilancia nocturna durante la fiesta patronal."
+          }
+        },
+        {
+          "key": "org-ronda-esperanza",
+          "attributes": {
+            "name": "Ronda Campesina de Nueva Esperanza",
+            "locality": "@loc-esperanza",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 38,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Controla el tránsito de visitantes por la trocha y pide documentos a quienes pernoctan.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-esperanza",
+          "attributes": {
+            "name": "JASS de Nueva Esperanza",
+            "locality": "@loc-esperanza",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 6,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Compró una bomba de reserva con un aporte de las familias."
+          }
+        },
+        {
+          "key": "org-apafa-esperanza",
+          "attributes": {
+            "name": "APAFA de la Escuela de Nueva Esperanza",
+            "locality": "@loc-esperanza",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 33,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Promovió la instalación del servicio de internet escolar."
+          }
+        },
+        {
+          "key": "org-vasoleche-esperanza",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Nueva Esperanza",
+            "locality": "@loc-esperanza",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 29,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Es la organización de mujeres más activa del caserío y funciona en el local comunal."
+          }
+        },
+        {
+          "key": "org-ronda-cruzpata",
+          "attributes": {
+            "name": "Ronda Campesina de Cruzpata",
+            "locality": "@loc-cruzpata",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 43,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Acompaña a los pastores en la defensa de la ladera norte y media con Antaccasa.",
+            "affiliation": "AFILIADA",
+            "affiliated_to": "@org-federacion-rondas-distrito"
+          }
+        },
+        {
+          "key": "org-jass-cruzpata",
+          "attributes": {
+            "name": "JASS de Cruzpata",
+            "locality": "@loc-cruzpata",
+            "organization_type": "JASS",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 5,
+            "election_mechanism": "Elección de directivos en asamblea del caserío",
+            "term_years": 2,
+            "achievements": "Cerca el ojo de agua de Puquio para separar el consumo humano del abrevadero."
+          }
+        },
+        {
+          "key": "org-apafa-cruzpata",
+          "attributes": {
+            "name": "APAFA de la Escuela de Cruzpata",
+            "locality": "@loc-cruzpata",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 25,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Gestionó el equipamiento del comedor escolar con un producto de la quesería."
+          }
+        },
+        {
+          "key": "org-vasoleche-cruzpata",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Cruzpata",
+            "locality": "@loc-cruzpata",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": true,
+            "members_count": 17,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Reparte las raciones tres veces por semana en el local comunal."
+          }
+        },
+        {
+          "key": "org-ronda-antaccasa",
+          "attributes": {
+            "name": "Ronda Campesina de Antaccasa",
+            "locality": "@loc-antaccasa",
+            "organization_type": "RONDA CAMPESINA",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 24,
+            "election_mechanism": "Elección en asamblea general cada dos años",
+            "term_years": 2,
+            "achievements": "Cuenta con un libro de actas desde 2019, pero todavía no es reconocida por la federación distrital.",
+            "affiliation": "EMERGENTE"
+          }
+        },
+        {
+          "key": "org-apafa-antaccasa",
+          "attributes": {
+            "name": "APAFA de la Escuela de Antaccasa",
+            "locality": "@loc-antaccasa",
+            "organization_type": "APAFA",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 13,
+            "election_mechanism": "Elección en asamblea de padres de familia",
+            "term_years": 1,
+            "achievements": "Mantiene la escuela unidocente con jornales de los propios padres."
+          }
+        },
+        {
+          "key": "org-vasoleche-antaccasa",
+          "attributes": {
+            "name": "Comité del Vaso de Leche de Antaccasa",
+            "locality": "@loc-antaccasa",
+            "organization_type": "VASO DE LECHE",
+            "territorial_level": "LOCAL",
+            "recognized": false,
+            "members_count": 10,
+            "election_mechanism": "Elección anual en asamblea de beneficiarias",
+            "term_years": 1,
+            "achievements": "Recibe los insumos a través del comité de Cruzpata, por falta de reconocimiento."
+          }
+        }
+      ]
+    }
+  ]
+}
