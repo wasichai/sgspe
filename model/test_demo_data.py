@@ -88,3 +88,102 @@ class DemoDataTests(unittest.TestCase):
     def test_cada_localidad_tiene_una_via(self):
         self.assertEqual({r["attributes"]["locality"] for r in self.records("road_access")},
                          {"@" + r["key"] for r in self.records("locality")})
+
+    # ---- 04-grupos.json: grupos de interés, percepciones y temas clave ------------------------------------------
+
+    GROUPS = {
+        "AIDS": {"ESTRATEGICO": 12, "POLITICO": 4, "PARA MONITOREO": 5, "VULNERABLE": 1},
+        "AIIS": {"ESTRATEGICO": 21, "POLITICO": 14, "PARA MONITOREO": 14, "VULNERABLE": 7},
+        "REGIONAL": {"ESTRATEGICO": 1, "POLITICO": 4, "PARA MONITOREO": 2},
+    }
+
+    @staticmethod
+    def assessments(record):
+        return [c["attributes"] for c in record.get("commands", []) if c["command"] == "assessment"]
+
+    def test_grupos_por_ambito_y_por_grupo_de_influencia(self):
+        stakeholders = self.records("stakeholder")
+        by = {}
+        for r in stakeholders:
+            key = (r["attributes"]["stakeholder_scope"], r["_expect"]["influence_group"])
+            by[key] = by.get(key, 0) + 1
+        self.assertEqual(by[("AIDS", "ESTRATEGICO")], 12)
+        self.assertEqual(by[("AIIS", "ESTRATEGICO")], 21)
+        self.assertEqual(by[("REGIONAL", "ESTRATEGICO")], 1)
+        self.assertEqual(len(stakeholders), 85)
+        expected = {(scope, group): n for scope, groups in self.GROUPS.items() for group, n in groups.items()}
+        self.assertEqual(by, expected)
+
+    def test_seguimiento_con_cambios_de_postura(self):
+        changed = 0
+        for r in self.records("stakeholder"):
+            stances = [c["attributes"].get("stance") for c in r.get("commands", []) if c["command"] == "assessment"]
+            changed += any(a != b for a, b in zip(stances, stances[1:]))
+        self.assertGreaterEqual(changed, 8)
+
+    def test_cada_persona_con_cargo_vigente(self):
+        holders = {r["attributes"]["person"] for r in self.records("position") if r["attributes"]["position_status"] == "VIGENTE"}
+        people = {r["attributes"]["person"] for r in self.records("stakeholder")}
+        self.assertEqual(people - holders, set())
+
+    def test_un_solo_cargo_vigente_por_persona(self):
+        vigentes = [r["attributes"]["person"] for r in self.records("position") if r["attributes"]["position_status"] == "VIGENTE"]
+        self.assertEqual(len(vigentes), len(set(vigentes)))
+
+    def test_personas_con_al_menos_un_tercio_de_mujeres(self):
+        people = self.records("person")
+        women = sum(1 for r in people if r["attributes"]["sex"] == "FEMENINO")
+        self.assertGreaterEqual(len(people), 85)
+        self.assertGreaterEqual(women / len(people), 0.30)
+
+    def test_linea_de_base_en_el_trabajo_de_campo(self):
+        statuses = {}
+        for r in self.records("stakeholder"):
+            first = self.assessments(r)[0]
+            self.assertTrue("2026-04-14" <= first["assessment_date"] <= "2026-04-29", r["key"])
+            status = r["attributes"]["interview_status"]
+            statuses[status] = statuses.get(status, 0) + 1
+            self.assertEqual(first["basis"], "ENTREVISTA" if status == "ENTREVISTADO" else "INFORMACION SECUNDARIA", r["key"])
+            self.assertEqual(r["attributes"]["owner_user"], "relacionista")
+            self.assertEqual("locality" in r["attributes"], r["attributes"]["stakeholder_scope"] != "REGIONAL", r["key"])
+        self.assertEqual(statuses, {"ENTREVISTADO": 77, "NO UBICADO": 5, "SE NEGO": 3})
+
+    def test_treinta_con_seguimiento_mensual(self):
+        months = ["2026-05-20", "2026-06-20", "2026-07-20", "2026-08-20", "2026-09-20"]
+        followed = [r for r in self.records("stakeholder") if len(self.assessments(r)) > 1]
+        self.assertEqual(len(followed), 30)
+        for r in followed:
+            self.assertEqual([a["assessment_date"] for a in self.assessments(r)[1:]], months, r["key"])
+
+    def test_mas_oposicion_en_el_aiis_que_en_el_aids(self):
+        def share(scope):
+            rows = [r for r in self.records("stakeholder") if r["attributes"]["stakeholder_scope"] == scope]
+            against = sum(1 for r in rows if self.assessments(r)[0]["stance"] == "EN CONTRA")
+            return against / len(rows)
+        self.assertGreater(share("AIIS"), share("AIDS"))
+
+    def test_doce_reglas_de_priorizacion_sin_tipo(self):
+        rules = self.records("prioritization_rule")
+        self.assertEqual(len(rules), 12)
+        combos = {(r["attributes"]["influence_group"], r["attributes"]["stance"], r["attributes"]["stakeholder_scope"]) for r in rules}
+        self.assertEqual(len(combos), 12)
+        self.assertTrue(all("stakeholder_type" not in r["attributes"] for r in rules))
+
+    def test_percepciones_por_tema_con_citas(self):
+        perceptions = self.records("perception")
+        self.assertEqual(len(perceptions), 24)
+        for subject in ("MINERIA", "PROYECTO", "EMPRESA"):
+            rows = [r["attributes"] for r in perceptions if r["attributes"]["subject"] == subject]
+            self.assertEqual(len(rows), 8, subject)
+            self.assertEqual({a["polarity"] for a in rows}, {"POSITIVA", "NEGATIVA"}, subject)
+        quoted = [r["attributes"] for r in perceptions if r["attributes"].get("quote")]
+        self.assertEqual(len(quoted), 12)
+        self.assertTrue(all(a.get("attributed_role") for a in quoted))
+
+    def test_cuatro_temas_clave(self):
+        themes = self.records("key_theme")
+        self.assertEqual(len(themes), 4)
+        for r in themes:
+            a = r["attributes"]
+            self.assertEqual((a["project"], a["study"]), ("@proj", "@study"))
+            self.assertTrue(a["topic"].startswith("@topic-") and a["description"] and a["risks"] and a["opportunities"])
