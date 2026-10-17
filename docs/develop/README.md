@@ -226,6 +226,27 @@ El esquema de metadata es `wasichai.database.metadata-schema`. Con el interrupto
 tenants hasta sembrarla. Comprobación: `GET /api/auth/me/permissions` del `ADMIN` operador lista `MANAGE_TENANTS` en
 `capabilities`, y el de un cliente no. `SeparateProvisioningApiTest` prueba lo mismo.
 
+### Conjunto de demostración (T1)
+
+`model/demo/NN-*.json` es un conjunto **ficticio** (personas, organizaciones y lugares inventados; correos
+`@sgspe.test`) que `model/load_demo.py` carga por REST para que el borrador del entregable T1 (diagnóstico social) salga
+con datos en un entorno de demostración. No es parte del aprovisionamiento: no va en `tenant_steps` ni se corre en un
+tenant de producción.
+
+- **Orden:** después de `load_indicators.py` (cierra periodos con el catálogo de indicadores) y con el administrador del
+  tenant. Los usuarios de la demostración se crean con la contraseña de `SGSPE_DEMO_PASSWORD` (o `--users-password`); nunca
+  va en un archivo.
+- **Validar sin core:** `python3 load_demo.py --validate-only` comprueba los archivos contra `model.json` (objetos,
+  atributos, derivados, enums, obligatorios, vínculos, comandos, correos y el grupo de influencia esperado) y sale con 2
+  si hay problemas; `--dry-run` valida e imprime los conteos por objeto.
+- **Cargar:** `SGSPE_DEMO_PASSWORD=… python3 load_demo.py --core URL --email … --password …`. Es idempotente: un registro
+  que ya existe (por su `match`) no se actualiza y sus comandos corren de nuevo, cada uno idempotente por su cuenta.
+- **`--draft`:** pide además el borrador de los entregables (`POST /api/sgspe/deliverables/{id}/drafts`); sin él solo se
+  cargan los datos y las secciones.
+- **Límite conocido:** si el proceso muere entre la creación de un registro y sus transiciones, la segunda corrida falla
+  con «state X, expected Y» (el registro ya existe, así que sus transiciones se saltan) y hay que corregir ese registro a
+  mano.
+
 ## 6. Pruebas
 
 ```bash

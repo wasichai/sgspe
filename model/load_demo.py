@@ -29,6 +29,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 
+import demo_check
 from core_client import TIMEOUT_SECONDS, Client, CoreError
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -118,15 +119,25 @@ def read_dataset(folder):
     paths = sorted(glob.glob(os.path.join(folder, "[0-9][0-9]-*.json")))
     if not paths:
         raise DatasetError(f"{folder}: no NN-*.json files")
-    errors, anchors, users, collections = [], [], [], []
+    errors, items = [], []
     for path in paths:
         name = os.path.basename(path)
         try:
             with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+                items.append((name, json.load(f)))
         except (OSError, ValueError) as e:
             errors.append(f"{name}: {e}")
-            continue
+    return _build(items, errors)
+
+
+def read_dataset_from(data, name="00-base.json"):
+    """Como read_dataset, pero sobre un solo conjunto ya leído en memoria (el contenido de un archivo)."""
+    return _build([(name, data)], [])
+
+
+def _build(items, errors):
+    anchors, users, collections = [], [], []
+    for name, data in items:
         if not isinstance(data, dict):
             errors.append(f"{name}: must be an object")
             continue
@@ -184,7 +195,7 @@ def read_dataset(folder):
                     defined.setdefault(child_key, child.get("object"))
     if errors:
         raise DatasetError("\n".join(errors))
-    return Dataset(anchors[0], users, [{k: v for k, v in c.items() if k != "_file"} for c in collections])
+    return Dataset(anchors[0], users, collections)
 
 
 class ReasonClient(Client):
@@ -487,6 +498,19 @@ def _parse_args(argv):
     return p.parse_args(argv)
 
 
+def _counts_by_object(dataset):
+    """Los registros que cargaría, por objeto: los de cada colección (menos las reaperturas) y sus hijos."""
+    counts = {}
+    for collection in dataset.collections:
+        if collection.get("reopen"):
+            continue
+        for record in collection["records"]:
+            counts[collection["object"]] = counts.get(collection["object"], 0) + 1
+            for child in record.get("children", []):
+                counts[child["object"]] = counts.get(child["object"], 0) + 1
+    return counts
+
+
 def main(argv=None):
     args = _parse_args(sys.argv[1:] if argv is None else argv)
     try:
@@ -497,6 +521,15 @@ def main(argv=None):
     records = sum(len(c["records"]) for c in dataset.collections)
     print(f"dataset: {len(dataset.users)} users, {len(dataset.collections)} collections, {records} records")
     if args.validate_only or args.dry_run:
+        with open(os.path.join(HERE, "model.json"), encoding="utf-8") as f:
+            problems = demo_check.validate(dataset, json.load(f))
+        if problems:
+            print("\n".join(problems), file=sys.stderr)
+            print(f"error: {len(problems)} problems", file=sys.stderr)
+            return 2
+        if args.dry_run:
+            for name, count in sorted(_counts_by_object(dataset).items()):
+                print(f"{name}: {count}")
         return 0
     if not args.users_password:
         print("error: needs SGSPE_DEMO_PASSWORD or --users-password", file=sys.stderr)

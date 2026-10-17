@@ -10,6 +10,7 @@ import unittest
 from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 
+import demo_check
 import load_demo
 from core_client import Client
 from fake_core import FakeCore
@@ -30,8 +31,10 @@ BASE = {
             {"key": "loc-a", "attributes": {"name": "Caserío Huaylla Alto", "locality_type": "CASERIO",
                                             "administrative_unit": "@au-distrito"},
              "geometries": {"location": {"point": [1.0, 0.0]}}}]},
+        {"object": "organization", "match": ["name"], "records": [
+            {"key": "org-a", "attributes": {"name": "Asociación Ejemplo de Regantes"}}]},
         {"object": "stakeholder", "match": ["project", "organization"], "as": "social", "records": [
-            {"key": "stk-a", "attributes": {"project": "@proj", "organization": "@au-distrito", "owner_user": "social"},
+            {"key": "stk-a", "attributes": {"project": "@proj", "organization": "@org-a", "owner_user": "social"},
              "transitions": ["profile"], "state": "profiled",
              "commands": [{"command": "assessment", "attributes": {"assessment_date": "2026-04-15", "basis": "ENTREVISTA"}}]}]},
     ],
@@ -278,3 +281,169 @@ class LoaderTests(unittest.TestCase):
             code = load_demo.main(["--dir", self.dir, "--core", self.core.base_url, "--users-password", "clave-demo-123"])
         self.assertEqual(code, 1)
         self.assertIn("loc-a", err.getvalue())
+
+
+class ValidateTests(unittest.TestCase):
+    def setUp(self):
+        with open(os.path.join(os.path.dirname(__file__), "model.json"), encoding="utf-8") as f:
+            self.model = json.load(f)
+
+    def dataset(self, records, obj="stakeholder", extra=None):
+        data = json.loads(json.dumps(BASE))
+        data["collections"].append({"object": obj, "match": ["project"], "records": records})
+        for collection in extra or []:
+            data["collections"].append(collection)
+        d = tempfile.mkdtemp()
+        write(d, "00-base.json", data)
+        return load_demo.read_dataset(d)
+
+    def errors(self, records, obj="stakeholder", extra=None):
+        return demo_check.validate(self.dataset(records, obj, extra), self.model)
+
+    def assessed(self, attributes, expect=None, project=None):
+        """Un grupo con una evaluación; `project` son atributos extra del proyecto (umbrales)."""
+        data = json.loads(json.dumps(BASE))
+        data["collections"][1]["records"][0]["attributes"].update(project or {})
+        record = {"key": "stk-b", "attributes": {"project": "@proj", "person": "@per-a", "owner_user": "social"},
+                  "commands": [{"command": "assessment", "attributes": attributes}]}
+        if expect:
+            record["_expect"] = {"influence_group": expect}
+        data["collections"].append({"object": "person", "match": ["given_names"], "records": [
+            {"key": "per-a", "attributes": {"given_names": "Persona Ficticia"}}]})
+        data["collections"].append({"object": "stakeholder", "match": ["project", "person"], "records": [record]})
+        return demo_check.validate(load_demo.read_dataset_from(data), self.model)
+
+    def test_rechaza_un_campo_derivado(self):
+        errors = self.errors([{"key": "x", "attributes": {"project": "@proj", "influence_group": "ESTRATEGICO"}}])
+        self.assertTrue(any("derived" in e and "influence_group" in e for e in errors))
+
+    def test_rechaza_una_opcion_que_no_existe(self):
+        errors = self.errors([{"key": "x", "attributes": {"name": "L", "locality_type": "ALDEA"}}], obj="locality")
+        self.assertTrue(any("locality_type" in e for e in errors))
+
+    def test_rechaza_un_objeto_solo_por_api(self):
+        self.assertTrue(any("apiOnly" in e for e in self.errors([{"key": "x", "attributes": {}}], obj="risk_assessment")))
+
+    def test_rechaza_un_correo_real(self):
+        errors = self.errors([{"key": "x", "attributes": {"project": "@proj", "owner_user_email": "a@gmail.com"}}])
+        self.assertTrue(any("@sgspe.test" in e for e in errors))
+
+    def test_rechaza_el_correo_de_un_usuario(self):
+        data = json.loads(json.dumps(BASE))
+        data["users"][0]["email"] = "real@gmail.com"
+        errors = demo_check.validate(load_demo.read_dataset_from(data), self.model)
+        self.assertTrue(any("@sgspe.test" in e and "social" in e for e in errors))
+
+    def test_el_grupo_esperado_sale_de_los_indicadores(self):
+        high = {k: 4 for k in demo_check.INDICATORS}
+        self.assertEqual(demo_check.influence_group(high), "ESTRATEGICO")
+        low_interest = dict(high, affect_environment=1, affect_livelihood=1, affect_property_status=1,
+                            opportunity_work=2, opportunity_development=2, opportunity_benefits=2)
+        self.assertEqual(demo_check.influence_group(low_interest), "POLITICO")
+
+    def test_el_redondeo_es_half_up_en_cada_nivel(self):
+        # afectación (3+4+4)/3 = 3.67; oportunidad (2+3)/2 = 2.50; interés (3.67+2.50)/2 = 3.085 -> 3.09 (HALF_UP;
+        # HALF_EVEN daría 3.08). poder: solo un indicador, 5
+        ind = {"affect_environment": 3, "affect_livelihood": 4, "affect_property_status": 4,
+               "opportunity_work": 2, "opportunity_development": 3, "power_legal_action": 5}
+        self.assertEqual(demo_check.influence_group(ind, 3.09, 5), "ESTRATEGICO")
+        self.assertEqual(demo_check.influence_group(ind, 3.10, 5), "POLITICO")
+
+    def test_sin_indicadores_de_un_lado_no_hay_grupo(self):
+        self.assertIsNone(demo_check.influence_group({"affect_environment": 3}))
+
+    def test_el_conjunto_base_es_valido(self):
+        self.assertEqual(demo_check.validate(load_demo.read_dataset_from(BASE), self.model), [])
+
+    def test_rechaza_un_objeto_que_no_existe(self):
+        self.assertTrue(any("objeto" in e or "object" in e for e in self.errors([{"key": "x", "attributes": {}}],
+                                                                                   obj="no_existe")))
+
+    def test_rechaza_un_atributo_que_no_es_del_objeto(self):
+        errors = self.errors([{"key": "x", "attributes": {"project": "@proj", "inventado": 1}}])
+        self.assertTrue(any("inventado" in e for e in errors))
+
+    def test_rechaza_un_obligatorio_ausente(self):
+        errors = self.errors([{"key": "x", "attributes": {"name": "L"}}], obj="locality")
+        self.assertTrue(any("locality_type" in e and "required" in e for e in errors))
+
+    def test_el_padre_de_un_hijo_no_es_obligatorio(self):
+        engagement = {"key": "eng", "attributes": {"project": "@proj"},
+                      "children": [{"object": "engagement_participant", "parent": "engagement",
+                                    "attributes": {"represented_people_count": 1, "attended": True}}]}
+        errors = self.errors([engagement], obj="engagement")
+        self.assertFalse(any("engagement_participant" in e and "required" in e for e in errors), errors)
+
+    def test_rechaza_un_vinculo_que_no_es_muchos_a_muchos(self):
+        errors = self.errors([{"key": "x", "attributes": {"project": "@proj"}, "links": {"stakeholder_project": ["@proj"]}}])
+        self.assertTrue(any("stakeholder_project" in e and "MANY_TO_MANY" in e for e in errors))
+
+    def test_acepta_un_vinculo_muchos_a_muchos_del_objeto(self):
+        records = [{"key": "con-1", "attributes": {"code": "C-1"}}]
+        project = {"key": "p2", "attributes": {"code": "P2", "name": "Otro"}, "links": {"project_concession": ["@con-1"]}}
+        data = json.loads(json.dumps(BASE))
+        data["collections"].append({"object": "mining_concession", "match": ["code"], "records": records})
+        data["collections"].append({"object": "project", "match": ["code"], "records": [project]})
+        self.assertEqual(demo_check.validate(load_demo.read_dataset_from(data), self.model), [])
+
+    def test_rechaza_un_comando_sobre_otro_objeto(self):
+        errors = self.errors([{"key": "x", "attributes": {"project": "@proj"},
+                               "commands": [{"command": "approve_area"}]}])
+        self.assertTrue(any("approve_area" in e for e in errors))
+
+    def test_rechaza_una_referencia_a_otro_tipo_de_objeto(self):
+        errors = self.errors([{"key": "x", "attributes": {"project": "@au-distrito"}}])
+        self.assertTrue(any("project" in e and "administrative_unit" in e for e in errors))
+
+    def test_las_claves_de_una_evaluacion_son_las_permitidas(self):
+        errors = self.assessed({"assessment_date": "2026-04-15", "basis": "ENTREVISTA", "interest_index": 3})
+        self.assertTrue(any("interest_index" in e for e in errors))
+
+    def test_un_indicador_va_de_1_a_5(self):
+        errors = self.assessed({"assessment_date": "2026-04-15", "basis": "ENTREVISTA", "affect_environment": 6})
+        self.assertTrue(any("affect_environment" in e for e in errors))
+        errors = self.assessed({"assessment_date": "2026-04-15", "basis": "ENTREVISTA", "affect_environment": "3"})
+        self.assertTrue(any("affect_environment" in e for e in errors))
+
+    def test_ninguna_evaluacion_es_posterior_al_corte(self):
+        errors = self.assessed({"assessment_date": "2026-10-01", "basis": "ENTREVISTA"})
+        self.assertTrue(any("2026-09-30" in e for e in errors))
+
+    def test_el_grupo_esperado_coincide_con_la_ultima_evaluacion(self):
+        high = {k: 4 for k in demo_check.INDICATORS}
+        attributes = {"assessment_date": "2026-04-15", "basis": "ENTREVISTA", **high}
+        self.assertEqual(self.assessed(attributes, expect="ESTRATEGICO"), [])
+        errors = self.assessed(attributes, expect="VULNERABLE")
+        self.assertTrue(any("VULNERABLE" in e and "ESTRATEGICO" in e for e in errors))
+
+    def test_el_grupo_esperado_usa_los_umbrales_del_proyecto(self):
+        high = {k: 4 for k in demo_check.INDICATORS}
+        attributes = {"assessment_date": "2026-04-15", "basis": "ENTREVISTA", **high}
+        self.assertEqual(self.assessed(attributes, expect="VULNERABLE",
+                                       project={"interest_threshold": 4.5, "power_threshold": 4.5}), [])
+
+
+class ValidateCliTests(unittest.TestCase):
+    def test_validate_only_sale_con_2_y_lista_todos_los_errores(self):
+        data = json.loads(json.dumps(BASE))
+        data["collections"].append({"object": "locality", "match": ["name"], "records": [
+            {"key": "l1", "attributes": {"name": "A", "locality_type": "ALDEA"}},
+            {"key": "l2", "attributes": {"name": "B", "locality_type": "BOSQUE"}}]})
+        d = tempfile.mkdtemp()
+        write(d, "00-base.json", data)
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = load_demo.main(["--dir", d, "--validate-only"])
+        self.assertEqual(code, 2)
+        self.assertIn("00-base.json:l1:", err.getvalue())
+        self.assertIn("00-base.json:l2:", err.getvalue())
+
+    def test_dry_run_imprime_los_conteos_por_objeto(self):
+        d = tempfile.mkdtemp()
+        write(d, "00-base.json", BASE)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = load_demo.main(["--dir", d, "--dry-run"])
+        self.assertEqual(code, 0)
+        self.assertIn("locality: 1", out.getvalue())
+        self.assertIn("stakeholder: 1", out.getvalue())
