@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.0](https://github.com/wasichai/sgspe/compare/v3.0.0...v3.1.0) (2026-10-17)
+
+
+### Features
+
+* Claude Haiku 5.5 en AI-07 y AI-08 con un catálogo de modelos propio ([99489fe](https://github.com/wasichai/sgspe/commit/99489fea9d364a3649574113ff385f1ff6920b39))
+* Claude Haiku 5.5 en AI-07 y AI-08 con un catálogo de modelos propio ([344849f](https://github.com/wasichai/sgspe/commit/344849f53c1b5fd0e8500b1eadfcec6a4f347eb1))
+
 ## [3.0.0](https://github.com/wasichai/sgspe/compare/v2.0.0...v3.0.0) (2026-10-16)
 
 
