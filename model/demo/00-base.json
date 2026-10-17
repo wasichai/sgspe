@@ -1,0 +1,92 @@
+{
+  "anchor": {
+    "lat": -13.2,
+    "lon": -75.65
+  },
+  "users": [
+    {
+      "key": "social",
+      "email": "gestion.social.demo@sgspe.test",
+      "displayName": "Gestión social (demo)",
+      "roles": [
+        "SOCIAL_MANAGER"
+      ]
+    },
+    {
+      "key": "actores",
+      "email": "actores.demo@sgspe.test",
+      "displayName": "Gestión de actores (demo)",
+      "roles": [
+        "STAKEHOLDER_MANAGER"
+      ]
+    },
+    {
+      "key": "riesgos",
+      "email": "riesgos.demo@sgspe.test",
+      "displayName": "Gestión de riesgos (demo)",
+      "roles": [
+        "SOCIAL_RISK_MANAGER"
+      ]
+    },
+    {
+      "key": "campo",
+      "email": "campo.demo@sgspe.test",
+      "displayName": "Agente de campo (demo)",
+      "roles": [
+        "FIELD_AGENT"
+      ]
+    },
+    {
+      "key": "compromisos",
+      "email": "compromisos.demo@sgspe.test",
+      "displayName": "Gestión de compromisos (demo)",
+      "roles": [
+        "COMMITMENT_MANAGER"
+      ]
+    },
+    {
+      "key": "relacionista",
+      "email": "relacionista.demo@sgspe.test",
+      "displayName": "Relaciones comunitarias (demo)",
+      "roles": [
+        "COMMUNITY_RELATIONS_OFFICER"
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "object": "administrative_unit",
+      "match": [
+        "ubigeo_code"
+      ],
+      "records": [
+        {
+          "key": "au-departamento",
+          "attributes": {
+            "ubigeo_code": "09",
+            "name": "HUANCAVELICA",
+            "level": "DEPARTAMENTO"
+          }
+        },
+        {
+          "key": "au-provincia",
+          "attributes": {
+            "ubigeo_code": "0904",
+            "name": "CASTROVIRREYNA",
+            "level": "PROVINCIA",
+            "parent_unit": "@au-departamento"
+          }
+        },
+        {
+          "key": "au-distrito",
+          "attributes": {
+            "ubigeo_code": "090410",
+            "name": "SAN JUAN",
+            "level": "DISTRITO",
+            "parent_unit": "@au-provincia"
+          }
+        }
+      ]
+    }
+  ]
+}

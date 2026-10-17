@@ -1,0 +1,696 @@
+{
+  "collections": [
+    {
+      "object": "locality",
+      "match": [
+        "name"
+      ],
+      "records": [
+        {
+          "key": "loc-huaylla",
+          "attributes": {
+            "name": "Caserío Huaylla Alto",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Huaylla Alto se fundó hacia 1962, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4350 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Huaylla Alto, Pampa Cruz y Orccohuasi, cada uno con un representante ante la junta directiva. Actualmente viven unas 64 familias, cuya economía se basa en la crianza de alpacas y llamas. Entre los bienes de uso común destacan la escuela primaria multigrado y un puesto de salud que atiende un día a la semana.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -3.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                -3.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-quishuar",
+          "attributes": {
+            "name": "Caserío Quishuar",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Quishuar se fundó hacia 1958, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4280 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Quishuar, Yanaccocha y Lomapata, cada uno con un representante ante la junta directiva. Actualmente viven unas 52 familias, cuya economía se basa en la crianza de ovinos y cultivo de papa nativa. Entre los bienes de uso común destacan un local comunal de adobe y un canal de riego revestido en tramos.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                -1.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-llamapampa",
+          "attributes": {
+            "name": "Caserío Llamapampa",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Llamapampa se fundó hacia 1949, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4410 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Llamapampa, Chaupiloma y Tincoc, cada uno con un representante ante la junta directiva. Actualmente viven unas 71 familias, cuya economía se basa en la crianza de alpacas y venta de fibra. Entre los bienes de uso común destacan el local de la junta directiva y una pequeña planta de esquila comunal.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -3.0,
+                2.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                -3.0,
+                2.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-ccollpa",
+          "attributes": {
+            "name": "Sector Ccollpa",
+            "locality_type": "SECTOR",
+            "recognition_status": "EN SEPARACION",
+            "history": "El sector Ccollpa se formó hacia 1991 como un conjunto de estancias pastoriles de familias que se desprendieron de Llamapampa en busca de pastos de mejor calidad, a 4390 metros sobre el nivel del mar. Con el tiempo las estancias se volvieron viviendas permanentes y el sector adquirió identidad propia.\n\nHoy el sector se divide en Ccollpa alta y Ccollpa baja, y reúne a unas 23 familias que viven de la pastoreo de ovinos y camélidos. Cuenta con una capilla y un comité de agua propio, motivo del pedido de separación. Las familias de Ccollpa participan en las asambleas de Llamapampa, pero reclaman mayor autonomía en el manejo del agua y de los pastos.\n\nEl pedido de separación, presentado ante la junta directiva de Llamapampa y ante el municipio distrital, no ha sido resuelto. Los dirigentes de ambos lados reconocen el derecho de las familias a organizarse, pero discrepan en la forma de repartir los bienes comunes, lo que mantiene una tensión latente que el proyecto debe tener presente.",
+            "administrative_unit": "@au-distrito",
+            "parent_locality": "@loc-llamapampa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.5,
+                2.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                -1.5,
+                2.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-tambillo",
+          "attributes": {
+            "name": "Caserío Tambillo",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Tambillo se fundó hacia 1955, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4180 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Tambillo y Rinconada, cada uno con un representante ante la junta directiva. Actualmente viven unas 47 familias, cuya economía se basa en la cultivo de papa y haba. Entre los bienes de uso común destacan un tambo antiguo a la vera del camino y la escuela inicial.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.0,
+                -2.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                0.0,
+                -2.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-pucara",
+          "attributes": {
+            "name": "Caserío Pucará Chico",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Pucará Chico se fundó hacia 1966, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4220 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Pucará Chico y Santa Cruz, cada uno con un representante ante la junta directiva. Actualmente viven unas 38 familias, cuya economía se basa en la agricultura de secano y crianza de cuyes. Entre los bienes de uso común destacan restos de un antiguo andén y un pequeño local multiusos.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.0,
+                -1.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                0.0,
+                -1.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-yanama",
+          "attributes": {
+            "name": "Caserío Yanama",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Yanama se fundó hacia 1952, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4300 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Yanama y Cochapata, cada uno con un representante ante la junta directiva. Actualmente viven unas 56 familias, cuya economía se basa en la ganadería de ovinos. Entre los bienes de uso común destacan un vivero escolar y el comité de regantes más activo de la zona.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                0.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-rumichaca",
+          "attributes": {
+            "name": "Caserío Rumichaca",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Rumichaca se fundó hacia 1970, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4150 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Rumichaca y Huaraccopata, cada uno con un representante ante la junta directiva. Actualmente viven unas 41 familias, cuya economía se basa en la cultivo de cebada y crianza de ganado. Entre los bienes de uso común destacan el puente peatonal sobre la quebrada que da nombre al caserío.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.5,
+                -2.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                1.5,
+                -2.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-llamapampa-bajo",
+          "attributes": {
+            "name": "Caserío Llamapampa Bajo",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Llamapampa Bajo se fundó hacia 1978, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4120 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Llamapampa Bajo y Ayllu, cada uno con un representante ante la junta directiva. Actualmente viven unas 35 familias, cuya economía se basa en la agricultura y ganadería mixta. Entre los bienes de uso común destacan una posta de salud en proyecto y una escuela inicial.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.5,
+                -1.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                1.5,
+                -1.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-chacapampa",
+          "attributes": {
+            "name": "Caserío Chacapampa",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Chacapampa se fundó hacia 1964, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4260 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Chacapampa y Qollpa, cada uno con un representante ante la junta directiva. Actualmente viven unas 44 familias, cuya economía se basa en la crianza de ovinos y trueque con valles vecinos. Entre los bienes de uso común destacan el local de la ronda campesina y un molino comunal.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                1.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-huayrapata",
+          "attributes": {
+            "name": "Caserío Huayrapata",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Huayrapata se fundó hacia 1972, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4240 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Huayrapata y Ñawinpuquio, cada uno con un representante ante la junta directiva. Actualmente viven unas 33 familias, cuya economía se basa en la agricultura de subsistencia. Entre los bienes de uso común destacan el manantial que abastece a tres caseríos vecinos.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                3.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                3.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-santarosa",
+          "attributes": {
+            "name": "Caserío Santa Rosa de Pallca",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Santa Rosa de Pallca se fundó hacia 1960, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4090 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Santa Rosa, Pallca y Lucmapata, cada uno con un representante ante la junta directiva. Actualmente viven unas 62 familias, cuya economía se basa en la cultivo de papa, maíz y haba. Entre los bienes de uso común destacan una iglesia pequeña, el local comunal y una escuela primaria.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                5.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                5.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-esperanza",
+          "attributes": {
+            "name": "Caserío Nueva Esperanza",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Nueva Esperanza se fundó hacia 1985, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4060 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Nueva Esperanza y Mirador, cada uno con un representante ante la junta directiva. Actualmente viven unas 29 familias, cuya economía se basa en la agricultura y comercio menor. Entre los bienes de uso común destacan una trocha carrozable y un comité de vaso de leche.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                7.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                7.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-cruzpata",
+          "attributes": {
+            "name": "Caserío Cruzpata",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Cruzpata se fundó hacia 1957, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4110 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Cruzpata y Puquio, cada uno con un representante ante la junta directiva. Actualmente viven unas 48 familias, cuya economía se basa en la crianza de vacunos y producción de queso. Entre los bienes de uso común destacan una cruz de piedra de la que toma el nombre y una pequeña quesería artesanal.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                8.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                8.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-antaccasa",
+          "attributes": {
+            "name": "Caserío Antaccasa",
+            "locality_type": "CASERIO",
+            "recognition_status": "EN TRAMITE",
+            "history": "Antaccasa se fundó hacia 1969, cuando un grupo de familias de la zona alta se asentó de manera permanente en la ladera, a 4170 metros sobre el nivel del mar, atraídas por la existencia de manantiales y de pastos naturales. Antes de esa fecha el lugar se usaba como estancia temporal durante la época de lluvias.\n\nCon el crecimiento de la población el caserío se organizó en los sectores de Antaccasa y Huancapata, cada uno con un representante ante la junta directiva. Actualmente viven unas 36 familias, cuya economía se basa en la ganadería y trabajo temporal en la costa. Entre los bienes de uso común destacan un trámite de reconocimiento como caserío aún pendiente ante el municipio.\n\nEn cuanto a la tenencia de la tierra, las familias cuentan con parcelas de uso familiar y pastos de uso colectivo reconocidos por la asamblea; los títulos de propiedad individuales se formalizaron en las décadas de 1990 y 2000 con apoyo de programas estatales, aunque persisten linderos sin precisar con las localidades vecinas.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                10.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                10.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "community",
+      "match": [
+        "name"
+      ],
+      "records": [
+        {
+          "key": "com-sanisidro",
+          "attributes": {
+            "name": "Comunidad Campesina San Isidro de Wayra",
+            "community_type": "COMUNIDAD CAMPESINA",
+            "organic_status": "SIN JUNTA ACTIVA",
+            "administrative_unit": "@au-distrito",
+            "source_crs": "EPSG 32718",
+            "recognized_as_indigenous": false,
+            "board_registered": false,
+            "has_member_roll": false,
+            "registry_records_unverified": true
+          },
+          "geometries": {
+            "territory": {
+              "polygon": [
+                [
+                  -2.5,
+                  1.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  1.0,
+                  4.5
+                ],
+                [
+                  -2.5,
+                  4.5
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "area_of_influence",
+      "match": [
+        "project",
+        "area_type",
+        "version_number"
+      ],
+      "records": [
+        {
+          "key": "aids",
+          "attributes": {
+            "project": "@proj",
+            "area_type": "AIDS",
+            "version_number": 1,
+            "criteria": "Criterios de delimitación del área de influencia social directa (AIDS)\n\n1. Proximidad territorial: se incluyen las localidades cuyo territorio colinda o se superpone con las concesiones mineras del proyecto o con los sitios previstos para las plataformas de perforación.\n\n2. Uso directo de recursos: se incluyen las localidades cuyas familias usan de manera regular los pastos, los manantiales o las vías ubicadas dentro o junto al área de exploración.\n\n3. Afectación potencial de las microcuencas: se incluyen las localidades que se abastecen de las quebradas que nacen o cruzan el área de las concesiones.\n\n4. Relación institucional previa: se incluyen las localidades con las que la empresa ha tenido reuniones, acuerdos de acceso o contratación local durante el cateo.\n\n5. Reconocimiento de la autoridad local: se incluyen las localidades cuyas autoridades han sido consultadas y han manifestado su vínculo con el área de trabajo. Las comunidades cuya junta directiva no está activa se incorporan de manera provisional hasta contar con interlocución válida.",
+            "defined_date": "2026-04-10",
+            "study": "@study"
+          },
+          "geometries": {
+            "boundary": {
+              "polygon": [
+                [
+                  -4.0,
+                  -0.5
+                ],
+                [
+                  -0.75,
+                  -0.5
+                ],
+                [
+                  -0.75,
+                  3.0
+                ],
+                [
+                  -4.0,
+                  3.0
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "aiis",
+          "attributes": {
+            "project": "@proj",
+            "area_type": "AIIS",
+            "version_number": 1,
+            "criteria": "Criterios de delimitación del área de influencia social indirecta (AIIS)\n\n1. Continuidad en las microcuencas: se incluyen las localidades ubicadas aguas abajo o en las laderas contiguas de las microcuencas Ichuyacu y Pallcamayo, que podrían percibir efectos indirectos sobre el agua o el paisaje.\n\n2. Vinculación funcional: se incluyen las localidades que dependen de las del área directa por intercambio comercial, parentesco, servicios compartidos o uso de las mismas vías de acceso.\n\n3. Capacidad de interlocución: se incluyen las localidades cuyas organizaciones pueden influir en la opinión local sobre el proyecto, aunque no tengan vínculo territorial inmediato con las concesiones.\n\n4. Ámbito administrativo: se incluye el distrito de San Juan en su conjunto como espacio de decisión política y de representación de las localidades, y como destinatario de los impactos económicos y de empleo.",
+            "defined_date": "2026-04-10",
+            "study": "@study"
+          },
+          "geometries": {
+            "boundary": {
+              "polygon": [
+                [
+                  -5.0,
+                  -4.0
+                ],
+                [
+                  11.5,
+                  -4.0
+                ],
+                [
+                  11.5,
+                  5.0
+                ],
+                [
+                  -5.0,
+                  5.0
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "area_of_influence_member",
+      "match": [
+        "area_of_influence",
+        "locality",
+        "community",
+        "administrative_unit"
+      ],
+      "records": [
+        {
+          "key": "m-aids-huaylla",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-huaylla",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-quishuar",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-quishuar",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-llamapampa",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-llamapampa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-ccollpa",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-ccollpa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-com-sanisidro",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "PROVISIONAL",
+            "community": "@com-sanisidro",
+            "studied_in_diagnosis": false,
+            "rationale": "La comunidad se superpone con el AIDS, pero su junta directiva no está activa; se incorpora de manera provisional hasta contar con interlocución válida."
+          }
+        },
+        {
+          "key": "m-aiis-tambillo",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-tambillo",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-pucara",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-pucara",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-yanama",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-yanama",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-rumichaca",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-rumichaca",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-llamapampa-bajo",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-llamapampa-bajo",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-chacapampa",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-chacapampa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-huayrapata",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-huayrapata",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-santarosa",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-santarosa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-esperanza",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-esperanza",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-cruzpata",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-cruzpata",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-antaccasa",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-antaccasa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-distrito",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "administrative_unit": "@au-distrito",
+            "studied_in_diagnosis": false
+          }
+        }
+      ]
+    },
+    {
+      "object": "area_of_influence",
+      "reopen": true,
+      "as": "social",
+      "records": [
+        {
+          "key": "aids",
+          "commands": [
+            {
+              "command": "approve_area"
+            }
+          ]
+        },
+        {
+          "key": "aiis",
+          "commands": [
+            {
+              "command": "approve_area"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
