@@ -75,3 +75,16 @@ class DemoDataTests(unittest.TestCase):
         self.assertGreaterEqual(len(self.records("road_access")), 8)
         local = [r for r in self.records("organization") if "locality" in r["attributes"]]
         self.assertGreaterEqual(len(local), 50)
+
+    def test_todo_perfil_lleva_cultivos(self):
+        for r in self.records("locality_profile"):
+            self.assertTrue(r["attributes"].get("crops"), r["key"])
+
+    def test_programas_y_conflictos(self):
+        self.assertEqual(len(self.records("state_program")), 4)
+        conflicts = self.records("local_conflict")
+        self.assertEqual(sorted(r["attributes"]["conflict_type"] for r in conflicts), ["AGUA", "LIMITES", "SEPARACION"])
+
+    def test_cada_localidad_tiene_una_via(self):
+        self.assertEqual({r["attributes"]["locality"] for r in self.records("road_access")},
+                         {"@" + r["key"] for r in self.records("locality")})
