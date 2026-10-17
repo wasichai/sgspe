@@ -39,3 +39,27 @@ class DemoDataTests(unittest.TestCase):
         approved = {r["key"] for r in self.records("area_of_influence")
                     if any(c["command"] == "approve_area" for c in r.get("commands", []))}
         self.assertEqual(approved, {"aids", "aiis"})
+
+    PALLCA = {"loc-santarosa", "loc-esperanza", "loc-cruzpata", "loc-antaccasa"}
+
+    @staticmethod
+    def inside(point, polygon):
+        """Punto dentro de un polígono simple, en km (cruce de rayos)."""
+        x, y = point
+        hit = False
+        for (x1, y1), (x2, y2) in zip(polygon, polygon[1:] + polygon[:1]):
+            if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+                hit = not hit
+        return hit
+
+    def test_cada_localidad_cae_en_su_microcuenca(self):
+        basins = {r["key"]: r["geometries"]["boundary"]["polygon"] for r in self.records("environmental_feature")}
+        for r in self.records("locality"):
+            basin = "mc-pallca" if r["key"] in self.PALLCA else "mc-ichu"
+            self.assertTrue(self.inside(r["geometries"]["location"]["point"], basins[basin]), r["key"])
+
+    def test_una_asignacion_por_usuario(self):
+        users = {u["key"] for u in self.dataset.users}
+        assigned = {r["attributes"]["member_user"] for r in self.records("project_assignment")}
+        self.assertEqual(len(users), 6)
+        self.assertEqual(assigned, users)
