@@ -41,6 +41,15 @@ DRAFT_BUSY = ("EN COLA", "EN PROCESO", "LISTO")
 COMMANDS = ("assessment", "risk_assessment", "approve_area", "close_period", "sections", "draft")
 
 
+def derived_fields(object_name, path=os.path.join(HERE, "model.json"), _cache={}):
+    """Los campos `derived: true` de un objeto en model/model.json: core los calcula y rechaza que se manden."""
+    if path not in _cache:
+        with open(path, encoding="utf-8") as f:
+            _cache[path] = {o["name"]: {x["name"] for x in o.get("fields", []) if x.get("derived")}
+                            for o in json.load(f)["objects"]}
+    return _cache[path].get(object_name, set())
+
+
 class DatasetError(Exception):
     pass
 
@@ -146,6 +155,8 @@ def read_dataset(folder):
             if not key:
                 errors.append(f"{where}: record without key")
                 continue
+            if not collection.get("reopen") and not collection.get("match"):
+                errors.append(f"{where}: {key} collection without match (a reload would duplicate it)")
             if collection.get("reopen"):
                 if defined.get(key) != collection.get("object"):
                     errors.append(f"{where}: reopen of {key}, not defined before in {collection.get('object')}")
@@ -164,6 +175,13 @@ def read_dataset(folder):
                 if command.get("command") not in COMMANDS:
                     errors.append(f"{where}: {key} unknown command {command.get('command')}")
             defined.setdefault(key, collection.get("object"))
+            # los hijos con `key` también son claves del espacio compartido: únicas y alcanzables con @clave
+            for child in record.get("children", []):
+                child_key = child.get("key")
+                if child_key:
+                    if child_key in defined:
+                        errors.append(f"{where}: {child_key} repeated key")
+                    defined.setdefault(child_key, child.get("object"))
     if errors:
         raise DatasetError("\n".join(errors))
     return Dataset(anchors[0], users, [{k: v for k, v in c.items() if k != "_file"} for c in collections])
@@ -171,7 +189,8 @@ def read_dataset(folder):
 
 class ReasonClient(Client):
     """Client con el motivo del cambio en cada escritura y una Idempotency-Key cuando se la pasan. core_client.py no
-    manda cabeceras extra, así que esta subclase repite su llamada con ellas."""
+    manda cabeceras extra, así que esta subclase repite Client._call (core_client.py) con ellas: si aquel cambia, este
+    también."""
 
     def _call(self, method, path, body=None, use_auth=True, headers=None):
         url = self.base_url + path
@@ -194,9 +213,14 @@ class ReasonClient(Client):
             raise CoreError(e.code, raw.decode("utf-8", errors="replace") if raw else "")
         except (urllib.error.URLError, ConnectionError, OSError) as e:
             reason = getattr(e, "reason", e)
+            if isinstance(e, TimeoutError) or isinstance(reason, TimeoutError):
+                raise CoreError(f"timed out after {TIMEOUT_SECONDS} s: {method} {url}", "") from e
             raise CoreError(f"connection failed: {reason} ({method} {url})", "") from e
         text = raw.decode("utf-8") if raw else ""
-        return status, (json.loads(text) if text else None)
+        try:
+            return status, (json.loads(text) if text else None)
+        except ValueError as e:
+            raise CoreError(f"{status}: not JSON ({method} {url})", text[:200]) from e
 
     def post(self, path, body, headers=None):
         return self._call("POST", path, body, headers=headers)
@@ -433,7 +457,8 @@ class Loader:
                 raise CoreError(0, f"deliverable {key} has no section {section_key}")
             if section["attributes"].get("content"):
                 continue
-            attributes = {**section["attributes"], "content": self.resolve(text), "content_origin": "HUMANO"}
+            kept = {k: v for k, v in section["attributes"].items() if k not in derived_fields("deliverable_section")}
+            attributes = {**kept, "content": self.resolve(text), "content_origin": "HUMANO"}
             client.put(f"/api/objects/deliverable_section/records/{section['id']}", {"attributes": attributes}, headers)
             wrote = True
         return wrote

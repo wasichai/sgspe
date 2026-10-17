@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 
 import load_demo
@@ -197,6 +198,51 @@ class LoaderTests(unittest.TestCase):
         self.assertEqual(sections["intro"]["content"], f"Hola [[person:{self.core.records['stakeholder'][0]['id']}]]")
         self.assertEqual(sections["intro"]["content_origin"], "HUMANO")
         self.assertEqual(sections["fin"]["content"], "ya")
+
+    def test_una_coleccion_sin_match_es_error_de_archivo(self):
+        data = json.loads(json.dumps(BASE))
+        del data["collections"][2]["match"]
+        write(self.dir, "00-base.json", data)
+        with self.assertRaisesRegex(load_demo.DatasetError, "loc-a collection without match"):
+            load_demo.read_dataset(self.dir)
+
+    def test_la_clave_de_un_hijo_se_referencia_y_es_unica(self):
+        data = json.loads(json.dumps(BASE))
+        data["collections"][2]["records"][0]["children"] = [
+            {"key": "kid", "object": "engagement_participant", "parent": "locality", "attributes": {"attended": True}}]
+        data["collections"][3]["records"][0]["attributes"]["note"] = "@kid"
+        write(self.dir, "00-base.json", data)
+        load_demo.read_dataset(self.dir)
+        write(self.dir, "01-otra.json", {"collections": [{"object": "x", "match": ["a"], "records": [
+            {"key": "kid", "attributes": {"a": 1}}]}]})
+        with self.assertRaisesRegex(load_demo.DatasetError, "kid repeated key"):
+            load_demo.read_dataset(self.dir)
+
+    def test_una_respuesta_que_no_es_json_es_error_de_core(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.status, response.read.return_value = 200, b"<html>"
+        with mock.patch("urllib.request.urlopen", return_value=response):
+            with self.assertRaises(load_demo.CoreError):
+                load_demo.ReasonClient("http://x")._call("GET", "/api/x")
+
+    def test_las_secciones_no_reenvian_los_campos_derived(self):
+        deliverable = self.core.add_record("deliverable", {"title": "T1"})
+        self.core.add_record("deliverable_section", {"deliverable": deliverable["id"], "section_key": "intro",
+                                                     "generated_at": "x"})
+        data = json.loads(json.dumps(BASE))
+        data["collections"].append({"object": "deliverable", "match": ["title"], "records": [
+            {"key": "del", "attributes": {"title": "T1"}, "commands": [{"command": "sections", "sections": {"intro": "t"}}]}]})
+        write(self.dir, "00-base.json", data)
+        with mock.patch.object(load_demo, "derived_fields", lambda name: {"generated_at"} if name == "deliverable_section" else set()):
+            self.run_loader()
+        put = next(r for r in self.core.requests if r["method"] == "PUT")
+        self.assertNotIn("generated_at", put["body"]["attributes"])
+        self.assertEqual(put["body"]["attributes"]["content"], "t")
+
+    def test_derived_fields_lee_model_json(self):
+        self.assertIn("calculated_area_ha", load_demo.derived_fields("mining_concession"))
+        self.assertEqual(load_demo.derived_fields("no_existe"), set())
 
     def test_el_borrador_solo_se_pide_con_draft(self):
         self.core.add_record("deliverable", {"title": "T1"})
