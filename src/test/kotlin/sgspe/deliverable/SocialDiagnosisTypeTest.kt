@@ -441,11 +441,11 @@ class SocialDiagnosisTypeTest {
     @Test
     fun `los grupos de interes van por ambito y tipo con el actor por cargo, y los perfiles con su nota de entrevista`() {
         val model = assemble().model
-        val identification = model.tables("grupos_interes")
+        val profiles = model.blocks("perfiles")
+        val identification = profiles.filterIsInstance<Block.Table>()
         assertEquals(listOf("Autoridad local", "Presidente, Junta Directiva Comunal Ejemplo"), identification[0].rows.single().map { it.text })
         assertEquals(listOf("Organización social distrital", "Municipalidad Distrital Ejemplo"), identification[1].rows.single().map { it.text })
-        val profiles = model.blocks("perfiles")
-        assertTrue(Block.Heading(3, "Municipalidad Distrital Ejemplo") in profiles, "$profiles")
+        assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { it.markdown.startsWith("**Municipalidad Distrital Ejemplo**") }, "$profiles")
         assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { "Estado de la entrevista: Se negó." in it.footnotes })
         val classification = model.tables("clasificacion")
         assertEquals(
@@ -471,6 +471,89 @@ class SocialDiagnosisTypeTest {
             model.sections.filter { it.key.startsWith("percepciones_") }.map { it.title }
         )
         assertTrue((model.blocks("percepciones_empresa").single() as Block.Paragraph).markdown.contains("Sin percepciones registradas"))
+    }
+
+    // #105: ámbito (6.1 a 6.3) con su tabla, tipo, localidad de la organización y cargo; la narrativa abre la sección
+    @Test
+    fun `los perfiles van por ambito con su tabla, tipo, localidad y cargo, y la narrativa antes`() {
+        val source = T1Source.source()
+        // organizaciones con localidad Alta (UPPER) y Baja (LOWER) y una sin localidad
+        val upper = T1Source.id(400)
+        val lower = T1Source.id(401)
+        val none = T1Source.id(402)
+        source.add("organization", upper, null, "name" to "Comité Alto Ejemplo", "locality" to T1Source.UPPER)
+        source.add("organization", lower, null, "name" to "Comité Bajo Ejemplo", "locality" to T1Source.LOWER)
+        source.add("organization", none, null, "name" to "Comité Sin Localidad Ejemplo")
+
+        fun actor(
+            n: Int,
+            organization: String,
+            title: String?,
+            scope: String,
+            type: String
+        ) {
+            val person = T1Source.id(410 + n)
+            if (title != null) {
+                source.add("person", person, null, "given_names" to "Persona", "surnames" to "Ejemplo $n")
+                source.add(
+                    "position",
+                    T1Source.id(430 + n),
+                    null,
+                    "person" to person,
+                    "organization" to organization,
+                    "position_title" to title,
+                    "position_status" to "VIGENTE"
+                )
+            }
+            source.add(
+                "stakeholder",
+                T1Source.id(450 + n),
+                null,
+                "project" to T1Source.PROJECT,
+                "stakeholder_scope" to scope,
+                "stakeholder_type" to type,
+                *(if (title != null) arrayOf("person" to person) else arrayOf("organization" to organization))
+            )
+        }
+        // desordenados a propósito
+        actor(1, none, "Vocal", "AIDS", "ORGANIZACION COMUNAL")
+        actor(2, lower, "Tesorero", "AIDS", "ORGANIZACION COMUNAL")
+        actor(3, upper, "Secretario", "AIDS", "ORGANIZACION COMUNAL")
+        actor(4, upper, "Fiscal", "AIDS", "ORGANIZACION COMUNAL")
+        actor(5, upper, "Alcalde", "AIIS", "AUTORIDAD LOCAL")
+        actor(6, lower, "Regidor", "REGIONAL", "AUTORIDAD LOCAL")
+        val narrative = "Narrativa de apertura de los perfiles QX7."
+        val model = assemble(source, mapOf("perfiles" to narrative)).model
+        val blocks = model.blocks("perfiles")
+        // la narrativa antes de todo, y el nivel 3 de los ámbitos numerados
+        assertEquals(narrative, (blocks.first() as Block.Paragraph).markdown)
+        val headings = blocks.filterIsInstance<Block.Heading>()
+        assertEquals(
+            listOf(3 to "6.1 Área de influencia directa social", 3 to "6.2 Área de influencia indirecta social", 3 to "6.3 Ámbito regional y nacional"),
+            headings.filter { it.level == 3 }.map { it.level to it.text }
+        )
+        // la tabla de cada ámbito va justo tras su encabezado
+        for (heading in headings.filter { it.level == 3 }) {
+            val table = blocks[blocks.indexOf(heading) + 1] as Block.Table
+            assertTrue(table.title.startsWith("Grupos de interés del"), table.title)
+        }
+        // en AIDS, el tipo abre con su subtítulo de nivel 4 y los perfiles van por localidad (Alta, Baja, sin localidad) y cargo
+        val aids = blocks.subList(blocks.indexOf(headings.first()), blocks.indexOf(headings.first { it.text.startsWith("6.2") }))
+        val titles = aids.filterIsInstance<Block.Paragraph>().mapNotNull { Regex("^\\*\\*(.+?)\\*\\*").find(it.markdown)?.groupValues?.get(1) }
+        assertEquals(
+            listOf(
+                "Fiscal, Comité Alto Ejemplo",
+                "Secretario, Comité Alto Ejemplo",
+                "Tesorero, Comité Bajo Ejemplo",
+                "Vocal, Comité Sin Localidad Ejemplo"
+            ),
+            titles.filter { it.contains("Comité") }
+        )
+        assertTrue(aids.any { it is Block.Heading && it.level == 4 && it.text == "Organización comunal" }, "$aids")
+        // EXTERNO: ningún nombre de persona
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO)
+        val shown = external.blocks("perfiles").filterIsInstance<Block.Paragraph>().joinToString("\n") { it.markdown }
+        assertTrue("Persona" !in shown && "Ejemplo 1" !in shown, shown)
     }
 
     // #107: los ámbitos van en orden fijo dentro de cada objeto y la narrativa del objeto cierra tras su lista
@@ -612,7 +695,7 @@ class SocialDiagnosisTypeTest {
         )
         source.add("key_theme", T1Source.id(301), null, "project" to T1Source.PROJECT, "study" to T1Source.STUDY, "name" to "Tierra")
         val model = assemble(source).model
-        assertTrue(model.tables("grupos_interes").any { it.title == "Grupos de interés sin ámbito" })
+        assertTrue(model.tables("perfiles").any { it.title == "Grupos de interés sin ámbito" })
         assertTrue(model.tables("clasificacion").any { it.title == "Clasificación de los grupos de interés sin ámbito" })
         assertTrue(model.blocks("grupos_estrategicos").filterIsInstance<Block.Paragraph>().any { "Grupos de interés sin ámbito" in it.markdown })
         val tierra =

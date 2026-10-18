@@ -208,7 +208,9 @@ class SocialDiagnosisType : DeliverableType {
                     } else {
                         emptyList()
                     }
-                ReportSection(row.key, row.title, row.kind, computed + narrative + note, row.level, row.chapter)
+                // la narrativa de los perfiles los abre (#105); en las demás secciones sigue a lo calculado
+                val body = if (row.key in NARRATIVE_FIRST) narrative + note + computed else computed + narrative + note
+                ReportSection(row.key, row.title, row.kind, body, row.level, row.chapter)
             }
         input.sections
             .flatMap { Mentions.keys(it.text(Deliverables.CONTENT).orEmpty()) }
@@ -280,7 +282,7 @@ class SocialDiagnosisType : DeliverableType {
             "organizaciones" -> DiagnosisContext.organizations(scene)
             "proceso_electoral" -> DiagnosisContext.electoral(scene)
             "costumbres" -> DiagnosisContext.customs(scene)
-            "grupos_interes" -> DiagnosisStakeholders.identification(scene)
+            "grupos_interes" -> DiagnosisStakeholders.identification()
             "perfiles" -> DiagnosisStakeholders.profiles(scene)
             "caracterizacion" -> DiagnosisStakeholders.characterization()
             "percepciones_mineria", "percepciones_proyecto", "percepciones_empresa" -> DiagnosisStakeholders.perceptions(scene, key)
@@ -322,6 +324,8 @@ class SocialDiagnosisType : DeliverableType {
                 "proceso_electoral" to "locality_profile.electoral_process",
                 "costumbres" to "locality_profile.religion"
             )
+
+        private val NARRATIVE_FIRST = setOf("perfiles")
 
         private val ROWS: List<Row> =
             listOf(
@@ -409,16 +413,16 @@ class SocialDiagnosisType : DeliverableType {
                     1,
                     6,
                     false,
-                    "Qué es un grupo de interés y las cuatro posturas; grupos por ámbito y tipo."
+                    "Qué es un grupo de interés y las cuatro posturas."
                 ),
                 Row(
                     "perfiles",
-                    "6.1 Perfiles por cargo",
+                    "Perfiles por ámbito y tipo de actor",
                     MIXED,
                     2,
                     6,
                     false,
-                    "Trayectoria, elección y periodo, funciones, postura y estado de entrevista. Esta narrativa sale también en EXTERNO: sin nombres ni razones de postura."
+                    "Apertura de 6.1 a 6.3: cada ámbito con su tabla y sus perfiles por tipo de actor, localidad y cargo. Esta narrativa sale también en EXTERNO: sin nombres ni razones de postura."
                 ),
                 Row("caracterizacion", "7. Caracterización de los grupos de interés", MIXED, 1, 7, false, "Qué contiene el capítulo."),
                 Row("percepciones", "7.1 Percepciones", MIXED, 2, 7, true, "Apertura general de las percepciones sobre la minería, el proyecto y la empresa."),

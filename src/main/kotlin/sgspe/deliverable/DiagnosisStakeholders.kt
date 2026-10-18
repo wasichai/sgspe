@@ -48,67 +48,117 @@ object DiagnosisStakeholders {
 
     private fun scopeOrder(row: SourceRow): Int = SCOPES.indexOfFirst { inScope(row, it.first) }
 
-    suspend fun identification(scene: DiagnosisScene): List<Block> {
-        val tables =
-            SCOPES.mapNotNull { (scopes, label) ->
-                val rows = scene.stakeholders().filter { inScope(it, scopes) }
-                if (rows.isEmpty()) {
-                    null
-                } else {
-                    val byType = rows.groupBy { it.text("stakeholder_type") ?: SIN_DATO }.toSortedMap()
-                    val cells =
-                        byType.flatMap { (type, list) ->
-                            list.mapIndexed { i, row ->
-                                val actor = Cell(scene.people.actor(row))
-                                if (i == 0) listOf(Cell(ReportLabels.option(type) ?: type, rowSpan = list.size), actor) else listOf(actor)
-                            }
-                        }
-                    Block.Table(
-                        if (scopes.isEmpty()) "Grupos de interés sin ámbito" else "Grupos de interés del $label",
-                        listOf("Tipo de actor", "Actor"),
-                        cells
-                    )
+    // el capítulo abre con su texto; las tablas de cada ámbito (Tablas 6.1 a 6.3) van con sus perfiles, en `profiles`
+    fun identification(): List<Block> = listOf(Block.Paragraph(DiagnosisTexts.text("capitulo-6")))
+
+    // un grupo de interés con lo que ordena sus perfiles: la localidad de su organización (los sin localidad, al final) y el cargo
+    private class Ordered(
+        val row: SourceRow,
+        val locality: String?,
+        val title: String
+    )
+
+    private suspend fun ordered(
+        scene: DiagnosisScene,
+        rows: List<SourceRow>
+    ): List<Ordered> =
+        rows
+            .map { row ->
+                val position = row.ref("person")?.let { scene.people.position(it) }
+                val organization = (position?.ref("organization") ?: row.ref("organization"))?.let { scene.source.one("organization", it) }
+                val locality = organization?.ref("locality")?.let { scene.source.one("locality", it)?.text("name") }
+                Ordered(row, locality, position?.text("position_title").orEmpty())
+            }.sortedWith(
+                compareBy<Ordered>({ it.locality == null }, { it.locality.orEmpty() }, { it.title }, { it.row.id })
+            )
+
+    // ámbito → tipo (por el valor crudo del catálogo) → localidad → cargo
+    private suspend fun byType(
+        scene: DiagnosisScene,
+        rows: List<SourceRow>
+    ): Map<String, List<Ordered>> = ordered(scene, rows).groupBy { it.row.text("stakeholder_type") ?: SIN_DATO }.toSortedMap()
+
+    private suspend fun scopeTable(
+        scene: DiagnosisScene,
+        scopes: List<String>,
+        label: String,
+        byType: Map<String, List<Ordered>>
+    ): Block.Table {
+        val cells =
+            byType.flatMap { (type, list) ->
+                list.mapIndexed { i, entry ->
+                    val actor = Cell(scene.people.actor(entry.row))
+                    if (i == 0) listOf(Cell(ReportLabels.option(type) ?: type, rowSpan = list.size), actor) else listOf(actor)
                 }
             }
-        return listOf<Block>(Block.Paragraph(DiagnosisTexts.text("capitulo-6"))) + tables
+        return Block.Table(
+            if (scopes.isEmpty()) "Grupos de interés sin ámbito" else "Grupos de interés del $label",
+            listOf("Tipo de actor", "Actor"),
+            cells
+        )
     }
 
-    suspend fun profiles(scene: DiagnosisScene): List<Block> =
-        scene.stakeholders().sortedWith(compareBy({ scopeOrder(it) }, { it.text("stakeholder_type").orEmpty() })).flatMap { row ->
-            val position = row.ref("person")?.let { scene.people.position(it) }
-            val assessment = scene.latestAssessment(row)
-            scene.keep(
-                "perfiles",
-                position?.text("career_notes"),
-                position?.text("election_mechanism"),
-                row.text("profile_summary"),
-                assessment?.text("stance_reasons")
-            )
-            val facts =
-                listOfNotNull(
-                    position?.text("career_notes")?.let { "**Trayectoria:** $it" },
-                    position?.text("election_mechanism")?.let { "**Elección:** $it" },
-                    position?.let {
-                        "**Periodo:** del ${ReportFormat.date(
-                            it.text("term_start_date")
-                        ).ifEmpty { SIN_DATO }} al ${ReportFormat.date(it.text("term_end_date")).ifEmpty { SIN_DATO }}"
-                    },
-                    row.text("profile_summary")?.let { "**Funciones y coordinación:** $it" }
-                )
-            val notes =
-                listOfNotNull(
-                    row.text("interview_status")?.takeIf { it != INTERVIEWED }?.let { "Estado de la entrevista: ${ReportLabels.option(it)}." },
-                    "El cargo está vacante.".takeIf { row.ref("person") != null && position == null }
-                )
-            listOfNotNull(
-                Block.Heading(3, scene.people.actor(row)),
-                Block.Paragraph(facts.joinToString("\n\n").ifEmpty { "_Sin datos del perfil._" }, footnotes = notes),
-                assessment?.let { a ->
-                    val reasons = a.text("stance_reasons")?.let { " **Razones:** $it" }.orEmpty()
-                    Block.Paragraph("**Postura:** ${DiagnosisScene.option(a, "stance")}.$reasons", Mark.restricted("stakeholder_assessment.stance"))
-                }
-            )
+    // 6.1 AIDS, 6.2 AIIS y 6.3 regional y nacional (y los sin ámbito al final): cada ámbito abre con su tabla y sigue con un
+    // subtítulo por tipo de actor; los perfiles de un tipo van por localidad y cargo. La sección es de nivel 2: el ámbito, nivel 3,
+    // y el tipo, nivel 4 (el máximo); el perfil, titulado por su cargo, abre su párrafo en negrita
+    suspend fun profiles(scene: DiagnosisScene): List<Block> {
+        val stakeholders = scene.stakeholders()
+        var number = 0
+        return SCOPES.flatMap { (scopes, label) ->
+            val rows = stakeholders.filter { inScope(it, scopes) }
+            if (rows.isEmpty()) {
+                emptyList()
+            } else {
+                val types = byType(scene, rows)
+                val title = if (scopes.isEmpty()) "Grupos de interés sin ámbito" else label.replaceFirstChar { it.uppercase() }
+                listOf<Block>(Block.Heading(3, "6.${++number} $title"), scopeTable(scene, scopes, label, types)) +
+                    types.flatMap { (type, list) ->
+                        listOf<Block>(Block.Heading(4, ReportLabels.option(type) ?: type)) + list.flatMap { profile(scene, it.row) }
+                    }
+            }
         }
+    }
+
+    private suspend fun profile(
+        scene: DiagnosisScene,
+        row: SourceRow
+    ): List<Block> {
+        val position = row.ref("person")?.let { scene.people.position(it) }
+        val assessment = scene.latestAssessment(row)
+        scene.keep(
+            "perfiles",
+            position?.text("career_notes"),
+            position?.text("election_mechanism"),
+            row.text("profile_summary"),
+            assessment?.text("stance_reasons")
+        )
+        val facts =
+            listOfNotNull(
+                position?.text("career_notes")?.let { "**Trayectoria:** $it" },
+                position?.text("election_mechanism")?.let { "**Elección:** $it" },
+                position?.let {
+                    "**Periodo:** del ${ReportFormat.date(
+                        it.text("term_start_date")
+                    ).ifEmpty { SIN_DATO }} al ${ReportFormat.date(it.text("term_end_date")).ifEmpty { SIN_DATO }}"
+                },
+                row.text("profile_summary")?.let { "**Funciones y coordinación:** $it" }
+            )
+        val notes =
+            listOfNotNull(
+                row.text("interview_status")?.takeIf { it != INTERVIEWED }?.let { "Estado de la entrevista: ${ReportLabels.option(it)}." },
+                "El cargo está vacante.".takeIf { row.ref("person") != null && position == null }
+            )
+        return listOfNotNull(
+            Block.Paragraph(
+                "**${scene.people.actor(row)}**\n\n" + facts.joinToString("\n\n").ifEmpty { "_Sin datos del perfil._" },
+                footnotes = notes
+            ),
+            assessment?.let { a ->
+                val reasons = a.text("stance_reasons")?.let { " **Razones:** $it" }.orEmpty()
+                Block.Paragraph("**Postura:** ${DiagnosisScene.option(a, "stance")}.$reasons", Mark.restricted("stakeholder_assessment.stance"))
+            }
+        )
+    }
 
     fun characterization(): List<Block> = listOf(Block.Paragraph(DiagnosisTexts.text("capitulo-7")))
 
