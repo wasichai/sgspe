@@ -77,6 +77,7 @@ class FieldReportType : DeliverableType {
             "engagement_plan" to setOf("name", "strategic_objective", "tactical_objectives", "action_axes", "project"),
             "field_visit" to setOf("title", "itinerary", "outcome_summary", "actual_start_date", "planned_start_date", "project"),
             "engagement" to setOf("engagement_type", "title", "results", "scheduled_at", "held_at", "cancel_reason", "project", "community", "field_visit"),
+            "engagement_participant" to setOf("engagement", "person", "stakeholder", "organization", "represented_group", "attended"),
             "community_network" to setOf("name", "network_type", "contact_status", "description", "project", "community"),
             "network_node" to setOf("node_role", "community_network", "person", "organization"),
             "social_contribution" to
@@ -483,6 +484,17 @@ class FieldReportType : DeliverableType {
                     )
                 }
 
+        // quienes asistieron a una interacción (#88): por su persona, su grupo de interés, su organización o el grupo que
+        // representan; nunca participant_name, que es restringido: sin otro dato, «una persona»
+        private suspend fun attendees(engagement: String): List<String> =
+            source.all("engagement_participant", mapOf("engagement" to engagement)).filter { it.attributes["attended"] != false }.map { p ->
+                p.ref("person")?.let { person(it) }
+                    ?: p.ref("stakeholder")?.let { id -> source.one("stakeholder", id)?.let { stakeholder(it) } }
+                    ?: organizationName(p.ref("organization"))
+                    ?: p.text("represented_group")
+                    ?: Mentions.UNKNOWN
+            }
+
         suspend fun relations(): List<Block> {
             val contacts =
                 source
@@ -491,7 +503,8 @@ class FieldReportType : DeliverableType {
             val rows =
                 contacts.map { contact ->
                     keep("relaciones", contact.text("results"))
-                    val who = source.related("engagement", UUID.fromString(contact.id), "engagement_stakeholder", "stakeholder").map { stakeholder(it) }
+                    val linked = source.related("engagement", UUID.fromString(contact.id), "engagement_stakeholder", "stakeholder").map { stakeholder(it) }
+                    val who = (linked + attendees(contact.id)).distinct()
                     listOf(
                         Cell(ReportFormat.date(contact.text("held_at") ?: contact.text("scheduled_at"))),
                         Cell(who.joinToString(", ")),

@@ -333,4 +333,33 @@ class FieldReportTypeTest {
         val warnings = PersonalDataScan.scan(assembled.texts, assembled.personNames)
         assertTrue(warnings.any { it.section == "apoyo" }, warnings.toString())
     }
+
+    // #88: «Con» lista a quienes asistieron (participantes con persona, grupo de interés u organización, o el grupo que
+    // representan) además de los grupos vinculados; nunca participant_name, que es restringido
+    @Test
+    fun `los contactos cara a cara citan a los participantes que asistieron`() {
+        val source = source()
+        source.add(
+            "engagement",
+            id(60),
+            "held",
+            "project" to project,
+            "community" to community,
+            "engagement_type" to "CONTACTO CARA A CARA",
+            "held_at" to "2026-09-12T15:00:00Z",
+            "results" to "Acordaron una visita."
+        )
+        source.add("engagement_participant", id(61), null, "engagement" to id(60), "person" to person, "attended" to true)
+        source.add("engagement_participant", id(62), null, "engagement" to id(60), "represented_group" to "Junta de usuarios", "attended" to true)
+        source.add("engagement_participant", id(63), null, "engagement" to id(60), "person" to id(41), "attended" to false)
+        source.add("engagement_participant", id(64), null, "engagement" to id(60), "participant_name" to "Nombre Restringido", "attended" to true)
+        val model = runBlocking { type.assemble(input(), source) }.model
+        val contacts =
+            model.sections
+                .single { it.key == "relaciones" }
+                .blocks
+                .filterIsInstance<Block.Table>()
+                .single { it.title == "Contactos cara a cara del periodo" }
+        assertEquals("[[person:$person]], Junta de usuarios, una persona", contacts.rows.single()[1].text)
+    }
 }
