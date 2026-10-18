@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import sgspe.territory.MapExtent
@@ -8,6 +9,8 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
 import javax.imageio.metadata.IIOMetadataNode
+import kotlin.math.cos
+import kotlin.math.sin
 
 // especificación de F8 §3.7 paso 4 y §5 («Mapas»): el cuerpo en un lienzo con marco, grilla UTM rotulada, leyenda no vacía,
 // barra y escala numérica, norte, CRS y fuente; PNG con pHYs de 300 dpi
@@ -53,6 +56,22 @@ class MapComposerTest {
             for (x in 0 until MapComposer.LEFT - 10) if (image.getRGB(x, y) and 0xFFFFFF != 0xFFFFFF) labels++
         }
         assertTrue(labels > 100, "$labels píxeles de rótulos")
+    }
+
+    // #83: la estrella de la leyenda (LYR-09) tiene cinco puntas, no es el triángulo: el brazo derecho está dentro y el hueco
+    // entre las dos puntas de abajo, fuera; el triángulo es al revés
+    @Test
+    fun `la marca star es una estrella de cinco puntas y triangle un triangulo`() {
+        val r = 12.0
+        val star = MapComposer.mark("star", 50.0, 50.0, 2 * r)
+        val triangle = MapComposer.mark("triangle", 50.0, 50.0, 2 * r)
+        val arm = 50.0 + r * 0.85 * cos(Math.toRadians(18.0)) to 50.0 - r * 0.85 * sin(Math.toRadians(18.0))
+        val notch = 50.0 to 50.0 + r * 0.6
+        assertTrue(star.contains(arm.first, arm.second))
+        assertFalse(star.contains(notch.first, notch.second))
+        assertFalse(triangle.contains(arm.first, arm.second))
+        assertTrue(triangle.contains(notch.first, notch.second))
+        assertTrue(star.contains(50.0, 50.0 - r * 0.9), "la punta de arriba")
     }
 
     @Test

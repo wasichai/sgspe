@@ -7,6 +7,8 @@ import java.awt.Graphics2D
 import java.awt.Polygon
 import java.awt.RenderingHints
 import java.awt.geom.Ellipse2D
+import java.awt.geom.Path2D
+import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.text.DecimalFormat
@@ -17,7 +19,9 @@ import javax.imageio.ImageIO
 import javax.imageio.ImageTypeSpecifier
 import javax.imageio.metadata.IIOMetadataNode
 import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 // una entrada de la leyenda: el texto de la capa y su estilo
 data class LegendEntry(
@@ -46,6 +50,8 @@ object MapComposer {
         MapComposer::class.java.getResourceAsStream(FONT)?.use { Font.createFont(Font.TRUETYPE_FONT, it) } ?: error("falta Liberation Sans en el jar de PDFBox")
     }
 
+    // la negrita es sintética (Java 2D engrosa la regular): el jar de PDFBox solo trae LiberationSans-Regular y el JDK no trae
+    // fuentes propias desde el 11, así que una familia en negrita dependería de lo instalado en el contenedor (#83)
     private fun font(
         size: Float,
         bold: Boolean = false
@@ -208,21 +214,43 @@ object MapComposer {
                 val cx = x + w / 2.0
                 val cy = y + h / 2.0
                 g.color = style.fill?.let(Color::decode) ?: stroke
-                when (style.mark) {
-                    "square" -> g.fillRect((cx - size / 2).roundToInt(), (cy - size / 2).roundToInt(), size.roundToInt(), size.roundToInt())
-                    "triangle", "star" ->
-                        g.fillPolygon(
-                            Polygon(
-                                intArrayOf(cx.roundToInt(), (cx - size / 2).roundToInt(), (cx + size / 2).roundToInt()),
-                                intArrayOf((cy - size / 2).roundToInt(), (cy + size / 2).roundToInt(), (cy + size / 2).roundToInt()),
-                                3
-                            )
-                        )
-                    else -> g.fill(Ellipse2D.Double(cx - size / 2, cy - size / 2, size, size))
-                }
+                g.fill(mark(style.mark, cx, cy, size))
             }
         }
     }
+
+    // la marca de un punto (las de los SLD de model/styles/): un cuadrado, un triángulo, una estrella de cinco puntas con la
+    // punta arriba o, por omisión, un círculo, de `size` de lado o de diámetro y centrada en (cx, cy)
+    fun mark(
+        name: String?,
+        cx: Double,
+        cy: Double,
+        size: Double
+    ): java.awt.Shape {
+        val r = size / 2
+        return when (name) {
+            "square" -> Rectangle2D.Double(cx - r, cy - r, size, size)
+            "triangle" -> polygon(listOf(cx to cy - r, cx - r to cy + r, cx + r to cy + r))
+            "star" ->
+                polygon(
+                    (0 until 10).map { i ->
+                        val radius = if (i % 2 == 0) r else r * STAR_INNER
+                        val angle = Math.toRadians(-90.0 + i * 36.0)
+                        cx + radius * cos(angle) to cy + radius * sin(angle)
+                    }
+                )
+            else -> Ellipse2D.Double(cx - r, cy - r, size, size)
+        }
+    }
+
+    private fun polygon(points: List<Pair<Double, Double>>): Path2D =
+        Path2D.Double().apply {
+            points.forEachIndexed { i, (x, y) -> if (i == 0) moveTo(x, y) else lineTo(x, y) }
+            closePath()
+        }
+
+    // el radio interior de la estrella regular de cinco puntas: sen 18° / sen 126°
+    private const val STAR_INNER = 0.381966
 
     // «9,245,000 N»: coma de miles, sin decimales (RQ-REP-020)
     fun gridLabel(

@@ -102,6 +102,33 @@ class GotenbergConverterTest {
         }
     }
 
+    // #83: el plazo cubre también el cuerpo. un Gotenberg que manda las cabeceras de un PDF a tiempo y el cuerpo tarde no deja
+    // a JOB-05 esperando: es PdfConverterUnavailable al vencer el plazo
+    @Test
+    fun `un cuerpo lento despues de las cabeceras vence el plazo y es PdfConverterUnavailable`() {
+        val pdf = TestPdfs.liberation(false)
+        val server =
+            server {
+                it.responseHeaders.add("Content-Type", "application/pdf")
+                it.sendResponseHeaders(200, pdf.size.toLong())
+                it.responseBody.write(pdf, 0, 16)
+                it.responseBody.flush()
+                runCatching {
+                    Thread.sleep(3_000)
+                    it.responseBody.write(pdf, 16, pdf.size - 16)
+                }
+            }
+        try {
+            val started = System.nanoTime()
+            assertThrows<PdfConverterUnavailable> {
+                runBlocking { converter(url(server), Duration.ofMillis(500)).convert(docx, PdfRequest(false, "Informe", "ENT-001", "A", null)) }
+            }
+            assertTrue(Duration.ofNanos(System.nanoTime() - started) < Duration.ofSeconds(2), "esperó el cuerpo entero")
+        } finally {
+            server.stop(0)
+        }
+    }
+
     // revisión final de 8.2c, Minor 2: solo application/pdf exacto; un comodín no es un PDF (deliverables.md §8)
     @Test
     fun `una respuesta con un tipo comodin es PdfConverterUnavailable`() {

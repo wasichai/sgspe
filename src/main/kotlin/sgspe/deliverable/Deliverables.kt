@@ -2,6 +2,7 @@ package sgspe.deliverable
 
 import sgspe.common.Criteria
 import sgspe.common.Records
+import sgspe.common.readAs
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -118,18 +119,24 @@ object Deliverables {
     // un instante guardado (generation_requested_at, draft_generated_at), o null si falta o no se entiende
     fun instant(raw: Any?): Instant? = raw?.toString()?.let { runCatching { Instant.parse(it) }.getOrNull() }
 
-    // hay una versión emitida desde `since` (el draft_generated_at de un borrador): como quien llama o como la plataforma
+    // hay una versión emitida desde `since` (el draft_generated_at de un borrador). JOB-05 cuenta como la plataforma;
+    // DeliverableWriteGuard y la emisión, como quien transiciona, porque una guarda no lee como la plataforma dentro de una
+    // petición (WAS-ADR-0039; ArchitectureTest solo deja asPlatform en JOB-05 y DraftFiles). el conteo no depende de quien
+    // llama: las versiones tienen el alcance de su entregable (ProjectScope) y quien lee un entregable lee sus versiones, sin
+    // campos restringidos (test_apply_roles, #83). sin READ sobre deliverable_version es NotReadable, nunca un 0 que deje pasar
     suspend fun issuedSince(
         records: Records,
         id: UUID,
         since: Instant,
         now: Instant
     ): Boolean =
-        records.count(
-            VERSION,
-            filters = mapOf(DELIVERABLE to id.toString()),
-            criteria = listOf(Criteria.between("issued_at", since, now.plus(Duration.ofDays(1))))
-        ) > 0
+        readAs(VERSION) {
+            records.count(
+                VERSION,
+                filters = mapOf(DELIVERABLE to id.toString()),
+                criteria = listOf(Criteria.between("issued_at", since, now.plus(Duration.ofDays(1))))
+            )
+        } > 0
 
     // los códigos de aviso del borrador (draft_warnings): uno por línea, `<código>` o `<código> <sección>`
     const val MAP_FAILED = "MAP_FAILED"

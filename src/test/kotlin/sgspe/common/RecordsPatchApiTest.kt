@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import sgspe.F2ApiTest
+import wasichai.core.common.PreconditionFailedException
 import wasichai.core.common.ValidationException
 import java.util.UUID
 
@@ -62,6 +63,30 @@ class RecordsPatchApiTest : F2ApiTest() {
         assertEquals(4, attributes["visits"].asInt())
         val history = tree(send("GET", "/api/objects/$name/records/$id/history", null, HttpStatus.OK))
         assertEquals("derivado: visitas", history.values().first()["reason"].asString())
+    }
+
+    // #83: con `expected` (el updatedAt que leyó quien escribe) el UPDATE se condiciona a esa versión: si otra escritura cayó
+    // entre la lectura y el cambio, es el 412 de wasichai y no se escribe nada; con la vigente, escribe
+    @Test
+    fun `con una version vieja en expected patch es 412 y no escribe, con la vigente escribe`() {
+        val name = uniqueName("parchado_im")
+        createObject(name, listOf(field("code", "TEXT"), field("note", "TEXT")))
+        val organization = UUID.fromString(me()["organizationId"].asString())
+        val id = UUID.fromString(createRecord(name, mapOf("code" to "P-1", "note" to "uno")))
+        val stale =
+            runBlocking {
+                records.asPlatform(organization) {
+                    val read = records.get(name, id).updatedAt!!
+                    records.patch(name, id, mapOf("note" to "dos"), "otra escritura")
+                    val thrown = runCatching { records.patch(name, id, mapOf("code" to "P-2"), "con la versión vieja", expected = read) }.exceptionOrNull()
+                    records.patch(name, id, mapOf("code" to "P-3"), "con la vigente", expected = records.get(name, id).updatedAt!!)
+                    thrown
+                }
+            }
+        assertTrue(stale is PreconditionFailedException, "$stale")
+        val attributes = tree(send("GET", "/api/objects/$name/records/$id", null, HttpStatus.OK))["attributes"]
+        assertEquals("P-3", attributes["code"].asString())
+        assertEquals("dos", attributes["note"].asString())
     }
 
     // COMMUNITY_RELATIONS_OFFICER actualiza locality_profile pero no lee religion (restrictedFields): el cambio que nombra

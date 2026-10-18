@@ -5,9 +5,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import sgspe.privacy.Block
+import sgspe.privacy.Cell
 import sgspe.privacy.Disclosure
 import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportFixtures
+import sgspe.privacy.ReportSection
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -93,6 +96,24 @@ class DocxWriterTest {
                 .first()
                 .docPr.descr
         assertEquals("Entrega", descr)
+    }
+
+    // #83: un mismo bloque repetido (la misma instancia en dos secciones) lleva una leyenda por aparición, no la última de las dos
+    @Test
+    fun `un mismo bloque repetido lleva una leyenda por aparicion`() {
+        val shared = Block.Table("Localidades", listOf("Localidad"), listOf(listOf(Cell("Caserío Ejemplo"))))
+        val model =
+            ReportFixtures.model().copy(
+                sections =
+                    listOf(
+                        ReportSection("uno", "Uno", "CALCULADA", listOf(shared)),
+                        ReportSection("dos", "Dos", "CALCULADA", listOf(shared))
+                    ),
+                photos = emptyMap()
+            )
+        val bytes = writer.write(DocxWriter.Input(model, BaseTemplate.bytes, false, "Asociación Ejemplo", emptyMap()))
+        val captions = XWPFDocument(ByteArrayInputStream(bytes)).paragraphs.map { it.text }.filter { it.startsWith("Tabla ") }
+        assertEquals(listOf("Tabla 1. Localidades", "Tabla 2. Localidades"), captions)
     }
 
     @Test

@@ -168,6 +168,50 @@ class DocxWriterT1Test {
         )
     }
 
+    // #83: la tendencia es una línea nativa con su leyenda numerada, sus periodos como categorías, sus valores, el nombre de
+    // la serie, marcadores y la leyenda abajo (no basta con contar los gráficos)
+    @Test
+    fun `el grafico de tendencia lleva sus periodos, sus valores y la serie con nombre`() {
+        val doc = doc()
+        assertTrue(doc.paragraphs.any { it.text == "Figura 9.2. Confianza promedio" }, doc.paragraphs.joinToString { it.text })
+        val chart =
+            doc.charts.single {
+                it.ctChart.plotArea.lineChartList
+                    .isNotEmpty()
+            }
+        val series =
+            chart.ctChart.plotArea
+                .getLineChartArray(0)
+                .serList
+                .single()
+        assertEquals(
+            "Confianza",
+            series.tx.strRef
+                ?.strCache
+                ?.getPtArray(0)
+                ?.v ?: series.tx.v
+        )
+        assertEquals(
+            listOf("2026-08", "2026-09"),
+            (
+                series.cat.strRef
+                    ?.strCache
+                    ?.ptList ?: series.cat.strLit.ptList
+            ).map { it.v }
+        )
+        assertEquals(listOf("3.5", "4.0"), numbers(series.`val`))
+        assertEquals(
+            "circle",
+            series.marker.symbol.`val`
+                .toString()
+        )
+        assertEquals(
+            "b",
+            chart.ctChart.legend.legendPos.`val`
+                .toString()
+        )
+    }
+
     @Test
     fun `un salto al inicio de una seccion va antes de su titulo`() {
         val doc = doc()

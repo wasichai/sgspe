@@ -291,6 +291,106 @@ class SocialDiagnosisTypeTest {
         assertTrue(model.tables("educacion_salud").any { table -> table.rows.any { it[1].text == "I. E. N° 101" } })
     }
 
+    // #83: los conflictos y los programas del Estado se leen desde las localidades del ámbito, una lectura por localidad, no
+    // todos los del tenant con una lectura por registro; los de una localidad fuera del ámbito no se leen ni salen
+    @Test
+    fun `los conflictos y los programas se leen desde las localidades del ambito`() {
+        val source = T1Source.source()
+        val far = T1Source.id(950)
+        source.add("locality", far, null, "name" to "Caserío Ejemplo Lejano", "locality_type" to "CASERIO")
+        source.add("local_conflict", T1Source.id(951), null, "title" to "Conflicto Ejemplo lejano", "conflict_type" to "TERRITORIAL")
+        source.link("local_conflict", T1Source.id(951), "local_conflict_locality", "locality", far)
+        source.add("state_program", T1Source.id(952), null, "name" to "Programa Ejemplo lejano")
+        source.link("state_program", T1Source.id(952), "state_program_locality", "locality", far)
+        val model = assemble(source).model
+        val history = model.blocks("historia").filterIsInstance<Block.Paragraph>().joinToString("\n") { it.markdown }
+        assertTrue("Linderos con el caserío vecino" in history, history)
+        assertFalse("lejano" in history, history)
+        assertTrue(model.tables("organizaciones").flatMap { it.rows }.any { row -> row.first().text == "Programa social del Estado" })
+        assertFalse(model.tables("organizaciones").flatMap { it.rows }.any { row -> row.any { "lejano" in it.text } })
+        val calls = source.relatedCalls.filter { it.third in setOf("local_conflict_locality", "state_program_locality") }
+        assertTrue(calls.isNotEmpty())
+        assertTrue(calls.all { it.first == "locality" && it.second != far }, "$calls")
+        assertEquals(calls.size, calls.toSet().size, "una lectura por localidad y relación: $calls")
+    }
+
+    // #83, capítulo 5 sin datos: sin conflictos, programas ni festividades no salen sus filas ni su tabla, y ningún ámbito queda
+    // en un título solo
+    @Test
+    fun `sin conflictos, programas ni festividades el capitulo 5 no lleva sus filas y ningun ambito queda solo`() {
+        val source = T1Source.source()
+        listOf("local_conflict", "state_program", "festivity").forEach { source.rows.remove(it) }
+        source.links.keys.removeIf { it.third in setOf("local_conflict_locality", "state_program_locality") }
+        val model = assemble(source).model
+        val history = model.blocks("historia").filterIsInstance<Block.Paragraph>()
+        assertTrue(history.isNotEmpty())
+        assertTrue(history.none { "Conflictos:" in it.markdown }, "$history")
+        assertTrue(model.tables("organizaciones").flatMap { it.rows }.none { row -> row.any { it.text == "Programa del Estado" } })
+        assertTrue(model.tables("costumbres").none { it.title.startsWith("Costumbres y fechas festivas") })
+        for (key in listOf("historia", "organizaciones", "costumbres", "proceso_electoral")) {
+            val blocks = model.blocks(key)
+            blocks.forEachIndexed { i, block ->
+                if (block is Block.Heading && block.level == 3) {
+                    assertTrue(blocks.getOrNull(i + 1).let { it != null && !(it is Block.Heading && it.level <= 3) }, "$key: $block solo")
+                }
+            }
+        }
+    }
+
+    // #83: sin AIIS, el capítulo 5 lleva solo el ámbito del AIDS, sin un título vacío del AIIS
+    @Test
+    fun `sin AIIS el capitulo 5 solo lleva el ambito del AIDS`() {
+        val source = T1Source.source()
+        source.rows.getValue("area_of_influence").removeIf { it.id == T1Source.AIIS }
+        val model = assemble(source).model
+        for (key in listOf("historia", "poblacion", "economia", "servicios", "organizaciones", "costumbres")) {
+            val headings =
+                model
+                    .blocks(key)
+                    .filterIsInstance<Block.Heading>()
+                    .filter { it.level == 3 }
+                    .map { it.text }
+            assertEquals(listOf(DiagnosisScene.AIDS_TITLE), headings, key)
+        }
+    }
+
+    // #83: con cinco localidades la tabla sigue con las localidades en columnas, pero ya va en la página horizontal (ancha); con
+    // cuatro, no
+    @Test
+    fun `con cinco localidades en columnas la tabla es ancha y con cuatro no`() {
+        val five = assemble(withLocalities(4)).model.tables("economia").first()
+        assertEquals(listOf("Actividad", "Caserío Ejemplo 0"), five.header.take(2))
+        assertEquals(6, five.header.size)
+        assertTrue(five.wide)
+        val four = assemble(withLocalities(3)).model.tables("economia").first()
+        assertEquals(5, four.header.size)
+        assertFalse(four.wide)
+    }
+
+    // #83, anexos sin datos: sin instrumentos, sin grupos evaluados y sin concesiones, los anexos se arman igual
+    @Test
+    fun `sin instrumentos, grupos evaluados ni concesiones los anexos se arman igual`() {
+        val source = T1Source.source()
+        source.rows.remove("study_instrument")
+        source.rows.getValue("stakeholder").replaceAll { row -> row.copy(attributes = row.attributes - setOf("interest_index", "power_index")) }
+        source.links.remove(Triple("project", T1Source.PROJECT, "project_concession"))
+        val assembled = assemble(source)
+        val model = assembled.model
+        assertEquals(listOf(Block.SectionBreak(false), Block.Paragraph("_El estudio no registra instrumentos._")), model.blocks("anexo_instrumentos"))
+        val quadrant = model.tables("anexo_metodologia").single { it.title == "Cuadrantes de influencia" }
+        assertTrue(quadrant.rows.all { row -> row.drop(1).all { it.text == "—" } }, "${quadrant.rows}")
+        assertTrue(
+            model
+                .blocks("anexo_metodologia")
+                .filterIsInstance<Block.ScatterChart>()
+                .single()
+                .points
+                .isEmpty()
+        )
+        val annex = assembled.maps.single { it.key == DiagnosisAnnexes.ANNEX_MAP }
+        assertEquals(emptyList<UUID>(), annex.concessions)
+    }
+
     // #110: n localidades más en el AIDS, cada una con su perfil y una organización
     private fun withLocalities(count: Int): FakeReportSource {
         val source = T1Source.source()
