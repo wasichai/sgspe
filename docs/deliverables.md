@@ -717,6 +717,7 @@ no haya fuente normativa (GAP-001).
 | Elemento | INTERNO | EXTERNO | PUBLICO |
 |---|---|---|---|
 | Tablas 7.1 a 7.3 (nombre, cargo, postura) | Con nombre | Columna de nombre vacía en las personas (el cargo y la organización van en sus columnas) y «Postura» vacía; una organización lleva su nombre | Conteos por grupo de influencia y postura |
+| Tabla 9.1 de T1 (reglas de priorización) | Completa | «Postura» reservada: el criterio de la estrategia no sale a terceros, aunque `prioritization_rule.stance` no es un campo restringido de la plataforma (security.md §7.9) | Se omite |
 | Perfiles por cargo (§6 de T1) | Completos | Sin nombre; sin razones de postura de personas | Se omiten |
 | Citas de percepciones | Atribuidas por cargo (nunca por nombre) | Igual | Sin atribución |
 | Redes y nodos (T2) | Con nombres | Por cargo y papel en la red | Conteos de redes y nodos |
