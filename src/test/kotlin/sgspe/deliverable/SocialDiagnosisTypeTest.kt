@@ -468,8 +468,9 @@ class SocialDiagnosisTypeTest {
     @Test
     fun `EXTERNO no lleva religion, proceso electoral, razones ni postura de una persona`() {
         val external = ReportDisclosure.apply(assemble().model, Disclosure.EXTERNO)
+        // el texto fijo del capítulo 6 define las posturas en general (#109): no es la postura de nadie
         val text =
-            external.sections.flatMap { it.blocks }.joinToString("\n") { block ->
+            external.sections.flatMap { if (it.key == "grupos_interes") it.blocks.drop(1) else it.blocks }.joinToString("\n") { block ->
                 when (block) {
                     is Block.Paragraph -> block.markdown + " " + block.footnotes.joinToString(" ")
                     is Block.Table -> block.title + " " + block.rows.flatten().joinToString(" ") { it.text }
@@ -613,6 +614,45 @@ class SocialDiagnosisTypeTest {
         assertTrue(model.tables("necesidades").any { table -> table.rows.any { it[0].text == "Relacionista comunitario" && it[1].text == "2" } })
     }
 
+    // #109: cada sección con método abre con su texto fijo, en INTERNO y en EXTERNO, y el capítulo 6 define cada postura
+    @Test
+    fun `los capitulos 6, 8 y 9 abren con su texto fijo de metodo en INTERNO y EXTERNO`() {
+        val model = assemble(T1Source.source(MonitoredSource())).model
+        val expected =
+            mapOf(
+                "temas_clave" to "Un tema clave es",
+                "impactos" to "La gestión de las percepciones de impactos",
+                "evaluacion_grupos" to "La evaluación de los grupos de interés mide",
+                "seguimiento_compromisos" to "La matriz de compromisos registra",
+                "riesgos" to "Un riesgo social es",
+                "grupos_interes" to "Un grupo de interés es"
+            )
+        listOf(Disclosure.INTERNO, Disclosure.EXTERNO).forEach { level ->
+            val shown = ReportDisclosure.apply(model, level)
+            expected.forEach { (key, phrase) ->
+                val first =
+                    shown.sections
+                        .single { it.key == key }
+                        .blocks
+                        .first()
+                assertTrue(first is Block.Paragraph && first.markdown.startsWith(phrase), "$level $key: $first")
+            }
+            val risks = shown.sections.single { it.key == "riesgos" }.blocks
+            val heading = risks.indexOf(Block.Heading(3, "9.3.2.1 Evaluación del riesgo"))
+            assertTrue((risks[heading + 1] as Block.Paragraph).markdown.startsWith("El nivel de un riesgo resulta de"), "$level")
+            val stances =
+                (
+                    shown.sections
+                        .single { it.key == "grupos_interes" }
+                        .blocks
+                        .first() as Block.Paragraph
+                ).markdown
+            listOf("**A favor**", "**Neutral**", "**En contra pero abierto a escuchar**", "**En contra**:").forEach {
+                assertTrue(it in stances, "$level $it")
+            }
+        }
+    }
+
     // Review Focus 5
     @Test
     fun `sin estudio, sin AIIS, sin perfiles y sin indicadores el T1 se arma con sin dato`() {
@@ -636,7 +676,8 @@ class SocialDiagnosisTypeTest {
         assertTrue((model.blocks("objetivos").first() as Block.Paragraph).markdown.contains("no registra"))
         assertTrue((model.blocks("aiis").first() as Block.Paragraph).markdown.contains("no tiene un área de influencia indirecta social aprobada"))
         assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))
-        assertTrue(model.blocks("evaluacion_grupos").single() is Block.Paragraph)
+        assertTrue(model.blocks("evaluacion_grupos").last() is Block.Paragraph)
+        assertEquals(2, model.blocks("evaluacion_grupos").size)
         assertEquals(listOf(UUID.fromString(T1Source.AIDS)), assembled.maps.single { it.key == DiagnosisStudy.AREAS_MAP }.areas)
     }
 

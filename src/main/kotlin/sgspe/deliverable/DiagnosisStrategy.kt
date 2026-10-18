@@ -122,21 +122,22 @@ object DiagnosisStrategy {
     }
 
     suspend fun impacts(scene: DiagnosisScene): List<Block> =
-        table(
-            scene,
-            "impactos",
-            "potential_impact",
-            "Impactos potenciales por tipo de actividad",
-            listOf(
-                "Tipo de actividad" to "activity_type",
-                "Tipo de impacto" to "impact_type",
-                "Naturaleza" to "impact_nature",
-                "Signo" to "impact_sign",
-                "Descripción" to "description"
-            ),
-            labeled = setOf("activity_type", "impact_type", "impact_nature", "impact_sign"),
-            wide = true
-        )
+        listOf<Block>(Block.Paragraph(DiagnosisTexts.text("capitulo-9-3"))) +
+            table(
+                scene,
+                "impactos",
+                "potential_impact",
+                "Impactos potenciales por tipo de actividad",
+                listOf(
+                    "Tipo de actividad" to "activity_type",
+                    "Tipo de impacto" to "impact_type",
+                    "Naturaleza" to "impact_nature",
+                    "Signo" to "impact_sign",
+                    "Descripción" to "description"
+                ),
+                labeled = setOf("activity_type", "impact_type", "impact_nature", "impact_sign"),
+                wide = true
+            )
 
     // Tabla 9.5: valor del periodo, meta y cifra oficial (con su fecha de cierre) o «—»
     suspend fun monitoring(scene: DiagnosisScene): List<Block> {
@@ -173,7 +174,8 @@ object DiagnosisStrategy {
                 .stakeholders()
                 .flatMap { scene.source.all("stakeholder_assessment", mapOf("stakeholder" to it.id)) }
                 .filter { scene.upToCutoff(it.text("assessment_date")) }
-        if (assessments.isEmpty()) return listOf(Block.Paragraph("_Sin evaluaciones de grupos de interés hasta el corte._"))
+        val intro = Block.Paragraph(DiagnosisTexts.text("evaluacion-grupos"))
+        if (assessments.isEmpty()) return listOf(intro, Block.Paragraph("_Sin evaluaciones de grupos de interés hasta el corte._"))
         val byMonth = assessments.groupBy { scene.day(it.text("assessment_date"))?.let(YearMonth::from) }
         val rows =
             months.map { month ->
@@ -188,6 +190,7 @@ object DiagnosisStrategy {
                 )
             }
         return listOf(
+            intro,
             Block.Table(
                 "Evaluación de los grupos de interés por mes",
                 listOf("Mes", "Evaluaciones", "Confianza promedio", "Cambio de postura (%)", "Comunicación suficiente (%)", "Información adecuada (%)"),
@@ -230,6 +233,7 @@ object DiagnosisStrategy {
                     )}: ${supportCap(c)}"
                 }
         return listOfNotNull(
+            Block.Paragraph(DiagnosisTexts.text("seguimiento-compromisos")),
             byState.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por estado", listOf("Estado", "Cantidad"), it) },
             byDeadline.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por plazo", listOf("Plazo", "Cantidad"), it) },
             Block.Paragraph("**Lineamientos de apoyo de la campaña.**\n\n${lines.joinToString("\n")}\n\nLa matriz completa de compromisos se exporta en XLSX.")
@@ -257,6 +261,7 @@ object DiagnosisStrategy {
                     (1..5).map { probability -> Cell(counts[impact - 1][probability - 1].toString(), shade = shade(probability * impact, scene.project)) }
             }
         return listOfNotNull(
+            Block.Paragraph(DiagnosisTexts.text("riesgos")),
             risks.takeIf { it.isNotEmpty() }?.let { list ->
                 Block.Table(
                     "Riesgos sociales identificados",
@@ -272,6 +277,7 @@ object DiagnosisStrategy {
                 )
             },
             Block.Heading(3, "9.3.2.1 Evaluación del riesgo"),
+            Block.Paragraph(DiagnosisTexts.text("evaluacion-riesgo")),
             Block.Table("Matriz de probabilidad e impacto", listOf("Impacto / Probabilidad", "1", "2", "3", "4", "5"), matrix, figure = true)
         )
     }

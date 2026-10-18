@@ -198,9 +198,11 @@ object DiagnosisStakeholders {
     suspend fun keyThemes(scene: DiagnosisScene): List<Block> {
         val filters = scene.byProject + (scene.study?.let { mapOf("study" to it.id) } ?: emptyMap())
         val rows = scene.source.all("key_theme", filters).sortedBy { it.text("name").orEmpty() }
-        if (rows.isEmpty()) return listOf(Block.Paragraph("_Sin temas clave registrados._"))
+        val intro = Block.Paragraph(DiagnosisTexts.text("capitulo-8"))
+        if (rows.isEmpty()) return listOf(intro, Block.Paragraph("_Sin temas clave registrados._"))
         rows.forEach { scene.keep("temas_clave", it.text("description"), it.text("risks"), it.text("opportunities")) }
         return listOf(
+            intro,
             Block.Table(
                 "Temas clave",
                 listOf("Tema", "Descripción", "Riesgos", "Oportunidades"),
