@@ -6,7 +6,9 @@ import org.springframework.stereotype.Component
 import sgspe.common.Callers
 import sgspe.common.Finding
 import sgspe.common.GuardOrder
+import sgspe.common.NotReadable
 import sgspe.common.Permissions
+import sgspe.common.Readability
 import sgspe.common.Records
 import sgspe.common.RuleException
 import sgspe.common.StoredFiles
@@ -14,11 +16,14 @@ import sgspe.common.Values
 import sgspe.common.WriteMark
 import sgspe.common.WriteView
 import sgspe.common.isLink
+import sgspe.common.readable
 import sgspe.common.toCodedException
+import sgspe.privacy.Mentions
 import wasichai.core.common.FieldViolation
 import wasichai.core.data.RecordChangeKind
 import wasichai.core.data.RecordWrite
 import wasichai.core.data.RecordWriteGuard
+import wasichai.core.metadata.MetadataService
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -32,7 +37,9 @@ import java.util.UUID
 // - deliverable_section: con origen ASISTIDO POR IA, toda escritura lleva motivo (400 FIELD_REASON_REQUIRED), y una sección
 //   asistida no vuelve a otro origen ni se borra (422 AI_ORIGIN_LOCKED; decisión 8 del plan 8.2b: el cerrojo dura toda la vida
 //   del entregable); section_key y deliverable no cambian después del alta (400 FIELD_NOT_EDITABLE), o el cambio sacaría la
-//   sección del cerrojo
+//   sección del cerrojo; una mención nueva de content ([[person:<id>]], [[position:<id>]] o [[stakeholder:<id>]], las que
+//   el contenido anterior no traía) exige que quien escribe lea el registro y, si cita a una persona, sus nombres (422
+//   MENTION_NOT_READABLE sobre content, #81): JOB-05 las resuelve como la plataforma. no existir y no leerse dan el mismo error
 // - deliverable_version: una INTERNO trae docx y docx_sha256 (400 FIELD_REQUIRED) y cada *_sha256 es el del descriptor de su
 //   archivo (400 SHA256_MISMATCH); la derivada EXTERNO no trae docx ni model
 @Component
@@ -43,6 +50,7 @@ class DeliverableWriteGuard(
     private val permissions: Permissions,
     private val view: WriteView,
     private val files: StoredFiles,
+    private val metadata: MetadataService,
     private val clock: Clock
 ) : RecordWriteGuard {
     override suspend fun beforeWrite(change: RecordWrite) {
@@ -153,6 +161,53 @@ class DeliverableWriteGuard(
                 status = HttpStatus.BAD_REQUEST
             ).toCodedException()
         }
+        mentions(Values.text(before[Deliverables.CONTENT]).orEmpty(), Values.text(after[Deliverables.CONTENT]).orEmpty())
+    }
+
+    private suspend fun mentions(
+        before: String,
+        after: String
+    ) {
+        callers.userOrNull() ?: return
+        val added = Mentions.keys(after) - Mentions.keys(before).toSet()
+        if (added.isEmpty()) return
+        val readability = Readability(metadata)
+        for (key in added) {
+            if (!readable(key, readability)) {
+                throw Finding(
+                    "MENTION_NOT_READABLE",
+                    "La sección cita un registro que quien escribe no puede leer, o a una persona cuyos nombres no lee",
+                    Deliverables.CONTENT,
+                    status = HttpStatus.UNPROCESSABLE_CONTENT
+                ).toCodedException()
+            }
+        }
+    }
+
+    // el registro de la mención como quien escribe y, para una persona (también la titular de un cargo o de un grupo de interés),
+    // sus nombres: lo que INTERNO imprimirá
+    private suspend fun readable(
+        key: String,
+        readability: Readability
+    ): Boolean {
+        val objectName = key.substringBefore(':')
+        val id = UUID.fromString(key.substringAfter(':'))
+        val row =
+            try {
+                records.readable(objectName, id)
+            } catch (_: NotReadable) {
+                return false
+            }
+        val person =
+            if (objectName == PERSON) id else ref(row.attributes[PERSON])?.let(UUID::fromString) ?: return true
+        if (objectName != PERSON) {
+            try {
+                records.readable(PERSON, person)
+            } catch (_: NotReadable) {
+                return false
+            }
+        }
+        return readability.missing(NAMES).isEmpty()
     }
 
     private suspend fun version(change: RecordWrite) {
@@ -185,6 +240,8 @@ class DeliverableWriteGuard(
     private fun fileId(value: Any?): UUID? = ref(value)?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
     companion object {
+        private const val PERSON = "person"
+        private val NAMES = listOf("$PERSON.given_names", "$PERSON.surnames")
         val REVIEWED: Set<String> = setOf(Deliverables.SUBMIT, Deliverables.RESUBMIT, Deliverables.APPROVE_TRANSITION)
         private val HASHED = listOf(Deliverables.DOCX to "docx_sha256", Deliverables.PDF to "pdf_sha256", Deliverables.MODEL to "model_sha256")
 
