@@ -422,36 +422,40 @@ class TerritoryImports(
                 } else {
                     null
                 }
-            transactions.locked(lockKey(context)) {
-                // el alcance de quien importa se lee una vez, no en cada alta (ProjectScopeGuard)
-                RequestMemo.within {
-                    requireUnchanged(context, analysis)
-                    // con el candado: la evidencia del lote, también la que otra confirmación del mismo lote creó entretanto
-                    val previous = if (prepared.keepsOriginal) evidence.of(batchId) else null
-                    if (previous != null && writes) throw ImportEvidence.batchUsed(batchId)
-                    val linked = linkedConcessions(context)
-                    val counts = mutableMapOf(CREATE to 0, NEW_VERSION to 0, UPDATE to 0, UNCHANGED to 0)
-                    for (candidate in analysis.candidates) {
-                        if (candidate.parsed.row !in applied) continue
-                        write(context, candidate, batchId, reason, linked)
-                        counts.merge(candidate.outcome, 1, Int::plus)
+            // el candado del lote antes que el del destino, siempre en ese orden: dos confirmaciones del mismo lote a otro destino o
+            // a otro proyecto también quedan en fila, y el lote tiene a lo sumo una evidencia (con la que quien confirma lee)
+            transactions.locked(batchLock(context.organization, batchId)) {
+                transactions.locked(lockKey(context)) {
+                    // el alcance de quien importa se lee una vez, no en cada alta (ProjectScopeGuard)
+                    RequestMemo.within {
+                        requireUnchanged(context, analysis)
+                        // con el candado: la evidencia del lote, también la que otra confirmación del mismo lote creó entretanto
+                        val previous = if (prepared.keepsOriginal) evidence.of(batchId) else null
+                        if (previous != null && writes) throw ImportEvidence.batchUsed(batchId)
+                        val linked = linkedConcessions(context)
+                        val counts = mutableMapOf(CREATE to 0, NEW_VERSION to 0, UPDATE to 0, UNCHANGED to 0)
+                        for (candidate in analysis.candidates) {
+                            if (candidate.parsed.row !in applied) continue
+                            write(context, candidate, batchId, reason, linked)
+                            counts.merge(candidate.outcome, 1, Int::plus)
+                        }
+                        val rejected =
+                            analysis.invalid
+                                .map { it.row }
+                                .distinct()
+                                .size + (analysis.candidates.size - applied.size)
+                        // en la misma transacción que los registros (ImportEvidence)
+                        val project = if (context.target.tables || context.target.name == CONCESSION) context.project else null
+                        val kept = staged?.let { evidence.create(it, batchId, context.target.name, project, reason) } ?: previous
+                        ImportConfirmation(
+                            counts.getValue(CREATE),
+                            counts.getValue(NEW_VERSION),
+                            counts.getValue(UPDATE),
+                            counts.getValue(UNCHANGED),
+                            rejected,
+                            kept?.let { UUID.fromString(it.id) }
+                        )
                     }
-                    val rejected =
-                        analysis.invalid
-                            .map { it.row }
-                            .distinct()
-                            .size + (analysis.candidates.size - applied.size)
-                    // en la misma transacción que los registros (ImportEvidence)
-                    val project = if (context.target.tables || context.target.name == CONCESSION) context.project else null
-                    val kept = staged?.let { evidence.create(it, batchId, context.target.name, project, reason) } ?: previous
-                    ImportConfirmation(
-                        counts.getValue(CREATE),
-                        counts.getValue(NEW_VERSION),
-                        counts.getValue(UPDATE),
-                        counts.getValue(UNCHANGED),
-                        rejected,
-                        kept?.let { UUID.fromString(it.id) }
-                    )
                 }
             }
         }
@@ -952,6 +956,12 @@ class TerritoryImports(
         } else {
             emptySet()
         }
+
+    // el lote de una confirmación (ASM-060): lo toma antes que el del destino
+    private fun batchLock(
+        organization: UUID,
+        batchId: UUID
+    ): String = "$LOCK_PREFIX$organization:batch:$batchId"
 
     // los componentes se serializan por proyecto; los predios y las concesiones, que son del tenant, por organización
     private fun lockKey(context: Context): String =

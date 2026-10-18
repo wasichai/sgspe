@@ -393,8 +393,13 @@ sequenceDiagram
   de los polígonos (ASM-060). La crea la confirmación como quien confirma (`ImportEvidence`), en la misma transacción que los
   registros: o se confirman juntos o nada. El archivo se sube antes, en una transacción propia, porque los bytes van al
   almacén fuera de toda transacción; si la de la confirmación se revierte, la subida queda sin adjuntar y la borra
-  `StoredFileCleanup` de wasichai-files. Es `MAPA` e `INTERNA`, su título dice el destino y la fecha (nunca el nombre del
-  archivo, que escribe quien sube) y solo la de componentes y concesiones lleva `project`; los predios, las comunidades y los
+  `StoredFileCleanup` de wasichai-files. Es `MAPA`; la de componentes es `INTERNA` y la de predios, concesiones,
+  comunidades y elementos ambientales, `DATOS PERSONALES`: el original trae todas las columnas del archivo, no solo las que
+  se importan, y un padrón suele traer titulares, DNI y partidas que ningún permiso de campo alcanza en un archivo opaco. Su
+  descarga exige `DOWNLOAD_RESTRICTED` (RF-DOC-003), el descriptor sale sin nombre ni huella a quien no la tiene y AI-06 no
+  recupera sus fragmentos para esa persona; `PROJECT_ADMIN`, que importa concesiones, la crea pero no la descarga. Su título
+  dice el destino y la fecha (nunca el nombre del archivo, que escribe quien sube) y solo la de componentes y concesiones
+  lleva `project`; los predios, las comunidades y los
   elementos ambientales son del tenant. Solo hay evidencia si la confirmación escribe algo; una confirmación repetida
   devuelve la del lote, y una que escribiría con un lote que ya la tiene es `409 IMPORT_BATCH_USED`.
 - `evidence.file` admite los 8 `contentTypes` de `database-model.md` y wasichai-files decide el tipo por los bytes; la lista
@@ -402,7 +407,11 @@ sequenceDiagram
   UTF-8, el GeoJSON, el KML y el GPX van tal cual, con el SHA-256 de la vista previa, y lo que sale `application/zip` o
   `application/octet-stream` (el ZIP de un Shapefile o una FileGDB, el KMZ, el GeoPackage, un CSV en Latin-1) va adjunto
   byte a byte en un PDF (`ImportEvidenceFiles`), con una portada que dice el lote, el destino, el formato, el tamaño y
-  ese SHA-256: abrir la lista a esos tipos dejaría subir cualquier binario como evidencia.
+  ese SHA-256, nunca el nombre del archivo (JOB-07 indexa el texto de un PDF): abrir la lista a esos tipos dejaría subir
+  cualquier binario como evidencia. Por lo mismo, un ZIP solo trae las entradas de su formato (Shapefile: `.shp`, `.shx`,
+  `.dbf`, `.prj`, `.cpg`, sus índices y `.shp.xml`; FileGDB: lo de su carpeta `.gdb`), un KMZ su KML y sus imágenes, y las
+  carpetas y lo de Finder (`__MACOSX`, `._*`); cualquier otra entrada (un ejecutable, un ZIP anidado) y un `.gpkg` sin la
+  cabecera de SQLite son `400` sobre `file` antes de la vista previa (`ImportFormat.detect`).
 - La auditoría de wasichai registra "geometry updated" sin coordenadas, así que la historia de las posiciones se reconstruye con
   las versiones de componentes, los datos de origen y el archivo original (RQ-AUD-013) [WAS-DOC modules/gis.md].
 
@@ -812,7 +821,7 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 | Importación tipo DOC-03 | Hoja con códigos ficticios: código repetido rechazado; mismo código desplazado 216 m da versión nueva con 216 m en el reporte; menos de 1 cm, sin cambio | RQ-GIS-003, RQ-GIS-010 |
 | CRS de origen | Sin CRS, 400; ejes invertidos, marca | RQ-GIS-003, RQ-GIS-007 |
 | Confirmación | Otro archivo con el mismo `import_batch_id` se rechaza por SHA-256 distinto | RQ-GIS-008 |
-| Original como evidencia (`ImportEvidenceApiTest`, `ImportEvidenceFilesTest`, `GdalImportApiTest`) | La confirmación crea la `evidence` del lote con el SHA-256 de la vista previa y la vista previa ninguna; repetida, devuelve la misma; un lote ya confirmado con otro archivo es `409 IMPORT_BATCH_USED`; sin CREATE sobre `evidence`, `403`; el ZIP de un Shapefile va adjunto byte a byte en un PDF | RQ-GIS-008, ASM-060 |
+| Original como evidencia (`ImportEvidenceApiTest`, `ImportEvidenceRollbackApiTest`, `ImportEvidenceFilesTest`, `ImportFormatsTest`, `GdalImportApiTest`) | La confirmación crea la `evidence` del lote con el SHA-256 de la vista previa y la vista previa ninguna; repetida, devuelve la misma; la de predios es DATOS PERSONALES y un agente de campo no la descarga; una falla después de subir el archivo no deja registros ni evidencia; dos confirmaciones simultáneas dejan una; un ZIP con una entrada ajena a su formato es `400`; un lote ya confirmado con otro archivo es `409 IMPORT_BATCH_USED`; sin CREATE sobre `evidence`, `403`; el ZIP de un Shapefile va adjunto byte a byte en un PDF | RQ-GIS-008, ASM-060 |
 | Polígono inválido | Un lazo se rechaza con el motivo de `ST_IsValidReason`; la reparación con consentimiento muestra el cambio de área | RQ-GIS-011, RQ-GIS-021 |
 | MULTI* | MultiPolygon por API e importación se acepta; uno de una parte se vuelve Polygon | RQ-GIS-020 |
 | Componentes × predios | Una plataforma que corta dos predios y un acceso que cruza tres dan los predios y las longitudes esperadas; los titulares solo salen con permiso de campo | RQ-GIS-002, RQ-GIS-021 |

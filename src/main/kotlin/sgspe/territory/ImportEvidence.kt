@@ -59,8 +59,10 @@ class EvidenceUpload(
 // misma huella que la vista previa. lo demás (el ZIP de un Shapefile o de una FileGDB, el KMZ, el GeoPackage, un CSV que no es
 // UTF-8) sale como application/zip o application/octet-stream, que evidence.file no admite: abrir la lista a esos tipos
 // dejaría subir cualquier binario como evidencia. ese original va adjunto, byte a byte, en un PDF con una portada que dice el
-// lote, el destino, el formato, el tamaño y su SHA-256 (el de la vista previa). el título nunca lleva el nombre del archivo
-// (lo escribe quien sube y puede nombrar a una persona); el nombre queda en el descriptor del archivo, como en source_reference
+// lote, el destino, el formato, el tamaño y su SHA-256 (el de la vista previa). ni el título ni la portada llevan el nombre del
+// archivo (lo escribe quien sube y puede nombrar a una persona, y JOB-07 indexa el texto de un PDF); el nombre queda en el
+// descriptor del archivo y en el adjunto, como en source_reference. un ZIP solo llega aquí con las entradas de su formato
+// (ImportFormat.detect)
 object ImportEvidenceFiles {
     const val PDF = "application/pdf"
     const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -88,6 +90,16 @@ object ImportEvidenceFiles {
         }
 
     fun label(target: String): String = LABELS[target] ?: target
+
+    // el original trae todas las columnas del archivo, no solo las que se importan: el padrón de predios, comunidades,
+    // concesiones o elementos ambientales suele traer titulares, DNI y partidas registrales, que ningún permiso de campo
+    // alcanza en un archivo opaco. por eso es DATOS PERSONALES (su descarga exige DOWNLOAD_RESTRICTED, RF-DOC-003, y el
+    // descriptor sale sin nombre ni huella para quien no la tiene, EvidenceFileReadPolicy). una hoja de componentes (sondajes,
+    // plataformas) no trae personas: INTERNA
+    fun classification(target: String): String = if (target == ComponentVersions.COMPONENT) INTERNAL else PERSONAL_DATA
+
+    const val INTERNAL = "INTERNA"
+    const val PERSONAL_DATA = "DATOS PERSONALES"
 
     fun title(
         target: String,
@@ -129,7 +141,6 @@ object ImportEvidenceFiles {
                     "Lote: ${original.batchId}",
                     "Destino: ${label(original.target)} (${original.target})",
                     "Formato: ${original.format.key}",
-                    "Archivo: ${winAnsi(original.fileName)}",
                     "Tamaño: ${original.bytes.size} bytes",
                     "SHA-256: ${original.sha256}",
                     "",
@@ -234,28 +245,30 @@ class ImportEvidence(
         target: String,
         project: UUID?,
         reason: String
-    ): RecordResponse =
-        records.create(
+    ): RecordResponse {
+        // una sola lectura del reloj: el título y la fecha del documento no caen en días distintos a medianoche
+        val today = LocalDate.ofInstant(clock.instant(), LIMA)
+        return records.create(
             EVIDENCE,
             mapOf(
                 FILE to fileId,
                 "evidence_type" to TYPE,
-                "classification" to CLASSIFICATION,
-                "title" to ImportEvidenceFiles.title(target, LocalDate.ofInstant(clock.instant(), LIMA)),
-                "document_date" to LocalDate.ofInstant(clock.instant(), LIMA).toString(),
+                "classification" to ImportEvidenceFiles.classification(target),
+                "title" to ImportEvidenceFiles.title(target, today),
+                "document_date" to today.toString(),
                 BATCH to batchId.toString()
             ) + listOfNotNull(project?.let { "project" to it.toString() }).toMap(),
             reason
         )
+    }
 
     companion object {
         const val EVIDENCE = "evidence"
         const val FILE = "file"
         const val BATCH = "import_batch_id"
 
-        // todos los destinos son geográficos: el original es un mapa, interno como los maestros del territorio
+        // todos los destinos son geográficos: el original es un mapa
         const val TYPE = "MAPA"
-        const val CLASSIFICATION = "INTERNA"
 
         // 409 IMPORT_BATCH_USED: el lote ya tiene su evidencia y esta confirmación escribiría registros nuevos con él
         fun batchUsed(batchId: UUID) =

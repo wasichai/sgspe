@@ -178,6 +178,23 @@ class ImportEvidenceApiTest : DomainApiTest() {
         assertEquals("text/plain", evidence["file"]["contentType"].asString())
         assertEquals(parcelPreview["sha256"].asString(), evidence["file"]["sha256"].asString())
         assertTrue(evidence["title"].asString().startsWith("Importación de predios del "), evidence.toString())
+        // el original de un padrón de predios puede traer titulares y DNI: DATOS PERSONALES. un agente de campo lee las
+        // evidencias pero no tiene DOWNLOAD_RESTRICTED: ve el descriptor sin nombre ni huella y no descarga (RF-DOC-003)
+        assertEquals("DATOS PERSONALES", evidence["classification"].asString())
+        val id = tree(done.text)["evidenceId"].asString()
+        val agent = userWithRole("FIELD_AGENT")
+        val seen = record("evidence", id, agent.token)["attributes"]["file"]
+        assertTrue(seen["name"] == null && seen["sha256"] == null, seen.toString())
+        val denied =
+            client
+                .get()
+                .uri("/api/sgspe/evidence/$id/content")
+                .header(HttpHeaders.AUTHORIZATION, agent.token)
+                .exchange()
+                .expectBody(String::class.java)
+                .returnResult()
+        assertEquals(HttpStatus.FORBIDDEN.value(), denied.status.value(), denied.responseBody)
+        assertEquals(listOf("ACTION_REQUIRED"), codes(denied.responseBody.orEmpty()))
     }
 
     // un rol de prueba creado por la API (todo rol de roles.json que importa tiene CREATE sobre evidence): importa componentes

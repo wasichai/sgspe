@@ -92,15 +92,24 @@ class ImportEvidenceFilesTest {
     }
 
     @Test
-    fun `la portada dice lote, destino, formato y huella, y un nombre fuera de WinAnsi no rompe el PDF`() {
-        val name = "predios-中文-\u0001.zip"
+    fun `la portada dice lote, destino, formato y huella pero no el nombre del archivo`() {
+        val name = "padron-titulares-\u4e2d-\u0001.zip"
         val packed = pack(name, zip, ImportFormat.SHP)
         val text = Loader.loadPDF(packed.bytes).use { PDFTextStripper().getText(it) }
         assertTrue(text.contains(batch.toString()), text)
         assertTrue(text.contains("predios"), text)
         assertTrue(text.contains("shp"), text)
         assertTrue(text.contains(sha(zip)), text)
+        assertFalse(text.contains("padron"), text)
         assertEquals(name, ImportEvidenceFiles.embedded(packed.bytes).first)
+    }
+
+    @Test
+    fun `solo la hoja de componentes es INTERNA, los padrones del territorio son DATOS PERSONALES`() {
+        assertEquals("INTERNA", ImportEvidenceFiles.classification("project_component"))
+        for (target in listOf("land_parcel", "mining_concession", "community", "environmental_feature")) {
+            assertEquals("DATOS PERSONALES", ImportEvidenceFiles.classification(target), target)
+        }
     }
 
     @Test
