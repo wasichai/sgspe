@@ -95,6 +95,29 @@ class DeliverableWorkflowApiTest : F8ApiTest() {
     }
 
     @Test
+    fun `una mencion nueva exige leer a la persona y sus nombres como quien escribe`() {
+        val project = testProject()
+        val id = deliverable(project)
+        val section = sectionId(id, "conclusiones")
+        val person = person()
+        val analyst = member("ANALYST", project)
+        val manager = member("SOCIAL_MANAGER", project)
+        // ANALYST escribe secciones y lee person, pero no sus nombres (security.md §7.9)
+        val denied = edit("deliverable_section", section, mapOf("content" to "Lo dijo [[person:$person]]."), token = analyst.token)
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, denied.status, denied.body)
+        assertEquals(listOf("MENTION_NOT_READABLE"), codes(denied))
+        assertEquals(listOf("content"), fields(denied))
+        // una que no existe tampoco pasa, con el mismo código: no revela si existe
+        val unknown = edit("deliverable_section", section, mapOf("content" to "Lo dijo [[person:${java.util.UUID.randomUUID()}]]."), token = manager.token)
+        assertEquals(listOf("MENTION_NOT_READABLE"), codes(unknown))
+        val ok = edit("deliverable_section", section, mapOf("content" to "Lo dijo [[person:$person]]."), token = manager.token)
+        assertEquals(HttpStatus.OK, ok.status, ok.body)
+        // conservar la mención que otra persona escribió no es escribirla
+        val kept = edit("deliverable_section", section, mapOf("content" to "Lo dijo [[person:$person]], y se corrigió."), token = analyst.token)
+        assertEquals(HttpStatus.OK, kept.status, kept.body)
+    }
+
+    @Test
     fun `una version INTERNO sin DOCX o con un SHA-256 distinto del archivo se rechaza`() {
         val id = deliverable(testProject())
         val pdf = stage(admin(), "deliverable_version", "pdf", PDF, "v.pdf", "application/pdf")
