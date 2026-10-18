@@ -123,4 +123,19 @@ class GotenbergConverterTest {
         assertFalse(DeliverableProperties.Gotenberg("").configured)
         assertTrue(DeliverableProperties.Gotenberg("http://localhost:8096").configured)
     }
+
+    @Test
+    fun `un PDF mayor que el tope es PdfTooLarge, no un conversor caido`() {
+        val big = ByteArray((1024 * 1024) + 1) { 'a'.code.toByte() }
+        val server = server { reply(it, 200, "application/pdf", big) }
+        try {
+            val small =
+                GotenbergConverter(
+                    DeliverableProperties(maxFileBytes = 1024L * 1024, gotenberg = DeliverableProperties.Gotenberg(url(server), Duration.ofSeconds(5)))
+                )
+            assertThrows<PdfTooLarge> { runBlocking { small.convert(docx, PdfRequest(false, "Informe", "ENT-001", "A", null)) } }
+        } finally {
+            server.stop(0)
+        }
+    }
 }
