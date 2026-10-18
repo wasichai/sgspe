@@ -407,5 +407,9 @@ class TerritoryImportApiTest : DomainApiTest() {
         assertEquals(1, created, responses.map { it.text }.toString())
         responses.filter { it.status == HttpStatus.CONFLICT }.forEach { assertEquals(listOf("IMPORT_CONFLICT"), problemCodes(it.text)) }
         assertEquals(1, tree(send("GET", "/api/objects/land_parcel/records?code=TST-PRD-20", null, HttpStatus.OK))["totalElements"].asInt())
+        // ASM-060: el lote deja una sola evidencia, la que nombra cada 200
+        val evidences = tree(send("GET", "/api/objects/evidence/records?import_batch_id=${body["importBatchId"].asString()}", null, HttpStatus.OK))["content"]
+        assertEquals(1, evidences.size(), evidences.toString())
+        responses.filter { it.status == HttpStatus.OK }.forEach { assertEquals(evidences[0]["id"].asString(), tree(it.text)["evidenceId"].asString()) }
     }
 }
