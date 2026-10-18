@@ -42,6 +42,15 @@ object DiagnosisStrategy {
         return listOf(Block.Table("Interacciones del periodo por tipo", listOf("Tipo", "Cantidad"), rows))
     }
 
+    // 9.1.1.2: las respuestas alineadas del proyecto (pregunta y respuesta), tras la narrativa del protocolo (#106)
+    suspend fun alignedAnswers(scene: DiagnosisScene): List<Block> {
+        val rows = scene.source.all("aligned_answer", scene.byProject).sortedBy { it.text("question").orEmpty() }
+        if (rows.isEmpty()) return listOf(Block.Paragraph("_Sin respuestas alineadas registradas._"))
+        rows.forEach { scene.keep("reuniones_informativas", it.text("question"), it.text("answer")) }
+        val list = rows.joinToString("\n") { "- **${DiagnosisScene.or(it, "question")}** ${DiagnosisScene.or(it, "answer")}" }
+        return listOf(Block.Paragraph("**Respuestas alineadas**\n\n$list"))
+    }
+
     // Tabla 9.1 con la prioridad combinada
     suspend fun prioritization(scene: DiagnosisScene): List<Block> {
         val grouped = scene.source.all("prioritization_rule", scene.byProject).groupBy { it.text("information_priority") ?: SIN_DATO }

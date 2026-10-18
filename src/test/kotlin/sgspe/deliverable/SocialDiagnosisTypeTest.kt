@@ -34,9 +34,9 @@ class SocialDiagnosisTypeTest {
     private fun ReportModel.tables(key: String): List<Block.Table> = blocks(key).filterIsInstance<Block.Table>()
 
     @Test
-    fun `declara las 49 secciones en orden con sus capitulos y las asistidas por IA de la especificacion`() {
+    fun `declara las 52 secciones en orden con sus capitulos y las asistidas por IA de la especificacion`() {
         val keys = type.sections.map { it.key }
-        assertEquals(49, keys.size)
+        assertEquals(52, keys.size)
         assertEquals(keys.size, keys.toSet().size)
         assertEquals(listOf("portada", "indice", "introduccion"), keys.take(3))
         assertEquals(
@@ -53,6 +53,9 @@ class SocialDiagnosisTypeTest {
                 "grupos_monitoreo",
                 "estrategias",
                 "comunicacion",
+                "contactos_regulares",
+                "reuniones_informativas",
+                "reuniones_politicas",
                 "necesidades"
             ),
             type.sections
@@ -60,7 +63,7 @@ class SocialDiagnosisTypeTest {
                 .map { it.key }
                 .toSet()
         )
-        assertEquals((1..49).toList(), type.sections.map { it.order })
+        assertEquals((1..52).toList(), type.sections.map { it.order })
         assertTrue(type.requiresApprovedArea)
     }
 
@@ -638,6 +641,70 @@ class SocialDiagnosisTypeTest {
         assertEquals(1, model.blocks("percepciones_mineria").size)
     }
 
+    private fun alignedAnswer(
+        source: FakeReportSource,
+        n: Int,
+        question: String,
+        answer: String?
+    ) = source.add("aligned_answer", T1Source.id(n), null, "project" to T1Source.PROJECT, "question" to question, "answer" to answer)
+
+    @Test
+    fun `9_1_1 va tras la comunicacion con sus tres secciones y la priorizacion pasa a 9_1_1_4`() {
+        val keys = type.sections.map { it.key }
+        val at = keys.indexOf("comunicacion")
+        assertEquals(
+            listOf("comunicacion", "contactos_regulares", "reuniones_informativas", "reuniones_politicas", "priorizacion", "mensajes"),
+            keys.subList(
+                at,
+                at + 6
+            )
+        )
+        val titles = type.sections.associate { it.key to it.title }
+        assertEquals("9.1.1 Metodología de interacción", titles["contactos_regulares"])
+        assertEquals("9.1.1.2 Reuniones informativas", titles["reuniones_informativas"])
+        assertEquals("9.1.1.3 Reuniones con grupos políticos", titles["reuniones_politicas"])
+        assertEquals("9.1.1.4 Priorización de la información", titles["priorizacion"])
+        val model = assemble().model
+        assertEquals(
+            listOf(3, 4, 4, 4),
+            listOf("contactos_regulares", "reuniones_informativas", "reuniones_politicas", "priorizacion").map { k ->
+                model.sections
+                    .single {
+                        it.key ==
+                            k
+                    }.level
+            }
+        )
+        assertEquals(Block.Heading(4, "9.1.1.1 Contactos regulares"), model.blocks("contactos_regulares").first())
+    }
+
+    @Test
+    fun `las respuestas alineadas salen tras la narrativa de las reuniones informativas, en INTERNO y EXTERNO`() {
+        val source = T1Source.source()
+        alignedAnswer(source, 700, "¿Habrá relocalización?", "No se prevé relocalizar a nadie.")
+        alignedAnswer(source, 701, "¿Contratarán gente local?", "Sí, según la política de empleo local.")
+        val model = assemble(source, mapOf("reuniones_informativas" to "Protocolo QX7.")).model
+        for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
+            val text = ReportDisclosure.apply(model, level).text("reuniones_informativas")
+            assertTrue(text.indexOf("Protocolo QX7.") in 0 until text.indexOf("¿Contratarán gente local?"), "$level: $text")
+            assertTrue("No se prevé relocalizar a nadie." in text && text.indexOf("¿Contratarán") < text.indexOf("¿Habrá"), "$level: $text")
+        }
+    }
+
+    @Test
+    fun `sin respuestas alineadas las reuniones informativas lo dicen en cursiva`() {
+        val blocks = assemble().model.blocks("reuniones_informativas")
+        assertEquals("_Sin respuestas alineadas registradas._", (blocks.single() as Block.Paragraph).markdown)
+    }
+
+    @Test
+    fun `un entregable sin las secciones de metodologia de interaccion ensambla igual, sin esas narrativas`() {
+        val model = assemble(content = mapOf("comunicacion" to "Comunicación QX8.")).model
+        assertTrue(model.blocks("reuniones_politicas").isEmpty())
+        assertEquals(1, model.blocks("contactos_regulares").size)
+        assertEquals(52, model.sections.size)
+    }
+
     // Review Focus 1
     @Test
     fun `EXTERNO no lleva religion, proceso electoral, razones ni postura de una persona`() {
@@ -846,7 +913,7 @@ class SocialDiagnosisTypeTest {
             )
         val assembled = runBlocking { type.assemble(input, source) }
         val model = assembled.model
-        assertEquals(49, model.sections.size)
+        assertEquals(52, model.sections.size)
         assertTrue((model.blocks("objetivos").first() as Block.Paragraph).markdown.contains("no registra"))
         assertTrue((model.blocks("aiis").first() as Block.Paragraph).markdown.contains("no tiene un área de influencia indirecta social aprobada"))
         assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))

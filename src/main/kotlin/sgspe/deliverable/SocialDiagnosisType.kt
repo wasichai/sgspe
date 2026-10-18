@@ -107,6 +107,7 @@ class SocialDiagnosisType : DeliverableType {
             "road_access" to setOf("road_type", "road_condition", "transport_means", "travel_time", "locality", "connects_to"),
             "state_program" to setOf("name"),
             "engagement" to setOf("engagement_type", "held_at", "scheduled_at", "locality", "study", "project"),
+            "aligned_answer" to setOf("question", "answer", "project"),
             "field_visit" to setOf("actual_start_date", "planned_start_date", "project"),
             "exploration_campaign" to setOf("name", "activity_type", "planned_start_date", "planned_end_date", "social_support_cap", "currency", "project"),
             "project_party" to setOf("party_role", "organization", "project"),
@@ -293,6 +294,8 @@ class SocialDiagnosisType : DeliverableType {
             "temas_clave" -> DiagnosisStakeholders.keyThemes(scene)
             "estrategias" -> DiagnosisStrategy.strategies(scene)
             "comunicacion" -> DiagnosisStrategy.communication(scene)
+            "contactos_regulares" -> listOf(Block.Heading(4, "9.1.1.1 Contactos regulares"))
+            "reuniones_informativas" -> DiagnosisStrategy.alignedAnswers(scene)
             "priorizacion" -> DiagnosisStrategy.prioritization(scene)
             "mensajes" -> DiagnosisStrategy.messages(scene)
             "alianzas" -> DiagnosisStrategy.alliances(scene)
@@ -325,7 +328,7 @@ class SocialDiagnosisType : DeliverableType {
                 "costumbres" to "locality_profile.religion"
             )
 
-        private val NARRATIVE_FIRST = setOf("perfiles")
+        private val NARRATIVE_FIRST = setOf("perfiles", "reuniones_informativas")
 
         private val ROWS: List<Row> =
             listOf(
@@ -460,11 +463,39 @@ class SocialDiagnosisType : DeliverableType {
                 Row("temas_clave", "8. Definición de temas clave", CALCULATED, 1, 8, false, "Tema, descripción, riesgos y oportunidades."),
                 Row("estrategias", "9. Estrategias sociales", MIXED, 1, 9, true, "Meta del periodo y ejes de acción."),
                 Row("comunicacion", "9.1 Información y comunicación", MIXED, 2, 9, true, "Situación de la comunicación, contactos regulares y protocolos."),
+                // 9.1.1 Metodología de interacción abre con el título de esta sección; 9.1.1.1 va como encabezado de su cuerpo (#106)
+                Row(
+                    "contactos_regulares",
+                    "9.1.1 Metodología de interacción",
+                    NARRATIVE,
+                    3,
+                    9,
+                    true,
+                    "Contactos regulares con los grupos de interés (9.1.1.1): quién, cada cuánto y por qué medio."
+                ),
+                Row(
+                    "reuniones_informativas",
+                    "9.1.1.2 Reuniones informativas",
+                    MIXED,
+                    4,
+                    9,
+                    true,
+                    "Protocolo: convocatoria, interlocutor local, contenidos y que no se asumen compromisos. Las respuestas alineadas salen a continuación."
+                ),
+                Row(
+                    "reuniones_politicas",
+                    "9.1.1.3 Reuniones con grupos políticos",
+                    NARRATIVE,
+                    4,
+                    9,
+                    true,
+                    "Cómo se reúne el proyecto con los grupos políticos."
+                ),
                 Row(
                     "priorizacion",
-                    "9.1.1 Priorización de la información",
+                    "9.1.1.4 Priorización de la información",
                     CALCULATED,
-                    3,
+                    4,
                     9,
                     false,
                     "Prioridad por grupo de influencia, postura, ámbito y tipo."
