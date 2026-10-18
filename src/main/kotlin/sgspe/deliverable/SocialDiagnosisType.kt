@@ -107,7 +107,7 @@ class SocialDiagnosisType : DeliverableType {
             "road_access" to setOf("road_type", "road_condition", "transport_means", "travel_time", "locality", "connects_to"),
             "state_program" to setOf("name"),
             "engagement" to setOf("engagement_type", "held_at", "scheduled_at", "locality", "study", "project"),
-            "aligned_answer" to setOf("question", "answer", "project"),
+            "aligned_answer" to setOf("question", "answer", "approved", "project"),
             "field_visit" to setOf("actual_start_date", "planned_start_date", "project"),
             "exploration_campaign" to setOf("name", "activity_type", "planned_start_date", "planned_end_date", "social_support_cap", "currency", "project"),
             "project_party" to setOf("party_role", "organization", "project"),

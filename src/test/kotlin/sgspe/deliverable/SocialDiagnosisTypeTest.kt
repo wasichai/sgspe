@@ -645,8 +645,17 @@ class SocialDiagnosisTypeTest {
         source: FakeReportSource,
         n: Int,
         question: String,
-        answer: String?
-    ) = source.add("aligned_answer", T1Source.id(n), null, "project" to T1Source.PROJECT, "question" to question, "answer" to answer)
+        answer: String?,
+        approved: Boolean = true
+    ) = source.add(
+        "aligned_answer",
+        T1Source.id(n),
+        null,
+        "project" to T1Source.PROJECT,
+        "question" to question,
+        "answer" to answer,
+        "approved" to approved
+    )
 
     @Test
     fun `9_1_1 va tras la comunicacion con sus tres secciones y la priorizacion pasa a 9_1_1_4`() {
@@ -683,17 +692,21 @@ class SocialDiagnosisTypeTest {
         val source = T1Source.source()
         alignedAnswer(source, 700, "¿Habrá relocalización?", "No se prevé relocalizar a nadie.")
         alignedAnswer(source, 701, "¿Contratarán gente local?", "Sí, según la política de empleo local.")
+        alignedAnswer(source, 702, "¿Pagarán por las tierras?", "Borrador sin aprobar.", approved = false)
         val model = assemble(source, mapOf("reuniones_informativas" to "Protocolo QX7.")).model
         for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
             val text = ReportDisclosure.apply(model, level).text("reuniones_informativas")
             assertTrue(text.indexOf("Protocolo QX7.") in 0 until text.indexOf("¿Contratarán gente local?"), "$level: $text")
+            assertTrue("Pagarán" !in text && "Borrador sin aprobar" !in text, "$level: respuesta no aprobada")
             assertTrue("No se prevé relocalizar a nadie." in text && text.indexOf("¿Contratarán") < text.indexOf("¿Habrá"), "$level: $text")
         }
     }
 
     @Test
-    fun `sin respuestas alineadas las reuniones informativas lo dicen en cursiva`() {
-        val blocks = assemble().model.blocks("reuniones_informativas")
+    fun `sin respuestas alineadas aprobadas las reuniones informativas lo dicen en cursiva`() {
+        val source = T1Source.source()
+        alignedAnswer(source, 710, "¿Y la compensación?", "Sin aprobar.", approved = false)
+        val blocks = assemble(source).model.blocks("reuniones_informativas")
         assertEquals("_Sin respuestas alineadas registradas._", (blocks.single() as Block.Paragraph).markdown)
     }
 
