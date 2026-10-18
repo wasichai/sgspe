@@ -238,9 +238,15 @@ class DeliverableDraftsApiTest : F8ApiTest() {
                 .single()
                 .rows.size
         )
+        // un pedido por mapa, en el orden del documento, cada uno con su encuadre (#83: no basta con el conjunto de claves)
         val maps = fakeMaps.requests.filter { it.project.toString() == scenario.project }
-        assertEquals(setOf(DiagnosisStudy.AREAS_MAP, DiagnosisAnnexes.ANNEX_MAP), maps.map { it.key }.toSet())
-        assertTrue(maps.single { it.key == DiagnosisAnnexes.ANNEX_MAP }.landscape)
+        assertEquals(listOf(DiagnosisStudy.AREAS_MAP, DiagnosisAnnexes.ANNEX_MAP), maps.map { it.key })
+        val areas = maps.single { it.key == DiagnosisStudy.AREAS_MAP }
+        assertEquals(MapFrameKind.AREAS, areas.frame)
+        assertTrue(areas.areas.isNotEmpty() && !areas.landscape, "$areas")
+        val annex = maps.single { it.key == DiagnosisAnnexes.ANNEX_MAP }
+        assertEquals(MapFrameKind.INTEREST_AND_CONCESSIONS, annex.frame)
+        assertTrue(annex.landscape)
     }
 
     // menor del plan 8.2b: lo que sube JOB-05 lo sube la plataforma (UPS-31): sin persona y con la corrida que lo adjuntó

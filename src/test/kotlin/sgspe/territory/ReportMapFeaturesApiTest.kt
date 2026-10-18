@@ -66,6 +66,47 @@ class ReportMapFeaturesApiTest : F8ApiTest() {
         assertEquals(2, capped.size, "el tope pide max + 1 para saber que se pasó")
     }
 
+    // #83: el filtro project deja fuera los componentes de otro proyecto y currentOnly, las versiones reemplazadas (superseded):
+    // un sondaje movido sale una vez, en su versión vigente
+    @Test
+    fun `project deja fuera otro proyecto y currentOnly las versiones reemplazadas`() {
+        val org = organizationId()
+        // lejos del origen de las demás pruebas: la base es compartida
+        val (lon, lat) = SyntheticGeo.offset(SyntheticGeo.ORIGIN.first, SyntheticGeo.ORIGIN.second, Random.nextDouble(40_000.0, 60_000.0), -60_000.0)
+        val (own, other) = runBlocking { utmProject() to utmProject() }
+        val code = uniqueName("SND-")
+        val first = runBlocking { component(own, code, "SONDAJE", SyntheticGeo.point(lon, lat)) }
+        // el mismo código con otras coordenadas es la versión 2: la 1 queda superseded
+        val moved = runBlocking { component(own, code, "SONDAJE", SyntheticGeo.point(lon + 0.002, lat)) }
+        val elsewhere = runBlocking { component(other, uniqueName("SND-"), "SONDAJE", SyntheticGeo.point(lon + 0.001, lat)) }
+        val ids = listOf(first, moved, elsewhere)
+        // los tres puntos están en una misma latitud: el encuadre lleva un margen para no ser una línea
+        val bbox =
+            runBlocking { features.extent(org, 32717, listOf(GeometryRef("project_component", "location", ids))) }!!.let {
+                MapExtent(it.minX - 100, it.minY - 100, it.maxX + 100, it.maxY + 100)
+            }
+
+        fun labels(
+            project: UUID?,
+            currentOnly: Boolean
+        ): List<String?> =
+            runBlocking {
+                features
+                    .features(
+                        org,
+                        32717,
+                        MapLayerQuery("project_component", "location", ids = ids, project = project, label = "code", currentOnly = currentOnly),
+                        bbox,
+                        1.0,
+                        10
+                    ).map { it.label }
+            }
+        assertEquals(3, labels(null, currentOnly = false).size)
+        assertEquals(listOf(code, code), labels(own, currentOnly = false))
+        assertEquals(listOf(code), labels(own, currentOnly = true))
+        assertEquals(2, labels(null, currentOnly = true).size)
+    }
+
     @Test
     fun `con una persona en el contexto no corre`() {
         val org = organizationId()
