@@ -268,6 +268,70 @@
       ]
     },
     {
+      "object": "aligned_answer",
+      "match": [
+        "project",
+        "question"
+      ],
+      "as": "social",
+      "records": [
+        {
+          "key": "al-agua",
+          "attributes": {
+            "project": "@proj",
+            "topic": "@topic-agua",
+            "question": "¿La perforación va a secar o a ensuciar los manantiales y los canales?",
+            "answer": "No. La campaña no toma agua de los manantiales ni de los canales de la microcuenca: el agua llega en cisternas desde fuera y los comités de agua pueden verificarlo y participar en el monitoreo.",
+            "approved": true,
+            "approved_date": "2026-06-10"
+          }
+        },
+        {
+          "key": "al-empleo",
+          "attributes": {
+            "project": "@proj",
+            "topic": "@topic-empleo",
+            "question": "¿Quién tendrá los puestos de trabajo de la campaña?",
+            "answer": "Los puestos son pocos y temporales, y se reparten por turnos acordados con cada asamblea; ningún sector ni caserío tiene prioridad sobre otro.",
+            "approved": true,
+            "approved_date": "2026-06-10"
+          }
+        },
+        {
+          "key": "al-etapa",
+          "attributes": {
+            "project": "@proj",
+            "topic": "@topic-mineria",
+            "question": "¿La exploración es lo mismo que una mina en operación?",
+            "answer": "No. La exploración consiste en perforar para conocer el subsuelo; no extrae mineral ni instala una operación. Cualquier etapa posterior requiere estudios y procesos de participación distintos, que se informarán con anticipación.",
+            "approved": true,
+            "approved_date": "2026-07-02"
+          }
+        },
+        {
+          "key": "al-pastos",
+          "attributes": {
+            "project": "@proj",
+            "topic": "@topic-agua",
+            "question": "¿Se perderán pastos por las plataformas y las trochas?",
+            "answer": "Las plataformas ocupan superficies pequeñas y las trochas se acuerdan con cada asamblea. Lo que se use se repone al terminar la campaña, según lo que cada asamblea haya acordado por escrito.",
+            "approved": true,
+            "approved_date": "2026-07-02"
+          }
+        },
+        {
+          "key": "al-sin-aprobar",
+          "attributes": {
+            "project": "@proj",
+            "topic": "@topic-empleo",
+            "question": "¿La empresa pagará una compensación por cada familia del caserío?",
+            "answer": "Pendiente de revisión: el equipo aún no define cómo responder sin generar expectativas que el tope de apoyo de la campaña no puede cubrir.",
+            "approved": false
+          }
+        }
+      ]
+    },
+    {
       "object": "strategic_alliance",
       "match": [
         "project",

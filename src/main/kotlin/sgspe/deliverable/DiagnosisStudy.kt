@@ -4,6 +4,7 @@ import sgspe.deliverable.DiagnosisScene.Companion.SIN_DATO
 import sgspe.privacy.Block
 import sgspe.privacy.Cell
 import sgspe.privacy.Mark
+import java.text.Normalizer
 import java.util.UUID
 
 // T1, portada, índice y capítulos 1 a 4 (deliverables.md §5): la introducción con el proyecto, sus campañas y sus partes; los
@@ -28,7 +29,21 @@ object DiagnosisStudy {
     private val SUPPORT = setOf("A FAVOR")
     private val OPPOSITION = setOf("EN CONTRA", "EN CONTRA PERO ABIERTO A ESCUCHAR")
 
-    fun cover(scene: DiagnosisScene): List<Block> = listOf(Block.Paragraph("Diagnóstico social del proyecto ${scene.project.text("name")}"))
+    // «del proyecto X», salvo que el nombre ya empiece con «proyecto» (sin distinguir mayúsculas ni tildes): «del Proyecto X»
+    fun cover(scene: DiagnosisScene): List<Block> {
+        val name = scene.project.text("name").orEmpty()
+        val title = if (startsWith(name, "proyecto")) "Diagnóstico social del $name" else "Diagnóstico social del proyecto $name"
+        return listOf(Block.Paragraph(title))
+    }
+
+    // si el texto empieza con la palabra entera (no «Proyectos» por «proyecto»), sin distinguir mayúsculas ni tildes
+    internal fun startsWith(
+        text: String,
+        word: String
+    ): Boolean =
+        Regex("^${Regex.escape(word)}(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE).containsMatchIn(
+            Normalizer.normalize(text.trim(), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
+        )
 
     fun index(): List<Block> =
         listOf(
@@ -135,19 +150,9 @@ object DiagnosisStudy {
     }
 
     suspend fun design(scene: DiagnosisScene): List<Block> {
-        val study = scene.study ?: return listOf(Block.Paragraph("_El entregable no tiene estudio._"))
-        val instruments = scene.source.all("study_instrument", mapOf("study" to study.id))
-        if (instruments.isEmpty()) return listOf(Block.Paragraph("_El estudio no registra instrumentos._"))
-        val rows =
-            instruments.map { row ->
-                listOf(
-                    Cell(row.ref("topic")?.let { scene.source.one("topic", it)?.text("name") } ?: SIN_DATO),
-                    Cell(DiagnosisScene.option(row, "instrument_type")),
-                    Cell(DiagnosisScene.option(row, "application_scope")),
-                    Cell(row.text("description").orEmpty())
-                )
-            }
-        return listOf(Block.Table("Temas e instrumentos del estudio", listOf("Tema", "Instrumento", "Ámbito de aplicación", "Descripción"), rows))
+        if (scene.study == null) return listOf(Block.Paragraph("_El entregable no tiene estudio._"))
+        // la tabla de temas e instrumentos sale una sola vez, en el Anexo 2 (10.2)
+        return listOf(Block.Paragraph("Los temas y los instrumentos del estudio están en el Anexo 2 (10.2)."))
     }
 
     // Tabla 3.1: entrevistas y fichas de observación del estudio por ámbito y localidad, con el ámbito combinado
@@ -208,11 +213,6 @@ object DiagnosisStudy {
         )
     }
 
-    fun areasIntro(scene: DiagnosisScene): List<Block> {
-        scene.keep("areas", scene.aids.text("criteria"))
-        return listOf(Block.Paragraph(scene.aids.text("criteria") ?: "_El área no registra su criterio general._"))
-    }
-
     // los miembros de un área aprobada con su condición, sus criterios, su justificación y si se estudiaron; con `grouped`, una
     // tabla por título (en ese orden) y las vacías fuera
     suspend fun members(
@@ -223,6 +223,7 @@ object DiagnosisStudy {
         grouped: (suspend (List<SourceRow>) -> List<Pair<String, List<SourceRow>>>)? = null
     ): List<Block> {
         if (area == null) return listOf(Block.Paragraph("_El proyecto no tiene un área de influencia indirecta social aprobada._"))
+        scene.keep(key, area.text("criteria"))
         val all = scene.members(area)
         val groups = grouped?.invoke(all) ?: listOf(title to all)
         val tables =
@@ -240,7 +241,7 @@ object DiagnosisStudy {
                     }
                 Block.Table(caption, listOf("Miembro", "Condición", "Criterios aplicados", "Justificación", "Estudiado en el diagnóstico"), rows)
             }
-        return listOfNotNull(area.text("criteria")?.let { Block.Paragraph("**Criterios:** $it") }) + tables
+        return listOfNotNull(area.text("criteria")?.let { Block.Paragraph(if (startsWith(it, "criterios")) it else "**Criterios:** $it") }) + tables
     }
 
     suspend fun aids(scene: DiagnosisScene): List<Block> = members(scene, scene.aids, "aids", "Miembros del área de influencia directa social")

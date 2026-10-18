@@ -40,6 +40,7 @@ object BaseTemplate {
                 style(doc, "Heading1", TemplateStyles.HEADING_1, 28, bold = true, outline = 0)
                 style(doc, "Heading2", TemplateStyles.HEADING_2, 24, bold = true, outline = 1)
                 style(doc, "Heading3", TemplateStyles.HEADING_3, 22, bold = true, outline = 2)
+                style(doc, "Heading4", TemplateStyles.HEADING_4, 22, bold = true, outline = 3)
                 style(doc, "Caption", TemplateStyles.CAPTION, 20, bold = true, outline = null)
                 style(doc, "ListParagraph", TemplateStyles.LIST, 22, bold = false, outline = null)
                 cover(doc, "Title", "{{titulo}}")

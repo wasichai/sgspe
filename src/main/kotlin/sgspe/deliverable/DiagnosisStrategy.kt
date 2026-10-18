@@ -21,11 +21,14 @@ object DiagnosisStrategy {
     suspend fun strategies(scene: DiagnosisScene): List<Block> {
         val plans = scene.source.all("engagement_plan", scene.byProject).sortedBy { it.text("name").orEmpty() }
         if (plans.isEmpty()) return listOf(Block.Paragraph("_El proyecto no tiene plan de relacionamiento._"))
+        // la meta sale una vez: con un solo plan, la narrativa de la sección es su meta del periodo y el campo no se repite; con
+        // varios, la narrativa no dice de cuál habla y cada plan conserva la suya
+        val narrated = plans.size == 1 && scene.hasNarrative("estrategias")
         return plans.flatMap { plan ->
             scene.keep("estrategias", plan.text("name"), plan.text("strategic_objective"), plan.text("action_axes"))
             listOfNotNull(
                 Block.Heading(3, DiagnosisScene.or(plan, "name")),
-                plan.text("strategic_objective")?.let { Block.Paragraph("**Meta del periodo.** $it") },
+                plan.text("strategic_objective")?.takeUnless { narrated }?.let { Block.Paragraph("**Meta del periodo.** $it") },
                 plan.text("action_axes")?.let { Block.Paragraph("**Ejes de acción.**\n\n$it") }
             )
         }
@@ -39,6 +42,20 @@ object DiagnosisStrategy {
                 listOf(Cell(ReportLabels.option(type) ?: type), Cell(list.size.toString()))
             }
         return listOf(Block.Table("Interacciones del periodo por tipo", listOf("Tipo", "Cantidad"), rows))
+    }
+
+    // 9.1.1.2: las respuestas alineadas aprobadas del proyecto (pregunta y respuesta; un informe no publica las que el equipo no
+    // aprobó), tras la narrativa del protocolo (#106)
+    suspend fun alignedAnswers(scene: DiagnosisScene): List<Block> {
+        val rows =
+            scene.source
+                .all("aligned_answer", scene.byProject)
+                .filter { it.attributes["approved"] == true }
+                .sortedBy { it.text("question").orEmpty() }
+        if (rows.isEmpty()) return listOf(Block.Paragraph("_Sin respuestas alineadas registradas._"))
+        rows.forEach { scene.keep("reuniones_informativas", it.text("question"), it.text("answer")) }
+        val list = rows.joinToString("\n") { "- **${DiagnosisScene.or(it, "question")}** ${DiagnosisScene.or(it, "answer")}" }
+        return listOf(Block.Paragraph("**Respuestas alineadas**\n\n$list"))
     }
 
     // Tabla 9.1 con la prioridad combinada
@@ -120,22 +137,37 @@ object DiagnosisStrategy {
         )
     }
 
-    suspend fun impacts(scene: DiagnosisScene): List<Block> =
-        table(
-            scene,
-            "impactos",
-            "potential_impact",
-            "Impactos potenciales por tipo de actividad",
-            listOf(
-                "Tipo de actividad" to "activity_type",
-                "Tipo de impacto" to "impact_type",
-                "Naturaleza" to "impact_nature",
-                "Signo" to "impact_sign",
-                "Descripción" to "description"
-            ),
-            labeled = setOf("activity_type", "impact_type", "impact_nature", "impact_sign"),
-            wide = true
-        )
+    // Tabla 9.4: una fila por tipo de actividad, con una columna por tipo de impacto (ambiental, social) y, en cada celda, las
+    // descripciones con su naturaleza y su signo en texto
+    suspend fun impacts(scene: DiagnosisScene): List<Block> {
+        val intro = Block.Paragraph(DiagnosisTexts.text("capitulo-9-3"))
+        val rows = scene.source.all("potential_impact", scene.byProject)
+        if (rows.isEmpty()) return listOf(intro, Block.Paragraph("_Sin registros._"))
+        rows.forEach { row ->
+            listOf("activity_type", "impact_type", "impact_nature", "impact_sign", "description").forEach { scene.keep("impactos", row.text(it)) }
+        }
+        val types = rows.map { it.text("impact_type") }.distinct().sortedBy { listOf("AMBIENTAL", "SOCIAL").indexOf(it).let { i -> if (i < 0) 9 else i } }
+        val activities = rows.map { it.text("activity_type") }.distinct().sortedBy { ReportLabels.option(it) ?: SIN_DATO }
+
+        fun described(row: SourceRow): String {
+            val traits = listOfNotNull(ReportLabels.option(row.text("impact_nature")), ReportLabels.option(row.text("impact_sign"))).map { it.lowercase() }
+            val text = row.text("description") ?: SIN_DATO
+            return if (traits.isEmpty()) "• $text" else "• $text (${traits.joinToString(", ")})"
+        }
+        val table =
+            Block.Table(
+                "Impactos potenciales por tipo de actividad",
+                listOf("Tipo de actividad") + types.map { "Impacto " + (ReportLabels.option(it) ?: SIN_DATO).lowercase() },
+                activities.map { activity ->
+                    listOf(Cell(ReportLabels.option(activity) ?: SIN_DATO)) +
+                        types.map { type ->
+                            Cell(rows.filter { it.text("activity_type") == activity && it.text("impact_type") == type }.joinToString("\n") { described(it) })
+                        }
+                },
+                wide = true
+            )
+        return listOf(intro, table)
+    }
 
     // Tabla 9.5: valor del periodo, meta y cifra oficial (con su fecha de cierre) o «—»
     suspend fun monitoring(scene: DiagnosisScene): List<Block> {
@@ -172,7 +204,8 @@ object DiagnosisStrategy {
                 .stakeholders()
                 .flatMap { scene.source.all("stakeholder_assessment", mapOf("stakeholder" to it.id)) }
                 .filter { scene.upToCutoff(it.text("assessment_date")) }
-        if (assessments.isEmpty()) return listOf(Block.Paragraph("_Sin evaluaciones de grupos de interés hasta el corte._"))
+        val intro = Block.Paragraph(DiagnosisTexts.text("evaluacion-grupos"))
+        if (assessments.isEmpty()) return listOf(intro, Block.Paragraph("_Sin evaluaciones de grupos de interés hasta el corte._"))
         val byMonth = assessments.groupBy { scene.day(it.text("assessment_date"))?.let(YearMonth::from) }
         val rows =
             months.map { month ->
@@ -187,6 +220,7 @@ object DiagnosisStrategy {
                 )
             }
         return listOf(
+            intro,
             Block.Table(
                 "Evaluación de los grupos de interés por mes",
                 listOf("Mes", "Evaluaciones", "Confianza promedio", "Cambio de postura (%)", "Comunicación suficiente (%)", "Información adecuada (%)"),
@@ -229,6 +263,7 @@ object DiagnosisStrategy {
                     )}: ${supportCap(c)}"
                 }
         return listOfNotNull(
+            Block.Paragraph(DiagnosisTexts.text("seguimiento-compromisos")),
             byState.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por estado", listOf("Estado", "Cantidad"), it) },
             byDeadline.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por plazo", listOf("Plazo", "Cantidad"), it) },
             Block.Paragraph("**Lineamientos de apoyo de la campaña.**\n\n${lines.joinToString("\n")}\n\nLa matriz completa de compromisos se exporta en XLSX.")
@@ -256,6 +291,7 @@ object DiagnosisStrategy {
                     (1..5).map { probability -> Cell(counts[impact - 1][probability - 1].toString(), shade = shade(probability * impact, scene.project)) }
             }
         return listOfNotNull(
+            Block.Paragraph(DiagnosisTexts.text("riesgos")),
             risks.takeIf { it.isNotEmpty() }?.let { list ->
                 Block.Table(
                     "Riesgos sociales identificados",
@@ -271,6 +307,7 @@ object DiagnosisStrategy {
                 )
             },
             Block.Heading(3, "9.3.2.1 Evaluación del riesgo"),
+            Block.Paragraph(DiagnosisTexts.text("evaluacion-riesgo")),
             Block.Table("Matriz de probabilidad e impacto", listOf("Impacto / Probabilidad", "1", "2", "3", "4", "5"), matrix, figure = true)
         )
     }

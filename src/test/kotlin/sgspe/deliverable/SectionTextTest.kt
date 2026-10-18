@@ -113,4 +113,17 @@ class SectionTextTest {
         }
         assertEquals(listOf("Persona Ejemplo 1" to personId, "Persona Ejemplo 2" to otherId, "Asociación Ejemplo" to null), seen)
     }
+
+    // M5 de la revisión de #105 a #111: una celda con viñetas en varias líneas no parte la fila de la tabla
+    @Test
+    fun `una celda con saltos de linea queda en una sola fila`() {
+        val text =
+            SectionText.render(
+                listOf(Block.Table("Acciones", listOf("Eje", "Acciones"), listOf(listOf(Cell("Agua"), Cell("- Una\n- Dos"))))),
+                people,
+                holders,
+                always
+            )
+        assertEquals("**Acciones**\n| Eje | Acciones |\n| Agua | - Una; - Dos |", text)
+    }
 }

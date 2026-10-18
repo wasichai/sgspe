@@ -249,11 +249,20 @@ class DemoDataTests(unittest.TestCase):
         plans = self.records("engagement_plan")
         self.assertEqual(len(plans), 1)
         self.assertEqual(plans[0]["attributes"]["meetings_per_month_target"], 4)
-        activities = [c["attributes"] for c in plans[0]["children"] if c["object"] == "planned_activity"]
+        children = plans[0]["children"]
+        activities = [c["attributes"] for c in children if c["object"] == "planned_activity"]
         self.assertEqual(len(activities), 10)
         self.assertEqual(sum(1 for a in activities if a["completed"]), 6)
         self.assertTrue(all("2026-05-01" <= a["planned_date"] <= "2026-11-30" for a in activities))
         self.assertTrue(all(a["planned_date"] <= "2026-09-30" for a in activities if a["completed"]))
+
+    def test_respuestas_alineadas_aprobadas_y_pendientes(self):
+        # el informe publica solo las aprobadas (DiagnosisStrategy.alignedAnswers): hay de las dos
+        answers = [r["attributes"] for r in self.records("aligned_answer")]
+        self.assertGreaterEqual(len(answers), 4)
+        self.assertTrue(any(a["approved"] for a in answers))
+        self.assertTrue(any(not a["approved"] for a in answers))
+        self.assertTrue(all(a["approved_date"] for a in answers if a["approved"]))
 
     def test_mensajes_alianzas_e_impactos(self):
         self.assertEqual(len(self.records("key_message")), 6)
@@ -348,9 +357,10 @@ class DemoDataTests(unittest.TestCase):
         "introduccion", "objetivos", "metodologia", "alcance", "diseno", "trabajo_campo",
         "areas", "aids", "aiis",
         "contexto", "historia", "poblacion", "economia", "educacion_salud", "proceso_electoral", "costumbres",
-        "grupos_interes", "perfiles", "caracterizacion", "percepciones", "clasificacion", "grupos_estrategicos",
+        "grupos_interes", "perfiles", "caracterizacion", "percepciones", "percepciones_mineria", "percepciones_proyecto",
+        "percepciones_empresa", "clasificacion", "grupos_estrategicos",
         "grupos_politicos", "grupos_monitoreo",
-        "estrategias", "comunicacion", "alianzas", "gestion_riesgos", "necesidades",
+        "estrategias", "contactos_regulares", "reuniones_informativas", "reuniones_politicas", "comunicacion", "alianzas", "gestion_riesgos", "necesidades",
     }
 
     def sections(self):
@@ -359,7 +369,7 @@ class DemoDataTests(unittest.TestCase):
 
     def test_narrativa_para_cada_seccion_humana(self):
         sections = self.sections()
-        self.assertGreaterEqual(len(sections), 29)
+        self.assertGreaterEqual(len(sections), 35)
         self.assertNotIn("portada", sections)
         self.assertEqual(set(sections), self.HUMAN_SECTIONS)
         for key, text in sections.items():

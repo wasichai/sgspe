@@ -11,18 +11,27 @@ import java.util.UUID
 // llevan su marca Restricted: solo INTERNO (§3.8, RQ-SEC-010)
 object DiagnosisContext {
     private const val WIDE = 4
+
+    // la página horizontal: más de WIDE columnas de localidades, tipos o programas además de la de los rótulos. la tabla
+    // transpuesta (una fila por localidad) pasa una columna antes: sus columnas son temas de texto libre, no marcas ni conteos
+    private fun wide(columns: Int): Boolean = columns > WIDE + 1
+
+    private fun wideTransposed(columns: Int): Boolean = columns > WIDE
+
+    // con más localidades que esto, las tablas del AIIS pasan a una fila por localidad (o una matriz resumida)
+    private const val TRANSPOSE = 5
     const val RESERVED = "Información reservada en esta versión."
 
     suspend fun history(scene: DiagnosisScene): List<Block> {
         val conflicts = linked(scene, "local_conflict", "local_conflict_locality")
         return scene.scopes().flatMap { (title, localities) ->
             listOf<Block>(Block.Heading(3, title)) +
-                localities.map { locality ->
+                localities.flatMap { locality ->
                     scene.keep("historia", locality.text("history"))
                     val found = conflicts[locality.id].orEmpty()
                     val text =
                         listOfNotNull(
-                            "**${DiagnosisScene.or(locality, "name")}** (${DiagnosisScene.option(locality, "recognition_status")}).",
+                            "Reconocimiento: ${DiagnosisScene.option(locality, "recognition_status")}.",
                             locality.text("history"),
                             found.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = "Conflictos: ", postfix = ".") { c ->
                                 "${DiagnosisScene.or(
@@ -32,7 +41,8 @@ object DiagnosisContext {
                                     c.text("disputed_resource")?.let { ", por $it" }.orEmpty() + ")"
                             }
                         ).joinToString(" ")
-                    Block.Paragraph(text)
+                    // un subtítulo de nivel 4 por localidad, que entra en el índice
+                    listOf(Block.Heading(4, DiagnosisScene.or(locality, "name")), Block.Paragraph(text))
                 }
         }
     }
@@ -74,7 +84,9 @@ object DiagnosisContext {
             listOf(
                 "Cultivos" to "crops",
                 "Ganadería" to "livestock",
-                "Otras actividades" to "economic_activities"
+                "Otras actividades" to "economic_activities",
+                // el modelo no tiene una problemática general de la localidad: la más cercana es la del agua
+                "Problemática (problemas del agua)" to "water_problems"
             )
         )
 
@@ -168,7 +180,8 @@ object DiagnosisContext {
             )
         }
 
-    // Tabla 5.10: organizaciones por localidad y programas del Estado presentes, con X
+    // Tabla 5.10: con cinco localidades o menos, organizaciones y programas en filas y las localidades en columnas, con X;
+    // con más, una matriz por localidad (filas) con el número de organizaciones por tipo y otra con X por programa del Estado
     suspend fun organizations(scene: DiagnosisScene): List<Block> {
         val programs = linked(scene, "state_program", "state_program_locality")
         return scene.scopes().flatMap { (title, localities) ->
@@ -178,11 +191,6 @@ object DiagnosisContext {
                     .flatMap { locality -> scene.source.all("organization", mapOf("locality" to locality.id)) }
                     .distinctBy { it.id }
                     .sortedBy { it.text("name") }
-            val organizationRows =
-                organizations.map { org ->
-                    listOf(Cell(DiagnosisScene.or(org, "name")), Cell(DiagnosisScene.option(org, "organization_type"))) +
-                        ids.map { Cell(if (org.text("locality") == it) "X" else "") }
-                }
             val present =
                 programs
                     .filterKeys { it in ids }
@@ -190,24 +198,77 @@ object DiagnosisContext {
                     .flatten()
                     .distinctBy { it.id }
                     .sortedBy { it.text("name") }
-            val programRows =
-                present.map { program ->
-                    listOf(Cell(DiagnosisScene.or(program, "name")), Cell("Programa del Estado")) +
-                        ids.map { id -> Cell(if (programs[id].orEmpty().any { it.id == program.id }) "X" else "") }
-                }
-            val rows = organizationRows + programRows
-            listOfNotNull(
-                Block.Heading(3, title),
-                rows.takeIf { it.isNotEmpty() }?.let {
-                    Block.Table(
-                        "Organizaciones e instituciones locales: $title",
-                        listOf("Organización o programa", "Tipo") + localities.map { l -> DiagnosisScene.or(l, "name") },
-                        it,
-                        wide = localities.size > WIDE
+            val tables =
+                if (localities.size > TRANSPOSE) {
+                    organizationMatrices(title, localities, organizations, present, programs)
+                } else {
+                    val organizationRows =
+                        organizations.map { org ->
+                            listOf(Cell(DiagnosisScene.or(org, "name")), Cell(DiagnosisScene.option(org, "organization_type"))) +
+                                ids.map { Cell(if (org.text("locality") == it) "X" else "") }
+                        }
+                    val programRows =
+                        present.map { program ->
+                            listOf(Cell(DiagnosisScene.or(program, "name")), Cell("Programa del Estado")) +
+                                ids.map { id -> Cell(if (programs[id].orEmpty().any { it.id == program.id }) "X" else "") }
+                        }
+                    val rows = organizationRows + programRows
+                    listOfNotNull(
+                        rows.takeIf { it.isNotEmpty() }?.let {
+                            Block.Table(
+                                "Organizaciones e instituciones locales: $title",
+                                listOf("Organización o programa", "Tipo") + localities.map { l -> DiagnosisScene.or(l, "name") },
+                                it,
+                                wide = wide(localities.size + 1)
+                            )
+                        }
                     )
                 }
-            )
+            listOf<Block>(Block.Heading(3, title)) + tables
         }
+    }
+
+    // localidad × tipo de organización (el número de organizaciones) y localidad × programa del Estado (X); agrupa por el valor crudo
+    private fun organizationMatrices(
+        title: String,
+        localities: List<SourceRow>,
+        organizations: List<SourceRow>,
+        present: List<SourceRow>,
+        programs: Map<String, List<SourceRow>>
+    ): List<Block> {
+        val types = organizations.map { it.text("organization_type") }.distinct().sortedBy { ReportLabels.option(it) ?: SIN_DATO }
+        val byType =
+            Block
+                .Table(
+                    "Organizaciones por tipo y localidad: $title",
+                    listOf("Localidad") + types.map { ReportLabels.option(it) ?: SIN_DATO },
+                    localities.map { locality ->
+                        val here = organizations.filter { it.text("locality") == locality.id }
+                        listOf(Cell(DiagnosisScene.or(locality, "name"))) +
+                            types.map { type ->
+                                Cell(
+                                    here
+                                        .count { it.text("organization_type") == type }
+                                        .takeIf { it > 0 }
+                                        ?.toString()
+                                        .orEmpty()
+                                )
+                            }
+                    },
+                    wide = wide(types.size + 1)
+                ).takeIf { organizations.isNotEmpty() }
+        val byProgram =
+            Block
+                .Table(
+                    "Programas del Estado por localidad: $title",
+                    listOf("Localidad") + present.map { DiagnosisScene.or(it, "name") },
+                    localities.map { locality ->
+                        listOf(Cell(DiagnosisScene.or(locality, "name"))) +
+                            present.map { program -> Cell(if (programs[locality.id].orEmpty().any { it.id == program.id }) "X" else "") }
+                    },
+                    wide = wide(present.size + 1)
+                ).takeIf { present.isNotEmpty() }
+        return listOfNotNull(byType, byProgram)
     }
 
     suspend fun electoral(scene: DiagnosisScene): List<Block> =
@@ -255,7 +316,8 @@ object DiagnosisContext {
     // sin datos ni narrativa, «Sin dato.»; con datos restringidos o la narrativa (solo INTERNO), el aviso que solo muestra EXTERNO
     private fun reservedNote(noData: Boolean): Block.Paragraph = if (noData) Block.Paragraph("$SIN_DATO.") else Block.Paragraph(RESERVED, Mark.EXTERNAL_ONLY)
 
-    // una tabla por ámbito con los temas en filas y las localidades en columnas (Tablas 5.2, 5.3 y 5.8)
+    // una tabla por ámbito con los temas en filas y las localidades en columnas; con más de cinco localidades, una fila por
+    // localidad y los temas en columnas (Tablas 5.2, 5.3 y 5.8)
     private suspend fun columns(
         scene: DiagnosisScene,
         key: String,
@@ -266,15 +328,26 @@ object DiagnosisContext {
         scene.scopes().flatMap { (scope, localities) ->
             val profiles = localities.map { scene.profile(it) }
             profiles.forEach { profile -> rows.forEach { (_, field) -> scene.keep(key, profile?.text(field)) } }
-            listOf(
-                Block.Heading(3, scope),
-                Block.Table(
-                    "$title: $scope",
-                    listOf(first) + localities.map { DiagnosisScene.or(it, "name") },
-                    rows.map { (label, field) -> listOf(Cell(label)) + profiles.map { Cell(value(it, field)) } },
-                    wide = localities.size > WIDE
-                )
-            )
+            val table =
+                if (localities.size > TRANSPOSE) {
+                    // una fila por localidad, los temas en columnas
+                    Block.Table(
+                        "$title: $scope",
+                        listOf("Localidad") + rows.map { it.first },
+                        localities.mapIndexed { i, locality ->
+                            listOf(Cell(DiagnosisScene.or(locality, "name"))) + rows.map { (_, field) -> Cell(value(profiles[i], field)) }
+                        },
+                        wide = wideTransposed(rows.size + 1)
+                    )
+                } else {
+                    Block.Table(
+                        "$title: $scope",
+                        listOf(first) + localities.map { DiagnosisScene.or(it, "name") },
+                        rows.map { (label, field) -> listOf(Cell(label)) + profiles.map { Cell(value(it, field)) } },
+                        wide = wide(localities.size + 1)
+                    )
+                }
+            listOf(Block.Heading(3, scope), table)
         }
 
     // los registros de `objectName` (del tenant) por localidad, desde su lado de la relación muchos a muchos

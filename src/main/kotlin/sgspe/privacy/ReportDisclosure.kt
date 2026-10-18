@@ -99,6 +99,14 @@ object ReportDisclosure {
                     series = block.series.map { it.copy(name = Mentions.resolve(it.name, people, level)) },
                     source = block.source?.let { Mentions.resolve(it, people, level) }
                 )
+            is Block.ScatterChart ->
+                block.copy(
+                    title = Mentions.resolve(block.title, people, level),
+                    xAxis = Mentions.resolve(block.xAxis, people, level),
+                    yAxis = Mentions.resolve(block.yAxis, people, level),
+                    points = block.points.map { it.copy(label = Mentions.resolve(it.label, people, level)) },
+                    source = block.source?.let { Mentions.resolve(it, people, level) }
+                )
         }
     }
 }

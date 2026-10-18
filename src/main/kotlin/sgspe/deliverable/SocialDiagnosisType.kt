@@ -20,6 +20,17 @@ class SocialDiagnosisType : DeliverableType {
     override val version: Int = 1
     override val requiresApprovedArea: Boolean = true
 
+    // las secciones asistidas sin bloques propios toman sus datos de otras (deliverables.md §5, «IA»): 7.1 de las tres listas de
+    // percepciones, 4 de los criterios y miembros del AIDS, 9.1.1 de las interacciones del periodo por tipo (9.1) y 9.1.1.3,
+    // además, de los grupos políticos (7.2.2). el documento no las imprime dos veces: solo van al modelo
+    override val aiContext: Map<String, List<String>> =
+        mapOf(
+            "percepciones" to listOf("percepciones_mineria", "percepciones_proyecto", "percepciones_empresa"),
+            "areas" to listOf("aids"),
+            "contactos_regulares" to listOf("comunicacion"),
+            "reuniones_politicas" to listOf("comunicacion", "grupos_politicos")
+        )
+
     // una fila de la tabla de secciones: clave, título con su número literal, tipo, nivel, capítulo, si admite IA y su guía
     private data class Row(
         val key: String,
@@ -107,6 +118,7 @@ class SocialDiagnosisType : DeliverableType {
             "road_access" to setOf("road_type", "road_condition", "transport_means", "travel_time", "locality", "connects_to"),
             "state_program" to setOf("name"),
             "engagement" to setOf("engagement_type", "held_at", "scheduled_at", "locality", "study", "project"),
+            "aligned_answer" to setOf("question", "answer", "approved", "project"),
             "field_visit" to setOf("actual_start_date", "planned_start_date", "project"),
             "exploration_campaign" to setOf("name", "activity_type", "planned_start_date", "planned_end_date", "social_support_cap", "currency", "project"),
             "project_party" to setOf("party_role", "organization", "project"),
@@ -208,7 +220,9 @@ class SocialDiagnosisType : DeliverableType {
                     } else {
                         emptyList()
                     }
-                ReportSection(row.key, row.title, row.kind, computed + narrative + note, row.level, row.chapter)
+                // la narrativa de los perfiles los abre (#105); en las demás secciones sigue a lo calculado
+                val body = if (row.key in NARRATIVE_FIRST) narrative + note + computed else computed + narrative + note
+                ReportSection(row.key, row.title, row.kind, body, row.level, row.chapter, showTitle = false.takeIf { row.key in UNTITLED })
             }
         input.sections
             .flatMap { Mentions.keys(it.text(Deliverables.CONTENT).orEmpty()) }
@@ -268,7 +282,8 @@ class SocialDiagnosisType : DeliverableType {
             "alcance" -> DiagnosisStudy.scope(scene)
             "diseno" -> DiagnosisStudy.design(scene)
             "trabajo_campo" -> DiagnosisStudy.fieldwork(scene)
-            "areas" -> DiagnosisStudy.areasIntro(scene)
+            // el capítulo 4 lleva solo la narrativa general; los criterios del AIDS salen en 4.1 (y van a AI-04 por aiContext)
+            "areas" -> emptyList()
             "aids" -> DiagnosisStudy.aids(scene)
             "aiis" -> DiagnosisStudy.aiis(scene)
             "historia" -> DiagnosisContext.history(scene)
@@ -280,10 +295,10 @@ class SocialDiagnosisType : DeliverableType {
             "organizaciones" -> DiagnosisContext.organizations(scene)
             "proceso_electoral" -> DiagnosisContext.electoral(scene)
             "costumbres" -> DiagnosisContext.customs(scene)
-            "grupos_interes" -> DiagnosisStakeholders.identification(scene)
+            "grupos_interes" -> DiagnosisStakeholders.identification()
             "perfiles" -> DiagnosisStakeholders.profiles(scene)
             "caracterizacion" -> DiagnosisStakeholders.characterization()
-            "percepciones" -> DiagnosisStakeholders.perceptions(scene)
+            "percepciones_mineria", "percepciones_proyecto", "percepciones_empresa" -> DiagnosisStakeholders.perceptions(scene, key)
             "clasificacion" -> DiagnosisStakeholders.classification(scene)
             "grupos_estrategicos" -> DiagnosisStakeholders.group(scene, "ESTRATEGICO")
             "grupos_politicos" -> DiagnosisStakeholders.group(scene, "POLITICO")
@@ -291,6 +306,8 @@ class SocialDiagnosisType : DeliverableType {
             "temas_clave" -> DiagnosisStakeholders.keyThemes(scene)
             "estrategias" -> DiagnosisStrategy.strategies(scene)
             "comunicacion" -> DiagnosisStrategy.communication(scene)
+            "contactos_regulares" -> listOf(Block.Heading(4, "9.1.1.1 Contactos regulares"))
+            "reuniones_informativas" -> DiagnosisStrategy.alignedAnswers(scene)
             "priorizacion" -> DiagnosisStrategy.prioritization(scene)
             "mensajes" -> DiagnosisStrategy.messages(scene)
             "alianzas" -> DiagnosisStrategy.alliances(scene)
@@ -322,6 +339,12 @@ class SocialDiagnosisType : DeliverableType {
                 "proceso_electoral" to "locality_profile.electoral_process",
                 "costumbres" to "locality_profile.religion"
             )
+
+        private val NARRATIVE_FIRST = setOf("perfiles", "reuniones_informativas")
+
+        // las secciones cuyo título no se imprime (ReportSection.showTitle): la portada lo lleva en la plantilla, el índice el
+        // suyo y los perfiles abren con sus ámbitos (6.1 a 6.3)
+        private val UNTITLED = setOf("portada", "indice", "perfiles")
 
         private val ROWS: List<Row> =
             listOf(
@@ -409,19 +432,46 @@ class SocialDiagnosisType : DeliverableType {
                     1,
                     6,
                     false,
-                    "Qué es un grupo de interés y las cuatro posturas; grupos por ámbito y tipo."
+                    "Qué es un grupo de interés y las cuatro posturas."
                 ),
                 Row(
                     "perfiles",
-                    "6.1 Perfiles por cargo",
+                    "Perfiles por ámbito y tipo de actor",
                     MIXED,
                     2,
                     6,
                     false,
-                    "Trayectoria, elección y periodo, funciones, postura y estado de entrevista. Esta narrativa sale también en EXTERNO: sin nombres ni razones de postura."
+                    "Apertura de 6.1 a 6.3: cada ámbito con su tabla y sus perfiles por tipo de actor, localidad y cargo. Esta narrativa sale también en EXTERNO: sin nombres ni razones de postura."
                 ),
                 Row("caracterizacion", "7. Caracterización de los grupos de interés", MIXED, 1, 7, false, "Qué contiene el capítulo."),
-                Row("percepciones", "7.1 Percepciones", MIXED, 2, 7, true, "Percepciones sobre la minería, el proyecto y la empresa, con citas por cargo."),
+                Row("percepciones", "7.1 Percepciones", MIXED, 2, 7, true, "Apertura general de las percepciones sobre la minería, el proyecto y la empresa."),
+                Row(
+                    "percepciones_mineria",
+                    "7.1.1 Percepciones sobre la minería",
+                    MIXED,
+                    3,
+                    7,
+                    true,
+                    "Análisis de las percepciones sobre la minería; la lista por ámbito y las citas por cargo salen antes."
+                ),
+                Row(
+                    "percepciones_proyecto",
+                    "7.1.2 Percepciones sobre el proyecto",
+                    MIXED,
+                    3,
+                    7,
+                    true,
+                    "Análisis de las percepciones sobre el proyecto; la lista por ámbito y las citas por cargo salen antes."
+                ),
+                Row(
+                    "percepciones_empresa",
+                    "7.1.3 Percepciones sobre la empresa",
+                    MIXED,
+                    3,
+                    7,
+                    true,
+                    "Análisis de las percepciones sobre la empresa; la lista por ámbito y las citas por cargo salen antes."
+                ),
                 Row("clasificacion", "7.2 Clasificación según interés y poder", MIXED, 2, 7, false, "Método, umbrales y grupos de influencia por ámbito."),
                 Row("grupos_estrategicos", "7.2.1 Grupos estratégicos", MIXED, 3, 7, true, "Quiénes son y qué implican."),
                 Row("grupos_politicos", "7.2.2 Grupos políticos", MIXED, 3, 7, true, "Quiénes son y qué implican."),
@@ -429,11 +479,39 @@ class SocialDiagnosisType : DeliverableType {
                 Row("temas_clave", "8. Definición de temas clave", CALCULATED, 1, 8, false, "Tema, descripción, riesgos y oportunidades."),
                 Row("estrategias", "9. Estrategias sociales", MIXED, 1, 9, true, "Meta del periodo y ejes de acción."),
                 Row("comunicacion", "9.1 Información y comunicación", MIXED, 2, 9, true, "Situación de la comunicación, contactos regulares y protocolos."),
+                // 9.1.1 Metodología de interacción abre con el título de esta sección; 9.1.1.1 va como encabezado de su cuerpo (#106)
+                Row(
+                    "contactos_regulares",
+                    "9.1.1 Metodología de interacción",
+                    NARRATIVE,
+                    3,
+                    9,
+                    true,
+                    "Contactos regulares con los grupos de interés (9.1.1.1): quién, cada cuánto y por qué medio."
+                ),
+                Row(
+                    "reuniones_informativas",
+                    "9.1.1.2 Reuniones informativas",
+                    MIXED,
+                    4,
+                    9,
+                    true,
+                    "Protocolo: convocatoria, interlocutor local, contenidos y que no se asumen compromisos. Las respuestas alineadas salen a continuación."
+                ),
+                Row(
+                    "reuniones_politicas",
+                    "9.1.1.3 Reuniones con grupos políticos",
+                    NARRATIVE,
+                    4,
+                    9,
+                    true,
+                    "Cómo se reúne el proyecto con los grupos políticos."
+                ),
                 Row(
                     "priorizacion",
-                    "9.1.1 Priorización de la información",
+                    "9.1.1.4 Priorización de la información",
                     CALCULATED,
-                    3,
+                    4,
                     9,
                     false,
                     "Prioridad por grupo de influencia, postura, ámbito y tipo."

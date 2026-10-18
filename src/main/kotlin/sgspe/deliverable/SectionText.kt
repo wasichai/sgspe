@@ -21,6 +21,9 @@ object SectionText {
         holders: Map<String, UUID>,
         nameable: (String, UUID?) -> Boolean
     ): String {
+        // una celda con saltos de línea (las viñetas de la Tabla 9.4) partiría la fila de la tabla Markdown
+        fun flat(text: String): String = text.replace("\r", "").replace("\n", "; ")
+
         fun r(text: String): String =
             Mentions.TOKEN.replace(Mentions.scrub(text)) { match ->
                 val key = "${match.groupValues[1]}:${match.groupValues[2].lowercase()}"
@@ -34,7 +37,7 @@ object SectionText {
         val parts =
             blocks.mapNotNull { block ->
                 when (block) {
-                    is Block.Heading -> "#".repeat(block.level.coerceIn(2, 3)) + " " + r(block.text)
+                    is Block.Heading -> "#".repeat(block.level.coerceIn(2, 4)) + " " + r(block.text)
                     is Block.Paragraph ->
                         if (block.mark !=
                             null
@@ -47,9 +50,9 @@ object SectionText {
                         if (block.mark != null) {
                             null
                         } else {
-                            "**${r(block.title)}**\n| ${block.header.joinToString(" | ") { r(it) }} |\n" +
+                            "**${r(block.title)}**\n| ${block.header.joinToString(" | ") { flat(r(it)) }} |\n" +
                                 block.rows.joinToString("\n") { row ->
-                                    "| " + row.joinToString(" | ") { cell -> if (cell.mark != null) "" else r(cell.text) } +
+                                    "| " + row.joinToString(" | ") { cell -> if (cell.mark != null) "" else flat(r(cell.text)) } +
                                         " |"
                                 }
                         }
@@ -59,6 +62,9 @@ object SectionText {
                                 "${r(series.name)} " +
                                     block.categories.zip(series.values).joinToString(", ") { (category, value) -> "$category=${value ?: "sin dato"}" }
                             }
+                    is Block.ScatterChart ->
+                        "${r(block.title)} (${r(block.xAxis)}, ${r(block.yAxis)}): " +
+                            block.points.joinToString("; ") { "${r(it.label)} (${it.x}, ${it.y})" }
                     else -> null
                 }
             }

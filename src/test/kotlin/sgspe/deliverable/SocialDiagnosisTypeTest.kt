@@ -9,6 +9,7 @@ import org.junit.jupiter.api.assertThrows
 import sgspe.dashboard.MonitoringRow
 import sgspe.dashboard.Official
 import sgspe.privacy.Block
+import sgspe.privacy.ChartPoint
 import sgspe.privacy.Disclosure
 import sgspe.privacy.Mark
 import sgspe.privacy.PersonalDataScan
@@ -16,6 +17,9 @@ import sgspe.privacy.RegisterSheets
 import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportModel
 import sgspe.privacy.ReportWarning
+import sgspe.stakeholder.InfluenceClassifier
+import tools.jackson.databind.json.JsonMapper
+import java.io.File
 import java.time.LocalDate
 import java.util.UUID
 
@@ -34,9 +38,9 @@ class SocialDiagnosisTypeTest {
     private fun ReportModel.tables(key: String): List<Block.Table> = blocks(key).filterIsInstance<Block.Table>()
 
     @Test
-    fun `declara las 46 secciones en orden con sus capitulos y las asistidas por IA de la especificacion`() {
+    fun `declara las 52 secciones en orden con sus capitulos y las asistidas por IA de la especificacion`() {
         val keys = type.sections.map { it.key }
-        assertEquals(46, keys.size)
+        assertEquals(52, keys.size)
         assertEquals(keys.size, keys.toSet().size)
         assertEquals(listOf("portada", "indice", "introduccion"), keys.take(3))
         assertEquals(
@@ -45,11 +49,17 @@ class SocialDiagnosisTypeTest {
                 "areas",
                 "contexto",
                 "percepciones",
+                "percepciones_mineria",
+                "percepciones_proyecto",
+                "percepciones_empresa",
                 "grupos_estrategicos",
                 "grupos_politicos",
                 "grupos_monitoreo",
                 "estrategias",
                 "comunicacion",
+                "contactos_regulares",
+                "reuniones_informativas",
+                "reuniones_politicas",
                 "necesidades"
             ),
             type.sections
@@ -57,7 +67,7 @@ class SocialDiagnosisTypeTest {
                 .map { it.key }
                 .toSet()
         )
-        assertEquals((1..46).toList(), type.sections.map { it.order })
+        assertEquals((1..52).toList(), type.sections.map { it.order })
         assertTrue(type.requiresApprovedArea)
     }
 
@@ -99,6 +109,62 @@ class SocialDiagnosisTypeTest {
         val scope = model.sections.single { it.key == "alcance" }
         assertEquals(2 to 3, scope.level to scope.chapter)
         assertEquals(null, model.meta.coverMap)
+    }
+
+    // #111: cada contenido sale una vez y la forma sigue al original
+    @Test
+    fun `la portada no repite proyecto, el capitulo 4 no repite criterios y 3 2 remite al Anexo 2`() {
+        val model = assemble().model
+        assertEquals("Diagnóstico social del Proyecto Ejemplo A", (model.blocks("portada").single() as Block.Paragraph).markdown)
+        assertEquals(emptyList<Block>(), model.blocks("areas"))
+        val criteria = model.blocks("aids").filterIsInstance<Block.Paragraph>().map { it.markdown }
+        assertEquals(listOf("**Criterios:** Impactos reales o percibidos de la exploración."), criteria)
+        assertEquals(
+            1,
+            model.sections
+                .flatMap { it.blocks }
+                .filterIsInstance<Block.Paragraph>()
+                .count { "Impactos reales o percibidos" in it.markdown }
+        )
+        val design = model.blocks("diseno")
+        assertEquals(emptyList<Block.Table>(), design.filterIsInstance<Block.Table>())
+        assertTrue("Anexo 2" in (design.single() as Block.Paragraph).markdown)
+        assertEquals(1, model.tables("anexo_instrumentos").size)
+    }
+
+    @Test
+    fun `el rotulo de criterios no se duplica y la meta sale una vez`() {
+        val plain =
+            assemble()
+                .model
+                .blocks("estrategias")
+                .filterIsInstance<Block.Paragraph>()
+                .map { it.markdown }
+        assertTrue(plain.any { it.startsWith("**Meta del periodo.**") }, "$plain")
+        val withText = assemble(content = mapOf("estrategias" to "La meta del periodo es mantener la licencia social.")).model.blocks("estrategias")
+        assertTrue(withText.filterIsInstance<Block.Paragraph>().none { "**Meta del periodo.**" in it.markdown }, "$withText")
+        assertTrue(withText.filterIsInstance<Block.Paragraph>().any { "La meta del periodo" in it.markdown })
+        // M6 de la revisión de #105 a #111: con dos planes, la narrativa no oculta la meta de ninguno
+        val source = T1Source.source()
+        source.add(
+            "engagement_plan",
+            T1Source.id(800),
+            null,
+            "project" to T1Source.PROJECT,
+            "name" to "Plan 2027",
+            "strategic_objective" to "Ampliar el diálogo."
+        )
+        val two = assemble(source, mapOf("estrategias" to "Texto general de las estrategias.")).model.blocks("estrategias")
+        assertEquals(2, two.filterIsInstance<Block.Paragraph>().count { "**Meta del periodo.**" in it.markdown }, "$two")
+    }
+
+    @Test
+    fun `la historia lleva un subtitulo de nivel 4 por localidad`() {
+        val history = assemble().model.blocks("historia")
+        val i = history.indexOf(Block.Heading(4, "Caserío Ejemplo Alto"))
+        assertTrue(i > 0, "$history")
+        assertTrue((history[i + 1] as Block.Paragraph).markdown.startsWith("Reconocimiento:"))
+        assertTrue(history.filterIsInstance<Block.Paragraph>().none { it.markdown.startsWith("**Caserío") })
     }
 
     // #80: la ubicación sale de las unidades administrativas de las localidades del AIDS y de sus unidades superiores
@@ -209,7 +275,8 @@ class SocialDiagnosisTypeTest {
         val model = assemble().model
         val history = model.blocks("historia")
         assertEquals(Block.Heading(3, DiagnosisScene.AIDS_TITLE), history[0])
-        assertTrue(history.filterIsInstance<Block.Paragraph>().any { "Linderos con el caserío vecino" in it.markdown && "Caserío Ejemplo Bajo" in it.markdown })
+        val low = history.indexOf(Block.Heading(4, "Caserío Ejemplo Bajo"))
+        assertTrue(low > 0 && "Linderos con el caserío vecino" in (history[low + 1] as Block.Paragraph).markdown, "$history")
         val population = model.tables("poblacion").first()
         assertEquals(listOf("Caserío Ejemplo Alto", "120", "480", "4.00", "10/08/2026", "Trabajo de campo", "Alta"), population.rows.single().map { it.text })
         val services = model.tables("servicios")
@@ -222,6 +289,124 @@ class SocialDiagnosisTypeTest {
         val roads = model.tables("vias").first()
         assertEquals(listOf("Caserío Ejemplo Alto", "Trocha", "Caserío Ejemplo Bajo", "Regular", "Combi", "40 min"), roads.rows.single().map { it.text })
         assertTrue(model.tables("educacion_salud").any { table -> table.rows.any { it[1].text == "I. E. N° 101" } })
+    }
+
+    // #110: n localidades más en el AIDS, cada una con su perfil y una organización
+    private fun withLocalities(count: Int): FakeReportSource {
+        val source = T1Source.source()
+        repeat(count) { i ->
+            val locality = T1Source.id(800 + i * 4)
+            source.add("locality", locality, null, "name" to "Caserío Ejemplo $i", "locality_type" to "CASERIO")
+            source.add(
+                "area_of_influence_member",
+                T1Source.id(801 + i * 4),
+                null,
+                "area_of_influence" to T1Source.AIDS,
+                "locality" to locality,
+                "member_condition" to "INCLUIDO"
+            )
+            source.add(
+                "locality_profile",
+                T1Source.id(802 + i * 4),
+                null,
+                "locality" to locality,
+                "study" to T1Source.STUDY,
+                "crops" to "Maíz $i",
+                "water_problems" to "Turbiedad $i"
+            )
+            source.add(
+                "organization",
+                T1Source.id(803 + i * 4),
+                null,
+                "name" to "Comité $i Ejemplo",
+                "organization_type" to "ORGANIZACION COMUNAL",
+                "locality" to locality
+            )
+        }
+        return source
+    }
+
+    @Test
+    fun `con mas de cinco localidades las tablas de economia y servicios llevan una fila por localidad`() {
+        val model = assemble(withLocalities(5)).model
+        val economy = model.tables("economia").first()
+        assertEquals(listOf("Localidad", "Cultivos", "Ganadería", "Otras actividades", "Problemática (problemas del agua)"), economy.header)
+        assertEquals(6, economy.rows.size)
+        assertTrue(economy.wide)
+        assertTrue(
+            economy.rows.any { r ->
+                r.map { it.text }.let { it[0] == "Caserío Ejemplo 3" && it[1] == "Maíz 3" && it[4] == "Turbiedad 3" }
+            },
+            "${economy.rows}"
+        )
+        assertEquals(
+            "Localidad",
+            model
+                .tables("servicios")
+                .first()
+                .header
+                .first()
+        )
+        assertEquals(
+            6,
+            model
+                .tables("servicios")
+                .first()
+                .rows.size
+        )
+    }
+
+    @Test
+    fun `con cinco localidades o menos las tablas quedan con las localidades en columnas`() {
+        val model = assemble(withLocalities(3)).model
+        val economy = model.tables("economia").first()
+        assertEquals(5, economy.header.size)
+        assertEquals("Actividad", economy.header.first())
+        assertEquals(
+            "Problemática (problemas del agua)",
+            economy.rows
+                .last()
+                .first()
+                .text
+        )
+    }
+
+    @Test
+    fun `con mas de cinco localidades las organizaciones salen por tipo y los programas con X`() {
+        val model = assemble(withLocalities(5)).model
+        val tables = model.tables("organizaciones")
+        val byType = tables.first()
+        assertEquals("Localidad", byType.header.first())
+        assertTrue("Organización comunal" in byType.header, "${byType.header}")
+        assertEquals(6, byType.rows.size)
+        val column = byType.header.indexOf("Organización comunal")
+        assertEquals("1", byType.rows.single { it[0].text == "Caserío Ejemplo 2" }[column].text)
+        val programs = tables[1]
+        assertEquals(listOf("Localidad", "Programa social del Estado"), programs.header)
+        assertEquals("X", programs.rows.single { it[0].text == "Caserío Ejemplo Alto" }[1].text)
+        assertEquals("", programs.rows.single { it[0].text == "Caserío Ejemplo 2" }[1].text)
+    }
+
+    @Test
+    fun `los impactos se agrupan por tipo de actividad con una columna por tipo de impacto`() {
+        val source = T1Source.source()
+        source.add(
+            "potential_impact",
+            T1Source.id(990),
+            null,
+            "project" to T1Source.PROJECT,
+            "activity_type" to "PERFORACION",
+            "impact_type" to "SOCIAL",
+            "impact_nature" to "INDIRECTO",
+            "impact_sign" to "POSITIVO",
+            "description" to "Empleo local."
+        )
+        val table = assemble(source).model.tables("impactos").single()
+        assertEquals(listOf("Tipo de actividad", "Impacto ambiental", "Impacto social"), table.header)
+        val row = table.rows.single()
+        assertEquals("Perforación", row[0].text)
+        assertEquals("• Polvo en la vía. (directo, negativo)", row[1].text)
+        assertEquals("• Empleo local. (indirecto, positivo)", row[2].text)
     }
 
     @Test
@@ -323,6 +508,7 @@ class SocialDiagnosisTypeTest {
                 is Block.MapFigure -> block.title + " " + block.source.orEmpty()
                 is Block.Photos -> block.title + " " + block.source.orEmpty()
                 is Block.LineChart -> block.title + " " + block.source.orEmpty() + " " + block.series.joinToString(" ") { it.name }
+                is Block.ScatterChart -> block.title + " " + block.source.orEmpty() + " " + block.points.joinToString(" ") { it.label }
                 else -> ""
             }
         }
@@ -393,11 +579,11 @@ class SocialDiagnosisTypeTest {
     @Test
     fun `los grupos de interes van por ambito y tipo con el actor por cargo, y los perfiles con su nota de entrevista`() {
         val model = assemble().model
-        val identification = model.tables("grupos_interes")
+        val profiles = model.blocks("perfiles")
+        val identification = profiles.filterIsInstance<Block.Table>()
         assertEquals(listOf("Autoridad local", "Presidente, Junta Directiva Comunal Ejemplo"), identification[0].rows.single().map { it.text })
         assertEquals(listOf("Organización social distrital", "Municipalidad Distrital Ejemplo"), identification[1].rows.single().map { it.text })
-        val profiles = model.blocks("perfiles")
-        assertTrue(Block.Heading(3, "Municipalidad Distrital Ejemplo") in profiles, "$profiles")
+        assertTrue(Block.Heading(4, "Municipalidad Distrital Ejemplo") in profiles, "$profiles")
         assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { "Estado de la entrevista: Se negó." in it.footnotes })
         val classification = model.tables("clasificacion")
         assertEquals(
@@ -414,17 +600,315 @@ class SocialDiagnosisTypeTest {
                 .single()[0]
                 .text
         )
-        val perceptions = model.blocks("percepciones")
-        assertEquals(Block.Heading(3, "7.1.1 Percepciones sobre la minería"), perceptions[0])
-        assertTrue((perceptions[3] as Block.Paragraph).markdown.contains("«Queremos agua limpia» — Dirigente comunal"), "${perceptions[3]}")
+        // la lista de cada objeto va en su sección (7.1.1 a 7.1.3); la de 7.1 solo lleva su narrativa general
+        assertTrue(model.blocks("percepciones").isEmpty())
+        val project = model.blocks("percepciones_proyecto")
+        assertTrue((project.single() as Block.Paragraph).markdown.contains("«Queremos agua limpia» — Dirigente comunal"), "$project")
+        assertEquals(
+            listOf("7.1.1 Percepciones sobre la minería", "7.1.2 Percepciones sobre el proyecto", "7.1.3 Percepciones sobre la empresa"),
+            model.sections.filter { it.key.startsWith("percepciones_") }.map { it.title }
+        )
+        assertTrue((model.blocks("percepciones_empresa").single() as Block.Paragraph).markdown.contains("Sin percepciones registradas"))
+    }
+
+    // #105: ámbito (6.1 a 6.3) con su tabla, tipo, localidad de la organización y cargo; la narrativa abre la sección
+    @Test
+    fun `los perfiles van por ambito con su tabla, tipo, localidad y cargo, y la narrativa antes`() {
+        val source = T1Source.source()
+        // organizaciones con localidad Alta (UPPER) y Baja (LOWER) y una sin localidad
+        val upper = T1Source.id(400)
+        val lower = T1Source.id(401)
+        val none = T1Source.id(402)
+        source.add("organization", upper, null, "name" to "Comité Alto Ejemplo", "locality" to T1Source.UPPER)
+        source.add("organization", lower, null, "name" to "Comité Bajo Ejemplo", "locality" to T1Source.LOWER)
+        source.add("organization", none, null, "name" to "Comité Sin Localidad Ejemplo")
+
+        fun actor(
+            n: Int,
+            organization: String,
+            title: String?,
+            scope: String,
+            type: String
+        ) {
+            val person = T1Source.id(410 + n)
+            if (title != null) {
+                source.add("person", person, null, "given_names" to "Persona", "surnames" to "Ejemplo $n")
+                source.add(
+                    "position",
+                    T1Source.id(430 + n),
+                    null,
+                    "person" to person,
+                    "organization" to organization,
+                    "position_title" to title,
+                    "position_status" to "VIGENTE"
+                )
+            }
+            source.add(
+                "stakeholder",
+                T1Source.id(450 + n),
+                null,
+                "project" to T1Source.PROJECT,
+                "stakeholder_scope" to scope,
+                "stakeholder_type" to type,
+                *(if (title != null) arrayOf("person" to person) else arrayOf("organization" to organization))
+            )
+        }
+        // desordenados a propósito
+        actor(1, none, "Vocal", "AIDS", "ORGANIZACION COMUNAL")
+        actor(2, lower, "Tesorero", "AIDS", "ORGANIZACION COMUNAL")
+        actor(3, upper, "Secretario", "AIDS", "ORGANIZACION COMUNAL")
+        actor(4, upper, "Fiscal", "AIDS", "ORGANIZACION COMUNAL")
+        actor(5, upper, "Alcalde", "AIIS", "AUTORIDAD LOCAL")
+        actor(6, lower, "Regidor", "REGIONAL", "AUTORIDAD LOCAL")
+        val narrative = "Narrativa de apertura de los perfiles QX7."
+        val model = assemble(source, mapOf("perfiles" to narrative)).model
+        val blocks = model.blocks("perfiles")
+        // la narrativa antes de todo, y el nivel 2 de los ámbitos numerados
+        assertEquals(narrative, (blocks.first() as Block.Paragraph).markdown)
+        val headings = blocks.filterIsInstance<Block.Heading>()
+        assertEquals(
+            listOf(2 to "6.1 Área de influencia directa social", 2 to "6.2 Área de influencia indirecta social", 2 to "6.3 Ámbito regional y nacional"),
+            headings.filter { it.level == 2 }.map { it.level to it.text }
+        )
+        // la tabla de cada ámbito va justo tras su encabezado
+        for (heading in headings.filter { it.level == 2 }) {
+            val table = blocks[blocks.indexOf(heading) + 1] as Block.Table
+            assertTrue(table.title.startsWith("Grupos de interés del"), table.title)
+        }
+        // en AIDS, el tipo abre con su subtítulo de nivel 3 y los perfiles van por localidad (Alta, Baja, sin localidad) y cargo
+        val aids = blocks.subList(blocks.indexOf(headings.first()), blocks.indexOf(headings.first { it.text.startsWith("6.2") }))
+        val titles = aids.filterIsInstance<Block.Heading>().filter { it.level == 4 }.map { it.text }
+        assertEquals(
+            listOf(
+                "Fiscal, Comité Alto Ejemplo",
+                "Secretario, Comité Alto Ejemplo",
+                "Tesorero, Comité Bajo Ejemplo",
+                "Vocal, Comité Sin Localidad Ejemplo"
+            ),
+            titles.filter { it.contains("Comité") }
+        )
+        assertTrue(aids.any { it is Block.Heading && it.level == 3 && it.text == "Organización comunal" }, "$aids")
+        // EXTERNO: ningún nombre de persona, ni en los párrafos ni en los encabezados ni en las celdas
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO).blocks("perfiles")
+        val shown =
+            external.joinToString("\n") { block ->
+                when (block) {
+                    is Block.Paragraph -> block.markdown
+                    is Block.Heading -> block.text
+                    is Block.Table -> (listOf(block.title) + block.header + block.rows.flatten().map { it.text }).joinToString(" | ")
+                    else -> ""
+                }
+            }
+        assertTrue("Persona" !in shown && "Ejemplo 1" !in shown, shown)
+    }
+
+    // I3 y M2 de la revisión de #105 a #111: los tipos de actor en el orden del enum stakeholder_type (el de DOC-01), los
+    // desconocidos al final por nombre, y el número del ámbito fijo aunque falte el AIDS
+    @Test
+    fun `los tipos de actor van en el orden del enum y el AIIS es 6-2 aunque no haya AIDS`() {
+        val source = T1Source.source()
+        source.rows.remove("stakeholder")
+        listOf("IGLESIA", "TIPO NUEVO", "AUTORIDAD REGIONAL", "ORGANIZACION COMUNAL", "AUTORIDAD LOCAL", "LIDER POLITICO").forEachIndexed { i, type ->
+            val organization = T1Source.id(700 + i)
+            source.add("organization", organization, null, "name" to "Organización Ejemplo $i")
+            source.add(
+                "stakeholder",
+                T1Source.id(720 + i),
+                null,
+                "project" to T1Source.PROJECT,
+                "stakeholder_scope" to "AIIS",
+                "stakeholder_type" to type,
+                "organization" to organization
+            )
+        }
+        val blocks = assemble(source).model.blocks("perfiles")
+        val headings = blocks.filterIsInstance<Block.Heading>()
+        assertEquals(listOf("6.2 Área de influencia indirecta social"), headings.filter { it.level == 2 }.map { it.text })
+        assertEquals(
+            listOf("AUTORIDAD LOCAL", "ORGANIZACION COMUNAL", "LIDER POLITICO", "AUTORIDAD REGIONAL", "IGLESIA", "TIPO NUEVO").map { ReportLabels.option(it) },
+            headings.filter { it.level == 3 }.map { it.text }
+        )
+        val table = blocks.filterIsInstance<Block.Table>().first()
+        assertEquals(
+            "Autoridad local",
+            table.rows
+                .first()
+                .first()
+                .text
+        )
+        // OTRO está en el enum (al final); los desconocidos y «Sin dato» van después, por nombre en español
+        assertEquals(
+            listOf("AUTORIDAD LOCAL", "ORGANIZACION COMUNAL", "OTRO", "ÁNIMAS", "Sin dato", "ZETA"),
+            listOf("ZETA", "OTRO", "Sin dato", "ORGANIZACION COMUNAL", "ÁNIMAS", "AUTORIDAD LOCAL").sortedWith(DiagnosisStakeholders.typeOrder())
+        )
+    }
+
+    // #107: los ámbitos van en orden fijo dentro de cada objeto y la narrativa del objeto cierra tras su lista
+    private fun perception(
+        source: FakeReportSource,
+        n: Int,
+        subject: String,
+        scope: String?,
+        statement: String,
+        role: String? = null
+    ) {
+        source.add(
+            "perception",
+            T1Source.id(n),
+            null,
+            "study" to T1Source.STUDY,
+            "subject" to subject,
+            "polarity" to "NEUTRAL",
+            "perception_scope" to scope,
+            "statement" to statement,
+            "quote" to role?.let { "Cita $statement" },
+            "attributed_role" to role
+        )
+    }
+
+    private fun scopesOf(blocks: List<Block>): List<String> =
+        (blocks.first() as Block.Paragraph)
+            .markdown
+            .lines()
+            .filter { it.startsWith("**") }
+            .map { it.trim('*') }
+
+    @Test
+    fun `los ambitos de las percepciones van AIDS, AIIS, regional y nacional, luego otros por nombre y sin ambito`() {
+        val source = T1Source.source()
+        source.rows.remove("perception")
+        listOf("MINERIA", "PROYECTO", "EMPRESA").forEachIndexed { i, subject ->
+            // datos desordenados a propósito, distintos de un objeto a otro
+            val scopes = if (i == 1) listOf("NACIONAL", "AIIS", "ZONAL", "REGIONAL", "AIDS", null) else listOf("REGIONAL", "AIIS", "AIDS", "NACIONAL", "ANDINO")
+            scopes.forEachIndexed { j, scope -> perception(source, 500 + i * 10 + j, subject, scope, "Dato $subject $j") }
+        }
+        val model = assemble(source).model
+        val titles = listOf(DiagnosisScene.AIDS_TITLE, DiagnosisScene.AIIS_TITLE, "Ámbito regional", "Ámbito nacional")
+        assertEquals(titles + "ANDINO", scopesOf(model.blocks("percepciones_mineria")))
+        assertEquals(titles + listOf("ZONAL", "Sin ámbito"), scopesOf(model.blocks("percepciones_proyecto")))
+        assertEquals(titles + "ANDINO", scopesOf(model.blocks("percepciones_empresa")))
+    }
+
+    @Test
+    fun `la narrativa de cada objeto sale tras su lista, en INTERNO y EXTERNO con citas por cargo`() {
+        val source = T1Source.source()
+        perception(source, 600, "EMPRESA", "AIDS", "La empresa cumple.", "Dirigente comunal")
+        val content =
+            mapOf(
+                "percepciones" to "General QX1.",
+                "percepciones_mineria" to "Análisis minería QX2.",
+                "percepciones_proyecto" to "Análisis proyecto QX3.",
+                "percepciones_empresa" to "Análisis empresa QX4."
+            )
+        val model = assemble(source, content).model
+        for (key in listOf("percepciones_mineria", "percepciones_proyecto", "percepciones_empresa")) {
+            val blocks = model.blocks(key)
+            assertEquals(2, blocks.size, key)
+            assertTrue("QX" in (blocks[1] as Block.Paragraph).markdown && "Sin percepciones" !in (blocks[1] as Block.Paragraph).markdown, key)
+        }
+        assertEquals("General QX1.", (model.blocks("percepciones").single() as Block.Paragraph).markdown)
+        for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
+            val shown = ReportDisclosure.apply(model, level)
+            val company = shown.text("percepciones_empresa")
+            assertTrue("— Dirigente comunal" in company && company.indexOf("La empresa cumple.") < company.indexOf("Análisis empresa QX4."), "$level: $company")
+            assertTrue(listOf("QX2", "QX3", "QX4", "QX1").all { q -> shown.sections.any { q in shown.text(it.key) } }, "$level")
+            assertTrue("Persona Ejemplo" !in company, "$level: nombre en las percepciones")
+        }
+    }
+
+    @Test
+    fun `un entregable sin las secciones de percepciones por objeto ensambla igual, sin esas narrativas`() {
+        val model = assemble(content = mapOf("percepciones" to "General QX1.")).model
+        assertEquals("General QX1.", (model.blocks("percepciones").single() as Block.Paragraph).markdown)
+        // sin narrativa, cada objeto queda con su lista sola
+        assertEquals(1, model.blocks("percepciones_proyecto").size)
+        assertEquals(1, model.blocks("percepciones_mineria").size)
+    }
+
+    private fun alignedAnswer(
+        source: FakeReportSource,
+        n: Int,
+        question: String,
+        answer: String?,
+        approved: Boolean = true
+    ) = source.add(
+        "aligned_answer",
+        T1Source.id(n),
+        null,
+        "project" to T1Source.PROJECT,
+        "question" to question,
+        "answer" to answer,
+        "approved" to approved
+    )
+
+    @Test
+    fun `9_1_1 va tras la comunicacion con sus tres secciones y la priorizacion pasa a 9_1_1_4`() {
+        val keys = type.sections.map { it.key }
+        val at = keys.indexOf("comunicacion")
+        assertEquals(
+            listOf("comunicacion", "contactos_regulares", "reuniones_informativas", "reuniones_politicas", "priorizacion", "mensajes"),
+            keys.subList(
+                at,
+                at + 6
+            )
+        )
+        val titles = type.sections.associate { it.key to it.title }
+        assertEquals("9.1.1 Metodología de interacción", titles["contactos_regulares"])
+        assertEquals("9.1.1.2 Reuniones informativas", titles["reuniones_informativas"])
+        assertEquals("9.1.1.3 Reuniones con grupos políticos", titles["reuniones_politicas"])
+        assertEquals("9.1.1.4 Priorización de la información", titles["priorizacion"])
+        val model = assemble().model
+        assertEquals(
+            listOf(3, 4, 4, 4),
+            listOf("contactos_regulares", "reuniones_informativas", "reuniones_politicas", "priorizacion").map { k ->
+                model.sections
+                    .single {
+                        it.key ==
+                            k
+                    }.level
+            }
+        )
+        assertEquals(Block.Heading(4, "9.1.1.1 Contactos regulares"), model.blocks("contactos_regulares").first())
+    }
+
+    @Test
+    fun `las respuestas alineadas salen tras la narrativa de las reuniones informativas, en INTERNO y EXTERNO`() {
+        val source = T1Source.source()
+        alignedAnswer(source, 700, "¿Habrá relocalización?", "No se prevé relocalizar a nadie.")
+        alignedAnswer(source, 701, "¿Contratarán gente local?", "Sí, según la política de empleo local.")
+        alignedAnswer(source, 702, "¿Pagarán por las tierras?", "Borrador sin aprobar.", approved = false)
+        val model = assemble(source, mapOf("reuniones_informativas" to "Protocolo QX7.")).model
+        for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
+            val text = ReportDisclosure.apply(model, level).text("reuniones_informativas")
+            assertTrue(text.indexOf("Protocolo QX7.") in 0 until text.indexOf("¿Contratarán gente local?"), "$level: $text")
+            assertTrue("Pagarán" !in text && "Borrador sin aprobar" !in text, "$level: respuesta no aprobada")
+            assertTrue("No se prevé relocalizar a nadie." in text && text.indexOf("¿Contratarán") < text.indexOf("¿Habrá"), "$level: $text")
+        }
+    }
+
+    @Test
+    fun `sin respuestas alineadas aprobadas las reuniones informativas lo dicen en cursiva`() {
+        val source = T1Source.source()
+        alignedAnswer(source, 710, "¿Y la compensación?", "Sin aprobar.", approved = false)
+        val blocks = assemble(source).model.blocks("reuniones_informativas")
+        assertEquals("_Sin respuestas alineadas registradas._", (blocks.single() as Block.Paragraph).markdown)
+    }
+
+    @Test
+    fun `un entregable sin las secciones de metodologia de interaccion ensambla igual, sin esas narrativas`() {
+        val model = assemble(content = mapOf("comunicacion" to "Comunicación QX8.")).model
+        assertTrue(model.blocks("reuniones_politicas").isEmpty())
+        assertEquals(1, model.blocks("contactos_regulares").size)
+        assertEquals(52, model.sections.size)
     }
 
     // Review Focus 1
     @Test
     fun `EXTERNO no lleva religion, proceso electoral, razones ni postura de una persona`() {
         val external = ReportDisclosure.apply(assemble().model, Disclosure.EXTERNO)
+        // el texto fijo del capítulo 6 define las posturas en general (#109): no es la postura de nadie
         val text =
-            external.sections.flatMap { it.blocks }.joinToString("\n") { block ->
+            external.sections.flatMap { if (it.key == "grupos_interes") it.blocks.drop(1) else it.blocks }.joinToString("\n") { block ->
                 when (block) {
                     is Block.Paragraph -> block.markdown + " " + block.footnotes.joinToString(" ")
                     is Block.Table -> block.title + " " + block.rows.flatten().joinToString(" ") { it.text }
@@ -475,7 +959,7 @@ class SocialDiagnosisTypeTest {
         )
         source.add("key_theme", T1Source.id(301), null, "project" to T1Source.PROJECT, "study" to T1Source.STUDY, "name" to "Tierra")
         val model = assemble(source).model
-        assertTrue(model.tables("grupos_interes").any { it.title == "Grupos de interés sin ámbito" })
+        assertTrue(model.tables("perfiles").any { it.title == "Grupos de interés sin ámbito" })
         assertTrue(model.tables("clasificacion").any { it.title == "Clasificación de los grupos de interés sin ámbito" })
         assertTrue(model.blocks("grupos_estrategicos").filterIsInstance<Block.Paragraph>().any { "Grupos de interés sin ámbito" in it.markdown })
         val tierra =
@@ -568,6 +1052,45 @@ class SocialDiagnosisTypeTest {
         assertTrue(model.tables("necesidades").any { table -> table.rows.any { it[0].text == "Relacionista comunitario" && it[1].text == "2" } })
     }
 
+    // #109: cada sección con método abre con su texto fijo, en INTERNO y en EXTERNO, y el capítulo 6 define cada postura
+    @Test
+    fun `los capitulos 6, 8 y 9 abren con su texto fijo de metodo en INTERNO y EXTERNO`() {
+        val model = assemble(T1Source.source(MonitoredSource())).model
+        val expected =
+            mapOf(
+                "temas_clave" to "Un tema clave es",
+                "impactos" to "La gestión de las percepciones de impactos",
+                "evaluacion_grupos" to "La evaluación de los grupos de interés mide",
+                "seguimiento_compromisos" to "La matriz de compromisos registra",
+                "riesgos" to "Un riesgo social es",
+                "grupos_interes" to "Un grupo de interés es"
+            )
+        listOf(Disclosure.INTERNO, Disclosure.EXTERNO).forEach { level ->
+            val shown = ReportDisclosure.apply(model, level)
+            expected.forEach { (key, phrase) ->
+                val first =
+                    shown.sections
+                        .single { it.key == key }
+                        .blocks
+                        .first()
+                assertTrue(first is Block.Paragraph && first.markdown.startsWith(phrase), "$level $key: $first")
+            }
+            val risks = shown.sections.single { it.key == "riesgos" }.blocks
+            val heading = risks.indexOf(Block.Heading(3, "9.3.2.1 Evaluación del riesgo"))
+            assertTrue((risks[heading + 1] as Block.Paragraph).markdown.startsWith("El nivel de un riesgo resulta de"), "$level")
+            val stances =
+                (
+                    shown.sections
+                        .single { it.key == "grupos_interes" }
+                        .blocks
+                        .first() as Block.Paragraph
+                ).markdown
+            listOf("**A favor**", "**Neutral**", "**En contra pero abierto a escuchar**", "**En contra**:").forEach {
+                assertTrue(it in stances, "$level $it")
+            }
+        }
+    }
+
     // Review Focus 5
     @Test
     fun `sin estudio, sin AIIS, sin perfiles y sin indicadores el T1 se arma con sin dato`() {
@@ -587,11 +1110,12 @@ class SocialDiagnosisTypeTest {
             )
         val assembled = runBlocking { type.assemble(input, source) }
         val model = assembled.model
-        assertEquals(46, model.sections.size)
+        assertEquals(52, model.sections.size)
         assertTrue((model.blocks("objetivos").first() as Block.Paragraph).markdown.contains("no registra"))
         assertTrue((model.blocks("aiis").first() as Block.Paragraph).markdown.contains("no tiene un área de influencia indirecta social aprobada"))
         assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))
-        assertTrue(model.blocks("evaluacion_grupos").single() is Block.Paragraph)
+        assertTrue(model.blocks("evaluacion_grupos").last() is Block.Paragraph)
+        assertEquals(2, model.blocks("evaluacion_grupos").size)
         assertEquals(listOf(UUID.fromString(T1Source.AIDS)), assembled.maps.single { it.key == DiagnosisStudy.AREAS_MAP }.areas)
     }
 
@@ -634,6 +1158,60 @@ class SocialDiagnosisTypeTest {
         assertTrue(ReportWarning(PersonalDataScan.CODE, "mensajes") in warnings, "$warnings")
     }
 
+    // #108: el Anexo 3 trae el sistema de variables (las variables, sus componentes y sus 15 indicadores) y el gráfico de
+    // influencia nativo con cada grupo evaluado por su código y las líneas de los umbrales del proyecto
+    @Test
+    fun `el anexo 3 lleva el sistema de variables y la dispersion de interes y poder por codigo con los umbrales`() {
+        val source = T1Source.source()
+        val project = source.rows.getValue("project").single()
+        source.rows.getValue("project")[0] = SourceRow(project.id, project.state, project.attributes + ("interest_threshold" to "3.50"))
+        source.add("stakeholder", T1Source.id(90), null, "project" to T1Source.PROJECT, "stakeholder_scope" to "AIIS", "stakeholder_type" to "OTRO")
+        val model = assemble(source).model
+        val blocks = model.blocks("anexo_metodologia")
+        val variables = model.tables("anexo_metodologia").single { it.title == "Sistema de variables" }
+        assertTrue(variables.figure)
+        assertEquals(listOf("Variable", "Componente", "Indicador"), variables.header)
+        assertEquals(InfluenceClassifier.INDICATORS.size, variables.rows.size)
+        assertEquals(listOf("Interés", "Percepción de afectación", "Afectación del medio ambiente"), variables.rows[0].map { it.text })
+        assertEquals(6 to 3, variables.rows[0][0].rowSpan to variables.rows[0][1].rowSpan)
+        assertEquals(listOf("Poder", "Control de recursos", "Habilidad de acción legal"), variables.rows[6].map { it.text })
+        assertEquals(listOf("Participación en otros mecanismos de presión"), variables.rows.last().map { it.text })
+        val chart = blocks.filterIsInstance<Block.ScatterChart>().single()
+        assertEquals("Gráfico de influencia", chart.title)
+        assertEquals("Interés" to "Poder", chart.xAxis to chart.yAxis)
+        assertEquals("1" to "5", chart.minimum to chart.maximum)
+        assertEquals("3.5" to "3", chart.xThreshold to chart.yThreshold)
+        assertEquals(
+            listOf(
+                ChartPoint(RegisterSheets.code(T1Source.LEADER), "4.2", "3.8"),
+                ChartPoint(RegisterSheets.code(T1Source.DISTRICT), "2", "4")
+            ),
+            chart.points
+        )
+        // la tabla de cuadrantes sigue, después del gráfico
+        val quadrant = model.tables("anexo_metodologia").single { it.title == "Cuadrantes de influencia" }
+        assertTrue(blocks.indexOf(chart) < blocks.indexOf(quadrant))
+        assertEquals(RegisterSheets.code(T1Source.LEADER), quadrant.rows[0][2].text)
+    }
+
+    // los rótulos del sistema de variables son los del modelo (sin «Componente de») y cubren todo InfluenceClassifier
+    @Test
+    fun `el sistema de variables rotula cada componente e indicador como model json`() {
+        val objects = JsonMapper.builder().build().readTree(File("model/model.json"))["objects"]
+        val fields =
+            objects
+                .values()
+                .single { it["name"].asString() == "stakeholder_assessment" }["fields"]
+                .values()
+                .associate { it["name"].asString() to it["label"].asString() }
+        val names = (InfluenceClassifier.INTEREST + InfluenceClassifier.POWER).flatMap { (component, indicators) -> listOf(component) + indicators }
+        assertEquals(names.toSet(), DiagnosisAnnexes.LABELS.keys)
+        for (name in names) {
+            val expected = fields.getValue(name).removePrefix("Componente de ").replaceFirstChar { it.uppercase() }
+            assertEquals(expected, DiagnosisAnnexes.LABELS[name], name)
+        }
+    }
+
     @Test
     fun `los anexos llevan el mapa horizontal, los instrumentos y el cuadrante de influencia por codigo`() {
         val assembled = assemble()
@@ -643,7 +1221,7 @@ class SocialDiagnosisTypeTest {
             model.blocks("anexo_concesiones")
         )
         assertEquals(Block.SectionBreak(false), model.blocks("anexo_instrumentos").first())
-        val quadrant = model.tables("anexo_metodologia").single { it.figure }
+        val quadrant = model.tables("anexo_metodologia").single { it.title == "Cuadrantes de influencia" }
         assertEquals(RegisterSheets.code(T1Source.LEADER), quadrant.rows[0][2].text)
         assertEquals(RegisterSheets.code(T1Source.DISTRICT), quadrant.rows[0][1].text)
         assertEquals("—", quadrant.rows[1][1].text)
@@ -653,5 +1231,53 @@ class SocialDiagnosisTypeTest {
         assertEquals(listOf(UUID.fromString(T1Source.CONCESSION)), annex.concessions)
         assertEquals(listOf(DiagnosisStudy.AREAS_MAP, DiagnosisAnnexes.ANNEX_MAP), assembled.maps.map { it.key })
         assertTrue(model.sections.all { section -> section.key in setOf("portada", "indice") || section.chapter != null })
+    }
+
+    // I2 de la revisión de #105 a #111: las secciones asistidas sin bloques propios mandan a AI-04 los de su contexto, y el
+    // documento no los imprime dos veces
+    @Test
+    fun `AI-04 de percepciones, areas y 9-1-1 recibe los datos de su contexto sin cambiar lo impreso`() {
+        val model = assemble().model
+
+        fun ai(key: String): String = SectionText.render(DeliverableSections.aiBlocks(model, type, key), model.people, emptyMap()) { _, _ -> false }
+        assertTrue(model.blocks("percepciones").none { it is Block.Table || (it is Block.Paragraph && "trae trabajo" in it.markdown) })
+        val perceptions = ai("percepciones")
+        assertTrue("La minería trae trabajo." in perceptions && "El proyecto afectará el agua." in perceptions, perceptions)
+        assertTrue("Datos de 7.1.1" in perceptions, perceptions)
+        assertTrue(model.blocks("areas").isEmpty())
+        val areas = ai("areas")
+        assertTrue("Impactos reales o percibidos de la exploración." in areas, areas)
+        assertTrue("Interacciones del periodo por tipo" in ai("contactos_regulares"), ai("contactos_regulares"))
+        val political = ai("reuniones_politicas")
+        assertTrue("Interacciones del periodo por tipo" in political && "Datos de 7.2.2 Grupos políticos" in political, political)
+        assertEquals(
+            type.aiContext.keys,
+            type.aiContext.keys
+                .filter { key -> type.sections.single { it.key == key }.assisted }
+                .toSet()
+        )
+        assertTrue(
+            type.aiContext.values
+                .flatten()
+                .all { key -> type.sections.any { it.key == key } }
+        )
+    }
+
+    // M1 de la revisión de #105 a #111: T1 quita el título de la portada, el índice y los perfiles por el modelo
+    @Test
+    fun `la portada, el indice y los perfiles no imprimen su titulo y las demas si`() {
+        val model = assemble().model
+        assertEquals(listOf("portada", "indice", "perfiles"), model.sections.filter { it.showTitle == false }.map { it.key })
+        assertTrue(model.sections.filter { it.showTitle != false }.all { it.showTitle == null })
+    }
+
+    // M7 de la revisión de #105 a #111: la palabra entera, sin distinguir mayúsculas ni tildes
+    @Test
+    fun `el nombre que ya empieza con proyecto exige la palabra entera`() {
+        assertTrue(DiagnosisStudy.startsWith("Proyecto Wayra Ejemplo", "proyecto"))
+        assertTrue(DiagnosisStudy.startsWith("  PROYECTO", "proyecto"))
+        assertFalse(DiagnosisStudy.startsWith("Proyectos Andinos Ejemplo SAC", "proyecto"))
+        assertTrue(DiagnosisStudy.startsWith("Criterios: impactos", "criterios"))
+        assertFalse(DiagnosisStudy.startsWith("Criteriosamente se eligió", "criterios"))
     }
 }

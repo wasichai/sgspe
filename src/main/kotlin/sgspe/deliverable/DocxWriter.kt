@@ -4,13 +4,22 @@ import org.apache.poi.common.usermodel.PictureType
 import org.apache.poi.openxml4j.opc.OPCPackage
 import org.apache.poi.util.Units
 import org.apache.poi.wp.usermodel.HeaderFooterType
+import org.apache.poi.xddf.usermodel.PresetLineDash
+import org.apache.poi.xddf.usermodel.XDDFColor
+import org.apache.poi.xddf.usermodel.XDDFLineProperties
+import org.apache.poi.xddf.usermodel.XDDFNoFillProperties
+import org.apache.poi.xddf.usermodel.XDDFPresetLineDash
+import org.apache.poi.xddf.usermodel.XDDFShapeProperties
+import org.apache.poi.xddf.usermodel.XDDFSolidFillProperties
 import org.apache.poi.xddf.usermodel.chart.AxisCrosses
 import org.apache.poi.xddf.usermodel.chart.AxisPosition
 import org.apache.poi.xddf.usermodel.chart.ChartTypes
 import org.apache.poi.xddf.usermodel.chart.LegendPosition
 import org.apache.poi.xddf.usermodel.chart.MarkerStyle
+import org.apache.poi.xddf.usermodel.chart.ScatterStyle
 import org.apache.poi.xddf.usermodel.chart.XDDFDataSourcesFactory
 import org.apache.poi.xddf.usermodel.chart.XDDFLineChartData
+import org.apache.poi.xddf.usermodel.chart.XDDFScatterChartData
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
@@ -38,6 +47,7 @@ import org.commonmark.node.SoftLineBreak
 import org.commonmark.node.StrongEmphasis
 import org.commonmark.node.Text
 import org.commonmark.parser.Parser
+import org.openxmlformats.schemas.drawingml.x2006.chart.STDLblPos
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge
@@ -97,7 +107,8 @@ class DocxWriter(
                     if (leading.landscape != landscape) endSection(doc, landscape)
                     landscape = leading.landscape
                 }
-                paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
+                // una sección con showTitle false no lleva título (T1: un «Portada» o «Índice» de más saldría en el índice)
+                if (section.showTitle != false) paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
                 for (block in section.blocks.drop(if (leading != null) 1 else 0)) {
                     when (block) {
                         is Block.Heading -> paragraph(doc, styles.heading(block.level)).createRun().setText(block.text)
@@ -106,6 +117,7 @@ class DocxWriter(
                         is Block.Photos -> captions.find(block)?.let { photoRows(doc, styles, block, model, input, it) }
                         is Block.MapFigure -> map(doc, styles, block, model, captions.of(block), input.author)
                         is Block.LineChart -> lineChart(doc, styles, block, captions.of(block), input.author)
+                        is Block.ScatterChart -> scatterChart(doc, styles, block, captions.of(block), input.author)
                         is Block.Toc -> toc(doc, block)
                         is Block.CaptionList -> captionList(doc, styles, block, captions)
                         is Block.SectionBreak -> {
@@ -328,7 +340,7 @@ class DocxWriter(
         doc: XWPFDocument,
         styles: StyleIds,
         text: String
-    ): XWPFParagraph = paragraph(doc, styles.normal).also { it.createRun().setText(text.trimEnd()) }
+    ): XWPFParagraph = paragraph(doc, styles.normal).also { lines(it.createRun(), text.trimEnd()) }
 
     // `depth`, los énfasis y enlaces que contienen el nodo: más allá de MAX_DEPTH, el texto plano con el formato que lleva
     private fun inline(
@@ -505,8 +517,19 @@ class DocxWriter(
     ) {
         val p = cell.paragraphs.firstOrNull() ?: cell.addParagraph()
         p.createRun().apply {
-            setText(text)
+            lines(this, text)
             if (bold) isBold = true
+        }
+    }
+
+    // un «\n» dentro de un w:t lo muestra Word como espacio: cada línea va en su texto y entre ellas, un w:br
+    private fun lines(
+        run: XWPFRun,
+        text: String
+    ) {
+        text.split('\n').forEachIndexed { i, line ->
+            if (i > 0) run.addBreak()
+            run.setText(line, run.ctr.sizeOfTArray())
         }
     }
 
@@ -534,7 +557,7 @@ class DocxWriter(
     ) {
         val text = source ?: "Fuente: Elaboración ${author ?: "propia"}"
         paragraph(doc, styles.normal).createRun().apply {
-            setText(if (text.startsWith("Fuente:")) text else "Fuente: $text")
+            lines(this, if (text.startsWith("Fuente:")) text else "Fuente: $text")
             isItalic = true
             fontSize = 9
         }
@@ -693,6 +716,7 @@ class DocxWriter(
                         is Block.Photos -> if (block.evidence.any { it in model.photos }) CaptionNumbering.FIGURE to block.title else continue
                         is Block.MapFigure -> CaptionNumbering.FIGURE to block.title
                         is Block.LineChart -> CaptionNumbering.FIGURE to block.title
+                        is Block.ScatterChart -> CaptionNumbering.FIGURE to block.title
                         else -> continue
                     }
                 val caption = numbering.next(kind, chapter)
@@ -798,6 +822,89 @@ class DocxWriter(
         sourceParagraph(doc, styles, block.source, author)
     }
 
+    // el gráfico de influencia (deliverables.md §7.9): una dispersión nativa con XDDF, editable en Word. cada punto es una serie
+    // de un valor con su rótulo como nombre, y la etiqueta de datos muestra ese nombre (POI no da etiquetas por punto); cada
+    // umbral, una serie de dos puntos sin marcadores que cruza el gráfico. sin leyenda: los rótulos están junto a sus puntos
+    private fun scatterChart(
+        doc: XWPFDocument,
+        styles: StyleIds,
+        block: Block.ScatterChart,
+        caption: CaptionNumbering.Caption,
+        author: String?
+    ) {
+        captionParagraph(doc, styles, caption, block.title)
+        val p = paragraph(doc, styles.normal)
+        p.alignment = ParagraphAlignment.CENTER
+        val chart = doc.createChart(p.createRun(), Units.toEMU(CHART_WIDTH_CM * POINTS_PER_CM), Units.toEMU(SCATTER_HEIGHT_CM * POINTS_PER_CM))
+        val min = block.minimum.toDouble()
+        val max = block.maximum.toDouble()
+        val bottom = chart.createValueAxis(AxisPosition.BOTTOM)
+        val left = chart.createValueAxis(AxisPosition.LEFT)
+        for ((axis, title) in listOf(bottom to block.xAxis, left to block.yAxis)) {
+            axis.minimum = min
+            axis.maximum = max
+            axis.majorUnit = 1.0
+            axis.crosses = AxisCrosses.MIN
+            axis.setTitle(title)
+        }
+        val data = chart.createData(ChartTypes.SCATTER, bottom, left) as XDDFScatterChartData
+        data.style = ScatterStyle.LINE_MARKER
+        data.setVaryColors(false)
+
+        fun series(
+            name: String,
+            xs: List<Double>,
+            ys: List<Double>
+        ): XDDFScatterChartData.Series =
+            (
+                data.addSeries(
+                    XDDFDataSourcesFactory.fromArray(xs.toTypedArray()),
+                    XDDFDataSourcesFactory.fromArray(ys.toTypedArray())
+                ) as XDDFScatterChartData.Series
+            ).apply {
+                setTitle(name, null)
+                setSmooth(false)
+            }
+        for (point in block.points) {
+            series(point.label, listOf(point.x.toDouble()), listOf(point.y.toDouble())).apply {
+                setMarkerStyle(MarkerStyle.CIRCLE)
+                setLineProperties(XDDFLineProperties(XDDFNoFillProperties()))
+            }
+        }
+        val thresholds =
+            listOfNotNull(
+                block.xThreshold?.toDouble()?.let { t -> "Umbral de ${block.xAxis.lowercase()}" to (listOf(t, t) to listOf(min, max)) },
+                block.yThreshold?.toDouble()?.let { t -> "Umbral de ${block.yAxis.lowercase()}" to (listOf(min, max) to listOf(t, t)) }
+            )
+        for ((name, line) in thresholds) {
+            series(name, line.first, line.second).apply {
+                setMarkerStyle(MarkerStyle.NONE)
+                setLineProperties(
+                    XDDFLineProperties(XDDFSolidFillProperties(XDDFColor.from(THRESHOLD_COLOR))).apply {
+                        width = 1.25
+                        presetDash = XDDFPresetLineDash(PresetLineDash.DASH)
+                    }
+                )
+            }
+        }
+        chart.plot(data)
+        // la etiqueta de cada punto es el nombre de su serie (el código), a la derecha del marcador; los umbrales no llevan
+        val scatter = chart.ctChart.plotArea.getScatterChartArray(0)
+        for (index in block.points.indices) {
+            scatter.getSerArray(index).addNewDLbls().apply {
+                addNewDLblPos().`val` = STDLblPos.R
+                addNewShowLegendKey().`val` = false
+                addNewShowVal().`val` = false
+                addNewShowCatName().`val` = false
+                addNewShowSerName().`val` = true
+                addNewShowPercent().`val` = false
+                addNewShowBubbleSize().`val` = false
+            }
+        }
+        chart.deleteLegend()
+        sourceParagraph(doc, styles, block.source, author)
+    }
+
     // título, asunto y palabras clave del documento (decisión 3 del plan 8.2c): LibreOffice los lleva al PDF y a su XMP, así
     // Gotenberg no recibe metadatos y PDF/A-2b no pasa por exiftool
     private fun properties(
@@ -837,13 +944,12 @@ class DocxWriter(
         val table: String? get() = id("Table Grid")
 
         fun heading(level: Int): String? =
-            id(
-                when (level.coerceIn(1, 3)) {
-                    1 -> TemplateStyles.HEADING_1
-                    2 -> TemplateStyles.HEADING_2
-                    else -> TemplateStyles.HEADING_3
-                }
-            )
+            when (level.coerceIn(1, 4)) {
+                1 -> id(TemplateStyles.HEADING_1)
+                2 -> id(TemplateStyles.HEADING_2)
+                3 -> id(TemplateStyles.HEADING_3)
+                else -> id(TemplateStyles.HEADING_4) ?: id(TemplateStyles.HEADING_3)
+            }
     }
 
     companion object {
@@ -855,6 +961,8 @@ class DocxWriter(
         const val TOC_PLACEHOLDER = "El índice se actualiza al convertir a PDF o al abrir el documento"
         private const val CHART_WIDTH_CM = 15.0
         private const val CHART_HEIGHT_CM = 8.0
+        private const val SCATTER_HEIGHT_CM = 11.0
+        private val THRESHOLD_COLOR = byteArrayOf(0x7F, 0x7F, 0x7F)
         private const val POINTS_PER_CM = 72.0 / 2.54
         private const val PHOTO_WIDTH_CM = 7.5
         private const val MAP_WIDTH_CM = 16.0
