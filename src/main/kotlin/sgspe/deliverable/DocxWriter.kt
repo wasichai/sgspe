@@ -13,6 +13,7 @@ import org.apache.poi.xddf.usermodel.XDDFShapeProperties
 import org.apache.poi.xddf.usermodel.XDDFSolidFillProperties
 import org.apache.poi.xddf.usermodel.chart.AxisCrosses
 import org.apache.poi.xddf.usermodel.chart.AxisPosition
+import org.apache.poi.xddf.usermodel.chart.AxisTickLabelPosition
 import org.apache.poi.xddf.usermodel.chart.ChartTypes
 import org.apache.poi.xddf.usermodel.chart.LegendPosition
 import org.apache.poi.xddf.usermodel.chart.MarkerStyle
@@ -47,7 +48,6 @@ import org.commonmark.node.SoftLineBreak
 import org.commonmark.node.StrongEmphasis
 import org.commonmark.node.Text
 import org.commonmark.parser.Parser
-import org.openxmlformats.schemas.drawingml.x2006.chart.STDLblPos
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge
@@ -547,6 +547,8 @@ class DocxWriter(
         }
         p.createRun().setText("${caption.label}. $title")
         p.ctp.addNewBookmarkEnd().id = id
+        // la leyenda va en la misma página que su tabla, gráfico o mapa
+        (p.ctp.pPr ?: p.ctp.addNewPPr()).addNewKeepNext()
     }
 
     private fun sourceParagraph(
@@ -840,66 +842,52 @@ class DocxWriter(
         val max = block.maximum.toDouble()
         val bottom = chart.createValueAxis(AxisPosition.BOTTOM)
         val left = chart.createValueAxis(AxisPosition.LEFT)
-        for ((axis, title) in listOf(bottom to block.xAxis, left to block.yAxis)) {
+        // los cuadrantes: cada eje cruza al otro en su umbral (el horizontal a la altura del umbral de poder, el vertical en el
+        // de interés), con la línea discontinua y los rótulos al borde. una línea de umbral como serie de dos puntos sale torcida
+        // en LibreOffice
+        for ((axis, title, crossing) in listOf(Triple(bottom, block.xAxis, block.yThreshold), Triple(left, block.yAxis, block.xThreshold))) {
             axis.minimum = min
             axis.maximum = max
             axis.majorUnit = 1.0
-            axis.crosses = AxisCrosses.MIN
             axis.setTitle(title)
-        }
-        val data = chart.createData(ChartTypes.SCATTER, bottom, left) as XDDFScatterChartData
-        data.style = ScatterStyle.LINE_MARKER
-        data.setVaryColors(false)
-
-        fun series(
-            name: String,
-            xs: List<Double>,
-            ys: List<Double>
-        ): XDDFScatterChartData.Series =
-            (
-                data.addSeries(
-                    XDDFDataSourcesFactory.fromArray(xs.toTypedArray()),
-                    XDDFDataSourcesFactory.fromArray(ys.toTypedArray())
-                ) as XDDFScatterChartData.Series
-            ).apply {
-                setTitle(name, null)
-                setSmooth(false)
-            }
-        for (point in block.points) {
-            series(point.label, listOf(point.x.toDouble()), listOf(point.y.toDouble())).apply {
-                setMarkerStyle(MarkerStyle.CIRCLE)
-                setLineProperties(XDDFLineProperties(XDDFNoFillProperties()))
-            }
-        }
-        val thresholds =
-            listOfNotNull(
-                block.xThreshold?.toDouble()?.let { t -> "Umbral de ${block.xAxis.lowercase()}" to (listOf(t, t) to listOf(min, max)) },
-                block.yThreshold?.toDouble()?.let { t -> "Umbral de ${block.yAxis.lowercase()}" to (listOf(min, max) to listOf(t, t)) }
-            )
-        for ((name, line) in thresholds) {
-            series(name, line.first, line.second).apply {
-                setMarkerStyle(MarkerStyle.NONE)
-                setLineProperties(
+            axis.setTickLabelPosition(AxisTickLabelPosition.LOW)
+            axis.crosses = AxisCrosses.MIN
+            if (crossing != null) {
+                axis.getOrAddShapeProperties().lineProperties =
                     XDDFLineProperties(XDDFSolidFillProperties(XDDFColor.from(THRESHOLD_COLOR))).apply {
                         width = 1.25
                         presetDash = XDDFPresetLineDash(PresetLineDash.DASH)
                     }
-                )
             }
         }
+        val data = chart.createData(ChartTypes.SCATTER, bottom, left) as XDDFScatterChartData
+        data.style = ScatterStyle.MARKER
+        data.setVaryColors(false)
+        // una sola serie: LibreOffice no dibuja los marcadores de decenas de series de un punto
+        (
+            data.addSeries(
+                XDDFDataSourcesFactory.fromArray(block.points.map { it.x.toDouble() }.toTypedArray()),
+                XDDFDataSourcesFactory.fromArray(block.points.map { it.y.toDouble() }.toTypedArray())
+            ) as XDDFScatterChartData.Series
+        ).apply {
+            setTitle(block.title, null)
+            setSmooth(false)
+            setMarkerStyle(MarkerStyle.CIRCLE)
+            setLineProperties(XDDFLineProperties(XDDFNoFillProperties()))
+        }
         chart.plot(data)
-        // la etiqueta de cada punto es el nombre de su serie (el código), a la derecha del marcador; los umbrales no llevan
-        val scatter = chart.ctChart.plotArea.getScatterChartArray(0)
-        for (index in block.points.indices) {
-            scatter.getSerArray(index).addNewDLbls().apply {
-                addNewDLblPos().`val` = STDLblPos.R
-                addNewShowLegendKey().`val` = false
-                addNewShowVal().`val` = false
-                addNewShowCatName().`val` = false
-                addNewShowSerName().`val` = true
-                addNewShowPercent().`val` = false
-                addNewShowBubbleSize().`val` = false
-            }
+        val ser =
+            chart.ctChart.plotArea
+                .getScatterChartArray(0)
+                .getSerArray(0)
+        // el relleno del marcador: sin él, LibreOffice lo dibuja vacío
+        (ser.marker.spPr ?: ser.marker.addNewSpPr()).addNewSolidFill().addNewSrgbClr().`val` = POINT_COLOR
+        // el cruce en el umbral va en el XML del eje: XDDF solo expone crosses (MIN, MAX, AUTO_ZERO)
+        for (axis in chart.ctChart.plotArea.valAxList) {
+            val vertical = axis.axPos.`val`.toString() == "l"
+            val at = (if (vertical) block.xThreshold else block.yThreshold)?.toDouble()?.coerceIn(min, max) ?: continue
+            if (axis.isSetCrosses) axis.unsetCrosses()
+            axis.addNewCrossesAt().`val` = at
         }
         chart.deleteLegend()
         sourceParagraph(doc, styles, block.source, author)
@@ -963,6 +951,7 @@ class DocxWriter(
         private const val CHART_HEIGHT_CM = 8.0
         private const val SCATTER_HEIGHT_CM = 11.0
         private val THRESHOLD_COLOR = byteArrayOf(0x7F, 0x7F, 0x7F)
+        private val POINT_COLOR = byteArrayOf(0x1F, 0x4E, 0x79)
         private const val POINTS_PER_CM = 72.0 / 2.54
         private const val PHOTO_WIDTH_CM = 7.5
         private const val MAP_WIDTH_CM = 16.0

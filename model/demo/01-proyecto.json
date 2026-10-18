@@ -303,7 +303,7 @@
         {
           "key": "inst-ent-aids-aut",
           "attributes": {
-            "study": "@study",
+            "study": "@study", "topic": "@topic-organizaciones",
             "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
             "application_scope": "AIDS",
             "description": "Entrevista semiestructurada a autoridades y dirigentes de las localidades del área de influencia social directa. Guía de preguntas sobre historia de la localidad, organización, servicios, relación con la minería y con el proyecto, y expectativas."
@@ -312,7 +312,7 @@
         {
           "key": "inst-ent-aids-pob",
           "attributes": {
-            "study": "@study",
+            "study": "@study", "topic": "@topic-mineria",
             "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
             "application_scope": "AIDS",
             "description": "Entrevista semiestructurada a pobladores, mujeres y jóvenes de las localidades del área de influencia social directa, con énfasis en agua, empleo y percepciones sobre la empresa."
@@ -321,7 +321,7 @@
         {
           "key": "inst-ent-aiis",
           "attributes": {
-            "study": "@study",
+            "study": "@study", "topic": "@topic-empresa",
             "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
             "application_scope": "AIIS",
             "description": "Entrevista semiestructurada a autoridades, dirigentes y representantes de organizaciones de las localidades del área de influencia social indirecta."
@@ -330,7 +330,7 @@
         {
           "key": "inst-ent-regional",
           "attributes": {
-            "study": "@study",
+            "study": "@study", "topic": "@topic-proyecto",
             "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
             "application_scope": "REGIONAL",
             "description": "Entrevista semiestructurada a autoridades distritales, provinciales y regionales y a representantes de instituciones del Estado, de la sociedad civil y de la Iglesia con presencia en la zona."
@@ -339,7 +339,7 @@
         {
           "key": "inst-ficha-aids-1",
           "attributes": {
-            "study": "@study",
+            "study": "@study", "topic": "@topic-condiciones",
             "instrument_type": "FICHA DE OBSERVACION LOCAL",
             "application_scope": "AIDS",
             "description": "Ficha de observación local de infraestructura, servicios, viviendas, uso del espacio y dinámica cotidiana, aplicada en cada localidad del área de influencia social directa."
@@ -348,7 +348,7 @@
         {
           "key": "inst-ficha-aids-2",
           "attributes": {
-            "study": "@study",
+            "study": "@study", "topic": "@topic-agua",
             "instrument_type": "FICHA DE OBSERVACION LOCAL",
             "application_scope": "AIDS",
             "description": "Ficha de observación local de las fuentes de agua, los pastos y las áreas de cultivo, y de las prácticas de manejo del territorio, aplicada en las localidades del área de influencia social directa."

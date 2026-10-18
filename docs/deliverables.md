@@ -154,7 +154,7 @@ Cómo leer las columnas:
 | 10.1 Anexo 1: concesiones del proyecto | Mapa con las diez capas de la leyenda del Anexo 1, grilla UTM, norte y leyenda, en una sección horizontal | LYR-10, LYR-02, LYR-03, LYR-04, LYR-09, LYR-07, LYR-05, LYR-14, LYR-15 y LYR-01 ([SIG](gis.md) §2.3) | Mapa | Calculada | F2 | F8 (estilos en F6) | RQ-GIS-019, RQ-REP-008, RQ-REP-030 [DOC-01 Anexo 1] |
 | 10.2 Anexo 2: temas e instrumentos; Tabla 10.1 | Tema, tipo de instrumento y ámbito de aplicación | `study_instrument` (`topic`, `instrument_type`, `application_scope`) | Tabla | Calculada | F2 | F8 | RF-LBS-001, RQ-REP-023 [DOC-01 Anexo 2, Tabla 10.1] |
 | 10.3 Anexo 3: metodología de interés y poder; Gráfico 10.2 | Sistema de variables: las dos variables (interés y poder), sus cinco componentes y sus 15 indicadores, índices de 1 a 5 e influencia; luego los umbrales del proyecto | Texto fijo del tipo (`anexo-3.md`) y la figura «Sistema de variables», una tabla con la estructura de `InfluenceClassifier` y los rótulos de `stakeholder_assessment`; sin columna de pesos, que son iguales mientras GAP-002 siga abierto (ASM-031); umbrales del `project` (ASM-003) | Figura (tabla) y narrativa | Estática | — | F8 | RQ-REP-023, RF-STK-006, RF-STK-007, RF-STK-008, CON-010 [DOC-01 Anexo 3, Gráfico 10.2] |
-| Gráfico 10.3: gráfico de influencia | Cada grupo de interés evaluado como un punto interés (x) × poder (y), de 1 a 5, rotulado con su código GI- (nunca un nombre), con las líneas de los umbrales del proyecto; después, la tabla «Cuadrantes de influencia» con los mismos códigos por cuadrante. Un grupo sin sus dos índices no sale | `stakeholder` (`interest_index`, `power_index`, los vigentes de su última evaluación); `project` (`interest_threshold`, `power_threshold`) | Gráfico nativo de dispersión (`Block.ScatterChart`) y tabla de cuadrante 2 × 2 | Calculada | F2 | F8 (tablero en F2, RQ-DSH-005) | RQ-REP-009, RQ-REP-031 [DOC-01 Gráfico 10.3] |
+| Gráfico 10.3: gráfico de influencia | Cada grupo de interés evaluado como un punto interés (x) × poder (y), de 1 a 5, con los ejes cruzados en los umbrales del proyecto (los cuadrantes); los puntos no llevan rótulo (con decenas de grupos se pisan): la tabla «Cuadrantes de influencia» que sigue lista los códigos GI- por cuadrante. Un grupo sin sus dos índices no sale | `stakeholder` (`interest_index`, `power_index`, los vigentes de su última evaluación); `project` (`interest_threshold`, `power_threshold`) | Gráfico nativo de dispersión (`Block.ScatterChart`) y tabla de cuadrante 2 × 2 | Calculada | F2 | F8 (tablero en F2, RQ-DSH-005) | RQ-REP-009, RQ-REP-031 [DOC-01 Gráfico 10.3] |
 
 - El Anexo 3 de DOC-01 menciona el "contexto social relacionado al PRB", resto de otra plantilla: el texto estático del tipo no lo
   reproduce (CON-012). El poder se describe con los tres componentes del Gráfico 10.2 (CON-010).
@@ -502,8 +502,9 @@ Cada clase declara:
 - En la primera versión los gráficos son nativos y editables en Word (RQ-REP-031, ASM-014):
   - probabilidad × impacto: tabla 5 × 5 con celdas sombreadas y conteos (RQ-REP-009);
   - interés × poder: el Gráfico 10.3 es una dispersión nativa con XDDF (`Block.ScatterChart`, `scatter-chart` en el JSON
-    canónico): una serie de un punto por grupo de interés, con su código como nombre de serie y etiqueta de datos, y una serie
-    de dos puntos sin marcadores por umbral; la acompaña la tabla de cuadrante 2 × 2 con los mismos códigos, más las tablas de
+    canónico): una sola serie con un punto por grupo de interés (LibreOffice no dibuja los marcadores de decenas de series de
+    un punto) y los ejes cruzados en los umbrales con línea discontinua (una línea de umbral como serie sale torcida en
+    LibreOffice), sin rótulos por punto; la acompaña la tabla de cuadrante 2 × 2 con los mismos códigos, más las tablas de
     clasificación al estilo de DOC-01. EXTERNO resuelve las menciones del título, los ejes, los rótulos y la fuente; los
     códigos GI- y las coordenadas no son datos restringidos;
   - distribuciones: tablas de conteos y porcentajes;
