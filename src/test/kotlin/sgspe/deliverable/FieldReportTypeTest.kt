@@ -67,6 +67,9 @@ class FieldReportTypeTest {
 
         override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> =
             listOf(mapOf("concession" to mapOf("code" to "CM-01"), "object" to "community", "name" to "Comunidad Ejemplo", "areaHa" to "12.5"))
+
+        // T2 no agrupa por microcuenca
+        override suspend fun microbasins(localities: List<UUID>): Map<UUID, String> = emptyMap()
     }
 
     private fun source(): FakeSource {

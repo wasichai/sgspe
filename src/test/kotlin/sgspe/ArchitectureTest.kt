@@ -556,10 +556,11 @@ class ArchitectureTest {
     }
 
     // plan 8.2c (decisión 7): ReportMapFeatures lee como la plataforma, así que solo lo inyecta TerritoryMapData (MapData.kt),
-    // el puerto de GeoServerReportMaps, que solo llama JOB-05; ningún endpoint ni otro dominio lo usa
+    // el puerto de GeoServerReportMaps, que solo llama JOB-05, y, desde #80, ReportSources (las microcuencas de 4.2 de T1, en
+    // el ensamblado de JOB-05); ningún endpoint ni otro dominio lo usa
     @Test
-    fun `solo MapData usa ReportMapFeatures`() {
-        val allowed = listOf("/sgspe/territory/ReportMapFeatures.kt", "/sgspe/deliverable/MapData.kt")
+    fun `solo MapData y ReportSources usan ReportMapFeatures`() {
+        val allowed = listOf("/sgspe/territory/ReportMapFeatures.kt", "/sgspe/deliverable/MapData.kt", "/sgspe/deliverable/ReportSources.kt")
         val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(others, REPORT_MAP_FEATURES))
         assertTrue(allowed.all { path -> sources(main).any { it.invariantSeparatorsPath.endsWith(path) } })

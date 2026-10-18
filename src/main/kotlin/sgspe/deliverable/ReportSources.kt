@@ -9,6 +9,7 @@ import sgspe.dashboard.KpiReaders
 import sgspe.dashboard.Kpis
 import sgspe.dashboard.MonitoringRow
 import sgspe.territory.ProjectProximityQueries
+import sgspe.territory.ReportMapFeatures
 import wasichai.core.common.ForbiddenException
 import wasichai.core.common.NotFoundException
 import java.time.LocalDate
@@ -24,7 +25,8 @@ class ReportSources(
     private val callers: Callers,
     private val proximity: ProjectProximityQueries,
     private val dashboards: Dashboards,
-    private val readers: KpiReaders
+    private val readers: KpiReaders,
+    private val features: ReportMapFeatures
 ) {
     fun of(
         organizationId: UUID,
@@ -74,6 +76,9 @@ class ReportSources(
 
         // la consulta de F6 de la persona pide el proyecto, no las concesiones: AI-04 no la usa (el predio de T2 no es asistido)
         override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> = emptyList()
+
+        // las microcuencas de 4.2 son SQL propio como la plataforma: AI-04 no las usa
+        override suspend fun microbasins(localities: List<UUID>): Map<UUID, String> = emptyMap()
 
         override suspend fun monitoring(
             project: UUID,
@@ -129,6 +134,14 @@ class ReportSources(
 
         override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> =
             proximity.concessionTerritoriesAsPlatform(organizationId, concessions)
+
+        // 4.2 de T1 por microcuenca (#80): el cruce espacial por SpatialGate como la plataforma, con lo que el tipo declara
+        override suspend fun microbasins(localities: List<UUID>): Map<UUID, String> {
+            check(callers.userOrNull() == null) { "ReportSources lee como la plataforma y no corre dentro de una petición" }
+            fields("environmental_feature")
+            fields("locality")
+            return features.microbasins(organizationId, localities)
+        }
 
         // la Tabla 9.5 con el lector de la plataforma: las mismas funciones que el tablero (RQ-DSH-034, §2.2.16)
         override suspend fun monitoring(

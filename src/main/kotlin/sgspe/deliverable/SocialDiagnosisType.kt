@@ -70,9 +70,10 @@ class SocialDiagnosisType : DeliverableType {
                     "community",
                     "administrative_unit"
                 ),
-            "locality" to setOf("name", "locality_type", "recognition_status", "history"),
+            "locality" to setOf("name", "locality_type", "recognition_status", "history", "administrative_unit"),
             "community" to setOf("name"),
-            "administrative_unit" to setOf("name", "level"),
+            "administrative_unit" to setOf("name", "level", "parent_unit"),
+            "environmental_feature" to setOf("name", "feature_type"),
             "locality_profile" to
                 setOf(
                     "data_date",

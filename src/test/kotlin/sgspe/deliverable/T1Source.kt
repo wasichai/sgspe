@@ -20,6 +20,10 @@ object T1Source {
     val UPPER = id(20)
     val LOWER = id(21)
     val COMMUNITY = id(22)
+    val MIDDLE = id(23)
+    val DISTRICT_UNIT = id(24)
+    val PROVINCE_UNIT = id(25)
+    val REGION_UNIT = id(26)
     val PERSON = id(80)
     val LEADER = id(82)
     val DISTRICT = id(83)
@@ -438,6 +442,30 @@ object T1Source {
         s.add("commitment", id(102), "fulfilled", "project" to PROJECT, "deadline_status" to "VENCIDO")
         s.add("mining_concession", CONCESSION, null, "code" to "CM-01")
         s.link("project", PROJECT, "project_concession", "mining_concession", CONCESSION)
+        return s
+    }
+
+    // los nombres de las personas del conjunto: ninguno debe salir en una línea de conteos
+    val personNames = listOf("Persona Ejemplo 1", "Ejemplo 1")
+
+    // las microcuencas de las localidades del conjunto completo: el AIIS tiene una localidad en cada una, y una unidad
+    // administrativa y una localidad sin microcuenca van a «Otros miembros»
+    val MICROBASINS = mapOf(LOWER to "Microcuenca Norte", MIDDLE to "Microcuenca Sur")
+
+    // el conjunto de source() con las unidades administrativas del AIDS (distrito, provincia y departamento), dos localidades
+    // más en el AIIS (una sin microcuenca), el distrito como miembro del AIIS y las microcuencas dadas
+    fun full(microbasins: Map<String, String> = MICROBASINS): FakeReportSource {
+        val s = source()
+        s.add("administrative_unit", REGION_UNIT, null, "name" to "Región Ejemplo", "level" to "DEPARTAMENTO")
+        s.add("administrative_unit", PROVINCE_UNIT, null, "name" to "Provincia Ejemplo", "level" to "PROVINCIA", "parent_unit" to REGION_UNIT)
+        s.add("administrative_unit", DISTRICT_UNIT, null, "name" to "Distrito Ejemplo", "level" to "DISTRITO", "parent_unit" to PROVINCE_UNIT)
+        s.rows.getValue("locality").replaceAll { if (it.id == UPPER) it.copy(attributes = it.attributes + ("administrative_unit" to DISTRICT_UNIT)) else it }
+        s.add("locality", MIDDLE, null, "name" to "Caserío Ejemplo Medio", "locality_type" to "CASERIO", "recognition_status" to "RECONOCIDO")
+        s.add("locality", id(27), null, "name" to "Caserío Ejemplo Lejano", "locality_type" to "CASERIO", "recognition_status" to "RECONOCIDO")
+        s.add("area_of_influence_member", id(43), null, "area_of_influence" to AIIS, "locality" to MIDDLE, "member_condition" to "INCLUIDO")
+        s.add("area_of_influence_member", id(44), null, "area_of_influence" to AIIS, "locality" to id(27), "member_condition" to "INCLUIDO")
+        s.add("area_of_influence_member", id(45), null, "area_of_influence" to AIIS, "administrative_unit" to DISTRICT_UNIT, "member_condition" to "INCLUIDO")
+        s.basins.putAll(microbasins)
         return s
     }
 
