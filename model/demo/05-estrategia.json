@@ -329,7 +329,7 @@
         "activity_type",
         "impact_type"
       ],
-      "as": "social",
+      "as": "riesgos",
       "records": [
         {
           "key": "imp-cateo-amb",
@@ -5070,7 +5070,8 @@
             "exploration_campaign": "@camp-perf",
             "topic": "@topic-empresa",
             "locality": "@loc-tambillo",
-            "origin_engagement": "@eng-p13"
+            "origin_engagement": "@eng-p13",
+            "origin_justification": "La reunión informativa se convocó para explicar la campaña, pero la junta de Tambillo planteó la seguridad de los escolares en la trocha como condición para el tránsito; el pedido es concreto y no admite esperar a otra instancia."
           },
           "links": {
             "commitment_stakeholder": [
@@ -5111,7 +5112,8 @@
             "exploration_campaign": "@camp-perf",
             "topic": "@topic-agua",
             "locality": "@loc-llamapampa",
-            "origin_engagement": "@eng-p17"
+            "origin_engagement": "@eng-p17",
+            "origin_justification": "El pedido surgió en la reunión informativa, pero responde a una necesidad de agua potable ya priorizada por la asamblea de Llamapampa y por la municipalidad distrital, y atenderlo reduce la tensión con Ccollpa por el sistema de agua."
           },
           "links": {
             "commitment_stakeholder": [
@@ -5153,13 +5155,13 @@
             "exploration_campaign": "@camp-perf",
             "topic": "@topic-agua",
             "locality": "@loc-chacapampa",
-            "origin_engagement": "@eng-p08"
+            "origin_engagement": "@eng-p08",
+            "origin_justification": "Los comités de agua y de regantes condicionaron su participación a un segundo muestreo en la época seca; el compromiso da continuidad al monitoreo participativo y no es un beneficio individual."
           },
           "links": {
             "commitment_stakeholder": [
               "@stk-chacapampa-regantes",
-              "@stk-yanama-regantes",
-              "@stk-regional-consejero"
+              "@stk-yanama-regantes"
             ]
           },
           "transitions": [
@@ -5239,8 +5241,7 @@
           },
           "links": {
             "commitment_stakeholder": [
-              "@stk-pucara-ronda",
-              "@stk-pucara-agente"
+              "@stk-pucara-ronda"
             ]
           },
           "transitions": [
@@ -5315,7 +5316,8 @@
             "exploration_campaign": "@camp-perf",
             "topic": "@topic-agua",
             "locality": "@loc-huaylla",
-            "origin_engagement": "@eng-p08"
+            "origin_engagement": "@eng-p08",
+            "origin_justification": "Entregar por escrito los resultados del muestreo fue un pedido unánime de las organizaciones de agua en la reunión; es una obligación de información y no un apoyo material."
           },
           "links": {
             "commitment_stakeholder": [
@@ -5395,7 +5397,8 @@
             "exploration_campaign": "@camp-perf",
             "topic": "@topic-agua",
             "locality": "@loc-cruzpata",
-            "origin_engagement": "@eng-p15"
+            "origin_engagement": "@eng-p15",
+            "origin_justification": "La asociación de productores lecheros pidió los talleres en la reunión informativa como medida frente al temor por los pastos; se atienden con la asociación Agua y Puna como parte del eje de agua y territorio."
           },
           "links": {
             "commitment_stakeholder": [
@@ -5515,7 +5518,8 @@
             "exploration_campaign": "@camp-perf",
             "topic": "@topic-electoral",
             "locality": "@loc-yanama",
-            "origin_engagement": "@eng-p10"
+            "origin_engagement": "@eng-p10",
+            "origin_justification": "El pedido llegó en la reunión informativa de Yanama; se registró para responderlo formalmente, aunque luego se canceló por coincidir con la campaña electoral."
           },
           "links": {
             "commitment_stakeholder": [

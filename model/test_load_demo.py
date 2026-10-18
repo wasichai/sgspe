@@ -56,11 +56,11 @@ class LoaderTests(unittest.TestCase):
         self.core.add_record("indicator", {"code": "KPI-STK-05"})
         self.core.refuse_command("/measurements", 422)  # STANCE: no se cierra
 
-    def run_loader(self):
+    def run_loader(self, workers=1):
         client = Client(self.core.base_url)
         client.login("admin@wasichai.local", "admin")
         return load_demo.Loader(client, load_demo.read_dataset(self.dir), users_password="clave-demo-123",
-                                out=io.StringIO()).run()
+                                out=io.StringIO(), workers=workers).run()
 
     def test_resuelve_referencias_y_expande_el_usuario(self):
         self.run_loader()
@@ -81,6 +81,13 @@ class LoaderTests(unittest.TestCase):
         ring = square["coordinates"][0][0]
         self.assertEqual(ring[0], ring[-1])
 
+    def test_un_campo_polygon_recibe_un_polygon(self):
+        # locality.boundary es POLYGON en model.json: core rechaza un MultiPolygon ("must be a Polygon")
+        self.assertEqual(load_demo.geometry_types("locality")["boundary"], "POLYGON")
+        square = load_demo.geometry({"square": [0, 0, 0.5]}, ANCHOR, "POLYGON")
+        self.assertEqual(square["type"], "Polygon")
+        self.assertEqual(square["coordinates"][0][0], square["coordinates"][0][-1])
+
     def test_recargar_no_duplica(self):
         first = self.run_loader()
         second = self.run_loader()
@@ -88,6 +95,25 @@ class LoaderTests(unittest.TestCase):
         self.assertEqual(second.created, 0)
         self.assertEqual(len(self.core.records["locality"]), 1)
         self.assertEqual(len(self.core.assessments), 1)
+
+    def test_con_varios_hilos_carga_lo_mismo_y_no_duplica(self):
+        first = self.run_loader(workers=4)
+        second = self.run_loader(workers=4)
+        self.assertGreater(first.created, 0)
+        self.assertEqual(second.created, 0)
+        self.assertEqual(len(self.core.records["locality"]), 1)
+        self.assertEqual(len(self.core.assessments), 1)
+
+    def test_un_lote_se_corta_antes_de_una_referencia_a_su_propia_coleccion(self):
+        records = [
+            {"key": "a", "attributes": {}},
+            {"key": "b", "attributes": {"x": "@otro"}},
+            {"key": "c", "attributes": {"parent": "@a"}},
+            {"key": "d", "attributes": {}, "children": [{"key": "d1", "attributes": {}}]},
+            {"key": "e", "attributes": {"y": "@d1"}},
+        ]
+        batches = load_demo.batches(records)
+        self.assertEqual([[r["key"] for r in b] for b in batches], [["a", "b"], ["c", "d"], ["e"]])
 
     def test_un_estado_distinto_al_esperado_falla_con_su_clave(self):
         self.run_loader()
@@ -139,6 +165,22 @@ class LoaderTests(unittest.TestCase):
         self.assertEqual(len(self.core.records["engagement_participant"]), 1)
         self.assertEqual(self.core.records["engagement_participant"][0]["attributes"]["locality"],
                          self.core.records["locality"][0]["id"])
+
+    def test_la_clave_de_un_hijo_se_recupera_al_recargar(self):
+        # una recarga salta los hijos de un padre que ya existe, pero su clave tiene que seguir resolviéndose
+        data = json.loads(json.dumps(BASE))
+        data["collections"][2]["records"][0]["children"] = [
+            {"key": "kid", "object": "engagement_participant", "parent": "locality",
+             "attributes": {"attended": True, "name": "Participante uno"}},
+            {"key": "kid2", "object": "engagement_participant", "parent": "locality",
+             "attributes": {"attended": True, "name": "Participante dos"}}]
+        data["collections"][3]["records"][0]["attributes"]["note"] = "@kid2"
+        write(self.dir, "00-base.json", data)
+        self.run_loader()
+        second = self.run_loader()
+        self.assertEqual(second.created, 0)
+        kid2 = next(r for r in self.core.records["engagement_participant"] if r["attributes"]["name"] == "Participante dos")
+        self.assertEqual(self.core.records["organization"][0]["attributes"]["note"], kid2["id"])
 
     def test_la_clave_de_idempotencia_es_estable(self):
         self.run_loader()

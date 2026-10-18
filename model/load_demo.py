@@ -13,8 +13,12 @@ por SGSPE_DEMO_PASSWORD o --users-password, nunca por un archivo.
 
 Corre después de apply.py, apply_roles.py, load_ubigeo.py y load_indicators.py, con el administrador del tenant.
 
+Los registros de una colección se cargan en lotes de hasta --workers a la vez (SGSPE_DEMO_WORKERS; 1 por defecto): un
+lote se corta antes del registro que nombra a otro de su misma colección, así que cada referencia sigue existiendo antes de
+usarse. Los hijos, vínculos, transiciones y comandos de un registro van siempre en orden, en su mismo hilo.
+
 Correr: python3 load_demo.py [--dir D] [--core URL] [--email E] [--password P] [--users-password P] [--draft]
-        [--dry-run | --validate-only]
+        [--workers N] [--dry-run | --validate-only]
 Salida: 0 si va bien, 1 si core rechaza algo o no responde, 2 si los archivos faltan o no son válidos.
 """
 import argparse
@@ -24,9 +28,11 @@ import math
 import os
 import re
 import sys
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 import demo_check
@@ -49,6 +55,15 @@ def derived_fields(object_name, path=os.path.join(HERE, "model.json"), _cache={}
             _cache[path] = {o["name"]: {x["name"] for x in o.get("fields", []) if x.get("derived")}
                             for o in json.load(f)["objects"]}
     return _cache[path].get(object_name, set())
+
+
+def geometry_types(object_name, path=os.path.join(HERE, "model.json"), _cache={}):
+    """El geometryType de cada campo GEOMETRY de un objeto en model/model.json (POINT, POLYGON, MULTIPOLYGON…)."""
+    if path not in _cache:
+        with open(path, encoding="utf-8") as f:
+            _cache[path] = {o["name"]: {x["name"]: x.get("geometryType") for x in o.get("fields", []) if x.get("type") == "GEOMETRY"}
+                            for o in json.load(f)["objects"]}
+    return _cache[path].get(object_name, {})
 
 
 class DatasetError(Exception):
@@ -76,8 +91,9 @@ class Counts:
     files: list = field(default_factory=list)
 
 
-def geometry(spec, anchor):
-    """Una geometría declarada en km desde el ancla, en GeoJSON EPSG:4326."""
+def geometry(spec, anchor, geometry_type=None):
+    """Una geometría declarada en km desde el ancla, en GeoJSON EPSG:4326. Un área sale MultiPolygon, salvo en un campo
+    POLYGON del modelo (`geometry_type`), donde sale Polygon."""
     lat0, lon0 = anchor["lat"], anchor["lon"]
     km_per_deg_lon = 111.320 * math.cos(math.radians(lat0))
 
@@ -96,8 +112,28 @@ def geometry(spec, anchor):
         ring = [at(*p) for p in value]
         if ring[0] != ring[-1]:
             ring.append(ring[0])
+        if geometry_type == "POLYGON":
+            return {"type": "Polygon", "coordinates": [ring]}
         return {"type": "MultiPolygon", "coordinates": [[ring]]}
     raise DatasetError(f"unknown geometry {kind}")
+
+
+def batches(records):
+    """Parte los registros de una colección en lotes que se pueden cargar a la vez: un lote se corta antes del registro que
+    nombra una clave (la de un registro o la de un hijo) de su mismo lote."""
+    out, current, keys = [], [], set()
+    for record in records:
+        refs = set(_references([record.get("attributes"), record.get("links"), record.get("children"),
+                                record.get("commands")]))
+        if refs & keys:
+            out.append(current)
+            current, keys = [], set()
+        current.append(record)
+        keys.add(record["key"])
+        keys.update(c["key"] for c in record.get("children", []) if c.get("key"))
+    if current:
+        out.append(current)
+    return out
 
 
 def _references(value):
@@ -241,7 +277,7 @@ class ReasonClient(Client):
 
 
 class Loader:
-    def __init__(self, client, dataset, users_password, draft=False, out=None):
+    def __init__(self, client, dataset, users_password, draft=False, out=None, workers=1):
         self.admin = ReasonClient(client.base_url)
         self.admin.token = client.token
         self.dataset = dataset
@@ -254,9 +290,16 @@ class Loader:
         self.objects = {}  # clave de registro -> objeto
         self.command_count = {}  # clave de registro -> comandos ya numerados
         self.indicators = {}
+        self.workers = max(1, workers)
+        self.lock = threading.Lock()
 
     def say(self, line):
-        print(line, file=self.out)
+        with self.lock:
+            print(line, file=self.out)
+
+    def bump(self, name):
+        with self.lock:
+            setattr(self.counts, name, getattr(self.counts, name) + 1)
 
     # ---- usuarios ----------------------------------------------------------------------------------------------
 
@@ -328,22 +371,35 @@ class Loader:
 
     def run(self):
         self.load_users()
-        for collection in self.dataset.collections:
-            client = self.users[collection.get("as", "admin")]["client"]
-            for record in collection["records"]:
-                try:
-                    if collection.get("reopen"):
-                        self.reopen(client, collection["object"], record)
-                    else:
-                        self.load_record(client, collection, record)
-                except CoreError as e:
-                    raise LoadError(f"{record['key']}: {e}") from e
+        with ThreadPoolExecutor(max_workers=self.workers) as pool:
+            for collection in self.dataset.collections:
+                client = self.users[collection.get("as", "admin")]["client"]
+
+                def one(record, client=client, collection=collection):
+                    try:
+                        if collection.get("reopen"):
+                            self.reopen(client, collection["object"], record)
+                        else:
+                            self.load_record(client, collection, record)
+                    except CoreError as e:
+                        raise LoadError(f"{record['key']}: {e}") from e
+
+                for batch in batches(collection["records"]):
+                    if self.workers == 1 or len(batch) == 1:
+                        for record in batch:
+                            one(record)
+                        continue
+                    # todas terminan antes del lote siguiente; la primera que falla, en el orden del archivo, se informa
+                    futures = [pool.submit(one, record) for record in batch]
+                    for future in futures:
+                        future.result()
         return self.counts
 
     def create(self, client, object_name, attributes, geometries):
         body = {"attributes": attributes}
         if geometries:
-            body["geometries"] = {name: geometry(spec, self.dataset.anchor) for name, spec in geometries.items()}
+            types = geometry_types(object_name)
+            body["geometries"] = {name: geometry(spec, self.dataset.anchor, types.get(name)) for name, spec in geometries.items()}
         _, made = client.post(f"/api/objects/{object_name}/records", body)
         return made["id"]
 
@@ -361,17 +417,19 @@ class Loader:
         existing = self.find(client, object_name, collection.get("match", []), attributes) if collection.get("match") else None
         if existing is not None:
             record_id = existing["id"]
-            self.counts.skipped += 1
+            self.bump("skipped")
         else:
             record_id = self.create(client, object_name, attributes, record.get("geometries"))
-            self.counts.created += 1
+            self.bump("created")
             self.say(f"create {object_name} {key}")
         self.ids[key], self.objects[key] = record_id, object_name
+        if existing is not None:
+            self.recover_child_keys(client, key, record, record_id)
         if existing is None:
             for child in record.get("children", []):
                 child_attributes = {**self.resolve(child.get("attributes", {})), child["parent"]: record_id}
                 child_id = self.create(client, child["object"], child_attributes, child.get("geometries"))
-                self.counts.created += 1
+                self.bump("created")
                 self.say(f"create {child['object']} (child of {key})")
                 if child.get("key"):
                     self.ids[child["key"]], self.objects[child["key"]] = child_id, child["object"]
@@ -388,6 +446,23 @@ class Loader:
                 raise LoadError(f"{key}: state {state}, expected {expected}")
         self.run_commands(client, key, object_name, record_id, record.get("commands", []))
 
+    def recover_child_keys(self, client, key, record, record_id):
+        """Los hijos de un padre que ya existe no se cargan, pero sus claves se siguen nombrando con @clave: cada hijo con
+        `key` se busca entre los de su padre por su nombre o, sin él, por sus atributos de texto."""
+        keyed = [child for child in record.get("children", []) if child.get("key")]
+        if not keyed:
+            return
+        for child in keyed:
+            attributes = self.resolve(child.get("attributes", {}))
+            # el nombre, si lo tiene, basta y no depende de cómo core devuelva fechas o textos largos
+            wanted = ({"name": attributes["name"]} if isinstance(attributes.get("name"), str)
+                      else {k: v for k, v in attributes.items() if isinstance(v, str)})
+            found = [c for c in client.list_all(child["object"], **{child["parent"]: record_id})
+                     if all(c["attributes"].get(k) == v for k, v in wanted.items())]
+            if not found:
+                raise LoadError(f"{key}: child {child['key']} not found under the existing record")
+            self.ids[child["key"]], self.objects[child["key"]] = found[0]["id"], child["object"]
+
     def reopen(self, client, object_name, record):
         key = record["key"]
         if self.objects.get(key) != object_name:
@@ -403,10 +478,10 @@ class Loader:
             headers = {"Idempotency-Key": f"demo-{key}-{number}"}
             ran = getattr(self, "cmd_" + command["command"])(client, key, object_name, record_id, command, headers)
             if ran:
-                self.counts.commands += 1
+                self.bump("commands")
                 self.say(f"command {command['command']} {key}")
             else:
-                self.counts.skipped += 1
+                self.bump("skipped")
 
     def fresh(self, client, object_name, record_id):
         return client.get(f"/api/objects/{object_name}/records/{record_id}") or {"attributes": {}}
@@ -452,7 +527,7 @@ class Loader:
                         headers)
         except CoreError as e:
             if command.get("optional") and isinstance(e.status, int) and 400 <= e.status < 500:
-                self.counts.warnings += 1
+                self.bump("warnings")
                 self.say(f"warning: {key} {command['indicator']} not closed: {e}")
                 return False
             raise
@@ -492,6 +567,8 @@ def _parse_args(argv):
     p.add_argument("--users-password", default=os.environ.get("SGSPE_DEMO_PASSWORD"),
                    help="contraseña de los usuarios de la demostración (o SGSPE_DEMO_PASSWORD)")
     p.add_argument("--draft", action="store_true", help="pide también el borrador de los entregables")
+    p.add_argument("--workers", type=int, default=int(os.environ.get("SGSPE_DEMO_WORKERS", "1")),
+                   help="registros de una colección que se cargan a la vez (o SGSPE_DEMO_WORKERS; 1 por defecto)")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="cuenta lo que cargaría; no llama a core")
     mode.add_argument("--validate-only", action="store_true", help="solo valida los archivos; no llama a core")
@@ -537,7 +614,7 @@ def main(argv=None):
     client = Client(args.core)
     try:
         client.login(args.email, args.password)
-        counts = Loader(client, dataset, args.users_password, args.draft).run()
+        counts = Loader(client, dataset, args.users_password, args.draft, workers=args.workers).run()
     except CoreError as e:
         print(f"error -> {e.status}\n{e.body}", file=sys.stderr)
         return 1
