@@ -187,3 +187,143 @@ class DemoDataTests(unittest.TestCase):
             a = r["attributes"]
             self.assertEqual((a["project"], a["study"]), ("@proj", "@study"))
             self.assertTrue(a["topic"].startswith("@topic-") and a["description"] and a["risks"] and a["opportunities"])
+
+    # ---- 05-estrategia.json: estrategia, interacciones, compromisos, riesgos y cierres ----------------------------
+
+    AIDS_LOCALITIES = {"@loc-huaylla", "@loc-quishuar", "@loc-llamapampa", "@loc-ccollpa"}
+
+    def interviews(self):
+        return [r for r in self.records("engagement") if r["attributes"]["engagement_type"] == "ENTREVISTA"]
+
+    def test_entrevistas_del_trabajo_de_campo(self):
+        interviews = self.interviews()
+        self.assertEqual(len(interviews), 72)
+        self.assertTrue(all("2026-04-13" <= r["attributes"]["held_at"][:10] <= "2026-04-30" for r in interviews))
+        self.assertTrue(all(r["state"] == "held" and r["children"] for r in interviews))
+
+    def test_entrevistas_por_ambito(self):
+        by = {"AIDS": 0, "AIIS": 0, "SIN LOCALIDAD": 0}
+        for r in self.interviews():
+            locality = r["attributes"].get("locality")
+            by["SIN LOCALIDAD" if locality is None else "AIDS" if locality in self.AIDS_LOCALITIES else "AIIS"] += 1
+        self.assertEqual(by, {"AIDS": 21, "AIIS": 39, "SIN LOCALIDAD": 12})
+
+    def test_cada_entrevistado_una_vez_en_la_fecha_de_su_linea_de_base(self):
+        stakeholders = {"@" + r["key"]: r for r in self.records("stakeholder")}
+        seen = []
+        for r in self.interviews():
+            a = r["attributes"]
+            self.assertEqual((a["study"], r["transitions"]), ("@study", ["register_held_unplanned"]), r["key"])
+            self.assertTrue(a["study_instrument"].startswith("@inst-ent-"), r["key"])
+            for child in r["children"]:
+                c = child["attributes"]
+                self.assertTrue(c["attended"] and c["represented_people_count"] == 1, r["key"])
+                stakeholder = stakeholders[c["stakeholder"]]
+                self.assertEqual(stakeholder["attributes"]["interview_status"], "ENTREVISTADO", r["key"])
+                self.assertEqual(self.assessments(stakeholder)[0]["assessment_date"], a["held_at"][:10], r["key"])
+                if a.get("locality") is not None:
+                    self.assertEqual(a["locality"], stakeholder["attributes"]["locality"], r["key"])
+                seen.append(c["stakeholder"])
+        self.assertEqual(len(seen), len(set(seen)))
+        interviewed = {k for k, r in stakeholders.items() if r["attributes"]["interview_status"] == "ENTREVISTADO"}
+        self.assertEqual(set(seen), interviewed)
+
+    def test_fichas_de_observacion_en_el_aids(self):
+        sheets = [r for r in self.records("engagement") if r["attributes"]["engagement_type"] == "FICHA DE OBSERVACION"]
+        self.assertEqual({r["attributes"]["locality"] for r in sheets}, self.AIDS_LOCALITIES)
+        self.assertEqual(len(sheets), 4)
+
+    def test_interacciones_del_periodo(self):
+        rows = [r for r in self.records("engagement") if r["attributes"].get("study") is None]
+        self.assertEqual(len(rows), 24)
+        for r in rows:
+            self.assertTrue("2026-05-01" <= r["attributes"]["held_at"][:10] <= "2026-09-30", r["key"])
+            self.assertTrue(r["links"]["engagement_stakeholder"], r["key"])
+            self.assertTrue(any(c["attributes"].get("stakeholder") for c in r["children"]), r["key"])
+            self.assertEqual(r["state"], "held", r["key"])
+        months = {r["attributes"]["held_at"][:7] for r in rows}
+        self.assertEqual(months, {"2026-05", "2026-06", "2026-07", "2026-08", "2026-09"})
+
+    def test_plan_con_diez_actividades(self):
+        plans = self.records("engagement_plan")
+        self.assertEqual(len(plans), 1)
+        self.assertEqual(plans[0]["attributes"]["meetings_per_month_target"], 4)
+        activities = [c["attributes"] for c in plans[0]["children"] if c["object"] == "planned_activity"]
+        self.assertEqual(len(activities), 10)
+        self.assertEqual(sum(1 for a in activities if a["completed"]), 6)
+        self.assertTrue(all("2026-05-01" <= a["planned_date"] <= "2026-11-30" for a in activities))
+        self.assertTrue(all(a["planned_date"] <= "2026-09-30" for a in activities if a["completed"]))
+
+    def test_mensajes_alianzas_e_impactos(self):
+        self.assertEqual(len(self.records("key_message")), 6)
+        alliances = self.records("strategic_alliance")
+        self.assertEqual({r["attributes"]["organization"] for r in alliances},
+                         {"@org-diocesis", "@org-municipalidad-provincial", "@org-universidad", "@org-gobierno-regional",
+                          "@org-ong"})
+        self.assertTrue(all("formalized" not in r["attributes"] for r in alliances))
+        impacts = {(r["attributes"]["activity_type"], r["attributes"]["impact_type"]) for r in self.records("potential_impact")}
+        self.assertEqual(impacts, {(a, t) for a in ("CATEO", "PERFORACION") for t in ("AMBIENTAL", "SOCIAL")})
+
+    def test_visitas_de_campo(self):
+        visits = sorted(self.records("field_visit"), key=lambda r: r["attributes"]["actual_start_date"])
+        self.assertEqual([(r["attributes"]["actual_start_date"], r["attributes"]["actual_end_date"]) for r in visits],
+                         [("2026-04-13", "2026-04-20"), ("2026-04-22", "2026-04-30")])
+        self.assertTrue(all(r["transitions"] == ["start", "complete"] and r["state"] == "completed" for r in visits))
+
+    def test_compromisos_en_varios_estados(self):
+        states = sorted({r.get("state", "draft") for r in self.records("commitment")})
+        self.assertEqual(states, ["approved", "blocked", "cancelled", "draft", "in_progress"])
+
+    def test_compromisos_con_la_matriz_y_bajo_el_tope(self):
+        commitments = self.records("commitment")
+        self.assertEqual(len(commitments), 12)
+        counts = {}
+        approved = 0
+        for r in commitments:
+            a = r["attributes"]
+            counts[r["state"]] = counts.get(r["state"], 0) + 1
+            for name in ("description", "objective", "resource_type", "quantity", "unit", "request_medium", "agreed_date",
+                         "due_date", "beneficiaries_count", "amount"):
+                self.assertIn(name, a, r["key"])
+            self.assertEqual((a["currency"], a["owner_user"], a["exploration_campaign"]), ("PEN", "compromisos", "@camp-perf"))
+            self.assertTrue(r["links"]["commitment_stakeholder"], r["key"])
+            if "approve_direct" in r.get("transitions", []):
+                approved += a["amount"]
+        self.assertEqual(counts, {"draft": 3, "approved": 4, "in_progress": 3, "blocked": 1, "cancelled": 1})
+        self.assertLessEqual(approved, 60000)
+
+    def test_cinco_riesgos_con_evaluacion_inherente_y_residual(self):
+        risks = self.records("social_risk")
+        self.assertEqual(len(risks), 5)
+        for r in risks:
+            residual = [c["attributes"].get("residual", False) for c in r["commands"]]
+            self.assertFalse(residual[0])
+            self.assertIn(True, residual)
+
+    def test_riesgos_con_revisiones_en_orden_y_dos_medidas(self):
+        risks = sorted(self.records("social_risk"), key=lambda r: r["attributes"]["code"])
+        self.assertEqual([r["attributes"]["code"] for r in risks], [f"DEMO-R-0{i}" for i in range(1, 6)])
+        decisions = sorted(r["attributes"]["treatment_decision"] for r in risks)
+        self.assertEqual(decisions, ["MITIGAR"] * 3 + ["MONITOREAR"] * 2)
+        for r in risks:
+            dates = [c["attributes"]["assessment_date"] for c in r["commands"]]
+            self.assertEqual(dates, ["2026-05-05", "2026-07-05", "2026-09-05", "2026-09-10"], r["key"])
+            for c in r["commands"]:
+                self.assertEqual(set(c["attributes"]) - {"assessment_date", "probability", "impact", "residual", "notes"}, set())
+                self.assertTrue(1 <= c["attributes"]["probability"] <= 5 and 1 <= c["attributes"]["impact"] <= 5)
+            measures = [c for c in r["children"] if c["object"] == "mitigation_measure"]
+            self.assertEqual(len(measures), 2, r["key"])
+            self.assertTrue(all(m["attributes"]["owner_user"] == "riesgos" for m in measures))
+
+    def test_cierres_de_la_tabla_9_5(self):
+        with open(os.path.join(HERE, "indicators.json"), encoding="utf-8") as f:
+            catalog = {i["code"] for i in json.load(f)["indicators"]}
+        closes = [c for coll in self.dataset.collections if coll["object"] == "project" and coll.get("reopen")
+                  for r in coll["records"] for c in r["commands"]]
+        codes = {c["indicator"] for c in closes}
+        table = {"KPI-STK-04", "KPI-STK-07", "KPI-ENG-02", "KPI-GRV-07", "KPI-ENG-03", "KPI-ENG-04", "KPI-ENG-05",
+                 "KPI-COM-08", "KPI-ENG-06", "KPI-ENG-07", "KPI-ENG-08"}
+        self.assertEqual(codes, table)
+        self.assertTrue(codes <= catalog)
+        self.assertTrue(all((c["period_start_date"], c["period_end_date"], c["optional"]) == ("2026-04-01", "2026-09-30", True)
+                            for c in closes))
