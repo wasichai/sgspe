@@ -225,7 +225,8 @@ object DiagnosisContext {
                         }
                     )
                 }
-            listOf<Block>(Block.Heading(3, title)) + tables
+            // un ámbito sin organizaciones ni programas no queda en un título solo (#83)
+            listOf<Block>(Block.Heading(3, title)) + tables.ifEmpty { listOf(Block.Paragraph("$SIN_DATO.")) }
         }
     }
 
