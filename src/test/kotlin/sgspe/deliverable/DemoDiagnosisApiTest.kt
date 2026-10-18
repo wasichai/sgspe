@@ -68,7 +68,7 @@ class DemoDiagnosisApiTest : F8ApiTest() {
             assertTrue(text.contains("Caserío Huaylla Alto"), "sin la localidad del AIDS en el texto")
             // la narrativa humana de la introducción llega al documento
             assertTrue(text.contains("El presente documento constituye el diagnóstico social"), "sin la narrativa de la introducción")
-            // #80: la ubicación sale de las unidades del conjunto (09, 0904 y 090410) y 4.2 va por microcuenca
+            // #80: la ubicación sale de las unidades del conjunto (090000, 090400 y 090410, con el formato de load_ubigeo.py) y 4.2 va por microcuenca
             assertTrue(text.contains("Ubicación: distrito de SAN JUAN, provincia de CASTROVIRREYNA, región HUANCAVELICA"), "sin la ubicación")
             assertTrue(text.contains("Apoyos y oposición: "), "sin los apoyos y la oposición")
             for (title in listOf("Miembros del AIIS en la Microcuenca Ichuyacu", "Miembros del AIIS en la Microcuenca Pallcamayo", "Otros miembros del AIIS")) {

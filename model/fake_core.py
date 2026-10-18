@@ -229,6 +229,10 @@ class FakeCore:
         if match and method == "POST":
             self.links.append((*match.groups(), body["otherId"]))
             return 204, None
+        if match and method == "GET":
+            others = [{"id": link[3]} for link in self.links if link[:3] == match.groups()]
+            return 200, {"content": others, "page": 0, "size": len(others), "totalElements": len(others),
+                         "totalPages": 1 if others else 0}
         match = SGSPE_COMMAND.match(path)
         if match and method == "POST":
             return self._sgspe_command(*match.groups(), path, body)

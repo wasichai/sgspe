@@ -8,7 +8,8 @@ periodo, secciones y borrador). Un registro que ya existe no se actualiza: sus h
 su estado declarado se comprueba y sus comandos corren siempre, porque cada uno es idempotente por su cuenta.
 
 Las geometrías se declaran en km desde el ancla y se pasan a GeoJSON EPSG:4326. Cada escritura lleva X-Change-Reason y
-cada comando una Idempotency-Key estable `demo-<clave>-<n>`. La contraseña de los usuarios de la demostración llega solo
+cada comando una Idempotency-Key estable que sale de su contenido, `demo-<clave>-<sha256[:12]>`: insertar un comando antes
+de otro no cambia la clave del segundo. La contraseña de los usuarios de la demostración llega solo
 por SGSPE_DEMO_PASSWORD o --users-password, nunca por un archivo.
 
 Corre después de apply.py, apply_roles.py, load_ubigeo.py y load_indicators.py, con el administrador del tenant.
@@ -26,6 +27,7 @@ Salida: 0 si va bien, 1 si core rechaza algo o no responde, 2 si los archivos fa
 """
 import argparse
 import glob
+import hashlib
 import json
 import math
 import os
@@ -40,15 +42,14 @@ from dataclasses import dataclass, field
 
 import demo_check
 from core_client import TIMEOUT_SECONDS, Client, CoreError
+from demo_check import COMMANDS, REFERENCE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REASON = "Carga del conjunto de demostración"
 KM_PER_DEG_LAT = 110.574
-REFERENCE = re.compile(r"^@([A-Za-z0-9_-]+)$")
 MENTION = re.compile(r"\[\[person:@([A-Za-z0-9_-]+)\]\]")
 FILE_KEYS = {"anchor", "users", "collections"}
 DRAFT_BUSY = ("EN COLA", "EN PROCESO", "LISTO")
-COMMANDS = ("assessment", "risk_assessment", "approve_area", "close_period", "sections", "draft")
 
 
 _MODEL_FIELDS = {}
@@ -211,11 +212,16 @@ def _build(items, errors):
         where = f"{collection['_file']} {collection.get('object')}"
         if collection.get("as", "admin") not in user_keys:
             errors.append(f"{where}: unknown user {collection.get('as')}")
+        seen = set()  # dos registros con la misma clave en un lote competirían por sus comandos (una reapertura)
         for record in collection.get("records", []):
             key = record.get("key")
             if not key:
                 errors.append(f"{where}: record without key")
                 continue
+            if key in seen:
+                errors.append(f"{where}: {key} repeated in the same collection")
+                continue
+            seen.add(key)
             if not collection.get("reopen") and not collection.get("match"):
                 errors.append(f"{where}: {key} collection without match (a reload would duplicate it)")
             if collection.get("reopen"):
@@ -312,7 +318,7 @@ class Loader:
         self.users = {}  # clave -> {"id", "email", "client"}
         self.ids = {}  # clave de registro -> id
         self.objects = {}  # clave de registro -> objeto
-        self.command_count = {}  # clave de registro -> comandos ya numerados
+        self.command_count = {}  # (clave de registro, huella del comando) -> veces que ya se mandó
         self.indicators = {}
         self.workers = max(1, workers)
         self.lock = threading.Lock()
@@ -413,10 +419,16 @@ class Loader:
                         for record in batch:
                             one(record)
                         continue
-                    # todas terminan antes del lote siguiente; la primera que falla, en el orden del archivo, se informa
+                    # todas terminan antes del lote siguiente; la primera que falla, en el orden del archivo, se informa,
+                    # y las que aún no empezaron se cancelan para no seguir escribiendo tras el error
                     futures = [pool.submit(one, record) for record in batch]
-                    for future in futures:
-                        future.result()
+                    try:
+                        for future in futures:
+                            future.result()
+                    except BaseException:
+                        for future in futures:
+                            future.cancel()
+                        raise
         return self.counts
 
     def create(self, client, object_name, attributes, geometries):
@@ -448,7 +460,7 @@ class Loader:
             self.say(f"create {object_name} {key}")
         self.ids[key], self.objects[key] = record_id, object_name
         if existing is not None:
-            self.recover_child_keys(client, key, record, record_id)
+            self.check_existing(client, key, object_name, record, record_id)
         else:
             for child in record.get("children", []):
                 child_attributes = {**self.resolve(child.get("attributes", {})), child["parent"]: record_id}
@@ -470,16 +482,39 @@ class Loader:
                 raise LoadError(f"{key}: state {state}, expected {expected}")
         self.run_commands(client, key, object_name, record_id, record.get("commands", []))
 
-    def recover_child_keys(self, client, key, record, record_id):
-        """Los hijos de un padre que ya existe no se cargan, pero sus claves se siguen nombrando con @clave: cada hijo con
-        `key` se busca entre los de su padre por child_lookup. Ninguno es LoadError; más de uno, DatasetError."""
+    def check_existing(self, client, key, object_name, record, record_id):
+        """Los hijos y vínculos de un registro que ya existe no se cargan. Sus claves se siguen nombrando con @clave
+        (recover_child_keys), y si core tiene menos hijos de un objeto o menos vínculos de una relación que los declarados
+        (el proceso murió entre el alta y ellos), avisa: la recarga no los repara."""
         listed = {}  # (objeto, campo del padre) -> los hijos de ese padre: una sola lista por par
+        declared = {}
+        for child in record.get("children", []):
+            pair = (child["object"], child["parent"])
+            declared[pair] = declared.get(pair, 0) + 1
+            if pair not in listed:
+                listed[pair] = client.list_all(child["object"], **{child["parent"]: record_id})
+        for (child_object, parent), count in declared.items():
+            self.short(key, child_object, len(listed[(child_object, parent)]), count)
+        for relationship, others in record.get("links", {}).items():
+            if not others:
+                continue
+            page = client.get(f"/api/objects/{object_name}/records/{record_id}/related/{relationship}?page=0&size=1") or {}
+            have = page.get("totalElements", len(page.get("content", [])))
+            self.short(key, relationship, have, len(others))
+        self.recover_child_keys(key, record, listed)
+
+    def short(self, key, what, have, declared):
+        if have < declared:
+            self.bump("warnings")
+            self.say(f"warning: {key} has {have} {what}, declares {declared}: a reload does not add the missing ones")
+
+    def recover_child_keys(self, key, record, listed):
+        """Cada hijo con `key` de un padre que ya existe se busca entre los de su padre (`listed`) por child_lookup.
+        Ninguno es LoadError; más de uno, DatasetError."""
         for child in record.get("children", []):
             if not child.get("key"):
                 continue
             pair = (child["object"], child["parent"])
-            if pair not in listed:
-                listed[pair] = client.list_all(child["object"], **{child["parent"]: record_id})
             # el nombre, si lo tiene, basta y no depende de cómo core devuelva fechas o textos largos
             wanted = child_lookup(self.resolve(child.get("attributes", {})))
             found = [c for c in listed[pair] if all(c["attributes"].get(k) == v for k, v in wanted.items())]
@@ -499,15 +534,22 @@ class Loader:
 
     def run_commands(self, client, key, object_name, record_id, commands):
         for command in commands:
-            number = self.command_count.get(key, 0)
-            self.command_count[key] = number + 1
-            headers = {"Idempotency-Key": f"demo-{key}-{number}"}
+            headers = {"Idempotency-Key": self.idempotency_key(key, command)}
             ran = getattr(self, "cmd_" + command["command"])(client, key, object_name, record_id, command, headers)
             if ran:
                 self.bump("commands")
                 self.say(f"command {command['command']} {key}")
             else:
                 self.bump("skipped")
+
+    def idempotency_key(self, key, command):
+        """`demo-<clave>-<sha256[:12]>` del comando tal como lo declara el conjunto: estable entre corridas y entre tenants,
+        y distinta si el comando cambia. Un comando idéntico repetido sobre la misma clave lleva además `-<n>`."""
+        digest = hashlib.sha256(json.dumps(command, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
+        with self.lock:
+            seen = self.command_count.get((key, digest), 0)
+            self.command_count[(key, digest)] = seen + 1
+        return f"demo-{key}-{digest}" + (f"-{seen}" if seen else "")
 
     def fresh(self, client, object_name, record_id):
         return client.get(f"/api/objects/{object_name}/records/{record_id}") or {"attributes": {}}

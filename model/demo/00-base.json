@@ -63,7 +63,7 @@
         {
           "key": "au-departamento",
           "attributes": {
-            "ubigeo_code": "09",
+            "ubigeo_code": "090000",
             "name": "HUANCAVELICA",
             "level": "DEPARTAMENTO"
           }
@@ -71,7 +71,7 @@
         {
           "key": "au-provincia",
           "attributes": {
-            "ubigeo_code": "0904",
+            "ubigeo_code": "090400",
             "name": "CASTROVIRREYNA",
             "level": "PROVINCIA",
             "parent_unit": "@au-departamento"

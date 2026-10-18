@@ -4,11 +4,12 @@
 `<archivo>:<clave>:`. `influence_group` es un puerto exacto de src/main/kotlin/sgspe/stakeholder/InfluenceClassifier.kt:
 cada promedio se redondea a 10 decimales y cada valor a 2, ambos HALF_UP, y cada nivel se calcula desde el anterior ya
 redondeado. Solo biblioteca estándar.
+
+Aquí viven también `REFERENCE` y `COMMANDS`, que load_demo.py importa: este módulo no importa load_demo, así que
+cualquiera de los dos se puede importar primero.
 """
 import re
 from decimal import ROUND_HALF_UP, Decimal
-
-from load_demo import COMMANDS, REFERENCE
 
 EMAIL_DOMAIN = "@sgspe.test"
 CUTOFF = "2026-09-30"
@@ -32,9 +33,14 @@ BOOLEANS = ["open_to_dialogue", "communication_sufficient", "information_adequat
 ASSESSMENT_KEYS = {"assessment_date", "basis", "stance", "trust_score", "position", "influence_group",
                    "group_overridden", *TEXTS, *BOOLEANS, *INDICATORS}
 
-# el objeto sobre el que va cada comando
+# el objeto sobre el que va cada comando, y los comandos que entiende el cargador
 COMMAND_OBJECT = {"assessment": "stakeholder", "risk_assessment": "social_risk", "approve_area": "area_of_influence",
                   "close_period": "project", "sections": "deliverable", "draft": "deliverable"}
+COMMANDS = tuple(COMMAND_OBJECT)
+REFERENCE = re.compile(r"^@([A-Za-z0-9_-]+)$")
+# el formato con el que load_ubigeo.py guarda todo ubigeo_code (su CODE): el departamento y la provincia se completan
+# con ceros, así que "09" o "0904" no encontrarían la unidad ya cargada y la duplicarían
+UBIGEO = re.compile(r"^\d{6}$")
 
 
 def _round(value):
@@ -178,6 +184,8 @@ class _Checker:
             options = self.enums.get(field.get("enum"), [])
             if value not in options:
                 self.error(file, key, f"{who}{name}.{attr} {value!r} is not an option of {field.get('enum')}")
+        if name == "administrative_unit" and attr == "ubigeo_code" and not UBIGEO.fullmatch(str(value)):
+            self.error(file, key, f"{who}{name}.{attr} {value!r} must have 6 digits, as load_ubigeo.py stores it")
         if field.get("type") == "EMAIL" and not str(value).endswith(EMAIL_DOMAIN):
             self.error(file, key, f"{who}{name}.{attr} {value!r} must end with {EMAIL_DOMAIN}")
 

@@ -2,11 +2,15 @@
 
 Correr: cd model && python3 -m unittest -v test_load_demo
 """
+import hashlib
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
@@ -23,7 +27,11 @@ BASE = {
                "roles": ["SOCIAL_MANAGER"]}],
     "collections": [
         {"object": "administrative_unit", "match": ["ubigeo_code"], "records": [
-            {"key": "au-distrito", "attributes": {"ubigeo_code": "090410", "name": "SAN JUAN", "level": "DISTRITO"}}]},
+            {"key": "au-departamento", "attributes": {"ubigeo_code": "090000", "name": "HUANCAVELICA", "level": "DEPARTAMENTO"}},
+            {"key": "au-provincia", "attributes": {"ubigeo_code": "090400", "name": "CASTROVIRREYNA", "level": "PROVINCIA",
+                                                   "parent_unit": "@au-departamento"}},
+            {"key": "au-distrito", "attributes": {"ubigeo_code": "090410", "name": "SAN JUAN", "level": "DISTRITO",
+                                                  "parent_unit": "@au-provincia"}}]},
         {"object": "project", "match": ["code"], "records": [
             {"key": "proj", "attributes": {"code": "DEMO-T1", "name": "Proyecto Wayra Ejemplo"},
              "commands": [{"command": "close_period", "indicator": "KPI-STK-05", "optional": True,
@@ -66,7 +74,7 @@ class LoaderTests(unittest.TestCase):
     def test_resuelve_referencias_y_expande_el_usuario(self):
         self.run_loader()
         locality = self.core.records["locality"][0]
-        district = self.core.records["administrative_unit"][0]
+        district = next(r for r in self.core.records["administrative_unit"] if r["attributes"]["level"] == "DISTRITO")
         self.assertEqual(locality["attributes"]["administrative_unit"], district["id"])
         stakeholder = self.core.records["stakeholder"][0]["attributes"]
         self.assertEqual(stakeholder["owner_user_email"], "gestion.social.demo@sgspe.test")
@@ -171,9 +179,68 @@ class LoaderTests(unittest.TestCase):
             self.run_loader()
 
     def test_reutiliza_el_ubigeo_ya_cargado(self):
-        self.core.add_record("administrative_unit", {"ubigeo_code": "090410", "name": "SAN JUAN", "level": "DISTRITO"})
+        # las tres unidades como las guarda load_ubigeo.py: departamento code[:2] + "0000" y provincia code[:4] + "00"
+        department = self.core.add_record("administrative_unit",
+                                          {"ubigeo_code": "090000", "name": "HUANCAVELICA", "level": "DEPARTAMENTO"})
+        province = self.core.add_record("administrative_unit", {"ubigeo_code": "090400", "name": "CASTROVIRREYNA",
+                                                                "level": "PROVINCIA", "parent_unit": department["id"]})
+        self.core.add_record("administrative_unit", {"ubigeo_code": "090410", "name": "SAN JUAN", "level": "DISTRITO",
+                                                     "parent_unit": province["id"]})
         self.run_loader()
-        self.assertEqual(len(self.core.records["administrative_unit"]), 1)
+        units = self.core.records["administrative_unit"]
+        self.assertEqual(sorted(u["attributes"]["ubigeo_code"] for u in units), ["090000", "090400", "090410"])
+        self.assertFalse([r for r in self.core.requests
+                          if r["method"] == "POST" and r["path"] == "/api/objects/administrative_unit/records"])
+
+    def test_load_demo_se_importa_en_un_interprete_limpio(self):
+        # sin ciclo con demo_check: una herramienta que importe load_demo primero no se rompe
+        done = subprocess.run([sys.executable, "-c", "import load_demo"], cwd=os.path.dirname(os.path.abspath(__file__)),
+                              capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+
+    def test_al_recargar_avisa_si_faltan_hijos_o_vinculos(self):
+        data = json.loads(json.dumps(BASE))
+        data["collections"].insert(3, {"object": "state_program", "match": ["name"], "records": [
+            {"key": "prog", "attributes": {"name": "Programa"}}]})
+        data["collections"][2]["records"][0]["children"] = [
+            {"object": "engagement_participant", "parent": "locality", "attributes": {"attended": True}},
+            {"object": "engagement_participant", "parent": "locality", "attributes": {"attended": False}}]
+        data["collections"].insert(4, {"object": "locality", "match": ["name"], "records": [
+            {"key": "loc-b", "attributes": {"name": "Caserío Ejemplo Bajo", "locality_type": "CASERIO"},
+             "links": {"state_program_locality": ["@prog"]}}]})
+        write(self.dir, "00-base.json", data)
+        self.run_loader()
+        out = io.StringIO()
+        client = Client(self.core.base_url)
+        client.login("admin@wasichai.local", "admin")
+        clean = load_demo.Loader(client, load_demo.read_dataset(self.dir), users_password="clave-demo-123", out=out).run()
+        self.assertEqual(clean.warnings, 1, out.getvalue())  # solo el cierre opcional rechazado: nada falta
+        self.core.records["engagement_participant"].pop()
+        self.core.links.clear()
+        out = io.StringIO()
+        broken = load_demo.Loader(client, load_demo.read_dataset(self.dir), users_password="clave-demo-123", out=out).run()
+        self.assertEqual(broken.warnings, 3, out.getvalue())
+        self.assertIn("warning: loc-a has 1 engagement_participant, declares 2", out.getvalue())
+        self.assertIn("warning: loc-b has 0 state_program_locality, declares 1", out.getvalue())
+        self.assertEqual(broken.created, 0)  # avisa, no repara
+
+    def test_el_primer_error_cancela_lo_que_falta_del_lote(self):
+        self.many_organizations()
+        self.core.fail_on_value = ("organization", "name", "Asociación Ejemplo de Regantes")
+        started = []
+        original = load_demo.Loader.load_record
+
+        def spy(loader, client, collection, record):
+            if collection["object"] == "organization":
+                started.append(record["key"])
+                if record["key"] != "org-a":
+                    time.sleep(0.5)  # los dos hilos quedan ocupados mientras org-a falla
+            return original(loader, client, collection, record)
+
+        with mock.patch.object(load_demo.Loader, "load_record", spy):
+            with self.assertRaisesRegex(load_demo.LoadError, r"^org-a: "):
+                self.run_loader(workers=2)
+        self.assertNotIn("org-d", started)
 
     def test_un_cierre_opcional_rechazado_avisa_y_sigue(self):
         counts = self.run_loader()
@@ -264,10 +331,33 @@ class LoaderTests(unittest.TestCase):
         with self.assertRaisesRegex(load_demo.DatasetError, "kid matches 2 records"):
             self.run_loader()
 
-    def test_la_clave_de_idempotencia_es_estable(self):
+    def assessment_keys(self):
+        return [r["headers"].get("Idempotency-Key") for r in self.core.requests if r["path"].endswith("/assessments")]
+
+    def test_la_clave_de_idempotencia_sale_del_contenido_del_comando(self):
         self.run_loader()
-        keys = [r["headers"].get("Idempotency-Key") for r in self.core.requests if r["path"].endswith("/assessments")]
-        self.assertEqual(keys[0], "demo-stk-a-0")
+        command = BASE["collections"][4]["records"][0]["commands"][0]
+        digest = hashlib.sha256(json.dumps(command, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
+        self.assertEqual(self.assessment_keys(), [f"demo-stk-a-{digest}"])
+
+    def test_un_comando_insertado_antes_no_cambia_la_clave_de_otro(self):
+        self.run_loader()
+        first = self.assessment_keys()[0]
+        data = json.loads(json.dumps(BASE))
+        commands = data["collections"][4]["records"][0]["commands"]
+        commands.insert(0, {"command": "assessment", "attributes": {"assessment_date": "2026-04-01", "basis": "ENTREVISTA"}})
+        write(self.dir, "00-base.json", data)
+        self.core.requests.clear()
+        self.run_loader()
+        keys = self.assessment_keys()
+        self.assertEqual(len(keys), 1)  # la del 15 de abril ya está: solo se manda la nueva
+        self.assertNotEqual(keys[0], first)
+
+    def test_dos_comandos_iguales_no_comparten_la_clave(self):
+        loader = load_demo.Loader.__new__(load_demo.Loader)
+        loader.command_count, loader.lock = {}, threading.Lock()
+        command = {"command": "draft"}
+        self.assertNotEqual(loader.idempotency_key("del", command), loader.idempotency_key("del", command))
 
     def test_el_usuario_existente_se_reutiliza(self):
         self.core.users["gestion.social.demo@sgspe.test"] = {
@@ -309,6 +399,13 @@ class LoaderTests(unittest.TestCase):
         write(self.dir, "01-otra.json", {"collections": [
             {"object": "project", "match": ["code"], "records": [{"key": "proj", "attributes": {"code": "X"}}]}]})
         with self.assertRaisesRegex(load_demo.DatasetError, "proj"):
+            load_demo.read_dataset(self.dir)
+
+    def test_una_clave_repetida_en_una_reapertura_es_error_de_archivo(self):
+        write(self.dir, "01-cierre.json", {"collections": [
+            {"object": "project", "reopen": True, "records": [{"key": "proj", "commands": []},
+                                                               {"key": "proj", "commands": []}]}]})
+        with self.assertRaisesRegex(load_demo.DatasetError, "proj repeated in the same collection"):
             load_demo.read_dataset(self.dir)
 
     def test_las_secciones_se_escriben_una_vez(self):
@@ -436,6 +533,12 @@ class ValidateTests(unittest.TestCase):
             {"key": "per-a", "attributes": {"given_names": "Persona Ficticia"}}]})
         data["collections"].append({"object": "stakeholder", "match": ["project", "person"], "records": [record]})
         return demo_check.validate(load_demo.read_dataset_from(data), self.model)
+
+    def test_un_ubigeo_tiene_seis_digitos(self):
+        # como el CODE de load_ubigeo.py: con otro formato, el match no reusa la unidad ya cargada y la duplica
+        errors = self.errors([{"key": "x", "attributes": {"ubigeo_code": "0904", "name": "X", "level": "PROVINCIA"}}],
+                             obj="administrative_unit")
+        self.assertTrue(any("x" in e and "ubigeo_code '0904' must have 6 digits" in e for e in errors), errors)
 
     def test_rechaza_un_campo_derivado(self):
         errors = self.errors([{"key": "x", "attributes": {"project": "@proj", "influence_group": "ESTRATEGICO"}}])

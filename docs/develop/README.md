@@ -251,7 +251,9 @@ tenant de producción.
   ante una regla nueva de ese tipo, cargar con `--workers 1`.
 - **Límite conocido:** si el proceso muere entre la creación de un registro y sus transiciones, la segunda corrida falla
   con «state X, expected Y» (el registro ya existe, así que sus transiciones se saltan) y hay que corregir ese registro a
-  mano.
+  mano. Si muere entre el alta y sus hijos o vínculos, la segunda corrida tampoco los crea, pero avisa
+  («warning: <clave> has N <objeto o relación>, declares M») cuando core tiene menos hijos de un objeto o menos vínculos
+  de una relación que los declarados; el aviso no compara el contenido, solo el número.
 
 ## 6. Pruebas
 
