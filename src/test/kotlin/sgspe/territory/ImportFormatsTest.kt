@@ -46,7 +46,8 @@ class ImportFormatsTest {
         val empty = File(dir, "x").apply { writeBytes(byteArrayOf(0)) }
         assertEquals(ImportFormat.CSV, ImportFormat.detect("pozos.csv", empty, 10))
         assertEquals(ImportFormat.GEOJSON, ImportFormat.detect("predios.json", empty, 10))
-        assertEquals(ImportFormat.KMZ, ImportFormat.detect("Comunidades.KMZ", empty, 10))
+        assertEquals(ImportFormat.KMZ, ImportFormat.detect("Comunidades.KMZ", zip("e.kmz", mapOf("doc.kml" to "<kml/>".toByteArray())), 10))
+        assertEquals(ImportFormat.GPKG, ImportFormat.detect("capas.gpkg", File(dir, "g").apply { writeBytes("SQLite format 3\u0000".toByteArray()) }, 10))
         assertEquals(ImportFormat.GPX, ImportFormat.detect("ruta.gpx", empty, 10))
         assertEquals(ImportFormat.SHP, ImportFormat.detect("predios.zip", zip("a.zip", shapefile), 10))
         val gdb = zip("b.zip", mapOf("datos.gdb/a00000001.gdbtable" to byteArrayOf(1), "datos.gdb/gdb" to byteArrayOf(2)))
@@ -142,6 +143,31 @@ class ImportFormatsTest {
                 )
             }
         }
+    }
+
+    // ASM-060: el original queda como evidencia inmutable, así que un ZIP o un KMZ solo trae las entradas de su formato
+    @Test
+    fun `un ZIP o un KMZ con una entrada ajena a su formato y un gpkg que no es SQLite son 400 sobre file`() {
+        val withIndexes =
+            shapefile + mapOf("predios.cpg" to byteArrayOf(5), "predios.qix" to byteArrayOf(6), "predios.shp.xml" to byteArrayOf(7), "capas/" to byteArrayOf())
+        assertEquals(ImportFormat.SHP, ImportFormat.detect("predios.zip", zip("indices.zip", withIndexes), 10))
+        val gdb = mapOf("datos.gdb/a00000001.gdbtable" to byteArrayOf(1), "datos.gdb/gdb" to byteArrayOf(2))
+        val kmz = mapOf("doc.kml" to "<kml/>".toByteArray(), "files/icono.png" to byteArrayOf(1))
+        assertEquals(ImportFormat.KMZ, ImportFormat.detect("comunidades.kmz", zip("ok.kmz", kmz), 10))
+        for ((name, file) in listOf(
+            "predios.zip" to zip("exe.zip", shapefile + ("instalar.exe" to byteArrayOf(1))),
+            "predios.zip" to zip("anidado.zip", shapefile + ("otro.zip" to byteArrayOf(1))),
+            "predios.zip" to zip("leeme.zip", shapefile + ("leeme.txt" to byteArrayOf(1))),
+            "datos.zip" to zip("gdb-exe.zip", gdb + ("fuera.exe" to byteArrayOf(1))),
+            "comunidades.kmz" to zip("macro.kmz", kmz + ("macro.docm" to byteArrayOf(1))),
+            "capas.gpkg" to File(dir, "falso.gpkg").apply { writeText("no es SQLite") }
+        )) {
+            val e = assertThrows<ValidationException> { ImportFormat.detect(name, file, 10) }
+            assertEquals("file", e.violations.single().field, file.name)
+        }
+        assertFalse(ImportFormat.allowedEntry(ImportFormat.SHP, "predios.exe"))
+        assertTrue(ImportFormat.allowedEntry(ImportFormat.GDB, "datos.gdb/timestamps"))
+        assertFalse(ImportFormat.allowedEntry(ImportFormat.GDB, "timestamps"))
     }
 
     @Test

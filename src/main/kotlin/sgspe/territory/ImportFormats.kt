@@ -48,8 +48,8 @@ enum class ImportFormat(
                 name.endsWith(".csv") -> CSV
                 name.endsWith(".geojson") || name.endsWith(".json") -> GEOJSON
                 name.endsWith(".kml") -> KML
-                name.endsWith(".kmz") -> KMZ
-                name.endsWith(".gpkg") -> GPKG
+                name.endsWith(".kmz") -> KMZ.also { requireEntries(file, maxEntries, KMZ) }
+                name.endsWith(".gpkg") -> GPKG.also { requireSqlite(file) }
                 name.endsWith(".gpx") -> GPX
                 name.endsWith(".zip") -> zipped(file, maxEntries)
                 else -> throw ValidationException("Formato no admitido", "file", SUPPORTED)
@@ -63,13 +63,64 @@ enum class ImportFormat(
             val names = ImportArchives.names(file, maxEntries).filterNot(ImportArchives::junk).map { it.lowercase() }
             val shp = names.any { it.endsWith(".shp") }
             val gdb = names.any { name -> name.split('/').dropLast(1).any { it.endsWith(".gdb") } }
-            return when {
-                shp && gdb -> throw ValidationException("Formato no admitido", "file", "el ZIP trae un Shapefile y una FileGDB: suba uno por archivo")
-                shp -> SHP
-                gdb -> GDB
-                else -> throw ValidationException("Formato no admitido", "file", "un ZIP debe traer un Shapefile (.shp, .shx, .dbf) o una carpeta .gdb")
+            val format =
+                when {
+                    shp && gdb -> throw ValidationException("Formato no admitido", "file", "el ZIP trae un Shapefile y una FileGDB: suba uno por archivo")
+                    shp -> SHP
+                    gdb -> GDB
+                    else -> throw ValidationException("Formato no admitido", "file", "un ZIP debe traer un Shapefile (.shp, .shx, .dbf) o una carpeta .gdb")
+                }
+            requireEntries(file, maxEntries, format)
+            return format
+        }
+
+        // las extensiones de los archivos de un Shapefile (los obligatorios, la proyección, la codificación, los índices
+        // espaciales y de atributos y los metadatos .shp.xml)
+        private val SHAPEFILE_PARTS = setOf("shp", "shx", "dbf", "prj", "cpg", "qix", "sbn", "sbx", "fbn", "fbx", "ain", "aih", "atx", "ixs", "mxs", "xml")
+
+        // lo que un KMZ trae además de su KML: las imágenes de sus íconos y superposiciones
+        private val KMZ_PARTS = setOf("kml", "png", "jpg", "jpeg", "gif")
+
+        // ASM-060: el original se guarda como evidencia inmutable, así que un ZIP o un KMZ solo trae las entradas de su formato
+        // (las carpetas, y las de Finder, __MACOSX y ._*, que ImportArchives ya descarta). otra entrada (un ejecutable, un ZIP
+        // anidado, un documento) es el 400 de formato sobre file, antes de la vista previa: GDAL no la leería, pero quedaría para
+        // siempre adjunta a la evidencia
+        fun allowedEntry(
+            format: ImportFormat,
+            entry: String
+        ): Boolean {
+            if (entry.endsWith("/") || ImportArchives.junk(entry)) return true
+            val name = entry.lowercase()
+            val extension = name.substringAfterLast('/').substringAfterLast('.', "")
+            return when (format) {
+                SHP -> extension in SHAPEFILE_PARTS
+                GDB -> name.split('/').dropLast(1).any { it.endsWith(".gdb") }
+                KMZ -> extension in KMZ_PARTS
+                else -> false
             }
         }
+
+        private fun requireEntries(
+            file: File,
+            maxEntries: Int,
+            format: ImportFormat
+        ) {
+            val stray = ImportArchives.names(file, maxEntries).firstOrNull { !allowedEntry(format, it) } ?: return
+            throw ValidationException(
+                "Formato no admitido",
+                "file",
+                "el archivo trae una entrada que un ${format.key.uppercase()} no usa: ${stray.takeLast(MAX_NAME)}; súbalo solo con los archivos de su formato"
+            )
+        }
+
+        // un GeoPackage es una base SQLite: sin su cabecera, no es uno (y no se guarda como evidencia)
+        private fun requireSqlite(file: File) {
+            val header = file.inputStream().use { it.readNBytes(SQLITE.size) }
+            if (!header.contentEquals(SQLITE)) throw ValidationException("Formato no admitido", "file", "un .gpkg debe ser un GeoPackage (una base SQLite)")
+        }
+
+        private val SQLITE = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
+        private const val MAX_NAME = 80
     }
 }
 
