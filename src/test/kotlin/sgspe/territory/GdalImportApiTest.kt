@@ -1,9 +1,11 @@
 package sgspe.territory
 
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import sgspe.DomainApiTest
 import tools.jackson.databind.JsonNode
@@ -112,6 +114,38 @@ class GdalImportApiTest : DomainApiTest() {
         assertEquals("EPSG 32717", parcel["source_crs"].asString())
         assertTrue(parcel["source_reference"].asString().contains("capa predios"), parcel.toString())
         assertEquals(1.0, parcel["calculated_area_ha"].asDouble(), 0.01)
+    }
+
+    // ASM-060: evidence.file no admite application/zip (su lista se fija al crear el campo); el ZIP del Shapefile va adjunto,
+    // byte a byte, en un PDF con su SHA-256 en la portada (ImportEvidenceFiles)
+    @Test
+    fun `el ZIP de un Shapefile queda como evidence en un PDF que lo lleva adjunto`() {
+        val project = projectWithCrs()
+        val analyst = member("GIS_ANALYST", project)
+        val prefix = uniqueName("SHE")
+        val zip = GdalFixtures.shapefileZip(dir, "predios", parcels(prefix), 32717)
+        val body = tree(preview(project, zip, "land_parcel", analyst.token, sourceCrs = "EPSG 32717", columns = parcelColumns).text)
+        val done = confirm(body, project, zip, "land_parcel", analyst.token, sourceCrs = "EPSG 32717", columns = parcelColumns)
+        assertEquals(HttpStatus.OK, done.status, done.text)
+        val id = tree(done.text)["evidenceId"].asString()
+        val evidence = tree(send("GET", "/api/objects/evidence/records/$id", null, HttpStatus.OK))["attributes"]
+        assertEquals(body["importBatchId"].asString(), evidence["import_batch_id"].asString())
+        assertEquals("application/pdf", evidence["file"]["contentType"].asString())
+        assertEquals("${zip.name}.pdf", evidence["file"]["name"].asString())
+        val pdf =
+            client
+                .get()
+                .uri("/api/sgspe/evidence/$id/content")
+                .header(HttpHeaders.AUTHORIZATION, token)
+                .exchange()
+                .expectStatus()
+                .isOk
+                .expectBody(ByteArray::class.java)
+                .returnResult()
+                .responseBody!!
+        val (name, original) = ImportEvidenceFiles.embedded(pdf)
+        assertEquals(zip.name, name)
+        assertArrayEquals(zip.readBytes(), original)
     }
 
     @Test

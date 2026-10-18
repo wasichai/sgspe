@@ -337,7 +337,7 @@ sequenceDiagram
 - La confirmación es `POST /api/sgspe/territory/imports/{importBatchId}/confirm` (domain-model §7.2); el contrato de ambos
   endpoints está en `api.md`.
 - Escribe con `RecordService` dentro de una transacción (`TransactionalOperator`) [WAS-ADR-0038]: o se escribe todo el lote, o
-  nada. El motivo de cada escritura es `importación <id>` (ASM-051).
+  nada, y desde F3 también la `evidence` con su original (§4.5). El motivo de cada escritura es `importación <id>` (ASM-051).
 - La lectura y las cuentas de PostGIS van antes y fuera de esa transacción: una geometría que PostGIS no procesa es una fila
   rechazada y no aborta el lote. La escritura toma un candado por destino (por proyecto en los componentes) y, si lo
   registrado con los códigos del archivo cambió desde el análisis, no escribe nada (`409 IMPORT_CONFLICT`): dos
@@ -374,7 +374,7 @@ sequenceDiagram
 
 - **Predios y concesiones.** `land_parcel` y `mining_concession` no tienen versiones: un mismo `code` con otra geometría es una
   actualización con motivo `importación <id>`, y el reporte muestra el cambio de área y el desplazamiento máximo (distancia de
-  Hausdorff en el CRS de cálculo). Desde F3 el archivo original queda como `evidence` (ASM-060).
+  Hausdorff en el CRS de cálculo). Desde F3 el archivo original queda como `evidence` (ASM-060, §4.5).
 - **Comunidades y elementos ambientales (F6, ASM-123).** `community` y `environmental_feature` se reconcilian por
   `code`, igual que `mining_concession`, nunca por nombre: dos comunidades pueden llamarse igual. Una fila sin `code` se
   rechaza, y las comunidades ya registradas sin código se completan a mano antes de importar. El alta por importación
@@ -390,7 +390,19 @@ sequenceDiagram
 - Cada registro importado guarda `source_crs`, `source_reference` (archivo y fila u hoja) e `import_batch_id`; los puntos de
   `project_component` guardan además `source_easting`, `source_northing` y `source_elevation` (RQ-GIS-008, ASM-060).
 - Desde F3 el archivo original se guarda como `evidence` con el mismo `import_batch_id`, y en él quedan las coordenadas originales
-  de los polígonos (ASM-060).
+  de los polígonos (ASM-060). La crea la confirmación como quien confirma (`ImportEvidence`), en la misma transacción que los
+  registros: o se confirman juntos o nada. El archivo se sube antes, en una transacción propia, porque los bytes van al
+  almacén fuera de toda transacción; si la de la confirmación se revierte, la subida queda sin adjuntar y la borra
+  `StoredFileCleanup` de wasichai-files. Es `MAPA` e `INTERNA`, su título dice el destino y la fecha (nunca el nombre del
+  archivo, que escribe quien sube) y solo la de componentes y concesiones lleva `project`; los predios, las comunidades y los
+  elementos ambientales son del tenant. Solo hay evidencia si la confirmación escribe algo; una confirmación repetida
+  devuelve la del lote, y una que escribiría con un lote que ya la tiene es `409 IMPORT_BATCH_USED`.
+- `evidence.file` admite los 8 `contentTypes` de `database-model.md` y wasichai-files decide el tipo por los bytes; la lista
+  se fija al crear el campo y wasichai 1.3.0 no la cambia en un tenant ya aprovisionado. Por eso el CSV, el XLSX y, en
+  UTF-8, el GeoJSON, el KML y el GPX van tal cual, con el SHA-256 de la vista previa, y lo que sale `application/zip` o
+  `application/octet-stream` (el ZIP de un Shapefile o una FileGDB, el KMZ, el GeoPackage, un CSV en Latin-1) va adjunto
+  byte a byte en un PDF (`ImportEvidenceFiles`), con una portada que dice el lote, el destino, el formato, el tamaño y
+  ese SHA-256: abrir la lista a esos tipos dejaría subir cualquier binario como evidencia.
 - La auditoría de wasichai registra "geometry updated" sin coordenadas, así que la historia de las posiciones se reconstruye con
   las versiones de componentes, los datos de origen y el archivo original (RQ-AUD-013) [WAS-DOC modules/gis.md].
 
@@ -800,6 +812,7 @@ integración corren en CI con Testcontainers o contra una base externa por túne
 | Importación tipo DOC-03 | Hoja con códigos ficticios: código repetido rechazado; mismo código desplazado 216 m da versión nueva con 216 m en el reporte; menos de 1 cm, sin cambio | RQ-GIS-003, RQ-GIS-010 |
 | CRS de origen | Sin CRS, 400; ejes invertidos, marca | RQ-GIS-003, RQ-GIS-007 |
 | Confirmación | Otro archivo con el mismo `import_batch_id` se rechaza por SHA-256 distinto | RQ-GIS-008 |
+| Original como evidencia (`ImportEvidenceApiTest`, `ImportEvidenceFilesTest`, `GdalImportApiTest`) | La confirmación crea la `evidence` del lote con el SHA-256 de la vista previa y la vista previa ninguna; repetida, devuelve la misma; un lote ya confirmado con otro archivo es `409 IMPORT_BATCH_USED`; sin CREATE sobre `evidence`, `403`; el ZIP de un Shapefile va adjunto byte a byte en un PDF | RQ-GIS-008, ASM-060 |
 | Polígono inválido | Un lazo se rechaza con el motivo de `ST_IsValidReason`; la reparación con consentimiento muestra el cambio de área | RQ-GIS-011, RQ-GIS-021 |
 | MULTI* | MultiPolygon por API e importación se acepta; uno de una parte se vuelve Polygon | RQ-GIS-020 |
 | Componentes × predios | Una plataforma que corta dos predios y un acceso que cruza tres dan los predios y las longitudes esperadas; los titulares solo salen con permiso de campo | RQ-GIS-002, RQ-GIS-021 |

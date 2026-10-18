@@ -353,7 +353,8 @@ class ComponentVersions(
 // la lectura y las cuentas de PostGIS van fuera de toda transacción (un fallo de PostGIS dentro la dejaría abortada, P20):
 // cada fila que PostGIS no procesa queda rechazada con su motivo. la confirmación toma después el candado por destino
 // (y por proyecto en los componentes), verifica que lo registrado sea lo mismo que analizó (si otra confirmación escribió
-// entretanto, 409 IMPORT_CONFLICT y nada se escribe) y escribe todo en una sola transacción
+// entretanto, 409 IMPORT_CONFLICT y nada se escribe) y escribe todo en una sola transacción. desde F3, en esa misma
+// transacción, el archivo original como evidence con el import_batch_id del lote (ASM-060, ImportEvidence)
 @Service
 class TerritoryImports(
     private val records: Records,
@@ -367,7 +368,8 @@ class TerritoryImports(
     private val properties: ImportProperties,
     private val gdal: GdalReader,
     private val tools: GdalTools,
-    private val tenantModel: TenantModel
+    private val tenantModel: TenantModel,
+    private val evidence: ImportEvidence
 ) {
     private val gate = ImportGate(properties.maxConcurrent, properties.timeout)
 
@@ -410,10 +412,23 @@ class TerritoryImports(
             val (context, analysis) = gate.timed { open(prepared).let { it to reconcile(it, analyze(it)) } }
             val applied = ImportRules.decide(analysis.candidates.associate { it.parsed.row to (it.parsed.outOfZone != null) }, decisions)
             val reason = "importación $batchId"
+            // el original como evidence (ASM-060): solo si esta confirmación escribe algo con el lote; si el lote ya tiene su
+            // evidencia, una confirmación que no escribe nada (la repetida) la devuelve y una que escribiría es 409
+            // IMPORT_BATCH_USED, ya con el candado y después de IMPORT_CONFLICT. sin evidencia del lote, el original se sube antes
+            val writes = analysis.candidates.any { it.parsed.row in applied && it.outcome != UNCHANGED }
+            val staged =
+                if (prepared.keepsOriginal && writes && evidence.of(batchId) == null) {
+                    evidence.stage(context.organization, request.file, request.filename, context.format, request.sha256, batchId, context.target.name)
+                } else {
+                    null
+                }
             transactions.locked(lockKey(context)) {
                 // el alcance de quien importa se lee una vez, no en cada alta (ProjectScopeGuard)
                 RequestMemo.within {
                     requireUnchanged(context, analysis)
+                    // con el candado: la evidencia del lote, también la que otra confirmación del mismo lote creó entretanto
+                    val previous = if (prepared.keepsOriginal) evidence.of(batchId) else null
+                    if (previous != null && writes) throw ImportEvidence.batchUsed(batchId)
                     val linked = linkedConcessions(context)
                     val counts = mutableMapOf(CREATE to 0, NEW_VERSION to 0, UPDATE to 0, UNCHANGED to 0)
                     for (candidate in analysis.candidates) {
@@ -426,14 +441,16 @@ class TerritoryImports(
                             .map { it.row }
                             .distinct()
                             .size + (analysis.candidates.size - applied.size)
-                    // el archivo original como evidence llega en F3, con el almacenamiento de objetos (ASM-060)
+                    // en la misma transacción que los registros (ImportEvidence)
+                    val project = if (context.target.tables || context.target.name == CONCESSION) context.project else null
+                    val kept = staged?.let { evidence.create(it, batchId, context.target.name, project, reason) } ?: previous
                     ImportConfirmation(
                         counts.getValue(CREATE),
                         counts.getValue(NEW_VERSION),
                         counts.getValue(UPDATE),
                         counts.getValue(UNCHANGED),
                         rejected,
-                        null
+                        kept?.let { UUID.fromString(it.id) }
                     )
                 }
             }
@@ -525,7 +542,9 @@ class TerritoryImports(
         val columns: ColumnMapping,
         val format: ImportFormat,
         val request: ImportRequest,
-        val organization: UUID
+        val organization: UUID,
+        // el tenant tiene el modelo de F3: la confirmación guarda el original como evidence (ASM-060)
+        val keepsOriginal: Boolean
     )
 
     // una fila con su geometría en EPSG:4326 ya normalizada al tipo del campo, sus atributos y lo que se midió de ella
@@ -572,6 +591,10 @@ class TerritoryImports(
         val user = callers.require()
         val grants = mutableListOf(Actions.CREATE to target.name, Actions.UPDATE to target.name)
         if (target.name == CONCESSION) grants += Actions.UPDATE to "project"
+        // la confirmación guarda el original como evidence (ASM-060) y busca la de su lote: también la vista previa lo exige,
+        // para que lo que se previsualiza se pueda confirmar
+        val keepsOriginal = evidence.enabled(user.organizationId)
+        if (keepsOriginal) grants += listOf(Actions.CREATE to ImportEvidence.EVIDENCE, Actions.READ to ImportEvidence.EVIDENCE)
         permissions.require(user, "Importar ${target.name}", *grants.toTypedArray())
         if (target.name in ImportRules.SINCE_F6) ImportRules.requireModel(target.name, tenantModel.hasField(user.organizationId, target.name, "code"))
         // los componentes se escriben bajo el alcance del proyecto: sin asignación vigente, 403 NOT_ASSIGNED ya aquí y no tras
@@ -591,7 +614,7 @@ class TerritoryImports(
         val projectRecord = records.get("project", project)
         // solo una zona de trabajo: GeoSql mide en ellas y nada más (P19)
         val workingSrid = Crs.srid(Values.text(projectRecord.attributes["working_crs"]))?.takeIf(Crs::isWorkingZone)
-        return Prepared(target, project, requestedSrid, workingSrid, ColumnMapping.parse(request.columns), format, request, user.organizationId)
+        return Prepared(target, project, requestedSrid, workingSrid, ColumnMapping.parse(request.columns), format, request, user.organizationId, keepsOriginal)
     }
 
     private fun invalidCrs(catalogued: List<String>) =
