@@ -5369,46 +5369,6 @@
           "state": "approved"
         },
         {
-          "key": "com-09",
-          "attributes": {
-            "project": "@proj",
-            "code": "DEMO-C-09",
-            "title": "Uniformes deportivos para el campeonato de la fiesta de Yanama",
-            "description": "Donar uniformes para los equipos del campeonato de la fiesta patronal de Yanama. Se canceló porque el campeonato coincide con los mítines del proceso electoral y la entrega se habría presentado como apoyo a un candidato.",
-            "objective": "Acompañar la fiesta patronal de Yanama con un aporte para la juventud del caserío.",
-            "resource_type": "MATERIAL",
-            "quantity": 4,
-            "unit": "juegos de uniformes",
-            "execution_time": "una semana",
-            "commitment_theme": "SOCIAL",
-            "formality": "FORMAL",
-            "request_medium": "CARTA DE SOLICITUD",
-            "agreed_date": "2026-07-08",
-            "due_date": "2026-09-05",
-            "amount": 2800,
-            "currency": "PEN",
-            "priority": "BAJA",
-            "owner_user": "compromisos",
-            "beneficiaries_count": 60,
-            "beneficiaries_female_count": 20,
-            "beneficiaries_male_count": 40,
-            "exploration_campaign": "@camp-perf",
-            "topic": "@topic-electoral",
-            "locality": "@loc-yanama",
-            "origin_engagement": "@eng-p10"
-          },
-          "links": {
-            "commitment_stakeholder": [
-              "@stk-yanama-teniente"
-            ]
-          },
-          "transitions": [
-            "approve_direct",
-            "cancel_approved"
-          ],
-          "state": "cancelled"
-        },
-        {
           "key": "com-10",
           "attributes": {
             "project": "@proj",
@@ -5517,6 +5477,56 @@
           },
           "transitions": [],
           "state": "draft"
+        }
+      ]
+    },
+    {
+      "object": "commitment",
+      "match": [
+        "project",
+        "code"
+      ],
+      "as": "admin",
+      "records": [
+        {
+          "key": "com-09",
+          "attributes": {
+            "project": "@proj",
+            "code": "DEMO-C-09",
+            "title": "Uniformes deportivos para el campeonato de la fiesta de Yanama",
+            "description": "Donar uniformes para los equipos del campeonato de la fiesta patronal de Yanama. Se canceló porque el campeonato coincide con los mítines del proceso electoral y la entrega se habría presentado como apoyo a un candidato.",
+            "objective": "Acompañar la fiesta patronal de Yanama con un aporte para la juventud del caserío.",
+            "resource_type": "MATERIAL",
+            "quantity": 4,
+            "unit": "juegos de uniformes",
+            "execution_time": "una semana",
+            "commitment_theme": "SOCIAL",
+            "formality": "FORMAL",
+            "request_medium": "CARTA DE SOLICITUD",
+            "agreed_date": "2026-07-08",
+            "due_date": "2026-09-05",
+            "amount": 2800,
+            "currency": "PEN",
+            "priority": "BAJA",
+            "owner_user": "compromisos",
+            "beneficiaries_count": 60,
+            "beneficiaries_female_count": 20,
+            "beneficiaries_male_count": 40,
+            "exploration_campaign": "@camp-perf",
+            "topic": "@topic-electoral",
+            "locality": "@loc-yanama",
+            "origin_engagement": "@eng-p10"
+          },
+          "links": {
+            "commitment_stakeholder": [
+              "@stk-yanama-teniente"
+            ]
+          },
+          "transitions": [
+            "approve_direct",
+            "cancel_approved"
+          ],
+          "state": "cancelled"
         }
       ]
     },

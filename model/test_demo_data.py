@@ -327,3 +327,18 @@ class DemoDataTests(unittest.TestCase):
         self.assertTrue(codes <= catalog)
         self.assertTrue(all((c["period_start_date"], c["period_end_date"], c["optional"]) == ("2026-04-01", "2026-09-30", True)
                             for c in closes))
+
+    def test_cada_transicion_la_puede_hacer_quien_escribe(self):
+        roles = {u["key"]: set(u["roles"]) for u in self.dataset.users}
+        problems = []
+        for collection in self.dataset.collections:
+            writer = collection.get("as", "admin")
+            for record in collection["records"]:
+                if not record.get("transitions") or writer == "admin":
+                    continue
+                with open(os.path.join(HERE, "workflows", collection["object"] + ".json"), encoding="utf-8") as f:
+                    allowed = {t["name"]: set(t.get("roles", [])) for t in json.load(f)["definition"]["transitions"]}
+                for transition in record["transitions"]:
+                    if not allowed[transition] & roles[writer]:
+                        problems.append(f"{record['key']}: {transition} as {writer}")
+        self.assertEqual(problems, [])
