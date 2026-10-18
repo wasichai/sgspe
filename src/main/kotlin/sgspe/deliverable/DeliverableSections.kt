@@ -7,6 +7,7 @@ import sgspe.common.Finding
 import sgspe.common.LIMA
 import sgspe.common.NotReadable
 import sgspe.common.Permissions
+import sgspe.common.PreconditionFailedException
 import sgspe.common.PseudonymMarkers
 import sgspe.common.Records
 import sgspe.common.RuleException
@@ -21,6 +22,7 @@ import wasichai.core.data.RecordResponse
 import java.time.Clock
 import java.time.LocalDate
 import java.util.UUID
+import wasichai.core.common.PreconditionFailedException as StaleWrite
 
 // lo que AI-04 lee de una sección de entregable: la sección y su entregable, el proyecto, la clave, el título, la guía, el
 // periodo, el texto ya armado como la persona y su última escritura (la referencia de la entrada)
@@ -111,7 +113,8 @@ class DeliverableSections(
     // sección leída por quien acepta (403 OBJECT_NOT_READABLE) y de los proyectos de la sugerencia (409 PROJECT_MISMATCH,
     // projectMatches); con `assistedOnly` (un resumen ejecutivo, que elige su sección), solo una que el tipo marca con IA (422
     // SECTION_NOT_ASSISTED sobre attributes.section). escribe content, content_origin ASISTIDO POR IA y ai_suggestion con el
-    // motivo, y DeliverableWriteGuard cierra el origen
+    // motivo, y DeliverableWriteGuard cierra el origen. la escritura va condicionada al updatedAt de la sección que leyó: si
+    // otra la cambió entre medio, 412 con el valor actual
     suspend fun adopt(
         sectionId: UUID,
         content: Any?,
@@ -152,12 +155,22 @@ class DeliverableSections(
                 status = HttpStatus.CONFLICT
             ).toCodedException()
         }
-        return records.patch(
-            Deliverables.SECTION,
-            sectionId,
-            mapOf(Deliverables.CONTENT to converted, Deliverables.CONTENT_ORIGIN to Deliverables.AI_ASSISTED, AI_SUGGESTION to suggestion.toString()),
-            reason
-        )
+        // condicionada al updatedAt leído (#83): una edición de la sección que cae entre la lectura y la escritura no se pierde,
+        // es 412 y la transacción de WF-K se deshace (la sugerencia sigue PROPUESTA)
+        return try {
+            records.patch(
+                Deliverables.SECTION,
+                sectionId,
+                mapOf(Deliverables.CONTENT to converted, Deliverables.CONTENT_ORIGIN to Deliverables.AI_ASSISTED, AI_SUGGESTION to suggestion.toString()),
+                reason,
+                expected = section.updatedAt
+            )
+        } catch (_: StaleWrite) {
+            throw PreconditionFailedException(
+                "La sección cambió mientras se aceptaba la sugerencia: vuelva a cargarla",
+                records.find(Deliverables.SECTION, sectionId)?.updatedAt?.toString()
+            )
+        }
     }
 
     companion object {

@@ -116,7 +116,18 @@ class DeliverableWriteGuard(
         val frozen = Deliverables.instant(attributes[Deliverables.GENERATED_AT]) ?: Instant.EPOCH
         // tras issue y start_revision el borrador sigue LISTO con el modelo ya emitido: volver a revisarlo crearía versiones con
         // la misma revisión (RQ-REP-016, ASM-027). una emisión posterior al intento pide un borrador nuevo
-        if (Deliverables.issuedSince(records, deliverableId, frozen, clock.instant())) {
+        val issued =
+            try {
+                Deliverables.issuedSince(records, deliverableId, frozen, clock.instant())
+            } catch (e: NotReadable) {
+                throw Finding(
+                    "OBJECT_NOT_READABLE",
+                    "La regla necesita leer ${e.objectName}: quien transiciona no puede leer las versiones del entregable",
+                    e.objectName,
+                    status = HttpStatus.FORBIDDEN
+                ).toCodedException()
+            }
+        if (issued) {
             throw Finding("STATE_MISMATCH", "El último borrador ya se emitió: pida uno nuevo para esta revisión", "draft").toCodedException()
         }
         val changed =

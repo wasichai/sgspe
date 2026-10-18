@@ -331,6 +331,16 @@ class RolesJsonTests(unittest.TestCase):
                            if e["object"] == obj and "evidence_quote" in e["fields"])
             self.assertEqual(sorted(readers), downloaders, obj)
 
+    def test_quien_lee_un_entregable_lee_todas_sus_versiones(self):
+        # #83: DeliverableWriteGuard.reviewed cuenta las versiones emitidas como quien transiciona (una guarda no lee como
+        # la plataforma dentro de una petición, WAS-ADR-0039); el conteo no depende de quien llama solo si todo el que lee el
+        # entregable lee sus versiones (su alcance es el del entregable, ProjectScope) sin campos restringidos
+        for name, role in self.roles.items():
+            pairs = grants(role)
+            if ("deliverable", "READ") in pairs:
+                self.assertIn(("deliverable_version", "READ"), pairs, name)
+        self.assertFalse([e for e in self.file["restrictedFields"] if e["object"] == "deliverable_version"])
+
     def test_ningun_rol_lleva_own_records_only(self):
         for name, role in self.roles.items():
             self.assertNotIn("ownRecordsOnly", role, name)

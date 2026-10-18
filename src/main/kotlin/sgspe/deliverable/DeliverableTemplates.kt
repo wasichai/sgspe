@@ -69,14 +69,19 @@ class DeliverableTemplates(
 ) {
     private val validator = TemplateValidator(properties.templates)
 
+    // MANAGE_METADATA sobre deliverable, antes de que el controlador lea el cuerpo (#83): quien no puede subir no hace leer,
+    // juntar en memoria ni validar un archivo de hasta templates.max-bytes. upload la vuelve a pedir
+    suspend fun authorizeUpload() {
+        permissions.require(callers.require(), "Subir una plantilla", Actions.MANAGE_METADATA to Deliverables.DELIVERABLE)
+    }
+
     suspend fun upload(
         fileName: String,
         bytes: ByteArray,
         templateKey: String,
         name: String?
     ): CommandAnswer {
-        val user = callers.require()
-        permissions.require(user, "Subir una plantilla", Actions.MANAGE_METADATA to Deliverables.DELIVERABLE)
+        authorizeUpload()
         if (!KEY.matches(templateKey)) throw ValidationException("Clave inválida", "templateKey", "de 1 a 64 letras minúsculas, dígitos o guiones")
         val report = withContext(Dispatchers.IO) { validator.validate(bytes, fileName) }
         if (!report.valid) throw TemplateInvalid(report)
@@ -134,7 +139,7 @@ class DeliverableTemplates(
 }
 
 // api.md §4.12: POST multipart (file, templateKey, name; Idempotency-Key: el cuerpo de la clave es la clave, el nombre y el
-// SHA-256 del archivo) y GET
+// SHA-256 del archivo), con el permiso comprobado antes de leer el cuerpo, y GET
 @RestController
 class DeliverableTemplatesController(
     private val templates: DeliverableTemplates,
@@ -148,6 +153,8 @@ class DeliverableTemplatesController(
         @RequestHeader(name = IdempotencyKey.HEADER, required = false) key: String?
     ): ResponseEntity<ByteArray> {
         StrictQuery.requireOnly(exchange.request.queryParams, emptySet())
+        // el permiso antes de leer el cuerpo: el multipart se lee entero (y el archivo, hasta el tope) al pedir multipartData
+        templates.authorizeUpload()
         val parts = exchange.multipartData.awaitSingle()
         StrictBody.requireOnly(parts, setOf("file", "templateKey", "name"))
         val file = parts.getFirst("file") as? FilePart ?: throw ValidationException("Falta el archivo", "file", "envíe la plantilla en la parte file")

@@ -23,6 +23,7 @@ import wasichai.core.data.toResponse
 import wasichai.core.metadata.MetadataService
 import wasichai.core.metadata.ObjectDefinition
 import wasichai.workflow.WorkflowService
+import java.time.Instant
 import java.util.UUID
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -164,13 +165,17 @@ class Records(
     // la mezcla de wasichai (RecordService.patch), que escribe solo esos campos, condicionada al updatedAt que leyó; vuelve
     // a leer si otra ganó y deja su salto de versión en derived_version, así el If-Match de quien leyó antes la sigue
     // aceptando y el de quien leyó otra cosa no. tras tres pérdidas escribe la mezcla sin condición y sin salto (P61,
-    // ADR-0027, DerivedWrite)
+    // ADR-0027, DerivedWrite).
+    // con `expected` (el updatedAt que leyó quien escribe), el UPDATE de wasichai se condiciona a esa versión
+    // [WAS-ADR-0051]: si otra escritura cayó después, es el 412 de la plataforma (wasichai PreconditionFailedException) y no se
+    // escribe nada, ni siquiera lo que patch no nombra. no pasa por la mezcla de derivados
     suspend fun patch(
         objectName: String,
         id: UUID,
         changes: Map<String, Any?>,
         reason: String?,
-        geometries: Map<String, Any?> = emptyMap()
+        geometries: Map<String, Any?> = emptyMap(),
+        expected: Instant? = null
     ): RecordResponse {
         val fields = writableFields(objectName)
         val geometryFields = fields.filter { it.geometry }.map { it.name }.toSet()
@@ -189,7 +194,7 @@ class Records(
                 denied.map { FieldViolation(it, "no es un campo de $objectName que quien llama pueda escribir") }
             )
         }
-        if (geometries.isEmpty() && changes.isNotEmpty() && catalog.derivedFields(objectName).containsAll(changes.keys)) {
+        if (expected == null && geometries.isEmpty() && changes.isNotEmpty() && catalog.derivedFields(objectName).containsAll(changes.keys)) {
             val organizationId = organizationId()
             // la mezcla de wasichai [WAS-ADR-0051]: escribe solo los derivados nombrados, con las mismas guardas que un PUT
             val derived = RecordRequest(changes)
@@ -205,7 +210,13 @@ class Records(
         }
         val stored = records.get(objectName, id).attributes
         val body = stored.filterKeys { it in writable } + changes
-        return withContext(SgspeWrite) { records.update(objectName, id, request(body, geometries), reason) }
+        return withContext(SgspeWrite) {
+            if (expected == null) {
+                records.update(objectName, id, request(body, geometries), reason)
+            } else {
+                records.update(objectName, id, request(body, geometries), reason, expected)
+            }
+        }
     }
 
     // la organización de quien escribe, en el orden de RecordService.caller(): la del trabajo de fondo en curso, o la de la
