@@ -19,7 +19,8 @@ class GdalMissingApiTest : DomainApiTest() {
         assertTrue(formats.getValue("csv")["available"].asBoolean())
         val project = projectWithCrs()
         val analyst = member("GIS_ANALYST", project)
-        val gpkg = "capas.gpkg" to "no importa: GDAL no está".toByteArray()
+        // con la cabecera de SQLite, que ImportFormat.detect exige a un .gpkg; lo demás no importa: GDAL no está
+        val gpkg = "capas.gpkg" to "SQLite format 3\u0000no importa".toByteArray()
         val response =
             multipart(
                 "/api/sgspe/territory/imports",
