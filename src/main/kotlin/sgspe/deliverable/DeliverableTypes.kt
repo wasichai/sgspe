@@ -103,6 +103,10 @@ interface DeliverableType {
     // T1 exige un AIDS aprobado (§2.2.13; decisión 15 del plan 8.2c): el pedido lo comprueba como la persona
     val requiresApprovedArea: Boolean get() = false
 
+    // sección asistida → las secciones cuyos bloques AI-04 también recibe como datos (DeliverableSections.aiBlocks), para una
+    // sección que no imprime bloques propios: el documento no cambia, solo lo que va al modelo
+    val aiContext: Map<String, List<String>> get() = emptyMap()
+
     suspend fun missingParameters(
         deliverable: Map<String, Any?>,
         project: Map<String, Any?>

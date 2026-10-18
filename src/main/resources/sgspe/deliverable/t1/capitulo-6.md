@@ -5,7 +5,6 @@ campo.
 Cada grupo de interés tiene una postura frente al proyecto: **a favor**, **neutral**, **en contra pero abierto a
 escuchar** o **en contra**. La postura se registra en cada evaluación y puede cambiar en el tiempo.
 
-
 Las posturas significan lo siguiente:
 
 - **A favor**: el grupo respalda el proyecto y está dispuesto a apoyarlo de forma explícita.

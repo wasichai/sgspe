@@ -36,15 +36,14 @@ object DiagnosisStudy {
         return listOf(Block.Paragraph(title))
     }
 
-    // si el texto empieza con la palabra, sin distinguir mayúsculas ni tildes
-    private fun startsWith(
+    // si el texto empieza con la palabra entera (no «Proyectos» por «proyecto»), sin distinguir mayúsculas ni tildes
+    internal fun startsWith(
         text: String,
         word: String
     ): Boolean =
-        Normalizer
-            .normalize(text.trim(), Normalizer.Form.NFD)
-            .replace(Regex("\\p{M}+"), "")
-            .startsWith(word, ignoreCase = true)
+        Regex("^${Regex.escape(word)}(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE).containsMatchIn(
+            Normalizer.normalize(text.trim(), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
+        )
 
     fun index(): List<Block> =
         listOf(
@@ -213,10 +212,6 @@ object DiagnosisStudy {
             }
         )
     }
-
-    // el capítulo 4 lleva solo la narrativa general (la agrega el ensamblado); los criterios del AIDS salen en 4.1
-    @Suppress("UNUSED_PARAMETER")
-    fun areasIntro(scene: DiagnosisScene): List<Block> = emptyList()
 
     // los miembros de un área aprobada con su condición, sus criterios, su justificación y si se estudiaron; con `grouped`, una
     // tabla por título (en ese orden) y las vacías fuera

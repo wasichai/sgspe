@@ -152,6 +152,27 @@ class DeliverableWorkflowApiTest : F8ApiTest() {
         assertEquals(SocialDiagnosisType().sections.map { it.key }.sorted(), keys(deliverable(testProject(), SOCIAL_DIAGNOSIS)).sorted())
     }
 
+    // I1 de la revisión de #105 a #111: un T1 creado antes de que el tipo ganara secciones recibe las que le faltan cuando una
+    // persona lo actualiza en draft, sin duplicar ninguna (DeliverableSectionsListener)
+    @Test
+    fun `actualizar un T1 en draft completa las secciones que le faltan sin duplicarlas`() {
+        fun keys(id: String): List<String> =
+            tree(send("GET", "/api/objects/deliverable_section/records?deliverable=$id&size=100", null, HttpStatus.OK))["content"].values().map {
+                it["attributes"]["section_key"].asString()
+            }
+        val id = deliverable(testProject(), SOCIAL_DIAGNOSIS)
+        for (key in listOf("percepciones_mineria", "reuniones_politicas")) {
+            val removed = exchange("DELETE", "/api/objects/deliverable_section/records/${sectionId(id, key)}", null, token, withReason("sección vieja"))
+            assertTrue(removed.status.is2xxSuccessful, removed.body)
+        }
+        assertFalse("percepciones_mineria" in keys(id))
+        repeat(2) { round ->
+            val updated = edit("deliverable", id, mapOf("title" to "Diagnóstico social de la Comunidad Ejemplo $round"), headers = withReason("título"))
+            assertEquals(HttpStatus.OK, updated.status, updated.body)
+            assertEquals(SocialDiagnosisType().sections.map { it.key }.sorted(), keys(id).sorted())
+        }
+    }
+
     @Test
     fun `enviar y reenviar a revision avisan a quien aprueba y observar lo resuelve`() {
         val project = testProject()

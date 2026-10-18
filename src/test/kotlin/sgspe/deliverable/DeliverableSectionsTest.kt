@@ -69,4 +69,16 @@ class DeliverableSectionsTest {
             assertEquals("SECTION_NOT_ASSISTED" to "attributes.section", e.violations.first().let { it.message to it.field }, "$type $key")
         }
     }
+
+    // I1 de la revisión de #105 a #111: las secciones del tipo que el entregable no tiene, en el orden del tipo
+    @Test
+    fun `el completado crea solo las secciones que faltan, en el orden del tipo`() {
+        val type = SocialDiagnosisType()
+        val present = type.sections.map { it.key }.toSet() - setOf("reuniones_politicas", "percepciones_mineria")
+        assertEquals(
+            listOf("percepciones_mineria", "reuniones_politicas"),
+            DeliverableSectionsListener.missing(type, present).map { it.key }
+        )
+        assertTrue(DeliverableSectionsListener.missing(type, type.sections.map { it.key }.toSet()).isEmpty())
+    }
 }

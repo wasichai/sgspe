@@ -12,6 +12,8 @@ import sgspe.common.Records
 import sgspe.common.RuleException
 import sgspe.common.readable
 import sgspe.common.toCodedException
+import sgspe.privacy.Block
+import sgspe.privacy.ReportModel
 import wasichai.core.common.Actions
 import wasichai.core.common.FieldViolation
 import wasichai.core.common.WasichaiException
@@ -81,10 +83,7 @@ class DeliverableSections(
             } catch (e: DraftFailure) {
                 throw parametersMissing(listOf(e.section ?: Deliverables.TYPE))
             }
-        val blocks =
-            assembled.model.sections
-                .first { it.key == spec.key }
-                .blocks
+        val blocks = aiBlocks(assembled.model, type, spec.key)
         return SectionSource(
             section = sectionId,
             deliverable = deliverableId,
@@ -162,6 +161,22 @@ class DeliverableSections(
     }
 
     companion object {
+        // los bloques que AI-04 recibe de la sección `key`: los suyos y, tras un título «Datos de <sección>», los de cada
+        // sección de su contexto (DeliverableType.aiContext), en ese orden. SectionText quita después lo marcado
+        fun aiBlocks(
+            model: ReportModel,
+            type: DeliverableType,
+            key: String
+        ): List<Block> {
+            val byKey = model.sections.associateBy { it.key }
+            val own = byKey[key]?.blocks.orEmpty()
+            val context =
+                type.aiContext[key].orEmpty().mapNotNull { byKey[it] }.flatMap { section ->
+                    listOf(Block.Heading(3, "Datos de ${section.title}")) + section.blocks
+                }
+            return own + context
+        }
+
         const val SECTION_NOT_ASSISTED = "SECTION_NOT_ASSISTED"
         const val AI_SUGGESTION = "ai_suggestion"
         private const val CONTENT_FIELD = "attributes.content"

@@ -107,8 +107,8 @@ class DocxWriter(
                     if (leading.landscape != landscape) endSection(doc, landscape)
                     landscape = leading.landscape
                 }
-                // la portada lleva su título en la plantilla y el índice, el suyo (un título «Portada» o «Índice» de más saldría en el índice)
-                if (section.key !in UNTITLED) paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
+                // una sección con showTitle false no lleva título (T1: un «Portada» o «Índice» de más saldría en el índice)
+                if (section.showTitle != false) paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
                 for (block in section.blocks.drop(if (leading != null) 1 else 0)) {
                     when (block) {
                         is Block.Heading -> paragraph(doc, styles.heading(block.level)).createRun().setText(block.text)
@@ -954,7 +954,6 @@ class DocxWriter(
 
     companion object {
         const val WATERMARK = "BORRADOR"
-        private val UNTITLED = setOf("portada", "indice", "perfiles")
         private val FOOTER_MARKERS = listOf("{{codigo}}", "{{revision}}")
         const val OMITTED_LAYERS = "Capas omitidas por nivel de divulgación"
 

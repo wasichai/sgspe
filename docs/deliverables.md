@@ -131,7 +131,7 @@ Cómo leer las columnas:
 | 5.1.9 Costumbres y fechas festivas; Tabla 5.6 | Religión y festividades, con turnos de coorganización | `locality_profile.religion` (restringido); `festivity` (`name`, `date_text`, `month`, `start_day`, `end_day`, `co_organization_turns`) | Tabla y narrativa | Calculada y humana | F2 | F8; la religión y la narrativa humana, solo en INTERNO (la tabla de festividades, en los dos) | RF-LBS-004, RQ-SEC-010 [DOC-01 §5.1.9, Tabla 5.6] |
 | 6 Identificación de grupos de interés | Qué es un grupo de interés, la lista como punto de partida y una línea por cada una de las cuatro posturas | Texto fijo del tipo; catálogo "Postura" | Narrativa | Estática | — | F8 | RF-STK-013 [DOC-01 §6] |
 | Tablas 6.1, 6.2 y 6.3 | Grupos de interés por ámbito y tipo | `stakeholder` (`stakeholder_scope`, `stakeholder_type`), con el actor por cargo y organización (`position.position_title`, `organization.name`) | Tabla con celdas combinadas por ámbito y tipo; cada una abre su ámbito (6.1 AIDS, 6.2 AIIS, 6.3 regional y nacional, y los sin ámbito al final), delante de los perfiles de la sección `perfiles` | Calculada | F2 | F8 (registro XLSX en F2) | RF-STK-003, RQ-REP-006, RQ-REP-012, CON-007 [DOC-01 Tablas 6.1–6.3] |
-| 6.1 a 6.3 Perfiles por cargo | La sección `perfiles` (sin clave nueva ni título impreso, `DocxWriter.UNTITLED`) abre con su narrativa; sigue un encabezado de nivel 2 por ámbito (6.1, 6.2, 6.3) con su tabla, un subtítulo de nivel 3 por tipo de actor (rótulo del catálogo) y, dentro, los perfiles por localidad de la organización (los sin localidad, al final) y por cargo. Un apartado de nivel 4 por grupo de interés, titulado por su cargo: trayectoria, elección y periodo, funciones, coordinación, postura y sus razones, vacancia o estado de entrevista | `position` (`position_title`, `election_mechanism`, `term_start_date`, `term_end_date`, `career_notes`, `position_status`); `stakeholder` (`profile_summary`, `interview_status`); última `stakeholder_assessment` (`stance`, `stance_reasons`, `concerns`, `expectations`, restringidos) | Narrativa por grupo de interés | Humana (texto del registro) con datos calculados; IA→humana | F2 | F8 | RF-STK-002, RF-STK-003, RF-STK-005, RQ-REP-011 [DOC-01 §6.1–§6.3, notas 12–19] |
+| 6.1 a 6.3 Perfiles por cargo | La sección `perfiles` (sin clave nueva ni título impreso, `ReportSection.showTitle`) abre con su narrativa; sigue un encabezado de nivel 2 por ámbito con su número fijo (6.1 AIDS, 6.2 AIIS, 6.3 regional y nacional, aunque falte uno) y su tabla, un subtítulo de nivel 3 por tipo de actor (rótulo del catálogo, en el orden del enum `stakeholder_type` de `model.json`, que sigue a DOC-01; los desconocidos al final por nombre) y, dentro, los perfiles por localidad de la organización o, sin ella, la del grupo (los sin localidad, al final) y por cargo, en orden alfabético español. Un apartado de nivel 4 por grupo de interés, titulado por su cargo: trayectoria, elección y periodo, funciones, coordinación, postura y sus razones, vacancia o estado de entrevista | `position` (`position_title`, `election_mechanism`, `term_start_date`, `term_end_date`, `career_notes`, `position_status`); `stakeholder` (`profile_summary`, `interview_status`); última `stakeholder_assessment` (`stance`, `stance_reasons`, `concerns`, `expectations`, restringidos) | Narrativa por grupo de interés | Humana (texto del registro) con datos calculados; IA→humana | F2 | F8 | RF-STK-002, RF-STK-003, RF-STK-005, RQ-REP-011 [DOC-01 §6.1–§6.3, notas 12–19] |
 | 7 Caracterización de los grupos de interés | Qué contiene el capítulo | Texto fijo del tipo | Narrativa | Estática | — | F8 | [DOC-01 §7] |
 | 7.1 Percepciones (7.1.1 minería, 7.1.2 proyecto, 7.1.3 empresa) | Percepciones frecuentes por objeto y, dentro de cada uno, por ámbito en orden fijo (AIDS, AIIS, regional, nacional, luego los demás por nombre y al final los sin ámbito), citas atribuidas por cargo y el análisis de cada objeto a continuación de su lista | `perception` (`subject`, `polarity`, `perception_scope`, `statement`, `quote`, `attributed_role`); `topic`; análisis en `deliverable_section` (`percepciones`, `percepciones_mineria`, `percepciones_proyecto`, `percepciones_empresa`) | Listas calculadas, citas y narrativa | Calculada y humana; IA→humana | F2 | F8 | RF-LBS-007, RQ-REP-011, RQ-REP-014 [DOC-01 §7.1] |
 | 7.2 Clasificación según interés y poder | Método, umbrales y los cuatro grupos | Texto fijo del tipo; `interest_threshold` y `power_threshold` del `project` (ASM-003) | Narrativa | Estática y calculada | F2 | F8 | RF-STK-009 [DOC-01 §7.2] |
@@ -139,7 +139,7 @@ Cómo leer las columnas:
 | 7.2.1 a 7.2.3 Grupos estratégicos, políticos y para monitoreo, por ámbito | Quiénes son y qué implican; el grupo vulnerable no está definido en la fuente | `stakeholder_assessment` por grupo; `deliverable_section` | Narrativa con listas calculadas | Humana sobre datos; IA→humana | F2 | F8 | RF-STK-009, GAP-003 [DOC-01 §7.2.1–§7.2.3] |
 | 8 Definición de temas clave; Tabla 8.1 | Tema, descripción, riesgos y oportunidades | Texto fijo del tipo; `key_theme` (`name`, `description`, `risks`, `opportunities`); `topic`; desde F4, los `social_risk` vinculados | Texto fijo del tipo (qué es un tema clave) y tabla de texto | Estática y calculada (textos de los registros) | F2 | F8 | RF-LBS-008 [DOC-01 §8, Tabla 8.1] |
 | 9 Estrategias sociales | Meta del periodo y cuatro ejes de acción | `engagement_plan` (`strategic_objective`, `action_axes`); `exploration_campaign` | Narrativa | Humana | F2 | F8 | RF-ENG-007 [DOC-01 §9] |
-| 9.1 Información y comunicación; 9.1.1 Metodología de interacción (9.1.1.1 contactos regulares, 9.1.1.2 reuniones informativas, 9.1.1.3 reuniones con grupos políticos) | Situación de la comunicación; contactos regulares; protocolo de reuniones informativas (convocatoria, interlocutor local, contenidos, sin compromisos) seguido de la lista de preguntas con su respuesta alineada aprobada (`approved` verdadero) del proyecto, o «Sin respuestas alineadas registradas.» si no hay aprobadas; reuniones con grupos políticos | `engagement_plan`; `aligned_answer` (`question`, `answer`, `approved`; sin campos restringidos); `deliverable_section` (`comunicacion`, `contactos_regulares`, `reuniones_informativas`, `reuniones_politicas`) | Narrativa y lista calculada | Humana; IA→humana | F2 | F8 | RF-ENG-002, RF-ENG-003 [DOC-01 §9.1.1] |
+| 9.1 Información y comunicación; 9.1.1 Metodología de interacción (9.1.1.1 contactos regulares, 9.1.1.2 reuniones informativas, 9.1.1.3 reuniones con grupos políticos) | Situación de la comunicación; contactos regulares; protocolo de reuniones informativas (convocatoria, interlocutor local, contenidos, sin compromisos) seguido de la lista de preguntas con su respuesta alineada aprobada (`approved` verdadero) del proyecto, o «Sin respuestas alineadas registradas.» si no hay aprobadas; reuniones con grupos políticos | `engagement_plan`; `aligned_answer` (`question`, `answer`, `approved`; sin campos restringidos); `deliverable_section` (`comunicacion`, `contactos_regulares`, `reuniones_informativas`, `reuniones_politicas`) | Narrativa y lista calculada | Humana; IA→humana | F2 | F8 | RF-ENG-002, RF-ENG-003, RF-ENG-009 [DOC-01 §9.1.1, §9.1.1.2] |
 | 9.1.1.4 Priorización; Tabla 9.1 | Prioridad informativa por tipo de grupo y postura, con su justificación | `prioritization_rule` (`information_priority`, `influence_group`, `stance`, `stakeholder_scope`, `stakeholder_type`, `rationale`) | Tabla con celdas combinadas por prioridad | Calculada | F2 | F8 | RF-STK-011, RQ-REP-012 [DOC-01 §9.1.1.4, Tabla 9.1] |
 | 9.1.2 Mensajes clave; Tabla 9.2 | Justificación, mensaje, acciones de soporte y público | `key_message` (`justification`, `message`, `support_actions`, `target_audience`) | Tabla | Calculada | F2 | F8 | RF-ENG-008 [DOC-01 §9.1.2, Tabla 9.2] |
 | 9.2 Alianzas estratégicas; Tabla 9.3 | Institución, razones y acciones posibles | `strategic_alliance` (`reasons`, `possible_actions`, `formalized`); `organization`; `agreement` desde F3 | Tabla y narrativa | Calculada y humana | F2 | F8 | RF-ENG-010 [DOC-01 §9.2, Tabla 9.3] |
@@ -163,28 +163,45 @@ Cómo leer las columnas:
   `introduccion`, `objetivos`, `metodologia`, `alcance`, `diseno`, `trabajo_campo`, `areas`, `aids`, `aiis` (con el mapa de
   áreas al final), `contexto`, `historia`, `poblacion`, `economia`, `servicios`, `educacion_salud`, `vias`, `organizaciones`,
   `proceso_electoral`, `costumbres`, `grupos_interes`, `perfiles`, `caracterizacion`, `percepciones`, `percepciones_mineria`,
-  `percepciones_proyecto`, `percepciones_empresa`, `clasificacion`,
-  `grupos_estrategicos`, `grupos_politicos`, `grupos_monitoreo`, `temas_clave`, `estrategias`, `comunicacion`, `contactos_regulares`,
-  `reuniones_informativas`, `reuniones_politicas`, `priorizacion`,
-  `mensajes`, `alianzas`, `impactos`, `monitoreo`, `evaluacion_grupos`, `seguimiento_compromisos`, `riesgos`,
-  `gestion_riesgos`, `necesidades`, `anexos`, `anexo_concesiones`, `anexo_instrumentos` y `anexo_metodologia`. El capítulo 5
-  va por tema con un título por ámbito (AIDS, AIIS), así que su numeración (5.1 a 5.9) difiere de la de DOC-01 (CON-015). Las
-  asistidas por IA son `introduccion`, `areas`, `contexto`, `percepciones`, `percepciones_mineria`, `percepciones_proyecto`,
-  `percepciones_empresa`, `grupos_estrategicos`, `grupos_politicos`, `grupos_monitoreo`, `estrategias`, `comunicacion`, `contactos_regulares`, `reuniones_informativas`, `reuniones_politicas` y `necesidades`. La postura de las Tablas 7.1 a 7.3 lleva la marca de
-  restringida: EXTERNO la vacía. Las percepciones de 7.1 van por objeto (#107): `percepciones` queda como apertura general de 7.1 y cada objeto (7.1.1 minería,
-  7.1.2 proyecto, 7.1.3 empresa) es una sección propia con su lista por ámbito y, a continuación, su análisis; así cada objeto
-  cierra con su análisis, como en DOC-01. Un entregable creado antes, sin esas tres secciones, ensambla igual (sin esas
-  narrativas). La metodología de interacción de 9.1 (#106) son tres secciones tras `comunicacion`: `contactos_regulares` (su título
-  es el de 9.1.1 y abre con el encabezado 9.1.1.1), `reuniones_informativas` (9.1.1.2: su narrativa y, después, la lista calculada
-  de `aligned_answer` aprobadas: un informe emitido no publica las que el equipo no aprobó) y `reuniones_politicas` (9.1.1.3); `priorizacion` pasa a 9.1.1.4 (nivel 4). Un entregable creado antes, sin
-  esas tres secciones, ensambla igual. Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.»
-  solo en EXTERNO, donde se retuvo contenido restringido (religión y proceso electoral, T1 5.8 y 5.9).
+  `percepciones_proyecto`, `percepciones_empresa`, `clasificacion`, `grupos_estrategicos`, `grupos_politicos`,
+  `grupos_monitoreo`, `temas_clave`, `estrategias`, `comunicacion`, `contactos_regulares`, `reuniones_informativas`,
+  `reuniones_politicas`, `priorizacion`, `mensajes`, `alianzas`, `impactos`, `monitoreo`, `evaluacion_grupos`,
+  `seguimiento_compromisos`, `riesgos`, `gestion_riesgos`, `necesidades`, `anexos`, `anexo_concesiones`, `anexo_instrumentos`
+  y `anexo_metodologia`. El capítulo 5 va por tema con un título por ámbito (AIDS, AIIS), así que su numeración (5.1 a 5.9)
+  difiere de la de DOC-01 (CON-015). La postura de las Tablas 7.1 a 7.3 lleva la marca de restringida: EXTERNO la vacía.
+- **Secciones asistidas por IA de T1:** `introduccion`, `areas`, `contexto`, `percepciones`, `percepciones_mineria`,
+  `percepciones_proyecto`, `percepciones_empresa`, `grupos_estrategicos`, `grupos_politicos`, `grupos_monitoreo`,
+  `estrategias`, `comunicacion`, `contactos_regulares`, `reuniones_informativas`, `reuniones_politicas` y `necesidades`.
+  AI-04 recibe los bloques que la sección imprime; las que no imprimen bloques propios reciben además, solo como datos, los
+  de otras secciones (`DeliverableType.aiContext`): `percepciones`, las tres listas de 7.1.1 a 7.1.3; `areas`, los criterios
+  y miembros del AIDS (4.1); `contactos_regulares`, las interacciones del periodo por tipo (9.1); y `reuniones_politicas`,
+  esas interacciones y los grupos políticos (7.2.2). El documento no las imprime dos veces.
+- **Percepciones y metodología de interacción de T1** (#106, #107): `percepciones` queda como apertura general de 7.1 y cada
+  objeto (7.1.1 minería, 7.1.2 proyecto, 7.1.3 empresa) es una sección propia con su lista por ámbito y, a continuación, su
+  análisis; así cada objeto cierra con su análisis, como en DOC-01. La metodología de interacción de 9.1 son tres secciones
+  tras `comunicacion`: `contactos_regulares` (su título es el de 9.1.1 y abre con el encabezado 9.1.1.1),
+  `reuniones_informativas` (9.1.1.2: su narrativa y, después, la lista calculada de `aligned_answer` aprobadas: un informe
+  emitido no publica las que el equipo no aprobó) y `reuniones_politicas` (9.1.1.3); `priorizacion` pasa a 9.1.1.4 (nivel 4).
+- **Entregables creados antes de las secciones nuevas:** ensamblan igual (sin esas narrativas). Además,
+  `DeliverableSectionsListener` les completa las `deliverable_section` que les faltan, con la clave, el título, el orden y el
+  tipo del tipo de entregable, cuando una persona los actualiza o transiciona en `draft` u `observed` (también al pedir un
+  borrador, que parcha `generation_requested_at`). No lo hace en otros estados (una sección nueva tras el borrador LISTO daría
+  SECTIONS_CHANGED en la revisión) ni como la plataforma; el candado de la fila del entregable ordena dos escrituras a la vez y
+  la clave única (`deliverable`, `section_key`) impide un duplicado. Una sección borrada a propósito vuelve vacía, sin cambiar
+  lo impreso. `load_demo.py` crea por REST la sección que falte, con la estructura de `GET /api/sgspe/deliverable-types`.
+- Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.» solo en EXTERNO, donde se retuvo
+  contenido restringido (religión y proceso electoral, T1 5.8 y 5.9).
 - **Sin repeticiones en T1** (#111): cada contenido sale una vez. La portada dice «del proyecto X», salvo que `project.name` ya
-  empiece con «proyecto» (sin distinguir mayúsculas ni tildes); la portada y el índice no imprimen un título propio (la plantilla
-  trae el de la portada y el índice, el suyo), así que no entran en la tabla de contenido. Los criterios del AIDS salen solo en
-  4.1 (sin el rótulo «Criterios:» si el texto ya empieza con «Criterios»). La meta del periodo de 9 sale como campo solo si la
-  sección no tiene narrativa; con narrativa, esta es la meta. En 5.1 la historia de cada localidad va bajo un subtítulo de
-  nivel 4 (estilo «heading 4», opcional en la plantilla: sin él se usa el de nivel 3) que entra en el índice de cinco niveles.
+  empiece con la palabra «proyecto» entera (sin distinguir mayúsculas ni tildes: «Proyectos Andinos» no cuenta). La portada,
+  el índice y `perfiles` no imprimen un título propio (`ReportSection.showTitle` en false, que pone el tipo; la plantilla trae
+  el de la portada y el índice, el suyo), así que no entran en la tabla de contenido; un modelo congelado sin el campo, y T2,
+  conservan sus títulos. Los criterios del AIDS salen solo en 4.1 (sin el rótulo «Criterios:» si el texto ya empieza con la
+  palabra «Criterios»). Con un solo plan de relacionamiento, la meta del periodo de 9 sale como campo solo si la sección no
+  tiene narrativa (con narrativa, esta es la meta); con varios, cada plan conserva la suya. En 5.1 la historia de cada
+  localidad va bajo un subtítulo de nivel 4 (estilo «heading 4», opcional en la plantilla: sin él se usa el de nivel 3) que
+  entra en el índice de cinco niveles. Excepción a propósito: la columna «Problemática (problemas del agua)» de las Tablas 5.2
+  y 5.8 repite `water_problems` de la Tabla 5.3, porque DOC-01 pide la problemática en 5.2 y 5.8 (#110) y el modelo no tiene
+  una general.
 - **Rótulos de T1** (#104): las tablas imprimen las opciones del modelo en español (`ReportLabels.option`: «EN SEPARACION» sale «En
   separación», «A FAVOR» sale «A favor», con el diccionario `option-words.json`, que una prueba obliga a cubrir cada palabra
   de cada enum), los estados con el `label` de su workflow (`ReportLabels.state`, también la Tabla 4 de T2) y los roles con el

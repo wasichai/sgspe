@@ -20,6 +20,17 @@ class SocialDiagnosisType : DeliverableType {
     override val version: Int = 1
     override val requiresApprovedArea: Boolean = true
 
+    // las secciones asistidas sin bloques propios toman sus datos de otras (deliverables.md §5, «IA»): 7.1 de las tres listas de
+    // percepciones, 4 de los criterios y miembros del AIDS, 9.1.1 de las interacciones del periodo por tipo (9.1) y 9.1.1.3,
+    // además, de los grupos políticos (7.2.2). el documento no las imprime dos veces: solo van al modelo
+    override val aiContext: Map<String, List<String>> =
+        mapOf(
+            "percepciones" to listOf("percepciones_mineria", "percepciones_proyecto", "percepciones_empresa"),
+            "areas" to listOf("aids"),
+            "contactos_regulares" to listOf("comunicacion"),
+            "reuniones_politicas" to listOf("comunicacion", "grupos_politicos")
+        )
+
     // una fila de la tabla de secciones: clave, título con su número literal, tipo, nivel, capítulo, si admite IA y su guía
     private data class Row(
         val key: String,
@@ -209,9 +220,9 @@ class SocialDiagnosisType : DeliverableType {
                     } else {
                         emptyList()
                     }
-                // la narrativa de los perfiles los abre (#105); su título no se imprime (DocxWriter.UNTITLED); en las demás secciones sigue a lo calculado
+                // la narrativa de los perfiles los abre (#105); en las demás secciones sigue a lo calculado
                 val body = if (row.key in NARRATIVE_FIRST) narrative + note + computed else computed + narrative + note
-                ReportSection(row.key, row.title, row.kind, body, row.level, row.chapter)
+                ReportSection(row.key, row.title, row.kind, body, row.level, row.chapter, showTitle = false.takeIf { row.key in UNTITLED })
             }
         input.sections
             .flatMap { Mentions.keys(it.text(Deliverables.CONTENT).orEmpty()) }
@@ -271,7 +282,8 @@ class SocialDiagnosisType : DeliverableType {
             "alcance" -> DiagnosisStudy.scope(scene)
             "diseno" -> DiagnosisStudy.design(scene)
             "trabajo_campo" -> DiagnosisStudy.fieldwork(scene)
-            "areas" -> DiagnosisStudy.areasIntro(scene)
+            // el capítulo 4 lleva solo la narrativa general; los criterios del AIDS salen en 4.1 (y van a AI-04 por aiContext)
+            "areas" -> emptyList()
             "aids" -> DiagnosisStudy.aids(scene)
             "aiis" -> DiagnosisStudy.aiis(scene)
             "historia" -> DiagnosisContext.history(scene)
@@ -329,6 +341,10 @@ class SocialDiagnosisType : DeliverableType {
             )
 
         private val NARRATIVE_FIRST = setOf("perfiles", "reuniones_informativas")
+
+        // las secciones cuyo título no se imprime (ReportSection.showTitle): la portada lo lleva en la plantilla, el índice el
+        // suyo y los perfiles abren con sus ámbitos (6.1 a 6.3)
+        private val UNTITLED = setOf("portada", "indice", "perfiles")
 
         private val ROWS: List<Row> =
             listOf(

@@ -144,6 +144,18 @@ class SocialDiagnosisTypeTest {
         val withText = assemble(content = mapOf("estrategias" to "La meta del periodo es mantener la licencia social.")).model.blocks("estrategias")
         assertTrue(withText.filterIsInstance<Block.Paragraph>().none { "**Meta del periodo.**" in it.markdown }, "$withText")
         assertTrue(withText.filterIsInstance<Block.Paragraph>().any { "La meta del periodo" in it.markdown })
+        // M6 de la revisión de #105 a #111: con dos planes, la narrativa no oculta la meta de ninguno
+        val source = T1Source.source()
+        source.add(
+            "engagement_plan",
+            T1Source.id(800),
+            null,
+            "project" to T1Source.PROJECT,
+            "name" to "Plan 2027",
+            "strategic_objective" to "Ampliar el diálogo."
+        )
+        val two = assemble(source, mapOf("estrategias" to "Texto general de las estrategias.")).model.blocks("estrategias")
+        assertEquals(2, two.filterIsInstance<Block.Paragraph>().count { "**Meta del periodo.**" in it.markdown }, "$two")
     }
 
     @Test
@@ -676,10 +688,59 @@ class SocialDiagnosisTypeTest {
             titles.filter { it.contains("Comité") }
         )
         assertTrue(aids.any { it is Block.Heading && it.level == 3 && it.text == "Organización comunal" }, "$aids")
-        // EXTERNO: ningún nombre de persona
-        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO)
-        val shown = external.blocks("perfiles").filterIsInstance<Block.Paragraph>().joinToString("\n") { it.markdown }
+        // EXTERNO: ningún nombre de persona, ni en los párrafos ni en los encabezados ni en las celdas
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO).blocks("perfiles")
+        val shown =
+            external.joinToString("\n") { block ->
+                when (block) {
+                    is Block.Paragraph -> block.markdown
+                    is Block.Heading -> block.text
+                    is Block.Table -> (listOf(block.title) + block.header + block.rows.flatten().map { it.text }).joinToString(" | ")
+                    else -> ""
+                }
+            }
         assertTrue("Persona" !in shown && "Ejemplo 1" !in shown, shown)
+    }
+
+    // I3 y M2 de la revisión de #105 a #111: los tipos de actor en el orden del enum stakeholder_type (el de DOC-01), los
+    // desconocidos al final por nombre, y el número del ámbito fijo aunque falte el AIDS
+    @Test
+    fun `los tipos de actor van en el orden del enum y el AIIS es 6-2 aunque no haya AIDS`() {
+        val source = T1Source.source()
+        source.rows.remove("stakeholder")
+        listOf("IGLESIA", "TIPO NUEVO", "AUTORIDAD REGIONAL", "ORGANIZACION COMUNAL", "AUTORIDAD LOCAL", "LIDER POLITICO").forEachIndexed { i, type ->
+            val organization = T1Source.id(700 + i)
+            source.add("organization", organization, null, "name" to "Organización Ejemplo $i")
+            source.add(
+                "stakeholder",
+                T1Source.id(720 + i),
+                null,
+                "project" to T1Source.PROJECT,
+                "stakeholder_scope" to "AIIS",
+                "stakeholder_type" to type,
+                "organization" to organization
+            )
+        }
+        val blocks = assemble(source).model.blocks("perfiles")
+        val headings = blocks.filterIsInstance<Block.Heading>()
+        assertEquals(listOf("6.2 Área de influencia indirecta social"), headings.filter { it.level == 2 }.map { it.text })
+        assertEquals(
+            listOf("AUTORIDAD LOCAL", "ORGANIZACION COMUNAL", "LIDER POLITICO", "AUTORIDAD REGIONAL", "IGLESIA", "TIPO NUEVO").map { ReportLabels.option(it) },
+            headings.filter { it.level == 3 }.map { it.text }
+        )
+        val table = blocks.filterIsInstance<Block.Table>().first()
+        assertEquals(
+            "Autoridad local",
+            table.rows
+                .first()
+                .first()
+                .text
+        )
+        // OTRO está en el enum (al final); los desconocidos y «Sin dato» van después, por nombre en español
+        assertEquals(
+            listOf("AUTORIDAD LOCAL", "ORGANIZACION COMUNAL", "OTRO", "ÁNIMAS", "Sin dato", "ZETA"),
+            listOf("ZETA", "OTRO", "Sin dato", "ORGANIZACION COMUNAL", "ÁNIMAS", "AUTORIDAD LOCAL").sortedWith(DiagnosisStakeholders.typeOrder())
+        )
     }
 
     // #107: los ámbitos van en orden fijo dentro de cada objeto y la narrativa del objeto cierra tras su lista
@@ -1170,5 +1231,53 @@ class SocialDiagnosisTypeTest {
         assertEquals(listOf(UUID.fromString(T1Source.CONCESSION)), annex.concessions)
         assertEquals(listOf(DiagnosisStudy.AREAS_MAP, DiagnosisAnnexes.ANNEX_MAP), assembled.maps.map { it.key })
         assertTrue(model.sections.all { section -> section.key in setOf("portada", "indice") || section.chapter != null })
+    }
+
+    // I2 de la revisión de #105 a #111: las secciones asistidas sin bloques propios mandan a AI-04 los de su contexto, y el
+    // documento no los imprime dos veces
+    @Test
+    fun `AI-04 de percepciones, areas y 9-1-1 recibe los datos de su contexto sin cambiar lo impreso`() {
+        val model = assemble().model
+
+        fun ai(key: String): String = SectionText.render(DeliverableSections.aiBlocks(model, type, key), model.people, emptyMap()) { _, _ -> false }
+        assertTrue(model.blocks("percepciones").none { it is Block.Table || (it is Block.Paragraph && "trae trabajo" in it.markdown) })
+        val perceptions = ai("percepciones")
+        assertTrue("La minería trae trabajo." in perceptions && "El proyecto afectará el agua." in perceptions, perceptions)
+        assertTrue("Datos de 7.1.1" in perceptions, perceptions)
+        assertTrue(model.blocks("areas").isEmpty())
+        val areas = ai("areas")
+        assertTrue("Impactos reales o percibidos de la exploración." in areas, areas)
+        assertTrue("Interacciones del periodo por tipo" in ai("contactos_regulares"), ai("contactos_regulares"))
+        val political = ai("reuniones_politicas")
+        assertTrue("Interacciones del periodo por tipo" in political && "Datos de 7.2.2 Grupos políticos" in political, political)
+        assertEquals(
+            type.aiContext.keys,
+            type.aiContext.keys
+                .filter { key -> type.sections.single { it.key == key }.assisted }
+                .toSet()
+        )
+        assertTrue(
+            type.aiContext.values
+                .flatten()
+                .all { key -> type.sections.any { it.key == key } }
+        )
+    }
+
+    // M1 de la revisión de #105 a #111: T1 quita el título de la portada, el índice y los perfiles por el modelo
+    @Test
+    fun `la portada, el indice y los perfiles no imprimen su titulo y las demas si`() {
+        val model = assemble().model
+        assertEquals(listOf("portada", "indice", "perfiles"), model.sections.filter { it.showTitle == false }.map { it.key })
+        assertTrue(model.sections.filter { it.showTitle != false }.all { it.showTitle == null })
+    }
+
+    // M7 de la revisión de #105 a #111: la palabra entera, sin distinguir mayúsculas ni tildes
+    @Test
+    fun `el nombre que ya empieza con proyecto exige la palabra entera`() {
+        assertTrue(DiagnosisStudy.startsWith("Proyecto Wayra Ejemplo", "proyecto"))
+        assertTrue(DiagnosisStudy.startsWith("  PROYECTO", "proyecto"))
+        assertFalse(DiagnosisStudy.startsWith("Proyectos Andinos Ejemplo SAC", "proyecto"))
+        assertTrue(DiagnosisStudy.startsWith("Criterios: impactos", "criterios"))
+        assertFalse(DiagnosisStudy.startsWith("Criteriosamente se eligió", "criterios"))
     }
 }

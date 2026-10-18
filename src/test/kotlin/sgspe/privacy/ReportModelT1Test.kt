@@ -19,7 +19,8 @@ class ReportModelT1Test {
                         "indice",
                         "Índice",
                         "CALCULADA",
-                        listOf(Block.Toc("Índice"), Block.CaptionList("Lista de tablas", "Tabla"), Block.CaptionList("Lista de figuras", "Figura"))
+                        listOf(Block.Toc("Índice"), Block.CaptionList("Lista de tablas", "Tabla"), Block.CaptionList("Lista de figuras", "Figura")),
+                        showTitle = false
                     ),
                     ReportSection(
                         "riesgos",
@@ -60,6 +61,18 @@ class ReportModelT1Test {
     fun `los bloques de T1 vuelven iguales del JSON canonico`() {
         val model = model()
         assertEquals(model, CanonicalJson.read(CanonicalJson.bytes(model)))
+    }
+
+    // M1 de la revisión de #105 a #111: showTitle es opcional. un modelo congelado antes del campo (sin la clave) se lee con
+    // sus títulos, y una sección que lo imprime no agrega la clave a los bytes canónicos
+    @Test
+    fun `un modelo sin showTitle se lee con titulos y sus bytes no cambian`() {
+        val old = CanonicalJson.bytes(ReportFixtures.model())
+        assertFalse("\"showTitle\"" in String(old, Charsets.UTF_8))
+        val read = CanonicalJson.read(old)
+        assertTrue(read.sections.all { it.showTitle == null })
+        assertEquals(String(old, Charsets.UTF_8), String(CanonicalJson.bytes(read), Charsets.UTF_8))
+        assertTrue("\"showTitle\":false" in String(CanonicalJson.bytes(model()), Charsets.UTF_8))
     }
 
     @Test

@@ -21,12 +21,14 @@ object DiagnosisStrategy {
     suspend fun strategies(scene: DiagnosisScene): List<Block> {
         val plans = scene.source.all("engagement_plan", scene.byProject).sortedBy { it.text("name").orEmpty() }
         if (plans.isEmpty()) return listOf(Block.Paragraph("_El proyecto no tiene plan de relacionamiento._"))
+        // la meta sale una vez: con un solo plan, la narrativa de la sección es su meta del periodo y el campo no se repite; con
+        // varios, la narrativa no dice de cuál habla y cada plan conserva la suya
+        val narrated = plans.size == 1 && scene.hasNarrative("estrategias")
         return plans.flatMap { plan ->
             scene.keep("estrategias", plan.text("name"), plan.text("strategic_objective"), plan.text("action_axes"))
             listOfNotNull(
                 Block.Heading(3, DiagnosisScene.or(plan, "name")),
-                // la meta sale una vez: si la sección ya lleva narrativa, esa es la meta del periodo y el campo no se repite
-                plan.text("strategic_objective")?.takeUnless { scene.hasNarrative("estrategias") }?.let { Block.Paragraph("**Meta del periodo.** $it") },
+                plan.text("strategic_objective")?.takeUnless { narrated }?.let { Block.Paragraph("**Meta del periodo.** $it") },
                 plan.text("action_axes")?.let { Block.Paragraph("**Ejes de acción.**\n\n$it") }
             )
         }

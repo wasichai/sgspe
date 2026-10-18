@@ -20,8 +20,9 @@ class DeliverableTypesApiTest : F8ApiTest() {
         val t1 = types.first()
         assertEquals(1, t1["version"].asInt())
         val sections = t1["sections"].values().toList()
-        assertEquals(46, sections.size)
-        assertEquals((1..46).toList(), sections.map { it["order"].asInt() })
+        val count = SocialDiagnosisType().sections.size
+        assertEquals(count, sections.size)
+        assertEquals((1..count).toList(), sections.map { it["order"].asInt() })
         assertEquals(
             SocialDiagnosisType().sections.filter { it.assisted }.map { it.key },
             sections.filter { it["assisted"].asBoolean() }.map { it["key"].asString() }

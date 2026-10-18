@@ -5,6 +5,8 @@ import sgspe.privacy.Block
 import sgspe.privacy.Cell
 import sgspe.privacy.Mark
 import sgspe.privacy.RegisterSheets
+import java.text.Collator
+import java.util.Locale
 
 // T1, capítulos 6 a 8 (deliverables.md §5): los grupos de interés por ámbito y tipo (Tablas 6.1 a 6.3, el actor por cargo y
 // organización), sus perfiles por cargo (las razones de postura, Restricted), las percepciones por tema con sus citas por
@@ -46,17 +48,20 @@ object DiagnosisStakeholders {
         scopes: List<String>
     ): Boolean = if (scopes.isEmpty()) row.text("stakeholder_scope") !in KNOWN else row.text("stakeholder_scope") in scopes
 
-    private fun scopeOrder(row: SourceRow): Int = SCOPES.indexOfFirst { inScope(row, it.first) }
-
     // el capítulo abre con su texto; las tablas de cada ámbito (Tablas 6.1 a 6.3) van con sus perfiles, en `profiles`
     fun identification(): List<Block> = listOf(Block.Paragraph(DiagnosisTexts.text("capitulo-6")))
 
-    // un grupo de interés con lo que ordena sus perfiles: la localidad de su organización (los sin localidad, al final) y el cargo
+    // un grupo de interés con lo que ordena sus perfiles: la localidad de su organización o, sin ella, la suya (los sin
+    // localidad, al final) y el cargo. guarda el cargo vigente para el perfil: una lectura menos por grupo
     private class Ordered(
         val row: SourceRow,
+        val position: SourceRow?,
         val locality: String?,
         val title: String
     )
+
+    // como se ordena en español (es-PE): «Ánimas» antes que «Zapata»
+    private val SPANISH: Collator = Collator.getInstance(Locale.forLanguageTag("es-PE"))
 
     private suspend fun ordered(
         scene: DiagnosisScene,
@@ -66,17 +71,28 @@ object DiagnosisStakeholders {
             .map { row ->
                 val position = row.ref("person")?.let { scene.people.position(it) }
                 val organization = (position?.ref("organization") ?: row.ref("organization"))?.let { scene.source.one("organization", it) }
-                val locality = organization?.ref("locality")?.let { scene.source.one("locality", it)?.text("name") }
-                Ordered(row, locality, position?.text("position_title").orEmpty())
+                val locality = (organization?.ref("locality") ?: row.ref("locality"))?.let { scene.source.one("locality", it)?.text("name") }
+                Ordered(row, position, locality, position?.text("position_title").orEmpty())
             }.sortedWith(
-                compareBy<Ordered>({ it.locality == null }, { it.locality.orEmpty() }, { it.title }, { it.row.id })
+                compareBy<Ordered> { it.locality == null }
+                    .thenBy(SPANISH) { it.locality.orEmpty() }
+                    .thenBy(SPANISH) { it.title }
+                    .thenBy { it.row.id }
             )
 
-    // ámbito → tipo (por el valor crudo del catálogo) → localidad → cargo
+    // ámbito → tipo (por el valor crudo, en el orden del enum stakeholder_type de model.json, que sigue a DOC-01; los que no
+    // están en el enum y SIN_DATO, al final por nombre) → localidad → cargo
     private suspend fun byType(
         scene: DiagnosisScene,
         rows: List<SourceRow>
-    ): Map<String, List<Ordered>> = ordered(scene, rows).groupBy { it.row.text("stakeholder_type") ?: SIN_DATO }.toSortedMap()
+    ): Map<String, List<Ordered>> {
+        val grouped = ordered(scene, rows).groupBy { it.row.text("stakeholder_type") ?: SIN_DATO }
+        return grouped.keys.sortedWith(typeOrder()).associateWith { grouped.getValue(it) }
+    }
+
+    // el orden de los tipos de actor: el índice en el enum del modelo y, para los desconocidos, al final por nombre
+    fun typeOrder(order: List<String> = ReportLabels.enumValues("stakeholder_type")): Comparator<String> =
+        compareBy<String> { order.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }.thenBy(SPANISH) { it }
 
     private suspend fun scopeTable(
         scene: DiagnosisScene,
@@ -100,20 +116,21 @@ object DiagnosisStakeholders {
 
     // 6.1 AIDS, 6.2 AIIS y 6.3 regional y nacional (y los sin ámbito al final): cada ámbito abre con su tabla y sigue con un
     // subtítulo por tipo de actor; los perfiles de un tipo van por localidad y cargo. La sección `perfiles` no imprime su título
-    // (`DocxWriter.UNTITLED`): el ámbito es de nivel 2, el tipo de nivel 3 y el perfil, titulado por su cargo, de nivel 4
+    // (`ReportSection.showTitle`): el ámbito es de nivel 2, el tipo de nivel 3 y el perfil, titulado por su cargo, de nivel 4
     suspend fun profiles(scene: DiagnosisScene): List<Block> {
         val stakeholders = scene.stakeholders()
-        var number = 0
-        return SCOPES.flatMap { (scopes, label) ->
+        // el número es la posición fija del ámbito (6.1 AIDS, 6.2 AIIS, 6.3 regional y nacional): no se corre si falta uno
+        return SCOPES.withIndex().flatMap { (index, scope) ->
+            val (scopes, label) = scope
             val rows = stakeholders.filter { inScope(it, scopes) }
             if (rows.isEmpty()) {
                 emptyList()
             } else {
                 val types = byType(scene, rows)
                 val title = if (scopes.isEmpty()) "Grupos de interés sin ámbito" else label.replaceFirstChar { it.uppercase() }
-                listOf<Block>(Block.Heading(2, "6.${++number} $title"), scopeTable(scene, scopes, label, types)) +
+                listOf<Block>(Block.Heading(2, "6.${index + 1} $title"), scopeTable(scene, scopes, label, types)) +
                     types.flatMap { (type, list) ->
-                        listOf<Block>(Block.Heading(3, ReportLabels.option(type) ?: type)) + list.flatMap { profile(scene, it.row) }
+                        listOf<Block>(Block.Heading(3, ReportLabels.option(type) ?: type)) + list.flatMap { profile(scene, it) }
                     }
             }
         }
@@ -121,9 +138,10 @@ object DiagnosisStakeholders {
 
     private suspend fun profile(
         scene: DiagnosisScene,
-        row: SourceRow
+        entry: Ordered
     ): List<Block> {
-        val position = row.ref("person")?.let { scene.people.position(it) }
+        val row = entry.row
+        val position = entry.position
         val assessment = scene.latestAssessment(row)
         scene.keep(
             "perfiles",

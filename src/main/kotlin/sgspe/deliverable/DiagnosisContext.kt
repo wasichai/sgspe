@@ -12,6 +12,12 @@ import java.util.UUID
 object DiagnosisContext {
     private const val WIDE = 4
 
+    // la página horizontal: más de WIDE columnas de localidades, tipos o programas además de la de los rótulos. la tabla
+    // transpuesta (una fila por localidad) pasa una columna antes: sus columnas son temas de texto libre, no marcas ni conteos
+    private fun wide(columns: Int): Boolean = columns > WIDE + 1
+
+    private fun wideTransposed(columns: Int): Boolean = columns > WIDE
+
     // con más localidades que esto, las tablas del AIIS pasan a una fila por localidad (o una matriz resumida)
     private const val TRANSPOSE = 5
     const val RESERVED = "Información reservada en esta versión."
@@ -213,7 +219,7 @@ object DiagnosisContext {
                                 "Organizaciones e instituciones locales: $title",
                                 listOf("Organización o programa", "Tipo") + localities.map { l -> DiagnosisScene.or(l, "name") },
                                 it,
-                                wide = localities.size > WIDE
+                                wide = wide(localities.size + 1)
                             )
                         }
                     )
@@ -249,7 +255,7 @@ object DiagnosisContext {
                                 )
                             }
                     },
-                    wide = types.size + 1 > WIDE + 1
+                    wide = wide(types.size + 1)
                 ).takeIf { organizations.isNotEmpty() }
         val byProgram =
             Block
@@ -260,7 +266,7 @@ object DiagnosisContext {
                         listOf(Cell(DiagnosisScene.or(locality, "name"))) +
                             present.map { program -> Cell(if (programs[locality.id].orEmpty().any { it.id == program.id }) "X" else "") }
                     },
-                    wide = present.size + 1 > WIDE + 1
+                    wide = wide(present.size + 1)
                 ).takeIf { present.isNotEmpty() }
         return listOfNotNull(byType, byProgram)
     }
@@ -331,14 +337,14 @@ object DiagnosisContext {
                         localities.mapIndexed { i, locality ->
                             listOf(Cell(DiagnosisScene.or(locality, "name"))) + rows.map { (_, field) -> Cell(value(profiles[i], field)) }
                         },
-                        wide = rows.size + 1 > WIDE
+                        wide = wideTransposed(rows.size + 1)
                     )
                 } else {
                     Block.Table(
                         "$title: $scope",
                         listOf(first) + localities.map { DiagnosisScene.or(it, "name") },
                         rows.map { (label, field) -> listOf(Cell(label)) + profiles.map { Cell(value(it, field)) } },
-                        wide = localities.size > WIDE
+                        wide = wide(localities.size + 1)
                     )
                 }
             listOf(Block.Heading(3, scope), table)

@@ -24,7 +24,7 @@ class DocxWriterT1Test {
             meta = ReportFixtures.model().meta.copy(type = "DIAGNOSTICO SOCIAL", title = "Diagnóstico social"),
             sections =
                 listOf(
-                    ReportSection("portada", "Portada", "CALCULADA", listOf(Block.Paragraph("Diagnóstico social del Proyecto Ejemplo A"))),
+                    ReportSection("portada", "Portada", "CALCULADA", listOf(Block.Paragraph("Diagnóstico social del Proyecto Ejemplo A")), showTitle = false),
                     ReportSection(
                         "indice",
                         "Índice",
@@ -33,7 +33,8 @@ class DocxWriterT1Test {
                             Block.Toc("Índice"),
                             Block.CaptionList("Lista de tablas", CaptionNumbering.TABLE),
                             Block.CaptionList("Lista de figuras", CaptionNumbering.FIGURE)
-                        )
+                        ),
+                        showTitle = false
                     ),
                     ReportSection(
                         "poblacion",
@@ -94,6 +95,8 @@ class DocxWriterT1Test {
         val xml = cell.ctTc.xmlText()
         assertTrue("<w:br/>" in xml, xml)
         assertEquals(2, Regex("<w:t[ >]").findAll(xml).count(), xml)
+        // el orden de los hijos de w:r es el que Word muestra: texto, salto, texto
+        assertEquals(listOf("t", "br", "t"), Regex("<w:(t|br)[ />]").findAll(xml).map { it.groupValues[1] }.toList(), xml)
         assertEquals(
             listOf("120", "segunda línea"),
             cell.paragraphs
@@ -138,6 +141,18 @@ class DocxWriterT1Test {
         assertEquals(1, texts.count { it == "Índice" }, "$texts")
         assertTrue(texts.any { it == "Diagnóstico social del Proyecto Ejemplo A" })
         assertEquals("Heading4", doc.paragraphs.first { it.text == "Caserío Ejemplo Alto" }.style)
+    }
+
+    // M1 de la revisión de #105 a #111: el título se quita por el modelo, no por la clave. una sección `portada` sin showTitle
+    // (la de T2, o la de un modelo congelado antes del campo) conserva su título
+    @Test
+    fun `una seccion sin showTitle conserva su titulo aunque su clave sea portada`() {
+        val base = model()
+        val titled = base.copy(sections = base.sections.map { it.copy(showTitle = null) })
+        val bytes = writer.write(DocxWriter.Input(titled, BaseTemplate.bytes, false, "Asociación Ejemplo", emptyMap()))
+        val texts = XWPFDocument(ByteArrayInputStream(bytes)).use { doc -> doc.paragraphs.map { it.text } }
+        assertTrue("Portada" in texts, "$texts")
+        assertEquals(2, texts.count { it == "Índice" }, "$texts")
     }
 
     @Test
