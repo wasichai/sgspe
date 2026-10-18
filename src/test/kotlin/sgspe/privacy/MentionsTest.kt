@@ -27,4 +27,16 @@ class MentionsTest {
     fun `las claves salen en orden, en minusculas y sin repetir`() {
         assertEquals(listOf("person:$id", "stakeholder:$id"), Mentions.keys("$text [[person:$id]]"))
     }
+
+    @Test
+    fun `una mencion escapada a mano sale una persona en todo nivel, nunca con su id`() {
+        val people = mapOf("person:$id" to MentionTarget("Persona Ejemplo 1", "Presidente", "Comunidad Ejemplo"))
+        for (escaped in listOf("\\[\\[person:$id\\]\\]", "\\[[person:$id]]", "[[person:$id\\]\\]", "\\[\\[person\\:${id.replace("-", "\\-")}\\]\\]")) {
+            for (level in Disclosure.entries) {
+                val resolved = Mentions.resolve("Con $escaped.", people, level)
+                assertEquals("Con una persona.", resolved, "$escaped en $level")
+            }
+        }
+        assertEquals(emptyList<String>(), Mentions.keys("Con \\[\\[person:$id\\]\\]."))
+    }
 }

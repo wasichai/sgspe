@@ -695,8 +695,9 @@ no haya fuente normativa (GAP-001).
 
 - Las menciones de §7.4 se resuelven por nivel: nombre en INTERNO; cargo y organización, o código `GI-`, en EXTERNO, y
   sin cargo, «una persona de <localidad>»; texto genérico en PUBLICO (RQ-REP-033, ASM-137). Se resuelven en todo texto
-  del modelo: párrafos y notas, títulos, celdas, las fuentes de tablas, fotos y mapas, y el texto alternativo de las
-  fotos.
+  del modelo: párrafos y notas, títulos, celdas, las fuentes de tablas, fotos y mapas, las categorías y series de los
+  gráficos y el texto alternativo de las fotos. Una mención con escapes de CommonMark (`\[\[person:<id>\]\]`, tecleada
+  a mano) no se resuelve: sale «una persona» en todo nivel, nunca el token con su id (#87).
 - El texto propio de los registros (perfiles, historias, resultados de interacciones) pasa por la misma resolución cuando trae
   menciones; si trae nombres tecleados, la lista de verificación los busca.
 

@@ -95,6 +95,7 @@ object ReportDisclosure {
             is Block.LineChart ->
                 block.copy(
                     title = Mentions.resolve(block.title, people, level),
+                    categories = block.categories.map { Mentions.resolve(it, people, level) },
                     series = block.series.map { it.copy(name = Mentions.resolve(it.name, people, level)) },
                     source = block.source?.let { Mentions.resolve(it, people, level) }
                 )

@@ -4,7 +4,7 @@ package sgspe.privacy
 // registro de cada sección busca nombres de `person` del proyecto, números de 8 dígitos (un DNI), teléfonos y correos, y
 // avisa POSSIBLE_PERSONAL_DATA con la clave de la sección, una vez por sección. es una ayuda para la lista de verificación
 // de EXTERNO, no una garantía: un nombre que no está registrado no se ve. las menciones [[…:<id>]] no cuentan: se quitan
-// antes de buscar. el aviso nunca lleva lo encontrado
+// antes de buscar, también las escapadas (Mentions.scrub). el aviso nunca lleva lo encontrado
 object PersonalDataScan {
     const val CODE = "POSSIBLE_PERSONAL_DATA"
 
@@ -22,7 +22,7 @@ object PersonalDataScan {
         return texts.mapNotNull { (section, values) ->
             val found =
                 values.any { raw ->
-                    val text = Mentions.TOKEN.replace(raw, " ")
+                    val text = Mentions.TOKEN.replace(Mentions.scrub(raw), " ")
                     val plain = normalize(text)
                     EIGHT_DIGITS.containsMatchIn(text) ||
                         PHONE.containsMatchIn(text) ||
