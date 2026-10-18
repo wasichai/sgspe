@@ -60,7 +60,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.math.BigInteger
 import java.util.Base64
-import java.util.IdentityHashMap
 import javax.imageio.ImageIO
 
 // el DOCX de un nivel sobre la plantilla (especificación de F8 §3.3, deliverables.md §7.5): recibe el modelo ya transformado
@@ -100,7 +99,7 @@ class DocxWriter(
             // las leyendas se numeran antes de escribir: las listas de tablas y de figuras del índice van primero (T1)
             val captions = captions(model, input)
             var landscape = false
-            for (section in model.sections) {
+            for ((sectionIndex, section) in model.sections.withIndex()) {
                 // un salto como primer bloque se aplica antes del título: el Anexo 1 empieza en su página horizontal
                 val leading = section.blocks.firstOrNull() as? Block.SectionBreak
                 if (leading != null) {
@@ -109,15 +108,16 @@ class DocxWriter(
                 }
                 // una sección con showTitle false no lleva título (T1: un «Portada» o «Índice» de más saldría en el índice)
                 if (section.showTitle != false) paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
-                for (block in section.blocks.drop(if (leading != null) 1 else 0)) {
+                for ((blockIndex, block) in section.blocks.withIndex().drop(if (leading != null) 1 else 0)) {
+                    val at = sectionIndex to blockIndex
                     when (block) {
                         is Block.Heading -> paragraph(doc, styles.heading(block.level)).createRun().setText(block.text)
                         is Block.Paragraph -> markdown(doc, styles, block.markdown, block.footnotes)
-                        is Block.Table -> table(doc, styles, block, captions.of(block), input.author, landscape)
-                        is Block.Photos -> captions.find(block)?.let { photoRows(doc, styles, block, model, input, it) }
-                        is Block.MapFigure -> map(doc, styles, block, model, captions.of(block), input.author)
-                        is Block.LineChart -> lineChart(doc, styles, block, captions.of(block), input.author)
-                        is Block.ScatterChart -> scatterChart(doc, styles, block, captions.of(block), input.author)
+                        is Block.Table -> table(doc, styles, block, captions.of(at), input.author, landscape)
+                        is Block.Photos -> captions.find(at)?.let { photoRows(doc, styles, block, model, input, it) }
+                        is Block.MapFigure -> map(doc, styles, block, model, captions.of(at), input.author)
+                        is Block.LineChart -> lineChart(doc, styles, block, captions.of(at), input.author)
+                        is Block.ScatterChart -> scatterChart(doc, styles, block, captions.of(at), input.author)
                         is Block.Toc -> toc(doc, block)
                         is Block.CaptionList -> captionList(doc, styles, block, captions)
                         is Block.SectionBreak -> {
@@ -691,14 +691,15 @@ class DocxWriter(
         size.orient = if (landscape) STPageOrientation.LANDSCAPE else STPageOrientation.PORTRAIT
     }
 
-    // las leyendas del documento en su orden, numeradas por capítulo (o corridas sin capítulo), con su título
+    // las leyendas del documento en su orden, numeradas por capítulo (o corridas sin capítulo), con su título. van por la
+    // posición del bloque (sección, bloque) y no por el bloque: un mismo bloque repetido lleva una leyenda por aparición (#83)
     private class Captions {
-        val byBlock = IdentityHashMap<Block, CaptionNumbering.Caption>()
+        val byPosition = HashMap<Pair<Int, Int>, CaptionNumbering.Caption>()
         val ordered = mutableListOf<Pair<CaptionNumbering.Caption, String>>()
 
-        fun find(block: Block): CaptionNumbering.Caption? = byBlock[block]
+        fun find(at: Pair<Int, Int>): CaptionNumbering.Caption? = byPosition[at]
 
-        fun of(block: Block): CaptionNumbering.Caption = byBlock[block] ?: error("un bloque con leyenda quedó sin numerar")
+        fun of(at: Pair<Int, Int>): CaptionNumbering.Caption = byPosition[at] ?: error("un bloque con leyenda quedó sin numerar")
     }
 
     // la misma regla que el recorrido: una tabla (o una tabla figura), un bloque de fotos con alguna foto del nivel, un mapa y
@@ -709,9 +710,9 @@ class DocxWriter(
     ): Captions {
         val out = Captions()
         val numbering = CaptionNumbering()
-        for (section in model.sections) {
+        for ((sectionIndex, section) in model.sections.withIndex()) {
             val chapter = input.chapterOf(section.key) ?: section.chapter
-            for (block in section.blocks) {
+            for ((blockIndex, block) in section.blocks.withIndex()) {
                 val (kind, title) =
                     when (block) {
                         is Block.Table -> (if (block.figure) CaptionNumbering.FIGURE else CaptionNumbering.TABLE) to block.title
@@ -722,7 +723,7 @@ class DocxWriter(
                         else -> continue
                     }
                 val caption = numbering.next(kind, chapter)
-                out.byBlock[block] = caption
+                out.byPosition[sectionIndex to blockIndex] = caption
                 out.ordered += caption to title
             }
         }

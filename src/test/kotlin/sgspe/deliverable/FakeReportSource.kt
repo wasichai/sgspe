@@ -3,7 +3,7 @@ package sgspe.deliverable
 import java.util.UUID
 
 // una fuente de prueba sin base para los tipos de entregable (plan 8.2c): filas por objeto, vínculos muchos a muchos por
-// (objeto, id, relación) y lo que se leyó; lee solo lo que tiene, como ReportSources
+// (objeto, id, relación), desde los dos lados como en wasichai, y lo que se leyó; lee solo lo que tiene, como ReportSources
 // con `reads` hace cumplir lo que el tipo declara, como ReportSources: un objeto no declarado falla y cada fila sale
 // proyectada a los campos declarados (sin `reads`, lee todo)
 open class FakeReportSource(
@@ -12,6 +12,9 @@ open class FakeReportSource(
     val rows = mutableMapOf<String, MutableList<SourceRow>>()
     val links = mutableMapOf<Triple<String, String, String>, List<SourceRow>>()
     val read = mutableSetOf<String>()
+
+    // cada lectura de una relación: (objeto, id, relación)
+    val relatedCalls = mutableListOf<Triple<String, String, String>>()
 
     // la microcuenca de cada localidad (id de la localidad → nombre), como la daría el cruce espacial de ReportSources
     val basins = mutableMapOf<String, String>()
@@ -34,6 +37,12 @@ open class FakeReportSource(
         vararg ids: String
     ) {
         links[Triple(objectName, id, relationship)] = ids.mapNotNull { other -> rows[target]?.firstOrNull { it.id == other } }
+        // el otro lado: desde cada `target`, los `objectName` que lo vinculan
+        val self = rows[objectName]?.firstOrNull { it.id == id } ?: return
+        for (other in ids) {
+            val key = Triple(target, other, relationship)
+            links[key] = links[key].orEmpty().filterNot { it.id == id } + self
+        }
     }
 
     private fun fields(objectName: String): Set<String>? =
@@ -73,6 +82,7 @@ open class FakeReportSource(
         target: String
     ): List<SourceRow> =
         links[Triple(objectName, id.toString(), relationship)].orEmpty().map { project(target, it) }.also {
+            relatedCalls += Triple(objectName, id.toString(), relationship)
             fields(target)
             read += target
         }

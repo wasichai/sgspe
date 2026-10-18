@@ -291,6 +291,29 @@ class SocialDiagnosisTypeTest {
         assertTrue(model.tables("educacion_salud").any { table -> table.rows.any { it[1].text == "I. E. N° 101" } })
     }
 
+    // #83: los conflictos y los programas del Estado se leen desde las localidades del ámbito, una lectura por localidad, no
+    // todos los del tenant con una lectura por registro; los de una localidad fuera del ámbito no se leen ni salen
+    @Test
+    fun `los conflictos y los programas se leen desde las localidades del ambito`() {
+        val source = T1Source.source()
+        val far = T1Source.id(950)
+        source.add("locality", far, null, "name" to "Caserío Ejemplo Lejano", "locality_type" to "CASERIO")
+        source.add("local_conflict", T1Source.id(951), null, "title" to "Conflicto Ejemplo lejano", "conflict_type" to "TERRITORIAL")
+        source.link("local_conflict", T1Source.id(951), "local_conflict_locality", "locality", far)
+        source.add("state_program", T1Source.id(952), null, "name" to "Programa Ejemplo lejano")
+        source.link("state_program", T1Source.id(952), "state_program_locality", "locality", far)
+        val model = assemble(source).model
+        val history = model.blocks("historia").filterIsInstance<Block.Paragraph>().joinToString("\n") { it.markdown }
+        assertTrue("Linderos con el caserío vecino" in history, history)
+        assertFalse("lejano" in history, history)
+        assertTrue(model.tables("organizaciones").flatMap { it.rows }.any { row -> row.first().text == "Programa social del Estado" })
+        assertFalse(model.tables("organizaciones").flatMap { it.rows }.any { row -> row.any { "lejano" in it.text } })
+        val calls = source.relatedCalls.filter { it.third in setOf("local_conflict_locality", "state_program_locality") }
+        assertTrue(calls.isNotEmpty())
+        assertTrue(calls.all { it.first == "locality" && it.second != far }, "$calls")
+        assertEquals(calls.size, calls.toSet().size, "una lectura por localidad y relación: $calls")
+    }
+
     // #110: n localidades más en el AIDS, cada una con su perfil y una organización
     private fun withLocalities(count: Int): FakeReportSource {
         val source = T1Source.source()

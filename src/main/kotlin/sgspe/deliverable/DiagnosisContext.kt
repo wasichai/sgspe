@@ -11,6 +11,7 @@ import java.util.UUID
 // llevan su marca Restricted: solo INTERNO (§3.8, RQ-SEC-010)
 object DiagnosisContext {
     private const val WIDE = 4
+    private const val LOCALITY = "locality"
 
     // la página horizontal: más de WIDE columnas de localidades, tipos o programas además de la de los rótulos. la tabla
     // transpuesta (una fila por localidad) pasa una columna antes: sus columnas son temas de texto libre, no marcas ni conteos
@@ -350,20 +351,19 @@ object DiagnosisContext {
             listOf(Block.Heading(3, scope), table)
         }
 
-    // los registros de `objectName` (del tenant) por localidad, desde su lado de la relación muchos a muchos
+    // los registros de `objectName` por localidad de los ámbitos, desde el lado de la localidad de la relación muchos a muchos:
+    // una lectura por localidad, no todos los del tenant con una lectura por registro (#83). cada lista va por id, como antes
     private suspend fun linked(
         scene: DiagnosisScene,
         objectName: String,
         relationship: String
-    ): Map<String, List<SourceRow>> {
-        val out = linkedMapOf<String, MutableList<SourceRow>>()
-        for (row in scene.source.all(objectName)) {
-            for (locality in scene.source.related(objectName, UUID.fromString(row.id), relationship, "locality")) {
-                out.getOrPut(locality.id) { mutableListOf() } += row
-            }
-        }
-        return out
-    }
+    ): Map<String, List<SourceRow>> =
+        scene
+            .scopes()
+            .flatMap { it.second }
+            .map { it.id }
+            .distinct()
+            .associateWith { locality -> scene.source.related(LOCALITY, UUID.fromString(locality), relationship, objectName).sortedBy { it.id } }
 
     private fun value(
         row: SourceRow?,
