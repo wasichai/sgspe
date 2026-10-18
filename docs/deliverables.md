@@ -113,9 +113,9 @@ Cómo leer las columnas:
 | 2 Objetivos | Objetivo general y objetivos específicos del estudio | `study.objectives`; `deliverable_section` | Narrativa | Humana | F2 | F8 | RF-LBS-001 [DOC-01 §2] |
 | 3 Metodología | Enfoque cualitativo y fuentes primarias y secundarias | `study.methodology` | Narrativa | Humana | F2 | F8 | RF-LBS-001 [DOC-01 §3] |
 | 3.1 Alcance del estudio | Localidades del AIDS y del AIIS y actores distritales, provinciales y regionales | `study.scope_description`; miembros de las áreas aprobadas (`area_of_influence_member`, `locality`) | Narrativa con lista | Humana y calculada | F2 | F8 | RF-LBS-001, RF-TER-005 [DOC-01 §3.1] |
-| 3.2 Diseño del estudio | Temas, instrumentos, fuentes secundarias, lista de entrevistados aprobada y plan de campo | `study_instrument`; `deliverable_section` | Narrativa con lista | Humana y calculada | F2 | F8 | RF-LBS-001 [DOC-01 §3.2] |
+| 3.2 Diseño del estudio | Fuentes secundarias, lista de entrevistados aprobada y plan de campo; una línea remite al Anexo 2 (10.2), donde está la tabla de temas e instrumentos | `deliverable_section` | Narrativa con remisión | Humana y calculada | F2 | F8 | RF-LBS-001 [DOC-01 §3.2] |
 | 3.3 Trabajo de campo y Tabla 3.1 | Fechas, localidades visitadas, entrevistas por ámbito y localidad, fichas de observación | `study.fieldwork_start_date`, `fieldwork_end_date`; `engagement` de tipo ENTREVISTA y FICHA DE OBSERVACION vinculados al `study`, por `locality` y tipo de área; `field_visit` | Tabla con celdas combinadas por ámbito, y narrativa | Calculada | F2 | F8 | RF-LBS-001, RQ-REP-006, RQ-REP-012 [DOC-01 §3.3, Tabla 3.1] |
-| 4 Definición de áreas de influencia | Criterio general: impactos reales o percibidos de las actividades | `area_of_influence.criteria`; `deliverable_section` | Narrativa | Humana | F2 | F8 | RF-TER-005 [DOC-01 §4] |
+| 4 Definición de áreas de influencia | Criterio general: impactos reales o percibidos de las actividades (solo la narrativa; la lista de criterios del AIDS sale en 4.1) | `deliverable_section` | Narrativa | Humana | F2 | F8 | RF-TER-005 [DOC-01 §4] |
 | 4.1 Área de influencia directa social | Criterios y miembros: caseríos y sus sectores, un sector en separación y la comunidad cuyos terrenos cruzan los sondajes, con su condición y justificación | `area_of_influence` de tipo AIDS en `approved`; `area_of_influence_member` (`member_condition`, `applied_criteria`, `rationale`, `studied_in_diagnosis`); `locality` (`recognition_status`); `community`; consulta componentes × territorio comunal ([SIG](gis.md) §5.3) | Lista calculada y narrativa | Calculada y humana | F2 (consulta espacial en F6) | F8 | RF-TER-005, RN-TER-001, RN-TER-003, RN-TER-004 [DOC-01 §4.1] |
 | 4.2 Área de influencia indirecta social | Criterios, caseríos agrupados por microcuenca y ámbito distrital y provincial | `area_of_influence` de tipo AIIS; `area_of_influence_member` con `locality` o `administrative_unit`; `environmental_feature` de tipo MICROCUENCA (`name`, `feature_type`) cuyo `boundary` cubre la `location` de la localidad, para agrupar | Lista calculada y narrativa | Calculada y humana | F2 | F8 | RF-TER-005, CON-002 [DOC-01 §4.2] |
 | Mapa de áreas de influencia (lo agrega SGSPE) | AIDS y AIIS con localidades, componentes y territorio comunal | LYR-13, LYR-02, LYR-10, LYR-05 y LYR-01 | Mapa | Calculada | F2 | F8 (estilos en F6) | RQ-REP-008, RQ-REP-030 |
@@ -171,6 +171,12 @@ Cómo leer las columnas:
   `grupos_monitoreo`, `estrategias`, `comunicacion` y `necesidades`. La postura de las Tablas 7.1 a 7.3 lleva la marca de
   restringida: EXTERNO la vacía. Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.»
   solo en EXTERNO, donde se retuvo contenido restringido (religión y proceso electoral, T1 5.8 y 5.9).
+- **Sin repeticiones en T1** (#111): cada contenido sale una vez. La portada dice «del proyecto X», salvo que `project.name` ya
+  empiece con «proyecto» (sin distinguir mayúsculas ni tildes); la portada y el índice no imprimen un título propio (la plantilla
+  trae el de la portada y el índice, el suyo), así que no entran en la tabla de contenido. Los criterios del AIDS salen solo en
+  4.1 (sin el rótulo «Criterios:» si el texto ya empieza con «Criterios»). La meta del periodo de 9 sale como campo solo si la
+  sección no tiene narrativa; con narrativa, esta es la meta. En 5.1 la historia de cada localidad va bajo un subtítulo de
+  nivel 4 (estilo «heading 4», opcional en la plantilla: sin él se usa el de nivel 3) que entra en el índice de cinco niveles.
 - **Rótulos de T1** (#104): las tablas imprimen las opciones del modelo en español (`ReportLabels.option`: «EN SEPARACION» sale «En
   separación», «A FAVOR» sale «A favor», con el diccionario `option-words.json`, que una prueba obliga a cubrir cada palabra
   de cada enum), los estados con el `label` de su workflow (`ReportLabels.state`, también la Tabla 4 de T2) y los roles con el

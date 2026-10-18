@@ -25,7 +25,8 @@ object DiagnosisStrategy {
             scene.keep("estrategias", plan.text("name"), plan.text("strategic_objective"), plan.text("action_axes"))
             listOfNotNull(
                 Block.Heading(3, DiagnosisScene.or(plan, "name")),
-                plan.text("strategic_objective")?.let { Block.Paragraph("**Meta del periodo.** $it") },
+                // la meta sale una vez: si la sección ya lleva narrativa, esa es la meta del periodo y el campo no se repite
+                plan.text("strategic_objective")?.takeUnless { scene.hasNarrative("estrategias") }?.let { Block.Paragraph("**Meta del periodo.** $it") },
                 plan.text("action_axes")?.let { Block.Paragraph("**Ejes de acción.**\n\n$it") }
             )
         }

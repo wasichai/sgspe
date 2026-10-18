@@ -34,7 +34,7 @@ object SectionText {
         val parts =
             blocks.mapNotNull { block ->
                 when (block) {
-                    is Block.Heading -> "#".repeat(block.level.coerceIn(2, 3)) + " " + r(block.text)
+                    is Block.Heading -> "#".repeat(block.level.coerceIn(2, 4)) + " " + r(block.text)
                     is Block.Paragraph ->
                         if (block.mark !=
                             null

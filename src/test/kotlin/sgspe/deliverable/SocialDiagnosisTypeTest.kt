@@ -101,6 +101,50 @@ class SocialDiagnosisTypeTest {
         assertEquals(null, model.meta.coverMap)
     }
 
+    // #111: cada contenido sale una vez y la forma sigue al original
+    @Test
+    fun `la portada no repite proyecto, el capitulo 4 no repite criterios y 3 2 remite al Anexo 2`() {
+        val model = assemble().model
+        assertEquals("Diagnóstico social del Proyecto Ejemplo A", (model.blocks("portada").single() as Block.Paragraph).markdown)
+        assertEquals(emptyList<Block>(), model.blocks("areas"))
+        val criteria = model.blocks("aids").filterIsInstance<Block.Paragraph>().map { it.markdown }
+        assertEquals(listOf("**Criterios:** Impactos reales o percibidos de la exploración."), criteria)
+        assertEquals(
+            1,
+            model.sections
+                .flatMap { it.blocks }
+                .filterIsInstance<Block.Paragraph>()
+                .count { "Impactos reales o percibidos" in it.markdown }
+        )
+        val design = model.blocks("diseno")
+        assertEquals(emptyList<Block.Table>(), design.filterIsInstance<Block.Table>())
+        assertTrue("Anexo 2" in (design.single() as Block.Paragraph).markdown)
+        assertEquals(1, model.tables("anexo_instrumentos").size)
+    }
+
+    @Test
+    fun `el rotulo de criterios no se duplica y la meta sale una vez`() {
+        val plain =
+            assemble()
+                .model
+                .blocks("estrategias")
+                .filterIsInstance<Block.Paragraph>()
+                .map { it.markdown }
+        assertTrue(plain.any { it.startsWith("**Meta del periodo.**") }, "$plain")
+        val withText = assemble(content = mapOf("estrategias" to "La meta del periodo es mantener la licencia social.")).model.blocks("estrategias")
+        assertTrue(withText.filterIsInstance<Block.Paragraph>().none { "**Meta del periodo.**" in it.markdown }, "$withText")
+        assertTrue(withText.filterIsInstance<Block.Paragraph>().any { "La meta del periodo" in it.markdown })
+    }
+
+    @Test
+    fun `la historia lleva un subtitulo de nivel 4 por localidad`() {
+        val history = assemble().model.blocks("historia")
+        val i = history.indexOf(Block.Heading(4, "Caserío Ejemplo Alto"))
+        assertTrue(i > 0, "$history")
+        assertTrue((history[i + 1] as Block.Paragraph).markdown.startsWith("Reconocimiento:"))
+        assertTrue(history.filterIsInstance<Block.Paragraph>().none { it.markdown.startsWith("**Caserío") })
+    }
+
     // #80: la ubicación sale de las unidades administrativas de las localidades del AIDS y de sus unidades superiores
     @Test
     fun `la introduccion da la ubicacion desde las unidades del AIDS`() {
@@ -209,7 +253,8 @@ class SocialDiagnosisTypeTest {
         val model = assemble().model
         val history = model.blocks("historia")
         assertEquals(Block.Heading(3, DiagnosisScene.AIDS_TITLE), history[0])
-        assertTrue(history.filterIsInstance<Block.Paragraph>().any { "Linderos con el caserío vecino" in it.markdown && "Caserío Ejemplo Bajo" in it.markdown })
+        val low = history.indexOf(Block.Heading(4, "Caserío Ejemplo Bajo"))
+        assertTrue(low > 0 && "Linderos con el caserío vecino" in (history[low + 1] as Block.Paragraph).markdown, "$history")
         val population = model.tables("poblacion").first()
         assertEquals(listOf("Caserío Ejemplo Alto", "120", "480", "4.00", "10/08/2026", "Trabajo de campo", "Alta"), population.rows.single().map { it.text })
         val services = model.tables("servicios")

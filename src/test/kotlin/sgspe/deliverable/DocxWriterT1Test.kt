@@ -21,6 +21,7 @@ class DocxWriterT1Test {
             meta = ReportFixtures.model().meta.copy(type = "DIAGNOSTICO SOCIAL", title = "Diagnóstico social"),
             sections =
                 listOf(
+                    ReportSection("portada", "Portada", "CALCULADA", listOf(Block.Paragraph("Diagnóstico social del Proyecto Ejemplo A"))),
                     ReportSection(
                         "indice",
                         "Índice",
@@ -35,7 +36,10 @@ class DocxWriterT1Test {
                         "poblacion",
                         "5.2 Población y migración",
                         "MIXTA",
-                        listOf(Block.Table("Familias y población", listOf("Localidad", "Familias"), listOf(listOf(Cell("Caserío Ejemplo"), Cell("120"))))),
+                        listOf(
+                            Block.Heading(4, "Caserío Ejemplo Alto"),
+                            Block.Table("Familias y población", listOf("Localidad", "Familias"), listOf(listOf(Cell("Caserío Ejemplo"), Cell("120"))))
+                        ),
                         level = 2,
                         chapter = 5
                     ),
@@ -84,6 +88,16 @@ class DocxWriterT1Test {
         assertEquals("Heading3", doc.paragraphs.first { it.text == "9.3.2 Riesgos sociales" }.style)
         val shaded = doc.tables.flatMap { t -> t.rows.flatMap { it.tableCells } }.single { it.text == "2" }
         assertEquals("C00000", shaded.color)
+    }
+
+    @Test
+    fun `la portada y el indice no llevan titulo propio y el nivel 4 usa Heading4 de la plantilla base`() {
+        val doc = doc()
+        val texts = doc.paragraphs.map { it.text }
+        assertTrue("Portada" !in texts, "$texts")
+        assertEquals(1, texts.count { it == "Índice" }, "$texts")
+        assertTrue(texts.any { it == "Diagnóstico social del Proyecto Ejemplo A" })
+        assertEquals("Heading4", doc.paragraphs.first { it.text == "Caserío Ejemplo Alto" }.style)
     }
 
     @Test

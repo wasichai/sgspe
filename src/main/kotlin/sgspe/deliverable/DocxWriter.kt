@@ -97,7 +97,8 @@ class DocxWriter(
                     if (leading.landscape != landscape) endSection(doc, landscape)
                     landscape = leading.landscape
                 }
-                paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
+                // la portada lleva su título en la plantilla y el índice, el suyo (un título «Portada» o «Índice» de más saldría en el índice)
+                if (section.key !in UNTITLED) paragraph(doc, styles.heading(section.level)).createRun().setText(section.title)
                 for (block in section.blocks.drop(if (leading != null) 1 else 0)) {
                     when (block) {
                         is Block.Heading -> paragraph(doc, styles.heading(block.level)).createRun().setText(block.text)
@@ -835,17 +836,17 @@ class DocxWriter(
         val table: String? get() = id("Table Grid")
 
         fun heading(level: Int): String? =
-            id(
-                when (level.coerceIn(1, 3)) {
-                    1 -> TemplateStyles.HEADING_1
-                    2 -> TemplateStyles.HEADING_2
-                    else -> TemplateStyles.HEADING_3
-                }
-            )
+            when (level.coerceIn(1, 4)) {
+                1 -> id(TemplateStyles.HEADING_1)
+                2 -> id(TemplateStyles.HEADING_2)
+                3 -> id(TemplateStyles.HEADING_3)
+                else -> id(TemplateStyles.HEADING_4) ?: id(TemplateStyles.HEADING_3)
+            }
     }
 
     companion object {
         const val WATERMARK = "BORRADOR"
+        private val UNTITLED = setOf("portada", "indice")
         private val FOOTER_MARKERS = listOf("{{codigo}}", "{{revision}}")
         const val OMITTED_LAYERS = "Capas omitidas por nivel de divulgación"
 

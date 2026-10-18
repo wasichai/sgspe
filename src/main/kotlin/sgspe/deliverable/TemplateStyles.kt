@@ -10,6 +10,9 @@ object TemplateStyles {
     const val HEADING_1 = "heading 1"
     const val HEADING_2 = "heading 2"
     const val HEADING_3 = "heading 3"
+
+    // opcional: la historia de cada localidad (5.1); una plantilla sin él usa el de nivel 3
+    const val HEADING_4 = "heading 4"
     const val CAPTION = "caption"
     const val LIST = "List Paragraph"
 

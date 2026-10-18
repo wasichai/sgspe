@@ -94,7 +94,7 @@ data class Mark(
     JsonSubTypes.Type(Block.LineChart::class, name = "line-chart")
 )
 sealed interface Block {
-    // un título dentro de la sección: nivel 2 o 3 (el 1 es el de la sección)
+    // un título dentro de la sección: nivel 2 a 4 (el 1 es el de la sección)
     data class Heading(
         val level: Int,
         val text: String

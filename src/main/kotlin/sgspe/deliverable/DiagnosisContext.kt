@@ -17,12 +17,12 @@ object DiagnosisContext {
         val conflicts = linked(scene, "local_conflict", "local_conflict_locality")
         return scene.scopes().flatMap { (title, localities) ->
             listOf<Block>(Block.Heading(3, title)) +
-                localities.map { locality ->
+                localities.flatMap { locality ->
                     scene.keep("historia", locality.text("history"))
                     val found = conflicts[locality.id].orEmpty()
                     val text =
                         listOfNotNull(
-                            "**${DiagnosisScene.or(locality, "name")}** (${DiagnosisScene.option(locality, "recognition_status")}).",
+                            "Reconocimiento: ${DiagnosisScene.option(locality, "recognition_status")}.",
                             locality.text("history"),
                             found.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = "Conflictos: ", postfix = ".") { c ->
                                 "${DiagnosisScene.or(
@@ -32,7 +32,8 @@ object DiagnosisContext {
                                     c.text("disputed_resource")?.let { ", por $it" }.orEmpty() + ")"
                             }
                         ).joinToString(" ")
-                    Block.Paragraph(text)
+                    // un subtítulo de nivel 4 por localidad, que entra en el índice
+                    listOf(Block.Heading(4, DiagnosisScene.or(locality, "name")), Block.Paragraph(text))
                 }
         }
     }
