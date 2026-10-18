@@ -21,6 +21,9 @@ class PdfConverterUnavailable(
     message: String
 ) : RuntimeException(message)
 
+// el PDF que devolvió el conversor pasa de sgspe.deliverable.max-file-bytes: el borrador queda FALLIDO con FILE_TOO_LARGE (#83)
+class PdfTooLarge : RuntimeException("El PDF pasa del tope de los archivos de entregables")
+
 // el puerto hacia Gotenberg (especificación de F8 §2.2.17, deliverables.md §7.7): solo JOB-05 lo llama, nunca una petición.
 // GotenbergConverter es el de producción (plan 8.2c); las pruebas de integración usan un doble
 fun interface PdfConverter {
