@@ -275,6 +275,124 @@ class SocialDiagnosisTypeTest {
         assertTrue(model.tables("educacion_salud").any { table -> table.rows.any { it[1].text == "I. E. N° 101" } })
     }
 
+    // #110: n localidades más en el AIDS, cada una con su perfil y una organización
+    private fun withLocalities(count: Int): FakeReportSource {
+        val source = T1Source.source()
+        repeat(count) { i ->
+            val locality = T1Source.id(800 + i * 4)
+            source.add("locality", locality, null, "name" to "Caserío Ejemplo $i", "locality_type" to "CASERIO")
+            source.add(
+                "area_of_influence_member",
+                T1Source.id(801 + i * 4),
+                null,
+                "area_of_influence" to T1Source.AIDS,
+                "locality" to locality,
+                "member_condition" to "INCLUIDO"
+            )
+            source.add(
+                "locality_profile",
+                T1Source.id(802 + i * 4),
+                null,
+                "locality" to locality,
+                "study" to T1Source.STUDY,
+                "crops" to "Maíz $i",
+                "water_problems" to "Turbiedad $i"
+            )
+            source.add(
+                "organization",
+                T1Source.id(803 + i * 4),
+                null,
+                "name" to "Comité $i Ejemplo",
+                "organization_type" to "ORGANIZACION COMUNAL",
+                "locality" to locality
+            )
+        }
+        return source
+    }
+
+    @Test
+    fun `con mas de cinco localidades las tablas de economia y servicios llevan una fila por localidad`() {
+        val model = assemble(withLocalities(5)).model
+        val economy = model.tables("economia").first()
+        assertEquals(listOf("Localidad", "Cultivos", "Ganadería", "Otras actividades", "Problemática (problemas del agua)"), economy.header)
+        assertEquals(6, economy.rows.size)
+        assertTrue(economy.wide)
+        assertTrue(
+            economy.rows.any { r ->
+                r.map { it.text }.let { it[0] == "Caserío Ejemplo 3" && it[1] == "Maíz 3" && it[4] == "Turbiedad 3" }
+            },
+            "${economy.rows}"
+        )
+        assertEquals(
+            "Localidad",
+            model
+                .tables("servicios")
+                .first()
+                .header
+                .first()
+        )
+        assertEquals(
+            6,
+            model
+                .tables("servicios")
+                .first()
+                .rows.size
+        )
+    }
+
+    @Test
+    fun `con cinco localidades o menos las tablas quedan con las localidades en columnas`() {
+        val model = assemble(withLocalities(3)).model
+        val economy = model.tables("economia").first()
+        assertEquals(5, economy.header.size)
+        assertEquals("Actividad", economy.header.first())
+        assertEquals(
+            "Problemática (problemas del agua)",
+            economy.rows
+                .last()
+                .first()
+                .text
+        )
+    }
+
+    @Test
+    fun `con mas de cinco localidades las organizaciones salen por tipo y los programas con X`() {
+        val model = assemble(withLocalities(5)).model
+        val tables = model.tables("organizaciones")
+        val byType = tables.first()
+        assertEquals("Localidad", byType.header.first())
+        assertTrue("Organización comunal" in byType.header, "${byType.header}")
+        assertEquals(6, byType.rows.size)
+        val column = byType.header.indexOf("Organización comunal")
+        assertEquals("1", byType.rows.single { it[0].text == "Caserío Ejemplo 2" }[column].text)
+        val programs = tables[1]
+        assertEquals(listOf("Localidad", "Programa social del Estado"), programs.header)
+        assertEquals("X", programs.rows.single { it[0].text == "Caserío Ejemplo Alto" }[1].text)
+        assertEquals("", programs.rows.single { it[0].text == "Caserío Ejemplo 2" }[1].text)
+    }
+
+    @Test
+    fun `los impactos se agrupan por tipo de actividad con una columna por tipo de impacto`() {
+        val source = T1Source.source()
+        source.add(
+            "potential_impact",
+            T1Source.id(990),
+            null,
+            "project" to T1Source.PROJECT,
+            "activity_type" to "PERFORACION",
+            "impact_type" to "SOCIAL",
+            "impact_nature" to "INDIRECTO",
+            "impact_sign" to "POSITIVO",
+            "description" to "Empleo local."
+        )
+        val table = assemble(source).model.tables("impactos").single()
+        assertEquals(listOf("Tipo de actividad", "Impacto ambiental", "Impacto social"), table.header)
+        val row = table.rows.single()
+        assertEquals("Perforación", row[0].text)
+        assertEquals("• Polvo en la vía. (directo, negativo)", row[1].text)
+        assertEquals("• Empleo local. (indirecto, positivo)", row[2].text)
+    }
+
     @Test
     fun `religion y proceso electoral llevan su marca y EXTERNO los quita`() {
         val model = assemble().model

@@ -135,23 +135,37 @@ object DiagnosisStrategy {
         )
     }
 
-    suspend fun impacts(scene: DiagnosisScene): List<Block> =
-        listOf<Block>(Block.Paragraph(DiagnosisTexts.text("capitulo-9-3"))) +
-            table(
-                scene,
-                "impactos",
-                "potential_impact",
+    // Tabla 9.4: una fila por tipo de actividad, con una columna por tipo de impacto (ambiental, social) y, en cada celda, las
+    // descripciones con su naturaleza y su signo en texto
+    suspend fun impacts(scene: DiagnosisScene): List<Block> {
+        val intro = Block.Paragraph(DiagnosisTexts.text("capitulo-9-3"))
+        val rows = scene.source.all("potential_impact", scene.byProject)
+        if (rows.isEmpty()) return listOf(intro, Block.Paragraph("_Sin registros._"))
+        rows.forEach { row ->
+            listOf("activity_type", "impact_type", "impact_nature", "impact_sign", "description").forEach { scene.keep("impactos", row.text(it)) }
+        }
+        val types = rows.map { it.text("impact_type") }.distinct().sortedBy { listOf("AMBIENTAL", "SOCIAL").indexOf(it).let { i -> if (i < 0) 9 else i } }
+        val activities = rows.map { it.text("activity_type") }.distinct().sortedBy { ReportLabels.option(it) ?: SIN_DATO }
+
+        fun described(row: SourceRow): String {
+            val traits = listOfNotNull(ReportLabels.option(row.text("impact_nature")), ReportLabels.option(row.text("impact_sign"))).map { it.lowercase() }
+            val text = row.text("description") ?: SIN_DATO
+            return if (traits.isEmpty()) "• $text" else "• $text (${traits.joinToString(", ")})"
+        }
+        val table =
+            Block.Table(
                 "Impactos potenciales por tipo de actividad",
-                listOf(
-                    "Tipo de actividad" to "activity_type",
-                    "Tipo de impacto" to "impact_type",
-                    "Naturaleza" to "impact_nature",
-                    "Signo" to "impact_sign",
-                    "Descripción" to "description"
-                ),
-                labeled = setOf("activity_type", "impact_type", "impact_nature", "impact_sign"),
+                listOf("Tipo de actividad") + types.map { "Impacto " + (ReportLabels.option(it) ?: SIN_DATO).lowercase() },
+                activities.map { activity ->
+                    listOf(Cell(ReportLabels.option(activity) ?: SIN_DATO)) +
+                        types.map { type ->
+                            Cell(rows.filter { it.text("activity_type") == activity && it.text("impact_type") == type }.joinToString("\n") { described(it) })
+                        }
+                },
                 wide = true
             )
+        return listOf(intro, table)
+    }
 
     // Tabla 9.5: valor del periodo, meta y cifra oficial (con su fecha de cierre) o «—»
     suspend fun monitoring(scene: DiagnosisScene): List<Block> {
