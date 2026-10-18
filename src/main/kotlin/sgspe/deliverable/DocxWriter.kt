@@ -846,7 +846,7 @@ class DocxWriter(
 
     companion object {
         const val WATERMARK = "BORRADOR"
-        private val UNTITLED = setOf("portada", "indice")
+        private val UNTITLED = setOf("portada", "indice", "perfiles")
         private val FOOTER_MARKERS = listOf("{{codigo}}", "{{revision}}")
         const val OMITTED_LAYERS = "Capas omitidas por nivel de divulgación"
 

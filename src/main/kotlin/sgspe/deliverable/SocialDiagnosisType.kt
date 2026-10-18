@@ -208,7 +208,7 @@ class SocialDiagnosisType : DeliverableType {
                     } else {
                         emptyList()
                     }
-                // la narrativa de los perfiles los abre (#105); en las demás secciones sigue a lo calculado
+                // la narrativa de los perfiles los abre (#105); su título no se imprime (DocxWriter.UNTITLED); en las demás secciones sigue a lo calculado
                 val body = if (row.key in NARRATIVE_FIRST) narrative + note + computed else computed + narrative + note
                 ReportSection(row.key, row.title, row.kind, body, row.level, row.chapter)
             }

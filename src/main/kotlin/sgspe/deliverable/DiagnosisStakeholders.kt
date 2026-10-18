@@ -99,8 +99,8 @@ object DiagnosisStakeholders {
     }
 
     // 6.1 AIDS, 6.2 AIIS y 6.3 regional y nacional (y los sin ámbito al final): cada ámbito abre con su tabla y sigue con un
-    // subtítulo por tipo de actor; los perfiles de un tipo van por localidad y cargo. La sección es de nivel 2: el ámbito, nivel 3,
-    // y el tipo, nivel 4 (el máximo); el perfil, titulado por su cargo, abre su párrafo en negrita
+    // subtítulo por tipo de actor; los perfiles de un tipo van por localidad y cargo. La sección `perfiles` no imprime su título
+    // (`DocxWriter.UNTITLED`): el ámbito es de nivel 2, el tipo de nivel 3 y el perfil, titulado por su cargo, de nivel 4
     suspend fun profiles(scene: DiagnosisScene): List<Block> {
         val stakeholders = scene.stakeholders()
         var number = 0
@@ -111,9 +111,9 @@ object DiagnosisStakeholders {
             } else {
                 val types = byType(scene, rows)
                 val title = if (scopes.isEmpty()) "Grupos de interés sin ámbito" else label.replaceFirstChar { it.uppercase() }
-                listOf<Block>(Block.Heading(3, "6.${++number} $title"), scopeTable(scene, scopes, label, types)) +
+                listOf<Block>(Block.Heading(2, "6.${++number} $title"), scopeTable(scene, scopes, label, types)) +
                     types.flatMap { (type, list) ->
-                        listOf<Block>(Block.Heading(4, ReportLabels.option(type) ?: type)) + list.flatMap { profile(scene, it.row) }
+                        listOf<Block>(Block.Heading(3, ReportLabels.option(type) ?: type)) + list.flatMap { profile(scene, it.row) }
                     }
             }
         }
@@ -149,10 +149,8 @@ object DiagnosisStakeholders {
                 "El cargo está vacante.".takeIf { row.ref("person") != null && position == null }
             )
         return listOfNotNull(
-            Block.Paragraph(
-                "**${scene.people.actor(row)}**\n\n" + facts.joinToString("\n\n").ifEmpty { "_Sin datos del perfil._" },
-                footnotes = notes
-            ),
+            Block.Heading(4, scene.people.actor(row)),
+            Block.Paragraph(facts.joinToString("\n\n").ifEmpty { "_Sin datos del perfil._" }, footnotes = notes),
             assessment?.let { a ->
                 val reasons = a.text("stance_reasons")?.let { " **Razones:** $it" }.orEmpty()
                 Block.Paragraph("**Postura:** ${DiagnosisScene.option(a, "stance")}.$reasons", Mark.restricted("stakeholder_assessment.stance"))

@@ -445,7 +445,7 @@ class SocialDiagnosisTypeTest {
         val identification = profiles.filterIsInstance<Block.Table>()
         assertEquals(listOf("Autoridad local", "Presidente, Junta Directiva Comunal Ejemplo"), identification[0].rows.single().map { it.text })
         assertEquals(listOf("Organización social distrital", "Municipalidad Distrital Ejemplo"), identification[1].rows.single().map { it.text })
-        assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { it.markdown.startsWith("**Municipalidad Distrital Ejemplo**") }, "$profiles")
+        assertTrue(Block.Heading(4, "Municipalidad Distrital Ejemplo") in profiles, "$profiles")
         assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { "Estado de la entrevista: Se negó." in it.footnotes })
         val classification = model.tables("clasificacion")
         assertEquals(
@@ -525,21 +525,21 @@ class SocialDiagnosisTypeTest {
         val narrative = "Narrativa de apertura de los perfiles QX7."
         val model = assemble(source, mapOf("perfiles" to narrative)).model
         val blocks = model.blocks("perfiles")
-        // la narrativa antes de todo, y el nivel 3 de los ámbitos numerados
+        // la narrativa antes de todo, y el nivel 2 de los ámbitos numerados
         assertEquals(narrative, (blocks.first() as Block.Paragraph).markdown)
         val headings = blocks.filterIsInstance<Block.Heading>()
         assertEquals(
-            listOf(3 to "6.1 Área de influencia directa social", 3 to "6.2 Área de influencia indirecta social", 3 to "6.3 Ámbito regional y nacional"),
-            headings.filter { it.level == 3 }.map { it.level to it.text }
+            listOf(2 to "6.1 Área de influencia directa social", 2 to "6.2 Área de influencia indirecta social", 2 to "6.3 Ámbito regional y nacional"),
+            headings.filter { it.level == 2 }.map { it.level to it.text }
         )
         // la tabla de cada ámbito va justo tras su encabezado
-        for (heading in headings.filter { it.level == 3 }) {
+        for (heading in headings.filter { it.level == 2 }) {
             val table = blocks[blocks.indexOf(heading) + 1] as Block.Table
             assertTrue(table.title.startsWith("Grupos de interés del"), table.title)
         }
-        // en AIDS, el tipo abre con su subtítulo de nivel 4 y los perfiles van por localidad (Alta, Baja, sin localidad) y cargo
+        // en AIDS, el tipo abre con su subtítulo de nivel 3 y los perfiles van por localidad (Alta, Baja, sin localidad) y cargo
         val aids = blocks.subList(blocks.indexOf(headings.first()), blocks.indexOf(headings.first { it.text.startsWith("6.2") }))
-        val titles = aids.filterIsInstance<Block.Paragraph>().mapNotNull { Regex("^\\*\\*(.+?)\\*\\*").find(it.markdown)?.groupValues?.get(1) }
+        val titles = aids.filterIsInstance<Block.Heading>().filter { it.level == 4 }.map { it.text }
         assertEquals(
             listOf(
                 "Fiscal, Comité Alto Ejemplo",
@@ -549,7 +549,7 @@ class SocialDiagnosisTypeTest {
             ),
             titles.filter { it.contains("Comité") }
         )
-        assertTrue(aids.any { it is Block.Heading && it.level == 4 && it.text == "Organización comunal" }, "$aids")
+        assertTrue(aids.any { it is Block.Heading && it.level == 3 && it.text == "Organización comunal" }, "$aids")
         // EXTERNO: ningún nombre de persona
         val external = ReportDisclosure.apply(model, Disclosure.EXTERNO)
         val shown = external.blocks("perfiles").filterIsInstance<Block.Paragraph>().joinToString("\n") { it.markdown }
