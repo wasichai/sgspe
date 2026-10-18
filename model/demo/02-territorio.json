@@ -1,0 +1,696 @@
+{
+  "collections": [
+    {
+      "object": "locality",
+      "match": [
+        "name"
+      ],
+      "records": [
+        {
+          "key": "loc-huaylla",
+          "attributes": {
+            "name": "Caserío Huaylla Alto",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Huaylla Alto nació a mediados de la década de 1960 como estancia de invierno de unas pocas familias alpaqueras que bajaban desde las punas más altas en busca de abrigo. Con los años las estancias se hicieron viviendas fijas y, en 1971, los pobladores levantaron la primera escuela con adobe y paja, que hasta hoy funciona como primaria multigrado.\n\nEl caserío se ordenó en tres sectores, Huaylla Alto, Pampa Cruz y Orccohuasi, cada uno con su delegado ante la junta directiva. La división se hizo por acuerdo de asamblea para repartir los turnos de pastoreo, y desde entonces las discusiones por los límites entre sectores se resuelven en reunión general y rara vez pasan de ahí.\n\nLas familias poseen sus parcelas de cultivo con títulos individuales formalizados a inicios de los años 2000, mientras que los pastos altos siguen siendo de uso colectivo. En 2014 el puesto de salud, que atiende un día por semana, se construyó con aporte de mano de obra comunal, y es el servicio del que los pobladores hablan con más orgullo.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -3.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                -3.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-quishuar",
+          "attributes": {
+            "name": "Caserío Quishuar",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Quishuar toma su nombre del arbusto de flores amarillas que crece en las laderas donde se asentaron, hacia 1958, las primeras familias llegadas de una hacienda vecina que se había desintegrado. Durante sus primeros años el caserío dependía de una comunidad mayor para todo trámite, y solo a fines de los años setenta logró que se le reconociera una junta directiva propia.\n\nEl hecho que más marcó su historia reciente fue la apertura del canal de riego de Yanaccocha en 1996, que los pobladores trazaron a mano durante dos temporadas y que permitió pasar del pastoreo exclusivo a un cultivo moderado de papa nativa. El canal sigue revestido solo en tramos y cada año, antes de las lluvias, se organiza una faena para limpiarlo.\n\nLos terrenos de cultivo están titulados desde 2003. Los pastos de altura, en cambio, se comparten con Llamapampa mediante un acuerdo verbal que nunca se puso por escrito y que cada tanto genera reclamos cuando los rebaños cruzan el límite acostumbrado.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                -1.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-llamapampa",
+          "attributes": {
+            "name": "Caserío Llamapampa",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Llamapampa es el caserío más antiguo del área de influencia directa. Sus pobladores recuerdan que el primer asentamiento estable se dio hacia 1949, en torno a una antigua pampa donde se reunían las llamas de carga que hacían la ruta entre la costa y la sierra. De ahí el nombre, que se conserva en el caserío y en el sector bajo que se desprendió años después.\n\nCon la población creciendo, en 1978 se acordó fundar Llamapampa Bajo en las terrazas inferiores, y algunas familias se mudaron allí llevándose parte del ganado. La junta de Llamapampa conservó la capital del caserío y la planta de esquila comunal, que se construyó en 2009 con apoyo de un programa estatal de fibra de camélidos y que hoy es su principal orgullo.\n\nEl caserío tiene hoy tres sectores principales y, desde hace unos años, una disputa abierta con el sector Ccollpa, que pide separarse. La junta sostiene que Ccollpa es parte del territorio titulado en 1994, mientras que las familias de ese sector sienten que los beneficios comunes no les llegan en la misma medida.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -3.0,
+                2.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                -3.0,
+                2.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-ccollpa",
+          "attributes": {
+            "name": "Sector Ccollpa",
+            "locality_type": "SECTOR",
+            "recognition_status": "EN SEPARACION",
+            "history": "El sector Ccollpa se formó hacia 1991, cuando algunas familias de Llamapampa dejaron las estancias del fondo de la quebrada para instalarse junto a un afloramiento de sal que sus rebaños visitaban desde siempre. El nombre, en quechua, alude justamente a esa sal que los pastores recogían para sus animales.\n\nAunque sigue figurando como sector de Llamapampa, Ccollpa construyó por su cuenta una capilla y un pequeño sistema de agua administrado por su propio comité. Ese comité de agua es el centro del conflicto: las familias de Ccollpa sostienen que no deben aportar a las obras del caserío principal, y la junta de Llamapampa responde que el territorio y el agua son un solo patrimonio.\n\nEn 2023 los representantes de Ccollpa presentaron ante el municipio distrital la solicitud de separación, que a la fecha del estudio seguía en trámite. Los dirigentes de ambos lados reconocen el derecho a organizarse, pero discrepan en cómo repartir las tierras de pastoreo, y es un punto que el proyecto debe tratar con cuidado para no inclinarse por un bando.",
+            "administrative_unit": "@au-distrito",
+            "parent_locality": "@loc-llamapampa"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                -1.5,
+                2.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                -1.5,
+                2.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-tambillo",
+          "attributes": {
+            "name": "Caserío Tambillo",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Tambillo debe su nombre a un tambo, una posta de descanso de la época de los arrieros, que todavía se levanta a la vera del camino antiguo hacia la costa. Las primeras familias se instalaron allí hacia 1955, aprovechando el tránsito de viajeros para comerciar lana y chuño, y durante décadas el caserío vivió más del paso de arrieros que de la propia chacra.\n\nCuando la ruta de arrieros cayó en desuso, a fines de los años ochenta, los pobladores se volcaron al cultivo de papa y haba, para lo cual fue clave que en 1992 se titularan las parcelas del fondo de valle. Esa titulación trajo una tensión con el caserío vecino de Rinconada, que reclamaba una franja de terreno, y que se resolvió con una conciliación ante el juez de paz.\n\nTambillo cuenta con una escuela inicial desde 2005 y, desde el año pasado, con una trocha mejorada que lo conecta con la carretera distrital. Los pobladores esperan que esa mejora devuelva al caserío algo de la movilidad que perdió al desaparecer la ruta de arrieros.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.0,
+                -2.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                0.0,
+                -2.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-pucara",
+          "attributes": {
+            "name": "Caserío Pucará Chico",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Pucará Chico se asentó hacia 1966 junto a los restos de una pequeña fortificación preinca que la gente llama pucará, y a la que debe el nombre. Las familias fundadoras provenían de Tambillo y buscaban terrenos de ladera para sembrar con andenes, algunos de los cuales aún conservan sus muros de piedra.\n\nEl caserío se organizó en dos sectores, Pucará Chico y Santa Cruz, el segundo formado en 1984 alrededor de una cruz de madera que los vecinos levantaron para la fiesta patronal. Ambos sectores mantienen una relación cordial, aunque Santa Cruz suele quejarse de que el local multiusos, construido en 2001, quedó mucho más cerca del primer sector.\n\nLa agricultura es de secano y depende por completo de las lluvias; en los años malos las familias complementan sus ingresos con la crianza de cuyes y con el trabajo temporal en los valles de la costa. Los títulos de las parcelas se entregaron en 2004, y los dirigentes recuerdan ese año como el momento en que dejaron de sentirse ocupantes para sentirse dueños.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.0,
+                -1.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                0.0,
+                -1.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-yanama",
+          "attributes": {
+            "name": "Caserío Yanama",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Yanama, cuyo nombre alude a la oscura piedra que cubre una de sus laderas, se formó hacia 1952 con familias que huían de una sequía prolongada en las alturas de la provincia. Fue una de las primeras localidades de la zona en tener un delegado reconocido por el distrito, lo que le dio cierto peso político entre los caseríos vecinos.\n\nHoy el caserío está organizado en Yanama y Cochapata, y se distingue por tener el comité de regantes más activo de la zona, que lleva libros de turnos, multas y asambleas anuales. Ese comité es el origen de un vivero escolar que se instaló en 2012 con la escuela, donde los alumnos reproducen plantas nativas para reforestar las laderas.\n\nLas parcelas de cultivo están tituladas desde 1998. Un hecho que los pobladores mencionan con frecuencia es el litigio por el uso de una laguna de cabecera con el caserío de Huayrapata, resuelto en 2017 con un reparto de turnos de agua que ambos caseríos respetan, aunque con cierta desconfianza.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                0.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-rumichaca",
+          "attributes": {
+            "name": "Caserío Rumichaca",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Rumichaca significa puente de piedra, y el caserío toma su nombre de la roca natural que atraviesa la quebrada y que los pobladores usaron durante generaciones para cruzar con sus animales. Las primeras casas se levantaron en la ribera hacia 1970, cuando algunas familias de Tambillo se instalaron cerca del paso para controlar el cruce.\n\nEn 2008 el municipio distrital construyó un puente peatonal de concreto junto al de piedra, y el caserío se organizó en dos sectores, Rumichaca y Huaraccopata, a ambos lados de la quebrada. En épocas de lluvia intensa, el puente es el único acceso, y los vecinos recuerdan con preocupación la creciente de 2015, que estuvo a punto de arrastrarlo.\n\nRumichaca vive de la cebada y de un pequeño hato de vacunos. Los títulos de propiedad se otorgaron en 2006, pero el sector de Huaraccopata aún tiene linderos sin precisar con el caserío de Llamapampa Bajo, lo que ha generado algunos roces durante la limpieza de la acequia que comparten.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.5,
+                -2.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                1.5,
+                -2.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-llamapampa-bajo",
+          "attributes": {
+            "name": "Caserío Llamapampa Bajo",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Llamapampa Bajo se fundó en 1978, cuando un grupo de familias de Llamapampa bajó a las terrazas inferiores, donde había mejor suelo para el cultivo y menos exposición a las heladas. La separación fue pacífica y se acordó en asamblea, aunque los dos caseríos siguen compartiendo el nombre y varios lazos de parentesco.\n\nEl caserío se organizó en dos sectores, Llamapampa Bajo y Ayllu, y se dedica a una economía mixta de pequeñas chacras y ganado. La escuela inicial funciona desde 1999 en un ambiente prestado por la iglesia, y los vecinos han gestionado ante el municipio distrital la construcción de una posta de salud propia, cuyo expediente sigue sin resolverse.\n\nLos títulos individuales de las parcelas se entregaron en 2005. La relación con el caserío de Rumichaca tiene una nota de tensión por los linderos de la acequia compartida, aunque en los últimos años los dos caseríos han acordado hacer juntos la faena de limpieza anual.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.5,
+                -1.0
+              ]
+            },
+            "boundary": {
+              "square": [
+                1.5,
+                -1.0,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-chacapampa",
+          "attributes": {
+            "name": "Caserío Chacapampa",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Chacapampa surgió en 1964 como lugar de trueque entre los pastores de las alturas y los agricultores de los valles, que se encontraban en una explanada junto al río. Los intercambios de lana por maíz y chuño dieron vida a un mercado informal que sobrevive hoy en forma reducida durante las fiestas de agosto.\n\nEl caserío se organiza en Chacapampa y Qollpa, y su gente se caracteriza por mantener una ronda campesina muy activa, que cuenta con local propio desde 1993 y que ha asumido un papel de árbitro en las disputas entre vecinos y entre caseríos. El molino comunal, instalado en 2002 con aporte de los pobladores, sigue moliendo grano para varios caseríos de los alrededores.\n\nLas tierras de cultivo se titularon entre 1999 y 2001, y los pastos altos se manejan por turnos. Entre los hechos recientes, los dirigentes mencionan la apertura de una trocha carrozable en 2016, que redujo a la mitad el tiempo de viaje hacia el distrito pero también trajo mayor presencia de comerciantes externos.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                1.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                1.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-huayrapata",
+          "attributes": {
+            "name": "Caserío Huayrapata",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Huayrapata, cuyo nombre se asocia con el viento que barre su terraza alta, se fundó hacia 1972 en torno a un manantial que nunca se seca y que los pobladores consideran el origen del caserío. Las familias fundadoras venían de Yanama y eligieron el lugar por la certeza del agua.\n\nEl manantial abastece hoy a tres caseríos vecinos y está administrado por un comité que Huayrapata presidió siempre; es motivo de orgullo, pero también de tensión, porque los usuarios de otras localidades reclaman mayor participación en las decisiones. Con la escuela y el local comunal, construidos en 1990 y 2003 respectivamente, es una de las localidades mejor organizadas de su entorno.\n\nLos terrenos se titularon en 2000. El litigio por la laguna de cabecera con Yanama, resuelto en 2017 después de varias reuniones con el juez de paz, dejó una sensación de acuerdo frágil que los dirigentes procuran mantener con reuniones periódicas entre ambos comités de agua.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                3.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                3.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-santarosa",
+          "attributes": {
+            "name": "Caserío Santa Rosa de Pallca",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Santa Rosa de Pallca es el centro más poblado de la microcuenca Pallcamayo y debe su nombre a la imagen que una familia fundadora trajo desde la capital provincial hacia 1960. En torno a la capilla que se levantó para guardarla se fue ordenando el caserío, que dividió su territorio en Santa Rosa, Pallca y Lucmapata.\n\nDesde los años ochenta la iglesia y la escuela primaria son el centro de la vida social, y la fiesta patronal de agosto reúne a familias que migraron a la costa y regresan cada año. El local comunal se construyó en 1997 con aporte de los migrantes organizados en una asociación de residentes.\n\nGran parte de las parcelas de maíz, papa y haba se titularon en 1996. En 2012 hubo un conflicto con la comunidad de San Isidro de Wayra por una franja de terreno en la parte alta, que se encuentra aún sin solución definitiva y que los dirigentes de Santa Rosa mencionan cuando se les pregunta por las tierras en disputa.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                5.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                5.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-esperanza",
+          "attributes": {
+            "name": "Caserío Nueva Esperanza",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Nueva Esperanza es el caserío más joven del área de estudio. Se formó en 1985, cuando varias familias que habían perdido sus chacras por un deslizamiento en una localidad vecina recibieron del municipio un terreno en la ladera sobre la trocha. El nombre fue una decisión de la primera asamblea, como expresión del ánimo con que empezaron de nuevo.\n\nEl caserío se organizó en dos sectores, Nueva Esperanza y Mirador, y combina la agricultura en pequeña escala con el comercio menor que aprovecha la cercanía a la trocha carrozable abierta en 1999. Esa vía permitió que se instalaran dos tiendas y un pequeño servicio de transporte hacia el distrito. Las madres del caserío sostienen un comité de vaso de leche que funciona en el local comunal.\n\nLos títulos de propiedad se formalizaron recién en 2010, y las familias fundadoras siguen en proceso de regularizar algunos lotes. Por su origen reciente, la identidad del caserío es más urbana que la de sus vecinos, y sus pobladores suelen mostrar mayor apertura a las oportunidades de empleo y de comercio.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                7.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                7.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-cruzpata",
+          "attributes": {
+            "name": "Caserío Cruzpata",
+            "locality_type": "CASERIO",
+            "recognition_status": "RECONOCIDO",
+            "history": "Cruzpata toma su nombre de una cruz de piedra tallada que, según la tradición, se colocó hacia 1957 en el cerro para proteger a los rebaños. Las familias fundadoras eran ganaderas de vacunos y mantienen hasta hoy esa vocación, a diferencia de otros caseríos de la zona que se dedican más a los camélidos.\n\nCon el apoyo de un proyecto de fomento lechero, en 2007 se instaló una pequeña quesería artesanal que procesa la leche de unas veinte familias y vende en las ferias del distrito. El caserío se organizó en Cruzpata y Puquio, este último formado alrededor de un ojo de agua que da de beber al ganado y que cada año se limpia en una faena conjunta.\n\nLos títulos de las parcelas y de los pastos de uso individual se entregaron en 2002. El único problema pendiente es una discrepancia con Antaccasa por el uso de los pastos de la ladera norte, que de momento se maneja con acuerdos de palabra entre los dirigentes.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                8.5,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                8.5,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        },
+        {
+          "key": "loc-antaccasa",
+          "attributes": {
+            "name": "Caserío Antaccasa",
+            "locality_type": "CASERIO",
+            "recognition_status": "EN TRAMITE",
+            "history": "Antaccasa, que significa paso del cobre, se formó hacia 1969 cuando algunos pastores se asentaron cerca de un antiguo paso de arrieros que la tradición vincula con el transporte de metal. Durante décadas fue considerado un anexo de Cruzpata, y solo a fines de los años noventa sus vecinos empezaron a pedir el reconocimiento como caserío independiente.\n\nEl pedido de reconocimiento se presentó ante el municipio distrital en 2019 y continúa en trámite; los dirigentes lamentan que la falta de ese reconocimiento les impide gestionar directamente proyectos y recibir transferencias. El caserío se organiza en Antaccasa y Huancapata, y buena parte de los varones jóvenes trabaja temporalmente en la costa durante la época seca.\n\nLas parcelas de cultivo se titularon en 2008, y los pastos altos se manejan por acuerdo con Cruzpata. Por su cercanía al antiguo paso de arrieros, el caserío ha tenido contacto con prospectores en el pasado, lo que explica en parte su familiaridad con la actividad minera y una actitud más pragmática frente al proyecto.",
+            "administrative_unit": "@au-distrito"
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                10.0,
+                0.5
+              ]
+            },
+            "boundary": {
+              "square": [
+                10.0,
+                0.5,
+                0.5
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "community",
+      "match": [
+        "name"
+      ],
+      "records": [
+        {
+          "key": "com-sanisidro",
+          "attributes": {
+            "name": "Comunidad Campesina San Isidro de Wayra",
+            "community_type": "COMUNIDAD CAMPESINA",
+            "organic_status": "SIN JUNTA ACTIVA",
+            "administrative_unit": "@au-distrito",
+            "source_crs": "EPSG 32718",
+            "recognized_as_indigenous": false,
+            "board_registered": false,
+            "has_member_roll": false,
+            "registry_records_unverified": true
+          },
+          "geometries": {
+            "territory": {
+              "polygon": [
+                [
+                  -2.5,
+                  1.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  1.0,
+                  4.5
+                ],
+                [
+                  -2.5,
+                  4.5
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "area_of_influence",
+      "match": [
+        "project",
+        "area_type",
+        "version_number"
+      ],
+      "records": [
+        {
+          "key": "aids",
+          "attributes": {
+            "project": "@proj",
+            "area_type": "AIDS",
+            "version_number": 1,
+            "criteria": "Criterios de delimitación del área de influencia social directa (AIDS)\n\n1. Proximidad territorial: se incluyen las localidades cuyo territorio colinda o se superpone con las concesiones mineras del proyecto o con los sitios previstos para las plataformas de perforación.\n\n2. Uso directo de recursos: se incluyen las localidades cuyas familias usan de manera regular los pastos, los manantiales o las vías ubicadas dentro o junto al área de exploración.\n\n3. Afectación potencial de las microcuencas: se incluyen las localidades que se abastecen de las quebradas que nacen o cruzan el área de las concesiones.\n\n4. Relación institucional previa: se incluyen las localidades con las que la empresa ha tenido reuniones, acuerdos de acceso o contratación local durante el cateo.\n\n5. Reconocimiento de la autoridad local: se incluyen las localidades cuyas autoridades han sido consultadas y han manifestado su vínculo con el área de trabajo. Las comunidades cuya junta directiva no está activa se incorporan de manera provisional hasta contar con interlocución válida.",
+            "defined_date": "2026-04-10",
+            "study": "@study"
+          },
+          "geometries": {
+            "boundary": {
+              "polygon": [
+                [
+                  -4.0,
+                  -0.5
+                ],
+                [
+                  -0.75,
+                  -0.5
+                ],
+                [
+                  -0.75,
+                  3.0
+                ],
+                [
+                  -4.0,
+                  3.0
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "aiis",
+          "attributes": {
+            "project": "@proj",
+            "area_type": "AIIS",
+            "version_number": 1,
+            "criteria": "Criterios de delimitación del área de influencia social indirecta (AIIS)\n\n1. Continuidad en las microcuencas: se incluyen las localidades ubicadas aguas abajo o en las laderas contiguas de las microcuencas Ichuyacu y Pallcamayo, que podrían percibir efectos indirectos sobre el agua o el paisaje.\n\n2. Vinculación funcional: se incluyen las localidades que dependen de las del área directa por intercambio comercial, parentesco, servicios compartidos o uso de las mismas vías de acceso.\n\n3. Capacidad de interlocución: se incluyen las localidades cuyas organizaciones pueden influir en la opinión local sobre el proyecto, aunque no tengan vínculo territorial inmediato con las concesiones.\n\n4. Ámbito administrativo: se incluye el distrito de San Juan en su conjunto como espacio de decisión política y de representación de las localidades, y como destinatario de los impactos económicos y de empleo.",
+            "defined_date": "2026-04-10",
+            "study": "@study"
+          },
+          "geometries": {
+            "boundary": {
+              "polygon": [
+                [
+                  -5.0,
+                  -4.0
+                ],
+                [
+                  11.5,
+                  -4.0
+                ],
+                [
+                  11.5,
+                  5.0
+                ],
+                [
+                  -5.0,
+                  5.0
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "area_of_influence_member",
+      "match": [
+        "area_of_influence",
+        "locality",
+        "community",
+        "administrative_unit"
+      ],
+      "records": [
+        {
+          "key": "m-aids-huaylla",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-huaylla",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-quishuar",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-quishuar",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-llamapampa",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-llamapampa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-ccollpa",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-ccollpa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aids-com-sanisidro",
+          "attributes": {
+            "area_of_influence": "@aids",
+            "member_condition": "PROVISIONAL",
+            "community": "@com-sanisidro",
+            "studied_in_diagnosis": false,
+            "rationale": "La comunidad se superpone con el AIDS, pero su junta directiva no está activa; se incorpora de manera provisional hasta contar con interlocución válida."
+          }
+        },
+        {
+          "key": "m-aiis-tambillo",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-tambillo",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-pucara",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-pucara",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-yanama",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-yanama",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-rumichaca",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-rumichaca",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-llamapampa-bajo",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-llamapampa-bajo",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-chacapampa",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-chacapampa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-huayrapata",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-huayrapata",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-santarosa",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-santarosa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-esperanza",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-esperanza",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-cruzpata",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-cruzpata",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-antaccasa",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "locality": "@loc-antaccasa",
+            "studied_in_diagnosis": true
+          }
+        },
+        {
+          "key": "m-aiis-distrito",
+          "attributes": {
+            "area_of_influence": "@aiis",
+            "member_condition": "INCLUIDO",
+            "administrative_unit": "@au-distrito",
+            "studied_in_diagnosis": false
+          }
+        }
+      ]
+    },
+    {
+      "object": "area_of_influence",
+      "reopen": true,
+      "as": "social",
+      "records": [
+        {
+          "key": "aids",
+          "commands": [
+            {
+              "command": "approve_area"
+            }
+          ]
+        },
+        {
+          "key": "aiis",
+          "commands": [
+            {
+              "command": "approve_area"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

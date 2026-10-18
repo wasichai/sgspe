@@ -1,0 +1,491 @@
+{
+  "collections": [
+    {
+      "object": "organization",
+      "match": [
+        "name"
+      ],
+      "records": [
+        {
+          "key": "org-minera",
+          "attributes": {
+            "name": "Compañía Minera Wayra Ejemplo S.A.C.",
+            "organization_type": "EMPRESA",
+            "territorial_level": "NACIONAL",
+            "recognized": true
+          }
+        },
+        {
+          "key": "org-consultora",
+          "attributes": {
+            "name": "Consultora Social Ejemplo S.A.C.",
+            "organization_type": "EMPRESA",
+            "territorial_level": "NACIONAL",
+            "recognized": true
+          }
+        },
+        {
+          "key": "org-contratista",
+          "attributes": {
+            "name": "Perforaciones Ejemplo S.A.C.",
+            "organization_type": "EMPRESA",
+            "territorial_level": "NACIONAL",
+            "recognized": true
+          }
+        }
+      ]
+    },
+    {
+      "object": "mining_concession",
+      "match": [
+        "code"
+      ],
+      "records": [
+        {
+          "key": "conc-1",
+          "attributes": {
+            "code": "DEMO-001",
+            "name": "Concesión Wayra 1",
+            "source_crs": "EPSG 32718",
+            "registered_area_ha": 400
+          },
+          "geometries": {
+            "boundary": {
+              "square": [
+                -2.0,
+                1.5,
+                1.0
+              ]
+            }
+          }
+        },
+        {
+          "key": "conc-2",
+          "attributes": {
+            "code": "DEMO-002",
+            "name": "Concesión Wayra 2",
+            "source_crs": "EPSG 32718",
+            "registered_area_ha": 400
+          },
+          "geometries": {
+            "boundary": {
+              "square": [
+                1.5,
+                3.5,
+                1.0
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "project",
+      "match": [
+        "code"
+      ],
+      "records": [
+        {
+          "key": "proj",
+          "attributes": {
+            "code": "DEMO-T1",
+            "name": "Proyecto Wayra Ejemplo",
+            "description": "El Proyecto Wayra Ejemplo es una iniciativa de exploración de oro y cobre que la Compañía Minera Wayra Ejemplo S.A.C. desarrolla en la zona alto andina del distrito de San Juan, provincia de Castrovirreyna, departamento de Huancavelica. El proyecto se emplaza entre los 4 200 y los 4 700 metros sobre el nivel del mar, en un paisaje de punas, laderas empinadas y quebradas tributarias que alimentan dos microcuencas de importancia local para el consumo humano y para la ganadería de camélidos y ovinos.\n\nLa etapa actual es de cateo y mapeo geológico superficial, con muestreo de suelos y sedimentos de quebrada sobre dos concesiones mineras vigentes. En ese marco la empresa prevé una primera campaña de perforación diamantina de baja intensidad, con plataformas de superficie reducida y un número limitado de sondajes, sujeta a la aprobación de los instrumentos de gestión ambiental correspondientes. El proyecto no contempla, en esta etapa, ninguna labor de explotación ni instalación permanente de procesamiento.\n\nLa gestión social del proyecto se organiza en torno a tres líneas: información oportuna y comprensible a las localidades del área de influencia directa, mecanismos de diálogo y de atención de consultas y quejas, y una política de contratación local acotada a los puestos que el trabajo de exploración realmente requiere. Este diagnóstico social recoge la situación de base de las localidades al corte del periodo y es la referencia para el seguimiento posterior.",
+            "project_type": "MINERIA",
+            "stage": "EXPLORACION",
+            "exploration_phase": "EXPLORACION INICIAL",
+            "start_date": "2025-06-01",
+            "working_crs": "EPSG 32718",
+            "interest_threshold": 3,
+            "power_threshold": 3,
+            "policy_internal_approval": false
+          },
+          "geometries": {
+            "location": {
+              "point": [
+                0.0,
+                1.5
+              ]
+            }
+          },
+          "links": {
+            "project_concession": [
+              "@conc-1",
+              "@conc-2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "object": "project_party",
+      "match": [
+        "project",
+        "organization",
+        "party_role"
+      ],
+      "records": [
+        {
+          "key": "party-cliente",
+          "attributes": {
+            "project": "@proj",
+            "organization": "@org-minera",
+            "party_role": "CLIENTE"
+          }
+        },
+        {
+          "key": "party-consultora",
+          "attributes": {
+            "project": "@proj",
+            "organization": "@org-consultora",
+            "party_role": "CONSULTORA"
+          }
+        },
+        {
+          "key": "party-contratista",
+          "attributes": {
+            "project": "@proj",
+            "organization": "@org-contratista",
+            "party_role": "CONTRATISTA"
+          }
+        }
+      ]
+    },
+    {
+      "object": "exploration_campaign",
+      "match": [
+        "project",
+        "name"
+      ],
+      "records": [
+        {
+          "key": "camp-cateo",
+          "attributes": {
+            "project": "@proj",
+            "name": "Campaña de cateo 2026",
+            "activity_type": "CATEO",
+            "exploration_phase": "CATEO",
+            "planned_start_date": "2026-03-01",
+            "planned_end_date": "2026-05-31",
+            "actual_start_date": "2026-03-01",
+            "actual_end_date": "2026-05-31",
+            "campaign_status": "CONCLUIDA"
+          }
+        },
+        {
+          "key": "camp-perf",
+          "attributes": {
+            "project": "@proj",
+            "name": "Campaña de perforación 2026",
+            "activity_type": "PERFORACION",
+            "exploration_phase": "PERFORACION",
+            "planned_start_date": "2026-10-01",
+            "planned_end_date": "2026-12-15",
+            "campaign_status": "PREVISTA",
+            "social_support_cap": 60000,
+            "currency": "PEN"
+          }
+        }
+      ]
+    },
+    {
+      "object": "study",
+      "match": [
+        "project",
+        "title"
+      ],
+      "records": [
+        {
+          "key": "study",
+          "attributes": {
+            "project": "@proj",
+            "title": "Diagnóstico social del Proyecto Wayra Ejemplo",
+            "study_type": "Diagnóstico social",
+            "objectives": "Objetivo general\n\nCaracterizar la situación social de base de las localidades de los ámbitos de influencia directa e indirecta del Proyecto Wayra Ejemplo, e identificar a los grupos de interés relevantes, sus percepciones y expectativas frente a la actividad minera, al proyecto y a la empresa, como insumo para la gestión social de la etapa de exploración.\n\nObjetivos específicos\n\n1. Describir las condiciones socioeconómicas, demográficas y de acceso a servicios básicos de las localidades del área de influencia social directa y de la indirecta.\n\n2. Identificar y caracterizar las organizaciones sociales, las autoridades locales y las instituciones con presencia en el territorio, así como sus relaciones y su capacidad de convocatoria.\n\n3. Conocer las percepciones y las expectativas de la población respecto de la minería en general, del proyecto y de la empresa, y los factores que las explican.\n\n4. Analizar los temas sensibles del territorio, en particular el agua, el ambiente, el empleo local y los conflictos existentes o latentes entre localidades y comunidades.\n\n5. Evaluar a los grupos de interés según su interés y su poder, y proponer lineamientos para el relacionamiento y el seguimiento durante la campaña de perforación prevista.",
+            "methodology": "El estudio adopta un enfoque cualitativo, de carácter descriptivo e interpretativo, complementado con información cuantitativa secundaria de fuentes oficiales. La investigación se organiza en tres momentos: revisión documental, trabajo de campo y análisis de la información.\n\nLas fuentes primarias provienen del trabajo de campo realizado entre el 13 y el 30 de abril de 2026, que combinó entrevistas semiestructuradas a autoridades, dirigentes, representantes de organizaciones y pobladores de las localidades del área de influencia directa e indirecta y de ámbito regional, y fichas de observación local aplicadas en las localidades del área de influencia directa. Las entrevistas se grabaron con consentimiento informado y se transcribieron para su codificación por temas.\n\nLas fuentes secundarias comprenden los censos nacionales de población y vivienda, los registros administrativos de salud y educación, los planes de desarrollo concertado del distrito y de la provincia, y los reportes de prensa regional. La información se contrastó entre fuentes y se registró su nivel de confiabilidad.\n\nEl análisis temático se organizó con los ocho temas del estudio. Para la clasificación de los grupos de interés se aplicó la valoración de interés y de poder del sistema de gestión, con umbral de tres puntos en cada índice.",
+            "scope_description": "El estudio abarca quince localidades del distrito de San Juan: cuatro del área de influencia social directa, donde se emplazarán las actividades de exploración y que mantienen vínculo territorial inmediato con las concesiones, y once del área de influencia social indirecta, que comparten las microcuencas, las vías de acceso o las relaciones de parentesco y de intercambio con las primeras. Incluye además el ámbito distrital y el ámbito regional como espacios de decisión y de representación política. Quedan fuera del alcance las localidades sin relación territorial ni funcional con el proyecto y cualquier evaluación de impacto ambiental, que se tramita por separado.",
+            "fieldwork_start_date": "2026-04-13",
+            "fieldwork_end_date": "2026-04-30",
+            "author_organization": "@org-consultora",
+            "client_organization": "@org-minera"
+          }
+        }
+      ]
+    },
+    {
+      "object": "topic",
+      "match": [
+        "code"
+      ],
+      "records": [
+        {
+          "key": "topic-condiciones",
+          "attributes": {
+            "code": "DEMO-T-01",
+            "name": "Condiciones socioeconómicas",
+            "description": "Población, vivienda, servicios básicos, salud, educación, actividades productivas y fuentes de ingreso de las familias de las localidades estudiadas, con énfasis en la ganadería de altura, la agricultura de subsistencia y la migración temporal.",
+            "active": true
+          }
+        },
+        {
+          "key": "topic-organizaciones",
+          "attributes": {
+            "code": "DEMO-T-02",
+            "name": "Organizaciones locales",
+            "description": "Estructura organizativa de las comunidades y caseríos, juntas directivas, rondas campesinas, comités de agua y de regantes, organizaciones de mujeres y de padres de familia, y su capacidad de convocatoria y de representación.",
+            "active": true
+          }
+        },
+        {
+          "key": "topic-mineria",
+          "attributes": {
+            "code": "DEMO-T-03",
+            "name": "Percepciones sobre la minería",
+            "description": "Opiniones, experiencias previas y expectativas de la población frente a la actividad minera en general, incluidas las referencias a otras operaciones de la región y los temores asociados a la contaminación y al despojo.",
+            "active": true
+          }
+        },
+        {
+          "key": "topic-proyecto",
+          "attributes": {
+            "code": "DEMO-T-04",
+            "name": "Percepciones sobre el proyecto",
+            "description": "Nivel de conocimiento del Proyecto Wayra Ejemplo, de sus concesiones y de la campaña de perforación prevista, y valoración de la información recibida hasta el momento.",
+            "active": true
+          }
+        },
+        {
+          "key": "topic-empresa",
+          "attributes": {
+            "code": "DEMO-T-05",
+            "name": "Percepciones sobre la empresa",
+            "description": "Imagen de la empresa titular y de sus contratistas, confianza en sus representantes, cumplimiento de los acuerdos asumidos y calidad del trato recibido en los primeros contactos.",
+            "active": true
+          }
+        },
+        {
+          "key": "topic-agua",
+          "attributes": {
+            "code": "DEMO-T-06",
+            "name": "Agua y ambiente",
+            "description": "Fuentes de agua para consumo y riego, estado de las microcuencas, manejo de pastos y bofedales, y preocupaciones sobre la calidad y la cantidad de agua ante las actividades de exploración.",
+            "active": true
+          }
+        },
+        {
+          "key": "topic-empleo",
+          "attributes": {
+            "code": "DEMO-T-07",
+            "name": "Empleo y expectativas",
+            "description": "Demanda de trabajo local, criterios de selección y de rotación de la mano de obra, expectativas de inversión social y de desarrollo, y tensiones entre localidades por el acceso a los puestos.",
+            "active": true
+          }
+        },
+        {
+          "key": "topic-electoral",
+          "attributes": {
+            "code": "DEMO-T-08",
+            "name": "Proceso electoral",
+            "description": "Influencia del calendario electoral local y regional sobre el relacionamiento con las autoridades y las organizaciones, y riesgo de que el proyecto sea usado como bandera en la contienda política.",
+            "active": true
+          }
+        }
+      ]
+    },
+    {
+      "object": "study_instrument",
+      "match": [
+        "study",
+        "application_scope",
+        "description"
+      ],
+      "records": [
+        {
+          "key": "inst-ent-aids-aut",
+          "attributes": {
+            "study": "@study",
+            "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
+            "application_scope": "AIDS",
+            "description": "Entrevista semiestructurada a autoridades y dirigentes de las localidades del área de influencia social directa. Guía de preguntas sobre historia de la localidad, organización, servicios, relación con la minería y con el proyecto, y expectativas."
+          }
+        },
+        {
+          "key": "inst-ent-aids-pob",
+          "attributes": {
+            "study": "@study",
+            "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
+            "application_scope": "AIDS",
+            "description": "Entrevista semiestructurada a pobladores, mujeres y jóvenes de las localidades del área de influencia social directa, con énfasis en agua, empleo y percepciones sobre la empresa."
+          }
+        },
+        {
+          "key": "inst-ent-aiis",
+          "attributes": {
+            "study": "@study",
+            "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
+            "application_scope": "AIIS",
+            "description": "Entrevista semiestructurada a autoridades, dirigentes y representantes de organizaciones de las localidades del área de influencia social indirecta."
+          }
+        },
+        {
+          "key": "inst-ent-regional",
+          "attributes": {
+            "study": "@study",
+            "instrument_type": "ENTREVISTA SEMIESTRUCTURADA",
+            "application_scope": "REGIONAL",
+            "description": "Entrevista semiestructurada a autoridades distritales, provinciales y regionales y a representantes de instituciones del Estado, de la sociedad civil y de la Iglesia con presencia en la zona."
+          }
+        },
+        {
+          "key": "inst-ficha-aids-1",
+          "attributes": {
+            "study": "@study",
+            "instrument_type": "FICHA DE OBSERVACION LOCAL",
+            "application_scope": "AIDS",
+            "description": "Ficha de observación local de infraestructura, servicios, viviendas, uso del espacio y dinámica cotidiana, aplicada en cada localidad del área de influencia social directa."
+          }
+        },
+        {
+          "key": "inst-ficha-aids-2",
+          "attributes": {
+            "study": "@study",
+            "instrument_type": "FICHA DE OBSERVACION LOCAL",
+            "application_scope": "AIDS",
+            "description": "Ficha de observación local de las fuentes de agua, los pastos y las áreas de cultivo, y de las prácticas de manejo del territorio, aplicada en las localidades del área de influencia social directa."
+          }
+        }
+      ]
+    },
+    {
+      "object": "environmental_feature",
+      "match": [
+        "name"
+      ],
+      "records": [
+        {
+          "key": "mc-ichu",
+          "attributes": {
+            "name": "Microcuenca Ichuyacu",
+            "feature_type": "MICROCUENCA",
+            "source_crs": "EPSG 32718"
+          },
+          "geometries": {
+            "boundary": {
+              "polygon": [
+                [
+                  -6,
+                  -4
+                ],
+                [
+                  4,
+                  -4
+                ],
+                [
+                  4,
+                  6
+                ],
+                [
+                  -6,
+                  6
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "key": "mc-pallca",
+          "attributes": {
+            "name": "Microcuenca Pallcamayo",
+            "feature_type": "MICROCUENCA",
+            "source_crs": "EPSG 32718"
+          },
+          "geometries": {
+            "boundary": {
+              "polygon": [
+                [
+                  4,
+                  -4
+                ],
+                [
+                  12,
+                  -4
+                ],
+                [
+                  12,
+                  6
+                ],
+                [
+                  4,
+                  6
+                ]
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "object": "project_assignment",
+      "match": [
+        "project",
+        "member_user_id"
+      ],
+      "records": [
+        {
+          "key": "asg-social",
+          "attributes": {
+            "project": "@proj",
+            "member_user": "social",
+            "role_name": "SOCIAL_MANAGER",
+            "active": true
+          }
+        },
+        {
+          "key": "asg-actores",
+          "attributes": {
+            "project": "@proj",
+            "member_user": "actores",
+            "role_name": "STAKEHOLDER_MANAGER",
+            "active": true
+          }
+        },
+        {
+          "key": "asg-riesgos",
+          "attributes": {
+            "project": "@proj",
+            "member_user": "riesgos",
+            "role_name": "SOCIAL_RISK_MANAGER",
+            "active": true
+          }
+        },
+        {
+          "key": "asg-campo",
+          "attributes": {
+            "project": "@proj",
+            "member_user": "campo",
+            "role_name": "FIELD_AGENT",
+            "active": true
+          }
+        },
+        {
+          "key": "asg-compromisos",
+          "attributes": {
+            "project": "@proj",
+            "member_user": "compromisos",
+            "role_name": "COMMITMENT_MANAGER",
+            "active": true
+          }
+        },
+        {
+          "key": "asg-relacionista",
+          "attributes": {
+            "project": "@proj",
+            "member_user": "relacionista",
+            "role_name": "COMMUNITY_RELATIONS_OFFICER",
+            "active": true
+          }
+        }
+      ]
+    }
+  ]
+}

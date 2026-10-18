@@ -3,6 +3,7 @@ package sgspe.deliverable
 import sgspe.deliverable.DiagnosisScene.Companion.SIN_DATO
 import sgspe.privacy.Block
 import sgspe.privacy.Cell
+import sgspe.privacy.Mark
 import java.util.UUID
 
 // T1, portada, índice y capítulos 1 a 4 (deliverables.md §5): la introducción con el proyecto, sus campañas y sus partes; los
@@ -17,6 +18,15 @@ object DiagnosisStudy {
     // parcialmente (WF-L); lo planificado, programado, postergado, en curso o cancelado no cuenta
     private val HELD = setOf("held", "minutes_drafted", "minutes_in_review", "minutes_approved", "closed")
     private val DONE_VISIT = setOf("completed", "partial")
+
+    // la ubicación de la introducción, del distrito a la región (el departamento)
+    private val LEVELS = listOf("DISTRITO" to "distrito de", "PROVINCIA" to "provincia de", "DEPARTAMENTO" to "región")
+    private const val STANCES = "**Apoyos y oposición:**"
+    private const val AIIS_MEMBERS = "Miembros del área de influencia indirecta social"
+
+    // las posturas del enum stance: A FAVOR es apoyo, las dos EN CONTRA son oposición (RN-STK-007) y lo demás es neutral
+    private val SUPPORT = setOf("A FAVOR")
+    private val OPPOSITION = setOf("EN CONTRA", "EN CONTRA PERO ABIERTO A ESCUCHAR")
 
     fun cover(scene: DiagnosisScene): List<Block> = listOf(Block.Paragraph("Diagnóstico social del proyecto ${scene.project.text("name")}"))
 
@@ -43,6 +53,7 @@ object DiagnosisStudy {
         val lines =
             listOfNotNull(
                 scene.project.text("description")?.let { "**Proyecto.** $it" },
+                "**Ubicación:** ${location(scene)}",
                 "**Fase de exploración:** ${DiagnosisScene.or(scene.project, "exploration_phase")}",
                 campaigns.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = "**Campañas previstas:** ") { c ->
                     "${DiagnosisScene.or(
@@ -57,7 +68,47 @@ object DiagnosisStudy {
                 consultants.takeIf { it.isNotEmpty() }?.let { "**Consultora:** ${it.joinToString(", ")}" },
                 "La ubicación de las concesiones del proyecto está en el Anexo 1."
             )
-        return listOf(Block.Paragraph(lines.joinToString("\n\n")))
+        return listOf(Block.Paragraph(lines.joinToString("\n\n"))) + stances(scene)
+    }
+
+    // la ubicación (#80): los distritos de las localidades del AIDS y sus provincias y departamentos por parent_unit, cada nivel
+    // con sus nombres distintos unidos con «y»; «Sin dato» si ninguna localidad tiene unidad
+    private suspend fun location(scene: DiagnosisScene): String {
+        val byLevel = linkedMapOf<String, MutableSet<String>>()
+        val seen = mutableSetOf<UUID>()
+        for (locality in scene.localities(scene.aids)) {
+            var unit = locality.ref("administrative_unit")
+            while (unit != null && seen.add(unit)) {
+                val row = scene.source.one("administrative_unit", unit) ?: break
+                row.text("level")?.let { level -> row.text("name")?.let { byLevel.getOrPut(level) { sortedSetOf() } += it } }
+                unit = row.ref("parent_unit")
+            }
+        }
+        val parts =
+            LEVELS.mapNotNull { (level, label) -> byLevel[level]?.takeIf { it.isNotEmpty() }?.let { "$label ${joined(it.toList())}" } }
+        return parts.joinToString(", ").ifEmpty { SIN_DATO }
+    }
+
+    // «A», «A y B», «A, B y C»
+    private fun joined(names: List<String>): String = if (names.size < 2) names.joinToString() else names.dropLast(1).joinToString(", ") + " y " + names.last()
+
+    // los apoyos y la oposición (#80, RN-STK-007): la última evaluación de cada grupo de interés hasta el corte, sin nombres. la
+    // postura es restringida y EXTERNO la vacía en las Tablas 7.1 a 7.3 (DiagnosisStakeholders.classification): aquí la línea
+    // de conteos lleva la misma marca, y EXTERNO dice que se reservan
+    private suspend fun stances(scene: DiagnosisScene): List<Block> {
+        val stances = scene.stakeholders().mapNotNull { scene.latestAssessment(it)?.text("stance") }
+        val support = stances.count { it in SUPPORT }
+        val opposition = stances.count { it in OPPOSITION }
+        val neutral = stances.size - support - opposition
+        val groups = if (support == 1) "grupo de interés" else "grupos de interés"
+        val neutrals = if (neutral == 1) "neutral" else "neutrales"
+        return listOf(
+            Block.Paragraph(
+                "$STANCES $support $groups a favor, $opposition en oposición y $neutral $neutrals, según la última evaluación al corte.",
+                Mark.restricted("stakeholder_assessment.stance")
+            ),
+            Block.Paragraph("$STANCES se reservan en la versión externa.", Mark.EXTERNAL_ONLY)
+        )
     }
 
     fun objectives(scene: DiagnosisScene): List<Block> {
@@ -162,38 +213,54 @@ object DiagnosisStudy {
         return listOf(Block.Paragraph(scene.aids.text("criteria") ?: "_El área no registra su criterio general._"))
     }
 
-    // los miembros de un área aprobada con su condición, sus criterios, su justificación y si se estudiaron
+    // los miembros de un área aprobada con su condición, sus criterios, su justificación y si se estudiaron; con `grouped`, una
+    // tabla por título (en ese orden) y las vacías fuera
     suspend fun members(
         scene: DiagnosisScene,
         area: SourceRow?,
         key: String,
-        title: String
+        title: String,
+        grouped: (suspend (List<SourceRow>) -> List<Pair<String, List<SourceRow>>>)? = null
     ): List<Block> {
         if (area == null) return listOf(Block.Paragraph("_El proyecto no tiene un área de influencia indirecta social aprobada._"))
-        val rows =
-            scene.members(area).map { member ->
-                scene.keep(key, member.text("rationale"))
-                listOf(
-                    Cell(memberName(scene, member)),
-                    Cell(DiagnosisScene.or(member, "member_condition")),
-                    Cell(member.text("applied_criteria").orEmpty()),
-                    Cell(member.text("rationale").orEmpty()),
-                    Cell(ReportFormat.yesNo(member.attributes["studied_in_diagnosis"]))
-                )
+        val all = scene.members(area)
+        val groups = grouped?.invoke(all) ?: listOf(title to all)
+        val tables =
+            groups.filter { it.second.isNotEmpty() }.map { (caption, list) ->
+                val rows =
+                    list.map { member ->
+                        scene.keep(key, member.text("rationale"))
+                        listOf(
+                            Cell(memberName(scene, member)),
+                            Cell(DiagnosisScene.or(member, "member_condition")),
+                            Cell(member.text("applied_criteria").orEmpty()),
+                            Cell(member.text("rationale").orEmpty()),
+                            Cell(ReportFormat.yesNo(member.attributes["studied_in_diagnosis"]))
+                        )
+                    }
+                Block.Table(caption, listOf("Miembro", "Condición", "Criterios aplicados", "Justificación", "Estudiado en el diagnóstico"), rows)
             }
-        return listOfNotNull(
-            area.text("criteria")?.let { Block.Paragraph("**Criterios:** $it") },
-            rows.takeIf { it.isNotEmpty() }?.let {
-                Block.Table(title, listOf("Miembro", "Condición", "Criterios aplicados", "Justificación", "Estudiado en el diagnóstico"), it)
-            }
-        )
+        return listOfNotNull(area.text("criteria")?.let { Block.Paragraph("**Criterios:** $it") }) + tables
     }
 
     suspend fun aids(scene: DiagnosisScene): List<Block> = members(scene, scene.aids, "aids", "Miembros del área de influencia directa social")
 
+    // 4.2 por microcuenca (#80): una tabla por microcuenca, por nombre, y «Otros miembros del AIIS» con las comunidades, las
+    // unidades administrativas y las localidades sin microcuenca; si ninguna localidad tiene microcuenca, la tabla única
     suspend fun aiis(scene: DiagnosisScene): List<Block> =
-        members(scene, scene.aiis, "aiis", "Miembros del área de influencia indirecta social") +
-            Block.MapFigure(AREAS_MAP, "Áreas de influencia social del proyecto")
+        members(scene, scene.aiis, "aiis", AIIS_MEMBERS) { all ->
+            val basins = scene.source.microbasins(all.mapNotNull { it.ref("locality") }.distinct())
+            if (basins.isEmpty()) {
+                listOf(AIIS_MEMBERS to all)
+            } else {
+                val basinOf = { member: SourceRow -> member.ref("locality")?.let { basins[it] } }
+                basins.values
+                    .distinct()
+                    .sorted()
+                    .map { name -> "Miembros del AIIS en la $name" to all.filter { basinOf(it) == name } } +
+                    ("Otros miembros del AIIS" to all.filter { basinOf(it) == null })
+            }
+        } + Block.MapFigure(AREAS_MAP, "Áreas de influencia social del proyecto")
 
     // el mapa de áreas (§3.7): AIDS y AIIS aprobadas con localidades, sondajes, territorio comunal y límites
     fun areasMap(scene: DiagnosisScene): MapRequest? =

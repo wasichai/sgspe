@@ -23,7 +23,7 @@ data class MapExtent(
 // plataforma de una organización, por SpatialGate.selectAsPlatform (la única puerta de SQL propio; solo fuera de una
 // petición, ArchitectureTest): la extensión de unos registros en el CRS de trabajo y los elementos de una capa en línea dentro
 // de un recuadro, en GML 2 simplificado a `tolerance` metros, a lo más max + 1 (quien llama decide si se pasó). lo que el
-// tenant no tiene sale vacío
+// tenant no tiene sale vacío. también da la microcuenca de las localidades de 4.2 de T1 (#80)
 @Component
 class ReportMapFeatures(
     private val gate: SpatialGate
@@ -74,7 +74,45 @@ class ReportMapFeatures(
         return (outcome as? GateOutcome.Rows)?.rows.orEmpty()
     }
 
+    // la microcuenca de cada localidad dada (4.2 de T1, #80): el nombre de la environmental_feature MICROCUENCA cuyo boundary
+    // cubre su location. una localidad sin microcuenca, sin location o que el tenant no tiene queda fuera; si cae en dos (en
+    // el borde común), la primera por nombre. la llama solo ReportSources (JOB-05, ArchitectureTest)
+    suspend fun microbasins(
+        organizationId: UUID,
+        localities: List<UUID>
+    ): Map<UUID, String> {
+        if (localities.isEmpty()) return emptyMap()
+        val outcome =
+            gate.selectAsPlatform(
+                organizationId,
+                listOf(GateRead(LOCALITY, setOf("location")), GateRead(FEATURE, setOf("name", "feature_type", "boundary"))),
+                { bind -> microbasinsSql(this, bind, localities) }
+            ) { row -> row.get("locality", UUID::class.java)!! to row.get("name", String::class.java).orEmpty() }
+        val rows = (outcome as? GateOutcome.Rows)?.rows.orEmpty()
+        return rows.filter { it.second.isNotBlank() }.groupBy({ it.first }, { it.second }).mapValues { (_, names) -> names.first() }
+    }
+
     companion object {
+        private const val LOCALITY = "locality"
+        private const val FEATURE = "environmental_feature"
+        const val MICROBASIN = "MICROCUENCA"
+
+        internal fun microbasinsSql(
+            t: GateTables,
+            bind: (Any) -> String,
+            localities: List<UUID>
+        ): String {
+            val location = "l.${t.column(LOCALITY, "location")}"
+            val boundary = "f.${t.column(FEATURE, "boundary")}"
+            val name = "f.${t.column(FEATURE, "name")}::text"
+            return "SELECT l.${t.column(LOCALITY, SpatialGate.ID)} AS locality, $name AS name " +
+                "FROM ${t.table(LOCALITY)} l JOIN ${t.table(FEATURE)} f " +
+                "ON ST_Covers($boundary, ST_Transform($location, ${t.srid(FEATURE, "boundary")})) " +
+                "WHERE l.${t.column(LOCALITY, SpatialGate.ID)} = ANY(${bind(localities.toTypedArray())}) " +
+                "AND f.${t.column(FEATURE, "feature_type")}::text = ${bind(MICROBASIN)} " +
+                "AND $location IS NOT NULL AND $boundary IS NOT NULL ORDER BY 1, 2"
+        }
+
         private fun double(
             row: Readable,
             name: String

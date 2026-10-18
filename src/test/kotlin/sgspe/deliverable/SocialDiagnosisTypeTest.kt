@@ -2,6 +2,7 @@ package sgspe.deliverable
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -98,6 +99,77 @@ class SocialDiagnosisTypeTest {
         val scope = model.sections.single { it.key == "alcance" }
         assertEquals(2 to 3, scope.level to scope.chapter)
         assertEquals(null, model.meta.coverMap)
+    }
+
+    // #80: la ubicación sale de las unidades administrativas de las localidades del AIDS y de sus unidades superiores
+    @Test
+    fun `la introduccion da la ubicacion desde las unidades del AIDS`() {
+        val model = assemble(T1Source.full()).model
+        val text = model.text("introduccion")
+        assertTrue(
+            text.contains("**Ubicación:** distrito de Distrito Ejemplo, provincia de Provincia Ejemplo, región Región Ejemplo"),
+            text
+        )
+    }
+
+    @Test
+    fun `sin unidades administrativas la ubicacion dice Sin dato`() {
+        assertTrue(assemble().model.text("introduccion").contains("**Ubicación:** Sin dato"))
+    }
+
+    // #80 y RN-STK-007: la última evaluación de cada grupo al corte; oposición es EN CONTRA y EN CONTRA PERO ABIERTO A
+    // ESCUCHAR. la postura es restringida como en las Tablas 7.1 a 7.3: INTERNO da los conteos y EXTERNO los reserva
+    @Test
+    fun `la introduccion cuenta apoyos y oposicion sin nombres`() {
+        val source = T1Source.full()
+        source.add("stakeholder", T1Source.id(310), null, "project" to T1Source.PROJECT, "organization" to T1Source.BOARD, "stakeholder_scope" to "AIDS")
+        source.add(
+            "stakeholder_assessment",
+            T1Source.id(311),
+            null,
+            "stakeholder" to T1Source.id(310),
+            "assessment_date" to "2026-09-20",
+            "stance" to "EN CONTRA PERO ABIERTO A ESCUCHAR"
+        )
+        // después del corte: no cuenta
+        source.add(
+            "stakeholder_assessment",
+            T1Source.id(312),
+            null,
+            "stakeholder" to T1Source.id(310),
+            "assessment_date" to "2026-10-05",
+            "stance" to "A FAVOR"
+        )
+        val model = assemble(source).model
+        val internal = ReportDisclosure.apply(model, Disclosure.INTERNO)
+        val line = internal.text("introduccion").lines().single { it.startsWith("**Apoyos y oposición:**") }
+        assertEquals(
+            "**Apoyos y oposición:** 1 grupo de interés a favor, 2 en oposición y 0 neutrales, según la última evaluación al corte.",
+            line.trim()
+        )
+        assertFalse(T1Source.personNames.any { line.contains(it) }, line)
+        val external = ReportDisclosure.apply(model, Disclosure.EXTERNO)
+        val reserved = external.text("introduccion").lines().single { it.startsWith("**Apoyos y oposición:**") }
+        assertEquals("**Apoyos y oposición:** se reservan en la versión externa.", reserved.trim())
+    }
+
+    // #80: 4.2 con una tabla por microcuenca y «Otros miembros» para lo que no cae en ninguna
+    @Test
+    fun `la seccion 4_2 agrupa los miembros del AIIS por microcuenca`() {
+        val tables = assemble(T1Source.full()).model.tables("aiis")
+        assertEquals(
+            listOf("Miembros del AIIS en la Microcuenca Norte", "Miembros del AIIS en la Microcuenca Sur", "Otros miembros del AIIS"),
+            tables.map { it.title }
+        )
+        assertEquals(listOf("Caserío Ejemplo Bajo (EN SEPARACION)"), tables[0].rows.map { it[0].text })
+        assertEquals(listOf("Caserío Ejemplo Medio"), tables[1].rows.map { it[0].text })
+        assertEquals(setOf("Caserío Ejemplo Lejano", "Distrito Ejemplo"), tables[2].rows.map { it[0].text }.toSet())
+    }
+
+    @Test
+    fun `la seccion 4_2 sin microcuencas deja la tabla unica`() {
+        val titles = assemble(T1Source.full(microbasins = emptyMap())).model.tables("aiis").map { it.title }
+        assertEquals(listOf("Miembros del área de influencia indirecta social"), titles)
     }
 
     @Test

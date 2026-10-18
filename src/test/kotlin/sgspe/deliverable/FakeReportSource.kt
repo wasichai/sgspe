@@ -13,6 +13,9 @@ open class FakeReportSource(
     val links = mutableMapOf<Triple<String, String, String>, List<SourceRow>>()
     val read = mutableSetOf<String>()
 
+    // la microcuenca de cada localidad (id de la localidad → nombre), como la daría el cruce espacial de ReportSources
+    val basins = mutableMapOf<String, String>()
+
     fun add(
         objectName: String,
         id: String,
@@ -75,4 +78,11 @@ open class FakeReportSource(
         }
 
     override suspend fun concessionTerritories(concessions: List<UUID>): List<Map<String, Any?>> = emptyList()
+
+    override suspend fun microbasins(localities: List<UUID>): Map<UUID, String> {
+        fields("environmental_feature")
+        fields("locality")
+        read += "environmental_feature"
+        return localities.mapNotNull { id -> basins[id.toString()]?.let { id to it } }.toMap()
+    }
 }

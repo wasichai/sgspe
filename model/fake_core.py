@@ -19,6 +19,10 @@ OBJECT = re.compile(r"^/api/objects/([a-z0-9_]+)$")
 RECORDS = re.compile(r"^/api/objects/([a-z0-9_]+)/records$")
 RECORD = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)$")
 GIS_LAYER = re.compile(r"^/api/gis/layers/([a-z0-9_]+)/([a-z0-9_]+)$")
+TRANSITION = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)/transitions/([a-z0-9_]+)$")
+RELATED = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)/related/([a-z0-9_]+)$")
+SGSPE_COMMAND = re.compile(r"^/api/sgspe/(stakeholders|social-risks|areas-of-influence|indicators|deliverables)/"
+                           r"([0-9a-f-]+)/(assessments|approve|measurements|drafts)$")
 ACTIONS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/actions$")
 FIELD = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields/([a-z0-9_]+)$")
 FIELDS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields$")
@@ -46,6 +50,28 @@ def _stored_field(field):
     return stored
 
 
+class Request(tuple):
+    """Una petición recibida: se desempaqueta como (método, ruta, autorización, cuerpo) y también se lee por nombre
+    (r["method"], r["path"], r["body"], r["headers"]); las cabeceras llevan cada palabra con mayúscula inicial."""
+    NAMES = {"method": 0, "path": 1, "auth": 2, "body": 3}
+
+    def __new__(cls, method, path, auth, body, headers):
+        request = super().__new__(cls, (method, path, auth, body))
+        request.headers = headers
+        return request
+
+    def __getitem__(self, key):
+        if key == "headers":
+            return self.headers
+        if isinstance(key, str):
+            return tuple.__getitem__(self, self.NAMES[key])
+        return tuple.__getitem__(self, key)
+
+
+def _title(name):
+    return "-".join(part.capitalize() for part in name.split("-"))
+
+
 class FakeCoreHandler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # keep test output quiet
@@ -59,7 +85,9 @@ class FakeCoreHandler(BaseHTTPRequestHandler):
         server = self.server
         body = self._body()
         with server.lock:
-            server.requests.append((method, self.path, self.headers.get("Authorization"), body))
+            headers = {_title(k): v for k, v in self.headers.items()}
+            server.requests.append(Request(method, self.path, self.headers.get("Authorization"), body, headers))
+            server.current_headers = headers
             status, payload = server.script(method, self.path, body)
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -87,7 +115,7 @@ class FakeCore:
                  fail_put=False, fail_put_status=500, login_response=None, fail_on_record=None, existing_fields=None,
                  fail_on_update=None, fail_on_delete=None, fail_on_role=None, object_flags=None, fail_put_object=None,
                  existing_actions=(), refuse_organizations=False,
-                 gis_layers=(), fail_on_publish=None):
+                 gis_layers=(), fail_on_publish=None, workflow_objects=()):
         self.existing_objects = set(existing_objects)
         self.existing_fields = existing_fields or {}  # object name -> list of {"name", "enumOptions"?}
         self.existing_relationships = set(existing_relationships)
@@ -98,6 +126,7 @@ class FakeCore:
         self.fail_put_status = fail_put_status
         self.login_response = login_response  # override the default {"token": "t"}
         self.fail_on_record = fail_on_record  # object name -> its record POSTs answer 400
+        self.fail_on_value = None  # (object name, field, value) -> the POST of that one record answers 400
         self.fail_on_update = fail_on_update  # object name -> its record PUTs answer 400
         self.fail_on_delete = fail_on_delete  # object name -> its record DELETEs answer 409
         self.fail_put_object = fail_put_object  # object name -> its PUT /api/objects/{name} answers 409
@@ -112,6 +141,15 @@ class FakeCore:
         # wasichai-gis: (objeto, geometría) -> publicada; lo que GET /api/gis/layers lista. un dict fija capas ya publicadas
         self.gis_layers = dict(gis_layers) if isinstance(gis_layers, dict) else {tuple(p): False for p in gis_layers}
         self.fail_on_publish = fail_on_publish  # objeto -> su POST /api/gis/layers/... responde 502 (GeoServer apagado, BAD_GATEWAY)
+        # objetos con workflow: sus registros nuevos nacen en un estado (una tupla usa "draft"; un dict fija el inicial)
+        self.workflow_objects = dict(workflow_objects) if isinstance(workflow_objects, dict) else {
+            n: "draft" for n in workflow_objects}
+        self.transition_targets = {}  # transición -> estado al que lleva; por defecto, la transición + "ed"
+        self.users = {}  # correo -> {"id", "email", "displayName", "roles", "password"}
+        self.admin = {"userId": str(uuid.uuid4()), "email": "admin@wasichai.local"}
+        self.links = []  # (objeto, id, relación, otherId) de POST .../related/...
+        self.assessments = []  # los stakeholder_assessment creados por el comando
+        self.refused_commands = []  # (fragmento de ruta, estado) de refuse_command
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -122,12 +160,16 @@ class FakeCore:
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
 
+    def refuse_command(self, fragment, status):
+        """Los comandos de /api/sgspe/ cuya ruta lleva el fragmento responden con ese estado."""
+        self.refused_commands.append((fragment, status))
+
     def stop(self):
         self.server.shutdown()
         self.server.server_close()
 
     def add_record(self, object_name, attributes, geometries=None, state=None):
-        record = {"id": str(uuid.uuid4()), "attributes": dict(attributes)}
+        record = {"id": str(uuid.uuid4()), "attributes": dict(attributes), "updatedAt": f"2026-10-17T00:00:{len(self.requests):02d}Z"}
         if state is not None:
             record["state"] = state  # the workflow state, a key of the record itself as wasichai tells it
         if geometries is not None:
@@ -140,7 +182,10 @@ class FakeCore:
         if method == "POST":
             if self.fail_on_record == name:
                 return 400, {"detail": "Invalid option", "errors": [{"field": "uso", "message": "boom-record"}]}
-            return 201, self.add_record(name, body["attributes"], body.get("geometries"))
+            if self.fail_on_value and self.fail_on_value[0] == name and \
+                    body["attributes"].get(self.fail_on_value[1]) == self.fail_on_value[2]:
+                return 400, {"detail": "Invalid value", "errors": [{"field": self.fail_on_value[1], "message": "boom-value"}]}
+            return 201, self.add_record(name, body["attributes"], body.get("geometries"), self.workflow_objects.get(name))
         params = {k: v[0] for k, v in urllib.parse.parse_qs(query).items()}
         page = int(params.pop("page", 0))
         size = int(params.pop("size", 25))
@@ -155,6 +200,66 @@ class FakeCore:
             "totalElements": len(rows),
             "totalPages": total_pages,
         }
+
+    def _find(self, name, record_id):
+        return next((r for r in self.records.get(name, []) if r["id"] == record_id), None)
+
+    def _extras(self, method, path, body):
+        """Usuarios, sesión, transiciones, vínculos y comandos de /api/sgspe/ del cargador de demostración; None si la
+        ruta no es de ellos."""
+        if path == "/api/auth/me" and method == "GET":
+            token = (self.server.current_headers.get("Authorization") or "").removeprefix("Bearer ")
+            user = next((u for u in self.users.values() if token == f"t-{u['email']}"), None)
+            return 200, ({"userId": user["id"], "email": user["email"]} if user else dict(self.admin))
+        if path == "/api/users" and method == "GET":
+            return 200, [{k: v for k, v in u.items() if k != "password"} for u in self.users.values()]
+        if path == "/api/users" and method == "POST":
+            if body["email"] in self.users:
+                return 409, {"detail": "El correo ya existe"}
+            self.users[body["email"]] = {"id": str(uuid.uuid4()), **body}
+            return 201, {"id": self.users[body["email"]]["id"]}
+        match = TRANSITION.match(path)
+        if match and method == "POST":
+            record = self._find(match.group(1), match.group(2))
+            if record is None:
+                return 404, {"detail": "not found"}
+            record["state"] = self.transition_targets.get(match.group(3), match.group(3) + "ed")
+            return 200, record
+        match = RELATED.match(path)
+        if match and method == "POST":
+            self.links.append((*match.groups(), body["otherId"]))
+            return 204, None
+        if match and method == "GET":
+            others = [{"id": link[3]} for link in self.links if link[:3] == match.groups()]
+            return 200, {"content": others, "page": 0, "size": len(others), "totalElements": len(others),
+                         "totalPages": 1 if others else 0}
+        match = SGSPE_COMMAND.match(path)
+        if match and method == "POST":
+            return self._sgspe_command(*match.groups(), path, body)
+        return None
+
+    def _sgspe_command(self, kind, record_id, command, path, body):
+        refused = next((s for f, s in self.refused_commands if f in path), None)
+        if refused:
+            return refused, {"detail": "refused"}
+        if kind == "stakeholders":
+            record = self.add_record("stakeholder_assessment", {"stakeholder": record_id, **body["attributes"]})
+            self.assessments.append(record)
+            return 201, record
+        if kind == "social-risks":
+            return 201, self.add_record("risk_assessment", {"social_risk": record_id, **body["attributes"]})
+        if kind == "indicators":
+            return 201, self.add_record("indicator_measurement", {"indicator": record_id, "project": body["project"],
+                                                                   **body["attributes"]})
+        if kind == "deliverables":
+            record = self._find("deliverable", record_id)
+            record["attributes"]["draft_generation_status"] = "EN COLA"
+            return 202, None
+        record = self._find("area_of_influence", record_id)
+        if record is None:
+            return 404, {"detail": "not found"}
+        record["state"] = "approved"
+        return 200, record
 
     def _update(self, path, body):
         """A record's PUT: Core replaces every field with what is sent."""
@@ -321,12 +426,20 @@ class FakeCore:
         if path == "/api/auth/login" and method == "POST":
             if self.login_response is not None:
                 return 200, self.login_response
+            if body["email"] in self.users:
+                return 200, {"token": f"t-{body['email']}"}
             return 200, {"token": "t"}
         if path == "/api/organizations" and method == "POST":
             if self.refuse_organizations:
                 return 403, {"detail": "Missing permission MANAGE_TENANTS"}
             self.organizations.append(body)
             return 201, {"id": str(uuid.uuid4()), "slug": body.get("slug"), "name": body.get("name")}
+        extra = self._extras(method, path, body)
+        if extra is not None:
+            return extra
+        if RECORD.match(path) and method == "GET":
+            record = self._find(*RECORD.match(path).groups())
+            return (200, record) if record else (404, {"detail": "not found"})
         if RECORDS.match(path) and method in ("GET", "POST"):
             return self._records(method, path, query, body)
         if RECORD.match(path) and method == "PUT":

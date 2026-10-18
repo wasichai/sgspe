@@ -109,7 +109,7 @@ Cómo leer las columnas:
 |---|---|---|---|---|---|---|---|
 | Portada | Título con el nombre del proyecto, "Preparado para", "Suscrito por" con dirección, mes y año, logos y mapa de ubicación opcional | `deliverable.title`, `cutoff_date`; `project.name`; `prepared_for_organization` y `prepared_by_organization` (`organization.name`, `address`); logos en la plantilla | Campos y mapa | Calculada | F2 | F8 | RQ-REP-003, RQ-REP-019, RQ-REP-020 [DOC-01 portada] |
 | Índice, tabla de contenido, lista de tablas y lista de gráficos | Capítulos y secciones hasta cinco niveles, tablas y gráficos, con página | Estructura del documento | Campos de Word (TOC, PAGEREF) | Calculada | — | F8 | RQ-REP-004 [DOC-01 índice] |
-| 1 Introducción | Ubicación (distrito, provincia, región), fase de exploración, campaña prevista, apoyos y oposición, empresa a cargo, qué quiere conocer y estructura del estudio, con remisión al Anexo 1 | `project` (`name`, `exploration_phase`); `administrative_unit`; `exploration_campaign` (`activity_type`, `planned_start_date`, `planned_end_date`); `project_party` (CLIENTE, CONSULTORA); `deliverable_section` | Narrativa con datos | Humana sobre datos calculados; IA→humana | F2 | F8 | RF-PRJ-001, RF-PRJ-002, RF-PRJ-004, RQ-REP-011 [DOC-01 §1] |
+| 1 Introducción | Ubicación (distrito, provincia, región), fase de exploración, campaña prevista, apoyos y oposición, empresa a cargo, qué quiere conocer y estructura del estudio, con remisión al Anexo 1 | `project` (`name`, `exploration_phase`); `locality.administrative_unit` de las localidades del AIDS y `administrative_unit` (`name`, `level`, `parent_unit`); `stakeholder_assessment.stance` (la última de cada grupo al corte, solo conteos); `exploration_campaign` (`activity_type`, `planned_start_date`, `planned_end_date`); `project_party` (CLIENTE, CONSULTORA); `deliverable_section` | Narrativa con datos | Humana sobre datos calculados; IA→humana | F2 | F8 | RF-PRJ-001, RF-PRJ-002, RF-PRJ-004, RQ-REP-011 [DOC-01 §1] |
 | 2 Objetivos | Objetivo general y objetivos específicos del estudio | `study.objectives`; `deliverable_section` | Narrativa | Humana | F2 | F8 | RF-LBS-001 [DOC-01 §2] |
 | 3 Metodología | Enfoque cualitativo y fuentes primarias y secundarias | `study.methodology` | Narrativa | Humana | F2 | F8 | RF-LBS-001 [DOC-01 §3] |
 | 3.1 Alcance del estudio | Localidades del AIDS y del AIIS y actores distritales, provinciales y regionales | `study.scope_description`; miembros de las áreas aprobadas (`area_of_influence_member`, `locality`) | Narrativa con lista | Humana y calculada | F2 | F8 | RF-LBS-001, RF-TER-005 [DOC-01 §3.1] |
@@ -117,7 +117,7 @@ Cómo leer las columnas:
 | 3.3 Trabajo de campo y Tabla 3.1 | Fechas, localidades visitadas, entrevistas por ámbito y localidad, fichas de observación | `study.fieldwork_start_date`, `fieldwork_end_date`; `engagement` de tipo ENTREVISTA y FICHA DE OBSERVACION vinculados al `study`, por `locality` y tipo de área; `field_visit` | Tabla con celdas combinadas por ámbito, y narrativa | Calculada | F2 | F8 | RF-LBS-001, RQ-REP-006, RQ-REP-012 [DOC-01 §3.3, Tabla 3.1] |
 | 4 Definición de áreas de influencia | Criterio general: impactos reales o percibidos de las actividades | `area_of_influence.criteria`; `deliverable_section` | Narrativa | Humana | F2 | F8 | RF-TER-005 [DOC-01 §4] |
 | 4.1 Área de influencia directa social | Criterios y miembros: caseríos y sus sectores, un sector en separación y la comunidad cuyos terrenos cruzan los sondajes, con su condición y justificación | `area_of_influence` de tipo AIDS en `approved`; `area_of_influence_member` (`member_condition`, `applied_criteria`, `rationale`, `studied_in_diagnosis`); `locality` (`recognition_status`); `community`; consulta componentes × territorio comunal ([SIG](gis.md) §5.3) | Lista calculada y narrativa | Calculada y humana | F2 (consulta espacial en F6) | F8 | RF-TER-005, RN-TER-001, RN-TER-003, RN-TER-004 [DOC-01 §4.1] |
-| 4.2 Área de influencia indirecta social | Criterios, caseríos agrupados por microcuenca y ámbito distrital y provincial | `area_of_influence` de tipo AIIS; `area_of_influence_member` con `locality` o `administrative_unit`; `environmental_feature` de tipo MICROCUENCA para agrupar | Lista calculada y narrativa | Calculada y humana | F2 | F8 | RF-TER-005, CON-002 [DOC-01 §4.2] |
+| 4.2 Área de influencia indirecta social | Criterios, caseríos agrupados por microcuenca y ámbito distrital y provincial | `area_of_influence` de tipo AIIS; `area_of_influence_member` con `locality` o `administrative_unit`; `environmental_feature` de tipo MICROCUENCA (`name`, `feature_type`) cuyo `boundary` cubre la `location` de la localidad, para agrupar | Lista calculada y narrativa | Calculada y humana | F2 | F8 | RF-TER-005, CON-002 [DOC-01 §4.2] |
 | Mapa de áreas de influencia (lo agrega SGSPE) | AIDS y AIIS con localidades, componentes y territorio comunal | LYR-13, LYR-02, LYR-10, LYR-05 y LYR-01 | Mapa | Calculada | F2 | F8 (estilos en F6) | RQ-REP-008, RQ-REP-030 |
 | 5 Contexto socioeconómico | Fuentes y alcance del capítulo, por ámbito (5.1 AIDS, 5.2 AIIS) | `deliverable_section` | Narrativa | Humana | F2 | F8 | RF-LBS-002 [DOC-01 §5] |
 | 5.1.1 y 5.2.1 Historia y organización del territorio, por localidad | Fundación, sectores, reconocimiento, conflictos con otras localidades, tenencia de la tierra | `locality.history`, `parent_locality`, `recognition_status`; `local_conflict` (`conflict_type`, `conflict_status`, `disputed_resource`) con `local_conflict_locality` | Narrativa por localidad, con datos | Humana (texto del registro) y calculada | F2 | F8 | RF-TER-002, RF-LBS-006 [DOC-01 §5.1.1, §5.2.1] |
@@ -171,6 +171,21 @@ Cómo leer las columnas:
   `grupos_monitoreo`, `estrategias`, `comunicacion` y `necesidades`. La postura de las Tablas 7.1 a 7.3 lleva la marca de
   restringida: EXTERNO la vacía. Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.»
   solo en EXTERNO, donde se retuvo contenido restringido (religión y proceso electoral, T1 5.8 y 5.9).
+- **Ubicación de la introducción** (#80): «**Ubicación:** distrito de X, provincia de Y, región Z». Sale de la
+  `administrative_unit` de cada localidad del AIDS y de sus `parent_unit`, por `level` (DISTRITO, PROVINCIA y DEPARTAMENTO,
+  este como región); los nombres distintos de un nivel van unidos con «y», tal como están en el registro. Si ninguna
+  localidad del AIDS tiene unidad, «**Ubicación:** Sin dato».
+- **Apoyos y oposición de la introducción** (#80): conteos, sin nombres, de la última evaluación de cada grupo de interés
+  del proyecto hasta el corte (catálogo `stance`): a favor es A FAVOR; en oposición, EN CONTRA y EN CONTRA PERO ABIERTO A
+  ESCUCHAR (RN-STK-007); neutrales, cualquier otra postura (hoy, NEUTRAL). Un grupo sin evaluación al corte o con la
+  postura vacía no se cuenta. La postura es restringida (security.md §7.9) y las Tablas 7.1 a 7.3 la vacían en EXTERNO:
+  la línea de conteos lleva la misma marca, así que sale en INTERNO, y EXTERNO dice en su lugar «**Apoyos y oposición:** se
+  reservan en la versión externa.».
+- **4.2 por microcuenca** (#80): una tabla por `environmental_feature` MICROCUENCA, por nombre («Miembros del AIIS en la
+  Microcuenca …»), con los miembros cuya localidad tiene la `location` dentro de su `boundary` (`ST_Covers`, por
+  `SpatialGate` como la plataforma; si cae en dos, la primera por nombre), y «Otros miembros del AIIS» con las comunidades,
+  las unidades administrativas y las localidades sin microcuenca. Si ninguna localidad del AIIS cae en una microcuenca,
+  queda la tabla única «Miembros del área de influencia indirecta social».
 
 ## 6. Anatomía de T2 (DOC-02, informe de campo y avance)
 
