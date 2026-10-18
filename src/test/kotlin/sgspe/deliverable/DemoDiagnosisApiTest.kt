@@ -34,7 +34,10 @@ class DemoDiagnosisApiTest : F8ApiTest() {
             ByteArray(joined.readableByteCount()).also { joined.read(it) }.also { DataBufferUtils.release(joined) }
         }
 
-    // cuatro registros de una colección a la vez: por el túnel, una carga en serie no entra en SCRIPT_TIMEOUT_SECONDS
+    // cuatro registros de una colección a la vez: por el túnel, una carga en serie no entra en SCRIPT_TIMEOUT_SECONDS. el
+    // cargador solo respeta las dependencias declaradas con @clave (docs/develop/README.md §5): una regla de core entre
+    // registros de una misma colección que el conjunto no nombra quedaría en carrera y pediría --workers 1. unos 22 minutos
+    // por el túnel (1357 s el 2026-10-18)
     private val demo = listOf("model/load_demo.py", "--users-password", PASSWORD, "--workers", "4")
 
     @Test
@@ -65,7 +68,9 @@ class DemoDiagnosisApiTest : F8ApiTest() {
             assertTrue(text.contains("Caserío Huaylla Alto"), "sin la localidad del AIDS en el texto")
             // la narrativa humana de la introducción llega al documento
             assertTrue(text.contains("El presente documento constituye el diagnóstico social"), "sin la narrativa de la introducción")
-            // Tabla 3.1: las 72 entrevistas del estudio, sumadas por localidad (la entrevista es la penúltima celda de cada fila)
+            // Tabla 3.1: las 72 entrevistas y las 4 fichas del estudio, sumadas por localidad. cada columna se busca por su
+            // encabezado y se cuenta desde la derecha: una fila que sigue una celda combinada de «Ámbito» puede traer una
+            // celda menos a la izquierda
             val fieldwork =
                 docx.tables.firstOrNull { t ->
                     t.rows
@@ -75,22 +80,25 @@ class DemoDiagnosisApiTest : F8ApiTest() {
                         .containsAll(listOf("Localidad", "Entrevistas", "Fichas de observación"))
                 }
             assertNotNull(fieldwork, "sin la tabla de entrevistas y fichas")
-            val rows = fieldwork!!.rows.drop(1)
-            val interviews =
-                rows.sumOf { r ->
-                    r.tableCells[r.tableCells.size - 2]
+            val header =
+                fieldwork!!
+                    .rows
+                    .first()
+                    .tableCells
+                    .map { it.text }
+            val rows = fieldwork.rows.drop(1)
+
+            fun total(column: String): Int {
+                val fromRight = header.size - header.indexOf(column)
+                return rows.sumOf { r ->
+                    r.tableCells[r.tableCells.size - fromRight]
                         .text
                         .trim()
                         .toInt()
                 }
-            val sheets =
-                rows.sumOf { r ->
-                    r.tableCells
-                        .last()
-                        .text
-                        .trim()
-                        .toInt()
-                }
+            }
+            val interviews = total("Entrevistas")
+            val sheets = total("Fichas de observación")
             assertEquals(72, interviews, rows.joinToString("\n") { r -> r.tableCells.joinToString(" | ") { it.text } })
             assertEquals(4, sheets)
         }

@@ -4,6 +4,7 @@ Correr: cd model && python3 -m unittest -v test_demo_data
 """
 import json
 import os
+import re
 import unittest
 
 import demo_check
@@ -375,6 +376,8 @@ class DemoDataTests(unittest.TestCase):
                 mentioned.add(person)
             for person in people.values():
                 self.assertNotIn(person["surnames"], text, key)
+                # el nombre de pila completo como palabra: «Rosa» sola chocaría con «Santa Rosa de Pallca»
+                self.assertIsNone(re.search(rf"\b{re.escape(person['given_names'])}\b", text), f"{key}: {person['given_names']}")
         for key in ("grupos_estrategicos", "grupos_politicos", "grupos_monitoreo"):
             self.assertTrue(load_demo.MENTION.search(sections[key]), key)
         self.assertFalse(load_demo.MENTION.search(sections["perfiles"]), "perfiles sale también en EXTERNO")
@@ -423,3 +426,13 @@ class DemoDataTests(unittest.TestCase):
             if "approve_direct" in r.get("transitions", []):
                 requesters = [k[1:] for k in r.get("links", {}).get("commitment_stakeholder", [])]
                 self.assertNotIn("POLITICO", [groups.get(k) for k in requesters], r["key"])
+
+    def test_la_gestion_del_riesgo_cuenta_bien_los_residuales_medios(self):
+        # umbrales por defecto del proyecto (model.json): MEDIO desde 5, ALTO desde 10
+        words = {1: "uno", 2: "dos", 3: "tres", 4: "cuatro", 5: "cinco"}
+        risks = self.records("social_risk")
+        medium = 0
+        for r in risks:
+            last = [c["attributes"] for c in r["commands"] if c["attributes"].get("residual")][-1]
+            medium += 5 <= last["probability"] * last["impact"] < 10
+        self.assertIn(f"{words[medium]} de los {words[len(risks)]}", self.sections()["gestion_riesgos"])
