@@ -342,3 +342,84 @@ class DemoDataTests(unittest.TestCase):
                     if not allowed[transition] & roles[writer]:
                         problems.append(f"{record['key']}: {transition} as {writer}")
         self.assertEqual(problems, [])
+
+    HUMAN_SECTIONS = {
+        "introduccion", "objetivos", "metodologia", "alcance", "diseno", "trabajo_campo",
+        "areas", "aids", "aiis",
+        "contexto", "historia", "poblacion", "economia", "educacion_salud", "proceso_electoral", "costumbres",
+        "grupos_interes", "perfiles", "caracterizacion", "percepciones", "clasificacion", "grupos_estrategicos",
+        "grupos_politicos", "grupos_monitoreo",
+        "estrategias", "comunicacion", "alianzas", "gestion_riesgos", "necesidades",
+    }
+
+    def sections(self):
+        deliverable = self.records("deliverable")[0]
+        return next(c for c in deliverable["commands"] if c["command"] == "sections")["sections"]
+
+    def test_narrativa_para_cada_seccion_humana(self):
+        sections = self.sections()
+        self.assertGreaterEqual(len(sections), 29)
+        self.assertNotIn("portada", sections)
+        self.assertEqual(set(sections), self.HUMAN_SECTIONS)
+        for key, text in sections.items():
+            paragraphs = [p for p in text.split("\n\n") if p.strip()]
+            self.assertTrue(3 <= len(paragraphs) <= 6, f"{key}: {len(paragraphs)} párrafos")
+
+    def test_la_narrativa_nombra_a_las_personas_solo_por_mencion(self):
+        people = {r["key"]: r["attributes"] for r in self.records("person")}
+        sections = self.sections()
+        mentioned = set()
+        for key, text in sections.items():
+            for person in load_demo.MENTION.findall(text):
+                self.assertIn(person, people, f"{key}: {person}")
+                mentioned.add(person)
+            for person in people.values():
+                self.assertNotIn(person["surnames"], text, key)
+        for key in ("grupos_estrategicos", "grupos_politicos", "grupos_monitoreo"):
+            self.assertTrue(load_demo.MENTION.search(sections[key]), key)
+        self.assertFalse(load_demo.MENTION.search(sections["perfiles"]), "perfiles sale también en EXTERNO")
+
+    def test_entregable_t1_del_periodo(self):
+        deliverable = self.records("deliverable")[0]["attributes"]
+        self.assertEqual(deliverable["document_code"], "DEMO-T1-001")
+        self.assertEqual(deliverable["deliverable_type"], "DIAGNOSTICO SOCIAL")
+        self.assertEqual((deliverable["period_start_date"], deliverable["period_end_date"], deliverable["cutoff_date"]),
+                         ("2026-04-01", "2026-09-30", "2026-09-30"))
+        self.assertEqual(deliverable["area_of_influence"], "@aids")
+
+    def test_quien_escribe_cada_coleccion_tiene_el_permiso(self):
+        with open(os.path.join(HERE, "roles.json"), encoding="utf-8") as f:
+            permissions = {r["name"]: r["permisos"] for r in json.load(f)["roles"]}
+        roles = {u["key"]: u["roles"] for u in self.dataset.users}
+
+        def has(user, obj, action):
+            return any(action in permissions[role].get(obj, []) for role in roles[user])
+
+        problems = []
+        for collection in self.dataset.collections:
+            writer = collection.get("as", "admin")
+            if writer == "admin":
+                continue
+            for record in collection["records"]:
+                if not collection.get("reopen") and not has(writer, collection["object"], "CREATE"):
+                    problems.append(f"{record['key']}: CREATE {collection['object']} as {writer}")
+                for child in record.get("children", []):
+                    if not has(writer, child["object"], "CREATE"):
+                        problems.append(f"{record['key']}: CREATE {child['object']} as {writer}")
+        self.assertEqual(sorted(set(problems)), [])
+
+    def test_compromiso_de_reunion_informativa_con_justificacion(self):
+        # RN-ENG-001 (CommitmentRecordRules): un taller o una reunión informativa como origen exige origin_justification
+        types = {r["key"]: r["attributes"].get("engagement_type") for r in self.records("engagement")}
+        for r in self.records("commitment"):
+            origin = (r["attributes"].get("origin_engagement") or "@")[1:]
+            if types.get(origin) in ("TALLER", "REUNION INFORMATIVA"):
+                self.assertTrue(r["attributes"].get("origin_justification"), r["key"])
+
+    def test_compromiso_aprobado_sin_solicitante_politico(self):
+        # RN-ENG-002 (SeniorApproval): un solicitante POLITICO exige approve_senior; approve_direct lo rechaza
+        groups = {r["key"]: r.get("_expect", {}).get("influence_group") for r in self.records("stakeholder")}
+        for r in self.records("commitment"):
+            if "approve_direct" in r.get("transitions", []):
+                requesters = [k[1:] for k in r.get("links", {}).get("commitment_stakeholder", [])]
+                self.assertNotIn("POLITICO", [groups.get(k) for k in requesters], r["key"])
