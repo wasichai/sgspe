@@ -329,7 +329,7 @@ class DocxWriter(
         doc: XWPFDocument,
         styles: StyleIds,
         text: String
-    ): XWPFParagraph = paragraph(doc, styles.normal).also { it.createRun().setText(text.trimEnd()) }
+    ): XWPFParagraph = paragraph(doc, styles.normal).also { lines(it.createRun(), text.trimEnd()) }
 
     // `depth`, los énfasis y enlaces que contienen el nodo: más allá de MAX_DEPTH, el texto plano con el formato que lleva
     private fun inline(
@@ -504,8 +504,19 @@ class DocxWriter(
     ) {
         val p = cell.paragraphs.firstOrNull() ?: cell.addParagraph()
         p.createRun().apply {
-            setText(text)
+            lines(this, text)
             if (bold) isBold = true
+        }
+    }
+
+    // un «\n» dentro de un w:t lo muestra Word como espacio: cada línea va en su texto y entre ellas, un w:br
+    private fun lines(
+        run: XWPFRun,
+        text: String
+    ) {
+        text.split('\n').forEachIndexed { i, line ->
+            if (i > 0) run.addBreak()
+            run.setText(line, run.ctr.sizeOfTArray())
         }
     }
 
@@ -533,7 +544,7 @@ class DocxWriter(
     ) {
         val text = source ?: "Fuente: Elaboración ${author ?: "propia"}"
         paragraph(doc, styles.normal).createRun().apply {
-            setText(if (text.startsWith("Fuente:")) text else "Fuente: $text")
+            lines(this, if (text.startsWith("Fuente:")) text else "Fuente: $text")
             isItalic = true
             fontSize = 9
         }

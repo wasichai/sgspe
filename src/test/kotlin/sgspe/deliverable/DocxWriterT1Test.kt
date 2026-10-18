@@ -38,7 +38,11 @@ class DocxWriterT1Test {
                         "MIXTA",
                         listOf(
                             Block.Heading(4, "Caserío Ejemplo Alto"),
-                            Block.Table("Familias y población", listOf("Localidad", "Familias"), listOf(listOf(Cell("Caserío Ejemplo"), Cell("120"))))
+                            Block.Table(
+                                "Familias y población",
+                                listOf("Localidad", "Familias"),
+                                listOf(listOf(Cell("Caserío Ejemplo"), Cell("120\nsegunda línea")))
+                            )
                         ),
                         level = 2,
                         chapter = 5
@@ -65,6 +69,28 @@ class DocxWriterT1Test {
 
     private fun doc(): XWPFDocument =
         XWPFDocument(ByteArrayInputStream(writer.write(DocxWriter.Input(model(), BaseTemplate.bytes, false, "Asociación Ejemplo", emptyMap()))))
+
+    @Test
+    fun `una celda con dos lineas lleva un salto w br entre sus textos`() {
+        val cell =
+            doc()
+                .tables
+                .first { t -> t.rows.any { r -> r.tableCells.any { "segunda" in it.text } } }
+                .rows[1]
+                .getCell(1)
+        val xml = cell.ctTc.xmlText()
+        assertTrue("<w:br/>" in xml, xml)
+        assertEquals(2, Regex("<w:t[ >]").findAll(xml).count(), xml)
+        assertEquals(
+            listOf("120", "segunda línea"),
+            cell.paragraphs
+                .single()
+                .runs
+                .single()
+                .ctr.tList
+                .map { it.stringValue }
+        )
+    }
 
     @Test
     fun `el indice es el campo TOC de cinco niveles y las listas citan cada leyenda con PAGEREF`() {
