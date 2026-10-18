@@ -28,8 +28,8 @@ object DiagnosisAnnexes {
             scene.source.all("study_instrument", mapOf("study" to study.id)).map { row ->
                 listOf(
                     Cell(row.ref("topic")?.let { scene.source.one("topic", it)?.text("name") } ?: SIN_DATO),
-                    Cell(DiagnosisScene.or(row, "instrument_type")),
-                    Cell(DiagnosisScene.or(row, "application_scope"))
+                    Cell(DiagnosisScene.option(row, "instrument_type")),
+                    Cell(DiagnosisScene.option(row, "application_scope"))
                 )
             }
         return listOf(Block.SectionBreak(false)) +

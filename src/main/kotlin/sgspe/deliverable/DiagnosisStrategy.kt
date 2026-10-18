@@ -16,6 +16,7 @@ import java.util.Locale
 object DiagnosisStrategy {
     private val PRIORITIES = listOf("MUY ALTA", "ALTA", "MEDIA")
     private const val MONTHS = 6
+    private const val TODOS = "Todos"
 
     suspend fun strategies(scene: DiagnosisScene): List<Block> {
         val plans = scene.source.all("engagement_plan", scene.byProject).sortedBy { it.text("name").orEmpty() }
@@ -33,7 +34,10 @@ object DiagnosisStrategy {
     suspend fun communication(scene: DiagnosisScene): List<Block> {
         val held = scene.source.all("engagement", scene.byProject).filter { scene.inPeriod(it.text("held_at") ?: it.text("scheduled_at")) }
         if (held.isEmpty()) return listOf(Block.Paragraph("_Sin interacciones en el periodo._"))
-        val rows = held.groupBy { it.text("engagement_type") ?: SIN_DATO }.toSortedMap().map { (type, list) -> listOf(Cell(type), Cell(list.size.toString())) }
+        val rows =
+            held.groupBy { it.text("engagement_type") ?: SIN_DATO }.toSortedMap().map { (type, list) ->
+                listOf(Cell(ReportLabels.option(type) ?: type), Cell(list.size.toString()))
+            }
         return listOf(Block.Table("Interacciones del periodo por tipo", listOf("Tipo", "Cantidad"), rows))
     }
 
@@ -50,7 +54,7 @@ object DiagnosisStrategy {
                     val cells =
                         listOf("influence_group", "stance", "stakeholder_scope", "stakeholder_type").map { ruleCell(rule, it) } +
                             Cell(rule.text("rationale").orEmpty())
-                    if (i == 0) listOf(Cell(priority, rowSpan = list.size)) + cells else cells
+                    if (i == 0) listOf(Cell(ReportLabels.option(priority) ?: priority, rowSpan = list.size)) + cells else cells
                 }
             }
         return listOf(
@@ -71,10 +75,16 @@ object DiagnosisStrategy {
         if (field ==
             "stance"
         ) {
-            Cell(DiagnosisScene.or(rule, field), mark = Mark.restricted("prioritization_rule.stance"))
+            Cell(ruleOption(rule, field), mark = Mark.restricted("prioritization_rule.stance"))
         } else {
-            Cell(DiagnosisScene.or(rule, field))
+            Cell(ruleOption(rule, field))
         }
+
+    // una regla con el campo vacío aplica a todos
+    private fun ruleOption(
+        rule: SourceRow,
+        field: String
+    ): String = ReportLabels.option(rule.text(field)) ?: TODOS
 
     suspend fun messages(scene: DiagnosisScene): List<Block> =
         table(
@@ -123,6 +133,7 @@ object DiagnosisStrategy {
                 "Signo" to "impact_sign",
                 "Descripción" to "description"
             ),
+            labeled = setOf("activity_type", "impact_type", "impact_nature", "impact_sign"),
             wide = true
         )
 
@@ -192,10 +203,13 @@ object DiagnosisStrategy {
 
     suspend fun commitments(scene: DiagnosisScene): List<Block> {
         val rows = scene.source.all("commitment", scene.byProject)
-        val byState = rows.groupBy { it.state ?: SIN_DATO }.toSortedMap().map { (state, list) -> listOf(Cell(state), Cell(list.size.toString())) }
+        val byState =
+            rows.groupBy { it.state ?: SIN_DATO }.toSortedMap().map { (state, list) ->
+                listOf(Cell(ReportLabels.state("commitment", state) ?: state), Cell(list.size.toString()))
+            }
         val byDeadline =
             rows.groupBy { it.text("deadline_status") ?: SIN_DATO }.toSortedMap().map { (status, list) ->
-                listOf(Cell(status), Cell(list.size.toString()))
+                listOf(Cell(ReportLabels.option(status) ?: status), Cell(list.size.toString()))
             }
         val p = scene.project
         val campaigns = scene.source.all("exploration_campaign", scene.byProject)
@@ -212,7 +226,7 @@ object DiagnosisStrategy {
                     "- Tope de apoyo social de ${DiagnosisScene.or(
                         c,
                         "name"
-                    )}: ${ReportFormat.decimal(c.attributes["social_support_cap"]).ifEmpty { SIN_DATO }} ${c.text("currency").orEmpty()}".trim()
+                    )}: ${supportCap(c)}"
                 }
         return listOfNotNull(
             byState.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por estado", listOf("Estado", "Cantidad"), it) },
@@ -251,7 +265,7 @@ object DiagnosisStrategy {
                             Cell(DiagnosisScene.or(it, "code")),
                             Cell(DiagnosisScene.or(it, "title")),
                             Cell(it.text("risk_source").orEmpty()),
-                            Cell(DiagnosisScene.or(it, "category"))
+                            Cell(DiagnosisScene.option(it, "category"))
                         )
                     }
                 )
@@ -273,12 +287,12 @@ object DiagnosisStrategy {
                 scene.keep("gestion_riesgos", risk.text("treatment_rationale"), risk.text("current_controls"), risk.text("monitoring_sources"), measures)
                 listOf(
                     Cell("${DiagnosisScene.or(risk, "code")} ${DiagnosisScene.or(risk, "title")}"),
-                    Cell(DiagnosisScene.or(risk, "treatment_decision")),
+                    Cell(DiagnosisScene.option(risk, "treatment_decision")),
                     Cell(risk.text("treatment_rationale").orEmpty()),
                     Cell(risk.text("current_controls").orEmpty()),
                     Cell(ReportFormat.yesNo(risk.attributes["controls_adequate"])),
                     Cell(risk.text("monitoring_sources").orEmpty()),
-                    Cell(DiagnosisScene.or(risk, "residual_level")),
+                    Cell(DiagnosisScene.option(risk, "residual_level")),
                     Cell(measures.ifEmpty { SIN_DATO })
                 )
             }
@@ -335,12 +349,18 @@ object DiagnosisStrategy {
                     "Equipo del proyecto",
                     listOf("Rol", "Integrantes activos"),
                     roles.map { (role, list) ->
-                        listOf(Cell(role), Cell(list.size.toString()))
+                        listOf(Cell(ReportLabels.role(role) ?: role), Cell(list.size.toString()))
                     }
                 )
             },
             Block.Paragraph("**Contratistas:** ${contractors.joinToString(", ").ifEmpty { SIN_DATO }}")
         )
+    }
+
+    // el tope de apoyo social de una campaña: el monto con su moneda, o «Sin dato» a secas si no hay monto
+    private fun supportCap(campaign: SourceRow): String {
+        val amount = ReportFormat.decimal(campaign.attributes["social_support_cap"])
+        return if (amount.isEmpty()) SIN_DATO else "$amount ${campaign.text("currency").orEmpty()}".trim()
     }
 
     // el color de una celda de la matriz por su puntaje, con los umbrales del proyecto (5, 10 y 15 por defecto, ASM-004)
@@ -384,6 +404,7 @@ object DiagnosisStrategy {
         objectName: String,
         title: String,
         columns: List<Pair<String, String>>,
+        labeled: Set<String> = emptySet(),
         wide: Boolean = false
     ): List<Block> {
         val rows = scene.source.all(objectName, scene.byProject)
@@ -394,7 +415,7 @@ object DiagnosisStrategy {
                 title,
                 columns.map { it.first },
                 rows.map { row ->
-                    columns.map { (_, field) -> Cell(row.text(field).orEmpty()) }
+                    columns.map { (_, field) -> Cell((if (field in labeled) ReportLabels.option(row.text(field)) else row.text(field)).orEmpty()) }
                 },
                 wide = wide
             )

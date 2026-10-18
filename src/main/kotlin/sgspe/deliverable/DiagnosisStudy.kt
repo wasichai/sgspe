@@ -54,12 +54,12 @@ object DiagnosisStudy {
             listOfNotNull(
                 scene.project.text("description")?.let { "**Proyecto.** $it" },
                 "**Ubicación:** ${location(scene)}",
-                "**Fase de exploración:** ${DiagnosisScene.or(scene.project, "exploration_phase")}",
+                "**Fase de exploración:** ${DiagnosisScene.option(scene.project, "exploration_phase")}",
                 campaigns.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = "**Campañas previstas:** ") { c ->
                     "${DiagnosisScene.or(
                         c,
                         "name"
-                    )} (${DiagnosisScene.or(
+                    )} (${DiagnosisScene.option(
                         c,
                         "activity_type"
                     )}, del ${ReportFormat.date(c.text("planned_start_date"))} al ${ReportFormat.date(c.text("planned_end_date"))})"
@@ -142,8 +142,8 @@ object DiagnosisStudy {
             instruments.map { row ->
                 listOf(
                     Cell(row.ref("topic")?.let { scene.source.one("topic", it)?.text("name") } ?: SIN_DATO),
-                    Cell(DiagnosisScene.or(row, "instrument_type")),
-                    Cell(DiagnosisScene.or(row, "application_scope")),
+                    Cell(DiagnosisScene.option(row, "instrument_type")),
+                    Cell(DiagnosisScene.option(row, "application_scope")),
                     Cell(row.text("description").orEmpty())
                 )
             }
@@ -232,7 +232,7 @@ object DiagnosisStudy {
                         scene.keep(key, member.text("rationale"))
                         listOf(
                             Cell(memberName(scene, member)),
-                            Cell(DiagnosisScene.or(member, "member_condition")),
+                            Cell(DiagnosisScene.option(member, "member_condition")),
                             Cell(member.text("applied_criteria").orEmpty()),
                             Cell(member.text("rationale").orEmpty()),
                             Cell(ReportFormat.yesNo(member.attributes["studied_in_diagnosis"]))
@@ -285,7 +285,7 @@ object DiagnosisStudy {
         member.ref("locality")?.let { id ->
             val locality = scene.source.one("locality", id) ?: return SIN_DATO
             val status = locality.text("recognition_status")?.takeIf { it != "RECONOCIDO" }
-            return listOfNotNull(locality.text("name"), status?.let { "($it)" }).joinToString(" ")
+            return listOfNotNull(locality.text("name"), status?.let { "(${ReportLabels.option(it)})" }).joinToString(" ")
         }
         member.ref("community")?.let { return scene.source.one("community", it)?.text("name") ?: SIN_DATO }
         member.ref("administrative_unit")?.let { return scene.source.one("administrative_unit", it)?.text("name") ?: SIN_DATO }
