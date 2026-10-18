@@ -2,6 +2,7 @@ package sgspe.deliverable
 
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTAxDataSource
@@ -177,10 +178,12 @@ class DocxWriterT1Test {
         assertTrue(closing in 0 until title, "cierre $closing, título $title")
     }
 
-    // #108: el gráfico de influencia es una dispersión nativa con una serie por código (su etiqueta muestra el nombre de la
-    // serie), dos líneas de umbral sin marcadores, ejes de 1 a 5 y sin leyenda
+    // #108: el gráfico de influencia es una dispersión nativa con UNA serie (LibreOffice no dibuja los marcadores de decenas de
+    // series de un punto), los ejes de 1 a 5 cruzados en los umbrales del proyecto (los cuadrantes, sin series de línea: una
+    // línea como serie sale torcida en LibreOffice), sin leyenda ni etiquetas
+    // por punto: con decenas de grupos se pisan, y la tabla de cuadrantes lista los códigos
     @Test
-    fun `el grafico de influencia es una dispersion nativa con un punto por codigo y las dos lineas de umbral`() {
+    fun `el grafico de influencia es una dispersion nativa de una serie con los ejes cruzados en los umbrales`() {
         val chart =
             doc().charts.single {
                 it.ctChart.plotArea.scatterChartList
@@ -190,32 +193,29 @@ class DocxWriterT1Test {
             chart.ctChart.plotArea
                 .getScatterChartArray(0)
                 .serList
-        assertEquals(4, series.size)
-        val names =
-            series.map {
-                it.tx.strRef
-                    ?.strCache
-                    ?.getPtArray(0)
-                    ?.v ?: it.tx.v
-            }
-        assertEquals(listOf("GI-111111111111", "GI-222222222222", "Umbral de interés", "Umbral de poder"), names)
-        for (point in series.take(2)) {
-            assertEquals(1, numbers(point.yVal).size)
-            assertTrue(point.dLbls.showSerName.`val` && !point.dLbls.showVal.`val`)
-        }
-        assertEquals(listOf("3.5", "3.5"), numbers(series[2].xVal))
-        assertEquals(listOf("1.0", "5.0"), numbers(series[2].yVal))
-        assertEquals(listOf("3.0", "3.0"), numbers(series[3].yVal))
-        assertTrue(
-            series.drop(2).all {
-                it.marker.symbol.`val`
-                    .toString() == "none" && !it.isSetDLbls
-            }
+        assertEquals(1, series.size)
+        val points = series.single()
+        assertEquals(listOf("4.2", "2.0"), numbers(points.xVal).map { it.toDouble().toString() })
+        assertEquals(listOf("3.8", "4.0"), numbers(points.yVal).map { it.toDouble().toString() })
+        assertEquals(
+            "circle",
+            points.marker.symbol.`val`
+                .toString()
         )
+        assertFalse(points.isSetDLbls)
         val axes = chart.ctChart.plotArea.valAxList
         assertEquals(2, axes.size)
         assertTrue(axes.all { it.scaling.min.`val` == 1.0 && it.scaling.max.`val` == 5.0 })
+        // el eje vertical cruza el horizontal en el umbral de interés, y el horizontal al vertical en el de poder
+        val bottom = axes.single { it.axPos.`val`.toString() == "b" }
+        val left = axes.single { it.axPos.`val`.toString() == "l" }
+        assertEquals(3.0, bottom.crossesAt.`val`)
+        assertEquals(3.5, left.crossesAt.`val`)
+        assertTrue(axes.all { it.tickLblPos.`val`.toString() == "low" })
         assertTrue(chart.ctChart.legend == null)
+        // la leyenda no queda sola al pie de la página anterior
+        val caption = doc().paragraphs.single { it.text.startsWith("Figura 9.3. Gráfico de influencia") && it.ctp.bookmarkStartList.isNotEmpty() }
+        assertTrue(caption.ctp.pPr.isSetKeepNext)
     }
 
     // los valores de una serie: XDDF los escribe como literales (numLit) cuando vienen de un arreglo
