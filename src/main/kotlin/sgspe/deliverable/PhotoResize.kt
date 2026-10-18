@@ -82,6 +82,9 @@ object PhotoResize {
             } catch (_: java.io.IOException) {
                 // una cabecera sin datos o un archivo cortado: la foto sale como no disponible (menor del plan 8.2b)
                 return null
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // la cancelación de la corrida no es una foto rota (#83)
+                throw e
             } catch (_: RuntimeException) {
                 return null
             } finally {

@@ -112,4 +112,24 @@ class ReportDisclosureTest {
         assertTrue("Dato sensible" in internal)
         assertEquals(withNote, CanonicalJson.read(CanonicalJson.bytes(withNote)))
     }
+
+    @Test
+    fun `las categorias de un grafico tambien resuelven sus menciones`() {
+        val id = "11111111-1111-1111-1111-111111111111"
+        val chart = Block.LineChart("Confianza", listOf("[[person:$id]]", "2026-09"), listOf(ChartSeries("Serie", listOf("1", "2"))))
+        val withChart =
+            model.copy(
+                people = mapOf("person:$id" to MentionTarget("Persona Ejemplo 1", "Presidente", "Comunidad Ejemplo")),
+                sections = listOf(model.sections.single().copy(blocks = listOf(chart)))
+            )
+        val external = ReportDisclosure.apply(withChart, Disclosure.EXTERNO)
+        val categories =
+            (
+                external.sections
+                    .single()
+                    .blocks
+                    .single() as Block.LineChart
+            ).categories
+        assertEquals(listOf("Presidente, Comunidad Ejemplo", "2026-09"), categories)
+    }
 }

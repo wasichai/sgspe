@@ -22,7 +22,7 @@ object SectionText {
         nameable: (String, UUID?) -> Boolean
     ): String {
         fun r(text: String): String =
-            Mentions.TOKEN.replace(text) { match ->
+            Mentions.TOKEN.replace(Mentions.scrub(text)) { match ->
                 val key = "${match.groupValues[1]}:${match.groupValues[2].lowercase()}"
                 val target = people[key]
                 when {

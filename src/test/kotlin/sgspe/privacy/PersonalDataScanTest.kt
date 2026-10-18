@@ -22,6 +22,7 @@ class PersonalDataScanTest {
     @Test
     fun `una mencion, un nombre de pila suelto o un codigo GI- no avisan`() {
         assertEquals(emptyList<ReportWarning>(), scan("Conversamos con [[person:11111111-1111-1111-1111-111111111111]]."))
+        assertEquals(emptyList<ReportWarning>(), scan("Conversamos con \\[\\[person:11111111-1111-1111-1111-111111111111\\]\\]."))
         assertEquals(emptyList<ReportWarning>(), scan("Ejemplina es un nombre suelto; GI-12345678ABCD es un código."))
     }
 }

@@ -74,13 +74,18 @@ class GeoServerReportMaps internal constructor(
             failed(request.key, e.code, e)
         } catch (e: Exception) {
             failed(request.key, MAP_ERROR, e)
+        } catch (e: StackOverflowError) {
+            // un Error dentro de un mapa deja el borrador LISTO con MAP_FAILED, no FALLIDO (#83)
+            failed(request.key, MAP_ERROR, e)
+        } catch (e: OutOfMemoryError) {
+            failed(request.key, MAP_ERROR, e)
         }
 
     // WARN con la clave y el código; la clase y la traza de la excepción solo en DEBUG (nunca geometrías ni el cuerpo)
     private fun failed(
         key: String,
         code: String,
-        e: Exception
+        e: Throwable
     ): ReportMapImages {
         LOG.warn("JOB-05: el mapa {} falló con {}", key, code)
         LOG.debug("JOB-05: el detalle del mapa {} fallido", key, e)

@@ -480,6 +480,8 @@ class DocxWriter(
         styles.table?.let { table.styleID = it }
         header.forEachIndexed { c, text -> cellText(table.getRow(0).getCell(c), text, bold = true) }
         table.getRow(0).isRepeatHeader = true
+        // una fila no se parte entre páginas (humo del T1 del 2026-10-16, #83 y #88)
+        table.rows.forEach { it.isCantSplitRow = true }
         val occupied = Array(rows.size) { BooleanArray(columns) }
         val removed = Array(rows.size) { mutableSetOf<Int>() }
         rows.forEachIndexed { r, row ->

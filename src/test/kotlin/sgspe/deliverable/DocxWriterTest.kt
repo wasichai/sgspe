@@ -66,6 +66,13 @@ class DocxWriterTest {
                 .getRow(0)
                 .isRepeatHeader
         )
+        // ninguna fila se parte entre páginas (#83)
+        assertTrue(
+            doc.tables
+                .first()
+                .rows
+                .all { it.isCantSplitRow }
+        )
         val photoTable =
             doc.tables.first { t ->
                 t.rows.any { r -> r.tableCells.any { c -> c.paragraphs.any { p -> p.runs.any { it.embeddedPictures.isNotEmpty() } } } }

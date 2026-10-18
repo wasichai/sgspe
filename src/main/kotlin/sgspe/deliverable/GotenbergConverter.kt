@@ -5,6 +5,7 @@ import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import org.springframework.core.io.ByteArrayResource
+import org.springframework.core.io.buffer.DataBufferLimitException
 import org.springframework.http.HttpEntity
 import org.springframework.http.MediaType
 import org.springframework.http.client.MultipartBodyBuilder
@@ -64,7 +65,11 @@ class GotenbergConverter(
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: DataBufferLimitException) {
+                // el cuerpo pasó de maxInMemorySize, que es el tope de los archivos: no es un conversor caído
+                throw PdfTooLarge()
             } catch (e: Exception) {
+                if (generateSequence<Throwable>(e) { it.cause }.any { it is DataBufferLimitException }) throw PdfTooLarge()
                 LOG.warn("Gotenberg no devolvió el PDF: {}", e.javaClass.simpleName)
                 null
             }
