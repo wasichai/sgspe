@@ -249,7 +249,8 @@ class DemoDataTests(unittest.TestCase):
         plans = self.records("engagement_plan")
         self.assertEqual(len(plans), 1)
         self.assertEqual(plans[0]["attributes"]["meetings_per_month_target"], 4)
-        activities = [c["attributes"] for c in plans[0]["children"] if c["object"] == "planned_activity"]
+        children = plans[0]["children"]
+        activities = [c["attributes"] for c in children if c["object"] == "planned_activity"]
         self.assertEqual(len(activities), 10)
         self.assertEqual(sum(1 for a in activities if a["completed"]), 6)
         self.assertTrue(all("2026-05-01" <= a["planned_date"] <= "2026-11-30" for a in activities))

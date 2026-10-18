@@ -608,7 +608,17 @@ class Loader:
         for section_key, text in command["sections"].items():
             section = sections.get(section_key)
             if section is None:
-                raise CoreError(0, f"deliverable {key} has no section {section_key}")
+                # un entregable cargado antes de que su tipo ganara la sección (#105 a #111): se crea con la clave, el
+                # título, el orden y el tipo que publica el backend, como la crearía el alta
+                spec = self.section_spec(client, object_name, record_id, section_key)
+                if spec is None:
+                    raise CoreError(0, f"deliverable {key} has no section {section_key}")
+                client.post("/api/objects/deliverable_section/records", {"attributes": {
+                    "deliverable": record_id, "section_key": section_key, "title": spec["title"],
+                    "sort_order": spec["order"], "section_kind": spec["kind"], "content": self.resolve(text),
+                    "content_origin": "HUMANO"}}, headers)
+                wrote = True
+                continue
             if section["attributes"].get("content"):
                 continue
             kept = {k: v for k, v in section["attributes"].items() if k not in derived_fields("deliverable_section")}
@@ -616,6 +626,14 @@ class Loader:
             client.put(f"/api/objects/deliverable_section/records/{section['id']}", {"attributes": attributes}, headers)
             wrote = True
         return wrote
+
+    def section_spec(self, client, object_name, record_id, section_key):
+        """La sección `section_key` del tipo del entregable según GET /api/sgspe/deliverable-types; None si el tipo no
+        la declara."""
+        type_name = self.fresh(client, object_name, record_id)["attributes"].get("deliverable_type")
+        types = client.get("/api/sgspe/deliverable-types") or []
+        sections = next((t["sections"] for t in types if t.get("type") == type_name), [])
+        return next((s for s in sections if s.get("key") == section_key), None)
 
     def cmd_draft(self, client, key, object_name, record_id, command, headers):
         if not self.draft:

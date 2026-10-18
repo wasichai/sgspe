@@ -150,6 +150,7 @@ class FakeCore:
         self.links = []  # (objeto, id, relación, otherId) de POST .../related/...
         self.assessments = []  # los stakeholder_assessment creados por el comando
         self.refused_commands = []  # (fragmento de ruta, estado) de refuse_command
+        self.deliverable_types = []  # lo que responde GET /api/sgspe/deliverable-types: [{"type", "version", "sections"}]
         self.requests = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeCoreHandler)
         self.server.requests = self.requests
@@ -434,6 +435,8 @@ class FakeCore:
                 return 403, {"detail": "Missing permission MANAGE_TENANTS"}
             self.organizations.append(body)
             return 201, {"id": str(uuid.uuid4()), "slug": body.get("slug"), "name": body.get("name")}
+        if path == "/api/sgspe/deliverable-types" and method == "GET":
+            return 200, self.deliverable_types
         extra = self._extras(method, path, body)
         if extra is not None:
             return extra

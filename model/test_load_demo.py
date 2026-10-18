@@ -423,6 +423,35 @@ class LoaderTests(unittest.TestCase):
         self.assertEqual(sections["intro"]["content_origin"], "HUMANO")
         self.assertEqual(sections["fin"]["content"], "ya")
 
+    def test_una_seccion_que_falta_se_crea_con_la_estructura_del_tipo(self):
+        # I1 de #105 a #111: un T1 cargado antes de las secciones nuevas no tiene percepciones_mineria
+        deliverable = self.core.add_record("deliverable", {"title": "T1", "deliverable_type": "DIAGNOSTICO SOCIAL"})
+        self.core.add_record("deliverable_section", {"deliverable": deliverable["id"], "section_key": "intro"})
+        self.core.deliverable_types = [{"type": "DIAGNOSTICO SOCIAL", "version": 1, "sections": [
+            {"key": "intro", "title": "Introducción", "order": 1, "kind": "NARRATIVA"},
+            {"key": "percepciones_mineria", "title": "Percepciones sobre la minería", "order": 2, "kind": "MIXTA"}]}]
+        data = json.loads(json.dumps(BASE))
+        data["collections"].append({"object": "deliverable", "match": ["title"], "records": [
+            {"key": "del", "attributes": {"title": "T1"},
+             "commands": [{"command": "sections", "sections": {"intro": "Hola", "percepciones_mineria": "Nueva"}}]}]})
+        write(self.dir, "00-base.json", data)
+        self.run_loader()
+        sections = {r["attributes"]["section_key"]: r["attributes"] for r in self.core.records["deliverable_section"]}
+        self.assertEqual(sections["percepciones_mineria"], {
+            "deliverable": deliverable["id"], "section_key": "percepciones_mineria", "title": "Percepciones sobre la minería",
+            "sort_order": 2, "section_kind": "MIXTA", "content": "Nueva", "content_origin": "HUMANO"})
+        self.run_loader()
+        self.assertEqual(len(self.core.records["deliverable_section"]), 2)
+
+    def test_una_seccion_que_el_tipo_no_declara_corta_la_carga(self):
+        self.core.add_record("deliverable", {"title": "T1", "deliverable_type": "DIAGNOSTICO SOCIAL"})
+        data = json.loads(json.dumps(BASE))
+        data["collections"].append({"object": "deliverable", "match": ["title"], "records": [
+            {"key": "del", "attributes": {"title": "T1"}, "commands": [{"command": "sections", "sections": {"otra": "x"}}]}]})
+        write(self.dir, "00-base.json", data)
+        with self.assertRaisesRegex(load_demo.LoadError, "del: .*has no section otra"):
+            self.run_loader()
+
     def test_una_coleccion_sin_match_es_error_de_archivo(self):
         data = json.loads(json.dumps(BASE))
         del data["collections"][2]["match"]
