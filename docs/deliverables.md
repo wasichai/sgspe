@@ -133,7 +133,7 @@ Cómo leer las columnas:
 | Tablas 6.1, 6.2 y 6.3 | Grupos de interés por ámbito y tipo | `stakeholder` (`stakeholder_scope`, `stakeholder_type`), con el actor por cargo y organización (`position.position_title`, `organization.name`) | Tabla con celdas combinadas por ámbito y tipo | Calculada | F2 | F8 (registro XLSX en F2) | RF-STK-003, RQ-REP-006, RQ-REP-012, CON-007 [DOC-01 Tablas 6.1–6.3] |
 | 6.1 a 6.3 Perfiles por cargo | Un apartado por grupo de interés, titulado por su cargo: trayectoria, elección y periodo, funciones, coordinación, postura y sus razones, vacancia o estado de entrevista | `position` (`position_title`, `election_mechanism`, `term_start_date`, `term_end_date`, `career_notes`, `position_status`); `stakeholder` (`profile_summary`, `interview_status`); última `stakeholder_assessment` (`stance`, `stance_reasons`, `concerns`, `expectations`, restringidos) | Narrativa por grupo de interés | Humana (texto del registro) con datos calculados; IA→humana | F2 | F8 | RF-STK-002, RF-STK-003, RF-STK-005, RQ-REP-011 [DOC-01 §6.1–§6.3, notas 12–19] |
 | 7 Caracterización de los grupos de interés | Qué contiene el capítulo | Texto fijo del tipo | Narrativa | Estática | — | F8 | [DOC-01 §7] |
-| 7.1 Percepciones (7.1.1 minería, 7.1.2 proyecto, 7.1.3 empresa) | Percepciones frecuentes por ámbito, citas atribuidas por cargo y análisis | `perception` (`subject`, `polarity`, `perception_scope`, `statement`, `quote`, `attributed_role`); `topic`; análisis en `deliverable_section` | Listas calculadas, citas y narrativa | Calculada y humana; IA→humana | F2 | F8 | RF-LBS-007, RQ-REP-011, RQ-REP-014 [DOC-01 §7.1] |
+| 7.1 Percepciones (7.1.1 minería, 7.1.2 proyecto, 7.1.3 empresa) | Percepciones frecuentes por objeto y, dentro de cada uno, por ámbito en orden fijo (AIDS, AIIS, regional, nacional, luego los demás por nombre y al final los sin ámbito), citas atribuidas por cargo y el análisis de cada objeto a continuación de su lista | `perception` (`subject`, `polarity`, `perception_scope`, `statement`, `quote`, `attributed_role`); `topic`; análisis en `deliverable_section` (`percepciones`, `percepciones_mineria`, `percepciones_proyecto`, `percepciones_empresa`) | Listas calculadas, citas y narrativa | Calculada y humana; IA→humana | F2 | F8 | RF-LBS-007, RQ-REP-011, RQ-REP-014 [DOC-01 §7.1] |
 | 7.2 Clasificación según interés y poder | Método, umbrales y los cuatro grupos | Texto fijo del tipo; `interest_threshold` y `power_threshold` del `project` (ASM-003) | Narrativa | Estática y calculada | F2 | F8 | RF-STK-009 [DOC-01 §7.2] |
 | Tablas 7.1, 7.2 y 7.3 | Por ámbito: grupo de influencia, nombre, cargo, tipo de actor y postura | Última `stakeholder_assessment` de cada `stakeholder` (`influence_group`, `stance`); `person` (nombre, restringido); `position`; `stakeholder_type` | Tabla con celdas combinadas por grupo de influencia | Calculada | F2 | F8 (tablero en F2) | RF-STK-009, RQ-REP-006, RQ-REP-009, CON-005, CON-006 [DOC-01 Tablas 7.1–7.3] |
 | 7.2.1 a 7.2.3 Grupos estratégicos, políticos y para monitoreo, por ámbito | Quiénes son y qué implican; el grupo vulnerable no está definido en la fuente | `stakeholder_assessment` por grupo; `deliverable_section` | Narrativa con listas calculadas | Humana sobre datos; IA→humana | F2 | F8 | RF-STK-009, GAP-003 [DOC-01 §7.2.1–§7.2.3] |
@@ -159,17 +159,21 @@ Cómo leer las columnas:
 - El Anexo 3 de DOC-01 menciona el "contexto social relacionado al PRB", resto de otra plantilla: el texto estático del tipo no lo
   reproduce (CON-012). El poder se describe con los tres componentes del Gráfico 10.2 (CON-010).
 - Los rótulos cruzados de DOC-01 (AID y AII) no se copian: el generador usa los tipos canónicos AIDS y AIIS (CON-001).
-- **Secciones de T1** (plan 8.2c, `SocialDiagnosisType`): 46 `section_key` en el orden de esta tabla: `portada`, `indice`,
+- **Secciones de T1** (plan 8.2c, `SocialDiagnosisType`): 49 `section_key` en el orden de esta tabla: `portada`, `indice`,
   `introduccion`, `objetivos`, `metodologia`, `alcance`, `diseno`, `trabajo_campo`, `areas`, `aids`, `aiis` (con el mapa de
   áreas al final), `contexto`, `historia`, `poblacion`, `economia`, `servicios`, `educacion_salud`, `vias`, `organizaciones`,
-  `proceso_electoral`, `costumbres`, `grupos_interes`, `perfiles`, `caracterizacion`, `percepciones`, `clasificacion`,
+  `proceso_electoral`, `costumbres`, `grupos_interes`, `perfiles`, `caracterizacion`, `percepciones`, `percepciones_mineria`,
+  `percepciones_proyecto`, `percepciones_empresa`, `clasificacion`,
   `grupos_estrategicos`, `grupos_politicos`, `grupos_monitoreo`, `temas_clave`, `estrategias`, `comunicacion`, `priorizacion`,
   `mensajes`, `alianzas`, `impactos`, `monitoreo`, `evaluacion_grupos`, `seguimiento_compromisos`, `riesgos`,
   `gestion_riesgos`, `necesidades`, `anexos`, `anexo_concesiones`, `anexo_instrumentos` y `anexo_metodologia`. El capítulo 5
   va por tema con un título por ámbito (AIDS, AIIS), así que su numeración (5.1 a 5.9) difiere de la de DOC-01 (CON-015). Las
-  asistidas por IA son `introduccion`, `areas`, `contexto`, `percepciones`, `grupos_estrategicos`, `grupos_politicos`,
-  `grupos_monitoreo`, `estrategias`, `comunicacion` y `necesidades`. La postura de las Tablas 7.1 a 7.3 lleva la marca de
-  restringida: EXTERNO la vacía. Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.»
+  asistidas por IA son `introduccion`, `areas`, `contexto`, `percepciones`, `percepciones_mineria`, `percepciones_proyecto`,
+  `percepciones_empresa`, `grupos_estrategicos`, `grupos_politicos`, `grupos_monitoreo`, `estrategias`, `comunicacion` y `necesidades`. La postura de las Tablas 7.1 a 7.3 lleva la marca de
+  restringida: EXTERNO la vacía. Las percepciones de 7.1 van por objeto (#107): `percepciones` queda como apertura general de 7.1 y cada objeto (7.1.1 minería,
+  7.1.2 proyecto, 7.1.3 empresa) es una sección propia con su lista por ámbito y, a continuación, su análisis; así cada objeto
+  cierra con su análisis, como en DOC-01. Un entregable creado antes, sin esas tres secciones, ensambla igual (sin esas
+  narrativas). Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.»
   solo en EXTERNO, donde se retuvo contenido restringido (religión y proceso electoral, T1 5.8 y 5.9).
 - **Sin repeticiones en T1** (#111): cada contenido sale una vez. La portada dice «del proyecto X», salvo que `project.name` ya
   empiece con «proyecto» (sin distinguir mayúsculas ni tildes); la portada y el índice no imprimen un título propio (la plantilla

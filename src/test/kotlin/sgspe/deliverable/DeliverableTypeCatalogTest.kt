@@ -46,12 +46,12 @@ class DeliverableTypeCatalogTest {
     }
 
     @Test
-    fun `los tipos de F8 salen con T1 de 46 secciones y sus secciones con IA`() {
+    fun `los tipos de F8 salen con T1 de 49 secciones y sus secciones con IA`() {
         val listed = DeliverableTypeCatalog.compose(listOf(FieldReportType(), SocialDiagnosisType()))
         assertEquals(listOf(SocialDiagnosisType.NAME, FieldReportType.NAME), listed.map { it.type })
         val t1 = listed.first()
-        assertEquals(46, t1.sections.size)
-        assertEquals((1..46).toList(), t1.sections.map { it.order })
+        assertEquals(49, t1.sections.size)
+        assertEquals((1..49).toList(), t1.sections.map { it.order })
         assertEquals(SocialDiagnosisType().sections.filter { it.assisted }.map { it.key }, t1.sections.filter { it.assisted }.map { it.key })
         assertEquals(FieldReportType().sections.size, listed[1].sections.size)
     }

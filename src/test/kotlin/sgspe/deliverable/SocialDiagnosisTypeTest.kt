@@ -34,9 +34,9 @@ class SocialDiagnosisTypeTest {
     private fun ReportModel.tables(key: String): List<Block.Table> = blocks(key).filterIsInstance<Block.Table>()
 
     @Test
-    fun `declara las 46 secciones en orden con sus capitulos y las asistidas por IA de la especificacion`() {
+    fun `declara las 49 secciones en orden con sus capitulos y las asistidas por IA de la especificacion`() {
         val keys = type.sections.map { it.key }
-        assertEquals(46, keys.size)
+        assertEquals(49, keys.size)
         assertEquals(keys.size, keys.toSet().size)
         assertEquals(listOf("portada", "indice", "introduccion"), keys.take(3))
         assertEquals(
@@ -45,6 +45,9 @@ class SocialDiagnosisTypeTest {
                 "areas",
                 "contexto",
                 "percepciones",
+                "percepciones_mineria",
+                "percepciones_proyecto",
+                "percepciones_empresa",
                 "grupos_estrategicos",
                 "grupos_politicos",
                 "grupos_monitoreo",
@@ -57,7 +60,7 @@ class SocialDiagnosisTypeTest {
                 .map { it.key }
                 .toSet()
         )
-        assertEquals((1..46).toList(), type.sections.map { it.order })
+        assertEquals((1..49).toList(), type.sections.map { it.order })
         assertTrue(type.requiresApprovedArea)
     }
 
@@ -459,9 +462,97 @@ class SocialDiagnosisTypeTest {
                 .single()[0]
                 .text
         )
-        val perceptions = model.blocks("percepciones")
-        assertEquals(Block.Heading(3, "7.1.1 Percepciones sobre la minería"), perceptions[0])
-        assertTrue((perceptions[3] as Block.Paragraph).markdown.contains("«Queremos agua limpia» — Dirigente comunal"), "${perceptions[3]}")
+        // la lista de cada objeto va en su sección (7.1.1 a 7.1.3); la de 7.1 solo lleva su narrativa general
+        assertTrue(model.blocks("percepciones").isEmpty())
+        val project = model.blocks("percepciones_proyecto")
+        assertTrue((project.single() as Block.Paragraph).markdown.contains("«Queremos agua limpia» — Dirigente comunal"), "$project")
+        assertEquals(
+            listOf("7.1.1 Percepciones sobre la minería", "7.1.2 Percepciones sobre el proyecto", "7.1.3 Percepciones sobre la empresa"),
+            model.sections.filter { it.key.startsWith("percepciones_") }.map { it.title }
+        )
+        assertTrue((model.blocks("percepciones_empresa").single() as Block.Paragraph).markdown.contains("Sin percepciones registradas"))
+    }
+
+    // #107: los ámbitos van en orden fijo dentro de cada objeto y la narrativa del objeto cierra tras su lista
+    private fun perception(
+        source: FakeReportSource,
+        n: Int,
+        subject: String,
+        scope: String?,
+        statement: String,
+        role: String? = null
+    ) {
+        source.add(
+            "perception",
+            T1Source.id(n),
+            null,
+            "study" to T1Source.STUDY,
+            "subject" to subject,
+            "polarity" to "NEUTRAL",
+            "perception_scope" to scope,
+            "statement" to statement,
+            "quote" to role?.let { "Cita $statement" },
+            "attributed_role" to role
+        )
+    }
+
+    private fun scopesOf(blocks: List<Block>): List<String> =
+        (blocks.first() as Block.Paragraph)
+            .markdown
+            .lines()
+            .filter { it.startsWith("**") }
+            .map { it.trim('*') }
+
+    @Test
+    fun `los ambitos de las percepciones van AIDS, AIIS, regional y nacional, luego otros por nombre y sin ambito`() {
+        val source = T1Source.source()
+        source.rows.remove("perception")
+        listOf("MINERIA", "PROYECTO", "EMPRESA").forEachIndexed { i, subject ->
+            // datos desordenados a propósito, distintos de un objeto a otro
+            val scopes = if (i == 1) listOf("NACIONAL", "AIIS", "ZONAL", "REGIONAL", "AIDS", null) else listOf("REGIONAL", "AIIS", "AIDS", "NACIONAL", "ANDINO")
+            scopes.forEachIndexed { j, scope -> perception(source, 500 + i * 10 + j, subject, scope, "Dato $subject $j") }
+        }
+        val model = assemble(source).model
+        val titles = listOf(DiagnosisScene.AIDS_TITLE, DiagnosisScene.AIIS_TITLE, "Ámbito regional", "Ámbito nacional")
+        assertEquals(titles + "ANDINO", scopesOf(model.blocks("percepciones_mineria")))
+        assertEquals(titles + listOf("ZONAL", "Sin ámbito"), scopesOf(model.blocks("percepciones_proyecto")))
+        assertEquals(titles + "ANDINO", scopesOf(model.blocks("percepciones_empresa")))
+    }
+
+    @Test
+    fun `la narrativa de cada objeto sale tras su lista, en INTERNO y EXTERNO con citas por cargo`() {
+        val source = T1Source.source()
+        perception(source, 600, "EMPRESA", "AIDS", "La empresa cumple.", "Dirigente comunal")
+        val content =
+            mapOf(
+                "percepciones" to "General QX1.",
+                "percepciones_mineria" to "Análisis minería QX2.",
+                "percepciones_proyecto" to "Análisis proyecto QX3.",
+                "percepciones_empresa" to "Análisis empresa QX4."
+            )
+        val model = assemble(source, content).model
+        for (key in listOf("percepciones_mineria", "percepciones_proyecto", "percepciones_empresa")) {
+            val blocks = model.blocks(key)
+            assertEquals(2, blocks.size, key)
+            assertTrue("QX" in (blocks[1] as Block.Paragraph).markdown && "Sin percepciones" !in (blocks[1] as Block.Paragraph).markdown, key)
+        }
+        assertEquals("General QX1.", (model.blocks("percepciones").single() as Block.Paragraph).markdown)
+        for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
+            val shown = ReportDisclosure.apply(model, level)
+            val company = shown.text("percepciones_empresa")
+            assertTrue("— Dirigente comunal" in company && company.indexOf("La empresa cumple.") < company.indexOf("Análisis empresa QX4."), "$level: $company")
+            assertTrue(listOf("QX2", "QX3", "QX4", "QX1").all { q -> shown.sections.any { q in shown.text(it.key) } }, "$level")
+            assertTrue("Persona Ejemplo" !in company, "$level: nombre en las percepciones")
+        }
+    }
+
+    @Test
+    fun `un entregable sin las secciones de percepciones por objeto ensambla igual, sin esas narrativas`() {
+        val model = assemble(content = mapOf("percepciones" to "General QX1.")).model
+        assertEquals("General QX1.", (model.blocks("percepciones").single() as Block.Paragraph).markdown)
+        // sin narrativa, cada objeto queda con su lista sola
+        assertEquals(1, model.blocks("percepciones_proyecto").size)
+        assertEquals(1, model.blocks("percepciones_mineria").size)
     }
 
     // Review Focus 1
@@ -672,7 +763,7 @@ class SocialDiagnosisTypeTest {
             )
         val assembled = runBlocking { type.assemble(input, source) }
         val model = assembled.model
-        assertEquals(46, model.sections.size)
+        assertEquals(49, model.sections.size)
         assertTrue((model.blocks("objetivos").first() as Block.Paragraph).markdown.contains("no registra"))
         assertTrue((model.blocks("aiis").first() as Block.Paragraph).markdown.contains("no tiene un área de influencia indirecta social aprobada"))
         assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))

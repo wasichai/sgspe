@@ -283,7 +283,7 @@ class SocialDiagnosisType : DeliverableType {
             "grupos_interes" -> DiagnosisStakeholders.identification(scene)
             "perfiles" -> DiagnosisStakeholders.profiles(scene)
             "caracterizacion" -> DiagnosisStakeholders.characterization()
-            "percepciones" -> DiagnosisStakeholders.perceptions(scene)
+            "percepciones_mineria", "percepciones_proyecto", "percepciones_empresa" -> DiagnosisStakeholders.perceptions(scene, key)
             "clasificacion" -> DiagnosisStakeholders.classification(scene)
             "grupos_estrategicos" -> DiagnosisStakeholders.group(scene, "ESTRATEGICO")
             "grupos_politicos" -> DiagnosisStakeholders.group(scene, "POLITICO")
@@ -421,7 +421,34 @@ class SocialDiagnosisType : DeliverableType {
                     "Trayectoria, elección y periodo, funciones, postura y estado de entrevista. Esta narrativa sale también en EXTERNO: sin nombres ni razones de postura."
                 ),
                 Row("caracterizacion", "7. Caracterización de los grupos de interés", MIXED, 1, 7, false, "Qué contiene el capítulo."),
-                Row("percepciones", "7.1 Percepciones", MIXED, 2, 7, true, "Percepciones sobre la minería, el proyecto y la empresa, con citas por cargo."),
+                Row("percepciones", "7.1 Percepciones", MIXED, 2, 7, true, "Apertura general de las percepciones sobre la minería, el proyecto y la empresa."),
+                Row(
+                    "percepciones_mineria",
+                    "7.1.1 Percepciones sobre la minería",
+                    MIXED,
+                    3,
+                    7,
+                    true,
+                    "Análisis de las percepciones sobre la minería; la lista por ámbito y las citas por cargo salen antes."
+                ),
+                Row(
+                    "percepciones_proyecto",
+                    "7.1.2 Percepciones sobre el proyecto",
+                    MIXED,
+                    3,
+                    7,
+                    true,
+                    "Análisis de las percepciones sobre el proyecto; la lista por ámbito y las citas por cargo salen antes."
+                ),
+                Row(
+                    "percepciones_empresa",
+                    "7.1.3 Percepciones sobre la empresa",
+                    MIXED,
+                    3,
+                    7,
+                    true,
+                    "Análisis de las percepciones sobre la empresa; la lista por ámbito y las citas por cargo salen antes."
+                ),
                 Row("clasificacion", "7.2 Clasificación según interés y poder", MIXED, 2, 7, false, "Método, umbrales y grupos de influencia por ámbito."),
                 Row("grupos_estrategicos", "7.2.1 Grupos estratégicos", MIXED, 3, 7, true, "Quiénes son y qué implican."),
                 Row("grupos_politicos", "7.2.2 Grupos políticos", MIXED, 3, 7, true, "Quiénes son y qué implican."),

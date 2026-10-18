@@ -31,7 +31,11 @@ object DiagnosisStakeholders {
         )
     private const val NO_SCOPE_LABEL = "Sin ámbito"
     private val GROUPS = listOf("ESTRATEGICO", "POLITICO", "PARA MONITOREO", "VULNERABLE")
-    private val SUBJECTS = listOf("MINERIA" to "la minería", "PROYECTO" to "el proyecto", "EMPRESA" to "la empresa")
+    private val SCOPE_ORDER = listOf("AIDS", "AIIS", "REGIONAL", "NACIONAL")
+
+    // la sección de percepciones de cada objeto y el valor de `perception.subject` que lista
+    private val PERCEPTION_SECTIONS =
+        mapOf("percepciones_mineria" to "MINERIA", "percepciones_proyecto" to "PROYECTO", "percepciones_empresa" to "EMPRESA")
     private const val INTERVIEWED = "ENTREVISTADO"
 
     // el ámbito vacío (NO_SCOPE) toma a los que no tienen ámbito o lo tienen fuera del catálogo: ninguno desaparece
@@ -108,26 +112,31 @@ object DiagnosisStakeholders {
 
     fun characterization(): List<Block> = listOf(Block.Paragraph(DiagnosisTexts.text("capitulo-7")))
 
-    suspend fun perceptions(scene: DiagnosisScene): List<Block> {
+    // 7.1.1 a 7.1.3: la lista de un objeto (minería, proyecto, empresa). La narrativa de cada objeto es su propia sección
+    // (`percepciones_*`, a continuación de la lista) y la de `percepciones` queda como apertura general de 7.1
+    suspend fun perceptions(
+        scene: DiagnosisScene,
+        key: String
+    ): List<Block> {
+        val subject = PERCEPTION_SECTIONS.getValue(key)
         val rows = scene.study?.let { scene.source.all("perception", mapOf("study" to it.id)) }.orEmpty()
-        return SUBJECTS
-            .mapIndexed { i, (subject, label) ->
-                val found = rows.filter { it.text("subject") == subject }
-                found.forEach { scene.keep("percepciones", it.text("statement"), it.text("quote"), it.text("attributed_role")) }
-                val text =
-                    if (found.isEmpty()) {
-                        "_Sin percepciones registradas._"
-                    } else {
-                        found.groupBy { it.text("perception_scope") ?: NO_SCOPE_LABEL }.entries.joinToString("\n\n") { (scope, list) ->
-                            "**${SCOPE_LABELS[scope] ?: scope}**\n\n" +
-                                list.joinToString("\n") { p ->
-                                    val quote = p.text("quote")?.let { q -> " «$q»" + p.text("attributed_role")?.let { r -> " — $r" }.orEmpty() }.orEmpty()
-                                    "- (${p.text("polarity")?.lowercase() ?: "sin polaridad"}) ${DiagnosisScene.or(p, "statement")}$quote"
-                                }
-                        }
+        val found = rows.filter { it.text("subject") == subject }
+        found.forEach { scene.keep(key, it.text("statement"), it.text("quote"), it.text("attributed_role")) }
+        if (found.isEmpty()) return listOf(Block.Paragraph("_Sin percepciones registradas._"))
+        // orden fijo de ámbitos (AIDS, AIIS, regional, nacional), luego los demás por nombre y al final los sin ámbito
+        val byScope = found.groupBy { it.text("perception_scope") }
+        val order: List<String?> =
+            SCOPE_ORDER.filter { it in byScope } + (byScope.keys.filterNotNull() - SCOPE_ORDER.toSet()).sorted() +
+                (if (null in byScope) listOf(null) else emptyList())
+        val text =
+            order.joinToString("\n\n") { scope ->
+                "**${scope?.let { SCOPE_LABELS[it] ?: it } ?: NO_SCOPE_LABEL}**\n\n" +
+                    byScope.getValue(scope).joinToString("\n") { p ->
+                        val quote = p.text("quote")?.let { q -> " «$q»" + p.text("attributed_role")?.let { r -> " — $r" }.orEmpty() }.orEmpty()
+                        "- (${p.text("polarity")?.lowercase() ?: "sin polaridad"}) ${DiagnosisScene.or(p, "statement")}$quote"
                     }
-                listOf(Block.Heading(3, "7.1.${i + 1} Percepciones sobre $label"), Block.Paragraph(text))
-            }.flatten()
+            }
+        return listOf(Block.Paragraph(text))
     }
 
     suspend fun classification(scene: DiagnosisScene): List<Block> {
