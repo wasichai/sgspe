@@ -91,7 +91,8 @@ data class Mark(
     JsonSubTypes.Type(Block.SectionBreak::class, name = "section-break"),
     JsonSubTypes.Type(Block.Toc::class, name = "toc"),
     JsonSubTypes.Type(Block.CaptionList::class, name = "caption-list"),
-    JsonSubTypes.Type(Block.LineChart::class, name = "line-chart")
+    JsonSubTypes.Type(Block.LineChart::class, name = "line-chart"),
+    JsonSubTypes.Type(Block.ScatterChart::class, name = "scatter-chart")
 )
 sealed interface Block {
     // un título dentro de la sección: nivel 2 a 4 (el 1 es el de la sección)
@@ -160,7 +161,29 @@ sealed interface Block {
         val series: List<ChartSeries>,
         val source: String? = null
     ) : Block
+
+    // un gráfico de dispersión nativo de Word (XDDF): cada punto con su rótulo y sus coordenadas como texto decimal, los ejes
+    // de `minimum` a `maximum` y, si hay, una línea de umbral por eje (`xThreshold` vertical, `yThreshold` horizontal). el
+    // gráfico de influencia del Anexo 3 de T1: interés × poder por código GI-, con los umbrales del proyecto (§7.9)
+    data class ScatterChart(
+        val title: String,
+        val xAxis: String,
+        val yAxis: String,
+        val points: List<ChartPoint>,
+        val minimum: String,
+        val maximum: String,
+        val xThreshold: String? = null,
+        val yThreshold: String? = null,
+        val source: String? = null
+    ) : Block
 }
+
+// un punto de un gráfico de dispersión: su rótulo (un código, nunca un nombre) y sus coordenadas
+data class ChartPoint(
+    val label: String,
+    val x: String,
+    val y: String
+)
 
 // una serie de un gráfico de líneas
 data class ChartSeries(

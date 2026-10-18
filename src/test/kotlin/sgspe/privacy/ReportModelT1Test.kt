@@ -36,6 +36,17 @@ class ReportModelT1Test {
                                 "Confianza de [[$person]]",
                                 listOf("2026-08", "2026-09"),
                                 listOf(ChartSeries("Confianza de [[$person]]", listOf("3.50", null)))
+                            ),
+                            Block.ScatterChart(
+                                "Influencia según [[$person]]",
+                                "Interés",
+                                "Poder",
+                                listOf(ChartPoint("GI-222222222222", "4.2", "3.8"), ChartPoint("[[$person]]", "2", "4")),
+                                "1",
+                                "5",
+                                "3.5",
+                                "3",
+                                "Evaluaciones de [[$person]]"
                             )
                         ),
                         level = 3,
@@ -71,5 +82,17 @@ class ReportModelT1Test {
         assertEquals("Confianza de Presidente, Comunidad Ejemplo", chart.series.single().name)
         assertEquals(listOf("3.50", null), chart.series.single().values)
         assertEquals(9 to 3, external.sections[1].chapter to external.sections[1].level)
+    }
+
+    // #108: la dispersión resuelve sus menciones como el gráfico de líneas; los códigos, las coordenadas y los umbrales quedan
+    @Test
+    fun `EXTERNO deja la dispersion con sus codigos, coordenadas y umbrales y cita por cargo`() {
+        val scatter = ReportDisclosure.apply(model(), Disclosure.EXTERNO).sections[1].blocks[2] as Block.ScatterChart
+        assertEquals("Influencia según Presidente, Comunidad Ejemplo", scatter.title)
+        assertEquals("Evaluaciones de Presidente, Comunidad Ejemplo", scatter.source)
+        assertEquals(listOf(ChartPoint("GI-222222222222", "4.2", "3.8"), ChartPoint("Presidente, Comunidad Ejemplo", "2", "4")), scatter.points)
+        assertEquals(listOf("1", "5", "3.5", "3"), listOf(scatter.minimum, scatter.maximum, scatter.xThreshold, scatter.yThreshold))
+        val text = String(CanonicalJson.bytes(model()), Charsets.UTF_8)
+        assertTrue("\"block\":\"scatter-chart\"" in text, text)
     }
 }

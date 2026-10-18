@@ -59,6 +59,9 @@ object SectionText {
                                 "${r(series.name)} " +
                                     block.categories.zip(series.values).joinToString(", ") { (category, value) -> "$category=${value ?: "sin dato"}" }
                             }
+                    is Block.ScatterChart ->
+                        "${r(block.title)} (${r(block.xAxis)}, ${r(block.yAxis)}): " +
+                            block.points.joinToString("; ") { "${r(it.label)} (${it.x}, ${it.y})" }
                     else -> null
                 }
             }

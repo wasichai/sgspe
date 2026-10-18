@@ -9,6 +9,7 @@ import org.junit.jupiter.api.assertThrows
 import sgspe.dashboard.MonitoringRow
 import sgspe.dashboard.Official
 import sgspe.privacy.Block
+import sgspe.privacy.ChartPoint
 import sgspe.privacy.Disclosure
 import sgspe.privacy.Mark
 import sgspe.privacy.PersonalDataScan
@@ -16,6 +17,9 @@ import sgspe.privacy.RegisterSheets
 import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportModel
 import sgspe.privacy.ReportWarning
+import sgspe.stakeholder.InfluenceClassifier
+import tools.jackson.databind.json.JsonMapper
+import java.io.File
 import java.time.LocalDate
 import java.util.UUID
 
@@ -492,6 +496,7 @@ class SocialDiagnosisTypeTest {
                 is Block.MapFigure -> block.title + " " + block.source.orEmpty()
                 is Block.Photos -> block.title + " " + block.source.orEmpty()
                 is Block.LineChart -> block.title + " " + block.source.orEmpty() + " " + block.series.joinToString(" ") { it.name }
+                is Block.ScatterChart -> block.title + " " + block.source.orEmpty() + " " + block.points.joinToString(" ") { it.label }
                 else -> ""
             }
         }
@@ -1092,6 +1097,60 @@ class SocialDiagnosisTypeTest {
         assertTrue(ReportWarning(PersonalDataScan.CODE, "mensajes") in warnings, "$warnings")
     }
 
+    // #108: el Anexo 3 trae el sistema de variables (las variables, sus componentes y sus 15 indicadores) y el gráfico de
+    // influencia nativo con cada grupo evaluado por su código y las líneas de los umbrales del proyecto
+    @Test
+    fun `el anexo 3 lleva el sistema de variables y la dispersion de interes y poder por codigo con los umbrales`() {
+        val source = T1Source.source()
+        val project = source.rows.getValue("project").single()
+        source.rows.getValue("project")[0] = SourceRow(project.id, project.state, project.attributes + ("interest_threshold" to "3.50"))
+        source.add("stakeholder", T1Source.id(90), null, "project" to T1Source.PROJECT, "stakeholder_scope" to "AIIS", "stakeholder_type" to "OTRO")
+        val model = assemble(source).model
+        val blocks = model.blocks("anexo_metodologia")
+        val variables = model.tables("anexo_metodologia").single { it.title == "Sistema de variables" }
+        assertTrue(variables.figure)
+        assertEquals(listOf("Variable", "Componente", "Indicador"), variables.header)
+        assertEquals(InfluenceClassifier.INDICATORS.size, variables.rows.size)
+        assertEquals(listOf("Interés", "Percepción de afectación", "Afectación del medio ambiente"), variables.rows[0].map { it.text })
+        assertEquals(6 to 3, variables.rows[0][0].rowSpan to variables.rows[0][1].rowSpan)
+        assertEquals(listOf("Poder", "Control de recursos", "Habilidad de acción legal"), variables.rows[6].map { it.text })
+        assertEquals(listOf("Participación en otros mecanismos de presión"), variables.rows.last().map { it.text })
+        val chart = blocks.filterIsInstance<Block.ScatterChart>().single()
+        assertEquals("Gráfico de influencia", chart.title)
+        assertEquals("Interés" to "Poder", chart.xAxis to chart.yAxis)
+        assertEquals("1" to "5", chart.minimum to chart.maximum)
+        assertEquals("3.5" to "3", chart.xThreshold to chart.yThreshold)
+        assertEquals(
+            listOf(
+                ChartPoint(RegisterSheets.code(T1Source.LEADER), "4.2", "3.8"),
+                ChartPoint(RegisterSheets.code(T1Source.DISTRICT), "2", "4")
+            ),
+            chart.points
+        )
+        // la tabla de cuadrantes sigue, después del gráfico
+        val quadrant = model.tables("anexo_metodologia").single { it.title == "Cuadrantes de influencia" }
+        assertTrue(blocks.indexOf(chart) < blocks.indexOf(quadrant))
+        assertEquals(RegisterSheets.code(T1Source.LEADER), quadrant.rows[0][2].text)
+    }
+
+    // los rótulos del sistema de variables son los del modelo (sin «Componente de») y cubren todo InfluenceClassifier
+    @Test
+    fun `el sistema de variables rotula cada componente e indicador como model json`() {
+        val objects = JsonMapper.builder().build().readTree(File("model/model.json"))["objects"]
+        val fields =
+            objects
+                .values()
+                .single { it["name"].asString() == "stakeholder_assessment" }["fields"]
+                .values()
+                .associate { it["name"].asString() to it["label"].asString() }
+        val names = (InfluenceClassifier.INTEREST + InfluenceClassifier.POWER).flatMap { (component, indicators) -> listOf(component) + indicators }
+        assertEquals(names.toSet(), DiagnosisAnnexes.LABELS.keys)
+        for (name in names) {
+            val expected = fields.getValue(name).removePrefix("Componente de ").replaceFirstChar { it.uppercase() }
+            assertEquals(expected, DiagnosisAnnexes.LABELS[name], name)
+        }
+    }
+
     @Test
     fun `los anexos llevan el mapa horizontal, los instrumentos y el cuadrante de influencia por codigo`() {
         val assembled = assemble()
@@ -1101,7 +1160,7 @@ class SocialDiagnosisTypeTest {
             model.blocks("anexo_concesiones")
         )
         assertEquals(Block.SectionBreak(false), model.blocks("anexo_instrumentos").first())
-        val quadrant = model.tables("anexo_metodologia").single { it.figure }
+        val quadrant = model.tables("anexo_metodologia").single { it.title == "Cuadrantes de influencia" }
         assertEquals(RegisterSheets.code(T1Source.LEADER), quadrant.rows[0][2].text)
         assertEquals(RegisterSheets.code(T1Source.DISTRICT), quadrant.rows[0][1].text)
         assertEquals("—", quadrant.rows[1][1].text)
