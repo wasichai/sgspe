@@ -6,6 +6,7 @@ import io
 import json
 import os
 import tempfile
+import threading
 import unittest
 from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
@@ -104,6 +105,54 @@ class LoaderTests(unittest.TestCase):
         self.assertEqual(len(self.core.records["locality"]), 1)
         self.assertEqual(len(self.core.assessments), 1)
 
+    def many_organizations(self, then=None):
+        """BASE con cuatro organizaciones independientes (un lote de cuatro) y, si `then`, un registro que nombra a la
+        primera (el lote siguiente)."""
+        data = json.loads(json.dumps(BASE))
+        orgs = data["collections"][3]["records"]
+        orgs += [{"key": f"org-{n}", "attributes": {"name": f"Organización {n}"}} for n in ("b", "c", "d")]
+        if then:
+            orgs.append({"key": "org-e", "attributes": {"name": "Organización e", "affiliated_to": "@org-a"}})
+        write(self.dir, "00-base.json", data)
+
+    def test_un_lote_de_varios_registros_pasa_por_el_pool(self):
+        self.many_organizations(then=True)
+        threads = []
+        original = load_demo.Loader.load_record
+
+        def spy(loader, client, collection, record):
+            if collection["object"] == "organization":
+                threads.append((record["key"], threading.current_thread().name))
+            return original(loader, client, collection, record)
+
+        with mock.patch.object(load_demo.Loader, "load_record", spy):
+            counts = self.run_loader(workers=4)
+        pooled = {key for key, name in threads if name.startswith("ThreadPoolExecutor")}
+        self.assertEqual(pooled, {"org-a", "org-b", "org-c", "org-d"})
+        self.assertEqual(sorted(r["attributes"]["name"] for r in self.core.records["organization"]),
+                         ["Asociación Ejemplo de Regantes", "Organización b", "Organización c", "Organización d",
+                          "Organización e"])
+        serial_core = FakeCore(workflow_objects={"stakeholder": "identified"})
+        serial_core.transition_targets["profile"] = "profiled"
+        self.addCleanup(serial_core.stop)
+        serial_core.add_record("indicator", {"code": "KPI-STK-05"})
+        serial_core.refuse_command("/measurements", 422)
+        client = Client(serial_core.base_url)
+        client.login("admin@wasichai.local", "admin")
+        serial = load_demo.Loader(client, load_demo.read_dataset(self.dir), users_password="clave-demo-123",
+                                  out=io.StringIO(), workers=1).run()
+        self.assertEqual((counts.created, counts.skipped, counts.commands, counts.warnings),
+                         (serial.created, serial.skipped, serial.commands, serial.warnings))
+
+    def test_el_error_de_un_hilo_nombra_su_clave_y_corta_la_carga(self):
+        self.many_organizations(then=True)
+        self.core.fail_on_value = ("organization", "name", "Organización b")
+        with self.assertRaisesRegex(load_demo.LoadError, r"^org-b: "):
+            self.run_loader(workers=4)
+        names = {r["attributes"]["name"] for r in self.core.records.get("organization", [])}
+        self.assertNotIn("Organización e", names)  # el lote siguiente no corre
+        self.assertNotIn("stakeholder", self.core.records)  # ni la colección siguiente
+
     def test_un_lote_se_corta_antes_de_una_referencia_a_su_propia_coleccion(self):
         records = [
             {"key": "a", "attributes": {}},
@@ -182,6 +231,39 @@ class LoaderTests(unittest.TestCase):
         kid2 = next(r for r in self.core.records["engagement_participant"] if r["attributes"]["name"] == "Participante dos")
         self.assertEqual(self.core.records["organization"][0]["attributes"]["note"], kid2["id"])
 
+    def keyed_children(self, *children):
+        data = json.loads(json.dumps(BASE))
+        data["collections"][2]["records"][0]["children"] = [
+            {"key": k, "object": "engagement_participant", "parent": "locality", "attributes": a} for k, a in children]
+        write(self.dir, "00-base.json", data)
+
+    def test_al_recargar_los_hijos_de_un_padre_se_listan_una_vez(self):
+        self.keyed_children(("kid", {"attended": True, "name": "Uno"}), ("kid2", {"attended": True, "name": "Dos"}))
+        self.run_loader()
+        before = len(self.core.requests)
+        self.run_loader()
+        lists = [r for r in self.core.requests[before:]
+                 if r["method"] == "GET" and "/engagement_participant/records" in r["path"]]
+        self.assertEqual(len(lists), 1, lists)  # una página basta: dos hijos, una sola lista
+
+    def test_un_hijo_con_clave_sin_texto_para_buscarlo_es_error_del_conjunto(self):
+        self.keyed_children(("kid", {"attended": True}))
+        with self.assertRaisesRegex(load_demo.DatasetError, "kid has no name or text attribute"):
+            load_demo.read_dataset(self.dir)
+
+    def test_dos_hijos_con_clave_y_el_mismo_texto_son_error_del_conjunto(self):
+        self.keyed_children(("kid", {"name": "Uno"}), ("kid2", {"name": "Uno"}))
+        with self.assertRaisesRegex(load_demo.DatasetError, "kid2 matches the same text as kid"):
+            load_demo.read_dataset(self.dir)
+
+    def test_un_hijo_que_coincide_con_dos_al_recargar_es_error_del_conjunto(self):
+        self.keyed_children(("kid", {"attended": True, "name": "Uno"}))
+        self.run_loader()
+        locality = self.core.records["locality"][0]["id"]
+        self.core.add_record("engagement_participant", {"name": "Uno", "locality": locality})
+        with self.assertRaisesRegex(load_demo.DatasetError, "kid matches 2 records"):
+            self.run_loader()
+
     def test_la_clave_de_idempotencia_es_estable(self):
         self.run_loader()
         keys = [r["headers"].get("Idempotency-Key") for r in self.core.requests if r["path"].endswith("/assessments")]
@@ -254,7 +336,7 @@ class LoaderTests(unittest.TestCase):
     def test_la_clave_de_un_hijo_se_referencia_y_es_unica(self):
         data = json.loads(json.dumps(BASE))
         data["collections"][2]["records"][0]["children"] = [
-            {"key": "kid", "object": "engagement_participant", "parent": "locality", "attributes": {"attended": True}}]
+            {"key": "kid", "object": "engagement_participant", "parent": "locality", "attributes": {"attended": True, "name": "Uno"}}]
         data["collections"][3]["records"][0]["attributes"]["note"] = "@kid"
         write(self.dir, "00-base.json", data)
         load_demo.read_dataset(self.dir)

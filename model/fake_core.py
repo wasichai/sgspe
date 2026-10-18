@@ -126,6 +126,7 @@ class FakeCore:
         self.fail_put_status = fail_put_status
         self.login_response = login_response  # override the default {"token": "t"}
         self.fail_on_record = fail_on_record  # object name -> its record POSTs answer 400
+        self.fail_on_value = None  # (object name, field, value) -> the POST of that one record answers 400
         self.fail_on_update = fail_on_update  # object name -> its record PUTs answer 400
         self.fail_on_delete = fail_on_delete  # object name -> its record DELETEs answer 409
         self.fail_put_object = fail_put_object  # object name -> its PUT /api/objects/{name} answers 409
@@ -181,6 +182,9 @@ class FakeCore:
         if method == "POST":
             if self.fail_on_record == name:
                 return 400, {"detail": "Invalid option", "errors": [{"field": "uso", "message": "boom-record"}]}
+            if self.fail_on_value and self.fail_on_value[0] == name and \
+                    body["attributes"].get(self.fail_on_value[1]) == self.fail_on_value[2]:
+                return 400, {"detail": "Invalid value", "errors": [{"field": self.fail_on_value[1], "message": "boom-value"}]}
             return 201, self.add_record(name, body["attributes"], body.get("geometries"), self.workflow_objects.get(name))
         params = {k: v[0] for k, v in urllib.parse.parse_qs(query).items()}
         page = int(params.pop("page", 0))

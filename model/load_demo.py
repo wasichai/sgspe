@@ -15,7 +15,10 @@ Corre después de apply.py, apply_roles.py, load_ubigeo.py y load_indicators.py,
 
 Los registros de una colección se cargan en lotes de hasta --workers a la vez (SGSPE_DEMO_WORKERS; 1 por defecto): un
 lote se corta antes del registro que nombra a otro de su misma colección, así que cada referencia sigue existiendo antes de
-usarse. Los hijos, vínculos, transiciones y comandos de un registro van siempre en orden, en su mismo hilo.
+usarse. Los hijos, vínculos, transiciones y comandos de un registro van siempre en orden, en su mismo hilo. El corte solo
+ve las dependencias declaradas con @clave: una guarda o un listener que lea otros registros de la colección sin que el
+conjunto los nombre (un tope, una unicidad o un conteo entre pares) queda en carrera con más de un hilo; ante una regla
+así, --workers 1.
 
 Correr: python3 load_demo.py [--dir D] [--core URL] [--email E] [--password P] [--users-password P] [--draft]
         [--workers N] [--dry-run | --validate-only]
@@ -48,22 +51,33 @@ DRAFT_BUSY = ("EN COLA", "EN PROCESO", "LISTO")
 COMMANDS = ("assessment", "risk_assessment", "approve_area", "close_period", "sections", "draft")
 
 
-def derived_fields(object_name, path=os.path.join(HERE, "model.json"), _cache={}):
+_MODEL_FIELDS = {}
+
+
+def _model_fields(path):
+    """Los campos de cada objeto de model/model.json, leídos una sola vez por ruta."""
+    if path not in _MODEL_FIELDS:
+        with open(path, encoding="utf-8") as f:
+            _MODEL_FIELDS[path] = {o["name"]: o.get("fields", []) for o in json.load(f)["objects"]}
+    return _MODEL_FIELDS[path]
+
+
+def derived_fields(object_name, path=os.path.join(HERE, "model.json")):
     """Los campos `derived: true` de un objeto en model/model.json: core los calcula y rechaza que se manden."""
-    if path not in _cache:
-        with open(path, encoding="utf-8") as f:
-            _cache[path] = {o["name"]: {x["name"] for x in o.get("fields", []) if x.get("derived")}
-                            for o in json.load(f)["objects"]}
-    return _cache[path].get(object_name, set())
+    return {x["name"] for x in _model_fields(path).get(object_name, []) if x.get("derived")}
 
 
-def geometry_types(object_name, path=os.path.join(HERE, "model.json"), _cache={}):
+def geometry_types(object_name, path=os.path.join(HERE, "model.json")):
     """El geometryType de cada campo GEOMETRY de un objeto en model/model.json (POINT, POLYGON, MULTIPOLYGON…)."""
-    if path not in _cache:
-        with open(path, encoding="utf-8") as f:
-            _cache[path] = {o["name"]: {x["name"]: x.get("geometryType") for x in o.get("fields", []) if x.get("type") == "GEOMETRY"}
-                            for o in json.load(f)["objects"]}
-    return _cache[path].get(object_name, {})
+    return {x["name"]: x.get("geometryType") for x in _model_fields(path).get(object_name, []) if x.get("type") == "GEOMETRY"}
+
+
+def child_lookup(attributes):
+    """Lo que identifica a un hijo con `key` entre los de su padre al recargar: su nombre o, sin él, sus atributos de
+    texto. Vacío si no tiene ninguno."""
+    if isinstance(attributes.get("name"), str):
+        return {"name": attributes["name"]}
+    return {k: v for k, v in attributes.items() if isinstance(v, str)}
 
 
 class DatasetError(Exception):
@@ -222,13 +236,23 @@ def _build(items, errors):
                 if command.get("command") not in COMMANDS:
                     errors.append(f"{where}: {key} unknown command {command.get('command')}")
             defined.setdefault(key, collection.get("object"))
-            # los hijos con `key` también son claves del espacio compartido: únicas y alcanzables con @clave
+            # los hijos con `key` también son claves del espacio compartido: únicas y alcanzables con @clave. al recargar se
+            # buscan por child_lookup, así que necesitan uno y distinto del de sus hermanos del mismo objeto
+            lookups = {}
             for child in record.get("children", []):
                 child_key = child.get("key")
                 if child_key:
                     if child_key in defined:
                         errors.append(f"{where}: {child_key} repeated key")
                     defined.setdefault(child_key, child.get("object"))
+                    lookup = child_lookup(child.get("attributes") or {})
+                    if not lookup:
+                        errors.append(f"{where}: child {child_key} has no name or text attribute to find it on reload")
+                        continue
+                    same = (child.get("object"), json.dumps(lookup, sort_keys=True))
+                    if same in lookups:
+                        errors.append(f"{where}: child {child_key} matches the same text as {lookups[same]}")
+                    lookups.setdefault(same, child_key)
     if errors:
         raise DatasetError("\n".join(errors))
     return Dataset(anchors[0], users, collections)
@@ -425,7 +449,7 @@ class Loader:
         self.ids[key], self.objects[key] = record_id, object_name
         if existing is not None:
             self.recover_child_keys(client, key, record, record_id)
-        if existing is None:
+        else:
             for child in record.get("children", []):
                 child_attributes = {**self.resolve(child.get("attributes", {})), child["parent"]: record_id}
                 child_id = self.create(client, child["object"], child_attributes, child.get("geometries"))
@@ -448,19 +472,21 @@ class Loader:
 
     def recover_child_keys(self, client, key, record, record_id):
         """Los hijos de un padre que ya existe no se cargan, pero sus claves se siguen nombrando con @clave: cada hijo con
-        `key` se busca entre los de su padre por su nombre o, sin él, por sus atributos de texto."""
-        keyed = [child for child in record.get("children", []) if child.get("key")]
-        if not keyed:
-            return
-        for child in keyed:
-            attributes = self.resolve(child.get("attributes", {}))
+        `key` se busca entre los de su padre por child_lookup. Ninguno es LoadError; más de uno, DatasetError."""
+        listed = {}  # (objeto, campo del padre) -> los hijos de ese padre: una sola lista por par
+        for child in record.get("children", []):
+            if not child.get("key"):
+                continue
+            pair = (child["object"], child["parent"])
+            if pair not in listed:
+                listed[pair] = client.list_all(child["object"], **{child["parent"]: record_id})
             # el nombre, si lo tiene, basta y no depende de cómo core devuelva fechas o textos largos
-            wanted = ({"name": attributes["name"]} if isinstance(attributes.get("name"), str)
-                      else {k: v for k, v in attributes.items() if isinstance(v, str)})
-            found = [c for c in client.list_all(child["object"], **{child["parent"]: record_id})
-                     if all(c["attributes"].get(k) == v for k, v in wanted.items())]
+            wanted = child_lookup(self.resolve(child.get("attributes", {})))
+            found = [c for c in listed[pair] if all(c["attributes"].get(k) == v for k, v in wanted.items())]
             if not found:
                 raise LoadError(f"{key}: child {child['key']} not found under the existing record")
+            if len(found) > 1:
+                raise DatasetError(f"{key}: child {child['key']} matches {len(found)} records under the existing record")
             self.ids[child["key"]], self.objects[child["key"]] = found[0]["id"], child["object"]
 
     def reopen(self, client, object_name, record):
@@ -568,7 +594,10 @@ def _parse_args(argv):
                    help="contraseña de los usuarios de la demostración (o SGSPE_DEMO_PASSWORD)")
     p.add_argument("--draft", action="store_true", help="pide también el borrador de los entregables")
     p.add_argument("--workers", type=int, default=int(os.environ.get("SGSPE_DEMO_WORKERS", "1")),
-                   help="registros de una colección que se cargan a la vez (o SGSPE_DEMO_WORKERS; 1 por defecto)")
+                   help="registros de una colección que se cargan a la vez (o SGSPE_DEMO_WORKERS; 1 por defecto). "
+                        "Solo respeta las dependencias declaradas con @clave: una regla de core entre registros de la "
+                        "misma colección que el conjunto no nombra (un tope, una unicidad) queda en carrera; ante una "
+                        "así, use 1")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="cuenta lo que cargaría; no llama a core")
     mode.add_argument("--validate-only", action="store_true", help="solo valida los archivos; no llama a core")
@@ -621,6 +650,9 @@ def main(argv=None):
     except LoadError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    except DatasetError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     print(f"done: {counts.created} created, {counts.skipped} skipped, {counts.commands} commands, "
           f"{counts.warnings} warnings")
     return 0

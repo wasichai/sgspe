@@ -243,6 +243,12 @@ tenant de producción.
   que ya existe (por su `match`) no se actualiza y sus comandos corren de nuevo, cada uno idempotente por su cuenta.
 - **`--draft`:** pide además el borrador de los entregables (`POST /api/sgspe/deliverables/{id}/drafts`); sin él solo se
   cargan los datos y las secciones.
+- **`--workers N`** (o `SGSPE_DEMO_WORKERS`; 1 por defecto): carga hasta N registros de una colección a la vez, en lotes
+  que se cortan antes del registro que nombra con `@clave` a otro de su mismo lote. Los hijos, vínculos, transiciones y
+  comandos de un registro siguen en orden. **Carrera conocida:** el corte solo ve las dependencias que el conjunto
+  declara con `@clave`. Una guarda o un listener que lea otros registros de la misma colección sin nombrarlos (un tope,
+  una unicidad o un conteo entre pares) queda en carrera con N > 1. El tope de apoyo de la campaña ya toma su candado;
+  ante una regla nueva de ese tipo, cargar con `--workers 1`.
 - **Límite conocido:** si el proceso muere entre la creación de un registro y sus transiciones, la segunda corrida falla
   con «state X, expected Y» (el registro ya existe, así que sus transiciones se saltan) y hay que corregir ese registro a
   mano.
@@ -264,7 +270,9 @@ Con el modelo de F2, el primer `@BeforeEach` de la corrida aprovisiona la organi
 `apply_roles.py` y `apply.py --workflows`, pero no `load_ubigeo.py`: la prueba que lo necesita lo carga ella misma.
 `SgspeApiTest.SCRIPT_TIMEOUT_SECONDS` da 20 minutos a cada script. La suite completa por el túnel tarda de 30 minutos a más de una hora, según la carga del túnel; por clase, medido:
 `TenantProvisioningApiTest`, entre 5,5 y 13 minutos; `WorkflowMatrixApiTest` (sale de `model/workflows/*.json`), de 8 a
-11; `PermissionMatrixApiTest`, la más larga (ver abajo).
+11; `DemoDiagnosisApiTest` (carga el conjunto de demostración dos veces con `--workers 4` y genera su T1), unos 22 minutos
+(1357 s el 2026-10-18; en serie, la primera carga no entraba en los 20 minutos por script); `PermissionMatrixApiTest`, la
+más larga (ver abajo).
 
 **Por qué no corren con Testcontainers en esta máquina.** Testcontainers crea el contenedor en el demonio remoto, pero lo
 busca en `localhost`: ni Ryuk ni PostgreSQL responden. Hay dos caminos:
