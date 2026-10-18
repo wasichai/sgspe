@@ -56,7 +56,7 @@ object DiagnosisStakeholders {
                         byType.flatMap { (type, list) ->
                             list.mapIndexed { i, row ->
                                 val actor = Cell(scene.people.actor(row))
-                                if (i == 0) listOf(Cell(type, rowSpan = list.size), actor) else listOf(actor)
+                                if (i == 0) listOf(Cell(ReportLabels.option(type) ?: type, rowSpan = list.size), actor) else listOf(actor)
                             }
                         }
                     Block.Table(
@@ -93,7 +93,7 @@ object DiagnosisStakeholders {
                 )
             val notes =
                 listOfNotNull(
-                    row.text("interview_status")?.takeIf { it != INTERVIEWED }?.let { "Estado de la entrevista: $it." },
+                    row.text("interview_status")?.takeIf { it != INTERVIEWED }?.let { "Estado de la entrevista: ${ReportLabels.option(it)}." },
                     "El cargo está vacante.".takeIf { row.ref("person") != null && position == null }
                 )
             listOfNotNull(
@@ -101,7 +101,7 @@ object DiagnosisStakeholders {
                 Block.Paragraph(facts.joinToString("\n\n").ifEmpty { "_Sin datos del perfil._" }, footnotes = notes),
                 assessment?.let { a ->
                     val reasons = a.text("stance_reasons")?.let { " **Razones:** $it" }.orEmpty()
-                    Block.Paragraph("**Postura:** ${DiagnosisScene.or(a, "stance")}.$reasons", Mark.restricted("stakeholder_assessment.stance"))
+                    Block.Paragraph("**Postura:** ${DiagnosisScene.option(a, "stance")}.$reasons", Mark.restricted("stakeholder_assessment.stance"))
                 }
             )
         }
@@ -151,10 +151,10 @@ object DiagnosisStakeholders {
                                     listOf(
                                         nameCell(scene, row),
                                         Cell(position?.text("position_title") ?: SIN_DATO),
-                                        Cell(DiagnosisScene.or(row, "stakeholder_type")),
-                                        Cell(assessment?.text("stance") ?: SIN_DATO, mark = Mark.restricted("stakeholder_assessment.stance"))
+                                        Cell(DiagnosisScene.option(row, "stakeholder_type")),
+                                        Cell(DiagnosisScene.option(assessment, "stance"), mark = Mark.restricted("stakeholder_assessment.stance"))
                                     )
-                                if (i == 0) listOf(Cell(group, rowSpan = list.size)) + values else values
+                                if (i == 0) listOf(Cell(ReportLabels.option(group) ?: group, rowSpan = list.size)) + values else values
                             }
                         }
                     Block.Table(

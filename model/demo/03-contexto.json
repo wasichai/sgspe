@@ -456,7 +456,7 @@
           "attributes": {
             "name": "I.E.I. N.º 30412 Huaylla Alto",
             "locality": "@loc-huaylla",
-            "education_level": "INICIAL",
+            "education_level": "Inicial",
             "school_status": "Operativa, aula multigrado"
           },
           "geometries": {
@@ -473,7 +473,7 @@
           "attributes": {
             "name": "I.E. N.º 30413 Huaylla Alto",
             "locality": "@loc-huaylla",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, multigrado desde 1971"
           },
           "geometries": {
@@ -490,7 +490,7 @@
           "attributes": {
             "name": "I.E.I. N.º 30414 Quishuar",
             "locality": "@loc-quishuar",
-            "education_level": "INICIAL",
+            "education_level": "Inicial",
             "school_status": "Operativa"
           },
           "geometries": {
@@ -507,7 +507,7 @@
           "attributes": {
             "name": "I.E. N.º 30415 Quishuar",
             "locality": "@loc-quishuar",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa"
           },
           "geometries": {
@@ -524,7 +524,7 @@
           "attributes": {
             "name": "I.E. Agropecuaria Yanaccocha",
             "locality": "@loc-quishuar",
-            "education_level": "SECUNDARIA",
+            "education_level": "Secundaria",
             "school_status": "Operativa, con internado de varones"
           },
           "geometries": {
@@ -541,7 +541,7 @@
           "attributes": {
             "name": "I.E.I. N.º 30416 Llamapampa",
             "locality": "@loc-llamapampa",
-            "education_level": "INICIAL",
+            "education_level": "Inicial",
             "school_status": "Operativa"
           },
           "geometries": {
@@ -558,7 +558,7 @@
           "attributes": {
             "name": "I.E. N.º 30417 Llamapampa",
             "locality": "@loc-llamapampa",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa"
           },
           "geometries": {
@@ -575,7 +575,7 @@
           "attributes": {
             "name": "I.E. Agropecuaria Llamapampa",
             "locality": "@loc-llamapampa",
-            "education_level": "SECUNDARIA",
+            "education_level": "Secundaria",
             "school_status": "Operativa, con cerco perimétrico"
           },
           "geometries": {
@@ -592,7 +592,7 @@
           "attributes": {
             "name": "I.E. N.º 30418 Ccollpa",
             "locality": "@loc-ccollpa",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, unidocente"
           },
           "geometries": {
@@ -609,7 +609,7 @@
           "attributes": {
             "name": "I.E.I. N.º 30419 Tambillo",
             "locality": "@loc-tambillo",
-            "education_level": "INICIAL",
+            "education_level": "Inicial",
             "school_status": "Operativa desde 2005"
           },
           "geometries": {
@@ -626,7 +626,7 @@
           "attributes": {
             "name": "I.E. N.º 30420 Pucará Chico",
             "locality": "@loc-pucara",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, multigrado"
           },
           "geometries": {
@@ -643,7 +643,7 @@
           "attributes": {
             "name": "I.E. N.º 30421 Yanama",
             "locality": "@loc-yanama",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, con vivero escolar"
           },
           "geometries": {
@@ -660,7 +660,7 @@
           "attributes": {
             "name": "I.E. N.º 30422 Rumichaca",
             "locality": "@loc-rumichaca",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, unidocente"
           },
           "geometries": {
@@ -677,7 +677,7 @@
           "attributes": {
             "name": "I.E.I. N.º 30423 Llamapampa Bajo",
             "locality": "@loc-llamapampa-bajo",
-            "education_level": "INICIAL",
+            "education_level": "Inicial",
             "school_status": "Operativa en ambiente prestado de la parroquia"
           },
           "geometries": {
@@ -694,7 +694,7 @@
           "attributes": {
             "name": "I.E. N.º 30424 Chacapampa",
             "locality": "@loc-chacapampa",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa"
           },
           "geometries": {
@@ -711,7 +711,7 @@
           "attributes": {
             "name": "I.E. N.º 30425 Huayrapata",
             "locality": "@loc-huayrapata",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa desde 1990"
           },
           "geometries": {
@@ -728,7 +728,7 @@
           "attributes": {
             "name": "I.E. N.º 30426 Santa Rosa de Pallca",
             "locality": "@loc-santarosa",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, con aula de cómputo"
           },
           "geometries": {
@@ -745,7 +745,7 @@
           "attributes": {
             "name": "I.E. N.º 30427 Nueva Esperanza",
             "locality": "@loc-esperanza",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, con internet escolar"
           },
           "geometries": {
@@ -762,7 +762,7 @@
           "attributes": {
             "name": "I.E. N.º 30428 Cruzpata",
             "locality": "@loc-cruzpata",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa"
           },
           "geometries": {
@@ -779,7 +779,7 @@
           "attributes": {
             "name": "I.E. N.º 30429 Antaccasa",
             "locality": "@loc-antaccasa",
-            "education_level": "PRIMARIA",
+            "education_level": "Primaria",
             "school_status": "Operativa, unidocente; no reconocida como caserío"
           },
           "geometries": {
@@ -805,7 +805,7 @@
           "attributes": {
             "name": "Puesto de Salud Huaylla Alto",
             "locality": "@loc-huaylla",
-            "facility_type": "PUESTO DE SALUD",
+            "facility_type": "Puesto de salud",
             "facility_status": "Operativo; atiende un día por semana"
           },
           "geometries": {
@@ -822,7 +822,7 @@
           "attributes": {
             "name": "Botiquín Comunal de Quishuar",
             "locality": "@loc-quishuar",
-            "facility_type": "BOTIQUIN COMUNAL",
+            "facility_type": "Botiquín comunal",
             "facility_status": "Operativo, a cargo de un promotor de salud voluntario"
           },
           "geometries": {
@@ -839,7 +839,7 @@
           "attributes": {
             "name": "Puesto de Salud Chacapampa",
             "locality": "@loc-chacapampa",
-            "facility_type": "PUESTO DE SALUD",
+            "facility_type": "Puesto de salud",
             "facility_status": "Operativo; atiende tres días por semana"
           },
           "geometries": {
@@ -856,7 +856,7 @@
           "attributes": {
             "name": "Puesto de Salud Santa Rosa de Pallca",
             "locality": "@loc-santarosa",
-            "facility_type": "PUESTO DE SALUD",
+            "facility_type": "Puesto de salud",
             "facility_status": "Operativo; con una técnica de enfermería residente"
           },
           "geometries": {
@@ -873,7 +873,7 @@
           "attributes": {
             "name": "Botiquín Comunal de Huayrapata",
             "locality": "@loc-huayrapata",
-            "facility_type": "BOTIQUIN COMUNAL",
+            "facility_type": "Botiquín comunal",
             "facility_status": "Operativo, sin personal de salud permanente"
           },
           "geometries": {
@@ -899,7 +899,7 @@
           "attributes": {
             "locality": "@loc-huaylla",
             "connects_to": "@loc-quishuar",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Regular; se interrumpe con las lluvias de febrero",
             "transport_means": "Camioneta y motocicleta",
             "travel_time": "30 minutos en vehículo; 1 h 45 min a pie"
@@ -928,7 +928,7 @@
           "attributes": {
             "locality": "@loc-quishuar",
             "connects_to": "@loc-yanama",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Buena en estiaje; con derrumbes en lluvias",
             "transport_means": "Camioneta, motocicleta y acémila",
             "travel_time": "35 minutos en vehículo"
@@ -957,7 +957,7 @@
           "attributes": {
             "locality": "@loc-llamapampa",
             "connects_to": "@loc-huaylla",
-            "road_type": "CAMINO DE HERRADURA",
+            "road_type": "Camino de herradura",
             "road_condition": "Regular; el tramo bajo es empinado",
             "transport_means": "A pie y con llamas de carga",
             "travel_time": "2 horas a pie"
@@ -986,7 +986,7 @@
           "attributes": {
             "locality": "@loc-ccollpa",
             "connects_to": "@loc-quishuar",
-            "road_type": "CAMINO DE HERRADURA",
+            "road_type": "Camino de herradura",
             "road_condition": "Malo; sendero angosto sobre la quebrada",
             "transport_means": "A pie y con acémilas",
             "travel_time": "1 h 20 min a pie"
@@ -1015,7 +1015,7 @@
           "attributes": {
             "locality": "@loc-tambillo",
             "connects_to": "@loc-pucara",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Mejorada el año anterior",
             "transport_means": "Camioneta, motocicleta y acémila",
             "travel_time": "25 minutos en vehículo"
@@ -1044,7 +1044,7 @@
           "attributes": {
             "locality": "@loc-pucara",
             "connects_to": "@loc-yanama",
-            "road_type": "CAMINO DE HERRADURA",
+            "road_type": "Camino de herradura",
             "road_condition": "Regular; sube por el filo de la quebrada",
             "transport_means": "A pie y con acémilas",
             "travel_time": "1 h 15 min a pie"
@@ -1073,7 +1073,7 @@
           "attributes": {
             "locality": "@loc-yanama",
             "connects_to": "@loc-chacapampa",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Buena en estiaje; cuneta dañada en el tramo final",
             "transport_means": "Camioneta y motocicleta",
             "travel_time": "20 minutos en vehículo"
@@ -1102,7 +1102,7 @@
           "attributes": {
             "locality": "@loc-llamapampa-bajo",
             "connects_to": "@loc-chacapampa",
-            "road_type": "CAMINO DE HERRADURA",
+            "road_type": "Camino de herradura",
             "road_condition": "Regular; empinado en el tramo medio",
             "transport_means": "A pie y con acémilas",
             "travel_time": "1 h 20 min a pie"
@@ -1131,7 +1131,7 @@
           "attributes": {
             "locality": "@loc-huayrapata",
             "connects_to": "@loc-yanama",
-            "road_type": "CAMINO DE HERRADURA",
+            "road_type": "Camino de herradura",
             "road_condition": "Bueno; es el camino hacia la laguna de cabecera",
             "transport_means": "A pie y con acémilas",
             "travel_time": "1 h 30 min a pie"
@@ -1160,7 +1160,7 @@
           "attributes": {
             "locality": "@loc-santarosa",
             "connects_to": "@loc-huayrapata",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Regular; con tramos de barro en lluvias",
             "transport_means": "Camioneta y motocicleta",
             "travel_time": "45 minutos en vehículo"
@@ -1189,7 +1189,7 @@
           "attributes": {
             "locality": "@loc-cruzpata",
             "connects_to": "@loc-esperanza",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Regular",
             "transport_means": "Camioneta, motocicleta y acémila",
             "travel_time": "25 minutos en vehículo"
@@ -1218,7 +1218,7 @@
           "attributes": {
             "locality": "@loc-antaccasa",
             "connects_to": "@loc-cruzpata",
-            "road_type": "CAMINO DE HERRADURA",
+            "road_type": "Camino de herradura",
             "road_condition": "Regular; es el antiguo paso de arrieros",
             "transport_means": "A pie y con acémilas",
             "travel_time": "1 h 15 min a pie"
@@ -1247,7 +1247,7 @@
           "attributes": {
             "locality": "@loc-rumichaca",
             "connects_to": "@loc-llamapampa-bajo",
-            "road_type": "CAMINO DE HERRADURA",
+            "road_type": "Camino de herradura",
             "road_condition": "Regular; se corta con las crecidas",
             "transport_means": "A pie y con acémilas",
             "travel_time": "1 h 30 min a pie"
@@ -1276,7 +1276,7 @@
           "attributes": {
             "locality": "@loc-chacapampa",
             "connects_to": "@loc-huayrapata",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Buena; abierta en 2016",
             "transport_means": "Camioneta y motocicleta",
             "travel_time": "30 minutos en vehículo"
@@ -1305,7 +1305,7 @@
           "attributes": {
             "locality": "@loc-esperanza",
             "connects_to": "@loc-santarosa",
-            "road_type": "TROCHA CARROZABLE",
+            "road_type": "Trocha carrozable",
             "road_condition": "Regular; abierta en 1999",
             "transport_means": "Camioneta y motocicleta",
             "travel_time": "40 minutos en vehículo"

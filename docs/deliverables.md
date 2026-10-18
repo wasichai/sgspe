@@ -171,6 +171,11 @@ Cómo leer las columnas:
   `grupos_monitoreo`, `estrategias`, `comunicacion` y `necesidades`. La postura de las Tablas 7.1 a 7.3 lleva la marca de
   restringida: EXTERNO la vacía. Un párrafo con la marca `EXTERNAL_ONLY` muestra «Información reservada en esta versión.»
   solo en EXTERNO, donde se retuvo contenido restringido (religión y proceso electoral, T1 5.8 y 5.9).
+- **Rótulos de T1** (#104): las tablas imprimen las opciones del modelo en español (`ReportLabels.option`: «EN SEPARACION» sale «En
+  separación», «A FAVOR» sale «A favor», con el diccionario `option-words.json`, que una prueba obliga a cubrir cada palabra
+  de cada enum), los estados con el `label` de su workflow (`ReportLabels.state`, también la Tabla 4 de T2) y los roles con el
+  de `roles.json` (`ReportLabels.role`). Se agrupa y compara por el valor crudo; solo el texto impreso cambia. En la Tabla 9.1,
+  un criterio vacío de la regla dice «Todos».
 - **Ubicación de la introducción** (#80): «**Ubicación:** distrito de X, provincia de Y, región Z». Sale de la
   `administrative_unit` de cada localidad del AIDS y de sus `parent_unit`, por `level` (DISTRITO, PROVINCIA y DEPARTAMENTO,
   este como región); los nombres distintos de un nivel van unidos con «y», tal como están en el registro. Si ninguna

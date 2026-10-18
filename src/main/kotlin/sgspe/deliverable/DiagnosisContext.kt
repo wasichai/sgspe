@@ -22,10 +22,13 @@ object DiagnosisContext {
                     val found = conflicts[locality.id].orEmpty()
                     val text =
                         listOfNotNull(
-                            "**${DiagnosisScene.or(locality, "name")}** (${DiagnosisScene.or(locality, "recognition_status")}).",
+                            "**${DiagnosisScene.or(locality, "name")}** (${DiagnosisScene.option(locality, "recognition_status")}).",
                             locality.text("history"),
                             found.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = "Conflictos: ", postfix = ".") { c ->
-                                "${DiagnosisScene.or(c, "title")} (${DiagnosisScene.or(c, "conflict_type")}, ${DiagnosisScene.or(c, "conflict_status")}" +
+                                "${DiagnosisScene.or(
+                                    c,
+                                    "title"
+                                )} (${DiagnosisScene.option(c, "conflict_type")}, ${DiagnosisScene.option(c, "conflict_status")}" +
                                     c.text("disputed_resource")?.let { ", por $it" }.orEmpty() + ")"
                             }
                         ).joinToString(" ")
@@ -47,7 +50,7 @@ object DiagnosisContext {
                         Cell(value(profile, "members_per_family")),
                         Cell(ReportFormat.date(profile?.text("data_date")).ifEmpty { SIN_DATO }),
                         Cell(value(profile, "data_source")),
-                        Cell(value(profile, "reliability"))
+                        Cell(DiagnosisScene.option(profile, "reliability"))
                     )
                 }
             val migration = profiles.mapNotNull { (locality, profile) -> profile?.text("migration")?.let { "**${DiagnosisScene.or(locality, "name")}:** $it" } }
@@ -177,7 +180,7 @@ object DiagnosisContext {
                     .sortedBy { it.text("name") }
             val organizationRows =
                 organizations.map { org ->
-                    listOf(Cell(DiagnosisScene.or(org, "name")), Cell(DiagnosisScene.or(org, "organization_type"))) +
+                    listOf(Cell(DiagnosisScene.or(org, "name")), Cell(DiagnosisScene.option(org, "organization_type"))) +
                         ids.map { Cell(if (org.text("locality") == it) "X" else "") }
                 }
             val present =

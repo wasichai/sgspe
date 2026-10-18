@@ -91,6 +91,12 @@ class DiagnosisScene private constructor(
             field: String
         ): String = row?.text(field) ?: SIN_DATO
 
+        // el valor ENUM de un campo con su rótulo en español (ReportLabels.option) o «Sin dato»
+        fun option(
+            row: SourceRow?,
+            field: String
+        ): String = ReportLabels.option(row?.text(field)) ?: SIN_DATO
+
         // una fecha del entregable, o null si falta o no se puede leer
         private fun date(
             row: SourceRow,

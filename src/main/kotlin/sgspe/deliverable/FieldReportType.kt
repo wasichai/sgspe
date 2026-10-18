@@ -377,7 +377,7 @@ class FieldReportType : DeliverableType {
                     Block.Table(
                         "Estado de la relación con los grupos de interés",
                         listOf("Grupo de interés", "Estado de la relación"),
-                        rows.map { listOf(Cell(stakeholder(it)), Cell(it.text("relationship_status").orEmpty())) }
+                        rows.map { listOf(Cell(stakeholder(it)), Cell(ReportLabels.option(it.text("relationship_status")).orEmpty())) }
                     )
                 }
             )
@@ -431,10 +431,17 @@ class FieldReportType : DeliverableType {
                         "Interacciones del periodo en la comunidad",
                         listOf("Fecha", "Tipo", "Interacción", "Estado"),
                         rows.map {
-                            val state = if (it.state == CANCELLED) "Cancelada: ${it.text("cancel_reason").orEmpty()}" else it.state.orEmpty()
+                            val state =
+                                if (it.state ==
+                                    CANCELLED
+                                ) {
+                                    "Cancelada: ${it.text("cancel_reason").orEmpty()}"
+                                } else {
+                                    ReportLabels.state("engagement", it.state).orEmpty()
+                                }
                             listOf(
                                 Cell(ReportFormat.date(it.text("held_at") ?: it.text("scheduled_at"))),
-                                Cell(it.text("engagement_type").orEmpty()),
+                                Cell(ReportLabels.option(it.text("engagement_type")).orEmpty()),
                                 Cell(it.text("title").orEmpty()),
                                 Cell(state)
                             )
@@ -454,7 +461,7 @@ class FieldReportType : DeliverableType {
                     val rows =
                         nodes.map { node ->
                             val who = node.ref("person")?.let { person(it) } ?: organizationName(node.ref("organization")) ?: ""
-                            listOf(Cell(who), Cell(node.text("node_role").orEmpty()))
+                            listOf(Cell(who), Cell(ReportLabels.option(node.text("node_role")).orEmpty()))
                         }
                     listOfNotNull(
                         Block.Heading(2, network.text("name")!!),
@@ -462,7 +469,7 @@ class FieldReportType : DeliverableType {
                             listOfNotNull(
                                 network.text("network_type"),
                                 network.text("contact_status")?.let {
-                                    "estado del contacto: $it"
+                                    "estado del contacto: ${ReportLabels.option(it)?.lowercase()}"
                                 }
                             ).joinToString("; ").ifEmpty { "Sin datos de la red." }
                         ),
@@ -507,7 +514,7 @@ class FieldReportType : DeliverableType {
                                 Cell("[[person:$id]]"),
                                 Cell(p.text("position_title").orEmpty()),
                                 Cell(organizationName(p.ref("organization")).orEmpty()),
-                                Cell(p.text("position_status").orEmpty())
+                                Cell(ReportLabels.option(p.text("position_status")).orEmpty())
                             )
                         }
                     )

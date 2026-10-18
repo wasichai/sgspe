@@ -82,14 +82,14 @@ class SocialDiagnosisTypeTest {
         val dates = (model.blocks("trabajo_campo").first() as Block.Paragraph).markdown
         assertTrue(dates.endsWith("Visitas de campo en esas fechas:** 1"), dates)
         val aids = model.tables("aids").single()
-        assertTrue(aids.rows.any { it[0].text == "Caserío Ejemplo Alto" && it[1].text == "INCLUIDO" }, "${aids.rows}")
+        assertTrue(aids.rows.any { it[0].text == "Caserío Ejemplo Alto" && it[1].text == "Incluido" }, "${aids.rows}")
         assertTrue(aids.rows.any { it[0].text == "Comunidad Ejemplo" })
         assertTrue(
             model
                 .tables("aiis")
                 .single()
                 .rows
-                .any { it[0].text == "Caserío Ejemplo Bajo (EN SEPARACION)" }
+                .any { it[0].text == "Caserío Ejemplo Bajo (En separación)" }
         )
         assertEquals(Block.MapFigure(DiagnosisStudy.AREAS_MAP, "Áreas de influencia social del proyecto"), model.blocks("aiis").last())
         val map = assembled.maps.single { it.key == DiagnosisStudy.AREAS_MAP }
@@ -161,7 +161,7 @@ class SocialDiagnosisTypeTest {
             listOf("Miembros del AIIS en la Microcuenca Norte", "Miembros del AIIS en la Microcuenca Sur", "Otros miembros del AIIS"),
             tables.map { it.title }
         )
-        assertEquals(listOf("Caserío Ejemplo Bajo (EN SEPARACION)"), tables[0].rows.map { it[0].text })
+        assertEquals(listOf("Caserío Ejemplo Bajo (En separación)"), tables[0].rows.map { it[0].text })
         assertEquals(listOf("Caserío Ejemplo Medio"), tables[1].rows.map { it[0].text })
         assertEquals(setOf("Caserío Ejemplo Lejano", "Distrito Ejemplo"), tables[2].rows.map { it[0].text }.toSet())
     }
@@ -211,13 +211,13 @@ class SocialDiagnosisTypeTest {
         assertEquals(Block.Heading(3, DiagnosisScene.AIDS_TITLE), history[0])
         assertTrue(history.filterIsInstance<Block.Paragraph>().any { "Linderos con el caserío vecino" in it.markdown && "Caserío Ejemplo Bajo" in it.markdown })
         val population = model.tables("poblacion").first()
-        assertEquals(listOf("Caserío Ejemplo Alto", "120", "480", "4.00", "10/08/2026", "Trabajo de campo", "ALTA"), population.rows.single().map { it.text })
+        assertEquals(listOf("Caserío Ejemplo Alto", "120", "480", "4.00", "10/08/2026", "Trabajo de campo", "Alta"), population.rows.single().map { it.text })
         val services = model.tables("servicios")
         assertEquals(listOf("Servicio", "Caserío Ejemplo Alto"), services[0].header)
         assertEquals(listOf("Fuente de agua", "Manantial"), services[0].rows.first().map { it.text })
         assertEquals(listOf("Fuente de agua", DiagnosisScene.SIN_DATO), services[1].rows.first().map { it.text })
         val matrix = model.tables("organizaciones").first()
-        assertTrue(matrix.rows.any { row -> row.map { it.text } == listOf("Junta Directiva Comunal Ejemplo", "ORGANIZACION COMUNAL", "X") }, "${matrix.rows}")
+        assertTrue(matrix.rows.any { row -> row.map { it.text } == listOf("Junta Directiva Comunal Ejemplo", "Organización comunal", "X") }, "${matrix.rows}")
         assertTrue(matrix.rows.any { row -> row.map { it.text } == listOf("Programa social del Estado", "Programa del Estado", "X") }, "${matrix.rows}")
         val roads = model.tables("vias").first()
         assertEquals(listOf("Caserío Ejemplo Alto", "Trocha", "Caserío Ejemplo Bajo", "Regular", "Combi", "40 min"), roads.rows.single().map { it.text })
@@ -394,14 +394,14 @@ class SocialDiagnosisTypeTest {
     fun `los grupos de interes van por ambito y tipo con el actor por cargo, y los perfiles con su nota de entrevista`() {
         val model = assemble().model
         val identification = model.tables("grupos_interes")
-        assertEquals(listOf("AUTORIDAD LOCAL", "Presidente, Junta Directiva Comunal Ejemplo"), identification[0].rows.single().map { it.text })
-        assertEquals(listOf("ORGANIZACION SOCIAL DISTRITAL", "Municipalidad Distrital Ejemplo"), identification[1].rows.single().map { it.text })
+        assertEquals(listOf("Autoridad local", "Presidente, Junta Directiva Comunal Ejemplo"), identification[0].rows.single().map { it.text })
+        assertEquals(listOf("Organización social distrital", "Municipalidad Distrital Ejemplo"), identification[1].rows.single().map { it.text })
         val profiles = model.blocks("perfiles")
         assertTrue(Block.Heading(3, "Municipalidad Distrital Ejemplo") in profiles, "$profiles")
-        assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { "Estado de la entrevista: SE NEGO." in it.footnotes })
+        assertTrue(profiles.filterIsInstance<Block.Paragraph>().any { "Estado de la entrevista: Se negó." in it.footnotes })
         val classification = model.tables("clasificacion")
         assertEquals(
-            listOf("ESTRATEGICO", "[[person:${T1Source.PERSON}]]", "Presidente", "AUTORIDAD LOCAL", "A FAVOR"),
+            listOf("Estratégico", "[[person:${T1Source.PERSON}]]", "Presidente", "Autoridad local", "A favor"),
             classification[0].rows.single().map { it.text }
         )
         assertTrue((model.blocks("grupos_politicos").single() as Block.Paragraph).markdown.contains("Municipalidad Distrital Ejemplo"))
@@ -432,7 +432,17 @@ class SocialDiagnosisTypeTest {
                     else -> ""
                 }
             }
-        for (forbidden in listOf("Católica", "movimientos locales", "Espera empleo local", "Teme por el agua", "Persona Ejemplo 1", "EN CONTRA", "A FAVOR")) {
+        for (forbidden in listOf(
+            "Católica",
+            "movimientos locales",
+            "Espera empleo local",
+            "Teme por el agua",
+            "Persona Ejemplo 1",
+            "EN CONTRA",
+            "A FAVOR",
+            "A favor",
+            "En contra"
+        )) {
             assertTrue(forbidden !in text, "$forbidden salió en EXTERNO")
         }
         val row = external.tables("clasificacion")[0].rows.single()
@@ -543,10 +553,10 @@ class SocialDiagnosisTypeTest {
                 .tables("seguimiento_compromisos")
                 .first()
                 .rows
-                .any { it.map { c -> c.text } == listOf("fulfilled", "1") }
+                .any { it.map { c -> c.text } == listOf("Cumplido", "1") }
         )
         assertEquals(
-            listOf("MUY ALTA", "ESTRATEGICO", "A FAVOR", "AIDS", "AUTORIDAD LOCAL", "Deciden en la asamblea."),
+            listOf("Muy alta", "Estratégico", "A favor", "AIDS", "Autoridad local", "Deciden en la asamblea."),
             model
                 .tables("priorizacion")
                 .single()
@@ -583,6 +593,32 @@ class SocialDiagnosisTypeTest {
         assertTrue((model.blocks("monitoreo").single() as Block.Paragraph).markdown.contains("no están disponibles"))
         assertTrue(model.blocks("evaluacion_grupos").single() is Block.Paragraph)
         assertEquals(listOf(UUID.fromString(T1Source.AIDS)), assembled.maps.single { it.key == DiagnosisStudy.AREAS_MAP }.areas)
+    }
+
+    // #104: una regla con el campo vacío aplica a todos, un rol sale con su rótulo y un tope sin monto no lleva moneda
+    @Test
+    fun `los campos vacios de una regla dicen Todos, el rol sale con su rotulo y el tope sin monto no lleva moneda`() {
+        val source = T1Source.source()
+        val rule = source.rows.getValue("prioritization_rule").single()
+        source.rows.getValue("prioritization_rule")[0] =
+            SourceRow(rule.id, rule.state, rule.attributes - "stakeholder_scope" - "stakeholder_type" - "stance")
+        val campaign = source.rows.getValue("exploration_campaign").single()
+        source.rows.getValue("exploration_campaign")[0] = SourceRow(campaign.id, campaign.state, campaign.attributes - "social_support_cap")
+        val assignment = source.rows.getValue("project_assignment").first()
+        source.rows.getValue("project_assignment")[0] =
+            SourceRow(assignment.id, assignment.state, assignment.attributes + ("role_name" to "COMMITMENT_MANAGER"))
+        val model = assemble(source).model
+        assertEquals(
+            listOf("Muy alta", "Estratégico", "Todos", "Todos", "Todos", "Deciden en la asamblea."),
+            model
+                .tables("priorizacion")
+                .single()
+                .rows
+                .single()
+                .map { it.text }
+        )
+        assertTrue((model.blocks("seguimiento_compromisos").last() as Block.Paragraph).markdown.contains("Campaña 2026: Sin dato\n"), "sin moneda")
+        assertTrue(model.tables("necesidades").any { table -> table.rows.any { it[0].text == "Gestor de compromisos" } })
     }
 
     @Test
