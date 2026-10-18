@@ -9,6 +9,14 @@ object Mentions {
 
     const val UNKNOWN = "una persona"
 
+    // una mención con escapes de CommonMark (\[\[person:<id>\]\], también a medias): commonmark-java quita los escapes después
+    // y dejaría el token con su id en el documento. no la eligió el selector del editor, que escapa lo que se parece a un token:
+    // no se resuelve y sale «una persona» en todo nivel (#87)
+    private val ESCAPED = Regex("""\\?\[\\?\[\\?(?:person|position|stakeholder)\\?:[0-9a-fA-F\\-]{36,72}\\?]\\?]""")
+
+    // el texto sin menciones escapadas: cada una queda «una persona». va antes de resolver o de quitar las menciones
+    fun scrub(text: String): String = ESCAPED.replace(text) { if ('\\' in it.value) UNKNOWN else it.value }
+
     // las claves («person:<id>») que cita un texto, en su orden y sin repetir
     fun keys(text: String): List<String> =
         TOKEN
@@ -22,7 +30,7 @@ object Mentions {
         people: Map<String, MentionTarget>,
         level: Disclosure
     ): String =
-        TOKEN.replace(text) { match ->
+        TOKEN.replace(scrub(text)) { match ->
             val target = people["${match.groupValues[1]}:${match.groupValues[2].lowercase()}"]
             if (target == null) UNKNOWN else cite(target, level)
         }
