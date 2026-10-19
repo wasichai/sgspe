@@ -92,7 +92,7 @@ jobs:
       - name: sgspe-latex
         run: |
           docker build -q -t sgspe-latex:ci develop/latex
-          docker run -d --name sgspe-latex -p 127.0.0.1:8097:8080 --read-only --tmpfs /tmp:size=512m --cap-drop ALL \
+          docker run -d --name sgspe-latex -p 127.0.0.1:8097:8080 --read-only --tmpfs /tmp:size=1g --cap-drop ALL \
             --security-opt no-new-privileges:true sgspe-latex:ci
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8097/health > /dev/null; then exit 0; fi

@@ -7,13 +7,14 @@ tar con candidata.pdf (la composición completa) y borrador.pdf (una pasada más
 
 - El tar tiene topes de bytes y de entradas, solo archivos regulares y rutas relativas sin «..» con letras, cifras, «.»,
   «_», «-» y «/»; debe traer main.tex.
-- Compone en una carpeta temporal, sin shell-escape, con --nosocket y openout_any=p, un plazo por pedido y una
-  composición a la vez.
+- Compone en una carpeta temporal propia de cada pedido, sin shell-escape, con --nosocket y openout_any=p, un plazo por
+  pedido y a lo más LATEX_CONCURRENCY composiciones a la vez.
 - Un error responde JSON con su código y, si lo hay, la línea de main.tex; nunca texto del documento. Los logs llevan
   el id de la corrida (cabecera X-Trace), el estado y la duración, nunca contenido.
 - La cabecera X-Latex-Overfull dice cuántas cajas desbordadas tuvo la candidata.
 
-Variables: LATEX_PORT (8080), LATEX_MAX_BYTES (104857600), LATEX_MAX_ENTRIES (2000), LATEX_TIMEOUT (170, segundos).
+Variables: LATEX_PORT (8080), LATEX_MAX_BYTES (104857600), LATEX_MAX_ENTRIES (2000), LATEX_TIMEOUT (170, segundos),
+LATEX_CONCURRENCY (2).
 """
 import io
 import json
@@ -31,13 +32,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 MAX_BYTES = int(os.environ.get("LATEX_MAX_BYTES", str(100 * 1024 * 1024)))
 MAX_ENTRIES = int(os.environ.get("LATEX_MAX_ENTRIES", "2000"))
 TIMEOUT = int(os.environ.get("LATEX_TIMEOUT", "170"))
+# cuántas composiciones a la vez: JOB-05 pide los dos niveles de un borrador juntos, y cada lualatex usa un solo núcleo
+CONCURRENCY = max(1, int(os.environ.get("LATEX_CONCURRENCY", "2")))
 NAME = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
 LINE = re.compile(r"^(?:\./)?main\.tex:(\d+):", re.MULTILINE)
 AUXILIARY = ("aux", "toc", "lot", "lof", "out")
 # la caché de luaotfload armada en la imagen (de solo lectura) y su copia escribible en el tmpfs
 CACHE_IMAGE = "/opt/sgspe-latex/texmf-var"
 CACHE = os.environ.get("TEXMFVAR", "/tmp/texmf-var")
-LOCK = threading.Lock()
+SLOTS = threading.BoundedSemaphore(CONCURRENCY)
 
 
 class Failure(Exception):
@@ -191,7 +194,7 @@ class Handler(BaseHTTPRequestHandler):
             if length > MAX_BYTES:
                 raise Failure(413, "TOO_LARGE")
             body = self.rfile.read(length)
-            with LOCK:
+            with SLOTS:
                 pdfs, boxes = compose(body)
             status = 200
             self.reply(200, pdfs, "application/x-tar", {"X-Latex-Overfull": str(boxes)})
