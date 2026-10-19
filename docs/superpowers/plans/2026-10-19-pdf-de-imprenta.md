@@ -84,7 +84,7 @@ PDFBox, TeX Live de Debian trixie (LuaHBTeX 1.18), KOMA-Script, Python 3 (stdlib
 
 ### 5. Marca
 
-- [ ] `deliverable_template` suma `logo` y `accent_color`. Hay que validarlos al subir y congelarlos en `meta.brand`.
+- [x] `deliverable_template` suma `logo` y `accent_color`. Hay que validarlos al subir y congelarlos en `meta.brand`.
 
 ### 6. Revisión visual
 

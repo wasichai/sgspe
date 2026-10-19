@@ -494,7 +494,9 @@ class F8DocsTests(unittest.TestCase):
             "pdf": ["application/pdf"], "model": ["text/plain"]})
         template = self.cards["deliverable_template"]
         self.assertEqual((template.phase, template.flags["appendOnly"], template.flags["apiOnly"]), ("F8", True, True))
-        self.assertEqual(template.max_bytes, {"file": 20971520})
+        # desde el 2026-10-19, el logo del PDF (ASM-140)
+        self.assertEqual(template.max_bytes, {"file": 20971520, "logo": 2097152})
+        self.assertEqual(template.content_types["logo"], ["image/png", "image/jpeg"])
         # evidence no declara tope: rige el de Spring por parte (20 MB, ASM-138)
         self.assertEqual(self.cards["evidence"].max_bytes, {})
 

@@ -44,7 +44,16 @@ data class ReportMeta(
     val templateId: String? = null,
     val templateSha256: String,
     val coverMap: String? = null,
-    val level: String? = null
+    val level: String? = null,
+    // la marca del PDF de la plantilla (ASM-140): el logo por archivo y SHA-256, y el acento; null sin plantilla o sin marca
+    val brand: ReportBrand? = null
+)
+
+// el logo de la organización (su archivo de wasichai-files y su SHA-256) y su color de acento RRGGBB, congelados con el modelo
+data class ReportBrand(
+    val logoFile: String? = null,
+    val logoSha256: String? = null,
+    val accent: String? = null
 )
 
 data class ReportSection(

@@ -3712,13 +3712,15 @@ RQ-REP-001, RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012, ASM-133.
 
 **Plantilla de entregable** (BC-15). Plantilla Word (.dotx o .docx) de la organización, validada al subirla: aporta el
 aspecto de los entregables con marcadores fijos, estilos requeridos y fuentes permitidas. Tabla física
-`app_data.deliverable_template__<org8>`. Requisitos: RQ-REP-019, RQ-SEC-019, ASM-135.
+`app_data.deliverable_template__<org8>`. Requisitos: RQ-REP-019, RQ-SEC-019, ASM-135, ASM-140.
 
 | Campo | Tipo | Req. | Único | Descripción | Fuente |
 |---|---|---|---|---|---|
 | `template_key` | TEXT | sí | — | Clave que nombra `deliverable.template_key`; otra plantilla con la misma clave la reemplaza para los borradores siguientes. | RQ-REP-019 |
 | `name` | TEXT | no | — | Nombre para mostrar. | RQ-REP-019 |
 | `file` | FILE | sí | — | Archivo de la plantilla; wasichai-files guarda su nombre, su tipo, su tamaño y su SHA-256, que el borrador congela. | ASM-135 |
+| `logo` | FILE | no | — | Logo de la organización para la portada del PDF (ASM-140): PNG o JPEG de hasta 2 MB y 4000 px por lado, validado al subir; nunca SVG. | ASM-140 |
+| `accent_color` | TEXT | no | — | Color de acento del PDF en hexadecimal RRGGBB (ASM-140), validado al subir; sin él rige el de SGSPE. | ASM-140 |
 | `validation_warnings` | LONG_TEXT | no | — | Avisos de la validación, como una fuente que solo figura en la tabla de fuentes. | ASM-135 |
 
 Sin relaciones propias.
@@ -3729,8 +3731,9 @@ Sin relaciones propias.
 - **Acciones declaradas:** ninguna.
 - **Tipos de archivo:** `file` admite `application/vnd.openxmlformats-officedocument.wordprocessingml.document`: el
   sniffer de wasichai-files reconoce un ZIP de Office solo por el tipo declarado de un DOCX, así que el endpoint sube
-  también un .dotx declarado como DOCX después de validarlo (ASM-135).
-- **Tope de archivo:** `file`: 20971520 bytes (20 MB, el tope de una subida del navegador; ASM-138).
+  también un .dotx declarado como DOCX después de validarlo (ASM-135); `logo` admite `image/png` y `image/jpeg` (ASM-140).
+- **Tope de archivo:** `file`: 20971520 bytes (20 MB, el tope de una subida del navegador; ASM-138); `logo`: 2097152 bytes
+  (2 MB; ASM-140).
 - **Workflow:** ninguno.
 - **Fase:** F8 · Release 3 (Fase 3 de producto).
 - Solo la crea `POST /api/sgspe/deliverable-templates` después de `TemplateValidator`, como quien sube (ASM-135). No se
