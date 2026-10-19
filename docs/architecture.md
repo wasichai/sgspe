@@ -39,7 +39,7 @@ están en el [índice de ADR](adr/README.md).
 | 4 | Auditabilidad: quién, qué, cuándo, por qué, desde y hacia | [PRM-01 §18] OBJ-10, RQ-AUD-001, RQ-AUD-002, RQ-AUD-014 | Toda escritura pasa por `RecordService`, que escribe su fila de `audit_log` (en la misma transacción cuando quien llama abrió una); los objetos críticos son `requiresReason` y la historia es `appendOnly` |
 | 5 | La IA sugiere y la persona decide | OBJ-09, RQ-AI-001, RQ-AI-003, RN-EWS-001 [ARQ-01] [ARQ-02] | Plano de IA separado (`ai_interaction`, `ai_suggestion`, `commitment_candidate`); aceptar es un comando humano auditado (§7) |
 | 6 | El territorio es un componente crítico | [PRM-01 §6] RQ-GIS-004, RQ-GIS-006, ASM-002 | wasichai-gis desde F2, geometrías en SRID 4326 y CRS de trabajo por proyecto; análisis espacial propio en `sgspe.territory` |
-| 7 | Entregables DOCX y PDF del mismo documento | [USR-01] RQ-REP-001, ASM-014 | `sgspe.deliverable` con Apache POI, Gotenberg y mapas de GeoServer, generados en segundo plano (§8) |
+| 7 | Entregables DOCX y PDF del mismo documento | [USR-01] RQ-REP-001, ASM-014, ASM-139 | `sgspe.deliverable` con Apache POI para el DOCX, LuaLaTeX (`sgspe-latex`) para el PDF, los dos desde el mismo modelo congelado, y mapas de GeoServer, generados en segundo plano (§8, ADR-0030) |
 | 8 | Datos personales protegidos y artefactos anonimizados | [USR-07] OBJ-08, RQ-SEC-010, RQ-SEC-018, RQ-REP-014 | Permisos de campo, niveles de divulgación en `sgspe.privacy`, seudonimización antes del LLM (RQ-AI-009) y logs sin datos personales |
 | 9 | Autorización por proyecto y territorio | [PRM-01 §7] RQ-SEC-006, CON-041, GAP-025, UPS-01 | `ProjectScopeGuard` acota las escrituras. Desde el plan 4.4, `ProjectReadScope` acota la lectura por proyecto (ADR-0029); territorio y región siguen sin fuente (UPS-01) |
 | 10 | El paso del tiempo nunca es un estado | RN-WFL-001, CON-028, CON-043 | Trabajos programados mantienen `deadline_status`, `validity_status` y `review_status` (§8) |
@@ -75,7 +75,7 @@ La disponibilidad y el despliegue no tienen requisito hasta que se responda GAP-
 - Nada vive en el paquete `wasichai`: el escaneo de componentes de `@WasichaiApplication` registraría dos veces los
   controladores de la plataforma [WAS-DOC modules/core.md] [WAS-ADR-0024].
 - WebFlux no bloquea el event loop: la E/S bloqueante del código propio (Apache POI, almacenamiento, GDAL) corre en
-  `Dispatchers.IO`, y las llamadas a Gotenberg y GeoServer usan `WebClient`.
+  `Dispatchers.IO`, y las llamadas a `sgspe-latex` y GeoServer usan `WebClient`.
 - `RecordService.asPlatform` solo funciona fuera de una petición y solo para `RecordService`: los trabajos nunca aplican
   transiciones [WAS-ADR-0039] [domain-model §8.3].
 - El agente de wasichai es de solo lectura y actúa como el usuario que pregunta [WAS-ADR-0014] (RQ-AI-001).
@@ -137,7 +137,7 @@ flowchart TB
         APP["App SGSPE: Spring Boot WebFlux, starters de wasichai y paquetes sgspe"]
         DB[("PostgreSQL 18 con PostGIS 3.6")]
         GS["GeoServer: WMS y GetMap, nunca público"]
-        GT["Gotenberg: DOCX a PDF con LibreOffice"]
+        GT["sgspe-latex: PDF con LuaLaTeX"]
         OS[("Almacenamiento de objetos: local o S3")]
     end
     SMTP["Servidor SMTP"]
@@ -147,7 +147,7 @@ flowchart TB
     APP -->|"R2DBC y Flyway por JDBC"| DB
     GS -->|"lee las tablas publicadas"| DB
     APP -->|"publicación, WMS por proxy y GetMap"| GS
-    APP -->|"conversión por HTTP"| GT
+    APP -->|"composición por HTTP"| GT
     APP -->|"evidencias y entregables"| OS
     APP -->|"correo"| SMTP
     APP -->|"HTTPS por Embabel"| LLM
@@ -160,7 +160,7 @@ flowchart TB
 | App SGSPE | Kotlin 2.4.20, JDK 25, Spring Boot 4.1.1 WebFlux, wasichai 1.3.0 | API genérica de wasichai, API propia `/api/sgspe/**`, guardas, listeners y trabajos programados; un solo `app.jar` | F1 | RNF-MNT-001, RNF-INT-004 |
 | PostgreSQL con PostGIS | PostgreSQL 18, PostGIS 3.6 (`postgis/postgis:18-3.6`) | Esquema de metadata `wasichai`, esquema de datos `app_data` (una tabla por objeto y organización) y esquema `sgspe` de tablas fijas | F1 | [WAS-ADR-0002] [WAS-ADR-0004] CON-052 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1`, red interna (en desarrollo, solo en el loopback, puerto 8095) | Capas de referencia no sensibles por WMS (vía el proxy autenticado de `sgspe.territory`) y mapas de informe por GetMap | F6, F8 | RQ-SEC-011, RQ-REP-030, ASM-038 [WAS-ADR-0006] |
-| Gotenberg | `gotenberg/gotenberg:8.37.0-libreoffice` (la etiqueta exacta del plan 8.2c, la misma en el compose y en la CI), red interna (en desarrollo, solo en el loopback, puerto 8096) | Convierte a PDF el DOCX que arma el trabajador de generación (JOB-05), que es el único que lo llama, y PDFBox verifica cada PDF: con marca de agua en los borradores y en PDF/A-2b en las versiones candidatas que se emiten. En INTERNO se entregan el DOCX y el PDF; en EXTERNO el DOCX es solo un paso intermedio y se entrega solo el PDF | F8 | ASM-014, RQ-REP-001 |
+| `sgspe-latex` | Imagen propia (`develop/latex/Dockerfile`) sobre `debian:trixie-slim` fijada por digest, con TeX Live de Debian, Source Serif 4 y Source Sans 3 y un envoltorio HTTP en Python de biblioteca estándar; red interna sin salida (en desarrollo, solo en el loopback, puerto 8097) | Compone con LuaLaTeX el paquete que arma `LatexWriter` en el trabajador de generación (JOB-05), que es el único que lo llama: un pedido por nivel devuelve la versión candidata en PDF/A-2b y el borrador con la marca BORRADOR, y PDFBox verifica cada PDF. El DOCX sale aparte, con Apache POI y solo en INTERNO; en EXTERNO se entrega solo el PDF. Desde el 2026-10-19 reemplaza a Gotenberg, que convertía el DOCX con LibreOffice (ADR-0030) | F8 | ASM-014, ASM-139, RQ-REP-001 |
 | Almacenamiento de objetos | Compatible con S3 (MinIO solo en desarrollo), el `FileStore` de wasichai-files | Los archivos de las evidencias (campo `FILE`, ADR-0014); desde F8, los de los entregables y las plantillas, también campos `FILE` (ASM-133). En F2 las cargas de importación usan una carpeta temporal | F3 | ASM-013, ASM-060, RF-DOC-001, RQ-SEC-020, GAP-022 [WAS-ADR-0061] |
 | Servidor SMTP | Configurable; servidor de prueba en desarrollo | Correos del canal `email` de wasichai-notifications | F3 | RF-NTF-001, GAP-021 |
 | Proveedor de LLM | Embabel (Anthropic por defecto, intercambiable) | Asistente de solo lectura y agentes propios que sugieren | F7 | RQ-AI-005, RQ-AI-014 [WAS-ADR-0015] |
@@ -208,7 +208,7 @@ metadata no alcanza para lo que contiene; ninguno es un controlador por objeto (
 | `sgspe.evidence` | Alta, cambio y vínculos de evidencias sobre el campo `FILE` de wasichai-files; la descarga con `DOWNLOAD_RESTRICTED` por las dos rutas; `EvidenceWriteGuard` | BC-12 | F3 |
 | `sgspe.territory` | Importación con CRS y reconciliación, área en hectáreas, `TerritoryWriteGuard`, `AreaListener`; desde F6, `SpatialGate` (la única vía de SQL de lectura que cruza tablas del tenant, ASM-122), `ZoneCriterion` y las consultas espaciales, sugerencias de miembros, la parte territorial de la ficha (geometría, relaciones y filtros espaciales), `WmsProxy` (el proxy WMS de GeoServer, ASM-121), `MapSettings` (mapa base por organización, ASM-125), `GdalReader` y `GdalWriter` (formatos de ASM-127), `TerritoryExports` (ASM-124), `GeometryChecks` y `DataQuality`; el WFS se pospone (ASM-120) | BC-02 | F2 (análisis en F6) |
 | `sgspe.dashboard` | Indicadores y tableros `/api/sgspe/dashboards/**`, incluidas las cifras de la ficha territorial (KPI-TER-01); desde F6, `TerritoryKpis` (KPI-TER-01 a KPI-TER-04 y el tablero `territory`, sobre `SpatialGate`); conteos con `RecordService` y, desde el plan 8.2a-bis, los del tablero `executive` en SQL por `SpatialGate` (`AggregateSql`, `KpiAggregates`); cierre de periodo | BC-15 | F2–F8 |
-| `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con Gotenberg, mapas con GetMap, trabajador de generación (JOB-05), plantillas, descargas y rutas nativas de archivos, emisión, `DeliverableWriteGuard` y adopción de secciones de IA | BC-15 | F8 |
+| `sgspe.deliverable` | Una clase por tipo de entregable, ensamblado del modelo, DOCX con Apache POI, PDF con LuaLaTeX (`LatexWriter` y `LatexConverter`, ASM-139), mapas con GetMap, trabajador de generación (JOB-05), plantillas, descargas y rutas nativas de archivos, emisión, `DeliverableWriteGuard` y adopción de secciones de IA | BC-15 | F8 |
 | `sgspe.ai` | Agentes Embabel, seudonimización, registro de `ai_interaction`, creación de `ai_suggestion` y `commitment_candidate`, aceptación, indexación documental (JOB-07) y RAG sobre `knowledge_chunk`; el asistente de wasichai-agent se llama en proceso y un filtro cierra `/api/agent/ask` por HTTP (`ai-architecture.md`) | BC-18 | F7 |
 | `sgspe.privacy` | Niveles de divulgación como transformación del modelo, enmascaramiento, menciones de personas como referencias, exportaciones XLSX y `export_log` | BC-15, BC-17 | F2 (exportaciones), F8 |
 
@@ -254,8 +254,8 @@ flowchart BT
     AIPKG --> DOM
 ```
 
-- Los paquetes de dominio no dependen de `sgspe.dashboard` ni de `sgspe.deliverable`, y el `WebClient` hacia Gotenberg y
-  GeoServer solo vive en `sgspe.deliverable` (más el proxy WMS de F6); una prueba de arquitectura lo verifica
+- Los paquetes de dominio no dependen de `sgspe.dashboard` ni de `sgspe.deliverable`, y el `WebClient` hacia `sgspe-latex`
+  y GeoServer solo vive en `sgspe.deliverable` (más el proxy WMS de F6); una prueba de arquitectura lo verifica
   (RNF-TST-001) [domain-model §8.2]. Por eso la ficha territorial la arma el portal con dos lecturas: la parte
   territorial de `sgspe.territory` y las cifras de KPI-TER-01 de `sgspe.dashboard`, las mismas de los tableros (RQ-GIS-005,
   RQ-DSH-034) (`dashboards.md`).
@@ -370,7 +370,7 @@ sequenceDiagram
     K-->>N: 200 con X-Correlation-Id
 ```
 
-1. El proxy inverso solo reenvía `/api/**` y `/actuator/health/**`; nunca enruta a GeoServer ni a Gotenberg (§10).
+1. El proxy inverso solo reenvía `/api/**` y `/actuator/health/**`; nunca enruta a GeoServer ni a `sgspe-latex` (§10).
 2. El filtro de `sgspe.observability` va antes de la cadena de seguridad, para que también un `401` lleve el identificador
    (RQ-AUD-006, ASM-034).
 3. La cadena de wasichai valida el JWT HS256 y toma la organización del token, nunca del cuerpo [WAS-DOC security/authentication.md]
@@ -623,7 +623,7 @@ flowchart LR
     APP1 --> DB[("PostgreSQL con PostGIS")]
     APP2 --> DB
     APP1 --> GS["GeoServer"]
-    APP1 --> GT["Gotenberg"]
+    APP1 --> GT["sgspe-latex"]
     APP1 --> OS[("Almacenamiento S3")]
     APP1 --> SMTP["SMTP"]
     APP1 --> LLM["Proveedor de LLM"]
@@ -637,11 +637,12 @@ flowchart LR
   no sensibles; los predios con titulares y los grupos de interés nunca se publican (RQ-SEC-011, RQ-GIS-012, CON-054)
   [WAS-ADR-0006]. Los mapas de informe se piden por
   GetMap desde el trabajador de entregables (RQ-REP-030).
-- **Gotenberg** solo es alcanzable por la app y solo lo llama el trabajador de generación, nunca la petición de un usuario;
-  su plazo es `sgspe.deliverable.gotenberg.timeout` (180 s), nunca recibe una URL, una ruta ni una opción que venga del
-  cliente y no descarga nada de la red (ASM-014). En desarrollo escucha solo en el loopback del VPS, en el puerto 8096
-  (ADR-0026), y la CI lo levanta como servicio del trabajo de integración, para las pruebas con la etiqueta
-  `gotenberg`.
+- **`sgspe-latex`** solo es alcanzable por la app y solo lo llama el trabajador de generación, nunca la petición de un
+  usuario; su plazo es `sgspe.deliverable.latex.timeout` (180 s), nunca recibe una URL ni una opción que venga del
+  cliente y no tiene red de salida. Corre con el sistema de archivos de solo lectura, sin `shell-escape`, con
+  `--nosocket`, `openin_any=p` y `openout_any=p`, y una composición a la vez (ASM-139, ADR-0030). En desarrollo escucha
+  solo en el loopback del VPS, en el puerto 8097 (ADR-0026), y la CI lo levanta como servicio del trabajo de
+  integración, para las pruebas con la etiqueta `latex`. Reemplaza a Gotenberg, que se retiró el 2026-10-19.
 - **Réplicas:** varias instancias de la app comparten la base; `ClusterLock` coordina los trabajos, y la cola de
   automatizaciones se reclama con `FOR UPDATE SKIP LOCKED` [WAS-ADR-0039] [WAS-DOC modules/automation.md].
 - **Almacenamiento de objetos:** cualquier servicio compatible con S3 en producción; MinIO solo en desarrollo, por su licencia
@@ -678,11 +679,13 @@ flowchart LR
 - Los puertos 8094, 5182 y 5435 se eligieron libres frente a las otras apps de wasichai que corren en el mismo entorno; los
   fija ADR-0026 junto con la topología de cada entorno. Desde F3, el desarrollo publica también MinIO en 9095 (API) y
   9096 (consola) y Mailpit en 1029 (SMTP) y 8029 (web), en el loopback del VPS y por túnel; desde F6, GeoServer en 8095,
-  y desde F8, Gotenberg en 8096.
+  y desde el 2026-10-19, `sgspe-latex` en 8097 (ADR-0030). El 8096, de Gotenberg en F8, queda libre al retirarlo y no
+  se reutiliza en esta fase.
 - Los servicios de apoyo se agregan al `compose.yml` en la fase que los necesita: almacenamiento S3 (MinIO) y servidor
-  SMTP de prueba (Mailpit) en F3, GeoServer en F6 y Gotenberg en F8 (`gotenberg`,
-  `127.0.0.1:${SGSPE_GOTENBERG_PORT:-8096}:3000`, sin volúmenes; también servicio de la CI); el pico técnico de F1 los
-  levanta solo para probar la ruta de entregables (ASM-014, ASM-038).
+  SMTP de prueba (Mailpit) en F3, GeoServer en F6 y, desde el 2026-10-19, `sgspe-latex` (`latex`, construido desde
+  `develop/latex/Dockerfile`, en `127.0.0.1:${SGSPE_LATEX_PORT:-8097}`, sin volúmenes; también servicio de la CI), que
+  reemplaza al Gotenberg de F8; el pico técnico de F1 los levanta solo para probar la ruta de entregables (ASM-014,
+  ASM-038).
 - Las credenciales de GitHub Packages para descargar wasichai van en variables de entorno, nunca en archivos del
   repositorio; los paquetes Maven son públicos y los npm son internos, así que la CI de `sgspe-ui` necesita un token de
   lectura de paquetes.
@@ -743,11 +746,11 @@ cambió qué y por qué (RQ-AUD-014).
 | 4 | Deriva del modelo por ediciones en `/admin` | Producción distinta del repositorio, sin auditoría de metadata | `apply.py` resincroniza; el repositorio es la fuente de verdad | GAP-030, UPS-02, RNF-MNT-002 |
 | 5 | Escrituras concurrentes por la API genérica: el `PUT` reemplaza el registro | Se pierden cambios (gana el último) | Precondición sobre `updatedAt` en el portal y en los comandos; por la API genérica, wasichai la compara en la propia escritura con la versión leída y las que la siguieron por saltos exactos de derivados (ADR-0027) | UPS-04, ASM-035, ASM-091, RNF-INT-003 |
 | 6 | Listeners no atómicos por la API genérica | Derivados desactualizados por un rato | Recalculadores idempotentes y `DerivedFieldsJob` | [domain-model §7.5] |
-| 7 | LibreOffice pagina y numera distinto que Word; fuentes sin licencia | Entregables con otro aspecto que DOC-01 | Pico técnico en F1, constructos de Word restringidos, fuentes métricamente compatibles | ASM-014, ASM-055, RQ-SEC-019 |
+| 7 | El DOCX (Word) y el PDF (LuaLaTeX) paginan distinto; fuentes sin licencia | Entregables con otro aspecto que DOC-01; números de página distintos entre formatos | Mismo modelo y mismos números literales de leyenda en los dos, prueba de paridad, constructos de Word restringidos y fuentes libres (Source Serif 4 y Source Sans 3 en el PDF, Caladea y Carlito en el DOCX) | ASM-014, ASM-055, ASM-139, ASM-141, RQ-SEC-019 |
 | 8 | GeoServer pasa a ser necesario para emitir mapas y su WMS no autentica | Emisión bloqueada si cae; fuga si se expone | Red interna, proxy autenticado con lista blanca, solo capas no sensibles; el borrador muestra un aviso | ASM-038, RQ-SEC-011, RQ-REP-030 |
 | 9 | Token en `localStorage` expuesto a XSS; sin revocación | Sesión robada válida hasta que vence | CSP en el proxy, TTL corto, límite de tasa; revocación pedida upstream | RQ-SEC-001, RQ-SEC-015, UPS-09 |
 | 10 | Docker de desarrollo remoto | Pruebas de integración lentas o imposibles en local | CI y modo de base externa por túnel | [WAS-DOC modules/testing.md] |
-| 11 | Gotenberg tarda o falla con un entregable de unas 100 páginas con fotos | Borradores FALLIDO o lentos | Generación en segundo plano, un pedido a la vez con plazo de 180 s, pedidos viejos retomados y fotos reducidas; la suite lenta de 100 páginas; la emisión solo copia las versiones candidatas ya generadas | RQ-REP-021, ASM-014 |
+| 11 | `sgspe-latex` tarda o falla con un entregable de unas 100 páginas con fotos (unas tres pasadas de LuaLaTeX) | Borradores FALLIDO o lentos | Generación en segundo plano, un pedido por nivel a la vez con plazo de 180 s, pedidos viejos retomados y fotos reducidas; la suite lenta de 100 páginas; la emisión solo copia las versiones candidatas ya generadas | RQ-REP-021, ASM-014, ASM-139 |
 | 12 | Datos personales en artefactos versionados o en logs | Incumple USR-07 | Verificación local contra una lista de nombres fuera del repositorio; logs sin datos personales | RQ-SEC-018, RQ-SEC-010 |
 | 13 | Trabajos horarios sobre todos los tenants sin volúmenes conocidos | Vueltas largas | Medir antes de optimizar; procesar solo lo cambiado | GAP-027, RQ-DSH-031 |
 | 14 | Licencia de MinIO (AGPL) y disponibilidad de su imagen | Restricción de uso en producción | Cualquier almacenamiento compatible con S3 en producción | GAP-022 |

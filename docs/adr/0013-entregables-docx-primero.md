@@ -3,7 +3,9 @@
 ## Estado
 
 Aceptado · 2026-10-13 (F8), con las leyendas de número literal, marcador y PAGEREF que eligió el spike de F1 y las
-decisiones del usuario del 2026-10-12 y del 2026-10-13 (ASM-133, ASM-135)
+decisiones del usuario del 2026-10-12 y del 2026-10-13 (ASM-133, ASM-135). Reemplazado en parte el 2026-10-19 por
+[ADR-0030](0030-pdf-de-imprenta-con-lualatex.md): el PDF ya no se convierte desde el DOCX con Gotenberg, sino que se
+compone con LuaLaTeX desde el mismo modelo congelado; lo demás sigue vigente
 
 ## Contexto
 

@@ -56,8 +56,8 @@ set -a; source develop/.env; set +a
 | `WASICHAI_NOTIFICATIONS_EMAIL_ENABLED` / `_FROM` | `false` / `avisos@sgspe.test` | el canal de correo de wasichai-notifications (GAP-021), apagado por defecto |
 | `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT` | `localhost` / `1029` | el SMTP de prueba (Mailpit) de `compose.yml`, por el túnel; el perfil `prod` no tiene servidor por defecto y, con el correo encendido, `ProdGuard` exige `SPRING_MAIL_HOST` |
 | `SGSPE_SMTP_PORT` / `SGSPE_MAILPIT_PORT` | `1029` / `8029` | puertos que publica `compose.yml` para el SMTP y la web de Mailpit |
-| `SGSPE_GOTENBERG_PORT` | `8096` | desde F8, el puerto que publica `compose.yml` para Gotenberg en `127.0.0.1` (sección «Gotenberg») |
-| `SGSPE_DELIVERABLE_GOTENBERG_URL` | `http://localhost:8096` | desde F8, la URL de Gotenberg por el túnel (`sgspe.deliverable.gotenberg.url`); sin Gotenberg, los borradores quedan FALLIDO con `PDF_CONVERTER_UNAVAILABLE` |
+| `SGSPE_LATEX_PORT` | `8097` | desde el 2026-10-19 (ADR-0030), el puerto que publica `compose.yml` para `sgspe-latex` en `127.0.0.1` (sección «LaTeX (sgspe-latex)»); reemplaza a `SGSPE_GOTENBERG_PORT` |
+| `SGSPE_DELIVERABLE_LATEX_URL` | `http://localhost:8097` | desde el 2026-10-19, la URL de `sgspe-latex` por el túnel (`sgspe.deliverable.latex.url`); sin él, los borradores quedan FALLIDO con `PDF_CONVERTER_UNAVAILABLE`. Reemplaza a `SGSPE_DELIVERABLE_GOTENBERG_URL` |
 | `SGSPE_TEST_S3_ENDPOINT` / `_ACCESS_KEY` / `_SECRET_KEY` | comentadas | el MinIO de `FileStoreContractTest` cuando Testcontainers no alcanza el Docker remoto (sección 6) |
 
 `WASICHAI_DB_*`, `WASICHAI_JWT_SECRET` y `WASICHAI_SEED_DEV` tienen el mismo valor por defecto en
@@ -82,8 +82,8 @@ docker compose exec postgis createdb -U sgspe sgspe_test   # una sola vez: la ba
 - Los servicios de apoyo llegan con su fase. Desde F3: MinIO (`sgspe-minio`, API en 9095 y consola en 9096, usuario
   `sgspe` / `sgspe-minio`) guarda los archivos de las evidencias con `WASICHAI_FILES_STORE=s3`, y Mailpit (`sgspe-mailpit`,
   SMTP en 1029 y web en 8029) recibe los correos de las notificaciones con `WASICHAI_NOTIFICATIONS_EMAIL_ENABLED=true`, sin
-  entregarlos. GeoServer llega en F6 y Gotenberg en F8 (sección
-  «Gotenberg»).
+  entregarlos. GeoServer llega en F6 y, desde el 2026-10-19, `sgspe-latex`, que reemplaza al Gotenberg de F8 (sección
+  «LaTeX (sgspe-latex)»).
 - Empezar de cero: `docker compose down -v` borra el volumen y todos los datos.
 
 ### GeoServer
@@ -118,22 +118,33 @@ SQL
 
 Las capas públicas se publican con `publish_layers.py`, después de `load_ubigeo.py` (sección 5).
 
-### Gotenberg
+### LaTeX (sgspe-latex)
 
-Desde F8 (plan 8.2c) el compose trae el servicio `gotenberg` (`gotenberg/gotenberg:8.37.0-libreoffice`, la etiqueta exacta del plan 8.2c, con las banderas
-`--api-timeout=180s --api-disable-download-from=true --webhook-disable=true --pdfengines-disable-routes=true
---libreoffice-auto-start=true --log-std-format=json`; contenedor `sgspe-gotenberg`, sin volúmenes, sin webhooks ni
-descargas remotas): en el VPS escucha
-en `127.0.0.1:8096` (`SGSPE_GOTENBERG_PORT`, contenedor 3000) y se alcanza por el túnel `ssh -fN -L 8096:localhost:8096
-"$SGSPE_VPS"`. Solo lo llama JOB-05 y nunca es público (ADR-0026). El backend lo encuentra con
-`SGSPE_DELIVERABLE_GOTENBERG_URL=http://localhost:8096`; `application-prod.yml` no le da valor por defecto.
-
-Las pruebas que convierten con Gotenberg llevan la etiqueta `gotenberg` y corren en la CI, donde un paso `docker run` del trabajo de
-integración lo levanta con las mismas banderas (comprobado en la CI el 2026-10-15); aquí corren con el túnel abierto y la misma variable. La suite lenta (`slowTest`, a
-pedido, desde 8.2c) pide GetMap a un GeoServer real y genera un T1 de unas 100 páginas con 40 fotos en menos de 180 s:
+Desde el 2026-10-19 (ADR-0030, ASM-139) el PDF de los entregables se compone con LuaLaTeX en el servicio `latex`
+(contenedor `sgspe-latex`), que reemplaza a Gotenberg. La imagen es propia y se construye desde
+`develop/latex/Dockerfile`: `debian:trixie-slim` fijada por digest, TeX Live de Debian con `latexmk`, Source Sans 3 de
+Debian, Source Serif 4 con SHA-256 fijo y un envoltorio HTTP en Python de biblioteca estándar. Corre sin volúmenes, con
+el sistema de archivos de solo lectura y un tmpfs, un usuario sin privilegios y sin red de salida; compone sin
+`shell-escape`, con `--nosocket`, `openin_any=p` y `openout_any=p`, y una composición a la vez. Se construye y se
+levanta en el Docker remoto con:
 
 ```bash
-SGSPE_DELIVERABLE_GOTENBERG_URL=http://localhost:8096 WASICHAI_GIS_GEOSERVER_URL=http://localhost:8095/geoserver \
+DOCKER_HOST=unix:///tmp/docker.sock docker compose -p sgspe up -d --build latex
+```
+
+En el VPS escucha en `127.0.0.1:8097` (`SGSPE_LATEX_PORT`) y se alcanza por el túnel
+`ssh -fN -L 8097:localhost:8097 "$SGSPE_VPS"`. Solo lo llama JOB-05 y nunca es público (ADR-0026). El backend lo
+encuentra con `SGSPE_DELIVERABLE_LATEX_URL=http://localhost:8097` (`sgspe.deliverable.latex.url`, con plazo
+`sgspe.deliverable.latex.timeout` de 180 s); `application-prod.yml` no le da valor por defecto. El puerto 8096, que usaba
+Gotenberg, queda libre y no se reutiliza en esta fase.
+
+Las pruebas que componen con LuaLaTeX llevan la etiqueta `latex` (`LatexPdfTest`, que reemplaza a `GotenbergPdfTest`) y
+corren en la CI, donde un paso del trabajo de integración construye la imagen y la levanta; aquí corren con el túnel
+abierto y la misma variable. La suite lenta (`slowTest`, a pedido) pide GetMap a un GeoServer real y genera un T1 de
+unas 100 páginas con 40 fotos en menos de 180 s por pedido:
+
+```bash
+SGSPE_DELIVERABLE_LATEX_URL=http://localhost:8097 WASICHAI_GIS_GEOSERVER_URL=http://localhost:8095/geoserver \
   GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew slowTest --rerun
 ```
 

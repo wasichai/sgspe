@@ -51,7 +51,7 @@ estados copiados del [índice de ADR](adr/README.md).
 | [ADR-0010](adr/0010-repositorios-sgspe-y-sgspe-ui.md) | Repositorios `sgspe` y `sgspe-ui` | Aceptado |
 | [ADR-0011](adr/0011-auditoria.md) | Auditoría sobre el `audit_log` de wasichai | Aceptado |
 | [ADR-0012](adr/0012-estados-temporales-materializados.md) | Estados temporales materializados por trabajos programados | Aceptado |
-| [ADR-0013](adr/0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Aceptado (F8) |
+| [ADR-0013](adr/0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Aceptado (F8); el PDF, reemplazado el 2026-10-19 por [ADR-0030](adr/0030-pdf-de-imprenta-con-lualatex.md) (PDF con LuaLaTeX) |
 | [ADR-0014](adr/0014-almacenamiento-de-objetos.md) | Evidencias y entregables en almacenamiento de objetos | Aceptado |
 | [ADR-0015](adr/0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Aceptado (F6 y F8) |
 | [ADR-0016](adr/0016-kpis-en-vivo-y-echarts.md) | KPIs calculados en vivo y ECharts como librería de gráficos | Aceptado (en uso desde F2) |
@@ -283,7 +283,7 @@ Dónde vive cada pregunta de auditoría [PRM-01 §18]:
 
 | Mandato | Veredicto | Cómo se cumple en SGSPE | wasichai | ADR de SGSPE | Brecha o CON | Requisitos |
 |---|---|---|---|---|---|---|
-| SOLID, DRY, KISS, Clean Code, DDD, principios hexagonales e inversión de dependencias | SGSPE | Agregados con invariantes y mecanismo; puertos para el almacenamiento, la conversión a PDF, los mapas y el LLM | WAS-ADR-0025 | ADR-0008 | — | RNF-MNT-005 |
+| SOLID, DRY, KISS, Clean Code, DDD, principios hexagonales e inversión de dependencias | SGSPE | Agregados con invariantes y mecanismo; puertos para el almacenamiento, la composición del PDF (`PdfRenderer`), los mapas y el LLM | WAS-ADR-0025 | ADR-0008 | — | RNF-MNT-005 |
 | Evitar clases y servicios dios, utilitarios genéricos y repositorios gigantes | SGSPE | Sin repositorios propios: los registros se leen y escriben con `RecordService`; paquetes por capacidad | WAS-ADR-0003 | ADR-0008 | — | RNF-MNT-005 |
 | Evitar máquinas de estado con strings y strings mágicos | Plataforma + SGSPE | Estados definidos en metadata con nombres canónicos; roles leídos de `roles.json`, sin literales en el código | WAS-ADR-0013 | ADR-0009, ADR-0021 | — | RNF-MNT-004, RQ-SEC-005 |
 | Evitar lógica de negocio en los controladores | SGSPE | Controladores delgados; las reglas viven en guardas, servicios de comando y funciones puras | WAS-ADR-0040 | ADR-0008 | — | RQ-AUD-004 |
@@ -438,7 +438,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | Las etiquetas de la metadata tienen un solo idioma | CON-051 | Interfaz bilingüe; metadata en español |
 | La interfaz no dibuja geometrías `MULTI*` | CON-060 | Se aceptan por API e importación |
 | Las automatizaciones no tienen disparadores temporales | CON-043 | Trabajos programados con `ClusterLock` |
-| wasichai-documents no genera DOCX ni PDF en el servidor | CON-045 | `sgspe.deliverable` con Apache POI y Gotenberg |
+| wasichai-documents no genera DOCX ni PDF en el servidor | CON-045 | `sgspe.deliverable` con Apache POI para el DOCX y LuaLaTeX (`sgspe-latex`) para el PDF (ASM-139) |
 | El token viaja en `localStorage`, no en una cookie HttpOnly | CON-056, RQ-SEC-001 | CSP, TTL corto; la cookie queda como propuesta upstream |
 | El WMS de GeoServer no autentica | RQ-SEC-011, CON-054 | Proxy autenticado con lista blanca por tenant, que exige READ sobre el objeto de cada capa |
 
@@ -544,8 +544,9 @@ de GIS, importación y emisión, sin copiar los rodeos que 0.3.x ya no necesita 
 | Componente de mapa con MapLibre cargado de forma diferida | srtm-ui | Mapa territorial del portal | Capas agrupadas, leyenda de paleta compartida y ficha contextual | RQ-GIS-014 |
 | Pruebas de arquitectura por escaneo de fuentes y CI con acciones fijadas por SHA | caja | Backend y `sgspe-ui` | Reglas propias de SGSPE (§2.1) | RNF-MNT-005 |
 
-No se reutilizan la ruta de PDF de srtm (Thymeleaf y OpenHTMLtoPDF), reemplazada por DOCX primero con Gotenberg (ASM-014),
-ni el buzón de salida de caja, porque el MVP no integra sistemas externos.
+No se reutilizan la ruta de PDF de srtm (Thymeleaf y OpenHTMLtoPDF), reemplazada por el DOCX con Apache POI (ASM-014) y,
+desde el 2026-10-19, por el PDF compuesto con LuaLaTeX desde el mismo modelo (ASM-139), ni el buzón de salida de caja,
+porque el MVP no integra sistemas externos.
 
 ## 6. Versiones fijadas
 
@@ -579,7 +580,7 @@ actualiza en `sgspe-ui`, que pasó a 1.0.0 el mismo día.
 | PDFBox | 3, en `main` desde F7 (extracción de texto, ASM-132); en F8 verifica cada PDF generado | F7 | RQ-REP-017, ASM-132 |
 | ECharts | 6 | F2 | RQ-DSH-035, ASM-046 |
 | GDAL (`gdal-bin`: `ogrinfo` y `ogr2ogr`, en la CI y en el desarrollo) | 3.8 o superior | F6 | RQ-GIS-018, ASM-056, ASM-127 |
-| Gotenberg | `gotenberg/gotenberg:8.37.0-libreoffice`, la etiqueta exacta que fijó el plan 8.2c; puerto 8096 en el loopback | F8 (pico técnico en F1) | ASM-014 |
+| `sgspe-latex` (LuaLaTeX) | Imagen propia `develop/latex/Dockerfile` sobre `debian:trixie-slim` fijada por digest, con TeX Live de Debian (LuaHBTeX 1.18), `latexmk`, Source Sans 3 de Debian y Source Serif 4 con SHA-256 fijo; puerto 8097 en el loopback. Reemplaza desde el 2026-10-19 a Gotenberg (`gotenberg/gotenberg:8.37.0-libreoffice` en el 8096, de F8), que se retira | F8 (2026-10-19) | ASM-139, ASM-141 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1` | F6 | ASM-038 |
 | MinIO | `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` y `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`, solo en desarrollo y en las pruebas, por su licencia AGPL | F3 | ASM-013, GAP-022 |
 | Mailpit (SMTP de prueba) | `axllent/mailpit:v1.31.2`, solo en desarrollo | F3 | GAP-021 |
