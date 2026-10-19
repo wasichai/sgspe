@@ -20,7 +20,9 @@ class DeliverableTemplatesApiTest : F8ApiTest() {
         fileName: String,
         key: String,
         token: String = this.token,
-        idempotency: String? = null
+        idempotency: String? = null,
+        logo: ByteArray? = null,
+        accent: String? = null
     ): Response {
         val parts =
             MultipartBodyBuilder()
@@ -28,6 +30,8 @@ class DeliverableTemplatesApiTest : F8ApiTest() {
                     part("file", bytes, MediaType.APPLICATION_OCTET_STREAM).filename(fileName)
                     part("templateKey", key)
                     part("name", "Plantilla de la Asociación Ejemplo")
+                    logo?.let { part("logo", it, MediaType.APPLICATION_OCTET_STREAM).filename("logo.png") }
+                    accent?.let { part("accentColor", it) }
                 }.build()
         val result =
             client
@@ -76,5 +80,30 @@ class DeliverableTemplatesApiTest : F8ApiTest() {
         assertEquals(HttpStatus.FORBIDDEN, upload(BaseTemplate.bytes, "p.dotx", "sin-permiso", manager.token).status)
         send("GET", "/api/sgspe/deliverable-templates", null, HttpStatus.OK, manager.token)
         send("GET", "/api/sgspe/deliverable-templates", null, HttpStatus.FORBIDDEN, userWithRole("FIELD_AGENT").token)
+    }
+
+    private fun png(): ByteArray =
+        java.io
+            .ByteArrayOutputStream()
+            .also { javax.imageio.ImageIO.write(java.awt.image.BufferedImage(300, 90, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", it) }
+            .toByteArray()
+
+    // ASM-140: la marca del PDF se sube con la plantilla: el logo queda en su campo FILE y el acento en mayúsculas
+    @Test
+    fun `la plantilla lleva el logo y el acento del PDF, y un logo que no es imagen o un acento mal escrito son 422`() {
+        val key = uniqueName("marca-").lowercase()
+        val created = upload(BaseTemplate.bytes, "sgspe-base.dotx", key, logo = png(), accent = "2e7d32")
+        assertEquals(HttpStatus.CREATED, created.status, created.body)
+        val id = tree(created.body)["id"].asString()
+        val attributes = record("deliverable_template", id)["attributes"]
+        assertEquals(BrandLogo.PNG, attributes["logo"]["contentType"].asString())
+        assertEquals("2E7D32", attributes["accent_color"].asString())
+        val listed = tree(send("GET", "/api/sgspe/deliverable-templates", null, HttpStatus.OK)).values().single { it["templateKey"].asString() == key }
+        assertTrue(listed["hasLogo"].asBoolean())
+        assertEquals("2E7D32", listed["accentColor"].asString())
+        val svg = upload(BaseTemplate.bytes, "sgspe-base.dotx", uniqueName("svg-").lowercase(), logo = "<svg/>".toByteArray(), accent = "#123")
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, svg.status, svg.body)
+        val codes = tree(svg.body)["violations"].values().map { it["code"].asString() }.toSet()
+        assertEquals(setOf(BrandLogo.LOGO_INVALID, BrandLogo.ACCENT_INVALID), codes)
     }
 }

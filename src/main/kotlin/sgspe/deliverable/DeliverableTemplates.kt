@@ -51,7 +51,9 @@ data class TemplateSummary(
     val name: String?,
     val sha256: String?,
     val createdAt: String?,
-    val warnings: List<TemplateFinding>
+    val warnings: List<TemplateFinding>,
+    val hasLogo: Boolean = false,
+    val accentColor: String? = null
 )
 
 // las plantillas Word de la organización (especificación de F8 §3.3, ASM-135): subirlas exige MANAGE_METADATA sobre deliverable
@@ -79,11 +81,15 @@ class DeliverableTemplates(
         fileName: String,
         bytes: ByteArray,
         templateKey: String,
-        name: String?
+        name: String?,
+        logo: ByteArray? = null,
+        accent: String? = null
     ): CommandAnswer {
         authorizeUpload()
         if (!KEY.matches(templateKey)) throw ValidationException("Clave inválida", "templateKey", "de 1 a 64 letras minúsculas, dígitos o guiones")
-        val report = withContext(Dispatchers.IO) { validator.validate(bytes, fileName) }
+        // la plantilla Word y la marca del PDF (ASM-140) se validan juntas: una violación de cualquiera es TEMPLATE_INVALID
+        val validated = withContext(Dispatchers.IO) { validator.validate(bytes, fileName) }
+        val report = validated.copy(violations = validated.violations + BrandLogo.problems(logo, accent))
         if (!report.valid) throw TemplateInvalid(report)
         // en una transacción propia, como las copias de la emisión (decisión 9 del plan 8.2b): si el alta falla, la subida queda
         // sin adjuntar y la borra StoredFileCleanup, en lugar de un objeto en el almacén sin su fila
@@ -95,6 +101,14 @@ class DeliverableTemplates(
                     FileUpload(fileName, Deliverables.DOCX_TYPE, Flux.just(DefaultDataBufferFactory.sharedInstance.wrap(bytes)))
                 )
             }
+        val stagedLogo =
+            logo?.let { image ->
+                val type = BrandLogo.type(image)!!
+                val logoName = if (type == BrandLogo.PNG) "logo.png" else "logo.jpg"
+                transactions.independent {
+                    files.stage(Deliverables.TEMPLATE, LOGO, FileUpload(logoName, type, Flux.just(DefaultDataBufferFactory.sharedInstance.wrap(image))))
+                }
+            }
         val created =
             records.create(
                 Deliverables.TEMPLATE,
@@ -102,6 +116,8 @@ class DeliverableTemplates(
                     "template_key" to templateKey,
                     "name" to name,
                     FILE to staged.id.toString(),
+                    LOGO to stagedLogo?.id?.toString(),
+                    ACCENT to accent?.uppercase(),
                     "validation_warnings" to report.warnings.joinToString("\n") { "${it.code} ${it.detail}" }.ifEmpty { null }
                 ).filterValues { it != null },
                 "plantilla $templateKey"
@@ -127,19 +143,24 @@ class DeliverableTemplates(
                     row.createdAt?.toString(),
                     row.attributes["validation_warnings"]?.toString().orEmpty().lines().filter { it.isNotBlank() }.map {
                         TemplateFinding(it.substringBefore(' '), it.substringAfter(' ', ""))
-                    }
+                    },
+                    row.attributes[LOGO] is Map<*, *>,
+                    row.attributes[ACCENT]?.toString()
                 )
             }
     }
 
     companion object {
         const val FILE = "file"
+        const val LOGO = "logo"
+        const val ACCENT = "accent_color"
         private val KEY = Regex("[a-z0-9][a-z0-9-]{0,63}")
     }
 }
 
-// api.md §4.12: POST multipart (file, templateKey, name; Idempotency-Key: el cuerpo de la clave es la clave, el nombre y el
-// SHA-256 del archivo), con el permiso comprobado antes de leer el cuerpo, y GET
+// api.md §4.12: POST multipart (file, templateKey, name y, desde ASM-140, logo y accentColor; Idempotency-Key: el cuerpo de la
+// clave es la clave, el nombre, el acento y los SHA-256 del archivo y del logo), con el permiso comprobado antes de leer el
+// cuerpo, y GET
 @RestController
 class DeliverableTemplatesController(
     private val templates: DeliverableTemplates,
@@ -156,7 +177,7 @@ class DeliverableTemplatesController(
         // el permiso antes de leer el cuerpo: el multipart se lee entero (y el archivo, hasta el tope) al pedir multipartData
         templates.authorizeUpload()
         val parts = exchange.multipartData.awaitSingle()
-        StrictBody.requireOnly(parts, setOf("file", "templateKey", "name"))
+        StrictBody.requireOnly(parts, setOf("file", "templateKey", "name", "logo", "accentColor"))
         val file = parts.getFirst("file") as? FilePart ?: throw ValidationException("Falta el archivo", "file", "envíe la plantilla en la parte file")
         val templateKey =
             (parts.getFirst("templateKey") as? FormFieldPart)?.value()?.trim()
@@ -175,8 +196,26 @@ class DeliverableTemplatesController(
                 .substringAfterLast('/')
                 .substringAfterLast('\\')
                 .take(MAX_NAME)
-        val keyBody = mapOf("templateKey" to templateKey, "name" to name, "sha256" to CanonicalJson.sha256(bytes))
-        return idempotency.respond(key, "POST", exchange.request.path.value(), keyBody) { templates.upload(fileName, bytes, templateKey, name) }
+        // la marca del PDF (ASM-140): el logo hasta su tope (uno más grande es LOGO_INVALID) y el acento
+        val logo =
+            (parts.getFirst("logo") as? FilePart)?.let { part ->
+                try {
+                    val joined = DataBufferUtils.join(part.content(), (BrandLogo.MAX_BYTES + 1).toInt()).awaitSingle()
+                    ByteArray(joined.readableByteCount()).also { joined.read(it) }.also { DataBufferUtils.release(joined) }
+                } catch (_: DataBufferLimitException) {
+                    ByteArray((BrandLogo.MAX_BYTES + 1).toInt())
+                }
+            }
+        val accent = (parts.getFirst("accentColor") as? FormFieldPart)?.value()?.trim()?.ifEmpty { null }
+        val keyBody =
+            mapOf(
+                "templateKey" to templateKey,
+                "name" to name,
+                "sha256" to CanonicalJson.sha256(bytes),
+                "logoSha256" to logo?.let { CanonicalJson.sha256(it) },
+                "accentColor" to accent
+            )
+        return idempotency.respond(key, "POST", exchange.request.path.value(), keyBody) { templates.upload(fileName, bytes, templateKey, name, logo, accent) }
     }
 
     @GetMapping("/api/sgspe/deliverable-templates")

@@ -18,6 +18,7 @@ import sgspe.common.SweepTiming
 import sgspe.privacy.CanonicalJson
 import sgspe.privacy.Disclosure
 import sgspe.privacy.PersonalDataScan
+import sgspe.privacy.ReportBrand
 import sgspe.privacy.ReportDisclosure
 import sgspe.privacy.ReportModel
 import sgspe.privacy.ReportWarning
@@ -205,7 +206,12 @@ class DraftGeneration(
                 .sorted()
                 .map { ReportWarning(Deliverables.MAP_FAILED, it) } +
                 PersonalDataScan.scan(assembled.texts, assembled.personNames)
-        val model = assembled.model.copy(maps = drawn, warnings = assembled.model.warnings + warnings)
+        val model =
+            assembled.model.copy(
+                meta = assembled.model.meta.copy(brand = template.brand),
+                maps = drawn,
+                warnings = assembled.model.warnings + warnings
+            )
         val bytes = CanonicalJson.bytes(model)
         if (bytes.size > properties.maxFileBytes) throw DraftFailure(Deliverables.FILE_TOO_LARGE, Deliverables.DRAFT_MODEL)
         records.patch(
@@ -226,7 +232,8 @@ class DraftGeneration(
     private class Template(
         val id: String?,
         val sha256: String,
-        val bytes: ByteArray
+        val bytes: ByteArray,
+        val brand: ReportBrand? = null
     )
 
     // la plantilla más reciente de la clave (especificación de F8 §2.2.4), con su SHA-256 comprobado; sin clave, la base
@@ -240,7 +247,14 @@ class DraftGeneration(
                 ?: throw DraftFailure(Deliverables.TEMPLATE_UNAVAILABLE)
         val descriptor = latest.attributes["file"] as? Map<*, *> ?: throw DraftFailure(Deliverables.TEMPLATE_UNAVAILABLE)
         val bytes = read(organizationId, descriptor, Deliverables.TEMPLATE_UNAVAILABLE)
-        return Template(latest.id, descriptor["sha256"].toString(), bytes)
+        // la marca del PDF (ASM-140): se congela por archivo y SHA-256; los bytes del logo se leen al generar, como las fotos
+        val logo = latest.attributes[DeliverableTemplates.LOGO] as? Map<*, *>
+        val accent = latest.attributes[DeliverableTemplates.ACCENT]?.toString()?.uppercase()
+        val brand =
+            ReportBrand(logo?.get("id")?.toString(), logo?.get("sha256")?.toString(), accent).takeIf {
+                it.logoFile != null || it.accent != null
+            }
+        return Template(latest.id, descriptor["sha256"].toString(), bytes, brand)
     }
 
     // los bytes de un archivo de wasichai-files como la plataforma, con su SHA-256 igual al del descriptor (UPS-31)
@@ -273,13 +287,15 @@ class DraftGeneration(
             model.photos.mapValues { (_, ref) ->
                 read(organizationId, mapOf("id" to ref.file, "sha256" to ref.sha256), Deliverables.GENERATION_FAILED)
             }
+        val brand = model.meta.brand
+        val logo = brand?.logoFile?.let { read(organizationId, mapOf("id" to it, "sha256" to brand.logoSha256), Deliverables.TEMPLATE_UNAVAILABLE) }
         val code = model.meta.code
         val out = mutableListOf(DraftFile(Deliverables.DRAFT_MODEL, "$code-modelo.json", Deliverables.MODEL_TYPE, frozen.bytes))
         for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
             val leveled = ReportDisclosure.apply(model, level)
             val levelPhotos = photos.filterKeys { it in leveled.photos.keys }
             // el PDF se compone desde el mismo modelo del nivel, no desde el DOCX (ADR-0030): un pedido da la candidata y el borrador
-            val bundle = latex.write(LatexWriter.Input(leveled, frozen.author, levelPhotos))
+            val bundle = latex.write(LatexWriter.Input(leveled, frozen.author, levelPhotos, logo, brand?.accent))
             val pdfs = pdf.render(bundle, PdfRequest(correlation))
             check(pdfs.draft, level, candidate = false)
             check(pdfs.candidate, level, candidate = true)

@@ -1465,6 +1465,8 @@
         {"name": "template_key", "label": "Clave de la plantilla", "type": "TEXT", "required": true, "description": "Clave que nombra deliverable.template_key; otra plantilla con la misma clave la reemplaza para los borradores siguientes."},
         {"name": "name", "label": "Nombre", "type": "TEXT", "description": "Nombre para mostrar."},
         {"name": "file", "label": "Archivo", "type": "FILE", "contentTypes": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"], "maxBytes": 20971520, "required": true, "description": "Archivo de la plantilla; wasichai-files guarda su nombre, su tipo, su tamaño y su SHA-256, que el borrador congela."},
+        {"name": "logo", "label": "Logo", "type": "FILE", "contentTypes": ["image/png", "image/jpeg"], "maxBytes": 2097152, "description": "Logo de la organización para la portada del PDF (ASM-140): PNG o JPEG de hasta 2 MB y 4000 px por lado, validado al subir; nunca SVG."},
+        {"name": "accent_color", "label": "Color de acento", "type": "TEXT", "description": "Color de acento del PDF en hexadecimal RRGGBB (ASM-140), validado al subir; sin él rige el de SGSPE."},
         {"name": "validation_warnings", "label": "Avisos de la validación", "type": "LONG_TEXT", "description": "Avisos de la validación, como una fuente que solo figura en la tabla de fuentes."}
       ]
     },
