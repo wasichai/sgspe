@@ -360,7 +360,8 @@ La misma anatomía para todo objeto importante [PRM-02 §26]:
    acción (con lo que falta para darla), responsable y vencimiento con escalamiento [PRM-02 §15].
 5. **Pestañas** del objeto (por ejemplo, en un compromiso: Resumen, Acciones, Entregas, Evidencias, Presupuesto, Riesgo,
    Actividad, Auditoría).
-6. **Panel de trazabilidad** a la derecha: "De dónde viene" y "Qué generó" (ux-architecture §8).
+6. **Panel de trazabilidad** a la derecha, con tres grupos fijos: "De dónde viene" (origen), "Qué generó" (consecuencias)
+   y "Lo sustenta" (evidencias y documentos que lo respaldan) (ux-architecture §8). En el teléfono pasa bajo el contenido.
 7. **Últimos movimientos** y enlace a la actividad completa y a la auditoría.
 
 Árbol de componentes de referencia (se detalla por pantalla en `screens.md`):

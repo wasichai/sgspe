@@ -1256,11 +1256,11 @@ PotentialImpactsPage
 └── ImpactTable (ImpactRow · ImpactForm)
 ```
 
-## 10. Programas e inversión
+## 10. Programas sociales
 
 Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se suman entre monedas (ASM-063).
 
-### S42 · Programas e inversión
+### S42 · Programas sociales
 
 - **Ruta y lienzo:** `/projects/:projectId/programs` (programas y aportes en una vista) · hoja `Inv-Lista` · F5; tope desde F3.
 - **Propósito:** ¿cuánto del tope de la campaña queda, cómo avanzan los programas y qué aportes están en curso?
@@ -1568,7 +1568,8 @@ AttentionDashboard
 
 ### S62 · Tablero de riesgos
 
-- **Ruta y lienzo:** `/risks` · hoja `Tab-Riesgos` · F4, F8.
+- **Ruta y lienzo:** `/risks` · hoja `Tab-Riesgos` · F4, F8. Es la vista "Tablero" de Riesgos: la sección aterriza en el
+  registro (S38 y S39, ux-architecture §7.1).
 - **Propósito:** ¿qué puede impedir el proyecto y qué hacemos?
 - **Roles:** lectura para quien lee `social_risk`.
 - **Acciones:** "Ir al registro" (S38 y S39); abrir medidas atrasadas.
