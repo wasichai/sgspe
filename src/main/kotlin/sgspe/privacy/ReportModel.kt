@@ -113,7 +113,8 @@ sealed interface Block {
     ) : Block
 
     // una tabla con título arriba y fuente abajo (RQ-REP-006); `wide` la pone en una sección horizontal; `figure` la numera
-    // como figura (la matriz 5 × 5 y el cuadrante 2 × 2 de T1 son gráficos nativos hechos de una tabla, deliverables.md §7.9)
+    // como figura (la matriz 5 × 5 y el cuadrante 2 × 2 de T1 son gráficos nativos hechos de una tabla, deliverables.md §7.9);
+    // `columns`, los pesos y alineaciones de sus columnas cuando el cálculo de ColumnWidths no basta (ASM-141)
     data class Table(
         val title: String,
         val header: List<String>,
@@ -121,7 +122,8 @@ sealed interface Block {
         val source: String? = null,
         val wide: Boolean = false,
         val mark: Mark? = null,
-        val figure: Boolean = false
+        val figure: Boolean = false,
+        val columns: List<ColumnSpec>? = null
     ) : Block
 
     // fotos de a dos por fila (RQ-REP-010): ids de evidencia de ReportModel.photos
@@ -193,6 +195,13 @@ data class ChartPoint(
 data class ChartSeries(
     val name: String,
     val values: List<String?>
+)
+
+// el ancho y la alineación de una columna fijados por el tipo (ASM-141): `weight`, su peso relativo como texto decimal;
+// `align`, LEFT, RIGHT o CENTER. lo que falta lo calcula ColumnWidths
+data class ColumnSpec(
+    val weight: String? = null,
+    val align: String? = null
 )
 
 // una celda: `colSpan` combina hacia la derecha y `rowSpan` hacia abajo (las celdas cubiertas no se repiten en `rows`);

@@ -48,12 +48,19 @@ import org.commonmark.node.SoftLineBreak
 import org.commonmark.node.StrongEmphasis
 import org.commonmark.node.Text
 import org.commonmark.parser.Parser
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBorder
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STFldCharType
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STLineSpacingRule
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STPageOrientation
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTabJc
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth
 import sgspe.privacy.Block
 import sgspe.privacy.Cell
+import sgspe.privacy.ColumnSpec
 import sgspe.privacy.PhotoRef
 import sgspe.privacy.ReportModel
 import java.io.ByteArrayInputStream
@@ -118,7 +125,7 @@ class DocxWriter(
                         is Block.MapFigure -> map(doc, styles, block, model, captions.of(at), input.author)
                         is Block.LineChart -> lineChart(doc, styles, block, captions.of(at), input.author)
                         is Block.ScatterChart -> scatterChart(doc, styles, block, captions.of(at), input.author)
-                        is Block.Toc -> toc(doc, block)
+                        is Block.Toc -> toc(doc, styles, block)
                         is Block.CaptionList -> captionList(doc, styles, block, captions)
                         is Block.SectionBreak -> {
                             if (block.landscape != landscape) endSection(doc, landscape)
@@ -214,12 +221,26 @@ class DocxWriter(
         }
         val footer = doc.footerList.firstOrNull() ?: doc.createFooter(HeaderFooterType.DEFAULT)
         val p = footer.createParagraph()
-        p.alignment = ParagraphAlignment.CENTER
         val level = levelLabel(model.meta.level).let { if (it.isEmpty()) "" else " · $it" }
-        p.createRun().setText(if (ownFooter) "Página " else "${model.meta.code} · Rev. $revision$level · Página ")
+        if (ownFooter) {
+            p.alignment = ParagraphAlignment.CENTER
+        } else {
+            // el código a la izquierda y la página a la derecha, en un tabulador al borde de la caja de texto (ASM-141)
+            (p.ctp.pPr ?: p.ctp.addNewPPr()).addNewTabs().addNewTab().apply {
+                `val` = STTabJc.RIGHT
+                pos = BigInteger.valueOf(textWidth(doc, false))
+            }
+            p.createRun().setText("${model.meta.code} · Rev. $revision$level")
+            p.createRun().addTab()
+        }
+        p.createRun().setText("Página ")
         field(p, "PAGE")
         p.createRun().setText(" de ")
         field(p, "NUMPAGES")
+        p.runs.forEach { run ->
+            if (run.fontSizeAsDouble == null) run.setFontSize(FOOTER_PT)
+            run.color = ReportDesign.MUTED
+        }
     }
 
     private fun field(
@@ -228,7 +249,13 @@ class DocxWriter(
     ) {
         val simple = p.ctp.addNewFldSimple()
         simple.instr = instruction
-        simple.addNewR().addNewT().stringValue = "1"
+        val run = simple.addNewR()
+        // el número con el tamaño y el color del resto del pie
+        run.addNewRPr().apply {
+            addNewSz().setVal(BigInteger.valueOf(ReportDesign.halfPoints(FOOTER_PT)))
+            addNewColor().setVal(ReportDesign.MUTED)
+        }
+        run.addNewT().stringValue = "1"
     }
 
     private fun paragraph(
@@ -305,7 +332,8 @@ class DocxWriter(
                 var n = (node as? OrderedList)?.markerStartNumber ?: 1
                 while (item != null) {
                     if (item is ListItem) {
-                        val marker = if (node is OrderedList) "${n++}. " else "• "
+                        // el tabulador lleva el texto a la sangría francesa del estilo de lista
+                        val marker = if (node is OrderedList) "${n++}.\t" else "•\t"
                         var child = item.firstChild
                         var first = true
                         while (child != null) {
@@ -432,7 +460,7 @@ class DocxWriter(
         }
         if (rows.isEmpty()) return
         val header = rows.first()
-        grid(doc, styles, header, rows.drop(1).map { r -> r.map { Cell(it) } })
+        grid(doc, styles, header, rows.drop(1).map { r -> r.map { Cell(it) } }, false, null)
     }
 
     private fun plain(node: Node): String {
@@ -463,22 +491,30 @@ class DocxWriter(
         val own = block.wide && !landscape
         if (own) endSection(doc, false)
         captionParagraph(doc, styles, caption, block.title)
-        grid(doc, styles, block.header, block.rows)
+        grid(doc, styles, block.header, block.rows, landscape || block.wide, block.columns)
         sourceParagraph(doc, styles, block.source, author)
         if (own) endSection(doc, true)
     }
 
-    // la grilla de una tabla: cada celda en la primera posición libre de su fila; colSpan con gridSpan, rowSpan con vMerge
+    // la grilla de una tabla: cada celda en la primera posición libre de su fila; colSpan con gridSpan, rowSpan con vMerge. el
+    // ancho de la caja de texto, repartido por ColumnWidths en un tblGrid fijo, con la alineación de cada columna (ASM-141); el
+    // estilo «SGSPE Tabla» de la plantilla o, sin él, filetes arriba, bajo el encabezado y abajo, sin verticales, en Carlito de
+    // 9 pt
     private fun grid(
         doc: XWPFDocument,
         styles: StyleIds,
         header: List<String>,
-        rows: List<List<Cell>>
+        rows: List<List<Cell>>,
+        landscape: Boolean,
+        specs: List<ColumnSpec>?
     ): XWPFTable {
         val columns = maxOf(1, header.size)
+        val capacity = if (landscape) ColumnWidths.LANDSCAPE_CAPACITY else ColumnWidths.PORTRAIT_CAPACITY
+        val widths = ColumnWidths.of(header, rows, capacity, specs)
         val table = doc.createTable(rows.size + 1, columns)
-        styles.table?.let { table.styleID = it }
-        header.forEachIndexed { c, text -> cellText(table.getRow(0).getCell(c), text, bold = true) }
+        layout(table, widths, textWidth(doc, landscape), styles.table)
+        val look = CellLook(widths, direct = styles.table == null)
+        header.forEachIndexed { c, text -> cellText(table.getRow(0).getCell(c), text, bold = true, look, c, header = true) }
         table.getRow(0).isRepeatHeader = true
         // una fila no se parte entre páginas (humo del T1 del 2026-10-16, #83 y #88)
         table.rows.forEach { it.isCantSplitRow = true }
@@ -501,7 +537,7 @@ class DocxWriter(
                     if (colSpan > 1) pr.addNewGridSpan().setVal(BigInteger.valueOf(colSpan.toLong()))
                     if (rowSpan > 1) pr.addNewVMerge().setVal(if (dr == 0) STMerge.RESTART else STMerge.CONTINUE)
                 }
-                cellText(table.getRow(r + 1).getCell(c), cell.text, bold = false)
+                cellText(table.getRow(r + 1).getCell(c), cell.text, bold = false, look, c, header = false)
                 cell.shade?.let { table.getRow(r + 1).getCell(c).color = it }
                 c += colSpan
             }
@@ -510,16 +546,120 @@ class DocxWriter(
         return table
     }
 
+    // la alineación de cada columna y si la tabla lleva formato directo (sin el estilo de tabla de la plantilla)
+    private class CellLook(
+        val columns: List<ColumnWidths.Column>,
+        val direct: Boolean
+    )
+
     private fun cellText(
         cell: XWPFTableCell,
         text: String,
-        bold: Boolean
+        bold: Boolean,
+        look: CellLook,
+        column: Int,
+        header: Boolean
     ) {
         val p = cell.paragraphs.firstOrNull() ?: cell.addParagraph()
+        p.alignment =
+            when (look.columns.getOrNull(column)?.align) {
+                ColumnWidths.Align.RIGHT -> ParagraphAlignment.RIGHT
+                ColumnWidths.Align.CENTER -> ParagraphAlignment.CENTER
+                else -> ParagraphAlignment.LEFT
+            }
+        // sin el espacio después ni el interlineado del cuerpo: la celda lleva su propio relleno
+        (p.ctp.pPr ?: p.ctp.addNewPPr()).addNewSpacing().apply {
+            before = BigInteger.ZERO
+            after = BigInteger.ZERO
+            line = BigInteger.valueOf(SINGLE_LINE)
+            lineRule = STLineSpacingRule.AUTO
+        }
         p.createRun().apply {
             lines(this, text)
             if (bold) isBold = true
+            if (look.direct) {
+                fontFamily = ReportDesign.DOCX_SANS
+                setFontSize(ReportDesign.TABLE_PT)
+            }
         }
+        if (header && look.direct) {
+            cell.color = ReportDesign.HEADER_SHADE
+            val borders = (cell.ctTc.tcPr ?: cell.ctTc.addNewTcPr()).addNewTcBorders()
+            rule(borders.addNewBottom(), ReportDesign.RULE_LIGHT, ReportDesign.RULE)
+        }
+    }
+
+    // el ancho de la tabla (el de la caja), el tblGrid fijo de ColumnWidths, el relleno de las celdas y, sin el estilo de tabla de
+    // la plantilla, los filetes
+    private fun layout(
+        table: XWPFTable,
+        widths: List<ColumnWidths.Column>,
+        width: Long,
+        style: String?
+    ) {
+        val pr = table.ctTbl.tblPr ?: table.ctTbl.addNewTblPr()
+        style?.let { table.styleID = it }
+        (if (pr.isSetTblW) pr.tblW else pr.addNewTblW()).apply {
+            type = STTblWidth.DXA
+            w = BigInteger.valueOf(width)
+        }
+        (if (pr.isSetTblLayout) pr.tblLayout else pr.addNewTblLayout()).type = STTblLayoutType.FIXED
+        val twips = widths.map { Math.round(it.fraction * width) }
+        val grid = table.ctTbl.tblGrid ?: table.ctTbl.addNewTblGrid()
+        while (grid.sizeOfGridColArray() > 0) grid.removeGridCol(0)
+        twips.forEach { grid.addNewGridCol().w = BigInteger.valueOf(it) }
+        table.rows.forEach { row ->
+            row.tableCells.forEachIndexed { c, cell ->
+                val tcPr = cell.ctTc.tcPr ?: cell.ctTc.addNewTcPr()
+                (if (tcPr.isSetTcW) tcPr.tcW else tcPr.addNewTcW()).apply {
+                    type = STTblWidth.DXA
+                    w = BigInteger.valueOf(twips.getOrElse(c) { twips.last() })
+                }
+            }
+        }
+        if (pr.isSetTblCellMar) pr.unsetTblCellMar()
+        val margins = pr.addNewTblCellMar()
+        val side = BigInteger.valueOf(ReportDesign.twips(ReportDesign.CELL_SIDE_CM))
+        val edge = BigInteger.valueOf(ReportDesign.twips(ReportDesign.CELL_EDGE_CM))
+        listOf(margins.addNewLeft() to side, margins.addNewRight() to side, margins.addNewTop() to edge, margins.addNewBottom() to edge).forEach { (m, v) ->
+            m.type = STTblWidth.DXA
+            m.w = v
+        }
+        if (style != null) return
+        // POI crea la tabla con una cuadrícula completa: se reemplaza entera
+        if (pr.isSetTblBorders) pr.unsetTblBorders()
+        val borders = pr.addNewTblBorders()
+        rule(borders.addNewTop(), ReportDesign.RULE_HEAVY, ReportDesign.RULE)
+        rule(borders.addNewBottom(), ReportDesign.RULE_HEAVY, ReportDesign.RULE)
+        rule(borders.addNewInsideH(), ReportDesign.RULE_HAIR, ReportDesign.HAIRLINE)
+        listOf(borders.addNewLeft(), borders.addNewRight(), borders.addNewInsideV()).forEach { it.`val` = STBorder.NIL }
+    }
+
+    private fun rule(
+        border: CTBorder,
+        eighths: Int,
+        color: String
+    ) {
+        border.`val` = STBorder.SINGLE
+        border.sz = BigInteger.valueOf(eighths.toLong())
+        border.space = BigInteger.ZERO
+        border.color = color
+    }
+
+    // el ancho de la caja de texto en twips: el de la página (o su alto, en horizontal) menos los márgenes laterales de la
+    // sección del cuerpo
+    private fun textWidth(
+        doc: XWPFDocument,
+        landscape: Boolean
+    ): Long {
+        val section = bodySection(doc)
+        val w = (section.pgSz?.w as? BigInteger)?.toLong() ?: A4_WIDTH
+        val h = (section.pgSz?.h as? BigInteger)?.toLong() ?: A4_HEIGHT
+        val page = if (landscape) maxOf(w, h) else minOf(w, h)
+        // orient no gira los márgenes: en horizontal siguen siendo los de la izquierda y la derecha
+        val margins = section.pgMar
+        val sides = ((margins?.left as? BigInteger)?.toLong() ?: DEFAULT_MARGIN) + ((margins?.right as? BigInteger)?.toLong() ?: DEFAULT_MARGIN)
+        return (page - sides).coerceAtLeast(MIN_TEXT_WIDTH)
     }
 
     // un «\n» dentro de un w:t lo muestra Word como espacio: cada línea va en su texto y entre ellas, un w:br
@@ -558,10 +698,19 @@ class DocxWriter(
         author: String?
     ) {
         val text = source ?: "Fuente: Elaboración ${author ?: "propia"}"
-        paragraph(doc, styles.normal).createRun().apply {
+        val p = paragraph(doc, styles.source ?: styles.normal)
+        p.createRun().apply {
             lines(this, if (text.startsWith("Fuente:")) text else "Fuente: $text")
-            isItalic = true
-            fontSize = 9
+            if (styles.source == null) {
+                isItalic = true
+                setFontSize(ReportDesign.SOURCE_PT)
+            }
+        }
+        if (styles.source == null) {
+            (p.ctp.pPr ?: p.ctp.addNewPPr()).addNewSpacing().apply {
+                before = BigInteger.valueOf(ReportDesign.twipsOfPoints(3.0))
+                after = BigInteger.valueOf(ReportDesign.twipsOfPoints(12.0))
+            }
         }
     }
 
@@ -733,9 +882,10 @@ class DocxWriter(
     // el índice: el campo TOC complejo, que Word y LibreOffice reconocen; y que Word lo actualice al abrir
     private fun toc(
         doc: XWPFDocument,
+        styles: StyleIds,
         block: Block.Toc
     ) {
-        listTitle(doc, block.title)
+        listTitle(doc, styles, block.title)
         complexField(doc.createParagraph(), "TOC \\o \"1-${block.levels}\" \\h \\z \\u", TOC_PLACEHOLDER)
         doc.enforceUpdateFields()
     }
@@ -747,7 +897,7 @@ class DocxWriter(
         block: Block.CaptionList,
         captions: Captions
     ) {
-        listTitle(doc, block.title)
+        listTitle(doc, styles, block.title)
         for ((caption, title) in captions.ordered.filter { it.first.label.startsWith("${block.kind} ") }) {
             val p = paragraph(doc, styles.normal)
             p.createRun().setText("${caption.label}. $title")
@@ -756,14 +906,18 @@ class DocxWriter(
         }
     }
 
+    // el título del índice o de una lista: con el estilo «SGSPE Título de lista» de la plantilla o, sin él, en negrita de 14 pt
     private fun listTitle(
         doc: XWPFDocument,
+        styles: StyleIds,
         title: String
     ) {
-        doc.createParagraph().createRun().apply {
+        paragraph(doc, styles.listTitle).createRun().apply {
             setText(title)
-            isBold = true
-            fontSize = 14
+            if (styles.listTitle == null) {
+                isBold = true
+                fontSize = 14
+            }
         }
     }
 
@@ -930,7 +1084,9 @@ class DocxWriter(
         val normal: String? get() = id(TemplateStyles.NORMAL)
         val caption: String? get() = id(TemplateStyles.CAPTION)
         val list: String? get() = id(TemplateStyles.LIST)
-        val table: String? get() = id("Table Grid")
+        val table: String? get() = id(TemplateStyles.TABLE)
+        val source: String? get() = id(TemplateStyles.SOURCE)
+        val listTitle: String? get() = id(TemplateStyles.LIST_TITLE)
 
         fun heading(level: Int): String? =
             when (level.coerceIn(1, 4)) {
@@ -959,6 +1115,10 @@ class DocxWriter(
         private const val COVER_WIDTH_CM = 12.0
         private const val A4_WIDTH = 11906L
         private const val A4_HEIGHT = 16838L
+        private const val DEFAULT_MARGIN = 1440L
+        private const val MIN_TEXT_WIDTH = 2880L
+        private const val SINGLE_LINE = 240L
+        private const val FOOTER_PT = 8.5
 
         // las citas, las listas y los énfasis anidados que se escriben con su forma; más adentro, texto plano
         const val MAX_DEPTH = 32
