@@ -14,7 +14,8 @@ import org.springframework.web.reactive.function.client.awaitExchangeOrNull
 // el compositor de PDF de producción (ADR-0030, deliverables.md §7.7): POST /render de sgspe-latex con WebClient, solo desde
 // JOB-05. envía el paquete de LatexWriter como tar y la cabecera X-Trace con el id de la corrida, nada que venga del cliente;
 // recibe un tar con candidata.pdf y borrador.pdf. con plazo sgspe.deliverable.latex.timeout; sin URL, vencido, caído o con una
-// respuesta que no es el tar de los dos PDF, PdfConverterUnavailable (PDF_CONVERTER_UNAVAILABLE). el log lleva el estado HTTP,
+// respuesta que no es el tar de los dos PDF, PdfConverterUnavailable (PDF_CONVERTER_UNAVAILABLE); un 422 (el paquete no
+// compuso), PdfCompositionFailed (GENERATION_FAILED). el log lleva el estado HTTP,
 // el código del error y la línea de main.tex, o la clase de la excepción, nunca el cuerpo
 @Component
 class LatexConverter(
@@ -39,6 +40,7 @@ class LatexConverter(
                 ?.ifEmpty { null } ?: throw PdfConverterUnavailable("Este despliegue no tiene compositor de PDF")
         val body = Tar.write(bundle.files)
         var overfull: Int? = null
+        var refused = false
         val reply =
             (
                 try {
@@ -63,6 +65,7 @@ class LatexConverter(
                                     // el error de sgspe-latex es JSON con su código y la línea de main.tex, sin texto del documento
                                     val detail = runCatching { response.awaitBody<String>() }.getOrNull()?.take(DETAIL_CHARS)
                                     LOG.warn("sgspe-latex respondió {}: {}", response.statusCode().value(), detail)
+                                    refused = response.statusCode().value() == UNPROCESSABLE
                                     null
                                 }
                             }
@@ -76,7 +79,7 @@ class LatexConverter(
                     LOG.warn("sgspe-latex no devolvió los PDF: {}", e.javaClass.simpleName)
                     null
                 }
-            ) ?: throw PdfConverterUnavailable("sgspe-latex no devolvió los PDF")
+            ) ?: if (refused) throw PdfCompositionFailed() else throw PdfConverterUnavailable("sgspe-latex no devolvió los PDF")
         val files = runCatching { Tar.read(reply) }.getOrNull()
         val candidate = files?.get(CANDIDATE)
         val draft = files?.get(DRAFT)
@@ -96,5 +99,6 @@ class LatexConverter(
         val TAR: MediaType = MediaType.parseMediaType("application/x-tar")
         private const val TAR_OVERHEAD = 64 * 1024L
         private const val DETAIL_CHARS = 200
+        private const val UNPROCESSABLE = 422
     }
 }

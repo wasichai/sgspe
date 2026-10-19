@@ -131,6 +131,7 @@ class DraftGeneration(
                 is DraftFailure -> e.code
                 is PdfConverterUnavailable -> Deliverables.PDF_CONVERTER_UNAVAILABLE
                 is PdfTooLarge -> Deliverables.FILE_TOO_LARGE
+                is PdfCompositionFailed -> Deliverables.GENERATION_FAILED
                 else -> Deliverables.GENERATION_FAILED
             }
         if (code == Deliverables.GENERATION_FAILED) {

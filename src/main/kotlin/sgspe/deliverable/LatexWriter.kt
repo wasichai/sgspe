@@ -556,7 +556,7 @@ class LatexWriter(
             block: Block.MapFigure,
             height: String
         ): String {
-            val image = model.maps[block.key]?.internal ?: return "{\\centering\\sgspeausente{Mapa no disponible: ${Deliverables.MAP_FAILED}}\\par}"
+            val image = model.maps[block.key]?.internal ?: return "{\\centering\\sgspeausente{${t("Mapa no disponible: ${Deliverables.MAP_FAILED}")}}\\par}"
             val name = "img/mapa-${safeName(block.key)}.png"
             files[name] = Base64.getDecoder().decode(image.pngBase64)
             val note = if (image.omittedLayers) "\\par{\\sffamily\\small ${t(DocxWriter.OMITTED_LAYERS)}}" else ""

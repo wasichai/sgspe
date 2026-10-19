@@ -217,4 +217,12 @@ class LatexWriterTest {
         assertTrue("nivel 6" in main && "fondo" in main)
         assertEquals(Regex("""\\begin\{quote\}""").findAll(main).count(), Regex("""\\end\{quote\}""").findAll(main).count())
     }
+
+    // un mapa que falló (GeoServer caído) deja su aviso, con el código escapado: un `_` sin escapar rompe la composición
+    @Test
+    fun `un mapa fallido deja su aviso escapado`() {
+        val main = write(Block.MapFigure("anexo-1", "Concesiones"))
+        assertTrue("\\sgspeausente{Mapa no disponible: MAP\\_FAILED}" in main, main)
+        assertFalse(Regex("""(?<!\\)_""").containsMatchIn(main.substringAfter("\\begin{document}")), "un _ sin escapar")
+    }
 }
