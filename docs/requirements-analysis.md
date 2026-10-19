@@ -1521,8 +1521,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 33 |
 | `UPS` | 32 |
-| `ASM` | 141 |
-| Total | 564 |
+| `ASM` | 142 |
+| Total | 565 |
 
 ### 20.2 Requisitos por bounded context
 
@@ -1672,6 +1672,8 @@ Observaciones:
   GAP-010, y ASM-136 detalla ASM-042 y resuelve GAP-018.
 - Los IDs del PDF de imprenta (ASM-139 a ASM-141, 2026-10-19) no retiran ninguno: ASM-139 reemplaza la conversión a PDF
   de ASM-014 (que sigue rigiendo el DOCX), ASM-140 limita al DOCX la plantilla de ASM-135 y ASM-141 fija el diseño común.
+- ASM-142 (2026-10-19, revisión de UX del portal) no retira ninguno: abre a quien no administra solo el nombre visible de
+  las personas de su organización, por su correo.
 - Las nueve decisiones del usuario (USR-01 a USR-09) están desplegadas según §6.0; USR-04 y USR-08 se cumplen en el
   proceso y en los repositorios (RNF-MNT-007, RNF-MNT-006).
 - Los capítulos de DOC-01 con más requisitos son el 9 (estrategias: relacionamiento, compromisos, riesgos e indicadores),
