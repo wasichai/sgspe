@@ -84,7 +84,7 @@ class LatexConverterTest {
         assertThrows<PdfConverterUnavailable> { runBlocking { converter(" ").render(bundle, PdfRequest(null)) } }
         val answers =
             listOf<(HttpExchange) -> Unit>(
-                { reply(it, 422, "application/json", """{"code":"LATEX_ERROR","line":12}""".toByteArray()) },
+                { reply(it, 503, "application/json", """{"code":"BUSY"}""".toByteArray()) },
                 { reply(it, 200, "application/pdf", TestPdfs.source(pdfa = false)) },
                 { reply(it, 200, "application/x-tar", Tar.write(mapOf("candidata.pdf" to TestPdfs.source(pdfa = true)))) },
                 { reply(it, 200, "application/x-tar", "no es un tar".toByteArray()) }
@@ -96,6 +96,16 @@ class LatexConverterTest {
             } finally {
                 server.stop(0)
             }
+        }
+    }
+
+    @Test
+    fun `un paquete que no compone es un error de la composicion, no un compositor caido`() {
+        val server = server { reply(it, 422, "application/json", """{"code":"LATEX_ERROR","line":12}""".toByteArray()) }
+        try {
+            assertThrows<PdfCompositionFailed> { runBlocking { converter(url(server)).render(bundle, PdfRequest(null)) } }
+        } finally {
+            server.stop(0)
         }
     }
 

@@ -24,6 +24,10 @@ class PdfConverterUnavailable(
     message: String
 ) : RuntimeException(message)
 
+// sgspe-latex respondió, pero el paquete no compuso (422 LATEX_ERROR): un error de SGSPE, no del servicio. el borrador queda
+// FALLIDO con GENERATION_FAILED, y el log lleva la línea de main.tex
+class PdfCompositionFailed : RuntimeException("sgspe-latex no pudo componer el paquete")
+
 // el PDF que devolvió el compositor pasa de sgspe.deliverable.max-file-bytes: el borrador queda FALLIDO con FILE_TOO_LARGE (#83)
 class PdfTooLarge : RuntimeException("El PDF pasa del tope de los archivos de entregables")
 
