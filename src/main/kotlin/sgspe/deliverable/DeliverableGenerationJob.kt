@@ -61,7 +61,8 @@ class DraftFailure(
 // las secciones (es draft_generated_at: una sección editada después cuenta como cambiada, aunque el ensamblado tarde); lee el
 // entregable, sus secciones, el proyecto y la plantilla; ensambla con la clase del tipo, pide los mapas y avisa datos personales; congela el modelo (EN
 // PROCESO con draft_generated_at, draft_model_sha256 y draft_revision); vuelve a leer lo congelado y, por nivel, aplica
-// ReportDisclosure, escribe el DOCX del borrador y el de la candidata, los convierte y verifica cada PDF; y sube los siete
+// ReportDisclosure, escribe el DOCX del borrador y el de la candidata (solo INTERNO), compone con sgspe-latex la candidata y el
+// borrador en PDF (ADR-0030) y verifica cada uno; y sube los siete
 // archivos con LISTO y los avisos en una sola escritura (DraftFiles). todo error deja FALLIDO con su código. lee y escribe
 // como la plataforma (con el origen job:deliverable-generation), nunca aplica transiciones ni escribe secciones. los logs
 // llevan ids y códigos, nunca contenido. todo trabajo bloqueante de JOB-05 (POI, Java 2D, ImageIO, PDFBox) corre en
@@ -72,7 +73,7 @@ class DraftGeneration(
     private val types: DeliverableTypes,
     private val sources: ReportSources,
     private val maps: ReportMaps,
-    private val pdf: PdfConverter,
+    private val pdf: PdfRenderer,
     private val files: DraftFiles,
     private val stored: StoredFiles,
     private val properties: DeliverableProperties,
@@ -80,6 +81,7 @@ class DraftGeneration(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val writer = DocxWriter(properties.photos)
+    private val latex = LatexWriter(properties.photos)
 
     suspend fun run(
         organizationId: UUID,
@@ -87,7 +89,7 @@ class DraftGeneration(
         deliverableId: UUID
     ) {
         val attemptAt = clock.instant()
-        // el id de la corrida: va a Gotenberg (Gotenberg-Trace) y a los logs, nunca un dato del entregable
+        // el id de la corrida: va a sgspe-latex (X-Trace) y a los logs, nunca un dato del entregable
         val correlation = "job-05-${UUID.randomUUID()}"
         try {
             val frozen = platform(organizationId) { freeze(organizationId, slug, deliverableId, attemptAt) } ?: return
@@ -276,37 +278,36 @@ class DraftGeneration(
         for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
             val leveled = ReportDisclosure.apply(model, level)
             val levelPhotos = photos.filterKeys { it in leveled.photos.keys }
-            val draft = writer.write(DocxWriter.Input(leveled, frozen.template, true, frozen.author, levelPhotos))
-            val candidate = writer.write(DocxWriter.Input(leveled, frozen.template, false, frozen.author, levelPhotos))
-            val draftPdf = pdf(draft, model, level, candidate = false, correlation)
-            val candidatePdf = pdf(candidate, model, level, candidate = true, correlation)
+            // el PDF se compone desde el mismo modelo del nivel, no desde el DOCX (ADR-0030): un pedido da la candidata y el borrador
+            val bundle = latex.write(LatexWriter.Input(leveled, frozen.author, levelPhotos))
+            val pdfs = pdf.render(bundle, PdfRequest(correlation))
+            check(pdfs.draft, level, candidate = false)
+            check(pdfs.candidate, level, candidate = true)
             val name = "$code-${level.name.lowercase()}"
             if (level == Disclosure.INTERNO) {
+                val draft = writer.write(DocxWriter.Input(leveled, frozen.template, true, frozen.author, levelPhotos))
+                val candidate = writer.write(DocxWriter.Input(leveled, frozen.template, false, frozen.author, levelPhotos))
                 out += DraftFile(Deliverables.DRAFT_INTERNAL_DOCX, "$name-borrador.docx", Deliverables.DOCX_TYPE, draft)
-                out += DraftFile(Deliverables.DRAFT_INTERNAL_PDF, "$name-borrador.pdf", Deliverables.PDF_TYPE, draftPdf)
+                out += DraftFile(Deliverables.DRAFT_INTERNAL_PDF, "$name-borrador.pdf", Deliverables.PDF_TYPE, pdfs.draft)
                 out += DraftFile(Deliverables.CANDIDATE_INTERNAL_DOCX, "$name.docx", Deliverables.DOCX_TYPE, candidate)
-                out += DraftFile(Deliverables.CANDIDATE_INTERNAL_PDF, "$name.pdf", Deliverables.PDF_TYPE, candidatePdf)
+                out += DraftFile(Deliverables.CANDIDATE_INTERNAL_PDF, "$name.pdf", Deliverables.PDF_TYPE, pdfs.candidate)
             } else {
-                // en EXTERNO el DOCX es un paso intermedio: no se guarda (solo PDF fuera de INTERNO)
-                out += DraftFile(Deliverables.DRAFT_EXTERNAL_PDF, "$name-borrador.pdf", Deliverables.PDF_TYPE, draftPdf)
-                out += DraftFile(Deliverables.CANDIDATE_EXTERNAL_PDF, "$name.pdf", Deliverables.PDF_TYPE, candidatePdf)
+                // solo PDF fuera de INTERNO
+                out += DraftFile(Deliverables.DRAFT_EXTERNAL_PDF, "$name-borrador.pdf", Deliverables.PDF_TYPE, pdfs.draft)
+                out += DraftFile(Deliverables.CANDIDATE_EXTERNAL_PDF, "$name.pdf", Deliverables.PDF_TYPE, pdfs.candidate)
             }
         }
         out.firstOrNull { it.bytes.size > properties.maxFileBytes }?.let { throw DraftFailure(Deliverables.FILE_TOO_LARGE, it.field) }
         return out
     }
 
-    private suspend fun pdf(
-        docx: ByteArray,
-        model: ReportModel,
+    // PDFBox sobre lo que devolvió sgspe-latex: páginas, fuentes de la clase y, en la candidata, PDF/A-2b
+    private fun check(
+        bytes: ByteArray,
         level: Disclosure,
-        candidate: Boolean,
-        correlation: String
-    ): ByteArray {
-        val revision = if (candidate) model.meta.issueRevision else model.meta.draftRevision
-        val bytes = pdf.convert(docx, PdfRequest(candidate, model.meta.title, model.meta.code, revision, correlation))
+        candidate: Boolean
+    ) {
         if (PdfChecks.problems(bytes, candidate).isNotEmpty()) throw DraftFailure(Deliverables.PDF_CHECK_FAILED, level.name)
-        return bytes
     }
 
     companion object {

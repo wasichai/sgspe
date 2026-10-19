@@ -29,6 +29,10 @@ object ColumnWidths {
     private const val MIN_CHARS = 4
     private const val MAX_CHARS = 200
 
+    // el relleno de una celda en caracteres, y la parte mínima de la caja que ocupa una tabla
+    private const val PADDING_CHARS = 3
+    private const val MIN_SPAN = 0.5
+
     // cifras con separadores, signo, porcentaje o moneda; fechas dd/mm/aaaa y aaaa-mm-dd
     private val NUMERIC = Regex("""^(?:(?:S/|US\$|\$)\s?)?[-+−]?\d[\d\s.,  ]*(?:\s?%)?$""")
     private val DATE = Regex("""^(?:\d{1,2}/\d{1,2}/\d{2,4}|\d{4}-\d{2}-\d{2})$""")
@@ -39,28 +43,54 @@ object ColumnWidths {
         capacity: Int = PORTRAIT_CAPACITY,
         specs: List<ColumnSpec>? = null
     ): List<Column> {
-        val columns = max(1, header.size)
-        val ideal = IntArray(columns) { MIN_CHARS }
-        val least = IntArray(columns) { MIN_CHARS }
-        val numeric = BooleanArray(columns) { true }
-        val seen = BooleanArray(columns)
-        header.forEachIndexed { c, text -> measure(text, c, ideal, least) }
-        placed(rows, columns).forEach { (c, cell) ->
-            measure(cell.text, c, ideal, least)
-            val text = cell.text.trim()
-            if (text.isNotEmpty()) {
-                seen[c] = true
-                if (!NUMERIC.matches(text) && !DATE.matches(text)) numeric[c] = false
-            }
-        }
-        val computed = widths(ideal, least, capacity)
+        val m = measure(header, rows)
+        val computed = widths(m.ideal, m.least, capacity)
         val total = computed.sum()
-        return (0 until columns)
+        return computed.indices
             .map { c ->
                 val spec = specs?.getOrNull(c)
-                val align = spec?.align?.let { runCatching { Align.valueOf(it) }.getOrNull() } ?: if (seen[c] && numeric[c]) Align.RIGHT else Align.LEFT
+                val align = spec?.align?.let { runCatching { Align.valueOf(it) }.getOrNull() } ?: if (m.seen[c] && m.numeric[c]) Align.RIGHT else Align.LEFT
                 Column(computed[c] / total, align)
             }.let { weighted(it, specs) }
+    }
+
+    // la parte del ancho de la caja que ocupa la tabla: la de su contenido más el relleno de cada celda, entre la mitad y toda
+    // la caja; una tabla con pesos propios ocupa la caja entera. una tabla corta no se estira hasta dejar columnas vacías
+    fun span(
+        header: List<String>,
+        rows: List<List<Cell>>,
+        capacity: Int = PORTRAIT_CAPACITY,
+        specs: List<ColumnSpec>? = null
+    ): Double {
+        if (!specs.isNullOrEmpty() && specs.all { it.weight != null }) return 1.0
+        val m = measure(header, rows)
+        return ((m.ideal.sum() + PADDING_CHARS * m.ideal.size).toDouble() / capacity).coerceIn(MIN_SPAN, 1.0)
+    }
+
+    private class Measure(
+        val ideal: IntArray,
+        val least: IntArray,
+        val numeric: BooleanArray,
+        val seen: BooleanArray
+    )
+
+    private fun measure(
+        header: List<String>,
+        rows: List<List<Cell>>
+    ): Measure {
+        val columns = max(1, header.size)
+        val m = Measure(IntArray(columns) { MIN_CHARS }, IntArray(columns) { MIN_CHARS }, BooleanArray(columns) { true }, BooleanArray(columns))
+        // el encabezado va en negrita: su texto pide un carácter más
+        header.forEachIndexed { c, text -> measure(text, c, m.ideal, m.least, extra = 1) }
+        placed(rows, columns).forEach { (c, cell) ->
+            measure(cell.text, c, m.ideal, m.least, extra = 0)
+            val text = cell.text.trim()
+            if (text.isNotEmpty()) {
+                m.seen[c] = true
+                if (!NUMERIC.matches(text) && !DATE.matches(text)) m.numeric[c] = false
+            }
+        }
+        return m
     }
 
     // las celdas con su columna, salvo las que combinan hacia la derecha: cada una en la primera posición libre de su fila
@@ -89,12 +119,13 @@ object ColumnWidths {
         text: String,
         column: Int,
         ideal: IntArray,
-        least: IntArray
+        least: IntArray,
+        extra: Int
     ) {
         val lines = text.split('\n')
-        ideal[column] = max(ideal[column], lines.maxOf { it.trim().length }.coerceAtMost(MAX_CHARS))
+        ideal[column] = max(ideal[column], (lines.maxOf { it.trim().length } + extra).coerceAtMost(MAX_CHARS))
         val word = lines.flatMap { it.split(' ', ' ') }.maxOfOrNull { it.length } ?: 0
-        least[column] = max(least[column], word.coerceAtMost(MAX_CHARS))
+        least[column] = max(least[column], (word + extra).coerceAtMost(MAX_CHARS))
     }
 
     private fun widths(

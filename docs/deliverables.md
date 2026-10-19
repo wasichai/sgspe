@@ -480,8 +480,8 @@ Cada clase declara:
 - **El servicio.** Imagen propia (`develop/latex/Dockerfile`) sobre `debian:trixie-slim` fijada por digest, con TeX Live
   de Debian, Source Serif 4 y Source Sans 3, y un envoltorio HTTP de biblioteca estándar de Python
   (`develop/latex/server.py`): recibe un tar con topes de bytes y de entradas, sin rutas absolutas ni `..`; compone en
-  una carpeta temporal sin `shell-escape`, con `--nosocket`, `openin_any=p` y `openout_any=p`, un plazo y una corrida a
-  la vez; corre como usuario sin privilegios, con el sistema de archivos de solo lectura, tmpfs y sin red de salida; en
+  una carpeta temporal sin `shell-escape`, con `--nosocket`, `openout_any=p`, un plazo y una corrida a
+  la vez; corre como usuario sin privilegios, con el sistema de archivos de solo lectura, tmpfs y sin red de salida en producción (red interna); en
   la red interna y nunca expuesto (en desarrollo, el puerto 8097 del loopback del VPS; ADR-0026). Responde con el PDF o
   con un código de error y la línea, nunca con texto del documento, y cuenta las cajas desbordadas.
 - **Un pedido por nivel.** La candidata compone completa, con `\DocumentMetadata{pdfstandard=a-2b, lang=es-PE}`; el
@@ -986,7 +986,7 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 | GeoServer como dependencia para emitir mapas | Red interna; capas sensibles en línea; aviso y bloqueo de la emisión si falla (ASM-038, ASM-134, GAP-011) |
 | Tiempos o memoria de la composición con documentos largos | Fotos reducidas; un pedido a la vez con plazo de 180 s; pedidos viejos retomados; topes de 64 MB (ASM-138); la suite lenta de 100 páginas |
 | Bytes de DOCX y PDF no deterministas | El hash del modelo congelado es la identidad; los hashes de archivo identifican los artefactos |
-| Texto del modelo interpretado como TeX | `LatexText` como única puerta, pruebas con entradas hostiles, sin `shell-escape`, `--nosocket`, `openin_any=p` y `openout_any=p`, y el contenedor sin red, de solo lectura y sin privilegios (ASM-139) |
+| Texto del modelo interpretado como TeX | `LatexText` como única puerta, pruebas con entradas hostiles, sin `shell-escape`, `--nosocket`, `openout_any=p`, y el contenedor sin red, de solo lectura y sin privilegios (ASM-139) |
 | DOCX y PDF paginan distinto | Mismo modelo, mismo `CaptionNumbering` y mismo `ColumnWidths`; prueba de paridad de contenido; cada formato con su índice (ADR-0030) |
 | Datos personales en la narrativa o en fotos | Niveles, menciones como referencias, consentimiento de fotos, lista de verificación y `export_log` |
 | Un consultor edita el DOCX fuera del sistema | Solo se emite lo que genera el sistema y un DOCX emitido nunca se reimporta (GAP-010, resuelta; ASM-135) |

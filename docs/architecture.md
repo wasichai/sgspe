@@ -640,7 +640,7 @@ flowchart LR
 - **`sgspe-latex`** solo es alcanzable por la app y solo lo llama el trabajador de generación, nunca la petición de un
   usuario; su plazo es `sgspe.deliverable.latex.timeout` (180 s), nunca recibe una URL ni una opción que venga del
   cliente y no tiene red de salida. Corre con el sistema de archivos de solo lectura, sin `shell-escape`, con
-  `--nosocket`, `openin_any=p` y `openout_any=p`, y una composición a la vez (ASM-139, ADR-0030). En desarrollo escucha
+  `--nosocket`, `openout_any=p`, y una composición a la vez (ASM-139, ADR-0030). En desarrollo escucha
   solo en el loopback del VPS, en el puerto 8097 (ADR-0026), y la CI lo levanta como servicio del trabajo de
   integración, para las pruebas con la etiqueta `latex`. Reemplaza a Gotenberg, que se retiró el 2026-10-19.
 - **Réplicas:** varias instancias de la app comparten la base; `ClusterLock` coordina los trabajos, y la cola de

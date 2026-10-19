@@ -97,9 +97,9 @@ flowchart LR
 - GeoServer lee la base directamente y no aplica ningún permiso de wasichai (CON-054) [WAS-ADR-0006]: por eso nunca es
   público (§10).
 - `sgspe-latex` compone con LuaLaTeX el PDF de los entregables desde el modelo congelado (ASM-139, ADR-0030) y corre
-  aislado, sin red de salida: solo lo llama JOB-05 y nunca recibe una URL ni una opción que venga del cliente. Compone
+  aislado, sin red de salida en producción (red interna): solo lo llama JOB-05 y nunca recibe una URL ni una opción que venga del cliente. Compone
   con el sistema de archivos de solo lectura, un usuario sin privilegios, sin `shell-escape`, con `--nosocket`,
-  `openin_any=p` y `openout_any=p` y una corrida a la vez; el tar que recibe tiene topes de bytes y de entradas y ninguna
+  `openout_any=p` y una corrida a la vez; el tar que recibe tiene topes de bytes y de entradas y ninguna
   ruta absoluta ni `..`. Todo texto del modelo pasa por `LatexText`, que escapa los caracteres especiales de TeX, y
   ninguna organización sube código TeX: solo un logo PNG o JPEG y un color de acento (ASM-140). En desarrollo escucha
   solo en el loopback del VPS (8097, ADR-0026). Reemplaza a Gotenberg desde el 2026-10-19.
@@ -133,7 +133,7 @@ E (elevación de privilegios).
 | 19 | E | Inyección de instrucciones en actas, informes o documentos que procesa la IA | El contenido es dato y nunca instrucción; herramientas de solo lectura; una persona acepta cada sugerencia (§11.5) | — |
 | 20 | E | Una cuenta de servicio, una regla o la IA confirma una alerta o aprueba un compromiso | `WarningWriteGuard`; ninguna cuenta de servicio recibe roles de transición ni acciones de aprobación (RN-EWS-001, RQ-SEC-014) | — |
 | 21 | E | Un entregable, que se genera como la plataforma, muestra datos que quien lo pide no puede leer | `GENERATE`, `APPROVE`, `ISSUE` y `DOWNLOAD_RESTRICTED` solo para los roles que leen los campos sensibles; borradores y versiones INTERNO solo con `DOWNLOAD_RESTRICTED` (§11.4) | GAP-024 |
-| 22 | T, E | Plantilla Word con macros, logo que no es imagen, texto del modelo con macros de TeX o archivo de importación con rutas fuera de su carpeta, o con entradas ajenas a su formato que quedarían en la evidencia del original | Validación de plantillas y del logo por bytes mágicos y dimensiones (RQ-SEC-019, ASM-140); `LatexText` escapa todo texto que va a TeX (ASM-139); carpeta temporal y control de rutas (RQ-SEC-020); un ZIP o KMZ solo con las entradas de su formato y un `.gpkg` con la cabecera de SQLite (ASM-060); `sgspe-latex` aislado, sin red de salida ni `shell-escape` | — |
+| 22 | T, E | Plantilla Word con macros, logo que no es imagen, texto del modelo con macros de TeX o archivo de importación con rutas fuera de su carpeta, o con entradas ajenas a su formato que quedarían en la evidencia del original | Validación de plantillas y del logo por bytes mágicos y dimensiones (RQ-SEC-019, ASM-140); `LatexText` escapa todo texto que va a TeX (ASM-139); carpeta temporal y control de rutas (RQ-SEC-020); un ZIP o KMZ solo con las entradas de su formato y un `.gpkg` con la cabecera de SQLite (ASM-060); `sgspe-latex` aislado, sin red de salida en producción (red interna) ni `shell-escape` | — |
 | 23 | T | Un agente de campo cambia o borra lo que capturó otra persona | `EditAnyGuard`: sin `EDIT_ANY` solo se cambia o borra lo propio (§5.5) | ASM-069 |
 | 24 | I | Identificar a quien plantea una QCS confidencial por su grupo de interés, que no está restringido | `person` bajo permiso de campo; QCS anónima sin `person` ni `stakeholder` (§7.9, §11.3) | Riesgo residual; decisión en §15 |
 | 25 | I | Una sugerencia de IA guarda valores restringidos o cita una evidencia que quien la mira no puede descargar | Salidas y citas guardadas con marcadores; la API genérica solo devuelve marcadores; se re-identifican al mostrar solo para quien lee el campo, y la cita solo para quien puede descargar la fuente (§7.8) | GAP-015; riesgo residual: un marcador revela que había un dato restringido |

@@ -2,8 +2,8 @@ name: sgspe
 
 services:
   # postgis desde F1: instalar wasichai-gis en F2 solo crea la extensión, sin migrar datos (architecture.md §5.1).
-  # los servicios de apoyo llegan con su fase: S3 (MinIO) y SMTP de prueba (Mailpit) en F3, GeoServer en F6 (abajo) y Gotenberg
-  # en F8
+  # los servicios de apoyo llegan con su fase: S3 (MinIO) y SMTP de prueba (Mailpit) en F3, GeoServer en F6 (abajo) y,
+  # desde el 2026-10-19, sgspe-latex (antes, Gotenberg en F8)
   postgis:
     image: postgis/postgis:18-3.6
     container_name: sgspe-postgis
@@ -99,22 +99,25 @@ services:
     volumes:
       - geoserver-data:/opt/geoserver_data
 
-  # F8 (plan 8.2c, ADR-0026): DOCX a PDF con LibreOffice para JOB-05. nunca público: solo loopback del VPS, por túnel
-  # (ssh -fN -L 8096:localhost:8096 "$SGSPE_VPS"); sin volúmenes, sin webhooks ni descargas remotas. la etiqueta y las
-  # banderas son las de la CI (.github/workflows/ci.yml): una versión nueva de LibreOffice puede mover la paginación
-  gotenberg:
-    image: gotenberg/gotenberg:8.37.0-libreoffice
-    container_name: sgspe-gotenberg
-    command:
-      - gotenberg
-      - --api-timeout=180s
-      - --api-disable-download-from=true
-      - --webhook-disable=true
-      - --pdfengines-disable-routes=true
-      - --libreoffice-auto-start=true
-      - --log-std-format=json
+  # desde el 2026-10-19 (ADR-0030, ASM-139): compone con LuaLaTeX el PDF de los entregables para JOB-05. imagen propia
+  # (develop/latex/Dockerfile); nunca pública: solo loopback del VPS, por túnel (ssh -fN -L 8097:localhost:8097 "$SGSPE_VPS").
+  # sistema de archivos de solo lectura con tmpfs en /tmp, sin capacidades ni privilegios nuevos, sin volúmenes. en
+  # producción va en una red interna sin salida; aquí publica el puerto, que una red interna no permite
+  latex:
+    build: develop/latex
+    image: sgspe-latex:local
+    container_name: sgspe-latex
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      LATEX_TIMEOUT: '170'
     ports:
-      - '127.0.0.1:${SGSPE_GOTENBERG_PORT:-8096}:3000'
+      - '127.0.0.1:${SGSPE_LATEX_PORT:-8097}:8080'
 
 volumes:
   postgis-data:

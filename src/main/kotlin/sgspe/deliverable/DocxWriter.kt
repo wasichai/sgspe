@@ -104,7 +104,7 @@ class DocxWriter(
             headerAndFooter(doc, model, revision, input.draft, ownFooter)
             properties(doc, model, revision)
             // las leyendas se numeran antes de escribir: las listas de tablas y de figuras del índice van primero (T1)
-            val captions = captions(model, input)
+            val captions = ReportCaptions.of(model, input.chapterOf)
             var landscape = false
             for ((sectionIndex, section) in model.sections.withIndex()) {
                 // un salto como primer bloque se aplica antes del título: el Anexo 1 empieza en su página horizontal
@@ -512,7 +512,9 @@ class DocxWriter(
         val capacity = if (landscape) ColumnWidths.LANDSCAPE_CAPACITY else ColumnWidths.PORTRAIT_CAPACITY
         val widths = ColumnWidths.of(header, rows, capacity, specs)
         val table = doc.createTable(rows.size + 1, columns)
-        layout(table, widths, textWidth(doc, landscape), styles.table)
+        // una tabla corta ocupa lo que pide su contenido (ColumnWidths.span), no toda la caja
+        val span = ColumnWidths.span(header, rows, capacity, specs)
+        layout(table, widths, Math.round(textWidth(doc, landscape) * span), styles.table)
         val look = CellLook(widths, direct = styles.table == null)
         header.forEachIndexed { c, text -> cellText(table.getRow(0).getCell(c), text, bold = true, look, c, header = true) }
         table.getRow(0).isRepeatHeader = true
@@ -589,7 +591,7 @@ class DocxWriter(
         }
     }
 
-    // el ancho de la tabla (el de la caja), el tblGrid fijo de ColumnWidths, el relleno de las celdas y, sin el estilo de tabla de
+    // el ancho de la tabla, el tblGrid fijo de ColumnWidths, el relleno de las celdas y, sin el estilo de tabla de
     // la plantilla, los filetes
     private fun layout(
         table: XWPFTable,
@@ -840,45 +842,6 @@ class DocxWriter(
         size.orient = if (landscape) STPageOrientation.LANDSCAPE else STPageOrientation.PORTRAIT
     }
 
-    // las leyendas del documento en su orden, numeradas por capítulo (o corridas sin capítulo), con su título. van por la
-    // posición del bloque (sección, bloque) y no por el bloque: un mismo bloque repetido lleva una leyenda por aparición (#83)
-    private class Captions {
-        val byPosition = HashMap<Pair<Int, Int>, CaptionNumbering.Caption>()
-        val ordered = mutableListOf<Pair<CaptionNumbering.Caption, String>>()
-
-        fun find(at: Pair<Int, Int>): CaptionNumbering.Caption? = byPosition[at]
-
-        fun of(at: Pair<Int, Int>): CaptionNumbering.Caption = byPosition[at] ?: error("un bloque con leyenda quedó sin numerar")
-    }
-
-    // la misma regla que el recorrido: una tabla (o una tabla figura), un bloque de fotos con alguna foto del nivel, un mapa y
-    // un gráfico llevan leyenda
-    private fun captions(
-        model: ReportModel,
-        input: Input
-    ): Captions {
-        val out = Captions()
-        val numbering = CaptionNumbering()
-        for ((sectionIndex, section) in model.sections.withIndex()) {
-            val chapter = input.chapterOf(section.key) ?: section.chapter
-            for ((blockIndex, block) in section.blocks.withIndex()) {
-                val (kind, title) =
-                    when (block) {
-                        is Block.Table -> (if (block.figure) CaptionNumbering.FIGURE else CaptionNumbering.TABLE) to block.title
-                        is Block.Photos -> if (block.evidence.any { it in model.photos }) CaptionNumbering.FIGURE to block.title else continue
-                        is Block.MapFigure -> CaptionNumbering.FIGURE to block.title
-                        is Block.LineChart -> CaptionNumbering.FIGURE to block.title
-                        is Block.ScatterChart -> CaptionNumbering.FIGURE to block.title
-                        else -> continue
-                    }
-                val caption = numbering.next(kind, chapter)
-                out.byPosition[sectionIndex to blockIndex] = caption
-                out.ordered += caption to title
-            }
-        }
-        return out
-    }
-
     // el índice: el campo TOC complejo, que Word y LibreOffice reconocen; y que Word lo actualice al abrir
     private fun toc(
         doc: XWPFDocument,
@@ -895,7 +858,7 @@ class DocxWriter(
         doc: XWPFDocument,
         styles: StyleIds,
         block: Block.CaptionList,
-        captions: Captions
+        captions: ReportCaptions
     ) {
         listTitle(doc, styles, block.title)
         for ((caption, title) in captions.ordered.filter { it.first.label.startsWith("${block.kind} ") }) {
@@ -1048,8 +1011,7 @@ class DocxWriter(
         sourceParagraph(doc, styles, block.source, author)
     }
 
-    // título, asunto y palabras clave del documento (decisión 3 del plan 8.2c): LibreOffice los lleva al PDF y a su XMP, así
-    // Gotenberg no recibe metadatos y PDF/A-2b no pasa por exiftool
+    // título, asunto y palabras clave del documento (decisión 3 del plan 8.2c), que Word muestra en las propiedades
     private fun properties(
         doc: XWPFDocument,
         model: ReportModel,
