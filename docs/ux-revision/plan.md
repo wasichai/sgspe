@@ -213,6 +213,9 @@ Entregable.
    viene» y suma medidas en «Qué generó»).
 6. Historia y auditoría legible al final (design-system §6.6), en todas.
 
+«Desde cuándo» y «quién» del panel de decisión se leen de `state_changed_at` y `state_changed_by` (decisión 8); mientras el
+backend no los tenga, «—». Como todo derivado, nunca van en una escritura del portal.
+
 Defectos propios: D5 y D9 en Grupo de interés; en Compromiso, «Ejecutado: — de S/ 25,000.00» con una barra vacía se vuelve
 «Sin ejecución registrada» sin barra hasta que haya monto.
 
@@ -273,7 +276,7 @@ en drawer → volver por el rastro) sin perder proyecto ni territorio.
 
 ## 6. Decisiones
 
-Tomadas el 2026-10-19 con la propuesta de esta tabla.
+Tomadas el 2026-10-19 con la propuesta de esta tabla; la 8, a partir de la etapa 0.
 
 | # | Decisión | Tomada |
 |---|---|---|
@@ -284,6 +287,7 @@ Tomadas el 2026-10-19 con la propuesta de esta tabla.
 | 5 | Lista global de QCS paginada | Paginación por objeto con pestañas Quejas, Consultas, Solicitudes y «Atención» con los vencidos de los tres, o un endpoint unificado |
 | 6 | Códigos sugeridos | El backend propone el siguiente código por proyecto y objeto; el portal lo muestra editable |
 | 7 | Aterrizaje de Riesgos | La lista (registro y matriz); el tablero como vista |
+| 8 | «Desde cuándo y quién» del panel de decisión | Dos campos derivados (`"derived": true`) en cada objeto con workflow de `model.json`: `state_changed_at` (DATETIME) y `state_changed_by` (el correo de quien dio la transición; vacío si fue una automatización). Los escribe `sgspe` en cada transición y se llenan desde la auditoría para los registros que ya existen. Sirven a la ficha y a las listas («en este estado hace N días», orden). Es un plan del backend previo a la etapa 4 |
 
 Las decisiones 1, 2 y 7 cambian `docs/ux/` (que gana sobre el portal) y ya están registradas en ux-architecture §7.1; el
 panel de trazabilidad con tres grupos («Lo sustenta»), en design-system §6.1 y ux-architecture §8.1.
