@@ -120,6 +120,13 @@ Apache POI, la plantilla Word de la organización para el DOCX, la generación e
   incrustó fuentes matemáticas con `assume math mode`. 96 páginas compusieron en 87 s, y `--safer` impide cargar las
   fuentes.
 - **El PDF etiquetado** (RQ-REP-028, opcional) no se probó en el spike y sigue pendiente, como en ADR-0013.
+- **Corrección de la implementación (2026-10-19).** `openin_any=p` no se usa: impide que luaotfload lea su caché, que vive
+  en una carpeta con punto; rige solo `openout_any=p`, y el texto del modelo no puede pedir lecturas porque pasa por
+  `LatexText`. La caché de fuentes se arma al construir la imagen y el servidor la copia al tmpfs al arrancar, porque
+  luaotfload exige una caché escribible. La red sin salida es la de producción: en desarrollo y en la CI el contenedor
+  publica su puerto en el loopback, lo que una red interna de Docker no permite. La marca BORRADOR la dibuja el gancho
+  `shipout/background` de LaTeX, también en la portada. Con la clase, `LatexPdfTest` pasa contra el servicio real y la
+  suite lenta compone un T1 de unas 100 páginas con 40 fotos en 99 s.
 - **La interfaz para subir el logo y el acento** va en `sgspe-ui`, en un issue aparte.
 
 ## Referencias

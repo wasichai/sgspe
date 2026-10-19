@@ -91,7 +91,8 @@ class DeliverableDraftsApiTest : F8ApiTest() {
                 }["candidateSha256"]
                 .asString()
         )
-        assertTrue(fakePdf.requests.any { it.pdfa } && fakePdf.requests.any { !it.pdfa })
+        // un paquete de LaTeX por nivel, con la clase y main.tex (ADR-0030)
+        assertTrue(fakePdf.bundles.size >= 2 && fakePdf.bundles.all { LatexWriter.CLASS in it.files && "\\sgspemeta{" in it.main })
         assertEquals(HttpStatus.ACCEPTED, requestDraft(id).status)
         generate()
         val second = record("deliverable", id)["attributes"]

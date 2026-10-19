@@ -38,7 +38,7 @@ abstract class F8ApiTest : F7ApiTest() {
     protected lateinit var generationJob: DeliverableGenerationJob
 
     @Autowired
-    protected lateinit var fakePdf: DeliverableDoubles.FakePdfConverter
+    protected lateinit var fakePdf: DeliverableDoubles.FakePdfRenderer
 
     @Autowired
     protected lateinit var fakeMaps: DeliverableDoubles.FakeReportMaps

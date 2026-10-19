@@ -25,8 +25,8 @@ import java.io.ByteArrayOutputStream
 import java.time.Duration
 import javax.imageio.ImageIO
 
-// especificación de F8 §5, fila «Suite lenta» (plan 8.2c, Tarea 16): a pedido, con GeoServer y Gotenberg reales por el túnel
-// (SGSPE_DELIVERABLE_GOTENBERG_URL, WASICHAI_GIS_GEOSERVER_URL). sin una variable, su prueba se salta
+// especificación de F8 §5, fila «Suite lenta» (plan 8.2c, Tarea 16): a pedido, con GeoServer y sgspe-latex reales por el túnel
+// (SGSPE_DELIVERABLE_LATEX_URL, WASICHAI_GIS_GEOSERVER_URL). sin una variable, su prueba se salta
 @Tag("slow")
 class SlowSuiteTest {
     private fun env(name: String): String {
@@ -89,9 +89,9 @@ class SlowSuiteTest {
     }
 
     @Test
-    fun `un T1 de unas 100 paginas con 40 fotos se convierte en menos de 180 s`() {
-        val url = env("SGSPE_DELIVERABLE_GOTENBERG_URL")
-        val converter = GotenbergConverter(DeliverableProperties(gotenberg = DeliverableProperties.Gotenberg(url, Duration.ofSeconds(180))))
+    fun `un T1 de unas 100 paginas con 40 fotos se compone en menos de 180 s`() {
+        val url = env("SGSPE_DELIVERABLE_LATEX_URL")
+        val converter = LatexConverter(DeliverableProperties(latex = DeliverableProperties.Latex(url, Duration.ofSeconds(180))))
         val base = T1Fixtures.model(chapters = 9, paragraphs = 520)
         val photos =
             (1..40).associate { n ->
@@ -109,21 +109,8 @@ class SlowSuiteTest {
         val model = ReportDisclosure.apply(base.copy(sections = base.sections + photoSection, photos = photos), Disclosure.INTERNO)
         val image = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(4000, 3000, BufferedImage.TYPE_INT_RGB), "jpg", it) }.toByteArray()
         val started = System.nanoTime()
-        val docx =
-            DocxWriter(
-                DeliverableProperties.Photos()
-            ).write(
-                DocxWriter.Input(
-                    model,
-                    BaseTemplate.bytes,
-                    false,
-                    "Asociación Ejemplo",
-                    photos.keys.associateWith {
-                        image
-                    }
-                )
-            )
-        val pdf = runBlocking { converter.convert(docx, PdfRequest(true, model.meta.title, model.meta.code, "0", "suite-lenta")) }
+        val bundle = LatexWriter(DeliverableProperties.Photos()).write(LatexWriter.Input(model, "Asociación Ejemplo", photos.keys.associateWith { image }))
+        val pdf = runBlocking { converter.render(bundle, PdfRequest("suite-lenta")) }.candidate
         val seconds = (System.nanoTime() - started) / 1e9
         val pages = Loader.loadPDF(pdf).use { it.numberOfPages }
         assertTrue(pages >= 90, "$pages páginas")

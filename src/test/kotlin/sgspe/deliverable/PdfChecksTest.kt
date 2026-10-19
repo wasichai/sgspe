@@ -1,5 +1,6 @@
 package sgspe.deliverable
 
+import org.apache.pdfbox.cos.COSName
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -13,13 +14,18 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 
-// deliverables.md §7.1 y §13.3: fuentes incrustadas de la lista, páginas y PDF/A-2b en la candidata
+// deliverables.md §7.1 y §13.3: fuentes incrustadas de la clase (ASM-141), páginas y PDF/A-2b en la candidata
 class PdfChecksTest {
     @Test
-    fun `un PDF con Liberation Sans incrustada pasa, y con la identificacion PDF-A pasa como candidata`() {
-        assertEquals(emptyList<String>(), PdfChecks.problems(TestPdfs.liberation(pdfa = false), pdfa = false))
-        assertEquals(emptyList<String>(), PdfChecks.problems(TestPdfs.liberation(pdfa = true), pdfa = true))
-        assertTrue(PdfChecks.problems(TestPdfs.liberation(pdfa = false), pdfa = true).any { "PDF/A-2b" in it })
+    fun `un PDF con las fuentes de la clase incrustadas pasa, y con la identificacion PDF-A pasa como candidata`() {
+        assertEquals(emptyList<String>(), PdfChecks.problems(TestPdfs.source(pdfa = false), pdfa = false))
+        assertEquals(emptyList<String>(), PdfChecks.problems(TestPdfs.source(pdfa = true), pdfa = true))
+        assertTrue(PdfChecks.problems(TestPdfs.source(pdfa = false), pdfa = true).any { "PDF/A-2b" in it })
+    }
+
+    @Test
+    fun `una fuente de las plantillas Word no es de la clase del PDF`() {
+        assertTrue(PdfChecks.problems(TestPdfs.liberation(pdfa = false), pdfa = false).any { it.startsWith("fuente fuera de la lista: LiberationSans") })
     }
 
     @Test
@@ -32,7 +38,7 @@ class PdfChecksTest {
 
     @Test
     fun `un PDF cortado o con basura tras la cabecera es un problema y no una excepcion`() {
-        val valid = TestPdfs.liberation(pdfa = false)
+        val valid = TestPdfs.source(pdfa = false)
         val truncated = valid.copyOf(valid.size / 2)
         val garbage = "%PDF-1.7\n\u0000\u0001 basura 1 0 obj << /Pages 9 0 R >> endobj".toByteArray()
         for (bytes in listOf(truncated, garbage)) {
@@ -41,8 +47,27 @@ class PdfChecksTest {
     }
 }
 
-// PDF de prueba con PDFBox: Liberation Sans viene en el jar de PDFBox (su respaldo de fuentes), con licencia OFL
+// PDF de prueba con PDFBox: Liberation Sans viene en el jar de PDFBox (su respaldo de fuentes), con licencia OFL. `source` es el
+// doble de lo que compone sgspe-latex: la misma fuente incrustada con el nombre de Source Sans 3, porque Source Sans 3 no viene
+// en el repositorio
 object TestPdfs {
+    fun source(
+        pdfa: Boolean,
+        text: String = "Informe de campo y avance"
+    ): ByteArray =
+        // PDFBox fija el nombre del subconjunto al guardar: el nombre de la clase se pone en una segunda pasada
+        org.apache.pdfbox.Loader.loadPDF(liberation(pdfa, text)).use { doc ->
+            for (page in doc.pages) {
+                val resources = page.resources
+                for (name in resources.fontNames) {
+                    val font = resources.getFont(name) as PDType0Font
+                    font.cosObject.setName(COSName.BASE_FONT, "ABCDEF+SourceSans3-Regular")
+                    font.descendantFont.cosObject.setName(COSName.BASE_FONT, "ABCDEF+SourceSans3-Regular")
+                }
+            }
+            ByteArrayOutputStream().also { doc.save(it) }.toByteArray()
+        }
+
     fun liberation(
         pdfa: Boolean,
         text: String = "Informe de campo y avance"

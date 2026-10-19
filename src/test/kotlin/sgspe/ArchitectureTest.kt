@@ -593,11 +593,11 @@ class ArchitectureTest {
         assertFalse(flags(MAP_PORTS, "// los pide JOB-05 a ReportMaps"))
     }
 
-    // especificación de F8 §5 («Modelo y arquitectura», plan 8.2c): el WebClient hacia Gotenberg y GeoServer solo en
-    // sgspe.deliverable (GotenbergConverter y GeoServerReportMaps), más el proxy WMS de F6
+    // especificación de F8 §5 («Modelo y arquitectura», plan 8.2c) y ADR-0030: el WebClient hacia sgspe-latex y GeoServer solo
+    // en sgspe.deliverable (LatexConverter y GeoServerReportMaps), más el proxy WMS de F6
     @Test
-    fun `solo GotenbergConverter, GeoServerReportMaps y WmsProxy usan WebClient`() {
-        val allowed = listOf("/sgspe/deliverable/GotenbergConverter.kt", "/sgspe/deliverable/GeoServerReportMaps.kt", "/sgspe/territory/WmsProxy.kt")
+    fun `solo LatexConverter, GeoServerReportMaps y WmsProxy usan WebClient`() {
+        val allowed = listOf("/sgspe/deliverable/LatexConverter.kt", "/sgspe/deliverable/GeoServerReportMaps.kt", "/sgspe/territory/WmsProxy.kt")
         val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(others, WEB_CLIENT))
         assertTrue(flags(WEB_CLIENT, "import org.springframework.web.reactive.function.client.WebClient"))

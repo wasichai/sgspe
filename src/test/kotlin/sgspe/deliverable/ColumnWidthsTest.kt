@@ -32,8 +32,8 @@ class ColumnWidthsTest {
     fun `si todo cabe en una linea el ancho es proporcional al texto mas largo`() {
         val columns = ColumnWidths.of(listOf("Código", "Nombre"), rows(listOf("GI-01", "Junta de usuarios")), capacity = 100)
         assertSumsToOne(columns)
-        // «Junta de usuarios» (17) frente a «Código» (6)
-        assertEquals(17.0 / 23.0, columns[1].fraction, 1e-9)
+        // «Junta de usuarios» (17) frente a «Código» (6, más uno por la negrita del encabezado)
+        assertEquals(17.0 / 24.0, columns[1].fraction, 1e-9)
     }
 
     @Test
@@ -101,5 +101,16 @@ class ColumnWidthsTest {
         val columns = ColumnWidths.of(listOf("Uno", "Tres"), emptyList())
         assertSumsToOne(columns)
         assertEquals(listOf(ColumnWidths.Align.LEFT, ColumnWidths.Align.LEFT), columns.map { it.align })
+    }
+
+    @Test
+    fun `una tabla corta ocupa lo que pide su contenido, al menos la mitad de la caja, y una larga la caja entera`() {
+        // (7 + 17) + 3 de relleno por columna = 30 de 100
+        assertEquals(0.5, ColumnWidths.span(listOf("Código", "Nombre"), rows(listOf("GI-01", "Junta de usuarios"))), 1e-9)
+        val actor = "Agente municipal, Agencia Municipal de Huaylla Alto y su zona"
+        val medium = ColumnWidths.span(listOf("Tipo de actor", "Actor"), rows(listOf("Autoridad local", actor)))
+        assertEquals(("Autoridad local".length + actor.length + 6) / 100.0, medium, 1e-9)
+        assertEquals(1.0, ColumnWidths.span(listOf("A"), rows(listOf("x".repeat(150)))), 1e-9)
+        assertEquals(1.0, ColumnWidths.span(listOf("A", "B"), rows(listOf("1", "2")), specs = listOf(ColumnSpec("1"), ColumnSpec("1"))), 1e-9)
     }
 }

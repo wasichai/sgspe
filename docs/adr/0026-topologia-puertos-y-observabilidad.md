@@ -74,7 +74,7 @@ Aceptado en parte (en F1: puertos, correlation id, logs ECS y health checks; top
 - **Desde el 2026-10-19 (ADR-0030), `sgspe-latex` en la topología, en lugar de Gotenberg:** servicio `latex`
   (`sgspe-latex`, imagen propia construida desde `develop/latex/Dockerfile` sobre `debian:trixie-slim` fijada por
   digest), solo en el loopback del VPS en el puerto **8097** (`SGSPE_LATEX_PORT`), sin volúmenes, con el sistema de
-  archivos de solo lectura y sin red de salida; solo lo llama JOB-05, para componer con LuaLaTeX el PDF de los
+  archivos de solo lectura y sin red de salida en producción (red interna); solo lo llama JOB-05, para componer con LuaLaTeX el PDF de los
   entregables (ASM-139). Es también un servicio del trabajo de integración de la CI (etiqueta `latex`).
   `application-prod.yml` no da valor por defecto a `sgspe.deliverable.latex.url`. Gotenberg se retira del compose, de la
   CI y de la configuración, y el 8096 queda libre, sin reutilizarse en esta fase.
