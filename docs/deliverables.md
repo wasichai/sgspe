@@ -3,7 +3,7 @@
 Sistema de Gestión Social para Proyectos Extractivos · Fase 0 (descubrimiento) · versión 1.0 · 2026-10-07
 
 Este documento diseña cómo SGSPE produce entregables como DOC-01 y DOC-02 en DOCX y PDF [USR-01]: los tipos, la anatomía
-capítulo por capítulo de los dos entregables de ejemplo, la tecnología (DOCX primero con Apache POI y PDF con Gotenberg), los
+capítulo por capítulo de los dos entregables de ejemplo, la tecnología (DOCX con Apache POI y PDF compuesto con LuaLaTeX), los
 mapas y gráficos, el ciclo de vida WF-H con su emisión congelada, los niveles de divulgación, las exportaciones XLSX, el
 almacenamiento y los criterios de aceptación.
 
@@ -14,8 +14,9 @@ almacenamiento y los criterios de aceptación.
 - No están aquí: las transiciones, roles y guardas por transición de WF-H (`workflows.md`), el contrato de los endpoints
   (`api.md`), los permisos por rol (`security.md`) y el catálogo de indicadores (`dashboards.md`).
 - Las decisiones de arquitectura se registran en los ADR de SGSPE (`docs/adr/`): ADR-0013 (Entregables DOCX primero, con PDF
-  por Gotenberg), ADR-0014 (Evidencias y entregables en almacenamiento de objetos), ADR-0015 (Mapas de informe con GeoServer
-  GetMap) y ADR-0017 (Datos personales y anonimización).
+  por Gotenberg), ADR-0030 (PDF de imprenta con LuaLaTeX, que reemplaza la conversión de ADR-0013), ADR-0014 (Evidencias
+  y entregables en almacenamiento de objetos), ADR-0015 (Mapas de informe con GeoServer GetMap) y ADR-0017 (Datos
+  personales y anonimización).
 - Ningún ejemplo usa nombres de personas, números de partida ni datos de comprobantes de las fuentes [USR-07] (RQ-SEC-018).
 
 ## 1. Alcance
@@ -37,10 +38,10 @@ almacenamiento y los criterios de aceptación.
 | Principio | Regla | Fuente |
 |---|---|---|
 | Datos primero | El entregable no crea datos: lee los registros y usa el mismo código de indicadores que los tableros, para que las cifras coincidan. Cada campo y tabla de DOC-01 y DOC-02 es algo que el sistema debe poder registrar | RQ-DSH-034 (análisis §0.4) (domain-model §10) |
-| DOCX primero | Apache POI construye el DOCX sobre la plantilla Word de la organización; Gotenberg (LibreOffice) convierte ese mismo DOCX a PDF | ASM-014, RQ-REP-001 |
+| DOCX y PDF del mismo modelo | Apache POI construye el DOCX sobre la plantilla Word de la organización; LuaLaTeX compone el PDF desde el mismo modelo congelado, con la clase de SGSPE: el mismo contenido, con calidad de imprenta | ASM-014, ASM-139, RQ-REP-001 |
 | Estructura en código, aspecto en Word, palabras en Markdown | Una clase Kotlin por tipo fija las secciones; la plantilla fija estilos y marca; la narrativa es Markdown que escriben personas | RQ-REP-011, RQ-REP-019, RQ-REP-032 |
 | Lo emitido es lo aprobado | Emitir congela el modelo del borrador aprobado; volver a generar una versión emitida usa ese modelo, nunca datos vivos | RQ-REP-026, RQ-REP-017 [WAS-ADR-0023] |
-| Anonimizar el modelo, no el documento | El nivel de divulgación transforma el modelo antes de generar; el generador de DOCX no sabe de niveles | RQ-REP-014, RQ-REP-033 |
+| Anonimizar el modelo, no el documento | El nivel de divulgación transforma el modelo antes de generar; ni el generador de DOCX ni el de PDF saben de niveles | RQ-REP-014, RQ-REP-033 |
 | La narrativa es humana | La IA solo sugiere texto, que una persona copia o edita con motivo | RQ-REP-011, RQ-AI-012 |
 | Sin datos reales en el repositorio | Plantillas de prueba, fixtures y textos de ejemplo usan nombres ficticios y topónimos reales | RQ-SEC-018 [USR-07] |
 
@@ -256,7 +257,7 @@ Mismas columnas que §5.
 
 ## 7. Ensamblado y generación
 
-### 7.1 Tres etapas: ensamblar, generar y convertir
+### 7.1 Tres etapas: ensamblar, generar y componer
 
 ```mermaid
 flowchart LR
@@ -265,23 +266,28 @@ flowchart LR
     A --> MP["Mapas: GetMap de GeoServer y MapComposer"]
     MP --> M["Modelo del informe: JSON canónico, congelado con su SHA-256"]
     M --> L["sgspe.privacy: ReportDisclosure por nivel"]
-    L --> X["DocxWriter (Apache POI) sobre la plantilla: borrador y candidata"]
-    X --> G["Gotenberg con LibreOffice: PDF, verificado con PDFBox"]
-    G --> F["Siete campos FILE draft_* del entregable, en wasichai-files"]
+    L --> X["DocxWriter (Apache POI) sobre la plantilla: borrador y candidata, solo INTERNO"]
+    L --> T["LatexWriter: paquete con main.tex y la clase sgspe-informe.cls"]
+    T --> G["sgspe-latex con LuaLaTeX: candidata PDF/A-2b y borrador, verificados con PDFBox"]
+    X --> F["Siete campos FILE draft_* del entregable, en wasichai-files"]
+    G --> F
 ```
 
 - **Ensamblar.** Una clase Kotlin por tipo de entregable, en `sgspe.deliverable`, como srtm escribe una clase por
   documento. Lee con `RecordService`, con la extensión y las consultas espaciales de `sgspe.territory` y con los
   indicadores de `sgspe.dashboard`, el mismo código de los tableros, con el `KpiReader` de la plataforma de la
   organización (RQ-DSH-034, `DashboardDeliverableParityTest`) (domain-model §8.2).
-- **Generar.** Un generador de DOCX aplica la narrativa, la marca y la plantilla Word base. No sabe de niveles de divulgación.
-- **Convertir.** Gotenberg convierte cada DOCX a PDF (`PdfConverter`, que implementa `GotenbergConverter`) y PDFBox
-  verifica el resultado: fuentes incrustadas de la lista, páginas y PDF/A-2b en la candidata; si no, el borrador queda
-  FALLIDO con `PDF_CHECK_FAILED`. POI y wasichai-files corren en `Dispatchers.IO`; Gotenberg y GeoServer se llaman con
-  `WebClient`, sin bloquear y solo desde JOB-05. `PdfConverter` y `ReportMaps` son puertos con dobles para las
-  pruebas.
+- **Generar.** Dos generadores recorren el mismo modelo por nivel y no saben de niveles de divulgación: `DocxWriter`
+  aplica la narrativa y la plantilla Word (§7.5, §7.6), y `LatexWriter` arma el paquete de LuaLaTeX con la clase de
+  SGSPE y la marca de la organización (§7.7, ASM-139, ASM-140). Los dos numeran las leyendas con el mismo
+  `CaptionNumbering` y miden las columnas con el mismo `ColumnWidths` (ASM-141).
+- **Componer.** El servicio `sgspe-latex` compone cada paquete (`PdfRenderer`, que implementa `LatexConverter`) y PDFBox
+  verifica el resultado: fuentes incrustadas de la lista de la clase, páginas y PDF/A-2b en la candidata; si no, el
+  borrador queda FALLIDO con `PDF_CHECK_FAILED`. POI y wasichai-files corren en `Dispatchers.IO`; `sgspe-latex` y
+  GeoServer se llaman con `WebClient`, sin bloquear y solo desde JOB-05. `PdfRenderer` y `ReportMaps` son puertos con
+  dobles para las pruebas.
 - Los paquetes de dominio no dependen de `sgspe.deliverable`; `sgspe.ai` depende de él (AI-04), nunca al revés, y el
-  `WebClient` hacia Gotenberg y GeoServer solo vive en `sgspe.deliverable` (más el proxy WMS de F6); `ArchitectureTest`
+  `WebClient` hacia `sgspe-latex` y GeoServer solo vive en `sgspe.deliverable` (más el proxy WMS de F6); `ArchitectureTest`
   lo verifica (RNF-TST-001).
 
 ### 7.2 La clase de cada tipo
@@ -382,7 +388,13 @@ Cada clase declara:
 - **Marcadores y Markdown.** `DocxWriter` rellena los marcadores fijos de la plantilla (ASM-135), normalizando las
   corridas partidas, y recorre el Markdown con commonmark-java y su extensión de tablas GFM hacia los estilos de la
   plantilla.
-- **Tablas.** Título arriba, `Fuente:` abajo, encabezado repetido y celdas combinadas para agrupar (RQ-REP-006).
+- **Tablas.** Título arriba, `Fuente:` abajo, encabezado repetido y celdas combinadas para agrupar (RQ-REP-006). Desde
+  ASM-141, cada tabla ocupa el ancho de la caja de texto (`tblW` al 100 % y `tblLayout` fijo) con un `gridCol` por
+  columna según `ColumnWidths`: la medida de su texto (la palabra más larga como mínimo, el texto más largo como ideal),
+  las cifras, porcentajes y fechas angostas y a la derecha; letra de 9 pt, relleno de celda, encabezado sombreado tenue y
+  el estilo opcional «SGSPE Tabla» (filetes arriba, bajo el encabezado y abajo, sin verticales) o, si la plantilla no lo
+  trae, `Table Grid`. Una tabla puede fijar sus pesos y alineaciones con `columns` (`ColumnSpec`) cuando el cálculo no
+  basta.
 - **Fotos.** Se reducen en Kotlin antes de insertarlas (lado mayor de 2000 px como máximo y JPEG de calidad 85, valores
   por defecto propuestos y configurables), de a dos por fila en una tabla sin bordes, con texto alternativo (RQ-REP-010,
   RQ-REP-028). Las dimensiones se leen de la cabecera antes de decodificar, y la imagen se decodifica submuestreada; una
@@ -391,6 +403,10 @@ Cada clase declara:
   plano, y si el parser de CommonMark agota la pila, la narrativa entera sale como texto plano: un anidado así no tumba
   el intento.
 - **Gráficos.** Nativos de Word en la primera versión (§7.9).
+- **Diseño de la plantilla base** (ASM-141). Márgenes de 2,5 cm (3 cm abajo), cuerpo justificado en Caladea de 10,5
+  pt con interlineado de 1,15 y 6 pt después, guiones automáticos, títulos en Carlito y en el color de acento con
+  espacio antes y después que no quedan solos al pie (`keepNext`), leyendas y fuentes con su estilo («Fuente» y
+  «Título de lista», opcionales para las plantillas de las organizaciones) y listas con sangría francesa.
 - **Encabezado y pie.** Código del documento y revisión; "Página X de Y" con PAGE y NUMPAGES; en las versiones que no son INTERNO,
   también el nivel de divulgación (RQ-REP-016, RQ-REP-024).
 - **Marca de agua.** Todo borrador lleva "BORRADOR" en el encabezado de cada sección, insertado con POI; el PDF del borrador la
@@ -438,7 +454,11 @@ Cada clase declara:
   `{{nivel}}` y `{{mapa_portada}}`, sin lenguaje de expresiones: la plantilla aporta el aspecto, no la lógica. Un marcador va solo en su párrafo (o con
   texto plano): `DocxWriter` reescribe el párrafo entero en su primera corrida, así que una imagen, un campo o un formato
   mixto de ese párrafo se pierde.
-- **Fuentes.** Gotenberg trae fuentes libres con métricas compatibles; las plantillas las usan en lugar de las de Microsoft, que no
+- **Marca del PDF** (ASM-140). La plantilla Word da el aspecto del DOCX; el PDF usa la clase de SGSPE con el logo
+  (PNG o JPEG) y el color de acento (`RRGGBB`) que la organización sube junto con la plantilla, en los campos opcionales
+  `logo` y `accent_color` de `deliverable_template`. El borrador congela el id y el SHA-256 del logo y el acento. Un
+  tenant nunca sube código TeX.
+- **Fuentes del DOCX.** Las plantillas usan fuentes libres con métricas compatibles en lugar de las de Microsoft, que no
   se pueden redistribuir en un contenedor. DOC-01 y DOC-02 usan Calibri y Arial; DOC-01 además Cambria, Century Gothic y Tahoma, y
   DOC-02 Arial Black en el título de la portada [DOC-01] [DOC-02 p.1].
 
@@ -448,29 +468,43 @@ Cada clase declara:
 | Cambria | Caladea |
 | Arial | Liberation Sans |
 | Times New Roman | Liberation Serif |
-| Arial Black, Century Gothic, Tahoma | Prohibidas, salvo que la organización entregue los archivos de fuente con licencia y los incorpore en su propia imagen de Gotenberg |
+| Arial Black, Century Gothic, Tahoma | Prohibidas en las plantillas |
 
-### 7.7 PDF con Gotenberg
+### 7.7 PDF con LuaLaTeX
 
-- El PDF se convierte desde el mismo DOCX que se entrega, con la ruta LibreOffice de Gotenberg (imagen
-  `gotenberg/gotenberg:8.37.0-libreoffice`), en la red interna y nunca expuesta (en desarrollo, solo en el loopback del VPS,
-  puerto 8096; ADR-0026) (RQ-REP-001, ASM-014). Un solo motor de render evita que el DOCX y el PDF diverjan, el mismo
-  argumento de WAS-ADR-0023 para no tener dos renderizadores [WAS-ADR-0023].
-- Opciones que se usan:
-  - `updateIndexes` (activo): actualiza índice y listas antes de convertir (RQ-REP-004);
-  - `pdfa` con PDF/A-2b en las versiones candidatas, que son las que se emiten (RQ-REP-017);
-  - título, código y revisión van en las propiedades del DOCX, que LibreOffice lleva al PDF y a su XMP (a Gotenberg no se
-    le mandan metadatos: reescribirlos después de convertir podría romper PDF/A-2b); el id de la corrida va en la
-    cabecera `Gotenberg-Trace`; marcadores desde los títulos;
-  - la marca de agua la dibuja el DOCX (el spike de F1 confirmó «BORRADOR» en cada página); Gotenberg nunca recibe una
-    URL, una ruta ni una opción que venga del cliente, y no descarga nada de la red.
-- **Tiempos.** El plazo de conversión es `sgspe.deliverable.gotenberg.timeout` (180 s) para un documento de unas 100
-  páginas con fotos, y JOB-05 procesa un pedido a la vez; sin respuesta, con un estado que no es 2xx o con
-  algo que no es un PDF, el borrador queda FALLIDO con `PDF_CONVERTER_UNAVAILABLE` (RQ-REP-021). Gotenberg corre con
-  `--api-disable-download-from`, `--webhook-disable` y `--pdfengines-disable-routes` (plan 8.2c).
-- **Spike técnico** (ADR-0013, hecho en F1 el 2026-10-07): el índice, la paginación, la marca BORRADOR, las fuentes
-  incrustadas y PDF/A-2b pasaron, y 102 páginas con 40 fotos se convirtieron en 8 s; las leyendas por capítulo con SEQ
-  y STYLEREF fallaron, así que se usan número literal, marcador y PAGEREF (§7.5). ADR-0013 quedó aceptado en F8.
+- **Componer, no convertir** (ASM-139, ADR-0030). El PDF ya no se convierte desde el DOCX: `LatexWriter` recorre el mismo
+  modelo por nivel y arma un paquete con `main.tex`, la clase `sgspe-informe.cls` (versionada en
+  `src/main/resources/sgspe/deliverable/latex/`, con su SHA-256 en el modelo congelado), las fotos reducidas, los mapas
+  PNG y el logo. El servicio `sgspe-latex` lo compone con `latexmk -lualatex` y devuelve el PDF. Hasta el 2026-10-19 el
+  PDF salía del DOCX con Gotenberg (ADR-0013); el spike de F1 y su resultado siguen en ese ADR.
+- **El servicio.** Imagen propia (`develop/latex/Dockerfile`) sobre `debian:trixie-slim` fijada por digest, con TeX Live
+  de Debian, Source Serif 4 y Source Sans 3, y un envoltorio HTTP de biblioteca estándar de Python
+  (`develop/latex/server.py`): recibe un tar con topes de bytes y de entradas, sin rutas absolutas ni `..`; compone en
+  una carpeta temporal sin `shell-escape`, con `--nosocket`, `openin_any=p` y `openout_any=p`, un plazo y una corrida a
+  la vez; corre como usuario sin privilegios, con el sistema de archivos de solo lectura, tmpfs y sin red de salida; en
+  la red interna y nunca expuesto (en desarrollo, el puerto 8097 del loopback del VPS; ADR-0026). Responde con el PDF o
+  con un código de error y la línea, nunca con texto del documento, y cuenta las cajas desbordadas.
+- **Un pedido por nivel.** La candidata compone completa, con `\DocumentMetadata{pdfstandard=a-2b, lang=es-PE}`; el
+  borrador reutiliza sus auxiliares en una pasada más con la marca BORRADOR en diagonal en cada página, porque la marca
+  no cambia la paginación (RQ-REP-021). Título, código y revisión van a los metadatos y al XMP por hyperref; el id de la
+  corrida, en una cabecera.
+- **Escape.** Todo texto del modelo pasa por `LatexText`, la única puerta hacia TeX: escapa `\ { } $ & # ^ _ % ~` y quita
+  los caracteres de control; la narrativa se traduce desde el árbol de commonmark-java, nunca como texto crudo.
+- **La clase** (KOMA `scrreprt`, ASM-141): Source Serif 4 en el cuerpo y Source Sans 3 en títulos, tablas, encabezado y
+  pie; microtype (protrusión y expansión), guiones en español con babel, sin viudas ni huérfanas; títulos sin
+  numeración automática (el número literal del tipo cuelga en el color de acento) con entrada en el índice; tablas
+  `xltabular` con booktabs, encabezado repetido, `\multicolumn` y `\multirow`, anchos de `ColumnWidths` y leyenda con
+  el número de `CaptionNumbering`; las tablas anchas y el Anexo 1 en páginas horizontales; fotos de a dos con texto
+  alternativo; gráficos con pgfplots; índice y listas de tablas y figuras nativos; portada con el logo, el título, el
+  proyecto, el mapa de portada y los datos de la autoría; encabezado con el título corto y el capítulo, y pie con el
+  código, la revisión, el nivel fuera de INTERNO y «Página X de Y» (RQ-REP-016, RQ-REP-024).
+- **Tiempos.** El plazo de composición es `sgspe.deliverable.latex.timeout` (180 s por pedido) para un documento de unas
+  100 páginas con fotos, y JOB-05 procesa un pedido a la vez; sin respuesta, con un estado que no es 2xx o con algo que
+  no es un PDF, el borrador queda FALLIDO con `PDF_CONVERTER_UNAVAILABLE` (RQ-REP-021). El spike del 2026-10-19 compuso
+  96 páginas con 30 gráficos en 87 s.
+- **Mismo contenido, distinta paginación.** El DOCX y el PDF tienen los mismos títulos, leyendas, tablas y textos; la
+  página de cada uno puede diferir, y el índice de cada formato es el de ese formato. La prueba de paridad lo vigila
+  (§13.3).
 - PDF etiquetado opcional para accesibilidad (RQ-REP-028, ASM-047).
 
 ### 7.8 Mapas de informe
@@ -499,7 +533,8 @@ Cada clase declara:
 
 ### 7.9 Gráficos
 
-- En la primera versión los gráficos son nativos y editables en Word (RQ-REP-031, ASM-014):
+- En la primera versión los gráficos son nativos y editables en Word (RQ-REP-031, ASM-014); en el PDF los dibuja pgfplots
+  desde los mismos datos, vectoriales y con las fuentes de la clase (ASM-139):
   - probabilidad × impacto: tabla 5 × 5 con celdas sombreadas y conteos (RQ-REP-009);
   - interés × poder: el Gráfico 10.3 es una dispersión nativa con XDDF (`Block.ScatterChart`, `scatter-chart` en el JSON
     canónico): una sola serie con un punto por grupo de interés (LibreOffice no dibuja los marcadores de decenas de series de
@@ -918,12 +953,12 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 
 | Tipo | Qué verifica | Herramientas |
 |---|---|---|
-| Unitarias | Ensamblado de cada tipo con fixtures; transformación por nivel; recorrido del Markdown (estilos, tablas GFM, menciones); numeración de leyendas; ajuste de escala de mapas; etiquetas de revisión; hash estable del JSON canónico; validación de plantillas; aviso de datos personales (`CanonicalJsonTest`, `ReportDisclosureTest`, `MentionsTest`, `RevisionLabelsTest`, `CaptionNumberingTest`, `MarkdownToDocxTest`, `ReportSourcesTest`, `PersonalDataScanTest`, `MapFramingTest`, `MapComposerTest`, `GetMapRequestTest`, `TemplateValidatorTest`) | JUnit |
-| Lectura del DOCX | Títulos y numeración; secuencia "Tabla 5.1, 5.2…"; celdas combinadas; imágenes en línea; líneas "Fuente:"; marca de agua en los borradores; ningún nombre de los fixtures en EXTERNO; texto alternativo | Apache POI |
-| PDF | Texto extraído con las entradas del índice y su página; cantidad de páginas en un rango; "BORRADOR" en cada página de los borradores; fuentes incrustadas y permitidas; PDF/A-2b en los metadatos XMP; un texto de referencia normalizado por tipo | PDFBox, con Gotenberg como servicio del trabajo de integración de la CI (etiqueta `gotenberg`) |
+| Unitarias | Ensamblado de cada tipo con fixtures; transformación por nivel; recorrido del Markdown (estilos, tablas GFM, menciones); numeración de leyendas; ajuste de escala de mapas; etiquetas de revisión; hash estable del JSON canónico; validación de plantillas; aviso de datos personales (`CanonicalJsonTest`, `ReportDisclosureTest`, `MentionsTest`, `RevisionLabelsTest`, `CaptionNumberingTest`, `MarkdownToDocxTest`, `ColumnWidthsTest`, `LatexTextTest`, `LatexWriterTest`, `ReportSourcesTest`, `PersonalDataScanTest`, `MapFramingTest`, `MapComposerTest`, `GetMapRequestTest`, `TemplateValidatorTest`) | JUnit |
+| Lectura del DOCX | Títulos y numeración; secuencia "Tabla 5.1, 5.2…"; celdas combinadas; ancho, `gridCol`, relleno y alineación de las tablas; imágenes en línea; líneas "Fuente:"; marca de agua en los borradores; ningún nombre de los fixtures en EXTERNO; texto alternativo | Apache POI |
+| PDF | Texto extraído con las entradas del índice y su página; cantidad de páginas en un rango; "BORRADOR" en cada página de los borradores; fuentes incrustadas y permitidas; PDF/A-2b en los metadatos XMP; ninguna caja desbordada; paridad con el DOCX: títulos, leyendas y textos de las celdas en el mismo orden (`LatexPdfTest`) | PDFBox y POI, con `sgspe-latex` como servicio del trabajo de integración de la CI (etiqueta `latex`) |
 | Guardas | Emitir por la ruta genérica de workflow, rechazado; aprobar después de editar una sección, rechazado; emitir con una sección cambiada después de aprobar, 409 con las secciones cambiadas; escribir `draft_*`, rechazado; cambiar una `deliverable_version`, 409; crearla por la API genérica, 403; crear una versión INTERNO sin DOCX, rechazado; pedir un borrador en `in_review`, 409; ninguna ruta sirve la versión candidata antes de emitir; descargas sin `DOWNLOAD_RESTRICTED` o sin `EXPORT` según el nivel, 403; pedir el modelo, o el DOCX de un borrador o de una versión EXTERNO o PUBLICO, 404; cada descarga deja su fila en `export_log` | wasichai-test (`WasichaiIntegrationTest`) |
 | Almacenamiento | Los siete archivos del borrador quedan adjuntos en una sola escritura y un borrador nuevo los reemplaza; las rutas nativas de los tres objetos aplican las comprobaciones de las propias, `404` para candidatas y modelos y `403 FILE_WRITE_NOT_ALLOWED` para la subida (`DeliverableDraftsApiTest`, `DeliverableDownloadsApiTest`); el `FileStore` sigue cubierto por `FileStoreContractTest` | wasichai-test, MinIO |
-| Suite lenta (`slowTest`, a pedido) | GetMap contra un GeoServer real: el PNG se decodifica y la leyenda que dibuja `MapComposer` tiene píxeles, sin comparar píxel a píxel; un T1 de unas 100 páginas con 40 fotos en menos de 180 s | GeoServer y Gotenberg reales (CI o túnel) |
+| Suite lenta (`slowTest`, a pedido) | GetMap contra un GeoServer real: el PNG se decodifica y la leyenda que dibuja `MapComposer` tiene píxeles, sin comparar píxel a píxel; un T1 de unas 100 páginas con 40 fotos en menos de 180 s | GeoServer y `sgspe-latex` reales (CI o túnel) |
 
 - Como el Docker de desarrollo es remoto, las pruebas con contenedores corren en CI o contra servicios externos por túnel
   [WAS-DOC modules/testing.md].
@@ -947,10 +982,12 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 | Riesgo | Mitigación |
 |---|---|
 | LibreOffice pagina distinto que Word (leyendas numeradas por capítulo, fuentes) | Spike de F1; construcciones de Word acotadas; leyendas con número literal, marcador y `PAGEREF`; `updateIndexes`; fuentes con métricas compatibles; la prueba de texto entre DOCX y PDF |
-| Licencias de fuentes de Microsoft | Carlito, Caladea y Liberation en las plantillas; fuentes con licencia solo si la organización las aporta |
+| Licencias de fuentes de Microsoft | Carlito, Caladea y Liberation en las plantillas Word; Source Serif 4 y Source Sans 3 (OFL) en el PDF |
 | GeoServer como dependencia para emitir mapas | Red interna; capas sensibles en línea; aviso y bloqueo de la emisión si falla (ASM-038, ASM-134, GAP-011) |
-| Tiempos o memoria de Gotenberg con documentos largos | Fotos reducidas; un pedido a la vez con plazo de 180 s; pedidos viejos retomados; topes de 64 MB (ASM-138); la suite lenta de 100 páginas |
+| Tiempos o memoria de la composición con documentos largos | Fotos reducidas; un pedido a la vez con plazo de 180 s; pedidos viejos retomados; topes de 64 MB (ASM-138); la suite lenta de 100 páginas |
 | Bytes de DOCX y PDF no deterministas | El hash del modelo congelado es la identidad; los hashes de archivo identifican los artefactos |
+| Texto del modelo interpretado como TeX | `LatexText` como única puerta, pruebas con entradas hostiles, sin `shell-escape`, `--nosocket`, `openin_any=p` y `openout_any=p`, y el contenedor sin red, de solo lectura y sin privilegios (ASM-139) |
+| DOCX y PDF paginan distinto | Mismo modelo, mismo `CaptionNumbering` y mismo `ColumnWidths`; prueba de paridad de contenido; cada formato con su índice (ADR-0030) |
 | Datos personales en la narrativa o en fotos | Niveles, menciones como referencias, consentimiento de fotos, lista de verificación y `export_log` |
 | Un consultor edita el DOCX fuera del sistema | Solo se emite lo que genera el sistema y un DOCX emitido nunca se reimporta (GAP-010, resuelta; ASM-135) |
 | La plataforma no puede adjuntar archivos (UPS-31) | Resuelta en wasichai 1.3.0 y adoptada en el plan 8.2b: JOB-05 adjunta el borrador como la plataforma; el respaldo de ASM-133 no se usa |

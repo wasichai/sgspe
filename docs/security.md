@@ -73,7 +73,7 @@ flowchart LR
     subgraph RED["Red interna de la aplicación"]
         APP["App SGSPE sobre wasichai"]
         GEO["GeoServer"]
-        GOT["Gotenberg"]
+        GOT["sgspe-latex"]
     end
     subgraph DATOS["Datos"]
         DB[("PostgreSQL y PostGIS")]
@@ -96,9 +96,13 @@ flowchart LR
 - Todo lo que llega del navegador o de una integración es no confiable: textos, archivos, coordenadas y documentos.
 - GeoServer lee la base directamente y no aplica ningún permiso de wasichai (CON-054) [WAS-ADR-0006]: por eso nunca es
   público (§10).
-- Gotenberg convierte a PDF los DOCX armados sobre plantillas que suben las organizaciones (RQ-SEC-019) y corre aislado,
-  sin salida a internet: solo lo llama JOB-05, nunca recibe una URL, una ruta ni una opción que venga del cliente y no
-  descarga nada de la red; en desarrollo escucha solo en el loopback del VPS (8096, ADR-0026).
+- `sgspe-latex` compone con LuaLaTeX el PDF de los entregables desde el modelo congelado (ASM-139, ADR-0030) y corre
+  aislado, sin red de salida: solo lo llama JOB-05 y nunca recibe una URL ni una opción que venga del cliente. Compone
+  con el sistema de archivos de solo lectura, un usuario sin privilegios, sin `shell-escape`, con `--nosocket`,
+  `openin_any=p` y `openout_any=p` y una corrida a la vez; el tar que recibe tiene topes de bytes y de entradas y ninguna
+  ruta absoluta ni `..`. Todo texto del modelo pasa por `LatexText`, que escapa los caracteres especiales de TeX, y
+  ninguna organización sube código TeX: solo un logo PNG o JPEG y un color de acento (ASM-140). En desarrollo escucha
+  solo en el loopback del VPS (8097, ADR-0026). Reemplaza a Gotenberg desde el 2026-10-19.
 - El proveedor de LLM queda fuera de la frontera y solo recibe texto seudonimizado, desde F7 (RQ-AI-009).
 
 ### 2.3 Amenazas
@@ -129,7 +133,7 @@ E (elevación de privilegios).
 | 19 | E | Inyección de instrucciones en actas, informes o documentos que procesa la IA | El contenido es dato y nunca instrucción; herramientas de solo lectura; una persona acepta cada sugerencia (§11.5) | — |
 | 20 | E | Una cuenta de servicio, una regla o la IA confirma una alerta o aprueba un compromiso | `WarningWriteGuard`; ninguna cuenta de servicio recibe roles de transición ni acciones de aprobación (RN-EWS-001, RQ-SEC-014) | — |
 | 21 | E | Un entregable, que se genera como la plataforma, muestra datos que quien lo pide no puede leer | `GENERATE`, `APPROVE`, `ISSUE` y `DOWNLOAD_RESTRICTED` solo para los roles que leen los campos sensibles; borradores y versiones INTERNO solo con `DOWNLOAD_RESTRICTED` (§11.4) | GAP-024 |
-| 22 | T, E | Plantilla Word con macros o archivo de importación con rutas fuera de su carpeta, o con entradas ajenas a su formato que quedarían en la evidencia del original | Validación de plantillas (RQ-SEC-019); carpeta temporal y control de rutas (RQ-SEC-020); un ZIP o KMZ solo con las entradas de su formato y un `.gpkg` con la cabecera de SQLite (ASM-060); Gotenberg aislado | — |
+| 22 | T, E | Plantilla Word con macros, logo que no es imagen, texto del modelo con macros de TeX o archivo de importación con rutas fuera de su carpeta, o con entradas ajenas a su formato que quedarían en la evidencia del original | Validación de plantillas y del logo por bytes mágicos y dimensiones (RQ-SEC-019, ASM-140); `LatexText` escapa todo texto que va a TeX (ASM-139); carpeta temporal y control de rutas (RQ-SEC-020); un ZIP o KMZ solo con las entradas de su formato y un `.gpkg` con la cabecera de SQLite (ASM-060); `sgspe-latex` aislado, sin red de salida ni `shell-escape` | — |
 | 23 | T | Un agente de campo cambia o borra lo que capturó otra persona | `EditAnyGuard`: sin `EDIT_ANY` solo se cambia o borra lo propio (§5.5) | ASM-069 |
 | 24 | I | Identificar a quien plantea una QCS confidencial por su grupo de interés, que no está restringido | `person` bajo permiso de campo; QCS anónima sin `person` ni `stakeholder` (§7.9, §11.3) | Riesgo residual; decisión en §15 |
 | 25 | I | Una sugerencia de IA guarda valores restringidos o cita una evidencia que quien la mira no puede descargar | Salidas y citas guardadas con marcadores; la API genérica solo devuelve marcadores; se re-identifican al mostrar solo para quien lee el campo, y la cita solo para quien puede descargar la fuente (§7.8) | GAP-015; riesgo residual: un marcador revela que había un dato restringido |
@@ -929,8 +933,8 @@ llamar a un modelo, lo que en F7 no hace (`ai-architecture.md` §13.2).
 JOB-08 (`RetentionJob`) borra, desde F3, las claves vencidas de la tabla fija `idempotency_key` y los saltos vencidos de
 `derived_version` con SQL propio (ASM-065, ASM-091), sin escribir registros de wasichai; en F8 no gana un paso de
 entregables: los archivos reemplazados de un borrador los borra `StoredFileCleanup` de wasichai-files (ASM-133). JOB-05
-sube y adjunta los archivos del borrador como la plataforma (UPS-31, desde wasichai 1.3.0), y es el único que llama a Gotenberg y
-a GeoServer por un entregable. Las automatizaciones de la metadata también actúan como la plataforma, y escribirlas
+sube y adjunta los archivos del borrador como la plataforma (UPS-31, desde wasichai 1.3.0), y es el único que llama a
+`sgspe-latex` y a GeoServer por un entregable. Las automatizaciones de la metadata también actúan como la plataforma, y escribirlas
 exige MANAGE_METADATA, que solo tiene `ADMIN` [WAS-DOC api/rest.md]. Las escrituras de un trabajo llevan además su
 origen en la columna `source` de la auditoría (`job:<nombre>`, WAS-ADR-0050, §13.2). La clave `generator_key` de las
 tareas de un trabajo solo la escribe la plataforma: una persona que la fija, la cambia o la vacía recibe `403`
@@ -1422,9 +1426,12 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - ningún nivel lleva el documento de identidad ni los teléfonos: ningún tipo los lee (`ReportSourcesTest`);
   - EXTERNO sale solo en PDF y exige la lista de verificación (`400 CHECKLIST_REQUIRED`), cuya confirmación queda en
     `export_log`;
-  - Gotenberg y GeoServer nunca son públicos, y ninguna petición los llama por un entregable: solo JOB-05. Los logs de
-    la generación llevan solo ids, códigos de aviso y el id de correlación, nunca narrativa, contenido de un
-    entregable ni datos personales;
+  - `sgspe-latex` y GeoServer nunca son públicos, y ninguna petición los llama por un entregable: solo JOB-05. Los
+    logs de la generación llevan solo ids, códigos de aviso y el id de correlación, nunca narrativa, contenido de un
+    entregable ni datos personales, y `sgspe-latex` devuelve un error con su código, nunca con texto del documento;
+  - todo texto del modelo que va al PDF pasa por `LatexText`, que escapa `\ { } $ & # ^ _ % ~` y quita los caracteres
+    de control; la clase `sgspe-informe.cls` es de SGSPE y ninguna organización sube código TeX, solo un logo PNG o
+    JPEG (sin SVG) y un color de acento validados (ASM-139, ASM-140, ADR-0030);
   - las plantillas Word se validan al subirlas (`TemplateValidator`, ASM-135): sin macros, objetos OLE, ActiveX,
     controles de contenido, vínculos externos ni marcadores desconocidos, y con fuentes de la lista;
   - cada emisión queda en `export_log` y en `audit_log` (RQ-AUD-011).
@@ -1643,7 +1650,7 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | Importaciones | ZIP con rutas fuera de su carpeta, archivo demasiado grande y tiempo excedido | Integración | F2, F6 | RQ-SEC-020 |
 | Plantillas Word | `TemplateValidatorTest` y `DeliverableTemplatesApiTest`: un .dotm, un `vbaProject.bin`, un objeto OLE, un vínculo externo, un marcador desconocido, un estilo requerido faltante y una fuente prohibida se rechazan con `422 TEMPLATE_INVALID`; una fuente que solo figura en la tabla de fuentes es un aviso; la base de SGSPE es válida; solo `MANAGE_METADATA` sobre `deliverable` sube | Unitaria e integración | F8 | RQ-SEC-019 |
 | Cierre de periodo (`IndicatorMeasurementsApiTest`) | `409 INDICATOR_NOT_CLOSABLE` con la postura, sin valor escalar, sin disponibilidad y con `confidentialHidden`; periodo abierto, `400 PERIOD_NOT_ENDED`; duplicado, `409 MEASUREMENT_EXISTS`; todo el tenant sin `READ_ALL_PROJECTS`, `403`; `appendOnly` | Integración | F8 | RQ-DSH-037, RQ-SEC-010 |
-| Generación de entregables (`ArchitectureTest`, `DeliverableDraftsApiTest`) | El `WebClient` hacia Gotenberg y GeoServer solo en `sgspe.deliverable` (más el proxy WMS de F6); ningún paquete de dominio depende de `sgspe.deliverable`; `sgspe.privacy` solo de `common`; nadie escribe `draft_*` por la API genérica; los logs de JOB-05 no llevan narrativa ni datos personales | Unitaria e integración | F8 | RQ-SEC-010, RNF-MNT-005 |
+| Generación de entregables (`ArchitectureTest`, `DeliverableDraftsApiTest`) | El `WebClient` hacia `sgspe-latex` y GeoServer solo en `sgspe.deliverable` (más el proxy WMS de F6); ningún paquete de dominio depende de `sgspe.deliverable`; `sgspe.privacy` solo de `common`; nadie escribe `draft_*` por la API genérica; los logs de JOB-05 no llevan narrativa ni datos personales | Unitaria e integración | F8 | RQ-SEC-010, RNF-MNT-005 |
 | Nombres reales | La verificación de §12 da cero coincidencias antes de cada commit | Local | F0–F8 | RQ-SEC-018 |
 
 Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; en F1 basta el smoke que ejecuta el agente

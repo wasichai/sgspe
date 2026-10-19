@@ -71,17 +71,25 @@ Aceptado en parte (en F1: puertos, correlation id, logs ECS y health checks; top
   solo en el loopback del VPS en el puerto **8096** (`SGSPE_GOTENBERG_PORT`; el contenedor escucha en 3000), sin
   volúmenes, sin webhooks ni descargas remotas; solo lo llama JOB-05. Es también un servicio del trabajo de integración
   de la CI. `application-prod.yml` no da valor por defecto a `sgspe.deliverable.gotenberg.url`.
+- **Desde el 2026-10-19 (ADR-0030), `sgspe-latex` en la topología, en lugar de Gotenberg:** servicio `latex`
+  (`sgspe-latex`, imagen propia construida desde `develop/latex/Dockerfile` sobre `debian:trixie-slim` fijada por
+  digest), solo en el loopback del VPS en el puerto **8097** (`SGSPE_LATEX_PORT`), sin volúmenes, con el sistema de
+  archivos de solo lectura y sin red de salida; solo lo llama JOB-05, para componer con LuaLaTeX el PDF de los
+  entregables (ASM-139). Es también un servicio del trabajo de integración de la CI (etiqueta `latex`).
+  `application-prod.yml` no da valor por defecto a `sgspe.deliverable.latex.url`. Gotenberg se retira del compose, de la
+  CI y de la configuración, y el 8096 queda libre, sin reutilizarse en esta fase.
 - Puertos ya tomados en el entorno compartido, que no se reutilizan: 8094 (backend), 5182 (interfaz), 5435 (PostGIS),
-  8095 (GeoServer), 8096 (Gotenberg), 9095 y 9096 (MinIO y su consola), 1029 y 8029 (Mailpit y su web), 3094 y 8194
-  (picos) y 8098 (medición de F5); del 8081 al 8086 son de otras apps del mismo Docker.
+  8095 (GeoServer), 8097 (`sgspe-latex`), 9095 y 9096 (MinIO y su consola), 1029 y 8029 (Mailpit y su web), 3094 y 8194
+  (picos) y 8098 (medición de F5); del 8081 al 8086 son de otras apps del mismo Docker. El 8096, de Gotenberg hasta el
+  2026-10-19, queda libre.
 
 **Aceptado en F1: observabilidad** ([architecture.md §12](../architecture.md), [api.md §3.8](../api.md)):
 
 - **Salud:** `/actuator/health/liveness` y `/readiness`, públicos.
 - **Correlación:** `X-Correlation-Id` aceptado si cumple `^[A-Za-z0-9._-]{1,64}$` y generado como UUID si no; un valor inválido
   nunca se devuelve. El filtro de `sgspe.observability` va antes de la cadena de seguridad, así que toda respuesta lo lleva,
-  también un `401`. Viaja en el contexto de Reactor, en la línea de acceso, en los logs de SGSPE y en las llamadas a Gotenberg
-  y a GeoServer (ASM-034).
+  también un `401`. Viaja en el contexto de Reactor, en la línea de acceso, en los logs de SGSPE y en las llamadas a `sgspe-latex`
+  (antes, a Gotenberg) y a GeoServer (ASM-034).
 - **Logs:** JSON estructurado (ECS) en producción, sin datos personales; una línea de acceso por petición con método, ruta sin
   la cadena de consulta, estado, duración e identificador ([security.md §11.6](../security.md)). Cada vuelta de un trabajo
   registra una línea por organización.
@@ -92,9 +100,9 @@ Aceptado en parte (en F1: puertos, correlation id, logs ECS y health checks; top
 
 - Un solo origen: el proxy inverso hace TLS, CSP y límite de tasa (ADR-0020), sirve `sgspe-ui/dist` con fallback de SPA
   (incluido `/admin/*`) y reenvía solo `/api/**` y `/actuator/health/**`. Solo el proxy expone 443.
-- Red interna: una o más réplicas de la app sobre la misma base PostgreSQL 18 con PostGIS 3.6; GeoServer (ADR-0015) y Gotenberg
-  (ADR-0013) solo alcanzables por la app y sin ruta en el proxy; GeoServer sin registro de cuerpos de petición
-  ([gis.md §7.4](../gis.md)).
+- Red interna: una o más réplicas de la app sobre la misma base PostgreSQL 18 con PostGIS 3.6; GeoServer (ADR-0015) y
+  `sgspe-latex` (ADR-0030; antes, Gotenberg de ADR-0013) solo alcanzables por la app y sin ruta en el proxy; GeoServer sin
+  registro de cuerpos de petición ([gis.md §7.4](../gis.md)).
 - Almacenamiento compatible con S3 en producción y MinIO solo en desarrollo, por su licencia AGPL (ADR-0014).
 - Salidas a Internet: SMTP y, desde F7, el proveedor de LLM con texto seudonimizado (ADR-0003).
 - Configuración de producción: `application-prod.yml` sin perfil `test`, `wasichai.seed.dev: false`, `WASICHAI_JWT_SECRET`
@@ -105,7 +113,7 @@ Aceptado en parte (en F1: puertos, correlation id, logs ECS y health checks; top
 
 ### Positivas
 
-- El navegador habla con un solo host; ni GeoServer ni Gotenberg quedan expuestos.
+- El navegador habla con un solo host; ni GeoServer ni `sgspe-latex` (antes, Gotenberg) quedan expuestos.
 - Un `401` o un `500` se rastrea en los logs por su identificador, sin datos personales.
 - La topología sirve con una réplica o con varias, sin cambios en el código.
 

@@ -27,7 +27,7 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 | [0010](0010-repositorios-sgspe-y-sgspe-ui.md) | Repositorios `sgspe` y `sgspe-ui` | Aceptado | 2026-10-07 | 0024, 0029, 0032 |
 | [0011](0011-auditoria.md) | Auditoría sobre el `audit_log` de wasichai | Aceptado | 2026-10-07 | 0013, 0023, 0040, 0041, 0043, 0044 |
 | [0012](0012-estados-temporales-materializados.md) | Estados temporales materializados por trabajos programados | Aceptado | 2026-10-07 | 0013, 0016, 0039, 0041 |
-| [0013](0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Aceptado | 2026-10-13 | 0023, 0038, 0039, 0040, 0042 |
+| [0013](0013-entregables-docx-primero.md) | Entregables DOCX primero, con PDF por Gotenberg | Aceptado (el PDF, reemplazado por 0030) | 2026-10-13 | 0023, 0038, 0039, 0040, 0042 |
 | [0014](0014-almacenamiento-de-objetos.md) | Evidencias y entregables en almacenamiento de objetos | Aceptado (ampliado en F8: los entregables en wasichai-files) | 2026-10-13 | 0040, 0041, 0042, 0061 |
 | [0015](0015-mapas-de-informe-con-geoserver.md) | Mapas de informe con GeoServer GetMap | Aceptado (F6: GeoServer interno, estilos SLD y proxy WMS; F8: los mapas de informe, con las decoraciones de SGSPE) | 2026-10-13 | 0006, 0027, 0039 |
 | [0016](0016-kpis-en-vivo-y-echarts.md) | KPIs calculados en vivo y ECharts como librería de gráficos | Aceptado (en uso desde F2) | 2026-10-13 | 0003, 0020, 0028, 0034, 0035, 0036, 0038 |
@@ -44,3 +44,4 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 | [0027](0027-if-match-con-saltos-exactos-de-derivados.md) | `If-Match` con saltos exactos de derivados y la comparación de wasichai | Aceptado | 2026-10-09 | 0038, 0040, 0051 |
 | [0028](0028-qcs-confidenciales-con-recordreadscope.md) | QCS confidenciales con `RecordReadScope` | Aceptado | 2026-10-09 | 0042, 0048, 0050 |
 | [0029](0029-alcance-de-lectura-por-proyecto.md) | Alcance de lectura por proyecto con `RecordReadScope` | Aceptado | 2026-10-10 | 0042, 0048, 0055 |
+| [0030](0030-pdf-de-imprenta-con-lualatex.md) | PDF de imprenta con LuaLaTeX y DOCX con diseño editorial | Aceptado | 2026-10-19 | 0023, 0039 |
