@@ -202,9 +202,18 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 
   "Más" reúne la búsqueda, los proyectos en consulta, el asistente, el modo campo, las preferencias y la salida. Hoja
   `Shell-Telefono` del lienzo de la etapa 3, página 21.
-- **Sub-navegación de proyecto:** dentro de un proyecto, la navegación principal se contrae a íconos y aparece la
-  sub-navegación con nombre, código, estado, chip de territorio y las pestañas de Project 360 con dos conteos: el total del
-  alcance (gris) y lo que requiere acción (píldora de color: vencidos, fuera de plazo, alertas, propuestas de IA por revisar).
+- **Sub-navegación de proyecto:** dentro de un proyecto, la navegación principal marca la sección del módulo abierto
+  (`/projects/:projectId/commitments/…` marca Compromisos, no Proyectos) y aparece la sub-navegación con nombre, código,
+  estado, chip de territorio y las pestañas de Project 360 con dos conteos: el total del alcance (gris) y lo que requiere
+  acción (píldora de color: vencidos, fuera de plazo, alertas, propuestas de IA por revisar). Contraer la navegación
+  principal a íconos queda para después, si con el módulo marcado sigue habiendo ruido (revisión de UX del 2026-10-19,
+  decisión 1).
+- **Pestañas de Project 360:** nueve visibles y "Más": Resumen · Mapa · Grupos de interés · Relacionamiento · Compromisos
+  (con Acuerdos como vista) · QCS · Riesgos · Programas · Documentos · "Más" (Tareas, Revisión de IA, Reportes, Equipo y
+  parámetros) (decisión 2). Los conteos se leen con `size=1` y `totalElements` por objeto; si son demasiadas llamadas, un
+  endpoint de conteos del proyecto (decisión 4).
+- **Aterrizaje de cada módulo:** la lista de trabajo, con "Lista · Tablero" como vistas del mismo encabezado. Riesgos abre
+  el registro y la matriz (S38 y S39) y su tablero (S62) es la vista "Tablero" (decisión 7).
 
 ### 7.2 Por rol
 
@@ -260,7 +269,7 @@ proyecto y del territorio**, y volver a cualquier punto.
 | Rastro | Lista lo recorrido (por ejemplo, Mapa · CC Tunas Pampa › Junta directiva › Asamblea › COM-2026-031 › Acta); cada paso vuelve a esa vista con sus filtros | Estado del historial del navegador (sesión) |
 | Breadcrumbs | Dicen dónde vive el registro (Proyectos / Pukaqaqa / Compromisos / COM-2026-031); no cambian con el recorrido | Derivado de la ruta |
 | Drawer de vista previa | Abre un registro relacionado sin salir de la lista o del mapa; "Abrir ficha" lo convierte en la vista principal | Consulta de la URL (`?peek=engagement:<id>`) |
-| Panel de trazabilidad | En toda ficha: "De dónde viene" (origen) y "Qué generó" (consecuencias), cada vínculo navegable | Relaciones del modelo (§8.2) |
+| Panel de trazabilidad | En toda ficha: "De dónde viene" (origen), "Qué generó" (consecuencias) y "Lo sustenta" (evidencias y documentos que lo respaldan), cada vínculo navegable | Relaciones del modelo (§8.2) |
 | Mapa y lista sincronizados | Seleccionar una geometría filtra la lista; seleccionar una fila centra y resalta el mapa | Consulta de la URL (`?selected=`) |
 
 ### 8.2 Cadenas que la interfaz recorre
@@ -376,7 +385,7 @@ desde la etapa 3.
 | S39 | Registro de riesgos | `/risks/register` | F4 | E3 |
 | S40 | Ficha de riesgo | `/projects/:projectId/risks/:riskId` | F4 | E3 |
 | S41 | Centro de alerta temprana | `/risks/warnings` | F4 | E3 |
-| S42 | Programas e inversión | `/programs` | F5 | E3 |
+| S42 | Programas sociales | `/programs` | F5 | E3 |
 | S43 | Ficha de programa | `/projects/:projectId/programs/:programId` | F5 | E3 |
 | S44 | Aporte social | `/projects/:projectId/contributions/:contributionId` | F5 | E3 |
 | S45 | Biblioteca de documentos | `/documents` | F3 | E3 |
