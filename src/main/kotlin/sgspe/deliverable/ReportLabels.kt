@@ -1,6 +1,7 @@
 package sgspe.deliverable
 
 import org.springframework.core.io.ClassPathResource
+import sgspe.common.OptionLabels
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
@@ -12,27 +13,6 @@ object ReportLabels {
     private val json = JsonMapper.builder().build()
 
     private fun read(path: String): JsonNode? = ClassPathResource(path).takeIf { it.exists() }?.inputStream?.use { json.readTree(it) }
-
-    private fun words(
-        node: JsonNode,
-        key: String
-    ): Set<String> =
-        node
-            .path(key)
-            .values()
-            .map { it.asString() }
-            .toSet()
-
-    private val acronyms: Set<String>
-    private val accents: Map<String, String>
-    private val plain: Set<String>
-
-    init {
-        val dictionary = checkNotNull(read("sgspe/deliverable/option-words.json")) { "falta sgspe/deliverable/option-words.json" }
-        acronyms = words(dictionary, "acronyms")
-        accents = dictionary.path("accents").properties().associate { it.key to it.value.asString() }
-        plain = words(dictionary, "plain")
-    }
 
     private val roleLabels: Map<String, String> by lazy {
         read("model/roles.json")
@@ -55,16 +35,8 @@ object ReportLabels {
 
     private val stateLabels = java.util.concurrent.ConcurrentHashMap<String, Map<String, String>>()
 
-    // un valor ENUM en forma de oración: la sigla igual, la palabra con tilde en su forma, las demás en minúsculas; un valor que
-    // no está todo en mayúsculas ya viene escrito por una persona y sale igual
-    fun option(value: String?): String? {
-        if (value == null) return null
-        if (value != value.uppercase()) return value
-        return value
-            .split(' ')
-            .joinToString(" ") { word -> if (word in acronyms) word else accents[word] ?: word.lowercase() }
-            .replaceFirstChar { it.uppercase() }
-    }
+    // un valor ENUM en forma de oración (OptionLabels, en sgspe.common: también lo usa JOB-04)
+    fun option(value: String?): String? = OptionLabels.option(value)
 
     // el label de un estado del workflow del objeto; si no lo encuentra, el valor tal cual
     fun state(
