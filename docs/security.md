@@ -99,7 +99,7 @@ flowchart LR
 - `sgspe-latex` compone con LuaLaTeX el PDF de los entregables desde el modelo congelado (ASM-139, ADR-0030) y corre
   aislado, sin red de salida en producción (red interna): solo lo llama JOB-05 y nunca recibe una URL ni una opción que venga del cliente. Compone
   con el sistema de archivos de solo lectura, un usuario sin privilegios, sin `shell-escape`, con `--nosocket`,
-  `openout_any=p` y una corrida a la vez; el tar que recibe tiene topes de bytes y de entradas y ninguna
+  `openout_any=p` y a lo más dos composiciones a la vez (`LATEX_CONCURRENCY`); el tar que recibe tiene topes de bytes y de entradas y ninguna
   ruta absoluta ni `..`. Todo texto del modelo pasa por `LatexText`, que escapa los caracteres especiales de TeX, y
   ninguna organización sube código TeX: solo un logo PNG o JPEG y un color de acento (ASM-140). En desarrollo escucha
   solo en el loopback del VPS (8097, ADR-0026). Reemplaza a Gotenberg desde el 2026-10-19.

@@ -24,8 +24,14 @@ class DeliverableDoubles {
 
         @Volatile var error: Throwable? = null
 
-        // los paquetes recibidos, uno por nivel
+        // los paquetes recibidos, uno por nivel, y cuántos pedidos llegaron a la vez como máximo (JOB-05 pide los dos niveles juntos)
         val bundles: MutableList<LatexWriter.Bundle> = java.util.Collections.synchronizedList(mutableListOf())
+        private val running =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        val maxConcurrent =
+            java.util.concurrent.atomic
+                .AtomicInteger()
 
         override suspend fun render(
             bundle: LatexWriter.Bundle,
@@ -34,6 +40,12 @@ class DeliverableDoubles {
             if (unavailable) throw PdfConverterUnavailable("doble sin compositor")
             error?.let { throw it }
             bundles += bundle
+            maxConcurrent.accumulateAndGet(running.incrementAndGet(), ::maxOf)
+            try {
+                kotlinx.coroutines.delay(150)
+            } finally {
+                running.decrementAndGet()
+            }
             return RenderedPdfs(TestPdfs.source(pdfa = true), TestPdfs.source(pdfa = false, text = "BORRADOR"), 0)
         }
     }

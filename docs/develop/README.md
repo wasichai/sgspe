@@ -125,7 +125,7 @@ Desde el 2026-10-19 (ADR-0030, ASM-139) el PDF de los entregables se compone con
 `develop/latex/Dockerfile`: `debian:trixie-slim` fijada por digest, TeX Live de Debian con `latexmk`, Source Sans 3 de
 Debian, Source Serif 4 con SHA-256 fijo y un envoltorio HTTP en Python de biblioteca estándar. Corre sin volúmenes, con
 el sistema de archivos de solo lectura y un tmpfs, un usuario sin privilegios y sin red de salida en producción (red interna); compone sin
-`shell-escape`, con `--nosocket`, `openout_any=p`, y una composición a la vez. Se construye y se
+`shell-escape`, con `--nosocket`, `openout_any=p`, y a lo más dos composiciones a la vez (`LATEX_CONCURRENCY`). Se construye y se
 levanta en el Docker remoto con:
 
 ```bash

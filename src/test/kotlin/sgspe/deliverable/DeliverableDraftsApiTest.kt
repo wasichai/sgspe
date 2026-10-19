@@ -93,6 +93,8 @@ class DeliverableDraftsApiTest : F8ApiTest() {
         )
         // un paquete de LaTeX por nivel, con la clase y main.tex (ADR-0030)
         assertTrue(fakePdf.bundles.size >= 2 && fakePdf.bundles.all { LatexWriter.CLASS in it.files && "\\sgspemeta{" in it.main })
+        // los dos niveles se componen a la vez
+        assertEquals(2, fakePdf.maxConcurrent.get())
         assertEquals(HttpStatus.ACCEPTED, requestDraft(id).status)
         generate()
         val second = record("deliverable", id)["attributes"]

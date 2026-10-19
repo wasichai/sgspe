@@ -480,8 +480,7 @@ Cada clase declara:
 - **El servicio.** Imagen propia (`develop/latex/Dockerfile`) sobre `debian:trixie-slim` fijada por digest, con TeX Live
   de Debian, Source Serif 4 y Source Sans 3, y un envoltorio HTTP de biblioteca estándar de Python
   (`develop/latex/server.py`): recibe un tar con topes de bytes y de entradas, sin rutas absolutas ni `..`; compone en
-  una carpeta temporal sin `shell-escape`, con `--nosocket`, `openout_any=p`, un plazo y una corrida a
-  la vez; corre como usuario sin privilegios, con el sistema de archivos de solo lectura, tmpfs y sin red de salida en producción (red interna); en
+  una carpeta temporal sin `shell-escape`, con `--nosocket`, `openout_any=p`, un plazo y a lo más dos composiciones a la vez (`LATEX_CONCURRENCY`); corre como usuario sin privilegios, con el sistema de archivos de solo lectura, tmpfs y sin red de salida en producción (red interna); en
   la red interna y nunca expuesto (en desarrollo, el puerto 8097 del loopback del VPS; ADR-0026). Responde con el PDF o
   con un código de error y la línea, nunca con texto del documento, y cuenta las cajas desbordadas.
 - **Un pedido por nivel.** La candidata compone completa, con `\DocumentMetadata{pdfstandard=a-2b, lang=es-PE}`; el
@@ -499,9 +498,10 @@ Cada clase declara:
   proyecto, el mapa de portada y los datos de la autoría; encabezado con el título corto y el capítulo, y pie con el
   código, la revisión, el nivel fuera de INTERNO y «Página X de Y» (RQ-REP-016, RQ-REP-024).
 - **Tiempos.** El plazo de composición es `sgspe.deliverable.latex.timeout` (180 s por pedido) para un documento de unas
-  100 páginas con fotos, y JOB-05 procesa un pedido a la vez; sin respuesta, con un estado que no es 2xx o con algo que
-  no es un PDF, el borrador queda FALLIDO con `PDF_CONVERTER_UNAVAILABLE` (RQ-REP-021). El spike del 2026-10-19 compuso
-  96 páginas con 30 gráficos en 87 s.
+  100 páginas con fotos. JOB-05 toma un borrador a la vez y pide sus dos niveles juntos (sgspe-latex compone dos a la vez,
+  `LATEX_CONCURRENCY`), mientras escribe el DOCX de INTERNO; sin respuesta, con un estado que no es 2xx o con algo que no
+  es el par de PDF, el borrador queda FALLIDO con `PDF_CONVERTER_UNAVAILABLE`, y si el paquete no compone (`422
+  LATEX_ERROR`), con `GENERATION_FAILED` (RQ-REP-021). El T1 de demostración de 128 páginas tarda unos 110 s por nivel.
 - **Mismo contenido, distinta paginación.** El DOCX y el PDF tienen los mismos títulos, leyendas, tablas y textos; la
   página de cada uno puede diferir, y el índice de cada formato es el de ese formato. La prueba de paridad lo vigila
   (§13.3).

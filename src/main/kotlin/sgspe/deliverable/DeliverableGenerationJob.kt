@@ -2,6 +2,8 @@ package sgspe.deliverable
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -292,21 +294,35 @@ class DraftGeneration(
         val logo = brand?.logoFile?.let { read(organizationId, mapOf("id" to it, "sha256" to brand.logoSha256), Deliverables.TEMPLATE_UNAVAILABLE) }
         val code = model.meta.code
         val out = mutableListOf(DraftFile(Deliverables.DRAFT_MODEL, "$code-modelo.json", Deliverables.MODEL_TYPE, frozen.bytes))
-        for (level in listOf(Disclosure.INTERNO, Disclosure.EXTERNO)) {
-            val leveled = ReportDisclosure.apply(model, level)
-            val levelPhotos = photos.filterKeys { it in leveled.photos.keys }
-            // el PDF se compone desde el mismo modelo del nivel, no desde el DOCX (ADR-0030): un pedido da la candidata y el borrador
-            val bundle = latex.write(LatexWriter.Input(leveled, frozen.author, levelPhotos, logo, brand?.accent))
-            val pdfs = pdf.render(bundle, PdfRequest(correlation))
+        val levels = listOf(Disclosure.INTERNO, Disclosure.EXTERNO)
+        val leveled = levels.associateWith { ReportDisclosure.apply(model, it) }
+        val levelPhotos = levels.associateWith { level -> photos.filterKeys { it in leveled.getValue(level).photos.keys } }
+        // el PDF se compone desde el mismo modelo del nivel, no desde el DOCX (ADR-0030): un pedido por nivel da la candidata y
+        // el borrador, y los dos niveles se piden a la vez (sgspe-latex compone LATEX_CONCURRENCY a la vez); el DOCX de INTERNO
+        // se escribe mientras tanto
+        val (rendered, docx) =
+            coroutineScope {
+                val pending =
+                    levels.associateWith { level ->
+                        val bundle = latex.write(LatexWriter.Input(leveled.getValue(level), frozen.author, levelPhotos.getValue(level), logo, brand?.accent))
+                        async { pdf.render(bundle, PdfRequest(correlation)) }
+                    }
+                val internal = leveled.getValue(Disclosure.INTERNO)
+                val photosInternal = levelPhotos.getValue(Disclosure.INTERNO)
+                val docx =
+                    writer.write(DocxWriter.Input(internal, frozen.template, true, frozen.author, photosInternal)) to
+                        writer.write(DocxWriter.Input(internal, frozen.template, false, frozen.author, photosInternal))
+                pending.mapValues { it.value.await() } to docx
+            }
+        for (level in levels) {
+            val pdfs = rendered.getValue(level)
             check(pdfs.draft, level, candidate = false)
             check(pdfs.candidate, level, candidate = true)
             val name = "$code-${level.name.lowercase()}"
             if (level == Disclosure.INTERNO) {
-                val draft = writer.write(DocxWriter.Input(leveled, frozen.template, true, frozen.author, levelPhotos))
-                val candidate = writer.write(DocxWriter.Input(leveled, frozen.template, false, frozen.author, levelPhotos))
-                out += DraftFile(Deliverables.DRAFT_INTERNAL_DOCX, "$name-borrador.docx", Deliverables.DOCX_TYPE, draft)
+                out += DraftFile(Deliverables.DRAFT_INTERNAL_DOCX, "$name-borrador.docx", Deliverables.DOCX_TYPE, docx.first)
                 out += DraftFile(Deliverables.DRAFT_INTERNAL_PDF, "$name-borrador.pdf", Deliverables.PDF_TYPE, pdfs.draft)
-                out += DraftFile(Deliverables.CANDIDATE_INTERNAL_DOCX, "$name.docx", Deliverables.DOCX_TYPE, candidate)
+                out += DraftFile(Deliverables.CANDIDATE_INTERNAL_DOCX, "$name.docx", Deliverables.DOCX_TYPE, docx.second)
                 out += DraftFile(Deliverables.CANDIDATE_INTERNAL_PDF, "$name.pdf", Deliverables.PDF_TYPE, pdfs.candidate)
             } else {
                 // solo PDF fuera de INTERNO
