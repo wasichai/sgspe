@@ -69,10 +69,10 @@ class MarkdownToDocxTest {
         assertEquals("heading 1", styleName(doc, section.style))
         val sub = doc.paragraphs.first { it.text == "Redes identificadas" }
         assertEquals("heading 3", styleName(doc, sub.style))
-        val first = doc.paragraphs.first { it.text.startsWith("1. ") }
+        val first = doc.paragraphs.first { it.text.startsWith("1.\t") }
         assertEquals("List Paragraph", styleName(doc, first.style))
         assertTrue(first.runs.any { it.isBold && it.text() == "Comunidad Ejemplo" })
-        assertTrue(doc.paragraphs.any { it.text == "• una viñeta" })
+        assertTrue(doc.paragraphs.any { it.text == "•\tuna viñeta" })
         assertFalse(doc.paragraphs.any { "script" in it.text })
         assertEquals(
             "PENETRADA",
@@ -181,7 +181,7 @@ class MarkdownToDocxTest {
         val bytes = DocxWriter(DeliverableProperties.Photos()).write(DocxWriter.Input(foreignModel(), foreignTemplate(), true, null, emptyMap()))
         val doc = XWPFDocument(ByteArrayInputStream(bytes))
         assertEquals("Ttulo1", doc.paragraphs.first { it.text == "Conclusiones" }.style)
-        assertEquals("Prrafodelista", doc.paragraphs.first { it.text.startsWith("1. ") }.style)
+        assertEquals("Prrafodelista", doc.paragraphs.first { it.text.startsWith("1.\t") }.style)
         assertEquals("Leyenda", doc.paragraphs.first { it.text.startsWith("Tabla 1. Redes") }.style)
     }
 

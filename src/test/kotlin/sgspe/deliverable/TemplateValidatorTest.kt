@@ -103,7 +103,7 @@ class TemplateValidatorTest {
                     }
                 }.toByteArray()
         assertTrue(TemplateValidator.MISSING_STYLE in codes(bare, "p.docx"))
-        val arial = variant { name, text -> if (name == "word/styles.xml") text.replaceFirst("w:ascii=\"Liberation Sans\"", "w:ascii=\"Arial\"") else text }
+        val arial = variant { name, text -> if (name == "word/styles.xml") text.replaceFirst("w:ascii=\"Caladea\"", "w:ascii=\"Arial\"") else text }
         assertEquals(listOf(TemplateFinding(TemplateValidator.FONT_NOT_ALLOWED, "Arial")), validator.validate(arial, "p.dotx").violations)
     }
 

@@ -38,10 +38,10 @@ class DocxWriterTest {
     fun `el borrador lleva BORRADOR en el encabezado y la letra, la candidata no lleva marca y si la revision de emision`() {
         val draft = write(Disclosure.INTERNO, draft = true)
         assertTrue(draft.headerList.any { DocxWriter.WATERMARK in it.text })
-        assertTrue(draft.footerList.any { "ENT-001 · Rev. A · Página" in it.text }, draft.footerList.joinToString { it.text })
+        assertTrue(draft.footerList.any { "ENT-001 · Rev. A\tPágina" in it.text }, draft.footerList.joinToString { it.text })
         val candidate = write(Disclosure.INTERNO, draft = false)
         assertFalse(candidate.headerList.any { DocxWriter.WATERMARK in it.text })
-        assertTrue(candidate.footerList.any { "Rev. 0 · Página" in it.text })
+        assertTrue(candidate.footerList.any { "Rev. 0\tPágina" in it.text })
     }
 
     @Test
@@ -52,7 +52,7 @@ class DocxWriterTest {
         assertTrue("Proyecto Ejemplo A" in text)
         assertTrue("Setiembre, 2026" in text)
         assertFalse("{{" in text, text)
-        assertTrue(doc.footerList.any { "· EXTERNO ·" in it.text })
+        assertTrue(doc.footerList.any { "· EXTERNO\tPágina" in it.text })
     }
 
     @Test
