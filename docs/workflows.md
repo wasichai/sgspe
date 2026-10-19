@@ -1622,13 +1622,13 @@ se resolvió en wasichai 1.3.0 y JOB-05 adjunta el borrador como la plataforma.
 4. si dispara, crea la alerta salvo que la regla esté en silencio: hay una alerta abierta (fuera de `dismissed` y
    `closed`) de la misma regla y proyecto (y riesgo, en NIVEL DE RIESGO), o una de ellas detectada (`detected_at`)
    dentro de la misma ventana de `window_days` días de Lima;
-5. la alerta nace en `detected` con `title` «<nombre de la regla>: <tipo>», `trigger_description` con el conteo, el
-   umbral y la ventana, `severity` de la regla (MEDIO si está vacía), `detected_at` ahora, `early_warning_rule`,
-   `project`, `ai_detected` falso y `generator_key` `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, cuyo
-   único frena una carrera entre réplicas, como en las tareas de los trabajos. `early_warning_rule`, `detected_at` y
-   `generator_key` solo los escribe la plataforma (`GeneratorKeyGuard`, `403 PLATFORM_ONLY` y
-   `GENERATOR_KEY_PLATFORM_ONLY`): el silencio y la protección de una regla con alertas confían en ellos, y una alerta
-   manual nace sin regla y con la hora de su alta, que pone SGSPE;
+5. la alerta nace en `detected` con `title` «<nombre de la regla>: <rótulo del tipo>» («Conteo de señales»,
+   `OptionLabels`), `trigger_description` con el conteo, el umbral y la ventana, `severity` de la regla (MEDIO si está
+   vacía), `detected_at` ahora, `early_warning_rule`, `project`, `ai_detected` falso y `generator_key`
+   `warning_rule:<regla>:<proyecto>[:<riesgo>]:<fecha de Lima>`, cuyo único frena una carrera entre réplicas, como en
+   las tareas de los trabajos. `early_warning_rule`, `detected_at` y `generator_key` solo los escribe la plataforma
+   (`GeneratorKeyGuard`, `403 PLATFORM_ONLY` y `GENERATOR_KEY_PLATFORM_ONLY`): el silencio y la protección de una regla
+   con alertas confían en ellos, y una alerta manual nace sin regla y con la hora de su alta, que pone SGSPE;
 6. una regla que falla en un proyecto se registra y no detiene a las demás reglas ni a los demás proyectos; al final de
    la vuelta, la organización se marca fallida.
 

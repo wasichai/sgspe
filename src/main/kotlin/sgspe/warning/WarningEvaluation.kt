@@ -1,6 +1,7 @@
 package sgspe.warning
 
 import sgspe.common.LIMA
+import sgspe.common.OptionLabels
 import sgspe.common.Values
 import java.time.Instant
 import java.time.LocalDate
@@ -99,7 +100,8 @@ object WarningEvaluation {
         threshold: Long
     ): Boolean = value >= threshold
 
-    fun title(rule: WarningRule): String = "${rule.name}: ${rule.kind}"
+    // el título es un dato que se ve: el tipo de regla con su rótulo («Conteo de señales»), como en los entregables
+    fun title(rule: WarningRule): String = "${rule.name}: ${OptionLabels.option(rule.kind)}"
 
     fun description(
         rule: WarningRule,

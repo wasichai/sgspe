@@ -65,7 +65,7 @@ class WarningEvaluationTest {
     fun `la alerta nace en detected con su clave y, en NIVEL DE RIESGO, con el riesgo y su territorio`() {
         val now = Instant.parse("2026-10-09T15:00:00Z")
         val signals = WarningEvaluation.alert(rule("a", Warnings.SIGNALS), "P", 3, null, now, today)
-        assertEquals("Regla a: CONTEO DE SEÑALES", signals["title"])
+        assertEquals("Regla a: Conteo de señales", signals["title"])
         assertEquals("warning_rule:a:P:2026-10-09", signals["generator_key"])
         assertEquals(false, signals["ai_detected"])
         assertEquals(
@@ -97,5 +97,14 @@ class WarningEvaluationTest {
         assertEquals(inside, WarningEvaluation.instant("2026-10-03T00:00:00-05:00"))
         assertEquals(inside, WarningEvaluation.instant("2026-10-03T05:00:00Z"))
         assertNull(WarningEvaluation.instant("no es una fecha"))
+    }
+
+    @Test
+    fun `el titulo dice el nombre de la regla y su tipo con su rotulo, no el valor crudo`() {
+        assertEquals(
+            "Señales de la semana: Conteo de señales",
+            WarningEvaluation.title(WarningRule("r1", "Señales de la semana", "CONTEO DE SEÑALES", null, 3, 7, "MEDIO"))
+        )
+        assertEquals("Riesgos: Nivel de riesgo", WarningEvaluation.title(WarningRule("r2", "Riesgos", "NIVEL DE RIESGO", null, 1, 7, "ALTO")))
     }
 }

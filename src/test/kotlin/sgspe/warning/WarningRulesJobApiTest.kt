@@ -154,7 +154,7 @@ class WarningRulesJobApiTest : F4ApiTest() {
             assertEquals(setOf("1 incidentes en 7 días (umbral 1)"), descriptions(first))
             assertEquals(setOf("1 incidentes en 7 días (umbral 1)"), descriptions(second))
             assertEquals(emptySet<String>(), descriptions(own))
-            assertEquals("Incidentes del tenant: INCIDENTES", alerts(first).single()["attributes"]["title"].asString())
+            assertEquals("Incidentes del tenant: Incidentes", alerts(first).single()["attributes"]["title"].asString())
         } finally {
             edit("early_warning_rule", tenant, mapOf("enabled" to false), manager.token)
         }
@@ -203,7 +203,7 @@ class WarningRulesJobApiTest : F4ApiTest() {
         run()
         val alert = alerts(project).single()
         val id = alert["id"].asString()
-        assertEquals("Señales de la semana: CONTEO DE SEÑALES", alert["attributes"]["title"].asString())
+        assertEquals("Señales de la semana: Conteo de señales", alert["attributes"]["title"].asString())
         assertEquals("SUCCEEDED", awaitRun("early_warning", "aut-09-warning-triage-task", id)["status"].asString())
         val inbox = tree(send("GET", "/api/auth/me/notifications?state=active", null, HttpStatus.OK, officer.token))["content"].values()
         assertTrue(inbox.any { it["link"]?.get("recordId")?.asString() == id })
