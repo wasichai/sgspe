@@ -205,6 +205,8 @@ class ArchitectureTest {
                 "/sgspe/common/DerivedVersions.kt",
                 "/sgspe/common/Idempotency.kt",
                 "/sgspe/common/UserReferenceGuard.kt",
+                // ASM-142: el nombre visible de las personas de la organización, de la tabla de usuarios como UserReferenceGuard
+                "/sgspe/common/People.kt",
                 "/sgspe/evidence/EvidenceWriteGuard.kt",
                 "/sgspe/ai/KnowledgeChunks.kt"
             )
