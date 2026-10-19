@@ -285,7 +285,7 @@ Tomadas el 2026-10-19 con la propuesta de esta tabla; la 8, a partir de la etapa
 | 3 | Nombre de la sección 9 | «Programas sociales» en barra, pestaña y título (es el de RNF-USA-001) |
 | 4 | Conteos en pestañas y en vistas | Primero con `size=1` y `totalElements` por objeto; si son muchas llamadas, un endpoint de conteos del proyecto en `sgspe` |
 | 5 | Lista global de QCS paginada | Paginación por objeto con pestañas Quejas, Consultas, Solicitudes y «Atención» con los vencidos de los tres, o un endpoint unificado |
-| 6 | Códigos sugeridos | El backend propone el siguiente código por proyecto y objeto; el portal lo muestra editable |
+| 6 | Códigos sugeridos | El backend propone el siguiente código por proyecto y objeto; el portal lo muestra editable. Hecho: `GET /api/sgspe/codes/next` (`PREFIJO-AAAA-NNN`) |
 | 7 | Aterrizaje de Riesgos | La lista (registro y matriz); el tablero como vista |
 | 8 | «Desde cuándo y quién» del panel de decisión | Dos campos derivados (`"derived": true`) en cada objeto con workflow de `model.json`: `state_changed_at` (DATETIME) y `state_changed_by` (el correo de quien dio la transición; vacío si fue una automatización). Los escribe `sgspe` en cada transición y se llenan desde la auditoría para los registros que ya existen. Sirven a la ficha y a las listas («en este estado hace N días», orden). Es un plan del backend previo a la etapa 4 |
 

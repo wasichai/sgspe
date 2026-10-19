@@ -520,6 +520,7 @@ genérica (§2).
 |---|---|---|---|---|---|---|
 | `POST` | `/api/sgspe/transition-checks` | Ejecuta en seco las guardas de SGSPE sobre una transición y devuelve lo que la bloquearía y las advertencias, sin escribir | READ sobre el objeto | `{ object, recordId, transition }` → `200 { allowed, blocking[], warnings[] }` | — | F2 |
 | `GET` | `/api/sgspe/people` | El nombre visible de las personas de la organización de quien llama, por su correo (ASM-142) | Autenticado | `?email=…&email=…` (hasta 100; sin distinguir mayúsculas) → `200 [{ email, displayName }]`; un correo desconocido o de otro tenant no sale; más de 100 o un parámetro desconocido, 422 | — | F8 |
+| `GET` | `/api/sgspe/codes/next` | El código que el portal propone en el alta de un registro: `PREFIJO-AAAA-NNN` con el año de Lima y el siguiente número de ese prefijo y año en el proyecto (decisión 6 de la revisión de UX); el campo sigue editable | `READ` sobre el objeto | `?object=…&project=<id>`, con `object` uno de `commitment`, `agreement`, `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `incident`, `social_contribution` o `social_program` → `200 { code }`; cuenta solo lo que quien llama lee; otro objeto o un proyecto que no es un id, 400; un proyecto que no lee, 404; un parámetro desconocido, 422 | — | F8 |
 
 La lista de transiciones de wasichai ya explica las que el rol no permite [WAS-DOC api/rest.md]; esta consulta agrega las
 reglas de las guardas (por ejemplo, el cierre de una interacción con preguntas pendientes, RN-ENG-005, o un tope de campaña
