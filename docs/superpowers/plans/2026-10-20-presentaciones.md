@@ -103,7 +103,7 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 
 ### 7. Publicación del paquete
 
-- [ ] `extra-files` de release-please con `slides/package.json`, y `npm publish` en `publish.yml`.
+- [x] `extra-files` de release-please con `slides/package.json`, y `npm publish` en `publish.yml`.
 
 ### 8. `sgspe-ui`
 
