@@ -1,5 +1,6 @@
 package sgspe.deliverable
 
+import sgspe.privacy.Fact
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -23,9 +24,16 @@ class DiagnosisScene private constructor(
     val projectId: UUID = UUID.fromString(project.id)
     val people = ReportPeople(source, projectId)
     val recordTexts = linkedMapOf<String, MutableList<String>>()
+
+    // los hechos tipados del informe (ADR-0031), en el orden en que las secciones los emiten
+    val facts = mutableListOf<Fact>()
     val byProject: Map<String, String> = mapOf(Deliverables.PROJECT to project.id)
     private val memberCache = mutableMapOf<String, List<SourceRow>>()
     private var stakeholderCache: List<SourceRow>? = null
+
+    fun fact(fact: Fact) {
+        facts += fact
+    }
 
     fun keep(
         section: String,
@@ -84,6 +92,9 @@ class DiagnosisScene private constructor(
         const val AIIS = "AIIS"
         const val AIDS_TITLE = "Área de influencia directa social (AIDS)"
         const val AIIS_TITLE = "Área de influencia indirecta social (AIIS)"
+
+        // la clave de un ámbito del capítulo 5 (AIDS_TITLE o AIIS_TITLE) en las claves de sus tablas (ADR-0031)
+        fun scopeKey(title: String): String = if (title == AIDS_TITLE) "aids" else "aiis"
 
         // el valor de un campo o «Sin dato»
         fun or(

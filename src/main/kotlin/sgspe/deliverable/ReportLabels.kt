@@ -38,23 +38,28 @@ object ReportLabels {
     // un valor ENUM en forma de oración (OptionLabels, en sgspe.common: también lo usa JOB-04)
     fun option(value: String?): String? = OptionLabels.option(value)
 
+    // los estados del workflow del objeto por nombre, con su label, en el orden declarado
+    private fun workflowStates(objectName: String): Map<String, String> =
+        stateLabels.getOrPut(objectName) {
+            read("model/workflows/$objectName.json")
+                ?.path("definition")
+                ?.path("states")
+                ?.values()
+                ?.associate { it.path("name").asString() to it.path("label").asString() }
+                .orEmpty()
+        }
+
     // el label de un estado del workflow del objeto; si no lo encuentra, el valor tal cual
     fun state(
         objectName: String,
         state: String?
     ): String? {
         if (state == null) return null
-        val labels =
-            stateLabels.getOrPut(objectName) {
-                read("model/workflows/$objectName.json")
-                    ?.path("definition")
-                    ?.path("states")
-                    ?.values()
-                    ?.associate { it.path("name").asString() to it.path("label").asString() }
-                    .orEmpty()
-            }
-        return labels[state]?.takeIf { it.isNotBlank() } ?: state
+        return workflowStates(objectName)[state]?.takeIf { it.isNotBlank() } ?: state
     }
+
+    // los estados del workflow del objeto en su orden declarado (la grilla de un conteo por estado, ASM-088); vacío si no existe
+    fun states(objectName: String): List<String> = workflowStates(objectName).keys.toList()
 
     // el label de un rol de roles.json; si no lo encuentra, el valor tal cual
     fun role(name: String?): String? = name?.let { roleLabels[it]?.takeIf { label -> label.isNotBlank() } ?: it }

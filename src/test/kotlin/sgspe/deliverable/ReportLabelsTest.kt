@@ -46,6 +46,15 @@ class ReportLabelsTest {
         assertNull(ReportLabels.state("commitment", null))
     }
 
+    // la grilla de un conteo por estado (ADR-0031, ASM-088): los estados del workflow en su orden declarado
+    @Test
+    fun `los estados de un workflow salen en su orden declarado y los de uno que no existe vacios`() {
+        val states = ReportLabels.states("commitment")
+        assertEquals(listOf("draft", "pending_approval", "approved"), states.take(3))
+        assertEquals("cancelled", states.last())
+        assertEquals(emptyList<String>(), ReportLabels.states("no_existe"))
+    }
+
     @Test
     fun `un rol sale con el rotulo de roles json`() {
         assertEquals("Administrador de proyectos", ReportLabels.role("PROJECT_ADMIN"))

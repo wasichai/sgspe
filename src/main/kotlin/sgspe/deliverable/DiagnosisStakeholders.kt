@@ -110,9 +110,13 @@ object DiagnosisStakeholders {
         return Block.Table(
             if (scopes.isEmpty()) "Grupos de interés sin ámbito" else "Grupos de interés del $label",
             listOf("Tipo de actor", "Actor"),
-            cells
+            cells,
+            key = "grupos_de_interes_${scopeKey(scopes)}"
         )
     }
+
+    // la clave de un ámbito de SCOPES en las claves de sus tablas (ADR-0031): aids, aiis, regional_nacional o sin_ambito
+    private fun scopeKey(scopes: List<String>): String = if (scopes.isEmpty()) "sin_ambito" else scopes.joinToString("_").lowercase()
 
     // 6.1 AIDS, 6.2 AIIS y 6.3 regional y nacional (y los sin ámbito al final): cada ámbito abre con su tabla y sigue con un
     // subtítulo por tipo de actor; los perfiles de un tipo van por localidad y cargo. La sección `perfiles` no imprime su título
@@ -235,7 +239,8 @@ object DiagnosisStakeholders {
                     Block.Table(
                         if (scopes.isEmpty()) "Clasificación de los grupos de interés sin ámbito" else "Clasificación de los grupos de interés del $label",
                         listOf("Grupo de influencia", "Nombre", "Cargo", "Tipo de actor", "Postura"),
-                        cells
+                        cells,
+                        key = "clasificacion_${scopeKey(scopes)}"
                     )
                 }
             }
@@ -288,7 +293,8 @@ object DiagnosisStakeholders {
                         Cell(DiagnosisScene.or(it, "risks")),
                         Cell(DiagnosisScene.or(it, "opportunities"))
                     )
-                }
+                },
+                key = "temas_clave"
             )
         )
     }

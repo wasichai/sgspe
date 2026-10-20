@@ -9,8 +9,10 @@ import org.junit.jupiter.api.assertThrows
 import sgspe.dashboard.MonitoringRow
 import sgspe.dashboard.Official
 import sgspe.privacy.Block
+import sgspe.privacy.CanonicalJson
 import sgspe.privacy.ChartPoint
 import sgspe.privacy.Disclosure
+import sgspe.privacy.Fact
 import sgspe.privacy.Mark
 import sgspe.privacy.PersonalDataScan
 import sgspe.privacy.RegisterSheets
@@ -1379,5 +1381,295 @@ class SocialDiagnosisTypeTest {
         assertFalse(DiagnosisStudy.startsWith("Proyectos Andinos Ejemplo SAC", "proyecto"))
         assertTrue(DiagnosisStudy.startsWith("Criterios: impactos", "criterios"))
         assertFalse(DiagnosisStudy.startsWith("Criteriosamente se eligió", "criterios"))
+    }
+
+    // ADR-0031 (plan de presentaciones, paso 3): desde typeVersion 2 los hechos tipados salen de los mismos datos que su tabla o
+    // su gráfico, y cada tabla y cada gráfico lleva su clave estable
+    private fun ReportModel.fact(key: String): Fact = facts.orEmpty().single { it.key == key }
+
+    private fun Fact.counts(): List<Pair<List<String>, Int?>> = rows.map { it.labels to it.count }
+
+    private fun ReportModel.keyed(): List<Pair<String, String?>> =
+        sections.flatMap { section ->
+            section.blocks.mapNotNull { block ->
+                when (block) {
+                    is Block.Table -> block.title to block.key
+                    is Block.LineChart -> block.title to block.key
+                    is Block.ScatterChart -> block.title to block.key
+                    else -> null
+                }
+            }
+        }
+
+    @Test
+    fun `T1 es typeVersion 2 y cada tabla y grafico lleva su clave estable`() {
+        assertEquals(2, type.version)
+        val model = assemble(T1Source.source(MonitoredSource())).model
+        assertEquals(2, model.meta.typeVersion)
+        val keyed = model.keyed()
+        assertTrue(keyed.all { (_, key) -> key != null && Regex("^[a-z0-9]+(_[a-z0-9]+)*$").matches(key) }, keyed.toString())
+        val keys = keyed.map { it.second!! }
+        // una tabla partida por microcuenca repite su clave; las demás son únicas
+        val single = keys.filter { it != "miembros_aiis" }
+        assertEquals(single.size, single.toSet().size, keys.toString())
+        assertTrue(
+            keys.containsAll(
+                listOf(
+                    "trabajo_de_campo",
+                    "miembros_aids",
+                    "miembros_aiis",
+                    "poblacion_aids",
+                    "poblacion_aiis",
+                    "clasificacion_aids",
+                    "interacciones_por_tipo",
+                    "monitoreo",
+                    "evaluacion_por_mes",
+                    "confianza",
+                    "compromisos_por_estado",
+                    "compromisos_por_plazo",
+                    "riesgos",
+                    "matriz_de_riesgos",
+                    "influencia",
+                    "cuadrantes_de_influencia"
+                )
+            ),
+            keys.toString()
+        )
+        // el modelo con sus hechos va y vuelve por el JSON canónico
+        assertEquals(model, CanonicalJson.read(CanonicalJson.bytes(model)))
+    }
+
+    @Test
+    fun `los compromisos por estado y por plazo van sobre la grilla completa con los conteos de su tabla`() {
+        val model = assemble().model
+        val (byState, byDeadline) = model.tables("seguimiento_compromisos")
+        assertEquals("compromisos_por_estado" to "compromisos_por_plazo", byState.key to byDeadline.key)
+        val states = model.fact("compromisos_por_estado")
+        assertEquals(Fact.COUNT, states.kind)
+        assertEquals(listOf("Estado"), states.dimensions)
+        assertTrue(states.forPublic && states.mark == null)
+        assertEquals(
+            listOf(
+                "Borrador",
+                "Pendiente de aprobación",
+                "Aprobado",
+                "En ejecución",
+                "Bloqueado",
+                "Cumplido",
+                "Verificado",
+                "Cerrado",
+                "Cancelado",
+                "No disponible"
+            ).map { listOf(it) },
+            states.rows.map { it.labels }
+        )
+        // cada fila de la tabla es la de su hecho; las demás son ceros
+        byState.rows.forEach { row -> assertEquals(row[1].text.toInt(), states.rows.single { it.labels == listOf(row[0].text) }.count) }
+        assertEquals(2, states.rows.sumOf { it.count!! })
+        assertEquals(8, states.rows.count { it.count == 0 })
+        val deadlines = model.fact("compromisos_por_plazo")
+        assertEquals(
+            listOf(listOf("Al día") to 1, listOf("Por vencer") to 0, listOf("Vencido") to 1, listOf("Sin dato") to 0, listOf("No disponible") to 0),
+            deadlines.counts()
+        )
+        byDeadline.rows.forEach { row -> assertEquals(row[1].text.toInt(), deadlines.rows.single { it.labels == listOf(row[0].text) }.count) }
+        assertTrue(deadlines.forPublic)
+    }
+
+    @Test
+    fun `la matriz de riesgos es un conteo de las 25 combinaciones con los valores de su figura`() {
+        val model = assemble().model
+        val matrix = model.tables("riesgos").single { it.figure }
+        assertEquals("matriz_de_riesgos", matrix.key)
+        val fact = model.fact("riesgos_matriz")
+        assertEquals(listOf("Probabilidad", "Impacto"), fact.dimensions)
+        assertEquals(25, fact.rows.size)
+        assertEquals(
+            25,
+            fact.rows
+                .map { it.labels }
+                .toSet()
+                .size
+        )
+        assertTrue(fact.forPublic)
+        for (row in matrix.rows) {
+            val impact = row[0].text
+            (1..5).forEach { probability ->
+                assertEquals(row[probability].text.toInt(), fact.rows.single { it.labels == listOf("$probability", impact) }.count)
+            }
+        }
+        assertEquals(1, fact.rows.single { it.labels == listOf("4", "4") }.count)
+        assertEquals(1, fact.rows.sumOf { it.count!! })
+    }
+
+    @Test
+    fun `las posturas cuentan la ultima evaluacion al corte con la marca de su parrafo y no salen de INTERNO`() {
+        val model = assemble().model
+        val paragraph = model.blocks("introduccion").filterIsInstance<Block.Paragraph>().single { it.mark?.kind == Mark.RESTRICTED }
+        val fact = model.fact("posturas")
+        assertEquals(paragraph.mark, fact.mark)
+        assertFalse(fact.forPublic)
+        assertEquals(
+            listOf(
+                listOf("A favor") to 1,
+                listOf("Neutral") to 0,
+                listOf("En contra pero abierto a escuchar") to 0,
+                listOf("En contra") to 1,
+                listOf("No disponible") to 0
+            ),
+            fact.counts()
+        )
+        assertTrue("1 grupo de interés a favor, 1 en oposición y 0 neutrales" in paragraph.markdown, paragraph.markdown)
+        assertTrue(
+            ReportDisclosure
+                .apply(model, Disclosure.INTERNO)
+                .facts
+                .orEmpty()
+                .any { it.key == "posturas" }
+        )
+        assertTrue(
+            ReportDisclosure
+                .apply(model, Disclosure.EXTERNO)
+                .facts
+                .orEmpty()
+                .none { it.key == "posturas" }
+        )
+        assertTrue(
+            ReportDisclosure
+                .apply(model, Disclosure.PUBLICO)
+                .facts
+                .orEmpty()
+                .none { it.key == "posturas" }
+        )
+    }
+
+    @Test
+    fun `la confianza y las proporciones por mes son las de la tabla y el grafico, con su numero de casos`() {
+        val model = assemble().model
+        val table = model.tables("evaluacion_grupos").single()
+        val chart = model.blocks("evaluacion_grupos").filterIsInstance<Block.LineChart>().single()
+        assertEquals("evaluacion_por_mes" to "confianza", table.key to chart.key)
+        val trust = model.fact("confianza_por_mes")
+        assertEquals(Fact.MEAN, trust.kind)
+        assertTrue(trust.forPublic)
+        assertEquals(chart.categories.map { listOf(it) }, trust.rows.map { it.labels })
+        assertEquals(chart.series.single().values, trust.rows.map { it.value })
+        assertEquals(table.rows.map { it[2].text }, trust.rows.map { it.value ?: DiagnosisScene.SIN_DATO })
+        assertEquals(listOf(0, 0, 0, 0, 1, 2), trust.rows.map { it.n })
+        mapOf("cambio_de_postura" to 3, "comunicacion_suficiente" to 4, "informacion_adecuada" to 5).forEach { (key, column) ->
+            val fact = model.fact(key)
+            assertEquals(Fact.VALUE, fact.kind)
+            assertEquals("%", fact.unit)
+            assertTrue(fact.forPublic)
+            assertEquals(table.rows.map { it[column].text }, fact.rows.map { it.value ?: DiagnosisScene.SIN_DATO }, key)
+        }
+        // agosto: la evaluación con cambio de postura; setiembre: una sola de las dos evaluaciones responde
+        assertEquals(listOf(null, null, null, null, "100", "0"), model.fact("cambio_de_postura").rows.map { it.value })
+        assertEquals(listOf(0, 0, 0, 0, 1, 1), model.fact("cambio_de_postura").rows.map { it.n })
+        assertEquals(listOf(0, 0, 0, 0, 0, 1), model.fact("comunicacion_suficiente").rows.map { it.n })
+    }
+
+    @Test
+    fun `el monitoreo da el valor y la meta de cada fila de la Tabla 9_5 y no sale sin ella`() {
+        val model = assemble(T1Source.source(MonitoredSource())).model
+        assertEquals("monitoreo", model.tables("monitoreo").single().key)
+        val fact = model.fact("monitoreo")
+        assertEquals(Fact.VALUE, fact.kind)
+        assertFalse(fact.forPublic)
+        val row = fact.rows.single()
+        assertEquals(listOf("KPI-ENG-01 Interacciones del periodo"), row.labels)
+        assertEquals("12.00" to "10.00", row.value to row.target)
+        assertEquals(null, row.n)
+        // sin la Tabla 9.5 en el despliegue no hay hecho: lo ausente no es cero
+        assertTrue(
+            assemble()
+                .model.facts
+                .orEmpty()
+                .none { it.key == "monitoreo" }
+        )
+    }
+
+    @Test
+    fun `el trabajo de campo cuenta sobre todas las localidades de los ambitos con los conteos de la Tabla 3_1`() {
+        val model = assemble(T1Source.full(emptyMap())).model
+        val table = model.tables("trabajo_campo").single()
+        assertEquals("trabajo_de_campo", table.key)
+        val fact = model.fact("trabajo_de_campo")
+        assertEquals(listOf("Ámbito", "Localidad", "Instrumento"), fact.dimensions)
+        assertTrue(fact.forPublic)
+        assertEquals(
+            listOf(
+                listOf("AIDS", "Caserío Ejemplo Alto", "Entrevistas") to 1,
+                listOf("AIDS", "Caserío Ejemplo Alto", "Fichas de observación") to 0,
+                listOf("AIIS", "Caserío Ejemplo Bajo", "Entrevistas") to 0,
+                listOf("AIIS", "Caserío Ejemplo Bajo", "Fichas de observación") to 1,
+                listOf("AIIS", "Caserío Ejemplo Lejano", "Entrevistas") to 0,
+                listOf("AIIS", "Caserío Ejemplo Lejano", "Fichas de observación") to 0,
+                listOf("AIIS", "Caserío Ejemplo Medio", "Entrevistas") to 0,
+                listOf("AIIS", "Caserío Ejemplo Medio", "Fichas de observación") to 0
+            ),
+            fact.counts()
+        )
+        // la tabla sigue con solo las localidades visitadas
+        assertEquals(
+            listOf(listOf("AIDS", "Caserío Ejemplo Alto", "1", "0"), listOf("AIIS", "Caserío Ejemplo Bajo", "0", "1")),
+            table.rows.map { r ->
+                r.map { it.text }
+            }
+        )
+    }
+
+    @Test
+    fun `las interacciones por tipo van sobre el catalogo completo con los conteos de su tabla`() {
+        val model = assemble().model
+        val table = model.tables("comunicacion").single()
+        assertEquals("interacciones_por_tipo", table.key)
+        val fact = model.fact("interacciones_por_tipo")
+        assertEquals(
+            ReportLabels.enumValues("engagement_type").map { listOf(ReportLabels.option(it)!!) } + listOf(listOf("Sin dato"), listOf("No disponible")),
+            fact.rows.map { it.labels }
+        )
+        assertEquals(listOf(listOf("Reunión", "1")), table.rows.map { r -> r.map { it.text } })
+        assertEquals(1, fact.rows.single { it.labels == listOf("Reunión") }.count)
+        assertEquals(1, fact.rows.sumOf { it.count!! })
+        assertTrue(fact.forPublic)
+        assertEquals("Del 01/09/2026 al 30/09/2026", fact.period)
+    }
+
+    @Test
+    fun `las familias y la poblacion por localidad son las de la Tabla 5_2 y lo que falta no es cero`() {
+        val model = assemble().model
+        val tables = model.tables("poblacion")
+        assertEquals(listOf("poblacion_aids", "poblacion_aiis"), tables.map { it.key })
+        val families = model.fact("familias")
+        val population = model.fact("poblacion")
+        listOf(families, population).forEach {
+            assertEquals(Fact.AMOUNT, it.kind)
+            assertEquals(listOf("Ámbito", "Localidad"), it.dimensions)
+            assertTrue(it.forPublic)
+        }
+        assertEquals(
+            listOf(listOf(DiagnosisScene.AIDS_TITLE, "Caserío Ejemplo Alto") to "120", listOf(DiagnosisScene.AIIS_TITLE, "Caserío Ejemplo Bajo") to "40"),
+            families.rows.map { it.labels to it.value }
+        )
+        assertEquals(listOf("480", null), population.rows.map { it.value })
+        assertEquals(tables.flatMap { t -> t.rows.map { it[1].text } }, families.rows.map { it.value ?: DiagnosisScene.SIN_DATO })
+        assertEquals(tables.flatMap { t -> t.rows.map { it[2].text } }, population.rows.map { it.value ?: DiagnosisScene.SIN_DATO })
+    }
+
+    @Test
+    fun `PUBLICO solo lleva los hechos aptos, con las celdas pequenas reservadas`() {
+        val model = assemble(T1Source.source(MonitoredSource())).model
+        val public = ReportDisclosure.apply(model, Disclosure.PUBLICO)
+        val keys = public.facts.orEmpty().map { it.key }
+        assertTrue(listOf("compromisos_por_estado", "riesgos_matriz", "confianza_por_mes", "trabajo_de_campo", "poblacion").all { it in keys }, keys.toString())
+        assertTrue("posturas" !in keys && "monitoreo" !in keys, keys.toString())
+        // dos compromisos en total: ninguna celda del estado sale con su número
+        assertTrue(
+            public.facts!!
+                .single { it.key == "compromisos_por_estado" }
+                .rows
+                .all { it.reserved == true }
+        )
     }
 }

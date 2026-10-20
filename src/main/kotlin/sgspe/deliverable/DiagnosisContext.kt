@@ -3,6 +3,8 @@ package sgspe.deliverable
 import sgspe.deliverable.DiagnosisScene.Companion.SIN_DATO
 import sgspe.privacy.Block
 import sgspe.privacy.Cell
+import sgspe.privacy.Fact
+import sgspe.privacy.FactRow
 import sgspe.privacy.Mark
 import java.util.UUID
 
@@ -48,33 +50,54 @@ object DiagnosisContext {
         }
     }
 
-    suspend fun population(scene: DiagnosisScene): List<Block> =
-        scene.scopes().flatMap { (title, localities) ->
-            val profiles = localities.map { it to scene.profile(it) }
-            val rows =
-                profiles.map { (locality, profile) ->
-                    scene.keep("poblacion", profile?.text("migration"))
-                    listOf(
-                        Cell(DiagnosisScene.or(locality, "name")),
-                        Cell(value(profile, "families_count")),
-                        Cell(value(profile, "population_count")),
-                        Cell(value(profile, "members_per_family")),
-                        Cell(ReportFormat.date(profile?.text("data_date")).ifEmpty { SIN_DATO }),
-                        Cell(value(profile, "data_source")),
-                        Cell(DiagnosisScene.option(profile, "reliability"))
-                    )
-                }
-            val migration = profiles.mapNotNull { (locality, profile) -> profile?.text("migration")?.let { "**${DiagnosisScene.or(locality, "name")}:** $it" } }
-            listOfNotNull(
-                Block.Heading(3, title),
-                Block.Table(
-                    "Familias y población: $title",
-                    listOf("Localidad", "Familias", "Población", "Miembros por familia", "Fecha del dato", "Fuente", "Confiabilidad"),
-                    rows
-                ),
-                migration.takeIf { it.isNotEmpty() }?.let { Block.Paragraph("**Migración.**\n\n" + it.joinToString("\n\n")) }
-            )
+    // Tabla 5.2 por ámbito; los hechos `familias` y `poblacion` llevan las mismas celdas por ámbito y localidad (lo que falta,
+    // sin valor: nunca cero)
+    suspend fun population(scene: DiagnosisScene): List<Block> {
+        val families = mutableListOf<FactRow>()
+        val inhabitants = mutableListOf<FactRow>()
+        val blocks =
+            scene.scopes().flatMap { (title, localities) ->
+                val profiles = localities.map { it to scene.profile(it) }
+                val rows =
+                    profiles.map { (locality, profile) ->
+                        scene.keep("poblacion", profile?.text("migration"))
+                        val name = DiagnosisScene.or(locality, "name")
+                        val familiesCount = value(profile, "families_count")
+                        val populationCount = value(profile, "population_count")
+                        families += FactRow(listOf(title, name), value = ReportFacts.value(familiesCount), unit = "familias")
+                        inhabitants += FactRow(listOf(title, name), value = ReportFacts.value(populationCount), unit = "habitantes")
+                        listOf(
+                            Cell(name),
+                            Cell(familiesCount),
+                            Cell(populationCount),
+                            Cell(value(profile, "members_per_family")),
+                            Cell(ReportFormat.date(profile?.text("data_date")).ifEmpty { SIN_DATO }),
+                            Cell(value(profile, "data_source")),
+                            Cell(DiagnosisScene.option(profile, "reliability"))
+                        )
+                    }
+                val migration =
+                    profiles.mapNotNull { (locality, profile) ->
+                        profile?.text("migration")?.let { "**${DiagnosisScene.or(locality, "name")}:** $it" }
+                    }
+                listOfNotNull(
+                    Block.Heading(3, title),
+                    Block.Table(
+                        "Familias y población: $title",
+                        listOf("Localidad", "Familias", "Población", "Miembros por familia", "Fecha del dato", "Fuente", "Confiabilidad"),
+                        rows,
+                        key = "poblacion_${DiagnosisScene.scopeKey(title)}"
+                    ),
+                    migration.takeIf { it.isNotEmpty() }?.let { Block.Paragraph("**Migración.**\n\n" + it.joinToString("\n\n")) }
+                )
+            }
+        if (families.isNotEmpty()) {
+            val dimensions = listOf("Ámbito", "Localidad")
+            scene.fact(Fact("familias", Fact.AMOUNT, "Familias por localidad", dimensions, "Familias", families, unit = "familias", forPublic = true))
+            scene.fact(Fact("poblacion", Fact.AMOUNT, "Población por localidad", dimensions, "Población", inhabitants, unit = "habitantes", forPublic = true))
         }
+        return blocks
+    }
 
     suspend fun economy(scene: DiagnosisScene): List<Block> =
         columns(
@@ -139,14 +162,16 @@ object DiagnosisContext {
                     Block.Table(
                         "Instituciones educativas: $title",
                         listOf("Localidad", "Institución", "Nivel", "Estado"),
-                        it
+                        it,
+                        key = "instituciones_educativas_${DiagnosisScene.scopeKey(title)}"
                     )
                 },
                 facilities.takeIf { it.isNotEmpty() }?.let {
                     Block.Table(
                         "Establecimientos de salud: $title",
                         listOf("Localidad", "Establecimiento", "Tipo", "Estado"),
-                        it
+                        it,
+                        key = "establecimientos_de_salud_${DiagnosisScene.scopeKey(title)}"
                     )
                 }
             )
@@ -176,8 +201,15 @@ object DiagnosisContext {
                 rows
                     .takeIf {
                         it.isNotEmpty()
-                    }?.let { Block.Table("Vías de acceso: $title", listOf("Localidad", "Tipo de vía", "Conecta con", "Estado", "Transporte", "Tiempo"), it) },
-                Block.Table("Telefonía: $title", listOf("Localidad", "Cobertura"), phones)
+                    }?.let {
+                        Block.Table(
+                            "Vías de acceso: $title",
+                            listOf("Localidad", "Tipo de vía", "Conecta con", "Estado", "Transporte", "Tiempo"),
+                            it,
+                            key = "vias_${DiagnosisScene.scopeKey(title)}"
+                        )
+                    },
+                Block.Table("Telefonía: $title", listOf("Localidad", "Cobertura"), phones, key = "telefonia_${DiagnosisScene.scopeKey(title)}")
             )
         }
 
@@ -220,7 +252,8 @@ object DiagnosisContext {
                                 "Organizaciones e instituciones locales: $title",
                                 listOf("Organización o programa", "Tipo") + localities.map { l -> DiagnosisScene.or(l, "name") },
                                 it,
-                                wide = wide(localities.size + 1)
+                                wide = wide(localities.size + 1),
+                                key = "organizaciones_${DiagnosisScene.scopeKey(title)}"
                             )
                         }
                     )
@@ -257,7 +290,8 @@ object DiagnosisContext {
                                 )
                             }
                     },
-                    wide = wide(types.size + 1)
+                    wide = wide(types.size + 1),
+                    key = "organizaciones_por_tipo_${DiagnosisScene.scopeKey(title)}"
                 ).takeIf { organizations.isNotEmpty() }
         val byProgram =
             Block
@@ -268,7 +302,8 @@ object DiagnosisContext {
                         listOf(Cell(DiagnosisScene.or(locality, "name"))) +
                             present.map { program -> Cell(if (programs[locality.id].orEmpty().any { it.id == program.id }) "X" else "") }
                     },
-                    wide = wide(present.size + 1)
+                    wide = wide(present.size + 1),
+                    key = "programas_del_estado_${DiagnosisScene.scopeKey(title)}"
                 ).takeIf { present.isNotEmpty() }
         return listOfNotNull(byType, byProgram)
     }
@@ -308,7 +343,12 @@ object DiagnosisContext {
                 }
             val table =
                 festivities.takeIf { it.isNotEmpty() }?.let {
-                    Block.Table("Costumbres y fechas festivas: $title", listOf("Localidad", "Festividad", "Fecha", "Turnos de coorganización"), it)
+                    Block.Table(
+                        "Costumbres y fechas festivas: $title",
+                        listOf("Localidad", "Festividad", "Fecha", "Turnos de coorganización"),
+                        it,
+                        key = "festividades_${DiagnosisScene.scopeKey(title)}"
+                    )
                 }
             // sin tabla y sin marca visible, una línea fija evita el título solo en EXTERNO
             val note = if (table == null) listOf(reservedNote(religion.isEmpty() && !scene.hasNarrative("costumbres"))) else emptyList()
@@ -339,14 +379,16 @@ object DiagnosisContext {
                         localities.mapIndexed { i, locality ->
                             listOf(Cell(DiagnosisScene.or(locality, "name"))) + rows.map { (_, field) -> Cell(value(profiles[i], field)) }
                         },
-                        wide = wideTransposed(rows.size + 1)
+                        wide = wideTransposed(rows.size + 1),
+                        key = "${key}_${DiagnosisScene.scopeKey(scope)}"
                     )
                 } else {
                     Block.Table(
                         "$title: $scope",
                         listOf(first) + localities.map { DiagnosisScene.or(it, "name") },
                         rows.map { (label, field) -> listOf(Cell(label)) + profiles.map { Cell(value(it, field)) } },
-                        wide = wide(localities.size + 1)
+                        wide = wide(localities.size + 1),
+                        key = "${key}_${DiagnosisScene.scopeKey(scope)}"
                     )
                 }
             listOf(Block.Heading(3, scope), table)
