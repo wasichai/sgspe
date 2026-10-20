@@ -316,6 +316,20 @@ tenant de producción.
   («warning: <clave> has N <objeto o relación>, declares M») cuando core tiene menos hijos de un objeto o menos vínculos
   de una relación que los declarados; el aviso no compara el contenido, solo el número.
 
+### Uso de las acciones de las fichas
+
+`uso_de_acciones.py` lee la auditoría de un periodo (`GET /api/audit` por cursor) y cuenta cuántas veces las personas dieron
+cada transición o acción de una ficha, y si el portal la ofrece a la vista (la primaria) o en «Más acciones»
+(sgspe-ui#75). Sirve para decidir si algo del menú debe volver a la vista. Necesita una cuenta que lea la auditoría de todo
+el tenant (ADMIN o AUDITOR) y no escribe nada.
+
+```bash
+cd model
+python3 uso_de_acciones.py --core URL --email … --password … --desde 2026-07-01 --hasta 2026-10-01
+```
+
+Si cambia `CAMINO_DE` en sgspe-ui (`src/portal/fichas/siguienteAccion.ts`), se cambia también `CAMINO` en el script.
+
 ## 6. Pruebas
 
 ```bash
