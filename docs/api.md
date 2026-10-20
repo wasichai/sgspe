@@ -339,6 +339,12 @@ contrato las fijan para que un cambio de wasichai avise:
   estado), separados por comas porque la lista genérica lee un solo valor por parámetro. Se combinan con los demás filtros, la
   paginación y el conteo, siempre dentro del alcance de lectura de quien llama. Un estado que el workflow no declara, o un objeto
   sin workflow, es un `400` sobre el parámetro (`StateQuery`, D10 de la revisión de UX).
+- También por un rango de fechas: `range_field=a,b&range_from=&range_to=` deja los registros cuyo primer campo con valor
+  (en ese orden: `held_at,scheduled_at` es la fecha en que ocurrió o, si no, la programada) cae en `[range_from, range_to)`;
+  basta uno de los dos límites. Los campos son todos DATE o todos DATETIME y quien llama debe leerlos; un límite es `AAAA-MM-DD`
+  o, en un DATETIME, un instante ISO-8601 con zona, y un día en un DATETIME es su comienzo en Lima. `empty=a,b` deja los
+  registros sin valor en todos esos campos (las tareas sin asignar, lo que no tiene fecha). Un campo que no se lee, un rango
+  sin campo, sin límites o al revés, es un `400` sobre el parámetro (`RangeQuery` y `EmptyQuery`, D10 de la revisión de UX).
 - **Un parámetro desconocido es un `422` que lo nombra en `errors[]`, nunca un filtro ignorado** (ASM-054). La API
   genérica, en cambio, responde `400` a un filtro por un campo que no existe [WAS-DOC api/rest.md].
 
@@ -962,6 +968,7 @@ vínculo con la QCS, `ConfidentialTasksListener` (D-1, `security.md` §9.6).
 | `POST` | `/api/sgspe/stakeholder-requests/{id}/reclassify` | Reclasifica una solicitud como queja o consulta y cierra la original | CREATE sobre el objeto destino, UPDATE sobre `stakeholder_request` y el rol de la transición de cierre | Igual | `IK`, `IM`, `CR` | F4 |
 | `POST` | `/api/sgspe/stakeholder-requests/{id}/accept` | Acepta la solicitud: crea un compromiso en `draft` o, desde F5, un aporte social, lo vincula (`created_commitment` o `created_contribution`) y lleva la solicitud a `accepted` | UPDATE sobre `stakeholder_request`, CREATE sobre el objeto que crea (`commitment` o `social_contribution`) y el rol de la transición de WF-E3 a `accepted`: `COMMITMENT_MANAGER`, sin CREATE sobre `social_contribution`, acepta solo como compromiso (ASM-117) | `{ creates, response, respondedAt, attributes }`: `creates` igual a `commitment` o `social_contribution`; `response` (texto) y `respondedAt` (fecha y hora) son la respuesta a la solicitud, y `attributes`, los valores del registro que se crea → `201 { request, commitment }` o `201 { request, contribution }`, con `Location` del registro creado | `IK`, `IM`, `CR` | F4 (aporte en F5) |
 | `GET` | `/api/sgspe/attention/report` | Reporte unificado de quejas, consultas y solicitudes: totales por tipo, estado, canal y categoría, y la lista | READ sobre los tres objetos; lo que no se puede leer sale como no disponible | `?project=&periodStart=&periodEnd=&type=&channel=&category=&page=&size=` → `200 { totals, byType, confidentialHidden, page }` | — | F4 |
+| `GET` | `/api/sgspe/attention/queue` | La cola de atención del portal: quejas, consultas y solicitudes en una lista por plazo (grupos `overdue`, `dueSoon`, `onTime`; dentro, primero lo que vence antes, luego la recepción y el código), paginada y contada en el servidor (decisión 5 de la revisión de UX) | READ sobre cada objeto; un tipo que no se lee no aporta filas y una QCS confidencial que no se ve no llega | `?project=&view=attention\|grievances\|inquiries\|requests\|mine\|all&q=&channel=&category=&severity=&stakeholder=&page=&size=` → `200 { content: [{ type, group, record }], page, size, totalElements, totalPages, views, groups, unfiltered, openDueSoon, readable }`; `views` y `groups` cuentan con los filtros, `unfiltered` la vista sin ellos y `openDueSoon` las abiertas por vencer. La lectura es acotada por tipo (`sgspe.exports.max-rows`): pasarse es `400` `TOO_MANY_RECORDS` | — | F4 |
 
 - El registro nuevo de una reclasificación guarda el vínculo `reclassified_from_*` con el original (RF-GRV-007), y el
   original pasa a `closed` con la transición de comando `close_reclassified_*` que fija `workflows.md`: el planteamiento sigue
