@@ -16,7 +16,7 @@ almacenamiento y los criterios de aceptación.
 - Las decisiones de arquitectura se registran en los ADR de SGSPE (`docs/adr/`): ADR-0013 (Entregables DOCX primero, con PDF
   por Gotenberg), ADR-0030 (PDF de imprenta con LuaLaTeX, que reemplaza la conversión de ADR-0013), ADR-0014 (Evidencias
   y entregables en almacenamiento de objetos), ADR-0015 (Mapas de informe con GeoServer GetMap) y ADR-0017 (Datos
-  personales y anonimización).
+  personales y anonimización) y ADR-0031 (Presentaciones de los entregables con Remotion, §16).
 - Ningún ejemplo usa nombres de personas, números de partida ni datos de comprobantes de las fuentes [USR-07] (RQ-SEC-018).
 
 ## 1. Alcance
@@ -68,7 +68,9 @@ almacenamiento y los criterios de aceptación.
 - **Niveles que prepara cada tipo.** T1 y T2 preparan INTERNO y EXTERNO (decisión del usuario del 2026-10-13, ASM-037);
   EXTERNO sale solo en PDF y exige la lista de verificación (§9.4). PUBLICO, solo con agregados, se aplica a las
   exportaciones y a los tipos futuros que lo declaren: ningún tipo de F8 lo prepara, así que en F8 no hay archivos
-  PUBLICO de entregables, y §9.2 conserva sus reglas por elemento para cuando un tipo lo declare.
+  PUBLICO de entregables, y §9.2 conserva sus reglas por elemento para cuando un tipo lo declare. Desde el 2026-10-20,
+  las **presentaciones** de una versión emitida sí pueden salir en PUBLICO, solo desde los hechos tipados del modelo
+  (§16.4, ASM-146).
 - Dentro de F8 se genera primero T2, más corto (plan 8.2b, que se cierra con mapas y PDF reales en 8.2c), y después T1,
   que ejercita todo el pipeline (plan 8.2c).
 - Las minutas y las listas de asistentes no son entregables: son documentos emitidos de un registro (RQ-REP-029).
@@ -618,7 +620,8 @@ stateDiagram-v2
     emitir, porque RQ-REP-021 exige la marca de agua en todo lo no emitido: se revisa el borrador, que tiene el mismo
     contenido, y de la candidata solo se muestra su SHA-256.
   - En EXTERNO el DOCX es un paso intermedio: el PDF se convierte desde él (RQ-REP-001), pero no se guarda ni se
-    entrega, porque esas versiones son solo PDF. Ningún tipo de F8 prepara PUBLICO (§3).
+    entrega, porque esas versiones son solo PDF. Ningún tipo de F8 prepara PUBLICO (§3); las presentaciones PUBLICO de
+    una versión emitida se arman aparte (§16).
 - **Etiquetas de revisión** (RQ-REP-016, ASM-027): los borradores llevan letras (A, B…) y las emisiones números (0, 1…).
   La letra sale de `draft_revision`, la del borrador anterior, y se reinicia en cada revisión nueva. El esquema es
   configurable por organización, por su slug, como el mapa base.
@@ -754,7 +757,7 @@ no haya fuente normativa (GAP-001).
 | Tablas 7.1 a 7.3 (nombre, cargo, postura) | Con nombre | Columna de nombre vacía en las personas (el cargo y la organización van en sus columnas) y «Postura» vacía; una organización lleva su nombre | Conteos por grupo de influencia y postura |
 | Tabla 9.1 de T1 (reglas de priorización) | Completa | «Postura» reservada: el criterio de la estrategia no sale a terceros, aunque `prioritization_rule.stance` no es un campo restringido de la plataforma (security.md §7.9) | Se omite |
 | Perfiles por cargo (§6 de T1) | Completos | Sin nombre; sin razones de postura de personas | Se omiten |
-| Citas de percepciones | Atribuidas por cargo (nunca por nombre) | Igual | Sin atribución |
+| Citas de percepciones | Atribuidas por cargo (nunca por nombre) | Igual | Sin atribución; en una presentación, ninguna (§16.4) |
 | Redes y nodos (T2) | Con nombres | Por cargo y papel en la red | Conteos de redes y nodos |
 | Comprobante del apoyo (T2) | Imagen | Datos estructurados del `receipt` sin número ni nombre del emisor | Monto total del aporte |
 | Lugar de una entrega del apoyo (T2) | Como en el registro | Se omite (puede ser una vivienda; el modelo lo lleva en un párrafo marcado); la fecha de la entrega queda | Se omite |
@@ -990,12 +993,221 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 | DOCX y PDF paginan distinto | Mismo modelo, mismo `CaptionNumbering` y mismo `ColumnWidths`; prueba de paridad de contenido; cada formato con su índice (ADR-0030) |
 | Datos personales en la narrativa o en fotos | Niveles, menciones como referencias, consentimiento de fotos, lista de verificación y `export_log` |
 | Un consultor edita el DOCX fuera del sistema | Solo se emite lo que genera el sistema y un DOCX emitido nunca se reimporta (GAP-010, resuelta; ASM-135) |
+| Una presentación expone lo que su nivel no permite | El nivel se aplica antes de extraer el material; PUBLICO por lista permitida sobre `facts` con `SmallCells`; pruebas negativas con marcadores ficticios sobre la especificación y el PDF (§16.4) |
+| Una lámina ilegible por exceso de texto | El planificador mide y divide; la composición verifica desborde, solapes y tamaño mínimo y falla sin archivo parcial (§16.7) |
+| Chrome sin sandbox propio en `sgspe-slides` | Sin URL en la especificación, imágenes incrustadas y validadas, contenedor de solo lectura, sin capacidades y sin red de salida (ADR-0031) |
 | La plataforma no puede adjuntar archivos (UPS-31) | Resuelta en wasichai 1.3.0 y adoptada en el plan 8.2b: JOB-05 adjunta el borrador como la plataforma; el respaldo de ASM-133 no se usa |
 
-- **ADR de SGSPE:** ADR-0013, ADR-0014, ADR-0015 y ADR-0017.
+- **ADR de SGSPE:** ADR-0013, ADR-0014, ADR-0015, ADR-0017, ADR-0030 y ADR-0031.
 - **Supuestos que este documento aplica:** ASM-003, ASM-013, ASM-014, ASM-026, ASM-027, ASM-028, ASM-029, ASM-031,
-  ASM-037, ASM-038, ASM-047, ASM-055, ASM-058, ASM-061, ASM-063, ASM-088, ASM-124 y ASM-133 a ASM-138.
+  ASM-037, ASM-038, ASM-047, ASM-055, ASM-058, ASM-061, ASM-063, ASM-088, ASM-124, ASM-133 a ASM-141 y ASM-143 a
+  ASM-147.
 - **Pendientes:** GAP-001 (normativa, en particular la de datos personales), GAP-009 (tenant y marca), GAP-011
   (GeoServer y cartografía), GAP-014 (retención; el consentimiento por foto quedó confirmado) y GAP-022 (despliegue y
   almacenamiento). UPS-31 (la plataforma adjunta archivos) quedó resuelta en wasichai 1.3.0, GAP-010 (ASM-135) también, y
   T3 a T10 quedan fuera de F8 (ASM-026).
+
+## 16. Presentaciones
+
+Desde el 2026-10-20, una versión emitida de T1 o T2 también se cuenta como **presentación**: un juego de láminas para un
+público y un nivel de divulgación (RF-REP-008, ADR-0031). El caso que la motiva:
+
+1. la presentación se envía por correo a una institución, que la revisa;
+2. después, un sociólogo la presenta desde su laptop en una asamblea pública, donde puede no haber internet.
+
+### 16.1 Qué es y qué no es
+
+- **Es una salida derivada de lo ya emitido** (ASM-143). Sale del modelo congelado INTERNO de una `deliverable_version`,
+  con su SHA-256 verificado. No tiene aprobación propia, no cambia los hechos y no es una emisión.
+- **No lleva la marca BORRADOR.** Su pie dice «Derivada de <código> rev. <r>, nivel <nivel>; no es un documento
+  emitido».
+- **No es un tablero copiado a láminas** ni un resumen del informe hecho por la IA. Es determinista y funciona sin
+  servicios externos. Si más adelante la IA propone títulos o síntesis, pasará por la adopción humana de RQ-AI-012.
+- **No es editable.** No hay PPTX, porque Remotion no lo produce y simularlo sería engañoso (ADR-0031).
+
+### 16.2 Formatos
+
+| Formato | Para qué | Estado |
+|---|---|---|
+| PDF de láminas 16:9 (1920 × 1080 px, 1440 × 810 pt) | La copia que se envía y la que funciona sin conexión. Es la referencia | Esta entrega |
+| Presentación en el navegador | `sgspe-ui` presenta la misma especificación a pantalla completa con `@remotion/player`, con las animaciones y el teclado | Esta entrega (en `sgspe-ui`) |
+| Video MP4 | Una presentación que corre sola, con `renderMedia` sobre la misma composición | Después |
+
+El último fotograma de cada lámina es su estado completo y es el que va al PDF: toda animación ayuda a entender (una cifra
+que llega a su valor, series que entran en orden), y nada crítico depende de ella.
+
+### 16.3 Capas
+
+```
+deliverable_version emitida ─► modelo congelado INTERNO (SHA-256 verificado)
+  └─ ReportDisclosure.apply(modelo nominal, nivel)       sgspe.privacy: INTERNO, EXTERNO o PUBLICO
+       └─ DeckMaterial (tipo y typeVersion)               material tipado
+            └─ DeckPlanner (público)                      arco narrativo, láminas, layouts y textos
+                 └─ DeckSpec                              JSON canónico con las imágenes incrustadas
+                      ├─ SlidesConverter ─► sgspe-slides (Remotion) ─► PDF ─► DeckChecks
+                      └─ GET …/spec ─► sgspe-ui (@remotion/player)
+```
+
+- **El orden es fijo** (RQ-REP-035):
+  1. el nivel se aplica sobre el modelo nominal;
+  2. se extrae el material;
+  3. el público planifica.
+  
+  Ninguna capa ve lo que una anterior quitó.
+- **`DeckMaterial`** lee el modelo de cada nivel por `(type, typeVersion)` y falla cerrado ante un tipo o una versión
+  que no conoce. El material es tipado: KPI, tendencia, comparación, mapa, cita, cronología, matriz, método y narrativa.
+  - Desde `typeVersion` 2 lee los hechos tipados (`facts`) y los bloques por su clave (`key`).
+  - En un modelo de la versión 1 lee por clave de sección y título, con un lector espejo de `ReportFormat`. Allí lo
+    vacío o «No disponible» es ausente, nunca cero.
+- **`DeckPlanner`** es puro y determinista:
+  - elige el material según el arco del público y el layout según el tipo y el tamaño del material;
+  - mide el texto con las mismas fuentes que el compositor (`java.awt.font`, con margen) y divide en vez de encoger.
+- **`DeckSpec`** lleva:
+  - la versión de esquema;
+  - `meta`: código, revisiones, nivel, público, proyecto y fecha del modelo;
+  - `theme`: los tokens con el acento del tenant corregido para un contraste de al menos 4,5:1 y el logo;
+  - las láminas, cada una con su id, layout, propósito, título, datos tipados, fuente, notas y notas del orador;
+  - las imágenes PNG o JPEG reducidas e incrustadas.
+  
+  Las cifras ya vienen formateadas en es-PE. Ningún texto puede ser una URL, y los componentes no interpretan HTML.
+
+### 16.4 Divulgación
+
+Las presentaciones INTERNO y EXTERNO usan el modelo del nivel tal como lo deja `ReportDisclosure` (§9). Las citas que
+EXTERNO conserva van atribuidas por cargo y rotuladas como testimonio o percepción, nunca como hecho.
+
+**PUBLICO** (ASM-146) sale del modelo nominal por una lista permitida que falla cerrada:
+
+- **Entran:**
+  - los hechos tipados del modelo (`facts`) pasados por `SmallCells`, con la grilla completa del catálogo, «reservado»
+    para todo conteo menor de 5 y sin totales que lo despejen (ASM-088);
+  - los promedios con su número de casos; los de menos de 5 casos, como «reservado»;
+  - los títulos fijos;
+  - las fotos de tipo FOTO sin personas identificables (`identifiable == false`), porque el consentimiento dado para un
+    informe no cubre una asamblea.
+- **No entran:** párrafos, citas, menciones, puntos de dispersión con código `GI-`, mapas (los congelados son de
+  INTERNO o EXTERNO y JOB-09 no pide mapas nuevos) ni comprobantes.
+- **Un modelo sin `facts`** (`typeVersion` 1) no admite PUBLICO: responde `422 PUBLIC_NOT_AVAILABLE`.
+- **Un solo conjunto de hechos PUBLICO por versión**, el mismo para todo público, para que dos presentaciones no se
+  resten entre sí. La diferencia entre dos revisiones emitidas es un residuo aceptado (`security.md` §11.4).
+- **El planificador descarta** las láminas PUBLICO en las que la mayoría de los datos son «reservado».
+
+Las pruebas negativas siembran marcadores ficticios identificables en los campos marcados, las menciones, las citas, el
+lugar de una entrega y las fotos (un nombre, un teléfono y un documento de identidad ficticios). Comprueban que ninguno
+llega a la especificación ni al PDF de EXTERNO o PUBLICO, y pasan `PersonalDataScan` sobre el texto de la especificación.
+
+### 16.5 Públicos
+
+El público decide cómo se cuenta y el nivel, qué se puede contar (ASM-145). `Audience` es un catálogo en el código: un
+público nuevo se agrega sin tocar el compositor. Un público solo restringe los niveles que admite, nunca los relaja.
+
+| Público | Para qué la mira | Arco | Densidad | Lenguaje visual | Niveles |
+|---|---|---|---|---|---|
+| DIRECCION | Decidir | Tesis → cifras clave → evolución → riesgos y alertas → compromisos pendientes → conclusiones y próximos pasos → fuentes y límites | Baja: una idea por lámina, cifras grandes y pocas categorías por gráfico | Limpio, de alto contraste, con titulares que dicen el hallazgo | Cualquiera |
+| CAMPO | Ver qué pasa en cada localidad | Territorio → cobertura y cronología del trabajo de campo → hallazgos por localidad → percepciones (rotuladas) → conflictos y compromisos → pendientes → método y límites | Media: matrices y tablas cortas | Analítico, con identificación territorial y la observación separada de la percepción y de la interpretación | Cualquiera |
+| INVESTIGACION | Evaluar el rigor | Preguntas y método → contexto → indicadores y desgloses → tendencias → hallazgos con su procedencia → limitaciones → fuentes | Media alta: notas metodológicas y el número de casos siempre | Editorial y analítico, con etiquetas precisas y referencias | Cualquiera |
+| INSTITUCIONES | Coordinar | Alcance territorial → resultados → compromisos y avances → riesgos → evidencia → asuntos que requieren coordinación → fuentes | Media | Formal, ordenado y sobrio | EXTERNO o PUBLICO |
+| COMUNIDAD | Entender y preguntar | Qué es este informe → qué se hizo → qué se encontró → compromisos y su estado → qué sigue → qué no dicen estos datos | Baja: frases cortas y los términos técnicos explicados (glosario fijo) | Cálido y directo, con cifras grandes y de alto contraste para el proyector | Solo PUBLICO |
+
+**El arco no es una plantilla fija.** Cada paso se llena solo si hay material, el número de láminas sale del material
+(con topes configurables) y una sección sin datos no deja una lámina vacía.
+
+**Los títulos.**
+
+- Un título afirmativo («La confianza promedio subió de 3,2 a 3,8 entre abril y septiembre») sale solo de una
+  comparación calculable sobre los datos ya divulgados, y nunca afirma una causa.
+- Si no hay una comparación así, el título describe.
+- Cada lámina con datos lleva su fuente, el periodo, la unidad y el número de casos cuando hacen falta (RQ-REP-038).
+- Una percepción no se vuelve consenso: va rotulada con su alcance.
+
+### 16.6 Sistema visual
+
+Los tokens viven versionados en `slides/src/design/` y los usan tanto el compositor como el reproductor:
+
+- **La paleta:** texto, fondos, superficies, el acento (el del tenant, corregido para el contraste), los estados y las
+  series de los gráficos, sin degradados ni sombras decorativas.
+- **La escala tipográfica:** Source Serif 4 Display para los titulares y Source Sans 3 para el texto, las cifras y los
+  gráficos, las mismas fuentes OFL que el PDF del entregable. El tamaño mínimo es de 24 px en 1920 × 1080.
+- **La retícula** de 12 columnas, con márgenes, ritmo vertical y escala de espacios.
+- **Los tratamientos:**
+  - fotos sin deformar, recortadas por su punto de interés;
+  - mapas congelados con su fuente;
+  - gráficos SVG propios en 2D, con sus unidades y leyendas;
+  - estilos para la cita, la fuente, la nota metodológica y la advertencia;
+  - el pie con la numeración y la derivación.
+
+**Los layouts** son componentes pequeños y tipados: portada, separador de sección, tesis, resumen ejecutivo, cifras
+clave, evolución temporal, comparación, mapa, hallazgo cualitativo con cita, cronología de campo, matriz de compromisos o
+riesgos, metodología, escenarios documentados, conclusiones y próximos pasos, fuentes y limitaciones, y cierre. Una
+lámina dice qué comunica y qué layout usa, nunca trae código.
+
+### 16.7 Composición
+
+El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF.
+
+- **La imagen** es `slides/Dockerfile`: Node LTS fijado por digest, Remotion en una versión exacta, y el bundle y el
+  Chrome headless-shell preparados al construir.
+- **`POST /render`** recibe un tar con `deck.json` y devuelve un tar con `deck.pdf`.
+- **`GET /health`.**
+- **La composición:** cada lámina se compone con un `renderStill` a PDF en un solo navegador, y las páginas se unen con
+  pdf-lib con metadatos fijos.
+- **Topes y aislamiento:** a lo más `SLIDES_CONCURRENCY` composiciones a la vez, un plazo, una carpeta temporal por
+  pedido, solo lectura, tmpfs, sin capacidades y sin red de salida en producción. En desarrollo usa el puerto 8099 del
+  loopback.
+- **La verificación dentro de la composición** espera las fuentes y comprueba que ninguna región desborde su área, que
+  no haya regiones solapadas, que nada baje del tamaño mínimo, que ninguna imagen se deforme y que no haya láminas
+  vacías. Si algo falla, cancela con su código (`SLIDE_OVERFLOW`, `SLIDE_OVERLAP`, `FONT_MISSING`, `ASSET_INVALID`) y el
+  id de la lámina: nunca hay archivo parcial ni texto del documento (RQ-REP-036).
+- **`DeckChecks`** (PDFBox), del lado de SGSPE, verifica:
+  - una página por lámina, a 16:9;
+  - solo las fuentes de la clase, incrustadas;
+  - los títulos en orden.
+
+### 16.8 Ciclo de vida, permisos y criterios
+
+- **`deliverable_presentation`** (`apiOnly`) cuelga del `deliverable`. Guarda:
+  - la versión de origen, el público y el nivel;
+  - el estado (EN COLA, EN PROCESO, LISTO o FALLIDO), el código de falla y el número de láminas;
+  - la especificación y el PDF, con sus SHA-256;
+  - el SHA-256 del modelo y las versiones del planificador, del diseño y del compositor.
+  
+  Es única por versión, público, nivel y versión del planificador.
+- **El pedido:** `POST /api/sgspe/deliverables/{id}/versions/{n}/presentations` con `Idempotency-Key`.
+  - Exige la acción de descarga del nivel (`DOWNLOAD_RESTRICTED` en INTERNO, `EXPORT` en EXTERNO y PUBLICO) y CREATE
+    sobre el objeto.
+  - Rechaza un nivel menos restrictivo que el de la versión, un nivel que el público no admite y PUBLICO sobre un
+    modelo sin `facts`.
+- **JOB-09** la compone en segundo plano, con su propio candado, para no hacer fila detrás de JOB-05.
+- **La descarga:** `GET /api/sgspe/presentations/{id}/content` (el PDF) y `…/spec` (para el reproductor).
+  - Llevan los mismos permisos y, en EXTERNO y PUBLICO, la lista de verificación (ASM-147).
+  - Cada descarga deja una fila DESCARGA en `export_log`.
+  - Las rutas nativas de sus archivos están cerradas, como las del entregable (§12).
+- **Reproducibilidad** (RQ-REP-037). Una presentación se identifica por el SHA-256 del modelo y el de su especificación,
+  más las versiones. Regenerarla desde la misma versión emitida da la misma especificación aunque los registros vivos
+  hayan cambiado. Los bytes del PDF pueden variar entre corridas de Chrome.
+
+| # | Criterio | Requisitos |
+|---|---|---|
+| 1 | Un T1 y un T2 emitidos dan presentaciones completas con fixtures ficticios | RF-REP-008 |
+| 2 | El mismo T1 da arcos, selección y densidad distintos para DIRECCION, CAMPO, INVESTIGACION y COMUNIDAD, con las mismas cifras | RQ-REP-035, RQ-REP-038 |
+| 3 | Ningún marcador restringido llega a la especificación ni al PDF de EXTERNO o PUBLICO, y PUBLICO cumple ASM-088 | RQ-REP-035, ASM-146 |
+| 4 | Ninguna lámina desborda, solapa, baja del tamaño mínimo ni queda vacía, y una que no cabe falla sin archivo parcial | RQ-REP-036 |
+| 5 | Regenerar desde la versión emitida da la misma especificación | RQ-REP-037 |
+| 6 | Los permisos por nivel, la lista de verificación y `export_log` rigen en cada descarga | RQ-REP-034, ASM-147 |
+| 7 | La revisión visual de las hojas de contacto confirma la calidad editorial (§16.9) | RF-REP-008 |
+
+### 16.9 Revisión visual
+
+`yarn review <deck.json> <carpeta>`, en `slides/`, compone un PNG por lámina y una hoja de contacto. Toda modificación
+del sistema visual se revisa así antes de mezclarse, con un mínimo de tres públicos que contrasten, y se mira:
+
+- la portada;
+- el ritmo de los layouts;
+- la legibilidad de textos y gráficos;
+- la paleta y la tipografía;
+- el argumento;
+- las fuentes y notas;
+- los textos largos y los datos ausentes;
+- las láminas más densas y las de cierre.
+
+Que compile o que el compositor devuelva un archivo no reemplaza esa revisión.

@@ -78,8 +78,14 @@ Aceptado en parte (en F1: puertos, correlation id, logs ECS y health checks; top
   entregables (ASM-139). Es también un servicio del trabajo de integración de la CI (etiqueta `latex`).
   `application-prod.yml` no da valor por defecto a `sgspe.deliverable.latex.url`. Gotenberg se retira del compose, de la
   CI y de la configuración, y el 8096 queda libre, sin reutilizarse en esta fase.
+- **Desde el 2026-10-20 (ADR-0031), `sgspe-slides` en la topología:** servicio `slides` (`sgspe-slides`, imagen propia
+  construida desde `slides/Dockerfile` sobre Node LTS en Debian fijado por digest), solo en el loopback del VPS en el
+  puerto **8099** (`SGSPE_SLIDES_PORT`), sin volúmenes, de solo lectura, con tmpfs en `/tmp` y `/dev/shm`, sin
+  capacidades y sin red de salida en producción (red interna); solo lo llama JOB-09, para componer el PDF de las
+  presentaciones (ASM-144). Es también un servicio del trabajo de integración de la CI (etiqueta `slides`).
+  `application-prod.yml` no da valor por defecto a `sgspe.deliverable.slides.url`.
 - Puertos ya tomados en el entorno compartido, que no se reutilizan: 8094 (backend), 5182 (interfaz), 5435 (PostGIS),
-  8095 (GeoServer), 8097 (`sgspe-latex`), 9095 y 9096 (MinIO y su consola), 1029 y 8029 (Mailpit y su web), 3094 y 8194
+  8095 (GeoServer), 8097 (`sgspe-latex`), 8099 (`sgspe-slides`), 9095 y 9096 (MinIO y su consola), 1029 y 8029 (Mailpit y su web), 3094 y 8194
   (picos) y 8098 (medición de F5); del 8081 al 8086 son de otras apps del mismo Docker. El 8096, de Gotenberg hasta el
   2026-10-19, queda libre.
 
