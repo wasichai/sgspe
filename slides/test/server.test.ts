@@ -20,8 +20,7 @@ beforeAll(async () => {
 })
 afterAll(() => server.close())
 
-const post = (body: string) =>
-  fetch(`${base}/render`, { method: 'POST', body, headers: { 'content-type': 'application/json', 'x-trace': 'job-09-prueba' } })
+const post = (body: string) => fetch(`${base}/render`, { method: 'POST', body, headers: { 'content-type': 'application/json', 'x-trace': 'job-09-prueba' } })
 
 describe('el servicio', () => {
   it('responde la salud', async () => {
