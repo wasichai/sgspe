@@ -180,6 +180,8 @@ class DeckPlannerTest {
             assertTrue(Regex("""\b$k: $v\b""").containsMatchIn(base), "$k: $v")
         }
         assertTrue(Regex("""title: 68, lead: 46, body: 38, small: 30, figure: 176, min: 28""").containsMatchIn(tokens))
+        // la versión del sistema visual que se registra con cada presentación es la del paquete
+        assertTrue(Regex("""DESIGN_VERSION = '${DeckDesign.VERSION}'""").containsMatchIn(tokens))
     }
 
     // las especificaciones de demostración que el paquete de láminas valida con su esquema y compone (slides/fixtures/generated):

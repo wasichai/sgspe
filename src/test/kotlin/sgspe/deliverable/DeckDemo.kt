@@ -7,7 +7,6 @@ import sgspe.privacy.ReportMapImages
 import sgspe.privacy.ReportModel
 import java.awt.BasicStroke
 import java.awt.Color
-import java.awt.Font
 import java.awt.Polygon
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
@@ -207,7 +206,8 @@ object DeckDemo {
             model.copy(maps = mapOf(DiagnosisStudy.AREAS_MAP to ReportMapImages(image, image)))
         }
 
-    // un mapa de áreas dibujado con Java 2D: el AIDS relleno, el AIIS en línea, un río, las localidades y una barra de escala
+    // un mapa de áreas dibujado con Java 2D: el AIDS relleno, el AIIS en línea, un río, las localidades y una barra de escala.
+    // sin texto: la fuente del sistema cambia de una plataforma a otra y con ella los bytes del PNG, que la especificación incrusta
     private fun map(): ReportImage {
         val width = 1600
         val height = 1000
@@ -229,17 +229,14 @@ object DeckDemo {
             g.drawPolygon(aids)
             g.stroke = BasicStroke(3f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, floatArrayOf(18f, 12f), 0f)
             g.drawPolygon(aiis)
-            g.font = Font(Font.SANS_SERIF, Font.PLAIN, 26)
-            PLACES.forEachIndexed { i, (name, _) ->
+            PLACES.indices.forEach { i ->
                 val x = 480 + (i % 4) * 160
                 val y = 380 + (i / 4) * 200
                 g.color = Color(0x17202B)
                 g.fillOval(x - 9, y - 9, 18, 18)
-                g.drawString(name, x + 16, y + 9)
             }
             g.stroke = BasicStroke(4f)
             g.drawLine(1240, 940, 1440, 940)
-            g.drawString("0           2 km", 1236, 925)
         } finally {
             g.dispose()
         }
