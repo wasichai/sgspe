@@ -65,18 +65,20 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 
 ### 3. Hechos tipados en T1 y T2
 
-- [ ] Los tipos emiten `key` y `facts` con la grilla completa de cada catálogo y `n` por promedio, y pasan a
+- [x] Los tipos emiten `key` y `facts` con la grilla completa de cada catálogo y `n` por promedio, y pasan a
   `typeVersion` 2.
-- [ ] La paridad del DOCX y el PDF y `LatexPdfTest` siguen en verde.
+- [x] La paridad del DOCX y el PDF y `LatexPdfTest` siguen en verde.
 
 ### 4. Público, material y planificador (`sgspe.deliverable`)
 
-- [ ] `Audience`, con el arco, la densidad, el vocabulario, el tono y los niveles; y el glosario fijo para COMUNIDAD.
-- [ ] `DeckMaterial`: los `facts` y `key` de v2, y la lectura del texto de v1 con lo ausente distinto de cero.
-- [ ] `DeckPlanner` con las métricas de las fuentes, la división, los títulos afirmativos calculables, las fuentes y
+- [x] `Audience`, con el arco, la densidad, el vocabulario, el tono y los niveles; y el glosario fijo para COMUNIDAD.
+- [x] `DeckMaterial`: las historias de T1 y T2 desde los `facts` y los `key` de v2; un modelo v1 no da presentación
+  (ASM-146, sin despliegue todavía).
+- [x] `DeckPlanner` con las métricas de las fuentes, la división, los títulos afirmativos calculables, las fuentes y
   notas, y el descarte de lo «reservado».
-- [ ] `DeckSpec` en JSON canónico, con el JSON Schema del paquete y el acento con contraste.
-- [ ] Pruebas por público, layout, formato, ausencia, división, determinismo (hash dorado) y las negativas.
+- [x] `DeckSpec` en JSON canónico y el acento con contraste; las especificaciones generadas van a
+  `slides/fixtures/generated/`, que el paquete valida con su esquema y compone.
+- [x] Pruebas por público, layout, formato, ausencia, división, determinismo (hash dorado) y las negativas.
 
 ### 5. `slides/`: biblioteca y servicio
 

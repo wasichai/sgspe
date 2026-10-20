@@ -15,3 +15,5 @@ node_modules/
 yarn.lock
 # release-please rewrites the manifest in its own format on every release
 .release-please-manifest.json
+# las especificaciones generadas por DeckPlannerTest van en JSON canónico: sus bytes son la identidad que la prueba compara
+slides/fixtures/generated/

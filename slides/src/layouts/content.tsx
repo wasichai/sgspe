@@ -175,7 +175,7 @@ export function Conclusions({ slide }: LayoutProps<'conclusions'>) {
   return (
     <Page title={slide.title} chapter={slide.chapter} source={slide.source} note={slide.note}>
       <div style={{ display: 'flex', gap: span(1), flex: 1 }}>
-        <Column label="Lo que muestran los datos" items={slide.data.conclusions} accent={theme.accent} />
+        <Column label="Conclusiones" items={slide.data.conclusions} accent={theme.accent} />
         {slide.data.nextSteps.length ? <Column label="Próximos pasos" items={slide.data.nextSteps} /> : null}
       </div>
     </Page>

@@ -1055,13 +1055,20 @@ deliverable_version emitida ─► modelo congelado INTERNO (SHA-256 verificado)
   
   Ninguna capa ve lo que una anterior quitó.
 - **`DeckMaterial`** lee el modelo de cada nivel por `(type, typeVersion)` y falla cerrado ante un tipo o una versión
-  que no conoce. El material es tipado: KPI, tendencia, comparación, mapa, cita, cronología, matriz, método y narrativa.
-  - Desde `typeVersion` 2 lee los hechos tipados (`facts`) y los bloques por su clave (`key`).
-  - En un modelo de la versión 1 lee por clave de sección y título, con un lector espejo de `ReportFormat`. Allí lo
-    vacío o «No disponible» es ausente, nunca cero.
-- **`DeckPlanner`** es puro y determinista:
+  que no conoce. Saca **historias**: cada una sale de un hecho tipado (`facts`) o de un bloque por su clave (`key`),
+  pertenece a una parte del relato, pesa distinto para cada público y, si los datos lo permiten, trae su hallazgo
+  calculable (con una versión en palabras simples para la comunidad). En PUBLICO no suma ni deriva totales.
+  - Un modelo de la versión 1, sin `facts`, no da presentación en ningún nivel (ASM-146): todavía no hay despliegue
+    (GAP-022), así que no existe una versión emitida v1 fuera de desarrollo.
+- **`DeckPlanner`** es puro y determinista (`DeckPlanner.VERSION`):
   - elige el material según el arco del público y el layout según el tipo y el tamaño del material;
-  - mide el texto con las mismas fuentes que el compositor (`java.awt.font`, con margen) y divide en vez de encoger.
+  - mide el texto con las mismas fuentes que el compositor (`DeckDesign`, `java.awt.font`, con margen) y divide en vez
+    de encoger: un título que no cabe usa el corto de su historia, y las columnas de conclusiones y fuentes siguen en
+    otra lámina («continúa»);
+  - la tesis junta los dos hallazgos principales si caben en tres líneas;
+  - abre con separadores solo las partes de dos o más láminas, y solo si hay al menos tres;
+  - las conclusiones son las del equipo (T2) o los hallazgos calculables, y los próximos pasos, el texto del equipo
+    (las necesidades de T1, las recomendaciones de T2): ninguna recomendación sale del sistema.
 - **`DeckSpec`** lleva:
   - la versión de esquema;
   - `meta`: código, revisiones, nivel, público, proyecto y fecha del modelo;

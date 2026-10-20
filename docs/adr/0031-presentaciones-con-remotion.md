@@ -158,6 +158,11 @@ ADR: ADR-0013 y ADR-0030 siguen rigiendo el DOCX y el PDF del entregable.
   composición se elige por lámina. La revisión visual de las tres presentaciones de demostración llevó a dar a cada
   público rasgos propios: la voz del título (serif de titulares, serif de texto o sans con filete), el cartel de cifras
   y las columnas sin ejes de COMUNIDAD, y la banda de INSTITUCIONES.
+- **El planificador (2026-10-20).** Un modelo congelado sin hechos tipados (`typeVersion` 1) no da presentación en ningún
+  nivel, no solo en PUBLICO: todavía no hay despliegue (GAP-022), así que leer el texto de los modelos v1 no tiene a quién
+  servir. Las especificaciones que genera el planificador con datos sintéticos (`DeckPlannerTest`) se guardan en
+  `slides/fixtures/generated/`, y el paquete las valida con su esquema y las compone: el contrato entre Kotlin y TypeScript
+  queda vigilado en las dos puntas.
 - **El MP4** va en un plan posterior.
 - **La interfaz** va en `sgspe-ui`, en un PR aparte.
 
