@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="595.28" height="841.89" viewBox="0 0 595.28 841.89">
+  <!-- portada de los manuales de SGSPE: paleta "Pino y piedra" (sgspe-ui/src/theme/tokens.css) -->
+  <defs>
+    <linearGradient id="pino" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#164a42"/>
+      <stop offset="1" stop-color="#1d5c52"/>
+    </linearGradient>
+  </defs>
+  <rect width="595.28" height="841.89" fill="#f5f6f3"/>
+  <rect width="595.28" height="500" fill="url(#pino)"/>
+  <!-- cordillera: la forma de la marca del portal, en capas -->
+  <path d="M0 500 L0 430 L70 380 L120 410 L210 330 L280 395 L350 300 L430 385 L500 340 L595.28 420 L595.28 500 Z" fill="#2a6d62" opacity="0.55"/>
+  <path d="M0 500 L0 455 L95 415 L170 450 L260 390 L330 440 L410 372 L480 430 L560 400 L595.28 425 L595.28 500 Z" fill="#11403a" opacity="0.6"/>
+  <rect y="500" width="595.28" height="5" fill="#c9772b"/>
+  <rect x="62" y="760" width="471" height="0.8" fill="#d9ddd6"/>
+  <text x="62" y="790" font-family="Plex Sans" font-size="8.5" fill="#5e6862">Sistema de Gestión Social para Proyectos Extractivos</text>
+</svg>

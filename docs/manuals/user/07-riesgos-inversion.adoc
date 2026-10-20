@@ -1,0 +1,91 @@
+[[usr-riesgos]]
+== Riesgos, alertas e incidentes
+
+=== Registro y matriz de riesgos
+
+La pestaña «Riesgos» muestra el *mapa de calor* (probabilidad P1–P5 por impacto I1–I5, con el número de riesgos en
+cada celda y su nivel: Bajo, Medio, Alto o Crítico) y el registro de riesgos con su categoría, el puntaje P × I, el
+nivel, el estado, la fecha de la próxima revisión y el responsable. Pulse una celda del mapa para filtrar la lista por
+ella. Las vistas son «Registro y matriz», «Revisión pendiente», «Mis riesgos» y «Cerrados».
+
+.Registro y mapa de calor de riesgos
+image::screenshots/user/24-riesgos.png[Mapa de calor de probabilidad por impacto y lista de riesgos con nivel, estado y revisión vencida]
+
+El menú btn:[⋯] lleva a las listas relacionadas: alerta temprana, incidentes, menciones en medios, señales de alerta,
+impactos potenciales y reglas de alerta.
+
+=== La ficha del riesgo y su revisión
+
+.Ficha de un riesgo
+image::screenshots/user/25-riesgo-ficha.png[Ficha del riesgo DEMO-R-03 evaluado, nivel Alto, con la siguiente acción Decidir mitigar y la revisión vencida]
+
+El nivel de un riesgo no se escribe: sale de su última *revisión*. El ciclo es Identificado → Evaluado → En mitigación o
+En monitoreo → Cerrado.
+
+*Objetivo:* registrar una revisión del riesgo (probabilidad e impacto).
+
+*Requisitos previos:* rol de gestión de riesgos sociales y asignación al proyecto.
+
+.Procedimiento
+. En la ficha, pulse btn:[Nueva revisión].
+. Indique la fecha, la «Probabilidad (1 a 5)» y el «Impacto (1 a 5)». El diálogo anticipa el puntaje y el nivel con
+  los umbrales del proyecto («El servidor lo confirma al registrar»).
+. Marque «Es una revisión residual» si mide el riesgo que queda con las medidas en marcha.
+. Escriba notas y el motivo, y pulse btn:[Registrar revisión].
+
+.Diálogo de nueva revisión
+image::screenshots/user/26-riesgo-revision.png[Diálogo Nueva revisión con fecha, probabilidad, impacto, puntaje anticipado, revisión residual, notas y motivo]
+
+*Resultado esperado:* «Revisión registrada: el riesgo queda en nivel …». Una revisión no se edita ni se borra: si algo
+quedó mal, se registra otra. Si el riesgo pasa a crítico, el sistema crea una tarea de revisión para el responsable.
+
+*Siguientes pasos:* btn:[Decidir mitigar] exige la decisión de tratamiento «Mitigar» y al menos una medida con
+responsable; btn:[Decidir monitorear], una revisión residual.
+
+=== Alertas tempranas e incidentes
+
+Una *alerta temprana* es un aviso que una persona confirma o descarta; el sistema puede detectarla con las reglas de
+alerta, pero nunca la confirma solo. Las vistas son «Por triar», «Confirmadas», «Todas» y «Cerradas»; al crearse una
+alerta, el sistema genera la tarea de triaje.
+
+.Alertas tempranas por triar
+image::screenshots/user/27-alertas.png[Lista de alertas por triar con la fecha de detección, la severidad Alto, el origen registrada a mano y el estado Detectada]
+
+Un *incidente* (btn:[Registrar incidente]) es un hecho ya ocurrido (bloqueo de vía, protesta, retención de equipos…):
+se registra, se revisa, se responde y se cierra con la respuesta inmediata y sus consecuencias.
+
+[[usr-inversion]]
+== Programas sociales y aportes
+
+La sección «Programas sociales» reúne:
+
+* *Tope de las campañas*: para cada campaña de exploración, el tope de apoyo social, lo comprometido y lo ejecutado.
+* *Presupuesto de programas* del año y *beneficiarios* alcanzados.
+* La lista de *programas* (iniciativas de mediano plazo con presupuesto, indicadores e hitos) y la de *aportes* (apoyos
+  puntuales, con las vistas «En curso», «Terminados» y «Todos»).
+
+.Programas sociales y aportes
+image::screenshots/user/28-programas.png[Topes de las campañas, presupuesto de programas, beneficiarios, lista de programas y lista de aportes]
+
+=== Registrar y entregar un aporte
+
+*Objetivo:* registrar un apoyo puntual, aprobarlo, adquirirlo y entregarlo con su sustento.
+
+*Requisitos previos:* rol de gestión de inversión social (registro, adquisición y entrega) y de aprobación (aprobación).
+
+.Procedimiento
+. Pulse btn:[Nuevo aporte] y complete el propósito declarado, las condiciones, la moneda, el pagador, la campaña y los
+  ítems (bien, servicio, dinero o mano de obra, con cantidad y costo).
+. Quien aprueba revisa «Antes de aprobar» y aplica btn:[Aprobar]. Si el proyecto no exige aprobación interna, la
+  gestión de inversión puede usar «Aprobar sin revisión interna».
+. Con la compra hecha, btn:[Registrar adquisición].
+. En la pestaña «Entrega», btn:[Registrar entrega] con la conformidad y las tres evidencias exigidas: acta de recepción,
+  foto y comprobante.
+. Finalmente, btn:[Cerrar].
+
+.Ficha de un aporte aprobado
+image::screenshots/user/29-aporte-ficha.png[Ficha del aporte DEMO-AP-02 aprobado, con la siguiente acción Registrar adquisición, el propósito, la localidad, quien paga y los ítems]
+
+*Casos especiales:* la aprobación comprueba que hay ítems, que quien aprueba no es quien registró, los lineamientos del
+proyecto y el *tope de apoyo* de la campaña; superarlo exige la acción «Aprobar sobre el tope». Cuando el aporte sale
+de «Solicitado», sus ítems ya no cambian: un cambio es otro aporte. El comprobante queda congelado desde «Entregado».

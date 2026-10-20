@@ -1,0 +1,90 @@
+[[adm-auditoria]]
+== Auditoría, mantenimiento y operaciones críticas
+
+=== Auditoría
+
+Cada alta, cambio, borrado o emisión de cualquier registro deja una fila de auditoría que no se puede modificar ni
+borrar: quién, cuándo, qué objeto y registro, el estado anterior y el nuevo, el motivo escrito y su origen (una
+persona por la API, la plataforma, una automatización o un trabajo programado). Hay tres formas de consultarla:
+
+* *En el portal*: la pestaña «Actividad» de cada ficha muestra el historial de ese registro.
+* *En `/admin`*: menu:Administración[Auditoría], con filtros por objeto, operación y cantidad máxima; cada fila se
+  despliega para ver el antes y el después.
+* *Por la API*: `GET /api/audit` y `GET /api/objects/{objeto}/records/{id}/history` (para el equipo técnico).
+
+.Auditoría en /admin
+image::screenshots/admin/09-auditoria.png[Pantalla Auditoría con filtros por objeto, operación y máximo, y la lista de operaciones con objeto, registro, usuario, motivo y fecha]
+
+.Actividad de un compromiso en el portal
+image::screenshots/admin/04-actividad.png[Ficha de un compromiso en ejecución desde la que se consulta su actividad]
+
+Además de la auditoría general, SGSPE registra cada *exportación, emisión o descarga* restringida en el registro de
+exportaciones (menu:Reportes[Historial]) y cada llamada a la IA en el registro de interacciones con IA.
+
+=== Archivos y evidencias
+
+Los archivos de las evidencias y los entregables se guardan en el almacenamiento configurado (S3 en producción). Desde
+la aplicación:
+
+* nadie borra un archivo: se sube una versión nueva o se cambia su clasificación, con motivo;
+* las evidencias clasificadas como restringidas solo las descarga quien tiene el permiso de descargar restringidos; a
+  los demás se les ocultan incluso el nombre y la huella del archivo;
+* el tamaño máximo por archivo es de 20 MB en el portal (el servidor admite hasta 64 MB por otras vías).
+
+=== Mantenimiento periódico
+
+[cols="2,4,2",options="header"]
+|===
+|Frecuencia |Tarea |Tipo
+|Semanal |Revisar las asignaciones vencidas o de personas que ya no están; terminar las que no correspondan. |Funcional
+|Mensual |Revisar usuarios inactivos y desactivarlos; revisar quién tiene roles con acciones sensibles (aprobar, emitir, leer confidenciales, descargar restringidos). |Funcional
+|Mensual |Revisar en la auditoría los cambios de estado anulados o cancelados y sus motivos. |Funcional
+|Mensual |Confirmar con el equipo técnico que el respaldo se restauró con éxito en una base de prueba. |Técnica
+|Anual |Pedir que se carguen los feriados nacionales del año siguiente. |Técnica
+|Por versión |Revisar el `CHANGELOG.md`, verificar las comprobaciones posteriores al despliegue. |Técnica
+|===
+
+=== Monitoreo de errores e incidencias
+
+Cuando una persona reporta un error:
+
+. Pida la hora, la pantalla, la acción y el mensaje exacto (una captura ayuda). Los mensajes del portal y su
+  significado están en el xref:../user/manual-usuario.adoc#usr-mensajes[Manual de usuario].
+. Si es de permisos («Su cuenta no tiene permiso…», «No está asignado a este proyecto…»), revise sus roles y sus
+  asignaciones.
+. Si es una regla de negocio (un paso que no se puede dar), el diálogo de cambio de estado dice qué falta.
+. Si es un error del servidor o de red, pase el caso al equipo técnico con la hora y, si la tiene, la cabecera
+  `X-Correlation-Id` de la respuesta (ver el xref:../system/manual-sistema.adoc#ts[Manual técnico: diagnóstico]).
+
+=== Copias de seguridad y recuperación
+
+Respaldar y restaurar es una tarea técnica (base de datos y almacenamiento de archivos juntos), descrita en el
+xref:../system/manual-sistema.adoc#bkp[Manual técnico]. Lo que corresponde a la administración funcional:
+
+* acordar con el equipo técnico la frecuencia de respaldo y cuántos datos se pueden perder como máximo;
+* tras una restauración, avisar a los usuarios del intervalo de datos que deben volver a registrar;
+* verificar con usuarios de cada perfil que pueden entrar y ver sus proyectos.
+
+[[adm-checklist]]
+=== Lista de comprobación de operaciones críticas
+
+[WARNING]
+.Antes de una operación irreversible o masiva
+====
+Estas operaciones afectan a muchos registros o a todos los usuarios y no se deshacen desde la aplicación:
+
+* borrar un objeto, un workflow («Eliminar flujo») o una relación en `/admin`;
+* desactivar una política del proyecto o cambiar sus plazos;
+* cambiar roles o permisos (hágalo en `model/roles.json`, no en `/admin`);
+* anular un entregable emitido;
+* restaurar un respaldo;
+* aplicar una versión nueva del modelo.
+====
+
+[%interactive]
+* [ ] Hay un respaldo reciente y *probado* de la base y de los archivos.
+* [ ] El cambio está acordado y por escrito (quién lo pidió y por qué).
+* [ ] Se probó antes en un entorno de demostración o de prueba (la base de demostración se reconstruye en minutos).
+* [ ] Se avisó a los usuarios afectados y se eligió un momento de poco uso.
+* [ ] Se escribirá un motivo claro en la auditoría.
+* [ ] Después: se verificó con un usuario de cada perfil y se revisó la auditoría.

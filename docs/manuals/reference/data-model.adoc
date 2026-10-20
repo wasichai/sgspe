@@ -1,0 +1,11 @@
+[[ref-modelo]]
+== Modelo de datos
+
+_Sección generada de `model/model.json` y `model/roles.json`._
+
+Cada objeto se convierte en una tabla física del esquema `app_data` por organización y en una API genérica en
+`/api/objects/{objeto}/records`. Los campos de sistema (`id`, `organization_id`, `created_at`, `updated_at`,
+`created_by`, `updated_by` y, con workflow, el estado) no se listan. Cómo se crean las tablas y qué no debe hacerse
+directamente en la base está en el xref:../system/manual-sistema.adoc#sys-datos[Manual técnico del sistema].
+
+include::generated/objects.adoc[]

@@ -1,0 +1,17 @@
+%% Contexto del sistema (C4, nivel 1). Fuente: docs/architecture.md §3, contrastado con build.gradle.kts y application.yml
+flowchart LR
+    EQ["Equipo social y de proyecto<br/>(15 roles de model/roles.json)"]
+    AD["Administración de la organización<br/>(ADMIN de wasichai)"]
+    SG["<b>SGSPE</b><br/>portal + API sobre wasichai 1.3.0"]
+    TER["Actores del territorio<br/>(se registran; no inician sesión)"]
+    DEST["Destinatarios de entregables"]
+    PUB["Datos públicos<br/>ubigeo y cartografía"]
+    SMTP["Servidor SMTP<br/>(opcional)"]
+    LLM["API de Anthropic<br/>(opcional, por organización)"]
+    EQ -->|"registra, decide y aprueba"| SG
+    AD -->|"usuarios, roles y modelo"| SG
+    SG -.->|"datos de personas<br/>y organizaciones"| TER
+    SG -->|"DOCX y PDF por nivel<br/>de divulgación"| DEST
+    PUB -->|"importación por<br/>script o por la app"| SG
+    SG -->|"avisos por correo"| SMTP
+    SG -->|"texto seudonimizado"| LLM

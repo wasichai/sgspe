@@ -1,0 +1,12 @@
+[[ref-permisos]]
+== Roles y permisos
+
+_Sección generada de `model/roles.json`._
+
+Los permisos efectivos de una persona son la unión de los de sus roles, siempre dentro de su organización y, salvo
+`READ_ALL_PROJECTS` o el rol de administrador, dentro de los proyectos donde tiene una asignación vigente. Las guardas
+de negocio pueden negar una operación que el rol permite (por ejemplo, aprobar el compromiso que uno mismo registró).
+Cómo se asignan los roles se explica en el
+xref:../administrator/manual-administrador.adoc[Manual del administrador].
+
+include::generated/permissions.adoc[]

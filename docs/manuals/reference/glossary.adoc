@@ -1,0 +1,6 @@
+[[glosario]]
+== Glosario
+
+_Sección generada de `docs/glossary.md`._
+
+include::generated/glossary.adoc[]

@@ -1,0 +1,37 @@
+// GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
+
+=== Automatizaciones
+
+[cols="3m,2m,3,4",options="header"]
+|===
+|Nombre |Objeto |Disparador |Acciones
+
+|aut-01-commitment-execution-task |commitment |entra en el estado `approved` |Tarea de ejecución del compromiso aprobado: crea `task` «+Ejecutar compromiso {{code}}+»
+
+|aut-12-issue-certificate |deliverable |entra en el estado `issued` |Constancia de emisión del entregable: genera el documento `deliverable-issue-certificate`
+
+|aut-09-warning-triage-task |early_warning |al crear el registro |Tarea de triaje de la alerta nueva: crea `task` «+Triaje de la alerta {{title}}+»
+
+|aut-05-meeting-minutes |engagement |entra en el estado `minutes_approved` |Minuta y lista de asistentes del acta aprobada: genera el documento `meeting-minutes`; genera el documento `attendance-list`
+
+|aut-10-engagement-reschedule-task |engagement |entra en el estado `cancelled` |Tarea para reprogramar la interacción cancelada: crea `task` «+Reprogramar o reemplazar la interacción {{title}}+»
+
+|aut-02-grievance-ack-task |grievance |al crear el registro si `confidential` NOT_EQUALS `true` |Tarea de acuse de la queja recibida: crea `task` «+Acusar recibo de la queja {{code}}+»
+
+|aut-11-critical-risk-task |social_risk |al actualizar el registro si `risk_level` CHANGED y `risk_level` EQUALS `CRITICO` |Tarea de revisión del riesgo que pasa a crítico: crea `task` «+Revisar el riesgo crítico {{code}}+»
+
+|===
+
+=== Tipos de documento
+
+[cols="3m,2m,3,1m",options="header"]
+|===
+|Tipo |Objeto |Nombre |Prefijo
+
+|deliverable-issue-certificate |deliverable |Constancia de emisión |CE
+
+|meeting-minutes |engagement |Minuta de reunión |MR
+
+|attendance-list |engagement |Lista de asistentes |LA
+
+|===

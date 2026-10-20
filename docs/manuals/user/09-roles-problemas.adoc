@@ -1,0 +1,75 @@
+[[usr-roles]]
+== Roles y diferencias de acceso
+
+Lo que cada persona ve y puede hacer depende de tres cosas: sus *roles*, sus *asignaciones* a proyectos y, en algunos
+pasos, las *reglas de negocio* (por ejemplo, nadie aprueba lo que registró). El portal oculta las secciones y botones
+que su rol no permite; si llega a una de ellas por un enlace, ve «Su cuenta no puede abrir «Sección».».
+
+.Un agente de campo que abre los compromisos
+image::screenshots/user/42-sin-acceso.png[Pestañas del proyecto sin Compromisos ni Riesgos y el mensaje Su cuenta no puede abrir «Compromisos»]
+
+[cols="2,5",options="header"]
+|===
+|Rol |Qué hace en el portal
+|Gerente social |Ve todo el trabajo social del proyecto; aprueba áreas de influencia; verifica compromisos; aprueba aportes; confirma alertas; revisa, aprueba y emite entregables; aprueba actas.
+|Relacionista comunitario |Registra localidades, comunidades, actores, interacciones, visitas, compromisos, acuerdos, QCS, incidentes y aportes; edita lo de su equipo.
+|Agente de campo |Registra interacciones, visitas, observaciones, evidencias y tareas; solo cambia lo que creó. No ve compromisos, riesgos, inversión ni entregables.
+|Gestor de grupos de interés |Mapea y evalúa grupos de interés; registra interacciones; prepara entregables.
+|Gestor de compromisos |Lleva la matriz de compromisos: registra, entrega, verifica y cierra.
+|Gestor de quejas, consultas y solicitudes |Atiende las QCS y lee las confidenciales.
+|Gestor de riesgos sociales |Lleva riesgos, incidentes, señales y reglas de alerta; confirma alertas.
+|Gestor de inversión social |Gestiona aportes y programas sociales (sin aprobarlos).
+|Analista SIG |Prepara mapas, importa y exporta datos geográficos.
+|Aprobador |Aprueba compromisos, aportes y programas, y resuelve quejas graves, sin editarlos.
+|Jefe de proyecto |Aprueba áreas de influencia y compromisos de nivel superior; gestiona partes y campañas del proyecto.
+|Administrador de proyectos |Da de alta y aprueba proyectos y su equipo; lee todos los proyectos.
+|Auditor |Lee todo, incluida la auditoría; no cambia nada.
+|Analista |Lee y exporta reportes.
+|Solo lectura |Consulta.
+|===
+
+La matriz exacta de permisos por objeto y acción, generada del modelo, está en la
+xref:../reference/referencia-tecnica.adoc#ref-permisos[Referencia técnica].
+
+.Página de inicio de un agente de campo: las cifras que su rol no lee aparecen como «No disponible»
+image::screenshots/user/41-campo-inicio.png[Página de inicio con varias cifras marcadas No disponible y la tabla por proyecto]
+
+[[usr-problemas]]
+== Problemas frecuentes y preguntas
+
+=== Errores frecuentes
+
+[cols="2,3",options="header"]
+|===
+|Situación |Qué hacer
+|No veo una sección del menú |Su rol no la incluye. Si la necesita, pídala a la administración.
+|Veo el proyecto pero no puedo cambiar nada |No tiene una asignación vigente al proyecto. Pídala a la administración de proyectos.
+|El botón de un paso no aparece |El registro no está en el estado de partida de ese paso o su rol no puede darlo (ver <<usr-transiciones>>).
+|El diálogo no me deja confirmar un paso |Una regla no se cumple: el diálogo dice cuál. Complete el dato y repita.
+|«Otra persona cambió este registro» |Pulse btn:[Recargar] y repita el cambio sobre la versión actual.
+|El borrador de un entregable queda «FALLIDO» |Avise a soporte con el código del entregable: falta un servicio o hay datos incompletos.
+|El mapa aparece sin fondo |La instalación no tiene configurado o accesible el mapa base. Las capas de SGSPE se ven igual.
+|Subí un archivo equivocado |No se borra: suba una versión nueva o cambie su clasificación, con motivo.
+|===
+
+=== Preguntas frecuentes
+
+¿Puedo corregir una evaluación o una revisión de riesgo?::
+No. Son registros de solo inserción: registre otra con la fecha y el motivo. El historial conserva ambas.
+
+¿Por qué me pide un motivo?::
+Los cambios importantes (estados, compromisos, QCS, aportes, entregables) quedan en la auditoría con su autor y su
+motivo. Escriba un motivo que otra persona entienda sin contexto.
+
+¿Por qué una cifra dice «No disponible» y no cero?::
+Porque su rol no puede leer los datos de los que sale. Cero significaría que no hay registros.
+
+¿Dónde veo quién cambió un registro?::
+En la pestaña «Actividad» de su ficha.
+
+¿El sistema decide algo por mí?::
+No. Las reglas comprueban y avisan; las alertas, las sugerencias de IA y los candidatos a compromiso siempre los
+confirma o descarta una persona.
+
+¿Qué pasa si el sistema calcula un plazo en un feriado?::
+Los plazos en días hábiles excluyen fines de semana y los feriados nacionales configurados en la instalación.

@@ -1,0 +1,115 @@
+// GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
+
+`model/indicators.json` declara 53 indicadores; `load_indicators.py` los carga en el objeto `indicator` de cada organización.
+
+[cols="2m,4,5,2",options="header"]
+|===
+|Código |Nombre |Definición |Frecuencia
+
+|KPI-EXE-01 |Proyectos activos |Proyectos en ejecución que la persona puede leer |—
+
+|KPI-EXE-02 |Alertas activas |Alertas tempranas que siguen en curso |—
+
+|KPI-EXE-03 |Tendencia mensual |Evolución de la actividad, de las quejas y de los atrasos en los últimos 12 meses |—
+
+|KPI-STK-01 |Grupos de interés por grupo de influencia y ámbito |Cuántos grupos de interés vigentes hay en cada grupo de influencia y en cada ámbito |Mensual
+
+|KPI-STK-02 |Distribución de posturas |Cuántos grupos de interés vigentes hay en cada postura |Mensual
+
+|KPI-STK-03 |Matriz interés × poder |Posición de cada grupo de interés evaluado según su interés y su poder |Mensual
+
+|KPI-STK-04 |Grupos de interés contactados |Grupos de interés contactados en el periodo, diferenciados por sexo, ámbito e institución |Mensual
+
+|KPI-STK-05 |Oposición que aceptó conversar |Porcentaje de grupos de interés de oposición que aceptaron conversar con la empresa |Mensual
+
+|KPI-STK-06 |Oposición que cambió de postura |Porcentaje de grupos de interés de oposición que variaron su postura frente a la línea base |Mensual
+
+|KPI-STK-07 |Grupos de interés con más de un contacto |Porcentaje de grupos de interés que aceptaron más de un contacto |Mensual
+
+|KPI-STK-08 |Confianza promedio y tendencia |Grado de confianza de los grupos de interés hacia el proyecto, de 1 a 5, y su evolución |Mensual
+
+|KPI-ENG-01 |Interacciones realizadas |Interacciones con grupos de interés realizadas en el periodo, de cualquier tipo |—
+
+|KPI-ENG-02 |Reuniones sostenidas al mes |Reuniones realizadas en cada mes frente a la meta, que DOC-01 sugiere en al menos dos |Mensual
+
+|KPI-ENG-03 |Asistentes por reunión informativa |Participantes de cada reunión informativa, su porcentaje por sexo y ámbito y la organización que representan |Mensual
+
+|KPI-ENG-04 |Temas consultados |Temas tratados en las reuniones informativas y su frecuencia |Mensual
+
+|KPI-ENG-05 |Inquietudes resueltas |Porcentaje de inquietudes resueltas en las reuniones informativas |Mensual
+
+|KPI-ENG-06 |Monitoreos participativos de agua |Monitoreos ambientales del agua hechos con participación de grupos de interés y un agente independiente |Mensual
+
+|KPI-ENG-07 |Comunicados sobre compromisos cumplidos |Comunicados en medios que informan sobre compromisos cumplidos |Mensual
+
+|KPI-ENG-08 |Medios con información positiva y negativa |Porcentaje de medios que presentan información positiva o negativa |Mensual
+
+|KPI-COM-01 |Compromisos registrados |Todos los compromisos del filtro |—
+
+|KPI-COM-02 |Compromisos abiertos |Compromisos que todavía no se cierran ni se cancelan |—
+
+|KPI-COM-03 |Compromisos vencidos |Compromisos pendientes de cumplimiento cuyo plazo venció |—
+
+|KPI-COM-04 |Compromisos por vencer |Compromisos pendientes cuyo plazo vence pronto |—
+
+|KPI-COM-05 |Compromisos cumplidos en el periodo |Compromisos entregados con conformidad en el periodo |—
+
+|KPI-COM-06 |Compromisos bloqueados |Compromisos detenidos |—
+
+|KPI-COM-07 |Desgloses de compromisos |Dónde y en manos de quién están los compromisos abiertos y vencidos |—
+
+|KPI-COM-08 |Compromisos formales por tema |Compromisos formales (escritos) asumidos por la empresa, según su tema |Mensual
+
+|KPI-COM-09 |Compromisos cumplidos a tiempo |Porcentaje de compromisos cumplidos dentro de su plazo |—
+
+|KPI-COM-10 |Monto comprometido frente a ejecutado |Lo que la empresa se obligó a aportar frente a lo ya entregado |—
+
+|KPI-COM-11 |Compromisos vencidos al cierre de cada mes |Serie histórica de los compromisos vencidos al final de cada mes |—
+
+|KPI-GRV-01 |QCS recibidas |Quejas, consultas y solicitudes recibidas en el periodo, cada planteamiento una vez |—
+
+|KPI-GRV-02 |QCS abiertas |QCS que siguen en atención |—
+
+|KPI-GRV-03 |Quejas resueltas |Quejas que llegaron a `resolved` en el periodo |—
+
+|KPI-GRV-04 |QCS cerradas |QCS que llegaron a `closed` en el periodo |—
+
+|KPI-GRV-05 |Quejas rechazadas |Quejas rechazadas, y aparte las desistidas |—
+
+|KPI-GRV-06 |QCS fuera de plazo |QCS abiertas cuyo plazo de atención venció |—
+
+|KPI-GRV-07 |QCS absueltas |Porcentaje de quejas, consultas o solicitudes absueltas por el proyecto |Mensual
+
+|KPI-GRV-08 |Desgloses de QCS |Cómo se reparten las QCS recibidas y abiertas |—
+
+|KPI-GRV-09 |QCS recibidas frente a cerradas por mes |Ritmo de entrada y de salida de las QCS |—
+
+|KPI-GRV-10 |Tiempo de atención |Días que toma atender una QCS y cumplimiento de sus plazos |—
+
+|KPI-RSK-01 |Riesgos altos |Riesgos activos de nivel alto o crítico |Semanal
+
+|KPI-RSK-02 |Mapa de calor probabilidad × impacto |Cuántos riesgos activos hay en cada combinación de probabilidad e impacto de su última revisión |Semanal
+
+|KPI-RSK-03 |Riesgos por territorio y por proyecto |Dónde se concentran los riesgos activos |Semanal
+
+|KPI-RSK-04 |Evolución de los riesgos |Cómo cambia el nivel de los riesgos semana a semana |Semanal
+
+|KPI-RSK-05 |Avance de la mitigación |Medidas de mitigación hechas frente a las planificadas |Semanal
+
+|KPI-INV-01 |Ejecución de la campaña frente a su tope |Cuánto del tope de apoyo social de cada campaña ya se comprometió y cuánto se ejecutó |—
+
+|KPI-INV-02 |Ejecución de programas frente a presupuesto |Avance presupuestal de los programas sociales |—
+
+|KPI-INV-03 |Inversión social ejecutada |Inversión social ejecutada frente a lo presupuestado y a los topes |—
+
+|KPI-INV-04 |Beneficiarios |Población alcanzada por la inversión social |—
+
+|KPI-TER-01 |Resumen de una localidad o comunidad |Las cifras de la ficha contextual del mapa |—
+
+|KPI-TER-02 |Superficie del área de influencia |Tamaño de cada área de influencia vigente |—
+
+|KPI-TER-03 |Miembros por tipo de área |Localidades, comunidades y unidades administrativas de cada área vigente |—
+
+|KPI-TER-04 |Componentes sobre tierras comunales o privadas |Componentes del proyecto que cruzan territorio comunal o predios |—
+
+|===

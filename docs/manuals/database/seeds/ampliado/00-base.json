@@ -1,0 +1,69 @@
+{
+  "anchor": { "lat": -13.2, "lon": -75.65 },
+  "users": [
+    { "key": "social", "email": "gestion.social.demo@sgspe.test", "displayName": "Gestión social (demo)", "roles": ["SOCIAL_MANAGER"] },
+    { "key": "riesgos", "email": "riesgos.demo@sgspe.test", "displayName": "Gestión de riesgos (demo)", "roles": ["SOCIAL_RISK_MANAGER"] },
+    { "key": "relacionista", "email": "relacionista.demo@sgspe.test", "displayName": "Relaciones comunitarias (demo)", "roles": ["COMMUNITY_RELATIONS_OFFICER"] },
+    { "key": "compromisos", "email": "compromisos.demo@sgspe.test", "displayName": "Gestión de compromisos (demo)", "roles": ["COMMITMENT_MANAGER"] },
+    { "key": "qcs", "email": "qcs.demo@sgspe.test", "displayName": "Atención de QCS (demo)", "roles": ["GRIEVANCE_MANAGER"] },
+    { "key": "inversion", "email": "inversion.demo@sgspe.test", "displayName": "Inversión social (demo)", "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
+    { "key": "aprobacion", "email": "aprobacion.demo@sgspe.test", "displayName": "Aprobación (demo)", "roles": ["APPROVER"] },
+    { "key": "jefatura", "email": "jefatura.demo@sgspe.test", "displayName": "Jefatura del proyecto (demo)", "roles": ["PROJECT_MANAGER"] },
+    { "key": "auditoria", "email": "auditoria.demo@sgspe.test", "displayName": "Auditoría (demo)", "roles": ["AUDITOR"] }
+  ],
+  "collections": [
+    {
+      "object": "project",
+      "match": ["code"],
+      "records": [{ "key": "proj", "attributes": { "code": "DEMO-T1", "name": "Proyecto Wayra Ejemplo" } }]
+    },
+    {
+      "object": "organization",
+      "match": ["name"],
+      "records": [{ "key": "org-minera", "attributes": { "name": "Compañía Minera Wayra Ejemplo S.A.C." } }]
+    },
+    {
+      "object": "exploration_campaign",
+      "match": ["project", "name"],
+      "records": [{ "key": "camp-perf", "attributes": { "project": "@proj", "name": "Campaña de perforación 2026" } }]
+    },
+    {
+      "object": "topic",
+      "match": ["code"],
+      "records": [
+        { "key": "topic-agua", "attributes": { "code": "DEMO-T-06", "name": "Agua y ambiente" } },
+        { "key": "topic-empleo", "attributes": { "code": "DEMO-T-07", "name": "Empleo y expectativas" } }
+      ]
+    },
+    {
+      "object": "locality",
+      "match": ["name"],
+      "records": [
+        { "key": "loc-huaylla", "attributes": { "name": "Caserío Huaylla Alto", "locality_type": "CASERIO" } },
+        { "key": "loc-quishuar", "attributes": { "name": "Caserío Quishuar", "locality_type": "CASERIO" } },
+        { "key": "loc-tambillo", "attributes": { "name": "Caserío Tambillo", "locality_type": "CASERIO" } }
+      ]
+    },
+    {
+      "object": "community",
+      "match": ["name"],
+      "records": [{ "key": "com-sanisidro", "attributes": { "name": "Comunidad Campesina San Isidro de Wayra" } }]
+    },
+    {
+      "object": "social_risk",
+      "match": ["project", "code"],
+      "as": "riesgos",
+      "records": [{ "key": "risk-03", "attributes": { "project": "@proj", "code": "DEMO-R-03", "title": "Bloqueo de la trocha de acceso durante la campaña" } }]
+    },
+    {
+      "object": "project_assignment",
+      "match": ["project", "member_user_id"],
+      "records": [
+        { "key": "asg-qcs", "attributes": { "project": "@proj", "member_user": "qcs", "role_name": "GRIEVANCE_MANAGER", "active": true } },
+        { "key": "asg-inversion", "attributes": { "project": "@proj", "member_user": "inversion", "role_name": "SOCIAL_INVESTMENT_MANAGER", "active": true } },
+        { "key": "asg-aprobacion", "attributes": { "project": "@proj", "member_user": "aprobacion", "role_name": "APPROVER", "active": true } },
+        { "key": "asg-jefatura", "attributes": { "project": "@proj", "member_user": "jefatura", "role_name": "PROJECT_MANAGER", "active": true } }
+      ]
+    }
+  ]
+}

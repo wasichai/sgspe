@@ -1,0 +1,81 @@
+[[ref-api]]
+== API
+
+=== Convenciones
+
+* Base: `\http://<servidor>:8094`, detrás del proxy en producción. Todo lo que no sea inicio de sesión o salud exige
+  `Authorization: Bearer <token>` (<<ref-api-auth>>).
+* JSON en UTF-8. Los errores llevan un código estable en el cuerpo y siempre la cabecera `X-Correlation-Id`.
+* Los comandos de `/api/sgspe/**` aceptan `Idempotency-Key` (un reenvío devuelve la respuesta guardada durante 24 h),
+  `If-Match` (412 si el registro cambió) y `X-Change-Reason` (motivo que queda en la auditoría; obligatorio en los
+  objetos que exigen motivo). Rechazan con 422 cualquier parámetro de consulta no declarado.
+* Los permisos se expresan como acción sobre objeto; ningún _endpoint_ compara nombres de rol.
+
+[[ref-api-auth]]
+=== Plataforma wasichai
+
+[cols="2m,4",options="header"]
+|===
+|Ruta |Propósito
+|POST /api/auth/login |Inicia sesión con `{"email","password"}`; devuelve `{token, expiresAt, user}`.
+|POST /api/auth/logout |Revoca todos los tokens del usuario.
+|GET /api/auth/me, /api/auth/me/permissions |Quién soy y mis permisos efectivos (los usa el portal para mostrar u ocultar secciones).
+|POST /api/auth/token |Token de una cuenta de servicio (15 min).
+|GET/POST /api/objects/{objeto}/records |Lista paginada (`page`, `size`, filtros, `q`) y alta de registros de cualquier objeto.
+|GET/PUT/PATCH/DELETE /api/objects/{objeto}/records/{id} |Detalle, reemplazo, cambio y borrado.
+|GET/POST/DELETE …/records/{id}/related/{relación} |Relaciones varios a varios.
+|GET …/records/{id}/history, GET /api/audit |Historial de un registro y auditoría.
+|GET …/records/{id}/transitions, POST …/transitions/{nombre} |Transiciones disponibles y aplicación de una transición.
+|POST/GET …/records/{id}/files/{campo} |Archivos de un campo `FILE` (SGSPE reemplaza las rutas de `evidence` y de los entregables).
+|GET …/records/{id}/documents, POST …/documents/{tipo} |Documentos emitidos y congelados.
+|/api/auth/me/notifications (+ `/stream` SSE) |Bandeja de avisos, leídos, pospuestos y preferencias.
+|GET /api/gis/layers, /api/gis/objects/{objeto}/features |Capas y _features_ GeoJSON.
+|/api/objects, /api/metadata/**, /api/relationships |Metadatos del modelo (los usa `model/apply.py`; exigen `MANAGE_METADATA`).
+|/api/users, /api/roles, /api/organizations |Administración de usuarios, roles y organizaciones.
+|GET /api/health, /actuator/health/** |Salud (públicas).
+|===
+
+=== Comandos y consultas de SGSPE
+
+[cols="1m,3m,4",options="header"]
+|===
+|Método |Ruta |Propósito y permiso
+|POST |/api/sgspe/transition-checks |Comprueba en seco las reglas de una transición (lo que bloquea y las advertencias). READ.
+|GET |/api/sgspe/codes/next?object=&project= |Código propuesto para un alta. READ.
+|GET |/api/sgspe/people?email= |Nombre visible de personas de la organización (hasta 100).
+|POST |/api/sgspe/stakeholders/{id}/assessments |Evaluación de un grupo de interés (201); `…/assessments/preview` calcula sin escribir. CREATE `stakeholder_assessment`.
+|POST |/api/sgspe/areas-of-influence/{id}/approve |Aprueba una versión del área (la anterior pasa a reemplazada). `APPROVE`.
+|GET |/api/sgspe/areas-of-influence/{id}/summary, …/member-suggestions |Superficie y miembros; sugerencias de miembros.
+|POST |/api/sgspe/territory/imports (+ `/{lote}/confirm`) |Importación geográfica en dos pasos (XLSX, CSV, GeoJSON y formatos GDAL).
+|GET |/api/sgspe/territory/layers/{capa} |GeoJSON de las capas LYR-01 a LYR-24. READ sobre los objetos de la capa.
+|GET |/api/sgspe/territory/wms |Proxy WMS hacia GeoServer, con lista blanca.
+|POST |/api/sgspe/territory/exports |Exportación geográfica (GeoJSON, KML, GPKG, SHP, CSV, XLSX) con fila en `export_log`. `EXPORT`.
+|GET |/api/sgspe/territory/projects/{id}/… |Consultas espaciales: `component-parcels`, `component-communal-land`, `concession-territories`, `sensitive-distances`, `nearby-conflicts`, `buffer-localities`.
+|GET |/api/sgspe/territory/{localities\|communities}/{id}/card |Ficha territorial.
+|GET |/api/sgspe/territory/data-quality, /concentration, /locate |Calidad de datos, mapa de calor y zona de un punto.
+|GET |/api/sgspe/map/settings |Estilo del mapa base y atribución.
+|POST |/api/sgspe/commitments/{id}/deliveries; PATCH /api/sgspe/deliveries/{id} |Registra o corrige una entrega.
+|POST |/api/sgspe/commitments/{id}/reschedules |Reprograma un compromiso.
+|POST |/api/sgspe/commitment-candidates (+ `/{id}/accept`, `/{id}/duplicate`) |Candidatos a compromiso.
+|POST |/api/sgspe/evidence; PATCH /api/sgspe/evidence/{id} |Alta y cambio de evidencias con sus vínculos (`…/links`).
+|GET |/api/sgspe/evidence/{id}/content |Descarga; las restringidas exigen `DOWNLOAD_RESTRICTED`.
+|POST |/api/sgspe/social-contributions/{id}/deliveries |Entrega de un aporte social.
+|POST |/api/sgspe/stakeholder-requests/{id}/accept |Acepta una solicitud y crea el compromiso o el aporte.
+|POST |/api/sgspe/{grievances\|inquiries\|stakeholder-requests}/{id}/reclassify |Reclasifica una QCS.
+|POST |/api/sgspe/engagement-questions/{id}/referral |Deriva una pregunta de una interacción a una QCS.
+|GET |/api/sgspe/attention/queue, /attention/report |Cola unificada de QCS por plazo y reporte.
+|POST |/api/sgspe/social-risks/{id}/assessments |Revisión de un riesgo (201).
+|GET |/api/sgspe/dashboards/{tablero}, /dashboards/indicators[/{código}] |Tableros y KPI; un KPI sin permiso sale «no disponible», no 403.
+|POST |/api/sgspe/indicators/{id}/measurements |Cierra un periodo de un indicador.
+|POST |/api/sgspe/exports/{tipo} |XLSX: `stakeholder-register`, `commitment-matrix`, `attention-register`, `risk-register`. `EXPORT`.
+|GET |/api/sgspe/deliverable-types, /deliverable-templates |Tipos de entregable y plantillas (alta: `MANAGE_METADATA`).
+|POST |/api/sgspe/deliverables/{id}/drafts |Pide un borrador (202); lo atiende JOB-05. `GENERATE`.
+|GET |/api/sgspe/deliverables/{id}/draft[/content] |Estado y descarga del borrador (`DOWNLOAD_RESTRICTED`).
+|POST |/api/sgspe/deliverables/{id}/issue |Emite el entregable (201). `ISSUE`.
+|GET |/api/sgspe/deliverables/{id}/versions/{n}/content |Descarga una versión emitida.
+|GET |/api/sgspe/ai/status |IA activada, proveedor y casos ofrecidos.
+|POST |/api/sgspe/ai/runs, /ai/assistant/questions, /ai/knowledge/questions |Casos de IA, asistente y preguntas a documentos (503 sin IA).
+|POST |/api/sgspe/ai-suggestions/{id}/accept |Acepta una sugerencia de IA (una persona decide).
+|===
+
+La especificación de diseño con cuerpos y respuestas de ejemplo está en `docs/api.md`.

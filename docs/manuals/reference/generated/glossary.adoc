@@ -1,0 +1,507 @@
+// GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
+
+Términos del negocio en español con su identificador técnico, tomados de `docs/glossary.md` (fuente de verdad del vocabulario). Las citas de fuente y los identificadores de requisitos se omiten.
+
+=== Territorio
+
+Proyecto:: Proyecto extractivo con código, tipo, etapa, fase de exploración, CRS de trabajo, partes, campañas y equipo. _Identificador:_ `project`. _No confundir con:_ campaña de exploración (un periodo del proyecto).
+
+Prospecto:: Proyecto en exploración inicial; DOC-02 usa "proyecto" y "prospecto" para lo mismo. _Identificador:_ `project` (fase EXPLORACION INICIAL). _No confundir con:_ concesión minera.
+
+Etapa del proyecto:: Momento del ciclo de vida del proyecto (catálogo "Etapa del proyecto"). _Identificador:_ campo de `project`. _No confundir con:_ estado de workflow; fase de exploración.
+
+Fase de exploración:: Subdivisión de la etapa de exploración (catálogo "Fase de exploración"). _Identificador:_ campo de `project` y de `exploration_campaign`. _No confundir con:_ etapa del proyecto.
+
+Campaña de exploración:: Periodo de actividad del proyecto (p. ej. una campaña de perforación de octubre a diciembre) con su tope de apoyo social. _Identificador:_ `exploration_campaign`. _No confundir con:_ proyecto.
+
+Parte del proyecto:: Organización con un rol en el proyecto (catálogo "Rol de la parte"). _Identificador:_ `project_party`. _No confundir con:_ parte de un acuerdo (`agreement_party`).
+
+Asignación a proyecto:: Usuario de SGSPE asignado a un proyecto con un rol y una vigencia; define el equipo y la fuente del alcance por proyecto. _Identificador:_ `project_assignment`. _No confundir con:_ rol de wasichai.
+
+Concesión minera:: Derecho minero con código, titular, datum de origen y polígono, vinculado a uno o más proyectos. _Identificador:_ `mining_concession` (M2M `project_concession`). _No confundir con:_ predio (propiedad superficial); territorio comunal.
+
+Unidad administrativa:: División político-administrativa oficial (catálogo "Nivel de unidad administrativa"; DOC-01 llama "región" al departamento) identificada por su ubigeo del INEI; es jurisdicción, sin voluntad ni postura. _Identificador:_ `administrative_unit`. _No confundir con:_ localidad (asentamiento); comunidad (colectivo con personería); área de influencia (construcción del proyecto); grupo de interés.
+
+Ubigeo:: Código de ubicación geográfica del INEI de cada unidad administrativa. _Identificador:_ `administrative_unit` (código). _No confundir con:_ código de centro poblado.
+
+Localidad:: Asentamiento humano (catálogo "Tipo de localidad"), con localidad padre, estado de reconocimiento y nombres alternativos. _Identificador:_ `locality`. _No confundir con:_ comunidad; sector comunal; unidad administrativa; grupo de interés (una localidad nunca lo es.
+
+Caserío:: Localidad rural reconocida, con teniente gobernador y agente municipal propios, a menudo dividida en sectores. _Identificador:_ `locality` (tipo CASERIO). _No confundir con:_ comunidad campesina, que puede abarcar varios caseríos y superponerse con ellos.
+
+Sector de caserío:: Parte de un caserío; puede estar en proceso de separación para formar un caserío propio (p. ej. el sector Saligualday). _Identificador:_ `locality` (tipo SECTOR, con localidad padre). _No confundir con:_ sector comunal (`community_sector`).
+
+Centro poblado:: Localidad registrada por el INEI con código propio. _Identificador:_ `locality` (tipo CENTRO POBLADO). _No confundir con:_ caserío (categoría local, no siempre coincide).
+
+Estado de reconocimiento:: Situación legal de una localidad, incluida una separación en curso (catálogo "Estado de reconocimiento"). _Identificador:_ campo de `locality`. _No confundir con:_ estado orgánico de una comunidad.
+
+Comunidad campesina o nativa:: Colectivo con personería jurídica, territorio comunal inscrito, junta directiva, asamblea, comuneros y sectores; puede estar reconocida como pueblo indígena u originario. _Identificador:_ `community`. _No confundir con:_ localidad; área de influencia; grupo de interés: como actor participa mediante la `organization` que la representa.
+
+Pueblo indígena u originario:: Reconocimiento oficial de una comunidad como parte de un pueblo indígena (p. ej. de la nación quechua). _Identificador:_ campo de `community`. _No confundir con:_ comunidad nativa (tipo de comunidad).
+
+Estado orgánico:: Vigencia de la vida orgánica de una comunidad (catálogo "Estado orgánico"); se registra aparte de la inscripción de la junta directiva. _Identificador:_ campo de `community`. _No confundir con:_ inscripción de la junta.
+
+Sector comunal:: División de una comunidad campesina con delegados ante la asamblea; coincide en parte con caseríos y centros poblados. _Identificador:_ `community_sector` (M2M `community_sector_locality`). _No confundir con:_ sector de caserío (`locality`).
+
+Territorio comunal:: Área de propiedad comunal inscrita. _Identificador:_ geometría de `community`. _No confundir con:_ predio privado (`land_parcel`).
+
+Comunero:: Miembro de una comunidad campesina; el padrón no se guarda nombre por nombre. _No confundir con:_ republicano; poblador.
+
+Área de influencia:: Construcción analítica y versionada de un proyecto: tipo, criterios, miembros y geometría opcional; cambia por decisión humana. _Identificador:_ `area_of_influence`. _No confundir con:_ localidad, comunidad y unidad administrativa (el territorio real); grupo de interés.
+
+AIDS:: Área de influencia directa social: localidades y comunidades con terrenos de interés para plataformas, accesos o campamento, impactos propios de la exploración o expectativas de beneficio. _Identificador:_ `area_of_influence` (tipo AIDS). _No confundir con:_ AID ambiental; AIIS; los rótulos cruzados de DOC-01.
+
+AIIS:: Área de influencia indirecta social: localidades con impactos o permisos viales o percepción de afectación, y el ámbito distrital o provincial cuando aplica. _Identificador:_ `area_of_influence` (tipo AIIS). _No confundir con:_ AIDS; AII ambiental.
+
+AID y AII ambientales:: Áreas de influencia de un estudio ambiental; DOC-03 muestra un "AID" como polígono de 148 ha. _Identificador:_ `area_of_influence` (tipos AID AMBIENTAL, AII AMBIENTAL). _No confundir con:_ AIDS y AIIS, sociales y definidas por criterios y listas.
+
+Área de interés del proyecto:: Polígono de la zona de trabajo del proyecto, como el "Área de Interés" del Anexo 1 de DOC-01; es un dato del proyecto, no un área de influencia. _Identificador:_ geometría de área de `project`. _No confundir con:_ área de influencia social.
+
+Miembro del área de influencia:: Localidad, comunidad o unidad administrativa incluida en un área de influencia, con condición (catálogo "Condición de miembro"), justificación y marca de "estudiado en el diagnóstico". _Identificador:_ `area_of_influence_member`. _No confundir con:_ relación espacial calculada, que solo sugiere.
+
+Criterio de inclusión:: Razón por la que una localidad integra el área: terrenos para plataformas, accesos, campamento, impactos de la exploración, expectativas de beneficio, ensanchamiento de vías, permisos privados, percepción de afectación. _Identificador:_ campo de `area_of_influence`. _No confundir con:_ motivo de inclusión de un grupo de interés.
+
+Componente del proyecto:: Elemento físico del proyecto (catálogo "Tipo de componente"). _Identificador:_ `project_component`. _No confundir con:_ elemento ambiental.
+
+Sondaje:: Perforación con código, coordenadas este y norte, cota, azimut, inclinación y profundidad. _Identificador:_ `project_component` (tipo SONDAJE). _No confundir con:_ plataforma de perforación.
+
+Predio:: Unidad de tierra con su tenencia (catálogo "Tenencia del predio"). _Identificador:_ `land_parcel`. _No confundir con:_ concesión minera; territorio comunal.
+
+Titularidad del predio:: Vínculo de una persona u organización con un predio como propietario o posesionario, con vigencia. _Identificador:_ `land_right`. _No confundir con:_ grupo de interés (el titular puede serlo, pero son registros distintos).
+
+Elemento ambiental:: Lugar ambiental o culturalmente sensible (catálogo "Tipo de elemento ambiental"), con base legal y autoridad. _Identificador:_ `environmental_feature`. _No confundir con:_ componente del proyecto; área de influencia.
+
+Microcuenca:: Cuenca menor que agrupa caseríos y abastece de agua. _Identificador:_ `environmental_feature` (tipo MICROCUENCA). _No confundir con:_ unidad administrativa.
+
+CRS de trabajo:: CRS UTM del proyecto (catálogo "CRS de trabajo") para áreas, distancias, buffers, coordenadas este y norte y mapas de informe. _Identificador:_ `working_crs` (campo de `project`). _No confundir con:_ SRID de almacenamiento (4326).
+
+SRID 4326:: Sistema WGS 84 en el que se guardan todas las geometrías y que usa la API (GeoJSON). _No confundir con:_ CRS de trabajo; PSAD56.
+
+PSAD56:: Datum sudamericano histórico; SGSPE lo acepta solo como CRS de origen al importar y nunca lo almacena . DOC-03 no indica si sus coordenadas están en PSAD56 o en WGS 84. _No confundir con:_ WGS 84 (la diferencia es de cientos de metros).
+
+Área plana:: Área calculada en el CRS de trabajo del proyecto o, en los registros que no pertenecen a un solo proyecto, en la zona UTM de su centroide; SGSPE la usa como área oficial y DOC-03 rotula las áreas en hectáreas ("148.00 Ha"). _No confundir con:_ área geodésica (solo para totales entre zonas UTM); área registral (declarada en la partida).
+
+Capa pública:: Capa LYR de un maestro del tenant, sin campos restringidos, que `model/publish_layers.py` publica en GeoServer; el portal la pide por el proxy WMS autenticado, que solo entrega imágenes. _Identificador:_ `model/layers.json` (LYR-01, 02, 03, 04, 05, 07 y 16). _No confundir con:_ capa temática o de gestión (LYR-17 a LYR-24), que sale de SGSPE por GeoJSON con permisos.
+
+Mapa base:: Fondo cartográfico del mapa, configurado por organización con un estilo por defecto, y que el portal aplica a `gisModule({ basemap })` después del login; sin estilo, el mapa va sin fondo. _Identificador:_ `sgspe.map.base-style-url-by-organization`; `GET /api/sgspe/map/settings`. _No confundir con:_ capa pública (datos del proyecto); teselas fijas de OpenStreetMap de `MapView` , resuelta con wasichai-ui#38).
+
+Línea base social:: Conjunto de datos de contexto de las localidades: perfiles, servicios, festividades, programas, conflictos, percepciones y temas clave. _Identificador:_ BC-19. _No confundir con:_ línea base de una evaluación (ver Actores).
+
+Perfil de localidad:: Datos socioeconómicos fechados de una localidad, con fuente y confiabilidad (p. ej. "referencial"). _Identificador:_ `locality_profile`. _No confundir con:_ estudio (`study`).
+
+Institución educativa:: Institución de nivel inicial, primario o secundario de una localidad. _Identificador:_ `school`. _No confundir con:_ APAFA (organización de padres).
+
+Establecimiento de salud:: Puesto o centro de salud. _Identificador:_ `health_facility`.
+
+Vía de acceso:: Trocha carrozable o camino de herradura que conecta localidades, con estado y medios de transporte. _Identificador:_ `road_access`. _No confundir con:_ acceso (componente del proyecto).
+
+Festividad:: Celebración local con fechas y turnos de coorganización. _Identificador:_ `festivity`.
+
+Programa estatal:: Programa social del Estado presente en una localidad. _Identificador:_ `state_program` (M2M `state_program_locality`). _No confundir con:_ programa social de la empresa (`social_program`).
+
+Conflicto local:: Disputa entre localidades (catálogo "Tipo de conflicto local"), con estado. _Identificador:_ `local_conflict` (M2M `local_conflict_locality`). _No confundir con:_ incidente (hecho que afecta al proyecto); riesgo social.
+
+República:: Trabajo comunal para obras de beneficio común; quien no asiste envía reemplazo o paga el equivalente a un jornal. _Identificador:_ dato del perfil de localidad. _No confundir con:_ mano de obra pagada.
+
+Republicano:: Persona que participa de las repúblicas de un caserío, aunque no resida en él. _No confundir con:_ comunero.
+
+=== Actores
+
+Actor:: Persona u organización del territorio, registrada una sola vez con independencia de los proyectos. _Identificador:_ `person`, `organization`. _No confundir con:_ grupo de interés, que es el actor en relación con un proyecto.
+
+Persona:: Persona natural; sus datos personales están restringidos por permisos de campo. _Identificador:_ `person`. _No confundir con:_ cargo; grupo de interés.
+
+Organización (del dominio):: Organización del territorio o de su entorno (catálogo "Tipo de organización"); una comunidad actúa mediante su organización comunal. _Identificador:_ `organization`. _No confundir con:_ organización tenant de wasichai (ver Plataforma).
+
+Medio de contacto:: Canal de contacto de una persona u organización (catálogo "Tipo de medio de contacto"), con consentimiento; no hay una tabla genérica de contactos. _Identificador:_ `contact_method`. _No confundir con:_ participante; interacción.
+
+Cargo:: Puesto en una organización (presidente, teniente gobernador, delegado…), con titular, periodo, mecanismo de elección y estado (catálogo "Estado del cargo"). _Identificador:_ `position`. _No confundir con:_ postura (`stance`), que DOC-01 también llama "posición".
+
+Postura:: Posición frente al proyecto (catálogo "Postura"). _Identificador:_ `stance` (campo de `stakeholder_assessment` y de `stakeholder`). _No confundir con:_ cargo (`position`); sentimiento de un texto (AI-08).
+
+Oposición:: Para los indicadores, las posturas EN CONTRA y EN CONTRA PERO ABIERTO A ESCUCHAR. _No confundir con:_ conflicto.
+
+Grupo de interés:: Actor en relación con un proyecto, con tipo, ámbito, motivo de inclusión, estado de entrevista, responsable y evaluaciones; un actor puede serlo en varios proyectos. _Identificador:_ `stakeholder`. _No confundir con:_ actor; localidad; comunidad; área de influencia.
+
+Tipo de grupo de interés:: Tipología de las fuentes (catálogo "Tipo de grupo de interés"). _Identificador:_ campo de `stakeholder`. _No confundir con:_ grupo de influencia (ESTRATEGICO…), que la Tabla 9.1 también llama "tipo de grupo de interés".
+
+Ámbito del grupo de interés:: Ubicación del grupo de interés respecto del proyecto (catálogo "Ámbito del grupo de interés". _Identificador:_ campo de `stakeholder`. _No confundir con:_ ámbito de acción, que es un indicador de poder.
+
+Estado de entrevista:: Resultado del intento de entrevistar (catálogo "Estado de entrevista"). _Identificador:_ `interview_status` (campo de `stakeholder`). _No confundir con:_ estado de la relación.
+
+Estado de la relación:: Situación del vínculo con el grupo de interés (catálogo "Estado de la relación". _Identificador:_ `relationship_status` (campo de `stakeholder`). _No confundir con:_ estado de workflow del grupo de interés.
+
+Evaluación del grupo de interés:: Registro fechado e inmutable de interés, poder, grupo de influencia, postura, confianza, razones y expectativas. _Identificador:_ `stakeholder_assessment`. _No confundir con:_ grupo de interés (la relación).
+
+Influencia:: Interés + poder: disposición a intervenir en el proyecto combinada con la capacidad de cambiarlo, paralizarlo o ponerlo en riesgo. _Identificador:_ cálculo en `stakeholder_assessment`. _No confundir con:_ poder (solo una componente); "poder e influencia".
+
+Interés:: Percepción de utilidad o perjuicio frente al proyecto, con dos componentes: percepción de afectación y percepción de oportunidad. _Identificador:_ índice 1–5 de `stakeholder_assessment`. _No confundir con:_ postura.
+
+Percepción de afectación:: Afectación del medio ambiente y ecosistema; "afecta económicamente mi vida"; afectación de la propiedad o de la posición social o económica. _Identificador:_ componente del interés. _No confundir con:_ percepción (`perception`) de la línea base.
+
+Percepción de oportunidad:: Oportunidad de trabajo (personal); de desarrollo (colectiva); de beneficios económicos, como donaciones o aporte directo, o políticos. _Identificador:_ componente del interés. _No confundir con:_ expectativa registrada en la evaluación.
+
+Poder:: Capacidad de intervenir en el proyecto, con tres componentes: control de recursos, capacidad de acción y movilización de redes. _Identificador:_ índice 1–5 de `stakeholder_assessment`. _No confundir con:_ influencia.
+
+Control de recursos:: Habilidad de acción legal, credibilidad y control de permisos. _Identificador:_ componente del poder.
+
+Capacidad de acción:: Ámbito de acción (local, regional, nacional), nivel de organización y capacidad de convocatoria. _Identificador:_ componente del poder. _No confundir con:_ ámbito del grupo de interés.
+
+Movilización de redes:: Pertenencia a redes locales, nacionales o internacionales, participación en acciones grupales de movilización y en otros mecanismos de presión. _Identificador:_ componente del poder. _No confundir con:_ red comunitaria (`community_network`).
+
+Grupo de influencia:: Clasificación por cuadrante interés × poder (catálogo "Grupo de influencia". _Identificador:_ `influence_group`. _No confundir con:_ tipo de grupo de interés por naturaleza; estado de workflow "monitoring".
+
+Estratégico:: Alto interés y alto poder. _Identificador:_ `influence_group` ESTRATEGICO.
+
+Político:: Alto poder e interés limitado. _Identificador:_ `influence_group` POLITICO. _No confundir con:_ líder político (tipo de grupo de interés).
+
+Para monitoreo:: Alto interés y poder limitado. _Identificador:_ `influence_group` PARA MONITOREO. _No confundir con:_ monitoreo participativo (interacción); estado "monitoring" del prompt.
+
+Vulnerable:: Grupo nombrado pero no definido en la fuente; por defecto, interés y poder bajos. _Identificador:_ `influence_group` VULNERABLE. _No confundir con:_ población vulnerable en sentido social.
+
+Confianza:: Grado de confianza o credibilidad del grupo de interés hacia el proyecto, de 1 (mínima) a 5 (máxima). _Identificador:_ campo de `stakeholder_assessment`. _No confundir con:_ postura; confianza de una sugerencia de IA.
+
+Línea base de una evaluación:: La evaluación anterior de un grupo de interés, contra la que se mide el cambio de postura y de confianza. _No confundir con:_ línea base social (BC-19).
+
+Prioridad informativa:: Prioridad del contacto con un grupo de interés (catálogo "Prioridad informativa") según su grupo de influencia, postura y ámbito. _Identificador:_ `prioritization_rule`. _No confundir con:_ prioridad de un compromiso o de una queja.
+
+Red comunitaria:: Conjunto de personas y organizaciones conectadas en torno a un caserío, una institución o un apoyo externo, útil para el acercamiento. _Identificador:_ `community_network`. _No confundir con:_ relación entre actores.
+
+Nodo de red:: Integrante de una red comunitaria con su rol (catálogo "Rol del nodo"). _Identificador:_ `network_node`. _No confundir con:_ cargo.
+
+Relación entre actores:: Vínculo dirigido entre actores (catálogo "Tipo de relación entre actores"). _Identificador:_ `actor_relationship`. _No confundir con:_ red comunitaria.
+
+Afiliación:: Relación de una organización con su federación (catálogo "Afiliación"). _Identificador:_ campo de `organization`. _No confundir con:_ relación entre actores.
+
+Autoridad local:: Teniente gobernador, agente municipal o juez de paz de un caserío. _Identificador:_ tipo de grupo de interés. _No confundir con:_ organización social.
+
+Teniente gobernador:: Autoridad que representa al gobierno nacional en el caserío, elegida por la población y ratificada por la subprefectura. _Identificador:_ cargo (`position`). _No confundir con:_ agente municipal.
+
+Agente municipal:: Autoridad que representa a la municipalidad en el caserío y gestiona las obras comunales. _Identificador:_ cargo (`position`). _No confundir con:_ teniente gobernador.
+
+Ronda campesina:: Organización de seguridad y justicia comunal, afiliada o no a federaciones distritales, provinciales y regionales. _Identificador:_ `organization` (tipo RONDA CAMPESINA). _No confundir con:_ comité de autodefensa.
+
+JASS:: Junta Administradora de Servicios de Saneamiento: administra el agua de consumo humano. _Identificador:_ `organization` (tipo JASS). _No confundir con:_ comité de regantes (agua de riego).
+
+Comité de regantes:: Organización de usuarios del agua de riego. _Identificador:_ `organization` (tipo COMITE DE REGANTES). _No confundir con:_ JASS.
+
+Junta directiva comunal:: Órgano que administra los asuntos de la comunidad según los acuerdos de la asamblea. _Identificador:_ `organization` y sus cargos (`position`). _No confundir con:_ asamblea comunal.
+
+Delegado comunal:: Representante de un sector comunal ante la asamblea comunal. _Identificador:_ cargo (`position`). _No confundir con:_ agente municipal.
+
+Percepción:: Opinión frecuente sobre la minería, el proyecto o la empresa, con ámbito, polaridad y citas atribuidas por cargo. _Identificador:_ `perception`. _No confundir con:_ postura de un grupo de interés.
+
+=== Relacionamiento
+
+Interacción:: Todo contacto o evento con grupos de interés (catálogo "Tipo de interacción"). _Identificador:_ `engagement` (M2M `engagement_stakeholder`). _No confundir con:_ visita de campo (contexto de varias interacciones); tarea.
+
+Contacto regular:: Interacción cara a cara, sobre todo la primera, que siempre se registra para un seguimiento uniforme. _Identificador:_ `engagement` (tipo CONTACTO CARA A CARA). _No confundir con:_ medio de contacto (`contact_method`).
+
+Reunión informativa o taller:: Reunión para informar a la población, con protocolo, preguntas y respuestas alineadas; no debe generar compromisos. _Identificador:_ `engagement` (tipos REUNION INFORMATIVA, TALLER). _No confundir con:_ mesa de diálogo.
+
+Mesa de diálogo:: Espacio de concertación en el que se esperan compromisos de mayor alcance. _Identificador:_ `engagement` (tipo MESA DE DIALOGO). _No confundir con:_ taller.
+
+Asamblea:: Reunión del caserío o de la comunidad que toma decisiones y puede autorizar actividades del proyecto. _Identificador:_ `engagement` (tipo ASAMBLEA). _No confundir con:_ junta directiva.
+
+Monitoreo participativo:: Monitoreo ambiental, por ejemplo del agua, con participación de grupos de interés y un agente independiente. _Identificador:_ `engagement` (tipo MONITOREO PARTICIPATIVO). _No confundir con:_ grupo "para monitoreo"; monitoreo de medios.
+
+Interlocutor local:: Autoridad local que convoca una reunión informativa. _Identificador:_ campo de `engagement`. _No confundir con:_ relacionista comunitario.
+
+Participante:: Asistente a una interacción, con organización, sexo y ámbito; sus datos de contacto están restringidos. _Identificador:_ `engagement_participant`. _No confundir con:_ grupo de interés vinculado a la interacción.
+
+Pregunta de la interacción:: Pregunta o sugerencia planteada en una interacción, con su respuesta en el lugar o posterior, o su derivación a una consulta, solicitud o queja. _Identificador:_ `engagement_question`. _No confundir con:_ consulta (`inquiry`), cuando se deriva.
+
+Minuta o acta de reunión:: Registro de temas y acuerdos de una interacción: la minuta interna se revisa y aprueba; el acta firmada por los asistentes es evidencia. _Identificador:_ campos de `engagement`, documento emitido y `evidence`. _No confundir con:_ acta de entrega; acuerdo.
+
+Tema:: Catálogo jerárquico de temas tratados (agua, empleo, medio ambiente…). _Identificador:_ `topic` (M2M `engagement_topic`). _No confundir con:_ tema clave (`key_theme`).
+
+Visita de campo:: Salida al territorio con itinerario y equipo, en la que se realizan interacciones y observaciones. _Identificador:_ `field_visit`. _No confundir con:_ interacción; visita guiada.
+
+Observación de campo:: Observación geolocalizada registrada durante una visita. _Identificador:_ `field_observation`. _No confundir con:_ evidencia (foto).
+
+Plan de relacionamiento:: Objetivo estratégico, objetivos tácticos, ejes y metas del relacionamiento de un proyecto. _Identificador:_ `engagement_plan`. _No confundir con:_ plan de acción de un riesgo.
+
+Actividad planificada:: Actividad prevista en el plan, con fecha y responsable. _Identificador:_ `planned_activity`. _No confundir con:_ tarea; interacción (lo ya realizado).
+
+Mensaje clave:: Mensaje que el equipo debe instalar, con justificación, acciones de soporte y público objetivo. _Identificador:_ `key_message`. _No confundir con:_ respuesta alineada.
+
+Respuesta alineada:: Respuesta aprobada por el equipo a una pregunta frecuente. _Identificador:_ `aligned_answer`. _No confundir con:_ mensaje clave.
+
+Alianza estratégica:: Institución con la que conviene aliarse, con razones y acciones posibles. _Identificador:_ `strategic_alliance`. _No confundir con:_ acuerdo (cuando la alianza se formaliza).
+
+Relacionista comunitario:: Integrante del equipo social que se relaciona con los grupos de interés. _Identificador:_ rol `COMMUNITY_RELATIONS_OFFICER`. _No confundir con:_ grupo de interés.
+
+Estudio o diagnóstico:: Estudio de línea base o diagnóstico social con objetivos, metodología, instrumentos y trabajo de campo. _Identificador:_ `study`. _No confundir con:_ entregable (el documento que lo presenta).
+
+Instrumento de estudio:: Instrumento aplicado a un tema y a un ámbito (catálogo "Tipo de instrumento"). _Identificador:_ `study_instrument`. _No confundir con:_ evidencia.
+
+=== Compromisos y acuerdos
+
+Compromiso:: Obligación que el proyecto asume ante grupos de interés, con descripción, recurso, plazos, monto, responsable, entrega y cierre. _Identificador:_ `commitment` (M2M `commitment_stakeholder`). _No confundir con:_ aporte social (apoyo sin obligación); acuerdo (instrumento formal); solicitud (pedido).
+
+Matriz de compromisos:: Registro de seguimiento de los compromisos con los campos mínimos de DOC-01. _Identificador:_ `commitment` y sus objetos. _No confundir con:_ matriz de riesgos.
+
+Medio de solicitud:: Cómo se pidió el compromiso (catálogo "Medio de solicitud"). _Identificador:_ campo de `commitment` y de `stakeholder_request`. _No confundir con:_ canal de QCS.
+
+Acción del compromiso:: Gestión interna o paso para cumplir un compromiso. _Identificador:_ `commitment_action`. _No confundir con:_ acción declarada (permiso de wasichai).
+
+Hito del compromiso:: Plazo parcial de un compromiso. _Identificador:_ `commitment_milestone`. _No confundir con:_ entrega.
+
+Reprogramación:: Cambio de la fecha de vencimiento con motivo y con las fechas anterior y nueva. _Identificador:_ `commitment_reschedule`. _No confundir con:_ postergación de una interacción.
+
+Dependencia:: Relación entre compromisos: uno no se cumple mientras el otro siga abierto. _Identificador:_ `commitment_dependency`. _No confundir con:_ vínculo de origen.
+
+Entrega:: Entrega de lo comprometido o aportado, con fecha, receptores, conformidad, acta y fotos. _Identificador:_ `delivery`. _No confundir con:_ verificación, que es interna y posterior.
+
+Conformidad:: Aceptación de la entrega por las personas que designa el grupo de interés. _Identificador:_ campo de `delivery`. _No confundir con:_ aprobación interna.
+
+Verificación:: Comprobación interna, por alguien distinto del responsable, de que el compromiso cumplido tiene la evidencia exigida. _Identificador:_ transición `verify` de WF-D. _No confundir con:_ conformidad del grupo de interés.
+
+Candidato a compromiso:: Posible compromiso detectado por una persona o por la IA, con evidencia y confianza; solo es compromiso si una persona lo acepta. _Identificador:_ `commitment_candidate`. _No confundir con:_ compromiso.
+
+Situación de plazo:: Valor derivado que calcula un trabajo programado (catálogo "Situación de plazo". _Identificador:_ `deadline_status`. _No confundir con:_ estado de workflow.
+
+Tope de apoyo social:: Monto máximo de apoyo social definido por adelantado para una campaña. _Identificador:_ campo de `exploration_campaign`. _No confundir con:_ presupuesto de un programa.
+
+Acuerdo:: Instrumento formal (catálogo "Tipo de acuerdo"), con partes, cláusulas y vigencia. _Identificador:_ `agreement`. _No confundir con:_ compromiso (obligación concreta); alianza estratégica (aún informal).
+
+Parte del acuerdo:: Organización o persona firmante. _Identificador:_ `agreement_party`. _No confundir con:_ parte del proyecto (`project_party`).
+
+Cláusula:: Disposición de un acuerdo que puede originar compromisos. _Identificador:_ `agreement_clause`. _No confundir con:_ compromiso.
+
+Permiso de uso de terreno o servidumbre:: Autorización para usar tierras superficiales comunales o privadas. _Identificador:_ `agreement` (tipos) y M2M `agreement_land_parcel`. _No confundir con:_ concesión minera.
+
+Autorización de asamblea:: Permiso que una asamblea de caserío o comunal otorga para trabajar. _Identificador:_ `agreement` (tipo AUTORIZACION DE ASAMBLEA). _No confundir con:_ acta de reunión.
+
+Situación de vigencia:: Valor derivado de la vigencia de un acuerdo (catálogo "Situación de vigencia". _Identificador:_ `validity_status`. _No confundir con:_ estado del workflow del acuerdo.
+
+=== QCS
+
+Quejas, consultas y solicitudes (QCS):: Los tres tipos de planteamiento que el proyecto atiende, con flujos propios y un reporte unificado. _Identificador:_ `grievance`, `inquiry`, `stakeholder_request`. _No confundir con:_ conflicto; incidente.
+
+Queja:: Reclamo por una afectación atribuida al proyecto, que se acusa, evalúa, atiende, resuelve y cierra. _Identificador:_ `grievance`. _No confundir con:_ consulta; solicitud; conflicto.
+
+Consulta:: Pregunta que requiere una respuesta del proyecto. _Identificador:_ `inquiry`. _No confundir con:_ queja; pregunta respondida en la misma interacción.
+
+Solicitud:: Pedido de apoyo, obra o recurso; si se acepta, origina un compromiso o un aporte. _Identificador:_ `stakeholder_request`. _No confundir con:_ compromiso; aporte; queja.
+
+Canal:: Medio por el que llegó el planteamiento (catálogo "Canal de QCS"). _Identificador:_ campo de QCS. _No confundir con:_ medio de solicitud de un compromiso.
+
+Acuse:: Confirmación de la recepción de una queja dentro del plazo. _Identificador:_ transición `acknowledge` de WF-E1. _No confundir con:_ resolución.
+
+Severidad:: Gravedad de una queja (catálogo "Severidad de queja". _Identificador:_ campo de `grievance`. _No confundir con:_ nivel de riesgo.
+
+Absuelta:: Consulta o queja respondida, con su `responded_at`; base del indicador "porcentaje absuelto". _No confundir con:_ cerrada.
+
+QCS confidencial:: QCS que solo leen `ADMIN`, quien tiene `READ_CONFIDENTIAL` (`GRIEVANCE_MANAGER`), su responsable, quien la recibió y, si es una queja ALTA o CRITICA, `APPROVER`. _Identificador:_ campo `confidential` de QCS. _No confundir con:_ anónima (sin persona ni grupo de interés).
+
+Día hábil:: Día de lunes a viernes que no es un feriado nacional de la lista configurada de su año; sin la lista del año, de lunes a viernes. Mide el plazo de acuse de una queja. _Identificador:_ `BusinessDays` (`sgspe.common`). _No confundir con:_ día calendario.
+
+=== Riesgos y alertas
+
+Riesgo social:: Tema social (problema o conflicto) que puede impedir el normal desarrollo del proyecto; es potencial, todavía no ocurrió. _Identificador:_ `social_risk`. _No confundir con:_ incidente (ya ocurrió); tema clave (hallazgo analítico); alerta.
+
+Fuente de riesgo:: Circunstancia que origina un riesgo, como un conflicto de límites entre comunidades. _Identificador:_ campo de `social_risk`. _No confundir con:_ riesgo.
+
+Probabilidad, impacto y relevancia:: Escalas para estimar la relevancia: puntaje P × I y nivel (catálogo "Nivel de riesgo". _Identificador:_ campos de `social_risk`. _No confundir con:_ prioridad.
+
+Revisión de riesgo:: Evaluación periódica (semanal por defecto) de un riesgo, con su tendencia. _Identificador:_ `risk_assessment`. _No confundir con:_ evaluación de un grupo de interés.
+
+Medida de mitigación:: Acción del plan que reduce la probabilidad o la consecuencia de un riesgo. _Identificador:_ `mitigation_measure`. _No confundir con:_ acción de un compromiso.
+
+Riesgo residual:: Riesgo que queda después de aplicar las medidas. _Identificador:_ campos de `social_risk`.
+
+Impacto potencial:: Impacto ambiental o social, real o percibido, positivo o negativo, asociado a un tipo de actividad. _Identificador:_ `potential_impact`. _No confundir con:_ riesgo social.
+
+Tema clave:: Asunto frecuente en el discurso de los actores, con riesgos y oportunidades para el proyecto. _Identificador:_ `key_theme`. _No confundir con:_ tema (`topic`); riesgo social.
+
+Incidente:: Hecho social ocurrido (catálogo "Tipo de incidente") con su respuesta inmediata y sus consecuencias. _Identificador:_ `incident`. _No confundir con:_ riesgo (potencial); alerta.
+
+Mención en medios:: Nota de prensa, radio o redes sobre el proyecto, con su tono. _Identificador:_ `media_mention`. _No confundir con:_ comunicado propio.
+
+Señal de alerta:: Dato que puede anticipar un conflicto, con su fuente (catálogo "Fuente de la señal"). _Identificador:_ `early_warning_signal`. _No confundir con:_ alerta temprana.
+
+Regla de alerta:: Condición configurable (catálogo "Tipo de regla de alerta") que convierte señales o datos en una alerta. _Identificador:_ `early_warning_rule`. _No confundir con:_ regla de negocio (RN).
+
+Alerta temprana:: Aviso triado que una persona confirma o descarta; nunca lo confirma la IA. _Identificador:_ `early_warning`. _No confundir con:_ incidente; notificación.
+
+Conflicto:: Oposición activa entre actores o con el proyecto; SGSPE no lo declara de forma automática. _No confundir con:_ conflicto local (entre localidades); riesgo social.
+
+=== Inversión
+
+Aporte social:: Apoyo puntual (catálogo "Tipo de aporte") entregado con acta de recepción, foto y comprobante, con propósito, condiciones y pagador declarados. _Identificador:_ `social_contribution`. _No confundir con:_ compromiso (obligación asumida); programa social.
+
+Ítem del aporte:: Bien, servicio, dinero o mano de obra que compone un aporte, con su tipo, cantidad y monto (`line_amount`, el que cuenta. _Identificador:_ `contribution_item`. _No confundir con:_ ítem de un compromiso.
+
+Tipo de ítem del aporte:: BIEN, SERVICIO, DINERO o MANO DE OBRA; lo leen los lineamientos de apoyo al aprobar. _Identificador:_ `contribution_item.item_kind`. _No confundir con:_ tipo de aporte (`contribution_type`).
+
+Comprobante:: Documento de pago del gasto (catálogo "Tipo de comprobante"), con emisor y a nombre de quién se emitió. _Identificador:_ `receipt`. _No confundir con:_ evidencia (el archivo escaneado del comprobante).
+
+Pagador:: Organización que paga el aporte, por ejemplo el titular de las concesiones. _Identificador:_ campo de `social_contribution`. _No confundir con:_ receptor del aporte.
+
+Programa social:: Programa de inversión social de la empresa, con socios, presupuesto, beneficiarios, indicadores e hitos. _Identificador:_ `social_program`. _No confundir con:_ programa estatal (`state_program`).
+
+Iniciativa social:: Proyecto concreto dentro de un programa. _Identificador:_ `social_initiative`. _No confundir con:_ aporte puntual.
+
+Grupo de beneficiarios:: Población objetivo de un programa o una iniciativa. _Identificador:_ `beneficiary_group`. _No confundir con:_ grupo de interés.
+
+Presupuesto del programa:: Monto asignado y ejecutado de un programa. _Identificador:_ `program_budget`. _No confundir con:_ tope de apoyo social de una campaña.
+
+Indicador de programa:: Indicador de resultado o de impacto de un programa. _Identificador:_ `program_indicator`. _No confundir con:_ indicador de tablero (`indicator`).
+
+Medición de programa:: Valor periódico de un indicador de programa. _Identificador:_ `program_measurement`. _No confundir con:_ medición de indicador (`indicator_measurement`).
+
+Hito de programa:: Fecha o logro previsto de un programa. _Identificador:_ `program_milestone`. _No confundir con:_ hito de compromiso.
+
+Sinergia:: Contribución a proyectos de instituciones reconocidas, formalizada en un acuerdo. _Identificador:_ `agreement` con `social_program` o `social_contribution`. _No confundir con:_ alianza estratégica.
+
+Lineamiento de apoyo:: Regla configurable de compromisos y aportes: empleo limitado y rotativo, no pagar mano de obra, donaciones no monetarias, temas priorizados, tope por campaña. _Identificador:_ política del proyecto. _No confundir con:_ regla dura del sistema.
+
+Comprometido (monto):: Lo aprobado y no anulado de una campaña: compromisos de `approved` a `closed` y aportes en `approved`, `procured`, `delivered` o `closed`, en la moneda de la campaña; es lo que se compara con el tope. _Identificador:_ conjunto de estados de `commitment` y `social_contribution`. _No confundir con:_ ejecutado (lo entregado.
+
+Tema priorizado:: Tema del catálogo que el proyecto prioriza para sus aportes; un tema cuenta si es priorizado o desciende de uno. _Identificador:_ `project_priority_topic` (M2M de `project` con `topic`). _No confundir con:_ tema clave (`key_theme`).
+
+Desviación de lineamientos:: Justificación con la que se aprueba un aporte que incumple uno o más lineamientos (mano de obra, donación monetaria o tema no priorizado); cubre todos a la vez y no cubre la sinergia sin acuerdo, que bloquea. _Identificador:_ `guideline_deviation_justification` de `social_contribution`. _No confundir con:_ sinergia sin acuerdo (P6).
+
+=== Evidencias y entregables
+
+Evidencia:: Archivo inmutable con hash que prueba un hecho (catálogo "Tipo de evidencia"), vinculable a varios registros. _Identificador:_ `evidence`. _No confundir con:_ documento emitido; entregable.
+
+Documento emitido:: Documento administrativo de un solo registro (catálogo "Tipo de documento administrativo"), generado desde una plantilla, congelado y numerado. _Identificador:_ documento de wasichai-documents. _No confundir con:_ evidencia (archivo que llega de afuera); entregable (informe de varias secciones).
+
+Entregable:: Informe de varias secciones (diagnóstico social, informe de campo) que se genera en DOCX y PDF, se revisa, se aprueba y se emite. _Identificador:_ `deliverable`. _No confundir con:_ documento emitido; evidencia.
+
+Sección de entregable:: Parte de un entregable (catálogo "Tipo de sección de entregable"), con su texto y su origen (catálogo "Origen del contenido"). _Identificador:_ `deliverable_section`.
+
+Versión de entregable:: Emisión inmutable de un entregable con los hashes del DOCX, del PDF y del modelo, y su nivel de divulgación. _Identificador:_ `deliverable_version`. _No confundir con:_ borrador.
+
+DOCX primero:: Estrategia de generación de ADR-0013: el DOCX se construye con Apache POI; hasta el 2026-10-19 el PDF se convertía desde ese mismo DOCX, y desde entonces los dos salen del mismo modelo congelado y el PDF se compone con LuaLaTeX. _No confundir con:_ impresión desde el navegador de wasichai-documents.
+
+Borrador:: Versión no emitida de un entregable; su PDF lleva la marca de agua "BORRADOR". _Identificador:_ estado `draft` de WF-H. _No confundir con:_ versión emitida.
+
+Medio de verificación:: Documento o reporte que demuestra un indicador de la Tabla 9.5 (reporte de reuniones, lista de asistentes, matriz de compromisos…). _No confundir con:_ evidencia de un registro.
+
+Acta de entrega o de recepción:: Documento firmado que deja constancia de una entrega y de su recepción. _Identificador:_ `evidence` y documento emitido. _No confundir con:_ acta de reunión.
+
+Nivel de divulgación:: Grado de anonimización de una salida: nominal, con las personas por cargo o código, o solo con agregados (catálogo "Nivel de divulgación". _Identificador:_ campo de `deliverable_version` y de `export_log`. _No confundir con:_ clasificación de una evidencia.
+
+Clasificación de evidencia:: Sensibilidad de una evidencia (catálogo "Clasificación de evidencia"). _Identificador:_ campo de `evidence`. _No confundir con:_ nivel de divulgación.
+
+Registro de exportación:: Registro append-only de cada exportación, cada emisión y cada descarga de archivos de entregables, en todos los niveles, con su tipo (`export_kind`): quién, qué, nivel y cuándo. _Identificador:_ `export_log`. _No confundir con:_ `audit_log`.
+
+Indicador:: Indicador de monitoreo o KPI con definición, fórmula, desagregación, meta y frecuencia. _Identificador:_ `indicator`. _No confundir con:_ indicador de programa.
+
+Medición de indicador:: Valor oficial de un indicador en un periodo cerrado. _Identificador:_ `indicator_measurement`. _No confundir con:_ medición de programa.
+
+Anonimización:: Sustitución de datos personales por cargos, códigos o agregados en artefactos versionados y salidas externas. _No confundir con:_ seudonimización antes de un LLM (ver IA).
+
+=== Workflow
+
+Workflow:: Máquina de estados de un objeto, definida en metadata, con estados y transiciones con roles. _Identificador:_ metadata de wasichai. _No confundir con:_ proceso de negocio (P-01 en adelante).
+
+Estado:: Situación de un registro en su workflow; nombre en inglés snake_case y etiqueta en español. _Identificador:_ `workflow_state`. _No confundir con:_ situación derivada (`deadline_status`).
+
+Transición:: Paso entre estados, con roles autorizados y motivo cuando se exige. _No confundir con:_ acción declarada.
+
+Guarda:: Regla en código que valida una escritura o transición más allá de los roles. _Identificador:_ `RecordWriteGuard`. _No confundir con:_ permiso.
+
+Motivo de cambio:: Texto que explica una escritura y queda en la auditoría. _Identificador:_ cabecera `X-Change-Reason`. _No confundir con:_ comentario.
+
+Situación derivada:: Valor que depende del tiempo, lo calcula un trabajo programado y nunca es un estado. _Identificador:_ `deadline_status`, `validity_status`, `review_status`. _No confundir con:_ estado de workflow.
+
+Tarea:: Trabajo asignado a una persona, con vencimiento y un único origen. _Identificador:_ `task`. _No confundir con:_ actividad planificada; acción de compromiso.
+
+Aprobación:: Decisión de un rol autorizado, con segregación de funciones. _Identificador:_ transición o acción declarada `APPROVE`. _No confundir con:_ conformidad del grupo de interés.
+
+Segregación de funciones:: Quien aprueba no es quien registra y quien verifica no es el responsable.
+
+Escalamiento:: Aviso o tarea a un nivel superior cuando un plazo vence. _Identificador:_ trabajo programado. _No confundir con:_ reclasificación de una queja.
+
+Trabajo programado:: Proceso en segundo plano que corre como la plataforma, con un cerrojo de clúster (plazos, revisiones, indicadores). _No confundir con:_ automatización.
+
+Automatización:: Acción que dispara un cambio de registro o una transición: crear un registro, actualizar un campo, generar un documento. _Identificador:_ metadata de wasichai. _No confundir con:_ trabajo programado (por tiempo).
+
+Listener:: Código que reacciona a cambios de registros para derivar valores o notificar. _No confundir con:_ automatización.
+
+Notificación:: Aviso en la aplicación o por correo de un evento: por vencer, vencido, aprobación pendiente, alerta. _Identificador:_ aviso de wasichai-notifications (fuentes `sgspe.approvals` y `sgspe.deadlines`). _No confundir con:_ alerta temprana.
+
+Acción declarada:: Permiso adicional que declara un objeto y se otorga a roles, como las operaciones CRUD. _Identificador:_ catálogo de RQ-SEC-004. _No confundir con:_ acción de compromiso (`commitment_action`).
+
+Confirmar o descartar una alerta:: Permiso para llevar una alerta temprana a confirmada o descartada; no lo tiene ninguna cuenta de servicio ni la IA. _Identificador:_ `CONFIRM_ALERT` (acción declarada de `early_warning`). _No confundir con:_ triaje de la alerta.
+
+Aprobar sobre el tope:: Permiso para aprobar un compromiso o un aporte que supera el tope de apoyo social de la campaña cuando la política del proyecto bloquea la aprobación. _Identificador:_ `APPROVE_OVER_CAP` (acción declarada de `commitment` y `social_contribution`). _No confundir con:_ `APPROVE`, la aprobación ordinaria.
+
+Descarga restringida:: Permiso para descargar evidencias clasificadas CONFIDENCIAL o DATOS PERSONALES y los borradores y versiones INTERNO de un entregable, y para bajar la clasificación de una evidencia restringida , ,; cada descarga queda en `export_log`. _Identificador:_ `DOWNLOAD_RESTRICTED` (acción declarada de `evidence` y `deliverable`). _No confundir con:_ `EXPORT`, que habilita las versiones EXTERNO y PUBLICO.
+
+Editar registros ajenos:: Permiso para cambiar o borrar registros que creó otra persona; quien no lo tiene solo cambia o borra los que creó, aunque puede agregar participantes u observaciones a una interacción o visita ajena que pueda leer. _Identificador:_ `EDIT_ANY` (acción declarada; sus objetos están en `security.md`). _No confundir con:_ `own_records_only`, que SGSPE no usa.
+
+=== IA
+
+Sugerencia de IA:: Resultado de la IA (catálogo "Tipo de sugerencia de IA") guardado aparte, con evidencia y confianza, que una persona acepta o rechaza. _Identificador:_ `ai_suggestion`. _No confundir con:_ comando de dominio; registro de dominio.
+
+Comando de dominio:: Operación que cambia datos de dominio con autorización y auditoría; solo la ejecuta una persona. _No confundir con:_ sugerencia de IA.
+
+Interacción con IA:: Registro append-only de cada llamada a un modelo: proveedor, modelo, versión de prompt, tokens, latencia, confianza y validación humana. _Identificador:_ `ai_interaction`. _No confundir con:_ interacción con grupos de interés (`engagement`).
+
+Versión de prompt:: Identificador del prompt versionado en el repositorio. _Identificador:_ campo de `ai_interaction`.
+
+Asistente:: Agente de solo lectura de wasichai que responde preguntas como el usuario que pregunta (AI-05). _Identificador:_ wasichai-agent. _No confundir con:_ agentes propios de SGSPE.
+
+RAG:: Recuperación de fragmentos de documentos, con citas, para responder preguntas. _Identificador:_ tabla fija `knowledge_chunk` (F7). _No confundir con:_ búsqueda por filtros.
+
+Seudonimización:: Reemplazo de los datos personales por códigos antes de enviar texto a un LLM; las citas de evidencia de las sugerencias también se guardan seudonimizadas. _No confundir con:_ anonimización de artefactos y salidas externas.
+
+Confianza de la IA:: Probabilidad que el modelo asigna a su sugerencia. _Identificador:_ campo de `ai_suggestion` y `commitment_candidate`. _No confundir con:_ confianza de un grupo de interés (1–5).
+
+Modelo falso:: Modelo guionado para probar la IA sin un LLM real.
+
+=== Plataforma
+
+wasichai:: Plataforma guiada por metadata (Kotlin, Spring Boot WebFlux, PostgreSQL con PostGIS) sobre la que se construye SGSPE, distribuida como librerías y starters.
+
+Organización tenant:: Cliente de la plataforma: cada organización tiene sus usuarios, su copia del modelo y sus tablas físicas; el tenant sale del token. _Identificador:_ `organization_id` de wasichai. _No confundir con:_ `organization` del dominio, que es un actor del territorio.
+
+Custom Object:: Objeto de negocio definido por metadata, con una tabla física por organización. _No confundir con:_ entidad JPA (no se usa).
+
+Custom Field:: Campo de un Custom Object: TEXT, LONG_TEXT, INTEGER, DECIMAL, BOOLEAN, DATE, DATETIME, ENUM, EMAIL, URL, UUID, RELATION o GEOMETRY.
+
+Valor ENUM:: Opción de un campo ENUM; es un dato visible y va en español, en MAYÚSCULAS y sin tildes. _No confundir con:_ etiqueta de estado.
+
+Modelo como código:: Definición versionada de objetos, campos, relaciones, ENUM, workflows y roles, aplicada por REST con `apply.py` (RNF-MNT-002). _Identificador:_ `model/model.json`, `model/roles.json`. _No confundir con:_ migraciones Flyway de un esquema.
+
+`RecordService`:: Servicio de wasichai para leer y escribir registros aplicando permisos y auditoría. _No confundir con:_ repositorio JPA.
+
+`appendOnly`:: Nadie edita ni borra sus registros. _Identificador:_ flag de objeto. _No confundir con:_ inmutabilidad en la base.
+
+`apiOnly`:: La API genérica rechaza escrituras; solo escribe el código propio. _Identificador:_ flag de objeto.
+
+`requiresReason`:: Toda escritura exige motivo de cambio. _Identificador:_ flag de objeto.
+
+Registro de auditoría:: Registro append-only de los cambios de registros con usuario, operación, valores antes y después y motivo. _Identificador:_ `audit_log`. _No confundir con:_ log técnico; `export_log`.
+
+Rol:: Conjunto de permisos por objeto, acción y campo; SGSPE usa los 17 roles del prompt. _Identificador:_ rol de wasichai. _No confundir con:_ rol en el proyecto (`project_assignment`); rol de una parte (`project_party`).
+
+Registros propios:: Restricción de un rol a los registros que creó; SGSPE no la usa: `FIELD_AGENT` edita lo propio con la guarda de `EDIT_ANY`. _Identificador:_ `own_records_only`. _No confundir con:_ alcance por proyecto.
+
+Alcance por proyecto:: Limitar lo que un usuario lee y escribe a sus proyectos: la escritura la acota `ProjectScopeGuard` y la lectura `ProjectReadScope` (ADR-0029); el territorio y la región siguen sin fuente. _No confundir con:_ tenant.
+
+Cuenta de servicio:: Usuario técnico de una integración, con credenciales de cliente. _No confundir con:_ persona.
+
+Portal:: Interfaz propia de SGSPE construida con `@wasichai/ui`. _Identificador:_ `sgspe-ui` en `/`. _No confundir con:_ `/admin`.
+
+Consola de administración:: Administración y constructor de wasichai, con el mismo login que el portal. _Identificador:_ `/admin` (`WasichaiApp`). _No confundir con:_ portal.
+
+API propia:: Endpoints de SGSPE para comandos y consultas que la API genérica no cubre. _Identificador:_ `/api/sgspe/**`. _No confundir con:_ API genérica de wasichai (`/api/objects/`).
+
+Compuerta espacial:: Única clase de `sgspe.territory` que ejecuta SQL de lectura que cruza tablas del tenant: compone todos los alcances de lectura registrados, revisa READ y la legibilidad de cada objeto y campo, y devuelve ids y medidas. _Identificador:_ `SpatialGate`. _No confundir con:_ `ProjectReadScope` (un alcance que la compuerta compone); filtro por `Records`.
+
+GeoServer:: Servidor de mapas WMS; en SGSPE nunca es público.
+
+LuaLaTeX (`sgspe-latex`):: Servicio interno que compone con LuaLaTeX el PDF de los entregables desde el mismo modelo congelado y por nivel que el DOCX, con la clase `sgspe-informe.cls` de SGSPE , ADR-0030). _Identificador:_ `sgspe-latex`. _No confundir con:_ Gotenberg.
+
+Gotenberg:: Servicio que convertía el DOCX a PDF con LibreOffice; retirado el 2026-10-19, lo reemplaza `sgspe-latex`. _No confundir con:_ `sgspe-latex`.
+
+Brecha upstream:: Capacidad que falta en wasichai y se propone a sus mantenedores (§18.2 del análisis). _Identificador:_ UPS. _No confundir con:_ gap (pregunta al usuario).
+
+Alcance de lectura por proyecto:: Regla por la que una persona lee los registros de los proyectos a los que está asignada (y los maestros del tenant); quien tiene `READ_ALL_PROJECTS` lee todos. _Identificador:_ `ProjectReadScope`. _No confundir con:_ permiso por objeto; registros propios.
+
+Maestro del tenant:: Objeto que no pertenece a un proyecto y comparten todos los proyectos de un cliente: territorio, actores, línea base y temas. _Identificador:_ `ProjectScope.TENANT`. _No confundir con:_ raíz de proyecto.

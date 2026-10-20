@@ -1,0 +1,184 @@
+[[demo-db]]
+= Base de demostración reproducible
+
+La base de demostración permite a cualquier persona levantar un SGSPE con datos *ficticios* coherentes (los mismos de
+las capturas de los manuales), sin depender de una base preparada a mano. Se puede obtener de dos maneras, ambas
+verificadas:
+
+* *Reconstruirla desde cero* con los mecanismos oficiales del proyecto (migraciones, aprovisionamiento y cargadores).
+* *Restaurarla* desde el respaldo versionado en `docs/manuals/database/backups/`.
+
+== Qué contiene
+
+[cols="2,5",options="header"]
+|===
+|Conjunto |Contenido
+|Oficial (`model/demo/*.json`, del proyecto) |El proyecto «DEMO-T1 · Proyecto Wayra Ejemplo» (minería, exploración) con sus partes, concesiones y campañas; 15 localidades, una comunidad y dos áreas de influencia aprobadas con 17 miembros; 85 grupos de interés (85 personas y 110 organizaciones) con 235 evaluaciones; 100 interacciones con 181 participantes y 2 visitas de campo; 12 compromisos en varios estados; 5 riesgos con 10 medidas y 20 revisiones; un plan de relacionamiento; el entregable «Diagnóstico social» con sus 35 secciones; 6 usuarios ficticios.
+|Ampliado (`database/seeds/ampliado/*.json`, de estos manuales) |Lo que el oficial no trae y los manuales necesitan mostrar: 5 quejas, 3 consultas y 3 solicitudes en todos los estados típicos; 2 aportes sociales con ítems (uno solicitado y uno aprobado) y un programa social; 2 incidentes; una alerta temprana; 2 tareas manuales; 5 usuarios ficticios más (QCS, inversión, aprobación, jefatura y auditoría) y sus asignaciones.
+|Evidencias (`scripts/seed-demo-evidence.py`) |4 archivos sintéticos generados por el script (2 PDF de una página y 2 PNG de un paisaje dibujado), vinculados a una queja, una consulta y un aporte.
+|Catálogos |Ubigeo del INEI (25 departamentos, 196 provincias, 1892 distritos) y 53 indicadores.
+|===
+
+Todos los nombres de personas, organizaciones y lugares son inventados; los correos son `@sgspe.test`. Resultado medido
+(manifiesto del 2026-10-20): *3425 registros* de negocio, 169 tablas y 21 974 filas en total, 12 usuarios.
+
+[[demo-db-users]]
+=== Usuarios de demostración
+
+[cols="3m,3",options="header"]
+|===
+|Correo |Rol
+|admin@wasichai.local |Administrador de la plataforma (contraseña de desarrollo `admin`; solo existe con `WASICHAI_SEED_DEV=true`)
+|gestion.social.demo@sgspe.test |Gerente social
+|actores.demo@sgspe.test |Gestor de grupos de interés
+|relacionista.demo@sgspe.test |Relacionista comunitario
+|campo.demo@sgspe.test |Agente de campo
+|compromisos.demo@sgspe.test |Gestor de compromisos
+|riesgos.demo@sgspe.test |Gestor de riesgos sociales
+|qcs.demo@sgspe.test |Gestor de quejas, consultas y solicitudes
+|inversion.demo@sgspe.test |Gestor de inversión social
+|aprobacion.demo@sgspe.test |Aprobador
+|jefatura.demo@sgspe.test |Jefe de proyecto
+|auditoria.demo@sgspe.test |Auditor
+|===
+
+La contraseña de los usuarios `@sgspe.test` *nunca se escribe en un archivo*: llega por la variable
+`SGSPE_DEMO_PASSWORD` al cargar, y tras una restauración se fija con `reset-demo-passwords.py` (el respaldo solo trae
+el _hash_ de la contraseña de quien lo generó, que nadie más conoce).
+
+WARNING: Estas credenciales son solo para entornos locales o desechables. Nunca cargue la demostración en una
+organización de producción: crea usuarios y datos ficticios que se mezclarían con los reales.
+
+== Requisitos
+
+* PostgreSQL con PostGIS (probado con PostgreSQL 16.15 y PostGIS 3.4.2; la referencia del proyecto es 18 + 3.6) y un
+  usuario que pueda crear bases y la extensión `postgis` (superusuario en un clúster desechable).
+* JDK 25 y el jar del servidor (`./gradlew bootJar` → `build/libs/app.jar`).
+* Python 3.11+, `psql`, `pg_dump`, `pg_restore`, `gzip`, `tar` y `curl`.
+
+Los scripts leen la conexión de `SGSPE_DEMO_PGHOST` (localhost), `SGSPE_DEMO_PGPORT` (5435), `SGSPE_DEMO_PGUSER`
+(sgspe), `SGSPE_DEMO_PGPASSWORD` (sgspe) y `SGSPE_DEMO_DB` (sgspe_demo). Los archivos y registros locales van a
+`SGSPE_DEMO_STATE_DIR` (`~/.local/state/sgspe-demo`).
+
+[IMPORTANT]
+.Salvaguardas
+====
+* Los scripts *solo* crean, borran o restauran bases cuyo nombre empieza por `sgspe_demo`, y solo en un servidor local
+  (`localhost`, `127.0.0.1`, `::1`) salvo `SGSPE_DEMO_ALLOW_REMOTE=1`. Nunca tocan `sgspe` ni `sgspe_test`.
+* La restauración siempre va a una base *nueva*; reemplazar una existente exige `--replace`.
+* La exportación se niega si el servidor sigue conectado a la base (para que el volcado y el manifiesto describan el
+  mismo estado), salvo `--allow-active`.
+====
+
+[[demo-db-seed]]
+== Reconstruir desde cero
+
+[source,bash]
+----
+# desde la raíz del repositorio
+$ ./gradlew bootJar                                            # build/libs/app.jar
+$ SGSPE_DEMO_PASSWORD='<12+ caracteres>' docs/manuals/scripts/seed-demo-data.sh --reset
+----
+
+`seed-demo-data.sh` hace, en orden: crea la base vacía con PostGIS (con `--reset` borra antes la anterior); arranca el
+servidor contra ella, cuyas migraciones crean el esquema; aplica `apply.py`, `apply_roles.py`, `apply.py --workflows`,
+`load_ubigeo.py` y `load_indicators.py`; carga el conjunto oficial con `load_demo.py`; carga el ampliado y las
+evidencias (salvo `--minimal`); y detiene el servidor (salvo `--keep-running`).
+
+.Ciclo de la base de demostración
+image::diagrams/respaldo-restauracion.png[Diagrama del ciclo: base vacía, migraciones, aprovisionamiento, carga, exportación, restauración, verificación y servidor contra la base restaurada,width=100%,role=diagram]
+
+*Resultado medido* (2026-10-20, servidor local): 1 min 28 s desde la base vacía. Salidas de cada paso:
+`apply.py` «done: 427 created, 29 updated, 0 skipped»; `apply_roles.py` «15 created»; workflows «19 workflows, 3
+document types, 7 automations»; ubigeo «2113 created»; indicadores «53 created»; demostración oficial «896 created, 7
+skipped, 266 commands, 3 warnings»; ampliado «26 created, 10 skipped»; evidencias «4 created».
+
+NOTE: Los 3 avisos de la carga oficial son esperados: tres indicadores (`KPI-ENG-05`, `KPI-ENG-08`, `KPI-GRV-07`) no
+se pueden cerrar en un periodo sin cifra completa («NO_SCALAR_VALUE»), y el cargador los informa sin detenerse.
+
+*Idempotencia:* todo el proceso se puede repetir sin duplicar registros: cada cargador busca cada registro por su clave
+natural antes de crearlo. Medido: una segunda carga del conjunto ampliado termina con «0 created, 33 skipped», y una
+segunda corrida de las evidencias con «0 created, 4 skipped».
+
+[[demo-db-export]]
+== Exportar
+
+[source,bash]
+----
+$ docs/manuals/scripts/export-demo-database.sh          # con el servidor detenido
+----
+
+[cols="2m,1,4",options="header"]
+|===
+|Artefacto (`database/backups/`) |Tamaño |Qué restaura
+|sgspe-demo.sql.gz |1,4 MB |Respaldo lógico *completo* en SQL plano: extensión, esquemas, tablas, índices, restricciones, historia de migraciones y los datos como `INSERT` con nombres de columna (de a 200 filas). Se restaura con `psql`.
+|sgspe-demo.dump |2,0 MB |El mismo contenido en formato personalizado de `pg_dump`, para `pg_restore` (restauración selectiva o en paralelo).
+|sgspe-demo-files.tar.gz |154 KB |Los archivos de wasichai-files (las 4 evidencias). Sin ellos, las descargas fallan.
+|`manifests/sgspe-demo.json` |— |El manifiesto: versión de SGSPE y de wasichai, _commit_, versiones de PostgreSQL, PostGIS y `pg_dump`, historia de migraciones por módulo, filas por tabla, restricciones, geometrías, registros por objeto, sumas SHA-256 de los artefactos y orden de restauración.
+|===
+
+NOTE: El SQL lleva datos, no solo `INSERT` sueltos: un volcado *de datos* no serviría sobre un esquema creado de nuevo,
+porque cada tabla física lleva en su nombre el id de la organización (ver el manual técnico, «Datos y base de
+datos»). Por eso ambos artefactos son volcados completos. La base usa identificadores UUID: no hay secuencias que
+ajustar.
+
+[[demo-db-restore]]
+== Restaurar y verificar
+
+[source,bash]
+----
+# en una base nueva (por defecto sgspe_demo_restore); --format dump usa pg_restore
+$ docs/manuals/scripts/restore-demo-database.sh [--db sgspe_demo_restore] [--format sql|dump] [--replace]
+
+# arrancar el servidor contra la base restaurada (no hace falta aprovisionar: el modelo viaja en el volcado)
+$ WASICHAI_DB_NAME=sgspe_demo_restore WASICHAI_FILES_STORE=local \
+    WASICHAI_FILES_LOCAL_PATH=~/.local/state/sgspe-demo/files/sgspe_demo_restore java -jar build/libs/app.jar
+
+# fijar la contraseña de los usuarios ficticios y probar la API
+$ SGSPE_DEMO_PASSWORD='<la suya>' python3 docs/manuals/scripts/reset-demo-passwords.py
+$ SGSPE_DEMO_PASSWORD='<la suya>' PGHOST=localhost PGPORT=5435 PGUSER=sgspe PGPASSWORD=sgspe \
+    python3 docs/manuals/scripts/demo_manifest.py verify --db sgspe_demo_restore \
+    --manifest docs/manuals/database/manifests/sgspe-demo.json --api http://localhost:8094 \
+    --allow-growth wasichai.audit_log
+----
+
+El script comprueba las sumas SHA-256 antes de tocar nada, crea la base, carga el volcado en *una sola transacción*
+(si algo falla no queda nada a medias), extrae los archivos y verifica la base contra el manifiesto:
+
+[cols="3,2",options="header"]
+|===
+|Comprobación |Resultado medido (SQL y _dump_)
+|Filas por tabla (169 tablas, 21 974 filas) |✓ idénticas
+|Secuencias |✓ (no hay: la base usa UUID)
+|Restricciones por tipo |✓ mismas cantidades
+|Restricciones sin validar |✓ solo las 2 del origen (las `CHECK` de `audit_log` que la migración V10 de wasichai crea `NOT VALID` a propósito)
+|Claves foráneas sin huérfanos |✓ 384 revisadas, 0 huérfanos
+|Geometrías no nulas e inválidas |✓ idénticas en 33 columnas
+|Historia de migraciones |✓ 13 módulos
+|Registros por objeto del modelo |✓ 3425
+|Archivos restaurados |✓ 4
+|API (con `--api`) |✓ salud, inicio de sesión, proyecto DEMO-T1 y 85 grupos de interés legibles
+|===
+
+La carga del SQL tardó 2 s y la del _dump_ 1 s. Después de usar la base, `audit_log` crece (por ejemplo, el cambio de
+contraseñas añade 11 filas): por eso la verificación posterior se corre con `--allow-growth wasichai.audit_log`.
+
+*Diferencias inevitables* entre el original y el restaurado: ninguna en los datos. El servidor de prueba fue
+PostgreSQL 16 + PostGIS 3.4; restaurar en PostgreSQL 18 + PostGIS 3.6 es compatible hacia arriba, no hacia abajo.
+
+== Reiniciar el entorno
+
+[source,bash]
+----
+# borra y reconstruye la base de demostración desde cero (irreversible para esa base)
+$ SGSPE_DEMO_PASSWORD='…' docs/manuals/scripts/seed-demo-data.sh --reset
+# o vuelve al estado del respaldo
+$ docs/manuals/scripts/restore-demo-database.sh --replace
+----
+
+== Mantener los conjuntos
+
+* Para validar los archivos sin servidor: `cd model && python3 load_demo.py --dir ../docs/manuals/database/seeds/ampliado --validate-only`.
+* Al cambiar el modelo, vuelva a reconstruir, exportar y verificar; el manifiesto registra el _commit_ con el que se
+  generó cada respaldo.
+* No agregue datos reales ni nombres de personas reales: el repositorio lo prohíbe.

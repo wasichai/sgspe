@@ -1,0 +1,5 @@
+# dependencias de las herramientas de los manuales
+node_modules/
+.bundle/
+# salida HTML generada: se reconstruye con scripts/build-docs.sh html
+output/html/

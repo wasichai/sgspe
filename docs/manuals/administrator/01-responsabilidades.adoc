@@ -1,0 +1,52 @@
+[[adm-responsabilidades]]
+== Funciones y responsabilidades
+
+=== Quién administra
+
+[cols="2,4,3",options="header"]
+|===
+|Perfil |Responsabilidad |Dónde trabaja
+|Administrador de la organización (rol `ADMIN` de wasichai; en el diseño, `SUPER_ADMIN` u `ORGANIZATION_ADMIN`) |Usuarios, roles, asignaciones, modelo, automatizaciones, auditoría. Puede todo dentro de su organización. |Portal y `/admin`
+|Administrador de proyectos (`PROJECT_ADMIN`) |Alta y aprobación de proyectos, su equipo (asignaciones), partes, campañas y concesiones. Lee todos los proyectos. |Portal
+|Jefe de proyecto (`PROJECT_MANAGER`) |Partes y campañas del proyecto; aprueba áreas de influencia y compromisos de nivel superior. |Portal
+|Operador técnico |Servidor, base de datos, respaldos, despliegues, aprovisionamiento de organizaciones. |Servidor (ver el Manual técnico)
+|===
+
+=== Administración funcional y técnica
+
+[cols="3,2,3",options="header"]
+|===
+|Tarea |Tipo |Dónde se documenta
+|Crear usuarios y asignarles roles |Funcional |<<adm-usuarios>>
+|Asignar personas a proyectos |Funcional |<<adm-asignaciones>>
+|Parámetros y políticas de un proyecto |Funcional |<<adm-parametros>>
+|Cambiar permisos de un rol |Técnica (modelo como código) |<<adm-roles>>
+|Agregar campos, objetos o estados |Técnica (modelo como código) |<<adm-modelo>>
+|Revisar la auditoría |Funcional |<<adm-auditoria>>
+|Respaldar y restaurar |Técnica |xref:../system/manual-sistema.adoc#bkp[Manual técnico: respaldo]
+|Dar de alta una organización cliente |Técnica |xref:../system/manual-sistema.adoc#deploy[Manual técnico: despliegue]
+|===
+
+[IMPORTANT]
+.El modelo como código
+====
+Los roles, los permisos, los objetos, los workflows y las automatizaciones de SGSPE están definidos en archivos del
+repositorio (`model/roles.json`, `model/model.json`, `model/workflows/`, `model/automations/`) y se aplican con
+scripts. La pantalla `/admin` *permite* editarlos, pero *no es la fuente de verdad*: la próxima vez que se apliquen los
+scripts (por ejemplo, al actualizar de versión), los cambios hechos a mano en `/admin` se pierden. Todo cambio
+permanente de roles o del modelo se pide al equipo técnico para que lo haga en `model/`.
+====
+
+=== Acceso a la administración
+
+El menú lateral del portal muestra «Administración» a quien es administrador o tiene permisos de metadatos u
+organización. Abre `/admin`, la consola de la plataforma, que comparte la sesión con el portal. Su menú tiene:
+
+* *Datos*: Objetos, Registros, Relaciones.
+* *GIS*: Mapas y Capas.
+* *App Builder*: Páginas, Formularios, Documentos y Vistas.
+* *Automatización*: Workflows, Reglas y Ejecuciones.
+* *Administración*: Usuarios, Roles, Cuentas de servicio, Permisos y Auditoría.
+
+.Inicio de la consola de administración
+image::screenshots/admin/05-admin-inicio.png[Inicio de /admin con 90 objetos, 27 con geometría y la lista de objetos del modelo]

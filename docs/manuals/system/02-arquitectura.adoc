@@ -1,0 +1,97 @@
+[[sys-arquitectura]]
+== Arquitectura
+
+=== Contexto
+
+SGSPE es un solo sistema por organización cliente (_tenant_). Lo usan el equipo social y de proyecto, con alguno de los
+15 roles declarados en `model/roles.json`, y la administración de la organización, con el rol `ADMIN` de wasichai. Los
+actores del territorio (personas, comunidades, organizaciones) se registran como datos y nunca inician sesión.
+
+.Contexto del sistema (C4, nivel 1)
+image::diagrams/contexto.png[Diagrama de contexto: equipo social, administración, actores del territorio, destinatarios, datos públicos, SMTP y API de Anthropic alrededor de SGSPE,width=100%,role=diagram]
+
+Las dos salidas externas son opcionales y se encienden por configuración: el correo de los avisos
+(`WASICHAI_NOTIFICATIONS_EMAIL_ENABLED`) y la IA (`SGSPE_AI_ENABLED_ORGANIZATIONS` más `ANTHROPIC_API_KEY`), que solo
+recibe texto seudonimizado.
+
+=== Contenedores y puertos
+
+.Contenedores, puertos y dependencias
+image::diagrams/contenedores.png[Diagrama de contenedores: navegador, Vite o proxy en 5182, servidor en 8094, PostgreSQL con PostGIS, archivos, GeoServer, sgspe-latex, SMTP y Anthropic,width=100%,role=diagram]
+
+[[tbl-puertos]]
+.Puertos de los servicios (desarrollo)
+[cols="2,1,4",options="header"]
+|===
+|Servicio |Puerto |Notas
+|Interfaz `sgspe-ui` (Vite `dev` o `preview`) |5182 |Reenvía `/api` al servidor (`WASICHAI_API_URL`, por defecto `http://localhost:8094`).
+|Servidor SGSPE |8094 |`server.port` en `application.yml`. Sirve `/api/**` y `/actuator/health/**` en el mismo puerto.
+|PostgreSQL + PostGIS |5435 |`compose.yml` publica el 5432 del contenedor en `127.0.0.1:5435`.
+|MinIO (API / consola) |9095 / 9096 |Solo con `WASICHAI_FILES_STORE=s3`; en producción, cualquier S3.
+|Mailpit (SMTP / web) |1029 / 8029 |Recibe los correos de prueba sin entregarlos.
+|GeoServer |8095 |Opcional; nunca público: el navegador lo ve por el proxy WMS del servidor.
+|`sgspe-latex` |8097 |Compone el PDF de los entregables (JOB-05). Solo lo llama el servidor.
+|===
+
+En producción la topología de referencia (`docs/architecture.md` §10, ADR-0026) es *un solo origen* detrás de un proxy
+inverso con TLS: el proxy sirve los estáticos de `sgspe-ui` con _fallback_ de SPA (incluido `/admin/*`) y reenvía
+`/api/**` y `/actuator/health/**` al servidor. PostgreSQL, GeoServer, `sgspe-latex` y el almacenamiento S3 quedan en
+una red interna. El destino concreto de producción no está definido en el repositorio (GAP-022).
+
+=== Cómo se organiza el código del servidor
+
+El servidor es una sola aplicación Spring Boot (`sgspe.SgspeApplication`) que incluye los _starters_ de wasichai
+(core, views, forms, pages, gis, workflow, automation, documents, files, notifications y agent; `build.gradle.kts`) y
+los paquetes propios `sgspe.*`. Las dependencias entre paquetes son las reales del código (imports de
+`src/main/kotlin`) y las vigila `ArchitectureTest`.
+
+.Dependencias entre los paquetes `sgspe.*`
+image::diagrams/paquetes.png[Diagrama de paquetes: base, transversales, dominio, reportes e IA,width=85%,role=diagram]
+
+Reglas de arquitectura que fallan la compilación de pruebas si se rompen (`src/test/kotlin/sgspe/ArchitectureTest.kt`):
+
+* ningún código bajo el paquete `wasichai` ni uso de sus API internas (`RecordStore`, `AuditService`,
+  `ObjectSchemaManager`…);
+* ningún nombre de rol en `src/main/kotlin`: el código pregunta por *acciones* (`APPROVE`, `EXPORT`…), nunca por roles;
+* `sgspe.scope` y `sgspe.privacy` solo dependen de `sgspe.common`; los paquetes de dominio no dependen de tableros,
+  entregables ni IA;
+* solo `sgspe.ai` usa el módulo de agentes y Embabel; solo `KnowledgeChunks` toca la tabla `knowledge_chunk`; solo
+  `SpatialGate` (y los escritores de territorio) ejecuta SQL propio.
+
+=== Ruta de una escritura
+
+Hay dos caminos para escribir:
+
+. *API genérica de wasichai* (`/api/objects/{objeto}/records`): la usan los formularios del portal y de `/admin`. La
+  plataforma valida el token, aplica el permiso de rol, objeto y campo, el alcance de lectura, y llama a las guardas de
+  SGSPE antes de guardar. La escritura y su fila de auditoría salen en la misma llamada.
+. *Comandos de SGSPE* (`/api/sgspe/**`): operaciones que escriben varios registros a la vez (registrar una entrega,
+  aceptar una solicitud, emitir un entregable…). Corren en una transacción, con candado consultivo de PostgreSQL y
+  las cabeceras `Idempotency-Key` (un reenvío devuelve la respuesta guardada), `If-Match` (rechaza con 412 si otra
+  persona cambió el registro) y `X-Change-Reason` (el motivo queda en la auditoría).
+
+.Secuencia de un comando de `/api/sgspe/**`
+image::diagrams/peticion-comando.png[Diagrama de secuencia de un comando: portal, controlador, transacción, servicios de registro y workflow, guardas y PostgreSQL,width=100%,role=diagram]
+
+Toda respuesta lleva `X-Correlation-Id`, que también aparece en la línea de acceso y en la auditoría: es la forma de
+seguir una petición de punta a punta (ver <<ops-logs>>).
+
+=== Decisiones de arquitectura
+
+Las decisiones están registradas como ADR en `docs/adr/`. Las que más pesan en la operación:
+
+[cols="1,4",options="header"]
+|===
+|ADR |Decisión y consecuencia operativa
+|0001 |Construir sobre wasichai: el esquema de base de datos lo crea la plataforma a partir del modelo.
+|0002 |Geometrías en SRID 4326; cada proyecto tiene un CRS de trabajo para medir y exportar.
+|0006, 0029 |Autorización por roles y *alcance por proyecto*: una persona no administradora solo lee los proyectos donde tiene una asignación vigente.
+|0007 |El modelo como código en `model/`: `/admin` no es fuente de verdad; volver a aplicar `model/` deshace los cambios manuales.
+|0011 |Auditoría sobre el `audit_log` de wasichai (solo inserción).
+|0012 |Estados temporales (vencido, por vencer…) materializados por trabajos programados.
+|0014 |Evidencias y entregables en almacenamiento de objetos (S3 en producción).
+|0020 |JWT de wasichai endurecido: duración corta y revocación en producción.
+|0025, 0027 |Concurrencia: `Idempotency-Key` e `If-Match` en la API del portal.
+|0026 |Topología de un solo origen; puertos y observabilidad.
+|0030 |PDF de imprenta con LuaLaTeX (`sgspe-latex`); reemplazó a Gotenberg el 2026-10-19.
+|===

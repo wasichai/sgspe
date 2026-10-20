@@ -1,0 +1,22 @@
+%% WF-E1, queja (model/workflows/grievance.json)
+flowchart TB
+    R(["Recibida"]) -->|"Acusar recibo"| K(["Acusada"])
+    K -->|"Evaluar"| EV(["En evaluación"])
+    EV -->|"Investigar"| IN(["En investigación"])
+    EV -->|"Atender"| AT(["En atención"])
+    IN -->|"Atender"| AT
+    AT -->|"Resolver · Resolver con aprobación"| RS(["Resuelta"])
+    RS -->|"Verificar"| VE(["Verificada"])
+    VE -->|"Cerrar"| CE(["Cerrada"])
+    RS -->|"Cerrar"| CE
+    RS -.->|"Reabrir"| EV
+    RJ(["Rechazada"])
+    CE ~~~ RJ
+    WD(["Desistida"])
+    N1["«Rechazar»: desde Recibida, Acusada o En evaluación"] -.- RJ
+    N2["«Registrar desistimiento»: desde cualquier estado<br/>abierto hasta En atención"] -.- WD
+    N3["«Cerrar por reclasificación»: solo por el comando de<br/>reclasificación, desde Recibida, Acusada o En evaluación"] -.- CE
+    classDef fin fill:#eef0ec,stroke:#46514b
+    classDef nota fill:#fbf0d9,stroke:#7f5300
+    class CE,RJ,WD fin
+    class N1,N2,N3 nota

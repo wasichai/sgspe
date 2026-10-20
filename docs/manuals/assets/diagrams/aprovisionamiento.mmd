@@ -1,0 +1,8 @@
+%% Orden de aprovisionamiento de un tenant (model/tenant_steps.py, CLAUDE.md)
+flowchart LR
+    A["1 · apply.py<br/>objetos, campos,<br/>relaciones y unicidades"] --> B["2 · apply_roles.py<br/>15 roles y permisos"]
+    B --> C["3 · apply.py --workflows<br/>19 workflows, tipos de<br/>documento y automatizaciones"]
+    C --> D["4 · load_ubigeo.py<br/>25 departamentos, 196<br/>provincias, 1892 distritos"]
+    D --> E["5 · load_indicators.py<br/>53 indicadores KPI"]
+    E --> F["6 · publish_layers.py<br/>capas de GeoServer<br/>(--skip-layers)"]
+    F -.-> G["Opcional · load_demo.py<br/>conjunto ficticio T1"]

@@ -1,0 +1,79 @@
+[[adm-modelo]]
+== Modelo, catálogos y automatizaciones
+
+=== Objetos y workflows
+
+menu:Datos[Objetos] en `/admin` lista los 90 tipos de registro del modelo, con su nombre técnico y su geometría;
+menu:Automatización[Workflows] muestra el flujo de estados de cada uno como un diagrama editable.
+
+.Objetos del modelo
+image::screenshots/admin/12-objetos.png[Lista de objetos con etiqueta, nombre técnico, tipo de geometría y los botones Ver registros]
+
+.Workflow del compromiso en /admin
+image::screenshots/admin/10-workflows.png[Editor de workflows con el flujo del compromiso: estados y transiciones dibujados como diagrama]
+
+[WARNING]
+.Úselos para consultar, no para cambiar
+====
+Agregar un campo, una opción, un estado o una transición se hace en `model/model.json` y `model/workflows/` y se
+aplica con `apply.py` y `apply.py --workflows` (ver el
+xref:../system/manual-sistema.adoc#deploy[Manual técnico]). Lo editado aquí se sobrescribe en la siguiente
+aplicación del modelo y, peor, puede romper las reglas del servidor que dependen de los nombres de estados y campos.
+No use «Eliminar flujo» ni borre objetos: borrar un objeto borra sus registros.
+====
+
+=== Catálogos y datos maestros
+
+[cols="2,3,3",options="header"]
+|===
+|Catálogo |Origen |Cómo se mantiene
+|Unidades administrativas (ubigeo) |`model/data/ubigeo.csv` del INEI: 25 departamentos, 196 provincias y 1892 distritos |`load_ubigeo.py` (técnico). Idempotente; no borra.
+|Indicadores (KPI) |`model/indicators.json`: 53 indicadores |`load_indicators.py` (técnico). Las *metas* y *frecuencias* editadas por el cliente no se pisan.
+|Temas |Registros de la organización |Desde el portal o `/admin`, como cualquier registro.
+|Listas de opciones (ENUM) |`model/model.json`: 79 listas |Solo en `model/` (técnico).
+|Feriados |`application.yml` del servidor |Técnico: un año nuevo por vez (ver el Manual técnico).
+|===
+
+=== Automatizaciones
+
+Las automatizaciones crean tareas o generan documentos cuando un registro entra en un estado o se crea. Se consultan en
+menu:Automatización[Reglas] (eligiendo el objeto) y sus ejecuciones en menu:Automatización[Ejecuciones].
+
+.Reglas de automatización del compromiso
+image::screenshots/admin/11-automatizaciones.png[Pantalla Reglas de automatización con el objeto Compromiso elegido]
+
+[cols="1,4",options="header"]
+|===
+|Regla |Efecto
+|AUT-01 |Al aprobarse un compromiso, crea la tarea «Ejecutar compromiso …» para el responsable, con su vencimiento.
+|AUT-02 |Al registrarse una queja no confidencial, crea la tarea «Acusar recibo de la queja …».
+|AUT-05 |Al aprobarse el acta de una interacción, genera la minuta y la lista de asistentes.
+|AUT-09 |Al crearse una alerta temprana, crea la tarea de triaje.
+|AUT-10 |Al cancelarse una interacción, crea la tarea de reprogramarla o reemplazarla.
+|AUT-11 |Cuando un riesgo pasa a nivel crítico, crea la tarea de revisarlo.
+|AUT-12 |Al emitirse un entregable, genera la constancia de emisión.
+|===
+
+Igual que los roles, las automatizaciones viven en `model/automations/`: una regla que existe en el servidor y no en
+`model/` se informa pero no se borra al aplicar el modelo.
+
+=== Capas del mapa
+
+menu:GIS[Capas] lista las geometrías publicables. Sin GeoServer configurado, la pantalla lo indica («GeoServer no está
+configurado») y las capas quedan «Sin publicar»: el portal las sirve desde la API. La publicación de las capas públicas
+la hace el equipo técnico con `publish_layers.py`.
+
+.Capas GIS
+image::screenshots/admin/13-capas.png[Pantalla Capas GIS con el aviso GeoServer no está configurado y las geometrías sin publicar]
+
+=== Avisos y correo
+
+Los avisos (aprobaciones pendientes, alertas nuevas, quejas graves, plazos) llegan a la campana del portal. Su envío
+adicional por correo depende de la configuración técnica (`WASICHAI_NOTIFICATIONS_EMAIL_ENABLED` y el servidor SMTP);
+cada persona elige en su página «Avisos» qué recibe por correo.
+
+=== Inteligencia artificial
+
+La IA es opcional y se activa *por organización* desde la configuración técnica (`SGSPE_AI_ENABLED_ORGANIZATIONS`) con
+la clave del proveedor. Activada, responden el asistente «Preguntar», la «Bandeja de IA» y las sugerencias en las
+secciones de entregables; sin activar, el portal muestra el botón «Preguntar» pero la IA no está disponible. Toda sugerencia la acepta o la rechaza una persona y cada llamada al modelo queda registrada.

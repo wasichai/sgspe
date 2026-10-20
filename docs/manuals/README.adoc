@@ -1,0 +1,71 @@
+= Manuales de SGSPE
+:toc: macro
+:icons: font
+
+Documentación de producto de SGSPE: manuales de usuario, de administrador y técnico del sistema, y referencia técnica,
+en AsciiDoc (fuente canónica) con salida HTML y PDF. Las capturas son de la aplicación real y la base de demostración
+se reconstruye y se restaura con los scripts de `scripts/`.
+
+toc::[]
+
+== Entregables
+
+[cols="2,3,2",options="header"]
+|===
+|Documento |Fuente |PDF
+|Manual de usuario |`user/manual-usuario.adoc` |`output/pdf/user/manual-usuario.pdf`
+|Manual del administrador |`administrator/manual-administrador.adoc` |`output/pdf/administrator/manual-administrador.pdf`
+|Manual técnico del sistema |`system/manual-sistema.adoc` |`output/pdf/system/manual-sistema.pdf`
+|Referencia técnica |`reference/referencia-tecnica.adoc` |`output/pdf/reference/referencia-tecnica.pdf`
+|Portada HTML |`index.adoc` |`output/html/index.html` (se genera; no se versiona)
+|===
+
+== Construir
+
+[source,bash]
+----
+# una vez: herramientas (Ruby + Asciidoctor; Node para diagramas y capturas)
+$ cd docs/manuals && bundle install && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 yarn install && cd -
+# todo: referencias desde model/, diagramas, HTML y PDF
+$ docs/manuals/scripts/build-docs.sh
+# validar fuentes, enlaces del HTML y fuentes incrustadas del PDF
+$ python3 docs/manuals/scripts/validate-docs.py
+----
+
+Si Chromium ya está instalado, `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/ruta/a/chrome` evita descargarlo.
+
+== Base de demostración
+
+[source,bash]
+----
+$ ./gradlew bootJar
+$ SGSPE_DEMO_PASSWORD='…' docs/manuals/scripts/seed-demo-data.sh --reset     # desde una base vacía
+$ docs/manuals/scripts/export-demo-database.sh                               # respaldo + manifiesto
+$ docs/manuals/scripts/restore-demo-database.sh                              # en otra base, con verificación
+----
+
+Detalle completo: `database/README.adoc` (capítulo «Base de demostración reproducible» del manual técnico).
+
+== Capturas
+
+[source,bash]
+----
+# con el servidor contra la base de demostración y sgspe-ui en :5182
+$ cd docs/manuals && SGSPE_DEMO_PASSWORD='…' node scripts/generate-screenshots.mjs
+----
+
+== Estructura
+
+[cols="1m,3",options="header"]
+|===
+|Carpeta |Contenido
+|user/ administrator/ system/ |Los manuales: archivo maestro y capítulos.
+|reference/ |API, configuración y glosario; `generated/` sale de `model/` (no se edita).
+|operations/ |Instalación, despliegue, operación, respaldo, diagnóstico, recuperación.
+|database/ |README, conjunto ampliado (`seeds/`), respaldo (`backups/`) y manifiesto (`manifests/`).
+|assets/ |Capturas, diagramas Mermaid (`.mmd` y su PNG/SVG) y marca.
+|styles/ |CSS del HTML, tema PDF y fuentes IBM Plex (licencia OFL, `styles/fonts/OFL-IBM-Plex.txt`; DejaVu Sans, licencia libre de Bitstream Vera).
+|scripts/ |Construcción, validación, referencias, diagramas, capturas y base de demostración.
+|===
+
+El historial de esta documentación está en `CHANGELOG.adoc`.

@@ -1,0 +1,128 @@
+[[usr-documentos]]
+== Documentos, tareas, avisos y reportes
+
+=== Evidencias
+
+Una *evidencia* es un archivo que prueba un hecho: un acta, una lista de asistentes, una foto, una carta, un
+comprobante, un convenio… La sección «Documentos» lista las evidencias del proyecto (o de la organización) con su
+tipo, su clasificación, su tamaño y su fecha, y permite filtrarlas por texto, tipo, clasificación y «Solo fotos con
+personas sin consentimiento».
+
+.Documentos del proyecto
+image::screenshots/user/30-documentos.png[Lista de evidencias del proyecto con tipo, clasificación, tamaño y fecha]
+
+==== Subir una evidencia
+
+*Objetivo:* guardar un archivo y vincularlo a los registros que sustenta.
+
+*Requisitos previos:* permiso para crear evidencias y para editar los registros a los que la vincula (por ejemplo, solo
+la gestión de QCS puede vincular una evidencia a una consulta).
+
+.Procedimiento
+. Pulse btn:[Subir evidencia] en «Documentos» o en la pestaña «Evidencias» de un registro.
+. Elija el archivo (hasta 20 MB), el *tipo* y la *clasificación* (Pública, Interna, Confidencial o Datos personales).
+. Complete el título, la fecha del documento y el autor; en fotos, indique si hay personas identificables y si dieron
+  su consentimiento.
+. Vincule los registros que sustenta y guarde.
+
+*Resultado esperado:* la evidencia aparece en la lista y en la pestaña «Evidencias» de cada registro vinculado.
+
+==== La ficha de la evidencia
+
+.Ficha de una evidencia
+image::screenshots/user/31-evidencia-ficha.png[Ficha del acta de inspección con lo que sustenta, la clasificación, el archivo con su huella SHA-256 y los datos descriptivos]
+
+La ficha muestra qué sustenta, su clasificación y privacidad, el archivo (nombre, tipo, tamaño y huella SHA-256) y
+sus versiones. El archivo nunca se reemplaza: btn:[Subir versión nueva] crea otra versión y conserva la anterior.
+btn:[Descargar] baja el archivo; las evidencias restringidas solo las descarga quien tiene ese permiso.
+
+=== Tareas
+
+«Tareas» muestra «Mis tareas» con las cifras de vencidas, por vencer y abiertas, en vista de lista, tablero o
+calendario. Muchas tareas las crea el sistema (por ejemplo, «Ejecutar compromiso…» al aprobar un compromiso, «Acusar
+recibo de la queja…» al registrar una queja, el triaje de una alerta nueva o la revisión de un riesgo que pasa a
+crítico); otras se crean a mano. Dentro de un proyecto aparece además «Para tomar»: tareas sin responsable que puede
+asumir con btn:[Tomar la tarea]. La columna «Origen» enlaza el registro que la originó.
+
+.Mis tareas
+image::screenshots/user/32-tareas.png[Lista Mis tareas con cifras de vencidas, por vencer y abiertas, y dos tareas con su proyecto, origen, prioridad y vencimiento]
+
+[[usr-aprobaciones]]
+=== Aprobaciones
+
+menu:Tareas[Aprobaciones] es la bandeja de quien aprueba: los registros que esperan su decisión (vista «Por aprobar»)
+y los escalamientos. Cada fila dice qué se decide, el monto, cuánto lleva esperando y si su cuenta puede decidirlo.
+btn:[Revisar] abre la decisión; se elige y se pulsa btn:[Confirmar la decisión].
+
+.Bandeja de aprobaciones
+image::screenshots/user/33-aprobaciones.png[Bandeja Aprobaciones y escalamientos con un aporte por aprobar, su monto y la acción Revisar]
+
+=== Avisos
+
+La campana de la barra superior muestra los avisos sin leer; la página «Avisos» los lista con los filtros «Activos»,
+«Solo sin leer» y «Pospuestos». Cada aviso tiene btn:[Abrir], btn:[Marcar como leído] y btn:[Posponer hasta mañana].
+En «Avisos por correo» elige cuáles quiere recibir también por correo, si la instalación tiene el correo configurado.
+
+.Avisos
+image::screenshots/user/40-avisos.png[Página Avisos con una alerta nueva y un aporte por aprobar, y la sección Avisos por correo]
+
+[[usr-tableros]]
+=== Tableros e indicadores
+
+Las secciones con datos ofrecen un «Tablero» (botón junto a «Lista») con cifras y gráficos; cada gráfico tiene «Ver
+datos» con la tabla equivalente. La página de inicio de quien tiene acceso a la cartera es la *revisión ejecutiva*;
+«Monitoreo del plan de relaciones comunitarias» y el «Catálogo de indicadores» muestran los indicadores del proyecto.
+Una cifra que su rol no puede leer aparece como «No disponible», no como cero.
+
+.Tablero de compromisos
+image::screenshots/user/39-tablero-compromisos.png[Tablero de compromisos con cifras por estado, gráfico por estado y días de atraso]
+
+[[usr-reportes]]
+=== Reportes y exportaciones
+
+La sección «Reportes» tiene tres pestañas: «Entregables», «Exportaciones» e «Historial».
+
+.Reportes: la pestaña Entregables
+image::screenshots/user/34-reportes.png[Pestaña Entregables con el diagnóstico social DEMO-T1-001 en borrador y el botón Nuevo entregable]
+
+==== Exportar a Excel
+
+*Objetivo:* descargar el registro de grupos de interés, la matriz de compromisos, el registro de QCS o la matriz de
+riesgos en XLSX.
+
+.Procedimiento
+. Abra menu:Reportes[Exportaciones].
+. En el bloque del reporte, elija el *nivel de divulgación*: «Interno» (todos los campos que su cuenta lee),
+  «Externo» o «Público» (sin datos restringidos ni personales).
+. Fuera del nivel interno, marque la casilla de revisión de la lista de verificación.
+. Pulse el botón de exportar (por ejemplo, btn:[Exportar XLSX] o btn:[Exportar la matriz]).
+
+.Exportaciones
+image::screenshots/user/35-exportaciones.png[Pestaña Exportaciones con el registro de grupos de interés y la matriz de compromisos, sus niveles de divulgación y filtros]
+
+*Resultado esperado:* la descarga del archivo. Cada exportación queda en el «Historial» (quién, cuándo, qué y con qué
+nivel).
+
+*Casos especiales:* una exportación de más de 20 000 filas se rechaza; acote los filtros.
+
+==== Entregables
+
+Un *entregable* es un informe con formato (por ejemplo, el *diagnóstico social* o el *informe de campo y avance*) que
+se genera en DOCX y PDF a partir de los datos, se revisa, se aprueba y se *emite*: la versión emitida queda congelada.
+
+.Ficha de un entregable
+image::screenshots/user/36-entregable.png[Ficha del diagnóstico social en borrador con la línea de estados, el estado del borrador, el botón Pedir borrador y la lista de secciones]
+
+.Procedimiento resumido
+. En «Entregables», abra el entregable (o cree uno con btn:[Nuevo entregable]).
+. Complete las secciones de texto (las marcadas «Calculado» salen solas de los datos) y pulse btn:[Guardar sección].
+. Pulse btn:[Pedir borrador]: el sistema genera en segundo plano el DOCX y el PDF; el estado del borrador pasa a
+  «LISTO» (o «FALLIDO», con el motivo).
+. Revise el PDF y el DOCX, y aplique btn:[Enviar a revisión]; quien revisa puede observarlo o aprobarlo.
+. Con el entregable aprobado, «Emitir…» congela la versión para el nivel de divulgación elegido.
+
+.Estados de un entregable
+image::diagrams/wf-entregable.png[Diagrama de estados del entregable: borrador, en revisión, observado, aprobado, emitido y anulado,width=60%,role=diagram]
+
+NOTE: Generar el PDF requiere el servicio de composición de la instalación. Si no está disponible, el borrador queda
+«FALLIDO»; avise a soporte. En la base de demostración usada para este manual, el borrador no se generó.

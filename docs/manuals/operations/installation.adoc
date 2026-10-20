@@ -1,0 +1,153 @@
+[[inst]]
+= Instalación y arranque
+
+Este capítulo instala un entorno de *desarrollo o demostración* en una sola máquina. Para producción, siga después
+<<deploy>>.
+
+== Requisitos
+
+[cols="2,2,4",options="header"]
+|===
+|Herramienta |Versión |Para qué
+|JDK |25 |Compilar y ejecutar el servidor (toolchain de Gradle). Gradle 9.8.0 llega con `./gradlew`.
+|PostgreSQL + PostGIS |18 + 3.6 en `compose.yml` |Base de datos. La demostración de este manual se verificó también con PostgreSQL 16 + PostGIS 3.4 (<<inst-nativo>>).
+|Docker y Compose |reciente, local o remoto |Levantar PostGIS, MinIO, Mailpit, GeoServer y `sgspe-latex` con `compose.yml` (opcional si se instalan aparte).
+|Python |3.11+, solo biblioteca estándar |Scripts de `model/` (aprovisionamiento y datos) y de estos manuales.
+|Node.js y Yarn |Node 26+, Yarn 1 |La interfaz `sgspe-ui` y las herramientas de formato del repositorio.
+|GDAL (`ogrinfo`, `ogr2ogr`) |3.8+ |Opcional: importar y exportar Shapefile, KML, GeoPackage, FileGDB y GPX.
+|Acceso de lectura a GitHub Packages |token con `read:packages` |Descargar `wasichai:*` (Maven) y `@wasichai/*` (npm). Ver <<inst-paquetes>>.
+|===
+
+Los requisitos de hardware no están fijados en el repositorio. Como referencia medida en la máquina donde se
+generaron estos manuales: la compilación usa hasta 3 GB de memoria (`org.gradle.jvmargs=-Xmx2g`, demonio de Kotlin
+`-Xmx3g`), el servidor arranca con la memoria por defecto de la JVM y la base de demostración completa ocupa menos de
+200 MB.
+
+[[inst-paquetes]]
+== Paquetes de wasichai
+
+Las librerías de la plataforma se publican en GitHub Packages, que exige un token *incluso para leer*. El token nunca
+se escribe en un archivo del repositorio: se antepone a cada comando.
+
+[source,bash]
+----
+# en la raíz de sgspe
+$ GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew build
+----
+
+Si falta el alcance, `gh auth refresh -s read:packages`. `settings.gradle.kts` declara además `mavenLocal()` como
+alternativa para el grupo `wasichai`: sin acceso a GitHub Packages, se puede compilar la plataforma desde su
+repositorio público y publicarla localmente.
+
+[source,bash]
+----
+# alternativa sin token: wasichai 1.3.0 desde el código fuente, en ~/.m2/repository
+$ git clone https://github.com/wasichai/wasichai && cd wasichai
+$ ./gradlew publishToMavenLocal -x test -x check
+----
+
+Para la interfaz, `sgspe-ui/.npmrc` apunta `@wasichai` a `npm.pkg.github.com`. La alternativa equivalente compila
+`wasichai-ui` (repositorio público) y empaqueta cada paquete con `yarn pack`; es la que se usó para las capturas de
+estos manuales y se describe en <<inst-ui-local>>.
+
+== Entorno de desarrollo con Docker (vía oficial)
+
+.Procedimiento
+. Prepare las variables (en la raíz de `sgspe`; `develop/.env` está en `.gitignore`):
++
+[source,bash]
+----
+$ cp develop/example.env develop/.env
+$ set -a; source develop/.env; set +a
+----
+. Levante los servicios de apoyo. El demonio de Docker del proyecto es remoto; si es su caso, abra antes el túnel SSH
+  (`docs/develop/README.md` §3).
++
+[source,bash]
+----
+$ docker compose up -d          # postgis, minio (+ minio-init), mailpit
+$ docker compose ps             # postgis y minio en «healthy»; minio-init termina con 0
+----
+. Arranque el servidor. Las migraciones crean el esquema al arrancar:
++
+[source,bash]
+----
+$ GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew bootRun
+$ curl -s http://localhost:8094/actuator/health/readiness
+{"status":"UP"}
+----
+. Aprovisione la organización de desarrollo, en este orden (cada paso es idempotente):
++
+[source,bash]
+----
+$ cd model
+$ python3 apply.py && python3 apply_roles.py && python3 apply.py --workflows
+$ python3 load_ubigeo.py && python3 load_indicators.py
+$ python3 publish_layers.py     # solo si hay GeoServer (WASICHAI_GIS_GEOSERVER_*)
+----
+. Arranque la interfaz (en `sgspe-ui`):
++
+[source,bash]
+----
+$ yarn install && yarn dev      # http://localhost:5182, reenvía /api a :8094
+----
+
+*Resultado esperado:* en `http://localhost:5182/login` se inicia sesión con `admin@wasichai.local` / `admin` (solo
+existe con `WASICHAI_SEED_DEV=true`) y el menú lateral muestra todas las secciones.
+
+[[inst-nativo]]
+== Entorno de demostración sin Docker (verificado)
+
+Esta vía no necesita Docker ni túnel: usa un PostgreSQL con PostGIS instalado en la máquina y el jar del servidor. Es la
+que se usó para generar las capturas y la base de demostración de estos manuales, en Ubuntu 24.04.
+
+.Procedimiento
+. Instale PostgreSQL y PostGIS y cree un clúster en el puerto 5435 con un usuario que pueda crear bases:
++
+[source,bash]
+----
+$ sudo apt-get install -y postgresql-16 postgresql-16-postgis-3 openjdk-25-jdk-headless
+$ sudo pg_createcluster 16 sgspe -p 5435 -- --encoding=UTF8 --locale=C.UTF-8
+$ sudo pg_ctlcluster 16 sgspe start
+$ sudo -u postgres psql -p 5435 -c "CREATE ROLE sgspe LOGIN CREATEDB PASSWORD 'sgspe'"
+----
++
+NOTE: `CREATE EXTENSION postgis` exige privilegios de superusuario o que la extensión sea de confianza en el servidor.
+Si el usuario `sgspe` no es superusuario, cree la extensión como `postgres` en cada base nueva, o dé al rol
+`SUPERUSER` *solo* en un clúster desechable de demostración.
+. Compile el jar del servidor (en la raíz de `sgspe`): `./gradlew bootJar` deja `build/libs/app.jar`.
+. Cree la base de demostración y cárguela con el script de estos manuales, que arranca el servidor, aprovisiona y carga
+  el conjunto ficticio (detalle en <<demo-db>>):
++
+[source,bash]
+----
+$ SGSPE_DEMO_PASSWORD='<12+ caracteres>' docs/manuals/scripts/seed-demo-data.sh --keep-running
+----
+
+[[inst-ui-local]]
+=== Interfaz con paquetes compilados localmente
+
+Sin acceso a `npm.pkg.github.com`, la interfaz se puede instalar con los paquetes `@wasichai/*` compilados del código
+fuente. Se hace en una *copia de trabajo* de `sgspe-ui` (nunca se versiona el cambio de `package.json`):
+
+[source,bash]
+----
+$ git clone https://github.com/wasichai/wasichai-ui && cd wasichai-ui
+$ yarn install --frozen-lockfile && yarn build
+$ for p in packages/*/; do (cd "$p" && yarn pack --filename ../../../tgz/wasichai-$(basename "$p").tgz); done
+# en la copia de sgspe-ui: quitar .npmrc y apuntar cada @wasichai/* a file:../tgz/wasichai-<paquete>.tgz,
+# también en "resolutions"; después:
+$ yarn install && yarn build && WASICHAI_API_URL=http://localhost:8094 yarn preview
+----
+
+== Comprobaciones después de instalar
+
+[cols="3,4m,3",options="header"]
+|===
+|Comprobación |Comando |Resultado esperado
+|Servidor vivo |curl -s localhost:8094/actuator/health/liveness |`{"status":"UP"}`
+|Servidor listo (base accesible) |curl -s localhost:8094/actuator/health/readiness |`{"status":"UP"}`
+|API de la plataforma |curl -s localhost:8094/api/health |`{"status":"UP",…}`
+|Modelo aplicado |cd model && python3 apply_roles.py |termina con `… 15 skipped`
+|Interfaz |abrir \http://localhost:5182/login |formulario «Correo» / «Contraseña»
+|===

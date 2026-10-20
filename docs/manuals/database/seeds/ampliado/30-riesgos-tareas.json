@@ -1,0 +1,66 @@
+{
+  "collections": [
+    {
+      "object": "incident",
+      "match": ["project", "code"],
+      "as": "riesgos",
+      "records": [
+        {
+          "key": "inc-01",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-I-01", "incident_type": "BLOQUEO DE VIA", "occurred_at": "2026-10-09T10:00:00-05:00",
+            "place": "Trocha Huaylla Alto – plataforma 2", "locality": "@loc-huaylla",
+            "description": "Pobladores colocaron piedras en la trocha durante dos horas para exigir la inspección del canal; no hubo heridos."
+          }
+        },
+        {
+          "key": "inc-02",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-I-02", "incident_type": "PROTESTA", "occurred_at": "2026-09-18T10:00:00-05:00",
+            "place": "Plaza del caserío Tambillo", "locality": "@loc-tambillo",
+            "description": "Concentración pacífica de unas cuarenta personas por el reparto de los turnos de trabajo."
+          },
+          "transitions": ["start_review"],
+          "state": "under_review"
+        }
+      ]
+    },
+    {
+      "object": "early_warning",
+      "match": ["project", "title"],
+      "as": "riesgos",
+      "records": [
+        {
+          "key": "at-01",
+          "attributes": {
+            "project": "@proj", "title": "Convocatoria a bloqueo de la trocha en redes sociales", "severity": "ALTO", "social_risk": "@risk-03", "locality": "@loc-huaylla", "owner_user": "riesgos",
+            "trigger_description": "Un grupo local publicó una convocatoria para cerrar la trocha si no se atiende el reclamo por el canal."
+          }
+        }
+      ]
+    },
+    {
+      "object": "task",
+      "match": ["project", "title"],
+      "as": "social",
+      "records": [
+        {
+          "key": "t-01",
+          "attributes": {
+            "project": "@proj", "title": "Coordinar la inspección conjunta del canal de Huaylla Alto", "priority": "ALTA",
+            "assignee_user": "social", "due_date": "2026-10-17", "grievance": "@q-01",
+            "description": "Acordar fecha con el comité de regantes y la contratista, y llevar el formato de acta de inspección."
+          }
+        },
+        {
+          "key": "t-02",
+          "attributes": {
+            "project": "@proj", "title": "Preparar el plan de capacitación de las JASS", "priority": "MEDIA",
+            "assignee_user": "social", "due_date": "2026-10-23", "social_program": "@ps-01",
+            "description": "Temario, cronograma por caserío y materiales en castellano y quechua para el programa de comités de agua."
+          }
+        }
+      ]
+    }
+  ]
+}

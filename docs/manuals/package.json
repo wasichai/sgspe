@@ -1,0 +1,28 @@
+{
+    "name": "sgspe-manuals",
+    "private": true,
+    "version": "1.0.0",
+    "description": "Herramientas de los manuales de SGSPE: capturas reales con Playwright y diagramas Mermaid",
+    "type": "module",
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "docs:build": "bash scripts/build-docs.sh all",
+        "docs:html": "bash scripts/build-docs.sh html",
+        "docs:pdf": "bash scripts/build-docs.sh pdf",
+        "docs:references": "python3 scripts/generate-reference.py",
+        "docs:diagrams": "node scripts/render-diagrams.mjs",
+        "docs:screenshots": "node scripts/generate-screenshots.mjs",
+        "docs:validate": "python3 scripts/validate-docs.py",
+        "docs:clean": "bash scripts/build-docs.sh clean",
+        "docs:database:seed": "bash scripts/seed-demo-data.sh",
+        "docs:database:export": "bash scripts/export-demo-database.sh",
+        "docs:database:restore": "bash scripts/restore-demo-database.sh",
+        "docs:database:verify": "python3 scripts/demo_manifest.py verify --db sgspe_demo_restore --manifest database/manifests/sgspe-demo.json"
+    },
+    "devDependencies": {
+        "mermaid": "11.17.2",
+        "playwright": "1.63.0"
+    }
+}

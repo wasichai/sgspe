@@ -1,0 +1,9 @@
+%% Ciclo de la base de demostración (docs/manuals/scripts)
+flowchart LR
+    S0["Base vacía<br/>con PostGIS"] --> S1["Arranque del servidor<br/>migraciones Flyway"]
+    S1 --> S2["Aprovisionamiento<br/>apply · roles · workflows<br/>ubigeo · indicadores"]
+    S2 --> S3["load_demo.py<br/>conjunto ficticio"]
+    S3 --> E["export-demo-database.sh<br/>pg_dump + archivos + manifiesto"]
+    E --> R["restore-demo-database.sh<br/>base nueva desechable"]
+    R --> V["verify-demo-database.py<br/>conteos, FK, secuencias"]
+    V --> UP["Servidor contra la base<br/>restaurada + capturas"]

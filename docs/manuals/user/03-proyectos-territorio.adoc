@@ -1,0 +1,102 @@
+[[usr-proyectos]]
+== Proyectos y territorio
+
+=== Consultar los proyectos
+
+La sección menu:Proyectos[] lista los proyectos que puede leer, con las vistas «Mis proyectos», «Activos», «En
+revisión» y «Todos», y los filtros «Tipo», «Etapa» y «Fase de exploración». Cada fila muestra código, nombre, tipo,
+etapa, estado, jefatura y campaña en curso; el nombre abre el proyecto.
+
+.Lista de proyectos
+image::screenshots/user/06-proyectos.png[Lista de proyectos con el proyecto DEMO-T1 en estado Borrador]
+
+=== El resumen del proyecto
+
+*Objetivo:* ver de un vistazo la salud del proyecto y lo que requiere atención.
+
+.Procedimiento
+. Elija el proyecto en el selector de la barra superior o en la lista de proyectos.
+. Abra la pestaña «Resumen».
+
+.Resumen del proyecto
+image::screenshots/user/07-proyecto-resumen.png[Resumen del proyecto con atención requerida, salud del proyecto, paisaje de grupos de interés y reuniones al mes frente a la meta]
+
+El resumen reúne:
+
+* *Atención requerida*: actas por redactar, grupos de interés sin contacto reciente y evaluaciones vencidas, con
+  enlaces a cada registro.
+* *Salud del proyecto*: grupos de interés vigentes, interacciones realizadas este mes, compromisos vencidos, QCS
+  abiertas y riesgos altos.
+* *Paisaje de grupos de interés*: la matriz interés × poder en miniatura y la distribución de posturas.
+* *Reuniones al mes frente a la meta*, *Áreas de influencia vigentes*, *Mapa del proyecto* y *Actividad reciente*.
+
+Crear proyectos y gestionar su equipo y parámetros corresponde a la administración (ver el
+xref:../administrator/manual-administrador.adoc[Manual del administrador]).
+
+[[usr-mapas]]
+=== Mapas
+
+Hay dos mapas:
+
+* *Mapa territorial* (menu:Territorio[]): todo el territorio de su organización, con filtros por «Proyecto del mapa»,
+  periodo («Desde», «Hasta») y mapa de calor, y la lista «Lugares visibles», que abre la ficha de cada localidad o
+  comunidad.
+* *Mapa del proyecto* (pestaña «Mapa»): el área de interés, las áreas de influencia, los componentes y los predios del
+  proyecto, con tablas y la sección «Análisis» (predios afectados, territorio comunal, elementos sensibles cercanos,
+  localidades en un radio y conflictos cercanos).
+
+.Mapa territorial
+image::screenshots/user/37-territorio.png[Mapa territorial con capas de referencia, proyecto, tenencia y gestión, y la lista de lugares visibles]
+
+.Mapa del proyecto
+image::screenshots/user/38-proyecto-mapa.png[Mapa del proyecto con área de interés, áreas de influencia, localidades y la leyenda]
+
+Las capas se agrupan en *Referencia*, *Proyecto*, *Tenencia* y *Gestión*; cada casilla las muestra u oculta. Una capa
+con candado contiene datos restringidos y solo aparece para los roles que pueden leerlos. btn:[Capturar PNG] guarda
+una imagen del mapa y btn:[Exportar] descarga una capa (ver <<usr-exportar-capa>>).
+
+NOTE: Las capturas de este manual muestran un fondo neutro: el entorno donde se tomaron no tenía acceso al servicio
+público de mapa base. Con el mapa base configurado, las capas se dibujan sobre él. El aviso «El servicio de mapas de
+referencia no responde…» aparece cuando la instalación no tiene GeoServer: las capas de referencia se cargan entonces
+desde la API, algo más despacio.
+
+=== Fichas de localidad y comunidad
+
+Desde «Lugares visibles» o desde un registro, la ficha de una *comunidad* muestra su resumen, los registros del lugar y
+sus documentos; la de una *localidad*, su línea base (perfil) y sus registros. El enlace «Trabajar en el proyecto con
+este lugar» filtra el proyecto por ese lugar.
+
+[[usr-areas]]
+=== Áreas de influencia
+
+Cada proyecto tiene áreas de influencia por tipo (AIDS, AIIS, ambientales) y por versión. La ficha del área muestra
+sus versiones, criterios y miembros (localidades, comunidades o unidades administrativas), con btn:[Agregar miembro]
+y «Sugerencias del cálculo». Aprobar una versión (btn:[Aprobar versión N], con motivo) exige la acción de aprobar y al
+menos un miembro; al aprobarla, la versión anterior del mismo tipo pasa a «Reemplazada».
+
+[[usr-importar]]
+=== Importar datos geográficos
+
+*Objetivo:* cargar localidades, comunidades, predios, componentes u otros elementos desde un archivo.
+
+*Requisitos previos:* permiso para crear y actualizar el tipo de registro de destino. XLSX, CSV y GeoJSON se aceptan
+siempre; Shapefile, KML, GeoPackage, FileGDB y GPX requieren que la instalación tenga GDAL.
+
+.Procedimiento
+. Pulse btn:[Importar] en el mapa territorial o en el del proyecto.
+. *Archivo y destino*: elija el archivo y el tipo de registro, y pulse btn:[Leer el archivo].
+. *CRS de origen y columnas*: indique el sistema de coordenadas del archivo y a qué campo va cada columna.
+. *Vista previa y decisiones*: btn:[Ver la vista previa] compara cada fila con lo existente; decida aplicar o descartar.
+. *Confirmación*: pulse btn:[Confirmar importación].
+
+*Resultado esperado:* «Importación confirmada» y el reporte de diferencias descargable.
+
+*Casos especiales:* si las coordenadas caen fuera de lugar, use btn:[Probar con otro CRS]; los límites de tamaño y
+filas los fija la instalación (por defecto 20 MB y 10 000 filas).
+
+[[usr-exportar-capa]]
+=== Exportar una capa
+
+btn:[Exportar] abre «Exportar una capa»: elija la capa, el formato (GeoJSON, KML, GeoPackage, Shapefile, CSV o XLSX), las
+coordenadas («UTM del proyecto» o «Latitud y longitud (EPSG 4326)») y el *nivel de divulgación*. Fuera del nivel
+«Interno» debe marcar la casilla de revisión. Cada exportación queda registrada.

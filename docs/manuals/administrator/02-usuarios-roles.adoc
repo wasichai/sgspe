@@ -1,0 +1,81 @@
+[[adm-usuarios]]
+== Usuarios y roles
+
+=== Crear un usuario
+
+*Objetivo:* dar acceso a una persona nueva.
+
+*Requisitos previos:* ser administrador de la organización. Conocer el correo de la persona y sus roles.
+
+.Procedimiento
+. Abra menu:Administración[Usuarios] (en `/admin`).
+. En «Nuevo usuario», escriba el *correo*, el *nombre* visible y una *contraseña inicial*.
+. Marque los *roles* de la persona (uno o varios).
+. Pulse btn:[Crear].
+. Comunique la contraseña inicial por un canal seguro y distinto del correo de bienvenida.
+. Si la persona trabajará en proyectos, asígnela a cada uno (<<adm-asignaciones>>): los roles por sí solos no dan
+  acceso a los datos de un proyecto.
+
+.Usuarios
+image::screenshots/admin/06-usuarios.png[Pantalla Usuarios con el formulario Nuevo usuario, la lista de roles y los usuarios de la demostración con su rol, estado y fecha de alta]
+
+*Resultado esperado:* la persona aparece en la lista con estado «Activo» y sus roles.
+
+*Verificación:* la persona inicia sesión y el menú «Su cuenta» muestra sus roles.
+
+*Casos especiales:*
+
+* En una instalación de producción, la contraseña debe tener al menos 12 caracteres con mayúscula, minúscula, dígito y
+  símbolo, y ser distinta del correo; si no, el alta se rechaza.
+* El portal no tiene «olvidé mi contraseña»: para restablecerla, edite el usuario (icono de lápiz) y escriba una nueva.
+
+=== Desactivar, cambiar roles o borrar
+
+* *Desactivar* (editar y desmarcar «Activo»): la persona ya no inicia sesión y, en producción, sus sesiones abiertas
+  dejan de valer en segundos. Es lo recomendado cuando alguien deja la organización: conserva su autoría en la
+  auditoría y en los registros.
+* *Cambiar roles*: edite el usuario y marque o desmarque roles. En producción también invalida las sesiones abiertas.
+* *Borrar* (icono de papelera): evítelo; se pierde el vínculo legible entre la persona y lo que registró.
+
+WARNING: Termine también sus asignaciones a proyectos (<<adm-asignaciones>>): un usuario desactivado no entra, pero
+sus asignaciones vigentes siguen apareciendo en el equipo del proyecto.
+
+[[adm-roles]]
+=== Roles y permisos
+
+SGSPE declara 15 roles en `model/roles.json` (más el administrador de la plataforma). Cada rol da permisos de leer,
+crear, actualizar y borrar por tipo de registro, y *acciones especiales* (aprobar, verificar, exportar, emitir,
+confirmar alertas, descargar restringidos, editar lo de otros, leer todos los proyectos, leer QCS confidenciales).
+Algunos campos son *restringidos* (por ejemplo, la postura de un grupo de interés o los datos de contacto) y solo los
+leen ciertos roles.
+
+.Roles
+image::screenshots/admin/07-roles.png[Pantalla Roles con la etiqueta, el nombre técnico, la cantidad de permisos y de campos restringidos de cada rol]
+
+.Matriz de permisos del rol Gerente social
+image::screenshots/admin/08-permisos.png[Matriz de permisos por objeto con las columnas READ, CREATE, UPDATE, DELETE y las acciones propias marcadas]
+
+En `/admin` se pueden consultar los roles (menu:Administración[Roles]) y la matriz de permisos de cada uno
+(menu:Administración[Permisos], eligiendo el rol). La lista completa y vigente, con los campos restringidos, está en la
+xref:../reference/referencia-tecnica.adoc#ref-permisos[Referencia técnica].
+
+[WARNING]
+.No edite roles en `/admin`
+====
+Los permisos se definen en `model/roles.json`. `apply_roles.py` deja cada rol *exactamente* como dice ese archivo, así
+que un cambio hecho a mano en `/admin` se pierde en la siguiente aplicación del modelo (por ejemplo, en cada
+actualización de versión). Para cambiar un permiso:
+
+. Pida el cambio al equipo técnico, que lo hace en `model/roles.json` (con su prueba y revisión).
+. El equipo técnico lo aplica con `cd model && python3 apply_roles.py` contra la organización.
+. Compruebe el cambio en menu:Administración[Permisos].
+
+Los roles `SUPER_ADMIN` y `ORGANIZATION_ADMIN` no se declaran: equivalen al administrador de la plataforma.
+====
+
+=== Cuentas de servicio
+
+menu:Administración[Cuentas de servicio] (visible para administradores) crea credenciales para integraciones
+máquina a máquina, que obtienen tokens de 15 minutos con `POST /api/auth/token`. Créelas solo para una integración
+concreta, con los roles mínimos, y guarde el secreto en el gestor de secretos de la integración. Una cuenta de servicio
+no puede usar el asistente de IA.

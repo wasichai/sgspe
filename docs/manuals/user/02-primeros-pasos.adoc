@@ -1,0 +1,152 @@
+[[usr-primeros-pasos]]
+== Primeros pasos
+
+[[usr-login]]
+=== Iniciar sesión
+
+*Objetivo:* entrar al portal con su cuenta.
+
+*Requisitos previos:* su correo y contraseña.
+
+.Procedimiento
+. Abra la dirección del portal. Si no tiene sesión, aparece la pantalla de inicio de sesión.
+. Escriba su correo en «Correo» y su contraseña en «Contraseña».
+. Pulse btn:[Ingresar].
+
+.Pantalla de inicio de sesión
+image::screenshots/user/01-inicio-de-sesion.png[Formulario de inicio de sesión con los campos Correo y Contraseña y el botón Ingresar,width=70%]
+
+*Resultado esperado:* el portal abre la página «Inicio» (o la página que intentaba abrir antes de iniciar sesión).
+
+*Verificación:* arriba a la derecha aparece su nombre; al pulsarlo, el menú «Su cuenta» muestra su usuario, su
+organización y sus roles.
+
+*Casos especiales:*
+
+* «Correo o contraseña incorrectos»: revise ambos datos. Si su organización tiene activado el límite de intentos, tras
+  varios intentos fallidos debe esperar unos minutos.
+* No hay opción para recuperar la contraseña desde el portal: pida a la administración que se la restablezca.
+
+=== Cerrar sesión y sesión vencida
+
+* Para salir, pulse el botón de cierre de sesión (icono de salida, a la derecha de la barra superior). Cierre sesión
+  siempre en equipos compartidos.
+* La sesión dura unas horas (cuatro en una instalación de producción). Cuando vence, el portal muestra el diálogo «Su
+  sesión venció»: escriba de nuevo su contraseña y pulse btn:[Ingresar] para seguir donde estaba, sin salir de la
+  página.
+
+=== Recorrido por la interfaz
+
+.Página de inicio de la gerencia social
+image::screenshots/user/02-inicio.png[Página Inicio con la revisión ejecutiva: lo que necesita atención hoy, cifras de proyectos, compromisos, QCS, riesgos y alertas, y gráficos]
+
+La pantalla tiene tres zonas:
+
+Barra superior:: De izquierda a derecha: la marca *SGSPE* (vuelve al inicio), el *selector de proyecto*, «Buscar»,
+«Preguntar» (el asistente de IA, que solo responde si la IA está activada para su organización), la campana de *avisos* con el número sin
+leer, el idioma, el tema de color, el menú de *su cuenta* y el botón de cierre de sesión.
+Menú lateral:: Las secciones a las que su rol da acceso: Inicio, Proyectos, Territorio, Grupos de interés,
+Relacionamiento, Compromisos, QCS, Riesgos, Programas sociales, Documentos, Tareas y Reportes. Quien administra ve
+además «Administración», que abre `/admin`.
+Contenido:: La página de la sección elegida.
+
+.Barra superior
+image::screenshots/user/03-barra-superior.png[Barra superior con la marca SGSPE, el selector de proyecto, Buscar, Preguntar, avisos, idioma, tema, cuenta y cierre de sesión]
+
+==== El selector de proyecto
+
+El selector «Proyecto» decide qué datos ve. «Todos mis proyectos» (o «Todos los proyectos» si su rol lee todos)
+muestra la información de todos los proyectos a los que tiene acceso; al elegir un proyecto, el portal pasa a la vista
+de ese proyecto y conserva la sección en la que estaba. Si no tiene ningún proyecto asignado, el selector lo indica:
+pida una asignación a la administración de proyectos.
+
+==== Buscar
+
+Pulse «Buscar» o kbd:[Ctrl+K] (kbd:[⌘K] en Mac) y escriba al menos una palabra. Los resultados se agrupan por tipo
+(grupos de interés, interacciones, compromisos, quejas…); elija uno para abrir su ficha. Solo aparecen los registros
+que usted puede leer.
+
+.Búsqueda de «agua»
+image::screenshots/user/05-busqueda.png[Diálogo de búsqueda con resultados agrupados en grupos de interés, interacciones, compromisos y quejas]
+
+==== Su cuenta, idioma y tema
+
+El menú con su nombre muestra su usuario, su organización y sus roles. El selector de idioma cambia la interfaz entre
+español e inglés, y el botón de tema cambia el esquema de colores (claro u oscuro). La preferencia se guarda en su navegador.
+
+.Menú «Su cuenta»
+image::screenshots/user/04-menu-cuenta.png[Menú desplegable con el usuario, la organización y la cantidad de roles,width=60%]
+
+[[usr-proyecto-360]]
+=== Trabajar dentro de un proyecto
+
+Al abrir un proyecto, una fila de pestañas lleva a sus secciones: Resumen, Mapa, Grupos de interés, Relacionamiento,
+Compromisos, QCS, Riesgos, Programas sociales y Documentos; «Más» agrupa Tareas, Bandeja de IA, Reportes y «Equipo y
+parámetros». Cada pestaña muestra cuántos registros tiene. Encima, la ruta de navegación («Proyectos / DEMO-T1 · …»)
+y el estado del proyecto.
+
+Si usted lee el proyecto pero no está asignado a él, el portal lo avisa: «No está asignado a este proyecto: puede
+leerlo, pero no cambiarlo.».
+
+[[usr-listas]]
+=== Listas, vistas, filtros y páginas
+
+Todas las listas funcionan igual:
+
+* *Vistas guardadas*: las pestañas sobre la tabla («Abiertos», «Vencidos», «Míos»…) son filtros predefinidos con su
+  número de registros.
+* *Filtros*: los desplegables y el cuadro de búsqueda de cada lista. Los filtros activos quedan en la dirección de la
+  página, así que puede guardar o compartir el enlace.
+* *Páginas*: la lista muestra 25 registros por página; use «Página anterior» y «Página siguiente».
+* *Orden*: cada lista tiene un orden fijo pensado para la tarea (por ejemplo, los compromisos por fecha de vencimiento);
+  no se reordena pulsando los encabezados.
+* *Tabla o tablero*: muchas secciones ofrecen «Lista» y «Tablero» (gráficos con «Ver datos» para ver las cifras).
+
+[[usr-fichas]]
+=== Fichas de registro
+
+Al abrir un registro se ve su *ficha*: el título y el código, la línea de estados (los pasos ya dados, el actual
+resaltado y los siguientes), cuatro tarjetas (estado actual, siguiente acción, responsable y vencimiento), las
+pestañas de detalle (Resumen, Evidencias, Actividad y otras según el tipo) y, a la derecha, la *trazabilidad*: «De
+dónde viene», «Qué generó» y «Lo sustenta». La pestaña «Actividad» muestra el historial de cambios con su autor y su
+motivo.
+
+[[usr-transiciones]]
+=== Cambiar el estado de un registro
+
+*Objetivo:* dar el siguiente paso de un registro (aprobar, iniciar, resolver, cerrar…).
+
+*Requisitos previos:* un rol que pueda dar ese paso y, en registros de proyecto, una asignación vigente.
+
+.Procedimiento
+. Abra la ficha del registro. Los botones de los pasos posibles aparecen junto a «Editar».
+. Pulse el paso, por ejemplo btn:[Iniciar ejecución]. Se abre un diálogo que comprueba las reglas («Comprobando las
+  reglas…») y explica «Qué pasará».
+. Escriba el motivo en «Motivo (obligatorio)» cuando el diálogo lo pida.
+. Pulse btn:[Confirmar].
+
+.Diálogo de un cambio de estado
+image::screenshots/user/19-transicion-dialogo.png[Diálogo Iniciar ejecución con el resultado de las reglas, qué pasará y el motivo obligatorio]
+
+*Resultado esperado:* el mensaje «Listo: el registro está en «En ejecución».» y la ficha con el estado nuevo.
+
+*Verificación:* la línea de estados resalta el nuevo estado y la pestaña «Actividad» muestra el cambio con su motivo.
+
+*Casos especiales:* si una regla no se cumple, el diálogo dice qué falta (por ejemplo, «falta una entrega con
+conformidad y con quiénes la dieron») y no deja confirmar. Corrija el dato y vuelva a intentarlo.
+
+[[usr-mensajes]]
+=== Mensajes del sistema
+
+[cols="2,3",options="header"]
+|===
+|Mensaje |Qué significa y qué hacer
+|«Revise los datos marcados.» |Algún campo no es válido; el formulario lo señala.
+|«Su cuenta no tiene permiso para esta acción. Pídalo a la administración del proyecto.» |Su rol no permite esa acción.
+|«El registro no existe o no es de sus proyectos.» |El registro no está en los proyectos a los que tiene acceso.
+|«No se pudo: el registro está en otro estado.» |Otra persona ya cambió su estado; recargue la ficha.
+|«Otra persona cambió este registro. Recargue para ver la versión actual; lo escrito se conserva.» |Pulse btn:[Recargar] y repita el cambio.
+|«No hubo respuesta del servidor. Revise su conexión.» |Sin conexión o servidor detenido. Reintente; si sigue, avise a soporte.
+|«No se pudo cargar esta información. Los filtros se conservan.» |Falló una carga; pulse btn:[Reintentar].
+|«Su cuenta no puede abrir «Sección».» |Su rol no tiene acceso a esa sección (ver <<usr-roles>>).
+|===

@@ -1,0 +1,57 @@
+[[sys-intro]]
+== Introducción
+
+=== Qué es SGSPE
+
+SGSPE (_Sistema de Gestión Social para Proyectos Extractivos_) es una aplicación web para que el equipo social de un
+proyecto minero, de hidrocarburos o de energía gestione en un solo lugar el territorio y las áreas de influencia, los
+grupos de interés y el relacionamiento con ellos, los compromisos, las quejas, consultas y solicitudes (QCS), los
+riesgos y las alertas, la inversión social, los tableros de indicadores y los entregables DOCX y PDF.
+
+Se compone de dos repositorios:
+
+[cols="1,3,2",options="header"]
+|===
+|Repositorio |Contenido |Tecnología
+|`sgspe` (este) |Servidor (API, reglas, trabajos), modelo como código (`model/`), documentación de diseño (`docs/`) y estos manuales |Kotlin 2.4, Spring Boot 4.1 WebFlux, JDK 25, wasichai 1.3.0
+|`sgspe-ui` |Interfaz web: el portal en `/` y la administración de la plataforma en `/admin` |React 19, Vite 8, TypeScript, paquetes `@wasichai/*` 1.0.0
+|===
+
+SGSPE se construye sobre *wasichai*, una plataforma de metadatos: los objetos de negocio (proyecto, grupo de interés,
+compromiso…) no son clases ni tablas escritas a mano, sino definiciones en `model/model.json` que la plataforma
+convierte en tablas, API REST genérica, permisos, workflows, formularios y capas SIG. SGSPE agrega encima las reglas que
+la plataforma no trae (guardas de escritura, comandos de varios registros, trabajos programados, tableros, entregables e
+IA) en los paquetes `sgspe.*`.
+
+=== Alcance de este manual
+
+[cols="1,3",options="header"]
+|===
+|Capítulo |Para qué sirve
+|<<sys-arquitectura>> |Entender los componentes, cómo se comunican y por qué están así.
+|<<sys-componentes>> |Conocer el código: paquetes, trabajos, eventos, seguridad y auditoría.
+|<<sys-datos>> |Saber dónde viven los datos y cómo se crean las tablas.
+|<<cfg>> |Consultar cada variable de entorno y propiedad.
+|<<inst>> |Instalar un entorno de desarrollo o de demostración paso a paso.
+|<<deploy>> |Desplegar en producción y actualizar versiones.
+|<<ops>> |Arrancar, detener, vigilar y leer los registros.
+|<<bkp>> y <<demo-db>> |Respaldar, restaurar y reconstruir la base de demostración.
+|<<ts>> y <<dr>> |Diagnosticar fallos y recuperarse de un desastre.
+|<<sys-pruebas>> |Ejecutar las pruebas y entender la CI.
+|<<sys-docs>> |Mantener y regenerar esta documentación.
+|===
+
+=== Convenciones
+
+* Los comandos se muestran con el directorio desde el que se ejecutan. `$` indica el intérprete de órdenes; no se copia.
+* Los valores entre `<` y `>` (por ejemplo `<slug>`) se reemplazan por los propios.
+* Nunca se escriben contraseñas ni claves reales: los ejemplos usan los valores de desarrollo de `develop/example.env`,
+  que solo valen en una máquina local, o `…` donde el valor debe llegar por una variable de entorno.
+* Los nombres técnicos (objetos, campos, estados, roles, acciones) están en inglés y su texto visible en español, como
+  manda el ADR-0009 del proyecto.
+* Las referencias `archivo.kt:línea` remiten al código del repositorio en la versión {product-version}.
+
+.Fuente de verdad
+IMPORTANT: El diseño de SGSPE vive en `docs/` (análisis de requisitos, arquitectura, ADR). Este manual describe lo
+implementado y remite a esos documentos para el porqué; si el diseño y el código difieren, manda el código para
+saber qué hace hoy el sistema, y el diseño para saber qué se pretende.

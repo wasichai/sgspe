@@ -1,0 +1,74 @@
+[[bkp]]
+= Copias de seguridad y restauración
+
+La política de respaldo de producción (frecuencia, retención, cifrado, sitio) no está fijada en el repositorio
+(GAP-022): la define quien opera el despliegue. Este capítulo describe *qué* hay que respaldar para que una restauración
+sea completa y *cómo* hacerlo con las herramientas estándar de PostgreSQL, que son las que usan y prueban los scripts de
+la base de demostración (<<demo-db>>).
+
+== Qué respaldar
+
+[cols="2,3,3",options="header"]
+|===
+|Elemento |Dónde está |Cómo se respalda
+|Base de datos completa |PostgreSQL: esquemas `wasichai`, `app_data`, `sgspe` (todas las organizaciones comparten la base) |`pg_dump` lógico diario y, recomendado, archivo continuo de WAL para recuperación a un instante (PITR).
+|Archivos |Bucket S3 (`WASICHAI_FILES_S3_BUCKET`) o la carpeta `WASICHAI_FILES_LOCAL_PATH` |Versionado del bucket o copia sincronizada al mismo ritmo que la base.
+|Configuración |Variables de entorno del servicio y del proxy |En el gestor de secretos y la configuración del despliegue; nunca en el repositorio.
+|Modelo |`model/` en el repositorio, en la versión desplegada |Ya está versionado: basta anotar la versión.
+|===
+
+IMPORTANT: Base y archivos forman una unidad: un descriptor de `wasichai.stored_files` sin sus bytes da error al
+descargar, y unos bytes sin descriptor quedan huérfanos. Respalde ambos en la misma ventana y conserve juntos los
+de la misma fecha.
+
+== Respaldo lógico de la base
+
+[source,bash]
+----
+# formato personalizado: restauración selectiva y en paralelo con pg_restore
+$ pg_dump --format=custom --compress=9 --no-owner --no-privileges -d sgspe -f sgspe-$(date +%F).dump
+# SQL plano y comprimido: legible, restaurable con psql
+$ pg_dump --format=plain --no-owner --no-privileges -d sgspe | gzip -9 > sgspe-$(date +%F).sql.gz
+----
+
+* Use un `pg_dump` de versión *igual o mayor* que la del servidor.
+* `pg_dump` toma una instantánea coherente sin detener el servicio.
+* El volcado incluye la extensión PostGIS, los tres esquemas, las tablas físicas de todas las organizaciones, las
+  restricciones, las secuencias y la historia de Flyway. *No* incluye los roles de PostgreSQL (`pg_dumpall --roles-only`
+  si se necesitan) ni los archivos.
+* No se puede restaurar una sola organización por separado sin trabajo manual: sus tablas físicas llevan su id en el
+  nombre y comparten las tablas de metadatos con las demás.
+
+[[bkp-restore]]
+== Restaurar
+
+WARNING: Restaure siempre en una base *nueva* y cambie el servidor a ella después de verificarla. Restaurar encima de
+la base en uso mezcla datos y no es reversible.
+
+.Procedimiento
+. Detenga el servidor o apague los trabajos (`SGSPE_JOBS_ENABLED=false`) para que nada escriba durante la operación.
+. Cree una base vacía con el mismo propietario y restaure:
++
+[source,bash]
+----
+$ createdb -T template0 -E UTF8 sgspe_restaurada
+$ pg_restore --no-owner --no-privileges --exit-on-error --single-transaction -d sgspe_restaurada sgspe-AAAA-MM-DD.dump
+# o, con el SQL plano:
+$ gunzip -c sgspe-AAAA-MM-DD.sql.gz | psql -X -v ON_ERROR_STOP=1 --single-transaction -d sgspe_restaurada
+----
+. Restaure los archivos de la misma fecha en el bucket o la carpeta que usará el servidor.
+. Verifique la base restaurada (conteos, restricciones, secuencias). `docs/manuals/scripts/demo_manifest.py` hace estas
+  comprobaciones de forma genérica; para producción, guarde junto a cada respaldo los conteos de filas por tabla y
+  compárelos.
+. Apunte el servidor a la base restaurada (`WASICHAI_DB_NAME`), arránquelo y ejecute <<ops-postdeploy>>.
+. Conserve la base anterior hasta confirmar que la restaurada está bien; después archívela o bórrela.
+
+No hace falta volver a aprovisionar: el modelo, los roles y los workflows de cada organización viajan dentro del
+volcado. Si el volcado es de una versión anterior del sistema, despliegue esa versión o ejecute después
+`upgrade_tenants.py` con la nueva.
+
+== Prueba periódica
+
+Un respaldo que nunca se restauró no está probado. La base de demostración trae el ciclo completo automatizado y
+verificado (exportar, restaurar en otra base, comprobar conteos, claves foráneas, secuencias y geometrías, y arrancar
+el servidor contra ella): úselo como modelo para la prueba mensual de producción (<<demo-db>>).

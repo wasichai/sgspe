@@ -1,0 +1,18 @@
+%% WF-C, interacción (model/workflows/engagement.json)
+flowchart TB
+    PL(["Planificada"]) -->|"Programar"| SC(["Programada"])
+    SC -->|"Registrar realización"| H(["Realizada"])
+    PL ==>|"Registrar realización"| H
+    SC <-.->|"Postergar ⇄ Reprogramar"| PO(["Postergada"])
+    H -->|"Redactar acta"| MD(["Acta en borrador"])
+    MD <-->|"Enviar acta a revisión ⇄<br/>Devolver acta"| MR(["Acta en revisión"])
+    MR -->|"Aprobar acta"| MA(["Acta aprobada"])
+    MA -->|"Cerrar"| CL(["Cerrada"])
+    H ==>|"Cerrar sin acta"| CL
+    CA(["Cancelada"])
+    CL ~~~ CA
+    N["«Cancelar» (con motivo): desde Planificada,<br/>Programada o Postergada"] -.- CA
+    classDef fin fill:#eef0ec,stroke:#46514b
+    classDef nota fill:#fbf0d9,stroke:#7f5300
+    class CL,CA fin
+    class N nota

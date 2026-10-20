@@ -1,0 +1,55 @@
+// GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
+
+Acuerdo:: Instrumento formal (catálogo "Tipo de acuerdo"), con partes, cláusulas y vigencia. _No confundir con:_ compromiso (obligación concreta); alianza estratégica (aún informal).
+
+Alerta temprana:: Aviso triado que una persona confirma o descarta; nunca lo confirma la IA. _No confundir con:_ incidente; notificación.
+
+Aporte social:: Apoyo puntual (catálogo "Tipo de aporte") entregado con acta de recepción, foto y comprobante, con propósito, condiciones y pagador declarados. _No confundir con:_ compromiso (obligación asumida); programa social.
+
+Asignación a proyecto:: Usuario de SGSPE asignado a un proyecto con un rol y una vigencia; define el equipo y la fuente del alcance por proyecto. _No confundir con:_ rol de wasichai.
+
+Compromiso:: Obligación que el proyecto asume ante grupos de interés, con descripción, recurso, plazos, monto, responsable, entrega y cierre. _No confundir con:_ aporte social (apoyo sin obligación); acuerdo (instrumento formal); solicitud (pedido).
+
+Comunidad campesina o nativa:: Colectivo con personería jurídica, territorio comunal inscrito, junta directiva, asamblea, comuneros y sectores; puede estar reconocida como pueblo indígena u originario. _No confundir con:_ localidad; área de influencia; grupo de interés: como actor participa mediante la `organization` que la representa.
+
+Consulta:: Pregunta que requiere una respuesta del proyecto. _No confundir con:_ queja; pregunta respondida en la misma interacción.
+
+Entrega:: Entrega de lo comprometido o aportado, con fecha, receptores, conformidad, acta y fotos. _No confundir con:_ verificación, que es interna y posterior.
+
+Entregable:: Informe de varias secciones (diagnóstico social, informe de campo) que se genera en DOCX y PDF, se revisa, se aprueba y se emite. _No confundir con:_ documento emitido; evidencia.
+
+Evidencia:: Archivo inmutable con hash que prueba un hecho (catálogo "Tipo de evidencia"), vinculable a varios registros. _No confundir con:_ documento emitido; entregable.
+
+Grupo de interés:: Actor en relación con un proyecto, con tipo, ámbito, motivo de inclusión, estado de entrevista, responsable y evaluaciones; un actor puede serlo en varios proyectos. _No confundir con:_ actor; localidad; comunidad; área de influencia.
+
+Interacción:: Todo contacto o evento con grupos de interés (catálogo "Tipo de interacción"). _No confundir con:_ visita de campo (contexto de varias interacciones); tarea.
+
+Localidad:: Asentamiento humano (catálogo "Tipo de localidad"), con localidad padre, estado de reconocimiento y nombres alternativos. _No confundir con:_ comunidad; sector comunal; unidad administrativa; grupo de interés (una localidad nunca lo es.
+
+Nivel de divulgación:: Grado de anonimización de una salida: nominal, con las personas por cargo o código, o solo con agregados (catálogo "Nivel de divulgación". _No confundir con:_ clasificación de una evidencia.
+
+Organización (del dominio):: Organización del territorio o de su entorno (catálogo "Tipo de organización"); una comunidad actúa mediante su organización comunal. _No confundir con:_ organización tenant de wasichai (ver Plataforma).
+
+Persona:: Persona natural; sus datos personales están restringidos por permisos de campo. _No confundir con:_ cargo; grupo de interés.
+
+Programa social:: Programa de inversión social de la empresa, con socios, presupuesto, beneficiarios, indicadores e hitos. _No confundir con:_ programa estatal (`state_program`).
+
+Proyecto:: Proyecto extractivo con código, tipo, etapa, fase de exploración, CRS de trabajo, partes, campañas y equipo. _No confundir con:_ campaña de exploración (un periodo del proyecto).
+
+QCS confidencial:: QCS que solo leen `ADMIN`, quien tiene `READ_CONFIDENTIAL` (`GRIEVANCE_MANAGER`), su responsable, quien la recibió y, si es una queja ALTA o CRITICA, `APPROVER`. _No confundir con:_ anónima (sin persona ni grupo de interés).
+
+Queja:: Reclamo por una afectación atribuida al proyecto, que se acusa, evalúa, atiende, resuelve y cierra. _No confundir con:_ consulta; solicitud; conflicto.
+
+Quejas, consultas y solicitudes (QCS):: Los tres tipos de planteamiento que el proyecto atiende, con flujos propios y un reporte unificado. _No confundir con:_ conflicto; incidente.
+
+Riesgo social:: Tema social (problema o conflicto) que puede impedir el normal desarrollo del proyecto; es potencial, todavía no ocurrió. _No confundir con:_ incidente (ya ocurrió); tema clave (hallazgo analítico); alerta.
+
+Solicitud:: Pedido de apoyo, obra o recurso; si se acepta, origina un compromiso o un aporte. _No confundir con:_ compromiso; aporte; queja.
+
+Sugerencia de IA:: Resultado de la IA (catálogo "Tipo de sugerencia de IA") guardado aparte, con evidencia y confianza, que una persona acepta o rechaza. _No confundir con:_ comando de dominio; registro de dominio.
+
+Tarea:: Trabajo asignado a una persona, con vencimiento y un único origen. _No confundir con:_ actividad planificada; acción de compromiso.
+
+Visita de campo:: Salida al territorio con itinerario y equipo, en la que se realizan interacciones y observaciones. _No confundir con:_ interacción; visita guiada.
+
+Área de influencia:: Construcción analítica y versionada de un proyecto: tipo, criterios, miembros y geometría opcional; cambia por decisión humana. _No confundir con:_ localidad, comunidad y unidad administrativa (el territorio real); grupo de interés.

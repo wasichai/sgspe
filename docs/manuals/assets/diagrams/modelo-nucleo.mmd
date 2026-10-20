@@ -1,0 +1,22 @@
+%% Núcleo del modelo de datos (model/model.json): de qué cuelga cada objeto principal.
+%% Línea continua: «tiene» (el hijo guarda la referencia al padre). Línea punteada: relación varios a varios u opcional.
+flowchart LR
+    project[["project<br/>Proyecto"]]
+    project --> pa["project_assignment<br/>Asignación (equipo)"]
+    project --> pp["project_party<br/>Parte del proyecto"]
+    project --> aoi["area_of_influence<br/>Área de influencia"] --> aoim["area_of_influence_member<br/>Miembro"] -.-> loc["locality · community<br/>Localidad · comunidad"]
+    project --> stk["stakeholder<br/>Grupo de interés"] --> sa["stakeholder_assessment<br/>Evaluación"]
+    stk -.->|"es"| per["person · organization<br/>Persona · organización"]
+    project --> eng["engagement<br/>Interacción"] --> ep["engagement_participant<br/>Participante"]
+    eng -.->|"con"| stk
+    project --> com["commitment<br/>Compromiso"] --> del["delivery<br/>Entrega"]
+    project --> qcs["grievance · inquiry · stakeholder_request<br/>Quejas, consultas, solicitudes"]
+    project --> risk["social_risk<br/>Riesgo"] --> ra["risk_assessment<br/>Revisión"]
+    project --> sc["social_contribution<br/>Aporte"] --> ci["contribution_item<br/>Ítem"]
+    project --> dl["deliverable<br/>Entregable"] --> ds["deliverable_section · deliverable_version<br/>Sección · versión emitida"]
+    project --> task["task<br/>Tarea"]
+    project --> ev["evidence<br/>Evidencia"]
+    ev -.->|"respalda"| com
+    ev -.->|"respalda"| qcs
+    classDef core fill:#1d5c52,color:#ffffff,stroke:#164a42
+    class project core

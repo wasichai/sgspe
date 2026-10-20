@@ -1,0 +1,2476 @@
+// GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
+
+Matriz de `model/roles.json`: 15 roles declarados más 2 que equivalen al administrador de wasichai (`SUPER_ADMIN`, `ORGANIZATION_ADMIN`), que puede todo dentro de su organización.
+
+Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar sin campos editables (solo para aplicar transiciones); las acciones especiales se escriben completas. `*` en la columna de objeto significa _todos los objetos_.
+
+=== Roles
+
+[cols="3m,3,6",options="header"]
+|===
+|Rol |Nombre |Descripción
+
+|PROJECT_ADMIN |Administrador de proyectos |Da de alta y aprueba proyectos y su equipo.
+
+|PROJECT_MANAGER |Jefe de proyecto |Aprueba la lista de entrevistados y las decisiones de nivel superior del proyecto.
+
+|SOCIAL_MANAGER |Gerente social |Supervisa el plan de trabajo social.
+
+|COMMUNITY_RELATIONS_OFFICER |Relacionista comunitario |El equipo social en el territorio.
+
+|STAKEHOLDER_MANAGER |Gestor de grupos de interés |Mapea y evalúa los grupos de interés.
+
+|COMMITMENT_MANAGER |Gestor de compromisos |Lleva la matriz de compromisos: los registra, entrega, verifica y cierra.
+
+|GRIEVANCE_MANAGER |Gestor de quejas, consultas y solicitudes |Atiende las quejas, consultas y solicitudes; lee las confidenciales (READ_CONFIDENTIAL).
+
+|SOCIAL_RISK_MANAGER |Gestor de riesgos sociales |Lleva la matriz de riesgos, los incidentes, las señales y las reglas, y confirma alertas.
+
+|SOCIAL_INVESTMENT_MANAGER |Gestor de inversión social |Gestiona los aportes y los programas sociales: registra, adquiere y entrega aportes y lleva los datos de los programas.
+
+|GIS_ANALYST |Analista SIG |Prepara mapas e importa coordenadas.
+
+|FIELD_AGENT |Agente de campo |Registra en terreno lo que levanta; sin EDIT_ANY, solo cambia lo que creó (ASM-069).
+
+|APPROVER |Aprobador |Aprueba compromisos y resuelve quejas graves con la acción declarada APPROVE, sin editarlos.
+
+|AUDITOR |Auditor |Lee todo el tenant y la auditoría; no escribe nada.
+
+|ANALYST |Analista |Lee y reporta por objeto.
+
+|READ_ONLY |Solo lectura |Consulta.
+
+|SUPER_ADMIN |Administrador (wasichai `ADMIN`) |Rol de la plataforma; no se declara en `roles.json`.
+
+|ORGANIZATION_ADMIN |Administrador (wasichai `ADMIN`) |Rol de la plataforma; no se declara en `roles.json`.
+
+|===
+
+=== Permisos por rol
+
+[[rol-project_admin]]
+==== Administrador de proyectos (`PROJECT_ADMIN`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |RCU |`APPROVE`, `READ_ALL_PROJECTS`
+
+|Parte del proyecto (`project_party`) |RCUD |
+
+|Campaña de exploración (`exploration_campaign`) |RCU |
+
+|Asignación a proyecto (`project_assignment`) |RCUD |
+
+|Concesión minera (`mining_concession`) |RCU |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Organización (`organization`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`
+
+|Tarea (`task`) |RU |
+
+|Indicador (`indicator`) |R |
+
+|Tema (`topic`) |Ru |
+
+|===
+
+[[rol-project_manager]]
+==== Jefe de proyecto (`PROJECT_MANAGER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |RU |`EXPORT`
+
+|Parte del proyecto (`project_party`) |RCUD |
+
+|Campaña de exploración (`exploration_campaign`) |RCU |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |`EXPORT`
+
+|Unidad administrativa (`administrative_unit`) |R |`EXPORT`
+
+|Localidad (`locality`) |R |`EXPORT`
+
+|Comunidad campesina o nativa (`community`) |R |`EXPORT`
+
+|Sector comunal (`community_sector`) |R |`EXPORT`
+
+|Área de influencia (`area_of_influence`) |Ru |`APPROVE`, `EXPORT`
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |`EXPORT`
+
+|Predio (`land_parcel`) |R |`EXPORT`
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |`EXPORT`
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |R |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |Ru |`APPROVE`, `APPROVE_OVER_CAP`
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |Ru |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |R |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |R |
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |`EXPORT`
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |C |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |`EXPORT`
+
+|Establecimiento de salud (`health_facility`) |R |`EXPORT`
+
+|Vía de acceso (`road_access`) |R |`EXPORT`
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |Ru |
+
+|===
+
+[[rol-social_manager]]
+==== Gerente social (`SOCIAL_MANAGER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |`EXPORT`
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |`EXPORT`
+
+|Unidad administrativa (`administrative_unit`) |R |`EXPORT`
+
+|Localidad (`locality`) |R |`EXPORT`
+
+|Comunidad campesina o nativa (`community`) |RU |`EXPORT`
+
+|Sector comunal (`community_sector`) |R |`EXPORT`
+
+|Área de influencia (`area_of_influence`) |RCU |`APPROVE`, `EXPORT`
+
+|Miembro del área de influencia (`area_of_influence_member`) |RCUD |
+
+|Componente del proyecto (`project_component`) |R |`EXPORT`
+
+|Predio (`land_parcel`) |Ru |`EXPORT`
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |`EXPORT`
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Medio de contacto (`contact_method`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |RU |`EXPORT`
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |RC |
+
+|Regla de priorización (`prioritization_rule`) |RCUD |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |RU |`EDIT_ANY`
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |RU |
+
+|Visita de campo (`field_visit`) |RU |`EDIT_ANY`
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |RCUD |
+
+|Mensaje clave (`key_message`) |RCUD |
+
+|Respuesta alineada (`aligned_answer`) |RCUD |
+
+|Alianza estratégica (`strategic_alliance`) |RCUD |
+
+|Actividad planificada (`planned_activity`) |RCUD |
+
+|Compromiso (`commitment`) |RCU |`VERIFY`, `EXPORT`
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |RCU |
+
+|Acuerdo (`agreement`) |RCU |
+
+|Parte del acuerdo (`agreement_party`) |RCUD |
+
+|Cláusula (`agreement_clause`) |RCUD |
+
+|Queja (`grievance`) |RU |`EXPORT`
+
+|Consulta (`inquiry`) |R |`EXPORT`
+
+|Solicitud (`stakeholder_request`) |RU |`EXPORT`
+
+|Riesgo social (`social_risk`) |RU |`EXPORT`
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |RU |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |RU |`CONFIRM_ALERT`
+
+|Aporte social (`social_contribution`) |RCU |`APPROVE`, `APPROVE_OVER_CAP`
+
+|Ítem del aporte (`contribution_item`) |RCUD |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |RU |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |RU |
+
+|Medición de indicador (`indicator_measurement`) |RC |
+
+|Entregable (`deliverable`) |RCU |`GENERATE`, `APPROVE`, `ISSUE`, `EXPORT`, `DOWNLOAD_RESTRICTED`
+
+|Sección de entregable (`deliverable_section`) |RCUD |
+
+|Versión de entregable (`deliverable_version`) |RC |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |RC |
+
+|Sugerencia de IA (`ai_suggestion`) |RCU |
+
+|Interacción con IA (`ai_interaction`) |RC |
+
+|Estudio o diagnóstico (`study`) |RCU |
+
+|Instrumento de estudio (`study_instrument`) |RCUD |
+
+|Perfil de localidad (`locality_profile`) |RCU |
+
+|Institución educativa (`school`) |R |`EXPORT`
+
+|Establecimiento de salud (`health_facility`) |R |`EXPORT`
+
+|Vía de acceso (`road_access`) |R |`EXPORT`
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |RCU |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-community_relations_officer]]
+==== Relacionista comunitario (`COMMUNITY_RELATIONS_OFFICER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |RCU |
+
+|Comunidad campesina o nativa (`community`) |RCU |
+
+|Sector comunal (`community_sector`) |RCUD |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |Ru |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |RCU |
+
+|Persona (`person`) |RCU |
+
+|Organización (`organization`) |RCU |
+
+|Medio de contacto (`contact_method`) |RCUD |
+
+|Cargo (`position`) |RCUD |
+
+|Grupo de interés (`stakeholder`) |RCU |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |RCUD |
+
+|Red comunitaria (`community_network`) |RCU |
+
+|Nodo de red (`network_node`) |RCUD |
+
+|Interacción (`engagement`) |RCU |`EDIT_ANY`
+
+|Participante (`engagement_participant`) |RCUD |`EDIT_ANY`
+
+|Pregunta de la interacción (`engagement_question`) |RCU |
+
+|Visita de campo (`field_visit`) |RCU |`EDIT_ANY`
+
+|Observación de campo (`field_observation`) |RCUD |`EDIT_ANY`
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |RU |
+
+|Compromiso (`commitment`) |RCU |
+
+|Acción del compromiso (`commitment_action`) |RCU |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |RCU |
+
+|Candidato a compromiso (`commitment_candidate`) |RCU |
+
+|Acuerdo (`agreement`) |RCU |
+
+|Parte del acuerdo (`agreement_party`) |RCUD |
+
+|Cláusula (`agreement_clause`) |RCUD |
+
+|Queja (`grievance`) |RCU |
+
+|Consulta (`inquiry`) |RCU |
+
+|Solicitud (`stakeholder_request`) |RCU |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |RCU |
+
+|Mención en medios (`media_mention`) |RCU |
+
+|Señal de alerta (`early_warning_signal`) |RCU |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |RU |
+
+|Aporte social (`social_contribution`) |RCU |
+
+|Ítem del aporte (`contribution_item`) |RCUD |
+
+|Comprobante (`receipt`) |RCU |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |RCU |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Sugerencia de IA (`ai_suggestion`) |RCU |
+
+|Interacción con IA (`ai_interaction`) |RC |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |RCU |
+
+|Institución educativa (`school`) |RCUD |
+
+|Establecimiento de salud (`health_facility`) |RCUD |
+
+|Vía de acceso (`road_access`) |RCUD |
+
+|Festividad (`festivity`) |RCUD |
+
+|Programa estatal (`state_program`) |RCU |
+
+|Conflicto local (`local_conflict`) |RCU |
+
+|Percepción (`perception`) |RCU |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |Ru |
+
+|===
+
+[[rol-stakeholder_manager]]
+==== Gestor de grupos de interés (`STAKEHOLDER_MANAGER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |RCU |
+
+|Organización (`organization`) |RCU |
+
+|Medio de contacto (`contact_method`) |RCUD |
+
+|Cargo (`position`) |RCUD |
+
+|Grupo de interés (`stakeholder`) |RCU |`EXPORT`
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |RC |
+
+|Regla de priorización (`prioritization_rule`) |RCUD |
+
+|Relación entre actores (`actor_relationship`) |RCUD |
+
+|Red comunitaria (`community_network`) |RCU |
+
+|Nodo de red (`network_node`) |RCUD |
+
+|Interacción (`engagement`) |RCU |`EDIT_ANY`
+
+|Participante (`engagement_participant`) |RCUD |`EDIT_ANY`
+
+|Pregunta de la interacción (`engagement_question`) |RCU |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |R |
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |R |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |RCU |`GENERATE`, `APPROVE`, `ISSUE`, `EXPORT`, `DOWNLOAD_RESTRICTED`
+
+|Sección de entregable (`deliverable_section`) |RCU |
+
+|Versión de entregable (`deliverable_version`) |RC |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |C |
+
+|Sugerencia de IA (`ai_suggestion`) |RCU |
+
+|Interacción con IA (`ai_interaction`) |RC |
+
+|Estudio o diagnóstico (`study`) |RCU |
+
+|Instrumento de estudio (`study_instrument`) |RCUD |
+
+|Perfil de localidad (`locality_profile`) |RCU |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |RCUD |
+
+|Tema clave (`key_theme`) |RCU |
+
+|Tema (`topic`) |Ru |
+
+|===
+
+[[rol-commitment_manager]]
+==== Gestor de compromisos (`COMMITMENT_MANAGER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Medio de contacto (`contact_method`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |Ru |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |RCU |`VERIFY`, `EXPORT`
+
+|Acción del compromiso (`commitment_action`) |RCUD |
+
+|Hito del compromiso (`commitment_milestone`) |RCUD |
+
+|Reprogramación (`commitment_reschedule`) |RC |
+
+|Dependencia entre compromisos (`commitment_dependency`) |RCUD |
+
+|Entrega (`delivery`) |RCU |
+
+|Candidato a compromiso (`commitment_candidate`) |RCU |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |RU |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |C |
+
+|Sugerencia de IA (`ai_suggestion`) |RCU |
+
+|Interacción con IA (`ai_interaction`) |RC |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-grievance_manager]]
+==== Gestor de quejas, consultas y solicitudes (`GRIEVANCE_MANAGER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |RCU |
+
+|Organización (`organization`) |R |
+
+|Medio de contacto (`contact_method`) |RCU |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |R |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |Ru |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |R |
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |RCU |`EXPORT`, `READ_CONFIDENTIAL`
+
+|Consulta (`inquiry`) |RCU |`EXPORT`, `READ_CONFIDENTIAL`
+
+|Solicitud (`stakeholder_request`) |RCU |`EXPORT`, `READ_CONFIDENTIAL`
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |C |
+
+|Sugerencia de IA (`ai_suggestion`) |RCU |
+
+|Interacción con IA (`ai_interaction`) |RC |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-social_risk_manager]]
+==== Gestor de riesgos sociales (`SOCIAL_RISK_MANAGER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |Ru |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |R |
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |R |
+
+|Riesgo social (`social_risk`) |RCU |`EXPORT`
+
+|Revisión de riesgo (`risk_assessment`) |RC |
+
+|Medida de mitigación (`mitigation_measure`) |RCUD |
+
+|Impacto potencial (`potential_impact`) |RCUD |
+
+|Incidente (`incident`) |RCU |
+
+|Mención en medios (`media_mention`) |RCU |
+
+|Señal de alerta (`early_warning_signal`) |RCU |
+
+|Regla de alerta (`early_warning_rule`) |RCUD |
+
+|Alerta temprana (`early_warning`) |RCU |`CONFIRM_ALERT`
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |C |
+
+|Sugerencia de IA (`ai_suggestion`) |RCU |
+
+|Interacción con IA (`ai_interaction`) |RC |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-social_investment_manager]]
+==== Gestor de inversión social (`SOCIAL_INVESTMENT_MANAGER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |RCU |
+
+|Medio de contacto (`contact_method`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |R |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |R |
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |RCU |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |RU |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |RCU |
+
+|Ítem del aporte (`contribution_item`) |RCUD |
+
+|Comprobante (`receipt`) |RCU |
+
+|Programa social (`social_program`) |RCU |
+
+|Iniciativa social (`social_initiative`) |RCUD |
+
+|Grupo de beneficiarios (`beneficiary_group`) |RCUD |
+
+|Presupuesto del programa (`program_budget`) |RCU |
+
+|Indicador de programa (`program_indicator`) |RCUD |
+
+|Medición de programa (`program_measurement`) |RC |
+
+|Hito de programa (`program_milestone`) |RCUD |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-gis_analyst]]
+==== Analista SIG (`GIS_ANALYST`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |Ru |`EXPORT`
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |RCU |`EXPORT`
+
+|Unidad administrativa (`administrative_unit`) |R |`EXPORT`
+
+|Localidad (`locality`) |RCU |`EXPORT`
+
+|Comunidad campesina o nativa (`community`) |RCU |`EXPORT`
+
+|Sector comunal (`community_sector`) |RCUD |`EXPORT`
+
+|Área de influencia (`area_of_influence`) |RCU |`EXPORT`
+
+|Miembro del área de influencia (`area_of_influence_member`) |RCUD |
+
+|Componente del proyecto (`project_component`) |RCU |`EXPORT`
+
+|Predio (`land_parcel`) |RCU |`EXPORT`
+
+|Titularidad del predio (`land_right`) |RCUD |
+
+|Elemento ambiental (`environmental_feature`) |RCU |`EXPORT`
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |R |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |R |
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |R |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |RCU |`EDIT_ANY`, `DOWNLOAD_RESTRICTED`
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |C |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |RCU |`EXPORT`
+
+|Establecimiento de salud (`health_facility`) |RCU |`EXPORT`
+
+|Vía de acceso (`road_access`) |RCU |`EXPORT`
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-field_agent]]
+==== Agente de campo (`FIELD_AGENT`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |Ru |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |RCU |
+
+|Participante (`engagement_participant`) |RCUD |
+
+|Pregunta de la interacción (`engagement_question`) |RC |
+
+|Visita de campo (`field_visit`) |RCU |
+
+|Observación de campo (`field_observation`) |RCUD |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |R |
+
+|Evidencia (`evidence`) |RCU |
+
+|Tarea (`task`) |RCU |
+
+|Indicador (`indicator`) |R |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |Ru |
+
+|===
+
+[[rol-approver]]
+==== Aprobador (`APPROVER`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |R |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |Ru |`APPROVE`
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |Ru |`APPROVE`
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |R |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |Ru |`APPROVE`
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |Ru |`APPROVE`
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |R |
+
+|Tarea (`task`) |RU |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-auditor]]
+==== Auditor (`AUDITOR`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Todos los objetos |R |
+
+|Proyecto (`project`) | |`READ_ALL_PROJECTS`
+
+|===
+
+[[rol-analyst]]
+==== Analista (`ANALYST`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |R |`EXPORT`
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |R |`EXPORT`
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |`EXPORT`
+
+|Consulta (`inquiry`) |R |`EXPORT`
+
+|Solicitud (`stakeholder_request`) |R |`EXPORT`
+
+|Riesgo social (`social_risk`) |R |`EXPORT`
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |R |
+
+|Tarea (`task`) |R |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |`EXPORT`
+
+|Sección de entregable (`deliverable_section`) |RCU |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Registro de exportación (`export_log`) |C |
+
+|Interacción con IA (`ai_interaction`) |RC |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+[[rol-read_only]]
+==== Solo lectura (`READ_ONLY`)
+
+[cols="3,1m,4",options="header"]
+|===
+|Objeto |Básicos |Acciones especiales
+
+|Proyecto (`project`) |R |
+
+|Parte del proyecto (`project_party`) |R |
+
+|Campaña de exploración (`exploration_campaign`) |R |
+
+|Asignación a proyecto (`project_assignment`) |R |
+
+|Concesión minera (`mining_concession`) |R |
+
+|Unidad administrativa (`administrative_unit`) |R |
+
+|Localidad (`locality`) |R |
+
+|Comunidad campesina o nativa (`community`) |R |
+
+|Sector comunal (`community_sector`) |R |
+
+|Área de influencia (`area_of_influence`) |R |
+
+|Miembro del área de influencia (`area_of_influence_member`) |R |
+
+|Componente del proyecto (`project_component`) |R |
+
+|Predio (`land_parcel`) |R |
+
+|Titularidad del predio (`land_right`) |R |
+
+|Elemento ambiental (`environmental_feature`) |R |
+
+|Persona (`person`) |R |
+
+|Organización (`organization`) |R |
+
+|Cargo (`position`) |R |
+
+|Grupo de interés (`stakeholder`) |R |
+
+|Evaluación del grupo de interés (`stakeholder_assessment`) |R |
+
+|Regla de priorización (`prioritization_rule`) |R |
+
+|Relación entre actores (`actor_relationship`) |R |
+
+|Red comunitaria (`community_network`) |R |
+
+|Nodo de red (`network_node`) |R |
+
+|Interacción (`engagement`) |R |
+
+|Participante (`engagement_participant`) |R |
+
+|Pregunta de la interacción (`engagement_question`) |R |
+
+|Visita de campo (`field_visit`) |R |
+
+|Observación de campo (`field_observation`) |R |
+
+|Plan de relacionamiento (`engagement_plan`) |R |
+
+|Mensaje clave (`key_message`) |R |
+
+|Respuesta alineada (`aligned_answer`) |R |
+
+|Alianza estratégica (`strategic_alliance`) |R |
+
+|Actividad planificada (`planned_activity`) |R |
+
+|Compromiso (`commitment`) |R |
+
+|Acción del compromiso (`commitment_action`) |R |
+
+|Hito del compromiso (`commitment_milestone`) |R |
+
+|Reprogramación (`commitment_reschedule`) |R |
+
+|Dependencia entre compromisos (`commitment_dependency`) |R |
+
+|Entrega (`delivery`) |R |
+
+|Candidato a compromiso (`commitment_candidate`) |R |
+
+|Acuerdo (`agreement`) |R |
+
+|Parte del acuerdo (`agreement_party`) |R |
+
+|Cláusula (`agreement_clause`) |R |
+
+|Queja (`grievance`) |R |
+
+|Consulta (`inquiry`) |R |
+
+|Solicitud (`stakeholder_request`) |R |
+
+|Riesgo social (`social_risk`) |R |
+
+|Revisión de riesgo (`risk_assessment`) |R |
+
+|Medida de mitigación (`mitigation_measure`) |R |
+
+|Impacto potencial (`potential_impact`) |R |
+
+|Incidente (`incident`) |R |
+
+|Mención en medios (`media_mention`) |R |
+
+|Señal de alerta (`early_warning_signal`) |R |
+
+|Regla de alerta (`early_warning_rule`) |R |
+
+|Alerta temprana (`early_warning`) |R |
+
+|Aporte social (`social_contribution`) |R |
+
+|Ítem del aporte (`contribution_item`) |R |
+
+|Comprobante (`receipt`) |R |
+
+|Programa social (`social_program`) |R |
+
+|Iniciativa social (`social_initiative`) |R |
+
+|Grupo de beneficiarios (`beneficiary_group`) |R |
+
+|Presupuesto del programa (`program_budget`) |R |
+
+|Indicador de programa (`program_indicator`) |R |
+
+|Medición de programa (`program_measurement`) |R |
+
+|Hito de programa (`program_milestone`) |R |
+
+|Evidencia (`evidence`) |R |
+
+|Tarea (`task`) |R |
+
+|Indicador (`indicator`) |R |
+
+|Medición de indicador (`indicator_measurement`) |R |
+
+|Entregable (`deliverable`) |R |
+
+|Sección de entregable (`deliverable_section`) |R |
+
+|Versión de entregable (`deliverable_version`) |R |
+
+|Plantilla de entregable (`deliverable_template`) |R |
+
+|Estudio o diagnóstico (`study`) |R |
+
+|Instrumento de estudio (`study_instrument`) |R |
+
+|Perfil de localidad (`locality_profile`) |R |
+
+|Institución educativa (`school`) |R |
+
+|Establecimiento de salud (`health_facility`) |R |
+
+|Vía de acceso (`road_access`) |R |
+
+|Festividad (`festivity`) |R |
+
+|Programa estatal (`state_program`) |R |
+
+|Conflicto local (`local_conflict`) |R |
+
+|Percepción (`perception`) |R |
+
+|Tema clave (`key_theme`) |R |
+
+|Tema (`topic`) |R |
+
+|===
+
+=== Campos restringidos
+
+Solo los roles de la columna _Lectores_ (y el administrador) ven estos campos; para los demás el servidor los omite.
+
+[cols="2m,3m,4m",options="header"]
+|===
+|Objeto |Campos |Lectores
+
+|stakeholder |stance |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|stakeholder_assessment |stance, stance_reasons, concerns, expectations |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|locality_profile |religion, electoral_process |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|person |id_document_number |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER
+
+|person |given_names, surnames |PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|contact_method |contact_value |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_INVESTMENT_MANAGER
+
+|engagement_participant |participant_name, phone, email |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, FIELD_AGENT
+
+|commitment |beneficiaries_detail |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, COMMITMENT_MANAGER
+
+|delivery |recipients, conformity_by |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, COMMITMENT_MANAGER, SOCIAL_INVESTMENT_MANAGER
+
+|land_parcel |registry_record |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, GIS_ANALYST
+
+|land_right |holder_person |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, GIS_ANALYST
+
+|grievance |person |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, GRIEVANCE_MANAGER
+
+|inquiry |person |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, GRIEVANCE_MANAGER
+
+|stakeholder_request |person |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, GRIEVANCE_MANAGER
+
+|commitment_candidate |evidence_quote |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST
+
+|ai_suggestion |evidence_quote |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST
+
+|===

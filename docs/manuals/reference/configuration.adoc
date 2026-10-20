@@ -1,0 +1,118 @@
+[[cfg]]
+= Configuración
+
+La configuración del servidor está en `src/main/resources/application.yml` (valores por defecto, pensados para
+desarrollo) y `application-prod.yml` (perfil `prod`). Cada propiedad se puede fijar con su variable de entorno: Spring
+traduce `wasichai.database.host` a `WASICHAI_DATABASE_HOST`, pero el proyecto declara además variables con nombre
+propio (columna _Variable_), que son las que se documentan y se usan. La interfaz tiene sus propias variables de
+compilación (<<sys-componentes>>).
+
+CAUTION: Las contraseñas y claves de esta tabla son las de *desarrollo* de `develop/example.env` y `compose.yml`. En
+cualquier entorno compartido o de producción se reemplazan por secretos propios que se inyectan como variables de
+entorno desde el gestor de secretos del despliegue. Nunca se escriben en un archivo versionado, y la clave del
+proveedor de IA tampoco en `develop/.env`.
+
+== Base de datos, seguridad y archivos
+
+[cols="3m,3m,4",options="header"]
+|===
+|Variable |Por defecto (desarrollo) |Efecto
+|WASICHAI_DB_HOST |localhost |Servidor PostgreSQL. En `prod`, sin valor por defecto: sin la variable, no arranca.
+|WASICHAI_DB_PORT |5435 (`prod`: 5432) |Puerto.
+|WASICHAI_DB_NAME |sgspe |Base. En `prod`, obligatoria.
+|WASICHAI_DB_USERNAME / _PASSWORD |sgspe / sgspe |Credenciales. En `prod`, obligatorias. *Secreto.*
+|WASICHAI_JWT_SECRET |valor de desarrollo |Firma HS256 de los tokens, 32 bytes o más. En `prod`, obligatorio y distinto del de desarrollo. *Secreto.*
+|WASICHAI_SEED_DEV |true |Crea `admin@wasichai.local` / `admin`. En `prod` vale `false` y `true` impide el arranque.
+|WASICHAI_FILES_STORE |local |`local` o `s3`. En `prod`, `s3` obligatorio.
+|WASICHAI_FILES_LOCAL_PATH |build/wasichai-files |Carpeta de los archivos con `local`.
+|WASICHAI_FILES_S3_BUCKET |sgspe-evidencias |Bucket de los archivos con `s3`.
+|WASICHAI_FILES_S3_ENDPOINT |\http://localhost:9095 |Punto de acceso S3 (MinIO en desarrollo).
+|WASICHAI_FILES_S3_REGION |us-east-1 |Región.
+|WASICHAI_FILES_S3_PATH_STYLE_ACCESS |true (`prod`: false) |Rutas al estilo de MinIO.
+|WASICHAI_FILES_S3_ACCESS_KEY / _SECRET_KEY |sin valor |Credenciales S3; sin ninguna, rige la cadena del SDK (rol IAM). *Secreto.*
+|===
+
+== Correo, mapas, GeoServer y PDF
+
+[cols="3m,3m,4",options="header"]
+|===
+|Variable |Por defecto |Efecto
+|WASICHAI_NOTIFICATIONS_EMAIL_ENABLED |false |Envía los avisos también por correo.
+|WASICHAI_NOTIFICATIONS_EMAIL_FROM |avisos@sgspe.test |Remitente. En `prod` no puede ser `@sgspe.test`.
+|SPRING_MAIL_HOST / SPRING_MAIL_PORT |localhost / 1029 (`prod`: sin host / 587) |Servidor SMTP.
+|SGSPE_MAP_BASE_STYLE_URL |\https://demotiles.maplibre.org/style.json (`prod`: vacío) |Estilo del mapa base; vacío, el portal muestra «Sin mapa base».
+|WASICHAI_GIS_GEOSERVER_ENABLED |false |Integra GeoServer; apagado, las capas se listan sin publicar.
+|WASICHAI_GIS_GEOSERVER_URL |\http://localhost:8095/geoserver |URL de la REST de GeoServer.
+|WASICHAI_GIS_GEOSERVER_USERNAME / _PASSWORD |sgspe / sgspe-geoserver |Credenciales de GeoServer. *Secreto.*
+|WASICHAI_GIS_GEOSERVER_DATASTORE_* |postgis, 5432, sgspe, sgspe_geoserver |Cómo llega GeoServer a PostGIS, con un rol de solo lectura.
+|SGSPE_DELIVERABLE_LATEX_URL |\http://localhost:8097 (`prod`: vacío) |`sgspe-latex`; sin él, los borradores quedan FALLIDO con `PDF_CONVERTER_UNAVAILABLE`.
+|SGSPE_GDAL_PATH |vacío (usa el `PATH`) |Carpeta de `ogrinfo` y `ogr2ogr` 3.8+; sin GDAL, Shapefile, KML, GPKG, FileGDB y GPX responden 422 `FORMAT_UNAVAILABLE`.
+|===
+
+== IA y trabajos
+
+[cols="3m,3m,4",options="header"]
+|===
+|Variable |Por defecto |Efecto
+|SGSPE_AI_ENABLED_ORGANIZATIONS |vacío |_Slugs_ de las organizaciones con IA, separados por comas. Vacío: IA apagada para todas.
+|ANTHROPIC_API_KEY |sin valor |Clave del proveedor. Solo por variable de entorno, nunca en un archivo. Sin ella, la IA responde 503 `AI_UNAVAILABLE` y el resto funciona. *Secreto.*
+|SGSPE_JOBS_ENABLED |true |Apaga todos los trabajos programados (útil en una réplica de solo lectura o al restaurar).
+|SPRING_PROFILES_ACTIVE |sin valor |`prod` activa `application-prod.yml` y `ProdGuard`.
+|SERVER_PORT |8094 |Puerto HTTP (variable estándar de Spring Boot).
+|===
+
+[[cfg-sgspe]]
+== Propiedades `sgspe.*` sin variable propia
+
+Se cambian en `application.yml` o con la variable equivalente de Spring (por ejemplo `SGSPE_EXPORTS_MAX_ROWS`).
+
+[cols="3m,2m,4",options="header"]
+|===
+|Propiedad |Por defecto |Efecto
+|sgspe.jobs.deadline.cron |0 5 * * * * |JOB-01.
+|sgspe.jobs.derived-fields.hourly-cron / daily-cron |0 15 * * * * / 0 45 3 * * * |JOB-02.
+|sgspe.jobs.stakeholder-follow-up.cron |0 30 4 * * * |JOB-03.
+|sgspe.jobs.warning-rules.cron |0 25 * * * * |JOB-04.
+|sgspe.deliverable.generation.poll / stale-after |5s / 15m |JOB-05.
+|sgspe.jobs.knowledge-index.cron / daily-cron |0 */30 * * * * / 0 15 3 * * * |JOB-07.
+|sgspe.jobs.retention.cron |0 15 4 * * * |JOB-08.
+|sgspe.exports.max-rows |20000 |Máximo de filas de una exportación; más: 400 `TOO_MANY_RECORDS`.
+|sgspe.territory.import.max-bytes / max-rows / timeout |20 MB / 10000 / 60s |Límites de una importación geográfica.
+|sgspe.territory.layers.max-features |5000 |Máximo de geometrías por capa.
+|sgspe.territory.queries.* |buffer 1–20000 m; distancia 0,1–50 km |Rangos de las consultas espaciales; fuera de rango: 400 `OUT_OF_RANGE`.
+|sgspe.deliverable.latex.timeout |180s |Plazo de una composición de PDF.
+|sgspe.calendar.holidays |2026 y 2027 |Feriados nacionales para los días hábiles de las QCS (ver <<ops-feriados>>).
+|sgspe.dashboards.executive.max-projects |25 |Proyectos máximos de la revisión ejecutiva.
+|sgspe.ai.limits.max-concurrent-runs |3 |Corridas de IA simultáneas; más: 503 `AI_BUSY`.
+|spring.webflux.multipart.max-disk-usage-per-part |20MB |Tamaño máximo de un archivo subido.
+|wasichai.files.max-bytes |64MB |Techo absoluto de un archivo en el servidor.
+|===
+
+== Perfil `prod`
+
+`application-prod.yml` cambia los valores por defecto a los de producción: base y secreto JWT obligatorios, sin
+usuario semilla, tokens de 4 h con revocación, límite de intentos de inicio de sesión, política de contraseñas,
+archivos en S3, sin valores de desarrollo para GeoServer, `sgspe-latex` ni el mapa base, encabezados del proxy
+(`server.forward-headers-strategy: framework`) y registros en JSON ECS. Lo que comprueba `ProdGuard` está en
+<<deploy-prodguard>>.
+
+.Ejemplo de archivo de entorno de producción (sin secretos)
+[source,bash]
+----
+# /etc/sgspe/sgspe.env  — permisos 0600, propietario del servicio; los secretos los inyecta el gestor de secretos
+SPRING_PROFILES_ACTIVE=prod
+WASICHAI_DB_HOST=db.interno.ejemplo
+WASICHAI_DB_PORT=5432
+WASICHAI_DB_NAME=sgspe
+WASICHAI_DB_USERNAME=sgspe_app
+WASICHAI_DB_PASSWORD=${SECRETO_DB}              # desde el gestor de secretos
+WASICHAI_JWT_SECRET=${SECRETO_JWT}              # 32 bytes aleatorios o más
+WASICHAI_FILES_STORE=s3
+WASICHAI_FILES_S3_BUCKET=sgspe-archivos
+WASICHAI_FILES_S3_ENDPOINT=https://s3.region.ejemplo
+SGSPE_DELIVERABLE_LATEX_URL=http://sgspe-latex:8080
+SGSPE_MAP_BASE_STYLE_URL=https://mapas.ejemplo/estilo.json
+WASICHAI_NOTIFICATIONS_EMAIL_ENABLED=true
+WASICHAI_NOTIFICATIONS_EMAIL_FROM=avisos@cliente.ejemplo
+SPRING_MAIL_HOST=smtp.interno.ejemplo
+----
