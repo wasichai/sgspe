@@ -1,0 +1,15 @@
+%% WF-H, entregable (model/workflows/deliverable.json)
+flowchart TB
+    D(["Borrador"]) -->|"Enviar a revisión"| R(["En revisión"])
+    R <-.->|"Observar ⇄ Reenviar a revisión"| O(["Observado"])
+    R -->|"Aprobar"| A(["Aprobado"])
+    A -.->|"Devolver a borrador"| D
+    A -->|"Emitir (comando de emisión)"| I(["Emitido"])
+    I -.->|"Nueva revisión"| D
+    V(["Anulado"])
+    I ~~~ V
+    N["«Anular»: solo Gerente social, desde<br/>cualquier estado no final"] -.- V
+    classDef fin fill:#eef0ec,stroke:#46514b
+    classDef nota fill:#fbf0d9,stroke:#7f5300
+    class V fin
+    class N nota

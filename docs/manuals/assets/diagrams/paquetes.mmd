@@ -1,0 +1,37 @@
+%% Dependencias entre paquetes sgspe.* (imports reales de src/main/kotlin; todos dependen de sgspe.common, omitido)
+flowchart BT
+    subgraph BASE["Base"]
+      common["common"]
+      observability["observability"]
+      prod["prod (ProdGuard)"]
+    end
+    subgraph TRANS["Transversales (solo dependen de common)"]
+      scope["scope"]
+      privacy["privacy"]
+    end
+    subgraph DOM["Dominio"]
+      stakeholder; engagement; agreement; evidence; commitment; investment
+      attention; risk; warning; territory; deadline; notification
+    end
+    subgraph REP["Reportes e IA"]
+      dashboard; deliverable; ai
+    end
+    TRANS --> BASE
+    DOM --> BASE
+    stakeholder --> engagement
+    commitment --> scope
+    investment --> commitment
+    attention --> engagement
+    attention --> deadline
+    attention --> notification
+    warning --> risk
+    deadline --> commitment
+    deadline --> risk
+    notification --> investment
+    territory --> evidence
+    territory --> privacy
+    dashboard --> DOM
+    deliverable --> dashboard
+    deliverable --> privacy
+    ai --> deliverable
+    ai --> attention

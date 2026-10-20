@@ -1,0 +1,67 @@
+// Atributos comunes de todos los manuales de SGSPE. Cada manual lo incluye con include::../attributes.adoc[].
+// product-version y doc-date los fija scripts/build-docs.sh (de gradle.properties y la fecha de construcción);
+// los valores de aquí solo valen si se procesa un archivo suelto con asciidoctor.
+:product-name: SGSPE
+:product-full-name: Sistema de Gestión Social para Proyectos Extractivos
+ifndef::product-version[:product-version: 3.0.0]
+ifndef::doc-date[:doc-date: 2026-10-20]
+:platform: wasichai 1.3.0
+:ui-repo: sgspe-ui
+:lang: es
+:hyphens: es
+:doctype: book
+:experimental:
+ifdef::backend-pdf[:icons: font]
+:sectnums:
+:sectnumlevels: 3
+:sectanchors:
+:sectlinks:
+:toc: left
+:toclevels: 3
+:idprefix:
+:idseparator: -
+:xrefstyle: short
+:figure-caption: Figura
+:table-caption: Tabla
+:example-caption: Ejemplo
+:listing-caption: Listado
+:appendix-caption: Anexo
+:chapter-signifier:
+:chapter-refsig: Capítulo
+:section-refsig: Sección
+:appendix-refsig: Anexo
+:part-signifier: Parte
+:toc-title: Contenido
+:version-label: Versión
+:last-update-label: Actualizado
+:untitled-label: Sin título
+:preface-title: Presentación
+:caution-caption: Precaución
+:important-caption: Importante
+:note-caption: Nota
+:tip-caption: Consejo
+:warning-caption: Advertencia
+:outline-title: Contenido
+:source-highlighter: rouge
+:rouge-style: github
+:rouge-css: style
+:imagesdir: ../assets
+:pdf-themesdir: {docdir}/../styles/pdf
+:pdf-theme: pdf
+:compress:
+:pdf-fontsdir: {docdir}/../styles/fonts/ttf;GEM_FONTS_DIR
+:stylesheet: ../styles/html/documentation.css
+:linkcss:
+:copycss!:
+:nofooter!:
+:docinfo: shared
+:docinfodir: {docdir}/../styles/html
+:author: Equipo de SGSPE
+:email: documentacion@sgspe.test
+:revnumber: {product-version}
+:revdate: {doc-date}
+:revremark: Edición basada en el código de la versión {product-version}
+// rutas de los manuales entre sí (HTML y PDF se generan en carpetas hermanas de output/)
+:url-user: ../user/manual-usuario.html
+:url-admin: ../administrator/manual-administrador.html
+:url-system: ../system/manual-sistema.html

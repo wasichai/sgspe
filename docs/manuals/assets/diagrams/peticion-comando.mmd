@@ -1,0 +1,18 @@
+%% Un comando de /api/sgspe/** (docs/architecture.md §6.2, common/Idempotency.kt, common/Preconditions.kt)
+sequenceDiagram
+    autonumber
+    participant N as Portal
+    participant K as Controlador sgspe
+    participant T as Transacción
+    participant R as RecordService / WorkflowService
+    participant G as Guardas de escritura
+    participant D as PostgreSQL
+    N->>K: POST con Idempotency-Key, If-Match y X-Change-Reason
+    K->>K: valida parámetros y permisos antes de escribir
+    K->>T: abre la transacción con la marca SgspeWrite
+    T->>D: candado consultivo y comprobación de If-Match / clave
+    T->>R: escrituras y transición como el usuario
+    R->>G: cada escritura pasa por las guardas
+    R->>D: registros y filas de audit_log
+    T-->>K: commit (o rollback de todo)
+    K-->>N: 201/200 con el resultado y X-Correlation-Id

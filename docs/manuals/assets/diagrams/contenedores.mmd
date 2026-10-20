@@ -1,0 +1,26 @@
+%% Contenedores y puertos (desarrollo y referencia de producción). Fuente: compose.yml, application*.yml, vite.config.ts
+flowchart LR
+    NAV["Navegador<br/>portal / y /admin"]
+    subgraph FRONT["Interfaz sgspe-ui (React + @wasichai/*)"]
+      VITE["Vite (desarrollo) o proxy inverso<br/>:5182 · reenvía /api"]
+    end
+    subgraph APP["Servidor SGSPE (Spring Boot WebFlux, JDK 25)"]
+      API["API /api/** y /actuator/health<br/>:8094"]
+      JOBS["Trabajos JOB-01…08<br/>(ClusterLock)"]
+    end
+    PG[("PostgreSQL + PostGIS<br/>esquemas wasichai, app_data, sgspe<br/>:5435 en desarrollo")]
+    FILES[("Archivos<br/>local build/wasichai-files<br/>o S3 / MinIO :9095")]
+    GS["GeoServer :8095<br/>(opcional)"]
+    LX["sgspe-latex :8097<br/>(PDF de entregables)"]
+    MAIL["SMTP / Mailpit :1029"]
+    AI["Anthropic API<br/>(opcional)"]
+    NAV --> VITE --> API
+    API --> PG
+    JOBS --> PG
+    API --> FILES
+    API -->|"WMS"| GS
+    GS --> PG
+    JOBS -->|"JOB-05"| LX
+    JOBS -->|"GetMap de informe"| GS
+    API --> MAIL
+    API --> AI

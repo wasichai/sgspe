@@ -1,0 +1,367 @@
+# Tema de Asciidoctor PDF de los manuales de SGSPE.
+# Identidad: la paleta "Pino y piedra" del portal (sgspe-ui/src/theme/tokens.css, ASM-077) e IBM Plex Sans y Mono (OFL),
+# empaquetadas en styles/fonts/ttf para que el PDF no dependa de las fuentes del sistema. DejaVu Sans cubre los glifos
+# que Plex no trae (flechas, símbolos).
+extends: default
+font:
+  catalog:
+    merge: false
+    Plex Sans:
+      normal: IBMPlexSans-Regular.ttf
+      italic: IBMPlexSans-Italic.ttf
+      bold: IBMPlexSans-SemiBold.ttf
+      bold_italic: IBMPlexSans-SemiBoldItalic.ttf
+    Plex Sans Bold:
+      normal: IBMPlexSans-Bold.ttf
+      italic: IBMPlexSans-BoldItalic.ttf
+      bold: IBMPlexSans-Bold.ttf
+      bold_italic: IBMPlexSans-BoldItalic.ttf
+    Plex Sans Medium:
+      normal: IBMPlexSans-Medium.ttf
+      italic: IBMPlexSans-Italic.ttf
+      bold: IBMPlexSans-SemiBold.ttf
+      bold_italic: IBMPlexSans-SemiBoldItalic.ttf
+    Plex Mono:
+      normal: IBMPlexMono-Regular.ttf
+      italic: IBMPlexMono-Italic.ttf
+      bold: IBMPlexMono-Bold.ttf
+      bold_italic: IBMPlexMono-BoldItalic.ttf
+    DejaVu Sans:
+      normal: DejaVuSans.ttf
+      italic: DejaVuSans.ttf
+      bold: DejaVuSans.ttf
+      bold_italic: DejaVuSans.ttf
+  fallbacks:
+    - DejaVu Sans
+page:
+  layout: portrait
+  size: A4
+  margin: [24mm, 20mm, 22mm, 22mm]
+  margin_inner: 24mm
+  margin_outer: 18mm
+  numbering:
+    start_at: toc
+base:
+  font_family: Plex Sans
+  font_color: '#18211d'
+  font_size: 9.8
+  line_height_length: 14.6
+  line_height: $base_line_height_length / $base_font_size
+  font_size_large: 11.5
+  font_size_small: 8.4
+  font_size_min: 6.5
+  border_color: '#d9ddd6'
+  border_radius: 3
+  border_width: 0.6
+  text_align: left
+role:
+  lead:
+    font_size: 11.5
+    font_color: '#46514b'
+  muted:
+    font_color: '#5e6862'
+  big:
+    font_size: 12
+  small:
+    font_size: 8.4
+  kbd:
+    font_family: Plex Mono
+vertical_rhythm: $base_line_height_length
+horizontal_rhythm: $base_line_height_length
+link:
+  font_color: '#1d5c52'
+  text_decoration: underline
+  text_decoration_color: '#9cc2ba'
+  text_decoration_width: 0.5
+codespan:
+  font_family: Plex Mono
+  font_size: 0.9em
+  font_color: '#164a42'
+  background_color: '#eef0ec'
+  border_radius: 2
+  border_offset: 1.2
+kbd:
+  font_family: Plex Mono
+  font_size: 0.85em
+  background_color: '#ffffff'
+  border_color: '#838b85'
+  border_offset: 1.5
+  border_radius: 2
+  border_width: 0.5
+menu:
+  caret_content: ' › '
+  font_style: bold
+  font_color: '#164a42'
+mark:
+  background_color: '#fbf0d9'
+heading:
+  font_family: Plex Sans
+  font_color: '#18211d'
+  font_style: bold
+  text_align: left
+  line_height: 1.2
+  margin_top: $vertical_rhythm * 1.1
+  margin_bottom: $vertical_rhythm * 0.55
+  min_height_after: 80
+  chapter:
+    break_before: always
+  h1:
+    font_size: 26
+  h2:
+    font_family: Plex Sans Bold
+    font_size: 21
+    font_color: '#1d5c52'
+    margin_bottom: $vertical_rhythm * 0.9
+  h3:
+    font_size: 14.5
+    font_color: '#18211d'
+  h4:
+    font_size: 12
+    font_color: '#1d5c52'
+  h5:
+    font_size: 10.5
+  h6:
+    font_size: 9.8
+    font_color: '#46514b'
+    text_transform: uppercase
+title_page:
+  align: left
+  background_image: image:../../assets/branding/cover.svg[fit=fill]
+  title:
+    top: 31%
+    font_family: Plex Sans Bold
+    font_size: 31
+    font_color: '#ffffff'
+    line_height: 1.08
+  subtitle:
+    font_family: Plex Sans
+    font_size: 15
+    font_color: '#e3efec'
+    font_style: normal
+    line_height: 1.3
+    margin_top: 10
+  authors:
+    margin_top: 175
+    font_size: 10.5
+    font_color: '#18211d'
+    content: '{author}'
+  revision:
+    margin_top: 6
+    font_size: 9.5
+    font_color: '#46514b'
+    delimiter: ' · '
+  logo:
+    top: 10%
+    align: left
+    image: image:../../assets/branding/sgspe-mark-white.svg[width=46]
+toc:
+  font_color: '#18211d'
+  font_size: 9.8
+  line_height: 1.55
+  indent: 16
+  dot_leader:
+    content: '. '
+    font_color: '#b9bfb6'
+    levels: all
+  h2:
+    font_style: bold
+  h3:
+    font_color: '#18211d'
+  title:
+    font_size: 20
+    font_color: '#1d5c52'
+    text_align: left
+abstract:
+  font_color: '#46514b'
+  font_size: 10.5
+  line_height: 1.5
+  font_style: normal
+  title:
+    font_color: '#1d5c52'
+    font_size: 11
+    text_align: left
+prose:
+  margin_bottom: $vertical_rhythm * 0.75
+block:
+  margin_bottom: $vertical_rhythm
+caption:
+  font_family: Plex Sans
+  font_style: italic
+  font_color: '#46514b'
+  font_size: 8.6
+  align: left
+  margin_inside: 4
+  margin_outside: 2
+lead:
+  font_size: 11.5
+  line_height: 1.45
+  font_color: '#46514b'
+admonition:
+  column_rule_color: '#d9ddd6'
+  column_rule_width: 0
+  padding: [8, 12, 8, 12]
+  background_color: '#f9faf8'
+  border_radius: 3
+  label:
+    font_style: bold
+    text_transform: uppercase
+    font_size: 7.8
+  icon:
+    note:
+      name: fas-info-circle
+      stroke_color: '#2b5f8f'
+      size: 18
+    tip:
+      name: fas-lightbulb
+      stroke_color: '#2e6b3e'
+      size: 18
+    important:
+      name: fas-exclamation-circle
+      stroke_color: '#1d5c52'
+      size: 18
+    warning:
+      name: fas-exclamation-triangle
+      stroke_color: '#7f5300'
+      size: 18
+    caution:
+      name: fas-ban
+      stroke_color: '#a33a2a'
+      size: 18
+quote:
+  font_color: '#46514b'
+  font_size: 10.5
+  border_color: '#1d5c52'
+  border_left_width: 3
+  padding: [2, 12, 2, 14]
+sidebar:
+  background_color: '#eef0ec'
+  border_color: '#d9ddd6'
+  border_radius: 3
+  border_width: 0.6
+  padding: [10, 14, 10, 14]
+  title:
+    font_color: '#1d5c52'
+    font_size: 11
+    font_style: bold
+    text_align: left
+example:
+  background_color: '#ffffff'
+  border_color: '#d9ddd6'
+  border_radius: 3
+  border_width: 0.6
+  padding: [10, 14, 10, 14]
+code:
+  font_family: Plex Mono
+  font_size: 8.2
+  font_color: '#18211d'
+  line_height: 1.35
+  background_color: '#f5f6f3'
+  border_color: '#d9ddd6'
+  border_radius: 3
+  border_width: 0.6
+  padding: [8, 10, 8, 10]
+  linenum:
+    font_color: '#838b85'
+callout_list:
+  margin_top_after_code: -4
+conum:
+  font_family: DejaVu Sans
+  font_color: '#1d5c52'
+  font_size: 9
+  line_height: 4 / 3
+  glyphs: circled
+table:
+  font_size: 8.8
+  border_color: '#d9ddd6'
+  border_width: 0.6
+  grid_color: '#e4e7e1'
+  grid_width: 0.5
+  cell_padding: [4.5, 6, 4.5, 6]
+  head:
+    background_color: '#eef0ec'
+    font_style: bold
+    font_color: '#18211d'
+    border_bottom_width: 1.1
+    border_bottom_color: '#838b85'
+  body:
+    stripe_background_color: '#f9faf8'
+  foot:
+    background_color: '#eef0ec'
+  caption:
+    side: top
+    font_style: bold
+    font_color: '#1d5c52'
+    font_size: 8.8
+    text_align: left
+image:
+  align: center
+  border_color: '#d9ddd6'
+  border_width: 0
+figure:
+  caption:
+    end: bottom
+description_list:
+  term_font_style: bold
+  term_font_color: '#1d5c52'
+  term_spacing: 2
+  description_indent: 14
+list:
+  indent: 16
+  item_spacing: 3
+  marker_font_color: '#1d5c52'
+ulist:
+  marker:
+    disc:
+      content: "•"
+olist:
+  marker:
+    font_color: '#1d5c52'
+    font_style: bold
+thematic_break:
+  border_color: '#d9ddd6'
+  border_width: 0.6
+  margin_top: 6
+  margin_bottom: 12
+footnotes:
+  font_size: 8
+  item_spacing: 2
+index:
+  column_gap: 18
+header:
+  height: 15mm
+  line_height: 1
+  vertical_align: bottom
+  font_size: 7.8
+  font_color: '#5e6862'
+  border_color: '#d9ddd6'
+  border_width: 0.5
+  padding: [0, 0, 5, 0]
+  recto:
+    left:
+      content: '*{product-name}* · {document-title}'
+    right:
+      content: '{chapter-title}'
+  verso:
+    left:
+      content: '{chapter-title}'
+    right:
+      content: '*{product-name}* · {document-title}'
+footer:
+  height: 14mm
+  line_height: 1
+  vertical_align: top
+  font_size: 7.8
+  font_color: '#5e6862'
+  border_color: '#d9ddd6'
+  border_width: 0.5
+  padding: [5, 0, 0, 0]
+  recto:
+    left:
+      content: 'Versión {product-version} · Edición {doc-date}'
+    right:
+      content: '*{page-number}* / {page-count}'
+  verso:
+    left:
+      content: '*{page-number}* / {page-count}'
+    right:
+      content: 'Versión {product-version} · Edición {doc-date}'

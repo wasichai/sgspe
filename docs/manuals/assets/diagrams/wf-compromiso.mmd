@@ -1,0 +1,18 @@
+%% WF-D, compromiso (model/workflows/commitment.json)
+flowchart TB
+    D(["Borrador"]) -->|"Enviar a aprobación"| P(["Pendiente de aprobación"])
+    P -->|"Aprobar · Aprobar en nivel superior"| A(["Aprobado"])
+    D ==>|"Aprobar sin revisión interna"| A
+    A -->|"Iniciar ejecución"| E(["En ejecución"])
+    E <-->|"Registrar cumplimiento ⇄<br/>Devolver a ejecución"| F(["Cumplido"])
+    F -->|"Verificar"| V(["Verificado"])
+    V -->|"Cerrar"| C(["Cerrado"])
+    P -.->|"Devolver"| D
+    E <-.->|"Bloquear ⇄ Desbloquear"| B(["Bloqueado"])
+    X(["Cancelado"])
+    C ~~~ X
+    N["«Cancelar» lleva a Cancelado desde Borrador,<br/>Pendiente, Aprobado, En ejecución o Bloqueado"] -.- X
+    classDef fin fill:#eef0ec,stroke:#46514b
+    classDef nota fill:#fbf0d9,stroke:#7f5300
+    class C,X fin
+    class N nota

@@ -1,0 +1,6 @@
+{
+  "version": 8,
+  "name": "Fondo neutro sin teselas (capturas de los manuales)",
+  "sources": {},
+  "layers": [{ "id": "fondo", "type": "background", "paint": { "background-color": "#e8ebe3" } }]
+}

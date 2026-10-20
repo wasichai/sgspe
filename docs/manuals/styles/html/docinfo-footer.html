@@ -1,0 +1,21 @@
+<script>
+/* resalta en la tabla de contenidos la sección visible; sin dependencias externas */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('#toc a[href^="#"]'))
+  if (!links.length || !('IntersectionObserver' in window)) return
+  var byId = {}
+  links.forEach(function (a) { byId[decodeURIComponent(a.getAttribute('href').slice(1))] = a })
+  var current = null
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return
+      var a = byId[e.target.id]
+      if (!a) return
+      if (current) current.classList.remove('active')
+      a.classList.add('active')
+      current = a
+    })
+  }, { rootMargin: '0px 0px -75% 0px' })
+  Object.keys(byId).forEach(function (id) { var el = document.getElementById(id); if (el) obs.observe(el) })
+})()
+</script>
