@@ -1,0 +1,151 @@
+{
+  "collections": [
+    {
+      "object": "grievance",
+      "match": ["project", "code"],
+      "as": "qcs",
+      "records": [
+        {
+          "key": "q-01",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-Q-01", "channel": "PRESENCIAL", "received_at": "2026-10-16T10:00:00-05:00",
+            "received_by_user": "relacionista", "owner_user": "qcs", "category": "AGUA Y MEDIO AMBIENTE",
+            "locality": "@loc-huaylla", "topic": "@topic-agua", "priority": "ALTA",
+            "description": "El comité de regantes informa que el canal principal bajó de caudal después del paso de las cisternas de la campaña y pide una inspección conjunta antes de la próxima faena."
+          }
+        },
+        {
+          "key": "q-02",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-Q-02", "channel": "CARTA", "received_at": "2026-10-05T10:00:00-05:00",
+            "received_by_user": "relacionista", "owner_user": "qcs", "category": "VIAS Y TRANSITO",
+            "locality": "@loc-quishuar", "priority": "MEDIA",
+            "description": "La junta directiva del caserío reclama por el polvo que levantan las camionetas en la trocha que pasa junto a la institución educativa en horario de clases."
+          },
+          "transitions": ["acknowledge"],
+          "state": "acknowledged"
+        },
+        {
+          "key": "q-03",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-Q-03", "channel": "REUNION", "received_at": "2026-09-21T10:00:00-05:00",
+            "received_by_user": "relacionista", "owner_user": "qcs", "category": "EMPLEO", "severity": "MEDIA",
+            "locality": "@loc-tambillo", "topic": "@topic-empleo", "priority": "MEDIA",
+            "description": "En la asamblea del sector se reclamó que la contratista no respetó el turno acordado para la mano de obra no calificada del caserío."
+          },
+          "transitions": ["acknowledge", "assess", "start_action"],
+          "state": "in_action"
+        },
+        {
+          "key": "q-04",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-Q-04", "channel": "TELEFONO", "received_at": "2026-09-02T10:00:00-05:00",
+            "received_by_user": "qcs", "owner_user": "qcs", "category": "CONDUCTA DEL PERSONAL", "severity": "BAJA",
+            "community": "@com-sanisidro", "priority": "BAJA",
+            "description": "Un comunero informa que un vehículo de la empresa ingresó a un pastizal comunal sin pedir permiso al teniente gobernador.",
+            "resolution": "Se identificó la unidad, se recordó al conductor el protocolo de tránsito por pastizales y se coordinó con la junta directiva una visita de verificación.",
+            "response": "Se comunicó por escrito a la junta directiva las medidas tomadas con la contratista y el compromiso de avisar antes de cada ingreso."
+          },
+          "transitions": ["acknowledge", "assess", "start_action", "resolve"],
+          "state": "resolved"
+        },
+        {
+          "key": "q-05",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-Q-05", "channel": "CORREO", "received_at": "2026-08-11T10:00:00-05:00",
+            "received_by_user": "qcs", "owner_user": "qcs", "category": "INFORMACION DEL PROYECTO", "severity": "BAJA",
+            "locality": "@loc-huaylla", "priority": "BAJA",
+            "description": "La APAFA de la institución educativa pide que se explique en castellano y quechua el cronograma de la campaña, porque no lo recibió por escrito.",
+            "resolution": "Se entregó el cronograma impreso en ambos idiomas y se presentó en la reunión de padres de familia.",
+            "response": "Se adjuntó el cronograma y el acta de la reunión informativa.",
+            "responded_at": "2026-08-25T10:00:00-05:00", "complainant_conformity_given": true
+          },
+          "transitions": ["acknowledge", "assess", "start_action", "resolve", "close_resolved"],
+          "state": "closed"
+        }
+      ]
+    },
+    {
+      "object": "inquiry",
+      "match": ["project", "code"],
+      "as": "qcs",
+      "records": [
+        {
+          "key": "c-01",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-C-01", "channel": "PRESENCIAL", "received_at": "2026-10-14T10:00:00-05:00",
+            "received_by_user": "relacionista", "owner_user": "qcs", "category": "INFORMACION DEL PROYECTO",
+            "locality": "@loc-quishuar",
+            "description": "El agente municipal pregunta cuántas plataformas de perforación se instalarán y en qué parcelas."
+          }
+        },
+        {
+          "key": "c-02",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-C-02", "channel": "TELEFONO", "received_at": "2026-09-29T10:00:00-05:00",
+            "received_by_user": "qcs", "owner_user": "qcs", "category": "EMPLEO", "locality": "@loc-tambillo",
+            "description": "Una joven del caserío consulta qué requisitos se piden para postular a los puestos de ayudante de perforación.",
+            "response": "Se informó que la contratación es por turnos acordados en asamblea y que la lista la lleva la ronda campesina.",
+            "responded_at": "2026-09-30T10:00:00-05:00"
+          },
+          "transitions": ["answer"],
+          "state": "answered"
+        },
+        {
+          "key": "c-03",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-C-03", "channel": "CARTA", "received_at": "2026-09-08T10:00:00-05:00",
+            "received_by_user": "qcs", "owner_user": "qcs", "category": "AGUA Y MEDIO AMBIENTE",
+            "community": "@com-sanisidro",
+            "description": "La comunidad consulta si el monitoreo participativo de agua incluirá los manantiales de la parte alta.",
+            "response": "Se respondió por carta que el plan de monitoreo incluye los tres manantiales de la parte alta y se invitó a la comunidad a designar veedores.",
+            "responded_at": "2026-09-15T10:00:00-05:00"
+          },
+          "transitions": ["answer", "close"],
+          "state": "closed"
+        }
+      ]
+    },
+    {
+      "object": "stakeholder_request",
+      "match": ["project", "code"],
+      "as": "qcs",
+      "records": [
+        {
+          "key": "s-01",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-S-01", "channel": "CARTA", "received_at": "2026-10-12T10:00:00-05:00",
+            "received_by_user": "relacionista", "owner_user": "qcs", "category": "APOYO SOCIAL",
+            "request_medium": "CARTA DE SOLICITUD", "locality": "@loc-huaylla",
+            "requested_resource": "Calaminas y clavos para techar el local comunal",
+            "description": "La junta directiva solicita apoyo con materiales para techar el local comunal antes de la temporada de lluvias."
+          }
+        },
+        {
+          "key": "s-02",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-S-02", "channel": "REUNION", "received_at": "2026-09-26T10:00:00-05:00",
+            "received_by_user": "relacionista", "owner_user": "qcs", "category": "APOYO SOCIAL",
+            "request_medium": "ACUERDO EN REUNION", "locality": "@loc-quishuar",
+            "requested_resource": "Traslado de estudiantes al concurso escolar provincial",
+            "description": "La APAFA solicita movilidad para llevar a los estudiantes al concurso escolar de la provincia."
+          },
+          "transitions": ["start_evaluation"],
+          "state": "under_evaluation"
+        },
+        {
+          "key": "s-03",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-S-03", "channel": "CARTA", "received_at": "2026-09-03T10:00:00-05:00",
+            "received_by_user": "qcs", "owner_user": "qcs", "category": "EMPLEO", "request_medium": "CARTA DE SOLICITUD",
+            "locality": "@loc-tambillo", "requested_resource": "Contratación directa de diez pobladores",
+            "description": "Un grupo de pobladores solicita la contratación directa de diez personas fuera del sistema de turnos.",
+            "response": "Se declinó por escrito: la contratación sigue el sistema de turnos acordado en asamblea, que se explicó en la carta."
+          },
+          "transitions": ["start_evaluation", "decline"],
+          "state": "declined"
+        }
+      ]
+    }
+  ]
+}

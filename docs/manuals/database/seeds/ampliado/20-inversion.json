@@ -1,0 +1,56 @@
+{
+  "collections": [
+    {
+      "object": "social_contribution",
+      "match": ["project", "code"],
+      "as": "inversion",
+      "records": [
+        {
+          "key": "ap-01",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-AP-01", "contribution_type": "APOYO EN ESPECIE", "currency": "PEN",
+            "occasion": "Faena comunal de limpieza de canales", "payer_organization": "@org-minera",
+            "exploration_campaign": "@camp-perf", "locality": "@loc-huaylla", "topic": "@topic-agua",
+            "beneficiaries_count": 46,
+            "declared_purpose": "Herramientas para la faena anual de limpieza del canal principal del caserío.",
+            "conditions": "Entrega en asamblea, con acta de recepción firmada por la junta directiva."
+          },
+          "children": [
+            { "object": "contribution_item", "parent": "social_contribution", "attributes": { "description": "Palas", "item_kind": "BIEN", "quantity": 20, "unit": "unidad", "unit_cost": 38.5, "line_amount": 770 } },
+            { "object": "contribution_item", "parent": "social_contribution", "attributes": { "description": "Picos", "item_kind": "BIEN", "quantity": 15, "unit": "unidad", "unit_cost": 42, "line_amount": 630 } }
+          ]
+        },
+        {
+          "key": "ap-02",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-AP-02", "contribution_type": "APOYO EN ESPECIE", "currency": "PEN",
+            "occasion": "Fiesta patronal del caserío", "payer_organization": "@org-minera",
+            "exploration_campaign": "@camp-perf", "locality": "@loc-quishuar", "beneficiaries_count": 120,
+            "declared_purpose": "Apoyo con equipo de sonido para la fiesta patronal, según lo pedido por la junta directiva.",
+            "conditions": "Sin entrega de dinero; el proveedor instala y retira el equipo."
+          },
+          "children": [
+            { "object": "contribution_item", "parent": "social_contribution", "attributes": { "description": "Alquiler de equipo de sonido por dos días", "item_kind": "SERVICIO", "quantity": 1, "unit": "servicio", "unit_cost": 1200, "line_amount": 1200 } }
+          ],
+          "transitions": ["approve_direct"],
+          "state": "approved"
+        }
+      ]
+    },
+    {
+      "object": "social_program",
+      "match": ["project", "code"],
+      "as": "inversion",
+      "records": [
+        {
+          "key": "ps-01",
+          "attributes": {
+            "project": "@proj", "code": "DEMO-PS-01", "name": "Fortalecimiento de los comités de agua",
+            "currency": "PEN", "topic": "@topic-agua", "start_date": "2026-11-01", "end_date": "2027-10-31",
+            "description": "Capacitación de las JASS y los comités de regantes en operación, cloración y gestión de cuotas, con monitoreo participativo de la calidad del agua."
+          }
+        }
+      ]
+    }
+  ]
+}
