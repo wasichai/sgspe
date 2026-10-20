@@ -1,0 +1,109 @@
+[[ops]]
+= Operación y monitoreo
+
+== Arrancar, detener y reiniciar
+
+El servidor es un proceso Java sin estado propio en disco (salvo `WASICHAI_FILES_LOCAL_PATH` con almacenamiento
+local). Se arranca con el entorno de <<cfg>>:
+
+[source,bash]
+----
+# desarrollo, desde la raíz de sgspe
+$ ./gradlew bootRun
+# cualquier entorno, con el jar
+$ java -jar sgspe-<versión>.jar          # o build/libs/app.jar
+----
+
+* *Detener:* enviar `SIGTERM` (Ctrl+C o `kill <pid>`). Spring Boot termina las peticiones en curso y libera los
+  candados de los trabajos; un trabajo interrumpido se retoma en su siguiente ciclo (JOB-05 retoma los borradores
+  colgados tras `stale-after`, 15 min).
+* *Reiniciar:* detener y arrancar. Con varias réplicas, reiniciar de a una: los trabajos los toma otra réplica.
+* *Apagar solo los trabajos* (por ejemplo, durante una restauración o en una réplica de lectura):
+  `SGSPE_JOBS_ENABLED=false`.
+
+Los servicios de apoyo de desarrollo se controlan con Compose desde la raíz: `docker compose up -d`, `docker compose
+stop`, `docker compose ps`. `docker compose down -v` *borra los volúmenes y todos los datos*.
+
+[[ops-health]]
+== Comprobar el estado
+
+[cols="3m,4",options="header"]
+|===
+|Ruta (puerto 8094) |Qué indica
+|GET /actuator/health/liveness |El proceso responde. Si falla, reiniciar.
+|GET /actuator/health/readiness |El servidor puede atender (base accesible). Es la que debe usar el balanceador.
+|GET /actuator/health |Estado agregado. El SMTP no cuenta (`management.health.mail.enabled: false`).
+|GET /api/health |Salud de la plataforma: `{"status":"UP","application":…}`.
+|===
+
+Las cuatro son públicas (no exigen token). No se configura la exposición de otros _endpoints_ del actuator: rige la de
+Spring Boot por defecto.
+
+.Comprobaciones funcionales con un usuario
+[source,bash]
+----
+$ TOKEN=$(curl -s localhost:8094/api/auth/login -H 'Content-Type: application/json' \
+    -d '{"email":"<correo>","password":"<contraseña>"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["token"])')
+$ curl -s -H "Authorization: Bearer $TOKEN" localhost:8094/api/auth/me            # quién soy
+$ curl -s -H "Authorization: Bearer $TOKEN" localhost:8094/api/sgspe/ai/status    # IA disponible o no
+----
+
+[[ops-logs]]
+== Registros
+
+El servidor escribe en la salida estándar: texto en desarrollo y *JSON ECS* con el perfil `prod`.
+
+[cols="2m,5",options="header"]
+|===
+|Logger o campo |Para qué
+|sgspe.access |Una línea por petición: `{método} {ruta} {estado} {ms}ms correlationId={id}`. No lleva la cadena de consulta ni el cuerpo. Una cancelación del cliente se registra como 499.
+|correlationId |El mismo valor que la cabecera `X-Correlation-Id` de la respuesta y el `correlation_id` de la auditoría. El cliente puede enviarlo (`^[A-Za-z0-9._-]{1,64}$`); si no, se genera un UUID.
+|sgspe.* |Avisos de los trabajos (por ejemplo, el año sin feriados configurados) y de las integraciones.
+|com.embabel, org.springframework.ai |En `WARN`: los registros nunca llevan preguntas, prompts ni respuestas de la IA.
+|===
+
+Para seguir un error que reporta una persona, pídale la hora y la acción; el portal muestra el error, y el
+`X-Correlation-Id` de esa respuesta permite encontrar la línea de acceso y la fila de auditoría:
+
+[source,bash]
+----
+$ grep 'correlationId=<id>' servidor.log
+$ psql -d sgspe -c "SELECT occurred_at, object_name, operation, user_id, reason FROM wasichai.audit_log WHERE correlation_id = '<id>'"
+----
+
+== Tareas periódicas del operador
+
+[cols="2,4",options="header"]
+|===
+|Cuándo |Qué hacer
+|Diario |Revisar que el respaldo de la base y del almacenamiento terminó y es legible (<<bkp>>).
+|Semanal |Revisar errores 5xx en las líneas `sgspe.access` y fallos de trabajos en el registro.
+|Mensual |Restaurar un respaldo en una base desechable y verificarlo (<<bkp-restore>>).
+|Cada año |Agregar los feriados nacionales del año siguiente (<<ops-feriados>>).
+|Cada versión |Seguir <<deploy>> y las comprobaciones posteriores.
+|===
+
+[[ops-feriados]]
+== Feriados para los días hábiles
+
+Los plazos de acuse y respuesta de las quejas cuentan días hábiles con los feriados de `sgspe.calendar.holidays`
+(`src/main/resources/application.yml`), que hoy trae 2026 y 2027. Para agregar un año:
+
+. Agregue la clave `'2028':` bajo `holidays` con una fecha `AAAA-MM-DD` por línea (solo feriados nacionales).
+. Ejecute `BusinessDaysTest` (valida todo año configurado) y despliegue.
+
+Mientras un año falte, el servidor cuenta de lunes a viernes y lo advierte una vez por año en el registro. Una fecha de
+otro año o repetida impide arrancar. Los plazos ya calculados no se recalculan.
+
+[[ops-postdeploy]]
+== Comprobaciones después de un despliegue o una restauración
+
+[%interactive]
+* [ ] `GET /actuator/health/readiness` responde `UP` en cada réplica.
+* [ ] El registro no muestra errores de Flyway ni de `ProdGuard` al arrancar.
+* [ ] Un usuario de cada perfil principal inicia sesión y ve sus proyectos.
+* [ ] La lista de compromisos y la de QCS cargan y paginan.
+* [ ] Una evidencia existente se descarga (prueba el almacenamiento de archivos).
+* [ ] `apply_roles.py` contra la organización termina con `0 created, 0 updated`.
+* [ ] Si hay GeoServer, el mapa territorial muestra las capas de referencia.
+* [ ] Si hay `sgspe-latex`, un borrador de entregable llega a `LISTO`.

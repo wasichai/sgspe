@@ -1,0 +1,53 @@
+[[ts]]
+= Diagnóstico de fallos frecuentes
+
+Empiece siempre por tres datos: la *hora*, la *acción* que se intentaba y el *`X-Correlation-Id`* de la respuesta
+(visible en las herramientas de desarrollo del navegador, pestaña Red). Con ellos encuentre la línea de acceso y, si
+hubo escritura, la fila de auditoría (<<ops-logs>>).
+
+== Compilación y arranque
+
+[cols="3,3,4",options="header"]
+|===
+|Síntoma |Causa probable |Solución
+|`Could not find wasichai:wasichai-spring-boot-starter…` |Falta el token de GitHub Packages o su alcance `read:packages`. |Anteponer `GITHUB_ACTOR=… GITHUB_TOKEN=…` (<<inst-paquetes>>) o publicar wasichai en Maven local.
+|`Received status code 429 from server` al compilar |Maven Central limita las descargas. |Reintentar; Gradle reutiliza lo ya descargado.
+|`Connection refused` a `localhost:5435` |PostgreSQL no está arriba o falta el túnel SSH. |`docker compose ps`; abrir el túnel (`docs/develop/README.md` §3).
+|El arranque falla con un mensaje de `ProdGuard` |Configuración insegura con el perfil `prod`. |Corregir lo que nombra el mensaje (<<deploy-prodguard>>).
+|Falta `wasichai.security.jwt.secret` |Perfil `prod` sin `WASICHAI_JWT_SECRET`. |Definir el secreto (32 bytes o más).
+|Puerto 8094 ocupado |Otro servidor corriendo. |`lsof -iTCP:8094 -sTCP:LISTEN` y detenerlo, o `SERVER_PORT`.
+|Error de Flyway al arrancar |Migración fallida o base de otra versión. |Leer el registro; no editar `flyway_history_*` a mano: restaurar el respaldo previo y revisar la versión.
+|`ERROR: permission denied to create extension "postgis"` |El usuario de la base no puede crear la extensión. |Crear la extensión como superusuario antes de arrancar.
+|===
+
+== Uso del portal
+
+[cols="3,3,4",options="header"]
+|===
+|Mensaje en el portal |Significado |Qué hacer
+|«Correo o contraseña incorrectos» |Credenciales inválidas (401). |Comprobar el correo; en `prod`, tras 5 intentos fallidos se bloquea 15 min (429).
+|«Su sesión venció» |El token expiró (8 h; 4 h en `prod`) o fue revocado. |Volver a escribir la contraseña en el diálogo.
+|«Su cuenta no tiene permiso para esta acción…» |403: falta el permiso del rol o la acción. |Revisar el rol en `model/roles.json` y la matriz de la Referencia técnica.
+|«El registro no existe o no es de sus proyectos.» |404: el registro está fuera de su alcance. |Comprobar la asignación vigente al proyecto (Equipo y parámetros).
+|«No está asignado a este proyecto: puede leerlo, pero no cambiarlo.» |Lee todos los proyectos pero no tiene asignación en este. |Pedir una asignación al administrador de proyectos.
+|«No se pudo: el registro está en otro estado.» |409: la transición ya no aplica. |Recargar la ficha.
+|«Otra persona cambió este registro…» |412: conflicto de `If-Match`. |«Recargar»; lo escrito se conserva.
+|«No hubo respuesta del servidor…» |Red caída o servidor detenido. |Comprobar `/actuator/health/readiness`.
+|«Sin mapa base» |Falta `SGSPE_MAP_BASE_STYLE_URL` (en `prod` no tiene valor por defecto). |Configurar el estilo del mapa base.
+|«El servicio de mapas de referencia no responde» |GeoServer apagado o inaccesible. |Revisar `WASICHAI_GIS_GEOSERVER_*` y el servicio.
+|Borrador del entregable en «FALLIDO» |`sgspe-latex` inaccesible (`PDF_CONVERTER_UNAVAILABLE`), mapas fallidos o datos incompletos. |Revisar `SGSPE_DELIVERABLE_LATEX_URL` y el registro de JOB-05; volver a pedir el borrador.
+|Importación con 422 `FORMAT_UNAVAILABLE` |Falta GDAL o el driver del formato. |Instalar GDAL 3.8+ o `SGSPE_GDAL_PATH`; XLSX, CSV y GeoJSON funcionan sin él.
+|«Preguntar» no responde (IA no disponible) |IA apagada para la organización o sin clave del proveedor (`GET /api/sgspe/ai/status` devuelve `enabled: false`). |`SGSPE_AI_ENABLED_ORGANIZATIONS` y `ANTHROPIC_API_KEY`.
+|===
+
+== Datos y modelo
+
+[cols="3,3,4",options="header"]
+|===
+|Síntoma |Causa probable |Solución
+|`apply_roles.py` informa roles actualizados que nadie cambió |Alguien editó un rol en `/admin`. |Es lo esperado: `roles.json` manda. Llevar el cambio a `roles.json` si debe quedar.
+|`apply.py --workflows` termina con 1 |Un workflow quita un estado que tiene registros. |Migrar esos registros primero; no forzar.
+|`load_demo.py`: «state X, expected Y» |Una carga anterior murió entre el alta de un registro y sus transiciones. |Corregir ese registro a mano o reconstruir la demostración con `seed-demo-data.sh --reset`.
+|Un estado «vencido» no se actualiza |JOB-01 corre cada hora (minuto 5) o los trabajos están apagados. |Esperar al ciclo o revisar `SGSPE_JOBS_ENABLED`.
+|Un año sin feriados en el registro |Falta el año en `sgspe.calendar.holidays`. |<<ops-feriados>>.
+|===

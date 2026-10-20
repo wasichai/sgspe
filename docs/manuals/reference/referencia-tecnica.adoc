@@ -1,0 +1,48 @@
+= Referencia técnica: API, modelo de datos, permisos y workflows de SGSPE
+:document-title: Referencia técnica
+include::../attributes.adoc[]
+:toclevels: 2
+:description: Catálogo de la API, los objetos del modelo, la matriz de permisos, los workflows, las automatizaciones y los indicadores.
+
+[abstract]
+.Presentación
+--
+Esta referencia reúne lo que conviene consultar y no leer de corrido: los _endpoints_ de la API, los 90 objetos del
+modelo con sus campos, la matriz de permisos de los 15 roles, los 19 workflows, las automatizaciones, los 53
+indicadores y el glosario.
+
+Las secciones marcadas como _generadas_ se producen con `docs/manuals/scripts/generate-reference.py` a partir de
+`model/` (la fuente de verdad del modelo), así que no pueden divergir de él: si el modelo cambia, se regeneran con
+`docs/manuals/scripts/build-docs.sh references`. El resto se contrastó con el código de la versión {product-version}.
+--
+
+include::api-reference.adoc[]
+
+include::data-model.adoc[]
+
+include::permissions.adoc[]
+
+[[ref-workflows]]
+== Workflows
+
+_Sección generada de `model/workflows/*.json`._ Los diagramas de los workflows más usados están en el
+xref:../user/manual-usuario.adoc[Manual de usuario].
+
+include::generated/workflows.adoc[]
+
+[[ref-automatizaciones]]
+== Automatizaciones y documentos emitidos
+
+_Sección generada de `model/automations/` y `model/document-types/`._ Una automatización corre como la plataforma,
+con el motivo `automation '<nombre>'` en la auditoría.
+
+include::generated/automations.adoc[]
+
+[[ref-indicadores]]
+== Indicadores
+
+_Sección generada de `model/indicators.json`._
+
+include::generated/indicators.adoc[]
+
+include::glossary.adoc[]

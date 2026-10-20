@@ -1,0 +1,44 @@
+[[sys-pruebas]]
+== Pruebas y calidad
+
+=== Niveles de prueba
+
+[cols="2,2m,4",options="header"]
+|===
+|Nivel |Comando (raíz de `sgspe`) |Qué cubre
+|Unitarias y estilo |./gradlew build |ktlint y las pruebas sin base de datos (excluye las etiquetas `integration`, `latex` y `slow`). Unos 300 archivos de prueba.
+|Integración |./gradlew integrationTest --rerun |Levantan la aplicación entera contra PostgreSQL + PostGIS (Testcontainers o `WASICHAI_TEST_DB_*`) y aprovisionan con los scripts reales de `model/`: API, guardas, workflows, matriz de permisos (15 roles × 90 objetos), automatizaciones y el conjunto de demostración. Unas 190 clases; de 30 minutos a más de una hora.
+|PDF con LuaLaTeX |incluidas en integrationTest (etiqueta `latex`) |Composición real con `sgspe-latex` (`SGSPE_DELIVERABLE_LATEX_URL`).
+|Lenta |./gradlew slowTest --rerun |A pedido, nunca en la CI: GeoServer y `sgspe-latex` reales; un T1 de unas 100 páginas.
+|Modelo |cd model && python3 -m unittest -v |Scripts de `model/` contra un core simulado y el modelo contra los documentos de diseño.
+|Trazabilidad |python3 tools/check_traceability.py |Una fila por requisito en `docs/requirements-traceability.md`.
+|Formato |yarn format:check |Prettier sobre YAML y JSON.
+|Interfaz |yarn test, yarn e2e (en `sgspe-ui`) |Vitest con jsdom y Playwright sobre la compilación de producción con una API simulada en el navegador.
+|===
+
+Las pruebas no llaman nunca al proveedor de IA: `ANTHROPIC_API_KEY` y sus variantes quedan en blanco en `test` e
+`integrationTest`, y la única clase con clave la pone falsa y usa un modelo guionado.
+
+[[sys-ci]]
+=== Integración continua
+
+`.github/workflows/ci.yml` corre en cada _push_ a `main` y en cada _pull request_:
+
+[cols="1m,5",options="header"]
+|===
+|Trabajo |Pasos
+|build |JDK 25, GDAL, `./gradlew build`; sube los reportes si falla.
+|integration |GDAL, imagen `postgis/postgis:18-3.6`, construye y levanta `sgspe-latex` en 8097, `./gradlew integrationTest` (60 min de plazo).
+|model |`apply.py --validate-only`, `apply_roles.py --dry-run`, `publish_layers.py --validate-only`, `load_ubigeo.py --dry-run` y las pruebas de `model/`.
+|traceability |`tools/check_traceability.py` y sus pruebas.
+|format |`yarn format:check`.
+|===
+
+Además: `commits.yml` valida los mensajes con commitlint (Conventional Commits, asunto en español) y el título del
+_pull request_; `release-please.yml` prepara las versiones; `publish.yml` adjunta el jar a cada _release_.
+
+=== Verificaciones hechas para estos manuales
+
+Lo que se ejecutó al preparar esta edición está registrado en `docs/manuals/CHANGELOG.adoc` y en el informe de la
+base de demostración (`database/manifests/sgspe-demo.json`). Lo que no pudo ejecutarse en el entorno de redacción (por
+ejemplo, la suite de integración completa, GeoServer o `sgspe-latex`) se indica allí como *no verificado*.

@@ -1,0 +1,3356 @@
+// GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
+
+El modelo declara *90 objetos*, *79 listas de opciones* y *293 relaciones* (`model/model.json`). Los objetos se agrupan por el contexto de `docs/domain-model.md` §6; el modelo no declara módulos.
+
+Leyenda de las marcas: *obl.* obligatorio; *único* valor único; *der.* derivado (lo calcula el servidor y no se escribe); *restr.* campo restringido a ciertos roles.
+
+=== Proyectos
+
+[[obj-project]]
+==== Proyecto (`project`)
+
+Proyecto extractivo (o prospecto) con su etapa, su fase de exploración, su CRS de trabajo y los parámetros y políticas que configuran las reglas de DOC-01 (ASM-019).
+
+[.small]
+_workflow `wf-a-project`; acciones: `APPROVE`, `READ_ALL_PROJECTS`, `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del proyecto |Texto |obl. único
+
+|name |Nombre del proyecto o prospecto |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|project_type |Tipo de proyecto |Opción |
+
+|stage |Etapa del ciclo de vida |Opción |
+
+|exploration_phase |Fase de exploración |Opción |
+
+|start_date |Fecha de inicio |Fecha |
+
+|end_date |Fecha de fin |Fecha |
+
+|working_crs |CRS de trabajo |Opción |
+
+|interest_threshold |Índice desde el que el interés es alto |Decimal |
+
+|power_threshold |Índice desde el que el poder es alto |Decimal |
+
+|stakeholder_review_days |Días entre evaluaciones de grupos de interés |Entero |
+
+|inactivity_days |Días sin contacto tras los que se sugiere una tarea |Entero |
+
+|meetings_per_month_target |Meta de reuniones al mes del proyecto |Entero |
+
+|policy_workshop_commitments_blocked |Bloquear compromisos de talleres |Sí/No |
+
+|policy_senior_approval_for_dialogue |Aprobación superior en mesas de diálogo |Sí/No |
+
+|policy_minutes_only_formal_types |Acta solo en tipos formales |Sí/No |
+
+|policy_internal_approval |Aprobación interna |Sí/No |
+
+|policy_activation_preconditions |Precondiciones de activación |Sí/No |
+
+|policy_local_jobs_direct_area_only |Empleo limitado al AIDS y rotativo |Sí/No |
+
+|local_jobs_min |Puestos ofrecidos |Entero |
+
+|local_jobs_max |Máximo negociable de puestos |Entero |
+
+|policy_no_jobs_in_easements |Sin empleo en servidumbres |Sí/No |
+
+|due_soon_days |Días para marcar por vencer |Entero |
+
+|escalation_first_days |Días de atraso del primer nivel de escalamiento |Entero |
+
+|escalation_second_days |Días de atraso del segundo nivel |Entero |
+
+|grievance_ack_days |Plazo de acuse de quejas |Entero |
+
+|inquiry_response_days |Plazo de respuesta de consultas |Entero |
+
+|grievance_resolution_days |Plazo de resolución de quejas |Entero |
+
+|policy_high_severity_requires_approver |Quejas graves con aprobación |Sí/No |
+
+|risk_review_days |Días entre revisiones de riesgos |Entero |
+
+|risk_medium_min_score |Puntaje mínimo del nivel MEDIO |Entero |
+
+|risk_high_min_score |Puntaje mínimo del nivel ALTO |Entero |
+
+|risk_critical_min_score |Puntaje mínimo del nivel CRITICO |Entero |
+
+|policy_cap_blocks_approval |El tope bloquea la aprobación |Sí/No |
+
+|policy_no_paid_labor |No se financia mano de obra |Sí/No |
+
+|policy_non_monetary_donations |Donaciones no monetarias |Sí/No |
+
+|policy_synergy_requires_agreement |Sinergias con acuerdo |Sí/No |
+
+|policy_priority_warning |Advertir aportes fuera de prioridades |Sí/No |
+
+|location |Ubicación de referencia del proyecto |Geometría (point) |
+
+|interest_area |Área de interés del proyecto |Geometría (multipolygon) |
+
+|_project_concession_ |Concesiones |Varios a varios → `mining_concession` |
+
+|_project_priority_topic_ |Temas priorizados para aportes |Varios a varios → `topic` |
+
+|===
+
+[[obj-project_party]]
+==== Parte del proyecto (`project_party`)
+
+Organización con un rol en el proyecto: cliente, operador, titular de concesiones, consultora o contratista.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|party_role |Rol de la organización en el proyecto |Opción |obl.
+
+|start_date |Inicio del rol |Fecha |
+
+|end_date |Fin del rol |Fecha |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|organization |Organización |Relación → `organization` |obl.
+
+|===
+
+[[obj-exploration_campaign]]
+==== Campaña de exploración (`exploration_campaign`)
+
+Periodo de actividad del proyecto (cateo o perforación) con su tope de apoyo social y la ejecución que se le imputa.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre de la campaña |Texto |obl.
+
+|activity_type |Tipo de actividad |Opción |
+
+|exploration_phase |Fase de exploración de la campaña |Opción |
+
+|planned_start_date |Inicio planificado |Fecha |
+
+|planned_end_date |Fin planificado |Fecha |
+
+|actual_start_date |Inicio real |Fecha |
+
+|actual_end_date |Fin real |Fecha |
+
+|campaign_status |Estado de la campaña |Opción |
+
+|social_support_cap |Tope de apoyo social |Decimal |
+
+|currency |Moneda del tope |Opción |
+
+|executed_social_amount |Ejecutado de la campaña en su moneda |Decimal |der.
+
+|other_currency_items_count |Compromisos y aportes de la campaña en otra moneda |Entero |der.
+
+|project |Proyecto |Relación → `project` |obl.
+
+|===
+
+[[obj-project_assignment]]
+==== Asignación a proyecto (`project_assignment`)
+
+Usuario de wasichai asignado a un proyecto con un rol y una vigencia: directorio del equipo y fuente del alcance por proyecto.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|member_user_id |Usuario asignado |UUID |obl.
+
+|member_user_email |Correo del usuario asignado |Correo |obl.
+
+|role_name |Rol en el proyecto |Texto |obl.
+
+|start_date |Inicio de la asignación |Fecha |
+
+|end_date |Fin de la asignación |Fecha |
+
+|active |Asignación vigente |Sí/No |obl.
+
+|project |Proyecto |Relación → `project` |obl.
+
+|===
+
+[[obj-mining_concession]]
+==== Concesión minera (`mining_concession`)
+
+Derecho minero con código, titular, CRS de origen y polígono, vinculado a uno o más proyectos.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del derecho minero |Texto |obl. único
+
+|name |Nombre de la concesión |Texto |
+
+|source_crs |CRS en que vino la geometría importada |Opción |
+
+|source_reference |Fuente de origen |Texto |
+
+|import_batch_id |Importación que lo creó o cambió |UUID |
+
+|registered_area_ha |Área declarada en ha |Decimal |
+
+|calculated_area_ha |Área calculada en ha |Decimal |der.
+
+|boundary |Polígono de la concesión |Geometría (multipolygon) |
+
+|holder_organization |Titular |Relación → `organization` |
+
+|===
+
+=== Territorio y SIG
+
+[[obj-administrative_unit]]
+==== Unidad administrativa (`administrative_unit`)
+
+Departamento, provincia o distrito del ubigeo del INEI; objeto catálogo (BC-20) que carga un script idempotente.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|ubigeo_code |Código ubigeo del INEI |Texto |obl. único
+
+|name |Nombre oficial |Texto |obl.
+
+|level |Nivel en la jerarquía del ubigeo |Opción |obl.
+
+|boundary |Límite oficial |Geometría (multipolygon) |
+
+|parent_unit |Unidad superior |Relación → `administrative_unit` |
+
+|===
+
+[[obj-locality]]
+==== Localidad (`locality`)
+
+Asentamiento humano (caserío, sector, centro poblado, anexo o ciudad) con localidad padre y estado de reconocimiento.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre de la localidad |Texto |obl.
+
+|alternative_names |Grafías y nombres alternativos |Texto |
+
+|locality_type |Tipo de localidad |Opción |obl.
+
+|populated_center_code |Código de centro poblado del INEI |Texto |único
+
+|recognition_status |Estado de reconocimiento |Opción |
+
+|history |Historia de la localidad |Texto largo |
+
+|location |Ubicación |Geometría (point) |
+
+|boundary |Límite |Geometría (polygon) |
+
+|parent_locality |Localidad padre |Relación → `locality` |
+
+|administrative_unit |Distrito |Relación → `administrative_unit` |
+
+|===
+
+[[obj-community]]
+==== Comunidad campesina o nativa (`community`)
+
+Colectivo con personería, territorio comunal inscrito, junta directiva y sectores; como actor participa mediante la organization que lo representa (RN-STK-008).
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre de la comunidad |Texto |obl.
+
+|code |Código |Texto |único
+
+|source_crs |CRS en que vino la geometría importada |Opción |
+
+|source_reference |Fuente de origen |Texto |
+
+|import_batch_id |Importación que lo creó o cambió |UUID |
+
+|alternative_names |Nombres alternativos |Texto |
+
+|community_type |Tipo de comunidad |Opción |
+
+|legal_entity_record |Partida de la personería jurídica |Texto |
+
+|property_record |Partida de propiedad del territorio comunal |Texto |
+
+|parent_record |Partida matriz de la que aún no se independiza |Texto |
+
+|independized |Independizado |Sí/No |
+
+|title_reference |Referencia del título de propiedad |Texto |
+
+|title_issuer_as_written |Emisor del título tal como figura |Texto |
+
+|title_issuer_normalized |Emisor del título normalizado |Texto |
+
+|registered_area_ha |Área inscrita en ha |Decimal |
+
+|calculated_area_ha |Área calculada en ha |Decimal |der.
+
+|registry_records_unverified |Datos registrales sin verificar |Sí/No |
+
+|recognized_as_indigenous |Reconocida como pueblo indígena |Sí/No |
+
+|indigenous_people |Pueblo indígena u originario |Texto |
+
+|organic_status |Estado orgánico |Opción |
+
+|board_registered |Junta directiva inscrita |Sí/No |
+
+|registered_members_count |Comuneros inscritos |Entero |
+
+|has_member_roll |Padrón de comuneros |Sí/No |
+
+|territory |Territorio comunal |Geometría (multipolygon) |
+
+|administrative_unit |Distrito |Relación → `administrative_unit` |
+
+|===
+
+[[obj-community_sector]]
+==== Sector comunal (`community_sector`)
+
+División de una comunidad con delegados ante la asamblea; coincide solo en parte con caseríos.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre del sector |Texto |obl.
+
+|delegates_count |Delegados ante la asamblea comunal |Entero |
+
+|boundary |Límite |Geometría (polygon) |
+
+|community |Comunidad campesina o nativa |Relación → `community` |obl.
+
+|_community_sector_locality_ |Localidades |Varios a varios → `locality` |
+
+|===
+
+[[obj-area_of_influence]]
+==== Área de influencia (`area_of_influence`)
+
+Construcción analítica y versionada de un proyecto: tipo, criterios, miembros curados y geometría opcional.
+
+[.small]
+_workflow `wf-o-area_of_influence`; acciones: `APPROVE`, `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|area_type |Tipo de área |Opción |obl.
+
+|version_number |Versión del área para el proyecto y el tipo |Entero |obl.
+
+|criteria |Criterios aplicados |Texto largo |
+
+|defined_date |Fecha de definición |Fecha |
+
+|calculated_area_ha |Área calculada en ha |Decimal |der.
+
+|boundary |Límite |Geometría (multipolygon) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|study |Estudio de origen |Relación → `study` |
+
+|===
+
+[[obj-area_of_influence_member]]
+==== Miembro del área de influencia (`area_of_influence_member`)
+
+Localidad, comunidad o unidad administrativa incluida en un área de influencia, con su condición y su justificación.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|member_condition |Condición del miembro |Opción |obl.
+
+|applied_criteria |Criterios que lo incluyen |Texto |
+
+|rationale |Justificación |Texto largo |
+
+|studied_in_diagnosis |Estudiado en el diagnóstico |Sí/No |
+
+|spatially_suggested |Sugerido por el cálculo espacial |Sí/No |
+
+|area_of_influence |Área de influencia |Relación → `area_of_influence` |obl.
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|administrative_unit |Unidad administrativa |Relación → `administrative_unit` |
+
+|===
+
+[[obj-project_component]]
+==== Componente del proyecto (`project_component`)
+
+Elemento físico del proyecto (sondaje, plataforma, acceso, campamento, captación) con sus coordenadas de origen y sus versiones.
+
+[.small]
+_solo por API; acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del componente |Texto |obl.
+
+|component_type |Tipo de componente |Opción |obl.
+
+|drill_type |Tipo de perforación |Texto |
+
+|component_status |Estado del componente |Opción |
+
+|version_number |Versión del componente para su código |Entero |obl.
+
+|superseded |Reemplazado |Sí/No |der.
+
+|source_crs |CRS de origen |Opción |
+
+|source_easting |Coordenada este tal como vino |Decimal |
+
+|source_northing |Coordenada norte tal como vino |Decimal |
+
+|source_elevation |Cota tal como vino |Decimal |
+
+|azimuth |Azimut |Decimal |
+
+|dip |Inclinación |Decimal |
+
+|depth_m |Profundidad en metros |Decimal |
+
+|source_reference |Fuente de origen |Texto |
+
+|import_batch_id |Importación que lo creó |UUID |
+
+|location |Ubicación |Geometría (point) |
+
+|trace |Trazo |Geometría (linestring) |
+
+|footprint |Huella |Geometría (polygon) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|exploration_campaign |Campaña de exploración |Relación → `exploration_campaign` |
+
+|previous_version |Versión anterior |Relación → `project_component` |
+
+|===
+
+[[obj-land_parcel]]
+==== Predio (`land_parcel`)
+
+Unidad de tierra con su tenencia, su partida (restringida) y su polígono.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del predio |Texto |obl. único
+
+|tenure_type |Tenencia del predio |Opción |
+
+|registry_record |Partida registral del predio |Texto |restr.
+
+|registered_area_ha |Área registral en ha |Decimal |
+
+|calculated_area_ha |Área calculada en ha |Decimal |der.
+
+|source_crs |CRS en que vino la geometría importada |Opción |
+
+|source_reference |Fuente de origen |Texto |
+
+|import_batch_id |Importación que lo creó o cambió |UUID |
+
+|boundary |Polígono del predio |Geometría (polygon) |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|locality |Localidad |Relación → `locality` |
+
+|===
+
+[[obj-land_right]]
+==== Titularidad del predio (`land_right`)
+
+Vínculo de una persona u organización con un predio como propietario o posesionario, con vigencia.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|tenure_type |Tenencia |Opción |
+
+|start_date |Inicio de la titularidad |Fecha |
+
+|end_date |Fin de la titularidad |Fecha |
+
+|source_reference |Fuente de la titularidad |Texto |
+
+|land_parcel |Predio |Relación → `land_parcel` |obl.
+
+|holder_person |Titular persona |Relación → `person` |
+
+|holder_organization |Titular organización |Relación → `organization` |
+
+|===
+
+[[obj-environmental_feature]]
+==== Elemento ambiental (`environmental_feature`)
+
+Lugar ambiental o culturalmente sensible (zona de protección, fuente de agua, microcuenca, cerro, sitio sagrado, resto arqueológico) con su base legal.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|code |Código |Texto |único
+
+|source_crs |CRS en que vino la geometría importada |Opción |
+
+|source_reference |Fuente de origen |Texto |
+
+|import_batch_id |Importación que lo creó o cambió |UUID |
+
+|feature_type |Tipo de elemento ambiental |Opción |
+
+|legal_basis |Base legal de la declaración |Texto |
+
+|declaring_authority |Autoridad que lo declaró |Texto |
+
+|declaration_date |Fecha de la declaración |Fecha |
+
+|location |Ubicación |Geometría (point) |
+
+|trace |Trazo |Geometría (linestring) |
+
+|boundary |Polígono |Geometría (multipolygon) |
+
+|administrative_unit |Unidad administrativa |Relación → `administrative_unit` |
+
+|===
+
+=== Grupos de interés
+
+[[obj-person]]
+==== Persona (`person`)
+
+Persona natural del territorio, registrada una sola vez con independencia de los proyectos; sus datos están restringidos.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|given_names |Nombres |Texto |obl. restr.
+
+|surnames |Apellidos |Texto |restr.
+
+|sex |Sexo |Opción |
+
+|id_document_type |Tipo de documento de identidad |Texto |
+
+|id_document_number |Número del documento de identidad |Texto |restr.
+
+|preferred_language |Idioma preferido |Texto |
+
+|residence_locality |Localidad de residencia |Relación → `locality` |
+
+|===
+
+[[obj-organization]]
+==== Organización (`organization`)
+
+Organización del territorio o de su entorno (ronda, JASS, municipalidad, federación, ONG, empresa…); no es el tenant.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|alternative_names |Nombres alternativos de la misma organización |Texto |
+
+|address |Dirección |Texto |
+
+|organization_type |Tipo de organización |Opción |
+
+|territorial_level |Nivel territorial |Opción |
+
+|affiliation |Relación con su federación |Opción |
+
+|recognized |Reconocida |Sí/No |
+
+|members_count |Número de miembros |Entero |
+
+|election_mechanism |Cómo elige a sus directivos |Texto |
+
+|term_years |Duración del periodo en años |Entero |
+
+|achievements |Logros |Texto largo |
+
+|locality |Localidad |Relación → `locality` |
+
+|administrative_unit |Unidad administrativa |Relación → `administrative_unit` |
+
+|community |Comunidad que representa |Relación → `community` |
+
+|affiliated_to |Federación |Relación → `organization` |
+
+|split_from |Escindida de |Relación → `organization` |
+
+|===
+
+[[obj-contact_method]]
+==== Medio de contacto (`contact_method`)
+
+Canal de contacto de una persona u organización, con consentimiento; no hay tabla genérica de contactos.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|channel |Tipo de medio |Opción |obl.
+
+|contact_value |Valor de contacto |Texto |obl. restr.
+
+|preferred |Medio preferido |Sí/No |
+
+|consent_given |Consentimiento para usar este medio |Sí/No |
+
+|consent_date |Fecha del consentimiento |Fecha |
+
+|person |Persona |Relación → `person` |
+
+|organization |Organización |Relación → `organization` |
+
+|===
+
+[[obj-position]]
+==== Cargo (`position`)
+
+Puesto en una organización con periodo y estado; puede estar vacante o previsto. No es la postura.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|position_title |Nombre del cargo |Texto |obl.
+
+|election_mechanism |Mecanismo de elección |Texto |
+
+|term_start_date |Inicio del periodo |Fecha |
+
+|term_end_date |Fin del periodo |Fecha |
+
+|start_date |Inicio del ejercicio efectivo |Fecha |
+
+|end_date |Fin del ejercicio efectivo |Fecha |
+
+|position_status |Estado del cargo |Opción |obl.
+
+|career_notes |Trayectoria |Texto largo |
+
+|organization |Organización |Relación → `organization` |obl.
+
+|person |Persona |Relación → `person` |
+
+|community_sector |Sector comunal al que representa |Relación → `community_sector` |
+
+|===
+
+[[obj-stakeholder]]
+==== Grupo de interés (`stakeholder`)
+
+Persona u organización en relación con un proyecto, con los valores vigentes de su última evaluación (la postura y la confianza, el último valor informado de cada una) y su último contacto.
+
+[.small]
+_workflow `wf-b-stakeholder`; acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|stakeholder_type |Tipo de grupo de interés |Opción |
+
+|stakeholder_scope |Ámbito respecto del proyecto |Opción |
+
+|inclusion_reason |Motivo de inclusión |Texto largo |
+
+|interview_status |Resultado del intento de entrevista |Opción |
+
+|relationship_status |Estado de la relación |Opción |
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|profile_summary |Perfil del grupo de interés |Texto largo |
+
+|stance |Postura vigente |Opción |der. restr.
+
+|influence_group |Grupo de influencia de la última evaluación |Opción |der.
+
+|information_priority |Prioridad informativa |Opción |der.
+
+|interest_index |Índice de interés de la última evaluación |Decimal |der.
+
+|power_index |Índice de poder de la última evaluación |Decimal |der.
+
+|trust_score |Confianza vigente |Entero |der.
+
+|last_assessment_date |Fecha de la última evaluación |Fecha |der.
+
+|last_contact_date |Fecha del último contacto |Fecha |der.
+
+|project |Proyecto |Relación → `project` |obl.
+
+|person |Persona |Relación → `person` |
+
+|organization |Organización |Relación → `organization` |
+
+|area_of_influence |Área de influencia |Relación → `area_of_influence` |
+
+|locality |Localidad |Relación → `locality` |
+
+|===
+
+[[obj-stakeholder_assessment]]
+==== Evaluación del grupo de interés (`stakeholder_assessment`)
+
+Registro fechado e inmutable de interés, poder, grupo de influencia, postura y confianza; una corrección es una evaluación nueva.
+
+[.small]
+_solo por API; solo inserción; exige motivo._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|assessment_date |Fecha de la evaluación |Fecha |obl.
+
+|basis |Base de la evaluación |Opción |obl.
+
+|assessor_user_id |Usuario que evalúa |UUID |obl.
+
+|assessor_user_email |Correo de quien evalúa |Correo |obl.
+
+|affect_environment |Afectación del medio ambiente |Entero |
+
+|affect_livelihood |Afecta económicamente mi vida |Entero |
+
+|affect_property_status |Afectación de la propiedad o la posición |Entero |
+
+|opportunity_work |Oportunidad de trabajo u oportunidad personal |Entero |
+
+|opportunity_development |Oportunidad de desarrollo u oportunidad colectiva |Entero |
+
+|opportunity_benefits |Oportunidad de beneficios económicos o políticos |Entero |
+
+|power_legal_action |Habilidad de acción legal |Entero |
+
+|power_credibility |Credibilidad |Entero |
+
+|power_permit_control |Control de permisos |Entero |
+
+|power_action_scope |Ámbito de acción |Entero |
+
+|power_organization_level |Nivel de organización |Entero |
+
+|power_convening_capacity |Capacidad de convocatoria |Entero |
+
+|power_network_membership |Pertenencia a redes |Entero |
+
+|power_group_mobilization |Participación en acciones grupales de movilización |Entero |
+
+|power_other_pressure |Participación en otros mecanismos de presión |Entero |
+
+|interest_affectation |Componente de percepción de afectación |Decimal |
+
+|interest_opportunity |Componente de percepción de oportunidad |Decimal |
+
+|interest_index |Índice de interés de 1 a 5 |Decimal |obl.
+
+|power_resource_control |Componente de control de recursos |Decimal |
+
+|power_action_capacity |Componente de capacidad de acción |Decimal |
+
+|power_network_mobilization |Componente de movilización de redes |Decimal |
+
+|power_index |Índice de poder de 1 a 5 |Decimal |obl.
+
+|influence_score |Puntaje de influencia |Decimal |obl.
+
+|influence_group |Grupo de influencia |Opción |obl.
+
+|group_overridden |Grupo ajustado a mano |Sí/No |obl.
+
+|override_reason |Justificación del ajuste manual |Texto largo |
+
+|stance |Postura |Opción |restr.
+
+|stance_changed |Cambio de postura |Sí/No |der.
+
+|stance_reasons |Razones de la postura |Texto largo |restr.
+
+|concerns |Preocupaciones |Texto largo |restr.
+
+|expectations |Expectativas |Texto largo |restr.
+
+|open_to_dialogue |Apertura al diálogo |Sí/No |
+
+|project_knowledge |Conocimiento del proyecto |Texto largo |
+
+|company_knowledge |Conocimiento de la empresa |Texto largo |
+
+|team_closeness |Cercanía con el equipo |Texto |
+
+|communication_sufficient |Comunicación suficiente |Sí/No |
+
+|information_adequate |Información adecuada |Sí/No |
+
+|trust_score |Confianza de 1 a 5 |Entero |
+
+|stakeholder |Grupo de interés |Relación → `stakeholder` |obl.
+
+|position |Cargo evaluado |Relación → `position` |
+
+|baseline_assessment |Evaluación de línea base |Relación → `stakeholder_assessment` |
+
+|===
+
+[[obj-prioritization_rule]]
+==== Regla de priorización (`prioritization_rule`)
+
+Fila de la matriz de priorización: grupo de influencia × postura × ámbito (y, si aplica, tipo de actor) → prioridad informativa.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|influence_group |Grupo de influencia |Opción |obl.
+
+|stance |Postura |Opción |obl.
+
+|stakeholder_scope |Ámbito |Opción |obl.
+
+|stakeholder_type |Tipo de actor |Opción |
+
+|information_priority |Prioridad informativa resultante |Opción |obl.
+
+|rationale |Justificación |Texto largo |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|===
+
+[[obj-actor_relationship]]
+==== Relación entre actores (`actor_relationship`)
+
+Vínculo dirigido entre dos actores (afiliado a, coordina con, apoya, se opone, asesora).
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|relationship_type |Tipo de relación |Opción |obl.
+
+|start_date |Inicio de la relación |Fecha |
+
+|end_date |Fin de la relación |Fecha |
+
+|source_reference |Fuente de la relación |Texto |
+
+|from_person |Persona de origen |Relación → `person` |
+
+|from_organization |Organización de origen |Relación → `organization` |
+
+|to_person |Persona de destino |Relación → `person` |
+
+|to_organization |Organización de destino |Relación → `organization` |
+
+|===
+
+[[obj-community_network]]
+==== Red comunitaria (`community_network`)
+
+Conjunto de personas y organizaciones conectadas en torno a un caserío, una institución o un apoyo externo.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre de la red |Texto |obl.
+
+|network_type |Tipo de red |Texto |
+
+|contact_status |Estado de contacto de la red |Opción |
+
+|description |Descripción |Texto largo |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|study |Estudio o diagnóstico |Relación → `study` |
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|anchor_organization |Organización ancla |Relación → `organization` |
+
+|===
+
+[[obj-network_node]]
+==== Nodo de red (`network_node`)
+
+Integrante de una red comunitaria con su rol.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|node_role |Rol en la red |Opción |
+
+|notes |Notas |Texto largo |
+
+|community_network |Red comunitaria |Relación → `community_network` |obl.
+
+|person |Persona |Relación → `person` |
+
+|organization |Organización |Relación → `organization` |
+
+|===
+
+=== Relacionamiento y campo
+
+[[obj-engagement]]
+==== Interacción (`engagement`)
+
+Contacto o evento con grupos de interés (desde el contacto cara a cara hasta la mesa de diálogo), con su minuta y sus conteos de asistentes.
+
+[.small]
+_workflow `wf-c-engagement`; acciones: `EDIT_ANY`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|engagement_type |Tipo de interacción |Opción |obl.
+
+|title |Título |Texto |obl.
+
+|objective |Objetivo |Texto largo |
+
+|description |Descripción |Texto largo |
+
+|results |Resultados |Texto largo |
+
+|scheduled_at |Fecha y hora programadas |Fecha y hora |
+
+|held_at |Fecha y hora en que se realizó |Fecha y hora |
+
+|place |Lugar |Texto |
+
+|minutes |Minuta o acta interna |Texto largo |
+
+|cancel_reason |Motivo de la cancelación |Texto |
+
+|attendees_total_count |Asistentes en total |Entero |der.
+
+|attendees_female_count |Asistentes de sexo femenino |Entero |der.
+
+|attendees_male_count |Asistentes de sexo masculino |Entero |der.
+
+|attendees_direct_area_count |Asistentes del AIDS |Entero |der.
+
+|attendees_indirect_area_count |Asistentes del AIIS |Entero |der.
+
+|attendees_regional_count |Asistentes de ámbito regional |Entero |der.
+
+|attendees_national_count |Asistentes de ámbito nacional |Entero |der.
+
+|participant_rating_summary |Evaluación de los participantes |Texto largo |
+
+|location |Ubicación |Geometría (point) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|convener |Convocante |Relación → `stakeholder` |
+
+|field_visit |Visita de campo |Relación → `field_visit` |
+
+|study |Estudio |Relación → `study` |
+
+|study_instrument |Instrumento aplicado |Relación → `study_instrument` |
+
+|planned_activity |Actividad planificada |Relación → `planned_activity` |
+
+|_engagement_stakeholder_ |Grupos de interés |Varios a varios → `stakeholder` |
+
+|_engagement_topic_ |Temas tratados |Varios a varios → `topic` |
+
+|===
+
+[[obj-engagement_participant]]
+==== Participante (`engagement_participant`)
+
+Fila de la lista de asistentes de una interacción; una fila con represented_people_count mayor que 1 es un grupo sin nombres.
+
+[.small]
+_acciones: `EDIT_ANY`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|participant_name |Nombre del asistente |Texto |restr.
+
+|represented_group |Organización o grupo que representa |Texto |
+
+|phone |Teléfono |Texto |restr.
+
+|email |Correo |Correo |restr.
+
+|sex |Sexo |Opción |
+
+|participant_scope |Ámbito |Opción |
+
+|represented_people_count |Personas que representa la fila |Entero |obl.
+
+|attended |Asistió |Sí/No |
+
+|engagement |Interacción |Relación → `engagement` |obl.
+
+|person |Persona |Relación → `person` |
+
+|organization |Organización representada |Relación → `organization` |
+
+|stakeholder |Grupo de interés |Relación → `stakeholder` |
+
+|===
+
+[[obj-engagement_question]]
+==== Pregunta de la interacción (`engagement_question`)
+
+Pregunta o sugerencia planteada en una interacción, con su respuesta en el lugar o posterior.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|question_text |Pregunta o sugerencia |Texto largo |obl.
+
+|raised_as_suggestion |Planteada como sugerencia |Sí/No |
+
+|raised_by_role |Cargo de quien la planteó |Texto |
+
+|answered_on_site |Respondida en el lugar |Sí/No |
+
+|answer |Respuesta |Texto largo |
+
+|answered_at |Momento de la respuesta posterior |Fecha y hora |
+
+|referred_at |Momento de la derivación |Fecha y hora |der.
+
+|engagement |Interacción |Relación → `engagement` |obl.
+
+|topic |Tema |Relación → `topic` |
+
+|aligned_answer |Respuesta alineada |Relación → `aligned_answer` |
+
+|===
+
+[[obj-field_visit]]
+==== Visita de campo (`field_visit`)
+
+Salida al territorio con itinerario y equipo, en la que se realizan interacciones y observaciones (BC-11 en el MVP).
+
+[.small]
+_workflow `wf-l-field_visit`; acciones: `EDIT_ANY`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|title |Título |Texto |obl.
+
+|objective |Objetivo |Texto largo |
+
+|itinerary |Itinerario |Texto largo |
+
+|outcome_summary |Resumen de resultados |Texto largo |
+
+|leader_user_id |Responsable de la visita |UUID |
+
+|leader_user_email |Correo del responsable |Correo |
+
+|team_note |Equipo |Texto |
+
+|planned_start_date |Inicio planificado |Fecha |
+
+|planned_end_date |Fin planificado |Fecha |
+
+|actual_start_date |Inicio real |Fecha |
+
+|actual_end_date |Fin real |Fecha |
+
+|route |Recorrido |Geometría (linestring) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|===
+
+[[obj-field_observation]]
+==== Observación de campo (`field_observation`)
+
+Observación geolocalizada registrada durante una visita.
+
+[.small]
+_acciones: `EDIT_ANY`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|observed_at |Momento de la observación |Fecha y hora |
+
+|observation |Observación |Texto largo |obl.
+
+|location |Ubicación |Geometría (point) |
+
+|field_visit |Visita de campo |Relación → `field_visit` |obl.
+
+|locality |Localidad |Relación → `locality` |
+
+|topic |Tema |Relación → `topic` |
+
+|===
+
+[[obj-engagement_plan]]
+==== Plan de relacionamiento (`engagement_plan`)
+
+Objetivo estratégico, objetivos tácticos, ejes y metas del relacionamiento de un proyecto.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre del plan |Texto |obl.
+
+|strategic_objective |Objetivo estratégico |Texto largo |
+
+|tactical_objectives |Objetivos tácticos |Texto largo |
+
+|action_axes |Ejes de acción |Texto largo |
+
+|meetings_per_month_target |Meta de reuniones al mes del plan |Entero |
+
+|start_date |Inicio |Fecha |
+
+|end_date |Fin |Fecha |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|===
+
+[[obj-key_message]]
+==== Mensaje clave (`key_message`)
+
+Mensaje que el equipo debe instalar, con justificación, acciones de soporte y público objetivo.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|justification |Justificación |Texto largo |
+
+|message |Mensaje |Texto largo |obl.
+
+|support_actions |Acciones o materiales de soporte |Texto largo |
+
+|target_audience |Público objetivo |Texto |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|engagement_plan |Plan de relacionamiento |Relación → `engagement_plan` |
+
+|topic |Tema |Relación → `topic` |
+
+|===
+
+[[obj-aligned_answer]]
+==== Respuesta alineada (`aligned_answer`)
+
+Pregunta frecuente con la respuesta aprobada por el equipo.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|question |Pregunta frecuente |Texto largo |obl.
+
+|answer |Respuesta |Texto largo |
+
+|approved |Aprobada por el equipo |Sí/No |
+
+|approved_date |Fecha de aprobación |Fecha |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|topic |Tema |Relación → `topic` |
+
+|===
+
+[[obj-strategic_alliance]]
+==== Alianza estratégica (`strategic_alliance`)
+
+Institución con la que conviene aliarse, con razones, acciones posibles y el acuerdo cuando se formaliza.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|reasons |Razones |Texto largo |
+
+|possible_actions |Acciones posibles |Texto largo |
+
+|formalized |Formalizada |Sí/No |der.
+
+|project |Proyecto |Relación → `project` |obl.
+
+|organization |Institución |Relación → `organization` |obl.
+
+|agreement |Acuerdo que la formaliza |Relación → `agreement` |
+
+|===
+
+[[obj-planned_activity]]
+==== Actividad planificada (`planned_activity`)
+
+Actividad prevista en el plan de relacionamiento, con fecha y responsable.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|resources |Recursos |Texto largo |
+
+|planned_date |Fecha prevista |Fecha |
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|completed |Completada |Sí/No |
+
+|engagement_plan |Plan de relacionamiento |Relación → `engagement_plan` |obl.
+
+|===
+
+=== Compromisos
+
+[[obj-commitment]]
+==== Compromiso (`commitment`)
+
+Obligación que el proyecto asume ante grupos de interés, con los campos de la matriz de DOC-01 §9.3.1.2; núcleo del sistema.
+
+[.small]
+_workflow `wf-d-commitment`; exige motivo; acciones: `APPROVE`, `VERIFY`, `EXPORT`, `APPROVE_OVER_CAP`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del compromiso |Texto |obl.
+
+|title |Título |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|objective |Objetivo |Texto largo |
+
+|resource_type |Tipo de recurso |Opción |
+
+|quantity |Cantidad |Decimal |
+
+|unit |Unidad |Texto |
+
+|execution_time |Tiempo de ejecución |Texto |
+
+|commitment_theme |Tema del compromiso |Opción |
+
+|formality |Formalidad |Opción |
+
+|request_medium |Medio de solicitud |Opción |
+
+|agreed_date |Fecha del acuerdo |Fecha |
+
+|due_date |Fecha de vencimiento |Fecha |
+
+|amount |Monto |Decimal |obl.
+
+|currency |Moneda |Opción |obl.
+
+|executed_amount |Monto ejecutado |Decimal |der.
+
+|priority |Prioridad |Opción |
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|verifier_user_id |Verificador |UUID |
+
+|verifier_user_email |Correo del verificador |Correo |
+
+|delay_risk_reported |Riesgo de retraso informado |Sí/No |
+
+|delay_risk_note |Detalle del riesgo de retraso |Texto largo |
+
+|deadline_status |Situación de plazo |Opción |der.
+
+|beneficiaries_count |Beneficiarios en total |Entero |
+
+|beneficiaries_female_count |Beneficiarias |Entero |
+
+|beneficiaries_male_count |Beneficiarios varones |Entero |
+
+|beneficiaries_detail |Detalle de los beneficiarios |Texto largo |restr.
+
+|origin_justification |Justificación del origen |Texto largo |
+
+|requires_senior_approval |Requiere aprobación de nivel superior |Sí/No |der.
+
+|fulfilled_date |Fecha de cumplimiento |Fecha |der.
+
+|closed_date |Fecha de cierre |Fecha |der.
+
+|cancelled_date |Fecha de cancelación |Fecha |der.
+
+|location |Ubicación |Geometría (point) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|exploration_campaign |Campaña de exploración |Relación → `exploration_campaign` |
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|topic |Tema |Relación → `topic` |
+
+|origin_engagement |Interacción de origen |Relación → `engagement` |
+
+|agreement |Acuerdo |Relación → `agreement` |
+
+|agreement_clause |Cláusula |Relación → `agreement_clause` |
+
+|origin_grievance |Queja de origen |Relación → `grievance` |
+
+|social_risk |Riesgo que atiende |Relación → `social_risk` |
+
+|_commitment_stakeholder_ |Solicitantes |Varios a varios → `stakeholder` |
+
+|===
+
+[[obj-commitment_action]]
+==== Acción del compromiso (`commitment_action`)
+
+Gestión interna o paso para cumplir un compromiso.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|description |Acción |Texto largo |obl.
+
+|action_date |Fecha |Fecha |
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|completed |Completada |Sí/No |
+
+|commitment |Compromiso |Relación → `commitment` |obl.
+
+|===
+
+[[obj-commitment_milestone]]
+==== Hito del compromiso (`commitment_milestone`)
+
+Plazo parcial de un compromiso.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|description |Hito |Texto |obl.
+
+|due_date |Fecha prevista |Fecha |obl.
+
+|reached_date |Fecha en que se alcanzó |Fecha |
+
+|commitment |Compromiso |Relación → `commitment` |obl.
+
+|===
+
+[[obj-commitment_reschedule]]
+==== Reprogramación (`commitment_reschedule`)
+
+Cambio inmutable de la fecha de vencimiento de un compromiso, con las fechas anterior y nueva y su motivo.
+
+[.small]
+_solo por API; solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|previous_due_date |Fecha de vencimiento anterior |Fecha |obl.
+
+|new_due_date |Fecha de vencimiento nueva |Fecha |obl.
+
+|reschedule_reason |Motivo |Texto largo |obl.
+
+|agreed_with_stakeholder |Acordada con el grupo de interés |Sí/No |obl.
+
+|commitment |Compromiso |Relación → `commitment` |obl.
+
+|===
+
+[[obj-commitment_dependency]]
+==== Dependencia entre compromisos (`commitment_dependency`)
+
+Relación entre compromisos: uno no se cumple mientras el otro siga abierto si la dependencia es bloqueante.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|blocking |Bloqueante |Sí/No |obl.
+
+|notes |Notas |Texto |
+
+|commitment |Compromiso que depende |Relación → `commitment` |obl.
+
+|depends_on |Compromiso del que depende |Relación → `commitment` |obl.
+
+|===
+
+[[obj-delivery]]
+==== Entrega (`delivery`)
+
+Entrega de lo comprometido o aportado, con fecha, receptores, conformidad, acta y fotos como evidencias.
+
+[.small]
+_solo por API._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|delivery_date |Fecha de la entrega |Fecha |obl.
+
+|place |Lugar |Texto |
+
+|delivered_items |Lo entregado |Texto largo |
+
+|delivered_amount |Monto entregado |Decimal |
+
+|recipients |Receptores |Texto largo |restr.
+
+|conformity_given |Conformidad |Sí/No |obl.
+
+|conformity_by |Quienes dan conformidad |Texto largo |restr.
+
+|location |Ubicación de la entrega |Geometría (point) |
+
+|commitment |Compromiso |Relación → `commitment` |
+
+|social_contribution |Aporte social |Relación → `social_contribution` |
+
+|===
+
+[[obj-commitment_candidate]]
+==== Candidato a compromiso (`commitment_candidate`)
+
+Posible compromiso detectado por una persona o por la IA, con evidencia y confianza; solo es compromiso si una persona lo acepta.
+
+[.small]
+_workflow `wf-k-commitment_candidate`; solo por API._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|proposed_text |Texto propuesto |Texto largo |obl.
+
+|evidence_quote |Cita que lo sustenta |Texto largo |restr.
+
+|beneficiaries_text |Beneficiarios según la fuente |Texto largo |
+
+|suggested_owner_user_email |Responsable sugerido |Correo |
+
+|suggested_due_date |Fecha de vencimiento sugerida |Fecha |
+
+|confidence |Confianza de la IA |Decimal |
+
+|ai_generated |Propuesto por la IA |Sí/No |obl.
+
+|project |Proyecto |Relación → `project` |obl.
+
+|engagement |Interacción de origen |Relación → `engagement` |
+
+|source_evidence |Documento de origen |Relación → `evidence` |
+
+|ai_interaction |Llamada a la IA |Relación → `ai_interaction` |
+
+|created_commitment |Compromiso creado |Relación → `commitment` |
+
+|duplicate_of |Duplicado de |Relación → `commitment` |
+
+|===
+
+=== Acuerdos y convenios
+
+[[obj-agreement]]
+==== Acuerdo (`agreement`)
+
+Instrumento formal (acta de acuerdos, convenio, permiso de uso de terreno, servidumbre, autorización de asamblea, alianza formal) con partes, cláusulas y vigencia.
+
+[.small]
+_workflow `wf-i-agreement`; exige motivo._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del acuerdo |Texto |obl.
+
+|title |Título |Texto |obl.
+
+|agreement_type |Tipo de acuerdo |Opción |obl.
+
+|summary |Resumen |Texto largo |
+
+|signed_date |Fecha de firma |Fecha |
+
+|effective_date |Inicio de la vigencia |Fecha |
+
+|expiry_date |Fin de la vigencia |Fecha |
+
+|amount |Monto |Decimal |
+
+|currency |Moneda |Opción |
+
+|validity_status |Situación de vigencia |Opción |der.
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|community |Comunidad titular |Relación → `community` |
+
+|assembly_engagement |Asamblea que autoriza |Relación → `engagement` |
+
+|_agreement_land_parcel_ |Predios afectados |Varios a varios → `land_parcel` |
+
+|===
+
+[[obj-agreement_party]]
+==== Parte del acuerdo (`agreement_party`)
+
+Organización o persona firmante de un acuerdo.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|signatory_role |Rol del firmante |Texto |
+
+|signed |Firmó |Sí/No |
+
+|agreement |Acuerdo |Relación → `agreement` |obl.
+
+|organization |Organización |Relación → `organization` |
+
+|person |Persona |Relación → `person` |
+
+|===
+
+[[obj-agreement_clause]]
+==== Cláusula (`agreement_clause`)
+
+Disposición de un acuerdo que puede originar compromisos.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|clause_number |Número de la cláusula |Texto |obl.
+
+|clause_text |Texto de la cláusula |Texto largo |obl.
+
+|creates_commitment |Origina compromisos |Sí/No |
+
+|agreement |Acuerdo |Relación → `agreement` |obl.
+
+|===
+
+=== Quejas, consultas y solicitudes
+
+[[obj-grievance]]
+==== Queja (`grievance`)
+
+Reclamo por una afectación atribuida al proyecto, que se acusa, evalúa, atiende, resuelve y cierra.
+
+[.small]
+_workflow `wf-e1-grievance`; exige motivo; acciones: `APPROVE`, `EXPORT`, `READ_CONFIDENTIAL`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código de la queja |Texto |obl.
+
+|channel |Canal |Opción |
+
+|received_at |Momento de recepción |Fecha y hora |obl.
+
+|received_by_user_id |Recibida por |UUID |
+
+|received_by_user_email |Correo de quien la recibió |Correo |
+
+|anonymous |Anónima |Sí/No |
+
+|confidential |Confidencial |Sí/No |
+
+|category |Categoría |Opción |
+
+|description |Descripción |Texto largo |obl.
+
+|priority |Prioridad |Opción |
+
+|response_due_date |Plazo de respuesta |Fecha |der.
+
+|deadline_status |Situación de plazo |Opción |der.
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|response |Respuesta |Texto largo |
+
+|responded_at |Momento de la respuesta |Fecha y hora |
+
+|closed_date |Fecha de cierre |Fecha |der.
+
+|location |Ubicación |Geometría (point) |
+
+|severity |Severidad |Opción |
+
+|ack_due_date |Plazo de acuse |Fecha |der.
+
+|resolution_due_date |Plazo de resolución |Fecha |der.
+
+|resolved_date |Fecha de resolución |Fecha |der.
+
+|resolution |Resolución |Texto largo |
+
+|complainant_conformity_given |Conformidad del reclamante |Sí/No |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|stakeholder |Grupo de interés |Relación → `stakeholder` |
+
+|person |Persona |Relación → `person` |
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|topic |Tema |Relación → `topic` |
+
+|origin_engagement |Interacción de origen |Relación → `engagement` |
+
+|origin_question |Pregunta de reunión que la originó |Relación → `engagement_question` |
+
+|social_risk |Riesgo relacionado |Relación → `social_risk` |
+
+|incident |Incidente relacionado |Relación → `incident` |
+
+|duplicate_of |Queja de la que es duplicado |Relación → `grievance` |
+
+|reclassified_from_inquiry |Consulta reclasificada |Relación → `inquiry` |
+
+|reclassified_from_request |Solicitud reclasificada |Relación → `stakeholder_request` |
+
+|===
+
+[[obj-inquiry]]
+==== Consulta (`inquiry`)
+
+Pregunta que requiere una respuesta del proyecto.
+
+[.small]
+_workflow `wf-e2-inquiry`; exige motivo; acciones: `EXPORT`, `READ_CONFIDENTIAL`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código de la consulta |Texto |obl.
+
+|channel |Canal |Opción |
+
+|received_at |Momento de recepción |Fecha y hora |obl.
+
+|received_by_user_id |Recibida por |UUID |
+
+|received_by_user_email |Correo de quien la recibió |Correo |
+
+|anonymous |Anónima |Sí/No |
+
+|confidential |Confidencial |Sí/No |
+
+|category |Categoría |Opción |
+
+|description |Descripción |Texto largo |obl.
+
+|priority |Prioridad |Opción |
+
+|response_due_date |Plazo de respuesta |Fecha |der.
+
+|deadline_status |Situación de plazo |Opción |der.
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|response |Respuesta |Texto largo |
+
+|responded_at |Momento de la respuesta |Fecha y hora |
+
+|closed_date |Fecha de cierre |Fecha |der.
+
+|location |Ubicación |Geometría (point) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|stakeholder |Grupo de interés |Relación → `stakeholder` |
+
+|person |Persona |Relación → `person` |
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|topic |Tema |Relación → `topic` |
+
+|origin_engagement |Interacción de origen |Relación → `engagement` |
+
+|origin_question |Pregunta de reunión que la originó |Relación → `engagement_question` |
+
+|reclassified_from_grievance |Queja reclasificada |Relación → `grievance` |
+
+|reclassified_from_request |Solicitud reclasificada |Relación → `stakeholder_request` |
+
+|===
+
+[[obj-stakeholder_request]]
+==== Solicitud (`stakeholder_request`)
+
+Pedido de apoyo, obra o recurso; si se acepta, origina un compromiso o un aporte.
+
+[.small]
+_workflow `wf-e3-stakeholder_request`; exige motivo; acciones: `EXPORT`, `READ_CONFIDENTIAL`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código de la solicitud |Texto |obl.
+
+|channel |Canal |Opción |
+
+|received_at |Momento de recepción |Fecha y hora |obl.
+
+|received_by_user_id |Recibida por |UUID |
+
+|received_by_user_email |Correo de quien la recibió |Correo |
+
+|anonymous |Anónima |Sí/No |
+
+|confidential |Confidencial |Sí/No |
+
+|category |Categoría |Opción |
+
+|description |Descripción |Texto largo |obl.
+
+|priority |Prioridad |Opción |
+
+|response_due_date |Plazo de respuesta |Fecha |der.
+
+|deadline_status |Situación de plazo |Opción |der.
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|response |Respuesta |Texto largo |
+
+|responded_at |Momento de la respuesta |Fecha y hora |
+
+|closed_date |Fecha de cierre |Fecha |der.
+
+|location |Ubicación |Geometría (point) |
+
+|request_medium |Medio de la solicitud |Opción |
+
+|requested_resource |Recurso pedido |Texto largo |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|stakeholder |Grupo de interés |Relación → `stakeholder` |
+
+|person |Persona |Relación → `person` |
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|topic |Tema |Relación → `topic` |
+
+|origin_engagement |Interacción de origen |Relación → `engagement` |
+
+|origin_question |Pregunta de reunión que la originó |Relación → `engagement_question` |
+
+|created_commitment |Compromiso creado al aceptar |Relación → `commitment` |
+
+|created_contribution |Aporte creado al aceptar |Relación → `social_contribution` |
+
+|reclassified_from_grievance |Queja reclasificada |Relación → `grievance` |
+
+|reclassified_from_inquiry |Consulta reclasificada |Relación → `inquiry` |
+
+|===
+
+=== Riesgos sociales
+
+[[obj-social_risk]]
+==== Riesgo social (`social_risk`)
+
+Tema social que puede impedir el normal desarrollo del proyecto, con los valores vigentes de su última revisión y su riesgo residual.
+
+[.small]
+_workflow `wf-f-social_risk`; exige motivo; acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del riesgo |Texto |obl.
+
+|title |Título |Texto |obl.
+
+|risk_source |Fuente del riesgo |Texto largo |
+
+|category |Categoría de riesgo |Opción |
+
+|impact_type |Tipo de impacto |Opción |
+
+|impact_nature |Naturaleza del impacto |Opción |
+
+|probability |Probabilidad |Entero |der.
+
+|impact |Impacto |Entero |der.
+
+|score |Puntaje |Entero |der.
+
+|risk_level |Nivel de riesgo |Opción |der.
+
+|treatment_decision |Decisión de tratamiento |Opción |
+
+|treatment_rationale |Razón de la decisión |Texto largo |
+
+|current_controls |Acciones actuales |Texto largo |
+
+|monitoring_sources |Fuentes de monitoreo |Texto largo |
+
+|controls_adequate |Acciones adecuadas |Sí/No |
+
+|residual_probability |Probabilidad residual |Entero |der.
+
+|residual_impact |Impacto residual |Entero |der.
+
+|residual_score |Puntaje residual |Entero |der.
+
+|residual_level |Nivel residual |Opción |der.
+
+|review_every_days |Días entre revisiones |Entero |
+
+|next_review_date |Fecha de la próxima revisión |Fecha |der.
+
+|review_status |Situación de revisión |Opción |der.
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|close_reason |Motivo de cierre |Texto largo |
+
+|location |Ubicación |Geometría (point) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|key_theme |Tema clave |Relación → `key_theme` |
+
+|local_conflict |Conflicto local |Relación → `local_conflict` |
+
+|origin_incident |Incidente de origen |Relación → `incident` |
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|area_of_influence |Área de influencia |Relación → `area_of_influence` |
+
+|_social_risk_stakeholder_ |Grupos de interés involucrados |Varios a varios → `stakeholder` |
+
+|===
+
+[[obj-risk_assessment]]
+==== Revisión de riesgo (`risk_assessment`)
+
+Evaluación periódica e inmutable de un riesgo, residual o no, con su tendencia.
+
+[.small]
+_solo por API; solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|assessment_date |Fecha de la revisión |Fecha |obl.
+
+|probability |Probabilidad |Entero |obl.
+
+|impact |Impacto |Entero |obl.
+
+|score |Puntaje P × I |Entero |obl.
+
+|risk_level |Nivel de riesgo |Opción |obl.
+
+|residual |Residual |Sí/No |obl.
+
+|trend |Tendencia |Opción |
+
+|notes |Notas |Texto largo |
+
+|assessor_user_id |Usuario que revisa |UUID |obl.
+
+|assessor_user_email |Correo de quien revisa |Correo |obl.
+
+|social_risk |Riesgo social |Relación → `social_risk` |obl.
+
+|===
+
+[[obj-mitigation_measure]]
+==== Medida de mitigación (`mitigation_measure`)
+
+Acción del plan que reduce la probabilidad o la consecuencia de un riesgo.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|description |Medida |Texto largo |obl.
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|planned_date |Fecha planificada |Fecha |
+
+|completed_date |Fecha en que se completó |Fecha |
+
+|completed |Completada |Sí/No |
+
+|social_risk |Riesgo social |Relación → `social_risk` |obl.
+
+|===
+
+[[obj-potential_impact]]
+==== Impacto potencial (`potential_impact`)
+
+Impacto ambiental o social, real o percibido, positivo o negativo, asociado a un tipo de actividad.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|activity_type |Tipo de actividad |Opción |
+
+|description |Impacto |Texto largo |obl.
+
+|impact_type |Tipo de impacto |Opción |
+
+|impact_nature |Naturaleza del impacto |Opción |
+
+|impact_sign |Signo del impacto |Opción |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|social_risk |Riesgo que origina |Relación → `social_risk` |
+
+|===
+
+=== Alerta temprana e incidentes
+
+[[obj-incident]]
+==== Incidente (`incident`)
+
+Hecho social ocurrido (expulsión, retención de vehículo, bloqueo, protesta…) con su respuesta inmediata y sus consecuencias.
+
+[.small]
+_workflow `wf-m-incident`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del incidente |Texto |obl.
+
+|incident_type |Tipo de incidente |Opción |
+
+|occurred_at |Momento en que ocurrió |Fecha y hora |obl.
+
+|place |Lugar |Texto |
+
+|description |Descripción |Texto largo |obl.
+
+|immediate_response |Respuesta inmediata |Texto largo |
+
+|consequences |Consecuencias |Texto largo |
+
+|location |Ubicación |Geometría (point) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|_incident_stakeholder_ |Actores involucrados |Varios a varios → `stakeholder` |
+
+|===
+
+[[obj-media_mention]]
+==== Mención en medios (`media_mention`)
+
+Nota de prensa, radio o redes sobre el proyecto, con su tono; un comunicado sobre un compromiso cumplido también lo es (ASM-029).
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|outlet_name |Nombre del medio |Texto |
+
+|published_date |Fecha de publicación |Fecha |obl.
+
+|url |Enlace |URL |
+
+|headline |Titular |Texto |obl.
+
+|summary |Resumen |Texto largo |
+
+|tone |Tono |Opción |
+
+|reports_fulfilled_commitment |Informa un compromiso cumplido |Sí/No |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|outlet |Medio de comunicación |Relación → `organization` |
+
+|topic |Tema |Relación → `topic` |
+
+|commitment |Compromiso |Relación → `commitment` |
+
+|===
+
+[[obj-early_warning_signal]]
+==== Señal de alerta (`early_warning_signal`)
+
+Dato que puede anticipar un conflicto, con su fuente; alimenta reglas y alertas.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|source_type |Fuente de la señal |Opción |
+
+|received_at |Momento en que se recibió |Fecha y hora |obl.
+
+|description |Descripción |Texto largo |obl.
+
+|reported_via |Cómo llegó |Texto |
+
+|location |Ubicación |Geometría (point) |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|media_mention |Mención en medios |Relación → `media_mention` |
+
+|incident |Incidente |Relación → `incident` |
+
+|early_warning |Alerta que alimenta |Relación → `early_warning` |
+
+|===
+
+[[obj-early_warning_rule]]
+==== Regla de alerta (`early_warning_rule`)
+
+Condición configurable que convierte señales o datos en una alerta; nunca decide.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|rule_kind |Tipo de regla |Opción |obl.
+
+|threshold |Umbral |Decimal |
+
+|window_days |Ventana en días |Entero |
+
+|severity |Severidad de las alertas |Opción |
+
+|enabled |Activa |Sí/No |obl.
+
+|description |Descripción |Texto largo |
+
+|project |Proyecto |Relación → `project` |
+
+|===
+
+[[obj-early_warning]]
+==== Alerta temprana (`early_warning`)
+
+Aviso triado que solo una persona confirma o descarta (RN-EWS-001).
+
+[.small]
+_workflow `wf-j-early_warning`; acciones: `CONFIRM_ALERT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|title |Título |Texto |obl.
+
+|detected_at |Momento de detección |Fecha y hora |
+
+|severity |Severidad |Opción |
+
+|trigger_description |Qué la disparó |Texto largo |
+
+|ai_detected |Detectada por la IA |Sí/No |
+
+|owner_user_id |Responsable |UUID |
+
+|owner_user_email |Correo del responsable |Correo |
+
+|location |Ubicación |Geometría (point) |
+
+|generator_key |Clave del generador |Texto |único
+
+|project |Proyecto |Relación → `project` |obl.
+
+|early_warning_rule |Regla que la creó |Relación → `early_warning_rule` |
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|social_risk |Riesgo al que alimenta |Relación → `social_risk` |
+
+|===
+
+=== Inversión social y programas
+
+[[obj-social_contribution]]
+==== Aporte social (`social_contribution`)
+
+Apoyo puntual (donación o apoyo en especie) entregado con acta de recepción, foto y comprobante, con propósito, condiciones y pagador declarados.
+
+[.small]
+_workflow `wf-p-social_contribution`; exige motivo; acciones: `APPROVE`, `APPROVE_OVER_CAP`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del aporte |Texto |obl.
+
+|contribution_type |Tipo de aporte |Opción |
+
+|occasion |Ocasión |Texto |
+
+|declared_purpose |Propósito declarado |Texto largo |obl.
+
+|conditions |Condiciones declaradas |Texto largo |obl.
+
+|total_amount |Monto total |Decimal |der.
+
+|currency |Moneda |Opción |obl.
+
+|beneficiaries_count |Beneficiarios |Entero |
+
+|has_institutional_synergy |Sinergia institucional |Sí/No |
+
+|guideline_deviation_justification |Justificación de la desviación |Texto largo |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|exploration_campaign |Campaña de exploración |Relación → `exploration_campaign` |
+
+|payer_organization |Pagador |Relación → `organization` |obl.
+
+|recipient_organization |Receptor |Relación → `organization` |
+
+|stakeholder |Grupo de interés |Relación → `stakeholder` |
+
+|locality |Localidad |Relación → `locality` |
+
+|festivity |Festividad |Relación → `festivity` |
+
+|commitment |Compromiso |Relación → `commitment` |
+
+|agreement |Acuerdo de sinergia |Relación → `agreement` |
+
+|topic |Tema |Relación → `topic` |
+
+|===
+
+[[obj-contribution_item]]
+==== Ítem del aporte (`contribution_item`)
+
+Bien, servicio, dinero o mano de obra que compone un aporte, con su tipo, cantidad y monto.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|description |Bien o servicio |Texto |obl.
+
+|item_kind |Tipo de ítem |Opción |obl.
+
+|quantity |Cantidad |Decimal |
+
+|unit |Unidad |Texto |
+
+|unit_cost |Costo unitario |Decimal |
+
+|line_amount |Monto de la línea |Decimal |obl.
+
+|social_contribution |Aporte social |Relación → `social_contribution` |obl.
+
+|===
+
+[[obj-receipt]]
+==== Comprobante (`receipt`)
+
+Datos estructurados del documento de pago de un aporte; el escaneo es una evidence de tipo COMPROBANTE.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|receipt_type |Tipo de comprobante |Opción |
+
+|receipt_number |Número |Texto |
+
+|issuer_name |Emisor |Texto |
+
+|issued_to_name |Emitido a nombre de |Texto |
+
+|issue_date |Fecha de emisión |Fecha |
+
+|amount |Monto |Decimal |obl.
+
+|currency |Moneda |Opción |obl.
+
+|social_contribution |Aporte social |Relación → `social_contribution` |obl.
+
+|issued_to_organization |Emitido a nombre de |Relación → `organization` |
+
+|===
+
+[[obj-social_program]]
+==== Programa social (`social_program`)
+
+Programa de inversión social de la empresa, con socios, presupuesto, beneficiarios, indicadores e hitos.
+
+[.small]
+_workflow `wf-g-social_program`; acciones: `APPROVE`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del programa |Texto |obl.
+
+|name |Nombre |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|start_date |Inicio |Fecha |
+
+|end_date |Fin |Fecha |
+
+|total_budget |Presupuesto total |Decimal |der.
+
+|currency |Moneda |Opción |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|topic |Tema |Relación → `topic` |
+
+|partner_organization |Socio |Relación → `organization` |
+
+|agreement |Acuerdo de sinergia |Relación → `agreement` |
+
+|===
+
+[[obj-social_initiative]]
+==== Iniciativa social (`social_initiative`)
+
+Proyecto concreto dentro de un programa.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|start_date |Inicio |Fecha |
+
+|end_date |Fin |Fecha |
+
+|location |Ubicación |Geometría (point) |
+
+|social_program |Programa social |Relación → `social_program` |obl.
+
+|locality |Localidad |Relación → `locality` |
+
+|community |Comunidad campesina o nativa |Relación → `community` |
+
+|counterpart_organization |Contraparte |Relación → `organization` |
+
+|===
+
+[[obj-beneficiary_group]]
+==== Grupo de beneficiarios (`beneficiary_group`)
+
+Población objetivo de un programa o de una iniciativa.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|target_count |Beneficiarios previstos |Entero |
+
+|reached_count |Beneficiarios alcanzados |Entero |
+
+|social_program |Programa social |Relación → `social_program` |obl.
+
+|social_initiative |Iniciativa social |Relación → `social_initiative` |
+
+|locality |Localidad |Relación → `locality` |
+
+|===
+
+[[obj-program_budget]]
+==== Presupuesto del programa (`program_budget`)
+
+Monto asignado y ejecutado de un programa por año.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|budget_year |Año |Entero |obl.
+
+|allocated_amount |Monto asignado |Decimal |obl.
+
+|executed_amount |Monto ejecutado registrado |Decimal |
+
+|currency |Moneda |Opción |obl.
+
+|social_program |Programa social |Relación → `social_program` |obl.
+
+|===
+
+[[obj-program_indicator]]
+==== Indicador de programa (`program_indicator`)
+
+Indicador de resultado o de impacto de un programa, con línea base y meta (GAP-032).
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|definition |Definición |Texto largo |
+
+|unit |Unidad |Texto |
+
+|baseline_value |Valor de línea base |Decimal |
+
+|target_value |Meta |Decimal |
+
+|frequency |Frecuencia de medición |Texto |
+
+|social_program |Programa social |Relación → `social_program` |obl.
+
+|===
+
+[[obj-program_measurement]]
+==== Medición de programa (`program_measurement`)
+
+Valor periódico e inmutable de un indicador de programa.
+
+[.small]
+_solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|period_start_date |Inicio del periodo |Fecha |obl.
+
+|period_end_date |Fin del periodo |Fecha |obl.
+
+|measured_value |Valor medido |Decimal |obl.
+
+|notes |Notas |Texto largo |
+
+|program_indicator |Indicador de programa |Relación → `program_indicator` |obl.
+
+|===
+
+[[obj-program_milestone]]
+==== Hito de programa (`program_milestone`)
+
+Fecha o logro previsto de un programa.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|planned_date |Fecha prevista |Fecha |
+
+|reached_date |Fecha alcanzada |Fecha |
+
+|notes |Notas |Texto largo |
+
+|social_program |Programa social |Relación → `social_program` |obl.
+
+|===
+
+=== Evidencias, tareas y catálogos
+
+[[obj-evidence]]
+==== Evidencia (`evidence`)
+
+Archivo inmutable con hash que prueba un hecho, guardado en un campo FILE de wasichai-files y vinculable a varios registros.
+
+[.small]
+_solo por API; acciones: `DOWNLOAD_RESTRICTED`, `EDIT_ANY`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|evidence_type |Tipo de evidencia |Opción |obl.
+
+|classification |Clasificación |Opción |obl.
+
+|title |Título |Texto |
+
+|file |Archivo |Archivo |obl.
+
+|document_date |Fecha del documento |Fecha |
+
+|author |Autor |Texto |
+
+|captured_at |Momento de captura |Fecha y hora |
+
+|people_identifiable |Personas identificables |Sí/No |
+
+|photo_consent_given |Consentimiento de las personas fotografiadas |Sí/No |
+
+|import_batch_id |Lote de importación |UUID |
+
+|location |Ubicación de la captura |Geometría (point) |
+
+|project |Proyecto |Relación → `project` |
+
+|replaces |Reemplaza a |Relación → `evidence` |
+
+|_evidence_community_ |Comunidades campesinas o nativas |Varios a varios → `community` |
+
+|_evidence_land_parcel_ |Predios |Varios a varios → `land_parcel` |
+
+|_evidence_stakeholder_ |Grupos de interés |Varios a varios → `stakeholder` |
+
+|_evidence_engagement_ |Interacciones |Varios a varios → `engagement` |
+
+|_evidence_field_visit_ |Visitas de campo |Varios a varios → `field_visit` |
+
+|_evidence_field_observation_ |Observaciones de campo |Varios a varios → `field_observation` |
+
+|_evidence_commitment_ |Compromisos |Varios a varios → `commitment` |
+
+|_evidence_delivery_ |Entregas |Varios a varios → `delivery` |
+
+|_evidence_agreement_ |Acuerdos |Varios a varios → `agreement` |
+
+|_evidence_grievance_ |Quejas |Varios a varios → `grievance` |
+
+|_evidence_inquiry_ |Consultas |Varios a varios → `inquiry` |
+
+|_evidence_stakeholder_request_ |Solicitudes |Varios a varios → `stakeholder_request` |
+
+|_evidence_social_risk_ |Riesgos sociales |Varios a varios → `social_risk` |
+
+|_evidence_incident_ |Incidentes |Varios a varios → `incident` |
+
+|_evidence_media_mention_ |Menciones en medios |Varios a varios → `media_mention` |
+
+|_evidence_social_contribution_ |Aportes sociales |Varios a varios → `social_contribution` |
+
+|_evidence_social_program_ |Programas sociales |Varios a varios → `social_program` |
+
+|_evidence_study_ |Estudios o diagnósticos |Varios a varios → `study` |
+
+|===
+
+[[obj-task]]
+==== Tarea (`task`)
+
+Trabajo asignado a una persona, con vencimiento derivado y un único origen; incluye las tareas que crean los trabajos programados.
+
+[.small]
+_workflow `wf-n-task`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|title |Título |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|assignee_user_id |Responsable |UUID |
+
+|assignee_user_email |Correo del responsable |Correo |
+
+|due_date |Vencimiento |Fecha |
+
+|priority |Prioridad |Opción |
+
+|deadline_status |Situación de plazo |Opción |der.
+
+|generator_key |Clave del generador |Texto |único
+
+|project |Proyecto |Relación → `project` |obl.
+
+|commitment |Compromiso |Relación → `commitment` |
+
+|grievance |Queja |Relación → `grievance` |
+
+|inquiry |Consulta |Relación → `inquiry` |
+
+|stakeholder_request |Solicitud |Relación → `stakeholder_request` |
+
+|social_risk |Riesgo social |Relación → `social_risk` |
+
+|early_warning |Alerta temprana |Relación → `early_warning` |
+
+|engagement |Interacción |Relación → `engagement` |
+
+|agreement |Acuerdo |Relación → `agreement` |
+
+|social_program |Programa social |Relación → `social_program` |
+
+|stakeholder |Grupo de interés |Relación → `stakeholder` |
+
+|deliverable |Entregable |Relación → `deliverable` |
+
+|===
+
+[[obj-indicator]]
+==== Indicador (`indicator`)
+
+Indicador de monitoreo o KPI con definición, fórmula, desagregación, meta y frecuencia; objeto catálogo (BC-20).
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del KPI |Texto |obl. único
+
+|name |Nombre |Texto |obl.
+
+|definition |Definición |Texto largo |
+
+|formula |Fórmula |Texto largo |
+
+|verification_means |Medio de verificación |Texto largo |
+
+|disaggregation |Desagregación |Texto |
+
+|target_value |Meta |Decimal |
+
+|frequency |Frecuencia |Texto |
+
+|source_reference |Fuente del indicador |Texto |
+
+|===
+
+[[obj-topic]]
+==== Tema (`topic`)
+
+Catálogo jerárquico de temas (agua, empleo, medio ambiente…); objeto catálogo (BC-20).
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|code |Código del tema |Texto |obl. único
+
+|name |Nombre |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|active |Tema vigente |Sí/No |obl.
+
+|parent_topic |Tema padre |Relación → `topic` |
+
+|===
+
+=== Reportes, entregables, auditoría e IA
+
+[[obj-indicator_measurement]]
+==== Medición de indicador (`indicator_measurement`)
+
+Cifra oficial e inmutable de un indicador en un periodo cerrado, por proyecto o para todo el tenant (ASM-042).
+
+[.small]
+_solo por API; solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|period_start_date |Inicio del periodo |Fecha |obl.
+
+|period_end_date |Fin del periodo |Fecha |obl.
+
+|measured_value |Valor oficial |Decimal |obl.
+
+|numerator |Numerador |Decimal |
+
+|denominator |Denominador |Decimal |
+
+|breakdown |Desglose |Texto largo |
+
+|closed_by_user_id |Usuario que cerró |UUID |obl.
+
+|closed_by_user_email |Correo de quien cerró |Correo |obl.
+
+|indicator |Indicador |Relación → `indicator` |obl.
+
+|project |Proyecto |Relación → `project` |
+
+|===
+
+[[obj-deliverable]]
+==== Entregable (`deliverable`)
+
+Informe de varias secciones (diagnóstico social, informe de campo) que se genera en DOCX y PDF, se revisa, se aprueba y se emite.
+
+[.small]
+_workflow `wf-h-deliverable`; exige motivo; acciones: `APPROVE`, `GENERATE`, `ISSUE`, `EXPORT`, `DOWNLOAD_RESTRICTED`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|document_code |Código del documento |Texto |obl. único
+
+|title |Título |Texto |obl.
+
+|deliverable_type |Tipo de entregable |Opción |obl.
+
+|period_start_date |Inicio del periodo |Fecha |
+
+|period_end_date |Fin del periodo |Fecha |
+
+|cutoff_date |Fecha de corte |Fecha |
+
+|template_key |Clave de la plantilla |Texto |
+
+|generation_requested_at |Borrador pedido el |Fecha y hora |der.
+
+|draft_generation_status |Estado del borrador |Opción |der.
+
+|draft_generated_at |Modelo congelado el |Fecha y hora |der.
+
+|draft_model_sha256 |SHA-256 del modelo del borrador |Texto |der.
+
+|draft_revision |Revisión del borrador |Texto |der.
+
+|draft_warnings |Avisos del borrador |Texto largo |der.
+
+|draft_model |Modelo del borrador |Archivo |der.
+
+|draft_internal_docx |Borrador INTERNO en DOCX |Archivo |der.
+
+|draft_internal_pdf |Borrador INTERNO en PDF |Archivo |der.
+
+|draft_external_pdf |Borrador EXTERNO en PDF |Archivo |der.
+
+|draft_candidate_internal_docx |Candidata INTERNO en DOCX |Archivo |der.
+
+|draft_candidate_internal_pdf |Candidata INTERNO en PDF |Archivo |der.
+
+|draft_candidate_external_pdf |Candidata EXTERNO en PDF |Archivo |der.
+
+|current_revision |Revisión vigente |Texto |der.
+
+|project |Proyecto |Relación → `project` |obl.
+
+|area_of_influence |Área de influencia |Relación → `area_of_influence` |
+
+|community |Comunidad |Relación → `community` |
+
+|locality |Localidad |Relación → `locality` |
+
+|study |Estudio |Relación → `study` |
+
+|prepared_for_organization |Preparado para |Relación → `organization` |
+
+|prepared_by_organization |Suscrito por |Relación → `organization` |
+
+|current_version |Versión vigente |Relación → `deliverable_version` |
+
+|===
+
+[[obj-deliverable_section]]
+==== Sección de entregable (`deliverable_section`)
+
+Parte de un entregable con su texto en Markdown y el origen de ese texto.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|section_key |Clave de la sección |Texto |obl.
+
+|title |Título |Texto |obl.
+
+|sort_order |Orden |Entero |obl.
+
+|section_kind |Tipo de sección |Opción |
+
+|content |Texto |Texto largo |
+
+|content_origin |Origen del texto |Opción |obl.
+
+|reviewed |Revisada |Sí/No |
+
+|deliverable |Entregable |Relación → `deliverable` |obl.
+
+|ai_suggestion |Sugerencia de IA |Relación → `ai_suggestion` |
+
+|===
+
+[[obj-deliverable_version]]
+==== Versión de entregable (`deliverable_version`)
+
+Emisión inmutable de un entregable con sus archivos, los hashes del DOCX, del PDF y del modelo congelado, y su nivel de divulgación.
+
+[.small]
+_solo por API; solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|version_number |Número de versión |Entero |obl.
+
+|revision |Revisión |Texto |obl.
+
+|issued_at |Emitida el |Fecha y hora |obl.
+
+|issued_by_user_id |Usuario que emitió |UUID |obl.
+
+|issued_by_user_email |Correo de quien emitió |Correo |obl.
+
+|disclosure_level |Nivel de divulgación |Opción |obl.
+
+|docx |DOCX |Archivo |
+
+|pdf |PDF |Archivo |obl.
+
+|model |Modelo congelado |Archivo |
+
+|pdf_sha256 |SHA-256 del PDF |Texto |obl.
+
+|model_sha256 |SHA-256 del modelo |Texto |obl.
+
+|template_sha256 |SHA-256 de la plantilla |Texto |obl.
+
+|docx_sha256 |SHA-256 del DOCX |Texto |
+
+|ai_assisted_sections |Secciones asistidas por IA |Texto largo |
+
+|deliverable |Entregable |Relación → `deliverable` |obl.
+
+|derived_from |Versión base |Relación → `deliverable_version` |
+
+|===
+
+[[obj-deliverable_template]]
+==== Plantilla de entregable (`deliverable_template`)
+
+Plantilla Word (.dotx o .docx) de la organización, validada al subirla: aporta el aspecto de los entregables con marcadores fijos, estilos requeridos y fuentes permitidas.
+
+[.small]
+_solo por API; solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|template_key |Clave de la plantilla |Texto |obl.
+
+|name |Nombre |Texto |
+
+|file |Archivo |Archivo |obl.
+
+|logo |Logo |Archivo |
+
+|accent_color |Color de acento |Texto |
+
+|validation_warnings |Avisos de la validación |Texto largo |
+
+|===
+
+[[obj-export_log]]
+==== Registro de exportación (`export_log`)
+
+Registro inmutable de cada exportación, emisión y descarga de archivos de entregable (borradores y versiones, en todo nivel de divulgación): quién, qué, con qué nivel y cuándo.
+
+[.small]
+_solo por API; solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|exported_at |Momento de la salida |Fecha y hora |obl.
+
+|exporter_user_id |Usuario que exporta |UUID |obl.
+
+|exporter_user_email |Correo de quien exporta |Correo |obl.
+
+|export_kind |Tipo de salida |Texto |obl.
+
+|object_name |Objeto exportado o descargado |Texto |
+
+|file_format |Formato del archivo |Texto |obl.
+
+|disclosure_level |Nivel de divulgación aplicado |Opción |obl.
+
+|filters_description |Filtros aplicados |Texto largo |
+
+|row_count |Filas exportadas |Entero |
+
+|project |Proyecto |Relación → `project` |
+
+|deliverable |Entregable |Relación → `deliverable` |
+
+|deliverable_version |Versión de entregable |Relación → `deliverable_version` |
+
+|===
+
+[[obj-ai_suggestion]]
+==== Sugerencia de IA (`ai_suggestion`)
+
+Resultado de la IA guardado aparte, con evidencia y confianza, que una persona acepta o rechaza.
+
+[.small]
+_workflow `wf-k-ai_suggestion`; solo por API._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|suggestion_kind |Tipo de sugerencia |Opción |obl.
+
+|target_object |Objeto destino |Texto |
+
+|target_record_id |Registro destino |UUID |
+
+|suggested_value |Valor sugerido |Texto largo |obl.
+
+|evidence_quote |Cita que la sustenta |Texto largo |restr.
+
+|confidence |Confianza |Decimal |
+
+|model |Modelo |Texto |obl.
+
+|project |Proyecto |Relación → `project` |
+
+|ai_interaction |Interacción con IA |Relación → `ai_interaction` |obl.
+
+|===
+
+[[obj-ai_interaction]]
+==== Interacción con IA (`ai_interaction`)
+
+Registro inmutable de cada llamada a un modelo: proveedor, modelo, versión de prompt, tokens, latencia y confianza.
+
+[.small]
+_solo por API; solo inserción._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|use_case |Caso de IA |Texto |obl.
+
+|provider |Proveedor |Texto |obl.
+
+|model |Modelo |Texto |obl.
+
+|model_version |Versión del modelo |Texto |
+
+|prompt_version |Versión del prompt |Texto |obl.
+
+|started_at |Momento de la llamada |Fecha y hora |obl.
+
+|input_reference |Referencia a la entrada |Texto |
+
+|output_summary |Resumen de la salida |Texto largo |
+
+|input_tokens |Tokens de entrada |Entero |
+
+|output_tokens |Tokens de salida |Entero |
+
+|latency_ms |Latencia en milisegundos |Entero |
+
+|confidence |Confianza |Decimal |
+
+|requested_by_user_id |Usuario que la pidió |UUID |
+
+|requested_by_user_email |Correo de quien la pidió |Correo |
+
+|run_by_platform |Hecha por la plataforma |Sí/No |der.
+
+|project |Proyecto |Relación → `project` |
+
+|===
+
+=== Línea base social
+
+[[obj-study]]
+==== Estudio o diagnóstico (`study`)
+
+Estudio de línea base o diagnóstico social con objetivos, metodología, instrumentos y trabajo de campo.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|title |Título |Texto |obl.
+
+|study_type |Tipo de estudio |Texto |
+
+|objectives |Objetivos |Texto largo |
+
+|scope_description |Alcance |Texto largo |
+
+|methodology |Metodología |Texto largo |
+
+|fieldwork_start_date |Inicio del trabajo de campo |Fecha |
+
+|fieldwork_end_date |Fin del trabajo de campo |Fecha |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|author_organization |Autora |Relación → `organization` |
+
+|client_organization |Cliente |Relación → `organization` |
+
+|===
+
+[[obj-study_instrument]]
+==== Instrumento de estudio (`study_instrument`)
+
+Instrumento aplicado a un tema y a un ámbito (tema → tipo de instrumento → ámbito de aplicación).
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|instrument_type |Tipo de instrumento |Opción |obl.
+
+|application_scope |Ámbito de aplicación |Opción |
+
+|description |Descripción |Texto largo |
+
+|study |Estudio o diagnóstico |Relación → `study` |obl.
+
+|topic |Tema |Relación → `topic` |
+
+|===
+
+[[obj-locality_profile]]
+==== Perfil de localidad (`locality_profile`)
+
+Datos socioeconómicos fechados de una localidad, cada uno con su fuente y su confiabilidad.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|data_date |Fecha de los datos |Fecha |obl.
+
+|data_source |Fuente de los datos |Texto |obl.
+
+|reliability |Confiabilidad del dato |Opción |obl.
+
+|families_count |Familias |Entero |
+
+|population_count |Población |Entero |
+
+|communal_labor_members_count |Republicanos |Entero |
+
+|members_per_family |Miembros por familia |Decimal |
+
+|migration |Migración |Texto largo |
+
+|economic_activities |Actividades económicas |Texto largo |
+
+|crops |Cultivos |Texto largo |
+
+|livestock |Ganadería |Texto largo |
+
+|water_source |Fuente del agua |Texto |
+
+|water_treatment |Tratamiento del agua |Texto |
+
+|water_frequency |Frecuencia del servicio de agua |Texto |
+
+|water_fee |Pago por el agua |Texto |
+
+|water_system_age_years |Antigüedad del sistema de agua en años |Entero |
+
+|water_problems |Problemas del servicio de agua |Texto largo |
+
+|electricity |Electricidad |Texto |
+
+|sanitation |Saneamiento |Texto |
+
+|phone_coverage |Cobertura de telefonía |Texto |
+
+|religion |Religión |Texto largo |restr.
+
+|electoral_process |Proceso electoral |Texto largo |restr.
+
+|locality |Localidad |Relación → `locality` |obl.
+
+|study |Estudio o diagnóstico |Relación → `study` |
+
+|===
+
+[[obj-school]]
+==== Institución educativa (`school`)
+
+Institución de nivel inicial, primario o secundario de una localidad.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|education_level |Nivel educativo |Texto |
+
+|school_status |Estado |Texto |
+
+|location |Ubicación |Geometría (point) |
+
+|locality |Localidad |Relación → `locality` |obl.
+
+|===
+
+[[obj-health_facility]]
+==== Establecimiento de salud (`health_facility`)
+
+Puesto o centro de salud de una localidad.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|facility_type |Tipo de establecimiento |Texto |
+
+|facility_status |Estado |Texto |
+
+|location |Ubicación |Geometría (point) |
+
+|locality |Localidad |Relación → `locality` |obl.
+
+|===
+
+[[obj-road_access]]
+==== Vía de acceso (`road_access`)
+
+Trocha carrozable o camino de herradura que conecta localidades, con su estado y sus medios de transporte.
+
+[.small]
+_acciones: `EXPORT`._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|road_type |Tipo de vía |Texto |
+
+|road_condition |Estado de la vía |Texto |
+
+|transport_means |Medios de transporte |Texto |
+
+|travel_time |Tiempo de viaje |Texto |
+
+|trace |Trazo |Geometría (linestring) |
+
+|locality |Localidad de origen |Relación → `locality` |obl.
+
+|connects_to |Localidad de destino |Relación → `locality` |
+
+|===
+
+[[obj-festivity]]
+==== Festividad (`festivity`)
+
+Celebración local o distrital con fechas y turnos de coorganización.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|date_text |Fecha tal como se celebra |Texto |
+
+|month |Mes |Entero |
+
+|start_day |Día de inicio |Entero |
+
+|end_day |Día de fin |Entero |
+
+|co_organization_turns |Turnos de coorganización |Texto largo |
+
+|locality |Localidad |Relación → `locality` |
+
+|administrative_unit |Unidad administrativa |Relación → `administrative_unit` |
+
+|===
+
+[[obj-state_program]]
+==== Programa estatal (`state_program`)
+
+Programa social del Estado presente en una o más localidades; es contexto, no inversión del proyecto.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|sponsor_organization |Entidad del Estado |Relación → `organization` |
+
+|_state_program_locality_ |Localidades |Varios a varios → `locality` |
+
+|===
+
+[[obj-local_conflict]]
+==== Conflicto local (`local_conflict`)
+
+Disputa entre localidades por agua, límites, terrenos o separación, con su estado.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|title |Título |Texto |obl.
+
+|conflict_type |Tipo de conflicto |Opción |
+
+|conflict_status |Estado del conflicto |Opción |
+
+|disputed_resource |Recurso en disputa |Texto |
+
+|description |Descripción |Texto largo |
+
+|environmental_feature |Lugar o recurso en disputa |Relación → `environmental_feature` |
+
+|_local_conflict_locality_ |Localidades en conflicto |Varios a varios → `locality` |
+
+|===
+
+[[obj-perception]]
+==== Percepción (`perception`)
+
+Opinión frecuente sobre la minería, el proyecto o la empresa, con su ámbito, su polaridad y citas atribuidas por cargo.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|subject |Sujeto de la percepción |Opción |obl.
+
+|polarity |Polaridad |Opción |obl.
+
+|perception_scope |Ámbito |Opción |
+
+|statement |Enunciado de la percepción |Texto largo |obl.
+
+|quote |Cita textual |Texto largo |
+
+|attributed_role |Cargo de quien la dijo |Texto |
+
+|study |Estudio o diagnóstico |Relación → `study` |obl.
+
+|topic |Tema |Relación → `topic` |
+
+|===
+
+[[obj-key_theme]]
+==== Tema clave (`key_theme`)
+
+Asunto frecuente en el discurso de los actores, con riesgos y oportunidades para el proyecto.
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|name |Nombre |Texto |obl.
+
+|description |Descripción |Texto largo |
+
+|risks |Riesgos |Texto largo |
+
+|opportunities |Oportunidades |Texto largo |
+
+|project |Proyecto |Relación → `project` |obl.
+
+|study |Estudio o diagnóstico |Relación → `study` |
+
+|topic |Tema |Relación → `topic` |
+
+|===

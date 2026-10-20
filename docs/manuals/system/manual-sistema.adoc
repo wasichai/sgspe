@@ -1,0 +1,47 @@
+= Manual técnico del sistema: Arquitectura, instalación, operación y recuperación de SGSPE
+:document-title: Manual técnico del sistema
+include::../attributes.adoc[]
+:description: Guía de referencia para instalar, configurar, operar, mantener y recuperar SGSPE.
+:keywords: SGSPE, arquitectura, instalación, operación, PostgreSQL, PostGIS, wasichai
+
+[abstract]
+.Presentación
+--
+Este manual permite a un ingeniero que no conoce SGSPE comprender cómo está construido, instalarlo, configurarlo,
+operarlo, actualizarlo y recuperarlo ante una incidencia. Describe el sistema tal como está en el código de la versión
+{product-version}: cada afirmación remite al archivo que la respalda, y lo que no pudo verificarse se señala como
+tal.
+
+*Público:* administradores técnicos, operadores de plataforma, DBA y desarrolladores. El uso funcional del portal se
+explica en el xref:../user/manual-usuario.adoc[Manual de usuario]; la administración funcional (usuarios, roles,
+modelo), en el xref:../administrator/manual-administrador.adoc[Manual del administrador]; el detalle de objetos,
+permisos, workflows y API, en la xref:../reference/referencia-tecnica.adoc[Referencia técnica].
+--
+
+include::01-introduccion.adoc[]
+
+include::02-arquitectura.adoc[]
+
+include::03-componentes.adoc[]
+
+include::04-datos.adoc[]
+
+include::../reference/configuration.adoc[leveloffset=+1]
+
+include::../operations/installation.adoc[leveloffset=+1]
+
+include::../operations/deployment.adoc[leveloffset=+1]
+
+include::../operations/operation.adoc[leveloffset=+1]
+
+include::../operations/backup-and-restore.adoc[leveloffset=+1]
+
+include::../database/README.adoc[leveloffset=+1]
+
+include::../operations/troubleshooting.adoc[leveloffset=+1]
+
+include::../operations/disaster-recovery.adoc[leveloffset=+1]
+
+include::05-pruebas.adoc[]
+
+include::06-documentacion.adoc[]

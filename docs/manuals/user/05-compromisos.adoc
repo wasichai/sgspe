@@ -1,0 +1,103 @@
+[[usr-compromisos]]
+== Compromisos y acuerdos
+
+Un *compromiso* es una obligación concreta que el proyecto asume ante grupos de interés: qué se entrega, a quién,
+cuánto cuesta, quién responde y para cuándo. Nace de una interacción, un acuerdo, una queja o una solicitud, se aprueba,
+se ejecuta, se entrega con conformidad y evidencia, se verifica y se cierra.
+
+.Estados de un compromiso
+image::diagrams/wf-compromiso.png[Diagrama de estados del compromiso: borrador, pendiente de aprobación, aprobado, en ejecución, bloqueado, cumplido, verificado, cerrado y cancelado,width=75%,role=diagram]
+
+=== Consultar compromisos
+
+La pestaña «Compromisos» tiene las vistas «Abiertos», «Vencidos», «Por vencer», «Bloqueados», «Míos», «Cerrados y
+cancelados» y «Candidatos», el filtro de texto «Buscar por código o título» y el de «Estado». Cada fila muestra el
+estado, el plazo, el vencimiento, el responsable y el monto. La vista «Acuerdos» (sobre la lista) lleva a los acuerdos
+y convenios.
+
+.Lista de compromisos
+image::screenshots/user/16-compromisos-lista.png[Lista de compromisos abiertos con estado, vencimiento, responsable y monto]
+
+=== Registrar un compromiso
+
+*Objetivo:* registrar un compromiso nuevo y, si corresponde, enviarlo a aprobación.
+
+*Requisitos previos:* rol de gestión de compromisos, relacionista comunitario o gerencia social, y asignación al
+proyecto.
+
+.Procedimiento
+. Pulse btn:[Nuevo compromiso].
+. *Origen*: la interacción de origen (búsquela por título), cómo se pidió y la fecha del acuerdo.
+. *Qué se compromete*: código, título, descripción y objetivo.
+. *Solicitantes*: los grupos de interés que lo pidieron.
+. *Beneficiarios*: cuántas personas, y cuántas mujeres y varones.
+. *Monto y campaña*: el monto, la moneda y la campaña de exploración (que tiene un tope de apoyo).
+. *Plazo y responsable*: el vencimiento, el responsable y el verificador.
+. *Revisión y envío*: escriba el motivo y pulse btn:[Enviar a aprobación] o btn:[Guardar borrador].
+
+.Primer paso del registro de un compromiso
+image::screenshots/user/18-compromiso-nuevo.png[Asistente Nuevo compromiso con los pasos Origen, Qué se compromete, Solicitantes, Beneficiarios, Monto y campaña, Plazo y responsable y Revisión y envío]
+
+*Resultado esperado:* el compromiso en «Pendiente de aprobación» (o en «Borrador»).
+
+*Verificación:* aparece en la vista «Abiertos» y, para quien aprueba, en menu:Tareas[Aprobaciones].
+
+*Casos especiales:*
+
+* Mientras completa los pasos, lo escrito se guarda *en su navegador*; al volver verá «Se recuperó lo que escribió
+  el…» con la opción de descartarlo. El compromiso solo se registra en el último paso.
+* «El verificador no puede ser el responsable».
+* El monto admite hasta 15 dígitos enteros y 4 decimales.
+* Si el proyecto no exige aprobación interna, la gestión de compromisos puede usar «Aprobar sin revisión interna».
+
+=== La ficha del compromiso
+
+.Ficha de un compromiso en ejecución
+image::screenshots/user/17-compromiso-ficha.png[Ficha de un compromiso en ejecución con la línea de estados, la siguiente acción, el responsable, el vencimiento y la trazabilidad]
+
+La ficha muestra la siguiente acción y qué le falta (por ejemplo, «Falta una entrega con conformidad y con quiénes la
+dieron»), y tiene las pestañas Resumen, Acciones e hitos, Entregas, Reprogramaciones, Dependencias, Evidencias y
+Actividad. El panel «Trazabilidad» enlaza el origen (la interacción o el acuerdo), lo que generó (la tarea de ejecución
+creada al aprobarlo) y lo que lo sustenta (evidencias).
+
+==== Aprobar
+
+Quien aprueba (rol «Aprobador», o «Jefe de proyecto» para la aprobación de nivel superior) recibe el compromiso en
+menu:Tareas[Aprobaciones] (ver <<usr-aprobaciones>>). Reglas que el sistema comprueba: los campos mínimos, que quien
+aprueba no sea quien lo registró y que no se supere el tope de apoyo de la campaña (superarlo requiere la aprobación de
+nivel superior). Al aprobarse, el sistema crea la tarea «Ejecutar compromiso» para el responsable.
+
+==== Registrar una entrega y el cumplimiento
+
+*Objetivo:* dejar constancia de lo entregado y de la conformidad de quienes lo recibieron.
+
+.Procedimiento
+. En la pestaña «Entregas», pulse btn:[Registrar entrega].
+. Indique la fecha, el monto ejecutado (opcional), quiénes recibieron y si dieron conformidad; suba la evidencia
+  (acta o foto) en «Subir una evidencia».
+. Escriba el motivo y pulse btn:[Guardar entrega]. El sistema muestra «Entrega guardada.».
+. Con la entrega registrada, aplique btn:[Registrar cumplimiento] (ver <<usr-transiciones>>).
+
+*Casos especiales:* el cumplimiento exige una entrega con conformidad y evidencia, y que no haya dependencias
+bloqueantes abiertas. La verificación la hace una persona distinta del responsable, con la acción de verificar.
+
+==== Reprogramar, bloquear e informar retrasos
+
+* *Reprogramar* (pestaña «Reprogramaciones»): nueva fecha y motivo; la reprogramación queda en el historial y no se
+  edita.
+* btn:[Bloquear] / btn:[Desbloquear]: para cuando la ejecución depende de algo externo.
+* btn:[Informar riesgo de retraso]: avisa antes del vencimiento.
+
+=== Candidatos a compromiso
+
+La vista «Candidatos» reúne lo que *podría* ser un compromiso (por ejemplo, frases de un acta) antes de registrarlo:
+btn:[Registrar candidato], y luego btn:[Revisar] para «Aceptar y crear borrador» o marcarlo como duplicado. Ningún
+candidato se convierte en compromiso sin la decisión de una persona.
+
+=== Acuerdos y convenios
+
+Un *acuerdo* es un instrumento formal (convenio, permiso de uso de terreno, servidumbre, autorización de asamblea…)
+con partes, cláusulas y vigencia. Su ficha permite agregar cláusulas y partes, vincular predios y registrar los
+compromisos que nacen de cada cláusula. Pasa por «Borrador», «En negociación», «Vigente», «Suspendido» y termina
+«Concluido», «Resuelto» o «Anulado». Para registrar la vigencia se exigen la fecha de firma y la de inicio y, según el
+tipo, el predio y la comunidad o la asamblea que lo autorizó.

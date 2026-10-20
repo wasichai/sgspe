@@ -1,0 +1,101 @@
+[[deploy]]
+= Despliegue y actualización
+
+El repositorio no define el destino de producción (GAP-022): no hay manifiestos de Kubernetes, unidades de systemd ni
+imágenes de contenedor del servidor. Lo que sí define, y este capítulo documenta, es el *artefacto* que se despliega,
+la *configuración* de producción, las *comprobaciones* que impiden un arranque inseguro y el *procedimiento de
+actualización* del modelo de cada organización.
+
+== Artefactos
+
+[cols="2,4",options="header"]
+|===
+|Artefacto |Cómo se obtiene
+|`sgspe-<versión>.jar` |Lo adjunta el flujo `publish.yml` a cada _release_ de GitHub (`./gradlew bootJar -Pversion=<versión>`; el jar se llama siempre `build/libs/app.jar` y no hay jar plano). Se ejecuta con `java -jar`.
+|Estáticos de `sgspe-ui` |`yarn build` en `sgspe-ui` produce `dist/`, que sirve el proxy inverso con _fallback_ de SPA.
+|Imagen `sgspe-latex` |Se construye desde `develop/latex/Dockerfile` (Debian fijado por _digest_, TeX Live, fuentes Source).
+|`model/` |El modelo, roles, workflows, automatizaciones e indicadores, que se aplican por REST a cada organización.
+|===
+
+Las versiones las corta *release-please* (`release-please.yml`) a partir de los Conventional Commits: nunca se edita a
+mano `version=` en `gradle.properties`, `.release-please-manifest.json` ni `CHANGELOG.md`.
+
+== Topología de referencia
+
+* Un proxy inverso con TLS sirve `sgspe-ui/dist` (incluido el _fallback_ de `/admin/*`) y reenvía `/api/**` y
+  `/actuator/health/**` al servidor. Debe *sobrescribir* (no agregar) `X-Forwarded-For` y `X-Forwarded-Proto`, porque
+  el perfil `prod` confía en ellos para contar los intentos de inicio de sesión por dirección.
+* El proxy envía la CSP (`yarn csp` en `sgspe-ui` la imprime) y aplica su propio límite de tasa al inicio de sesión.
+* Una o más réplicas del servidor comparten la base; los trabajos y la cola de automatizaciones se coordinan con
+  candados de PostgreSQL, así que pueden correr varias réplicas a la vez.
+* PostgreSQL con PostGIS, almacenamiento S3, `sgspe-latex` y (opcional) GeoServer en una red interna, sin acceso desde
+  Internet. `sgspe-latex` no necesita salida a Internet.
+
+[[deploy-prodguard]]
+== Comprobaciones de arranque (`ProdGuard`)
+
+Con `SPRING_PROFILES_ACTIVE=prod`, `sgspe.prod.ProdGuard` se ejecuta antes de crear el contexto (y antes de las
+migraciones) y *aborta el arranque* si:
+
+. `WASICHAI_SEED_DEV=true`;
+. falta el secreto JWT, no se resolvió o es el de desarrollo;
+. la duración del token falta o es de 8 horas o más;
+. el almacenamiento de archivos no es `s3` o falta el bucket;
+. solo una de las dos claves S3 está definida, o alguna es la del MinIO de desarrollo;
+. el correo está encendido sin `SPRING_MAIL_HOST`, o el remitente está vacío o termina en `@sgspe.test`.
+
+El mensaje de error nombra la regla incumplida. Las demás variables obligatorias del perfil (`WASICHAI_DB_*`) hacen
+fallar el arranque por falta de valor.
+
+== Primer despliegue
+
+.Procedimiento
+. Cree la base vacía con la extensión PostGIS y un usuario propietario para la aplicación.
+. Cree el bucket S3 y una identidad con permiso de lectura y escritura sobre él.
+. Configure el entorno del servicio (ejemplo en <<cfg>>) con los secretos desde el gestor de secretos.
+. Arranque el servidor con el perfil `prod`; las migraciones crean los esquemas `wasichai`, `app_data` y `sgspe`.
+  Compruebe `GET /actuator/health/readiness` → `{"status":"UP"}`.
+. *Una sola vez*, siembre el permiso `MANAGE_TENANTS` para el rol `ADMIN` de la organización operadora (SQL en
+  `docs/develop/README.md` §5, «Varios clientes»). Sin esa fila nadie puede crear organizaciones en producción.
+. Dé de alta cada organización cliente con `provision_tenant.py`, que crea la organización y ejecuta los pasos de
+  aprovisionamiento como su administrador:
++
+[source,bash]
+----
+# en sgspe/model; las contraseñas por variable o por consola, nunca como argumento
+$ SGSPE_OPERATOR_PASSWORD=… SGSPE_TENANT_ADMIN_PASSWORD=… python3 provision_tenant.py --core https://sgspe.ejemplo \
+    --operator-email operador@… --name "Cliente Ejemplo" --slug cliente-ejemplo --admin-email admin@cliente.ejemplo
+----
++
+Si un paso falla, corrija la causa y repita con `upgrade_tenants.py`: el alta de la organización no es idempotente,
+pero los pasos de aprovisionamiento sí.
+. Si hay GeoServer, cree el rol de solo lectura `sgspe_geoserver` (`docs/develop/README.md` §3) y publique las capas
+  con `publish_layers.py`; si no, use `--skip-layers`.
+
+== Actualizar a una versión nueva
+
+.Procedimiento
+. Lea el `CHANGELOG.md` de la versión: indica cambios de modelo, de configuración o de comportamiento.
+. Haga un respaldo de la base y del almacenamiento (<<bkp>>) y anote la versión actual.
+. Despliegue el jar nuevo. Al arrancar, Flyway aplica solo las migraciones nuevas de cada módulo.
+. Suba el modelo de cada organización. `upgrade_tenants.py` repite los pasos de aprovisionamiento (todos idempotentes)
+  en cada organización del inventario; una que falla no detiene a las demás:
++
+[source,bash]
+----
+# en sgspe/model; inventario con la forma de tenants.example.json, fuera del repositorio
+$ SGSPE_TENANT_PASSWORD_CLIENTE_EJEMPLO=… python3 upgrade_tenants.py --core https://sgspe.ejemplo \
+    --inventory ~/tenants.json [--skip-layers]
+----
+. Publique los estáticos nuevos de `sgspe-ui` (la interfaz y el servidor se versionan juntos).
+. Ejecute las comprobaciones posteriores (<<ops-postdeploy>>).
+
+WARNING: `apply.py` sincroniza el modelo pero *nunca* renombra, cambia de tipo ni borra un campo en uso, y
+`apply.py --workflows` se detiene si un workflow nuevo quita un estado que tiene registros. Si un _release_ requiere
+alguno de esos cambios, el `CHANGELOG.md` trae el procedimiento; no use `apply.py --drop`, que borra *todos* los datos.
+
+== Volver a la versión anterior
+
+Las migraciones de Flyway no tienen vuelta atrás automática. Para revertir una actualización que ya migró la base,
+restaure el respaldo previo de la base y del almacenamiento (<<bkp>>) y despliegue el jar anterior. Por eso el
+respaldo previo a la actualización es obligatorio.

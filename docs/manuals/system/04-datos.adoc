@@ -1,0 +1,67 @@
+[[sys-datos]]
+== Datos y base de datos
+
+=== Motor y esquemas
+
+SGSPE usa *PostgreSQL con PostGIS* (la imagen de referencia es `postgis/postgis:18-3.6`, `compose.yml`). La base tiene
+tres esquemas propios:
+
+[cols="1m,5",options="header"]
+|===
+|Esquema |Contenido
+|wasichai |Metadatos y tablas de la plataforma: organizaciones, usuarios, roles, permisos, objetos y campos del modelo, relaciones, workflows, automatizaciones, documentos, archivos (`stored_files`), notificaciones y la auditoría (`audit_log`). Cada módulo tiene su historia de migraciones `flyway_history_<módulo>`.
+|app_data |Los registros de negocio: una tabla física por objeto del modelo y organización, llamada `<objeto>__<8 primeros caracteres hexadecimales del id de la organización>` (por ejemplo `commitment__1a2b3c4d`), más las tablas de unión de las relaciones varios a varios.
+|sgspe |Tablas fijas de SGSPE: `idempotency_key`, `derived_version` y `knowledge_chunk`.
+|===
+
+La extensión `postgis` vive en `public`. Las geometrías se guardan en SRID 4326 (ADR-0002).
+
+=== Cómo se crea el esquema
+
+El esquema se crea en dos etapas, ambas automáticas e idempotentes:
+
+. *Al arrancar el servidor*, `WasichaiMigrations` aplica con Flyway las migraciones de cada módulo en orden: core (0),
+  semilla de desarrollo (10, solo con `WASICHAI_SEED_DEV=true`), módulos de wasichai (100+) y los de SGSPE:
+  `sgspe_common` (200: `V1__idempotency_key.sql`, `V2__derived_version.sql`) y `sgspe_ai` (201: `V1__knowledge_chunk.sql`),
+  en `src/main/resources/db/sgspe/`. `wasichai.database.migrate=false` las desactiva.
+. *Al aprovisionar una organización*, `model/apply.py` publica el modelo por la API de metadatos: la plataforma crea en
+  `app_data` una tabla por objeto con sus columnas, índices y restricciones de unicidad, y agrega la columna de estado
+  cuando `apply.py --workflows` publica el workflow del objeto.
+
+.Orden de aprovisionamiento de una organización
+image::diagrams/aprovisionamiento.png[Diagrama del orden de aprovisionamiento: apply.py, apply_roles.py, apply.py --workflows, load_ubigeo.py, load_indicators.py y publish_layers.py,width=100%,role=diagram]
+
+NOTE: Como el nombre de cada tabla física incluye el id de la organización, *un volcado de datos solo se puede
+restaurar junto con su esquema* (el volcado completo de <<bkp>>), nunca sobre un esquema creado de nuevo con
+`apply.py`, que tendría otro id de organización.
+
+=== Modelo de datos
+
+El modelo declara 90 objetos, 79 listas de opciones y 293 relaciones en `model/model.json`. El núcleo:
+
+.Núcleo del modelo de datos
+image::diagrams/modelo-nucleo.png[Diagrama entidad-relación del núcleo: proyecto, equipo, partes, áreas de influencia, grupos de interés, interacciones, compromisos, quejas, riesgos, aportes y entregables,width=72%,role=diagram]
+
+Reglas que conviene conocer antes de tocar datos directamente en la base (lo que *no* se debe hacer):
+
+* *No escribir en `app_data` con SQL*: se saltan los permisos, las guardas, los campos derivados, la auditoría y los
+  listeners. Toda corrección de datos va por la API o el portal, con motivo.
+* Los campos *derivados* (por ejemplo `deadline_status`, `executed_amount`, los índices de un grupo de interés) los
+  calcula el servidor; la API rechaza que se envíen.
+* Los objetos *de solo inserción* (`stakeholder_assessment`, `risk_assessment`, `commitment_reschedule`,
+  `indicator_measurement`, `deliverable_version`, `export_log`, `ai_interaction`…) no se modifican: responden 409.
+* `audit_log` está protegido por _triggers_ contra modificaciones y borrados.
+
+El catálogo completo de objetos, campos, relaciones y marcas está en la Referencia técnica, generado de `model.json`.
+
+=== Archivos
+
+Los archivos (evidencias, borradores y versiones emitidas de entregables, plantillas) los guarda *wasichai-files*:
+el descriptor va en `wasichai.stored_files` y los bytes en el almacenamiento configurado:
+
+* `WASICHAI_FILES_STORE=local`: en la carpeta `WASICHAI_FILES_LOCAL_PATH` (por defecto `build/wasichai-files`).
+  Solo para desarrollo y demostración.
+* `WASICHAI_FILES_STORE=s3`: en el bucket `WASICHAI_FILES_S3_BUCKET` (MinIO en desarrollo; obligatorio en producción).
+
+IMPORTANT: Un respaldo de SGSPE son *dos* cosas que deben corresponderse: la base de datos y el almacenamiento de
+archivos. Restaurar solo la base deja descriptores de archivos sin bytes.

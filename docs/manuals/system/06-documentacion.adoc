@@ -1,0 +1,92 @@
+[[sys-docs]]
+== Mantenimiento de esta documentación
+
+=== Estructura
+
+[cols="2m,5",options="header"]
+|===
+|Ruta (en `docs/manuals/`) |Contenido
+|index.adoc, attributes.adoc |Portada HTML y atributos comunes (producto, idioma, numeración, rutas).
+|user/, administrator/, system/ |Los tres manuales: un archivo maestro (`manual-*.adoc`) que incluye sus capítulos.
+|reference/ |La Referencia técnica: API, configuración y glosario escritos a mano, y `generated/` producido desde `model/`.
+|operations/ |Instalación, despliegue, operación, respaldo, diagnóstico y recuperación (los incluye el manual técnico).
+|database/ |README de la base de demostración, manifiesto (`manifests/`) y artefactos exportados (`backups/`).
+|assets/ |Capturas (`screenshots/`), diagramas Mermaid (`diagrams/*.mmd` y su PNG/SVG) y marca (`branding/`).
+|styles/ |Hoja de estilos HTML, tema PDF y fuentes IBM Plex (OFL) empaquetadas.
+|scripts/ |Construcción, validación, capturas, diagramas, referencias y base de demostración.
+|output/ |HTML y PDF generados (no se editan a mano).
+|===
+
+La *fuente canónica* es AsciiDoc: el HTML y el PDF salen de los mismos archivos. Las secciones generadas llevan la
+marca `// GENERADO` y no se editan.
+
+=== Herramientas
+
+[cols="2,2,4",options="header"]
+|===
+|Herramienta |Versión |Instalación
+|Ruby + Asciidoctor, Asciidoctor PDF, Rouge, text-hyphen |las del `Gemfile.lock` |`cd docs/manuals && bundle install`
+|Node.js + Playwright + Mermaid |Node 22+; versiones de `package.json` |`cd docs/manuals && yarn install` (con `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` si ya hay Chromium, y `PLAYWRIGHT_CHROMIUM_EXECUTABLE` apuntándolo)
+|Python |3.11+ |Biblioteca estándar.
+|Poppler (`pdftoppm`, `pdffonts`, `pdfinfo`) |cualquiera |Opcional, para la validación visual del PDF.
+|===
+
+=== Comandos
+
+[cols="3m,4",options="header"]
+|===
+|Comando (desde la raíz del repositorio) |Efecto
+|docs/manuals/scripts/build-docs.sh |Todo: referencias, diagramas, HTML y PDF.
+|docs/manuals/scripts/build-docs.sh html \| pdf |Solo un formato.
+|docs/manuals/scripts/build-docs.sh references |Regenera `reference/generated/` desde `model/` y `docs/glossary.md`.
+|docs/manuals/scripts/build-docs.sh diagrams |Renderiza los diagramas que cambiaron.
+|python3 docs/manuals/scripts/validate-docs.py |Valida fuentes y salidas (<<sys-docs-validate>>).
+|node docs/manuals/scripts/generate-screenshots.mjs |Vuelve a tomar las capturas contra el portal en marcha (<<sys-docs-capturas>>).
+|docs/manuals/scripts/build-docs.sh clean |Borra `output/`.
+|===
+
+Los mismos comandos están en `docs/manuals/package.json` (`yarn docs:build`, `yarn docs:validate`, etc.).
+
+[[sys-docs-capturas]]
+=== Actualizar las capturas
+
+Las capturas son de la aplicación real: el script inicia sesión con los usuarios ficticios de la base de demostración y
+recorre el portal a 1440 × 1000 píxeles.
+
+.Procedimiento
+. Levante la base de demostración y el servidor (`seed-demo-data.sh --keep-running`, o restaure el respaldo y arranque
+  el servidor contra él).
+. Levante la interfaz en el puerto 5182 apuntando a ese servidor (`yarn preview` o `yarn dev` en `sgspe-ui`).
+. Ejecute las capturas:
++
+[source,bash]
+----
+$ cd docs/manuals
+$ SGSPE_DEMO_PASSWORD='…' SGSPE_UI_URL=http://localhost:5182 node scripts/generate-screenshots.mjs
+----
+. Revise las imágenes nuevas (`git diff --stat docs/manuals/assets/screenshots`) y reconstruya los manuales.
+
+El script falla si una pantalla no carga o si aparece un mensaje de error, para no publicar capturas de estados
+transitorios. Los nombres de archivo son estables: una captura nueva reemplaza a la anterior en el mismo lugar.
+
+[[sys-docs-validate]]
+=== Validación
+
+`validate-docs.py` comprueba, y falla si algo no se cumple:
+
+* que las referencias generadas estén al día con `model/`;
+* que cada `include::` e `image::` apunte a un archivo que existe, y que no haya capturas sin usar;
+* que no haya rutas absolutas locales, marcadores pendientes ni secretos aparentes (claves, tokens) en las fuentes;
+* que el HTML generado no tenga enlaces internos rotos (anclas y archivos);
+* que cada PDF exista, tenga páginas y lleve todas sus fuentes incrustadas.
+
+=== Cuándo actualizar
+
+[cols="3,4",options="header"]
+|===
+|Cambio en el sistema |Qué actualizar
+|`model/` (objetos, roles, workflows, indicadores) |`build-docs.sh references`; revisar los textos que nombran estados o roles.
+|Pantallas del portal |Capturas y el capítulo correspondiente del Manual de usuario.
+|Configuración o despliegue |<<cfg>> y <<deploy>>.
+|Nueva versión |Basta reconstruir: la versión y la fecha se toman de `gradle.properties` y del día de construcción. Registrar los cambios en `docs/manuals/CHANGELOG.adoc`.
+|===

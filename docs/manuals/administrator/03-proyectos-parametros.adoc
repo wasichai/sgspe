@@ -1,0 +1,97 @@
+[[adm-proyectos]]
+== Proyectos, equipos y parámetros
+
+=== Crear un proyecto
+
+*Objetivo:* dar de alta un proyecto y dejarlo listo para que el equipo trabaje.
+
+*Requisitos previos:* rol de administrador de proyectos (o administrador).
+
+.Procedimiento
+. En menu:Proyectos[Nuevo proyecto] (también desde «Inicio», bloque «Registrar»).
+. Complete los pasos del asistente: *Identificación* (código, nombre, tipo, etapa, fase de exploración, fecha de
+  inicio), *Ubicación y CRS de trabajo*, *Partes*, *Campaña*, *Equipo*, *Parámetros y políticas* y *Revisar y enviar*.
+  El borrador se guarda al pasar de paso.
+. Si usted no está asignado al proyecto, el asistente pide primero «Asígnese a este proyecto para seguir»
+  (btn:[Asignarme al proyecto]).
+. En el último paso, pulse btn:[Crear y enviar a revisión].
+
+.Asistente de nuevo proyecto
+image::screenshots/admin/03-nuevo-proyecto.png[Asistente Nuevo proyecto en el paso Identificación con código, nombre, tipo, etapa, fase de exploración, fecha de inicio y descripción]
+
+*Resultado esperado:* el proyecto en estado «En revisión». Quien administra proyectos lo aprueba (pasa a «Activo») o lo
+devuelve a «Borrador» con motivo.
+
+*Casos especiales:* «Ya existe un proyecto con este código»; latitud y longitud van juntas o ambas vacías. Para
+activar el proyecto se exigen el *CRS de trabajo* y una parte con rol *Cliente* u *Operador*, salvo que el proyecto
+desactive esa política.
+
+[[adm-asignaciones]]
+=== Asignar personas a un proyecto
+
+Las *asignaciones* definen el equipo del proyecto y son la fuente del *alcance*: quien no es administrador ni lee todos
+los proyectos solo ve y modifica los proyectos donde tiene una asignación vigente.
+
+*Objetivo:* dar a una persona acceso de trabajo a un proyecto con un rol.
+
+*Requisitos previos:* administrador de proyectos o administrador; la persona debe existir como usuario (<<adm-usuarios>>).
+
+.Procedimiento
+. Abra el proyecto y la pestaña menu:Más[Equipo y parámetros], pestaña «Equipo».
+. Pulse btn:[Asignar persona].
+. Elija el *Usuario*, el *Rol en el proyecto* y, si corresponde, la vigencia («Desde», «Hasta»).
+. Pulse btn:[Asignar].
+
+.Equipo del proyecto
+image::screenshots/admin/01-equipo.png[Pestaña Equipo con las personas asignadas, su rol, el periodo, el estado Vigente y la acción Terminar asignación]
+
+.Formulario de asignación
+image::screenshots/admin/14-asignar-persona.png[Panel Asignar persona con los campos Usuario, Rol en el proyecto, Desde y Hasta]
+
+*Resultado esperado:* la persona aparece en «Equipo» con estado «Vigente».
+
+*Verificación:* la persona ve el proyecto en su selector y puede registrar en él según su rol.
+
+Para retirar a alguien, pulse «Terminar asignación» y confirme con btn:[Sí, terminar]. La asignación queda en el
+historial; la persona deja de poder modificar el proyecto.
+
+NOTE: El rol de la asignación describe la función en el proyecto; los *permisos* los dan los roles del usuario
+(<<adm-roles>>). Asigne a cada persona un rol de proyecto coherente con los roles de su cuenta.
+
+=== Campañas, partes y concesiones
+
+Las pestañas «Campañas» y «Partes y concesiones» de «Equipo y parámetros» registran las campañas de exploración (cada
+una con su *tope de apoyo social*, que limita lo que se puede comprometer en compromisos y aportes), las organizaciones
+con un rol en el proyecto (cliente, operador, titular de concesión, consultora, contratista) y las concesiones mineras.
+
+[[adm-parametros]]
+=== Parámetros y políticas del proyecto
+
+*Objetivo:* ajustar a la realidad del proyecto los umbrales, plazos y políticas que usan las reglas del sistema.
+
+.Procedimiento
+. Abra menu:Más[Equipo y parámetros], pestaña «Parámetros y políticas».
+. Cambie los valores necesarios. Cada campo explica su efecto y su valor por defecto.
+. Pulse btn:[Guardar parámetros]. El sistema confirma «Parámetros guardados».
+
+.Parámetros y políticas
+image::screenshots/admin/02-parametros.png[Pestaña Parámetros y políticas con umbrales de interés y poder, días entre evaluaciones, meta de reuniones, políticas y plazos de QCS]
+
+[cols="2,1,3",options="header"]
+|===
+|Parámetro |Por defecto |Efecto
+|Umbral de interés y de poder |3 y 3 |Dónde se cortan los cuadrantes de la matriz interés × poder.
+|Días entre evaluaciones |30 |Cuándo una evaluación se considera vencida.
+|Días sin contacto para sugerir seguimiento |90 |Cuándo se crea una tarea de seguimiento de un grupo de interés.
+|Meta de reuniones al mes |2 |La meta de los tableros de relacionamiento.
+|Días hábiles para acusar una queja |5 |Plazo de acuse (hábiles, sin feriados nacionales).
+|Días para resolver una queja |30 |Plazo de resolución (calendario).
+|Umbrales de nivel de riesgo |según el formulario |Medio < alto < crítico (el sistema exige que crezcan).
+|Políticas (casillas) |según el formulario |Por ejemplo: exigir aprobación interna, exigir CRS y cliente u operador para activar, solo los tipos formales de interacción necesitan acta.
+|===
+
+*Casos especiales:* «Escriba un número entero de _mín._ a _máx._» y «Los umbrales deben crecer: medio menor que alto
+y alto menor que crítico.». Un cambio de plazos *no recalcula* los plazos ya calculados.
+
+WARNING: Las políticas cambian quién puede hacer qué (por ejemplo, desactivar la aprobación interna permite «Aprobar
+sin revisión interna»). Acuérdelas con la gerencia social antes de cambiarlas; el cambio queda en la auditoría.

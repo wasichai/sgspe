@@ -1,0 +1,29 @@
+[[dr]]
+= Recuperación ante desastres
+
+Este capítulo ordena las decisiones para volver a operar cuando se pierde un componente. Los objetivos de tiempo
+(RTO) y de pérdida de datos (RPO) no están definidos en el repositorio (GAP-022); los fija el responsable del servicio
+y determinan la frecuencia de los respaldos de <<bkp>>.
+
+[cols="2,3,4",options="header"]
+|===
+|Pérdida |Impacto |Recuperación
+|Una réplica del servidor |Ninguno si hay otra réplica; si no, el servicio cae. |Arrancar otra instancia con la misma configuración. No guarda estado: los trabajos los retoma la réplica viva.
+|Base de datos |Servicio caído. |Restaurar el último respaldo en un servidor nuevo (<<bkp-restore>>), con PITR si existe; luego los archivos de la misma fecha.
+|Almacenamiento de archivos |Las descargas de evidencias y entregables fallan; el resto funciona. |Restaurar el bucket desde su versionado o copia. Los archivos posteriores al respaldo se vuelven a subir desde su origen.
+|`sgspe-latex` |Los borradores de entregables quedan FALLIDO con `PDF_CONVERTER_UNAVAILABLE`. |Reconstruir la imagen desde `develop/latex/Dockerfile` y volver a pedir el borrador.
+|GeoServer |Sin capas de referencia ni mapas de informe; el proxy WMS responde 503. |Levantarlo y volver a ejecutar `publish_layers.py` (idempotente).
+|SMTP o proveedor de IA |Sin correos o sin IA; los avisos siguen en el portal. |Restablecer el servicio; nada que restaurar.
+|Secreto JWT comprometido |Tokens falsificables. |Cambiar `WASICHAI_JWT_SECRET` y reiniciar todas las réplicas: todas las sesiones se invalidan.
+|Credencial de base o S3 comprometida |Acceso no autorizado a los datos. |Rotar la credencial en el gestor de secretos, reiniciar y revisar la auditoría (`wasichai.audit_log`) por `correlation_id` y usuario.
+|===
+
+== Lista de comprobación de recuperación
+
+. Declarar el incidente, congelar cambios y anotar la hora del último dato bueno conocido.
+. Elegir el punto de restauración (respaldo o instante de PITR) y localizar los archivos de la misma fecha.
+. Restaurar en infraestructura nueva o limpia; nunca sobre la base dañada.
+. Arrancar el servidor con `SGSPE_JOBS_ENABLED=false`, verificar (<<ops-postdeploy>>) y recién entonces encender los
+  trabajos.
+. Comunicar a los usuarios qué intervalo de datos se perdió, para que lo vuelvan a registrar.
+. Documentar la causa y ajustar la frecuencia de respaldo si el RPO no se cumplió.

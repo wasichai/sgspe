@@ -1,0 +1,26 @@
+= Manual del administrador: Usuarios, roles, proyectos y operaciones de SGSPE
+:document-title: Manual del administrador
+include::../attributes.adoc[]
+:description: Administración funcional y técnica de SGSPE: usuarios, roles, asignaciones, parámetros, modelo, auditoría y operaciones críticas.
+
+[abstract]
+.Presentación
+--
+Este manual es para quien administra SGSPE en una organización: da de alta a las personas y les asigna roles y
+proyectos, configura los parámetros de cada proyecto, mantiene el modelo, revisa la auditoría y coordina las
+operaciones de mantenimiento. Distingue en todo momento la *administración funcional*, que se hace desde la aplicación
+(el portal y `/admin`), de la *administración técnica*, que se hace en el servidor y la base de datos y se detalla en el
+xref:../system/manual-sistema.adoc[Manual técnico del sistema].
+
+Las capturas son de la aplicación real con la base de demostración ficticia.
+--
+
+include::01-responsabilidades.adoc[]
+
+include::02-usuarios-roles.adoc[]
+
+include::03-proyectos-parametros.adoc[]
+
+include::04-modelo-automatizaciones.adoc[]
+
+include::05-auditoria-operaciones.adoc[]

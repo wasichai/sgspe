@@ -1,0 +1,54 @@
+= Documentación de SGSPE
+:document-title: Documentación
+include::attributes.adoc[]
+:doctype: article
+:toc!:
+:sectnums!:
+:imagesdir: assets
+:stylesheet: styles/html/documentation.css
+:docinfodir: {docdir}/styles/html
+:url-user: user/manual-usuario.html
+:url-admin: administrator/manual-administrador.html
+:url-system: system/manual-sistema.html
+:url-reference: reference/referencia-tecnica.html
+:description: Manuales de usuario, administrador y sistema de SGSPE, con referencia técnica, en HTML y PDF.
+
+[.lead]
+{product-full-name} · versión {product-version} · edición del {doc-date}.
+Documentación del sistema real, con capturas tomadas de la aplicación y una base de demostración reconstruible.
+
+[.cards]
+* *Manual de usuario*
++
+Para el equipo social y de proyecto: acceso, navegación y cada tarea del portal, paso a paso.
++
+link:{url-user}[Leer en HTML] · link:../pdf/user/manual-usuario.pdf[Descargar PDF]
+* *Manual del administrador*
++
+Usuarios, roles, asignaciones, parámetros, modelo, auditoría y operaciones críticas.
++
+link:{url-admin}[Leer en HTML] · link:../pdf/administrator/manual-administrador.pdf[Descargar PDF]
+* *Manual técnico del sistema*
++
+Arquitectura, instalación, configuración, despliegue, respaldo, restauración y diagnóstico.
++
+link:{url-system}[Leer en HTML] · link:../pdf/system/manual-sistema.pdf[Descargar PDF]
+* *Referencia técnica*
++
+API, 90 objetos del modelo, matriz de permisos, workflows, indicadores y glosario.
++
+link:{url-reference}[Leer en HTML] · link:../pdf/reference/referencia-tecnica.pdf[Descargar PDF]
+
+== Cómo está hecha esta documentación
+
+* *Fuente única:* AsciiDoc en `docs/manuals/`; HTML y PDF salen de los mismos archivos con
+  `docs/manuals/scripts/build-docs.sh`.
+* *Referencias generadas:* el catálogo de objetos, la matriz de permisos, los workflows, los indicadores y el glosario
+  se generan desde `model/` y `docs/glossary.md`.
+* *Capturas reales:* tomadas con Playwright sobre el portal conectado al servidor y a la base de demostración
+  (`docs/manuals/scripts/generate-screenshots.mjs`).
+* *Base reproducible:* los scripts de `docs/manuals/scripts/` construyen la base de demostración desde cero, la exportan,
+  la restauran en otra base y la verifican.
+
+El diseño del sistema (requisitos, arquitectura, decisiones) está en los documentos Markdown de `docs/` del
+repositorio, que son su fuente de verdad.

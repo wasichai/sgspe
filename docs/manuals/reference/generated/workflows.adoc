@@ -1,0 +1,538 @@
+// GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
+
+`model/workflows/` declara 19 workflows. Cada transición lista los roles que pueden aplicarla; además rigen las guardas del servidor (alcance por proyecto y reglas de negocio de `docs/workflows.md`), y el administrador puede aplicar cualquiera.
+
+[[wf-project]]
+=== Proyecto (`wf-a-project`)
+
+*Estados:* Borrador `draft` (inicial) · En revisión `in_review` · Activo `active` · Suspendido `suspended` · Cerrado `closed` (final) · Anulado `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Enviar a revisión (`submit_for_review`) |Borrador |En revisión |PROJECT_MANAGER, PROJECT_ADMIN
+
+|Devolver (`return_to_draft`) |En revisión |Borrador |PROJECT_ADMIN
+
+|Aprobar (`approve`) |En revisión |Activo |PROJECT_ADMIN
+
+|Suspender (`suspend`) |Activo |Suspendido |PROJECT_ADMIN, PROJECT_MANAGER
+
+|Reanudar (`resume`) |Suspendido |Activo |PROJECT_ADMIN, PROJECT_MANAGER
+
+|Cerrar (`close`) |Activo |Cerrado |PROJECT_ADMIN
+
+|Cerrar (`close_suspended`) |Suspendido |Cerrado |PROJECT_ADMIN
+
+|Anular (`cancel_draft`) |Borrador |Anulado |PROJECT_ADMIN
+
+|Anular (`cancel_in_review`) |En revisión |Anulado |PROJECT_ADMIN
+
+|===
+
+[[wf-stakeholder]]
+=== Grupo de interés (`wf-b-stakeholder`)
+
+*Estados:* Identificado `identified` (inicial) · Caracterizado `profiled` · Evaluado `assessed` · Retirado `retired`.
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Caracterizar (`profile`) |Identificado |Caracterizado |STAKEHOLDER_MANAGER, COMMUNITY_RELATIONS_OFFICER, SOCIAL_MANAGER
+
+|Evaluar (`assess`) |Caracterizado |Evaluado |STAKEHOLDER_MANAGER, SOCIAL_MANAGER
+
+|Retirar (`retire_identified`) |Identificado |Retirado |STAKEHOLDER_MANAGER, SOCIAL_MANAGER
+
+|Retirar (`retire_profiled`) |Caracterizado |Retirado |STAKEHOLDER_MANAGER, SOCIAL_MANAGER
+
+|Retirar (`retire_assessed`) |Evaluado |Retirado |STAKEHOLDER_MANAGER, SOCIAL_MANAGER
+
+|Reincorporar (`reinstate`) |Retirado |Identificado |STAKEHOLDER_MANAGER, SOCIAL_MANAGER
+
+|===
+
+[[wf-engagement]]
+=== Interacción (`wf-c-engagement`)
+
+*Estados:* Planificada `planned` (inicial) · Programada `scheduled` · Realizada `held` · Acta en borrador `minutes_drafted` · Acta en revisión `minutes_in_review` · Acta aprobada `minutes_approved` · Postergada `postponed` · Cerrada `closed` (final) · Cancelada `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Programar (`schedule`) |Planificada |Programada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Registrar realización (`register_held`) |Programada |Realizada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Registrar realización (`register_held_unplanned`) |Planificada |Realizada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Postergar (`postpone`) |Programada |Postergada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Reprogramar (`reschedule`) |Postergada |Programada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Redactar acta (`draft_minutes`) |Realizada |Acta en borrador |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Enviar acta a revisión (`submit_minutes`) |Acta en borrador |Acta en revisión |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Devolver acta (`return_minutes`) |Acta en revisión |Acta en borrador |SOCIAL_MANAGER
+
+|Aprobar acta (`approve_minutes`) |Acta en revisión |Acta aprobada |SOCIAL_MANAGER
+
+|Cerrar (`close`) |Acta aprobada |Cerrada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Cerrar sin acta (`close_light`) |Realizada |Cerrada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Cancelar (`cancel_planned`) |Planificada |Cancelada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Cancelar (`cancel_scheduled`) |Programada |Cancelada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|Cancelar (`cancel_postponed`) |Postergada |Cancelada |COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, SOCIAL_MANAGER, FIELD_AGENT
+
+|===
+
+[[wf-commitment]]
+=== Compromiso (`wf-d-commitment`)
+
+*Estados:* Borrador `draft` (inicial) · Pendiente de aprobación `pending_approval` · Aprobado `approved` · En ejecución `in_progress` · Bloqueado `blocked` · Cumplido `fulfilled` · Verificado `verified` · Cerrado `closed` (final) · Cancelado `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Enviar a aprobación (`submit`) |Borrador |Pendiente de aprobación |COMMITMENT_MANAGER, COMMUNITY_RELATIONS_OFFICER, SOCIAL_MANAGER
+
+|Devolver (`return_to_draft`) |Pendiente de aprobación |Borrador |APPROVER, PROJECT_MANAGER
+
+|Aprobar (`approve`) |Pendiente de aprobación |Aprobado |APPROVER
+
+|Aprobar en nivel superior (`approve_senior`) |Pendiente de aprobación |Aprobado |PROJECT_MANAGER
+
+|Aprobar sin revisión interna (`approve_direct`) |Borrador |Aprobado |COMMITMENT_MANAGER, SOCIAL_MANAGER
+
+|Iniciar ejecución (`start`) |Aprobado |En ejecución |COMMITMENT_MANAGER, COMMUNITY_RELATIONS_OFFICER, SOCIAL_MANAGER
+
+|Bloquear (`block`) |En ejecución |Bloqueado |COMMITMENT_MANAGER, COMMUNITY_RELATIONS_OFFICER, SOCIAL_MANAGER
+
+|Desbloquear (`unblock`) |Bloqueado |En ejecución |COMMITMENT_MANAGER, COMMUNITY_RELATIONS_OFFICER, SOCIAL_MANAGER
+
+|Registrar cumplimiento (`register_fulfillment`) |En ejecución |Cumplido |COMMITMENT_MANAGER, COMMUNITY_RELATIONS_OFFICER, SOCIAL_MANAGER
+
+|Devolver a ejecución (`reopen_execution`) |Cumplido |En ejecución |COMMITMENT_MANAGER, SOCIAL_MANAGER
+
+|Verificar (`verify`) |Cumplido |Verificado |COMMITMENT_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close`) |Verificado |Cerrado |COMMITMENT_MANAGER, SOCIAL_MANAGER
+
+|Cancelar (`cancel_draft`) |Borrador |Cancelado |COMMITMENT_MANAGER, COMMUNITY_RELATIONS_OFFICER, SOCIAL_MANAGER
+
+|Cancelar (`cancel_pending_approval`) |Pendiente de aprobación |Cancelado |APPROVER, PROJECT_MANAGER
+
+|Cancelar (`cancel_approved`) |Aprobado |Cancelado |APPROVER, PROJECT_MANAGER
+
+|Cancelar (`cancel_in_progress`) |En ejecución |Cancelado |APPROVER, PROJECT_MANAGER
+
+|Cancelar (`cancel_blocked`) |Bloqueado |Cancelado |APPROVER, PROJECT_MANAGER
+
+|===
+
+[[wf-grievance]]
+=== Queja (`wf-e1-grievance`)
+
+*Estados:* Recibida `received` (inicial) · Acusada `acknowledged` · En evaluación `in_assessment` · En investigación `in_investigation` · En atención `in_action` · Resuelta `resolved` · Verificada `verified` · Cerrada `closed` (final) · Rechazada `rejected` (final) · Desistida `withdrawn` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Acusar recibo (`acknowledge`) |Recibida |Acusada |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Evaluar (`assess`) |Acusada |En evaluación |GRIEVANCE_MANAGER
+
+|Investigar (`investigate`) |En evaluación |En investigación |GRIEVANCE_MANAGER
+
+|Atender (`start_action`) |En evaluación |En atención |GRIEVANCE_MANAGER
+
+|Atender (`start_action_after_investigation`) |En investigación |En atención |GRIEVANCE_MANAGER
+
+|Resolver (`resolve`) |En atención |Resuelta |GRIEVANCE_MANAGER
+
+|Resolver con aprobación (`resolve_high_severity`) |En atención |Resuelta |APPROVER
+
+|Reabrir (`reopen`) |Resuelta |En evaluación |GRIEVANCE_MANAGER
+
+|Verificar (`verify`) |Resuelta |Verificada |GRIEVANCE_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close_resolved`) |Resuelta |Cerrada |GRIEVANCE_MANAGER
+
+|Cerrar (`close`) |Verificada |Cerrada |GRIEVANCE_MANAGER
+
+|Rechazar (`reject_received`) |Recibida |Rechazada |GRIEVANCE_MANAGER
+
+|Rechazar (`reject_acknowledged`) |Acusada |Rechazada |GRIEVANCE_MANAGER
+
+|Rechazar (`reject_in_assessment`) |En evaluación |Rechazada |GRIEVANCE_MANAGER
+
+|Registrar desistimiento (`withdraw_received`) |Recibida |Desistida |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Registrar desistimiento (`withdraw_acknowledged`) |Acusada |Desistida |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Registrar desistimiento (`withdraw_in_assessment`) |En evaluación |Desistida |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Registrar desistimiento (`withdraw_in_investigation`) |En investigación |Desistida |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Registrar desistimiento (`withdraw_in_action`) |En atención |Desistida |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Cerrar por reclasificación (`close_reclassified_received`) |Recibida |Cerrada |GRIEVANCE_MANAGER
+
+|Cerrar por reclasificación (`close_reclassified_acknowledged`) |Acusada |Cerrada |GRIEVANCE_MANAGER
+
+|Cerrar por reclasificación (`close_reclassified_in_assessment`) |En evaluación |Cerrada |GRIEVANCE_MANAGER
+
+|===
+
+[[wf-inquiry]]
+=== Consulta (`wf-e2-inquiry`)
+
+*Estados:* Recibida `received` (inicial) · Respondida `answered` · Derivada `referred` · Cerrada `closed` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Responder (`answer`) |Recibida |Respondida |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Derivar (`refer`) |Recibida |Derivada |GRIEVANCE_MANAGER
+
+|Cerrar (`close`) |Respondida |Cerrada |GRIEVANCE_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Cerrar (`close_referred`) |Derivada |Cerrada |GRIEVANCE_MANAGER
+
+|Cerrar por reclasificación (`close_reclassified`) |Recibida |Cerrada |GRIEVANCE_MANAGER
+
+|===
+
+[[wf-stakeholder_request]]
+=== Solicitud (`wf-e3-stakeholder_request`)
+
+*Estados:* Recibida `received` (inicial) · En evaluación `under_evaluation` · Aceptada `accepted` · Declinada `declined` · Cerrada `closed` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Evaluar (`start_evaluation`) |Recibida |En evaluación |GRIEVANCE_MANAGER, SOCIAL_MANAGER
+
+|Aceptar (`accept`) |En evaluación |Aceptada |SOCIAL_MANAGER, COMMITMENT_MANAGER, SOCIAL_INVESTMENT_MANAGER
+
+|Declinar (`decline`) |En evaluación |Declinada |GRIEVANCE_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close_declined`) |Declinada |Cerrada |GRIEVANCE_MANAGER, SOCIAL_MANAGER
+
+|Cerrar por cierre del compromiso o del aporte (`close_accepted`) |Aceptada |Cerrada |COMMITMENT_MANAGER, SOCIAL_MANAGER, SOCIAL_INVESTMENT_MANAGER
+
+|Cerrar sin ejecución (`close_unfulfilled`) |Aceptada |Cerrada |GRIEVANCE_MANAGER, SOCIAL_MANAGER
+
+|Cerrar por reclasificación (`close_reclassified_received`) |Recibida |Cerrada |GRIEVANCE_MANAGER
+
+|Cerrar por reclasificación (`close_reclassified_under_evaluation`) |En evaluación |Cerrada |GRIEVANCE_MANAGER
+
+|===
+
+[[wf-social_risk]]
+=== Riesgo social (`wf-f-social_risk`)
+
+*Estados:* Identificado `identified` (inicial) · Evaluado `assessed` · En mitigación `mitigating` · En monitoreo `monitoring` · Cerrado `closed` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Evaluar (`assess`) |Identificado |Evaluado |SOCIAL_RISK_MANAGER
+
+|Decidir mitigar (`decide_mitigation`) |Evaluado |En mitigación |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Decidir monitorear (`decide_monitoring`) |Evaluado |En monitoreo |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Pasar a monitoreo (`start_monitoring`) |En mitigación |En monitoreo |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Volver a mitigar (`resume_mitigation`) |En monitoreo |En mitigación |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close_identified`) |Identificado |Cerrado |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close_assessed`) |Evaluado |Cerrado |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close_mitigating`) |En mitigación |Cerrado |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close_monitoring`) |En monitoreo |Cerrado |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|===
+
+[[wf-social_program]]
+=== Programa social (`wf-g-social_program`)
+
+*Estados:* Borrador `draft` (inicial) · Pendiente de aprobación `pending_approval` · Planificado `planned` · En ejecución `executing` · En monitoreo `monitoring` · En evaluación `evaluation` · Suspendido `suspended` · Cerrado `closed` (final) · Cancelado `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Enviar a aprobación (`submit`) |Borrador |Pendiente de aprobación |SOCIAL_INVESTMENT_MANAGER
+
+|Devolver (`return_to_draft`) |Pendiente de aprobación |Borrador |APPROVER
+
+|Aprobar (`approve`) |Pendiente de aprobación |Planificado |APPROVER
+
+|Planificar sin aprobación interna (`plan_direct`) |Borrador |Planificado |SOCIAL_INVESTMENT_MANAGER
+
+|Iniciar ejecución (`start_execution`) |Planificado |En ejecución |SOCIAL_INVESTMENT_MANAGER
+
+|Pasar a monitoreo (`start_monitoring`) |En ejecución |En monitoreo |SOCIAL_INVESTMENT_MANAGER
+
+|Evaluar (`start_evaluation`) |En monitoreo |En evaluación |SOCIAL_INVESTMENT_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close`) |En evaluación |Cerrado |SOCIAL_MANAGER
+
+|Suspender (`suspend`) |En ejecución |Suspendido |SOCIAL_MANAGER, APPROVER
+
+|Reanudar (`resume`) |Suspendido |En ejecución |SOCIAL_MANAGER, APPROVER
+
+|Cancelar (`cancel_draft`) |Borrador |Cancelado |SOCIAL_INVESTMENT_MANAGER, SOCIAL_MANAGER, APPROVER
+
+|Cancelar (`cancel_pending_approval`) |Pendiente de aprobación |Cancelado |SOCIAL_MANAGER, APPROVER
+
+|Cancelar (`cancel_planned`) |Planificado |Cancelado |SOCIAL_MANAGER, APPROVER
+
+|Cancelar (`cancel_suspended`) |Suspendido |Cancelado |SOCIAL_MANAGER, APPROVER
+
+|===
+
+[[wf-deliverable]]
+=== Entregable (`wf-h-deliverable`)
+
+*Estados:* Borrador `draft` (inicial) · En revisión `in_review` · Observado `observed` · Aprobado `approved` · Emitido `issued` · Anulado `voided` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Enviar a revisión (`submit_for_review`) |Borrador |En revisión |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|Observar (`observe`) |En revisión |Observado |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|Reenviar a revisión (`resubmit`) |Observado |En revisión |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|Aprobar (`approve`) |En revisión |Aprobado |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|Devolver a borrador (`return_to_draft`) |Aprobado |Borrador |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|Emitir (`issue`) |Aprobado |Emitido |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|Nueva revisión (`start_revision`) |Emitido |Borrador |SOCIAL_MANAGER, STAKEHOLDER_MANAGER
+
+|Anular (`void_draft`) |Borrador |Anulado |SOCIAL_MANAGER
+
+|Anular (`void_in_review`) |En revisión |Anulado |SOCIAL_MANAGER
+
+|Anular (`void_observed`) |Observado |Anulado |SOCIAL_MANAGER
+
+|Anular (`void_approved`) |Aprobado |Anulado |SOCIAL_MANAGER
+
+|Anular (`void_issued`) |Emitido |Anulado |SOCIAL_MANAGER
+
+|===
+
+[[wf-agreement]]
+=== Acuerdo (`wf-i-agreement`)
+
+*Estados:* Borrador `draft` (inicial) · En negociación `in_negotiation` · Vigente `active` · Suspendido `suspended` · Concluido `concluded` (final) · Resuelto `terminated` (final) · Anulado `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Iniciar negociación (`start_negotiation`) |Borrador |En negociación |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Registrar vigencia (`activate`) |En negociación |Vigente |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|Registrar vigencia (`activate_from_draft`) |Borrador |Vigente |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|Suspender (`suspend`) |Vigente |Suspendido |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|Reanudar (`resume`) |Suspendido |Vigente |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|Concluir (`conclude`) |Vigente |Concluido |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|Resolver (`terminate`) |Vigente |Resuelto |PROJECT_MANAGER
+
+|Resolver (`terminate_suspended`) |Suspendido |Resuelto |PROJECT_MANAGER
+
+|Anular (`cancel_draft`) |Borrador |Anulado |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|Anular (`cancel_in_negotiation`) |En negociación |Anulado |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|===
+
+[[wf-early_warning]]
+=== Alerta temprana (`wf-j-early_warning`)
+
+*Estados:* Detectada `detected` (inicial) · En triaje `in_triage` · Confirmada `confirmed` · En respuesta `responding` · Resuelta `resolved` · Descartada `dismissed` (final) · Cerrada `closed` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Iniciar triaje (`start_triage`) |Detectada |En triaje |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Confirmar (`confirm`) |En triaje |Confirmada |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Descartar (`dismiss`) |En triaje |Descartada |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Iniciar respuesta (`start_response`) |Confirmada |En respuesta |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Resolver (`resolve`) |En respuesta |Resuelta |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|Cerrar (`close`) |Resuelta |Cerrada |SOCIAL_RISK_MANAGER, SOCIAL_MANAGER
+
+|===
+
+[[wf-ai_suggestion]]
+=== Sugerencia de IA (`wf-k-ai_suggestion`)
+
+*Estados:* Propuesto `proposed` (inicial) · Aceptado `accepted` (final) · Rechazado `rejected` (final) · Duplicado `duplicate` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Aceptar (`accept`) |Propuesto |Aceptado |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER
+
+|Rechazar (`reject`) |Propuesto |Rechazado |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER
+
+|Marcar como duplicado (`mark_duplicate`) |Propuesto |Duplicado |SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER
+
+|===
+
+[[wf-commitment_candidate]]
+=== Candidato a compromiso (`wf-k-commitment_candidate`)
+
+*Estados:* Propuesto `proposed` (inicial) · Aceptado `accepted` (final) · Rechazado `rejected` (final) · Duplicado `duplicate` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Aceptar (`accept`) |Propuesto |Aceptado |COMMITMENT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Rechazar (`reject`) |Propuesto |Rechazado |COMMITMENT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Marcar como duplicado (`mark_duplicate`) |Propuesto |Duplicado |COMMITMENT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|===
+
+[[wf-field_visit]]
+=== Visita de campo (`wf-l-field_visit`)
+
+*Estados:* Planificada `planned` (inicial) · En curso `in_progress` · Concluida `completed` (final) · Parcial `partial` (final) · Cancelada `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Iniciar (`start`) |Planificada |En curso |COMMUNITY_RELATIONS_OFFICER, FIELD_AGENT, SOCIAL_MANAGER
+
+|Concluir (`complete`) |En curso |Concluida |COMMUNITY_RELATIONS_OFFICER, FIELD_AGENT, SOCIAL_MANAGER
+
+|Concluir parcialmente (`complete_partial`) |En curso |Parcial |COMMUNITY_RELATIONS_OFFICER, FIELD_AGENT, SOCIAL_MANAGER
+
+|Cancelar (`cancel`) |Planificada |Cancelada |COMMUNITY_RELATIONS_OFFICER, FIELD_AGENT, SOCIAL_MANAGER
+
+|===
+
+[[wf-incident]]
+=== Incidente (`wf-m-incident`)
+
+*Estados:* Reportado `reported` (inicial) · En revisión `under_review` · En respuesta `responding` · Cerrado `closed` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Revisar (`start_review`) |Reportado |En revisión |SOCIAL_MANAGER, SOCIAL_RISK_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Responder (`start_response`) |En revisión |En respuesta |SOCIAL_MANAGER, SOCIAL_RISK_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Cerrar (`close`) |En respuesta |Cerrado |SOCIAL_MANAGER, SOCIAL_RISK_MANAGER
+
+|===
+
+[[wf-task]]
+=== Tarea (`wf-n-task`)
+
+*Estados:* Abierta `open` (inicial) · En curso `in_progress` · Bloqueada `blocked` · Hecha `done` (final) · Cancelada `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Iniciar (`start`) |Abierta |En curso |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|Bloquear (`block`) |En curso |Bloqueada |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|Desbloquear (`unblock`) |Bloqueada |En curso |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|Completar (`complete`) |En curso |Hecha |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|Completar (`complete_open`) |Abierta |Hecha |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|Cancelar (`cancel_open`) |Abierta |Cancelada |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|Cancelar (`cancel_in_progress`) |En curso |Cancelada |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|Cancelar (`cancel_blocked`) |Bloqueada |Cancelada |PROJECT_ADMIN, PROJECT_MANAGER, SOCIAL_MANAGER, COMMUNITY_RELATIONS_OFFICER, STAKEHOLDER_MANAGER, COMMITMENT_MANAGER, GRIEVANCE_MANAGER, SOCIAL_RISK_MANAGER, SOCIAL_INVESTMENT_MANAGER, GIS_ANALYST, FIELD_AGENT, APPROVER
+
+|===
+
+[[wf-area_of_influence]]
+=== Área de influencia (`wf-o-area_of_influence`)
+
+*Estados:* Borrador `draft` (inicial) · Aprobada `approved` · Reemplazada `superseded` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Aprobar (`approve`) |Borrador |Aprobada |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|Reemplazar (`supersede`) |Aprobada |Reemplazada |SOCIAL_MANAGER, PROJECT_MANAGER
+
+|===
+
+[[wf-social_contribution]]
+=== Aporte social (`wf-p-social_contribution`)
+
+*Estados:* Solicitado `requested` (inicial) · Aprobado `approved` · Adquirido `procured` · Entregado `delivered` · Cerrado `closed` (final) · Rechazado `rejected` (final) · Anulado `cancelled` (final).
+
+[cols="3,2,2,4m",options="header"]
+|===
+|Transición |Desde |Hacia |Roles
+
+|Aprobar (`approve`) |Solicitado |Aprobado |APPROVER, SOCIAL_MANAGER
+
+|Aprobar sin revisión interna (`approve_direct`) |Solicitado |Aprobado |SOCIAL_INVESTMENT_MANAGER
+
+|Rechazar (`reject`) |Solicitado |Rechazado |APPROVER, SOCIAL_MANAGER
+
+|Registrar adquisición (`register_procurement`) |Aprobado |Adquirido |SOCIAL_INVESTMENT_MANAGER
+
+|Registrar entrega (`register_delivery`) |Adquirido |Entregado |SOCIAL_INVESTMENT_MANAGER, COMMUNITY_RELATIONS_OFFICER
+
+|Cerrar (`close`) |Entregado |Cerrado |SOCIAL_INVESTMENT_MANAGER, SOCIAL_MANAGER
+
+|Anular (`cancel_approved`) |Aprobado |Anulado |APPROVER, SOCIAL_MANAGER
+
+|Anular (`cancel_procured`) |Adquirido |Anulado |APPROVER, SOCIAL_MANAGER
+
+|===

@@ -1,0 +1,85 @@
+[[usr-qcs]]
+== Quejas, consultas y solicitudes (QCS)
+
+El proyecto atiende tres tipos de planteamiento, cada uno con su propio flujo:
+
+[cols="1,3,3",options="header"]
+|===
+|Tipo |Qué es |Cómo termina
+|*Queja* |Un reclamo por una afectación, un daño o un incumplimiento atribuido al proyecto. |Se acusa recibo, se evalúa, se atiende, se resuelve, se verifica y se cierra; o se rechaza, o la persona desiste.
+|*Consulta* |Un pedido de información sobre el proyecto o sus actividades. |Se responde (o se deriva a quien corresponde) y se cierra.
+|*Solicitud* |Un pedido de apoyo o de recursos que puede convertirse en un compromiso o un aporte. |Se evalúa y se acepta (creando el compromiso o el aporte) o se declina, y se cierra.
+|===
+
+=== La bandeja de QCS
+
+.Lista de QCS
+image::screenshots/user/20-qcs-lista.png[Lista de QCS con las cifras abiertas, fuera de plazo, por vencer y absueltas, las vistas y los grupos por plazo]
+
+Arriba, las cifras de QCS abiertas, fuera de plazo, por vencer y absueltas. Las vistas «Atención», «Quejas»,
+«Consultas», «Solicitudes», «Mis QCS» y «Todas», y los filtros por texto, canal, categoría y severidad. La vista
+«Atención» agrupa por plazo: «Vencidas», «Por vencer» y «Al día o sin plazo». btn:[Reporte unificado] ofrece el
+reporte por periodo, tipo, canal y categoría.
+
+NOTE: Las QCS *confidenciales* solo las leen quien tiene el permiso de leer confidenciales (gestión de QCS), su
+responsable y quien la recibió y, en una queja grave, quien aprueba. Las cifras lo advierten: «Esta cifra no incluye
+las QCS confidenciales que su cuenta no puede leer».
+
+[[usr-registrar-qcs]]
+=== Registrar una queja, consulta o solicitud
+
+*Objetivo:* registrar lo que se planteó, por el canal en que llegó, sin decidir todavía su tratamiento.
+
+*Requisitos previos:* rol de gestión de QCS o de relacionista comunitario, y asignación al proyecto.
+
+.Procedimiento
+. Pulse btn:[Registrar QCS].
+. Elija el *tipo*: Queja, Consulta o Solicitud (cada opción explica cuándo usarla).
+. Revise el *código* propuesto, elija el *canal* (presencial, carta, reunión, teléfono, correo, contratista u otro) y la
+  *fecha y hora de recepción*.
+. Marque «Anónima» si no se registra persona ni grupo de interés, o «Confidencial» si debe restringirse su lectura.
+. Indique el grupo de interés o la persona que la plantea, la descripción y, si se conocen, la categoría y la
+  localidad.
+. Escriba el motivo y pulse btn:[Registrar queja] (o «Registrar consulta», «Registrar solicitud»).
+
+.Registro de una QCS
+image::screenshots/user/22-qcs-registrar.png[Formulario Registrar queja, consulta o solicitud con el tipo, el código propuesto, el canal, la fecha, las marcas anónima y confidencial y el panel Qué pasará al registrar]
+
+*Resultado esperado:* la QCS en estado «Recibida», con sus plazos calculados.
+
+*Verificación:* aparece en la bandeja con su «Plazo que corre». Si es una queja no confidencial, se crea la tarea
+«Acusar recibo de la queja…» para su responsable.
+
+*Casos especiales:* el panel «Qué pasará al registrar» explica los plazos antes de guardar. Con los parámetros por
+defecto, el acuse de una queja vence 5 días *hábiles* después de la recepción (sin fines de semana ni feriados
+nacionales) y la resolución, 30 días calendario después. Cada proyecto puede ajustar estos plazos.
+
+=== Atender una queja
+
+.Estados de una queja
+image::diagrams/wf-queja.png[Diagrama de estados de la queja: recibida, acusada, en evaluación, en investigación, en atención, resuelta, verificada, cerrada, rechazada y desistida,width=75%,role=diagram]
+
+.Ficha de una queja en atención
+image::screenshots/user/21-queja-ficha.png[Ficha de la queja DEMO-Q-03 en atención con la línea de estados, la siguiente acción Resolver y lo que falta]
+
+.Procedimiento típico
+. btn:[Acusar recibo]: confirma que se recibió (dentro del plazo de acuse).
+. btn:[Evaluar], y luego btn:[Atender] o btn:[Investigar]: exigen *categoría* y *severidad*.
+. Complete con btn:[Editar] la *resolución* y la *respuesta*, y aplique btn:[Resolver]. Si la severidad es alta o
+  crítica y el proyecto lo exige, resuelve quien aprueba («Resolver con aprobación»).
+. Con la respuesta comunicada (fecha de respuesta), btn:[Verificar] y btn:[Cerrar].
+
+*Otras acciones:* btn:[Reabrir] (si la persona no dio conformidad), btn:[Rechazar] (con respuesta), «Registrar
+desistimiento», «Reclasificar…» (convierte la queja en consulta o solicitud y cierra la original), «Crear compromiso
+desde esta queja» y «Marcar como confidencial…».
+
+=== Responder una consulta y decidir una solicitud
+
+* *Consulta*: escriba la respuesta y su fecha («Escribir la respuesta») y aplique btn:[Responder]; si corresponde a
+  otra entidad, btn:[Derivar]. Luego btn:[Cerrar].
+* *Solicitud*: btn:[Evaluar]; después «Aceptar y crear el compromiso» o «Aceptar y crear el aporte» (crea el registro
+  enlazado) o btn:[Declinar] con la respuesta. La solicitud aceptada se cierra sola cuando se cierra su compromiso o su
+  aporte.
+
+.Ficha de una solicitud en evaluación
+image::screenshots/user/23-solicitud-ficha.png[Ficha de la solicitud DEMO-S-02 en evaluación con los botones Editar, Reclasificar y Declinar]

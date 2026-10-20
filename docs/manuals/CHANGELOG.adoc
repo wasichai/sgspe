@@ -1,0 +1,52 @@
+= Historial de la documentación
+:icons: font
+
+== 1.0.0 (2026-10-20), basada en SGSPE 3.0.0 y wasichai 1.3.0
+
+Primera edición de los manuales de producto.
+
+=== Contenido
+
+* Manual de usuario (9 capítulos y glosario esencial), Manual del administrador (5 capítulos), Manual técnico del
+  sistema (14 capítulos, que incluyen instalación, configuración, despliegue, operación, respaldo, base de
+  demostración, diagnóstico y recuperación) y Referencia técnica (API, 90 objetos, matriz de 15 roles, 19 workflows,
+  automatizaciones, 53 indicadores y glosario).
+* 56 capturas reales del portal y de `/admin` tomadas con Playwright y 11 diagramas Mermaid.
+* Referencias generadas desde `model/` y `docs/glossary.md` (`scripts/generate-reference.py`).
+* Base de demostración: conjunto ampliado (`database/seeds/ampliado`), evidencias sintéticas, scripts de siembra,
+  exportación, restauración, verificación y reinicio de contraseñas, respaldo versionado y manifiesto.
+* Tema editorial común a HTML y PDF: paleta «Pino y piedra» del portal e IBM Plex Sans y Mono empaquetadas.
+
+=== Verificaciones de esta edición
+
+Hechas en un contenedor Ubuntu 24.04 con JDK 25.0.4, PostgreSQL 16.15 + PostGIS 3.4.2 locales, Node 26.12 y
+Chromium de Playwright; wasichai 1.3.0 y `@wasichai/*` 1.0.0 compilados desde su código fuente.
+
+[cols="3,1,3",options="header"]
+|===
+|Comprobación |Resultado |Evidencia
+|Reconstrucción desde una base vacía (`seed-demo-data.sh --reset`) |✓ |1 min 28 s; 427 objetos y relaciones, 15 roles, 19 workflows, 2113 unidades, 53 indicadores, 896 + 26 registros y 4 evidencias.
+|Idempotencia de la carga |✓ |Segunda carga del ampliado: «0 created, 33 skipped»; evidencias: «0 created, 4 skipped».
+|Exportación (`export-demo-database.sh`) |✓ |SQL 1,4 MB, _dump_ 2,0 MB, archivos 154 KB, manifiesto con 169 tablas y 21 974 filas.
+|Restauración del SQL y del _dump_ en bases nuevas |✓ |10 de 10 comprobaciones en cada una (filas, secuencias, restricciones, claves foráneas, geometrías, migraciones, registros, archivos).
+|Servidor contra la base restaurada |✓ |Salud, inicio de sesión, proyecto DEMO-T1 y 85 grupos de interés por la API; capturas tomadas contra esa base.
+|Capturas (`generate-screenshots.mjs`) |✓ |56 de 56 sin errores ni estados de carga.
+|Construcción HTML y PDF sin advertencias de Asciidoctor |✓ |`build-docs.sh`.
+|`validate-docs.py` (fuentes, enlaces y anclas del HTML, fuentes incrustadas del PDF) |✓ |0 problemas.
+|Pruebas del modelo (`python3 -m unittest`) |✓ |448 pruebas.
+|`apply.py --validate-only`, `check_traceability.py`, `yarn format:check` |✓ |sin errores.
+|===
+
+=== Limitaciones de esta edición
+
+* *Sin GeoServer ni `sgspe-latex`* en el entorno de redacción: las capas de referencia se sirvieron desde la API (el
+  portal muestra el aviso correspondiente) y no se generó ningún borrador de entregable en PDF, así que la generación
+  de entregables se documenta desde el código y la interfaz, sin captura del PDF resultante.
+* *Mapa base*: el entorno no tenía acceso a `demotiles.maplibre.org`; las capturas de mapas usan un fondo neutro local
+  (`scripts/mapa-base-neutro.json`) que solo sustituye el estilo del fondo dentro del navegador de las capturas.
+* *IA*: no se probó con el proveedor real (sin clave); se documenta su activación y su estado «no disponible».
+* *Formato de fecha*: los campos de fecha del navegador de las capturas muestran el formato `mm/dd/yyyy` del sistema
+  operativo del contenedor, no el de un navegador en español.
+* *Suite de integración* (`./gradlew integrationTest`) no se ejecutó: requiere de 30 minutos a más de una hora y una
+  base de pruebas; no afecta a estos manuales, que no cambian código.
+* *PostgreSQL 18 + PostGIS 3.6* (la referencia del proyecto) no estaba disponible; se usó 16 + 3.4.

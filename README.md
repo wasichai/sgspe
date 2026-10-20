@@ -55,6 +55,7 @@ yarn format:check                                                               
 ## Documentación
 
 - [Índice de la documentación](docs/README.md)
+- [Manuales de usuario, administrador y sistema](docs/manuals/README.adoc)
 - [Desarrollo local](docs/develop/README.md)
 - [Releases](docs/develop/releasing.md)
 - [Decisiones de arquitectura](docs/adr/README.md)

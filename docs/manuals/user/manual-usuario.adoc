@@ -1,0 +1,48 @@
+= Manual de usuario: Guía de trabajo en el portal de SGSPE
+:document-title: Manual de usuario
+include::../attributes.adoc[]
+:description: Guía práctica del portal de SGSPE para el equipo social y de proyecto.
+:keywords: SGSPE, manual de usuario, portal, compromisos, quejas, grupos de interés
+
+[abstract]
+.Presentación
+--
+Este manual explica cómo usar el portal de SGSPE para el trabajo diario del equipo social de un proyecto extractivo:
+registrar y consultar grupos de interés, interacciones, compromisos, quejas, consultas y solicitudes, riesgos, aportes
+sociales, evidencias y tareas, y obtener reportes y entregables.
+
+Cada procedimiento indica qué se consigue, qué se necesita, los pasos, qué debe mostrar el sistema y cómo comprobar que
+terminó bien. Las imágenes son capturas de la aplicación real, tomadas con el conjunto de datos *ficticio* de
+demostración (proyecto «DEMO-T1 · Proyecto Wayra Ejemplo»): ningún nombre, lugar o documento corresponde a personas o
+casos reales.
+
+Lo que puede hacer cada persona depende de su rol y de los proyectos a los que está asignada: si un botón o una sección
+de este manual no aparece en su pantalla, consulte <<usr-roles>>.
+--
+
+include::01-presentacion.adoc[]
+
+include::02-primeros-pasos.adoc[]
+
+include::03-proyectos-territorio.adoc[]
+
+include::04-grupos-relacionamiento.adoc[]
+
+include::05-compromisos.adoc[]
+
+include::06-qcs.adoc[]
+
+include::07-riesgos-inversion.adoc[]
+
+include::08-documentos-tareas-reportes.adoc[]
+
+include::09-roles-problemas.adoc[]
+
+[appendix]
+[[usr-glosario]]
+== Glosario esencial
+
+_Definiciones tomadas del glosario del proyecto (`docs/glossary.md`). El glosario completo está en la
+xref:../reference/referencia-tecnica.adoc#glosario[Referencia técnica]._
+
+include::../reference/generated/glossary-essentials.adoc[]

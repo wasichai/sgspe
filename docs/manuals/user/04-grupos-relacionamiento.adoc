@@ -1,0 +1,118 @@
+[[usr-grupos]]
+== Grupos de interés y relacionamiento
+
+=== Consultar los grupos de interés
+
+Un *grupo de interés* es una persona u organización en relación con el proyecto. La lista (pestaña «Grupos de
+interés») tiene las vistas «Prioridad muy alta y alta», «Míos», «Sin evaluar», «Sin contacto en 90 días», «Todos» y
+«Retirados», y los filtros «Grupo de influencia», «Postura», «Ámbito», «Estado de la relación» y «Tipo».
+
+.Lista de grupos de interés
+image::screenshots/user/08-grupos-lista.png[Lista de grupos de interés con territorio, grupo de influencia, postura, prioridad, estado, relación, responsable y fecha de evaluación]
+
+NOTE: La *postura* es un dato reservado: solo la ven la gerencia social y la gestión de grupos de interés. Para los
+demás roles la columna y el filtro no aparecen, y los tableros muestran «No disponible».
+
+La *matriz interés × poder* (btn:[Ver como matriz]) ubica cada grupo según sus índices y los umbrales del proyecto
+(por defecto 3 y 3), en los cuadrantes Estratégico, Político, Para monitoreo y Vulnerable. «Ver como tabla» muestra los
+mismos puntos en una tabla accesible.
+
+.Matriz interés × poder
+image::screenshots/user/09-grupos-matriz.png[Matriz de dispersión de interés y poder con los cuadrantes y la lista de puntos]
+
+=== La ficha del grupo de interés
+
+.Ficha de un grupo de interés
+image::screenshots/user/10-grupo-ficha.png[Ficha con influencia, postura vigente, confianza, pendientes, preocupaciones, expectativas, evaluaciones y caracterización]
+
+La ficha muestra el grupo de influencia y sus índices, la postura y la confianza vigentes, los pendientes (compromisos
+y QCS abiertos), las preocupaciones y expectativas, el historial de evaluaciones, la caracterización y las
+interacciones. btn:[Ver el actor] abre la persona u organización (sus cargos, su red y en qué proyectos es grupo de
+interés).
+
+[[usr-evaluacion]]
+==== Registrar una evaluación
+
+*Objetivo:* actualizar la valoración de un grupo de interés con 15 indicadores, de la que salen sus índices de interés
+y poder y su grupo de influencia.
+
+*Requisitos previos:* rol de gerencia social o de gestión de grupos de interés y asignación al proyecto.
+
+.Procedimiento
+. En la ficha del grupo, pulse btn:[Nueva evaluación].
+. Indique la «Fecha de la evaluación» y la «Base de la evaluación» (por ejemplo, una entrevista).
+. Califique de 1 a 5 cada indicador de *interés* (afectación y oportunidad) y de *poder* (recursos, acción, redes y
+  movilización). Junto a cada uno se ve el valor anterior.
+. Complete la postura y sus razones, las preocupaciones, las expectativas y la confianza (1 a 5).
+. Escriba el motivo y pulse btn:[Guardar evaluación].
+
+.Diálogo de evaluación
+image::screenshots/user/11-grupo-evaluacion.png[Panel Nueva evaluación con fecha, base, quince indicadores de 1 a 5, postura, preocupaciones, expectativas y confianza]
+
+*Resultado esperado:* la evaluación aparece primera en «Evaluaciones» y los índices y el grupo de influencia se
+recalculan.
+
+*Verificación:* el punto del grupo se desplaza en la matriz interés × poder.
+
+*Casos especiales:* «Califique los 15 indicadores de 1 a 5» si falta alguno. Una evaluación *no se corrige*: si algo
+cambió, se registra otra. Forzar el grupo de influencia a mano exige justificarlo.
+
+[[usr-relacionamiento]]
+=== Interacciones
+
+Una *interacción* es todo contacto o evento con grupos de interés: entrevistas, reuniones informativas, asambleas,
+contactos cara a cara, fichas de observación, monitoreos participativos y otros. La sección «Relacionamiento» las
+muestra como lista (con tipo, estado, fecha, lugar y asistentes) o como calendario («Mes», «Semana»), junto con las
+reuniones del mes frente a la meta, las actas por redactar y las festividades del mes.
+
+.Lista de interacciones
+image::screenshots/user/12-relacionamiento-lista.png[Lista de interacciones realizadas con tipo, fecha, lugar y número de asistentes]
+
+.Calendario de interacciones
+image::screenshots/user/13-relacionamiento-calendario.png[Calendario mensual de agosto de 2026 con las interacciones y festividades]
+
+[[usr-registrar-interaccion]]
+==== Registrar una interacción
+
+*Objetivo:* dejar constancia de una reunión, entrevista u otro contacto, ya realizado o por realizar.
+
+*Requisitos previos:* rol de relacionista comunitario, agente de campo o gestión de grupos de interés (la gerencia
+social puede editarlas, pero no crearlas) y asignación al proyecto.
+
+.Procedimiento
+. En «Relacionamiento», pulse btn:[Registrar interacción].
+. *Tipo y fecha*: elija el tipo, escriba el título y el objetivo; marque «Ya se realizó» e indique la fecha, o deje la
+  fecha y hora programadas.
+. *Lugar y grupos de interés*: el lugar y los grupos que participaron.
+. *Participantes*: quiénes asistieron y a cuántas personas representa cada uno.
+. *Preguntas y temas*: las preguntas planteadas y los temas tratados.
+. *Revisión*: compruebe y pulse btn:[Guardar como realizada] o btn:[Programar].
+
+.Registro de una interacción, primer paso
+image::screenshots/user/15-interaccion-registrar.png[Asistente Registrar interacción con los pasos Tipo y fecha, Lugar y grupos de interés, Participantes, Preguntas y temas y Revisión]
+
+*Resultado esperado:* la interacción en estado «Realizada» o «Programada».
+
+*Casos especiales:* «Indique el título y el tipo»; «Indique la fecha» si marcó que ya se realizó; un participante
+representa al menos a una persona. El «Modo rápido de campo» simplifica el registro desde el terreno.
+
+==== La ficha de la interacción y el acta
+
+.Ficha de una asamblea
+image::screenshots/user/14-interaccion-ficha.png[Ficha de una asamblea realizada con asistentes por sexo y por ámbito, trazabilidad y los botones Redactar acta y Cerrar sin acta]
+
+La ficha tiene las pestañas Resumen, Participantes, Preguntas, Acta, Acuerdos, Evidencias, Documentos emitidos y
+Actividad. Desde ella:
+
+* btn:[Redactar acta] abre el editor del acta (con «Insertar asistentes» e «Insertar preguntas»); el acta pasa por
+  «Acta en borrador», «Acta en revisión» y «Acta aprobada». Al aprobarse, el sistema genera la minuta y la lista de
+  asistentes como documentos emitidos.
+* btn:[Cerrar sin acta] cierra las interacciones cuyo tipo no exige acta.
+* «Crear relacionado» registra un compromiso o una QCS a partir de la interacción; una pregunta se puede «Derivar…» a
+  una QCS.
+
+.Estados de una interacción
+image::diagrams/wf-interaccion.png[Diagrama de estados de la interacción: planificada, programada, realizada, acta en borrador, en revisión, aprobada, cerrada, postergada y cancelada,width=70%,role=diagram]
+
+Las *visitas de campo* (btn:[Visitas de campo]) agrupan las interacciones y observaciones de una salida al terreno:
+se planifican, se inician y se concluyen total o parcialmente.
