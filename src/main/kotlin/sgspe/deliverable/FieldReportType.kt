@@ -3,6 +3,8 @@ package sgspe.deliverable
 import org.springframework.stereotype.Component
 import sgspe.privacy.Block
 import sgspe.privacy.Cell
+import sgspe.privacy.Fact
+import sgspe.privacy.FactRow
 import sgspe.privacy.Mark
 import sgspe.privacy.MentionTarget
 import sgspe.privacy.Mentions
@@ -24,7 +26,9 @@ import java.util.UUID
 @Component
 class FieldReportType : DeliverableType {
     override val name: String = NAME
-    override val version: Int = 1
+
+    // 2 desde los hechos tipados y las claves de las tablas (ADR-0031): un modelo congelado con 1 no los trae
+    override val version: Int = 2
 
     override val sections: List<SectionSpec> =
         listOf(
@@ -225,6 +229,7 @@ class FieldReportType : DeliverableType {
                 sections = built,
                 people = scene.people,
                 photos = scene.photos,
+                facts = scene.facts.toList(),
                 aiAssistedSections =
                     input.sections
                         .filter { it.text(Deliverables.CONTENT_ORIGIN) == Deliverables.AI_ASSISTED }
@@ -256,6 +261,9 @@ class FieldReportType : DeliverableType {
         // la persona detrás de cada mención (person, y la titular de un stakeholder o un position), para AI-04 de sección
         val holders = linkedMapOf<String, UUID>()
         val recordTexts = linkedMapOf<String, MutableList<String>>()
+
+        // los hechos tipados del informe (ADR-0031), de los mismos datos que su tabla, en el orden de las secciones
+        val facts = mutableListOf<Fact>()
         private val byProject = mapOf(Deliverables.PROJECT to project.toString())
 
         private fun keep(
@@ -371,14 +379,16 @@ class FieldReportType : DeliverableType {
                                 Cell(it.text("description").orEmpty()),
                                 Cell(it.text("immediate_response").orEmpty())
                             )
-                        }
+                        },
+                        key = "incidentes"
                     )
                 },
                 stakeholders.takeIf { it.isNotEmpty() }?.let { rows ->
                     Block.Table(
                         "Estado de la relación con los grupos de interés",
                         listOf("Grupo de interés", "Estado de la relación"),
-                        rows.map { listOf(Cell(stakeholder(it)), Cell(ReportLabels.option(it.text("relationship_status")).orEmpty())) }
+                        rows.map { listOf(Cell(stakeholder(it)), Cell(ReportLabels.option(it.text("relationship_status")).orEmpty())) },
+                        key = "estado_de_la_relacion"
                     )
                 }
             )
@@ -410,6 +420,26 @@ class FieldReportType : DeliverableType {
                     .sortedBy { it.text("held_at") ?: it.text("scheduled_at") }
             visits.forEach { keep("actividades", it.text("title"), it.text("itinerary"), it.text("outcome_summary")) }
             engagements.forEach { keep("actividades", it.text("title"), it.text("results"), it.text("cancel_reason")) }
+            // el hecho `actividades_por_tipo`: las mismas interacciones de la tabla (las canceladas incluidas, como allí) por tipo
+            // sobre el catálogo engagement_type, con sus ceros
+            ReportFacts
+                .grid(
+                    ReportLabels.enumValues("engagement_type"),
+                    engagements.groupingBy { it.text("engagement_type") ?: ReportFacts.NO_DATA }.eachCount(),
+                    ReportFacts::option
+                )?.let { rows ->
+                    facts +=
+                        Fact(
+                            "actividades_por_tipo",
+                            Fact.COUNT,
+                            "Interacciones del periodo en la comunidad por tipo, canceladas incluidas",
+                            listOf("Tipo"),
+                            "Interacciones",
+                            rows,
+                            period = ReportFacts.period(start, end),
+                            forPublic = true
+                        )
+                }
             val title = "Actividades realizadas entre ${ReportFormat.month(start)} y ${ReportFormat.month(end)} de ${end.year}"
             return listOfNotNull(
                 Block.Heading(2, title),
@@ -424,7 +454,8 @@ class FieldReportType : DeliverableType {
                                 Cell(it.text("itinerary").orEmpty()),
                                 Cell(it.text("outcome_summary").orEmpty())
                             )
-                        }
+                        },
+                        key = "visitas_de_campo"
                     )
                 },
                 engagements.takeIf { it.isNotEmpty() }?.let { rows ->
@@ -446,19 +477,25 @@ class FieldReportType : DeliverableType {
                                 Cell(it.text("title").orEmpty()),
                                 Cell(state)
                             )
-                        }
+                        },
+                        key = "interacciones_del_periodo"
                     )
                 }
             )
         }
 
-        suspend fun networks(): List<Block> =
-            source
-                .all("community_network", byProject + ("community" to community.toString()))
-                .sortedBy { it.text("name") }
-                .flatMap { network ->
+        // las redes con sus integrantes; el hecho `redes_y_nodos` cuenta las mismas redes y las filas de sus tablas
+        suspend fun networks(): List<Block> {
+            val networks =
+                source
+                    .all("community_network", byProject + ("community" to community.toString()))
+                    .sortedBy { it.text("name") }
+            var members = 0
+            val blocks =
+                networks.flatMap { network ->
                     keep("redes", network.text("name"), network.text("description"))
                     val nodes = source.all("network_node", mapOf("community_network" to network.id))
+                    members += nodes.size
                     val rows =
                         nodes.map { node ->
                             val who = node.ref("person")?.let { person(it) } ?: organizationName(node.ref("organization")) ?: ""
@@ -475,14 +512,28 @@ class FieldReportType : DeliverableType {
                             ).joinToString("; ").ifEmpty { "Sin datos de la red." }
                         ),
                         rows.takeIf { it.isNotEmpty() }?.let {
+                            // una tabla por red: todas llevan la misma clave
                             Block.Table(
                                 "Integrantes de ${network.text("name")}",
                                 listOf("Integrante", "Papel en la red"),
-                                it
+                                it,
+                                key = "integrantes_de_red"
                             )
                         }
                     )
                 }
+            facts +=
+                Fact(
+                    "redes_y_nodos",
+                    Fact.COUNT,
+                    "Redes comunitarias y sus integrantes",
+                    listOf("Elemento"),
+                    "Cantidad",
+                    listOf(FactRow(listOf("Redes"), count = networks.size), FactRow(listOf("Integrantes"), count = members)),
+                    forPublic = true
+                )
+            return blocks
+        }
 
         // quienes asistieron a una interacción (#88): por su persona, su grupo de interés, su organización o el grupo que
         // representan; nunca participant_name, que es restringido: sin otro dato, «una persona»
@@ -517,7 +568,9 @@ class FieldReportType : DeliverableType {
                     source.all("position", mapOf("person" to id.toString())).filter { it.text("position_status") in OPEN_POSITIONS }.map { id to it }
                 }
             return listOfNotNull(
-                rows.takeIf { it.isNotEmpty() }?.let { Block.Table("Contactos cara a cara del periodo", listOf("Fecha", "Con", "Resultados"), it) },
+                rows.takeIf { it.isNotEmpty() }?.let {
+                    Block.Table("Contactos cara a cara del periodo", listOf("Fecha", "Con", "Resultados"), it, key = "contactos_cara_a_cara")
+                },
                 positions.takeIf { it.isNotEmpty() }?.let { list ->
                     Block.Table(
                         "Cargos vigentes y previstos",
@@ -529,12 +582,15 @@ class FieldReportType : DeliverableType {
                                 Cell(organizationName(p.ref("organization")).orEmpty()),
                                 Cell(ReportLabels.option(p.text("position_status")).orEmpty())
                             )
-                        }
+                        },
+                        key = "cargos"
                     )
                 }
             )
         }
 
+        // los aportes entregados en el periodo. los hechos `items_del_aporte` (solo los niveles con informe) y `monto_del_aporte`
+        // llevan los montos de la tabla de ítems por tipo y su suma por aporte, con la moneda del aporte
         suspend fun support(): List<Block> {
             val delivered =
                 source.all("social_contribution", byProject).filter { it.state in DELIVERED }.mapNotNull { contribution ->
@@ -543,85 +599,106 @@ class FieldReportType : DeliverableType {
                         .firstOrNull { inPeriod(it.text("delivery_date")) }
                         ?.let { contribution to it }
                 }
-            return delivered.flatMap { (contribution, delivery) ->
-                keep("apoyo", contribution.text("occasion"), contribution.text("declared_purpose"), contribution.text("conditions"), delivery.text("place"))
-                val payer = organizationName(contribution.ref("payer_organization"))
-                val recipient = organizationName(contribution.ref("recipient_organization"))
-                val items = source.all("contribution_item", mapOf("social_contribution" to contribution.id))
-                items.forEach { keep("apoyo", it.text("description")) }
-                val byKind = items.groupBy { it.text("item_kind").orEmpty() }
-                val receipts = source.all("receipt", mapOf("social_contribution" to contribution.id))
-                val evidence =
-                    source.related("delivery", UUID.fromString(delivery.id), "evidence_delivery", "evidence").filter {
-                        it.text("evidence_type") in
-                            PICTURES
+            val itemRows = mutableListOf<FactRow>()
+            val totals = mutableListOf<FactRow>()
+            val blocks =
+                delivered.flatMap { (contribution, delivery) ->
+                    keep("apoyo", contribution.text("occasion"), contribution.text("declared_purpose"), contribution.text("conditions"), delivery.text("place"))
+                    val payer = organizationName(contribution.ref("payer_organization"))
+                    val recipient = organizationName(contribution.ref("recipient_organization"))
+                    val items = source.all("contribution_item", mapOf("social_contribution" to contribution.id))
+                    items.forEach { keep("apoyo", it.text("description")) }
+                    val byKind = items.groupBy { it.text("item_kind").orEmpty() }
+                    // el monto de cada tipo, como lo imprime la tabla; el total suma los mismos ítems
+                    val amounts = byKind.mapValues { (_, rows) -> ReportFormat.decimal(ReportFormat.sum(rows.map { it.attributes["line_amount"] })) }
+                    val code = contribution.text("code").orEmpty()
+                    val currency = contribution.text("currency")
+                    if (byKind.isNotEmpty()) {
+                        amounts.forEach { (kind, amount) -> itemRows += FactRow(listOf(code, kind), value = amount, unit = currency) }
+                        totals +=
+                            FactRow(listOf(code), value = ReportFormat.decimal(ReportFormat.sum(items.map { it.attributes["line_amount"] })), unit = currency)
                     }
-                evidence.forEach { row ->
-                    keep("apoyo", row.text("title"))
-                    val file = row.attributes["file"] as? Map<*, *>
-                    if (file != null) {
-                        photos[row.id] =
-                            PhotoRef(
-                                row.id,
-                                file["id"].toString(),
-                                file["sha256"].toString(),
-                                row.text("title") ?: row.text("evidence_type")!!.lowercase(),
-                                if (row.text("evidence_type") == PhotoRef.RECEIPT) PhotoRef.RECEIPT else PhotoRef.PHOTO,
-                                row.attributes["people_identifiable"] as? Boolean,
-                                row.attributes["photo_consent_given"] as? Boolean
+                    val receipts = source.all("receipt", mapOf("social_contribution" to contribution.id))
+                    val evidence =
+                        source.related("delivery", UUID.fromString(delivery.id), "evidence_delivery", "evidence").filter {
+                            it.text("evidence_type") in
+                                PICTURES
+                        }
+                    evidence.forEach { row ->
+                        keep("apoyo", row.text("title"))
+                        val file = row.attributes["file"] as? Map<*, *>
+                        if (file != null) {
+                            photos[row.id] =
+                                PhotoRef(
+                                    row.id,
+                                    file["id"].toString(),
+                                    file["sha256"].toString(),
+                                    row.text("title") ?: row.text("evidence_type")!!.lowercase(),
+                                    if (row.text("evidence_type") == PhotoRef.RECEIPT) PhotoRef.RECEIPT else PhotoRef.PHOTO,
+                                    row.attributes["people_identifiable"] as? Boolean,
+                                    row.attributes["photo_consent_given"] as? Boolean
+                                )
+                        }
+                    }
+                    listOfNotNull(
+                        Block.Heading(2, "Aporte ${contribution.text("code")}"),
+                        Block.Paragraph(
+                            listOfNotNull(
+                                contribution.text("occasion")?.let { "**Ocasión:** $it" },
+                                contribution.text("declared_purpose")?.let { "**Propósito declarado:** $it" },
+                                contribution.text("conditions")?.let { "**Condiciones:** $it" },
+                                payer?.let { "**Pagador:** $it" },
+                                recipient?.let { "**Receptor:** $it" },
+                                "**Entrega:** ${ReportFormat.date(delivery.text("delivery_date"))}"
+                            ).joinToString("\n\n")
+                        ),
+                        // el lugar puede ser una vivienda (deliverables.md §9.1): va en su propio párrafo marcado, que EXTERNO quita
+                        delivery.text("place")?.let { Block.Paragraph("**Lugar de la entrega:** $it", Mark.restricted("delivery.place")) },
+                        byKind.takeIf { it.isNotEmpty() }?.let { groups ->
+                            Block.Table(
+                                "Ítems del aporte por tipo",
+                                listOf("Tipo", "Ítems", "Monto (${contribution.text("currency").orEmpty()})"),
+                                groups.map { (kind, rows) ->
+                                    listOf(
+                                        Cell(kind),
+                                        Cell(
+                                            rows
+                                                .mapNotNull {
+                                                    it.text("description")
+                                                }.joinToString("; ")
+                                        ),
+                                        Cell(amounts.getValue(kind))
+                                    )
+                                },
+                                key = "items_del_aporte"
                             )
-                    }
+                        },
+                        receipts.takeIf { it.isNotEmpty() }?.let { rows ->
+                            Block.Table(
+                                "Comprobantes del aporte",
+                                listOf("Tipo", "Número", "Emisor", "Fecha", "Monto"),
+                                rows.map {
+                                    listOf(
+                                        Cell(it.text("receipt_type").orEmpty()),
+                                        Cell(it.text("receipt_number").orEmpty(), mark = Mark.REGISTRY),
+                                        Cell(it.text("issuer_name").orEmpty(), mark = Mark.HOLDER),
+                                        Cell(ReportFormat.date(it.text("issue_date"))),
+                                        Cell("${ReportFormat.decimal(it.attributes["amount"])} ${it.text("currency").orEmpty()}".trim())
+                                    )
+                                },
+                                key = "comprobantes"
+                            )
+                        },
+                        evidence.takeIf { it.isNotEmpty() }?.let { rows -> Block.Photos("Entrega del apoyo y comprobante", rows.map { it.id }) }
+                    )
                 }
-                listOfNotNull(
-                    Block.Heading(2, "Aporte ${contribution.text("code")}"),
-                    Block.Paragraph(
-                        listOfNotNull(
-                            contribution.text("occasion")?.let { "**Ocasión:** $it" },
-                            contribution.text("declared_purpose")?.let { "**Propósito declarado:** $it" },
-                            contribution.text("conditions")?.let { "**Condiciones:** $it" },
-                            payer?.let { "**Pagador:** $it" },
-                            recipient?.let { "**Receptor:** $it" },
-                            "**Entrega:** ${ReportFormat.date(delivery.text("delivery_date"))}"
-                        ).joinToString("\n\n")
-                    ),
-                    // el lugar puede ser una vivienda (deliverables.md §9.1): va en su propio párrafo marcado, que EXTERNO quita
-                    delivery.text("place")?.let { Block.Paragraph("**Lugar de la entrega:** $it", Mark.restricted("delivery.place")) },
-                    byKind.takeIf { it.isNotEmpty() }?.let { groups ->
-                        Block.Table(
-                            "Ítems del aporte por tipo",
-                            listOf("Tipo", "Ítems", "Monto (${contribution.text("currency").orEmpty()})"),
-                            groups.map { (kind, rows) ->
-                                listOf(
-                                    Cell(kind),
-                                    Cell(
-                                        rows
-                                            .mapNotNull {
-                                                it.text("description")
-                                            }.joinToString("; ")
-                                    ),
-                                    Cell(ReportFormat.decimal(ReportFormat.sum(rows.map { it.attributes["line_amount"] })))
-                                )
-                            }
-                        )
-                    },
-                    receipts.takeIf { it.isNotEmpty() }?.let { rows ->
-                        Block.Table(
-                            "Comprobantes del aporte",
-                            listOf("Tipo", "Número", "Emisor", "Fecha", "Monto"),
-                            rows.map {
-                                listOf(
-                                    Cell(it.text("receipt_type").orEmpty()),
-                                    Cell(it.text("receipt_number").orEmpty(), mark = Mark.REGISTRY),
-                                    Cell(it.text("issuer_name").orEmpty(), mark = Mark.HOLDER),
-                                    Cell(ReportFormat.date(it.text("issue_date"))),
-                                    Cell("${ReportFormat.decimal(it.attributes["amount"])} ${it.text("currency").orEmpty()}".trim())
-                                )
-                            }
-                        )
-                    },
-                    evidence.takeIf { it.isNotEmpty() }?.let { rows -> Block.Photos("Entrega del apoyo y comprobante", rows.map { it.id }) }
-                )
+            // la moneda del hecho, si todos los aportes llevan la misma; si no, la de cada fila
+            val unit = totals.mapNotNull { it.unit }.distinct().singleOrNull()
+            if (itemRows.isNotEmpty()) {
+                facts += Fact("items_del_aporte", Fact.AMOUNT, "Ítems del aporte por tipo", listOf("Aporte", "Tipo"), "Monto", itemRows, unit = unit)
+                facts += Fact("monto_del_aporte", Fact.AMOUNT, "Monto del aporte", listOf("Aporte"), "Monto", totals, unit = unit, forPublic = true)
             }
+            return blocks
         }
 
         suspend fun land(community: SourceRow): List<Block> {
@@ -644,6 +721,46 @@ class FieldReportType : DeliverableType {
                         community.text("title_issuer_normalized")?.let { " (normalizado: $it)" }.orEmpty()
                 ) + listOfNotNull("_Las partidas no están verificadas._".takeIf { community.attributes["registry_records_unverified"] == true })
             val sectors = source.all("community_sector", mapOf("community" to community.id)).sortedBy { it.text("name") }
+            // las celdas de los cruces; el hecho `cruces` lleva sus mismos rótulos y su misma área
+            val crossingRows =
+                crossings.map {
+                    listOf(
+                        ((it["concession"] as? Map<*, *>)?.get("code")).toString(),
+                        TERRITORY_LABELS[it["object"]] ?: it["object"].toString(),
+                        it["name"]?.toString().orEmpty(),
+                        ReportFormat.decimal(it["areaHa"])
+                    )
+                }
+            if (concessions.isNotEmpty()) {
+                facts +=
+                    Fact(
+                        "concesiones",
+                        Fact.AMOUNT,
+                        "Área inscrita de las concesiones del proyecto",
+                        listOf("Código", "Nombre"),
+                        "Área inscrita",
+                        concessions.map {
+                            FactRow(
+                                listOf(it.text("code").orEmpty(), it.text("name").orEmpty()),
+                                value = ReportFacts.value(ReportFormat.decimal(it.attributes["registered_area_ha"]))
+                            )
+                        },
+                        unit = HECTARES,
+                        forPublic = true
+                    )
+            }
+            if (crossingRows.isNotEmpty()) {
+                facts +=
+                    Fact(
+                        "cruces",
+                        Fact.AMOUNT,
+                        "Concesiones sobre el territorio comunal, los sectores y los caseríos",
+                        listOf("Concesión", "Territorio", "Nombre"),
+                        "Área del cruce",
+                        crossingRows.map { FactRow(it.dropLast(1), value = ReportFacts.value(it.last())) },
+                        unit = HECTARES
+                    )
+            }
             return listOfNotNull(
                 concessions.takeIf { it.isNotEmpty() }?.let { rows ->
                     Block.Table(
@@ -656,21 +773,16 @@ class FieldReportType : DeliverableType {
                                 Cell(organizationName(it.ref("holder_organization")).orEmpty()),
                                 Cell(ReportFormat.decimal(it.attributes["registered_area_ha"]))
                             )
-                        }
+                        },
+                        key = "concesiones"
                     )
                 },
-                crossings.takeIf { it.isNotEmpty() }?.let { rows ->
+                crossingRows.takeIf { it.isNotEmpty() }?.let { rows ->
                     Block.Table(
                         "Concesiones sobre el territorio comunal, los sectores y los caseríos",
                         listOf("Concesión", "Territorio", "Nombre", "Área del cruce (ha)"),
-                        rows.map {
-                            listOf(
-                                Cell(((it["concession"] as? Map<*, *>)?.get("code")).toString()),
-                                Cell(TERRITORY_LABELS[it["object"]] ?: it["object"].toString()),
-                                Cell(it["name"]?.toString().orEmpty()),
-                                Cell(ReportFormat.decimal(it["areaHa"]))
-                            )
-                        }
+                        rows.map { cells -> cells.map { Cell(it) } },
+                        key = "cruces"
                     )
                 },
                 Block.Heading(2, "Datos registrales de ${community.text("name")}"),
@@ -679,7 +791,8 @@ class FieldReportType : DeliverableType {
                     Block.Table(
                         "Sectores comunales",
                         listOf("Sector", "Delegados ante la asamblea"),
-                        rows.map { listOf(Cell(it.text("name").orEmpty()), Cell(it.text("delegates_count") ?: "sin dato")) }
+                        rows.map { listOf(Cell(it.text("name").orEmpty()), Cell(it.text("delegates_count") ?: "sin dato")) },
+                        key = "sectores_comunales"
                     )
                 },
                 Block.MapFigure(LAND_MAP, "Mapa del predio")
@@ -695,6 +808,7 @@ class FieldReportType : DeliverableType {
         private const val MIXED = "MIXTA"
         private const val NARRATIVE = "NARRATIVA"
         private const val CANCELLED = "cancelled"
+        private const val HECTARES = "ha"
         private val DELIVERED = setOf("delivered", "closed")
         private const val FACE_TO_FACE = "CONTACTO CARA A CARA"
         private val BACKGROUND_INCIDENTS = setOf("EXPULSION", "RETENCION DE VEHICULO O EQUIPOS")

@@ -4,6 +4,8 @@ import sgspe.deliverable.DiagnosisScene.Companion.SIN_DATO
 import sgspe.privacy.Block
 import sgspe.privacy.Cell
 import sgspe.privacy.ChartSeries
+import sgspe.privacy.Fact
+import sgspe.privacy.FactRow
 import sgspe.privacy.Mark
 import java.time.YearMonth
 import java.util.Locale
@@ -17,6 +19,15 @@ object DiagnosisStrategy {
     private val PRIORITIES = listOf("MUY ALTA", "ALTA", "MEDIA")
     private const val MONTHS = 6
     private const val TODOS = "Todos"
+    private const val TRUST = "Confianza promedio (1 a 5)"
+
+    // las preguntas de sí o no de la evaluación por mes: el campo, la clave de su hecho y su rótulo (la columna «<rótulo> (%)»)
+    private val SHARES =
+        listOf(
+            "stance_changed" to ("cambio_de_postura" to "Cambio de postura"),
+            "communication_sufficient" to ("comunicacion_suficiente" to "Comunicación suficiente"),
+            "information_adequate" to ("informacion_adecuada" to "Información adecuada")
+        )
 
     suspend fun strategies(scene: DiagnosisScene): List<Block> {
         val plans = scene.source.all("engagement_plan", scene.byProject).sortedBy { it.text("name").orEmpty() }
@@ -34,14 +45,31 @@ object DiagnosisStrategy {
         }
     }
 
+    // las interacciones del periodo por tipo; el hecho `interacciones_por_tipo` cuenta la misma agrupación sobre el catálogo
+    // engagement_type, con sus ceros (también sin interacciones)
     suspend fun communication(scene: DiagnosisScene): List<Block> {
         val held = scene.source.all("engagement", scene.byProject).filter { scene.inPeriod(it.text("held_at") ?: it.text("scheduled_at")) }
+        val byType = held.groupBy { it.text("engagement_type") ?: SIN_DATO }.toSortedMap()
+        ReportFacts.grid(ReportLabels.enumValues("engagement_type"), byType.mapValues { it.value.size }, ReportFacts::option)?.let { rows ->
+            scene.fact(
+                Fact(
+                    "interacciones_por_tipo",
+                    Fact.COUNT,
+                    "Interacciones del periodo por tipo",
+                    listOf("Tipo"),
+                    "Interacciones",
+                    rows,
+                    period = ReportFacts.period(scene.start, scene.end),
+                    forPublic = true
+                )
+            )
+        }
         if (held.isEmpty()) return listOf(Block.Paragraph("_Sin interacciones en el periodo._"))
         val rows =
-            held.groupBy { it.text("engagement_type") ?: SIN_DATO }.toSortedMap().map { (type, list) ->
+            byType.map { (type, list) ->
                 listOf(Cell(ReportLabels.option(type) ?: type), Cell(list.size.toString()))
             }
-        return listOf(Block.Table("Interacciones del periodo por tipo", listOf("Tipo", "Cantidad"), rows))
+        return listOf(Block.Table("Interacciones del periodo por tipo", listOf("Tipo", "Cantidad"), rows, key = "interacciones_por_tipo"))
     }
 
     // 9.1.1.2: las respuestas alineadas aprobadas del proyecto (pregunta y respuesta; un informe no publica las que el equipo no
@@ -79,7 +107,8 @@ object DiagnosisStrategy {
                 "Priorización de la información",
                 listOf("Prioridad", "Grupo de influencia", "Postura", "Ámbito", "Tipo de actor", "Justificación"),
                 rows,
-                wide = true
+                wide = true,
+                key = "priorizacion"
             )
         )
     }
@@ -108,6 +137,7 @@ object DiagnosisStrategy {
             scene,
             "mensajes",
             "key_message",
+            "mensajes_clave",
             "Mensajes clave",
             listOf(
                 "Justificación" to "justification",
@@ -132,7 +162,8 @@ object DiagnosisStrategy {
                         Cell(it.text("possible_actions").orEmpty()),
                         Cell(ReportFormat.yesNo(it.attributes["formalized"]))
                     )
-                }
+                },
+                key = "alianzas"
             )
         )
     }
@@ -164,34 +195,50 @@ object DiagnosisStrategy {
                             Cell(rows.filter { it.text("activity_type") == activity && it.text("impact_type") == type }.joinToString("\n") { described(it) })
                         }
                 },
-                wide = true
+                wide = true,
+                key = "impactos"
             )
         return listOf(intro, table)
     }
 
-    // Tabla 9.5: valor del periodo, meta y cifra oficial (con su fecha de cierre) o «—»
+    // Tabla 9.5: valor del periodo, meta y cifra oficial (con su fecha de cierre) o «—». el hecho `monitoreo` lleva el mismo
+    // valor y la misma meta por fila, sin valor si no está disponible; sin la tabla en el despliegue no hay hecho
     suspend fun monitoring(scene: DiagnosisScene): List<Block> {
         val rows =
             scene.source.monitoring(scene.projectId, scene.start, scene.end)
                 ?: return listOf(Block.Paragraph("_Los indicadores no están disponibles en este despliegue._"))
+        val values = rows.map { r -> if (r.available && r.value != null) ReportFormat.decimal(r.value) else null }
+        val targets = rows.map { r -> r.target?.let { ReportFormat.decimal(it) } }
+        scene.fact(
+            Fact(
+                "monitoreo",
+                Fact.VALUE,
+                "Monitoreo de indicadores",
+                listOf("Indicador"),
+                "Valor del periodo",
+                rows.mapIndexed { i, r -> FactRow(listOf("${r.code} ${r.label}"), value = values[i], target = targets[i]) },
+                period = ReportFacts.period(scene.start, scene.end)
+            )
+        )
         return listOf(
             Block.Table(
                 "Monitoreo de indicadores",
                 listOf("N°", "Indicador", "Medio de verificación", "Valor del periodo", "Meta", "Cifra oficial"),
-                rows.map { r ->
+                rows.mapIndexed { i, r ->
                     listOf(
                         Cell(r.number.toString()),
                         Cell("${r.code} ${r.label}"),
                         Cell(r.verificationMeans),
-                        Cell(if (r.available && r.value != null) ReportFormat.decimal(r.value) else "No disponible"),
-                        Cell(r.target?.let { ReportFormat.decimal(it) } ?: "Sin meta"),
+                        Cell(values[i] ?: "No disponible"),
+                        Cell(targets[i] ?: "Sin meta"),
                         Cell(
                             r.official?.let { o -> "${o.value?.let { ReportFormat.decimal(it) } ?: "Sin valor"} (cierre del ${ReportFormat.date(o.closedAt)})" }
                                 ?: "—"
                         )
                     )
                 },
-                wide = true
+                wide = true,
+                key = "monitoreo"
             )
         )
     }
@@ -207,44 +254,83 @@ object DiagnosisStrategy {
         val intro = Block.Paragraph(DiagnosisTexts.text("evaluacion-grupos"))
         if (assessments.isEmpty()) return listOf(intro, Block.Paragraph("_Sin evaluaciones de grupos de interés hasta el corte._"))
         val byMonth = assessments.groupBy { scene.day(it.text("assessment_date"))?.let(YearMonth::from) }
+        // por mes, los puntajes de confianza y las respuestas de cada pregunta: la tabla, el gráfico y los hechos salen de aquí
+        val scores = months.map { scores(byMonth[it].orEmpty()) }
+        val answers = SHARES.map { (field, _) -> months.map { answers(byMonth[it].orEmpty(), field) } }
         val rows =
-            months.map { month ->
-                val list = byMonth[month].orEmpty()
+            months.mapIndexed { i, month ->
                 listOf(
                     Cell(month.toString()),
-                    Cell(list.size.toString()),
-                    Cell(average(list) ?: SIN_DATO),
-                    Cell(share(list, "stance_changed") ?: SIN_DATO),
-                    Cell(share(list, "communication_sufficient") ?: SIN_DATO),
-                    Cell(share(list, "information_adequate") ?: SIN_DATO)
-                )
+                    Cell(byMonth[month].orEmpty().size.toString()),
+                    Cell(average(scores[i]) ?: SIN_DATO)
+                ) + answers.map { Cell(share(it[i]) ?: SIN_DATO) }
             }
+        val labels = months.map { listOf(it.toString()) }
+        scene.fact(
+            Fact(
+                "confianza_por_mes",
+                Fact.MEAN,
+                "Confianza promedio de los grupos de interés por mes",
+                listOf("Mes"),
+                TRUST,
+                labels.mapIndexed { i, label -> FactRow(label, value = average(scores[i]), n = scores[i].size) },
+                forPublic = true
+            )
+        )
+        SHARES.forEachIndexed { s, (_, fact) ->
+            val (key, title) = fact
+            scene.fact(
+                Fact(
+                    key,
+                    Fact.VALUE,
+                    "$title por mes",
+                    listOf("Mes"),
+                    "$title (%)",
+                    labels.mapIndexed { i, label -> FactRow(label, value = share(answers[s][i]), n = answers[s][i].size) },
+                    unit = "%",
+                    forPublic = true
+                )
+            )
+        }
         return listOf(
             intro,
             Block.Table(
                 "Evaluación de los grupos de interés por mes",
-                listOf("Mes", "Evaluaciones", "Confianza promedio", "Cambio de postura (%)", "Comunicación suficiente (%)", "Información adecuada (%)"),
+                listOf("Mes", "Evaluaciones", "Confianza promedio") + SHARES.map { "${it.second.second} (%)" },
                 rows,
-                wide = true
+                wide = true,
+                key = "evaluacion_por_mes"
             ),
             Block.LineChart(
                 "Confianza promedio de los grupos de interés",
                 months.map { it.toString() },
-                listOf(ChartSeries("Confianza promedio (1 a 5)", months.map { average(byMonth[it].orEmpty()) }))
+                listOf(ChartSeries(TRUST, scores.map { average(it) })),
+                key = "confianza"
             )
         )
     }
 
+    // los compromisos por estado y por plazo; los hechos `compromisos_por_estado` (los estados de WF-D) y `compromisos_por_plazo`
+    // (el catálogo deadline_status) cuentan las mismas agrupaciones sobre la grilla completa, con sus ceros
     suspend fun commitments(scene: DiagnosisScene): List<Block> {
         val rows = scene.source.all("commitment", scene.byProject)
+        val states = rows.groupBy { it.state ?: SIN_DATO }.toSortedMap().mapValues { it.value.size }
+        val deadlines = rows.groupBy { it.text("deadline_status") ?: SIN_DATO }.toSortedMap().mapValues { it.value.size }
         val byState =
-            rows.groupBy { it.state ?: SIN_DATO }.toSortedMap().map { (state, list) ->
-                listOf(Cell(ReportLabels.state("commitment", state) ?: state), Cell(list.size.toString()))
+            states.map { (state, count) ->
+                listOf(Cell(ReportLabels.state("commitment", state) ?: state), Cell(count.toString()))
             }
         val byDeadline =
-            rows.groupBy { it.text("deadline_status") ?: SIN_DATO }.toSortedMap().map { (status, list) ->
-                listOf(Cell(ReportLabels.option(status) ?: status), Cell(list.size.toString()))
+            deadlines.map { (status, count) ->
+                listOf(Cell(ReportLabels.option(status) ?: status), Cell(count.toString()))
             }
+        // un compromiso sin estado no está en el workflow: va a «No disponible», como en las exportaciones (MatrixSheets)
+        ReportFacts.grid(ReportLabels.states("commitment"), states, { ReportLabels.state("commitment", it) ?: it }, empty = null)?.let {
+            scene.fact(Fact("compromisos_por_estado", Fact.COUNT, "Compromisos por estado", listOf("Estado"), "Compromisos", it, forPublic = true))
+        }
+        ReportFacts.grid(ReportLabels.enumValues("deadline_status"), deadlines, ReportFacts::option)?.let {
+            scene.fact(Fact("compromisos_por_plazo", Fact.COUNT, "Compromisos por plazo", listOf("Plazo"), "Compromisos", it, forPublic = true))
+        }
         val p = scene.project
         val campaigns = scene.source.all("exploration_campaign", scene.byProject)
         campaigns.forEach { scene.keep("seguimiento_compromisos", it.text("name")) }
@@ -264,8 +350,8 @@ object DiagnosisStrategy {
                 }
         return listOfNotNull(
             Block.Paragraph(DiagnosisTexts.text("seguimiento-compromisos")),
-            byState.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por estado", listOf("Estado", "Cantidad"), it) },
-            byDeadline.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por plazo", listOf("Plazo", "Cantidad"), it) },
+            byState.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por estado", listOf("Estado", "Cantidad"), it, key = "compromisos_por_estado") },
+            byDeadline.takeIf { it.isNotEmpty() }?.let { Block.Table("Compromisos por plazo", listOf("Plazo", "Cantidad"), it, key = "compromisos_por_plazo") },
             Block.Paragraph("**Lineamientos de apoyo de la campaña.**\n\n${lines.joinToString("\n")}\n\nLa matriz completa de compromisos se exporta en XLSX.")
         )
     }
@@ -285,11 +371,33 @@ object DiagnosisStrategy {
             val impact = (latest.attributes["impact"] as? Number)?.toInt() ?: continue
             if (probability in 1..5 && impact in 1..5) counts[impact - 1][probability - 1]++
         }
+
+        fun cell(
+            probability: Int,
+            impact: Int
+        ): Int = counts[impact - 1][probability - 1]
         val matrix =
             (5 downTo 1).map { impact ->
                 listOf(Cell("$impact")) +
-                    (1..5).map { probability -> Cell(counts[impact - 1][probability - 1].toString(), shade = shade(probability * impact, scene.project)) }
+                    (1..5).map { probability -> Cell(cell(probability, impact).toString(), shade = shade(probability * impact, scene.project)) }
             }
+        // el hecho `riesgos_matriz`: las 25 celdas de la misma matriz, en su orden (impacto de 5 a 1, probabilidad de 1 a 5)
+        val grid =
+            (5 downTo 1).flatMap { impact ->
+                (1..5).map { probability -> FactRow(listOf("$probability", "$impact"), count = cell(probability, impact)) }
+            }
+        scene.fact(
+            Fact(
+                "riesgos_matriz",
+                Fact.COUNT,
+                "Riesgos por probabilidad e impacto",
+                listOf("Probabilidad", "Impacto"),
+                "Riesgos",
+                grid,
+                period = ReportFacts.cutoff(scene.cutoff),
+                forPublic = true
+            )
+        )
         return listOfNotNull(
             Block.Paragraph(DiagnosisTexts.text("riesgos")),
             risks.takeIf { it.isNotEmpty() }?.let { list ->
@@ -303,12 +411,19 @@ object DiagnosisStrategy {
                             Cell(it.text("risk_source").orEmpty()),
                             Cell(DiagnosisScene.option(it, "category"))
                         )
-                    }
+                    },
+                    key = "riesgos"
                 )
             },
             Block.Heading(3, "9.3.2.1 Evaluación del riesgo"),
             Block.Paragraph(DiagnosisTexts.text("evaluacion-riesgo")),
-            Block.Table("Matriz de probabilidad e impacto", listOf("Impacto / Probabilidad", "1", "2", "3", "4", "5"), matrix, figure = true)
+            Block.Table(
+                "Matriz de probabilidad e impacto",
+                listOf("Impacto / Probabilidad", "1", "2", "3", "4", "5"),
+                matrix,
+                figure = true,
+                key = "matriz_de_riesgos"
+            )
         )
     }
 
@@ -338,7 +453,8 @@ object DiagnosisStrategy {
                 "Gestión de los riesgos sociales",
                 listOf("Riesgo", "Decisión", "Justificación", "Controles", "¿Adecuados?", "Fuentes de monitoreo", "Nivel residual", "Medidas"),
                 rows,
-                wide = true
+                wide = true,
+                key = "gestion_de_riesgos"
             )
         )
     }
@@ -377,7 +493,8 @@ object DiagnosisStrategy {
                             ),
                             Cell(ReportFormat.yesNo(it.attributes["completed"]))
                         )
-                    }
+                    },
+                    key = "plan_de_trabajo"
                 )
             },
             Block.Heading(3, "9.4.2 Equipo de relaciones comunitarias"),
@@ -387,7 +504,8 @@ object DiagnosisStrategy {
                     listOf("Rol", "Integrantes activos"),
                     roles.map { (role, list) ->
                         listOf(Cell(ReportLabels.role(role) ?: role), Cell(list.size.toString()))
-                    }
+                    },
+                    key = "equipo"
                 )
             },
             Block.Paragraph("**Contratistas:** ${contractors.joinToString(", ").ifEmpty { SIN_DATO }}")
@@ -417,18 +535,19 @@ object DiagnosisStrategy {
         }
     }
 
-    private fun average(rows: List<SourceRow>): String? =
-        rows
-            .mapNotNull { (it.attributes["trust_score"] as? Number)?.toDouble() }
-            .takeIf { it.isNotEmpty() }
-            ?.average()
-            ?.let { "%.2f".format(Locale.US, it) }
+    // los puntajes de confianza de las evaluaciones que lo tienen: su número es el `n` del promedio
+    private fun scores(rows: List<SourceRow>): List<Double> = rows.mapNotNull { (it.attributes["trust_score"] as? Number)?.toDouble() }
 
-    private fun share(
+    private fun average(scores: List<Double>): String? = scores.takeIf { it.isNotEmpty() }?.average()?.let { "%.2f".format(Locale.US, it) }
+
+    // las respuestas (sí o no) de las evaluaciones que responden: su número es el denominador de la proporción
+    private fun answers(
         rows: List<SourceRow>,
         field: String
-    ): String? =
-        rows.mapNotNull { it.attributes[field] as? Boolean }.takeIf { it.isNotEmpty() }?.let {
+    ): List<Boolean> = rows.mapNotNull { it.attributes[field] as? Boolean }
+
+    private fun share(answers: List<Boolean>): String? =
+        answers.takeIf { it.isNotEmpty() }?.let {
             "%.0f".format(
                 Locale.US,
                 it.count { b -> b } * 100.0 / it.size
@@ -439,6 +558,7 @@ object DiagnosisStrategy {
         scene: DiagnosisScene,
         section: String,
         objectName: String,
+        key: String,
         title: String,
         columns: List<Pair<String, String>>,
         labeled: Set<String> = emptySet(),
@@ -454,7 +574,8 @@ object DiagnosisStrategy {
                 rows.map { row ->
                     columns.map { (_, field) -> Cell((if (field in labeled) ReportLabels.option(row.text(field)) else row.text(field)).orEmpty()) }
                 },
-                wide = wide
+                wide = wide,
+                key = key
             )
         )
     }

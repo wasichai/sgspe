@@ -67,7 +67,7 @@ object DiagnosisAnnexes {
             (
                 rows.takeIf { it.isNotEmpty() }?.let {
                     listOf(
-                        Block.Table("Temas e instrumentos", listOf("Tema", "Tipo de instrumento", "Ámbito de aplicación"), it)
+                        Block.Table("Temas e instrumentos", listOf("Tema", "Tipo de instrumento", "Ámbito de aplicación"), it, key = "temas_e_instrumentos")
                     )
                 }
                     ?: listOf(Block.Paragraph("_El estudio no registra instrumentos._"))
@@ -111,9 +111,16 @@ object DiagnosisAnnexes {
                 plain(MIN_INDEX),
                 plain(MAX_INDEX),
                 plain(interest),
-                plain(power)
+                plain(power),
+                key = "influencia"
             ),
-            Block.Table("Cuadrantes de influencia", listOf("Poder / Interés", "Interés bajo", "Interés alto"), rows, figure = true)
+            Block.Table(
+                "Cuadrantes de influencia",
+                listOf("Poder / Interés", "Interés bajo", "Interés alto"),
+                rows,
+                figure = true,
+                key = "cuadrantes_de_influencia"
+            )
         )
     }
 
@@ -136,7 +143,7 @@ object DiagnosisAnnexes {
                 }
             }
         }
-        return Block.Table("Sistema de variables", listOf("Variable", "Componente", "Indicador"), rows, figure = true)
+        return Block.Table("Sistema de variables", listOf("Variable", "Componente", "Indicador"), rows, figure = true, key = "sistema_de_variables")
     }
 
     // un decimal sin ceros de más, como texto («4.2», «3»): los valores del gráfico
