@@ -334,6 +334,11 @@ contrato las fijan para que un cambio de wasichai avise:
 - Los filtros de cada endpoint se listan en su fila: los que comparan un campo del modelo usan su nombre (`deadline_status`),
   los propios de la consulta van en camelCase (`periodStart`, `periodEnd`). Un filtro que admite varios valores se repite
   (`project=…&project=…`).
+- La lista genérica de un objeto con workflow (`GET /api/objects/{object}/records`) filtra además por su estado, que no es un
+  campo: `state=a,b` deja los registros en esos estados y `state_not=a,b` los que no están en ellos (también los que no tienen
+  estado), separados por comas porque la lista genérica lee un solo valor por parámetro. Se combinan con los demás filtros, la
+  paginación y el conteo, siempre dentro del alcance de lectura de quien llama. Un estado que el workflow no declara, o un objeto
+  sin workflow, es un `400` sobre el parámetro (`StateQuery`, D10 de la revisión de UX).
 - **Un parámetro desconocido es un `422` que lo nombra en `errors[]`, nunca un filtro ignorado** (ASM-054). La API
   genérica, en cambio, responde `400` a un filtro por un campo que no existe [WAS-DOC api/rest.md].
 
