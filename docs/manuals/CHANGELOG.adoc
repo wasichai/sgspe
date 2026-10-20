@@ -33,6 +33,7 @@ Chromium de Playwright; wasichai 1.3.0 y `@wasichai/*` 1.0.0 compilados desde su
 |Capturas (`generate-screenshots.mjs`) |✓ |56 de 56 sin errores ni estados de carga.
 |Construcción HTML y PDF sin advertencias de Asciidoctor |✓ |`build-docs.sh`.
 |`validate-docs.py` (fuentes, enlaces y anclas del HTML, fuentes incrustadas del PDF) |✓ |0 problemas.
+|`./gradlew build` (ktlint y pruebas unitarias) |✓ |1600 pruebas, 0 fallos, 17 omitidas.
 |Pruebas del modelo (`python3 -m unittest`) |✓ |448 pruebas.
 |`apply.py --validate-only`, `check_traceability.py`, `yarn format:check` |✓ |sin errores.
 |===
