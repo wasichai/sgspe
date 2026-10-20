@@ -226,3 +226,11 @@ Ordenados por frecuencia × riesgo. Son los que se rediseñan primero y los que 
 6. **Leer el territorio** (gestión social, SIG): mapa → lugar → registros del lugar (U-10).
 7. **Administrar sin romper el modelo** (administración): equipo, parámetros, usuarios y roles con advertencias de fuente
    de verdad (U-08, U-37).
+
+## 7. Adenda: hallazgo encontrado al preparar el design system
+
+| ID | Hallazgo | Ev. | P | E |
+|---|---|---|---|---|
+| U-39 | `sgspe-ui/src/theme/tokens.css` no es copia de `docs/ux/tokens.css`, aunque `sgspe-ui/CLAUDE.md` pide copiarlo y verificarlo con `cmp`. Los valores son iguales; cambian el comentario y dos selectores del oscuro: la copia no tiene `:root[data-theme="sgspe-noche"]`, y su guarda del modo del sistema es `:not([data-theme="light"])` en lugar de `:not([data-theme])`. Es la brecha conocida UPS-19 («Según el sistema») sin cerrar en el código. | `diff docs/ux/tokens.css sgspe-ui/src/theme/tokens.css` | P3 | C |
+| U-40 | El borde de los campos de formulario (`Input`, `Textarea` y `Select` de `@wasichai/ui` con `border-border`, que SGSPE asigna a `--sg-border`) contrasta 1.38:1 sobre la superficie en claro y 1.31:1 en oscuro, bajo el 3:1 que WCAG 1.4.11 pide para el límite de un control. Sobre el fondo `--sg-bg` el campo blanco apenas se distingue (1.08:1). | `contraste.py`; `wasichai.css:12`; `packages/ui/src/input.tsx:10` | P2 | C |
+| U-41 | El texto de ejemplo de los campos usa `text-ink-muted/60`: unos 2.5:1. Los ejemplos que funcionan como pista («Correo de la persona», «Buscar interacción por título») quedan por debajo de 4.5:1. | `packages/ui/src/input.tsx:10`; c.11, c.18 | P3 | C |
