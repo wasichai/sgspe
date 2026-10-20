@@ -238,7 +238,7 @@ El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre
 ```bash
 cd model
 python3 apply.py --validate-only        # el modelo, los workflows, los tipos de documento y las automatizaciones (sin servidor)
-python3 apply.py                        # objetos, acciones, relaciones e índices. En F8 (90 objetos): "done: 427 created, 29 updated, 0 skipped"
+python3 apply.py                        # objetos, acciones, relaciones e índices. En F8 (91 objetos): "done: 431 created, 30 updated, 0 skipped"
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
 python3 apply.py --workflows            # 19 workflows, 3 tipos de documento y 7 automatizaciones de F8
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos

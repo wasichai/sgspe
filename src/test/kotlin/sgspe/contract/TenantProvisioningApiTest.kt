@@ -38,7 +38,7 @@ class TenantProvisioningApiTest : SgspeApiTest() {
         // los tres pasos son idempotentes contra wasichai de verdad (database-model.md §24)
         val modelAgain = runScript(listOf("model/apply.py"), admin)
         assertEquals(0, modelAgain.exit, modelAgain.output)
-        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 427 skipped"), modelAgain.output)
+        assertTrue(modelAgain.output.contains("done: 0 created, 0 updated, 431 skipped"), modelAgain.output)
         val again = runScript(listOf("model/apply_roles.py"), admin)
         assertEquals(0, again.exit, again.output)
         assertTrue(again.output.contains("done: 0 created, 0 updated, 15 skipped"), again.output)
