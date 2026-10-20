@@ -353,8 +353,15 @@ o se compone en el portal.
 La misma anatomía para todo objeto importante [PRM-02 §26]:
 
 1. **Contexto:** barra de contexto (proyecto y territorio) y breadcrumbs; el rastro si se llegó por un recorrido.
-2. **Encabezado:** tipo y código en `code`, título, chips de estado, plazo y prioridad, territorio; acciones a la derecha: la
-   primaria (la siguiente transición más probable para el rol), secundarias, "Más" y el botón de IA contextual.
+2. **Encabezado:** tipo y código en `code`, título, chips de estado, plazo y prioridad, territorio; acciones a la derecha. Una
+   sola **primaria**: la siguiente transición del camino del objeto para el rol, la misma "Siguiente acción" del panel de
+   decisión, o la acción propia de la ficha cuando es lo que el rol hace a diario (registrar una interacción en un grupo de
+   interés o en un proyecto activo, una nueva revisión de un riesgo); entonces la transición del camino queda como secundaria.
+   Hasta dos **secundarias** a la vista (editar, ver en el mapa, crear relacionado). Todo lo demás va en **"Más acciones"**,
+   con su texto y no solo un ícono: las otras transiciones, lo poco frecuente (reclasificar, crear desde este registro,
+   informar un riesgo) y al final, tras un separador, las destructivas, que nombran el objeto ("Anular el proyecto"). En el
+   teléfono, la barra fija lleva solo la primaria y "Más acciones"; las secundarias quedan bajo el título. El botón de IA
+   contextual acompaña al encabezado.
 3. **WorkflowStepper** con el camino del objeto.
 4. **Panel de decisión:** cuatro tarjetas fijas que responden sin buscar: estado actual (desde cuándo y quién), siguiente
    acción (con lo que falta para darla), responsable y vencimiento con escalamiento [PRM-02 §15].
@@ -391,7 +398,9 @@ EntityDetailPage
 - Una transición con motivo opcional muestra el campo como opcional, no lo esconde.
 - Conflicto de versión (412, ADR-0025): "Otra persona cambió este registro" con "Recargar"; lo escrito en el diálogo se
   conserva.
-- Las transiciones que el rol no tiene no aparecen; las que tiene pero hoy no puede dar aparecen deshabilitadas con la razón.
+- Las transiciones que el rol no tiene no aparecen; las que tiene pero hoy no puede dar aparecen deshabilitadas con la razón
+  **a la vista** (dentro de "Más acciones", bajo su nombre), no solo en un `title`. Elegir una transición del menú lo cierra, y
+  al cerrar el diálogo el foco vuelve a "Más acciones".
 
 ### 6.3 Formulario por pasos
 
@@ -431,12 +440,13 @@ EntityDetailPage
 | Vacío inicial | Qué es la sección, cómo nace el primer registro y la acción para crearlo [PRM-02 §29] |
 | Vacío por filtros | Los filtros activos, una pista ("sin el filtro de territorio hay 3") y "Limpiar filtros" |
 | Cargando | Skeleton con la forma real; el encabezado de una ficha aparece primero; reintento a los 10 s |
-| Error de carga | Qué falló, que los filtros se conservan, "Reintentar" y el identificador de correlación (`X-Correlation-Id`) |
+| Error de carga | Qué falló, "Reintentar" y el identificador de correlación (`X-Correlation-Id`). En una lista, los filtros siguen a la vista (en la URL y como chips); el texto no promete conservarlos donde no hay filtros (una ficha, una tarjeta, un diálogo) |
 | Sin permiso (403) | Por qué no puede ver el registro y a quién pedir acceso, sin revelar datos |
 | Solo lectura | Aviso "no estás asignado a este proyecto"; las acciones de escritura no aparecen (alcance A, `security.md` §9) |
 | Campo o cifra restringidos | Candado y "no disponible", nunca vacío ni cero (RQ-DSH-032) |
 | Sesión vencida (401) | Volver a ingresar sin perder el borrador (WAS-ADR-0031) |
-| Módulo no instalado (404) | "Esta sección llega en una próxima fase", sin error técnico (ADR-0024) |
+| Módulo no instalado (404) | "No está disponible en su organización", sin error técnico ni "Reintentar"; también una lista cuyo objeto el servidor no tiene (ADR-0024) |
+| Ruta que no existe | "Esta página no existe", por qué puede pasar y cómo seguir: la lista de su sección y el inicio; nunca una página en blanco |
 | IA no disponible | Por rol (sin CREATE sobre `ai_interaction`, ASM-130), por organización o por falla del proveedor (`503 AI_UNAVAILABLE`), con la razón |
 
 ### 6.6 Auditoría legible

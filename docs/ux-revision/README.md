@@ -15,3 +15,7 @@ Cómo se hizo: la build de producción (`dist/`) servida en local y recorrida co
 anterior a #49 y #50 (sin «Su trabajo» en el inicio); lo que esos cambios tocan se juzgó por el código. Las cifras de las
 tarjetas de los tableros fallan en las capturas porque la API simulada no responde los tableros: eso no es un defecto, pero
 el texto con que se muestra el fallo sí lo es (D4).
+
+**Segunda pasada (2026-10-20).** Sobre el portal ya revisado, una auditoría con el backend real y la API simulada, con el antes y
+el después medidos, está en `sgspe-ui/docs/rediseno-ux/` (wasichai/sgspe-ui#75). Lo que cambió el diseño de la ficha (una sola
+primaria y «Más acciones», la razón de un bloqueo a la vista) y los estados de §6.5 quedó en `docs/ux/design-system.md`.
