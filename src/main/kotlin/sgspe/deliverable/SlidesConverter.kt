@@ -92,10 +92,18 @@ class SlidesConverter(
                                 val body = runCatching { response.awaitBody<String>() }.getOrNull()
                                 val error = body?.let { runCatching { json.readTree(it) }.getOrNull() }
                                 val code = error?.get("code")?.asString()
-                                LOG.warn("sgspe-slides respondió {} {} (corrida {})", status, code, correlation)
-                                if ((status == BAD_REQUEST || status == UNPROCESSABLE) && code != null) {
-                                    failure = SlideFailed(code, error.get("slide")?.takeIf { !it.isNull }?.asString())
-                                }
+                                // la lámina que no cupo, o la ruta del campo y el motivo de una especificación inválida (SPEC_INVALID):
+                                // un id, un nombre de campo y un código de zod, nunca un valor del documento
+                                val path = error?.get("path")?.asString()?.take(DETAIL_CHARS)
+                                val reason = error?.get("reason")?.asString()?.take(DETAIL_CHARS)
+                                val slide =
+                                    error
+                                        ?.get("slide")
+                                        ?.takeIf { !it.isNull }
+                                        ?.asString()
+                                        ?.take(DETAIL_CHARS)
+                                LOG.warn("sgspe-slides respondió {} {} {}{} {} (corrida {})", status, code, slide ?: "", path ?: "", reason ?: "", correlation)
+                                if ((status == BAD_REQUEST || status == UNPROCESSABLE) && code != null) failure = SlideFailed(code, slide)
                                 null
                             }
                         }
@@ -123,6 +131,7 @@ class SlidesConverter(
         const val RENDERER = "X-Slides-Renderer"
         const val DESIGN = "X-Slides-Design"
         private const val OVERHEAD = 64 * 1024L
+        private const val DETAIL_CHARS = 120
         private const val BAD_REQUEST = 400
         private const val UNPROCESSABLE = 422
     }
