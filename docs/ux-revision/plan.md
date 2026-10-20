@@ -172,7 +172,9 @@ Migrar cada lista a `EncabezadoDePagina` + `VistasGuardadas` con conteo + filtro
 `TablaDeRegistros` + `BotonCrear` + vacío por filtros («Sin el filtro de territorio hay 3»). Columnas con `EnlaceDeRegistro`,
 el proyecto como «código · nombre» enlazado y el responsable con `Persona` (nombre; sin nombre, el correo en una línea, D11).
 Paginación real en lo global en lugar de truncar (D10): el servidor ya pagina; la lista de QCS, que combina tres objetos, se
-pagina por objeto con pestañas Quejas, Consultas, Solicitudes y «Atención» (decisión 5).
+pagina por objeto con pestañas Quejas, Consultas, Solicitudes y «Atención» (decisión 5). La lista genérica filtraba solo por
+igualdad de campo y no por estado, así que las vistas por estado («Abiertos», «Cerrados») no se podían pedir al servidor:
+SGSPE suma `state=a,b` y `state_not=a,b` a esa lista (`StateQuery`, `api.md` §3.4).
 
 Orden sugerido, de más usada a menos: Compromisos · QCS · Interacciones (con Calendario como vista) · Grupos de interés ·
 Tareas (con Aprobaciones como vista) · Riesgos (con Alertas como vista) · Acuerdos · Programas y aportes · Documentos (D12) ·
