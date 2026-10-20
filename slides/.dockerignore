@@ -1,0 +1,5 @@
+node_modules
+bundle
+test
+*.md
+!fonts/*.md

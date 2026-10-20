@@ -1114,7 +1114,7 @@ público nuevo se agrega sin tocar el compositor. Un público solo restringe los
 
 **Los títulos.**
 
-- Un título afirmativo («La confianza promedio subió de 3,2 a 3,8 entre abril y septiembre») sale solo de una
+- Un título afirmativo («La confianza promedio subió de 3.20 a 3.85 entre abril y setiembre») sale solo de una
   comparación calculable sobre los datos ya divulgados, y nunca afirma una causa.
 - Si no hay una comparación así, el título describe.
 - Cada lámina con datos lleva su fuente, el periodo, la unidad y el número de casos cuando hacen falta (RQ-REP-038).
@@ -1147,7 +1147,7 @@ El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF.
 
 - **La imagen** es `slides/Dockerfile`: Node LTS fijado por digest, Remotion en una versión exacta, y el bundle y el
   Chrome headless-shell preparados al construir.
-- **`POST /render`** recibe un tar con `deck.json` y devuelve un tar con `deck.pdf`.
+- **`POST /render`** recibe la especificación en JSON (las imágenes ya van incrustadas) y devuelve el PDF.
 - **`GET /health`.**
 - **La composición:** cada lámina se compone con un `renderStill` a PDF en un solo navegador, y las páginas se unen con
   pdf-lib con metadatos fijos.
@@ -1156,8 +1156,8 @@ El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF.
   loopback.
 - **La verificación dentro de la composición** espera las fuentes y comprueba que ninguna región desborde su área, que
   no haya regiones solapadas, que nada baje del tamaño mínimo, que ninguna imagen se deforme y que no haya láminas
-  vacías. Si algo falla, cancela con su código (`SLIDE_OVERFLOW`, `SLIDE_OVERLAP`, `FONT_MISSING`, `ASSET_INVALID`) y el
-  id de la lámina: nunca hay archivo parcial ni texto del documento (RQ-REP-036).
+  vacías. Si algo falla, cancela con su código (`SLIDE_OVERFLOW`, `SLIDE_OVERLAP`, `TEXT_TOO_SMALL`, `SLIDE_EMPTY`,
+  `FONT_MISSING`, `ASSET_INVALID`) y el id de la lámina: nunca hay archivo parcial ni texto del documento (RQ-REP-036).
 - **`DeckChecks`** (PDFBox), del lado de SGSPE, verifica:
   - una página por lámina, a 16:9;
   - solo las fuentes de la clase, incrustadas;
