@@ -78,16 +78,24 @@ tasks.named<ProcessResources>("processResources") {
         include("model.json", "roles.json", "layers.json", "workflows/*.json", "styles/palette.json")
         into("model")
     }
+    // las fuentes de las láminas (ADR-0031): el planificador mide el texto con las mismas que compone sgspe-slides
+    from("slides/fonts") {
+        include("*.ttf")
+        into("sgspe/deliverable/deck/fonts")
+    }
 }
 
 // las pruebas unitarias corren siempre; las que necesitan base van por integrationTest
 tasks.named<Test>("test") {
-    // latex: las composiciones reales (en integrationTest, con el servicio de la CI); slow: la suite lenta (slowTest)
+    // latex y slides: las composiciones reales (en integrationTest, con los servicios de la CI); slow: la suite lenta (slowTest)
     useJUnitPlatform {
-        excludeTags("integration", "latex", "slow")
+        excludeTags("integration", "latex", "slides", "slow")
     }
     // MapComposer dibuja con Java 2D: sin pantalla, también en la máquina de desarrollo
     systemProperty("java.awt.headless", "true")
+    // -Dsgspe.decks.write=true regenera las presentaciones de demostración de slides/fixtures/generated (DeckPlannerTest)
+    System.getProperty("sgspe.decks.write")?.let { systemProperty("sgspe.decks.write", it) }
+    inputs.files(fileTree("slides/fixtures/generated"))
     // ArchitectureTest lee las fuentes, model/roles.json y model/layers.json: un cambio en ellos vuelve a correr las pruebas
     inputs.dir("src/main/kotlin")
     // files, no file: tolera que el archivo no exista; file falla en Gradle 9.8 si el archivo falta
@@ -111,9 +119,10 @@ tasks.register<Test>("integrationTest") {
     description = "pruebas de integración contra PostgreSQL 18 con PostGIS 3.6"
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
-    // desde F8, también las composiciones reales con sgspe-latex (ADR-0030): la CI lo levanta en el mismo trabajo
+    // desde F8, también las composiciones reales con sgspe-latex (ADR-0030) y, desde ADR-0031, con sgspe-slides: la CI los
+    // levanta en el mismo trabajo
     useJUnitPlatform {
-        includeTags("integration", "latex")
+        includeTags("integration", "latex", "slides")
         // la suite lenta va solo por slowTest, aunque una clase lleve también integration
         excludeTags("slow")
     }

@@ -74,6 +74,7 @@ flowchart LR
         APP["App SGSPE sobre wasichai"]
         GEO["GeoServer"]
         GOT["sgspe-latex"]
+        SLD["sgspe-slides"]
     end
     subgraph DATOS["Datos"]
         DB[("PostgreSQL y PostGIS")]
@@ -89,6 +90,7 @@ flowchart LR
     APP --> GEO
     GEO --> DB
     APP --> GOT
+    APP --> SLD
     APP -.->|"F7, seudonimizado"| LLM
     APP --> SMTP
 ```
@@ -103,6 +105,12 @@ flowchart LR
   ruta absoluta ni `..`. Todo texto del modelo pasa por `LatexText`, que escapa los caracteres especiales de TeX, y
   ninguna organización sube código TeX: solo un logo PNG o JPEG y un color de acento (ASM-140). En desarrollo escucha
   solo en el loopback del VPS (8097, ADR-0026). Reemplaza a Gotenberg desde el 2026-10-19.
+- `sgspe-slides` compone con Remotion (Chrome headless) el PDF de las presentaciones de una versión emitida (ASM-144,
+  ADR-0031) y corre aislado como `sgspe-latex`: solo lo llama JOB-09, recibe una especificación ya divulgada y
+  validada (sin URL, con las imágenes PNG o JPEG incrustadas y validadas) y nunca una opción del cliente; de solo
+  lectura, con un usuario sin privilegios, sin capacidades, con tmpfs en `/tmp` y `/dev/shm`, a lo más
+  `SLIDES_CONCURRENCY` composiciones a la vez y sin red de salida en producción. Chrome corre sin su sandbox propio, así
+  que el contenedor es la frontera. En desarrollo escucha solo en el loopback del VPS (8099, ADR-0026).
 - El proveedor de LLM queda fuera de la frontera y solo recibe texto seudonimizado, desde F7 (RQ-AI-009).
 
 ### 2.3 Amenazas
@@ -139,6 +147,7 @@ E (elevación de privilegios).
 | 25 | I | Una sugerencia de IA guarda valores restringidos o cita una evidencia que quien la mira no puede descargar | Salidas y citas guardadas con marcadores; la API genérica solo devuelve marcadores; se re-identifican al mostrar solo para quien lee el campo, y la cita solo para quien puede descargar la fuente (§7.8) | GAP-015; riesgo residual: un marcador revela que había un dato restringido |
 | 26 | I | El nombre original del archivo de una evidencia CONFIDENCIAL o de DATOS PERSONALES, que puede llevar datos personales, y su huella SHA-256 los lee todo rol con READ sobre `evidence` | `EvidenceFileReadPolicy` (UPS-24, wasichai 1.0.0) entrega el descriptor sin `name` ni `sha256` a quien no tiene `DOWNLOAD_RESTRICTED`; el portal sube toda evidencia restringida con un nombre neutro como defensa adicional (§11.6) | Resuelta (UPS-24, ASM-093) |
 | 27 | E, I | Quien tiene `DOWNLOAD_RESTRICTED` sobre `evidence` y no ve la QCS confidencial a la que está vinculada una evidencia baja su clasificación, y la evidencia deja de estar reservada | La regla de la evidencia vinculada a una QCS confidencial (`409 EVIDENCE_NOT_RESTRICTED`) frena a quien sí ve la QCS; el cambio queda en `audit_log` con usuario y motivo; `DOWNLOAD_RESTRICTED` solo para los roles que escriben evidencias (§9.6) | Riesgo aceptado (ASM-105, D-2) |
+| 28 | I, E | Una presentación muestra lo que su nivel no permite, o el contenido de una lámina carga recursos o código | El nivel se aplica antes de extraer el material, PUBLICO por lista permitida sobre hechos tipados con `SmallCells`, el público solo restringe niveles, los componentes no interpretan HTML, la especificación no admite URL y `sgspe-slides` no tiene red de salida (ASM-145, ASM-146, ADR-0031) | Riesgo residual: la diferencia entre dos revisiones PUBLICO emitidas |
 
 ## 3. Autenticación
 
@@ -575,7 +584,7 @@ lee sus proyectos. El territorio y la región siguen sin fuente de datos (UPS-01
 
 ### 7.1 Cómo leerla
 
-- Hay una tabla por grupo de bounded contexts. Las filas son los 90 objetos del catálogo y las columnas, los 14 roles
+- Hay una tabla por grupo de bounded contexts. Las filas son los 91 objetos del catálogo y las columnas, los 14 roles
   declarados distintos de `AUDITOR`.
 - `AUDITOR` no tiene columna: lee todo el tenant (`*` READ y `READ_ALL_PROJECTS` sobre `project`, §9.7), incluida
   `/api/audit`, no escribe nada y no ve los campos restringidos (§7.9) mientras no se responda GAP-024.
@@ -819,6 +828,7 @@ Criterios con que se armó:
 | `deliverable` | — | R `EXPORT` | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | R | R | R | R | — | R | R `EXPORT` | R |
 | `deliverable_section` | — | R | CRUD | CRU | CRU | R | R | R | R | R | — | R | CRU | R |
 | `deliverable_version` | — | R | CR | R | CR | R | R | R | R | R | — | R | R | R |
+| `deliverable_presentation` | — | CR | CR | R | CR | R | R | R | R | R | — | R | CR | R |
 | `deliverable_template` | — | R | R | R | R | R | R | R | R | R | — | R | R | R |
 | `export_log` | — | C | CR | — | C | C | C | C | — | C | — | — | C | — |
 | `ai_interaction` | — | — | CR | CR | CR | CR | CR | CR | — | — | — | — | CR | — |
@@ -841,8 +851,15 @@ Criterios con que se armó:
 - `deliverable_template` (desde F8, fila de la tabla): la leen los roles que leen `deliverable`, por la ruta nativa
   de wasichai-files; nadie la crea por la API genérica (es `apiOnly` y `appendOnly`), y `POST
   /api/sgspe/deliverable-templates` exige `MANAGE_METADATA` sobre `deliverable`, que en la práctica tiene solo
-  `ADMIN`. Los campos `FILE` de `deliverable`, `deliverable_version` y `deliverable_template` no se suben ni se
-  reemplazan por la API genérica (`403 FILE_WRITE_NOT_ALLOWED`, ASM-133).
+  `ADMIN`. Los campos `FILE` de `deliverable`, `deliverable_version`, `deliverable_presentation` y
+  `deliverable_template` no se suben ni se reemplazan por la API genérica (`403 FILE_WRITE_NOT_ALLOWED`, ASM-133).
+- `deliverable_presentation` (desde F8, ADR-0031): la crea como la persona `POST
+  /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations`, que además exige la acción de descarga del nivel
+  (`DOWNLOAD_RESTRICTED` en INTERNO, `EXPORT` en EXTERNO y PUBLICO; ASM-147). Por eso tienen CREATE los roles con una de
+  esas acciones sobre `deliverable` (`PROJECT_MANAGER`, `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` y `ANALYST`), y la leen
+  los roles que leen `deliverable`. Es `apiOnly`: JOB-09 la compone como la plataforma, y su especificación y su PDF se
+  descargan solo por `GET /api/sgspe/presentations/{id}/content` y `…/spec`, con su fila de `export_log`; las rutas
+  nativas de sus archivos responden `404` al leer.
 - `EXPORT` de las capas territoriales (F6, `POST /api/sgspe/territory/exports`; `gis.md` §2.2 y §4.6). Desde F6, estos
   13 objetos declaran `EXPORT`: `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`,
   `mining_concession`, `environmental_feature`, `project`, `project_component`, `area_of_influence`, `land_parcel`,
@@ -934,7 +951,8 @@ JOB-08 (`RetentionJob`) borra, desde F3, las claves vencidas de la tabla fija `i
 `derived_version` con SQL propio (ASM-065, ASM-091), sin escribir registros de wasichai; en F8 no gana un paso de
 entregables: los archivos reemplazados de un borrador los borra `StoredFileCleanup` de wasichai-files (ASM-133). JOB-05
 sube y adjunta los archivos del borrador como la plataforma (UPS-31, desde wasichai 1.3.0), y es el único que llama a
-`sgspe-latex` y a GeoServer por un entregable. Las automatizaciones de la metadata también actúan como la plataforma, y escribirlas
+`sgspe-latex` y a GeoServer por un entregable. JOB-09 (`DeckGenerationJob`) compone las presentaciones de una versión
+emitida, adjunta sus archivos como la plataforma y es el único que llama a `sgspe-slides` (ADR-0031). Las automatizaciones de la metadata también actúan como la plataforma, y escribirlas
 exige MANAGE_METADATA, que solo tiene `ADMIN` [WAS-DOC api/rest.md]. Las escrituras de un trabajo llevan además su
 origen en la columna `source` de la auditoría (`job:<nombre>`, WAS-ADR-0050, §13.2). La clave `generator_key` de las
 tareas de un trabajo solo la escribe la plataforma: una persona que la fija, la cambia o la vacía recibe `403`
@@ -992,6 +1010,8 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `POST /api/sgspe/deliverables/{id}/issue` (`sgspe.deliverable`) | Sube como la persona una copia de cada candidata y, en una transacción, crea las `deliverable_version` INTERNO y EXTERNO, apunta a la base, registra la emisión en `export_log` y aplica `issued` al final; AUT-12 genera después la constancia de emisión como la plataforma | UPDATE `deliverable`; CREATE `deliverable_version` y `export_log`; `ISSUE`; si el tipo prepara EXTERNO, la lista de verificación | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | F8 |
 | `GET /api/sgspe/deliverables/{id}/draft/content` (`sgspe.deliverable`) | Registra la descarga en `export_log`. El archivo lleva siempre la marca de agua BORRADOR; si es INTERNO, en PDF o DOCX, y si es EXTERNO, solo en PDF; la ruta nativa de wasichai-files aplica lo mismo (ASM-133) | READ y `DOWNLOAD_RESTRICTED` sobre `deliverable`; CREATE `export_log` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | F8 |
 | `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content` (`sgspe.deliverable`) | Registra la descarga en `export_log`. Una versión INTERNO se sirve en PDF o DOCX; una EXTERNO, solo en PDF. El modelo congelado nunca se sirve, tampoco por la ruta nativa de wasichai-files | INTERNO: READ y `DOWNLOAD_RESTRICTED` sobre `deliverable`. EXTERNO y PUBLICO: READ y `EXPORT`. En ambos casos, CREATE `export_log` | INTERNO: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER`. EXTERNO y PUBLICO: los que tienen `EXPORT` sobre `deliverable` | F8 |
+| `POST /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations` (`sgspe.deliverable`) | Crea la `deliverable_presentation` EN COLA, o devuelve la existente con la misma versión, público, nivel y versión del planificador; JOB-09 la compone después como la plataforma (ADR-0031, ASM-143) | READ sobre `deliverable`; `DOWNLOAD_RESTRICTED` en INTERNO o `EXPORT` en EXTERNO y PUBLICO; CREATE `deliverable_presentation` | INTERNO: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER`. EXTERNO y PUBLICO: además `PROJECT_MANAGER` y `ANALYST` | F8 |
+| `GET /api/sgspe/presentations/{id}/content` y `…/spec` (`sgspe.deliverable`) | Registra la descarga en `export_log`, con la confirmación de la lista de verificación en EXTERNO y PUBLICO (ASM-147); las rutas nativas de wasichai-files de sus archivos responden `404` | Los del pedido según su nivel; CREATE `export_log` | Como el pedido | F8 |
 | `POST /api/sgspe/deliverable-templates` (`sgspe.deliverable`) | Valida la plantilla (`TemplateValidator`), sube el archivo como quien llama y crea el `deliverable_template` (ASM-135) | `MANAGE_METADATA` sobre `deliverable` | `ADMIN` | F8 |
 | `POST /api/sgspe/indicators/{id}/measurements` (`sgspe.dashboard`) | Crea la cifra oficial de un periodo, calculada como quien cierra; una cifra completa o ninguna: `409 INDICATOR_NOT_CLOSABLE` con la razón `STANCE` (KPI-STK-02, KPI-STK-05 y KPI-STK-06), `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que solo dan series), `UNAVAILABLE` (quien cierra no lo tiene disponible o, en un KPI que lee QCS, no lee la marca `confidential` de los tres objetos) o `NOT_PERIOD_BOUND` (un KPI que no depende del periodo, la foto de hoy, solo se cierra para un mes calendario entero, el pasado o el actual en Lima; en la práctica, el mes pasado, porque el actual aún no terminó y el cierre lo rechaza antes con `400 PERIOD_NOT_ENDED`). Los KPI que leen QCS se congelan siempre sin las QCS confidenciales, quien sea que cierre: la cifra oficial las excluye y no revela cuántas son; el tablero no la muestra a quien se le ocultan QCS confidenciales (`dashboards.md` §10, ASM-136) | CREATE `indicator_measurement`; sin `project`, solo `ADMIN` (`READ_ALL_PROJECTS` no basta) | `SOCIAL_MANAGER` | F8 |
 | `POST /api/sgspe/ai-suggestions/{id}/accept` (`sgspe.ai`) | Aplica `accepted` y ejecuta el comando de dominio; desde F8, en una BORRADOR DE SECCION, escribe la sección con `DeliverableSections.adopt` (ASM-137) | UPDATE `ai_suggestion`; los permisos del comando que ejecuta | Quien tenga ambos | F7 |
@@ -1195,7 +1215,7 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 | `project` | Está entre «mis proyectos»: los de sus asignaciones vigentes (`active` y, si las tiene, hoy en Lima entre `start_date` y `end_date`) |
 | `project_assignment` | Es suya (aunque esté vencida) o es de uno de mis proyectos |
 | Las raíces de `ProjectScope.ROOTS` (31 hasta F4; 33 desde F5, con `social_contribution` y `social_program`; 35 desde F7, con `ai_suggestion` y `ai_interaction`; 37 desde F8, con `indicator_measurement` y `deliverable`) | Su `project` es de mis proyectos; `evidence`, `early_warning_rule`, `export_log`, desde F7, `ai_suggestion` y `ai_interaction` y, desde F8, `indicator_measurement` sin `project`, siempre |
-| Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5; 29 desde F8, con `deliverable_section` y `deliverable_version`) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
+| Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5; 30 desde F8, con `deliverable_section`, `deliverable_version` y `deliverable_presentation`) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
 | Los maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`; 20 hasta F7; desde F8, también `indicator` y `deliverable_template`) | Siempre (ASM-107) |
 
 - **Maestros del tenant (`ProjectScope.TENANT`):** `administrative_unit`, `locality`, `community`, `community_sector`,
@@ -1426,7 +1446,8 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - ningún nivel lleva el documento de identidad ni los teléfonos: ningún tipo los lee (`ReportSourcesTest`);
   - EXTERNO sale solo en PDF y exige la lista de verificación (`400 CHECKLIST_REQUIRED`), cuya confirmación queda en
     `export_log`;
-  - `sgspe-latex` y GeoServer nunca son públicos, y ninguna petición los llama por un entregable: solo JOB-05. Los
+  - `sgspe-latex`, `sgspe-slides` y GeoServer nunca son públicos, y ninguna petición los llama por un entregable: solo
+    JOB-05 y, para las presentaciones, JOB-09. Los
     logs de la generación llevan solo ids, códigos de aviso y el id de correlación, nunca narrativa, contenido de un
     entregable ni datos personales, y `sgspe-latex` devuelve un error con su código, nunca con texto del documento;
   - todo texto del modelo que va al PDF pasa por `LatexText`, que escapa `\ { } $ & # ^ _ % ~` y quita los caracteres
@@ -1434,7 +1455,12 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
     JPEG (sin SVG) y un color de acento validados (ASM-139, ASM-140, ADR-0030);
   - las plantillas Word se validan al subirlas (`TemplateValidator`, ASM-135): sin macros, objetos OLE, ActiveX,
     controles de contenido, vínculos externos ni marcadores desconocidos, y con fuentes de la lista;
-  - cada emisión queda en `export_log` y en `audit_log` (RQ-AUD-011).
+  - cada emisión queda en `export_log` y en `audit_log` (RQ-AUD-011);
+  - las presentaciones de una versión emitida (ADR-0031) aplican el nivel antes de extraer el material, y PUBLICO sale
+    solo de los hechos tipados del modelo con `SmallCells`, sin párrafos, citas, menciones, mapas ni fotos con personas
+    (ASM-146); cada descarga de su PDF o su especificación exige el permiso del nivel y, en EXTERNO y PUBLICO, la lista
+    de verificación, y queda en `export_log` (ASM-147); solo JOB-09 llama a `sgspe-slides`, que devuelve un error con su
+    código y el id de la lámina, nunca con texto del documento.
 - **Documentos emitidos** de wasichai-documents (RQ-REP-029): no se filtran por permisos de campo, porque quien ve el
   documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Además, la copia congelada lleva **todos** los campos del
   registro y todas las columnas de cada tabla relacionada que nombra la plantilla, aunque no los imprima, y
@@ -1650,7 +1676,8 @@ imagen `postgis/postgis:18-3.6`, en CI o contra una base externa.
 | Importaciones | ZIP con rutas fuera de su carpeta, archivo demasiado grande y tiempo excedido | Integración | F2, F6 | RQ-SEC-020 |
 | Plantillas Word | `TemplateValidatorTest` y `DeliverableTemplatesApiTest`: un .dotm, un `vbaProject.bin`, un objeto OLE, un vínculo externo, un marcador desconocido, un estilo requerido faltante y una fuente prohibida se rechazan con `422 TEMPLATE_INVALID`; una fuente que solo figura en la tabla de fuentes es un aviso; la base de SGSPE es válida; solo `MANAGE_METADATA` sobre `deliverable` sube | Unitaria e integración | F8 | RQ-SEC-019 |
 | Cierre de periodo (`IndicatorMeasurementsApiTest`) | `409 INDICATOR_NOT_CLOSABLE` con la postura, sin valor escalar, sin disponibilidad y con `confidentialHidden`; periodo abierto, `400 PERIOD_NOT_ENDED`; duplicado, `409 MEASUREMENT_EXISTS`; todo el tenant sin `READ_ALL_PROJECTS`, `403`; `appendOnly` | Integración | F8 | RQ-DSH-037, RQ-SEC-010 |
-| Generación de entregables (`ArchitectureTest`, `DeliverableDraftsApiTest`) | El `WebClient` hacia `sgspe-latex` y GeoServer solo en `sgspe.deliverable` (más el proxy WMS de F6); ningún paquete de dominio depende de `sgspe.deliverable`; `sgspe.privacy` solo de `common`; nadie escribe `draft_*` por la API genérica; los logs de JOB-05 no llevan narrativa ni datos personales | Unitaria e integración | F8 | RQ-SEC-010, RNF-MNT-005 |
+| Presentaciones (`PublicDisclosureTest`, `DeckPlannerTest`, `DeliverablePresentationsApiTest`) | Ningún marcador ficticio restringido (nombre, teléfono, documento de identidad, cita, lugar de entrega, foto sin consentimiento) llega a la especificación ni al PDF de EXTERNO o PUBLICO; PUBLICO cumple ASM-088; un nivel menos restrictivo que el de la versión y un público que no admite el nivel se rechazan; cada descarga exige su permiso y su lista y deja `export_log`; una especificación con URL se rechaza | Unitaria e integración | F8 | RQ-REP-034, RQ-REP-035, RQ-SEC-010 |
+| Generación de entregables (`ArchitectureTest`, `DeliverableDraftsApiTest`) | El `WebClient` hacia `sgspe-latex`, `sgspe-slides` y GeoServer solo en `sgspe.deliverable` (más el proxy WMS de F6); ningún paquete de dominio depende de `sgspe.deliverable`; `sgspe.privacy` solo de `common`; nadie escribe `draft_*` por la API genérica; los logs de JOB-05 no llevan narrativa ni datos personales | Unitaria e integración | F8 | RQ-SEC-010, RNF-MNT-005 |
 | Nombres reales | La verificación de §12 da cero coincidencias antes de cada commit | Local | F0–F8 | RQ-SEC-018 |
 
 Las pruebas de extremo a extremo automatizadas, con Playwright, empiezan en F2; en F1 basta el smoke que ejecuta el agente

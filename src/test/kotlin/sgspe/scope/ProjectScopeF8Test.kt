@@ -58,17 +58,18 @@ class ProjectScopeF8Test {
     }
 
     @Test
-    fun `el entregable es raiz, sus secciones y versiones hijas y la plantilla del tenant`() {
+    fun `el entregable es raiz, sus secciones, versiones y presentaciones hijas y la plantilla del tenant`() {
         assertEquals(ReadGroup.ROOT, ProjectScope.readGroup("deliverable"))
         assertTrue(catalog.isRequiredRelation("deliverable", ProjectScope.PROJECT))
-        for (name in listOf("deliverable_section", "deliverable_version")) {
+        for (name in listOf("deliverable_section", "deliverable_version", "deliverable_presentation")) {
             assertEquals(ReadGroup.CHILD, ProjectScope.readGroup(name), name)
             assertEquals(listOf("deliverable" to "deliverable"), ProjectScope.CHILDREN[name], name)
             assertEquals(listOf("deliverable" to "deliverable"), ProjectScope.chain(name, "deliverable"), name)
         }
         assertEquals(ReadGroup.TENANT, ProjectScope.readGroup("deliverable_template"))
         assertEquals(37, ProjectScope.ROOTS.size)
-        assertEquals(29, ProjectScope.CHILDREN.size)
+        // 30 desde ADR-0031, con deliverable_presentation
+        assertEquals(30, ProjectScope.CHILDREN.size)
         assertEquals(22, ProjectScope.TENANT.size)
     }
 

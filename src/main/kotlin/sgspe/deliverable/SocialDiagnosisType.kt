@@ -17,7 +17,9 @@ import sgspe.privacy.ReportSection
 @Component
 class SocialDiagnosisType : DeliverableType {
     override val name: String = NAME
-    override val version: Int = 1
+
+    // 2 desde los hechos tipados y las claves de tablas y gráficos (ADR-0031): un modelo congelado con 1 no los trae
+    override val version: Int = 2
     override val requiresApprovedArea: Boolean = true
 
     // las secciones asistidas sin bloques propios toman sus datos de otras (deliverables.md §5, «IA»): 7.1 de las tres listas de
@@ -259,6 +261,7 @@ class SocialDiagnosisType : DeliverableType {
                 meta = meta,
                 sections = built,
                 people = scene.people.people,
+                facts = scene.facts.toList(),
                 aiAssistedSections =
                     input.sections
                         .filter { it.text(Deliverables.CONTENT_ORIGIN) == Deliverables.AI_ASSISTED }

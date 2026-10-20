@@ -15,6 +15,10 @@ Maven. La interfaz [`sgspe-ui`](https://github.com/wasichai/sgspe-ui) tiene su p
 3. Al mezclar ese PR, release-please crea el tag `vX.Y.Z` y el GitHub Release.
 4. El release dispara `publish.yml`: compila `./gradlew bootJar -Pversion=X.Y.Z` y sube el jar al release como
    `sgspe-X.Y.Z.jar`.
+5. El mismo release publica en GitHub Packages el paquete `@wasichai/sgspe-slides` (`slides/`, ADR-0031) con la misma
+   versión: release-please la sube en `slides/package.json` (`extra-files`, jsonpath `$.version`), y el trabajo `slides`
+   de `publish.yml` comprueba que coincida con el tag, corre sus pruebas y lo publica con el `GITHUB_TOKEN`
+   (`packages: write`). `sgspe-ui` lo usa con `@remotion/player`.
 
 Para bajar el jar de un release:
 
@@ -24,7 +28,8 @@ gh release download vX.Y.Z --repo wasichai/sgspe --pattern 'sgspe-*.jar'
 
 ## Versiones
 
-Una sola versión para todo el repositorio, la de `gradle.properties` (entre los marcadores `x-release-please-*`).
+Una sola versión para todo el repositorio, la de `gradle.properties` (entre los marcadores `x-release-please-*`), que
+release-please copia también en `slides/package.json`.
 Mientras la versión sea 0.x, un `feat` sube el menor, un `fix` sube el parche y un cambio incompatible (`feat!:` o
 `BREAKING CHANGE:` en el cuerpo) también sube el menor (`bump-minor-pre-major`). Los tipos `docs`, `chore`, `ci`, `build`,
 `test`, `refactor` y `style` no aparecen en el `CHANGELOG.md`.

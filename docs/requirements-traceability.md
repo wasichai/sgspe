@@ -233,6 +233,7 @@ Las 114 RF de `requirements-analysis.md` §6, en su orden. §6.18 (AUD) no tiene
 |---|---|---|---|---|---|---|---|---|
 | RF-REP-001 | [USR-01] [DOC-01] | BC-15 · `sgspe.deliverable` (clase de T1); `model/workflows/deliverable.json` (WF-H) | `deliverable`, `deliverable_section`, `deliverable_version` | `POST /api/sgspe/deliverables/{id}/drafts`; `POST /api/sgspe/deliverables/{id}/issue` | Portal › Reportes | `deliverables.md` §13.2, criterio 1; `DeliverableWorkflowApiTest` | F8 | Diseñado; Fuera del MVP |
 | RF-REP-002 | [USR-01] [DOC-02] | BC-15 · `sgspe.deliverable` (clase de T2); `model/workflows/deliverable.json` (WF-H) | `deliverable`, `deliverable_section`, `deliverable_version` | `POST /api/sgspe/deliverables/{id}/drafts`; `POST /api/sgspe/deliverables/{id}/issue` | Portal › Reportes | `deliverables.md` §13.2, criterio 2; `DeliverableWorkflowApiTest` | F8 | Diseñado; Fuera del MVP |
+| RF-REP-008 | [USR-01] [USR-07] | BC-15 · `sgspe.deliverable` (`Audience`, `DeckMaterial`, `DeckPlanner`, `DeckSpec`, `SlidesConverter`, JOB-09); `sgspe.privacy` (PUBLICO); `slides/` (`@wasichai/sgspe-slides` y el servicio `sgspe-slides`) | `deliverable_version`, `deliverable_presentation`, `export_log` | `POST /api/sgspe/deliverables/{id}/versions/{n}/presentations`; `GET /api/sgspe/presentations/{id}/content`; `GET /api/sgspe/presentations/{id}/spec` | Portal › Reportes: presentaciones de la versión emitida | `deliverables.md` §16.8; `DeckPlannerTest`; `DeliverablePresentationsApiTest`; `SlidesPdfTest` | F8 | Diseñado; Fuera del MVP |
 
 ### 2.16 Tableros (DSH)
 
@@ -348,6 +349,11 @@ Fuente de las filas: `requirements-analysis.md` §13.1.
 | RQ-REP-031 | [DOC-01 §7.2, §9.3.2, Gráfico 10.3] | BC-15 · `sgspe.deliverable` (gráficos nativos de Word) | `stakeholder_assessment`, `social_risk` | `POST /api/sgspe/deliverables/{id}/drafts`; `GET /api/sgspe/deliverables/{id}/draft/content` | Portal › Reportes | `deliverables.md` §13.3 «Lectura del DOCX» | F8 | Diseñado; Fuera del MVP |
 | RQ-REP-032 | [DOC-01] [DOC-02] | BC-15 · `model/model.json`; `sgspe.deliverable` (`DeliverableWriteGuard`) | `deliverable_section` | `/api/objects/deliverable_section/records`; `GET /api/objects/{object}/records/{id}/history` | Portal › Reportes: editor de secciones | `DeliverableWorkflowApiTest` | F8 | Diseñado; Fuera del MVP |
 | RQ-REP-033 | [USR-07] [DOC-01 §7.1] | BC-15 · `sgspe.privacy` (menciones como referencias) | `deliverable_section`, `deliverable_version` | `POST /api/sgspe/deliverables/{id}/issue`; `POST /api/sgspe/exports/{kind}` | Portal › Reportes | `deliverables.md` §13.2, criterio 11; `security.md` §14 «Salidas» | F8 | Diseñado; Fuera del MVP |
+| RQ-REP-034 | [USR-01] [USR-07] | BC-15 · `sgspe.deliverable` (`DeliverablePresentations`, JOB-09 `DeckGenerationJob`) | `deliverable_version`, `deliverable_presentation`, `export_log` | `POST /api/sgspe/deliverables/{id}/versions/{n}/presentations`; `GET /api/sgspe/presentations/{id}/content`; `GET /api/sgspe/presentations/{id}/spec` | Portal › Reportes: presentaciones | `deliverables.md` §16.8; `DeliverablePresentationsApiTest` | F8 | Diseñado; Fuera del MVP |
+| RQ-REP-035 | [USR-07] | BC-15 · `sgspe.privacy` (`ReportDisclosure` en PUBLICO); `sgspe.deliverable` (`Audience`, `DeckMaterial`, `DeckPlanner`) | `deliverable_presentation` | `POST /api/sgspe/deliverables/{id}/versions/{n}/presentations` | Portal › Reportes: presentaciones | `deliverables.md` §16.8; `PublicDisclosureTest`; `DeckPlannerTest` | F8 | Diseñado; Fuera del MVP |
+| RQ-REP-036 | [USR-01] | BC-15 · `sgspe.deliverable` (`DeckPlanner`, `DeckChecks`); `slides/` (verificación en la composición) | `deliverable_presentation` | `GET /api/sgspe/presentations/{id}/content` | Portal › Reportes: presentaciones | `deliverables.md` §16.8; `DeckPlannerTest`; `slides` (`checks.test.ts`); `SlidesPdfTest` | F8 | Diseñado; Fuera del MVP |
+| RQ-REP-037 | [USR-01] | BC-15 · `sgspe.deliverable` (`DeckSpec`, JOB-09) | `deliverable_presentation` | `GET /api/sgspe/presentations/{id}/spec` | Portal › Reportes: presentaciones | `deliverables.md` §16.8; `DeckSpecTest`; `DeliverablePresentationsApiTest` | F8 | Diseñado; Fuera del MVP |
+| RQ-REP-038 | [USR-01] [DOC-01 §9.3.2] | BC-15 · `sgspe.deliverable` (`DeckMaterial`, `DeckPlanner`) | `deliverable_presentation` | `GET /api/sgspe/presentations/{id}/spec` | Portal › Reportes: presentaciones | `deliverables.md` §16.8; `DeckMaterialTest`; `DeckPlannerTest` | F8 | Diseñado; Fuera del MVP |
 
 ### 3.3 Requisitos de tableros e indicadores (RQ-DSH)
 
@@ -463,9 +469,9 @@ Las 20 RNF de `requirements-analysis.md` §7. Varias son de proceso o de reposit
 | Requirement | Source | Module | Entity | API | UI | Test | Fase | Estado |
 |---|---|---|---|---|---|---|---|---|
 | RNF-MNT-001 | [USR-03] [WAS-ADR-0024] | Transversal · app Spring Boot con `@WasichaiApplication` y los starters de `architecture.md` §5.1 | — | API genérica de wasichai (`api.md` §2) | `/admin` (`WasichaiApp`); portal con `@wasichai/ui` | `architecture.md` §13 «Contrato con la plataforma»; `ErrorContractApiTest` | F1 | Implementado |
-| RNF-MNT-002 | [USR-03] [WAS-ADR-0003] | Transversal · `model/model.json`, `model/roles.json`, `model/workflows/*.json`, `apply.py`, `apply_roles.py` | los 90 objetos de `domain-model.md` §6 | `/api/objects`; `/api/metadata/objects/**`; `/api/roles` | `/admin` (solo lectura del modelo en producción) | `test_apply.py` | F1 | Implementado (F1: `apply.py` y `apply_roles.py`); Diseñado (`test_model.py`, con los objetos de F2, ADR-0007) |
+| RNF-MNT-002 | [USR-03] [WAS-ADR-0003] | Transversal · `model/model.json`, `model/roles.json`, `model/workflows/*.json`, `apply.py`, `apply_roles.py` | los 91 objetos de `domain-model.md` §6 | `/api/objects`; `/api/metadata/objects/**`; `/api/roles` | `/admin` (solo lectura del modelo en producción) | `test_apply.py` | F1 | Implementado (F1: `apply.py` y `apply_roles.py`); Diseñado (`test_model.py`, con los objetos de F2, ADR-0007) |
 | RNF-MNT-003 | [PRM-01 §24, §25] | Transversal · todos los paquetes y `model/` | — | — | — | Todas las suites de `architecture.md` §13 | F1–F8 | Diseñado |
-| RNF-MNT-004 | [USR-09] | Transversal · `model/model.json`, `model/roles.json`, paquetes `sgspe.*`, rutas `/api/sgspe/**` | los 90 objetos de `domain-model.md` §6 | `/api/sgspe/**` | etiquetas en español en el portal y en `/admin` | `test_model.py`; `test_apply_roles.py` | F0 | Decisión pendiente (CON-050) |
+| RNF-MNT-004 | [USR-09] | Transversal · `model/model.json`, `model/roles.json`, paquetes `sgspe.*`, rutas `/api/sgspe/**` | los 91 objetos de `domain-model.md` §6 | `/api/sgspe/**` | etiquetas en español en el portal y en `/admin` | `test_model.py`; `test_apply_roles.py` | F0 | Decisión pendiente (CON-050) |
 | RNF-MNT-005 | [USR-03] [WAS-ADR-0003] [WAS-ADR-0024] [WAS-ADR-0025] [PRM-01 §19, §21] | Transversal · paquetes `sgspe.*` (`architecture.md` §5.2 y §5.3) | — | `/api/sgspe/**` | — | `ArchitectureTest`; `boundaries.test` | F1 | Implementado |
 | RNF-MNT-006 | [USR-08] | Transversal · repositorios `wasichai/sgspe` y `wasichai/sgspe-ui` | — | — | — | — | F0 | Diseñado |
 | RNF-MNT-007 | [USR-04] [USR-05] [PRM-01 §24] | Transversal · proceso por fases (`roadmap.md`) | — | — | — | — | F0 | Diseñado |
@@ -541,7 +547,7 @@ forman el capítulo 10. Las notas al pie del DOCX van aparte, porque su número 
 | Cap. 6. Identificación de grupos de interés | §6, §6.1.1.7, §6.1.2.7, §6.1.3, §6.1.3.1, §6.1–§6.3, §6.2.2.2, §6.2.4.1, §6.2.4.2, §6.2.5, Tablas 6.1–7.3 | RF-AGR-003, RF-CAT-001, RF-STK-001, RF-STK-002, RF-STK-003, RF-STK-004, RF-STK-005, RF-STK-012, RF-STK-013, RF-TER-003, RQ-REP-006, RQ-REP-012, RN-STK-006, RN-STK-008 |
 | Cap. 7. Caracterización de los grupos de interés | §7.1, §7.1.2, §7.2, §7.2.1.1, §7.2.1.2, §7.2.1.3, Tablas 6.1–7.3 | RF-CAT-001, RF-DSH-007, RF-LBS-007, RF-STK-001, RF-STK-005, RF-STK-009, RF-TER-008, RQ-DSH-004, RQ-REP-006, RQ-REP-009, RQ-REP-012, RQ-REP-014, RQ-REP-031, RQ-REP-033, RN-STK-006 |
 | Cap. 8. Definición de temas clave | §8, Tabla 8.1 | RF-EWS-001, RF-LBS-008, RF-TER-007, RF-TER-008 |
-| Cap. 9. Estrategias sociales | §9, §9.1.1, §9.1.1.1, §9.1.1.2, §9.1.1.3, §9.1.1.4, §9.1.2, §9.2, §9.3, §9.3.1, §9.3.1.1, §9.3.1.2, §9.3.2, §9.3.2.1, §9.3.2.2, §9.4.1, §9.4.2, Tabla 9.1, Tabla 9.2, Tabla 9.3, Tabla 9.4, Tabla 9.5 | RF-AGR-001, RF-AGR-002, RF-CAT-001, RF-COM-001, RF-COM-002, RF-COM-005, RF-COM-006, RF-COM-007, RF-COM-008, RF-COM-009, RF-DOC-001, RF-DSH-004, RF-DSH-005, RF-DSH-007, RF-DSH-008, RF-DSH-009, RF-DSH-010, RF-ENG-001, RF-ENG-002, RF-ENG-003, RF-ENG-004, RF-ENG-005, RF-ENG-007, RF-ENG-008, RF-ENG-009, RF-ENG-010, RF-ENG-011, RF-ENG-012, RF-EWS-001, RF-EWS-002, RF-EWS-003, RF-GRV-001, RF-GRV-003, RF-GRV-004, RF-GRV-005, RF-GRV-007, RF-INV-001, RF-INV-002, RF-INV-003, RF-INV-004, RF-LBS-004, RF-LBS-009, RF-PRJ-002, RF-PRJ-004, RF-PRJ-005, RF-RSK-001, RF-RSK-002, RF-RSK-003, RF-RSK-004, RF-RSK-005, RF-STK-005, RF-STK-009, RF-STK-010, RF-STK-011, RF-TER-008, RF-WFL-003, RQ-DSH-006, RQ-DSH-007, RQ-DSH-008, RQ-DSH-009, RQ-DSH-010, RQ-DSH-011, RQ-DSH-012, RQ-DSH-013, RQ-DSH-014, RQ-DSH-015, RQ-DSH-016, RQ-DSH-017, RQ-DSH-019, RQ-DSH-021, RQ-DSH-023, RQ-DSH-026, RQ-DSH-027, RQ-DSH-030, RQ-DSH-037, RQ-GIS-002, RQ-REP-002, RQ-REP-009, RQ-REP-012, RQ-REP-022, RQ-REP-029, RQ-REP-031, RQ-SEC-010, RQ-SEC-014, RQ-SEC-020, RNF-PRIV-004, RN-COM-001, RN-COM-002, RN-COM-003, RN-COM-004, RN-ENG-001, RN-ENG-002, RN-ENG-003, RN-ENG-004, RN-ENG-005, RN-GRV-001, RN-INV-001, RN-INV-002, RN-INV-003, RN-INV-004, RN-INV-005, RN-INV-006, RN-RSK-001, RN-RSK-002, RN-RSK-003, RN-STK-007 |
+| Cap. 9. Estrategias sociales | §9, §9.1.1, §9.1.1.1, §9.1.1.2, §9.1.1.3, §9.1.1.4, §9.1.2, §9.2, §9.3, §9.3.1, §9.3.1.1, §9.3.1.2, §9.3.2, §9.3.2.1, §9.3.2.2, §9.4.1, §9.4.2, Tabla 9.1, Tabla 9.2, Tabla 9.3, Tabla 9.4, Tabla 9.5 | RF-AGR-001, RF-AGR-002, RF-CAT-001, RF-COM-001, RF-COM-002, RF-COM-005, RF-COM-006, RF-COM-007, RF-COM-008, RF-COM-009, RF-DOC-001, RF-DSH-004, RF-DSH-005, RF-DSH-007, RF-DSH-008, RF-DSH-009, RF-DSH-010, RF-ENG-001, RF-ENG-002, RF-ENG-003, RF-ENG-004, RF-ENG-005, RF-ENG-007, RF-ENG-008, RF-ENG-009, RF-ENG-010, RF-ENG-011, RF-ENG-012, RF-EWS-001, RF-EWS-002, RF-EWS-003, RF-GRV-001, RF-GRV-003, RF-GRV-004, RF-GRV-005, RF-GRV-007, RF-INV-001, RF-INV-002, RF-INV-003, RF-INV-004, RF-LBS-004, RF-LBS-009, RF-PRJ-002, RF-PRJ-004, RF-PRJ-005, RF-RSK-001, RF-RSK-002, RF-RSK-003, RF-RSK-004, RF-RSK-005, RF-STK-005, RF-STK-009, RF-STK-010, RF-STK-011, RF-TER-008, RF-WFL-003, RQ-DSH-006, RQ-DSH-007, RQ-DSH-008, RQ-DSH-009, RQ-DSH-010, RQ-DSH-011, RQ-DSH-012, RQ-DSH-013, RQ-DSH-014, RQ-DSH-015, RQ-DSH-016, RQ-DSH-017, RQ-DSH-019, RQ-DSH-021, RQ-DSH-023, RQ-DSH-026, RQ-DSH-027, RQ-DSH-030, RQ-DSH-037, RQ-GIS-002, RQ-REP-002, RQ-REP-009, RQ-REP-012, RQ-REP-022, RQ-REP-029, RQ-REP-031, RQ-SEC-010, RQ-SEC-014, RQ-SEC-020, RNF-PRIV-004, RN-COM-001, RN-COM-002, RN-COM-003, RN-COM-004, RN-ENG-001, RN-ENG-002, RN-ENG-003, RN-ENG-004, RN-ENG-005, RN-GRV-001, RN-INV-001, RN-INV-002, RN-INV-003, RN-INV-004, RN-INV-005, RN-INV-006, RN-RSK-001, RN-RSK-002, RN-RSK-003, RN-STK-007, RQ-REP-038 |
 | Cap. 10. Anexos (incluye el Gráfico 10.2 y la Tabla 10.1) | Tabla 10.1, Anexo 1, Anexos 1–3, Anexo 3, Gráfico 10.2, Gráfico 10.3 | RF-DSH-007, RF-LBS-001, RF-LBS-009, RF-PRJ-006, RF-STK-005, RF-STK-006, RF-STK-007, RF-STK-008, RF-STK-009, RF-TER-007, RQ-DSH-005, RQ-GIS-001, RQ-GIS-004, RQ-GIS-019, RQ-REP-007, RQ-REP-008, RQ-REP-009, RQ-REP-023, RQ-REP-030, RQ-REP-031 |
 | Notas al pie | notas 1–2, nota 12, notas 13–19, notas 20–21, notas 22–23, nota 24, nota 25, nota 26 | RF-EWS-002, RF-LBS-002, RF-LBS-007, RF-STK-002, RF-STK-003, RF-STK-006, RF-STK-007, RF-STK-008, RF-TER-008 |
 | Portada e índice | índice, portada | RF-PRJ-002, RQ-REP-003, RQ-REP-004, RQ-REP-019 |
@@ -602,13 +608,13 @@ Informe de trabajo de campo y avance del prospecto Blanca [DOC-02]; un rango de 
 
 | Decisión | Requisitos que la citan como fuente |
 |---|---|
-| USR-01 | RF-AIK-004, RF-REP-001, RF-REP-002, RQ-AI-012, RQ-DSH-034, RQ-REP-001, RQ-REP-002, RQ-REP-008, RQ-REP-015, RQ-REP-017, RQ-REP-021, RQ-REP-026, RQ-REP-027, RQ-SEC-019 |
+| USR-01 | RF-AIK-004, RF-REP-001, RF-REP-002, RQ-AI-012, RQ-DSH-034, RQ-REP-001, RQ-REP-002, RQ-REP-008, RQ-REP-015, RQ-REP-017, RQ-REP-021, RQ-REP-026, RQ-REP-027, RQ-SEC-019, RF-REP-008, RQ-REP-034, RQ-REP-036, RQ-REP-037, RQ-REP-038 |
 | USR-02 | RF-DSH-001, RF-DSH-002, RF-DSH-006, RQ-DSH-001, RQ-DSH-034, RQ-GIS-001, RQ-GIS-005, RQ-GIS-014 |
 | USR-03 | RF-IAM-001, RNF-MNT-001, RNF-MNT-002, RNF-MNT-005 |
 | USR-04 | RNF-MNT-007 |
 | USR-05 | RQ-DSH-036, RNF-MNT-007 |
 | USR-06 | RQ-SEC-001 |
-| USR-07 | RF-DOC-003, RQ-AI-009, RQ-AUD-011, RQ-GIS-015, RQ-REP-014, RQ-REP-033, RQ-SEC-010, RQ-SEC-018, RNF-PRIV-004 |
+| USR-07 | RF-DOC-003, RQ-AI-009, RQ-AUD-011, RQ-GIS-015, RQ-REP-014, RQ-REP-033, RQ-SEC-010, RQ-SEC-018, RNF-PRIV-004, RF-REP-008, RQ-REP-034, RQ-REP-035 |
 | USR-08 | RNF-MNT-006 |
 | USR-09 | RF-CAT-001, RQ-SEC-003, RNF-I18N-001, RNF-INT-004, RNF-MNT-004, RNF-USA-001 |
 
@@ -696,12 +702,12 @@ documento define; «Upstream» cuando lo que falta llega con una brecha de wasic
 
 ### 7.2 Objetos canónicos que ningún requisito cita
 
-De los 90 objetos de `domain-model.md` §6, se buscan los que no aparecen en el texto de ninguna fila RF, RNF, RN o RQ
+De los 91 objetos de `domain-model.md` §6, se buscan los que no aparecen en el texto de ninguna fila RF, RNF, RN o RQ
 del análisis.
 
 Ninguno: cada objeto canónico aparece en al menos una fila de requisito del análisis.
 
-Además, los 90 objetos aparecen en la columna Entity de esta matriz.
+Además, los 91 objetos aparecen en la columna Entity de esta matriz.
 
 ### 7.3 Endpoints de `api.md` sin requisito
 
@@ -735,7 +741,7 @@ Tarea 7).
 | `RF-DOC` | 2 |
 | `RF-WFL` | 4 |
 | `RF-NTF` | 1 |
-| `RF-REP` | 2 |
+| `RF-REP` | 3 |
 | `RF-DSH` | 10 |
 | `RF-IAM` | 2 |
 | `RF-AIK` | 9 |
@@ -759,12 +765,12 @@ Tarea 7).
 | `RN-WFL` | 1 |
 | `RN-NTF` | 1 |
 | `RQ-GIS` | 22 |
-| `RQ-REP` | 32 |
+| `RQ-REP` | 37 |
 | `RQ-DSH` | 35 |
 | `RQ-SEC` | 17 |
 | `RQ-AUD` | 14 |
 | `RQ-AI` | 13 |
-| Total | 298 (RF 114, RQ 133, RNF 20, RN 31) |
+| Total | 304 (RF 115, RQ 138, RNF 20, RN 31) |
 
 | Estado | Filas que lo llevan |
 |---|---|

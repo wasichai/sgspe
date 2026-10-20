@@ -29,4 +29,15 @@ class CanonicalJsonTest {
         assertEquals(CanonicalJson.sha256(bytes), CanonicalJson.sha256(CanonicalJson.bytes(back)))
         assertEquals(64, CanonicalJson.sha256(bytes).length)
     }
+
+    // un modelo congelado antes de los hechos tipados (ADR-0031) conserva sus bytes: los campos nuevos son opcionales y nulos,
+    // y CanonicalJson omite los nulos (RQ-REP-026)
+    @Test
+    fun `un modelo sin hechos tipados conserva sus bytes`() {
+        assertEquals(GOLDEN_V1, CanonicalJson.sha256(CanonicalJson.bytes(ReportFixtures.model())))
+    }
+
+    private companion object {
+        const val GOLDEN_V1 = "8f2a6ce1c1663f4a015ba0728545a5c4c1d2c403d8fda4ea204b875d4c71e541"
+    }
 }

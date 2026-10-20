@@ -23,7 +23,7 @@ la raíz del repositorio; su guía de desarrollo está en [`develop/README.md`](
    los requisitos (RF, RNF, RN, RQ-*), las contradicciones (CON), los vacíos (GAP), los supuestos (ASM) y las brechas de
    wasichai (UPS). Es el único lugar donde se definen IDs.
 2. [`glossary.md`](glossary.md) da los términos en español y su nombre técnico en inglés.
-3. [`domain-model.md`](domain-model.md) describe los contextos delimitados, los 90 objetos, las reglas, las guardas, los
+3. [`domain-model.md`](domain-model.md) describe los contextos delimitados, los 91 objetos, las reglas, las guardas, los
    campos derivados, los paquetes y los trabajos.
 4. A partir de ahí, se lee el documento del tema que interese:
 

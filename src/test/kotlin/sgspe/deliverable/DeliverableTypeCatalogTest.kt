@@ -50,6 +50,7 @@ class DeliverableTypeCatalogTest {
         val listed = DeliverableTypeCatalog.compose(listOf(FieldReportType(), SocialDiagnosisType()))
         assertEquals(listOf(SocialDiagnosisType.NAME, FieldReportType.NAME), listed.map { it.type })
         val t1 = listed.first()
+        assertEquals(listOf(2, 2), listed.map { it.version })
         assertEquals(52, t1.sections.size)
         assertEquals((1..52).toList(), t1.sections.map { it.order })
         assertEquals(SocialDiagnosisType().sections.filter { it.assisted }.map { it.key }, t1.sections.filter { it.assisted }.map { it.key })

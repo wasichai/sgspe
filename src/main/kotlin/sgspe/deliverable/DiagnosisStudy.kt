@@ -3,6 +3,8 @@ package sgspe.deliverable
 import sgspe.deliverable.DiagnosisScene.Companion.SIN_DATO
 import sgspe.privacy.Block
 import sgspe.privacy.Cell
+import sgspe.privacy.Fact
+import sgspe.privacy.FactRow
 import sgspe.privacy.Mark
 import java.text.Normalizer
 import java.util.UUID
@@ -14,6 +16,8 @@ object DiagnosisStudy {
     const val AREAS_MAP = "areas"
     private const val INTERVIEW = "ENTREVISTA"
     private const val OBSERVATION = "FICHA DE OBSERVACION"
+    private const val NO_SCOPE = "Sin ámbito"
+    private const val NO_LOCALITY = "Sin localidad"
 
     // solo lo que ocurrió: las interacciones realizadas o con acta o cerradas (WF-C) y las visitas concluidas, total o
     // parcialmente (WF-L); lo planificado, programado, postergado, en curso o cancelado no cuenta
@@ -109,9 +113,24 @@ object DiagnosisStudy {
 
     // los apoyos y la oposición (#80, RN-STK-007): la última evaluación de cada grupo de interés hasta el corte, sin nombres. la
     // postura es restringida y EXTERNO la vacía en las Tablas 7.1 a 7.3 (DiagnosisStakeholders.classification): aquí la línea
-    // de conteos lleva la misma marca, y EXTERNO dice que se reservan
+    // de conteos lleva la misma marca, y EXTERNO dice que se reservan. el hecho `posturas` cuenta las mismas posturas sobre el
+    // catálogo stance, con la marca de la línea: no sale de INTERNO
     private suspend fun stances(scene: DiagnosisScene): List<Block> {
         val stances = scene.stakeholders().mapNotNull { scene.latestAssessment(it)?.text("stance") }
+        ReportFacts.grid(ReportLabels.enumValues("stance"), stances.groupingBy { it }.eachCount(), ReportFacts::option, empty = null)?.let { rows ->
+            scene.fact(
+                Fact(
+                    "posturas",
+                    Fact.COUNT,
+                    "Grupos de interés por postura",
+                    listOf("Postura"),
+                    "Grupos de interés",
+                    rows,
+                    period = ReportFacts.cutoff(scene.cutoff),
+                    mark = Mark.restricted("stakeholder_assessment.stance")
+                )
+            )
+        }
         val support = stances.count { it in SUPPORT }
         val opposition = stances.count { it in OPPOSITION }
         val neutral = stances.size - support - opposition
@@ -155,7 +174,9 @@ object DiagnosisStudy {
         return listOf(Block.Paragraph("Los temas y los instrumentos del estudio están en el Anexo 2 (10.2)."))
     }
 
-    // Tabla 3.1: entrevistas y fichas de observación del estudio por ámbito y localidad, con el ámbito combinado
+    // Tabla 3.1: entrevistas y fichas de observación del estudio por ámbito y localidad, con el ámbito combinado. el hecho
+    // `trabajo_de_campo` lleva los mismos conteos sobre la grilla de todas las localidades de los ámbitos, con las no visitadas en
+    // cero (la tabla solo lista las visitadas)
     suspend fun fieldwork(scene: DiagnosisScene): List<Block> {
         val study = scene.study
         val engagements =
@@ -163,20 +184,28 @@ object DiagnosisStudy {
                 ?.let { scene.source.all("engagement", mapOf("study" to it.id)) }
                 .orEmpty()
                 .filter { it.state in HELD && it.text("engagement_type") in setOf(INTERVIEW, OBSERVATION) }
-        val aids = scene.localities(scene.aids).map { it.id }.toSet()
-        val aiis = scene.localities(scene.aiis).map { it.id }.toSet()
+        val aidsLocalities = scene.localities(scene.aids)
+        val aiisLocalities = scene.localities(scene.aiis)
+        val aids = aidsLocalities.map { it.id }.toSet()
+        val aiis = aiisLocalities.map { it.id }.toSet()
         val groups = linkedMapOf<String, MutableList<Pair<String, List<SourceRow>>>>()
-        for ((locality, rows) in engagements.groupBy { it.ref("locality")?.toString() }) {
+        val byLocality = engagements.groupBy { it.ref("locality")?.toString() }
+        for ((locality, rows) in byLocality) {
             val scope =
                 when (locality) {
                     in aids -> DiagnosisScene.AIDS
                     in aiis -> DiagnosisScene.AIIS
-                    else -> "Sin ámbito"
+                    else -> NO_SCOPE
                 }
-            val name = locality?.let { scene.source.one("locality", UUID.fromString(it))?.text("name") } ?: "Sin localidad"
+            val name = locality?.let { scene.source.one("locality", UUID.fromString(it))?.text("name") } ?: NO_LOCALITY
             groups.getOrPut(scope) { mutableListOf() } += name to rows
         }
-        val order = listOf(DiagnosisScene.AIDS, DiagnosisScene.AIIS, "Sin ámbito")
+
+        fun count(
+            rows: List<SourceRow>,
+            type: String
+        ): Int = rows.count { it.text("engagement_type") == type }
+        val order = listOf(DiagnosisScene.AIDS, DiagnosisScene.AIIS, NO_SCOPE)
         val tableRows =
             order.filter { it in groups }.flatMap { scope ->
                 val items = groups.getValue(scope).sortedBy { it.first }
@@ -184,12 +213,42 @@ object DiagnosisStudy {
                     val counts =
                         listOf(
                             Cell(name),
-                            Cell(rows.count { it.text("engagement_type") == INTERVIEW }.toString()),
-                            Cell(rows.count { it.text("engagement_type") == OBSERVATION }.toString())
+                            Cell(count(rows, INTERVIEW).toString()),
+                            Cell(count(rows, OBSERVATION).toString())
                         )
                     if (i == 0) listOf(Cell(scope, rowSpan = items.size)) + counts else counts
                 }
             }
+        // las localidades de cada ámbito sin entrevistas ni fichas, en cero (una del AIDS y del AIIS cuenta en el AIDS, como arriba)
+        val idle =
+            mapOf(
+                DiagnosisScene.AIDS to aidsLocalities.filter { it.id !in byLocality },
+                DiagnosisScene.AIIS to aiisLocalities.filter { it.id !in aids && it.id !in byLocality }
+            )
+        val grid =
+            order.flatMap { scope ->
+                (groups[scope].orEmpty() + idle[scope].orEmpty().map { (it.text("name") ?: NO_LOCALITY) to emptyList() })
+                    .sortedBy { it.first }
+                    .flatMap { (name, rows) ->
+                        listOf(
+                            FactRow(listOf(scope, name, "Entrevistas"), count = count(rows, INTERVIEW)),
+                            FactRow(listOf(scope, name, "Fichas de observación"), count = count(rows, OBSERVATION))
+                        )
+                    }
+            }
+        if (grid.isNotEmpty()) {
+            scene.fact(
+                Fact(
+                    "trabajo_de_campo",
+                    Fact.COUNT,
+                    "Entrevistas y fichas de observación por ámbito y localidad",
+                    listOf("Ámbito", "Localidad", "Instrumento"),
+                    "Instrumentos aplicados",
+                    grid,
+                    forPublic = true
+                )
+            )
+        }
         val start = scene.day(study?.text("fieldwork_start_date"))
         val end = scene.day(study?.text("fieldwork_end_date"))
         val visits =
@@ -207,7 +266,8 @@ object DiagnosisStudy {
                 Block.Table(
                     "Entrevistas y fichas de observación por ámbito y localidad",
                     listOf("Ámbito", "Localidad", "Entrevistas", "Fichas de observación"),
-                    it
+                    it,
+                    key = "trabajo_de_campo"
                 )
             }
         )
@@ -239,7 +299,13 @@ object DiagnosisStudy {
                             Cell(ReportFormat.yesNo(member.attributes["studied_in_diagnosis"]))
                         )
                     }
-                Block.Table(caption, listOf("Miembro", "Condición", "Criterios aplicados", "Justificación", "Estudiado en el diagnóstico"), rows)
+                // una tabla partida (por microcuenca) repite su clave
+                Block.Table(
+                    caption,
+                    listOf("Miembro", "Condición", "Criterios aplicados", "Justificación", "Estudiado en el diagnóstico"),
+                    rows,
+                    key = "miembros_$key"
+                )
             }
         return listOfNotNull(area.text("criteria")?.let { Block.Paragraph(if (startsWith(it, "criterios")) it else "**Criterios:** $it") }) + tables
     }

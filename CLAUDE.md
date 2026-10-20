@@ -9,7 +9,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
   `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning` y, desde F7, `ai`.
-- `model/`: `model.json` (los 90 objetos de F2 a F8), `roles.json`, `workflows/` (los 19 de F2 a
+- `model/`: `model.json` (los 91 objetos de F2 a F8), `roles.json`, `workflows/` (los 19 de F2 a
   F8: WF-A, WF-B, WF-C, WF-L, WF-O, WF-D, WF-I, WF-K (de candidatos y, desde F7, de sugerencias de IA), WF-N, WF-E1,
   WF-E2, WF-E3, WF-F, WF-J, WF-M, WF-G, WF-P y WF-H), `document-types/`, `automations/` y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `indicators.json`, `load_indicators.py`,
@@ -43,7 +43,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   del puerto 5435 (`docs/develop/README.md` §6).
 - TDD: la prueba primero. `./gradlew ktlintFormat` antes de `build`; `yarn format` antes de commitear yaml o json.
 - Puertos: backend 8094, interfaz 5182, PostGIS 5435; en desarrollo, MinIO 9095 (consola 9096) y Mailpit 1029 (web 8029).
-- GeoServer 8095 y, desde el 2026-10-19, `sgspe-latex` 8097 (solo loopback, por el túnel; reemplaza a Gotenberg 8096).
+- GeoServer 8095 y, desde el 2026-10-19, `sgspe-latex` 8097 (solo loopback, por el túnel; reemplaza a Gotenberg 8096);
+  desde el 2026-10-20, `sgspe-slides` 8099 (Remotion, solo loopback, por el túnel; ADR-0031).
 - Archivos: `evidence.file` es un campo `FILE` de wasichai-files (D1, ADR-0014); un documento emitido congela el registro
   entero (UPS-23): ningún tipo de documento sobre un objeto con campos restringidos.
   La descarga de un campo `FILE` con datos restringidos pasa por SGSPE (`EvidenceContent`), e `IssuedDocumentsPrivacyTest`

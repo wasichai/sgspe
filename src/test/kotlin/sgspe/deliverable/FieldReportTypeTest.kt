@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 import sgspe.privacy.Block
 import sgspe.privacy.CanonicalJson
 import sgspe.privacy.Disclosure
+import sgspe.privacy.Fact
 import sgspe.privacy.Mark
 import sgspe.privacy.PersonalDataScan
 import sgspe.privacy.PhotoRef
@@ -33,8 +34,8 @@ class FieldReportTypeTest {
     private val withoutConsent = id(21)
     private val receiptImage = id(22)
 
-    // las filas por objeto; `related` por (objeto, id, relación)
-    private inner class FakeSource : ReportSource {
+    // las filas por objeto; `related` por (objeto, id, relación). internos: DeckPlannerTest arma el mismo T2
+    internal inner class FakeSource : ReportSource {
         val rows = mutableMapOf<String, MutableList<SourceRow>>()
         val links = mutableMapOf<Triple<String, String, String>, List<SourceRow>>()
         val read = mutableSetOf<String>()
@@ -72,7 +73,7 @@ class FieldReportTypeTest {
         override suspend fun microbasins(localities: List<UUID>): Map<UUID, String> = emptyMap()
     }
 
-    private fun source(): FakeSource {
+    internal fun source(): FakeSource {
         val s = FakeSource()
         s.add("project", project, "active", "code" to "PEA-1", "name" to "Proyecto Ejemplo A", "working_crs" to "EPSG 32717")
         s.add(
@@ -181,7 +182,7 @@ class FieldReportTypeTest {
         return s
     }
 
-    private fun input(): AssemblyInput =
+    internal fun input(): AssemblyInput =
         AssemblyInput(
             deliverable =
                 SourceRow(
@@ -361,5 +362,172 @@ class FieldReportTypeTest {
                 .filterIsInstance<Block.Table>()
                 .single { it.title == "Contactos cara a cara del periodo" }
         assertEquals("[[person:$person]], Junta de usuarios, una persona", contacts.rows.single()[1].text)
+    }
+
+    // ADR-0031 (plan de presentaciones, paso 3): desde typeVersion 2 los hechos tipados salen de los mismos datos que su tabla y
+    // cada tabla lleva su clave estable
+    private fun sgspe.privacy.ReportModel.fact(key: String): Fact = facts.orEmpty().single { it.key == key }
+
+    private fun sgspe.privacy.ReportModel.table(
+        section: String,
+        title: String
+    ): Block.Table =
+        sections
+            .single { it.key == section }
+            .blocks
+            .filterIsInstance<Block.Table>()
+            .single { it.title == title }
+
+    @Test
+    fun `T2 es typeVersion 2 y cada tabla lleva su clave estable`() {
+        assertEquals(2, type.version)
+        val source = source()
+        source.add(
+            "engagement",
+            id(60),
+            "held",
+            "project" to project,
+            "community" to community,
+            "engagement_type" to "CONTACTO CARA A CARA",
+            "held_at" to "2026-09-12T15:00:00Z"
+        )
+        source.add(
+            "field_visit",
+            id(65),
+            "completed",
+            "project" to project,
+            "title" to "Visita de setiembre",
+            "actual_start_date" to "2026-09-05"
+        )
+        val model = runBlocking { type.assemble(input(), source) }.model
+        assertEquals(2, model.meta.typeVersion)
+        val keys =
+            model.sections
+                .flatMap { it.blocks }
+                .filterIsInstance<Block.Table>()
+                .map { it.title to it.key }
+        assertTrue(keys.all { (_, key) -> key != null && Regex("^[a-z0-9]+(_[a-z0-9]+)*$").matches(key) }, keys.toString())
+        assertEquals(
+            listOf(
+                "incidentes",
+                "estado_de_la_relacion",
+                "visitas_de_campo",
+                "interacciones_del_periodo",
+                "integrantes_de_red",
+                "contactos_cara_a_cara",
+                "cargos",
+                "items_del_aporte",
+                "comprobantes",
+                "concesiones",
+                "cruces",
+                "sectores_comunales"
+            ),
+            keys.map { it.second }
+        )
+        assertEquals(model, CanonicalJson.read(CanonicalJson.bytes(model)))
+    }
+
+    @Test
+    fun `las actividades por tipo van sobre el catalogo completo con las filas de su tabla`() {
+        val model = runBlocking { type.assemble(input(), source()) }.model
+        val table = model.table("actividades", "Interacciones del periodo en la comunidad")
+        val fact = model.fact("actividades_por_tipo")
+        assertEquals(Fact.COUNT, fact.kind)
+        assertTrue(fact.forPublic)
+        assertEquals(
+            ReportLabels.enumValues("engagement_type").map { listOf(ReportLabels.option(it)!!) } + listOf(listOf("Sin dato"), listOf("No disponible")),
+            fact.rows.map { it.labels }
+        )
+        assertEquals(table.rows.size, fact.rows.sumOf { it.count!! })
+        assertEquals(1, fact.rows.single { it.labels == listOf(table.rows.single()[1].text) }.count)
+    }
+
+    @Test
+    fun `las redes y sus integrantes se cuentan como en sus tablas`() {
+        val source = source()
+        source.add("community_network", id(70), null, "project" to project, "community" to community, "name" to "Red sin integrantes")
+        source.add("network_node", id(71), null, "community_network" to id(12), "organization" to id(4), "node_role" to "MIEMBRO")
+        val model = runBlocking { type.assemble(input(), source) }.model
+        val fact = model.fact("redes_y_nodos")
+        assertEquals(Fact.COUNT, fact.kind)
+        assertTrue(fact.forPublic)
+        assertEquals(listOf(listOf("Redes") to 2, listOf("Integrantes") to 2), fact.rows.map { it.labels to it.count })
+        assertEquals(2, model.table("redes", "Integrantes de Red del Caserío Ejemplo").rows.size)
+    }
+
+    @Test
+    fun `los items del aporte por tipo y el monto total salen de la tabla del aporte`() {
+        val source = source()
+        source.add(
+            "contribution_item",
+            id(18),
+            null,
+            "social_contribution" to contribution,
+            "item_kind" to "BIEN",
+            "description" to "Clavos",
+            "line_amount" to "20.5"
+        )
+        source.add(
+            "contribution_item",
+            id(19),
+            null,
+            "social_contribution" to contribution,
+            "item_kind" to "SERVICIO",
+            "description" to "Flete",
+            "line_amount" to "1000"
+        )
+        val model = runBlocking { type.assemble(input(), source) }.model
+        val table = model.table("apoyo", "Ítems del aporte por tipo")
+        val items = model.fact("items_del_aporte")
+        assertEquals(Fact.AMOUNT, items.kind)
+        assertFalse(items.forPublic)
+        assertEquals(listOf("Aporte", "Tipo"), items.dimensions)
+        assertEquals(table.rows.map { listOf("AP-1", it[0].text) to it[2].text }, items.rows.map { it.labels to it.value })
+        assertEquals(listOf(listOf("AP-1", "BIEN") to "520.50", listOf("AP-1", "SERVICIO") to "1,000.00"), items.rows.map { it.labels to it.value })
+        assertTrue(items.rows.all { it.unit == "PEN" })
+        val total = model.fact("monto_del_aporte")
+        assertTrue(total.forPublic)
+        assertEquals(listOf(listOf("AP-1") to "1,520.50"), total.rows.map { it.labels to it.value })
+        assertEquals("PEN", total.unit)
+        // en PUBLICO el monto total sale y los ítems no
+        val public =
+            ReportDisclosure
+                .apply(model, Disclosure.PUBLICO)
+                .facts
+                .orEmpty()
+                .map { it.key }
+        assertTrue("monto_del_aporte" in public && "items_del_aporte" !in public, public.toString())
+    }
+
+    @Test
+    fun `las concesiones y los cruces dan su area en hectareas como en sus tablas`() {
+        val source = source()
+        source.rows.getValue("mining_concession").replaceAll { it.copy(attributes = it.attributes + ("registered_area_ha" to "1234.5")) }
+        source.links[Triple("project", project, "project_concession")] = source.rows.getValue("mining_concession")
+        val model = runBlocking { type.assemble(input(), source) }.model
+        val concessions = model.fact("concesiones")
+        assertEquals(Fact.AMOUNT, concessions.kind)
+        assertTrue(concessions.forPublic)
+        assertEquals("ha", concessions.unit)
+        assertEquals(listOf(listOf("CM-01", "Concesión Ejemplo") to "1,234.50"), concessions.rows.map { it.labels to it.value })
+        assertEquals(
+            "1,234.50",
+            model
+                .table("predio", "Concesiones del proyecto")
+                .rows
+                .single()[3]
+                .text
+        )
+        val crossings = model.fact("cruces")
+        assertFalse(crossings.forPublic)
+        assertEquals(listOf(listOf("CM-01", "Territorio comunal", "Comunidad Ejemplo") to "12.50"), crossings.rows.map { it.labels to it.value })
+        assertEquals(
+            "12.50",
+            model
+                .table("predio", "Concesiones sobre el territorio comunal, los sectores y los caseríos")
+                .rows
+                .single()[3]
+                .text
+        )
     }
 }

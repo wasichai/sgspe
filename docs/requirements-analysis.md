@@ -402,13 +402,13 @@ Cuando un requisito usa un objeto que llega en una fase posterior, la fila lo in
 
 | Decisión | Contenido | Requisitos que la despliegan |
 |---|---|---|
-| USR-01 | El sistema genera entregables como DOC-01 (DOCX) y DOC-02 (PDF), en ambos formatos | RF-REP-001, RF-REP-002, RQ-REP-001, RQ-REP-002, RQ-REP-015, RQ-REP-017, RQ-REP-026 |
+| USR-01 | El sistema genera entregables como DOC-01 (DOCX) y DOC-02 (PDF), en ambos formatos | RF-REP-001, RF-REP-002, RQ-REP-001, RQ-REP-002, RQ-REP-015, RQ-REP-017, RQ-REP-026, RF-REP-008, RQ-REP-034, RQ-REP-036, RQ-REP-037, RQ-REP-038 |
 | USR-02 | La situación se visualiza en GIS y en dashboards | RQ-GIS-001, RQ-GIS-005, RQ-GIS-014, RF-DSH-001, RF-DSH-002, RF-DSH-006, RQ-DSH-001 |
 | USR-03 | Construir sobre wasichai y wasichai-ui como srtm y caja; la plantilla vigente es caja (wasichai 0.3.2, `@wasichai/*` 0.5.0) | RNF-MNT-001, RNF-MNT-002, RNF-MNT-005, RF-IAM-001 |
 | USR-04 | Ejecución F0 → pausa para revisión → F1 | RNF-MNT-007 |
 | USR-05 | Se mantiene el orden del roadmap del prompt; los KPIs de cada módulo aparecen cuando el módulo se construye | RNF-MNT-007, RQ-DSH-036 |
 | USR-06 | Usuarios locales con la autenticación de wasichai (JWT propio) | RQ-SEC-001 |
-| USR-07 | Datos personales anonimizados en todo artefacto versionado | RQ-SEC-018, RQ-SEC-010, RQ-REP-014 |
+| USR-07 | Datos personales anonimizados en todo artefacto versionado | RQ-SEC-018, RQ-SEC-010, RQ-REP-014, RF-REP-008, RQ-REP-034, RQ-REP-035 |
 | USR-08 | Repos `wasichai/sgspe` (backend, documentación y ADRs) y `wasichai/sgspe-ui` (web) | RNF-MNT-006 |
 | USR-09 | Nombres técnicos en inglés; etiquetas, documentos y README en español | RNF-MNT-004, RF-CAT-001 |
 | USR-10 | El diseño de la interfaz sigue el orden dominio → arquitectura de información → navegación → design system → patrones núcleo → Project 360 y territorio → grupos de interés, relacionamiento y compromisos → QCS, riesgos y programas → tableros → capa de IA, sin empezar por el tablero. Ningún módulo es una aplicación aparte: desde una comunidad en el mapa se pasa a sus grupos de interés, a una interacción, al compromiso que generó y a su evidencia sin perder el contexto del proyecto y del territorio | RNF-USA-001, RF-IAM-002, ASM-075, ASM-076 (`docs/ux/`) |
@@ -597,6 +597,7 @@ Las demás obligaciones de los entregables (formato, emisión, anonimización, e
 |---|---|---|---|---|---|
 | RF-REP-001 | Generar el entregable "Diagnóstico social de áreas de influencia" (T1) con la estructura de DOC-01, en DOCX y PDF (ASM-014). Aceptación: el documento generado con fixtures ficticios contiene los capítulos de DOC-01 en su orden | [USR-01] [DOC-01] | [USR] [ASM] | BC-15 | F8 |
 | RF-REP-002 | Generar el entregable "Informe de trabajo de campo y avance" (T2) con la estructura de DOC-02, en DOCX y PDF (ASM-014). Aceptación: el documento generado con fixtures ficticios contiene antecedentes, objetivos, estrategias, actividades, conclusiones y recomendaciones | [USR-01] [DOC-02] | [USR] [ASM] | BC-15 | F8 |
+| RF-REP-008 | Generar una presentación de un entregable emitido (T1 o T2) para un público (dirección, equipos de campo, investigación, instituciones o comunidad) y un nivel de divulgación, como PDF de láminas y como presentación en el navegador, desde el modelo congelado de la versión emitida y sin aprobación propia (ASM-143, ASM-144, ASM-145). Aceptación: con fixtures ficticios, el mismo T1 emitido da presentaciones distintas por público, con las mismas cifras, y un T2 emitido da la suya | [USR-01] [USR-07] | [USR] [ASM] | BC-15 | F8 |
 
 ### 6.16 Tableros (DSH)
 
@@ -741,7 +742,7 @@ invariantes y flags se definen en `domain-model.md` y `database-model.md`; el si
 | BC-12 | `evidence` (más los documentos emitidos de wasichai-documents) | Archivos inmutables con hash y documentos administrativos congelados | RF-DOC-001, RF-DOC-003, RQ-REP-029 |
 | BC-13 | `task` (más los workflows de wasichai) | Tareas, aprobaciones y escalamientos | RF-WFL-001, RF-WFL-002, RF-WFL-003 |
 | BC-14 | Sin tablas propias: avisos de wasichai-notifications (ASM-012, ADR-0018) | Destinatarios y textos de los avisos | RF-NTF-001 |
-| BC-15 | `indicator`, `indicator_measurement`, `deliverable`, `deliverable_section`, `deliverable_version`, `export_log` | Indicadores, entregables y exportaciones | RF-REP-001, RF-REP-002, RQ-REP-017, RQ-REP-026, RQ-DSH-037 |
+| BC-15 | `indicator`, `indicator_measurement`, `deliverable`, `deliverable_section`, `deliverable_version`, `deliverable_presentation`, `export_log` | Indicadores, entregables, presentaciones y exportaciones | RF-REP-001, RF-REP-002, RF-REP-008, RQ-REP-017, RQ-REP-026, RQ-DSH-037 |
 | BC-16 | Usuarios y roles de wasichai más `project_assignment` (BC-01) | Identidad, roles y alcance | RF-IAM-001, RF-PRJ-005, RQ-SEC-006 |
 | BC-17 | `audit_log` de wasichai más `export_log` | Auditoría | RQ-AUD-001, RQ-AUD-005, RQ-AUD-011 |
 | BC-18 | `ai_suggestion`, `ai_interaction` (más la tabla fija `knowledge_chunk` en F7) | Sugerencias de IA y su registro | RF-AIK-009, RQ-AI-001, RQ-AI-008 |
@@ -894,11 +895,13 @@ barras ni paréntesis, como `AL DIA`; la alternativa en inglés queda como decis
 | Tipo de evidencia | ACTA · LISTA DE ASISTENTES · ACTA DE ENTREGA · ACTA DE RECEPCION · FOTO · COMPROBANTE · CARTA · CONVENIO · PARTIDA REGISTRAL · MAPA · RECORTE DE PRENSA · FORMULARIO · OTRO (propuesto) | `evidence` | [DOC-01 Tabla 9.5, §9.3.1.2] [DOC-02 p.4] |
 | Clasificación de evidencia | PUBLICA · INTERNA · CONFIDENCIAL · DATOS PERSONALES (propuestos) | `evidence` | [PRM-01 §5] [USR-07] |
 | Tipo de documento administrativo | ACTA DE ENTREGA · ACTA DE RECEPCION · MINUTA DE REUNION · LISTA DE ASISTENTES · CONSTANCIA · CARGO DE QUEJA (tras UPS-23) · CARTA DE RESPUESTA (tras UPS-23) · FICHA DE GRUPO DE INTERES · FICHA DE LOCALIDAD (propuestos los cinco últimos; el cargo y la carta se suben firmados como evidencia mientras UPS-23 siga abierta, ASM-098) | documentos emitidos de wasichai-documents | [DOC-01 §9.3.1.2, Tabla 9.5] [DOC-02 p.4] |
-| Nivel de divulgación | INTERNO · EXTERNO · PUBLICO (propuestos, ASM-037) | `deliverable_version`, `export_log` | [USR-07] |
+| Nivel de divulgación | INTERNO · EXTERNO · PUBLICO (propuestos, ASM-037) | `deliverable_version`, `deliverable_presentation`, `export_log` | [USR-07] |
 | Tipo de entregable | DIAGNOSTICO SOCIAL · INFORME DE CAMPO Y AVANCE (los de F8; T3 a T10 siguen probables, ASM-026, y un tipo nuevo se agrega aquí con su clase) | `deliverable` | [USR-01] |
 | Tipo de sección de entregable | NARRATIVA · CALCULADA · MIXTA (propuesto) · ANEXO | `deliverable_section` | [DOC-01 índice, Anexos] [DOC-02] (RQ-REP-011, RQ-REP-012) |
 | Origen del contenido | HUMANO · CALCULADO · ASISTIDO POR IA (propuestos) | `deliverable_section` | [USR-01] [PRM-01 §9] (RQ-AI-012) |
 | Estado de generación del borrador | SIN GENERAR · EN COLA · EN PROCESO · LISTO · FALLIDO (propuestos) | `deliverable` | [USR-01] (RQ-REP-021) |
+| Público de la presentación | DIRECCION · CAMPO · INVESTIGACION · INSTITUCIONES · COMUNIDAD (COMUNIDAD admite solo PUBLICO; INSTITUCIONES, EXTERNO o PUBLICO; ASM-145) | `deliverable_presentation` | [USR-01] [USR-07] (RF-REP-008, RQ-REP-035) |
+| Estado de la presentación | EN COLA · EN PROCESO · LISTO · FALLIDO (propuestos, como los del borrador) | `deliverable_presentation` | [USR-01] (RQ-REP-034) |
 | Tipo de sugerencia de IA | EXTRACCION · BORRADOR DE ACTA · RESUMEN EJECUTIVO · BORRADOR DE SECCION · DUPLICADO · CLASIFICACION | `ai_suggestion` | [PRM-01 §9] [USR-01] (AI-01, AI-02, AI-04, AI-07, AI-08) |
 | Percepción | Sujeto: MINERIA · PROYECTO · EMPRESA. Polaridad: POSITIVA · NEGATIVA | `perception` | [DOC-01 §7.1] |
 | Confiabilidad del dato | REFERENCIAL · VERIFICADO (propuesto) | `locality_profile` | [DOC-01 nota 2] |
@@ -1043,6 +1046,11 @@ PDF se compone con LuaLaTeX desde el mismo modelo congelado (ASM-139, ADR-0030).
 | RQ-REP-031 | Gráficos de informe nativos de Word en la primera versión de los entregables: tabla sombreada para probabilidad × impacto, cuadrante para interés × poder, tablas de distribución y gráficos nativos para tendencias (ASM-014) | [DOC-01 §7.2, §9.3.2, Gráfico 10.3] | [EXP] [ASM] | BC-15 | F8 |
 | RQ-REP-032 | Editar en la aplicación las secciones narrativas de cada entregable (`deliverable_section`), con su historial de cambios (inferido porque las secciones narrativas de DOC-01 y DOC-02 las escriben personas y se revisan antes de emitir) | [DOC-01] [DOC-02] | [INF] | BC-15 | F8 |
 | RQ-REP-033 | Insertar las menciones de personas en la narrativa como referencias, para que los niveles EXTERNO y PUBLICO las sustituyan por cargo o código; una exportación EXTERNO exige una lista de verificación (ASM-037) | [USR-07] [DOC-01 §7.1] | [USR] [ASM] | BC-15 | F8 |
+| RQ-REP-034 | Una presentación sale solo de una versión emitida (`deliverable_version`), del modelo congelado INTERNO cuyo SHA-256 se verifica, con un nivel igual o más restrictivo que el de la versión; se genera en segundo plano (JOB-09), su PDF (16:9) y su especificación se descargan con `DOWNLOAD_RESTRICTED` en INTERNO y `EXPORT` en EXTERNO y PUBLICO, con la lista de verificación en EXTERNO y PUBLICO, y cada descarga deja una fila en `export_log` (ASM-143, ASM-147) | [USR-01] [USR-07] | [USR] [ASM] | BC-15 | F8 |
+| RQ-REP-035 | El público y el nivel de divulgación son dimensiones distintas: el nivel se aplica primero, sobre el modelo nominal; después se extrae el material y se planifican las láminas. El público adapta el relato, la selección, la densidad, el vocabulario y el tono visual, y solo restringe los niveles que admite; los componentes de las láminas solo pintan lo que trae la especificación (ASM-145, ASM-146) | [USR-07] | [USR] [ASM] | BC-15 | F8 |
+| RQ-REP-036 | Ninguna lámina desborda su área, solapa regiones, baja del tamaño mínimo de letra, deforma una imagen ni queda vacía: el planificador divide el contenido en vez de encogerlo, y una lámina que aun así no cabe falla la composición con su código y el id de la lámina, sin archivo parcial ni texto del documento (ASM-144) | [USR-01] | [ASM] | BC-15 | F8 |
+| RQ-REP-037 | Una presentación se identifica por el SHA-256 del modelo, el de su especificación y las versiones del planificador, del diseño y del compositor; regenerarla desde la misma versión emitida da la misma especificación aunque los registros vivos hayan cambiado, y la composición no usa la fecha, el azar ni el entorno (ASM-144) | [USR-01] | [ASM] | BC-15 | F8 |
+| RQ-REP-038 | Las cifras de una presentación son las del modelo congelado, sin cálculos nuevos; lo ausente no es cero; cada lámina con datos lleva su fuente, el periodo, la unidad y el número de casos cuando hacen falta; un título afirmativo sale solo de una comparación calculable sobre los datos ya divulgados, nunca causal, y el testimonio, la percepción y la observación van rotulados (ASM-145) | [USR-01] [DOC-01 §9.3.2] | [USR] [EXP] [ASM] | BC-15 | F8 |
 
 ### 13.2 Dashboards e indicadores
 
@@ -1464,6 +1472,11 @@ implementan. Las contradicciones, gaps y pedidos upstream que originan un supues
 | ASM-140 | La marca de un entregable en PDF es la clase de SGSPE más, por organización, un logo (PNG o JPEG, sin SVG) y un color de acento (`RRGGBB`), campos opcionales `logo` y `accent_color` de `deliverable_template` que se suben con la plantilla y se validan (bytes mágicos y dimensiones); el borrador congela el id y el SHA-256 del logo y el acento. Ningún tenant sube código TeX. Sin `template_key`, el PDF sale sin logo y con el acento de SGSPE. La plantilla Word sigue dando el aspecto del DOCX (ASM-135) | Decisión del usuario del 2026-10-19: una clase por tenant ejecutaría código TeX de terceros (RQ-SEC-019); la marca y el tenant siguen abiertos en GAP-009 | Una clase por tenant validada, o el PDF sin marca del tenant | RQ-REP-019, RQ-SEC-019, ASM-135, GAP-009, `deliverable_template`, `deliverables.md` §7.6, ADR-0030 |
 | ASM-141 | El diseño tipográfico de los entregables es uno solo para el PDF y el DOCX (`ReportDesign`): A4 con márgenes de 2,5 cm (3 cm abajo), cuerpo de 10,5 pt con interlineado de 1,12 a 1,2, espacio entre párrafos, títulos en el color de acento que no quedan solos al pie, tablas sin filetes verticales (al estilo booktabs) con letra de 9 pt, relleno de celda, el ancho de la página y el de cada columna según su contenido (`ColumnWidths`: las cifras, angostas y a la derecha), y la fuente de cada tabla o figura en 8,5 pt. El PDF usa Source Serif 4 en el cuerpo y Source Sans 3 en títulos, tablas, encabezado y pie (OFL, incrustadas en la imagen); el DOCX de la plantilla base, Caladea y Carlito (la lista de ASM-135), y `PdfChecks` admite en el PDF solo las fuentes de la clase | Decisión del usuario del 2026-10-19: el texto abarrotado y los anchos de las tablas dificultaban la lectura del T1 de demostración | Otra pareja de fuentes libres; los anchos por tabla con `ColumnSpec` cuando el cálculo no baste | RQ-REP-006, RQ-REP-019, RQ-REP-028, ASM-135, `deliverables.md` §7.5 y §7.6, ADR-0030 |
 | ASM-142 | Toda cuenta autenticada lee el nombre visible de las personas de su organización por su correo (`GET /api/sgspe/people`, hasta 100 correos): los registros guardan al responsable por id y correo (ASM-023) y el directorio de usuarios de wasichai exige `MANAGE_ORGANIZATION`, así que sin esto el portal solo podía mostrar el correo, que quien mira ya ve. Un correo desconocido o de otro tenant no sale; los usuarios deshabilitados sí, para los registros viejos | Revisión de UX del portal del 2026-10-19 (sgspe#128): las listas y fichas mostraban correos donde la persona busca un nombre | Que wasichai exponga el nombre de los usuarios referidos o un directorio legible por alcance | ASM-023, RF-COM-005, RF-WFL-001, `docs/api.md` §4.1 |
+| ASM-143 | Una presentación es una salida derivada de una versión ya emitida de un entregable: no tiene aprobación propia, no cambia los hechos y no es una emisión. No lleva la marca BORRADOR de RQ-REP-021, porque su contenido ya fue aprobado; su pie dice «Derivada de <código> rev. <r>, nivel <nivel>; no es un documento emitido». Se guarda en `deliverable_presentation`, que solo escribe JOB-09 y el endpoint de pedido | Decisión del usuario del 2026-10-20: la presentación se envía a una institución y se presenta en una asamblea después de emitido el entregable | Un borrador de presentación con su propia revisión y aprobación (WF-H) | RF-REP-008, RQ-REP-021, RQ-REP-034, `deliverables.md` §16, ADR-0031 |
+| ASM-144 | Las presentaciones se componen con Remotion en el servicio `sgspe-slides` (imagen propia `slides/Dockerfile` sobre Node LTS fijado por digest, Remotion en una versión exacta de al menos dos semanas, el bundle y el Chrome headless-shell preparados al construir; solo loopback, en desarrollo el puerto 8099; de solo lectura, sin capacidades y sin red de salida en producción; a lo más `SLIDES_CONCURRENCY` composiciones a la vez y un plazo), que recibe una especificación validada y devuelve un PDF de una página por lámina unido con pdf-lib. La interfaz presenta la misma especificación con `@remotion/player`, con los componentes del paquete `@wasichai/sgspe-slides`, versionado con el backend. Se usa la licencia Free de Remotion, porque la organización califica; sin `licenseKey` en la v4, que intentaría enviar telemetría. No hay PPTX; el MP4 queda para después | Decisión del usuario del 2026-10-20: Remotion como motor, PDF y navegador primero; la organización califica para la licencia Free | Componentes React pasados a PDF con Playwright sin Remotion, o `beamer` en `sgspe-latex` | RF-REP-008, RQ-REP-036, RQ-REP-037, `deliverables.md` §16, ADR-0026, ADR-0031 |
+| ASM-145 | Los públicos iniciales de las presentaciones son DIRECCION, CAMPO, INVESTIGACION, INSTITUCIONES y COMUNIDAD, un catálogo en el código (`Audience`) que define el arco narrativo, la densidad, el vocabulario y el tono visual de cada uno, extensible sin tocar el compositor. Un público solo restringe los niveles: COMUNIDAD admite solo PUBLICO, INSTITUCIONES admite EXTERNO o PUBLICO y los demás, cualquiera. La presentación es determinista y no depende de la IA | Pedido del usuario del 2026-10-20: presentaciones distintas por público desde los mismos datos autorizados, sin mezclar público con nivel | Un generador por público, o el público como parámetro libre | RF-REP-008, RQ-REP-035, RQ-REP-038, `deliverables.md` §16 |
+| ASM-146 | Una presentación PUBLICO sale del modelo nominal por una lista permitida que falla cerrada: solo los hechos tipados del modelo (`facts`, campo opcional que los tipos emiten desde `typeVersion` 2) pasados por `SmallCells` (ASM-088), con los promedios de menos de 5 casos como «reservado»; sin párrafos, citas, menciones, mapas ni puntos de dispersión con código, y solo las fotos sin personas identificables (el consentimiento para un informe no cubre una asamblea). Un modelo sin `facts` (`typeVersion` 1) no da presentación en ningún nivel (`422 PRESENTATION_NOT_AVAILABLE`; en PUBLICO, `PUBLIC_NOT_AVAILABLE`): todavía no hay despliegue (GAP-022), así que no existe una versión emitida v1 fuera de desarrollo. Cada versión tiene un solo conjunto de hechos PUBLICO, el mismo para todo público; la diferencia entre dos revisiones emitidas es un residuo aceptado | Decisión del usuario del 2026-10-20: la presentación a la comunidad sale en un nivel PUBLICO nuevo; el texto formateado del modelo no permite cumplir ASM-088 | Presentar a la comunidad en EXTERNO | RF-REP-008, RQ-REP-035, ASM-037, ASM-088, `deliverables.md` §9 y §16 |
+| ASM-147 | La lista de verificación de una presentación EXTERNO o PUBLICO se confirma al descargar su PDF o abrir su especificación (`checklistConfirmed`), no al pedirla, porque recién entonces se ve; la confirmación queda en `filters_description` de la fila de `export_log`. El pedido exige la acción de descarga del nivel (`DOWNLOAD_RESTRICTED` en INTERNO, `EXPORT` en los demás) y CREATE sobre `deliverable_presentation` | Revisión del diseño del 2026-10-20: confirmar al pedir sería confirmar sin haber visto las láminas | Confirmar al pedir la presentación | RQ-REP-033, RQ-REP-034, RQ-AUD-011, `deliverables.md` §9.4 y §16 |
 
 ## 20. Matriz de trazabilidad (resumen; la matriz completa está en `requirements-traceability.md`)
 
@@ -1489,7 +1502,7 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `RF-DOC` | 2 |
 | `RF-WFL` | 4 |
 | `RF-NTF` | 1 |
-| `RF-REP` | 2 |
+| `RF-REP` | 3 |
 | `RF-DSH` | 10 |
 | `RF-IAM` | 2 |
 | `RF-AIK` | 9 |
@@ -1513,7 +1526,7 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `RN-WFL` | 1 |
 | `RN-NTF` | 1 |
 | `RQ-GIS` | 22 |
-| `RQ-REP` | 32 |
+| `RQ-REP` | 37 |
 | `RQ-DSH` | 35 |
 | `RQ-SEC` | 17 |
 | `RQ-AUD` | 14 |
@@ -1521,8 +1534,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 33 |
 | `UPS` | 32 |
-| `ASM` | 142 |
-| Total | 565 |
+| `ASM` | 147 |
+| Total | 576 |
 
 ### 20.2 Requisitos por bounded context
 
@@ -1541,7 +1554,7 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | BC-12 | 2 | 0 | 0 | 1 |
 | BC-13 | 4 | 0 | 1 | 0 |
 | BC-14 | 1 | 0 | 1 | 0 |
-| BC-15 | 12 | 0 | 0 | 68 |
+| BC-15 | 13 | 0 | 0 | 73 |
 | BC-16 | 2 | 0 | 0 | 12 |
 | BC-17 | 0 | 0 | 0 | 14 |
 | BC-18 | 9 | 0 | 0 | 12 |
@@ -1568,7 +1581,7 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | DOC-01 §9.3.1 | RF-WFL-003, RQ-DSH-037 |
 | DOC-01 §9.3.1.1 | RF-STK-005, RF-STK-010, RF-DSH-007, RQ-DSH-008, RQ-DSH-010 |
 | DOC-01 §9.3.1.2 | RF-PRJ-004, RF-LBS-004, RF-COM-001, RF-COM-002, RF-COM-005, RF-COM-006, RF-COM-007, RF-COM-008, RF-AGR-001, RF-AGR-002, RF-GRV-004, RF-INV-001, RF-INV-002, RF-INV-003, RF-INV-004, RF-DOC-001, RF-DSH-010, RNF-PRIV-004, RN-COM-001, RN-COM-002, RN-COM-003, RN-COM-004, RN-INV-001, RN-INV-002, RN-INV-003, RN-INV-004, RN-INV-005, RN-INV-006, RN-GRV-001, RQ-REP-022, RQ-REP-029, RQ-DSH-021, RQ-DSH-030, RQ-SEC-010 |
-| DOC-01 §9.3.2 | RF-RSK-001, RF-RSK-002, RF-RSK-003, RF-RSK-005, RF-EWS-001, RF-EWS-002, RF-EWS-003, RF-DSH-005, RN-RSK-001, RN-RSK-002, RN-RSK-003, RQ-REP-002, RQ-REP-031, RQ-DSH-026, RQ-DSH-027 |
+| DOC-01 §9.3.2 | RF-RSK-001, RF-RSK-002, RF-RSK-003, RF-RSK-005, RF-EWS-001, RF-EWS-002, RF-EWS-003, RF-DSH-005, RN-RSK-001, RN-RSK-002, RN-RSK-003, RQ-REP-002, RQ-REP-031, RQ-DSH-026, RQ-DSH-027, RQ-REP-038 |
 | DOC-01 Tabla 9.5 (RF, RNF, RN) | RF-LBS-009, RF-STK-010, RF-ENG-001, RF-ENG-004, RF-ENG-005, RF-ENG-007, RF-ENG-011, RF-ENG-012, RF-COM-005, RF-COM-009, RF-GRV-001, RF-GRV-003, RF-GRV-005, RF-GRV-007, RF-EWS-002, RF-DOC-001, RF-DSH-004, RF-DSH-008, RF-DSH-009, RNF-PRIV-004, RN-STK-007, RN-ENG-003 |
 | DOC-01 Tabla 9.5 (RQ) | RQ-REP-002, RQ-REP-012, RQ-REP-022, RQ-REP-029, RQ-DSH-006, RQ-DSH-007, RQ-DSH-008, RQ-DSH-009, RQ-DSH-011, RQ-DSH-012, RQ-DSH-013, RQ-DSH-014, RQ-DSH-015, RQ-DSH-016, RQ-DSH-017, RQ-DSH-019, RQ-DSH-023, RQ-DSH-037, RQ-SEC-010, RQ-SEC-020 |
 | DOC-01 §9.4 | RF-PRJ-002, RF-PRJ-005, RF-GRV-001, RF-EWS-003, RF-WFL-003, RQ-SEC-014 |
@@ -1585,13 +1598,13 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | DOC-02 p.5 | RF-TER-001, RF-TER-002, RF-TER-004, RF-STK-012, RQ-GIS-001, RQ-REP-007, RQ-REP-008, RQ-REP-011, RQ-REP-019, RQ-REP-024, RQ-REP-030 |
 | DOC-02 p.6 | RF-PRJ-002, RF-AGR-001, RF-AGR-002, RF-RSK-005, RN-INV-006, RQ-REP-011, RQ-REP-024 |
 | DOC-03 | RF-PRJ-006, RF-TER-005, RF-TER-006, RF-TER-007, RQ-GIS-001, RQ-GIS-002, RQ-GIS-003, RQ-GIS-004, RQ-GIS-006, RQ-GIS-007, RQ-GIS-008, RQ-GIS-009, RQ-GIS-010, RQ-GIS-018, RQ-REP-008, RQ-DSH-029, RQ-SEC-020, RQ-AUD-013 |
-| USR-01 | RF-REP-001, RF-REP-002, RF-AIK-004, RQ-REP-001, RQ-REP-002, RQ-REP-008, RQ-REP-015, RQ-REP-017, RQ-REP-021, RQ-REP-026, RQ-REP-027, RQ-DSH-034, RQ-SEC-019, RQ-AI-012 |
+| USR-01 | RF-REP-001, RF-REP-002, RF-AIK-004, RQ-REP-001, RQ-REP-002, RQ-REP-008, RQ-REP-015, RQ-REP-017, RQ-REP-021, RQ-REP-026, RQ-REP-027, RQ-DSH-034, RQ-SEC-019, RQ-AI-012, RF-REP-008, RQ-REP-034, RQ-REP-036, RQ-REP-037, RQ-REP-038 |
 | USR-02 | RF-DSH-001, RF-DSH-002, RF-DSH-006, RQ-GIS-001, RQ-GIS-005, RQ-GIS-014, RQ-DSH-001, RQ-DSH-034 |
 | USR-03 | RF-IAM-001, RNF-MNT-001, RNF-MNT-002, RNF-MNT-005 |
 | USR-04 | RNF-MNT-007 |
 | USR-05 | RNF-MNT-007, RQ-DSH-036 |
 | USR-06 | RQ-SEC-001 |
-| USR-07 | RF-DOC-003, RNF-PRIV-004, RQ-GIS-015, RQ-REP-014, RQ-REP-033, RQ-SEC-010, RQ-SEC-018, RQ-AUD-011, RQ-AI-009 |
+| USR-07 | RF-DOC-003, RNF-PRIV-004, RQ-GIS-015, RQ-REP-014, RQ-REP-033, RQ-SEC-010, RQ-SEC-018, RQ-AUD-011, RQ-AI-009, RF-REP-008, RQ-REP-034, RQ-REP-035 |
 | USR-08 | RNF-MNT-006 |
 | USR-09 | RF-CAT-001, RNF-MNT-004, RNF-INT-004, RNF-I18N-001, RNF-USA-001, RQ-SEC-003 |
 | ARQ-01 | RQ-AUD-012, RQ-AI-001 |
@@ -1674,6 +1687,9 @@ Observaciones:
   de ASM-014 (que sigue rigiendo el DOCX), ASM-140 limita al DOCX la plantilla de ASM-135 y ASM-141 fija el diseño común.
 - ASM-142 (2026-10-19, revisión de UX del portal) no retira ninguno: abre a quien no administra solo el nombre visible de
   las personas de su organización, por su correo.
+- Los IDs de las presentaciones (RF-REP-008, RQ-REP-034 a RQ-REP-038 y ASM-143 a ASM-147, 2026-10-20) no retiran
+  ninguno: ASM-146 amplía ASM-037, que dejaba PUBLICO solo para las exportaciones con agregados, a las presentaciones
+  PUBLICO, y ASM-143 deja fuera de la marca BORRADOR de RQ-REP-021 a las presentaciones, que salen de lo ya emitido.
 - Las nueve decisiones del usuario (USR-01 a USR-09) están desplegadas según §6.0; USR-04 y USR-08 se cumplen en el
   proceso y en los repositorios (RNF-MNT-007, RNF-MNT-006).
 - Los capítulos de DOC-01 con más requisitos son el 9 (estrategias: relacionamiento, compromisos, riesgos e indicadores),

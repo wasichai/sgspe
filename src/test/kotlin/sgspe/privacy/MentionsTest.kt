@@ -24,6 +24,12 @@ class MentionsTest {
     }
 
     @Test
+    fun `PUBLICO cita con texto generico, sin cargo, codigo ni localidad`() {
+        val target = MentionTarget("Persona Ejemplo 1", "Presidente", "Comunidad Ejemplo", "GI-111111111111", "Caserío Ejemplo")
+        assertEquals("una persona", Mentions.resolve("[[person:$id]]", mapOf("person:$id" to target), Disclosure.PUBLICO))
+    }
+
+    @Test
     fun `las claves salen en orden, en minusculas y sin repetir`() {
         assertEquals(listOf("person:$id", "stakeholder:$id"), Mentions.keys("$text [[person:$id]]"))
     }

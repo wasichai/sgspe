@@ -97,7 +97,8 @@ object ProjectScope {
             "program_milestone" to listOf("social_program" to "social_program"),
             // F8 (plan 8.1): las secciones y las versiones por su entregable
             "deliverable_section" to listOf("deliverable" to "deliverable"),
-            "deliverable_version" to listOf("deliverable" to "deliverable")
+            "deliverable_version" to listOf("deliverable" to "deliverable"),
+            "deliverable_presentation" to listOf("deliverable" to "deliverable")
         )
 
     // los saltos de una cadena, como mucho: ProjectReadCondition anida una subconsulta por salto (elección 1 de F5)

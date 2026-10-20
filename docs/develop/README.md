@@ -148,6 +148,56 @@ SGSPE_DELIVERABLE_LATEX_URL=http://localhost:8097 WASICHAI_GIS_GEOSERVER_URL=htt
   GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew slowTest --rerun
 ```
 
+### Láminas (sgspe-slides)
+
+Desde el 2026-10-20 (ADR-0031, ASM-144) las presentaciones de una versión emitida se componen con Remotion en el servicio
+`slides` (contenedor `sgspe-slides`). El paquete `slides/` (TypeScript, yarn, Node 24) tiene la especificación de una
+presentación (`src/spec/schema.ts`, zod), los tokens del sistema visual (`src/design/`), los layouts, la verificación de
+cada lámina (`src/checks.ts`), el servidor (`server/`) y las fuentes OFL vendidas (`fonts/`). Se prueba sin Docker:
+
+```bash
+cd slides && yarn install && yarn typecheck && yarn test
+# con Chrome headless-shell: compone a PDF las presentaciones de demostración y los casos que deben fallar
+npx remotion browser ensure && SLIDES_RENDER=1 yarn test
+```
+
+**La revisión visual** (`deliverables.md` §16.9) es obligatoria antes de mezclar un cambio del sistema visual: compone cada
+lámina a PNG y una hoja de contacto, y se mira con tres públicos que contrasten (`fixtures/demo-t1-*.json`):
+
+```bash
+cd slides && yarn review fixtures/demo-t1-direccion.json /tmp/revision
+```
+
+La imagen (`slides/Dockerfile`, dos etapas sobre `node:24-bookworm-slim` fijada por digest) prepara el bundle y el Chrome
+headless-shell al construir y corre sin red, de solo lectura, con tmpfs en `/tmp` y `/dev/shm`, sin capacidades y como
+usuario sin privilegios. Se construye y se levanta en el Docker remoto con:
+
+```bash
+DOCKER_HOST=unix:///tmp/docker.sock docker compose -p sgspe up -d --build slides
+```
+
+En el VPS escucha en `127.0.0.1:8099` (`SGSPE_SLIDES_PORT`) y se alcanza por el túnel
+`ssh -fN -L 8099:localhost:8099 "$SGSPE_VPS"`. `POST /render` recibe la especificación en JSON y devuelve el PDF
+(`X-Slides-Count`, `X-Trace`); un error responde `{code, slide}` sin texto del documento: `400 SPEC_INVALID`, `413
+TOO_LARGE`, `422 SLIDE_OVERFLOW`, `SLIDE_OVERLAP`, `TEXT_TOO_SMALL`, `SLIDE_EMPTY`, `FONT_MISSING` o `ASSET_INVALID`,
+`504 TIMEOUT` y `500 RENDER_FAILED` o `INTERNAL`. Variables: `SLIDES_TIMEOUT` (170 s), `SLIDES_CONCURRENCY` (2),
+`SLIDES_MAX_BYTES` (64 MB). Sin `licenseKey`: la organización usa la licencia Free de Remotion (ADR-0031).
+
+El backend lo encuentra con `SGSPE_DELIVERABLE_SLIDES_URL=http://localhost:8099` (`sgspe.deliverable.slides.url`, con
+plazo `sgspe.deliverable.slides.timeout` de 180 s y el sondeo de JOB-09 en `sgspe.deliverable.slides.poll`);
+`application-prod.yml` no le da valor por defecto, y sin él cada presentación queda FALLIDO con `SLIDES_UNAVAILABLE`. Las
+pruebas que componen con el servicio real llevan la etiqueta `slides` (`SlidesPdfTest`) y corren en el trabajo de
+integración de la CI; aquí, con el túnel abierto o el servidor local (`yarn serve` con `SLIDES_BUNDLE` y `SLIDES_PORT`):
+
+```bash
+SGSPE_DELIVERABLE_SLIDES_URL=http://localhost:8099 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
+  ./gradlew integrationTest --tests 'sgspe.deliverable.SlidesPdfTest'
+```
+
+Las especificaciones de demostración (`slides/fixtures/generated/`) las escribe `DeckPlannerTest` con datos sintéticos
+(`DeckDemo`); si el planificador cambia, se regeneran con `./gradlew test --tests 'sgspe.deliverable.DeckPlannerTest'
+-Dsgspe.decks.write=true` y pasan por la revisión visual.
+
 ### GDAL
 
 La importación y la exportación de Shapefile, KML, KMZ, GeoPackage, FileGDB y GPX usan `ogrinfo` y `ogr2ogr` 3.8 o
@@ -188,7 +238,7 @@ El modelo vive en `model/` y se aplica por REST, con el servidor arriba, siempre
 ```bash
 cd model
 python3 apply.py --validate-only        # el modelo, los workflows, los tipos de documento y las automatizaciones (sin servidor)
-python3 apply.py                        # objetos, acciones, relaciones e índices. En F8 (90 objetos): "done: 427 created, 29 updated, 0 skipped"
+python3 apply.py                        # objetos, acciones, relaciones e índices. En F8 (91 objetos): "done: 431 created, 30 updated, 0 skipped"
 python3 apply_roles.py                  # los 15 roles declarados con sus permisos y campos restringidos. La segunda vez: "15 skipped"
 python3 apply.py --workflows            # 19 workflows, 3 tipos de documento y 7 automatizaciones de F8
 python3 load_ubigeo.py                  # el ubigeo del INEI: 25 departamentos, 196 provincias y 1892 distritos
@@ -265,6 +315,20 @@ tenant de producción.
   mano. Si muere entre el alta y sus hijos o vínculos, la segunda corrida tampoco los crea, pero avisa
   («warning: <clave> has N <objeto o relación>, declares M») cuando core tiene menos hijos de un objeto o menos vínculos
   de una relación que los declarados; el aviso no compara el contenido, solo el número.
+
+### Uso de las acciones de las fichas
+
+`uso_de_acciones.py` lee la auditoría de un periodo (`GET /api/audit` por cursor) y cuenta cuántas veces las personas dieron
+cada transición o acción de una ficha, y si el portal la ofrece a la vista (la primaria) o en «Más acciones»
+(sgspe-ui#75). Sirve para decidir si algo del menú debe volver a la vista. Necesita una cuenta que lea la auditoría de todo
+el tenant (ADMIN o AUDITOR) y no escribe nada.
+
+```bash
+cd model
+python3 uso_de_acciones.py --core URL --email … --password … --desde 2026-07-01 --hasta 2026-10-01
+```
+
+Si cambia `CAMINO_DE` en sgspe-ui (`src/portal/fichas/siguienteAccion.ts`), se cambia también `CAMINO` en el script.
 
 ## 6. Pruebas
 

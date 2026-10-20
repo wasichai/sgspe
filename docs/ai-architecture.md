@@ -55,7 +55,7 @@ El boceto ARQ-01 separa tres planos que terminan en la auditoría. En SGSPE cada
 
 | Plano | Qué guarda | Quién escribe | Dónde vive |
 |---|---|---|---|
-| DATA | Hechos y registros del dominio | Personas por la API de wasichai o los endpoints `/api/sgspe/**`; trabajos programados, solo campos derivados y altas (§8.3 del modelo de dominio) | Los 90 objetos del catálogo |
+| DATA | Hechos y registros del dominio | Personas por la API de wasichai o los endpoints `/api/sgspe/**`; trabajos programados, solo campos derivados y altas (§8.3 del modelo de dominio) | Los 91 objetos del catálogo |
 | WORKFLOW | Decisiones humanas | La persona con el rol de la transición, con motivo cuando se exige | `workflow_state` de cada objeto con workflow [WAS-ADR-0013] |
 | AI | Sugerencias automáticas y su registro | El código de `sgspe.ai`, nunca el agente | `ai_suggestion`, `commitment_candidate`, `ai_interaction` |
 | AUDIT | Quién, qué, cuándo, por qué, desde y hacia | wasichai, en cada escritura y transición | `audit_log`, más `export_log` [WAS-ADR-0040] [WAS-ADR-0041] |

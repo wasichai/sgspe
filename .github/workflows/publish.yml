@@ -35,3 +35,32 @@ jobs:
           jar="$RUNNER_TEMP/sgspe-${GITHUB_REF_NAME#v}.jar"
           cp build/libs/app.jar "$jar"
           gh release upload "$GITHUB_REF_NAME" "$jar" --clobber --repo "$GITHUB_REPOSITORY"
+
+  slides:
+    name: Slides package
+    runs-on: ubuntu-latest
+    # ADR-0031: @wasichai/sgspe-slides (los layouts, los tokens y la especificación) con la versión del backend, que
+    # release-please sube en slides/package.json; sgspe-ui lo usa con @remotion/player. packages: write, para publicarlo
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: slides
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          registry-url: https://npm.pkg.github.com
+          scope: '@wasichai'
+      # el paquete tiene que tener la versión del release: si no, release-please no la subió y no se publica otra cosa
+      - name: Check the version
+        run: test "$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME#v}"
+      - run: yarn install --frozen-lockfile
+      - run: yarn typecheck
+      - run: yarn test
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -18,7 +18,8 @@ class DeliverableTypesApiTest : F8ApiTest() {
         val types = tree(response.body).values().toList()
         assertEquals(listOf(SocialDiagnosisType.NAME, FieldReportType.NAME), types.map { it["type"].asString() })
         val t1 = types.first()
-        assertEquals(1, t1["version"].asInt())
+        assertEquals(2, t1["version"].asInt())
+        assertEquals(2, types[1]["version"].asInt())
         val sections = t1["sections"].values().toList()
         val count = SocialDiagnosisType().sections.size
         assertEquals(count, sections.size)

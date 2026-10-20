@@ -17,6 +17,9 @@ object CanonicalJson {
 
     fun read(bytes: ByteArray): ReportModel = mapper.readValue(bytes, ReportModel::class.java)
 
+    // los bytes canónicos de cualquier otro valor con la misma forma (la especificación de una presentación, ADR-0031)
+    fun bytesOf(value: Any): ByteArray = write(mapper.convertValue(value, Map::class.java)).toByteArray(Charsets.UTF_8)
+
     fun sha256(bytes: ByteArray): String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
 
     // el texto canónico de un árbol de mapas, listas y valores simples

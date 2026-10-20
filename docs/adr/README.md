@@ -45,3 +45,4 @@ secciones Estado, Contexto, Opciones consideradas, Decisión, Consecuencias y Re
 | [0028](0028-qcs-confidenciales-con-recordreadscope.md) | QCS confidenciales con `RecordReadScope` | Aceptado | 2026-10-09 | 0042, 0048, 0050 |
 | [0029](0029-alcance-de-lectura-por-proyecto.md) | Alcance de lectura por proyecto con `RecordReadScope` | Aceptado | 2026-10-10 | 0042, 0048, 0055 |
 | [0030](0030-pdf-de-imprenta-con-lualatex.md) | PDF de imprenta con LuaLaTeX y DOCX con diseño editorial | Aceptado | 2026-10-19 | 0023, 0039 |
+| [0031](0031-presentaciones-con-remotion.md) | Presentaciones de los entregables con Remotion | Aceptado | 2026-10-20 | 0023, 0039, 0040 |

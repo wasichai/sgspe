@@ -1,0 +1,215 @@
+{
+    "schema": 1,
+    "meta": {
+        "code": "DEMO-T1-001",
+        "title": "Diagnóstico social de las áreas de influencia",
+        "project": "Proyecto Wayra Ejemplo",
+        "revision": "0",
+        "level": "PUBLICO",
+        "audience": "COMUNIDAD",
+        "dateLabel": "Octubre de 2026",
+        "period": "Abril a setiembre de 2026",
+        "organization": "Organización Ejemplo",
+        "derivation": "Derivada de DEMO-T1-001 rev. 0, nivel PUBLICO; no es un documento emitido"
+    },
+    "theme": {
+        "accent": "#1F4E79",
+        "onAccent": "#FFFFFF"
+    },
+    "assets": {},
+    "slides": [
+        {
+            "id": "portada",
+            "purpose": "Presentar el informe a la comunidad",
+            "title": "Lo que aprendimos en su comunidad",
+            "data": {
+                "layout": "cover",
+                "subtitle": "Resultados del diagnóstico social de abril a setiembre de 2026",
+                "preparedFor": "Asamblea comunal",
+                "preparedBy": "Organización Ejemplo"
+            }
+        },
+        {
+            "id": "que-es",
+            "purpose": "Explicar qué es el informe",
+            "chapter": "Qué es este informe",
+            "title": "Un informe sobre cómo se relaciona el proyecto con las comunidades",
+            "data": {
+                "layout": "summary",
+                "points": [
+                    "Conversamos con autoridades y organizaciones de las 15 localidades.",
+                    "Anotamos los compromisos del proyecto y si se cumplen.",
+                    "Aquí solo hay cifras de grupos: ninguna persona aparece con su nombre."
+                ]
+            }
+        },
+        {
+            "id": "cifras",
+            "purpose": "Mostrar el alcance",
+            "chapter": "Qué hicimos",
+            "title": "Visitamos todas las localidades del área",
+            "source": "Registro de interacciones, abril a setiembre de 2026",
+            "data": {
+                "layout": "figures",
+                "items": [
+                    {
+                        "figure": {
+                            "display": "15",
+                            "value": "15",
+                            "reserved": false
+                        },
+                        "label": "Localidades visitadas"
+                    },
+                    {
+                        "figure": {
+                            "display": "100",
+                            "value": "100",
+                            "reserved": false
+                        },
+                        "label": "Reuniones, visitas y talleres"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "confianza",
+            "purpose": "Mostrar la confianza de forma simple",
+            "chapter": "Qué encontramos",
+            "title": "La confianza en el proyecto subió desde junio",
+            "source": "Evaluaciones de grupos de interés (de 1 a 5)",
+            "note": "En julio no hubo evaluaciones; en mayo fueron menos de 5 y no se publican.",
+            "data": {
+                "layout": "trend",
+                "unit": "Confianza, de 1 (poca) a 5 (mucha)",
+                "categories": ["Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre"],
+                "min": "1",
+                "max": "5",
+                "series": [
+                    {
+                        "name": "Confianza",
+                        "values": ["3.20", null, "3.40", null, "3.70", "3.85"],
+                        "labels": ["3.2", "reservado", "3.4", null, "3.7", "3.9"]
+                    }
+                ]
+            }
+        },
+        {
+            "id": "localidades",
+            "purpose": "Comparar sin exponer a nadie",
+            "chapter": "Qué encontramos",
+            "title": "Algunas localidades recibieron más visitas que otras",
+            "source": "Registro de interacciones",
+            "note": "«reservado»: menos de 5 casos; no se publica para proteger a las personas.",
+            "data": {
+                "layout": "comparison",
+                "unit": "Visitas y reuniones",
+                "max": "20",
+                "items": [
+                    {
+                        "label": "Centro Poblado Alfa",
+                        "figure": {
+                            "display": "18",
+                            "value": "18",
+                            "reserved": false
+                        }
+                    },
+                    {
+                        "label": "Comunidad Beta",
+                        "figure": {
+                            "display": "16",
+                            "value": "16",
+                            "reserved": false
+                        }
+                    },
+                    {
+                        "label": "Caserío Gamma",
+                        "figure": {
+                            "display": "12",
+                            "value": "12",
+                            "reserved": false
+                        }
+                    },
+                    {
+                        "label": "Anexo Delta",
+                        "figure": {
+                            "display": "9",
+                            "value": "9",
+                            "reserved": false
+                        }
+                    },
+                    {
+                        "label": "Anexo Zeta",
+                        "figure": {
+                            "display": "reservado",
+                            "value": null,
+                            "reserved": true
+                        }
+                    },
+                    {
+                        "label": "Caserío Eta",
+                        "figure": {
+                            "display": "reservado",
+                            "value": null,
+                            "reserved": true
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "id": "glosario",
+            "purpose": "Explicar términos",
+            "chapter": "Palabras del informe",
+            "title": "Algunas palabras que usamos",
+            "data": {
+                "layout": "glossary",
+                "terms": [
+                    {
+                        "term": "Área de influencia",
+                        "meaning": "Las localidades donde el proyecto puede cambiar algo en la vida diaria."
+                    },
+                    {
+                        "term": "Grupo de interés",
+                        "meaning": "Una organización o autoridad con la que el proyecto conversa."
+                    },
+                    {
+                        "term": "Compromiso",
+                        "meaning": "Algo que el proyecto prometió hacer, con fecha."
+                    }
+                ]
+            }
+        },
+        {
+            "id": "conclusiones",
+            "purpose": "Cerrar con lo que sigue",
+            "chapter": "Qué sigue",
+            "title": "Lo que sigue",
+            "data": {
+                "layout": "conclusions",
+                "conclusions": ["Hay compromisos atrasados: el proyecto debe acordar nuevas fechas con ustedes."],
+                "nextSteps": ["Antes de cada obra, una reunión informativa en la localidad."]
+            }
+        },
+        {
+            "id": "limites",
+            "purpose": "Decir qué no dicen los datos",
+            "chapter": "Qué no dicen",
+            "title": "Lo que estos datos no dicen",
+            "data": {
+                "layout": "sources",
+                "sources": ["Registro del proyecto y estudio de campo, abril a setiembre de 2026."],
+                "limitations": ["Son opiniones de autoridades y organizaciones, no de cada familia.", "Cuando hay menos de 5 casos, la cifra no se publica."]
+            }
+        },
+        {
+            "id": "cierre",
+            "purpose": "Cerrar e invitar a preguntar",
+            "title": "Sus preguntas y comentarios",
+            "data": {
+                "layout": "closing",
+                "message": "El equipo social registrará cada pregunta de esta asamblea y la responderá en la próxima visita.",
+                "contact": "Organización Ejemplo"
+            }
+        }
+    ]
+}

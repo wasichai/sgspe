@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus
 import reactor.core.publisher.Flux
 import sgspe.ai.TestDocuments
 import sgspe.common.IfMatch
+import sgspe.deliverable.DeckGenerationJob
 import sgspe.deliverable.DeliverableDoubles
 import sgspe.deliverable.DeliverableGenerationJob
 import sgspe.deliverable.Deliverables
@@ -42,6 +43,12 @@ abstract class F8ApiTest : F7ApiTest() {
 
     @Autowired
     protected lateinit var fakeMaps: DeliverableDoubles.FakeReportMaps
+
+    @Autowired
+    protected lateinit var deckJob: DeckGenerationJob
+
+    @Autowired
+    protected lateinit var fakeSlides: DeliverableDoubles.FakeSlidesRenderer
 
     // el admin de la prueba como Account, para subir y crear como él
     protected fun admin(): Account = me().let { Account(token, it["email"].asString(), it["userId"].asString()) }
@@ -179,25 +186,28 @@ abstract class F8ApiTest : F7ApiTest() {
     // gerencia social asignada a su proyecto, con un borrador LISTO (readyDraft): DeliverableWriteGuard lo pide desde 8.2b
     protected fun approvedDeliverable(
         project: String,
-        manager: Account = member("SOCIAL_MANAGER", project)
+        manager: Account = member("SOCIAL_MANAGER", project),
+        model: ByteArray = READY_MODEL
     ): String {
         val id = deliverable(project, creator = manager)
-        readyDraft(id)
+        readyDraft(id, model = model)
         move("deliverable", id, "submit_for_review", manager.token, "envío de prueba")
         move("deliverable", id, "approve", manager.token, "aprobación de prueba")
         return id
     }
 
     // un borrador LISTO sin pasar por JOB-05 (plan 8.2b): los siete archivos subidos y adjuntos por `account` en una escritura de
-    // derivados con la marca, como lo hace la plataforma en JOB-05; el modelo es READY_MODEL. devuelve el SHA-256 del modelo
+    // derivados con la marca, como lo hace la plataforma en JOB-05; el modelo es READY_MODEL u otro (un T1 con hechos tipados,
+    // para las presentaciones). devuelve el SHA-256 del modelo
     protected fun readyDraft(
         deliverable: String,
-        account: Account = admin()
+        account: Account = admin(),
+        model: ByteArray = READY_MODEL
     ): String {
         val docx = TestDocuments.docx("Informe de campo y avance")
         val bytes =
             mapOf(
-                Deliverables.DRAFT_MODEL to Triple(READY_MODEL, "modelo.json", "text/plain"),
+                Deliverables.DRAFT_MODEL to Triple(model, "modelo.json", "text/plain"),
                 Deliverables.DRAFT_INTERNAL_DOCX to Triple(docx, "borrador.docx", DOCX),
                 Deliverables.DRAFT_INTERNAL_PDF to Triple(PDF, "borrador.pdf", "application/pdf"),
                 Deliverables.DRAFT_EXTERNAL_PDF to Triple(PDF, "borrador-externo.pdf", "application/pdf"),
@@ -206,7 +216,7 @@ abstract class F8ApiTest : F7ApiTest() {
                 Deliverables.CANDIDATE_EXTERNAL_PDF to Triple(PDF, "candidata-externa.pdf", "application/pdf")
             )
         val ids = bytes.mapValues { (field, file) -> stage(account, "deliverable", field, file.first, file.second, file.third) }
-        val sha = sha256(READY_MODEL)
+        val sha = sha256(model)
         asUser(account) {
             platformRecords.patch(
                 "deliverable",
@@ -250,6 +260,9 @@ abstract class F8ApiTest : F7ApiTest() {
 
     // una vuelta de JOB-05; los archivos los sube y adjunta la plataforma (PlatformDraftFiles)
     protected fun generate(): Int = runBlocking { generationJob.runOnce() } ?: 0
+
+    // una vuelta de JOB-09 (ADR-0031); el compositor es el doble FakeSlidesRenderer
+    protected fun compose(): Int = runBlocking { deckJob.runOnce() } ?: 0
 
     // un T2 listo para pedir su borrador: el escenario de reportScenario con su entregable INFORME DE CAMPO Y AVANCE
     protected fun requestedFieldReport(scenario: ReportScenario = reportScenario()): String {

@@ -134,7 +134,9 @@ los atajos de creación.
 | Territorio | ¿Qué pasa en este lugar? | Mapa territorial, fichas de comunidad, localidad y unidad administrativa, línea base social; un filtro que atraviesa el proyecto | Mapa, búsqueda o un vínculo territorial de cualquier ficha |
 
 Separar global de proyecto no duplica pantallas: **la misma página se monta con otro alcance** (ASM-076). El territorio es
-del tenant (`domain-model.md` §2); el proyecto es el lente con que se mira.
+del tenant (`domain-model.md` §2); el proyecto es el lente con que se mira. En Territorio, ese lente es el selector de la
+barra superior: lee y escribe `?project=` sin salir de la pantalla y, sin proyecto, dice "Todo el territorio". La pantalla
+no tiene un selector de proyecto propio (revisión de UX, segunda pasada del 2026-10-20).
 
 ### 6.2 Mapa del sitio y rutas
 
@@ -179,13 +181,18 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 
 ### 7.1 Shell
 
-- **Barra superior (56 px):** marca, selector de proyecto ("Todos mis proyectos" o uno), búsqueda global con ⌘K, botón
-  "Preguntar" del asistente (§7.5), ayuda, avisos con conteo y perfil con rol. El menú del perfil incluye el idioma
-  (Español, English, Runasimi), cada uno nombrado en su propia lengua; antes de ingresar se elige en el login y en el teléfono
-  en «Más › Preferencias e idioma» (ASM-084, lienzo de la etapa 3, página 23).
+- **Barra superior (56 px):** marca, selector de proyecto ("Todos mis proyectos" o uno; en Territorio, "Todo el territorio" o
+  el proyecto que hace de lente, §6.1), búsqueda global con ⌘K, botón "Preguntar" del asistente (§7.5), ayuda, avisos con
+  conteo y perfil con rol. El menú del perfil incluye el idioma (Español, English, Runasimi), cada uno nombrado en su propia
+  lengua, el tema y la salida; nada de eso va suelto en la barra. Antes de ingresar el idioma se elige en el login y en el
+  teléfono en «Más › Preferencias e idioma» (ASM-084, lienzo de la etapa 3, página 23).
 - **Navegación principal:** las 13 secciones en su orden, con ícono y etiqueta, insignias de lo que requiere acción y
-  "Administración" con enlace a `/admin`, visible solo para quien administra (ADR-0024). Se contrae a 52 px; en tableta pasa a
-  un panel y en el teléfono a una barra inferior de cuatro destinos.
+  "Administración" con enlace a `/admin`, visible solo para quien administra (ADR-0024). Sin cambiar ese orden, las secciones
+  van en bloques contiguos con título: Inicio; "Proyectos y territorio" (Proyectos, Territorio); "Trabajo con las
+  comunidades" (Grupos de interés, Relacionamiento, Compromisos, QCS); "Riesgos e inversión social" (Riesgos, Programas
+  sociales); "Documentos y seguimiento" (Documentos, Tareas, Reportes); y Administración aparte. Un bloque sin secciones
+  para la cuenta no se dibuja. Se contrae a 52 px, con una línea entre bloques y su título solo para lectores; en tableta
+  pasa a un panel y en el teléfono a una barra inferior de cuatro destinos.
 - **Tableta (768 a 1023 px):** el botón de menú de la barra superior abre un panel superpuesto con las 13 secciones y, si hay
   un proyecto en contexto, sus pestañas arriba; se cierra con ×, Esc o tocando fuera y devuelve el foco al botón. La barra
   conserva el proyecto, el chip de territorio, la búsqueda, los avisos, «Preguntar» y el perfil. Hoja `Shell-Tableta` del

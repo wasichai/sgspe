@@ -34,7 +34,7 @@ están en el [índice de ADR](adr/README.md).
 | # | Driver | Fuente | Consecuencia en la arquitectura |
 |---|---|---|---|
 | 1 | Construir sobre wasichai 0.3.2 y `@wasichai/*` 0.5.0, con caja como plantilla | [USR-03] RNF-MNT-001 | Una app Spring Boot con `@WasichaiApplication` y los starters de wasichai; la lista técnica del prompt queda sustituida por la plataforma (CON-039) |
-| 2 | Metadata primero, código propio solo donde la metadata no alcanza | RNF-MNT-002, RNF-MNT-005, CON-040 [WAS-ADR-0003] | Los 90 objetos, sus workflows, roles, vistas y formularios viven en `model/`; el código Kotlin vive en 19 paquetes `sgspe.*` (§5.2) |
+| 2 | Metadata primero, código propio solo donde la metadata no alcanza | RNF-MNT-002, RNF-MNT-005, CON-040 [WAS-ADR-0003] | Los 91 objetos, sus workflows, roles, vistas y formularios viven en `model/`; el código Kotlin vive en 19 paquetes `sgspe.*` (§5.2) |
 | 3 | Monolito modular, sin microservicios | [PRM-01 §3, §26] [WAS-ADR-0001] [WAS-ADR-0024] | Un solo desplegable (`app.jar`), con paquetes por capacidad del dominio y no por capas técnicas genéricas |
 | 4 | Auditabilidad: quién, qué, cuándo, por qué, desde y hacia | [PRM-01 §18] OBJ-10, RQ-AUD-001, RQ-AUD-002, RQ-AUD-014 | Toda escritura pasa por `RecordService`, que escribe su fila de `audit_log` (en la misma transacción cuando quien llama abrió una); los objetos críticos son `requiresReason` y la historia es `appendOnly` |
 | 5 | La IA sugiere y la persona decide | OBJ-09, RQ-AI-001, RQ-AI-003, RN-EWS-001 [ARQ-01] [ARQ-02] | Plano de IA separado (`ai_interaction`, `ai_suggestion`, `commitment_candidate`); aceptar es un comando humano auditado (§7) |
@@ -161,6 +161,7 @@ flowchart TB
 | PostgreSQL con PostGIS | PostgreSQL 18, PostGIS 3.6 (`postgis/postgis:18-3.6`) | Esquema de metadata `wasichai`, esquema de datos `app_data` (una tabla por objeto y organización) y esquema `sgspe` de tablas fijas | F1 | [WAS-ADR-0002] [WAS-ADR-0004] CON-052 |
 | GeoServer | `docker.osgeo.org/geoserver:3.0.1`, red interna (en desarrollo, solo en el loopback, puerto 8095) | Capas de referencia no sensibles por WMS (vía el proxy autenticado de `sgspe.territory`) y mapas de informe por GetMap | F6, F8 | RQ-SEC-011, RQ-REP-030, ASM-038 [WAS-ADR-0006] |
 | `sgspe-latex` | Imagen propia (`develop/latex/Dockerfile`) sobre `debian:trixie-slim` fijada por digest, con TeX Live de Debian, Source Serif 4 y Source Sans 3 y un envoltorio HTTP en Python de biblioteca estándar; red interna sin salida (en desarrollo, solo en el loopback, puerto 8097) | Compone con LuaLaTeX el paquete que arma `LatexWriter` en el trabajador de generación (JOB-05), que es el único que lo llama: un pedido por nivel devuelve la versión candidata en PDF/A-2b y el borrador con la marca BORRADOR, y PDFBox verifica cada PDF. El DOCX sale aparte, con Apache POI y solo en INTERNO; en EXTERNO se entrega solo el PDF. Desde el 2026-10-19 reemplaza a Gotenberg, que convertía el DOCX con LibreOffice (ADR-0030) | F8 | ASM-014, ASM-139, RQ-REP-001 |
+| `sgspe-slides` | Imagen propia (`slides/Dockerfile`) sobre Node LTS en Debian fijado por digest, con Remotion en versión exacta, el bundle y el Chrome headless-shell preparados al construir, Source Serif 4 y Source Sans 3 y un servidor `node:http`; red interna sin salida (en desarrollo, solo en el loopback, puerto 8099) | Compone el PDF de láminas de una presentación (ADR-0031) desde la especificación que arma `DeckPlanner` en JOB-09, que es el único que lo llama: un `renderStill` a PDF por lámina, unidas con pdf-lib, con la verificación de desborde, solapes y tamaño mínimo dentro de la composición; PDFBox verifica el resultado (`DeckChecks`). La interfaz presenta la misma especificación con `@remotion/player` | F8 | ASM-144, RF-REP-008 |
 | Almacenamiento de objetos | Compatible con S3 (MinIO solo en desarrollo), el `FileStore` de wasichai-files | Los archivos de las evidencias (campo `FILE`, ADR-0014); desde F8, los de los entregables y las plantillas, también campos `FILE` (ASM-133). En F2 las cargas de importación usan una carpeta temporal | F3 | ASM-013, ASM-060, RF-DOC-001, RQ-SEC-020, GAP-022 [WAS-ADR-0061] |
 | Servidor SMTP | Configurable; servidor de prueba en desarrollo | Correos del canal `email` de wasichai-notifications | F3 | RF-NTF-001, GAP-021 |
 | Proveedor de LLM | Embabel (Anthropic por defecto, intercambiable) | Asistente de solo lectura y agentes propios que sugieren | F7 | RQ-AI-005, RQ-AI-014 [WAS-ADR-0015] |
@@ -531,6 +532,7 @@ Brechas de la auditoría de wasichai y cómo se mitigan mientras se resuelven up
 | JOB-03 `StakeholderFollowUpJob` | `sgspe.stakeholder` | Tareas de evaluación periódica e inactividad, `last_contact_date` y la regla de primer contacto de `relationship_status` | Diaria, configurable | F2 (tareas desde F3) | RF-STK-010, RF-STK-014, ASM-022 |
 | JOB-04 `WarningRulesJob` | `sgspe.warning` | Evalúa los seis tipos de regla por proyecto, con la regla del proyecto en lugar de la del tenant del mismo tipo, y crea alertas en `detected` con `generator_key`; nunca confirma ni aplica transiciones (`workflows.md`, «Tipos de regla de JOB-04») | Cada hora, configurable | F4 | RF-EWS-004, RN-EWS-001, ASM-006, ASM-097 |
 | JOB-05 Trabajador de generación | `sgspe.deliverable` | Toma los pedidos de borrador pendientes, congela el modelo, pide los mapas por GetMap, genera por nivel de divulgación el borrador y la versión candidata (DOCX y PDF en INTERNO; solo PDF en EXTERNO) y sube y adjunta los siete campos `FILE` del borrador con LISTO en una sola escritura de la plataforma (UPS-31, desde wasichai 1.3.0); retoma los pedidos viejos | Sondeo cada `sgspe.deliverable.generation.poll` (5 s) | F8 | RQ-REP-021, ASM-061, ASM-133 |
+| JOB-09 Presentaciones (`DeckGenerationJob`) | `sgspe.deliverable` | Toma las `deliverable_presentation` EN COLA, lee el modelo congelado de la versión emitida (verifica su SHA-256), aplica el nivel, arma la especificación con `DeckPlanner`, la compone en `sgspe-slides`, verifica el PDF con PDFBox y adjunta la especificación y el PDF con LISTO en una sola escritura de la plataforma; con su propio candado, para no esperar a JOB-05; retoma los pedidos viejos | Sondeo cada `sgspe.deliverable.slides.poll` (5 s) | F8 | RF-REP-008, RQ-REP-034, ASM-143 |
 | JOB-07 Indexación documental | `sgspe.ai` | Divide en fragmentos el texto de las `evidence` creadas o cambiadas desde la vuelta anterior y los guarda en la tabla fija `knowledge_chunk`, con su proyecto y su clasificación; borra los de una evidencia reemplazada y deja una `ai_interaction` por documento cuando llama a un modelo | Periódica y configurable, solo en las organizaciones con la IA activada | F7 | RF-AIK-006, RQ-AI-008 |
 | JOB-08 Retención (`RetentionJob`) | `sgspe.common` | Desde F3, borra con SQL propio, sin `asPlatform`, las filas de la tabla fija `idempotency_key` con `created_at` anterior al plazo configurable (ASM-065). En F8 no gana un paso de entregables: los archivos reemplazados de un borrador los borra `StoredFileCleanup` de wasichai-files (ASM-133) | Diaria | F3 | RNF-INT-002, ASM-065 |
 | `AutomationDrain` | wasichai-automation | Ejecuta las acciones de automatización en cola como la plataforma | Cada segundo | F3 | [WAS-ADR-0016] |
@@ -643,6 +645,11 @@ flowchart LR
   `--nosocket`, `openout_any=p`, y a lo más dos composiciones a la vez (`LATEX_CONCURRENCY`) (ASM-139, ADR-0030). En desarrollo escucha
   solo en el loopback del VPS, en el puerto 8097 (ADR-0026), y la CI lo levanta como servicio del trabajo de
   integración, para las pruebas con la etiqueta `latex`. Reemplaza a Gotenberg, que se retiró el 2026-10-19.
+- **`sgspe-slides`** solo es alcanzable por la app y solo lo llama JOB-09; su plazo es `sgspe.deliverable.slides.timeout`,
+  nunca recibe una URL ni una opción que venga del cliente y no tiene red de salida. Corre con el sistema de archivos de
+  solo lectura, tmpfs en `/tmp` y `/dev/shm`, sin capacidades y a lo más `SLIDES_CONCURRENCY` composiciones a la vez
+  (ASM-144, ADR-0031). En desarrollo escucha solo en el loopback del VPS, en el puerto 8099, y la CI lo levanta en el
+  trabajo de integración, para las pruebas con la etiqueta `slides`.
 - **Réplicas:** varias instancias de la app comparten la base; `ClusterLock` coordina los trabajos, y la cola de
   automatizaciones se reclama con `FOR UPDATE SKIP LOCKED` [WAS-ADR-0039] [WAS-DOC modules/automation.md].
 - **Almacenamiento de objetos:** cualquier servicio compatible con S3 en producción; MinIO solo en desarrollo, por su licencia
@@ -679,7 +686,7 @@ flowchart LR
 - Los puertos 8094, 5182 y 5435 se eligieron libres frente a las otras apps de wasichai que corren en el mismo entorno; los
   fija ADR-0026 junto con la topología de cada entorno. Desde F3, el desarrollo publica también MinIO en 9095 (API) y
   9096 (consola) y Mailpit en 1029 (SMTP) y 8029 (web), en el loopback del VPS y por túnel; desde F6, GeoServer en 8095,
-  y desde el 2026-10-19, `sgspe-latex` en 8097 (ADR-0030). El 8096, de Gotenberg en F8, queda libre al retirarlo y no
+  desde el 2026-10-19, `sgspe-latex` en 8097 (ADR-0030), y desde el 2026-10-20, `sgspe-slides` en 8099 (ADR-0031). El 8096, de Gotenberg en F8, queda libre al retirarlo y no
   se reutiliza en esta fase.
 - Los servicios de apoyo se agregan al `compose.yml` en la fase que los necesita: almacenamiento S3 (MinIO) y servidor
   SMTP de prueba (Mailpit) en F3, GeoServer en F6 y, desde el 2026-10-19, `sgspe-latex` (`latex`, construido desde
@@ -775,4 +782,6 @@ Este documento se apoya en los ADR de wasichai [WAS-ADR-0001] [WAS-ADR-0003] [WA
 - ADR-0020 (Autenticación con el JWT de wasichai, endurecida);
 - ADR-0024 (Interfaz: portal en `/` y administración en `/admin`);
 - ADR-0025 (Concurrencia e idempotencia en la API del portal);
-- ADR-0026 (Topología de despliegue, puertos y observabilidad).
+- ADR-0026 (Topología de despliegue, puertos y observabilidad);
+- ADR-0030 (PDF de imprenta con LuaLaTeX y DOCX con diseño editorial);
+- ADR-0031 (Presentaciones de los entregables con Remotion).
