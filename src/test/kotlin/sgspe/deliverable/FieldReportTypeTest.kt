@@ -34,8 +34,8 @@ class FieldReportTypeTest {
     private val withoutConsent = id(21)
     private val receiptImage = id(22)
 
-    // las filas por objeto; `related` por (objeto, id, relación)
-    private inner class FakeSource : ReportSource {
+    // las filas por objeto; `related` por (objeto, id, relación). internos: DeckPlannerTest arma el mismo T2
+    internal inner class FakeSource : ReportSource {
         val rows = mutableMapOf<String, MutableList<SourceRow>>()
         val links = mutableMapOf<Triple<String, String, String>, List<SourceRow>>()
         val read = mutableSetOf<String>()
@@ -73,7 +73,7 @@ class FieldReportTypeTest {
         override suspend fun microbasins(localities: List<UUID>): Map<UUID, String> = emptyMap()
     }
 
-    private fun source(): FakeSource {
+    internal fun source(): FakeSource {
         val s = FakeSource()
         s.add("project", project, "active", "code" to "PEA-1", "name" to "Proyecto Ejemplo A", "working_crs" to "EPSG 32717")
         s.add(
@@ -182,7 +182,7 @@ class FieldReportTypeTest {
         return s
     }
 
-    private fun input(): AssemblyInput =
+    internal fun input(): AssemblyInput =
         AssemblyInput(
             deliverable =
                 SourceRow(

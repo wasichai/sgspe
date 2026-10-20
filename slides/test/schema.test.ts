@@ -5,6 +5,15 @@ import { Deck, assetRefs } from '../src/spec/schema.ts'
 const fixture = (name: string) => JSON.parse(fs.readFileSync(`fixtures/${name}.json`, 'utf8'))
 
 describe('la especificación', () => {
+  it('las presentaciones que genera SGSPE (DeckPlannerTest) son válidas', () => {
+    const names = fs.readdirSync('fixtures/generated').filter((f) => f.endsWith('.json'))
+    expect(names.length).toBeGreaterThanOrEqual(8)
+    for (const name of names) {
+      const parsed = Deck.safeParse(JSON.parse(fs.readFileSync(`fixtures/generated/${name}`, 'utf8')))
+      expect(parsed.success, `${name}: ${parsed.error?.issues[0]?.path.join('.')} ${parsed.error?.issues[0]?.message}`).toBe(true)
+    }
+  })
+
   it('las presentaciones de demostración son válidas', () => {
     for (const name of ['demo-t1-direccion', 'demo-t1-comunidad', 'demo-t1-instituciones']) expect(Deck.safeParse(fixture(name)).success).toBe(true)
   })

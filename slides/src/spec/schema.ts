@@ -37,9 +37,10 @@ export const Asset = z.object({
 const assetRef = id
 
 // una cifra que se muestra: su texto (es-PE), su valor para dibujar y si se reservó (PUBLICO, celdas pequeñas)
+// SGSPE escribe la especificación en JSON canónico, que omite los nulos: un `value` que falta es null, nunca cero
 const Figure = z.object({
   display: text(40),
-  value: decimal.nullable(),
+  value: decimal.nullish().transform((v) => v ?? null),
   reserved: z.boolean().default(false)
 })
 
