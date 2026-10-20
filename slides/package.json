@@ -1,0 +1,54 @@
+{
+    "name": "@wasichai/sgspe-slides",
+    "version": "3.0.0",
+    "description": "Láminas de las presentaciones de SGSPE: especificación, tokens, layouts y el servicio sgspe-slides (ADR-0031)",
+    "license": "UNLICENSED",
+    "type": "module",
+    "engines": {
+        "node": ">=24"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/wasichai/sgspe.git",
+        "directory": "slides"
+    },
+    "publishConfig": {
+        "registry": "https://npm.pkg.github.com"
+    },
+    "exports": {
+        ".": "./src/index.ts",
+        "./fonts/*": "./fonts/*"
+    },
+    "files": [
+        "src",
+        "fonts"
+    ],
+    "scripts": {
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "bundle": "node scripts/bundle.ts",
+        "review": "node scripts/review.ts",
+        "serve": "node server/main.ts"
+    },
+    "peerDependencies": {
+        "react": "19.3.0",
+        "remotion": "4.0.533"
+    },
+    "dependencies": {
+        "zod": "4.6.5"
+    },
+    "devDependencies": {
+        "@remotion/bundler": "4.0.533",
+        "@remotion/cli": "4.0.533",
+        "@remotion/renderer": "4.0.533",
+        "@types/node": "24.19.1",
+        "@types/react": "19.3.0",
+        "pdf-lib": "1.17.1",
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
+        "remotion": "4.0.533",
+        "typescript": "7.0.2",
+        "vite": "8.3.1",
+        "vitest": "5.0.2"
+    }
+}

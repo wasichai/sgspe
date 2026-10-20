@@ -128,6 +128,46 @@ jobs:
       - run: python3 publish_layers.py --validate-only
       - run: python3 load_ubigeo.py --dry-run
       - run: python3 -m unittest -v
+      # el envoltorio de sgspe-latex se prueba sin TeX (ADR-0030)
+      - run: python3 -m unittest -v
+        working-directory: develop/latex
+
+  slides:
+    name: Slides (TypeScript and Remotion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: slides
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: slides/yarn.lock
+      - run: yarn install --frozen-lockfile
+      - run: yarn typecheck
+      # ADR-0031: las pruebas componen a PDF de verdad con el Chrome headless-shell de Remotion
+      - run: npx remotion browser ensure
+      - run: yarn test
+        env:
+          SLIDES_RENDER: '1'
+      # la imagen de sgspe-slides con las banderas de compose.yml: compone la presentación de demostración por HTTP
+      - name: sgspe-slides
+        run: |
+          docker build -q -t sgspe-slides:ci .
+          docker run -d --name sgspe-slides -p 127.0.0.1:8099:8080 --read-only --tmpfs /tmp:size=1g \
+            --tmpfs /dev/shm:size=512m --cap-drop ALL --security-opt no-new-privileges:true sgspe-slides:ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8099/health > /dev/null; then break; fi
+            sleep 2
+          done
+          status=$(curl -s -o /tmp/deck.pdf -w '%{http_code}' -H 'Content-Type: application/json' -H 'X-Trace: ci' \
+            --data-binary @fixtures/demo-t1-direccion.json http://127.0.0.1:8099/render)
+          docker logs sgspe-slides
+          test "$status" = 200
+          head -c 5 /tmp/deck.pdf | grep -q '%PDF-'
 
   traceability:
     name: Traceability (python)

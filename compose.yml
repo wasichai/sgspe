@@ -120,6 +120,27 @@ services:
     ports:
       - '127.0.0.1:${SGSPE_LATEX_PORT:-8097}:8080'
 
+  # ADR-0031: sgspe-slides compone con Remotion (Chrome headless) el PDF de las presentaciones; solo lo llama JOB-09. sin
+  # volúmenes, de solo lectura, con tmpfs en /tmp y /dev/shm (Chrome usa memoria compartida) y sin capacidades. como latex,
+  # en desarrollo publica su puerto en el loopback; en producción va en una red interna sin salida
+  slides:
+    build: slides
+    image: sgspe-slides:local
+    container_name: sgspe-slides
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g
+      - /dev/shm:size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SLIDES_TIMEOUT: '170'
+      SLIDES_CONCURRENCY: '2'
+    ports:
+      - '127.0.0.1:${SGSPE_SLIDES_PORT:-8099}:8080'
+
 volumes:
   postgis-data:
   minio-data:

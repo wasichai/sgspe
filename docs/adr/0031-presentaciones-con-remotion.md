@@ -152,6 +152,12 @@ ADR: ADR-0013 y ADR-0030 siguen rigiendo el DOCX y el PDF del entregable.
       de los glifos;
     - el espaciado entre letras parte el texto que extrae PDFBox;
     - las cifras se formatean en el backend.
+- **Implementación del servicio (2026-10-20).** El contrato quedó más simple que el tar de la Decisión: `POST /render`
+  recibe la especificación en JSON, que ya trae las imágenes incrustadas, y devuelve el PDF. Una prueba con Chrome real
+  encontró que reusar la composición elegida para la primera lámina componía esa lámina en todas las páginas: la
+  composición se elige por lámina. La revisión visual de las tres presentaciones de demostración llevó a dar a cada
+  público rasgos propios: la voz del título (serif de titulares, serif de texto o sans con filete), el cartel de cifras
+  y las columnas sin ejes de COMUNIDAD, y la banda de INSTITUCIONES.
 - **El MP4** va en un plan posterior.
 - **La interfaz** va en `sgspe-ui`, en un PR aparte.
 

@@ -57,11 +57,11 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 
 ### 2. Privacidad y modelo (`sgspe.privacy`)
 
-- [ ] `Fact` y `ReportModel.facts` opcional, y `key` opcional en `Table`, `LineChart`, `ScatterChart` y `MapFigure`.
+- [x] `Fact` y `ReportModel.facts` opcional, y `key` opcional en `Table`, `LineChart`, `ScatterChart` y `MapFigure`.
   Prueba dorada sobre los bytes de un modelo v1.
-- [ ] `ReportDisclosure.apply(model, PUBLICO)` como lista permitida, con `SmallCells` sobre los hechos y los promedios de
+- [x] `ReportDisclosure.apply(model, PUBLICO)` como lista permitida, con `SmallCells` sobre los hechos y los promedios de
   menos de 5 casos como «reservado». `Mentions` gana su rama PUBLICO.
-- [ ] `PublicDisclosureTest` con marcadores ficticios hostiles.
+- [x] `PublicDisclosureTest` con marcadores ficticios hostiles.
 
 ### 3. Hechos tipados en T1 y T2
 
@@ -80,15 +80,15 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 
 ### 5. `slides/`: biblioteca y servicio
 
-- [ ] El paquete `@wasichai/sgspe-slides`:
+- [x] El paquete `@wasichai/sgspe-slides`:
   - `spec`, `design` (tokens), `layouts`, `charts` (SVG) y `compositions`;
   - las fuentes vendidas con `OFL.txt` y una prueba de SHA-256.
-- [ ] La verificación en la composición: desborde, solapes, tamaño mínimo, fuentes, imágenes y láminas vacías.
-- [ ] El servidor `node:http`, con `POST /render`, `GET /health`, los topes, la concurrencia, el plazo y los errores
-  tipados.
-- [ ] `slides/Dockerfile` en dos etapas, el servicio `slides` de `compose.yml` (8099) y la CI (el job `slides`, la
+- [x] La verificación en la composición: desborde, solapes, tamaño mínimo, fuentes, imágenes y láminas vacías.
+- [x] El servidor `node:http`, con `POST /render` (JSON adentro, PDF afuera), `GET /health`, los topes, la concurrencia,
+  el plazo y los errores tipados.
+- [x] `slides/Dockerfile` en dos etapas, el servicio `slides` de `compose.yml` (8099) y la CI (el job `slides`, la
   integración y `develop/latex/test_server.py`).
-- [ ] `yarn review` para la hoja de contacto.
+- [x] `yarn review` para la hoja de contacto.
 
 ### 6. Ciclo de vida
 

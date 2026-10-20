@@ -1,0 +1,444 @@
+{
+    "schema": 1,
+    "meta": {
+        "code": "DEMO-T1-001",
+        "title": "Diagnóstico social de las áreas de influencia",
+        "project": "Proyecto Wayra Ejemplo",
+        "revision": "0",
+        "level": "EXTERNO",
+        "audience": "INSTITUCIONES",
+        "dateLabel": "Octubre de 2026",
+        "period": "Abril a setiembre de 2026",
+        "organization": "Organización Ejemplo",
+        "derivation": "Derivada de DEMO-T1-001 rev. 0, nivel EXTERNO; no es un documento emitido"
+    },
+    "theme": {
+        "accent": "#1F4E79",
+        "onAccent": "#FFFFFF"
+    },
+    "assets": {},
+    "slides": [
+        {
+            "id": "portada",
+            "purpose": "Presentar el informe y su alcance",
+            "title": "Diagnóstico social de las áreas de influencia",
+            "data": {
+                "layout": "cover",
+                "subtitle": "Lo que encontramos entre abril y setiembre de 2026 en las 15 localidades del área de influencia directa",
+                "preparedFor": "Minera Ejemplo S.A.C.",
+                "preparedBy": "Organización Ejemplo"
+            }
+        },
+        {
+            "id": "cifras",
+            "purpose": "Mostrar la cobertura del trabajo de campo",
+            "chapter": "Contexto",
+            "title": "El trabajo de campo llegó a las 15 localidades del área directa",
+            "source": "Registro de interacciones y estudio de campo, abril a setiembre de 2026",
+            "data": {
+                "layout": "figures",
+                "items": [
+                    {
+                        "figure": {
+                            "display": "15",
+                            "value": "15",
+                            "reserved": false
+                        },
+                        "label": "Localidades visitadas",
+                        "detail": "De 15 en el área de influencia directa"
+                    },
+                    {
+                        "figure": {
+                            "display": "85",
+                            "value": "85",
+                            "reserved": false
+                        },
+                        "label": "Grupos de interés registrados",
+                        "detail": "Organizaciones y personas por cargo"
+                    },
+                    {
+                        "figure": {
+                            "display": "100",
+                            "value": "100",
+                            "reserved": false
+                        },
+                        "label": "Interacciones",
+                        "detail": "Reuniones, visitas y talleres"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "localidades",
+            "purpose": "Comparar interacciones entre localidades",
+            "chapter": "Relacionamiento",
+            "title": "Tres localidades concentran casi la mitad de las interacciones",
+            "source": "Registro de interacciones, abril a setiembre de 2026",
+            "data": {
+                "layout": "comparison",
+                "unit": "Interacciones en el periodo",
+                "max": "20",
+                "reading": "Las localidades altas reciben menos visitas por su acceso; ninguna quedó sin contacto.",
+                "items": [
+                    {
+                        "label": "Centro Poblado Alfa",
+                        "figure": {
+                            "display": "18",
+                            "value": "18",
+                            "reserved": false
+                        },
+                        "focus": true
+                    },
+                    {
+                        "label": "Comunidad Beta",
+                        "figure": {
+                            "display": "16",
+                            "value": "16",
+                            "reserved": false
+                        },
+                        "focus": true
+                    },
+                    {
+                        "label": "Caserío Gamma",
+                        "figure": {
+                            "display": "12",
+                            "value": "12",
+                            "reserved": false
+                        },
+                        "focus": true
+                    },
+                    {
+                        "label": "Anexo Delta",
+                        "figure": {
+                            "display": "9",
+                            "value": "9",
+                            "reserved": false
+                        }
+                    },
+                    {
+                        "label": "Caserío Épsilon",
+                        "figure": {
+                            "display": "7",
+                            "value": "7",
+                            "reserved": false
+                        }
+                    },
+                    {
+                        "label": "Anexo Zeta",
+                        "figure": {
+                            "display": "5",
+                            "value": "5",
+                            "reserved": false
+                        }
+                    },
+                    {
+                        "label": "Caserío Eta",
+                        "figure": {
+                            "display": "sin dato",
+                            "value": null,
+                            "reserved": false
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "id": "riesgos",
+            "purpose": "Mostrar la matriz de riesgos",
+            "chapter": "Riesgos y compromisos",
+            "title": "Dos de los cinco riesgos activos están en nivel alto",
+            "source": "Matriz de riesgos sociales al 30 de setiembre de 2026",
+            "data": {
+                "layout": "matrix",
+                "rowAxis": "Probabilidad",
+                "columnAxis": "Impacto",
+                "rows": ["Casi segura", "Probable", "Posible", "Improbable", "Rara"],
+                "columns": ["1", "2", "3", "4", "5"],
+                "cells": [
+                    [
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "HIGH"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "HIGH"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "CRITICAL"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "CRITICAL"
+                        }
+                    ],
+                    [
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "LOW"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        },
+                        {
+                            "figure": {
+                                "display": "1",
+                                "value": "1",
+                                "reserved": false
+                            },
+                            "tone": "HIGH"
+                        },
+                        {
+                            "figure": {
+                                "display": "1",
+                                "value": "1",
+                                "reserved": false
+                            },
+                            "tone": "HIGH"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "CRITICAL"
+                        }
+                    ],
+                    [
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "LOW"
+                        },
+                        {
+                            "figure": {
+                                "display": "1",
+                                "value": "1",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "HIGH"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "HIGH"
+                        }
+                    ],
+                    [
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "LOW"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "LOW"
+                        },
+                        {
+                            "figure": {
+                                "display": "2",
+                                "value": "2",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "HIGH"
+                        }
+                    ],
+                    [
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "LOW"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "LOW"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "LOW"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        },
+                        {
+                            "figure": {
+                                "display": "—",
+                                "value": "0",
+                                "reserved": false
+                            },
+                            "tone": "MEDIUM"
+                        }
+                    ]
+                ],
+                "legend": [
+                    {
+                        "tone": "LOW",
+                        "label": "Bajo"
+                    },
+                    {
+                        "tone": "MEDIUM",
+                        "label": "Medio"
+                    },
+                    {
+                        "tone": "HIGH",
+                        "label": "Alto"
+                    },
+                    {
+                        "tone": "CRITICAL",
+                        "label": "Muy alto"
+                    }
+                ],
+                "reading": "Los dos riesgos altos son el acceso al agua y el empleo local."
+            }
+        },
+        {
+            "id": "compromisos",
+            "purpose": "Mostrar el estado de los compromisos",
+            "chapter": "Riesgos y compromisos",
+            "title": "Siete de once compromisos están vencidos",
+            "source": "Matriz de compromisos al 30 de setiembre de 2026",
+            "data": {
+                "layout": "table",
+                "header": ["Estado", "Compromisos", "Localidades"],
+                "align": ["LEFT", "RIGHT", "RIGHT"],
+                "rows": [
+                    ["Vencido", "7", "3"],
+                    ["En plazo", "3", "3"],
+                    ["Cumplido", "1", "1"]
+                ]
+            }
+        },
+        {
+            "id": "conclusiones",
+            "purpose": "Cerrar con lo que se puede concluir y lo que sigue",
+            "chapter": "Conclusiones",
+            "title": "Qué hacer con lo que encontramos",
+            "data": {
+                "layout": "conclusions",
+                "conclusions": [
+                    "La confianza mejora, pero depende de que se informe antes de cada obra.",
+                    "Los compromisos vencidos se concentran en tres localidades: ahí está el riesgo de conflicto."
+                ],
+                "nextSteps": [
+                    "Reprogramar con las comunidades los siete compromisos vencidos.",
+                    "Informar a las juntas de usuarios antes de la próxima obra en el canal."
+                ]
+            }
+        },
+        {
+            "id": "fuentes",
+            "purpose": "Mostrar las fuentes y los límites",
+            "chapter": "Fuentes",
+            "title": "De dónde salen estas cifras y qué no dicen",
+            "data": {
+                "layout": "sources",
+                "sources": [
+                    "Evaluaciones de grupos de interés del registro de SGSPE, abril a setiembre de 2026.",
+                    "Matriz de compromisos y matriz de riesgos al 30 de setiembre de 2026.",
+                    "Estudio de campo del área de influencia directa."
+                ],
+                "limitations": [
+                    "La confianza es un promedio de quienes fueron evaluados, no de toda la población.",
+                    "Julio no tiene evaluaciones; la tendencia no lo interpola.",
+                    "Una coincidencia en el tiempo no prueba una causa."
+                ]
+            }
+        }
+    ]
+}

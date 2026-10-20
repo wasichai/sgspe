@@ -1326,7 +1326,7 @@ secciones del tipo en la transacción del alta del entregable.
 - **Presentaciones (ADR-0031, `deliverables.md` §16).** `audience` es uno de DIRECCION, CAMPO, INVESTIGACION,
   INSTITUCIONES y COMUNIDAD, y `level` uno de INTERNO, EXTERNO y PUBLICO (catálogos de §10 del análisis). `status` es EN
   COLA, EN PROCESO, LISTO o FALLIDO, y `failureCode` uno de `SLIDES_UNAVAILABLE`, `SLIDE_OVERFLOW`, `SLIDE_OVERLAP`,
-  `FONT_MISSING`, `ASSET_INVALID`, `DECK_CHECK_FAILED`, `MODEL_MISMATCH`, `FILE_TOO_LARGE` o `GENERATION_FAILED`, sin
+  `TEXT_TOO_SMALL`, `SLIDE_EMPTY`, `FONT_MISSING`, `ASSET_INVALID`, `DECK_CHECK_FAILED`, `MODEL_MISMATCH`, `FILE_TOO_LARGE` o `GENERATION_FAILED`, sin
   texto del documento. Las rutas nativas de los archivos de `deliverable_presentation` responden `404` al leer y `403
   FILE_WRITE_NOT_ALLOWED` al subir, como las del entregable.
 - **Avisos del borrador.** `draft_warnings` lleva un aviso por línea, `CÓDIGO` o `CÓDIGO sección`: `MAP_FAILED`,
