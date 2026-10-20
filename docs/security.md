@@ -584,7 +584,7 @@ lee sus proyectos. El territorio y la región siguen sin fuente de datos (UPS-01
 
 ### 7.1 Cómo leerla
 
-- Hay una tabla por grupo de bounded contexts. Las filas son los 90 objetos del catálogo y las columnas, los 14 roles
+- Hay una tabla por grupo de bounded contexts. Las filas son los 91 objetos del catálogo y las columnas, los 14 roles
   declarados distintos de `AUDITOR`.
 - `AUDITOR` no tiene columna: lee todo el tenant (`*` READ y `READ_ALL_PROJECTS` sobre `project`, §9.7), incluida
   `/api/audit`, no escribe nada y no ve los campos restringidos (§7.9) mientras no se responda GAP-024.
@@ -828,6 +828,7 @@ Criterios con que se armó:
 | `deliverable` | — | R `EXPORT` | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | R | R | R | R | — | R | R `EXPORT` | R |
 | `deliverable_section` | — | R | CRUD | CRU | CRU | R | R | R | R | R | — | R | CRU | R |
 | `deliverable_version` | — | R | CR | R | CR | R | R | R | R | R | — | R | R | R |
+| `deliverable_presentation` | — | CR | CR | R | CR | R | R | R | R | R | — | R | CR | R |
 | `deliverable_template` | — | R | R | R | R | R | R | R | R | R | — | R | R | R |
 | `export_log` | — | C | CR | — | C | C | C | C | — | C | — | — | C | — |
 | `ai_interaction` | — | — | CR | CR | CR | CR | CR | CR | — | — | — | — | CR | — |
@@ -850,8 +851,15 @@ Criterios con que se armó:
 - `deliverable_template` (desde F8, fila de la tabla): la leen los roles que leen `deliverable`, por la ruta nativa
   de wasichai-files; nadie la crea por la API genérica (es `apiOnly` y `appendOnly`), y `POST
   /api/sgspe/deliverable-templates` exige `MANAGE_METADATA` sobre `deliverable`, que en la práctica tiene solo
-  `ADMIN`. Los campos `FILE` de `deliverable`, `deliverable_version` y `deliverable_template` no se suben ni se
-  reemplazan por la API genérica (`403 FILE_WRITE_NOT_ALLOWED`, ASM-133).
+  `ADMIN`. Los campos `FILE` de `deliverable`, `deliverable_version`, `deliverable_presentation` y
+  `deliverable_template` no se suben ni se reemplazan por la API genérica (`403 FILE_WRITE_NOT_ALLOWED`, ASM-133).
+- `deliverable_presentation` (desde F8, ADR-0031): la crea como la persona `POST
+  /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations`, que además exige la acción de descarga del nivel
+  (`DOWNLOAD_RESTRICTED` en INTERNO, `EXPORT` en EXTERNO y PUBLICO; ASM-147). Por eso tienen CREATE los roles con una de
+  esas acciones sobre `deliverable` (`PROJECT_MANAGER`, `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` y `ANALYST`), y la leen
+  los roles que leen `deliverable`. Es `apiOnly`: JOB-09 la compone como la plataforma, y su especificación y su PDF se
+  descargan solo por `GET /api/sgspe/presentations/{id}/content` y `…/spec`, con su fila de `export_log`; las rutas
+  nativas de sus archivos responden `404` al leer.
 - `EXPORT` de las capas territoriales (F6, `POST /api/sgspe/territory/exports`; `gis.md` §2.2 y §4.6). Desde F6, estos
   13 objetos declaran `EXPORT`: `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`,
   `mining_concession`, `environmental_feature`, `project`, `project_component`, `area_of_influence`, `land_parcel`,
@@ -1002,6 +1010,8 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `POST /api/sgspe/deliverables/{id}/issue` (`sgspe.deliverable`) | Sube como la persona una copia de cada candidata y, en una transacción, crea las `deliverable_version` INTERNO y EXTERNO, apunta a la base, registra la emisión en `export_log` y aplica `issued` al final; AUT-12 genera después la constancia de emisión como la plataforma | UPDATE `deliverable`; CREATE `deliverable_version` y `export_log`; `ISSUE`; si el tipo prepara EXTERNO, la lista de verificación | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | F8 |
 | `GET /api/sgspe/deliverables/{id}/draft/content` (`sgspe.deliverable`) | Registra la descarga en `export_log`. El archivo lleva siempre la marca de agua BORRADOR; si es INTERNO, en PDF o DOCX, y si es EXTERNO, solo en PDF; la ruta nativa de wasichai-files aplica lo mismo (ASM-133) | READ y `DOWNLOAD_RESTRICTED` sobre `deliverable`; CREATE `export_log` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | F8 |
 | `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content` (`sgspe.deliverable`) | Registra la descarga en `export_log`. Una versión INTERNO se sirve en PDF o DOCX; una EXTERNO, solo en PDF. El modelo congelado nunca se sirve, tampoco por la ruta nativa de wasichai-files | INTERNO: READ y `DOWNLOAD_RESTRICTED` sobre `deliverable`. EXTERNO y PUBLICO: READ y `EXPORT`. En ambos casos, CREATE `export_log` | INTERNO: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER`. EXTERNO y PUBLICO: los que tienen `EXPORT` sobre `deliverable` | F8 |
+| `POST /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations` (`sgspe.deliverable`) | Crea la `deliverable_presentation` EN COLA, o devuelve la existente con la misma versión, público, nivel y versión del planificador; JOB-09 la compone después como la plataforma (ADR-0031, ASM-143) | READ sobre `deliverable`; `DOWNLOAD_RESTRICTED` en INTERNO o `EXPORT` en EXTERNO y PUBLICO; CREATE `deliverable_presentation` | INTERNO: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER`. EXTERNO y PUBLICO: además `PROJECT_MANAGER` y `ANALYST` | F8 |
+| `GET /api/sgspe/presentations/{id}/content` y `…/spec` (`sgspe.deliverable`) | Registra la descarga en `export_log`, con la confirmación de la lista de verificación en EXTERNO y PUBLICO (ASM-147); las rutas nativas de wasichai-files de sus archivos responden `404` | Los del pedido según su nivel; CREATE `export_log` | Como el pedido | F8 |
 | `POST /api/sgspe/deliverable-templates` (`sgspe.deliverable`) | Valida la plantilla (`TemplateValidator`), sube el archivo como quien llama y crea el `deliverable_template` (ASM-135) | `MANAGE_METADATA` sobre `deliverable` | `ADMIN` | F8 |
 | `POST /api/sgspe/indicators/{id}/measurements` (`sgspe.dashboard`) | Crea la cifra oficial de un periodo, calculada como quien cierra; una cifra completa o ninguna: `409 INDICATOR_NOT_CLOSABLE` con la razón `STANCE` (KPI-STK-02, KPI-STK-05 y KPI-STK-06), `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que solo dan series), `UNAVAILABLE` (quien cierra no lo tiene disponible o, en un KPI que lee QCS, no lee la marca `confidential` de los tres objetos) o `NOT_PERIOD_BOUND` (un KPI que no depende del periodo, la foto de hoy, solo se cierra para un mes calendario entero, el pasado o el actual en Lima; en la práctica, el mes pasado, porque el actual aún no terminó y el cierre lo rechaza antes con `400 PERIOD_NOT_ENDED`). Los KPI que leen QCS se congelan siempre sin las QCS confidenciales, quien sea que cierre: la cifra oficial las excluye y no revela cuántas son; el tablero no la muestra a quien se le ocultan QCS confidenciales (`dashboards.md` §10, ASM-136) | CREATE `indicator_measurement`; sin `project`, solo `ADMIN` (`READ_ALL_PROJECTS` no basta) | `SOCIAL_MANAGER` | F8 |
 | `POST /api/sgspe/ai-suggestions/{id}/accept` (`sgspe.ai`) | Aplica `accepted` y ejecuta el comando de dominio; desde F8, en una BORRADOR DE SECCION, escribe la sección con `DeliverableSections.adopt` (ASM-137) | UPDATE `ai_suggestion`; los permisos del comando que ejecuta | Quien tenga ambos | F7 |
@@ -1205,7 +1215,7 @@ lo aplica en listas, totales, búsqueda, detalle, cambios, bajas, transiciones, 
 | `project` | Está entre «mis proyectos»: los de sus asignaciones vigentes (`active` y, si las tiene, hoy en Lima entre `start_date` y `end_date`) |
 | `project_assignment` | Es suya (aunque esté vencida) o es de uno de mis proyectos |
 | Las raíces de `ProjectScope.ROOTS` (31 hasta F4; 33 desde F5, con `social_contribution` y `social_program`; 35 desde F7, con `ai_suggestion` y `ai_interaction`; 37 desde F8, con `indicator_measurement` y `deliverable`) | Su `project` es de mis proyectos; `evidence`, `early_warning_rule`, `export_log`, desde F7, `ai_suggestion` y `ai_interaction` y, desde F8, `indicator_measurement` sin `project`, siempre |
-| Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5; 29 desde F8, con `deliverable_section` y `deliverable_version`) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
+| Los hijos de `ProjectScope.CHILDREN` (19 hasta F4; 27 desde F5; 30 desde F8, con `deliverable_section`, `deliverable_version` y `deliverable_presentation`) | El padre que tienen es de mis proyectos, subiendo la cadena si ese padre es a su vez un hijo (`program_measurement`, ASM-114); `locality_profile` sin estudio, siempre; `delivery` sin compromiso, siempre hasta F4, y desde F5, sin compromiso ni aporte, solo para los exentos |
 | Los maestros de `ProjectScope.TENANT` (territorio, actores, línea base, `topic`; 20 hasta F7; desde F8, también `indicator` y `deliverable_template`) | Siempre (ASM-107) |
 
 - **Maestros del tenant (`ProjectScope.TENANT`):** `administrative_unit`, `locality`, `community`, `community_sector`,

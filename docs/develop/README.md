@@ -183,6 +183,21 @@ TOO_LARGE`, `422 SLIDE_OVERFLOW`, `SLIDE_OVERLAP`, `TEXT_TOO_SMALL`, `SLIDE_EMPT
 `504 TIMEOUT` y `500 RENDER_FAILED` o `INTERNAL`. Variables: `SLIDES_TIMEOUT` (170 s), `SLIDES_CONCURRENCY` (2),
 `SLIDES_MAX_BYTES` (64 MB). Sin `licenseKey`: la organización usa la licencia Free de Remotion (ADR-0031).
 
+El backend lo encuentra con `SGSPE_DELIVERABLE_SLIDES_URL=http://localhost:8099` (`sgspe.deliverable.slides.url`, con
+plazo `sgspe.deliverable.slides.timeout` de 180 s y el sondeo de JOB-09 en `sgspe.deliverable.slides.poll`);
+`application-prod.yml` no le da valor por defecto, y sin él cada presentación queda FALLIDO con `SLIDES_UNAVAILABLE`. Las
+pruebas que componen con el servicio real llevan la etiqueta `slides` (`SlidesPdfTest`) y corren en el trabajo de
+integración de la CI; aquí, con el túnel abierto o el servidor local (`yarn serve` con `SLIDES_BUNDLE` y `SLIDES_PORT`):
+
+```bash
+SGSPE_DELIVERABLE_SLIDES_URL=http://localhost:8099 GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) \
+  ./gradlew integrationTest --tests 'sgspe.deliverable.SlidesPdfTest'
+```
+
+Las especificaciones de demostración (`slides/fixtures/generated/`) las escribe `DeckPlannerTest` con datos sintéticos
+(`DeckDemo`); si el planificador cambia, se regeneran con `./gradlew test --tests 'sgspe.deliverable.DeckPlannerTest'
+-Dsgspe.decks.write=true` y pasan por la revisión visual.
+
 ### GDAL
 
 La importación y la exportación de Shapefile, KML, KMZ, GeoPackage, FileGDB y GPX usan `ogrinfo` y `ogr2ogr` 3.8 o

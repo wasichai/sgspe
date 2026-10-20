@@ -94,12 +94,12 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 
 ### 6. Ciclo de vida
 
-- [ ] `model.json`: `deliverable_presentation`, `presentation_audience`, `presentation_status`, la relación con
+- [x] `model.json`: `deliverable_presentation`, `presentation_audience`, `presentation_status`, la relación con
   `export_log`, `roles.json`, `database-model.md`, `domain-model.md` y los catálogos de §10.
-- [ ] `ExportLog` con el objeto como parámetro; las rutas nativas cerradas.
-- [ ] `DeliverablePresentations`: el pedido, la lista, el estado, `content` y `spec`.
-- [ ] `SlidesConverter`, `DeckChecks`, JOB-09 (`DeckGenerationJob`) y las propiedades `sgspe.deliverable.slides.*`.
-- [ ] `ArchitectureTest`, las pruebas de integración con el doble y `SlidesPdfTest` (etiqueta `slides`).
+- [x] `ExportLog.presentation` (la fila DESCARGA con el entregable y la presentación); las rutas nativas cerradas.
+- [x] `DeliverablePresentations`: el pedido, la lista, el estado, `content` y `spec`.
+- [x] `SlidesConverter`, `DeckChecks`, JOB-09 (`DeckGenerationJob`) y las propiedades `sgspe.deliverable.slides.*`.
+- [x] `ArchitectureTest`, las pruebas de integración con el doble y `SlidesPdfTest` (etiqueta `slides`).
 
 ### 7. Publicación del paquete
 

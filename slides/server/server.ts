@@ -2,6 +2,8 @@
 // de láminas; GET /health dice si está arriba. solo lo llama JOB-09. los errores van como {code, slide?}, nunca con texto del
 // documento; el log lleva el id de correlación, el estado, la duración y el número de láminas, nunca contenido
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { createRequire } from 'node:module'
+import { DESIGN_VERSION } from '../src/design/tokens.ts'
 import { Deck, type DeckSpec } from '../src/spec/schema.ts'
 import { SlideFailure } from './render.ts'
 
@@ -20,6 +22,9 @@ export const SETTINGS_FROM_ENV = (): Settings => ({
 })
 
 const TRACE = /^[A-Za-z0-9._-]{1,64}$/
+
+// la versión del compositor que se informa con cada PDF (deliverable_presentation.renderer_version): la de Remotion instalada
+export const RENDERER = `remotion@${(createRequire(import.meta.url)('remotion/package.json') as { version: string }).version}`
 
 function log(fields: Record<string, unknown>) {
   process.stderr.write(JSON.stringify(fields) + '\n')
@@ -112,7 +117,13 @@ export function slidesServer(render: Renderer, settings: Settings): Server {
       try {
         const pdf = await slot(() => render(parsed.data, settings.timeoutMs))
         status = 200
-        response.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Length': pdf.length, 'X-Slides-Count': String(slides) })
+        response.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Length': pdf.length,
+          'X-Slides-Count': String(slides),
+          'X-Slides-Renderer': RENDERER,
+          'X-Slides-Design': DESIGN_VERSION
+        })
         response.end(Buffer.from(pdf))
       } catch (error) {
         if (error instanceof SlideFailure) {

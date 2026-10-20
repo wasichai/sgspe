@@ -46,7 +46,7 @@ class ProjectScopeF7Test {
             assertFalse(catalog.isRequiredRelation(name, ProjectScope.PROJECT), name)
         }
         assertEquals(35, (ProjectScope.ROOTS - setOf("indicator_measurement", "deliverable")).size)
-        assertEquals(27, (ProjectScope.CHILDREN.keys - setOf("deliverable_section", "deliverable_version")).size)
+        assertEquals(27, (ProjectScope.CHILDREN.keys - setOf("deliverable_section", "deliverable_version", "deliverable_presentation")).size)
     }
 
     @Test

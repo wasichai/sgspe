@@ -148,4 +148,9 @@ class ProdProfileTest {
     fun `sgspe-latex no tiene URL por defecto`() {
         assertEquals("\${SGSPE_DELIVERABLE_LATEX_URL:}", value("sgspe.deliverable.latex.url"))
     }
+
+    @Test
+    fun `sgspe-slides no tiene URL por defecto`() {
+        assertEquals("\${SGSPE_DELIVERABLE_SLIDES_URL:}", value("sgspe.deliverable.slides.url"))
+    }
 }

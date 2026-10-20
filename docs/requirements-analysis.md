@@ -895,11 +895,13 @@ barras ni paréntesis, como `AL DIA`; la alternativa en inglés queda como decis
 | Tipo de evidencia | ACTA · LISTA DE ASISTENTES · ACTA DE ENTREGA · ACTA DE RECEPCION · FOTO · COMPROBANTE · CARTA · CONVENIO · PARTIDA REGISTRAL · MAPA · RECORTE DE PRENSA · FORMULARIO · OTRO (propuesto) | `evidence` | [DOC-01 Tabla 9.5, §9.3.1.2] [DOC-02 p.4] |
 | Clasificación de evidencia | PUBLICA · INTERNA · CONFIDENCIAL · DATOS PERSONALES (propuestos) | `evidence` | [PRM-01 §5] [USR-07] |
 | Tipo de documento administrativo | ACTA DE ENTREGA · ACTA DE RECEPCION · MINUTA DE REUNION · LISTA DE ASISTENTES · CONSTANCIA · CARGO DE QUEJA (tras UPS-23) · CARTA DE RESPUESTA (tras UPS-23) · FICHA DE GRUPO DE INTERES · FICHA DE LOCALIDAD (propuestos los cinco últimos; el cargo y la carta se suben firmados como evidencia mientras UPS-23 siga abierta, ASM-098) | documentos emitidos de wasichai-documents | [DOC-01 §9.3.1.2, Tabla 9.5] [DOC-02 p.4] |
-| Nivel de divulgación | INTERNO · EXTERNO · PUBLICO (propuestos, ASM-037) | `deliverable_version`, `export_log` | [USR-07] |
+| Nivel de divulgación | INTERNO · EXTERNO · PUBLICO (propuestos, ASM-037) | `deliverable_version`, `deliverable_presentation`, `export_log` | [USR-07] |
 | Tipo de entregable | DIAGNOSTICO SOCIAL · INFORME DE CAMPO Y AVANCE (los de F8; T3 a T10 siguen probables, ASM-026, y un tipo nuevo se agrega aquí con su clase) | `deliverable` | [USR-01] |
 | Tipo de sección de entregable | NARRATIVA · CALCULADA · MIXTA (propuesto) · ANEXO | `deliverable_section` | [DOC-01 índice, Anexos] [DOC-02] (RQ-REP-011, RQ-REP-012) |
 | Origen del contenido | HUMANO · CALCULADO · ASISTIDO POR IA (propuestos) | `deliverable_section` | [USR-01] [PRM-01 §9] (RQ-AI-012) |
 | Estado de generación del borrador | SIN GENERAR · EN COLA · EN PROCESO · LISTO · FALLIDO (propuestos) | `deliverable` | [USR-01] (RQ-REP-021) |
+| Público de la presentación | DIRECCION · CAMPO · INVESTIGACION · INSTITUCIONES · COMUNIDAD (COMUNIDAD admite solo PUBLICO; INSTITUCIONES, EXTERNO o PUBLICO; ASM-145) | `deliverable_presentation` | [USR-01] [USR-07] (RF-REP-008, RQ-REP-035) |
+| Estado de la presentación | EN COLA · EN PROCESO · LISTO · FALLIDO (propuestos, como los del borrador) | `deliverable_presentation` | [USR-01] (RQ-REP-034) |
 | Tipo de sugerencia de IA | EXTRACCION · BORRADOR DE ACTA · RESUMEN EJECUTIVO · BORRADOR DE SECCION · DUPLICADO · CLASIFICACION | `ai_suggestion` | [PRM-01 §9] [USR-01] (AI-01, AI-02, AI-04, AI-07, AI-08) |
 | Percepción | Sujeto: MINERIA · PROYECTO · EMPRESA. Polaridad: POSITIVA · NEGATIVA | `perception` | [DOC-01 §7.1] |
 | Confiabilidad del dato | REFERENCIAL · VERIFICADO (propuesto) | `locality_profile` | [DOC-01 nota 2] |

@@ -469,9 +469,9 @@ Las 20 RNF de `requirements-analysis.md` §7. Varias son de proceso o de reposit
 | Requirement | Source | Module | Entity | API | UI | Test | Fase | Estado |
 |---|---|---|---|---|---|---|---|---|
 | RNF-MNT-001 | [USR-03] [WAS-ADR-0024] | Transversal · app Spring Boot con `@WasichaiApplication` y los starters de `architecture.md` §5.1 | — | API genérica de wasichai (`api.md` §2) | `/admin` (`WasichaiApp`); portal con `@wasichai/ui` | `architecture.md` §13 «Contrato con la plataforma»; `ErrorContractApiTest` | F1 | Implementado |
-| RNF-MNT-002 | [USR-03] [WAS-ADR-0003] | Transversal · `model/model.json`, `model/roles.json`, `model/workflows/*.json`, `apply.py`, `apply_roles.py` | los 90 objetos de `domain-model.md` §6 | `/api/objects`; `/api/metadata/objects/**`; `/api/roles` | `/admin` (solo lectura del modelo en producción) | `test_apply.py` | F1 | Implementado (F1: `apply.py` y `apply_roles.py`); Diseñado (`test_model.py`, con los objetos de F2, ADR-0007) |
+| RNF-MNT-002 | [USR-03] [WAS-ADR-0003] | Transversal · `model/model.json`, `model/roles.json`, `model/workflows/*.json`, `apply.py`, `apply_roles.py` | los 91 objetos de `domain-model.md` §6 | `/api/objects`; `/api/metadata/objects/**`; `/api/roles` | `/admin` (solo lectura del modelo en producción) | `test_apply.py` | F1 | Implementado (F1: `apply.py` y `apply_roles.py`); Diseñado (`test_model.py`, con los objetos de F2, ADR-0007) |
 | RNF-MNT-003 | [PRM-01 §24, §25] | Transversal · todos los paquetes y `model/` | — | — | — | Todas las suites de `architecture.md` §13 | F1–F8 | Diseñado |
-| RNF-MNT-004 | [USR-09] | Transversal · `model/model.json`, `model/roles.json`, paquetes `sgspe.*`, rutas `/api/sgspe/**` | los 90 objetos de `domain-model.md` §6 | `/api/sgspe/**` | etiquetas en español en el portal y en `/admin` | `test_model.py`; `test_apply_roles.py` | F0 | Decisión pendiente (CON-050) |
+| RNF-MNT-004 | [USR-09] | Transversal · `model/model.json`, `model/roles.json`, paquetes `sgspe.*`, rutas `/api/sgspe/**` | los 91 objetos de `domain-model.md` §6 | `/api/sgspe/**` | etiquetas en español en el portal y en `/admin` | `test_model.py`; `test_apply_roles.py` | F0 | Decisión pendiente (CON-050) |
 | RNF-MNT-005 | [USR-03] [WAS-ADR-0003] [WAS-ADR-0024] [WAS-ADR-0025] [PRM-01 §19, §21] | Transversal · paquetes `sgspe.*` (`architecture.md` §5.2 y §5.3) | — | `/api/sgspe/**` | — | `ArchitectureTest`; `boundaries.test` | F1 | Implementado |
 | RNF-MNT-006 | [USR-08] | Transversal · repositorios `wasichai/sgspe` y `wasichai/sgspe-ui` | — | — | — | — | F0 | Diseñado |
 | RNF-MNT-007 | [USR-04] [USR-05] [PRM-01 §24] | Transversal · proceso por fases (`roadmap.md`) | — | — | — | — | F0 | Diseñado |
@@ -702,12 +702,12 @@ documento define; «Upstream» cuando lo que falta llega con una brecha de wasic
 
 ### 7.2 Objetos canónicos que ningún requisito cita
 
-De los 90 objetos de `domain-model.md` §6, se buscan los que no aparecen en el texto de ninguna fila RF, RNF, RN o RQ
+De los 91 objetos de `domain-model.md` §6, se buscan los que no aparecen en el texto de ninguna fila RF, RNF, RN o RQ
 del análisis.
 
 Ninguno: cada objeto canónico aparece en al menos una fila de requisito del análisis.
 
-Además, los 90 objetos aparecen en la columna Entity de esta matriz.
+Además, los 91 objetos aparecen en la columna Entity de esta matriz.
 
 ### 7.3 Endpoints de `api.md` sin requisito
 

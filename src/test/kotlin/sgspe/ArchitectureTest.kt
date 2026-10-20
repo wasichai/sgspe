@@ -548,10 +548,11 @@ class ArchitectureTest {
     }
 
     // plan 8.2b (Global Constraints): en sgspe.deliverable solo JOB-05 y su puerto de archivos leen o escriben como la
-    // plataforma; los endpoints (borradores, descargas, emisión, plantillas) corren como la persona
+    // plataforma; los endpoints (borradores, descargas, emisión, plantillas) corren como la persona. desde ADR-0031, también
+    // JOB-09 y su puerto de archivos (DeckGenerationJob.kt)
     @Test
-    fun `en sgspe deliverable solo JOB-05 y DraftFiles usan asPlatform`() {
-        val allowed = listOf("/sgspe/deliverable/DeliverableGenerationJob.kt", "/sgspe/deliverable/DraftFiles.kt")
+    fun `en sgspe deliverable solo JOB-05, JOB-09 y sus puertos de archivos usan asPlatform`() {
+        val allowed = listOf("/sgspe/deliverable/DeliverableGenerationJob.kt", "/sgspe/deliverable/DraftFiles.kt", "/sgspe/deliverable/DeckGenerationJob.kt")
         val others = sources(File(main, "sgspe/deliverable")).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
         assertTrue(others.isNotEmpty())
         assertEquals(emptyList<String>(), offenders(others, AS_PLATFORM))
@@ -595,15 +596,33 @@ class ArchitectureTest {
         assertFalse(flags(MAP_PORTS, "// los pide JOB-05 a ReportMaps"))
     }
 
-    // especificación de F8 §5 («Modelo y arquitectura», plan 8.2c) y ADR-0030: el WebClient hacia sgspe-latex y GeoServer solo
-    // en sgspe.deliverable (LatexConverter y GeoServerReportMaps), más el proxy WMS de F6
+    // especificación de F8 §5 («Modelo y arquitectura», plan 8.2c), ADR-0030 y ADR-0031: el WebClient hacia sgspe-latex,
+    // sgspe-slides y GeoServer solo en sgspe.deliverable (LatexConverter, SlidesConverter y GeoServerReportMaps), más el proxy
+    // WMS de F6
     @Test
-    fun `solo LatexConverter, GeoServerReportMaps y WmsProxy usan WebClient`() {
-        val allowed = listOf("/sgspe/deliverable/LatexConverter.kt", "/sgspe/deliverable/GeoServerReportMaps.kt", "/sgspe/territory/WmsProxy.kt")
+    fun `solo LatexConverter, SlidesConverter, GeoServerReportMaps y WmsProxy usan WebClient`() {
+        val allowed =
+            listOf(
+                "/sgspe/deliverable/LatexConverter.kt",
+                "/sgspe/deliverable/SlidesConverter.kt",
+                "/sgspe/deliverable/GeoServerReportMaps.kt",
+                "/sgspe/territory/WmsProxy.kt"
+            )
         val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
         assertEquals(emptyList<String>(), offenders(others, WEB_CLIENT))
         assertTrue(flags(WEB_CLIENT, "import org.springframework.web.reactive.function.client.WebClient"))
         assertFalse(flags(WEB_CLIENT, "// el WebClient de GeoServer"))
+    }
+
+    // ADR-0031: ninguna petición llama a sgspe-slides; solo JOB-09 inyecta el compositor de láminas (los dobles de src/test no
+    // cuentan)
+    @Test
+    fun `solo JOB-09 usa el compositor de laminas`() {
+        val allowed = listOf("/sgspe/deliverable/SlidesConverter.kt", "/sgspe/deliverable/DeckGenerationJob.kt")
+        val others = sources(main).filterNot { f -> allowed.any { f.invariantSeparatorsPath.endsWith(it) } }
+        assertEquals(emptyList<String>(), offenders(others, SLIDES_RENDERER))
+        assertTrue(flags(SLIDES_RENDERER, "private val renderer: SlidesRenderer,"))
+        assertFalse(flags(SLIDES_RENDERER, "// el compositor de láminas"))
     }
 
     // la autenticación de una pregunta al asistente lleva su tabla de equivalencias (decisión 1 del plan 7.2a): solo
@@ -766,6 +785,7 @@ class ArchitectureTest {
         private val WITH_AUTHENTICATION = Regex("""\bwithAuthentication\b""")
         private val STORED_FILES = Regex("""\b(StoredFileRepository|FileStore)\b""")
         private val WEB_CLIENT = Regex("""\bWebClient\b""")
+        private val SLIDES_RENDERER = Regex("""\bSlidesRenderer\b|\bSlidesConverter\b""")
         private val REPORT_MAP_FEATURES = Regex("""\bReportMapFeatures\b""")
         private val MAP_PORTS = Regex("""\b(ReportMaps|GeoServerReportMaps|MapData|TerritoryMapData)\b""")
         private val KNOWLEDGE_TABLE = Regex("""\bknowledge_chunk\b|\bKnowledgeMigration\.TABLE\b""")
