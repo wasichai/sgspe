@@ -94,6 +94,46 @@ object DeckDesign {
         maxLines: Int
     ): Boolean = lines(text, face, size, width) <= maxLines
 
+    // las filas de una tabla de lámina (src/layouts/content.tsx, Table) que caben en el cuerpo, por lámina: el ancho de la tabla
+    // es de 7 columnas de la retícula con hasta 3 de datos y de 10 con más; cada columna toma su parte por la raíz del texto más
+    // largo (como ColumnWidths) y una fila mide su celda más alta. una fila que no cabe sola va sola a su lámina
+    fun tableChunks(
+        header: List<String>,
+        rows: List<List<String>>,
+        audience: Audience,
+        maxRows: Int,
+        available: Double
+    ): List<List<List<String>>> {
+        val scale = scale(audience)
+        val width = span(if (header.size <= 3) 7 else 10)
+        val weights =
+            header.indices.map { i ->
+                kotlin.math.sqrt(maxOf(header[i].length, rows.maxOfOrNull { it.getOrNull(i)?.length ?: 0 } ?: 0, 4).toDouble())
+            }
+        val total = weights.sum()
+        // el relleno de una celda (24 px a cada lado) sale de su ancho
+        val widths = weights.map { (width * it / total - 48).coerceAtLeast(40.0) }
+
+        fun rowHeight(row: List<String>): Double =
+            40 + row.indices.maxOf { i -> lines(row[i], if (i == 0) Face.SANS_BOLD else Face.SANS, scale.body, widths[i]) } * scale.body * 1.3
+        val head = 40 + header.indices.maxOf { i -> lines(header[i], Face.SANS_BOLD, (scale.small * 1.1).toInt(), widths[i]) } * scale.small * 1.1 * 1.3
+        val out = mutableListOf<List<List<String>>>()
+        var current = mutableListOf<List<String>>()
+        var used = head
+        for (row in rows) {
+            val h = rowHeight(row)
+            if (current.isNotEmpty() && (used + h > available || current.size >= maxRows)) {
+                out += current
+                current = mutableListOf()
+                used = head
+            }
+            current += row
+            used += h
+        }
+        if (current.isNotEmpty()) out += current
+        return out
+    }
+
     // el ancho del título de una lámina de contenido (86 % del ancho útil, src/components/Page.tsx)
     val TITLE_WIDTH = CONTENT_WIDTH * 0.86
 }

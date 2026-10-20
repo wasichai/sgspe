@@ -169,6 +169,14 @@ sgspe:
       url: ${SGSPE_DELIVERABLE_LATEX_URL:http://localhost:8097}
       # el plazo de un pedido (la candidata y el borrador de un nivel): el spike compuso 96 páginas en 87 s
       timeout: 180s
+    slides:
+      # ADR-0031 (ADR-0026): sgspe-slides en 127.0.0.1:8099 del VPS, por el túnel (ssh -fN -L 8099:localhost:8099); solo lo
+      # llama JOB-09. sin él, las presentaciones quedan FALLIDO con SLIDES_UNAVAILABLE
+      url: ${SGSPE_DELIVERABLE_SLIDES_URL:http://localhost:8099}
+      # el plazo de una presentación entera: el pico compuso de 0,5 a 1,8 s por lámina
+      timeout: 180s
+      poll: 5s
+      stale-after: 15m
     templates:
       # plantillas .dotx o .docx (ASM-135): 20 MB por HTTP, entradas del ZIP y bytes descomprimidos (100 MB)
       max-bytes: 20971520

@@ -161,10 +161,11 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
   el destino mientras haya registros que lo apunten. El fin de vida de un registro es un estado de cierre de su workflow, no
   un borrado (§2.9).
 - **Apuntadas por un objeto `appendOnly`.** No se pueden borrar `stakeholder`, `position`, `commitment`, `social_risk`,
-  `program_indicator`, `indicator`, `deliverable`, `deliverable_version` ni `project` mientras una evaluación, una
-  reprogramación, una revisión, una medición, una versión, un registro de exportación o una interacción con IA los
-  apunte: responde 409 para todos, también para `ADMIN` [WAS-ADR-0040] [WAS-ADR-0044]. Ese `409` lo da wasichai antes
-  que las guardas y no lleva código ni `errors[]`: solo un `detail` que nombra el objeto y el campo (`api.md` §3.3).
+  `program_indicator`, `indicator`, `deliverable`, `deliverable_version`, `deliverable_presentation` ni `project`
+  mientras una evaluación, una reprogramación, una revisión, una medición, una versión, un registro de exportación o una
+  interacción con IA los apunte: responde 409 para todos, también para `ADMIN` [WAS-ADR-0040] [WAS-ADR-0044]. Ese
+  `409` lo da wasichai antes que las guardas y no lleva código ni `errors[]`: solo un `detail` que nombra el objeto y el
+  campo (`api.md` §3.3).
   Como el registro `appendOnly` no se puede cambiar, lo que apunta no se borra nunca: un cargo citado por una evaluación
   se da por terminado con `end_date` y su `position_status`.
 - **Apuntadas por una relación opcional de un objeto `requiresReason`.** Desde F3, `DependentsDeleteGuard` también
@@ -207,7 +208,7 @@ Toda tabla de un objeto en `app_data` lleva estas columnas, que las fichas no re
 | Flag | Efecto en wasichai | Objetos de SGSPE |
 |---|---|---|
 | `appendOnly` | Nadie edita ni borra; `PUT`, `DELETE`, una transición y todo vínculo responden 409, también para `ADMIN` y la plataforma [WAS-ADR-0040] | `stakeholder_assessment`, `commitment_reschedule`, `risk_assessment`, `program_measurement`, `indicator_measurement`, `deliverable_version`, `export_log`, `ai_interaction` (RQ-AUD-003) |
-| `apiOnly` | La API genérica rechaza altas, cambios, bajas y vínculos con 403; escribe solo el código propio en proceso; las transiciones no se rechazan [WAS-ADR-0040] | `project_component`, `stakeholder_assessment`, `commitment_reschedule`, `delivery`, `commitment_candidate`, `risk_assessment`, `evidence`, `indicator_measurement`, `deliverable_version`, `export_log`, `ai_suggestion`, `ai_interaction` (RQ-AUD-004) |
+| `apiOnly` | La API genérica rechaza altas, cambios, bajas y vínculos con 403; escribe solo el código propio en proceso; las transiciones no se rechazan [WAS-ADR-0040] | `project_component`, `stakeholder_assessment`, `commitment_reschedule`, `delivery`, `commitment_candidate`, `risk_assessment`, `evidence`, `indicator_measurement`, `deliverable_version`, `deliverable_presentation`, `export_log`, `ai_suggestion`, `ai_interaction` (RQ-AUD-004) |
 | `requiresReason` | Toda escritura, vínculo y transición exige `X-Change-Reason` de hasta 500 caracteres; sin él responde 400 [WAS-ADR-0041] | `stakeholder_assessment`, `commitment`, `agreement`, `grievance`, `inquiry`, `stakeholder_request`, `social_risk`, `social_contribution`, `deliverable` (ASM-058, RQ-AUD-002) |
 
 - `appendOnly` no es un permiso de la base: lo hace cumplir el código de wasichai (UPS-12) [WAS-ADR-0040]. Un objeto con
@@ -549,11 +550,13 @@ decir, de §6 del modelo de dominio.
 | Tipo de evidencia | `evidence_type` | `evidence.evidence_type` |
 | Clasificación de evidencia | `evidence_classification` | `evidence.classification` |
 | Tipo de documento administrativo | no aplica | No es un ENUM de `model.json`: son los tipos de documento de wasichai-documents (RQ-REP-029), versionados en `model/document-types/<objeto>.json` y aplicados por `apply.py --workflows` con `/api/objects/{object}/document-types` (§24) |
-| Nivel de divulgación | `disclosure_level` | `deliverable_version.disclosure_level`, `export_log.disclosure_level` |
+| Nivel de divulgación | `disclosure_level` | `deliverable_version.disclosure_level`, `deliverable_presentation.disclosure_level`, `export_log.disclosure_level` |
 | Tipo de entregable | `deliverable_type` | `deliverable.deliverable_type` |
 | Tipo de sección de entregable | `deliverable_section_kind` | `deliverable_section.section_kind` |
 | Origen del contenido | `content_origin` | `deliverable_section.content_origin` |
 | Estado de generación del borrador | `draft_generation_status` | `deliverable.draft_generation_status` |
+| Público de la presentación | `presentation_audience` | `deliverable_presentation.audience` |
+| Estado de la presentación | `presentation_status` | `deliverable_presentation.presentation_status` |
 | Tipo de sugerencia de IA | `ai_suggestion_kind` | `ai_suggestion.suggestion_kind` |
 | Percepción (sub-lista de sujeto) | `perception_subject` | `perception.subject` |
 | Percepción (sub-lista de polaridad) | `perception_polarity` | `perception.polarity` |
@@ -660,6 +663,7 @@ decir, de §6 del modelo de dominio.
 | `deliverable` | BC-15 | no | no | sí | WF-H | F8 |
 | `deliverable_section` | BC-15 | no | no | no | — | F8 |
 | `deliverable_version` | BC-15 | sí | sí | no | — | F8 |
+| `deliverable_presentation` | BC-15 | no | sí | no | — | F8 |
 | `deliverable_template` | BC-15 | sí | sí | no | — | F8 |
 | `export_log` | BC-15 | sí | sí | no | — | F2 |
 | `ai_suggestion` | BC-18 | no | sí | no | WF-K | F7 |
@@ -3476,8 +3480,8 @@ listeners y trabajos, nunca de las entidades (RN-NTF-001); sus claves están en 
 
 ## 19. BC-15 Reportes, tableros y entregables
 
-Catálogo de indicadores y mediciones oficiales, entregables con secciones y versiones emitidas, y el registro de
-exportaciones (RQ-DSH-037, RF-REP-001, RF-REP-002, RQ-AUD-011). Los indicadores se calculan en vivo;
+Catálogo de indicadores y mediciones oficiales, entregables con secciones, versiones emitidas y las presentaciones que
+derivan de ellas, y el registro de exportaciones (RQ-DSH-037, RF-REP-001, RF-REP-002, RF-REP-008, RQ-AUD-011). Los indicadores se calculan en vivo;
 `indicator_measurement` solo congela el cierre de un periodo (ASM-042).
 
 ```mermaid
@@ -3496,9 +3500,12 @@ erDiagram
     deliverable_section }o..o| ai_suggestion : "ai_suggestion"
     deliverable_version }o--|| deliverable : "deliverable"
     deliverable_version }o..o| deliverable_version : "derived_from"
+    deliverable_presentation }o--|| deliverable : "deliverable"
+    deliverable_presentation }o--|| deliverable_version : "deliverable_version"
     export_log }o..o| project : "project"
     export_log }o..o| deliverable : "deliverable"
     export_log }o..o| deliverable_version : "deliverable_version"
+    export_log }o..o| deliverable_presentation : "deliverable_presentation"
     deliverable_template {
         string template_key
     }
@@ -3708,6 +3715,59 @@ RQ-REP-001, RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012, ASM-133.
   `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content`; `model`, `404`; la subida y el reemplazo,
   `403 FILE_WRITE_NOT_ALLOWED` (ASM-133).
 
+### `deliverable_presentation`
+
+**Presentación de entregable** (BC-15). Presentación derivada de una versión emitida de un entregable, para un público y
+un nivel de divulgación: su especificación y su PDF de láminas (ADR-0031). Tabla física
+`app_data.deliverable_presentation__<org8>`. Requisitos: RF-REP-008, RQ-REP-034, RQ-REP-035, RQ-REP-036, RQ-REP-037,
+ASM-143, ASM-144, ASM-145, ASM-146, ASM-147.
+
+| Campo | Tipo | Req. | Único | Descripción | Fuente |
+|---|---|---|---|---|---|
+| `audience` | ENUM `presentation_audience` | sí | compuesto | Público al que se cuenta la presentación (ASM-145). | RQ-REP-035 |
+| `disclosure_level` | ENUM `disclosure_level` | sí | compuesto | Nivel de divulgación aplicado antes de planificar (ASM-146). | RQ-REP-035 |
+| `presentation_status` | ENUM `presentation_status` | no | — | (derivado) Estado de la composición. | RQ-REP-034 |
+| `requested_at` | DATETIME | no | — | (derivado) Momento del pedido. | RQ-REP-034 |
+| `generated_at` | DATETIME | no | — | (derivado) Momento en que JOB-09 tomó el pedido; también en FALLIDO. | RQ-REP-034 |
+| `failure_code` | TEXT | no | — | (derivado) Código de la falla, sin texto del documento. | RQ-REP-036 |
+| `slide_count` | INTEGER | no | — | (derivado) Número de láminas. | RF-REP-008 |
+| `spec` | FILE | no | — | (derivado) Especificación de la presentación en JSON canónico. | RQ-REP-037 |
+| `spec_sha256` | TEXT | no | — | (derivado) SHA-256 de la especificación, su identidad junto con el del modelo (RQ-REP-037). | RQ-REP-037 |
+| `pdf` | FILE | no | — | (derivado) PDF de láminas. | RF-REP-008 |
+| `pdf_sha256` | TEXT | no | — | (derivado) SHA-256 del PDF, igual al de su archivo. | RQ-REP-037 |
+| `model_sha256` | TEXT | no | — | (derivado) SHA-256 del modelo congelado de la versión. | RQ-REP-034 |
+| `planner_version` | TEXT | no | compuesto | (derivado) Versión del planificador que armó la especificación. | RQ-REP-037 |
+| `design_version` | TEXT | no | — | (derivado) Versión del sistema visual de las láminas. | RQ-REP-037 |
+| `renderer_version` | TEXT | no | — | (derivado) Versión del compositor (Remotion). | ASM-144 |
+
+| Relación | Tipo | Campo | Destino | Req. | Nota |
+|---|---|---|---|---|---|
+| `presentation_deliverable` | MANY_TO_ONE | `deliverable` | `deliverable` | sí | — |
+| `presentation_version` | MANY_TO_ONE | `deliverable_version` | `deliverable_version` | sí | Versión emitida de la que deriva |
+
+- **Flags:** `appendOnly` no · `apiOnly` sí · `requiresReason` no.
+- **Únicos:** `uniqueConstraints` (`deliverable_version`, `audience`, `disclosure_level`, `planner_version`).
+- **Índices declarados:** ninguno.
+- **Acciones declaradas:** ninguna.
+- **Tipos de archivo:** `spec` admite `text/plain`, como el modelo congelado (el JSON canónico se sube declarado como
+  texto, ASM-133); `pdf` admite `application/pdf`.
+- **Tope de archivo:** `spec` y `pdf`: 67108864 bytes (64 MB, el techo `wasichai.files.max-bytes`; ASM-138).
+- **Workflow:** ninguno.
+- **Fase:** F8 · Release 3 (Fase 3 de producto).
+- La crea `POST /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations` como la persona, EN COLA, con
+  `requested_at`, `model_sha256` y `planner_version`, que completa el único compuesto (los NULL son distintos, §2.7);
+  si ya existe una con la misma versión, público, nivel y versión del planificador, la devuelve, y si estaba FALLIDO,
+  la vuelve a poner EN COLA (`deliverables.md` §16.8, ASM-143, ASM-147).
+- La compone JOB-09 (`DeckGenerationJob`) como la plataforma: pasa a EN PROCESO con `generated_at` y, al terminar,
+  adjunta `spec` y `pdf` con sus SHA-256, el número de láminas y las versiones del diseño y del compositor, con LISTO,
+  en una sola escritura; si falla, queda FALLIDO con `failure_code` y sin archivo parcial (RQ-REP-036, RQ-REP-037).
+- SGSPE atiende las rutas nativas de archivos de este objeto: la lectura responde `404`, y la subida y el reemplazo,
+  `403 FILE_WRITE_NOT_ALLOWED` (ASM-133). La especificación y el PDF se descargan solo por
+  `GET /api/sgspe/presentations/{id}/spec` y `GET /api/sgspe/presentations/{id}/content`, con los permisos del nivel,
+  la lista de verificación en EXTERNO y PUBLICO y una fila DESCARGA en `export_log` (ASM-147).
+- No es una emisión: no tiene workflow, no lleva la marca BORRADOR y no cambia la versión de la que deriva (ASM-143).
+  Como `export_log` es `appendOnly`, una presentación descargada no se puede borrar (§2.6) [WAS-ADR-0040].
+
 ### `deliverable_template`
 
 **Plantilla de entregable** (BC-15). Plantilla Word (.dotx o .docx) de la organización, validada al subirla: aporta el
@@ -3764,6 +3824,7 @@ entregable (borradores y versiones, en todo nivel de divulgación): quién, qué
 | `export_log_project` | MANY_TO_ONE | `project` | `project` | no | — |
 | `export_log_deliverable` | MANY_TO_ONE | `deliverable` | `deliverable` | no | Descarga de un borrador; desde F8 |
 | `export_log_deliverable_version` | MANY_TO_ONE | `deliverable_version` | `deliverable_version` | no | Emisión o descarga de una versión; desde F8 |
+| `export_log_deliverable_presentation` | MANY_TO_ONE | `deliverable_presentation` | `deliverable_presentation` | no | Descarga del PDF o de la especificación de una presentación; desde F8 |
 
 - **Flags:** `appendOnly` sí · `apiOnly` sí · `requiresReason` no.
 - **Únicos:** ninguno.
@@ -3772,7 +3833,8 @@ entregable (borradores y versiones, en todo nivel de divulgación): quién, qué
 - **Workflow:** ninguno.
 - **Fase:** F2 · Release 1 (MVP).
 - Llega en F2 con las primeras exportaciones XLSX (RQ-REP-022); desde F8 registra además cada emisión y cada descarga de
-  un borrador o de una versión de entregable, en todo nivel de divulgación (RQ-AUD-011).
+  un borrador o de una versión de entregable, en todo nivel de divulgación (RQ-AUD-011), y cada descarga del PDF o de la
+  especificación de una presentación, con su público en `filters_description` (ASM-147).
 - `exported_at` lleva índice para consultar las salidas de un periodo (RQ-AUD-011).
 
 ## 20. BC-18 IA y conocimiento
@@ -4484,6 +4546,7 @@ decisión registrada permite.
 | Archivos de evidencia | Almacenamiento de objetos | Inmutables; una corrección es una evidencia nueva que reemplaza a la anterior, que se conserva | RF-DOC-001, ASM-013 |
 | Borradores de entregable | Siete campos `FILE` derivados de `deliverable`, en wasichai-files | Solo el último: un borrador nuevo reemplaza los siete archivos y `StoredFileCleanup` borra los bytes reemplazados pasado `wasichai.files.cleanup.delay` (24 h); el historial conserva los descriptores | RQ-REP-027, ASM-028, ASM-061, ASM-133 |
 | Versiones emitidas | `deliverable_version`, con sus campos `FILE` en wasichai-files | Siempre, sin bloqueo WORM en F8 | RQ-REP-017, RQ-REP-027, ASM-133 |
+| Presentaciones de entregable | `deliverable_presentation`, con su especificación y su PDF en wasichai-files | Se conservan: una por versión, público, nivel y versión del planificador; una FALLIDO no deja archivos | RF-REP-008, RQ-REP-037, ASM-143 |
 | Plantillas de entregable | `deliverable_template`, con su campo `FILE` | Siempre (`appendOnly`); una plantilla nueva con la misma clave solo deja de elegir la anterior | RQ-REP-019, ASM-135 |
 | Exportaciones e interacciones con IA | `export_log`, `ai_interaction` | Siempre (append-only) | RQ-AUD-011, RQ-AUD-012 |
 | Avisos y envíos | Tablas de wasichai-notifications | El módulo purga los avisos resueltos o vencidos después de `wasichai.notifications.retention` (90 días); los envíos se van con su aviso | RF-NTF-001, ADR-0018 |

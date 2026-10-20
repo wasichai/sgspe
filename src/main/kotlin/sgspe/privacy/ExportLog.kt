@@ -82,11 +82,43 @@ class ExportLog(
         )
     }
 
+    // la descarga de una presentación (ADR-0031, ASM-147): su PDF o su especificación, con el entregable y la presentación;
+    // filters_description dice el público, la versión y, en EXTERNO y PUBLICO, la confirmación de la lista de verificación
+    suspend fun presentation(
+        user: AuthenticatedUser,
+        level: String,
+        format: String,
+        filters: String,
+        project: UUID?,
+        deliverable: UUID,
+        presentation: UUID
+    ) {
+        val logged = if (project == null || user.isAdmin || project in reach.assigned(user)) project else null
+        records.create(
+            OBJECT,
+            mapOf(
+                "exported_at" to clock.instant().toString(),
+                "exporter_user_id" to user.userId.toString(),
+                "exporter_user_email" to user.email,
+                "export_kind" to DOWNLOAD,
+                "object_name" to PRESENTATION,
+                "file_format" to format,
+                "disclosure_level" to level,
+                "filters_description" to filters,
+                "row_count" to 1,
+                DELIVERABLE to deliverable.toString(),
+                PRESENTATION to presentation.toString()
+            ) + listOfNotNull(logged?.let { "project" to it.toString() }),
+            "descarga de presentación $level"
+        )
+    }
+
     companion object {
         const val OBJECT = "export_log"
         const val EXPORT = "EXPORTACION"
         const val ISSUE = "EMISION"
         const val DOWNLOAD = "DESCARGA"
         private const val DELIVERABLE = "deliverable"
+        private const val PRESENTATION = "deliverable_presentation"
     }
 }

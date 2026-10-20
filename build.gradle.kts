@@ -87,9 +87,9 @@ tasks.named<ProcessResources>("processResources") {
 
 // las pruebas unitarias corren siempre; las que necesitan base van por integrationTest
 tasks.named<Test>("test") {
-    // latex: las composiciones reales (en integrationTest, con el servicio de la CI); slow: la suite lenta (slowTest)
+    // latex y slides: las composiciones reales (en integrationTest, con los servicios de la CI); slow: la suite lenta (slowTest)
     useJUnitPlatform {
-        excludeTags("integration", "latex", "slow")
+        excludeTags("integration", "latex", "slides", "slow")
     }
     // MapComposer dibuja con Java 2D: sin pantalla, también en la máquina de desarrollo
     systemProperty("java.awt.headless", "true")
@@ -119,9 +119,10 @@ tasks.register<Test>("integrationTest") {
     description = "pruebas de integración contra PostgreSQL 18 con PostGIS 3.6"
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
-    // desde F8, también las composiciones reales con sgspe-latex (ADR-0030): la CI lo levanta en el mismo trabajo
+    // desde F8, también las composiciones reales con sgspe-latex (ADR-0030) y, desde ADR-0031, con sgspe-slides: la CI los
+    // levanta en el mismo trabajo
     useJUnitPlatform {
-        includeTags("integration", "latex")
+        includeTags("integration", "latex", "slides")
         // la suite lenta va solo por slowTest, aunque una clase lleve también integration
         excludeTags("slow")
     }

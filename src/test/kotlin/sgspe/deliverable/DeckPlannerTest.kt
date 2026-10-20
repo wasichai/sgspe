@@ -142,6 +142,40 @@ class DeckPlannerTest {
         }
     }
 
+    // la demostración real encontró una fuente de riesgo de más de 120 caracteres que sgspe-slides rechazó (SPEC_INVALID): una
+    // tabla deja fuera las columnas largas, y ninguna lámina sale de los topes del esquema
+    @Test
+    fun `una tabla deja fuera sus columnas largas y ninguna lamina sale de los topes del esquema`() {
+        val (header, rows) = DeckLimits.shortColumns(listOf("Código", "Riesgo", "Fuente"), listOf(listOf("RS-1", "Agua", "x".repeat(200))))
+        assertEquals(listOf("Código", "Riesgo"), header)
+        assertEquals(listOf(listOf("RS-1", "Agua")), rows)
+        val long = DeckSlide("x", "x", "t", SlideData.Table(listOf("A", "B"), listOf("LEFT", "LEFT"), listOf(listOf("a", "b".repeat(121)))))
+        assertFalse(DeckLimits.fits(long))
+        for ((model, level, audience) in combos()) {
+            plan(model, level, audience).slides.forEach { assertTrue(DeckLimits.fits(it), "${audience.name}: ${it.id}") }
+        }
+    }
+
+    // la demostración real: ocho riesgos con títulos de dos o tres líneas desbordaron una lámina (SLIDE_OVERFLOW). la tabla se
+    // reparte midiendo sus filas: las cortas caben juntas, las largas siguen en otra lámina
+    @Test
+    fun `una tabla se reparte en laminas midiendo sus filas`() {
+        val header = listOf("Código", "Riesgo", "Categoría")
+        val short = (1..5).map { listOf("RS-$it", "Agua", "Agua") }
+        assertEquals(1, DeckDesign.tableChunks(header, short, Audience.CAMPO, 8, 560.0).size)
+        val long =
+            (1..8).map {
+                listOf(
+                    "RS-$it",
+                    "Conflicto por el acceso al agua del manantial que abastece a las familias del sector alto del caserío",
+                    "Agua"
+                )
+            }
+        val chunks = DeckDesign.tableChunks(header, long, Audience.CAMPO, 8, 560.0)
+        assertTrue(chunks.size >= 2, chunks.map { it.size }.toString())
+        assertEquals(long, chunks.flatten())
+    }
+
     @Test
     fun `la especificacion es determinista y cambia con el publico`() {
         val a = plan(t1, Disclosure.EXTERNO, Audience.DIRECCION).bytes()

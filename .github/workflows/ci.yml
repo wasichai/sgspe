@@ -100,11 +100,25 @@ jobs:
           done
           docker logs sgspe-latex
           exit 1
+      # ADR-0031: sgspe-slides construido desde slides/Dockerfile, con las banderas de compose.yml, solo en el loopback
+      - name: sgspe-slides
+        run: |
+          docker build -q -t sgspe-slides:ci slides
+          docker run -d --name sgspe-slides -p 127.0.0.1:8099:8080 --read-only --tmpfs /tmp:size=1g \
+            --tmpfs /dev/shm:size=512m --cap-drop ALL --security-opt no-new-privileges:true sgspe-slides:ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8099/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs sgspe-slides
+          exit 1
       - name: Integration tests
         run: ./gradlew integrationTest --no-daemon
         env:
           # las pruebas con la etiqueta latex fallan en la CI sin esta variable (LatexPdfTest)
           SGSPE_DELIVERABLE_LATEX_URL: http://127.0.0.1:8097
+          # y las de la etiqueta slides, sin esta (SlidesPdfTest)
+          SGSPE_DELIVERABLE_SLIDES_URL: http://127.0.0.1:8099
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

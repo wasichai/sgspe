@@ -177,6 +177,9 @@ abstract class F2ApiTest : SgspeApiTest() {
             attributes[fieldName] =
                 when {
                     target == "project" -> testProject()
+                    // una versión de entregable solo nace de la emisión, con sus archivos, que la plataforma no adjunta aquí: el
+                    // alta de una presentación (apiOnly, que se rechaza antes de mirar sus referencias) la nombra sin registro
+                    target == "deliverable_version" -> UUID.randomUUID().toString()
                     // desde F7, ai_suggestion cuelga de su ai_interaction, que es apiOnly: la crea la plataforma
                     Model.objects.getValue(target)["apiOnly"] == true -> platformCreate(target, sample(target))
                     else -> fixture(target).id

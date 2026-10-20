@@ -17,6 +17,7 @@ import javax.imageio.ImageIO
 // - FakePdfRenderer: dos PDF de prueba (la candidata con la identificación PDF/A-2b) en lugar de sgspe-latex (ADR-0030);
 //   `unavailable` simula sgspe-latex caído y `error`, un Error de la máquina virtual en la composición
 // - FakeReportMaps: dos PNG (INTERNO y EXTERNO) en lugar de GeoServer; `failing` simula un mapa fallido
+// - FakeSlidesRenderer: un PDF de láminas de prueba en lugar de sgspe-slides (ADR-0031)
 // los siete archivos del borrador los sube y adjunta la plataforma (PlatformDraftFiles, UPS-31 resuelta en wasichai 1.3.0)
 class DeliverableDoubles {
     class FakePdfRenderer : PdfRenderer {
@@ -78,8 +79,32 @@ class DeliverableDoubles {
         }
     }
 
+    // el doble de sgspe-slides (ADR-0031): un PDF de prueba con una página 16:9 por lámina y su título (TestDecks), que pasa
+    // DeckChecks; `unavailable` simula el servicio caído y `failure`, una lámina que no pasa su verificación
+    class FakeSlidesRenderer : SlidesRenderer {
+        @Volatile var unavailable = false
+
+        @Volatile var failure: String? = null
+
+        val specs: MutableList<ByteArray> = java.util.Collections.synchronizedList(mutableListOf())
+
+        override suspend fun render(
+            spec: ByteArray,
+            correlation: String
+        ): RenderedDeck {
+            if (unavailable) throw SlidesUnavailable("doble sin compositor")
+            failure?.let { throw SlideFailed(it, "tesis") }
+            specs += spec
+            return RenderedDeck(TestDecks.pdf(spec), null, "remotion@prueba", "1")
+        }
+    }
+
     @TestConfiguration
     class Config {
+        @Bean
+        @Primary
+        fun fakeSlidesRenderer(): FakeSlidesRenderer = FakeSlidesRenderer()
+
         @Bean
         @Primary
         fun fakePdfRenderer(): FakePdfRenderer = FakePdfRenderer()

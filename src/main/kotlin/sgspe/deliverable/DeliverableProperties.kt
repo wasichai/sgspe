@@ -16,6 +16,7 @@ data class DeliverableProperties(
     val photos: Photos = Photos(),
     val maps: Maps = Maps(),
     val latex: Latex = Latex(),
+    val slides: Slides = Slides(),
     val templates: Templates = Templates(),
     val revisions: Revisions = Revisions()
 ) {
@@ -70,6 +71,25 @@ data class DeliverableProperties(
         }
 
         val configured: Boolean get() = !url.isNullOrBlank()
+    }
+
+    // el compositor de las presentaciones (ADR-0031, deliverables.md §16.7): la URL de sgspe-slides (127.0.0.1:8099 por el
+    // túnel en desarrollo; vacía en producción hasta que el despliegue la fije), el plazo de una presentación y el sondeo de
+    // JOB-09 con su retoma. sin URL, cada presentación queda FALLIDO con SLIDES_UNAVAILABLE y el resto de SGSPE funciona
+    data class Slides(
+        val url: String? = null,
+        val timeout: Duration = Duration.ofSeconds(180),
+        val poll: Duration = Duration.ofSeconds(5),
+        val staleAfter: Duration = Duration.ofMinutes(15)
+    ) {
+        init {
+            require(!timeout.isNegative && !timeout.isZero) { "sgspe.deliverable.slides.timeout debe ser positivo" }
+            require(!poll.isNegative && !poll.isZero) { "sgspe.deliverable.slides.poll debe ser positivo" }
+            require(staleAfter >= Duration.ofMinutes(1)) { "sgspe.deliverable.slides.stale-after debe ser de al menos 1 minuto" }
+            require(url.isNullOrBlank() || url.trim().startsWith("http://") || url.trim().startsWith("https://")) {
+                "sgspe.deliverable.slides.url debe ser una URL http o https"
+            }
+        }
     }
 
     data class Templates(

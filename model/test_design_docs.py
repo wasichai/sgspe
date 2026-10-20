@@ -15,9 +15,9 @@ class CardsTests(unittest.TestCase):
     def setUpClass(cls):
         cls.cards = design_docs.cards()
 
-    def test_lee_las_fichas_de_los_90_objetos_y_las_tablas_fijas(self):
+    def test_lee_las_fichas_de_los_91_objetos_y_las_tablas_fijas(self):
         catalog = design_docs.matrix()
-        self.assertEqual(len(catalog), 90)
+        self.assertEqual(len(catalog), 91)
         self.assertTrue(set(catalog) <= set(self.cards))
         self.assertEqual(sum(1 for name in catalog if self.cards[name].phase == "F2"), 48)
 
@@ -158,8 +158,9 @@ class TotalsTests(unittest.TestCase):
     def test_totales_de_las_fichas(self):
         cards = self.cards
         # 91 desde F3: las tablas de avisos de §18 se retiraron con la decisión D2 (ASM-012); 92 con la tabla fija
-        # derived_version (ADR-0027); 93 con deliverable_template (ASM-135, plan 8.1)
-        self.assertEqual(len(cards), 93)
+        # derived_version (ADR-0027); 93 con deliverable_template (ASM-135, plan 8.1); 94 con deliverable_presentation
+        # (ADR-0031)
+        self.assertEqual(len(cards), 94)
         f2 = [c for c in cards.values() if c.phase == "F2"]
         fields = [f for c in f2 for f in c.fields if design_docs.field_phase(c, f) == "F2"]
         rels = [r for c in f2 for r in c.relationships
@@ -171,8 +172,9 @@ class TotalsTests(unittest.TestCase):
         f3_rels = [r for c in cards.values() if c.phase <= "F3" for r in c.relationships
                    if design_docs.relationship_phase(cards, c, r) == "F3" and not r["inverse"]]
         self.assertEqual((len(f3_fields), len(f3_rels)), (114, 46))
-        # 79 claves en §4 (item_kind desde el plan 5.0); las 45 de F2 son las de los campos ENUM que llegan en F2
-        self.assertEqual(len(design_docs.enum_keys()), 79)
+        # 79 claves en §4 (item_kind desde el plan 5.0), 81 con el público y el estado de las presentaciones (ADR-0031);
+        # las 45 de F2 son las de los campos ENUM que llegan en F2
+        self.assertEqual(len(design_docs.enum_keys()), 81)
         self.assertEqual(len({f["enum"] for f in fields if f["type"] == "ENUM"}), 45)
         self.assertTrue(all(c.phase for c in cards.values()))
         self.assertTrue(all(c.fields for c in cards.values()))

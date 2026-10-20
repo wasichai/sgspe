@@ -40,7 +40,7 @@ class ModelAgainstCardsTests(unittest.TestCase):
         catalog = design_docs.matrix()
         wanted = [name for name, card in self.cards.items() if card.phase <= PHASE and name in catalog]
         self.assertEqual([o["name"] for o in self.model["objects"]], wanted)
-        self.assertEqual(len(wanted), 90)
+        self.assertEqual(len(wanted), 91)
 
     def test_cada_objeto_lleva_etiqueta_plural_descripcion_y_flags_de_su_ficha(self):
         for name, obj in self.objects.items():
@@ -647,7 +647,8 @@ DRAFT_FILES = ("draft_model", "draft_internal_docx", "draft_internal_pdf", "draf
 class DeliverableModelTests(unittest.TestCase):
     """§4.2 de la especificación de F8: deliverable con los siete FILE derivados del borrador (ASM-133), deliverable_section,
     deliverable_version con sus FILE (sin *_storage_key), deliverable_template (apiOnly y appendOnly, ASM-135), los
-    vínculos de export_log y de task, el catálogo «Tipo de entregable» con dos tipos, WF-H, AUT-12 y la constancia."""
+    vínculos de export_log y de task, el catálogo «Tipo de entregable» con dos tipos, WF-H, AUT-12 y la constancia; y,
+    desde ADR-0031, deliverable_presentation (apiOnly, con su especificación y su PDF derivados)."""
 
     @classmethod
     def setUpClass(cls):
@@ -659,19 +660,20 @@ class DeliverableModelTests(unittest.TestCase):
     def fields(self, name):
         return {f["name"]: f for f in self.objects[name]["fields"]}
 
-    def test_f8_trae_cuatro_objetos_quince_relaciones_y_cinco_acciones(self):
+    def test_f8_trae_cinco_objetos_dieciocho_relaciones_y_cinco_acciones(self):
         cards = design_docs.cards()
         # solo lo suyo (los indicadores de 8.2a los cuenta IndicatorModelTests; los totales absolutos viven en
         # ModelAgainstCardsTests y en test_apply.ModelOfF8Tests)
         own = [o["name"] for o in self.model["objects"]
                if cards[o["name"]].phase == "F8" and o["name"].startswith("deliverable")]
-        self.assertEqual(own, ["deliverable", "deliverable_section", "deliverable_version", "deliverable_template"])
+        self.assertEqual(own, ["deliverable", "deliverable_section", "deliverable_version", "deliverable_presentation",
+                               "deliverable_template"])
         relationships = [r for r in self.model["relationships"]
                          if not r["source"].startswith("indicator")
                          and design_docs.relationship_phase(cards, cards[r["source"]],
                                                             next(x for x in cards[r["source"]].relationships
                                                                  if x["name"] == r["name"])) == "F8"]
-        self.assertEqual(len(relationships), 15)
+        self.assertEqual(len(relationships), 18)
         self.assertEqual([a["name"] for a in self.objects["deliverable"]["actions"]],
                          ["APPROVE", "GENERATE", "ISSUE", "EXPORT", "DOWNLOAD_RESTRICTED"])
 
@@ -724,7 +726,39 @@ class DeliverableModelTests(unittest.TestCase):
         # la constancia de AUT-12 congela el registro y sus versiones (UPS-23, security.md §11.4)
         restricted = {e["object"] for e in self.roles["restrictedFields"]}
         self.assertEqual(restricted & set(self.objects) & {"deliverable", "deliverable_section", "deliverable_version",
-                                                            "deliverable_template"}, set())
+                                                            "deliverable_presentation", "deliverable_template"}, set())
+
+    def test_la_presentacion_es_api_only_con_sus_archivos_derivados_y_unica_por_version_publico_nivel_y_planificador(self):
+        # ADR-0031 y deliverables.md §16.8: la crea el endpoint de pedido y la compone JOB-09 como la plataforma
+        presentation = self.objects["deliverable_presentation"]
+        self.assertEqual((presentation.get("apiOnly"), presentation.get("appendOnly", False)), (True, False))
+        self.assertEqual(presentation["uniqueConstraints"],
+                         [["deliverable_version", "audience", "disclosure_level", "planner_version"]])
+        self.assertFalse(os.path.isfile(os.path.join(HERE, "workflows", "deliverable_presentation.json")))
+        fields = self.fields("deliverable_presentation")
+        self.assertEqual({n for n, f in fields.items() if not f.get("derived")}, {"audience", "disclosure_level"})
+        self.assertEqual({n: (f["contentTypes"], f["maxBytes"]) for n, f in fields.items() if f["type"] == "FILE"},
+                         {"spec": (["text/plain"], 64 * 1024 * 1024), "pdf": (["application/pdf"], 64 * 1024 * 1024)})
+        self.assertEqual(self.model["enums"]["presentation_audience"],
+                         ["DIRECCION", "CAMPO", "INVESTIGACION", "INSTITUCIONES", "COMUNIDAD"])
+        self.assertEqual(self.model["enums"]["presentation_status"], ["EN COLA", "EN PROCESO", "LISTO", "FALLIDO"])
+        wanted = {"presentation_deliverable": ("deliverable_presentation", "deliverable", "deliverable", True),
+                  "presentation_version": ("deliverable_presentation", "deliverable_version", "deliverable_version", True),
+                  "export_log_deliverable_presentation": ("export_log", "deliverable_presentation", "deliverable_presentation",
+                                                          False)}
+        for name, (source, field, target, required) in wanted.items():
+            rel = self.relationships[name]
+            self.assertEqual((rel["source"], rel["fieldName"], rel["target"], rel.get("required", False)),
+                             (source, field, target, required), name)
+
+    def test_quien_pide_una_presentacion_puede_descargarla_y_registrar_la_descarga(self):
+        # ASM-147: el pedido exige CREATE y la acción de descarga del nivel; la descarga, CREATE sobre export_log
+        roles = {r["name"]: r["permisos"] for r in self.roles["roles"]}
+        creators = {name for name, grants in roles.items() if "CREATE" in grants.get("deliverable_presentation", [])}
+        self.assertEqual(creators, {"PROJECT_MANAGER", "SOCIAL_MANAGER", "STAKEHOLDER_MANAGER", "ANALYST"})
+        for name in creators:
+            self.assertTrue({"EXPORT", "DOWNLOAD_RESTRICTED"} & set(roles[name]["deliverable"]), name)
+            self.assertIn("CREATE", roles[name]["export_log"], name)
 
     def test_issue_es_la_unica_transicion_que_crea_versiones(self):
         # workflows.md, «Transiciones de comando»: issue de WF-H; quienes la aplican crean versiones y filas de export_log

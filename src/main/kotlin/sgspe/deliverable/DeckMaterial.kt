@@ -235,15 +235,18 @@ class DeckMaterial(
         if (public) return null
         val fact = facts["trabajo_de_campo"] ?: return null
         val index = fact.dimensions.indexOf("Localidad").takeIf { it >= 0 } ?: return null
+        // las categorías de registro («Sin localidad», «Sin dato», «No disponible») no son lugares: no compiten ni titulan
         val sums =
             fact.rows
                 .groupBy { it.labels[index] }
+                .filterKeys { it !in PSEUDO_PLACES }
                 .mapValues { (_, rows) -> rows.sumOf { it.count ?: 0 } }
                 .filterValues { it > 0 }
         if (sums.size < 2) return null
         val derived = fact.copy(rows = sums.map { (label, sum) -> FactRow(listOf(label), count = sum) })
         val top = sums.maxBy { it.value }
-        val title = "${top.key} concentró la mayor parte del trabajo de campo"
+        // «la mayor parte» sería falso con 7 de 76: el título dice solo lo que el dato prueba
+        val title = "${top.key} fue la localidad con más trabajo de campo"
         return DeckStory(
             "campo-por-localidad",
             Beat.SCOPE,
@@ -444,10 +447,18 @@ class DeckMaterial(
                 else -> if (overdue.count == 1) "Un compromiso está vencido" else "${DeckFormat.count(overdue.count)} compromisos están vencidos"
             }
         val headline = overdue?.let { LabeledFigure(DeckFormat.figure(it), "Compromisos vencidos al corte") }
+        val severe = overdue?.count != null && total != null && total > 0 && overdue.count * 4 >= total
         return DeckStory(
             "compromisos",
             Beat.COMMITMENTS,
-            w(Audience.DIRECCION to 9, Audience.CAMPO to 7, Audience.INSTITUCIONES to 9, Audience.COMUNIDAD to 8, Audience.INVESTIGACION to 4),
+            // los compromisos encabezan cuando pesan: con una cuarta parte o más vencida; si no, la confianza va primero
+            w(
+                Audience.DIRECCION to if (severe) 10 else 6,
+                Audience.CAMPO to 7,
+                Audience.INSTITUCIONES to if (severe) 10 else 8,
+                Audience.COMUNIDAD to 8,
+                Audience.INVESTIGACION to 4
+            ),
             title,
             "Compromisos por estado",
             finding = title.takeIf { (overdue?.count ?: 0) > 0 },
@@ -573,14 +584,17 @@ class DeckMaterial(
             title,
             source = "Registro de riesgos sociales"
         ) { audience, chapter ->
-            table.rows.chunked(minOf(8, audience.maxItems)).mapIndexed { i, chunk ->
+            val (header, rows) = DeckLimits.shortColumns(table.header, table.rows.map { r -> r.map { it.text } })
+            if (header.size < 2) return@DeckStory emptyList()
+            DeckDesign.tableChunks(header, rows, audience, minOf(8, audience.maxItems), TABLE_BODY).mapIndexed { i, chunk ->
                 DeckSlide(
                     "riesgos-lista-${i + 1}",
                     "Nombrar los riesgos sociales del periodo",
                     if (i == 0) title else "$title (continúa)",
-                    SlideData.Table(table.header, table.header.map { "LEFT" }, chunk.map { r -> r.map { it.text } }),
+                    SlideData.Table(header, header.map { "LEFT" }, chunk),
                     chapter,
-                    "Registro de riesgos sociales"
+                    "Registro de riesgos sociales",
+                    note = "Las columnas de texto largo están en el informe.".takeIf { header.size < table.header.size }
                 )
             }
         }
@@ -591,14 +605,18 @@ class DeckMaterial(
 
     private fun perceptions(): DeckStory? {
         if (public) return null
+        // cada cita con su sección: su tema titula la lámina si la percepción registrada no cabe en dos líneas
         val found =
             blocks()
-                .filter { (section, _) -> section.startsWith("percepciones") }
-                .map { it.second }
-                .filterIsInstance<Block.Paragraph>()
-                .flatMap { it.markdown.lines().asSequence() }
-                .mapNotNull { quote.matchEntire(it) }
-                .map { m -> Triple(m.groupValues[2].trim().trimEnd(':', '.', ','), m.groupValues[3].trim(), m.groupValues[4].trim()) }
+                .filter { (section, block) -> section.startsWith("percepciones") && block is Block.Paragraph }
+                .flatMap { (section, block) ->
+                    (block as Block.Paragraph)
+                        .markdown
+                        .lines()
+                        .asSequence()
+                        .map { section to it }
+                }.mapNotNull { (section, line) -> quote.matchEntire(line)?.let { section to it } }
+                .map { (section, m) -> Perception(section, m.groupValues[2].trim().trimEnd(':', '.', ','), m.groupValues[3].trim(), m.groupValues[4].trim()) }
                 .toList()
         if (found.isEmpty()) return null
         return DeckStory(
@@ -610,13 +628,16 @@ class DeckMaterial(
             source = "Percepciones registradas en el estudio de campo",
             limitations = listOf("Cada cita es la percepción de un grupo de interés, no la de toda la comunidad.")
         ) { audience, chapter ->
-            found.take(if (audience == Audience.CAMPO) 3 else 2).mapIndexed { i, (statement, text, who) ->
+            // una cita por tema antes de repetir uno: la minería, el proyecto y la empresa, en el orden del informe
+            val bySection = found.groupBy { it.section }.values.toList()
+            val interleaved = (0 until (bySection.maxOfOrNull { it.size } ?: 0)).flatMap { k -> bySection.mapNotNull { it.getOrNull(k) } }
+            interleaved.take(if (audience == Audience.CAMPO) 3 else 2).mapIndexed { i, (section, statement, text, who) ->
+                // el título dice que es una percepción: nunca la presenta como un hecho (§16.5)
+                val registered = statement.takeIf { it.isNotBlank() }?.let { "Percepción registrada: ${it.replaceFirstChar(Char::lowercase)}" }
                 DeckSlide(
                     "percepcion-${i + 1}",
                     "Mostrar una percepción con su alcance",
-                    // el título dice que es una percepción: nunca la presenta como un hecho (§16.5)
-                    statement.takeIf { it.isNotBlank() }?.let { "Percepción registrada: ${it.replaceFirstChar(Char::lowercase)}" }
-                        ?: "Lo que dicen los grupos de interés",
+                    registered?.takeIf { DeckPlanner.titleFits(it, audience) } ?: "Percepciones sobre ${SUBJECTS[section] ?: "el proyecto y su entorno"}",
                     SlideData.Quote(text, who, "PERCEPCION", "Percepción de un grupo de interés; no representa a toda la comunidad."),
                     chapter,
                     "Percepciones registradas en el estudio de campo"
@@ -699,7 +720,8 @@ class DeckMaterial(
             title,
             source = source(fact)
         ) { audience, chapter ->
-            fact.rows.chunked(minOf(7, audience.maxItems)).mapIndexed { i, chunk ->
+            val all = fact.rows.map { r -> listOf(r.labels.joinToString(" "), r.value ?: DeckFormat.ABSENT, r.target ?: "Sin meta") }
+            DeckDesign.tableChunks(listOf("Indicador", "Valor", "Meta"), all, audience, minOf(7, audience.maxItems), TABLE_BODY).mapIndexed { i, chunk ->
                 DeckSlide(
                     "monitoreo-${i + 1}",
                     "Reportar los indicadores de la Tabla 9.5",
@@ -707,7 +729,7 @@ class DeckMaterial(
                     SlideData.Table(
                         listOf("Indicador", "Valor", "Meta"),
                         listOf("LEFT", "RIGHT", "RIGHT"),
-                        chunk.map { r -> listOf(r.labels.joinToString(" "), r.value ?: DeckFormat.ABSENT, r.target ?: "Sin meta") }
+                        chunk
                     ),
                     chapter,
                     source(fact)
@@ -1014,7 +1036,24 @@ class DeckMaterial(
     var reportConclusions: List<String> = emptyList()
         private set
 
+    private data class Perception(
+        val section: String,
+        val statement: String,
+        val text: String,
+        val who: String
+    )
+
     companion object {
+        // los temas de las secciones de percepciones de T1
+        private val SUBJECTS =
+            mapOf("percepciones_mineria" to "la minería", "percepciones_proyecto" to "el proyecto", "percepciones_empresa" to "la empresa")
+
+        // las categorías de registro que no son lugares
+        private val PSEUDO_PLACES = setOf("Sin localidad", "Sin ámbito", ReportFacts.NO_DATA, ReportFacts.NOT_AVAILABLE)
+
+        // el alto del cuerpo de una lámina de tabla con fuente y nota (src/components/Page.tsx, bodyHeight), con margen
+        private const val TABLE_BODY = 560.0
+
         // el ancho y el alto de un PNG por su cabecera
         fun pngSize(bytes: ByteArray): Pair<Int, Int>? {
             if (bytes.size < 24 || bytes[0] != 0x89.toByte() || bytes[1] != 'P'.code.toByte()) return null

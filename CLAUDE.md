@@ -9,7 +9,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   Gradle 9.8.0. Paquetes propios `sgspe.*` (`docs/architecture.md` §5.2): `common`, `observability`, `scope`, `engagement`,
   `stakeholder`, `territory`, `dashboard`, `privacy`, `prod` y, desde F3, `commitment`, `agreement`, `evidence`, `investment`,
   `deadline` y `notification` y, desde F4, `attention`, `risk` y `warning` y, desde F7, `ai`.
-- `model/`: `model.json` (los 90 objetos de F2 a F8), `roles.json`, `workflows/` (los 19 de F2 a
+- `model/`: `model.json` (los 91 objetos de F2 a F8), `roles.json`, `workflows/` (los 19 de F2 a
   F8: WF-A, WF-B, WF-C, WF-L, WF-O, WF-D, WF-I, WF-K (de candidatos y, desde F7, de sugerencias de IA), WF-N, WF-E1,
   WF-E2, WF-E3, WF-F, WF-J, WF-M, WF-G, WF-P y WF-H), `document-types/`, `automations/` y los
   scripts de Python (solo biblioteca estándar) que los aplican por REST, más `indicators.json`, `load_indicators.py`,

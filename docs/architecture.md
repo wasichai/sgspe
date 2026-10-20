@@ -34,7 +34,7 @@ están en el [índice de ADR](adr/README.md).
 | # | Driver | Fuente | Consecuencia en la arquitectura |
 |---|---|---|---|
 | 1 | Construir sobre wasichai 0.3.2 y `@wasichai/*` 0.5.0, con caja como plantilla | [USR-03] RNF-MNT-001 | Una app Spring Boot con `@WasichaiApplication` y los starters de wasichai; la lista técnica del prompt queda sustituida por la plataforma (CON-039) |
-| 2 | Metadata primero, código propio solo donde la metadata no alcanza | RNF-MNT-002, RNF-MNT-005, CON-040 [WAS-ADR-0003] | Los 90 objetos, sus workflows, roles, vistas y formularios viven en `model/`; el código Kotlin vive en 19 paquetes `sgspe.*` (§5.2) |
+| 2 | Metadata primero, código propio solo donde la metadata no alcanza | RNF-MNT-002, RNF-MNT-005, CON-040 [WAS-ADR-0003] | Los 91 objetos, sus workflows, roles, vistas y formularios viven en `model/`; el código Kotlin vive en 19 paquetes `sgspe.*` (§5.2) |
 | 3 | Monolito modular, sin microservicios | [PRM-01 §3, §26] [WAS-ADR-0001] [WAS-ADR-0024] | Un solo desplegable (`app.jar`), con paquetes por capacidad del dominio y no por capas técnicas genéricas |
 | 4 | Auditabilidad: quién, qué, cuándo, por qué, desde y hacia | [PRM-01 §18] OBJ-10, RQ-AUD-001, RQ-AUD-002, RQ-AUD-014 | Toda escritura pasa por `RecordService`, que escribe su fila de `audit_log` (en la misma transacción cuando quien llama abrió una); los objetos críticos son `requiresReason` y la historia es `appendOnly` |
 | 5 | La IA sugiere y la persona decide | OBJ-09, RQ-AI-001, RQ-AI-003, RN-EWS-001 [ARQ-01] [ARQ-02] | Plano de IA separado (`ai_interaction`, `ai_suggestion`, `commitment_candidate`); aceptar es un comando humano auditado (§7) |

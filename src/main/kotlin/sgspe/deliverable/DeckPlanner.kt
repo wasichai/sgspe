@@ -12,8 +12,10 @@ import javax.imageio.ImageIO
 // hallazgo más importante, las conclusiones con los hallazgos calculables y el texto que escribió el equipo, y las fuentes y
 // los límites; mide cada título con las fuentes de las láminas y, si no cabe, usa el corto. nunca encoge la letra
 object DeckPlanner {
+    private val LOG = org.slf4j.LoggerFactory.getLogger(DeckPlanner::class.java)
+
     // sube con todo cambio que mueva una especificación ya generada (deliverable_presentation.planner_version)
-    const val VERSION = "1"
+    const val VERSION = "3"
 
     class NotAvailable(
         val code: String
@@ -79,7 +81,9 @@ object DeckPlanner {
         if (Beat.LIMITS in audience.arc) slides += sources(model, chosen, slides.toList(), input.level, audience)
         slides += closing(model, audience)
         assets += material.assets.filterKeys { id -> slides.any { it.data.uses(id) } }
-        return DeckSpec(meta(model, input.level, audience), DeckTheme(accent(model.meta.brand?.accent), "#FFFFFF", logo), assets, unique(slides))
+        // una lámina fuera de los topes del esquema no viaja: sgspe-slides rechazaría toda la presentación (DeckLimits)
+        val valid = slides.filter { slide -> DeckLimits.fits(slide).also { if (!it) LOG.warn("lámina {} fuera de los topes del esquema: se omite", slide.id) } }
+        return DeckSpec(meta(model, input.level, audience), DeckTheme(accent(model.meta.brand?.accent), "#FFFFFF", logo), assets, unique(valid))
     }
 
     private fun SlideData.uses(id: String): Boolean =
@@ -232,7 +236,7 @@ object DeckPlanner {
                 steps.isEmpty() -> "Lo que muestran los datos"
                 else -> "Lo que muestran los datos y lo que sigue"
             }
-        return columns(points, steps, audience).mapIndexed { i, (left, right) ->
+        return columns(points, steps, audience, 4 to 4).mapIndexed { i, (left, right) ->
             DeckSlide(
                 if (i == 0) "conclusiones" else "conclusiones-${i + 1}",
                 "Cerrar con lo que se puede concluir",
@@ -248,7 +252,8 @@ object DeckPlanner {
     private fun columns(
         left: List<String>,
         right: List<String>,
-        audience: Audience
+        audience: Audience,
+        caps: Pair<Int, Int>
     ): List<Pair<List<String>, List<String>>> {
         val scale = DeckDesign.scale(audience)
         val width = (DeckDesign.CONTENT_WIDTH - DeckDesign.span(1)) / 2
@@ -258,8 +263,12 @@ object DeckPlanner {
 
         fun height(items: List<String>) = label + items.sumOf { 48 + DeckDesign.lines(it, face, scale.body, width) * scale.body * 1.34 }
 
-        fun take(items: List<String>): Int {
-            var n = items.size
+        // también el tope de puntos por columna del esquema (cuatro conclusiones, seis fuentes...)
+        fun take(
+            items: List<String>,
+            cap: Int
+        ): Int {
+            var n = minOf(items.size, cap)
             while (n > 1 && height(items.take(n)) > available) n--
             return n
         }
@@ -267,8 +276,8 @@ object DeckPlanner {
         var l = left
         var r = right
         while (l.isNotEmpty() || r.isNotEmpty()) {
-            val a = take(l)
-            val b = take(r)
+            val a = take(l, caps.first)
+            val b = take(r, caps.second)
             out += l.take(a) to r.take(b)
             l = l.drop(a)
             r = r.drop(b)
@@ -333,7 +342,7 @@ object DeckPlanner {
                     )
             ).distinct()
         val title = if (audience == Audience.COMUNIDAD) "Lo que estos datos no dicen" else "De dónde salen estas cifras y qué no dicen"
-        return columns(sources, limitations, audience).mapIndexed { i, (left, right) ->
+        return columns(sources, limitations, audience, 6 to 5).mapIndexed { i, (left, right) ->
             DeckSlide(
                 if (i == 0) "fuentes" else "fuentes-${i + 1}",
                 "Mostrar las fuentes y los límites",

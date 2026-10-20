@@ -35,6 +35,8 @@ describe('el servicio', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/pdf')
     expect(response.headers.get('x-slides-count')).toBe('14')
+    expect(response.headers.get('x-slides-renderer')).toMatch(/^remotion@4\.0\.\d+$/)
+    expect(response.headers.get('x-slides-design')).toBe('1')
   })
 
   it('rechaza un cuerpo vacío, uno que no es JSON y una especificación inválida, sin repetir su texto', async () => {
