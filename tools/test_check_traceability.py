@@ -91,7 +91,7 @@ class CheckTraceabilityTests(unittest.TestCase):
     def test_los_documentos_reales_estan_completos(self):
         code, out, err = run([])
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(out, "ok: 298 requisitos, todos con su fila\n")
+        self.assertEqual(out, "ok: 304 requisitos, todos con su fila\n")
 
     def test_los_ids_del_analisis_coinciden_con_las_familias_del_20_1(self):
         with open(os.path.join(check_traceability.ROOT, "docs", "requirements-analysis.md"), encoding="utf-8") as f:
@@ -106,7 +106,7 @@ class CheckTraceabilityTests(unittest.TestCase):
             family = requirement.rsplit("-", 1)[0]
             found[family] = found.get(family, 0) + 1
         self.assertEqual(found, declared)
-        self.assertEqual(sum(declared.values()), 298)
+        self.assertEqual(sum(declared.values()), 304)
 
     def test_las_familias_que_no_son_requisitos_coinciden_con_sus_filas_y_el_total(self):
         # CON, GAP, UPS y ASM no van a la matriz, pero su cantidad en §20.1 tampoco debe quedar atrás de sus filas

@@ -43,7 +43,8 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
   del puerto 5435 (`docs/develop/README.md` §6).
 - TDD: la prueba primero. `./gradlew ktlintFormat` antes de `build`; `yarn format` antes de commitear yaml o json.
 - Puertos: backend 8094, interfaz 5182, PostGIS 5435; en desarrollo, MinIO 9095 (consola 9096) y Mailpit 1029 (web 8029).
-- GeoServer 8095 y, desde el 2026-10-19, `sgspe-latex` 8097 (solo loopback, por el túnel; reemplaza a Gotenberg 8096).
+- GeoServer 8095 y, desde el 2026-10-19, `sgspe-latex` 8097 (solo loopback, por el túnel; reemplaza a Gotenberg 8096);
+  desde el 2026-10-20, `sgspe-slides` 8099 (Remotion, solo loopback, por el túnel; ADR-0031).
 - Archivos: `evidence.file` es un campo `FILE` de wasichai-files (D1, ADR-0014); un documento emitido congela el registro
   entero (UPS-23): ningún tipo de documento sobre un objeto con campos restringidos.
   La descarga de un campo `FILE` con datos restringidos pasa por SGSPE (`EvidenceContent`), e `IssuedDocumentsPrivacyTest`
