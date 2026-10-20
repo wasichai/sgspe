@@ -20,7 +20,10 @@ data class ReportModel(
     // las fotos por id de evidencia
     val photos: Map<String, PhotoRef> = emptyMap(),
     val aiAssistedSections: List<String> = emptyList(),
-    val warnings: List<ReportWarning> = emptyList()
+    val warnings: List<ReportWarning> = emptyList(),
+    // los hechos tipados del informe (ADR-0031, ASM-146): los agregados que las presentaciones leen sin volver a calcular y
+    // de los que sale PUBLICO. null en un modelo congelado antes de typeVersion 2, que así conserva sus bytes
+    val facts: List<Fact>? = null
 )
 
 // los metadatos del informe. `level` es null en el modelo congelado y lo fija ReportDisclosure; `draftRevision` es la letra
@@ -132,7 +135,9 @@ sealed interface Block {
         val wide: Boolean = false,
         val mark: Mark? = null,
         val figure: Boolean = false,
-        val columns: List<ColumnSpec>? = null
+        val columns: List<ColumnSpec>? = null,
+        // la clave estable de la tabla en su tipo (ADR-0031): las presentaciones la buscan por ella; null antes de typeVersion 2
+        val key: String? = null
     ) : Block
 
     // fotos de a dos por fila (RQ-REP-010): ids de evidencia de ReportModel.photos
@@ -174,7 +179,8 @@ sealed interface Block {
         val title: String,
         val categories: List<String>,
         val series: List<ChartSeries>,
-        val source: String? = null
+        val source: String? = null,
+        val key: String? = null
     ) : Block
 
     // un gráfico de dispersión nativo de Word (XDDF): cada punto con su rótulo y sus coordenadas como texto decimal, los ejes
@@ -189,7 +195,8 @@ sealed interface Block {
         val maximum: String,
         val xThreshold: String? = null,
         val yThreshold: String? = null,
-        val source: String? = null
+        val source: String? = null,
+        val key: String? = null
     ) : Block
 }
 
@@ -272,4 +279,42 @@ data class PhotoRef(
 data class ReportWarning(
     val code: String,
     val section: String? = null
+)
+
+// un hecho tipado del informe (ADR-0031, ASM-146): un agregado con su clave estable, su clase, sus dimensiones y una fila por
+// combinación. un conteo (COUNT) trae la grilla completa del catálogo, ceros incluidos, para que SmallCells pueda aplicarse; un
+// promedio (MEAN) y un valor de indicador (VALUE) traen el número de casos `n` de cada fila; un monto o un área (AMOUNT) trae su
+// valor. los decimales van como texto, como en el resto del modelo. `mark` lo quita de EXTERNO y PUBLICO, y `forPublic` dice
+// que el tipo lo declara apto para PUBLICO: sin él, PUBLICO no lo lleva (falla cerrado). ningún hecho lleva totales
+data class Fact(
+    val key: String,
+    val kind: String,
+    val title: String,
+    val dimensions: List<String>,
+    val measure: String,
+    val rows: List<FactRow>,
+    val unit: String? = null,
+    val period: String? = null,
+    val source: String? = null,
+    val mark: Mark? = null,
+    val forPublic: Boolean = false
+) {
+    companion object {
+        const val COUNT = "COUNT"
+        const val MEAN = "MEAN"
+        const val VALUE = "VALUE"
+        const val AMOUNT = "AMOUNT"
+    }
+}
+
+// una fila de un hecho: sus rótulos (uno por dimensión) y, según la clase, el conteo, el valor y su número de casos, la meta y
+// la unidad de la fila. `reserved` lo pone PUBLICO en lugar de un dato que no publica
+data class FactRow(
+    val labels: List<String>,
+    val count: Int? = null,
+    val value: String? = null,
+    val n: Int? = null,
+    val target: String? = null,
+    val unit: String? = null,
+    val reserved: Boolean? = null
 )
