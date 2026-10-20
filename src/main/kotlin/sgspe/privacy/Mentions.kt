@@ -2,8 +2,9 @@ package sgspe.privacy
 
 // las menciones de la narrativa (especificación de F8 §2.2.9, ASM-137): tokens Markdown [[person:<id>]],
 // [[position:<id>]] o [[stakeholder:<id>]] que apuntan a un registro, nunca el nombre escrito. INTERNO los resuelve al
-// nombre; EXTERNO al cargo y la organización, o al código GI-, y sin cargo a «una persona de <localidad>». una mención que
-// el modelo no conoce sale como «una persona» en todo nivel: nunca se imprime el id
+// nombre; EXTERNO al cargo y la organización, o al código GI-, y sin cargo a «una persona de <localidad>»; PUBLICO, al texto
+// genérico «una persona» (deliverables.md §9.3, ASM-146). una mención que el modelo no conoce sale como «una persona» en todo
+// nivel: nunca se imprime el id
 object Mentions {
     val TOKEN = Regex("""\[\[(person|position|stakeholder):([0-9a-fA-F-]{36})]]""")
 
@@ -41,7 +42,8 @@ object Mentions {
     ): String =
         when (level) {
             Disclosure.INTERNO -> target.name
-            else -> {
+            Disclosure.PUBLICO -> UNKNOWN
+            Disclosure.EXTERNO -> {
                 val role = listOfNotNull(target.position, target.organization).joinToString(", ").ifEmpty { null }
                 role
                     ?: target.stakeholderCode

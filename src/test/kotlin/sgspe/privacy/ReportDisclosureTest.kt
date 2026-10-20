@@ -2,7 +2,6 @@ package sgspe.privacy
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -96,8 +95,15 @@ class ReportDisclosureTest {
     }
 
     @Test
-    fun `ningun tipo de F8 prepara PUBLICO`() {
-        assertThrows(IllegalArgumentException::class.java) { ReportDisclosure.apply(model, Disclosure.PUBLICO) }
+    fun `PUBLICO no lleva nombres ni narrativa (ASM-146)`() {
+        val public = ReportDisclosure.apply(model, Disclosure.PUBLICO)
+        assertFalse("Persona Ejemplo 1" in texts(public))
+        assertTrue(
+            public.sections
+                .single()
+                .blocks
+                .none { it is Block.Paragraph || it is Block.Table }
+        )
     }
 
     @Test
