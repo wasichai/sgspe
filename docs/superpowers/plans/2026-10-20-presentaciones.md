@@ -113,5 +113,33 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 ### 9. Demostración y revisión visual
 
 - [ ] Un T2 sintético en `model/demo/` y `load_demo.py --issue`.
-- [ ] Componer T1 para DIRECCION, CAMPO, INVESTIGACION y COMUNIDAD, y T2 para INSTITUCIONES. Revisar las hojas de
+- [x] Componer T1 para DIRECCION, CAMPO, INVESTIGACION y COMUNIDAD, y T2 para INSTITUCIONES. Revisar las hojas de
   contacto, corregir y volver a componer. Entregar las muestras.
+
+**Evidencia de la revisión visual (2026-10-20):**
+
+- **T1 de demostración de punta a punta.** DEMO-T1-001 tuvo un borrador nuevo (H, `typeVersion` 2), y quedó aprobado y
+  emitido (rev. 1). Se pidieron cinco presentaciones por el endpoint, y JOB-09 las compuso con `sgspe-slides`:
+
+  | Público | Nivel | Láminas |
+  |---|---|---|
+  | DIRECCION | INTERNO | 9 |
+  | CAMPO | EXTERNO | 27 |
+  | INVESTIGACION | EXTERNO | 22 |
+  | INSTITUCIONES | EXTERNO | 19 |
+  | COMUNIDAD | PUBLICO | 10 |
+
+  Ninguno de los 85 nombres de personas del conjunto aparece en los PDF. Las hojas de contacto y los PDF se entregaron
+  al usuario.
+- **Lo que corrigió la revisión con datos reales:**
+  - un SPEC_INVALID por una celda larga (`DeckLimits`);
+  - un SLIDE_OVERFLOW por una tabla de títulos largos (`DeckDesign.tableChunks`);
+  - «Sin localidad» titulando como lugar;
+  - «la mayor parte» con 7 de 76;
+  - una tesis que abría con 1 de 12 compromisos vencidos;
+  - tres citas del mismo tema.
+- **T2.** Su versión sintética rica (`DeckDemo.t2`) se compone en `SlidesPdfTest` contra el compositor real y en
+  `slides/fixtures/generated/` (INSTITUCIONES, DIRECCION, CAMPO y COMUNIDAD). Falta el T2 en `model/demo/`, que sigue
+  pendiente arriba.
+- **El mecanismo para repetir la revisión:** `yarn review` sobre `slides/fixtures/generated/*.json` (regenerados por
+  `DeckPlannerTest`), o sobre las especificaciones que baja `GET /api/sgspe/presentations/{id}/spec`.
