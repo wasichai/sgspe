@@ -174,7 +174,9 @@ el proyecto como «código · nombre» enlazado y el responsable con `Persona` (
 Paginación real en lo global en lugar de truncar (D10): el servidor ya pagina; la lista de QCS, que combina tres objetos, se
 pagina por objeto con pestañas Quejas, Consultas, Solicitudes y «Atención» (decisión 5). La lista genérica filtraba solo por
 igualdad de campo y no por estado, así que las vistas por estado («Abiertos», «Cerrados») no se podían pedir al servidor:
-SGSPE suma `state=a,b` y `state_not=a,b` a esa lista (`StateQuery`, `api.md` §3.4).
+SGSPE suma `state=a,b` y `state_not=a,b` a esa lista (`StateQuery`, `api.md` §3.4). Para el calendario y las tareas suma el rango de fechas
+(`range_field`, `range_from`, `range_to`) y los campos vacíos (`empty`); la lista de QCS va por la cola unificada
+`GET /api/sgspe/attention/queue` (decisión 5), y el registro de riesgos lee el alcance entero, sin tope, para su matriz.
 
 Orden sugerido, de más usada a menos: Compromisos · QCS · Interacciones (con Calendario como vista) · Grupos de interés ·
 Tareas (con Aprobaciones como vista) · Riesgos (con Alertas como vista) · Acuerdos · Programas y aportes · Documentos (D12) ·
