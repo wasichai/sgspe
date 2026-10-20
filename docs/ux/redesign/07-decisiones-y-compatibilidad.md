@@ -1,0 +1,58 @@
+# Registro de decisiones y compromisos de compatibilidad
+
+> Rediseño integral de UX/UI, entregable 9. El encargo pidió tomar las decisiones con criterio propio mientras la persona
+> responsable no estaba (2026-10-20, seis horas), y documentar cada una. Cada decisión dice qué se eligió, por qué y qué se
+> descartó. Todas quedan **abiertas a revisión**: ninguna cambia código del producto hasta que se apruebe el plan
+> ([06](06-plan-de-implementacion.md)).
+
+## 1. Decisiones de proceso
+
+| ID | Decisión | Por qué | Descartado |
+|---|---|---|---|
+| DP-01 | **Auditar con las 56 capturas de los manuales** (tomadas hoy sobre la demo) más el código, en vez de recorrer la aplicación viva. | El contenedor no tiene base ni backend. Las capturas son del mismo commit, salen de un script reproducible y cubren siete perfiles. | Levantar el backend completo: no está en esta sesión (Docker remoto, túnel). |
+| DP-02 | **Prototipos de alta fidelidad con los componentes reales** del kit de design-sync (`sgspe-ui/.design-sync/kit`), compuestos en TSX y fotografiados en claro, oscuro, español e inglés. El código de cada prototipo queda versionado en `sgspe-ui/.design-sync/prototipos/`. | Es la misma fuente que alimenta Claude Design y el portal: lo prototipado se implementa con las mismas piezas, y la captura se rehace con un comando. | Un lienzo libre en Claude Design: exige iterar en la interfaz, sin una persona que la revise mientras tanto, y no queda en el repositorio. Figma: no está en el entorno. |
+| DP-03 | **Los entregables viven en `docs/ux/redesign/`** como propuesta, sin tocar `docs/ux/*.md`. Al aprobarse, el plan de implementación incluye actualizar `docs/ux/` (la fuente de verdad del diseño). | Separa la propuesta de lo aprobado. | Editar `docs/ux/` directamente: mezclaría lo vigente con lo propuesto. |
+| DP-04 | **El método superpowers se sigue a mano**: auditoría → spec (`docs/superpowers/specs/`) → plan con casillas (`docs/superpowers/plans/`). El plugin no estaba activo en la sesión. | Mantiene el formato que el repositorio ya usa en 60 planes. | Esperar al plugin: bloquearía el trabajo. |
+| DP-05 | **Ningún cambio del portal en esta entrega**, salvo el kit de design-sync (`VistaSgspe` con `idioma`). | El encargo pide diseñar y especificar; la implementación se aprueba aparte. | Arreglar ya los defectos confirmados (migas en inglés): se registran como tarea 1 del plan, con su prueba. |
+
+## 2. Decisiones de diseño
+
+| ID | Decisión | Problema que resuelve | Descartado |
+|---|---|---|---|
+| DD-01 | **Inicio único «Mi trabajo», armado por bloques que se ofrecen por capacidad**, no por rol: «Lo que me toca hoy», «Esperan mi decisión», «Agenda», «Mis proyectos», «Atajos» y, para quien lee las cifras ejecutivas, «Visión ejecutiva» compacta con enlace a la revisión completa (S51). Un bloque sin datos legibles no se dibuja. | U-01: el agente de campo recibe un tablero de candados y no sus tareas. | Elegir la variante por nombre de rol: lo prohíbe `CLAUDE.md` (`boundaries.test.ts`). Mantener S51 como inicio cuando el catálogo la ofrece: es la causa del defecto. |
+| DD-02 | **Regla de la acción principal**: la primaria de una ficha es la transición que el `PanelDeDecision` llama «Siguiente acción». Si está bloqueada, la primaria se muestra deshabilitada con su motivo debajo, en la misma cabecera. Las demás transiciones van como secundarias (máximo dos visibles) o en «Más acciones». Lo destructivo (cancelar, anular, retirar, eliminar, terminar) va siempre en «Más acciones» y pide confirmación. | U-02, U-03, U-15, U-16. | Ordenar por frecuencia de uso: no hay datos de uso, y la siguiente acción ya la calcula el portal. |
+| DD-03 | **Una sola fila de pestañas por pantalla.** Las pestañas del proyecto son el nivel 1. Las vistas de un módulo (Abiertos, Vencidos, Míos…) pasan a un **selector de vista** en la barra de filtros, con su conteo. «Lista / Tablero» va a la derecha de la cabecera. Las subpáginas de Riesgos (Alerta temprana, Señales, Menciones, Impactos) usan el mismo selector. | U-18, U-19, U-20. | Quitar los conteos: son útiles (ux-architecture §7.1). Un menú lateral por módulo: duplica la navegación. |
+| DD-04 | **Barra de filtros común**: búsqueda, hasta tres filtros frecuentes, «Más filtros» (drawer), chips de lo aplicado y «Limpiar». Los filtros se reflejan en la URL, como hoy. | U-22. | Filtros en columna lateral fija: roba ancho a tablas que ya desbordan (U-06). |
+| DD-05 | **Tablas con prioridad de columna**: esencial, secundaria (se oculta por debajo de `xl`) y opcional (en «Columnas»). El título va en una línea con el código como subtítulo. Una columna con un solo valor en toda la página no se dibuja. «Responsable» se oculta en la vista «Míos». | U-06. | Pasar todo a tarjetas: el encargo lo desaconseja para datos tabulares. |
+| DD-06 | **Ficha en tres franjas**: cabecera (antetítulo en sans, título que dice qué es, chips de situación, acciones), el `PanelDeDecision` como único lugar del estado (con el camino del flujo plegado dentro) y el cuerpo en secciones (`Seccion`) que ocultan los campos vacíos tras «Mostrar campos sin dato (N)». | U-25, U-26, U-27. | Quitar el `PanelDeDecision`: es el mejor patrón del portal (auditoría §4). |
+| DD-07 | **Campo de fecha propio (`CampoFecha`)** que muestra y acepta `dd/mm/aaaa` (y `HH:mm` de 24 h) en es-PE y `dd/mm/yyyy` en inglés, con calendario. Escribe en la zona de Lima con `ahoraEnLima`/`ZONA_DE_LIMA`. | U-07. | Confiar en `lang`: los navegadores ignoran `lang` en `<input type=date>`. |
+| DD-08 | **Componente `Seccion`** para toda superficie con título (reemplaza las 136 tarjetas a mano). Sin anidar: una `Seccion` dentro de otra se dibuja sin borde. | U-34. | Usar `Card` de `@wasichai/ui` tal cual: no tiene título con acciones ni la regla de anidado. |
+| DD-09 | **Barra superior más corta**: idioma y tema pasan al menú de la cuenta, como ya lo pide `ux-architecture.md` §7.1 («nada de eso va suelto en la barra»). El lema se oculta por debajo de `2xl`. El selector de proyecto pasa a combobox con búsqueda. Quedan marca, proyecto, Buscar, Preguntar, campana y cuenta. | U-12. | Quitar «Preguntar»: es el acceso a F7. |
+| DD-10 | **La barra lateral se queda expandida desde `lg`** (1024 px), con «Contraer» persistente. «QCS» se dice «Quejas y solicitudes» en la barra; la sigla queda solo en las pestañas, con su nombre completo en la descripción accesible. | U-21. | Íconos solos hasta 1280 px: 13 íconos no se reconocen sin texto. |
+| DD-11 | **Mapa primero**: el lienzo ocupa todo el ancho útil. Capas y leyenda se unen en un panel plegable superpuesto a la izquierda; la lista de lugares es un panel derecho plegable. Sin mapa base, el fondo dice «Sin mapa base» con el enlace a la configuración para quien la administra. | U-10, U-32. | Mantener tres columnas fijas. |
+| DD-12 | **Estados de sistema con salida**: «Sin acceso» explica qué no puede ver, a quién pedirlo (la jefatura del proyecto o la administración) y ofrece volver. Toda cifra que contradiga lo visible lleva su fecha de cálculo («Calculado hace 3 h») y, si es vieja, lo dice. | U-09, U-23. | Ocultar las cifras: se pierde el contexto. |
+| DD-13 | **Muros de enlaces → listas priorizadas**: cada grupo muestra las tres entradas más urgentes con su motivo y fecha, más «Ver los N» hacia la lista filtrada. Sin subrayado en las listas; el subrayado queda para enlaces dentro de texto. | U-05. | Un tablero de tarjetas: más ruido. |
+| DD-14 | **Administración alineada por tema, no reescrita**: misma marca, tipografía y tokens (ya los comparte por `wasichai.css`), y lema propio de SGSPE. Las diferencias que dependen de `@wasichai/*` (códigos de rol, verbos en inglés, formato de fecha, advertencia de fuente de verdad) se piden a wasichai-ui (entregable [08](08-cambios-de-contrato-backend.md) §3). | U-08, U-37. | Reimplementar la administración en el portal: duplica componentes de `@wasichai/*`, que el encargo pide evitar. |
+| DD-15 | **Evolución de tokens mínima** ([03](03-direccion-visual-y-design-system.md) §2): se agregan tokens de **espacio** y **elevación de superficie** que hoy se escriben a mano, y se retira el relleno con trama de los gráficos. Ningún color existente cambia de valor. | Consistencia (U-34) y gráficos más legibles. | Una paleta nueva: el encargo pide partir de la identidad existente. |
+| DD-16 | **Los textos nuevos llegan en los dos idiomas** y sin códigos (`textosSinCodigos.test.ts`). Los prototipos se fotografían en español y en inglés. | Criterio de calidad del encargo. | — |
+
+## 3. Compromisos de compatibilidad
+
+1. **Rutas.** Ninguna ruta cambia. Se conservan `/projects/:projectId/...`, `/r/:object/:recordId`, los enlaces de los
+   avisos y de las tareas, y los parámetros `?view=`, `?peek=`, `?selected=` y `?territory=`. Una vista que hoy es una
+   pestaña (por ejemplo `?view=vencidos`) sigue funcionando con el selector de vista (DD-03).
+2. **Permisos.** La interfaz sigue decidiendo con `useAuth().can`, `isAdmin` y `/api/auth/me/permissions`. Ningún nombre
+   de rol entra en `src/`.
+3. **Confidencialidad.** Se mantienen `RegistroVinculado`, «Registro reservado», `NoEsDeSusProyectos` (sin distinguir
+   «no existe» de «no es suyo»), `NotaDeConfidenciales` sin conteo y los campos restringidos con candado. Ningún bloque
+   del inicio cuenta lo que la persona no puede leer (DD-01).
+4. **Escritura.** Todo sigue pasando por `datos/` (`useCrear`, `useActualizar`, `usePedir`, `useComando`) con `If-Match` e
+   `Idempotency-Key`. Las transiciones siguen por `transiciones/` con su motivo.
+5. **Tokens.** Los `--sg-*` existentes no cambian de valor ni de nombre. Los nuevos se agregan primero en
+   `sgspe/docs/ux/tokens.css` y se copian a `sgspe-ui/src/theme/tokens.css` (verificado con `cmp`, como pide
+   `CLAUDE.md`).
+6. **`@wasichai/*`.** Los primitivos se siguen usando: `Button`, `Table`, `Dialog`, `Tabs`, `Alert`. Lo nuevo
+   (`Seccion`, `BarraDeFiltros`, `CampoFecha`, `CabeceraDeFicha`, `SelectorDeVista`) compone esos primitivos y vive en
+   `src/portal/componentes/`.
+7. **Pruebas.** Cada cambio llega con prueba primero (Vitest y Testing Library) y conserva la suite e2e de 60 pruebas. Las
+   pruebas de responsive (`e2e/responsivo.spec.ts`) cubren el nuevo comportamiento a 390 px.
