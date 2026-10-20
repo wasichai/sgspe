@@ -18,13 +18,14 @@ class StateQueryApiTest : F3DomainApiTest() {
         val running = approvedCommitment(project)
         val cancelled = commitment(project)
         move("commitment", cancelled, "cancel_draft", reason = "duplicado")
-        val elsewhere = commitment(project())
+        val other = project()
+        val elsewhere = commitment(other)
 
         assertEquals(setOf(draft, running), ids("project=$project&state_not=closed,cancelled"))
         assertEquals(setOf(running), ids("project=$project&state=in_progress,blocked"))
         assertEquals(setOf(cancelled), ids("project=$project&state=cancelled"))
         assertEquals(setOf(draft, running, cancelled), ids("project=$project&state="))
-        assertEquals(true, elsewhere in ids("state=draft"))
+        assertEquals(setOf(elsewhere), ids("project=$other&state=draft"))
         val page = tree(send("GET", "/api/objects/commitment/records?project=$project&state_not=cancelled&size=1", null, HttpStatus.OK))
         assertEquals(2, page["totalElements"].asInt())
     }
