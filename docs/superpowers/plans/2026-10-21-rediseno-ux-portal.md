@@ -43,43 +43,53 @@ fase 1  defectos P1 (fix)  ─►  fase 2  componentes con piloto  ─►  fase 
 Archivos: `src/portal/componentes/Migas.tsx`, `src/portal/contexto/ProyectoLayout.tsx` y
 `src/portal/contexto/contexto.test.tsx`.
 
-- [ ] Prueba en `contexto.test.tsx` con `montar(…, { ruta: '/projects/p1/grievances/q1' })`:
+- [x] Prueba en `contexto.test.tsx` con `montar(…, { ruta: '/projects/p1/grievances/q1' })`:
   - la pestaña con `aria-current="page"` es «QCS»;
   - la miga del medio dice «Quejas, consultas y solicitudes» y enlaza a `/projects/p1/attention`.
   
   Lo mismo con `requests/r1` (QCS) y `contributions/a1` (Programas). La prueba debe fallar hoy: la miga dice
   «grievances».
-- [ ] Exportar de `Migas.tsx` una función `pestanaDeSegmento(segmento: string): string`, que use `PESTANA_DE_SEGMENTO`.
-- [ ] En `ProyectoLayout.tsx`, calcular `pestanaActual` con `pestanaDeSegmento(pathname.split('/')[3] ?? 'overview')`, de
+- [x] Exportar de `Migas.tsx` una función `pestanaDeSegmento(segmento: string): string`, que use `PESTANA_DE_SEGMENTO`.
+- [x] En `ProyectoLayout.tsx`, calcular `pestanaActual` con `pestanaDeSegmento(pathname.split('/')[3] ?? 'overview')`, de
   modo que `marcada` y las migas reciban la pestaña.
-- [ ] Revisar que la vista marcada (`v === pestanaActual`) y el título del documento siguen bien en `field-visits`,
+- [x] Revisar que la vista marcada (`v === pestanaActual`) y el título del documento siguen bien en `field-visits`,
   `incidents` y `areas`, con un caso de prueba cada uno.
-- [ ] Commit: `fix(proyectos): marcar la pestaña y nombrar la miga de las fichas fuera de su segmento`.
+- [x] Commit: `fix(proyectos): marcar la pestaña y nombrar la miga de las fichas fuera de su segmento` (`sgspe-ui`
+  `ccd1eb1`, 2026-10-21).
 
 #### 1.2 El inicio deja de elegir S51 por el catálogo (U-01)
 
 Archivos: `src/portal/pages/InicioPage.tsx`, `src/portal/pages/Inicio.test.tsx` y `src/portal/textos/miDia.ts`.
 
-- [ ] Prueba: una cuenta sin `READ` sobre `indicator`, con un catálogo que ofrece KPI-EXE, ve «Mi día» con
+- [x] Prueba: una cuenta sin `READ` sobre `indicator`, con un catálogo que ofrece KPI-EXE, ve «Mi día» con
   `AtencionRequerida` y ningún texto «No disponible». Debe fallar hoy.
-- [ ] Prueba: una cuenta con lectura de KPI-EXE ve «Mi día» y, debajo, el bloque «Visión ejecutiva» con su fecha de
-  cálculo y el enlace a la revisión completa (la ruta vigente de S51, sin cambiarla).
-- [ ] Implementar: `InicioPage` siempre devuelve `Bienvenida` («Mi día»), salvo variante de `inicios.ts`. El bloque
+- [x] Prueba: una cuenta con lectura de KPI-EXE ve «Mi día» y, debajo, el bloque «Visión ejecutiva» con su fecha de
+  cálculo y el enlace a la revisión completa.
+- [x] S51 no tenía ruta propia: se llegaba a ella solo por el inicio. Gana `/dashboards/executive` (`pantallas.ts`,
+  `RUTAS_ADICIONALES`), junto al monitoreo y al catálogo; ninguna ruta existente cambia (DD-19).
+- [x] Implementar: `InicioPage` siempre devuelve `Bienvenida` («Mi día»), salvo variante de `inicios.ts`. El bloque
   ejecutivo se dibuja con `KpiCard` solo con las cifras `available`, y se omite si no queda ninguna.
-- [ ] Actualizar el comentario del encabezado de `InicioPage.tsx` (la decisión 7 del plan 8.3 cambia por DD-01).
-- [ ] Commit: `fix(inicio): mostrar «Mi día» a toda cuenta y la visión ejecutiva como bloque`.
+- [x] Actualizar el comentario del encabezado de `InicioPage.tsx` (la decisión 7 del plan 8.3 cambia por DD-01).
+- [x] Commit: `fix(inicio): mostrar «Mi día» a toda cuenta y la visión ejecutiva como bloque` (`6688a83`).
+- [ ] **Pendiente de decisión (DD-19):** ASM-074 y `docs/ux/screens.md` S51 siguen diciendo que el inicio del ejecutivo
+  es S51. Al confirmarse, se reescriben ASM-074, S51 y `ux-architecture.md` §5, y se rehacen
+  `docs/manuals/user/02-primeros-pasos.adoc`, `08-documentos-tareas-reportes.adoc` y la captura `user/02-inicio`
+  (`generate-screenshots.mjs` espera «Lo que necesita atención hoy» en `/`).
 
 #### 1.3 La primaria es la siguiente acción, sin componente nuevo (U-02)
 
 Archivos: `compromisos/FichaCompromisoPage.tsx`, `riesgos/FichaRiesgoPage.tsx` y sus pruebas.
 
-- [ ] Prueba: en un compromiso `in_progress` con las transiciones `fulfill`, `block` y `cancel`, la única `Button`
+- [x] Prueba: en un compromiso `in_progress` con las transiciones `fulfill`, `block` y `cancel`, la única `Button`
   primaria es «Registrar cumplimiento». Debe fallar hoy: la primaria es «Bloquear».
-- [ ] Prueba: «Cancelar el compromiso» no está en la cabecera, sino en «Más acciones».
-- [ ] Implementar con la información que ya da `PanelDeDecision` (la siguiente acción), sin cambiar `transiciones/`.
-- [ ] Lo mismo en la ficha de riesgo: la siguiente acción es «Decidir…», no «Nueva revisión».
-- [ ] Ajustar `e2e/` y regenerar los manuales afectados con su script.
-- [ ] Commit: `fix(fichas): la acción primaria es la siguiente acción del flujo`.
+- [x] Prueba: «Cancelar el compromiso» no está en la cabecera, sino en «Más acciones».
+- [x] Implementar con `siguienteTransicion` (`fichas/siguienteAccion.ts`), la misma del `PanelDeDecision`. Se hizo en
+  `transiciones/BotonesDeTransicion.tsx`, para que valga en todas las fichas, con `destructivasEnMenu` para «Más
+  acciones».
+- [x] Lo mismo en la ficha de riesgo: la siguiente acción es «Decidir…», no «Nueva revisión».
+- [x] Ajustar `e2e/`: no hizo falta, las 60 pasan.
+- [ ] Regenerar los manuales afectados con su script: necesita la demo viva, y queda para el paso de DD-19.
+- [x] Commit: `fix(fichas): la acción primaria es la siguiente acción del flujo` (`aaad922`).
 
 ### Fase 2. Componentes transversales
 
