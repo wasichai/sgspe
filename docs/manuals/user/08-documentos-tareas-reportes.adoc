@@ -70,7 +70,8 @@ image::screenshots/user/40-avisos.png[Página Avisos con una alerta nueva y un a
 === Tableros e indicadores
 
 Las secciones con datos ofrecen un «Tablero» (botón junto a «Lista») con cifras y gráficos; cada gráfico tiene «Ver
-datos» con la tabla equivalente. La página de inicio de quien tiene acceso a la cartera es la *revisión ejecutiva*;
+datos» con la tabla equivalente. El inicio de quien lee las cifras de la cartera muestra la *visión ejecutiva*, y «Ver la revisión ejecutiva» abre
+la revisión completa;
 «Monitoreo del plan de relaciones comunitarias» y el «Catálogo de indicadores» muestran los indicadores del proyecto.
 Una cifra que su rol no puede leer aparece como «No disponible», no como cero.
 

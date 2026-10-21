@@ -71,10 +71,10 @@ Archivos: `src/portal/pages/InicioPage.tsx`, `src/portal/pages/Inicio.test.tsx` 
   ejecutivo se dibuja con `KpiCard` solo con las cifras `available`, y se omite si no queda ninguna.
 - [x] Actualizar el comentario del encabezado de `InicioPage.tsx` (la decisión 7 del plan 8.3 cambia por DD-01).
 - [x] Commit: `fix(inicio): mostrar «Mi día» a toda cuenta y la visión ejecutiva como bloque` (`6688a83`).
-- [ ] **Pendiente de decisión (DD-19):** ASM-074 y `docs/ux/screens.md` S51 siguen diciendo que el inicio del ejecutivo
-  es S51. Al confirmarse, se reescriben ASM-074, S51 y `ux-architecture.md` §5, y se rehacen
-  `docs/manuals/user/02-primeros-pasos.adoc`, `08-documentos-tareas-reportes.adoc` y la captura `user/02-inicio`
-  (`generate-screenshots.mjs` espera «Lo que necesita atención hoy» en `/`).
+- [x] **DD-19, confirmada el 2026-10-21:** ASM-074, S02 y S51 de `docs/ux/screens.md`, `ux-architecture.md` §5, los
+  manuales (`02-primeros-pasos.adoc`, `08-documentos-tareas-reportes.adoc`) y `generate-screenshots.mjs` dicen que el inicio
+  es «Mi día» con la visión ejecutiva.
+- [ ] Regenerar la captura `user/02-inicio` con el script de los manuales sobre la demo viva.
 
 #### 1.3 La primaria es la siguiente acción, sin componente nuevo (U-02)
 

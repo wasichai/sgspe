@@ -38,7 +38,7 @@ organización y sus roles.
 === Recorrido por la interfaz
 
 .Página de inicio de la gerencia social
-image::screenshots/user/02-inicio.png[Página Inicio con la revisión ejecutiva: lo que necesita atención hoy, cifras de proyectos, compromisos, QCS, riesgos y alertas, y gráficos]
+image::screenshots/user/02-inicio.png[Página Inicio «Mi día»: atención requerida, atajos de registro, mis proyectos y la visión ejecutiva con las cifras que su cuenta lee]
 
 La pantalla tiene tres zonas:
 

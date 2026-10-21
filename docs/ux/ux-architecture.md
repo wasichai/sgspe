@@ -115,7 +115,7 @@ los atajos de creación.
 | Analista SIG (`GIS_ANALYST`) | ¿El territorio y las áreas están bien dibujados? | Territorio | Importar con vista previa y reconciliación, editar geometrías, versionar áreas |
 | Agente de campo (`FIELD_AGENT`) | ¿Qué tengo que levantar hoy y dónde? | Mis tareas (móvil) | Crear interacción, observación y foto con ubicación; solo edita lo que capturó (ASM-069) |
 | Aprobador (`APPROVER`) | ¿Qué espera mi aprobación y cumple las reglas? | Aprobaciones | Aprobar con segregación de funciones; resolver quejas de severidad alta |
-| Ejecutivo (`READ_ONLY` o `ANALYST`, ASM-074) | ¿Qué cambió, qué es crítico, dónde y quién lo atiende? | Revisión de 5 minutos | Solo lectura y exportación |
+| Ejecutivo (`READ_ONLY` o `ANALYST`, ASM-074) | ¿Qué cambió, qué es crítico, dónde y quién lo atiende? | Mi día con la visión ejecutiva; la revisión de 5 minutos en `/dashboards/executive` | Solo lectura y exportación |
 | Auditor (`AUDITOR`) | ¿Quién cambió qué, cuándo y por qué? | Actividad y auditoría | Lectura de todo el tenant |
 | Analista (`ANALYST`) | ¿Qué dicen los datos del periodo? | Reportes | Usa "Preguntar a los datos" (AI-05, ASM-130), no "Preguntar a los documentos", porque no lee los nombres de `person` |
 | Administración (`PROJECT_ADMIN`, `ORGANIZATION_ADMIN`) | ¿Quién trabaja en qué proyecto y con qué permisos? | Proyectos | Alta y aprobación de proyectos, equipos por asignación; usuarios y roles en `/admin` |

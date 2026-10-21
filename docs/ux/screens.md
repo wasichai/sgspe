@@ -1472,7 +1472,7 @@ disponible", nunca cero (RQ-DSH-032). Las cifras salen de `GET /api/sgspe/dashbo
 
 ### S51 · Revisión ejecutiva de 5 minutos
 
-- **Ruta y lienzo:** `/` como inicio del ejecutivo (ASM-074) · hoja `Tab-Ejecutivo` · F8.
+- **Ruta y lienzo:** `/dashboards/executive`; «Mi día» (S02) la resume y la enlaza (ASM-074) · hoja `Tab-Ejecutivo` · F8.
 - **Propósito:** ¿qué cambió, qué es crítico, dónde y quién lo atiende? Leerlo en cinco minutos.
 - **Roles:** el ejecutivo (`READ_ONLY` o `ANALYST`); también SMG y PMG como vista. Lectura.
 - **Acciones:** primaria abrir lo que necesita atención; secundarias filtros de periodo y proyectos, "Monitoreo de la Tabla
@@ -1787,11 +1787,14 @@ LoginPage
 - **Ruta y lienzo:** `/` · hoja `Ini-Inicio` (interactiva: relacionista, gerencia social, aprobación) · F1 bienvenida; F8
   completo.
 - **Propósito:** contestar la pregunta del rol (`ux-architecture.md` §5) apenas se ingresa.
-- **Roles:** todos; el contenido depende del rol (ASM-078). El ejecutivo usa S51.
+- **Roles:** todos; el contenido depende del rol (ASM-078). Quien lee cifras ejecutivas ve además la visión ejecutiva:
+  las de S51 que lee, con su fecha de cálculo y el enlace a S51 (ASM-074).
 - **Acciones:** abrir cada elemento; atajos de creación del rol; cambiar el inicio en preferencias.
 - **Disposición y componentes:** saludo y contexto; tiles del rol; dos o tres listas (agenda, tareas, pendientes, atención
-  requerida, aprobaciones); atajos.
-- **Datos y API:** `task`, los avisos de wasichai-notifications e indicadores del rol; preferencias en
+  requerida, aprobaciones); atajos; al final, la visión ejecutiva, que no se dibuja si la cuenta no lee ninguna de sus
+  cifras.
+- **Datos y API:** `task`, los avisos de wasichai-notifications, indicadores del rol y el tablero `executive` si el
+  catálogo lo ofrece; preferencias en
   `PUT /api/auth/me/preferences`.
 - **Estados:** sin asignaciones de proyecto, bienvenida con el mapa de módulos (F1).
 - **Permisos:** solo lo que el rol lee.

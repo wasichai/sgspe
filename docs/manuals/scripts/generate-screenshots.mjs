@@ -153,7 +153,8 @@ shot('user/01-inicio-de-sesion', async () => {
 })
 shot('user/02-inicio', async () => {
   const page = await pageFor(USERS.social)
-  await go(page, '/', 'Lo que necesita atención hoy')
+  // el inicio es «Mi día» (DD-19, ASM-074); la revisión ejecutiva vive en /dashboards/executive
+  await go(page, '/', 'Atención requerida')
   await save(page, 'user/02-inicio')
 })
 shot('user/03-barra-superior', async () => {
