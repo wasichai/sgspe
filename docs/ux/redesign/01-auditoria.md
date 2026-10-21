@@ -227,7 +227,9 @@ Ordenados por frecuencia × riesgo. Son los que se rediseñan primero y los que 
 7. **Administrar sin romper el modelo** (administración): equipo, parámetros, usuarios y roles con advertencias de fuente
    de verdad (U-08, U-37).
 
-## 7. Adenda: hallazgo encontrado al preparar el design system
+## 7. Adenda: hallazgos encontrados al preparar el design system y los prototipos
+
+Con ellos, la auditoría suma 43 hallazgos; los P1 siguen siendo cinco.
 
 | ID | Hallazgo | Ev. | P | E |
 |---|---|---|---|---|

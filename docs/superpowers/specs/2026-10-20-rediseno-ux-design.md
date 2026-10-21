@@ -1,6 +1,6 @@
 # SGSPE · Rediseño integral de UX/UI: especificación de diseño
 
-> **Para agentes:** esta especificación es la entrada del plan `docs/superpowers/plans/2026-10-20-rediseno-ux-portal.md`.
+> **Para agentes:** esta especificación es la entrada del plan `docs/superpowers/plans/2026-10-21-rediseno-ux-portal.md`.
 > No define IDs de requisitos: solo cita los de `docs/requirements-analysis.md`. Los identificadores `U-NN` (hallazgos),
 > `DD-NN`/`DP-NN` (decisiones) y `P-NN` (patrones) son propios del rediseño. El detalle vive en `docs/ux/redesign/`. Donde
 > esta especificación y `docs/ux/` difieren, `docs/ux/` sigue vigente hasta que la tarea final del plan lo actualice.
@@ -8,7 +8,7 @@
 **Objetivo.** Que cada persona encuentre lo que le toca, entienda el estado de una situación y complete su tarea con el
 mínimo esfuerzo razonable. La meta no es modernizar la superficie: es corregir cómo se componen piezas que ya son buenas.
 
-**Diagnóstico** (detalle en [01-auditoria](../../ux/redesign/01-auditoria.md)). 38 hallazgos, de los que 5 son P1:
+**Diagnóstico** (detalle en [01-auditoria](../../ux/redesign/01-auditoria.md)). 43 hallazgos (los 38 del recorrido más los 5 de la adenda §7), de los que 5 son P1:
 
 - el inicio no responde a la persona (U-01);
 - la acción principal contradice a la «Siguiente acción» (U-02);
@@ -53,8 +53,8 @@ mínimo esfuerzo razonable. La meta no es modernizar la superficie: es corregir 
 Las tomó el agente con criterio propio por pedido expreso del usuario, que estuvo ausente. Están registradas con su
 porqué y lo descartado en [07-decisiones-y-compatibilidad](../../ux/redesign/07-decisiones-y-compatibilidad.md):
 
-- **de proceso:** DP-01 a DP-05;
-- **de diseño:** DD-01 a DD-16.
+- **de proceso:** DP-01 a DP-06;
+- **de diseño:** DD-01 a DD-18.
 
 Son vinculantes para el plan **solo cuando el usuario las apruebe**.
 
