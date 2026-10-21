@@ -62,7 +62,7 @@ Los problemas no están en las piezas, sino en **cómo se componen**. Los diez d
 | 4 | **Migas y pestaña con nombres técnicos en inglés** en tres fichas («grievances», «requests», «contributions»), sin pestaña marcada (U-04). | P1 |
 | 5 | **Muros de enlaces** en el resumen del proyecto y en Relacionamiento: listas largas de títulos subrayados («16 actas por redactar», «85 grupos sin contacto», «55 evaluaciones») que compiten entre sí (U-05). | P2 |
 | 6 | **Listados que desbordan a 1440 px**: la tabla de grupos de interés se corta a la derecha, los títulos envuelven en 3–4 líneas y hay dos filas de pestañas sobre cinco filtros (U-06). | P2 |
-| 7 | **Fechas en formato del navegador** (`mm/dd/yyyy`, 12 h AM/PM) en 29 campos nativos dentro de una interfaz es-PE, mientras el resto del portal dice «20 oct. 2026» y la administración «20/10/2026» (U-07). | P2 |
+| 7 | **Fechas en formato del navegador** (`mm/dd/yyyy`, 12 h AM/PM) en 33 campos nativos dentro de una interfaz es-PE, mientras el resto del portal dice «20 oct. 2026» y la administración «20/10/2026» (U-07). | P2 |
 | 8 | **La administración es otro producto**: otro shell, otro lema («Plataforma de aplicaciones geoespaciales configurables»), códigos de rol en mayúsculas, verbos en inglés (READ, CREATE) y otro formato de fecha (U-08). | P2 |
 | 9 | **Estados de sistema mudos.** «Sin acceso» es una sola línea sin salida. Las acciones deshabilitadas no dicen por qué. «Vencidas 0» con una tarea vencida a la vista (U-09). | P2 |
 | 10 | **El mapa no domina la pantalla territorial.** El lienzo ocupa ~45 % del ancho, entre un panel de capas largo y una lista. Sin mapa base configurado, el fondo es gris plano (U-10). | P2 |
@@ -124,7 +124,7 @@ Columnas: **Ev.** = evidencia (`c.NN` es la captura de usuario `user/NN-*.png`; 
 
 | ID | Hallazgo | Ev. | P | E |
 |---|---|---|---|---|
-| U-07 | Hay 29 campos `date`/`datetime-local` nativos que se dibujan con la configuración regional del navegador (`mm/dd/yyyy`, `--:-- --` AM/PM) dentro de una interfaz es-PE. En navegadores en español se verá `dd/mm/aaaa`, pero el portal no lo controla. | c.02, c.11, c.15, c.18, c.22, a.14 | P2 | C |
+| U-07 | Hay 33 campos `date`/`datetime-local` nativos que se dibujan con la configuración regional del navegador (`mm/dd/yyyy`, `--:-- --` AM/PM) dentro de una interfaz es-PE. En navegadores en español se verá `dd/mm/aaaa`, pero el portal no lo controla. | c.02, c.11, c.15, c.18, c.22, a.14 | P2 | C |
 | U-29 | Algunos formularios densos parecen hojas de cálculo. La nueva evaluación tiene 15 escalas de radio en un drawer de 400 px. Registrar interacción tiene 16 campos en una sola pantalla. En código, `NuevoCompromisoPage.tsx` tiene 685 líneas y `ia/AceptarSugerencia.tsx`, `compromisos/Candidatos.tsx` y `atencion/FichaConsultaPage.tsx` tienen 12 campos cada uno. | c.11; código | P2 | C |
 | U-30 | El registro de una QCS es un formulario único y largo, mientras compromiso, interacción y proyecto usan pasos: el mismo tipo de tarea tiene dos patrones distintos. | c.22 vs c.15, c.18, a.03 | P3 | C |
 | U-31 | En Parámetros, cada campo numérico queda ~700 px a la derecha de su etiqueta, con una explicación larga en gris pequeño debajo. | a.02 | P3 | C |

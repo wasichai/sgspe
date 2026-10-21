@@ -97,61 +97,69 @@ Cada componente vive en `src/portal/componentes/<Nombre>.tsx`, con `<Nombre>.tes
 `textos/comun.ts`. Se escribe con los CA de [05 §1](../../ux/redesign/05-especificacion-de-componentes.md#1-componentes-nuevos)
 como pruebas, y se adopta en su piloto (06 §3) en el mismo PR.
 
+Hecha el 2026-10-21 con subagentes en worktrees aislados (dos tandas), integrada y en verde: 2243 pruebas unitarias y
+60 e2e. Los commits son de `sgspe-ui`.
+
 #### 2.1 `Seccion`
 
-- [ ] Pruebas CA-1.1.1 y CA-1.1.2.
-- [ ] Implementar con `cn` y las clases `rounded-sg-lg border border-sg-border bg-sg-surface p-4`.
-- [ ] Adoptar en `proyectos/ResumenPage.tsx`, sin cambios visuales salvo el anidado.
-- [ ] Commit: `feat(componentes): Seccion para las superficies con título`.
+- [x] Pruebas CA-1.1.1 y CA-1.1.2, más el anidado por contexto (una `Seccion` dentro de otra pierde el borde y baja a `h3`).
+- [x] Adoptada en `proyectos/ResumenPage.tsx`, sin cambio visual.
+- [x] Commit `ec1c60b`.
 
 #### 2.2 `CabeceraDeFicha`
 
-- [ ] Pruebas CA-1.2.1 a CA-1.2.4. Se monta con `useAvailableTransitions` simulado por `mockFetch`, sobre
-  `/workflows/…/transitions`, como en `PanelDeDecision.test.tsx`.
-- [ ] Implementar sobre `EncabezadoDePagina`, `Button`, el menú «Más acciones» y `ConfirmDialog`. La lista de estados
-  destructivos va en una constante con su prueba.
-- [ ] Adoptar en la ficha de compromiso; reemplaza la solución de 1.3. Prueba e2e CA-1.2.5.
-- [ ] Commit: `feat(componentes): CabeceraDeFicha con la regla de la acción principal`.
+- [x] Pruebas CA-1.2.1 a CA-1.2.4, la acción propia como primaria o secundaria y el orden «secundarias, Más acciones,
+  primaria». La lógica de `BotonesDeTransicion` pasó al hook `useTransicionesOfrecidas`.
+- [x] Adoptada en la ficha de compromiso: antetítulo en sans, sin el chip de estado (U-25) y lo que falta visible bajo las
+  acciones. «Bloquear» queda en «Más acciones», porque «Editar» e «Informar riesgo» ocupan los dos lugares visibles.
+- [x] Commit `7d6f46c`.
+- [ ] Prueba e2e CA-1.2.5 sobre la ficha de la demo.
 
 #### 2.3 `SelectorDeVista`
 
-- [ ] Pruebas CA-1.3.1 y CA-1.3.2, y la del teclado (flechas, Home y End).
-- [ ] Implementar. Reemplaza a `VistasDelModulo` en la lista de compromisos; `VistasDelModulo` queda hasta la fase 4.
-- [ ] Commit: `feat(componentes): SelectorDeVista en una sola fila`.
+- [x] Pruebas CA-1.3.1 y CA-1.3.2, y la del teclado (flechas, Home y End).
+- [x] En la lista de compromisos reemplaza a `VistasGuardadas` (`componentes/Lista.tsx`), la segunda fila de pestañas con
+  conteo. `VistasDelModulo` es el conmutador «Lista · Tablero» y sigue en la cabecera.
+- [x] Commit `37cbd89`, y `68e265e` para que «Más vistas» (`MasAcciones`) se cierre al elegir.
 
 #### 2.4 `BarraDeFiltros`
 
-- [ ] Pruebas CA-1.4.1 a CA-1.4.3, con la URL leída de `useSearchParams`.
-- [ ] Implementar sobre `FiltroDeLista` y `Drawer`.
-- [ ] Adoptar en la lista de compromisos.
-- [ ] Commit: `feat(componentes): BarraDeFiltros con chips y Limpiar`.
+- [x] Pruebas CA-1.4.1 a CA-1.4.3, con la URL leída de `useSearchParams`.
+- [x] Adoptada en la lista de compromisos: búsqueda, estado como filtro frecuente y chips.
+- [x] Commit `253a19b`.
+- [ ] La espera de 300 ms de la búsqueda (05 §1.4): no se hizo, para no cambiar cómo responde hoy `q`.
 
 #### 2.5 `CampoFecha`
 
-- [ ] Pruebas CA-1.5.1 y CA-1.5.2 (con `navigator.language` en `en-US`); las de entrada `20102026` y `20-10-2026`; la del
-  error de formato; y las de la grilla con teclado.
-- [ ] Implementar. La conversión usa `datos/fechas.ts`: ninguna aritmética de zona propia.
-- [ ] Adoptar en registrar QCS.
-- [ ] Commit: `feat(componentes): CampoFecha en dd/mm/aaaa y 24 h de Lima`.
+- [x] Pruebas CA-1.5.1 y CA-1.5.2 (con `navigator.language` en `en-US`), las de entrada `20102026` y `20-10-2026`, y la del
+  error de formato.
+- [x] La conversión usa `datos/fechas.ts` (`diaDeTexto`, `textoDeDia` y `horaDeTexto`, nuevas, sin aritmética de zona).
+  Lo que llega al servidor no cambia.
+- [x] Adoptado en registrar QCS.
+- [x] Commit `42e1317`.
+- [ ] La grilla de calendario con teclado.
 
 #### 2.6 `TablaPriorizada`
 
-- [ ] Prueba CA-1.6.1, la de `aria-sort` y las de Enter y Espacio en una fila.
-- [ ] Implementar sobre `Table`, `Th` y `Td`.
-- [ ] Adoptar en Grupos de interés. Prueba e2e CA-1.6.2.
-- [ ] Commit: `feat(componentes): TablaPriorizada con prioridad de columnas`.
+- [x] Prueba CA-1.6.1, la de Enter en una fila y la de las secundarias desde `xl`.
+- [x] Adoptada en Grupos de interés.
+- [x] Commits `31df998` y `88dd777`: las opcionales se ven desde `2xl` mientras no exista «Columnas», para que la
+  relación y la evaluación no queden sin forma de verse.
+- [ ] El selector «Columnas», el orden con `aria-sort`, Espacio para la vista previa y la prueba e2e CA-1.6.2.
 
 #### 2.7 `ListaPriorizada`
 
-- [ ] Pruebas CA-1.7.1 y CA-1.7.2, y la de `total` nulo con `NotaDeConfidenciales`.
-- [ ] Adoptar en la ficha 360 («Qué requiere atención»).
-- [ ] Commit: `feat(componentes): ListaPriorizada en lugar de los muros de enlaces`.
+- [x] Pruebas CA-1.7.1 y CA-1.7.2, y la de `total` nulo sin número.
+- [x] Adoptada en «Atención requerida» del resumen del proyecto, con límite 3 y el motivo de cada entrada. Solo «Sin
+  contacto» tiene una lista a la que ir.
+- [x] Commits `ddf91b8` y `16988e7`: sin una lista a la que ir, «Mostrar N más» despliega el resto en el lugar.
 
 #### 2.8 `EstadoSinAcceso`
 
-- [ ] Pruebas CA-1.8.1 y CA-1.8.2.
-- [ ] Adoptar en `shell/GuardaDeSeccion.tsx`.
-- [ ] Commit: `feat(componentes): EstadoSinAcceso con a quién pedirlo y cómo volver`.
+- [x] Pruebas CA-1.8.1 y CA-1.8.2.
+- [x] Adoptado en `shell/GuardaDeSeccion.tsx`. Se pide a la administración de la organización; nombrar a la jefatura
+  dentro de un proyecto queda para la fase 4.
+- [x] Commit `068e7a8`.
 
 ### Fase 3. Tokens y shell
 
@@ -200,7 +208,7 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
   `TablaPriorizada` (U-06, U-22). CA de P-02.
 - [ ] **4.4 Fichas**: `CabeceraDeFicha` y `Seccion` en las fichas de grupo, QCS, riesgo, aporte, acuerdo e interacción;
   campos vacíos plegados (U-25, U-26, U-27, U-28). CA de P-09.
-- [ ] **4.5 Formularios**: QCS por pasos (U-30); `CampoFecha` en los 28 sitios restantes (CA-1.5.3); evaluación por
+- [ ] **4.5 Formularios**: QCS por pasos (U-30); `CampoFecha` en los 32 sitios restantes (CA-1.5.3); evaluación por
   grupos de escalas (U-29). CA de P-04.
 - [ ] **4.6 Bandeja de aprobaciones**: decisión con motivo en el panel (F-E, U-36). CA de P-05.
 - [ ] **4.7 Mapa primero**: capas y leyenda superpuestas, lista plegable y el aviso de mapa base con dónde se configura

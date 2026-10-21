@@ -111,7 +111,7 @@ Búsqueda, filtros frecuentes, «Más filtros» y chips de lo aplicado (DD-04). 
 
 ### 1.5 `CampoFecha`
 
-Fecha (y hora) propia del portal: `dd/mm/aaaa` en es-PE, `dd/mm/yyyy` en inglés y 24 h (DD-07). Reemplaza los 29
+Fecha (y hora) propia del portal: `dd/mm/aaaa` en es-PE, `dd/mm/yyyy` en inglés y 24 h (DD-07). Reemplaza los 33
 `<input type="date|datetime-local">`.
 
 | Prop | Tipo | Nota |

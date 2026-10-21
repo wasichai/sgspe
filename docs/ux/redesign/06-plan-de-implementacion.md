@@ -48,7 +48,7 @@
 | Riesgo | Mitigación |
 |---|---|
 | Cambiar la acción primaria puede chocar con las pruebas e2e y los manuales | Los manuales se regeneran con su script en la misma fase. Las pruebas e2e se ajustan por rol accesible, no por clase. |
-| `CampoFecha` en 29 sitios puede alterar lo que se escribe | CA-1.5.1 compara el instante con `ahoraEnLima`. Se migra pantalla por pantalla, con la prueba de cada formulario. |
+| `CampoFecha` en 33 sitios puede alterar lo que se escribe | CA-1.5.1 compara el instante con `ahoraEnLima`. Se migra pantalla por pantalla, con la prueba de cada formulario. |
 | Plegar la navegación cambia la memoria muscular | «Contraer» persiste. Las rutas y el orden de las secciones no cambian. |
 | El inicio por bloques podría contar lo que no se lee | Cada bloque usa las lecturas que ya hacen `AtencionRequerida`, `SuTrabajo` y `MisProyectos`, acotadas por el servidor. Una prueba con una cuenta sin lectura de KPI-EXE verifica que no aparece ninguna cifra. |
 | Una pantalla puede quedar con dos patrones durante la fase 4 | Cada área se migra completa en un mismo PR. |
@@ -61,7 +61,7 @@ Sin datos de uso, se miden indicadores observables en las pruebas y en las captu
 - el número de controles de la barra superior (de 9 a 6);
 - las pantallas con más de una `Button` primaria (meta: 0);
 - las tarjetas a mano (de 136 a 0);
-- los campos de fecha nativos (de 29 a 0);
+- los campos de fecha nativos (de 33 a 0);
 - el desborde horizontal a 1440 px en las listas (meta: ninguno);
 - los pares de contraste que fallan (meta: 0).
 
