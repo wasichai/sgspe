@@ -212,22 +212,26 @@ los de `sgspe` (`4a4175b` y `d29d0f7`) llevan la fuente de los tokens y `contras
 
 Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de manual regeneradas.
 
-- [ ] **4.1 Inicio «Mi trabajo»**: bloques de 02 §4, con «para tomar» en «Lo que me toca hoy» (U-13). CA de P-01.
-- [ ] **4.2 Ficha 360 del proyecto**: franja de cifras y «Qué requiere atención» con `ListaPriorizada` (U-05). CA de
-  P-03.
+- [x] **4.1 Inicio «Mi trabajo»**: bloques de 02 §4, con «para tomar» en «Lo que me toca hoy» (U-13). CA de P-01.
+  Commits `132855f` y `5bd9cb4`; el segundo hace que una fecha inválida no tumbe el inicio. La agenda muestra las
+  interacciones de los proyectos vigentes, porque la interacción no tiene responsable (DD-26).
+- [x] **4.2 Ficha 360 del proyecto**: franja de cifras y «Qué requiere atención» con `ListaPriorizada` (U-05). CA de
+  P-03. Commit `91c8e70`. La franja tiñe solo lo que pide acción y la cifra de QCS lleva `NotaDeConfidenciales`.
 - [ ] **4.3 Listados**: Grupos de interés, Interacciones, QCS, Riesgos, Programas (U-35) y Avisos con `BarraDeFiltros` y
   `TablaPriorizada` (U-06, U-22). CA de P-02.
 - [ ] **4.4 Fichas**: `CabeceraDeFicha` y `Seccion` en las fichas de grupo, QCS, riesgo, aporte, acuerdo e interacción;
   campos vacíos plegados (U-25, U-26, U-27, U-28). CA de P-09.
 - [ ] **4.5 Formularios**: QCS por pasos (U-30); `CampoFecha` en los 32 sitios restantes (CA-1.5.3); evaluación por
   grupos de escalas (U-29). CA de P-04.
-- [ ] **4.6 Bandeja de aprobaciones**: decisión con motivo en el panel (F-E, U-36). CA de P-05.
-- [ ] **4.7 Mapa primero**: capas y leyenda superpuestas, lista plegable y el aviso de mapa base con dónde se configura
-  (U-10, U-32). CA de P-06.
+- [x] **4.6 Bandeja de aprobaciones**: decisión con motivo en el panel (F-E, U-36). CA de P-05. Commits `d5a57b7` y
+  `f47a2ac`. La queja grave, el acta y la revisión de un proyecto se eligen en la bandeja, pero se deciden en su ficha.
+- [x] **4.7 Mapa primero**: capas y leyenda superpuestas, lista plegable y el aviso de mapa base con dónde se configura
+  (U-10, U-32). CA de P-06. Commit `172c4c7`. El aviso dice quién configura el mapa base, sin enlace (DD-25).
 - [ ] **4.8 Revisión ejecutiva**: periodo y fecha de cálculo en el título, filtros plegados y gráficos sin trama (U-11,
   U-23). CA de P-07.
 - [ ] **4.9 Textos**: los explicativos sin jerga de implementación (U-24, U-36), en los dos idiomas.
-- [ ] **4.10 Tarjetas a mano**: `Seccion` en las 136 restantes (CA-1.1.3).
+- [ ] **4.10 Tarjetas a mano**: `Seccion` en las restantes (CA-1.1.3).
+- [ ] Capturas de los manuales de las áreas: se regeneran con la demo viva (no hay en esta sesión).
 
 ### Fase 5. Administración del lado de SGSPE
 
