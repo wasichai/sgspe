@@ -244,8 +244,12 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
 - [x] **4.8 Revisión ejecutiva**: periodo y fecha de cálculo en el título, filtros plegados y gráficos sin trama (U-11,
   U-23). CA de P-07. Commits `fab8b23` (la trama se quita de todos los gráficos, DD-15) y `0a07ecb`. «Qué es crítico» dice
   dónde se atiende y no quién, porque el contrato del tablero no trae a la persona responsable.
-- [ ] **4.9 Textos**: los explicativos sin jerga de implementación (U-24, U-36), en los dos idiomas.
-- [ ] **4.10 Tarjetas a mano**: `Seccion` en las restantes (CA-1.1.3).
+- [x] **4.9 Textos**: los explicativos sin jerga de implementación (U-24, U-36), en los dos idiomas. Commit `901a5f0`, con
+  la guarda `textosLlanos.test.ts`. Unos 30 textos reescritos en lenguaje llano.
+  - [ ] El asistente de IA nombra el tipo de registro y su id técnico (`ia/Asistente.tsx`).
+- [x] **4.10 Tarjetas a mano**: `Seccion` en las restantes (CA-1.1.3). 54 superficies en 37 archivos, commits
+  `…1a21d47`, con la guarda `superficies.test.ts` y cinco excepciones explicadas (tarjetas clicables, ítems de lista y un
+  panel desplegable). `Seccion` acepta `elemento="aside"` para los paneles al costado.
 - [ ] Capturas de los manuales de las áreas: se regeneran con la demo viva (no hay en esta sesión).
 
 ### Fase 5. Administración del lado de SGSPE
