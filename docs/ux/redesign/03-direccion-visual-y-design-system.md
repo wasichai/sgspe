@@ -49,8 +49,9 @@ La tabla completa sale de `python3 docs/ux/redesign/contraste.py`.
 
 Se aplican así:
 
-- en `sgspe-ui/src/theme/wasichai.css`, una regla para los controles de formulario
-  (`input, textarea, select { border-color: var(--sg-border-control) }`), que también alcanza `/admin`;
+- en `sgspe-ui/src/index.css`, una regla sin capa para los campos de `@wasichai/ui` por su `data-slot` (`input`,
+  `textarea`, `native-select` y `select-trigger`) con `border-color: var(--sg-border-control)`, salvo el inválido, que
+  conserva su borde `danger`; también alcanza `/admin`. Los campos propios del portal ya usan `border-sg-border-strong`;
 - en lo que flota del portal (`Drawer`, el menú de `MasAcciones`, `DialogContent` y el popover de `CampoFecha`), la clase
   `bg-sg-surface-raised`. wasichai no tiene un token de superficie flotante; pedirlo es el ítem W-06 de
   [08](08-cambios-de-contrato-backend.md);

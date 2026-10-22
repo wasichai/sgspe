@@ -11,7 +11,9 @@
  * (bg-sg-surface, text-sg-muted, border-sg-strong…). La correspondencia con los 28 tokens de
  * @wasichai/ui 0.5.0 y los temas sgspe-pino, sgspe-cielo y sgspe-noche están en themes.css (ASM-086), que
  * se importa después de este archivo; el oscuro de SGSPE (sgspe-noche) usa los valores oscuros de aquí.
- * Contraste verificado: docs/ux/design-system.md §3.9 y §10.
+ * Contraste verificado: docs/ux/design-system.md §3.9 y §10, y python3 docs/ux/redesign/contraste.py.
+ * --sg-border-control y --sg-surface-raised son la evolución mínima de DD-15
+ * (docs/ux/redesign/03-direccion-visual-y-design-system.md §2.2): el límite de los campos y lo que flota.
  *
  * Fuentes: IBM Plex Sans (400, 500, 600) e IBM Plex Mono (400, 500), con licencia OFL, servidas desde el
  * mismo origen del portal (sin CDN externo, por la CSP de ADR-0026). Mientras cargan se usan las
@@ -24,9 +26,11 @@
   --sg-surface: #ffffff;
   --sg-surface-sunken: #eef0ec;
   --sg-surface-hover: #f9faf8;
+  --sg-surface-raised: #ffffff;
   --sg-border: #d9ddd6;
   --sg-border-subtle: #e4e7e1;
   --sg-border-strong: #838b85;
+  --sg-border-control: var(--sg-border-strong);
   --sg-text: #18211d;
   --sg-text-secondary: #46514b;
   --sg-text-muted: #5e6862;
@@ -95,9 +99,11 @@
   --sg-surface: #171d1a;
   --sg-surface-sunken: #0d110f;
   --sg-surface-hover: #1d2420;
+  --sg-surface-raised: #1d2420;
   --sg-border: #2a332e;
   --sg-border-subtle: #222a26;
   --sg-border-strong: #5e6a64;
+  --sg-border-control: var(--sg-border-strong);
   --sg-text: #e7ece8;
   --sg-text-secondary: #b5bfb9;
   --sg-text-muted: #95a09a;
@@ -131,15 +137,20 @@
   color-scheme: dark;
 }
 
+/* Según el sistema, solo sin data-theme: @wasichai/core y el script de arranque del portal siempre lo escriben
+ * («Según el sistema» ya llega resuelto a un tema), así que esta guarda cubre la página sin atributo y no oscurece un
+ * tema claro que no sea light (sgspe-pino, sgspe-cielo) cuando el sistema está en oscuro. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --sg-bg: #111614;
     --sg-surface: #171d1a;
     --sg-surface-sunken: #0d110f;
     --sg-surface-hover: #1d2420;
+    --sg-surface-raised: #1d2420;
     --sg-border: #2a332e;
     --sg-border-subtle: #222a26;
     --sg-border-strong: #5e6a64;
+    --sg-border-control: var(--sg-border-strong);
     --sg-text: #e7ece8;
     --sg-text-secondary: #b5bfb9;
     --sg-text-muted: #95a09a;
@@ -180,9 +191,11 @@
   --color-sg-surface: var(--sg-surface);
   --color-sg-surface-sunken: var(--sg-surface-sunken);
   --color-sg-surface-hover: var(--sg-surface-hover);
+  --color-sg-surface-raised: var(--sg-surface-raised);
   --color-sg-border: var(--sg-border);
   --color-sg-border-subtle: var(--sg-border-subtle);
   --color-sg-border-strong: var(--sg-border-strong);
+  --color-sg-border-control: var(--sg-border-control);
   --color-sg-text: var(--sg-text);
   --color-sg-text-secondary: var(--sg-text-secondary);
   --color-sg-text-muted: var(--sg-text-muted);
@@ -213,6 +226,22 @@
   --color-sg-territory: var(--sg-territory);
   --color-sg-territory-soft: var(--sg-territory-soft);
   --color-sg-territory-border: var(--sg-territory-border);
+  /* Datos, postura, nivel de riesgo y suelo del mapa: bg-sg-data-1, bg-sg-stance-favor, bg-sg-risk-high… */
+  --color-sg-data-1: var(--sg-data-1);
+  --color-sg-data-2: var(--sg-data-2);
+  --color-sg-data-3: var(--sg-data-3);
+  --color-sg-data-4: var(--sg-data-4);
+  --color-sg-data-5: var(--sg-data-5);
+  --color-sg-data-6: var(--sg-data-6);
+  --color-sg-stance-favor: var(--sg-stance-favor);
+  --color-sg-stance-neutral: var(--sg-stance-neutral);
+  --color-sg-stance-open: var(--sg-stance-open);
+  --color-sg-stance-against: var(--sg-stance-against);
+  --color-sg-risk-low: var(--sg-risk-low);
+  --color-sg-risk-medium: var(--sg-risk-medium);
+  --color-sg-risk-high: var(--sg-risk-high);
+  --color-sg-risk-critical: var(--sg-risk-critical);
+  --color-sg-map-ground: var(--sg-map-ground);
 
   /* Tipografía */
   --font-sg-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
