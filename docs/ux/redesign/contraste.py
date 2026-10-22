@@ -58,7 +58,7 @@ PARES = [
     ('sg-border-strong', 'sg-surface', UI), ('sg-primary', 'sg-surface', UI),
     # DD-15: el límite de los campos sobre la superficie (su relleno) y sobre el fondo de la página (U-40)
     ('sg-border-control', 'sg-surface', UI), ('sg-border-control', 'sg-bg', UI),
-    ('sg-border-control', 'sg-surface-sunken', UI),
+    ('sg-border-control', 'sg-surface-sunken', UI), ('sg-border-control', 'sg-surface-raised', UI),
     # el texto de lo que flota (menús, popovers, drawers y diálogos)
     ('sg-text', 'sg-surface-raised', TEXTO), ('sg-text-secondary', 'sg-surface-raised', TEXTO),
     ('sg-text-muted', 'sg-surface-raised', TEXTO), ('sg-primary-text', 'sg-surface-raised', TEXTO),

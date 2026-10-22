@@ -44,7 +44,7 @@ La tabla completa sale de `python3 docs/ux/redesign/contraste.py`.
 
 | Token | Claro | Oscuro | Uso | Resuelve |
 |---|---|---|---|---|
-| `--sg-border-control` | `var(--sg-border-strong)` (#838b85, 3.50:1) | `var(--sg-border-strong)` (#5e6a64, 3.03:1) | Límite de `Input`, `Textarea`, `Select`, `CampoFecha` y casillas | U-40: hoy 1.38:1 |
+| `--sg-border-control` | `var(--sg-border-strong)` (#838b85, 3.50:1) | `#66726c` (3.41:1; 3.16:1 sobre `--sg-surface-raised`, DD-21) | Límite de `Input`, `Textarea`, `Select`, `CampoFecha` y casillas | U-40: hoy 1.38:1 |
 | `--sg-surface-raised` | `#ffffff` | `#1d2420` | Menús, popovers, drawers y diálogos | En oscuro, la sombra no separa lo que flota |
 
 Se aplican así:

@@ -103,7 +103,8 @@
   --sg-border: #2a332e;
   --sg-border-subtle: #222a26;
   --sg-border-strong: #5e6a64;
-  --sg-border-control: var(--sg-border-strong);
+  /* en oscuro, propio: el borde fuerte da 2.81:1 sobre la superficie flotante; este, 3.16 (DD-21) */
+  --sg-border-control: #66726c;
   --sg-text: #e7ece8;
   --sg-text-secondary: #b5bfb9;
   --sg-text-muted: #95a09a;
@@ -150,7 +151,8 @@
     --sg-border: #2a332e;
     --sg-border-subtle: #222a26;
     --sg-border-strong: #5e6a64;
-    --sg-border-control: var(--sg-border-strong);
+    /* en oscuro, propio: el borde fuerte da 2.81:1 sobre la superficie flotante; este, 3.16 (DD-21) */
+    --sg-border-control: #66726c;
     --sg-text: #e7ece8;
     --sg-text-secondary: #b5bfb9;
     --sg-text-muted: #95a09a;
