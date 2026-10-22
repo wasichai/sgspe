@@ -54,7 +54,7 @@ Las tomó el agente con criterio propio por pedido expreso del usuario, que estu
 porqué y lo descartado en [07-decisiones-y-compatibilidad](../../ux/redesign/07-decisiones-y-compatibilidad.md):
 
 - **de proceso:** DP-01 a DP-06;
-- **de diseño:** DD-01 a DD-28.
+- **de diseño:** DD-01 a DD-29.
 
 Son vinculantes para el plan **solo cuando el usuario las apruebe**.
 

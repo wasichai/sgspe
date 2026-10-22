@@ -230,14 +230,20 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
   - Siete fichas, con `CamposPlegables` y `tituloQueDiceQueEs`.
   - Rechazar y desistir pasan a ser destructivas en todo el portal (DD-28).
   - [ ] DD-06 pide el camino del flujo plegado dentro del `PanelDeDecision`; sigue aparte, como en la ficha de compromiso.
-- [ ] **4.5 Formularios**: QCS por pasos (U-30); `CampoFecha` en los 32 sitios restantes (CA-1.5.3); evaluación por
+- [x] **4.5 Formularios**: QCS por pasos (U-30); `CampoFecha` en los 32 sitios restantes (CA-1.5.3); evaluación por
   grupos de escalas (U-29). CA de P-04.
+  - Registrar QCS en tres pasos con «Qué pasará» al costado, y la evaluación en cinco temas con su avance (DD-29):
+    `019eb39`, `70cf807` y `f26b3e3` (la e2e que declara los campos del alta).
+  - `CampoFecha` en las 17 pantallas restantes y en los filtros de los tableros, con la guarda `camposDeFecha.test.ts`
+    sin excepciones: commits `c10e0ce…caac05c` integrados y `84f329a`, que suma `ayuda` e `invalido` a `CampoFecha`.
+  - [ ] La grilla de calendario de `CampoFecha`.
 - [x] **4.6 Bandeja de aprobaciones**: decisión con motivo en el panel (F-E, U-36). CA de P-05. Commits `d5a57b7` y
   `f47a2ac`. La queja grave, el acta y la revisión de un proyecto se eligen en la bandeja, pero se deciden en su ficha.
 - [x] **4.7 Mapa primero**: capas y leyenda superpuestas, lista plegable y el aviso de mapa base con dónde se configura
   (U-10, U-32). CA de P-06. Commit `172c4c7`. El aviso dice quién configura el mapa base, sin enlace (DD-25).
-- [ ] **4.8 Revisión ejecutiva**: periodo y fecha de cálculo en el título, filtros plegados y gráficos sin trama (U-11,
-  U-23). CA de P-07.
+- [x] **4.8 Revisión ejecutiva**: periodo y fecha de cálculo en el título, filtros plegados y gráficos sin trama (U-11,
+  U-23). CA de P-07. Commits `fab8b23` (la trama se quita de todos los gráficos, DD-15) y `0a07ecb`. «Qué es crítico» dice
+  dónde se atiende y no quién, porque el contrato del tablero no trae a la persona responsable.
 - [ ] **4.9 Textos**: los explicativos sin jerga de implementación (U-24, U-36), en los dos idiomas.
 - [ ] **4.10 Tarjetas a mano**: `Seccion` en las restantes (CA-1.1.3).
 - [ ] Capturas de los manuales de las áreas: se regeneran con la demo viva (no hay en esta sesión).
