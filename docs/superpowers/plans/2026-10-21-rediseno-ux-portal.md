@@ -217,10 +217,19 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
   interacciones de los proyectos vigentes, porque la interacción no tiene responsable (DD-26).
 - [x] **4.2 Ficha 360 del proyecto**: franja de cifras y «Qué requiere atención» con `ListaPriorizada` (U-05). CA de
   P-03. Commit `91c8e70`. La franja tiñe solo lo que pide acción y la cifra de QCS lleva `NotaDeConfidenciales`.
-- [ ] **4.3 Listados**: Grupos de interés, Interacciones, QCS, Riesgos, Programas (U-35) y Avisos con `BarraDeFiltros` y
-  `TablaPriorizada` (U-06, U-22). CA de P-02.
-- [ ] **4.4 Fichas**: `CabeceraDeFicha` y `Seccion` en las fichas de grupo, QCS, riesgo, aporte, acuerdo e interacción;
+- [x] **4.3 Listados**: Grupos de interés, Interacciones, QCS, Riesgos, Programas (U-35) y Avisos con `BarraDeFiltros` y
+  `TablaPriorizada` (U-06, U-22). CA de P-02. Cubierto con e2e a 1440 y 390 px (`grupos-interacciones-avisos.spec.ts` y
+  `listasF4.spec.ts`).
+  - Commits de grupos, interacciones y avisos: `4fc6e2d…bf41f2b`. En la lista global de grupos, el responsable pasa a
+    opcional para que la tabla quepa.
+  - Commits de QCS, registro de riesgos, alertas y programas: `5b21ea3…9ddc0c0`. Las cifras de QCS se entienden (U-24),
+    las alertas ganan búsqueda y severidad, y Programas y Aportes quedan en una sola vista (DD-27).
+  - [ ] Espacio en una fila para abrir la vista previa (02 §5).
+- [x] **4.4 Fichas**: `CabeceraDeFicha` y `Seccion` en las fichas de grupo, QCS, riesgo, aporte, acuerdo e interacción;
   campos vacíos plegados (U-25, U-26, U-27, U-28). CA de P-09.
+  - Siete fichas, con `CamposPlegables` y `tituloQueDiceQueEs`.
+  - Rechazar y desistir pasan a ser destructivas en todo el portal (DD-28).
+  - [ ] DD-06 pide el camino del flujo plegado dentro del `PanelDeDecision`; sigue aparte, como en la ficha de compromiso.
 - [ ] **4.5 Formularios**: QCS por pasos (U-30); `CampoFecha` en los 32 sitios restantes (CA-1.5.3); evaluación por
   grupos de escalas (U-29). CA de P-04.
 - [x] **4.6 Bandeja de aprobaciones**: decisión con motivo en el panel (F-E, U-36). CA de P-05. Commits `d5a57b7` y
