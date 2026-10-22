@@ -163,39 +163,50 @@ Hecha el 2026-10-21 con subagentes en worktrees aislados (dos tandas), integrada
 
 ### Fase 3. Tokens y shell
 
+Hecha el 2026-10-22 con subagentes, integrada y en verde: 2276 pruebas unitarias y 63 e2e. Los commits son de `sgspe-ui`;
+los de `sgspe` (`4a4175b` y `d29d0f7`) llevan la fuente de los tokens y `contraste.py`.
+
 #### 3.1 Tokens (U-39, U-40, U-41, U-43)
 
-- [ ] En `sgspe/docs/ux/tokens.css`:
-  - agregar `--sg-border-control` (alias de `--sg-border-strong`) y `--sg-surface-raised` (#ffffff en claro, #1d2420 en
-    oscuro);
-  - exponer `--sg-data-*`, `--sg-stance-*`, `--sg-risk-*` y `--sg-map-ground` en `@theme inline`.
-- [ ] Agregar sus pares a `docs/ux/redesign/contraste.py` y verlos pasar.
-- [ ] Copiar el archivo a `sgspe-ui/src/theme/tokens.css` y verificar con `cmp`. Esto cierra U-39, incluido el selector
-  `sgspe-noche`.
-- [ ] En `src/index.css`, el borde de `input`, `textarea` y `select` con `--sg-border-control`, y el texto de ejemplo
-  con `--sg-text-muted`. Si `@wasichai/ui` gana el `data-slot` (08 W-07), se usa ese selector.
-- [ ] Reemplazar los `var(--sg-…)` sueltos de las pantallas por las utilidades nuevas.
-- [ ] Commit: `feat(tema): borde de control, superficie flotante y tokens de datos como utilidades`.
+- [x] En `docs/ux/tokens.css`, `--sg-border-control` y `--sg-surface-raised` en los tres bloques de tema, y los colores de
+  datos, postura, riesgo y suelo del mapa en `@theme inline`.
+- [x] El borde de control en oscuro tiene valor propio (`#66726c`, DD-21): como alias del borde fuerte daba 2.81:1 sobre
+  lo que flota.
+- [x] Pares nuevos en `contraste.py`, todos obligatorios y en verde.
+- [x] Copia a `sgspe-ui/src/theme/tokens.css` idéntica según `cmp`, con lo que se cierra U-39. Los selectores del oscuro
+  son los de la fuente: `:root[data-theme="dark"]` (y `sgspe-noche`), y `:root:not([data-theme])` para el sistema.
+  `ThemeProvider` siempre escribe `data-theme`.
+- [x] En `src/index.css`, el borde de los controles de `@wasichai/ui` va por `data-slot` (sin tocar el inválido) y el
+  texto de ejemplo con `--sg-text-muted`.
+- [x] No quedaba ningún `var(--sg-…)` de datos dentro de una clase: los usos son estilos en línea, SVG, MapLibre y ECharts,
+  y se conservan.
+- [x] Commits `d5ad5e1` y `13572db`.
 
 #### 3.2 Barra superior (U-12)
 
-- [ ] Prueba e2e: a 1440 px, la barra tiene 6 controles; idioma y tema están en el menú de la cuenta.
-- [ ] Pasar idioma y tema a `shell/Perfil.tsx`. El selector de proyecto pasa a combobox con búsqueda.
-- [ ] Commit: `feat(shell): barra superior con seis controles`.
+- [x] Seis controles a 1440 px (e2e `shell.spec.ts`): marca, proyecto, Buscar, Preguntar, avisos y cuenta. Idioma, tema
+  y salir pasan al menú de la cuenta, y el lema queda solo desde 1536 px.
+- [x] El selector de proyecto pasa a un combobox con búsqueda (`SelectorDeProyecto`).
+- [x] Commits `8df2b61`, `730d404` y `e08a44b`. El último corrige el punto de corte: en SGSPE, `2xl` es 1440 px (DD-24).
 
 #### 3.3 Navegación (U-21)
 
-- [ ] Prueba e2e: a 1024 px se ven las etiquetas y los títulos de bloque, y «Contraer» persiste al recargar.
-- [ ] En `navTree.ts`, la etiqueta larga «Quejas y solicitudes»; la sigla queda en la pestaña.
-- [ ] Commit: `feat(shell): navegación expandida desde lg con títulos de bloque`.
+- [x] Expandida desde `lg`, con títulos de bloque (`BLOQUES` en `navTree.ts`) y «Contraer», que se recuerda por navegador
+  (DD-22). Lo cubre el e2e `shell.spec.ts`.
+- [x] «Quejas y solicitudes» se dice solo en la barra lateral (`seccionesEnLaBarra`), con el nombre completo en el `title`:
+  las migas, el título del documento y la guarda siguen con «Quejas, consultas y solicitudes».
+- [x] Commit `2e6b95a`.
 
 #### 3.4 Una sola fila de pestañas (U-18, U-19, U-20)
 
-- [ ] Prueba: en Riesgos, «Alerta temprana», «Señales», «Menciones» e «Impactos» son vistas del `SelectorDeVista`, con
-  sus rutas intactas.
-- [ ] Quitar la segunda fila de `ProyectoLayout` (`nav` de las vistas, línea 150) a favor del selector de cada lista.
-- [ ] Prueba e2e: la pestaña activa queda visible con desplazamiento automático (`PestanasDesplazables`).
-- [ ] Commit: `feat(proyectos): una sola fila de pestañas y las vistas en el selector`.
+- [x] Sin segunda fila en `ProyectoLayout`. Compromisos y Acuerdos, y las páginas de Riesgos (registro, alerta temprana,
+  señales, menciones, impactos, incidentes y reglas), pasan a `SelectorDePagina`, que navega entre rutas sin cambiar
+  ninguna (DD-23).
+- [x] La pestaña activa queda a la vista también cuando las pestañas y sus conteos llegan después (e2e `shell.spec.ts` a
+  480 px). Mientras la persona no desplaza la fila, se la trae otra vez con cada cambio.
+- [x] Commits `d55760f`, `8d8c035` y `d8018a8`.
+- [ ] Las vistas del registro de riesgos y de la alerta temprana siguen en `VistasGuardadas`: pasan al `SelectorDeVista`
+  en la tarea 4.3.
 
 ### Fase 4. Áreas
 
@@ -220,10 +231,11 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
 
 ### Fase 5. Administración del lado de SGSPE
 
-- [ ] **5.1** En S53 y en el puente hacia `/admin`, el aviso de que el modelo y los workflows viven en el repositorio
-  (`model/*.json`, GAP-030) y de que lo editado en `/admin` se pierde al aprovisionar de nuevo (U-37, parcial).
-- [ ] **5.2** El equipo del proyecto: «Terminar la asignación…» en el menú de la fila, con un `ConfirmDialog` que nombra
-  a la persona (U-16). CA de P-08.
+- [x] **5.1** S53 «Administración» como pantalla del portal en `/administration` (DD-20), con «En el portal», «En la
+  consola de la plataforma» y el aviso «Cuidados» antes de «Abrir la consola», que abre `/admin` en otra pestaña (U-37,
+  parcial). Commit `2741a42`.
+- [x] **5.2** El equipo del proyecto: «Terminar la asignación…» en el menú de la fila, con un `ConfirmDialog` que nombra
+  a la persona (U-16). La escritura no cambia. Commit `fd27d2d`.
 
 ### Fase 6. Dependencias externas
 
