@@ -12,6 +12,24 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
   van por la API genérica salvo que se indique un comando de `/api/sgspe/**` ([api.md](../api.md) §2 y §4).
 - Principio común [USR-10]: ningún flujo saca a la persona del proyecto ni del territorio en contexto; el chip de territorio y
   el rastro viajan en la URL y en el historial ([`ux-architecture.md`](ux-architecture.md) §8).
+- Los pasos de esta versión incluyen el rediseño de UX implementado en `sgspe-ui` (2026-10-23): los flujos prioritarios
+  F-A a F-G de [`redesign/02`](redesign/02-arquitectura-de-informacion.md) §6 quedaron en los flujos que les corresponden
+  (F-D en el 12, F-E en el 8, F-F en el 16 y el 17, F-G en el 1) y, los que valen para todos, en la sección que sigue.
+
+## Entrada, avance y búsqueda comunes
+
+- **Empezar el día (F-A).** Todo flujo de trabajo diario empieza en el inicio «Mi trabajo» (S02, DD-01): «Lo que me toca
+  hoy» lista lo abierto a cargo de la persona con lo vencido primero, y «Esperan su decisión», las aprobaciones y las
+  alertas por triar. La tarea o la QCS que vence primero está a un clic, sin elegir proyecto ni ordenar una lista.
+- **Avanzar un registro (F-B).** En toda ficha, la acción primaria de la cabecera es la siguiente acción del flujo, la misma
+  del panel de decisión (DD-02): «Registrar cumplimiento» en un compromiso en ejecución, nunca «Bloquear». Si no se puede
+  dar todavía, se ve deshabilitada con lo que falta debajo. Las destructivas (cancelar, anular, retirar, terminar, rechazar
+  y desistir) van en «Más acciones» (DD-28). La transición sigue en su diálogo con reglas, «Qué pasará» y motivo, y al
+  volver la ficha muestra el nuevo estado y su nueva siguiente acción.
+- **Encontrar y filtrar (F-C).** En una lista, la vista se elige en el `SelectorDeVista` («Vencidos») y los filtros en la
+  `BarraDeFiltros` (los frecuentes a la vista y el resto en «Más filtros»), con un chip por cada uno; todo queda en la URL,
+  que se comparte. Desde la ficha se vuelve con el rastro o con «atrás» del navegador, con los filtros intactos. El enlace
+  «‹ Volver a …» de la cabecera y el anterior y siguiente de la ficha (J y K) que proponía el rediseño no están hechos.
 
 ## Flujo 1 · Crear proyecto
 
@@ -28,6 +46,8 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 | 6 | Tarea de aprobación | La administración del proyecto, con `APPROVE`, aplica `approve` o devuelve con motivo | Exige CRS de trabajo y una parte CLIENTE u OPERADOR (ASM-062); sin revisión, la variante de ASM-010 aprueba desde `draft` |
 
 - **Resultado:** proyecto `active` y su Project 360 (S08) disponible para el equipo asignado.
+- **Variante (F-G):** para terminar una asignación, en S11 › Equipo, el menú de la fila de la persona ofrece «Terminar la
+  asignación…», con una confirmación que la nombra y dice el efecto; la escritura es la misma de siempre (P-08).
 
 ## Flujo 2 · Agregar comunidad
 
@@ -126,10 +146,12 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 |---|---|---|---|
 | 1 | S30 | Completar la matriz: qué, solicitantes, beneficiarios, fechas, monto, campaña, responsable | D1 y D2; monto obligatorio (RN-COM-004); justificación si nace de un taller o reunión informativa (RN-ENG-001) |
 | 2 | S30 paso 7 | "Enviar a aprobación" → `submit` (motivo) | La tarea llega a la bandeja de aprobación |
-| 3 | S31 | Revisar las reglas D3 a D7 con `transition-checks` | Quien registró no aprueba (D4); mesa de diálogo o tope superado van al nivel superior (D5, D7) |
-| 4 | S31 | `approve` o `approve_senior` (motivo); o `return_to_draft`, o `cancel_pending_approval` | Aprobar crea la tarea de ejecución (AUT-01); desde aquí la fecha solo cambia por reprogramación |
+| 3 | S02 › «Esperan su decisión» o S48 | Elegir la aprobación: el detalle se abre al lado de la bandeja (`?selected=commitment:<id>`), con el monto en su moneda (F-E) | Solo llegan las aprobaciones cuyo aviso es de quien mira (ASM-070) |
+| 4 | S48 (o S31) | Revisar las reglas D3 a D7 con `transition-checks` | Quien registró no aprueba (D4); mesa de diálogo o tope superado van al nivel superior (D5, D7) |
+| 5 | S48 (o S31) | `approve` o `approve_senior` (motivo); o `return_to_draft`, o `cancel_pending_approval`, en el mismo panel | Solo las decisiones que el servidor ofrece; un `412` se dice con `AvisoDeConflicto`. Aprobar crea la tarea de ejecución (AUT-01); desde aquí la fecha solo cambia por reprogramación |
 
-- **Resultado:** compromiso `approved` con su responsable avisado.
+- **Resultado:** compromiso `approved` con su responsable avisado. Un aporte (S44) y un programa (S43) se deciden igual en el
+  detalle de S48; el aporte muestra además sus ítems, el total que se aprobará, el tope de la campaña y «Antes de aprobar».
 
 ## Flujo 9 · Ejecutar el compromiso
 
@@ -138,10 +160,10 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 
 | # | Pantalla | Acción | Regla o resultado |
 |---|---|---|---|
-| 1 | S29 | `start` (motivo) | Queda `in_progress`; JOB-01 calcula la situación de plazo |
+| 1 | S29 | La primaria de la cabecera, la siguiente acción: `start` (motivo) | Queda `in_progress`; JOB-01 calcula la situación de plazo |
 | 2 | S29 · Acciones e hitos | Registrar acciones, alcanzar hitos, informar riesgo de retraso | No cambian el estado |
 | 3 | S29 · Reprogramaciones | Si hace falta: `POST /api/sgspe/commitments/{id}/reschedules` | Conserva la fecha anterior; solo `COMMITMENT_MANAGER` (RF-COM-003) |
-| 4 | S29 | Si algo lo detiene: `block` y después `unblock` (motivo) | Cuenta como bloqueado en el tablero |
+| 4 | S29 | Si algo lo detiene: «Más acciones» › `block` y después `unblock` (motivo) | Cuenta como bloqueado en el tablero; «Bloquear» nunca es la primaria (F-B) |
 
 - **Resultado:** el compromiso avanza hasta tener algo que entregar.
 
@@ -154,7 +176,7 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 |---|---|---|---|
 | 1 | S32 | Subir el acta de entrega y las fotos | `POST /api/sgspe/evidence` con tipo y clasificación |
 | 2 | S32 | "Guardar entrega": fecha, lugar, qué, monto, conformidad y de quién | `POST /api/sgspe/commitments/{id}/deliveries`; recalcula el ejecutado; no cambia el estado |
-| 3 | S32 | "Registrar cumplimiento" → `register_fulfillment` (motivo) | D9: conformidad y evidencia según el tipo de recurso (ASM-009); D10: sin dependencias bloqueantes abiertas |
+| 3 | S29, S32 | "Registrar cumplimiento", la primaria de la cabecera → `register_fulfillment` (motivo) | D9: conformidad y evidencia según el tipo de recurso (ASM-009); D10: sin dependencias bloqueantes abiertas. Mientras falte algo, la primaria está deshabilitada y lo que falta se lee debajo |
 
 - **Resultado:** compromiso `fulfilled` con `fulfilled_date`.
 
@@ -182,17 +204,19 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 | # | Pantalla | Acción | Regla o resultado |
 |---|---|---|---|
 | 1 | S35, S23 o pregunta de reunión | "Registrar QCS" con el origen ya puesto | El proyecto y el territorio vienen del contexto |
-| 2 | S37 | Tipo queja; canal, fecha de recepción, anonimato, persona, lugar, descripción, categoría, severidad | Una anónima no lleva persona ni grupo de interés; la persona es campo restringido (`security.md` §7.9) |
-| 3 | S37 | "Registrar queja" → `grievance` en `received` | Plazos de acuse y resolución desde `received_at` (ASM-005); AUT-02 crea la tarea de acusar recibo |
-| 4 | S36 | La IA sugiere categoría, prioridad y posibles duplicados (F7) | `ai_suggestion` de AI-08 y AI-07; nunca cambia la queja ni une registros |
-| 5 | S36 | Aceptar o rechazar cada sugerencia; aceptar un duplicado lleva la más nueva a `rejected` con `duplicate_of` | El rechazo exige respuesta y `responded_at` |
-| 6 | S36 | `acknowledge` (motivo) | Mientras UPS-23 siga abierta, AUT-06 no emite el cargo: se imprime fuera de SGSPE y, firmado, se sube con "Subir cargo firmado" como evidencia FORMULARIO (ASM-098); `deadline_status` pasa a medir la resolución |
-| 7 | S36 | `assess` (motivo): categoría, severidad y riesgo que alimenta | M2O `social_risk`; si se repite un patrón, se abre un riesgo (flujo 14) |
+| 2 | S37 paso 1, «Qué se plantea» | Tipo queja; descripción, categoría, severidad | «Qué pasará al registrar», con el código, el estado y los plazos, queda a la vista en los tres pasos (F-D, U-30) |
+| 3 | S37 paso 2, «Cómo llegó y quién» | Canal, fecha y hora de recepción (`CampoFecha`, 24 h), origen, anonimato, confidencialidad, persona, lugar | Una anónima no lleva persona ni grupo de interés; la persona es campo restringido (`security.md` §7.9) |
+| 4 | S37 paso 3, «Revisión» | Revisar el resumen; prioridad, responsable y motivo; "Registrar queja" → `grievance` en `received` | Un error del servidor vuelve al paso de su campo. Plazos de acuse y resolución desde `received_at` (ASM-005); AUT-02 crea la tarea de acusar recibo |
+| 5 | S36 | La IA sugiere categoría, prioridad y posibles duplicados (F7) | `ai_suggestion` de AI-08 y AI-07; nunca cambia la queja ni une registros |
+| 6 | S36 | Aceptar o rechazar cada sugerencia; aceptar un duplicado lleva la más nueva a `rejected` con `duplicate_of` | El rechazo exige respuesta y `responded_at` |
+| 7 | S36 | `acknowledge` (motivo) | Mientras UPS-23 siga abierta, AUT-06 no emite el cargo: se imprime fuera de SGSPE y, firmado, se sube con "Subir cargo firmado" como evidencia FORMULARIO (ASM-098); `deadline_status` pasa a medir la resolución |
+| 8 | S36 | `assess` (motivo): categoría, severidad y riesgo que alimenta | M2O `social_risk`; si se repite un patrón, se abre un riesgo (flujo 14) |
 
 - **Resultado:** queja `in_assessment`, con su cargo firmado como evidencia, su riesgo vinculado y su plazo de
   resolución corriendo.
 - **Variantes:** si resulta ser una consulta o una solicitud, `POST /api/sgspe/grievances/{id}/reclassify` crea el registro
-  nuevo con la misma fecha de recepción (ASM-072); el desistimiento y el rechazo cierran con motivo.
+  nuevo con la misma fecha de recepción (ASM-072); el desistimiento y el rechazo cierran con motivo, desde «Más acciones» y
+  en rojo, porque son destructivas (DD-28).
 
 ## Flujo 13 · Resolver una queja
 
@@ -222,7 +246,7 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 
 | # | Pantalla | Acción | Regla o resultado |
 |---|---|---|---|
-| 1 | S41 | La regla crea la alerta en `detected` (JOB-04); AUT-09 crea la tarea de triaje | Las reglas y la IA nunca deciden (RF-EWS-004) |
+| 1 | S41 | La regla crea la alerta en `detected` (JOB-04); AUT-09 crea la tarea de triaje | Las reglas y la IA nunca deciden (RF-EWS-004); quien puede confirmarla la ve en «Esperan su decisión» del inicio (S02) |
 | 2a | S41 | `confirm` y vincular el riesgo que alimenta | `CONFIRM_ALERT`; solo una persona (RN-EWS-001) |
 | 2b | S41 | `dismiss` (motivo obligatorio) | Las señales quedan registradas |
 | 3 | S39 o S36 | "Identificar riesgo": fuente, categoría, tipo e impacto, lugar, grupos de interés, conflicto y tema | `social_risk` en `identified`; las QCS y alertas que lo alimentan apuntan a él |
@@ -256,7 +280,7 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 | # | Pantalla | Acción | Regla o resultado |
 |---|---|---|---|
 | 1 | S08 | Mini mapa → "Ver en el mapa" | Abre S09 con el proyecto |
-| 2 | S09 | Activar capas por grupo | Capas sensibles con candado; grupos de interés agregados (LYR-17) |
+| 2 | S09 | Activar capas por grupo | Capas sensibles con candado; grupos de interés agregados (LYR-17); sin mapa base, «Sin mapa base», y quien administra lee quién lo configura (DD-25) |
 | 3 | S09 | Seleccionar en el mapa o en la tabla | Sincronizados por `?selected=` |
 | 4 | S09 | Filtrar por el área de influencia vigente | Usa la versión `approved` (WF-O) |
 | 5 | S09 | "Capturar PNG" | Para un informe; las exportaciones con geometría llegan en F6 y quedan en `export_log` |
@@ -270,7 +294,7 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 
 | # | Pantalla | Acción | Regla o resultado |
 |---|---|---|---|
-| 1 | S12 | Seleccionar la comunidad en el mapa: ficha contextual con KPI-TER-01 (F6) | Las cifras son las mismas de los tableros; la postura, "no disponible" sin permiso |
+| 1 | S12 | Con el mapa a todo el ancho (F-F, DD-11), seleccionar la comunidad en el mapa o en el panel de lugares: la ficha contextual con KPI-TER-01 (F6) se abre en ese panel | Las cifras son las mismas de los tableros; la postura, "no disponible" sin permiso. El panel de capas se pliega y se abre sin perder lo elegido (`?hide=`, `?selected=`) |
 | 2 | S13 | "Abrir la ficha": registros, sectores, organización que la representa, áreas que la incluyen | El chip de territorio queda fijado; el rastro anota "Mapa territorial" |
 | 3 | S17 | Grupo de interés del lugar (por ejemplo, la junta directiva) | Evaluaciones como historia, pendientes y relaciones |
 | 4 | S23 | La interacción donde se acordó algo | Participantes, preguntas, acta y acuerdos |
