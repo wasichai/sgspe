@@ -1718,7 +1718,10 @@ procedencia de `design-system.md` §4.4 y se muestra como texto, nunca como HTML
 - **Propósito:** preguntar a los datos o a los documentos sin salir de lo que se está haciendo.
 - **Roles:** "Preguntar a los datos" (AI-05) a los roles que pueden registrar `ai_interaction` (`ai-architecture.md` §8,
   ASM-130); "Preguntar a los documentos" (AI-06) a esos roles si además leen los nombres de `person`.
-- **Acciones:** "Preguntar"; cambiar de modo; abrir un registro o una fuente citada; cerrar.
+- **Acciones:** "Preguntar"; cambiar de modo; abrir un registro o una fuente citada; cerrar. Abierto desde una ficha, la
+  pregunta empieza con el tipo y el rótulo del registro («Sobre la queja Q-001: »), nunca con su id; al enviarla, ese
+  comienzo se cambia por la referencia técnica (objeto e id), porque el rótulo puede ser un dato personal que llegaría al
+  proveedor sin seudonimizar.
 - **Disposición y componentes:** encabezado con el chip de contexto (proyecto y territorio, ASM-075); pestañas de modo;
   conversación con la pregunta y la respuesta (`AiAnswer`) con enlaces y "Cómo lo obtuvo"; campo de pregunta con la nota de
   solo lectura.
