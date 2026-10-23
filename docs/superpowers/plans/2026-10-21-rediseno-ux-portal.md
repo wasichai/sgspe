@@ -288,6 +288,19 @@ Cada ítem se abre cuando su par de [08](../../ux/redesign/08-cambios-de-contrat
 - [ ] **7.2** Regenerar todas las capturas de `docs/manuals/` y revisar los manuales.
 - [x] **7.3** Marcar `docs/ux/redesign/` como historia en su README, con el enlace desde `docs/ux/README.md` (`ad44fd8`).
 
+### Lo que quedaba de las fases 2 a 4 (2026-10-23)
+
+- [x] «‹ Volver a <lista> (N)» y «Anterior» y «Siguiente» (K y J) en las fichas abiertas desde una lista, un aviso, la
+  búsqueda o una tarea (02 §5, F-C): `sgspe-ui` `89d1877`.
+- [x] F-D: el paso 1 de S24 se reduce a tipo, título, «¿Ya se realizó?» (dos opciones con su efecto) y fecha con hora, y
+  el modo rápido es un conmutador de la cabecera: `sgspe-ui` `1d567d3`.
+- [x] `AtajosDePeriodo` junto a los periodos de tableros, reportes de QCS y mapa: `sgspe-ui` `b69fead`.
+- [x] El kit re-sincronizado con Claude Design (71 componentes, 10 nuevos): `sgspe-ui` `bc43c83`.
+- [ ] Los feriados marcados en el calendario: esperan un endpoint de `sgspe` que los exponga.
+- [ ] El orden por columna fuera de Alertas: espera que esas listas acepten `sort` y `dir` en su consulta.
+- La validación sobre la demo viva (7.2 y los dos indicadores que faltan) es wasichai/sgspe#157; la fase 6 espera
+  wasichai/wasichai-ui#69.
+
 ## Verificación final
 
 - [ ] Los siete indicadores de [06 §5](../../ux/redesign/06-plan-de-implementacion.md#5-cómo-se-mide-el-resultado),

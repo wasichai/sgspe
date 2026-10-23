@@ -61,7 +61,8 @@ listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
   (`design-system.md` §5.1, DD-04): primero el `SelectorDeVista` con las vistas y su conteo (`?view=`, DD-03), luego la
   búsqueda (`q`, 300 ms después de la última tecla), hasta tres filtros frecuentes, «Más filtros» en un drawer, un chip por
   filtro aplicado y «Limpiar filtros». Las anchas usan `TablaPriorizada` (DD-05): esenciales siempre, secundarias desde `xl`
-  y opcionales en «Columnas»; Enter en una fila abre la ficha y Espacio su vista previa (`?peek=`). En el teléfono, la lista
+  y opcionales en «Columnas»; Enter en una fila abre la ficha y Espacio su vista previa (`?peek=`). La ficha abierta desde
+  la lista recuerda su origen y su resultado en el estado del historial (ASM-075). En el teléfono, la lista
   pasa a tarjetas (`ListaEnTarjetas`) y los filtros frecuentes, a «Filtros (N)». Las páginas de un módulo con ruta propia
   (Compromisos y Acuerdos; las de Riesgos) van en un `SelectorDePagina` en la cabecera (DD-23).
 - **Fichas (P-09):** las de grupo de interés (S17), interacción (S23), compromiso (S29), acuerdo (S33), queja (S36),
@@ -71,7 +72,9 @@ listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
   acciones» con las demás transiciones y, al final, las destructivas (cancelar, anular, retirar, terminar, rechazar y
   desistir, DD-28). El `PanelDeDecision` es el único lugar del estado, con el camino del flujo plegado dentro de «Estado
   actual» («Ver el camino»). El cuerpo va en `Seccion`, con los campos vacíos plegados por `CamposPlegables` («Mostrar los
-  N campos sin dato»). Donde una ficha de este documento nombre `EntityHeader`, «camino de estados» o un encabezado «con
+  N campos sin dato»). Toda ficha abierta desde una lista, un aviso, la búsqueda o una tarea muestra sobre el antetítulo
+  «‹ Volver a <lista> (N)», que vuelve con los filtros; desde una lista, además, «Anterior» y «Siguiente» (K y J, que no
+  actúan en un campo, en un diálogo ni con modificadores), deshabilitados en los extremos. Donde una ficha de este documento nombre `EntityHeader`, «camino de estados» o un encabezado «con
   estado», vale esta regla.
 - **Responsive:** los puntos de quiebre son los de `tokens.css` (sm 640, md 768, lg 1024, xl 1280, 2xl 1440); lo que va desde
   1536 px usa `min-[96rem]` (DD-24). La fila de pestañas del proyecto se desplaza con la activa siempre a la vista, y los
@@ -334,7 +337,7 @@ ProjectSettingsPage
 ```text
 TerritoryMapPage
 ├── PageHeader (Nueva comunidad · Mapa | Tablero · MasAcciones)
-├── MapFilters (proyecto · periodo · HeatmapToggle)
+├── MapFilters (proyecto · periodo con AtajosDePeriodo · HeatmapToggle)
 ├── TerritoryMap (Map · PlaceMarkers)
 │   ├── PanelDeCapas (capas · Legend; plegable a la izquierda)
 │   └── PanelDeLugares (VisiblePlacesNav · ContextCard: KpiCard × 6 · StanceBar · "Abrir la ficha"; plegable a la derecha)
@@ -692,9 +695,11 @@ EngagementDetailPage
 - **Roles:** CRO, SHM, FAG.
 - **Acciones:** primaria "Siguiente" y, al final, "Guardar como realizada" (`register_held_unplanned`) o "Programar"
   (`schedule`); secundaria "Guardar y completar después".
-- **Disposición y componentes:** `StepIndicator` (1 Tipo y fecha, 2 Lugar y grupos de interés, 3 Participantes, 4 Preguntas y
-  temas, 5 Revisión); en el paso 3, filas de persona o representante y de grupo sin nombres (sexo, ámbito, personas ≥ 1) con
-  totales en vivo. Modo rápido en teléfono: una sola pantalla con tipo, ubicación del teléfono, grupos presentes, contadores
+- **Disposición y componentes:** `StepIndicator` (1 Tipo y fecha, 2 Objetivo, lugar y grupos de interés, 3 Participantes,
+  4 Preguntas y temas, 5 Revisión). El paso 1 pide solo tipo, título, «¿Ya se realizó?» (dos opciones con su efecto: «No,
+  está planificada» y «Sí, ya se realizó», que se registrará como realizada con el acta después) y la fecha con hora de 24 h; en el paso 3, filas de persona o representante y de grupo sin nombres (sexo, ámbito, personas ≥ 1) con
+  totales en vivo. El modo rápido se elige con un conmutador en la cabecera
+  del asistente y del modo rápido, que conserva lo cargado. Modo rápido en teléfono: una sola pantalla con tipo, ubicación del teléfono, grupos presentes, contadores
   por sexo y ámbito, foto y nota; objetivos de 44 px.
 - **Datos y API:** genérica `POST /api/objects/engagement/records`, `engagement_participant` y `engagement_question`;
   `POST /api/sgspe/evidence` para la foto (F3); la transición elegida al final. Abierta desde S16 con seleccionados, trae los
@@ -1538,7 +1543,7 @@ disponible", nunca cero (RQ-DSH-032). Las cifras salen de `GET /api/sgspe/dashbo
   `Tab-Ejecutivo` · F8; compacta desde el rediseño (P-07).
 - **Propósito:** ¿qué cambió, qué es crítico, dónde y quién lo atiende? Leerlo en cinco minutos.
 - **Roles:** el ejecutivo (`READ_ONLY` o `ANALYST`); también SMG y PMG como vista. Lectura.
-- **Acciones:** primaria abrir lo que necesita atención; secundarias filtros de periodo y proyectos, "Monitoreo de la Tabla
+- **Acciones:** primaria abrir lo que necesita atención; secundarias filtros de periodo (con `AtajosDePeriodo`) y proyectos, "Monitoreo de la Tabla
   9.5" y el asistente (si el
   ejecutivo es `ANALYST`, que puede registrar `ai_interaction`; ASM-073, ASM-130).
 - **Disposición y componentes:** abre con las cifras: bajo el título, su periodo (sin fechas, el mes en curso de Lima) y su

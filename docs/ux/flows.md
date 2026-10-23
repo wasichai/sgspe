@@ -28,8 +28,9 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
   volver la ficha muestra el nuevo estado y su nueva siguiente acción.
 - **Encontrar y filtrar (F-C).** En una lista, la vista se elige en el `SelectorDeVista` («Vencidos») y los filtros en la
   `BarraDeFiltros` (los frecuentes a la vista y el resto en «Más filtros»), con un chip por cada uno; todo queda en la URL,
-  que se comparte. Desde la ficha se vuelve con el rastro o con «atrás» del navegador, con los filtros intactos. El enlace
-  «‹ Volver a …» de la cabecera y el anterior y siguiente de la ficha (J y K) que proponía el rediseño no están hechos.
+  que se comparte. Desde la ficha se vuelve con «‹ Volver a <lista> (N)» sobre el antetítulo, a la lista con sus filtros,
+  y «Anterior» y «Siguiente» (K y J) recorren las fichas de su página sin perder el origen; también sirven el rastro y
+  «atrás» del navegador.
 
 ## Flujo 1 · Crear proyecto
 
@@ -87,7 +88,7 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 | # | Pantalla | Acción | Regla o resultado |
 |---|---|---|---|
 | 1 | S21 | Revisar el mes: meta de reuniones y festividades de la línea base | KPI-ENG-02; las festividades evitan fechas conflictivas |
-| 2 | S24 pasos 1–2 | Tipo, fecha y hora, lugar, grupos de interés invitados, convocante | Queda `planned` |
+| 2 | S24 pasos 1–2 | Paso 1: tipo, título, «¿Ya se realizó?» (no) y fecha y hora; paso 2: objetivo, lugar, grupos de interés invitados y convocante | Queda `planned` |
 | 3 | S24 | "Programar" → `schedule` | Guarda: `scheduled_at` informado |
 | 4 | S21 | Si no se puede realizar: `postpone` (motivo) y después `reschedule`, o `cancel_*` (motivo) | Cancelar crea la tarea de reprogramar o reemplazar (AUT-10) |
 
