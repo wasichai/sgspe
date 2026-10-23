@@ -74,7 +74,7 @@ Archivos: `src/portal/pages/InicioPage.tsx`, `src/portal/pages/Inicio.test.tsx` 
 - [x] **DD-19, confirmada el 2026-10-21:** ASM-074, S02 y S51 de `docs/ux/screens.md`, `ux-architecture.md` §5, los
   manuales (`02-primeros-pasos.adoc`, `08-documentos-tareas-reportes.adoc`) y `generate-screenshots.mjs` dicen que el inicio
   es «Mi día» con la visión ejecutiva.
-- [ ] Regenerar la captura `user/02-inicio` con el script de los manuales sobre la demo viva.
+- [x] La captura `user/02-inicio` se regenera con las demás en 7.2 (necesita la demo viva).
 
 #### 1.3 La primaria es la siguiente acción, sin componente nuevo (U-02)
 
@@ -88,7 +88,7 @@ Archivos: `compromisos/FichaCompromisoPage.tsx`, `riesgos/FichaRiesgoPage.tsx` y
   acciones».
 - [x] Lo mismo en la ficha de riesgo: la siguiente acción es «Decidir…», no «Nueva revisión».
 - [x] Ajustar `e2e/`: no hizo falta, las 60 pasan.
-- [ ] Regenerar los manuales afectados con su script: necesita la demo viva, y queda para el paso de DD-19.
+- [x] Los manuales afectados se regeneran en 7.2 (necesita la demo viva).
 - [x] Commit: `fix(fichas): la acción primaria es la siguiente acción del flujo` (`aaad922`).
 
 ### Fase 2. Componentes transversales
@@ -113,7 +113,7 @@ Hecha el 2026-10-21 con subagentes en worktrees aislados (dos tandas), integrada
 - [x] Adoptada en la ficha de compromiso: antetítulo en sans, sin el chip de estado (U-25) y lo que falta visible bajo las
   acciones. «Bloquear» queda en «Más acciones», porque «Editar» e «Informar riesgo» ocupan los dos lugares visibles.
 - [x] Commit `7d6f46c`.
-- [ ] Prueba e2e CA-1.2.5 sobre la ficha de la demo.
+- [x] Prueba e2e CA-1.2.5 sobre un compromiso en ejecución: `f97f513` (`e2e/pendientes.spec.ts`).
 
 #### 2.3 `SelectorDeVista`
 
@@ -127,7 +127,8 @@ Hecha el 2026-10-21 con subagentes en worktrees aislados (dos tandas), integrada
 - [x] Pruebas CA-1.4.1 a CA-1.4.3, con la URL leída de `useSearchParams`.
 - [x] Adoptada en la lista de compromisos: búsqueda, estado como filtro frecuente y chips.
 - [x] Commit `253a19b`.
-- [ ] La espera de 300 ms de la búsqueda (05 §1.4): no se hizo, para no cambiar cómo responde hoy `q`.
+- [x] La espera de 300 ms de la búsqueda (05 §1.4): lo escrito se ve al instante y `q` llega 300 ms después de la última
+  tecla, o con Enter. Commit `fa57db2`.
 
 #### 2.5 `CampoFecha`
 
@@ -137,7 +138,8 @@ Hecha el 2026-10-21 con subagentes en worktrees aislados (dos tandas), integrada
   Lo que llega al servidor no cambia.
 - [x] Adoptado en registrar QCS.
 - [x] Commit `42e1317`.
-- [ ] La grilla de calendario con teclado.
+- [x] La grilla de calendario con teclado (patrón «Date Picker Dialog» de WAI-ARIA), con el botón que nombra su campo
+  («Elegir Desde en el calendario»). Commits `9de0f80` y `bff1b26`.
 
 #### 2.6 `TablaPriorizada`
 
@@ -145,7 +147,9 @@ Hecha el 2026-10-21 con subagentes en worktrees aislados (dos tandas), integrada
 - [x] Adoptada en Grupos de interés.
 - [x] Commits `31df998` y `88dd777`: las opcionales se ven desde `2xl` mientras no exista «Columnas», para que la
   relación y la evaluación no queden sin forma de verse.
-- [ ] El selector «Columnas», el orden con `aria-sort`, Espacio para la vista previa y la prueba e2e CA-1.6.2.
+- [x] El selector «Columnas», recordado por tabla en el navegador (`4160d52`); el orden con `aria-sort`, adoptado solo en
+  Alertas y sin el orden en la URL (`21213d0`); Espacio para la vista previa (`9629b9b`). CA-1.6.2 la cubre
+  `e2e/grupos-interacciones-avisos.spec.ts`.
 
 #### 2.7 `ListaPriorizada`
 
@@ -157,8 +161,9 @@ Hecha el 2026-10-21 con subagentes en worktrees aislados (dos tandas), integrada
 #### 2.8 `EstadoSinAcceso`
 
 - [x] Pruebas CA-1.8.1 y CA-1.8.2.
-- [x] Adoptado en `shell/GuardaDeSeccion.tsx`. Se pide a la administración de la organización; nombrar a la jefatura
-  dentro de un proyecto queda para la fase 4.
+- [x] Adoptado en `shell/GuardaDeSeccion.tsx`. Se pide a la administración de la organización.
+- [x] Dentro de un proyecto, se pide a la jefatura por su nombre si la cuenta lee las asignaciones, y se vuelve al resumen
+  del proyecto. Commit `f425b81`.
 - [x] Commit `068e7a8`.
 
 ### Fase 3. Tokens y shell
@@ -205,8 +210,8 @@ los de `sgspe` (`4a4175b` y `d29d0f7`) llevan la fuente de los tokens y `contras
 - [x] La pestaña activa queda a la vista también cuando las pestañas y sus conteos llegan después (e2e `shell.spec.ts` a
   480 px). Mientras la persona no desplaza la fila, se la trae otra vez con cada cambio.
 - [x] Commits `d55760f`, `8d8c035` y `d8018a8`.
-- [ ] Las vistas del registro de riesgos y de la alerta temprana siguen en `VistasGuardadas`: pasan al `SelectorDeVista`
-  en la tarea 4.3.
+- [x] Las vistas del registro de riesgos y de la alerta temprana pasan al `SelectorDeVista` en la tarea 4.3
+  (`5b21ea3…9ddc0c0`).
 
 ### Fase 4. Áreas
 
@@ -224,19 +229,21 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
     opcional para que la tabla quepa.
   - Commits de QCS, registro de riesgos, alertas y programas: `5b21ea3…9ddc0c0`. Las cifras de QCS se entienden (U-24),
     las alertas ganan búsqueda y severidad, y Programas y Aportes quedan en una sola vista (DD-27).
-  - [ ] Espacio en una fila para abrir la vista previa (02 §5).
+  - [x] Espacio en una fila para abrir la vista previa (02 §5), en Grupos, Riesgos, Programas, Aportes y la cola de
+    Atención: `9629b9b`.
 - [x] **4.4 Fichas**: `CabeceraDeFicha` y `Seccion` en las fichas de grupo, QCS, riesgo, aporte, acuerdo e interacción;
   campos vacíos plegados (U-25, U-26, U-27, U-28). CA de P-09.
   - Siete fichas, con `CamposPlegables` y `tituloQueDiceQueEs`.
   - Rechazar y desistir pasan a ser destructivas en todo el portal (DD-28).
-  - [ ] DD-06 pide el camino del flujo plegado dentro del `PanelDeDecision`; sigue aparte, como en la ficha de compromiso.
+  - [x] El camino del flujo, plegado dentro del `PanelDeDecision` («Ver el camino»), en las nueve fichas que lo dibujaban
+    aparte (DD-06): `8c7fdb0`.
 - [x] **4.5 Formularios**: QCS por pasos (U-30); `CampoFecha` en los 32 sitios restantes (CA-1.5.3); evaluación por
   grupos de escalas (U-29). CA de P-04.
   - Registrar QCS en tres pasos con «Qué pasará» al costado, y la evaluación en cinco temas con su avance (DD-29):
     `019eb39`, `70cf807` y `f26b3e3` (la e2e que declara los campos del alta).
   - `CampoFecha` en las 17 pantallas restantes y en los filtros de los tableros, con la guarda `camposDeFecha.test.ts`
     sin excepciones: commits `c10e0ce…caac05c` integrados y `84f329a`, que suma `ayuda` e `invalido` a `CampoFecha`.
-  - [ ] La grilla de calendario de `CampoFecha`.
+  - [x] La grilla de calendario de `CampoFecha`: `9de0f80` y `bff1b26`.
 - [x] **4.6 Bandeja de aprobaciones**: decisión con motivo en el panel (F-E, U-36). CA de P-05. Commits `d5a57b7` y
   `f47a2ac`. La queja grave, el acta y la revisión de un proyecto se eligen en la bandeja, pero se deciden en su ficha.
 - [x] **4.7 Mapa primero**: capas y leyenda superpuestas, lista plegable y el aviso de mapa base con dónde se configura
@@ -246,11 +253,12 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
   dónde se atiende y no quién, porque el contrato del tablero no trae a la persona responsable.
 - [x] **4.9 Textos**: los explicativos sin jerga de implementación (U-24, U-36), en los dos idiomas. Commit `901a5f0`, con
   la guarda `textosLlanos.test.ts`. Unos 30 textos reescritos en lenguaje llano.
-  - [ ] El asistente de IA nombra el tipo de registro y su id técnico (`ia/Asistente.tsx`).
+  - [x] El asistente de IA dice el tipo y el rótulo del registro, nunca su id; al proveedor le sigue llegando la referencia
+    técnica (decisión 6 del plan 7.3): `cceb0e0`.
 - [x] **4.10 Tarjetas a mano**: `Seccion` en las restantes (CA-1.1.3). 54 superficies en 37 archivos, commits
   `…1a21d47`, con la guarda `superficies.test.ts` y cinco excepciones explicadas (tarjetas clicables, ítems de lista y un
   panel desplegable). `Seccion` acepta `elemento="aside"` para los paneles al costado.
-- [ ] Capturas de los manuales de las áreas: se regeneran con la demo viva (no hay en esta sesión).
+- [x] Las capturas de los manuales de las áreas se regeneran en 7.2 (necesita la demo viva).
 
 ### Fase 5. Administración del lado de SGSPE
 
@@ -272,16 +280,22 @@ Cada ítem se abre cuando su par de [08](../../ux/redesign/08-cambios-de-contrat
 
 ### Fase 7. Documentación
 
-- [ ] **7.1** Llevar a `docs/ux/` lo aprobado:
-  - `ux-architecture.md`: shell, inicio, pestañas y estados;
-  - `design-system.md`: tokens nuevos, espaciado y los ocho componentes;
-  - `screens/` y `flows/` de las pantallas tocadas.
+- [x] **7.1** Llevar a `docs/ux/` lo aprobado (2026-10-23, commits de `sgspe`):
+  - `ux-architecture.md`: shell, inicio «Mi trabajo», pestañas, teléfono y estados (`2567361`);
+  - `design-system.md`: tokens nuevos, espaciado, puntos de corte, los diez componentes, la acción principal y el contraste
+    (`258faed` y `8b9bc50`);
+  - `screens.md` y `flows.md` de las pantallas y los flujos tocados (`00a06b0`, `8b9bc50` y `06f8d8e`).
 - [ ] **7.2** Regenerar todas las capturas de `docs/manuals/` y revisar los manuales.
-- [ ] **7.3** Marcar `docs/ux/redesign/` como historia en su README.
+- [x] **7.3** Marcar `docs/ux/redesign/` como historia en su README, con el enlace desde `docs/ux/README.md` (`ad44fd8`).
 
 ## Verificación final
 
 - [ ] Los siete indicadores de [06 §5](../../ux/redesign/06-plan-de-implementacion.md#5-cómo-se-mide-el-resultado),
-  medidos antes y después, en el PR de cierre.
-- [ ] `python3 docs/ux/redesign/contraste.py` sin fallas.
-- [ ] La suite completa de `sgspe-ui` en verde, y `python3 tools/check_traceability.py` en `sgspe`.
+  medidos antes y después, en el PR de cierre. Medidos en el código el 2026-10-23: seis controles en la barra superior a
+  1440 px (`e2e/shell.spec.ts`), ninguna caja de sección a mano fuera de `Seccion` salvo las cinco excepciones de
+  `superficies.test.ts`, ningún campo de fecha nativo (`camposDeFecha.test.ts`), ningún desborde a 1440 px en las listas
+  de 4.3 (e2e) y ningún par de contraste que falle. Faltan los pasos de F-A a F-G y las pantallas con más de una
+  primaria, que se cuentan sobre la demo viva, con las capturas de 7.2.
+- [x] `python3 docs/ux/redesign/contraste.py` sin fallas (2026-10-23).
+- [x] La suite completa de `sgspe-ui` en verde (2410 pruebas unitarias y 91 e2e), y `python3 tools/check_traceability.py`
+  en `sgspe` (304 requisitos).
