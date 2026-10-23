@@ -1,11 +1,17 @@
 # Design system de SGSPE
 
-Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.2 · 2026-10-07
+Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.3 · 2026-10-23
 
 Este documento define los fundamentos visuales, los tokens, el sistema de estados, el catálogo de componentes y los patrones
 núcleo del portal. Se apoya en la [arquitectura de UX](ux-architecture.md) y en los diseños de la Fase 0; los IDs se definen
 solo en el [análisis](../requirements-analysis.md). Los tokens listos para usar están en [`tokens.css`](tokens.css) y la
 versión visual de todo lo que sigue está en el lienzo de diseño (páginas "03 Design system" y "04 Patrones núcleo").
+
+El rediseño de UX del 2026-10-20 ([`redesign/03`](redesign/03-direccion-visual-y-design-system.md) y
+[`redesign/05`](redesign/05-especificacion-de-componentes.md)) está implementado en `sgspe-ui` y llevado aquí el 2026-10-23:
+los tokens nuevos (§3.1 y §3.3), las reglas de espaciado (§3.5), los puntos de corte (§3.6), los componentes del portal
+(§5.1), la regla de la acción principal (§6.1) y el contraste (§10). Las decisiones se citan como `DD-NN`
+([`redesign/07`](redesign/07-decisiones-y-compatibilidad.md)).
 
 ## 1. Base técnica
 
@@ -54,7 +60,8 @@ tarjetas con borde lateral de color).
 
 ### 3.1 Color base
 
-Todos los pares de texto superan 4.5:1 y los bordes de controles 3:1, en claro y en oscuro (§10).
+Todos los pares de texto superan 4.5:1 y los bordes de controles 3:1, en claro y en oscuro (§10). Ningún token existente
+cambió de valor con el rediseño; se agregaron `surface-raised` y `border-control` (DD-15).
 
 | Token | Claro | Oscuro | Uso |
 |---|---|---|---|
@@ -62,9 +69,11 @@ Todos los pares de texto superan 4.5:1 y los bordes de controles 3:1, en claro y
 | `surface` | `#FFFFFF` | `#171D1A` | Tarjetas, tablas, paneles, diálogos |
 | `surface-sunken` | `#EEF0EC` | `#0D110F` | Encabezados de tabla, controles segmentados, bandas |
 | `surface-hover` | `#F9FAF8` | `#1D2420` | Fila o ítem bajo el cursor |
+| `surface-raised` | `#FFFFFF` | `#1D2420` | Lo que flota: menús, popovers, el calendario de `CampoFecha`, drawers y diálogos. En oscuro la sombra no separa; esta superficie sí (DD-15) |
 | `border` | `#D9DDD6` | `#2A332E` | Separadores y contorno de tarjetas (decorativo) |
 | `border-subtle` | `#E4E7E1` | `#222A26` | Separadores dentro de una tarjeta |
-| `border-strong` | `#838B85` | `#5E6A64` | Contorno de controles (3:1) |
+| `border-strong` | `#838B85` | `#5E6A64` | Bordes con énfasis y contorno de los controles propios del portal (3:1) |
+| `border-control` | `var(--sg-border-strong)` | `#66726C` | Límite de `Input`, `Textarea`, `Select` y `CampoFecha`, también los de `@wasichai/ui` por su `data-slot` (salvo el inválido, que conserva su borde `danger`). En oscuro tiene valor propio: el borde fuerte daba 2.81:1 sobre `surface-raised` (DD-21) |
 | `text` | `#18211D` | `#E7ECE8` | Texto principal |
 | `text-secondary` | `#46514B` | `#B5BFB9` | Texto de apoyo |
 | `text-muted` | `#5E6862` | `#95A09A` | Metadatos y leyendas (nunca por debajo de 4.5:1) |
@@ -93,12 +102,19 @@ Cada tono es una pareja tinta + fondo suave, usada en chips, insignias, alertas 
 
 ### 3.3 Datos y mapas
 
-| Escala | Valores | Uso |
-|---|---|---|
-| Categórica | `#2B5F8F` · `#C9772B` · `#1D5C52` · `#8E5A9E` · `#6B7F2A` · `#838B85` | Series sin orden; azul y naranja primero, que se distinguen también en luminosidad |
-| Postura (divergente) | A FAVOR `#2B5F8F` · NEUTRAL `#B9BFB6` · EN CONTRA PERO ABIERTO A ESCUCHAR `#D9A35B` · EN CONTRA `#A33A2A` | KPI-STK-02 y la ficha territorial |
-| Nivel de riesgo | BAJO `#E5F0E7` · MEDIO `#FBF0D9` · ALTO `#F3C9B8` · CRITICO `#A33A2A` | Mapa de calor 5 × 5 (KPI-RSK-02) |
-| Mapa | Base apagada `#E8EBE3`; territorio comunal en arena; área del proyecto en pino discontinuo; selección con borde de 2.5 px | Mapa territorial y del proyecto; la paleta de capas se comparte con los mapas de informe (`gis.md` §7.2) |
+Desde el rediseño, los colores de datos son utilidades de Tailwind (`@theme inline` de `tokens.css`): `bg-sg-data-1`,
+`bg-sg-stance-favor`, `bg-sg-risk-high`, `bg-sg-map-ground`… Los estilos en línea, el SVG, MapLibre y ECharts siguen
+leyendo las variables `--sg-*`.
+
+| Escala | Tokens | Valores | Uso |
+|---|---|---|---|
+| Categórica | `data-1` a `data-6` | `#2B5F8F` · `#C9772B` · `#1D5C52` · `#8E5A9E` · `#6B7F2A` · `#838B85` | Series sin orden, en ese orden fijo; azul y naranja primero, que se distinguen también en luminosidad |
+| Postura (divergente) | `stance-favor`, `stance-neutral`, `stance-open`, `stance-against` | A FAVOR `#2B5F8F` · NEUTRAL `#B9BFB6` · EN CONTRA PERO ABIERTO A ESCUCHAR `#D9A35B` · EN CONTRA `#A33A2A` | KPI-STK-02 y la ficha territorial |
+| Nivel de riesgo | `risk-low`, `risk-medium`, `risk-high`, `risk-critical` | BAJO `#E5F0E7` · MEDIO `#FBF0D9` · ALTO `#F3C9B8` · CRITICO `#A33A2A` | Mapa de calor 5 × 5 (KPI-RSK-02) |
+| Mapa | `map-ground` | Suelo `#E8EBE3` (oscuro `#1B211E`); territorio comunal en arena; área del proyecto en pino discontinuo; selección con borde de 2.5 px | Mapa territorial y del proyecto; la paleta de capas se comparte con los mapas de informe (`gis.md` §7.2) |
+
+Los gráficos van en color sólido, sin trama (DD-15): la serie se distingue por su posición, su etiqueta, la leyenda en texto
+y la tabla «Ver datos».
 
 ### 3.4 Tipografía
 
@@ -129,22 +145,41 @@ MAYÚSCULAS españolas (ADR-0009).
 | Espaciado (base 4) | 2 · 4 · 6 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64. Ícono–texto 8; dentro de tarjetas densas 12; tarjetas 16–20; entre secciones 24–32 |
 | Radios | `xs` 3 (insignias) · `sm` 4 (chips) · `md` 6 (controles) · `lg` 8 (tarjetas) · `xl` 12 (drawers y diálogos) · `full` |
 | Sombras | `sm` 0 1px 2px rgba(16,24,20,.06) (pestaña activa) · `md` 0 4px 12px rgba(16,24,20,.08) (menús) · `lg` 0 12px 32px rgba(16,24,20,.12) (drawers) · `overlay` 0 24px 64px rgba(16,24,20,.28) (diálogos) |
-| Bordes | 1 px separador y tarjeta; 1 px `border-strong` en controles; 2 px énfasis |
+| Bordes | 1 px separador y tarjeta; 1 px `border-control` en controles; 2 px énfasis |
 | Foco | Anillo de 2 px `focus` con separación de 2 px, en todo elemento interactivo, también sobre fondos de color |
+
+El espaciado no tiene tokens propios: usa la escala de 4 px de Tailwind con estas reglas (DD-15):
+
+| Contexto | Valor |
+|---|---|
+| Dentro de un control | `px-3`; alto de 36 px en formularios y acción principal, 32 px en cabeceras, tablas y filtros, 44 px en táctil |
+| Entre etiqueta y control | `space-y-1` (4 px) |
+| Entre campos de un grupo | `space-y-4` (16 px) |
+| Entre grupos de un formulario | `space-y-6` (24 px), con título `h3` |
+| Relleno de una `Seccion` | `p-4` (16 px) en todos los anchos |
+| Dentro de una `Seccion` | `space-y-2` entre el encabezado y el contenido |
+| Entre secciones de una página | `space-y-4`; el inicio, `space-y-6` |
+| Cabecera de página a contenido | 16 px |
+| Celdas de tabla | 44 px de alto por defecto; 32 px en la densidad compacta de los tableros |
 
 ### 3.6 Breakpoints y layout
 
+Los puntos de corte de `tokens.css`: `sm` 640, `md` 768, `lg` 1024, `xl` 1280 y `2xl` **1440** px. En SGSPE `2xl` no es el
+1536 de Tailwind: lo que se ve «desde 1536 px» usa `min-[96rem]` (DD-24).
+
 | Ancho | Comportamiento |
 |---|---|
-| ≥ 1440 | Navegación 240 px, sub-navegación de proyecto 224 px, drawer al lado del contenido |
-| 1280 | El drawer se superpone al contenido; tablas densas por defecto |
-| 1024 | Navegación contraída a 52 px; la sub-navegación de proyecto pasa a un menú desplegable |
-| 768 (tableta) | Navegación en un panel superpuesto que se abre con el botón de menú y atrapa el foco; fichas en una columna con la acción primaria fija al pie; el mapa ocupa la pantalla y la ficha contextual es una hoja inferior |
-| < 640 (móvil) | Solo tareas de campo, aprobaciones, avisos y consulta rápida; barra inferior de cuatro destinos por rol (`ux-architecture.md` §7.1) [PRM-02 §31] |
+| ≥ 1536 (`min-[96rem]`) | El lema de la marca en la barra superior; las columnas opcionales de `TablaPriorizada` sin elección en «Columnas» |
+| ≥ 1440 (`2xl`) | Contenido de hasta 1440 px; márgenes de 32 px; la barra superior con solo sus seis controles |
+| ≥ 1280 (`xl`) | Columnas secundarias de `TablaPriorizada` |
+| ≥ 1024 (`lg`) | Navegación expandida a 240 px con títulos de bloque y «Contraer» (DD-10); ficha con el cuerpo y un panel de 320 px al costado (trazabilidad, «Qué pasará») |
+| 768–1023 (`md`) | Navegación de 52 px con solo los íconos; márgenes de 24 px |
+| < 768 | Sin barra lateral: el botón de menú abre el panel con la cuenta, el proyecto y las secciones; la búsqueda de una lista ocupa el ancho y sus filtros frecuentes pasan a «Filtros (N)»; las acciones de una ficha, en una barra fija al pie; márgenes de 16 px |
+| < 640 (`sm`) | Barra inferior de cuatro destinos, la misma para toda cuenta (`ux-architecture.md` §7.1, DD-17); la cuenta pasa al panel del menú; las listas, a tarjetas (`ListaEnTarjetas`) [PRM-02 §31] |
 
-Barra superior de 56 px; contenido de hasta 1440 px con márgenes de 32, 24 y 16 px; drawer de 400 px (vista previa) o 560 px
-(formulario); filas de tabla de 32 px (densa) o 44 px (cómoda); objetivo táctil de 44 px; objetivo mínimo de escritorio de 32
-px, por encima del 24 × 24 de WCAG 2.2.
+Barra superior de 56 px; drawer de 400 px (vista previa) o 560 px (formulario); filas de tabla de 32 px (densa) o 44 px
+(cómoda); objetivo táctil de 44 px (48 px en la barra inferior); objetivo mínimo de escritorio de 32 px, por encima del 24 × 24
+de WCAG 2.2.
 
 ### 3.7 Movimiento
 
@@ -304,26 +339,26 @@ o se compone en el portal.
 | Input, Textarea | Campos | Foco, error, solo lectura, deshabilitado; contador en motivos | `<label>` visible; error con `aria-describedby` | wasichai |
 | SearchInput | Búsqueda en listas | Con atajo visible | Etiqueta oculta accesible | wasichai |
 | Select, MultiSelect, Combobox | ENUM, relaciones, responsables | Chips quitables; opciones deshabilitadas con razón | Patrón combobox de ARIA | wasichai |
-| DatePicker, DateRangePicker | Fechas y periodos | Atajos (este mes, 90 días, campaña); feriados marcados | Tecla por tecla en la grilla; formato dd/mm/aaaa | wasichai |
+| DatePicker, DateRangePicker | Fechas y periodos: `CampoFecha` (§5.1), en todo el portal; un periodo son dos | dd/mm/aaaa y 24 h; calendario de mes. Los atajos de periodo y los feriados marcados no están hechos | Tecla por tecla en la grilla | portal |
 | Checkbox, Radio, Switch | Opciones | Fieldset con leyenda | Nativos o `role="switch"` | wasichai |
 | Badge | Conteos | Neutro, peligro, advertencia, IA | Texto que explica el conteo en `title` y en el nombre accesible del enlace | portal |
 | StatusBadge | Estado, situación, nivel, procedencia (§4) | Las cuatro familias | Ícono + etiqueta; nunca solo color | portal |
 | Avatar, AvatarGroup | Personas del equipo | Iniciales; "+n" | Nombre completo accesible | wasichai |
 | Tooltip, Popover | Explicar sin navegar | El tooltip no contiene acciones | Aparece con foco y con hover | wasichai |
-| Dropdown | Más acciones | Solo transiciones permitidas al rol; la destructiva al final, en rojo | `role="menu"` | wasichai |
+| Dropdown | Más acciones (`MasAcciones`) | Solo transiciones permitidas al rol; las destructivas al final, en rojo (§6.1) | `role="menu"`; se cierra al elegir | wasichai |
 | Tabs | Secciones de una ficha | Con conteo | `role="tablist"`; flechas para moverse | wasichai |
 | Breadcrumbs y Rastro | Dónde vive el registro y por dónde se llegó | El rastro aparece con más de un salto | `nav` con `aria-label` distinto | portal |
 | Accordion | Bloques plegables de una ficha | — | `aria-expanded` | wasichai |
-| Card, MetricCard, KpiCard | Bloques e indicadores | KPI con delta y desglose; "n de N" con barra; "no disponible" | La cifra y su contexto se leen juntos | portal |
-| DataTable | Toda lista | Densa y cómoda; encabezado y primera columna fijos; orden; columnas; selección; grupos por prioridad | `<table>` real; `aria-sort`; encabezados de grupo | wasichai + portal |
-| FilterBar, FilterChip | Filtros en la URL | Chips con valor; "+ Filtro"; limpiar | Cada chip quitable con teclado | portal |
-| SavedViews | Vistas del sistema, compartidas y mías (ASM-083) | Pestañas agrupadas; chip de visibilidad; guardar vista | `role="tablist"` | portal |
+| Card, MetricCard, KpiCard | Bloques e indicadores: toda superficie con título es una `Seccion` (§5.1) | KPI con delta y desglose; "n de N" con barra; "no disponible"; `KpiCard` anidada, sin caja propia, dentro de una sección | La cifra y su contexto se leen juntos | portal |
+| DataTable | Toda lista: las anchas, con `TablaPriorizada` (§5.1) | Densa y cómoda; prioridad de columnas y «Columnas»; orden; selección; grupos por prioridad | `<table>` real; `aria-sort`; encabezados de grupo | wasichai + portal |
+| FilterBar, FilterChip | Filtros en la URL: `BarraDeFiltros` (§5.1) | Vista, búsqueda, tres frecuentes, «Más filtros», chips con valor y «Limpiar filtros» | Cada chip quitable con teclado | portal |
+| SavedViews | Vistas del sistema, compartidas y mías (ASM-083) | En las listas rediseñadas, el `SelectorDeVista` (§5.1); Proyectos, Mis tareas y Aprobaciones conservan las pestañas de `VistasGuardadas` | `radiogroup` en el selector; `role="tablist"` en las pestañas | portal |
 | SavedViewDialog | Guardar o compartir una vista (ASM-083) | Nombre; visibilidad solo yo, equipo del proyecto u organización (esta última solo para quien puede) | `role="dialog"`; la visibilidad es un `fieldset` de radios | portal |
 | LanguageSwitch | Idioma de la interfaz (ASM-084) | Menú del perfil, enlaces del login y «Más» del teléfono; cada idioma en su propia lengua | `lang` en cada opción; la página cambia su `lang` | portal |
 | MapAttribution | Atribución del mapa base (ASM-085) | Siempre visible; se pliega a «ⓘ» en pantallas chicas | Texto real enlazable; no tapa los controles | `@wasichai/gis` + portal |
 | BulkActionBar | Acciones masivas | Solo acciones válidas para todos los seleccionados | Anuncia "n seleccionados" | portal |
 | Pagination | Listas largas | 25, 50, 100 por página | `nav` con página actual | wasichai |
-| EmptyState | Vacío inicial, por filtros y sin permiso | Con acción principal | Encabezado y texto reales | portal |
+| EmptyState | Vacío inicial y por filtros (`Vacio`); sin acceso, `EstadoSinAcceso` (§5.1) | Con acción principal | Encabezado y texto reales | portal |
 | Skeleton | Carga | Con la forma de lo que carga; mensaje y reintento a los 10 s | `aria-busy` | portal |
 | Modal, ConfirmationDialog | Decisiones | Diálogo de transición (§6.2); confirmación destructiva con motivo | Foco atrapado; Esc cierra si no hay cambios | wasichai |
 | Drawer | Vista previa y formularios cortos | 400 y 560 px; reemplazable, no apilable | Foco al abrir; vuelve al origen al cerrar | wasichai |
@@ -333,7 +368,7 @@ o se compone en el portal.
 | CommentThread | Conversación sobre un registro | Menciones | Cada comentario con autor y hora | portal |
 | FileUploader, FilePreview | Evidencias | Tipo de evidencia y clasificación obligatorios; vista previa con metadatos | Zona de arrastre con botón alternativo | wasichai documents + portal |
 | ProgressBar, ProgressRing | Tope de campaña, mitigación, metas | Con valor y texto | `role="progressbar"` con valores | portal |
-| StepIndicator, WorkflowStepper | Formularios por pasos y ciclo de un registro | El stepper muestra el camino feliz; los desvíos son estados | Paso actual con `aria-current="step"` | portal |
+| StepIndicator, WorkflowStepper | Formularios por pasos (`FormularioPorPasos`) y ciclo de un registro (`CaminoDelFlujo`) | El stepper muestra el camino feliz; los desvíos son estados; en una ficha va plegado dentro del panel de decisión (§6.1) | Paso actual con `aria-current="step"`; «Ver el camino» con `aria-expanded` | portal |
 | Map, MapLayerControl | Mapa del proyecto y territorial | Capas en cuatro grupos (Referencia, Proyecto, Tenencia, Gestión); candado en capas sensibles | Alternativa en tabla sincronizada | `@wasichai/gis` + portal |
 | Chart | Gráficos | ECharts con "Ver datos" debajo | Tabla de datos y descripción | portal |
 | CommandPalette | Búsqueda global (⌘K) | Recientes, sugeridas, categorías, vista previa | Patrón combobox con listbox | portal |
@@ -346,45 +381,72 @@ o se compone en el portal.
 | SyncQueueItem, ConflictResolver | Cola local y conflictos de campo (ASM-081) | Por enviar, enviando, enviado, conflicto, error; versión de la oficina frente a la del teléfono | Cada estado con texto; dos salidas explícitas | portal |
 | CurrencyGauge | Topes y presupuestos | Uno por moneda; marca de lo aprobado; advertencia de otra moneda | `role="progressbar"` con valor y texto | portal |
 
+### 5.1 Componentes del portal del rediseño
+
+Viven en `sgspe-ui/src/portal/componentes/`, componen primitivos de `@wasichai/ui`, llevan sus textos en `textos/comun.ts` en
+los dos idiomas y tienen sus pruebas al lado. Su especificación y criterios de aceptación están en
+[`redesign/05`](redesign/05-especificacion-de-componentes.md) §1; aquí, lo que quedó.
+
+| Componente | Para qué | Reglas | Accesibilidad |
+|---|---|---|---|
+| `Seccion` | Toda superficie con título de una página (DD-08) | Borde, `p-4` y fondo `surface`; título `h2` con estilo `h3`, descripción y hasta dos acciones a la derecha. Dentro de otra `Seccion` pierde la caja y baja a `h3`. `elemento="aside"` para un panel al costado. La caja no se escribe a mano fuera de ella (`superficies.test.ts`, con cinco excepciones: tarjetas clicables, ítems de lista y un panel desplegable) | El título nombra la región (`aria-labelledby`); sin título, `etiqueta` |
+| `CabeceraDeFicha` | La cabecera de una ficha con la regla de la acción principal (§6.1, DD-02) | Antetítulo «Tipo · código · categoría» en sans; título que dice qué es; chips de situación, nunca el estado del flujo; una primaria, hasta dos secundarias y «Más acciones»; lo que impide la primaria, debajo | Orden visual y de foco: secundarias, «Más acciones», primaria; la primaria deshabilitada se describe con lo que falta |
+| `SelectorDeVista` | Las vistas de una lista en una fila, con su conteo (DD-03) | Hasta cuatro a la vista y el resto en «Más vistas»; la actual nunca queda escondida; escribe `?view=` y conserva los demás parámetros | `radiogroup` con tabulación itinerante: flechas, Home y End |
+| `SelectorDePagina` | Las páginas de un módulo que tienen ruta propia: Compromisos y Acuerdos, las de Riesgos (DD-23) | El mismo aspecto que el selector de vista; navega entre rutas sin cambiar ninguna; con una sola página no se dibuja | Navegación de enlaces con `aria-current`, no un `radiogroup`: las flechas no sacan a nadie de su página |
+| `BarraDeFiltros` | Los filtros de una lista (DD-04) | El selector de vista, la búsqueda, hasta tres filtros frecuentes, «Más filtros» en un drawer, un chip por filtro aplicado y «Limpiar filtros», todo en la URL. La búsqueda se ve al instante y llega a la URL 300 ms después de la última tecla, o con Enter. Por debajo de `md`, los frecuentes pasan al drawer y el botón dice «Filtros (N)» | El «×» de cada chip es un botón con nombre («Quitar el filtro …») |
+| `CampoFecha` | Toda fecha y fecha con hora del portal (DD-07) | Muestra y lee `dd/mm/aaaa` y la hora de 24 h en los dos idiomas, sea cual sea el navegador; acepta `20102026`, `20/10/2026` o `20-10-2026` y normaliza al salir; el valor es el día o la hora de Lima (`ZONA_DE_LIMA`). Error de formato y de rango al salir del campo. El botón abre `CalendarioDeFecha`, una grilla de mes que escribe el día elegido y conserva la hora. Ningún `<input type="date">` en el portal (`camposDeFecha.test.ts`) | Calendario con el patrón «Date Picker Dialog» de WAI-ARIA, no modal: lunes primero, flechas por día o semana, RePág y AvPág por mes (con Mayús, por año), Inicio y Fin, Enter o Espacio; Esc cierra y devuelve el foco al botón |
+| `TablaPriorizada` | Las listas anchas (DD-05) | Columnas esenciales siempre, secundarias desde `xl` y opcionales desde 1536 px, salvo que «Columnas» las muestre u oculte en todos los anchos; la elección se recuerda por tabla en el navegador (`sgspe.columnas.<tabla>`). Con `ocultarUniformes`, una columna no esencial con un único valor sale y su valor queda en una nota. Orden por columna en el servidor | Encabezado ordenable como botón y `aria-sort` en el `th`; cada fila enfocable: Enter abre la ficha y Espacio, la vista previa (`?peek=`) |
+| `ListaPriorizada` | Lo más urgente de un grupo, en lugar de un muro de enlaces (DD-13) | Las primeras entradas con su motivo y su fecha, y «Ver los N» hacia la lista filtrada; sin lista a la que ir, «Mostrar N más» despliega el resto en el lugar. Con `total` nulo (QCS confidenciales ocultas), sin número | Sin subrayado; el tono es un borde izquierdo y siempre el texto del motivo |
+| `EstadoSinAcceso` | Una sección o pantalla que la cuenta no puede abrir (DD-12) | Qué no puede abrir, por qué en lenguaje llano y a quién pedirlo: dentro de un proyecto, la jefatura por su nombre si la cuenta lee las asignaciones; si no, la administración de la organización. Nunca nombra un rol ni un permiso técnico | Su título es el `h1`; la salida («Volver…») es lo único enfocable |
+| `CamposPlegables` | Los atributos de una sección de ficha (DD-06) | A la vista, los que tienen dato; los vacíos, tras «Mostrar los N campos sin dato». Un dato restringido no es un vacío: se ve siempre con su candado | El botón dice cuántos campos muestra y lleva `aria-expanded` |
+
 ## 6. Patrones núcleo
 
 ### 6.1 Ficha de entidad
 
-La misma anatomía para todo objeto importante [PRM-02 §26]:
+La misma anatomía para todo objeto importante [PRM-02 §26], en tres franjas (DD-06):
 
 1. **Contexto:** barra de contexto (proyecto y territorio) y breadcrumbs; el rastro si se llegó por un recorrido.
-2. **Encabezado:** tipo y código en `code`, título, chips de estado, plazo y prioridad, territorio; acciones a la derecha. Una
-   sola **primaria**: la siguiente transición del camino del objeto para el rol, la misma "Siguiente acción" del panel de
-   decisión, o la acción propia de la ficha cuando es lo que el rol hace a diario (registrar una interacción en un grupo de
-   interés o en un proyecto activo, una nueva revisión de un riesgo); entonces la transición del camino queda como secundaria.
-   Hasta dos **secundarias** a la vista (editar, ver en el mapa, crear relacionado). Todo lo demás va en **"Más acciones"**,
-   con su texto y no solo un ícono: las otras transiciones, lo poco frecuente (reclasificar, crear desde este registro,
-   informar un riesgo) y al final, tras un separador, las destructivas, que nombran el objeto ("Anular el proyecto"). En el
-   teléfono, la barra fija lleva solo la primaria y "Más acciones"; las secundarias quedan bajo el título. El botón de IA
-   contextual acompaña al encabezado.
-3. **WorkflowStepper** con el camino del objeto.
-4. **Panel de decisión:** cuatro tarjetas fijas que responden sin buscar: estado actual (desde cuándo y quién), siguiente
-   acción (con lo que falta para darla), responsable y vencimiento con escalamiento [PRM-02 §15].
-5. **Pestañas** del objeto (por ejemplo, en un compromiso: Resumen, Acciones, Entregas, Evidencias, Presupuesto, Riesgo,
-   Actividad, Auditoría).
-6. **Panel de trazabilidad** a la derecha, con tres grupos fijos: "De dónde viene" (origen), "Qué generó" (consecuencias)
-   y "Lo sustenta" (evidencias y documentos que lo respaldan) (ux-architecture §8). En el teléfono pasa bajo el contenido.
-7. **Últimos movimientos** y enlace a la actividad completa y a la auditoría.
+2. **Cabecera** (`CabeceraDeFicha`): antetítulo «Tipo · código · categoría» en la letra del texto (el código puede ir en
+   `code`, nunca toda la línea); un título que dice qué es (lo que plantea una QCS, el propósito de un aporte; sin texto, el
+   tipo y el código); chips de situación (plazo, vigencia, revisión, nivel, monto), **nunca el estado del flujo**, que vive en
+   el panel de decisión; y las acciones a la derecha, con la regla de la acción principal (DD-02):
+   - una sola **primaria**: la siguiente transición del camino, la misma «Siguiente acción» del panel de decisión
+     (`siguienteTransicion`, `fichas/siguienteAccion.ts`). Si la cuenta la tiene pero hoy no puede darla, se dibuja
+     deshabilitada y lo que falta va debajo, en la misma cabecera. Si la cuenta nunca puede darla, no hay primaria;
+   - la acción propia de la ficha (una nueva revisión de un riesgo, registrar una interacción) es primaria solo cuando no hay
+     transición del camino; si la hay, pasa a secundaria;
+   - hasta dos **secundarias** a la vista: primero las de la ficha (editar, informar un riesgo, ver en el mapa) y después las
+     demás transiciones;
+   - **«Más acciones»** con su texto: el resto de las transiciones y, al final y en rojo, las **destructivas**, que nunca van a
+     la vista: las que llevan a `cancelled`, `voided`, `retired`, `terminated`, `rejected` y `withdrawn` (cancelar, anular,
+     retirar, terminar, rechazar y desistir; DD-28), cada una con su diálogo de confirmación o de transición.
+
+   El orden visual y de foco es secundarias, «Más acciones», primaria. En el teléfono, la barra fija lleva la primaria y «Más
+   acciones». El botón de IA contextual acompaña al encabezado.
+3. **Panel de decisión**, el único lugar del estado: cuatro tarjetas fijas que responden sin buscar: estado actual (desde
+   cuándo y quién), siguiente acción (con lo que falta para darla), responsable y vencimiento con escalamiento
+   [PRM-02 §15]. El **camino del flujo** (`CaminoDelFlujo`) va plegado dentro de «Estado actual», tras «Ver el camino».
+4. **Cuerpo en secciones** (`Seccion`): los atributos de cada sección con `CamposPlegables`, que pliega los vacíos tras
+   «Mostrar los N campos sin dato»; las pestañas del objeto cuando las tiene (en un compromiso: Resumen, Entregas,
+   Evidencias, Actividad…).
+5. **Panel de trazabilidad** al costado desde `lg`, con tres grupos fijos: "De dónde viene" (origen), "Qué generó"
+   (consecuencias) y "Lo sustenta" (evidencias y documentos que lo respaldan) (ux-architecture §8). Por debajo, pasa bajo el
+   contenido.
+6. **Últimos movimientos** y enlace a la actividad completa y a la auditoría.
 
 Árbol de componentes de referencia (se detalla por pantalla en `screens.md`):
 
 ```
-EntityDetailPage
- ├── ContextBar
- ├── Breadcrumbs · Trail
- ├── EntityHeader
- │    ├── StatusBadge (estado · plazo · prioridad)
- │    └── EntityActions (primaria · secundarias · Más · IA)
- ├── WorkflowStepper
- ├── DecisionPanel (estado · siguiente acción · responsable · vencimiento)
- ├── EntityTabs
- │    └── <pestañas del objeto>
- └── TraceabilityPanel · RecentActivity
+FichaPage (PorRuta)
+ ├── BarraDeContexto · Migas · Rastro
+ ├── CabeceraDeFicha
+ │    ├── antetítulo · título · chips de situación
+ │    └── secundarias · MasAcciones (otras y destructivas) · primaria
+ ├── PanelDeDecision (estado actual con CaminoDelFlujo plegado · siguiente acción · responsable · vencimiento)
+ ├── Seccion × n
+ │    └── CamposPlegables
+ └── PanelDeTrazabilidad · Historia
 ```
 
 ### 6.2 Transición de workflow con motivo
@@ -416,14 +478,19 @@ EntityDetailPage
 ### 6.4 Lista con vistas guardadas y acciones masivas
 
 - Encabezado con título, conteo y alcance ("17 en el proyecto"), acción de creación y exportación.
-- **Vistas guardadas** en pestañas: las del sistema por rol (por ejemplo, "Atención", "Mis compromisos", "Vencen este mes",
-  "Prioridad MUY ALTA", "Todos"), las compartidas y las mías (ASM-083). Una vista guarda filtros, columnas, orden y densidad,
+- **Una sola fila de pestañas** (DD-03): las del proyecto. Las vistas de la lista (por ejemplo, "Atención", "Mis
+  compromisos", "Vencidos", "Todos") van en el `SelectorDeVista`, el primer control de la `BarraDeFiltros`, con su conteo y
+  `?view=` en la URL; las compartidas y las mías siguen ASM-083. Una vista guarda filtros, columnas, orden y densidad,
   nunca datos: cada persona ve solo los registros que su rol puede leer.
 - **Compartir:** «Guardar esta vista…» abre `SavedViewDialog` con la visibilidad solo yo, equipo del proyecto u organización.
   Cada pestaña compartida lleva un chip con su alcance y, al abrirla, quién la compartió. Solo quien la creó la cambia o la
   borra; los demás guardan una copia propia o la ocultan de sus pestañas. Borrar una vista que otros usan avisa y pide
   confirmación. «Gestionar vistas» reúne todo esto (`screens.md`, Gestionar vistas; lienzo de la etapa 3, página 24).
-- **Filtros** como chips con su valor, en la URL; "+ Filtro" y "Limpiar".
+- **Barra de filtros** (`BarraDeFiltros`, DD-04): búsqueda, hasta tres filtros frecuentes, «Más filtros» en un drawer y un
+  chip por filtro aplicado con su valor, todo en la URL, y «Limpiar filtros».
+- **Tabla con prioridad de columnas** (`TablaPriorizada`, DD-05): el título en una línea con el código como subtítulo; las
+  secundarias desde `xl`, las opcionales en «Columnas»; acciones de fila en un menú, nunca destructivas a la vista. En el
+  teléfono, la lista pasa a tarjetas (`ListaEnTarjetas`).
 - **Agrupación por atención** cuando la vista lo pide: Vencidos, Por vencer, Bloqueados, en ese orden [PRM-02 §15].
 - **Selección** con casillas; la barra de acciones masivas ofrece solo lo válido para todos los seleccionados (reasignar,
   asignar verificador, cambiar prioridad, exportar). No hay cambio masivo de fecha de vencimiento (RF-COM-003), y el
@@ -441,7 +508,7 @@ EntityDetailPage
 | Vacío por filtros | Los filtros activos, una pista ("sin el filtro de territorio hay 3") y "Limpiar filtros" |
 | Cargando | Skeleton con la forma real; el encabezado de una ficha aparece primero; reintento a los 10 s |
 | Error de carga | Qué falló, "Reintentar" y el identificador de correlación (`X-Correlation-Id`). En una lista, los filtros siguen a la vista (en la URL y como chips); el texto no promete conservarlos donde no hay filtros (una ficha, una tarjeta, un diálogo) |
-| Sin permiso (403) | Por qué no puede ver el registro y a quién pedir acceso, sin revelar datos |
+| Sin acceso (403 o sección no ofrecida) | `EstadoSinAcceso` (§5.1): qué no puede abrir, por qué y a quién pedirlo, sin revelar datos, con la salida al resumen del proyecto o al inicio (`ux-architecture.md` §7.7) |
 | Solo lectura | Aviso "no estás asignado a este proyecto"; las acciones de escritura no aparecen (alcance A, `security.md` §9) |
 | Campo o cifra restringidos | Candado y "no disponible", nunca vacío ni cero (RQ-DSH-032) |
 | Sesión vencida (401) | Volver a ingresar sin perder el borrador (WAS-ADR-0031) |
@@ -462,8 +529,8 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
   diálogos, que devuelven el foco al cerrarse.
 - **Foco visible:** anillo de 2 px que cumple 3:1 sobre cualquier fondo; nunca se quita.
 - **Contraste:** texto ≥ 4.5:1, texto grande y bordes de controles ≥ 3:1, verificado por script (§10).
-- **Sin depender del color:** estados con ícono y etiqueta; niveles con barras; series de gráficos con forma o patrón además
-  del color.
+- **Sin depender del color:** estados con ícono y etiqueta; niveles con barras; en las listas priorizadas, el texto del motivo
+  además del borde; series de gráficos con etiqueta, leyenda en texto y «Ver datos», en color sólido y sin trama (DD-15).
 - **Etiquetas y ARIA:** `<label>` visible en cada campo; nombres accesibles en botones de ícono; landmarks (`header`, `nav`,
   `main`, `aside`); tablas con `<th scope>` y `aria-sort`.
 - **Gráficos y mapas:** tabla "Ver datos" bajo cada gráfico (RQ-DSH-035); el mapa siempre tiene la lista sincronizada como
@@ -477,12 +544,15 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
 
 ## 8. Responsive
 
-- **Escritorio (≥ 1280):** experiencia completa.
-- **Tableta (768–1279):** navegación en panel, fichas en una columna, mapa a pantalla completa con hoja inferior; tablas con
-  desplazamiento horizontal dentro de su caja y la primera columna fija.
-- **Móvil (< 640):** no se mete el sistema de escritorio en el teléfono [PRM-02 §31]. Solo: mis tareas, visitas de campo,
-  registrar interacción y observación con foto y ubicación, aprobaciones, avisos y consulta rápida. En el MVP, en línea
-  (ASM-021); la captura sin conexión está diseñada para después (ASM-081, `screens.md` §15). Objetivos táctiles de 48 px.
+- **Escritorio (≥ 1024):** experiencia completa, con la navegación expandida (contraíble) y la ficha con su panel al costado.
+- **Tableta (768–1023):** navegación de 52 px con solo los íconos; fichas en una columna; tablas sin las columnas secundarias,
+  que quedan en la vista previa.
+- **Por debajo de 768:** el menú en un panel; la búsqueda de una lista ocupa el ancho y los filtros frecuentes pasan a
+  «Filtros (N)»; las acciones de una ficha (la primaria y «Más acciones»), en una barra fija al pie.
+- **Móvil (< 640):** no se mete el sistema de escritorio en el teléfono [PRM-02 §31]: barra inferior de cuatro destinos
+  (Inicio, Tareas, Avisos y Más, DD-17), listas en tarjetas y la barra fija de una ficha sobre la barra inferior. En el MVP,
+  en línea (ASM-021); la captura sin conexión está diseñada para después (ASM-081, `screens.md` §15). Objetivos táctiles de
+  48 px.
 - **Pantallas de escritorio en el teléfono:** una pantalla que no está pensada para el teléfono (editor de acta, importación
   geoespacial, formulario por pasos, tableros con mapa) no se encoge: muestra «Esta pantalla es para una pantalla más grande»
   con la lectura que sí cabe y el enlace para copiar. Lo dibuja la hoja `Shell-Telefono` del lienzo de la etapa 3.
@@ -524,15 +594,60 @@ restringidas y las emisiones de entregables se consultan en el registro de expor
 
 ## 10. Verificación de contraste
 
-Un script compara cada par de texto y fondo de §3 y del lienzo. Resultado de esta etapa: todos los pares de texto entre 5.04:1 y
-16.48:1 en claro y entre 4.72:1 (blanco sobre `primary-hover` oscuro) y 14.31:1 en oscuro; foco 5.22:1 (claro) y 7.54:1
-(oscuro); bordes de controles entre 3.05:1 y 3.50:1 en claro (sobre `surface-sunken`, `bg` y `surface`) y entre 3.03:1 y
-3.24:1 en oscuro. Ningún par queda por debajo del mínimo.
+[`redesign/contraste.py`](redesign/contraste.py) lee los valores de [`tokens.css`](tokens.css) y mide cada par de texto y
+fondo y de límite y fondo, en claro y en oscuro (WCAG 2.2: 4.5:1 para texto, 3:1 para foco y límites de controles,
+1.4.11). Se corre con `python3 docs/ux/redesign/contraste.py` y termina en `ok` solo si ningún par obligatorio queda bajo su
+mínimo. Resultado del 2026-10-23:
+
+| Par | Claro | Oscuro | Mínimo |
+|---|---|---|---|
+| `text` / `bg` | 15.19 | 15.29 | 4.5 |
+| `text` / `surface` | 16.48 | 14.31 | 4.5 |
+| `text-secondary` / `surface` | 8.27 | 9.06 | 4.5 |
+| `text-secondary` / `bg` | 7.62 | 9.68 | 4.5 |
+| `text-muted` / `surface` | 5.78 | 6.33 | 4.5 |
+| `text-muted` / `bg` | 5.33 | 6.77 | 4.5 |
+| `text-muted` / `surface-sunken` | 5.04 | 7.04 | 4.5 |
+| `primary-text` / `surface` | 7.76 | 8.18 | 4.5 |
+| `primary-text` / `primary-soft` | 6.59 | 6.72 | 4.5 |
+| `on-primary` / `primary` | 7.76 | 5.53 | 4.5 |
+| `on-primary` / `primary-hover` | 10.04 | 4.72 | 4.5 |
+| `info` / `info-soft` | 5.72 | 6.84 | 4.5 |
+| `success` / `success-soft` | 5.46 | 7.34 | 4.5 |
+| `warning` / `warning-soft` | 5.91 | 7.65 | 4.5 |
+| `danger` / `danger-soft` | 5.49 | 6.74 | 4.5 |
+| `critical` / `critical-soft` | 7.87 | 8.04 | 4.5 |
+| `neutral` / `neutral-soft` | 6.22 | 7.58 | 4.5 |
+| `progress` / `progress-soft` | 6.59 | 6.72 | 4.5 |
+| `ai` / `ai-soft` | 6.35 | 7.63 | 4.5 |
+| `territory` / `territory-soft` | 5.12 | 7.83 | 4.5 |
+| `danger` / `surface` | 6.57 | 7.58 | 4.5 |
+| `text` / `surface-raised` | 16.48 | 13.25 | 4.5 |
+| `text-secondary` / `surface-raised` | 8.27 | 8.39 | 4.5 |
+| `text-muted` / `surface-raised` | 5.78 | 5.86 | 4.5 |
+| `primary-text` / `surface-raised` | 7.76 | 7.57 | 4.5 |
+| `focus` / `surface` | 5.22 | 7.54 | 3.0 |
+| `focus` / `bg` | 4.81 | 8.06 | 3.0 |
+| `focus` / `surface-raised` | 5.22 | 6.98 | 3.0 |
+| `border-strong` / `surface` | 3.50 | 3.03 | 3.0 |
+| `primary` / `surface` | 7.76 | 3.09 | 3.0 |
+| `border-control` / `surface` | 3.50 | 3.41 | 3.0 |
+| `border-control` / `bg` | 3.23 | 3.65 | 3.0 |
+| `border-control` / `surface-sunken` | 3.05 | 3.79 | 3.0 |
+| `border-control` / `surface-raised` | 3.50 | 3.16 | 3.0 |
+
+En resumen: el texto queda entre 5.04:1 y 16.48:1 en claro y entre 4.72:1 (blanco sobre `primary-hover` oscuro) y 15.29:1
+en oscuro; el foco, entre 4.81:1 y 5.22:1 en claro y entre 6.98:1 y 8.06:1 en oscuro; el límite de los controles, entre
+3.05:1 y 3.50:1 en claro y entre 3.16:1 y 3.79:1 en oscuro (DD-21). `surface-raised` frente a `surface` y `bg` (1.00 a
+1.15:1) es informativo: lo que flota se separa también por su borde y su sombra. Los pares de los temas de `themes.css`
+están en §3.9.
 
 ## 11. Trazabilidad
 
 - **Requisitos:** RNF-USA-001, RNF-I18N-001, RNF-MNT-001, RQ-DSH-032, RQ-DSH-035, RQ-GIS-014, RQ-GIS-015, RQ-AUD-002,
   RQ-AUD-011, RQ-AI-003, RQ-AI-004, RQ-AI-012, RQ-SEC-005, RN-WFL-001, RN-COM-001, RN-ENG-001, RN-INV-003, RF-COM-003.
+- **Rediseño de UX:** [decisiones DD-01 a DD-29](redesign/07-decisiones-y-compatibilidad.md),
+  [especificación de componentes](redesign/05-especificacion-de-componentes.md).
 - **Supuestos:** ASM-021, ASM-025, ASM-063, ASM-066, ASM-075, ASM-076, ASM-077, ASM-079, ASM-081, ASM-082, ASM-083, ASM-084,
   ASM-085, ASM-086.
 - **Documentos:** [workflows.md](../workflows.md), [dashboards.md §3 y §9](../dashboards.md), [gis.md §2 y §7.2](../gis.md),
