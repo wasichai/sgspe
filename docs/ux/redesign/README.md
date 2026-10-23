@@ -1,7 +1,13 @@
 # Rediseño integral de UX/UI de SGSPE
 
-> Propuesta del 2026-10-20 y 2026-10-21, **pendiente de revisión**. Mientras no se apruebe, `docs/ux/` sigue siendo la
-> fuente de verdad de la interfaz. La especificación es
+> **Implementado y llevado a `docs/ux/` el 2026-10-23.** El rediseño se aprobó, se implementó en `sgspe-ui` (fases 1 a 5
+> del plan) y lo que quedó está en [`ux-architecture.md`](../ux-architecture.md), [`design-system.md`](../design-system.md),
+> [`screens.md`](../screens.md) y [`flows.md`](../flows.md), que son la fuente de verdad de la interfaz. Esta carpeta queda
+> como historia de la propuesta y como registro de decisiones: [07](07-decisiones-y-compatibilidad.md) sigue siendo el lugar
+> de las `DD-NN` que esos documentos citan. Quedan abiertas la regeneración de las capturas de los manuales (7.2, necesita
+> la demo viva) y las dependencias externas de [08](08-cambios-de-contrato-backend.md) (fase 6).
+>
+> Propuesta del 2026-10-20 y 2026-10-21. La especificación es
 > [`docs/superpowers/specs/2026-10-20-rediseno-ux-design.md`](../../superpowers/specs/2026-10-20-rediseno-ux-design.md) y
 > el plan con casillas es
 > [`docs/superpowers/plans/2026-10-21-rediseno-ux-portal.md`](../../superpowers/plans/2026-10-21-rediseno-ux-portal.md).

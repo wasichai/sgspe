@@ -22,6 +22,7 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 | E3 · parte 3a | QCS, riesgos y alerta temprana, programas e inversión, documentos, tareas y aprobaciones | Lienzo de la etapa 3, páginas 11 a 15 (18 hojas) | [`screens.md`](screens.md) (S35–S48 y la ficha de incidente), [`flows.md`](flows.md) (flujos 12–15) | Entregada, en revisión |
 | E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S49–S55, S62 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
 | Decisiones Q1, Q3, Q6 y Q7, y temas | Marca propia, idiomas, vistas compartidas, mapa base y tres temas | Lienzo de la etapa 3, páginas 22 a 25 (11 hojas) | [`design-system.md`](design-system.md) §2.1, §5, §6.4 y §9.1; [`screens.md`](screens.md) (S01, S12, S16, S28, S35 y S56); [`../gis.md`](../gis.md) §6.4; [`themes.css`](themes.css) y `design-system.md` §3.9; ASM-082 a ASM-086 | Entregada, en revisión |
+| Rediseño de UX | Auditoría, arquitectura de información, design system, componentes y decisiones DD-01 a DD-29, implementados en `sgspe-ui` | [`redesign/04-prototipos/`](redesign/04-prototipos/README.md) (23 capturas) | [`redesign/`](redesign/README.md), llevado a `ux-architecture.md`, `design-system.md`, `screens.md` y `flows.md` el 2026-10-23 | Implementado; la carpeta queda como historia |
 
 ## Cómo leer
 
@@ -34,6 +35,8 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 4. [`screens.md`](screens.md): la ficha de handoff de cada pantalla (ruta, roles, acciones, datos y API, estados, permisos,
    responsive, navegación y árbol de componentes React).
 5. [`flows.md`](flows.md): los flujos núcleo paso a paso, con la pantalla, la transición o el endpoint y la regla de cada paso.
+6. [`redesign/`](redesign/README.md): el rediseño de UX del 2026-10-20, implementado y llevado a los documentos anteriores el
+   2026-10-23. Queda como historia y como registro de las decisiones `DD-NN` que esos documentos citan.
 
 ## Lienzo de la etapa 1
 
