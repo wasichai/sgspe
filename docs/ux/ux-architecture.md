@@ -483,7 +483,7 @@ importación geoespacial, bandeja de revisión de IA y entregables.
 
 Supuestos de esta etapa (definidos en el análisis §19): ASM-073 (asistente como panel), ASM-074 (ejecutivo sin rol propio),
 ASM-075 (rutas y contexto en la URL), ASM-076 (misma página con otro alcance), ASM-077 (dirección visual y tokens), ASM-078
-(inicio por rol) y ASM-079 (vistas guardadas, reemplazado por ASM-083). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
+(inicio «Mi trabajo» con bloques por permisos) y ASM-079 (vistas guardadas, reemplazado por ASM-083). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
 con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10]. La etapa 3
 agrega ASM-081 (la captura de campo sin conexión se diseña; se implementa después del MVP). Las respuestas del usuario a Q1,
 Q3, Q6 y Q7 agregan ASM-082 (marca propia), ASM-083 (vistas compartidas), ASM-084 (español, inglés y quechua) y ASM-085
