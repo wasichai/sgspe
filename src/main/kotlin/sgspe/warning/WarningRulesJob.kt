@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component
 import sgspe.common.Attention
 import sgspe.common.AttentionCounting
 import sgspe.common.Criteria
+import sgspe.common.JobTimeouts
+import sgspe.common.JobsProperties
 import sgspe.common.LIMA
 import sgspe.common.ModelCatalog
 import sgspe.common.Organizations
@@ -241,10 +243,11 @@ class WarningRulesJob(
 @EnableScheduling
 @ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
 class WarningRulesSchedule(
-    private val job: WarningRulesJob
+    private val job: WarningRulesJob,
+    private val jobs: JobsProperties
 ) {
     @Scheduled(cron = "\${sgspe.jobs.warning-rules.cron:0 25 * * * *}", zone = "America/Lima")
     suspend fun hourly() {
-        job.runOnce()
+        JobTimeouts.run(job = "JOB-04 WarningRulesJob", limit = jobs.runTimeout) { job.runOnce() }
     }
 }

@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component
 import sgspe.common.Attention
 import sgspe.common.Criteria
 import sgspe.common.JobTasks
+import sgspe.common.JobTimeouts
+import sgspe.common.JobsProperties
 import sgspe.common.LIMA
 import sgspe.common.Organizations
 import sgspe.common.ProjectParameters
@@ -345,10 +347,11 @@ class DeadlineJob(
 @EnableScheduling
 @ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
 class DeadlineSchedule(
-    private val job: DeadlineJob
+    private val job: DeadlineJob,
+    private val jobs: JobsProperties
 ) {
     @Scheduled(cron = "\${sgspe.jobs.deadline.cron:0 5 * * * *}", zone = "America/Lima")
     suspend fun hourly() {
-        job.runOnce()
+        JobTimeouts.run(job = "JOB-01 DeadlineJob", limit = jobs.runTimeout) { job.runOnce() }
     }
 }
