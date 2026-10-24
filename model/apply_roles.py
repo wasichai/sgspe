@@ -126,6 +126,9 @@ def validate(roles, model):
                 continue
             if LINK_ONLY in actions and "UPDATE" in actions:
                 errors.append(f"role {name}: '{LINK_ONLY}' and UPDATE on {obj}: '{LINK_ONLY}' is UPDATE without editable fields")
+            if LINK_ONLY in actions and "CREATE" in actions:
+                errors.append(f"role {name}: '{LINK_ONLY}' and CREATE on {obj}: '{LINK_ONLY}' leaves the fields read-only and "
+                              f"the create fails")
             for action in actions:
                 if action != LINK_ONLY and action not in objects[obj]:
                     errors.append(f"role {name}: action '{action}' on {obj} must be one of "

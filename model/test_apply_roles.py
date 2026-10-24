@@ -452,6 +452,12 @@ class ValidationTests(unittest.TestCase):
         errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"zone": ["READ", "u", "UPDATE"]}), FIXTURE_MODEL)
         self.assertTrue(any("'u' and UPDATE on zone" in e for e in errors), errors)
 
+    def test_u_y_create_juntos_se_rechazan(self):
+        # `u` deja de solo lectura los campos no derivados, y un alta con ellos falla: quien crea y cambia derivados lleva
+        # UPDATE (con `u`, el pedido de una presentación de ASM-148 dejó de crearla)
+        errors = self.mutate(lambda r: r["roles"][0]["permisos"].update({"zone": ["READ", "CREATE", "u"]}), FIXTURE_MODEL)
+        self.assertTrue(any("'u' and CREATE on zone" in e for e in errors), errors)
+
     def test_un_nombre_que_wasichai_no_acepta_y_un_rol_repetido_se_rechazan(self):
         errors = self.mutate(lambda r: r["roles"].append(self.role("prueba")))
         self.assertTrue(any("role 'prueba': name must match" in e for e in errors), errors)
