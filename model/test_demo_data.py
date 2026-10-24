@@ -1,4 +1,5 @@
-"""Pruebas del conjunto ficticio de model/demo/ (épica #102): valida contra model.json y tiene el volumen de DOC-01.
+"""Pruebas del conjunto ficticio de model/demo/ (épica #102): valida contra model.json y tiene el volumen de DOC-01. El T2
+(#153, 07-entregable-t2.json) va después del corte del T1, así que sus registros no cambian lo que el T1 cuenta.
 
 Correr: cd model && python3 -m unittest -v test_demo_data
 """
@@ -20,8 +21,22 @@ class DemoDataTests(unittest.TestCase):
         with open(os.path.join(HERE, "model.json"), encoding="utf-8") as f:
             cls.model = json.load(f)
 
+    T2_FILE = "07-entregable-t2.json"
+
     def records(self, obj):
         return [r for c in self.dataset.collections if c["object"] == obj for r in c["records"]]
+
+    def t1_records(self, obj):
+        """Los registros del conjunto del T1: todos menos los que el T2 suma."""
+        return [r for c in self.dataset.collections if c["object"] == obj and c["_file"] != self.T2_FILE
+                for r in c["records"]]
+
+    def t2_records(self, obj):
+        return [r for c in self.dataset.collections if c["object"] == obj and c["_file"] == self.T2_FILE
+                for r in c["records"]]
+
+    def deliverable(self, key):
+        return next(r for r in self.records("deliverable") if r["key"] == key)
 
     def test_valida_contra_el_modelo(self):
         self.assertEqual(demo_check.validate(self.dataset, self.model), [])
@@ -235,7 +250,7 @@ class DemoDataTests(unittest.TestCase):
         self.assertEqual(len(sheets), 4)
 
     def test_interacciones_del_periodo(self):
-        rows = [r for r in self.records("engagement") if r["attributes"].get("study") is None]
+        rows = [r for r in self.t1_records("engagement") if r["attributes"].get("study") is None]
         self.assertEqual(len(rows), 24)
         for r in rows:
             self.assertTrue("2026-05-01" <= r["attributes"]["held_at"][:10] <= "2026-09-30", r["key"])
@@ -275,7 +290,7 @@ class DemoDataTests(unittest.TestCase):
         self.assertEqual(impacts, {(a, t) for a in ("CATEO", "PERFORACION") for t in ("AMBIENTAL", "SOCIAL")})
 
     def test_visitas_de_campo(self):
-        visits = sorted(self.records("field_visit"), key=lambda r: r["attributes"]["actual_start_date"])
+        visits = sorted(self.t1_records("field_visit"), key=lambda r: r["attributes"]["actual_start_date"])
         self.assertEqual([(r["attributes"]["actual_start_date"], r["attributes"]["actual_end_date"]) for r in visits],
                          [("2026-04-13", "2026-04-20"), ("2026-04-22", "2026-04-30")])
         self.assertTrue(all(r["transitions"] == ["start", "complete"] and r["state"] == "completed" for r in visits))
@@ -363,9 +378,8 @@ class DemoDataTests(unittest.TestCase):
         "estrategias", "contactos_regulares", "reuniones_informativas", "reuniones_politicas", "comunicacion", "alianzas", "gestion_riesgos", "necesidades",
     }
 
-    def sections(self):
-        deliverable = self.records("deliverable")[0]
-        return next(c for c in deliverable["commands"] if c["command"] == "sections")["sections"]
+    def sections(self, key="t1"):
+        return next(c for c in self.deliverable(key)["commands"] if c["command"] == "sections")["sections"]
 
     def test_narrativa_para_cada_seccion_humana(self):
         sections = self.sections()
@@ -393,7 +407,7 @@ class DemoDataTests(unittest.TestCase):
         self.assertFalse(load_demo.MENTION.search(sections["perfiles"]), "perfiles sale también en EXTERNO")
 
     def test_entregable_t1_del_periodo(self):
-        deliverable = self.records("deliverable")[0]["attributes"]
+        deliverable = self.deliverable("t1")["attributes"]
         self.assertEqual(deliverable["document_code"], "DEMO-T1-001")
         self.assertEqual(deliverable["deliverable_type"], "DIAGNOSTICO SOCIAL")
         self.assertEqual((deliverable["period_start_date"], deliverable["period_end_date"], deliverable["cutoff_date"]),
@@ -446,3 +460,93 @@ class DemoDataTests(unittest.TestCase):
             last = [c["attributes"] for c in r["commands"] if c["attributes"].get("residual")][-1]
             medium += 5 <= last["probability"] * last["impact"] < 10
         self.assertIn(f"{words[medium]} de los {words[len(risks)]}", self.sections()["gestion_riesgos"])
+
+    # ---- T2 (#153) -----------------------------------------------------------------------------------------------
+
+    T2_SECTIONS = {"antecedentes", "estrategias", "actividades", "redes", "relaciones", "apoyo", "conclusiones",
+                   "recomendaciones"}
+
+    def test_entregable_t2_de_la_comunidad_despues_del_corte_del_t1(self):
+        t1, t2 = self.deliverable("t1")["attributes"], self.deliverable("t2")["attributes"]
+        self.assertEqual((t2["document_code"], t2["deliverable_type"]), ("DEMO-T2-001", "INFORME DE CAMPO Y AVANCE"))
+        self.assertEqual((t2["project"], t2["community"]), ("@proj", "@com-sanisidro"))
+        self.assertGreater(t2["period_start_date"], t1["cutoff_date"])
+        self.assertLessEqual(t2["period_end_date"], t2["cutoff_date"])
+
+    def test_lo_que_suma_el_t2_cae_en_su_periodo(self):
+        # el T1 cuenta las interacciones y visitas del proyecto en su periodo: las del T2 quedan después de su corte
+        t2 = self.deliverable("t2")["attributes"]
+        dates = [r["attributes"].get("held_at") or r["attributes"]["scheduled_at"] for r in self.t2_records("engagement")]
+        dates += [r["attributes"]["actual_start_date"] for r in self.t2_records("field_visit")]
+        self.assertTrue(dates)
+        self.assertTrue(all(t2["period_start_date"] <= d[:10] <= t2["period_end_date"] for d in dates), dates)
+        self.assertTrue(all(r["attributes"]["community"] == "@com-sanisidro" for r in self.t2_records("engagement")))
+
+    def test_el_t2_cubre_lo_de_la_revision_visual(self):
+        # lo que DeckDemo.t2 arma a mano: visitas, interacciones de varios tipos (una cancelada), redes con integrantes,
+        # contactos cara a cara, un incidente de antecedentes y los sectores del predio
+        engagements = self.t2_records("engagement")
+        types = {r["attributes"]["engagement_type"] for r in engagements}
+        self.assertGreaterEqual(len(types), 5)
+        self.assertIn("CONTACTO CARA A CARA", types)
+        self.assertEqual(sum(r["state"] == "cancelled" for r in engagements), 1)
+        self.assertTrue(all(r["children"] for r in engagements if r["state"] == "held"))
+        self.assertEqual(len(self.t2_records("field_visit")), 2)
+        networks = self.t2_records("community_network")
+        self.assertEqual(len(networks), 2)
+        self.assertTrue(all(len(n["children"]) >= 4 for n in networks))
+        incidents = self.t2_records("incident")
+        self.assertTrue(any(i["attributes"]["incident_type"] in ("EXPULSION", "RETENCION DE VEHICULO O EQUIPOS")
+                            and i["attributes"]["occurred_at"][:10] <= self.deliverable("t2")["attributes"]["cutoff_date"]
+                            for i in incidents))
+        self.assertEqual(len(self.t2_records("community_sector")), 3)
+
+    def test_la_narrativa_del_t2_cuenta_lo_mismo_que_los_datos(self):
+        sections = self.sections("t2")
+        self.assertEqual(set(sections), self.T2_SECTIONS)
+        engagements = self.t2_records("engagement")
+        held = sum(r["state"] == "held" for r in engagements)
+        cancelled = len(engagements) - held
+        nodes = sum(len(n["children"]) for n in self.t2_records("community_network"))
+        words = {1: "una", 2: "dos", 7: "siete", 8: "ocho", 9: "nueve"}
+        self.assertIn(f"{words[len(self.t2_records('field_visit'))]} visitas de campo y {words[len(engagements)]} "
+                      f"interacciones", sections["actividades"])
+        self.assertIn(f"{words[held]} realizadas y {words[cancelled]} cancelada", sections["actividades"])
+        self.assertIn(f"{words[nodes]} integrantes", sections["conclusiones"])
+        for key in ("conclusiones", "recomendaciones"):
+            self.assertTrue(sections[key].startswith("1. "), key)
+
+    def test_la_narrativa_del_t2_nombra_a_las_personas_solo_por_mencion(self):
+        people = {r["key"]: r["attributes"] for r in self.records("person")}
+        sections = self.sections("t2")
+        mentioned = set()
+        for key, text in sections.items():
+            for person in load_demo.MENTION.findall(text):
+                self.assertIn(person, people, f"{key}: {person}")
+                mentioned.add(person)
+            for person in people.values():
+                self.assertNotIn(person["surnames"], text, key)
+                self.assertIsNone(re.search(rf"\b{re.escape(person['given_names'])}\b", text), f"{key}: {person['given_names']}")
+        self.assertTrue(mentioned)
+
+    def test_los_entregables_se_emiten_con_la_aprobacion_de_otra_persona(self):
+        # WF-H: envía y emite quien escribe la colección, y aprueba otro usuario con el rol y la acción APPROVE
+        with open(os.path.join(HERE, "workflows", "deliverable.json"), encoding="utf-8") as f:
+            transitions = {t["name"]: set(t["roles"]) for t in json.load(f)["definition"]["transitions"]}
+        with open(os.path.join(HERE, "roles.json"), encoding="utf-8") as f:
+            permissions = {r["name"]: r["permisos"].get("deliverable", []) for r in json.load(f)["roles"]}
+        roles = {u["key"]: set(u["roles"]) for u in self.dataset.users}
+        collections = [c for c in self.dataset.collections if c["object"] == "deliverable"]
+        self.assertEqual(sorted(r["key"] for c in collections for r in c["records"]), ["t1", "t2"])
+        for collection in collections:
+            writer = collection["as"]
+            for record in collection["records"]:
+                commands = [c["command"] for c in record["commands"]]
+                self.assertEqual(commands[-2:], ["draft", "issue"], record["key"])
+                approver = record["commands"][-1]["approve_as"]
+                self.assertNotEqual(approver, writer, record["key"])
+                for transition in ("submit_for_review", "issue"):
+                    self.assertTrue(transitions[transition] & roles[writer], (record["key"], transition))
+                self.assertTrue(transitions["approve"] & roles[approver], record["key"])
+                self.assertTrue(any("ISSUE" in permissions[r] for r in roles[writer]), record["key"])
+                self.assertTrue(any("APPROVE" in permissions[r] for r in roles[approver]), record["key"])
