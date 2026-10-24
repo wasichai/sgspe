@@ -18,14 +18,16 @@ class ReportPeople(
     // la persona detrás de cada mención (person, y la titular de un stakeholder o un position), para AI-04 de sección
     val holders = linkedMapOf<String, UUID>()
     private val byProject = mapOf(Deliverables.PROJECT to project.toString())
+    private val positions = mutableMapOf<UUID, SourceRow?>()
 
     suspend fun organizationName(id: UUID?): String? = id?.let { source.one("organization", it)?.text("name") }
 
-    // el cargo VIGENTE de una persona, o null
+    // el cargo VIGENTE de una persona, o null, leído una vez por ensamblado (#83): lo usan la mención y varias secciones
     suspend fun position(person: UUID): SourceRow? =
-        source.all("position", mapOf("person" to person.toString())).firstOrNull {
-            it.text("position_status") ==
-                VIGENTE
+        if (person in positions) {
+            positions[person]
+        } else {
+            source.all("position", mapOf("person" to person.toString())).firstOrNull { it.text("position_status") == VIGENTE }.also { positions[person] = it }
         }
 
     // la mención de una persona: su token, con sus datos de cita registrados una vez

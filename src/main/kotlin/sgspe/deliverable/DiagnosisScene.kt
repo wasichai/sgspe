@@ -30,6 +30,7 @@ class DiagnosisScene private constructor(
     val byProject: Map<String, String> = mapOf(Deliverables.PROJECT to project.id)
     private val memberCache = mutableMapOf<String, List<SourceRow>>()
     private var stakeholderCache: List<SourceRow>? = null
+    private val assessmentCache = mutableMapOf<String, List<SourceRow>>()
 
     fun fact(fact: Fact) {
         facts += fact
@@ -77,12 +78,15 @@ class DiagnosisScene private constructor(
 
     suspend fun stakeholders(): List<SourceRow> = stakeholderCache ?: source.all("stakeholder", byProject).also { stakeholderCache = it }
 
+    // las evaluaciones de un grupo de interés hasta el corte, leídas una vez por ensamblado (#83): las usan la introducción,
+    // los perfiles, la clasificación, los grupos políticos y 9.3.1.1
+    suspend fun assessments(stakeholder: SourceRow): List<SourceRow> =
+        assessmentCache.getOrPut(stakeholder.id) {
+            source.all("stakeholder_assessment", mapOf("stakeholder" to stakeholder.id)).filter { upToCutoff(it.text("assessment_date")) }
+        }
+
     // la última evaluación de un grupo de interés hasta el corte
-    suspend fun latestAssessment(stakeholder: SourceRow): SourceRow? =
-        source
-            .all("stakeholder_assessment", mapOf("stakeholder" to stakeholder.id))
-            .filter { upToCutoff(it.text("assessment_date")) }
-            .maxByOrNull { it.text("assessment_date").orEmpty() }
+    suspend fun latestAssessment(stakeholder: SourceRow): SourceRow? = assessments(stakeholder).maxByOrNull { it.text("assessment_date").orEmpty() }
 
     companion object {
         const val SIN_DATO = "Sin dato"
