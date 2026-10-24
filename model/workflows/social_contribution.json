@@ -4,31 +4,181 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "requested", "label": "Solicitado", "type": "INITIAL" },
-      { "name": "approved", "label": "Aprobado", "type": "INTERMEDIATE" },
-      { "name": "procured", "label": "Adquirido", "type": "INTERMEDIATE" },
-      { "name": "delivered", "label": "Entregado", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrado", "type": "FINAL" },
-      { "name": "rejected", "label": "Rechazado", "type": "FINAL" },
-      { "name": "cancelled", "label": "Anulado", "type": "FINAL" }
+      {
+        "name": "requested",
+        "label": "Solicitado",
+        "labels": {
+          "es": "Solicitado",
+          "en": "Requested"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "approved",
+        "label": "Aprobado",
+        "labels": {
+          "es": "Aprobado",
+          "en": "Approved"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "procured",
+        "label": "Adquirido",
+        "labels": {
+          "es": "Adquirido",
+          "en": "Procured"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "delivered",
+        "label": "Entregado",
+        "labels": {
+          "es": "Entregado",
+          "en": "Delivered"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrado",
+        "labels": {
+          "es": "Cerrado",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "rejected",
+        "label": "Rechazado",
+        "labels": {
+          "es": "Rechazado",
+          "en": "Rejected"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Anulado",
+        "labels": {
+          "es": "Anulado",
+          "en": "Voided"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "approve", "label": "Aprobar", "from": "requested", "to": "approved",
-        "roles": ["APPROVER", "SOCIAL_MANAGER"] },
-      { "name": "approve_direct", "label": "Aprobar sin revisión interna", "from": "requested", "to": "approved",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "reject", "label": "Rechazar", "from": "requested", "to": "rejected",
-        "roles": ["APPROVER", "SOCIAL_MANAGER"] },
-      { "name": "register_procurement", "label": "Registrar adquisición", "from": "approved", "to": "procured",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "register_delivery", "label": "Registrar entrega", "from": "procured", "to": "delivered",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "close", "label": "Cerrar", "from": "delivered", "to": "closed",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "cancel_approved", "label": "Anular", "from": "approved", "to": "cancelled",
-        "roles": ["APPROVER", "SOCIAL_MANAGER"] },
-      { "name": "cancel_procured", "label": "Anular", "from": "procured", "to": "cancelled",
-        "roles": ["APPROVER", "SOCIAL_MANAGER"] }
+      {
+        "name": "approve",
+        "label": "Aprobar",
+        "labels": {
+          "es": "Aprobar",
+          "en": "Approve"
+        },
+        "from": "requested",
+        "to": "approved",
+        "roles": [
+          "APPROVER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "approve_direct",
+        "label": "Aprobar sin revisión interna",
+        "labels": {
+          "es": "Aprobar sin revisión interna",
+          "en": "Approve without internal review"
+        },
+        "from": "requested",
+        "to": "approved",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "reject",
+        "label": "Rechazar",
+        "labels": {
+          "es": "Rechazar",
+          "en": "Reject"
+        },
+        "from": "requested",
+        "to": "rejected",
+        "roles": [
+          "APPROVER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "register_procurement",
+        "label": "Registrar adquisición",
+        "labels": {
+          "es": "Registrar adquisición",
+          "en": "Record procurement"
+        },
+        "from": "approved",
+        "to": "procured",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "register_delivery",
+        "label": "Registrar entrega",
+        "labels": {
+          "es": "Registrar entrega",
+          "en": "Record delivery"
+        },
+        "from": "procured",
+        "to": "delivered",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "delivered",
+        "to": "closed",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_approved",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "approved",
+        "to": "cancelled",
+        "roles": [
+          "APPROVER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_procured",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "procured",
+        "to": "cancelled",
+        "roles": [
+          "APPROVER",
+          "SOCIAL_MANAGER"
+        ]
+      }
     ]
   }
 }

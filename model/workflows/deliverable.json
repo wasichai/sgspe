@@ -4,33 +4,225 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
-      { "name": "in_review", "label": "En revisión", "type": "INTERMEDIATE" },
-      { "name": "observed", "label": "Observado", "type": "INTERMEDIATE" },
-      { "name": "approved", "label": "Aprobado", "type": "INTERMEDIATE" },
-      { "name": "issued", "label": "Emitido", "type": "INTERMEDIATE" },
-      { "name": "voided", "label": "Anulado", "type": "FINAL" }
+      {
+        "name": "draft",
+        "label": "Borrador",
+        "labels": {
+          "es": "Borrador",
+          "en": "Draft"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "in_review",
+        "label": "En revisión",
+        "labels": {
+          "es": "En revisión",
+          "en": "In review"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "observed",
+        "label": "Observado",
+        "labels": {
+          "es": "Observado",
+          "en": "Returned with comments"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "approved",
+        "label": "Aprobado",
+        "labels": {
+          "es": "Aprobado",
+          "en": "Approved"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "issued",
+        "label": "Emitido",
+        "labels": {
+          "es": "Emitido",
+          "en": "Issued"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "voided",
+        "label": "Anulado",
+        "labels": {
+          "es": "Anulado",
+          "en": "Voided"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "submit_for_review", "label": "Enviar a revisión", "from": "draft", "to": "in_review",
-        "roles": ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"] },
-      { "name": "observe", "label": "Observar", "from": "in_review", "to": "observed",
-        "roles": ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"] },
-      { "name": "resubmit", "label": "Reenviar a revisión", "from": "observed", "to": "in_review",
-        "roles": ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"] },
-      { "name": "approve", "label": "Aprobar", "from": "in_review", "to": "approved",
-        "roles": ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"] },
-      { "name": "return_to_draft", "label": "Devolver a borrador", "from": "approved", "to": "draft",
-        "roles": ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"] },
-      { "name": "issue", "label": "Emitir", "from": "approved", "to": "issued",
-        "roles": ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"] },
-      { "name": "start_revision", "label": "Nueva revisión", "from": "issued", "to": "draft",
-        "roles": ["SOCIAL_MANAGER", "STAKEHOLDER_MANAGER"] },
-      { "name": "void_draft", "label": "Anular", "from": "draft", "to": "voided", "roles": ["SOCIAL_MANAGER"] },
-      { "name": "void_in_review", "label": "Anular", "from": "in_review", "to": "voided", "roles": ["SOCIAL_MANAGER"] },
-      { "name": "void_observed", "label": "Anular", "from": "observed", "to": "voided", "roles": ["SOCIAL_MANAGER"] },
-      { "name": "void_approved", "label": "Anular", "from": "approved", "to": "voided", "roles": ["SOCIAL_MANAGER"] },
-      { "name": "void_issued", "label": "Anular", "from": "issued", "to": "voided", "roles": ["SOCIAL_MANAGER"] }
+      {
+        "name": "submit_for_review",
+        "label": "Enviar a revisión",
+        "labels": {
+          "es": "Enviar a revisión",
+          "en": "Submit for review"
+        },
+        "from": "draft",
+        "to": "in_review",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "STAKEHOLDER_MANAGER"
+        ]
+      },
+      {
+        "name": "observe",
+        "label": "Observar",
+        "labels": {
+          "es": "Observar",
+          "en": "Return with comments"
+        },
+        "from": "in_review",
+        "to": "observed",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "STAKEHOLDER_MANAGER"
+        ]
+      },
+      {
+        "name": "resubmit",
+        "label": "Reenviar a revisión",
+        "labels": {
+          "es": "Reenviar a revisión",
+          "en": "Resubmit for review"
+        },
+        "from": "observed",
+        "to": "in_review",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "STAKEHOLDER_MANAGER"
+        ]
+      },
+      {
+        "name": "approve",
+        "label": "Aprobar",
+        "labels": {
+          "es": "Aprobar",
+          "en": "Approve"
+        },
+        "from": "in_review",
+        "to": "approved",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "STAKEHOLDER_MANAGER"
+        ]
+      },
+      {
+        "name": "return_to_draft",
+        "label": "Devolver a borrador",
+        "labels": {
+          "es": "Devolver a borrador",
+          "en": "Return to draft"
+        },
+        "from": "approved",
+        "to": "draft",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "STAKEHOLDER_MANAGER"
+        ]
+      },
+      {
+        "name": "issue",
+        "label": "Emitir",
+        "labels": {
+          "es": "Emitir",
+          "en": "Issue"
+        },
+        "from": "approved",
+        "to": "issued",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "STAKEHOLDER_MANAGER"
+        ]
+      },
+      {
+        "name": "start_revision",
+        "label": "Nueva revisión",
+        "labels": {
+          "es": "Nueva revisión",
+          "en": "New revision"
+        },
+        "from": "issued",
+        "to": "draft",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "STAKEHOLDER_MANAGER"
+        ]
+      },
+      {
+        "name": "void_draft",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "draft",
+        "to": "voided",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "void_in_review",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "in_review",
+        "to": "voided",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "void_observed",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "observed",
+        "to": "voided",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "void_approved",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "approved",
+        "to": "voided",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "void_issued",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "issued",
+        "to": "voided",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      }
     ]
   }
 }

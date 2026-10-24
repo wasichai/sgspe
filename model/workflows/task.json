@@ -4,29 +4,245 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "open", "label": "Abierta", "type": "INITIAL" },
-      { "name": "in_progress", "label": "En curso", "type": "INTERMEDIATE" },
-      { "name": "blocked", "label": "Bloqueada", "type": "INTERMEDIATE" },
-      { "name": "done", "label": "Hecha", "type": "FINAL" },
-      { "name": "cancelled", "label": "Cancelada", "type": "FINAL" }
+      {
+        "name": "open",
+        "label": "Abierta",
+        "labels": {
+          "es": "Abierta",
+          "en": "Open"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "in_progress",
+        "label": "En curso",
+        "labels": {
+          "es": "En curso",
+          "en": "In progress"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "blocked",
+        "label": "Bloqueada",
+        "labels": {
+          "es": "Bloqueada",
+          "en": "Blocked"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "done",
+        "label": "Hecha",
+        "labels": {
+          "es": "Hecha",
+          "en": "Done"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelada",
+        "labels": {
+          "es": "Cancelada",
+          "en": "Cancelled"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "start", "label": "Iniciar", "from": "open", "to": "in_progress",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] },
-      { "name": "block", "label": "Bloquear", "from": "in_progress", "to": "blocked",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] },
-      { "name": "unblock", "label": "Desbloquear", "from": "blocked", "to": "in_progress",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] },
-      { "name": "complete", "label": "Completar", "from": "in_progress", "to": "done",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] },
-      { "name": "complete_open", "label": "Completar", "from": "open", "to": "done",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] },
-      { "name": "cancel_open", "label": "Cancelar", "from": "open", "to": "cancelled",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] },
-      { "name": "cancel_in_progress", "label": "Cancelar", "from": "in_progress", "to": "cancelled",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] },
-      { "name": "cancel_blocked", "label": "Cancelar", "from": "blocked", "to": "cancelled",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "COMMITMENT_MANAGER", "GRIEVANCE_MANAGER", "SOCIAL_RISK_MANAGER", "SOCIAL_INVESTMENT_MANAGER", "GIS_ANALYST", "FIELD_AGENT", "APPROVER"] }
+      {
+        "name": "start",
+        "label": "Iniciar",
+        "labels": {
+          "es": "Iniciar",
+          "en": "Start"
+        },
+        "from": "open",
+        "to": "in_progress",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "block",
+        "label": "Bloquear",
+        "labels": {
+          "es": "Bloquear",
+          "en": "Block"
+        },
+        "from": "in_progress",
+        "to": "blocked",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "unblock",
+        "label": "Desbloquear",
+        "labels": {
+          "es": "Desbloquear",
+          "en": "Unblock"
+        },
+        "from": "blocked",
+        "to": "in_progress",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "complete",
+        "label": "Completar",
+        "labels": {
+          "es": "Completar",
+          "en": "Complete"
+        },
+        "from": "in_progress",
+        "to": "done",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "complete_open",
+        "label": "Completar",
+        "labels": {
+          "es": "Completar",
+          "en": "Complete"
+        },
+        "from": "open",
+        "to": "done",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "cancel_open",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "open",
+        "to": "cancelled",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "cancel_in_progress",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "in_progress",
+        "to": "cancelled",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "cancel_blocked",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "blocked",
+        "to": "cancelled",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "COMMITMENT_MANAGER",
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER",
+          "GIS_ANALYST",
+          "FIELD_AGENT",
+          "APPROVER"
+        ]
+      }
     ]
   }
 }

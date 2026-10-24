@@ -4,26 +4,182 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
-      { "name": "in_review", "label": "En revisión", "type": "INTERMEDIATE" },
-      { "name": "active", "label": "Activo", "type": "INTERMEDIATE" },
-      { "name": "suspended", "label": "Suspendido", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrado", "type": "FINAL" },
-      { "name": "cancelled", "label": "Anulado", "type": "FINAL" }
+      {
+        "name": "draft",
+        "label": "Borrador",
+        "labels": {
+          "es": "Borrador",
+          "en": "Draft"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "in_review",
+        "label": "En revisión",
+        "labels": {
+          "es": "En revisión",
+          "en": "In review"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "active",
+        "label": "Activo",
+        "labels": {
+          "es": "Activo",
+          "en": "Active"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "suspended",
+        "label": "Suspendido",
+        "labels": {
+          "es": "Suspendido",
+          "en": "Suspended"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrado",
+        "labels": {
+          "es": "Cerrado",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Anulado",
+        "labels": {
+          "es": "Anulado",
+          "en": "Voided"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "submit_for_review", "label": "Enviar a revisión", "from": "draft", "to": "in_review",
-        "roles": ["PROJECT_MANAGER", "PROJECT_ADMIN"] },
-      { "name": "return_to_draft", "label": "Devolver", "from": "in_review", "to": "draft", "roles": ["PROJECT_ADMIN"] },
-      { "name": "approve", "label": "Aprobar", "from": "in_review", "to": "active", "roles": ["PROJECT_ADMIN"] },
-      { "name": "suspend", "label": "Suspender", "from": "active", "to": "suspended",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER"] },
-      { "name": "resume", "label": "Reanudar", "from": "suspended", "to": "active",
-        "roles": ["PROJECT_ADMIN", "PROJECT_MANAGER"] },
-      { "name": "close", "label": "Cerrar", "from": "active", "to": "closed", "roles": ["PROJECT_ADMIN"] },
-      { "name": "close_suspended", "label": "Cerrar", "from": "suspended", "to": "closed", "roles": ["PROJECT_ADMIN"] },
-      { "name": "cancel_draft", "label": "Anular", "from": "draft", "to": "cancelled", "roles": ["PROJECT_ADMIN"] },
-      { "name": "cancel_in_review", "label": "Anular", "from": "in_review", "to": "cancelled", "roles": ["PROJECT_ADMIN"] }
+      {
+        "name": "submit_for_review",
+        "label": "Enviar a revisión",
+        "labels": {
+          "es": "Enviar a revisión",
+          "en": "Submit for review"
+        },
+        "from": "draft",
+        "to": "in_review",
+        "roles": [
+          "PROJECT_MANAGER",
+          "PROJECT_ADMIN"
+        ]
+      },
+      {
+        "name": "return_to_draft",
+        "label": "Devolver",
+        "labels": {
+          "es": "Devolver",
+          "en": "Send back"
+        },
+        "from": "in_review",
+        "to": "draft",
+        "roles": [
+          "PROJECT_ADMIN"
+        ]
+      },
+      {
+        "name": "approve",
+        "label": "Aprobar",
+        "labels": {
+          "es": "Aprobar",
+          "en": "Approve"
+        },
+        "from": "in_review",
+        "to": "active",
+        "roles": [
+          "PROJECT_ADMIN"
+        ]
+      },
+      {
+        "name": "suspend",
+        "label": "Suspender",
+        "labels": {
+          "es": "Suspender",
+          "en": "Suspend"
+        },
+        "from": "active",
+        "to": "suspended",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "resume",
+        "label": "Reanudar",
+        "labels": {
+          "es": "Reanudar",
+          "en": "Resume"
+        },
+        "from": "suspended",
+        "to": "active",
+        "roles": [
+          "PROJECT_ADMIN",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "active",
+        "to": "closed",
+        "roles": [
+          "PROJECT_ADMIN"
+        ]
+      },
+      {
+        "name": "close_suspended",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "suspended",
+        "to": "closed",
+        "roles": [
+          "PROJECT_ADMIN"
+        ]
+      },
+      {
+        "name": "cancel_draft",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "draft",
+        "to": "cancelled",
+        "roles": [
+          "PROJECT_ADMIN"
+        ]
+      },
+      {
+        "name": "cancel_in_review",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "in_review",
+        "to": "cancelled",
+        "roles": [
+          "PROJECT_ADMIN"
+        ]
+      }
     ]
   }
 }

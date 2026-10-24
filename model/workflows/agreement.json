@@ -4,35 +4,209 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
-      { "name": "in_negotiation", "label": "En negociación", "type": "INTERMEDIATE" },
-      { "name": "active", "label": "Vigente", "type": "INTERMEDIATE" },
-      { "name": "suspended", "label": "Suspendido", "type": "INTERMEDIATE" },
-      { "name": "concluded", "label": "Concluido", "type": "FINAL" },
-      { "name": "terminated", "label": "Resuelto", "type": "FINAL" },
-      { "name": "cancelled", "label": "Anulado", "type": "FINAL" }
+      {
+        "name": "draft",
+        "label": "Borrador",
+        "labels": {
+          "es": "Borrador",
+          "en": "Draft"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "in_negotiation",
+        "label": "En negociación",
+        "labels": {
+          "es": "En negociación",
+          "en": "In negotiation"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "active",
+        "label": "Vigente",
+        "labels": {
+          "es": "Vigente",
+          "en": "In force"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "suspended",
+        "label": "Suspendido",
+        "labels": {
+          "es": "Suspendido",
+          "en": "Suspended"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "concluded",
+        "label": "Concluido",
+        "labels": {
+          "es": "Concluido",
+          "en": "Concluded"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "terminated",
+        "label": "Resuelto",
+        "labels": {
+          "es": "Resuelto",
+          "en": "Terminated"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Anulado",
+        "labels": {
+          "es": "Anulado",
+          "en": "Voided"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "start_negotiation", "label": "Iniciar negociación", "from": "draft", "to": "in_negotiation",
-        "roles": ["SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "activate", "label": "Registrar vigencia", "from": "in_negotiation", "to": "active",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
-      { "name": "activate_from_draft", "label": "Registrar vigencia", "from": "draft", "to": "active",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
-      { "name": "suspend", "label": "Suspender", "from": "active", "to": "suspended",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
-      { "name": "resume", "label": "Reanudar", "from": "suspended", "to": "active",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
-      { "name": "conclude", "label": "Concluir", "from": "active", "to": "concluded",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
-      { "name": "terminate", "label": "Resolver", "from": "active", "to": "terminated",
-        "roles": ["PROJECT_MANAGER"] },
-      { "name": "terminate_suspended", "label": "Resolver", "from": "suspended", "to": "terminated",
-        "roles": ["PROJECT_MANAGER"] },
-      { "name": "cancel_draft", "label": "Anular", "from": "draft", "to": "cancelled",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
-      { "name": "cancel_in_negotiation", "label": "Anular", "from": "in_negotiation", "to": "cancelled",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] }
+      {
+        "name": "start_negotiation",
+        "label": "Iniciar negociación",
+        "labels": {
+          "es": "Iniciar negociación",
+          "en": "Start negotiation"
+        },
+        "from": "draft",
+        "to": "in_negotiation",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "activate",
+        "label": "Registrar vigencia",
+        "labels": {
+          "es": "Registrar vigencia",
+          "en": "Record entry into force"
+        },
+        "from": "in_negotiation",
+        "to": "active",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "activate_from_draft",
+        "label": "Registrar vigencia",
+        "labels": {
+          "es": "Registrar vigencia",
+          "en": "Record entry into force"
+        },
+        "from": "draft",
+        "to": "active",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "suspend",
+        "label": "Suspender",
+        "labels": {
+          "es": "Suspender",
+          "en": "Suspend"
+        },
+        "from": "active",
+        "to": "suspended",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "resume",
+        "label": "Reanudar",
+        "labels": {
+          "es": "Reanudar",
+          "en": "Resume"
+        },
+        "from": "suspended",
+        "to": "active",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "conclude",
+        "label": "Concluir",
+        "labels": {
+          "es": "Concluir",
+          "en": "Conclude"
+        },
+        "from": "active",
+        "to": "concluded",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "terminate",
+        "label": "Resolver",
+        "labels": {
+          "es": "Resolver",
+          "en": "Terminate"
+        },
+        "from": "active",
+        "to": "terminated",
+        "roles": [
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "terminate_suspended",
+        "label": "Resolver",
+        "labels": {
+          "es": "Resolver",
+          "en": "Terminate"
+        },
+        "from": "suspended",
+        "to": "terminated",
+        "roles": [
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_draft",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "draft",
+        "to": "cancelled",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_in_negotiation",
+        "label": "Anular",
+        "labels": {
+          "es": "Anular",
+          "en": "Void"
+        },
+        "from": "in_negotiation",
+        "to": "cancelled",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      }
     ]
   }
 }

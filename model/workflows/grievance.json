@@ -4,62 +4,391 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "received", "label": "Recibida", "type": "INITIAL" },
-      { "name": "acknowledged", "label": "Acusada", "type": "INTERMEDIATE" },
-      { "name": "in_assessment", "label": "En evaluación", "type": "INTERMEDIATE" },
-      { "name": "in_investigation", "label": "En investigación", "type": "INTERMEDIATE" },
-      { "name": "in_action", "label": "En atención", "type": "INTERMEDIATE" },
-      { "name": "resolved", "label": "Resuelta", "type": "INTERMEDIATE" },
-      { "name": "verified", "label": "Verificada", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrada", "type": "FINAL" },
-      { "name": "rejected", "label": "Rechazada", "type": "FINAL" },
-      { "name": "withdrawn", "label": "Desistida", "type": "FINAL" }
+      {
+        "name": "received",
+        "label": "Recibida",
+        "labels": {
+          "es": "Recibida",
+          "en": "Received"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "acknowledged",
+        "label": "Acusada",
+        "labels": {
+          "es": "Acusada",
+          "en": "Acknowledged"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "in_assessment",
+        "label": "En evaluación",
+        "labels": {
+          "es": "En evaluación",
+          "en": "Under evaluation"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "in_investigation",
+        "label": "En investigación",
+        "labels": {
+          "es": "En investigación",
+          "en": "Under investigation"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "in_action",
+        "label": "En atención",
+        "labels": {
+          "es": "En atención",
+          "en": "In action"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "resolved",
+        "label": "Resuelta",
+        "labels": {
+          "es": "Resuelta",
+          "en": "Resolved"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "verified",
+        "label": "Verificada",
+        "labels": {
+          "es": "Verificada",
+          "en": "Verified"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrada",
+        "labels": {
+          "es": "Cerrada",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "rejected",
+        "label": "Rechazada",
+        "labels": {
+          "es": "Rechazada",
+          "en": "Rejected"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "withdrawn",
+        "label": "Desistida",
+        "labels": {
+          "es": "Desistida",
+          "en": "Withdrawn"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "acknowledge", "label": "Acusar recibo", "from": "received", "to": "acknowledged",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "assess", "label": "Evaluar", "from": "acknowledged", "to": "in_assessment",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "investigate", "label": "Investigar", "from": "in_assessment", "to": "in_investigation",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "start_action", "label": "Atender", "from": "in_assessment", "to": "in_action",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "start_action_after_investigation", "label": "Atender", "from": "in_investigation", "to": "in_action",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "resolve", "label": "Resolver", "from": "in_action", "to": "resolved",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "resolve_high_severity", "label": "Resolver con aprobación", "from": "in_action", "to": "resolved",
-        "roles": ["APPROVER"] },
-      { "name": "reopen", "label": "Reabrir", "from": "resolved", "to": "in_assessment",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "verify", "label": "Verificar", "from": "resolved", "to": "verified",
-        "roles": ["GRIEVANCE_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "close_resolved", "label": "Cerrar", "from": "resolved", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "close", "label": "Cerrar", "from": "verified", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "reject_received", "label": "Rechazar", "from": "received", "to": "rejected",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "reject_acknowledged", "label": "Rechazar", "from": "acknowledged", "to": "rejected",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "reject_in_assessment", "label": "Rechazar", "from": "in_assessment", "to": "rejected",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "withdraw_received", "label": "Registrar desistimiento", "from": "received", "to": "withdrawn",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "withdraw_acknowledged", "label": "Registrar desistimiento", "from": "acknowledged", "to": "withdrawn",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "withdraw_in_assessment", "label": "Registrar desistimiento", "from": "in_assessment", "to": "withdrawn",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "withdraw_in_investigation", "label": "Registrar desistimiento", "from": "in_investigation", "to": "withdrawn",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "withdraw_in_action", "label": "Registrar desistimiento", "from": "in_action", "to": "withdrawn",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "close_reclassified_received", "label": "Cerrar por reclasificación", "from": "received", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "close_reclassified_acknowledged", "label": "Cerrar por reclasificación", "from": "acknowledged", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "close_reclassified_in_assessment", "label": "Cerrar por reclasificación", "from": "in_assessment", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] }
+      {
+        "name": "acknowledge",
+        "label": "Acusar recibo",
+        "labels": {
+          "es": "Acusar recibo",
+          "en": "Acknowledge receipt"
+        },
+        "from": "received",
+        "to": "acknowledged",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "assess",
+        "label": "Evaluar",
+        "labels": {
+          "es": "Evaluar",
+          "en": "Evaluate"
+        },
+        "from": "acknowledged",
+        "to": "in_assessment",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "investigate",
+        "label": "Investigar",
+        "labels": {
+          "es": "Investigar",
+          "en": "Investigate"
+        },
+        "from": "in_assessment",
+        "to": "in_investigation",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "start_action",
+        "label": "Atender",
+        "labels": {
+          "es": "Atender",
+          "en": "Take action"
+        },
+        "from": "in_assessment",
+        "to": "in_action",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "start_action_after_investigation",
+        "label": "Atender",
+        "labels": {
+          "es": "Atender",
+          "en": "Take action"
+        },
+        "from": "in_investigation",
+        "to": "in_action",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "resolve",
+        "label": "Resolver",
+        "labels": {
+          "es": "Resolver",
+          "en": "Resolve"
+        },
+        "from": "in_action",
+        "to": "resolved",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "resolve_high_severity",
+        "label": "Resolver con aprobación",
+        "labels": {
+          "es": "Resolver con aprobación",
+          "en": "Resolve with approval"
+        },
+        "from": "in_action",
+        "to": "resolved",
+        "roles": [
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "reopen",
+        "label": "Reabrir",
+        "labels": {
+          "es": "Reabrir",
+          "en": "Reopen"
+        },
+        "from": "resolved",
+        "to": "in_assessment",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "verify",
+        "label": "Verificar",
+        "labels": {
+          "es": "Verificar",
+          "en": "Verify"
+        },
+        "from": "resolved",
+        "to": "verified",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close_resolved",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "resolved",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "verified",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "reject_received",
+        "label": "Rechazar",
+        "labels": {
+          "es": "Rechazar",
+          "en": "Reject"
+        },
+        "from": "received",
+        "to": "rejected",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "reject_acknowledged",
+        "label": "Rechazar",
+        "labels": {
+          "es": "Rechazar",
+          "en": "Reject"
+        },
+        "from": "acknowledged",
+        "to": "rejected",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "reject_in_assessment",
+        "label": "Rechazar",
+        "labels": {
+          "es": "Rechazar",
+          "en": "Reject"
+        },
+        "from": "in_assessment",
+        "to": "rejected",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "withdraw_received",
+        "label": "Registrar desistimiento",
+        "labels": {
+          "es": "Registrar desistimiento",
+          "en": "Record withdrawal"
+        },
+        "from": "received",
+        "to": "withdrawn",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "withdraw_acknowledged",
+        "label": "Registrar desistimiento",
+        "labels": {
+          "es": "Registrar desistimiento",
+          "en": "Record withdrawal"
+        },
+        "from": "acknowledged",
+        "to": "withdrawn",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "withdraw_in_assessment",
+        "label": "Registrar desistimiento",
+        "labels": {
+          "es": "Registrar desistimiento",
+          "en": "Record withdrawal"
+        },
+        "from": "in_assessment",
+        "to": "withdrawn",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "withdraw_in_investigation",
+        "label": "Registrar desistimiento",
+        "labels": {
+          "es": "Registrar desistimiento",
+          "en": "Record withdrawal"
+        },
+        "from": "in_investigation",
+        "to": "withdrawn",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "withdraw_in_action",
+        "label": "Registrar desistimiento",
+        "labels": {
+          "es": "Registrar desistimiento",
+          "en": "Record withdrawal"
+        },
+        "from": "in_action",
+        "to": "withdrawn",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "close_reclassified_received",
+        "label": "Cerrar por reclasificación",
+        "labels": {
+          "es": "Cerrar por reclasificación",
+          "en": "Close as reclassified"
+        },
+        "from": "received",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "close_reclassified_acknowledged",
+        "label": "Cerrar por reclasificación",
+        "labels": {
+          "es": "Cerrar por reclasificación",
+          "en": "Close as reclassified"
+        },
+        "from": "acknowledged",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "close_reclassified_in_assessment",
+        "label": "Cerrar por reclasificación",
+        "labels": {
+          "es": "Cerrar por reclasificación",
+          "en": "Close as reclassified"
+        },
+        "from": "in_assessment",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      }
     ]
   }
 }

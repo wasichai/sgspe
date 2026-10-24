@@ -4,51 +4,331 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
-      { "name": "pending_approval", "label": "Pendiente de aprobación", "type": "INTERMEDIATE" },
-      { "name": "approved", "label": "Aprobado", "type": "INTERMEDIATE" },
-      { "name": "in_progress", "label": "En ejecución", "type": "INTERMEDIATE" },
-      { "name": "blocked", "label": "Bloqueado", "type": "INTERMEDIATE" },
-      { "name": "fulfilled", "label": "Cumplido", "type": "INTERMEDIATE" },
-      { "name": "verified", "label": "Verificado", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrado", "type": "FINAL" },
-      { "name": "cancelled", "label": "Cancelado", "type": "FINAL" }
+      {
+        "name": "draft",
+        "label": "Borrador",
+        "labels": {
+          "es": "Borrador",
+          "en": "Draft"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "pending_approval",
+        "label": "Pendiente de aprobación",
+        "labels": {
+          "es": "Pendiente de aprobación",
+          "en": "Pending approval"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "approved",
+        "label": "Aprobado",
+        "labels": {
+          "es": "Aprobado",
+          "en": "Approved"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "in_progress",
+        "label": "En ejecución",
+        "labels": {
+          "es": "En ejecución",
+          "en": "In execution"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "blocked",
+        "label": "Bloqueado",
+        "labels": {
+          "es": "Bloqueado",
+          "en": "Blocked"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "fulfilled",
+        "label": "Cumplido",
+        "labels": {
+          "es": "Cumplido",
+          "en": "Fulfilled"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "verified",
+        "label": "Verificado",
+        "labels": {
+          "es": "Verificado",
+          "en": "Verified"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrado",
+        "labels": {
+          "es": "Cerrado",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelado",
+        "labels": {
+          "es": "Cancelado",
+          "en": "Cancelled"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "submit", "label": "Enviar a aprobación", "from": "draft", "to": "pending_approval",
-        "roles": ["COMMITMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
-      { "name": "return_to_draft", "label": "Devolver", "from": "pending_approval", "to": "draft",
-        "roles": ["APPROVER", "PROJECT_MANAGER"] },
-      { "name": "approve", "label": "Aprobar", "from": "pending_approval", "to": "approved",
-        "roles": ["APPROVER"] },
-      { "name": "approve_senior", "label": "Aprobar en nivel superior", "from": "pending_approval", "to": "approved",
-        "roles": ["PROJECT_MANAGER"] },
-      { "name": "approve_direct", "label": "Aprobar sin revisión interna", "from": "draft", "to": "approved",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "start", "label": "Iniciar ejecución", "from": "approved", "to": "in_progress",
-        "roles": ["COMMITMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
-      { "name": "block", "label": "Bloquear", "from": "in_progress", "to": "blocked",
-        "roles": ["COMMITMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
-      { "name": "unblock", "label": "Desbloquear", "from": "blocked", "to": "in_progress",
-        "roles": ["COMMITMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
-      { "name": "register_fulfillment", "label": "Registrar cumplimiento", "from": "in_progress", "to": "fulfilled",
-        "roles": ["COMMITMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
-      { "name": "reopen_execution", "label": "Devolver a ejecución", "from": "fulfilled", "to": "in_progress",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "verify", "label": "Verificar", "from": "fulfilled", "to": "verified",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "close", "label": "Cerrar", "from": "verified", "to": "closed",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "cancel_draft", "label": "Cancelar", "from": "draft", "to": "cancelled",
-        "roles": ["COMMITMENT_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
-      { "name": "cancel_pending_approval", "label": "Cancelar", "from": "pending_approval", "to": "cancelled",
-        "roles": ["APPROVER", "PROJECT_MANAGER"] },
-      { "name": "cancel_approved", "label": "Cancelar", "from": "approved", "to": "cancelled",
-        "roles": ["APPROVER", "PROJECT_MANAGER"] },
-      { "name": "cancel_in_progress", "label": "Cancelar", "from": "in_progress", "to": "cancelled",
-        "roles": ["APPROVER", "PROJECT_MANAGER"] },
-      { "name": "cancel_blocked", "label": "Cancelar", "from": "blocked", "to": "cancelled",
-        "roles": ["APPROVER", "PROJECT_MANAGER"] }
+      {
+        "name": "submit",
+        "label": "Enviar a aprobación",
+        "labels": {
+          "es": "Enviar a aprobación",
+          "en": "Submit for approval"
+        },
+        "from": "draft",
+        "to": "pending_approval",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "return_to_draft",
+        "label": "Devolver",
+        "labels": {
+          "es": "Devolver",
+          "en": "Send back"
+        },
+        "from": "pending_approval",
+        "to": "draft",
+        "roles": [
+          "APPROVER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "approve",
+        "label": "Aprobar",
+        "labels": {
+          "es": "Aprobar",
+          "en": "Approve"
+        },
+        "from": "pending_approval",
+        "to": "approved",
+        "roles": [
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "approve_senior",
+        "label": "Aprobar en nivel superior",
+        "labels": {
+          "es": "Aprobar en nivel superior",
+          "en": "Approve at senior level"
+        },
+        "from": "pending_approval",
+        "to": "approved",
+        "roles": [
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "approve_direct",
+        "label": "Aprobar sin revisión interna",
+        "labels": {
+          "es": "Aprobar sin revisión interna",
+          "en": "Approve without internal review"
+        },
+        "from": "draft",
+        "to": "approved",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "start",
+        "label": "Iniciar ejecución",
+        "labels": {
+          "es": "Iniciar ejecución",
+          "en": "Start execution"
+        },
+        "from": "approved",
+        "to": "in_progress",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "block",
+        "label": "Bloquear",
+        "labels": {
+          "es": "Bloquear",
+          "en": "Block"
+        },
+        "from": "in_progress",
+        "to": "blocked",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "unblock",
+        "label": "Desbloquear",
+        "labels": {
+          "es": "Desbloquear",
+          "en": "Unblock"
+        },
+        "from": "blocked",
+        "to": "in_progress",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "register_fulfillment",
+        "label": "Registrar cumplimiento",
+        "labels": {
+          "es": "Registrar cumplimiento",
+          "en": "Record fulfilment"
+        },
+        "from": "in_progress",
+        "to": "fulfilled",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "reopen_execution",
+        "label": "Devolver a ejecución",
+        "labels": {
+          "es": "Devolver a ejecución",
+          "en": "Return to execution"
+        },
+        "from": "fulfilled",
+        "to": "in_progress",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "verify",
+        "label": "Verificar",
+        "labels": {
+          "es": "Verificar",
+          "en": "Verify"
+        },
+        "from": "fulfilled",
+        "to": "verified",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "verified",
+        "to": "closed",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_draft",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "draft",
+        "to": "cancelled",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_pending_approval",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "pending_approval",
+        "to": "cancelled",
+        "roles": [
+          "APPROVER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_approved",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "approved",
+        "to": "cancelled",
+        "roles": [
+          "APPROVER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_in_progress",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "in_progress",
+        "to": "cancelled",
+        "roles": [
+          "APPROVER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel_blocked",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "blocked",
+        "to": "cancelled",
+        "roles": [
+          "APPROVER",
+          "PROJECT_MANAGER"
+        ]
+      }
     ]
   }
 }

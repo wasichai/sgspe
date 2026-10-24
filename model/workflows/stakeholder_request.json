@@ -4,29 +4,165 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "received", "label": "Recibida", "type": "INITIAL" },
-      { "name": "under_evaluation", "label": "En evaluación", "type": "INTERMEDIATE" },
-      { "name": "accepted", "label": "Aceptada", "type": "INTERMEDIATE" },
-      { "name": "declined", "label": "Declinada", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrada", "type": "FINAL" }
+      {
+        "name": "received",
+        "label": "Recibida",
+        "labels": {
+          "es": "Recibida",
+          "en": "Received"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "under_evaluation",
+        "label": "En evaluación",
+        "labels": {
+          "es": "En evaluación",
+          "en": "Under evaluation"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "accepted",
+        "label": "Aceptada",
+        "labels": {
+          "es": "Aceptada",
+          "en": "Accepted"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "declined",
+        "label": "Declinada",
+        "labels": {
+          "es": "Declinada",
+          "en": "Declined"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrada",
+        "labels": {
+          "es": "Cerrada",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "start_evaluation", "label": "Evaluar", "from": "received", "to": "under_evaluation",
-        "roles": ["GRIEVANCE_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "accept", "label": "Aceptar", "from": "under_evaluation", "to": "accepted",
-        "roles": ["SOCIAL_MANAGER", "COMMITMENT_MANAGER", "SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "decline", "label": "Declinar", "from": "under_evaluation", "to": "declined",
-        "roles": ["GRIEVANCE_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "close_declined", "label": "Cerrar", "from": "declined", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "close_accepted", "label": "Cerrar por cierre del compromiso o del aporte", "from": "accepted", "to": "closed",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER", "SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "close_unfulfilled", "label": "Cerrar sin ejecución", "from": "accepted", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "close_reclassified_received", "label": "Cerrar por reclasificación", "from": "received", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "close_reclassified_under_evaluation", "label": "Cerrar por reclasificación", "from": "under_evaluation", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] }
+      {
+        "name": "start_evaluation",
+        "label": "Evaluar",
+        "labels": {
+          "es": "Evaluar",
+          "en": "Evaluate"
+        },
+        "from": "received",
+        "to": "under_evaluation",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "accept",
+        "label": "Aceptar",
+        "labels": {
+          "es": "Aceptar",
+          "en": "Accept"
+        },
+        "from": "under_evaluation",
+        "to": "accepted",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "COMMITMENT_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "decline",
+        "label": "Declinar",
+        "labels": {
+          "es": "Declinar",
+          "en": "Decline"
+        },
+        "from": "under_evaluation",
+        "to": "declined",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close_declined",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "declined",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close_accepted",
+        "label": "Cerrar por cierre del compromiso o del aporte",
+        "labels": {
+          "es": "Cerrar por cierre del compromiso o del aporte",
+          "en": "Close as the commitment or contribution closed"
+        },
+        "from": "accepted",
+        "to": "closed",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER",
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "close_unfulfilled",
+        "label": "Cerrar sin ejecución",
+        "labels": {
+          "es": "Cerrar sin ejecución",
+          "en": "Close without execution"
+        },
+        "from": "accepted",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close_reclassified_received",
+        "label": "Cerrar por reclasificación",
+        "labels": {
+          "es": "Cerrar por reclasificación",
+          "en": "Close as reclassified"
+        },
+        "from": "received",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "close_reclassified_under_evaluation",
+        "label": "Cerrar por reclasificación",
+        "labels": {
+          "es": "Cerrar por reclasificación",
+          "en": "Close as reclassified"
+        },
+        "from": "under_evaluation",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      }
     ]
   }
 }
