@@ -299,8 +299,15 @@ Cada ítem se abre cuando su par de [08](../../ux/redesign/08-cambios-de-contrat
   el modo rápido es un conmutador de la cabecera: `sgspe-ui` `1d567d3`.
 - [x] `AtajosDePeriodo` junto a los periodos de tableros, reportes de QCS y mapa: `sgspe-ui` `b69fead`.
 - [x] El kit re-sincronizado con Claude Design (71 componentes, 10 nuevos): `sgspe-ui` `bc43c83`.
-- [ ] Los feriados marcados en el calendario: esperan un endpoint de `sgspe` que los exponga.
-- [ ] El orden por columna fuera de Alertas: espera que esas listas acepten `sort` y `dir` en su consulta.
+- [ ] Los feriados marcados en el calendario: esperan un endpoint de `sgspe` que los exponga (wasichai/sgspe#159).
+- [x] El orden por columna fuera de Alertas: Interacciones, Programas y Aportes (`sgspe-ui` `d3e4925`), Compromisos y
+  Acuerdos sobre `TablaPriorizada` (`c3a467e`) y, en memoria, Riesgos y Grupos de interés (`9bdbc09`). La cola de QCS
+  espera wasichai/sgspe#160.
+- [x] La prueba intermitente de S24 (`RegistrarInteraccionPage.test.tsx`): las pruebas esperan la pantalla de destino y el
+  formulario limpia el borrador al guardar: `sgspe-ui` `77b1daf`.
+- [x] B-04 en el portal: «Para tomar» en una sola lectura sin proyecto elegido y, en el inicio, «Para tomar en sus
+  proyectos»: `sgspe-ui` `31def4b`. Las cuentas con alcance de tenant esperan wasichai/sgspe#162.
+- [ ] Los conteos del proyecto en una lectura (B-03): wasichai/sgspe#161.
 - La validación sobre la demo viva (7.2 y los dos indicadores que faltan) es wasichai/sgspe#157; la fase 6 se hizo con
   wasichai/wasichai-ui#69 (2026-10-24).
 

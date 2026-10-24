@@ -61,7 +61,14 @@ listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
   (`design-system.md` §5.1, DD-04): primero el `SelectorDeVista` con las vistas y su conteo (`?view=`, DD-03), luego la
   búsqueda (`q`, 300 ms después de la última tecla), hasta tres filtros frecuentes, «Más filtros» en un drawer, un chip por
   filtro aplicado y «Limpiar filtros». Las anchas usan `TablaPriorizada` (DD-05): esenciales siempre, secundarias desde `xl`
-  y opcionales en «Columnas»; Enter en una fila abre la ficha y Espacio su vista previa (`?peek=`). La ficha abierta desde
+  y opcionales en «Columnas»; Enter en una fila abre la ficha y Espacio su vista previa (`?peek=`). Una columna ordenable
+  tiene su encabezado como botón con `aria-sort`; el orden dura la visita (no viaja en la URL) y otro orden vuelve a la
+  primera página. Ordenan: Alertas (S41, por fecha y título), Interacciones (S22, título y fecha), Programas (S42, código y
+  programa) y sus aportes (código), Compromisos (S28, código, compromiso y vence), Acuerdos (acuerdo, por su código, y
+  vence), Riesgos (S39, riesgo por código, P × I y nivel por su orden de negocio) y Grupos de interés (S16, solo la
+  prioridad, por su orden de negocio). Las que filtran en el navegador ordenan en memoria (Riesgos, Grupos e
+  Interacciones por fecha); las demás piden `sort` y `dir` al servidor. Un monto no se ordena (mezcla monedas, ASM-063) ni
+  un estado o un enum. La cola de QCS (S35) todavía no ordena: espera wasichai/sgspe#160. La ficha abierta desde
   la lista recuerda su origen y su resultado en el estado del historial (ASM-075). En el teléfono, la lista
   pasa a tarjetas (`ListaEnTarjetas`) y los filtros frecuentes, a «Filtros (N)». Las páginas de un módulo con ruta propia
   (Compromisos y Acuerdos; las de Riesgos) van en un `SelectorDePagina` en la cabecera (DD-23).
@@ -495,7 +502,8 @@ DataQualityPage
   `TablaPriorizada` con grupo de interés (actor y tipo), grupo de influencia (marca "ajustado" si `group_overridden`),
   postura, prioridad y estado (WF-B) como esenciales; territorio y último contacto como secundarias; y la relación, el
   responsable y la evaluación como opcionales, en «Columnas». A 1440 px no hay desplazamiento horizontal
-  (CA-1.6.2).
+  (CA-1.6.2). Solo la prioridad se ordena, por su orden de negocio (media, alta, muy alta; sin evaluar al final): el
+  nombre se lee aparte por fila y puede estar restringido.
 - **Datos y API:** genérica `GET /api/objects/stakeholder/records?project=` con los valores vigentes derivados; la vista
   "Sin contacto" usa `inactivity_days` del proyecto.
 - **Estados:** sin evaluar, el grupo y la prioridad dicen "Sin evaluar"; los retirados solo en su vista.
@@ -639,7 +647,8 @@ AssessmentDrawer
 - **Roles:** lectura de todos. Registrar: CRO, SHM, FAG (SMG edita). Visitas: CRO, FAG.
 - **Acciones:** primaria "Registrar interacción"; secundarias "Nueva visita de campo", vistas Mes, Semana y Lista.
 - **Disposición y componentes:** calendario mensual con eventos por estado (WF-C) y tipo; festividades como franja de contexto;
-  leyenda; la misma consulta como `DataTable`; a la derecha, meta de reuniones (KPI-ENG-02), "Te toca" (actas por redactar,
+  leyenda; la misma consulta como `TablaPriorizada`, que se ordena por título y por fecha (por el día de Lima que muestra:
+  realizada o, si no, programada); a la derecha, meta de reuniones (KPI-ENG-02), "Te toca" (actas por redactar,
   postergadas, preguntas pendientes) y festividades del mes.
 - **Datos y API:** genérica `GET /api/objects/engagement/records?project=&scheduled_at=` y `held_at`; `festivity` de las
   localidades del proyecto; KPI-ENG-02 con `GET /api/sgspe/dashboards/indicators/KPI-ENG-02`.
@@ -791,7 +800,9 @@ FieldVisitPage
 - **Disposición y componentes:** patrón de lista (`design-system.md` §6.4, con vistas compartidas y mías, ASM-083): en la
   cabecera, el `SelectorDePagina` «Compromisos · Acuerdos» (DD-23) y «Lista · Tablero»; la `BarraDeFiltros` con las vistas
   en el `SelectorDeVista` (Abiertos, Vencidos, Míos, Candidatos…; «Más vistas» con el resto), la búsqueda, el estado como
-  filtro frecuente y los chips; agrupación Vencidos, Por vencer, Bloqueados; la vista Candidatos lista los propuestos con
+  filtro frecuente y los chips; agrupación Vencidos, Por vencer, Bloqueados; `TablaPriorizada` con «Código» y «Compromiso»
+  en columnas aparte, ordenables con «Vence» (el monto no se ordena); Acuerdos usa la misma tabla, con «Acuerdo» (código y
+  título juntos, ordenado por el código) y «Vence»; la vista Candidatos lista los propuestos con
   su procedencia (humano o IA con confianza) y los decididos; panel de revisión
   con la cita, campos corregibles y las tres salidas.
 - **Datos y API:** genérica `GET /api/objects/commitment/records?project=`; candidatos con
@@ -984,7 +995,7 @@ atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
   QCS, Todas; compartidas y mías, ASM-083, hoja `Vistas-Compartidas`), la búsqueda, los filtros de canal, categoría,
   severidad y responsable, y los chips; `TablaPriorizada` agrupada por situación de plazo (VENCIDAS, POR VENCER, AL DÍA O
   SIN PLAZO) con tipo, canal, categoría, severidad, lugar, estado, plazo que corre y responsable, y la elección de
-  «Columnas» compartida entre los grupos.
+  «Columnas» compartida entre los grupos. Sin orden por columna todavía: lo pide wasichai/sgspe#160.
 - **Datos y API:** genérica sobre los tres objetos con el filtro de territorio; `GET /api/sgspe/attention/report` para el
   reporte (totales por tipo, estado, canal y categoría). Indicadores KPI-GRV-02, KPI-GRV-06 y KPI-GRV-07.
 - **Estados:** el plazo mostrado es el que corre en el estado: acuse o resolución en la queja, respuesta en la consulta; las
@@ -1127,8 +1138,9 @@ alerta (RN-EWS-001).
 - **Roles:** lectura para todos con READ sobre `social_risk`; SRM crea y evalúa; SMG decide el tratamiento y exporta.
 - **Acciones:** primaria "Identificar riesgo"; secundarias filtrar por celda, vistas (Registro y matriz, Revisión vencida,
   Mis riesgos, Incidentes, Cerrados) y "Alerta temprana" con su conteo.
-- **Disposición y componentes:** mapa de calor 5 × 5 con conteo por celda y color por nivel; tabla con riesgo, categoría,
-  P × I, nivel, tendencia, estado y situación de revisión.
+- **Disposición y componentes:** mapa de calor 5 × 5 con conteo por celda y color por nivel; `TablaPriorizada` con riesgo,
+  categoría, P × I, nivel, tendencia, estado y situación de revisión; se ordena por riesgo (su código), P × I (el puntaje
+  como número) y nivel (bajo, medio, alto, crítico; nunca por el texto).
 - **Datos y API:** genérica sobre `social_risk` con sus valores vigentes derivados; KPI-RSK-01 y KPI-RSK-02.
 - **Estados:** un riesgo sin revisión no entra al mapa y se cuenta aparte; una celda elegida muestra "Quitar filtro de celda".
 - **Permisos:** sin campos restringidos propios.
@@ -1329,8 +1341,9 @@ Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se s
   (`?view=enCurso`, `terminados` y `todos`, que llevan al mismo lugar que antes). Cada vista trae sus cifras: los programas,
   el presupuesto ejecutado del año y los beneficiarios; los aportes, el tope de la campaña (comprometido frente al tope y
   ejecutado, con advertencia de otra moneda). Una cifra que la cuenta no lee dice «No disponible»; una zona sin datos no
-  se dibuja. `TablaPriorizada` de programas (socio, estado, presupuesto del año, ejecutado, beneficiarios, indicadores con
-  medición) o de aportes de la campaña (tipo, tema, quién recibe, estado, total de los ítems, origen).
+  se dibuja. `TablaPriorizada` de programas («Código» y «Programa» en columnas aparte, las dos ordenables; socio, estado,
+  presupuesto del año, ejecutado, beneficiarios, indicadores con medición) o de aportes de la campaña (código, ordenable;
+  tipo, tema, quién recibe, estado, total de los ítems, origen; el total no se ordena: mezcla monedas, ASM-063).
 - **Datos y API:** genérica sobre `social_program`, `program_budget`, `beneficiary_group` y `social_contribution`;
   KPI-INV-01, KPI-INV-02 y KPI-INV-04; `exploration_campaign.executed_social_amount` y `other_currency_items_count`.
 - **Estados:** el tope se verifica al aprobar contra lo comprometido de compromisos y aportes de la campaña (ASM-110);
@@ -1480,7 +1493,9 @@ EvidencePage
   "Para tomar".
 - **Disposición y componentes:** cambio de vista; conteos de vencidas, por vencer y abiertas; lista con origen, prioridad,
   vencimiento con su situación, estado y acción; tablero por estado; calendario del mes por vencimiento; "Para tomar" con las
-  tareas de escalamiento sin asignado de los roles de la persona.
+  tareas sin asignar de los proyectos de la persona, en una sola lectura y sin elegir proyecto (el servidor acota la
+  lectura, ADR-0029), con la columna Proyecto. Quien lee todos los proyectos la ve dentro de un proyecto, con el texto que
+  pide elegirlo: sin proyecto traería la cola de todo el tenant (wasichai/sgspe#162).
 - **Datos y API:** genérica sobre `task` filtrada por `assignee_user_id`; transiciones de WF-N; tomar una tarea es UPDATE de
   `assignee_user_id` (IM).
 - **Estados:** una tarea vencida sigue en su estado; en el tablero, arrastrar a una columna sin transición devuelve la
@@ -1870,8 +1885,8 @@ LoginPage
 - **Acciones:** abrir cada elemento; los atajos de creación que la cuenta tiene; a quien lee los indicadores, «Monitoreo» y
   «Catálogo de indicadores» en la cabecera.
 - **Disposición y componentes:** cabecera «Inicio» con el saludo; luego, en este orden y solo si tienen algo legible:
-  «Lo que me toca hoy» (lo abierto a su cargo, vencido primero, cinco a la vista y el resto desplegable; «Para tomar en …»
-  con las tareas sin asignar de sus proyectos), «Esperan su decisión» (aprobaciones, alertas por triar y avisos que piden
+  «Lo que me toca hoy» (lo abierto a su cargo, vencido primero, cinco a la vista y el resto desplegable; «Para tomar en sus
+  proyectos» con hasta cinco tareas sin asignar, cada una con su proyecto, y «Ver los N» hacia S47), «Esperan su decisión» (aprobaciones, alertas por triar y avisos que piden
   acción, en `ListaPriorizada`), «Agenda de la semana» (visitas que lidera e interacciones programadas en sus proyectos),
   «Registrar» (atajos), «Mis proyectos» (tarjetas con estado, jefatura y lo que pide acción) y «Visión ejecutiva». Los
   datos de la cuenta viven en el menú de la cuenta.
@@ -1902,7 +1917,9 @@ InicioPage
 - **Propósito:** ver qué pasó que me toca y llegar al registro.
 - **Roles:** cada persona ve solo sus avisos.
 - **Acciones:** abrir (marca como leído); "Solo sin leer"; "Marcar todos como leídos".
-- **Disposición y componentes:** lista con tipo por color e ícono, título, detalle y hora; punto de no leído; nota de origen.
+- **Disposición y componentes:** `BarraDeFiltros` con las vistas en el `SelectorDeVista` (Activos, Solo sin leer,
+  Pospuestos) y el tipo como filtro; lista con tipo por color e ícono, título, detalle y hora; punto de no leído; nota de
+  origen. Sin orden por columna: van del más reciente al más antiguo.
 - **Datos y API:** la bandeja de wasichai-notifications (`api.md` §4.10): `GET /api/auth/me/notifications`,
   `GET …/summary`, `POST …/{id}/read`, `POST …/read-all` y `GET …/stream` (SSE), con los componentes de `@wasichai/*`;
   tipos de `workflows.md` "Avisos".

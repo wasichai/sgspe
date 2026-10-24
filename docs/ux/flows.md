@@ -20,7 +20,8 @@ versión cubre los 18 flujos: la **etapa 2** (flujos 1 a 11, 16 y 17), la **part
 
 - **Empezar el día (F-A).** Todo flujo de trabajo diario empieza en el inicio «Mi trabajo» (S02, DD-01): «Lo que me toca
   hoy» lista lo abierto a cargo de la persona con lo vencido primero, y «Esperan su decisión», las aprobaciones y las
-  alertas por triar. La tarea o la QCS que vence primero está a un clic, sin elegir proyecto ni ordenar una lista.
+  alertas por triar. La tarea o la QCS que vence primero está a un clic, sin elegir proyecto ni ordenar una lista, y
+  «Para tomar en sus proyectos» trae las tareas sin asignar de todos sus proyectos, también sin elegir uno.
 - **Avanzar un registro (F-B).** En toda ficha, la acción primaria de la cabecera es la siguiente acción del flujo, la misma
   del panel de decisión (DD-02): «Registrar cumplimiento» en un compromiso en ejecución, nunca «Bloquear». Si no se puede
   dar todavía, se ve deshabilitada con lo que falta debajo. Las destructivas (cancelar, anular, retirar, terminar, rechazar
