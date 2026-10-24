@@ -30,8 +30,11 @@ Todo lo de las fases 1 a 5 usa lecturas, permisos y comandos que ya existen:
 | B-03 | **Conteos del proyecto en una sola lectura** (opcional), por ejemplo `GET /api/sgspe/projects/{id}/counts`, con el mismo alcance de lectura (ADR-0029) y sin contar QCS confidenciales ilegibles. | Hoy `useConteosDelProyecto` (`contexto/conteos.ts:30`) hace una lectura por pestaña y por clase | Se mantienen las lecturas actuales: funciona y es correcto | Baja (rendimiento). Abierto en wasichai/sgspe#161 |
 | B-04 | **Tareas «para tomar» de todos los proyectos de la cuenta**, en la misma lectura que «Mis tareas». | U-13: la cola compartida solo aparece al elegir un proyecto | El bloque «Lo que me toca hoy» pide la cola de cada proyecto vigente de la cuenta, con un tope y «Ver todas» | Media. ✅ Resuelto en el portal sin cambio de contrato (`sgspe-ui` `31def4b`): el servidor ya acota `task` a los proyectos de la cuenta y la cola se lee en una sola consulta. Queda la decisión para las cuentas con alcance de tenant: wasichai/sgspe#162 |
 
-**Por verificar, no es contrato.** U-23 («Plazo» vacío y «Vencidas 0» con una tarea vencida) es una hipótesis: puede
-que JOB-01 no haya corrido sobre la demo. Se comprueba con `model/demo/demo_check.py` antes de pedir cambio alguno.
+**Verificado, no es contrato.** U-23 («Plazo» vacío y «Vencidas 0» con una tarea vencida) era el efecto de no haber corrido
+JOB-01 sobre la demo, no un defecto (2026-10-24, wasichai/sgspe#157). Después de la vuelta de las 16:05 (23 situaciones y 7
+tareas de escalamiento), la tarea del 17/10, la queja DEMO-Q-03 y el compromiso DEMO-C-04 quedaron en VENCIDO, y la lista
+y el inicio los cuentan. Que JOB-01 no corriera venía de un hilo único de planificación, tapado por JOB-05 y JOB-09 con la
+base inaccesible: queda en wasichai/sgspe#164.
 
 Fuera de esta tabla quedaron dos pedidos de backend que salieron de la fase 4: el orden por columna en la cola de QCS
 (wasichai/sgspe#160) y los feriados para el calendario (wasichai/sgspe#159).

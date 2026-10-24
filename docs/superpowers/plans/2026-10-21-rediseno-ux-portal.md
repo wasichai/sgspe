@@ -288,7 +288,8 @@ Cada ítem se abre cuando su par de [08](../../ux/redesign/08-cambios-de-contrat
   - `design-system.md`: tokens nuevos, espaciado, puntos de corte, los diez componentes, la acción principal y el contraste
     (`258faed` y `8b9bc50`);
   - `screens.md` y `flows.md` de las pantallas y los flujos tocados (`00a06b0`, `8b9bc50` y `06f8d8e`).
-- [ ] **7.2** Regenerar todas las capturas de `docs/manuals/` y revisar los manuales.
+- [x] **7.2** Regenerar todas las capturas de `docs/manuals/` y revisar los manuales: las 56 sobre la demo viva después de
+  JOB-01, revisadas a ojo, y los PDF reconstruidos (wasichai/sgspe#157).
 - [x] **7.3** Marcar `docs/ux/redesign/` como historia en su README, con el enlace desde `docs/ux/README.md` (`ad44fd8`).
 
 ### Lo que quedaba de las fases 2 a 4 (2026-10-23)
