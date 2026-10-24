@@ -314,12 +314,14 @@ Cada ítem se abre cuando su par de [08](../../ux/redesign/08-cambios-de-contrat
 
 ## Verificación final
 
-- [ ] Los siete indicadores de [06 §5](../../ux/redesign/06-plan-de-implementacion.md#5-cómo-se-mide-el-resultado),
+- [x] Los siete indicadores de [06 §5](../../ux/redesign/06-plan-de-implementacion.md#5-cómo-se-mide-el-resultado),
   medidos antes y después, en el PR de cierre. Medidos en el código el 2026-10-23: seis controles en la barra superior a
   1440 px (`e2e/shell.spec.ts`), ninguna caja de sección a mano fuera de `Seccion` salvo las cinco excepciones de
   `superficies.test.ts`, ningún campo de fecha nativo (`camposDeFecha.test.ts`), ningún desborde a 1440 px en las listas
-  de 4.3 (e2e) y ningún par de contraste que falle. Faltan los pasos de F-A a F-G y las pantallas con más de una
-  primaria, que se cuentan sobre la demo viva, con las capturas de 7.2.
+  de 4.3 (e2e) y ningún par de contraste que falle. Los dos que faltaban se midieron sobre la demo viva el 2026-10-24
+  (wasichai/sgspe#157, 06 §5): los pasos de F-A a F-G, iguales o menores que lo propuesto salvo el filtro de F-C
+  (wasichai/sgspe-ui#77), y 0 pantallas con más de una primaria.
 - [x] `python3 docs/ux/redesign/contraste.py` sin fallas (2026-10-23).
 - [x] La suite completa de `sgspe-ui` en verde (2410 pruebas unitarias y 91 e2e), y `python3 tools/check_traceability.py`
-  en `sgspe` (304 requisitos).
+  en `sgspe` (304 requisitos). Repetida el 2026-10-24 sobre el merge `c5128ad` (`@wasichai/*` 1.1.0): 2459
+  pruebas unitarias y 91 e2e.
