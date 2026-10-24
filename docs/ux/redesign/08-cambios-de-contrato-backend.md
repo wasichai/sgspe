@@ -40,6 +40,9 @@ Ninguno de B-01 a B-04 define requisitos nuevos aquí: si se aprueban, se regist
 
 Son pedidos a otro repositorio. Se abren como issues allí cuando el rediseño se apruebe.
 
+✅ Publicados (2026-10-24): W-01 a W-08 se pidieron en wasichai/wasichai-ui#69 y salieron en `@wasichai/*` 1.1.0 y
+wasichai 1.4.0; el portal los usa desde `sgspe-ui` `128a56b` y `4602821`.
+
 | ID | Paquete | Cambio | Hallazgo | Sin el cambio |
 |---|---|---|---|---|
 | W-01 | `@wasichai/core` (`WasichaiApp`) | Lema y marca configurables en `/admin` (hoy dice «Plataforma de aplicaciones geoespaciales configurables») | U-08 | `/admin` conserva el lema de wasichai |

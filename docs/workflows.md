@@ -212,7 +212,7 @@ llega en F2, con el primer workflow.
 | `enabled` | Si ofrece transiciones | `true`; ver ASM-010 en WF-A |
 | `definition.states[]` | `name`, `label`, `labels`, `type` (`INITIAL`, `INTERMEDIATE` o `FINAL`; sin `type` es `INTERMEDIATE`), `x` e `y` opcionales | Los estados de §7.3 del modelo de dominio; sin `x` ni `y` en el repositorio: el lienzo los ubica |
 | `definition.transitions[]` | `name`, `label`, `labels`, `from`, `to`, `roles` | Roles de `model/roles.json`, nunca vacíos |
-| `labels` de un estado o una transición | La etiqueta por idioma, `{ "es": …, "en": … }`, desde wasichai 1.4.0 [WAS-ADR-0070]; `label` queda como respaldo | Siempre `es` y `en`; `es` es el `label` mismo, para que el portal en español no cambie (B-01, U-42) |
+| `labels` de un estado o una transición | La etiqueta por idioma, `{ "es": …, "en": … }`, desde wasichai 1.4.0 [WAS-ADR-0070]; `label` queda como respaldo | Siempre `es` y `en`; `es` es el `label` mismo, para que el portal en español no cambie (B-01, U-42). El inglés es un borrador hasta su revisión profesional (ASM-084, wasichai/sgspe#163) |
 
 Reglas de mantenimiento:
 
