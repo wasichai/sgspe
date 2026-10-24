@@ -212,7 +212,22 @@ llega en F2, con el primer workflow.
 | `enabled` | Si ofrece transiciones | `true`; ver ASM-010 en WF-A |
 | `definition.states[]` | `name`, `label`, `labels`, `type` (`INITIAL`, `INTERMEDIATE` o `FINAL`; sin `type` es `INTERMEDIATE`), `x` e `y` opcionales | Los estados de §7.3 del modelo de dominio; sin `x` ni `y` en el repositorio: el lienzo los ubica |
 | `definition.transitions[]` | `name`, `label`, `labels`, `from`, `to`, `roles` | Roles de `model/roles.json`, nunca vacíos |
-| `labels` de un estado o una transición | La etiqueta por idioma, `{ "es": …, "en": … }`, desde wasichai 1.4.0 [WAS-ADR-0070]; `label` queda como respaldo | Siempre `es` y `en`; `es` es el `label` mismo, para que el portal en español no cambie (B-01, U-42). El inglés es un borrador hasta su revisión profesional (ASM-084, wasichai/sgspe#163) |
+| `labels` de un estado o una transición | La etiqueta por idioma, `{ "es": …, "en": … }`, desde wasichai 1.4.0 [WAS-ADR-0070]; `label` queda como respaldo | Siempre `es` y `en`; `es` es el `label` mismo, para que el portal en español no cambie (B-01, U-42). El inglés tiene revisión profesional (ASM-084, wasichai/sgspe#163) y sigue las convenciones de abajo |
+
+Convenciones de las etiquetas en inglés (ASM-084, wasichai/sgspe#163):
+
+- Inglés británico: *Cancelled*, *fulfilment*.
+- Un estado es un adjetivo o un participio (*Approved*, *Under review*); una transición, un verbo en imperativo
+  (*Approve*, *Start review*). «En …» es *Under …* cuando algo está siendo revisado, evaluado o ejecutado
+  (*Under review*, *Under assessment*, *Under implementation*) e *In …* en los demás casos (*In negotiation*, *In triage*).
+- El mismo término español puede cambiar según el objeto: «Resuelto» de un acuerdo es *Terminated* (resolución del
+  contrato) y el de una queja o una alerta, *Resolved*; «Evaluar» una queja, un riesgo o un grupo de interés es
+  *Assess* y un programa o una solicitud, *Evaluate*; «Concluido» de un acuerdo es *Concluded* y el de una visita,
+  *Completed*.
+- «Anular» es *Void* y «Cancelar», *Cancel*: se respeta la distinción del español. «Observar» y «Observado» de un
+  entregable son *Return with comments* y *Returned with comments*; «Realizada» de una interacción, *Held*; «Vigente»,
+  *In force*; «En atención» de una queja, *Being addressed*; «Ejecución» de un compromiso o un programa,
+  *implementation*.
 
 Reglas de mantenimiento:
 

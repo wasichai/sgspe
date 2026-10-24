@@ -113,7 +113,7 @@
         "label": "Cerrar por cierre del compromiso o del aporte",
         "labels": {
           "es": "Cerrar por cierre del compromiso o del aporte",
-          "en": "Close as the commitment or contribution closed"
+          "en": "Close on commitment or contribution closure"
         },
         "from": "accepted",
         "to": "closed",
@@ -128,7 +128,7 @@
         "label": "Cerrar sin ejecución",
         "labels": {
           "es": "Cerrar sin ejecución",
-          "en": "Close without execution"
+          "en": "Close without implementation"
         },
         "from": "accepted",
         "to": "closed",

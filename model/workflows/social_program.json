@@ -36,7 +36,7 @@
         "label": "En ejecución",
         "labels": {
           "es": "En ejecución",
-          "en": "In execution"
+          "en": "Under implementation"
         },
         "type": "INTERMEDIATE"
       },
@@ -144,7 +144,7 @@
         "label": "Iniciar ejecución",
         "labels": {
           "es": "Iniciar ejecución",
-          "en": "Start execution"
+          "en": "Start implementation"
         },
         "from": "planned",
         "to": "executing",

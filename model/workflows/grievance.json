@@ -27,7 +27,7 @@
         "label": "En evaluación",
         "labels": {
           "es": "En evaluación",
-          "en": "Under evaluation"
+          "en": "Under assessment"
         },
         "type": "INTERMEDIATE"
       },
@@ -45,7 +45,7 @@
         "label": "En atención",
         "labels": {
           "es": "En atención",
-          "en": "In action"
+          "en": "Being addressed"
         },
         "type": "INTERMEDIATE"
       },
@@ -115,7 +115,7 @@
         "label": "Evaluar",
         "labels": {
           "es": "Evaluar",
-          "en": "Evaluate"
+          "en": "Assess"
         },
         "from": "acknowledged",
         "to": "in_assessment",
@@ -141,7 +141,7 @@
         "label": "Atender",
         "labels": {
           "es": "Atender",
-          "en": "Take action"
+          "en": "Address"
         },
         "from": "in_assessment",
         "to": "in_action",
@@ -154,7 +154,7 @@
         "label": "Atender",
         "labels": {
           "es": "Atender",
-          "en": "Take action"
+          "en": "Address"
         },
         "from": "in_investigation",
         "to": "in_action",
