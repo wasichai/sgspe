@@ -1,6 +1,8 @@
-# sgspe-slides (ADR-0031): compone el PDF de las presentaciones con Remotion. dos etapas: la primera instala, prepara el bundle
-# de las composiciones y descarga el Chrome headless-shell de Remotion (con red, al construir); la segunda solo corre, sin red
-# de salida en producción, como usuario sin privilegios y con el sistema de archivos de solo lectura
+# sgspe-slides (ADR-0031): compone el PDF y el MP4 de las presentaciones con Remotion. dos etapas: la primera instala, prepara el
+# bundle de las composiciones y descarga el Chrome headless-shell de Remotion (con red, al construir); la segunda solo corre, sin
+# red de salida en producción, como usuario sin privilegios y con el sistema de archivos de solo lectura. el MP4 usa el ffmpeg
+# que trae @remotion/compositor-linux-x64-gnu, dependencia opcional de @remotion/renderer que viaja en node_modules: la imagen
+# no instala otro
 FROM node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS build
 WORKDIR /app
 COPY package.json yarn.lock ./

@@ -1460,7 +1460,7 @@
       "name": "deliverable_presentation",
       "label": "Presentación de entregable",
       "pluralLabel": "Presentaciones de entregable",
-      "description": "Presentación derivada de una versión emitida de un entregable, para un público y un nivel de divulgación: su especificación y su PDF de láminas (ADR-0031).",
+      "description": "Presentación derivada de una versión emitida de un entregable, para un público y un nivel de divulgación: su especificación, su PDF de láminas y, a pedido, su video MP4 (ADR-0031).",
       "apiOnly": true,
       "uniqueConstraints": [["deliverable_version", "audience", "disclosure_level", "planner_version"]],
       "fields": [
@@ -1478,7 +1478,13 @@
         {"name": "model_sha256", "label": "SHA-256 del modelo", "type": "TEXT", "derived": true, "description": "(derivado) SHA-256 del modelo congelado de la versión."},
         {"name": "planner_version", "label": "Versión del planificador", "type": "TEXT", "derived": true, "description": "(derivado) Versión del planificador que armó la especificación."},
         {"name": "design_version", "label": "Versión del diseño", "type": "TEXT", "derived": true, "description": "(derivado) Versión del sistema visual de las láminas."},
-        {"name": "renderer_version", "label": "Versión del compositor", "type": "TEXT", "derived": true, "description": "(derivado) Versión del compositor (Remotion)."}
+        {"name": "renderer_version", "label": "Versión del compositor", "type": "TEXT", "derived": true, "description": "(derivado) Versión del compositor (Remotion)."},
+        {"name": "video_status", "label": "Estado del video", "type": "ENUM", "enum": "presentation_status", "derived": true, "description": "(derivado) Estado de la composición del MP4; vacío si no se pidió."},
+        {"name": "video_requested_at", "label": "Video pedido el", "type": "DATETIME", "derived": true, "description": "(derivado) Momento del pedido del MP4."},
+        {"name": "video_generated_at", "label": "Video generado el", "type": "DATETIME", "derived": true, "description": "(derivado) Momento en que JOB-09 tomó el pedido del MP4; también en FALLIDO."},
+        {"name": "video_failure_code", "label": "Código de la falla del video", "type": "TEXT", "derived": true, "description": "(derivado) Código de la falla del MP4, sin texto del documento."},
+        {"name": "video", "label": "Video MP4", "type": "FILE", "contentTypes": ["application/octet-stream"], "maxBytes": 67108864, "derived": true, "description": "(derivado) Video MP4 de la presentación, compuesto de su misma especificación."},
+        {"name": "video_sha256", "label": "SHA-256 del video", "type": "TEXT", "derived": true, "description": "(derivado) SHA-256 del MP4, igual al de su archivo."}
       ]
     },
     {

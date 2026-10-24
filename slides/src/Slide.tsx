@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FC } from 'react'
 import { cancelRender, continueRender, delayRender, getRemotionEnvironment, useCurrentFrame } from 'remotion'
 import { verify } from './checks.ts'
+import { FPS, SLIDE_FRAMES } from './timing.ts'
 import { DeckProvider, deckContext } from './context.tsx'
 import { fontsReady, loadFonts } from './fonts.ts'
 import { LAYOUTS, type LayoutProps } from './layouts/index.ts'
@@ -17,8 +18,7 @@ export type SlideProps = {
 }
 
 // cuántos fotogramas dura una lámina (a 30 por segundo): su último fotograma es el estado completo, el que va al PDF
-export const SLIDE_FRAMES = 90
-export const FPS = 30
+export { FPS, SLIDE_FRAMES }
 
 // el prefijo del error con que una lámina cancela la composición: el servicio lo lee y responde con su código (§16.7)
 export const FAILURE = 'SGSPE'

@@ -13,7 +13,8 @@ import sgspe.privacy.ReportDisclosure
 
 // ADR-0031, deliverables.md §16.8, api.md §4.12, security.md §14 («Presentaciones»): el ciclo de una presentación desde una
 // versión emitida, con el doble del compositor. el pedido y sus rechazos, JOB-09, las descargas con el permiso del nivel, la
-// lista de verificación y export_log, las rutas nativas cerradas, el servicio caído y la regeneración desde lo congelado
+// lista de verificación y export_log, las rutas nativas cerradas, el servicio caído, la regeneración desde lo congelado y, desde
+// ASM-148, el MP4 a pedido
 class DeliverablePresentationsApiTest : F8ApiTest() {
     // un T1 sintético con hechos tipados (typeVersion 2): el que emiten los tipos desde las presentaciones
     private val model: ByteArray = CanonicalJson.bytes(DeckDemo.model())
@@ -22,6 +23,7 @@ class DeliverablePresentationsApiTest : F8ApiTest() {
     fun reset() {
         fakeSlides.unavailable = false
         fakeSlides.failure = null
+        fakeSlides.shortVideo = false
     }
 
     // un entregable emitido con el modelo de las presentaciones: la versión INTERNO y la EXTERNO derivada
@@ -202,5 +204,88 @@ class DeliverablePresentationsApiTest : F8ApiTest() {
             val text = String(spec, Charsets.UTF_8)
             T1Source.personNames.forEach { assertFalse(it in text, it) }
         }
+    }
+
+    private fun requestVideo(
+        presentation: String,
+        token: String = this.token
+    ) = exchange("POST", "/api/sgspe/presentations/$presentation/video", token = token)
+
+    private fun formats(presentation: String): List<String> =
+        tree(send("GET", "/api/objects/export_log/records?deliverable_presentation=$presentation", null, HttpStatus.OK))["content"]
+            .values()
+            .map { it["attributes"]["file_format"].asString() }
+
+    @Test
+    fun `el MP4 se pide sobre una presentacion LISTO, JOB-09 lo compone de la especificacion guardada y se baja con su fila`() {
+        val project = testProject()
+        val id = issued(project)
+        // PROJECT_MANAGER (EXPORT, CREATE y u) pide la presentación EXTERNO y su video
+        val reader = member("PROJECT_MANAGER", project)
+        val presentation = tree(request(id, number(id, "EXTERNO"), "DIRECCION", "EXTERNO", reader.token).body)["presentation"]["id"].asString()
+        // antes de LISTO no hay video que pedir
+        assertEquals(HttpStatus.CONFLICT, requestVideo(presentation, reader.token).status)
+        compose()
+        val asked = requestVideo(presentation, reader.token)
+        assertEquals(HttpStatus.ACCEPTED, asked.status, asked.body)
+        assertEquals("EN COLA", tree(asked.body)["presentation"]["videoStatus"].asString())
+        assertEquals("/api/sgspe/presentations/$presentation", asked.headers.location?.path)
+        assertEquals(HttpStatus.CONFLICT, exchange("GET", "/api/sgspe/presentations/$presentation/video?checklistConfirmed=true", token = reader.token).status)
+        assertEquals(1, compose())
+        val status = tree(exchange("GET", "/api/sgspe/presentations/$presentation", token = reader.token).body)
+        assertEquals("LISTO", status["videoStatus"].asString(), status.toString())
+        assertEquals("LISTO", status["status"].asString())
+        // el video es de la misma especificación que el PDF
+        val spec = exchange("GET", "/api/sgspe/presentations/$presentation/spec?checklistConfirmed=true", token = reader.token)
+        assertTrue(fakeSlides.videoSpecs.last().contentEquals(spec.body.toByteArray(Charsets.UTF_8)))
+        // sin la lista de verificación, 400; con ella, el MP4 con su fila
+        assertEquals(HttpStatus.BAD_REQUEST, exchange("GET", "/api/sgspe/presentations/$presentation/video", token = reader.token).status)
+        val video = exchange("GET", "/api/sgspe/presentations/$presentation/video?checklistConfirmed=true", token = reader.token)
+        assertEquals(HttpStatus.OK, video.status, video.body)
+        assertEquals("video/mp4", video.headers.contentType?.toString())
+        assertEquals(status["videoSha256"].asString(), video.headers.eTag?.trim('"'))
+        assertEquals(listOf("deck", "mp4"), formats(presentation).sorted())
+        // pedirlo otra vez no lo vuelve a componer
+        assertEquals("LISTO", tree(requestVideo(presentation, reader.token).body)["presentation"]["videoStatus"].asString())
+        assertEquals(0, compose())
+        // la ruta nativa no lo sirve
+        assertEquals(HttpStatus.NOT_FOUND, exchange("GET", "/api/objects/deliverable_presentation/records/$presentation/files/video").status)
+    }
+
+    @Test
+    fun `un MP4 que no dura lo que sus laminas queda FALLIDO sin archivo, con el PDF intacto, y pedirlo otra vez lo recompone`() {
+        val project = testProject()
+        val id = issued(project)
+        val presentation = tree(request(id, number(id, "EXTERNO"), "INSTITUCIONES", "EXTERNO").body)["presentation"]["id"].asString()
+        compose()
+        fakeSlides.shortVideo = true
+        assertEquals(HttpStatus.ACCEPTED, requestVideo(presentation).status)
+        compose()
+        val failed = record("deliverable_presentation", presentation)["attributes"]
+        assertEquals("FALLIDO", failed["video_status"].asString())
+        assertEquals("DECK_CHECK_FAILED", failed["video_failure_code"].asString())
+        assertTrue(failed["video"] == null || failed["video"].isNull)
+        assertEquals("LISTO", failed["presentation_status"].asString())
+        assertEquals(HttpStatus.CONFLICT, exchange("GET", "/api/sgspe/presentations/$presentation/video?checklistConfirmed=true").status)
+        fakeSlides.shortVideo = false
+        assertEquals("EN COLA", tree(requestVideo(presentation).body)["presentation"]["videoStatus"].asString())
+        compose()
+        assertEquals("LISTO", record("deliverable_presentation", presentation)["attributes"]["video_status"].asString())
+    }
+
+    @Test
+    fun `pedir y bajar el MP4 exigen la accion del nivel`() {
+        val project = testProject()
+        val id = issued(project)
+        val manager = member("SOCIAL_MANAGER", project)
+        val internal = tree(request(id, number(id, "INTERNO"), "DIRECCION", "INTERNO", manager.token).body)["presentation"]["id"].asString()
+        compose()
+        // PROJECT_MANAGER no tiene DOWNLOAD_RESTRICTED y COMMUNITY_RELATIONS_OFFICER solo lee
+        assertEquals(HttpStatus.FORBIDDEN, requestVideo(internal, member("PROJECT_MANAGER", project).token).status)
+        assertEquals(HttpStatus.FORBIDDEN, requestVideo(internal, member("COMMUNITY_RELATIONS_OFFICER", project).token).status)
+        assertEquals(HttpStatus.ACCEPTED, requestVideo(internal, manager.token).status)
+        compose()
+        assertEquals(HttpStatus.FORBIDDEN, exchange("GET", "/api/sgspe/presentations/$internal/video", token = member("PROJECT_MANAGER", project).token).status)
+        assertEquals(HttpStatus.OK, exchange("GET", "/api/sgspe/presentations/$internal/video", token = manager.token).status)
     }
 }

@@ -6,12 +6,19 @@ import { semaphore, slidesServer, type Renderer } from '../server/server.ts'
 
 const deck = fs.readFileSync('fixtures/demo-t1-direccion.json', 'utf8')
 let mode: 'ok' | 'overflow' | 'timeout' = 'ok'
-const render: Renderer = async () => {
-  if (mode === 'overflow') throw new SlideFailure('SLIDE_OVERFLOW', 'tesis')
-  if (mode === 'timeout') throw new SlideFailure('TIMEOUT', 'tesis')
-  return new TextEncoder().encode('%PDF-1.7')
-}
-const server = slidesServer(render, { maxBytes: 1_000_000, timeoutMs: 1000, concurrency: 2 })
+const timeouts: number[] = []
+const fake =
+  (bytes: string): Renderer =>
+  async (_deck, timeoutMs) => {
+    timeouts.push(timeoutMs)
+    if (mode === 'overflow') throw new SlideFailure('SLIDE_OVERFLOW', 'tesis')
+    if (mode === 'timeout') throw new SlideFailure('TIMEOUT', null)
+    return new TextEncoder().encode(bytes)
+  }
+const server = slidesServer(
+  { pdf: fake('%PDF-1.7'), video: fake('\0\0\0\x20ftypisom') },
+  { maxBytes: 1_000_000, timeoutMs: 1000, videoTimeoutMs: 5000, concurrency: 2 }
+)
 let base = ''
 
 beforeAll(async () => {
@@ -20,7 +27,8 @@ beforeAll(async () => {
 })
 afterAll(() => server.close())
 
-const post = (body: string) => fetch(`${base}/render`, { method: 'POST', body, headers: { 'content-type': 'application/json', 'x-trace': 'job-09-prueba' } })
+const post = (body: string, route = '/render') =>
+  fetch(`${base}${route}`, { method: 'POST', body, headers: { 'content-type': 'application/json', 'x-trace': 'job-09-prueba' } })
 
 describe('el servicio', () => {
   it('responde la salud', async () => {
@@ -62,6 +70,32 @@ describe('el servicio', () => {
     expect(await overflow.json()).toEqual({ code: 'SLIDE_OVERFLOW', slide: 'tesis' })
     mode = 'timeout'
     expect((await post(deck)).status).toBe(504)
+  })
+
+  it('compone el MP4 de la misma especificación por /video, con su propio plazo', async () => {
+    mode = 'ok'
+    timeouts.length = 0
+    const response = await post(deck, '/video')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('video/mp4')
+    expect(response.headers.get('x-slides-count')).toBe('14')
+    expect(response.headers.get('x-slides-renderer')).toMatch(/^remotion@4\.0\.\d+$/)
+    expect(new TextDecoder().decode(await response.arrayBuffer())).toContain('ftyp')
+    expect(timeouts).toEqual([5000])
+  })
+
+  it('el MP4 valida la especificación y responde los errores como el PDF', async () => {
+    expect(await (await post('{', '/video')).json()).toEqual({ code: 'NOT_JSON' })
+    mode = 'overflow'
+    expect(await (await post(deck, '/video')).json()).toEqual({ code: 'SLIDE_OVERFLOW', slide: 'tesis' })
+    mode = 'timeout'
+    const late = await post(deck, '/video')
+    expect(late.status).toBe(504)
+    expect(await late.json()).toEqual({ code: 'TIMEOUT', slide: null })
+  })
+
+  it('un GET a /video es 404', async () => {
+    expect((await fetch(`${base}/video`)).status).toBe(404)
   })
 
   it('otra ruta es 404', async () => {

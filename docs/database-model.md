@@ -3718,7 +3718,7 @@ RQ-REP-001, RQ-REP-014, RQ-REP-017, RQ-REP-026, RQ-REP-027, RQ-AI-012, ASM-133.
 ### `deliverable_presentation`
 
 **Presentación de entregable** (BC-15). Presentación derivada de una versión emitida de un entregable, para un público y
-un nivel de divulgación: su especificación y su PDF de láminas (ADR-0031). Tabla física
+un nivel de divulgación: su especificación, su PDF de láminas y, a pedido, su video MP4 (ADR-0031). Tabla física
 `app_data.deliverable_presentation__<org8>`. Requisitos: RF-REP-008, RQ-REP-034, RQ-REP-035, RQ-REP-036, RQ-REP-037,
 ASM-143, ASM-144, ASM-145, ASM-146, ASM-147.
 
@@ -3739,6 +3739,12 @@ ASM-143, ASM-144, ASM-145, ASM-146, ASM-147.
 | `planner_version` | TEXT | no | compuesto | (derivado) Versión del planificador que armó la especificación. | RQ-REP-037 |
 | `design_version` | TEXT | no | — | (derivado) Versión del sistema visual de las láminas. | RQ-REP-037 |
 | `renderer_version` | TEXT | no | — | (derivado) Versión del compositor (Remotion). | ASM-144 |
+| `video_status` | ENUM `presentation_status` | no | — | (derivado) Estado de la composición del MP4; vacío si no se pidió. | ASM-148 |
+| `video_requested_at` | DATETIME | no | — | (derivado) Momento del pedido del MP4. | ASM-148 |
+| `video_generated_at` | DATETIME | no | — | (derivado) Momento en que JOB-09 tomó el pedido del MP4; también en FALLIDO. | ASM-148 |
+| `video_failure_code` | TEXT | no | — | (derivado) Código de la falla del MP4, sin texto del documento. | RQ-REP-036 |
+| `video` | FILE | no | — | (derivado) Video MP4 de la presentación, compuesto de su misma especificación. | RF-REP-008 |
+| `video_sha256` | TEXT | no | — | (derivado) SHA-256 del MP4, igual al de su archivo. | RQ-REP-037 |
 
 | Relación | Tipo | Campo | Destino | Req. | Nota |
 |---|---|---|---|---|---|
@@ -3750,8 +3756,10 @@ ASM-143, ASM-144, ASM-145, ASM-146, ASM-147.
 - **Índices declarados:** ninguno.
 - **Acciones declaradas:** ninguna.
 - **Tipos de archivo:** `spec` admite `text/plain`, como el modelo congelado (el JSON canónico se sube declarado como
-  texto, ASM-133); `pdf` admite `application/pdf`.
-- **Tope de archivo:** `spec` y `pdf`: 67108864 bytes (64 MB, el techo `wasichai.files.max-bytes`; ASM-138).
+  texto, ASM-133); `pdf` admite `application/pdf`; `video` admite `application/octet-stream`, porque
+  wasichai-files 1.3.0 no reconoce un MP4 por su contenido y lo guarda así (SGSPE lo verifica con `DeckVideoChecks` y lo
+  sirve como `video/mp4`).
+- **Tope de archivo:** `spec`, `pdf` y `video`: 67108864 bytes (64 MB, el techo `wasichai.files.max-bytes`; ASM-138).
 - **Workflow:** ninguno.
 - **Fase:** F8 · Release 3 (Fase 3 de producto).
 - La crea `POST /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations` como la persona, EN COLA, con
@@ -3761,9 +3769,14 @@ ASM-143, ASM-144, ASM-145, ASM-146, ASM-147.
 - La compone JOB-09 (`DeckGenerationJob`) como la plataforma: pasa a EN PROCESO con `generated_at` y, al terminar,
   adjunta `spec` y `pdf` con sus SHA-256, el número de láminas y las versiones del diseño y del compositor, con LISTO,
   en una sola escritura; si falla, queda FALLIDO con `failure_code` y sin archivo parcial (RQ-REP-036, RQ-REP-037).
+- El MP4 se pide aparte, sobre una presentación LISTO, con `POST /api/sgspe/presentations/{id}/video` como la persona:
+  `video_status` EN COLA con `video_requested_at`; si ya estaba pedido o LISTO, nada cambia, y si estaba FALLIDO, vuelve
+  a la cola. JOB-09 lo compone de la especificación guardada (su SHA-256 se comprueba contra `spec_sha256`): EN PROCESO
+  con `video_generated_at` y, al terminar, `video` y `video_sha256` con LISTO en una sola escritura, o FALLIDO con
+  `video_failure_code`. El PDF y su estado no cambian (ASM-148).
 - SGSPE atiende las rutas nativas de archivos de este objeto: la lectura responde `404`, y la subida y el reemplazo,
-  `403 FILE_WRITE_NOT_ALLOWED` (ASM-133). La especificación y el PDF se descargan solo por
-  `GET /api/sgspe/presentations/{id}/spec` y `GET /api/sgspe/presentations/{id}/content`, con los permisos del nivel,
+  `403 FILE_WRITE_NOT_ALLOWED` (ASM-133). La especificación, el PDF y el MP4 se descargan solo por
+  `GET /api/sgspe/presentations/{id}/spec`, `…/content` y `…/video`, con los permisos del nivel,
   la lista de verificación en EXTERNO y PUBLICO y una fila DESCARGA en `export_log` (ASM-147).
 - No es una emisión: no tiene workflow, no lleva la marca BORRADOR y no cambia la versión de la que deriva (ASM-143).
   Como `export_log` es `appendOnly`, una presentación descargada no se puede borrar (§2.6) [WAS-ADR-0040].

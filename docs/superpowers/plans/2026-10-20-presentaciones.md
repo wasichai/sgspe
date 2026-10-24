@@ -110,6 +110,15 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 - [ ] La página de presentaciones de la versión emitida, con `<Player>`, la lista de verificación, el PDF y la prueba
   de versiones.
 
+### 8b. MP4 (issue #155, 2026-10-24)
+
+- [x] `slides/`: `POST /video`, con `renderFrames` sobre `Deck` y el último fotograma de cada lámina repetido 5 s al
+  codificar (`src/timing.ts`), y sus pruebas (`timing.test.ts`, `video.test.ts`, `render.test.ts`, `server.test.ts`).
+- [x] El modelo: los campos `video*` de `deliverable_presentation` y UPDATE para los roles que piden (ASM-148).
+- [x] El backend: `SlidesVideoRenderer`, `DeckVideoChecks`, la segunda tarea de JOB-09 (`DeckVideoGeneration`) y el
+  pedido y la descarga del MP4 en `DeliverablePresentations`.
+- [ ] La interfaz: el botón del video y su descarga en `sgspe-ui`.
+
 ### 9. Demostración y revisión visual
 
 - [x] Un T2 sintético en `model/demo/` y `load_demo.py --issue` (#153).

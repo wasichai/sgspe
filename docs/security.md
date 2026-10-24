@@ -828,7 +828,7 @@ Criterios con que se armó:
 | `deliverable` | — | R `EXPORT` | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | CRU `GENERATE` `APPROVE` `ISSUE` `EXPORT` `DOWNLOAD_RESTRICTED` | R | R | R | R | R | — | R | R `EXPORT` | R |
 | `deliverable_section` | — | R | CRUD | CRU | CRU | R | R | R | R | R | — | R | CRU | R |
 | `deliverable_version` | — | R | CR | R | CR | R | R | R | R | R | — | R | R | R |
-| `deliverable_presentation` | — | CR | CR | R | CR | R | R | R | R | R | — | R | CR | R |
+| `deliverable_presentation` | — | CRU | CRU | R | CRU | R | R | R | R | R | — | R | CRU | R |
 | `deliverable_template` | — | R | R | R | R | R | R | R | R | R | — | R | R | R |
 | `export_log` | — | C | CR | — | C | C | C | C | — | C | — | — | C | — |
 | `ai_interaction` | — | — | CR | CR | CR | CR | CR | CR | — | — | — | — | CR | — |
@@ -857,9 +857,11 @@ Criterios con que se armó:
   /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations`, que además exige la acción de descarga del nivel
   (`DOWNLOAD_RESTRICTED` en INTERNO, `EXPORT` en EXTERNO y PUBLICO; ASM-147). Por eso tienen CREATE los roles con una de
   esas acciones sobre `deliverable` (`PROJECT_MANAGER`, `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` y `ANALYST`), y la leen
-  los roles que leen `deliverable`. Es `apiOnly`: JOB-09 la compone como la plataforma, y su especificación y su PDF se
-  descargan solo por `GET /api/sgspe/presentations/{id}/content` y `…/spec`, con su fila de `export_log`; las rutas
-  nativas de sus archivos responden `404` al leer.
+  los roles que leen `deliverable`. Es `apiOnly`: JOB-09 la compone como la plataforma, y su especificación, su PDF y su
+  MP4 se descargan solo por `GET /api/sgspe/presentations/{id}/content`, `…/spec` y `…/video`, con su fila de
+  `export_log`; las rutas nativas de sus archivos responden `404` al leer. Desde ASM-148 esos cuatro roles tienen además
+  UPDATE (no `u`, que dejaría de solo lectura el público y el nivel del alta): el pedido del MP4 (y la vuelta a la cola de una presentación FALLIDO) escribe derivados como la persona, y la API
+  genérica sigue rechazando todo cambio porque el objeto es `apiOnly`.
 - `EXPORT` de las capas territoriales (F6, `POST /api/sgspe/territory/exports`; `gis.md` §2.2 y §4.6). Desde F6, estos
   13 objetos declaran `EXPORT`: `administrative_unit`, `locality`, `road_access`, `community`, `community_sector`,
   `mining_concession`, `environmental_feature`, `project`, `project_component`, `area_of_influence`, `land_parcel`,
@@ -1011,7 +1013,8 @@ listener, que lleva la marca de escritura de SGSPE y solo cambia campos derivado
 | `GET /api/sgspe/deliverables/{id}/draft/content` (`sgspe.deliverable`) | Registra la descarga en `export_log`. El archivo lleva siempre la marca de agua BORRADOR; si es INTERNO, en PDF o DOCX, y si es EXTERNO, solo en PDF; la ruta nativa de wasichai-files aplica lo mismo (ASM-133) | READ y `DOWNLOAD_RESTRICTED` sobre `deliverable`; CREATE `export_log` | `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER` | F8 |
 | `GET /api/sgspe/deliverables/{id}/versions/{versionNumber}/content` (`sgspe.deliverable`) | Registra la descarga en `export_log`. Una versión INTERNO se sirve en PDF o DOCX; una EXTERNO, solo en PDF. El modelo congelado nunca se sirve, tampoco por la ruta nativa de wasichai-files | INTERNO: READ y `DOWNLOAD_RESTRICTED` sobre `deliverable`. EXTERNO y PUBLICO: READ y `EXPORT`. En ambos casos, CREATE `export_log` | INTERNO: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER`. EXTERNO y PUBLICO: los que tienen `EXPORT` sobre `deliverable` | F8 |
 | `POST /api/sgspe/deliverables/{id}/versions/{versionNumber}/presentations` (`sgspe.deliverable`) | Crea la `deliverable_presentation` EN COLA, o devuelve la existente con la misma versión, público, nivel y versión del planificador; JOB-09 la compone después como la plataforma (ADR-0031, ASM-143) | READ sobre `deliverable`; `DOWNLOAD_RESTRICTED` en INTERNO o `EXPORT` en EXTERNO y PUBLICO; CREATE `deliverable_presentation` | INTERNO: `SOCIAL_MANAGER`, `STAKEHOLDER_MANAGER`. EXTERNO y PUBLICO: además `PROJECT_MANAGER` y `ANALYST` | F8 |
-| `GET /api/sgspe/presentations/{id}/content` y `…/spec` (`sgspe.deliverable`) | Registra la descarga en `export_log`, con la confirmación de la lista de verificación en EXTERNO y PUBLICO (ASM-147); las rutas nativas de wasichai-files de sus archivos responden `404` | Los del pedido según su nivel; CREATE `export_log` | Como el pedido | F8 |
+| `POST /api/sgspe/presentations/{id}/video` (`sgspe.deliverable`) | Pone el MP4 de una presentación LISTO EN COLA, como la persona, o lo devuelve como está; JOB-09 lo compone después como la plataforma, de la especificación guardada (ASM-148) | Los del pedido según el nivel de la presentación; UPDATE sobre `deliverable_presentation` para los derivados del video | Como el pedido | F8 |
+| `GET /api/sgspe/presentations/{id}/content`, `…/spec` y `…/video` (`sgspe.deliverable`) | Registra la descarga en `export_log`, con la confirmación de la lista de verificación en EXTERNO y PUBLICO (ASM-147); las rutas nativas de wasichai-files de sus archivos responden `404` | Los del pedido según su nivel; CREATE `export_log` | Como el pedido | F8 |
 | `POST /api/sgspe/deliverable-templates` (`sgspe.deliverable`) | Valida la plantilla (`TemplateValidator`), sube el archivo como quien llama y crea el `deliverable_template` (ASM-135) | `MANAGE_METADATA` sobre `deliverable` | `ADMIN` | F8 |
 | `POST /api/sgspe/indicators/{id}/measurements` (`sgspe.dashboard`) | Crea la cifra oficial de un periodo, calculada como quien cierra; una cifra completa o ninguna: `409 INDICATOR_NOT_CLOSABLE` con la razón `STANCE` (KPI-STK-02, KPI-STK-05 y KPI-STK-06), `NO_SCALAR_VALUE` (KPI-TER-01, KPI-EXE-03 y los que solo dan series), `UNAVAILABLE` (quien cierra no lo tiene disponible o, en un KPI que lee QCS, no lee la marca `confidential` de los tres objetos) o `NOT_PERIOD_BOUND` (un KPI que no depende del periodo, la foto de hoy, solo se cierra para un mes calendario entero, el pasado o el actual en Lima; en la práctica, el mes pasado, porque el actual aún no terminó y el cierre lo rechaza antes con `400 PERIOD_NOT_ENDED`). Los KPI que leen QCS se congelan siempre sin las QCS confidenciales, quien sea que cierre: la cifra oficial las excluye y no revela cuántas son; el tablero no la muestra a quien se le ocultan QCS confidenciales (`dashboards.md` §10, ASM-136) | CREATE `indicator_measurement`; sin `project`, solo `ADMIN` (`READ_ALL_PROJECTS` no basta) | `SOCIAL_MANAGER` | F8 |
 | `POST /api/sgspe/ai-suggestions/{id}/accept` (`sgspe.ai`) | Aplica `accepted` y ejecuta el comando de dominio; desde F8, en una BORRADOR DE SECCION, escribe la sección con `DeliverableSections.adopt` (ASM-137) | UPDATE `ai_suggestion`; los permisos del comando que ejecuta | Quien tenga ambos | F7 |
@@ -1458,8 +1461,8 @@ El catálogo de capas (`LYR-NN`) y cuáles van a la lista blanca los fija `gis.m
   - cada emisión queda en `export_log` y en `audit_log` (RQ-AUD-011);
   - las presentaciones de una versión emitida (ADR-0031) aplican el nivel antes de extraer el material, y PUBLICO sale
     solo de los hechos tipados del modelo con `SmallCells`, sin párrafos, citas, menciones, mapas ni fotos con personas
-    (ASM-146); cada descarga de su PDF o su especificación exige el permiso del nivel y, en EXTERNO y PUBLICO, la lista
-    de verificación, y queda en `export_log` (ASM-147); solo JOB-09 llama a `sgspe-slides`, que devuelve un error con su
+    (ASM-146); cada descarga de su PDF, su especificación o su MP4 (ASM-148) exige el permiso del nivel y, en EXTERNO y
+    PUBLICO, la lista de verificación, y queda en `export_log` (ASM-147); solo JOB-09 llama a `sgspe-slides`, que devuelve un error con su
     código y el id de la lámina, nunca con texto del documento.
 - **Documentos emitidos** de wasichai-documents (RQ-REP-029): no se filtran por permisos de campo, porque quien ve el
   documento lo ve entero [WAS-DOC api/rest.md] [WAS-ADR-0023]. Además, la copia congelada lleva **todos** los campos del

@@ -3,7 +3,8 @@
 ## Estado
 
 Aceptado · 2026-10-20, por decisión del usuario del 2026-10-20 (RF-REP-008, ASM-143 a ASM-147). No reemplaza a ningún
-ADR: ADR-0013 y ADR-0030 siguen rigiendo el DOCX y el PDF del entregable.
+ADR: ADR-0013 y ADR-0030 siguen rigiendo el DOCX y el PDF del entregable. Nota del 2026-10-24: el MP4 se adelantó por
+pedido del usuario (issue #155, ASM-148); ver Seguimiento.
 
 ## Contexto
 
@@ -61,7 +62,7 @@ ADR: ADR-0013 y ADR-0030 siguen rigiendo el DOCX y el PDF del entregable.
   - un **PDF de láminas** 16:9 (1920 × 1080 px, 1440 × 810 pt), la copia de referencia y la que funciona sin
     conexión;
   - la **presentación en el navegador** con `@remotion/player` en `sgspe-ui`;
-  - el **MP4** queda para después, con la misma composición;
+  - el **MP4** queda para después, con la misma composición (se adelantó el 2026-10-24, ASM-148: ver Seguimiento);
   - **sin PPTX**: ni Remotion ni el código lo producen, y simular un archivo editable sería engañoso. Si hace falta, va
     en un ADR aparte.
 - **Público y nivel son dimensiones distintas** (ASM-145).
@@ -163,7 +164,27 @@ ADR: ADR-0013 y ADR-0030 siguen rigiendo el DOCX y el PDF del entregable.
   servir. Las especificaciones que genera el planificador con datos sintéticos (`DeckPlannerTest`) se guardan en
   `slides/fixtures/generated/`, y el paquete las valida con su esquema y las compone: el contrato entre Kotlin y TypeScript
   queda vigilado en las dos puntas.
-- **El MP4** va en un plan posterior.
+- **El MP4 (2026-10-24, issue #155, ASM-148).** El usuario pidió adelantarlo. La decisión no cambia: sale de la misma
+  composición `Deck` y el PDF sigue siendo la referencia. Lo que se decidió al hacerlo:
+  - **Es una salida a pedido**, no parte de cada presentación: `POST /api/sgspe/presentations/{id}/video` sobre una
+    presentación LISTO, con su propio estado, plazo, código de falla y SHA-256 en `deliverable_presentation`. JOB-09 lo
+    compone de la especificación guardada, con su SHA-256 comprobado, sin volver a planificar.
+  - **El ritmo:** 3 s de animación y 5 s quieta por lámina, en H.264 de 1920 × 1080 a 30 fotogramas por segundo, sin
+    audio. Ni la duración ni el ritmo entran a la especificación, así que `spec_sha256` no cambia.
+  - **`renderFrames` en vez de `renderMedia`.** Con `renderMedia`, Chrome compone cada fotograma quieto: 14 láminas
+    tardaron 218 s con una pestaña y 100 s con dos (en una Mac). Ahora compone solo las animaciones y el codificador
+    repite el último fotograma de cada lámina: 67 s y 38 s. El ffmpeg que trae el compositor de Remotion no tiene los
+    filtros `loop` ni `tpad`, así que la repetición se hace al entregarle los fotogramas por su entrada estándar, en
+    orden, con `RenderInternals.callFf`, la misma llamada con que `renderMedia` corre su ffmpeg. Es una API interna de
+    Remotion: la versión fijada y la prueba con Chrome real (`render.test.ts` y `SlidesPdfTest`) la vigilan en cada
+    subida.
+  - **El servicio** suma `POST /video` con el mismo contrato que `POST /render` y el mismo semáforo, con
+    `SLIDES_VIDEO_TIMEOUT` (590 s) y `SLIDES_VIDEO_THREADS` (2). La imagen no necesita otro ffmpeg: viaja en
+    `@remotion/compositor-linux-x64-gnu`. Un video que no dura lo que sus láminas es `RENDER_FAILED` en el servicio y
+    `DECK_CHECK_FAILED` en SGSPE (`DeckVideoChecks`).
+  - **Los permisos:** los mismos del pedido y de la descarga del PDF; los roles que piden presentaciones ganan UPDATE para
+    escribir los derivados del video como la persona. No `u`: dejaría de solo lectura el público y el nivel, que la
+    persona escribe al crear la presentación, y el pedido fallaría.
 - **La interfaz** va en `sgspe-ui`, en un PR aparte.
 
 ## Referencias

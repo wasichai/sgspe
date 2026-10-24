@@ -179,9 +179,14 @@ jobs:
           done
           status=$(curl -s -o /tmp/deck.pdf -w '%{http_code}' -H 'Content-Type: application/json' -H 'X-Trace: ci' \
             --data-binary @fixtures/demo-t1-direccion.json http://127.0.0.1:8099/render)
-          docker logs sgspe-slides
           test "$status" = 200
           head -c 5 /tmp/deck.pdf | grep -q '%PDF-'
+          # el MP4 con el ffmpeg del compositor de Remotion, dentro del contenedor de solo lectura
+          status=$(curl -s -o /tmp/deck.mp4 -w '%{http_code}' -H 'Content-Type: application/json' -H 'X-Trace: ci' \
+            --data-binary @fixtures/demo-t1-direccion.json http://127.0.0.1:8099/video)
+          docker logs sgspe-slides
+          test "$status" = 200
+          head -c 8 /tmp/deck.mp4 | tail -c 4 | grep -q 'ftyp'
 
   traceability:
     name: Traceability (python)

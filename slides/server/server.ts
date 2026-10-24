@@ -1,5 +1,5 @@
 // el servicio sgspe-slides (ADR-0031, deliverables.md §16.7): POST /render recibe una especificación (JSON) y devuelve el PDF
-// de láminas; GET /health dice si está arriba. solo lo llama JOB-09. los errores van como {code, slide?}, nunca con texto del
+// de láminas; POST /video recibe la misma y devuelve el MP4 (§16.2), con su propio plazo; GET /health dice si está arriba. solo lo llama JOB-09. los errores van como {code, slide?}, nunca con texto del
 // documento; el log lleva el id de correlación, el estado, la duración y el número de láminas, nunca contenido
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { createRequire } from 'node:module'
@@ -10,20 +10,31 @@ import { SlideFailure } from './render.ts'
 export type Settings = {
   maxBytes: number
   timeoutMs: number
+  videoTimeoutMs: number
   concurrency: number
 }
 
 export type Renderer = (deck: DeckSpec, timeoutMs: number) => Promise<Uint8Array>
 
+// los dos compositores: el PDF de láminas y el MP4. comparten el semáforo: un video ocupa una de las SLIDES_CONCURRENCY
+export type Renderers = { pdf: Renderer; video: Renderer }
+
 export const SETTINGS_FROM_ENV = (): Settings => ({
   maxBytes: Number(process.env.SLIDES_MAX_BYTES ?? 67_108_864),
   timeoutMs: Number(process.env.SLIDES_TIMEOUT ?? 170) * 1000,
+  videoTimeoutMs: Number(process.env.SLIDES_VIDEO_TIMEOUT ?? 590) * 1000,
   concurrency: Math.max(1, Number(process.env.SLIDES_CONCURRENCY ?? 2))
 })
 
+// las rutas que componen: el tipo de la respuesta, el compositor y su plazo
+const ROUTES = {
+  '/render': { type: 'application/pdf', renderer: 'pdf', timeout: 'timeoutMs' },
+  '/video': { type: 'video/mp4', renderer: 'video', timeout: 'videoTimeoutMs' }
+} as const
+
 const TRACE = /^[A-Za-z0-9._-]{1,64}$/
 
-// la versión del compositor que se informa con cada PDF (deliverable_presentation.renderer_version): la de Remotion instalada
+// la versión del compositor que se informa con cada PDF y cada MP4 (deliverable_presentation.renderer_version): la de Remotion instalada
 export const RENDERER = `remotion@${(createRequire(import.meta.url)('remotion/package.json') as { version: string }).version}`
 
 function log(fields: Record<string, unknown>) {
@@ -68,7 +79,7 @@ function answer(response: ServerResponse, status: number, payload: object) {
   response.end(text)
 }
 
-export function slidesServer(render: Renderer, settings: Settings): Server {
+export function slidesServer(renderers: Renderers, settings: Settings): Server {
   const slot = semaphore(settings.concurrency)
   return createServer(async (request, response) => {
     const started = performance.now()
@@ -81,7 +92,8 @@ export function slidesServer(render: Renderer, settings: Settings): Server {
         status = 200
         return answer(response, 200, { status: 'up' })
       }
-      if (request.method !== 'POST' || request.url !== '/render') {
+      const route = request.method === 'POST' ? ROUTES[request.url as keyof typeof ROUTES] : undefined
+      if (!route) {
         status = 404
         return answer(response, 404, { code: 'NOT_FOUND' })
       }
@@ -115,16 +127,16 @@ export function slidesServer(render: Renderer, settings: Settings): Server {
       }
       slides = parsed.data.slides.length
       try {
-        const pdf = await slot(() => render(parsed.data, settings.timeoutMs))
+        const file = await slot(() => renderers[route.renderer](parsed.data, settings[route.timeout]))
         status = 200
         response.writeHead(200, {
-          'Content-Type': 'application/pdf',
-          'Content-Length': pdf.length,
+          'Content-Type': route.type,
+          'Content-Length': file.length,
           'X-Slides-Count': String(slides),
           'X-Slides-Renderer': RENDERER,
           'X-Slides-Design': DESIGN_VERSION
         })
-        response.end(Buffer.from(pdf))
+        response.end(Buffer.from(file))
       } catch (error) {
         if (error instanceof SlideFailure) {
           status = error.code === 'TIMEOUT' ? 504 : error.code === 'RENDER_FAILED' ? 500 : 422

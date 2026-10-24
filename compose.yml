@@ -120,8 +120,8 @@ services:
     ports:
       - '127.0.0.1:${SGSPE_LATEX_PORT:-8097}:8080'
 
-  # ADR-0031: sgspe-slides compone con Remotion (Chrome headless) el PDF de las presentaciones; solo lo llama JOB-09. sin
-  # volúmenes, de solo lectura, con tmpfs en /tmp y /dev/shm (Chrome usa memoria compartida) y sin capacidades. como latex,
+  # ADR-0031: sgspe-slides compone con Remotion (Chrome headless) el PDF y el MP4 de las presentaciones; solo lo llama JOB-09.
+  # el MP4 tiene su propio plazo (SLIDES_VIDEO_TIMEOUT) y sus pestañas (SLIDES_VIDEO_THREADS). sin volúmenes, de solo lectura, con tmpfs en /tmp y /dev/shm (Chrome usa memoria compartida) y sin capacidades. como latex,
   # en desarrollo publica su puerto en el loopback; en producción va en una red interna sin salida
   slides:
     build: slides
@@ -137,6 +137,8 @@ services:
       - no-new-privileges:true
     environment:
       SLIDES_TIMEOUT: '170'
+      SLIDES_VIDEO_TIMEOUT: '590'
+      SLIDES_VIDEO_THREADS: '2'
       SLIDES_CONCURRENCY: '2'
     ports:
       - '127.0.0.1:${SGSPE_SLIDES_PORT:-8099}:8080'

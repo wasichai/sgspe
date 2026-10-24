@@ -748,7 +748,8 @@ class DeliverableModelTests(unittest.TestCase):
         fields = self.fields("deliverable_presentation")
         self.assertEqual({n for n, f in fields.items() if not f.get("derived")}, {"audience", "disclosure_level"})
         self.assertEqual({n: (f["contentTypes"], f["maxBytes"]) for n, f in fields.items() if f["type"] == "FILE"},
-                         {"spec": (["text/plain"], 64 * 1024 * 1024), "pdf": (["application/pdf"], 64 * 1024 * 1024)})
+                         {"spec": (["text/plain"], 64 * 1024 * 1024), "pdf": (["application/pdf"], 64 * 1024 * 1024),
+                          "video": (["application/octet-stream"], 64 * 1024 * 1024)})
         self.assertEqual(self.model["enums"]["presentation_audience"],
                          ["DIRECCION", "CAMPO", "INVESTIGACION", "INSTITUCIONES", "COMUNIDAD"])
         self.assertEqual(self.model["enums"]["presentation_status"], ["EN COLA", "EN PROCESO", "LISTO", "FALLIDO"])
@@ -761,6 +762,17 @@ class DeliverableModelTests(unittest.TestCase):
             self.assertEqual((rel["source"], rel["fieldName"], rel["target"], rel.get("required", False)),
                              (source, field, target, required), name)
 
+    def test_el_video_de_la_presentacion_tiene_su_propio_estado_derivado(self):
+        # issue #155 y deliverables.md §16.2: el MP4 se pide aparte sobre una presentación LISTO y JOB-09 lo compone de su
+        # especificación guardada; su estado usa el mismo catálogo que el del PDF
+        fields = self.fields("deliverable_presentation")
+        video = ["video_status", "video_requested_at", "video_generated_at", "video_failure_code", "video", "video_sha256"]
+        self.assertEqual(list(fields)[-len(video):], video)
+        self.assertEqual(fields["video_status"].get("enum"), "presentation_status")
+        self.assertEqual([fields[n]["type"] for n in video], ["ENUM", "DATETIME", "DATETIME", "TEXT", "FILE", "TEXT"])
+        for name in video:
+            self.assertIs(fields[name].get("derived"), True, name)
+
     def test_quien_pide_una_presentacion_puede_descargarla_y_registrar_la_descarga(self):
         # ASM-147: el pedido exige CREATE y la acción de descarga del nivel; la descarga, CREATE sobre export_log
         roles = {r["name"]: r["permisos"] for r in self.roles["roles"]}
@@ -769,6 +781,9 @@ class DeliverableModelTests(unittest.TestCase):
         for name in creators:
             self.assertTrue({"EXPORT", "DOWNLOAD_RESTRICTED"} & set(roles[name]["deliverable"]), name)
             self.assertIn("CREATE", roles[name]["export_log"], name)
+            # UPDATE (ASM-148): el pedido escribe como la persona los derivados del video y la vuelta a la cola de una
+            # FALLIDO. no `u`: dejaría de solo lectura el público y el nivel, que la persona escribe al crearla
+            self.assertIn("UPDATE", roles[name]["deliverable_presentation"], name)
 
     def test_issue_es_la_unica_transicion_que_crea_versiones(self):
         # workflows.md, «Transiciones de comando»: issue de WF-H; quienes la aplican crean versiones y filas de export_log

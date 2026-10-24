@@ -5,14 +5,15 @@ import os from 'node:os'
 import path from 'node:path'
 import { PDFDocument } from 'pdf-lib'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { SlideFailure, renderDeck } from '../server/render.ts'
+import { SlideFailure, mp4Frames, renderDeck, renderDeckVideo } from '../server/render.ts'
+import { videoFrames } from '../src/timing.ts'
 import { Deck, type DeckSpec } from '../src/spec/schema.ts'
 
 // composición real con Chrome headless (deliverables.md §16.7). corre con SLIDES_RENDER=1: en la CI, en el job de las láminas
 const enabled = process.env.SLIDES_RENDER === '1'
 const fixture = (name: string): DeckSpec => Deck.parse(JSON.parse(fs.readFileSync(`fixtures/${name}.json`, 'utf8')))
 
-describe.runIf(enabled)('la composición a PDF', () => {
+describe.runIf(enabled)('la composición a PDF y a MP4', () => {
   let serveUrl = ''
   let browser: HeadlessBrowser
 
@@ -48,10 +49,23 @@ describe.runIf(enabled)('la composición a PDF', () => {
     expect(failure).toMatchObject({ code: 'SLIDE_OVERFLOW', slide: 'cifras' })
   })
 
-  it('una imagen que no es lo que dice ser es ASSET_INVALID', async () => {
+  it('el MP4: H.264 de 1920 × 1080 con 8 s por lámina y la derivación en los metadatos', async () => {
+    const deck = fixture('demo-t1-direccion')
+    deck.slides = deck.slides.slice(0, 3)
+    const mp4 = Buffer.from(await renderDeckVideo(deck, { serveUrl, browser, timeoutMs: 300_000, threads: 2 }))
+    expect(mp4.subarray(4, 8).toString('latin1')).toBe('ftyp')
+    expect(mp4Frames(mp4)).toBe(videoFrames(3))
+    expect(mp4.includes(Buffer.from('avc1'))).toBe(true)
+    expect(mp4.includes(Buffer.from(deck.meta.derivation))).toBe(true)
+    // el índice va antes de los datos (faststart): el video empieza a verse antes de bajarlo entero
+    expect(mp4.indexOf('moov')).toBeLessThan(mp4.indexOf('mdat'))
+  })
+
+  it('una imagen que no es lo que dice ser es ASSET_INVALID, también en el MP4', async () => {
     const deck = fixture('demo-t1-direccion')
     deck.assets = { foto: { mime: 'image/png', width: 10, height: 10, alt: 'x', data: Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64') } }
     deck.slides = [{ id: 'fotos', purpose: 'x', title: 'Fotos', data: { layout: 'photos', images: ['foto'], caption: 'x' } }]
     await expect(render(deck)).rejects.toMatchObject({ code: 'ASSET_INVALID' })
+    await expect(renderDeckVideo(deck, { serveUrl, browser, timeoutMs: 60_000, threads: 1 })).rejects.toMatchObject({ code: 'ASSET_INVALID' })
   })
 })
