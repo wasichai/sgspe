@@ -1001,7 +1001,7 @@ Detalle por rol en `security.md`. Lo que exige este diseño:
 - **ADR de SGSPE:** ADR-0013, ADR-0014, ADR-0015, ADR-0017, ADR-0030 y ADR-0031.
 - **Supuestos que este documento aplica:** ASM-003, ASM-013, ASM-014, ASM-026, ASM-027, ASM-028, ASM-029, ASM-031,
   ASM-037, ASM-038, ASM-047, ASM-055, ASM-058, ASM-061, ASM-063, ASM-088, ASM-124, ASM-133 a ASM-141 y ASM-143 a
-  ASM-147.
+  ASM-148.
 - **Pendientes:** GAP-001 (normativa, en particular la de datos personales), GAP-009 (tenant y marca), GAP-011
   (GeoServer y cartografía), GAP-014 (retención; el consentimiento por foto quedó confirmado) y GAP-022 (despliegue y
   almacenamiento). UPS-31 (la plataforma adjunta archivos) quedó resuelta en wasichai 1.3.0, GAP-010 (ASM-135) también, y
@@ -1031,10 +1031,24 @@ público y un nivel de divulgación (RF-REP-008, ADR-0031). El caso que la motiv
 |---|---|---|
 | PDF de láminas 16:9 (1920 × 1080 px, 1440 × 810 pt) | La copia que se envía y la que funciona sin conexión. Es la referencia | Esta entrega |
 | Presentación en el navegador | `sgspe-ui` presenta la misma especificación a pantalla completa con `@remotion/player`, con las animaciones y el teclado | Esta entrega (en `sgspe-ui`) |
-| Video MP4 | Una presentación que corre sola, con `renderMedia` sobre la misma composición | Después |
+| Video MP4 | Una presentación que corre sola, para enviarla o proyectarla sin presentador, sobre la misma composición. Se pide aparte sobre una presentación LISTO (ASM-148) | Desde el 2026-10-24 (issue #155) |
 
 El último fotograma de cada lámina es su estado completo y es el que va al PDF: toda animación ayuda a entender (una cifra
 que llega a su valor, series que entran en orden), y nada crítico depende de ella.
+
+**El MP4** (ASM-148) es H.264 de 1920 × 1080 a 30 fotogramas por segundo, sin audio, con el índice al principio
+(`faststart`) y el título y la derivación en sus metadatos.
+
+- **El ritmo.** Cada lámina anima sus 3 s (90 fotogramas) y queda quieta 5 s más en su estado completo, el mismo del PDF:
+  8 s por lámina, unos 2 minutos para 14 láminas. Los números viven en `slides/src/timing.ts` y `DeckVideoChecks` los
+  repite del lado de SGSPE.
+- **La composición.** Chrome compone solo los fotogramas de animación de la composición `Deck` (`renderFrames`) y el
+  codificador repite el último de cada lámina, en vez de componer 150 veces la misma imagen. El ffmpeg que trae el
+  compositor de Remotion no tiene los filtros `loop` ni `tpad`, así que la repetición se hace al entregarle los
+  fotogramas. En una Mac, 14 láminas tardaron 38 s con dos pestañas; con `renderMedia` sobre la presentación entera, 100 s.
+- **Sin otra verificación de láminas.** El video sale de la especificación que ya pasó la verificación del PDF, con el
+  mismo navegador y las mismas fuentes, así que la composición del MP4 no la repite.
+- **La reproducción** no tiene pausa ni teclado: quien presenta en vivo usa el PDF o el navegador.
 
 ### 16.3 Capas
 
@@ -1045,6 +1059,7 @@ deliverable_version emitida ─► modelo congelado INTERNO (SHA-256 verificado)
             └─ DeckPlanner (público)                      arco narrativo, láminas, layouts y textos
                  └─ DeckSpec                              JSON canónico con las imágenes incrustadas
                       ├─ SlidesConverter ─► sgspe-slides (Remotion) ─► PDF ─► DeckChecks
+                      │    └─ a pedido, de la especificación guardada ─► MP4 ─► DeckVideoChecks (ASM-148)
                       └─ GET …/spec ─► sgspe-ui (@remotion/player)
 ```
 
@@ -1150,15 +1165,18 @@ lámina dice qué comunica y qué layout usa, nunca trae código.
 
 ### 16.7 Composición
 
-El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF.
+El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF y, desde ASM-148, el MP4.
 
 - **La imagen** es `slides/Dockerfile`: Node LTS fijado por digest, Remotion en una versión exacta, y el bundle y el
   Chrome headless-shell preparados al construir.
 - **`POST /render`** recibe la especificación en JSON (las imágenes ya van incrustadas) y devuelve el PDF.
+- **`POST /video`** recibe la misma especificación y devuelve el MP4 (§16.2), con su propio plazo
+  (`SLIDES_VIDEO_TIMEOUT`, 590 s) y sus pestañas (`SLIDES_VIDEO_THREADS`, 2). Un MP4 que no dura lo que sus láminas es
+  `RENDER_FAILED`: nunca sale un video al que le falte una.
 - **`GET /health`.**
 - **La composición:** cada lámina se compone con un `renderStill` a PDF en un solo navegador, y las páginas se unen con
   pdf-lib con metadatos fijos.
-- **Topes y aislamiento:** a lo más `SLIDES_CONCURRENCY` composiciones a la vez, un plazo, una carpeta temporal por
+- **Topes y aislamiento:** a lo más `SLIDES_CONCURRENCY` composiciones a la vez (un MP4 ocupa una), un plazo, una carpeta temporal por
   pedido, solo lectura, tmpfs, sin capacidades y sin red de salida en producción. En desarrollo usa el puerto 8099 del
   loopback.
 - **La verificación dentro de la composición** espera las fuentes y comprueba que ninguna región desborde su área, que
@@ -1185,7 +1203,17 @@ El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF.
   - Rechaza un nivel menos restrictivo que el de la versión, un nivel que el público no admite y PUBLICO sobre un
     modelo sin `facts`.
 - **JOB-09** la compone en segundo plano, con su propio candado, para no hacer fila detrás de JOB-05.
-- **La descarga:** `GET /api/sgspe/presentations/{id}/content` (el PDF) y `…/spec` (para el reproductor).
+- **El MP4** (ASM-148) se pide con `POST /api/sgspe/presentations/{id}/video` sobre una presentación LISTO, con los
+  mismos permisos que el pedido de la presentación.
+  - Tiene su propio estado (`video_status`, con los mismos valores), su código de falla y su SHA-256; un video FALLIDO
+    no toca el PDF, y pedirlo otra vez lo devuelve a la cola.
+  - JOB-09 lo compone después de los PDF pendientes, de la especificación guardada con su SHA-256 comprobado: el video
+    cuenta exactamente lo mismo que el PDF, sin volver a planificar. Su plazo es `sgspe.deliverable.slides.video-timeout`
+    (600 s), menor que `stale-after` para que otra vuelta no retome un video en curso.
+  - Los roles que piden una presentación tienen `u` sobre `deliverable_presentation`: el pedido escribe los derivados
+    del video como la persona.
+- **La descarga:** `GET /api/sgspe/presentations/{id}/content` (el PDF), `…/spec` (para el reproductor) y `…/video` (el
+  MP4).
   - Llevan los mismos permisos y, en EXTERNO y PUBLICO, la lista de verificación (ASM-147).
   - Cada descarga deja una fila DESCARGA en `export_log`.
   - Las rutas nativas de sus archivos están cerradas, como las del entregable (§12).
@@ -1202,6 +1230,7 @@ El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF.
 | 5 | Regenerar desde la versión emitida da la misma especificación | RQ-REP-037 |
 | 6 | Los permisos por nivel, la lista de verificación y `export_log` rigen en cada descarga | RQ-REP-034, ASM-147 |
 | 7 | La revisión visual de las hojas de contacto confirma la calidad editorial (§16.9) | RF-REP-008 |
+| 8 | El MP4 de una presentación LISTO sale de su especificación guardada, dura 8 s por lámina y se baja con los permisos, la lista de verificación y `export_log` del PDF | RF-REP-008, RQ-REP-034, ASM-148 |
 
 ### 16.9 Revisión visual
 
