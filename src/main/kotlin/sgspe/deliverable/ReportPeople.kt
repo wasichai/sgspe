@@ -6,7 +6,7 @@ import java.util.UUID
 
 // las personas que cita un informe (especificación de F8 §2.2.9, ASM-137): las menciones con lo que cada nivel necesita
 // (nombre, cargo y organización, código GI-, localidad) y los nombres de las personas de los grupos de interés del proyecto
-// para el aviso de datos personales. lee solo lo que el tipo declara (ReportSource). la usa T1; T2 conserva la suya
+// para el aviso de datos personales. lee solo lo que el tipo declara (ReportSource). la usan T1 (DiagnosisScene) y T2
 // (FieldReportType.Scene)
 class ReportPeople(
     private val source: ReportSource,
@@ -18,14 +18,16 @@ class ReportPeople(
     // la persona detrás de cada mención (person, y la titular de un stakeholder o un position), para AI-04 de sección
     val holders = linkedMapOf<String, UUID>()
     private val byProject = mapOf(Deliverables.PROJECT to project.toString())
+    private val positions = mutableMapOf<UUID, SourceRow?>()
 
     suspend fun organizationName(id: UUID?): String? = id?.let { source.one("organization", it)?.text("name") }
 
-    // el cargo VIGENTE de una persona, o null
+    // el cargo VIGENTE de una persona, o null, leído una vez por ensamblado (#83): lo usan la mención y varias secciones
     suspend fun position(person: UUID): SourceRow? =
-        source.all("position", mapOf("person" to person.toString())).firstOrNull {
-            it.text("position_status") ==
-                VIGENTE
+        if (person in positions) {
+            positions[person]
+        } else {
+            source.all("position", mapOf("person" to person.toString())).firstOrNull { it.text("position_status") == VIGENTE }.also { positions[person] = it }
         }
 
     // la mención de una persona: su token, con sus datos de cita registrados una vez

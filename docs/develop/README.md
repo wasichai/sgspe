@@ -287,11 +287,15 @@ El esquema de metadata es `wasichai.database.metadata-schema`. Con el interrupto
 tenants hasta sembrarla. Comprobación: `GET /api/auth/me/permissions` del `ADMIN` operador lista `MANAGE_TENANTS` en
 `capabilities`, y el de un cliente no. `SeparateProvisioningApiTest` prueba lo mismo.
 
-### Conjunto de demostración (T1)
+### Conjunto de demostración (T1 y T2)
 
 `model/demo/NN-*.json` es un conjunto **ficticio** (personas, organizaciones y lugares inventados; correos
-`@sgspe.test`) que `model/load_demo.py` carga por REST para que el borrador del entregable T1 (diagnóstico social) salga
-con datos en un entorno de demostración. No es parte del aprovisionamiento: no va en `tenant_steps` ni se corre en un
+`@sgspe.test`) que `model/load_demo.py` carga por REST para que los borradores de los entregables T1 (diagnóstico social)
+y T2 (informe de campo y avance, #153) salgan con datos en un entorno de demostración. El T2 (`07-entregable-t2.json`)
+es de la Comunidad Campesina San Isidro de Wayra, del 1 al 20 de octubre de 2026: sus visitas, interacciones (una
+cancelada), redes con sus integrantes, sectores comunales y un incidente de antecedentes. Todo lo que suma cae después
+del corte del T1 (2026-09-30), así que no cambia lo que el T1 cuenta; no trae apoyo entregado, porque la entrega de un
+aporte exige evidencias con archivo y el cargador no sube archivos. No es parte del aprovisionamiento: no va en `tenant_steps` ni se corre en un
 tenant de producción.
 
 - **Orden:** después de `load_indicators.py` (cierra periodos con el catálogo de indicadores) y con el administrador del
@@ -304,6 +308,13 @@ tenant de producción.
   que ya existe (por su `match`) no se actualiza y sus comandos corren de nuevo, cada uno idempotente por su cuenta.
 - **`--draft`:** pide además el borrador de los entregables (`POST /api/sgspe/deliverables/{id}/drafts`); sin él solo se
   cargan los datos y las secciones.
+- **`--issue`** (solo en desarrollo): pide los borradores como `--draft` y, al final de la carga, lleva cada entregable
+  con el comando `issue` por WF-H hasta `issued`: espera su borrador LISTO (`--issue-timeout`, 1200 s por defecto), lo
+  envía a revisión y lo emite quien escribe la colección (gestión social) y lo aprueba otro usuario de la demostración
+  (`approve_as`: gestión de actores), con `POST /api/sgspe/deliverables/{id}/issue`, el SHA-256 del modelo revisado y la
+  lista de verificación confirmada. Retoma desde el estado en que esté (`observed` se reenvía), no toca un entregable ya
+  emitido y corta sin transiciones ante un borrador FALLIDO o con `MAP_FAILED`, que la emisión rechaza: necesita
+  `sgspe-latex` y GeoServer (los túneles 8097 y 8095), así que no corre contra el servidor de `seed-demo-data.sh`.
 - **`--workers N`** (o `SGSPE_DEMO_WORKERS`; 1 por defecto): carga hasta N registros de una colección a la vez, en lotes
   que se cortan antes del registro que nombra con `@clave` a otro de su mismo lote. Los hijos, vínculos, transiciones y
   comandos de un registro siguen en orden. **Carrera conocida:** el corte solo ve las dependencias que el conjunto

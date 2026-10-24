@@ -395,8 +395,12 @@ class DocxWriter(
     }
 
     // el texto de un nodo y sus descendientes, en orden y sin recursión: un salto de línea entre bloques, un espacio por cada
-    // salto suave
+    // salto suave. un bloque de código no tiene hijos: su texto es el suyo (#83, el que pasa el tope no se pierde)
     private fun plainText(node: Node): String {
+        when (node) {
+            is FencedCodeBlock -> return node.literal.trimEnd()
+            is IndentedCodeBlock -> return node.literal.trimEnd()
+        }
         val out = StringBuilder()
         var current: Node? = node.firstChild ?: return ""
         while (current != null) {

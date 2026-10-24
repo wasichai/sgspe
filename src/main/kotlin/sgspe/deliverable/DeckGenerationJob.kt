@@ -10,6 +10,8 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
+import sgspe.common.JobTimeouts
+import sgspe.common.JobsProperties
 import sgspe.common.Organizations
 import sgspe.common.Records
 import sgspe.common.StoredFiles
@@ -374,16 +376,21 @@ class DeckGenerationJob(
     private val video: DeckVideoGeneration,
     private val locks: ClusterLock,
     private val properties: DeliverableProperties,
+    private val jobs: JobsProperties,
     private val clock: Clock
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // las presentaciones intentadas; null si otra réplica tenía el candado
+    // las presentaciones intentadas; null si otra réplica tenía el candado. las lecturas del sondeo tienen el plazo
+    // sgspe.jobs.read-timeout (issue #164), como en JOB-05
     suspend fun runOnce(): Int? {
         val lease = locks.tryLock(Presentations.JOB_LOCK) ?: return null
         return lease.use {
             var done = 0
-            for ((organization, _) in organizations.slugs(Presentations.OBJECT)) {
+            for ((organization, _) in JobTimeouts.read(
+                DeliverableGenerationJob.ORGANIZATIONS,
+                jobs.readTimeout
+            ) { organizations.slugs(Presentations.OBJECT) }) {
                 try {
                     done += SweepTiming.timed(log, NAME, organization) { organization(organization) }
                 } catch (e: CancellationException) {
@@ -400,12 +407,14 @@ class DeckGenerationJob(
     private suspend fun organization(organization: UUID): Int {
         val now = clock.instant()
         val pending =
-            records.asPlatform(organization, Presentations.JOB_SOURCE) {
-                records
-                    .all(Presentations.OBJECT, mapOf(Presentations.STATUS to Presentations.QUEUED)) +
+            JobTimeouts.read(DeliverableGenerationJob.PENDING, jobs.readTimeout) {
+                records.asPlatform(organization, Presentations.JOB_SOURCE) {
                     records
-                        .all(Presentations.OBJECT, mapOf(Presentations.STATUS to Presentations.RUNNING))
-                        .filter { DeckQueue.pending(it.attributes, now, properties.slides.staleAfter) }
+                        .all(Presentations.OBJECT, mapOf(Presentations.STATUS to Presentations.QUEUED)) +
+                        records
+                            .all(Presentations.OBJECT, mapOf(Presentations.STATUS to Presentations.RUNNING))
+                            .filter { DeckQueue.pending(it.attributes, now, properties.slides.staleAfter) }
+                }
             }
         var done = 0
         for (presentation in pending.sortedBy { it.createdAt ?: Instant.EPOCH }) {
@@ -440,10 +449,11 @@ class DeckGenerationJob(
 @EnableScheduling
 @ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
 class DeckGenerationSchedule(
-    private val job: DeckGenerationJob
+    private val job: DeckGenerationJob,
+    private val jobs: JobsProperties
 ) {
     @Scheduled(fixedDelayString = "\${sgspe.deliverable.slides.poll:5s}")
     suspend fun poll() {
-        job.runOnce()
+        JobTimeouts.run(job = DeckGenerationJob.NAME, limit = jobs.runTimeout) { job.runOnce() }
     }
 }

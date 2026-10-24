@@ -1,0 +1,565 @@
+{
+  "collections": [
+    {
+      "object": "community_sector",
+      "match": ["community", "name"],
+      "as": "relacionista",
+      "records": [
+        {
+          "key": "sector-quishuar",
+          "attributes": {
+            "community": "@com-sanisidro",
+            "name": "Sector Quishuar",
+            "delegates_count": 3
+          },
+          "links": {
+            "community_sector_locality": ["@loc-quishuar"]
+          }
+        },
+        {
+          "key": "sector-llamapampa",
+          "attributes": {
+            "community": "@com-sanisidro",
+            "name": "Sector Llamapampa",
+            "delegates_count": 3
+          },
+          "links": {
+            "community_sector_locality": ["@loc-llamapampa"]
+          }
+        },
+        {
+          "key": "sector-ccollpa",
+          "attributes": {
+            "community": "@com-sanisidro",
+            "name": "Sector Ccollpa",
+            "delegates_count": 1
+          },
+          "links": {
+            "community_sector_locality": ["@loc-ccollpa"]
+          }
+        }
+      ]
+    },
+    {
+      "object": "incident",
+      "match": ["project", "code"],
+      "as": "riesgos",
+      "records": [
+        {
+          "key": "inc-retencion",
+          "attributes": {
+            "project": "@proj",
+            "code": "DEMO-INC-01",
+            "incident_type": "RETENCION DE VEHICULO O EQUIPOS",
+            "occurred_at": "2026-02-18T15:30:00Z",
+            "place": "Pampa de Quishuar, en la trocha hacia las concesiones",
+            "description": "Un grupo de antiguos comuneros de San Isidro de Wayra retuvo durante tres horas la camioneta del equipo de cateo, en reclamo porque la empresa había tratado el ingreso a los pastos solo con los caseríos y no con la comunidad.",
+            "immediate_response": "El relacionista comunitario acudió al lugar, escuchó el reclamo junto con el teniente gobernador de Quishuar y acordó una reunión con el comité de reactivación. La camioneta fue liberada sin daños.",
+            "consequences": "Se suspendió por dos días el tránsito por la pampa. El reclamo se canalizó desde entonces por el comité de reactivación, con el que se abrió un canal de diálogo.",
+            "locality": "@loc-quishuar",
+            "community": "@com-sanisidro"
+          },
+          "links": {
+            "incident_stakeholder": ["@stk-sanisidro-reactivacion"]
+          },
+          "transitions": ["start_review", "start_response", "close"],
+          "state": "closed"
+        }
+      ]
+    },
+    {
+      "object": "field_visit",
+      "match": ["project", "title"],
+      "as": "campo",
+      "records": [
+        {
+          "key": "visit-3",
+          "attributes": {
+            "project": "@proj",
+            "title": "Visita de seguimiento a Quishuar y a la pampa de San Isidro",
+            "objective": "Devolver al comité de reactivación y a los regantes de Quishuar lo acordado en setiembre y acompañar la faena del canal.",
+            "itinerary": "5 de octubre: llegada a Quishuar y contacto con el comité de regantes. 6: reunión con el comité de reactivación. 7: recorrido de la pampa con el teniente gobernador y regreso.",
+            "outcome_summary": "Se entregó al comité de reactivación el resumen escrito de lo tratado en setiembre y se acordó su presencia como observador en la asamblea de antiguos comuneros. Los regantes pidieron apoyo con herramientas para la faena del canal.",
+            "leader_user": "campo",
+            "planned_start_date": "2026-10-05",
+            "planned_end_date": "2026-10-07",
+            "actual_start_date": "2026-10-05",
+            "actual_end_date": "2026-10-07"
+          },
+          "transitions": ["start", "complete"],
+          "state": "completed"
+        },
+        {
+          "key": "visit-4",
+          "attributes": {
+            "project": "@proj",
+            "title": "Salida a Llamapampa y al sector Ccollpa con el comité de reactivación",
+            "objective": "Acompañar la asamblea de antiguos comuneros de San Isidro de Wayra y mantener el contacto con el delegado del sector Ccollpa.",
+            "itinerary": "14 de octubre: llegada a Llamapampa. 15: asamblea de antiguos comuneros en el local multiusos. 16: contacto con el delegado del sector Ccollpa y regreso.",
+            "outcome_summary": "La asamblea eligió una comisión para el trámite registral de la comunidad y pidió que la empresa informe por escrito sobre el uso de los pastos. El delegado de Ccollpa pidió que su sector tenga voz propia en la comunidad.",
+            "leader_user": "campo",
+            "planned_start_date": "2026-10-14",
+            "planned_end_date": "2026-10-16",
+            "actual_start_date": "2026-10-14",
+            "actual_end_date": "2026-10-16"
+          },
+          "transitions": ["start", "complete"],
+          "state": "completed"
+        }
+      ]
+    },
+    {
+      "object": "engagement",
+      "match": ["project", "title"],
+      "as": "campo",
+      "records": [
+        {
+          "key": "eng-t2-01",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "CONTACTO CARA A CARA",
+            "title": "Contacto con el presidente del comité de regantes de Quishuar",
+            "objective": "Conocer cómo se organizará la faena de limpieza del canal.",
+            "held_at": "2026-10-05T15:00:00Z",
+            "place": "Bocatoma del canal de Quishuar",
+            "results": "El presidente del comité de regantes explicó que la faena se hará el 10 de octubre con las familias usuarias del canal y pidió apoyo con herramientas. Se le explicó que el pedido se evaluará con los lineamientos de apoyo social de la empresa.",
+            "locality": "@loc-quishuar",
+            "field_visit": "@visit-3"
+          },
+          "children": [
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-quishuar-regantes",
+                "person": "@per-quishuar-regantes",
+                "sex": "MASCULINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            }
+          ],
+          "links": {
+            "engagement_stakeholder": ["@stk-quishuar-regantes"]
+          },
+          "transitions": ["register_held_unplanned"],
+          "state": "held"
+        },
+        {
+          "key": "eng-t2-02",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "REUNION",
+            "title": "Reunión con el comité de reactivación de San Isidro de Wayra",
+            "objective": "Devolver por escrito lo tratado en setiembre y acordar la participación del comité en la asamblea de antiguos comuneros.",
+            "held_at": "2026-10-06T14:00:00Z",
+            "place": "Local comunal de Quishuar",
+            "results": "El comité recibió el resumen escrito de la reunión de setiembre. Se acordó que la empresa asistirá a la asamblea de antiguos comuneros solo como invitada y que no tratará el uso de los pastos con familias aisladas.",
+            "locality": "@loc-quishuar",
+            "field_visit": "@visit-3"
+          },
+          "children": [
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-sanisidro-reactivacion",
+                "person": "@per-sanisidro-reactivacion",
+                "sex": "MASCULINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            },
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "represented_group": "Integrantes del comité de reactivación",
+                "participant_scope": "AIDS",
+                "represented_people_count": 5,
+                "attended": true
+              }
+            }
+          ],
+          "links": {
+            "engagement_stakeholder": ["@stk-sanisidro-reactivacion"]
+          },
+          "transitions": ["register_held_unplanned"],
+          "state": "held"
+        },
+        {
+          "key": "eng-t2-03",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "CONTACTO CARA A CARA",
+            "title": "Recorrido de la pampa de San Isidro con la teniente gobernadora de Quishuar",
+            "objective": "Reconocer con la autoridad los pastos que reclama la comunidad.",
+            "held_at": "2026-10-07T13:00:00Z",
+            "place": "Pampa de Quishuar",
+            "results": "La teniente gobernadora mostró los linderos que los antiguos comuneros reconocen en la pampa y pidió que la empresa no instale nada en ella mientras la comunidad no tenga junta inscrita.",
+            "locality": "@loc-quishuar",
+            "field_visit": "@visit-3"
+          },
+          "children": [
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-quishuar-teniente",
+                "person": "@per-quishuar-teniente",
+                "sex": "FEMENINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            }
+          ],
+          "links": {
+            "engagement_stakeholder": ["@stk-quishuar-teniente"]
+          },
+          "transitions": ["register_held_unplanned"],
+          "state": "held"
+        },
+        {
+          "key": "eng-t2-04",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "FAENA COMUNITARIA",
+            "title": "Faena de limpieza del canal de Quishuar",
+            "objective": "Acompañar la faena anual de limpieza del canal de riego.",
+            "held_at": "2026-10-10T12:00:00Z",
+            "place": "Canal de riego de Quishuar",
+            "results": "El equipo social acompañó la faena junto con dieciocho familias usuarias del canal. Se limpiaron cerca de dos kilómetros del canal y el comité de regantes agradeció la presencia de la empresa.",
+            "locality": "@loc-quishuar"
+          },
+          "children": [
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-quishuar-regantes",
+                "person": "@per-quishuar-regantes",
+                "sex": "MASCULINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            },
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "represented_group": "Familias usuarias del canal de Quishuar",
+                "participant_scope": "AIDS",
+                "represented_people_count": 18,
+                "attended": true
+              }
+            }
+          ],
+          "links": {
+            "engagement_stakeholder": ["@stk-quishuar-regantes"]
+          },
+          "transitions": ["register_held_unplanned"],
+          "state": "held"
+        },
+        {
+          "key": "eng-t2-05",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "REUNION",
+            "title": "Reunión con la junta de Huaylla Alto sobre los linderos de la pampa",
+            "objective": "Conocer la posición de la junta de Huaylla Alto frente al reclamo de la comunidad.",
+            "scheduled_at": "2026-10-13T14:00:00Z",
+            "place": "Local comunal de Huaylla Alto",
+            "cancel_reason": "La junta de Huaylla Alto pidió postergarla hasta después de la asamblea de antiguos comuneros, para no adelantar una posición.",
+            "locality": "@loc-huaylla"
+          },
+          "transitions": ["schedule", "cancel_scheduled"],
+          "state": "cancelled"
+        },
+        {
+          "key": "eng-t2-06",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "ASAMBLEA",
+            "title": "Asamblea de antiguos comuneros de San Isidro de Wayra",
+            "objective": "Asistir como invitados a la asamblea que convocó el comité de reactivación.",
+            "held_at": "2026-10-15T15:00:00Z",
+            "place": "Local multiusos de Llamapampa",
+            "results": "La asamblea eligió una comisión de tres antiguos comuneros para el trámite registral de la comunidad y pidió a la empresa un informe escrito sobre el uso previsto de los pastos durante la perforación. La empresa se comprometió a entregarlo antes de fin de mes.",
+            "locality": "@loc-llamapampa",
+            "field_visit": "@visit-4"
+          },
+          "children": [
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-sanisidro-reactivacion",
+                "person": "@per-sanisidro-reactivacion",
+                "sex": "MASCULINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            },
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-llamapampa-junta",
+                "person": "@per-llamapampa-junta",
+                "sex": "MASCULINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            },
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "represented_group": "Antiguos comuneros de San Isidro de Wayra",
+                "participant_scope": "AIDS",
+                "represented_people_count": 42,
+                "attended": true
+              }
+            }
+          ],
+          "links": {
+            "engagement_stakeholder": ["@stk-sanisidro-reactivacion", "@stk-llamapampa-junta"]
+          },
+          "transitions": ["register_held_unplanned"],
+          "state": "held"
+        },
+        {
+          "key": "eng-t2-07",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "CONTACTO CARA A CARA",
+            "title": "Contacto con el delegado del sector Ccollpa",
+            "objective": "Conocer la posición del sector Ccollpa frente a la reactivación de la comunidad.",
+            "held_at": "2026-10-16T14:00:00Z",
+            "place": "Sector Ccollpa",
+            "results": "El delegado apoya la reactivación, pero pidió que el sector Ccollpa tenga su propio delegado en la comunidad y no dependa de Llamapampa. Se le invitó a la próxima reunión con el comité.",
+            "locality": "@loc-ccollpa",
+            "field_visit": "@visit-4"
+          },
+          "children": [
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-ccollpa-delegado",
+                "person": "@per-ccollpa-delegado",
+                "sex": "MASCULINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            }
+          ],
+          "links": {
+            "engagement_stakeholder": ["@stk-ccollpa-delegado"]
+          },
+          "transitions": ["register_held_unplanned"],
+          "state": "held"
+        },
+        {
+          "key": "eng-t2-08",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "engagement_type": "LLAMADA",
+            "title": "Llamada al coordinador del comité de reactivación sobre el informe de pastos",
+            "objective": "Coordinar la entrega del informe escrito que pidió la asamblea.",
+            "held_at": "2026-10-19T16:00:00Z",
+            "results": "Se acordó entregar el informe sobre el uso de los pastos el 28 de octubre, en una reunión con la comisión registral.",
+            "locality": "@loc-quishuar"
+          },
+          "children": [
+            {
+              "object": "engagement_participant",
+              "parent": "engagement",
+              "attributes": {
+                "stakeholder": "@stk-sanisidro-reactivacion",
+                "person": "@per-sanisidro-reactivacion",
+                "sex": "MASCULINO",
+                "participant_scope": "AIDS",
+                "represented_people_count": 1,
+                "attended": true
+              }
+            }
+          ],
+          "links": {
+            "engagement_stakeholder": ["@stk-sanisidro-reactivacion"]
+          },
+          "transitions": ["register_held_unplanned"],
+          "state": "held"
+        }
+      ]
+    },
+    {
+      "object": "community_network",
+      "match": ["project", "name"],
+      "as": "relacionista",
+      "records": [
+        {
+          "key": "net-comuneros",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "name": "Red de antiguos comuneros de San Isidro de Wayra",
+            "network_type": "Red familiar y de antiguos dirigentes",
+            "contact_status": "PENETRADA",
+            "description": "Reúne a las familias que figuraban en el último padrón de la comunidad y a sus antiguos dirigentes. Se articula alrededor del comité de reactivación y se reúne en asamblea cuando el comité la convoca.",
+            "locality": "@loc-quishuar",
+            "anchor_organization": "@org-reactivacion-sanisidro"
+          },
+          "children": [
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-sanisidro-reactivacion",
+                "node_role": "LIDER"
+              }
+            },
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-quishuar-vasoleche",
+                "node_role": "SECRETARIO"
+              }
+            },
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-llamapampa-junta",
+                "node_role": "MIEMBRO"
+              }
+            },
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-ccollpa-delegado",
+                "node_role": "MIEMBRO"
+              }
+            },
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-huaylla-junta",
+                "node_role": "MIEMBRO"
+              }
+            }
+          ]
+        },
+        {
+          "key": "net-regantes",
+          "attributes": {
+            "project": "@proj",
+            "community": "@com-sanisidro",
+            "name": "Red de regantes del canal de Quishuar",
+            "network_type": "Organización de usuarios de agua",
+            "contact_status": "CONTACTO ESTABLECIDO",
+            "description": "Las familias que riegan con el canal de Quishuar se organizan en turnos de riego y en la faena anual de limpieza. Sus decisiones sobre el agua pesan en la posición del caserío frente al proyecto.",
+            "locality": "@loc-quishuar"
+          },
+          "children": [
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-quishuar-regantes",
+                "node_role": "LIDER"
+              }
+            },
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-quishuar-teniente",
+                "node_role": "MIEMBRO"
+              }
+            },
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "person": "@per-quishuar-agente",
+                "node_role": "MIEMBRO"
+              }
+            },
+            {
+              "object": "network_node",
+              "parent": "community_network",
+              "attributes": {
+                "organization": "@org-agencia-quishuar",
+                "node_role": "MIEMBRO",
+                "notes": "Presta el local de la agencia para las reuniones de los regantes."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "object": "deliverable",
+      "match": ["document_code"],
+      "as": "social",
+      "records": [
+        {
+          "key": "t2",
+          "attributes": {
+            "project": "@proj",
+            "document_code": "DEMO-T2-001",
+            "title": "Informe de campo y avance en la Comunidad Campesina San Isidro de Wayra",
+            "deliverable_type": "INFORME DE CAMPO Y AVANCE",
+            "period_start_date": "2026-10-01",
+            "period_end_date": "2026-10-20",
+            "cutoff_date": "2026-10-20",
+            "community": "@com-sanisidro",
+            "prepared_for_organization": "@org-minera",
+            "prepared_by_organization": "@org-consultora"
+          },
+          "commands": [
+            {
+              "command": "sections",
+              "sections": {
+                "antecedentes": "La Comunidad Campesina San Isidro de Wayra no tiene junta directiva activa ni padrón actualizado, pero su territorio histórico se superpone con las concesiones y con los pastos de Quishuar, Llamapampa y el sector Ccollpa. Desde agosto de 2025 un comité de antiguos comuneros, coordinado por [[person:@per-sanisidro-reactivacion]], impulsa su reactivación y la inscripción de una nueva junta.\n\nEn febrero de 2026, durante el cateo, un grupo de antiguos comuneros retuvo la camioneta del equipo en la pampa de Quishuar porque la empresa había tratado el ingreso a los pastos solo con los caseríos. El equipo social respondió en el lugar y abrió un canal de diálogo con el comité, que desde julio participa como observador en las reuniones del área de influencia directa.\n\nAl inicio de este periodo la relación con el comité es activa, y la mayoría de las autoridades de las localidades de la comunidad mantiene un contacto establecido con el equipo.",
+                "estrategias": "En la comunidad el equipo aplicó tres de los ejes del plan de relacionamiento: información oportuna y por escrito, respeto de los acuerdos de asamblea sobre los pastos y presencia en las faenas y asambleas sin tomar partido en el trámite registral.\n\nLa razón es que la reactivación de la comunidad puede reordenar quién decide sobre los pastos de la campaña de perforación. Tratar el tema solo con los caseríos, como ocurrió en febrero, volvería a enfrentar a la empresa con los antiguos comuneros.",
+                "actividades": "En el periodo se hicieron dos visitas de campo y ocho interacciones en el territorio de la comunidad, siete realizadas y una cancelada. Las realizadas fueron tres contactos cara a cara, una reunión, una faena, una asamblea y una llamada.\n\nLa reunión con la junta de Huaylla Alto sobre los linderos de la pampa se canceló a pedido de la propia junta, que prefirió esperar el resultado de la asamblea de antiguos comuneros.\n\nLa asamblea del 15 de octubre fue la actividad central del periodo: eligió una comisión para el trámite registral y pidió a la empresa un informe escrito sobre el uso de los pastos durante la perforación.",
+                "redes": "Se identificaron dos redes en el territorio de la comunidad. La de antiguos comuneros gira alrededor del comité de reactivación y alcanza a las tres localidades de la comunidad. La de regantes del canal de Quishuar decide sobre el agua del caserío y tiene peso propio frente al proyecto.\n\nLas dos redes comparten integrantes en Quishuar, lo que hace del caserío el punto de entrada más eficaz para la comunicación con la comunidad.",
+                "relaciones": "Los contactos cara a cara del periodo se centraron en Quishuar y en el sector Ccollpa. [[person:@per-quishuar-regantes]] pidió apoyo con herramientas para la faena del canal; [[person:@per-quishuar-teniente]] mostró los linderos que reconocen los antiguos comuneros, y [[person:@per-ccollpa-delegado]] pidió que su sector tenga voz propia en la comunidad.\n\nLa relación con el coordinador del comité de reactivación se mantuvo por reunión, asamblea y llamada. La junta de Huaylla Alto sigue siendo el contacto pendiente: su reunión se canceló y no fija posición sobre los linderos de la pampa.",
+                "apoyo": "En el periodo no se entregó apoyo a la comunidad ni a sus organizaciones. El pedido de herramientas del comité de regantes de Quishuar se evaluará con los lineamientos de apoyo social y no antes de las elecciones, porque la empresa suspendió las donaciones durante la campaña electoral.",
+                "conclusiones": "1. Se identificaron dos redes en la comunidad, la de antiguos comuneros y la de regantes del canal de Quishuar, con nueve integrantes entre las dos.\n\n2. Se lograron contactos directos con el coordinador del comité de reactivación, el presidente de los regantes, la teniente gobernadora de Quishuar y el delegado del sector Ccollpa.\n\n3. Queda pendiente el contacto con la junta de Huaylla Alto, que no fija posición sobre los linderos de la pampa.\n\n4. La asamblea de antiguos comuneros dio a la comunidad una comisión registral y un pedido formal a la empresa, el informe escrito sobre el uso de los pastos.",
+                "recomendaciones": "1. Entregar el informe escrito sobre el uso de los pastos el 28 de octubre, como se acordó, y en una reunión con la comisión registral; el riesgo de reactivación de la comunidad depende de que la empresa cumpla lo que promete.\n\n2. Reprogramar la reunión con la junta de Huaylla Alto después de la entrega del informe y tratar los linderos de la pampa solo en presencia del comité de reactivación.\n\n3. Responder por escrito al pedido de herramientas de los regantes de Quishuar, con el plazo y los lineamientos de apoyo social que se aplicarán después de las elecciones.\n\n4. Invitar al delegado del sector Ccollpa a las reuniones con el comité, para que su pedido de voz propia se trate dentro de la comunidad y no frente a la empresa."
+              }
+            },
+            {
+              "command": "draft"
+            },
+            {
+              "command": "issue",
+              "approve_as": "actores"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

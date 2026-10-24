@@ -65,6 +65,10 @@
             },
             {
               "command": "draft"
+            },
+            {
+              "command": "issue",
+              "approve_as": "actores"
             }
           ]
         }

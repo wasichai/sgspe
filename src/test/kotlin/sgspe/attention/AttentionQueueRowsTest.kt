@@ -43,8 +43,9 @@ class AttentionQueueRowsTest {
         page: Int = 0,
         size: Int = 25,
         q: String? = null,
-        channel: String? = null
-    ) = AttentionQueueFilters(null, view, q, channel, null, null, null, page, size)
+        channel: String? = null,
+        sort: QueueSort? = null
+    ) = AttentionQueueFilters(null, view, q, channel, null, null, null, page, size, sort)
 
     @Suppress("UNCHECKED_CAST")
     private fun codigos(respuesta: Map<String, Any?>) =
@@ -85,6 +86,53 @@ class AttentionQueueRowsTest {
             assertEquals(400, assertThrows<Exception> { AttentionQueueRows.parse(malo, catalog) }.let { status(it) })
         }
         assertEquals(422, status(assertThrows<Exception> { AttentionQueueRows.parse(mapOf("estado" to listOf("x")), catalog) }))
+    }
+
+    // el orden por columna (issue #160): con sort, ese campo y, a igualdad, el id; sin fecha, al final en los dos sentidos
+    private val recibidas =
+        listOf(
+            fila("grievance", "QUE-020", "received", "received_at" to "2026-10-03T10:00:00Z", "ack_due_date" to "2026-10-08"),
+            fila("inquiry", "CON-010", "received", "received_at" to "2026-10-01T10:00:00Z", "response_due_date" to "2026-10-20"),
+            fila("grievance", "QUE-005", "received", "received_at" to "2026-10-02T10:00:00Z"),
+            fila("stakeholder_request", "SOL-030", "received", "received_at" to "2026-10-02T10:00:00Z")
+        )
+
+    @Test
+    fun `con sort la cola ordena por esa columna, en su sentido, y desempata por id`() {
+        fun orden(
+            field: String,
+            descending: Boolean
+        ) = codigos(AttentionQueueRows.queue(recibidas, emptyList(), filtros(sort = QueueSort(field, descending)), yo))
+        assertEquals(listOf("QUE-020", "QUE-005", "SOL-030", "CON-010"), orden("received_at", true))
+        assertEquals(listOf("CON-010", "QUE-005", "SOL-030", "QUE-020"), orden("received_at", false))
+        assertEquals(listOf("CON-010", "QUE-005", "QUE-020", "SOL-030"), orden("code", false))
+        assertEquals(listOf("SOL-030", "QUE-020", "QUE-005", "CON-010"), orden("code", true))
+        assertEquals(listOf("QUE-020", "CON-010", "QUE-005", "SOL-030"), orden("due_at", false))
+        assertEquals(listOf("CON-010", "QUE-020", "QUE-005", "SOL-030"), orden("due_at", true))
+    }
+
+    @Test
+    fun `el desempate por id es estable entre paginas`() {
+        val iguales = (1..5).map { fila("grievance", "QUE-1$it", "received", "received_at" to "2026-10-02T10:00:00Z") }.shuffled()
+        val paginas =
+            (0..4).flatMap { codigos(AttentionQueueRows.queue(iguales, emptyList(), filtros(page = it, size = 1, sort = QueueSort("received_at", true)), yo)) }
+        assertEquals(listOf("QUE-11", "QUE-12", "QUE-13", "QUE-14", "QUE-15"), paginas)
+    }
+
+    @Test
+    fun `sort y dir se validan contra su lista cerrada y fuera de ella son 422`() {
+        assertEquals(null, AttentionQueueRows.parse(emptyMap(), catalog).sort)
+        assertEquals(QueueSort("received_at", true), AttentionQueueRows.parse(mapOf("sort" to listOf("received_at"), "dir" to listOf("desc")), catalog).sort)
+        assertEquals(QueueSort("code", false), AttentionQueueRows.parse(mapOf("sort" to listOf("code")), catalog).sort)
+        assertEquals(QueueSort("due_at", false), AttentionQueueRows.parse(mapOf("sort" to listOf("due_at"), "dir" to listOf("asc")), catalog).sort)
+        for (malo in listOf(
+            mapOf("sort" to listOf("description")),
+            mapOf("sort" to listOf("code"), "dir" to listOf("arriba")),
+            mapOf("dir" to listOf("desc")),
+            mapOf("sort" to listOf("code", "due_at"))
+        )) {
+            assertEquals(422, status(assertThrows<Exception> { AttentionQueueRows.parse(malo, catalog) }), malo.toString())
+        }
     }
 
     private fun status(e: Exception): Int = (e as wasichai.core.common.WasichaiException).status.value()

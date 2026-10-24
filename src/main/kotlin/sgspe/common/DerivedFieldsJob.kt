@@ -134,15 +134,16 @@ class DerivedFieldsJob(
 @EnableScheduling
 @ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
 class DerivedFieldsSchedule(
-    private val job: DerivedFieldsJob
+    private val job: DerivedFieldsJob,
+    private val jobs: JobsProperties
 ) {
     @Scheduled(cron = "\${sgspe.jobs.derived-fields.hourly-cron:0 15 * * * *}", zone = "America/Lima")
     suspend fun hourly() {
-        job.runOnce(full = false)
+        JobTimeouts.run(job = "JOB-02 DerivedFieldsJob", limit = jobs.runTimeout) { job.runOnce(full = false) }
     }
 
     @Scheduled(cron = "\${sgspe.jobs.derived-fields.daily-cron:0 45 3 * * *}", zone = "America/Lima")
     suspend fun daily() {
-        job.runOnce(full = true)
+        JobTimeouts.run(job = "JOB-02 DerivedFieldsJob", limit = jobs.runTimeout) { job.runOnce(full = true) }
     }
 }

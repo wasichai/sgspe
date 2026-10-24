@@ -533,6 +533,137 @@ class LoaderTests(unittest.TestCase):
         self.assertIn("loc-a", err.getvalue())
 
 
+class IssueTests(unittest.TestCase):
+    """`--issue` (#153): aprueba y emite los entregables como WF-H, con la aprobación de otra persona."""
+
+    SHA = "a" * 64
+
+    def setUp(self):
+        self.core = FakeCore(workflow_objects={"deliverable": "draft", "stakeholder": "identified"})
+        self.core.transition_targets.update({"profile": "profiled", "submit_for_review": "in_review",
+                                             "resubmit": "in_review", "approve": "approved"})
+        self.addCleanup(self.core.stop)
+        self.dir = tempfile.mkdtemp()
+        data = json.loads(json.dumps(BASE))
+        data["users"].append({"key": "actores", "email": "actores.demo@sgspe.test",
+                              "displayName": "Gestión de actores (demo)", "roles": ["STAKEHOLDER_MANAGER"]})
+        data["collections"].append({"object": "deliverable", "match": ["document_code"], "as": "social", "records": [
+            {"key": "t2", "attributes": {"document_code": "DEMO-T2-001", "title": "T2"},
+             "commands": [{"command": "draft"}, {"command": "issue", "approve_as": "actores"}]}]})
+        write(self.dir, "00-base.json", data)
+        self.core.add_record("indicator", {"code": "KPI-STK-05"})
+        self.core.refuse_command("/measurements", 422)
+        self.sleeps = []
+
+    def deliverable(self, status="LISTO", state="draft", **attributes):
+        return self.core.add_record("deliverable", {"document_code": "DEMO-T2-001", "title": "T2",
+                                                    "draft_generation_status": status, "draft_model_sha256": self.SHA,
+                                                    **attributes}, state=state)
+
+    def run_loader(self, issue=True, sleep=None, timeout=60):
+        client = Client(self.core.base_url)
+        client.login("admin@wasichai.local", "admin")
+        self.out = io.StringIO()
+        return load_demo.Loader(client, load_demo.read_dataset(self.dir), users_password="clave-demo-123",
+                                out=self.out, draft=issue, issue=issue, sleep=sleep or self.sleeps.append,
+                                issue_timeout=timeout, poll=5).run()
+
+    def posts(self, suffix):
+        return [r for r in self.core.requests if r["method"] == "POST" and r["path"].endswith(suffix)]
+
+    def test_sin_issue_no_aprueba_ni_emite(self):
+        self.deliverable()
+        self.run_loader(issue=False)
+        self.assertFalse(self.posts("/transitions/submit_for_review") + self.posts("/issue"))
+
+    def test_envia_aprueba_con_otra_persona_y_emite(self):
+        record = self.deliverable()
+        self.run_loader()
+        self.assertEqual(record["state"], "issued")
+        submit, approve, issue = (self.posts(s) for s in ("/transitions/submit_for_review", "/transitions/approve",
+                                                          "/issue"))
+        self.assertEqual([r["auth"] for r in submit], ["Bearer t-gestion.social.demo@sgspe.test"])
+        self.assertEqual([r["auth"] for r in approve], ["Bearer t-actores.demo@sgspe.test"])
+        self.assertEqual([r["auth"] for r in issue], ["Bearer t-gestion.social.demo@sgspe.test"])
+        self.assertEqual(issue[0]["body"], {"draftModelSha256": self.SHA, "checklistConfirmed": True})
+        self.assertEqual(issue[0]["headers"]["If-Match"], f'"{record["updatedAt"]}"')
+        self.assertTrue(issue[0]["headers"]["Idempotency-Key"].startswith("demo-t2-"))
+        self.assertTrue(issue[0]["headers"]["X-Change-Reason"])
+        self.assertIn("command issue t2", self.out.getvalue())
+        self.assertFalse(self.posts("/drafts"))  # LISTO: no pide otro borrador
+
+    def test_ya_emitido_no_hace_nada(self):
+        self.deliverable(state="issued")
+        self.run_loader()
+        self.assertFalse(self.posts("/transitions/submit_for_review") + self.posts("/transitions/approve")
+                         + self.posts("/issue"))
+        self.assertNotIn("command issue", self.out.getvalue())
+
+    def test_retoma_desde_en_revision(self):
+        record = self.deliverable(state="in_review")
+        self.run_loader()
+        self.assertEqual(record["state"], "issued")
+        self.assertFalse(self.posts("/transitions/submit_for_review"))
+        self.assertEqual(len(self.posts("/transitions/approve")), 1)
+
+    def test_un_observado_se_reenvia(self):
+        record = self.deliverable(state="observed")
+        self.run_loader()
+        self.assertEqual(record["state"], "issued")
+        self.assertEqual(len(self.posts("/transitions/resubmit")), 1)
+
+    def test_espera_el_borrador_antes_de_enviar(self):
+        record = self.deliverable(status=None)
+
+        def ready(seconds):
+            self.sleeps.append(seconds)
+            record["attributes"]["draft_generation_status"] = "LISTO"
+            record["attributes"]["draft_generated_at"] = record["attributes"]["generation_requested_at"]
+
+        self.run_loader(sleep=ready)
+        self.assertEqual(len(self.posts("/drafts")), 1)  # --issue pide el borrador que falta
+        self.assertEqual(self.sleeps, [5])
+        self.assertEqual(record["state"], "issued")
+
+    def test_un_borrador_fallido_se_pide_otra_vez_y_si_vuelve_a_fallar_corta(self):
+        record = self.deliverable(status="FALLIDO", generation_requested_at="2026-10-20T09:00:00Z",
+                                  draft_generated_at="2026-10-20T09:00:05Z")
+
+        def fails(seconds):
+            record["attributes"].update({"draft_generation_status": "FALLIDO", "draft_warnings": "PDF_CHECK_FAILED INTERNO",
+                                         "draft_generated_at": record["attributes"]["generation_requested_at"]})
+
+        with self.assertRaisesRegex(load_demo.LoadError, "t2: draft FALLIDO: PDF_CHECK_FAILED INTERNO"):
+            self.run_loader(sleep=fails)
+        self.assertEqual(len(self.posts("/drafts")), 1)
+        self.assertFalse(self.posts("/transitions/submit_for_review"))
+
+    def test_vence_el_plazo_si_el_borrador_no_llega(self):
+        self.deliverable(status="EN COLA")
+        with self.assertRaisesRegex(load_demo.LoadError, "t2: draft not ready after 10 s"):
+            self.run_loader(timeout=10)
+        self.assertEqual(self.sleeps, [5, 5])
+
+    def test_un_mapa_fallido_corta_antes_de_enviar(self):
+        # la emisión rechaza MAP_FAILED: enviarlo y aprobarlo lo dejaría aprobado sin poder emitirse
+        record = self.deliverable(draft_warnings="POSSIBLE_PERSONAL_DATA perfiles\nMAP_FAILED portada")
+        with self.assertRaisesRegex(load_demo.LoadError, "t2: draft with MAP_FAILED"):
+            self.run_loader()
+        self.assertEqual(record["state"], "draft")
+        self.assertFalse(self.posts("/transitions/submit_for_review"))
+
+    def test_un_anulado_es_error(self):
+        self.deliverable(state="voided")
+        with self.assertRaisesRegex(load_demo.LoadError, "t2: state voided"):
+            self.run_loader()
+
+    def test_main_acepta_issue(self):
+        self.deliverable(state="issued")
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(load_demo.main(["--dir", self.dir, "--core", self.core.base_url,
+                                             "--users-password", "clave-demo-123", "--issue"]), 0)
+
+
 class ValidateTests(unittest.TestCase):
     def setUp(self):
         with open(os.path.join(os.path.dirname(__file__), "model.json"), encoding="utf-8") as f:
@@ -646,6 +777,44 @@ class ValidateTests(unittest.TestCase):
         errors = self.errors([{"key": "x", "attributes": {"project": "@proj"},
                                "commands": [{"command": "approve_area"}]}])
         self.assertTrue(any("approve_area" in e for e in errors))
+
+    def deliverable(self, attributes, issue=None, writer="social"):
+        data = json.loads(json.dumps(BASE))
+        data["users"].append({"key": "actores", "email": "actores.demo@sgspe.test", "displayName": "Actores (demo)",
+                              "roles": ["STAKEHOLDER_MANAGER"]})
+        data["collections"].append({"object": "community", "match": ["name"], "records": [
+            {"key": "com", "attributes": {"name": "Comunidad Ejemplo", "community_type": "COMUNIDAD CAMPESINA"}}]})
+        record = {"key": "del", "attributes": {"project": "@proj", "document_code": "DEMO-X", "title": "X", **attributes}}
+        if issue is not None:
+            record["commands"] = [{"command": "issue", **issue}]
+        data["collections"].append({"object": "deliverable", "match": ["document_code"], "as": writer,
+                                    "records": [record]})
+        return demo_check.validate(load_demo.read_dataset_from(data), self.model)
+
+    T2 = {"deliverable_type": "INFORME DE CAMPO Y AVANCE", "community": "@com", "period_start_date": "2026-10-01",
+          "period_end_date": "2026-10-20"}
+
+    def test_un_t2_lleva_la_comunidad_y_el_periodo(self):
+        self.assertEqual(self.deliverable(self.T2), [])
+        errors = self.deliverable({**self.T2, "community": None})
+        self.assertTrue(any("community" in e and "INFORME DE CAMPO Y AVANCE" in e for e in errors), errors)
+        errors = self.deliverable({**self.T2, "period_end_date": "2026-09-01"})
+        self.assertTrue(any("period_end_date" in e for e in errors), errors)
+
+    def test_un_t1_lleva_el_estudio_el_area_y_el_corte(self):
+        errors = self.deliverable({"deliverable_type": "DIAGNOSTICO SOCIAL", "period_start_date": "2026-04-01",
+                                   "period_end_date": "2026-09-30"})
+        for name in ("study", "area_of_influence", "cutoff_date"):
+            self.assertTrue(any(name in e for e in errors), (name, errors))
+
+    def test_la_emision_la_aprueba_otro_usuario_declarado(self):
+        self.assertEqual(self.deliverable(self.T2, issue={"approve_as": "actores"}), [])
+        errors = self.deliverable(self.T2, issue={"approve_as": "social"})
+        self.assertTrue(any("approve_as" in e and "social" in e for e in errors), errors)
+        errors = self.deliverable(self.T2, issue={"approve_as": "nadie"})
+        self.assertTrue(any("approve_as" in e and "nadie" in e for e in errors), errors)
+        errors = self.deliverable(self.T2, issue={})
+        self.assertTrue(any("approve_as" in e for e in errors), errors)
 
     def test_rechaza_una_referencia_a_otro_tipo_de_objeto(self):
         errors = self.errors([{"key": "x", "attributes": {"project": "@au-distrito"}}])

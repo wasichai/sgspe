@@ -35,12 +35,19 @@ ASSESSMENT_KEYS = {"assessment_date", "basis", "stance", "trust_score", "positio
 
 # el objeto sobre el que va cada comando, y los comandos que entiende el cargador
 COMMAND_OBJECT = {"assessment": "stakeholder", "risk_assessment": "social_risk", "approve_area": "area_of_influence",
-                  "close_period": "project", "sections": "deliverable", "draft": "deliverable"}
+                  "close_period": "project", "sections": "deliverable", "draft": "deliverable",
+                  "issue": "deliverable"}
 COMMANDS = tuple(COMMAND_OBJECT)
 REFERENCE = re.compile(r"^@([A-Za-z0-9_-]+)$")
 # el formato con el que load_ubigeo.py guarda todo ubigeo_code (su CODE): el departamento y la provincia se completan
 # con ceros, así que "09" o "0904" no encontrarían la unidad ya cargada y la duplicarían
 UBIGEO = re.compile(r"^\d{6}$")
+# los parámetros que cada tipo de entregable exige para pedir un borrador (missingParameters de SocialDiagnosisType y
+# FieldReportType): sin uno, el pedido responde 422 DELIVERABLE_PARAMETERS_MISSING
+DELIVERABLE_PARAMETERS = {
+    "DIAGNOSTICO SOCIAL": ("study", "area_of_influence", "period_start_date", "period_end_date", "cutoff_date"),
+    "INFORME DE CAMPO Y AVANCE": ("community", "period_start_date", "period_end_date"),
+}
 
 
 def _round(value):
@@ -125,7 +132,9 @@ class _Checker:
                 continue
             if not collection.get("reopen"):
                 self.record(file, key, name, obj, record)
-            self.commands(file, key, name, record)
+            self.commands(file, key, name, record, collection.get("as", "admin"))
+            if name == "deliverable" and not collection.get("reopen"):
+                self.deliverable(file, key, record.get("attributes") or {})
             self.defined.setdefault(key, name)
 
     # ---- atributos ---------------------------------------------------------------------------------------------
@@ -219,7 +228,7 @@ class _Checker:
 
     # ---- comandos ----------------------------------------------------------------------------------------------
 
-    def commands(self, file, key, name, record):
+    def commands(self, file, key, name, record, writer):
         for command in record.get("commands", []):
             kind = command.get("command")
             if kind not in COMMANDS:
@@ -228,6 +237,8 @@ class _Checker:
                 self.error(file, key, f"command {kind} goes on {COMMAND_OBJECT[kind]}, not {name}")
             elif kind == "assessment":
                 self.assessment(file, key, command.get("attributes") or {})
+            elif kind == "issue":
+                self.issue(file, key, command, writer)
         if name == "stakeholder":
             self.expected_group(file, key, record)
 
@@ -252,6 +263,28 @@ class _Checker:
             if field and field.get("type") == "ENUM" and isinstance(value, str) \
                     and value not in self.enums.get(field.get("enum"), []):
                 self.error(file, key, f"assessment.{attr} {value!r} is not an option of {field.get('enum')}")
+
+    def issue(self, file, key, command, writer):
+        """La emisión (load_demo.py --issue): la envía a revisión y la emite quien escribe la colección, y la aprueba
+        otro usuario declarado de la demostración (`approve_as`), para que nadie apruebe lo que preparó."""
+        approver = command.get("approve_as")
+        users = {u.get("key") for u in self.dataset.users}
+        if approver is None:
+            self.error(file, key, "issue.approve_as is required")
+        elif approver not in users:
+            self.error(file, key, f"issue.approve_as {approver} is not a user of the dataset")
+        elif approver == writer:
+            self.error(file, key, f"issue.approve_as {approver} also writes the deliverable: another user approves")
+
+    def deliverable(self, file, key, attributes):
+        """Los parámetros que el tipo exige para pedir el borrador, y un periodo que no termina antes de empezar."""
+        kind = attributes.get("deliverable_type")
+        for name in DELIVERABLE_PARAMETERS.get(kind, ()):
+            if attributes.get(name) is None:
+                self.error(file, key, f"deliverable.{name} is required by {kind}")
+        start, end = attributes.get("period_start_date"), attributes.get("period_end_date")
+        if isinstance(start, str) and isinstance(end, str) and end < start:
+            self.error(file, key, f"deliverable.period_end_date {end} is before period_start_date {start}")
 
     def expected_group(self, file, key, record):
         expected = (record.get("_expect") or {}).get("influence_group")
