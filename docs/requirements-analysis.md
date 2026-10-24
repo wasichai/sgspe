@@ -1535,8 +1535,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 33 |
 | `UPS` | 32 |
-| `ASM` | 147 |
-| Total | 576 |
+| `ASM` | 148 |
+| Total | 577 |
 
 ### 20.2 Requisitos por bounded context
 
