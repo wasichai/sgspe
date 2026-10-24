@@ -29,7 +29,7 @@ organización y sus roles.
 
 === Cerrar sesión y sesión vencida
 
-* Para salir, pulse el botón de cierre de sesión (icono de salida, a la derecha de la barra superior). Cierre sesión
+* Para salir, abra el menú con su nombre, a la derecha de la barra superior, y pulse «Cerrar sesión». Cierre sesión
   siempre en equipos compartidos.
 * La sesión dura unas horas (cuatro en una instalación de producción). Cuando vence, el portal muestra el diálogo «Su
   sesión venció»: escriba de nuevo su contraseña y pulse btn:[Ingresar] para seguir donde estaba, sin salir de la
@@ -38,20 +38,39 @@ organización y sus roles.
 === Recorrido por la interfaz
 
 .Página de inicio de la gerencia social
-image::screenshots/user/02-inicio.png[Página Inicio con la revisión ejecutiva: lo que necesita atención hoy, cifras de proyectos, compromisos, QCS, riesgos y alertas, y gráficos]
+image::screenshots/user/02-inicio.png[Página Inicio «Mi trabajo»: lo que me toca hoy, las tareas para tomar y lo que espera su decisión]
 
 La pantalla tiene tres zonas:
 
-Barra superior:: De izquierda a derecha: la marca *SGSPE* (vuelve al inicio), el *selector de proyecto*, «Buscar»,
-«Preguntar» (el asistente de IA, que solo responde si la IA está activada para su organización), la campana de *avisos* con el número sin
-leer, el idioma, el tema de color, el menú de *su cuenta* y el botón de cierre de sesión.
-Menú lateral:: Las secciones a las que su rol da acceso: Inicio, Proyectos, Territorio, Grupos de interés,
-Relacionamiento, Compromisos, QCS, Riesgos, Programas sociales, Documentos, Tareas y Reportes. Quien administra ve
-además «Administración», que abre `/admin`.
+Barra superior:: Seis controles, de izquierda a derecha: la marca *SGSPE* (vuelve al inicio), el *selector de
+proyecto*, «Buscar», «Preguntar» (el asistente de IA, que solo responde si la IA está activada para su organización), la
+campana de *avisos* con el número sin leer y el menú de *su cuenta*, con su nombre.
+Menú lateral:: Las secciones a las que su rol da acceso, agrupadas en bloques con título: Inicio; «Proyectos y
+territorio» (Proyectos, Territorio); «Trabajo con las comunidades» (Grupos de interés, Relacionamiento, Compromisos,
+Quejas y solicitudes); «Riesgos e inversión social» (Riesgos, Programas sociales); y «Documentos y seguimiento»
+(Documentos, Tareas, Reportes). Quien administra ve además «Administración». Al pie, btn:[Contraer] deja el menú solo
+con los íconos; el navegador recuerda la elección.
 Contenido:: La página de la sección elegida.
 
 .Barra superior
-image::screenshots/user/03-barra-superior.png[Barra superior con la marca SGSPE, el selector de proyecto, Buscar, Preguntar, avisos, idioma, tema, cuenta y cierre de sesión]
+image::screenshots/user/03-barra-superior.png[Barra superior con la marca SGSPE, el selector de proyecto, Buscar, Preguntar, la campana de avisos y el menú de la cuenta]
+
+==== El inicio «Mi trabajo»
+
+El inicio es el mismo para todas las personas y ordena el trabajo por urgencia. Cada bloque aparece solo si su cuenta
+tiene algo que mostrar en él:
+
+* *Lo que me toca hoy*: lo abierto a su cargo (tareas, compromisos y QCS), con lo vencido primero, su motivo y su
+  fecha. Debajo, «Para tomar en …»: las tareas sin asignar de sus proyectos.
+* *Esperan su decisión*: las aprobaciones, las alertas tempranas por triar y los avisos que piden acción.
+* *Agenda de la semana*: las visitas de campo y las interacciones programadas de los próximos siete días.
+* *Registrar*: los atajos de creación que su rol permite, como btn:[Registrar interacción] o btn:[Nuevo compromiso].
+* *Mis proyectos*: una tarjeta por proyecto con su estado, su jefatura y lo que pide acción (compromisos y QCS vencidos,
+  riesgos altos o críticos). Una cifra que su cuenta no puede leer se muestra como «—», nunca como cero.
+* *Visión ejecutiva*: las cifras del tablero ejecutivo que su cuenta puede leer, con su fecha de cálculo y el enlace a
+  la revisión completa.
+
+Quien lee los indicadores tiene además, en la cabecera, los accesos al monitoreo y al catálogo de indicadores.
 
 ==== El selector de proyecto
 
@@ -71,19 +90,21 @@ image::screenshots/user/05-busqueda.png[Diálogo de búsqueda con resultados agr
 
 ==== Su cuenta, idioma y tema
 
-El menú con su nombre muestra su usuario, su organización y sus roles. El selector de idioma cambia la interfaz entre
-español e inglés, y el botón de tema cambia el esquema de colores (claro u oscuro). La preferencia se guarda en su navegador.
+El menú con su nombre muestra su usuario, su organización y sus roles. Ahí están también el idioma, que cambia la
+interfaz entre español e inglés, el tema, que cambia el esquema de colores (claro, oscuro o el del sistema), y
+«Cerrar sesión». La preferencia de idioma y tema se guarda en su navegador.
 
 .Menú «Su cuenta»
-image::screenshots/user/04-menu-cuenta.png[Menú desplegable con el usuario, la organización y la cantidad de roles,width=60%]
+image::screenshots/user/04-menu-cuenta.png[Menú de la cuenta con el usuario, la organización, los roles, el idioma, el tema y Cerrar sesión,width=60%]
 
 [[usr-proyecto-360]]
 === Trabajar dentro de un proyecto
 
-Al abrir un proyecto, una fila de pestañas lleva a sus secciones: Resumen, Mapa, Grupos de interés, Relacionamiento,
-Compromisos, QCS, Riesgos, Programas sociales y Documentos; «Más» agrupa Tareas, Bandeja de IA, Reportes y «Equipo y
-parámetros». Cada pestaña muestra cuántos registros tiene. Encima, la ruta de navegación («Proyectos / DEMO-T1 · …»)
-y el estado del proyecto.
+Al abrir un proyecto, una sola fila de pestañas lleva a sus secciones: Resumen, Mapa, Grupos de interés,
+Relacionamiento, Compromisos, QCS, Riesgos, Programas sociales y Documentos; «Más» agrupa Tareas, Bandeja de IA,
+Reportes y «Equipo y parámetros». Cada pestaña muestra cuántos registros tiene y, en rojo, lo que pide acción (por
+ejemplo, lo vencido). La pestaña de la sección abierta queda marcada, también dentro de una ficha. Encima, la ruta de
+navegación («Proyectos / DEMO-T1 · …») y el estado del proyecto.
 
 Si usted lee el proyecto pero no está asignado a él, el portal lo avisa: «No está asignado a este proyecto: puede
 leerlo, pero no cambiarlo.».
@@ -93,23 +114,33 @@ leerlo, pero no cambiarlo.».
 
 Todas las listas funcionan igual:
 
-* *Vistas guardadas*: las pestañas sobre la tabla («Abiertos», «Vencidos», «Míos»…) son filtros predefinidos con su
-  número de registros.
-* *Filtros*: los desplegables y el cuadro de búsqueda de cada lista. Los filtros activos quedan en la dirección de la
-  página, así que puede guardar o compartir el enlace.
-* *Páginas*: la lista muestra 25 registros por página; use «Página anterior» y «Página siguiente».
-* *Orden*: cada lista tiene un orden fijo pensado para la tarea (por ejemplo, los compromisos por fecha de vencimiento);
-  no se reordena pulsando los encabezados.
+* *Vistas*: el primer control de la barra de filtros («Abiertos», «Vencidos», «Por vencer»…) son filtros predefinidos
+  con su número de registros; «Más vistas» abre el resto. Cuando una sección tiene páginas hermanas (por ejemplo,
+  «Compromisos» y «Acuerdos»), se eligen en la cabecera de la lista.
+* *Filtros*: el cuadro de búsqueda y los desplegables de la barra; btn:[Más filtros] abre los demás, y cada filtro
+  aplicado queda como una etiqueta que se quita con un clic, o todos con btn:[Limpiar filtros]. Los filtros activos
+  quedan en la dirección de la página, así que puede guardar o compartir el enlace.
+* *Orden y columnas*: en las listas que lo permiten, pulse el encabezado de una columna para ordenar por ella, y
+  btn:[Columnas] muestra u oculta las columnas opcionales. Las demás tienen un orden fijo pensado para la tarea (por
+  ejemplo, los compromisos por fecha de vencimiento).
+* *Vista previa*: el botón «Vista previa» de cada fila (o kbd:[Espacio] con la fila seleccionada) abre un panel con el
+  resumen del registro sin salir de la lista.
 * *Tabla o tablero*: muchas secciones ofrecen «Lista» y «Tablero» (gráficos con «Ver datos» para ver las cifras).
+
+Una ficha abierta desde una lista ofrece, sobre su título, «‹ Volver a …» con el número de registros de la lista: vuelve
+a ella con los filtros intactos. «Anterior» y «Siguiente» (o kbd:[K] y kbd:[J]) recorren los registros de esa página sin
+volver a la lista.
 
 [[usr-fichas]]
 === Fichas de registro
 
-Al abrir un registro se ve su *ficha*: el título y el código, la línea de estados (los pasos ya dados, el actual
-resaltado y los siguientes), cuatro tarjetas (estado actual, siguiente acción, responsable y vencimiento), las
-pestañas de detalle (Resumen, Evidencias, Actividad y otras según el tipo) y, a la derecha, la *trazabilidad*: «De
-dónde viene», «Qué generó» y «Lo sustenta». La pestaña «Actividad» muestra el historial de cambios con su autor y su
-motivo.
+Al abrir un registro se ve su *ficha*: el tipo y el código, el título y, debajo, las acciones. El botón destacado es
+siempre la *siguiente acción* del registro (por ejemplo, btn:[Registrar cumplimiento]); si todavía no se puede dar, el
+botón aparece atenuado y debajo dice qué falta. Las demás acciones van como botones secundarios o en «Más acciones»
+(el botón «⋯»). Siguen cuatro tarjetas (estado actual, siguiente acción, responsable y vencimiento); en la del estado,
+«Ver el camino» despliega los pasos ya dados, el actual y los siguientes. Más abajo están las pestañas de detalle
+(Resumen, Evidencias, Actividad y otras según el tipo) y, a la derecha, la *trazabilidad*: «De dónde viene», «Qué
+generó» y «Lo sustenta». La pestaña «Actividad» muestra el historial de cambios con su autor y su motivo.
 
 [[usr-transiciones]]
 === Cambiar el estado de un registro
@@ -119,7 +150,8 @@ motivo.
 *Requisitos previos:* un rol que pueda dar ese paso y, en registros de proyecto, una asignación vigente.
 
 .Procedimiento
-. Abra la ficha del registro. Los botones de los pasos posibles aparecen junto a «Editar».
+. Abra la ficha del registro. La siguiente acción es el botón destacado; los demás pasos posibles están junto a él o
+  en «Más acciones» («⋯»).
 . Pulse el paso, por ejemplo btn:[Iniciar ejecución]. Se abre un diálogo que comprueba las reglas («Comprobando las
   reglas…») y explica «Qué pasará».
 . Escriba el motivo en «Motivo (obligatorio)» cuando el diálogo lo pida.
@@ -130,7 +162,8 @@ image::screenshots/user/19-transicion-dialogo.png[Diálogo Iniciar ejecución co
 
 *Resultado esperado:* el mensaje «Listo: el registro está en «En ejecución».» y la ficha con el estado nuevo.
 
-*Verificación:* la línea de estados resalta el nuevo estado y la pestaña «Actividad» muestra el cambio con su motivo.
+*Verificación:* la tarjeta «Estado actual» muestra el nuevo estado, la siguiente acción cambia y la pestaña «Actividad»
+muestra el cambio con su motivo.
 
 *Casos especiales:* si una regla no se cumple, el diálogo dice qué falta (por ejemplo, «falta una entrega con
 conformidad y con quiénes la dieron») y no deja confirmar. Corrija el dato y vuelva a intentarlo.
@@ -148,5 +181,6 @@ conformidad y con quiénes la dieron») y no deja confirmar. Corrija el dato y v
 |«Otra persona cambió este registro. Recargue para ver la versión actual; lo escrito se conserva.» |Pulse btn:[Recargar] y repita el cambio.
 |«No hubo respuesta del servidor. Revise su conexión.» |Sin conexión o servidor detenido. Reintente; si sigue, avise a soporte.
 |«No se pudo cargar esta información. Los filtros se conservan.» |Falló una carga; pulse btn:[Reintentar].
-|«Su cuenta no puede abrir «Sección».» |Su rol no tiene acceso a esa sección (ver <<usr-roles>>).
+|«No puede abrir «Sección».» |Su rol no tiene acceso a esa sección. Dentro de un proyecto, la pantalla dice a quién
+pedirlo (la jefatura del proyecto, si su cuenta puede verla) y ofrece volver al resumen (ver <<usr-roles>>).
 |===

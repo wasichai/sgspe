@@ -1,6 +1,6 @@
 # Arquitectura de UX de SGSPE
 
-Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.2 · 2026-10-07
+Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.3 · 2026-10-23
 
 Este documento fija la visión de experiencia, la arquitectura de información, la navegación y el principio que ordena todo el
 portal: **la navegación contextual y la trazabilidad**. Deriva del [análisis de requisitos](../requirements-analysis.md), del
@@ -12,6 +12,12 @@ usa nombres de personas reales [USR-07]: las personas del lienzo son ficticias y
 La parte visual vive en los lienzos de diseño de cada etapa (ver [README](README.md)). El sistema de diseño está en
 [`design-system.md`](design-system.md), los tokens en [`tokens.css`](tokens.css), las fichas de handoff por pantalla en
 [`screens.md`](screens.md) y los flujos en [`flows.md`](flows.md).
+
+El rediseño de UX del 2026-10-20 ([`redesign/`](redesign/README.md)) está implementado en `sgspe-ui` y llevado a este
+documento el 2026-10-23: el shell, el inicio «Mi trabajo», la sub-navegación de una sola fila, la administración en el
+portal y los estados del sistema. Cada cambio cita su decisión (`DD-NN`, en
+[`redesign/07-decisiones-y-compatibilidad.md`](redesign/07-decisiones-y-compatibilidad.md)); la carpeta queda como historia y
+registro de decisiones.
 
 ## 1. Alcance y fuentes
 
@@ -99,28 +105,31 @@ Donde choca con la Fase 0, la interfaz sigue a la Fase 0:
 ## 5. Usuarios y trabajos por hacer
 
 La interfaz no se diseña como si todos tuvieran las mismas necesidades [PRM-02 §3]. El orden de las secciones es el mismo para
-todos (RNF-USA-001); por rol cambian las secciones visibles (RF-IAM-002), el inicio (ASM-078), lo que cuentan las insignias y
-los atajos de creación.
+todos (RNF-USA-001); por rol cambian las secciones visibles (RF-IAM-002), lo que cuentan las insignias, los atajos de creación
+y qué bloques trae el inicio. El inicio es el mismo para todos, «Mi trabajo» (§7.6, DD-01): sus bloques se ofrecen por lo que
+la cuenta lee y puede hacer, nunca por el nombre del rol, y un bloque sin nada legible no se dibuja. El mecanismo de ASM-078
+(una variante de inicio que se ofrece con ciertos permisos, `inicios.ts`) sigue disponible, pero no hay ninguna registrada: la
+columna «Lo primero del inicio» dice qué bloques llegan con los permisos típicos del rol.
 
-| Rol | Su pregunta | Inicio | Acciones que definen el rol |
+| Rol | Su pregunta | Lo primero del inicio | Acciones que definen el rol |
 |---|---|---|---|
-| Gerente social (`SOCIAL_MANAGER`) | ¿Cómo está la situación social y qué decido hoy? | Atención requerida | Aprobar actas, verificar compromisos, decidir mitigación, confirmar alertas |
-| Jefe de proyecto (`PROJECT_MANAGER`) | ¿Qué compromisos y riesgos amenazan mi proyecto? | Project 360 | Aprobar en nivel superior y sobre el tope; cancelar compromisos |
-| Relacionista comunitario (`COMMUNITY_RELATIONS_OFFICER`) | ¿Con quién me reúno, qué prometimos y qué quedó pendiente? | Mis tareas y agenda | Registrar interacciones y actas, acusar quejas, caracterizar grupos de interés |
-| Gestor de grupos de interés (`STAKEHOLDER_MANAGER`) | ¿Quiénes son, cuánto pesan y qué postura tienen? | Matriz interés × poder | Evaluar (escribe la postura), retirar y reincorporar |
-| Gestor de compromisos (`COMMITMENT_MANAGER`) | ¿Qué debemos, a quién y desde cuándo? | Compromisos vencidos y por vencer | Enviar, iniciar, registrar entrega, verificar lo que no le toca como responsable |
-| Gestor de QCS (`GRIEVANCE_MANAGER`) | ¿Qué nos reclaman y qué plazo vence primero? | QCS por plazo | Evaluar, atender, resolver, rechazar con respuesta, reclasificar |
-| Gestor de riesgos sociales (`SOCIAL_RISK_MANAGER`) | ¿Qué puede detener el proyecto y qué hacemos? | Matriz de riesgos y alertas | Revisar riesgos, decidir tratamiento, triaje y confirmación de alertas |
-| Gestor de inversión social (`SOCIAL_INVESTMENT_MANAGER`) | ¿Cuánto invertimos frente a lo previsto y a quién llega? | Programas sociales | Aportes, presupuesto por moneda, beneficiarios e indicadores |
-| Analista SIG (`GIS_ANALYST`) | ¿El territorio y las áreas están bien dibujados? | Territorio | Importar con vista previa y reconciliación, editar geometrías, versionar áreas |
-| Agente de campo (`FIELD_AGENT`) | ¿Qué tengo que levantar hoy y dónde? | Mis tareas (móvil) | Crear interacción, observación y foto con ubicación; solo edita lo que capturó (ASM-069) |
-| Aprobador (`APPROVER`) | ¿Qué espera mi aprobación y cumple las reglas? | Aprobaciones | Aprobar con segregación de funciones; resolver quejas de severidad alta |
-| Ejecutivo (`READ_ONLY` o `ANALYST`, ASM-074) | ¿Qué cambió, qué es crítico, dónde y quién lo atiende? | Revisión de 5 minutos | Solo lectura y exportación |
-| Auditor (`AUDITOR`) | ¿Quién cambió qué, cuándo y por qué? | Actividad y auditoría | Lectura de todo el tenant |
-| Analista (`ANALYST`) | ¿Qué dicen los datos del periodo? | Reportes | Usa "Preguntar a los datos" (AI-05, ASM-130), no "Preguntar a los documentos", porque no lee los nombres de `person` |
-| Administración (`PROJECT_ADMIN`, `ORGANIZATION_ADMIN`) | ¿Quién trabaja en qué proyecto y con qué permisos? | Proyectos | Alta y aprobación de proyectos, equipos por asignación; usuarios y roles en `/admin` |
+| Gerente social (`SOCIAL_MANAGER`) | ¿Cómo está la situación social y qué decido hoy? | «Esperan su decisión» (aprobaciones, alertas por triar) y «Lo que me toca hoy» | Aprobar actas, verificar compromisos, decidir mitigación, confirmar alertas |
+| Jefe de proyecto (`PROJECT_MANAGER`) | ¿Qué compromisos y riesgos amenazan mi proyecto? | «Mis proyectos» con lo que pide acción en cada uno, que lleva a Project 360 | Aprobar en nivel superior y sobre el tope; cancelar compromisos |
+| Relacionista comunitario (`COMMUNITY_RELATIONS_OFFICER`) | ¿Con quién me reúno, qué prometimos y qué quedó pendiente? | «Lo que me toca hoy» y «Agenda de la semana» | Registrar interacciones y actas, acusar quejas, caracterizar grupos de interés |
+| Gestor de grupos de interés (`STAKEHOLDER_MANAGER`) | ¿Quiénes son, cuánto pesan y qué postura tienen? | «Lo que me toca hoy» y «Mis proyectos»; la matriz interés × poder, desde el proyecto | Evaluar (escribe la postura), retirar y reincorporar |
+| Gestor de compromisos (`COMMITMENT_MANAGER`) | ¿Qué debemos, a quién y desde cuándo? | «Lo que me toca hoy»: sus compromisos vencidos y por vencer, primero | Enviar, iniciar, registrar entrega, verificar lo que no le toca como responsable |
+| Gestor de QCS (`GRIEVANCE_MANAGER`) | ¿Qué nos reclaman y qué plazo vence primero? | «Lo que me toca hoy»: sus QCS por el plazo que corre | Evaluar, atender, resolver, rechazar con respuesta, reclasificar |
+| Gestor de riesgos sociales (`SOCIAL_RISK_MANAGER`) | ¿Qué puede detener el proyecto y qué hacemos? | «Esperan su decisión» con las alertas por triar, y «Mis proyectos» con los riesgos altos | Revisar riesgos, decidir tratamiento, triaje y confirmación de alertas |
+| Gestor de inversión social (`SOCIAL_INVESTMENT_MANAGER`) | ¿Cuánto invertimos frente a lo previsto y a quién llega? | «Lo que me toca hoy» y «Mis proyectos»; Programas sociales por la navegación | Aportes, presupuesto por moneda, beneficiarios e indicadores |
+| Analista SIG (`GIS_ANALYST`) | ¿El territorio y las áreas están bien dibujados? | «Mis proyectos»; Territorio por la navegación | Importar con vista previa y reconciliación, editar geometrías, versionar áreas |
+| Agente de campo (`FIELD_AGENT`) | ¿Qué tengo que levantar hoy y dónde? | «Lo que me toca hoy» y las visitas que lidera en «Agenda de la semana» | Crear interacción, observación y foto con ubicación; solo edita lo que capturó (ASM-069) |
+| Aprobador (`APPROVER`) | ¿Qué espera mi aprobación y cumple las reglas? | «Esperan su decisión», que lleva a Aprobaciones (S48) | Aprobar con segregación de funciones; resolver quejas de severidad alta |
+| Ejecutivo (`READ_ONLY` o `ANALYST`, ASM-074) | ¿Qué cambió, qué es crítico, dónde y quién lo atiende? | «Visión ejecutiva» con las cifras que lee; la revisión de 5 minutos en `/dashboards/executive` | Solo lectura y exportación |
+| Auditor (`AUDITOR`) | ¿Quién cambió qué, cuándo y por qué? | «Mis proyectos» o, sin asignaciones, los accesos a las secciones que lee | Lectura de todo el tenant |
+| Analista (`ANALYST`) | ¿Qué dicen los datos del periodo? | «Visión ejecutiva»; Reportes por la navegación | Usa "Preguntar a los datos" (AI-05, ASM-130), no "Preguntar a los documentos", porque no lee los nombres de `person` |
+| Administración (`PROJECT_ADMIN`, `ORGANIZATION_ADMIN`) | ¿Quién trabaja en qué proyecto y con qué permisos? | «Registrar» con «Nuevo proyecto» y «Mis proyectos» | Alta y aprobación de proyectos, equipos por asignación; usuarios y roles desde Administración (S53), que abre `/admin` |
 
-`READ_ONLY` usa el inicio del rol al que acompaña; `SUPER_ADMIN` opera la plataforma y no ve datos de los tenants
+`READ_ONLY` ve los bloques del rol al que acompaña; `SUPER_ADMIN` opera la plataforma y no ve datos de los tenants
 (`security.md` §6.2).
 
 ## 6. Arquitectura de información
@@ -145,7 +154,7 @@ Rutas técnicas en inglés y kebab-case (ADR-0009, ASM-075). La columna "En el p
 
 | Sección (RNF-USA-001) | Global | En el proyecto | Fase de llegada |
 |---|---|---|---|
-| Dashboard | `/` (inicio por rol), `/dashboards/monitoring` | `/overview` (Resumen) | F1 bienvenida; F8 consolidado |
+| Dashboard | `/` (inicio «Mi trabajo»), `/dashboards/executive` (S51, DD-19), `/dashboards/monitoring`, `/dashboards/indicators` | `/overview` (Resumen) | F1 bienvenida; F8 consolidado |
 | Proyectos | `/projects`, `/projects/new` | `/overview`, `/map`, `/areas/:areaId`, `/settings`, `/activity` | F2 |
 | Territorio | `/territory`, `/territory/dashboard`, `/territory/quality`, `/territory/communities/:id`, `/territory/localities/:id`, `/territory/admin-units/:id`, `/territory/imports/:id` | `/map` | F2; F6 mapa territorial, ficha, tablero y calidad de datos |
 | Grupos de interés | `/stakeholders`, `/actors/:actorId` | `/stakeholders`, `/stakeholders/matrix`, `/stakeholders/:stakeholderId` | F2 |
@@ -157,7 +166,7 @@ Rutas técnicas en inglés y kebab-case (ADR-0009, ASM-075). La columna "En el p
 | Documentos | `/documents` | `/documents/:documentId` | F3 |
 | Tareas | `/tasks`, `/tasks/approvals` | `/tasks` (del proyecto) | F3 |
 | Reportes | `/reports`, `/reports/deliverables/:deliverableId` | `/reports` (del proyecto) | F2–F4 exportaciones; F8 entregables |
-| Administración | `/admin` (consola de wasichai) | `/settings` (equipo y parámetros del proyecto) | F1 |
+| Administración | `/administration` (S53, DD-20), que abre la consola de wasichai (`/admin`) en otra pestaña | `/settings` (equipo y parámetros del proyecto) | F1 |
 | Transversal | `/notifications`, panel del asistente, búsqueda ⌘K, `/field/queue` (cola de campo, móvil) | `/ai-review` (bandeja de revisión de IA) | F3 avisos; F7 IA; campo sin conexión después del MVP (ASM-081) |
 
 ### 6.3 Fichas con una sola URL
@@ -166,8 +175,8 @@ Rutas técnicas en inglés y kebab-case (ADR-0009, ASM-075). La columna "En el p
   [PRM-02 §45]. Abrirlo desde cualquier lista entra al contexto del proyecto, aunque se venga de la sección global.
 - Los maestros del tenant tienen ficha propia fuera de los proyectos: actores (`/actors/:actorId`) y territorio
   (`/territory/...`). Pueden llevar `?project=:projectId` para mostrar lo de ese proyecto primero.
-- Un enlace compartido abre la misma vista con los permisos de quien lo abre; si no puede leer el registro, ve el estado
-  "sin permiso" (design-system §6.5).
+- Un enlace compartido abre la misma vista con los permisos de quien lo abre; si no puede leer el registro, ve «El registro no
+  existe o no es de sus proyectos» (§7.7), sin saber cuál de las dos.
 
 ### 6.4 Profundidad
 
@@ -181,57 +190,66 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 
 ### 7.1 Shell
 
-- **Barra superior (56 px):** marca, selector de proyecto ("Todos mis proyectos" o uno; en Territorio, "Todo el territorio" o
-  el proyecto que hace de lente, §6.1), búsqueda global con ⌘K, botón "Preguntar" del asistente (§7.5), ayuda, avisos con
-  conteo y perfil con rol. El menú del perfil incluye el idioma (Español, English, Runasimi), cada uno nombrado en su propia
-  lengua, el tema y la salida; nada de eso va suelto en la barra. Antes de ingresar el idioma se elige en el login y en el
-  teléfono en «Más › Preferencias e idioma» (ASM-084, lienzo de la etapa 3, página 23).
-- **Navegación principal:** las 13 secciones en su orden, con ícono y etiqueta, insignias de lo que requiere acción y
-  "Administración" con enlace a `/admin`, visible solo para quien administra (ADR-0024). Sin cambiar ese orden, las secciones
-  van en bloques contiguos con título: Inicio; "Proyectos y territorio" (Proyectos, Territorio); "Trabajo con las
-  comunidades" (Grupos de interés, Relacionamiento, Compromisos, QCS); "Riesgos e inversión social" (Riesgos, Programas
-  sociales); "Documentos y seguimiento" (Documentos, Tareas, Reportes); y Administración aparte. Un bloque sin secciones
-  para la cuenta no se dibuja. Se contrae a 52 px, con una línea entre bloques y su título solo para lectores; en tableta
-  pasa a un panel y en el teléfono a una barra inferior de cuatro destinos.
-- **Tableta (768 a 1023 px):** el botón de menú de la barra superior abre un panel superpuesto con las 13 secciones y, si hay
-  un proyecto en contexto, sus pestañas arriba; se cierra con ×, Esc o tocando fuera y devuelve el foco al botón. La barra
-  conserva el proyecto, el chip de territorio, la búsqueda, los avisos, «Preguntar» y el perfil. Hoja `Shell-Tableta` del
-  lienzo de la etapa 3, página 21.
-- **Teléfono (< 640 px):** barra inferior de cuatro destinos según el rol, con insignias de lo que requiere acción:
-
-  | Rol | Destinos |
-  |---|---|
-  | Gerencia social, jefatura, gestores, analista SIG, auditoría | Inicio · Tareas · Avisos · Más |
-  | Relacionista comunitario | Inicio · Tareas · Avisos · Más («Modo campo» dentro de Más) |
-  | Aprobación | Inicio · Aprobaciones · Avisos · Más |
-  | Agente de campo | Tareas · Capturar · Cola · Más (modo campo, ASM-081) |
-  | Ejecutivo (ASM-074) | Resumen · Avisos · Asistente si es `ANALYST`, si no Tareas · Más |
-
-  "Más" reúne la búsqueda, los proyectos en consulta, el asistente, el modo campo, las preferencias y la salida. Hoja
-  `Shell-Telefono` del lienzo de la etapa 3, página 21.
+- **Barra superior (56 px), seis controles** (DD-09): marca, selector de proyecto, «Buscar» (⌘K), «Preguntar» del
+  asistente (§7.5), la campana de avisos y la cuenta con el nombre y los rótulos de sus roles. El selector de proyecto es un
+  combobox con búsqueda: «Todos mis proyectos» o uno; en Territorio, «Todo el territorio» o el proyecto que hace de lente
+  (§6.1). El idioma (cada uno nombrado en su propia lengua), el tema y «Salir» van en el menú de la cuenta, con los datos
+  de la cuenta; nada de eso va suelto en la barra. El lema de la marca se ve solo desde 1536 px (`min-[96rem]`, DD-24): en
+  SGSPE, `2xl` es 1440 px, y a ese ancho la barra lleva solo sus seis controles. Antes de ingresar, el idioma se elige en
+  el login (ASM-084).
+- **Navegación principal:** las 13 secciones en su orden, con ícono y etiqueta, y «Administración» (S53, `/administration`),
+  visible solo para quien administra (ADR-0024, DD-20). Sin cambiar ese orden, las secciones van en bloques contiguos con
+  título visible: Inicio; «Proyectos y territorio» (Proyectos, Territorio); «Trabajo con las comunidades» (Grupos de
+  interés, Relacionamiento, Compromisos, QCS); «Riesgos e inversión social» (Riesgos, Programas sociales); «Documentos y
+  seguimiento» (Documentos, Tareas, Reportes); y Administración aparte, sin título. Un bloque sin secciones para la cuenta no
+  se dibuja. En la barra, QCS se dice «Quejas y solicitudes», con el nombre completo en el `title`; las migas, el título del
+  documento y la guarda siguen con «Quejas, consultas y solicitudes» (DD-10). Las insignias cuentan solo lo que pide acción
+  (las tareas pendientes).
+- **Ancho de la navegación:** expandida a 240 px desde `lg` (1024 px), con «Contraer» al pie, que la deja en 52 px con solo
+  los íconos y el nombre en el `title`, y una línea entre bloques. La elección se recuerda en el navegador
+  (`localStorage`, `sgspe.navegacion`; DD-22), no en las preferencias de la cuenta. Entre 768 y 1023 px la barra lateral
+  muestra solo los íconos.
+- **Tableta y teléfono (< 768 px):** la barra lateral desaparece y el botón de menú de la barra superior abre un panel con
+  los datos de la cuenta, el selector de proyecto, las secciones en sus bloques y, al pie, idioma, tema y «Salir». El panel
+  se cierra con ×, Esc, tocando fuera o al elegir una sección, y devuelve el foco al botón. En la barra superior quedan el
+  menú, la marca, un chip con el alcance actual (abre el panel), «Buscar» y «Preguntar» como íconos, la campana y, desde
+  640 px, la cuenta.
+- **Teléfono (< 640 px):** una barra inferior de cuatro destinos con objetivos de 48 px, la misma para toda cuenta (DD-17):
+  Inicio · Tareas (si la cuenta tiene la sección) · Avisos · Más, con las insignias de tareas y avisos. «Más» abre el panel
+  del menú. Una ficha con barra fija de acciones la deja sobre la barra inferior. Los destinos propios del campo sin conexión
+  (Capturar, Cola) y las variantes por rol de la hoja `Shell-Telefono` (lienzo de la etapa 3, página 21) son del diseño de
+  ASM-081 y no están implementados.
 - **Sub-navegación de proyecto:** dentro de un proyecto, la navegación principal marca la sección del módulo abierto
-  (`/projects/:projectId/commitments/…` marca Compromisos, no Proyectos) y aparece la sub-navegación con nombre, código,
-  estado, chip de territorio y las pestañas de Project 360 con dos conteos: el total del alcance (gris) y lo que requiere
-  acción (píldora de color: vencidos, fuera de plazo, alertas, propuestas de IA por revisar). Contraer la navegación
-  principal a íconos queda para después, si con el módulo marcado sigue habiendo ruido (revisión de UX del 2026-10-19,
-  decisión 1).
-- **Pestañas de Project 360:** nueve visibles y "Más": Resumen · Mapa · Grupos de interés · Relacionamiento · Compromisos
-  (con Acuerdos como vista) · QCS · Riesgos · Programas · Documentos · "Más" (Tareas, Revisión de IA, Reportes, Equipo y
-  parámetros) (decisión 2). Los conteos se leen con `size=1` y `totalElements` por objeto; si son demasiadas llamadas, un
-  endpoint de conteos del proyecto (decisión 4).
-- **Aterrizaje de cada módulo:** la lista de trabajo, con "Lista · Tablero" como vistas del mismo encabezado. Riesgos abre
-  el registro y la matriz (S38 y S39) y su tablero (S62) es la vista "Tablero" (decisión 7).
+  (`/projects/:projectId/commitments/…` marca Compromisos, no Proyectos), y sobre el contenido van la barra de contexto
+  (migas, estado y chip de territorio) y **una sola fila de pestañas** (DD-03). Cada pestaña lleva el total del alcance
+  (gris) y una insignia con lo que pide acción (vencidos, fuera de plazo, alertas, propuestas de IA por revisar). La pestaña
+  del registro abierto queda marcada también en las fichas que viven en otro segmento (`grievances`, `inquiries` y `requests`
+  marcan QCS; `contributions`, Programas), y las migas la nombran. Si la fila no cabe, se desplaza, y la pestaña activa queda
+  siempre a la vista, también cuando las pestañas y sus conteos llegan después.
+- **Pestañas de Project 360:** nueve visibles y «Más»: Resumen · Mapa · Grupos de interés · Relacionamiento · Compromisos ·
+  QCS · Riesgos · Programas · Documentos · «Más» (Tareas, Bandeja de IA, Reportes, Equipo y parámetros). Si la abierta está
+  en «Más», el botón la nombra y queda marcado. Una pestaña de otra sección se ofrece con los permisos de esa sección. Los
+  conteos se leen con `size=1` y `totalElements` por objeto.
+- **Vistas y páginas de un módulo:** nunca una segunda fila de pestañas. Las vistas de una lista (Abiertos, Vencidos,
+  Míos…) van en el `SelectorDeVista`, el primer control de su barra de filtros, con su conteo y `?view=` en la URL (DD-03).
+  Compromisos y Acuerdos, y las páginas de Riesgos (registro y matriz, alerta temprana, señales, menciones, impactos,
+  incidentes y reglas), son rutas distintas: van en un `SelectorDePagina` en la cabecera, que navega entre ellas sin cambiar
+  ninguna ruta (DD-23). Fuera de un proyecto, Riesgos ofrece solo el registro y las reglas de la organización.
+- **Aterrizaje de cada módulo:** la lista de trabajo, con «Lista · Tablero» como conmutador de la cabecera
+  (`VistasDelModulo`). Riesgos abre el registro y la matriz (S38 y S39) y su tablero (S62) es la vista «Tablero». Programas
+  sociales abre la vista «Programas»; los aportes son otras vistas del mismo selector (DD-27).
 
 ### 7.2 Por rol
 
 - **Visibilidad:** una sección se dibuja si tiene pantalla registrada y la persona tiene sus permisos (RF-IAM-002). Mientras no
   exista UPS-06, el portal deduce las capacidades de `GET /api/auth/me/permissions` (architecture §9.1).
 - **Orden:** fijo (RNF-USA-001). No se reordena por rol.
-- **Inicio:** cada rol tiene un inicio por defecto (§5) que la persona puede cambiar (ASM-078).
-- **Insignias:** cuentan lo que el rol debe resolver: vencidos para quien ejecuta, aprobaciones para quien aprueba, alertas en
-  triaje para quien gestiona riesgos.
-- **Atajos:** las dos o tres creaciones más frecuentes del rol (por ejemplo, "Registrar interacción" y "Registrar QCS" para el
-  relacionista).
+- **Inicio:** «Mi trabajo» para todos, con bloques que se ofrecen por capacidad (§7.6, DD-01). El mecanismo de variantes
+  de ASM-078 no tiene ninguna registrada.
+- **Insignias:** cuentan lo que la cuenta debe resolver, nunca un total: en la navegación, las tareas pendientes; en las
+  pestañas del proyecto, lo vencido o por atender del módulo.
+- **Atajos:** las creaciones que la cuenta puede hacer, en el bloque «Registrar» del inicio: «Registrar interacción»,
+  «Registrar QCS», «Nuevo compromiso» y «Nuevo proyecto», cada una si la cuenta tiene `CREATE` sobre su objeto.
 
 ### 7.3 Búsqueda global y comandos
 
@@ -260,6 +278,46 @@ preguntas a los documentos (AI-06), para quien además lee los nombres de `perso
 para tu rol" con la razón, y sigue viendo los resúmenes y las propuestas revisables. El panel tiene dos modos:
 "Preguntar a los datos" (AI-05) y "Preguntar a los documentos"
 (AI-06, con citas y nunca sin fuente); su diseño está en [`screens.md`](screens.md) S05 y el recorrido, en el flujo 18.
+
+### 7.6 Inicio «Mi trabajo»
+
+El inicio (`/`, S02) es el mismo para toda cuenta y contesta por urgencia, no por módulo (DD-01). Cada bloque se ofrece por
+lo que la cuenta lee y puede hacer, y no se dibuja si no tiene nada legible: el inicio nunca es un muro de «No disponible».
+Ningún bloque cuenta lo que la cuenta no lee, porque cada uno se arma con lo que la API le devuelve (ADR-0029). La revisión
+ejecutiva (S51) ya no es el inicio de nadie: vive en `/dashboards/executive` (DD-19, ASM-074).
+
+| Orden | Bloque | Se ofrece si la cuenta… | Qué muestra |
+|---|---|---|---|
+| 1 | **Lo que me toca hoy** | Tiene a su cargo tareas, compromisos o QCS abiertos, o tareas sin asignar en sus proyectos | Lo abierto a su cargo, con lo vencido primero, luego lo por vencer y lo demás por fecha: cinco a la vista con su motivo y su fecha, y el resto desplegable en el lugar. Debajo, «Para tomar en sus proyectos»: las tareas abiertas sin asignar de los proyectos de la cuenta, en una sola lectura (el servidor acota, ADR-0029), hasta cinco, cada una con su proyecto, y «Ver los N» hacia «Mis tareas». Quien lee todos los proyectos conserva la lectura por proyecto de sus asignaciones (seis proyectos, tres tareas cada uno; wasichai/sgspe#162) |
+| 2 | **Esperan su decisión** | Recibe avisos de aprobación, puede confirmar alertas tempranas o tiene avisos que piden acción sin leer | Aprobaciones (como S48), alertas por triar y avisos que piden acción, cada grupo con lo más urgente, su motivo y su enlace (`ListaPriorizada`) |
+| 3 | **Agenda de la semana** | Lee visitas de campo o interacciones | De hoy a siete días: las visitas que lidera y las interacciones programadas en sus proyectos con asignación vigente, porque la interacción no tiene responsable (DD-26) |
+| 4 | **Registrar** | Tiene `CREATE` sobre alguno de sus objetos | «Registrar interacción», «Registrar QCS», «Nuevo compromiso» y «Nuevo proyecto»; si hace falta, piden el proyecto entre los que puede escribir |
+| 5 | **Mis proyectos** | Tiene asignaciones vigentes | Una tarjeta por proyecto con su estado, su jefatura (ASM-080) y lo que pide acción: compromisos vencidos, QCS vencidas y riesgos altos o críticos, cada cifra hacia su lista. Una cifra en cero no se dibuja; una que no lee o no llegó es «—», nunca cero. Con más de seis, los seis con más pendientes y «Ver todos» |
+| 6 | **Visión ejecutiva** | Lee al menos una cifra del tablero ejecutivo que el catálogo ofrece | Solo las cifras disponibles para la cuenta, con su fecha de cálculo y «Ver la revisión ejecutiva» |
+
+- La cabecera dice «Inicio» con el saludo y, a quien lee los indicadores, los accesos al monitoreo y al catálogo.
+- Sin ningún bloque (una cuenta nueva, sin asignaciones ni permisos de creación), el inicio es la bienvenida de F1: las
+  secciones que la cuenta puede abrir, como accesos.
+- Los datos de la cuenta (usuario, organización y roles por su rótulo) viven en el menú de la cuenta, no en el inicio.
+
+### 7.7 Estados del sistema
+
+Cada estado tiene una pieza y una salida (DD-12, `redesign/05` §3). La confidencialidad no cambia: ningún estado distingue
+«no existe» de «no es suyo», ningún conteo incluye lo ilegible, y una cifra que excluye QCS confidenciales lleva
+`NotaDeConfidenciales` sin número.
+
+| Estado | Pieza | Qué dice | Salida |
+|---|---|---|---|
+| Cargando | `Cargando` | Esqueleto; «Cargando…» solo en lo compacto | — |
+| Guardando | `Button` con `aria-busy` | La etiqueta no cambia | El doble envío se bloquea (`useComando`) |
+| Vacío | `Vacio` | Qué falta y por qué importa | La acción de creación, si la cuenta puede |
+| Vacío por filtros | `Vacio` | Que ningún registro coincide con los filtros | «Limpiar filtros» |
+| Error de carga | `ErrorDeCarga` | Qué no se pudo cargar; en una lista, los filtros siguen a la vista | «Reintentar» |
+| Sin acceso | `EstadoSinAcceso` | «No puede abrir «…»», por qué en lenguaje llano (sin nombrar roles ni permisos) y a quién pedirlo: dentro de un proyecto, la jefatura por su nombre si la cuenta lee las asignaciones; si no, la administración de la organización | «Volver al resumen del proyecto» o «Volver al inicio», lo primero que alcanza el teclado |
+| Registro reservado | `Reservado` y `RegistroVinculado` | «Registro reservado» | Ninguna: no se revela nada |
+| No existe o no es suyo | `NoEsDeSusProyectos` | Que el registro no existe o no es de sus proyectos | «Ir a Proyectos» |
+| Conflicto (412) | `AvisoDeConflicto`, `BotonRecargar` | Que otra persona cambió el registro y qué se conserva | «Recargar» |
+| Éxito | `Alert` o aviso breve | Qué pasó y qué sigue | El enlace a lo siguiente |
 
 ## 8. Hilo de contexto y trazabilidad
 
@@ -352,7 +410,7 @@ desde la etapa 3.
 | ID | Pantalla | Ruta | Fase | Etapa |
 |---|---|---|---|---|
 | S01 | Login | `/login` | F1 | E3 |
-| S02 | Inicio por rol | `/` | F1, F8 | E3 |
+| S02 | Inicio «Mi trabajo» | `/` | F1, F8 | E3 |
 | S03 | Búsqueda global y comandos | ⌘K | F2 | E1 |
 | S04 | Avisos | `/notifications` | F3 | E3 |
 | S05 | Asistente de IA (panel) | panel lateral | F7 | E3 |
@@ -401,9 +459,9 @@ desde la etapa 3.
 | S48 | Aprobaciones y escalamientos | `/tasks/approvals` | F3 | E3 |
 | S49 | Reportes y exportaciones | `/reports` | F2, F8 | E3 |
 | S50 | Entregable por secciones | `/reports/deliverables/:deliverableId` | F8 | E3 |
-| S51 | Revisión ejecutiva de 5 minutos | `/` (inicio ejecutivo) | F8 | E3 |
+| S51 | Revisión ejecutiva de 5 minutos | `/dashboards/executive` | F8 | E3 |
 | S52 | Bandeja de revisión de IA | `/projects/:projectId/ai-review` | F7 | E3 |
-| S53 | Administración | `/admin` | F1 | E3 |
+| S53 | Administración | `/administration` (abre la consola `/admin`) | F1 | E3 |
 | S54 | Campo: mis tareas y visita | `/tasks`, `/field-visits` (móvil) | F2, F3 | E3 |
 | S55 | Campo: interacción, observación y foto | `/projects/:projectId/engagements/new` (móvil) | F2 | E3 |
 | S56 | Gestionar vistas (ASM-083) | `/views` y diálogo en cada lista | F2 | E3 |
@@ -425,7 +483,7 @@ importación geoespacial, bandeja de revisión de IA y entregables.
 
 Supuestos de esta etapa (definidos en el análisis §19): ASM-073 (asistente como panel), ASM-074 (ejecutivo sin rol propio),
 ASM-075 (rutas y contexto en la URL), ASM-076 (misma página con otro alcance), ASM-077 (dirección visual y tokens), ASM-078
-(inicio por rol) y ASM-079 (vistas guardadas, reemplazado por ASM-083). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
+(inicio «Mi trabajo» con bloques por permisos) y ASM-079 (vistas guardadas, reemplazado por ASM-083). La etapa 2 agrega ASM-080 (la jefatura del proyecto es la asignación activa
 con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10]. La etapa 3
 agrega ASM-081 (la captura de campo sin conexión se diseña; se implementa después del MVP). Las respuestas del usuario a Q1,
 Q3, Q6 y Q7 agregan ASM-082 (marca propia), ASM-083 (vistas compartidas), ASM-084 (español, inglés y quechua) y ASM-085
@@ -449,4 +507,6 @@ Q3, Q6 y Q7 agregan ASM-082 (marca propia), ASM-083 (vistas compartidas), ASM-08
 - **Documentos:** [architecture.md §9](../architecture.md), [workflows.md](../workflows.md), [security.md §6](../security.md),
   [gis.md §2 y §6.5](../gis.md), [dashboards.md §3 y §5](../dashboards.md), [ai-architecture.md §8 y §9.3](../ai-architecture.md),
   [ADR-0009](../adr/0009-nombres-tecnicos-en-ingles.md), [ADR-0024](../adr/0024-interfaz-portal-y-admin.md).
+- **Rediseño de UX:** [decisiones DD-01 a DD-29](redesign/07-decisiones-y-compatibilidad.md) y
+  [arquitectura de información del rediseño](redesign/02-arquitectura-de-informacion.md).
 - **Fuentes:** [PRM-02 §1–§49], [USR-07], [USR-09], [USR-10].

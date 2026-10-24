@@ -186,6 +186,16 @@ class WorkflowTests(unittest.TestCase):
             got = [(s["name"], s["label"], s["type"]) for s in wf["definition"]["states"]]
             self.assertEqual(sorted(got), sorted(wanted), obj)
 
+    # B-01 (U-42, wasichai 1.4.0): cada estado y cada transición tienen su etiqueta en español, que es la de siempre, y
+    # en inglés, para que el portal en inglés no muestre los estados en español
+    def test_cada_estado_y_transicion_tiene_etiqueta_en_espanol_y_en_ingles(self):
+        for obj, wf in self.workflows.items():
+            for item in wf["definition"]["states"] + wf["definition"]["transitions"]:
+                labels = item.get("labels", {})
+                self.assertEqual(sorted(labels), ["en", "es"], (obj, item["name"]))
+                self.assertEqual(labels["es"], item["label"], (obj, item["name"]))
+                self.assertTrue(labels["en"].strip() and labels["en"] == labels["en"].strip(), (obj, item["name"]))
+
     def test_ningun_estado_representa_un_plazo(self):
         for obj, wf in self.workflows.items():
             for state in wf["definition"]["states"]:

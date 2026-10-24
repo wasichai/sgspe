@@ -885,6 +885,8 @@ def definition_files(model_dir):
 
 
 ROLE_NAME = re.compile(r"^[A-Z0-9_]+$")
+# the key of a per-language label, as wasichai 1.4.0 accepts it (WAS-ADR-070)
+LANGUAGE_TAG = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
 
 
 def _structure_errors(label, workflow):
@@ -911,6 +913,26 @@ def _structure_errors(label, workflow):
 
 def _edge_spaces(text):
     return isinstance(text, str) and text != text.strip()
+
+
+def _labels_errors(where, item):
+    """B-01: the labels per language of a state or a transition. Optional; when present, each key is a language tag, each
+    text is non-empty with no edge spaces (wasichai trims them and drops empty ones, so the next run would differ) and es
+    is the label itself, so the Spanish portal reads the same."""
+    if "labels" not in item:
+        return []
+    labels = item["labels"]
+    if not isinstance(labels, dict):
+        return [f"{where} labels must be a JSON object"]
+    errors = []
+    for key, text in labels.items():
+        if not LANGUAGE_TAG.fullmatch(key):
+            errors.append(f"{where} labels key {key!r} is not a language tag")
+        elif not isinstance(text, str) or not text.strip() or _edge_spaces(text):
+            errors.append(f"{where} labels.{key} must be a text with no leading or trailing spaces")
+    if "es" in labels and labels["es"] != item.get("label"):
+        errors.append(f"{where} labels.es must be its label {item.get('label')!r}")
+    return errors
 
 
 def validate_workflow(model, object_name, workflow):
@@ -945,6 +967,7 @@ def validate_workflow(model, object_name, workflow):
             errors.append(f"{label}: state {state.get('name')!r} label must have no leading or trailing spaces")
         if state.get("type") not in STATE_TYPES:
             errors.append(f"{label}: state {state.get('name')} type must be one of {', '.join(STATE_TYPES)}")
+        errors.extend(_labels_errors(f"{label}: state {state.get('name')!r}", state))
         if "x" in state or "y" in state:
             errors.append(f"{label}: state {state.get('name')} carries x or y; the canvas places it")
     if len(set(names)) != len(names):
@@ -959,6 +982,7 @@ def validate_workflow(model, object_name, workflow):
             errors.append(f"{label}: transition {tname!r} needs a valid name and a label")
         elif _edge_spaces(t["label"]):
             errors.append(f"{label}: transition {tname} label must have no leading or trailing spaces")
+        errors.extend(_labels_errors(f"{label}: transition {tname}", t))
         if tname in seen:
             errors.append(f"{label}: transition {tname} repeats")
         seen.add(tname)
@@ -976,17 +1000,18 @@ def validate_workflow(model, object_name, workflow):
 
 def _workflow_body(workflow):
     """What PUT /api/objects/{object}/workflow takes, and what GET answers once normalized: name, label, enabled and the
-    definition without positions."""
+    definition without positions. labels (B-01) goes as {} when a state or transition has none, as wasichai answers it."""
     definition = workflow.get("definition") or {}
     return {
         "name": workflow["name"],
         "label": workflow["label"],
         "enabled": workflow.get("enabled", True),
         "definition": {
-            "states": [{"name": s["name"], "label": s["label"], "type": s.get("type") or "INTERMEDIATE"}
-                       for s in definition.get("states", [])],
-            "transitions": [{"name": t["name"], "label": t["label"], "from": t["from"], "to": t["to"],
-                             "roles": list(t.get("roles", []))} for t in definition.get("transitions", [])],
+            "states": [{"name": s["name"], "label": s["label"], "labels": dict(s.get("labels") or {}),
+                        "type": s.get("type") or "INTERMEDIATE"} for s in definition.get("states", [])],
+            "transitions": [{"name": t["name"], "label": t["label"], "labels": dict(t.get("labels") or {}),
+                             "from": t["from"], "to": t["to"], "roles": list(t.get("roles", []))}
+                            for t in definition.get("transitions", [])],
         },
     }
 

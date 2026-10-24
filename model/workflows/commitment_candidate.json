@@ -4,18 +4,89 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "proposed", "label": "Propuesto", "type": "INITIAL" },
-      { "name": "accepted", "label": "Aceptado", "type": "FINAL" },
-      { "name": "rejected", "label": "Rechazado", "type": "FINAL" },
-      { "name": "duplicate", "label": "Duplicado", "type": "FINAL" }
+      {
+        "name": "proposed",
+        "label": "Propuesto",
+        "labels": {
+          "es": "Propuesto",
+          "en": "Proposed"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "accepted",
+        "label": "Aceptado",
+        "labels": {
+          "es": "Aceptado",
+          "en": "Accepted"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "rejected",
+        "label": "Rechazado",
+        "labels": {
+          "es": "Rechazado",
+          "en": "Rejected"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "duplicate",
+        "label": "Duplicado",
+        "labels": {
+          "es": "Duplicado",
+          "en": "Duplicate"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "accept", "label": "Aceptar", "from": "proposed", "to": "accepted",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "reject", "label": "Rechazar", "from": "proposed", "to": "rejected",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "mark_duplicate", "label": "Marcar como duplicado", "from": "proposed", "to": "duplicate",
-        "roles": ["COMMITMENT_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] }
+      {
+        "name": "accept",
+        "label": "Aceptar",
+        "labels": {
+          "es": "Aceptar",
+          "en": "Accept"
+        },
+        "from": "proposed",
+        "to": "accepted",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "reject",
+        "label": "Rechazar",
+        "labels": {
+          "es": "Rechazar",
+          "en": "Reject"
+        },
+        "from": "proposed",
+        "to": "rejected",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "mark_duplicate",
+        "label": "Marcar como duplicado",
+        "labels": {
+          "es": "Marcar como duplicado",
+          "en": "Mark as duplicate"
+        },
+        "from": "proposed",
+        "to": "duplicate",
+        "roles": [
+          "COMMITMENT_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      }
     ]
   }
 }

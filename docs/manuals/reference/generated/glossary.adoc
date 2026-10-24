@@ -376,6 +376,10 @@ Versión de entregable:: Emisión inmutable de un entregable con los hashes del 
 
 DOCX primero:: Estrategia de generación de ADR-0013: el DOCX se construye con Apache POI; hasta el 2026-10-19 el PDF se convertía desde ese mismo DOCX, y desde entonces los dos salen del mismo modelo congelado y el PDF se compone con LuaLaTeX. _No confundir con:_ impresión desde el navegador de wasichai-documents.
 
+Presentación:: Juego de láminas derivado de una versión emitida de un entregable, para un público y un nivel de divulgación, en PDF y en el navegador; no es una emisión , ADR-0031). _Identificador:_ `deliverable_presentation`. _No confundir con:_ versión de entregable.
+
+Público de una presentación:: A quién se cuenta una presentación (dirección, campo, investigación, instituciones o comunidad): decide el relato, la densidad y el tono, nunca qué se puede mostrar, que lo decide el nivel de divulgación. _Identificador:_ campo `audience` de `deliverable_presentation`. _No confundir con:_ nivel de divulgación; público objetivo de un mensaje clave.
+
 Borrador:: Versión no emitida de un entregable; su PDF lleva la marca de agua "BORRADOR". _Identificador:_ estado `draft` de WF-H. _No confundir con:_ versión emitida.
 
 Medio de verificación:: Documento o reporte que demuestra un indicador de la Tabla 9.5 (reporte de reuniones, lista de asistentes, matriz de compromisos…). _No confundir con:_ evidencia de un registro.

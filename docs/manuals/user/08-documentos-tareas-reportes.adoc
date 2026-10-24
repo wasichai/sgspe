@@ -41,8 +41,9 @@ btn:[Descargar] baja el archivo; las evidencias restringidas solo las descarga q
 «Tareas» muestra «Mis tareas» con las cifras de vencidas, por vencer y abiertas, en vista de lista, tablero o
 calendario. Muchas tareas las crea el sistema (por ejemplo, «Ejecutar compromiso…» al aprobar un compromiso, «Acusar
 recibo de la queja…» al registrar una queja, el triaje de una alerta nueva o la revisión de un riesgo que pasa a
-crítico); otras se crean a mano. Dentro de un proyecto aparece además «Para tomar»: tareas sin responsable que puede
-asumir con btn:[Tomar la tarea]. La columna «Origen» enlaza el registro que la originó.
+crítico); otras se crean a mano. Las tareas sin responsable de sus proyectos («Para tomar») aparecen en el inicio y,
+dentro de un proyecto, en su lista de tareas; se asumen con btn:[Tomar la tarea]. La columna «Origen» enlaza el
+registro que la originó.
 
 .Mis tareas
 image::screenshots/user/32-tareas.png[Lista Mis tareas con cifras de vencidas, por vencer y abiertas, y dos tareas con su proyecto, origen, prioridad y vencimiento]
@@ -50,12 +51,15 @@ image::screenshots/user/32-tareas.png[Lista Mis tareas con cifras de vencidas, p
 [[usr-aprobaciones]]
 === Aprobaciones
 
-menu:Tareas[Aprobaciones] es la bandeja de quien aprueba: los registros que esperan su decisión (vista «Por aprobar»)
-y los escalamientos. Cada fila dice qué se decide, el monto, cuánto lleva esperando y si su cuenta puede decidirlo.
-btn:[Revisar] abre la decisión; se elige y se pulsa btn:[Confirmar la decisión].
+menu:Tareas[Aprobaciones] es la bandeja de quien aprueba: los registros que esperan su decisión (pestaña «Por
+aprobar») y los escalamientos. Cada elemento de la lista dice qué se decide, el monto, cuánto lleva esperando y si su
+cuenta puede decidirlo. Al elegir uno, el panel de la derecha muestra su detalle (en un aporte, los ítems, el monto y
+el tope de la campaña) y la *decisión*: solo las que su rol puede tomar en el estado actual. Se elige, se escribe el
+motivo si se pide y se pulsa btn:[Confirmar la decisión], sin salir de la bandeja. Si la decisión pide datos que se
+completan en la ficha, el panel ofrece «Decidir en su ficha».
 
 .Bandeja de aprobaciones
-image::screenshots/user/33-aprobaciones.png[Bandeja Aprobaciones y escalamientos con un aporte por aprobar, su monto y la acción Revisar]
+image::screenshots/user/33-aprobaciones.png[Bandeja Aprobaciones y escalamientos con un aporte por aprobar a la izquierda y el panel de detalle y decisión a la derecha]
 
 === Avisos
 
@@ -70,7 +74,8 @@ image::screenshots/user/40-avisos.png[Página Avisos con una alerta nueva y un a
 === Tableros e indicadores
 
 Las secciones con datos ofrecen un «Tablero» (botón junto a «Lista») con cifras y gráficos; cada gráfico tiene «Ver
-datos» con la tabla equivalente. La página de inicio de quien tiene acceso a la cartera es la *revisión ejecutiva*;
+datos» con la tabla equivalente. El inicio de quien lee las cifras de la cartera muestra la *visión ejecutiva*, y «Ver la revisión ejecutiva» abre
+la revisión completa;
 «Monitoreo del plan de relaciones comunitarias» y el «Catálogo de indicadores» muestran los indicadores del proyecto.
 Una cifra que su rol no puede leer aparece como «No disponible», no como cero.
 
@@ -111,7 +116,7 @@ Un *entregable* es un informe con formato (por ejemplo, el *diagnóstico social*
 se genera en DOCX y PDF a partir de los datos, se revisa, se aprueba y se *emite*: la versión emitida queda congelada.
 
 .Ficha de un entregable
-image::screenshots/user/36-entregable.png[Ficha del diagnóstico social en borrador con la línea de estados, el estado del borrador, el botón Pedir borrador y la lista de secciones]
+image::screenshots/user/36-entregable.png[Ficha del diagnóstico social en borrador con su estado, el estado del borrador, el botón Pedir borrador y la lista de secciones]
 
 .Procedimiento resumido
 . En «Entregables», abra el entregable (o cree uno con btn:[Nuevo entregable]).

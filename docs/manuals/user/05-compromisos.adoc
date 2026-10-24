@@ -53,10 +53,10 @@ image::screenshots/user/18-compromiso-nuevo.png[Asistente Nuevo compromiso con l
 === La ficha del compromiso
 
 .Ficha de un compromiso en ejecución
-image::screenshots/user/17-compromiso-ficha.png[Ficha de un compromiso en ejecución con la línea de estados, la siguiente acción, el responsable, el vencimiento y la trazabilidad]
+image::screenshots/user/17-compromiso-ficha.png[Ficha de un compromiso en ejecución con Registrar cumplimiento como acción destacada, lo que le falta, el responsable, el vencimiento y la trazabilidad]
 
-La ficha muestra la siguiente acción y qué le falta (por ejemplo, «Falta una entrega con conformidad y con quiénes la
-dieron»), y tiene las pestañas Resumen, Acciones e hitos, Entregas, Reprogramaciones, Dependencias, Evidencias y
+El botón destacado de la ficha es la siguiente acción. Si todavía no se puede dar, aparece atenuado y debajo dice qué
+le falta (por ejemplo, «Falta una entrega con conformidad y con quiénes la dieron»). La ficha tiene las pestañas Resumen, Acciones e hitos, Entregas, Reprogramaciones, Dependencias, Evidencias y
 Actividad. El panel «Trazabilidad» enlaza el origen (la interacción o el acuerdo), lo que generó (la tarea de ejecución
 creada al aprobarlo) y lo que lo sustenta (evidencias).
 
@@ -85,12 +85,12 @@ bloqueantes abiertas. La verificación la hace una persona distinta del responsa
 
 * *Reprogramar* (pestaña «Reprogramaciones»): nueva fecha y motivo; la reprogramación queda en el historial y no se
   edita.
-* btn:[Bloquear] / btn:[Desbloquear]: para cuando la ejecución depende de algo externo.
-* btn:[Informar riesgo de retraso]: avisa antes del vencimiento.
+* «Bloquear» / «Desbloquear» (en «Más acciones», el botón «⋯»): para cuando la ejecución depende de algo externo.
+* «Informar riesgo de retraso» (también en «Más acciones»): avisa antes del vencimiento.
 
 === Candidatos a compromiso
 
-La vista «Candidatos» reúne lo que *podría* ser un compromiso (por ejemplo, frases de un acta) antes de registrarlo:
+La vista «Candidatos» (en «Más vistas» de la barra de filtros) reúne lo que *podría* ser un compromiso (por ejemplo, frases de un acta) antes de registrarlo:
 btn:[Registrar candidato], y luego btn:[Revisar] para «Aceptar y crear borrador» o marcarlo como duplicado. Ningún
 candidato se convierte en compromiso sin la decisión de una persona.
 

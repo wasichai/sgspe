@@ -1,6 +1,6 @@
 // GENERADO por docs/manuals/scripts/generate-reference.py a partir de model/. No editar a mano.
 
-El modelo declara *90 objetos*, *79 listas de opciones* y *293 relaciones* (`model/model.json`). Los objetos se agrupan por el contexto de `docs/domain-model.md` §6; el modelo no declara módulos.
+El modelo declara *91 objetos*, *81 listas de opciones* y *296 relaciones* (`model/model.json`). Los objetos se agrupan por el contexto de `docs/domain-model.md` §6; el modelo no declara módulos.
 
 Leyenda de las marcas: *obl.* obligatorio; *único* valor único; *der.* derivado (lo calcula el servidor y no se escribe); *restr.* campo restringido a ciertos roles.
 
@@ -2963,6 +2963,8 @@ _solo por API; solo inserción._
 
 |deliverable_version |Versión de entregable |Relación → `deliverable_version` |
 
+|deliverable_presentation |Presentación de entregable |Relación → `deliverable_presentation` |
+
 |===
 
 [[obj-ai_suggestion]]
@@ -3352,5 +3354,55 @@ Asunto frecuente en el discurso de los actores, con riesgos y oportunidades para
 |study |Estudio o diagnóstico |Relación → `study` |
 
 |topic |Tema |Relación → `topic` |
+
+|===
+
+=== Otros
+
+[[obj-deliverable_presentation]]
+==== Presentación de entregable (`deliverable_presentation`)
+
+Presentación derivada de una versión emitida de un entregable, para un público y un nivel de divulgación: su especificación y su PDF de láminas (ADR-0031).
+
+[.small]
+_solo por API._
+
+[%autowidth.stretch,cols="2m,3,1,2",options="header"]
+|===
+|Campo |Etiqueta |Tipo |Marcas
+
+|audience |Público |Opción |obl.
+
+|disclosure_level |Nivel de divulgación |Opción |obl.
+
+|presentation_status |Estado de la presentación |Opción |der.
+
+|requested_at |Pedida el |Fecha y hora |der.
+
+|generated_at |Generada el |Fecha y hora |der.
+
+|failure_code |Código de la falla |Texto |der.
+
+|slide_count |Número de láminas |Entero |der.
+
+|spec |Especificación |Archivo |der.
+
+|spec_sha256 |SHA-256 de la especificación |Texto |der.
+
+|pdf |PDF de láminas |Archivo |der.
+
+|pdf_sha256 |SHA-256 del PDF |Texto |der.
+
+|model_sha256 |SHA-256 del modelo |Texto |der.
+
+|planner_version |Versión del planificador |Texto |der.
+
+|design_version |Versión del diseño |Texto |der.
+
+|renderer_version |Versión del compositor |Texto |der.
+
+|deliverable |Entregable |Relación → `deliverable` |obl.
+
+|deliverable_version |Versión de entregable |Relación → `deliverable_version` |obl.
 
 |===

@@ -36,8 +36,9 @@ xref:../administrator/manual-administrador.adoc[Manual del administrador].
 |Dirección |La que le indique su organización; en una instalación local de prueba, `http://localhost:5182`.
 |===
 
-El portal también funciona en pantallas pequeñas: el menú lateral pasa a un botón «Menú» y aparece una barra inferior
-de accesos rápidos (Inicio, Tareas, Avisos, Más).
+El portal también funciona en pantallas pequeñas. Por debajo de 768 píxeles, el menú lateral pasa a un botón de menú en
+la barra superior. En el teléfono aparece además una barra inferior con cuatro destinos, la misma para todas las
+personas: Inicio, Tareas (si su rol tiene esa sección), Avisos y Más.
 
 === Convenciones de este manual
 

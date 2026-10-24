@@ -4,24 +4,129 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "identified", "label": "Identificado", "type": "INITIAL" },
-      { "name": "profiled", "label": "Caracterizado", "type": "INTERMEDIATE" },
-      { "name": "assessed", "label": "Evaluado", "type": "INTERMEDIATE" },
-      { "name": "retired", "label": "Retirado", "type": "INTERMEDIATE" }
+      {
+        "name": "identified",
+        "label": "Identificado",
+        "labels": {
+          "es": "Identificado",
+          "en": "Identified"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "profiled",
+        "label": "Caracterizado",
+        "labels": {
+          "es": "Caracterizado",
+          "en": "Profiled"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "assessed",
+        "label": "Evaluado",
+        "labels": {
+          "es": "Evaluado",
+          "en": "Assessed"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "retired",
+        "label": "Retirado",
+        "labels": {
+          "es": "Retirado",
+          "en": "Retired"
+        },
+        "type": "INTERMEDIATE"
+      }
     ],
     "transitions": [
-      { "name": "profile", "label": "Caracterizar", "from": "identified", "to": "profiled",
-        "roles": ["STAKEHOLDER_MANAGER", "COMMUNITY_RELATIONS_OFFICER", "SOCIAL_MANAGER"] },
-      { "name": "assess", "label": "Evaluar", "from": "profiled", "to": "assessed",
-        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "retire_identified", "label": "Retirar", "from": "identified", "to": "retired",
-        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "retire_profiled", "label": "Retirar", "from": "profiled", "to": "retired",
-        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "retire_assessed", "label": "Retirar", "from": "assessed", "to": "retired",
-        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "reinstate", "label": "Reincorporar", "from": "retired", "to": "identified",
-        "roles": ["STAKEHOLDER_MANAGER", "SOCIAL_MANAGER"] }
+      {
+        "name": "profile",
+        "label": "Caracterizar",
+        "labels": {
+          "es": "Caracterizar",
+          "en": "Profile"
+        },
+        "from": "identified",
+        "to": "profiled",
+        "roles": [
+          "STAKEHOLDER_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "assess",
+        "label": "Evaluar",
+        "labels": {
+          "es": "Evaluar",
+          "en": "Assess"
+        },
+        "from": "profiled",
+        "to": "assessed",
+        "roles": [
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "retire_identified",
+        "label": "Retirar",
+        "labels": {
+          "es": "Retirar",
+          "en": "Retire"
+        },
+        "from": "identified",
+        "to": "retired",
+        "roles": [
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "retire_profiled",
+        "label": "Retirar",
+        "labels": {
+          "es": "Retirar",
+          "en": "Retire"
+        },
+        "from": "profiled",
+        "to": "retired",
+        "roles": [
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "retire_assessed",
+        "label": "Retirar",
+        "labels": {
+          "es": "Retirar",
+          "en": "Retire"
+        },
+        "from": "assessed",
+        "to": "retired",
+        "roles": [
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "reinstate",
+        "label": "Reincorporar",
+        "labels": {
+          "es": "Reincorporar",
+          "en": "Reinstate"
+        },
+        "from": "retired",
+        "to": "identified",
+        "roles": [
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      }
     ]
   }
 }

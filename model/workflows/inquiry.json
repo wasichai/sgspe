@@ -4,22 +4,111 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "received", "label": "Recibida", "type": "INITIAL" },
-      { "name": "answered", "label": "Respondida", "type": "INTERMEDIATE" },
-      { "name": "referred", "label": "Derivada", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrada", "type": "FINAL" }
+      {
+        "name": "received",
+        "label": "Recibida",
+        "labels": {
+          "es": "Recibida",
+          "en": "Received"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "answered",
+        "label": "Respondida",
+        "labels": {
+          "es": "Respondida",
+          "en": "Answered"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "referred",
+        "label": "Derivada",
+        "labels": {
+          "es": "Derivada",
+          "en": "Referred"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrada",
+        "labels": {
+          "es": "Cerrada",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "answer", "label": "Responder", "from": "received", "to": "answered",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "refer", "label": "Derivar", "from": "received", "to": "referred",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "close", "label": "Cerrar", "from": "answered", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "close_referred", "label": "Cerrar", "from": "referred", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] },
-      { "name": "close_reclassified", "label": "Cerrar por reclasificación", "from": "received", "to": "closed",
-        "roles": ["GRIEVANCE_MANAGER"] }
+      {
+        "name": "answer",
+        "label": "Responder",
+        "labels": {
+          "es": "Responder",
+          "en": "Answer"
+        },
+        "from": "received",
+        "to": "answered",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "refer",
+        "label": "Derivar",
+        "labels": {
+          "es": "Derivar",
+          "en": "Refer"
+        },
+        "from": "received",
+        "to": "referred",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "answered",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "close_referred",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "referred",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      },
+      {
+        "name": "close_reclassified",
+        "label": "Cerrar por reclasificación",
+        "labels": {
+          "es": "Cerrar por reclasificación",
+          "en": "Close as reclassified"
+        },
+        "from": "received",
+        "to": "closed",
+        "roles": [
+          "GRIEVANCE_MANAGER"
+        ]
+      }
     ]
   }
 }
