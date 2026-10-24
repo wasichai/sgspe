@@ -78,10 +78,11 @@ class RetentionJob(
 @EnableScheduling
 @ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
 class RetentionSchedule(
-    private val job: RetentionJob
+    private val job: RetentionJob,
+    private val jobs: JobsProperties
 ) {
     @Scheduled(cron = "\${sgspe.jobs.retention.cron:0 15 4 * * *}", zone = "America/Lima")
     suspend fun daily() {
-        job.runOnce()
+        JobTimeouts.run(job = "JOB-08 RetentionJob", limit = jobs.runTimeout) { job.runOnce() }
     }
 }

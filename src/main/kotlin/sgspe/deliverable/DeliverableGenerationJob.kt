@@ -11,6 +11,8 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import sgspe.common.Criteria
+import sgspe.common.JobTimeouts
+import sgspe.common.JobsProperties
 import sgspe.common.LIMA
 import sgspe.common.Organizations
 import sgspe.common.Records
@@ -366,16 +368,18 @@ class DeliverableGenerationJob(
     private val generation: DraftGeneration,
     private val locks: ClusterLock,
     private val properties: DeliverableProperties,
+    private val jobs: JobsProperties,
     private val clock: Clock
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // los borradores intentados; null si otra réplica tenía el candado
+    // los borradores intentados; null si otra réplica tenía el candado. las lecturas del sondeo tienen el plazo
+    // sgspe.jobs.read-timeout (issue #164): con la base colgada, la vuelta termina en error y no espera sin fin
     suspend fun runOnce(): Int? {
         val lease = locks.tryLock(Deliverables.JOB_LOCK) ?: return null
         return lease.use {
             var done = 0
-            for ((organization, slug) in organizations.slugs(Deliverables.DELIVERABLE)) {
+            for ((organization, slug) in JobTimeouts.read(ORGANIZATIONS, jobs.readTimeout) { organizations.slugs(Deliverables.DELIVERABLE) }) {
                 try {
                     done += SweepTiming.timed(log, NAME, organization) { organization(organization, slug) }
                 } catch (e: CancellationException) {
@@ -396,10 +400,12 @@ class DeliverableGenerationJob(
     ): Int {
         val now = clock.instant()
         val pending: List<RecordResponse> =
-            records.asPlatform(organization, SOURCE) {
-                records
-                    .all(Deliverables.DELIVERABLE, criteria = listOf(Criteria.inState(Deliverables.REQUESTABLE)))
-                    .filter { DraftQueue.pending(it.attributes, it.updatedAt, now, properties.generation.staleAfter) }
+            JobTimeouts.read(PENDING, jobs.readTimeout) {
+                records.asPlatform(organization, SOURCE) {
+                    records
+                        .all(Deliverables.DELIVERABLE, criteria = listOf(Criteria.inState(Deliverables.REQUESTABLE)))
+                        .filter { DraftQueue.pending(it.attributes, it.updatedAt, now, properties.generation.staleAfter) }
+                }
             }
         var done = 0
         for (deliverable in pending) {
@@ -412,6 +418,8 @@ class DeliverableGenerationJob(
 
     companion object {
         const val NAME = "JOB-05 DeliverableGenerationJob"
+        const val ORGANIZATIONS = "la lectura de las organizaciones"
+        const val PENDING = "la lectura de los pedidos pendientes"
         const val SOURCE = Deliverables.JOB_SOURCE
         const val REASON = Deliverables.JOB_REASON
     }
@@ -423,10 +431,11 @@ class DeliverableGenerationJob(
 @EnableScheduling
 @ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
 class DeliverableGenerationSchedule(
-    private val job: DeliverableGenerationJob
+    private val job: DeliverableGenerationJob,
+    private val jobs: JobsProperties
 ) {
     @Scheduled(fixedDelayString = "\${sgspe.deliverable.generation.poll:5s}")
     suspend fun poll() {
-        job.runOnce()
+        JobTimeouts.run(job = DeliverableGenerationJob.NAME, limit = jobs.runTimeout) { job.runOnce() }
     }
 }

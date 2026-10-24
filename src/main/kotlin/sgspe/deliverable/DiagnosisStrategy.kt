@@ -246,11 +246,7 @@ object DiagnosisStrategy {
     // 9.3.1.1: por mes, los últimos seis hasta el corte, con la tendencia de la confianza
     suspend fun evaluation(scene: DiagnosisScene): List<Block> {
         val months = (MONTHS - 1 downTo 0).map { YearMonth.from(scene.cutoff).minusMonths(it.toLong()) }
-        val assessments =
-            scene
-                .stakeholders()
-                .flatMap { scene.source.all("stakeholder_assessment", mapOf("stakeholder" to it.id)) }
-                .filter { scene.upToCutoff(it.text("assessment_date")) }
+        val assessments = scene.stakeholders().flatMap { scene.assessments(it) }
         val intro = Block.Paragraph(DiagnosisTexts.text("evaluacion-grupos"))
         if (assessments.isEmpty()) return listOf(intro, Block.Paragraph("_Sin evaluaciones de grupos de interés hasta el corte._"))
         val byMonth = assessments.groupBy { scene.day(it.text("assessment_date"))?.let(YearMonth::from) }

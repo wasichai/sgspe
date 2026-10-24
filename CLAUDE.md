@@ -66,7 +66,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Alta de un tenant (operador) | `cd model && SGSPE_OPERATOR_PASSWORD=… SGSPE_TENANT_ADMIN_PASSWORD=… python3 provision_tenant.py --core URL --operator-email … --name … --slug … --admin-email …` |
 | Subida de fase de los tenants | `cd model && python3 upgrade_tenants.py --core URL --inventory RUTA` (contraseñas por `SGSPE_TENANT_PASSWORD_<SLUG>` o consola) |
 | Suite lenta (a pedido, túneles 8095 y 8097) | `SGSPE_DELIVERABLE_LATEX_URL=http://localhost:8097 WASICHAI_GIS_GEOSERVER_URL=http://localhost:8095/geoserver GITHUB_ACTOR=$(gh api user -q .login) GITHUB_TOKEN=$(gh auth token) ./gradlew slowTest --rerun` |
-| Conjunto de demostración | `cd model && SGSPE_DEMO_PASSWORD=… python3 load_demo.py --core URL --email … --password … [--draft]` |
+| Conjunto de demostración | `cd model && SGSPE_DEMO_PASSWORD=… python3 load_demo.py --core URL --email … --password … [--draft] [--issue]` |
 | Trazabilidad | `python3 tools/check_traceability.py` |
 | Formato | `yarn format:check` |
 
@@ -101,7 +101,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Riesgos: niveles y revisión (`Risks.kt`), `RiskWriteGuard`, el endpoint de revisiones (`RiskAssessments`) | `src/main/kotlin/sgspe/risk/` |
 | Alerta temprana: `WarningWriteGuard`, JOB-04 (`WarningRulesJob`) y los seis tipos de regla (`WarningEvaluation`) | `src/main/kotlin/sgspe/warning/` |
 | QCS: `AttentionWriteGuard`, plazos y fechas, reclasificación, aceptación, derivación, `RequestClosureListener`, reporte unificado | `src/main/kotlin/sgspe/attention/` |
-| Días hábiles (`HolidayCalendar`, `BusinessDays`, feriados en `sgspe.calendar.holidays`), `Attention` y `AttentionCounting`, `NotReadable` y `readAs`, `ConfidentialRelease` (solo para `RequestClosureListener`) | `src/main/kotlin/sgspe/common/`, `src/main/resources/application.yml` |
+| Días hábiles (`HolidayCalendar`, `BusinessDays`, feriados en `sgspe.calendar.holidays` y su lectura `GET /api/sgspe/calendar/holidays`, `Holidays`), `Attention` y `AttentionCounting`, `NotReadable` y `readAs`, `ConfidentialRelease` (solo para `RequestClosureListener`) | `src/main/kotlin/sgspe/common/`, `src/main/resources/application.yml` |
 | QCS confidenciales (`ConfidentialAttentionScope`, un `RecordReadScope` que honra `ConfidentialRelease`) y la regla «mismo proyecto» (`ProjectLinks`, `ProjectLinkGuard`) | `src/main/kotlin/sgspe/scope/` |
 | Alcance de lectura por proyecto (`ProjectReadScope`, su condición pura `ProjectReadCondition`, la clasificación `ProjectScope.TENANT` y `readGroup`; desde F5, cadenas de hijos y padres alternativos: `ProjectScope.chain`, `parentOf` y `projectOf`), documentos emitidos (`IssueDocumentFilter`, `DocumentReadByScope`) | `src/main/kotlin/sgspe/scope/` |
 | «Mis proyectos» o todos (`ProjectReach`, acción `READ_ALL_PROJECTS`), duración por organización de los trabajos (`SweepTiming`) | `src/main/kotlin/sgspe/common/` |
@@ -133,5 +133,5 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | Workflows (`WorkflowMatrixApiTest` sale de `model/workflows/*.json`), matriz de permisos y permisos de campo | `src/test/kotlin/sgspe/workflow/`, `src/test/kotlin/sgspe/security/` |
 | Modelo frente a los documentos | `model/test_model.py`, `model/design_docs.py` |
 | Reglas de arquitectura | `src/test/kotlin/sgspe/ArchitectureTest.kt` |
-| Conjunto ficticio de demostración de T1 (`load_demo.py`, `demo_check.py`) | `model/demo/` |
+| Conjunto ficticio de demostración de T1 y T2 (`load_demo.py`, `demo_check.py`; `--issue` aprueba y emite) | `model/demo/` |
 | Plan de la fase en curso | `docs/superpowers/plans/` |

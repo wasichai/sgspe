@@ -71,13 +71,12 @@ Medido sobre la demo viva el 2026-10-24 (wasichai/sgspe#157), con `docs/manuals/
 - **Pasos de F-A a F-G:** cada «Medido» es igual o menor que su «Propuesto»:
   - F-A: 1 y 1;
   - F-B: 2;
-  - F-C, volver a la lista: 1, con J y K;
+  - F-C: 4 hasta el chip aplicado, con «Más filtros» → Grupo de interés (wasichai/sgspe-ui#77, en el PR #76); volver a la
+    lista, 1, con J y K;
   - F-D: 5 y 3 pasos;
   - F-E: 2;
   - F-F: 2;
   - F-G: 2.
-
-  La excepción es el filtro por grupo de interés de F-C: la lista de Compromisos no tiene «Más filtros» (wasichai/sgspe-ui#77).
 - **Pantallas con más de una primaria:** 0 de 19 medidas. La ficha de acuerdo no se midió, porque la demo no trae acuerdos.
 - **Desborde a 390 px:** ninguno en 16 pantallas, con los seis usuarios. La barra inferior es la misma para todos.
 

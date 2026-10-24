@@ -8,8 +8,9 @@ import wasichai.core.common.WasichaiException
 // un filtro mal escrito devolvería todo. no valida el valor de los parámetros admitidos. el manejador de wasichai lo vuelve
 // problem+json
 class UnprocessableContentException(
-    violations: List<FieldViolation>
-) : WasichaiException(HttpStatus.valueOf(422), "Parámetro de consulta desconocido", violations)
+    violations: List<FieldViolation>,
+    title: String = "Parámetro de consulta desconocido"
+) : WasichaiException(HttpStatus.valueOf(422), title, violations)
 
 object StrictQuery {
     // los parámetros de la consulta deben estar todos en `allowed`; si no, 422 con uno por desconocido, en orden
