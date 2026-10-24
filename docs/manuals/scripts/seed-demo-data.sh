@@ -21,6 +21,7 @@
 # servidor en $SGSPE_DEMO_STATE_DIR y, con --reset, BORRA la base de demostración anterior y sus archivos.
 source "$(dirname "${BASH_SOURCE[0]}")/demo-env.sh"
 
+# DRAFT se expande con ${DRAFT[@]+…}: en bash 3.2 (macOS), un arreglo vacío con `set -u` aborta
 RESET=0 KEEP=0 MINIMAL=0 DRAFT=()
 for arg in "$@"; do
   case "$arg" in
@@ -75,11 +76,14 @@ demo_log "arrancando el servidor en $CORE contra $SGSPE_DEMO_DB (registro en $LO
   exec "$SGSPE_DEMO_JAVA" -jar "$SGSPE_JAR"
 ) >"$LOG" 2>&1 &
 SERVER_PID=$!
+# conserva el código de salida: en bash 3.2 (macOS) el de la trampa reemplaza al del error que la disparó
 stop_server() {
+  local rc=$?
   if [[ "$KEEP" == "0" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
     demo_log "deteniendo el servidor (pid $SERVER_PID)"
     kill "$SERVER_PID" && wait "$SERVER_PID" 2>/dev/null || true
   fi
+  exit "$rc"
 }
 trap stop_server EXIT
 
@@ -99,7 +103,7 @@ demo_log "3/5 apply.py --workflows";                    python3 apply.py --workf
 demo_log "4/5 load_ubigeo.py";                          python3 load_ubigeo.py
 demo_log "5/5 load_indicators.py";                      python3 load_indicators.py
 demo_log "cargando el conjunto ficticio oficial (load_demo.py)"
-SGSPE_DEMO_PASSWORD="$SGSPE_DEMO_PASSWORD" python3 load_demo.py "${DRAFT[@]}"
+SGSPE_DEMO_PASSWORD="$SGSPE_DEMO_PASSWORD" python3 load_demo.py ${DRAFT[@]+"${DRAFT[@]}"}
 if [[ "$MINIMAL" == "0" ]]; then
   demo_log "cargando el conjunto ampliado (database/seeds/ampliado)"
   SGSPE_DEMO_PASSWORD="$SGSPE_DEMO_PASSWORD" python3 load_demo.py --dir "$DEMO_DATABASE_DIR/seeds/ampliado"
