@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Carga por REST el conjunto ficticio de demostración del T1 (épica #102).
+"""Carga por REST el conjunto ficticio de demostración del T1 y del T2 (épica #102, #153).
 
 Solo biblioteca estándar, con el patrón de load_indicators.py. Lee los archivos model/demo/NN-*.json en orden de nombre,
 que comparten un único espacio de claves, y por cada registro: lo busca por su clave natural (`match`), lo crea si falta,
 y después carga sus hijos, vínculos y transiciones y corre sus comandos (evaluaciones, aprobación de áreas, cierre de
-periodo, secciones y borrador). Un registro que ya existe no se actualiza: sus hijos, vínculos y transiciones se saltan,
+periodo, secciones, borrador y emisión). Un registro que ya existe no se actualiza: sus hijos, vínculos y transiciones se saltan,
 su estado declarado se comprueba y sus comandos corren siempre, porque cada uno es idempotente por su cuenta.
 
 Las geometrías se declaran en km desde el ancla y se pasan a GeoJSON EPSG:4326. Cada escritura lleva X-Change-Reason y
@@ -21,8 +21,13 @@ ve las dependencias declaradas con @clave: una guarda o un listener que lea otro
 conjunto los nombre (un tope, una unicidad o un conteo entre pares) queda en carrera con más de un hilo; ante una regla
 así, --workers 1.
 
-Correr: python3 load_demo.py [--dir D] [--core URL] [--email E] [--password P] [--users-password P] [--draft]
-        [--workers N] [--dry-run | --validate-only]
+Con --issue (en desarrollo, #153), además de pedir los borradores, lleva cada entregable con el comando `issue` por WF-H
+hasta issued, al final de la carga: espera su borrador LISTO (cada --issue-timeout segundos como máximo), lo envía a
+revisión y lo emite quien escribe su colección y lo aprueba otro usuario de la demostración (`approve_as`), con la lista
+de verificación confirmada. Un entregable ya emitido no se toca.
+
+Correr: python3 load_demo.py [--dir D] [--core URL] [--email E] [--password P] [--users-password P] [--draft] [--issue]
+        [--issue-timeout S] [--workers N] [--dry-run | --validate-only]
 Salida: 0 si va bien, 1 si core rechaza algo o no responde, 2 si los archivos faltan o no son válidos.
 """
 import argparse
@@ -34,11 +39,13 @@ import os
 import re
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import demo_check
 from core_client import TIMEOUT_SECONDS, Client, CoreError
@@ -50,6 +57,9 @@ KM_PER_DEG_LAT = 110.574
 MENTION = re.compile(r"\[\[person:@([A-Za-z0-9_-]+)\]\]")
 FILE_KEYS = {"anchor", "users", "collections"}
 DRAFT_BUSY = ("EN COLA", "EN PROCESO", "LISTO")
+DRAFT_RUNNING = ("EN COLA", "EN PROCESO")
+ISSUE_TIMEOUT_SECONDS = 1200
+ISSUE_POLL_SECONDS = 5
 
 
 _MODEL_FIELDS = {}
@@ -307,7 +317,8 @@ class ReasonClient(Client):
 
 
 class Loader:
-    def __init__(self, client, dataset, users_password, draft=False, out=None, workers=1):
+    def __init__(self, client, dataset, users_password, draft=False, out=None, workers=1, issue=False,
+                 sleep=time.sleep, issue_timeout=ISSUE_TIMEOUT_SECONDS, poll=ISSUE_POLL_SECONDS):
         self.admin = ReasonClient(client.base_url)
         self.admin.token = client.token
         self.dataset = dataset
@@ -322,6 +333,11 @@ class Loader:
         self.indicators = {}
         self.workers = max(1, workers)
         self.lock = threading.Lock()
+        self.issue = issue
+        self.sleep = sleep
+        self.issue_timeout = issue_timeout
+        self.poll = poll
+        self.issues = []  # las emisiones de --issue, que corren al final, cuando todos los borradores ya se pidieron
 
     def say(self, line):
         with self.lock:
@@ -429,6 +445,11 @@ class Loader:
                         for future in futures:
                             future.cancel()
                         raise
+        for pending in self.issues:
+            try:
+                self.issue_deliverable(*pending)
+            except CoreError as e:
+                raise LoadError(f"{pending[1]}: {e}") from e
         return self.counts
 
     def create(self, client, object_name, attributes, geometries):
@@ -536,6 +557,8 @@ class Loader:
         for command in commands:
             headers = {"Idempotency-Key": self.idempotency_key(key, command)}
             ran = getattr(self, "cmd_" + command["command"])(client, key, object_name, record_id, command, headers)
+            if ran is None:
+                continue  # diferido: corre al final de la carga
             if ran:
                 self.bump("commands")
                 self.say(f"command {command['command']} {key}")
@@ -643,6 +666,85 @@ class Loader:
         client.post(f"/api/sgspe/deliverables/{record_id}/drafts", {}, headers)
         return True
 
+    def cmd_issue(self, client, key, object_name, record_id, command, headers):
+        """Con --issue, deja la emisión para el final de la carga (issue_deliverable): así los borradores de todos los
+        entregables se piden antes de esperar el primero. None: ni corrió ni se saltó."""
+        if not self.issue:
+            return False
+        with self.lock:
+            self.issues.append((client, key, object_name, record_id, command, headers))
+        return None
+
+    def issue_deliverable(self, client, key, object_name, record_id, command, headers):
+        """Lleva el entregable por WF-H hasta issued desde donde esté: espera el borrador LISTO, lo envía a revisión
+        (o lo reenvía si está observado) como quien escribe la colección, lo aprueba `approve_as` y lo emite por POST
+        /api/sgspe/deliverables/{id}/issue con el SHA-256 del modelo revisado y la lista confirmada. Ya emitido, no hace
+        nada. Un borrador FALLIDO o que no llega en --issue-timeout segundos es LoadError."""
+        approver = self.users.get(command.get("approve_as"))
+        if approver is None:
+            raise LoadError(f"{key}: issue.approve_as {command.get('approve_as')} is not a user of the dataset")
+        waited = 0
+        while True:
+            current = self.fresh(client, object_name, record_id)
+            state, attributes = current.get("state"), current.get("attributes") or {}
+            path = f"/api/objects/{object_name}/records/{record_id}/transitions"
+            if state == "issued":
+                self.bump("skipped")
+                return
+            if state in ("draft", "observed"):
+                status = attributes.get("draft_generation_status")
+                if self.draft_pending(attributes):
+                    if waited >= self.issue_timeout:
+                        raise LoadError(f"{key}: draft not ready after {waited} s ({status or 'sin pedir'})")
+                    self.sleep(self.poll)
+                    waited += self.poll
+                    continue
+                if status != "LISTO":
+                    raise LoadError(f"{key}: draft {status}: {attributes.get('draft_warnings') or 'sin avisos'}")
+                self.require_maps(key, attributes)
+                client.post(f"{path}/{'submit_for_review' if state == 'draft' else 'resubmit'}", None)
+            elif state == "in_review":
+                approver["client"].post(f"{path}/approve", None)
+            elif state == "approved":
+                self.require_maps(key, attributes)
+                sha = attributes.get("draft_model_sha256")
+                client.post(f"/api/sgspe/deliverables/{record_id}/issue",
+                            {"draftModelSha256": sha, "checklistConfirmed": True},
+                            {"Idempotency-Key": f"{headers['Idempotency-Key']}-{(sha or '')[:12]}",
+                             "If-Match": f'"{current.get("updatedAt")}"'})
+                self.bump("commands")
+                self.say(f"command issue {key}")
+                return
+            else:
+                raise LoadError(f"{key}: state {state}, cannot issue")
+
+    @staticmethod
+    def require_maps(key, attributes):
+        """La emisión rechaza un borrador con un mapa fallido (409 MAP_FAILED): se corta antes de enviarlo a revisión,
+        para no dejarlo aprobado sin poder emitirlo."""
+        warnings = str(attributes.get("draft_warnings") or "").splitlines()
+        if any(line.split(" ")[0] == "MAP_FAILED" for line in warnings):
+            raise LoadError(f"{key}: draft with MAP_FAILED: issuing needs the maps (GeoServer); request another draft "
+                            "when GeoServer answers")
+
+    @staticmethod
+    def draft_pending(attributes):
+        """Si el borrador está por llegar: EN COLA o EN PROCESO, sin pedir todavía, o con un pedido posterior al último
+        intento (el pedido deja el estado anterior hasta que JOB-05 lo toma)."""
+        status = attributes.get("draft_generation_status")
+        if status in DRAFT_RUNNING or status is None:
+            return True
+        requested, generated = attributes.get("generation_requested_at"), attributes.get("draft_generated_at")
+        if requested is None:
+            return False
+        if generated is None:
+            return True
+
+        def instant(value):
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+        return instant(requested) > instant(generated)
+
 
 def _parse_args(argv):
     p = argparse.ArgumentParser(description="Carga el conjunto ficticio de demostración del T1.")
@@ -653,6 +755,10 @@ def _parse_args(argv):
     p.add_argument("--users-password", default=os.environ.get("SGSPE_DEMO_PASSWORD"),
                    help="contraseña de los usuarios de la demostración (o SGSPE_DEMO_PASSWORD)")
     p.add_argument("--draft", action="store_true", help="pide también el borrador de los entregables")
+    p.add_argument("--issue", action="store_true",
+                   help="pide el borrador y además envía a revisión, aprueba y emite los entregables (WF-H); en desarrollo")
+    p.add_argument("--issue-timeout", type=int, default=ISSUE_TIMEOUT_SECONDS,
+                   help=f"segundos que --issue espera cada borrador ({ISSUE_TIMEOUT_SECONDS} por defecto)")
     p.add_argument("--workers", type=int, default=int(os.environ.get("SGSPE_DEMO_WORKERS", "1")),
                    help="registros de una colección que se cargan a la vez (o SGSPE_DEMO_WORKERS; 1 por defecto). "
                         "Solo respeta las dependencias declaradas con @clave: una regla de core entre registros de la "
@@ -703,7 +809,8 @@ def main(argv=None):
     client = Client(args.core)
     try:
         client.login(args.email, args.password)
-        counts = Loader(client, dataset, args.users_password, args.draft, workers=args.workers).run()
+        counts = Loader(client, dataset, args.users_password, args.draft or args.issue, workers=args.workers,
+                        issue=args.issue, issue_timeout=args.issue_timeout).run()
     except CoreError as e:
         print(f"error -> {e.status}\n{e.body}", file=sys.stderr)
         return 1
