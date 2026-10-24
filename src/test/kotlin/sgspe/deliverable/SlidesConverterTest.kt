@@ -23,10 +23,13 @@ class SlidesConverterTest {
 
     private val received = CopyOnWriteArrayList<Received>()
 
-    private fun server(respond: (HttpExchange) -> Unit): HttpServer =
+    private fun server(
+        route: String = SlidesConverter.ROUTE,
+        respond: (HttpExchange) -> Unit
+    ): HttpServer =
         HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
             executor = Executors.newCachedThreadPool()
-            createContext(SlidesConverter.ROUTE) { exchange ->
+            createContext(route) { exchange ->
                 exchange.use {
                     received +=
                         Received(it.requestBody.readAllBytes(), it.requestHeaders.getFirst(SlidesConverter.TRACE), it.requestHeaders.getFirst("Content-Type"))
@@ -51,8 +54,9 @@ class SlidesConverterTest {
 
     private fun converter(
         url: String?,
-        timeout: Duration = Duration.ofSeconds(5)
-    ) = SlidesConverter(DeliverableProperties(slides = DeliverableProperties.Slides(url, timeout)))
+        timeout: Duration = Duration.ofSeconds(5),
+        videoTimeout: Duration = Duration.ofSeconds(5)
+    ) = SlidesConverter(DeliverableProperties(slides = DeliverableProperties.Slides(url, timeout, videoTimeout = videoTimeout)))
 
     private fun url(server: HttpServer) = "http://127.0.0.1:${server.address.port}/"
 
@@ -118,6 +122,46 @@ class SlidesConverterTest {
         } finally {
             slow.stop(0)
             wrong.stop(0)
+        }
+    }
+
+    @Test
+    fun `el MP4 va por su ruta con el id de la corrida y vuelve con la version del compositor`() {
+        val mp4 = TestVideos.mp4(3)
+        val server = server(SlidesConverter.VIDEO_ROUTE) { reply(it, 200, "video/mp4", mp4, mapOf(SlidesConverter.RENDERER to "remotion@4.0.533")) }
+        try {
+            val video = runBlocking { converter(url(server)).video(spec, "job-09-v") }
+            assertArrayEquals(mp4, video.mp4)
+            assertEquals("remotion@4.0.533", video.renderer)
+            val request = received.single()
+            assertEquals("job-09-v", request.trace)
+            assertArrayEquals(spec, request.body)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `el MP4 tiene su propio plazo y un PDF por respuesta no es un video`() {
+        val slow =
+            server(SlidesConverter.VIDEO_ROUTE) {
+                Thread.sleep(800)
+                reply(it, 200, "video/mp4", TestVideos.mp4(1))
+            }
+        val pdf = server(SlidesConverter.VIDEO_ROUTE) { reply(it, 200, "application/pdf", TestPdfs.source(pdfa = false)) }
+        val failed = server(SlidesConverter.VIDEO_ROUTE) { reply(it, 422, "application/json", """{"code":"ASSET_INVALID","slide":"foto"}""".toByteArray()) }
+        try {
+            // el plazo del PDF no corta el video, el del video sí
+            val video = runBlocking { converter(url(slow), timeout = Duration.ofMillis(100), videoTimeout = Duration.ofSeconds(5)).video(spec, "x") }
+            assertEquals(240, DeckVideoChecks.frames(video.mp4))
+            assertThrows<SlidesUnavailable> { runBlocking { converter(url(slow), videoTimeout = Duration.ofMillis(300)).video(spec, "x") } }
+            assertThrows<SlidesUnavailable> { runBlocking { converter(url(pdf)).video(spec, "x") } }
+            val failure = assertThrows<SlideFailed> { runBlocking { converter(url(failed)).video(spec, "x") } }
+            assertEquals("ASSET_INVALID", failure.code)
+        } finally {
+            slow.stop(0)
+            pdf.stop(0)
+            failed.stop(0)
         }
     }
 }

@@ -18,6 +18,18 @@ class DeliverablePropertiesTest {
         assertEquals(250, properties.photos.maxMegapixels)
         assertEquals(5000, properties.maps.maxFeatures)
         assertEquals(20L * 1024 * 1024, properties.templates.maxBytes)
+        assertEquals(Duration.ofSeconds(180), properties.slides.timeout)
+        assertEquals(Duration.ofSeconds(600), properties.slides.videoTimeout)
+    }
+
+    @Test
+    fun `el plazo del video es positivo y menor que la retoma de JOB-09`() {
+        assertThrows(IllegalArgumentException::class.java) { DeliverableProperties.Slides(videoTimeout = Duration.ZERO) }
+        assertThrows(IllegalArgumentException::class.java) { DeliverableProperties.Slides(videoTimeout = Duration.ofMinutes(15)) }
+        assertEquals(
+            Duration.ofMinutes(20),
+            DeliverableProperties.Slides(videoTimeout = Duration.ofMinutes(15), staleAfter = Duration.ofMinutes(20)).staleAfter
+        )
     }
 
     @Test

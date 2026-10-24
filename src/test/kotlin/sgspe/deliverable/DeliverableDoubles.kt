@@ -17,7 +17,7 @@ import javax.imageio.ImageIO
 // - FakePdfRenderer: dos PDF de prueba (la candidata con la identificación PDF/A-2b) en lugar de sgspe-latex (ADR-0030);
 //   `unavailable` simula sgspe-latex caído y `error`, un Error de la máquina virtual en la composición
 // - FakeReportMaps: dos PNG (INTERNO y EXTERNO) en lugar de GeoServer; `failing` simula un mapa fallido
-// - FakeSlidesRenderer: un PDF de láminas de prueba en lugar de sgspe-slides (ADR-0031)
+// - FakeSlidesRenderer: un PDF de láminas y un MP4 de prueba en lugar de sgspe-slides (ADR-0031, ASM-148)
 // los siete archivos del borrador los sube y adjunta la plataforma (PlatformDraftFiles, UPS-31 resuelta en wasichai 1.3.0)
 class DeliverableDoubles {
     class FakePdfRenderer : PdfRenderer {
@@ -80,13 +80,37 @@ class DeliverableDoubles {
     }
 
     // el doble de sgspe-slides (ADR-0031): un PDF de prueba con una página 16:9 por lámina y su título (TestDecks), que pasa
-    // DeckChecks; `unavailable` simula el servicio caído y `failure`, una lámina que no pasa su verificación
-    class FakeSlidesRenderer : SlidesRenderer {
+    // DeckChecks, y un MP4 de prueba con 8 s por lámina (TestVideos, ASM-148), que pasa DeckVideoChecks; `unavailable` simula el
+    // servicio caído, `failure`, una lámina que no pasa su verificación, y `shortVideo`, un video al que le falta una lámina
+    class FakeSlidesRenderer :
+        SlidesRenderer,
+        SlidesVideoRenderer {
         @Volatile var unavailable = false
 
         @Volatile var failure: String? = null
 
+        @Volatile var shortVideo = false
+
         val specs: MutableList<ByteArray> = java.util.Collections.synchronizedList(mutableListOf())
+
+        val videoSpecs: MutableList<ByteArray> = java.util.Collections.synchronizedList(mutableListOf())
+
+        override suspend fun video(
+            spec: ByteArray,
+            correlation: String
+        ): RenderedVideo {
+            if (unavailable) throw SlidesUnavailable("doble sin compositor")
+            failure?.let { throw SlideFailed(it, "tesis") }
+            videoSpecs += spec
+            val slides =
+                tools.jackson.databind.json.JsonMapper
+                    .builder()
+                    .build()
+                    .readTree(spec)
+                    .get("slides")
+                    .size()
+            return RenderedVideo(TestVideos.mp4(if (shortVideo) slides - 1 else slides), "remotion@prueba")
+        }
 
         override suspend fun render(
             spec: ByteArray,

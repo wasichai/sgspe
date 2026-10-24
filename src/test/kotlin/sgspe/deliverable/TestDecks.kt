@@ -46,3 +46,35 @@ object TestDecks {
         }
     }
 }
+
+// un MP4 de prueba (deliverables.md §16.2): solo las cajas que lee DeckVideoChecks, `ftyp` y `moov` con su `mvhd` de la versión
+// 0, con la duración de `slides` láminas de 8 s (o `seconds`) en una escala de 1000 por segundo
+object TestVideos {
+    fun mp4(
+        slides: Int,
+        seconds: Long = slides * 8L,
+        brand: String = "isom"
+    ): ByteArray {
+        fun box(
+            type: String,
+            body: ByteArray
+        ): ByteArray =
+            java.nio.ByteBuffer
+                .allocate(8 + body.size)
+                .putInt(8 + body.size)
+                .put(type.toByteArray(Charsets.ISO_8859_1))
+                .put(body)
+                .array()
+        val mvhd =
+            java.nio.ByteBuffer
+                .allocate(100)
+                .putInt(0)
+                .putInt(0)
+                .putInt(0)
+                .putInt(1000)
+                .putInt((seconds * 1000).toInt())
+                .array()
+        return box("ftyp", "${brand}\u0000\u0000\u0002\u0000isomavc1".toByteArray(Charsets.ISO_8859_1)) + box("moov", box("mvhd", mvhd)) +
+            box("mdat", ByteArray(16))
+    }
+}

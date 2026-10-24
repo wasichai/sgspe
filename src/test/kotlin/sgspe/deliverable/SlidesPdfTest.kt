@@ -13,7 +13,7 @@ import sgspe.privacy.ReportDisclosure
 import java.time.Duration
 
 // ADR-0031, deliverables.md §16.7 (etiqueta slides, en la CI): presentaciones sintéticas de T1 y T2 compuestas por sgspe-slides
-// real. en la CI la URL es obligatoria (ci.yml la fija); fuera de ella, sin la URL la prueba se salta
+// real, a PDF y, desde ASM-148, a MP4. en la CI la URL es obligatoria (ci.yml la fija); fuera de ella, sin la URL la prueba se salta
 @Tag("slides")
 class SlidesPdfTest {
     private val converter: SlidesConverter by lazy {
@@ -22,7 +22,7 @@ class SlidesPdfTest {
             check(System.getenv("CI") != "true") { "la CI debe fijar SGSPE_DELIVERABLE_SLIDES_URL" }
             assumeTrue(false, "sin sgspe-slides (SGSPE_DELIVERABLE_SLIDES_URL)")
         }
-        SlidesConverter(DeliverableProperties(slides = DeliverableProperties.Slides(url, Duration.ofSeconds(170))))
+        SlidesConverter(DeliverableProperties(slides = DeliverableProperties.Slides(url, Duration.ofSeconds(170), videoTimeout = Duration.ofSeconds(590))))
     }
 
     private fun plan(
@@ -58,5 +58,13 @@ class SlidesPdfTest {
         val failure = assertThrows<SlideFailed> { runBlocking { converter.render(broken.bytes(), "prueba-slides-desborde") } }
         assertEquals("SLIDE_OVERFLOW", failure.code)
         assertEquals(deck.slides[2].id, failure.slide)
+    }
+
+    @Test
+    fun `el MP4 de T1 para la comunidad dura 8 s por lamina`() {
+        val deck = plan(Disclosure.PUBLICO, Audience.COMUNIDAD)
+        val video = runBlocking { converter.video(deck.bytes(), "prueba-slides-video") }
+        assertEquals(emptyList<String>(), DeckVideoChecks.problems(video.mp4, deck.slides.size))
+        assertTrue(video.renderer.orEmpty().startsWith("remotion@4.0."), video.renderer)
     }
 }

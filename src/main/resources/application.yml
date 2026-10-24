@@ -177,6 +177,8 @@ sgspe:
       timeout: 180s
       poll: 5s
       stale-after: 15m
+      # el plazo de un MP4 (ASM-148), menor que stale-after: en una Mac, 14 láminas tardaron 38 s con dos pestañas
+      video-timeout: 600s
     templates:
       # plantillas .dotx o .docx (ASM-135): 20 MB por HTTP, entradas del ZIP y bytes descomprimidos (100 MB)
       max-bytes: 20971520

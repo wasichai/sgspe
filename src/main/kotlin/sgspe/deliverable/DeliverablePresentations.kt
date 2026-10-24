@@ -43,7 +43,7 @@ import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.util.UUID
 
-// el estado de una presentación (api.md §4.12): sin la especificación ni el PDF, que se descargan por sus rutas
+// el estado de una presentación (api.md §4.12): sin la especificación, el PDF ni el MP4, que se descargan por sus rutas
 data class PresentationStatus(
     val id: String,
     val versionNumber: Int?,
@@ -59,7 +59,13 @@ data class PresentationStatus(
     val pdfSha256: String?,
     val plannerVersion: String?,
     val designVersion: String?,
-    val rendererVersion: String?
+    val rendererVersion: String?,
+    // el MP4 a pedido (ASM-148): vacíos si no se pidió
+    val videoStatus: String? = null,
+    val videoFailureCode: String? = null,
+    val videoRequestedAt: String? = null,
+    val videoGeneratedAt: String? = null,
+    val videoSha256: String? = null
 )
 
 // las presentaciones de una versión emitida (ADR-0031, deliverables.md §16.8), como la persona. el pedido lee el entregable y la
@@ -68,7 +74,8 @@ data class PresentationStatus(
 // público que no admite el nivel (422 AUDIENCE_LEVEL_MISMATCH) y un modelo sin hechos tipados (422 PRESENTATION_NOT_AVAILABLE;
 // en PUBLICO, PUBLIC_NOT_AVAILABLE), y crea la presentación EN COLA con el SHA-256 del modelo; JOB-09 la compone. la misma
 // versión, público, nivel y planificador devuelve la existente, y una FALLIDO vuelve a la cola. las descargas exigen el mismo
-// permiso, LISTO y, en EXTERNO y PUBLICO, la lista de verificación (ASM-147), y dejan una fila de export_log
+// permiso, LISTO y, en EXTERNO y PUBLICO, la lista de verificación (ASM-147), y dejan una fila de export_log. el MP4 (ASM-148)
+// se pide aparte sobre una presentación LISTO, con los mismos permisos que el pedido, y se baja como el PDF
 @Service
 class DeliverablePresentations(
     private val records: Records,
@@ -165,6 +172,49 @@ class DeliverablePresentations(
         )
     }
 
+    // el pedido del MP4 de una presentación LISTO (ASM-148): lo pone EN COLA con video_requested_at, como la persona (`u`); uno
+    // ya pedido, en proceso o LISTO se devuelve como está, y uno FALLIDO vuelve a la cola
+    suspend fun requestVideo(presentationId: UUID): CommandAnswer {
+        val user = callers.require()
+        val presentation = records.get(Presentations.OBJECT, presentationId)
+        val level = Disclosure.valueOf(presentation.attributes[Presentations.LEVEL].toString())
+        permissions.require(
+            user,
+            "Pedir el video de una presentación $level",
+            action(level) to Deliverables.DELIVERABLE,
+            Actions.CREATE to Presentations.OBJECT
+        )
+        val saved =
+            transactions.locked("${Presentations.OBJECT}:video:$presentationId") {
+                val current = records.get(Presentations.OBJECT, presentationId)
+                val a = current.attributes
+                if (a[Presentations.STATUS]?.toString() != Presentations.READY) {
+                    throw Finding("STATE_MISMATCH", "La presentación no está LISTO", "record", status = HttpStatus.CONFLICT).toCodedException()
+                }
+                when (a[Presentations.VIDEO_STATUS]?.toString()) {
+                    null, Presentations.FAILED ->
+                        records.patch(
+                            Presentations.OBJECT,
+                            presentationId,
+                            mapOf(
+                                Presentations.VIDEO_STATUS to Presentations.QUEUED,
+                                Presentations.VIDEO_REQUESTED_AT to clock.instant().toString(),
+                                Presentations.VIDEO_FAILURE to null
+                            ),
+                            "video de la presentación pedido"
+                        )
+                    else -> current
+                }
+            }
+        val version = Records.uuid(saved.attributes[Presentations.VERSION])?.let { records.find(Deliverables.VERSION, it) }
+        return CommandAnswer(
+            HttpStatus.ACCEPTED,
+            mapOf("presentation" to status(saved, number(version))),
+            saved.updatedAt,
+            "/api/sgspe/presentations/${saved.id}"
+        )
+    }
+
     suspend fun list(id: UUID): List<PresentationStatus> {
         records.get(Deliverables.DELIVERABLE, id)
         val versions = records.all(Deliverables.VERSION, mapOf(Deliverables.DELIVERABLE to id.toString())).associateBy { it.id }
@@ -180,7 +230,7 @@ class DeliverablePresentations(
         return status(presentation, number(version))
     }
 
-    // el PDF (format pdf) o la especificación (format deck) de una presentación LISTO
+    // el PDF (format pdf), la especificación (format deck) o el MP4 (format mp4, con el video LISTO) de una presentación LISTO
     suspend fun content(
         presentationId: UUID,
         field: String,
@@ -194,6 +244,9 @@ class DeliverablePresentations(
         if (a[Presentations.STATUS]?.toString() != Presentations.READY || a[field] == null) {
             throw Finding("STATE_MISMATCH", "La presentación no está LISTO", "record", status = HttpStatus.CONFLICT).toCodedException()
         }
+        if (field == Presentations.VIDEO && a[Presentations.VIDEO_STATUS]?.toString() != Presentations.READY) {
+            throw Finding("STATE_MISMATCH", "El video de la presentación no está LISTO", "record", status = HttpStatus.CONFLICT).toCodedException()
+        }
         if (level != Disclosure.INTERNO && !checklist) {
             throw Finding(
                 "CHECKLIST_REQUIRED",
@@ -205,7 +258,12 @@ class DeliverablePresentations(
         val deliverableId = UUID.fromString(a[Presentations.DELIVERABLE].toString())
         val deliverable = records.get(Deliverables.DELIVERABLE, deliverableId)
         val download = files.open(Presentations.OBJECT, presentationId, field)
-        val format = if (field == Presentations.SPEC) DECK else DeliverableContent.PDF
+        val format =
+            when (field) {
+                Presentations.SPEC -> DECK
+                Presentations.VIDEO -> MP4
+                else -> DeliverableContent.PDF
+            }
         exportLog.presentation(
             user,
             level.name,
@@ -297,7 +355,12 @@ class DeliverablePresentations(
             text(Presentations.PDF_SHA256),
             text(Presentations.PLANNER),
             text(Presentations.DESIGN),
-            text(Presentations.RENDERER)
+            text(Presentations.RENDERER),
+            text(Presentations.VIDEO_STATUS),
+            text(Presentations.VIDEO_FAILURE),
+            text(Presentations.VIDEO_REQUESTED_AT),
+            text(Presentations.VIDEO_GENERATED_AT),
+            text(Presentations.VIDEO_SHA256)
         )
     }
 
@@ -306,12 +369,14 @@ class DeliverablePresentations(
         const val LEVEL = "level"
         const val CHECKLIST = "checklistConfirmed"
         const val DECK = "deck"
+        const val MP4 = "mp4"
     }
 }
 
 // api.md §4.12: el pedido (READ, la acción del nivel, CREATE; Idempotency-Key) → 202 con Location; la lista y el estado (READ);
-// el PDF y la especificación (la acción del nivel y, en EXTERNO y PUBLICO, ?checklistConfirmed=true); las rutas nativas de los
-// archivos de deliverable_presentation, 404 al leer (se descargan por las propias, que dejan export_log) y 403 al subir
+// el pedido del MP4 (lo mismo, sobre una presentación LISTO) → 202; el PDF, la especificación y el MP4 (la acción del nivel y,
+// en EXTERNO y PUBLICO, ?checklistConfirmed=true); las rutas nativas de los archivos de deliverable_presentation, 404 al leer
+// (se descargan por las propias, que dejan export_log) y 403 al subir
 @RestController
 class DeliverablePresentationsController(
     private val presentations: DeliverablePresentations,
@@ -369,6 +434,29 @@ class DeliverablePresentationsController(
         onlyGet(exchange)
         StrictQuery.requireOnly(exchange.request.queryParams, setOf(DeliverablePresentations.CHECKLIST))
         return presentations.content(id, Presentations.SPEC, checklist == true)
+    }
+
+    @PostMapping("/api/sgspe/presentations/{id}/video")
+    suspend fun requestVideo(
+        @PathVariable id: UUID,
+        @RequestHeader(name = IdempotencyKey.HEADER, required = false) key: String?,
+        exchange: ServerWebExchange
+    ): ResponseEntity<ByteArray> {
+        StrictQuery.requireOnly(exchange.request.queryParams, emptySet())
+        return idempotency.respond(key, "POST", exchange.request.path.value(), emptyMap<String, Any?>()) {
+            presentations.requestVideo(id)
+        }
+    }
+
+    @GetMapping("/api/sgspe/presentations/{id}/video")
+    suspend fun video(
+        @PathVariable id: UUID,
+        @RequestParam(name = DeliverablePresentations.CHECKLIST, required = false) checklist: Boolean?,
+        exchange: ServerWebExchange
+    ): ResponseEntity<Flux<DataBuffer>> {
+        onlyGet(exchange)
+        StrictQuery.requireOnly(exchange.request.queryParams, setOf(DeliverablePresentations.CHECKLIST))
+        return presentations.content(id, Presentations.VIDEO, checklist == true)
     }
 
     // la ruta nativa de wasichai-files no sirve los archivos de una presentación: se saltaría el permiso del nivel, la lista de
