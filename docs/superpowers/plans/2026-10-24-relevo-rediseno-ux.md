@@ -16,11 +16,14 @@
   - El orden por columna en Interacciones, Aportes, Programas, Compromisos, Acuerdos, Riesgos y Grupos de interés.
   - ASM-078 actualizado.
   - El kit re-sincronizado con Claude Design: 71 componentes, en el proyecto «SGSPE Design System».
-- **Último integrado.** El arreglo de la prueba intermitente de `RegistrarInteraccionPage.test.tsx` (`fix(relacionamiento):
-  S24 limpia el borrador al guardar…`) y B-04 en el portal (`feat(tareas): «Para tomar» en una sola lectura…`).
-  - Se integraron por cherry-pick sobre la rama de `sgspe-ui`.
-  - Se subieron solo si la suite completa salió con código 0.
-  - Si en la rama no aparecen, están en `claude/wonderful-rubin-02oanj-wip`, como respaldo: hacer cherry-pick de sus dos últimos commits, correr la suite y subir.
+- **Último integrado** (`sgspe-ui` `77b1daf` y `31def4b`): el arreglo de la prueba intermitente de
+  `RegistrarInteraccionPage.test.tsx` y B-04 en el portal. Los dos pasaron la suite completa: 2453 pruebas unitarias y
+  91 e2e.
+  - Después se unió por merge (`c5128ad`) lo que otra sesión subió a la misma rama: la fase 6 con `@wasichai/*` 1.1.0 y
+    B-01.
+  - **Ese merge no se verificó localmente**, porque esta sesión no tenía token de GitHub Packages para instalar
+    `@wasichai/*` 1.1.0. Lo verifica la CI del PR #76: si está roja, es lo primero que hay que arreglar.
+  - La rama `claude/wonderful-rubin-02oanj-wip` del remoto es un respaldo que ya no hace falta: se puede borrar.
 - **Causa de la prueba intermitente, demostrada.**
   1. React Router cambia `window.location` antes de confirmar su estado, dentro de `startTransition`.
   2. La prueba esperaba solo la URL y llamaba a `history.back()` sin `act`.
@@ -37,7 +40,7 @@
 | Qué | Dónde | Quién |
 |---|---|---|
 | Validar sobre la demo viva: capturas de los manuales (7.2), pasos F-A a F-G, una sola primaria, U-23 | [wasichai/sgspe#157](https://github.com/wasichai/sgspe/issues/157) | Otra sesión, en curso |
-| Pedidos a wasichai: `/admin`, superficie flotante, borde de controles, etiquetas de workflow por idioma (fase 6) | [wasichai/wasichai-ui#69](https://github.com/wasichai/wasichai-ui/issues/69) | Sesión en wasichai |
+| Fase 6 (pedidos a wasichai): otra sesión la subió a las dos ramas (`@wasichai/*` 1.1.0, wasichai 1.4.0, B-01); falta confirmar que cierra todo lo de #69 | [wasichai/wasichai-ui#69](https://github.com/wasichai/wasichai-ui/issues/69) | Revisar |
 | Feriados: endpoint y marca en el calendario | [wasichai/sgspe#159](https://github.com/wasichai/sgspe/issues/159) | Backend y portal |
 | Orden por columna en la cola de QCS | [wasichai/sgspe#160](https://github.com/wasichai/sgspe/issues/160) | Backend y portal |
 | Conteos del proyecto en una lectura (B-03) | [wasichai/sgspe#161](https://github.com/wasichai/sgspe/issues/161) | Backend y portal |
@@ -84,9 +87,9 @@ Continúa el rediseño de UX de SGSPE. Lee primero sgspe/docs/superpowers/plans/
 los CLAUDE.md de sgspe y sgspe-ui. Trabaja en la rama claude/wonderful-rubin-02oanj de los dos repositorios
 (PR wasichai/sgspe-ui#76 y wasichai/sgspe#158; suscríbete a ambos).
 
-1. Confirma que en sgspe-ui están los commits «fix(relacionamiento): S24 limpia el borrador al guardar…» y
-   «feat(tareas): «Para tomar» en una sola lectura…». Si faltan, tómalos de claude/wonderful-rubin-02oanj-wip con
-   cherry-pick, corre la suite completa (§3 del relevo) y sube solo si sale 0. Luego borra la rama -wip del remoto.
+1. En sgspe-ui, corre la suite completa (§3 del relevo) sobre el merge c5128ad (@wasichai/* 1.1.0; hace falta el
+   token de GitHub Packages en ~/.npmrc) y mira la CI del PR #76; arregla lo que falle. Borra la rama remota
+   claude/wonderful-rubin-02oanj-wip.
 2. Haz el §5 del relevo: los documentos de sgspe/docs/ux y el plan. Verifica con check_traceability.py y
    yarn format:check, y sube.
 3. Lleva los PR #76 y #158 a verde y mergeables. Arregla la CI roja, resuelve conflictos con un merge desde main y
