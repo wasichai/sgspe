@@ -34,6 +34,10 @@ object Presentations {
     const val VIDEO_SHA256 = "video_sha256"
     const val VIDEO_TYPE = "video/mp4"
 
+    // el tipo con que se guarda el MP4: wasichai-files 1.3.0 no reconoce un MP4 por su contenido y lo trata como
+    // application/octet-stream; DeckVideoChecks ya verificó que lo sea, y la descarga lo sirve como VIDEO_TYPE
+    const val VIDEO_STORED_TYPE = "application/octet-stream"
+
     const val QUEUED = "EN COLA"
     const val RUNNING = "EN PROCESO"
     const val READY = "LISTO"

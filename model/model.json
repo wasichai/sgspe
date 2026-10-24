@@ -1483,7 +1483,7 @@
         {"name": "video_requested_at", "label": "Video pedido el", "type": "DATETIME", "derived": true, "description": "(derivado) Momento del pedido del MP4."},
         {"name": "video_generated_at", "label": "Video generado el", "type": "DATETIME", "derived": true, "description": "(derivado) Momento en que JOB-09 tomó el pedido del MP4; también en FALLIDO."},
         {"name": "video_failure_code", "label": "Código de la falla del video", "type": "TEXT", "derived": true, "description": "(derivado) Código de la falla del MP4, sin texto del documento."},
-        {"name": "video", "label": "Video MP4", "type": "FILE", "contentTypes": ["video/mp4"], "maxBytes": 67108864, "derived": true, "description": "(derivado) Video MP4 de la presentación, compuesto de su misma especificación."},
+        {"name": "video", "label": "Video MP4", "type": "FILE", "contentTypes": ["application/octet-stream"], "maxBytes": 67108864, "derived": true, "description": "(derivado) Video MP4 de la presentación, compuesto de su misma especificación."},
         {"name": "video_sha256", "label": "SHA-256 del video", "type": "TEXT", "derived": true, "description": "(derivado) SHA-256 del MP4, igual al de su archivo."}
       ]
     },

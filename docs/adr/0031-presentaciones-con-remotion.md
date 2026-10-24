@@ -182,8 +182,9 @@ pedido del usuario (issue #155, ASM-148); ver Seguimiento.
     `SLIDES_VIDEO_TIMEOUT` (590 s) y `SLIDES_VIDEO_THREADS` (2). La imagen no necesita otro ffmpeg: viaja en
     `@remotion/compositor-linux-x64-gnu`. Un video que no dura lo que sus láminas es `RENDER_FAILED` en el servicio y
     `DECK_CHECK_FAILED` en SGSPE (`DeckVideoChecks`).
-  - **Los permisos:** los mismos del pedido y de la descarga del PDF; los roles que piden presentaciones ganan `u` para
-    escribir los derivados del video como la persona.
+  - **Los permisos:** los mismos del pedido y de la descarga del PDF; los roles que piden presentaciones ganan UPDATE para
+    escribir los derivados del video como la persona. No `u`: dejaría de solo lectura el público y el nivel, que la
+    persona escribe al crear la presentación, y el pedido fallaría.
 - **La interfaz** va en `sgspe-ui`, en un PR aparte.
 
 ## Referencias

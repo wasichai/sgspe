@@ -293,7 +293,7 @@ class DeckVideoGeneration(
             files.attach(
                 organizationId,
                 presentationId,
-                listOf(DraftFile(Presentations.VIDEO, "${name(spec)}.mp4", Presentations.VIDEO_TYPE, rendered.mp4)),
+                listOf(DraftFile(Presentations.VIDEO, "${name(spec)}.mp4", Presentations.VIDEO_STORED_TYPE, rendered.mp4)),
                 mapOf(Presentations.VIDEO_STATUS to Presentations.READY, Presentations.VIDEO_SHA256 to CanonicalJson.sha256(rendered.mp4))
             )
             log.info("JOB-09: video de la presentación {} LISTO con {} láminas (corrida {})", presentationId, slides, correlation)

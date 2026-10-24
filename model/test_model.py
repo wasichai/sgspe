@@ -749,7 +749,7 @@ class DeliverableModelTests(unittest.TestCase):
         self.assertEqual({n for n, f in fields.items() if not f.get("derived")}, {"audience", "disclosure_level"})
         self.assertEqual({n: (f["contentTypes"], f["maxBytes"]) for n, f in fields.items() if f["type"] == "FILE"},
                          {"spec": (["text/plain"], 64 * 1024 * 1024), "pdf": (["application/pdf"], 64 * 1024 * 1024),
-                          "video": (["video/mp4"], 64 * 1024 * 1024)})
+                          "video": (["application/octet-stream"], 64 * 1024 * 1024)})
         self.assertEqual(self.model["enums"]["presentation_audience"],
                          ["DIRECCION", "CAMPO", "INVESTIGACION", "INSTITUCIONES", "COMUNIDAD"])
         self.assertEqual(self.model["enums"]["presentation_status"], ["EN COLA", "EN PROCESO", "LISTO", "FALLIDO"])
@@ -781,9 +781,9 @@ class DeliverableModelTests(unittest.TestCase):
         for name in creators:
             self.assertTrue({"EXPORT", "DOWNLOAD_RESTRICTED"} & set(roles[name]["deliverable"]), name)
             self.assertIn("CREATE", roles[name]["export_log"], name)
-            # `u` (ASM-148): el pedido escribe como la persona los derivados del video y la vuelta a la cola de una FALLIDO
-            self.assertIn("u", roles[name]["deliverable_presentation"], name)
-            self.assertNotIn("UPDATE", roles[name]["deliverable_presentation"], name)
+            # UPDATE (ASM-148): el pedido escribe como la persona los derivados del video y la vuelta a la cola de una
+            # FALLIDO. no `u`: dejaría de solo lectura el público y el nivel, que la persona escribe al crearla
+            self.assertIn("UPDATE", roles[name]["deliverable_presentation"], name)
 
     def test_issue_es_la_unica_transicion_que_crea_versiones(self):
         # workflows.md, «Transiciones de comando»: issue de WF-H; quienes la aplican crean versiones y filas de export_log

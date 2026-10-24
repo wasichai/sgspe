@@ -1210,7 +1210,7 @@ El servicio `sgspe-slides` (ASM-144, ADR-0031) compone el PDF y, desde ASM-148, 
   - JOB-09 lo compone después de los PDF pendientes, de la especificación guardada con su SHA-256 comprobado: el video
     cuenta exactamente lo mismo que el PDF, sin volver a planificar. Su plazo es `sgspe.deliverable.slides.video-timeout`
     (600 s), menor que `stale-after` para que otra vuelta no retome un video en curso.
-  - Los roles que piden una presentación tienen `u` sobre `deliverable_presentation`: el pedido escribe los derivados
+  - Los roles que piden una presentación tienen UPDATE sobre `deliverable_presentation`: el pedido escribe los derivados
     del video como la persona.
 - **La descarga:** `GET /api/sgspe/presentations/{id}/content` (el PDF), `…/spec` (para el reproductor) y `…/video` (el
   MP4).

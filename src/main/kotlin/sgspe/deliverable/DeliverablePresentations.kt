@@ -172,7 +172,7 @@ class DeliverablePresentations(
         )
     }
 
-    // el pedido del MP4 de una presentación LISTO (ASM-148): lo pone EN COLA con video_requested_at, como la persona (`u`); uno
+    // el pedido del MP4 de una presentación LISTO (ASM-148): lo pone EN COLA con video_requested_at, como la persona (UPDATE); uno
     // ya pedido, en proceso o LISTO se devuelve como está, y uno FALLIDO vuelve a la cola
     suspend fun requestVideo(presentationId: UUID): CommandAnswer {
         val user = callers.require()
@@ -275,7 +275,12 @@ class DeliverablePresentations(
             presentationId
         )
         val file = download.file
-        val type = if (field == Presentations.SPEC) MediaType.APPLICATION_JSON else MediaType.parseMediaType(file.contentType)
+        val type =
+            when (field) {
+                Presentations.SPEC -> MediaType.APPLICATION_JSON
+                Presentations.VIDEO -> MediaType.parseMediaType(Presentations.VIDEO_TYPE)
+                else -> MediaType.parseMediaType(file.contentType)
+            }
         return ResponseEntity
             .ok()
             .contentType(type)

@@ -3756,7 +3756,9 @@ ASM-143, ASM-144, ASM-145, ASM-146, ASM-147.
 - **Índices declarados:** ninguno.
 - **Acciones declaradas:** ninguna.
 - **Tipos de archivo:** `spec` admite `text/plain`, como el modelo congelado (el JSON canónico se sube declarado como
-  texto, ASM-133); `pdf` admite `application/pdf`; `video` admite `video/mp4`.
+  texto, ASM-133); `pdf` admite `application/pdf`; `video` admite `application/octet-stream`, porque
+  wasichai-files 1.3.0 no reconoce un MP4 por su contenido y lo guarda así (SGSPE lo verifica con `DeckVideoChecks` y lo
+  sirve como `video/mp4`).
 - **Tope de archivo:** `spec`, `pdf` y `video`: 67108864 bytes (64 MB, el techo `wasichai.files.max-bytes`; ASM-138).
 - **Workflow:** ninguno.
 - **Fase:** F8 · Release 3 (Fase 3 de producto).
