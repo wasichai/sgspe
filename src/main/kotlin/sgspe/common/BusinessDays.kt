@@ -28,6 +28,9 @@ class HolidayCalendar private constructor(
 
     fun configured(year: Int): Boolean = year in holidays
 
+    // los feriados de `year`, ordenados, o null si el año no tiene lista; no advierte (es una lectura, no un cálculo de plazo)
+    fun holidays(year: Int): List<LocalDate>? = holidays[year]?.sorted()
+
     fun isHoliday(date: LocalDate): Boolean {
         val days = holidays[date.year]
         if (days == null) {
