@@ -204,7 +204,7 @@
         "label": "Devolver acta",
         "labels": {
           "es": "Devolver acta",
-          "en": "Return minutes"
+          "en": "Send minutes back"
         },
         "from": "minutes_in_review",
         "to": "minutes_drafted",

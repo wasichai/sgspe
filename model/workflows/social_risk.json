@@ -111,7 +111,7 @@
         "label": "Volver a mitigar",
         "labels": {
           "es": "Volver a mitigar",
-          "en": "Return to mitigation"
+          "en": "Resume mitigation"
         },
         "from": "monitoring",
         "to": "mitigating",

@@ -18,7 +18,7 @@
         "label": "En revisión",
         "labels": {
           "es": "En revisión",
-          "en": "In review"
+          "en": "Under review"
         },
         "type": "INTERMEDIATE"
       },
@@ -47,7 +47,7 @@
         "label": "Revisar",
         "labels": {
           "es": "Revisar",
-          "en": "Review"
+          "en": "Start review"
         },
         "from": "reported",
         "to": "under_review",
@@ -62,7 +62,7 @@
         "label": "Responder",
         "labels": {
           "es": "Responder",
-          "en": "Answer"
+          "en": "Start response"
         },
         "from": "under_review",
         "to": "responding",

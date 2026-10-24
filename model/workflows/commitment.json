@@ -36,7 +36,7 @@
         "label": "En ejecución",
         "labels": {
           "es": "En ejecución",
-          "en": "In execution"
+          "en": "Under implementation"
         },
         "type": "INTERMEDIATE"
       },
@@ -161,7 +161,7 @@
         "label": "Iniciar ejecución",
         "labels": {
           "es": "Iniciar ejecución",
-          "en": "Start execution"
+          "en": "Start implementation"
         },
         "from": "approved",
         "to": "in_progress",
@@ -221,7 +221,7 @@
         "label": "Devolver a ejecución",
         "labels": {
           "es": "Devolver a ejecución",
-          "en": "Return to execution"
+          "en": "Return to implementation"
         },
         "from": "fulfilled",
         "to": "in_progress",
