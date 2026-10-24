@@ -2,6 +2,8 @@
 source 'https://rubygems.org'
 
 gem 'asciidoctor', '2.0.26'
+# desde Ruby 3.5, logger dejó de ser gema por defecto y asciidoctor la requiere
+gem 'logger', '1.7.0'
 gem 'asciidoctor-pdf', '2.3.27'
 gem 'rouge', '5.1.0'
 gem 'text-hyphen', '1.5.0'

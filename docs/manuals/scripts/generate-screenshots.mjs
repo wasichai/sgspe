@@ -37,7 +37,7 @@ const USERS = {
 
 // textos que nunca deben verse en una captura publicada (estados de carga o de error del portal)
 const BAD = [/No se pudo cargar esta información/, /No hubo respuesta del servidor/, /Esta página no existe/, /Su cuenta no tiene permiso/]
-const LOADING = /Cargando|Comprobando las reglas/
+const LOADING = /Cargando|Comprobando/
 
 // ---- API ---------------------------------------------------------------------------------------------------------
 const tokens = {}
