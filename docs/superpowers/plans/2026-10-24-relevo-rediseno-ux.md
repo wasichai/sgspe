@@ -47,6 +47,7 @@
 | «Para tomar» de cuentas con alcance de tenant (B-04, decisión) | [wasichai/sgspe#162](https://github.com/wasichai/sgspe/issues/162) | Decisión y backend |
 | §5 del cierre: documentos (ver abajo) | `docs/ux/` y este plan | Quien releve |
 | Llevar los PR #76 y #158 a verde y mergeables | GitHub | Quien releve |
+| «Conventional commits» en rojo en #76: cuatro commits viejos (`6f401d57`, `fc6771a1`, `73a6befa`, `2741a429`) con una línea del cuerpo de 101-102 caracteres. Decidir entre squash merge o reescribir esos mensajes con un rebase `-r` y `--force-with-lease`, que cambia los hashes citados en `sgspe` ([comentario](https://github.com/wasichai/sgspe-ui/pull/76#issuecomment-6384734866)) | GitHub | Decisión del usuario |
 
 **§5, documentos por actualizar en `sgspe`:**
 
