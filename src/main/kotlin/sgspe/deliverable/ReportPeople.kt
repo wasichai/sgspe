@@ -6,7 +6,7 @@ import java.util.UUID
 
 // las personas que cita un informe (especificación de F8 §2.2.9, ASM-137): las menciones con lo que cada nivel necesita
 // (nombre, cargo y organización, código GI-, localidad) y los nombres de las personas de los grupos de interés del proyecto
-// para el aviso de datos personales. lee solo lo que el tipo declara (ReportSource). la usa T1; T2 conserva la suya
+// para el aviso de datos personales. lee solo lo que el tipo declara (ReportSource). la usan T1 (DiagnosisScene) y T2
 // (FieldReportType.Scene)
 class ReportPeople(
     private val source: ReportSource,
