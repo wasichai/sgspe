@@ -22,7 +22,7 @@ GIS_LAYER = re.compile(r"^/api/gis/layers/([a-z0-9_]+)/([a-z0-9_]+)$")
 TRANSITION = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)/transitions/([a-z0-9_]+)$")
 RELATED = re.compile(r"^/api/objects/([a-z0-9_]+)/records/([0-9a-f-]+)/related/([a-z0-9_]+)$")
 SGSPE_COMMAND = re.compile(r"^/api/sgspe/(stakeholders|social-risks|areas-of-influence|indicators|deliverables)/"
-                           r"([0-9a-f-]+)/(assessments|approve|measurements|drafts)$")
+                           r"([0-9a-f-]+)/(assessments|approve|measurements|drafts|issue)$")
 ACTIONS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/actions$")
 FIELD = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields/([a-z0-9_]+)$")
 FIELDS = re.compile(r"^/api/metadata/objects/([a-z0-9_]+)/fields$")
@@ -252,9 +252,19 @@ class FakeCore:
         if kind == "indicators":
             return 201, self.add_record("indicator_measurement", {"indicator": record_id, "project": body["project"],
                                                                    **body["attributes"]})
+        if kind == "deliverables" and command == "issue":
+            # la emisión (DeliverableIssue): solo desde approved, con el SHA-256 del borrador; deja el entregable en issued
+            record = self._find("deliverable", record_id)
+            if record.get("state") != "approved":
+                return 409, {"detail": "STATE_MISMATCH", "errors": [{"field": "record", "code": "STATE_MISMATCH"}]}
+            if body.get("draftModelSha256") != record["attributes"].get("draft_model_sha256"):
+                return 409, {"detail": "MODEL_MISMATCH", "errors": [{"field": "draft", "code": "MODEL_MISMATCH"}]}
+            record["state"] = "issued"
+            return 201, {"deliverable": record, "versions": []}
         if kind == "deliverables":
             record = self._find("deliverable", record_id)
             record["attributes"]["draft_generation_status"] = "EN COLA"
+            record["attributes"]["generation_requested_at"] = f"2026-10-20T10:{len(self.requests) // 60:02d}:{len(self.requests) % 60:02d}Z"
             return 202, None
         record = self._find("area_of_influence", record_id)
         if record is None:

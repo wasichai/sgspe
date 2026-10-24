@@ -13,7 +13,7 @@ verificadas:
 [cols="2,5",options="header"]
 |===
 |Conjunto |Contenido
-|Oficial (`model/demo/*.json`, del proyecto) |El proyecto «DEMO-T1 · Proyecto Wayra Ejemplo» (minería, exploración) con sus partes, concesiones y campañas; 15 localidades, una comunidad y dos áreas de influencia aprobadas con 17 miembros; 85 grupos de interés (85 personas y 110 organizaciones) con 235 evaluaciones; 100 interacciones con 181 participantes y 2 visitas de campo; 12 compromisos en varios estados; 5 riesgos con 10 medidas y 20 revisiones; un plan de relacionamiento; el entregable «Diagnóstico social» con sus 35 secciones; 6 usuarios ficticios.
+|Oficial (`model/demo/*.json`, del proyecto) |El proyecto «DEMO-T1 · Proyecto Wayra Ejemplo» (minería, exploración) con sus partes, concesiones y campañas; 15 localidades, una comunidad y dos áreas de influencia aprobadas con 17 miembros; 85 grupos de interés (85 personas y 110 organizaciones) con 235 evaluaciones; 100 interacciones con 181 participantes y 2 visitas de campo; 12 compromisos en varios estados; 5 riesgos con 10 medidas y 20 revisiones; un plan de relacionamiento; el entregable «Diagnóstico social» con sus 35 secciones; el «Informe de campo y avance» de la comunidad (octubre de 2026) con 8 de sus 11 secciones escritas, 2 visitas, 8 interacciones, 2 redes con 9 integrantes, 3 sectores comunales y un incidente; 6 usuarios ficticios.
 |Ampliado (`database/seeds/ampliado/*.json`, de estos manuales) |Lo que el oficial no trae y los manuales necesitan mostrar: 5 quejas, 3 consultas y 3 solicitudes en todos los estados típicos; 2 aportes sociales con ítems (uno solicitado y uno aprobado) y un programa social; 2 incidentes; una alerta temprana; 2 tareas manuales; 5 usuarios ficticios más (QCS, inversión, aprobación, jefatura y auditoría) y sus asignaciones.
 |Evidencias (`scripts/seed-demo-evidence.py`) |4 archivos sintéticos generados por el script (2 PDF de una página y 2 PNG de un paisaje dibujado), vinculados a una queja, una consulta y un aporte.
 |Catálogos |Ubigeo del INEI (25 departamentos, 196 provincias, 1892 distritos) y 53 indicadores.
@@ -179,6 +179,10 @@ $ docs/manuals/scripts/restore-demo-database.sh --replace
 == Mantener los conjuntos
 
 * Para validar los archivos sin servidor: `cd model && python3 load_demo.py --dir ../docs/manuals/database/seeds/ampliado --validate-only`.
+* Para aprobar y emitir los dos entregables de la demostración, en desarrollo y con `sgspe-latex` y GeoServer:
+  `cd model && SGSPE_DEMO_PASSWORD='…' python3 load_demo.py --core URL --issue`. Envía a revisión y emite gestión
+  social y aprueba gestión de actores; un entregable ya emitido no se toca. `seed-demo-data.sh` no lo usa: su servidor
+  arranca sin GeoServer, y la emisión rechaza un borrador con mapas fallidos.
 * Al cambiar el modelo, vuelva a reconstruir, exportar y verificar; el manifiesto registra el _commit_ con el que se
   generó cada respaldo.
 * No agregue datos reales ni nombres de personas reales: el repositorio lo prohíbe.
