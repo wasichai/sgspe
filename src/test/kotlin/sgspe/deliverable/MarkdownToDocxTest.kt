@@ -219,4 +219,21 @@ class MarkdownToDocxTest {
         assertTrue("lista del fondo" in text)
         assertTrue("énfasis del fondo" in text)
     }
+
+    // #83: un bloque de código anidado más allá del tope no se pierde; sale como texto plano con una línea por línea (un w:br
+    // entre ellas, no un «\n» dentro de un solo w:t)
+    @Test
+    fun `un bloque de codigo anidado mas alla del tope conserva sus lineas`() {
+        // alrededor del tope: el bloque mismo pasa el tope (MAX_DEPTH + 1 citas) o lo pasa una cita que lo contiene
+        for (quotes in DocxWriter.MAX_DEPTH - 1..DocxWriter.MAX_DEPTH + 3) {
+            val prefix = "> ".repeat(quotes)
+            val markdown = listOf("```", "linea uno", "linea dos", "```").joinToString("\n") { prefix + it }
+            val doc = write(Block.Paragraph(markdown))
+            val paragraph = doc.paragraphs.singleOrNull { "linea uno" in it.text }
+            assertTrue(paragraph != null, "con $quotes citas el bloque se pierde")
+            assertTrue("linea dos" in paragraph!!.text, paragraph.text)
+            assertFalse(paragraph.runs.any { run -> run.ctr.tList.any { '\n' in it.stringValue } }, paragraph.ctp.toString())
+            assertTrue(paragraph.runs.any { it.ctr.brList.isNotEmpty() }, paragraph.ctp.toString())
+        }
+    }
 }

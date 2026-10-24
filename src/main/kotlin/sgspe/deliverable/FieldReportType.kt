@@ -6,10 +6,8 @@ import sgspe.privacy.Cell
 import sgspe.privacy.Fact
 import sgspe.privacy.FactRow
 import sgspe.privacy.Mark
-import sgspe.privacy.MentionTarget
 import sgspe.privacy.Mentions
 import sgspe.privacy.PhotoRef
-import sgspe.privacy.RegisterSheets
 import sgspe.privacy.ReportMeta
 import sgspe.privacy.ReportModel
 import sgspe.privacy.ReportSection
@@ -166,8 +164,8 @@ class FieldReportType : DeliverableType {
         input.sections
             .flatMap { Mentions.keys(it.text(Deliverables.CONTENT).orEmpty()) }
             .distinct()
-            .forEach { scene.mention(it) }
-        scene.projectNames()
+            .forEach { scene.people.mention(it) }
+        scene.people.projectNames()
         val preparedFor = d.ref("prepared_for_organization")?.let { source.one("organization", it) }
         val preparedBy = d.ref("prepared_by_organization")?.let { source.one("organization", it) }
         val meta =
@@ -227,7 +225,7 @@ class FieldReportType : DeliverableType {
             ReportModel(
                 meta = meta,
                 sections = built,
-                people = scene.people,
+                people = scene.people.people,
                 photos = scene.photos,
                 facts = scene.facts.toList(),
                 aiAssistedSections =
@@ -236,7 +234,7 @@ class FieldReportType : DeliverableType {
                         .mapNotNull { it.text(Deliverables.SECTION_KEY) }
                         .sorted()
             )
-        return Assembled(model, maps, scene.personNames, sectionTexts, scene.holders)
+        return Assembled(model, maps, scene.people.names, sectionTexts, scene.people.holders)
     }
 
     private fun cover(project: SourceRow): List<Block> =
@@ -254,12 +252,9 @@ class FieldReportType : DeliverableType {
         val end: LocalDate,
         val cutoff: LocalDate
     ) {
-        val people = linkedMapOf<String, MentionTarget>()
+        // las personas que cita el informe, como en T1 (ReportPeople): menciones, nombres y la persona detrás de cada mención
+        val people = ReportPeople(source, project)
         val photos = linkedMapOf<String, PhotoRef>()
-        val personNames = linkedSetOf<String>()
-
-        // la persona detrás de cada mención (person, y la titular de un stakeholder o un position), para AI-04 de sección
-        val holders = linkedMapOf<String, UUID>()
         val recordTexts = linkedMapOf<String, MutableList<String>>()
 
         // los hechos tipados del informe (ADR-0031), de los mismos datos que su tabla, en el orden de las secciones
@@ -278,82 +273,11 @@ class FieldReportType : DeliverableType {
             return !day.isBefore(start) && !day.isAfter(end)
         }
 
-        private suspend fun organizationName(id: UUID?): String? = id?.let { source.one("organization", it)?.text("name") }
+        private suspend fun organizationName(id: UUID?): String? = people.organizationName(id)
 
-        // la mención de una persona: su nombre, su cargo vigente con su organización, su código GI- en el proyecto y su localidad
-        suspend fun person(id: UUID): String {
-            val key = "person:$id"
-            holders[key] = id
-            if (key !in people) {
-                val person = source.one("person", id)
-                val name = listOfNotNull(person?.text("given_names"), person?.text("surnames")).joinToString(" ").ifEmpty { "Sin nombre" }
-                personNames += name
-                val position = source.all("position", mapOf("person" to id.toString())).firstOrNull { it.text("position_status") == "VIGENTE" }
-                val stakeholder = source.all("stakeholder", byProject + ("person" to id.toString())).firstOrNull()
-                people[key] =
-                    MentionTarget(
-                        name,
-                        position?.text("position_title"),
-                        organizationName(position?.ref("organization")),
-                        stakeholder?.let { RegisterSheets.code(it.id) },
-                        person?.ref("residence_locality")?.let { source.one("locality", it)?.text("name") }
-                    )
-            }
-            return "[[$key]]"
-        }
+        private suspend fun person(id: UUID): String = people.person(id)
 
-        // una mención escrita en la narrativa (ASM-137): [[person:<id>]], [[stakeholder:<id>]] o [[position:<id>]], resuelta con lo
-        // que el tipo lee. una que no existe queda sin resolver y Mentions la imprime «una persona» en todo nivel
-        suspend fun mention(key: String) {
-            if (key in people) return
-            val id = runCatching { UUID.fromString(key.substringAfter(':')) }.getOrNull() ?: return
-            when (key.substringBefore(':')) {
-                "person" -> person(id)
-                "stakeholder" -> {
-                    val row = source.one("stakeholder", id) ?: return
-                    val code = RegisterSheets.code(row.id)
-                    val holder = row.ref("person")?.let { holder -> person(holder).let { people["person:$holder"] } }
-                    row.ref("person")?.let { holders[key] = it }
-                    val organization = organizationName(row.ref("organization"))
-                    people[key] =
-                        holder?.copy(stakeholderCode = code)
-                            ?: MentionTarget(
-                                organization ?: code,
-                                null,
-                                organization,
-                                code,
-                                row.ref("locality")?.let { source.one("locality", it)?.text("name") }
-                            )
-                }
-                "position" -> {
-                    val row = source.one("position", id) ?: return
-                    val holder = row.ref("person")?.let { holder -> person(holder).let { people["person:$holder"] } }
-                    row.ref("person")?.let { holders[key] = it }
-                    people[key] =
-                        MentionTarget(
-                            holder?.name ?: row.text("position_title") ?: "Sin nombre",
-                            row.text("position_title"),
-                            organizationName(row.ref("organization")),
-                            holder?.stakeholderCode,
-                            holder?.locality
-                        )
-                }
-            }
-        }
-
-        // los nombres de las personas de los grupos de interés del proyecto, para el aviso de datos personales (ASM-137): se
-        // buscan aunque el informe no las cite
-        suspend fun projectNames() {
-            for (row in source.all("stakeholder", byProject)) {
-                val id = row.ref("person") ?: continue
-                val person = source.one("person", id) ?: continue
-                listOfNotNull(person.text("given_names"), person.text("surnames")).joinToString(" ").ifEmpty { null }?.let { personNames += it }
-            }
-        }
-
-        // un grupo de interés: su persona (mención) o el nombre de su organización
-        suspend fun stakeholder(row: SourceRow): String =
-            row.ref("person")?.let { person(it) } ?: organizationName(row.ref("organization")) ?: RegisterSheets.code(row.id)
+        private suspend fun stakeholder(row: SourceRow): String = people.stakeholder(row)
 
         suspend fun background(): List<Block> {
             val incidents =
@@ -562,7 +486,10 @@ class FieldReportType : DeliverableType {
                         Cell(contact.text("results").orEmpty())
                     )
                 }
-            val mentioned = people.keys.filter { it.startsWith("person:") }.map { UUID.fromString(it.removePrefix("person:")) }
+            val mentioned =
+                people.people.keys
+                    .filter { it.startsWith("person:") }
+                    .map { UUID.fromString(it.removePrefix("person:")) }
             val positions =
                 mentioned.flatMap { id ->
                     source.all("position", mapOf("person" to id.toString())).filter { it.text("position_status") in OPEN_POSITIONS }.map { id to it }
