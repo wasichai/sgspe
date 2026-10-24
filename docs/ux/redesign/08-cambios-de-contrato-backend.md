@@ -37,7 +37,8 @@ y el inicio los cuentan. Que JOB-01 no corriera venía de un hilo único de plan
 base inaccesible: queda en wasichai/sgspe#164.
 
 Fuera de esta tabla quedaron dos pedidos de backend que salieron de la fase 4: el orden por columna en la cola de QCS
-(wasichai/sgspe#160) y los feriados para el calendario (wasichai/sgspe#159).
+(wasichai/sgspe#160) y los feriados para el calendario (wasichai/sgspe#159, ya expuestos por
+`GET /api/sgspe/calendar/holidays`).
 
 Ninguno de B-01 a B-04 define requisitos nuevos aquí: si se aprueban, se registran en
 `docs/requirements-analysis.md` y en `docs/api.md`, como manda `CLAUDE.md`.

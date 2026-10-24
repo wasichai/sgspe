@@ -339,7 +339,7 @@ o se compone en el portal.
 | Input, Textarea | Campos | Foco, error, solo lectura, deshabilitado; contador en motivos | `<label>` visible; error con `aria-describedby` | wasichai |
 | SearchInput | Búsqueda en listas | Con atajo visible | Etiqueta oculta accesible | wasichai |
 | Select, MultiSelect, Combobox | ENUM, relaciones, responsables | Chips quitables; opciones deshabilitadas con razón | Patrón combobox de ARIA | wasichai |
-| DatePicker, DateRangePicker | Fechas y periodos: `CampoFecha` (§5.1), en todo el portal; un periodo son dos | dd/mm/aaaa y 24 h; calendario de mes. Un periodo lleva `AtajosDePeriodo` (tableros, reportes y mapa). Los feriados marcados no están hechos: ningún endpoint los expone | Tecla por tecla en la grilla | portal |
+| DatePicker, DateRangePicker | Fechas y periodos: `CampoFecha` (§5.1), en todo el portal; un periodo son dos | dd/mm/aaaa y 24 h; calendario de mes. Un periodo lleva `AtajosDePeriodo` (tableros, reportes y mapa). Marca los feriados del mes con `GET /api/sgspe/calendar/holidays` (un punto `sg-*` y « (feriado)» en el nombre accesible del día); sin respuesta, no marca nada | Tecla por tecla en la grilla | portal |
 | Checkbox, Radio, Switch | Opciones | Fieldset con leyenda; una elección con efecto (como «¿Ya se realizó?» de S24) son radios con su efecto debajo | Nativos o `role="switch"` (`ConmutadorDeModo` del modo rápido) | wasichai |
 | Badge | Conteos | Neutro, peligro, advertencia, IA | Texto que explica el conteo en `title` y en el nombre accesible del enlace | portal |
 | StatusBadge | Estado, situación, nivel, procedencia (§4) | Las cuatro familias | Ícono + etiqueta; nunca solo color | portal |
