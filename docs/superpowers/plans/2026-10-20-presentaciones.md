@@ -121,7 +121,7 @@ versión emitida ─► modelo INTERNO ─► ReportDisclosure (nivel) ─► De
 
 ### 9. Demostración y revisión visual
 
-- [ ] Un T2 sintético en `model/demo/` y `load_demo.py --issue`.
+- [x] Un T2 sintético en `model/demo/` y `load_demo.py --issue` (#153).
 - [x] Componer T1 para DIRECCION, CAMPO, INVESTIGACION y COMUNIDAD, y T2 para INSTITUCIONES. Revisar las hojas de
   contacto, corregir y volver a componer. Entregar las muestras.
 

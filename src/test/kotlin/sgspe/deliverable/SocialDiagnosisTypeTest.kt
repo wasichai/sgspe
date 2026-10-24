@@ -659,6 +659,28 @@ class SocialDiagnosisTypeTest {
         assertEquals(listOf<Block>(Block.Paragraph("Información reservada en esta versión.", Mark.EXTERNAL_ONLY)), external)
     }
 
+    // #83: la última evaluación de un grupo de interés y el cargo vigente de una persona se leen una vez por ensamblado, no
+    // una vez por cada sección que los usa (introducción, perfiles, clasificación, grupos políticos)
+    @Test
+    fun `la ultima evaluacion y el cargo se leen una vez por ensamblado`() {
+        val reads = mutableListOf<Pair<String, Map<String, String>>>()
+        val source =
+            T1Source.source(
+                object : FakeReportSource(SocialDiagnosisType().reads) {
+                    override suspend fun all(
+                        objectName: String,
+                        filters: Map<String, String>
+                    ): List<SourceRow> = super.all(objectName, filters).also { reads += objectName to filters }
+                }
+            )
+        assemble(source)
+        val assessments = reads.filter { it.first == "stakeholder_assessment" && it.second.keys == setOf("stakeholder") }
+        val positions = reads.filter { it.first == "position" && it.second.keys == setOf("person") }
+        assertTrue(assessments.isNotEmpty() && positions.isNotEmpty(), "$reads")
+        assertEquals(assessments.size, assessments.toSet().size, "una lectura por grupo de interés: $assessments")
+        assertEquals(positions.size, positions.toSet().size, "una lectura por persona: $positions")
+    }
+
     // revisión final de 8.2c, Minor 5: la persona detrás de cada mención (también la titular de un cargo o un grupo de interés)
     @Test
     fun `el ensamblado da la persona detras de cada mencion`() {

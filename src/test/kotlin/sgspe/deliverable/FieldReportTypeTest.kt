@@ -324,6 +324,22 @@ class FieldReportTypeTest {
         assertTrue("Persona Ejemplo 4" in assembled.personNames)
     }
 
+    // #83: T2 resuelve sus menciones con ReportPeople, como T1: la persona detrás de cada una, y una que no existe sin resolver
+    @Test
+    fun `T2 da la persona detras de cada mencion y deja sin resolver la que no existe`() {
+        val missing = "stakeholder:${id(99)}"
+        val base = input()
+        val sections =
+            base.sections + SourceRow(id(34), null, mapOf("section_key" to "objetivos", "content" to "Con [[$missing]].", "content_origin" to "HUMANO"))
+        val input = AssemblyInput(base.deliverable, sections, base.templateId, base.templateSha256, base.draftRevision, base.issueRevision, base.today)
+        val assembled = runBlocking { type.assemble(input, source()) }
+        assertEquals(UUID.fromString(id(40)), assembled.holders["person:${id(40)}"])
+        assertEquals(UUID.fromString(id(44)), assembled.holders["position:${id(43)}"])
+        assertFalse("stakeholder:${id(42)}" in assembled.holders, "${assembled.holders}")
+        assertFalse(missing in assembled.model.people, "${assembled.model.people.keys}")
+        assertFalse(missing in assembled.holders, "${assembled.holders}")
+    }
+
     @Test
     fun `el pie de una foto con el nombre de una persona del proyecto da el aviso de datos personales`() {
         val source = source()

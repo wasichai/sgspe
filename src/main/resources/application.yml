@@ -22,6 +22,13 @@ spring:
       max-parts: 8
       # las decisiones de una hoja de 10 000 filas pasan de los 256 KB por defecto
       max-in-memory-size: 1MB
+  task:
+    scheduling:
+      pool:
+        # issue #164: Spring corre un @Scheduled(fixedDelay) suspend bloqueando su hilo hasta que termina, y con el hilo
+        # único por defecto JOB-05 y JOB-09 colgados en una base que no responde tapaban los cron de JOB-01, JOB-02 y JOB-04.
+        # 4 deja dos hilos para los cron con los dos sondeos colgados (SchedulingPoolTest); sgspe.jobs.run-timeout los suelta
+        size: 4
 
 wasichai:
   database:
@@ -251,6 +258,12 @@ sgspe:
     # trabajos de fondo (JOB-01 DeadlineJob, JOB-02 DerivedFieldsJob, JOB-03 StakeholderFollowUpJob, JOB-07 KnowledgeIndexJob
     # y JOB-08 RetentionJob). false los apaga: las pruebas lo fijan en Gradle y llaman a runOnce
     enabled: ${SGSPE_JOBS_ENABLED:true}
+    # issue #164 (JobsProperties): una base que no responde termina en error y no en espera indefinida. read-timeout acota
+    # las lecturas de los sondeos de JOB-05 y JOB-09 (las organizaciones y los pedidos pendientes): la organización falla
+    # y la vuelta sigue. run-timeout acota la vuelta entera de cada trabajo y suelta su candado; es menor que la hora de los
+    # cron horarios. un borrador o una presentación cortados a la mitad los retoma stale-after
+    read-timeout: 2m
+    run-timeout: 50m
     derived-fields:
       # cron de Spring (segundos primero), en America/Lima
       hourly-cron: '0 15 * * * *'
