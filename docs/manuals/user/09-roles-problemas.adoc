@@ -3,10 +3,11 @@
 
 Lo que cada persona ve y puede hacer depende de tres cosas: sus *roles*, sus *asignaciones* a proyectos y, en algunos
 pasos, las *reglas de negocio* (por ejemplo, nadie aprueba lo que registró). El portal oculta las secciones y botones
-que su rol no permite; si llega a una de ellas por un enlace, ve «Su cuenta no puede abrir «Sección».».
+que su rol no permite; si llega a una de ellas por un enlace, ve «No puede abrir «Sección»», con a quién pedir el
+acceso (dentro de un proyecto, la jefatura del proyecto si su cuenta puede verla) y un botón para volver.
 
 .Un agente de campo que abre los compromisos
-image::screenshots/user/42-sin-acceso.png[Pestañas del proyecto sin Compromisos ni Riesgos y el mensaje Su cuenta no puede abrir «Compromisos»]
+image::screenshots/user/42-sin-acceso.png[Pestañas del proyecto sin Compromisos ni Riesgos y el mensaje No puede abrir «Compromisos», con a quién pedirlo]
 
 [cols="2,5",options="header"]
 |===

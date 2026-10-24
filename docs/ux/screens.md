@@ -7,7 +7,9 @@ riesgos y alerta temprana; programas e inversión; documentos, tareas y aprobaci
 incidente) y la **parte 3b** (tableros, capa de IA, inicio y transversales, campo sin conexión: S01, S02, S04, S05, S27,
 S34, S49 a S55 y S62, el tablero de riesgos), y S56 (gestionar vistas, de las respuestas del usuario a Q1, Q3, Q6 y Q7).
 S63 (calidad de datos, F6) se suma en el plan 6.0, y S64 (plantillas de entregables, F8), en el plan 8.0.
-La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3).
+La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architecture.md` §7.3). El rediseño de UX
+([`redesign/`](redesign/README.md)), implementado en `sgspe-ui`, se llevó a estas fichas el 2026-10-23: §2 dice lo común de
+listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
 
 - **Lienzo de la etapa 2:** <https://claude.ai/artifact/7RUzqeAhtWx75vCNPCBRWe>; **lienzo de la etapa 3:**
   <https://claude.ai/artifact/LTNxbVoceQL56sJ1F8BERr>. Los dos son privados y se comparten desde su menú. Cada ficha nombra
@@ -39,8 +41,9 @@ La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architec
 - **Pila:** React 19 + TypeScript + Vite + Tailwind 4 (tokens de [`tokens.css`](tokens.css)) + React Router (rutas con
   `loader` para precargar) + TanStack Query + React Hook Form + Zod + i18next. Las etiquetas visibles salen de i18next con
   claves por pantalla (`screens.s08.title`); los valores de ENUM se muestran tal como se guardan (ADR-0009).
-- **Shell:** toda ruta vive dentro de `AppShell` (barra superior, `ContextBar`, navegación de 13 secciones) y, bajo
-  `/projects/:projectId`, de `ProjectLayout` (sub-navegación del proyecto con conteos). El contexto de territorio se lee de
+- **Shell:** toda ruta vive dentro de `AppShell` (barra superior de seis controles, navegación de 13 secciones en bloques,
+  barra inferior en el teléfono; `ux-architecture.md` §7.1) y, bajo `/projects/:projectId`, de `ProjectLayout` (barra de
+  contexto y una sola fila de pestañas del proyecto con conteos, DD-03). El contexto de territorio se lee de
   `?territory=<objeto>:<id>` con `useContextFilters()` y se agrega a toda consulta de lista e indicador del proyecto.
 - **Consultas:** claves `['records', object, params]`, `['record', object, id]`, `['transitions', object, id]`,
   `['indicator', code, filters]` y `['dashboard', id, filters]`. Los indicadores se guardan en caché un minuto (`api.md`
@@ -54,8 +57,35 @@ La búsqueda global (S03) está en la etapa 1 (`design-system.md` y `ux-architec
   `If-Match`).
 - **Transiciones:** la lista sale de `GET …/transitions` (las que el rol no tiene no se muestran); antes de confirmar, el
   diálogo llama a `POST /api/sgspe/transition-checks` para mostrar bloqueos y advertencias de las guardas.
-- **Responsive:** los puntos de quiebre son los de `tokens.css` (sm 640, md 768, lg 1024, xl 1280, 2xl 1440). Por debajo de
-  `lg`, la sub-navegación del proyecto pasa a un menú y los paneles laterales de las fichas bajan debajo del contenido.
+- **Listas (P-02):** las listas de trabajo (S04, S16, S22, S28, S35, S38 y S39, S41 y S42) llevan una `BarraDeFiltros`
+  (`design-system.md` §5.1, DD-04): primero el `SelectorDeVista` con las vistas y su conteo (`?view=`, DD-03), luego la
+  búsqueda (`q`, 300 ms después de la última tecla), hasta tres filtros frecuentes, «Más filtros» en un drawer, un chip por
+  filtro aplicado y «Limpiar filtros». Las anchas usan `TablaPriorizada` (DD-05): esenciales siempre, secundarias desde `xl`
+  y opcionales en «Columnas»; Enter en una fila abre la ficha y Espacio su vista previa (`?peek=`). Una columna ordenable
+  tiene su encabezado como botón con `aria-sort`; el orden dura la visita (no viaja en la URL) y otro orden vuelve a la
+  primera página. Ordenan: Alertas (S41, por fecha y título), Interacciones (S22, título y fecha), Programas (S42, código y
+  programa) y sus aportes (código), Compromisos (S28, código, compromiso y vence), Acuerdos (acuerdo, por su código, y
+  vence), Riesgos (S39, riesgo por código, P × I y nivel por su orden de negocio) y Grupos de interés (S16, solo la
+  prioridad, por su orden de negocio). Las que filtran en el navegador ordenan en memoria (Riesgos, Grupos e
+  Interacciones por fecha); las demás piden `sort` y `dir` al servidor. Un monto no se ordena (mezcla monedas, ASM-063) ni
+  un estado o un enum. La cola de QCS (S35) todavía no ordena: espera wasichai/sgspe#160. La ficha abierta desde
+  la lista recuerda su origen y su resultado en el estado del historial (ASM-075). En el teléfono, la lista
+  pasa a tarjetas (`ListaEnTarjetas`) y los filtros frecuentes, a «Filtros (N)». Las páginas de un módulo con ruta propia
+  (Compromisos y Acuerdos; las de Riesgos) van en un `SelectorDePagina` en la cabecera (DD-23).
+- **Fichas (P-09):** las de grupo de interés (S17), interacción (S23), compromiso (S29), acuerdo (S33), queja (S36),
+  consulta y solicitud (S57), riesgo (S40) y aporte (S44) siguen la anatomía de `design-system.md` §6.1 (DD-02, DD-06):
+  `CabeceraDeFicha` con un antetítulo «Tipo · código · categoría», un título que dice qué es y chips de situación (nunca el
+  estado); una sola primaria, la siguiente acción del flujo, con lo que la impide debajo; hasta dos secundarias; y «Más
+  acciones» con las demás transiciones y, al final, las destructivas (cancelar, anular, retirar, terminar, rechazar y
+  desistir, DD-28). El `PanelDeDecision` es el único lugar del estado, con el camino del flujo plegado dentro de «Estado
+  actual» («Ver el camino»). El cuerpo va en `Seccion`, con los campos vacíos plegados por `CamposPlegables` («Mostrar los
+  N campos sin dato»). Toda ficha abierta desde una lista, un aviso, la búsqueda o una tarea muestra sobre el antetítulo
+  «‹ Volver a <lista> (N)», que vuelve con los filtros; desde una lista, además, «Anterior» y «Siguiente» (K y J, que no
+  actúan en un campo, en un diálogo ni con modificadores), deshabilitados en los extremos. Donde una ficha de este documento nombre `EntityHeader`, «camino de estados» o un encabezado «con
+  estado», vale esta regla.
+- **Responsive:** los puntos de quiebre son los de `tokens.css` (sm 640, md 768, lg 1024, xl 1280, 2xl 1440); lo que va desde
+  1536 px usa `min-[96rem]` (DD-24). La fila de pestañas del proyecto se desplaza con la activa siempre a la vista, y los
+  paneles laterales de las fichas bajan debajo del contenido por debajo de `lg`.
 
 ## 3. Proyectos y Project 360
 
@@ -120,10 +150,15 @@ ProjectWizardPage
 - **Roles:** lectura de todos. Las acciones rápidas aparecen según el rol (registrar interacción: CRO, SHM, SMG, FAG).
 - **Acciones:** primaria según el rol ("Registrar interacción" para el equipo de relacionamiento); secundarias "Resumen con IA"
   (F7), "Ver en el mapa".
-- **Disposición y componentes:** encabezado con estado del proyecto, jefatura (ASM-080), etapa y fase; "Atención requerida"
-  (lista priorizada de vencidos, por vencer, bloqueados y actas pendientes); cinco `KpiCard` de salud; paisaje de grupos de
-  interés (mini matriz KPI-STK-03 y barra de posturas KPI-STK-02); reuniones al mes frente a la meta (KPI-ENG-02); áreas de
-  influencia vigentes; mini mapa; actividad reciente; `AiSummary` (F7).
+- **Disposición y componentes:** encabezado con estado del proyecto, jefatura (ASM-080), etapa y fase; una **franja de
+  cifras** de salud (P-03): las cinco en una sola superficie, sin tarjetas dentro de tarjetas, y teñidas solo las que piden
+  acción (compromisos vencidos y riesgos altos mayores que cero), con un ícono y un texto además del color; la cifra de QCS
+  lleva `NotaDeConfidenciales` si no cuenta las confidenciales, sin cuántas. Luego **«Qué requiere atención»**, con una
+  `ListaPriorizada` por tipo (actas por redactar, grupos sin contacto, evaluaciones viejas; vencidos y bloqueados desde
+  F3): las tres más urgentes con su motivo y «Ver los N» hacia la lista filtrada si existe, o «Mostrar N más» en el lugar
+  (DD-13). Después, el paisaje de grupos de interés (mini matriz KPI-STK-03 y barra de posturas KPI-STK-02), reuniones al
+  mes frente a la meta (KPI-ENG-02), áreas de influencia vigentes, mini mapa, actividad reciente y `AiSummary` (F7). Las
+  listas y los accesos sueltos van sin subrayado.
 - **Datos y API:** de F2 a F7, una llamada por indicador con `GET /api/sgspe/dashboards/indicators/{code}?project=` (KPI-STK-01
   a 03, KPI-ENG-01 y 02, KPI-COM-02 a 04 y 06 desde F3); desde F8, `GET /api/sgspe/dashboards/project?project=` en una sola
   llamada. Áreas: genérica `area_of_influence` en `approved`. Actividad: `GET /api/objects/project/records/{id}/history` y los
@@ -131,14 +166,14 @@ ProjectWizardPage
 - **Estados:** cada `KpiCard` de un módulo no instalado dice "llega en F3/F4"; un indicador sin permiso dice "no disponible"
   (RQ-DSH-032); sin jefatura asignada, el encabezado lo marca.
 - **Permisos:** la barra de posturas solo se dibuja para SMG y SHM (`stance`, `security.md` §7.9).
-- **Responsive:** una columna; "Atención requerida" primero.
+- **Responsive:** una columna; la franja de cifras y «Qué requiere atención» primero.
 - **Relacionadas y navegación:** cada fila de atención abre su ficha con el contexto del proyecto; el mini mapa abre S09.
 
 ```text
 ProjectOverviewPage
 ├── ProjectHeader (StatusBadge · jefatura · etapa · Button "Resumen con IA")
-├── AttentionList
-├── HealthKpis (KpiCard × 5)
+├── FranjaDeCifras (KpiCard anidada × 5 · NotaDeConfidenciales)
+├── QueRequiereAtencion (ListaPriorizada × n)
 ├── StakeholderLandscape (MiniMatrix · StanceBar)
 ├── EngagementVsTarget (Chart)
 ├── ActiveAreasOfInfluence
@@ -227,7 +262,9 @@ AreaOfInfluencePage
   parámetros y políticas que gobiernan las reglas.
 - **Roles:** lectura de todos. Asignaciones: PAD. Partes y campañas: PAD, PMG. Concesiones: PAD, GAN. Parámetros y,
   desde F5, temas priorizados para aportes: PAD, PMG.
-- **Acciones:** primaria según la pestaña ("Asignar persona", "Nueva campaña"); secundarias editar y terminar una asignación.
+- **Acciones:** primaria según la pestaña ("Asignar persona", "Nueva campaña"); editar una asignación y, en el menú de su
+  fila («Acciones de <persona>»), «Terminar la asignación…», con un `ConfirmDialog` que nombra a la persona y el efecto
+  (U-16, P-08). Sin `UPDATE` sobre la asignación no hay menú. La escritura no cambia.
 - **Disposición y componentes:** `Tabs` (Equipo, Campañas, Partes y concesiones, Parámetros y políticas); `DataTable` de
   asignaciones con rol, periodo y estado; campañas con `ProgressBar` del tope y aviso de montos en otra moneda (ASM-063);
   parámetros agrupados por módulo con la marca "por defecto" o "cambiado"; desde F5, en "Parámetros y políticas", la
@@ -244,7 +281,7 @@ AreaOfInfluencePage
 ```text
 ProjectSettingsPage
 ├── Tabs
-│   ├── TeamTab (DataTable<Assignment>)
+│   ├── TeamTab (DataTable<Assignment> · MasAcciones por fila · ConfirmDialog «Terminar la asignación»)
 │   ├── CampaignsTab (CampaignCapCard × n)
 │   ├── PartiesTab (DataTable<Party> · DataTable<Concession>)
 │   └── PoliciesTab (PolicyGroup × n · PriorityTopicsList)
@@ -260,12 +297,17 @@ ProjectSettingsPage
   está en `/territory/dashboard` (Tablero territorial) y la calidad de datos en `/territory/quality` (S63).
 - **Propósito:** entender qué pasa en cada lugar y pasar del lugar a sus registros sin perder el contexto.
 - **Roles:** lectura de todos; capas y cifras según permisos.
-- **Acciones:** primaria "Abrir la ficha" del lugar seleccionado; secundarias "Filtrar el proyecto por este lugar" (fija
-  el chip de territorio), "Mapa de calor" (F6, con la concentración de interacciones, QCS, solicitudes, incidentes y
-  señales), "Exportar" (F6), "Capturar PNG", "Importar" (GAN).
-- **Disposición y componentes:** filtros (proyecto, periodo, capas); `Map` con lugares seleccionables (conteo de grupos de
-  interés por localidad); panel lateral de ficha contextual con seis cifras, barra de posturas y última actividad; lista de
-  lugares visibles (alternativa de teclado); tabla de registros del lugar debajo del mapa.
+- **Acciones:** en la cabecera, una sola primaria, «Nueva comunidad» (flujo 2), el paso entre el mapa y el tablero a la
+  vista, y en «Más acciones» la calidad de datos (S63), «Capturar PNG», «Exportar» (F6) e «Importar» (GAN). Sobre el lugar
+  elegido: "Abrir la ficha", "Filtrar el proyecto por este lugar" (fija el chip de territorio) y "Mapa de calor" (F6, con
+  la concentración de interacciones, QCS, solicitudes, incidentes y señales).
+- **Disposición y componentes:** el mapa primero (DD-11, U-10): el lienzo ocupa todo el ancho útil. Las capas y su leyenda
+  van juntas en un panel plegable superpuesto a la izquierda (arriba, las capas en el mapa con la muestra de la paleta; el
+  resto, tras «Todas las capas»); los lugares visibles (alternativa de teclado) con la ficha contextual (seis cifras, barra
+  de posturas y última actividad) van en otro panel plegable a la derecha. Cada panel se abre y se cierra con un botón con
+  nombre, y lo plegado viaja en `?hide=layers,places`; elegir un lugar vuelve a abrir el de lugares. Filtros de proyecto
+  y periodo; `Map` con lugares seleccionables (conteo de grupos de interés por localidad); tabla de registros del lugar
+  debajo del mapa.
 - **Capas (F6):** el control las agrupa en Referencia, Proyecto, Tenencia y Gestión. Las públicas (las que GeoServer
   publica) salen por WMS a través del proxy de SGSPE y el resto por GeoJSON (`layers/{layer}`); si el proxy responde
   `503`, las capas WMS vuelven al GeoJSON con un aviso y el botón «Reintentar». Gestión lista las capas LYR-17 a LYR-24
@@ -287,7 +329,9 @@ ProjectSettingsPage
 - **Permisos:** la barra de posturas solo para SMG y SHM; los grupos de interés siempre agregados (LYR-17).
 - **Mapa base (ASM-085):** MapLibre GL y `@wasichai/gis` como srtm-ui; terra-draw para dibujar. En desarrollo, teselas
   ráster de OpenStreetMap con su atribución; en producción, el estilo configurado, y sin él solo las capas del proyecto
-  con el aviso «Sin mapa base». El mapa base de F6 viene de `/map/settings`. «Sin fondo» va sobre el propio mapa, junto
+  con el aviso «Sin mapa base». A quien administra, el aviso le dice además quién lo configura («Lo configura quien opera
+  SGSPE, en los ajustes del mapa base de la organización»), sin enlace: no hay pantalla que lo configure (DD-25). El
+  mapa base de F6 viene de `/map/settings`. «Sin fondo» va sobre el propio mapa, junto
   al aviso «Sin mapa base», y no en el panel de capas, porque S10, S24 y el dibujo no tienen panel de capas; la
   atribución (`MapAttribution`) siempre es visible. Hoja `Mapa-Base` del lienzo de la etapa 3, página 24.
 - **Exportar (F6):** el diálogo (también en S09) pide objeto, formato, sistema de coordenadas y nivel de divulgación, y
@@ -299,10 +343,11 @@ ProjectSettingsPage
 
 ```text
 TerritoryMapPage
-├── MapFilters (proyecto · periodo · capas · HeatmapToggle)
-├── TerritoryMap (Map · PlaceMarkers · Legend)
-├── ContextCard (KpiCard × 6 · StanceBar · Button "Abrir la ficha")
-├── VisiblePlacesNav
+├── PageHeader (Nueva comunidad · Mapa | Tablero · MasAcciones)
+├── MapFilters (proyecto · periodo con AtajosDePeriodo · HeatmapToggle)
+├── TerritoryMap (Map · PlaceMarkers)
+│   ├── PanelDeCapas (capas · Legend; plegable a la izquierda)
+│   └── PanelDeLugares (VisiblePlacesNav · ContextCard: KpiCard × 6 · StanceBar · "Abrir la ficha"; plegable a la derecha)
 ├── ZoneRecordsTable
 └── ExportDialog
 ```
@@ -451,10 +496,14 @@ DataQualityPage
 - **Roles:** lectura de todos. Crear: CRO, SHM. Exportar: SMG, SHM, ANL (`EXPORT`).
 - **Acciones:** primaria "Nuevo grupo de interés"; secundarias "Ver como matriz" (S19), "Exportar"; masivas "Reasignar
   responsable", "Registrar una interacción con ellos" (abre S24 con los seleccionados) y "Exportar".
-- **Disposición y componentes:** `SavedViews` (del sistema: "Prioridad MUY ALTA y ALTA", "Míos", "Sin evaluar", "Sin contacto
-  en N días", "Todos"; compartidas y mías, ASM-083); `FilterBar` (grupo de influencia, postura, ámbito, estado de la relación,
-  responsable, tipo); `BulkActionBar`; `DataTable` con grupo de interés (actor y tipo), territorio, grupo de influencia (marca
-  "ajustado" si `group_overridden`), postura, prioridad, estado (WF-B), relación, responsable, evaluación y último contacto.
+- **Disposición y componentes:** `BarraDeFiltros` (§2) con el `SelectorDeVista` (del sistema: "Prioridad MUY ALTA y ALTA",
+  "Míos", "Sin evaluar", "Sin contacto en N días", "Todos"; compartidas y mías, ASM-083), la búsqueda, tres filtros a la
+  vista (grupo de influencia, postura, estado de la relación) y el ámbito y el tipo en «Más filtros»; `BulkActionBar`;
+  `TablaPriorizada` con grupo de interés (actor y tipo), grupo de influencia (marca "ajustado" si `group_overridden`),
+  postura, prioridad y estado (WF-B) como esenciales; territorio y último contacto como secundarias; y la relación, el
+  responsable y la evaluación como opcionales, en «Columnas». A 1440 px no hay desplazamiento horizontal
+  (CA-1.6.2). Solo la prioridad se ordena, por su orden de negocio (media, alta, muy alta; sin evaluar al final): el
+  nombre se lee aparte por fila y puede estar restringido.
 - **Datos y API:** genérica `GET /api/objects/stakeholder/records?project=` con los valores vigentes derivados; la vista
   "Sin contacto" usa `inactivity_days` del proyecto.
 - **Estados:** sin evaluar, el grupo y la prioridad dicen "Sin evaluar"; los retirados solo en su vista.
@@ -466,10 +515,9 @@ DataQualityPage
 ```text
 StakeholdersListPage
 ├── PageHeader (conteo · Ver como matriz · Exportar · Nuevo)
-├── SavedViews
-├── FilterBar
+├── BarraDeFiltros (SelectorDeVista · búsqueda · filtros · chips)
 ├── BulkActionBar
-└── DataTable<StakeholderRow> · Pagination
+└── TablaPriorizada<StakeholderRow> (Columnas) · Pagination
 ```
 
 ### S17 · Ficha de grupo de interés
@@ -562,8 +610,11 @@ StakeholderMatrixPage
 - **Propósito:** registrar una evaluación inmutable con el cálculo a la vista antes de guardar.
 - **Roles:** SHM, SMG.
 - **Acciones:** primaria "Guardar evaluación"; secundaria "Cancelar".
-- **Disposición y componentes:** fecha, base y cargo evaluado; 6 indicadores de interés (afectación y oportunidad) y 9 de poder
-  (control de recursos, capacidad de acción, redes y movilización) con `Radio` de 1 a 5 y el valor anterior; postura,
+- **Disposición y componentes:** fecha (`CampoFecha`), base y cargo evaluado; las 15 escalas agrupadas en **cinco temas de
+  tres** (DD-29, U-29): Interés (Afectación, Oportunidad) y Poder (Recursos de poder, Acción y organización, Redes y
+  movilización), plegables y uno abierto a la vez, cada uno con `Radio` de 1 a 5, el valor anterior y su avance, y arriba
+  el avance total («N de 5 temas calificados»). Calificar un tema abre el siguiente; guardar con temas sin calificar abre
+  el primero que falta. Lo que se escribe no cambia. Luego postura,
   apertura, confianza, razones, preocupaciones y expectativas; motivo obligatorio; vista previa con índices, mini matriz,
   grupo, prioridad y "Ajustar el grupo a mano" (pide justificación).
 - **Datos y API:** `POST /api/sgspe/stakeholders/{id}/assessments/preview` al cambiar un indicador (con espera de 300 ms);
@@ -578,7 +629,8 @@ StakeholderMatrixPage
 AssessmentDrawer
 ├── AssessmentForm (RHF + Zod)
 │   ├── BasisFields
-│   ├── IndicatorGroup × 5 (IndicatorRadio × 3)
+│   ├── AvanceDeTemas («N de 5 temas calificados»)
+│   ├── TemaPlegable × 5 (IndicatorRadio × 3)
 │   ├── StanceFieldset (restringido)
 │   └── ReasonField
 ├── AssessmentPreview (Indices · MiniMatrix · GroupOverride · Warnings)
@@ -595,7 +647,8 @@ AssessmentDrawer
 - **Roles:** lectura de todos. Registrar: CRO, SHM, FAG (SMG edita). Visitas: CRO, FAG.
 - **Acciones:** primaria "Registrar interacción"; secundarias "Nueva visita de campo", vistas Mes, Semana y Lista.
 - **Disposición y componentes:** calendario mensual con eventos por estado (WF-C) y tipo; festividades como franja de contexto;
-  leyenda; la misma consulta como `DataTable`; a la derecha, meta de reuniones (KPI-ENG-02), "Te toca" (actas por redactar,
+  leyenda; la misma consulta como `TablaPriorizada`, que se ordena por título y por fecha (por el día de Lima que muestra:
+  realizada o, si no, programada); a la derecha, meta de reuniones (KPI-ENG-02), "Te toca" (actas por redactar,
   postergadas, preguntas pendientes) y festividades del mes.
 - **Datos y API:** genérica `GET /api/objects/engagement/records?project=&scheduled_at=` y `held_at`; `festivity` de las
   localidades del proyecto; KPI-ENG-02 con `GET /api/sgspe/dashboards/indicators/KPI-ENG-02`.
@@ -651,9 +704,11 @@ EngagementDetailPage
 - **Roles:** CRO, SHM, FAG.
 - **Acciones:** primaria "Siguiente" y, al final, "Guardar como realizada" (`register_held_unplanned`) o "Programar"
   (`schedule`); secundaria "Guardar y completar después".
-- **Disposición y componentes:** `StepIndicator` (1 Tipo y fecha, 2 Lugar y grupos de interés, 3 Participantes, 4 Preguntas y
-  temas, 5 Revisión); en el paso 3, filas de persona o representante y de grupo sin nombres (sexo, ámbito, personas ≥ 1) con
-  totales en vivo. Modo rápido en teléfono: una sola pantalla con tipo, ubicación del teléfono, grupos presentes, contadores
+- **Disposición y componentes:** `StepIndicator` (1 Tipo y fecha, 2 Objetivo, lugar y grupos de interés, 3 Participantes,
+  4 Preguntas y temas, 5 Revisión). El paso 1 pide solo tipo, título, «¿Ya se realizó?» (dos opciones con su efecto: «No,
+  está planificada» y «Sí, ya se realizó», que se registrará como realizada con el acta después) y la fecha con hora de 24 h; en el paso 3, filas de persona o representante y de grupo sin nombres (sexo, ámbito, personas ≥ 1) con
+  totales en vivo. El modo rápido se elige con un conmutador en la cabecera
+  del asistente y del modo rápido, que conserva lo cargado. Modo rápido en teléfono: una sola pantalla con tipo, ubicación del teléfono, grupos presentes, contadores
   por sexo y ámbito, foto y nota; objetivos de 44 px.
 - **Datos y API:** genérica `POST /api/objects/engagement/records`, `engagement_participant` y `engagement_question`;
   `POST /api/sgspe/evidence` para la foto (F3); la transición elegida al final. Abierta desde S16 con seleccionados, trae los
@@ -742,8 +797,13 @@ FieldVisitPage
 - **Acciones:** primaria "Nuevo compromiso"; masivas "Reasignar responsable", "Asignar verificador", "Cambiar prioridad" y
   "Exportar" (no hay cambio masivo de fecha, RF-COM-003). En Candidatos: "Aceptar y crear borrador", "Es duplicado de…",
   "Rechazar".
-- **Disposición y componentes:** patrón de lista (`design-system.md` §6.4, con vistas compartidas y mías, ASM-083) con
-  agrupación Vencidos, Por vencer, Bloqueados; la vista Candidatos lista los propuestos con su procedencia (humano o IA con confianza) y los decididos; panel de revisión
+- **Disposición y componentes:** patrón de lista (`design-system.md` §6.4, con vistas compartidas y mías, ASM-083): en la
+  cabecera, el `SelectorDePagina` «Compromisos · Acuerdos» (DD-23) y «Lista · Tablero»; la `BarraDeFiltros` con las vistas
+  en el `SelectorDeVista` (Abiertos, Vencidos, Míos, Candidatos…; «Más vistas» con el resto), la búsqueda, el estado como
+  filtro frecuente y los chips; agrupación Vencidos, Por vencer, Bloqueados; `TablaPriorizada` con «Código» y «Compromiso»
+  en columnas aparte, ordenables con «Vence» (el monto no se ordena); Acuerdos usa la misma tabla, con «Acuerdo» (código y
+  título juntos, ordenado por el código) y «Vence»; la vista Candidatos lista los propuestos con
+  su procedencia (humano o IA con confianza) y los decididos; panel de revisión
   con la cita, campos corregibles y las tres salidas.
 - **Datos y API:** genérica `GET /api/objects/commitment/records?project=`; candidatos con
   `GET /api/objects/commitment_candidate/records?project=&state=proposed`; `POST /api/sgspe/commitment-candidates/{id}/accept`
@@ -757,8 +817,8 @@ FieldVisitPage
 
 ```text
 CommitmentsListPage
-├── PageHeader · SavedViews (… · Candidatos)
-├── FilterBar · BulkActionBar
+├── PageHeader (SelectorDePagina Compromisos · Acuerdos · Lista | Tablero · Nuevo compromiso)
+├── BarraDeFiltros (SelectorDeVista … · Candidatos) · BulkActionBar
 ├── DataTable<CommitmentRow> (grupos por atención)
 └── CandidatesView
      ├── CandidatesList
@@ -929,11 +989,13 @@ atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
 - **Roles:** lectura para todos los roles con READ sobre `grievance`, `inquiry` y `stakeholder_request`; registran CRO y GVM;
   exportan SMG, GVM y ANL (`EXPORT`).
 - **Acciones:** primaria "Registrar QCS" (S37); secundarias "Reporte unificado" y abrir una QCS.
-- **Disposición y componentes:** cuatro indicadores (abiertas por tipo, vencidas, por vencer en 7 días, absueltas en 90 días);
-  vistas guardadas (del sistema: Atención, Quejas, Consultas, Solicitudes, Mis QCS, Todas; compartidas y mías, ASM-083,
-  hoja `Vistas-Compartidas`); filtros de canal, categoría, severidad y
-  responsable; tabla agrupada por situación de plazo (VENCIDAS, POR VENCER, AL DÍA O SIN PLAZO) con tipo, canal, categoría,
-  severidad, lugar, estado, plazo que corre y responsable.
+- **Disposición y componentes:** cuatro indicadores (abiertas por tipo, vencidas, por vencer en 7 días, absueltas en 90 días),
+  cada uno dicho con su periodo para que se entienda (U-24) y con `NotaDeConfidenciales` si excluye QCS confidenciales;
+  `BarraDeFiltros` (§2) con las vistas en el `SelectorDeVista` (del sistema: Atención, Quejas, Consultas, Solicitudes, Mis
+  QCS, Todas; compartidas y mías, ASM-083, hoja `Vistas-Compartidas`), la búsqueda, los filtros de canal, categoría,
+  severidad y responsable, y los chips; `TablaPriorizada` agrupada por situación de plazo (VENCIDAS, POR VENCER, AL DÍA O
+  SIN PLAZO) con tipo, canal, categoría, severidad, lugar, estado, plazo que corre y responsable, y la elección de
+  «Columnas» compartida entre los grupos. Sin orden por columna todavía: lo pide wasichai/sgspe#160.
 - **Datos y API:** genérica sobre los tres objetos con el filtro de territorio; `GET /api/sgspe/attention/report` para el
   reporte (totales por tipo, estado, canal y categoría). Indicadores KPI-GRV-02, KPI-GRV-06 y KPI-GRV-07.
 - **Estados:** el plazo mostrado es el que corre en el estado: acuse o resolución en la queja, respuesta en la consulta; las
@@ -947,21 +1009,25 @@ atender por plazo. El plazo es `deadline_status`, nunca un estado (RN-WFL-001).
 ```text
 AttentionListPage
 ├── AttentionKpis (KpiCard × 4)
-├── SavedViewTabs · FilterBar
-└── AttentionTable (DeadlineGroup × 3 · AttentionRow · DeadlineChip · TypeBadge)
+├── BarraDeFiltros (SelectorDeVista · búsqueda · filtros · chips)
+└── AttentionTable (DeadlineGroup × 3 · TablaPriorizada · DeadlineChip · TypeBadge)
 ```
 
 ### S37 · Registrar QCS
 
 - **Ruta y lienzo:** `/projects/:projectId/attention/new?type=grievance|inquiry|request` · hoja `QCS-Registrar` · F4.
-- **Propósito:** registrar en un solo paso lo que se planteó, por el canal que llegó, sin decidir todavía su tratamiento.
+- **Propósito:** registrar lo que se planteó, por el canal que llegó, sin decidir todavía su tratamiento.
 - **Roles:** CRO y GVM crean los tres objetos. Es la única entrada de QCS: no hay formulario público (ASM-104, UPS-25),
   y un contratista reporta a través del equipo social con el canal CONTRATISTA (ASM-043).
 - **Acciones:** primaria "Registrar queja" (o consulta, o solicitud); secundaria "Cancelar".
-- **Disposición y componentes:** elección del tipo con su definición y sus plazos; "Cómo llegó y quién la plantea"
-  (canal, fecha de recepción, interacción o pregunta de origen, anonimato, confidencialidad, grupo de interés, persona,
-  lugar); "Qué plantea" (descripción, categoría, severidad en la queja, prioridad, responsable); adjuntos con tipo y
-  clasificación de evidencia; a la derecha, "Qué pasará al registrar" con el código, el estado y los plazos calculados.
+- **Disposición y componentes:** el asistente por pasos de las demás altas (`FormularioPorPasos`, P-04, U-30), en tres
+  pasos, con la elección del tipo (su definición y sus plazos) arriba: 1 **«Qué se plantea»** (descripción, categoría,
+  severidad en la queja); 2 **«Cómo llegó y quién»** (canal, fecha de recepción en `CampoFecha` de 24 h, interacción o
+  pregunta de origen, anonimato, confidencialidad, grupo de interés, persona marcada como dato restringido, lugar);
+  3 **«Revisión»**, que resume lo escrito y pide prioridad, responsable y motivo; adjuntos con tipo y clasificación de
+  evidencia. A la derecha, en todos los pasos, "Qué pasará al registrar" con el código, el estado y los plazos
+  calculados. Cada paso valida lo suyo al avanzar, y un error del servidor vuelve al paso de su campo. Lo que se manda al
+  servidor no cambia.
   El interruptor «Confidencial» explica quién podrá leerla (gestión de quejas, su responsable, quien la recibe y, si es
   grave, quien aprueba) y deja a quien registra como quien la recibió (`received_by_user_id`, ASM-095).
 - **Datos y API:** `POST` genérico del objeto; plazos derivados desde `received_at` con los parámetros del proyecto
@@ -979,10 +1045,12 @@ AttentionListPage
 ```text
 AttentionCreatePage
 ├── TypePicker
-├── IntakeSection (ChannelField · OriginPicker · AnonymityToggle · ConfidentialToggle · StakeholderPicker · PlacePicker)
-├── ContentSection (DescriptionField · CategoryField · SeverityField · PriorityField · OwnerField)
-├── EvidenceDropzone
-└── WhatHappensPanel
+├── FormularioPorPasos
+│   ├── Paso «Qué se plantea» (DescriptionField · CategoryField · SeverityField)
+│   ├── Paso «Cómo llegó y quién» (ChannelField · CampoFecha · OriginPicker · AnonymityToggle · ConfidentialToggle ·
+│   │   StakeholderPicker · PlacePicker)
+│   └── Paso «Revisión» (resumen · PriorityField · OwnerField · ReasonField · EvidenceDropzone)
+└── WhatHappensPanel (Seccion aside, en todos los pasos)
 ```
 
 ### S36 · Ficha de queja
@@ -1070,8 +1138,9 @@ alerta (RN-EWS-001).
 - **Roles:** lectura para todos con READ sobre `social_risk`; SRM crea y evalúa; SMG decide el tratamiento y exporta.
 - **Acciones:** primaria "Identificar riesgo"; secundarias filtrar por celda, vistas (Registro y matriz, Revisión vencida,
   Mis riesgos, Incidentes, Cerrados) y "Alerta temprana" con su conteo.
-- **Disposición y componentes:** mapa de calor 5 × 5 con conteo por celda y color por nivel; tabla con riesgo, categoría,
-  P × I, nivel, tendencia, estado y situación de revisión.
+- **Disposición y componentes:** mapa de calor 5 × 5 con conteo por celda y color por nivel; `TablaPriorizada` con riesgo,
+  categoría, P × I, nivel, tendencia, estado y situación de revisión; se ordena por riesgo (su código), P × I (el puntaje
+  como número) y nivel (bajo, medio, alto, crítico; nunca por el texto).
 - **Datos y API:** genérica sobre `social_risk` con sus valores vigentes derivados; KPI-RSK-01 y KPI-RSK-02.
 - **Estados:** un riesgo sin revisión no entra al mapa y se cuenta aparte; una celda elegida muestra "Quitar filtro de celda".
 - **Permisos:** sin campos restringidos propios.
@@ -1267,10 +1336,14 @@ Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se s
 - **Roles:** SIM crea y lleva los programas, y SMG conduce su evaluación, suspensión y cierre; SMG, CRO y SIM registran
   aportes; APR y SMG aprueban; el resto lee.
 - **Acciones:** primaria "Nuevo aporte"; secundaria "Nuevo programa".
-- **Disposición y componentes:** tres indicadores: tope de la campaña (comprometido frente al tope y ejecutado, con
-  advertencia de otra moneda), presupuesto de programas ejecutado, beneficiarios; tabla de programas (socio, estado,
-  presupuesto del año, ejecutado, beneficiarios, indicadores con medición); tabla de aportes de la campaña (tipo, tema,
-  quién recibe, estado, total de los ítems, origen).
+- **Disposición y componentes:** una sola vista a la vez en el `SelectorDeVista` (DD-27, U-35): «Programas» (por defecto,
+  `/programs` sin `?view=`) y los aportes en «Aportes en curso», «Aportes terminados» y «Todos los aportes»
+  (`?view=enCurso`, `terminados` y `todos`, que llevan al mismo lugar que antes). Cada vista trae sus cifras: los programas,
+  el presupuesto ejecutado del año y los beneficiarios; los aportes, el tope de la campaña (comprometido frente al tope y
+  ejecutado, con advertencia de otra moneda). Una cifra que la cuenta no lee dice «No disponible»; una zona sin datos no
+  se dibuja. `TablaPriorizada` de programas («Código» y «Programa» en columnas aparte, las dos ordenables; socio, estado,
+  presupuesto del año, ejecutado, beneficiarios, indicadores con medición) o de aportes de la campaña (código, ordenable;
+  tipo, tema, quién recibe, estado, total de los ítems, origen; el total no se ordena: mezcla monedas, ASM-063).
 - **Datos y API:** genérica sobre `social_program`, `program_budget`, `beneficiary_group` y `social_contribution`;
   KPI-INV-01, KPI-INV-02 y KPI-INV-04; `exploration_campaign.executed_social_amount` y `other_currency_items_count`.
 - **Estados:** el tope se verifica al aprobar contra lo comprometido de compromisos y aportes de la campaña (ASM-110);
@@ -1281,9 +1354,9 @@ Lienzo de la etapa 3, página 13. Los montos se muestran por moneda y nunca se s
 
 ```text
 InvestmentPage
-├── InvestmentKpis (CampaignCapCard · ProgramBudgetCard · BeneficiariesCard)
-├── ProgramTable
-└── ContributionTable
+├── BarraDeFiltros (SelectorDeVista: Programas · Aportes en curso · Aportes terminados · Todos los aportes)
+├── CifrasDeLaVista (ProgramBudgetCard · BeneficiariesCard | CampaignCapCard)
+└── ProgramTable | ContributionTable (TablaPriorizada)
 ```
 
 ### S43 · Ficha de programa
@@ -1420,7 +1493,9 @@ EvidencePage
   "Para tomar".
 - **Disposición y componentes:** cambio de vista; conteos de vencidas, por vencer y abiertas; lista con origen, prioridad,
   vencimiento con su situación, estado y acción; tablero por estado; calendario del mes por vencimiento; "Para tomar" con las
-  tareas de escalamiento sin asignado de los roles de la persona.
+  tareas sin asignar de los proyectos de la persona, en una sola lectura y sin elegir proyecto (el servidor acota la
+  lectura, ADR-0029), con la columna Proyecto. Quien lee todos los proyectos la ve dentro de un proyecto, con el texto que
+  pide elegirlo: sin proyecto traería la cola de todo el tenant (wasichai/sgspe#162).
 - **Datos y API:** genérica sobre `task` filtrada por `assignee_user_id`; transiciones de WF-N; tomar una tarea es UPDATE de
   `assignee_user_id` (IM).
 - **Estados:** una tarea vencida sigue en su estado; en el tablero, arrastrar a una columna sin transición devuelve la
@@ -1442,24 +1517,31 @@ MyTasksPage
 - **Ruta y lienzo:** `/tasks/approvals` · hoja `Tar-Aprobaciones` · F3; QCS F4; programas y aportes F5.
 - **Propósito:** ver juntas las decisiones que esperan a mi rol, de cualquier objeto, y lo que está escalando.
 - **Roles:** APR, SMG y PMG según el objeto; el resto ve los escalamientos de sus registros.
-- **Acciones:** "Revisar" abre la decisión en su pantalla (S31 para compromisos, S36, S43, S44); "Ver" para las que el rol no
-  puede decidir.
-- **Disposición y componentes:** bandejas "Por aprobar", "Escalamientos del proyecto" y "Decididas por mí"; tabla por
-  antigüedad con registro, qué se decide, monto en su moneda, espera y "¿Puedes decidir?" con la razón; tarjetas de
-  escalamiento con niveles 0, 1 y 2.
+- **Acciones:** elegir una aprobación de la lista y decidirla en el **detalle al lado** (P-05, flujo F-E): un compromiso, un
+  aporte o un programa se deciden ahí, con el diálogo de transición (motivo, reglas en seco,
+  `If-Match` y el `412` con `AvisoDeConflicto`) y solo con las decisiones que el servidor permite. La queja grave, el acta
+  y la revisión de un proyecto se eligen aquí pero se deciden en su ficha («Revisar»). Tras decidir, la bandeja relee sus
+  avisos.
+- **Disposición y componentes:** bandejas "Por aprobar", "Escalamientos del proyecto" y "Decididas por mí"; a la izquierda,
+  la lista por antigüedad (tarjetas con registro, qué se decide, monto en su moneda, espera y "¿Puede decidir?" con la
+  razón); a la derecha, lo elegido (`?selected=objeto:id`): un aporte muestra sus ítems con el total que se aprobará, el
+  tope de la campaña y «Antes de aprobar»; un compromiso y un programa, su monto. Tarjetas de escalamiento con niveles 0, 1
+  y 2.
 - **Datos y API:** las aprobaciones son transiciones, no objetos (`domain-model.md` §6.13): la bandeja consulta los registros
   en estados de aprobación cuyas transiciones el rol tiene, más los avisos `approval_pending` (desde F5, también los de
   `submit` de WF-G y los del alta de un aporte, que llegan antes de sus ítems); los escalamientos vienen de
   JOB-01 (avisos y tareas por nivel, ASM-030, ASM-070).
 - **Estados:** la razón por la que no se puede decidir (tope, nivel superior, segregación) se muestra siempre.
 - **Permisos:** se comprueban otra vez al confirmar (`transition-checks`).
-- **Responsive:** la tabla pasa a tarjetas; es parte del móvil (aprobaciones en teléfono).
+- **Responsive:** en el teléfono, la lista o el detalle a pantalla completa, con «Volver a la lista»; es parte del móvil
+  (aprobaciones en teléfono).
 - **Relacionadas y navegación:** S31, S36, S43, S44, S47.
 
 ```text
 ApprovalsPage
 ├── InboxTabs
-├── ApprovalTable (ApprovalRow · CanDecideCell)
+├── ListaDeAprobaciones (tarjeta × n · CanDecideCell)
+├── DetalleDeAprobacion (?selected=: ítems · tope · «Antes de aprobar» · TransitionDialog)
 └── EscalationCards (EscalationLevels)
 ```
 
@@ -1472,29 +1554,36 @@ disponible", nunca cero (RQ-DSH-032). Las cifras salen de `GET /api/sgspe/dashbo
 
 ### S51 · Revisión ejecutiva de 5 minutos
 
-- **Ruta y lienzo:** `/` como inicio del ejecutivo (ASM-074) · hoja `Tab-Ejecutivo` · F8.
+- **Ruta y lienzo:** `/dashboards/executive` (DD-19); el inicio «Mi trabajo» (S02) la resume y la enlaza (ASM-074) · hoja
+  `Tab-Ejecutivo` · F8; compacta desde el rediseño (P-07).
 - **Propósito:** ¿qué cambió, qué es crítico, dónde y quién lo atiende? Leerlo en cinco minutos.
 - **Roles:** el ejecutivo (`READ_ONLY` o `ANALYST`); también SMG y PMG como vista. Lectura.
-- **Acciones:** primaria abrir lo que necesita atención; secundarias filtros de periodo y proyectos, "Monitoreo de la Tabla
+- **Acciones:** primaria abrir lo que necesita atención; secundarias filtros de periodo (con `AtajosDePeriodo`) y proyectos, "Monitoreo de la Tabla
   9.5" y el asistente (si el
   ejecutivo es `ANALYST`, que puede registrar `ai_interaction`; ASM-073, ASM-130).
-- **Disposición y componentes:** "Lo que necesita atención hoy" (lista ordenada por regla fija, no por IA); tiles de
-  KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-EXE-02 y KPI-ENG-01; un tile de postura "no disponible";
-  medidor de KPI-INV-03 por moneda; tres líneas de KPI-EXE-03; tabla por proyecto.
+- **Disposición y componentes:** abre con las cifras: bajo el título, su periodo (sin fechas, el mes en curso de Lima) y su
+  fecha de cálculo, como lapso mientras es de hoy y con aviso si tiene más de 24 horas (U-11, U-23); los filtros de periodo
+  y proyectos, plegados. Tiles de KPI-EXE-01, KPI-COM-02, KPI-COM-03, KPI-GRV-02, KPI-RSK-01, KPI-EXE-02 y KPI-ENG-01, las
+  disponibles primero y las no disponibles al final (la de postura, siempre "no disponible"); «Qué es crítico y dónde se
+  atiende», una tabla corta (regla fija, no IA) cuyo asunto lleva a la lista donde se atiende, con su proyecto y su cifra:
+  dice dónde y no quién, porque el contrato del tablero no trae a la persona responsable; medidor de KPI-INV-03 por moneda;
+  KPI-EXE-03 en tres gráficos pequeños, uno por medida, en color sólido y sin trama (DD-15); tabla por proyecto con una
+  columna por medida.
 - **Datos y API:** tablero `executive` (`dashboards.md` §5.1, `api.md` §4.11): las tiles, KPI-INV-03 por moneda,
   KPI-EXE-03 y `byProject[]`.
 - **Estados:** sin proyectos asignados, vacío con enlace a Proyectos; un KPI sin permiso, "no disponible"; más de 25
   proyectos, `400 TOO_MANY_RECORDS`: «acote los filtros».
 - **Permisos:** la postura (`stance`) no llega a los roles que no la leen (`dashboards.md` §8).
-- **Responsive:** "Lo que necesita atención" primero; tiles en dos columnas; la tabla pasa a tarjetas por proyecto.
+- **Responsive:** las cifras primero; tiles en dos columnas; la tabla pasa a tarjetas por proyecto.
 - **Relacionadas y navegación:** cada cifra abre su lista filtrada; S27, S34, S62, monitoreo.
 
 ```text
 ExecutiveReviewPage
-├── AttentionList (AttentionItem)
-├── KpiRow (KpiCard · NotAvailable)
-├── CurrencyGauge × moneda · TrendSparklines (× 3)
-└── ProjectTable
+├── EncabezadoDePagina (periodo · fecha de cálculo · filtros plegados)
+├── KpiRow (KpiCard · NotAvailable al final)
+├── QueEsCritico (tabla corta)
+├── CurrencyGauge × moneda · TrendSparklines (× 3, sin trama)
+└── ProjectTable (una columna por medida)
 ```
 
 ### Monitoreo de la Tabla 9.5
@@ -1649,7 +1738,10 @@ procedencia de `design-system.md` §4.4 y se muestra como texto, nunca como HTML
 - **Propósito:** preguntar a los datos o a los documentos sin salir de lo que se está haciendo.
 - **Roles:** "Preguntar a los datos" (AI-05) a los roles que pueden registrar `ai_interaction` (`ai-architecture.md` §8,
   ASM-130); "Preguntar a los documentos" (AI-06) a esos roles si además leen los nombres de `person`.
-- **Acciones:** "Preguntar"; cambiar de modo; abrir un registro o una fuente citada; cerrar.
+- **Acciones:** "Preguntar"; cambiar de modo; abrir un registro o una fuente citada; cerrar. Abierto desde una ficha, la
+  pregunta empieza con el tipo y el rótulo del registro («Sobre la queja Q-001: »), nunca con su id; al enviarla, ese
+  comienzo se cambia por la referencia técnica (objeto e id), porque el rótulo puede ser un dato personal que llegaría al
+  proveedor sin seudonimizar.
 - **Disposición y componentes:** encabezado con el chip de contexto (proyecto y territorio, ASM-075); pestañas de modo;
   conversación con la pregunta y la respuesta (`AiAnswer`) con enlaces y "Cómo lo obtuvo"; campo de pregunta con la nota de
   solo lectura.
@@ -1782,27 +1874,41 @@ LoginPage
 └── LoginForm (EmailField · PasswordField · ErrorAlert · LanguageSwitch)
 ```
 
-### S02 · Inicio por rol
+### S02 · Inicio «Mi trabajo»
 
 - **Ruta y lienzo:** `/` · hoja `Ini-Inicio` (interactiva: relacionista, gerencia social, aprobación) · F1 bienvenida; F8
-  completo.
-- **Propósito:** contestar la pregunta del rol (`ux-architecture.md` §5) apenas se ingresa.
-- **Roles:** todos; el contenido depende del rol (ASM-078). El ejecutivo usa S51.
-- **Acciones:** abrir cada elemento; atajos de creación del rol; cambiar el inicio en preferencias.
-- **Disposición y componentes:** saludo y contexto; tiles del rol; dos o tres listas (agenda, tareas, pendientes, atención
-  requerida, aprobaciones); atajos.
-- **Datos y API:** `task`, los avisos de wasichai-notifications e indicadores del rol; preferencias en
-  `PUT /api/auth/me/preferences`.
-- **Estados:** sin asignaciones de proyecto, bienvenida con el mapa de módulos (F1).
-- **Permisos:** solo lo que el rol lee.
-- **Responsive:** en teléfono, las listas en una columna; el agente de campo entra a S54.
-- **Relacionadas y navegación:** S47, S48, S51, S62, S52.
+  completo; rediseño P-01 (DD-01, DD-26).
+- **Propósito:** contestar, apenas se ingresa, qué le toca hoy a la persona y qué espera su decisión.
+- **Roles:** todos, con el mismo inicio: cada bloque se ofrece por lo que la cuenta lee y puede hacer, nunca por el nombre
+  del rol (`ux-architecture.md` §5 y §7.6). Quien lee cifras ejecutivas ve además la visión ejecutiva: las de S51 que lee,
+  con su fecha de cálculo y el enlace a S51 (ASM-074, DD-19).
+- **Acciones:** abrir cada elemento; los atajos de creación que la cuenta tiene; a quien lee los indicadores, «Monitoreo» y
+  «Catálogo de indicadores» en la cabecera.
+- **Disposición y componentes:** cabecera «Inicio» con el saludo; luego, en este orden y solo si tienen algo legible:
+  «Lo que me toca hoy» (lo abierto a su cargo, vencido primero, cinco a la vista y el resto desplegable; «Para tomar en sus
+  proyectos» con hasta cinco tareas sin asignar, cada una con su proyecto, y «Ver los N» hacia S47), «Esperan su decisión» (aprobaciones, alertas por triar y avisos que piden
+  acción, en `ListaPriorizada`), «Agenda de la semana» (visitas que lidera e interacciones programadas en sus proyectos),
+  «Registrar» (atajos), «Mis proyectos» (tarjetas con estado, jefatura y lo que pide acción) y «Visión ejecutiva». Los
+  datos de la cuenta viven en el menú de la cuenta.
+- **Datos y API:** `task`, `commitment` y las tres QCS a su cargo; los avisos de wasichai-notifications (aprobaciones y los
+  que piden acción); `early_warning` por triar si la cuenta puede confirmarlas; `field_visit` y `engagement` de los siete
+  días; sus `project_assignment` vigentes y los conteos de lo vencido por proyecto; el tablero `executive` si el catálogo
+  lo ofrece.
+- **Estados:** un bloque sin nada legible no se dibuja, nunca un «No disponible»; una fecha inválida no tumba el inicio. Sin
+  ningún bloque, la bienvenida de F1 con las secciones que la cuenta puede abrir.
+- **Permisos:** solo lo que la API devuelve a quien mira; ningún bloque cuenta lo que no lee (ADR-0029).
+- **Responsive:** los bloques en una columna; en el teléfono, Inicio es el primer destino de la barra inferior.
+- **Relacionadas y navegación:** S47, S48, S51, S41, S08 y las fichas de cada entrada.
 
 ```text
-HomePage
-├── Greeting · RoleKpis
-├── HomeWidgets (AgendaWidget · TasksWidget · AttentionWidget · ApprovalsWidget)
-└── RoleShortcuts
+InicioPage
+├── EncabezadoDePagina (Inicio · Monitoreo · Catálogo de indicadores)
+├── LoQueMeToca (ListaPriorizada · Para tomar)
+├── EsperanSuDecision (ListaPriorizada × 3)
+├── Agenda
+├── Atajos
+├── MisProyectos (tarjeta × n)
+└── VisionEjecutiva (KpiCard × n)
 ```
 
 ### S04 · Avisos
@@ -1811,7 +1917,9 @@ HomePage
 - **Propósito:** ver qué pasó que me toca y llegar al registro.
 - **Roles:** cada persona ve solo sus avisos.
 - **Acciones:** abrir (marca como leído); "Solo sin leer"; "Marcar todos como leídos".
-- **Disposición y componentes:** lista con tipo por color e ícono, título, detalle y hora; punto de no leído; nota de origen.
+- **Disposición y componentes:** `BarraDeFiltros` con las vistas en el `SelectorDeVista` (Activos, Solo sin leer,
+  Pospuestos) y el tipo como filtro; lista con tipo por color e ícono, título, detalle y hora; punto de no leído; nota de
+  origen. Sin orden por columna: van del más reciente al más antiguo.
 - **Datos y API:** la bandeja de wasichai-notifications (`api.md` §4.10): `GET /api/auth/me/notifications`,
   `GET …/summary`, `POST …/{id}/read`, `POST …/read-all` y `GET …/stream` (SSE), con los componentes de `@wasichai/*`;
   tipos de `workflows.md` "Avisos".
@@ -1888,23 +1996,30 @@ DeliverablePage
 
 ### S53 · Administración
 
-- **Ruta y lienzo:** sección Administración del portal, con enlace a `/admin` · hoja `Adm-Admin` · F1.
+- **Ruta y lienzo:** `/administration`, la sección Administración del portal, que abre `/admin` en otra pestaña (DD-20) ·
+  hoja `Adm-Admin` · F1; rediseño P-08.
 - **Propósito:** saber qué se administra en el portal (con motivo y reglas) y qué en la consola de la plataforma.
 - **Roles:** PAD y la administración de la organización.
-- **Acciones:** enlaces a Proyectos, Equipo y parámetros (S11), reglas de alerta, plantillas de entregables (S64,
-  desde F8); "Abrir la consola" (`/admin`, otra pestaña).
-- **Disposición y componentes:** dos columnas (portal y consola) y "Cuidados".
+- **Acciones:** en «En el portal», los enlaces a Proyectos (con su Equipo y parámetros, S11), las reglas de alerta de la
+  organización (S60) y las plantillas de entregables (S64, desde F8), cada uno solo si la cuenta lo abre; "Abrir la
+  consola" (`/admin`, otra pestaña).
+- **Disposición y componentes:** dos `Seccion`: «En el portal» (cada cambio sigue las reglas, pide su motivo y queda en el
+  historial) y «En la consola de la plataforma» (usuarios y roles de cada cuenta, roles y permisos, la organización, las
+  capas y los servicios del mapa). Antes del botón «Abrir la consola», el aviso «Cuidados»: la estructura de SGSPE (tipos
+  de datos, flujos de aprobación, roles y tipos de documento) no se cambia en la consola, porque se pierde en la próxima
+  actualización, y la consola no pide motivo (U-08, U-37).
 - **Datos y API:** ninguna propia; `/admin` es `WasichaiApp` (`architecture.md` §9.1).
-- **Estados:** la sección no aparece para quien no administra.
+- **Estados:** la sección no aparece para quien no administra; sin ninguna pantalla del portal que la cuenta abra, «En el
+  portal» lo dice.
 - **Permisos:** `/admin` no pide motivo todavía (UPS-08): las escrituras críticas se hacen en el portal; lo editado a mano en el
   modelo se pierde al reaplicar (GAP-030).
 - **Responsive:** columnas apiladas.
 - **Relacionadas y navegación:** S06, S11, S64.
 
 ```text
-AdminLandingPage
-├── PortalAdminLinks · ConsoleAdminLinks
-└── AdminCautions
+AdministracionPage
+├── Seccion «En el portal» (enlaces según permisos)
+└── Seccion «En la consola de la plataforma» (lista · Alert «Cuidados» · Button «Abrir la consola»)
 ```
 
 ### S64 · Plantillas de entregables

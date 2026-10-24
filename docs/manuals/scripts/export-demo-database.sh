@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-demo_require psql pg_dump python3 tar gzip sha256sum
+demo_require psql pg_dump python3 gzip sha256sum
 demo_assert_safe_db "$DB"
 demo_server_check
 demo_db_exists "$DB" || demo_die "no existe la base $DB (créela con seed-demo-data.sh)"
@@ -54,8 +54,25 @@ mv "$DUMP.tmp" "$DUMP"
 FILES_DIR="$(demo_files_dir "$DB")"
 demo_log "archivos de wasichai-files ($FILES_DIR) → $FILES"
 mkdir -p "$FILES_DIR"
-tar --sort=name --mtime='2000-01-01 00:00Z' --owner=0 --group=0 --numeric-owner -C "$FILES_DIR" -cf - . |
-  gzip -n -9 >"$FILES.tmp"
+# tar reproducible con tarfile: el tar de macOS (bsdtar) no tiene --sort ni --mtime de GNU tar
+python3 - "$FILES_DIR" <<'PY' | gzip -n -9 >"$FILES.tmp"
+import os, sys, tarfile
+
+root = sys.argv[1]
+
+def fixed(info):
+    info.mtime, info.uid, info.gid, info.uname, info.gname = 946684800, 0, 0, "", ""
+    return info
+
+def add(tar, path, arcname):
+    tar.add(path, arcname=arcname, recursive=False, filter=fixed)
+    if os.path.isdir(path):
+        for name in sorted(os.listdir(path)):
+            add(tar, os.path.join(path, name), arcname.rstrip("/") + "/" + name)
+
+with tarfile.open(fileobj=sys.stdout.buffer, mode="w|", format=tarfile.GNU_FORMAT) as tar:
+    add(tar, root, ".")
+PY
 mv "$FILES.tmp" "$FILES"
 
 demo_log "manifiesto → database/manifests/sgspe-demo.json"

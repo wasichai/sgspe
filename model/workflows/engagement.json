@@ -4,45 +4,307 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "planned", "label": "Planificada", "type": "INITIAL" },
-      { "name": "scheduled", "label": "Programada", "type": "INTERMEDIATE" },
-      { "name": "held", "label": "Realizada", "type": "INTERMEDIATE" },
-      { "name": "minutes_drafted", "label": "Acta en borrador", "type": "INTERMEDIATE" },
-      { "name": "minutes_in_review", "label": "Acta en revisión", "type": "INTERMEDIATE" },
-      { "name": "minutes_approved", "label": "Acta aprobada", "type": "INTERMEDIATE" },
-      { "name": "postponed", "label": "Postergada", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrada", "type": "FINAL" },
-      { "name": "cancelled", "label": "Cancelada", "type": "FINAL" }
+      {
+        "name": "planned",
+        "label": "Planificada",
+        "labels": {
+          "es": "Planificada",
+          "en": "Planned"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "scheduled",
+        "label": "Programada",
+        "labels": {
+          "es": "Programada",
+          "en": "Scheduled"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "held",
+        "label": "Realizada",
+        "labels": {
+          "es": "Realizada",
+          "en": "Held"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "minutes_drafted",
+        "label": "Acta en borrador",
+        "labels": {
+          "es": "Acta en borrador",
+          "en": "Minutes in draft"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "minutes_in_review",
+        "label": "Acta en revisión",
+        "labels": {
+          "es": "Acta en revisión",
+          "en": "Minutes in review"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "minutes_approved",
+        "label": "Acta aprobada",
+        "labels": {
+          "es": "Acta aprobada",
+          "en": "Minutes approved"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "postponed",
+        "label": "Postergada",
+        "labels": {
+          "es": "Postergada",
+          "en": "Postponed"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrada",
+        "labels": {
+          "es": "Cerrada",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelada",
+        "labels": {
+          "es": "Cancelada",
+          "en": "Cancelled"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "schedule", "label": "Programar", "from": "planned", "to": "scheduled",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "register_held", "label": "Registrar realización", "from": "scheduled", "to": "held",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "register_held_unplanned", "label": "Registrar realización", "from": "planned", "to": "held",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "postpone", "label": "Postergar", "from": "scheduled", "to": "postponed",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "reschedule", "label": "Reprogramar", "from": "postponed", "to": "scheduled",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "draft_minutes", "label": "Redactar acta", "from": "held", "to": "minutes_drafted",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "submit_minutes", "label": "Enviar acta a revisión", "from": "minutes_drafted", "to": "minutes_in_review",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "return_minutes", "label": "Devolver acta", "from": "minutes_in_review", "to": "minutes_drafted",
-        "roles": ["SOCIAL_MANAGER"] },
-      { "name": "approve_minutes", "label": "Aprobar acta", "from": "minutes_in_review", "to": "minutes_approved",
-        "roles": ["SOCIAL_MANAGER"] },
-      { "name": "close", "label": "Cerrar", "from": "minutes_approved", "to": "closed",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "close_light", "label": "Cerrar sin acta", "from": "held", "to": "closed",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "cancel_planned", "label": "Cancelar", "from": "planned", "to": "cancelled",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "cancel_scheduled", "label": "Cancelar", "from": "scheduled", "to": "cancelled",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] },
-      { "name": "cancel_postponed", "label": "Cancelar", "from": "postponed", "to": "cancelled",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "STAKEHOLDER_MANAGER", "SOCIAL_MANAGER", "FIELD_AGENT"] }
+      {
+        "name": "schedule",
+        "label": "Programar",
+        "labels": {
+          "es": "Programar",
+          "en": "Schedule"
+        },
+        "from": "planned",
+        "to": "scheduled",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "register_held",
+        "label": "Registrar realización",
+        "labels": {
+          "es": "Registrar realización",
+          "en": "Record as held"
+        },
+        "from": "scheduled",
+        "to": "held",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "register_held_unplanned",
+        "label": "Registrar realización",
+        "labels": {
+          "es": "Registrar realización",
+          "en": "Record as held"
+        },
+        "from": "planned",
+        "to": "held",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "postpone",
+        "label": "Postergar",
+        "labels": {
+          "es": "Postergar",
+          "en": "Postpone"
+        },
+        "from": "scheduled",
+        "to": "postponed",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "reschedule",
+        "label": "Reprogramar",
+        "labels": {
+          "es": "Reprogramar",
+          "en": "Reschedule"
+        },
+        "from": "postponed",
+        "to": "scheduled",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "draft_minutes",
+        "label": "Redactar acta",
+        "labels": {
+          "es": "Redactar acta",
+          "en": "Draft minutes"
+        },
+        "from": "held",
+        "to": "minutes_drafted",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "submit_minutes",
+        "label": "Enviar acta a revisión",
+        "labels": {
+          "es": "Enviar acta a revisión",
+          "en": "Submit minutes for review"
+        },
+        "from": "minutes_drafted",
+        "to": "minutes_in_review",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "return_minutes",
+        "label": "Devolver acta",
+        "labels": {
+          "es": "Devolver acta",
+          "en": "Return minutes"
+        },
+        "from": "minutes_in_review",
+        "to": "minutes_drafted",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "approve_minutes",
+        "label": "Aprobar acta",
+        "labels": {
+          "es": "Aprobar acta",
+          "en": "Approve minutes"
+        },
+        "from": "minutes_in_review",
+        "to": "minutes_approved",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "minutes_approved",
+        "to": "closed",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "close_light",
+        "label": "Cerrar sin acta",
+        "labels": {
+          "es": "Cerrar sin acta",
+          "en": "Close without minutes"
+        },
+        "from": "held",
+        "to": "closed",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "cancel_planned",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "planned",
+        "to": "cancelled",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "cancel_scheduled",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "scheduled",
+        "to": "cancelled",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      },
+      {
+        "name": "cancel_postponed",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "postponed",
+        "to": "cancelled",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "STAKEHOLDER_MANAGER",
+          "SOCIAL_MANAGER",
+          "FIELD_AGENT"
+        ]
+      }
     ]
   }
 }

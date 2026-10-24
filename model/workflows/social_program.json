@@ -4,45 +4,279 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
-      { "name": "pending_approval", "label": "Pendiente de aprobación", "type": "INTERMEDIATE" },
-      { "name": "planned", "label": "Planificado", "type": "INTERMEDIATE" },
-      { "name": "executing", "label": "En ejecución", "type": "INTERMEDIATE" },
-      { "name": "monitoring", "label": "En monitoreo", "type": "INTERMEDIATE" },
-      { "name": "evaluation", "label": "En evaluación", "type": "INTERMEDIATE" },
-      { "name": "suspended", "label": "Suspendido", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrado", "type": "FINAL" },
-      { "name": "cancelled", "label": "Cancelado", "type": "FINAL" }
+      {
+        "name": "draft",
+        "label": "Borrador",
+        "labels": {
+          "es": "Borrador",
+          "en": "Draft"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "pending_approval",
+        "label": "Pendiente de aprobación",
+        "labels": {
+          "es": "Pendiente de aprobación",
+          "en": "Pending approval"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "planned",
+        "label": "Planificado",
+        "labels": {
+          "es": "Planificado",
+          "en": "Planned"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "executing",
+        "label": "En ejecución",
+        "labels": {
+          "es": "En ejecución",
+          "en": "In execution"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "monitoring",
+        "label": "En monitoreo",
+        "labels": {
+          "es": "En monitoreo",
+          "en": "Monitoring"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "evaluation",
+        "label": "En evaluación",
+        "labels": {
+          "es": "En evaluación",
+          "en": "Under evaluation"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "suspended",
+        "label": "Suspendido",
+        "labels": {
+          "es": "Suspendido",
+          "en": "Suspended"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrado",
+        "labels": {
+          "es": "Cerrado",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelado",
+        "labels": {
+          "es": "Cancelado",
+          "en": "Cancelled"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "submit", "label": "Enviar a aprobación", "from": "draft", "to": "pending_approval",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "return_to_draft", "label": "Devolver", "from": "pending_approval", "to": "draft",
-        "roles": ["APPROVER"] },
-      { "name": "approve", "label": "Aprobar", "from": "pending_approval", "to": "planned",
-        "roles": ["APPROVER"] },
-      { "name": "plan_direct", "label": "Planificar sin aprobación interna", "from": "draft", "to": "planned",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "start_execution", "label": "Iniciar ejecución", "from": "planned", "to": "executing",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "start_monitoring", "label": "Pasar a monitoreo", "from": "executing", "to": "monitoring",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER"] },
-      { "name": "start_evaluation", "label": "Evaluar", "from": "monitoring", "to": "evaluation",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "close", "label": "Cerrar", "from": "evaluation", "to": "closed",
-        "roles": ["SOCIAL_MANAGER"] },
-      { "name": "suspend", "label": "Suspender", "from": "executing", "to": "suspended",
-        "roles": ["SOCIAL_MANAGER", "APPROVER"] },
-      { "name": "resume", "label": "Reanudar", "from": "suspended", "to": "executing",
-        "roles": ["SOCIAL_MANAGER", "APPROVER"] },
-      { "name": "cancel_draft", "label": "Cancelar", "from": "draft", "to": "cancelled",
-        "roles": ["SOCIAL_INVESTMENT_MANAGER", "SOCIAL_MANAGER", "APPROVER"] },
-      { "name": "cancel_pending_approval", "label": "Cancelar", "from": "pending_approval", "to": "cancelled",
-        "roles": ["SOCIAL_MANAGER", "APPROVER"] },
-      { "name": "cancel_planned", "label": "Cancelar", "from": "planned", "to": "cancelled",
-        "roles": ["SOCIAL_MANAGER", "APPROVER"] },
-      { "name": "cancel_suspended", "label": "Cancelar", "from": "suspended", "to": "cancelled",
-        "roles": ["SOCIAL_MANAGER", "APPROVER"] }
+      {
+        "name": "submit",
+        "label": "Enviar a aprobación",
+        "labels": {
+          "es": "Enviar a aprobación",
+          "en": "Submit for approval"
+        },
+        "from": "draft",
+        "to": "pending_approval",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "return_to_draft",
+        "label": "Devolver",
+        "labels": {
+          "es": "Devolver",
+          "en": "Send back"
+        },
+        "from": "pending_approval",
+        "to": "draft",
+        "roles": [
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "approve",
+        "label": "Aprobar",
+        "labels": {
+          "es": "Aprobar",
+          "en": "Approve"
+        },
+        "from": "pending_approval",
+        "to": "planned",
+        "roles": [
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "plan_direct",
+        "label": "Planificar sin aprobación interna",
+        "labels": {
+          "es": "Planificar sin aprobación interna",
+          "en": "Plan without internal approval"
+        },
+        "from": "draft",
+        "to": "planned",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "start_execution",
+        "label": "Iniciar ejecución",
+        "labels": {
+          "es": "Iniciar ejecución",
+          "en": "Start execution"
+        },
+        "from": "planned",
+        "to": "executing",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "start_monitoring",
+        "label": "Pasar a monitoreo",
+        "labels": {
+          "es": "Pasar a monitoreo",
+          "en": "Move to monitoring"
+        },
+        "from": "executing",
+        "to": "monitoring",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER"
+        ]
+      },
+      {
+        "name": "start_evaluation",
+        "label": "Evaluar",
+        "labels": {
+          "es": "Evaluar",
+          "en": "Evaluate"
+        },
+        "from": "monitoring",
+        "to": "evaluation",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "evaluation",
+        "to": "closed",
+        "roles": [
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "suspend",
+        "label": "Suspender",
+        "labels": {
+          "es": "Suspender",
+          "en": "Suspend"
+        },
+        "from": "executing",
+        "to": "suspended",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "resume",
+        "label": "Reanudar",
+        "labels": {
+          "es": "Reanudar",
+          "en": "Resume"
+        },
+        "from": "suspended",
+        "to": "executing",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "cancel_draft",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "draft",
+        "to": "cancelled",
+        "roles": [
+          "SOCIAL_INVESTMENT_MANAGER",
+          "SOCIAL_MANAGER",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "cancel_pending_approval",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "pending_approval",
+        "to": "cancelled",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "cancel_planned",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "planned",
+        "to": "cancelled",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "APPROVER"
+        ]
+      },
+      {
+        "name": "cancel_suspended",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "suspended",
+        "to": "cancelled",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "APPROVER"
+        ]
+      }
     ]
   }
 }

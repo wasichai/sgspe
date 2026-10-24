@@ -4,15 +4,63 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "draft", "label": "Borrador", "type": "INITIAL" },
-      { "name": "approved", "label": "Aprobada", "type": "INTERMEDIATE" },
-      { "name": "superseded", "label": "Reemplazada", "type": "FINAL" }
+      {
+        "name": "draft",
+        "label": "Borrador",
+        "labels": {
+          "es": "Borrador",
+          "en": "Draft"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "approved",
+        "label": "Aprobada",
+        "labels": {
+          "es": "Aprobada",
+          "en": "Approved"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "superseded",
+        "label": "Reemplazada",
+        "labels": {
+          "es": "Reemplazada",
+          "en": "Superseded"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "approve", "label": "Aprobar", "from": "draft", "to": "approved",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] },
-      { "name": "supersede", "label": "Reemplazar", "from": "approved", "to": "superseded",
-        "roles": ["SOCIAL_MANAGER", "PROJECT_MANAGER"] }
+      {
+        "name": "approve",
+        "label": "Aprobar",
+        "labels": {
+          "es": "Aprobar",
+          "en": "Approve"
+        },
+        "from": "draft",
+        "to": "approved",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      },
+      {
+        "name": "supersede",
+        "label": "Reemplazar",
+        "labels": {
+          "es": "Reemplazar",
+          "en": "Supersede"
+        },
+        "from": "approved",
+        "to": "superseded",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "PROJECT_MANAGER"
+        ]
+      }
     ]
   }
 }
