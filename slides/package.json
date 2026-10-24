@@ -1,6 +1,6 @@
 {
     "name": "@wasichai/sgspe-slides",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "description": "Láminas de las presentaciones de SGSPE: especificación, tokens, layouts y el servicio sgspe-slides (ADR-0031)",
     "license": "UNLICENSED",
     "type": "module",

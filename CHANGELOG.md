@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.2.0](https://github.com/wasichai/sgspe/compare/v3.1.0...v3.2.0) (2026-10-24)
+
+
+### Features
+
+* **presentaciones:** salida MP4 a pedido ([#155](https://github.com/wasichai/sgspe/issues/155)) ([#173](https://github.com/wasichai/sgspe/issues/173)) ([b2aa5d5](https://github.com/wasichai/sgspe/commit/b2aa5d58e5f0d9248954eb4a691cf35447a89022))
+
+
+### Bug Fixes
+
+* **ci:** el paquete de slides se instala con el token del registro en todo el job ([#175](https://github.com/wasichai/sgspe/issues/175)) ([682edbe](https://github.com/wasichai/sgspe/commit/682edbe6761197d725680429bead9a92ecdf1ed7))
+* **model:** revisa las etiquetas en inglés de los workflows ([#174](https://github.com/wasichai/sgspe/issues/174)) ([1a4a151](https://github.com/wasichai/sgspe/commit/1a4a15161053c593a9222c504a87b58ee34ae571)), closes [#163](https://github.com/wasichai/sgspe/issues/163)
+
 ## [3.1.0](https://github.com/wasichai/sgspe/compare/v3.0.0...v3.1.0) (2026-10-24)
 
 
