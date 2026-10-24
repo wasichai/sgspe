@@ -60,7 +60,9 @@ copy_static() {
   for d in screenshots diagrams branding; do
     rm -rf "${OUT:?}/html/assets/${d:?}"
     mkdir -p "$OUT/html/assets/$d"
-    (cd "$MANUALS/assets/$d" && find . -type f \( -name '*.png' -o -name '*.svg' -o -name '*.jpg' \) -exec cp --parents {} "$OUT/html/assets/$d/" \;)
+    # sin cp --parents (solo GNU): el cp de macOS no lo tiene
+    (cd "$MANUALS/assets/$d" && find . -type f \( -name '*.png' -o -name '*.svg' -o -name '*.jpg' \) |
+      while IFS= read -r f; do mkdir -p "$OUT/html/assets/$d/$(dirname "$f")" && cp "$f" "$OUT/html/assets/$d/$f"; done)
   done
 }
 

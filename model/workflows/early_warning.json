@@ -4,27 +4,157 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "detected", "label": "Detectada", "type": "INITIAL" },
-      { "name": "in_triage", "label": "En triaje", "type": "INTERMEDIATE" },
-      { "name": "confirmed", "label": "Confirmada", "type": "INTERMEDIATE" },
-      { "name": "responding", "label": "En respuesta", "type": "INTERMEDIATE" },
-      { "name": "resolved", "label": "Resuelta", "type": "INTERMEDIATE" },
-      { "name": "dismissed", "label": "Descartada", "type": "FINAL" },
-      { "name": "closed", "label": "Cerrada", "type": "FINAL" }
+      {
+        "name": "detected",
+        "label": "Detectada",
+        "labels": {
+          "es": "Detectada",
+          "en": "Detected"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "in_triage",
+        "label": "En triaje",
+        "labels": {
+          "es": "En triaje",
+          "en": "In triage"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "confirmed",
+        "label": "Confirmada",
+        "labels": {
+          "es": "Confirmada",
+          "en": "Confirmed"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "responding",
+        "label": "En respuesta",
+        "labels": {
+          "es": "En respuesta",
+          "en": "Responding"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "resolved",
+        "label": "Resuelta",
+        "labels": {
+          "es": "Resuelta",
+          "en": "Resolved"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "dismissed",
+        "label": "Descartada",
+        "labels": {
+          "es": "Descartada",
+          "en": "Dismissed"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrada",
+        "labels": {
+          "es": "Cerrada",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "start_triage", "label": "Iniciar triaje", "from": "detected", "to": "in_triage",
-        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "confirm", "label": "Confirmar", "from": "in_triage", "to": "confirmed",
-        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "dismiss", "label": "Descartar", "from": "in_triage", "to": "dismissed",
-        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "start_response", "label": "Iniciar respuesta", "from": "confirmed", "to": "responding",
-        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "resolve", "label": "Resolver", "from": "responding", "to": "resolved",
-        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] },
-      { "name": "close", "label": "Cerrar", "from": "resolved", "to": "closed",
-        "roles": ["SOCIAL_RISK_MANAGER", "SOCIAL_MANAGER"] }
+      {
+        "name": "start_triage",
+        "label": "Iniciar triaje",
+        "labels": {
+          "es": "Iniciar triaje",
+          "en": "Start triage"
+        },
+        "from": "detected",
+        "to": "in_triage",
+        "roles": [
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "confirm",
+        "label": "Confirmar",
+        "labels": {
+          "es": "Confirmar",
+          "en": "Confirm"
+        },
+        "from": "in_triage",
+        "to": "confirmed",
+        "roles": [
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "dismiss",
+        "label": "Descartar",
+        "labels": {
+          "es": "Descartar",
+          "en": "Dismiss"
+        },
+        "from": "in_triage",
+        "to": "dismissed",
+        "roles": [
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "start_response",
+        "label": "Iniciar respuesta",
+        "labels": {
+          "es": "Iniciar respuesta",
+          "en": "Start response"
+        },
+        "from": "confirmed",
+        "to": "responding",
+        "roles": [
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "resolve",
+        "label": "Resolver",
+        "labels": {
+          "es": "Resolver",
+          "en": "Resolve"
+        },
+        "from": "responding",
+        "to": "resolved",
+        "roles": [
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "resolved",
+        "to": "closed",
+        "roles": [
+          "SOCIAL_RISK_MANAGER",
+          "SOCIAL_MANAGER"
+        ]
+      }
     ]
   }
 }

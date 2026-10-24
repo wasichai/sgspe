@@ -62,7 +62,7 @@ cambió, se registra otra. Forzar el grupo de influencia a mano exige justificar
 
 Una *interacción* es todo contacto o evento con grupos de interés: entrevistas, reuniones informativas, asambleas,
 contactos cara a cara, fichas de observación, monitoreos participativos y otros. La sección «Relacionamiento» las
-muestra como lista (con tipo, estado, fecha, lugar y asistentes) o como calendario («Mes», «Semana»), junto con las
+muestra como lista (con tipo, estado y fecha) o como calendario («Mes», «Semana»), junto con las
 reuniones del mes frente a la meta, las actas por redactar y las festividades del mes.
 
 .Lista de interacciones
@@ -81,20 +81,22 @@ social puede editarlas, pero no crearlas) y asignación al proyecto.
 
 .Procedimiento
 . En «Relacionamiento», pulse btn:[Registrar interacción].
-. *Tipo y fecha*: elija el tipo, escriba el título y el objetivo; marque «Ya se realizó» e indique la fecha, o deje la
-  fecha y hora programadas.
-. *Lugar y grupos de interés*: el lugar y los grupos que participaron.
+. *Tipo y fecha*: elija el tipo y escriba el título. En «¿Ya se realizó?», elija «No, está planificada» o «Sí, ya se
+  realizó» (cada opción dice cómo se registrará) e indique la fecha y la hora: escríbalas en dd/mm/aaaa y en 24 horas,
+  o elija la fecha con el botón del calendario.
+. *Objetivo, lugar y grupos de interés*: el objetivo, el lugar y los grupos que participaron.
 . *Participantes*: quiénes asistieron y a cuántas personas representa cada uno.
 . *Preguntas y temas*: las preguntas planteadas y los temas tratados.
 . *Revisión*: compruebe y pulse btn:[Guardar como realizada] o btn:[Programar].
 
 .Registro de una interacción, primer paso
-image::screenshots/user/15-interaccion-registrar.png[Asistente Registrar interacción con los pasos Tipo y fecha, Lugar y grupos de interés, Participantes, Preguntas y temas y Revisión]
+image::screenshots/user/15-interaccion-registrar.png[Asistente Registrar interacción con los pasos Tipo y fecha, Objetivo, lugar y grupos de interés, Participantes, Preguntas y temas y Revisión]
 
 *Resultado esperado:* la interacción en estado «Realizada» o «Programada».
 
-*Casos especiales:* «Indique el título y el tipo»; «Indique la fecha» si marcó que ya se realizó; un participante
-representa al menos a una persona. El «Modo rápido de campo» simplifica el registro desde el terreno.
+*Casos especiales:* «Indique el título y el tipo»; «Indique la fecha» si eligió que ya se realizó; un participante
+representa al menos a una persona. El conmutador «Modo rápido de campo», en la cabecera del asistente, simplifica el
+registro desde el terreno y conserva lo ya elegido al cambiar de modo.
 
 ==== La ficha de la interacción y el acta
 

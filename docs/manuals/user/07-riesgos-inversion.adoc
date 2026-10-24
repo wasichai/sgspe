@@ -76,8 +76,9 @@ image::screenshots/user/28-programas.png[Topes de las campañas, presupuesto de 
 .Procedimiento
 . Pulse btn:[Nuevo aporte] y complete el propósito declarado, las condiciones, la moneda, el pagador, la campaña y los
   ítems (bien, servicio, dinero o mano de obra, con cantidad y costo).
-. Quien aprueba revisa «Antes de aprobar» y aplica btn:[Aprobar]. Si el proyecto no exige aprobación interna, la
-  gestión de inversión puede usar «Aprobar sin revisión interna».
+. Quien aprueba lo decide desde menu:Tareas[Aprobaciones] (ver <<usr-aprobaciones>>), con los ítems, el monto y el tope
+  de la campaña a la vista, o desde la ficha del aporte, donde revisa «Antes de aprobar» y aplica btn:[Aprobar]. Si el
+  proyecto no exige aprobación interna, la gestión de inversión puede usar «Aprobar sin revisión interna».
 . Con la compra hecha, btn:[Registrar adquisición].
 . En la pestaña «Entrega», btn:[Registrar entrega] con la conformidad y las tres evidencias exigidas: acta de recepción,
   foto y comprobante.

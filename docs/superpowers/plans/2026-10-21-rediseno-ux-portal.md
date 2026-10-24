@@ -272,11 +272,14 @@ Un PR por área. Cada una con sus pruebas de pantalla, su e2e y sus capturas de 
 
 Cada ítem se abre cuando su par de [08](../../ux/redesign/08-cambios-de-contrato-backend.md) esté publicado.
 
-- [ ] **6.1** Etiquetas de estado en inglés (B-01, U-42): `EstadoChip` y el camino del flujo leen la etiqueta en el
-  idioma activo.
-- [ ] **6.2** Tema de `/admin` (W-01 a W-05, U-08): lema, rótulos de rol y permiso, y formato de fecha.
-- [ ] **6.3** Superficie flotante (W-06) y `data-slot` de los controles (W-07): la regla de 3.1 se reemplaza por el
-  token o el selector de wasichai.
+- [x] **6.1** Etiquetas de estado en inglés (B-01, U-42): `EstadoChip` y el camino del flujo leen la etiqueta en el
+  idioma activo. wasichai 1.4.0 y los `labels` de los 19 workflows (`sgspe` `4dbcab5`; el inglés es un borrador hasta
+  wasichai/sgspe#163); `datos/flujos` en el portal (`sgspe-ui` `4602821`).
+- [x] **6.2** Tema de `/admin` (W-01 a W-05, U-08): lema, rótulos de rol y permiso, y formato de fecha. @wasichai/* 1.1.0
+  y `modelInRepository` (`sgspe-ui` `128a56b`).
+- [x] **6.3** Superficie flotante (W-06) y `data-slot` de los controles (W-07): la regla de 3.1 se reemplaza por el
+  token o el selector de wasichai. El puente `wasichai.css` asigna
+  `--surface-raised`, `--border-control` y `--placeholder`, y sale la regla de `index.css` (`sgspe-ui` `128a56b`).
 
 ### Fase 7. Documentación
 
@@ -298,8 +301,8 @@ Cada ítem se abre cuando su par de [08](../../ux/redesign/08-cambios-de-contrat
 - [x] El kit re-sincronizado con Claude Design (71 componentes, 10 nuevos): `sgspe-ui` `bc43c83`.
 - [ ] Los feriados marcados en el calendario: esperan un endpoint de `sgspe` que los exponga.
 - [ ] El orden por columna fuera de Alertas: espera que esas listas acepten `sort` y `dir` en su consulta.
-- La validación sobre la demo viva (7.2 y los dos indicadores que faltan) es wasichai/sgspe#157; la fase 6 espera
-  wasichai/wasichai-ui#69.
+- La validación sobre la demo viva (7.2 y los dos indicadores que faltan) es wasichai/sgspe#157; la fase 6 se hizo con
+  wasichai/wasichai-ui#69 (2026-10-24).
 
 ## Verificación final
 

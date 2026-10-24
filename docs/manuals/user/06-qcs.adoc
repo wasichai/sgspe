@@ -14,10 +14,11 @@ El proyecto atiende tres tipos de planteamiento, cada uno con su propio flujo:
 === La bandeja de QCS
 
 .Lista de QCS
-image::screenshots/user/20-qcs-lista.png[Lista de QCS con las cifras abiertas, fuera de plazo, por vencer y absueltas, las vistas y los grupos por plazo]
+image::screenshots/user/20-qcs-lista.png[Lista de QCS con las cifras abiertas, vencidas, por vencer y respondidas, las vistas y los grupos por plazo]
 
-Arriba, las cifras de QCS abiertas, fuera de plazo, por vencer y absueltas. Las vistas «Atención», «Quejas»,
-«Consultas», «Solicitudes», «Mis QCS» y «Todas», y los filtros por texto, canal, categoría y severidad. La vista
+Arriba, las cifras de QCS abiertas, vencidas, por vencer y respondidas en el periodo. Debajo, en la barra de filtros,
+las vistas «Atención», «Quejas», «Consultas», «Solicitudes», «Mis QCS» y «Todas», y los filtros por texto, canal,
+categoría y severidad. La vista
 «Atención» agrupa por plazo: «Vencidas», «Por vencer» y «Al día o sin plazo». btn:[Reporte unificado] ofrece el
 reporte por periodo, tipo, canal y categoría.
 
@@ -33,17 +34,18 @@ las QCS confidenciales que su cuenta no puede leer».
 *Requisitos previos:* rol de gestión de QCS o de relacionista comunitario, y asignación al proyecto.
 
 .Procedimiento
-. Pulse btn:[Registrar QCS].
-. Elija el *tipo*: Queja, Consulta o Solicitud (cada opción explica cuándo usarla).
-. Revise el *código* propuesto, elija el *canal* (presencial, carta, reunión, teléfono, correo, contratista u otro) y la
-  *fecha y hora de recepción*.
-. Marque «Anónima» si no se registra persona ni grupo de interés, o «Confidencial» si debe restringirse su lectura.
-. Indique el grupo de interés o la persona que la plantea, la descripción y, si se conocen, la categoría y la
-  localidad.
-. Escriba el motivo y pulse btn:[Registrar queja] (o «Registrar consulta», «Registrar solicitud»).
+. Pulse btn:[Registrar QCS]. El registro tiene tres pasos, con el panel «Qué pasará al registrar» siempre a la vista.
+. *Qué se plantea*: elija el *tipo* (Queja, Consulta o Solicitud; cada opción explica cuándo usarla), revise el
+  *código* propuesto y escriba la descripción; si se conocen, la categoría y la severidad. Pulse btn:[Siguiente].
+. *Cómo llegó y quién*: elija el *canal* (presencial, carta, reunión, teléfono, correo, contratista u otro) y la
+  *fecha y hora de recepción* (en dd/mm/aaaa y 24 horas, o con el botón del calendario). Marque «Anónima» si no se
+  registra persona ni grupo de interés, o «Confidencial» si debe restringirse su lectura, e indique el grupo de interés
+  o la persona que la plantea. Pulse btn:[Siguiente].
+. *Revisión*: compruebe los datos, ajuste si hace falta la prioridad y el responsable, escriba el motivo y pulse btn:[Registrar queja] (o «Registrar consulta»,
+  «Registrar solicitud»).
 
 .Registro de una QCS
-image::screenshots/user/22-qcs-registrar.png[Formulario Registrar queja, consulta o solicitud con el tipo, el código propuesto, el canal, la fecha, las marcas anónima y confidencial y el panel Qué pasará al registrar]
+image::screenshots/user/22-qcs-registrar.png[Primer paso del registro de una QCS, Qué se plantea, con el tipo, el código propuesto, la descripción y el panel Qué pasará al registrar]
 
 *Resultado esperado:* la QCS en estado «Recibida», con sus plazos calculados.
 
@@ -60,7 +62,7 @@ nacionales) y la resolución, 30 días calendario después. Cada proyecto puede 
 image::diagrams/wf-queja.png[Diagrama de estados de la queja: recibida, acusada, en evaluación, en investigación, en atención, resuelta, verificada, cerrada, rechazada y desistida,width=75%,role=diagram]
 
 .Ficha de una queja en atención
-image::screenshots/user/21-queja-ficha.png[Ficha de la queja DEMO-Q-03 en atención con la línea de estados, la siguiente acción Resolver y lo que falta]
+image::screenshots/user/21-queja-ficha.png[Ficha de la queja DEMO-Q-03 en atención con la siguiente acción Resolver destacada y lo que falta para darla]
 
 .Procedimiento típico
 . btn:[Acusar recibo]: confirma que se recibió (dentro del plazo de acuse).

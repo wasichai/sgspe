@@ -403,6 +403,26 @@ class WorkflowsPassTests(ApplyTestCase):
         self.assertIn("skip   workflow wf-x-zone (up to date)", second[1])
         self.assertIn("done: 1 workflows (0 created, 0 updated, 1 skipped)", second[1])
 
+    # B-01 (wasichai 1.4.0, WAS-ADR-070): cada estado y cada transición llevan su etiqueta por idioma; core guarda labels
+    # y lo devuelve en el GET, así que un segundo pase no cambia nada
+    def test_puts_the_labels_per_language_and_skips_them_the_second_time(self):
+        self.core.roles["READ_ONLY"] = {"name": "READ_ONLY"}
+        labeled = copy.deepcopy(ZONE_WORKFLOW)
+        labeled["definition"]["states"][0]["labels"] = {"es": "Borrador", "en": "Draft"}
+        labeled["definition"]["transitions"][0]["labels"] = {"es": "Cerrar", "en": "Close"}
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_model(folder, FIXTURE_MODEL)
+            write_workflow(folder, "zone", labeled)
+            self.run_apply(path)
+            first = self.run_apply(path, "--workflows")
+            second = self.run_apply(path, "--workflows")
+        self.assertEqual(first[0], 0, first)
+        definition = self.core.workflows["zone"]["definition"]
+        self.assertEqual(definition["states"][0]["labels"], {"es": "Borrador", "en": "Draft"})
+        self.assertEqual(definition["states"][1]["labels"], {})
+        self.assertEqual(definition["transitions"][0]["labels"], {"es": "Cerrar", "en": "Close"})
+        self.assertIn("skip   workflow wf-x-zone (up to date)", second[1])
+
     def test_replaces_a_workflow_edited_in_the_admin(self):
         self.core.roles["READ_ONLY"] = {"name": "READ_ONLY"}
         with tempfile.TemporaryDirectory() as folder:
@@ -610,6 +630,26 @@ class WorkflowValidationTests(ApplyTestCase):
         self.assertIn("transition close role 'read_only' must match [A-Z0-9_]+", err)
         self.assertIn("transition close role 'FIELD AGENT' must match [A-Z0-9_]+", err)
         self.assertEqual(self.core.requests, [])
+
+    # B-01: las claves son etiquetas de idioma (las que acepta wasichai), los textos no van vacíos ni con espacios en los
+    # bordes y la de es es la etiqueta misma, para que el portal en español no cambie
+    def test_labels_per_language_are_language_tags_with_text_and_es_is_the_label(self):
+        broken = copy.deepcopy(ZONE_WORKFLOW)
+        broken["definition"]["states"][0]["labels"] = {"es": "Borrador", "EN": "Draft"}
+        broken["definition"]["states"][1]["labels"] = {"es": "Cerrado", "en": "Closed"}
+        broken["definition"]["transitions"][0]["labels"] = {"es": "Cerrar", "en": " "}
+        code, out, err = self.run_with(broken, "--workflows")
+        self.assertEqual(code, 2)
+        self.assertIn("state 'draft' labels key 'EN' is not a language tag", err)
+        self.assertIn("state 'closed' labels.es must be its label 'Cerrada'", err)
+        self.assertIn("transition close labels.en must be a text with no leading or trailing spaces", err)
+        self.assertEqual(self.core.requests, [])
+        for bad in ([], "Draft"):
+            broken = copy.deepcopy(ZONE_WORKFLOW)
+            broken["definition"]["states"][0]["labels"] = bad
+            code, out, err = self.run_with(broken, "--workflows")
+            self.assertEqual(code, 2, bad)
+            self.assertIn("state 'draft' labels must be a JSON object", err)
 
     def test_a_definition_that_is_not_an_object_exits_2_without_a_traceback(self):
         for bad in ([], "texto", 3, None):

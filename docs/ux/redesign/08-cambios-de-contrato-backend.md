@@ -25,7 +25,7 @@ Todo lo de las fases 1 a 5 usa lecturas, permisos y comandos que ya existen:
 
 | ID | Cambio | Por qué | Sin el cambio | Prioridad |
 |---|---|---|---|---|
-| B-01 | **Etiquetas de estado y de transición en inglés.** `model/workflows/*.json` gana una etiqueta por idioma (por ejemplo `labels: { es, en }`), si la metadata de workflows de wasichai la admite; si no, depende de W-08. | U-42: con la interfaz en inglés, los estados siguen en español | El portal sigue mostrando la etiqueta en español, que es el comportamiento actual | Media |
+| B-01 | **Etiquetas de estado y de transición en inglés.** `model/workflows/*.json` gana una etiqueta por idioma (por ejemplo `labels: { es, en }`), si la metadata de workflows de wasichai la admite; si no, depende de W-08. ✅ Hecho (2026-10-24) con wasichai 1.4.0: los 19 workflows llevan `labels` con `es` y `en` (`docs/workflows.md`, «Formato JSON de un workflow»). | U-42: con la interfaz en inglés, los estados siguen en español | El portal sigue mostrando la etiqueta en español, que es el comportamiento actual | Media |
 | B-02 | **Disponibilidad por cuenta en el catálogo de indicadores.** El `available` de `GET /api/sgspe/dashboards/indicators` dice si la cuenta que llama puede leer el indicador, no solo si el tenant lo tiene. | U-01: el inicio decide si dibuja el bloque ejecutivo antes de pedir el tablero | El portal pide el tablero ejecutivo y dibuja el bloque solo con las cifras `available`: una lectura más en el inicio | Baja |
 | B-03 | **Conteos del proyecto en una sola lectura** (opcional), por ejemplo `GET /api/sgspe/projects/{id}/counts`, con el mismo alcance de lectura (ADR-0029) y sin contar QCS confidenciales ilegibles. | Hoy `useConteosDelProyecto` (`contexto/conteos.ts:30`) hace una lectura por pestaña y por clase | Se mantienen las lecturas actuales: funciona y es correcto | Baja (rendimiento) |
 | B-04 | **Tareas «para tomar» de todos los proyectos de la cuenta**, en la misma lectura que «Mis tareas». | U-13: la cola compartida solo aparece al elegir un proyecto | El bloque «Lo que me toca hoy» pide la cola de cada proyecto vigente de la cuenta, con un tope y «Ver todas» | Media |
@@ -39,6 +39,9 @@ Ninguno de B-01 a B-04 define requisitos nuevos aquí: si se aprueban, se regist
 ## 3. `@wasichai/*` (wasichai-ui y wasichai core)
 
 Son pedidos a otro repositorio. Se abren como issues allí cuando el rediseño se apruebe.
+
+✅ Publicados (2026-10-24): W-01 a W-08 se pidieron en wasichai/wasichai-ui#69 y salieron en `@wasichai/*` 1.1.0 y
+wasichai 1.4.0; el portal los usa desde `sgspe-ui` `128a56b` y `4602821`.
 
 | ID | Paquete | Cambio | Hallazgo | Sin el cambio |
 |---|---|---|---|---|

@@ -4,21 +4,113 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "planned", "label": "Planificada", "type": "INITIAL" },
-      { "name": "in_progress", "label": "En curso", "type": "INTERMEDIATE" },
-      { "name": "completed", "label": "Concluida", "type": "FINAL" },
-      { "name": "partial", "label": "Parcial", "type": "FINAL" },
-      { "name": "cancelled", "label": "Cancelada", "type": "FINAL" }
+      {
+        "name": "planned",
+        "label": "Planificada",
+        "labels": {
+          "es": "Planificada",
+          "en": "Planned"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "in_progress",
+        "label": "En curso",
+        "labels": {
+          "es": "En curso",
+          "en": "In progress"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "completed",
+        "label": "Concluida",
+        "labels": {
+          "es": "Concluida",
+          "en": "Concluded"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "partial",
+        "label": "Parcial",
+        "labels": {
+          "es": "Parcial",
+          "en": "Partial"
+        },
+        "type": "FINAL"
+      },
+      {
+        "name": "cancelled",
+        "label": "Cancelada",
+        "labels": {
+          "es": "Cancelada",
+          "en": "Cancelled"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "start", "label": "Iniciar", "from": "planned", "to": "in_progress",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] },
-      { "name": "complete", "label": "Concluir", "from": "in_progress", "to": "completed",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] },
-      { "name": "complete_partial", "label": "Concluir parcialmente", "from": "in_progress", "to": "partial",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] },
-      { "name": "cancel", "label": "Cancelar", "from": "planned", "to": "cancelled",
-        "roles": ["COMMUNITY_RELATIONS_OFFICER", "FIELD_AGENT", "SOCIAL_MANAGER"] }
+      {
+        "name": "start",
+        "label": "Iniciar",
+        "labels": {
+          "es": "Iniciar",
+          "en": "Start"
+        },
+        "from": "planned",
+        "to": "in_progress",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "FIELD_AGENT",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "complete",
+        "label": "Concluir",
+        "labels": {
+          "es": "Concluir",
+          "en": "Conclude"
+        },
+        "from": "in_progress",
+        "to": "completed",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "FIELD_AGENT",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "complete_partial",
+        "label": "Concluir parcialmente",
+        "labels": {
+          "es": "Concluir parcialmente",
+          "en": "Conclude partially"
+        },
+        "from": "in_progress",
+        "to": "partial",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "FIELD_AGENT",
+          "SOCIAL_MANAGER"
+        ]
+      },
+      {
+        "name": "cancel",
+        "label": "Cancelar",
+        "labels": {
+          "es": "Cancelar",
+          "en": "Cancel"
+        },
+        "from": "planned",
+        "to": "cancelled",
+        "roles": [
+          "COMMUNITY_RELATIONS_OFFICER",
+          "FIELD_AGENT",
+          "SOCIAL_MANAGER"
+        ]
+      }
     ]
   }
 }

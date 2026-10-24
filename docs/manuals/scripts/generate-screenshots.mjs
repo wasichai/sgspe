@@ -37,7 +37,7 @@ const USERS = {
 
 // textos que nunca deben verse en una captura publicada (estados de carga o de error del portal)
 const BAD = [/No se pudo cargar esta información/, /No hubo respuesta del servidor/, /Esta página no existe/, /Su cuenta no tiene permiso/]
-const LOADING = /Cargando|Comprobando las reglas/
+const LOADING = /Cargando|Comprobando/
 
 // ---- API ---------------------------------------------------------------------------------------------------------
 const tokens = {}
@@ -97,13 +97,14 @@ async function settle(page, { expect, timeout = 30000 } = {}) {
   const deadline = Date.now() + timeout
   await page.locator('h1').filter({ visible: true }).first().waitFor({ state: 'visible', timeout })
   if (expect) await page.getByText(expect, { exact: false }).filter({ visible: true }).first().waitFor({ state: 'visible', timeout })
-  // espera a que desaparezcan los textos de carga visibles
-  while (Date.now() < deadline) {
-    const loading = await page.locator(`text=${LOADING.source.split('|')[0]}`).filter({ visible: true }).count()
-    if (!loading) break
-    await page.waitForTimeout(500)
-  }
+  await clean(page, deadline)
+}
+// espera a que desaparezcan los textos de carga visibles y falla si alguno sigue al vencer el plazo o si hay un error
+async function clean(page, deadline) {
+  const loading = page.getByText(LOADING).filter({ visible: true })
+  while ((await loading.count()) && Date.now() < deadline) await page.waitForTimeout(500)
   await page.waitForTimeout(900)
+  if (await loading.count()) throw new Error(`la pantalla sigue en «${(await loading.first().innerText()).trim()}»`)
   const body = await page.locator('body').innerText()
   for (const re of BAD) if (re.test(body)) throw new Error(`la pantalla muestra «${body.match(re)[0]}»`)
 }
@@ -113,6 +114,7 @@ function shot(name, run) {
   shots.push({ name, run })
 }
 async function save(page, name, opts = {}) {
+  await clean(page, Date.now() + 30000)
   const path = join(root, 'assets', 'screenshots', `${name}.png`)
   mkdirSync(dirname(path), { recursive: true })
   if (opts.locator) await opts.locator.screenshot({ path, animations: 'disabled' })
@@ -153,8 +155,8 @@ shot('user/01-inicio-de-sesion', async () => {
 })
 shot('user/02-inicio', async () => {
   const page = await pageFor(USERS.social)
-  // el inicio es «Mi día» (DD-19, ASM-074); la revisión ejecutiva vive en /dashboards/executive
-  await go(page, '/', 'Atención requerida')
+  // el inicio es «Mi trabajo» por bloques (DD-01, ASM-078); la revisión ejecutiva vive en /dashboards/executive
+  await go(page, '/', 'Lo que me toca hoy')
   await save(page, 'user/02-inicio')
 })
 shot('user/03-barra-superior', async () => {
@@ -215,7 +217,7 @@ shot('user/11-grupo-evaluacion', async () => {
 })
 shot('user/12-relacionamiento-lista', async () => {
   const page = await pageFor(USERS.social)
-  await go(page, `${P}/engagements`, 'Asistentes')
+  await go(page, `${P}/engagements`, 'interacciones')
   await save(page, 'user/12-relacionamiento-lista')
 })
 shot('user/13-relacionamiento-calendario', async () => {
@@ -267,7 +269,7 @@ shot('user/20-qcs-lista', async () => {
 })
 shot('user/21-queja-ficha', async () => {
   const page = await pageFor(USERS.qcs)
-  await go(page, `${P}/grievances/${ids.grievanceAction}`, 'Queja DEMO-Q-03')
+  await go(page, `${P}/grievances/${ids.grievanceAction}`, 'Queja · DEMO-Q-03')
   await save(page, 'user/21-queja-ficha')
 })
 shot('user/22-qcs-registrar', async () => {
@@ -306,7 +308,7 @@ shot('user/27-alertas', async () => {
 })
 shot('user/28-programas', async () => {
   const page = await pageFor(USERS.inversion)
-  await go(page, `${P}/programs`, 'DEMO-AP-02')
+  await go(page, `${P}/programs`, 'DEMO-PS-01')
   await save(page, 'user/28-programas')
 })
 shot('user/29-aporte-ficha', async () => {
@@ -382,7 +384,7 @@ shot('user/41-campo-inicio', async () => {
 shot('user/42-sin-acceso', async () => {
   const page = await pageFor(USERS.campo)
   await page.goto(`${UI}${P}/commitments`)
-  await page.getByText('Su cuenta no puede abrir', { exact: false }).first().waitFor({ timeout: 20000 })
+  await page.getByText('No puede abrir «Compromisos»', { exact: false }).first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(800)
   await save(page, 'user/42-sin-acceso')
 })
@@ -430,6 +432,7 @@ async function adminRoute(path, expect) {
   await page.waitForLoadState('domcontentloaded')
   if (expect) await page.getByText(expect, { exact: false }).filter({ visible: true }).first().waitFor({ timeout: 30000 })
   await page.waitForTimeout(1800)
+  await clean(page, Date.now() + 30000)
   return page
 }
 shot('admin/05-admin-inicio', async () => save(await adminRoute('/'), 'admin/05-admin-inicio'))

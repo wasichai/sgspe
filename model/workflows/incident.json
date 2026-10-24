@@ -4,18 +4,88 @@
   "enabled": true,
   "definition": {
     "states": [
-      { "name": "reported", "label": "Reportado", "type": "INITIAL" },
-      { "name": "under_review", "label": "En revisión", "type": "INTERMEDIATE" },
-      { "name": "responding", "label": "En respuesta", "type": "INTERMEDIATE" },
-      { "name": "closed", "label": "Cerrado", "type": "FINAL" }
+      {
+        "name": "reported",
+        "label": "Reportado",
+        "labels": {
+          "es": "Reportado",
+          "en": "Reported"
+        },
+        "type": "INITIAL"
+      },
+      {
+        "name": "under_review",
+        "label": "En revisión",
+        "labels": {
+          "es": "En revisión",
+          "en": "In review"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "responding",
+        "label": "En respuesta",
+        "labels": {
+          "es": "En respuesta",
+          "en": "Responding"
+        },
+        "type": "INTERMEDIATE"
+      },
+      {
+        "name": "closed",
+        "label": "Cerrado",
+        "labels": {
+          "es": "Cerrado",
+          "en": "Closed"
+        },
+        "type": "FINAL"
+      }
     ],
     "transitions": [
-      { "name": "start_review", "label": "Revisar", "from": "reported", "to": "under_review",
-        "roles": ["SOCIAL_MANAGER", "SOCIAL_RISK_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "start_response", "label": "Responder", "from": "under_review", "to": "responding",
-        "roles": ["SOCIAL_MANAGER", "SOCIAL_RISK_MANAGER", "COMMUNITY_RELATIONS_OFFICER"] },
-      { "name": "close", "label": "Cerrar", "from": "responding", "to": "closed",
-        "roles": ["SOCIAL_MANAGER", "SOCIAL_RISK_MANAGER"] }
+      {
+        "name": "start_review",
+        "label": "Revisar",
+        "labels": {
+          "es": "Revisar",
+          "en": "Review"
+        },
+        "from": "reported",
+        "to": "under_review",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "start_response",
+        "label": "Responder",
+        "labels": {
+          "es": "Responder",
+          "en": "Answer"
+        },
+        "from": "under_review",
+        "to": "responding",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "SOCIAL_RISK_MANAGER",
+          "COMMUNITY_RELATIONS_OFFICER"
+        ]
+      },
+      {
+        "name": "close",
+        "label": "Cerrar",
+        "labels": {
+          "es": "Cerrar",
+          "en": "Close"
+        },
+        "from": "responding",
+        "to": "closed",
+        "roles": [
+          "SOCIAL_MANAGER",
+          "SOCIAL_RISK_MANAGER"
+        ]
+      }
     ]
   }
 }
