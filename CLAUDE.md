@@ -77,7 +77,7 @@ Guía para agentes que trabajan en este repositorio. El diseño manda: `docs/` e
 | App | `src/main/kotlin/sgspe/SgspeApplication.kt`, `src/main/resources/application*.yml` |
 | Correlación y línea de acceso | `src/main/kotlin/sgspe/observability/` |
 | Marca de escritura, `Records`, Lima, 422, catálogo del modelo, reglas y guardas transversales, `If-Match`, consulta en seco, `Positions`, `Readability`, `RequestMemo` (también el memo del comando que `RequestMemoFilter` abre en las escrituras de `/api/sgspe/`), el memo de definiciones por petición (`ObjectDefinitions.current`, sobre la caché de wasichai 1.1.0, `wasichai.metadata.cache.ttl` 30 s), JOB-02, `StoredFiles` (los bytes y el descriptor de un archivo para los trabajos de fondo, sin persona: JOB-07, JOB-05 y `DeliverableWriteGuard`) | `src/main/kotlin/sgspe/common/` |
-| Alcance por proyecto, asignaciones, destinatarios por rol, `EDIT_ANY`, WF-A | `src/main/kotlin/sgspe/scope/` |
+| Alcance por proyecto, asignaciones, destinatarios por rol, `EDIT_ANY`, WF-A, el filtro «mis proyectos asignados» (`AssignedQuery`, `assigned=true`, B-04) | `src/main/kotlin/sgspe/scope/` |
 | Evaluaciones, índices y grupo, prioridad, WF-B, JOB-03 | `src/main/kotlin/sgspe/stakeholder/` |
 | WF-C, conteos de asistentes | `src/main/kotlin/sgspe/engagement/` |
 | CRS, área oficial, áreas de influencia, importaciones, componentes, capas LYR-01 a LYR-16 y, desde el plan 6.2c, las de gestión LYR-17 a LYR-24 (`ManagementLayerCatalog`, `PlacedSql`, `LocalityAggregateSql`, `ManagementLayers`) (`sgspe.territory.import.*`, `sgspe.territory.layers.*`) | `src/main/kotlin/sgspe/territory/` |

@@ -345,6 +345,13 @@ contrato las fijan para que un cambio de wasichai avise:
   o, en un DATETIME, un instante ISO-8601 con zona, y un día en un DATETIME es su comienzo en Lima. `empty=a,b` deja los
   registros sin valor en todos esos campos (las tareas sin asignar, lo que no tiene fecha). Un campo que no se lee, un rango
   sin campo, sin límites o al revés, es un `400` sobre el parámetro (`RangeQuery` y `EmptyQuery`, D10 de la revisión de UX).
+- Y por «mis proyectos asignados»: `assigned=true` deja los registros de los proyectos con asignación vigente de quien llama
+  (la de ASM-106: `active` y, si las tiene, hoy en Lima entre `start_date` y `end_date`), también para `ADMIN` y para quien
+  tiene `READ_ALL_PROJECTS`, a quienes el alcance de lectura no acota; a una cuenta normal no le cambia nada. Sin asignaciones
+  vigentes, la lista sale vacía. Vale en `project` (por su id) y en los objetos con relación `project` (las raíces y
+  `project_assignment`); en otro objeto, o con un valor que no es `true` ni `false`, es un `400` sobre `assigned`. Es la cola
+  «Para tomar» del portal (`empty=assignee_user_id&assigned=true`) en una sola lectura (`AssignedQuery`, B-04 de la revisión
+  de UX, decisión (a) de wasichai/sgspe#162). Un servidor anterior responde `422` al parámetro, como a todo desconocido.
 - **Un parámetro desconocido es un `422` que lo nombra en `errors[]`, nunca un filtro ignorado** (ASM-054). La API
   genérica, en cambio, responde `400` a un filtro por un campo que no existe [WAS-DOC api/rest.md].
 
