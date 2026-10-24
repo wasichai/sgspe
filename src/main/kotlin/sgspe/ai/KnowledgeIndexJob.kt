@@ -9,6 +9,8 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import sgspe.common.Criteria
+import sgspe.common.JobTimeouts
+import sgspe.common.JobsProperties
 import sgspe.common.Organizations
 import sgspe.common.Records
 import sgspe.common.StoredFiles
@@ -167,15 +169,16 @@ class KnowledgeIndexJob(
 @EnableScheduling
 @ConditionalOnProperty(name = ["sgspe.jobs.enabled"], havingValue = "true", matchIfMissing = true)
 class KnowledgeIndexSchedule(
-    private val job: KnowledgeIndexJob
+    private val job: KnowledgeIndexJob,
+    private val jobs: JobsProperties
 ) {
     @Scheduled(cron = "\${sgspe.jobs.knowledge-index.cron:0 */30 * * * *}", zone = "America/Lima")
     suspend fun periodic() {
-        job.runOnce(full = false)
+        JobTimeouts.run(job = "JOB-07 KnowledgeIndexJob", limit = jobs.runTimeout) { job.runOnce(full = false) }
     }
 
     @Scheduled(cron = "\${sgspe.jobs.knowledge-index.daily-cron:0 15 3 * * *}", zone = "America/Lima")
     suspend fun daily() {
-        job.runOnce(full = true)
+        JobTimeouts.run(job = "JOB-07 KnowledgeIndexJob", limit = jobs.runTimeout) { job.runOnce(full = true) }
     }
 }
