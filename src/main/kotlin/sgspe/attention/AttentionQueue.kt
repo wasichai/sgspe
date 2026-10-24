@@ -29,7 +29,14 @@ data class AttentionQueueFilters(
     val severity: String?,
     val stakeholder: UUID?,
     val page: Int,
-    val size: Int
+    val size: Int,
+    val sort: QueueSort? = null
+)
+
+// el orden por columna que pide quien llama (issue #160): uno de AttentionQueueRows.SORTS, ascendente salvo dir=desc
+data class QueueSort(
+    val field: String,
+    val descending: Boolean
 )
 
 // una fila de la cola: su tipo (el objeto) y el registro como lo lee quien llama
@@ -54,8 +61,22 @@ object AttentionQueueRows {
     const val PARAM_STAKEHOLDER = "stakeholder"
     const val PARAM_PAGE = "page"
     const val PARAM_SIZE = "size"
+    const val PARAM_SORT = "sort"
+    const val PARAM_DIR = "dir"
     val PARAMS: Set<String> =
-        setOf(PARAM_PROJECT, PARAM_VIEW, PARAM_Q, PARAM_CHANNEL, PARAM_CATEGORY, PARAM_SEVERITY, PARAM_STAKEHOLDER, PARAM_PAGE, PARAM_SIZE)
+        setOf(
+            PARAM_PROJECT,
+            PARAM_VIEW,
+            PARAM_Q,
+            PARAM_CHANNEL,
+            PARAM_CATEGORY,
+            PARAM_SEVERITY,
+            PARAM_STAKEHOLDER,
+            PARAM_PAGE,
+            PARAM_SIZE,
+            PARAM_SORT,
+            PARAM_DIR
+        )
 
     const val DEFAULT_SIZE = 25
     const val MAX_SIZE = 200
@@ -140,6 +161,24 @@ object AttentionQueueRows {
             .thenBy { Values.text(it.record.attributes["code"]).orEmpty() }
             .thenBy { it.record.id }
 
+    // la lista cerrada de sort: la recepción, el código y el plazo que corre (dueDate, el de ORDER)
+    val SORTS: Map<String, (QueueRow) -> String?> =
+        linkedMapOf(
+            "received_at" to { row -> Values.text(row.record.attributes[Attention.RECEIVED_AT]) },
+            "code" to { row -> Values.text(row.record.attributes["code"]) },
+            "due_at" to { row -> dueDate(row) }
+        )
+    val DIRS: List<String> = listOf("asc", "desc")
+
+    // el orden con sort: la columna en su sentido, sin valor al final en los dos sentidos y, a igualdad, el id ascendente, para
+    // que la paginación sea estable
+    fun order(sort: QueueSort?): Comparator<QueueRow> {
+        if (sort == null) return ORDER
+        val key = SORTS.getValue(sort.field)
+        val values: Comparator<String> = if (sort.descending) reverseOrder() else naturalOrder()
+        return compareBy<QueueRow, String?>(nullsLast(values)) { key(it) }.thenBy { it.record.id }
+    }
+
     // la respuesta: la página de la vista con sus filtros, el conteo de cada vista y de cada grupo con los filtros, el de la vista
     // sin ellos (el vacío por filtros) y las abiertas por vencer (la cifra de arriba, sin filtros). `readable` son los tipos que
     // quien llama lee
@@ -150,7 +189,7 @@ object AttentionQueueRows {
         user: String
     ): Map<String, Any?> {
         val filtered = rows.filter { matches(it, filters) }
-        val inView = filtered.filter { inView(filters.view, it, user) }.sortedWith(ORDER)
+        val inView = filtered.filter { inView(filters.view, it, user) }.sortedWith(order(filters.sort))
         // el desplazamiento en Long: page * size desborda Int con una página enorme; fuera de rango, la página sale vacía
         val offset = minOf(filters.page.toLong() * filters.size, inView.size.toLong()).toInt()
         val content = inView.drop(offset).take(filters.size).map { linkedMapOf("type" to it.type, "group" to group(it), "record" to it.record) }
@@ -168,7 +207,8 @@ object AttentionQueueRows {
         )
     }
 
-    // los parámetros validados: un valor inválido es 400 INVALID_FILTER sobre el parámetro; uno desconocido, 422
+    // los parámetros validados: un valor inválido es 400 INVALID_FILTER sobre el parámetro; uno desconocido, 422, y un sort o
+    // un dir fuera de su lista cerrada (o un dir sin sort), 422 INVALID_SORT sobre el parámetro
     fun parse(
         params: Map<String, List<String>>,
         catalog: ModelCatalog
@@ -209,6 +249,30 @@ object AttentionQueueRows {
             if (value !in allowed) invalid(param, "debe ser uno de ${allowed.joinToString(", ")}")
             return value
         }
+
+        fun badSort(
+            param: String,
+            detail: String
+        ): Nothing = throw Finding("INVALID_SORT", "Orden inválido: $param $detail", param, status = HttpStatus.valueOf(422)).toCodedException()
+
+        fun sortParam(param: String): String? {
+            val values = params[param].orEmpty()
+            if (values.size > 1) badSort(param, "va una sola vez")
+            return values.firstOrNull()?.trim()?.ifEmpty { null }
+        }
+
+        fun sort(): QueueSort? {
+            val field = sortParam(PARAM_SORT)
+            val dir = sortParam(PARAM_DIR)
+            if (field == null) {
+                if (dir != null) badSort(PARAM_DIR, "va con sort")
+                return null
+            }
+            if (field !in SORTS) badSort(PARAM_SORT, "debe ser uno de ${SORTS.keys.joinToString(", ")}")
+            if (dir != null && dir !in DIRS) badSort(PARAM_DIR, "debe ser uno de ${DIRS.joinToString(", ")}")
+            return QueueSort(field, dir == "desc")
+        }
+
         val view = single(PARAM_VIEW) ?: ATTENTION
         if (view !in VIEWS) invalid(PARAM_VIEW, "debe ser una de ${VIEWS.joinToString(", ")}")
         return AttentionQueueFilters(
@@ -220,7 +284,8 @@ object AttentionQueueRows {
             severity = option(PARAM_SEVERITY, Attention.SEVERITY),
             stakeholder = id(PARAM_STAKEHOLDER),
             page = number(PARAM_PAGE, 0, 0..Int.MAX_VALUE),
-            size = number(PARAM_SIZE, DEFAULT_SIZE, 1..MAX_SIZE)
+            size = number(PARAM_SIZE, DEFAULT_SIZE, 1..MAX_SIZE),
+            sort = sort()
         )
     }
 }
