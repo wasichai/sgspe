@@ -45,6 +45,10 @@ jobs:
       contents: read
       packages: write
     timeout-minutes: 15
+    # el .npmrc que escribe setup-node con registry-url lee ${NODE_AUTH_TOKEN}: yarn 1 aborta si falta («Failed to
+    # replace env in config»), así que el token va en todo el job y no solo en npm publish (falló el release v3.1.0)
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     defaults:
       run:
         working-directory: slides
@@ -62,5 +66,3 @@ jobs:
       - run: yarn typecheck
       - run: yarn test
       - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
