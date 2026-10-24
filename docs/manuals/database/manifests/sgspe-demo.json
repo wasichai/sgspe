@@ -1,17 +1,17 @@
 {
   "name": "sgspe-demo",
-  "generated_at": "2026-10-20T09:51:19+00:00",
+  "generated_at": "2026-10-23T11:03:27+00:00",
   "source_database": "sgspe_demo",
   "application": {
     "sgspe": "3.0.0",
     "wasichai": "1.3.0",
-    "git_commit": "a66fcc67d1fce161948c085dfd4cb25895146184",
+    "git_commit": "7876be71163acf6c31cefa41e7bd6443dbcdbb36",
     "git_dirty": false
   },
   "database": {
-    "server_version": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
-    "postgis_version": "3.4.2",
-    "pg_dump": "pg_dump (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+    "server_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+    "postgis_version": "3.6.4",
+    "pg_dump": "pg_dump (PostgreSQL) 18.6 (Homebrew)",
     "encoding": "UTF8",
     "timezone_note": "timestamptz en UTC; la app usa America/Lima"
   },
@@ -31,18 +31,18 @@
   "artifacts": [
     {
       "file": "sgspe-demo.sql.gz",
-      "bytes": 1371949,
-      "sha256": "dbdca6d3c64ddd42c58cff7e2324d2c11722f58778a3b4709f3addf8090f53c5"
+      "bytes": 1394381,
+      "sha256": "30eebe44683e3d7bc87bd2c7beb9a68965e8e6d12f124aea963af8c0dc588c06"
     },
     {
       "file": "sgspe-demo.dump",
-      "bytes": 2080768,
-      "sha256": "c716742cefea98dbd37ea4e33ca96105c0c9416766d6af8bebf36173c614f362"
+      "bytes": 2123249,
+      "sha256": "7463ec15608836e6b0db0f87a1c24e0c57595d3923113d0be04c5ba0b0f3ad14"
     },
     {
       "file": "sgspe-demo-files.tar.gz",
-      "bytes": 157429,
-      "sha256": "55981dc8bfdd2844c78f2a47f966b1265861cbea618a28c306f95c63da79eaf2"
+      "bytes": 157310,
+      "sha256": "e20a0bb96722d3fff9d85e4cdb1da7c76a8b7b7b23fcb1998089208808e5047e"
     }
   ],
   "files_store": {
@@ -125,19 +125,23 @@
   },
   "constraints": {
     "check": {
-      "count": 158,
+      "count": 161,
       "not_validated": 2
     },
     "foreign_key": {
-      "count": 384,
+      "count": 387,
+      "not_validated": 0
+    },
+    "not_null": {
+      "count": 1094,
       "not_validated": 0
     },
     "primary_key": {
-      "count": 167,
+      "count": 168,
       "not_validated": 0
     },
     "unique": {
-      "count": 69,
+      "count": 70,
       "not_validated": 0
     }
   },
@@ -312,6 +316,7 @@
       "contact_method": 0,
       "contribution_item": 3,
       "deliverable": 1,
+      "deliverable_presentation": 0,
       "deliverable_section": 52,
       "deliverable_template": 0,
       "deliverable_version": 0,
@@ -406,6 +411,7 @@
     "app_data.contact_method__00000000": 0,
     "app_data.contribution_item__00000000": 3,
     "app_data.deliverable__00000000": 1,
+    "app_data.deliverable_presentation__00000000": 0,
     "app_data.deliverable_section__00000000": 52,
     "app_data.deliverable_template__00000000": 0,
     "app_data.deliverable_version__00000000": 0,
@@ -506,11 +512,11 @@
     "sgspe.derived_version": 470,
     "sgspe.idempotency_key": 267,
     "sgspe.knowledge_chunk": 0,
-    "wasichai.audit_log": 5216,
+    "wasichai.audit_log": 5223,
     "wasichai.automation_runs": 35,
     "wasichai.automations": 7,
-    "wasichai.custom_fields": 1074,
-    "wasichai.custom_objects": 90,
+    "wasichai.custom_fields": 1092,
+    "wasichai.custom_objects": 91,
     "wasichai.document_counters": 0,
     "wasichai.document_types": 3,
     "wasichai.documents": 0,
@@ -541,8 +547,8 @@
     "wasichai.org_units": 0,
     "wasichai.organizations": 1,
     "wasichai.pages": 0,
-    "wasichai.permissions": 1678,
-    "wasichai.relationships": 293,
+    "wasichai.permissions": 1694,
+    "wasichai.relationships": 296,
     "wasichai.roles": 16,
     "wasichai.service_accounts": 0,
     "wasichai.stored_files": 4,
