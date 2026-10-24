@@ -131,7 +131,8 @@ await flow('F-B', 'Compromiso aprobado → «Iniciar ejecución» (hasta Confirm
   return { measured: c.steps.length, note: `primaria = siguiente acción «${label}»; el motivo se escribe, no cuenta como clic` }
 })
 
-// F-C · encontrar y filtrar: vista «Vencidos», filtro por grupo de interés, volver con el filtro y J/K
+// F-C · encontrar y filtrar: vista «Vencidos», «Más filtros» → grupo de interés (wasichai/sgspe-ui#77), volver con el
+// filtro y J/K
 await flow('F-C', '«Compromisos vencidos de un grupo de interés»', '3 + búsqueda', 4, async () => {
   const page = await pageFor(USERS.social)
   await page.goto(`${UI}${P}/overview`)
@@ -142,10 +143,22 @@ await flow('F-C', '«Compromisos vencidos de un grupo de interés»', '3 + búsq
   const more = visible(page.getByRole('button', { name: /Más filtros/ }))
   if (!(await more.count())) throw new Error('la lista de Compromisos no tiene «Más filtros»: no hay filtro por grupo de interés')
   await c.click(more, '«Más filtros»')
-  const field = visible(page.getByLabel(/Grupo de interés|Solicitante/))
-  if (!(await field.count())) throw new Error('«Más filtros» no ofrece el filtro por grupo de interés')
-  await c.click(field, 'campo Grupo de interés')
-  return { measured: c.steps.length + 1, note: 'más la elección del grupo; la URL lleva los filtros' }
+  const grupos = page.getByRole('list', { name: 'Grupos de interés' })
+  await grupos.waitFor({ state: 'visible', timeout: 30000 })
+  // los nombres llegan después de la lista (cada grupo nombra a su persona u organización): mientras tanto dicen «…»
+  const hasta = Date.now() + 30000
+  while ((await grupos.getByRole('button', { name: '…' }).count()) && Date.now() < hasta) await page.waitForTimeout(300)
+  const grupo = visible(grupos.getByRole('button')).first()
+  const nombre = (await grupo.innerText()).trim()
+  await c.click(grupo, `el grupo «${nombre}»`)
+  const url = new URL(page.url())
+  if (!url.searchParams.get('stakeholder')) throw new Error('elegir el grupo no escribió ?stakeholder= en la URL')
+  const chip = await page.getByText(`Grupo de interés: ${nombre}`).count()
+  // el filtro se aplica al elegir; el panel de «Más filtros» se cierra con «Ver resultados» (o Esc), como en toda lista
+  return {
+    measured: c.steps.length,
+    note: `?view=${url.searchParams.get('view') ?? '—'}&stakeholder=…; ${chip ? 'chip «Grupo de interés: …» aplicado' : 'SIN chip'}; la URL se comparte; + cerrar el panel («Ver resultados»), común a «Más filtros»`
+  }
 })
 await flow('F-C', 'Volver desde la ficha con el filtro, y J/K', 'atrás del navegador', 1, async () => {
   const page = await pageFor(USERS.social)
