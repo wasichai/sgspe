@@ -250,6 +250,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 
 |Versión de entregable (`deliverable_version`) |R |
 
+|Presentación de entregable (`deliverable_presentation`) |RC |
+
 |Plantilla de entregable (`deliverable_template`) |R |
 
 |Registro de exportación (`export_log`) |C |
@@ -434,6 +436,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 |Sección de entregable (`deliverable_section`) |RCUD |
 
 |Versión de entregable (`deliverable_version`) |RC |
+
+|Presentación de entregable (`deliverable_presentation`) |RC |
 
 |Plantilla de entregable (`deliverable_template`) |R |
 
@@ -624,6 +628,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 
 |Versión de entregable (`deliverable_version`) |R |
 
+|Presentación de entregable (`deliverable_presentation`) |R |
+
 |Plantilla de entregable (`deliverable_template`) |R |
 
 |Sugerencia de IA (`ai_suggestion`) |RCU |
@@ -810,6 +816,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 |Sección de entregable (`deliverable_section`) |RCU |
 
 |Versión de entregable (`deliverable_version`) |RC |
+
+|Presentación de entregable (`deliverable_presentation`) |RC |
 
 |Plantilla de entregable (`deliverable_template`) |R |
 
@@ -1000,6 +1008,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 
 |Versión de entregable (`deliverable_version`) |R |
 
+|Presentación de entregable (`deliverable_presentation`) |R |
+
 |Plantilla de entregable (`deliverable_template`) |R |
 
 |Registro de exportación (`export_log`) |C |
@@ -1189,6 +1199,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 
 |Versión de entregable (`deliverable_version`) |R |
 
+|Presentación de entregable (`deliverable_presentation`) |R |
+
 |Plantilla de entregable (`deliverable_template`) |R |
 
 |Registro de exportación (`export_log`) |C |
@@ -1375,6 +1387,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 |Sección de entregable (`deliverable_section`) |R |
 
 |Versión de entregable (`deliverable_version`) |R |
+
+|Presentación de entregable (`deliverable_presentation`) |R |
 
 |Plantilla de entregable (`deliverable_template`) |R |
 
@@ -1565,6 +1579,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 
 |Versión de entregable (`deliverable_version`) |R |
 
+|Presentación de entregable (`deliverable_presentation`) |R |
+
 |Plantilla de entregable (`deliverable_template`) |R |
 
 |Estudio o diagnóstico (`study`) |R |
@@ -1745,6 +1761,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 |Sección de entregable (`deliverable_section`) |R |
 
 |Versión de entregable (`deliverable_version`) |R |
+
+|Presentación de entregable (`deliverable_presentation`) |R |
 
 |Plantilla de entregable (`deliverable_template`) |R |
 
@@ -2026,6 +2044,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 
 |Versión de entregable (`deliverable_version`) |R |
 
+|Presentación de entregable (`deliverable_presentation`) |R |
+
 |Plantilla de entregable (`deliverable_template`) |R |
 
 |Estudio o diagnóstico (`study`) |R |
@@ -2220,6 +2240,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 
 |Versión de entregable (`deliverable_version`) |R |
 
+|Presentación de entregable (`deliverable_presentation`) |RC |
+
 |Plantilla de entregable (`deliverable_template`) |R |
 
 |Registro de exportación (`export_log`) |C |
@@ -2404,6 +2426,8 @@ Abreviaturas: *R* leer, *C* crear, *U* actualizar, *D* borrar, *u* actualizar si
 |Sección de entregable (`deliverable_section`) |R |
 
 |Versión de entregable (`deliverable_version`) |R |
+
+|Presentación de entregable (`deliverable_presentation`) |R |
 
 |Plantilla de entregable (`deliverable_template`) |R |
 

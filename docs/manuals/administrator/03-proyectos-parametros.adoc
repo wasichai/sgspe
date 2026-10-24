@@ -43,7 +43,7 @@ los proyectos solo ve y modifica los proyectos donde tiene una asignación vigen
 . Pulse btn:[Asignar].
 
 .Equipo del proyecto
-image::screenshots/admin/01-equipo.png[Pestaña Equipo con las personas asignadas, su rol, el periodo, el estado Vigente y la acción Terminar asignación]
+image::screenshots/admin/01-equipo.png[Pestaña Equipo con las personas asignadas, su rol, el periodo, el estado Vigente y el menú de acciones de cada fila]
 
 .Formulario de asignación
 image::screenshots/admin/14-asignar-persona.png[Panel Asignar persona con los campos Usuario, Rol en el proyecto, Desde y Hasta]
@@ -52,8 +52,9 @@ image::screenshots/admin/14-asignar-persona.png[Panel Asignar persona con los ca
 
 *Verificación:* la persona ve el proyecto en su selector y puede registrar en él según su rol.
 
-Para retirar a alguien, pulse «Terminar asignación» y confirme con btn:[Sí, terminar]. La asignación queda en el
-historial; la persona deja de poder modificar el proyecto.
+Para retirar a alguien, abra el menú de su fila (el botón «⋯»), elija «Terminar la asignación…» y confírmelo en el
+diálogo, que nombra a la persona y el efecto, con btn:[Terminar la asignación]. La asignación queda en el historial; la
+persona deja de poder modificar el proyecto.
 
 NOTE: El rol de la asignación describe la función en el proyecto; los *permisos* los dan los roles del usuario
 (<<adm-roles>>). Asigne a cada persona un rol de proyecto coherente con los roles de su cuenta.

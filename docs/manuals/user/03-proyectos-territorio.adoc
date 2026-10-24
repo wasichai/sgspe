@@ -19,14 +19,14 @@ image::screenshots/user/06-proyectos.png[Lista de proyectos con el proyecto DEMO
 . Abra la pestaña «Resumen».
 
 .Resumen del proyecto
-image::screenshots/user/07-proyecto-resumen.png[Resumen del proyecto con atención requerida, salud del proyecto, paisaje de grupos de interés y reuniones al mes frente a la meta]
+image::screenshots/user/07-proyecto-resumen.png[Resumen del proyecto con sus cifras, qué requiere atención, el paisaje de grupos de interés y las reuniones al mes frente a la meta]
 
-El resumen reúne:
+Bajo el nombre del proyecto están su estado, su jefatura, su etapa y su fase. El resumen reúne:
 
-* *Atención requerida*: actas por redactar, grupos de interés sin contacto reciente y evaluaciones vencidas, con
-  enlaces a cada registro.
-* *Salud del proyecto*: grupos de interés vigentes, interacciones realizadas este mes, compromisos vencidos, QCS
-  abiertas y riesgos altos.
+* *Las cifras del proyecto*: grupos de interés vigentes, interacciones realizadas este mes, compromisos vencidos, QCS
+  abiertas y riesgos altos. Si su cuenta no lee las QCS confidenciales, la cifra lo advierte.
+* *Qué requiere atención*: lo más urgente de cada grupo con su motivo (actas por redactar, grupos de interés sin
+  contacto reciente y evaluaciones antiguas), con enlaces a cada registro y «Mostrar más».
 * *Paisaje de grupos de interés*: la matriz interés × poder en miniatura y la distribución de posturas.
 * *Reuniones al mes frente a la meta*, *Áreas de influencia vigentes*, *Mapa del proyecto* y *Actividad reciente*.
 
