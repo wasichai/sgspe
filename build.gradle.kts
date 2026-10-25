@@ -132,6 +132,12 @@ tasks.register<Test>("integrationTest") {
     systemProperty("sgspe.jobs.enabled", "false")
     integrationDefaults()
     withoutProviderKey()
+    // sin maxHeapSize, Gradle da al JVM de las pruebas -Xmx512m: la caché de contextos de Spring guardaba los 22 de la suite
+    // (ninguno se cerraba, el tope por defecto es 32), unos 20 MB vivos cada uno, y el heap quedaba en 470 de 512 MB con GC
+    // completos seguidos; el contexto que cargaba entonces (WmsProxyApiTest en la CI) caía con OutOfMemoryError. 12 contextos
+    // como máximo acotan lo vivo aunque crezca el número de clases, y 2 GB dejan holgura en el runner (16 GB)
+    maxHeapSize = "2g"
+    systemProperty("spring.test.context.cache.maxSize", "12")
     // -Dmatrix.roles=FIELD_AGENT,GIS_ANALYST recorta la matriz de permisos a esos roles (PermissionMatrixApiTest)
     System.getProperty("matrix.roles")?.let { systemProperty("matrix.roles", it) }
     // la app registra en stdout; stderr lleva solo lo que una prueba reporta
