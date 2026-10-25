@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/wasichai/sgspe/compare/v3.2.0...v3.2.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **ci:** heap de 2 GB y caché de 12 contextos para integrationTest ([#177](https://github.com/wasichai/sgspe/issues/177)) ([14a2fa9](https://github.com/wasichai/sgspe/commit/14a2fa9d99b070cd731ff26836728c1b6d0f57be))
+
 ## [3.2.0](https://github.com/wasichai/sgspe/compare/v3.1.0...v3.2.0) (2026-10-24)
 
 
