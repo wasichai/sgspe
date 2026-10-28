@@ -45,7 +45,7 @@ class EmbabelStructuredModelTest {
         llm.script.returnObject(Proposal("Reparar el canal", 0.8))
         EmbabelStructuredModel.call(RecordingLlm.platform(llm), request())
         val options = requireNotNull(llm.options)
-        assertEquals("claude-haiku-5-5", options.model)
+        assertEquals("claude-haiku-5-5", options.modelName)
         assertEquals(2_048, options.maxTokens)
         assertEquals(Thinking.NONE, options.thinking)
     }
