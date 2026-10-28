@@ -464,6 +464,18 @@ FichaPage (PorRuta)
 - Las transiciones que el rol no tiene no aparecen; las que tiene pero hoy no puede dar aparecen deshabilitadas con la razón
   **a la vista** (dentro de "Más acciones", bajo su nombre), no solo en un `title`. Elegir una transición del menú lo cierra, y
   al cerrar el diálogo el foco vuelve a "Más acciones".
+- **Los datos del propio paso se piden en el diálogo** (DD-33): la resolución y la respuesta de una queja, la respuesta de una
+  consulta y cuándo se comunicó, la decisión de tratamiento y el motivo de cierre de un riesgo, la respuesta inmediata y las
+  consecuencias de un incidente, las fechas de una interacción y de un acuerdo. La lista es explícita por objeto: no se piden
+  datos que cambian qué reglas se evalúan (el tipo de un aporte decide sus lineamientos). Si solo faltan esos datos, el botón
+  de la transición no se deshabilita: el diálogo los pide, los guarda con `If-Match` y aplica la transición sobre la versión
+  nueva con un solo motivo. Si lo que falta es otro campo que la persona puede escribir, la ficha ofrece «Completar ‹campo›»
+  junto al bloqueo, con solo ese campo (DD-32).
+- **El botón de confirmar repite el verbo** de la transición («Resolver», «Devolver acta»); el que cierra el registro nombra el
+  objeto («Cancelar el compromiso») y va con peligro. **«Qué pasará»** suma lo que el paso hace además del estado, solo donde el
+  modelo lo hace (la tarea que crea una automatización, lo que se congela).
+- **Después de aplicar** (DD-34), «Listo: el registro está en ‹estado›. Ahora: ‹siguiente acción›» queda hasta la siguiente
+  acción y recibe el foco, porque el botón que abrió el diálogo puede irse con el estado nuevo.
 
 ### 6.3 Formulario por pasos
 
