@@ -193,7 +193,8 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 - **Barra superior (56 px), seis controles** (DD-09): marca, selector de proyecto, «Buscar» (⌘K), «Preguntar» del
   asistente (§7.5), la campana de avisos y la cuenta con el nombre y los rótulos de sus roles. El selector de proyecto es un
   combobox con búsqueda: «Todos mis proyectos» o uno; en Territorio, «Todo el territorio» o el proyecto que hace de lente
-  (§6.1). El idioma (cada uno nombrado en su propia lengua), el tema y «Salir» van en el menú de la cuenta, con los datos
+  (§6.1). Cambiar de proyecto lleva a la pantalla equivalente del otro alcance y, si es la misma, conserva la vista, el
+  orden, la búsqueda y los filtros que no nombran un registro (DD-43). El idioma (cada uno nombrado en su propia lengua), el tema y «Salir» van en el menú de la cuenta, con los datos
   de la cuenta; nada de eso va suelto en la barra. El lema de la marca se ve solo desde 1536 px (`min-[96rem]`, DD-24): en
   SGSPE, `2xl` es 1440 px, y a ese ancho la barra lleva solo sus seis controles. Antes de ingresar, el idioma se elige en
   el login (ASM-084).
@@ -215,13 +216,15 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
   menú, la marca, un chip con el alcance actual (abre el panel), «Buscar» y «Preguntar» como íconos, la campana y, desde
   640 px, la cuenta.
 - **Teléfono (< 640 px):** una barra inferior de cuatro destinos con objetivos de 48 px, la misma para toda cuenta (DD-17):
-  Inicio · Tareas (si la cuenta tiene la sección) · Avisos · Más, con las insignias de tareas y avisos. «Más» abre el panel
+  Inicio · Tareas (si la cuenta tiene la sección) · Avisos · Más, con las insignias de tareas y avisos; la de avisos cuenta
+  lo mismo que la campana, los sin leer de todo tipo, porque en el teléfono se ven las dos (DD-31). «Más» abre el panel
   del menú. Una ficha con barra fija de acciones la deja sobre la barra inferior. Los destinos propios del campo sin conexión
   (Capturar, Cola) y las variantes por rol de la hoja `Shell-Telefono` (lienzo de la etapa 3, página 21) son del diseño de
   ASM-081 y no están implementados.
 - **Sub-navegación de proyecto:** dentro de un proyecto, la navegación principal marca la sección del módulo abierto
   (`/projects/:projectId/commitments/…` marca Compromisos, no Proyectos), y sobre el contenido van la barra de contexto
-  (migas, estado y chip de territorio) y **una sola fila de pestañas** (DD-03). Cada pestaña lleva el total del alcance
+  (migas, con el estado del proyecto en el paso del proyecto, y chip de territorio; DD-30) y **una sola fila de pestañas**
+  (DD-03). Cada pestaña lleva el total del alcance
   (gris) y una insignia con lo que pide acción (vencidos, fuera de plazo, alertas, propuestas de IA por revisar). La pestaña
   del registro abierto queda marcada también en las fichas que viven en otro segmento (`grievances`, `inquiries` y `requests`
   marcan QCS; `contributions`, Programas), y las migas la nombran. Si la fila no cabe, se desplaza, y la pestaña activa queda
@@ -253,7 +256,9 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 
 ### 7.3 Búsqueda global y comandos
 
-- Se abre con ⌘K o Ctrl K desde cualquier pantalla [PRM-02 §24]. Busca proyectos, territorio, grupos de interés, actores,
+- Se abre con ⌘K o Ctrl K desde cualquier pantalla [PRM-02 §24]; el botón dice la tecla del teclado de quien mira (⌘ K en
+  Mac, Ctrl K en los demás), y «?» abre la hoja de atajos de teclado, también desde el menú de la cuenta (DD-44). Busca
+  proyectos, territorio, grupos de interés, actores,
   compromisos, QCS, riesgos, programas y documentos, solo entre lo que la persona puede leer.
 - Antes de escribir: recientes, búsquedas sugeridas por rol e "Ir a…".
 - Al escribir: resultados agrupados por categoría con conteo, pestañas por categoría, vista previa del resultado activo y
@@ -288,8 +293,8 @@ ejecutiva (S51) ya no es el inicio de nadie: vive en `/dashboards/executive` (DD
 
 | Orden | Bloque | Se ofrece si la cuenta… | Qué muestra |
 |---|---|---|---|
-| 1 | **Lo que me toca hoy** | Tiene a su cargo tareas, compromisos o QCS abiertos, o tareas sin asignar en sus proyectos | Lo abierto a su cargo, con lo vencido primero, luego lo por vencer y lo demás por fecha: cinco a la vista con su motivo y su fecha, y el resto desplegable en el lugar. Debajo, «Para tomar en sus proyectos»: las tareas abiertas sin asignar de los proyectos de la cuenta, en una sola lectura (el servidor acota, ADR-0029), hasta cinco, cada una con su proyecto, y «Ver los N» hacia «Mis tareas». Quien lee todos los proyectos conserva la lectura por proyecto de sus asignaciones (seis proyectos, tres tareas cada uno; wasichai/sgspe#162) |
-| 2 | **Esperan su decisión** | Recibe avisos de aprobación, puede confirmar alertas tempranas o tiene avisos que piden acción sin leer | Aprobaciones (como S48), alertas por triar y avisos que piden acción, cada grupo con lo más urgente, su motivo y su enlace (`ListaPriorizada`) |
+| 1 | **Lo que me toca hoy** | Tiene a su cargo tareas, compromisos o QCS abiertos, o tareas sin asignar en sus proyectos | Lo abierto a su cargo, con lo vencido primero, luego lo por vencer y lo demás por fecha: cinco a la vista con su motivo y su fecha, y el resto desplegable en el lugar. Debajo, «Para tomar en sus proyectos»: las tareas abiertas sin asignar de los proyectos de la cuenta, en una sola lectura (el servidor acota, ADR-0029), hasta cinco, cada una con su proyecto, y «Ver los N» hacia «Mis tareas». Quien lee todos los proyectos conserva la lectura por proyecto de sus asignaciones (seis proyectos, tres tareas cada uno; wasichai/sgspe#162). Las fechas se dicen como en el resto del portal («venció el 17 oct. 2026»). Si una de sus lecturas falla, lo dice con su motivo y «Reintentar»: «Nada pendiente a su cargo» solo cuando todas respondieron |
+| 2 | **Esperan su decisión** | Recibe avisos de aprobación, puede confirmar alertas tempranas o tiene avisos que piden acción activos | Aprobaciones (como S48), alertas por triar y avisos que piden acción, cada grupo con lo más urgente, su motivo y su enlace (`ListaPriorizada`). Un aviso que pide acción sigue aquí aunque se haya abierto: se va cuando el trabajo se hace, con «Sin leer» como marca y no como filtro (DD-31) |
 | 3 | **Agenda de la semana** | Lee visitas de campo o interacciones | De hoy a siete días: las visitas que lidera y las interacciones programadas en sus proyectos con asignación vigente, porque la interacción no tiene responsable (DD-26) |
 | 4 | **Registrar** | Tiene `CREATE` sobre alguno de sus objetos | «Registrar interacción», «Registrar QCS», «Nuevo compromiso» y «Nuevo proyecto»; si hace falta, piden el proyecto entre los que puede escribir |
 | 5 | **Mis proyectos** | Tiene asignaciones vigentes | Una tarjeta por proyecto con su estado, su jefatura (ASM-080) y lo que pide acción: compromisos vencidos, QCS vencidas y riesgos altos o críticos, cada cifra hacia su lista. Una cifra en cero no se dibuja; una que no lee o no llegó es «—», nunca cero. Con más de seis, los seis con más pendientes y «Ver todos» |
@@ -329,7 +334,7 @@ proyecto y del territorio**, y volver a cualquier punto.
 
 | Pieza | Qué hace | Dónde vive el estado |
 |---|---|---|
-| Barra de contexto | Muestra el proyecto y el chip de territorio; quitar el chip devuelve el proyecto entero sin cambiar de pantalla | Ruta (`/projects/:projectId`) y consulta (`?territory=community:<id>`) |
+| Barra de contexto | Muestra el proyecto y el chip de territorio; quitar el chip devuelve el proyecto entero sin cambiar de pantalla. Dentro de un proyecto, el estado del proyecto va en su paso de las migas, nunca tras el último, donde se leía como el del registro abierto (DD-30) | Ruta (`/projects/:projectId`) y consulta (`?territory=community:<id>`) |
 | Chip de territorio | Filtra todas las listas y tableros del proyecto por una comunidad, localidad, unidad administrativa o área de influencia, con la misma regla de inclusión de los tableros (dashboards §3.1) | Consulta de la URL |
 | Rastro | Lista lo recorrido (por ejemplo, Mapa · CC Tunas Pampa › Junta directiva › Asamblea › COM-2026-031 › Acta); cada paso vuelve a esa vista con sus filtros | Estado del historial del navegador (sesión) |
 | Breadcrumbs | Dicen dónde vive el registro (Proyectos / Pukaqaqa / Compromisos / COM-2026-031); no cambian con el recorrido | Derivado de la ruta |

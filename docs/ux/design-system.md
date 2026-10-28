@@ -352,7 +352,8 @@ o se compone en el portal.
 | Card, MetricCard, KpiCard | Bloques e indicadores: toda superficie con título es una `Seccion` (§5.1) | KPI con delta y desglose; "n de N" con barra; "no disponible"; `KpiCard` anidada, sin caja propia, dentro de una sección | La cifra y su contexto se leen juntos | portal |
 | DataTable | Toda lista: las anchas, con `TablaPriorizada` (§5.1) | Densa y cómoda; prioridad de columnas y «Columnas»; orden; selección; grupos por prioridad | `<table>` real; `aria-sort`; encabezados de grupo | wasichai + portal |
 | FilterBar, FilterChip | Filtros en la URL: `BarraDeFiltros` (§5.1) | Vista, búsqueda, tres frecuentes, «Más filtros», chips con valor y «Limpiar filtros» | Cada chip quitable con teclado | portal |
-| SavedViews | Vistas del sistema, compartidas y mías (ASM-083) | En las listas rediseñadas, el `SelectorDeVista` (§5.1); Proyectos, Mis tareas y Aprobaciones conservan las pestañas de `VistasGuardadas` | `radiogroup` en el selector; `role="tablist"` en las pestañas | portal |
+| BulkActionBar | Una selección múltiple: `BarraDeSeleccion` | Cuántos van, las acciones sobre ellos, «Elegir los N de esta página», «Quitar la selección» y el resultado del último lote, que queda aunque la selección se vacíe | Región con el conteo por nombre; el conteo en `aria-live`; el resultado en `role="status"` | portal |
+| SavedViews | Vistas del sistema, compartidas y mías (ASM-083) | En las listas rediseñadas, el `SelectorDeVista` (§5.1), también Proyectos desde la tercera pasada; Mis tareas y Aprobaciones conservan las pestañas de `VistasGuardadas` | `radiogroup` en el selector; `role="tablist"` en las pestañas | portal |
 | SavedViewDialog | Guardar o compartir una vista (ASM-083) | Nombre; visibilidad solo yo, equipo del proyecto u organización (esta última solo para quien puede) | `role="dialog"`; la visibilidad es un `fieldset` de radios | portal |
 | LanguageSwitch | Idioma de la interfaz (ASM-084) | Menú del perfil, enlaces del login y «Más» del teléfono; cada idioma en su propia lengua | `lang` en cada opción; la página cambia su `lang` | portal |
 | MapAttribution | Atribución del mapa base (ASM-085) | Siempre visible; se pliega a «ⓘ» en pantallas chicas | Texto real enlazable; no tapa los controles | `@wasichai/gis` + portal |
@@ -430,7 +431,11 @@ La misma anatomía para todo objeto importante [PRM-02 §26], en tres franjas (D
    [PRM-02 §15]. El **camino del flujo** (`CaminoDelFlujo`) va plegado dentro de «Estado actual», tras «Ver el camino».
 4. **Cuerpo en secciones** (`Seccion`): los atributos de cada sección con `CamposPlegables`, que pliega los vacíos tras
    «Mostrar los N campos sin dato»; las pestañas del objeto cuando las tiene (en un compromiso: Resumen, Entregas,
-   Evidencias, Actividad…).
+   Evidencias, Actividad…). Una sección con campos que la ficha deja editar lleva su **«Editar»** junto al título
+   (`EditarSeccion`): abre un cajón con solo esos campos y el motivo si el objeto lo pide. El «Editar» de la cabecera sigue
+   para todo. En un cajón, las acciones de un formulario largo quedan fijas al pie del área que se desplaza.
+   Al llegar de un alta, bajo la cabecera va un **aviso de éxito** (`AvisoDeExito`, una sola vez) con lo que se creó y lo
+   que el modelo hizo con ello: «Se registró la queja Q-005. Se creó la tarea de acusar recibo.» (DD-34).
 5. **Panel de trazabilidad** al costado desde `lg`, con tres grupos fijos: "De dónde viene" (origen), "Qué generó"
    (consecuencias) y "Lo sustenta" (evidencias y documentos que lo respaldan) (ux-architecture §8). Por debajo, pasa bajo el
    contenido.
@@ -464,6 +469,18 @@ FichaPage (PorRuta)
 - Las transiciones que el rol no tiene no aparecen; las que tiene pero hoy no puede dar aparecen deshabilitadas con la razón
   **a la vista** (dentro de "Más acciones", bajo su nombre), no solo en un `title`. Elegir una transición del menú lo cierra, y
   al cerrar el diálogo el foco vuelve a "Más acciones".
+- **Los datos del propio paso se piden en el diálogo** (DD-33): la resolución y la respuesta de una queja, la respuesta de una
+  consulta y cuándo se comunicó, la decisión de tratamiento y el motivo de cierre de un riesgo, la respuesta inmediata y las
+  consecuencias de un incidente, las fechas de una interacción y de un acuerdo. La lista es explícita por objeto: no se piden
+  datos que cambian qué reglas se evalúan (el tipo de un aporte decide sus lineamientos). Si solo faltan esos datos, el botón
+  de la transición no se deshabilita: el diálogo los pide, los guarda con `If-Match` y aplica la transición sobre la versión
+  nueva con un solo motivo. Si lo que falta es otro campo que la persona puede escribir, la ficha ofrece «Completar ‹campo›»
+  junto al bloqueo, con solo ese campo (DD-32).
+- **El botón de confirmar repite el verbo** de la transición («Resolver», «Devolver acta»); el que cierra el registro nombra el
+  objeto («Cancelar el compromiso») y va con peligro. **«Qué pasará»** suma lo que el paso hace además del estado, solo donde el
+  modelo lo hace (la tarea que crea una automatización, lo que se congela).
+- **Después de aplicar** (DD-34), «Listo: el registro está en ‹estado›. Ahora: ‹siguiente acción›» queda hasta la siguiente
+  acción y recibe el foco, porque el botón que abrió el diálogo puede irse con el estado nuevo.
 
 ### 6.3 Formulario por pasos
 
@@ -474,7 +491,27 @@ FichaPage (PorRuta)
   cantidad y unidad), 3 Partes y beneficiarios, 4 Plazo e hitos, 5 Monto y campaña (con el tope a la vista, RN-INV-003),
   6 Responsable, 7 Revisar y enviar (con los campos mínimos de la guarda D1). La evidencia no se pide al crear: se exige al
   registrar el cumplimiento (RN-COM-001).
-- Cancelar un borrador pide confirmación; salir con cambios sin guardar avisa.
+- Cancelar un borrador pide confirmación; salir con cambios sin guardar avisa. Con borrador, el aviso de salida dice que lo
+  escrito queda en este navegador.
+- **El borrador** (`useBorradorLocal`, DD-41) se guarda medio segundo después del último cambio y al salir de la pantalla,
+  con los ids elegidos fuera del formulario (los solicitantes de un compromiso). Se recupera con un aviso que dice desde
+  cuándo y ofrece descartarlo. Es de quien lo escribió:
+  - la clave lleva su cuenta, y otra persona en el mismo navegador no lo ve;
+  - «Cerrar sesión» borra los de este navegador. Si la sesión vence, quien vuelve a entrar lo recupera;
+  - lo restringido nunca se guarda (la persona de una QCS);
+  - una QCS confidencial no deja borrador.
+  Lo tienen el compromiso, la interacción (cada modo, el suyo), la QCS y la evaluación.
+- **Cambiar de modo no borra lo cargado:** el conmutador del modo rápido lleva al otro modo lo que ese modo sabe recibir (el
+  tipo, los grupos presentes, los asistentes contados y el punto). Lo demás queda en el borrador del modo que se deja.
+- **Se propone lo que ya se sabe, siempre editable,** y lo propuesto no cuenta como un cambio por avisar:
+  - «Sí, ya se realizó» propone la hora de ahora y lo dice bajo el campo;
+  - un alta abierta desde una interacción propone su fecha y sus grupos de interés;
+  - el responsable ofrece «Asignarme»;
+  - «¿En qué proyecto?» propone el último elegido.
+- Una lista de grupos de interés con seis o más trae su búsqueda (`EleccionDeGrupos`): por el nombre que ve quien mira, sin
+  tildes. Lo elegido no se esconde al buscar.
+- Una lista hija que se carga de a uno (los ítems de un aporte) deja el cajón abierto tras guardar, con el formulario vacío
+  para el siguiente y «Listo» para cerrar.
 
 ### 6.4 Lista con vistas guardadas y acciones masivas
 

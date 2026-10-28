@@ -62,16 +62,25 @@ listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
   búsqueda (`q`, 300 ms después de la última tecla), hasta tres filtros frecuentes, «Más filtros» en un drawer, un chip por
   filtro aplicado y «Limpiar filtros». Las anchas usan `TablaPriorizada` (DD-05): esenciales siempre, secundarias desde `xl`
   y opcionales en «Columnas»; Enter en una fila abre la ficha y Espacio su vista previa (`?peek=`). Una columna ordenable
-  tiene su encabezado como botón con `aria-sort`; el orden dura la visita (no viaja en la URL) y otro orden vuelve a la
-  primera página. Ordenan: Alertas (S41, por fecha y título), Interacciones (S22, título y fecha), Programas (S42, código y
-  programa) y sus aportes (código), Compromisos (S28, código, compromiso y vence), Acuerdos (acuerdo, por su código, y
-  vence), Riesgos (S39, riesgo por código, P × I y nivel por su orden de negocio) y Grupos de interés (S16, solo la
-  prioridad, por su orden de negocio). Las que filtran en el navegador ordenan en memoria (Riesgos, Grupos e
-  Interacciones por fecha); las demás piden `sort` y `dir` al servidor. Un monto no se ordena (mezcla monedas, ASM-063) ni
-  un estado o un enum. La cola de QCS (S35) todavía no ordena: espera wasichai/sgspe#160. La ficha abierta desde
-  la lista recuerda su origen y su resultado en el estado del historial (ASM-075). En el teléfono, la lista
-  pasa a tarjetas (`ListaEnTarjetas`) y los filtros frecuentes, a «Filtros (N)». Las páginas de un módulo con ruta propia
-  (Compromisos y Acuerdos; las de Riesgos) van en un `SelectorDePagina` en la cabecera (DD-23).
+  tiene su encabezado como botón con `aria-sort`; el orden viaja en la URL (`?sort=&dir=`, con el id de la columna; DD-37),
+  así que volver de una ficha lo conserva, y otro orden vuelve a la primera página. «Atrás» devuelve la lista al
+  desplazamiento que tenía, y avanzar a otra página lleva el foco a su título. La búsqueda está también en Grupos (por el
+  nombre que ve quien mira, sin tildes), Riesgos (código o título), Interacciones, Programas y aportes, Incidentes (en el
+  servidor), Proyectos (S06, código o nombre) y las listas de página de Señales, Menciones e Impactos (S58, S59 y S61, en
+  lo leído); Avisos no la tiene: su bandeja pagina en wasichai-notifications, que no busca por texto. Ordenan: Alertas
+  (S41, por fecha y título), Incidentes (incidente, por su código, y fecha), Proyectos (S06, código y nombre),
+  Interacciones (S22, título y fecha), Programas (S42, código y programa) y sus aportes (código), Compromisos (S28, código,
+  compromiso y vence), Acuerdos (acuerdo, por su código, y vence), Riesgos (S39, riesgo por código, P × I y nivel por su
+  orden de negocio) y Grupos de interés (S16, solo la prioridad, por su orden de negocio). Las que filtran en el navegador
+  ordenan en memoria (Riesgos, Grupos e Interacciones por fecha); las demás piden `sort` y `dir` al servidor. Un monto no se
+  ordena (mezcla monedas, ASM-063) ni un estado o un enum. La cola de QCS (S35) todavía no ordena: espera wasichai/sgspe#160.
+  La ficha abierta desde la lista recuerda su origen y su resultado en el estado del historial (ASM-075). En el teléfono, la
+  lista pasa a tarjetas (`ListaEnTarjetas`) y los filtros frecuentes, a «Filtros (N)». Las páginas de un módulo con ruta
+  propia (Compromisos y Acuerdos; las de Riesgos) van en un `SelectorDePagina` en la cabecera (DD-23). Una lista que elige
+  varios registros (Grupos de interés; «Para tomar» de Tareas) lleva `BarraDeSeleccion`: cuántos van, las acciones sobre
+  ellos, elegir todos los de la página, quitar la selección y el resultado del último lote. Cambiar de proyecto en la
+  barra superior, si se llega a la misma pantalla del otro alcance, conserva la vista, el orden, la búsqueda y los filtros
+  que no nombran un registro (DD-43).
 - **Fichas (P-09):** las de grupo de interés (S17), interacción (S23), compromiso (S29), acuerdo (S33), queja (S36),
   consulta y solicitud (S57), riesgo (S40) y aporte (S44) siguen la anatomía de `design-system.md` §6.1 (DD-02, DD-06):
   `CabeceraDeFicha` con un antetítulo «Tipo · código · categoría», un título que dice qué es y chips de situación (nunca el
@@ -1788,8 +1797,10 @@ AiAnswer (variant="cited")
 - **Roles:** los de la transición hacia `accepted` de WF-K más los permisos del comando destino (`ai-architecture.md` §4.2).
 - **Acciones:** por tarjeta, "Aceptar…" (con corrección y motivo donde el destino lo pide), "Rechazar…", "marcar duplicado…",
   "Comparar lado a lado".
-- **Disposición y componentes:** filtros por tipo y origen; tarjetas `AiSuggestionCard` ordenadas por confianza con tipo,
-  confianza, fuente, cita, modelo y versión de la instrucción; reglas de la bandeja.
+- **Disposición y componentes:** filtros por tipo y origen, en la URL (`?kind=`, `?origin=`), y `?target=<objeto>:<id>`
+  para ver solo las propuestas de un registro, con «Ver todas» (la ficha lleva ahí desde «Propuestas pendientes sobre
+  este registro»); tarjetas `AiSuggestionCard` ordenadas por confianza con tipo, confianza, fuente, cita, modelo y versión
+  de la instrucción; reglas de la bandeja. Tras aceptar, la bandeja dice «Propuesta aceptada. Quedó en: ‹registro›».
 - **Datos y API:** `commitment_candidate` y `ai_suggestion` en `proposed`; `POST /api/sgspe/commitment-candidates/{id}/accept`,
   `POST /api/sgspe/commitment-candidates/{id}/duplicate`, `POST /api/sgspe/ai-suggestions/{id}/accept`, transición de WF-K a
   `rejected` (CR).
@@ -1970,9 +1981,10 @@ ReportsPage
 - **Disposición y componentes:** encabezado con estado y niveles; camino de WF-H; editor de sección con tiptap y su
   extensión de Markdown, con un selector de menciones que inserta `[[person:<id>]]`, `[[position:<id>]]` o
   `[[stakeholder:<id>]]` y la sugerencia de IA al lado; secciones con su insignia de origen (humana, calculada,
-  asistida por IA); panel del borrador con su estado, la letra, los avisos (`draft_warnings`), el PDF de cada nivel en
-  `PdfDialog` y el SHA-256 de cada candidata; "Al emitir", con la lista de verificación EXTERNO; versiones emitidas
-  con sus descargas y la constancia de emisión.
+  asistida por IA) y cuántas van revisadas («Revisadas: N de M»); panel del borrador con su estado, la letra, los
+  avisos (`draft_warnings`, con «Ir a la sección» si nombran una), el PDF de cada nivel en `PdfDialog` y el SHA-256 de
+  cada candidata; mientras se prepara, desde cuándo («pedido hace N min») y, al terminar, si quedó listo o falló; "Al
+  emitir", con la lista de verificación EXTERNO; versiones emitidas con sus descargas y la constancia de emisión.
 - **Datos y API:** `POST /api/sgspe/deliverables/{id}/drafts`; `GET …/draft` cada 5 s mientras está pendiente;
   `GET …/draft/content`; transiciones de WF-H con motivo, y "Aprobar" con el `draftModelSha256` en el motivo;
   `POST …/issue` (motivo, `draftModelSha256` y la lista EXTERNO); `GET …/versions/{n}/content`;
