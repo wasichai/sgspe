@@ -10,7 +10,7 @@ plugins {
 group = "sgspe"
 description = "sgspe: gestión social para proyectos extractivos sobre wasichai (core, views, forms, pages, gis, workflow)"
 
-val wasichaiVersion = "1.4.0"
+val wasichaiVersion = "1.7.0"
 
 dependencies {
     implementation(platform("wasichai:wasichai-bom:$wasichaiVersion"))
@@ -28,8 +28,8 @@ dependencies {
     implementation("wasichai:wasichai-spring-boot-starter-documents")
     implementation("wasichai:wasichai-spring-boot-starter-files")
     implementation("wasichai:wasichai-spring-boot-starter-notifications")
-    // F7: el asistente de solo lectura (AI-05, ai-architecture.md §8) y la plataforma de agentes de Embabel 1.5.3 por el BOM de
-    // wasichai 1.2.0, con Anthropic como proveedor (GAP-015). sin ANTHROPIC_API_KEY, EmbabelGate deja fuera a Embabel, la app
+    // F7: el asistente de solo lectura (AI-05, ai-architecture.md §8) y la plataforma de agentes de Embabel 1.5.4 por el BOM de
+    // wasichai 1.7.0, con Anthropic como proveedor (GAP-015). sin ANTHROPIC_API_KEY, EmbabelGate deja fuera a Embabel, la app
     // arranca igual y la IA responde 503 AI_UNAVAILABLE (ASM-128)
     implementation("wasichai:wasichai-spring-boot-starter-agent")
     // wasichai.files.store=s3 (MinIO en desarrollo, ADR-0014): el cliente asíncrono del AWS SDK v2, alineado por su BOM

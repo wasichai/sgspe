@@ -3,6 +3,7 @@ package sgspe.ai
 import com.embabel.agent.core.AgentPlatform
 import com.embabel.agent.core.support.InvalidLlmReturnFormatException
 import com.embabel.agent.spi.loop.MaxIterationsExceededException
+import com.embabel.common.ai.model.Thinking
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -18,13 +19,13 @@ data class Proposal(
     val confidence: Double = 0.0
 )
 
-// StructuredModel sobre la plataforma de agentes de Embabel 1.5.3 en memoria, con el modelo guionado: la salida tipada, los
+// StructuredModel sobre la plataforma de agentes de Embabel 1.5.4 en memoria, con el modelo guionado: la salida tipada, los
 // tokens que informó el proveedor y los dos modos de fallar (ai-architecture.md §6.2)
 class EmbabelStructuredModelTest {
     private val llm = RecordingLlm()
 
     private fun request() =
-        ModelRequest("PRUEBA", "claude-opus-4-8", RenderedPrompt("prueba", "1", "Proposal", "Texto con [PERSONA_1]"), Proposal::class.java, 2_048)
+        ModelRequest("PRUEBA", "claude-haiku-5-5", RenderedPrompt("prueba", "1", "Proposal", "Texto con [PERSONA_1]"), Proposal::class.java, 2_048)
 
     @Test
     fun `devuelve la salida tipada con los tokens del proveedor`() {
@@ -35,6 +36,18 @@ class EmbabelStructuredModelTest {
         assertEquals(RecordingLlm.INPUT, result.inputTokens)
         assertEquals(RecordingLlm.OUTPUT, result.outputTokens)
         assertEquals(listOf("Texto con [PERSONA_1]"), llm.script.promptsReceived)
+    }
+
+    @Test
+    fun `pide el modelo del caso sin razonamiento`() {
+        // Embabel 1.5.4 deja pensar a Haiku 5.5 si la llamada no dice nada, y los tokens de razonamiento cuentan dentro del tope
+        // de salida (ASM-131): una llamada de salida estructurada lo apaga, como mandaba Embabel 1.5.3 (ASM-129)
+        llm.script.returnObject(Proposal("Reparar el canal", 0.8))
+        EmbabelStructuredModel.call(RecordingLlm.platform(llm), request())
+        val options = requireNotNull(llm.options)
+        assertEquals("claude-haiku-5-5", options.model)
+        assertEquals(2_048, options.maxTokens)
+        assertEquals(Thinking.NONE, options.thinking)
     }
 
     @Test
