@@ -32,43 +32,30 @@ class AiPropertiesTest {
 
     @Test
     fun `el modelo de cada caso y el del asistente`() {
-        for (case in listOf("AI-01", "AI-02", "AI-03", "AI-04", "AI-06")) assertEquals("claude-opus-4-8", properties.modelFor(case), case)
-        for (case in listOf("AI-07", "AI-08")) assertEquals("claude-haiku-5-5", properties.modelFor(case), case)
+        for (case in listOf("AI-01", "AI-02", "AI-03", "AI-04", "AI-06", "AI-07", "AI-08")) {
+            assertEquals("claude-haiku-5-5", properties.modelFor(case), case)
+        }
         // AI-05 usa wasichai.agent.model (ASM-129)
         assertThrows<IllegalStateException> { properties.modelFor("AI-05") }
-        assertEquals("claude-opus-4-8", environment.getProperty("wasichai.agent.model"))
+        assertEquals("claude-haiku-5-5", environment.getProperty("wasichai.agent.model"))
     }
 
     @Test
     fun `cada modelo configurado esta en el catalogo de Embabel`() {
-        val catalog = ClassPathResource("models/anthropic-models.yml").inputStream.use { String(it.readAllBytes(), Charsets.UTF_8) }
-        val known = modelIds(catalog)
-        val configured = properties.models.values.toSet() + environment.getProperty("wasichai.agent.model").orEmpty()
-        assertTrue(known.isNotEmpty(), "no se leyó el catálogo de Embabel")
-        assertEquals(emptySet<String>(), configured - known, "modelos fuera del catálogo de Embabel 1.5.3: $known")
-    }
-
-    @Test
-    fun `el catalogo propio tapa al de Embabel y le suma solo Haiku 5_5`() {
-        // models/anthropic-models.yml de SGSPE va antes que el del jar de Embabel en el classpath y lo reemplaza entero: tiene que
-        // conservar cada modelo del catálogo de Embabel 1.5.3. Opus 5.5 y Sonnet 5.5 no entran: Embabel 1.5.3 manda siempre
-        // thinking «disabled» y esos modelos lo rechazan con 400 (ASM-129)
+        // SGSPE ya no tiene catálogo propio: Embabel 1.5.4 trae Haiku 5.5 y el que lee es el de su jar (ASM-129)
         val catalogs = javaClass.classLoader.getResources("models/anthropic-models.yml").toList()
-        assertTrue(catalogs.size >= 2, "falta el catálogo propio o el de Embabel: $catalogs")
-        assertFalse(catalogs.first().toString().startsWith("jar:"), "el catálogo que lee Embabel no es el de SGSPE: ${catalogs.first()}")
-        val ids = { url: java.net.URL -> url.openStream().use { modelIds(String(it.readAllBytes(), Charsets.UTF_8)) } }
-        val bundled = catalogs.drop(1).first { it.toString().contains("embabel-agent-anthropic-autoconfigure") }
-        assertEquals(ids(bundled) + "claude-haiku-5-5", ids(catalogs.first()))
-        val loaded =
+        assertEquals(1, catalogs.size, "un catálogo de modelos fuera del de Embabel: $catalogs")
+        assertTrue(catalogs.single().toString().contains("embabel-agent-anthropic-autoconfigure"), "${catalogs.single()}")
+        val known =
             AnthropicModelLoader(DefaultResourceLoader())
                 .loadAutoConfigMetadata()
                 .models
                 .map { it.modelId }
                 .toSet()
-        assertEquals(ids(catalogs.first()), loaded)
+        val configured = properties.models.values.toSet() + environment.getProperty("wasichai.agent.model").orEmpty()
+        assertTrue(known.isNotEmpty(), "no se leyó el catálogo de Embabel")
+        assertEquals(emptySet<String>(), configured - known, "modelos fuera del catálogo de Embabel 1.5.4: $known")
     }
-
-    private fun modelIds(catalog: String) = Regex("""model_id:\s*["']([^"']+)["']""").findAll(catalog).map { it.groupValues[1] }.toSet()
 
     @Test
     fun `la version del prompt de cada caso y los limites de ASM-131`() {

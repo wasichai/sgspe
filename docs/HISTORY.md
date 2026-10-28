@@ -3,6 +3,18 @@
 La entrada más reciente va primero. El razonamiento de arquitectura está en [`adr/`](adr/README.md); este archivo
 registra lo entregado.
 
+## 2026-10-28 — wasichai 1.7.0 y Claude Haiku 5.5 en todos los casos de IA
+
+- **wasichai 1.7.0.** De 1.4.0 a 1.7.0: estilos por atributo, vistas de mapa y SLD al publicar una capa (1.5.0, migración
+  `V2__map_views` de wasichai-gis, que corre sola), `wasichai.gis.geoserver.public-url` opcional (1.6.0; sin ella nada
+  cambia) y Embabel 1.5.4 con `claude-haiku-5-5` como modelo por defecto del asistente (1.7.0, WAS-ADR-0073).
+- **Modelo (ASM-129).** `claude-haiku-5-5` en AI-01 a AI-08 y en el asistente AI-05 (`wasichai.agent.model`), decisión del
+  usuario. Embabel 1.5.4 trae Haiku 5.5 en su catálogo: se quita `models/anthropic-models.yml`, y `AiPropertiesTest`
+  vigila que no vuelva otro catálogo y que cada modelo configurado esté en el de Embabel.
+- **Razonamiento.** Embabel 1.5.4 deja pensar a Haiku 5.5 si la llamada no dice nada; `EmbabelStructuredModel` lo apaga
+  (`withoutThinking()`), como mandaba Embabel 1.5.3, para que el tope de salida (ASM-131) siga siendo de la respuesta
+  (`EmbabelStructuredModelTest`). Cierra wasichai/sgspe#92.
+
 ## 2026-10-15 — Plan 8.2c: T1, mapas de informe, PDF y borradores de sección de IA
 
 Los entregables de F8 quedan completos en el backend: los borradores reales llegan a LISTO.

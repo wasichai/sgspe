@@ -23,7 +23,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
 // el modelo de las pruebas que llegan hasta Embabel (el StubModel de ai-architecture.md §15): ScriptedLlmOperations de Embabel
-// 1.5.3, que viene en su jar principal, detrás de un grabador que cuenta las llamadas, anota los tokens que informaría un
+// 1.5.4, que viene en su jar principal, detrás de un grabador que cuenta las llamadas, anota los tokens que informaría un
 // proveedor (ScriptedLlmOperations no anota ninguno) y puede fallar como uno, después de anotarlos. la plataforma resuelve
 // LlmOperations una vez al arrancar y un guion se gasta: en una prueba de integración el bean es un conmutador y cada prueba
 // cuelga un guion nuevo con fresh(). como AgentExtensionsTest y AgentEmbabelTest de wasichai 1.2.0
@@ -37,15 +37,25 @@ class RecordingLlm : LlmOperations {
     @Volatile
     var failure: RuntimeException? = null
 
+    // las opciones de la última llamada, para ver qué recibiría el proveedor
+    @Volatile
+    var options: LlmOptions? = null
+        private set
+
     fun fresh(): ScriptedLlmOperations {
         script = ScriptedLlmOperations()
         calls.set(0)
         failure = null
+        options = null
         return script
     }
 
-    private fun book(process: AgentProcess) {
+    private fun book(
+        process: AgentProcess,
+        interaction: LlmInteraction
+    ) {
         calls.incrementAndGet()
+        options = interaction.llm
         process.recordLlmInvocation(
             LlmInvocation(LlmMetadata.create(MODEL, "anthropic"), Usage(INPUT, OUTPUT, null), "sgspe", Instant.now(), Duration.ZERO)
         )
@@ -61,7 +71,7 @@ class RecordingLlm : LlmOperations {
         agentProcess: AgentProcess,
         action: Action?
     ): O {
-        book(agentProcess)
+        book(agentProcess, interaction)
         return script.createObject(messages, interaction, outputClass, agentProcess, action)
     }
 
@@ -72,7 +82,7 @@ class RecordingLlm : LlmOperations {
         agentProcess: AgentProcess,
         action: Action?
     ): Result<O> {
-        book(agentProcess)
+        book(agentProcess, interaction)
         return script.createObjectIfPossible(messages, interaction, outputClass, agentProcess, action)
     }
 
@@ -90,7 +100,7 @@ class RecordingLlm : LlmOperations {
         agentProcess: AgentProcess,
         action: Action?
     ): ThinkingResponse<O> {
-        book(agentProcess)
+        book(agentProcess, interaction)
         return script.createObjectWithThinking(messages, interaction, outputClass, agentProcess, action)
     }
 
@@ -101,7 +111,7 @@ class RecordingLlm : LlmOperations {
         agentProcess: AgentProcess,
         action: Action?
     ): Result<ThinkingResponse<O>> {
-        book(agentProcess)
+        book(agentProcess, interaction)
         return script.createObjectIfPossibleWithThinking(messages, interaction, outputClass, agentProcess, action)
     }
 
@@ -128,7 +138,7 @@ class RecordingLlm : LlmOperations {
     }
 
     companion object {
-        const val MODEL = "claude-opus-4-8"
+        const val MODEL = "claude-haiku-5-5"
         const val INPUT = 100
         const val OUTPUT = 20
 

@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 
-// StructuredModel sobre la plataforma de agentes de Embabel 1.5.3 (ai-architecture.md §6.2): un proceso sin acciones por
+// StructuredModel sobre la plataforma de agentes de Embabel 1.5.4 (ai-architecture.md §6.2): un proceso sin acciones por
 // llamada, como el Ai que Embabel inyecta (InfrastructureInjectionConfiguration), para leer de él los tokens de la llamada
 // (llmInvocations). la llamada bloquea, así que corre en Dispatchers.IO, como en wasichai-agent. sin clave no hay plataforma
 // (EmbabelGate): UNAVAILABLE
@@ -41,10 +41,12 @@ class EmbabelStructuredModel(
                 try {
                     val created = platform.createAgentProcess(PLACEHOLDER, ProcessOptions(budget = Budget(actions = 1)), emptyMap())
                     started = created
+                    // sin razonamiento: Embabel 1.5.4 deja pensar a Haiku 5.5 si no se le dice, y esos tokens cuentan dentro
+                    // del tope de salida (ASM-129, ASM-131)
                     val runner =
                         ExecutingOperationContext(NAME, created)
                             .ai()
-                            .withLlm(LlmOptions.withModel(request.model).withMaxTokens(request.maxOutputTokens))
+                            .withLlm(LlmOptions.withModel(request.model).withMaxTokens(request.maxOutputTokens).withoutThinking())
                     created to (request.system?.let { runner.withSystemPrompt(it) } ?: runner).createObject(request.prompt.text, request.outputClass)
                 } catch (e: Exception) {
                     throw failure(if (truncated(e)) StructuredModelException.Reason.TRUNCATED else StructuredModelException.Reason.UNAVAILABLE, started, e)

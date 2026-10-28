@@ -271,7 +271,7 @@ estructurada ya validada; guardarla es trabajo del código de SGSPE, después de
 - La llamada al modelo pasa por un puerto propio, `StructuredModel`: recibe el prompt ya seudonimizado, la versión del
   prompt, el modelo y los límites, y devuelve la salida tipada con el uso de tokens. `EmbabelStructuredModel` lo
   implementa sobre la plataforma de agentes, y las pruebas lo sustituyen (§15).
-- La versión de Embabel es la del BOM de wasichai 1.3.0 (1.5.3) [WAS-ADR-0015]; SGSPE no fija otra (RNF-MNT-001). El
+- La versión de Embabel es la del BOM de wasichai 1.7.0 (1.5.4) [WAS-ADR-0015] [WAS-ADR-0073]; SGSPE no fija otra (RNF-MNT-001). El
   starter `wasichai-spring-boot-starter-agent` se agrega en F7.
 - Ningún perfil de Spring se llama `test`: Embabel registra sus agentes con un postprocesador marcado `@Profile("!test")`
   [WAS-ADR-0015] [WAS-DOC modules/testing.md].
@@ -306,7 +306,7 @@ Lo que aporta wasichai-agent [WAS-DOC modules/agent.md] [WAS-ADR-0014] [WAS-ADR-
   la persona no pueda leer.
 - Cada respuesta trae las herramientas con que se construyó, y la interfaz las muestra.
 - Está disponible solo con el módulo activado y una clave de proveedor: `wasichai.agent.enabled`, `wasichai.agent.api-key`
-  (tomada por defecto de `ANTHROPIC_API_KEY`), `wasichai.agent.model` (por defecto `claude-haiku-4-5`),
+  (tomada por defecto de `ANTHROPIC_API_KEY`), `wasichai.agent.model` (por defecto `claude-haiku-5-5` desde wasichai 1.7.0),
   `wasichai.agent.max-tokens` (acotado a 1024–64000) y `wasichai.agent.max-iterations` (acotado a 1–16).
 - Rutas `GET /api/agent/status` y `POST /api/agent/ask`.
 
@@ -452,12 +452,14 @@ Correspondencia con lo que pide el prompt [PRM-01 §10]:
   decisión del usuario del 2026-10-12). Un solo proveedor por despliegue: los agentes de `sgspe.ai` comparten la
   plataforma de agentes y la configuración del proveedor con wasichai-agent.
 - **Modelo por caso (ASM-129).** `sgspe.ai.models.<caso>`, con valor por defecto en `application.yml`:
-  `claude-haiku-5-5` para AI-07 y AI-08, y el modelo más capaz que reconozca el catálogo de Embabel para AI-01 a AI-06 (en AI-05, el
-  `wasichai.agent.model` del asistente, con el mismo criterio). El plan 7.2a anota el modelo elegido.
-- **Catálogo de modelos.** La versión de Embabel es la del BOM de wasichai 1.3.0 (1.5.3), y su catálogo no conoce los
-  modelos Claude 5 [WAS-ADR-0015]. SGSPE lo reemplaza por `models/anthropic-models.yml`, que va antes en el classpath: los
-  mismos modelos más Claude Haiku 5.5 (`AiPropertiesTest` vigila que conserve los de Embabel). Opus 5.5 y Sonnet 5.5 no
-  entran: Embabel 1.5.3 manda `thinking` «disabled» en cada llamada y esos modelos lo rechazan con 400.
+  `claude-haiku-5-5` en todos los casos, AI-01 a AI-08 (en AI-05, el `wasichai.agent.model` del asistente; decisión del
+  usuario del 2026-10-28).
+- **Catálogo de modelos.** La versión de Embabel es la del BOM de wasichai 1.7.0 (1.5.4), cuyo catálogo trae Claude
+  Haiku 5.5, Sonnet 5.5, Opus 5.5 y Fable 5.1 [WAS-ADR-0073]: SGSPE ya no tiene catálogo propio, y `AiPropertiesTest`
+  vigila que cada modelo configurado esté en el de Embabel. Embabel 1.5.4 deja de mandar `thinking` «disabled» a los
+  Claude 5.1 o mayores; a Haiku 5.5 lo deja pensar si la llamada no dice nada, y esos tokens cuentan dentro del tope de
+  salida (ASM-131). `EmbabelStructuredModel` lo apaga en cada llamada (`LlmOptions.withoutThinking()`), como mandaba
+  Embabel 1.5.3; el asistente AI-05 queda con lo que decida wasichai-agent.
 - **Residencia de datos.** Los datos seudonimizados se procesan en la infraestructura de Anthropic, fuera del Perú: es
   una consecuencia aceptada de la decisión del usuario, y sin fuente normativa ninguna regla se presenta como obligación
   legal (GAP-001). Lo que llega al proveedor es lo que la persona puede leer, sin campos restringidos y con los nombres
@@ -747,7 +749,7 @@ Suites:
   asíncrona necesita un ADR que conserve el principio de ver solo lo que ve quien pide; un trabajo como la plataforma leería sin
   permisos [WAS-ADR-0039].
 - **Confianza sin calibrar:** la informa el modelo; sirve para ordenar, no para decidir.
-- **Restricciones de Embabel 1.5.3:** catálogo de modelos, tope fijo de 20 vueltas de herramientas y Jackson 2 en el
+- **Restricciones de Embabel 1.5.4:** catálogo de modelos, tope fijo de 20 vueltas de herramientas y Jackson 2 en el
   classpath
   [WAS-ADR-0014] [WAS-ADR-0015].
 - **Idioma:** los documentos y prompts están en español; los contenidos en quechua dependen de GAP-013.
