@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/wasichai/sgspe/compare/v3.2.1...v3.3.0) (2026-10-28)
+
+
+### Features
+
+* **ai:** wasichai 1.7.0 y Claude Haiku 5.5 en todos los casos de IA ([#180](https://github.com/wasichai/sgspe/issues/180)) ([8bde75f](https://github.com/wasichai/sgspe/commit/8bde75f75e6022c6e9da170575a7d84fc0c38ddf))
+
 ## [3.2.1](https://github.com/wasichai/sgspe/compare/v3.2.0...v3.2.1) (2026-10-25)
 
 
