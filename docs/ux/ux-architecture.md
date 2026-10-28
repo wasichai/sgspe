@@ -256,7 +256,9 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 
 ### 7.3 Búsqueda global y comandos
 
-- Se abre con ⌘K o Ctrl K desde cualquier pantalla [PRM-02 §24]. Busca proyectos, territorio, grupos de interés, actores,
+- Se abre con ⌘K o Ctrl K desde cualquier pantalla [PRM-02 §24]; el botón dice la tecla del teclado de quien mira (⌘ K en
+  Mac, Ctrl K en los demás), y «?» abre la hoja de atajos de teclado, también desde el menú de la cuenta (DD-44). Busca
+  proyectos, territorio, grupos de interés, actores,
   compromisos, QCS, riesgos, programas y documentos, solo entre lo que la persona puede leer.
 - Antes de escribir: recientes, búsquedas sugeridas por rol e "Ir a…".
 - Al escribir: resultados agrupados por categoría con conteo, pestañas por categoría, vista previa del resultado activo y

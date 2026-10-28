@@ -1797,8 +1797,10 @@ AiAnswer (variant="cited")
 - **Roles:** los de la transición hacia `accepted` de WF-K más los permisos del comando destino (`ai-architecture.md` §4.2).
 - **Acciones:** por tarjeta, "Aceptar…" (con corrección y motivo donde el destino lo pide), "Rechazar…", "marcar duplicado…",
   "Comparar lado a lado".
-- **Disposición y componentes:** filtros por tipo y origen; tarjetas `AiSuggestionCard` ordenadas por confianza con tipo,
-  confianza, fuente, cita, modelo y versión de la instrucción; reglas de la bandeja.
+- **Disposición y componentes:** filtros por tipo y origen, en la URL (`?kind=`, `?origin=`), y `?target=<objeto>:<id>`
+  para ver solo las propuestas de un registro, con «Ver todas» (la ficha lleva ahí desde «Propuestas pendientes sobre
+  este registro»); tarjetas `AiSuggestionCard` ordenadas por confianza con tipo, confianza, fuente, cita, modelo y versión
+  de la instrucción; reglas de la bandeja. Tras aceptar, la bandeja dice «Propuesta aceptada. Quedó en: ‹registro›».
 - **Datos y API:** `commitment_candidate` y `ai_suggestion` en `proposed`; `POST /api/sgspe/commitment-candidates/{id}/accept`,
   `POST /api/sgspe/commitment-candidates/{id}/duplicate`, `POST /api/sgspe/ai-suggestions/{id}/accept`, transición de WF-K a
   `rejected` (CR).
@@ -1979,9 +1981,10 @@ ReportsPage
 - **Disposición y componentes:** encabezado con estado y niveles; camino de WF-H; editor de sección con tiptap y su
   extensión de Markdown, con un selector de menciones que inserta `[[person:<id>]]`, `[[position:<id>]]` o
   `[[stakeholder:<id>]]` y la sugerencia de IA al lado; secciones con su insignia de origen (humana, calculada,
-  asistida por IA); panel del borrador con su estado, la letra, los avisos (`draft_warnings`), el PDF de cada nivel en
-  `PdfDialog` y el SHA-256 de cada candidata; "Al emitir", con la lista de verificación EXTERNO; versiones emitidas
-  con sus descargas y la constancia de emisión.
+  asistida por IA) y cuántas van revisadas («Revisadas: N de M»); panel del borrador con su estado, la letra, los
+  avisos (`draft_warnings`, con «Ir a la sección» si nombran una), el PDF de cada nivel en `PdfDialog` y el SHA-256 de
+  cada candidata; mientras se prepara, desde cuándo («pedido hace N min») y, al terminar, si quedó listo o falló; "Al
+  emitir", con la lista de verificación EXTERNO; versiones emitidas con sus descargas y la constancia de emisión.
 - **Datos y API:** `POST /api/sgspe/deliverables/{id}/drafts`; `GET …/draft` cada 5 s mientras está pendiente;
   `GET …/draft/content`; transiciones de WF-H con motivo, y "Aprobar" con el `draftModelSha256` en el motivo;
   `POST …/issue` (motivo, `draftModelSha256` y la lista EXTERNO); `GET …/versions/{n}/content`;
