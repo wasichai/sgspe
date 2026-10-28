@@ -430,7 +430,11 @@ La misma anatomía para todo objeto importante [PRM-02 §26], en tres franjas (D
    [PRM-02 §15]. El **camino del flujo** (`CaminoDelFlujo`) va plegado dentro de «Estado actual», tras «Ver el camino».
 4. **Cuerpo en secciones** (`Seccion`): los atributos de cada sección con `CamposPlegables`, que pliega los vacíos tras
    «Mostrar los N campos sin dato»; las pestañas del objeto cuando las tiene (en un compromiso: Resumen, Entregas,
-   Evidencias, Actividad…).
+   Evidencias, Actividad…). Una sección con campos que la ficha deja editar lleva su **«Editar»** junto al título
+   (`EditarSeccion`): abre un cajón con solo esos campos y el motivo si el objeto lo pide. El «Editar» de la cabecera sigue
+   para todo. En un cajón, las acciones de un formulario largo quedan fijas al pie del área que se desplaza.
+   Al llegar de un alta, bajo la cabecera va un **aviso de éxito** (`AvisoDeExito`, una sola vez) con lo que se creó y lo
+   que el modelo hizo con ello: «Se registró la queja Q-005. Se creó la tarea de acusar recibo.» (DD-34).
 5. **Panel de trazabilidad** al costado desde `lg`, con tres grupos fijos: "De dónde viene" (origen), "Qué generó"
    (consecuencias) y "Lo sustenta" (evidencias y documentos que lo respaldan) (ux-architecture §8). Por debajo, pasa bajo el
    contenido.
@@ -486,7 +490,27 @@ FichaPage (PorRuta)
   cantidad y unidad), 3 Partes y beneficiarios, 4 Plazo e hitos, 5 Monto y campaña (con el tope a la vista, RN-INV-003),
   6 Responsable, 7 Revisar y enviar (con los campos mínimos de la guarda D1). La evidencia no se pide al crear: se exige al
   registrar el cumplimiento (RN-COM-001).
-- Cancelar un borrador pide confirmación; salir con cambios sin guardar avisa.
+- Cancelar un borrador pide confirmación; salir con cambios sin guardar avisa. Con borrador, el aviso de salida dice que lo
+  escrito queda en este navegador.
+- **El borrador** (`useBorradorLocal`, DD-41) se guarda medio segundo después del último cambio y al salir de la pantalla,
+  con los ids elegidos fuera del formulario (los solicitantes de un compromiso). Se recupera con un aviso que dice desde
+  cuándo y ofrece descartarlo. Es de quien lo escribió:
+  - la clave lleva su cuenta, y otra persona en el mismo navegador no lo ve;
+  - «Cerrar sesión» borra los de este navegador. Si la sesión vence, quien vuelve a entrar lo recupera;
+  - lo restringido nunca se guarda (la persona de una QCS);
+  - una QCS confidencial no deja borrador.
+  Lo tienen el compromiso, la interacción (cada modo, el suyo), la QCS y la evaluación.
+- **Cambiar de modo no borra lo cargado:** el conmutador del modo rápido lleva al otro modo lo que ese modo sabe recibir (el
+  tipo, los grupos presentes, los asistentes contados y el punto). Lo demás queda en el borrador del modo que se deja.
+- **Se propone lo que ya se sabe, siempre editable,** y lo propuesto no cuenta como un cambio por avisar:
+  - «Sí, ya se realizó» propone la hora de ahora y lo dice bajo el campo;
+  - un alta abierta desde una interacción propone su fecha y sus grupos de interés;
+  - el responsable ofrece «Asignarme»;
+  - «¿En qué proyecto?» propone el último elegido.
+- Una lista de grupos de interés con seis o más trae su búsqueda (`EleccionDeGrupos`): por el nombre que ve quien mira, sin
+  tildes. Lo elegido no se esconde al buscar.
+- Una lista hija que se carga de a uno (los ítems de un aporte) deja el cajón abierto tras guardar, con el formulario vacío
+  para el siguiente y «Listo» para cerrar.
 
 ### 6.4 Lista con vistas guardadas y acciones masivas
 
