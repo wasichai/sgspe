@@ -12,6 +12,10 @@
 > el plan con casillas es
 > [`docs/superpowers/plans/2026-10-21-rediseno-ux-portal.md`](../../superpowers/plans/2026-10-21-rediseno-ux-portal.md).
 
+> **Tercera pasada (2026-10-28).** Revisa el portal tal como quedó y recupera lo que se perdió al integrar (A13, A24 y la razón
+> a la vista de A3). La auditoría es `sgspe-ui/docs/rediseno-ux/tercera-pasada.md`; sus decisiones son DD-30 a DD-40
+> ([07 §4](07-decisiones-y-compatibilidad.md#4-tercera-pasada-2026-10-28)) y su pedido al backend, B-05 ([08](08-cambios-de-contrato-backend.md)).
+
 ## Entregables
 
 | # | Entregable | Archivo |
