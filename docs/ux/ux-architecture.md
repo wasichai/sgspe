@@ -193,7 +193,8 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 - **Barra superior (56 px), seis controles** (DD-09): marca, selector de proyecto, «Buscar» (⌘K), «Preguntar» del
   asistente (§7.5), la campana de avisos y la cuenta con el nombre y los rótulos de sus roles. El selector de proyecto es un
   combobox con búsqueda: «Todos mis proyectos» o uno; en Territorio, «Todo el territorio» o el proyecto que hace de lente
-  (§6.1). El idioma (cada uno nombrado en su propia lengua), el tema y «Salir» van en el menú de la cuenta, con los datos
+  (§6.1). Cambiar de proyecto lleva a la pantalla equivalente del otro alcance y, si es la misma, conserva la vista, el
+  orden, la búsqueda y los filtros que no nombran un registro (DD-43). El idioma (cada uno nombrado en su propia lengua), el tema y «Salir» van en el menú de la cuenta, con los datos
   de la cuenta; nada de eso va suelto en la barra. El lema de la marca se ve solo desde 1536 px (`min-[96rem]`, DD-24): en
   SGSPE, `2xl` es 1440 px, y a ese ancho la barra lleva solo sus seis controles. Antes de ingresar, el idioma se elige en
   el login (ASM-084).

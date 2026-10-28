@@ -65,8 +65,10 @@ listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
   tiene su encabezado como botón con `aria-sort`; el orden viaja en la URL (`?sort=&dir=`, con el id de la columna; DD-37),
   así que volver de una ficha lo conserva, y otro orden vuelve a la primera página. «Atrás» devuelve la lista al
   desplazamiento que tenía, y avanzar a otra página lleva el foco a su título. La búsqueda está también en Grupos (por el
-  nombre que ve quien mira, sin tildes), Riesgos (código o título), Interacciones, Programas y aportes; Avisos no la tiene:
-  su bandeja pagina en wasichai-notifications, que no busca por texto. Ordenan: Alertas (S41, por fecha y título),
+  nombre que ve quien mira, sin tildes), Riesgos (código o título), Interacciones, Programas y aportes, Incidentes (en el
+  servidor), Proyectos (S06, código o nombre) y las listas de página de Señales, Menciones e Impactos (S58, S59 y S61, en
+  lo leído); Avisos no la tiene: su bandeja pagina en wasichai-notifications, que no busca por texto. Ordenan: Alertas
+  (S41, por fecha y título), Incidentes (incidente, por su código, y fecha), Proyectos (S06, código y nombre),
   Interacciones (S22, título y fecha), Programas (S42, código y programa) y sus aportes (código), Compromisos (S28, código,
   compromiso y vence), Acuerdos (acuerdo, por su código, y vence), Riesgos (S39, riesgo por código, P × I y nivel por su
   orden de negocio) y Grupos de interés (S16, solo la prioridad, por su orden de negocio). Las que filtran en el navegador
@@ -74,7 +76,11 @@ listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
   ordena (mezcla monedas, ASM-063) ni un estado o un enum. La cola de QCS (S35) todavía no ordena: espera wasichai/sgspe#160.
   La ficha abierta desde la lista recuerda su origen y su resultado en el estado del historial (ASM-075). En el teléfono, la
   lista pasa a tarjetas (`ListaEnTarjetas`) y los filtros frecuentes, a «Filtros (N)». Las páginas de un módulo con ruta
-  propia (Compromisos y Acuerdos; las de Riesgos) van en un `SelectorDePagina` en la cabecera (DD-23).
+  propia (Compromisos y Acuerdos; las de Riesgos) van en un `SelectorDePagina` en la cabecera (DD-23). Una lista que elige
+  varios registros (Grupos de interés; «Para tomar» de Tareas) lleva `BarraDeSeleccion`: cuántos van, las acciones sobre
+  ellos, elegir todos los de la página, quitar la selección y el resultado del último lote. Cambiar de proyecto en la
+  barra superior, si se llega a la misma pantalla del otro alcance, conserva la vista, el orden, la búsqueda y los filtros
+  que no nombran un registro (DD-43).
 - **Fichas (P-09):** las de grupo de interés (S17), interacción (S23), compromiso (S29), acuerdo (S33), queja (S36),
   consulta y solicitud (S57), riesgo (S40) y aporte (S44) siguen la anatomía de `design-system.md` §6.1 (DD-02, DD-06):
   `CabeceraDeFicha` con un antetítulo «Tipo · código · categoría», un título que dice qué es y chips de situación (nunca el
