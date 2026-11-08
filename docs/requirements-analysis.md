@@ -1536,8 +1536,8 @@ test, con fase y estado) la produce `requirements-traceability.md` [PRM-01 §23]
 | `CON` | 60 |
 | `GAP` | 33 |
 | `UPS` | 32 |
-| `ASM` | 148 |
-| Total | 577 |
+| `ASM` | 149 |
+| Total | 578 |
 
 ### 20.2 Requisitos por bounded context
 
@@ -1694,6 +1694,8 @@ Observaciones:
   PUBLICO, y ASM-143 deja fuera de la marca BORRADOR de RQ-REP-021 a las presentaciones, que salen de lo ya emitido.
 - ASM-148 (2026-10-24, el MP4 de las presentaciones) no retira ninguno: suma una salida a pedido a ASM-144, que solo
   componía el PDF.
+- ASM-149 (2026-11-09, identidad visual «Civic Modern», ADR-0032) reemplaza ASM-077 y ASM-086 y la paleta de ASM-082,
+  y deja sin objeto UPS-19.
 - Las nueve decisiones del usuario (USR-01 a USR-09) están desplegadas según §6.0; USR-04 y USR-08 se cumplen en el
   proceso y en los repositorios (RNF-MNT-007, RNF-MNT-006).
 - Los capítulos de DOC-01 con más requisitos son el 9 (estrategias: relacionamiento, compromisos, riesgos e indicadores),
