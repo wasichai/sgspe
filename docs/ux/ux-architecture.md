@@ -1,6 +1,6 @@
 # Arquitectura de UX de SGSPE
 
-Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.3 · 2026-10-23
+Sistema de Gestión Social para Proyectos Extractivos · Diseño UX/UI · etapas 1 y 2 de 3 · versión 0.4 · 2026-11-09
 
 Este documento fija la visión de experiencia, la arquitectura de información, la navegación y el principio que ordena todo el
 portal: **la navegación contextual y la trazabilidad**. Deriva del [análisis de requisitos](../requirements-analysis.md), del
@@ -18,6 +18,10 @@ documento el 2026-10-23: el shell, el inicio «Mi trabajo», la sub-navegación 
 portal y los estados del sistema. Cada cambio cita su decisión (`DD-NN`, en
 [`redesign/07-decisiones-y-compatibilidad.md`](redesign/07-decisiones-y-compatibilidad.md)); la carpeta queda como historia y
 registro de decisiones.
+
+La identidad visual «Civic Modern» (ADR-0032, ASM-149, 2026-11-09) cambia la forma del shell (§7.1): cabecera
+institucional, navegación horizontal por bloques, una sola banda de contexto, navegación local en el proyecto y una barra
+inferior de cinco destinos en el teléfono. La arquitectura de información (§6) no cambia.
 
 ## 1. Alcance y fuentes
 
@@ -190,50 +194,67 @@ Nunca un modal sobre otro modal. Un drawer se reemplaza por otro, no se apila; e
 
 ### 7.1 Shell
 
-- **Barra superior (56 px), seis controles** (DD-09): marca, selector de proyecto, «Buscar» (⌘K), «Preguntar» del
-  asistente (§7.5), la campana de avisos y la cuenta con el nombre y los rótulos de sus roles. El selector de proyecto es un
-  combobox con búsqueda: «Todos mis proyectos» o uno; en Territorio, «Todo el territorio» o el proyecto que hace de lente
-  (§6.1). Cambiar de proyecto lleva a la pantalla equivalente del otro alcance y, si es la misma, conserva la vista, el
-  orden, la búsqueda y los filtros que no nombran un registro (DD-43). El idioma (cada uno nombrado en su propia lengua), el tema y «Salir» van en el menú de la cuenta, con los datos
-  de la cuenta; nada de eso va suelto en la barra. El lema de la marca se ve solo desde 1536 px (`min-[96rem]`, DD-24): en
-  SGSPE, `2xl` es 1440 px, y a ese ancho la barra lleva solo sus seis controles. Antes de ingresar, el idioma se elige en
-  el login (ASM-084).
-- **Navegación principal:** las 13 secciones en su orden, con ícono y etiqueta, y «Administración» (S53, `/administration`),
-  visible solo para quien administra (ADR-0024, DD-20). Sin cambiar ese orden, las secciones van en bloques contiguos con
-  título visible: Inicio; «Proyectos y territorio» (Proyectos, Territorio); «Trabajo con las comunidades» (Grupos de
-  interés, Relacionamiento, Compromisos, QCS); «Riesgos e inversión social» (Riesgos, Programas sociales); «Documentos y
-  seguimiento» (Documentos, Tareas, Reportes); y Administración aparte, sin título. Un bloque sin secciones para la cuenta no
-  se dibuja. En la barra, QCS se dice «Quejas y solicitudes», con el nombre completo en el `title`; las migas, el título del
-  documento y la guarda siguen con «Quejas, consultas y solicitudes» (DD-10). Las insignias cuentan solo lo que pide acción
-  (las tareas pendientes).
-- **Ancho de la navegación:** expandida a 240 px desde `lg` (1024 px), con «Contraer» al pie, que la deja en 52 px con solo
-  los íconos y el nombre en el `title`, y una línea entre bloques. La elección se recuerda en el navegador
-  (`localStorage`, `sgspe.navegacion`; DD-22), no en las preferencias de la cuenta. Entre 768 y 1023 px la barra lateral
-  muestra solo los íconos.
-- **Tableta y teléfono (< 768 px):** la barra lateral desaparece y el botón de menú de la barra superior abre un panel con
-  los datos de la cuenta, el selector de proyecto, las secciones en sus bloques y, al pie, idioma, tema y «Salir». El panel
-  se cierra con ×, Esc, tocando fuera o al elegir una sección, y devuelve el foco al botón. En la barra superior quedan el
-  menú, la marca, un chip con el alcance actual (abre el panel), «Buscar» y «Preguntar» como íconos, la campana y, desde
-  640 px, la cuenta.
-- **Teléfono (< 640 px):** una barra inferior de cuatro destinos con objetivos de 48 px, la misma para toda cuenta (DD-17):
-  Inicio · Tareas (si la cuenta tiene la sección) · Avisos · Más, con las insignias de tareas y avisos; la de avisos cuenta
-  lo mismo que la campana, los sin leer de todo tipo, porque en el teléfono se ven las dos (DD-31). «Más» abre el panel
-  del menú. Una ficha con barra fija de acciones la deja sobre la barra inferior. Los destinos propios del campo sin conexión
-  (Capturar, Cola) y las variantes por rol de la hoja `Shell-Telefono` (lienzo de la etapa 3, página 21) son del diseño de
-  ASM-081 y no están implementados.
-- **Sub-navegación de proyecto:** dentro de un proyecto, la navegación principal marca la sección del módulo abierto
-  (`/projects/:projectId/commitments/…` marca Compromisos, no Proyectos), y sobre el contenido van la barra de contexto
-  (migas, con el estado del proyecto en el paso del proyecto, y chip de territorio; DD-30) y **una sola fila de pestañas**
-  (DD-03). Cada pestaña lleva el total del alcance
-  (gris) y una insignia con lo que pide acción (vencidos, fuera de plazo, alertas, propuestas de IA por revisar). La pestaña
-  del registro abierto queda marcada también en las fichas que viven en otro segmento (`grievances`, `inquiries` y `requests`
-  marcan QCS; `contributions`, Programas), y las migas la nombran. Si la fila no cabe, se desplaza, y la pestaña activa queda
-  siempre a la vista, también cuando las pestañas y sus conteos llegan después.
-- **Pestañas de Project 360:** nueve visibles y «Más»: Resumen · Mapa · Grupos de interés · Relacionamiento · Compromisos ·
-  QCS · Riesgos · Programas · Documentos · «Más» (Tareas, Bandeja de IA, Reportes, Equipo y parámetros). Si la abierta está
-  en «Más», el botón la nombra y queda marcado. Una pestaña de otra sección se ofrece con los permisos de esa sección. Los
-  conteos se leen con `size=1` y `totalElements` por objeto.
-- **Vistas y páginas de un módulo:** nunca una segunda fila de pestañas. Las vistas de una lista (Abiertos, Vencidos,
+Desde ADR-0032 (identidad «Civic Modern», ASM-149) el shell cambia de forma, no de contenido: las mismas secciones, en el
+mismo orden y en los mismos bloques, ahora en una navegación horizontal. Las medidas de cada pieza están en
+[`design-system.md`](design-system.md) §5.2.
+
+- **Cabecera institucional (64 px más la franja de marca de 4 px; 52 px en la densidad compacta):** fondo
+  `--sg-header` con la franja `--sg-stripe` debajo. Lleva la marca (isotipo y «SGSPE», con el lema «Gestión social de
+  proyectos extractivos» desde 1536 px, `min-[96rem]`, DD-24) y el nombre de la organización; la búsqueda ⌘K como un
+  campo blanco de 44 px; el selector de proyecto como botón blanco con el código del proyecto; «Preguntar» del
+  asistente (§7.5), con borde `--sg-ai-header-border`; la campana de avisos con su insignia amarilla; y la cuenta
+  (avatar). El selector de proyecto es un combobox con búsqueda: «Todos mis proyectos» o uno; en Territorio, «Todo el
+  territorio» o el proyecto que hace de lente (§6.1). Cambiar de proyecto lleva a la pantalla equivalente del otro
+  alcance y, si es la misma, conserva la vista, el orden, la búsqueda y los filtros que no nombran un registro (DD-43).
+  El idioma (cada uno nombrado en su propia lengua), el tema, la densidad y «Salir» van en el menú de la cuenta, con los
+  datos de la cuenta; nada de eso va suelto en la cabecera. Antes de ingresar, el idioma se elige en el login (ASM-084).
+- **Navegación principal (52 px; 44 px en la compacta):** una barra horizontal en `--sg-surface` bajo la cabecera, con
+  los mismos bloques de siempre: Inicio; «Proyectos y territorio» (Proyectos, Territorio); «Trabajo con las
+  comunidades» (Grupos de interés, Relacionamiento, Compromisos, QCS); «Riesgos e inversión social» (Riesgos, Programas
+  sociales); «Documentos y seguimiento» (Documentos, Tareas, Reportes); y Administración (S53, `/administration`) a la
+  derecha, solo para quien administra (ADR-0024, DD-20). Inicio y Administración son enlaces; cada bloque es un botón
+  que abre un desplegable con sus secciones, cada una con su descripción corta y, donde pide acción, su conteo
+  («48 abiertos · 7 vencidos»). El bloque de la sección abierta queda marcado con un borde inferior de 4 px
+  `--sg-primary`; dentro de un proyecto marca el bloque del módulo abierto, no Proyectos. Un bloque sin secciones para
+  la cuenta no se dibuja; un bloque con una sola sección es un enlace. El desplegable se abre con clic, Enter, Espacio o
+  flecha abajo, se recorre con flechas y se cierra con Esc, devolviendo el foco al botón (patrón «disclosure
+  navigation» de WAI-ARIA, no un `menu`). En la barra, QCS se dice «Quejas y solicitudes», con el nombre completo en el
+  `title` (DD-10, DD-40).
+- **Banda de contexto (una sola, 44 px como mínimo):** bajo la navegación, las migas y, a la derecha, el sello de
+  alcance: «Alcance: Todos mis proyectos (4)», «Proyecto · DEMO-T1» con el estado del proyecto (DD-30) o
+  «Territorio · DEMO-T1» sobre el fondo `--sg-territory-soft`. Es la única capa de orientación: no hay otra barra de
+  contexto ni una segunda fila de migas.
+- **Navegación local del proyecto (248 px, desde `lg`):** dentro de `/projects/:projectId`, una columna a la izquierda
+  con las secciones del proyecto (ver «Sub-navegación de proyecto»). Fuera de un proyecto no hay barra lateral: el
+  contenido usa todo el ancho, con márgenes de 32 px.
+- **Tableta (768–1023 px):** la cabecera baja a 60 px con el botón de menú, la marca, la búsqueda del alcance, el
+  proyecto, «Preguntar» como ícono, la campana y la cuenta; la navegación principal pasa al panel del menú (las
+  secciones en sus bloques y, al pie, idioma, tema, densidad y «Salir»), que se cierra con ×, Esc, tocando fuera o al
+  elegir una sección, y devuelve el foco al botón. Dentro de un proyecto, la navegación local vuelve a ser una fila de
+  pestañas de 48 px que se desplaza.
+- **Teléfono:** por debajo de 768 px, la cabecera baja a 56 px con el menú, la marca o el lugar actual, la
+  búsqueda, la campana con los sin leer de todo tipo (DD-31) y la cuenta; por debajo de 640 px se suma una barra inferior
+  de cinco destinos, de 64 px de alto y la misma para toda cuenta: **Inicio · Proyectos · Registrar · Mapa · Tareas**. «Registrar» abre las altas
+  que la cuenta puede hacer (§7.2, «Atajos»); Tareas lleva la insignia de las pendientes; un destino cuya sección la
+  cuenta no tiene se dibuja deshabilitado con su motivo en el nombre accesible, para que la barra no cambie de forma.
+  El menú de la cabecera abre el mismo panel de la tableta. Una ficha con barra fija de acciones la deja sobre la barra
+  inferior. Sin señal, un aviso `warning` bajo la cabecera dice que lo registrado se guarda en el teléfono (ASM-081,
+  después del MVP).
+- **Sub-navegación de proyecto:** dentro de un proyecto, la navegación principal marca el bloque del módulo abierto
+  (`/projects/:projectId/commitments/…` marca «Trabajo con las comunidades», no «Proyectos y territorio»); la banda de
+  contexto lleva las migas (con el estado del proyecto en el paso del proyecto; DD-30) y el sello de alcance; y la
+  **navegación local** del proyecto (248 px desde `lg`; en tableta, una fila de pestañas) sustituye a la fila de
+  pestañas de DD-03 sin cambiar su contenido. Cada entrada lleva el total del alcance (gris) y una marca con lo que
+  pide acción (vencidos, fuera de plazo, alertas, propuestas de IA por revisar), un punto `--sg-danger` con su número y
+  la leyenda «● = vencidos o críticos» al pie. La entrada del registro abierto queda marcada también en las fichas que
+  viven en otro segmento (`grievances`, `inquiries` y `requests` marcan QCS; `contributions`, Programas), y las migas la
+  nombran.
+- **Secciones de Project 360:** Resumen · Mapa · Grupos de interés · Relacionamiento · Compromisos · QCS · Riesgos ·
+  Programas · Documentos y, bajo el rótulo «Más», Tareas, Bandeja de IA, Reportes y Equipo y parámetros. En la
+  navegación local las trece se ven a la vez; en la fila de pestañas de la tableta quedan nueve y «Más», que nombra la
+  abierta si está ahí. Una sección de otro módulo se ofrece con los permisos de ese módulo. Los conteos se leen con
+  `size=1` y `totalElements` por objeto.
+- **Vistas y páginas de un módulo:** nunca una fila de pestañas dentro del módulo. Las vistas de una lista (Abiertos, Vencidos,
   Míos…) van en el `SelectorDeVista`, el primer control de su barra de filtros, con su conteo y `?view=` en la URL (DD-03).
   Compromisos y Acuerdos, y las páginas de Riesgos (registro y matriz, alerta temprana, señales, menciones, impactos,
   incidentes y reglas), son rutas distintas: van en un `SelectorDePagina` en la cabecera, que navega entre ellas sin cambiar
@@ -492,13 +513,13 @@ ASM-075 (rutas y contexto en la URL), ASM-076 (misma página con otro alcance), 
 con el rol `PROJECT_MANAGER`). Los tableros de módulo, como S27, pasan a E3 junto con los demás tableros [USR-10]. La etapa 3
 agrega ASM-081 (la captura de campo sin conexión se diseña; se implementa después del MVP). Las respuestas del usuario a Q1,
 Q3, Q6 y Q7 agregan ASM-082 (marca propia), ASM-083 (vistas compartidas), ASM-084 (español, inglés y quechua) y ASM-085
-(mapa base por entorno), con sus hojas en las páginas 22 a 24 del lienzo de la etapa 3. ASM-086 suma tres temas propios
-(página 25).
+(mapa base por entorno), con sus hojas en las páginas 22 a 24 del lienzo de la etapa 3. ASM-086 sumó tres temas propios
+(página 25), reemplazados por ASM-149 (identidad «Civic Modern», ADR-0032), que deja un solo par de temas.
 
 | # | Pregunta | Valor con el que se diseña | Relacionado |
 |---|---|---|---|
-| Q1 | ¿El cliente tiene marca o guía visual propia para el portal? | Respondida por el usuario: marca propia de SGSPE, dirección «Sendero» sobre la paleta «Pino y piedra» | ASM-077, ASM-082 |
-| Q2 | ¿Qué nombres de tokens y qué primitivas (tabla, drawer, combobox, calendario) trae `@wasichai/ui` 0.5.0? | Tokens respondidos: los 28 de WAS-ADR-035, que fijan los tres temas de `themes.css` (ASM-086); las primitivas se confirman en F1 al copiar caja-ui | ASM-077, ASM-086, RNF-MNT-001 |
+| Q1 | ¿El cliente tiene marca o guía visual propia para el portal? | Respondida por el usuario: marca propia de SGSPE, dirección «Sendero»; desde el 2026-11-09, sobre la identidad «Civic Modern» | ASM-077, ASM-082, ASM-149 |
+| Q2 | ¿Qué nombres de tokens y qué primitivas (tabla, drawer, combobox, calendario) trae `@wasichai/ui` 0.5.0? | Tokens respondidos: los 28 de WAS-ADR-035, que `sgspe-ui/src/theme/wasichai.css` lee de los `--sg-*` en `light` y `dark` (ASM-149); las primitivas se confirman en F1 al copiar caja-ui | ASM-077, ASM-149, RNF-MNT-001 |
 | Q3 | ¿Las vistas guardadas deben compartirse entre personas o dispositivos? | Respondida por el usuario: sí; visibilidad solo yo, equipo del proyecto u organización; requiere `saved_view` | ASM-079, ASM-083 |
 | Q4 | ¿El ejecutivo necesita un rol propio? | Lectura con `READ_ONLY` o `ANALYST` | ASM-074 |
 | Q5 | ¿El trabajo de campo debe operar sin conexión? | Respondida por el usuario: sí, se diseña; se implementa después del MVP, con un ADR de sincronización | GAP-008, ASM-021, ASM-081 |
@@ -511,7 +532,8 @@ Q3, Q6 y Q7 agregan ASM-082 (marca propia), ASM-083 (vistas compartidas), ASM-08
   RQ-DSH-035, RQ-AUD-002, RQ-AI-004, RF-AIK-005, RF-COM-003, RN-COM-001, RN-WFL-001, RF-NTF-001.
 - **Documentos:** [architecture.md §9](../architecture.md), [workflows.md](../workflows.md), [security.md §6](../security.md),
   [gis.md §2 y §6.5](../gis.md), [dashboards.md §3 y §5](../dashboards.md), [ai-architecture.md §8 y §9.3](../ai-architecture.md),
-  [ADR-0009](../adr/0009-nombres-tecnicos-en-ingles.md), [ADR-0024](../adr/0024-interfaz-portal-y-admin.md).
+  [ADR-0009](../adr/0009-nombres-tecnicos-en-ingles.md), [ADR-0024](../adr/0024-interfaz-portal-y-admin.md),
+  [ADR-0032](../adr/0032-identidad-visual-civic-modern.md).
 - **Rediseño de UX:** [decisiones DD-01 a DD-29](redesign/07-decisiones-y-compatibilidad.md) y
   [arquitectura de información del rediseño](redesign/02-arquitectura-de-informacion.md).
 - **Fuentes:** [PRM-02 §1–§49], [USR-07], [USR-09], [USR-10].

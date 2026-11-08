@@ -420,7 +420,7 @@ upstream se abren solo con la aprobación del usuario en el checkpoint (GAP-028)
 | UPS-16 Lectura de las autorrelaciones desde el lado destino | F2 | Los registros que apuntan a uno se leen filtrando la lista por el campo, por ejemplo `?parent_locality=<id>` | `sgspe-ui` | El filtro del portal |
 | UPS-17 Forma soportada de listar los tenants desde un trabajo en segundo plano | Antes de producción | `TenantDirectory.organizationsWithObject` [WAS-ADR-0057], aislado en `Organizations` | `sgspe.common` | Nada |
 | UPS-18 Idempotencia en la API genérica (`Idempotency-Key`) | F3 | Resuelta en el alta genérica (WAS-ADR-0058); los comandos de `/api/sgspe/**` usan la tabla fija `idempotency_key` con el mismo contrato (ASM-065) | `sgspe.common`; [API §3.5](api.md#35-idempotencia-idempotency-key) | La tabla `idempotency_key`, cuando la plataforma ofrezca la clave a las rutas de una app |
-| UPS-19 Temas que usa «Según el sistema» en `@wasichai/core` | F1 | La preferencia del servidor manda; quien no eligió un tema ve Claro u Oscuro de wasichai y elige uno de SGSPE en Perfil › Tema (ASM-086) | `sgspe-ui` | Nada: el portal declara sus temas para «Según el sistema» |
+| UPS-19 Temas que usa «Según el sistema» en `@wasichai/core` | F1 | Sin objeto desde ASM-149 (ADR-0032): SGSPE usa los ids `light` y `dark` de wasichai con los valores de «Civic Modern», así que «Según el sistema» ya resuelve a su tema | `sgspe-ui` | Nada: wasichai/wasichai-ui#39 puede cerrarse |
 | UPS-20 Borrar un registro con hijos de una relación obligatoria | F2 | `DependentsDeleteGuard` responde `409` `HAS_DEPENDENTS` con el primer dependiente, en vez del `500` de la base; desde F3 vigila también las relaciones opcionales de un objeto `requiresReason` ([API §3.3](api.md#33-errores-problem-details)) | `sgspe.common` | La consulta de las relaciones obligatorias; la de los objetos `requiresReason` se queda |
 | UPS-21 Buscar un usuario por correo dentro de una organización | F2 | `UserReferenceGuard` consulta la tabla `users` de la metadata por organización y correo | `sgspe.common` | La consulta propia |
 | UPS-22 Una transacción de la petición en la API genérica | F2 | `TerritoryWriteGuard` y la aprobación de un área toman el mismo candado, que estrecha la ventana sin cerrarla | `sgspe.territory` | La ventana entre la guarda y la escritura |
@@ -473,8 +473,8 @@ dice qué ofrece la plataforma para cada brecha y qué haría falta para retirar
 | UPS-20, UPS-22 | Sin cambios: la columna de una relación obligatoria sigue con `ON DELETE SET NULL`, y la API genérica no abre una transacción de la petición | Siguen las mitigaciones | — |
 | UPS-23 | Sin cambios: wasichai-documents congela el registro entero | Siguen las mitigaciones (ASM-090) | — |
 
-UPS-13 está resuelta (ASM-125). UPS-08 y UPS-19 son de wasichai-ui y se evalúan con la actualización de
-`@wasichai/*` en `sgspe-ui`.
+UPS-13 está resuelta (ASM-125) y UPS-19 quedó sin objeto (ASM-149). UPS-08 es de wasichai-ui y se evalúa con la
+actualización de `@wasichai/*` en `sgspe-ui`.
 
 Además, sin relación con una brecha: `updated_at` toma la hora de cada sentencia (`clock_timestamp()`), así que dos
 escrituras de una misma transacción ya no comparten `updatedAt`; cada respuesta de un registro lleva `ETag`; y la

@@ -1,5 +1,5 @@
 /*
- * SGSPE · tokens de diseño "Pino y piedra" (ASM-077) · etapa 1 de 3 · 2026-10-07
+ * SGSPE · tokens de diseño "Civic Modern" (ASM-149, ADR-0032) · 2026-11-09
  *
  * Capa sobre @wasichai/ui/theme.css para Tailwind 4. Importar después del tema de wasichai:
  *
@@ -8,187 +8,343 @@
  *   @import "./tokens.css";
  *
  * Las variables --sg-* son la fuente; el bloque @theme inline las expone como utilidades de Tailwind
- * (bg-sg-surface, text-sg-muted, border-sg-strong…). La correspondencia con los 28 tokens de
- * @wasichai/ui 0.5.0 y los temas sgspe-pino, sgspe-cielo y sgspe-noche están en themes.css (ASM-086), que
- * se importa después de este archivo; el oscuro de SGSPE (sgspe-noche) usa los valores oscuros de aquí.
- * Contraste verificado: docs/ux/design-system.md §3.9 y §10, y python3 docs/ux/redesign/contraste.py.
- * --sg-border-control y --sg-surface-raised son la evolución mínima de DD-15
- * (docs/ux/redesign/03-direccion-visual-y-design-system.md §2.2): el límite de los campos y lo que flota.
+ * (bg-sg-surface, text-sg-text-muted, border-sg-border-strong, h-sg-row…). Un solo par de temas: los ids light y
+ * dark de wasichai llevan los valores de Civic Modern (claro por defecto, oscuro a elección, «Según el sistema»
+ * respetado). Los 28 tokens de @wasichai/ui leen estos --sg-* desde sgspe-ui (src/theme/wasichai.css).
+ * Todos los colores van en hexadecimal: MapLibre y ECharts leen las variables y no resuelven var() ni oklch.
+ * Contraste verificado: docs/ux/design-system.md §10 y python3 docs/ux/redesign/contraste.py.
  *
- * Fuentes: IBM Plex Sans (400, 500, 600) e IBM Plex Mono (400, 500), con licencia OFL, servidas desde el
- * mismo origen del portal (sin CDN externo, por la CSP de ADR-0026). Mientras cargan se usan las
- * alternativas de --font-sg-sans y --font-sg-mono.
+ * Densidad: la compacta es una preferencia de cada persona (localStorage sgspe.densidad) que el portal escribe como
+ * data-density="compact" en <html>; cambia filas, controles, campos y cabecera, nunca colores ni tipografía.
+ *
+ * Fuentes: Public Sans (400, 500, 600, 700 y 800, cursiva 400) e IBM Plex Mono (400, 500, 600), con licencia OFL,
+ * auto-alojadas con @fontsource en el mismo origen del portal (sin CDN externo, por la CSP de ADR-0026). Mientras
+ * cargan se usan las alternativas de --font-sg-sans y --font-sg-mono.
  */
 
 :root {
   /* Base */
-  --sg-bg: #f5f6f3;
+  --sg-bg: #f3f5f8;
   --sg-surface: #ffffff;
-  --sg-surface-sunken: #eef0ec;
-  --sg-surface-hover: #f9faf8;
+  --sg-surface-sunken: #e9edf2;
+  --sg-surface-hover: #f5f8fc;
   --sg-surface-raised: #ffffff;
-  --sg-border: #d9ddd6;
-  --sg-border-subtle: #e4e7e1;
-  --sg-border-strong: #838b85;
-  --sg-border-control: var(--sg-border-strong);
-  --sg-text: #18211d;
-  --sg-text-secondary: #46514b;
-  --sg-text-muted: #5e6862;
+  --sg-border: #c9d1dc;
+  --sg-border-subtle: #dfe4eb;
+  --sg-border-strong: #66727f;
+  --sg-border-control: #5a6675;
+  --sg-text: #0f1a2a;
+  --sg-text-secondary: #35425a;
+  --sg-text-muted: #4f5b6c;
 
-  /* Acción y foco */
-  --sg-primary: #1d5c52;
-  --sg-primary-hover: #164a42;
-  --sg-primary-soft: #e3efec;
-  --sg-primary-text: #1d5c52;
+  /* Acción y foco: el anillo es --sg-halo (amarillo) con --sg-focus por fuera */
+  --sg-primary: #1d4f91;
+  --sg-primary-hover: #163d72;
+  --sg-primary-soft: #e4ecf7;
+  --sg-primary-text: #1b4a88;
   --sg-on-primary: #ffffff;
-  --sg-focus: #2f6fb0;
+  --sg-focus: #0b1d3a;
+  --sg-halo: #ffd34d;
+
+  /* Cabecera institucional y franja de marca */
+  --sg-header: #1d4f91;
+  --sg-header-2: #163d72;
+  --sg-header-text: #ffffff;
+  --sg-stripe: #14857e;
+  --sg-ai-header-border: #d9c8ff;
 
   /* Tonos semánticos: tinta y fondo suave */
-  --sg-neutral: #4f5954;
-  --sg-neutral-soft: #eceeea;
-  --sg-info: #2b5f8f;
-  --sg-info-soft: #e6eef6;
-  --sg-progress: #1d5c52;
-  --sg-progress-soft: #e3efec;
-  --sg-success: #2e6b3e;
-  --sg-success-soft: #e5f0e7;
-  --sg-warning: #7f5300;
-  --sg-warning-soft: #fbf0d9;
-  --sg-danger: #a33a2a;
-  --sg-danger-soft: #f8e7e3;
-  --sg-critical: #7a1f1f;
-  --sg-critical-soft: #f3dcdc;
+  --sg-neutral: #48546a;
+  --sg-neutral-soft: #ebeef3;
+  --sg-info: #1f5596;
+  --sg-info-soft: #e5eef9;
+  --sg-progress: #0c625d;
+  --sg-progress-soft: #ddf1ee;
+  --sg-success: #1c6636;
+  --sg-success-soft: #e1f1e6;
+  --sg-warning: #744d00;
+  --sg-warning-soft: #fdf0cf;
+  --sg-warning-border: #a87400;
+  --sg-danger: #a1271b;
+  --sg-danger-soft: #fbe5e1;
+  --sg-on-danger: #ffffff;
+  --sg-critical: #7a1212;
+  --sg-critical-soft: #f6d9d9;
   --sg-on-critical: #ffffff;
-  --sg-ai: #5a4a8c;
-  --sg-ai-soft: #eeeaf6;
-  --sg-ai-border: #8f80bd;
-  --sg-territory: #8a5a00;
-  --sg-territory-soft: #f3eee2;
-  --sg-territory-border: #d8cdb3;
+  --sg-ai: #5a3496;
+  --sg-ai-soft: #f1ebfa;
+  --sg-ai-border: #8e6cc8;
+  --sg-territory: #4f5a12;
+  --sg-territory-soft: #eef1da;
+  --sg-territory-border: #9aa65a;
 
-  /* Datos: categórica, postura y nivel de riesgo */
-  --sg-data-1: #2b5f8f;
-  --sg-data-2: #c9772b;
-  --sg-data-3: #1d5c52;
-  --sg-data-4: #8e5a9e;
-  --sg-data-5: #6b7f2a;
-  --sg-data-6: #838b85;
-  --sg-stance-favor: #2b5f8f;
-  --sg-stance-neutral: #b9bfb6;
-  --sg-stance-open: #d9a35b;
-  --sg-stance-against: #a33a2a;
-  --sg-risk-low: #e5f0e7;
-  --sg-risk-medium: #fbf0d9;
-  --sg-risk-high: #f3c9b8;
-  --sg-risk-critical: #a33a2a;
-  --sg-map-ground: #e8ebe3;
+  /* Datos: categórica (orden fijo, validada CVD), postura (divergente azul ↔ naranja) y nivel */
+  --sg-data-1: #2366b8;
+  --sg-data-2: #d2691e;
+  --sg-data-3: #159f78;
+  --sg-data-4: #c08a00;
+  --sg-data-5: #d2558a;
+  --sg-data-6: #3f7f1a;
+  --sg-stance-favor: #1d6fb8;
+  --sg-stance-neutral: #b7bfca;
+  --sg-stance-open: #e3a24a;
+  --sg-stance-against: #b4471f;
+  --sg-risk-low: #d3ebdb;
+  --sg-risk-medium: #ffdf7a;
+  --sg-risk-high: #f5a66b;
+  --sg-risk-critical: #a11a1a;
+  --sg-level-medium-ink: #2a1f00;
+  --sg-level-medium-border: #8a6400;
+  --sg-level-high-ink: #2a1205;
+  --sg-level-high-border: #8a3a10;
 
-  /* Sombras */
-  --sg-shadow-sm: 0 1px 2px rgb(16 24 20 / 0.06);
-  --sg-shadow-md: 0 4px 12px rgb(16 24 20 / 0.08);
-  --sg-shadow-lg: 0 12px 32px rgb(16 24 20 / 0.12);
-  --sg-shadow-overlay: 0 24px 64px rgb(16 24 20 / 0.28);
+  /* Calor (QCS, LYR-20), zonas de la matriz de riesgo y rejilla de los gráficos */
+  --sg-heat-1: #fde9c8;
+  --sg-heat-2: #f7b98a;
+  --sg-heat-3: #e0743f;
+  --sg-heat-4: #a8361b;
+  --sg-zone-1: #e6f3ea;
+  --sg-zone-2: #fff3c4;
+  --sg-zone-3: #fde0c8;
+  --sg-zone-4: #f6d9d9;
+  --sg-grid: #e3e7ed;
+
+  /* Mapa: paleta cartográfica, separada de la operativa */
+  --sg-map-ground: #eef0ea;
+  --sg-map-water: #b9d3ea;
+  --sg-map-contour: #d6dacd;
+  --sg-map-road: #8a7f6c;
+  --sg-lyr-boundary: #66727f;
+  --sg-lyr-place: #0f1a2a;
+  --sg-lyr-water: #3d7fbf;
+  --sg-lyr-water-label: #2f6aa3;
+  --sg-lyr-project: #1d4f91;
+  --sg-lyr-access: #0b1d3a;
+  --sg-lyr-community: #6f7d1c;
+  --sg-lyr-community-label: #56621a;
+  --sg-lyr-concession: #8a5a2b;
+  /* Sombras: solo lo que flota; en reposo nada lleva sombra */
+  --sg-shadow-sm: 0 0 0 rgb(15 26 42 / 0);
+  --sg-shadow-md: 0 2px 6px rgb(15 26 42 / 0.1);
+  --sg-shadow-lg: 0 8px 24px rgb(15 26 42 / 0.16);
+  --sg-shadow-overlay: 0 24px 64px rgb(15 26 42 / 0.3);
+
+  /* Medidas por densidad: normal por defecto; la compacta las reemplaza abajo */
+  --sg-row: 44px;
+  --sg-row-compact: 36px;
+  --sg-table-head: 40px;
+  --sg-table-head-compact: 36px;
+  --sg-control: 40px;
+  --sg-control-compact: 36px;
+  --sg-field: 44px;
+  --sg-field-compact: 36px;
+  --sg-masthead: 64px;
+  --sg-masthead-compact: 52px;
+  --sg-nav: 52px;
+  --sg-nav-compact: 44px;
 
   color-scheme: light;
 }
 
-/* Tema oscuro: el de wasichai, el de SGSPE (sgspe-noche) o, sin data-theme, según el sistema operativo */
-:root[data-theme="dark"],
-:root[data-theme="sgspe-noche"] {
-  --sg-bg: #111614;
-  --sg-surface: #171d1a;
-  --sg-surface-sunken: #0d110f;
-  --sg-surface-hover: #1d2420;
-  --sg-surface-raised: #1d2420;
-  --sg-border: #2a332e;
-  --sg-border-subtle: #222a26;
-  --sg-border-strong: #5e6a64;
-  /* en oscuro, propio: el borde fuerte da 2.81:1 sobre la superficie flotante; este, 3.16 (DD-21) */
-  --sg-border-control: #66726c;
-  --sg-text: #e7ece8;
-  --sg-text-secondary: #b5bfb9;
-  --sg-text-muted: #95a09a;
-  --sg-primary: #2a7468;
-  --sg-primary-hover: #2e8073;
-  --sg-primary-soft: #17302b;
-  --sg-primary-text: #6fc2b2;
-  --sg-focus: #7fb0e6;
-  --sg-neutral: #b5bfb9;
-  --sg-neutral-soft: #242c28;
-  --sg-info: #86b6e3;
-  --sg-info-soft: #1b2a38;
-  --sg-progress: #6fc2b2;
-  --sg-progress-soft: #17302b;
-  --sg-success: #86c496;
-  --sg-success-soft: #1a2b1f;
-  --sg-warning: #e3b65a;
-  --sg-warning-soft: #33280f;
-  --sg-danger: #ef9583;
-  --sg-danger-soft: #3a1e19;
-  --sg-critical: #f4a9a9;
-  --sg-critical-soft: #401a1a;
-  --sg-on-critical: #111614;
-  --sg-ai: #bbaeea;
-  --sg-ai-soft: #262138;
-  --sg-ai-border: #6e61a3;
-  --sg-territory: #e3b65a;
-  --sg-territory-soft: #2e2717;
-  --sg-territory-border: #5a4a2a;
-  --sg-map-ground: #1b211e;
+/* Tema oscuro: el id dark de wasichai, con los valores de Civic Modern */
+:root[data-theme="dark"] {
+  --sg-bg: #0d131b;
+  --sg-surface: #141c27;
+  --sg-surface-sunken: #0a0f15;
+  --sg-surface-hover: #1a2431;
+  --sg-surface-raised: #1b2533;
+  --sg-border: #2c3a4b;
+  --sg-border-subtle: #223042;
+  --sg-border-strong: #7a8899;
+  --sg-border-control: #7f8ea1;
+  --sg-text: #f1f4f8;
+  --sg-text-secondary: #c3cdd9;
+  --sg-text-muted: #a2aebe;
+  --sg-primary: #346dbb;
+  --sg-primary-hover: #2c5fa6;
+  --sg-primary-soft: #15263c;
+  --sg-primary-text: #94bcf0;
+  --sg-on-primary: #ffffff;
+  --sg-focus: #ffd34d;
+  --sg-halo: #ffd34d;
+  --sg-header: #0e2748;
+  --sg-header-2: #0a1d37;
+  --sg-header-text: #ffffff;
+  --sg-stripe: #1a9e94;
+  --sg-ai-header-border: #d9c8ff;
+  --sg-neutral: #c3cdd9;
+  --sg-neutral-soft: #222d3b;
+  --sg-info: #94bcf0;
+  --sg-info-soft: #16253a;
+  --sg-progress: #6fd0c3;
+  --sg-progress-soft: #0f2c2b;
+  --sg-success: #8bd3a2;
+  --sg-success-soft: #13291c;
+  --sg-warning: #f2c75c;
+  --sg-warning-soft: #2f240b;
+  --sg-warning-border: #a87400;
+  --sg-danger: #ff9d8c;
+  --sg-danger-soft: #3a1915;
+  --sg-on-danger: #1a0b08;
+  --sg-critical: #ffb3b3;
+  --sg-critical-soft: #431515;
+  --sg-on-critical: #ffffff;
+  --sg-ai: #c7b2f2;
+  --sg-ai-soft: #251c3a;
+  --sg-ai-border: #8566c4;
+  --sg-territory: #cbd77e;
+  --sg-territory-soft: #222812;
+  --sg-territory-border: #6b7536;
+  --sg-data-1: #4a8ad9;
+  --sg-data-2: #d2702c;
+  --sg-data-3: #1a9e78;
+  --sg-data-4: #bb8a0c;
+  --sg-data-5: #d45c8e;
+  --sg-data-6: #4e9a2a;
+  --sg-stance-favor: #4a8ad9;
+  --sg-stance-neutral: #6b7686;
+  --sg-stance-open: #d9993f;
+  --sg-stance-against: #e0663a;
+  --sg-risk-low: #2f5a3d;
+  --sg-risk-medium: #c99a12;
+  --sg-risk-high: #d9743a;
+  --sg-risk-critical: #c42323;
+  --sg-level-medium-ink: #2a1f00;
+  --sg-level-medium-border: #8a6400;
+  --sg-level-high-ink: #2a1205;
+  --sg-level-high-border: #8a3a10;
+  --sg-heat-1: #3a2a14;
+  --sg-heat-2: #7a4a1f;
+  --sg-heat-3: #c8632f;
+  --sg-heat-4: #ff8a5c;
+  --sg-zone-1: #18291e;
+  --sg-zone-2: #33290c;
+  --sg-zone-3: #3a2314;
+  --sg-zone-4: #431515;
+  --sg-grid: #243142;
+  --sg-map-ground: #121a22;
+  --sg-map-water: #1d3a55;
+  --sg-map-contour: #1f2a35;
+  --sg-map-road: #8d8470;
+  --sg-lyr-boundary: #7a8899;
+  --sg-lyr-place: #f1f4f8;
+  --sg-lyr-water: #5c9ad6;
+  --sg-lyr-water-label: #8dbbe8;
+  --sg-lyr-project: #6fa0e0;
+  --sg-lyr-access: #f1f4f8;
+  --sg-lyr-community: #a9b85a;
+  --sg-lyr-community-label: #cbd77e;
+  --sg-lyr-concession: #c08a5a;
   color-scheme: dark;
 }
 
 /* Según el sistema, solo sin data-theme: @wasichai/core y el script de arranque del portal siempre lo escriben
- * («Según el sistema» ya llega resuelto a un tema), así que esta guarda cubre la página sin atributo y no oscurece un
- * tema claro que no sea light (sgspe-pino, sgspe-cielo) cuando el sistema está en oscuro. */
+ * («Según el sistema» ya llega resuelto a light o dark), así que esta guarda cubre la página sin atributo. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --sg-bg: #111614;
-    --sg-surface: #171d1a;
-    --sg-surface-sunken: #0d110f;
-    --sg-surface-hover: #1d2420;
-    --sg-surface-raised: #1d2420;
-    --sg-border: #2a332e;
-    --sg-border-subtle: #222a26;
-    --sg-border-strong: #5e6a64;
-    /* en oscuro, propio: el borde fuerte da 2.81:1 sobre la superficie flotante; este, 3.16 (DD-21) */
-    --sg-border-control: #66726c;
-    --sg-text: #e7ece8;
-    --sg-text-secondary: #b5bfb9;
-    --sg-text-muted: #95a09a;
-    --sg-primary: #2a7468;
-    --sg-primary-hover: #2e8073;
-    --sg-primary-soft: #17302b;
-    --sg-primary-text: #6fc2b2;
-    --sg-focus: #7fb0e6;
-    --sg-neutral: #b5bfb9;
-    --sg-neutral-soft: #242c28;
-    --sg-info: #86b6e3;
-    --sg-info-soft: #1b2a38;
-    --sg-progress: #6fc2b2;
-    --sg-progress-soft: #17302b;
-    --sg-success: #86c496;
-    --sg-success-soft: #1a2b1f;
-    --sg-warning: #e3b65a;
-    --sg-warning-soft: #33280f;
-    --sg-danger: #ef9583;
-    --sg-danger-soft: #3a1e19;
-    --sg-critical: #f4a9a9;
-    --sg-critical-soft: #401a1a;
-    --sg-on-critical: #111614;
-    --sg-ai: #bbaeea;
-    --sg-ai-soft: #262138;
-    --sg-ai-border: #6e61a3;
-    --sg-territory: #e3b65a;
-    --sg-territory-soft: #2e2717;
-    --sg-territory-border: #5a4a2a;
-    --sg-map-ground: #1b211e;
+    --sg-bg: #0d131b;
+    --sg-surface: #141c27;
+    --sg-surface-sunken: #0a0f15;
+    --sg-surface-hover: #1a2431;
+    --sg-surface-raised: #1b2533;
+    --sg-border: #2c3a4b;
+    --sg-border-subtle: #223042;
+    --sg-border-strong: #7a8899;
+    --sg-border-control: #7f8ea1;
+    --sg-text: #f1f4f8;
+    --sg-text-secondary: #c3cdd9;
+    --sg-text-muted: #a2aebe;
+    --sg-primary: #346dbb;
+    --sg-primary-hover: #2c5fa6;
+    --sg-primary-soft: #15263c;
+    --sg-primary-text: #94bcf0;
+    --sg-on-primary: #ffffff;
+    --sg-focus: #ffd34d;
+    --sg-halo: #ffd34d;
+    --sg-header: #0e2748;
+    --sg-header-2: #0a1d37;
+    --sg-header-text: #ffffff;
+    --sg-stripe: #1a9e94;
+    --sg-ai-header-border: #d9c8ff;
+    --sg-neutral: #c3cdd9;
+    --sg-neutral-soft: #222d3b;
+    --sg-info: #94bcf0;
+    --sg-info-soft: #16253a;
+    --sg-progress: #6fd0c3;
+    --sg-progress-soft: #0f2c2b;
+    --sg-success: #8bd3a2;
+    --sg-success-soft: #13291c;
+    --sg-warning: #f2c75c;
+    --sg-warning-soft: #2f240b;
+    --sg-warning-border: #a87400;
+    --sg-danger: #ff9d8c;
+    --sg-danger-soft: #3a1915;
+    --sg-on-danger: #1a0b08;
+    --sg-critical: #ffb3b3;
+    --sg-critical-soft: #431515;
+    --sg-on-critical: #ffffff;
+    --sg-ai: #c7b2f2;
+    --sg-ai-soft: #251c3a;
+    --sg-ai-border: #8566c4;
+    --sg-territory: #cbd77e;
+    --sg-territory-soft: #222812;
+    --sg-territory-border: #6b7536;
+    --sg-data-1: #4a8ad9;
+    --sg-data-2: #d2702c;
+    --sg-data-3: #1a9e78;
+    --sg-data-4: #bb8a0c;
+    --sg-data-5: #d45c8e;
+    --sg-data-6: #4e9a2a;
+    --sg-stance-favor: #4a8ad9;
+    --sg-stance-neutral: #6b7686;
+    --sg-stance-open: #d9993f;
+    --sg-stance-against: #e0663a;
+    --sg-risk-low: #2f5a3d;
+    --sg-risk-medium: #c99a12;
+    --sg-risk-high: #d9743a;
+    --sg-risk-critical: #c42323;
+    --sg-level-medium-ink: #2a1f00;
+    --sg-level-medium-border: #8a6400;
+    --sg-level-high-ink: #2a1205;
+    --sg-level-high-border: #8a3a10;
+    --sg-heat-1: #3a2a14;
+    --sg-heat-2: #7a4a1f;
+    --sg-heat-3: #c8632f;
+    --sg-heat-4: #ff8a5c;
+    --sg-zone-1: #18291e;
+    --sg-zone-2: #33290c;
+    --sg-zone-3: #3a2314;
+    --sg-zone-4: #431515;
+    --sg-grid: #243142;
+    --sg-map-ground: #121a22;
+    --sg-map-water: #1d3a55;
+    --sg-map-contour: #1f2a35;
+    --sg-map-road: #8d8470;
+    --sg-lyr-boundary: #7a8899;
+    --sg-lyr-place: #f1f4f8;
+    --sg-lyr-water: #5c9ad6;
+    --sg-lyr-water-label: #8dbbe8;
+    --sg-lyr-project: #6fa0e0;
+    --sg-lyr-access: #f1f4f8;
+    --sg-lyr-community: #a9b85a;
+    --sg-lyr-community-label: #cbd77e;
+    --sg-lyr-concession: #c08a5a;
     color-scheme: dark;
   }
 }
 
+/* Densidad compacta, por persona: filas y controles de 36 px y cabecera reducida */
+:root[data-density="compact"] {
+  --sg-row: var(--sg-row-compact);
+  --sg-table-head: var(--sg-table-head-compact);
+  --sg-control: var(--sg-control-compact);
+  --sg-field: var(--sg-field-compact);
+  --sg-masthead: var(--sg-masthead-compact);
+  --sg-nav: var(--sg-nav-compact);
+}
+
 @theme inline {
-  /* Colores como utilidades: bg-sg-surface, text-sg-text-muted, border-sg-border-strong… */
+  /* Colores como utilidades: bg-sg-surface, text-sg-text-muted, bg-sg-stance-favor, stroke-sg-lyr-project… */
   --color-sg-bg: var(--sg-bg);
   --color-sg-surface: var(--sg-surface);
   --color-sg-surface-sunken: var(--sg-surface-sunken);
@@ -207,6 +363,12 @@
   --color-sg-primary-text: var(--sg-primary-text);
   --color-sg-on-primary: var(--sg-on-primary);
   --color-sg-focus: var(--sg-focus);
+  --color-sg-halo: var(--sg-halo);
+  --color-sg-header: var(--sg-header);
+  --color-sg-header-2: var(--sg-header-2);
+  --color-sg-header-text: var(--sg-header-text);
+  --color-sg-stripe: var(--sg-stripe);
+  --color-sg-ai-header-border: var(--sg-ai-header-border);
   --color-sg-neutral: var(--sg-neutral);
   --color-sg-neutral-soft: var(--sg-neutral-soft);
   --color-sg-info: var(--sg-info);
@@ -217,8 +379,10 @@
   --color-sg-success-soft: var(--sg-success-soft);
   --color-sg-warning: var(--sg-warning);
   --color-sg-warning-soft: var(--sg-warning-soft);
+  --color-sg-warning-border: var(--sg-warning-border);
   --color-sg-danger: var(--sg-danger);
   --color-sg-danger-soft: var(--sg-danger-soft);
+  --color-sg-on-danger: var(--sg-on-danger);
   --color-sg-critical: var(--sg-critical);
   --color-sg-critical-soft: var(--sg-critical-soft);
   --color-sg-on-critical: var(--sg-on-critical);
@@ -228,7 +392,6 @@
   --color-sg-territory: var(--sg-territory);
   --color-sg-territory-soft: var(--sg-territory-soft);
   --color-sg-territory-border: var(--sg-territory-border);
-  /* Datos, postura, nivel de riesgo y suelo del mapa: bg-sg-data-1, bg-sg-stance-favor, bg-sg-risk-high… */
   --color-sg-data-1: var(--sg-data-1);
   --color-sg-data-2: var(--sg-data-2);
   --color-sg-data-3: var(--sg-data-3);
@@ -243,46 +406,95 @@
   --color-sg-risk-medium: var(--sg-risk-medium);
   --color-sg-risk-high: var(--sg-risk-high);
   --color-sg-risk-critical: var(--sg-risk-critical);
+  --color-sg-level-medium-ink: var(--sg-level-medium-ink);
+  --color-sg-level-medium-border: var(--sg-level-medium-border);
+  --color-sg-level-high-ink: var(--sg-level-high-ink);
+  --color-sg-level-high-border: var(--sg-level-high-border);
+  --color-sg-heat-1: var(--sg-heat-1);
+  --color-sg-heat-2: var(--sg-heat-2);
+  --color-sg-heat-3: var(--sg-heat-3);
+  --color-sg-heat-4: var(--sg-heat-4);
+  --color-sg-zone-1: var(--sg-zone-1);
+  --color-sg-zone-2: var(--sg-zone-2);
+  --color-sg-zone-3: var(--sg-zone-3);
+  --color-sg-zone-4: var(--sg-zone-4);
+  --color-sg-grid: var(--sg-grid);
   --color-sg-map-ground: var(--sg-map-ground);
+  --color-sg-map-water: var(--sg-map-water);
+  --color-sg-map-contour: var(--sg-map-contour);
+  --color-sg-map-road: var(--sg-map-road);
+  --color-sg-lyr-boundary: var(--sg-lyr-boundary);
+  --color-sg-lyr-place: var(--sg-lyr-place);
+  --color-sg-lyr-water: var(--sg-lyr-water);
+  --color-sg-lyr-water-label: var(--sg-lyr-water-label);
+  --color-sg-lyr-project: var(--sg-lyr-project);
+  --color-sg-lyr-access: var(--sg-lyr-access);
+  --color-sg-lyr-community: var(--sg-lyr-community);
+  --color-sg-lyr-community-label: var(--sg-lyr-community-label);
+  --color-sg-lyr-concession: var(--sg-lyr-concession);
 
   /* Tipografía */
-  --font-sg-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-sg-sans: "Public Sans", "Segoe UI", system-ui, sans-serif;
   --font-sg-mono: "IBM Plex Mono", ui-monospace, monospace;
   --text-sg-display: 2rem;
   --text-sg-display--line-height: 2.5rem;
-  --text-sg-h1: 1.5rem;
-  --text-sg-h1--line-height: 2rem;
-  --text-sg-h2: 1.25rem;
+  --text-sg-display--font-weight: 700;
+  --text-sg-h1: 1.75rem;
+  --text-sg-h1--line-height: 2.25rem;
+  --text-sg-h1--font-weight: 700;
+  --text-sg-h1--letter-spacing: -0.01em;
+  --text-sg-h2: 1.3125rem;
   --text-sg-h2--line-height: 1.75rem;
-  --text-sg-h3: 1rem;
+  --text-sg-h2--font-weight: 700;
+  --text-sg-h3: 1.0625rem;
   --text-sg-h3--line-height: 1.5rem;
-  --text-sg-body: 0.875rem;
-  --text-sg-body--line-height: 1.25rem;
-  --text-sg-body-sm: 0.8125rem;
-  --text-sg-body-sm--line-height: 1.125rem;
-  --text-sg-table-dense: 0.75rem;
-  --text-sg-table-dense--line-height: 1rem;
-  --text-sg-caption: 0.75rem;
+  --text-sg-h3--font-weight: 700;
+  --text-sg-body-lg: 1rem;
+  --text-sg-body-lg--line-height: 1.625rem;
+  --text-sg-body: 0.9375rem;
+  --text-sg-body--line-height: 1.4375rem;
+  --text-sg-body-sm: 0.84375rem;
+  --text-sg-body-sm--line-height: 1.25rem;
+  --text-sg-label: 0.9375rem;
+  --text-sg-label--line-height: 1.375rem;
+  --text-sg-label--font-weight: 700;
+  --text-sg-table: 0.90625rem;
+  --text-sg-table--line-height: 1.25rem;
+  --text-sg-table-dense: 0.875rem;
+  --text-sg-table-dense--line-height: 1.25rem;
+  --text-sg-caption: 0.78125rem;
   --text-sg-caption--line-height: 1rem;
-  --text-sg-overline: 0.6875rem;
+  --text-sg-overline: 0.78125rem;
   --text-sg-overline--line-height: 1rem;
-  --text-sg-kpi: 1.75rem;
-  --text-sg-kpi--line-height: 2rem;
-  --text-sg-kpi-sm: 1.25rem;
+  --text-sg-overline--font-weight: 600;
+  --text-sg-overline--letter-spacing: 0.06em;
+  --text-sg-kpi: 1.875rem;
+  --text-sg-kpi--line-height: 2.25rem;
+  --text-sg-kpi--font-weight: 800;
+  --text-sg-kpi-sm: 1.375rem;
   --text-sg-kpi-sm--line-height: 1.75rem;
+  --text-sg-kpi-sm--font-weight: 800;
 
-  /* Radios */
-  --radius-sg-xs: 3px;
-  --radius-sg-sm: 4px;
-  --radius-sg-md: 6px;
-  --radius-sg-lg: 8px;
-  --radius-sg-xl: 12px;
+  /* Radios: 4 px en todo (controles, paneles, chips, menús y diálogos); lg y xl quedan iguales a md */
+  --radius-sg-xs: 2px;
+  --radius-sg-sm: 3px;
+  --radius-sg-md: 4px;
+  --radius-sg-lg: 4px;
+  --radius-sg-xl: 4px;
 
   /* Sombras */
   --shadow-sg-sm: var(--sg-shadow-sm);
   --shadow-sg-md: var(--sg-shadow-md);
   --shadow-sg-lg: var(--sg-shadow-lg);
   --shadow-sg-overlay: var(--sg-shadow-overlay);
+
+  /* Alturas por densidad: h-sg-row, h-sg-control, h-sg-field… */
+  --spacing-sg-row: var(--sg-row);
+  --spacing-sg-table-head: var(--sg-table-head);
+  --spacing-sg-control: var(--sg-control);
+  --spacing-sg-field: var(--sg-field);
+  --spacing-sg-masthead: var(--sg-masthead);
+  --spacing-sg-nav: var(--sg-nav);
 
   /* Breakpoints: 640 · 768 · 1024 · 1280 · 1440 */
   --breakpoint-sm: 40rem;
@@ -295,11 +507,31 @@
   --ease-sg-out: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Foco visible y movimiento reducido para todo el portal */
+/* Foco visible, cifras tabulares y movimiento reducido para todo el portal */
 @layer base {
-  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--sg-focus);
+  /* Claro: halo amarillo de 3 px pegado al control y anillo marino de 5 px por fuera, visible sobre cualquier
+   * superficie, también sobre la cabecera azul */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--sg-halo);
+    outline-offset: 0;
+    box-shadow: 0 0 0 5px var(--sg-focus);
+  }
+
+  /* Oscuro: el halo solo, separado 2 px */
+  :root[data-theme="dark"] :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
     outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+      outline-offset: 2px;
+      box-shadow: none;
+    }
+  }
+
+  body {
+    font-variant-numeric: tabular-nums;
   }
 
   @media (prefers-reduced-motion: reduce) {
