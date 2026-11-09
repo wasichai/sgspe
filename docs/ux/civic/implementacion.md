@@ -124,7 +124,7 @@ Desvíos de la implementación:
 | Insignias sobre `danger` | `on-critical` | `on-danger` | `on-critical` daba blanco sobre rosado en oscuro (#92) |
 | LYR-09 y LYR-13 | Mismo `lyr-project` | Mismo color, distinguidas por la forma (punteado `3 3` sin relleno frente a relleno al 12 %) | Como pide §3.3; LYR-09, LYR-12 y LYR-18 ya no comparten color (#92) |
 | Capas de `paleta.json` (LYR-01 a LYR-08 y las que pinta GeoServer) | Paleta cartográfica de §3.3 (LYR-02 en `lyr-place`) | Colores de `model/styles/palette.json`: LYR-02 en rojo `#b8452e` | La paleta de los mapas de informe se alinea aparte (§3.3; wasichai/sgspe-ui#125) |
-| Rótulos y símbolos del mapa | Halo `map-ground` de 4 px; conteos en LYR-17 y LYR-19; rombo con «!» en LYR-21 | Sin texto ni símbolos: LYR-21 con el color de su nivel y LYR-17 con un anillo de la postura que más pesa | MapLibre necesita glifos y sprite del propio origen (wasichai/sgspe-ui#120) |
+| Rótulos y símbolos del mapa | Halo `map-ground` de 4 px; territorio comunal en versalitas; conteos en LYR-17 y LYR-19; rombo con «!» en LYR-21 | Glifos PBF de Public Sans del propio origen (`public/glifos/`, `scripts/glifos.mjs`) e íconos dibujados en el portal con los tokens (sin sprite); versalitas como mayúsculas espaciadas y halo recortado por MapLibre a un cuarto del tamaño del texto (3 px a 12 px); sin rótulos ni conteos sobre un estilo de proveedor con glifos propios | MapLibre no tiene versalitas ni admite dos fuentes de glifos (wasichai/sgspe-ui#120) |
 | Campos de la cabecera en oscuro | Búsqueda en `surface-sunken` con borde `border-control` | Igual, también el proyecto elegido (`[data-campo-de-cabecera]`) | #115 |
 | Campo de 48 px | Login y teléfono | Utilidad `.h-12` en `componentes.css` | #100 |
 | Avatar en oscuro | Avatar blanco de 36 px | Borde de poco contraste con la cabecera | wasichai/sgspe-ui#119 |
@@ -171,7 +171,7 @@ las listas globales.
 | S09 Proyecto 360 · Mapa | `/projects/:id/map` | 6 · #102 | ✓ | Contenedor y encabezado comunes |
 | S10 Área de influencia | `/projects/:id/areas/:areaId` | 6 · #102 | ✓ | Versión dibujada con el estilo de LYR-13 |
 | S11 Equipo y parámetros | `/projects/:id/settings` | 6 · #102 | ✓ | |
-| S12 Mapa territorial (tableros S09, D14) | `/territory` | 9 · #109 | parcial | Paneles de 300 y 380 px, controles de E; sin rótulos ni símbolos (#120); capas de referencia con `paleta.json` (#125) |
+| S12 Mapa territorial (tableros S09, D14) | `/territory` | 9 · #109 | parcial | Paneles de 300 y 380 px, controles de E; rótulos con halo y símbolos de gestión (#120); capas de referencia con `paleta.json` (#125) |
 | S13 Ficha de comunidad | `/territory/communities/:id` | 9 · #109 | ✓ | |
 | S14 Ficha de localidad | `/territory/localities/:id` | 9 · #109 | ✓ | |
 | S15 Importación geoespacial | `/territory/imports/:id` | 9 · #109 | ✓ | Pestañas de §5.3 y filtros en chip |
@@ -281,7 +281,6 @@ actual; derecha después, en `d0f818c`), en JPEG reducido a 2000 px de ancho. Lo
 
 | Límite | Detalle | Issue |
 |---|---|---|
-| Rótulos y símbolos del mapa | Sin rótulos con halo, sin conteos en LYR-17 y LYR-19 ni rombo con «!» en LYR-21: MapLibre necesita glifos y sprite servidos por el propio origen | wasichai/sgspe-ui#120 |
 | Centros poblados en rojo | LYR-02 y las demás capas de `paleta.json` usan la paleta de los SLD (`#b8452e`), no la cartográfica de §3.3 | wasichai/sgspe-ui#125 |
 | Revisión ejecutiva | «Descargar PDF» y la barra de vencidos por tramo (1–7, 8–30, más de 30 días) no se dibujan: no hay dato ni PDF | wasichai/sgspe-ui#122 |
 | Lista de EXTERNO | Solo se marcan ✓/✕ las secciones revisadas, las cambiadas tras el borrador, el borrador listo, los avisos de datos personales y los mapas fallidos. La narrativa, las fotos, los mapas y los anexos no son calculables: van como regla que se confirma al emitir | — (por diseño) |
@@ -302,7 +301,7 @@ actual; derecha después, en `d0f818c`), en JPEG reducido a 2000 px de ancho. Lo
    sobre todo en el teléfono.
 2. Subir `@wasichai/*` a 1.8.2 en cuanto se publique (#121): trae el cajón de `/admin` y siete versiones de correcciones;
    conviene hacerlo antes de que la distancia crezca.
-3. Glifos y sprite propios para el mapa (#120) y la paleta de los SLD alineada con §3.3 (#125): con eso el mapa del portal
+3. La paleta de los SLD alineada con §3.3 (#125): con los rótulos y símbolos del portal ya hechos (#120), el mapa del portal
    y los mapas de informe hablan el mismo lenguaje.
 4. Decidir el PDF y los tramos de la revisión ejecutiva (#122) y el conteo por situación de Compromisos (#124): piden dato
    del servidor, así que empiezan en sgspe.

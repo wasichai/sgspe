@@ -193,7 +193,11 @@ Capas por grupo (MapLibre: `fill`, `line`, `circle`, `heatmap`), en el orden y l
 | Gestión | LYR-21 Riesgos | `risk-*` con `level-*-ink` | — | — | Rombo con el relleno del nivel y borde de la tinta; CRITICO con «!» en `on-critical` |
 
 La selección es un anillo de 3 px en `focus` alrededor del elemento y su rótulo en 14 px 800. Las etiquetas llevan halo
-`map-ground` de 4 px. Sin mapa base, el mapa muestra las capas sobre la rejilla (`grid`) y un aviso `info` «Sin mapa base…
+`map-ground` de 4 px (MapLibre lo limita a un cuarto del tamaño del texto). En el portal, los rótulos usan glifos PBF de
+Public Sans servidos por el propio origen y los símbolos de LYR-17, LYR-19 y LYR-21 se dibujan con los tokens del tema, sin
+sprite: centros poblados en 12 px 600 `lyr-place` y ciudades en 13 px 700, a la derecha del punto; límites en 11 px 600
+`lyr-boundary` a lo largo de la línea; el territorio comunal en 12 px 700 con mayúsculas espaciadas (versalitas); el conteo
+de LYR-17 y LYR-19 en 11 px 700 `text` con halo de 2 px. Una capa que llega por WMS lleva los rótulos de su SLD. Sin mapa base, el mapa muestra las capas sobre la rejilla (`grid`) y un aviso `info` «Sin mapa base…
 Configurar mapa base» (ASM-085).
 
 Los mapas de informe y los SLD de GeoServer (`gis.md` §7.2) ya usan esta paleta en el tema claro, porque los informes son
