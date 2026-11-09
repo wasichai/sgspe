@@ -144,9 +144,15 @@ Las que quedaron así y ya se llevaron a [`design-system.md`](../design-system.m
   LYR-17 grupos, LYR-20 QCS, LYR-21 riesgos), nunca de un punto propio del grupo. En Riesgos, «Vigentes en el mapa» va bajo
   la matriz; en QCS, «Atención en el mapa».
 - **Densidad compacta de botones a 36 px** (`--sg-control-compact`), elegida solo en el menú de la cuenta.
-- **Grupos de Compromisos por página** (#106): con el orden por vencimiento se agrupan las filas de la página con la nota
-  «Agrupados por situación en esta página», sin «Mostrar N más al día» (wasichai/sgspe-ui#124). El orden se elige en el
-  control «Orden» y no en los encabezados (el monto mezcla monedas).
+- **Grupos de Compromisos por página** (#106, #124): con el orden por vencimiento se agrupan las filas de la página, cada
+  grupo con el total de la vista que cuenta el servidor (la consulta de la lista más `deadline_status`, de a un registro) y
+  «Al día» con dos filas a la vista y «Mostrar N compromisos más al día» para las demás de la página; sin esos conteos, la
+  nota «Agrupados por situación en esta página». El orden se elige en el control «Orden» y no en los encabezados (el monto
+  mezcla monedas).
+- **«Imprimir o guardar en PDF»** en la Revisión ejecutiva (#122), no «Descargar PDF»: es la impresión del navegador en
+  tema claro (`componentes/Impresion.ts`), porque el servidor no arma un PDF de la revisión. Los vencidos por tramo usan
+  los umbrales de escalamiento de KPI-COM-03 (1–7, 8–15 y más de 15 días por defecto, como el lienzo), no los 8–30 y más
+  de 30 que decía el issue; con umbrales distintos entre proyectos, el texto dice «hasta el primer umbral» y los demás.
 - **Riesgos**: las páginas del módulo son una fila de pestañas y las vistas del registro, el único control segmentado; las
   reglas de alerta son la acción «Ver reglas de alerta» (#108).
 - **Entregable** (#113): «Adoptar en la sección», «Adoptar y editar» y «Descartar» en el bloque de IA; la lista de EXTERNO
@@ -187,7 +193,7 @@ las listas globales.
 | S25 Editor de acta | `.../minutes` | 7 · #104 | ✓ | |
 | S26 Visita de campo | `/projects/:id/field-visits/:vid` | 7 · #104 | ✓ | |
 | S27 Tablero de compromisos | `/commitments/dashboard` | 5 · #100 | ✓ | Revisado en #106 sin cambios |
-| S28 Lista de compromisos (tableros S08, D15, E18) | `/commitments` | 8 · #106 | parcial | Grupos por página sin conteo del servidor (#124); selector cortado a 390 (#116) |
+| S28 Lista de compromisos (tableros S08, D15, E18) | `/commitments` | 8 · #106, #124 | parcial | Selector cortado a 390 (#116) |
 | S29 Ficha de compromiso (M17b) | `/projects/:id/commitments/:cid` | 8 · #106, #115 | ✓ | Motivo del bloqueo; barra móvil de M17b (#115) |
 | S30 Crear compromiso | `.../commitments/new` | 8 · #106 | ✓ | Tope de la campaña en la revisión |
 | S31 Aprobación de compromiso | `/tasks/approvals/:taskId` | 11 · #112, #115 | ✓ | Un solo `h1`, panel de decisión |
@@ -209,7 +215,7 @@ las listas globales.
 | S48 Aprobaciones y escalamientos | `/tasks/approvals` | 11 · #112, #115 | ✓ | Tarjeta del aporte con su propósito |
 | S49 Reportes (tablero S12) | `/reports` | 12 · #113 | ✓ | Entregables en `TablaPriorizada` con etiquetas |
 | S50 Entregable por secciones | `/reports/deliverables/:id` | 12 · #113 | parcial | Lista de EXTERNO con lo calculable (§8) |
-| S51 Revisión ejecutiva (tableros S03, D13) | `/dashboards/executive` | 5 · #100 | parcial | Sin «Descargar PDF» ni vencidos por tramo (#122) |
+| S51 Revisión ejecutiva (tableros S03, D13) | `/dashboards/executive` | 5 · #100, #122 | ✓ | «Imprimir o guardar en PDF» y vencidos por tramo (#122) |
 | S52 Bandeja de revisión de IA | `/projects/:id/ai-review` | 12 · #113 | ✓ | |
 | S53 Administración | `/administration` y `/admin` | 12 · #113 | parcial | `/admin` toma E por el puente; apretado a 390 hasta subir `@wasichai` (#121) |
 | S54–S55 Campo (móvil) | `/tasks`, `/field-visits` | 3 · #97; 7 · #104 | ✓ | Barra inferior, campos de 48 px |
@@ -282,7 +288,6 @@ actual; derecha después, en `d0f818c`), en JPEG reducido a 2000 px de ancho. Lo
 | Límite | Detalle | Issue |
 |---|---|---|
 | Centros poblados en rojo | LYR-02 y las demás capas de `paleta.json` usan la paleta de los SLD (`#b8452e`), no la cartográfica de §3.3 | wasichai/sgspe-ui#125 |
-| Revisión ejecutiva | «Descargar PDF» y la barra de vencidos por tramo (1–7, 8–30, más de 30 días) no se dibujan: no hay dato ni PDF | wasichai/sgspe-ui#122 |
 | Lista de EXTERNO | Solo se marcan ✓/✕ las secciones revisadas, las cambiadas tras el borrador, el borrador listo, los avisos de datos personales y los mapas fallidos. La narrativa, las fotos, los mapas y los anexos no son calculables: van como regla que se confirma al emitir | — (por diseño) |
 | `/admin` a 390 px | Barra lateral fija de 240 px y contenido apretado hasta subir `@wasichai/*` de 1.1.0 a una versión con el cajón (≥ 1.3.1) y su trampa de foco (wasichai/wasichai-ui#180, en 1.8.2) | wasichai/sgspe-ui#121 |
 | Selector de vistas a 390 px | Se desplaza y corta la última vista en Compromisos, QCS, Programas y Proyectos | wasichai/sgspe-ui#116 |
@@ -290,7 +295,6 @@ actual; derecha después, en `d0f818c`), en JPEG reducido a 2000 px de ancho. Lo
 | Resumen del proyecto a 1440 px | Columna izquierda corta con mucho blanco | wasichai/sgspe-ui#118 |
 | Avatar en oscuro | Borde de poco contraste con la cabecera | wasichai/sgspe-ui#119 |
 | Portafolio | Sin «Tabla · Mapa» ni casilla «Vista compacta» | wasichai/sgspe-ui#123 |
-| Grupos de Compromisos | Sin total por situación del servidor ni «Mostrar N más al día» | wasichai/sgspe-ui#124 |
 | Vínculos sueltos | «Volver a…» y «Abrir la ficha completa» siguen subrayados | — (lo pide design-system) |
 | Compromisos, vista previa | «Adjuntar evidencia» y «Registrar avance» siguen en las pestañas de la ficha; las secundarias son transiciones reales | — (decisión de #106) |
 | Ingreso | Sin «Olvidé mi contraseña» ni enlaces a privacidad y accesibilidad | — (las páginas no existen) |
@@ -303,7 +307,5 @@ actual; derecha después, en `d0f818c`), en JPEG reducido a 2000 px de ancho. Lo
    conviene hacerlo antes de que la distancia crezca.
 3. La paleta de los SLD alineada con §3.3 (#125): con los rótulos y símbolos del portal ya hechos (#120), el mapa del portal
    y los mapas de informe hablan el mismo lenguaje.
-4. Decidir el PDF y los tramos de la revisión ejecutiva (#122) y el conteo por situación de Compromisos (#124): piden dato
-   del servidor, así que empiezan en sgspe.
-5. Sumar a `yarn capturas` las pantallas que hoy no tienen foto (tableros de módulo a 390, Programas con sus cifras a 390)
+4. Sumar a `yarn capturas` las pantallas que hoy no tienen foto (tableros de módulo a 390, Programas con sus cifras a 390)
    y correrlo en cada PR visual con la etiqueta `capturas`.
