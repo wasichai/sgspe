@@ -13,9 +13,9 @@
           <Title>Límite administrativo</Title>
           <PolygonSymbolizer>
             <Stroke>
-              <CssParameter name="stroke">#5f5a6b</CssParameter>
-              <CssParameter name="stroke-width">1.2</CssParameter>
-              <CssParameter name="stroke-dasharray">6 3</CssParameter>
+              <CssParameter name="stroke">#66727f</CssParameter>
+              <CssParameter name="stroke-width">1.5</CssParameter>
+              <CssParameter name="stroke-dasharray">10 4 2 4</CssParameter>
             </Stroke>
           </PolygonSymbolizer>
         </Rule>
@@ -39,13 +39,13 @@
               </PointPlacement>
             </LabelPlacement>
             <Halo>
-              <Radius>1.5</Radius>
+              <Radius>2</Radius>
               <Fill>
-                <CssParameter name="fill">#ffffff</CssParameter>
+                <CssParameter name="fill">#eef0ea</CssParameter>
               </Fill>
             </Halo>
             <Fill>
-              <CssParameter name="fill">#3d3a45</CssParameter>
+              <CssParameter name="fill">#35425a</CssParameter>
             </Fill>
               <VendorOption name="conflictResolution">true</VendorOption>
               <VendorOption name="autoWrap">80</VendorOption>

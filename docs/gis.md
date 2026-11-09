@@ -709,8 +709,10 @@ parámetro desconocido, `422`.
   estilo; sirven igual para el WMS del portal, para los mapas de informe y para los analistas que usan QGIS.
 - Los colores salen de `model/styles/palette.json`, que también leen las capas MapLibre del portal: se comparte la
   paleta, no el lenguaje de estilos. Tiene la forma `{ description, styles: { <estilo>: { layer, stroke, fill, label,
-  halo, … } } }`, y el portal la copia byte a byte en `src/portal/mapa/paleta.json`, con una prueba en su CI que compara
-  ambos archivos. La extensión MBStyle de GeoServer puede evaluarse más adelante.
+  halo, …, tokens: { stroke, fill, label, halo } } } }`; cada color es el valor claro de su token de la paleta
+  cartográfica (design-system.md §3.3), que el portal resuelve en claro o en oscuro. El portal la copia byte a byte en
+  `src/portal/mapa/paleta.json`, con una prueba en su CI que compara ambos archivos. La extensión MBStyle de GeoServer
+  puede evaluarse más adelante.
 - **Etiquetas.** Los nombres de localidades, centros poblados, comunidades, distritos y provincias que muestran el Anexo 1 y el
   mapa de DOC-02 son reglas de texto de los SLD según la clave `label` de `layers.json`, con la prioridad y el control
   de solapes de GeoServer [DOC-01 Anexo 1] [DOC-02 p.5]. En las capas que viajan en línea, el texto de la etiqueta va

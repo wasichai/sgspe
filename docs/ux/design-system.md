@@ -194,8 +194,18 @@ Capas por grupo (MapLibre: `fill`, `line`, `circle`, `heatmap`), en el orden y l
 
 La selección es un anillo de 3 px en `focus` alrededor del elemento y su rótulo en 14 px 800. Las etiquetas llevan halo
 `map-ground` de 4 px. Sin mapa base, el mapa muestra las capas sobre la rejilla (`grid`) y un aviso `info` «Sin mapa base…
-Configurar mapa base» (ASM-085). Los mapas de informe (`gis.md` §7.2, `model/styles/palette.json`) se alinean con esta
-paleta en un cambio aparte.
+Configurar mapa base» (ASM-085).
+
+Los mapas de informe y los SLD de GeoServer (`gis.md` §7.2) ya usan esta paleta en el tema claro, porque los informes son
+claros: cada color de `model/styles/palette.json` nombra su token (`tokens`) y es su valor claro en `tokens.css`, lo que
+`publish_layers.py` valida junto con el grosor, el trazo, la marca y el tamaño de cada SLD; el portal pinta con esos
+mismos tokens en claro o en oscuro. Las capas en línea de los informes (`ReportLayerStyles`) siguen la tabla de arriba, y
+`ReportLayerStylesTest` vigila que no usen otro color ni un tono semántico. Lo que la tabla no fija: el polígono de
+LYR-02 es una línea `lyr-place` de 1 px discontinua `4 3`; LYR-03 (ciudades), un círculo de 12 px relleno `lyr-place`
+con borde `surface` de 2 px, para no confundirse con los pozos de LYR-10; LYR-16, triángulo `lyr-boundary` (escuelas) y
+cruz `text-secondary` (salud) de 10 px con borde `surface`; las concesiones del proyecto, línea continua `lyr-concession`
+de 2,5 px sobre LYR-07; LYR-14 y LYR-15, relleno al 12 % y al 20 % en `lyr-concession` y `lyr-boundary`. LYR-05 va sin
+trama en los informes (relleno al 5 % y borde de 2 px).
 
 ### 3.4 Tipografía
 

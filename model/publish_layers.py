@@ -4,7 +4,10 @@
 1. Lee model/layers.json y lo valida contra model.json, roles.json, los SLD de model/styles y su palette.json: cada capa
    es una geometría declarada de un maestro del tenant (un objeto que no llega a `project` por sus campos RELATION, la
    misma partición que ProjectScope.TENANT) sin campos restringidos, y cada estilo tiene su SLD, que dibuja esa geometría,
-   rotula el campo que pide la capa y usa exactamente los colores de la paleta. --validate-only termina aquí, sin red.
+   rotula el campo que pide la capa y usa exactamente los colores, el grosor, el trazo, la marca y el tamaño de la paleta.
+   Cada color de la paleta nombra su token de la paleta cartográfica (design-system.md §3.3) y es su valor en el tema
+   claro de docs/ux/tokens.css: los informes son claros y el portal pinta con el mismo token en claro o en oscuro.
+   --validate-only termina aquí, sin red.
 2. Como el administrador del tenant (--core, --email y --password, como apply.py), consulta GET /api/gis/layers y publica
    con POST /api/gis/layers/{objeto}/{geometría} las que falten. wasichai la nombra <tabla física>__<columna>. Una
    geometría que el tenant no tiene detiene todo antes del primer POST.
@@ -46,6 +49,9 @@ COLOR = re.compile(r"#[0-9a-fA-F]{6}\b")
 REQUIRED_KEYS = ("layer", "object", "geometry", "style")
 ENTRY_KEYS = frozenset(REQUIRED_KEYS + ("label",))
 PALETTE_COLORS = ("stroke", "fill", "label", "halo")
+TOKEN_NAME = re.compile(r"^[a-z0-9-]+$")
+# un token del tema claro de tokens.css: la primera declaración de cada --sg-* dentro de `:root {`
+LIGHT_TOKEN = re.compile(r"--sg-([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{6})\s*;")
 SYMBOLIZERS = {"POINT": "PointSymbolizer", "MULTIPOINT": "PointSymbolizer", "LINESTRING": "LineSymbolizer",
                "MULTILINESTRING": "LineSymbolizer", "POLYGON": "PolygonSymbolizer", "MULTIPOLYGON": "PolygonSymbolizer"}
 
@@ -105,8 +111,40 @@ def pairs(layers):
     return list(dict.fromkeys((entry["object"], entry["geometry"]) for entry in layers))
 
 
-def validate(layers, model, roles, palette, styles_dir):
-    """Los errores de layers.json, de sus SLD y de la paleta; [] si todo es válido."""
+def light_tokens(path):
+    """Los tokens de color del tema claro de tokens.css (el bloque `:root {`), sin el prefijo --sg-: {nombre: #rrggbb}."""
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    start = text.index(":root {")
+    block = text[start:text.index("}", start)]
+    return {name: value.lower() for name, value in LIGHT_TOKEN.findall(block)}
+
+
+def _token_errors(style, colors, tokens):
+    """Cada color no nulo de un estilo nombra su token y, con `tokens` (el tema claro), es su valor."""
+    named = colors.get("tokens")
+    if not isinstance(named, dict):
+        return [f"palette.json: {style} no nombra el token de sus colores (tokens)"]
+    errors = []
+    extra = sorted(set(named) - set(PALETTE_COLORS))
+    if extra:
+        errors.append(f"palette.json: {style}: tokens solo lleva {', '.join(PALETTE_COLORS)}; sobra {', '.join(extra)}")
+    for key in PALETTE_COLORS:
+        color, token = colors.get(key), named.get(key)
+        if not color and not token:
+            continue
+        if not color or not isinstance(token, str) or not TOKEN_NAME.fullmatch(token):
+            errors.append(f"palette.json: {style} no nombra el token de {key} o nombra uno sin color")
+        elif tokens is not None and token not in tokens:
+            errors.append(f"palette.json: {style}: {key} {token} no es un token de color de tokens.css")
+        elif tokens is not None and tokens[token] != str(color).lower():
+            errors.append(f"palette.json: {style}: {key} {color} no es {token} ({tokens[token]} en el tema claro)")
+    return errors
+
+
+def validate(layers, model, roles, palette, styles_dir, tokens=None):
+    """Los errores de layers.json, de sus SLD y de la paleta; [] si todo es válido. `tokens` son los del tema claro
+    (light_tokens); sin ellos no se compara el valor de cada token."""
     if not isinstance(layers, list) or not layers:
         return ["layers.json debe ser una lista no vacía de capas"]
     styles = palette.get("styles") if isinstance(palette, dict) else None
@@ -157,6 +195,8 @@ def validate(layers, model, roles, palette, styles_dir):
             continue
         seen.append(style)
         errors.extend(_sld_errors(where, layer, style, field["geometryType"], label, styles.get(style), styles_dir))
+        if isinstance(styles.get(style), dict):
+            errors.extend(_token_errors(style, styles[style], tokens))
     for style in styles:
         if style not in seen:
             errors.append(f"palette.json: {style} no es el estilo de ninguna capa de layers.json")
@@ -190,6 +230,44 @@ def _sld_errors(where, layer, style, geometry_type, label, colors, styles_dir):
     used = {color.lower() for color in COLOR.findall(text)}
     if used != wanted:
         errors.append(f"{where}: {style}.sld usa los colores {sorted(used)} y palette.json da {sorted(wanted)}")
+    return errors + _shape_errors(where, style, root.find(f".//{SLD}{symbolizer}"), colors)
+
+
+def _css(node, name):
+    if node is None:
+        return None
+    for p in node.iter(f"{SLD}CssParameter"):
+        if p.get("name") == name:
+            return (p.text or "").strip()
+    return None
+
+
+def _number(text):
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _shape_errors(where, style, symbolizer, colors):
+    """El primer símbolo del SLD dibuja con el grosor, el trazo, la marca y el tamaño de la paleta."""
+    if symbolizer is None:
+        return []
+    errors = []
+    stroke = symbolizer.find(f".//{SLD}Stroke")
+    width = _number(_css(stroke, "stroke-width")) if stroke is not None else None
+    if colors.get("strokeWidth") is not None and width != float(colors["strokeWidth"]):
+        errors.append(f"{where}: {style}.sld tiene un grosor de {width} y palette.json da {colors['strokeWidth']}")
+    dash = (_css(stroke, "stroke-dasharray") or "").split()
+    wanted = [float(d) for d in colors.get("strokeDasharray") or []]
+    if [_number(d) for d in dash] != wanted:
+        errors.append(f"{where}: {style}.sld traza {dash or 'continuo'} y palette.json da {wanted or 'continuo'}")
+    mark = symbolizer.find(f".//{SLD}WellKnownName")
+    if colors.get("mark") is not None and (mark is None or (mark.text or "").strip() != colors["mark"]):
+        errors.append(f"{where}: {style}.sld marca {None if mark is None else mark.text} y palette.json da {colors['mark']}")
+    size = symbolizer.find(f".//{SLD}Size")
+    if colors.get("size") is not None and (size is None or _number(size.text) != float(colors["size"])):
+        errors.append(f"{where}: {style}.sld mide {None if size is None else size.text} y palette.json da {colors['size']}")
     return errors
 
 
@@ -327,6 +405,7 @@ def _parse_args(argv):
     p.add_argument("--styles", default=os.path.join(HERE, "styles"))
     p.add_argument("--model", default=os.path.join(HERE, "model.json"))
     p.add_argument("--roles", default=os.path.join(HERE, "roles.json"))
+    p.add_argument("--tokens", default=os.path.join(HERE, "..", "docs", "ux", "tokens.css"))
     p.add_argument("--core", default=os.environ.get("WASICHAI_CORE", "http://localhost:8094"))
     p.add_argument("--email", default=os.environ.get("WASICHAI_EMAIL", "admin@wasichai.local"))
     p.add_argument("--password", default=os.environ.get("WASICHAI_PASSWORD", "admin"))
@@ -357,7 +436,12 @@ def main(argv=None):
             print(f"layers: {error}")
             return 2
         loaded[key] = data
-    errors = validate(loaded["layers"], loaded["model"], loaded["roles"], loaded["palette"], args.styles)
+    try:
+        tokens = light_tokens(args.tokens)
+    except (OSError, ValueError) as e:
+        print(f"layers: {args.tokens}: {e}")
+        return 2
+    errors = validate(loaded["layers"], loaded["model"], loaded["roles"], loaded["palette"], args.styles, tokens)
     if errors:
         for e in errors:
             print(f"layers: {e}")

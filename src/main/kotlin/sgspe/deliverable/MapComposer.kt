@@ -180,7 +180,9 @@ object MapComposer {
         g.drawString("N", x - g.fontMetrics.stringWidth("N") / 2, y + 116)
     }
 
-    private fun swatch(
+    // la muestra de una capa en la leyenda; un punto lleva su relleno y su borde, porque el centro poblado es un círculo hueco
+    // (relleno surface y borde lyr-place, design-system.md §3.3)
+    internal fun swatch(
         g: Graphics2D,
         style: LayerStyle,
         x: Int,
@@ -213,8 +215,13 @@ object MapComposer {
                 val size = 24.0
                 val cx = x + w / 2.0
                 val cy = y + h / 2.0
+                val shape = mark(style.mark, cx, cy, size)
                 g.color = style.fill?.let(Color::decode) ?: stroke
-                g.fill(mark(style.mark, cx, cy, size))
+                g.fill(shape)
+                if (style.fill != null && style.stroke != null) {
+                    g.color = stroke
+                    g.draw(shape)
+                }
             }
         }
     }
