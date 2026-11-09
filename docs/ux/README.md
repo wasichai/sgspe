@@ -23,7 +23,7 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 | E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S49–S55, S62 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
 | Decisiones Q1, Q3, Q6 y Q7, y temas | Marca propia, idiomas, vistas compartidas, mapa base y tres temas | Lienzo de la etapa 3, páginas 22 a 25 (11 hojas) | [`design-system.md`](design-system.md) §2.1, §5, §6.4 y §9.1; [`screens.md`](screens.md) (S01, S12, S16, S28, S35 y S56); [`../gis.md`](../gis.md) §6.4; `design-system.md` §3.9; ASM-082 a ASM-086 (ASM-077 y ASM-086, reemplazados por ASM-149) | Entregada; los temas, reemplazados |
 | Rediseño de UX | Auditoría, arquitectura de información, design system, componentes y decisiones DD-01 a DD-29, implementados en `sgspe-ui` | [`redesign/04-prototipos/`](redesign/04-prototipos/README.md) (23 capturas) | [`redesign/`](redesign/README.md), llevado a `ux-architecture.md`, `design-system.md`, `screens.md` y `flows.md` el 2026-10-23 | Implementado; la carpeta queda como historia |
-| Identidad «Civic Modern» | Dirección E elegida entre cinco: paleta, tipografía, shell, componentes, densidad compacta y préstamos de B, C y D | [Lienzo de la dirección E](https://claude.ai/artifact/Y6aV29ac54BQMERnieY15K) (22 tableros) y [`civic/`](civic/README.md) | [`design-system.md`](design-system.md), [`tokens.css`](tokens.css), [`ux-architecture.md`](ux-architecture.md) §7.1, [ADR-0032](../adr/0032-identidad-visual-civic-modern.md), ASM-149 | Aprobada el 2026-11-08; se implementa en wasichai/sgspe-ui#88 |
+| Identidad «Civic Modern» | Dirección E elegida entre cinco: paleta, tipografía, shell, componentes, densidad compacta y préstamos de B, C y D | [Lienzo de la dirección E](https://claude.ai/artifact/Y6aV29ac54BQMERnieY15K) (22 tableros) y [`civic/`](civic/README.md) | [`design-system.md`](design-system.md), [`tokens.css`](tokens.css), [`ux-architecture.md`](ux-architecture.md) §7.1, [ADR-0032](../adr/0032-identidad-visual-civic-modern.md), ASM-149 | Aprobada el 2026-11-08; implementada en wasichai/sgspe-ui#88 ([`civic/implementacion.md`](civic/implementacion.md)) |
 
 ## Cómo leer
 
@@ -32,8 +32,8 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 2. [`design-system.md`](design-system.md): tokens, sistema de estados, componentes, patrones núcleo, accesibilidad, responsive y
    guía de implementación.
 3. [`tokens.css`](tokens.css): los tokens de la identidad «Civic Modern» (ADR-0032), claro, oscuro y densidad compacta,
-   listos para Tailwind 4 como capa sobre `@wasichai/ui/theme.css`; y [`civic/`](civic/README.md), las capturas de
-   referencia del lienzo.
+   listos para Tailwind 4 como capa sobre `@wasichai/ui/theme.css`; [`civic/`](civic/README.md), las capturas de
+   referencia del lienzo; y [`civic/implementacion.md`](civic/implementacion.md), cómo quedó en el portal.
 4. [`screens.md`](screens.md): la ficha de handoff de cada pantalla (ruta, roles, acciones, datos y API, estados, permisos,
    responsive, navegación y árbol de componentes React).
 5. [`flows.md`](flows.md): los flujos núcleo paso a paso, con la pantalla, la transición o el endpoint y la regla de cada paso.
