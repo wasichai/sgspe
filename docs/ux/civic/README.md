@@ -9,6 +9,10 @@ y los documentos difieren (por ejemplo, `--sg-on-critical` y `--sg-risk-critical
 Todas son PNG del tablero completo, renderizado fuera del lienzo (5,7 MB en total, sin recomprimir). Los datos son del
 conjunto ficticio de demostración (DEMO-T1, «Proyecto Wayra Ejemplo»); ninguna persona es real.
 
+La implementación en el portal (wasichai/sgspe-ui#88) está descrita en [`implementacion.md`](implementacion.md):
+inventario de componentes, desvíos del lienzo, migración por pantalla, resultados de pruebas y límites conocidos. Las 19
+comparaciones antes/después están en [`comparacion/`](comparacion/) (JPEG reducido).
+
 | Archivo | Tablero | Tamaño | Qué muestra |
 |---|---|---|---|
 | [`00-identidad-color-y-datos.png`](00-identidad-color-y-datos.png) | Main | 1440 × 1925 | Racional, marca, acción y foco, neutros claro y oscuro, tonos semánticos con su contraste, las tres familias de estado, categórica, postura, nivel, calor y capas del mapa por grupo |
