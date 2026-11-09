@@ -20,16 +20,16 @@
           <PointSymbolizer>
             <Graphic>
               <Mark>
-                <WellKnownName>square</WellKnownName>
+                <WellKnownName>circle</WellKnownName>
                 <Fill>
-                  <CssParameter name="fill">#7a1f12</CssParameter>
+                  <CssParameter name="fill">#0f1a2a</CssParameter>
                 </Fill>
                 <Stroke>
                   <CssParameter name="stroke">#ffffff</CssParameter>
-                  <CssParameter name="stroke-width">1</CssParameter>
+                  <CssParameter name="stroke-width">2</CssParameter>
                 </Stroke>
               </Mark>
-              <Size>10</Size>
+              <Size>12</Size>
             </Graphic>
           </PointSymbolizer>
         </Rule>
@@ -66,11 +66,11 @@
             <Halo>
               <Radius>2</Radius>
               <Fill>
-                <CssParameter name="fill">#ffffff</CssParameter>
+                <CssParameter name="fill">#eef0ea</CssParameter>
               </Fill>
             </Halo>
             <Fill>
-              <CssParameter name="fill">#2b1a14</CssParameter>
+              <CssParameter name="fill">#0f1a2a</CssParameter>
             </Fill>
               <VendorOption name="conflictResolution">true</VendorOption>
           </TextSymbolizer>

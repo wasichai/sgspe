@@ -34,6 +34,19 @@ class MapComposerTest {
     private fun read(png: ByteArray): BufferedImage = ImageIO.read(ByteArrayInputStream(png))
 
     @Test
+    fun `la muestra de un punto hueco dibuja su borde sobre el relleno`() {
+        val image = BufferedImage(60, 30, BufferedImage.TYPE_INT_RGB)
+        val g = image.createGraphics()
+        g.color = java.awt.Color.WHITE
+        g.fillRect(0, 0, 60, 30)
+        MapComposer.swatch(g, ReportLayerStyles.PUBLISHED.getValue("sgspe-lyr-02-location"), 0, 0, 60, 30)
+        g.dispose()
+        var ink = 0
+        for (y in 0 until 30) for (x in 0 until 60) if (image.getRGB(x, y) and 0xFFFFFF == 0x0F1A2A) ink++
+        assertTrue(ink > 20, "$ink píxeles del borde lyr-place")
+    }
+
+    @Test
     fun `el lienzo es mas grande que el cuerpo, lleva pHYs de 300 dpi y la leyenda tiene pixeles`() {
         val png = MapComposer.compose(body, frame, 32717, legend, "Asociación Ejemplo", omitted = false)
         val image = read(png)

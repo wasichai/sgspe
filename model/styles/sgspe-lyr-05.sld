@@ -13,12 +13,12 @@
           <Title>Territorio comunal</Title>
           <PolygonSymbolizer>
             <Fill>
-              <CssParameter name="fill">#3f7d3a</CssParameter>
-              <CssParameter name="fill-opacity">0.12</CssParameter>
+              <CssParameter name="fill">#6f7d1c</CssParameter>
+              <CssParameter name="fill-opacity">0.05</CssParameter>
             </Fill>
             <Stroke>
-              <CssParameter name="stroke">#3f7d3a</CssParameter>
-              <CssParameter name="stroke-width">1.4</CssParameter>
+              <CssParameter name="stroke">#6f7d1c</CssParameter>
+              <CssParameter name="stroke-width">2</CssParameter>
             </Stroke>
           </PolygonSymbolizer>
         </Rule>
@@ -43,13 +43,13 @@
               </PointPlacement>
             </LabelPlacement>
             <Halo>
-              <Radius>1.5</Radius>
+              <Radius>2</Radius>
               <Fill>
-                <CssParameter name="fill">#ffffff</CssParameter>
+                <CssParameter name="fill">#eef0ea</CssParameter>
               </Fill>
             </Halo>
             <Fill>
-              <CssParameter name="fill">#24461f</CssParameter>
+              <CssParameter name="fill">#56621a</CssParameter>
             </Fill>
               <VendorOption name="conflictResolution">true</VendorOption>
               <VendorOption name="autoWrap">80</VendorOption>

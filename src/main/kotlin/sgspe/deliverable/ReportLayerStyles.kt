@@ -27,6 +27,16 @@ data class LayerStyle(
 object ReportLayerStyles {
     private val JSON: JsonMapper = JsonMapper.builder().build()
 
+    private const val SURFACE = "#ffffff"
+    private const val MAP_GROUND = "#eef0ea"
+    private const val LYR_BOUNDARY = "#66727f"
+    private const val LYR_WATER = "#3d7fbf"
+    private const val LYR_WATER_LABEL = "#2f6aa3"
+    private const val LYR_PROJECT = "#1d4f91"
+    private const val LYR_ACCESS = "#0b1d3a"
+    private const val LYR_COMMUNITY_LABEL = "#56621a"
+    private const val LYR_CONCESSION = "#8a5a2b"
+
     val PUBLISHED: Map<String, LayerStyle> by lazy {
         val text =
             ReportLayerStyles::class.java.getResourceAsStream("/model/styles/palette.json")?.use { String(it.readAllBytes()) }
@@ -34,20 +44,32 @@ object ReportLayerStyles {
         parse(text)
     }
 
+    // los colores son tokens del tema claro de la paleta cartográfica (design-system.md §3.3; ReportLayerStylesTest): el agua en
+    // lyr-water, el proyecto en lyr-project, sus componentes en lyr-access, la tenencia en oliva y siena, con el halo map-ground
     val INLINE: Map<String, LayerStyle> =
         mapOf(
-            "LYR-06" to LayerStyle(Shape.POLYGON, "#6b8e23", 1.0, listOf(4.0, 2.0), "#6b8e23", 0.06, label = "#3d5214", halo = "#ffffff"),
-            "LYR-08" to LayerStyle(Shape.LINE, "#2f6fb0", 1.2, label = "#1d4470", halo = "#ffffff"),
-            "LYR-09-location" to LayerStyle(Shape.POINT, "#ffffff", 1.0, fill = "#1d3557", mark = "star", size = 12.0),
-            "LYR-09-area" to LayerStyle(Shape.POLYGON, "#1d3557", 1.6, listOf(8.0, 4.0)),
-            "LYR-10" to LayerStyle(Shape.POINT, "#ffffff", 0.8, fill = "#d62828", mark = "circle", size = 6.0, label = "#7a1010", halo = "#ffffff"),
-            "LYR-11" to LayerStyle(Shape.POLYGON, "#7f3c8d", 1.0, fill = "#7f3c8d", fillOpacity = 0.25),
-            "LYR-11-point" to LayerStyle(Shape.POINT, "#ffffff", 0.8, fill = "#7f3c8d", mark = "triangle", size = 8.0),
-            "LYR-13-AIDS" to LayerStyle(Shape.POLYGON, "#e76f51", 2.0, fill = "#e76f51", fillOpacity = 0.10),
-            "LYR-13-AIIS" to LayerStyle(Shape.POLYGON, "#f4a261", 1.6, listOf(6.0, 3.0), "#f4a261", 0.06),
-            "LYR-14" to LayerStyle(Shape.POLYGON, "#8d6e63", 0.8, fill = "#bcaaa4", fillOpacity = 0.25),
-            "LYR-15" to LayerStyle(Shape.POLYGON, "#5d4037", 1.0, fill = "#5d4037", fillOpacity = 0.30),
-            "PROJECT-CONCESSION" to LayerStyle(Shape.POLYGON, "#b8860b", 2.2, label = "#5b3f00", halo = "#ffffff")
+            "LYR-06" to
+                LayerStyle(
+                    Shape.POLYGON,
+                    LYR_COMMUNITY_LABEL,
+                    1.0,
+                    listOf(4.0, 2.0),
+                    LYR_COMMUNITY_LABEL,
+                    0.05,
+                    label = LYR_COMMUNITY_LABEL,
+                    halo = MAP_GROUND
+                ),
+            "LYR-08" to LayerStyle(Shape.LINE, LYR_WATER, 2.0, label = LYR_WATER_LABEL, halo = MAP_GROUND),
+            "LYR-09-location" to LayerStyle(Shape.POINT, SURFACE, 1.0, fill = LYR_PROJECT, mark = "star", size = 12.0),
+            "LYR-09-area" to LayerStyle(Shape.POLYGON, LYR_PROJECT, 1.5, listOf(3.0, 3.0)),
+            "LYR-10" to LayerStyle(Shape.POINT, SURFACE, 1.0, fill = LYR_ACCESS, mark = "square", size = 10.0, label = LYR_ACCESS, halo = MAP_GROUND),
+            "LYR-11" to LayerStyle(Shape.POLYGON, LYR_ACCESS, 1.0, fill = LYR_ACCESS, fillOpacity = 0.25),
+            "LYR-11-point" to LayerStyle(Shape.POINT, SURFACE, 1.0, fill = LYR_ACCESS, mark = "triangle", size = 8.0),
+            "LYR-13-AIDS" to LayerStyle(Shape.POLYGON, LYR_PROJECT, 2.5, fill = LYR_PROJECT, fillOpacity = 0.12),
+            "LYR-13-AIIS" to LayerStyle(Shape.POLYGON, LYR_PROJECT, 2.0, listOf(8.0, 5.0)),
+            "LYR-14" to LayerStyle(Shape.POLYGON, LYR_CONCESSION, 0.8, fill = LYR_CONCESSION, fillOpacity = 0.12),
+            "LYR-15" to LayerStyle(Shape.POLYGON, LYR_BOUNDARY, 1.0, fill = LYR_BOUNDARY, fillOpacity = 0.20),
+            "PROJECT-CONCESSION" to LayerStyle(Shape.POLYGON, LYR_CONCESSION, 2.5, label = LYR_CONCESSION, halo = MAP_GROUND)
         )
 
     fun parse(json: String): Map<String, LayerStyle> {

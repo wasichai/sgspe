@@ -13,8 +13,8 @@
           <Title>Vía de acceso</Title>
           <LineSymbolizer>
             <Stroke>
-              <CssParameter name="stroke">#8c6d46</CssParameter>
-              <CssParameter name="stroke-width">1.6</CssParameter>
+              <CssParameter name="stroke">#8a7f6c</CssParameter>
+              <CssParameter name="stroke-width">3</CssParameter>
               <CssParameter name="stroke-linecap">round</CssParameter>
               <CssParameter name="stroke-linejoin">round</CssParameter>
             </Stroke>

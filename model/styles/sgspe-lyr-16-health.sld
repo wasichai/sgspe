@@ -16,14 +16,14 @@
               <Mark>
                 <WellKnownName>cross</WellKnownName>
                 <Fill>
-                  <CssParameter name="fill">#b0234a</CssParameter>
+                  <CssParameter name="fill">#35425a</CssParameter>
                 </Fill>
                 <Stroke>
                   <CssParameter name="stroke">#ffffff</CssParameter>
                   <CssParameter name="stroke-width">1</CssParameter>
                 </Stroke>
               </Mark>
-              <Size>9</Size>
+              <Size>10</Size>
             </Graphic>
           </PointSymbolizer>
         </Rule>

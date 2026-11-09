@@ -12,13 +12,10 @@
         <Rule>
           <Title>Límite de la localidad</Title>
           <PolygonSymbolizer>
-            <Fill>
-              <CssParameter name="fill">#b8452e</CssParameter>
-              <CssParameter name="fill-opacity">0.08</CssParameter>
-            </Fill>
             <Stroke>
-              <CssParameter name="stroke">#b8452e</CssParameter>
+              <CssParameter name="stroke">#0f1a2a</CssParameter>
               <CssParameter name="stroke-width">1</CssParameter>
+              <CssParameter name="stroke-dasharray">4 3</CssParameter>
             </Stroke>
           </PolygonSymbolizer>
         </Rule>
@@ -42,13 +39,13 @@
               </PointPlacement>
             </LabelPlacement>
             <Halo>
-              <Radius>1.5</Radius>
+              <Radius>2</Radius>
               <Fill>
-                <CssParameter name="fill">#ffffff</CssParameter>
+                <CssParameter name="fill">#eef0ea</CssParameter>
               </Fill>
             </Halo>
             <Fill>
-              <CssParameter name="fill">#3a2a24</CssParameter>
+              <CssParameter name="fill">#0f1a2a</CssParameter>
             </Fill>
               <VendorOption name="conflictResolution">true</VendorOption>
               <VendorOption name="autoWrap">60</VendorOption>

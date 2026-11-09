@@ -35,6 +35,7 @@ LAYERS = load("layers.json")
 MODEL = load("model.json")
 ROLES = load("roles.json")
 PALETTE = load("styles", "palette.json")
+TOKENS_CSS = os.path.join(HERE, "..", "docs", "ux", "tokens.css")
 PAIRS = list(dict.fromkeys((e["object"], e["geometry"]) for e in LAYERS))
 STYLES = [e["style"] for e in LAYERS]
 
@@ -45,9 +46,10 @@ def sld(style):
 
 
 class ValidationTests(unittest.TestCase):
-    def errors(self, layers=None, palette=None, styles_dir=STYLES_DIR):
+    def errors(self, layers=None, palette=None, styles_dir=STYLES_DIR, tokens=None):
         return publish_layers.validate(LAYERS if layers is None else layers, MODEL, ROLES,
-                                       PALETTE if palette is None else palette, styles_dir)
+                                       PALETTE if palette is None else palette, styles_dir,
+                                       publish_layers.light_tokens(TOKENS_CSS) if tokens is None else tokens)
 
     def mutated(self, index, **changes):
         layers = copy.deepcopy(LAYERS)
@@ -114,13 +116,52 @@ class ValidationTests(unittest.TestCase):
     def test_cada_sld_usa_exactamente_los_colores_y_la_etiqueta_de_su_estilo(self):
         folder = self.styles_copy()
         with open(os.path.join(folder, "sgspe-lyr-07.sld"), "w", encoding="utf-8") as f:
-            f.write(sld("sgspe-lyr-07").replace("#9a6a00", "#000000"))
+            f.write(sld("sgspe-lyr-07").replace("#8a5a2b", "#000000"))
         with open(os.path.join(folder, "sgspe-lyr-05.sld"), "w", encoding="utf-8") as f:
             f.write(sld("sgspe-lyr-05").replace("<ogc:PropertyName>name</ogc:PropertyName>",
                                                 "<ogc:PropertyName>property_record</ogc:PropertyName>"))
         errors = self.errors(styles_dir=folder)
         self.assertTrue(any("sgspe-lyr-07.sld usa los colores" in e for e in errors), errors)
         self.assertTrue(any("sgspe-lyr-05.sld rotula" in e for e in errors), errors)
+
+    def test_cada_sld_dibuja_con_el_grosor_el_trazo_la_marca_y_el_tamano_de_su_estilo(self):
+        folder = self.styles_copy()
+        with open(os.path.join(folder, "sgspe-lyr-01.sld"), "w", encoding="utf-8") as f:
+            f.write(sld("sgspe-lyr-01").replace("10 4 2 4", "6 3"))
+        with open(os.path.join(folder, "sgspe-lyr-04.sld"), "w", encoding="utf-8") as f:
+            f.write(sld("sgspe-lyr-04").replace('"stroke-width">3<', '"stroke-width">1.6<'))
+        with open(os.path.join(folder, "sgspe-lyr-02-location.sld"), "w", encoding="utf-8") as f:
+            f.write(sld("sgspe-lyr-02-location").replace("<Size>10</Size>", "<Size>7</Size>"))
+        with open(os.path.join(folder, "sgspe-lyr-03.sld"), "w", encoding="utf-8") as f:
+            f.write(sld("sgspe-lyr-03").replace(">circle<", ">square<"))
+        errors = self.errors(styles_dir=folder)
+        for expected in ("sgspe-lyr-01.sld traza", "sgspe-lyr-04.sld tiene un grosor", "sgspe-lyr-02-location.sld mide",
+                         "sgspe-lyr-03.sld marca"):
+            self.assertTrue(any(expected in e for e in errors), (expected, errors))
+
+    def test_cada_color_de_la_paleta_es_el_de_su_token_del_tema_claro(self):
+        # design-system.md §3.3: los mapas de informe son claros y usan la paleta cartográfica de tokens.css; el portal
+        # lee los mismos tokens para pintar en claro o en oscuro
+        tokens = publish_layers.light_tokens(TOKENS_CSS)
+        self.assertEqual(tokens["lyr-place"], "#0f1a2a")
+        palette = copy.deepcopy(PALETTE)
+        del palette["styles"]["sgspe-lyr-04"]["tokens"]
+        palette["styles"]["sgspe-lyr-05"]["tokens"]["stroke"] = "lyr-place"
+        palette["styles"]["sgspe-lyr-07"]["tokens"]["label"] = "no-existe"
+        palette["styles"]["sgspe-lyr-01"]["tokens"]["mark"] = "lyr-boundary"
+        errors = self.errors(palette=palette)
+        for expected in ("sgspe-lyr-04 no nombra el token", "sgspe-lyr-05: stroke #6f7d1c no es lyr-place",
+                         "sgspe-lyr-07: label no-existe no es un token", "sgspe-lyr-01: tokens solo lleva"):
+            self.assertTrue(any(expected in e for e in errors), (expected, errors))
+
+    def test_los_centros_poblados_son_un_circulo_surface_con_borde_lyr_place_y_ninguna_capa_usa_un_tono_semantico(self):
+        place = PALETTE["styles"]["sgspe-lyr-02-location"]
+        self.assertEqual((place["mark"], place["tokens"]["fill"], place["tokens"]["stroke"], place["strokeWidth"]),
+                         ("circle", "surface", "lyr-place", 2))
+        semantic = ("danger", "critical", "warning", "success", "info", "progress", "ai", "risk", "heat", "stance")
+        for name, style in PALETTE["styles"].items():
+            for key, token in style["tokens"].items():
+                self.assertFalse(token.startswith(semantic), (name, key, token))
 
     def test_la_paleta_y_las_capas_van_de_la_mano(self):
         palette = copy.deepcopy(PALETTE)

@@ -1,14 +1,14 @@
 {
-  "description": "Colores de las capas públicas de SGSPE (gis.md §7.2): los usan los SLD de model/styles y, copiados en sgspe-ui como src/portal/mapa/paleta.json, las capas del portal. Cada SLD usa exactamente los colores no nulos de su estilo (publish_layers.py lo valida).",
+  "description": "Colores de las capas públicas de SGSPE (gis.md §7.2), de la paleta cartográfica de Civic Modern (design-system.md §3.3): los usan los SLD de model/styles y los mapas de informe, en el tema claro, y, copiados en sgspe-ui como src/portal/mapa/paleta.json, las capas del portal, que pintan con el token de cada color en claro o en oscuro. Cada SLD usa exactamente los colores no nulos, el grosor, el trazo, la marca y el tamaño de su estilo, y cada color es el de su token en el tema claro de docs/ux/tokens.css (publish_layers.py lo valida).",
   "styles": {
-    "sgspe-lyr-01": {"layer": "LYR-01", "stroke": "#5f5a6b", "strokeWidth": 1.2, "strokeDasharray": [6, 3], "fill": null, "fillOpacity": 0, "label": "#3d3a45", "halo": "#ffffff"},
-    "sgspe-lyr-02-location": {"layer": "LYR-02", "mark": "circle", "size": 7, "fill": "#b8452e", "stroke": "#ffffff", "strokeWidth": 1, "label": "#3a2a24", "halo": "#ffffff"},
-    "sgspe-lyr-02-boundary": {"layer": "LYR-02", "stroke": "#b8452e", "strokeWidth": 1, "fill": "#b8452e", "fillOpacity": 0.08, "label": "#3a2a24", "halo": "#ffffff"},
-    "sgspe-lyr-03": {"layer": "LYR-03", "mark": "square", "size": 10, "fill": "#7a1f12", "stroke": "#ffffff", "strokeWidth": 1, "label": "#2b1a14", "halo": "#ffffff"},
-    "sgspe-lyr-04": {"layer": "LYR-04", "stroke": "#8c6d46", "strokeWidth": 1.6, "fill": null, "label": null, "halo": null},
-    "sgspe-lyr-05": {"layer": "LYR-05", "stroke": "#3f7d3a", "strokeWidth": 1.4, "fill": "#3f7d3a", "fillOpacity": 0.12, "label": "#24461f", "halo": "#ffffff"},
-    "sgspe-lyr-07": {"layer": "LYR-07", "stroke": "#9a6a00", "strokeWidth": 1.2, "strokeDasharray": [4, 2], "fill": "#d9a400", "fillOpacity": 0.08, "label": "#5b3f00", "halo": "#ffffff"},
-    "sgspe-lyr-16-school": {"layer": "LYR-16", "mark": "triangle", "size": 9, "fill": "#2f5d9a", "stroke": "#ffffff", "strokeWidth": 1, "label": null, "halo": null},
-    "sgspe-lyr-16-health": {"layer": "LYR-16", "mark": "cross", "size": 9, "fill": "#b0234a", "stroke": "#ffffff", "strokeWidth": 1, "label": null, "halo": null}
+    "sgspe-lyr-01": {"layer": "LYR-01", "stroke": "#66727f", "strokeWidth": 1.5, "strokeDasharray": [10, 4, 2, 4], "fill": null, "fillOpacity": 0, "label": "#35425a", "halo": "#eef0ea", "tokens": {"stroke": "lyr-boundary", "label": "text-secondary", "halo": "map-ground"}},
+    "sgspe-lyr-02-location": {"layer": "LYR-02", "mark": "circle", "size": 10, "fill": "#ffffff", "stroke": "#0f1a2a", "strokeWidth": 2, "label": "#0f1a2a", "halo": "#eef0ea", "tokens": {"fill": "surface", "stroke": "lyr-place", "label": "lyr-place", "halo": "map-ground"}},
+    "sgspe-lyr-02-boundary": {"layer": "LYR-02", "stroke": "#0f1a2a", "strokeWidth": 1, "strokeDasharray": [4, 3], "fill": null, "fillOpacity": 0, "label": "#0f1a2a", "halo": "#eef0ea", "tokens": {"stroke": "lyr-place", "label": "lyr-place", "halo": "map-ground"}},
+    "sgspe-lyr-03": {"layer": "LYR-03", "mark": "circle", "size": 12, "fill": "#0f1a2a", "stroke": "#ffffff", "strokeWidth": 2, "label": "#0f1a2a", "halo": "#eef0ea", "tokens": {"fill": "lyr-place", "stroke": "surface", "label": "lyr-place", "halo": "map-ground"}},
+    "sgspe-lyr-04": {"layer": "LYR-04", "stroke": "#8a7f6c", "strokeWidth": 3, "fill": null, "label": null, "halo": null, "tokens": {"stroke": "map-road"}},
+    "sgspe-lyr-05": {"layer": "LYR-05", "stroke": "#6f7d1c", "strokeWidth": 2, "fill": "#6f7d1c", "fillOpacity": 0.05, "label": "#56621a", "halo": "#eef0ea", "tokens": {"stroke": "lyr-community", "fill": "lyr-community", "label": "lyr-community-label", "halo": "map-ground"}},
+    "sgspe-lyr-07": {"layer": "LYR-07", "stroke": "#8a5a2b", "strokeWidth": 1.8, "strokeDasharray": [9, 3, 2, 3], "fill": null, "fillOpacity": 0, "label": "#8a5a2b", "halo": "#eef0ea", "tokens": {"stroke": "lyr-concession", "label": "lyr-concession", "halo": "map-ground"}},
+    "sgspe-lyr-16-school": {"layer": "LYR-16", "mark": "triangle", "size": 10, "fill": "#66727f", "stroke": "#ffffff", "strokeWidth": 1, "label": null, "halo": null, "tokens": {"fill": "lyr-boundary", "stroke": "surface"}},
+    "sgspe-lyr-16-health": {"layer": "LYR-16", "mark": "cross", "size": 10, "fill": "#35425a", "stroke": "#ffffff", "strokeWidth": 1, "label": null, "halo": null, "tokens": {"fill": "text-secondary", "stroke": "surface"}}
   }
 }

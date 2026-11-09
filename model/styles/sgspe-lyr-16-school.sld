@@ -16,14 +16,14 @@
               <Mark>
                 <WellKnownName>triangle</WellKnownName>
                 <Fill>
-                  <CssParameter name="fill">#2f5d9a</CssParameter>
+                  <CssParameter name="fill">#66727f</CssParameter>
                 </Fill>
                 <Stroke>
                   <CssParameter name="stroke">#ffffff</CssParameter>
                   <CssParameter name="stroke-width">1</CssParameter>
                 </Stroke>
               </Mark>
-              <Size>9</Size>
+              <Size>10</Size>
             </Graphic>
           </PointSymbolizer>
         </Rule>

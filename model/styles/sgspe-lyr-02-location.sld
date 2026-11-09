@@ -22,14 +22,14 @@
               <Mark>
                 <WellKnownName>circle</WellKnownName>
                 <Fill>
-                  <CssParameter name="fill">#b8452e</CssParameter>
+                  <CssParameter name="fill">#ffffff</CssParameter>
                 </Fill>
                 <Stroke>
-                  <CssParameter name="stroke">#ffffff</CssParameter>
-                  <CssParameter name="stroke-width">1</CssParameter>
+                  <CssParameter name="stroke">#0f1a2a</CssParameter>
+                  <CssParameter name="stroke-width">2</CssParameter>
                 </Stroke>
               </Mark>
-              <Size>7</Size>
+              <Size>10</Size>
             </Graphic>
           </PointSymbolizer>
         </Rule>
@@ -58,18 +58,18 @@
                 </AnchorPoint>
                   <Displacement>
                     <DisplacementX>0</DisplacementX>
-                    <DisplacementY>6</DisplacementY>
+                    <DisplacementY>7</DisplacementY>
                   </Displacement>
               </PointPlacement>
             </LabelPlacement>
             <Halo>
-              <Radius>1.5</Radius>
+              <Radius>2</Radius>
               <Fill>
-                <CssParameter name="fill">#ffffff</CssParameter>
+                <CssParameter name="fill">#eef0ea</CssParameter>
               </Fill>
             </Halo>
             <Fill>
-              <CssParameter name="fill">#3a2a24</CssParameter>
+              <CssParameter name="fill">#0f1a2a</CssParameter>
             </Fill>
               <VendorOption name="conflictResolution">true</VendorOption>
           </TextSymbolizer>

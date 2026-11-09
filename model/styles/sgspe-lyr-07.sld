@@ -12,14 +12,10 @@
         <Rule>
           <Title>Concesión minera</Title>
           <PolygonSymbolizer>
-            <Fill>
-              <CssParameter name="fill">#d9a400</CssParameter>
-              <CssParameter name="fill-opacity">0.08</CssParameter>
-            </Fill>
             <Stroke>
-              <CssParameter name="stroke">#9a6a00</CssParameter>
-              <CssParameter name="stroke-width">1.2</CssParameter>
-              <CssParameter name="stroke-dasharray">4 2</CssParameter>
+              <CssParameter name="stroke">#8a5a2b</CssParameter>
+              <CssParameter name="stroke-width">1.8</CssParameter>
+              <CssParameter name="stroke-dasharray">9 3 2 3</CssParameter>
             </Stroke>
           </PolygonSymbolizer>
         </Rule>
@@ -43,13 +39,13 @@
               </PointPlacement>
             </LabelPlacement>
             <Halo>
-              <Radius>1.5</Radius>
+              <Radius>2</Radius>
               <Fill>
-                <CssParameter name="fill">#ffffff</CssParameter>
+                <CssParameter name="fill">#eef0ea</CssParameter>
               </Fill>
             </Halo>
             <Fill>
-              <CssParameter name="fill">#5b3f00</CssParameter>
+              <CssParameter name="fill">#8a5a2b</CssParameter>
             </Fill>
               <VendorOption name="conflictResolution">true</VendorOption>
           </TextSymbolizer>
