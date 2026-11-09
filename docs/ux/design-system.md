@@ -78,7 +78,7 @@ Decisión del usuario sobre el comparativo (ADR-0032):
 | De | Qué se toma | Dónde se especifica |
 |---|---|---|
 | B — Geospatial Intelligence | El Mapa SIG a todo el ancho con una paleta cartográfica separada de la operativa | §3.3, §6.7 (S09) |
-| B | La vista «Lista + mapa», opcional y nunca por defecto, en Compromisos, QCS, Grupos de interés y Riesgos, ofrecida solo si los registros de la lista traen ubicación | §5.3 «Lista + mapa» |
+| B | La vista «Lista + mapa», opcional y nunca por defecto, en Compromisos, QCS, Grupos de interés, Riesgos y el Portafolio, ofrecida solo si los registros de la lista traen ubicación | §5.3 «Lista + mapa» |
 | D — Executive Operations Center | La vista previa lateral acoplada: el `?peek=` actual como panel de 420 px desde 1280 px | §5.3 «Vista previa acoplada» |
 | D | La hora de cálculo visible en los tableros («Calculado hoy 07:40») | §5.3 «KPI», §6.7 (S03) |
 | C — Contemporary Editorial | Las notas al pie bajo las tablas («Montos en soles; — = sin monto») | §5.3 «Tablas» |
@@ -264,7 +264,9 @@ Medidas por densidad, en `tokens.css` (`--sg-*` y las utilidades `h-sg-*`):
 | Ítem de la navegación local | — | 40 px | 36 px | — |
 
 **Densidad compacta.** Es una preferencia de cada persona: «Densidad: Normal · Compacta» en el menú de la cuenta, y la
-casilla «Vista compacta» de una barra de filtros, que cambia la misma preferencia. Se guarda en el navegador
+casilla «Vista compacta» de una barra de filtros, que cambia la misma preferencia y la sigue. La casilla va solo donde el
+lienzo la pone, el Portafolio (S04), cuyo lugar de la derecha no ocupa otro control («Agrupar por situación» en
+Compromisos); las demás listas la cambian desde el menú de la cuenta, y en el teléfono no se dibuja. Se guarda en el navegador
 (`localStorage`, `sgspe.densidad`, valores `normal` y `compacta`) y el script de arranque la escribe como
 `data-density="compact"` en `<html>` antes de pintar, para que no salte. Cambia filas, controles, campos, cabecera y
 navegación; nunca colores, tipografía del texto corrido ni objetivos táctiles en el teléfono, que siguen en 48 px. La
@@ -551,7 +553,10 @@ la hoja común del lienzo (`civic.css`); en el portal, cada pieza es un componen
   el mapa a la derecha (40 % del ancho, mínimo 420 px), sincronizados por `?selected=`: elegir una fila centra y marca su
   punto y elegir un punto marca su fila. El lugar sale de la capa de gestión que ya ubica el objeto (LYR-19 compromisos,
   LYR-17 grupos por su localidad, nunca un punto propio, LYR-20 QCS y LYR-21 riesgos); en Riesgos, «Vigentes en el mapa» va
-  bajo la matriz. Usa la paleta y las formas de §3.3. Sin registros con ubicación, la vista no se ofrece.
+  bajo la matriz. Usa la paleta y las formas de §3.3. Sin registros con ubicación, la vista no se ofrece. En el Portafolio
+  (S04) es el «Mapa» de «Tabla · Mapa» en la cabecera (`?view=mapa`): todos los proyectos que la cuenta lee, con la
+  búsqueda y los filtros y sin las vistas de la tabla, cada uno en su punto o su área de interés (LYR-09), y el elegido
+  con su vista previa debajo.
 - **Chip de estado** (estado de workflow, §4.1). 26 px, relleno de 8 px, radio 4, borde de 1 px del color de la tinta,
   fondo suave del tono, 13,5 px 600, ícono de 14 px a la izquierda y el rótulo en tipo oración («En ejecución»).
 - **Situación** (situación derivada, §4.2). Sin caja: reloj de 14 px y el texto en 13 px 800 MAYÚSCULAS con +0,03em y un
