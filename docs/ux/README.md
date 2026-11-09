@@ -21,8 +21,9 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
 | E2 | Project 360 y territorio (GIS), grupos de interés, relacionamiento, compromisos y acuerdos | Lienzo de la etapa 2, páginas 05 a 10 (28 hojas) | [`screens.md`](screens.md) (S06–S26, S28–S33), [`flows.md`](flows.md) (flujos 1–11, 16 y 17) | Entregada, en revisión |
 | E3 · parte 3a | QCS, riesgos y alerta temprana, programas e inversión, documentos, tareas y aprobaciones | Lienzo de la etapa 3, páginas 11 a 15 (18 hojas) | [`screens.md`](screens.md) (S35–S48 y la ficha de incidente), [`flows.md`](flows.md) (flujos 12–15) | Entregada, en revisión |
 | E3 · parte 3b | Tableros (con S27), capa de IA, inicio, avisos, reportes y entregables, administración, campo sin conexión y handoff | Lienzo de la etapa 3, páginas 16 a 20 (25 hojas) | [`screens.md`](screens.md) completo (S01, S02, S04, S05, S27, S34, S49–S55, S62 y tableros), [`flows.md`](flows.md) (flujo 18 y flujo de campo), ASM-081 | Entregada, en revisión |
-| Decisiones Q1, Q3, Q6 y Q7, y temas | Marca propia, idiomas, vistas compartidas, mapa base y tres temas | Lienzo de la etapa 3, páginas 22 a 25 (11 hojas) | [`design-system.md`](design-system.md) §2.1, §5, §6.4 y §9.1; [`screens.md`](screens.md) (S01, S12, S16, S28, S35 y S56); [`../gis.md`](../gis.md) §6.4; [`themes.css`](themes.css) y `design-system.md` §3.9; ASM-082 a ASM-086 | Entregada, en revisión |
+| Decisiones Q1, Q3, Q6 y Q7, y temas | Marca propia, idiomas, vistas compartidas, mapa base y tres temas | Lienzo de la etapa 3, páginas 22 a 25 (11 hojas) | [`design-system.md`](design-system.md) §2.1, §5, §6.4 y §9.1; [`screens.md`](screens.md) (S01, S12, S16, S28, S35 y S56); [`../gis.md`](../gis.md) §6.4; `design-system.md` §3.9; ASM-082 a ASM-086 (ASM-077 y ASM-086, reemplazados por ASM-149) | Entregada; los temas, reemplazados |
 | Rediseño de UX | Auditoría, arquitectura de información, design system, componentes y decisiones DD-01 a DD-29, implementados en `sgspe-ui` | [`redesign/04-prototipos/`](redesign/04-prototipos/README.md) (23 capturas) | [`redesign/`](redesign/README.md), llevado a `ux-architecture.md`, `design-system.md`, `screens.md` y `flows.md` el 2026-10-23 | Implementado; la carpeta queda como historia |
+| Identidad «Civic Modern» | Dirección E elegida entre cinco: paleta, tipografía, shell, componentes, densidad compacta y préstamos de B, C y D | [Lienzo de la dirección E](https://claude.ai/artifact/Y6aV29ac54BQMERnieY15K) (22 tableros) y [`civic/`](civic/README.md) | [`design-system.md`](design-system.md), [`tokens.css`](tokens.css), [`ux-architecture.md`](ux-architecture.md) §7.1, [ADR-0032](../adr/0032-identidad-visual-civic-modern.md), ASM-149 | Aprobada el 2026-11-08; se implementa en wasichai/sgspe-ui#88 |
 
 ## Cómo leer
 
@@ -30,8 +31,9 @@ un lienzo de diseño; aquí está todo lo que el equipo de frontend necesita par
    información, rutas, navegación, el hilo de contexto y el inventario de 56 pantallas.
 2. [`design-system.md`](design-system.md): tokens, sistema de estados, componentes, patrones núcleo, accesibilidad, responsive y
    guía de implementación.
-3. [`tokens.css`](tokens.css): los tokens listos para Tailwind 4, como capa sobre `@wasichai/ui/theme.css`, y
-   [`themes.css`](themes.css): los temas Pino y piedra, Cielo y Pino de noche con los 28 tokens de wasichai.
+3. [`tokens.css`](tokens.css): los tokens de la identidad «Civic Modern» (ADR-0032), claro, oscuro y densidad compacta,
+   listos para Tailwind 4 como capa sobre `@wasichai/ui/theme.css`; y [`civic/`](civic/README.md), las capturas de
+   referencia del lienzo.
 4. [`screens.md`](screens.md): la ficha de handoff de cada pantalla (ruta, roles, acciones, datos y API, estados, permisos,
    responsive, navegación y árbol de componentes React).
 5. [`flows.md`](flows.md): los flujos núcleo paso a paso, con la pantalla, la transición o el endpoint y la regla de cada paso.

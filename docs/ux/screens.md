@@ -41,9 +41,10 @@ listas y fichas, y cada ficha que cambió cita su decisión (`DD-NN`).
 - **Pila:** React 19 + TypeScript + Vite + Tailwind 4 (tokens de [`tokens.css`](tokens.css)) + React Router (rutas con
   `loader` para precargar) + TanStack Query + React Hook Form + Zod + i18next. Las etiquetas visibles salen de i18next con
   claves por pantalla (`screens.s08.title`); los valores de ENUM se muestran tal como se guardan (ADR-0009).
-- **Shell:** toda ruta vive dentro de `AppShell` (barra superior de seis controles, navegación de 13 secciones en bloques,
-  barra inferior en el teléfono; `ux-architecture.md` §7.1) y, bajo `/projects/:projectId`, de `ProjectLayout` (barra de
-  contexto y una sola fila de pestañas del proyecto con conteos, DD-03). El contexto de territorio se lee de
+- **Shell:** toda ruta vive dentro de `AppShell` (cabecera institucional, navegación horizontal de 13 secciones en bloques
+  con desplegables, banda de contexto con el sello de alcance y barra inferior de cinco destinos en el teléfono;
+  `ux-architecture.md` §7.1, ADR-0032) y, bajo `/projects/:projectId`, de `ProjectLayout` (navegación local del proyecto
+  con conteos, de 248 px desde `lg` y en pestañas en tableta). El contexto de territorio se lee de
   `?territory=<objeto>:<id>` con `useContextFilters()` y se agrega a toda consulta de lista e indicador del proyecto.
 - **Consultas:** claves `['records', object, params]`, `['record', object, id]`, `['transitions', object, id]`,
   `['indicator', code, filters]` y `['dashboard', id, filters]`. Los indicadores se guardan en caché un minuto (`api.md`

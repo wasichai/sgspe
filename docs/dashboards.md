@@ -665,7 +665,9 @@ como en el resto de `/api/sgspe/**`. `unit` es la palabra en español que muestr
 
 Se aplica ASM-047 (RQ-DSH-035):
 
-- Cada gráfico activa la descripción ARIA de ECharts y ofrece patrones de relleno para daltonismo, impresión y colores forzados.
+- Cada gráfico activa la descripción ARIA de ECharts y va en color sólido, sin trama (DD-15): la serie se distingue por su
+  posición, la anotación directa de su valor, la leyenda en texto y «Ver datos», también en impresión y con colores
+  forzados (`design-system.md` §3.3, ADR-0032).
 - Cada gráfico tiene debajo una tabla "Ver datos" con las mismas cifras; el tooltip nunca es la única forma de leer un valor.
 - El foco de teclado muestra lo mismo que el cursor, y las zonas sensibles miden al menos 24 píxeles.
 - Hay leyenda desde dos series, y las etiquetas directas son pocas: el extremo, el último valor, la serie que importa.
