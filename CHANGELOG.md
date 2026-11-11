@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/wasichai/sgspe/compare/v3.3.0...v3.4.0) (2026-11-09)
+
+
+### Features
+
+* **territory:** paleta cartográfica de Civic Modern en los SLD y los mapas de informe ([#188](https://github.com/wasichai/sgspe/issues/188)) ([a8b0889](https://github.com/wasichai/sgspe/commit/a8b0889a8108434acf1ec4d880bff01e507c0344))
+
 ## [3.3.0](https://github.com/wasichai/sgspe/compare/v3.2.1...v3.3.0) (2026-10-28)
 
 
