@@ -33,7 +33,7 @@ dependencies {
     // arranca igual y la IA responde 503 AI_UNAVAILABLE (ASM-128)
     implementation("wasichai:wasichai-spring-boot-starter-agent")
     // wasichai.files.store=s3 (MinIO en desarrollo, ADR-0014): el cliente asíncrono del AWS SDK v2, alineado por su BOM
-    implementation(platform("software.amazon.awssdk:bom:2.55.10"))
+    implementation(platform("software.amazon.awssdk:bom:2.58.0"))
     implementation("software.amazon.awssdk:s3")
     // el canal de correo de wasichai-notifications pide un MailSender (spring.mail.*, GAP-021)
     implementation("org.springframework.boot:spring-boot-starter-mail")
