@@ -40,7 +40,7 @@ dependencies {
 
     // sgspe.territory lee hojas XLSX y sgspe.privacy las escribe (RQ-REP-022); 5.4 o superior por CVE-2025-31672
     // (platform-fit.md §6)
-    implementation("org.apache.poi:poi-ooxml:5.5.1")
+    implementation("org.apache.poi:poi-ooxml:6.0.0")
     // F7: el texto de los PDF con capa de texto para AI-01 y AI-03 (TextExtraction, ASM-132; sin OCR); los DOCX los lee POI. F8
     // lo reutiliza para verificar los PDF de los entregables
     implementation("org.apache.pdfbox:pdfbox:3.0.8")
