@@ -46,7 +46,7 @@ dependencies {
     implementation("org.apache.pdfbox:pdfbox:3.0.8")
     // F8: la narrativa de los entregables es CommonMark con tablas GFM (deliverables.md §7.4); DocxWriter la lleva a los estilos
     // de la plantilla
-    implementation("org.commonmark:commonmark:0.28.0")
+    implementation("org.commonmark:commonmark:0.32.0")
     implementation("org.commonmark:commonmark-ext-gfm-tables:0.32.0")
 
     // WasichaiIntegrationTest; brings spring-boot-starter-test, webflux-test and testcontainers
